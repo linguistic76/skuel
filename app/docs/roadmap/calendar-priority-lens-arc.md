@@ -10,11 +10,13 @@ ruled: 2026-09-11
 
 **Status:** ACTIVE 2026-09-11 (founder rulings taken the same day against a full code read + live-graph
 census). Five sub-arcs, A→E, each a short PR chain run in a fresh context against this document.
-PR 0 (#1312) Codex review, two rounds, all findings accepted and folded in: the report's events are
+PR 0 (#1312) Codex review, three rounds, all findings accepted and folded in: the report's events are
 bounded to the window in A.1 (not E.2); the backfill (B2) runs before the enum deletion (B1); E.2's
 data cutoff is `min(now, period_end)`; A.1's headline counters are in-period transitions, never
-inventory; the day view covers every *dated* domain (Choices included, Principles are dateless) and
-binds the calendar's legend controller.
+inventory — tasks by `completion_date`, events attended only when COMPLETED; the day view covers every
+*dated* domain (Choices included, Principles are dateless) and binds the calendar's legend controller
+with Choice added to the filter CSS; the legendless month view binds no legend controller, so a kind
+hidden on the week can never blank it.
 **Related:** [`done/calendar-act-from-arc.md`](done/calendar-act-from-arc.md) (C1–C7),
 [`done/calendar-periodic-notes-arc.md`](done/calendar-periodic-notes-arc.md) (R1–R5, E1–E4, S1–S4),
 [`done/habit-rhythm-arc.md`](done/habit-rhythm-arc.md) (M1–M7),
@@ -174,8 +176,12 @@ future event is reported as already attended (Codex P1 on PR 0; the query-level 
 periods is E.2's, and must not touch the live context's forward-looking event rows, which
 `events_habit_integration_service` and `principles_planning_service` consume). **Every headline
 counter is an in-period transition read off the entity's own stamp, never the row count** (Codex P1,
-round 2): `goals_progressed` = `last_progress_update` in period, `habits_completed` = `last_completed`
-in period (both bounds), `choices_made` = `decided_at` in period, `principles_reviewed` =
+rounds 2–3): `tasks_completed` = status COMPLETED with `completion_date` in period (the rich query
+selects completed tasks by `updated_at`, so an old completion re-edited in the window must not count),
+`goals_progressed` = `last_progress_update` in period, `habits_completed` = `last_completed` in period
+(both bounds), `events_attended` = in-window events whose status is COMPLETED (attendance is the
+completed state — `EventsProgressService.get_attendance_rate` — so a cancelled or merely passed event
+is inventory, not attendance), `choices_made` = `decided_at` in period, `principles_reviewed` =
 `last_review_date` in period; the `*_details` lists remain the context's inventory and the markdown
 names them "in play". The admin snapshot (`ActivityReportService.create_snapshot`) reads the same
 five wrong keys and is fixed in the same PR.
@@ -232,7 +238,9 @@ below).
   the vault door (otherwise the vault can rewrite it after the backfill).
 - Backfill: one label-anchored idempotent `.cypher` migration modelled on
   `scripts/migrations/lowercase_event_type_2026_08.cypher`, rewriting BOTH `n.priority` (7 Task nodes) and
-  `r.priority` on lateral relationships, with a verify query. Run once against Aura (authorised).
+  `r.priority` on lateral relationships, with a verify query. Run against Aura (authorised) **twice**: before
+  B1 merges and again right after B1 deploys — the second run is the write cutoff (the old enum accepts
+  `critical` on every activity write until the deploy).
   **Ordering (Codex P1 on PR 0): the backfill runs against Aura BEFORE B1 merges.** `Priority(task.priority)`
   is constructed directly in `_task_to_calendar_item` and the Today orchestrator, so a deleted member
   with seven persisted `critical` rows would raise on every calendar/Today read in between. `'high'` is
@@ -259,9 +267,12 @@ below).
   `category="PERSONAL"` (uppercase against the lowercase `EventType` vocabulary); retype
   `create_item_details_modal(item: CalendarItem)`. **Delete `GET /api/v2/calendar/items/{id}`** (no runtime
   consumer; the sole reader of the write-only fields; 9 tests go with it).
-- Legend per view (`create_calendar_legend(view)`): MONTH renders none; WEEK renders Event / Habit / Task /
-  Milestone with click-to-hide + spotlight intact (CSS mechanism unchanged; the single storage key stays).
-  Rewrite the two legend tests; flip the milestones test to WEEK.
+- Legend per view (`create_calendar_legend(view)`): MONTH renders none **and binds no `calendarLegend`
+  controller** — a kind hidden on the week is stored in the shared key, and a controller on the
+  legendless month would apply `cal-hide-event` with nothing there to lift it, blanking the view (Codex
+  P2, round 3); WEEK renders Event / Habit / Task / Milestone with click-to-hide + spotlight intact (CSS
+  mechanism unchanged; the single storage key stays). Rewrite the two legend tests; flip the milestones
+  test to WEEK; add a test that the month shell carries no `x-data="calendarLegend"`.
 - `get_planning_items` (weekly/monthly-note panel) stays unfiltered — it is the planning-against surface
   (R4/E2), a different job. `period_panel` is untouched.
 - Docs: components.py:112 names `_wrap_calendar_page` as the legend binding site (it is `_calendar_shell`);
@@ -305,7 +316,9 @@ not a day-view section). The page binds the calendar's legend controller — `x_
 `:class="filterClasses()"` on the day shell and `create_calendar_legend(view)` with the day's swatch set
 (Task / Event / Habit / Milestone / Choice) — and wraps each section in a `data-item-type` container, so
 the existing CSS filter (one shared component, one storage key) gives the day view its per-domain
-toggle. `ActivityList` gains `empty_state` and `list_id`
+toggle. `static/css/calendar.css` gains `choice` in both the `.cal-hide-*` and `.cal-spot-*` selector
+groups (Codex P2, round 3 — a swatch whose kind has no selector toggles its pressed state and hides
+nothing). `ActivityList` gains `empty_state` and `list_id`
 parameters. Defer: a server-rendered "Defer 1d / 1w" control posting the existing route
 (`source=day|triage`). Delete: today.js, today.css, `drawer.py`, spine/ribbon/drawer/star/wake/keyboard
 sections, `PINNED_TODAY` edge + backend methods + protocol entries, the six seed TypedDicts, the
@@ -374,13 +387,13 @@ history lives here and in the `done/` docs.
 | PR | Scope | Acceptance (live case) |
 |----|-------|------------------------|
 | 0 | This doc + the deferred case file + MOC entry (docs-only; summon Codex explicitly) | Doc reflects rulings 1–10 and the amendments table; `./dev docs-links` clean |
-| A1 | A.1 + A.1b — mapper rename table; events bounded to the window; in-period counters for goals/habits/choices/principles from the entities' own stamps; the admin snapshot's five identical reads; MEGA-QUERY `progress_percentage/100.0`; `goals_core_service` abandon-progress | New mapper tests assert non-zero deltas for all eight keys, exclude a future event and an after-window habit completion, and count only in-period goal/choice/principle transitions; a goal with `progress_percentage=40` yields `goal_progress==0.4` in an integration test; `./dev quality` 0 errors |
+| A1 | A.1 + A.1b — mapper rename table; events bounded to the window and attended only when COMPLETED; in-period counters for tasks (by `completion_date`), goals, habits, choices and principles from the entities' own stamps; the admin snapshot's five identical reads; MEGA-QUERY `progress_percentage/100.0`; `goals_core_service` abandon-progress | New mapper tests assert non-zero deltas for all eight keys, exclude a future event and an after-window habit completion, and count only in-period goal/choice/principle transitions; a goal with `progress_percentage=40` yields `goal_progress==0.4` in an integration test; `./dev quality` 0 errors |
 | A2 | A.2 + A.3 + A.4 — restore generate/annotate/annotation routes as HTMX fragments; `.md` download; de-fiction | Clicking "Generate" on `/submit-activity-report` produces a report and links to its detail (headless Chrome); annotate saves; `/activity-reports/md?uid=` downloads owned reports and 404s foreign ones; no doc names a route that does not exist |
 | B2 | Backfill migration committed AND run against Aura + verify — **lands before B1** | `MATCH (n) WHERE n.priority='critical' RETURN count(n)` = 0 and the same for relationships, run against Aura after the migration |
-| B1 | Priority collapse — enum, maps, DSL/Obsidian remap, `ENUM_FIELD_TYPES`, docs | `Priority` has three members; `./dev quality` 0 errors; `@priority(1)` and ⏫ both create HIGH tasks; 🔼 creates MEDIUM; the live graph carries no `critical` (B2 verified) |
-| C1 | ViewSpec + converter priority + CalendarItem/CalendarData/CalendarFilter cleanup + delete `/api/v2/calendar/items` + per-view legend | Month view shows only events ≥ medium (live: 6 medium events, 0 habit chips); week view shows the 3 medium/high habits + high tasks + events; a low-priority habit is absent from week; legend on month is absent, on week has four swatches; `./dev quality` 0 errors |
+| B1 | Priority collapse — enum, maps, DSL/Obsidian remap, `ENUM_FIELD_TYPES`, docs | `Priority` has three members; `./dev quality` 0 errors; `@priority(1)` and ⏫ both create HIGH tasks; 🔼 creates MEDIUM; **the B2 migration is re-run right after B1 deploys** (the write cutoff — until then the old enum still accepts `critical` on every activity write; Codex P1 on #1315) and its verify returns no `critical` row |
+| C1 | ViewSpec + converter priority + CalendarItem/CalendarData/CalendarFilter cleanup + delete `/api/v2/calendar/items` + per-view legend | Month view shows only events ≥ medium (live: 6 medium events, 0 habit chips); week view shows the 3 medium/high habits + high tasks + events; a low-priority habit is absent from week; legend on month is absent and the month shell binds no legend controller (hiding Event on the week leaves the month intact); on week the legend has four swatches; `./dev quality` 0 errors |
 | D0 | One completion door (see D.0) | All three clicks in the three-click integration test go through `update_task`; `TRIGGERS_ON_COMPLETION` dependents still schedule (handler test); `is_repeat` gone; `/today` complete still works |
-| D1 | The day view (see D.1) + ADR-058 amendment | `/today` renders overdue + tasks (TaskCard) + events + habits + milestones + the day's choices with no page-local JS bundle; the legend's Habits swatch hides the habits section (the calendar's `calendarLegend` controller bound on the day shell); completing a task from the day view goes through `/api/tasks/{uid}/status`; quick-add still creates `scheduled_date`-only tasks; the calendar's day-cell click lands on the new view; 375px verified |
+| D1 | The day view (see D.1) + ADR-058 amendment | `/today` renders overdue + tasks (TaskCard) + events + habits + milestones + the day's choices with no page-local JS bundle; the legend's Habits swatch hides the habits section and the Choice swatch hides the choices section (the calendar's `calendarLegend` controller bound on the day shell; `choice` in calendar.css); completing a task from the day view goes through `/api/tasks/{uid}/status`; quick-add still creates `scheduled_date`-only tasks; the calendar's day-cell click lands on the new view; 375px verified |
 | E1 | Sidebar variant + `/activity-reports/latest` | Calendar/Today pages show Today/Weekly/Monthly/Journal/Reports and issue no `/api/sidebar/badges` request; `/tasks` unchanged |
 | E2 | Calendar-aligned periods + find-or-generate doors | "Report for September" on the month toolbar opens a report whose window is Sep 1–30; a task completed Oct 1 is excluded; clicking again re-opens the same report |
 | E3 | Retire the schedule producer | `./dev bloat --check` clean with the entry removed; `GRAPH_CONTRACT.yaml` regenerated; no worker starts at bootstrap |
