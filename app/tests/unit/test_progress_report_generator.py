@@ -544,14 +544,24 @@ class TestCompletionsFromContext:
             {
                 "tasks": [
                     _row(
-                        {"uid": "t1", "title": "Write the ADR", "status": "completed"},
+                        {
+                            "uid": "t1",
+                            "title": "Write the ADR",
+                            "status": "completed",
+                            "completion_date": date(2026, 9, 3),
+                        },
                         {
                             "goal_context": {"uid": "g1", "title": "Ship v1", "progress": 0.4},
                             "applied_knowledge": [{"uid": "ku1", "title": "Cypher basics"}],
                         },
                     ),
                     _row(
-                        {"uid": "t2", "title": "Unlinked task", "status": "completed"},
+                        {
+                            "uid": "t2",
+                            "title": "Unlinked task",
+                            "status": "completed",
+                            "completion_date": "2026-09-08",
+                        },
                         {"goal_context": None, "applied_knowledge": []},
                     ),
                 ]
@@ -719,8 +729,22 @@ class TestCompletionsFromContext:
             generator,
             {
                 "events": [
-                    _row({"uid": "e1", "title": "Held", "event_date": date(2026, 9, 5)}),
-                    _row({"uid": "e2", "title": "Held (string date)", "event_date": "2026-09-10"}),
+                    _row(
+                        {
+                            "uid": "e1",
+                            "title": "Held",
+                            "event_date": date(2026, 9, 5),
+                            "status": "completed",
+                        }
+                    ),
+                    _row(
+                        {
+                            "uid": "e2",
+                            "title": "Held (string date)",
+                            "event_date": "2026-09-10",
+                            "status": "completed",
+                        }
+                    ),
                     _row({"uid": "e3", "title": "Next month", "event_date": date(2026, 10, 2)}),
                     _row(
                         {"uid": "e4", "title": "Before the window", "event_date": date(2026, 8, 30)}
@@ -729,7 +753,7 @@ class TestCompletionsFromContext:
                 ]
             },
         )
-        assert completions["events_attended"] == 3
+        assert completions["events_attended"] == 2
         assert [e["uid"] for e in completions["events_details"]] == ["e1", "e2", "e5"]
 
     def test_habit_completed_after_the_window_is_not_counted(self, generator):
@@ -816,3 +840,62 @@ class TestCompletionsFromContext:
         assert completions["principles_reviewed"] == 2
         assert len(completions["principles_details"]) == 4
         assert generator._compute_domain_trends(completions)["principles"]["reviewed"] == 2
+
+    def test_task_completed_before_the_period_does_not_count(self, generator):
+        """The rich query selects completed tasks by ``updated_at``; an old
+        completion edited in the period is inventory, not a period completion."""
+        completions = self._map(
+            generator,
+            {
+                "tasks": [
+                    _row(
+                        {
+                            "uid": "t1",
+                            "title": "Done in July, retagged today",
+                            "status": "completed",
+                            "completion_date": date(2026, 7, 14),
+                        },
+                        {"goal_context": {"uid": "g1", "title": "Ship v1"}},
+                    ),
+                    _row({"uid": "t2", "title": "Completed, no stamp", "status": "completed"}),
+                ]
+            },
+        )
+        assert completions["tasks_total"] == 2
+        assert completions["tasks_completed"] == 0
+        assert completions["goal_alignments"] == []
+
+    def test_events_attended_counts_only_completed_in_window_events(self, generator):
+        completions = self._map(
+            generator,
+            {
+                "events": [
+                    _row(
+                        {
+                            "uid": "e1",
+                            "title": "Attended",
+                            "event_date": date(2026, 9, 5),
+                            "status": "completed",
+                        }
+                    ),
+                    _row(
+                        {
+                            "uid": "e2",
+                            "title": "Cancelled",
+                            "event_date": date(2026, 9, 6),
+                            "status": "cancelled",
+                        }
+                    ),
+                    _row(
+                        {
+                            "uid": "e3",
+                            "title": "Passed unmarked",
+                            "event_date": date(2026, 9, 7),
+                            "status": "scheduled",
+                        }
+                    ),
+                ]
+            },
+        )
+        assert completions["events_attended"] == 1
+        assert len(completions["events_details"]) == 3

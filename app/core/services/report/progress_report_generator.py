@@ -801,13 +801,19 @@ class ProgressReportGenerator:
         counter is an in-period transition read off the entity's own stamp — the
         rows themselves are the context's inventory (active goals, pending choices,
         every principle), which is what the ``*_details`` lists show as "in play":
-        ``goals_progressed`` = ``last_progress_update`` in period; ``habits_completed``
-        = ``last_completed`` in period (a habit whose NODE status is completed is a
-        retired habit); ``choices_made`` = ``decided_at`` in period;
-        ``principles_reviewed`` = ``last_review_date`` in period. Events are kept
-        only when their ``event_date`` falls inside the period — the rich query
-        selects every event from ``window_start`` onward with no upper bound, so a
-        scheduled future event would otherwise read as already attended.
+        ``tasks_completed`` = status completed with ``completion_date`` in period
+        (the rich query selects completed tasks by ``updated_at``, so an old
+        completion re-edited in the period must not count); ``goals_progressed`` =
+        ``last_progress_update`` in period; ``habits_completed`` = ``last_completed``
+        in period (a habit whose NODE status is completed is a retired habit);
+        ``events_attended`` = in-period events whose status is completed (attendance
+        is the completed state, as ``EventsProgressService.get_attendance_rate``
+        defines it — a cancelled or merely passed event is inventory);
+        ``choices_made`` = ``decided_at`` in period; ``principles_reviewed`` =
+        ``last_review_date`` in period. Events are kept only when their
+        ``event_date`` falls inside the period — the rich query selects every event
+        from ``window_start`` onward with no upper bound, so a scheduled future
+        event would otherwise read as already attended.
 
         Consumed by _build_report_content() and _build_llm_prompt().
         """
@@ -840,7 +846,9 @@ class ProgressReportGenerator:
                     if ref.get("title")
                 ]
                 result["tasks_total"] += 1
-                if entity.get("status") == EntityStatus.COMPLETED:
+                if entity.get("status") == EntityStatus.COMPLETED and in_period(
+                    entity.get("completion_date")
+                ):
                     result["tasks_completed"] += 1
                     result["goal_alignments"].extend(goal_titles)
                     result["knowledge_applications"].extend(ku_titles)
@@ -894,7 +902,8 @@ class ProgressReportGenerator:
                     or (window_ceiling is not None and event_day > window_ceiling.date())
                 ):
                     continue
-                result["events_attended"] += 1
+                if entity.get("status") == EntityStatus.COMPLETED:
+                    result["events_attended"] += 1
                 result["events_details"].append(
                     {
                         "uid": entity["uid"],
