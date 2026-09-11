@@ -122,7 +122,13 @@ def _with_reopen_progress_reset(
         return guard
 
     statuses, patch = guard.patch_if_prior_in or (_COMPLETED_ONLY, {})
-    reset: Neo4jProperties = {**patch, "progress_percentage": 0.0}
+    # The reset is a progress write (100% → 0%), so it carries the progress stamp
+    # the report's goals_progressed counter reads — under the same prior condition.
+    reset: Neo4jProperties = {
+        **patch,
+        "progress_percentage": 0.0,
+        "last_progress_update": datetime.now(),
+    }
     return dataclasses.replace(guard, patch_if_prior_in=(statuses, reset))
 
 

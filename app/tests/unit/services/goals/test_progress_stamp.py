@@ -117,3 +117,23 @@ async def test_intent_without_progress_leaves_the_stamp_alone() -> None:
 
     assert result.is_ok
     assert "last_progress_update" not in recorder.last_updates
+
+
+@pytest.mark.asyncio
+async def test_reopening_a_completed_goal_stamps_the_conditional_reset() -> None:
+    """A status-only reopen resets progress through the guard's prior-conditional
+    patch, not through ``changes`` — the stamp must ride that patch."""
+    completed = _goal(progress=100.0)
+    completed = Goal(**{**completed.__dict__, "status": EntityStatus.COMPLETED})
+    backend, recorder = guarded_backend(completed, completed)
+    core = GoalsCoreService(backend=backend, event_bus=None)
+
+    result = await core.update_goal(_GOAL, GoalUpdateIntent(status=EntityStatus.ACTIVE.value))
+
+    assert result.is_ok
+    assert "last_progress_update" not in recorder.last_updates
+    conditional = recorder.last_guard.patch_if_prior_in
+    assert conditional is not None
+    _statuses, reset = conditional
+    assert reset["progress_percentage"] == 0.0
+    assert isinstance(reset["last_progress_update"], datetime)
