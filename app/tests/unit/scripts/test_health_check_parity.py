@@ -40,7 +40,7 @@ Docs pins usually live in ``tests/unit/docs/``; this one lives beside the roster
 parser it shares.
 
 Why the roster is one array, and what the discovery threshold is for:
-``docs/roadmap/catalog-copies-in-code.md`` § 1.
+``docs/roadmap/done/catalog-copies-in-code.md`` § 1.
 """
 
 from __future__ import annotations

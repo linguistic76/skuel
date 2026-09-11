@@ -14,7 +14,7 @@ learning rung can request a domain outside it and degrades silently; that gap is
 tracked in ``docs/roadmap/deferred-work.md`` § Label-Generic Vector Rung Has No
 Index for Most Domains, which also records the ruling not to narrow this tuple.
 
-Why one constant instead of two lists: ``docs/roadmap/catalog-copies-in-code.md`` § 6.
+Why one constant instead of two lists: ``docs/roadmap/done/catalog-copies-in-code.md`` § 6.
 """
 
 from __future__ import annotations
