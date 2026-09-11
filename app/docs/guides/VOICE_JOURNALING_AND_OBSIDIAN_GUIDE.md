@@ -1,6 +1,6 @@
 ---
 title: Voice Journaling and Obsidian Guide
-updated: 2026-09-05
+updated: 2026-09-11
 status: current
 category: guides
 tags: [obsidian, journaling, voice, vaultbridge, activity-domains, daily-workflow, user-guide]
@@ -491,9 +491,9 @@ The `✅ YYYY-MM-DD` token is the completion date, written by SKUEL from the tas
 
 ### Running a sync at /submissions/sync
 
-Go to **[/submissions/sync](/submissions/sync)** and click **Sync from Obsidian**.
+Go to **[/submissions/sync](/submissions/sync)** and click **Sync**.
 
-SKUEL reads all the changed notes in your vault, processes them through the `extract_activities` pipeline, creates or updates your journal entries, and writes any new task IDs back into the vault files.
+SKUEL reads all the changed notes in your vault, processes them through the `extract_activities` pipeline, creates or updates your journal entries, and writes back into the vault files: new task IDs, plus `[x]` + `✅` dates for tasks you completed in SKUEL (and the reverse for ones you reopened).
 
 **First-run consent:** The first time you sync, SKUEL will ask for your permission before it writes anything back into your vault files. This is a one-time gate. Once you click "Allow and sync", subsequent syncs happen silently. You can see the consent prompt text on the sync page — it explains exactly what will be written and in what format.
 
@@ -566,7 +566,7 @@ If you're using the obsidian-tasks plugin, it inserts the `✅ date` token autom
 
 **6:00 pm — Sync**
 
-Go to **[/submissions/sync](/submissions/sync)** and click **Sync from Obsidian**.
+Go to **[/submissions/sync](/submissions/sync)** and click **Sync**.
 
 SKUEL reads today's daily note:
 - Creates a journal entry for the whole note (Focus + Notes + End of Day prose)
