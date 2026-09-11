@@ -1,6 +1,6 @@
 ---
 title: Unified Ingestion Implementation Guide
-updated: 2026-09-06
+updated: 2026-09-11
 category: patterns
 related_skills: []
 related_docs:
@@ -1298,7 +1298,7 @@ Decision 9). Sync when you decide to:
 ./dev vault-sync --vault content --force
 ```
 
-Or from the UI: the personal-vault "Sync from Obsidian" button, or the admin
+Or from the UI: the personal-vault "Sync" button, or the admin
 ingestion dashboard's "Sync content vault" button (`POST /api/vault/sync/content`).
 
 ---

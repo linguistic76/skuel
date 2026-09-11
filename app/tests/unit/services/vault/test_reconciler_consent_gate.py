@@ -1,7 +1,7 @@
 """VaultReconciler first-run consent gates the ENTIRE sync — read included.
 
 ADR-070 Decision 6 (amended 2026-07-05, vault security review): the first
-"Sync from Obsidian" click used to ingest the user's whole allowed vault tree
+"Sync" click used to ingest the user's whole allowed vault tree
 BEFORE fetching the user and checking ``vault_write_consent`` — consent only
 guarded outbound writes. The gate now fires before the first inbound
 ``ingest_directory`` call: no consent → ``first_run_notice`` with NOTHING read.

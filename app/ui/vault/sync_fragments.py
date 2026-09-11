@@ -29,8 +29,13 @@ from core.services.vault.vault_reconciler import VaultDescription, VaultSyncPrev
 from ui.components import Button, ButtonT, Loading
 
 
-def sync_button(label: str = "Sync from Obsidian", spinner_id: str = "vault-spinner") -> Form:
-    """HTMX form that triggers vault sync and swaps the results area."""
+def sync_button(label: str = "Sync", spinner_id: str = "vault-spinner") -> Form:
+    """HTMX form that triggers vault sync and swaps the results area.
+
+    The label is direction-neutral because the run is: ``/settings/vault/sync``
+    calls the reconciler's full sync — ingest INTO SKUEL and the outbound
+    ``🆔``/``[x] ✅ date`` writes back INTO the vault (ADR-070).
+    """
     return Form(
         Button(
             label,
