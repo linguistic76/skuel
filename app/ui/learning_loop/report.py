@@ -559,7 +559,15 @@ def render_activity_report_detail(
             href="/gradebook",
             cls=ButtonT.ghost,
         ),
-        cls="mt-6",
+        # The report as a file: Markdown, so it opens and edits anywhere.
+        ButtonLink(
+            "Download .md",
+            href=f"/activity-reports/md?uid={uid}",
+            cls=ButtonT.secondary,
+        )
+        if uid
+        else None,
+        cls="mt-6 flex items-center gap-2",
     )
 
     return Div(
