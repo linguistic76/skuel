@@ -1,7 +1,7 @@
 ---
 title: Choices Domain
 created: 2025-12-04
-updated: 2026-09-05
+updated: 2026-09-11
 status: current
 category: domains
 tags: [choices, activity-domain, domain]
@@ -41,7 +41,7 @@ Choices represent decisions with outcome tracking. They connect knowledge, princ
 | Enum | Import | Values | YAML Field |
 |------|--------|--------|------------|
 | `ChoiceType` | `core.models.enums` | BINARY, MULTIPLE, RANKING, ALLOCATION, STRATEGIC, OPERATIONAL | `choice_type` |
-| `Priority` | `core.models.enums` | LOW, MEDIUM, HIGH, CRITICAL | `priority` |
+| `Priority` | `core.models.enums` | LOW, MEDIUM, HIGH | `priority` |
 
 **See:** [Enum Architecture](../architecture/ENUM_ARCHITECTURE.md)
 

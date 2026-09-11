@@ -580,11 +580,11 @@ class TestTasksRequestDoorStillAnnouncesExactlyOnce:
         the DSL and GoalTaskGenerator.
         """
         result = await tasks_facade.create(
-            make_task(uid="task:dsl", priority=Priority.CRITICAL, due_date=None)
+            make_task(uid="task:dsl", priority=Priority.HIGH, due_date=None)
         )
 
         assert result.is_ok, (
-            "an undated CRITICAL task was refused — this is ordinary DSL output "
+            "an undated HIGH task was refused — this is ordinary DSL output "
             f"and GoalTaskGenerator emits it too: {result.error}"
         )
 

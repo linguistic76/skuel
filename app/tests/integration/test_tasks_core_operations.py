@@ -322,7 +322,6 @@ class TestTasksCoreOperations:
             (Priority.LOW, None),  # Low priority doesn't need due date
             (Priority.MEDIUM, None),  # Medium priority doesn't need due date
             (Priority.HIGH, today + timedelta(days=1)),  # High requires due date
-            (Priority.CRITICAL, today + timedelta(days=1)),  # Critical requires due date
         ]
 
         for priority, due_date in priorities:
@@ -347,7 +346,7 @@ class TestTasksCoreOperations:
         the hook's only caller (both doors run it now) — and it contradicted two live
         producers of exactly this shape:
         the Activity DSL emits it for ``@priority(1|2)`` with no ``@when()``, and
-        GoalTaskGenerator mints undated HIGH/CRITICAL tasks.
+        GoalTaskGenerator mints undated HIGH tasks.
 
         What IS enforced on due_date lives at the request edge (``TaskCreateRequest``:
         future-date validation, and ``due_date >= scheduled_date``).
@@ -409,7 +408,7 @@ class TestTasksCoreOperations:
             scheduled_date=today + timedelta(days=5),
             duration_minutes=90,
             status=EntityStatus.ACTIVE,
-            priority=Priority.CRITICAL,
+            priority=Priority.HIGH,
             project="Q3 Goals",
             tags=("urgent", "quarterly", "report"),
         )

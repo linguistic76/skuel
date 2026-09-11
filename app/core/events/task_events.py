@@ -238,7 +238,7 @@ class TaskPriorityChanged(BaseEvent):
     Subscribers:
     - TaskEventHandlerService (categorization, cascade impact, inflation detection)
     - UserService (invalidate context)
-    - NotificationService (notify if priority increased to urgent)
+    - NotificationService (notify on an escalation to HIGH)
     - Analytics (track priority escalation patterns)
     """
 
@@ -246,9 +246,6 @@ class TaskPriorityChanged(BaseEvent):
     user_uid: UserUID
     old_priority: str
     new_priority: str
-
-    # Was this an escalation to urgent?
-    escalated_to_urgent: bool = False
 
     event_type: ClassVar[str] = "task.priority_changed"
 

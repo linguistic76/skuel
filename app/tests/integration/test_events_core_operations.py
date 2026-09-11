@@ -334,7 +334,6 @@ class TestEventsCoreOperations:
             Priority.LOW,
             Priority.MEDIUM,
             Priority.HIGH,
-            Priority.CRITICAL,
         ]
 
         for priority in priorities:

@@ -1,5 +1,5 @@
 ---
-updated: 2026-09-03
+updated: 2026-09-11
 ---
 
 # Priority & Confidence Architecture
@@ -24,8 +24,8 @@ fundamental way users and admins express dimensional weight across the knowledge
 They are **independent dimensions** — any combination is valid:
 
 ```
-CRITICAL + CERTAIN   → Execute now. Important AND well-founded.
-CRITICAL + UNCERTAIN → Investigate first. Important but uncertain.
+HIGH + CERTAIN       → Execute now. Important AND well-founded.
+HIGH + UNCERTAIN     → Investigate first. Important but uncertain.
 LOW + CERTAIN        → Reliable background. Not urgent.
 LOW + UNCERTAIN      → Prune or validate. Low signal.
 ```
@@ -65,14 +65,13 @@ LOW + UNCERTAIN      → Prune or validate. Low signal.
 | `LOW` | 1 | `#10B981` (green) | Can wait |
 | `MEDIUM` | 2 | `#3B82F6` (blue) | Normal priority |
 | `HIGH` | 3 | `#F59E0B` (amber) | Should do soon |
-| `CRITICAL` | 4 | `#DC2626` (red) | Override today's plan |
 
 ```python
 from core.models.enums import Priority
 
 Priority.HIGH.to_numeric()                   # → 3
 Priority.HIGH.get_color()                    # → "#F59E0B" (amber)
-Priority.from_search_text("urgent")          # → [Priority.HIGH, Priority.CRITICAL]
+Priority.from_search_text("urgent")          # → [Priority.HIGH]
 ```
 
 ---
@@ -131,34 +130,17 @@ Adding Confidence to Activity domains would duplicate this signal and clutter th
 
 ---
 
-## Planning Layer: Priority → daily_planning.py
+## Planning Layer: Priority → ranking
 
-`get_ready_to_work_on_today()` applies a **CRITICAL priority override** before returning its
-ranked `DailyWorkPlan`. Any entity with `priority = "critical"` from `context.entities_rich`
-(all 6 Activity Domains) is moved to the front of its uid list, capped at **3 items total**
-across all domains.
+`daily_planning.py` does not read Priority. Priority reaches planning through the surfaces that
+rank by it — every one of them through the enum's own methods, never a hand-written ladder:
 
-**Guard:** Only fires when `context.is_rich_context` is `True` — i.e., `build_rich()` was called,
-not `build()`.
-
-**File:** `core/services/user/intelligence/daily_planning.py` — "CRITICAL PRIORITY OVERRIDE" block
-
-**Logic sketch:**
-
-```python
-# Collect CRITICAL entities across all 6 Activity domains
-critical_uids = []
-for domain_key in ["tasks", "goals", "habits", "events", "choices", "principles"]:
-    for entity in context.entities_rich.get(domain_key, []):
-        if entity.get("priority") == Priority.CRITICAL.value:
-            critical_uids.append(entity["uid"])
-            if len(critical_uids) >= 3:
-                break
-
-# Insert CRITICAL items at top of plan before returning
-```
-
-The cap of 3 prevents CRITICAL from becoming meaningless if users over-apply it.
+| Surface | Read |
+|---------|------|
+| Calendar optimization (`calendar_optimization_service.py`, `_strategies.py`) | HIGH tasks add intrinsic load and join the peak-energy bucket, ordered by `sort_order()` |
+| Search scoring (`core/models/search/scoring.py`) | `score_priority_level` → HIGH 1.0 / MEDIUM 0.5 / LOW 0.25 |
+| Today, profile previews, list sorts (`ui/today/orchestrator.py`, `profile_orchestrator.py`, `core/utils/entity_filters.py`) | sort by `sort_order()`; the view vocabulary IS the enum's three values |
+| Goal scheduling (`goals_scheduling_service.py`) | priority weight in the goal score; the HIGH-count recommendation is advisory |
 
 ---
 
@@ -180,7 +162,6 @@ The cap of 3 prevents CRITICAL from becoming meaningless if users over-apply it.
 
 | Priority | Width |
 |----------|-------|
-| CRITICAL | 4px |
 | HIGH | 3px |
 | MEDIUM | 2px |
 | LOW | 1px |
@@ -195,7 +176,6 @@ The cap of 3 prevents CRITICAL from becoming meaningless if users over-apply it.
 | `core/models/user_owned_entity.py` | `priority: str \| None` field declaration |
 | `core/models/curriculum.py` | `confidence: str \| None` field declaration |
 | `core/models/pathways/pathways_request.py` | `confidence` in PS/LP create requests |
-| `core/services/user/intelligence/daily_planning.py` | CRITICAL priority override in planning |
 | `core/services/lateral_relationships/lateral_relationship_service.py` | `confidence` + `priority` on graph edges |
 | `static/js/skuel.js` | vis.js edge styling by confidence and priority |
 
@@ -209,7 +189,7 @@ Future capabilities enabled by these dials:
 |-----------|-------------|
 | **Confidence-weighted search** | High-confidence KU ranks higher in search results |
 | **Uncertainty review queue** | Admin dashboard for UNCERTAIN curriculum items awaiting review |
-| **Priority-filtered notifications** | Push notifications only for CRITICAL items |
+| **Priority-filtered notifications** | Push notifications only for HIGH items |
 | **Confidence decay** | Certainty degrades over time without active reinforcement |
 | **Cross-domain propagation** | If prerequisite KU is UNCERTAIN, dependent PS confidence drops automatically |
 

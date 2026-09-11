@@ -309,7 +309,7 @@ class HabitEventScheduler:
             event.recurrence_maintains_habit = True
             event.skip_breaks_habit_streak = True
             event.metadata["is_urgent"] = True
-            event.priority = Priority.CRITICAL if habit.is_keystone else Priority.HIGH
+            event.priority = Priority.HIGH
 
             maintenance_events.append(event)
             maintenance_habit_links[event.uid] = habit_uid

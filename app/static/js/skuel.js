@@ -591,7 +591,7 @@
      * @returns {Array} styled edge objects
      */
     window.SKUEL.graph.styleEdgesByConfidence = function(edges) {
-        var priorityWidthMap = { critical: 4, high: 3, medium: 2, low: 1 };
+        var priorityWidthMap = { high: 3, medium: 2, low: 1 };
         return (edges || []).map(function(edge) {
             var confidence = typeof edge.confidence === 'number' ? edge.confidence : 1.0;
             var priority = edge.priority || 'medium';

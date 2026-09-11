@@ -126,7 +126,7 @@ class LateralRouteFactory:
                 reason: Why blocker must complete first
                 severity: "required", "recommended", or "suggested"
                 confidence: Certainty of this constraint (0.0-1.0; default 1.0 — hard constraints are explicit)
-                priority: Relative importance of this relationship (low/medium/high/critical)
+                priority: Relative importance of this relationship (low/medium/high)
             """
             user_uid = require_authenticated_user(request)
 
@@ -242,7 +242,7 @@ class LateralRouteFactory:
                 strength: How essential prerequisite is (0.0-1.0)
                 reasoning: Optional explanation
                 confidence: Certainty of this prerequisite (0.0-1.0; default 1.0 — asserting a hard requirement)
-                priority: Relative importance of this relationship (low/medium/high/critical)
+                priority: Relative importance of this relationship (low/medium/high)
             """
             user_uid = require_authenticated_user(request)
 
@@ -348,7 +348,7 @@ class LateralRouteFactory:
                 comparison_criteria: How to compare alternatives
                 tradeoffs: Optional list of tradeoffs
                 confidence: Certainty that these are genuine alternatives (0.0-1.0; default 0.8 — softer assertion)
-                priority: Relative importance of this relationship (low/medium/high/critical)
+                priority: Relative importance of this relationship (low/medium/high)
                 timeframe: How long this alternative takes (e.g. "about 18 months")
                 difficulty: How hard it is (e.g. "steep at first")
                 resources: What it costs to pursue (e.g. "one mentor plus a rowing machine")
@@ -448,7 +448,7 @@ class LateralRouteFactory:
                 synergy_description: How entities complement each other
                 synergy_score: Strength of synergy (0.0-1.0)
                 confidence: Certainty of this synergy (0.0-1.0; default 0.8 — softer assertion)
-                priority: Relative importance of this relationship (low/medium/high/critical)
+                priority: Relative importance of this relationship (low/medium/high)
             """
             user_uid = require_authenticated_user(request)
 

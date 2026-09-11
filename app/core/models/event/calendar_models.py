@@ -146,7 +146,7 @@ class CalendarItem:
     recurrence_pattern: str | None = None  # RRULE string if recurring
 
     # Metadata
-    priority: int = 1  # 1-5, higher is more important
+    priority: int = 1  # Priority.to_numeric(): 1 low, 2 medium, 3 high
     category: str | None = None
 
     # Habit-specific

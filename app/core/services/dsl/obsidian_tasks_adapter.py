@@ -18,8 +18,8 @@ converter → facade create path.
 - ``⏳ YYYY-MM-DD`` → scheduled date (``scheduled_date``)
 - ``✅ YYYY-MM-DD`` → completion date (``completion_date``, checked lines only —
   the converter falls back to today when a checked line carries no done date)
-- Priority: ``🔺``/``⏫`` → 1 (highest/high), ``🔼`` → 2, none → 3,
-  ``🔽`` → 4, ``⏬`` → 5
+- Priority: ``🔺``/``⏫`` → 1 (high), ``🔼`` → 3 (medium, Obsidian's own name for
+  it), none → 3, ``🔽`` → 4, ``⏬`` → 5 (low)
 - ``#tag`` → ``extra_tags`` (plus ``period:{entry_kind}`` when supplied)
 
 Other obsidian-tasks markers (``🛫`` start, the created-date marker, ``🔁``
@@ -68,7 +68,7 @@ _TAG_RE = re.compile(r"#([\w/-]+)")
 _PRIORITY_BY_EMOJI: dict[str, int] = {
     "🔺": 1,  # highest
     "⏫": 1,  # high
-    "🔼": 2,  # medium
+    "🔼": 3,  # medium — the same level as no marker, as Obsidian names it
     "🔽": 4,  # low
     "⏬": 5,  # lowest
 }

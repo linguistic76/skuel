@@ -120,7 +120,7 @@ class TestTaskUpdateIntentPipeline:
             user_uid="user_intent_pipeline",
             title="Overdue task",
             due_date=date.today() - timedelta(days=3),
-            priority=Priority.HIGH,
+            priority=Priority.MEDIUM,
             status=EntityStatus.ACTIVE,
         )
         seeded = await core_service.create(overdue)
@@ -135,14 +135,14 @@ class TestTaskUpdateIntentPipeline:
         # The stored row is untouched — validation ran before the write.
         fetched = await core_service.get_task(overdue.uid)
         assert fetched.is_ok
-        assert fetched.value.priority == Priority.HIGH
+        assert fetched.value.priority == Priority.MEDIUM
 
         # Raising it is still allowed on the same overdue task.
         raised = await core_service.update_task(
-            overdue.uid, TaskUpdateIntent(priority=Priority.CRITICAL.value)
+            overdue.uid, TaskUpdateIntent(priority=Priority.HIGH.value)
         )
         assert raised.is_ok
-        assert raised.value.priority == Priority.CRITICAL
+        assert raised.value.priority == Priority.HIGH
 
     async def test_priority_decrease_allowed_when_not_overdue(
         self, core_service, seeded_task

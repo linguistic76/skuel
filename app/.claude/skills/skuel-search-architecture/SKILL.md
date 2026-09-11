@@ -175,7 +175,7 @@ Each scorer composes shared `ComponentScore` helpers with domain-specific weight
 | Helper | Produces (normalized 0–1) | Reused by |
 |--------|---------------------------|-----------|
 | `score_deadline_proximity(target_date)` | Urgency from days-until | Task, Goal, Event, Choice |
-| `score_priority_level(priority)` | CRITICAL/HIGH/MEDIUM/LOW → 1.0/0.8/0.5/0.25 | Task, Goal, Choice |
+| `score_priority_level(priority)` | HIGH/MEDIUM/LOW → 1.0/0.5/0.25 | Task, Goal, Choice |
 | `score_goal_alignment(goal_uid, active_goal_uids)` | 1.0 if linked to active goal | Task, Goal, Event, Habit |
 | `score_streak_protection(habit_uid, streaks, active_habits)` | Protects long streaks | Task, Habit, Event |
 | `score_progress_momentum(progress)` | Inverted-U — ~0.5 favored over stuck/done | Goal |

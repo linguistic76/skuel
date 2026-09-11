@@ -6,7 +6,7 @@ Extracts semantic meaning from natural language search queries by leveraging
 the from_search_text() methods on SKUEL's enums.
 
 Design Philosophy:
-- "show me urgent tasks" → extracts Priority.CRITICAL, Priority.HIGH
+- "show me urgent tasks" → extracts Priority.HIGH
 - "find completed goals" → extracts EntityStatus.COMPLETED
 - "health habits" → extracts Domain.HEALTH
 
@@ -22,7 +22,7 @@ Usage:
     # ParsedSearchQuery contains:
     # - raw_query: "show me urgent tasks in progress"
     # - text_query: "show me tasks"  (cleaned for text search)
-    # - priorities: [Priority.CRITICAL, Priority.HIGH]
+    # - priorities: [Priority.HIGH]
     # - statuses: [EntityStatus.ACTIVE]
     # - domains: []
 
@@ -88,7 +88,7 @@ class ParsedSearchQuery:
         """Get the highest priority from extracted priorities."""
         if not self.priorities:
             return None
-        # Sort by numeric value (CRITICAL=4 > HIGH=3 > MEDIUM=2 > LOW=1)
+        # Sort by numeric value (HIGH=3 > MEDIUM=2 > LOW=1)
         return max(self.priorities, key=Priority.to_numeric)
 
     def to_filter_summary(self) -> str:
@@ -122,9 +122,9 @@ class SearchQueryParser:
     Example:
         parser = SearchQueryParser()
 
-        # "urgent tasks" → Priority.CRITICAL, Priority.HIGH
+        # "urgent tasks" → Priority.HIGH
         result = parser.parse("show me urgent tasks")
-        assert Priority.CRITICAL in result.priorities
+        assert Priority.HIGH in result.priorities
 
         # "completed health goals" → EntityStatus.COMPLETED, Domain.HEALTH
         result = parser.parse("completed health goals")
@@ -176,7 +176,7 @@ class SearchQueryParser:
             >>> parser = SearchQueryParser()
             >>> result = parser.parse("urgent tasks in progress")
             >>> result.priorities
-            (Priority.CRITICAL, Priority.HIGH)
+            (Priority.HIGH,)
             >>> result.statuses
             (EntityStatus.ACTIVE,)
         """
@@ -330,6 +330,6 @@ def parse_search_query(query: str) -> ParsedSearchQuery:
         >>> from core.models.search.query_parser import parse_search_query
         >>> result = parse_search_query("urgent health tasks")
         >>> result.priorities
-        (Priority.CRITICAL, Priority.HIGH)
+        (Priority.HIGH,)
     """
     return SearchQueryParser().parse(query)

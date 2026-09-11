@@ -229,7 +229,7 @@ class TestChoicesCoreOperations:
     async def test_choice_priority_levels(self, choices_service, test_user_uid, sample_options):
         """Test creating choices with different priority levels."""
         # Arrange & Act - Create choices with different priorities
-        priorities = [Priority.LOW, Priority.MEDIUM, Priority.HIGH, Priority.CRITICAL]
+        priorities = [Priority.LOW, Priority.MEDIUM, Priority.HIGH]
         for priority in priorities:
             choice = Choice(
                 uid=f"choice.priority_{priority.value}",

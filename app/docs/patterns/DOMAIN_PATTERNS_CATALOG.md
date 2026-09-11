@@ -1,6 +1,6 @@
 ---
 title: Domain Patterns Catalog
-updated: 2026-09-07
+updated: 2026-09-11
 category: patterns
 related_skills:
 - python
@@ -397,7 +397,6 @@ class Task:
             Priority.LOW: 1,
             Priority.MEDIUM: 2,
             Priority.HIGH: 3,
-            Priority.CRITICAL: 4,
         }
         score += priority_scores.get(self.priority, 0)
 

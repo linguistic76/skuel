@@ -1,5 +1,5 @@
 ---
-updated: 2026-08-30
+updated: 2026-09-11
 ---
 
 # Placeholder Parameter Index
@@ -300,7 +300,7 @@ read none of it — `_user_context` occurs exactly three times in the file, once
 and emits a task for the goal's first incomplete milestone. But `_user_context`
 is not the only thing deferred in it:
 
-- **Urgency is not computed at all.** `priority=Priority.CRITICAL` (450) and
+- **Urgency is not computed at all.** `priority=Priority.HIGH` (450) and
   `due_date=today + 3 days` (451) are hardcoded literals that ignore even `Milestone.target_date`,
   and they bypass the class's own `_calculate_priority()` (464, used at 279). The at-risk *gate*
   lives in the caller (243, `goal.days_remaining() < 30`), not here.
@@ -312,7 +312,7 @@ contract. `generate_next_critical_tasks()` (223) pools tasks across every at-ris
 applies a global `critical_tasks[:limit]` (250), so emitting every milestone would let one goal
 crowd the others out. Leave it alone unless that contract is being changed deliberately.
 
-Implementing `_user_context` alone would still leave every urgent task at a constant CRITICAL
+Implementing `_user_context` alone would still leave every urgent task at a constant HIGH
 priority and a constant today+3 due date.
 
 (The two `adaptive_lp_recommendations_service.py` stubs formerly listed here were deleted with
