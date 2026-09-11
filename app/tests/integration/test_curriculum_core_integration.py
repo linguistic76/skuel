@@ -783,7 +783,7 @@ class TestCurriculumContextBuilder:
                     title: 'Learn Python',
                     user_uid: $user_uid,
                     status: 'active',
-                    progress: 0.7,
+                    progress_percentage: 70.0,
                     created_at: datetime(),
                     updated_at: datetime()
                 })

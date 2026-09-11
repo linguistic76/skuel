@@ -66,7 +66,7 @@ RETURN t as task,
            dependencies: dependencies,
            applied_knowledge: applied_knowledge,
            goal_context: CASE WHEN goal IS NOT NULL
-               THEN {uid: goal.uid, title: goal.title, progress: goal.progress}
+               THEN {uid: goal.uid, title: goal.title, progress: coalesce(goal.progress_percentage, 0.0) / 100.0}
                ELSE null END
        } as graph_context
 ```
@@ -105,7 +105,7 @@ OPTIONAL MATCH (g)-[:HAS_SUBGOAL]->(subgoal:Goal)
 WITH g, contributing_tasks, collect(CASE WHEN subgoal IS NOT NULL THEN {
     uid: subgoal.uid,
     title: subgoal.title,
-    progress: subgoal.progress
+    progress: coalesce(subgoal.progress_percentage, 0.0) / 100.0
 } END) as subgoals
 RETURN g as goal,
        contributing_tasks,
