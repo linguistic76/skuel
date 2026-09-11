@@ -390,10 +390,11 @@ class TestGoalsChokepoint:
         intent = GoalUpdateIntent(status="active", achieved_date=None)
         result = await service.update_goal("goal_1", intent)
         assert result.is_ok
-        assert recorder.last_guard.patch_if_prior_in == (
-            frozenset({"completed"}),
-            {"progress_percentage": 0.0},
-        )
+        statuses, reset = recorder.last_guard.patch_if_prior_in
+        assert statuses == frozenset({"completed"})
+        assert reset["progress_percentage"] == 0.0
+        assert isinstance(reset["last_progress_update"], datetime)
+        assert set(reset) == {"progress_percentage", "last_progress_update"}
         merged = recorder.merged_patch()
         assert merged["progress_percentage"] == 0.0
         assert merged["achieved_date"] is None, "the caller's clear kept authority"
