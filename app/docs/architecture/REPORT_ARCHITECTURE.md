@@ -1,6 +1,6 @@
 ---
 title: Report Architecture
-updated: 2026-09-05
+updated: 2026-09-11
 status: current
 category: architecture
 version: 3.2.0
@@ -478,16 +478,13 @@ When `openai_service` is available, the generator:
 
 | Route | Method | Who | What |
 |-------|--------|-----|------|
-| `/api/activity-reports/annotate` | POST | User | Save annotation or revision to own report |
-| `/api/activity-reports/annotation` | GET | User | Get current annotation state for a report |
-| `/api/reports/progress/generate` | POST | User | On-demand `ACTIVITY_REPORT` generation |
-| `/api/reports/progress` | GET | User | List user's `ACTIVITY_REPORT` history |
-| `/api/reports/schedule` | POST | User | Create/update generation schedule |
-| `/api/reports/schedule/get` | GET | User | Get user's schedule |
-| `/api/reports/schedule/update` | POST | User | Update schedule |
-| `/api/reports/schedule/delete` | POST | User | Deactivate schedule |
-| `/api/activity-review/snapshot` | GET | Admin | Generate activity snapshot for review |
-| `/api/activity-review/submit` | POST | Admin | Submit written activity feedback |
+| `/api/reports/progress/generate` | POST | User | On-demand `ACTIVITY_REPORT` generation — answers the request form's HTMX post with a fragment linking to the new report (a cooldown refusal renders inline) |
+| `/api/activity-reports/annotate` | POST | User | Save annotation or revision to own report (fragment) |
+| `/activity-reports/md?uid=` | GET | User | Download own report as `.md` (owner-scoped; foreign uid → 404) |
+
+The report *schedule* surface (`ReportSchedule`, `ProgressScheduleService`, the hourly
+`ProgressReportWorker`) has no producer route and is slated for retirement — see
+`/docs/roadmap/calendar-priority-lens-arc.md` § Arc E.
 | `/api/activity-review/request` | POST | User | Request an activity review from admin |
 | `/api/activity-review/queue` | GET | Admin | Pending review queue |
 | `/api/activity-review/history` | GET | User/Admin | Received activity feedback history |

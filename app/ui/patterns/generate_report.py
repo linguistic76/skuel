@@ -50,13 +50,11 @@ def render_activity_report_request_card():
                     cls="text-center",
                 ),
                 Div(id="generate-status", cls="mt-4"),
-                **{
-                    "hx-post": "/api/reports/progress/generate",
-                    "hx-target": "#generate-status",
-                    "hx-swap": "innerHTML",
-                    "hx-vals": 'js:JSON.stringify({time_period: document.querySelector("[name=time_period]").value, depth: document.querySelector("[name=depth]").value, include_insights: true})',
-                    "hx-headers": '{"Content-Type": "application/json"}',
-                },
+                # A plain form post: HTMX sends the enclosing form's fields
+                # url-encoded, which is what the handler parses.
+                hx_post="/api/reports/progress/generate",
+                hx_target="#generate-status",
+                hx_swap="innerHTML",
             ),
         ),
         cls="bg-background shadow-xs mb-6",

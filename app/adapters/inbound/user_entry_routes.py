@@ -91,7 +91,12 @@ def create_user_entry_routes(
         from adapters.inbound.revised_exercises_ui import create_revised_exercises_ui_routes
 
         create_entry_reports_ui_routes(app, rt, orchestrator=user_entry_orch)
-        create_activity_reports_ui_routes(app, rt, orchestrator=user_entry_orch)
+        create_activity_reports_ui_routes(
+            app,
+            rt,
+            orchestrator=user_entry_orch,
+            progress_generator=getattr(services, "progress_report_generator", None),
+        )
         create_revised_exercises_ui_routes(app, rt, orchestrator=user_entry_orch)
         create_exchange_ui_routes(app, rt, orchestrator=user_entry_orch)
         logger.info(

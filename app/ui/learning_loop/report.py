@@ -530,25 +530,15 @@ def render_activity_report_detail(
                 cls="mb-3",
             ),
             Div(
-                ButtonLink(
-                    "Save Notes",
-                    href="#",
-                    cls=(ButtonT.primary, "cursor-pointer"),
-                    size="sm",
-                ),
+                Button("Save Notes", type="submit", cls=ButtonT.primary, size="sm"),
                 Div(id="annotation-status", cls="ml-3 text-sm"),
                 cls="flex items-center",
             ),
+            # A plain form post: uid, annotation_mode and annotation_text travel
+            # url-encoded; the handler maps the text to the chosen mode.
             hx_post="/api/activity-reports/annotate",
             hx_target="#annotation-status",
             hx_swap="innerHTML",
-            hx_vals="js:{"
-            + '"uid": document.querySelector("[name=uid]").value,'
-            + '"annotation_mode": document.querySelector("[name=annotation_mode]:checked").value,'
-            + '"user_annotation": document.querySelector("[name=annotation_mode]:checked").value === "additive" ? document.querySelector("[name=annotation_text]").value : null,'
-            + '"user_revision": document.querySelector("[name=annotation_mode]:checked").value === "revision" ? document.querySelector("[name=annotation_text]").value : null'
-            + "}",
-            hx_headers='{"Content-Type": "application/json"}',
         ),
     )
 
@@ -559,7 +549,15 @@ def render_activity_report_detail(
             href="/gradebook",
             cls=ButtonT.ghost,
         ),
-        cls="mt-6",
+        # The report as a file: Markdown, so it opens and edits anywhere.
+        ButtonLink(
+            "Download .md",
+            href=f"/activity-reports/md?uid={uid}",
+            cls=ButtonT.secondary,
+        )
+        if uid
+        else None,
+        cls="mt-6 flex items-center gap-2",
     )
 
     return Div(
