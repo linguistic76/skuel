@@ -31,12 +31,13 @@ from typing import TYPE_CHECKING, Any
 from fasthtml.common import H1, H2, A, Div, Form, P, Span
 from fasthtml.common import Button as HtmlButton
 
-from core.models.enums.entity_enums import EntityStatus
 from core.models.enums.habit_enums import CompletionStatus
 from core.models.event.calendar_models import (
+    VIEW_SPECS,
     CalendarData,
     CalendarItem,
     CalendarItemType,
+    CalendarView,
     habit_block_on,
 )
 from ui.components import Button, ButtonT, Card, CardBody, CardHeader, CardTitle, Icon, Input
@@ -103,16 +104,33 @@ def _legend_swatch(item_type: CalendarItemType) -> HtmlButton:
     )
 
 
-def create_calendar_legend() -> Div:
+def view_has_legend(view: CalendarView) -> bool:
+    """A view carries the kind legend only when it renders more than one kind.
+
+    The month renders events alone, so it has nothing to toggle and binds no
+    legend controller — a kind hidden on the week is stored in the shared
+    browser key, and a controller here would apply it with no control left to
+    lift it.
+    """
+    return len(VIEW_SPECS[view].members) > 1
+
+
+def create_calendar_legend(view: CalendarView) -> Div | None:
     """Kind swatches doubling as filter controls, grouped by Activity pair.
 
-    Two groups (``_LEGEND_PAIRS``): Tasks+Events and Goals+Habits, each a tiny
-    pair label + bordered swatch buttons. Click hides/shows that kind on the
-    grid, hover spotlights it (dims the others). State + CSS classes live on
-    the ``calendarLegend`` Alpine component bound to the calendar shell
-    (``_wrap_calendar_page``), so filters survive HTMX content swaps; the
-    hiding itself is pure CSS (``calendar.css``) keyed off ``data-item-type``.
+    Rendered for the views that show more than one kind (the week). Two groups
+    (``_LEGEND_PAIRS``): Tasks+Events and Goals+Habits, each a tiny pair label
+    + bordered swatch buttons for the kinds the view's ``ViewSpec`` admits.
+    Click hides/shows that kind on the grid, hover spotlights it (dims the
+    others). State + CSS classes live on the ``calendarLegend`` Alpine component
+    bound to the calendar shell (``_calendar_shell``), so filters survive HTMX
+    content swaps; the hiding itself is pure CSS (``calendar.css``) keyed off
+    ``data-item-type``. Within the view's declared membership these filters are
+    the only hiding mechanism.
     """
+    if not view_has_legend(view):
+        return None
+    spec = VIEW_SPECS[view]
     groups = [
         Div(
             Span(
@@ -122,23 +140,24 @@ def create_calendar_legend() -> Div:
                     " text-muted-foreground/60 whitespace-nowrap"
                 ),
             ),
-            *[_legend_swatch(item_type) for item_type in pair_types],
+            *[_legend_swatch(item_type) for item_type in pair_types if spec.admits_kind(item_type)],
             cls="flex items-center gap-1.5",
         )
         for pair_label, pair_types in _LEGEND_PAIRS
+        if any(spec.admits_kind(item_type) for item_type in pair_types)
     ]
     return Div(*groups, cls="flex items-center gap-4 flex-wrap pb-1")
 
 
-def create_calendar_header(title: str) -> Div:
-    """Period title (left) and the type legend (right).
+def create_calendar_header(title: str, view: CalendarView) -> Div:
+    """Period title (left) and, for views with more than one kind, the legend.
 
     The title steps down on phones — "Week of Jun 30 – Jul 6" at 40px is wider
     than a 375px viewport's content column.
     """
     return Div(
         H1(title, cls="text-[32px] sm:text-[40px] font-bold tracking-[-0.02em] leading-none"),
-        create_calendar_legend(),
+        create_calendar_legend(view),
         cls="flex items-end justify-between gap-6 flex-wrap mb-5",
     )
 
@@ -762,19 +781,13 @@ def _is_terminal_task(item: CalendarItem) -> bool:
     """Whether a task calendar item is in a terminal status (cancelled/failed/
     archived/completed).
 
-    Reads the ``status`` value ``_task_to_calendar_item`` stamps into
-    ``metadata``. A finished task has no work left to move, so terminal chips
-    offer no reschedule form — a UI judgement, not a service refusal: the
-    reschedule POST goes through ``update_task``, which accepts date changes on
-    a terminal task (Tasks has no terminal-state rule — one was declared but
-    never wired, and was deleted in the cascade-idempotency arc). A
-    missing/unknown status counts as actionable.
+    Reads the status ``_task_to_calendar_item`` carries on the item. A finished
+    task has no work left to move, so terminal chips offer no reschedule form —
+    a UI judgement, not a service refusal: the reschedule POST goes through
+    ``update_task``, which accepts date changes on a terminal task (Tasks has
+    no terminal-state rule). A missing status counts as actionable.
     """
-    raw_status = str(item.metadata.get("status", ""))
-    try:
-        return EntityStatus(raw_status).is_terminal()
-    except ValueError:
-        return False
+    return item.status is not None and item.status.is_terminal()
 
 
 def item_schedule_line(item: CalendarItem, *, oob: bool = False) -> P:
@@ -857,7 +870,7 @@ def reschedule_form(
     )
 
 
-def create_item_details_modal(item: Any) -> Div:
+def create_item_details_modal(item: CalendarItem) -> Div:
     """Render calendar item details as an HTMX modal fragment.
 
     Header = a type-colored dot + type pill + Lucide close; the body keeps the full

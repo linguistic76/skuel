@@ -74,7 +74,6 @@ def test_goal_converts_to_all_day_milestone_on_target_date() -> None:
     assert item.start_time.date() == date(2026, 8, 21)
     assert item.end_time.date() == date(2026, 8, 21)
     assert item.color == "#9333ea"  # the legend's Milestone swatch
-    assert item.icon == "🎯"
 
 
 def test_dateless_goal_still_converts_without_raising() -> None:
@@ -115,9 +114,9 @@ async def test_fetch_goals_uses_the_plain_range_fetch() -> None:
 
 
 @pytest.mark.asyncio
-async def test_get_calendar_view_includes_milestones() -> None:
-    """End-to-end through get_calendar_view: the goal fetch feeds the same
-    item list as tasks and events."""
+async def test_week_view_includes_milestones() -> None:
+    """End-to-end through get_calendar_view: on the week (a Milestone member
+    view) the goal fetch feeds the same item list as tasks and events."""
     goal = _goal()
     service, _ = _service(goal)
     service.tasks_service.get_user_items_in_range = AsyncMock(return_value=Result.ok([]))
@@ -125,12 +124,29 @@ async def test_get_calendar_view_includes_milestones() -> None:
     service.habits_service.get_active = AsyncMock(return_value=Result.ok([]))
 
     result = await service.get_calendar_view(
-        "user_test", date(2026, 8, 1), date(2026, 8, 31), CalendarView.MONTH
+        "user_test", date(2026, 8, 17), date(2026, 8, 23), CalendarView.WEEK
     )
 
     assert result.is_ok
     milestones = [i for i in result.value.items if i.item_type == CalendarItemType.MILESTONE]
     assert [m.uid for m in milestones] == ["goal-goal_1"]
+
+
+@pytest.mark.asyncio
+async def test_month_view_never_fetches_goals() -> None:
+    """The month renders events alone (``VIEW_SPECS``): Milestone is not a
+    member, so the goal read is not even issued."""
+    goal = _goal()
+    service, goals_service = _service(goal)
+    service.events_service.get_user_items_in_range = AsyncMock(return_value=Result.ok([]))
+
+    result = await service.get_calendar_view(
+        "user_test", date(2026, 8, 1), date(2026, 8, 31), CalendarView.MONTH
+    )
+
+    assert result.is_ok
+    assert result.value.items == []
+    goals_service.get_user_items_in_range.assert_not_awaited()
 
 
 # ---------------------------------------------------------------------------

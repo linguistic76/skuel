@@ -327,7 +327,6 @@ def test_validate_task_form_data_missing_title():
 - `/adapters/inbound/ku_ui.py` - Error state vs empty state distinction
 - `/adapters/inbound/admin_dashboard_ui.py` - `render_error_banner()` for user-not-found, warning severity for partial failures
 - `/adapters/inbound/insights_ui.py` - Error state with load-more pagination
-- `/adapters/inbound/calendar_api.py` - `render_inline_error()` for reschedule validation
 - `/adapters/inbound/activities_ui.py` - `render_inline_error()` for preview card loading
 - `/ui/analytics/life_path.py` - `EmptyState` for no Life Path; `/ui/analytics/life_summary.py` - `EmptyState` for no weekly data (delegated from `analytics_ui.py`)
 - `/adapters/inbound/form_submissions_ui.py` - `render_error_banner()` for full-page, `EmptyState` for empty data
@@ -375,7 +374,7 @@ def test_validate_task_form_data_missing_title():
 - ✅ Admin (`admin_dashboard_ui.py`) — `render_error_banner()` for user-not-found; warning banners for stats, system status
 - ✅ Insights (`insights_ui.py`) — error banner on insights/stats load failure, load-more endpoint
 - ✅ Finance (`finance_ui.py`) — typed context methods with Result[TypedDict]
-- ✅ Calendar (`calendar_api.py`) — `render_inline_error()` for reschedule validation
+- ✅ Calendar (`calendar_ui.py`) — grid fragments swap in `error_response()` (`ui/calendar/components.py`) on a failed view read; the reschedule POST re-renders `reschedule_form(..., error=message)` with the posted values — the VALIDATION reason verbatim, a plain retry line for anything else — because HTMX swaps 200s, not bare 4xx bodies
 - ✅ Activities (`activities_ui.py`) — `render_inline_error()` for preview card loading
 - ✅ Analytics (`ui/analytics/`) — `EmptyState` for no Life Path, no domain activity, no weekly data (delegated from `analytics_ui.py`)
 - ✅ Form Submissions (`form_submissions_ui.py`) — `render_error_banner()` + `EmptyState` for empty data

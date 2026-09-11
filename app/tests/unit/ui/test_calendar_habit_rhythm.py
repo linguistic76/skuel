@@ -29,7 +29,6 @@ from core.models.event.calendar_models import (
     CalendarItem,
     CalendarItemType,
     CalendarOccurrence,
-    CalendarView,
 )
 from core.models.type_hints import EntityUID
 from ui.calendar.components import (
@@ -106,16 +105,12 @@ def _all_day_marker(uid: str, title: str, day: date) -> CalendarItem:
 def _data(
     items: list[CalendarItem],
     occurrences: dict[str, list[CalendarOccurrence]],
-    *,
-    view: CalendarView = CalendarView.WEEK,
 ) -> CalendarData:
     return CalendarData(
         items=items,
         occurrences={EntityUID(k): v for k, v in occurrences.items()},
-        view=view,
         start_date=WEEK_START,
         end_date=WEEK_START + timedelta(days=6),
-        metadata={},
     )
 
 

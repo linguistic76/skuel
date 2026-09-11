@@ -1,6 +1,6 @@
 ---
 title: Protocol Reference Guide
-updated: 2026-08-26
+updated: 2026-09-11
 status: current
 category: reference
 tags: [protocol, reference]
@@ -434,7 +434,7 @@ These protocols replace `Any` types on the `Services` dataclass fields, giving r
 | `report_protocols.py` | 7 protocols | `exercises_api.py`, `progress_report_api.py`, `teaching_api.py` |
 | `form_protocols.py` | 4 protocols | `form_templates_api.py`, `form_submissions_api.py` |
 | `group_protocols.py` | 1 protocol | `groups_api.py` |
-| `service_protocols.py` | 14 protocols | `orchestration_routes.py`, `calendar_api.py`, `visualization_api.py`, `system_api.py`, `lifepath_api.py`, `auth_ui.py`, `admin_api.py`, `lateral_routes.py` |
+| `service_protocols.py` | 14 protocols | `orchestration_routes.py`, `visualization_api.py`, `system_api.py`, `lifepath_api.py`, `auth_ui.py`, `admin_api.py`, `lateral_routes.py` |
 
 Plus `AskesisCoreOperations` added to existing `askesis_protocols.py`.
 
@@ -526,7 +526,7 @@ Verify the layer before typing `self.backend` against anything named `Group*Oper
 
 | Protocol | Services Field | Methods | Route Consumer |
 |----------|---------------|---------|----------------|
-| `CalendarServiceOperations` | `calendar` | 4 async (get_calendar_view, get_item, reschedule_item, record_habit_occurrence) | `calendar_api.py`, `calendar_ui.py` |
+| `CalendarServiceOperations` | `calendar` | 4 async (get_calendar_view, get_item, reschedule_item, record_habit_occurrence) | `calendar_ui.py` |
 | `VisualizationOperations` | `visualization` | 6 async (4 Chart.js + 2 Gantt) | `visualization_api.py` |
 | `SystemServiceOperations` | `system_service` | 11 (5 async health + 6 sync management) | `system_api.py` |
 | `CrossDomainAnalyticsOperations` | `cross_domain_analytics` | 6 async (learning_velocity, spending_patterns, mood, productivity, habit_consistency, get_combined_dashboard) | `analytics_api.py` |

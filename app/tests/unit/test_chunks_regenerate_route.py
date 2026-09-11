@@ -4,7 +4,7 @@ Covers the route handler wired in ingestion_api.py — admin gate, JSON
 validation, error mapping, and the conditional registration based on whether
 batch_chunking_service is wired.
 
-Mirrors the fake-rt registry pattern from tests/unit/adapters/test_calendar_api.py.
+Mirrors the fake-rt registry pattern from tests/unit/adapters/test_calendar_ui.py.
 """
 
 from __future__ import annotations

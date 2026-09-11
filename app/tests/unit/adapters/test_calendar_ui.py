@@ -72,10 +72,8 @@ def _make_calendar_data(items=None) -> CalendarData:
     return CalendarData(
         items=items or [],
         occurrences={},
-        view=CalendarView.MONTH,
         start_date=date(2026, 5, 1),
         end_date=date(2026, 5, 31),
-        metadata={},
     )
 
 
@@ -165,10 +163,8 @@ class TestMonthContentFragment:
                 CalendarData(
                     items=[lead_in_item],
                     occurrences={},
-                    view=CalendarView.MONTH,
                     start_date=date(2026, 4, 27),
                     end_date=date(2026, 5, 31),
-                    metadata={},
                 )
             )
         )

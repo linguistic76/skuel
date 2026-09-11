@@ -1,5 +1,5 @@
 ---
-updated: 2026-09-06
+updated: 2026-09-11
 ---
 
 # Route Map
@@ -82,7 +82,7 @@ Both live in `ui/patterns/personal_header.py`.
 
 ### `/profile` — Personal Overview Hub
 
-Four tabs selected by `?tab=` (default `activities`), mirroring the loop (live it / study / submit / grade): **Activities** (6 Activity Domain accordion blocks, previews from `/api/profile/{slug}/preview`; Tasks section open on load), **Curriculum** (former Library blocks), **Submissions** (4 link buttons mirroring the `/submissions` sidebar — Sync, Exercises, Journals, History), **Reports** (former GradeBook blocks). Tab view in `ui/profile/hub.py`. Activity sidebar (shared across `/tasks`, `/goals`, `/habits`, `/choices`, `/principles`, `/journals`) links back to `/profile`. Calendar views (`/cal`, month/week) are navbar-only full-width pages — the sidebar's Events item still links there, but the calendar itself surfaces the activity domains via its legend/chips instead of the sidebar.
+Four tabs selected by `?tab=` (default `activities`), mirroring the loop (live it / study / submit / grade): **Activities** (6 Activity Domain accordion blocks, previews from `/api/profile/{slug}/preview`; Tasks section open on load), **Curriculum** (former Library blocks), **Submissions** (4 link buttons mirroring the `/submissions` sidebar — Sync, Exercises, Journals, History), **Reports** (former GradeBook blocks). Tab view in `ui/profile/hub.py`. Activity sidebar (shared across `/tasks`, `/goals`, `/habits`, `/choices`, `/principles`, `/journals`) links back to `/profile`. Calendar views (`/cal`, month/week) share that sidebar (its Weekly/Monthly rows) and render each view's declared membership (`VIEW_SPECS`): the month shows events alone; the week adds habits, goal milestones and high-priority tasks, with the kind legend as filter.
 
 ### `/profile/shared` — Shared With Me
 

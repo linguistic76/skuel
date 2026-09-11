@@ -76,8 +76,8 @@ if TYPE_CHECKING:
 class CalendarServiceOperations(Protocol):
     """Calendar aggregation service operations.
 
-    Route consumer: calendar_api.py, calendar_ui.py, visualization_api.py,
-    journals_routes.py (weekly-note read panel)
+    Route consumer: calendar_ui.py, journals_routes.py (weekly/monthly-note
+    read panel)
     Implementation: CalendarService
     """
 
@@ -89,7 +89,7 @@ class CalendarServiceOperations(Protocol):
         view_type: "CalendarView" = ...,
         include_completed: bool = False,
     ) -> "Result[CalendarData]":
-        """Get calendar view for a date range. Returns Result[CalendarData]."""
+        """The view's declared membership (VIEW_SPECS) for a date range. Returns Result[CalendarData]."""
         ...
 
     async def get_planning_items(

@@ -10,20 +10,17 @@ onto a temporal grid for calendar views.
 __version__ = "1.0"
 
 
+from collections.abc import Mapping
 from dataclasses import dataclass, field
 from datetime import date, datetime
 from enum import StrEnum
 from typing import Any
 
-from core.models.enums.entity_enums import EntityType
+from core.models.enums.activity_enums import Priority
+from core.models.enums.entity_enums import EntityStatus, EntityType
 from core.models.enums.habit_enums import CompletionStatus
 from core.models.enums.scheduling_enums import TimeOfDay
 from core.models.type_hints import EntityUID
-
-
-def _default_all_item_types() -> Any:
-    """Default factory for all calendar item types."""
-    return list(CalendarItemType)
 
 
 class CalendarItemType(StrEnum):
@@ -38,16 +35,6 @@ class CalendarItemType(StrEnum):
     TASK = "task"  # Task chip (scheduled work, or due-only via is_due)
     HABIT = "habit"  # Recurring habit block
     MILESTONE = "milestone"  # Goal target date
-
-    def get_icon(self) -> str:
-        """Get emoji icon for this calendar item type"""
-        icons = {
-            CalendarItemType.TASK: "📋",
-            CalendarItemType.EVENT: "📅",
-            CalendarItemType.HABIT: "🔄",
-            CalendarItemType.MILESTONE: "🎯",
-        }
-        return icons.get(self, "📅")
 
     def get_color(self) -> str:
         """Hex color for this type — chip fill/accent/dot and legend swatch.
@@ -81,7 +68,8 @@ class CalendarView(StrEnum):
     """Calendar view modes.
 
     Exactly the two shipped calendar surfaces. The single-day view was dropped
-    (the Today surface owns the current day); AGENDA was never built.
+    (the Today surface owns the current day); AGENDA was never built. Each view
+    declares what it renders in ``VIEW_SPECS``.
     """
 
     WEEK = "week"
@@ -119,7 +107,7 @@ class CalendarItem:
     Unified calendar item that can represent any time-based entity.
 
     This is a projection/view model, not a storage model.
-    Items are generated from tasks, events, and habits.
+    Items are generated from tasks, events, habits and goal milestones.
     """
 
     # Required fields (no defaults)
@@ -135,7 +123,6 @@ class CalendarItem:
     # Display
     description: str = ""
     color: str = "#3B82F6"  # Hex color for rendering
-    icon: str = "📅"  # Emoji or icon class
     all_day: bool = False
     # Due-state (tasks): due-but-unscheduled — a STATE of a Task, not a kind
     # (periodic-notes arc E1). Chips render it as ⏰ + red accent.
@@ -145,9 +132,11 @@ class CalendarItem:
     is_recurring: bool = False
     recurrence_pattern: str | None = None  # RRULE string if recurring
 
-    # Metadata
-    priority: int = 1  # Priority.to_numeric(): 1 low, 2 medium, 3 high
-    category: str | None = None
+    # Membership + state: the source entity's priority is what a view's
+    # ``ViewSpec`` admits by (None = unstated, read as MEDIUM); the status is
+    # what the item-details modal reads (a terminal task offers no reschedule).
+    priority: Priority | None = None
+    status: EntityStatus | None = None
 
     # Habit-specific
     occurrence_data: dict[str, Any] | None = None
@@ -164,15 +153,7 @@ class CalendarItem:
     location: str = ""  # Event location
     is_online: bool = False  # Whether event is online
 
-    # Relationships
-    project_uid: str | None = None
-
-    # Lists (with proper default factory)
     tags: list[str] = field(default_factory=list)
-    related_uids: list[str] = field(default_factory=list)  # Related tasks/events
-
-    # Additional metadata (catch-all for domain-specific fields)
-    metadata: dict[str, Any] = field(default_factory=dict)
 
 
 def habit_block_on(item: CalendarItem, day: date) -> tuple[datetime, datetime]:
@@ -226,21 +207,47 @@ class CalendarData:
 
     items: list[CalendarItem]
     occurrences: dict[EntityUID, list[CalendarOccurrence]]
-    view: CalendarView
     start_date: date
     end_date: date
-    metadata: dict[str, Any]
 
 
 @dataclass(frozen=True)
-class CalendarFilter:
-    """Filter criteria for calendar queries"""
+class ViewSpec:
+    """What a calendar view renders: the kinds it admits and, per kind, the
+    minimum priority.
 
-    start_date: date
-    end_date: date
-    view: CalendarView = CalendarView.MONTH
-    categories: list[str] = field(default_factory=list)
-    item_types: list[CalendarItemType] = field(default_factory=_default_all_item_types)
-    show_completed: bool = True
-    show_habits: bool = True
-    show_occurrences: bool = True
+    A kind absent from ``members`` is not fetched for the view at all. An item
+    whose source entity states no priority reads as MEDIUM — the request-model
+    default — so an unstated habit is shown, not hidden. The view's declared
+    membership is rendered server-side; within it, the legend's client-side
+    filters are the only hiding mechanism.
+    """
+
+    members: Mapping[CalendarItemType, Priority]
+
+    def admits_kind(self, kind: CalendarItemType) -> bool:
+        """Whether the view fetches and renders this kind at all."""
+        return kind in self.members
+
+    def admits(self, kind: CalendarItemType, priority: Priority | None) -> bool:
+        """Whether an item of ``kind`` at ``priority`` belongs to the view."""
+        floor = self.members.get(kind)
+        if floor is None:
+            return False
+        return (priority or Priority.MEDIUM).to_numeric() >= floor.to_numeric()
+
+
+VIEW_SPECS: Mapping[CalendarView, ViewSpec] = {
+    # Month: the month's commitments — events at medium or above, nothing else.
+    CalendarView.MONTH: ViewSpec({CalendarItemType.EVENT: Priority.MEDIUM}),
+    # Week: the week's rhythm — events, habits and goal milestones at medium or
+    # above, and high-priority tasks.
+    CalendarView.WEEK: ViewSpec(
+        {
+            CalendarItemType.EVENT: Priority.MEDIUM,
+            CalendarItemType.HABIT: Priority.MEDIUM,
+            CalendarItemType.TASK: Priority.HIGH,
+            CalendarItemType.MILESTONE: Priority.MEDIUM,
+        }
+    ),
+}
