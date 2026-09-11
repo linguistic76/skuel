@@ -10,7 +10,9 @@ ruled: 2026-09-11
 
 **Status:** ACTIVE 2026-09-11 (founder rulings taken the same day against a full code read + live-graph
 census). Five sub-arcs, A→E, each a short PR chain run in a fresh context against this document.
-PR 0 (#1312) Codex review, six rounds, all findings accepted and folded in (round 6: the task
+PR 0 (#1312) Codex review, seven rounds, all findings accepted and folded in (round 7: the rich
+query's touched predicates gate nothing today — E.2 moves them onto the row; a calendar period's
+denominator is open AT PERIOD END; `find_by_period` is owner-scoped; round 6: the task
 completion rate's denominator is in-period — completed in period + open now — never the whole
 inventory; the week legend lists Milestone; a task both overdue and scheduled today renders once, in
 Overdue; D1 regenerates the graph contract when it deletes `PINNED_TODAY` and clears the persisted
@@ -189,7 +191,9 @@ periods is E.2's, and must not touch the live context's forward-looking event ro
 counter is an in-period transition read off the entity's own stamp, never the row count** (Codex P1,
 rounds 2–3): `tasks_completed` = status COMPLETED with `completion_date` in period (the rich query
 selects completed tasks by `updated_at`, so an old completion re-edited in the window must not count),
-and its ratio's denominator is in-period too — `tasks_total` = completed in period + open now — never
+and its ratio's denominator is in-period too — `tasks_total` = completed in period + open — "open" meaning open NOW for a trailing window and
+open AT PERIOD END for a calendar period (created no later than `period_end`, not completed or
+otherwise terminal by it; Codex P1, round 7) — never
 the whole touched inventory, which would print a falsely low rate and a "reduce scope"
 recommendation for anyone with old open tasks (Codex P1, round 6);
 `goals_progressed` = `last_progress_update` in period, `habits_completed` = `last_completed` in period
@@ -382,9 +386,17 @@ lens-status question (dated CANCELLED/FAILED tasks: **render** — the lens show
   query gets NO upper bound on its `updated_at` "touched" predicates** (Codex P1, round 4): a task
   completed inside the period but edited after it must still reach the mapper, whose canonical stamps
   (`completion_date`, `last_completed`, `decided_at`, `last_review_date`, `last_progress_update`,
-  `event_date`) are the one bound; `build_rich(window_start=)` selects touched-since-start as today.
+  `event_date`) are the one bound; `build_rich(window_start=)` selects touched-since-start — **and E.2 makes that selection real**: the
+  touched predicates at `user_context_queries.py:112` (tasks) and `:170` (goals) sit on the
+  neighbourhood `OPTIONAL MATCH`, so today they null the matched subtask/contributing task and keep
+  the carried row, which is still collected; an untouched closed task reaches `entities_rich`
+  regardless (Codex P1, round 7). E.2 applies the activity predicate to the row itself (a `WITH …
+  WHERE` before the neighbourhood match) and pins it with an integration test that an untouched
+  closed task is absent from `entities_rich` for the period.
   Stop defaulting unknown tokens (generator 7d vs builder 30d);
-  `ActivityReportBackend.find_by_period(subject_uid, time_period)`; `GET /activity-reports/for?kind=monthly|weekly&date=…`
+  `ActivityReportBackend.find_by_period(user_uid, subject_uid, time_period)` — scoped to the requesting
+  OWNER like the detail read, never subject-only (an admin-authored HUMAN report can share the subject
+  and the period token; Codex P2, round 7); `GET /activity-reports/for?kind=monthly|weekly&date=…`
   = find-or-generate → detail; toolbar pill "Report for September" / "Report for W37" via `period_link`;
   cooldown keyed per (user, period). Partial-period semantics: the first click generates a partial report
   (its data cutoff stored as `metadata["data_cutoff"]`) and later clicks re-open it while the period is
