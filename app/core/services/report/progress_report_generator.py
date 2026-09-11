@@ -19,7 +19,7 @@ See: /docs/architecture/REPORT_ARCHITECTURE.md
 """
 
 import json
-from datetime import datetime, timedelta
+from datetime import UTC, datetime, timedelta
 from typing import TYPE_CHECKING, Any
 
 from core.models.enums import EntityStatus
@@ -47,9 +47,29 @@ from core.prompts import PROMPT_REGISTRY
 from core.utils.exception_types import DATA_CONVERSION_EXCEPTIONS, LLM_EXCEPTIONS, NEO4J_EXCEPTIONS
 from core.utils.logging import get_logger
 from core.utils.neo4j_props import coerce_int
+from core.utils.neo4j_temporal import convert_neo4j_datetime
 from core.utils.result_simplified import Errors, Result
+from core.utils.timestamp_helpers import parse_date_value, parse_iso_utc
 
 logger = get_logger("skuel.services.report.progress_generator")
+
+
+def _naive_utc(value: object) -> datetime | None:
+    """A stored timestamp as a naive-UTC datetime, or None when absent or unreadable.
+
+    Node properties arrive as Neo4j DateTime objects, native datetimes, or ISO
+    strings (the temporal split); aware values are normalised to UTC and stripped,
+    naive ones are UTC by convention (``parse_iso_utc``). One shape on both sides
+    of a comparison keeps the window test TypeError-free.
+    """
+    moment = convert_neo4j_datetime(value)
+    if moment is None and isinstance(value, str):
+        moment = parse_iso_utc(value)
+    if moment is None:
+        return None
+    if moment.tzinfo is not None:
+        moment = moment.astimezone(UTC).replace(tzinfo=None)
+    return moment
 
 
 class ProgressReportGenerator:
@@ -150,7 +170,9 @@ class ProgressReportGenerator:
                 logger.warning(f"Failed to build context for {user_uid}: {ctx_result.error}")
                 completions = self._empty_completions()
             else:
-                completions = self._completions_from_context(ctx_result.value, domains)
+                completions = self._completions_from_context(
+                    ctx_result.value, domains, window_start=start_date, window_end=end_date
+                )
 
             # 2. Get active insights if requested
             insights: list[Any] = []
@@ -755,39 +777,61 @@ class ProgressReportGenerator:
         self,
         context: "UserContext",
         domains: list[str] | None = None,
+        *,
+        window_start: datetime,
+        window_end: datetime,
     ) -> dict[str, Any]:
         """Map context.entities_rich into the completions dict.
+
+        Every ``entities_rich`` row is ``{"entity": <node properties>, "graph_context":
+        {...}}`` straight from the rich UserContext query, so the keys read here are
+        the Neo4j property names of each domain model (``progress_percentage``,
+        ``current_streak``, ``is_milestone_event``, ``current_alignment``,
+        ``principle_category``) and the graph-context aliases that query emits
+        (``goal_context`` — one dict or null —, ``applied_knowledge``,
+        ``guiding_principles``). A key the row does not carry reads as absent and
+        silently zeroes every count, average and recommendation built from it, so
+        these names are a contract with the query, pinned by
+        ``TestCompletionsFromContext``.
+
+        ``window_start``/``window_end`` are the report's period. Habits count as
+        completed when their last recorded completion falls inside it (a habit whose
+        NODE status is completed is a retired habit, not a completed one). Events are
+        kept only when their ``event_date`` falls inside it — the rich query selects
+        every event from ``window_start`` onward with no upper bound, so without this
+        cut a scheduled future event would be reported as already attended.
 
         Consumed by _build_report_content() and _build_llm_prompt().
         """
         include_all = domains is None
         result = self._empty_completions()
+        window_floor = _naive_utc(window_start)
+        window_ceiling = _naive_utc(window_end)
 
         # Tasks
         if include_all or "tasks" in (domains or []):
             for item in context.entities_rich.get("tasks", []):
                 entity = item["entity"]
                 graph_ctx = item.get("graph_context", {})
+                goal_ctx = graph_ctx.get("goal_context") or {}
+                goal_titles = [goal_ctx["title"]] if goal_ctx.get("title") else []
+                ku_titles = [
+                    ref["title"]
+                    for ref in graph_ctx.get("applied_knowledge") or []
+                    if ref.get("title")
+                ]
                 result["tasks_total"] += 1
                 if entity.get("status") == EntityStatus.COMPLETED:
                     result["tasks_completed"] += 1
-                    for ref in graph_ctx.get("goal_refs", []):
-                        if ref.get("title"):
-                            result["goal_alignments"].append(ref["title"])
-                    for ref in graph_ctx.get("ku_refs", []):
-                        if ref.get("title"):
-                            result["knowledge_applications"].append(ref["title"])
+                    result["goal_alignments"].extend(goal_titles)
+                    result["knowledge_applications"].extend(ku_titles)
                 result["tasks_details"].append(
                     {
                         "uid": entity["uid"],
                         "title": entity["title"],
                         "status": entity.get("status", ""),
-                        "goals": [
-                            r["title"] for r in graph_ctx.get("goal_refs", []) if r.get("title")
-                        ],
-                        "reports": [
-                            r["title"] for r in graph_ctx.get("ku_refs", []) if r.get("title")
-                        ],
+                        "goals": goal_titles,
+                        "kus": ku_titles,
                     }
                 )
 
@@ -801,7 +845,7 @@ class ProgressReportGenerator:
                         "uid": entity["uid"],
                         "title": entity["title"],
                         "status": entity.get("status", ""),
-                        "progress": entity.get("progress"),
+                        "progress": entity.get("progress_percentage"),
                     }
                 )
 
@@ -809,14 +853,19 @@ class ProgressReportGenerator:
         if include_all or "habits" in (domains or []):
             for item in context.entities_rich.get("habits", []):
                 entity = item["entity"]
-                if entity.get("status") == EntityStatus.COMPLETED:
+                last_completed = _naive_utc(entity.get("last_completed"))
+                if (
+                    last_completed is not None
+                    and window_floor is not None
+                    and last_completed >= window_floor
+                ):
                     result["habits_completed"] += 1
                 result["habits_details"].append(
                     {
                         "uid": entity["uid"],
                         "title": entity["title"],
                         "status": entity.get("status", ""),
-                        "streak": entity.get("streak", 0),
+                        "streak": entity.get("current_streak", 0),
                     }
                 )
 
@@ -824,7 +873,12 @@ class ProgressReportGenerator:
         if include_all or "events" in (domains or []):
             for item in context.entities_rich.get("events", []):
                 entity = item["entity"]
-                graph_ctx = item.get("graph_context", {})
+                event_day = parse_date_value(entity.get("event_date"))
+                if event_day is not None and (
+                    (window_floor is not None and event_day < window_floor.date())
+                    or (window_ceiling is not None and event_day > window_ceiling.date())
+                ):
+                    continue
                 result["events_attended"] += 1
                 result["events_details"].append(
                     {
@@ -832,7 +886,7 @@ class ProgressReportGenerator:
                         "title": entity["title"],
                         "status": entity.get("status", ""),
                         "event_type": entity.get("event_type", ""),
-                        "is_milestone": graph_ctx.get("is_milestone", False),
+                        "is_milestone": bool(entity.get("is_milestone_event", False)),
                     }
                 )
 
@@ -847,9 +901,9 @@ class ProgressReportGenerator:
                         "uid": entity["uid"],
                         "title": entity["title"],
                         "principles": [
-                            r["title"]
-                            for r in graph_ctx.get("principle_refs", [])
-                            if r.get("title")
+                            ref["title"]
+                            for ref in graph_ctx.get("guiding_principles") or []
+                            if ref.get("title")
                         ],
                     }
                 )
@@ -864,9 +918,9 @@ class ProgressReportGenerator:
                         "uid": entity["uid"],
                         "title": entity["title"],
                         "status": entity.get("status", ""),
-                        "alignment": entity.get("alignment", ""),
+                        "alignment": entity.get("current_alignment", ""),
                         "strength": entity.get("strength", ""),
-                        "category": entity.get("category", ""),
+                        "category": entity.get("principle_category", ""),
                     }
                 )
 

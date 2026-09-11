@@ -161,7 +161,7 @@ class ActivityReportService:
                     {
                         "title": item.get("entity", {}).get("title", ""),
                         "status": item.get("entity", {}).get("status", ""),
-                        "progress": item.get("entity", {}).get("progress"),
+                        "progress": item.get("entity", {}).get("progress_percentage"),
                     }
                     for item in goals[:10]
                 ],
@@ -174,7 +174,7 @@ class ActivityReportService:
                     {
                         "title": item.get("entity", {}).get("title", ""),
                         "status": item.get("entity", {}).get("status", ""),
-                        "streak": item.get("entity", {}).get("streak", 0),
+                        "streak": item.get("entity", {}).get("current_streak", 0),
                     }
                     for item in habits[:10]
                 ],
@@ -188,7 +188,7 @@ class ActivityReportService:
                         "title": item.get("entity", {}).get("title", ""),
                         "principles": [
                             ref.get("title", "")
-                            for ref in item.get("graph_context", {}).get("principle_refs", [])
+                            for ref in item.get("graph_context", {}).get("guiding_principles") or []
                             if ref.get("title")
                         ],
                     }
@@ -204,7 +204,9 @@ class ActivityReportService:
                         "title": item.get("entity", {}).get("title", ""),
                         "status": item.get("entity", {}).get("status", ""),
                         "event_type": item.get("entity", {}).get("event_type", ""),
-                        "is_milestone": item.get("graph_context", {}).get("is_milestone", False),
+                        "is_milestone": bool(
+                            item.get("entity", {}).get("is_milestone_event", False)
+                        ),
                     }
                     for item in events[:10]
                 ],
@@ -217,7 +219,7 @@ class ActivityReportService:
                     {
                         "title": item.get("entity", {}).get("title", ""),
                         "status": item.get("entity", {}).get("status", ""),
-                        "alignment": item.get("entity", {}).get("alignment"),
+                        "alignment": item.get("entity", {}).get("current_alignment"),
                     }
                     for item in principles[:10]
                 ],

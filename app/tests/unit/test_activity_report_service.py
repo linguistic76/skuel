@@ -173,7 +173,7 @@ class TestSnapshotRecordMapping:
                             "priority": "high",
                             "progress": None,
                         },
-                        "graph_context": {"goal_refs": [], "ku_refs": []},
+                        "graph_context": {"goal_context": None, "applied_knowledge": []},
                     },
                     {
                         "entity": {
@@ -183,7 +183,7 @@ class TestSnapshotRecordMapping:
                             "priority": "medium",
                             "progress": None,
                         },
-                        "graph_context": {"goal_refs": [], "ku_refs": []},
+                        "graph_context": {"goal_context": None, "applied_knowledge": []},
                     },
                 ],
             }
@@ -199,14 +199,14 @@ class TestSnapshotRecordMapping:
 
     @pytest.mark.asyncio
     async def test_choice_principles_mapped(self, service):
-        """principle_refs in graph_context → choices items principles field."""
+        """guiding_principles in graph_context → choices items principles field."""
         context = _make_context(
             activity_rich={
                 "choices": [
                     {
                         "entity": {"uid": "c1", "title": "Chose to rest", "status": "active"},
                         "graph_context": {
-                            "principle_refs": [
+                            "guiding_principles": [
                                 {"uid": "p1", "title": "Recovery"},
                                 {"uid": "p2", "title": "Balance"},
                             ]
@@ -224,7 +224,7 @@ class TestSnapshotRecordMapping:
 
     @pytest.mark.asyncio
     async def test_event_is_milestone_mapped(self, service):
-        """is_milestone comes from graph_context, not entity."""
+        """is_milestone comes from the entity's is_milestone_event property."""
         context = _make_context(
             activity_rich={
                 "events": [
@@ -234,8 +234,9 @@ class TestSnapshotRecordMapping:
                             "title": "Workshop",
                             "status": "completed",
                             "event_type": "workshop",
+                            "is_milestone_event": True,
                         },
-                        "graph_context": {"is_milestone": True},
+                        "graph_context": {},
                     }
                 ],
             }

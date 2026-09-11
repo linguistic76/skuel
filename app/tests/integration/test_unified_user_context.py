@@ -618,7 +618,7 @@ class TestUserContextBuilder:
                     title: 'Test Goal',
                     user_uid: $user_uid,
                     status: $status,
-                    progress: $progress,
+                    progress_percentage: $progress_percentage,
                     target_date: date($target_date),
                     created_at: datetime(),
                     updated_at: datetime()
@@ -628,7 +628,7 @@ class TestUserContextBuilder:
                 uid="goal:builder_1",
                 user_uid=test_user_uid,
                 status=EntityStatus.ACTIVE.value,
-                progress=0.6,
+                progress_percentage=60.0,
                 target_date=(date.today() + timedelta(days=30)).isoformat(),
             )
 
