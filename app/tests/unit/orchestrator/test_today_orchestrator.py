@@ -275,6 +275,8 @@ async def test_task_reads_are_dated_never_the_whole_list() -> None:
         "date_field": ["due_date", "scheduled_date"],
     }
     overdue_call = calls[1]
+    # Unbounded below: a historical vault task dated in any past year is overdue too.
+    assert overdue_call.args[1] == date.min
     assert overdue_call.args[2] == TODAY - timedelta(days=1)
     assert overdue_call.kwargs == {"include_completed": False, "date_field": "due_date"}
     assert not services["tasks"].get_user_tasks.called

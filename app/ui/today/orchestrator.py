@@ -45,9 +45,11 @@ if TYPE_CHECKING:
 logger = get_logger("skuel.orchestrators.today")
 
 
-#: The overdue read's lower bound — the range read needs one, and no task is
-#: due before SKUEL's own first day.
-_EARLIEST_DUE = date(2024, 1, 1)
+#: The overdue read's lower bound — the range read needs one, and a task may
+#: carry any past date: historical vault notes legitimately do (the DSL
+#: converters relax future-date validation for them), so the bound is the
+#: calendar's own first day, never a year SKUEL happens to have started in.
+_EARLIEST_DUE = date.min
 
 
 async def _no_tasks() -> Result[
