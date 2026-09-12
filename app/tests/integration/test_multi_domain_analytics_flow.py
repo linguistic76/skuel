@@ -119,59 +119,6 @@ class TestMultiDomainAnalyticsFlow:
         assert _naive(record["first"]) == moments[0], "first is written once and never moved"
         assert _naive(record["last"]) == moments[-1]
 
-    async def test_a_repeat_complete_does_not_move_the_completion_stamps(
-        self, analytics_service, neo4j_driver, test_user_uid
-    ):
-        """A repeat is not a completion moment (Codex #1134 P2).
-
-        The explicit-complete cascade re-runs on an already-completed task and
-        publishes a *fresh* ``occurred_at`` with ``is_repeat=True``. Recording
-        that would move "when did this user most recently complete something"
-        forward on a click that completed nothing.
-        """
-        assert (
-            await analytics_service.handle_task_completed(
-                TaskCompleted(
-                    task_uid="task.once",
-                    user_uid=test_user_uid,
-                    occurred_at=datetime(2026, 8, 1, 9, 0),
-                )
-            )
-        ).is_ok
-        before = await _productivity(neo4j_driver, test_user_uid)
-
-        assert (
-            await analytics_service.handle_task_completed(
-                TaskCompleted(
-                    task_uid="task.once",
-                    user_uid=test_user_uid,
-                    occurred_at=datetime(2026, 8, 20, 9, 0),
-                    is_repeat=True,
-                )
-            )
-        ).is_ok
-
-        after = await _productivity(neo4j_driver, test_user_uid)
-        assert after["last"] == before["last"], "a repeat complete is not a completion moment"
-        assert after["first"] == before["first"]
-
-    async def test_a_repeat_before_any_completion_creates_no_node(
-        self, analytics_service, neo4j_driver, test_user_uid
-    ):
-        """The handler is gated whole: with no count to recompute, a repeat has
-        no business reaching the graph, so it does not even upsert the node."""
-        result = await analytics_service.handle_task_completed(
-            TaskCompleted(
-                task_uid="task.repeat_only",
-                user_uid=test_user_uid,
-                occurred_at=datetime.now(),
-                is_repeat=True,
-            )
-        )
-        assert result.is_ok
-
-        assert await _productivity(neo4j_driver, test_user_uid) is None
-
     # ========================================================================
     # HABIT COMPLETION ANALYTICS TESTS
     # ========================================================================

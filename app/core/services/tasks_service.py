@@ -255,14 +255,13 @@ class TasksService(
     Delegation Methods:
     - Core CRUD: get_task, get_user_tasks, list_tasks, update_task, delete_task
     - Search: get_tasks_for_goal, get_tasks_for_habit, get_prioritized, etc.
-    - Progress: check_prerequisites, unblock_task_if_ready, record_task_completion, etc.
+    - Progress: check_prerequisites, unblock_task_if_ready, assign_task_to_user
     - Scheduling: create_task_with_context, create_task_from_path_step, etc.
     - Learning: get_learning_relevant_tasks, get_next_learning_task, suggest_learning_aligned_tasks
     - Analytics: analyze_learning_patterns, generate_task_insights, etc.
 
     Explicit Methods (custom logic):
     - create_task: Has special user_uid parameter handling
-    - complete_task_with_cascade: Orchestrates knowledge generation
     - link_task_to_knowledge/goal: Passes specific parameters
     - analyze_task_knowledge_impact: Full orchestration
     """
@@ -765,18 +764,6 @@ class TasksService(
     ) -> Result[Task | None]:
         return await self.progress.unblock_task_if_ready(task_uid, user_context)
 
-    async def record_task_completion(
-        self,
-        task_uid: str,
-        user_uid: UserUID,
-        duration_minutes: int = 0,
-        quality_score: float = 1.0,
-        completion_notes: str = "",
-    ) -> Result[bool]:
-        return await self.progress.record_task_completion(
-            task_uid, user_uid, duration_minutes, quality_score, completion_notes
-        )
-
     async def assign_task_to_user(
         self,
         task_uid: str,
@@ -890,24 +877,6 @@ class TasksService(
             Result containing created Task
         """
         return await self.core.create_task(task_request, user_uid)
-
-    # complete_task_with_cascade is provided by _OrchestrationMixin
-
-    async def complete_task(
-        self,
-        uid: str,
-        actual_minutes: int | None = None,
-        quality_score: int | None = None,
-    ) -> Result[Task]:
-        """
-        Complete a task without a user_context.
-
-        Simplified entry point: the cascade derives the owning user from the
-        task itself (see ``complete_task_with_cascade``).
-        """
-        return await self.progress.complete_task_with_cascade(
-            uid, user_context=None, actual_minutes=actual_minutes, quality_score=quality_score
-        )
 
     # ========================================================================
     # RELATIONSHIPS AND DEPENDENCIES

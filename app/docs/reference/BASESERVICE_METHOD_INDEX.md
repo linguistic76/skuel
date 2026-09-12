@@ -137,7 +137,7 @@ Facade-specific public methods — what each facade adds on top of the shared Ba
 
 ### TasksService
 
-**Facade-specific public methods:** 57
+**Facade-specific public methods:** 54
 
 | Method | Async |
 |--------|-------|
@@ -147,8 +147,6 @@ Facade-specific public methods — what each facade adds on top of the shared Ba
 | `assign_task_to_user()` | ✅ |
 | `calculate_knowledge_aware_priorities()` | ✅ |
 | `check_prerequisites()` | ✅ |
-| `complete_task()` | ✅ |
-| `complete_task_with_cascade()` | ✅ |
 | `create()` | ✅ |
 | `create_semantic_knowledge_relationship()` | ✅ |
 | `create_subtask_relationship()` | ✅ |
@@ -188,7 +186,6 @@ Facade-specific public methods — what each facade adds on top of the shared Ba
 | `link_task_to_goal()` | ✅ |
 | `link_task_to_knowledge()` | ✅ |
 | `list_tasks()` | ✅ |
-| `record_task_completion()` | ✅ |
 | `remove_subtask_relationship()` | ✅ |
 | `suggest_learning_aligned_tasks()` | ✅ |
 | `track_knowledge_mastery_progression()` | ✅ |

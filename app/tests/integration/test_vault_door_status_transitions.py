@@ -126,7 +126,6 @@ async def test_file_arriving_completed_publishes_once(
     (event,) = bus.completions(TaskCompleted)
     assert event.task_uid == "task.vault-status-born"
     assert event.user_uid == OWNER_UID
-    assert event.is_repeat is False
     # The authored ✅ date, not the ingest moment
     assert event.occurred_at == datetime(2026, 3, 4, 0, 0)
 

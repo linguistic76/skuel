@@ -11,6 +11,8 @@ Part of the TasksService decomposition — separates event handling from
 graph analytics (TasksIntelligenceService).
 
 Responsibilities:
+- Dependent-task scheduling on completion (``TRIGGERS_ON_COMPLETION``) — its own
+  subscriber with its own exception boundary
 - Duration calibration from task completions (migrated from intelligence)
 - Overdue pattern detection and principle alignment on completion
 - Priority change categorization and inflation detection
@@ -28,10 +30,11 @@ from core.events.task_events import (
     TaskPriorityChanged,
     TasksBulkCompleted,
 )
-from core.models.enums import Priority
+from core.models.enums import EntityStatus, Priority
 from core.models.insight.persisted_insight import InsightImpact, InsightType, PersistedInsight
 from core.models.relationship_names import RelationshipName
 from core.models.type_hints import EntityUID, UserUID
+from core.models.update_contracts import StatusWriteGuard
 from core.services.insight import persist_principle_alignment_insight
 from core.utils.exception_types import DATA_CONVERSION_EXCEPTIONS, NEO4J_EXCEPTIONS
 from core.utils.logging import get_logger
@@ -98,7 +101,9 @@ class TaskEventHandlerService:
     priority inflation, and classify batch operations.
 
     Handles:
-    - TaskCompleted: Duration calibration, overdue detection, principle alignment
+    - TaskCompleted: dependent-task scheduling (``handle_dependent_scheduling``, subscribed on
+      its own so an optional intelligence step cannot pre-empt it), then duration
+      calibration, overdue detection, principle alignment (``handle_task_completed``)
     - TaskPriorityChanged: Change categorization, cascade impact, inflation detection
     - TasksBulkCompleted: Batch pattern classification
     """
@@ -140,14 +145,9 @@ class TaskEventHandlerService:
         2. Detects overdue completion patterns
         3. Checks principle alignment for completed task
 
-        Steps 1 and 2 are **counting/appending** work and are skipped on a
-        repeat complete (``event.is_repeat``): the EMA would fold the same
-        sample in twice and bump ``task_completion_count``, and the overdue
-        insight would be appended again under a fresh per-second UID. Step 4
-        recomputes from the graph and runs every time — that is the repair
-        path. Step 3 is **split**: it recomputes the alignment (runs every
-        time) and then appends an insight (skipped on a repeat, same reason as
-        step 2). See :class:`TaskCompleted` for the contract.
+        Every publisher of ``TaskCompleted`` is transition-gated (see the
+        event's docstring), so this handler runs exactly once per genuine
+        completion and needs no repeat gate of its own.
 
         Args:
             event: TaskCompleted event with completion context
@@ -157,8 +157,7 @@ class TaskEventHandlerService:
         """
         try:
             # 1. Duration calibration (migrated from intelligence service)
-            if not event.is_repeat:
-                await self._calibrate_duration(event)
+            await self._calibrate_duration(event)
 
             # 2. Overdue pattern detection
             if event.was_overdue:
@@ -172,7 +171,7 @@ class TaskEventHandlerService:
                 )
 
                 # Persist overdue completion insight
-                if self.insight_store and not event.is_repeat:
+                if self.insight_store:
                     insight = PersistedInsight(
                         uid=PersistedInsight.generate_uid(
                             InsightType.COMPLETION_PATTERN, EntityUID(event.task_uid)
@@ -212,6 +211,92 @@ class TaskEventHandlerService:
                     "error": str(e),
                 },
             )
+
+    async def handle_dependent_scheduling(self, event: TaskCompleted) -> None:
+        """Schedule the completed task's ``TRIGGERS_ON_COMPLETION`` dependents.
+
+        The one graph write a task completion cascades into, and the reason it is
+        its own subscriber rather than a step of :meth:`handle_task_completed`: that
+        handler exits through one boundary when an optional intelligence step
+        (duration calibration, principle alignment, knowledge generation) raises,
+        and a dependent must not stay unscheduled behind a completion that reported
+        success. The bus runs subscribers in isolation, so nothing this raises can
+        reach another handler or the completing request.
+
+        Recompute-shaped: every dependent is asked for on every completion, and the
+        write's own terminal condition (:meth:`_schedule_dependent`) makes a second
+        pass a no-op — no repeat gate is needed or wanted, and a republish would be
+        safe. There is no republish today: a transient failure here is logged and the
+        dependents stay unscheduled (a re-posted ``completed`` publishes nothing).
+        The durable-delivery design that closes this is
+        ``docs/roadmap/ingest-transition-obligation-durability.md``.
+
+        Note:
+            Fire-and-forget — errors are logged, never propagated.
+        """
+        try:
+            triggers = await self.backend.get_related_uids(
+                event.task_uid, RelationshipName.TRIGGERS_ON_COMPLETION, direction="outgoing"
+            )
+            if triggers.is_error:
+                self.logger.warning(
+                    "Could not read TRIGGERS_ON_COMPLETION dependents of %s: %s",
+                    event.task_uid,
+                    triggers.expect_error(),
+                )
+                return
+            for dependent_uid in triggers.value:
+                await self._schedule_dependent(dependent_uid)
+        except (*NEO4J_EXCEPTIONS, *DATA_CONVERSION_EXCEPTIONS) as e:
+            self.logger.error(
+                f"Error scheduling dependents of completed task: {e}",
+                extra={"task_uid": event.task_uid, "user_uid": event.user_uid, "error": str(e)},
+            )
+
+    async def _schedule_dependent(self, task_uid: str) -> None:
+        """Schedule a dependent task, unless that task has already finished.
+
+        A ``TRIGGERS_ON_COMPLETION`` dependent that is already in a terminal state is
+        left exactly as it is — this cascade unblocks work, it never reopens work
+        that is done.
+        """
+        # The terminal check is a CONDITION ON THE WRITE, not a read before it
+        # (ADR-087). A blind ``status=scheduled`` on an already-COMPLETED dependent
+        # would move it out of COMPLETED while LEAVING ``completion_date`` set —
+        # breaking the invariant that the stamp is non-null exactly when the task
+        # is completed. A dependent being completed concurrently is exactly the case
+        # a read-then-write gate misses, because the status it read is already stale
+        # by the time it writes.
+        # The gate is ``terminal_values()``, not COMPLETED alone: FAILED / CANCELLED /
+        # ARCHIVED dependents are equally not this cascade's to resurrect, and keying
+        # on the enum's own predicate means a new terminal status is honoured here
+        # without an edit. It is the only terminal-state protection anywhere in Tasks:
+        # the domain's own update hook carries a single rule about overdue priority,
+        # because refusing every change to a finished task would also refuse the
+        # status re-post that reopens it.
+        # No stamp guard is wanted here: the only prior a reopen clear would apply
+        # to is COMPLETED, which this guard refuses outright.
+        result = await self.backend.update_with_status_guard(
+            task_uid,
+            {"status": EntityStatus.SCHEDULED.value},
+            StatusWriteGuard(refuse_if_prior_in=EntityStatus.terminal_values()),
+        )
+        if result.is_error:
+            # Includes the not-found case — a TRIGGERS_ON_COMPLETION edge pointing
+            # at nothing fails this write, never the cascade around it.
+            self.logger.warning(
+                f"Failed to schedule dependent task {task_uid}: {result.expect_error()}"
+            )
+            return
+        outcome = result.value
+        if not outcome.applied:
+            self.logger.debug(
+                "Skipped scheduling dependent task %s: already terminal (%s)",
+                task_uid,
+                outcome.prior_status,
+            )
+            return
+        self.logger.debug(f"Scheduled dependent task {task_uid}")
 
     async def handle_task_priority_changed(self, event: TaskPriorityChanged) -> None:
         """Handle task priority changes with cascade analysis.
@@ -391,12 +476,6 @@ class TaskEventHandlerService:
         """Check if completed task is aligned with any principles.
 
         Generates cross-domain insight when task contributes to principle alignment.
-
-        Two halves with different idempotency shapes. The alignment read
-        recomputes from the graph and runs on every complete, repeat included —
-        that is the repair path. The insight append does not: it is gated on
-        ``event.is_repeat`` like the overdue insight in the caller. See the
-        contract on :class:`TaskCompleted`.
         """
         if not self.relationships:
             return
@@ -418,21 +497,16 @@ class TaskEventHandlerService:
                 },
             )
 
-            # Persist principle alignment insight — the APPEND half, gated. The
-            # UID from PersistedInsight.generate_uid embeds a per-second
-            # timestamp, so a repeat lands a second row describing the same
-            # alignment rather than updating the first.
-            if not event.is_repeat:
-                await persist_principle_alignment_insight(
-                    self.insight_store,
-                    self.logger,
-                    user_uid=event.user_uid,
-                    entity_uid=EntityUID(event.task_uid),
-                    domain="tasks",
-                    title="Task Aligned with Principles",
-                    description=f"Completed task contributes to {len(principle_uids)} principle(s).",
-                    principle_uids=principle_uids,
-                )
+            await persist_principle_alignment_insight(
+                self.insight_store,
+                self.logger,
+                user_uid=event.user_uid,
+                entity_uid=EntityUID(event.task_uid),
+                domain="tasks",
+                title="Task Aligned with Principles",
+                description=f"Completed task contributes to {len(principle_uids)} principle(s).",
+                principle_uids=principle_uids,
+            )
 
     async def _detect_priority_inflation(self, event: TaskPriorityChanged) -> None:
         """Detect if user has too many high-priority tasks.

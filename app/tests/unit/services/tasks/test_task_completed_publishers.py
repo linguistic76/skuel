@@ -1,26 +1,15 @@
 """The completion-transition publishes at the Task write doors.
 
-Every door to COMPLETED publishes ``TaskCompleted`` (PR-4 of the arc), and the
-status chokepoint also publishes the mirror ``TaskReopened`` on a transition
-back OUT (PR-6) — the signal that lets a subscriber hold "tasks completed" as a
+Every door to COMPLETED publishes ``TaskCompleted`` — the status chokepoint
+(``update_task``, the one completion door: ``POST /api/tasks/{uid}/status`` and
+Today's complete both post through it), the per-row fan-out from
+``complete_tasks_bulk``, the born-completed create door and the vault door — and
+the status chokepoint also publishes the mirror ``TaskReopened`` on a transition
+back OUT: the signal that lets a subscriber hold "tasks completed" as a
 recomputed number instead of a counter that can only rise.
 
-
-Before this pass only the explicit-complete cascade did. The status chokepoint
-(``POST /api/tasks/{uid}/status`` → ``update_task``) published ``TaskUpdated``
-only, and ``complete_tasks_bulk`` published ``TasksBulkCompleted`` only — so a
-task completed from a status control or a bulk selection silently skipped goal
-progress, PS engagement auto-complete, duration calibration, analytics and
-context invalidation.
-
-Both new publishes are **transition-gated**, which is why both are always
-``is_repeat=False``: the gate IS the transition, so a re-post of ``completed``
-never reaches them. Only the explicit-complete cascade — deliberately preserved
-as a repair path — reports a repeat.
-
-The publisher side of ``is_repeat`` for that cascade lives in
-``tests/unit/test_tasks_progress_service.py``; the subscriber side of the whole
-contract lives in ``tests/unit/test_task_completed_is_repeat.py``.
+Every publish is **transition-gated**: the gate IS the transition, so a re-post
+of ``completed`` never reaches one, and no subscriber carries a repeat gate.
 """
 
 from __future__ import annotations
@@ -97,7 +86,6 @@ class TestUpdateTaskPublishesTaskCompleted:
         assert len(completed) == 1
         assert completed[0].task_uid == "task_1"
         assert completed[0].user_uid == USER
-        assert completed[0].is_repeat is False
 
     async def test_the_event_carries_analytics_context_without_extra_queries(self) -> None:
         """``was_overdue`` and ``completion_time_seconds`` come from the models
@@ -359,7 +347,6 @@ class TestCompleteTasksBulkFansOut:
         assert [event.task_uid for event in completed] == ["task_active"], (
             "an already-completed row published a completion it did not make"
         )
-        assert completed[0].is_repeat is False, "a bulk call is not a repair path"
         assert completed[0].completion_time_seconds == 30 * 60
 
     async def test_the_batch_event_survives_alongside_the_per_row_events(self) -> None:
@@ -468,29 +455,7 @@ class TestBulkVerdictsComeFromTheWrite:
         assert result.is_ok
         completed = bus.of(TaskCompleted)
         assert [event.task_uid for event in completed] == ["task_reopened"]
-        assert completed[0].is_repeat is False
 
 
 # ---------------------------------------------------------------------------
 # 3. No double-publish: the explicit-complete cascade never re-enters update_task
-# ---------------------------------------------------------------------------
-
-
-@pytest.mark.asyncio
-async def test_the_cascade_path_still_publishes_exactly_one_task_completed() -> None:
-    """``complete_task_with_cascade`` writes straight through the status-guarded
-    primitive, not ``update_task``, so PR-4's chokepoint publish cannot double up
-    with the cascade's own."""
-    from core.services.tasks.tasks_progress_service import TasksProgressService
-
-    task = Task(uid="task_c", user_uid=USER, title="t", status=EntityStatus.ACTIVE)
-    stored = task.to_dto().to_dict()
-    backend, _recorder = guarded_backend(stored, stored)
-    backend.get_related_uids = AsyncMock(return_value=Result.ok([]))
-    bus = _RecordingBus()
-    service = TasksProgressService(backend=backend, event_bus=bus)
-
-    result = await service.complete_task_with_cascade("task_c", user_context=None)
-
-    assert result.is_ok
-    assert len(bus.of(TaskCompleted)) == 1

@@ -9,9 +9,7 @@ from core.utils.exception_types import DATA_CONVERSION_EXCEPTIONS, NEO4J_EXCEPTI
 from core.utils.result_simplified import Errors, Result
 
 if TYPE_CHECKING:
-    from core.models.task.task import Task
     from core.models.type_hints import UserUID
-    from core.services.user import UserContext
 
 
 class _OrchestrationMixin:
@@ -23,22 +21,6 @@ class _OrchestrationMixin:
     logger: Any
     event_handler: Any
     get_task: Any  # Provided by TasksService facade
-
-    async def complete_task_with_cascade(
-        self,
-        task_uid: str,
-        user_context: UserContext,
-        actual_minutes: int | None = None,
-        quality_score: int | None = None,
-    ) -> Result[Task]:
-        """Complete a task and cascade updates through the system.
-
-        Knowledge generation runs as a TaskCompleted event subscriber in
-        TaskEventHandlerService — not as an inline side effect here.
-        """
-        return await self.progress.complete_task_with_cascade(
-            task_uid, user_context, actual_minutes, quality_score
-        )
 
     async def analyze_task_knowledge_impact(self, task_uid: str) -> Result[dict[str, Any]]:
         """

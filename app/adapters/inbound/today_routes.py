@@ -147,14 +147,19 @@ def create_today_routes(
     @rt("/today/tasks/{uid}/complete", methods=["POST"])
     @csrf_protected
     async def today_task_complete(request: Request, uid: str) -> Response:
-        """Complete a task. 204 on success, 404 on unknown/unowned."""
+        """Complete a task. 204 on success, 404 on unknown/unowned.
+
+        Through the status door — ``update_task``, the one completion path: the
+        stamp, the ``TaskCompleted`` publish and everything that subscribes to it
+        (dependent scheduling, goal progress, calibration) are that door's.
+        """
         user_uid = require_authenticated_user(request)
 
         ownership_error = await verify_entity_ownership(tasks.core, uid, user_uid, "tasks")
         if ownership_error is not None:
             return Response("Task not found", status_code=404)
 
-        result = await tasks.complete_task(uid)
+        result = await tasks.update_task(uid, TaskUpdateIntent(status=EntityStatus.COMPLETED.value))
         if result.is_error:
             logger.warning(
                 "today.complete failed for task=%s user=%s: %s",

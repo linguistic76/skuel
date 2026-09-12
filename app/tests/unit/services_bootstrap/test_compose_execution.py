@@ -43,8 +43,9 @@ from services_bootstrap.compose import compose_services
 # are hand-derived from _event_wiring.py (+ the FULL-tier ZPD snapshot
 # subscriptions in _intelligence_hub.py) and empirically cross-checked against
 # a real compose run. Exact equality is deliberate: several events carry
-# multiple handlers (TaskCompleted has 5 — context invalidation, goal
-# progress, PS auto-complete, cross-domain analytics, task intelligence), and
+# multiple handlers (TaskCompleted has 6 — context invalidation, goal
+# progress, PS auto-complete, cross-domain analytics, dependent scheduling,
+# task intelligence), and
 # a zero-handler check would miss dropping one of them. Adding a subscription
 # is a wiring-contract change — update the table here alongside it.
 
@@ -129,7 +130,7 @@ def _expected_handler_counts(full_tier: bool) -> dict[type, int]:
     counts: dict[type, int] = {
         # Tasks
         TaskCreated: 1,
-        TaskCompleted: 5,  # invalidate + goal progress + PS auto-complete + x-domain + intelligence
+        TaskCompleted: 6,  # invalidate + goal progress + PS auto-complete + x-domain + dependents + intelligence
         TaskUpdated: 1,
         TaskDeleted: 1,
         TaskPriorityChanged: 2,

@@ -30,9 +30,7 @@ The gate is the *transition*, not the presence of the status key: re-posting
 update that already carries the domain's completion field keeps authority — a
 caller-supplied date (``complete_goal(achieved_date=…)``) sets its own stamp and
 nothing is injected. Default-dated ``complete_goal`` carries no field and defers
-to the gate here, so a retried complete never re-dates. The explicit-complete
-flows do the same: ``complete_task_with_cascade`` carries no stamp of its own, so
-its repeat-complete protection is the write's condition.
+to the gate here, so a retried complete never re-dates.
 
 Bypass paths are handled elsewhere by design: ingestion never auto-stamps (the
 file is the source of truth for its own dates), and the DSL ``[x]`` create door

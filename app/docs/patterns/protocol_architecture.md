@@ -1,6 +1,6 @@
 ---
 title: Protocol-Based Architecture
-updated: 2026-09-11
+updated: 2026-09-12
 category: patterns
 related_skills:
 - python
@@ -172,7 +172,7 @@ Following "One Path Forward", service-level and redundant methods were removed f
 - Redundant `get`/`create`/`update`/`delete` re-declarations from `ChoicesOperations`, `PrinciplesOperations` (already in `BackendOperations[T]`)
 - All `get_*_cross_domain_context` methods — never implemented in any backend
 
-These methods still exist as explicit delegation methods on facade services (`TasksService.complete_task()`, `HabitsService.record_completion()`, etc.) — they were only removed from the backend protocol contract.
+These methods still exist as explicit delegation methods on facade services (`TasksService.assign_task_to_user()`, `HabitsService.record_completion()`, etc.) — they were only removed from the backend protocol contract.
 
 **Added: Typed backend subclasses (February 2026)**
 

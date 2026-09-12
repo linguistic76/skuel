@@ -234,7 +234,6 @@ def _completion_event(
             # completed on time last March must not be announced overdue purely
             # because March has passed (the overdue branch APPENDS an insight).
             was_overdue=due_date < occurred_at.date() if due_date else False,
-            is_repeat=False,
             occurred_at=occurred_at,
         )
     if entity_type is EntityType.GOAL:

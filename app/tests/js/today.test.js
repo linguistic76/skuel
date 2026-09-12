@@ -275,10 +275,10 @@ describe('undo truthfulness', () => {
   });
 
   // The flash appears immediately, so Undo is routinely clicked while the
-  // complete POST is still in flight. The complete is the SLOWER request
-  // (complete_task_with_cascade reads before it writes; the reopen is one
-  // get + one update), so an independent reopen could land first and then be
-  // overwritten — leaving the task completed under a card reading "not done".
+  // complete POST is still in flight. Both are writes through the same status
+  // door and nothing orders them server-side, so an independent reopen could
+  // land first and then be overwritten — leaving the task completed under a
+  // card reading "not done".
   it('queues the reopen behind the in-flight complete (Codex #1133 P1)', async () => {
     let finishComplete;
     htmxAjax.mockImplementationOnce(

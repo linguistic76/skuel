@@ -1,6 +1,6 @@
 ---
 title: API Validation Patterns
-updated: 2026-09-09
+updated: 2026-09-12
 category: patterns
 related_skills:
 - pydantic
@@ -115,73 +115,40 @@ async def get_dashboard(request: Request) -> Result[Any]:
 
 **Example:**
 ```python
-# core/models/task/task_request.py (context-aware models live in domain request files)
+# core/models/task/task_request.py (abridged — the file carries every field)
 
-from pydantic import ConfigDict, Field
+from pydantic import Field
 
-from core.models.request_base import RequestBase
+from core.models.request_base import UpdateRequestBase
 
-class TaskCompletionContext(RequestBase):
-    """Context data accompanying a context-aware task completion."""
+class TaskUpdateRequest(UpdateRequestBase):
+    """Request model for updating a task — bound by the CRUD factory's PUT route."""
 
-    knowledge_applied: list[str] = Field(default_factory=list)
-    time_invested_minutes: int | None = Field(default=None, ge=0)
-    quality: str = Field(default="good")
-
-class ContextualTaskCompletionRequest(RequestBase):
-    """Request model for completing a task with context awareness."""
-
-    context: TaskCompletionContext = Field(
-        default_factory=TaskCompletionContext,
-        description="Context data (knowledge_applied, time_invested_minutes, quality)"
-    )
-    reflection: str = Field(
-        default="",
-        max_length=2000,
-        description="Reflection notes on task completion"
-    )
-
-    model_config = ConfigDict(
-        json_schema_extra={
-            "example": {
-                "context": {
-                    "knowledge_applied": ["ku.python"],
-                    "time_invested_minutes": 120
-                },
-                "reflection": "Great learning experience"
-            }
-        }
-    )
+    title: str | None = Field(default=None, min_length=1, max_length=200)
+    duration_minutes: int | None = Field(default=None, ge=5, le=480)
+    actual_minutes: int | None = Field(default=None, ge=0, description="Actual time spent")
+    goal_progress_contribution: float | None = Field(default=None, ge=0.0, le=1.0)
 ```
 
-**A nested sub-model, not a `dict[str, Any]`.** A bag of documented keys is not
-genuinely heterogeneous — it is a type nobody wrote down. Typing it moves the
-`ge=0` constraint to the boundary and lets the service take explicit params
-instead of `.get()`-ing keys Pydantic just proved exist (see
-[ANY_USAGE_POLICY.md](ANY_USAGE_POLICY.md)).
+**A nested sub-model, not a `dict[str, Any]`.** When a body carries a bag of
+documented keys, that bag is not genuinely heterogeneous — it is a type nobody
+wrote down. Type it as a sub-model so its constraints sit at the boundary and the
+service takes explicit params instead of `.get()`-ing keys Pydantic just proved
+exist (see [ANY_USAGE_POLICY.md](ANY_USAGE_POLICY.md)).
 
 **Usage in Routes:**
 ```python
 from adapters.inbound.form_helpers import parse_json_body
 
-@rt("/api/context/task/complete", methods=["POST"])
-@boundary_handler(success_status=200)
-async def complete_task(request: Request, task_uid: str) -> Result[Any]:
-    """Complete task with context awareness."""
-    result = await parse_json_body(request, ContextualTaskCompletionRequest)
+@rt("/api/tasks/{uid}", methods=["PUT"])
+@boundary_handler()
+async def update_task(request: Request, uid: str) -> Result[Task]:
+    """Update a task — the shape the CRUD factory's update route follows."""
+    result = await parse_json_body(request, TaskUpdateRequest)
     if result.is_error:
-        return result  # type: ignore[return-value]
-    req = result.value
-
-    return await service.complete_task_with_context(
-        task_uid=task_uid,
-        # Destructure at the boundary: Pydantic is done, the service takes
-        # plain typed params.
-        time_invested_minutes=req.context.time_invested_minutes,
-        knowledge_applied=req.context.knowledge_applied,
-        quality=req.context.quality,
-        reflection_notes=req.reflection,
-    )
+        return Result.fail(result)
+    # Pydantic stops here: the service takes the typed intent, never the model.
+    return await tasks_service.update_task(uid, result.value.to_intent())
 ```
 
 **With extra fields** (e.g., entity UID from `@require_ownership_query`):
@@ -377,14 +344,14 @@ Pydantic composes its per-field detail into the single `message` string; the
 envelope keys are whatever `ErrorContext.to_client_dict()` emits, never
 Pydantic's own `detail` array.
 
-**Request:** `reflection` is abbreviated below — the placeholder stands for that
+**Request:** `title` is abbreviated below — the placeholder stands for that
 many literal `x` characters, one over `max_length`. Both blocks come from the
 same run.
 
 ```json
 {
-  "context": "string",
-  "reflection": "<2001 x's>"
+  "title": "<201 x's>",
+  "actual_minutes": -1
 }
 ```
 
@@ -393,7 +360,7 @@ same run.
 {
   "category": "validation",
   "code": "VALIDATION_FIELD_BODY",
-  "message": "2 validation errors for ContextualTaskCompletionRequest\ncontext\n  Input should be a valid dictionary or instance of TaskCompletionContext [type=model_type, input_value='string', input_type=str]\n    For further information visit https://errors.pydantic.dev/2.13/v/model_type\nreflection\n  String should have at most 2000 characters [type=string_too_long, input_value='xxxxxxxxxxxxxxxxxxxxxxxx...xxxxxxxxxxxxxxxxxxxxxxx', input_type=str]\n    For further information visit https://errors.pydantic.dev/2.13/v/string_too_long",
+  "message": "2 validation errors for TaskUpdateRequest\ntitle\n  String should have at most 200 characters [type=string_too_long, input_value='xxxxxxxxxxxxxxxxxxxxxxxx...xxxxxxxxxxxxxxxxxxxxxxx', input_type=str]\n    For further information visit https://errors.pydantic.dev/2.13/v/string_too_long\nactual_minutes\n  Input should be greater than or equal to 0 [type=greater_than_equal, input_value=-1, input_type=int]\n    For further information visit https://errors.pydantic.dev/2.13/v/greater_than_equal",
   "severity": "low",
   "timestamp": "2026-01-15T10:30:00+00:00"
 }
@@ -576,33 +543,25 @@ API Request → Pydantic Model → DTO → Domain Model → Core Logic
 
 **Flow Example:**
 ```python
-# Tier 1: External (API boundary)
-class TaskCompletionContext(RequestBase):  # Validates structure
-    time_invested_minutes: int | None = Field(default=None, ge=0)
+# Tier 1: External (API boundary) — validates structure and constraints
+class TaskUpdateRequest(UpdateRequestBase):
+    title: str | None = Field(default=None, min_length=1, max_length=200)
+    actual_minutes: int | None = Field(default=None, ge=0)
 
-class TaskCompletionRequest(RequestBase):
-    context: TaskCompletionContext = Field(default_factory=TaskCompletionContext)
-    reflection: str = Field(default="")
+    def to_intent(self) -> TaskUpdateIntent: ...  # the typed patch the service takes
 
-# Route parses JSON → constructs model → destructures → calls service
-@rt("/api/context/task/complete", methods=["POST"])
-async def complete_task(request: Request) -> Result[Any]:
-    result = await parse_json_body(request, TaskCompletionRequest)
+# Route parses JSON → constructs model → hands the service a typed intent
+@rt("/api/tasks/{uid}", methods=["PUT"])
+async def update_task(request: Request, uid: str) -> Result[Task]:
+    result = await parse_json_body(request, TaskUpdateRequest)
     if result.is_error:
-        return result
-    req = result.value
-    return await service.complete_task_with_context(
-        time_invested_minutes=req.context.time_invested_minutes,
-        reflection_notes=req.reflection,
-    )
+        return Result.fail(result)
+    return await tasks_service.update_task(uid, result.value.to_intent())
 
-# Service layer takes plain typed params — the Pydantic model stops at the edge
-async def complete_task_with_context(
-    self,
-    time_invested_minutes: int | None,
-    reflection_notes: str,
-) -> Result[Task]:  # Returns domain model (Tier 3)
-    # Business logic...
+# Service layer takes the intent — the Pydantic model stops at the edge
+async def update_task(self, task_uid: str, intent: TaskUpdateIntent) -> Result[Task]:
+    # Business logic — returns the domain model (Tier 3)
+    ...
 ```
 
 See [three_tier_type_system.md](three_tier_type_system.md) for details.
@@ -622,7 +581,7 @@ core/models/{domain}/
 
 **Example (context-aware models dissolved into domain request files):**
 ```
-core/models/task/task_request.py      # ContextualTaskCompletionRequest
+core/models/task/task_request.py      # TaskCreateRequest, TaskUpdateRequest, TaskStatusUpdateRequest
 core/models/goal/goal_request.py      # ContextualGoalTaskGenerationRequest
 core/models/habit/habit_request.py    # ContextualHabitCompletionRequest
 core/models/auth/auth_request.py      # RegistrationRequest, LoginRequest, ResetPasswordRequest
@@ -832,23 +791,22 @@ if time_window_result.is_error:
 ### Optional JSON Fields with Defaults
 
 ```python
-class TaskCompletionRequest(RequestBase):
-    # Optional sub-model (defaults to an all-defaults instance)
-    context: TaskCompletionContext = Field(default_factory=TaskCompletionContext)
-
-    # Optional string (defaults to empty string)
-    reflection: str = Field(default="")
+class TaskStatusUpdateRequest(RequestBase):
+    # Required — the one field a status update cannot do without
+    status: EntityStatus = Field(description="New task status")
 
     # Optional with None (explicitly nullable)
     notes: str | None = Field(default=None)
+    completion_date: date | None = Field(default=None)
+    actual_minutes: int | None = Field(default=None, ge=0)
 ```
 
 **Request Handling:**
 ```json
 // All valid:
-{}                           // Uses all defaults
-{"context": {...}}           // Partial
-{"context": {...}, "reflection": "..."} // Full
+{"status": "completed"}                              // Uses all defaults
+{"status": "completed", "actual_minutes": 30}        // Partial
+{"status": "completed", "actual_minutes": 30, "notes": "..."}  // Full
 ```
 
 ---
@@ -859,12 +817,12 @@ class TaskCompletionRequest(RequestBase):
 
 **Before (Manual):**
 ```python
-@rt("/api/context/task/complete", methods=["POST"])
-async def complete_task(request: Request, task_uid: str) -> Result[Any]:
+@rt("/api/tasks/{uid}", methods=["PUT"])
+async def update_task(request: Request, uid: str) -> Result[Task]:
     body = await request.json()  # Manual parsing
 
-    completion_context = body.get("context", {})
-    reflection_notes = body.get("reflection", "")
+    title = body.get("title")
+    actual_minutes = body.get("actual_minutes")
 
     # No validation!
     # Malformed JSON → 500
@@ -875,18 +833,12 @@ async def complete_task(request: Request, task_uid: str) -> Result[Any]:
 ```python
 from adapters.inbound.form_helpers import parse_json_body
 
-@rt("/api/context/task/complete", methods=["POST"])
-async def complete_task(request: Request, task_uid: str) -> Result[Any]:
-    result = await parse_json_body(request, TaskCompletionRequest)
+@rt("/api/tasks/{uid}", methods=["PUT"])
+async def update_task(request: Request, uid: str) -> Result[Task]:
+    result = await parse_json_body(request, TaskUpdateRequest)
     if result.is_error:
-        return result  # type: ignore[return-value]
-    req = result.value
-
-    return await service.complete_task_with_context(
-        task_uid=task_uid,
-        time_invested_minutes=req.context.time_invested_minutes,
-        reflection_notes=req.reflection,
-    )
+        return Result.fail(result)
+    return await tasks_service.update_task(uid, result.value.to_intent())
 ```
 
 **For ownership-verified routes** (entity UID comes from `@require_ownership_query`):
@@ -946,26 +898,24 @@ def test_parse_csv_query_param():
 
 ```python
 from pydantic import ValidationError
-from core.models.task.task_request import ContextualTaskCompletionRequest
+from core.models.task.task_request import TaskUpdateRequest
 
-def test_task_completion_request_valid():
-    req = ContextualTaskCompletionRequest(
-        context={"knowledge_applied": ["ku.python"]},
-        reflection="Great experience"
-    )
-    assert req.context.knowledge_applied == ["ku.python"]
+def test_task_update_request_valid():
+    req = TaskUpdateRequest(title="Write the report", actual_minutes=30)
+    assert req.actual_minutes == 30
 
-def test_task_completion_request_invalid():
+def test_task_update_request_invalid():
     with pytest.raises(ValidationError, match="greater than or equal to 0"):
-        ContextualTaskCompletionRequest(context={"time_invested_minutes": -1})
+        TaskUpdateRequest(actual_minutes=-1)
 
-def test_task_completion_request_defaults():
-    req = ContextualTaskCompletionRequest()
-    assert req.context.time_invested_minutes is None
-    assert req.reflection == ""
+def test_task_update_request_defaults():
+    req = TaskUpdateRequest()
+    assert req.title is None
+    assert req.actual_minutes is None
 ```
 
-Live counterpart: `tests/unit/models/test_task_completion_context.py`.
+Live counterpart: `tests/unit/docs/test_api_validation_status_docs.py`, which derives
+the 400 example above from this very model.
 
 ---
 

@@ -1,9 +1,9 @@
 ---
 title: "Ingest Transition Obligation Durability"
-updated: 2026-09-08
+updated: 2026-09-12
 status: "open — design needed"
-trigger: "a report of a vault-completed entity whose cascade did not run, OR a second writer of ingest-time status transitions"
-check: "no instrumentation today; the loss is silent by construction — count ERROR logs from `_publish_completions` / the reopen-clear, or add a counter, before deciding it is worth an outbox"
+trigger: "a report of a vault-completed entity whose cascade did not run, OR a task completed in the app whose TRIGGERS_ON_COMPLETION dependents were never scheduled, OR a second writer of ingest-time status transitions"
+check: "no instrumentation today; the loss is silent by construction — count ERROR logs from `_publish_completions` / the reopen-clear / `TaskEventHandlerService.handle_dependent_scheduling`, or add a counter, before deciding it is worth an outbox"
 registered: "2026-09-06 (Codex #1290 round 2, rejected in-PR as out of scope)"
 ---
 
@@ -41,6 +41,27 @@ day-grained reconstruction). So a user who already had both stamps and then lost
 keeps a stale `last_completion_at`, and nothing today fixes it. A user left without a stamp at all
 is the one case the script does repair.
 
+## The app door has the same property (one-completion-door arc D.0, PR #1320)
+
+Since D.0, `TasksCoreService.update_task` is the one way a task completes in the app, and
+every publish of `TaskCompleted` is transition-gated: a re-post of `completed` writes nothing
+and announces nothing. The explicit-complete cascade it replaced re-ran on a repeat click and
+re-published the event, which was — by accident more than design — a manual replay: a user
+whose dependents were not scheduled could click complete again. That replay is gone, and the
+loss shape is one step further along than the vault door's: here the **publish** happens, and
+what can fail is a **subscriber** — the bus runs each in isolation and logs the error, so a
+transient Neo4j failure inside `handle_dependent_scheduling` (the one write-bearing subscriber)
+leaves the dependents unscheduled with no signal beyond that log (Codex P1 on #1320).
+
+The same outbox closes both. Its marker would be written by `update_task` in the guarded
+statement that flips the status, cleared when every subscriber returns, and the sweep would
+republish — which is safe for every current subscriber: the dependent scheduler's terminal
+guard makes a second pass a no-op, and the rest recompute. A bounded retry inside the subscriber
+was considered and not taken: `publish_async` awaits its subscribers, so a retry with backoff
+would sit inside the completing request's latency, and it still would not survive a process
+exit. Until the outbox exists, the repair for an unscheduled dependent is the dependent's own
+status control.
+
 ## Why the ordering cannot fix it
 
 The publish sits late in the call **by design** (#1290 round 1): a completion event is consumed
@@ -72,7 +93,7 @@ cleared once the publish succeeds — an outbox. Sketch, not a plan:
 
 Each step has real questions the sketch does not answer: what the marker is (node property vs. a
 `:PendingTransition` node), whether a republished event is distinguishable from a first publish
-(`is_repeat` semantics), and whether the sweep can tell a crashed publish from one still in flight.
+(no event carries a repeat flag to lean on), and whether the sweep can tell a crashed publish from one still in flight.
 **That is why this is a design, not a patch.**
 
 ## Do not do the cheap version

@@ -364,19 +364,16 @@
       //
       // ORDERING: the flash appears immediately, so Undo is routinely clicked
       // while the complete POST is still in flight, and the two requests oppose
-      // each other. Both doors are settled now (ADR-087 PR-1 + PR-2) and they are
-      // NOT symmetric:
+      // each other. Both go through the same door — `update_task`, one guarded
+      // write each (ADR-087):
       //
-      //   complete → POST /today/tasks/{uid}/complete → complete_task_with_cascade,
-      //       which reads the task and its relationships for the cascade fan-out
-      //       before its one guarded write;
-      //   reopen   → POST /api/tasks/{uid}/status → update_task, which for a
-      //       status-only change reads NOTHING — one guarded write.
+      //   complete → POST /today/tasks/{uid}/complete → update_task(status=completed);
+      //   reopen   → POST /api/tasks/{uid}/status    → update_task(prior status).
       //
-      // So the complete is the slower request, by a wider margin than before. An
-      // unqueued reopen can land FIRST and then be overwritten by the complete,
-      // leaving the task completed under a card that already reads "not done"
-      // (Codex #1133 P1).
+      // Nothing orders them server-side: the primitive fixes each write's VERDICT,
+      // not the ORDER of two opposing requests. An unqueued reopen can land FIRST
+      // and then be overwritten by the complete, leaving the task completed under
+      // a card that already reads "not done" (Codex #1133 P1).
       //
       // The server fixes the VERDICT, not the ORDER. Each write captures the
       // status it overwrites under the node's lock, so whichever sequence the

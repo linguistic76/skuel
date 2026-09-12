@@ -1,5 +1,5 @@
 ---
-updated: 2026-09-05
+updated: 2026-09-12
 ---
 
 # BaseService Quick Start Guide
@@ -185,14 +185,12 @@ carries only the fields the client actually sent (the generic `CRUDRouteFactory`
 
 **Question:** "How do I mark a Task as complete?"
 
-**Answer:** Use the domain-specific completion method:
+**Answer:** Post the status through the one completion door, `update_task`:
 
 ```python
-result = await tasks_service.complete_task_with_cascade(
-    task_uid="task.learn-baseservice",
-    user_context=user_context,  # Rich context for analytics
-    actual_minutes=30,
-    quality_score=4,
+result = await tasks_service.update_task(
+    "task.learn-baseservice",
+    TaskUpdateIntent(status="completed", actual_minutes=30),
 )
 ```
 
@@ -296,7 +294,7 @@ What do I want to do?
 │
 ├─ Complete or track progress?
 │  └─ Use: facade progress method (delegates to progress)
-│     Example: tasks_service.complete_task_with_cascade(uid, context)
+│     Example: tasks_service.check_prerequisites(uid, context)
 │
 └─ Create/query relationships?
    └─ Use: facade relationship method (delegates to UnifiedRelationshipService)

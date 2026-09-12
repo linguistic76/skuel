@@ -549,6 +549,15 @@ class EntityStatus(StrEnum):
         """Check if this is a terminal (non-progressing) status."""
         return self in _TERMINAL_STATUSES
 
+    @classmethod
+    def terminal_values(cls) -> frozenset[str]:
+        """The terminal statuses as stored values — the set a write-time guard refuses over.
+
+        Derived from the enum's own predicate, so a new terminal status is honoured by
+        every guard that keys on this without an edit at the call site.
+        """
+        return frozenset(status.value for status in _TERMINAL_STATUSES)
+
     def is_active(self) -> bool:
         """Check if this status indicates active work/processing."""
         return self in _ACTIVE_STATUSES

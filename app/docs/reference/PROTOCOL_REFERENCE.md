@@ -1,6 +1,6 @@
 ---
 title: Protocol Reference Guide
-updated: 2026-09-11
+updated: 2026-09-12
 status: current
 category: reference
 tags: [protocol, reference]
@@ -270,8 +270,8 @@ class TasksService:
     ):
         self.context_service = context_service
 
-    async def complete_task(self, task_uid: str, user_uid: UserUID):
-        # ... task completion logic ...
+    async def unblock_task_if_ready(self, task_uid: str, user_uid: UserUID):
+        # ... unblocking logic ...
 
         # Invalidate cache after state changes
         if self.context_service:
@@ -312,7 +312,7 @@ All domain operation protocols use `Result[T]` return types and define **persist
 - Graph relationship operations: `link_*_to_*()`, `create_user_*_relationship()`
 
 **What domain protocols do NOT contain** (lives on facade services instead):
-- State transitions: `complete_task()`, `complete_goal()`, `record_completion()`
+- State transitions: `update_task()` (the status door), `complete_goal()`, `record_completion()`
 - Orchestration methods: `get_decision_patterns()`, `calculate_principle_integrity()`
 - Cross-domain context: `get_*_cross_domain_context()` (not on backend)
 

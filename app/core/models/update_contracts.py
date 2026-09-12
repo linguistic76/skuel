@@ -124,7 +124,7 @@ class StatusWriteGuard:
 class StatusGuardedOutcome[T]:
     """What a status-guarded write returns — the prior status IS the contract.
 
-    Services derive every transition verdict (completion, reopen, ``is_repeat``) from
+    Services derive every transition verdict (completion, reopen) from
     :attr:`prior_status` using the same pure helpers in ``core.services.completion_stamp``
     that a pre-read once fed, so the verdict is exact under concurrency instead of
     reflecting a status some other writer has already moved.
