@@ -344,12 +344,19 @@ class ActivityReportService:
                 )
             )
         start_date, end_date = period.start, period.end
+        # A human-authored report of a period still open is partial exactly as a
+        # generated one: its cutoff is now, and the period door treats it alike.
+        cutoff = period.data_cutoff(now)
 
         try:
             metadata: dict[str, Any] = {
                 "reviewed_by": admin_uid,
                 "time_period": time_period,
-                "review_date": datetime.now().isoformat(),
+                "period_kind": period.kind.value,
+                "period_end": end_date.isoformat(),
+                "data_cutoff": cutoff.isoformat(),
+                "is_partial": period.is_partial_at(cutoff),
+                "review_date": now.isoformat(),
             }
             if snapshot_context:
                 metadata["snapshot"] = snapshot_context
@@ -364,6 +371,7 @@ class ActivityReportService:
                 time_period=time_period,
                 domains=domains,
                 metadata=metadata,
+                data_cutoff=cutoff,
             )
 
             create_result = await self.persist(feedback)
@@ -493,7 +501,7 @@ class ActivityReportService:
         self,
         subject_uid: str,
         limit: int = 20,
-        exclude_time_period: str | None = None,
+        ending_before: datetime | None = None,
     ) -> Result[list[ActivityReport]]:
         """
         Get all ActivityReport entities where subject_uid matches the user.
@@ -504,14 +512,17 @@ class ActivityReportService:
         Args:
             subject_uid: User to retrieve reports for
             limit: Maximum number of results
-            exclude_time_period: Leave out every report for this period token —
-                the comparison's way past a regenerated period's own reports
+            ending_before: Keep only reports whose period ended by this instant —
+                the comparison's way to the period BEFORE a calendar period, past
+                its own regenerations and past later periods generated earlier
 
         Returns:
             Result[list[ActivityReport]]
         """
         query_result = await self.backend.get_history(
-            subject_uid, limit, exclude_time_period=exclude_time_period
+            subject_uid,
+            limit,
+            ending_before=ending_before.isoformat() if ending_before is not None else None,
         )
         if query_result.is_error:
             return Result.fail(query_result)

@@ -390,6 +390,26 @@ class TestFuturePeriods:
         assert "has not started" in result.expect_error().message
 
     @pytest.mark.asyncio
+    async def test_submit_report_for_an_open_period_persists_its_cutoff(
+        self, service, mock_backend
+    ):
+        """A human-authored report of a period still open is partial like a
+        generated one: the door and the detail page read the same cutoff."""
+        from core.utils.period_keys import monthly_period_key
+
+        mock_backend.create.return_value = Result.ok(MagicMock())
+        token = monthly_period_key(datetime.now().date())
+
+        result = await service.submit_report("user_admin", "user_alice", "text", time_period=token)
+
+        assert result.is_ok, result.error
+        report = mock_backend.create.call_args[0][0]
+        assert report.data_cutoff is not None and report.period_end is not None
+        assert report.data_cutoff < report.period_end
+        assert report.metadata["is_partial"] is True
+        assert report.metadata["data_cutoff"] == report.data_cutoff.isoformat()
+
+    @pytest.mark.asyncio
     async def test_submit_report_for_a_future_period_is_refused(self, service, mock_backend):
         token = f"{datetime.now().year + 1}-01"
         result = await service.submit_report("admin_1", "user_alice", "text", time_period=token)
@@ -417,15 +437,15 @@ class TestRowConversion:
         assert result.value.data_cutoff == datetime(2026, 1, 31, 23, 59, 59, 999999)
 
     @pytest.mark.asyncio
-    async def test_get_history_passes_the_period_exclusion_to_the_backend(
+    async def test_get_history_passes_the_period_bound_to_the_backend_as_iso(
         self, service, mock_backend
     ):
         mock_backend.get_history = AsyncMock(return_value=Result.ok([]))
 
-        await service.get_history("user_alice", limit=5, exclude_time_period="2026-09")
+        await service.get_history("user_alice", limit=5, ending_before=datetime(2026, 9, 1))
 
         mock_backend.get_history.assert_awaited_once_with(
-            "user_alice", 5, exclude_time_period="2026-09"
+            "user_alice", 5, ending_before="2026-09-01T00:00:00"
         )
 
     @pytest.mark.asyncio

@@ -1030,9 +1030,9 @@ class TestCalendarPeriods:
 
     @pytest.mark.asyncio
     async def test_comparison_skips_a_superseded_same_period_report(self, generator):
-        """For a calendar period the preceding DISTINCT period is compared — the
-        period's own earlier reports are excluded in the history read, so any
-        number of regenerations can never exhaust the candidates."""
+        """For a calendar period the period BEFORE it is compared — the history
+        read keeps only reports whose period ended by this one's start, so its
+        own regenerations and a later period generated earlier never qualify."""
         prior = MagicMock(uid="ar_aug", time_period="2026-08")
         prior.metadata = {"intelligence": {"domain_trends": {"tasks": "stable"}}}
         generator.activity_report_service.get_history = AsyncMock(return_value=Result.ok([prior]))
@@ -1045,7 +1045,7 @@ class TestCalendarPeriods:
         assert comparison["previous_report_uid"] == "ar_aug"
         assert comparison["previous_period"] == "2026-08"
         generator.activity_report_service.get_history.assert_awaited_once_with(
-            subject_uid="user_alice", limit=5, exclude_time_period="2026-09"
+            subject_uid="user_alice", limit=5, ending_before=datetime(2026, 9, 1)
         )
 
     @pytest.mark.asyncio
@@ -1060,7 +1060,7 @@ class TestCalendarPeriods:
 
         assert comparison is not None and comparison["previous_report_uid"] == "ar_last_week"
         generator.activity_report_service.get_history.assert_awaited_once_with(
-            subject_uid="user_alice", limit=5, exclude_time_period=None
+            subject_uid="user_alice", limit=5, ending_before=None
         )
 
     def test_report_content_names_a_partial_period(self, generator):

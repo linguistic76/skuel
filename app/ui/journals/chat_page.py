@@ -12,6 +12,12 @@ from typing import TYPE_CHECKING, Any
 
 from fasthtml.common import A, Button, Div, Form, Input, P, Span
 
+from core.utils.period_keys import (
+    monthly_period_start,
+    quarterly_period_start,
+    weekly_period_start,
+    yearly_period_start,
+)
 from ui.components import Icon
 from ui.journals.period_links import (
     PERIOD_ICONS,
@@ -19,12 +25,6 @@ from ui.journals.period_links import (
     PERIOD_NAMES,
     period_link,
     period_step,
-)
-from ui.journals.period_panel import (
-    monthly_period_start,
-    quarterly_period_start,
-    weekly_period_start,
-    yearly_period_start,
 )
 
 if TYPE_CHECKING:

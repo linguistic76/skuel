@@ -46,6 +46,7 @@ See: /docs/patterns/protocol_architecture.md
 See: /docs/decisions/ADR-040-teacher-exercise-workflow.md
 """
 
+from datetime import datetime
 from typing import TYPE_CHECKING, Any, Protocol, runtime_checkable
 
 from core.models.type_hints import Neo4jProperties, UserUID
@@ -347,10 +348,10 @@ class ActivityReportOperations(Protocol):
         self,
         subject_uid: str,
         limit: int = 20,
-        exclude_time_period: str | None = None,
+        ending_before: datetime | None = None,
     ) -> "Result[list[ActivityReport]]":
-        """The subject's ActivityReports, newest first (LLM + human); ``exclude_time_period``
-        leaves out one period token's reports. Returns Result[list[ActivityReport]]."""
+        """The subject's ActivityReports, newest first (LLM + human); ``ending_before``
+        keeps only reports whose period ended by then. Returns Result[list[ActivityReport]]."""
         ...
 
     async def get_latest_for_owner(self, user_uid: UserUID) -> "Result[ActivityReport | None]":
@@ -410,7 +411,7 @@ class ActivityReportBackendOperations(BackendOperations["ActivityReport"], Proto
     ) -> Result[list[Neo4jProperties]]: ...
 
     async def get_history(
-        self, subject_uid: str, limit: int = 20, exclude_time_period: str | None = None
+        self, subject_uid: str, limit: int = 20, ending_before: str | None = None
     ) -> Result[list[Neo4jProperties]]: ...
 
     async def annotate(

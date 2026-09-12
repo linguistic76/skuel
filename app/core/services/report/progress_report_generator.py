@@ -391,16 +391,17 @@ class ProgressReportGenerator:
     ) -> dict[str, Any] | None:
         """Fetch the preceding report's intelligence metadata for the UI's deltas.
 
-        The comparison is against the preceding DISTINCT period: for a calendar
-        period, this period's own earlier reports (partials this one
-        supersedes, regenerations) are excluded IN the history read, so the
-        window of candidates is never exhausted by them. Returns None if no
-        prior report with intelligence data exists.
+        The comparison is against the period BEFORE this one: for a calendar
+        period the history read keeps only reports whose period ended by this
+        period's start — never its own regenerations, never a later period
+        regenerated earlier — so the candidates are the preceding periods,
+        newest generated first. Returns None if no prior report with
+        intelligence data exists.
         """
         history_result = await self.activity_report_service.get_history(
             subject_uid=user_uid,
             limit=5,
-            exclude_time_period=period.token if period.is_calendar else None,
+            ending_before=period.start if period.is_calendar else None,
         )
         if history_result.is_error or not history_result.value:
             return None

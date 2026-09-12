@@ -93,16 +93,19 @@ class ActivityReportBackend(UniversalNeo4jBackend[ActivityReport]):
         )
 
     async def get_history(
-        self, subject_uid: str, limit: int = 20, exclude_time_period: str | None = None
+        self, subject_uid: str, limit: int = 20, ending_before: str | None = None
     ) -> Result[list[Neo4jProperties]]:
-        """The subject's ActivityReports, newest first; ``exclude_time_period``
-        leaves out every report for that period token, so a comparison can
-        reach the preceding DISTINCT period past any number of regenerations."""
+        """The subject's ActivityReports, newest first; ``ending_before`` (ISO)
+        keeps only reports whose ``period_end`` precedes it, so a calendar
+        period's comparison reaches the period BEFORE it — never its own
+        regenerations, never a later period regenerated earlier. Coerced:
+        ``period_end`` is stored as an ISO string."""
         return await self.execute_query(
             """
             MATCH (n:Entity {entity_type: $entity_type, subject_uid: $subject_uid})
-            WHERE $exclude_time_period IS NULL
-               OR coalesce(n.time_period, '') <> $exclude_time_period
+            WHERE $ending_before IS NULL
+               OR (n.period_end IS NOT NULL
+                   AND datetime(n.period_end) <= datetime($ending_before))
             RETURN n
             ORDER BY n.created_at DESC
             LIMIT $limit
@@ -111,7 +114,7 @@ class ActivityReportBackend(UniversalNeo4jBackend[ActivityReport]):
                 "entity_type": _ACTIVITY_REPORT,
                 "subject_uid": subject_uid,
                 "limit": limit,
-                "exclude_time_period": exclude_time_period,
+                "ending_before": ending_before,
             },
         )
 
