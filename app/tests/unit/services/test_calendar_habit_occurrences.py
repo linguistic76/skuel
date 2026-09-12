@@ -443,7 +443,7 @@ async def test_fetch_habits_default_returns_only_alive() -> None:
     svc.habits_service.get_active = AsyncMock(return_value=Result.ok(alive))
     svc.habits_service.get_user_habits = AsyncMock(return_value=Result.ok([]))
 
-    assert await svc._fetch_habits("user_x") is alive
+    assert (await svc._fetch_habits("user_x")).value is alive
     svc.habits_service.get_active.assert_awaited_once_with("user_x")
     svc.habits_service.get_user_habits.assert_not_awaited()
 
@@ -456,9 +456,36 @@ async def test_fetch_habits_include_completed_returns_all_statuses() -> None:
     svc.habits_service.get_active = AsyncMock(return_value=Result.ok([]))
     svc.habits_service.get_user_habits = AsyncMock(return_value=Result.ok(every))
 
-    assert await svc._fetch_habits("user_x", include_completed=True) is every
+    assert (await svc._fetch_habits("user_x", include_completed=True)).value is every
     svc.habits_service.get_user_habits.assert_awaited_once_with("user_x")
     svc.habits_service.get_active.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_fetch_habits_propagates_a_failed_read() -> None:
+    """A failed habits read is a failure, never an empty list."""
+    svc = _service()
+    svc.habits_service.get_active = AsyncMock(
+        return_value=Result.fail(Errors.database("habits.get_active", "boom"))
+    )
+
+    result = await svc._fetch_habits("user_x")
+
+    assert result.is_error
+
+
+@pytest.mark.asyncio
+async def test_habit_items_for_day_fails_when_the_habit_read_fails() -> None:
+    """The day fragment must not answer "no habits" for a read that failed —
+    the caller's 5xx path is what keeps the rendered chips in place."""
+    svc = _service()
+    svc.habits_service.get_active = AsyncMock(
+        return_value=Result.fail(Errors.database("habits.get_active", "boom"))
+    )
+
+    result = await svc.habit_items_for_day("user_x", date(2026, 9, 12))
+
+    assert result.is_error
 
 
 # ---------------------------------------------------------------------------

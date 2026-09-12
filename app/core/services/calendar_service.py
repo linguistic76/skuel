@@ -207,7 +207,17 @@ class CalendarService:
 
         habit_occurrences = {}
         if spec.admits_kind(CalendarItemType.HABIT):
-            for habit in await self._fetch_habits(user_uid, include_completed):
+            habits_read = await self._fetch_habits(user_uid, include_completed)
+            habits: list[Habit] = []
+            if habits_read.is_error:
+                # Per-kind degradation, as the task/event/goal fetches above: the
+                # grid renders without habits rather than not at all.
+                logger.warning(
+                    "Calendar: habits read failed: %s", habits_read.expect_error().message
+                )
+            else:
+                habits = habits_read.value
+            for habit in habits:
                 base = self._habit_to_calendar_item(habit)
                 if not spec.admits(base.item_type, base.priority):
                     continue
@@ -279,7 +289,10 @@ class CalendarService:
         second "Mark Complete" for it.
         """
         items: list[CalendarItem] = []
-        for habit in await self._fetch_habits(user_uid):
+        habits_read = await self._fetch_habits(user_uid)
+        if habits_read.is_error:
+            return Result.fail(habits_read)
+        for habit in habits_read.value:
             if not self._is_occurrence_day(habit, day):
                 continue
             stamped = await self._stamp_habit_occurrence(
@@ -660,7 +673,7 @@ class CalendarService:
 
     async def _fetch_habits(
         self, user_uid: UserUID, include_completed: bool = False
-    ) -> list[Habit]:
+    ) -> Result[list[Habit]]:
         """
         Fetch the user's habits — status-filtered, NEVER date-filtered.
 
@@ -677,22 +690,19 @@ class CalendarService:
         span its creation day — present on the month view, absent from a later
         week of the same month. Fetching by status keeps month and week
         consistent.
-        """
-        habits: list[Habit] = []
 
+        A failed read is returned as a failure, never as "no habits": the caller
+        decides whether the kind degrades (a grid) or the read fails (a fragment
+        that would otherwise replace live chips with an empty container).
+        """
         try:
-            result = (
+            return (
                 await self.habits_service.get_user_habits(user_uid)
                 if include_completed
                 else await self.habits_service.get_active(user_uid)
             )
-            if result.is_ok:
-                habits = result.value
-
         except NEO4J_EXCEPTIONS as e:
-            logger.warning(f"Failed to fetch habits: {e}")
-
-        return habits
+            return Result.fail(Errors.database("calendar.fetch_habits", f"user {user_uid}: {e}"))
 
     async def _read_completions(
         self, habit_uid: str, start_date: date, end_date: date
