@@ -4,11 +4,14 @@
 ``last_progress_update`` is a single stamp every later write overwrites, so a
 September report generated in October would read zero for a goal progressed in
 both months. Each writer that moves ``progress_percentage`` — the manual door,
-the milestone door, the habit- and task-completion propagations, and an intent
-carrying a figure through the core update — appends one entry beside the
-stamp, from the goal it pre-read (the append is a read-modify-write of one JSON
+the milestone door, the habit- and task-completion propagations, an intent
+carrying a figure through the core update, and the reopen reset (a completed
+goal back to non-terminal: 100% → 0%) — appends one entry beside the stamp,
+from the goal it pre-read (the append is a read-modify-write of one JSON
 property; two writers racing the same goal last-writer-win on the list, a
-personal record's acceptable odds).
+personal record's acceptable odds). The manual door dates its entry at the
+``update_date`` the caller supplies, so a correction entered later lands in
+the period it belongs to.
 """
 
 from __future__ import annotations

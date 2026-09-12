@@ -197,3 +197,81 @@ async def test_completion_appends_its_entry_on_the_transition_only() -> None:
     assert result.is_ok
     assert "progress_history" not in recorder.merged_patch()
     assert "last_progress_update" not in recorder.merged_patch()
+
+
+# ---------------------------------------------------------------------------
+# The reopen reset and the supplied progress date
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio
+async def test_reopening_a_completed_goal_appends_the_reset_entry_on_the_transition() -> None:
+    """A status-only reopen resets 100% -> 0% under the prior-COMPLETED condition;
+    the history entry rides that same patch, so the report counts the reopen."""
+    done = _goal(progress=100.0, status=EntityStatus.COMPLETED)
+    backend, recorder = guarded_backend(done, done)
+    core = GoalsCoreService(backend=backend, event_bus=None)
+
+    result = await core.update_goal(_GOAL, GoalUpdateIntent(status="active"))
+
+    assert result.is_ok
+    merged = recorder.merged_patch()
+    assert merged["progress_percentage"] == 0.0
+    entries = _entries(merged)
+    assert entries[:-1] == [_EARLIER]
+    assert entries[-1]["progress_percentage"] == 0.0
+    assert entries[-1]["date"] == merged["last_progress_update"].isoformat()
+
+
+@pytest.mark.asyncio
+async def test_a_status_change_that_reopens_nothing_appends_nothing() -> None:
+    """Pausing an ACTIVE goal names a non-terminal status too, but the prior is
+    not COMPLETED, so the reset patch — entry included — is not applied."""
+    active = _goal(progress=40.0)
+    backend, recorder = guarded_backend(active, active)
+    core = GoalsCoreService(backend=backend, event_bus=None)
+
+    result = await core.update_goal(_GOAL, GoalUpdateIntent(status="paused"))
+
+    assert result.is_ok
+    assert "progress_history" not in recorder.merged_patch()
+    assert "progress_percentage" not in recorder.merged_patch()
+
+
+@pytest.mark.asyncio
+async def test_manual_update_dates_its_entry_and_stamp_at_the_supplied_date() -> None:
+    """A September correction entered in October is a September event."""
+    goal = _goal()
+    backend = Mock()
+    backend.get_goal = AsyncMock(return_value=Result.ok(goal.to_dto()))
+    backend.update_goal = AsyncMock(return_value=Result.ok(goal))
+    service = _progress_service(backend)
+
+    result = await service.update_goal_progress(
+        _GOAL, 45.0, notes="late entry", update_date="2026-09-05"
+    )
+
+    assert result.is_ok
+    updates = backend.update_goal.await_args.args[1]
+    assert updates["last_progress_update"] == datetime(2026, 9, 5)
+    assert _entries(updates)[-1] == {"date": "2026-09-05T00:00:00", "progress_percentage": 45.0}
+    assert updates["metadata"]["progress_notes"][-1]["date"] == "2026-09-05T00:00:00"
+    assert result.value["update_date"] == "2026-09-05T00:00:00"
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("bad", ["not-a-date", "2099-01-01"])
+async def test_an_unparseable_or_future_update_date_is_refused_before_any_write(
+    bad: str,
+) -> None:
+    goal = _goal()
+    backend = Mock()
+    backend.get_goal = AsyncMock(return_value=Result.ok(goal.to_dto()))
+    backend.update_goal = AsyncMock(return_value=Result.ok(goal))
+    service = _progress_service(backend)
+
+    result = await service.update_goal_progress(_GOAL, 45.0, update_date=bad)
+
+    assert result.is_error
+    assert result.expect_error().category.value == "validation"
+    backend.update_goal.assert_not_awaited()
