@@ -5,6 +5,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 from adapters.persistence.neo4j.universal_backend import UniversalNeo4jBackend
+from core.models.enums.entity_enums import EntityType
 from core.models.relationship_names import RelationshipName
 from core.models.report.activity_report import ActivityReport
 from core.models.type_hints import Neo4jProperties, UserUID
@@ -21,6 +22,11 @@ if TYPE_CHECKING:
     from core.models.resource.resource import Resource  # noqa: F401
 
 
+#: The ActivityReport discriminator, bound as a parameter — never a raw literal,
+#: so an enum-value change cannot leave a report query silently matching nothing.
+_ACTIVITY_REPORT = EntityType.ACTIVITY_REPORT.value
+
+
 class ActivityReportBackend(UniversalNeo4jBackend[ActivityReport]):
     """
     Domain backend for ActivityReport entities.
@@ -34,10 +40,10 @@ class ActivityReportBackend(UniversalNeo4jBackend[ActivityReport]):
         """Get a single ActivityReport by UID, scoped to the owning user."""
         return await self.execute_query(
             """
-            MATCH (n:Entity {uid: $uid, user_uid: $user_uid, entity_type: 'activity_report'})
+            MATCH (n:Entity {uid: $uid, user_uid: $user_uid, entity_type: $entity_type})
             RETURN n
             """,
-            {"uid": uid, "user_uid": user_uid},
+            {"entity_type": _ACTIVITY_REPORT, "uid": uid, "user_uid": user_uid},
         )
 
     async def get_latest_for_owner(self, user_uid: UserUID) -> Result[list[Neo4jProperties]]:
@@ -50,24 +56,24 @@ class ActivityReportBackend(UniversalNeo4jBackend[ActivityReport]):
         """
         return await self.execute_query(
             """
-            MATCH (n:Entity {entity_type: 'activity_report', user_uid: $user_uid})
+            MATCH (n:Entity {entity_type: $entity_type, user_uid: $user_uid})
             RETURN n
             ORDER BY n.created_at DESC
             LIMIT 1
             """,
-            {"user_uid": user_uid},
+            {"entity_type": _ACTIVITY_REPORT, "user_uid": user_uid},
         )
 
     async def get_history(self, subject_uid: str, limit: int = 20) -> Result[list[Neo4jProperties]]:
         """Get ActivityReport entities where subject_uid matches the user."""
         return await self.execute_query(
             """
-            MATCH (n:Entity {entity_type: 'activity_report', subject_uid: $subject_uid})
+            MATCH (n:Entity {entity_type: $entity_type, subject_uid: $subject_uid})
             RETURN n
             ORDER BY n.created_at DESC
             LIMIT $limit
             """,
-            {"subject_uid": subject_uid, "limit": limit},
+            {"entity_type": _ACTIVITY_REPORT, "subject_uid": subject_uid, "limit": limit},
         )
 
     async def annotate(
@@ -82,7 +88,7 @@ class ActivityReportBackend(UniversalNeo4jBackend[ActivityReport]):
         """Save annotation or revision to an owned ActivityReport."""
         return await self.execute_query(
             """
-            MATCH (n:Entity {uid: $uid, user_uid: $user_uid, entity_type: 'activity_report'})
+            MATCH (n:Entity {uid: $uid, user_uid: $user_uid, entity_type: $entity_type})
             SET n.annotation_mode = $annotation_mode,
                 n.annotation_updated_at = datetime($now),
                 n.user_annotation = $user_annotation,
@@ -91,6 +97,7 @@ class ActivityReportBackend(UniversalNeo4jBackend[ActivityReport]):
                    n.user_annotation AS user_annotation, n.user_revision AS user_revision
             """,
             {
+                "entity_type": _ACTIVITY_REPORT,
                 "uid": uid,
                 "user_uid": user_uid,
                 "annotation_mode": annotation_mode,
@@ -104,12 +111,12 @@ class ActivityReportBackend(UniversalNeo4jBackend[ActivityReport]):
         """Get current annotation state for an owned ActivityReport."""
         return await self.execute_query(
             """
-            MATCH (n:Entity {uid: $uid, user_uid: $user_uid, entity_type: 'activity_report'})
+            MATCH (n:Entity {uid: $uid, user_uid: $user_uid, entity_type: $entity_type})
             RETURN n.uid AS uid, n.annotation_mode AS annotation_mode,
                    n.user_annotation AS user_annotation, n.user_revision AS user_revision,
                    n.annotation_updated_at AS annotation_updated_at
             """,
-            {"uid": uid, "user_uid": user_uid},
+            {"entity_type": _ACTIVITY_REPORT, "uid": uid, "user_uid": user_uid},
         )
 
     async def get_admin_snapshots(
@@ -118,7 +125,7 @@ class ActivityReportBackend(UniversalNeo4jBackend[ActivityReport]):
         """Get admin-written ActivityReports received by this user (privacy audit)."""
         return await self.execute_query(
             """
-            MATCH (n:Entity {entity_type: 'activity_report', subject_uid: $user_uid})
+            MATCH (n:Entity {entity_type: $entity_type, subject_uid: $user_uid})
             WHERE n.processor_type = 'human'
             RETURN n.created_at AS accessed_at,
                    n.user_uid AS admin_uid,
@@ -126,7 +133,7 @@ class ActivityReportBackend(UniversalNeo4jBackend[ActivityReport]):
             ORDER BY n.created_at DESC
             LIMIT $limit
             """,
-            {"user_uid": user_uid, "limit": limit},
+            {"entity_type": _ACTIVITY_REPORT, "user_uid": user_uid, "limit": limit},
         )
 
     async def get_shares_granted(
@@ -304,11 +311,15 @@ class ActivityReportGeneratorBackend:
         return await self.executor.execute_query(
             """
             MATCH (user:User {uid: $user_uid})-[:OWNS]->(ar:Entity)
-            WHERE ar.entity_type = 'activity_report'
+            WHERE ar.entity_type = $entity_type
               AND datetime(ar.created_at) >= datetime() - duration({minutes: $cooldown_minutes})
             RETURN count(ar) AS recent_count
             """,
-            {"user_uid": user_uid, "cooldown_minutes": cooldown_minutes},
+            {
+                "entity_type": _ACTIVITY_REPORT,
+                "user_uid": user_uid,
+                "cooldown_minutes": cooldown_minutes,
+            },
         )
 
     async def get_previous_annotation(
@@ -318,12 +329,12 @@ class ActivityReportGeneratorBackend:
         return await self.executor.execute_query(
             """
             MATCH (user:User {uid: $user_uid})-[:OWNS]->(ar:Entity)
-            WHERE ar.entity_type = 'activity_report'
+            WHERE ar.entity_type = $entity_type
               AND (ar.user_annotation IS NOT NULL OR ar.user_revision IS NOT NULL)
               AND datetime(ar.period_end) < datetime($period_start)
             RETURN COALESCE(ar.user_annotation, ar.user_revision) AS annotation
             ORDER BY ar.period_end DESC
             LIMIT 1
             """,
-            {"user_uid": user_uid, "period_start": period_start},
+            {"entity_type": _ACTIVITY_REPORT, "user_uid": user_uid, "period_start": period_start},
         )
