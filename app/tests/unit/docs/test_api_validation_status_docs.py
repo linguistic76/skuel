@@ -43,7 +43,7 @@ from adapters.inbound.tasks_ui import create_tasks_ui_routes
 from adapters.inbound.today_routes import create_today_routes
 from core.models.enums.entity_enums import EntityType
 from core.models.search_request import SearchRequest
-from core.models.task.task_request import ContextualTaskCompletionRequest
+from core.models.task.task_request import TaskUpdateRequest
 from core.utils.result_simplified import Errors, Result
 
 _DOC = Path(__file__).resolve().parents[3] / "docs" / "patterns" / "API_VALIDATION_PATTERNS.md"
@@ -76,10 +76,10 @@ class _JsonRequest:
 class _StubRequest:
     """Serves a caller-supplied JSON body — for driving the guide's own example."""
 
-    def __init__(self, body: dict[str, str]) -> None:
+    def __init__(self, body: dict[str, object]) -> None:
         self._body = body
 
-    async def json(self) -> dict[str, str]:
+    async def json(self) -> dict[str, object]:
         return self._body
 
 
@@ -90,21 +90,26 @@ class _FormRequest:
         return {"reflection": "x" * 10}
 
 
-def _json_block(text: str, heading: str) -> dict[str, str]:
+def _json_block(text: str, heading: str) -> dict[str, object]:
     """The first fenced JSON block after *heading*."""
     start = text.index("```json", text.index(heading)) + len("```json")
     return dict(json.loads(text[start : text.index("```", start)]))
 
 
-def _expand(body: dict[str, str]) -> dict[str, str]:
+def _expand(body: dict[str, object]) -> dict[str, object]:
     """Expand the request block's abbreviated field to the value it stands for.
 
-    A doc cannot print 2001 characters, so the block writes the placeholder the
+    A doc cannot print 201 characters, so the block writes the placeholder the
     prose above it explains. Expanding it here is what makes the shown request
-    and the shown response one run rather than two claims.
+    and the shown response one run rather than two claims. Non-string values
+    (the out-of-range integer) pass through untouched.
     """
     return {
-        key: ("x" * int(m.group(1)) if (m := re.fullmatch(r"<(\d+) x's>", value)) else value)
+        key: (
+            "x" * int(m.group(1))
+            if isinstance(value, str) and (m := re.fullmatch(r"<(\d+) x's>", value))
+            else value
+        )
         for key, value in body.items()
     }
 
@@ -347,14 +352,14 @@ async def test_the_documented_response_example_is_what_that_model_emits() -> Non
     An example payload is a claim about a live response, down to the wording
     Pydantic chooses for the field it rejects. So it is measured rather than
     written: the documented input goes through the same helper against
-    ``ContextualTaskCompletionRequest``, and every field but the timestamp must
+    ``TaskUpdateRequest``, and every field but the timestamp must
     match what the guide prints.
     """
     text = _DOC.read_text(encoding="utf-8")
     body = _expand(_json_block(text, "**Request:**"))
     documented = _json_block(text, "**HTTP Response (400):**")
 
-    result = await parse_json_body(_StubRequest(body), ContextualTaskCompletionRequest)  # type: ignore[arg-type]
+    result = await parse_json_body(_StubRequest(body), TaskUpdateRequest)  # type: ignore[arg-type]
     response = result_to_response(result)
     measured = json.loads(response.body)
 

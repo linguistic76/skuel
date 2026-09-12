@@ -25,7 +25,7 @@ Dependencies:
 - ``UserService`` — owns ``intelligence_factory`` and ``get_daily_work_plan``
   (used by ``get_next_action``)
 - ``TasksOperations`` / ``GoalTaskGenerator`` / ``HabitsService`` — for the
-  context-aware action methods (``complete_task_with_context``, etc.)
+  context-aware action methods (``complete_habit_with_context``, etc.)
 """
 
 from __future__ import annotations
@@ -466,98 +466,6 @@ class UserContextService:
     # =========================================================================
     # CONTEXT-AWARE ACTIONS
     # =========================================================================
-
-    async def complete_task_with_context(
-        self,
-        task_uid: str,
-        user_uid: UserUID,
-        time_invested_minutes: int | None = None,
-        knowledge_applied: list[str] | None = None,
-        quality: str = "good",
-        reflection_notes: str = "",
-    ) -> Result[Task]:
-        """
-        Complete task with context awareness.
-
-        Takes the completion context as explicit typed params rather than a
-        ``dict[str, Any]``: the route destructures the validated
-        ``TaskCompletionContext`` sub-model at the boundary, keeping Pydantic at
-        the edges and pure Python at the core.
-
-        ``time_invested_minutes`` is recorded on the task as ``actual_minutes``.
-        ``knowledge_applied`` and ``quality`` are accepted and logged but not yet
-        acted on — see the TODO below for why each is deferred.
-
-        Args:
-            task_uid: Task identifier
-            user_uid: Owner of the task (ownership is verified, 404 on mismatch)
-            time_invested_minutes: Actual minutes spent; ``None`` records nothing
-            knowledge_applied: Ku UIDs applied during completion (not yet wired)
-            quality: Subjective completion quality (not yet wired)
-            reflection_notes: Optional reflection on completion
-
-        Returns:
-            Result containing completed task
-        """
-        if not self.tasks_service:
-            return Result.fail(
-                Errors.system(
-                    message="Tasks service not available",
-                    operation="complete_task_with_context",
-                )
-            )
-
-        # Get task to ensure it exists
-        task_result = await self.tasks_service.get(task_uid)
-        if task_result.is_error:
-            return Result.fail(task_result)
-
-        task = task_result.value
-        if not task:
-            return Result.fail(Errors.not_found(resource="Task", identifier=task_uid))
-
-        # Ownership check — return 404 to prevent UID enumeration
-        if task.user_uid != user_uid:
-            return Result.fail(Errors.not_found(resource="Task", identifier=task_uid))
-
-        # Complete the task, recording the time investment as actual_minutes.
-        # None is passed through unchanged: the cascade omits the field from the
-        # patch rather than writing a null, so an unreported completion leaves
-        # any previously-recorded value intact.
-        complete_result = await self.tasks_service.complete_task(
-            task_uid, actual_minutes=time_invested_minutes
-        )
-        if complete_result.is_error:
-            return Result.fail(complete_result)
-
-        # TODO(deferred): Record the remaining context-aware completion data.
-        # - knowledge_applied → APPLIES_KNOWLEDGE edges + KnowledgeAppliedInTask
-        #   substance events. That is a feature, not a repair; not scoped here.
-        # - quality is a string ("good"), while complete_task's quality_score is
-        #   an int 1-5 that feeds only the _reinforce_habit logging stub. Wiring
-        #   it would mean inventing a string->int mapping into a stub.
-        # - Update learning progress
-        # - Trigger context cache invalidation
-
-        logger.info(
-            f"Task {task_uid} completed with context",
-            extra={
-                "knowledge_applied": knowledge_applied or [],
-                "time_invested": time_invested_minutes,
-                "quality": quality,
-                "reflection": reflection_notes,
-            },
-        )
-
-        # Fetch updated task to return
-        updated_task_result = await self.tasks_service.get(task_uid)
-        if updated_task_result.is_error:
-            return Result.fail(updated_task_result)
-
-        if updated_task_result.value is None:
-            return Result.fail(Errors.not_found(resource="Task", identifier=task_uid))
-
-        return Result.ok(updated_task_result.value)
 
     async def create_tasks_from_goal_context(
         self,

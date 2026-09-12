@@ -497,8 +497,9 @@ def require_ownership_query(service_getter, uid_param: str = "uid") -> Any:
         @boundary_handler()
         async def complete_task(request, user_uid: UserUID, entity: Task):
             # entity is pre-verified to belong to user_uid
-            body = await request.json()
-            return await tasks_service.complete_task(entity.uid, body.get("notes"))
+            return await tasks_service.update_task(
+                entity.uid, TaskUpdateIntent(status="completed")
+            )
         ```
 
     Security Note:

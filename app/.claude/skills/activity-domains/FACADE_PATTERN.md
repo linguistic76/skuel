@@ -67,8 +67,10 @@ async def get_task(self, *args: Any, **kwargs: Any) -> Any:
 
 # Custom orchestration (when logic spans multiple sub-services)
 # Side effects belong in event subscribers, not inline — keep orchestration a pure delegation
-async def complete_task_with_cascade(self, task_uid: str, ...) -> Result[Task]:
-    return await self.progress.complete_task_with_cascade(task_uid, ...)
+async def update_task(self, task_uid: str, intent: TaskUpdateIntent) -> Result[Task]:
+    habit_uid, applies_knowledge_uids, prop_intent = self._split_relationship_intent(intent)
+    result = await self.core.update_task(task_uid, prop_intent)  # events fire here
+    ...  # then sync the habit / knowledge / goal edges
 ```
 
 **Why explicit methods?**

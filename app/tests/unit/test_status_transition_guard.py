@@ -17,9 +17,9 @@ Three things must hold, and this file pins all three:
 2. **The legality check is one rule with two entry points.** ``status_transition_guard``
    (the five stamping domains) and ``validate_status_target`` (Principle, which has
    nothing to stamp) refuse exactly the same targets.
-3. **``is_repeat`` is exact by construction.** With the prior coming back from the
-   write, ``is_repeat = not is_completion_transition(prior, changes)`` — no second
-   definition of what completing means, anywhere.
+3. **A re-post is silent by construction.** With the prior coming back from the
+   write, ``is_completion_transition(prior, changes)`` is false for a re-posted
+   ``completed`` — no second definition of what completing means, anywhere.
 
 That the DATABASE honours the conditions (and that concurrent writers cannot both see
 the same prior) is a different claim, pinned against a real Neo4j in
@@ -348,17 +348,6 @@ class TestVerdictsFromTheReturnedPrior:
         assert is_reopen_transition(prior, changes) is reopen
         # The two gates are mutually exclusive — one write is never both.
         assert not (transition and reopen)
-
-    def test_is_repeat_is_the_exact_complement_of_the_transition(self) -> None:
-        """``is_repeat = not is_completion_transition(prior, changes)`` — with the
-        prior coming back from the write, that identity holds by construction rather
-        than by whatever a pre-read happened to observe.
-        """
-        changes = {"status": "completed"}
-        for prior in [*sorted(s.value for s in EntityType.TASK.valid_statuses()), None]:
-            is_transition = is_completion_transition(prior, changes)
-            is_repeat = not is_transition
-            assert is_repeat is (prior == EntityStatus.COMPLETED.value)
 
     def test_a_write_that_touched_no_status_is_neither(self) -> None:
         for prior in ("active", "completed", None):

@@ -1,6 +1,6 @@
 ---
 title: "Calendar Priority-Lens Arc — Rulings & Contract"
-updated: 2026-09-11
+updated: 2026-09-12
 status: "active"
 registered: 2026-09-11
 ruled: 2026-09-11
@@ -325,9 +325,13 @@ below).
 ### Arc D — Daily view: server-rendered, day-scoped, all domains
 
 **D.0 — one completion door (prerequisite PR; can land any time).**
-- `TasksCoreService.update_task` is THE door. `_trigger_task` (+ `_TERMINAL_STATUS_VALUES`) moves into
-  `TaskEventHandlerService.handle_task_completed` as a recompute-shaped subscriber step (its
-  `refuse_if_prior_in` terminal guard makes it idempotent — no `is_repeat` gate); its 5 tests move with it.
+- `TasksCoreService.update_task` is THE door. `_trigger_task` (+ `_TERMINAL_STATUS_VALUES`, now
+  `EntityStatus.terminal_values()`) moves into `TaskEventHandlerService` as **its own `TaskCompleted`
+  subscriber** (`handle_dependent_scheduling`, its own exception boundary — Codex P2, round 10: a step inside
+  `handle_task_completed` would exit through that handler's single boundary when an optional
+  intelligence step raises first, leaving dependents unscheduled behind a reported-successful
+  completion; the bus runs subscribers in isolation). Its `refuse_if_prior_in` terminal guard makes it
+  idempotent — no `is_repeat` gate; its 5 tests move with it.
 - Delete: `complete_task_with_cascade` + the four stubs + the four cascade-only context helpers,
   `_OrchestrationMixin.complete_task_with_cascade`, `TasksService.complete_task`, `TasksOperations.complete_task`
   (a facade method declared on the BACKEND protocol that no adapter satisfies — the dual-layer-lie shape),
@@ -424,6 +428,20 @@ lens-status question (dated CANCELLED/FAILED tasks: **render** — the lens show
   generated in the period's last hour must not block its own final snapshot — and
   `_collect_comparison` selects the preceding DISTINCT period, never a superseded same-period row
   (Codex P2s, round 5); a "Regenerate" action on the detail page is the explicit refresh.
+  **The door splits** (Codex P2, round 10): `GET /activity-reports/for` is a *lookup* — it redirects to
+  the period's reusable report or renders the pill's "Generate" state — and the generation transition
+  (LLM call, persisted `ActivityReport`, cooldown consumption) is a CSRF-protected
+  `POST /activity-reports/for`, so a prefetch or speculative navigation can never mint a report.
+  **History has no writer yet** (Codex P1s, round 9): no production path appends `Goal.progress_history`
+  (`update_goal_progress` writes the figure and, with notes, `metadata["progress_notes"]`; A1c stamps
+  `last_progress_update`), and `record_principle_reflection` publishes events and stamps
+  `last_review_date` while `alignment_history` is appended only by the self-assessment flow. Before
+  `goals_progressed` / `principles_reviewed` read history for a closed period, E.2 makes every
+  progress-writing path (`update_goal_progress`, `GoalsCoreService.update_goal` on a
+  `progress_percentage` change, `complete_goal`) append `{date, progress_percentage}` to
+  `progress_history`, and reflections persist a dated occurrence (an `alignment_history` entry with
+  `kind: reflection` and no score); until then a calendar-period report keeps the trailing-stamp read and
+  records the limitation in its metadata, like the period-end denominator.
 - **E.3 retire the schedule producer** (ruling 7): worker, `ProgressScheduleService`, `core/models/report_schedule/`,
   `ReportScheduleBackend`, both protocols, `ScheduleType`, both request models, `NeoLabel.REPORT_SCHEDULE`,
   `RelationshipName.HAS_SCHEDULE`, `MIN_AUTO_REPORT_INTERVAL_HOURS`, compose/container/bootstrap wiring, the
@@ -431,7 +449,13 @@ lens-status question (dated CANCELLED/FAILED tasks: **render** — the lens show
   tests, the fixture in `test_timestamp_field_coercion_residual.py`; regenerate `GRAPH_CONTRACT.yaml`;
   amend ADR-069 D3 rows 6–8 (and row 9's schedule clause); repoint the five "hourly ProgressReportWorker
   is the CORE Analog worker" citations (CLAUDE.md, GRACEFUL_DEGRADATION_ARCHITECTURE, DO_MIGRATION_GUIDE,
-  neo4j-cypher-patterns skill, habitmissed case file) to the 5-min graph-health poller.
+  neo4j-cypher-patterns skill, habitmissed case file) to the 5-min graph-health poller. **The cleanup
+  rule is a repo-wide grep for every retired name** (`ProgressScheduleService`, `ReportSchedule*`,
+  `ScheduleType`, `REPORT_SCHEDULE`, `HAS_SCHEDULE`, `MIN_AUTO_REPORT_INTERVAL_HOURS`,
+  `ProgressReportWorker`), not the citation list above — Codex (P2, round 10) named five more
+  authoritative docs still presenting the scheduler as live: `REPORT_ARCHITECTURE.md`,
+  `ENTITY_TYPE_ARCHITECTURE.md`, `PROTOCOL_REFERENCE.md`, `constants_usage_guide.md`,
+  `ANY_USAGE_POLICY.md`.
 
 ## Non-goals (this arc)
 

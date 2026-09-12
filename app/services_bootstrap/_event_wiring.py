@@ -482,15 +482,19 @@ def _wire_event_subscribers(
 
     # ---- Adaptive Learning Loop (ADR-048) ----
 
-    # Task event handlers - duration calibration, priority analysis, batch patterns
+    # Task event handlers - dependent scheduling (its own subscriber, so an optional
+    # intelligence step failing cannot pre-empt it), duration calibration, priority
+    # analysis, batch patterns
     tasks_service = activity_services["tasks"]
+    event_bus.subscribe(TaskCompleted, tasks_service.event_handler.handle_dependent_scheduling)
     event_bus.subscribe(TaskCompleted, tasks_service.event_handler.handle_task_completed)
     event_bus.subscribe(
         TaskPriorityChanged, tasks_service.event_handler.handle_task_priority_changed
     )
     event_bus.subscribe(TasksBulkCompleted, tasks_service.event_handler.handle_tasks_bulk_completed)
     logger.info(
-        "✅ TaskEventHandlerService subscribed to TaskCompleted, TaskPriorityChanged, TasksBulkCompleted"
+        "✅ TaskEventHandlerService subscribed to TaskCompleted (dependents + intelligence), "
+        "TaskPriorityChanged, TasksBulkCompleted"
     )
 
     # Events event handlers - attendance patterns, rescheduling detection, scheduling density

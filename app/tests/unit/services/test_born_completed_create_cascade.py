@@ -10,8 +10,7 @@ was silently skipped for it. The create door announced ``TaskCreated`` /
 ``GoalCreated`` / ``CalendarEventCreated`` and nothing else.
 
 A create has NO prior status, so a created-completed entity is unambiguously a
-transition INTO completed: ``is_repeat`` is False and no prior-status machinery is
-needed. The gate is the entity's own status, which is why a non-completed create must
+transition INTO completed, and no prior-status machinery is needed. The gate is the entity's own status, which is why a non-completed create must
 stay silent — that is the half a "does it publish?" assertion cannot see.
 
 ``occurred_at`` carries the entity's OWN completion stamp (CLAUDE.md's sanctioned
@@ -129,7 +128,6 @@ class TestTaskCreatedCompleted:
         assert len(completed) == 1
         assert completed[0].task_uid == result.value.uid
         assert completed[0].user_uid == USER
-        assert completed[0].is_repeat is False
 
     async def test_the_authored_done_date_becomes_occurred_at(self) -> None:
         from core.services.dsl.activity_domain_converters import activity_to_task_request

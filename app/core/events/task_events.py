@@ -52,52 +52,23 @@ class TaskCompleted(BaseEvent):
     - GoalAnalyticsService (update goal progress)
     - AnalyticsEngine (track completion patterns)
 
-    **The idempotency contract.** Completing an already-completed task is a
-    legal, reachable action (both explicit-complete doors sit behind an
-    ownership check with no already-completed guard), and the cascade
-    deliberately re-runs on it so it stays a repair path. ``is_repeat`` is the
-    single seam that makes the re-run safe:
-
-        Handlers that **recompute** state ignore ``is_repeat`` and do their
-        work every time — that is the repair path. Handlers that **count** or
-        **append** skip when ``is_repeat`` is true.
-
-    Recompute-shaped subscribers (goal progress, PS engagement auto-complete,
-    knowledge generation, context invalidation) therefore read nothing from this
-    flag. The counting/appending ones do: duration-calibration EMA and its
-    sample counter, the overdue ``PersistedInsight`` append, and the Prometheus
-    ``entities_completed{task}`` counter — the last of which cannot be fixed any
-    other way, since a monotonic counter has no un-increment.
-
-    Two subscribers are **split across both halves**, and they are the reason
-    the contract names appending separately from counting rather than treating
-    the flag as a simple do-it/skip-it switch:
-
-    - **Principle alignment** recomputes the alignment from the graph on every
-      complete, then appends a ``PersistedInsight`` only when this is not a
-      repeat.
-    - **``ProductivityAnalytics``** used to be the second: it recomputed
-      ``tasks_completed`` on every complete and gated only the stamps. The
-      count is now derived at read (``get_productivity_analytics``), so the
-      handler has nothing left that derives and the flag gates it whole — a
-      repeat carries a fresh ``occurred_at`` while nothing transitioned, and
-      stamping that onto ``last_completion_at`` would move "when did this user
-      most recently complete something" forward on a click that completed
-      nothing.
-
-    The pattern behind both: ``is_repeat`` gates the part of a handler that
-    **accumulates** (an append, a stamp), never the part that **derives**.
-
-    **Only the explicit-complete cascade ever sets ``is_repeat=True``.** The
-    other publishers cannot reach a repeat: the status chokepoint
-    (``update_task``), the per-row fan-out from ``complete_tasks_bulk`` and the
-    vault door's post-persist announcement
-    (``UnifiedIngestionService._apply_status_transitions``, from the prior status
-    the bulk upsert returns under the node's write-lock) are transition-gated,
-    publishing exactly when the write moved the task INTO completed; the create
-    door (``TasksCoreService._publish_born_completed``, for a task born
-    ``completed`` — a DSL ``- [x]`` line or an API create carrying the status)
-    has no prior status at all, so its publish is a transition by construction.
+    **Every publisher is transition-gated.** ``TaskCompleted`` is published exactly
+    when a write moved the task INTO completed, never on a re-post: the status
+    chokepoint (``TasksCoreService.update_task`` — the one completion door; every
+    complete control, Today's included, posts through it), the per-row fan-out from
+    ``complete_tasks_bulk`` and the vault door's post-persist announcement
+    (``UnifiedIngestionService._apply_status_transitions``, from the prior status the
+    bulk upsert returns under the node's write-lock) all derive the verdict from the
+    prior the write itself captured (ADR-087); the create door
+    (``TasksCoreService._publish_born_completed``, for a task born ``completed`` — a
+    DSL ``- [x]`` line or an API create carrying the status) has no prior status at
+    all, so its publish is a transition by construction. Re-posting ``completed`` on
+    a completed task writes nothing and announces nothing, which is why no subscriber
+    carries a repeat gate: counting and appending subscribers (the duration EMA, the
+    overdue and alignment insight appends, the Prometheus ``entities_completed{task}``
+    counter, the productivity completion moment) count each genuine completion once,
+    and recompute-shaped ones (goal progress, PS engagement auto-complete, dependent
+    scheduling, knowledge generation, context invalidation) converge on their own.
 
     A task completed away from the app carries its own ``completion_date`` as
     ``occurred_at`` — the born-completed create door and the vault door both —
@@ -112,11 +83,6 @@ class TaskCompleted(BaseEvent):
     # Optional context for analytics
     completion_time_seconds: int | None = None
     was_overdue: bool = False
-
-    #: True when the task was already COMPLETED before this complete — i.e. the
-    #: publisher's write was not a transition into COMPLETED. See the contract
-    #: in the class docstring.
-    is_repeat: bool = False
 
     event_type: ClassVar[str] = "task.completed"
 

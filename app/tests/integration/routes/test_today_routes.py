@@ -98,7 +98,6 @@ def mock_services() -> Any:
     services.tasks.core.create_task = AsyncMock(return_value=Result.ok(_make_task()))
     services.tasks.get_task = AsyncMock(return_value=Result.ok(_make_task()))
     services.tasks.update_task = AsyncMock(return_value=Result.ok(_make_task()))
-    services.tasks.complete_task = AsyncMock(return_value=Result.ok(_make_task()))
 
     services.user_relationships = MagicMock()
     services.user_relationships.get_today_pinned = AsyncMock(return_value=Result.ok(set()))
@@ -271,7 +270,10 @@ class TestTaskComplete:
         request = _make_request()
         response = await handlers["/today/tasks/{uid}/complete"](request=request, uid="task_001")
         assert response.status_code == 204
-        mock_services.tasks.complete_task.assert_awaited_once_with("task_001")
+        mock_services.tasks.update_task.assert_awaited_once()
+        uid_arg, intent = mock_services.tasks.update_task.await_args.args
+        assert uid_arg == "task_001"
+        assert intent.status == "completed"
 
     async def test_non_owner_returns_404(
         self, handlers: dict[str, Any], mock_services: Any
@@ -282,13 +284,13 @@ class TestTaskComplete:
         request = _make_request()
         response = await handlers["/today/tasks/{uid}/complete"](request=request, uid="task_999")
         assert response.status_code == 404
-        mock_services.tasks.complete_task.assert_not_called()
+        mock_services.tasks.update_task.assert_not_called()
 
     async def test_service_failure_returns_500(
         self, handlers: dict[str, Any], mock_services: Any
     ) -> None:
-        mock_services.tasks.complete_task = AsyncMock(
-            return_value=Result.fail(Errors.database(operation="complete_task", message="boom"))
+        mock_services.tasks.update_task = AsyncMock(
+            return_value=Result.fail(Errors.database(operation="update_task", message="boom"))
         )
         request = _make_request()
         response = await handlers["/today/tasks/{uid}/complete"](request=request, uid="task_001")

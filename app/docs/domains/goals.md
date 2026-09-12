@@ -1,7 +1,7 @@
 ---
 title: Goals Domain
 created: 2025-12-04
-updated: 2026-09-11
+updated: 2026-09-12
 status: current
 category: domains
 tags:
@@ -290,8 +290,8 @@ The Goals domain publishes domain events for cross-service communication:
 **`GoalAchieved` fires on the transition, never on the state — and since ADR-087 the transition
 is decided BY the write.** Publishing on the state alone would both move the recorded achievement
 date to today on any later write (a mutable completion stamp) and duplicate the
-PRINCIPLE_ALIGNMENT insight `GoalEventHandlerService` appends per event. There is no `is_repeat`
-flag on this event: the transition gate is the whole mechanism.
+PRINCIPLE_ALIGNMENT insight `GoalEventHandlerService` appends per event. No event carries a
+repeat flag: the transition gate is the whole mechanism.
 
 Where that gate lives differs by door, and the split is the point:
 

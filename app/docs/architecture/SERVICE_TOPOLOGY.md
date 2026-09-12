@@ -1,5 +1,5 @@
 ---
-updated: 2026-09-05
+updated: 2026-09-12
 ---
 
 # Service Architecture: File Organization & Topology
@@ -235,8 +235,8 @@ TasksService (Facade)
     │
     ├─ self.progress: TasksProgressService
     │   ├─ Extends: BaseService[TasksOperations, Task]
-    │   ├─ Responsibility: Progress tracking, completion
-    │   └─ Methods: complete_task_with_cascade(), check_prerequisites()
+    │   ├─ Responsibility: Prerequisites, unblocking, assignment
+    │   └─ Methods: check_prerequisites(), unblock_task_if_ready(), assign_task_to_user()
     │
     ├─ self.scheduling: TasksSchedulingService
     │   ├─ Extends: BaseService[TasksOperations, Task]
@@ -348,8 +348,8 @@ Route Layer
 │  # and shadows the name. Callers use SearchRouter, or  │
 │  # `tasks_service.search.<domain_method>()`.           │
 │                                                         │
-│  async def complete_task(self, *args, **kwargs):      │
-│      return await self.progress.complete_task(*args, **kwargs) │
+│  async def check_prerequisites(self, *args, **kwargs):│
+│      return await self.progress.check_prerequisites(*args, **kwargs) │
 └───────────┬────────────────────────────────────────────┘
             │
             ├─────────────────┬─────────────────┬──────────────────┐
@@ -506,27 +506,26 @@ services_bootstrap/compose.py:  goals.intelligence.habits_service = habits  # su
 
 ```
 1. HTTP Request
-   POST /api/tasks/task_learn-baseservice_abc123/complete
-   Body: {actual_minutes: 30, quality_score: 4}
+   POST /api/tasks/task_learn-baseservice_abc123/status
+   Body: {status: "completed"}
    │
    ▼
 2. Route Handler
-   result = await services.tasks.complete_task_with_cascade(
-       task_uid, user_context, actual_minutes, quality_score
+   result = await services.tasks.update_task(
+       task_uid, TaskUpdateIntent(status="completed")
    )
    │
    ▼
 3. Facade (explicit delegation)
-   TasksService.complete_task_with_cascade()
-       └─ Delegates to: self.progress.complete_task_with_cascade()
+   TasksService.update_task()
+       └─ Delegates to: self.core.update_task() (+ syncs relationship edges)
    │
    ▼
-4. Progress Service
-   TasksProgressService.complete_task_with_cascade()
-       ├─ Verifies ownership
-       ├─ Updates Task status → COMPLETED
-       ├─ Checks prerequisites → unblocks dependent tasks
-       └─ Publishes: TaskCompleted event
+4. Core Service — THE completion door (ADR-087)
+   TasksCoreService.update_task()
+       ├─ Validates the status target, stamps completion_date under the node's lock
+       ├─ Publishes: TaskCompleted (on the transition INTO completed)
+       └─ Subscribers: dependent scheduling, goal progress, calibration, analytics
    │
    ├─────────────────────┐
    │                     │

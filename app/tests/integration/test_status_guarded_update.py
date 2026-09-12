@@ -12,7 +12,7 @@ refused write does not even bump ``updated_at`` — is a property of the stateme
 cannot both observe the same prior. That is a claim about a node write-lock under real
 contention, so it is asserted by racing writers with ``asyncio.gather`` and checking the
 invariant that follows: across N concurrent completes on one task, exactly ONE sees a
-non-completed prior — i.e. exactly one reports ``is_repeat=False``. A single failing
+non-completed prior — i.e. exactly one completion transition. A single failing
 iteration falsifies the design, so the race runs repeatedly rather than once.
 """
 
@@ -298,9 +298,9 @@ class TestStatusGuardedUpdate:
 
     # -- atomicity ----------------------------------------------------------
 
-    async def test_concurrent_completes_produce_exactly_one_non_repeat(self, backend, seed):
+    async def test_concurrent_completes_produce_exactly_one_transition(self, backend, seed):
         """The arc's proof. Four writers complete the same task at once; exactly one
-        may report ``is_repeat=False``. Without the lock-first SET this fails almost
+        may observe a non-completed prior — one completion transition. Without the lock-first SET this fails almost
         every iteration (measured: 39/40 trials produced 2-4 such writers)."""
         for _ in range(_RACE_ITERATIONS):
             uid = await seed(EntityStatus.ACTIVE)

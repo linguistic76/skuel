@@ -198,11 +198,11 @@ class TasksCoreService(
 
         A second rule — terminal-state protection, refusing *every* change to a
         completed/cancelled/archived task — lived here unreachable and was DELETED
-        rather than wired: it would have refused the repeat completion the cascade
-        treats as a repair path, refused the status re-post that reopens a task, and
-        resurrected for Tasks the achievement immutability #1124 deliberately removed
-        for Goals. The only terminal-state gate Tasks has is the cascade's own read in
-        ``TasksProgressService._trigger_task``.
+        rather than wired: it would have refused the status re-post that reopens a
+        task, and resurrected for Tasks the achievement immutability #1124
+        deliberately removed for Goals. The only terminal-state gate Tasks has is the
+        dependent scheduler's write condition
+        (``TaskEventHandlerService._schedule_dependent``).
 
         Args:
             current: Current task state
@@ -656,8 +656,8 @@ class TasksCoreService(
         a task that never passes through ``update_task``, so every ``TaskCompleted``
         subscriber — goal progress, PS engagement auto-complete, duration calibration,
         productivity analytics, context invalidation — used to be skipped for it. A
-        create has no prior status, so this is unambiguously a transition INTO completed:
-        ``is_repeat`` is False and no prior-status machinery is needed.
+        create has no prior status, so this is unambiguously a transition INTO completed,
+        and no prior-status machinery is needed.
 
         ``occurred_at`` carries the task's own ``completion_date`` (CLAUDE.md's sanctioned
         case: a derived event about a source occurrence), so an ingested historical ``✅``
@@ -682,7 +682,6 @@ class TasksCoreService(
                     task.actual_minutes * 60 if task.actual_minutes is not None else None
                 ),
                 was_overdue=task.due_date < completed_at.date() if task.due_date else False,
-                is_repeat=False,
                 occurred_at=completed_at,
             ),
             self.logger,
@@ -871,11 +870,12 @@ class TasksCoreService(
         hook never fires for Tasks (cascade-idempotency arc, correction #14).
         Status transitions are validated against the Task lifecycle and completion
         stamping (``completion_date``) is applied here — the domain's one update
-        chokepoint (``core.services.completion_stamp``). A transition INTO
-        completed also publishes ``TaskCompleted`` (always ``is_repeat=False`` —
-        the gate is the transition), so completing a task from the status
-        control runs the same cascade as the explicit-complete doors, and the
-        mirror transition OUT of completed publishes ``TaskReopened``.
+        chokepoint (``core.services.completion_stamp``) — and THE completion door:
+        every complete control posts through here. A transition INTO completed
+        publishes ``TaskCompleted`` (the gate is the transition, so a re-post
+        announces nothing) and everything a completion cascades into runs as its
+        subscribers; the mirror transition OUT of completed publishes
+        ``TaskReopened``.
 
         Both verdicts are derived from the status the WRITE observed under the node's
         lock, not from a status read beforehand (ADR-087). That closes the vector this
@@ -963,10 +963,9 @@ class TasksCoreService(
         # duration calibration, analytics, context invalidation — was silently
         # skipped for tasks completed from a status control.
         #
-        # ``is_repeat`` is always False here: the gate IS the transition, so a
-        # re-post of ``completed`` never reaches this publish (unlike the
-        # explicit-complete doors, which deliberately re-run their cascade as a
-        # repair path and report the repeat). See TaskCompleted's docstring.
+        # The gate IS the transition, so a re-post of ``completed`` never reaches
+        # this publish — there is no repeat to announce and no subscriber carries a
+        # repeat gate. See TaskCompleted's docstring.
         #
         # Zero extra queries: the prior comes back from the write itself, and the
         # post-write ``task`` carries due_date/actual_minutes.
@@ -978,7 +977,6 @@ class TasksCoreService(
                     task.actual_minutes * 60 if task.actual_minutes is not None else None
                 ),
                 was_overdue=task.due_date < date.today() if task.due_date else False,
-                is_repeat=False,
             )
             await publish_event(self.event_bus, completed_event, self.logger)
 
@@ -1089,7 +1087,6 @@ class TasksCoreService(
                         task.actual_minutes * 60 if task.actual_minutes is not None else None
                     ),
                     was_overdue=(task.due_date < date.today() if task.due_date else False),
-                    is_repeat=False,
                 )
             )
 

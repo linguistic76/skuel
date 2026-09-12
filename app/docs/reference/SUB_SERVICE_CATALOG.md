@@ -1,5 +1,5 @@
 ---
-updated: 2026-09-05
+updated: 2026-09-12
 ---
 
 # Sub-Service Responsibility Catalog
@@ -227,7 +227,7 @@ These sub-services exist in specific Activity Domains:
 from core.services.tasks import TasksProgressService
 
 progress = TasksProgressService(backend=backend, event_bus=event_bus)
-result = await progress.complete_task_with_cascade(task_uid, user_context)
+result = await progress.unblock_task_if_ready(task_uid, user_context)
 ```
 
 ---
@@ -324,6 +324,7 @@ All 6 Activity Domain event handlers and the Learning Loop handler accept an opt
 | **Learning Loop** | `LEARNING_PROGRESS` | Persistent learner (3+ attempts to mastery) |
 
 **Key Methods (Tasks):**
+- `handle_dependent_scheduling()` - TRIGGERS_ON_COMPLETION dependents → scheduled (its own TaskCompleted subscriber)
 - `handle_task_completed()` - Duration calibration, overdue detection, principle alignment
 - `handle_task_priority_changed()` - Categorization, cascade impact, inflation detection
 - `handle_tasks_bulk_completed()` - Batch pattern classification
@@ -686,16 +687,12 @@ What do you want to do?
 
 ## Common Patterns
 
-### Pattern: Complete Entity with Cascade
+### Pattern: Complete an Entity
 
 ```python
-# TasksProgressService
-result = await tasks.progress.complete_task_with_cascade(
-    task_uid,
-    user_context,
-    actual_minutes=30,
-    quality_score=4,
-)
+# The one completion door is the status chokepoint (ADR-087); what a completion
+# cascades into runs as TaskCompleted subscribers.
+result = await tasks.update_task(task_uid, TaskUpdateIntent(status="completed", actual_minutes=30))
 ```
 
 **Cascade:**

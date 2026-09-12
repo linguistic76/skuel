@@ -1,6 +1,6 @@
 ---
 title: "SKUEL Routing Architecture: Routes, Services, and Persistence"
-updated: 2026-09-05
+updated: 2026-09-12
 status: current
 category: architecture
 tags: [architecture, routing, security]
@@ -904,7 +904,7 @@ async def complete_task_route(request: Request) -> Result[Task]:
         return ownership  # Returns 404
 
     # 3. Safe to proceed
-    return await tasks_service.complete_task(uid)
+    return await tasks_service.update_task(uid, TaskUpdateIntent(status="completed"))
 ```
 
 ### Domain Categories

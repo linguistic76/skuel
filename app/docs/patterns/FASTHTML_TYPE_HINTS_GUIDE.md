@@ -1,6 +1,6 @@
 ---
 title: FastHTML Type Hints Pattern Guide
-updated: 2026-08-14
+updated: 2026-09-12
 category: patterns
 related_skills:
 - ui-browser
@@ -45,13 +45,11 @@ async def complete_task_route(request: Request) -> Result[Task]:
 
     # Line 3-4: Extract fields from body
     actual_minutes = body.get("actual_minutes")
-    quality_score = body.get("quality_score")
 
     # Line 5: Call service
-    return await tasks_service.complete_task_with_cascade(
+    return await tasks_service.update_task(
         uid,
-        actual_minutes=actual_minutes,
-        quality_score=quality_score
+        TaskUpdateIntent(status="completed", actual_minutes=actual_minutes),
     )
 ```
 
@@ -73,12 +71,10 @@ from core.utils.result_simplified import Result
 async def complete(
     uid: str,                              # Auto-extracted from ?uid=...
     actual_minutes: int | None = None,     # Auto-extracted & validated
-    quality_score: float | None = None     # Auto-extracted & validated
 ) -> Result[Task]:
-    return await tasks_service.complete_task_with_cascade(
+    return await tasks_service.update_task(
         uid,
-        actual_minutes=actual_minutes,
-        quality_score=quality_score
+        TaskUpdateIntent(status="completed", actual_minutes=actual_minutes),
     )
 ```
 
@@ -333,12 +329,10 @@ async def list_tasks(
 async def complete(
     uid: str,
     actual_minutes: int | None = None,
-    quality_score: float | None = None
 ) -> Result[Task]:
-    return await tasks_service.complete_task_with_cascade(
+    return await tasks_service.update_task(
         uid,
-        actual_minutes=actual_minutes,
-        quality_score=quality_score
+        TaskUpdateIntent(status="completed", actual_minutes=actual_minutes),
     )
 ```
 

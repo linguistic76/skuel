@@ -222,26 +222,15 @@ class CrossDomainAnalyticsService:
         reopen or a deletion lowers it without anyone having to hear about it,
         which a stored tally maintained from completion events cannot do.
 
-        **``is_repeat`` gates the whole handler, because the whole handler
-        accumulates.** The arc's contract is that the flag gates what
-        *accumulates* (an append, a stamp) and never what *derives*; with the
-        count derived at read there is nothing left here that derives. A
-        repeat is the explicit-complete cascade re-running on an
-        already-completed task, and it carries a fresh ``occurred_at`` even
-        though nothing transitioned — writing that to ``last_completion_at``
-        would report a completion moment that never happened, moving "when did
-        this user most recently complete something" forward on a click that
-        completed nothing. A reopen never reaches this service at all
-        (``TaskReopened`` has no analytics subscriber now that no count is
-        stored) and would have nothing to write if it did: it is the opposite
-        of a completion.
+        The whole handler accumulates (a stamp), so it relies on the publisher
+        side: ``TaskCompleted`` is transition-gated at every door, so the moment
+        it carries is always one at which something completed. A reopen never
+        reaches this service at all (``TaskReopened`` has no analytics subscriber
+        now that no count is stored) and would have nothing to write if it did:
+        it is the opposite of a completion.
 
         See :class:`TaskCompleted` for the contract.
         """
-        if event.is_repeat:
-            self.logger.debug(f"Repeat complete records no completion moment: {event.task_uid}")
-            return Result.ok(None)
-
         try:
             result = await self.backend.stamp_productivity_completion(
                 user_uid=event.user_uid,

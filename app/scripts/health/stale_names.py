@@ -468,8 +468,8 @@ ALLOWED_OCCURRENCES: dict[str, dict[tuple[int, str], Allow]] = {
     "docs/patterns/three_tier_type_system.md": {
         # These two move whenever the prose above them changes length. Re-derive
         # the anchors from the scanner's report, never by adding a diff delta.
-        (958, "KuType"): Allow(_three_tier),
-        (959, "KuStatus"): Allow(_three_tier),
+        (946, "KuType"): Allow(_three_tier),
+        (947, "KuStatus"): Allow(_three_tier),
     },
     "docs/roadmap/dead-doc-links-sweep-queue.md": {
         # 219 → 241: § "Named, still queued" above it gained the `/journals/browse`

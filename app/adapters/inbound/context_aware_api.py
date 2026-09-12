@@ -30,7 +30,6 @@ from core.models.goal.goal_request import ContextualGoalTaskGenerationRequest
 from core.models.habit.habit import Habit
 from core.models.habit.habit_request import ContextualHabitCompletionRequest
 from core.models.task.task import Task
-from core.models.task.task_request import ContextualTaskCompletionRequest
 from core.ports import UserContextOperations
 from core.ports.query_types import (
     AdaptiveLearningPathResult,
@@ -112,35 +111,6 @@ def create_context_aware_api_routes(
     # ========================================================================
     # CONTEXT INTEGRATION OPERATIONS
     # ========================================================================
-
-    @rt("/api/context/task/complete", methods=["POST"])
-    @csrf_protected
-    @boundary_handler(success_status=200)  # Changed to 200 (completion, not creation)
-    async def complete_task_with_context_route(
-        request: Request, task_uid: str, body: ContextualTaskCompletionRequest
-    ) -> Result[Task]:
-        """
-        Complete task with context awareness.
-
-        Args:
-            request: FastHTML request object
-            task_uid: Task UID from query param
-            body: Validated request body (auto-parsed by FastHTML/Pydantic)
-
-        Returns:
-            Result containing completed task
-        """
-        user_uid = require_authenticated_user(request)
-        # Destructure at the boundary: Pydantic validated the three context
-        # fields, so the service takes them as typed params instead of a dict.
-        return await context_service.complete_task_with_context(
-            task_uid=task_uid,
-            user_uid=user_uid,
-            time_invested_minutes=body.context.time_invested_minutes,
-            knowledge_applied=body.context.knowledge_applied,
-            quality=body.context.quality,
-            reflection_notes=body.reflection,
-        )
 
     @rt("/api/context/goal/tasks", methods=["POST"])
     @csrf_protected
@@ -300,11 +270,10 @@ __all__ = [
 # 5. Added proper HTTP status codes (201 for POST creates)
 # 6. Prepared for service integration with task markers
 #
-# Routes Summary (10 routes):
+# Routes Summary (9 routes):
 # 1. GET  /api/context/dashboard/{user_uid} - Context dashboard
 # 2. GET  /api/context/analysis/{user_uid} - AI context analysis
 # 3. GET  /api/context/next-action/{user_uid} - Next action recommendation
-# 4. POST /api/context/task/{task_uid}/complete - Complete task with context
 # 5. POST /api/context/goal/{goal_uid}/tasks - Generate tasks from goal
 # 6. POST /api/context/habit/{habit_uid}/complete - Complete habit with context
 # 7. GET  /api/context/habits/at-risk/{user_uid} - At-risk habits

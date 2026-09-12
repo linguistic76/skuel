@@ -197,58 +197,6 @@ def tasks_service_with_mocked_subservices(
 # ---------------------------------------------------------------------------
 
 
-class TestCompleteTaskWithCascade:
-    """complete_task_with_cascade is now a pure delegation to TasksProgressService.
-
-    Knowledge generation runs as a TaskCompleted event subscriber in
-    TaskEventHandlerService (commit 7d810261) — not as an inline side effect
-    on the facade. Event-handler behavior is covered by its own unit tests.
-    """
-
-    @pytest.mark.asyncio
-    async def test_delegates_to_progress_service(
-        self, tasks_service_with_mocked_subservices: TasksService
-    ) -> None:
-        """complete_task_with_cascade forwards args to progress.complete_task_with_cascade."""
-        service = tasks_service_with_mocked_subservices
-
-        mock_task = Mock()
-        service.progress.complete_task_with_cascade = AsyncMock(return_value=Result.ok(mock_task))
-
-        user_context = Mock()
-        user_context.user_uid = "user_test"
-
-        result = await service.complete_task_with_cascade("task_abc", user_context)
-
-        assert result.is_ok
-        service.progress.complete_task_with_cascade.assert_called_once_with(
-            "task_abc", user_context, None, None
-        )
-
-    @pytest.mark.asyncio
-    async def test_propagates_progress_failure(
-        self, tasks_service_with_mocked_subservices: TasksService
-    ) -> None:
-        """complete_task_with_cascade returns the progress service's failure unchanged."""
-        service = tasks_service_with_mocked_subservices
-
-        service.progress.complete_task_with_cascade = AsyncMock(
-            return_value=Result.fail(Errors.not_found(resource="Task", identifier="task_abc"))
-        )
-
-        user_context = Mock()
-        user_context.user_uid = "user_test"
-
-        result = await service.complete_task_with_cascade("task_abc", user_context)
-
-        assert result.is_error
-
-
-# ---------------------------------------------------------------------------
-# TestLinkTaskToKnowledge
-# ---------------------------------------------------------------------------
-
-
 class TestLinkTaskToKnowledge:
     @pytest.mark.asyncio
     async def test_passes_correct_kwargs_to_relationships(

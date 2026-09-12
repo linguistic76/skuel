@@ -1,6 +1,6 @@
 ---
 title: Three-Tier Type System
-updated: 2026-09-07
+updated: 2026-09-12
 category: patterns
 related_skills:
 - python
@@ -256,18 +256,6 @@ core/models/{domain}/              # Pydantic request models (Tier 1)
 ### Example: Context-Aware Request Models (Dissolved into Domain Files)
 
 ```python
-# core/models/task/task_request.py
-class TaskCompletionContext(RequestBase):
-    """Typed sub-model — three documented keys, not a heterogeneous bag."""
-    knowledge_applied: list[str] = Field(default_factory=list)
-    time_invested_minutes: int | None = Field(default=None, ge=0)
-    quality: str = Field(default="good")
-
-class ContextualTaskCompletionRequest(RequestBase):
-    """Request model for completing a task with context awareness."""
-    context: TaskCompletionContext = Field(default_factory=TaskCompletionContext)
-    reflection: str = Field(default="", max_length=2000)
-
 # core/models/habit/habit_request.py
 class ContextualHabitCompletionRequest(BaseModel):
     """Request model for completing a habit with quality tracking."""
@@ -284,20 +272,21 @@ class ContextualGoalTaskGenerationRequest(BaseModel):
 ### Usage in Routes
 
 ```python
-@rt("/api/context/task/complete", methods=["POST"])
+@rt("/api/context/habit/complete", methods=["POST"])
+@csrf_protected
 @boundary_handler(success_status=200)
-async def complete_task(
+async def complete_habit_with_context_route(
     request: Request,
-    task_uid: str,
-    body: TaskCompletionRequest  # FastHTML auto-parses & validates
-) -> Result[Any]:
+    habit_uid: str,
+    body: ContextualHabitCompletionRequest,  # FastHTML auto-parses & validates
+) -> Result[Habit]:
     """
-    Complete task with context awareness.
+    Complete habit with context tracking.
 
     Pydantic validates:
     - JSON structure (dict vs string)
     - Field types (str, int, etc.)
-    - Field constraints (ge/le, max_length, Literal enums)
+    - Field constraints (ge/le, max_length, validated enums)
 
     A body bound this way is validated during FastHTML's parameter
     extraction, BEFORE the handler and its ``@boundary_handler`` wrapper run.
@@ -311,14 +300,14 @@ async def complete_task(
     ``TypeError``, which no validation guard converts. Use an enum or a
     validated ``str``, or bind via ``parse_json_body``.
     """
-    return await service.complete_task_with_context(
-        task_uid=task_uid,
+    user_uid = require_authenticated_user(request)
+    return await context_service.complete_habit_with_context(
+        habit_uid=habit_uid,
+        user_uid=user_uid,
         # Destructure at the boundary — Pydantic stops here (Tier 1), the
         # service takes plain typed params.
-        time_invested_minutes=body.context.time_invested_minutes,
-        knowledge_applied=body.context.knowledge_applied,
-        quality=body.context.quality,
-        reflection_notes=body.reflection,
+        completion_quality=body.quality,
+        environmental_factors=body.environmental_factors,
     )
 ```
 
@@ -362,12 +351,11 @@ calls the annotation to coerce each incoming value, and `Literal(...)` raises
 
 **Optional Fields with Defaults:**
 ```python
-class TaskRequest(RequestBase):
-    context: TaskCompletionContext = Field(
-        default_factory=TaskCompletionContext
-    )  # All-defaults sub-model
-    reflection: str = Field(default="")  # Empty string
+class TaskStatusUpdateRequest(RequestBase):
+    status: EntityStatus = Field(description="New task status")  # Required
     notes: str | None = Field(default=None)  # Nullable
+    completion_date: date | None = Field(default=None)  # Nullable
+    actual_minutes: int | None = Field(default=None, ge=0)  # Nullable + constrained
 ```
 
 See [API_VALIDATION_PATTERNS.md](API_VALIDATION_PATTERNS.md) for comprehensive validation patterns and examples.
@@ -386,7 +374,7 @@ Phase 5; finance is a Firefly III sidecar now, and `core/models/finance/` is dow
 - `TaskCreateRequest`, `TaskUpdateRequest` (`core/models/task/task_request.py`)
 - `GoalCreateRequest`, `GoalUpdateRequest` (`core/models/goal/goal_request.py`)
 - `HabitCreateRequest`, `HabitUpdateRequest` (`core/models/habit/habit_request.py`)
-- Plus context-aware models in the same files (e.g., `ContextualTaskCompletionRequest`)
+- Plus context-aware models in the same files (e.g., `ContextualHabitCompletionRequest`)
 
 ## Frozen Dataclass Dynamic Defaults
 

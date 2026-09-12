@@ -1,6 +1,6 @@
 ---
 title: "ADR-087: Status-Guarded Conditional Writes"
-updated: 2026-09-08
+updated: 2026-09-12
 status: accepted
 category: decisions
 tags: [adr, decisions, concurrency, status, completion-stamp, neo4j, write-path]
@@ -146,7 +146,7 @@ two to four such writers. The lock is the mechanism; the `CASE` merges alone are
 
 ## Consequences
 
-- `is_repeat` becomes exact by construction rather than approximate.
+- `is_repeat` becomes exact by construction rather than approximate. *(Amended 2026-09-12: the explicit-complete cascade — the only publisher of a repeat — was retired with the one-completion-door arc; `update_task` is the sole complete door, every publish is transition-gated, and the field is gone.)*
 - The status chokepoints move backend-direct, off `CrudOperationsMixin.update`'s double
   read. The generic mixin stays the non-status seam and is untouched.
 - `BaseService.update_status` is **deleted** — zero production callers, and a status write

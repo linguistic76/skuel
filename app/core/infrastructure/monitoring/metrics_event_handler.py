@@ -158,12 +158,10 @@ class MetricsEventHandler:
     def _on_task_completed(self, event: TaskCompleted) -> None:
         """Track task completion.
 
-        Skips a repeat complete: a Prometheus counter is monotonic, so this is
-        the one subscriber that has no un-increment and can only be corrected
-        at the source. See :class:`TaskCompleted` for the contract.
+        A Prometheus counter is monotonic, so it relies on the publisher side:
+        ``TaskCompleted`` is transition-gated at every door, so each genuine
+        completion is announced once. See :class:`TaskCompleted` for the contract.
         """
-        if event.is_repeat:
-            return
         self.prometheus_metrics.domains.entities_completed.labels(entity_type="task").inc()
 
     def _on_habit_completed(self, event: HabitCompleted) -> None:

@@ -180,15 +180,6 @@ class TasksOperations(
         """Get all tasks for a user."""
         ...
 
-    async def complete_task(
-        self,
-        uid: str,
-        actual_minutes: int | None = None,
-        quality_score: int | None = None,
-    ) -> Result[Task]:
-        """Complete a task without a user_context (cascade derives the owner)."""
-        ...
-
     async def get_user_assigned_tasks(self, user_uid: UserUID) -> Result[list[Task]]:
         """Get tasks assigned to a user."""
         ...
@@ -1057,18 +1048,6 @@ class UserContextOperations(Protocol):
 
     async def get_context_health(self, user_uid: UserUID) -> Result[ContextHealthResult]:
         """Get overall context health metrics."""
-        ...
-
-    async def complete_task_with_context(
-        self,
-        task_uid: str,
-        user_uid: UserUID,
-        time_invested_minutes: int | None = None,
-        knowledge_applied: list[str] | None = None,
-        quality: str = "good",
-        reflection_notes: str = "",
-    ) -> Result[Task]:
-        """Complete task with context awareness (context arrives destructured)."""
         ...
 
     async def create_tasks_from_goal_context(

@@ -1,7 +1,7 @@
 ---
 title: Tasks Domain
 created: 2025-12-04
-updated: 2026-09-11
+updated: 2026-09-12
 status: current
 category: domains
 tags:
@@ -132,9 +132,10 @@ Also handles: duration calibration (EMA on User node), cascade impact analysis, 
 | `contributes_to_goal` | `CONTRIBUTES_TO_GOAL` | Goal | Goals this contributes to |
 | `fulfills_goal` | `FULFILLS_GOAL` | Goal | Goal this fulfills — dual-written with the `fulfills_goal_uid` column (see Fields) |
 
-**`TRIGGERS_ON_COMPLETION` schedules, it never reopens.** The completion cascade
-(`TasksProgressService._trigger_task`) moves a dependent to `scheduled` only when that
-dependent is not already in a terminal state (`EntityStatus.is_terminal()`). Reopening a
+**`TRIGGERS_ON_COMPLETION` schedules, it never reopens.** The dependent-scheduling
+subscriber (`TaskEventHandlerService.handle_dependent_scheduling`, its own `TaskCompleted`
+handler with its own exception boundary) moves a dependent to `scheduled` only when that
+dependent is not already in a terminal state (`EntityStatus.terminal_values()`). Reopening a
 completed dependent through this path would strip its status while leaving `completion_date`
 set, breaking the invariant that the stamp is non-null exactly when the task is completed.
 Since ADR-087 the check is a condition the *write* evaluates
@@ -265,7 +266,7 @@ The Tasks domain publishes domain events for cross-service communication:
 | Event | Trigger | Data |
 |-------|---------|------|
 | `TaskCreated` | Task created | `task_uid`, `user_uid`, `title`, `priority`, `domain` |
-| `TaskCompleted` | Task marked complete | `task_uid`, `user_uid`, `completion_time_seconds`, `was_overdue`, `is_repeat` |
+| `TaskCompleted` | Task moved INTO completed | `task_uid`, `user_uid`, `completion_time_seconds`, `was_overdue` |
 | `TaskReopened` | Task moved back OUT of completed | `task_uid`, `user_uid` |
 | `TaskUpdated` | Task modified | `task_uid`, `user_uid`, `updated_fields` |
 | `TaskDeleted` | Task removed | `task_uid`, `user_uid`, `reason` |
@@ -274,32 +275,25 @@ The Tasks domain publishes domain events for cross-service communication:
 
 **Event handling:** Other services subscribe to these events (e.g., UserContext invalidation, goal progress updates).
 
-**Every door to COMPLETED publishes `TaskCompleted`.** Five doors, one contract:
-`complete_task_with_cascade` (the explicit-complete doors), the status chokepoint
-`update_task` (`POST /api/tasks/{uid}/status`), a per-row fan-out from `complete_tasks_bulk`,
-the create door for a task born `completed` (`TasksCoreService._publish_born_completed` — a DSL
-`- [x]` line or an API create carrying the status), and the vault door's post-persist
-announcement (`UnifiedIngestionService._apply_status_transitions`). Three of the five are
-transition-gated — the status chokepoint, the bulk fan-out and the vault door — so they publish
-exactly when the write moved the task INTO completed and stay silent otherwise; the vault door
-reads its prior status under the node's write-lock, which is what makes a `--force` re-ingest of
-already-completed files silent. The create door has no prior status, so its publish is a
-transition by construction. The explicit-complete doors are the exception on purpose: they re-run
-on an already-completed task and report it (`is_repeat=True`, the repair path below).
-
+**One completion door, and every publish is transition-gated.** `update_task` (the
+ADR-087 status chokepoint behind `POST /api/tasks/{uid}/status` and Today's complete) is
+THE completion door: the stamp, the `TaskCompleted` publish and everything a completion
+cascades into — dependent scheduling, goal progress, calibration, analytics, context
+invalidation — run as that door's subscribers. The other publishers of `TaskCompleted` are
+the per-row fan-out from `complete_tasks_bulk`, the create door for a task born `completed`
+(`TasksCoreService._publish_born_completed` — a DSL `- [x]` line or an API create carrying
+the status), and the vault door's post-persist announcement
+(`UnifiedIngestionService._apply_status_transitions`). All of them publish exactly when the
+write moved the task INTO completed and stay silent otherwise — the status chokepoint, the
+bulk fan-out and the vault door read the prior under the node's write-lock (which is what
+makes a `--force` re-ingest of already-completed files silent), and the create door has no
+prior status at all. Re-posting `completed` on a completed task writes nothing and announces
+nothing, so no subscriber carries a repeat gate.
 **`TasksBulkCompleted` is published alongside the per-row events, not instead of them** — it
 carries the shape of the *batch* (size, time of day) for pattern classification. A consumer
 that merely counts completions must read the per-row `TaskCompleted`, or it double-counts a
 bulk call.
 
-**`TaskCompleted.is_repeat`:** completing an already-completed task is legal and the cascade
-deliberately re-runs on it (the repair path). The flag gates the part of a handler that
-**accumulates** (an append, a stamp), never the part that **derives**. So a subscriber may read
-it for one half of its work and ignore it for the other — principle alignment recomputes on
-every complete but appends its insight only on a first, and `ProductivityAnalytics` — whose
-handler now only records the completion *moment* — skips a repeat entirely. Only the
-explicit-complete cascade ever sets it — the transition-gated publishers cannot be reached by a
-repeat. See the `TaskCompleted` docstring in `core/events/task_events.py` for the full contract.
 
 **`tasks_completed` is derived at read, not stored.** `GET /api/analytics/productivity` counts
 the user's tasks currently in `completed` on the same traversal that counts the velocity window,
@@ -348,11 +342,11 @@ inherited CRUD hook never fires for Tasks — which is why this rule was dead co
 
 **Terminal ≠ frozen.** A second rule refusing *every* change to a
 completed/cancelled/archived task was declared here and never had a caller; it was deleted
-rather than wired. Wiring it would have refused the repeat completion the cascade treats as a
-repair path, refused the status re-post that reopens a task, and resurrected for Tasks the
-achievement immutability deliberately removed for Goals (#1124). The one terminal-state gate
-Tasks has is the completion cascade's own guard in `TasksProgressService._trigger_task`, which
-declines to *reopen* a finished dependent — evaluated inside the write (ADR-087).
+rather than wired. Wiring it would have refused the status re-post that reopens a task, and
+resurrected for Tasks the achievement immutability deliberately removed for Goals (#1124).
+The one terminal-state gate Tasks has is the dependent scheduler's write condition
+(`TaskEventHandlerService._schedule_dependent`), which declines to *reopen* a finished
+dependent — evaluated inside the write (ADR-087).
 
 ## UI Routes
 

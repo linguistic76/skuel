@@ -1,6 +1,6 @@
 ---
 title: "Ingest Transition Obligation Durability"
-updated: 2026-09-08
+updated: 2026-09-12
 status: "open — design needed"
 trigger: "a report of a vault-completed entity whose cascade did not run, OR a second writer of ingest-time status transitions"
 check: "no instrumentation today; the loss is silent by construction — count ERROR logs from `_publish_completions` / the reopen-clear, or add a counter, before deciding it is worth an outbox"
@@ -72,7 +72,7 @@ cleared once the publish succeeds — an outbox. Sketch, not a plan:
 
 Each step has real questions the sketch does not answer: what the marker is (node property vs. a
 `:PendingTransition` node), whether a republished event is distinguishable from a first publish
-(`is_repeat` semantics), and whether the sweep can tell a crashed publish from one still in flight.
+(no event carries a repeat flag to lean on), and whether the sweep can tell a crashed publish from one still in flight.
 **That is why this is a design, not a patch.**
 
 ## Do not do the cheap version
