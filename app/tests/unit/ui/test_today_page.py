@@ -128,7 +128,7 @@ def test_overdue_and_tasks_render_cards_with_defer_controls() -> None:
     # is a 200 banner the card must keep showing).
     assert html.count('role="status" data-defer-note') == 2
     assert html.count("hx-on::response-error") == 2
-    assert html.count("hx-on:activity-field-updated") == 2
+    assert html.count("hx-on-activity-field-updated") == 2
     assert "if (event.detail.field === 'status') window.location.reload()" in html
     assert "hx-on::after-request" not in html
 

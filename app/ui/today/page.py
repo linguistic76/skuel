@@ -247,11 +247,11 @@ def _task_card_with_defer(
         return Div(
             TaskCard(task, connections),
             _defer_form(task, view_date, source=source),
-            **{
-                "hx-on:activity-field-updated": (
-                    "if (event.detail.field === 'status') window.location.reload()"
-                ),
-            },
+            # hx-on-<event>: htmx's colon-free spelling of hx-on:<event> — the
+            # kwarg form the ui-browser skill prefers over a splat.
+            hx_on_activity_field_updated=(
+                "if (event.detail.field === 'status') window.location.reload()"
+            ),
         )
 
     return card
