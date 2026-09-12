@@ -383,13 +383,17 @@ class GoalsProgressService(BaseService[GoalsOperations, Goal]):
         # above — the same signal, read at the moment it is acted on.
         target_achieved = completed_count == len(updated_milestones)
 
-        # Update goal
+        # Update goal. The progress stamp is a TRANSITION record: only a milestone
+        # moving into completed is a progress event. A repeat leaves the count, the
+        # figure and the stamp exactly where they were, so a re-posted completion in
+        # a later period cannot make the report count the goal as progressed then.
         updates: dict[str, Any] = {
             "milestones": updated_milestones,
             "progress_percentage": new_progress,
             "current_value": completed_count,
-            "last_progress_update": datetime.now(),
         }
+        if not target_milestone.is_completed:
+            updates["last_progress_update"] = datetime.now()
         guard, achievement = _achievement_write(target_achieved)
 
         update_result = await self.backend.update_with_status_guard(goal_uid, updates, guard)

@@ -94,6 +94,25 @@ async def test_milestone_completion_stamps_last_progress_update() -> None:
 
 
 @pytest.mark.asyncio
+async def test_re_completing_a_completed_milestone_leaves_the_stamp_alone() -> None:
+    """A repeat is not a progress event: the milestone was already done, the
+    count and figure do not move, and the stamp must not either — or a re-post
+    in a later period would count the goal as progressed then."""
+    read = _goal(milestones_done=(True, False), progress=50.0)
+    backend, recorder = guarded_backend(read, read)
+    backend.get = AsyncMock(return_value=Result.ok(read))
+    backend.get_goal = AsyncMock(return_value=Result.ok(read))
+    service = _progress_service(backend)
+
+    result = await service.complete_milestone(_GOAL, 0, Mock(user_uid=_USER))
+
+    assert result.is_ok
+    updates = recorder.last_updates
+    assert updates["progress_percentage"] == 50.0
+    assert "last_progress_update" not in updates
+
+
+@pytest.mark.asyncio
 async def test_intent_carrying_progress_stamps_last_progress_update() -> None:
     goal = _goal(progress=55.0)
     backend, recorder = guarded_backend(goal, goal)
