@@ -9,7 +9,7 @@ door, and an intent that carries a progress figure through the core update.
 from __future__ import annotations
 
 from datetime import datetime
-from unittest.mock import AsyncMock, Mock
+from unittest.mock import AsyncMock, Mock, patch
 
 import pytest
 
@@ -18,6 +18,7 @@ from core.models.enums.goal_enums import MeasurementType
 from core.models.goal.goal import Goal
 from core.models.goal.goal_update_intent import GoalUpdateIntent
 from core.models.goal.milestone import Milestone
+from core.services.goals.goal_relationships import GoalRelationships
 from core.services.goals.goals_core_service import GoalsCoreService
 from core.services.goals.goals_progress_service import GoalsProgressService
 from core.utils.result_simplified import Result
@@ -75,6 +76,44 @@ async def test_manual_progress_update_stamps_last_progress_update() -> None:
     updates = backend.update_goal.await_args.args[1]
     assert updates["progress_percentage"] == 40.0
     assert isinstance(updates["last_progress_update"], datetime)
+
+
+@pytest.mark.asyncio
+async def test_re_posting_the_stored_figure_leaves_the_stamp_alone() -> None:
+    """A manual update that changes nothing is not a progress event."""
+    goal = _goal(progress=40.0)
+    backend = Mock()
+    backend.get_goal = AsyncMock(return_value=Result.ok(goal.to_dto()))
+    backend.update_goal = AsyncMock(return_value=Result.ok(goal))
+    service = _progress_service(backend)
+
+    result = await service.update_goal_progress(_GOAL, 40.0)
+
+    assert result.is_ok
+    updates = backend.update_goal.await_args.args[1]
+    assert updates["progress_percentage"] == 40.0
+    assert "last_progress_update" not in updates
+
+
+@pytest.mark.asyncio
+async def test_habit_progress_recompute_to_the_same_capped_figure_leaves_the_stamp_alone() -> None:
+    """A streak advancing past the normalization window recomputes to the same
+    100%: the write happens, the stamp does not (Codex P2 on this PR)."""
+    goal = _goal(progress=100.0)
+    goal = Goal(**{**goal.__dict__, "measurement_type": MeasurementType.HABIT_BASED})
+    backend, recorder = guarded_backend(goal, goal)
+    backend.get_goal = AsyncMock(return_value=Result.ok(goal.to_dto()))
+    service = _progress_service(backend)
+    service.relationships = Mock()  # type: ignore[assignment]
+    linked = GoalRelationships(supporting_habit_uids=["habit_1"])
+
+    with patch.object(GoalRelationships, "fetch", AsyncMock(return_value=linked)):
+        result = await service.update_goal_from_habit_progress(_GOAL, "habit_1", 31)
+
+    assert result.is_ok
+    updates = recorder.last_updates
+    assert updates["progress_percentage"] == 100.0
+    assert "last_progress_update" not in updates
 
 
 @pytest.mark.asyncio
