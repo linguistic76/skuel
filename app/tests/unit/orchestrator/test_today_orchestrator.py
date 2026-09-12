@@ -77,6 +77,31 @@ def _task(
     )
 
 
+def _range_read(tasks: list[Task]):  # type: ignore[no-untyped-def]  # boundary: mock side effect
+    """A stand-in for the dated task read: the rows whose named date field(s)
+    fall inside [start, end] — every status, as ``include_completed=True`` asks."""
+
+    async def read(
+        user_uid: str,
+        start_date: date,
+        end_date: date,
+        include_completed: bool = False,
+        date_field: str | list[str] | None = None,
+    ) -> Result[list[Task]]:
+        fields = [date_field] if isinstance(date_field, str) else list(date_field or [])
+        rows = [
+            t
+            for t in tasks
+            if any(
+                getattr(t, f) is not None and start_date <= getattr(t, f) <= end_date
+                for f in fields
+            )
+        ]
+        return Result.ok(rows)
+
+    return read
+
+
 def _build(
     *,
     tasks: list[Task] | None = None,
@@ -84,7 +109,7 @@ def _build(
     services: dict[str, MagicMock] = {
         key: MagicMock() for key in ("tasks", "events", "habits", "goals", "choices", "calendar")
     }
-    services["tasks"].get_user_tasks = AsyncMock(return_value=Result.ok(tasks or []))
+    services["tasks"].get_user_items_in_range = AsyncMock(side_effect=_range_read(tasks or []))
     services["events"].get_user_items_in_range = AsyncMock(return_value=Result.ok([]))
     services["calendar"].habit_items_for_day = AsyncMock(return_value=Result.ok([]))
     services["goals"].get_user_items_in_range = AsyncMock(return_value=Result.ok([]))
@@ -223,11 +248,39 @@ async def test_other_domains_are_read_for_the_viewed_day() -> None:
 @pytest.mark.asyncio
 async def test_a_failed_task_read_fails_the_page() -> None:
     orch, services = _build()
-    services["tasks"].get_user_tasks = AsyncMock(
-        return_value=Result.fail(Errors.database("get_user_tasks", "boom"))
+    services["tasks"].get_user_items_in_range = AsyncMock(
+        return_value=Result.fail(Errors.database("get_user_items_in_range", "boom"))
     )
     result = await orch.build_context(USER)
     assert result.is_error
+
+
+@pytest.mark.asyncio
+async def test_task_reads_are_dated_never_the_whole_list() -> None:
+    """The day's tasks and the overdue pile come from bounded range reads —
+    a plain "all tasks" list is capped at the backend's page and would drop
+    an old task due today or an old overdue one past that page."""
+    orch, services = _build(tasks=[_task("t", scheduled=TODAY)])
+    await orch.build_context(USER)
+
+    calls = services["tasks"].get_user_items_in_range.await_args_list
+    day_call = calls[0]
+    assert day_call.args[1:] == (TODAY, TODAY)
+    assert day_call.kwargs == {
+        "include_completed": True,
+        "date_field": ["due_date", "scheduled_date"],
+    }
+    overdue_call = calls[1]
+    assert overdue_call.args[2] == TODAY - timedelta(days=1)
+    assert overdue_call.kwargs == {"include_completed": True, "date_field": "due_date"}
+    assert not services["tasks"].get_user_tasks.called
+
+
+@pytest.mark.asyncio
+async def test_another_day_issues_no_overdue_read() -> None:
+    orch, services = _build(tasks=[_task("t", scheduled=TODAY)])
+    await orch.build_context(USER, TODAY + timedelta(days=2))
+    assert services["tasks"].get_user_items_in_range.await_count == 1
 
 
 @pytest.mark.asyncio

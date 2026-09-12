@@ -14,7 +14,7 @@ validates by, so render and guard cannot drift (act-from arc C7).
 from __future__ import annotations
 
 import asyncio
-from datetime import date, datetime
+from datetime import date, datetime, timedelta
 from typing import TYPE_CHECKING
 
 from core.models.type_hints import UserUID
@@ -22,7 +22,12 @@ from core.utils.logging import get_logger
 from core.utils.neo4j_temporal import convert_neo4j_datetime
 from core.utils.result_simplified import Result
 from ui.page_contexts import TodayPageContext
-from ui.today.membership import is_ribbon_member, is_triage_member
+from ui.today.membership import (
+    DUE_FIELD,
+    SCHEDULED_FIELD,
+    is_ribbon_member,
+    is_triage_member,
+)
 
 if TYPE_CHECKING:
     from core.models.choice.choice import Choice
@@ -38,6 +43,18 @@ if TYPE_CHECKING:
     from core.services.tasks_service import TasksService
 
 logger = get_logger("skuel.orchestrators.today")
+
+
+#: The overdue read's lower bound — the range read needs one, and no task is
+#: due before SKUEL's own first day.
+_EARLIEST_DUE = date(2024, 1, 1)
+
+
+async def _no_tasks() -> Result[
+    list[Task]
+]:  # skuel-lint: disable=SKUEL029 -- a gather slot for a read the viewed day does not issue
+    """The overdue slot on a day that is not today: nothing to read."""
+    return Result.ok([])
 
 
 def _date_label(day: date) -> str:
@@ -136,6 +153,16 @@ class TodayOrchestrator:
         self._choices = choices_service
         self._calendar = calendar_service
 
+    async def _overdue_candidates(self, user_uid: UserUID, today: date) -> Result[list[Task]]:
+        """Tasks due before ``today``, every status — the triage predicate decides."""
+        return await self._tasks.get_user_items_in_range(
+            user_uid,
+            _EARLIEST_DUE,
+            today - timedelta(days=1),
+            include_completed=True,
+            date_field=DUE_FIELD,
+        )
+
     async def build_context(
         self, user_uid: UserUID, view_date: date | None = None
     ) -> Result[TodayPageContext]:
@@ -149,8 +176,21 @@ class TodayOrchestrator:
         view_date = view_date or today
         is_today = view_date == today
 
-        tasks_r, events_r, habits_r, goals_r, choices_r = await asyncio.gather(
-            self._tasks.get_user_tasks(user_uid),
+        day_tasks_r, overdue_r, events_r, habits_r, goals_r, choices_r = await asyncio.gather(
+            # Dated reads, never "all tasks then filter": the plain list is capped
+            # at the backend's default limit, and a day's task — or an old overdue
+            # one — could sit past it. The day's members by due OR scheduled date
+            # (the calendar's C2 semantics); overdue by due date up to yesterday,
+            # issued on the live day only. Every status comes back, so the lens's
+            # own exclusion (``ui/today/membership.py``) is the one status rule.
+            self._tasks.get_user_items_in_range(
+                user_uid,
+                view_date,
+                view_date,
+                include_completed=True,
+                date_field=[DUE_FIELD, SCHEDULED_FIELD],
+            ),
+            self._overdue_candidates(user_uid, today) if is_today else _no_tasks(),
             # The lens shows the day's truth: a completed event or an achieved
             # goal whose day this is still belongs to the day.
             self._events.get_user_items_in_range(
@@ -160,8 +200,6 @@ class TodayOrchestrator:
             self._goals.get_user_items_in_range(
                 user_uid, view_date, view_date, include_completed=True
             ),
-            # Dated read, not "all choices then filter": the plain list is capped
-            # at the backend's default limit, and a day's choice could sit past it.
             # The range query matches either date field (OR semantics); the
             # in-memory predicate below is the same rule stated once.
             self._choices.get_user_items_in_range(
@@ -172,18 +210,21 @@ class TodayOrchestrator:
                 date_field=["decision_deadline", "decided_at"],
             ),
         )
-        if tasks_r.is_error:
-            return Result.fail(tasks_r)
-
-        all_tasks = tasks_r.value
-        overdue = (
-            sorted((t for t in all_tasks if is_triage_member(t, today)), key=_task_order)
-            if is_today
-            else []
+        # Tasks are the day's spine: a failed task read fails the page.
+        if day_tasks_r.is_error:
+            return Result.fail(day_tasks_r)
+        if overdue_r.is_error:
+            return Result.fail(overdue_r)
+        overdue = sorted(
+            (t for t in overdue_r.value if is_triage_member(t, today)), key=_task_order
         )
         overdue_uids = {t.uid for t in overdue}
         tasks = sorted(
-            (t for t in all_tasks if is_ribbon_member(t, view_date) and t.uid not in overdue_uids),
+            (
+                t
+                for t in day_tasks_r.value
+                if is_ribbon_member(t, view_date) and t.uid not in overdue_uids
+            ),
             key=_task_order,
         )
         events: list[Event] = sorted(_or_empty(events_r, "events"), key=_event_order)
