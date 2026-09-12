@@ -462,7 +462,8 @@ detached by ``scripts/migrations/detach_pinned_today_2026_09.cypher``.
   appends a dated `AlignmentAssessment(kind="reflection")` to `alignment_history` beside the
   self-assessment flow's entries; `goals_progressed` / `principles_reviewed` count from those entries
   for every period kind, and the only limitation a calendar-period report records is the period-end
-  denominator.
+  denominator. **Run at deploy, before E.2b's code:** `scripts/migrations/seed_activity_history_2026_09.cypher`
+  seeds one entry per stamped, history-less node (live census 2026-09-12: 0 goals, 2 principles).
 - **E.3 retire the schedule producer** (ruling 7): worker, `ProgressScheduleService`, `core/models/report_schedule/`,
   `ReportScheduleBackend`, both protocols, `ScheduleType`, both request models, `NeoLabel.REPORT_SCHEDULE`,
   `RelationshipName.HAS_SCHEDULE`, `MIN_AUTO_REPORT_INTERVAL_HOURS`, compose/container/bootstrap wiring, the

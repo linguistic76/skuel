@@ -38,8 +38,8 @@ class AlignmentHistoryRecord(TypedDict):
     """One stored ``alignment_history`` entry — ``AlignmentAssessment.to_record()``.
 
     The JSON-ready spellings: an ISO date, the level's value, the kind that
-    wrote it (``assessment`` | ``reflection``). ``Principle._from_dto`` reads
-    it back into an ``AlignmentAssessment``.
+    wrote it (``assessment`` | ``reflection`` | ``seeded``). ``Principle._from_dto``
+    reads it back into an ``AlignmentAssessment``.
     """
 
     assessed_date: str
@@ -53,9 +53,11 @@ class AlignmentHistoryRecord(TypedDict):
 class AlignmentAssessment:
     """One dated entry of a principle's alignment history.
 
-    ``kind`` says what wrote it: a self-assessment (the dual-track door) or a
-    reflection (``record_principle_reflection``). Both carry a level and the
-    evidence; the report's ``principles_reviewed`` counts either, by date.
+    ``kind`` says what wrote it: a self-assessment (the dual-track door), a
+    reflection (``record_principle_reflection``), or ``seeded`` — an entry the
+    2026-09 history migration derived from the review stamp alone, whose level
+    is the principle's current one at seed time. All carry a level and the
+    evidence; the report's ``principles_reviewed`` counts any of them, by date.
     """
 
     assessed_date: date
@@ -67,8 +69,13 @@ class AlignmentAssessment:
     def to_record(self) -> AlignmentHistoryRecord:
         """The JSON-ready shape the node stores (``alignment_history`` is one
         JSON string of these); ``Principle._from_dto`` reads it back."""
+        # A datetime is a date too (isinstance passes); the record is the DAY, so
+        # the read-back (``date.fromisoformat``) never meets a time part.
+        assessed = self.assessed_date
+        if isinstance(assessed, datetime):
+            assessed = assessed.date()
         return AlignmentHistoryRecord(
-            assessed_date=self.assessed_date.isoformat(),
+            assessed_date=assessed.isoformat(),
             alignment_level=self.alignment_level.value,
             evidence=self.evidence,
             reflection=self.reflection,
