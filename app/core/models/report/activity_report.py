@@ -45,9 +45,12 @@ class ActivityReport(UserOwnedEntity):
     Fields:
         processor_type: Source of the feedback (AUTOMATIC/LLM/HUMAN)
         subject_uid: User whose activity this feedback is about
-        time_period: Sliding window (7d, 14d, 30d, 90d)
+        time_period: The report-period token — trailing (7d, 14d, 30d, 90d) or
+            calendar (2026-W37, 2026-09); ``core/utils/report_periods.py``
         period_start: Exact start of the analysis window
-        period_end: Exact end of the analysis window
+        period_end: Exact end of the period (fixed for a calendar period)
+        data_cutoff: The instant the counts ran up to — before period_end, the
+            report is partial (its period was still open)
         domains_covered: Activity domains included in analysis
         depth: Analysis depth (summary, standard, detailed)
         processed_content: Generated feedback text (LLM output or human-written)
@@ -85,9 +88,12 @@ class ActivityReport(UserOwnedEntity):
     # =========================================================================
     # TIME WINDOW
     # =========================================================================
-    time_period: str | None = None  # "7d" | "14d" | "30d" | "90d"
+    time_period: str | None = None  # "7d" … "90d" | "2026-W37" | "2026-09"
     period_start: datetime | None = None
     period_end: datetime | None = None
+    # The instant the counts ran up to — min(generated at, period_end). Earlier
+    # than period_end = a partial report of a period still open when it was made.
+    data_cutoff: datetime | None = None
 
     # =========================================================================
     # ANALYSIS CONFIGURATION
@@ -133,6 +139,7 @@ class ActivityReport(UserOwnedEntity):
         processing_error: str | None = None,
         insights_referenced: tuple[str, ...] = (),
         metadata: dict[str, Any] | None = None,
+        data_cutoff: datetime | None = None,
     ) -> "ActivityReport":
         """
         Factory method — generates uid, formats title, constructs ActivityReport.
@@ -157,6 +164,7 @@ class ActivityReport(UserOwnedEntity):
             processor_type=processor_type,
             period_start=period_start,
             period_end=period_end,
+            data_cutoff=data_cutoff,
             time_period=time_period,
             domains_covered=tuple(domains) if domains else (),
             depth=depth,

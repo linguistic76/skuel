@@ -332,6 +332,13 @@ class UserEntryOrchestrator:
         """The newest ActivityReport the user owns, or ``None`` — the sidebar's Reports door."""
         return await self._activity_report.get_latest_for_owner(user_uid)
 
+    async def find_activity_report_for_period(
+        self, user_uid: UserUID, time_period: str
+    ) -> Result[ActivityReport | None]:
+        """The user's reusable report for one period token, or ``None`` when the
+        calendar door should generate — the period's lookup half."""
+        return await self._activity_report.find_by_period(user_uid, user_uid, time_period)
+
     async def annotate_activity_report(
         self,
         uid: str,

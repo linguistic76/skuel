@@ -104,7 +104,8 @@ The former list pages `/entry-reports`, `/activity-reports`, `/revised-exercises
 
 - `/entry-reports/detail?uid=` — full report content with outcome badge + revision link.
 - `/activity-reports/latest` — the calendar/Today sidebar's Reports door: redirects to the newest report the user owns, or to `/submit-activity-report` when there is none.
-- `/activity-reports/detail?uid=` — activity report detail (HTMX-loaded body).
+- `/activity-reports/detail?uid=` — activity report detail (HTMX-loaded body); a calendar-period report shows its period, whether it is partial, and a "Regenerate" form (POST `/activity-reports/for`).
+- `/activity-reports/for?kind=monthly|weekly&date=` — the calendar's period door (the month/week toolbar's "Report for September" / "Report for W37" pill): redirects to the period's reusable report or renders the "generate" prompt; the CSRF-protected `POST /activity-reports/for` (`time_period` token) is the one transition that mints a report.
 - `/revised-exercises/detail?uid=` — revision instructions with feedback points + submit link.
 
 The `/gradebook/{uid}` route renders submission detail for a specific `UserEntry` — including a fulfills-exercise badge (read from the `FULFILLS_EXERCISE` edge) with a "View exchange thread →" link, a "Request AI feedback" button (submission owner, FULL tier — posts to `POST /api/exercises/report`), and a "Map of Content" card section when the entry has outgoing `ORGANIZES` edges (emergent MOC, drawn by vault `moc: true` ingestion) — children link to their per-type detail pages via `ui/patterns/entity_links.py`.

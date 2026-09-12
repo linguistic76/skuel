@@ -516,9 +516,10 @@ activity feed to discover new reports.
 ```python
 processor_type: ReportSource | None    # AUTOMATIC | LLM | HUMAN
 subject_uid: str | None                 # user whose activity was reviewed
-time_period: str | None                 # "7d" | "14d" | "30d" | "90d"
+time_period: str | None                 # trailing "7d"…"90d" | calendar "2026-W37" / "2026-09"
 period_start: datetime | None
-period_end: datetime | None
+period_end: datetime | None             # fixed for a calendar period
+data_cutoff: datetime | None            # < period_end = a partial report
 domains_covered: tuple[str, ...]        # which activity domains included
 depth: str | None                       # "summary" | "standard" | "detailed"
 processed_content: str | None           # LLM output or human-written feedback (immutable)

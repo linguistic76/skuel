@@ -68,6 +68,24 @@ class ScheduleType(StrEnum):
         }[self]
 
 
+class ReportPeriodKind(StrEnum):
+    """How an activity report's window is anchored.
+
+    TRAILING windows end now (``7d`` … ``90d``); WEEK and MONTH are calendar
+    periods addressed by a period key (``2026-W37``, ``2026-09``) — their end is
+    fixed, and a report generated before it is partial.
+    """
+
+    TRAILING = "trailing"
+    WEEK = "week"
+    MONTH = "month"
+
+    @property
+    def is_calendar(self) -> bool:
+        """A period with a fixed end — the one kind a report can be partial for."""
+        return self is not ReportPeriodKind.TRAILING
+
+
 class ProgressDepth(StrEnum):
     """Level of detail in generated progress reports."""
 

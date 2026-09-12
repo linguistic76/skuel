@@ -28,7 +28,7 @@ Responsibilities:
 - Public API surface (build, build_rich, build_user_context, build_rich_user_context)
 """
 
-from datetime import datetime, timedelta
+from datetime import datetime
 from typing import TYPE_CHECKING
 
 from core.models.type_hints import UserUID
@@ -39,6 +39,7 @@ from core.services.user.user_context_extractor import UserContextExtractor
 from core.services.user.user_context_populator import UserContextPopulator
 from core.utils.decorators import with_error_handling
 from core.utils.logging import get_logger
+from core.utils.report_periods import UnknownReportPeriodError, resolve_report_period
 from core.utils.result_simplified import Errors, Result
 
 if TYPE_CHECKING:
@@ -48,10 +49,6 @@ if TYPE_CHECKING:
     from core.services.zpd.zpd_service import ZPDService
 
 logger = get_logger(__name__)
-
-# Window string → lookback days mapping (used by build_rich / build_rich_user_context)
-_WINDOW_TO_DAYS: dict[str, int] = {"7d": 7, "14d": 14, "30d": 30, "90d": 90}
-_DEFAULT_WINDOW_DAYS = 30
 
 
 class UserContextBuilder:
@@ -219,9 +216,11 @@ class UserContextBuilder:
         Args:
             user_uid: User identifier
             min_confidence: Minimum relationship confidence (default 0.7)
-            window: Lookback window for completed/touched entities ("7d", "14d", "30d", "90d").
-                Active entities are always included. Completed entities are included
-                if touched within this window. Default "30d".
+            window: The report-period token the touched-entity window starts at — a
+                trailing window ("7d", "14d", "30d", "90d") or a calendar period
+                ("2026-W37", "2026-09"; ``core/utils/report_periods.py``). Active
+                entities are always included; completed entities from the period's
+                start on. Default "30d"; an unknown token is a validation failure.
 
         Returns:
             Result[UserContext] with ALL ~240 fields including rich data.
@@ -341,8 +340,9 @@ class UserContextBuilder:
             user_uid: User's unique identifier
             user: User entity
             min_confidence: Minimum relationship confidence (default 0.7)
-            window: Lookback window for completed/touched entities ("7d", "14d", "30d", "90d").
-                Active entities always included. Default "30d".
+            window: The report-period token (trailing "7d" … "90d" or calendar
+                "2026-W37" / "2026-09"). Active entities always included. Default
+                "30d"; an unknown token is a validation failure, never a default.
 
         Returns:
             Result[UserContext] with ALL ~240 fields populated
@@ -380,13 +380,17 @@ class UserContextBuilder:
         # properties) is the authoritative source.
         self._populator.populate_user_preferences(context, user.preferences)
 
-        # Compute activity window — always passed to MEGA-QUERY.
-        # Active entities always included regardless of window; completed
-        # entities included if touched within the lookback window.
-        window_end = datetime.now()
-        window_start = window_end - timedelta(
-            days=_WINDOW_TO_DAYS.get(window, _DEFAULT_WINDOW_DAYS)
-        )
+        # The activity window — always passed to the MEGA-QUERY. Active entities
+        # are included regardless; completed / touched entities from the period's
+        # start on (no upper bound — the report mapper's stamps are the bound).
+        # One vocabulary with the report generator: a token it does not know is
+        # a validation failure here too, never a silently substituted default.
+        try:
+            period = resolve_report_period(window, datetime.now())
+        except UnknownReportPeriodError as e:
+            return Result.fail(Errors.validation(message=str(e), field="window"))
+        window_start = period.start
+        window_end = period.end
 
         # Execute MEGA-QUERY — fetches UIDs AND rich data in one shot.
         mega_result = await self._query_executor.execute_mega_query(

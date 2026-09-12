@@ -6,7 +6,7 @@ Tests generation flow, content building, time period parsing,
 and depth control with mocked dependencies.
 """
 
-from datetime import UTC, date, datetime, timedelta
+from datetime import date, datetime
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
@@ -14,9 +14,11 @@ import pytest
 from core.constants import ReportTimePeriod
 from core.models.enums.entity_enums import EntityStatus, EntityType
 from core.models.enums.pipeline import ReportSource
+from core.models.enums.user_entry_enums import ProgressDepth
 from core.models.report.activity_report import ActivityReport
 from core.services.report.progress_report_generator import ProgressReportGenerator
-from core.utils.result_simplified import Result
+from core.utils.report_periods import resolve_report_period
+from core.utils.result_simplified import Errors, Result
 
 
 @pytest.fixture
@@ -33,6 +35,7 @@ def mock_activity_report_service():
     service = MagicMock()
     service.persist = AsyncMock(return_value=Result.ok(MagicMock()))
     service.get_history = AsyncMock(return_value=Result.ok([]))
+    service.latest_for_period = AsyncMock(return_value=Result.ok(None))
     return service
 
 
@@ -76,6 +79,7 @@ def mock_report_backend():
     backend = MagicMock()
     backend.check_cooldown = AsyncMock(return_value=Result.ok([{"recent_count": 0}]))
     backend.get_previous_annotation = AsyncMock(return_value=Result.ok([]))
+    backend.count_habit_completions = AsyncMock(return_value=Result.ok([]))
     return backend
 
 
@@ -259,15 +263,15 @@ class TestGenerate:
         assert result.is_error
 
     @pytest.mark.asyncio
-    async def test_generate_unknown_period_defaults_7d(self, generator):
-        """Test unknown time period defaults to 7 days."""
-        await generator.generate(
-            user_uid="user_alice",
-            time_period="unknown",
-        )
+    async def test_generate_unknown_period_is_a_validation_failure(self, generator):
+        """No default window: a token the vocabulary does not name is refused
+        before any read — the same verdict the context builder gives."""
+        result = await generator.generate(user_uid="user_alice", time_period="unknown")
 
-        created_ku = generator.activity_report_service.persist.call_args[0][0]
-        assert created_ku.metadata["time_period"] == "unknown"
+        assert result.is_error
+        assert result.expect_error().category.value == "validation"
+        generator.activity_report_service.persist.assert_not_called()
+        generator.context_builder.build_rich.assert_not_called()
 
 
 # ============================================================================
@@ -301,7 +305,7 @@ class TestBuildReportContent:
         content = generator._build_report_content(
             completions,
             [],
-            datetime.now() - timedelta(days=7),
+            resolve_report_period("7d", datetime.now()),
             datetime.now(),
             ProgressDepth.SUMMARY,
         )
@@ -339,7 +343,7 @@ class TestBuildReportContent:
         content = generator._build_report_content(
             completions,
             [],
-            datetime.now() - timedelta(days=7),
+            resolve_report_period("7d", datetime.now()),
             datetime.now(),
             ProgressDepth.STANDARD,
         )
@@ -367,7 +371,7 @@ class TestBuildReportContent:
         content = generator._build_report_content(
             completions,
             [],
-            datetime.now() - timedelta(days=7),
+            resolve_report_period("7d", datetime.now()),
             datetime.now(),
             ProgressDepth.STANDARD,
         )
@@ -399,7 +403,7 @@ class TestBuildReportContent:
         content = generator._build_report_content(
             completions,
             [insight],
-            datetime.now() - timedelta(days=7),
+            resolve_report_period("7d", datetime.now()),
             datetime.now(),
             ProgressDepth.STANDARD,
         )
@@ -607,9 +611,39 @@ class TestCompletionsFromContext:
         assert completions["habits_details"][0]["streak"] == 5
         assert generator._compute_domain_trends(completions)["habits"]["avg_streak"] == 5.0
 
-    def test_habit_completed_in_window_counts_by_last_completed(self, generator):
-        inside = datetime(2026, 9, 5, 7, 0, 0)
-        before = datetime(2026, 8, 20, 7, 0, 0)
+    def test_habits_completed_counts_habits_with_a_completion_row_in_period(self, generator):
+        """The counter reads persisted HabitCompletion rows (per-habit counts
+        from the backend), never ``last_completed`` — a stamp every later
+        completion overwrites, which would count zero for a habit done in this
+        month and the next."""
+        completions = generator._completions_from_context(
+            _rich_context(
+                {
+                    "habits": [
+                        _row({"uid": "h1", "title": "Done twice", "status": "active"}),
+                        _row({"uid": "h2", "title": "Done once", "status": "active"}),
+                        _row(
+                            {
+                                "uid": "h3",
+                                "title": "Stamped, no row",
+                                "status": "active",
+                                "last_completed": datetime(2026, 9, 5, 7, 0, 0),
+                            }
+                        ),
+                        _row({"uid": "h4", "title": "Retired habit", "status": "completed"}),
+                    ]
+                }
+            ),
+            None,
+            window_start=self.WINDOW_START,
+            window_end=self.WINDOW_END,
+            habit_completions={"h1": 2, "h2": 1, "h9": 3},
+        )
+        # Habit-level, not row-level: two habits, not three completions — and a
+        # count for a habit outside the context's rows adds nothing.
+        assert completions["habits_completed"] == 2
+
+    def test_habits_completed_is_zero_without_completion_rows(self, generator):
         completions = self._map(
             generator,
             {
@@ -617,52 +651,15 @@ class TestCompletionsFromContext:
                     _row(
                         {
                             "uid": "h1",
-                            "title": "In window",
+                            "title": "Stamp only",
                             "status": "active",
-                            "last_completed": inside,
+                            "last_completed": datetime(2026, 9, 5, 7, 0, 0),
                         }
-                    ),
-                    _row(
-                        {
-                            "uid": "h2",
-                            "title": "ISO in window",
-                            "status": "active",
-                            "last_completed": inside.isoformat(),
-                        }
-                    ),
-                    _row(
-                        {
-                            "uid": "h3",
-                            "title": "Before window",
-                            "status": "active",
-                            "last_completed": before,
-                        }
-                    ),
-                    _row({"uid": "h4", "title": "Retired habit", "status": "completed"}),
-                    _row(
-                        {
-                            "uid": "h5",
-                            "title": "Never done",
-                            "status": "active",
-                            "last_completed": None,
-                        }
-                    ),
+                    )
                 ]
             },
         )
-        assert completions["habits_completed"] == 2
-
-    def test_habit_window_test_survives_aware_timestamps(self, generator):
-        aware = datetime(2026, 9, 5, 7, 0, 0, tzinfo=UTC)
-        completions = generator._completions_from_context(
-            _rich_context(
-                {"habits": [_row({"uid": "h1", "title": "Aware", "last_completed": aware})]}
-            ),
-            None,
-            window_start=datetime(2026, 9, 1, tzinfo=UTC),
-            window_end=datetime(2026, 9, 11, tzinfo=UTC),
-        )
-        assert completions["habits_completed"] == 1
+        assert completions["habits_completed"] == 0
 
     def test_event_milestone_reads_is_milestone_event(self, generator):
         completions = self._map(
@@ -756,21 +753,15 @@ class TestCompletionsFromContext:
         assert completions["events_attended"] == 2
         assert [e["uid"] for e in completions["events_details"]] == ["e1", "e2", "e5"]
 
-    def test_habit_completed_after_the_window_is_not_counted(self, generator):
-        completions = self._map(
-            generator,
-            {
-                "habits": [
-                    _row(
-                        {
-                            "uid": "h6",
-                            "title": "After window",
-                            "status": "active",
-                            "last_completed": datetime(2026, 9, 12, 7, 0, 0),
-                        }
-                    )
-                ]
-            },
+    def test_habit_completion_counts_come_from_the_period_bounded_backend_read(self, generator):
+        """The window is applied by the backend read, not by the mapper: the
+        generator asks for [start, cutoff] and counts what comes back."""
+        completions = generator._completions_from_context(
+            _rich_context({"habits": [_row({"uid": "h6", "title": "Any", "status": "active"})]}),
+            None,
+            window_start=self.WINDOW_START,
+            window_end=self.WINDOW_END,
+            habit_completions={},
         )
         assert completions["habits_completed"] == 0
 
@@ -904,3 +895,274 @@ class TestCompletionsFromContext:
         )
         assert completions["events_attended"] == 1
         assert len(completions["events_details"]) == 3
+
+
+# ============================================================================
+# CALENDAR PERIODS — fixed ends, data cutoffs, per-period cooldown
+# ============================================================================
+
+
+def _persisted(generator) -> ActivityReport:
+    return generator.activity_report_service.persist.call_args[0][0]
+
+
+class TestCalendarPeriods:
+    """A ``2026-09`` / ``2026-W37`` token resolves to the calendar period; the
+    counts run up to ``min(now, period_end)`` and the report says when it is
+    partial; the cooldown is keyed per (user, period) and yields to a closed
+    period's final snapshot."""
+
+    @pytest.mark.asyncio
+    async def test_month_token_builds_the_month_window_and_records_the_period(self, generator):
+        result = await generator.generate(user_uid="user_alice", time_period="2026-01")
+
+        assert result.is_ok, result.error
+        report = _persisted(generator)
+        assert report.period_end is not None and report.data_cutoff is not None
+        _, kwargs = generator.context_builder.build_rich.call_args
+        assert kwargs["window"] == "2026-01"
+        assert report.time_period == "2026-01"
+        assert report.period_start == datetime(2026, 1, 1)
+        assert report.period_end.date() == date(2026, 1, 31)
+        # January 2026 is closed: counted through its end, final, with its limits named.
+        assert report.data_cutoff == report.period_end
+        assert report.metadata["period_kind"] == "month"
+        assert report.metadata["is_partial"] is False
+        assert report.metadata["data_cutoff"] == report.metadata["end_date"]
+        assert report.metadata["period_end"] == report.period_end.isoformat()
+        assert len(report.metadata["limitations"]) == 2
+
+    @pytest.mark.asyncio
+    async def test_open_period_is_counted_through_now_and_marked_partial(self, generator):
+        token = f"{datetime.now().year + 1}-01"  # next January: open, in the future
+        result = await generator.generate(user_uid="user_alice", time_period=token)
+
+        assert result.is_ok, result.error
+        report = _persisted(generator)
+        assert report.period_end is not None and report.data_cutoff is not None
+        assert report.data_cutoff < report.period_end
+        assert report.metadata["is_partial"] is True
+        # The habit-count read is bounded to the cutoff, never the period's end.
+        _, kwargs = generator.report_backend.count_habit_completions.call_args
+        assert kwargs["end"] == report.data_cutoff.isoformat()
+
+    @pytest.mark.asyncio
+    async def test_trailing_window_carries_no_limitations_and_is_never_partial(self, generator):
+        await generator.generate(user_uid="user_alice", time_period="7d")
+        report = _persisted(generator)
+        assert "limitations" not in report.metadata
+        assert report.metadata["is_partial"] is False
+        assert report.data_cutoff == report.period_end
+
+    @pytest.mark.asyncio
+    async def test_cooldown_is_keyed_per_period(self, generator):
+        await generator.generate(user_uid="user_alice", time_period="2026-W03")
+        _, kwargs = generator.report_backend.check_cooldown.call_args
+        assert kwargs["time_period"] == "2026-W03"
+
+    @pytest.mark.asyncio
+    async def test_cooldown_refusal_names_the_period(self, generator):
+        generator.report_backend.check_cooldown = AsyncMock(
+            return_value=Result.ok([{"recent_count": 1}])
+        )
+        result = await generator.generate(user_uid="user_alice", time_period="2026-01")
+        assert result.is_error
+        assert "January 2026" in result.expect_error().message
+
+    @pytest.mark.asyncio
+    async def test_finalising_a_closed_periods_partial_report_bypasses_the_cooldown(
+        self, generator
+    ):
+        """A partial generated in the period's last hour must not block the final one."""
+        partial = MagicMock()
+        partial.data_cutoff = datetime(2026, 1, 31, 22, 0, 0)  # before the month's end
+        generator.activity_report_service.latest_for_period = AsyncMock(
+            return_value=Result.ok(partial)
+        )
+        generator.report_backend.check_cooldown = AsyncMock(
+            return_value=Result.ok([{"recent_count": 1}])
+        )
+
+        result = await generator.generate(user_uid="user_alice", time_period="2026-01")
+
+        assert result.is_ok, result.error
+        generator.report_backend.check_cooldown.assert_not_awaited()
+
+    @pytest.mark.asyncio
+    async def test_a_closed_periods_final_report_keeps_the_cooldown(self, generator):
+        final = MagicMock()
+        final.data_cutoff = datetime(2026, 1, 31, 23, 59, 59, 999999)
+        generator.activity_report_service.latest_for_period = AsyncMock(
+            return_value=Result.ok(final)
+        )
+        generator.report_backend.check_cooldown = AsyncMock(
+            return_value=Result.ok([{"recent_count": 1}])
+        )
+
+        result = await generator.generate(user_uid="user_alice", time_period="2026-01")
+
+        assert result.is_error
+        generator.report_backend.check_cooldown.assert_awaited_once()
+
+    @pytest.mark.asyncio
+    async def test_a_failed_habit_count_read_fails_the_report(self, generator):
+        """A count that silently read as zero is the defect the read removes."""
+        generator.report_backend.count_habit_completions = AsyncMock(
+            return_value=Result.fail(Errors.database("count", "boom"))
+        )
+        result = await generator.generate(user_uid="user_alice", time_period="2026-01")
+        assert result.is_error
+        generator.activity_report_service.persist.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_comparison_skips_a_superseded_same_period_report(self, generator):
+        """For a calendar period the preceding DISTINCT period is compared — an
+        earlier September partial is never September's own baseline."""
+        same = MagicMock(uid="ar_sep_partial", time_period="2026-09")
+        same.metadata = {"intelligence": {"domain_trends": {"tasks": "improved"}}}
+        prior = MagicMock(uid="ar_aug", time_period="2026-08")
+        prior.metadata = {"intelligence": {"domain_trends": {"tasks": "stable"}}}
+        generator.activity_report_service.get_history = AsyncMock(
+            return_value=Result.ok([same, prior])
+        )
+
+        comparison = await generator._collect_comparison(
+            "user_alice", resolve_report_period("2026-09", datetime(2026, 9, 12))
+        )
+
+        assert comparison is not None
+        assert comparison["previous_report_uid"] == "ar_aug"
+        assert comparison["previous_period"] == "2026-08"
+
+    @pytest.mark.asyncio
+    async def test_comparison_for_a_trailing_window_keeps_same_token_history(self, generator):
+        prior = MagicMock(uid="ar_last_week", time_period="7d")
+        prior.metadata = {"intelligence": {"domain_trends": {}}}
+        generator.activity_report_service.get_history = AsyncMock(return_value=Result.ok([prior]))
+
+        comparison = await generator._collect_comparison(
+            "user_alice", resolve_report_period("7d", datetime(2026, 9, 12))
+        )
+
+        assert comparison is not None and comparison["previous_report_uid"] == "ar_last_week"
+
+    def test_report_content_names_a_partial_period(self, generator):
+        period = resolve_report_period("2026-09", datetime(2026, 9, 12))
+        content = generator._build_report_content(
+            generator._empty_completions(),
+            [],
+            period,
+            datetime(2026, 9, 12, 10, 0),
+            ProgressDepth.SUMMARY,
+        )
+        assert "Partial: September 2026 is still open" in content
+        assert "counted through Sep 12, 2026" in content
+
+    def test_report_content_for_a_closed_period_has_no_partial_line(self, generator):
+        period = resolve_report_period("2026-08", datetime(2026, 9, 12))
+        content = generator._build_report_content(
+            generator._empty_completions(), [], period, period.end, ProgressDepth.SUMMARY
+        )
+        assert "Partial" not in content
+
+
+class TestPeriodEndDenominator:
+    """``tasks_total`` = completed in period + open AT the period's end."""
+
+    PERIOD = resolve_report_period("2026-09", datetime(2026, 10, 15))
+
+    def _map(self, generator, tasks):
+        return generator._completions_from_context(
+            _rich_context({"tasks": tasks}),
+            None,
+            window_start=self.PERIOD.start,
+            window_end=self.PERIOD.end,
+            period_end=self.PERIOD.end,
+        )
+
+    def test_a_task_created_after_the_period_is_not_in_its_denominator(self, generator):
+        completions = self._map(
+            generator,
+            [
+                _row(
+                    {
+                        "uid": "t1",
+                        "title": "October",
+                        "status": "active",
+                        "created_at": "2026-10-02T09:00:00",
+                    }
+                )
+            ],
+        )
+        assert completions["tasks_total"] == 0
+
+    def test_a_task_closed_after_the_period_was_open_at_its_end(self, generator):
+        completions = self._map(
+            generator,
+            [
+                _row(
+                    {
+                        "uid": "t2",
+                        "title": "Done in October",
+                        "status": "completed",
+                        "created_at": "2026-09-03T09:00:00",
+                        "completion_date": "2026-10-04",
+                    }
+                )
+            ],
+        )
+        assert completions["tasks_total"] == 1
+        assert completions["tasks_completed"] == 0
+
+    def test_a_task_closed_before_the_period_is_neither(self, generator):
+        completions = self._map(
+            generator,
+            [
+                _row(
+                    {
+                        "uid": "t3",
+                        "title": "Done in August",
+                        "status": "completed",
+                        "created_at": "2026-08-03T09:00:00",
+                        "completion_date": "2026-08-20",
+                        "updated_at": "2026-10-04T09:00:00",  # merely re-edited later
+                    }
+                )
+            ],
+        )
+        assert completions["tasks_total"] == 0
+
+    def test_a_cancelled_task_with_no_completion_date_uses_updated_at(self, generator):
+        """The named false positive: terminal before the period but edited after
+        it reads as open — the metadata records the limit."""
+        completions = self._map(
+            generator,
+            [
+                _row(
+                    {
+                        "uid": "t4",
+                        "title": "Cancelled, edited later",
+                        "status": "cancelled",
+                        "created_at": "2026-08-03T09:00:00",
+                        "updated_at": "2026-10-04T09:00:00",
+                    }
+                )
+            ],
+        )
+        assert completions["tasks_total"] == 1
+
+    def test_an_open_task_created_in_the_period_counts(self, generator):
+        completions = self._map(
+            generator,
+            [
+                _row(
+                    {
+                        "uid": "t5",
+                        "title": "Still open",
+                        "status": "active",
+                        "created_at": "2026-09-20T09:00:00",
+                    }
+                )
+            ],
+        )
+        assert completions["tasks_total"] == 1

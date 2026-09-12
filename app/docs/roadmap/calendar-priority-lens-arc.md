@@ -403,7 +403,11 @@ detached by ``scripts/migrations/detach_pinned_today_2026_09.cypher``.
   `events_ui.py` highlights `monthly` (the month is the events lens); `ActivityReportBackend.get_latest_for_owner`
   → `ActivityReportService.get_latest_for_owner` → `UserEntryOrchestrator.get_latest_activity_report`
   → `GET /activity-reports/latest`.
-- **E.2 calendar-aligned periods:** tokens `2026-09` / `2026-W37` beside the trailing windows; the generator
+- **E.2 calendar-aligned periods** — lands as two PRs: **E.2a** (this bullet minus the history writers:
+  tokens, data cutoff, row predicates, doors, per-period cooldown, distinct comparison, period-end
+  denominator, `HabitCompletion`-row habit counts, limitations in metadata) and **E.2b** (the history
+  writers and the history-based `goals_progressed` / `principles_reviewed` for closed periods, which
+  E.2a records as a limitation until then). Tokens `2026-09` / `2026-W37` beside the trailing windows; the generator
   derives (start, end) via `week_bounds`/month bounds, keeps `period_end` as the report's metadata, and
   passes **`min(now, period_end)` as the DATA cutoff** — the mapper's `window_end` (Codex P1 on PR 0: a
   September report generated on the 11th must not count events scheduled for the 20th). **The rich
@@ -515,9 +519,10 @@ history lives here and in the `done/` docs.
 | D0 | One completion door (see D.0) | All three clicks in the three-click integration test go through `update_task`; `TRIGGERS_ON_COMPLETION` dependents still schedule (handler test); `is_repeat` gone; `/today` complete still works |
 | D1 | The day view (see D.1) + ADR-058 amendment | `/today` renders overdue + tasks (TaskCard) + events + habits + milestones + the day's choices with no page-local JS bundle; the legend's Habits swatch hides the habits section and the Choice swatch hides the choices section (the calendar's `calendarLegend` controller bound on the day shell; `choice` in calendar.css); completing a task from the day view goes through `/api/tasks/{uid}/status`; quick-add still creates `scheduled_date`-only tasks; the calendar's day-cell click lands on the new view; 375px verified |
 | E1 | Sidebar variant + `/activity-reports/latest` | Calendar/Today pages show Today/Weekly/Monthly/Journal/Reports and issue no `/api/sidebar/badges` request; `/tasks` unchanged |
-| E2 | Calendar-aligned periods + find-or-generate doors | "Report for September" on the month toolbar opens a report whose window is Sep 1–30; a task completed Oct 1 is excluded while a task completed Sep 20 and edited Oct 3 is counted; clicking again re-opens the same report while September is open; the first click after Sep 30 on a partial report generates the final one |
+| E2a | Calendar-aligned periods + find-or-generate doors | "Report for September" on the month toolbar opens a report whose window is Sep 1–30; a task completed Oct 1 is excluded while a task completed Sep 20 and edited Oct 3 is counted; clicking again re-opens the same report while September is open; the first click after Sep 30 on a partial report generates the final one |
+| E2b | History writers + history-based counters | every progress write appends to `progress_history` and a reflection persists a dated occurrence; a closed period's `goals_progressed` / `principles_reviewed` count from history and the limitation note leaves the metadata |
 | E3 | Retire the schedule producer | `./dev bloat --check` clean with the entry removed; `GRAPH_CONTRACT.yaml` regenerated; no worker starts at bootstrap |
 
-Order: 0 → A1 → A2 → A1c → B2 → B1 → C1 → D0 → D1 → E1 → E2 → E3. A and D0 are independent of the rest and
-may land earlier; B1 requires B2 (backfill run first); C requires B; D1 requires D0; E2 requires A2;
-E3 requires E2.
+Order: 0 → A1 → A2 → A1c → B2 → B1 → C1 → D0 → D1 → E1 → E2a → E2b → E3. A and D0 are independent of the rest and
+may land earlier; B1 requires B2 (backfill run first); C requires B; D1 requires D0; E2a requires A2; E2b requires E2a;
+E3 requires E2a.

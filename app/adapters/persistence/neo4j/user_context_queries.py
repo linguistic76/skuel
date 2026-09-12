@@ -106,10 +106,19 @@ WITH user,
      collect(CASE WHEN task.due_date IS NOT NULL AND date(left(toString(task.due_date), 10)) = date($today) THEN task.uid END) as today_task_uids,
      collect(task) as all_tasks_nodes
 
-// Filter tasks for rich data — active status always included; window entities included if touched since $window_start
-UNWIND CASE WHEN size(all_tasks_nodes) > 0 THEN all_tasks_nodes ELSE [null] END as task
+// Filter tasks for rich data — the predicate is on the ROW itself (a predicate on the
+// neighbourhood OPTIONAL MATCH nulls the subtask and keeps the row): open status always
+// included; otherwise touched since $window_start, with NO upper bound — the report
+// mapper's own stamps (completion_date …) are the bound, so a task completed inside a
+// period but edited after it still reaches it. updated_at is an ISO string, hence the
+// datetime() coercion (a bare string >= datetime comparison is null, admitting nothing).
+// The comprehension keeps the null-row guard: a user whose tasks are all untouched still
+// yields one row, not zero.
+WITH user, active_task_uids, completed_task_uids, overdue_task_uids, today_task_uids,
+     [t IN all_tasks_nodes WHERE t.status IN $open_task_statuses OR datetime(t.updated_at) >= datetime($window_start)] as window_task_nodes
+UNWIND CASE WHEN size(window_task_nodes) > 0 THEN window_task_nodes ELSE [null] END as task
 OPTIONAL MATCH (task)-[:HAS_SUBTASK]->(subtask:Task)
-WHERE task IS NOT NULL AND (task.status IN $open_task_statuses OR task.updated_at >= datetime($window_start))
+WHERE task IS NOT NULL
 WITH user, active_task_uids, completed_task_uids, overdue_task_uids, today_task_uids,
      task, collect(DISTINCT CASE WHEN subtask IS NOT NULL THEN {uid: subtask.uid, title: subtask.title, status: subtask.status} END) as task_subtasks
 
@@ -166,10 +175,14 @@ WITH user, active_task_uids, completed_task_uids, overdue_task_uids, today_task_
      collect(CASE WHEN goal IS NOT NULL THEN {uid: goal.uid, progress: coalesce(goal.progress_percentage, 0.0) / 100.0} END) as goal_progress_data,
      collect(goal) as all_goals_nodes
 
-// Filter goals for rich data — active status always included; window entities included if touched since $window_start
-UNWIND CASE WHEN size(all_goals_nodes) > 0 THEN all_goals_nodes ELSE [null] END as goal
+// Filter goals for rich data — on the row, as the tasks above: active always included;
+// otherwise touched since $window_start (coerced, no upper bound).
+WITH user, active_task_uids, completed_task_uids, overdue_task_uids, today_task_uids, tasks_rich,
+     active_goal_uids, completed_goal_uids, goal_progress_data,
+     [g IN all_goals_nodes WHERE g.status = $status_active OR datetime(g.updated_at) >= datetime($window_start)] as window_goal_nodes
+UNWIND CASE WHEN size(window_goal_nodes) > 0 THEN window_goal_nodes ELSE [null] END as goal
 OPTIONAL MATCH (contributing_task:Task)-[:FULFILLS_GOAL]->(goal)
-WHERE goal IS NOT NULL AND (goal.status = $status_active OR goal.updated_at >= datetime($window_start))
+WHERE goal IS NOT NULL
 WITH user, active_task_uids, completed_task_uids, overdue_task_uids, today_task_uids, tasks_rich,
      active_goal_uids, completed_goal_uids, goal_progress_data,
      goal, collect(DISTINCT CASE WHEN contributing_task IS NOT NULL THEN {uid: contributing_task.uid, title: contributing_task.title, status: contributing_task.status} END) as goal_tasks
@@ -284,7 +297,7 @@ WITH user, active_task_uids, completed_task_uids, overdue_task_uids, today_task_
 // HABITS - Fetch UIDs, metadata, AND rich data with graph neighborhoods
 // ====================================================================
 OPTIONAL MATCH (user)-[:OWNS]->(habit:Habit)
-WHERE habit.status = $status_active OR habit.updated_at >= datetime($window_start)
+WHERE habit.status = $status_active OR datetime(habit.updated_at) >= datetime($window_start)
 WITH user, active_task_uids, completed_task_uids, overdue_task_uids, today_task_uids, tasks_rich,
      active_goal_uids, completed_goal_uids, goal_progress_data, goals_rich,
      knowledge_mastery_data, knowledge_rich,

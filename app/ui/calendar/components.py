@@ -232,13 +232,28 @@ def calendar_nav_cluster(prev_href: str, next_href: str, today_href: str) -> Div
     )
 
 
-def create_calendar_toolbar(prev_href: str, next_href: str, today_href: str) -> Div:
-    """Right-aligned Prev/Now/Next toolbar row (Week/Month views).
+def create_calendar_toolbar(
+    prev_href: str,
+    next_href: str,
+    today_href: str,
+    *,
+    report_href: str | None = None,
+    report_label: str | None = None,
+) -> Div:
+    """Prev/Now/Next toolbar row (Week/Month views), with the period's report door.
 
     Thin margin wrapper around :func:`calendar_nav_cluster`; the Today surface
-    embeds the bare cluster in its header column instead.
+    embeds the bare cluster in its header column instead. ``report_href`` /
+    ``report_label`` render the "Report for September" pill that opens the
+    period's calendar-aligned activity report (``/activity-reports/for``).
     """
+    report = (
+        _nav_button(report_label, report_href, "bar-chart-2")
+        if report_href and report_label
+        else None
+    )
     return Div(
+        report,
         calendar_nav_cluster(prev_href, next_href, today_href),
         cls="flex items-center justify-end gap-4 flex-wrap mb-5",
     )

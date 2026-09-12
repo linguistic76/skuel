@@ -278,3 +278,134 @@ class TestPersist:
 
         assert mock_backend.create.call_count == 1
         assert mock_backend.create.call_args[0][0] is report
+
+
+# ============================================================================
+# find_by_period — the period door's reusable-report verdict
+# ============================================================================
+
+
+def _period_report(token: str, cutoff: datetime | None):
+    from core.models.enums.pipeline import ReportSource
+    from core.models.report.activity_report import ActivityReport
+
+    return ActivityReport(
+        uid=f"ar_{token}",
+        title=f"Report {token}",
+        user_uid="user_alice",
+        subject_uid="user_alice",
+        processor_type=ReportSource.AUTOMATIC,
+        time_period=token,
+        period_start=datetime(2026, 1, 1),
+        period_end=datetime(2026, 1, 31, 23, 59, 59, 999999),
+        data_cutoff=cutoff,
+    )
+
+
+class TestFindByPeriod:
+    """Reuse while the period stands; a closed period's partial report is stale."""
+
+    @pytest.mark.asyncio
+    async def test_reads_the_newest_owned_report_for_the_token(self, service, mock_backend):
+        mock_backend.find_by_period = AsyncMock(return_value=Result.ok([]))
+
+        result = await service.latest_for_period("user_alice", "user_alice", "2026-01")
+
+        assert result.is_ok and result.value is None
+        mock_backend.find_by_period.assert_awaited_once_with("user_alice", "user_alice", "2026-01")
+
+    @pytest.mark.asyncio
+    async def test_a_closed_periods_final_report_is_reused(self, service, mock_backend):
+        final = _period_report("2026-01", datetime(2026, 1, 31, 23, 59, 59, 999999))
+        mock_backend.find_by_period = AsyncMock(return_value=Result.ok([final.to_dto().to_dict()]))
+
+        result = await service.find_by_period("user_alice", "user_alice", "2026-01")
+
+        assert result.is_ok and result.value is not None
+        assert result.value.uid == "ar_2026-01"
+
+    @pytest.mark.asyncio
+    async def test_a_closed_periods_partial_report_is_stale_and_absent(self, service, mock_backend):
+        partial = _period_report("2026-01", datetime(2026, 1, 20, 9, 0))
+        mock_backend.find_by_period = AsyncMock(
+            return_value=Result.ok([partial.to_dto().to_dict()])
+        )
+
+        result = await service.find_by_period("user_alice", "user_alice", "2026-01")
+
+        assert result.is_ok and result.value is None
+
+    @pytest.mark.asyncio
+    async def test_a_report_with_no_recorded_cutoff_is_stale_once_closed(
+        self, service, mock_backend
+    ):
+        unknown = _period_report("2026-01", None)
+        mock_backend.find_by_period = AsyncMock(
+            return_value=Result.ok([unknown.to_dto().to_dict()])
+        )
+
+        result = await service.find_by_period("user_alice", "user_alice", "2026-01")
+
+        assert result.is_ok and result.value is None
+
+    @pytest.mark.asyncio
+    async def test_an_open_periods_partial_report_is_reused(self, service, mock_backend):
+        token = f"{datetime.now().year + 1}-01"  # next January: still open
+        partial = _period_report(token, datetime(2026, 1, 20, 9, 0))
+        mock_backend.find_by_period = AsyncMock(
+            return_value=Result.ok([partial.to_dto().to_dict()])
+        )
+
+        result = await service.find_by_period("user_alice", "user_alice", token)
+
+        assert result.is_ok and result.value is not None
+
+    @pytest.mark.asyncio
+    async def test_a_trailing_window_report_is_always_reused(self, service, mock_backend):
+        weekly = _period_report("7d", None)
+        mock_backend.find_by_period = AsyncMock(return_value=Result.ok([weekly.to_dto().to_dict()]))
+
+        result = await service.find_by_period("user_alice", "user_alice", "7d")
+
+        assert result.is_ok and result.value is not None
+
+    @pytest.mark.asyncio
+    async def test_unknown_token_is_a_validation_failure(self, service, mock_backend):
+        mock_backend.find_by_period = AsyncMock(return_value=Result.ok([]))
+
+        result = await service.find_by_period("user_alice", "user_alice", "someday")
+
+        assert result.is_error
+        mock_backend.find_by_period.assert_not_awaited()
+
+
+class TestRowConversion:
+    """Every owner-scoped read decodes the stored node through the DTO's parse
+    layer — the temporal fields and the JSON ``metadata`` blob included."""
+
+    @pytest.mark.asyncio
+    async def test_get_for_user_decodes_the_stored_node(self, service, mock_backend):
+        stored = _period_report("2026-01", datetime(2026, 1, 31, 23, 59, 59, 999999))
+        mock_backend.get_for_user = AsyncMock(
+            return_value=Result.ok([{"n": stored.to_dto().to_dict()}])
+        )
+
+        result = await service.get_for_user("ar_2026-01", "user_alice")
+
+        assert result.is_ok
+        assert result.value.uid == "ar_2026-01"
+        assert result.value.time_period == "2026-01"
+        assert result.value.data_cutoff == datetime(2026, 1, 31, 23, 59, 59, 999999)
+
+    @pytest.mark.asyncio
+    async def test_get_history_decodes_every_row(self, service, mock_backend):
+        rows = [
+            {"n": _period_report("2026-01", None).to_dto().to_dict()},
+            {"n": _period_report("7d", None).to_dto().to_dict()},
+        ]
+        mock_backend.get_history = AsyncMock(return_value=Result.ok(rows))
+
+        result = await service.get_history("user_alice")
+
+        assert result.is_ok
+        assert [r.time_period for r in result.value] == ["2026-01", "7d"]

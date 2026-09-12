@@ -215,7 +215,7 @@ Both use atomic Cypher: create entity + `REPORT_FOR` + `SHARES_WITH` (to the sub
 
 ### 2. `ACTIVITY_REPORT` — Response to Activity Patterns
 
-`ACTIVITY_REPORT` is **not** a response to a specific artifact. It is a response to a user's aggregate activity over a time window.
+`ACTIVITY_REPORT` is **not** a response to a specific artifact. It is a response to a user's aggregate activity over a period — a trailing window ending now, or a calendar month / ISO week the calendar's "Report for September" pill opens (`core/utils/report_periods.py` is the vocabulary). A calendar-period report generated before its period ends is *partial* and names what its counts cannot yet say (`metadata["limitations"]`: `goals_progressed` / `principles_reviewed` read a latest stamp a later write overwrites; the task denominator is "open at period end" as far as the stamps can tell).
 
 | Field | Value |
 |-------|-------|
@@ -250,9 +250,10 @@ Both use atomic Cypher: create entity + `REPORT_FOR` + `SHARES_WITH` (to the sub
 class ActivityReport(UserOwnedEntity):
     processor_type: ReportSource | None = None
     subject_uid: str | None = None        # user whose activity was reviewed
-    time_period: str | None = None        # "7d" | "14d" | "30d" | "90d"
+    time_period: str | None = None        # trailing "7d"…"90d" | calendar "2026-W37" / "2026-09"
     period_start: datetime | None = None
-    period_end: datetime | None = None
+    period_end: datetime | None = None    # fixed for a calendar period, whether or not it has arrived
+    data_cutoff: datetime | None = None   # min(generated at, period_end); earlier than period_end = partial
     domains_covered: tuple[str, ...] = () # which activity domains
     depth: str | None = None              # "summary" | "standard" | "detailed"
     processed_content: str | None = None  # LLM output or human-written text (immutable)
@@ -459,9 +460,10 @@ Admin follows admin-initiated path above
 
 When `openai_service` is available, the generator:
 
-1. Calls `context_builder.build_rich(user_uid, window=time_period)` — MEGA_QUERY extended with 6 activity window CALL{} blocks; `context.entities_rich` contains all domains (same method used by `ActivityReportService.create_snapshot()`)
-2. Cross-references active Insights
-3. Checks cooldown: if the user has generated a report within the last `ReportTimePeriod.MIN_REPORT_COOLDOWN_MINUTES` (60 min), returns a business error rather than calling the LLM (rate limit)
+0. Resolves `time_period` through `core/utils/report_periods.py` — the one vocabulary: a trailing window (`7d`…`90d`, ending now) or a calendar period (`2026-W37` ISO week, `2026-09` month) with a fixed end. An unknown token is a validation failure; nothing defaults. The DATA cutoff is `min(now, period_end)`: a report of a period still open is *partial* (`data_cutoff` < `period_end`, `metadata["is_partial"]`), re-opened by the calendar door until the period closes and then superseded by the final one
+1. Calls `context_builder.build_rich(user_uid, window=time_period)` — the MEGA_QUERY selects open entities plus those touched since the period's start (`updated_at`, coerced, applied to the ROW, no upper bound — the mapper's own stamps are the bound); `context.entities_rich` contains all domains (same method used by `ActivityReportService.create_snapshot()`)
+2. Cross-references active Insights; reads per-habit `HabitCompletion` counts in [start, cutoff] (`habits_completed` counts habits with at least one persisted completion — never `last_completed`, which every later completion overwrites)
+3. Checks cooldown per (user, period): a report for the same `time_period` within the last `ReportTimePeriod.MIN_REPORT_COOLDOWN_MINUTES` (60 min) is a business error rather than an LLM call — except the final report of a closed period whose newest report is partial, which is never blocked by that partial
 4. Fetches `user_annotation` from the most recent prior `ActivityReport` (`period_end < current_period_start`) via `_fetch_previous_annotation()`
 5. Sends stats as JSON context to LLM via `activity_feedback.md` prompt template; if a prior annotation exists, appends it inside explicit injection-guard boundaries (`--- USER REFLECTION ... --- END USER REFLECTION ---`) with an instruction to treat it as user voice only — not instructions
 6. LLM returns qualitative analysis with patterns, trends, recommendations
@@ -480,6 +482,8 @@ When `openai_service` is available, the generator:
 | Route | Method | Who | What |
 |-------|--------|-----|------|
 | `/api/reports/progress/generate` | POST | User | On-demand `ACTIVITY_REPORT` generation — answers the request form's HTMX post with a fragment linking to the new report (a cooldown refusal renders inline) |
+| `/activity-reports/for?kind=monthly\|weekly&date=` | GET | User | The calendar's period door, lookup half: redirects to the period's reusable report (the newest owned one for the token, unless the period has closed and it is partial) or renders the "generate" prompt — a GET mints nothing |
+| `/activity-reports/for` | POST (CSRF) | User | The period door's generation half: `time_period` token → generate → redirect to the report; a cooldown refusal re-renders the prompt with the reason. Also the detail page's "Regenerate" |
 | `/api/activity-reports/annotate` | POST | User | Save annotation or revision to own report (fragment) |
 | `/activity-reports/md?uid=` | GET | User | Download own report as `.md` (owner-scoped; foreign uid → 404) |
 

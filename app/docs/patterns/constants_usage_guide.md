@@ -1,6 +1,6 @@
 ---
 title: Constants Usage Guide
-updated: 2026-08-11
+updated: 2026-09-12
 category: patterns
 related_skills: []
 related_docs: []
@@ -357,9 +357,8 @@ used by `ActivityReportService` and `ProgressReportGenerator`:
 | `TWO_WEEKS` | `"14d"` | 14-day review window |
 | `MONTH` | `"30d"` | 30-day review window |
 | `QUARTER` | `"90d"` | 90-day review window |
-| `DEFAULT` | `"7d"` | Default period string |
-| `DEFAULT_DAYS` | `7` | Default day count (for `.get()` fallback) |
-| `DAYS` | `dict[str, int]` | Period string → day count mapping |
+| `DEFAULT` | `"7d"` | Default period string (the request form's preselected option) |
+| `DAYS` | `dict[str, int]` | Trailing token → day count — half the vocabulary; `core/utils/report_periods.py` resolves these beside the calendar tokens, and an unknown token fails there (no default day count) |
 | `MIN_REPORT_COOLDOWN_MINUTES` | `60` | Minimum gap between on-demand `ACTIVITY_REPORT` generations (rate limiting) |
 | `MIN_AUTO_REPORT_INTERVAL_HOURS` | `24` | Minimum interval between automatic scheduled reports (frequency floor) |
 
@@ -367,9 +366,10 @@ used by `ActivityReportService` and `ProgressReportGenerator`:
 ```python
 from core.constants import ReportTimePeriod
 
-days = ReportTimePeriod.DAYS.get(time_period, ReportTimePeriod.DEFAULT_DAYS)
-end_date = datetime.now()
-start_date = end_date - timedelta(days=days)
+from core.utils.report_periods import resolve_report_period
+
+period = resolve_report_period(time_period, datetime.now())  # UnknownReportPeriodError on a bad token
+start_date, end_date = period.start, period.data_cutoff(datetime.now())
 ```
 
 ### 10. ZPD Weights (`ZPDWeights`)

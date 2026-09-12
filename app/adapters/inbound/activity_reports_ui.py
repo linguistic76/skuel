@@ -22,6 +22,7 @@ Routes:
 See: /docs/patterns/DOMAIN_ROUTE_CONFIG_PATTERN.md
 """
 
+from datetime import datetime
 from typing import TYPE_CHECKING, Any
 
 from fasthtml.common import (
@@ -36,12 +37,18 @@ from adapters.inbound.boundary import boundary_handler, ui_boundary_handler
 from adapters.inbound.csrf import csrf_protected
 from adapters.inbound.fasthtml_types import Request, RouteDecorator
 from adapters.inbound.form_helpers import parse_form_body
+from adapters.inbound.route_factories import parse_date_query_param
 from adapters.outbound.activity_report_renderer import (
     activity_report_filename,
     render_activity_report_md,
 )
 from core.models.entity_requests import AnnotationFormRequest, ProgressReportGenerateRequest
 from core.utils.logging import get_logger
+from core.utils.report_periods import (
+    UnknownReportPeriodError,
+    report_period_token,
+    resolve_report_period,
+)
 from core.utils.result_simplified import ErrorCategory, Errors, Result
 from core.utils.text_truncation import truncate_to_budget
 from ui.gradebook.nav import render_gradebook_sidebar_page
@@ -52,6 +59,7 @@ from ui.learning_loop.report import (
 from ui.patterns.error_banner import render_error_banner
 from ui.patterns.generate_report import (
     render_activity_report_request_card,
+    render_period_report_prompt,
     render_recent_reports_section,
 )
 from ui.patterns.hub import HubPreviewCard, HubPreviewEmpty, HubPreviewGrid
@@ -157,6 +165,103 @@ def create_activity_reports_ui_routes(
         if latest.value is None:
             return RedirectResponse("/submit-activity-report", status_code=302)
         return RedirectResponse(f"/activity-reports/detail?uid={latest.value.uid}", status_code=302)
+
+    # ========================================================================
+    # PERIOD DOOR — the calendar's "Report for September" / "Report for W37"
+    # ========================================================================
+
+    def _period_prompt_page(
+        request: Request, token: str, *, note: str | None = None
+    ) -> Response | FT:
+        """The period's "generate" state, or 400 for a token no vocabulary names."""
+        try:
+            period = resolve_report_period(token, datetime.now())
+        except UnknownReportPeriodError:
+            return Response("Unknown report period", status_code=400)
+        return render_gradebook_sidebar_page(
+            content=Div(
+                PageHeader(
+                    f"Report for {period.label}",
+                    subtitle="A report aligned to the calendar period, reused while it stands",
+                ),
+                render_period_report_prompt(
+                    token=token,
+                    label=period.label,
+                    is_closed=period.is_closed(datetime.now()),
+                    note=note,
+                ),
+            ),
+            active="submit-activity-report",
+            request=request,
+        )
+
+    @rt("/activity-reports/for", methods=["GET"])
+    async def activity_report_for_period(request: Request) -> Any:
+        """Lookup half of the period door: ``?kind=monthly|weekly&date=YYYY-MM-DD``.
+
+        Redirects to the period's reusable report — the newest one the user
+        owns for the token, unless the period has closed and that report is
+        partial (stale, superseded by the final one) — or renders the
+        "generate" state. A GET mints nothing: the generation is the POST
+        below, so a prefetch can never create a report.
+        """
+        user_uid = require_authenticated_user(request)
+        kind = request.query_params.get("kind", "").strip()
+        ref_date = parse_date_query_param(request.query_params, "date")
+        if ref_date is None:
+            return Response("Invalid or missing date", status_code=400)
+        try:
+            token = report_period_token(kind, ref_date)
+        except UnknownReportPeriodError:
+            return Response("Unknown report period kind", status_code=400)
+        found = await orchestrator.find_activity_report_for_period(user_uid, token)
+        if found.is_error:
+            logger.warning(
+                "activity-reports/for lookup failed for user=%s period=%s: %s",
+                user_uid,
+                token,
+                found.expect_error().message,
+            )
+            return _period_prompt_page(
+                request, token, note="Could not look up the period's report; generate it below."
+            )
+        if found.value is not None:
+            return RedirectResponse(
+                f"/activity-reports/detail?uid={found.value.uid}", status_code=302
+            )
+        return _period_prompt_page(request, token)
+
+    @rt("/activity-reports/for", methods=["POST"])
+    @csrf_protected
+    async def generate_activity_report_for_period(request: Request) -> Any:
+        """Generation half of the period door: mint the period's report.
+
+        Url-encoded ``time_period``; a token outside the vocabulary is 400. A
+        refusal the user can act on (the per-period cooldown) re-renders the
+        prompt with the reason; success lands on the new report.
+        """
+        user_uid = require_authenticated_user(request)
+        if progress_generator is None:
+            return Response("Activity report generator unavailable", status_code=503)
+        form = await request.form()
+        token = str(form.get("time_period", "")).strip()
+        try:
+            resolve_report_period(token, datetime.now())
+        except UnknownReportPeriodError:
+            return Response("Unknown report period", status_code=400)
+        result = await progress_generator.generate(user_uid=user_uid, time_period=token)
+        if result.is_error:
+            error = result.expect_error()
+            if error.category in _INLINE_ERROR_CATEGORIES:
+                return _period_prompt_page(request, token, note=error.message)
+            logger.error(
+                "activity-reports/for generation failed for user=%s period=%s: %s",
+                user_uid,
+                token,
+                error.message,
+            )
+            return Response("Could not generate the report", status_code=500)
+        return RedirectResponse(f"/activity-reports/detail?uid={result.value.uid}", status_code=302)
 
     # ========================================================================
     # ACTIVITY REPORT DETAIL PAGE

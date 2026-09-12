@@ -19,7 +19,7 @@ See: /docs/architecture/REPORT_ARCHITECTURE.md
 """
 
 import json
-from datetime import UTC, datetime, timedelta
+from datetime import datetime
 from typing import TYPE_CHECKING, Any
 
 from core.models.enums import EntityStatus
@@ -47,9 +47,14 @@ from core.prompts import PROMPT_REGISTRY
 from core.utils.exception_types import DATA_CONVERSION_EXCEPTIONS, LLM_EXCEPTIONS, NEO4J_EXCEPTIONS
 from core.utils.logging import get_logger
 from core.utils.neo4j_props import coerce_int
-from core.utils.neo4j_temporal import convert_neo4j_datetime
+from core.utils.report_periods import (
+    ReportPeriod,
+    UnknownReportPeriodError,
+    as_naive_utc,
+    resolve_report_period,
+)
 from core.utils.result_simplified import Errors, Result
-from core.utils.timestamp_helpers import parse_date_value, parse_iso_utc
+from core.utils.timestamp_helpers import parse_date_value
 
 logger = get_logger("skuel.services.report.progress_generator")
 
@@ -60,24 +65,6 @@ def _is_terminal_status(raw: object) -> bool:
         return EntityStatus(str(raw)).is_terminal()
     except ValueError:
         return False
-
-
-def _naive_utc(value: object) -> datetime | None:
-    """A stored timestamp as a naive-UTC datetime, or None when absent or unreadable.
-
-    Node properties arrive as Neo4j DateTime objects, native datetimes, or ISO
-    strings (the temporal split); aware values are normalised to UTC and stripped,
-    naive ones are UTC by convention (``parse_iso_utc``). One shape on both sides
-    of a comparison keeps the window test TypeError-free.
-    """
-    moment = convert_neo4j_datetime(value)
-    if moment is None and isinstance(value, str):
-        moment = parse_iso_utc(value)
-    if moment is None:
-        return None
-    if moment.tzinfo is not None:
-        moment = moment.astimezone(UTC).replace(tzinfo=None)
-    return moment
 
 
 class ProgressReportGenerator:
@@ -144,7 +131,9 @@ class ProgressReportGenerator:
 
         Args:
             user_uid: User to generate activity report for
-            time_period: Time window (7d, 14d, 30d, 90d)
+            time_period: The report-period token — a trailing window (7d, 14d,
+                30d, 90d) or a calendar period (2026-W37, 2026-09); an unknown
+                token is a validation failure, never a default window
             domains: Domains to include (empty = all activity domains)
             depth: Detail level (summary, standard, detailed)
             include_insights: Whether to include active insights
@@ -156,16 +145,23 @@ class ProgressReportGenerator:
         Returns:
             Result[ActivityReport] — the created report entity
         """
-        # Rate-limit on-demand generation. Returns failure if a report was created
-        # within MIN_REPORT_COOLDOWN_MINUTES. Prevents rapid-fire LLM calls.
-        cooldown_result = await self._check_cooldown(user_uid)
+        now = datetime.now()
+        try:
+            period = resolve_report_period(time_period, now)
+        except UnknownReportPeriodError as e:
+            return Result.fail(Errors.validation(message=str(e), field="time_period"))
+        start_date = period.start
+        # The DATA cutoff. A calendar period still open is counted up to now and
+        # the report is partial; a closed one up to its end. The rich query's
+        # touched window carries no upper bound — the mapper's stamps are it.
+        end_date = period.data_cutoff(now)
+        progress_depth = ProgressDepth(depth) if depth else ProgressDepth.STANDARD
+
+        # Rate-limit on-demand generation per (user, period) — a closed period
+        # whose newest report is partial is exempt (its final snapshot).
+        cooldown_result = await self._check_cooldown(user_uid, period, now)
         if cooldown_result.is_error:
             return Result.fail(cooldown_result)
-
-        days = ReportTimePeriod.DAYS.get(time_period, ReportTimePeriod.DEFAULT_DAYS)
-        end_date = datetime.now()
-        start_date = end_date - timedelta(days=days)
-        progress_depth = ProgressDepth(depth) if depth else ProgressDepth.STANDARD
 
         logger.info(
             f"Generating activity report for {user_uid}: period={time_period}, depth={depth}"
@@ -178,8 +174,16 @@ class ProgressReportGenerator:
                 logger.warning(f"Failed to build context for {user_uid}: {ctx_result.error}")
                 completions = self._empty_completions()
             else:
+                habit_counts = await self._habit_completion_counts(user_uid, start_date, end_date)
+                if habit_counts.is_error:
+                    return Result.fail(habit_counts)
                 completions = self._completions_from_context(
-                    ctx_result.value, domains, window_start=start_date, window_end=end_date
+                    ctx_result.value,
+                    domains,
+                    window_start=start_date,
+                    window_end=end_date,
+                    period_end=period.end,
+                    habit_completions=habit_counts.value,
                 )
 
             # 2. Get active insights if requested
@@ -193,7 +197,7 @@ class ProgressReportGenerator:
             intelligence = await self._collect_intelligence(
                 user_uid, completions, start_date, end_date, ctx_result
             )
-            comparison = await self._collect_comparison(user_uid, time_period)
+            comparison = await self._collect_comparison(user_uid, period)
 
             # 4. Build content — LLM when available, programmatic fallback
             processor_type = ReportSource.AUTOMATIC
@@ -211,7 +215,7 @@ class ProgressReportGenerator:
                 llm_result = await self._generate_llm_report(
                     completions,
                     insights,
-                    time_period,
+                    period.label,
                     depth,
                     effective_annotation,
                     intelligence=intelligence,
@@ -225,18 +229,24 @@ class ProgressReportGenerator:
                     processing_error = f"LLM generation failed: {llm_result.expect_error()}"
                     logger.warning(f"LLM fallback for {user_uid}: {processing_error}")
                     content = self._build_report_content(
-                        completions, insights, start_date, end_date, progress_depth
+                        completions, insights, period, end_date, progress_depth
                     )
             else:
                 content = self._build_report_content(
-                    completions, insights, start_date, end_date, progress_depth
+                    completions, insights, period, end_date, progress_depth
                 )
 
-            # 5. Build metadata stats (raw data — preserved regardless of LLM use)
+            # 5. Build metadata stats (raw data — preserved regardless of LLM use).
+            # end_date is the data cutoff; period_end the period's own end — they
+            # differ exactly when the report is partial.
             metadata: dict[str, Any] = {
                 "time_period": time_period,
+                "period_kind": period.kind.value,
                 "start_date": start_date.isoformat(),
                 "end_date": end_date.isoformat(),
+                "period_end": period.end.isoformat(),
+                "data_cutoff": end_date.isoformat(),
+                "is_partial": period.is_partial_at(end_date),
                 "depth": depth,
                 "tasks_completed": completions.get("tasks_completed", 0),
                 "goals_progressed": completions.get("goals_progressed", 0),
@@ -247,6 +257,9 @@ class ProgressReportGenerator:
                 "insights_referenced": len(insights),
                 "llm_generated": processor_type == ReportSource.LLM,
             }
+            limitations = self._limitations(period)
+            if limitations:
+                metadata["limitations"] = limitations
             if intelligence:
                 metadata["intelligence"] = intelligence
             if comparison:
@@ -259,7 +272,7 @@ class ProgressReportGenerator:
                 content=content,
                 processor_type=processor_type,
                 period_start=start_date,
-                period_end=end_date,
+                period_end=period.end,
                 time_period=time_period,
                 domains=domains,
                 depth=depth,
@@ -268,6 +281,7 @@ class ProgressReportGenerator:
                     getattr(i, "uid", "") for i in insights if getattr(i, "uid", None)
                 ),
                 metadata=metadata,
+                data_cutoff=end_date,
             )
 
             create_result = await self.activity_report_service.persist(report)
@@ -365,11 +379,14 @@ class ProgressReportGenerator:
         return intelligence if intelligence else None
 
     async def _collect_comparison(
-        self, user_uid: UserUID, time_period: str
+        self, user_uid: UserUID, period: ReportPeriod
     ) -> dict[str, Any] | None:
-        """Fetch prior report's intelligence metadata and compute deltas.
+        """Fetch the preceding report's intelligence metadata for the UI's deltas.
 
-        Returns None if no prior report with intelligence data exists.
+        The comparison is against the preceding DISTINCT period: for a calendar
+        period, an earlier report for the same token (a partial this one
+        supersedes) is skipped, never compared against. Returns None if no prior
+        report with intelligence data exists.
         """
         history_result = await self.activity_report_service.get_history(
             subject_uid=user_uid, limit=5
@@ -379,6 +396,8 @@ class ProgressReportGenerator:
 
         # Find most recent prior report with intelligence data
         for prior_report in history_result.value:
+            if period.is_calendar and getattr(prior_report, "time_period", None) == period.token:
+                continue
             prior_metadata = getattr(prior_report, "metadata", None) or {}
             if not isinstance(prior_metadata, dict):
                 continue
@@ -393,7 +412,7 @@ class ProgressReportGenerator:
 
             return {
                 "previous_report_uid": getattr(prior_report, "uid", ""),
-                "previous_period": getattr(prior_report, "time_period", time_period),
+                "previous_period": getattr(prior_report, "time_period", period.token),
                 "previous_trends": prior_trends,
                 "previous_life_path_score": prior_life_path.get("alignment_score"),
             }
@@ -594,7 +613,8 @@ class ProgressReportGenerator:
         Args:
             completions: Raw activity stats from _completions_from_context()
             insights: Active insights for the user
-            time_period: e.g. "7d"
+            time_period: the period as a sentence names it ("the last 7 days",
+                "September 2026") — the prompt's wording, not the token
             depth: "summary" | "standard" | "detailed"
             previous_annotation: User's self-reflection from their most recent prior report
             intelligence: Pre-computed intelligence data (trends, patterns, alignment)
@@ -791,6 +811,8 @@ class ProgressReportGenerator:
         *,
         window_start: datetime,
         window_end: datetime,
+        period_end: datetime | None = None,
+        habit_completions: dict[str, int] | None = None,
     ) -> dict[str, Any]:
         """Map context.entities_rich into the completions dict.
 
@@ -824,22 +846,59 @@ class ProgressReportGenerator:
         from ``window_start`` onward with no upper bound, so a scheduled future
         event would otherwise read as already attended.
 
+        ``habits_completed`` reads persisted history, not a stamp: the habits
+        with at least one ``HabitCompletion`` row in the period
+        (``habit_completions`` — per-habit counts from the backend), since
+        ``last_completed`` is overwritten by every later completion and a
+        September report generated in October would otherwise count zero for
+        a habit done in both months.
+
+        ``tasks_total``'s "open" half is open AT ``period_end`` (default: the
+        window's end): created no later than it and either non-terminal now or
+        terminal with its terminal stamp (``completion_date``, else
+        ``updated_at``) after it. A task terminal before the period and merely
+        edited after it reads as open — SKUEL persists no status-transition
+        history, and the report's metadata names that limit rather than
+        promising a precision the data cannot keep.
+
         Consumed by _build_report_content() and _build_llm_prompt().
         """
         include_all = domains is None
         result = self._empty_completions()
-        window_floor = _naive_utc(window_start)
-        window_ceiling = _naive_utc(window_end)
+        window_floor = as_naive_utc(window_start)
+        window_ceiling = as_naive_utc(window_end)
+        period_ceiling = as_naive_utc(period_end) if period_end is not None else window_ceiling
+        completions_by_habit = habit_completions or {}
 
-        def in_period(stamp: object) -> bool:
-            moment = _naive_utc(stamp)
+        def as_moment(stamp: object) -> datetime | None:
+            moment = as_naive_utc(stamp)
             if moment is None:
                 day = parse_date_value(stamp)
                 if day is None:
-                    return False
+                    return None
                 moment = datetime.combine(day, datetime.min.time())
+            return moment
+
+        def in_period(stamp: object) -> bool:
+            moment = as_moment(stamp)
+            if moment is None:
+                return False
             return (window_floor is None or moment >= window_floor) and (
                 window_ceiling is None or moment <= window_ceiling
+            )
+
+        def open_at_period_end(entity: dict[str, Any]) -> bool:
+            """Open at the period's end, as far as the node's stamps can tell."""
+            created = as_moment(entity.get("created_at"))
+            if created is not None and period_ceiling is not None and created > period_ceiling:
+                return False
+            if not _is_terminal_status(entity.get("status")):
+                return True
+            closed_at = as_moment(entity.get("completion_date")) or as_moment(
+                entity.get("updated_at")
+            )
+            return (
+                closed_at is not None and period_ceiling is not None and closed_at > period_ceiling
             )
 
         # Tasks
@@ -867,7 +926,7 @@ class ProgressReportGenerator:
                     result["tasks_total"] += 1
                     result["goal_alignments"].extend(goal_titles)
                     result["knowledge_applications"].extend(ku_titles)
-                elif not _is_terminal_status(status):
+                elif open_at_period_end(entity):
                     result["tasks_total"] += 1
                 result["tasks_details"].append(
                     {
@@ -898,7 +957,7 @@ class ProgressReportGenerator:
         if include_all or "habits" in (domains or []):
             for item in context.entities_rich.get("habits", []):
                 entity = item["entity"]
-                if in_period(entity.get("last_completed")):
+                if completions_by_habit.get(entity.get("uid", ""), 0) > 0:
                     result["habits_completed"] += 1
                 result["habits_details"].append(
                     {
@@ -1025,15 +1084,24 @@ class ProgressReportGenerator:
         self,
         completions: dict[str, Any],
         insights: list[Any],
-        start_date: datetime,
-        end_date: datetime,
+        period: ReportPeriod,
+        cutoff: datetime,
         depth: ProgressDepth,
     ) -> str:
-        """Build markdown report content from completions data."""
+        """Build markdown report content from completions data.
+
+        ``cutoff`` is the instant the counts ran up to; before the period's end
+        the report says so in its first line.
+        """
         sections: list[str] = []
-        period_label = f"{start_date.strftime('%b %d')} - {end_date.strftime('%b %d, %Y')}"
+        period_label = f"{period.start.strftime('%b %d')} - {cutoff.strftime('%b %d, %Y')}"
 
         sections.append(f"# Progress Report: {period_label}\n")
+        if period.is_partial_at(cutoff):
+            sections.append(
+                f"_Partial: {period.label} is still open — counted through "
+                f"{cutoff.strftime('%b %d, %Y')}._\n"
+            )
 
         # Task Completion Summary
         tasks_completed = completions.get("tasks_completed", 0)
@@ -1203,19 +1271,75 @@ class ProgressReportGenerator:
 
         return "\n".join(sections)
 
-    async def _check_cooldown(self, user_uid: UserUID) -> Result[None]:
-        """Return failure if an ActivityReport was generated within MIN_REPORT_COOLDOWN_MINUTES.
+    async def _habit_completion_counts(
+        self, user_uid: UserUID, start: datetime, end: datetime
+    ) -> Result[dict[str, int]]:
+        """Per-habit ``HabitCompletion`` counts in [``start``, ``end``].
 
-        Uses a Cypher datetime comparison to avoid Python-side datetime parsing of
-        Neo4j temporal values. Returns Result.ok(None) on any query error so that
-        a broken cooldown check never blocks legitimate generation (fail-safe open).
+        A failed read fails the report: a count that silently reads as zero is
+        the defect this read exists to remove. Without a backend (tests), there
+        are no completions to count.
+        """
+        if not self.report_backend:
+            return Result.ok({})
+        rows = await self.report_backend.count_habit_completions(
+            user_uid=user_uid, start=start.isoformat(), end=end.isoformat()
+        )
+        if rows.is_error:
+            return Result.fail(rows)
+        return Result.ok(
+            {
+                str(row.get("habit_uid")): coerce_int(row.get("completions"))
+                for row in rows.value or []
+                if row.get("habit_uid")
+            }
+        )
+
+    @staticmethod
+    def _limitations(period: ReportPeriod) -> list[str]:
+        """The named approximations a calendar-period report carries.
+
+        Recorded in the report's metadata so a reader knows what the counts
+        can and cannot say; a trailing window ending now has neither.
+        """
+        if not period.is_calendar:
+            return []
+        return [
+            "goals_progressed and principles_reviewed read each entity's latest stamp "
+            "(last_progress_update, last_review_date); a progress write or review after "
+            "this period overwrites it, so a closed period can undercount them.",
+            "tasks_total counts a task as open at the period's end when it was created by "
+            "then and is either non-terminal now or terminal after the period; a task "
+            "closed before the period and merely edited after it is counted as open.",
+        ]
+
+    async def _check_cooldown(
+        self, user_uid: UserUID, period: ReportPeriod, now: datetime
+    ) -> Result[None]:
+        """Refuse a report for this period generated within MIN_REPORT_COOLDOWN_MINUTES.
+
+        Keyed per (user, period): a September report does not block a weekly
+        one. A closed period whose newest report is partial is exempt — its
+        final snapshot must never wait on the partial generated in the period's
+        last hour. Returns Result.ok(None) on any query error so that a broken
+        cooldown check never blocks legitimate generation (fail-safe open).
         """
         if not self.report_backend:
             return Result.ok(None)  # fail-safe: allow generation if no backend
 
+        if period.is_closed(now):
+            newest = await self.activity_report_service.latest_for_period(
+                user_uid, user_uid, period.token
+            )
+            if newest.is_ok and newest.value is not None:
+                cutoff = as_naive_utc(newest.value.data_cutoff)
+                if cutoff is None or period.is_partial_at(cutoff):
+                    return Result.ok(None)  # finalising a partial report
+
         result = await self.report_backend.check_cooldown(
             user_uid=user_uid,
             cooldown_minutes=ReportTimePeriod.MIN_REPORT_COOLDOWN_MINUTES,
+            time_period=period.token,
         )
         if result.is_error or not result.value:
             return Result.ok(None)  # fail-safe: allow generation if check errors
@@ -1225,7 +1349,7 @@ class ProgressReportGenerator:
             return Result.fail(
                 Errors.business(
                     "report_cooldown",
-                    f"A report was generated within the last "
+                    f"A report for {period.label} was generated within the last "
                     f"{ReportTimePeriod.MIN_REPORT_COOLDOWN_MINUTES} minutes. "
                     f"Please wait before generating another.",
                 )

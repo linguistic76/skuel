@@ -15,7 +15,7 @@ Review queue management (ReviewRequest nodes) lives in ReviewQueueService.
 See: /docs/architecture/REPORT_ARCHITECTURE.md
 """
 
-from datetime import datetime, timedelta
+from datetime import datetime
 from itertools import islice
 from typing import TYPE_CHECKING, Any, cast
 
@@ -29,16 +29,28 @@ if TYPE_CHECKING:
     from core.services.user.unified_user_context import UserContext
     from core.services.user.user_context_builder import UserContextBuilder
 
-from core.constants import ReportTimePeriod
 from core.events import publish_event
 from core.events.learning_loop_events import ActivitySnapshotAccessed
 from core.models.enums.pipeline import ReportSource
 from core.models.report.activity_report import ActivityReport
+from core.models.report.activity_report_dto import ActivityReportDTO
 from core.utils.exception_types import DATA_CONVERSION_EXCEPTIONS, NEO4J_EXCEPTIONS
 from core.utils.logging import get_logger
+from core.utils.report_periods import (
+    UnknownReportPeriodError,
+    as_naive_utc,
+    resolve_report_period,
+)
 from core.utils.result_simplified import Errors, Result
 
 logger = get_logger("skuel.services.report.activity_report")
+
+
+def _report_from_props(props: dict[str, Any]) -> ActivityReport:
+    """A stored ActivityReport node's properties as the domain model — through
+    the DTO's parse layer (``dto_from_dict``), the one place JSON blobs such as
+    ``metadata`` and the temporal fields are decoded."""
+    return ActivityReport.from_dto(ActivityReportDTO.from_dict(props))
 
 
 class ActivityReportService:
@@ -96,7 +108,8 @@ class ActivityReportService:
 
         Args:
             context: UserContext built with build_rich(subject_uid, window=time_period)
-            time_period: Time window label (7d, 14d, 30d, 90d) — for metadata only
+            time_period: The report-period token (trailing ``7d`` … ``90d`` or a
+                calendar ``2026-W37`` / ``2026-09``); counted up to its data cutoff
             domains: Domains to include (None = all activity domains)
             admin_uid: UID of the admin performing the snapshot (used for audit trail)
 
@@ -104,9 +117,11 @@ class ActivityReportService:
             Result[dict] — snapshot data with per-domain activity summaries
         """
         subject_uid = context.user_uid
-        days = ReportTimePeriod.DAYS.get(time_period, ReportTimePeriod.DEFAULT_DAYS)
-        end_date = datetime.now()
-        start_date = end_date - timedelta(days=days)
+        try:
+            period = resolve_report_period(time_period, datetime.now())
+        except UnknownReportPeriodError as e:
+            return Result.fail(Errors.validation(message=str(e), field="time_period"))
+        start_date, end_date = period.start, period.data_cutoff(datetime.now())
 
         # Publish audit event so the subject_uid can later see when their data was accessed.
         # This is the producer feeding the staged privacy-transparency surface
@@ -303,16 +318,18 @@ class ActivityReportService:
             admin_uid: Admin user creating the report
             subject_uid: User whose activity was reviewed
             feedback_text: Admin's written report
-            time_period: Time window reviewed (7d, 14d, 30d, 90d)
+            time_period: The report-period token reviewed (trailing or calendar)
             domains: Domains covered in the review
             snapshot_context: Optional snapshot data to store in metadata
 
         Returns:
             Result[ActivityReport] — the created report entity
         """
-        days = ReportTimePeriod.DAYS.get(time_period, ReportTimePeriod.DEFAULT_DAYS)
-        end_date = datetime.now()
-        start_date = end_date - timedelta(days=days)
+        try:
+            period = resolve_report_period(time_period, datetime.now())
+        except UnknownReportPeriodError as e:
+            return Result.fail(Errors.validation(message=str(e), field="time_period"))
+        start_date, end_date = period.start, period.end
 
         try:
             metadata: dict[str, Any] = {
@@ -388,7 +405,7 @@ class ActivityReportService:
                 if isinstance(node, dict)
                 else cast("dict[str, Any]", dict(cast("Any", node)))
             )
-        return Result.ok(ActivityReport._from_dict(props))  # type: ignore[attr-defined]
+        return Result.ok(_report_from_props(props))
 
     async def get_latest_for_owner(self, user_uid: UserUID) -> Result[ActivityReport | None]:
         """The newest ActivityReport the user owns, or ``None`` when there is none.
@@ -402,9 +419,52 @@ class ActivityReportService:
         query_result = await self.backend.get_latest_for_owner(user_uid)
         if query_result.is_error:
             return Result.fail(query_result)
-        records = query_result.value or []
-        if not records:
+        return Result.ok(self._first_report(query_result.value or []))
+
+    async def latest_for_period(
+        self, user_uid: UserUID, subject_uid: str, time_period: str
+    ) -> Result[ActivityReport | None]:
+        """The newest report the user owns about ``subject_uid`` for one
+        ``time_period`` token — partial or final — or ``None``.
+
+        Backend: ``ActivityReportBackend.find_by_period`` (owner-scoped).
+        """
+        query_result = await self.backend.find_by_period(user_uid, subject_uid, time_period)
+        if query_result.is_error:
+            return Result.fail(query_result)
+        return Result.ok(self._first_report(query_result.value or []))
+
+    async def find_by_period(
+        self, user_uid: UserUID, subject_uid: str, time_period: str
+    ) -> Result[ActivityReport | None]:
+        """The period's REUSABLE report, or ``None`` when the door should generate.
+
+        The newest owned report for the token is reused while its period is
+        still open (a partial report re-opens on every click) and, once the
+        period has closed, only if it was counted up to the period's end. A
+        report whose ``data_cutoff`` precedes ``period_end`` of a closed period
+        is stale — treated as absent so the next open generates the final
+        report that supersedes it. An unknown token is a validation failure.
+        """
+        now = datetime.now()
+        try:
+            period = resolve_report_period(time_period, now)
+        except UnknownReportPeriodError as e:
+            return Result.fail(Errors.validation(message=str(e), field="time_period"))
+        latest = await self.latest_for_period(user_uid, subject_uid, time_period)
+        if latest.is_error or latest.value is None:
+            return latest
+        report = latest.value
+        cutoff = as_naive_utc(report.data_cutoff)
+        if period.is_closed(now) and (cutoff is None or period.is_partial_at(cutoff)):
             return Result.ok(None)
+        return Result.ok(report)
+
+    @staticmethod
+    def _first_report(records: list[Any]) -> ActivityReport | None:
+        """The first row's node as a report, or ``None`` for no rows."""
+        if not records:
+            return None
         node = records[0]
         inner = node.get("n") if isinstance(node, dict) and "n" in node else node
         # Neo4j Node implements Mapping at runtime but isn't typed as such
@@ -413,7 +473,7 @@ class ActivityReportService:
             if isinstance(inner, dict)
             else cast("dict[str, Any]", dict(cast("Any", inner)))
         )
-        return Result.ok(ActivityReport._from_dict(props))  # type: ignore[attr-defined]
+        return _report_from_props(props)
 
     async def get_history(
         self,
@@ -447,7 +507,7 @@ class ActivityReportService:
                     props = node
                 else:
                     props = cast("dict[str, Any]", dict(cast("Any", node)))
-                feedbacks.append(ActivityReport._from_dict(props))  # type: ignore[attr-defined]
+                feedbacks.append(_report_from_props(props))
 
         return Result.ok(feedbacks)
 

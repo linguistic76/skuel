@@ -355,6 +355,21 @@ class ActivityReportOperations(Protocol):
         """The newest ActivityReport the user owns, or None. Returns Result[ActivityReport | None]."""
         ...
 
+    async def latest_for_period(
+        self, user_uid: UserUID, subject_uid: str, time_period: str
+    ) -> "Result[ActivityReport | None]":
+        """The newest report the user owns about the subject for one period token,
+        partial or final — or None. Returns Result[ActivityReport | None]."""
+        ...
+
+    async def find_by_period(
+        self, user_uid: UserUID, subject_uid: str, time_period: str
+    ) -> "Result[ActivityReport | None]":
+        """The period's REUSABLE report: the newest owned one for the token, unless
+        the period has closed and that report is partial — then None, so the door
+        generates the final one. Returns Result[ActivityReport | None]."""
+        ...
+
     async def annotate(
         self,
         uid: str,
@@ -388,6 +403,9 @@ class ActivityReportBackendOperations(BackendOperations["ActivityReport"], Proto
 
     async def get_for_user(self, uid: str, user_uid: str) -> Result[list[Neo4jProperties]]: ...
     async def get_latest_for_owner(self, user_uid: UserUID) -> Result[list[Neo4jProperties]]: ...
+    async def find_by_period(
+        self, user_uid: UserUID, subject_uid: str, time_period: str
+    ) -> Result[list[Neo4jProperties]]: ...
 
     async def get_history(
         self, subject_uid: str, limit: int = 20
@@ -437,8 +455,8 @@ class ReportScheduleBackendOperations(BackendOperations["ReportSchedule"], Proto
 class ActivityReportGeneratorBackendOperations(Protocol):
     """Backend-level reads for ``ProgressReportGenerator``.
 
-    Two cross-entity queries that aren't natural fits for
-    ``UniversalNeo4jBackend`` — both encapsulated below the hexagonal boundary
+    Cross-entity queries that aren't natural fits for
+    ``UniversalNeo4jBackend`` — all encapsulated below the hexagonal boundary
     (``adapters/persistence/neo4j/backends/misc_backends.py``).
 
     Implementation: ``ActivityReportGeneratorBackend``.
@@ -447,13 +465,24 @@ class ActivityReportGeneratorBackendOperations(Protocol):
     """
 
     async def check_cooldown(
-        self, user_uid: str, cooldown_minutes: int
+        self, user_uid: str, cooldown_minutes: int, time_period: str
     ) -> Result[list[Neo4jProperties]]:
-        """Return a single-row ``recent_count`` for ActivityReports written
-        within the cooldown window.
+        """Return a single-row ``recent_count`` for the user's ActivityReports
+        for ``time_period`` written within the cooldown window — the cooldown
+        is keyed per (user, period).
 
         Used to suppress duplicate AI report generation when one was just
         produced. Row shape: ``[{"recent_count": <int>}]``.
+        """
+        ...
+
+    async def count_habit_completions(
+        self, user_uid: str, start: str, end: str
+    ) -> Result[list[Neo4jProperties]]:
+        """Per-habit counts of the user's ``HabitCompletion`` rows completed in
+        [``start``, ``end``] (ISO strings) — the report's ``habits_completed``
+        reads persisted completions, never a habit's latest stamp.
+        Row shape: ``[{"habit_uid": <str>, "completions": <int>}, …]``.
         """
         ...
 

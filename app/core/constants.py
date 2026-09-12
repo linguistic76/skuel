@@ -682,11 +682,13 @@ class HabitConsistencyWindow:
 
 class ReportTimePeriod:
     """
-    Valid time period strings for activity reports and review.
+    The TRAILING report windows — tokens and their day counts.
 
-    Used by: ActivityReportService, ProgressReportGenerator, ProgressScheduleService
-    Both services share the same API-facing period vocabulary ("7d", "14d", etc.)
-    and the corresponding day counts for datetime arithmetic.
+    Half of the report-period vocabulary: ``core/utils/report_periods.py``
+    resolves these beside the calendar tokens (``2026-W37``, ``2026-09``), and
+    every consumer (UserContextBuilder, ProgressReportGenerator,
+    ActivityReportService) goes through that resolver. A token outside the
+    vocabulary is a validation failure there — there is no default day count.
     """
 
     WEEK: Final = "7d"
@@ -694,7 +696,6 @@ class ReportTimePeriod:
     MONTH: Final = "30d"
     QUARTER: Final = "90d"
     DEFAULT: Final = "7d"
-    DEFAULT_DAYS: Final = 7
 
     DAYS: Final[dict[str, int]] = {
         "7d": 7,

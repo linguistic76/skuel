@@ -12,7 +12,9 @@ calendar months) and yearly (Jan 1 – Dec 31; ruling:
 ``docs/roadmap/done/quarterly-yearly-periodic-notes.md``). The daily note never
 does — its day lens IS the panel. ``planning_period`` is the one place that
 knows which kinds plan, how their period keys parse, and which of them are long
-enough to need month sub-headings.
+enough to need month sub-headings; the period-key parsers it reads are the
+shared contract in ``core/utils/period_keys.py`` (the reports speak the same
+weekly and monthly keys).
 
 Vocabulary is the calendar's pair grouping (R1/R2, matching the legend's
 ``_LEGEND_PAIRS``): Tasks + Events, then Goals + Habits. The Goals + Habits
@@ -32,90 +34,17 @@ from typing import TYPE_CHECKING
 from fasthtml.common import A, Div, P, Span
 
 from core.models.event.calendar_models import CalendarItemType
+from core.utils.period_keys import (
+    monthly_period_start,
+    quarterly_period_start,
+    weekly_period_start,
+    yearly_period_start,
+)
 
 if TYPE_CHECKING:
     from fasthtml.common import FT
 
     from core.models.event.calendar_models import CalendarItem
-
-
-def weekly_period_start(period_key: str) -> date | None:
-    """Monday of the ISO week a weekly period key names (``2026-W32``).
-
-    The key format is the ``ensure_periodic_note`` persistence contract
-    (``{year}-W{week:02d}``); vault-derived weekly notes carry the same form as
-    their UID's last colon segment (``week_of`` frontmatter — the join
-    contract). Returns ``None`` when the key doesn't parse — callers degrade to
-    "no panel" rather than guessing a week.
-    """
-    year_str, sep, week_str = period_key.partition("-W")
-    if not sep:
-        return None
-    try:
-        return date.fromisocalendar(int(year_str), int(week_str), 1)
-    except ValueError:
-        return None
-
-
-def monthly_period_start(period_key: str) -> date | None:
-    """First day of the month a monthly period key names (``2026-08``).
-
-    The key format is the ``ensure_periodic_note`` persistence contract
-    (``{year}-{month:02d}``); vault-derived monthly notes carry the same form
-    (``month_of`` frontmatter, truncated to ``YYYY-MM`` at ingestion). Returns
-    ``None`` when the key doesn't parse — a weekly key (``2026-W32``) and a
-    daily key (``2026-08-03``) are both rejected, never coerced.
-    """
-    year_str, sep, month_str = period_key.partition("-")
-    if not sep or "-" in month_str:
-        return None
-    try:
-        return date(int(year_str), int(month_str), 1)
-    except ValueError:
-        return None
-
-
-def quarterly_period_start(period_key: str) -> date | None:
-    """First day of the quarter a quarterly period key names (``2026-Q3``).
-
-    The key format is the ``ensure_periodic_note`` persistence contract
-    (``{year}-Q{quarter}``); vault-derived quarterly notes carry the same form
-    (``quarter_of`` frontmatter — the join contract). Returns ``None`` when the
-    key doesn't parse: a weekly key (``2026-W32``) shares this key's shape
-    (``{year}-{letter}{digits}``) and is rejected on the separator, and a
-    quarter outside 1–4 is rejected rather than wrapped into a month.
-    """
-    year_str, sep, quarter_str = period_key.partition("-Q")
-    if not sep:
-        return None
-    try:
-        year, quarter = int(year_str), int(quarter_str)
-    except ValueError:
-        return None
-    if not 1 <= quarter <= 4:
-        return None
-    try:
-        return date(year, 3 * (quarter - 1) + 1, 1)
-    except ValueError:
-        return None
-
-
-def yearly_period_start(period_key: str) -> date | None:
-    """January 1st of the year a yearly period key names (``2026``).
-
-    The key format is the ``ensure_periodic_note`` persistence contract
-    (``{year}``); vault-derived yearly notes carry the same form (``year_of``
-    frontmatter, normalized to four digits at ingestion). ``2026`` is a prefix
-    of every other kind's key, so the parser demands the WHOLE key be four
-    digits — ``2026-W32``, ``2026-08``, ``2026-Q3`` and ``2026-08-03`` are all
-    rejected, never truncated to their year.
-    """
-    if len(period_key) != 4 or not period_key.isdigit():
-        return None
-    try:
-        return date(int(period_key), 1, 1)
-    except ValueError:
-        return None
 
 
 @dataclass(frozen=True)

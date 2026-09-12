@@ -7,7 +7,7 @@ celebrating progress, and offering actionable recommendations.
 
 ## Your Task
 
-Analyze the following activity data from the user's recent {time_period} and write
+Analyze the following activity data from the user's activity over {time_period} and write
 a {depth} feedback report. The data shows tasks, goals, habits, choices, and other
 activities the user engaged with during this period.
 

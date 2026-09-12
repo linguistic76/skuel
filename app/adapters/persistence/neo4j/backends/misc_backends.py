@@ -32,8 +32,9 @@ class ActivityReportBackend(UniversalNeo4jBackend[ActivityReport]):
     Domain backend for ActivityReport entities.
 
     Moves inline Cypher from ActivityReportService into named backend methods.
-    Methods: get_for_user, get_latest_for_owner, get_history, annotate,
-    get_annotation, get_admin_snapshots, get_shares_granted, get_report_schedule.
+    Methods: get_for_user, get_latest_for_owner, find_by_period, get_history,
+    annotate, get_annotation, get_admin_snapshots, get_shares_granted,
+    get_report_schedule.
     """
 
     async def get_for_user(self, uid: str, user_uid: str) -> Result[list[Neo4jProperties]]:
@@ -62,6 +63,33 @@ class ActivityReportBackend(UniversalNeo4jBackend[ActivityReport]):
             LIMIT 1
             """,
             {"entity_type": _ACTIVITY_REPORT, "user_uid": user_uid},
+        )
+
+    async def find_by_period(
+        self, user_uid: UserUID, subject_uid: str, time_period: str
+    ) -> Result[list[Neo4jProperties]]:
+        """The newest ActivityReport the user OWNS about ``subject_uid`` for one
+        ``time_period`` token, at most one row — partial or final alike.
+
+        Owner-scoped like ``get_for_user``: an admin-authored HUMAN report can
+        share the subject and the token, and the owner-scoped detail read would
+        refuse it. Whether the row is reusable (a closed period's partial report
+        is not) is the service's verdict.
+        """
+        return await self.execute_query(
+            """
+            MATCH (n:Entity {entity_type: $entity_type, user_uid: $user_uid,
+                             subject_uid: $subject_uid, time_period: $time_period})
+            RETURN n
+            ORDER BY n.created_at DESC
+            LIMIT 1
+            """,
+            {
+                "entity_type": _ACTIVITY_REPORT,
+                "user_uid": user_uid,
+                "subject_uid": subject_uid,
+                "time_period": time_period,
+            },
         )
 
     async def get_history(self, subject_uid: str, limit: int = 20) -> Result[list[Neo4jProperties]]:
@@ -305,13 +333,15 @@ class ActivityReportGeneratorBackend:
         self.executor = executor
 
     async def check_cooldown(
-        self, user_uid: str, cooldown_minutes: int
+        self, user_uid: str, cooldown_minutes: int, time_period: str
     ) -> Result[list[Neo4jProperties]]:
-        """Check if an ActivityReport was generated within cooldown_minutes."""
+        """Count the user's ActivityReports for ``time_period`` written within
+        ``cooldown_minutes`` — the cooldown is keyed per (user, period)."""
         return await self.executor.execute_query(
             """
             MATCH (user:User {uid: $user_uid})-[:OWNS]->(ar:Entity)
             WHERE ar.entity_type = $entity_type
+              AND ar.time_period = $time_period
               AND datetime(ar.created_at) >= datetime() - duration({minutes: $cooldown_minutes})
             RETURN count(ar) AS recent_count
             """,
@@ -319,7 +349,25 @@ class ActivityReportGeneratorBackend:
                 "entity_type": _ACTIVITY_REPORT,
                 "user_uid": user_uid,
                 "cooldown_minutes": cooldown_minutes,
+                "time_period": time_period,
             },
+        )
+
+    async def count_habit_completions(
+        self, user_uid: str, start: str, end: str
+    ) -> Result[list[Neo4jProperties]]:
+        """Per-habit counts of the user's HabitCompletion rows completed in
+        [``start``, ``end``] (ISO strings). One row per habit with at least one
+        completion; ``completed_at`` is coerced since it is stored as a string."""
+        return await self.executor.execute_query(
+            """
+            MATCH (user:User {uid: $user_uid})-[:OWNS]->(hc:HabitCompletion)
+            WHERE hc.completed_at IS NOT NULL
+              AND datetime(hc.completed_at) >= datetime($start)
+              AND datetime(hc.completed_at) <= datetime($end)
+            RETURN hc.habit_uid AS habit_uid, count(hc) AS completions
+            """,
+            {"user_uid": user_uid, "start": start, "end": end},
         )
 
     async def get_previous_annotation(

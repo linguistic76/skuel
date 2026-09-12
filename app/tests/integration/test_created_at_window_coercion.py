@@ -45,7 +45,7 @@ class TestCreatedAtWindowCoercion:
                 """
                 MATCH (u:User {uid: 'user_cooldown'})
                 CREATE (u)-[:OWNS]->(:Entity {uid: 'ar_str',
-                    entity_type: 'activity_report', created_at: $c})
+                    entity_type: 'activity_report', time_period: '7d', created_at: $c})
                 """,
                 c=recent_iso,
             )
@@ -54,7 +54,7 @@ class TestCreatedAtWindowCoercion:
                 """
                 MATCH (u:User {uid: 'user_cooldown'})
                 CREATE (u)-[:OWNS]->(:Entity {uid: 'ar_dt',
-                    entity_type: 'activity_report',
+                    entity_type: 'activity_report', time_period: '7d',
                     created_at: datetime() - duration({minutes: 5})})
                 """
             )
@@ -63,13 +63,24 @@ class TestCreatedAtWindowCoercion:
                 """
                 MATCH (u:User {uid: 'user_cooldown'})
                 CREATE (u)-[:OWNS]->(:Entity {uid: 'ar_old',
-                    entity_type: 'activity_report', created_at: $c})
+                    entity_type: 'activity_report', time_period: '7d', created_at: $c})
                 """,
                 c=old_iso,
             )
 
+            # Recent, but for another period — the cooldown is keyed per (user, period).
+            await session.run(
+                """
+                MATCH (u:User {uid: 'user_cooldown'})
+                CREATE (u)-[:OWNS]->(:Entity {uid: 'ar_other_period',
+                    entity_type: 'activity_report', time_period: '2026-09', created_at: $c})
+                """,
+                c=recent_iso,
+            )
         backend = ActivityReportGeneratorBackend(Neo4jQueryExecutor(neo4j_driver))
-        result = await backend.check_cooldown("user_cooldown", cooldown_minutes=60)
+        result = await backend.check_cooldown(
+            "user_cooldown", cooldown_minutes=60, time_period="7d"
+        )
         assert result.is_ok, f"check_cooldown failed: {result}"
         # str + datetime are both in-window; the old string one is excluded.
         # Pre-fix only the datetime one counted (string >= datetime → null) → 1.
