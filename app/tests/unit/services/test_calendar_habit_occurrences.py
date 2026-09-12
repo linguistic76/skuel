@@ -564,8 +564,9 @@ async def test_habit_items_for_day_propagates_a_failed_completions_read() -> Non
     ],
 )
 def test_occurrences_stop_at_the_last_representable_day(pattern: RecurrencePattern) -> None:
-    """Projecting up to ``date.max`` must end where the calendar does — stepping
-    once more raised, which failed the day's Habits read and the refresh."""
+    """A projection whose window ends on ``date.max`` ends where the calendar
+    does: every pattern emits its occurrences up to that day and never steps
+    past it — the day view clamps its navigation there and reads habits for it."""
     svc = _service()
     habit = _habit(pattern, created=datetime(2026, 7, 1))
     window_start = date.max - timedelta(days=40)

@@ -247,10 +247,9 @@ def _all_doc_files() -> list[Path]:
     """First-party docs that can carry an Alpine snippet.
 
     ``.html`` as well as ``.md``: a design handoff can be a copyable HTML mock
-    that mounts a component, and a Markdown-only glob left such a file
-    unchecked while the module claimed to cover any doc under ``docs/``.
-    Rename or delete the component and that file would have gone stale
-    silently (the retired Today handoff mock was exactly that shape).
+    that mounts a component, and this module claims to cover any doc under
+    ``docs/`` — a Markdown-only glob would leave such a file unchecked, so a
+    renamed or deleted component could go stale there silently.
 
     ``docs/llms.txt/`` is excluded: vendored upstream reference material
     (FastHTML, MonsterUI, DaisyUI, shad4fast). Their examples are not SKUEL's
