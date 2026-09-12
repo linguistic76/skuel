@@ -162,6 +162,26 @@ def test_habits_render_as_day_stamped_calendar_chips() -> None:
     assert "/cal/item-details/habit-h1?date=2026-09-12" in html
 
 
+def test_habits_container_listens_for_calendar_refresh() -> None:
+    """The per-day complete door answers ``HX-Trigger: calendar-refresh``; the
+    habits container must re-fetch itself on it, or a chip completed from its
+    modal stays pending until a reload."""
+    chip = CalendarItem(
+        uid="habit-h1",
+        source_uid="h1",
+        item_type=CalendarItemType.HABIT,
+        title="Meditate",
+        start_time=datetime(2026, 9, 12, 9, 0),
+        end_time=datetime(2026, 9, 12, 9, 20),
+        occurrence_data={"date": "2026-09-12", "status": "pending"},
+    )
+    html = _render(_ctx("2026-09-12", habits=[chip]))
+    container = html[html.index('id="day-habits"') - 200 : html.index('id="day-habits"') + 200]
+    assert 'hx-get="/today/2026-09-12/habits"' in container
+    assert 'hx-trigger="calendar-refresh from:body"' in container
+    assert 'hx-swap="outerHTML"' in container
+
+
 def test_milestones_and_choices_render_read_only_rows() -> None:
     goal = Goal(uid="g1", user_uid=USER, title="Ship it", target_date=date(2026, 9, 12))
     due = Choice(

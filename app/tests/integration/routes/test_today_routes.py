@@ -16,15 +16,17 @@ async identity stub so we can inspect what the route hands it.
 
 from __future__ import annotations
 
-from datetime import date, timedelta
+from datetime import date, datetime, timedelta
 from types import SimpleNamespace
 from typing import Any
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
+from fastcore.xml import to_xml  # type: ignore[import-untyped]
 from starlette.exceptions import HTTPException
 
 from core.models.enums import EntityStatus
+from core.models.event.calendar_models import CalendarItem, CalendarItemType
 from core.models.task.task_update_intent import TaskUpdateIntent
 from core.utils.result_simplified import Errors, Result
 from tests.fixtures.csrf import attach_csrf
@@ -87,6 +89,18 @@ def _make_task(
     return t
 
 
+def _habit_chip(day: str = "2027-04-23") -> CalendarItem:
+    return CalendarItem(
+        uid="habit-h1",
+        source_uid="h1",
+        item_type=CalendarItemType.HABIT,
+        title="Meditate",
+        start_time=datetime.fromisoformat(f"{day}T09:00"),
+        end_time=datetime.fromisoformat(f"{day}T09:20"),
+        occurrence_data={"date": day, "status": "pending"},
+    )
+
+
 @pytest.fixture
 def mock_services() -> Any:
     services = MagicMock()
@@ -97,6 +111,9 @@ def mock_services() -> Any:
     services.tasks.core.create_task = AsyncMock(return_value=Result.ok(_make_task()))
     services.tasks.get_task = AsyncMock(return_value=Result.ok(_make_task()))
     services.tasks.update_task = AsyncMock(return_value=Result.ok(_make_task()))
+
+    services.calendar = MagicMock()
+    services.calendar.habit_items_for_day = AsyncMock(return_value=Result.ok([_habit_chip()]))
 
     services.today_orchestrator = MagicMock()
     services.today_orchestrator.build_context = AsyncMock(
@@ -212,6 +229,59 @@ class TestTodayDatedPage:
         with pytest.raises(HTTPException) as exc:
             await handlers["/today/{date_str}"](request=request, date_str="2026-07-21")
         assert exc.value.status_code == 401
+
+
+# ============================================================================
+# GET /today/{date_str}/habits
+# ============================================================================
+
+
+class TestTodayHabitsFragment:
+    """The ``calendar-refresh`` re-fetch: the same container shape the page
+    renders, built from one calendar read for the requested day."""
+
+    async def test_unauthenticated_raises_401(self, handlers: dict[str, Any]) -> None:
+        request = _make_request(user_uid=None, method="GET")
+        with pytest.raises(HTTPException) as exc:
+            await handlers["/today/{date_str}/habits"](request=request, date_str="2027-04-23")
+        assert exc.value.status_code == 401
+
+    async def test_renders_the_days_chips_with_the_listener(
+        self, handlers: dict[str, Any], mock_services: Any
+    ) -> None:
+        request = _make_request(method="GET")
+        fragment = await handlers["/today/{date_str}/habits"](
+            request=request, date_str="2027-04-23"
+        )
+        html = to_xml(fragment)
+        assert 'id="day-habits"' in html
+        assert "Meditate" in html
+        # The swapped-in container keeps listening, so a second completion refreshes too.
+        assert 'hx-trigger="calendar-refresh from:body"' in html
+        assert 'hx-get="/today/2027-04-23/habits"' in html
+        mock_services.calendar.habit_items_for_day.assert_awaited_once_with(
+            "user_mike", date(2027, 4, 23)
+        )
+
+    async def test_bad_date_returns_400(self, handlers: dict[str, Any]) -> None:
+        request = _make_request(method="GET")
+        response = await handlers["/today/{date_str}/habits"](
+            request=request, date_str="not-a-date"
+        )
+        assert response.status_code == 400
+
+    async def test_calendar_read_failure_returns_500(
+        self, handlers: dict[str, Any], mock_services: Any
+    ) -> None:
+        mock_services.calendar.habit_items_for_day = AsyncMock(
+            return_value=Result.fail(Errors.database(operation="habits", message="boom"))
+        )
+        request = _make_request(method="GET")
+        response = await handlers["/today/{date_str}/habits"](
+            request=request, date_str="2027-04-23"
+        )
+        # A 5xx is not swapped by HTMX: the page's chips stay put, listener included.
+        assert response.status_code == 500
 
 
 # ============================================================================

@@ -72,11 +72,13 @@ def create_today_routes(
     rt: RouteDecorator,
     services: Services,
 ) -> None:
-    """Register the four Today surface routes."""
+    """Register the five Today surface routes."""
     orchestrator = services.today_orchestrator
     tasks = services.tasks
+    calendar = services.calendar
     assert orchestrator is not None, "TodayOrchestrator not wired in Services container"
     assert tasks is not None, "TasksService not wired in Services container"
+    assert calendar is not None, "CalendarService not wired in Services container"
 
     def _render_today(request: Request, ctx_result: Result[TodayPageContext]) -> Response | FT:
         """Render a built day-view context, or a 500 shell on build failure."""
@@ -126,6 +128,35 @@ def create_today_routes(
             view_date = date.today()
         ctx_result = await orchestrator.build_context(user_uid, view_date)
         return _render_today(request, ctx_result)
+
+    @rt("/today/{date_str}/habits")
+    async def today_habits_fragment(
+        request: Request, date_str: str
+    ) -> Any:  # boundary: fasthtml-app
+        """HTMX fragment: the day's habit chips, re-fetched on ``calendar-refresh``.
+
+        The per-day complete door (``POST /cal/habit/{uid}/complete``) answers
+        with ``HX-Trigger: calendar-refresh``; the ``#day-habits`` container
+        listens for it and swaps itself with this fragment, so a chip completed
+        from its modal turns completed without a reload. Only that container
+        requests this route, with the date the page minted, so an unparseable
+        date is a 400 here — not the page's degrade-to-today.
+        """
+        user_uid = require_authenticated_user(request)
+        try:
+            view_date = date.fromisoformat(date_str)
+        except ValueError:
+            return Response("Invalid date", status_code=400)
+        result = await calendar.habit_items_for_day(user_uid, view_date)
+        if result.is_error:
+            logger.warning("today.habits_fragment failed: %s", result.expect_error().message)
+            # HTMX does not swap a 5xx: the chips the page rendered stay put,
+            # listener included, so the next calendar-refresh retries.
+            return Response("Could not refresh habits", status_code=500)
+
+        from ui.today import habits_fragment
+
+        return habits_fragment(result.value, view_date)
 
     @rt("/today/tasks/quick-add", methods=["POST"])
     @csrf_protected

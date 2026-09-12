@@ -59,7 +59,7 @@ def TodayPage(ctx: TodayPageContext) -> FT:
         _overdue_section(ctx["overdue"], view_date) if ctx["overdue"] else None,
         _tasks_section(ctx["tasks"], view_date) if has_anything else None,
         _events_section(ctx["events"]) if ctx["events"] else None,
-        _habits_section(ctx["habits"]) if ctx["habits"] else None,
+        _habits_section(ctx["habits"], view_date) if ctx["habits"] else None,
         _milestones_section(ctx["milestones"]) if ctx["milestones"] else None,
         _choices_section(ctx["choices"], view_date) if ctx["choices"] else None,
         cls=_CONTAINER_CLS,
@@ -296,17 +296,27 @@ def _events_section(events: list[Event]) -> FT:
     )
 
 
-def _habits_section(habits: list[CalendarItem]) -> FT:
+def _habits_section(habits: list[CalendarItem], view_date: date) -> FT:
     """The day's habit occurrences as the calendar's day-stamped chips — each
     opens the day-aware item-details modal with the per-day complete door."""
-    return _section(
-        CalendarItemType.HABIT,
-        "Habits",
-        Div(
-            *[_event_chip(item, large=True) for item in habits],
-            id="day-habits",
-            cls="flex flex-col gap-1.5",
-        ),
+    return _section(CalendarItemType.HABIT, "Habits", habits_fragment(habits, view_date))
+
+
+def habits_fragment(habits: list[CalendarItem], view_date: date) -> FT:
+    """The habit chips container — the page's and the refresh fragment's one shape.
+
+    The per-day complete door answers with ``HX-Trigger: calendar-refresh``
+    (the event the month and week grids re-render on); this container listens
+    for it too and swaps itself with ``GET /today/{date}/habits``, so a chip
+    completed from its modal turns completed without a reload.
+    """
+    return Div(
+        *[_event_chip(item, large=True) for item in habits],
+        id="day-habits",
+        cls="flex flex-col gap-1.5",
+        hx_get=f"/today/{view_date.isoformat()}/habits",
+        hx_trigger="calendar-refresh from:body",
+        hx_swap="outerHTML",
     )
 
 

@@ -36,7 +36,10 @@ changed:
 - **Interaction.** Quick-add (C6) and a server-rendered Defer 1d/1w control
   (C7, ``source=day|triage``, reloads the day via ``HX-Redirect``) stay as Today
   routes. Completing a task is the card's status toggle through the one
-  completion door (``POST /api/tasks/{uid}/status``). The drawer, star/pin
+  completion door (``POST /api/tasks/{uid}/status``); completing a habit is
+  the chip's modal through the calendar's per-day door, whose
+  ``calendar-refresh`` the habits container listens for (re-fetching
+  ``GET /today/{date}/habits``, the same shape the page rendered). The drawer, star/pin
   (``PINNED_TODAY`` edge — detached by
   ``scripts/migrations/detach_pinned_today_2026_09.cypher``), LifePath wake,
   keyboard map, drag-to-defer and optimistic UI are retired.
