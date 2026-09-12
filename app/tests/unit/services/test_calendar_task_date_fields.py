@@ -95,7 +95,8 @@ async def test_scheduled_only_task_renders_as_work_chip() -> None:
 @pytest.mark.asyncio
 async def test_due_only_task_renders_as_due_state_task() -> None:
     """A due-only task is still a Task — the ONE kind — carrying the due
-    state (periodic-notes arc E1): all-day placement, ⏰ icon, is_due flag."""
+    state (periodic-notes arc E1): all-day placement + the is_due flag the
+    chip renders as ⏰."""
     due_only = _task(uid="task_due", due=date(2026, 8, 20))
     service, _ = _calendar_with_tasks([due_only])
 
@@ -107,6 +108,5 @@ async def test_due_only_task_renders_as_due_state_task() -> None:
     item = items[0]
     assert item.item_type == CalendarItemType.TASK
     assert item.is_due is True
-    assert item.icon == "⏰"
     assert item.all_day is True
     assert item.start_time.date() == date(2026, 8, 20)

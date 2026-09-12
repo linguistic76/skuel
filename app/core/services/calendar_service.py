@@ -5,9 +5,11 @@ Calendar Service
 The calendar displays and acts: it composes the four activity domains into
 one dated surface.
 
-1. Displays tasks, events, habits and goal milestones in day/week/month views
-   (``get_calendar_view``) and supplies a week's plannable items to the
-   weekly-note panel (``get_planning_items``).
+1. Displays each view's declared membership — ``VIEW_SPECS``: the month's
+   events at medium or above; the week's events, habits and goal milestones at
+   medium or above plus high tasks (``get_calendar_view``) — and supplies a
+   period's plannable items, unfiltered, to the weekly/monthly-note panel
+   (``get_planning_items``).
 2. Reschedules tasks and events and records habit completions from the
    calendar (``reschedule_item``, ``record_habit_occurrence``).
 3. Projects habit recurrence across the view range with each day's real
@@ -38,6 +40,7 @@ from core.models.enums.entity_enums import EntityType
 from core.models.enums.habit_enums import CompletionStatus
 from core.models.enums.scheduling_enums import TimeOfDay
 from core.models.event.calendar_models import (
+    VIEW_SPECS,
     CalendarData,
     CalendarItem,
     CalendarItemType,
@@ -75,6 +78,11 @@ from core.utils.result_simplified import Errors, Result
 from core.utils.type_converters import get_enum_value
 
 logger = get_logger("skuel.services.calendar")
+
+
+def _stated_priority(raw: str | None) -> Priority | None:
+    """The entity's priority as a member, or None when it states none."""
+    return Priority.from_value(raw) if raw else None
 
 
 def _planning_item_start(item: CalendarItem) -> datetime:
@@ -165,59 +173,62 @@ class CalendarService:
         include_completed: bool = False,
     ) -> Result[CalendarData]:
         """
-        Get calendar data for the specified date range.
+        Get the view's calendar data for the date range.
+
+        ``view_type`` selects the ``ViewSpec`` (``VIEW_SPECS``): which kinds are
+        fetched at all and the minimum priority each must carry. The month reads
+        events only; the week reads events, habits, goal milestones and tasks.
+        An item whose source states no priority reads as MEDIUM.
 
         Args:
             user_uid: User UID (REQUIRED for unified query pattern),
             start_date: Start of date range,
             end_date: End of date range,
-            view_type: Type of calendar view,
+            view_type: The view whose membership to render,
             include_completed: Whether to include completed items
 
         Returns:
             Result with CalendarData or error
         """
-        items = []
+        spec = VIEW_SPECS[view_type]
+        items: list[CalendarItem] = []
 
-        # Fetch tasks using unified API (Cypher-level filtering)
-        task_items = await self._fetch_tasks(user_uid, start_date, end_date, include_completed)
-        items.extend(task_items)
-
-        # Fetch events using unified API (Cypher-level filtering)
-        event_items = await self._fetch_events(user_uid, start_date, end_date, include_completed)
-        items.extend(event_items)
-
-        # Fetch goals as all-day Milestone markers on their target_date
-        goal_items = await self._fetch_goals(user_uid, start_date, end_date, include_completed)
-        items.extend(goal_items)
-
-        # Fetch habits (ongoing practices — status-filtered, never date-filtered)
-        habit_occurrences = {}
-        habits = await self._fetch_habits(user_uid, include_completed)
-        for habit in habits:
-            # Add habit as calendar item
-            items.append(self._habit_to_calendar_item(habit))
-            # Generate occurrences for the date range, with real per-day
-            # completion state (N small queries over few live habits is fine;
-            # bulk plumbing only if habit count grows — act-from arc C3).
-            completed_dates = await self._fetch_completed_dates(habit.uid, start_date, end_date)
-            occurrences = self._generate_habit_occurrences(
-                habit, start_date, end_date, completed_dates
+        # Only the view's kinds are fetched; the month never reads habits.
+        if spec.admits_kind(CalendarItemType.TASK):
+            items.extend(await self._fetch_tasks(user_uid, start_date, end_date, include_completed))
+        if spec.admits_kind(CalendarItemType.EVENT):
+            items.extend(
+                await self._fetch_events(user_uid, start_date, end_date, include_completed)
             )
-            if occurrences:
-                habit_occurrences[habit.uid] = occurrences
+        if spec.admits_kind(CalendarItemType.MILESTONE):
+            items.extend(await self._fetch_goals(user_uid, start_date, end_date, include_completed))
+        # The view's declared membership: kind by minimum priority.
+        items = [item for item in items if spec.admits(item.item_type, item.priority)]
 
-        # Build calendar data
-        calendar_data = CalendarData(
-            items=items,
-            occurrences=habit_occurrences,
-            view=view_type,
-            start_date=start_date,
-            end_date=end_date,
-            metadata={"total_items": len(items), "total_habits": len(habit_occurrences)},
+        habit_occurrences = {}
+        if spec.admits_kind(CalendarItemType.HABIT):
+            for habit in await self._fetch_habits(user_uid, include_completed):
+                base = self._habit_to_calendar_item(habit)
+                if not spec.admits(base.item_type, base.priority):
+                    continue
+                items.append(base)
+                # Real per-day completion state (N small queries over few live
+                # habits is fine; bulk plumbing only if habit count grows — C3).
+                completed_dates = await self._fetch_completed_dates(habit.uid, start_date, end_date)
+                occurrences = self._generate_habit_occurrences(
+                    habit, start_date, end_date, completed_dates
+                )
+                if occurrences:
+                    habit_occurrences[habit.uid] = occurrences
+
+        return Result.ok(
+            CalendarData(
+                items=items,
+                occurrences=habit_occurrences,
+                start_date=start_date,
+                end_date=end_date,
+            )
         )
-
-        return Result.ok(calendar_data)
 
     @with_error_handling("get_planning_items", error_type="system", uid_param="user_uid")
     async def get_planning_items(
@@ -731,7 +742,6 @@ class CalendarService:
         # legend kind.
         is_due = task.scheduled_date is None and task.due_date is not None
         item_type = CalendarItemType.TASK
-        color = item_type.get_color()
 
         return CalendarItem(
             uid=f"task-{task.uid}",
@@ -743,14 +753,10 @@ class CalendarService:
             end_time=end_time,
             all_day=is_due,
             is_due=is_due,
-            color=color,
-            icon="⏰" if is_due else item_type.get_icon(),
-            priority=Priority(task.priority).to_numeric() if task.priority else 1,
+            color=item_type.get_color(),
+            priority=_stated_priority(task.priority),
+            status=task.status,
             tags=list(task.tags),
-            metadata={
-                "status": task.status.value if task.status else "pending",
-                "priority": task.priority if task.priority else "medium",
-            },
         )
 
     def _event_to_calendar_item(self, event: Event) -> CalendarItem:
@@ -775,12 +781,6 @@ class CalendarService:
             else (start_time + timedelta(hours=1))
         )
 
-        # Calculate if event has capacity
-        has_capacity = True
-        if event.max_attendees:
-            attendee_count = len(event.attendee_emails) if event.attendee_emails else 0
-            has_capacity = attendee_count < event.max_attendees
-
         return CalendarItem(
             uid=f"event-{event.uid}",
             source_uid=event.uid,
@@ -791,20 +791,14 @@ class CalendarService:
             end_time=end_time,
             all_day=False,
             color=color,
-            icon=CalendarItemType.EVENT.get_icon(),
-            priority=1,
-            category=event.event_type if event.event_type else "PERSONAL",
+            priority=_stated_priority(event.priority),
+            status=event.status,
             tags=list(event.tags),
             # Multi-attendee event support
             attendee_emails=event.attendee_emails,
             max_attendees=event.max_attendees,
             location=event.location or "",
             is_online=event.is_online,
-            metadata={
-                "status": event.status.value if event.status else "scheduled",
-                "attendee_count": len(event.attendee_emails) if event.attendee_emails else 0,
-                "has_capacity": has_capacity,
-            },
         )
 
     def _goal_to_calendar_item(self, goal: Goal) -> CalendarItem:
@@ -834,13 +828,9 @@ class CalendarService:
             end_time=end_time,
             all_day=True,
             color=item_type.get_color(),
-            icon=item_type.get_icon(),
-            priority=Priority(goal.priority).to_numeric() if goal.priority else 1,
+            priority=_stated_priority(goal.priority),
+            status=goal.status,
             tags=list(goal.tags),
-            metadata={
-                "status": goal.status.value if goal.status else "active",
-                "progress": goal.progress_percentage,
-            },
         )
 
     def _habit_to_calendar_item(self, habit: Habit) -> CalendarItem:
@@ -870,8 +860,8 @@ class CalendarService:
             end_time=end_time,
             all_day=False,
             color=CalendarItemType.HABIT.get_color(),
-            icon=CalendarItemType.HABIT.get_icon(),
-            priority=1,
+            priority=_stated_priority(habit.priority),
+            status=habit.status,
             # The slot itself, not just its hour: the chip names the habit's
             # own vocabulary, and 09:00 cannot be read back as MORNING vs
             # ANYTIME. Passed through UNRESOLVED — the ANYTIME fallback places
@@ -881,10 +871,6 @@ class CalendarService:
             is_recurring=getattr(habit, "recurrence_pattern", "daily") != "none",
             recurrence_pattern=self._format_recurrence_pattern(habit),
             streak_count=habit.current_streak,
-            metadata={
-                "status": habit.status.value if habit.status else "active",
-                "frequency": habit.target_days_per_week,
-            },
         )
 
     def _generate_habit_occurrences(

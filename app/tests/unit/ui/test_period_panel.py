@@ -62,7 +62,6 @@ def _item(
         end_time=start,
         is_due=is_due,
         color=item_type.get_color(),
-        icon="⏰" if is_due else item_type.get_icon(),
     )
 
 

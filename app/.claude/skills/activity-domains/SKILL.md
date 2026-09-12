@@ -2,7 +2,7 @@
 
 > Use when building features for Tasks, Goals, Habits, Events, Choices, or Principles (the 6 Activity Domains).
 
-> All 6 Activity Domains have **read-focused UI** — Tasks (`/tasks`), Goals (`/goals`), Habits (`/habits`), Events (`/cal` → calendar month/week views), Choices (`/choices`), Principles (`/principles`). Each has list + detail views with cross-domain connection badges, `EntityRelationshipsSection`, HTMX status toggles, and filtering. All share a collapsible Activity sidebar (`SidebarPage` pattern) linking back to `/profile` — except the calendar month/week views, which are navbar-only full-width pages (the calendar legend/chips already surface the domains). Goals and Principles use gravity-well pattern (incoming connections). Activity data enters via `/submissions/sync` (Obsidian sync) or admin ingestion. Service facades and backends are fully active.
+> All 6 Activity Domains have **read-focused UI** — Tasks (`/tasks`), Goals (`/goals`), Habits (`/habits`), Events (`/cal` → calendar month/week views), Choices (`/choices`), Principles (`/principles`). Each has list + detail views with cross-domain connection badges, `EntityRelationshipsSection`, HTMX status toggles, and filtering. All share a collapsible Activity sidebar (`SidebarPage` pattern) linking back to `/profile`; the calendar month/week views share it too, each rendering its declared membership (`VIEW_SPECS`: the month shows events only, the week adds habits, goal milestones and high-priority tasks behind the kind legend). Goals and Principles use gravity-well pattern (incoming connections). Activity data enters via `/submissions/sync` (Obsidian sync) or admin ingestion. Service facades and backends are fully active.
 
 ## When to Use This Skill
 

@@ -12,6 +12,7 @@ from datetime import date, datetime, timedelta
 
 from fastcore.xml import to_xml  # type: ignore[import-untyped]
 
+from core.models.enums.entity_enums import EntityStatus
 from core.models.enums.habit_enums import CompletionStatus
 from core.models.event.calendar_models import (
     CalendarData,
@@ -31,6 +32,7 @@ from ui.calendar.components import (
     create_day_cell,
     create_item_details_modal,
     create_week_grid,
+    view_has_legend,
 )
 
 
@@ -75,10 +77,8 @@ def test_items_by_date_stamps_habit_chips_with_day_and_status() -> None:
                 ),
             ]
         },
-        view=CalendarView.WEEK,
         start_date=date(2026, 7, 27),
         end_date=date(2026, 8, 2),
-        metadata={},
     )
     by_date = _items_by_date(data)
     done_chip = by_date[date(2026, 8, 1)][0]
@@ -171,7 +171,7 @@ def test_modal_offers_no_completion_without_day_stamp() -> None:
 
 def _task_item(
     is_due: bool = False,
-    status: str = "active",
+    status: str | None = "active",
 ) -> CalendarItem:
     return CalendarItem(
         uid="task-task_1",
@@ -182,7 +182,7 @@ def _task_item(
         end_time=datetime(2026, 8, 14, 10, 0),
         all_day=is_due,
         is_due=is_due,
-        metadata={"status": status},
+        status=EntityStatus(status) if status else None,
     )
 
 
@@ -211,10 +211,10 @@ def test_terminal_task_modal_offers_no_reschedule() -> None:
         assert "/reschedule" not in html, f"terminal status {status} must hide the form"
 
 
-def test_unknown_task_status_still_offers_reschedule() -> None:
-    """A missing/unknown status counts as actionable — the reschedule route's
-    own guards stay the backstop, and their refusal renders in the form."""
-    html = to_xml(create_item_details_modal(_task_item(status="")))
+def test_missing_task_status_still_offers_reschedule() -> None:
+    """A missing status counts as actionable — the reschedule route's own
+    guards stay the backstop, and their refusal renders in the form."""
+    html = to_xml(create_item_details_modal(_task_item(status=None)))
     assert 'hx-post="/cal/item/task-task_1/reschedule"' in html
 
 
@@ -327,10 +327,8 @@ def test_week_card_click_opens_day_lens_head_keeps_daily_note() -> None:
     data = CalendarData(
         items=[],
         occurrences={},
-        view=CalendarView.WEEK,
         start_date=date(2026, 8, 17),  # Monday
         end_date=date(2026, 8, 23),
-        metadata={},
     )
     grid = to_xml(create_week_grid(data))
     # Each day card body opens that day's lens; the head link keeps the daily note.
@@ -377,12 +375,13 @@ def test_day_lens_cluster_is_the_same_three_pills() -> None:
 
 # ---------------------------------------------------------------------------
 # create_calendar_legend — pair-grouped, one Task kind, visible affordance
-# (periodic-notes arc S1/E1)
+# (periodic-notes arc S1/E1); rendered only for views with more than one
+# kind (calendar-priority-lens arc C1)
 # ---------------------------------------------------------------------------
 
 
 def test_legend_groups_four_kinds_by_activity_pair() -> None:
-    html = to_xml(create_calendar_legend())
+    html = to_xml(create_calendar_legend(CalendarView.WEEK))
     assert "Tasks + Events" in html
     assert "Goals + Habits" in html
     # Four kind-swatches, one per legend word — Deadline is dead as a kind.
@@ -398,11 +397,20 @@ def test_legend_groups_four_kinds_by_activity_pair() -> None:
 def test_legend_swatches_read_as_controls() -> None:
     """The filter/spotlight interactivity must be discoverable: real buttons,
     a border (control styling), and a tooltip naming both behaviors."""
-    html = to_xml(create_calendar_legend())
+    html = to_xml(create_calendar_legend(CalendarView.WEEK))
     assert html.count("<button") == 4
     assert "border-border" in html
     assert html.count("Click to show/hide") == 4
     assert "hover to spotlight" in html
+
+
+def test_month_renders_no_legend() -> None:
+    """The month shows events alone: nothing to toggle, so no legend and no
+    filter controller — a kind hidden on the week (shared browser key) would
+    otherwise apply here with no control left to lift it."""
+    assert view_has_legend(CalendarView.MONTH) is False
+    assert view_has_legend(CalendarView.WEEK) is True
+    assert create_calendar_legend(CalendarView.MONTH) is None
 
 
 def test_due_state_task_chip_carries_cue_and_task_type() -> None:

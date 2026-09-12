@@ -1,6 +1,6 @@
 ---
 title: Protocol-Based Architecture
-updated: 2026-09-05
+updated: 2026-09-11
 category: patterns
 related_skills:
 - python
@@ -467,11 +467,11 @@ class Services:
 | Route-facing protocols | `Protocol \| None` | 19 | `group_service: GroupOperations`, `calendar: CalendarServiceOperations` |
 | Internal concrete types | `"ConcreteClass \| None"` | ~39 | `transcription: "TranscriptionService"`, `tasks_intelligence: "TasksIntelligenceService"` |
 
-**Route Files Updated (13):**
+**Route Files Updated:**
 All route factory functions updated with `TYPE_CHECKING` imports and protocol-typed parameters:
 - `reports_api.py`, `reports_sharing_api.py` — Reports protocols
 - `groups_api.py`, `teaching_api.py` — Group protocols
-- `visualization_api.py`, `system_api.py`, `calendar_api.py`, `lifepath_api.py` — Service protocols
+- `visualization_api.py`, `system_api.py`, `lifepath_api.py` — Service protocols
 - `askesis_api.py` — AskesisCoreOperations
 - `auth_ui.py`, `admin_api.py` — GraphAuthOperations
 - `orchestration_routes.py` — GoalTaskGenerator/HabitEventScheduler protocols

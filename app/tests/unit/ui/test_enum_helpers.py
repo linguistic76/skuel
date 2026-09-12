@@ -7,7 +7,6 @@ Tests bridge functions, non-Tailwind helpers, and component builders.
 
 from ui.enum_helpers import (
     get_activity_icon,
-    get_calendar_icon,
     get_completion_emoji,
     get_content_icon,
     get_educational_icon,
@@ -280,16 +279,6 @@ class TestTimeIcon:
 
     def test_unknown_time(self) -> None:
         assert get_time_icon("invalid") == "🕐"
-
-
-class TestCalendarIcon:
-    def test_valid_type(self) -> None:
-        result = get_calendar_icon("event")
-        assert isinstance(result, str)
-
-    def test_invalid_type(self) -> None:
-        result = get_calendar_icon("invalid")
-        assert result == "📅"
 
 
 # ============================================================================

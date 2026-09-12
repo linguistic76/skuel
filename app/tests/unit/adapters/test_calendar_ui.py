@@ -5,8 +5,9 @@ fragments (month/week/day grids, where the service interaction happens) and the
 item-details modal (the "read" code path).
 
 Authentication is satisfied by attaching a fake `session` dict to requests.
-We deliberately do not exercise the page-shell routes (`/cal/month/...`)
-because they pull in the full sidebar-page template stack.
+The page-shell routes (`/cal/month/...`, `/cal/week/...`) are rendered once
+each through the full sidebar-page stack, for the one thing only the shell
+decides: whether the legend and its filter controller are bound.
 """
 
 from datetime import date, datetime, timedelta
@@ -72,10 +73,8 @@ def _make_calendar_data(items=None) -> CalendarData:
     return CalendarData(
         items=items or [],
         occurrences={},
-        view=CalendarView.MONTH,
         start_date=date(2026, 5, 1),
         end_date=date(2026, 5, 31),
-        metadata={},
     )
 
 
@@ -165,10 +164,8 @@ class TestMonthContentFragment:
                 CalendarData(
                     items=[lead_in_item],
                     occurrences={},
-                    view=CalendarView.MONTH,
                     start_date=date(2026, 4, 27),
                     end_date=date(2026, 5, 31),
-                    metadata={},
                 )
             )
         )
@@ -493,3 +490,39 @@ class TestHabitComplete:
         assert "/cal/habit/habit_1/complete" in rendered
         # The retry button re-posts the same day.
         assert today_iso in rendered
+
+
+# ============================================================================
+# Page shells — the legend controller is bound only where a legend renders
+# ============================================================================
+
+
+def _render_page(page: object) -> str:
+    """Render a page-shell return value — a (title, body) tuple or one FT."""
+    if isinstance(page, tuple):
+        return "".join(_render(part) for part in page)
+    return _render(page)
+
+
+class TestPageShells:
+    """Each view's shell follows its declared membership (``VIEW_SPECS``)."""
+
+    def test_month_shell_binds_no_legend_controller(self, routes_and_service) -> None:
+        """The month renders events alone: no legend, and no ``calendarLegend``
+        binding — a kind hidden on the week (shared browser key) would
+        otherwise apply here with no control left to lift it."""
+        registry, _service = routes_and_service
+        handler = registry.get("/cal/month/{year}/{month}")
+        html = _render_page(handler(_make_request(), year=2026, month=9))
+        assert "September 2026" in html
+        assert 'hx-get="/cal/month/2026/9/content"' in html
+        assert "calendarLegend" not in html
+        assert "toggleType(" not in html
+
+    def test_week_shell_binds_the_legend_and_its_controller(self, routes_and_service) -> None:
+        registry, _service = routes_and_service
+        handler = registry.get("/cal/week/{date_str}")
+        html = _render_page(handler(_make_request(), date_str="2026-09-09"))
+        assert 'hx-get="/cal/week/2026-09-09/content"' in html
+        assert 'x-data="calendarLegend"' in html
+        assert html.count("toggleType(") == 4

@@ -1,6 +1,6 @@
 ---
 title: Domain Route Configuration Pattern
-updated: '2026-08-22'
+updated: '2026-09-11'
 category: patterns
 related_skills:
 - fasthtml
@@ -817,13 +817,9 @@ LIFEPATH_CONFIG = DomainRouteConfig(
 CALENDAR_CONFIG = DomainRouteConfig(
     domain_name="calendar",
     primary_service_attr="calendar",  # services.calendar
-    api_factory=create_calendar_api_routes,
     ui_factory=create_calendar_ui_routes,
 )
 ```
-
-**API Routes:** (`calendar_api.py` - 1 route)
-- `GET /api/v2/calendar/items/{item_id}` — `@rt` + `@boundary_handler`, returns `Result[Any]`
 
 **UI Routes:** (`calendar_ui.py`)
 - 3 redirects: `/cal`, `/cal/month`, `/cal/week` → the current month/week
@@ -834,8 +830,9 @@ CALENDAR_CONFIG = DomainRouteConfig(
 - Module-level helpers: `_calendar_shell` (shared header + toolbar), page wrapper, navigation aliases (prev/next month/week)
 
 **Key features:**
-- **Minimal config:** the UI factory takes `(app, rt, calendar_service)` — no `ui_related_services`; even the habit-complete POST goes through the calendar meta-service (`calendar_service.record_habit_occurrence`, which delegates to the habits facade internally). Both views share one visual language via `_calendar_shell` + the component helpers in `ui/calendar/components.py`. (The single-day view was dropped — the Today surface owns the current day; Week/Month are the calendar's temporal lenses.)
-- **Shell + fragment split:** each page shell returns chrome (eyebrow, title, per-type legend, segmented switcher, Prev/Today/Next + Monthly-note toolbar) plus a `content_loading_placeholder`; the matching `*_content` route returns the grid/agenda fragment on HTMX load. The legend swatches double as type filters (`calendarLegend` Alpine component on the shell + pure-CSS `cal-hide-*`/`cal-spot-*` rules in `calendar.css`, so filters survive fragment swaps).
+- **Minimal config:** a UI-only cross-cutting config — no `api_factory` (the calendar has no JSON API; every read is an HTMX fragment); the UI factory takes `(app, rt, calendar_service)` — no `ui_related_services`; even the habit-complete POST goes through the calendar meta-service (`calendar_service.record_habit_occurrence`, which delegates to the habits facade internally). Both views share one visual language via `_calendar_shell` + the component helpers in `ui/calendar/components.py`. (The single-day view was dropped — the Today surface owns the current day; Week/Month are the calendar's temporal lenses.)
+- **Per-view membership:** each view renders what its `ViewSpec` (`VIEW_SPECS` in `core/models/event/calendar_models.py`) declares — kinds and, per kind, a minimum priority. The month shows events at medium priority or above and nothing else; the week shows events, habits and goal milestones at medium or above plus high-priority tasks. `CalendarService.get_calendar_view` fetches only the admitted kinds and filters the rest server-side; an entity stating no priority reads as MEDIUM.
+- **Shell + fragment split:** each page shell returns chrome (title, Prev/Today/Next toolbar, and — on views that render more than one kind — the kind legend) plus a `content_loading_placeholder`; the matching `*_content` route returns the grid/agenda fragment on HTMX load. The legend swatches double as kind filters within the view's membership (`calendarLegend` Alpine component on the shell + pure-CSS `cal-hide-*`/`cal-spot-*` rules in `calendar.css`, so filters survive fragment swaps). The month binds no legend controller: with one kind there is nothing to toggle, and a kind hidden on the week (shared browser key) would otherwise apply with no control left to lift it.
 - **Redirect entry point:** `GET /cal` issues a `RedirectResponse` to `/cal/month/{y}/{m}` for the current month.
 - **Item-details modal:** chips carry `hx_get=/cal/item-details/{uid}` with `hx_target="body"`, `hx_swap="beforeend"`; day-stamped habit chips append `?date=YYYY-MM-DD` so the modal shows THAT day's completion state; the modal manages its own Alpine `open` state.
 

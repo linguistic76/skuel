@@ -6,7 +6,10 @@ Page views and HTMX fragment endpoints for the calendar.
 
 The calendar is a cross-cutting system (it aggregates Tasks, Events, Habits,
 and Milestones), so it lives under its own ``/cal/`` prefix — not under the
-Events activity domain's ``/events/`` routes.
+Events activity domain's ``/events/`` routes. Each view renders its declared
+membership (``VIEW_SPECS``): the month shows events at medium priority or
+above and carries no legend; the week shows events, habits and goal
+milestones at medium or above plus high tasks, with the kind legend.
 
 Routes:
     GET  /cal                                — Redirect to current month
@@ -67,6 +70,7 @@ from ui.calendar.components import (
     habit_day_state_line,
     item_schedule_line,
     reschedule_form,
+    view_has_legend,
 )
 from ui.components import Button, ButtonT
 from ui.patterns.loading import content_loading_placeholder
@@ -120,6 +124,7 @@ def _calendar_shell(
     request: Request,
     *,
     active: str,
+    view: CalendarView,
     title: str,
     prev_href: str,
     next_href: str,
@@ -134,9 +139,15 @@ def _calendar_shell(
     """
     # calendarLegend (skuel.js) owns the legend's type filters: it toggles
     # cal-hide-*/cal-spot-* classes here, on the persistent shell, so the pure-CSS
-    # hiding (calendar.css) survives HTMX grid swaps without any re-init.
+    # hiding (calendar.css) survives HTMX grid swaps without any re-init. Only a
+    # view that renders more than one kind binds it: the month renders events
+    # alone, and a controller there would apply a kind hidden on the week with
+    # no control left to lift it.
+    legend_binding: dict[str, str] = (
+        {"x_data": "calendarLegend", ":class": "filterClasses()"} if view_has_legend(view) else {}
+    )
     content = Div(
-        create_calendar_header(title),
+        create_calendar_header(title, view),
         # Periodic notes live in the navbar "Notes" picker, which still opens the
         # month/week on screen (it reads the period off the request path).
         # Per-cell date-number links remain the door to any specific day's note.
@@ -147,8 +158,7 @@ def _calendar_shell(
             loading_text="Loading calendar...",
         ),
         cls="w-full",
-        x_data="calendarLegend",
-        **{":class": "filterClasses()"},
+        **legend_binding,
     )
     return _wrap_calendar_page(request, content, title, active)
 
@@ -193,6 +203,7 @@ def create_calendar_ui_routes(_app, rt, calendar_service):
         return _calendar_shell(
             request,
             active="monthly",
+            view=CalendarView.MONTH,
             title=f"{month_name} {year}",
             prev_href=f"/cal/month/{prev_y}/{prev_m}",
             next_href=f"/cal/month/{next_y}/{next_m}",
@@ -242,6 +253,7 @@ def create_calendar_ui_routes(_app, rt, calendar_service):
         return _calendar_shell(
             request,
             active="weekly",
+            view=CalendarView.WEEK,
             title=_week_title(week_start, week_end),
             prev_href=f"/cal/week/{_get_prev_week(week_start)}",
             next_href=f"/cal/week/{_get_next_week(week_start)}",

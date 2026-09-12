@@ -38,7 +38,6 @@ from core.models.enums import (
 )
 from core.models.enums.goal_enums import HabitEssentiality
 from core.models.enums.user_enums import UserRole
-from core.models.event.calendar_models import CalendarItemType
 from ui.feedback import Badge, BadgeT
 
 
@@ -231,11 +230,6 @@ def get_time_icon(time_of_day: str) -> str:
         "anytime": "⏰",
     }
     return icons.get(time_of_day, "🕐")
-
-
-def get_calendar_icon(item_type: str) -> str:
-    """Get emoji icon for a calendar item type."""
-    return _enum_method(item_type, CalendarItemType, "get_icon", "\U0001f4c5")
 
 
 # ============================================================================
