@@ -80,12 +80,22 @@ _COMPLETED_ONLY: Final = frozenset({EntityStatus.COMPLETED.value})
 
 def _reopens(changes: Mapping[str, Any]) -> bool:  # boundary: the materialized update patch
     """Whether the patch names a non-terminal status and no figure of its own —
-    the shape whose write resets a completed goal's progress (the reopen)."""
+    the shape whose write resets a completed goal's progress (the reopen).
+
+    Runs BEFORE the guard's legality check (it decides whether to pre-read), so
+    a target that is not a canonical status — ``None`` from an explicit
+    ``{"status": null}``, a misspelling — is simply not a reopen here; the
+    guard refuses it as the validation failure it is.
+    """
     if "status" not in changes or "progress_percentage" in changes:
         return False
     raw_target = changes["status"]
-    target = raw_target if isinstance(raw_target, EntityStatus) else EntityStatus(raw_target)
-    return not target.is_terminal()
+    if isinstance(raw_target, EntityStatus):
+        return not raw_target.is_terminal()
+    try:
+        return not EntityStatus(str(raw_target)).is_terminal()
+    except ValueError:
+        return False
 
 
 def _with_reopen_progress_reset(

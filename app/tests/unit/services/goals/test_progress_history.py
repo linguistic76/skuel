@@ -275,3 +275,23 @@ async def test_an_unparseable_or_future_update_date_is_refused_before_any_write(
     assert result.is_error
     assert result.expect_error().category.value == "validation"
     backend.update_goal.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("bad_status", [None, "reopened", ""])
+async def test_a_null_or_unknown_status_is_a_validation_failure_not_a_crash(
+    bad_status: str | None,
+) -> None:
+    """The reopen predicate runs before the guard's legality check; a target
+    that is not a status is not a reopen, and the guard refuses it as the
+    validation failure it is — never a ValueError the database decorator turns
+    into a 503."""
+    done = _goal(progress=100.0, status=EntityStatus.COMPLETED)
+    backend, recorder = guarded_backend(done, done)
+    core = GoalsCoreService(backend=backend, event_bus=None)
+
+    result = await core.update_goal(_GOAL, GoalUpdateIntent(status=bad_status))
+
+    assert result.is_error
+    assert result.expect_error().category.value == "validation"
+    assert recorder.calls == []  # refused before the write
