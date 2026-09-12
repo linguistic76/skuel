@@ -870,7 +870,11 @@ class ProgressReportGenerator:
         edited after it reads as open — SKUEL persists no status-transition
         history, and the report's metadata names that limit rather than
         promising a precision the data cannot keep. ``tasks_details`` lists
-        exactly the tasks counted — never one created after the period.
+        exactly the tasks counted — never one created after the period — and
+        every other Activity detail list skips an entity created after
+        ``period_end`` the same way: the rich query hands over the CURRENT
+        inventory whatever the window. The curriculum lists (``ku``,
+        ``learning_paths``, ``path_steps``) are current engagement by design.
 
         Consumed by _build_report_content() and _build_llm_prompt().
         """
@@ -898,10 +902,19 @@ class ProgressReportGenerator:
                 window_ceiling is None or moment <= window_ceiling
             )
 
+        def existed_by_period_end(entity: dict[str, Any]) -> bool:
+            """Created no later than the period's end — the rich query hands over
+            the CURRENT inventory (open goals, alive habits, pending choices,
+            every principle) whatever the window, and a report of a closed
+            period must not list what did not exist yet."""
+            created = as_moment(entity.get("created_at"))
+            return not (
+                created is not None and period_ceiling is not None and created > period_ceiling
+            )
+
         def open_at_period_end(entity: dict[str, Any]) -> bool:
             """Open at the period's end, as far as the node's stamps can tell."""
-            created = as_moment(entity.get("created_at"))
-            if created is not None and period_ceiling is not None and created > period_ceiling:
+            if not existed_by_period_end(entity):
                 return False
             if not _is_terminal_status(entity.get("status")):
                 return True
@@ -957,6 +970,8 @@ class ProgressReportGenerator:
         if include_all or "goals" in (domains or []):
             for item in context.entities_rich.get("goals", []):
                 entity = item["entity"]
+                if not existed_by_period_end(entity):
+                    continue
                 if in_period(entity.get("last_progress_update")):
                     result["goals_progressed"] += 1
                 result["goals_details"].append(
@@ -972,6 +987,8 @@ class ProgressReportGenerator:
         if include_all or "habits" in (domains or []):
             for item in context.entities_rich.get("habits", []):
                 entity = item["entity"]
+                if not existed_by_period_end(entity):
+                    continue
                 if completions_by_habit.get(entity.get("uid", ""), 0) > 0:
                     result["habits_completed"] += 1
                 result["habits_details"].append(
@@ -1009,6 +1026,8 @@ class ProgressReportGenerator:
         if include_all or "choices" in (domains or []):
             for item in context.entities_rich.get("choices", []):
                 entity = item["entity"]
+                if not existed_by_period_end(entity):
+                    continue
                 graph_ctx = item.get("graph_context", {})
                 if in_period(entity.get("decided_at")):
                     result["choices_made"] += 1
@@ -1028,6 +1047,8 @@ class ProgressReportGenerator:
         if include_all or "principles" in (domains or []):
             for item in context.entities_rich.get("principles", []):
                 entity = item["entity"]
+                if not existed_by_period_end(entity):
+                    continue
                 if in_period(entity.get("last_review_date")):
                     result["principles_reviewed"] += 1
                 result["principles_details"].append(

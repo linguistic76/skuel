@@ -1206,6 +1206,56 @@ class TestPeriodEndDenominator:
         assert [t["uid"] for t in completions["tasks_details"]] == ["done", "open"]
         assert completions["tasks_total"] == 2
 
+    def test_every_activity_detail_list_skips_entities_created_after_the_period(self, generator):
+        """The rich query hands over the current inventory whatever the window;
+        a goal, habit, choice or principle created after a closed period is not
+        in that period's report — not in its details, not in its counts."""
+        after = "2026-10-02T09:00:00"
+        before = "2026-09-02T09:00:00"
+        completions = generator._completions_from_context(
+            _rich_context(
+                {
+                    "goals": [
+                        _row({"uid": "g_after", "title": "October goal", "created_at": after}),
+                        _row({"uid": "g_before", "title": "September goal", "created_at": before}),
+                    ],
+                    "habits": [
+                        _row({"uid": "h_after", "title": "October habit", "created_at": after}),
+                        _row({"uid": "h_before", "title": "September habit", "created_at": before}),
+                    ],
+                    "choices": [
+                        _row({"uid": "c_after", "title": "October choice", "created_at": after}),
+                        _row(
+                            {"uid": "c_before", "title": "September choice", "created_at": before}
+                        ),
+                    ],
+                    "principles": [
+                        _row(
+                            {
+                                "uid": "p_after",
+                                "title": "October principle",
+                                "created_at": after,
+                                "current_alignment": "drifting",
+                            }
+                        ),
+                        _row({"uid": "p_before", "title": "Old principle", "created_at": before}),
+                    ],
+                }
+            ),
+            None,
+            window_start=self.PERIOD.start,
+            window_end=self.PERIOD.end,
+            period_end=self.PERIOD.end,
+            habit_completions={"h_after": 3},
+        )
+        assert [g["uid"] for g in completions["goals_details"]] == ["g_before"]
+        assert [h["uid"] for h in completions["habits_details"]] == ["h_before"]
+        assert [c["uid"] for c in completions["choices_details"]] == ["c_before"]
+        assert [p["uid"] for p in completions["principles_details"]] == ["p_before"]
+        assert completions["habits_completed"] == 0
+        # Nothing downstream sees the October principle either.
+        assert generator._compute_domain_trends(completions)["principles"]["needs_attention"] == 0
+
     def test_an_open_task_created_in_the_period_counts(self, generator):
         completions = self._map(
             generator,

@@ -20,7 +20,7 @@ from itertools import islice
 from typing import TYPE_CHECKING, Any, cast
 
 from core.models.enums import EntityStatus
-from core.models.type_hints import TypeConverter, UserUID
+from core.models.type_hints import Neo4jProperties, TypeConverter, UserUID
 from core.ports.query_types import AnnotationResult, AnnotationState, PrivacySummary
 from core.ports.report_protocols import ActivityReportBackendOperations
 
@@ -46,7 +46,7 @@ from core.utils.result_simplified import Errors, Result
 logger = get_logger("skuel.services.report.activity_report")
 
 
-def _report_from_props(props: dict[str, Any]) -> ActivityReport:
+def _report_from_props(props: Neo4jProperties) -> ActivityReport:
     """A stored ActivityReport node's properties as the domain model — through
     the DTO's parse layer (``dto_from_dict``), the one place JSON blobs such as
     ``metadata`` and the temporal fields are decoded."""
@@ -409,25 +409,10 @@ class ActivityReportService:
         query_result = await self.backend.get_for_user(uid, user_uid)
         if query_result.is_error:
             return Result.fail(query_result)
-        records = query_result.value or []
-        if not records:
+        report = self._first_report(query_result.value or [])
+        if report is None:
             return Result.fail(Errors.not_found("ActivityReport", uid))
-        node = records[0]
-        # Neo4j Node implements Mapping at runtime but isn't typed as such
-        if isinstance(node, dict) and "n" in node:
-            inner = node["n"]
-            props = (
-                cast("dict[str, Any]", inner)
-                if isinstance(inner, dict)
-                else cast("dict[str, Any]", dict(cast("Any", inner)))
-            )
-        else:
-            props = (
-                cast("dict[str, Any]", node)
-                if isinstance(node, dict)
-                else cast("dict[str, Any]", dict(cast("Any", node)))
-            )
-        return Result.ok(_report_from_props(props))
+        return Result.ok(report)
 
     async def get_latest_for_owner(self, user_uid: UserUID) -> Result[ActivityReport | None]:
         """The newest ActivityReport the user owns, or ``None`` when there is none.
@@ -491,9 +476,9 @@ class ActivityReportService:
         inner = node.get("n") if isinstance(node, dict) and "n" in node else node
         # Neo4j Node implements Mapping at runtime but isn't typed as such
         props = (
-            cast("dict[str, Any]", inner)
+            cast("Neo4jProperties", inner)
             if isinstance(inner, dict)
-            else cast("dict[str, Any]", dict(cast("Any", inner)))
+            else cast("Neo4jProperties", dict(cast("Any", inner)))
         )
         return _report_from_props(props)
 
@@ -536,7 +521,7 @@ class ActivityReportService:
                 if isinstance(node, dict):
                     props = node
                 else:
-                    props = cast("dict[str, Any]", dict(cast("Any", node)))
+                    props = cast("Neo4jProperties", dict(cast("Any", node)))
                 feedbacks.append(_report_from_props(props))
 
         return Result.ok(feedbacks)
