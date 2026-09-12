@@ -73,6 +73,9 @@ def create_events_ui_routes(
         stats_component=EventStatsBar,
         detail_component=EventDetailView,
         create_href="/events/create",
+        # Events have no sidebar row of their own: every event page lights
+        # Monthly, the generated list/detail shells included.
+        sidebar_active="monthly",
     )
     base_routes = create_activity_ui_routes(app, rt, config)
 

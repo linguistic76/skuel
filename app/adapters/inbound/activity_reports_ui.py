@@ -138,7 +138,7 @@ def create_activity_reports_ui_routes(
     # ========================================================================
 
     @rt("/activity-reports/latest")
-    async def activity_report_latest(request: Request) -> Any:
+    async def activity_report_latest(request: Request) -> RedirectResponse:
         """Redirect to the newest report the user owns, or to the request form.
 
         Owner-scoped on purpose: the history read is subject-scoped and would

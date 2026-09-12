@@ -1672,7 +1672,7 @@ Per-domain TypedDicts in `/ui/page_contexts.py` define route → UI contracts wi
 - `/core/utils/palette.py` (centralized hex colors; `ui/palette.py` re-exports)
 - `/core/services/visualization_service.py` (pure Chart.js/Vis.js/Gantt formatter — no domain deps; import it directly from `core`)
 - `/core/services/analytics/visualization_aggregation_service.py` (data fetching + aggregation for visualization endpoints — delegates formatting to `VisualizationService`)
-- `/adapters/inbound/activity_ui_factory.py` — `ActivityUIConfig` + shared 5-route factory for all 6 Activity Domains (each `{domain}_ui.py` is ~50 lines delegating here)
+- `/adapters/inbound/activity_ui_factory.py` — `ActivityUIConfig` + shared 5-route factory for all 6 Activity Domains (each `{domain}_ui.py` is ~50 lines delegating here); `sidebar_active` names the sidebar row the generated shells highlight when the domain has no row of its own (Events → Monthly)
 
 ---
 
