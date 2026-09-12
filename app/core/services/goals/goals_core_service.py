@@ -152,8 +152,12 @@ def _progress_moves(
             return True
     if current is None:
         return True
+    # ``None`` is a legal intent value that clears the field; it compares as 0.0, so
+    # clearing a stored 40% is a change and clearing an already-empty figure is not.
+    raw_figure = changes["progress_percentage"]
+    figure = float(raw_figure) if raw_figure is not None else 0.0
     stored = float(current.progress_percentage or 0.0)
-    return abs(float(changes["progress_percentage"]) - stored) >= 0.01
+    return abs(figure - stored) >= 0.01
 
 
 def _with_completion_progress(

@@ -182,6 +182,30 @@ async def test_intent_re_posting_the_stored_figure_leaves_the_stamp_alone() -> N
 
 
 @pytest.mark.asyncio
+async def test_clearing_a_stored_figure_is_a_change_and_does_not_raise() -> None:
+    """``progress_percentage=None`` is a legal intent that clears the field: on a
+    goal at 40% it is a progress event (stamped); on an empty figure it is not."""
+    goal = _goal(progress=40.0)
+    backend, recorder = guarded_backend(goal, goal)
+    core = GoalsCoreService(backend=backend, event_bus=None)
+
+    result = await core.update_goal(_GOAL, GoalUpdateIntent(progress_percentage=None))
+
+    assert result.is_ok
+    assert recorder.last_updates["progress_percentage"] is None
+    assert isinstance(recorder.last_updates["last_progress_update"], datetime)
+
+    empty = _goal(progress=0.0)
+    backend, recorder = guarded_backend(empty, empty)
+    core = GoalsCoreService(backend=backend, event_bus=None)
+
+    result = await core.update_goal(_GOAL, GoalUpdateIntent(progress_percentage=None))
+
+    assert result.is_ok
+    assert "last_progress_update" not in recorder.last_updates
+
+
+@pytest.mark.asyncio
 async def test_intent_without_progress_leaves_the_stamp_alone() -> None:
     goal = _goal()
     backend, recorder = guarded_backend(goal, goal)

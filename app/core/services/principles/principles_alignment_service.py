@@ -363,6 +363,12 @@ class PrinciplesAlignmentService:
         if principle is None:
             return Result.fail(Errors.not_found(resource="Principle", identifier=principle_uid))
 
+        # Owner-scoped like every user-owned door: a foreign principle reads as
+        # not-found here too, so the assessment — and the review stamp it carries —
+        # never lands on someone else's principle.
+        if principle.user_uid != user_uid:
+            return Result.fail(Errors.not_found(resource="Principle", identifier=principle_uid))
+
         # 2. Create user's assessment
         user_assessment = UserAlignmentAssessment(
             assessed_date=date.today(),
