@@ -180,6 +180,10 @@ renders them as a table in Obsidian, and a session derives the same table with
 
 [History-in-Code Sweep — the finder is built, the sweep is the queue](history-in-code-sweep.md) — The finder ships advisory; the queue is its `--top 20` output, worked one file or cluster per PR, the why moved to the record, never deleted.
 
+## Goals and Choices as Weekly-Calendar Chips
+
+[Goals and Choices as Weekly-Calendar Chips](weekly-goals-choices-chips.md) — Founder wish recorded 2026-09-11 while ruling the calendar priority-lens arc; deferred because it contradicts M4, R2 and S1 outright — re-elicit after living with the priority-lens week view, amending those rulings by letter.
+
 ## Goal Progress Reads an Edge Nothing Writes
 
 [Goal Progress Reads an Edge Nothing Writes](goal-progress-reads-an-unwritten-edge.md) — A live defect, not a deferral: four readers in `activity_backends.py` match `(Goal)-[:SUPPORTS_GOAL]->(activity)`, which no writer produces, so event-driven goal progress never updates from a task or habit completion on any door; scheduled for immediately after the vault-door completion-cascade arc.
