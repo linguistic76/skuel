@@ -122,12 +122,15 @@ def test_overdue_and_tasks_render_cards_with_defer_controls() -> None:
     assert 'name="source" value="triage"' in html
     assert 'name="source" value="day"' in html
     assert html.count('name="view_date" value="2026-09-12"') >= 3  # quick-add + two defers
-    # A refused defer shows the server's reason beside the buttons; a completed
-    # card reloads the day so membership decides what stays.
+    # A refused defer shows the server's reason beside the buttons; a card whose
+    # status really changed reloads the day so membership decides what stays —
+    # on the field route's update event, not on the response status (a refusal
+    # is a 200 banner the card must keep showing).
     assert html.count('role="status" data-defer-note') == 2
     assert html.count("hx-on::response-error") == 2
-    assert html.count("hx-on::after-request") == 2
-    assert "window.location.reload()" in html
+    assert html.count("hx-on:activity-field-updated") == 2
+    assert "if (event.detail.field === 'status') window.location.reload()" in html
+    assert "hx-on::after-request" not in html
 
 
 def test_tasks_section_has_its_own_empty_state_when_other_sections_render() -> None:

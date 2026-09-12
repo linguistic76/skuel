@@ -239,17 +239,17 @@ def _task_card_with_defer(
     def card(task: Task, connections: list[dict[str, str]]) -> FT:
         # The card's status toggle swaps only the card (its own outerHTML target),
         # which would leave a completed task on the day beside a live defer
-        # control. The day is server-rendered, so a successful status request
-        # reloads it — membership then decides what the day shows, as on defer
-        # and quick-add.
+        # control. The day is server-rendered, so a status UPDATE reloads it —
+        # membership then decides what the day shows, as on defer and quick-add.
+        # The signal is the field route's HX-Trigger (fired only for a real
+        # update, bubbling up from the card's button), not the HTTP status: a
+        # refusal there is a 200 banner the card swaps in, which must stay.
         return Div(
             TaskCard(task, connections),
             _defer_form(task, view_date, source=source),
             **{
-                "hx-on::after-request": (
-                    "if (event.detail.successful"
-                    " && event.detail.pathInfo.requestPath.endsWith('/status'))"
-                    " window.location.reload()"
+                "hx-on:activity-field-updated": (
+                    "if (event.detail.field === 'status') window.location.reload()"
                 ),
             },
         )

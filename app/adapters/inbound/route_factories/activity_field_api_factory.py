@@ -19,8 +19,12 @@ See: /docs/patterns/DOMAIN_ROUTE_CONFIG_PATTERN.md
 
 from __future__ import annotations
 
+import json
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any
+
+from fastcore.xml import to_xml  # type: ignore[import-untyped]
+from starlette.responses import HTMLResponse
 
 from adapters.inbound.auth import require_authenticated_user
 from adapters.inbound.csrf import csrf_protected
@@ -39,6 +43,13 @@ if TYPE_CHECKING:
 
 # Whitelist for FieldUpdateSpec(field="priority", ...) — all 6 domains share it.
 PRIORITY_VALUES: frozenset[str] = frozenset(p.value for p in Priority)
+
+
+#: The HX-Trigger a successful field update fires on the requesting element —
+#: ``event.detail`` is ``{"domain", "field"}``. Surfaces that must react to a
+#: real update (the day view reloads after a status change) listen for this,
+#: because a refusal is also a 200 here.
+FIELD_UPDATED_EVENT = "activity-field-updated"
 
 
 @dataclass(frozen=True)
@@ -122,7 +133,21 @@ def _register_field_route[T](
         if result.is_error:
             return render_error_banner(result.expect_error().display_message)
 
-        return config.card_fn(result.value)
+        # Every answer above is a banner the card swaps in at 200 (HTMX leaves a
+        # 4xx body unswapped, which would show the user nothing), so the HTTP
+        # status cannot tell a listener whether the entity changed. The updated
+        # card carries the one honest signal: an HX-Trigger naming the field,
+        # fired on the requesting element and bubbling to any surface that
+        # needs to react to a real update — never to ``successful``.
+        card = config.card_fn(result.value)
+        return HTMLResponse(
+            to_xml(card),
+            headers={
+                "HX-Trigger": json.dumps(
+                    {FIELD_UPDATED_EVENT: {"domain": config.domain_name, "field": spec.field}}
+                )
+            },
+        )
 
     # Distinct names per (domain, field) keep FastHTML route names unambiguous.
     update_field.__name__ = f"update_{config.domain_name}_{spec.field}"
