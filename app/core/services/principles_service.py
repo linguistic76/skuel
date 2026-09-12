@@ -23,6 +23,7 @@ See: /docs/architecture/ENTITY_TYPE_ARCHITECTURE.md
 
 from __future__ import annotations
 
+from datetime import date
 from typing import TYPE_CHECKING, Any
 
 from core.models.enums.entity_enums import EntityStatus
@@ -60,8 +61,6 @@ from core.utils.sort_functions import get_created_at_attr, get_title_or_name_low
 from core.utils.type_converters import normalize_enum_str
 
 if TYPE_CHECKING:
-    from datetime import date
-
     from core.models.context_types import ContextualPrinciple, PracticeOpportunity
     from core.models.pathways.lp_position import LpPosition
     from core.models.principle.principle_types import PrincipleDecision
@@ -368,6 +367,21 @@ class PrinciplesService(
                 trigger = TriggerType(trigger_type)
 
         reflection_uid = str(UIDGenerator.generate_uid("refl"))
+
+        # Owner-scoped like the route in front of it: this method takes ``user_uid``
+        # and is documented for direct use, so a foreign uid must read as not-found
+        # here too — never a stamp on someone else's principle.
+        owned = await self.core.verify_ownership(principle_uid, user_uid)
+        if owned.is_error:
+            return Result.fail(owned)
+        # The reflection's one persisted trace is the principle's review stamp — the
+        # review cadence and the report's principles_reviewed counter read it — so it
+        # is written before anything is announced.
+        stamped = await self.core.update_principle(
+            principle_uid, PrincipleUpdateIntent(last_review_date=date.today())
+        )
+        if stamped.is_error:
+            return Result.fail(stamped)
 
         reflection_event = PrincipleReflectionRecorded(
             reflection_uid=reflection_uid,

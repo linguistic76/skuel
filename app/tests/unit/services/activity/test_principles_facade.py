@@ -164,3 +164,54 @@ class TestPrinciplesServiceRelationships:
             "ku_stoicism_xyz",
             {"relevance": "foundational"},
         )
+
+
+# ---------------------------------------------------------------------------
+# TestRecordPrincipleReflection
+# ---------------------------------------------------------------------------
+
+
+class TestRecordPrincipleReflection:
+    """A reflection's one persisted trace is the principle's review stamp, written
+    after the ownership check and before anything is announced."""
+
+    @pytest.mark.asyncio
+    async def test_reflection_stamps_last_review_date_through_the_core(
+        self, principles_service: PrinciplesService
+    ) -> None:
+        from datetime import date
+
+        principles_service.core.verify_ownership = AsyncMock(return_value=Result.ok(Mock()))
+        update_principle = AsyncMock(return_value=Result.ok(Mock()))
+        principles_service.core.update_principle = update_principle
+
+        result = await principles_service.record_principle_reflection(
+            "principle_1", "user_1", "aligned", "Held the line in a hard meeting"
+        )
+
+        assert result.is_ok
+        update_principle.assert_awaited_once()
+        call = update_principle.await_args
+        assert call is not None
+        uid, intent = call.args
+        assert uid == "principle_1"
+        assert intent.last_review_date == date.today()
+        assert intent.to_changes() == {"last_review_date": date.today()}
+
+    @pytest.mark.asyncio
+    async def test_reflection_on_a_foreign_principle_is_not_found(
+        self, principles_service: PrinciplesService
+    ) -> None:
+        principles_service.core.verify_ownership = AsyncMock(
+            return_value=Result.fail(Errors.not_found("Principle principle_9 not found"))
+        )
+        update_principle = AsyncMock(return_value=Result.ok(Mock()))
+        principles_service.core.update_principle = update_principle
+
+        result = await principles_service.record_principle_reflection(
+            "principle_9", "user_1", "aligned", "x"
+        )
+
+        assert result.is_error
+        # Ownership is decided before the stamp: a foreign principle is never written.
+        update_principle.assert_not_awaited()

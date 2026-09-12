@@ -122,8 +122,93 @@ def _with_reopen_progress_reset(
         return guard
 
     statuses, patch = guard.patch_if_prior_in or (_COMPLETED_ONLY, {})
-    reset: Neo4jProperties = {**patch, "progress_percentage": 0.0}
+    # The reset is a progress write (100% → 0%), so it carries the progress stamp
+    # the report's goals_progressed counter reads — under the same prior condition.
+    reset: Neo4jProperties = {
+        **patch,
+        "progress_percentage": 0.0,
+        "last_progress_update": datetime.now(),
+    }
     return dataclasses.replace(guard, patch_if_prior_in=(statuses, reset))
+
+
+def _progress_moves(
+    current: Goal | None,
+    # boundary: the materialized update patch — only ``status`` and the progress
+    # figure are read here, both narrowed on use.
+    changes: dict[str, Any],
+) -> bool:
+    """Whether the carried progress figure is a progress EVENT for this goal.
+
+    A completion target is always one (the transition is the event, and the stamp
+    rides its prior condition). Otherwise the figure must differ from the stored
+    one — re-posting the current percentage records no progress. With no stored
+    goal to compare against the figure is taken at its word.
+    """
+    raw_target = changes.get("status")
+    if raw_target is not None:
+        target = raw_target if isinstance(raw_target, EntityStatus) else EntityStatus(raw_target)
+        if target is EntityStatus.COMPLETED:
+            return True
+    if current is None:
+        return True
+    # ``None`` is a legal intent value that clears the field; it compares as 0.0, so
+    # clearing a stored 40% is a change and clearing an already-empty figure is not.
+    raw_figure = changes["progress_percentage"]
+    figure = float(raw_figure) if raw_figure is not None else 0.0
+    stored = float(current.progress_percentage or 0.0)
+    return abs(figure - stored) >= 0.01
+
+
+def _with_completion_progress(
+    guard: StatusWriteGuard,
+    # boundary: the same materialized update patch as above — read for ``status``'s
+    # value (narrowed to ``EntityStatus``) and two key tests; the figure it moves is
+    # re-typed into the ``Neo4jProperties`` patch this helper writes.
+    changes: dict[str, Any],
+) -> tuple[StatusWriteGuard, dict[str, Any]]:
+    """Make a completion's progress figure part of the transition (ADR-087).
+
+    ``complete_goal`` carries ``progress_percentage=100.0`` beside ``status=COMPLETED``.
+    As a base-patch field it would land on every re-posted completion — and the
+    progress stamp with it, so a repeat days later would read as a progress event in
+    that period's report. On a COMPLETED target the figure and its
+    ``last_progress_update`` therefore leave the base patch and ride the guard's
+    prior-NOT-in patch, beside the achievement stamp that already rides that
+    condition: applied only when the prior was not already COMPLETED. A repeat writes
+    neither. Only the write knows the prior, so this is a condition, not a pre-read.
+
+    ⚠ Constructed when absent, like the reopen reset: an intent that supplies its own
+    ``achieved_date`` arrives with a guard carrying no patches at all.
+
+    Args:
+        guard: The stamp guard, after the reopen reset (which stands down on any
+            patch carrying a progress figure, so the two never both apply).
+        changes: The materialized update patch, already progress-stamped.
+
+    Returns:
+        The guard with the figure and stamp on its prior-not-in patch, and the base
+        patch without them; both unchanged when the target is not COMPLETED or the
+        patch carries no figure. The input patch is never mutated.
+    """
+    if "status" not in changes or "progress_percentage" not in changes:
+        return guard, changes
+
+    raw_target = changes["status"]
+    target = raw_target if isinstance(raw_target, EntityStatus) else EntityStatus(raw_target)
+    if target is not EntityStatus.COMPLETED:
+        return guard, changes
+
+    base = dict(changes)
+    figure = base.pop("progress_percentage")
+    stamp = base.pop("last_progress_update", datetime.now())
+    statuses, patch = guard.patch_if_prior_not_in or (_COMPLETED_ONLY, {})
+    transition: Neo4jProperties = {
+        **patch,
+        "progress_percentage": figure,
+        "last_progress_update": stamp,
+    }
+    return dataclasses.replace(guard, patch_if_prior_not_in=(statuses, transition)), base
 
 
 class GoalsCoreService(
@@ -698,23 +783,34 @@ class GoalsCoreService(
         ``GoalsProgressService``, which owns the progress-propagation provenance.)
         """
         changes = intent.to_changes()
-        # Capture the intended fields now: the backend stamps updated_at in place, so
-        # reading changes.keys() after the write would leak that bump into the event.
-        updated_fields = list(changes.keys())
+        carries_progress = "progress_percentage" in changes
 
         # Advisory pre-read — for the one rule ``_validate_update`` still holds
         # (target-after-start), which falls back to the goal's STORED dates when the
         # update supplies only one of them. Gated on exactly the fields that rule reads,
         # so a status-only update reads nothing before writing: its verdicts come from
         # the write itself now.
+        # The same read tells whether a carried progress figure MOVES the stored one.
         old_goal: Goal | None = None
-        if "target_date" in changes or "start_date" in changes:
+        if "target_date" in changes or "start_date" in changes or carries_progress:
             current_result = await self.get(uid)
             if current_result.is_error:
                 # Fail fast: a failed read must not be silently read as "no rule
                 # applies" — the date rule is gated on the goal's stored dates.
                 return Result.fail(current_result)
             old_goal = current_result.value
+
+        # A progress figure carried by the intent (complete_goal's 100%, an explicit
+        # edit) is a progress event when it CHANGES the figure — the field
+        # GoalsProgressService stamps on every real progress write and the report's
+        # goals_progressed counter reads. Re-posting the stored figure is not one. A
+        # completion always is: its figure and stamp move onto the transition
+        # condition below (``_with_completion_progress``), gated by the prior status.
+        if carries_progress and _progress_moves(old_goal, changes):
+            changes["last_progress_update"] = datetime.now()
+        # Capture the intended fields now: the backend stamps updated_at in place, so
+        # reading changes.keys() after the write would leak that bump into the event.
+        updated_fields = list(changes.keys())
 
         # Domain validation BEFORE the write. Called explicitly because the facade routes
         # ``update`` / ``update_for_user`` to this method, so the inherited CRUD hook that
@@ -734,6 +830,7 @@ class GoalsCoreService(
         if guard_result.is_error:
             return Result.fail(guard_result)
         guard = _with_reopen_progress_reset(guard_result.value, changes)
+        guard, changes = _with_completion_progress(guard, changes)
 
         update_result = await self.backend.update_with_status_guard(uid, changes, guard)
         if update_result.is_error:

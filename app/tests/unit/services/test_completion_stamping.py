@@ -350,10 +350,13 @@ class TestGoalsChokepoint:
         service, _backend, recorder = self._service(EntityStatus.COMPLETED)
         result = await service.update_goal("goal_1", GoalUpdateIntent(status="active"))
         assert result.is_ok
-        assert recorder.last_guard.patch_if_prior_in == (
-            frozenset({"completed"}),
-            {"achieved_date": None, "progress_percentage": 0.0},
-        )
+        statuses, reset = recorder.last_guard.patch_if_prior_in
+        assert statuses == frozenset({"completed"})
+        # The reset is a progress write, so it carries the progress stamp too.
+        assert reset["achieved_date"] is None
+        assert reset["progress_percentage"] == 0.0
+        assert isinstance(reset["last_progress_update"], datetime)
+        assert set(reset) == {"achieved_date", "progress_percentage", "last_progress_update"}
         assert recorder.merged_patch()["progress_percentage"] == 0.0
 
     async def test_an_open_goal_is_not_zeroed_by_the_reopen_reset(self):
@@ -387,10 +390,11 @@ class TestGoalsChokepoint:
         intent = GoalUpdateIntent(status="active", achieved_date=None)
         result = await service.update_goal("goal_1", intent)
         assert result.is_ok
-        assert recorder.last_guard.patch_if_prior_in == (
-            frozenset({"completed"}),
-            {"progress_percentage": 0.0},
-        )
+        statuses, reset = recorder.last_guard.patch_if_prior_in
+        assert statuses == frozenset({"completed"})
+        assert reset["progress_percentage"] == 0.0
+        assert isinstance(reset["last_progress_update"], datetime)
+        assert set(reset) == {"progress_percentage", "last_progress_update"}
         merged = recorder.merged_patch()
         assert merged["progress_percentage"] == 0.0
         assert merged["achieved_date"] is None, "the caller's clear kept authority"

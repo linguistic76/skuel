@@ -383,12 +383,17 @@ class GoalsProgressService(BaseService[GoalsOperations, Goal]):
         # above — the same signal, read at the moment it is acted on.
         target_achieved = completed_count == len(updated_milestones)
 
-        # Update goal
+        # Update goal. The progress stamp is a TRANSITION record: only a milestone
+        # moving into completed is a progress event. A repeat leaves the count, the
+        # figure and the stamp exactly where they were, so a re-posted completion in
+        # a later period cannot make the report count the goal as progressed then.
         updates: dict[str, Any] = {
             "milestones": updated_milestones,
             "progress_percentage": new_progress,
             "current_value": completed_count,
         }
+        if not target_milestone.is_completed:
+            updates["last_progress_update"] = datetime.now()
         guard, achievement = _achievement_write(target_achieved)
 
         update_result = await self.backend.update_with_status_guard(goal_uid, updates, guard)
@@ -492,6 +497,11 @@ class GoalsProgressService(BaseService[GoalsOperations, Goal]):
             # STREAK_NORMALIZATION_DAYS, not against this goal's target_value, so
             # there is no measurement in target_value's unit to record here.
             updates: dict[str, Any] = {"progress_percentage": new_progress}
+            # The progress stamp records a CHANGE: a streak advancing past the
+            # normalization window recomputes to the same capped figure, and that
+            # is not a progress event a period report should count.
+            if abs(new_progress - old_progress) >= 0.01:
+                updates["last_progress_update"] = datetime.now()
 
             # Check if goal is achieved — on the TRANSITION, matching the gate in
             # _update_goal_from_habit_completion. `>= 100` alone re-stamps
@@ -785,8 +795,11 @@ class GoalsProgressService(BaseService[GoalsOperations, Goal]):
         old_progress = goal.progress_percentage or 0.0
 
         # Update progress. progress_value is a percent (0-100), so it goes to
-        # progress_percentage only — current_value holds domain units.
+        # progress_percentage only — current_value holds domain units. The stamp
+        # records a CHANGE: re-posting the stored figure is not a progress event.
         updates: dict[str, Any] = {"progress_percentage": progress_value}
+        if abs(progress_value - old_progress) >= 0.01:
+            updates["last_progress_update"] = datetime.now()
 
         if notes:
             # Append notes to metadata (access via DTO)
@@ -1099,7 +1112,10 @@ class GoalsProgressService(BaseService[GoalsOperations, Goal]):
         # purpose — this path publishes its own GoalProgressUpdated below with the
         # task-completion provenance (triggered_by_task_completion) that the generic
         # update_goal cannot express. A plain dict literal is the honest type here.
+        # The stamp records a CHANGE of the figure; a tally repair alone is not one.
         updates: dict[str, Any] = {"progress_percentage": new_progress}
+        if progress_changed:
+            updates["last_progress_update"] = datetime.now()
 
         if goal.measurement_type == MeasurementType.TASK_BASED:
             # The measurement IS the linked-task tally, so this writer owns both ends of
@@ -1310,7 +1326,10 @@ class GoalsProgressService(BaseService[GoalsOperations, Goal]):
         # purpose — this path publishes its own GoalProgressUpdated below with the
         # habit-completion provenance (triggered_by_habit_completion) that the generic
         # update_goal cannot express. A plain dict literal is the honest type here.
+        # The stamp records a CHANGE of the figure; a measurement repair alone is not one.
         updates: dict[str, Any] = {"progress_percentage": new_progress}
+        if progress_changed:
+            updates["last_progress_update"] = datetime.now()
 
         if goal.measurement_type == MeasurementType.HABIT_BASED:
             # target_value is the desired streak length (see the division above), so
