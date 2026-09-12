@@ -89,7 +89,7 @@ def create_today_routes(
             )
             return Response("Could not build Today context", status_code=500)
 
-        from ui.activities.nav import render_activity_sidebar_page
+        from ui.activities.nav import CALENDAR_SIDEBAR_ITEMS, render_activity_sidebar_page
         from ui.today import TodayPage
 
         return render_activity_sidebar_page(
@@ -101,6 +101,9 @@ def create_today_routes(
             extra_css=["/static/css/calendar.css"],
             title="Today",
             active_page="today",
+            # The slimmer variant: temporal lenses + Journal + Reports, no domain
+            # rows and no badge request (ruling 6).
+            items=CALENDAR_SIDEBAR_ITEMS,
         )
 
     # boundary: fasthtml-app — registered route; FastHTML resolves the handler's

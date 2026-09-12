@@ -1,6 +1,6 @@
 ---
 title: UI Component Patterns
-updated: '2026-09-05'
+updated: '2026-09-12'
 category: patterns
 related_skills:
   - accessibility-guide
@@ -30,7 +30,7 @@ For hands-on implementation:
 
 **Related Documentation:**
 - [/ui/patterns/sidebar.py](/ui/patterns/sidebar.py) - `SidebarItem` / `SidebarLink`, the sidebar building blocks
-- [/ui/activities/nav.py](/ui/activities/nav.py) - `render_activity_sidebar_page()`, the sidebar page wrapper every activity domain uses
+- [/ui/activities/nav.py](/ui/activities/nav.py) - `render_activity_sidebar_page()`, the sidebar page wrapper every activity domain uses; `items=CALENDAR_SIDEBAR_ITEMS` is the calendar/Today variant (Today / Weekly / Monthly / Journal / Reports, no domain rows, no badge request)
 
 ---
 
@@ -188,6 +188,7 @@ return SidebarPage(
 **Extension Points:**
 - `extra_sidebar_sections` — additional content below nav items (Explore uses for graph hero + filtered lists)
 - `item_renderer` — custom render function for complex items (Profile uses for badges)
+- `badges` — whether the desktop sidebar requests `/api/sidebar/badges` on load (default True); a sidebar whose rows carry no badges passes False and issues no request
 - `sidebar_width` — custom width class (`w-64` default, `w-80`, `w-96`). Explore uses `w-96` (384px) to accommodate the Vis.js graph hero. Width config auto-derives collapse offset and content margin.
 - `description` field on SidebarItem — two-line layout (Askesis uses for subtitles)
 

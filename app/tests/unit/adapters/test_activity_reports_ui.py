@@ -423,3 +423,45 @@ class TestDownloadFailures:
         response = await handler(_make_request(method="GET", query_params={"uid": "r1"}))
 
         assert response.status_code == 503
+
+
+# ============================================================================
+# GET /activity-reports/latest — the calendar/Today sidebar's Reports door
+# ============================================================================
+
+
+class TestLatest:
+    @pytest.mark.asyncio
+    async def test_redirects_to_the_newest_owned_report(self, registry_orchestrator_generator):
+        registry, orchestrator, _ = registry_orchestrator_generator
+        orchestrator.get_latest_activity_report = AsyncMock(return_value=Result.ok(_report()))
+
+        response = await registry.get("/activity-reports/latest")(_make_request(method="GET"))
+
+        assert response.status_code == 302
+        assert response.headers["location"] == "/activity-reports/detail?uid=activity_report_abc123"
+        orchestrator.get_latest_activity_report.assert_awaited_once_with("user_reports")
+
+    @pytest.mark.asyncio
+    async def test_no_report_lands_on_the_request_form(self, registry_orchestrator_generator):
+        registry, orchestrator, _ = registry_orchestrator_generator
+        orchestrator.get_latest_activity_report = AsyncMock(return_value=Result.ok(None))
+
+        response = await registry.get("/activity-reports/latest")(_make_request(method="GET"))
+
+        assert response.status_code == 302
+        assert response.headers["location"] == "/submit-activity-report"
+
+    @pytest.mark.asyncio
+    async def test_a_failed_read_still_lands_on_the_request_form(
+        self, registry_orchestrator_generator
+    ):
+        registry, orchestrator, _ = registry_orchestrator_generator
+        orchestrator.get_latest_activity_report = AsyncMock(
+            return_value=Result.fail(Errors.database("get_latest_for_owner", "boom"))
+        )
+
+        response = await registry.get("/activity-reports/latest")(_make_request(method="GET"))
+
+        assert response.status_code == 302
+        assert response.headers["location"] == "/submit-activity-report"

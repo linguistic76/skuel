@@ -351,6 +351,10 @@ class ActivityReportOperations(Protocol):
         """Get all ActivityReport for a user (LLM + human). Returns Result[list[ActivityReport]]."""
         ...
 
+    async def get_latest_for_owner(self, user_uid: UserUID) -> "Result[ActivityReport | None]":
+        """The newest ActivityReport the user owns, or None. Returns Result[ActivityReport | None]."""
+        ...
+
     async def annotate(
         self,
         uid: str,
@@ -383,6 +387,7 @@ class ActivityReportBackendOperations(BackendOperations["ActivityReport"], Proto
     """
 
     async def get_for_user(self, uid: str, user_uid: str) -> Result[list[Neo4jProperties]]: ...
+    async def get_latest_for_owner(self, user_uid: UserUID) -> Result[list[Neo4jProperties]]: ...
 
     async def get_history(
         self, subject_uid: str, limit: int = 20

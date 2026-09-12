@@ -1,6 +1,6 @@
 ---
 title: Report Architecture
-updated: 2026-09-11
+updated: 2026-09-12
 status: current
 category: architecture
 version: 3.2.0
@@ -403,6 +403,7 @@ The learning loop does not end at a leaf domain — it fans back out across the 
 | Route | Who | What |
 |-------|-----|------|
 | `/gradebook` | User | GradeBook "Activity reports" group — flat list, hidden when empty (arc 2 C1) |
+| `/activity-reports/latest` | User | The calendar/Today sidebar's Reports door — redirects to the newest report the user owns, or to the request form |
 | `/activity-reports/detail` (+`/content`) | User | Report detail with annotation UI |
 | `/submit-activity-report` | User | On-demand report request form |
 | `/reports/progress-list` | User | HTMX fragment (recent reports on the request form) |

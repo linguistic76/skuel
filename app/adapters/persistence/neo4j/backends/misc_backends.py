@@ -26,8 +26,8 @@ class ActivityReportBackend(UniversalNeo4jBackend[ActivityReport]):
     Domain backend for ActivityReport entities.
 
     Moves inline Cypher from ActivityReportService into named backend methods.
-    Methods: get_history, annotate, get_annotation, get_admin_snapshots,
-    get_shares_granted, get_report_schedule.
+    Methods: get_for_user, get_latest_for_owner, get_history, annotate,
+    get_annotation, get_admin_snapshots, get_shares_granted, get_report_schedule.
     """
 
     async def get_for_user(self, uid: str, user_uid: str) -> Result[list[Neo4jProperties]]:
@@ -38,6 +38,24 @@ class ActivityReportBackend(UniversalNeo4jBackend[ActivityReport]):
             RETURN n
             """,
             {"uid": uid, "user_uid": user_uid},
+        )
+
+    async def get_latest_for_owner(self, user_uid: UserUID) -> Result[list[Neo4jProperties]]:
+        """The newest ActivityReport the user OWNS (``user_uid``), at most one row.
+
+        Owner-scoped like ``get_for_user``, unlike ``get_history`` (subject-scoped):
+        a report an admin authored ABOUT the user is the user's subject row but not
+        the user's own, and the owner-scoped detail read refuses it — so the door
+        that lands on "your latest report" must select by owner.
+        """
+        return await self.execute_query(
+            """
+            MATCH (n:Entity {entity_type: 'activity_report', user_uid: $user_uid})
+            RETURN n
+            ORDER BY n.created_at DESC
+            LIMIT 1
+            """,
+            {"user_uid": user_uid},
         )
 
     async def get_history(self, subject_uid: str, limit: int = 20) -> Result[list[Neo4jProperties]]:

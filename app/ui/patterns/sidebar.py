@@ -276,6 +276,7 @@ def SidebarNav(
     mobile_item_renderer: Callable[[SidebarItem, bool], Any] | None = None,
     title_icon: str = "",
     sidebar_width: str = "w-64",
+    badges: bool = True,
 ) -> "FT":
     """Build sidebar navigation (desktop) + horizontal tabs (mobile).
 
@@ -291,6 +292,10 @@ def SidebarNav(
         title_href: Optional link for the title heading
         title_prefix: Optional element rendered before the title (e.g. back arrow)
         mobile_item_renderer: Custom function to render mobile tab items
+        badges: Whether the desktop sidebar requests ``/api/sidebar/badges`` on
+            load. That request builds the rich UserContext to fill the domain
+            rows' count/health badges; a sidebar without those rows (the
+            calendar/Today variant) passes False and issues no request.
 
     Returns:
         Div containing both desktop sidebar and mobile tabs
@@ -300,6 +305,10 @@ def SidebarNav(
     )
 
     renderer = item_renderer or _default_item_renderer
+    # The async badge loader (OOB-swapped count/health badges on the domain rows).
+    badge_attrs: dict[str, str] = (
+        {"hx_get": "/api/sidebar/badges", "hx_trigger": "load", "hx_swap": "none"} if badges else {}
+    )
 
     # --- Desktop sidebar (hidden below lg:) ---
     sidebar_items = [renderer(item, item.slug == active) for item in items]
@@ -372,9 +381,7 @@ def SidebarNav(
         **{":class": f"collapsed ? '{collapse_translate}' : 'translate-x-0'"},
         role="navigation",
         aria_label=f"{title} sidebar",
-        hx_get="/api/sidebar/badges",
-        hx_trigger="load",
-        hx_swap="none",
+        **badge_attrs,
         **{"x-data": f"collapsibleSidebar('{storage_key}', {str(default_collapsed).lower()})"},
     )
 
@@ -441,6 +448,7 @@ def SidebarPage(
     extra_css: list[str] | None = None,
     extra_scripts: list[str] | None = None,
     content_max_width: str = "max-w-6xl",
+    badges: bool = True,
 ) -> "FT":
     """Create a full page with collapsible sidebar navigation.
 
@@ -453,6 +461,8 @@ def SidebarPage(
         content_max_width: Tailwind max-width class for the content column.
             Pass "max-w-none" for fluid pages (e.g. calendar grids) that should
             fill the space freed when the sidebar collapses.
+        badges: Whether the sidebar requests ``/api/sidebar/badges`` on load
+            (see ``SidebarNav``). Pages whose rows carry no badges pass False.
 
     See: /docs/patterns/UI_COMPONENT_PATTERNS.md
     """
@@ -471,6 +481,7 @@ def SidebarPage(
         mobile_item_renderer=mobile_item_renderer,
         title_icon=title_icon,
         sidebar_width=sidebar_width,
+        badges=badges,
     )
 
     collapsed_default = str(default_collapsed).lower()
