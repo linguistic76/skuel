@@ -19,7 +19,7 @@ Extracted from principle.py during Ku unification (February 2026).
 from dataclasses import dataclass, field
 from datetime import date, datetime
 from operator import itemgetter
-from typing import Any
+from typing import TypedDict
 
 from core.models.enums.principle_enums import AlignmentLevel
 from core.models.type_hints import EntityUID
@@ -32,6 +32,21 @@ class PrincipleExpression:
     context: str  # Where it applies (work, family, etc.)
     behavior: str  # How it's expressed
     example: str | None = None  # Concrete example
+
+
+class AlignmentHistoryRecord(TypedDict):
+    """One stored ``alignment_history`` entry — ``AlignmentAssessment.to_record()``.
+
+    The JSON-ready spellings: an ISO date, the level's value, the kind that
+    wrote it (``assessment`` | ``reflection``). ``Principle._from_dto`` reads
+    it back into an ``AlignmentAssessment``.
+    """
+
+    assessed_date: str
+    alignment_level: str
+    evidence: str
+    reflection: str | None
+    kind: str
 
 
 @dataclass(frozen=True)
@@ -49,16 +64,16 @@ class AlignmentAssessment:
     reflection: str | None = None
     kind: str = "assessment"
 
-    def to_record(self) -> dict[str, Any]:
+    def to_record(self) -> AlignmentHistoryRecord:
         """The JSON-ready shape the node stores (``alignment_history`` is one
         JSON string of these); ``Principle._from_dto`` reads it back."""
-        return {
-            "assessed_date": self.assessed_date.isoformat(),
-            "alignment_level": self.alignment_level.value,
-            "evidence": self.evidence,
-            "reflection": self.reflection,
-            "kind": self.kind,
-        }
+        return AlignmentHistoryRecord(
+            assessed_date=self.assessed_date.isoformat(),
+            alignment_level=self.alignment_level.value,
+            evidence=self.evidence,
+            reflection=self.reflection,
+            kind=self.kind,
+        )
 
 
 @dataclass(frozen=True, kw_only=True)

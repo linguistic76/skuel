@@ -14,26 +14,32 @@ personal record's acceptable odds).
 from __future__ import annotations
 
 from datetime import datetime
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, cast
+
+from core.models.goal.progress_history import ProgressHistoryEntry
 
 if TYPE_CHECKING:
     from core.models.goal.goal import Goal
 
 
-def progress_entry(figure: float | None, at: datetime) -> dict[str, Any]:
+def progress_entry(figure: float | None, at: datetime) -> ProgressHistoryEntry:
     """One progress event: the figure written and when."""
-    return {"date": at.isoformat(), "progress_percentage": figure}
+    return ProgressHistoryEntry(date=at.isoformat(), progress_percentage=figure)
 
 
 def with_progress_entry(
     goal: Goal | None, figure: float | None, at: datetime
-) -> list[dict[str, Any]]:
+) -> list[ProgressHistoryEntry]:
     """The goal's history with this event appended — the list the write persists.
 
     ``goal`` is the writer's pre-read (``None`` when it had none, which starts
-    the history); its entries are read-only views and are copied out.
+    the history); its entries were written in this record shape and are
+    carried as read-only views, so they are copied out into plain records.
     """
-    existing = [dict(entry) for entry in (goal.progress_history if goal is not None else ())]
+    existing = [
+        cast("ProgressHistoryEntry", dict(entry))
+        for entry in (goal.progress_history if goal is not None else ())
+    ]
     return [*existing, progress_entry(figure, at)]
 
 

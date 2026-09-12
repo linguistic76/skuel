@@ -20,9 +20,11 @@ See: /docs/architecture/REPORT_ARCHITECTURE.md
 
 import json
 from datetime import datetime
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, cast
 
 from core.models.enums import EntityStatus
+from core.models.goal.progress_history import ProgressHistoryEntry
+from core.models.principle.principle_types import AlignmentHistoryRecord
 
 if TYPE_CHECKING:
     from core.ports import QueryExecutor
@@ -65,10 +67,10 @@ def _state_label(state: object) -> str:
     return f" [{state}]" if state else ""
 
 
-def _history_entries(raw: object) -> list[dict[str, Any]]:
-    """A node's history property as a list of entries.
+def _json_entries(raw: object) -> list[dict[str, Any]]:  # boundary: a JSON property decoded
+    """A node's history property as a list of dict entries.
 
-    ``progress_history`` and ``alignment_history`` are lists of dicts on the
+    ``progress_history`` and ``alignment_history`` are lists of records on the
     model and ONE JSON string on the node, which is how a rich-context row
     carries them (``properties(n)``); an unreadable value reads as no history.
     """
@@ -80,6 +82,16 @@ def _history_entries(raw: object) -> list[dict[str, Any]]:
     if not isinstance(raw, list | tuple):
         return []
     return [dict(entry) for entry in raw if isinstance(entry, dict)]
+
+
+def _progress_history(raw: object) -> list[ProgressHistoryEntry]:
+    """The row's ``progress_history`` as the records its writers persist."""
+    return [cast("ProgressHistoryEntry", entry) for entry in _json_entries(raw)]
+
+
+def _alignment_history(raw: object) -> list[AlignmentHistoryRecord]:
+    """The row's ``alignment_history`` as the records its writers persist."""
+    return [cast("AlignmentHistoryRecord", entry) for entry in _json_entries(raw)]
 
 
 class ProgressReportGenerator:
@@ -1019,7 +1031,7 @@ class ProgressReportGenerator:
                     continue
                 progressed_in_period = any(
                     in_period(entry.get("date"))
-                    for entry in _history_entries(entity.get("progress_history"))
+                    for entry in _progress_history(entity.get("progress_history"))
                 )
                 if progressed_in_period:
                     result["goals_progressed"] += 1
@@ -1101,7 +1113,7 @@ class ProgressReportGenerator:
                     continue
                 reviewed_in_period = any(
                     in_period(entry.get("assessed_date"))
-                    for entry in _history_entries(entity.get("alignment_history"))
+                    for entry in _alignment_history(entity.get("alignment_history"))
                 )
                 if reviewed_in_period:
                     result["principles_reviewed"] += 1
