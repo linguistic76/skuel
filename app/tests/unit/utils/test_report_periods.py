@@ -91,6 +91,14 @@ def test_a_report_counted_before_the_end_stays_partial_even_after_the_period_clo
     assert september.is_partial_at(counted_on_the_11th)
 
 
+def test_preceding_token_is_the_adjacent_period_of_the_same_kind() -> None:
+    assert resolve_report_period("2026-09", NOW).preceding_token() == "2026-08"
+    assert resolve_report_period("2026-01", NOW).preceding_token() == "2025-12"
+    assert resolve_report_period("2026-W37", NOW).preceding_token() == "2026-W36"
+    assert resolve_report_period("2027-W01", NOW).preceding_token() == "2026-W53"
+    assert resolve_report_period("7d", NOW).preceding_token() is None
+
+
 def test_label_through_names_a_partial_period_as_such() -> None:
     september = resolve_report_period("2026-09", NOW)
     assert september.label_through(NOW) == "September 2026 so far (counted through Sep 12, 2026)"

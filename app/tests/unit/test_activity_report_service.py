@@ -503,18 +503,6 @@ class TestRowConversion:
         assert result.value.data_cutoff == datetime(2026, 1, 31, 23, 59, 59, 999999)
 
     @pytest.mark.asyncio
-    async def test_get_history_passes_the_period_bound_to_the_backend_as_iso(
-        self, service, mock_backend
-    ):
-        mock_backend.get_history = AsyncMock(return_value=Result.ok([]))
-
-        await service.get_history("user_alice", limit=5, ending_before=datetime(2026, 9, 1))
-
-        mock_backend.get_history.assert_awaited_once_with(
-            "user_alice", 5, ending_before="2026-09-01T00:00:00"
-        )
-
-    @pytest.mark.asyncio
     async def test_get_history_decodes_every_row(self, service, mock_backend):
         rows = [
             {"n": _period_report("2026-01", None).to_dto().to_dict()},

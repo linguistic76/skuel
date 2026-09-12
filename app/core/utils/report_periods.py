@@ -76,6 +76,18 @@ class ReportPeriod:
         """A report counted up to ``cutoff`` is partial when the period runs past it."""
         return self.is_calendar and cutoff < self.end
 
+    def preceding_token(self) -> str | None:
+        """The token of the calendar period immediately before this one — the
+        month before a month, the ISO week before a week; ``None`` for a
+        trailing window, which has no neighbour. A period-over-period
+        comparison is against exactly this period, never any report that
+        happens to end earlier."""
+        if self.kind is ReportPeriodKind.MONTH:
+            return monthly_period_key(self.start.date() - timedelta(days=1))
+        if self.kind is ReportPeriodKind.WEEK:
+            return weekly_period_key(self.start.date() - timedelta(days=7))
+        return None
+
     def label_through(self, cutoff: datetime) -> str:
         """The period as a sentence names it, saying so when the counts stop
         before its end: "September 2026 so far (counted through Sep 12, 2026)".

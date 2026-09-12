@@ -184,9 +184,10 @@ class ProgressReportGenerator:
                     window_end=end_date,
                     period_end=period.end,
                     habit_completions=habit_counts.value,
-                    # The live streak is the streak at the cutoff only while the
-                    # cutoff is now — a closed period regenerated later has none.
-                    streaks_are_current=not period.is_closed(now),
+                    # A node's live figures (streak, progress) are the cutoff's only
+                    # while the cutoff is now — a closed period regenerated later
+                    # carries none.
+                    figures_are_current=not period.is_closed(now),
                 )
 
             # 2. Get active insights if requested
@@ -391,25 +392,34 @@ class ProgressReportGenerator:
     async def _collect_comparison(
         self, user_uid: UserUID, period: ReportPeriod
     ) -> dict[str, Any] | None:
-        """Fetch the preceding report's intelligence metadata for the UI's deltas.
+        """The previous report's intelligence metadata, for the UI's deltas.
 
-        The comparison is against the period BEFORE this one: for a calendar
-        period the history read keeps only reports whose period ended by this
-        period's start — never its own regenerations, never a later period
-        regenerated earlier — so the candidates are the preceding periods,
-        newest generated first. Returns None if no prior report with
-        intelligence data exists.
+        A calendar period is compared with the period immediately BEFORE it —
+        the month before a month, the ISO week before a week — and only with
+        that period's reusable report (its final one, or its partial while it
+        is open), never with a report of another kind or length that happens to
+        end earlier. A trailing window is compared with the newest earlier
+        report carrying intelligence. Returns None when there is none.
         """
-        history_result = await self.activity_report_service.get_history(
-            subject_uid=user_uid,
-            limit=5,
-            ending_before=period.start if period.is_calendar else None,
-        )
-        if history_result.is_error or not history_result.value:
-            return None
+        if period.is_calendar:
+            previous_token = period.preceding_token()
+            if previous_token is None:
+                return None
+            previous = await self.activity_report_service.find_by_period(
+                user_uid, user_uid, previous_token
+            )
+            if previous.is_error or previous.value is None:
+                return None
+            candidates = [previous.value]
+        else:
+            history_result = await self.activity_report_service.get_history(
+                subject_uid=user_uid, limit=5
+            )
+            if history_result.is_error or not history_result.value:
+                return None
+            candidates = list(history_result.value)
 
-        # Find most recent prior report with intelligence data
-        for prior_report in history_result.value:
+        for prior_report in candidates:
             prior_metadata = getattr(prior_report, "metadata", None) or {}
             if not isinstance(prior_metadata, dict):
                 continue
@@ -451,14 +461,14 @@ class ProgressReportGenerator:
         # Goals
         goals_details = completions.get("goals_details", [])
         goals_progressed = completions.get("goals_progressed", 0)
-        avg_progress = 0.0
-        if goals_details:
-            progress_values = [g.get("progress") or 0 for g in goals_details]
-            avg_progress = sum(progress_values) / len(progress_values) if progress_values else 0.0
+        # A closed period's details carry no live figure (``progress`` is None)
+        # — the average is then unknown, never zero.
+        figures = [g["progress"] for g in goals_details if g.get("progress") is not None]
+        avg_progress = round(sum(figures) / len(figures), 2) if figures else None
         trends["goals"] = {
             "total": len(goals_details),
             "progressed": goals_progressed,
-            "avg_progress": round(avg_progress, 2),
+            "avg_progress": avg_progress,
         }
 
         # Habits
@@ -827,7 +837,7 @@ class ProgressReportGenerator:
         window_end: datetime,
         period_end: datetime | None = None,
         habit_completions: dict[str, int] | None = None,
-        streaks_are_current: bool = True,
+        figures_are_current: bool = True,
     ) -> dict[str, Any]:
         """Map context.entities_rich into the completions dict.
 
@@ -943,7 +953,11 @@ class ProgressReportGenerator:
                         "uid": entity["uid"],
                         "title": entity["title"],
                         "status": entity.get("status", ""),
-                        "progress": entity.get("progress_percentage"),
+                        # The live figure is the cutoff's only while the cutoff
+                        # is now (as the habit streak below).
+                        "progress": (
+                            entity.get("progress_percentage") if figures_are_current else None
+                        ),
                     }
                 )
 
@@ -960,10 +974,9 @@ class ProgressReportGenerator:
                         "uid": entity["uid"],
                         "title": entity["title"],
                         "status": entity.get("status", ""),
-                        # ``current_streak`` is rewritten by every completion, so
-                        # it is the streak AT the cutoff only while the cutoff is
-                        # now; a closed period regenerated later carries none.
-                        "streak": entity.get("current_streak", 0) if streaks_are_current else None,
+                        # Rewritten by every completion, so it is the streak AT
+                        # the cutoff only while the cutoff is now.
+                        "streak": entity.get("current_streak", 0) if figures_are_current else None,
                     }
                 )
 
@@ -1132,7 +1145,8 @@ class ProgressReportGenerator:
                 sections.append(f"- **Tasks served goals:** {', '.join(unique_goals[:5])}")
             if depth != ProgressDepth.SUMMARY:
                 for goal in completions.get("goals_details", [])[:10]:
-                    progress = goal.get("progress") or "—"
+                    progress = goal.get("progress")
+                    progress = f"{progress}" if progress is not None else "—"
                     sections.append(
                         f"  - {goal['title']} [{goal['status']}] (progress: {progress})"
                     )

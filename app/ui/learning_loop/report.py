@@ -657,8 +657,11 @@ def _render_comparison_banner(
             label = "Tasks"
             fmt = "{:+.0%}"
         elif domain == "goals":
-            prev_val = prev.get("avg_progress", 0)
-            curr_val = curr.get("avg_progress", 0)
+            # A closed period's report carries no progress average (None, not 0).
+            if prev.get("avg_progress") is None or curr.get("avg_progress") is None:
+                continue
+            prev_val = prev["avg_progress"]
+            curr_val = curr["avg_progress"]
             label = "Goals"
             fmt = "{:+.0f}%"
         elif domain == "habits":

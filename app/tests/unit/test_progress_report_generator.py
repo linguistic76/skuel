@@ -37,6 +37,7 @@ def mock_activity_report_service():
     service.persist = AsyncMock(return_value=Result.ok(MagicMock()))
     service.get_history = AsyncMock(return_value=Result.ok([]))
     service.latest_for_period = AsyncMock(return_value=Result.ok(None))
+    service.find_by_period = AsyncMock(return_value=Result.ok(None))
     return service
 
 
@@ -975,15 +976,18 @@ class TestCalendarPeriods:
         assert " so far (counted through " in prompt
 
     @pytest.mark.asyncio
-    async def test_a_final_report_is_compared(self, generator):
+    async def test_a_final_report_is_compared_with_the_month_before(self, generator):
         prior = MagicMock(uid="ar_dec", time_period="2025-12")
         prior.metadata = {"intelligence": {"domain_trends": {"tasks": "stable"}}}
-        generator.activity_report_service.get_history = AsyncMock(return_value=Result.ok([prior]))
+        generator.activity_report_service.find_by_period = AsyncMock(return_value=Result.ok(prior))
 
         result = await generator.generate(user_uid="user_alice", time_period="2026-01")
 
         assert result.is_ok, result.error
         assert _persisted(generator).metadata["comparison"]["previous_report_uid"] == "ar_dec"
+        generator.activity_report_service.find_by_period.assert_awaited_with(
+            "user_alice", "user_alice", "2025-12"
+        )
 
     @pytest.mark.asyncio
     async def test_a_period_that_has_not_started_is_refused_before_any_read(self, generator):
@@ -1068,22 +1072,40 @@ class TestCalendarPeriods:
 
     @pytest.mark.asyncio
     async def test_comparison_skips_a_superseded_same_period_report(self, generator):
-        """For a calendar period the period BEFORE it is compared — the history
-        read keeps only reports whose period ended by this one's start, so its
-        own regenerations and a later period generated earlier never qualify."""
+        """A calendar period is compared with the period immediately BEFORE it —
+        by that period's own token, through the reusable-report lookup — never
+        with a report of another kind or length that ends earlier, and never
+        with its own regenerations."""
         prior = MagicMock(uid="ar_aug", time_period="2026-08")
         prior.metadata = {"intelligence": {"domain_trends": {"tasks": "stable"}}}
-        generator.activity_report_service.get_history = AsyncMock(return_value=Result.ok([prior]))
+        generator.activity_report_service.find_by_period = AsyncMock(return_value=Result.ok(prior))
+        generator.activity_report_service.get_history = AsyncMock(return_value=Result.ok([]))
 
         comparison = await generator._collect_comparison(
-            "user_alice", resolve_report_period("2026-09", datetime(2026, 9, 12))
+            "user_alice", resolve_report_period("2026-09", datetime(2026, 10, 12))
         )
 
         assert comparison is not None
         assert comparison["previous_report_uid"] == "ar_aug"
         assert comparison["previous_period"] == "2026-08"
-        generator.activity_report_service.get_history.assert_awaited_once_with(
-            subject_uid="user_alice", limit=5, ending_before=datetime(2026, 9, 1)
+        generator.activity_report_service.find_by_period.assert_awaited_once_with(
+            "user_alice", "user_alice", "2026-08"
+        )
+        generator.activity_report_service.get_history.assert_not_awaited()
+
+    @pytest.mark.asyncio
+    async def test_a_week_is_compared_with_the_week_before_and_a_year_boundary_holds(
+        self, generator
+    ):
+        generator.activity_report_service.find_by_period = AsyncMock(return_value=Result.ok(None))
+
+        comparison = await generator._collect_comparison(
+            "user_alice", resolve_report_period("2027-W01", datetime(2027, 1, 20))
+        )
+
+        assert comparison is None  # no report for the week before: no comparison
+        generator.activity_report_service.find_by_period.assert_awaited_once_with(
+            "user_alice", "user_alice", "2026-W53"
         )
 
     @pytest.mark.asyncio
@@ -1098,7 +1120,7 @@ class TestCalendarPeriods:
 
         assert comparison is not None and comparison["previous_report_uid"] == "ar_last_week"
         generator.activity_report_service.get_history.assert_awaited_once_with(
-            subject_uid="user_alice", limit=5, ending_before=None
+            subject_uid="user_alice", limit=5
         )
 
     def test_report_content_names_a_partial_period(self, generator):
@@ -1131,17 +1153,23 @@ class TestStreaksAtTheCutoff:
             "habits": [_row({"uid": "h1", "title": "Run", "status": "active", "current_streak": 7})]
         }
 
-    def test_a_closed_period_carries_no_streak(self, generator):
+    def test_a_closed_period_carries_no_streak_and_no_goal_figure(self, generator):
+        rows = {
+            **self._habit_rows(),
+            "goals": [_row({"uid": "g1", "title": "Ship", "progress_percentage": 80.0})],
+        }
         completions = generator._completions_from_context(
-            _rich_context(self._habit_rows()),
+            _rich_context(rows),
             None,
             window_start=datetime(2026, 9, 1),
             window_end=datetime(2026, 9, 30, 23, 59, 59),
-            streaks_are_current=False,
+            figures_are_current=False,
         )
         assert completions["habits_details"][0]["streak"] is None
+        assert completions["goals_details"][0]["progress"] is None
         trends = generator._compute_domain_trends(completions)
         assert trends["habits"]["avg_streak"] is None
+        assert trends["goals"]["avg_progress"] is None
         # No "streaks are low" advice from an unknown average.
         assert not any(
             r["domain"] == "habits"
@@ -1157,6 +1185,7 @@ class TestStreaksAtTheCutoff:
             ProgressDepth.STANDARD,
         )
         assert "streak:" not in content
+        assert "(progress: —)" in content
 
     def test_a_live_cutoff_keeps_the_streak(self, generator):
         completions = generator._completions_from_context(
@@ -1174,9 +1203,9 @@ class TestStreaksAtTheCutoff:
             generator, "_completions_from_context", wraps=generator._completions_from_context
         ) as mapper:
             await generator.generate(user_uid="user_alice", time_period="2026-01")
-            assert mapper.call_args.kwargs["streaks_are_current"] is False
+            assert mapper.call_args.kwargs["figures_are_current"] is False
             await generator.generate(user_uid="user_alice", time_period="7d")
-            assert mapper.call_args.kwargs["streaks_are_current"] is True
+            assert mapper.call_args.kwargs["figures_are_current"] is True
 
 
 class TestPeriodEndDenominator:

@@ -179,7 +179,7 @@ class ActivityReportService:
             for item in activity.get("principles", [])
             if eligible.existed_by_end(_entity(item))
         ]
-        streaks_are_current = not period.is_closed(now)
+        figures_are_current = not period.is_closed(now)
 
         if include_all or "tasks" in (domains or []):
             snapshot["domains"]["tasks"] = {
@@ -201,7 +201,11 @@ class ActivityReportService:
                     {
                         "title": item.get("entity", {}).get("title", ""),
                         "status": item.get("entity", {}).get("status", ""),
-                        "progress": item.get("entity", {}).get("progress_percentage"),
+                        "progress": (
+                            item.get("entity", {}).get("progress_percentage")
+                            if figures_are_current
+                            else None
+                        ),
                     }
                     for item in goals[:10]
                 ],
@@ -216,7 +220,7 @@ class ActivityReportService:
                         "status": item.get("entity", {}).get("status", ""),
                         "streak": (
                             item.get("entity", {}).get("current_streak", 0)
-                            if streaks_are_current
+                            if figures_are_current
                             else None
                         ),
                     }
@@ -508,7 +512,6 @@ class ActivityReportService:
         self,
         subject_uid: str,
         limit: int = 20,
-        ending_before: datetime | None = None,
     ) -> Result[list[ActivityReport]]:
         """
         Get all ActivityReport entities where subject_uid matches the user.
@@ -519,18 +522,11 @@ class ActivityReportService:
         Args:
             subject_uid: User to retrieve reports for
             limit: Maximum number of results
-            ending_before: Keep only reports whose period ended by this instant —
-                the comparison's way to the period BEFORE a calendar period, past
-                its own regenerations and past later periods generated earlier
 
         Returns:
             Result[list[ActivityReport]]
         """
-        query_result = await self.backend.get_history(
-            subject_uid,
-            limit,
-            ending_before=ending_before.isoformat() if ending_before is not None else None,
-        )
+        query_result = await self.backend.get_history(subject_uid, limit)
         if query_result.is_error:
             return Result.fail(query_result)
 
