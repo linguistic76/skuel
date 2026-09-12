@@ -1,5 +1,5 @@
 ---
-updated: 2026-09-11
+updated: 2026-09-12
 ---
 
 # Deferred Work
@@ -190,7 +190,7 @@ renders them as a table in Obsidian, and a session derives the same table with
 
 ## Ingest Transition Obligation Durability
 
-[Ingest Transition Obligation Durability](ingest-transition-obligation-durability.md) — A status transition the ingest doors discover is graph state, not recorded intent, so a failure between the committed status write and the publish loses the cascade permanently; closing it needs an outbox, and the ordering it fights with is the one that has to win.
+[Ingest Transition Obligation Durability](ingest-transition-obligation-durability.md) — A status transition the ingest doors discover is graph state, not recorded intent, so a failure between the committed status write and the publish loses the cascade permanently — and since D.0 the app door has the same property one step later (a failed `TaskCompleted` subscriber, with no re-click replay); closing it needs an outbox, and the ordering it fights with is the one that has to win.
 
 ## Review Schedule
 

@@ -331,7 +331,11 @@ below).
   `handle_task_completed` would exit through that handler's single boundary when an optional
   intelligence step raises first, leaving dependents unscheduled behind a reported-successful
   completion; the bus runs subscribers in isolation). Its `refuse_if_prior_in` terminal guard makes it
-  idempotent — no `is_repeat` gate; its 5 tests move with it.
+  idempotent — no `is_repeat` gate; its 5 tests move with it. **What the door gives up** (Codex P1 on
+  #1320): the retired cascade re-ran on a repeat click, an accidental manual replay for a subscriber that
+  failed transiently; a re-post through `update_task` publishes nothing, so a lost subscriber run is
+  lost until the outbox in [`ingest-transition-obligation-durability.md`](ingest-transition-obligation-durability.md)
+  — whose scope now includes the app door — exists. Recorded there, not patched here.
 - Delete: `complete_task_with_cascade` + the four stubs + the four cascade-only context helpers,
   `_OrchestrationMixin.complete_task_with_cascade`, `TasksService.complete_task`, `TasksOperations.complete_task`
   (a facade method declared on the BACKEND protocol that no adapter satisfies — the dual-layer-lie shape),

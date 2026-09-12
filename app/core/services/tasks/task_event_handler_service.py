@@ -225,7 +225,11 @@ class TaskEventHandlerService:
 
         Recompute-shaped: every dependent is asked for on every completion, and the
         write's own terminal condition (:meth:`_schedule_dependent`) makes a second
-        pass a no-op — no repeat gate is needed or wanted.
+        pass a no-op — no repeat gate is needed or wanted, and a republish would be
+        safe. There is no republish today: a transient failure here is logged and the
+        dependents stay unscheduled (a re-posted ``completed`` publishes nothing).
+        The durable-delivery design that closes this is
+        ``docs/roadmap/ingest-transition-obligation-durability.md``.
 
         Note:
             Fire-and-forget — errors are logged, never propagated.
