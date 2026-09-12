@@ -137,3 +137,75 @@ async def test_reopening_a_completed_goal_stamps_the_conditional_reset() -> None
     _statuses, reset = conditional
     assert reset["progress_percentage"] == 0.0
     assert isinstance(reset["last_progress_update"], datetime)
+
+
+# ---------------------------------------------------------------------------
+# complete_goal — the 100% figure and its stamp are part of the TRANSITION
+# ---------------------------------------------------------------------------
+
+
+def _completed(goal: Goal) -> Goal:
+    return Goal(**{**goal.__dict__, "status": EntityStatus.COMPLETED})
+
+
+@pytest.mark.asyncio
+async def test_completing_a_goal_carries_progress_on_the_transition_patch() -> None:
+    """The 100% and its stamp ride the guard's prior-NOT-in patch beside the
+    achievement stamp — never the base patch — so only a real completion
+    writes them."""
+    active = _goal(progress=40.0)
+    backend, recorder = guarded_backend(active, _completed(active))
+    core = GoalsCoreService(backend=backend, event_bus=None)
+
+    result = await core.complete_goal(_GOAL)
+
+    assert result.is_ok
+    assert "progress_percentage" not in recorder.last_updates
+    assert "last_progress_update" not in recorder.last_updates
+    conditional = recorder.last_guard.patch_if_prior_not_in
+    assert conditional is not None
+    statuses, transition = conditional
+    assert statuses == frozenset({EntityStatus.COMPLETED.value})
+    assert transition["progress_percentage"] == 100.0
+    assert isinstance(transition["last_progress_update"], datetime)
+    assert "achieved_date" in transition
+    merged = recorder.merged_patch()
+    assert merged["progress_percentage"] == 100.0
+    assert isinstance(merged["last_progress_update"], datetime)
+
+
+@pytest.mark.asyncio
+async def test_reposted_completion_writes_neither_progress_nor_stamp() -> None:
+    """A re-posted completion of an already-completed goal is not a progress
+    event: the report must not count it in a later period."""
+    done = _completed(_goal(progress=100.0))
+    backend, recorder = guarded_backend(done, done)
+    core = GoalsCoreService(backend=backend, event_bus=None)
+
+    result = await core.complete_goal(_GOAL)
+
+    assert result.is_ok
+    merged = recorder.merged_patch()
+    assert "progress_percentage" not in merged
+    assert "last_progress_update" not in merged
+
+
+@pytest.mark.asyncio
+async def test_explicit_achieved_date_still_gates_progress_on_the_transition() -> None:
+    """An intent that supplies its own achieved_date arrives with a guard carrying
+    no patches; the transition patch is constructed, not merely extended."""
+    active = _goal(progress=40.0)
+    backend, recorder = guarded_backend(active, _completed(active))
+    core = GoalsCoreService(backend=backend, event_bus=None)
+
+    result = await core.complete_goal(_GOAL, achieved_date="2026-09-01")
+
+    assert result.is_ok
+    assert "progress_percentage" not in recorder.last_updates
+    conditional = recorder.last_guard.patch_if_prior_not_in
+    assert conditional is not None
+    _statuses, transition = conditional
+    assert transition["progress_percentage"] == 100.0
+    assert isinstance(transition["last_progress_update"], datetime)
+    assert "achieved_date" not in transition  # the explicit date rides the base patch
+    assert recorder.merged_patch()["progress_percentage"] == 100.0
