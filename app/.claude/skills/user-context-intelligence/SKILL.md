@@ -213,11 +213,12 @@ tasks are pre-filtered to ready, so a task line would be inert. See
 
 **What only MEGA_QUERY provides:** Full entity objects (`entities_rich["tasks"]`, `entities_rich["goals"]`, etc.), graph neighborhoods, `cross_domain_insights` (active_insights_raw). These are absent in standard context.
 
-**`build_rich()` optional `window` parameter:** Passing `window="7d"` (or `"14d"`,
-`"30d"`, `"90d"`) includes completed entities touched within the window in `context.entities_rich`
-alongside active entities. Used by **both** intelligence methods and feedback services
-(`ProgressReportGenerator`, `ActivityReportService`). Default `window="30d"` always
-provides the standard 30-day window.
+**`build_rich()` optional `window` parameter:** a report-period token — a trailing window
+(`"7d"`, `"14d"`, `"30d"`, `"90d"`, ending now) or a calendar period (`"2026-W37"` ISO week,
+`"2026-09"` month), resolved by `core/utils/report_periods.py`, the one vocabulary shared with
+`ProgressReportGenerator` and `ActivityReportService`. Completed entities touched since the
+period's start (no upper bound) join the active ones in `context.entities_rich`. Default
+`window="30d"`; an unknown token is a validation failure, never a substituted default.
 
 **Submission & feedback stats (March 2026):** `build_rich()` now populates 11 fields via `populate_submission_stats()`: submission counts, feedback tracking, `unsubmitted_exercises`, and `pending_revised_exercises`. `DailyPlanningMixin` reads `context.pending_revised_exercises` at Priority 2.3 (teacher revision feedback) and `context.unsubmitted_exercises` at Priority 2.5 (assigned exercises).
 
