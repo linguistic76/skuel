@@ -347,8 +347,10 @@ class ActivityReportOperations(Protocol):
         self,
         subject_uid: str,
         limit: int = 20,
+        exclude_time_period: str | None = None,
     ) -> "Result[list[ActivityReport]]":
-        """Get all ActivityReport for a user (LLM + human). Returns Result[list[ActivityReport]]."""
+        """The subject's ActivityReports, newest first (LLM + human); ``exclude_time_period``
+        leaves out one period token's reports. Returns Result[list[ActivityReport]]."""
         ...
 
     async def get_latest_for_owner(self, user_uid: UserUID) -> "Result[ActivityReport | None]":
@@ -408,7 +410,7 @@ class ActivityReportBackendOperations(BackendOperations["ActivityReport"], Proto
     ) -> Result[list[Neo4jProperties]]: ...
 
     async def get_history(
-        self, subject_uid: str, limit: int = 20
+        self, subject_uid: str, limit: int = 20, exclude_time_period: str | None = None
     ) -> Result[list[Neo4jProperties]]: ...
 
     async def annotate(

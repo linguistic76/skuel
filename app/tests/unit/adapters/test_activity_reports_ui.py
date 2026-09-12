@@ -545,6 +545,26 @@ class TestForPeriodLookup:
         generator.generate.assert_not_awaited()
 
     @pytest.mark.asyncio
+    async def test_a_future_period_renders_the_prompt_without_a_generate_form(
+        self, registry_orchestrator_generator, prompt_pages
+    ):
+        registry, orchestrator, generator = registry_orchestrator_generator
+        orchestrator.find_activity_report_for_period = AsyncMock(return_value=Result.ok(None))
+        handler = registry.get("/activity-reports/for", "GET")
+        next_year = datetime.now().year + 1
+
+        page = await handler(
+            _make_request(
+                method="GET", query_params={"kind": "monthly", "date": f"{next_year}-01-14"}
+            )
+        )
+
+        html = _content_html(page)
+        assert "has not started" in html
+        assert 'action="/activity-reports/for"' not in html
+        generator.generate.assert_not_awaited()
+
+    @pytest.mark.asyncio
     async def test_bad_date_and_unknown_kind_are_400(self, registry_orchestrator_generator):
         registry, _, _ = registry_orchestrator_generator
         handler = registry.get("/activity-reports/for", "GET")

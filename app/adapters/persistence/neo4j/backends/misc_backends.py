@@ -92,16 +92,27 @@ class ActivityReportBackend(UniversalNeo4jBackend[ActivityReport]):
             },
         )
 
-    async def get_history(self, subject_uid: str, limit: int = 20) -> Result[list[Neo4jProperties]]:
-        """Get ActivityReport entities where subject_uid matches the user."""
+    async def get_history(
+        self, subject_uid: str, limit: int = 20, exclude_time_period: str | None = None
+    ) -> Result[list[Neo4jProperties]]:
+        """The subject's ActivityReports, newest first; ``exclude_time_period``
+        leaves out every report for that period token, so a comparison can
+        reach the preceding DISTINCT period past any number of regenerations."""
         return await self.execute_query(
             """
             MATCH (n:Entity {entity_type: $entity_type, subject_uid: $subject_uid})
+            WHERE $exclude_time_period IS NULL
+               OR coalesce(n.time_period, '') <> $exclude_time_period
             RETURN n
             ORDER BY n.created_at DESC
             LIMIT $limit
             """,
-            {"entity_type": _ACTIVITY_REPORT, "subject_uid": subject_uid, "limit": limit},
+            {
+                "entity_type": _ACTIVITY_REPORT,
+                "subject_uid": subject_uid,
+                "limit": limit,
+                "exclude_time_period": exclude_time_period,
+            },
         )
 
     async def annotate(

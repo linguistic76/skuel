@@ -104,19 +104,28 @@ def render_activity_report_request_card(today: date | None = None) -> FT:
 
 
 def render_period_report_prompt(
-    *, token: str, label: str, is_closed: bool, note: str | None = None
+    *,
+    token: str,
+    label: str,
+    is_closed: bool,
+    has_started: bool = True,
+    note: str | None = None,
 ) -> FT:
     """The calendar door's "generate" state: no reusable report for the period.
 
     A plain (non-HTMX) form so the transition that mints the report is one
     CSRF-protected POST the user chose — never a prefetch or a speculative
-    navigation of the GET that rendered this.
+    navigation of the GET that rendered this. A period that has not started
+    offers no form: there is nothing to count yet.
     """
-    status = (
-        f"{label} has closed; its report will count the whole period."
-        if is_closed
-        else f"{label} is still open; a report now is partial and re-opens until the period closes."
-    )
+    if not has_started:
+        status = f"{label} has not started; a report can be generated once it begins."
+    elif is_closed:
+        status = f"{label} has closed; its report will count the whole period."
+    else:
+        status = (
+            f"{label} is still open; a report now is partial and re-opens until the period closes."
+        )
     return Card(
         CardBody(
             H3(f"No report for {label} yet", cls="font-semibold mb-2"),
@@ -128,7 +137,9 @@ def render_period_report_prompt(
                 Button("Generate report", type="submit", cls=ButtonT.primary),
                 method="post",
                 action="/activity-reports/for",
-            ),
+            )
+            if has_started
+            else None,
         ),
         cls="bg-background shadow-xs mb-6",
     )

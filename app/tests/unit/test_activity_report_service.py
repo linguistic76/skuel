@@ -379,6 +379,24 @@ class TestFindByPeriod:
         mock_backend.find_by_period.assert_not_awaited()
 
 
+class TestFuturePeriods:
+    """A period that has not started generates nothing on the admin paths either."""
+
+    @pytest.mark.asyncio
+    async def test_snapshot_of_a_future_period_is_refused(self, service):
+        token = f"{datetime.now().year + 1}-01"
+        result = await service.create_snapshot(_make_context(), time_period=token)
+        assert result.is_error
+        assert "has not started" in result.expect_error().message
+
+    @pytest.mark.asyncio
+    async def test_submit_report_for_a_future_period_is_refused(self, service, mock_backend):
+        token = f"{datetime.now().year + 1}-01"
+        result = await service.submit_report("admin_1", "user_alice", "text", time_period=token)
+        assert result.is_error
+        mock_backend.create.assert_not_called()
+
+
 class TestRowConversion:
     """Every owner-scoped read decodes the stored node through the DTO's parse
     layer — the temporal fields and the JSON ``metadata`` blob included."""
@@ -386,9 +404,10 @@ class TestRowConversion:
     @pytest.mark.asyncio
     async def test_get_for_user_decodes_the_stored_node(self, service, mock_backend):
         stored = _period_report("2026-01", datetime(2026, 1, 31, 23, 59, 59, 999999))
-        mock_backend.get_for_user = AsyncMock(
-            return_value=Result.ok([{"n": stored.to_dto().to_dict()}])
-        )
+        node = stored.to_dto().to_dict()
+        # The node holds ISO strings for every temporal field, data_cutoff included.
+        assert isinstance(node["data_cutoff"], str)
+        mock_backend.get_for_user = AsyncMock(return_value=Result.ok([{"n": node}]))
 
         result = await service.get_for_user("ar_2026-01", "user_alice")
 
@@ -396,6 +415,18 @@ class TestRowConversion:
         assert result.value.uid == "ar_2026-01"
         assert result.value.time_period == "2026-01"
         assert result.value.data_cutoff == datetime(2026, 1, 31, 23, 59, 59, 999999)
+
+    @pytest.mark.asyncio
+    async def test_get_history_passes_the_period_exclusion_to_the_backend(
+        self, service, mock_backend
+    ):
+        mock_backend.get_history = AsyncMock(return_value=Result.ok([]))
+
+        await service.get_history("user_alice", limit=5, exclude_time_period="2026-09")
+
+        mock_backend.get_history.assert_awaited_once_with(
+            "user_alice", 5, exclude_time_period="2026-09"
+        )
 
     @pytest.mark.asyncio
     async def test_get_history_decodes_every_row(self, service, mock_backend):

@@ -63,3 +63,14 @@ def test_period_prompt_is_a_csrf_protected_post_carrying_the_token() -> None:
         render_period_report_prompt(token="2026-09", label="September 2026", is_closed=False)
     )
     assert "still open" in open_html
+
+
+def test_period_prompt_for_a_period_not_yet_started_offers_no_form() -> None:
+    html = to_xml(
+        render_period_report_prompt(
+            token="2027-01", label="January 2027", is_closed=False, has_started=False
+        )
+    )
+    assert "has not started" in html
+    assert 'action="/activity-reports/for"' not in html
+    assert "Generate report" not in html

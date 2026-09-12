@@ -117,11 +117,18 @@ class ActivityReportService:
             Result[dict] — snapshot data with per-domain activity summaries
         """
         subject_uid = context.user_uid
+        now = datetime.now()
         try:
-            period = resolve_report_period(time_period, datetime.now())
+            period = resolve_report_period(time_period, now)
         except UnknownReportPeriodError as e:
             return Result.fail(Errors.validation(message=str(e), field="time_period"))
-        start_date, end_date = period.start, period.data_cutoff(datetime.now())
+        if not period.has_started(now):
+            return Result.fail(
+                Errors.validation(
+                    message=f"{period.label} has not started yet", field="time_period"
+                )
+            )
+        start_date, end_date = period.start, period.data_cutoff(now)
 
         # Publish audit event so the subject_uid can later see when their data was accessed.
         # This is the producer feeding the staged privacy-transparency surface
@@ -325,10 +332,17 @@ class ActivityReportService:
         Returns:
             Result[ActivityReport] — the created report entity
         """
+        now = datetime.now()
         try:
-            period = resolve_report_period(time_period, datetime.now())
+            period = resolve_report_period(time_period, now)
         except UnknownReportPeriodError as e:
             return Result.fail(Errors.validation(message=str(e), field="time_period"))
+        if not period.has_started(now):
+            return Result.fail(
+                Errors.validation(
+                    message=f"{period.label} has not started yet", field="time_period"
+                )
+            )
         start_date, end_date = period.start, period.end
 
         try:
@@ -479,21 +493,26 @@ class ActivityReportService:
         self,
         subject_uid: str,
         limit: int = 20,
+        exclude_time_period: str | None = None,
     ) -> Result[list[ActivityReport]]:
         """
         Get all ActivityReport entities where subject_uid matches the user.
 
         Returns both LLM-generated (AUTOMATIC/LLM) and human-written (HUMAN)
-        feedback for the given user.
+        feedback for the given user, newest first.
 
         Args:
             subject_uid: User to retrieve reports for
             limit: Maximum number of results
+            exclude_time_period: Leave out every report for this period token —
+                the comparison's way past a regenerated period's own reports
 
         Returns:
             Result[list[ActivityReport]]
         """
-        query_result = await self.backend.get_history(subject_uid, limit)
+        query_result = await self.backend.get_history(
+            subject_uid, limit, exclude_time_period=exclude_time_period
+        )
         if query_result.is_error:
             return Result.fail(query_result)
 

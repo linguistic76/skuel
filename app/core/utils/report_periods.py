@@ -66,6 +66,12 @@ class ReportPeriod:
         """A calendar period whose end has passed; a trailing window never closes."""
         return self.is_calendar and self.end <= now
 
+    def has_started(self, now: datetime) -> bool:
+        """Whether the period has begun — a report of a period still in the
+        future would count today's open work against a window that holds
+        nothing yet, so nothing generates one."""
+        return self.start <= now
+
     def is_partial_at(self, cutoff: datetime) -> bool:
         """A report counted up to ``cutoff`` is partial when the period runs past it."""
         return self.is_calendar and cutoff < self.end

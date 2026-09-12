@@ -91,6 +91,14 @@ def test_a_report_counted_before_the_end_stays_partial_even_after_the_period_clo
     assert september.is_partial_at(counted_on_the_11th)
 
 
+def test_a_period_has_started_once_its_first_instant_has_passed() -> None:
+    assert resolve_report_period("2026-09", NOW).has_started(NOW)
+    assert resolve_report_period("2026-W37", NOW).has_started(NOW)
+    assert not resolve_report_period("2026-10", NOW).has_started(NOW)
+    assert not resolve_report_period("2026-W38", NOW).has_started(NOW)
+    assert resolve_report_period("7d", NOW).has_started(NOW)
+
+
 # ---------------------------------------------------------------------------
 # No default
 # ---------------------------------------------------------------------------

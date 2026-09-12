@@ -17,6 +17,7 @@ from core.models.enums.pipeline import ReportSource
 from core.models.enums.user_entry_enums import ProgressDepth
 from core.models.report.activity_report import ActivityReport
 from core.services.report.progress_report_generator import ProgressReportGenerator
+from core.utils.period_keys import monthly_period_key
 from core.utils.report_periods import resolve_report_period
 from core.utils.result_simplified import Errors, Result
 
@@ -934,7 +935,7 @@ class TestCalendarPeriods:
 
     @pytest.mark.asyncio
     async def test_open_period_is_counted_through_now_and_marked_partial(self, generator):
-        token = f"{datetime.now().year + 1}-01"  # next January: open, in the future
+        token = monthly_period_key(date.today())  # the current month: started, still open
         result = await generator.generate(user_uid="user_alice", time_period=token)
 
         assert result.is_ok, result.error
@@ -945,6 +946,19 @@ class TestCalendarPeriods:
         # The habit-count read is bounded to the cutoff, never the period's end.
         _, kwargs = generator.report_backend.count_habit_completions.call_args
         assert kwargs["end"] == report.data_cutoff.isoformat()
+
+    @pytest.mark.asyncio
+    async def test_a_period_that_has_not_started_is_refused_before_any_read(self, generator):
+        """A future month holds nothing yet: counting today's open work against
+        an inverted window would persist misleading statistics."""
+        token = f"{datetime.now().year + 1}-01"  # next January
+        result = await generator.generate(user_uid="user_alice", time_period=token)
+
+        assert result.is_error
+        assert result.expect_error().category.value == "validation"
+        assert "has not started" in result.expect_error().message
+        generator.context_builder.build_rich.assert_not_called()
+        generator.activity_report_service.persist.assert_not_called()
 
     @pytest.mark.asyncio
     async def test_trailing_window_carries_no_limitations_and_is_never_partial(self, generator):
@@ -1016,15 +1030,12 @@ class TestCalendarPeriods:
 
     @pytest.mark.asyncio
     async def test_comparison_skips_a_superseded_same_period_report(self, generator):
-        """For a calendar period the preceding DISTINCT period is compared — an
-        earlier September partial is never September's own baseline."""
-        same = MagicMock(uid="ar_sep_partial", time_period="2026-09")
-        same.metadata = {"intelligence": {"domain_trends": {"tasks": "improved"}}}
+        """For a calendar period the preceding DISTINCT period is compared — the
+        period's own earlier reports are excluded in the history read, so any
+        number of regenerations can never exhaust the candidates."""
         prior = MagicMock(uid="ar_aug", time_period="2026-08")
         prior.metadata = {"intelligence": {"domain_trends": {"tasks": "stable"}}}
-        generator.activity_report_service.get_history = AsyncMock(
-            return_value=Result.ok([same, prior])
-        )
+        generator.activity_report_service.get_history = AsyncMock(return_value=Result.ok([prior]))
 
         comparison = await generator._collect_comparison(
             "user_alice", resolve_report_period("2026-09", datetime(2026, 9, 12))
@@ -1033,6 +1044,9 @@ class TestCalendarPeriods:
         assert comparison is not None
         assert comparison["previous_report_uid"] == "ar_aug"
         assert comparison["previous_period"] == "2026-08"
+        generator.activity_report_service.get_history.assert_awaited_once_with(
+            subject_uid="user_alice", limit=5, exclude_time_period="2026-09"
+        )
 
     @pytest.mark.asyncio
     async def test_comparison_for_a_trailing_window_keeps_same_token_history(self, generator):
@@ -1045,6 +1059,9 @@ class TestCalendarPeriods:
         )
 
         assert comparison is not None and comparison["previous_report_uid"] == "ar_last_week"
+        generator.activity_report_service.get_history.assert_awaited_once_with(
+            subject_uid="user_alice", limit=5, exclude_time_period=None
+        )
 
     def test_report_content_names_a_partial_period(self, generator):
         period = resolve_report_period("2026-09", datetime(2026, 9, 12))

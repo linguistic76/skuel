@@ -109,6 +109,7 @@ class ActivityReportDTO(UserOwnedDTO):
                 "updated_at",
                 "period_start",
                 "period_end",
+                "data_cutoff",
                 "annotation_updated_at",
             ],
         )
@@ -133,6 +134,7 @@ class ActivityReportDTO(UserOwnedDTO):
                 "updated_at",
                 "period_start",
                 "period_end",
+                "data_cutoff",
                 "annotation_updated_at",
             ],
             list_fields=["tags", "domains_covered", "insights_referenced"],

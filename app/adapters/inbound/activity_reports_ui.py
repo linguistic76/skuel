@@ -188,6 +188,7 @@ def create_activity_reports_ui_routes(
                     token=token,
                     label=period.label,
                     is_closed=period.is_closed(datetime.now()),
+                    has_started=period.has_started(datetime.now()),
                     note=note,
                 ),
             ),
@@ -195,6 +196,9 @@ def create_activity_reports_ui_routes(
             request=request,
         )
 
+    # boundary: fasthtml-app — FastHTML resolves the handler's annotations at
+    # registration, so the redirect/prompt/400 union stays Any on the route
+    # (the concrete Response | FT shape lives on _period_prompt_page).
     @rt("/activity-reports/for", methods=["GET"])
     async def activity_report_for_period(request: Request) -> Any:
         """Lookup half of the period door: ``?kind=monthly|weekly&date=YYYY-MM-DD``.
@@ -233,7 +237,9 @@ def create_activity_reports_ui_routes(
 
     @rt("/activity-reports/for", methods=["POST"])
     @csrf_protected
-    async def generate_activity_report_for_period(request: Request) -> Any:
+    async def generate_activity_report_for_period(
+        request: Request,
+    ) -> Any:  # boundary: fasthtml-app
         """Generation half of the period door: mint the period's report.
 
         Url-encoded ``time_period``; a token outside the vocabulary is 400. A

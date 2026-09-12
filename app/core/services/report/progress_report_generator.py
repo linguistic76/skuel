@@ -150,6 +150,14 @@ class ProgressReportGenerator:
             period = resolve_report_period(time_period, now)
         except UnknownReportPeriodError as e:
             return Result.fail(Errors.validation(message=str(e), field="time_period"))
+        if not period.has_started(now):
+            # A future period holds nothing yet; a report of it would count
+            # today's open work against an inverted window. Nothing generates.
+            return Result.fail(
+                Errors.validation(
+                    message=f"{period.label} has not started yet", field="time_period"
+                )
+            )
         start_date = period.start
         # The DATA cutoff. A calendar period still open is counted up to now and
         # the report is partial; a closed one up to its end. The rich query's
@@ -384,20 +392,21 @@ class ProgressReportGenerator:
         """Fetch the preceding report's intelligence metadata for the UI's deltas.
 
         The comparison is against the preceding DISTINCT period: for a calendar
-        period, an earlier report for the same token (a partial this one
-        supersedes) is skipped, never compared against. Returns None if no prior
-        report with intelligence data exists.
+        period, this period's own earlier reports (partials this one
+        supersedes, regenerations) are excluded IN the history read, so the
+        window of candidates is never exhausted by them. Returns None if no
+        prior report with intelligence data exists.
         """
         history_result = await self.activity_report_service.get_history(
-            subject_uid=user_uid, limit=5
+            subject_uid=user_uid,
+            limit=5,
+            exclude_time_period=period.token if period.is_calendar else None,
         )
         if history_result.is_error or not history_result.value:
             return None
 
         # Find most recent prior report with intelligence data
         for prior_report in history_result.value:
-            if period.is_calendar and getattr(prior_report, "time_period", None) == period.token:
-                continue
             prior_metadata = getattr(prior_report, "metadata", None) or {}
             if not isinstance(prior_metadata, dict):
                 continue
