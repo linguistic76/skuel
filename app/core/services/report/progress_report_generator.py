@@ -200,7 +200,14 @@ class ProgressReportGenerator:
             intelligence = await self._collect_intelligence(
                 user_uid, completions, start_date, end_date, ctx_result
             )
-            comparison = await self._collect_comparison(user_uid, period)
+            # A partial report is not compared: its elapsed slice against a full
+            # prior period would print declines the unequal windows caused. The
+            # final report, counted through the period's end, carries the comparison.
+            comparison = (
+                None
+                if period.is_partial_at(end_date)
+                else await self._collect_comparison(user_uid, period)
+            )
 
             # 4. Build content — LLM when available, programmatic fallback
             processor_type = ReportSource.AUTOMATIC
@@ -218,7 +225,7 @@ class ProgressReportGenerator:
                 llm_result = await self._generate_llm_report(
                     completions,
                     insights,
-                    period.label,
+                    period.label_through(end_date),
                     depth,
                     effective_annotation,
                     intelligence=intelligence,
@@ -619,7 +626,8 @@ class ProgressReportGenerator:
             completions: Raw activity stats from _completions_from_context()
             insights: Active insights for the user
             time_period: the period as a sentence names it ("the last 7 days",
-                "September 2026") — the prompt's wording, not the token
+                "September 2026", "September 2026 so far (counted through Sep
+                12, 2026)" for a partial period) — the prompt's wording, not the token
             depth: "summary" | "standard" | "detailed"
             previous_annotation: User's self-reflection from their most recent prior report
             intelligence: Pre-computed intelligence data (trends, patterns, alignment)

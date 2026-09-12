@@ -949,6 +949,43 @@ class TestCalendarPeriods:
         assert kwargs["end"] == report.data_cutoff.isoformat()
 
     @pytest.mark.asyncio
+    async def test_a_partial_report_is_not_compared_and_tells_the_llm_it_is_partial(
+        self, generator
+    ):
+        """The elapsed slice of an open period against a full prior period would
+        print declines the unequal windows caused, so a partial report carries no
+        comparison; the prompt's period label says "so far" with the cutoff."""
+        prior = MagicMock(uid="ar_prev", time_period="2026-08")
+        prior.metadata = {"intelligence": {"domain_trends": {}}}
+        generator.activity_report_service.get_history = AsyncMock(return_value=Result.ok([prior]))
+        generator.chat_port = MagicMock()
+        generator.chat_port.complete = AsyncMock(
+            return_value=Result.ok(MagicMock(text="An LLM report"))
+        )
+        token = monthly_period_key(date.today())  # the current month: open
+
+        result = await generator.generate(user_uid="user_alice", time_period=token)
+
+        assert result.is_ok, result.error
+        report = _persisted(generator)
+        assert report.metadata["is_partial"] is True
+        assert "comparison" not in report.metadata
+        generator.activity_report_service.get_history.assert_not_awaited()
+        prompt = generator.chat_port.complete.await_args.args[0][0]["content"]
+        assert " so far (counted through " in prompt
+
+    @pytest.mark.asyncio
+    async def test_a_final_report_is_compared(self, generator):
+        prior = MagicMock(uid="ar_dec", time_period="2025-12")
+        prior.metadata = {"intelligence": {"domain_trends": {"tasks": "stable"}}}
+        generator.activity_report_service.get_history = AsyncMock(return_value=Result.ok([prior]))
+
+        result = await generator.generate(user_uid="user_alice", time_period="2026-01")
+
+        assert result.is_ok, result.error
+        assert _persisted(generator).metadata["comparison"]["previous_report_uid"] == "ar_dec"
+
+    @pytest.mark.asyncio
     async def test_a_period_that_has_not_started_is_refused_before_any_read(self, generator):
         """A future month holds nothing yet: counting today's open work against
         an inverted window would persist misleading statistics."""

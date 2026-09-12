@@ -91,6 +91,13 @@ def test_a_report_counted_before_the_end_stays_partial_even_after_the_period_clo
     assert september.is_partial_at(counted_on_the_11th)
 
 
+def test_label_through_names_a_partial_period_as_such() -> None:
+    september = resolve_report_period("2026-09", NOW)
+    assert september.label_through(NOW) == "September 2026 so far (counted through Sep 12, 2026)"
+    assert september.label_through(september.end) == "September 2026"
+    assert resolve_report_period("7d", NOW).label_through(NOW) == "the last 7 days"
+
+
 def test_a_period_has_started_once_its_first_instant_has_passed() -> None:
     assert resolve_report_period("2026-09", NOW).has_started(NOW)
     assert resolve_report_period("2026-W37", NOW).has_started(NOW)

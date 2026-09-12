@@ -76,6 +76,15 @@ class ReportPeriod:
         """A report counted up to ``cutoff`` is partial when the period runs past it."""
         return self.is_calendar and cutoff < self.end
 
+    def label_through(self, cutoff: datetime) -> str:
+        """The period as a sentence names it, saying so when the counts stop
+        before its end: "September 2026 so far (counted through Sep 12, 2026)".
+        Every reader of the label — the LLM prompt included — is told a partial
+        period is partial."""
+        if not self.is_partial_at(cutoff):
+            return self.label
+        return f"{self.label} so far (counted through {cutoff.strftime('%b %d, %Y')})"
+
 
 def as_naive_utc(value: object) -> datetime | None:
     """A stored timestamp as a naive-UTC datetime, or None when absent or unreadable.
