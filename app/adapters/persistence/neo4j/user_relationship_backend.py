@@ -16,7 +16,6 @@ queries. Core-layer consumers depend on the port, not this class (ADR-044).
 Graph Relationships Managed:
 ----------------------------
 - (user)-[:PINNED {order: int}]->(entity) - Ordered pinned entities
-- (user)-[:PINNED_TODAY {pinned_at}]->(entity) - Today-surface pins
 - (user)-[:PURSUING_GOAL]->(goal) - Active/current goals
 - (user)-[:FOLLOWS]->(other_user) - Social following
 - (user)-[:MEMBER_OF]->(group) - Group membership
@@ -159,70 +158,6 @@ class UserRelationshipBackend:
             params={"user_uid": user_uid, "entity_uid": entity_uid},
             processor=check_exists,
             operation="unpin_entity",
-        )
-        if result.is_error:
-            return result
-        if not result.value:
-            return Result.fail(Errors.not_found("Pin not found"))
-        return Result.ok(True)
-
-    # ========================================================================
-    # Today-scoped Pins (3 methods)
-    #
-    # Distinct from the global :PINNED edge above. :PINNED_TODAY represents a
-    # pin that only affects the Today surface — ordering ribbon tasks and
-    # (future) filtering. Kept separate so global pins don't leak into Today
-    # and a Today-cleanup job can TTL these independently.
-    # ========================================================================
-
-    async def get_today_pinned(self, user_uid: UserUID) -> Result[set[str]]:
-        """UIDs pinned on the Today surface for ``user_uid``."""
-        return await self.executor.execute(
-            query=f"""
-                MATCH (user:User {{uid: $user_uid}})-[:{RelationshipName.PINNED_TODAY}]->(entity)
-                RETURN entity.uid as uid
-            """,
-            params={"user_uid": user_uid},
-            processor=extract_uids_set,
-            operation="get_today_pinned",
-        )
-
-    async def pin_for_today(self, user_uid: UserUID, entity_uid: EntityUID) -> Result[bool]:
-        """Pin ``entity_uid`` on the Today surface.
-
-        Idempotent: re-pinning an already-pinned entity leaves the edge
-        intact and does NOT bump ``pinned_at`` (use re-create semantics
-        if reset-on-pin is desired later).
-        """
-        result = await self.executor.execute(
-            query=f"""
-                MATCH (user:User {{uid: $user_uid}})
-                MATCH (entity {{uid: $entity_uid}})
-                MERGE (user)-[r:{RelationshipName.PINNED_TODAY}]->(entity)
-                ON CREATE SET r.pinned_at = datetime()
-                RETURN true as success
-            """,
-            params={"user_uid": user_uid, "entity_uid": entity_uid},
-            processor=check_exists,
-            operation="pin_for_today",
-        )
-        if result.is_error:
-            return result
-        if not result.value:
-            return Result.fail(Errors.not_found("Entity not found"))
-        return Result.ok(True)
-
-    async def unpin_for_today(self, user_uid: UserUID, entity_uid: EntityUID) -> Result[bool]:
-        """Remove the Today-scope pin on ``entity_uid``."""
-        result = await self.executor.execute(
-            query=f"""
-                MATCH (user:User {{uid: $user_uid}})-[r:{RelationshipName.PINNED_TODAY}]->(entity {{uid: $entity_uid}})
-                DELETE r
-                RETURN true as success
-            """,
-            params={"user_uid": user_uid, "entity_uid": entity_uid},
-            processor=check_exists,
-            operation="unpin_for_today",
         )
         if result.is_error:
             return result

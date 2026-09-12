@@ -1,736 +1,244 @@
-"""Tests for the TodayOrchestrator.
+"""Unit tests for ``TodayOrchestrator`` — the day view's per-domain selection.
 
-Shape-first: these tests verify the orchestrator returns a correctly-typed
-TodayPageContext and that mapper helpers produce the right view shapes.
-Full wiring across all 7 services is exercised in integration tests.
+The orchestrator selects and sorts domain models for one day; it never
+re-shapes them. Task membership is the shared predicates in
+``ui/today/membership.py`` (pinned separately there); this module pins what
+the orchestrator does WITH them — the overdue/tasks split, the live-day gate,
+the other dated domains, and per-section degradation.
 """
 
+from __future__ import annotations
+
 from datetime import date, datetime, timedelta
-from types import SimpleNamespace
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
-from core.models.enums import EntityStatus, EntityType, Priority, TimeOfDay
-from core.utils.result_simplified import Result
+from core.models.choice.choice import Choice
+from core.models.enums import EntityStatus
+from core.models.goal.goal import Goal
+from core.models.task.task import Task
+from core.utils.result_simplified import Errors, Result
 from ui.today.orchestrator import (
     TodayOrchestrator,
     _date_label,
-    _due_label,
     _heading_label,
-    _priority_label,
-    _slot_hhmm,
-    _task_to_triage,
-    _task_to_view,
+    choice_is_on_day,
 )
 
+USER = "user_today"
+TODAY = date.today()
+
+
 # ---------------------------------------------------------------------------
-# Mapper helpers
+# Pure helpers
 # ---------------------------------------------------------------------------
-
-
-def test_priority_label_is_the_enum_value() -> None:
-    assert _priority_label(Priority.HIGH) == "high"
-    assert _priority_label(Priority.MEDIUM) == "medium"
-    assert _priority_label(Priority.LOW) == "low"
-
-
-def test_priority_label_accepts_strings() -> None:
-    assert _priority_label("high") == "high"
-    assert _priority_label("medium") == "medium"
-    assert _priority_label("bogus") == "low"
-
-
-def test_due_label_handles_today_future_and_overdue() -> None:
-    today = date(2026, 4, 22)
-    assert _due_label(None, today) == ""
-    assert _due_label(today, today) == "Today"
-    assert _due_label(today + timedelta(days=1), today) == "Tomorrow"
-    assert _due_label(today + timedelta(days=3), today) == "In 3d"
-    assert _due_label(today - timedelta(days=2), today) == "Overdue · 2d"
 
 
 def test_date_label_shape() -> None:
-    # "Saturday · April 22" style
-    label = _date_label(date(2026, 4, 22))
-    assert " · " in label
-    assert "22" in label
+    assert _date_label(date(2026, 3, 22)) == "Sunday · March 22"
 
 
 def test_heading_label_uses_relative_words_near_today() -> None:
-    today = date(2026, 4, 22)
+    today = date(2026, 7, 18)
     assert _heading_label(today, today) == "Today"
     assert _heading_label(today - timedelta(days=1), today) == "Yesterday"
     assert _heading_label(today + timedelta(days=1), today) == "Tomorrow"
-    # Further out falls back to a compact month + day (no relative word).
-    assert _heading_label(date(2026, 4, 19), today) == "Apr 19"
+    assert _heading_label(date(2026, 7, 19) + timedelta(days=1), today) == "Jul 20"
 
 
-def _fake_task(
+def test_choice_is_on_day_by_deadline_or_decision() -> None:
+    day = date(2026, 9, 12)
+    due = Choice(uid="c1", user_uid=USER, title="x", decision_deadline=datetime(2026, 9, 12, 9))
+    decided = Choice(uid="c2", user_uid=USER, title="x", decided_at=datetime(2026, 9, 12, 21, 5))
+    elsewhere = Choice(uid="c3", user_uid=USER, title="x", decision_deadline=datetime(2026, 9, 13))
+    undated = Choice(uid="c4", user_uid=USER, title="x")
+    assert choice_is_on_day(due, day)
+    assert choice_is_on_day(decided, day)
+    assert not choice_is_on_day(elsewhere, day)
+    assert not choice_is_on_day(undated, day)
+
+
+# ---------------------------------------------------------------------------
+# Rig
+# ---------------------------------------------------------------------------
+
+
+def _task(
+    uid: str,
     *,
-    uid: str = "t1",
-    title: str = "Ship it",
-    description: str = "",
-    due_date: date | None = None,
-    scheduled_date: date | None = None,
+    due: date | None = None,
+    scheduled: date | None = None,
     status: EntityStatus = EntityStatus.ACTIVE,
-    priority: Priority = Priority.MEDIUM,
-    duration_minutes: int = 30,
-    fulfills_goal_uid: str | None = None,
-    updated_at: datetime | None = None,
-    created_at: datetime | None = None,
-    completion_date: date | None = None,
-) -> SimpleNamespace:
-    return SimpleNamespace(
-        uid=uid,
-        title=title,
-        description=description,
-        due_date=due_date,
-        scheduled_date=scheduled_date,
-        status=status,
-        priority=priority,
-        duration_minutes=duration_minutes,
-        fulfills_goal_uid=fulfills_goal_uid,
-        updated_at=updated_at,
-        created_at=created_at,
-        completion_date=completion_date,
+    title: str = "t",
+) -> Task:
+    return Task(
+        uid=uid, user_uid=USER, title=title, status=status, due_date=due, scheduled_date=scheduled
     )
 
 
-def test_task_to_view_produces_flat_shape() -> None:
-    today = date(2026, 4, 22)
-    t = _fake_task(
-        uid="t-adr",
-        title="ADR-021 · Event Sourcing",
-        description="draft awaiting decision",
-        due_date=today,
-        priority=Priority.HIGH,
-        duration_minutes=45,
-        fulfills_goal_uid="g-ship",
-    )
-    view = _task_to_view(t, lifepath_id="lp-mike", today=today)
-    assert view["id"] == "t-adr"
-    assert view["label"] == "ADR-021 · Event Sourcing"
-    assert view["lifepath_id"] == "lp-mike"
-    assert view["goal_id"] == "g-ship"
-    assert view["priority"] == "high"
-    assert view["status"] == "active"
-    assert view["est_min"] == 45
-    assert view["due_label"] == "Today"
-
-
-def test_task_to_view_carries_the_canonical_status_value() -> None:
-    """Today's Undo POSTs this value back to reopen a just-completed task.
-
-    ``POST /api/tasks/{uid}/status`` reads it as a canonical ``EntityStatus``
-    value, so the view must emit the value ("scheduled") and never a display
-    label ("Scheduled") — the emission rule at the machine channel.
-    """
-    today = date(2026, 4, 22)
-    view = _task_to_view(
-        _fake_task(uid="t-plan", status=EntityStatus.SCHEDULED),
-        lifepath_id="lp-mike",
-        today=today,
-    )
-    assert view["status"] == "scheduled"
-    assert view["status"] in {s.value for s in EntityType.TASK.valid_statuses()}
-
-
-def test_task_to_view_blanks_an_unrecognized_stored_status() -> None:
-    """A status the completion chokepoint would refuse is NOT offered to Undo.
-
-    ``from_neo4j_node`` leaves an unknown status on the model as a raw str
-    (correction #13). Posting it back would fail ``completion_transition_patch``
-    while the client had already un-hidden the card — the exact lie this field
-    exists to prevent — so the view emits ``""`` and the card offers no Undo.
-    The page still renders; the value is dropped, not raised on.
-    """
-    today = date(2026, 4, 22)
-    t = _fake_task(uid="t-odd")
-    t.status = "wat"  # type: ignore[assignment]
-    assert _task_to_view(t, lifepath_id="lp-mike", today=today)["status"] == ""
-
-
-def test_task_to_view_blanks_completed_because_restoring_it_undoes_nothing() -> None:
-    """``completed`` is a legal Task status but not a restorable one.
-
-    The status route would accept the re-post and change nothing (not a
-    transition), leaving the card un-hidden over a still-completed task. Today's
-    membership predicate already keeps completed tasks off the lens, so this is
-    a guard on an unreachable state — the same shape as PR-3's terminal check.
-    """
-    today = date(2026, 4, 22)
-    view = _task_to_view(
-        _fake_task(uid="t-done", status=EntityStatus.COMPLETED),
-        lifepath_id="lp-mike",
-        today=today,
-    )
-    assert view["status"] == ""
-
-
-def test_task_to_triage_carries_status_through_from_the_base_view() -> None:
-    today = date(2026, 4, 22)
-    view = _task_to_triage(
-        _fake_task(uid="t-stuck", status=EntityStatus.BLOCKED, due_date=today - timedelta(days=1)),
-        lifepath_id="lp-mike",
-        today=today,
-    )
-    assert view["status"] == "blocked"
-
-
-def test_task_to_triage_adds_severity_and_reason() -> None:
-    today = date(2026, 4, 22)
-    t = _fake_task(
-        uid="t-late",
-        title="Late ADR re-review",
-        due_date=today - timedelta(days=3),
-        priority=Priority.HIGH,
-    )
-    view = _task_to_triage(t, lifepath_id="lp-mike", today=today)
-    assert view["severity"] == "overdue"
-    assert "Overdue" in view["reason"]
-    assert view["id"] == "t-late"
-
-
-# ---------------------------------------------------------------------------
-# Orchestrator
-# ---------------------------------------------------------------------------
-
-
-def _ok(value: object) -> Result:  # type: ignore[type-arg]
-    return Result.ok(value)
-
-
-def _build() -> tuple[TodayOrchestrator, dict[str, MagicMock]]:
+def _build(
+    *,
+    tasks: list[Task] | None = None,
+) -> tuple[TodayOrchestrator, dict[str, MagicMock]]:
     services: dict[str, MagicMock] = {
-        "tasks_service": MagicMock(),
-        "goals_service": MagicMock(),
-        "habits_service": MagicMock(),
-        "events_service": MagicMock(),
-        "principles_service": MagicMock(),
-        "lifepath_service": MagicMock(),
-        "user_relationship_service": MagicMock(),
+        key: MagicMock() for key in ("tasks", "events", "habits", "goals", "choices", "calendar")
     }
-    services["tasks_service"].get_user_tasks = AsyncMock(return_value=_ok([]))
-    services["goals_service"].get_user_goals = AsyncMock(return_value=_ok([]))
-    services["habits_service"].get_user_habits = AsyncMock(return_value=_ok([]))
-    services["events_service"].get_user_events = AsyncMock(return_value=_ok([]))
-    services["principles_service"].get_user_principles = AsyncMock(return_value=_ok([]))
-    services["principles_service"].get_embodiment_rates_7d = AsyncMock(return_value=_ok({}))
-    services["user_relationship_service"].get_today_pinned = AsyncMock(return_value=_ok(set()))
-
-    # Graph-enrichment surfaces consumed by _first_principle_map.
-    services["goals_service"].relationships = MagicMock()
-    services["goals_service"].relationships.get_related_uids = AsyncMock(return_value=_ok([]))
-    services["habits_service"].relationships = MagicMock()
-    services["habits_service"].relationships.get_related_uids = AsyncMock(return_value=_ok([]))
-
-    services["lifepath_service"].core = MagicMock()
-    services["lifepath_service"].core.get_designation = AsyncMock(return_value=_ok(None))
-    services["lifepath_service"].core.lp_service = None  # no LP fetch in default harness
-
+    services["tasks"].get_user_tasks = AsyncMock(return_value=Result.ok(tasks or []))
+    services["events"].get_user_items_in_range = AsyncMock(return_value=Result.ok([]))
+    services["calendar"].habit_items_for_day = AsyncMock(return_value=Result.ok([]))
+    services["goals"].get_user_items_in_range = AsyncMock(return_value=Result.ok([]))
+    services["choices"].get_user_choices = AsyncMock(return_value=Result.ok([]))
     orch = TodayOrchestrator(
-        tasks_service=services["tasks_service"],
-        goals_service=services["goals_service"],
-        habits_service=services["habits_service"],
-        events_service=services["events_service"],
-        principles_service=services["principles_service"],
-        lifepath_service=services["lifepath_service"],
-        user_relationship_service=services["user_relationship_service"],
+        tasks_service=services["tasks"],
+        events_service=services["events"],
+        habits_service=services["habits"],
+        goals_service=services["goals"],
+        choices_service=services["choices"],
+        calendar_service=services["calendar"],
     )
     return orch, services
 
 
+# ---------------------------------------------------------------------------
+# build_context
+# ---------------------------------------------------------------------------
+
+
 @pytest.mark.asyncio
-async def test_build_context_empty_day_returns_valid_shape() -> None:
+async def test_empty_day_returns_the_full_shape() -> None:
     orch, _ = _build()
-    result = await orch.build_context("u-mike")
-    assert not result.is_error
-    ctx = result.value
-    # required keys present
-    for key in (
-        "today_iso",
-        "date_label",
-        "heading",
-        "is_today",
-        "now_hhmm",
-        "stats",
-        "triage",
-        "lifepaths",
-        "principles",
-        "goals",
-        "tasks",
-        "rituals",
-        "kinds",
-    ):
-        assert key in ctx
-    assert ctx["tasks"] == []
-    assert ctx["triage"] == []
-    assert ctx["stats"]["nodes"] == 0
-    assert ctx["stats"]["committed_min"] == 0
-    assert len(ctx["lifepaths"]) == 1
-    # no activity at all → ribbon renders dormant
-    assert ctx["lifepaths"][0]["dormant"] is True
-    # canonical kind metadata present
-    assert set(ctx["kinds"].keys()) == {
-        "submission",
-        "path-step",
-        "askesis",
-        "journal",
-        "ku",
-        "resource",
-    }
 
+    result = await orch.build_context(USER)
 
-@pytest.mark.asyncio
-async def test_build_context_splits_today_tasks_and_triage() -> None:
-    orch, services = _build()
-    today = date.today()
-    services["tasks_service"].get_user_tasks = AsyncMock(
-        return_value=_ok(
-            [
-                _fake_task(uid="t-today", due_date=today, priority=Priority.HIGH),
-                _fake_task(
-                    uid="t-late",
-                    due_date=today - timedelta(days=2),
-                    priority=Priority.HIGH,
-                ),
-                _fake_task(uid="t-future", due_date=today + timedelta(days=3)),
-            ]
-        )
-    )
-    result = await orch.build_context("u-mike")
-    assert not result.is_error
+    assert result.is_ok
     ctx = result.value
-    assert [t["id"] for t in ctx["tasks"]] == ["t-today"]
-    assert [t["id"] for t in ctx["triage"]] == ["t-late"]
-    assert ctx["triage"][0]["severity"] == "overdue"
-    assert ctx["triage"][0]["priority"] == "high"  # CRITICAL collapses to high
-    # Bare build → the live day: is_today True, today_iso anchored to today.
-    assert ctx["is_today"] is True
-    assert ctx["today_iso"] == today.isoformat()
+    assert ctx["today_iso"] == TODAY.isoformat()
     assert ctx["heading"] == "Today"
+    assert ctx["is_today"] is True
+    assert ctx["can_quick_add"] is True
+    for key in ("overdue", "tasks", "events", "habits", "milestones", "choices"):
+        assert ctx[key] == []  # type: ignore[literal-required]
 
 
 @pytest.mark.asyncio
-async def test_build_context_day_lens_targets_other_day() -> None:
-    """A ``view_date`` other than today is a pure day lens: tasks filter to that
-    day, triage (overdue-now) is suppressed, and the NOW marker is disabled."""
-    orch, services = _build()
-    today = date.today()
-    tomorrow = today + timedelta(days=1)
-    services["tasks_service"].get_user_tasks = AsyncMock(
-        return_value=_ok(
-            [
-                _fake_task(uid="t-today", due_date=today),
-                _fake_task(uid="t-tomorrow", due_date=tomorrow),
-                _fake_task(uid="t-late", due_date=today - timedelta(days=2)),
-            ]
-        )
-    )
-    result = await orch.build_context("u-mike", tomorrow)
-    assert not result.is_error
-    ctx = result.value
-    # Only tomorrow's task; today's + the overdue one are not on this day.
-    assert [t["id"] for t in ctx["tasks"]] == ["t-tomorrow"]
-    # Triage is a present-tense bar — never shown while browsing another day.
-    assert ctx["triage"] == []
+async def test_overdue_and_tasks_split_by_the_shared_predicates() -> None:
+    """Overdue = due strictly before today; tasks = scheduled OR due today,
+    minus the overdue — a task in both renders once, in Overdue."""
+    yesterday = TODAY - timedelta(days=1)
+    overdue = _task("late", due=yesterday)
+    due_today = _task("due", due=TODAY)
+    scheduled_today = _task("sched", scheduled=TODAY)
+    both = _task("both", due=yesterday, scheduled=TODAY)
+    done = _task("done", due=yesterday, status=EntityStatus.COMPLETED)
+    unrelated = _task("far", due=TODAY + timedelta(days=3))
+    orch, _ = _build(tasks=[overdue, due_today, scheduled_today, both, done, unrelated])
+
+    ctx = (await orch.build_context(USER)).value
+
+    assert {t.uid for t in ctx["overdue"]} == {"both", "late"}
+    assert {t.uid for t in ctx["tasks"]} == {"due", "sched"}
+
+
+@pytest.mark.asyncio
+async def test_other_day_has_no_overdue_but_keeps_its_members() -> None:
+    """Overdue is a present-tense surface: browsing another day shows that
+    day's lens members and no overdue pile."""
+    other = TODAY + timedelta(days=2)
+    orch, _ = _build(tasks=[_task("late", due=TODAY - timedelta(days=1)), _task("on", due=other)])
+
+    ctx = (await orch.build_context(USER, other)).value
+
+    assert ctx["overdue"] == []
+    assert [t.uid for t in ctx["tasks"]] == ["on"]
     assert ctx["is_today"] is False
-    assert ctx["today_iso"] == tomorrow.isoformat()
-    assert ctx["heading"] == "Tomorrow"
+    assert ctx["heading"] != "Today"
 
 
 @pytest.mark.asyncio
-async def test_build_context_can_quick_add_gates_on_past() -> None:
-    """C6: quick-add is offered on today and future days, never a past day."""
+async def test_can_quick_add_gates_on_past_days() -> None:
     orch, _ = _build()
-    today = date.today()
-
-    today_ctx = (await orch.build_context("u-mike")).value
-    assert today_ctx["can_quick_add"] is True
-
-    future_ctx = (await orch.build_context("u-mike", today + timedelta(days=3))).value
-    assert future_ctx["can_quick_add"] is True
-
-    past_ctx = (await orch.build_context("u-mike", today - timedelta(days=1))).value
-    assert past_ctx["can_quick_add"] is False
+    assert (await orch.build_context(USER, TODAY - timedelta(days=1))).value[
+        "can_quick_add"
+    ] is False
+    assert (await orch.build_context(USER, TODAY + timedelta(days=1))).value[
+        "can_quick_add"
+    ] is True
 
 
 @pytest.mark.asyncio
-async def test_build_context_ribbon_admits_scheduled_only_task() -> None:
-    """C7 membership widening: scheduled_date == view_date puts a task on the
-    ribbon even with NO due_date — it must not be invisible to the very lens
-    that acts on it (and that quick-add will create it from, PR 6)."""
-    orch, services = _build()
-    today = date.today()
-    services["tasks_service"].get_user_tasks = AsyncMock(
-        return_value=_ok(
-            [
-                _fake_task(uid="t-work", scheduled_date=today),  # scheduled-only
-                _fake_task(uid="t-elsewhere", scheduled_date=today + timedelta(days=2)),
-                _fake_task(
-                    uid="t-done-work",
-                    scheduled_date=today,
-                    status=EntityStatus.COMPLETED,
-                ),
-            ]
-        )
+async def test_tasks_are_ordered_by_due_date_then_title() -> None:
+    orch, _ = _build(
+        tasks=[
+            _task("b", scheduled=TODAY, title="Beta"),
+            _task("a", scheduled=TODAY, title="Alpha"),
+            _task("d", scheduled=TODAY, due=TODAY, title="Zed"),
+        ]
     )
-    result = await orch.build_context("u-mike")
-    assert not result.is_error
-    ctx = result.value
-    assert [t["id"] for t in ctx["tasks"]] == ["t-work"]
-    # No due_date → no due label; the card still renders.
-    assert ctx["tasks"][0]["due_label"] == ""
-    assert ctx["triage"] == []
+    ctx = (await orch.build_context(USER)).value
+    assert [t.uid for t in ctx["tasks"]] == ["d", "a", "b"]
 
 
 @pytest.mark.asyncio
-async def test_build_context_dual_membership_task_in_ribbon_and_triage() -> None:
-    """Overdue AND scheduled today → one card per surface: the ribbon speaks
-    work-plan language (scheduled match), triage speaks deadline language."""
+async def test_other_domains_are_read_for_the_viewed_day() -> None:
+    day = TODAY + timedelta(days=1)
     orch, services = _build()
-    today = date.today()
-    services["tasks_service"].get_user_tasks = AsyncMock(
-        return_value=_ok(
-            [
-                _fake_task(
-                    uid="t-dual",
-                    due_date=today - timedelta(days=3),
-                    scheduled_date=today,
-                ),
-            ]
-        )
+    goal = Goal(uid="g1", user_uid=USER, title="Ship", target_date=day)
+    services["goals"].get_user_items_in_range = AsyncMock(return_value=Result.ok([goal]))
+    habit_item = MagicMock(name="habit-chip")
+    services["calendar"].habit_items_for_day = AsyncMock(return_value=Result.ok([habit_item]))
+    on_day = Choice(
+        uid="c-on",
+        user_uid=USER,
+        title="Pick",
+        decision_deadline=datetime.combine(day, datetime.min.time()),
     )
-    result = await orch.build_context("u-mike")
-    assert not result.is_error
-    ctx = result.value
-    assert [t["id"] for t in ctx["tasks"]] == ["t-dual"]
-    assert [t["id"] for t in ctx["triage"]] == ["t-dual"]
+    off_day = Choice(uid="c-off", user_uid=USER, title="Skip", decided_at=datetime(2020, 1, 1))
+    services["choices"].get_user_choices = AsyncMock(return_value=Result.ok([off_day, on_day]))
+
+    ctx = (await orch.build_context(USER, day)).value
+
+    services["events"].get_user_items_in_range.assert_awaited_once_with(
+        USER, day, day, include_completed=True
+    )
+    services["goals"].get_user_items_in_range.assert_awaited_once_with(
+        USER, day, day, include_completed=True
+    )
+    services["calendar"].habit_items_for_day.assert_awaited_once_with(USER, day)
+    assert ctx["milestones"] == [goal]
+    assert ctx["habits"] == [habit_item]
+    assert [c.uid for c in ctx["choices"]] == ["c-on"]
 
 
 @pytest.mark.asyncio
-async def test_build_context_triage_stays_due_based_not_scheduled() -> None:
-    """A past scheduled_date alone never puts a task in triage — triage is
-    deadline language (due-based), per the contract."""
+async def test_a_failed_task_read_fails_the_page() -> None:
     orch, services = _build()
-    today = date.today()
-    services["tasks_service"].get_user_tasks = AsyncMock(
-        return_value=_ok([_fake_task(uid="t-old-plan", scheduled_date=today - timedelta(days=5))])
+    services["tasks"].get_user_tasks = AsyncMock(
+        return_value=Result.fail(Errors.database("get_user_tasks", "boom"))
     )
-    result = await orch.build_context("u-mike")
-    assert not result.is_error
-    assert result.value["triage"] == []
-    assert result.value["tasks"] == []
-
-
-@pytest.mark.asyncio
-async def test_build_context_propagates_tasks_service_failure() -> None:
-    from core.utils.result_simplified import Errors
-
-    orch, services = _build()
-    services["tasks_service"].get_user_tasks = AsyncMock(
-        return_value=Result.fail(Errors.database("get_user_tasks", "tasks query failed"))
-    )
-    result = await orch.build_context("u-mike")
+    result = await orch.build_context(USER)
     assert result.is_error
 
 
 @pytest.mark.asyncio
-async def test_build_context_ritual_sorts_by_slot_representative_hour() -> None:
-    orch, services = _build()
-    night_habit = SimpleNamespace(
-        uid="h-night",
-        title="Evening reflect",
-        preferred_time=TimeOfDay.NIGHT,
-        duration_minutes=10,
-    )
-    morning_habit = SimpleNamespace(
-        uid="h-morning",
-        title="Morning sit",
-        preferred_time=TimeOfDay.MORNING,
-        duration_minutes=20,
-    )
-    services["habits_service"].get_user_habits = AsyncMock(
-        return_value=_ok([night_habit, morning_habit])
-    )
-    result = await orch.build_context("u-mike")
-    assert not result.is_error
-    rituals = result.value["rituals"]
-    assert [r["id"] for r in rituals] == ["h-morning", "h-night"]
-    assert rituals[0]["time"] == "09:00"
-    assert rituals[1]["time"] == "22:00"
-
-
-@pytest.mark.asyncio
-async def test_build_context_keeps_every_slot_valued_habit_on_the_spine() -> None:
-    """Every TimeOfDay slot reaches the spine — the old HH:MM gate dropped them all.
-
-    Slot-valued habits (``preferred_time="evening"`` and friends) were silently
-    excluded while the spine parsed ``preferred_time`` as a clock time. Asserting the
-    whole enum, not one member, keeps a future slot from re-opening that hole.
-    """
-    orch, services = _build()
-    habits = [
-        SimpleNamespace(
-            uid=f"h-{slot.value}", title=slot.value, preferred_time=slot, duration_minutes=5
-        )
-        for slot in TimeOfDay
-    ]
-    services["habits_service"].get_user_habits = AsyncMock(return_value=_ok(habits))
-    result = await orch.build_context("u-mike")
-    assert not result.is_error
-    rituals = result.value["rituals"]
-    assert {r["id"] for r in rituals} == {f"h-{slot.value}" for slot in TimeOfDay}
-    by_id = {r["id"]: r["time"] for r in rituals}
-    for slot in TimeOfDay:
-        assert by_id[f"h-{slot.value}"] == f"{slot.get_default_hour():02d}:00"
-
-
-@pytest.mark.asyncio
-async def test_build_context_skips_habits_without_a_slot() -> None:
-    orch, services = _build()
-    no_slot = SimpleNamespace(
-        uid="h-untimed", title="Deep work", preferred_time=None, duration_minutes=45
-    )
-    services["habits_service"].get_user_habits = AsyncMock(return_value=_ok([no_slot]))
-    result = await orch.build_context("u-mike")
-    assert not result.is_error
-    assert result.value["rituals"] == []
-
-
-# ---------------------------------------------------------------------------
-# Graph enrichment — Goal → Principle, Habit → Principle
-# ---------------------------------------------------------------------------
-
-
-def test_slot_hhmm_renders_each_slot_representative_hour() -> None:
-    assert _slot_hhmm(None) is None
-    assert _slot_hhmm(TimeOfDay.EARLY_MORNING) == "06:00"
-    assert _slot_hhmm(TimeOfDay.MORNING) == "09:00"
-    assert _slot_hhmm(TimeOfDay.AFTERNOON) == "14:00"
-    assert _slot_hhmm(TimeOfDay.EVENING) == "19:00"
-    assert _slot_hhmm(TimeOfDay.NIGHT) == "22:00"
-    assert _slot_hhmm(TimeOfDay.LATE_NIGHT) == "02:00"
-    assert _slot_hhmm(TimeOfDay.ANYTIME) == "09:00"
-
-
-@pytest.mark.asyncio
-async def test_goal_principle_id_comes_from_graph_lookup() -> None:
-    orch, services = _build()
-    goal = SimpleNamespace(
-        uid="g-1",
-        title="Ship Today",
-        status=EntityStatus.ACTIVE,
-        calculate_progress=lambda: 0.4,
-    )
-    services["goals_service"].get_user_goals = AsyncMock(return_value=_ok([goal]))
-    services["goals_service"].relationships.get_related_uids = AsyncMock(
-        return_value=_ok(["p-craftsmanship", "p-depth"])
+@pytest.mark.parametrize(
+    ("service", "method"),
+    [
+        ("events", "get_user_items_in_range"),
+        ("goals", "get_user_items_in_range"),
+        ("calendar", "habit_items_for_day"),
+        ("choices", "get_user_choices"),
+    ],
+)
+async def test_a_failed_section_read_degrades_to_an_empty_section(
+    service: str, method: str
+) -> None:
+    orch, services = _build(tasks=[_task("t", scheduled=TODAY)])
+    setattr(
+        services[service], method, AsyncMock(return_value=Result.fail(Errors.database(method, "x")))
     )
 
-    result = await orch.build_context("u-mike")
-    assert not result.is_error
-    goal_views = result.value["goals"]
-    assert len(goal_views) == 1
-    assert goal_views[0]["id"] == "g-1"
-    assert goal_views[0]["principle_id"] == "p-craftsmanship"
-    assert goal_views[0]["progress"] == 0.4
-    # The graph call used the "principles" key (GUIDED_BY_PRINCIPLE under the hood).
-    services["goals_service"].relationships.get_related_uids.assert_awaited_with(
-        "principles", "g-1"
-    )
+    result = await orch.build_context(USER)
 
-
-@pytest.mark.asyncio
-async def test_habit_ritual_principle_id_comes_from_graph_lookup() -> None:
-    orch, services = _build()
-    habit = SimpleNamespace(
-        uid="h-sit",
-        title="Morning sit",
-        preferred_time=TimeOfDay.MORNING,
-        duration_minutes=20,
-    )
-    services["habits_service"].get_user_habits = AsyncMock(return_value=_ok([habit]))
-    services["habits_service"].relationships.get_related_uids = AsyncMock(
-        return_value=_ok(["p-reflect"])
-    )
-
-    result = await orch.build_context("u-mike")
-    assert not result.is_error
-    rituals = result.value["rituals"]
-    assert len(rituals) == 1
-    assert rituals[0]["id"] == "h-sit"
-    assert rituals[0]["principle_id"] == "p-reflect"
-    services["habits_service"].relationships.get_related_uids.assert_awaited_with(
-        "principles", "h-sit"
-    )
-
-
-@pytest.mark.asyncio
-async def test_graph_lookup_failure_degrades_to_empty_principle() -> None:
-    """A failed principle-edge fetch should not abort the page — we just
-    render that goal/habit without a principle binding."""
-    from core.utils.result_simplified import Errors
-
-    orch, services = _build()
-    goal = SimpleNamespace(
-        uid="g-1",
-        title="Ship Today",
-        status=EntityStatus.ACTIVE,
-        calculate_progress=lambda: 0.0,
-    )
-    services["goals_service"].get_user_goals = AsyncMock(return_value=_ok([goal]))
-    services["goals_service"].relationships.get_related_uids = AsyncMock(
-        return_value=Result.fail(Errors.database("get_related_uids", "boom"))
-    )
-
-    result = await orch.build_context("u-mike")
-    assert not result.is_error
-    assert result.value["goals"][0]["principle_id"] == ""
-
-
-# ---------------------------------------------------------------------------
-# Principle embodiment rate — rolling 7d habit-completion aggregate
-# ---------------------------------------------------------------------------
-
-
-@pytest.mark.asyncio
-async def test_principle_embodiment_rate_flows_from_principles_service() -> None:
-    orch, services = _build()
-    active = SimpleNamespace(
-        uid="p-depth",
-        title="Depth over breadth",
-        status=EntityStatus.ACTIVE,
-        strength=SimpleNamespace(value="core"),
-    )
-    archived = SimpleNamespace(
-        uid="p-old",
-        title="Old",
-        status=EntityStatus.ARCHIVED,
-        strength=SimpleNamespace(value="developing"),
-    )
-    services["principles_service"].get_user_principles = AsyncMock(
-        return_value=_ok([active, archived])
-    )
-    services["principles_service"].get_embodiment_rates_7d = AsyncMock(
-        return_value=_ok({"p-depth": 0.42})
-    )
-
-    result = await orch.build_context("u-mike")
-    assert not result.is_error
-    principles = result.value["principles"]
-    # Archived principles are filtered out.
-    assert [p["id"] for p in principles] == ["p-depth"]
-    assert principles[0]["embodiment_rate"] == 0.42
-    # The batch call was made with only the active principle's UID.
-    called = services["principles_service"].get_embodiment_rates_7d.await_args
-    assert list(called.args[0]) == ["p-depth"]
-
-
-@pytest.mark.asyncio
-async def test_principle_embodiment_rate_degrades_to_zero_on_failure() -> None:
-    from core.utils.result_simplified import Errors
-
-    orch, services = _build()
-    principle = SimpleNamespace(
-        uid="p-depth",
-        title="Depth over breadth",
-        status=EntityStatus.ACTIVE,
-        strength=SimpleNamespace(value="strong"),
-    )
-    services["principles_service"].get_user_principles = AsyncMock(return_value=_ok([principle]))
-    services["principles_service"].get_embodiment_rates_7d = AsyncMock(
-        return_value=Result.fail(Errors.database("get_embodiment_rates_7d", "boom"))
-    )
-
-    result = await orch.build_context("u-mike")
-    assert not result.is_error
-    principles = result.value["principles"]
-    assert len(principles) == 1
-    assert principles[0]["embodiment_rate"] == 0.0
-
-
-# ---------------------------------------------------------------------------
-# Today-scoped pins — :PINNED_TODAY edge
-# ---------------------------------------------------------------------------
-
-
-@pytest.mark.asyncio
-async def test_ribbon_tasks_sort_pinned_first_with_stable_order() -> None:
-    orch, services = _build()
-    today = date.today()
-    services["tasks_service"].get_user_tasks = AsyncMock(
-        return_value=_ok(
-            [
-                _fake_task(uid="t-a", due_date=today),
-                _fake_task(uid="t-b-pinned", due_date=today),
-                _fake_task(uid="t-c", due_date=today),
-                _fake_task(uid="t-d-pinned", due_date=today),
-            ]
-        )
-    )
-    services["user_relationship_service"].get_today_pinned = AsyncMock(
-        return_value=_ok({"t-b-pinned", "t-d-pinned"})
-    )
-
-    result = await orch.build_context("u-mike")
-    assert not result.is_error
-    ordered = [t["id"] for t in result.value["tasks"]]
-    # Pinned first (source-order within each group), then unpinned (source-order).
-    assert ordered == ["t-b-pinned", "t-d-pinned", "t-a", "t-c"]
-    pinned_flags = {t["id"]: t["pinned"] for t in result.value["tasks"]}
-    assert pinned_flags == {
-        "t-a": False,
-        "t-b-pinned": True,
-        "t-c": False,
-        "t-d-pinned": True,
-    }
-
-
-@pytest.mark.asyncio
-async def test_triage_carries_pinned_flag_but_stays_severity_ordered() -> None:
-    orch, services = _build()
-    today = date.today()
-    # Two overdue tasks: the more-overdue one is unpinned; the less-overdue is pinned.
-    # Ribbon would sort pinned-first, triage must NOT — keep severity order.
-    services["tasks_service"].get_user_tasks = AsyncMock(
-        return_value=_ok(
-            [
-                _fake_task(uid="t-late-7d", due_date=today - timedelta(days=7)),
-                _fake_task(uid="t-late-2d-pinned", due_date=today - timedelta(days=2)),
-            ]
-        )
-    )
-    services["user_relationship_service"].get_today_pinned = AsyncMock(
-        return_value=_ok({"t-late-2d-pinned"})
-    )
-
-    result = await orch.build_context("u-mike")
-    assert not result.is_error
-    triage = result.value["triage"]
-    assert [t["id"] for t in triage] == ["t-late-7d", "t-late-2d-pinned"]
-    assert triage[0]["pinned"] is False
-    assert triage[1]["pinned"] is True
-
-
-@pytest.mark.asyncio
-async def test_today_pinned_failure_degrades_to_unpinned() -> None:
-    """A failed pin fetch should not abort the page — tasks render with
-    ``pinned=False`` in source order."""
-    from core.utils.result_simplified import Errors
-
-    orch, services = _build()
-    today = date.today()
-    services["tasks_service"].get_user_tasks = AsyncMock(
-        return_value=_ok([_fake_task(uid="t-a", due_date=today)])
-    )
-    services["user_relationship_service"].get_today_pinned = AsyncMock(
-        return_value=Result.fail(Errors.database("get_today_pinned", "boom"))
-    )
-
-    result = await orch.build_context("u-mike")
-    assert not result.is_error
-    tasks = result.value["tasks"]
-    assert len(tasks) == 1
-    assert tasks[0]["pinned"] is False
+    assert result.is_ok
+    assert [t.uid for t in result.value["tasks"]] == ["t"]

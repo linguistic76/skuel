@@ -66,7 +66,7 @@ disk and to `ui/theme.py`'s version constants.
 
 `cacheFirst()` caches **every** `/static/` response, not just `PRECACHE_URLS`
 entries. So editing any file served under `/static/` — page-local bundles like
-`today.js` and the generated `output.css` included — requires bumping
+`explore-reading.js` and the generated `output.css` included — requires bumping
 `CACHE_VERSION` in the same change, or installed clients keep serving the stale
 asset indefinitely. PRECACHE_URLS membership is not the trigger.
 

@@ -459,3 +459,60 @@ async def test_fetch_habits_include_completed_returns_all_statuses() -> None:
     assert await svc._fetch_habits("user_x", include_completed=True) is every
     svc.habits_service.get_user_habits.assert_awaited_once_with("user_x")
     svc.habits_service.get_active.assert_not_awaited()
+
+
+# ---------------------------------------------------------------------------
+# habit_items_for_day — the day view's Habits producer
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio
+async def test_habit_items_for_day_stamps_each_habit_recurring_on_the_day() -> None:
+    """Every habit projecting an occurrence on the day comes back as the same
+    day-stamped item the modal uses (block re-dated, occurrence_data with the
+    day and its completion state); a habit not recurring that day is absent."""
+    svc = CalendarService(
+        tasks_service=AsyncMock(),
+        events_service=AsyncMock(),
+        habits_service=AsyncMock(),
+        goals_service=AsyncMock(),
+    )
+    daily = _habit(RecurrencePattern.DAILY, created=datetime(2026, 7, 1))
+    daily = Habit(**{**daily.__dict__, "uid": "habit.daily"})
+    ended = _habit(
+        RecurrencePattern.DAILY, created=datetime(2026, 7, 1), recurrence_end=date(2026, 7, 10)
+    )
+    ended = Habit(**{**ended.__dict__, "uid": "habit.ended"})
+    svc.habits_service.get_active = AsyncMock(return_value=Result.ok([daily, ended]))
+    svc.habits_service.completions.get_completions_for_habit = AsyncMock(
+        return_value=Result.ok([SimpleNamespace(completed_at=datetime(2026, 7, 21, 8, 0))])
+    )
+
+    result = await svc.habit_items_for_day("user_test", date(2026, 7, 21))
+
+    assert result.is_ok
+    assert [item.source_uid for item in result.value] == ["habit.daily"]
+    (item,) = result.value
+    assert item.occurrence_data == {"date": "2026-07-21", "status": CompletionStatus.DONE.value}
+    assert item.start_time.date() == date(2026, 7, 21)
+
+
+@pytest.mark.asyncio
+async def test_habit_items_for_day_propagates_a_failed_completions_read() -> None:
+    """A chip rendering a done day as pending would offer a second complete —
+    the read failure propagates rather than degrading."""
+    svc = CalendarService(
+        tasks_service=AsyncMock(),
+        events_service=AsyncMock(),
+        habits_service=AsyncMock(),
+        goals_service=AsyncMock(),
+    )
+    habit = _habit(RecurrencePattern.DAILY, created=datetime(2026, 7, 1))
+    svc.habits_service.get_active = AsyncMock(return_value=Result.ok([habit]))
+    svc.habits_service.completions.get_completions_for_habit = AsyncMock(
+        return_value=Result.fail(Errors.database("get_completions_for_habit", "boom"))
+    )
+
+    result = await svc.habit_items_for_day("user_test", date(2026, 7, 21))
+
+    assert result.is_error

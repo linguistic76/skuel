@@ -244,7 +244,7 @@ two to four such writers. The lock is the mechanism; the `CASE` merges alone are
   the hook explicitly, and each has a test pinning that its rules still fire and still
   refuse. This is the "correction #14" class: a rule that has no caller fails silently and
   looks like it passed.
-- **`today.js`'s request queue stays**, and was completed rather than retired. The
+- **`today.js`'s request queue stays** (at the time; the bundle was retired with the day-view arc D.1, 2026-09-12 — the day is server-rendered and posts through HTMX), and was completed rather than retired. The
   primitive makes each write's verdict exact under any interleaving; it cannot ORDER two
   opposing HTTP requests, and no server-side guard can decide which of two the user MEANT
   to win. A reopen that lands before an in-flight complete still leaves the task completed

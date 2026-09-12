@@ -1,6 +1,6 @@
 ---
 title: "Habit-Rhythm Arc Follow-ups"
-updated: 2026-09-05
+updated: 2026-09-12
 status: "deferred"
 registered: 2026-08-07
 trigger: "lived weekly-review use wants habit rows; next touch of /today or habits_scheduling_service for the duration follow-up"
@@ -26,7 +26,10 @@ threshold.
 
 ## Non-positive-duration follow-ups (arc PR 2)
 
-The same habit renders `0m` on `/today` while `habits_scheduling_service` proposes `15` —
-two surfaces disagreeing about a non-positive `duration_minutes`.
+The same habit rendered `0m` on `/today` while `habits_scheduling_service` proposes `15` —
+two surfaces disagreeing about a non-positive `duration_minutes`. The `/today` half closed
+with the day view (calendar-priority-lens arc D.1, 2026-09-12): the day renders habits as
+the calendar's chips, whose block label reads a non-positive stored duration as unstated
+(`CalendarService._habit_block_minutes`). What remains is the scheduling service's `15`.
 
-**Enable when**: next touch of either surface; small enough to ride along.
+**Enable when**: next touch of `habits_scheduling_service`; small enough to ride along.

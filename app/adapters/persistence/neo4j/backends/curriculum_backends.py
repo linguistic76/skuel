@@ -1179,7 +1179,6 @@ _TELEMETRY_EDGE_LIST = "[{}]".format(
             RelationshipName.BOOKMARKED,
             RelationshipName.INTERESTED_IN,
             RelationshipName.PINNED,
-            RelationshipName.PINNED_TODAY,
         )
     )
 )

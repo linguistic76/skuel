@@ -289,6 +289,9 @@ def ActivityList(
     domain: str,
     card_fn: Callable,
     connections_map: dict[str, list[dict[str, str]]] | None = None,
+    *,
+    empty_state: "FT | None" = None,
+    list_id: str | None = None,
 ) -> "FT":
     """Generic list renderer for any Activity Domain.
 
@@ -301,11 +304,19 @@ def ActivityList(
             container id and EmptyState copy.
         card_fn: Domain card component (e.g. TaskCard).
         connections_map: Cross-domain connection data keyed by entity UID.
+        empty_state: What to render when ``items`` is empty; the default is the
+            domain list page's "sync your vault" state — a surface with its own
+            reading of an empty list (the day view) passes its own.
+        list_id: The list container's DOM id; defaults to ``{domain}-list``. A
+            page rendering more than one list of the same domain passes distinct
+            ids, so HTMX swaps target the right one.
     """
-    list_id = f"{domain}-list"
+    list_id = list_id or f"{domain}-list"
     if not items:
         return Div(
-            EmptyState(
+            empty_state
+            if empty_state is not None
+            else EmptyState(
                 title=f"No {domain}s found",
                 description=f"Sync your Obsidian vault to add {domain}s, or adjust your filters.",
                 action_text="Sync Vault",

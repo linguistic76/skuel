@@ -31,6 +31,7 @@ from ui.calendar.components import (
     create_calendar_toolbar,
     create_day_cell,
     create_item_details_modal,
+    create_kind_legend,
     create_week_grid,
     view_has_legend,
 )
@@ -427,3 +428,21 @@ def test_scheduled_task_chip_has_no_due_cue() -> None:
     assert 'data-item-type="task"' in chip
     assert "data-due" not in chip
     assert "⏰" not in chip
+
+
+def test_kind_legend_renders_the_day_swatch_set_choice_included() -> None:
+    """The day view names its kinds directly (no ViewSpec): all five swatches,
+    Choice included, through the same legend component and controller."""
+    from ui.calendar.components import DAY_KINDS
+
+    html = to_xml(create_kind_legend(DAY_KINDS))
+    for label in ("Task", "Event", "Milestone", "Habit", "Choice"):
+        assert f">{label}</span>" in html
+    assert html.count("toggleType(") == 5
+    assert "Choices" in html  # the third pair label
+
+
+def test_week_legend_never_shows_the_choice_swatch() -> None:
+    html = to_xml(create_calendar_legend(CalendarView.WEEK))
+    assert "Choice" not in html
+    assert html.count("toggleType(") == 4

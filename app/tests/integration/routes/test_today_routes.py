@@ -1,15 +1,14 @@
-"""Route tests for the Today surface.
+"""Route tests for the Today surface — the day view.
 
 Covers the endpoints registered by ``create_today_routes``:
-
 - GET  /today                              — authed vs. 401, 500-on-context-error
 - GET  /today/{date_str}                    — day-lens nav, bad date → today
-- GET  /today/tasks/{uid}/drawer           — ownership, fragment shape
-- POST /today/tasks/{uid}/complete         — ownership, 204 on success
-- POST /today/tasks/{uid}/defer            — source-aware, view-date-anchored
-  (C7): field selection per surface, fresh-membership guard, refusals
-- POST /today/tasks/{uid}/star             — pin/unpin toggle, 204
-- POST /today/lifepaths/{uid}/wake         — no-op 204 (optimistic stub)
+- POST /today/tasks/quick-add              — C6: scheduled-only create, HX-Redirect
+- POST /today/tasks/{uid}/defer            — source-aware (day|triage), view-date-anchored
+  (C7): field selection per surface, fresh-membership guard, refusals, HX-Redirect
+
+Completing a task is not a Today route (the day's TaskCard posts to the one
+door, ``POST /api/tasks/{uid}/status``).
 
 No Neo4j required: services are mocked. BasePage is monkey-patched to an
 async identity stub so we can inspect what the route hands it.
@@ -99,11 +98,6 @@ def mock_services() -> Any:
     services.tasks.get_task = AsyncMock(return_value=Result.ok(_make_task()))
     services.tasks.update_task = AsyncMock(return_value=Result.ok(_make_task()))
 
-    services.user_relationships = MagicMock()
-    services.user_relationships.get_today_pinned = AsyncMock(return_value=Result.ok(set()))
-    services.user_relationships.pin_for_today = AsyncMock(return_value=Result.ok(True))
-    services.user_relationships.unpin_for_today = AsyncMock(return_value=Result.ok(True))
-
     services.today_orchestrator = MagicMock()
     services.today_orchestrator.build_context = AsyncMock(
         return_value=Result.ok(
@@ -113,15 +107,12 @@ def mock_services() -> Any:
                 "heading": "Today",
                 "is_today": True,
                 "can_quick_add": True,
-                "now_hhmm": "09:00",
-                "stats": {"nodes": 0, "committed_min": 0, "done": 0},
-                "triage": [],
-                "lifepaths": [],
-                "principles": [],
-                "goals": [],
+                "overdue": [],
                 "tasks": [],
-                "rituals": [],
-                "kinds": {},
+                "events": [],
+                "habits": [],
+                "milestones": [],
+                "choices": [],
             }
         )
     )
@@ -224,80 +215,6 @@ class TestTodayDatedPage:
 
 
 # ============================================================================
-# GET /today/tasks/{uid}/drawer
-# ============================================================================
-
-
-class TestTaskDrawer:
-    async def test_unauthenticated_raises_401(self, handlers: dict[str, Any]) -> None:
-        request = _make_request(user_uid=None)
-        with pytest.raises(HTTPException) as exc:
-            await handlers["/today/tasks/{uid}/drawer"](request=request, uid="task_001")
-        assert exc.value.status_code == 401
-
-    async def test_non_owner_gets_404(self, handlers: dict[str, Any], mock_services: Any) -> None:
-        mock_services.tasks.core.verify_ownership = AsyncMock(
-            return_value=Result.fail(Errors.not_found(resource="Task", identifier="task_999"))
-        )
-        request = _make_request()
-        response = await handlers["/today/tasks/{uid}/drawer"](request=request, uid="task_999")
-        assert response.status_code == 404
-
-    async def test_owner_gets_fragment(self, handlers: dict[str, Any], mock_services: Any) -> None:
-        from starlette.responses import Response
-
-        request = _make_request()
-        response = await handlers["/today/tasks/{uid}/drawer"](request=request, uid="task_001")
-        # Fragment is an FT (FastHTML component), not a Starlette Response
-        assert response is not None
-        assert not isinstance(response, Response)
-        mock_services.tasks.get_task.assert_awaited_once_with("task_001")
-
-
-# ============================================================================
-# POST /today/tasks/{uid}/complete
-# ============================================================================
-
-
-class TestTaskComplete:
-    async def test_unauthenticated_raises_401(self, handlers: dict[str, Any]) -> None:
-        request = _make_request(user_uid=None)
-        with pytest.raises(HTTPException) as exc:
-            await handlers["/today/tasks/{uid}/complete"](request=request, uid="task_001")
-        assert exc.value.status_code == 401
-
-    async def test_success_returns_204(self, handlers: dict[str, Any], mock_services: Any) -> None:
-        request = _make_request()
-        response = await handlers["/today/tasks/{uid}/complete"](request=request, uid="task_001")
-        assert response.status_code == 204
-        mock_services.tasks.update_task.assert_awaited_once()
-        uid_arg, intent = mock_services.tasks.update_task.await_args.args
-        assert uid_arg == "task_001"
-        assert intent.status == "completed"
-
-    async def test_non_owner_returns_404(
-        self, handlers: dict[str, Any], mock_services: Any
-    ) -> None:
-        mock_services.tasks.core.verify_ownership = AsyncMock(
-            return_value=Result.fail(Errors.not_found(resource="Task", identifier="task_999"))
-        )
-        request = _make_request()
-        response = await handlers["/today/tasks/{uid}/complete"](request=request, uid="task_999")
-        assert response.status_code == 404
-        mock_services.tasks.update_task.assert_not_called()
-
-    async def test_service_failure_returns_500(
-        self, handlers: dict[str, Any], mock_services: Any
-    ) -> None:
-        mock_services.tasks.update_task = AsyncMock(
-            return_value=Result.fail(Errors.database(operation="update_task", message="boom"))
-        )
-        request = _make_request()
-        response = await handlers["/today/tasks/{uid}/complete"](request=request, uid="task_001")
-        assert response.status_code == 500
-
-
-# ============================================================================
 # POST /today/tasks/quick-add
 # ============================================================================
 
@@ -381,7 +298,7 @@ class TestTaskQuickAdd:
 
 
 def _defer_form(
-    span: str = "1d", source: str | None = "ribbon", view_date: date | str | None = None
+    span: str = "1d", source: str | None = "day", view_date: date | str | None = None
 ) -> dict[str, str]:
     """C7 defer form: span + source + view_date (view_date defaults to today)."""
     form = {"span": span}
@@ -398,6 +315,19 @@ class TestTaskDefer:
     """C7: source-aware, view-date-anchored defer with the full guard set."""
 
     # ---- field selection -----------------------------------------------------
+
+    async def test_success_redirects_back_to_the_day(
+        self, handlers: dict[str, Any], mock_services: Any
+    ) -> None:
+        """The day is server-rendered: a successful defer replies 204 with
+        HX-Redirect to the day it was asked from, so the moved task leaves the
+        list on the reload."""
+        view = date.today()
+        mock_services.tasks.get_task = AsyncMock(return_value=Result.ok(_make_task(scheduled=view)))
+        request = _make_request(form=_defer_form(span="1d", source="day", view_date=view))
+        response = await handlers["/today/tasks/{uid}/defer"](request=request, uid="task_001")
+        assert response.status_code == 204
+        assert response.headers["HX-Redirect"] == f"/today/{view.isoformat()}"
 
     async def test_triage_defer_anchors_due_to_view_date_not_old_due(
         self, handlers: dict[str, Any], mock_services: Any
@@ -427,38 +357,38 @@ class TestTaskDefer:
         call = mock_services.tasks.update_task.await_args
         assert call.args[1] == TaskUpdateIntent(due_date=today + timedelta(days=7))
 
-    async def test_ribbon_scheduled_only_moves_scheduled_never_invents_due(
+    async def test_day_scheduled_only_moves_scheduled_never_invents_due(
         self, handlers: dict[str, Any], mock_services: Any
     ) -> None:
         """Ribbon defer of a scheduled-only task moves scheduled_date to
         view_date + span; due_date stays UNSET — no deadline is invented."""
         view = date(2026, 8, 10)
         mock_services.tasks.get_task = AsyncMock(return_value=Result.ok(_make_task(scheduled=view)))
-        request = _make_request(form=_defer_form(span="1d", source="ribbon", view_date=view))
+        request = _make_request(form=_defer_form(span="1d", source="day", view_date=view))
         response = await handlers["/today/tasks/{uid}/defer"](request=request, uid="task_001")
         assert response.status_code == 204
         call = mock_services.tasks.update_task.await_args
         assert call.args[1] == TaskUpdateIntent(scheduled_date=view + timedelta(days=1))
 
-    async def test_ribbon_due_match_moves_due(
+    async def test_day_due_match_moves_due(
         self, handlers: dict[str, Any], mock_services: Any
     ) -> None:
         view = date(2026, 8, 10)
         mock_services.tasks.get_task = AsyncMock(return_value=Result.ok(_make_task(due=view)))
-        request = _make_request(form=_defer_form(span="1w", source="ribbon", view_date=view))
+        request = _make_request(form=_defer_form(span="1w", source="day", view_date=view))
         response = await handlers["/today/tasks/{uid}/defer"](request=request, uid="task_001")
         assert response.status_code == 204
         call = mock_services.tasks.update_task.await_args
         assert call.args[1] == TaskUpdateIntent(due_date=view + timedelta(days=7))
 
-    async def test_ribbon_both_fields_match_moves_both(
+    async def test_day_both_fields_match_moves_both(
         self, handlers: dict[str, Any], mock_services: Any
     ) -> None:
         view = date(2026, 8, 10)
         mock_services.tasks.get_task = AsyncMock(
             return_value=Result.ok(_make_task(due=view, scheduled=view))
         )
-        request = _make_request(form=_defer_form(span="1d", source="ribbon", view_date=view))
+        request = _make_request(form=_defer_form(span="1d", source="day", view_date=view))
         response = await handlers["/today/tasks/{uid}/defer"](request=request, uid="task_001")
         assert response.status_code == 204
         call = mock_services.tasks.update_task.await_args
@@ -550,7 +480,7 @@ class TestTaskDefer:
         assert response.status_code == 400
         mock_services.tasks.update_task.assert_not_called()
 
-    @pytest.mark.parametrize("source", ["ribbon", "triage"])
+    @pytest.mark.parametrize("source", ["day", "triage"])
     async def test_task_completed_after_page_load_returns_400(
         self, handlers: dict[str, Any], mock_services: Any, source: str
     ) -> None:
@@ -571,16 +501,16 @@ class TestTaskDefer:
         assert response.status_code == 400
         mock_services.tasks.update_task.assert_not_called()
 
-    async def test_ribbon_defer_with_no_field_match_returns_400(
+    async def test_day_defer_with_no_field_match_returns_400(
         self, handlers: dict[str, Any], mock_services: Any
     ) -> None:
-        """Defensive: a ribbon card exists via a field match by construction;
+        """Defensive: a day card exists via a field match by construction;
         if the fresh task no longer matches the claimed view_date, refuse."""
         view = date(2026, 8, 10)
         mock_services.tasks.get_task = AsyncMock(
             return_value=Result.ok(_make_task(due=view + timedelta(days=5)))
         )
-        request = _make_request(form=_defer_form(source="ribbon", view_date=view))
+        request = _make_request(form=_defer_form(source="day", view_date=view))
         response = await handlers["/today/tasks/{uid}/defer"](request=request, uid="task_001")
         assert response.status_code == 400
         mock_services.tasks.update_task.assert_not_called()
@@ -589,33 +519,33 @@ class TestTaskDefer:
         self, handlers: dict[str, Any], mock_services: Any
     ) -> None:
         """The day lens supports date.max (its nav arrows clamp there), so a
-        ribbon card can exist on the boundary day — view_date + span must be
+        day card can exist on the boundary day — view_date + span must be
         refused controlled, not raise OverflowError."""
         boundary = date.max
         mock_services.tasks.get_task = AsyncMock(
             return_value=Result.ok(_make_task(scheduled=boundary))
         )
-        request = _make_request(form=_defer_form(span="1d", source="ribbon", view_date=boundary))
+        request = _make_request(form=_defer_form(span="1d", source="day", view_date=boundary))
         response = await handlers["/today/tasks/{uid}/defer"](request=request, uid="task_001")
         assert response.status_code == 400
         mock_services.tasks.update_task.assert_not_called()
 
     # ---- date-ordering refusals (C4's guard family) -----------------------------
 
-    async def test_ribbon_defer_pushing_scheduled_past_due_is_refused(
+    async def test_day_defer_pushing_scheduled_past_due_is_refused(
         self, handlers: dict[str, Any], mock_services: Any
     ) -> None:
         view = date(2026, 8, 10)
         mock_services.tasks.get_task = AsyncMock(
             return_value=Result.ok(_make_task(due=view + timedelta(days=2), scheduled=view))
         )
-        request = _make_request(form=_defer_form(span="1w", source="ribbon", view_date=view))
+        request = _make_request(form=_defer_form(span="1w", source="day", view_date=view))
         response = await handlers["/today/tasks/{uid}/defer"](request=request, uid="task_001")
         assert response.status_code == 400
         assert "deadline" in response.body.decode()
         mock_services.tasks.update_task.assert_not_called()
 
-    async def test_ribbon_defer_landing_scheduled_on_due_is_allowed(
+    async def test_day_defer_landing_scheduled_on_due_is_allowed(
         self, handlers: dict[str, Any], mock_services: Any
     ) -> None:
         """Work ON the deadline day is legal — creation forbids only
@@ -624,7 +554,7 @@ class TestTaskDefer:
         mock_services.tasks.get_task = AsyncMock(
             return_value=Result.ok(_make_task(due=view + timedelta(days=1), scheduled=view))
         )
-        request = _make_request(form=_defer_form(span="1d", source="ribbon", view_date=view))
+        request = _make_request(form=_defer_form(span="1d", source="day", view_date=view))
         response = await handlers["/today/tasks/{uid}/defer"](request=request, uid="task_001")
         assert response.status_code == 204
         call = mock_services.tasks.update_task.await_args
@@ -668,63 +598,6 @@ class TestTaskDefer:
 
 
 # ============================================================================
-# POST /today/tasks/{uid}/star
-# ============================================================================
-
-
-class TestTaskStar:
-    async def test_unpinned_task_gets_pinned(
-        self, handlers: dict[str, Any], mock_services: Any
-    ) -> None:
-        mock_services.user_relationships.get_today_pinned = AsyncMock(return_value=Result.ok(set()))
-        request = _make_request()
-        response = await handlers["/today/tasks/{uid}/star"](request=request, uid="task_001")
-        assert response.status_code == 204
-        mock_services.user_relationships.pin_for_today.assert_awaited_once()
-        mock_services.user_relationships.unpin_for_today.assert_not_called()
-
-    async def test_pinned_task_gets_unpinned(
-        self, handlers: dict[str, Any], mock_services: Any
-    ) -> None:
-        mock_services.user_relationships.get_today_pinned = AsyncMock(
-            return_value=Result.ok({"task_001"})
-        )
-        request = _make_request()
-        response = await handlers["/today/tasks/{uid}/star"](request=request, uid="task_001")
-        assert response.status_code == 204
-        mock_services.user_relationships.unpin_for_today.assert_awaited_once()
-        mock_services.user_relationships.pin_for_today.assert_not_called()
-
-    async def test_non_owner_returns_404(
-        self, handlers: dict[str, Any], mock_services: Any
-    ) -> None:
-        mock_services.tasks.core.verify_ownership = AsyncMock(
-            return_value=Result.fail(Errors.not_found(resource="Task", identifier="task_999"))
-        )
-        request = _make_request()
-        response = await handlers["/today/tasks/{uid}/star"](request=request, uid="task_999")
-        assert response.status_code == 404
-
-
-# ============================================================================
-# POST /today/lifepaths/{uid}/wake
-# ============================================================================
-
-
-class TestLifepathWake:
-    async def test_unauthenticated_raises_401(self, handlers: dict[str, Any]) -> None:
-        request = _make_request(user_uid=None)
-        with pytest.raises(HTTPException) as exc:
-            await handlers["/today/lifepaths/{uid}/wake"](request=request, uid="lp_001")
-        assert exc.value.status_code == 401
-
-    async def test_authenticated_returns_204(self, handlers: dict[str, Any]) -> None:
-        request = _make_request()
-        response = await handlers["/today/lifepaths/{uid}/wake"](request=request, uid="lp_001")
-        assert response.status_code == 204
-
-
-# ============================================================================
 # CSRF protection (Finding 2 — Codex P2)
 # ============================================================================
 
@@ -737,10 +610,7 @@ class TestCsrfProtection:
     @pytest.mark.parametrize(
         "path",
         [
-            "/today/tasks/{uid}/complete",
             "/today/tasks/{uid}/defer",
-            "/today/tasks/{uid}/star",
-            "/today/lifepaths/{uid}/wake",
         ],
     )
     async def test_post_without_csrf_token_is_forbidden(

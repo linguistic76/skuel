@@ -105,6 +105,17 @@ class CalendarServiceOperations(Protocol):
         """
         ...
 
+    async def habit_items_for_day(
+        self, user_uid: UserUID, day: date
+    ) -> "Result[list[CalendarItem]]":
+        """The user's habits recurring on ``day``, as day-stamped calendar items.
+
+        Day-view Habits-section producer: each item is scoped to the day the way
+        the item-details modal scopes it, so chip, modal and per-day complete door
+        agree about the day.
+        """
+        ...
+
     async def get_item(
         self, user_uid: UserUID, item_uid: str, on_date: date | None = None
     ) -> "Result[CalendarItem | None]":

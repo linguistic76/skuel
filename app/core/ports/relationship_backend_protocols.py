@@ -7,7 +7,7 @@ boundary (``adapters/persistence/neo4j/``) and authors parameterized Cypher
 against a ``Neo4jQueryExecutor``:
 
 - ``UserRelationshipOperations`` — user-centric graph edges (PINNED,
-  PINNED_TODAY, PURSUING_GOAL, FOLLOWS, MEMBER_OF).
+  PURSUING_GOAL, FOLLOWS, MEMBER_OF).
   Implementation: ``adapters/persistence/neo4j/user_relationship_backend.py``
 
 Core-layer consumers (orchestrators, the user-intelligence factory) depend on
@@ -39,10 +39,6 @@ class UserRelationshipOperations(Protocol):
     async def pin_entity(self, user_uid: UserUID, entity_uid: EntityUID) -> Result[bool]: ...
     async def unpin_entity(self, user_uid: UserUID, entity_uid: EntityUID) -> Result[bool]: ...
 
-    # Today-scoped pins
-    async def get_today_pinned(self, user_uid: UserUID) -> Result[set[str]]: ...
-    async def pin_for_today(self, user_uid: UserUID, entity_uid: EntityUID) -> Result[bool]: ...
-    async def unpin_for_today(self, user_uid: UserUID, entity_uid: EntityUID) -> Result[bool]: ...
     async def reorder_pins(
         self, user_uid: UserUID, ordered_entity_uids: list[str]
     ) -> Result[int]: ...

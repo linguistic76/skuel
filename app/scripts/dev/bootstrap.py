@@ -357,7 +357,7 @@ async def _build_infrastructure() -> tuple[Any, EventBusOperations, Any, Any, An
                     MATCH (k:Entity {entity_type: 'ku'})
                     WITH k, count{ (k)-[r]-() WHERE NOT type(r) IN
                         ['VIEWED','IN_PROGRESS','MASTERED','MARKED_AS_READ',
-                         'BOOKMARKED','INTERESTED_IN','PINNED','PINNED_TODAY'] } AS deg
+                         'BOOKMARKED','INTERESTED_IN','PINNED'] } AS deg
                     RETURN count(k) AS total_kus,
                            coalesce(avg(deg), 0.0) AS avg_degree,
                            count(CASE WHEN deg = 0 THEN 1 END) AS orphan_kus

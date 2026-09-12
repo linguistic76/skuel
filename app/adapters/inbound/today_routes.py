@@ -1,17 +1,16 @@
-"""Today surface routes — post-login landing page + HTMX actions.
+"""Today surface routes — the day view + its two HTMX actions.
 
-Matching ``docs/design-handoff/today/today.md`` §5:
-
-- ``GET /today`` — full page (TodayOrchestrator → TodayPage → BasePage)
+- ``GET /today`` — the live current day (TodayOrchestrator → TodayPage → sidebar page)
 - ``GET /today/{date_str}`` — the day lens for an arbitrary date (Prev/Next)
-- ``GET /today/tasks/{uid}/drawer`` — drawer body fragment
-- ``POST /today/tasks/{uid}/complete`` — complete task, 204
 - ``POST /today/tasks/quick-add`` — create a task scheduled on the viewed day
   (C6): ``scheduled_date`` only, no ``due_date``; past days refused; HX-Redirect
 - ``POST /today/tasks/{uid}/defer`` — source-aware, view-date-anchored defer
-  (C7): moves the field(s) the card spoke for to ``view_date + span``, 204
-- ``POST /today/tasks/{uid}/star`` — pin/unpin task for user, 204
-- ``POST /today/lifepaths/{uid}/wake`` — clear dormancy, 204
+  (C7): moves the field(s) the card spoke for to ``view_date + span``, then
+  HX-Redirect back to the day so the moved task leaves the list on reload
+
+Completing a task is not a Today route: the day's ``TaskCard`` posts its status
+toggle to ``POST /api/tasks/{uid}/status`` — the one completion door
+(``update_task``), the same one every other surface uses.
 
 All uid-scoped task routes verify ownership — non-owners get 404 (no UID oracle).
 The defer guard validates against the SAME membership predicates the lens
@@ -37,7 +36,6 @@ from core.models.enums import EntityStatus
 from core.models.sentinels import UNSET
 from core.models.task.task_request import TaskCreateRequest
 from core.models.task.task_update_intent import TaskUpdateIntent
-from core.models.type_hints import EntityUID, UserUID
 from core.utils.logging import get_logger
 from core.utils.neo4j_temporal import convert_neo4j_date
 from core.utils.result_simplified import Result
@@ -56,14 +54,17 @@ if TYPE_CHECKING:
     from services_bootstrap._container import Services
     from ui.page_contexts import TodayPageContext
 
-
 logger = get_logger("skuel.routes.today")
-
 
 _DEFER_SPANS: dict[str, timedelta] = {
     "1d": timedelta(days=1),
     "1w": timedelta(days=7),
 }
+
+#: The card languages a defer may speak: ``day`` (the lens card — moves the
+#: field(s) placing the task on the viewed day) and ``triage`` (the overdue
+#: card — moves the deadline).
+_DEFER_SOURCES = ("day", "triage")
 
 
 def create_today_routes(
@@ -71,17 +72,14 @@ def create_today_routes(
     rt: RouteDecorator,
     services: Services,
 ) -> None:
-    """Register the six Today surface routes."""
-
+    """Register the four Today surface routes."""
     orchestrator = services.today_orchestrator
     tasks = services.tasks
-    rels = services.user_relationships
     assert orchestrator is not None, "TodayOrchestrator not wired in Services container"
     assert tasks is not None, "TasksService not wired in Services container"
-    assert rels is not None, "UserRelationshipBackend not wired in Services container"
 
     def _render_today(request: Request, ctx_result: Result[TodayPageContext]) -> Response | FT:
-        """Render a built Today context, or a 500 shell on build failure."""
+        """Render a built day-view context, or a 500 shell on build failure."""
         if ctx_result.is_error:
             logger.warning(
                 "today.build_context failed: %s",
@@ -96,7 +94,9 @@ def create_today_routes(
             content=TodayPage(ctx_result.value),
             active="today",
             request=request,
-            extra_css=["/static/css/today.css"],
+            # The calendar's stylesheet: the day renders the calendar's chips and
+            # binds its legend, whose pure-CSS kind filters live there.
+            extra_css=["/static/css/calendar.css"],
             title="Today",
             active_page="today",
         )
@@ -107,7 +107,7 @@ def create_today_routes(
     # matches the repo-wide full-page-handler convention (e.g. calendar_week).
     @rt("/today")
     async def today_page(request: Request) -> Any:
-        """Render the Today landing page (the live current day)."""
+        """Render the day view for the live current day."""
         user_uid = require_authenticated_user(request)
         ctx_result = await orchestrator.build_context(user_uid)
         return _render_today(request, ctx_result)
@@ -126,49 +126,6 @@ def create_today_routes(
             view_date = date.today()
         ctx_result = await orchestrator.build_context(user_uid, view_date)
         return _render_today(request, ctx_result)
-
-    @rt("/today/tasks/{uid}/drawer")
-    async def today_task_drawer(request: Request, uid: str) -> Any:
-        """Return the HTMX fragment body for the drawer."""
-        user_uid = require_authenticated_user(request)
-
-        ownership_error = await verify_entity_ownership(tasks.core, uid, user_uid, "tasks")
-        if ownership_error is not None:
-            return Response("Task not found", status_code=404)
-
-        task_result = await tasks.get_task(uid)
-        if task_result.is_error:
-            return Response("Task not found", status_code=404)
-
-        from ui.today import render_task_drawer_body
-
-        return render_task_drawer_body(task_result.value)
-
-    @rt("/today/tasks/{uid}/complete", methods=["POST"])
-    @csrf_protected
-    async def today_task_complete(request: Request, uid: str) -> Response:
-        """Complete a task. 204 on success, 404 on unknown/unowned.
-
-        Through the status door — ``update_task``, the one completion path: the
-        stamp, the ``TaskCompleted`` publish and everything that subscribes to it
-        (dependent scheduling, goal progress, calibration) are that door's.
-        """
-        user_uid = require_authenticated_user(request)
-
-        ownership_error = await verify_entity_ownership(tasks.core, uid, user_uid, "tasks")
-        if ownership_error is not None:
-            return Response("Task not found", status_code=404)
-
-        result = await tasks.update_task(uid, TaskUpdateIntent(status=EntityStatus.COMPLETED.value))
-        if result.is_error:
-            logger.warning(
-                "today.complete failed for task=%s user=%s: %s",
-                uid,
-                user_uid,
-                result.expect_error().message,
-            )
-            return Response("Complete failed", status_code=500)
-        return Response(status_code=204)
 
     @rt("/today/tasks/quick-add", methods=["POST"])
     @csrf_protected
@@ -198,7 +155,6 @@ def create_today_routes(
             view_date = date.fromisoformat(view_date_raw)
         except ValueError:
             return Response(f"Invalid view_date '{view_date_raw}'", status_code=400)
-
         if view_date < date.today():
             return Response(
                 "Cannot add a task to a past day — open today or a future day",
@@ -226,6 +182,7 @@ def create_today_routes(
                 result.expect_error().message,
             )
             return Response("Could not add the task — try again", status_code=500)
+
         # Reload the day's lens so the new work chip renders (and the calendar
         # picks it up on its next fetch). HX-Redirect drives a full navigation.
         return Response(
@@ -236,13 +193,13 @@ def create_today_routes(
     @rt("/today/tasks/{uid}/defer", methods=["POST"])
     @csrf_protected
     async def today_task_defer(request: Request, uid: str) -> Response:
-        """Defer a task from a day-lens card, anchored to the day it was asked from.
+        """Defer a task from a day-view card, anchored to the day it was asked from.
 
         The POST carries ``span`` (``1d``|``1w``), ``view_date`` (the lens day
-        the card rendered on) and ``source`` (``ribbon``|``triage``). Field
+        the card rendered on) and ``source`` (``day``|``triage``). Field
         selection speaks the card's language: triage always moves ``due_date``
         (deadline language — even for a task also scheduled on the viewed
-        day); ribbon moves the field(s) equal to ``view_date`` on the freshly
+        day); day moves the field(s) equal to ``view_date`` on the freshly
         fetched task (both when both match). The new value is always
         ``view_date + span``, never ``old value + span``.
 
@@ -252,8 +209,9 @@ def create_today_routes(
         and a triage defer additionally requires ``view_date`` to be the
         current day; otherwise 400. Refusals (400, message in body): a move
         pushing the work date past the deadline, or the deadline onto/past
-        ``recurrence_end_date`` (mirrors C4's reschedule guards). 204 on
-        success, 404 on unknown/unowned.
+        ``recurrence_end_date`` (mirrors C4's reschedule guards). On success
+        204 with ``HX-Redirect`` back to the day (the moved task leaves the list
+        on the reload); 404 on unknown/unowned.
         """
         user_uid = require_authenticated_user(request)
 
@@ -264,7 +222,7 @@ def create_today_routes(
             return Response(f"Invalid span '{span_key}'", status_code=400)
 
         source = str(form.get("source") or "").strip()
-        if source not in ("ribbon", "triage"):
+        if source not in _DEFER_SOURCES:
             return Response(f"Invalid source '{source}'", status_code=400)
 
         view_date_raw = str(form.get("view_date") or "").strip()
@@ -296,7 +254,7 @@ def create_today_routes(
                 return Response("Task is no longer in triage — refresh the page", status_code=400)
             move_fields: tuple[str, ...] = (DUE_FIELD,)
         else:
-            # A ribbon card exists via a field match by construction — but the
+            # A day card exists via a field match by construction — but the
             # task may have moved or completed since the page loaded, so the
             # match is re-derived from the FRESH task; no match is refused.
             if not is_ribbon_member(task, view_date):
@@ -353,58 +311,9 @@ def create_today_routes(
                 update.expect_error().message,
             )
             return Response("Defer failed", status_code=500)
-        return Response(status_code=204)
-
-    @rt("/today/tasks/{uid}/star", methods=["POST"])
-    @csrf_protected
-    async def today_task_star(request: Request, uid: str) -> Response:
-        """Toggle Today-scope pin-state on a task. 204 on success.
-
-        Uses the :PINNED_TODAY edge, not the global :PINNED edge — starring
-        a task in Today must not leak into other surfaces that list the
-        user's global pins.
-        """
-        user_uid = require_authenticated_user(request)
-
-        ownership_error = await verify_entity_ownership(tasks.core, uid, user_uid, "tasks")
-        if ownership_error is not None:
-            return Response("Task not found", status_code=404)
-
-        pinned_result = await rels.get_today_pinned(user_uid)
-        already_pinned = not pinned_result.is_error and uid in pinned_result.value
-
-        entity_uid = EntityUID(uid)
-        user_uid_typed = UserUID(user_uid)
-        toggle = (
-            await rels.unpin_for_today(user_uid_typed, entity_uid)
-            if already_pinned
-            else await rels.pin_for_today(user_uid_typed, entity_uid)
+        # The day is server-rendered: reload it so the moved task leaves this
+        # list (and lands on the calendar's next fetch of its new day).
+        return Response(
+            status_code=204,
+            headers={"HX-Redirect": f"/today/{view_date.isoformat()}"},
         )
-        if toggle.is_error:
-            logger.warning(
-                "today.star toggle failed for task=%s user=%s: %s",
-                uid,
-                user_uid,
-                toggle.expect_error().message,
-            )
-            return Response("Star failed", status_code=500)
-        return Response(status_code=204)
-
-    @rt("/today/lifepaths/{uid}/wake", methods=["POST"])
-    @csrf_protected
-    async def today_lifepath_wake(
-        request: Request, uid: str
-    ) -> Response:  # skuel-lint: disable=SKUEL029 -- wrapped by @csrf_protected which awaits the handler unconditionally (csrf.py)
-        """Clear the dormant flag on a LifePath ribbon.
-
-        There is no server-side dormancy state yet — dormancy is computed
-        on each page build from recent activity. This endpoint exists so
-        the Alpine optimistic UI can fire-and-forget without a 404. Once
-        durable dormancy tracking lands, this will write the wake event.
-        """
-        user_uid = require_authenticated_user(request)
-        logger.info("today.wake lifepath=%s user=%s", uid, user_uid)
-        return Response(status_code=204)
-
-
-__all__ = ["create_today_routes"]

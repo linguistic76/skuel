@@ -24,6 +24,7 @@ from typing import TYPE_CHECKING, Any, NotRequired, TypedDict
 if TYPE_CHECKING:
     from core.models.choice.choice import Choice
     from core.models.curriculum import Curriculum
+    from core.models.event.calendar_models import CalendarItem
     from core.models.event.event import Event
     from core.models.exercises.exercise import Exercise
     from core.models.goal.goal import Goal
@@ -147,159 +148,40 @@ class KuIndexContext(TypedDict, total=False):
 # ============================================================================
 # Today Surface Context
 # ============================================================================
-# Flat UI-shape views used by the Today page (ui/today/). The orchestrator
-# (ui/today/orchestrator.py) produces these; the UI consumes them without
-# ever touching the underlying domain models.
-#
-# See docs/design-handoff/today/today.md (paired spec) for field semantics.
-
-
-class TodayStats(TypedDict):
-    """Header stats block on the Today page."""
-
-    nodes: int  # total cards currently visible (tasks + triage)
-    committed_min: int  # sum of est_min across today's tasks
-    done: int  # completed-today count
-
-
-class LifePathRibbonView(TypedDict):
-    """The user's LifePath ribbon on the Today page.
-
-    One LifePath per user is a design invariant, so the ``lifepaths`` list
-    on ``TodayPageContext`` is always length-1.
-
-    ``dormant=True`` renders the collapsed nudge variant (wake button, no
-    ribbon body); the orchestrator sets it when the LifePath has had no
-    activity in the dormancy window.
-    """
-
-    id: str
-    label: str
-    blurb: str | None
-    color: str  # oklch(...) or hsl(...) — token-aware
-    dormant: bool
-    last_touched: str | None  # human label, e.g. "7 days ago"
-
-
-class PrincipleView(TypedDict):
-    """Principle pill shown in each ribbon header."""
-
-    id: str
-    lifepath_id: str
-    label: str
-    strength: str  # "core" | "strong" | "developing" | "moderate" | "exploring"
-    embodiment_rate: float  # rolling 7d habit-completion rate, 0..1
-
-
-class GoalView(TypedDict):
-    """Goal progress bar (optional — only rendered if a ribbon has goals)."""
-
-    id: str
-    principle_id: str
-    label: str
-    progress: float  # 0..1
-
-
-class TaskView(TypedDict):
-    """Flat card shape used by rows in ribbons AND triage.
-
-    ``kind`` drives icon + kind-chip label; the mock defines six canonical
-    kinds (submission, path-step, askesis, journal, ku, resource).
-    ``due_label`` is the right-side label shown on each row.
-
-    ``pinned`` is the Today-scoped pin (see ``:PINNED_TODAY`` edge). Ribbon
-    tasks are rendered pinned-first; triage stays severity-ordered, so
-    ``pinned`` is carried through but does not reorder triage.
-
-    ``status`` is the status Undo may restore the card to — the canonical
-    ``EntityStatus`` value, not a display label. It is carried so Undo can
-    truthfully reopen a just-completed task by POSTing the PRIOR status back
-    through ``POST /api/tasks/{uid}/status``; without it the client could only
-    un-hide the card while the graph stayed completed (the same dishonesty
-    ``deferTask`` refuses to offer). It is ``""`` when there is no restorable
-    status — a stored value the completion chokepoint would refuse, or
-    ``completed`` itself — and the client offers no Undo for such a card rather
-    than posting a write that fails while the card un-hides anyway. The
-    orchestrator owns that decision (``_restorable_status``) so the enum stays
-    the authority instead of being re-listed in JS.
-    """
-
-    id: str
-    lifepath_id: str
-    goal_id: str | None
-    kind: str
-    label: str
-    meta: str  # short gloss: "draft · needs your decision"
-    priority: str  # "high" | "medium" | "low"
-    status: str  # canonical EntityStatus value, e.g. "scheduled" | "active"
-    est_min: int
-    due_label: str  # "Today", "Tonight", "Overdue · 2d"
-    pinned: bool
-
-
-class TriageItemView(TaskView):
-    """Face-first row in the Triage bar. Extends TaskView with severity/reason."""
-
-    reason: str  # "Overdue · 2 days" / "Blocked · waiting on @mentor"
-    severity: str  # "overdue" | "blocked"
-
-
-class RitualView(TypedDict):
-    """Time-anchored item shown on the Day spine."""
-
-    id: str
-    time: str  # "HH:MM" 24h
-    label: str
-    est_min: int
-    principle_id: str | None
-
-
-class KindMeta(TypedDict):
-    """Label + pre-rendered inline-SVG icon markup per task ``kind`` string.
-
-    ``icon_svg`` is built server-side (``ui.today.orchestrator``) from the
-    ``Icon()`` registry so the client never runs ``lucide.createIcons()``.
-    """
-
-    label: str
-    icon_svg: str
+# The day view (ui/today/) renders per-domain lists of DOMAIN MODELS — the
+# same entities the domain list pages render, through the same cards — so the
+# orchestrator (ui/today/orchestrator.py) selects and sorts, and never re-shapes.
 
 
 class TodayPageContext(TypedDict):
-    """Complete data contract for the Today page.
+    """Everything the day view renders for one day.
 
-    Produced by ``TodayOrchestrator.build_context(user_uid)``; consumed by
-    ``ui.today.page.TodayPage(ctx)`` and serialized into ``window.SEED`` for
-    the Alpine ``today()`` factory in ``static/js/today.js``.
+    Produced by ``TodayOrchestrator.build_context(user_uid, view_date)``;
+    consumed by ``ui.today.page.TodayPage(ctx)``.
 
-    ``now_hhmm`` is the server clock in the user's timezone — NEVER derive
-    it client-side. This keeps SSR output and the Day spine's ``NOW`` marker
-    consistent.
-
-    ``lifepaths`` is length-1 (one LifePath per user). The list shape is
-    retained so the renderer iterates uniformly; dormancy is a per-ribbon
-    flag on ``LifePathRibbonView``, not a sort order.
+    ``overdue`` is the live day's triage — tasks due strictly before today —
+    and is empty while browsing another day (``ui/today/membership.py``
+    decides membership; the defer guard validates by the same predicates).
+    ``tasks`` are the day's lens members (scheduled OR due on the day) minus the
+    ones already shown in ``overdue``: a task in both renders once, in Overdue.
+    ``habits`` are the calendar's day-stamped items (``occurrence_data`` carries
+    the day and its completion state), so their chips open the day-aware modal.
     """
 
-    today_iso: str  # ISO date the day-lens is pointed at — the single source
-    #                 for every date-anchored href (Prev/Now/Next, daily note)
-    date_label: str  # "Saturday · March 22" (eyebrow, for ``view_date``)
+    today_iso: str  # ISO date the day lens is pointed at — the single source
+    #                 for every date-anchored href (Prev/Now/Next, quick-add)
+    date_label: str  # "Saturday · March 22" (eyebrow, for the viewed day)
     heading: str  # H1 word: "Today" / "Yesterday" / "Tomorrow" / "Jul 19"
-    is_today: bool  # False while browsing another day — hides the NOW marker
-    #                 and disables ritual "past" strikethrough (day is not "now")
+    is_today: bool  # the viewed day is the live current day
     can_quick_add: bool  # True on today/future — gates the day-lens task quick-add
     #                      affordance (absent on past days; the POST also refuses
     #                      past dates server-side — act-from arc C6)
-    now_hhmm: str  # server clock, user tz
-    stats: TodayStats
-    triage: list[TriageItemView]
-    lifepaths: list[LifePathRibbonView]
-    principles: list[PrincipleView]
-    goals: list[GoalView]
-    tasks: list[TaskView]
-    rituals: list[RitualView]
-    kinds: dict[str, KindMeta]
-    ritual_icons: dict[str, str]  # {"past": <svg>, "upcoming": <svg>} for ritualIconHtml()
+    overdue: list[Task]
+    tasks: list[Task]
+    events: list[Event]
+    habits: list[CalendarItem]
+    milestones: list[Goal]
+    choices: list[Choice]
 
 
 # =============================================================================

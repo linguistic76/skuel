@@ -1,122 +1,48 @@
 """Today Orchestrator.
 
-Produces the ``TodayPageContext`` consumed by ``ui/today/page.py``. One
-method, one shape. Lives in ``ui/today/`` — alongside its sole consumer
-and the ``TodayPageContext`` TypedDict in ``ui/page_contexts.py`` —
-because the output is a view shape, not a service-layer contract.
+Produces the ``TodayPageContext`` consumed by ``ui/today/page.py``: the day's
+dated Activity across every domain, as per-domain lists of domain models. One
+method, one shape. Lives in ``ui/today/`` — alongside its sole consumer and
+the ``TodayPageContext`` TypedDict in ``ui/page_contexts.py`` — because the
+output is a view shape, not a service-layer contract.
 
-See ``docs/design-handoff/today/today.md`` for the design spec and
-``ui/page_contexts.py`` for the TypedDicts produced here.
+The orchestrator selects and sorts; it never re-shapes. Task membership comes
+from ``ui/today/membership.py`` — the same predicates the defer guard
+validates by, so render and guard cannot drift (act-from arc C7).
 """
 
 from __future__ import annotations
 
 import asyncio
-from datetime import UTC, date, datetime, timedelta
+from datetime import date, datetime
 from typing import TYPE_CHECKING
 
-from core.models.enums import EntityStatus, EntityType, Priority, TimeOfDay
-from core.models.type_hints import EntityUID, UserUID
+from core.models.type_hints import UserUID
 from core.utils.logging import get_logger
+from core.utils.neo4j_temporal import convert_neo4j_datetime
 from core.utils.result_simplified import Result
-from ui.components.icon import Icon
-from ui.page_contexts import (
-    GoalView,
-    KindMeta,
-    LifePathRibbonView,
-    PrincipleView,
-    RitualView,
-    TaskView,
-    TodayPageContext,
-    TodayStats,
-    TriageItemView,
-)
+from ui.page_contexts import TodayPageContext
 from ui.today.membership import is_ribbon_member, is_triage_member
 
 if TYPE_CHECKING:
+    from core.models.choice.choice import Choice
+    from core.models.event.calendar_models import CalendarItem
     from core.models.event.event import Event
     from core.models.goal.goal import Goal
-    from core.models.habit.habit import Habit
-    from core.models.principle.principle import Principle
     from core.models.task.task import Task
-    from core.ports.relationship_backend_protocols import UserRelationshipOperations
+    from core.ports.service_protocols import CalendarServiceOperations
+    from core.services.choices_service import ChoicesService
     from core.services.events_service import EventsService
     from core.services.goals_service import GoalsService
     from core.services.habits_service import HabitsService
-    from core.services.lifepath.lifepath_service import LifePathService
-    from core.services.lifepath.lifepath_types import LifePathDesignation
-    from core.services.principles_service import PrinciplesService
     from core.services.tasks_service import TasksService
-
 
 logger = get_logger("skuel.orchestrators.today")
 
 
-# Days-since-activity threshold for a ribbon to render as "dormant".
-_DORMANCY_DAYS = 7
-
-
-# Canonical kind metadata — matches today.md §2 and handoff/today/today.html.
-# Keys are the string ``kind`` values on ``TaskView``; values are (lucide icon, label).
-_KIND_ICONS: dict[str, tuple[str, str]] = {
-    "submission": ("file-text", "Submission"),
-    "path-step": ("route", "Path step"),
-    "askesis": ("sunrise", "Askesis"),
-    "journal": ("book-open", "Journal"),
-    "ku": ("gem", "KU"),
-    "resource": ("link", "Resource"),
-}
-
-
-def _build_kinds() -> dict[str, KindMeta]:
-    """kind -> {label, icon_svg}. icon_svg is a fully-sized inline <svg> (14px),
-    pre-rendered so the client needs no createIcons()."""
-    return {
-        kind: {"label": label, "icon_svg": str(Icon(icon, size=14))}
-        for kind, (icon, label) in _KIND_ICONS.items()
-    }
-
-
-# Priority → view string: the enum's three values ARE the view vocabulary;
-# an unreadable stored value reads as low.
-def _priority_label(raw: object) -> str:
-    try:
-        p = raw if isinstance(raw, Priority) else Priority(str(raw).lower())
-    except ValueError:
-        return "low"
-    return p.value
-
-
-def _due_label(d: date | None, today: date) -> str:
-    """Render a due-date into the right-side card label."""
-    if d is None:
-        return ""
-    if d == today:
-        return "Today"
-    if d < today:
-        delta = (today - d).days
-        return f"Overdue · {delta}d"
-    delta = (d - today).days
-    if delta == 1:
-        return "Tomorrow"
-    return f"In {delta}d"
-
-
-def _slot_hhmm(slot: TimeOfDay | None) -> str | None:
-    """Position a habit's time-of-day slot on the day spine as ``"HH:MM"``.
-
-    Habits carry a fuzzy slot, not a clock time (habit-rhythm arc M3), so the spine
-    places them at the slot's representative hour. A habit with no declared slot has
-    no place on a chronological spine and returns ``None``.
-    """
-    if slot is None:
-        return None
-    return slot.get_representative_time().strftime("%H:%M")
-
-
-def _date_label(today: date) -> str:
+def _date_label(day: date) -> str:
     """E.g. ``"Saturday · March 22"``."""
-    return today.strftime("%A · %B ") + str(today.day)
+    return day.strftime("%A · %B ") + str(day.day)
 
 
 def _heading_label(view_date: date, today: date) -> str:
@@ -136,465 +62,143 @@ def _heading_label(view_date: date, today: date) -> str:
     return view_date.strftime("%b ") + str(view_date.day)
 
 
+def moment_is_on_day(value: object, day: date) -> bool:
+    """Whether a stored datetime (native or Neo4j temporal) falls on ``day``."""
+    moment = convert_neo4j_datetime(value)
+    return moment is not None and moment.date() == day
+
+
+def choice_is_on_day(choice: Choice, day: date) -> bool:
+    """A choice belongs to the day it is due to be decided or was decided on.
+
+    Choices are the one other dated domain (Principles are dateless and have
+    no day-view section): ``decision_deadline`` is the day's ask, ``decided_at``
+    the day's answer — a choice decided on its deadline day renders once.
+    """
+    return moment_is_on_day(choice.decision_deadline, day) or moment_is_on_day(
+        choice.decided_at, day
+    )
+
+
+def _task_order(task: Task) -> tuple[str, str]:
+    return (task.due_date.isoformat() if task.due_date else "9999-12-31", task.title or "")
+
+
+def _event_order(event: Event) -> tuple[str, str]:
+    return (str(event.start_time or ""), event.title or "")
+
+
+def _goal_order(goal: Goal) -> str:
+    return goal.title or ""
+
+
+def _choice_order(choice: Choice) -> tuple[str, str]:
+    moment = convert_neo4j_datetime(choice.decision_deadline)
+    return (moment.isoformat() if moment else "9999", choice.title or "")
+
+
+def _or_empty[T](result: Result[list[T]], section: str) -> list[T]:
+    """A failed section read renders as an empty section, logged — the day
+    stays useful without it."""
+    if result.is_error:
+        logger.warning("today.%s read failed: %s", section, result.expect_error().message)
+        return []
+    return result.value
+
+
 class TodayOrchestrator:
-    """Facade for the Today page.
+    """Facade for the day view.
 
-    Composes tasks, goals, habits, events, principles, and the user's
-    lifepath into a flat ``TodayPageContext``. The orchestrator does NOT
-    mutate — all writes happen through the individual domain services
-    (triggered by HTMX endpoints in ``adapters/inbound/today_routes.py``).
+    Composes the day's tasks, events, habits, goal milestones and choices into
+    a flat ``TodayPageContext``. The orchestrator does NOT mutate — all writes
+    happen through the individual domain services (the cards' status toggles
+    post to the domains' status doors; quick-add and defer post to
+    ``adapters/inbound/today_routes.py``).
 
-    Design notes:
-
-    - ``build_context()`` issues several independent reads. Failure in one
-      domain degrades that section rather than failing the whole page (the
-      user's day is still useful without habit rituals).
-    - ``lifepaths`` is always a length-1 list keyed off the user's
-      ``life_path_uid``. One LifePath per user is a design invariant
-      (LearningPaths are the multi-per-user concept) — the list shape is
-      retained so ribbon rendering can iterate uniformly.
-    - ``now_hhmm`` is server-clock. Client-side drift would misplace the
-      NOW line on the Day spine relative to server-computed ritual
-      positions — stay consistent.
+    Reads are issued concurrently and degrade per section: a failed events
+    read leaves Events empty while the rest of the day still renders. Tasks
+    are the exception — the day's spine — so a failed task read fails the page.
     """
 
     def __init__(
         self,
         tasks_service: TasksService,
-        goals_service: GoalsService,
-        habits_service: HabitsService,
         events_service: EventsService,
-        principles_service: PrinciplesService,
-        lifepath_service: LifePathService,
-        user_relationship_service: UserRelationshipOperations,
+        habits_service: HabitsService,
+        goals_service: GoalsService,
+        choices_service: ChoicesService,
+        calendar_service: CalendarServiceOperations,
     ) -> None:
         self._tasks = tasks_service
-        self._goals = goals_service
-        self._habits = habits_service
         self._events = events_service
-        self._principles = principles_service
-        self._lifepath = lifepath_service
-        self._rels = user_relationship_service
+        self._habits = habits_service
+        self._goals = goals_service
+        self._choices = choices_service
+        self._calendar = calendar_service
 
     async def build_context(
         self, user_uid: UserUID, view_date: date | None = None
     ) -> Result[TodayPageContext]:
-        """Assemble the full Today page context for this user.
+        """Assemble the day view's context for this user and day (``None`` → today).
 
-        ``view_date`` is the day the day-lens is pointed at (``None`` → today).
-        The surface stays anchored to the real ``now`` for the Day-spine NOW
-        marker and ritual "past" state — those only render when ``is_today``
-        (see ``static/js/today.js`` and the ``_now_marker`` ``x-show`` gate).
-        Task/ritual/completion filtering keys off ``view_date``; due-date labels
-        stay relative to the real ``today`` so "Tomorrow" reads correctly while
-        browsing ahead. Triage (overdue-now) shows only on today — browsing other
-        days should not surface a growing overdue pile.
+        Membership keys off ``view_date``; the relative heading and the
+        overdue gate key off the real ``today`` — overdue is a present-tense
+        surface and renders only on the live day.
         """
-
-        now = datetime.now()
-        today = now.date()
+        today = datetime.now().date()
         view_date = view_date or today
         is_today = view_date == today
 
-        # Seven concurrent facade fetches with no data dependency between
-        # them. The pin fetch is launched as a background task so the main
-        # six-way gather stays inside asyncio.gather's typed-overload limit
-        # (six); both complete concurrently — TTFB is the slowest of the
-        # seven, not the sum.
-        pinned_task = asyncio.create_task(self._rels.get_today_pinned(user_uid))
-        tasks_r, goals_r, principles_r, habits_r, events_r, designation_r = await asyncio.gather(
+        tasks_r, events_r, habits_r, goals_r, choices_r = await asyncio.gather(
             self._tasks.get_user_tasks(user_uid),
-            self._goals.get_user_goals(user_uid),
-            self._principles.get_user_principles(user_uid),
-            self._habits.get_user_habits(user_uid),
-            self._events.get_user_events(user_uid),
-            self._lifepath.core.get_designation(user_uid),
+            # The lens shows the day's truth: a completed event or an achieved
+            # goal whose day this is still belongs to the day.
+            self._events.get_user_items_in_range(
+                user_uid, view_date, view_date, include_completed=True
+            ),
+            self._calendar.habit_items_for_day(user_uid, view_date),
+            self._goals.get_user_items_in_range(
+                user_uid, view_date, view_date, include_completed=True
+            ),
+            self._choices.get_user_choices(user_uid),
         )
-        pinned_r = await pinned_task
-
         if tasks_r.is_error:
             return Result.fail(tasks_r)
-        if goals_r.is_error:
-            return Result.fail(goals_r)
-        if principles_r.is_error:
-            return Result.fail(principles_r)
 
-        all_tasks: list[Task] = tasks_r.value
-        all_goals: list[Goal] = goals_r.value
-        all_principles: list[Principle] = principles_r.value
-        all_habits: list[Habit] = habits_r.value if not habits_r.is_error else []
-        all_events: list[Event] = events_r.value if not events_r.is_error else []
-        designation = None if designation_r.is_error else designation_r.value
-        # Degrade pins to empty rather than aborting — a star failure is
-        # cosmetic, not a page-blocker.
-        today_pinned: set[str] = set() if pinned_r.is_error else pinned_r.value
-
-        lifepath_id = (
-            f"lp-{user_uid}"
-            if designation is None
-            else f"lp-{designation.life_path_uid or user_uid}"
+        all_tasks = tasks_r.value
+        overdue = (
+            sorted((t for t in all_tasks if is_triage_member(t, today)), key=_task_order)
+            if is_today
+            else []
+        )
+        overdue_uids = {t.uid for t in overdue}
+        tasks = sorted(
+            (t for t in all_tasks if is_ribbon_member(t, view_date) and t.uid not in overdue_uids),
+            key=_task_order,
+        )
+        events: list[Event] = sorted(_or_empty(events_r, "events"), key=_event_order)
+        habits: list[CalendarItem] = _or_empty(habits_r, "habits")
+        milestones: list[Goal] = sorted(_or_empty(goals_r, "goals"), key=_goal_order)
+        choices: list[Choice] = sorted(
+            (c for c in _or_empty(choices_r, "choices") if choice_is_on_day(c, view_date)),
+            key=_choice_order,
         )
 
-        # Ribbon membership is scheduled OR due == view_date (C7 widening —
-        # mirrors the calendar's C2 semantics; a scheduled-only task must not
-        # be invisible to the very lens that acts on it). Both predicates live
-        # in ui/today/membership.py and are SHARED with the defer guard in
-        # adapters/inbound/today_routes.py — render and guard cannot drift.
-        today_tasks_full = [t for t in all_tasks if is_ribbon_member(t, view_date)]
-        # Triage is a present-tense "needs attention now" bar — only surface it on
-        # the current day, never while browsing yesterday/tomorrow.
-        triage_tasks_full = [t for t in all_tasks if is_triage_member(t, today)] if is_today else []
-
-        active_goals = [g for g in all_goals if g.status == EntityStatus.ACTIVE]
-        rituable_habits = [h for h in all_habits if h.preferred_time is not None]
-        active_principles = [p for p in all_principles if p.status != EntityStatus.ARCHIVED]
-
-        # GRAPH-NATIVE: Goal→Principle (GUIDED_BY_PRINCIPLE) and Habit→Principle
-        # (EMBODIES_PRINCIPLE) live as Neo4j edges, not scalar fields. Fetch once
-        # per build, concurrently, and index into maps the mappers consume.
-        # Embodiment rates join Principle→Habit→HabitCompletion in one round-trip.
-        (
-            goal_principle_map,
-            habit_principle_map,
-            lp_title,
-            embodiment_rates,
-        ) = await asyncio.gather(
-            _first_principle_map(self._goals, [g.uid for g in active_goals]),
-            _first_principle_map(self._habits, [h.uid for h in rituable_habits]),
-            _fetch_lp_title(self._lifepath, designation),
-            _fetch_embodiment_rates(self._principles, active_principles, user_uid),
+        return Result.ok(
+            TodayPageContext(
+                today_iso=view_date.isoformat(),
+                date_label=_date_label(view_date),
+                heading=_heading_label(view_date, today),
+                is_today=is_today,
+                # Quick-add is offered on today and future days only — you plan
+                # work forward, not into a day already gone (act-from arc C6).
+                # The POST backstops this too.
+                can_quick_add=view_date >= today,
+                overdue=overdue,
+                tasks=tasks,
+                events=events,
+                habits=habits,
+                milestones=milestones,
+                choices=choices,
+            )
         )
-
-        task_views: list[TaskView] = [
-            _task_to_view(t, lifepath_id=lifepath_id, today=today, pinned=t.uid in today_pinned)
-            for t in today_tasks_full
-        ]
-        # Ribbon: pinned-first, stable within each group. Triage below stays in
-        # its severity order — carrying ``pinned`` through for display without
-        # letting a user-pin jump an overdue-3d item above an overdue-7d one.
-        task_views.sort(key=_task_view_pinned_first)
-        triage_views: list[TriageItemView] = [
-            _task_to_triage(t, lifepath_id=lifepath_id, today=today, pinned=t.uid in today_pinned)
-            for t in triage_tasks_full
-        ]
-
-        principle_views: list[PrincipleView] = [
-            {
-                "id": p.uid,
-                "lifepath_id": lifepath_id,
-                "label": p.title,
-                "strength": _principle_strength(p),
-                "embodiment_rate": embodiment_rates.get(p.uid, 0.0),
-            }
-            for p in active_principles
-        ]
-
-        goal_views: list[GoalView] = [
-            {
-                "id": g.uid,
-                "principle_id": goal_principle_map.get(g.uid, ""),
-                "label": g.title,
-                "progress": g.calculate_progress(),
-            }
-            for g in active_goals
-        ]
-
-        ribbon = _build_ribbon(
-            lifepath_id=lifepath_id,
-            designation=designation,
-            lp_title=lp_title,
-            all_tasks=all_tasks,
-        )
-        lifepaths: list[LifePathRibbonView] = [ribbon]
-
-        rituals: list[RitualView] = _build_rituals(
-            habits=all_habits,
-            events=all_events,
-            today=view_date,
-            habit_principle_map=habit_principle_map,
-        )
-
-        stats: TodayStats = {
-            "nodes": len(task_views) + len(triage_views),
-            "committed_min": sum(tv["est_min"] for tv in task_views),
-            "done": sum(
-                1
-                for t in all_tasks
-                if t.status == EntityStatus.COMPLETED and t.completion_date == view_date
-            ),
-        }
-
-        ctx: TodayPageContext = {
-            "today_iso": view_date.isoformat(),
-            "date_label": _date_label(view_date),
-            "heading": _heading_label(view_date, today),
-            "is_today": is_today,
-            # Quick-add is offered on today and future days only — you plan work
-            # forward, not into a day already gone (act-from arc C6). The POST
-            # backstops this too, so a forged past-date POST is refused.
-            "can_quick_add": view_date >= today,
-            "now_hhmm": now.strftime("%H:%M"),
-            "stats": stats,
-            "triage": triage_views,
-            "lifepaths": lifepaths,
-            "principles": principle_views,
-            "goals": goal_views,
-            "tasks": task_views,
-            "rituals": rituals,
-            "kinds": _build_kinds(),
-            "ritual_icons": {
-                "past": str(Icon("check", size=10)),
-                "upcoming": str(Icon("sunrise", size=10)),
-            },
-        }
-        return Result.ok(ctx)
-
-
-# ============================================================================
-# Mappers — keep them as module-level functions so they can be unit-tested
-# without instantiating the orchestrator.
-# ============================================================================
-
-
-#: The statuses Today's Undo may restore a task to. Derived from the enum, never
-#: re-listed in JS: the client treats an empty ``status`` as "no Undo", so the
-#: authority on what is restorable stays in Python. COMPLETED is excluded because
-#: restoring it would undo nothing — the card would un-hide over a task the graph
-#: still has completed, which is the very lie this field exists to prevent.
-_RESTORABLE_TASK_STATUSES: frozenset[str] = frozenset(
-    status.value
-    for status in EntityType.TASK.valid_statuses()
-    if status is not EntityStatus.COMPLETED
-)
-
-
-def _restorable_status(raw: object) -> str:
-    """Return the status Undo may post back, or ``""`` when there is none.
-
-    ``from_neo4j_node`` leaves an unrecognized stored status on the model as a
-    raw ``str`` (with a warning) despite the declared type, and the completion
-    chokepoint refuses any non-canonical status target. Offering Undo for such a
-    card would un-hide it while the refused write left the task completed — so
-    an unrestorable status is emitted as ``""`` and the card offers no Undo.
-    """
-    value = str(raw)
-    return value if value in _RESTORABLE_TASK_STATUSES else ""
-
-
-def _task_view_pinned_first(view: TaskView) -> bool:
-    # Sort key: ``False`` sorts before ``True``, so negate to put pinned first.
-    return not view["pinned"]
-
-
-def _task_to_view(task: Task, *, lifepath_id: str, today: date, pinned: bool = False) -> TaskView:
-    return {
-        "id": task.uid,
-        "lifepath_id": lifepath_id,
-        "goal_id": task.fulfills_goal_uid,
-        "kind": "submission",
-        "label": task.title,
-        "meta": task.description[:80] if task.description else "",
-        "priority": _priority_label(task.priority),
-        # Canonical status value, carried so Undo can post the PRIOR status back
-        # to reopen (see TaskView). Empty when the stored status is not one the
-        # chokepoint would accept, which is what makes the card offer no Undo.
-        "status": _restorable_status(task.status),
-        "est_min": int(task.duration_minutes or 0),
-        "due_label": _due_label(task.due_date, today),
-        "pinned": pinned,
-    }
-
-
-def _task_to_triage(
-    task: Task, *, lifepath_id: str, today: date, pinned: bool = False
-) -> TriageItemView:
-    base = _task_to_view(task, lifepath_id=lifepath_id, today=today, pinned=pinned)
-    delta = (today - task.due_date).days if task.due_date else 0
-    reason = f"Overdue · {delta}d" if delta > 0 else "Blocked"
-    return {
-        **base,
-        "reason": reason,
-        "severity": "overdue" if delta > 0 else "blocked",
-    }
-
-
-def _principle_strength(principle: Principle) -> str:
-    """Render ``Principle.strength`` (StrEnum) as the view-layer string."""
-    if principle.strength is None:
-        return "developing"
-    return str(principle.strength.value)
-
-
-async def _first_principle_map(service: object, entity_uids: list[str]) -> dict[str, str]:
-    """Return ``{entity_uid: first_principle_uid}`` for the given entities.
-
-    Uses the ``"principles"`` relationship key, which both ``HABITS_CONFIG``
-    (EMBODIES_PRINCIPLE) and ``GOALS_CONFIG`` (GUIDED_BY_PRINCIPLE) expose.
-    Failures degrade to "no principle linked" rather than aborting the page.
-    """
-    if not entity_uids:
-        return {}
-    relationships = service.relationships  # type: ignore[attr-defined]
-    results = await asyncio.gather(
-        *(relationships.get_related_uids("principles", uid) for uid in entity_uids),
-        return_exceptions=True,
-    )
-    mapping: dict[str, str] = {}
-    for uid, r in zip(entity_uids, results, strict=True):
-        if isinstance(r, BaseException):
-            continue
-        if r.is_error:
-            continue
-        uids: list[str] = r.value
-        if uids:
-            mapping[uid] = uids[0]
-    return mapping
-
-
-async def _fetch_embodiment_rates(
-    principles_service: PrinciplesService,
-    principles: list[Principle],
-    user_uid: UserUID,
-) -> dict[str, float]:
-    """Rolling 7-day embodiment rate per principle.
-
-    Degrades to an empty map (all rates default to 0.0) on failure rather
-    than aborting the whole page — the ribbon still renders, just without
-    the embodiment badge.
-    """
-    if not principles:
-        return {}
-    principle_uids = [EntityUID(p.uid) for p in principles]
-    r = await principles_service.get_embodiment_rates_7d(principle_uids, user_uid)
-    if r.is_error:
-        logger.warning("today.embodiment_rates failed: %s", r.expect_error().message)
-        return {}
-    return r.value
-
-
-async def _fetch_lp_title(
-    lifepath_service: LifePathService, designation: LifePathDesignation | None
-) -> str | None:
-    """Look up the designated LifePath's title via the LP service.
-
-    The title lives on the LP entity itself; ``LifePathDesignation`` only
-    carries the UID. Returns ``None`` when unavailable (no designation, no
-    wired lp_service, or fetch error) — the ribbon falls back to "Your path".
-    """
-    if designation is None or not designation.life_path_uid:
-        return None
-    lp_service = lifepath_service.core.lp_service
-    if lp_service is None:
-        return None
-    r = await lp_service.get(designation.life_path_uid)
-    if r.is_error or r.value is None:
-        return None
-    title = r.value.title
-    return str(title) if title else None
-
-
-def _build_ribbon(
-    *,
-    lifepath_id: str,
-    designation: LifePathDesignation | None,
-    lp_title: str | None,
-    all_tasks: list[Task],
-) -> LifePathRibbonView:
-    """Produce the LifePath ribbon for the current user.
-
-    ``dormant`` fires when no task has been touched in the last
-    ``_DORMANCY_DAYS``. One LifePath per user is a design invariant, so
-    this produces exactly one ribbon (callers wrap it in a length-1 list).
-    """
-    now = datetime.now(UTC)
-    touched_ats: list[datetime] = []
-    for t in all_tasks:
-        touched = t.updated_at or t.created_at
-        if isinstance(touched, datetime):
-            # Task stamps have mixed provenance — naive values are UTC by
-            # convention (see core/utils/timestamp_helpers.parse_iso_utc);
-            # normalizing keeps max() and the subtraction below TypeError-free.
-            touched_ats.append(touched if touched.tzinfo else touched.replace(tzinfo=UTC))
-    last_touched_at: datetime | None = max(touched_ats) if touched_ats else None
-
-    dormant = False
-    last_touched_label: str | None = None
-    if last_touched_at is None:
-        dormant = True
-    else:
-        delta = now - last_touched_at
-        if delta > timedelta(days=_DORMANCY_DAYS):
-            dormant = True
-            last_touched_label = f"{delta.days} days ago"
-
-    vision = designation.vision_statement if designation else None
-    blurb: str | None
-    if not vision:
-        blurb = None
-    elif len(vision) < 120:
-        blurb = vision
-    else:
-        blurb = vision[:117] + "…"
-
-    return {
-        "id": lifepath_id,
-        "label": lp_title or "Your path",
-        "blurb": blurb,
-        "color": "oklch(0.55 0.20 255)",  # token-mirrored strength.strong
-        "dormant": dormant,
-        "last_touched": last_touched_label,
-    }
-
-
-def _build_rituals(
-    *,
-    habits: list[Habit],
-    events: list[Event],
-    today: date,
-    habit_principle_map: dict[str, str] | None = None,
-) -> list[RitualView]:
-    """Time-anchored items for the Day spine.
-
-    Habits contribute when they declare a ``preferred_time`` slot, positioned at that
-    slot's representative hour; events contribute when they occur today and carry a
-    ``start_time``. Everything is sorted chronologically.
-    """
-    pmap = habit_principle_map or {}
-    rituals: list[RitualView] = []
-
-    for h in habits:
-        parsed = _slot_hhmm(h.preferred_time)
-        if parsed is None:
-            continue
-        rituals.append(
-            {
-                "id": h.uid,
-                "time": parsed,
-                "label": h.title,
-                "est_min": int(h.duration_minutes or 0),
-                "principle_id": pmap.get(h.uid),
-            }
-        )
-
-    for e in events:
-        if e.event_date != today or e.start_time is None:
-            continue
-        rituals.append(
-            {
-                "id": e.uid,
-                "time": e.start_time.strftime("%H:%M"),
-                "label": e.title,
-                "est_min": int(e.duration_minutes or 0),
-                "principle_id": None,
-            }
-        )
-
-    rituals.sort(key=_ritual_sort_key)
-    return rituals
-
-
-def _ritual_sort_key(ritual: RitualView) -> str:
-    return ritual["time"]
-
-
-__all__ = ["TodayOrchestrator"]

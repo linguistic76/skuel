@@ -510,7 +510,7 @@ lens, the calendar, the journals periodics, `/explore/{uid}` and two `/api/`
 routes among them — so this row is a preference, not an absence. There is no
 shared validation helper behind them, and the routes genuinely disagree:
 `/today/{date_str}` coerces an unparseable date to today and carries on, while
-`/today/tasks/{uid}/drawer` answers **404** for a uid the caller does not own.
+`POST /today/tasks/{uid}/defer` answers **404** for a uid the caller does not own.
 One cell cannot describe both; read the route.
 
 **Why the form-body row names two answers.** `parse_form_body` returns a

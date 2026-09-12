@@ -1,12 +1,9 @@
-"""Today surface — post-login landing page.
+"""Today surface — the day view.
 
-``TodayPage(ctx)`` renders the full Today view from a ``TodayPageContext``
+``TodayPage(ctx)`` renders one day of dated Activity from a ``TodayPageContext``
 (produced by ``ui/today/orchestrator.py``).
-``render_task_drawer_body(task)`` is the HTMX fragment returned by
-``GET /today/tasks/{id}/drawer``.
 """
 
-from ui.today.drawer import render_task_drawer_body
 from ui.today.page import TodayPage
 
-__all__ = ["TodayPage", "render_task_drawer_body"]
+__all__ = ["TodayPage"]

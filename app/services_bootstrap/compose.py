@@ -1741,12 +1741,11 @@ async def compose_services(
 
         today_orchestrator = TodayOrchestrator(
             tasks_service=activity_services["tasks"],
-            goals_service=activity_services["goals"],
-            habits_service=activity_services["habits"],
             events_service=activity_services["events"],
-            principles_service=activity_services["principles"],
-            lifepath_service=lifepath_service,
-            user_relationship_service=user_relationships,
+            habits_service=activity_services["habits"],
+            goals_service=activity_services["goals"],
+            choices_service=activity_services["choices"],
+            calendar_service=calendar_service,
         )
         logger.info("✅ Today Orchestrator created")
 

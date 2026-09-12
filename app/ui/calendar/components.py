@@ -14,8 +14,9 @@ Both views share one visual language:
 
 Month is a bordered grid with an ISO-week rail; Week is 7 day-column agenda cards.
 Colors come from ``CalendarItemType.get_color()`` so the legend stays truthful.
-(The single-day agenda view was dropped — for the current day the Today surface
-(/today) is the one path; the calendar keeps the Week/Month temporal lenses.)
+The day view (``ui/today/page.py``) is the third temporal lens: it renders the
+same chips, nav cluster and kind legend (``create_kind_legend``/``DAY_KINDS``)
+around per-domain lists — one visual language across Today/Weekly/Monthly.
 
 See: docs/design-handoff/calendar-month/README.md — historical design record
 (visual intent only; its route/surface inventory predates the two-view contract)
@@ -23,6 +24,7 @@ See: docs/design-handoff/calendar-month/README.md — historical design record
 
 __version__ = "2.0"
 
+from collections.abc import Iterable
 from dataclasses import replace
 from datetime import date, datetime, timedelta
 from itertools import islice
@@ -56,6 +58,19 @@ if TYPE_CHECKING:
 _LEGEND_PAIRS: tuple[tuple[str, tuple[CalendarItemType, ...]], ...] = (
     ("Tasks + Events", (CalendarItemType.TASK, CalendarItemType.EVENT)),
     ("Goals + Habits", (CalendarItemType.MILESTONE, CalendarItemType.HABIT)),
+    # Only the day view admits this group: the grids never render a choice.
+    ("Choices", (CalendarItemType.CHOICE,)),
+)
+
+#: The day view's swatch set — every dated Activity kind the day renders. The
+#: day is not a ``CalendarView`` (no ``ViewSpec`` floors: the lens shows the
+#: day's truth, every priority), so it names its kinds directly.
+DAY_KINDS: tuple[CalendarItemType, ...] = (
+    CalendarItemType.TASK,
+    CalendarItemType.EVENT,
+    CalendarItemType.HABIT,
+    CalendarItemType.MILESTONE,
+    CalendarItemType.CHOICE,
 )
 
 _WEEKDAY_LABELS = ("Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun")
@@ -130,7 +145,17 @@ def create_calendar_legend(view: CalendarView) -> Div | None:
     """
     if not view_has_legend(view):
         return None
-    spec = VIEW_SPECS[view]
+    return create_kind_legend(VIEW_SPECS[view].members)
+
+
+def create_kind_legend(kinds: Iterable[CalendarItemType]) -> Div:
+    """The legend for an explicit swatch set, pair-grouped (``_LEGEND_PAIRS``).
+
+    ``create_calendar_legend`` passes a view's admitted kinds; the day view
+    passes ``DAY_KINDS``. Same swatches, same ``calendarLegend`` controller,
+    same storage key — one filter component across every calendar surface.
+    """
+    admitted = set(kinds)
     groups = [
         Div(
             Span(
@@ -140,11 +165,11 @@ def create_calendar_legend(view: CalendarView) -> Div | None:
                     " text-muted-foreground/60 whitespace-nowrap"
                 ),
             ),
-            *[_legend_swatch(item_type) for item_type in pair_types if spec.admits_kind(item_type)],
+            *[_legend_swatch(item_type) for item_type in pair_types if item_type in admitted],
             cls="flex items-center gap-1.5",
         )
         for pair_label, pair_types in _LEGEND_PAIRS
-        if any(spec.admits_kind(item_type) for item_type in pair_types)
+        if any(item_type in admitted for item_type in pair_types)
     ]
     return Div(*groups, cls="flex items-center gap-4 flex-wrap pb-1")
 

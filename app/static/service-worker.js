@@ -13,6 +13,10 @@
 // that has neither `nousTopic` nor `adoptScope` — an Alpine expression error, a
 // Type control disabled by nothing, and every context filter (plus a stale
 // sub-topic) still riding requests it no longer belongs to.
+// Bumped v11 -> v12 for the day view (D.1): today.js and today.css are deleted
+// and calendar.css gained the choice-kind filter selectors. A client serving
+// the v11 static cache would keep loading a dead bundle for /today and miss
+// the new selectors on every calendar surface.
 // Bumped v9 -> v10 for skuel.js: the /search Type dropdown is now the 6 Activity
 // Domains, and searchFilters' entityTypeFilters map dropped path_step,
 // learning_path and user_entry to match. A client serving the v9 bundle would
@@ -45,7 +49,7 @@
 // (The SW now registers correctly via the dedicated /service-worker.js route in
 // adapters/inbound/pwa_routes.py — the former catch-all 404 shadowing is fixed;
 // TECHNICAL_DEBT.md item 11's cache-invalidation half remains this manual bump.)
-const CACHE_VERSION = 'skuel-v11';
+const CACHE_VERSION = 'skuel-v12';
 const STATIC_CACHE = `${CACHE_VERSION}-static`;
 const RUNTIME_CACHE = `${CACHE_VERSION}-runtime`;
 

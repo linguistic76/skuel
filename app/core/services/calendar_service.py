@@ -265,6 +265,32 @@ class CalendarService:
         items.sort(key=_planning_item_start)
         return Result.ok(items)
 
+    @with_error_handling("habit_items_for_day", error_type="system", uid_param="user_uid")
+    async def habit_items_for_day(self, user_uid: UserUID, day: date) -> Result[list[CalendarItem]]:
+        """The user's habits that recur on ``day``, as day-stamped calendar items.
+
+        Producer for the day view's Habits section: each item is scoped to the
+        day the same way the item-details modal scopes it
+        (``_stamp_habit_occurrence`` — re-dated block, ``occurrence_data`` with
+        the day and its completion state), so a chip, the modal it opens and the
+        per-day complete door agree about the day. Every priority renders: the
+        day lens shows the day's truth, not a view's floor. A failed completions
+        read propagates — a chip rendering a done day as pending would offer a
+        second "Mark Complete" for it.
+        """
+        items: list[CalendarItem] = []
+        for habit in await self._fetch_habits(user_uid):
+            if not self._is_occurrence_day(habit, day):
+                continue
+            stamped = await self._stamp_habit_occurrence(
+                self._habit_to_calendar_item(habit), habit.uid, day
+            )
+            if stamped.is_error:
+                return Result.fail(stamped)
+            items.append(stamped.value)
+        items.sort(key=_planning_item_start)
+        return Result.ok(items)
+
     @with_error_handling("get_item", error_type="system", uid_param="item_uid")
     async def get_item(
         self, user_uid: UserUID, item_uid: str, on_date: date | None = None

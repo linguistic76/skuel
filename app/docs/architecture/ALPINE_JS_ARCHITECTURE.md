@@ -1,7 +1,7 @@
 ---
 related_skills:
 - ui-browser
-updated: 2026-08-26
+updated: 2026-09-12
 ---
 # Alpine.js Architecture
 *Last updated: 2026-08-04*
@@ -114,7 +114,6 @@ and CLAUDE.md § UI Component Pattern.
 ```
 static/js/
 ├── skuel.js          # SHARED Alpine.data() components (~2600 lines, 22 of the 26)
-├── today.js          # page-local: today
 ├── explore-reading.js  # page-local: exploreReading
 ├── ku-reading.js     # page-local: kuReading
 └── ps-detail.js      # page-local: pathstep
@@ -133,7 +132,7 @@ ui/
 
 There are **26** components, and `skuel.js` is **not** the only registrar — a
 natural assumption, and a wrong one. `skuel.js` holds the **22 shared**
-components; four page-local bundles register one each and are loaded only by
+components; three page-local bundles register one each and are loaded only by
 their own routes.
 
 The table below is the **canonical page-local inventory** — the one place those
@@ -148,7 +147,6 @@ renderer that mounts the component, which is easy to get backwards.
 
 | Component | Bundle | `Script(src=…)` emitted by | Mounted by |
 |-----------|--------|---------------------------|------------|
-| `today` | `static/js/today.js` | `ui/today/page.py:78` | `ui/today/page.py` |
 | `exploreReading` | `static/js/explore-reading.js` | `adapters/inbound/explore_ui.py:277` | `ui/explore/reading_plan.py` |
 | `kuReading` | `static/js/ku-reading.js` | `adapters/inbound/learning_loop_routes.py:169` | `ui/explore/ku_detail.py` |
 | `pathstep` | `static/js/ps-detail.js` | `adapters/inbound/learning_loop_routes.py:332` | `ui/explore/ps_detail.py` |
