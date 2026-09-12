@@ -79,7 +79,8 @@ def _task(
 
 def _range_read(tasks: list[Task]):  # type: ignore[no-untyped-def]  # boundary: mock side effect
     """A stand-in for the dated task read: the rows whose named date field(s)
-    fall inside [start, end] — every status, as ``include_completed=True`` asks."""
+    fall inside [start, end]; completed rows only when ``include_completed``
+    asks for them, as the real read's status exclusion does."""
 
     async def read(
         user_uid: str,
@@ -92,7 +93,8 @@ def _range_read(tasks: list[Task]):  # type: ignore[no-untyped-def]  # boundary:
         rows = [
             t
             for t in tasks
-            if any(
+            if (include_completed or t.status is not EntityStatus.COMPLETED)
+            and any(
                 getattr(t, f) is not None and start_date <= getattr(t, f) <= end_date
                 for f in fields
             )
@@ -266,13 +268,15 @@ async def test_task_reads_are_dated_never_the_whole_list() -> None:
     calls = services["tasks"].get_user_items_in_range.await_args_list
     day_call = calls[0]
     assert day_call.args[1:] == (TODAY, TODAY)
+    # Completed rows are excluded in the query — the lens's own exclusion set —
+    # so completed past-due rows can never consume the read's page.
     assert day_call.kwargs == {
-        "include_completed": True,
+        "include_completed": False,
         "date_field": ["due_date", "scheduled_date"],
     }
     overdue_call = calls[1]
     assert overdue_call.args[2] == TODAY - timedelta(days=1)
-    assert overdue_call.kwargs == {"include_completed": True, "date_field": "due_date"}
+    assert overdue_call.kwargs == {"include_completed": False, "date_field": "due_date"}
     assert not services["tasks"].get_user_tasks.called
 
 

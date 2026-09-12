@@ -154,12 +154,14 @@ class TodayOrchestrator:
         self._calendar = calendar_service
 
     async def _overdue_candidates(self, user_uid: UserUID, today: date) -> Result[list[Task]]:
-        """Tasks due before ``today``, every status — the triage predicate decides."""
+        """Tasks due before ``today`` and not completed — the query applies the
+        lens's exclusion so completed past-due rows never consume the read's
+        page; the triage predicate still decides membership."""
         return await self._tasks.get_user_items_in_range(
             user_uid,
             _EARLIEST_DUE,
             today - timedelta(days=1),
-            include_completed=True,
+            include_completed=False,
             date_field=DUE_FIELD,
         )
 
@@ -181,13 +183,15 @@ class TodayOrchestrator:
             # at the backend's default limit, and a day's task — or an old overdue
             # one — could sit past it. The day's members by due OR scheduled date
             # (the calendar's C2 semantics); overdue by due date up to yesterday,
-            # issued on the live day only. Every status comes back, so the lens's
-            # own exclusion (``ui/today/membership.py``) is the one status rule.
+            # issued on the live day only. Completed rows are excluded IN the
+            # query (the domain's completed_statuses is exactly the lens's own
+            # exclusion, ``ui/today/membership.py``): the range read carries the
+            # same page cap, and completed past-due rows must not consume it.
             self._tasks.get_user_items_in_range(
                 user_uid,
                 view_date,
                 view_date,
-                include_completed=True,
+                include_completed=False,
                 date_field=[DUE_FIELD, SCHEDULED_FIELD],
             ),
             self._overdue_candidates(user_uid, today) if is_today else _no_tasks(),
