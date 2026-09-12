@@ -518,6 +518,10 @@ class TestPageShells:
         assert 'hx-get="/cal/month/2026/9/content"' in html
         assert "calendarLegend" not in html
         assert "toggleType(" not in html
+        # The calendar carries the slimmer sidebar: no domain rows, no badge request.
+        assert "/api/sidebar/badges" not in html
+        assert 'href="/activity-reports/latest"' in html
+        assert 'href="/tasks"' not in html
 
     def test_week_shell_binds_the_legend_and_its_controller(self, routes_and_service) -> None:
         registry, _service = routes_and_service

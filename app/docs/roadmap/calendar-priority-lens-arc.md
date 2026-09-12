@@ -398,6 +398,11 @@ detached by ``scripts/migrations/detach_pinned_today_2026_09.cypher``.
   backend read (`user_uid = subject`), not `get_history`, which is subject-scoped and returns
   admin-authored HUMAN reports the owner-scoped detail then refuses (Codex P2, round 4) — or to
   `/submit-activity-report` when none.
+  **Implemented (E1 PR):** `CALENDAR_SIDEBAR_ITEMS` + `items=` on `render_activity_sidebar_page`, which
+  sets `badges=False` on `SidebarPage`/`SidebarNav` (the loader attributes are simply not rendered);
+  `events_ui.py` highlights `monthly` (the month is the events lens); `ActivityReportBackend.get_latest_for_owner`
+  → `ActivityReportService.get_latest_for_owner` → `UserEntryOrchestrator.get_latest_activity_report`
+  → `GET /activity-reports/latest`.
 - **E.2 calendar-aligned periods:** tokens `2026-09` / `2026-W37` beside the trailing windows; the generator
   derives (start, end) via `week_bounds`/month bounds, keeps `period_end` as the report's metadata, and
   passes **`min(now, period_end)` as the DATA cutoff** — the mapper's `window_end` (Codex P1 on PR 0: a

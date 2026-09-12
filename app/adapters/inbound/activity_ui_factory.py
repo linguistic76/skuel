@@ -87,6 +87,10 @@ class ActivityUIConfig:
             route rebuilds the filter bar's Category dropdown from live data via
             ``with_user_categories`` (dropped at 0-1 categories). None keeps the
             static filter config as-is.
+        sidebar_active: The activity sidebar row the generated page shells
+            highlight, when it is not the domain's own slug — Events have no
+            row of their own and light "Monthly" (``ui/activities/nav.py``).
+            None highlights ``domain_name``.
     """
 
     domain_name: str
@@ -110,6 +114,8 @@ class ActivityUIConfig:
     dual_track_label: str = ""
     # Live category options for the filter bar — optional
     list_categories: Callable[[UserUID], Awaitable[Any]] | None = None
+    # The sidebar row the shells highlight — optional, defaults to domain_name
+    sidebar_active: str | None = None
 
 
 # ============================================================================
@@ -130,6 +136,7 @@ def create_activity_ui_routes(
     """
     domain = config.domain_name
     singular = config.domain_singular
+    sidebar_active = config.sidebar_active or domain
     title = config.page_title
 
     # ------------------------------------------------------------------
@@ -200,7 +207,7 @@ def create_activity_ui_routes(
             content_loading_placeholder(fragment_url, f"{domain}-content"),
             personal_header_placeholder(),
         )
-        return render_activity_sidebar_page(content, active=domain, request=request)
+        return render_activity_sidebar_page(content, active=sidebar_active, request=request)
 
     # ------------------------------------------------------------------
     # 2. Content fragment: /{domain}/content
@@ -269,7 +276,7 @@ def create_activity_ui_routes(
         if not uid:
             return render_activity_sidebar_page(
                 Div(render_error_banner(f"Missing {singular} UID")),
-                active=domain,
+                active=sidebar_active,
                 request=request,
             )
         content = Div(
@@ -277,7 +284,7 @@ def create_activity_ui_routes(
                 f"/{domain}/detail/content?uid={uid}", f"{singular}-detail-content"
             ),
         )
-        return render_activity_sidebar_page(content, active=domain, request=request)
+        return render_activity_sidebar_page(content, active=sidebar_active, request=request)
 
     # ------------------------------------------------------------------
     # 5. Detail content fragment: /{domain}/detail/content

@@ -1,5 +1,5 @@
 ---
-updated: 2026-09-11
+updated: 2026-09-12
 ---
 
 # Route Map
@@ -82,7 +82,7 @@ Both live in `ui/patterns/personal_header.py`.
 
 ### `/profile` — Personal Overview Hub
 
-Four tabs selected by `?tab=` (default `activities`), mirroring the loop (live it / study / submit / grade): **Activities** (6 Activity Domain accordion blocks, previews from `/api/profile/{slug}/preview`; Tasks section open on load), **Curriculum** (former Library blocks), **Submissions** (4 link buttons mirroring the `/submissions` sidebar — Sync, Exercises, Journals, History), **Reports** (former GradeBook blocks). Tab view in `ui/profile/hub.py`. Activity sidebar (shared across `/tasks`, `/goals`, `/habits`, `/choices`, `/principles`, `/journals`) links back to `/profile`. Calendar views (`/cal`, month/week) share that sidebar (its Weekly/Monthly rows) and render each view's declared membership (`VIEW_SPECS`): the month shows events alone; the week adds habits, goal milestones and high-priority tasks, with the kind legend as filter.
+Four tabs selected by `?tab=` (default `activities`), mirroring the loop (live it / study / submit / grade): **Activities** (6 Activity Domain accordion blocks, previews from `/api/profile/{slug}/preview`; Tasks section open on load), **Curriculum** (former Library blocks), **Submissions** (4 link buttons mirroring the `/submissions` sidebar — Sync, Exercises, Journals, History), **Reports** (former GradeBook blocks). Tab view in `ui/profile/hub.py`. Activity sidebar (shared across `/tasks`, `/goals`, `/habits`, `/choices`, `/principles`, `/journals`) links back to `/profile`. The calendar views (`/cal`, month/week) and `/today` carry the sidebar's slimmer variant (`CALENDAR_SIDEBAR_ITEMS`: Today / Weekly / Monthly / Journal / Reports — no domain rows, and no `/api/sidebar/badges` request), and each calendar view renders its declared membership (`VIEW_SPECS`): the month shows events alone; the week adds habits, goal milestones and high-priority tasks, with the kind legend as filter.
 
 ### `/profile/shared` — Shared With Me
 
@@ -103,6 +103,7 @@ THE received-feedback page (3→1 collapse, feedback-loop UX arc 2 C1+C2) — on
 The former list pages `/entry-reports`, `/activity-reports`, `/revised-exercises` are deleted (One Path Forward); their detail routes remain and render under the GradeBook sidebar:
 
 - `/entry-reports/detail?uid=` — full report content with outcome badge + revision link.
+- `/activity-reports/latest` — the calendar/Today sidebar's Reports door: redirects to the newest report the user owns, or to `/submit-activity-report` when there is none.
 - `/activity-reports/detail?uid=` — activity report detail (HTMX-loaded body).
 - `/revised-exercises/detail?uid=` — revision instructions with feedback points + submit link.
 

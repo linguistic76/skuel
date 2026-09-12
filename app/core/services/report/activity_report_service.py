@@ -390,6 +390,31 @@ class ActivityReportService:
             )
         return Result.ok(ActivityReport._from_dict(props))  # type: ignore[attr-defined]
 
+    async def get_latest_for_owner(self, user_uid: UserUID) -> Result[ActivityReport | None]:
+        """The newest ActivityReport the user owns, or ``None`` when there is none.
+
+        Owner-scoped (``user_uid``), not subject-scoped: a HUMAN report an admin
+        authored about this user is a subject row the owner-scoped detail read
+        refuses, so the "latest report" door must never select it.
+
+        Backend: ``ActivityReportBackend.get_latest_for_owner``.
+        """
+        query_result = await self.backend.get_latest_for_owner(user_uid)
+        if query_result.is_error:
+            return Result.fail(query_result)
+        records = query_result.value or []
+        if not records:
+            return Result.ok(None)
+        node = records[0]
+        inner = node.get("n") if isinstance(node, dict) and "n" in node else node
+        # Neo4j Node implements Mapping at runtime but isn't typed as such
+        props = (
+            cast("dict[str, Any]", inner)
+            if isinstance(inner, dict)
+            else cast("dict[str, Any]", dict(cast("Any", inner)))
+        )
+        return Result.ok(ActivityReport._from_dict(props))  # type: ignore[attr-defined]
+
     async def get_history(
         self,
         subject_uid: str,

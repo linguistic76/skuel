@@ -59,7 +59,7 @@ from core.utils.timestamp_helpers import (
     prev_week,
     week_bounds,
 )
-from ui.activities.nav import render_activity_sidebar_page
+from ui.activities.nav import CALENDAR_SIDEBAR_ITEMS, render_activity_sidebar_page
 from ui.calendar.components import (
     create_calendar_header,
     create_calendar_toolbar,
@@ -99,6 +99,9 @@ def _wrap_calendar_page(request: Request, content: Any, title: str, active: str)
         # "calendar" lights the navbar calendar icon.
         active_page="calendar",
         content_max_width="max-w-none",
+        # The slimmer variant: temporal lenses + Journal + Reports, no domain
+        # rows and no badge request (ruling 6).
+        items=CALENDAR_SIDEBAR_ITEMS,
     )
 
 

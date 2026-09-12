@@ -328,6 +328,10 @@ class UserEntryOrchestrator:
         """Fetch history of activity-based feedback."""
         return await self._activity_report.get_history(subject_uid=user_uid, limit=limit)
 
+    async def get_latest_activity_report(self, user_uid: UserUID) -> Result[ActivityReport | None]:
+        """The newest ActivityReport the user owns, or ``None`` — the sidebar's Reports door."""
+        return await self._activity_report.get_latest_for_owner(user_uid)
+
     async def annotate_activity_report(
         self,
         uid: str,

@@ -7,6 +7,8 @@ GradeBook's conditional "Activity reports" group (/gradebook, arc 2 C1) —
 this file keeps the detail view, the request form, and the hub preview.
 
 Routes:
+- GET /activity-reports/latest — The sidebar's Reports door: redirect to the newest
+  report the user OWNS, or to the request form when there is none
 - GET /activity-reports/detail — Activity report detail view
 - GET /activity-reports/detail/content — HTMX fragment: detail body
 - GET /activity-reports/md?uid= — Download own report as Markdown
@@ -27,7 +29,7 @@ from fasthtml.common import (
     P,
     Span,
 )
-from starlette.responses import Response
+from starlette.responses import RedirectResponse, Response
 
 from adapters.inbound.auth import require_authenticated_user
 from adapters.inbound.boundary import boundary_handler, ui_boundary_handler
@@ -130,6 +132,31 @@ def create_activity_reports_ui_routes(
             active="submit-activity-report",
             request=request,
         )
+
+    # ========================================================================
+    # LATEST REPORT — the calendar/Today sidebar's Reports door
+    # ========================================================================
+
+    @rt("/activity-reports/latest")
+    async def activity_report_latest(request: Request) -> RedirectResponse:
+        """Redirect to the newest report the user owns, or to the request form.
+
+        Owner-scoped on purpose: the history read is subject-scoped and would
+        offer an admin-authored report the owner-scoped detail then refuses.
+        A failed read still lands somewhere useful — the request form.
+        """
+        user_uid = require_authenticated_user(request)
+        latest = await orchestrator.get_latest_activity_report(user_uid)
+        if latest.is_error:
+            logger.warning(
+                "activity-reports/latest read failed for user=%s: %s",
+                user_uid,
+                latest.expect_error().message,
+            )
+            return RedirectResponse("/submit-activity-report", status_code=302)
+        if latest.value is None:
+            return RedirectResponse("/submit-activity-report", status_code=302)
+        return RedirectResponse(f"/activity-reports/detail?uid={latest.value.uid}", status_code=302)
 
     # ========================================================================
     # ACTIVITY REPORT DETAIL PAGE
