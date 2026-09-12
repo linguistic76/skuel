@@ -88,7 +88,7 @@ def _build(
     services["events"].get_user_items_in_range = AsyncMock(return_value=Result.ok([]))
     services["calendar"].habit_items_for_day = AsyncMock(return_value=Result.ok([]))
     services["goals"].get_user_items_in_range = AsyncMock(return_value=Result.ok([]))
-    services["choices"].get_user_choices = AsyncMock(return_value=Result.ok([]))
+    services["choices"].get_user_items_in_range = AsyncMock(return_value=Result.ok([]))
     orch = TodayOrchestrator(
         tasks_service=services["tasks"],
         events_service=services["events"],
@@ -194,7 +194,9 @@ async def test_other_domains_are_read_for_the_viewed_day() -> None:
         decision_deadline=datetime.combine(day, datetime.min.time()),
     )
     off_day = Choice(uid="c-off", user_uid=USER, title="Skip", decided_at=datetime(2020, 1, 1))
-    services["choices"].get_user_choices = AsyncMock(return_value=Result.ok([off_day, on_day]))
+    services["choices"].get_user_items_in_range = AsyncMock(
+        return_value=Result.ok([off_day, on_day])
+    )
 
     ctx = (await orch.build_context(USER, day)).value
 
@@ -208,6 +210,14 @@ async def test_other_domains_are_read_for_the_viewed_day() -> None:
     assert ctx["milestones"] == [goal]
     assert ctx["habits"] == [habit_item]
     assert [c.uid for c in ctx["choices"]] == ["c-on"]
+    # A dated read by either date field — never the capped "all choices" list.
+    services["choices"].get_user_items_in_range.assert_awaited_once_with(
+        USER,
+        day,
+        day,
+        include_completed=True,
+        date_field=["decision_deadline", "decided_at"],
+    )
 
 
 @pytest.mark.asyncio
@@ -227,7 +237,7 @@ async def test_a_failed_task_read_fails_the_page() -> None:
         ("events", "get_user_items_in_range"),
         ("goals", "get_user_items_in_range"),
         ("calendar", "habit_items_for_day"),
-        ("choices", "get_user_choices"),
+        ("choices", "get_user_items_in_range"),
     ],
 )
 async def test_a_failed_section_read_degrades_to_an_empty_section(

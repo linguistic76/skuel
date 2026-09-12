@@ -214,9 +214,19 @@ def _defer_form(task: Task, view_date: date, *, source: str) -> FT:
         Span("Defer", cls="text-11 text-muted-foreground/70"),
         Button("1d", type="submit", name="span", value="1d", cls=button_cls),
         Button("1w", type="submit", name="span", value="1w", cls=button_cls),
+        # The route's refusals are actionable text in a 400 body ("would pass the
+        # deadline", "no longer on this day's lens"), which HTMX never swaps. Show
+        # it beside the buttons instead of letting the click look inert.
+        Span(cls="text-11 text-warning", role="status", **{"data-defer-note": True}),
         hx_post=f"/today/tasks/{task.uid}/defer",
         hx_swap="none",
-        cls="flex items-center gap-1.5 mt-1 pl-1",
+        **{
+            "hx-on::response-error": (
+                "this.querySelector('[data-defer-note]').textContent"
+                " = event.detail.xhr.responseText"
+            ),
+        },
+        cls="flex items-center gap-1.5 mt-1 pl-1 flex-wrap",
     )
 
 
@@ -227,7 +237,22 @@ def _task_card_with_defer(
     ``ActivityList`` calls with ``(item, connections)``."""
 
     def card(task: Task, connections: list[dict[str, str]]) -> FT:
-        return Div(TaskCard(task, connections), _defer_form(task, view_date, source=source))
+        # The card's status toggle swaps only the card (its own outerHTML target),
+        # which would leave a completed task on the day beside a live defer
+        # control. The day is server-rendered, so a successful status request
+        # reloads it — membership then decides what the day shows, as on defer
+        # and quick-add.
+        return Div(
+            TaskCard(task, connections),
+            _defer_form(task, view_date, source=source),
+            **{
+                "hx-on::after-request": (
+                    "if (event.detail.successful"
+                    " && event.detail.pathInfo.requestPath.endsWith('/status'))"
+                    " window.location.reload()"
+                ),
+            },
+        )
 
     return card
 

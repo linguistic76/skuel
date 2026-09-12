@@ -160,7 +160,17 @@ class TodayOrchestrator:
             self._goals.get_user_items_in_range(
                 user_uid, view_date, view_date, include_completed=True
             ),
-            self._choices.get_user_choices(user_uid),
+            # Dated read, not "all choices then filter": the plain list is capped
+            # at the backend's default limit, and a day's choice could sit past it.
+            # The range query matches either date field (OR semantics); the
+            # in-memory predicate below is the same rule stated once.
+            self._choices.get_user_items_in_range(
+                user_uid,
+                view_date,
+                view_date,
+                include_completed=True,
+                date_field=["decision_deadline", "decided_at"],
+            ),
         )
         if tasks_r.is_error:
             return Result.fail(tasks_r)
