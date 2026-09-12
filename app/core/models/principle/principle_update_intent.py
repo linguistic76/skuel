@@ -72,10 +72,12 @@ class PrincipleUpdateIntent:
     priority: str | Unset | None = UNSET
     tags: list[str] | Unset | None = UNSET
 
-    # --- Review stamp (service-set, not request-settable) --------------------
-    # The date of the last reflection or self-assessment; the review cadence and
-    # the report's principles_reviewed counter read it.
+    # --- Review stamp + history (service-set, not request-settable) ----------
+    # The date of the last reflection or self-assessment (the review cadence reads
+    # it) and the dated entries themselves — ``AlignmentAssessment.to_record()``
+    # shapes — which the report's principles_reviewed counter reads by date.
     last_review_date: date | Unset | None = UNSET
+    alignment_history: list[dict[str, Any]] | Unset | None = UNSET
 
     def to_changes(self) -> dict[str, Any]:
         """Return only the explicitly-set fields as a backend-ready patch.

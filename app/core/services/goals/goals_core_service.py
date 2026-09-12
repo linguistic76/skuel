@@ -53,6 +53,7 @@ from core.services.completion_stamp import (
     stranded_stamp_error,
 )
 from core.services.domain_config import create_activity_domain_config
+from core.services.goals.progress_history import with_progress_entry
 from core.services.mixins.hierarchy_read_mixin import HierarchyReadMixin
 from core.services.mixins.link_edge_guard import (
     KNOWLEDGE_LABELS,
@@ -172,11 +173,12 @@ def _with_completion_progress(
     ``complete_goal`` carries ``progress_percentage=100.0`` beside ``status=COMPLETED``.
     As a base-patch field it would land on every re-posted completion — and the
     progress stamp with it, so a repeat days later would read as a progress event in
-    that period's report. On a COMPLETED target the figure and its
-    ``last_progress_update`` therefore leave the base patch and ride the guard's
-    prior-NOT-in patch, beside the achievement stamp that already rides that
-    condition: applied only when the prior was not already COMPLETED. A repeat writes
-    neither. Only the write knows the prior, so this is a condition, not a pre-read.
+    that period's report. On a COMPLETED target the figure, its
+    ``last_progress_update`` and the ``progress_history`` entry therefore leave the
+    base patch and ride the guard's prior-NOT-in patch, beside the achievement stamp
+    that already rides that condition: applied only when the prior was not already
+    COMPLETED. A repeat writes none of them. Only the write knows the prior, so this
+    is a condition, not a pre-read.
 
     ⚠ Constructed when absent, like the reopen reset: an intent that supplies its own
     ``achieved_date`` arrives with a guard carrying no patches at all.
@@ -208,6 +210,10 @@ def _with_completion_progress(
         "progress_percentage": figure,
         "last_progress_update": stamp,
     }
+    # The history entry is part of the same transition: a repeated completion
+    # appends nothing, exactly as it stamps nothing.
+    if "progress_history" in base:
+        transition["progress_history"] = base.pop("progress_history")
     return dataclasses.replace(guard, patch_if_prior_not_in=(statuses, transition)), base
 
 
@@ -807,7 +813,11 @@ class GoalsCoreService(
         # completion always is: its figure and stamp move onto the transition
         # condition below (``_with_completion_progress``), gated by the prior status.
         if carries_progress and _progress_moves(old_goal, changes):
-            changes["last_progress_update"] = datetime.now()
+            now = datetime.now()
+            changes["last_progress_update"] = now
+            changes["progress_history"] = with_progress_entry(
+                old_goal, changes["progress_percentage"], now
+            )
         # Capture the intended fields now: the backend stamps updated_at in place, so
         # reading changes.keys() after the write would leak that bump into the event.
         updated_fields = list(changes.keys())

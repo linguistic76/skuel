@@ -30,6 +30,7 @@ from core.services.base_service import BaseService
 from core.services.completion_stamp import COMPLETION_FIELDS, is_completion_transition
 from core.services.domain_config import create_activity_domain_config
 from core.services.goals.goal_relationships import GoalRelationships
+from core.services.goals.progress_history import with_progress_entry
 from core.services.infrastructure import ProgressCalculator
 from core.services.user import UserContext
 from core.services.user.rich_context import (
@@ -393,7 +394,9 @@ class GoalsProgressService(BaseService[GoalsOperations, Goal]):
             "current_value": completed_count,
         }
         if not target_milestone.is_completed:
-            updates["last_progress_update"] = datetime.now()
+            now = datetime.now()
+            updates["last_progress_update"] = now
+            updates["progress_history"] = with_progress_entry(goal, new_progress, now)
         guard, achievement = _achievement_write(target_achieved)
 
         update_result = await self.backend.update_with_status_guard(goal_uid, updates, guard)
@@ -501,7 +504,9 @@ class GoalsProgressService(BaseService[GoalsOperations, Goal]):
             # normalization window recomputes to the same capped figure, and that
             # is not a progress event a period report should count.
             if abs(new_progress - old_progress) >= 0.01:
-                updates["last_progress_update"] = datetime.now()
+                now = datetime.now()
+                updates["last_progress_update"] = now
+                updates["progress_history"] = with_progress_entry(goal, new_progress, now)
 
             # Check if goal is achieved — on the TRANSITION, matching the gate in
             # _update_goal_from_habit_completion. `>= 100` alone re-stamps
@@ -799,7 +804,9 @@ class GoalsProgressService(BaseService[GoalsOperations, Goal]):
         # records a CHANGE: re-posting the stored figure is not a progress event.
         updates: dict[str, Any] = {"progress_percentage": progress_value}
         if abs(progress_value - old_progress) >= 0.01:
-            updates["last_progress_update"] = datetime.now()
+            now = datetime.now()
+            updates["last_progress_update"] = now
+            updates["progress_history"] = with_progress_entry(goal, progress_value, now)
 
         if notes:
             # Append notes to metadata (access via DTO)
@@ -1115,7 +1122,9 @@ class GoalsProgressService(BaseService[GoalsOperations, Goal]):
         # The stamp records a CHANGE of the figure; a tally repair alone is not one.
         updates: dict[str, Any] = {"progress_percentage": new_progress}
         if progress_changed:
-            updates["last_progress_update"] = datetime.now()
+            now = datetime.now()
+            updates["last_progress_update"] = now
+            updates["progress_history"] = with_progress_entry(goal, new_progress, now)
 
         if goal.measurement_type == MeasurementType.TASK_BASED:
             # The measurement IS the linked-task tally, so this writer owns both ends of
@@ -1329,7 +1338,9 @@ class GoalsProgressService(BaseService[GoalsOperations, Goal]):
         # The stamp records a CHANGE of the figure; a measurement repair alone is not one.
         updates: dict[str, Any] = {"progress_percentage": new_progress}
         if progress_changed:
-            updates["last_progress_update"] = datetime.now()
+            now = datetime.now()
+            updates["last_progress_update"] = now
+            updates["progress_history"] = with_progress_entry(goal, new_progress, now)
 
         if goal.measurement_type == MeasurementType.HABIT_BASED:
             # target_value is the desired streak length (see the division above), so

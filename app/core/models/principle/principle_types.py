@@ -19,6 +19,7 @@ Extracted from principle.py during Ku unification (February 2026).
 from dataclasses import dataclass, field
 from datetime import date, datetime
 from operator import itemgetter
+from typing import Any
 
 from core.models.enums.principle_enums import AlignmentLevel
 from core.models.type_hints import EntityUID
@@ -35,12 +36,29 @@ class PrincipleExpression:
 
 @dataclass(frozen=True)
 class AlignmentAssessment:
-    """Assessment of how well current actions align with principle."""
+    """One dated entry of a principle's alignment history.
+
+    ``kind`` says what wrote it: a self-assessment (the dual-track door) or a
+    reflection (``record_principle_reflection``). Both carry a level and the
+    evidence; the report's ``principles_reviewed`` counts either, by date.
+    """
 
     assessed_date: date
     alignment_level: AlignmentLevel
     evidence: str  # What was observed
     reflection: str | None = None
+    kind: str = "assessment"
+
+    def to_record(self) -> dict[str, Any]:
+        """The JSON-ready shape the node stores (``alignment_history`` is one
+        JSON string of these); ``Principle._from_dto`` reads it back."""
+        return {
+            "assessed_date": self.assessed_date.isoformat(),
+            "alignment_level": self.alignment_level.value,
+            "evidence": self.evidence,
+            "reflection": self.reflection,
+            "kind": self.kind,
+        }
 
 
 @dataclass(frozen=True, kw_only=True)
