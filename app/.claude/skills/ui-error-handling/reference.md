@@ -131,10 +131,9 @@ def apply_task_sort(tasks: list[Any], sort_by: str = "due_date") -> list[Any]:
 
     elif sort_by == "priority":
         priority_order = {
-            Priority.CRITICAL: 0,
-            Priority.HIGH: 1,
-            Priority.MEDIUM: 2,
-            Priority.LOW: 3,
+            Priority.HIGH: 0,
+            Priority.MEDIUM: 1,
+            Priority.LOW: 2,
         }
         return sorted(tasks, key=lambda t: priority_order.get(t.priority, 999))
 
@@ -356,7 +355,7 @@ def validate_task_form_data(form_data: dict[str, Any]) -> Result[None]:
 
     # Priority validation
     priority = form_data.get("priority")
-    if priority and priority not in ["low", "medium", "high", "critical"]:
+    if priority and priority not in ["low", "medium", "high"]:
         return Errors.validation(f"Invalid priority: {priority}")
 
     return Result.ok(None)

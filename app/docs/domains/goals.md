@@ -1,7 +1,7 @@
 ---
 title: Goals Domain
 created: 2025-12-04
-updated: 2026-09-05
+updated: 2026-09-11
 status: current
 category: domains
 tags:
@@ -56,7 +56,7 @@ Goals represent desired outcomes that guide learning and habit formation. They p
 | `GoalTimeframe` | `core.models.enums` | DAILY, WEEKLY, MONTHLY, QUARTERLY, YEARLY, MULTI_YEAR | `timeframe` |
 | `MeasurementType` | `core.models.enums` | BINARY, PERCENTAGE, NUMERIC, MILESTONE, HABIT_BASED, KNOWLEDGE_BASED, TASK_BASED, MIXED | `measurement_type` |
 | `HabitEssentiality` | `core.models.enums` | ESSENTIAL, CRITICAL, SUPPORTING, OPTIONAL | — (goal-habit link weight) |
-| `Priority` | `core.models.enums` | LOW, MEDIUM, HIGH, CRITICAL | `priority` |
+| `Priority` | `core.models.enums` | LOW, MEDIUM, HIGH | `priority` |
 
 **See:** [Enum Architecture](../architecture/ENUM_ARCHITECTURE.md)
 
@@ -251,7 +251,7 @@ Goals track which habits are essential for achievement:
 
 **Capacity Criteria:**
 - Maximum active goals (default: 5)
-- Priority distribution (max 1 CRITICAL, max 2 HIGH)
+- Priority distribution (advisory: at most 2 HIGH)
 - Complexity scoring (type × timeframe)
 
 **Result Types:**

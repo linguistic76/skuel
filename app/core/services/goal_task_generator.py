@@ -447,7 +447,7 @@ class GoalTaskGenerator:
                     task = TaskDTO.create_task(
                         user_uid=goal.user_uid,
                         title=f"URGENT: {milestone.title}",
-                        priority=Priority.CRITICAL,
+                        priority=Priority.HIGH,
                         due_date=date.today() + timedelta(days=3),
                         duration_minutes=self.config.default_task_duration_minutes * 2,
                     )
@@ -466,9 +466,7 @@ class GoalTaskGenerator:
         days_until_due = (task_due_date - date.today()).days
         goal_days_remaining = goal.days_remaining() or 365
 
-        if days_until_due <= 3 or goal_days_remaining <= 7:
-            return Priority.CRITICAL
-        elif days_until_due <= 7 or goal_days_remaining <= 30:
+        if days_until_due <= 7 or goal_days_remaining <= 30:
             return Priority.HIGH
         elif days_until_due <= 30 or goal_days_remaining <= 90:
             return Priority.MEDIUM

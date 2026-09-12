@@ -132,7 +132,7 @@ async def test_get_domain_preview_items_sorts_by_priority_descending() -> None:
     orch, mocks = _build()
     items = [
         _item(priority=Priority.LOW),
-        _item(priority=Priority.CRITICAL),
+        _item(priority=Priority.HIGH),
         _item(priority=Priority.MEDIUM),
         _item(priority=Priority.HIGH),
     ]
@@ -142,7 +142,7 @@ async def test_get_domain_preview_items_sorts_by_priority_descending() -> None:
 
     assert result.is_ok
     priorities = [item.priority for item in result.value]
-    assert priorities == [Priority.CRITICAL, Priority.HIGH, Priority.MEDIUM]
+    assert priorities == [Priority.HIGH, Priority.HIGH, Priority.MEDIUM]
 
 
 @pytest.mark.asyncio

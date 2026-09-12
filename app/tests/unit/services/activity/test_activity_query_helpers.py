@@ -175,10 +175,10 @@ class TestApplyTaskSort:
     def test_sort_by_priority(self):
         tasks = [
             make_task(priority=Priority.LOW),
-            make_task(priority=Priority.CRITICAL),
+            make_task(priority=Priority.HIGH),
         ]
         result = _apply_task_sort(tasks, "priority")
-        assert result[0].priority == Priority.CRITICAL
+        assert result[0].priority == Priority.HIGH
 
     def test_sort_by_created_at_descending(self):
         tasks = [
@@ -264,9 +264,9 @@ class TestApplyGoalSort:
         assert result[0].target_date == date(2025, 6, 1)
 
     def test_sort_by_priority(self):
-        goals = [make_goal(priority="low"), make_goal(priority="critical")]
+        goals = [make_goal(priority="low"), make_goal(priority="high")]
         result = _apply_goal_sort(goals, "priority")
-        assert result[0].priority == "critical"
+        assert result[0].priority == "high"
 
 
 # ============================================================================
@@ -380,9 +380,9 @@ class TestApplyChoiceSort:
         assert result[0].decision_deadline == datetime(2025, 1, 1)
 
     def test_sort_by_priority(self):
-        choices = [make_choice(priority="low"), make_choice(priority="critical")]
+        choices = [make_choice(priority="low"), make_choice(priority="high")]
         result = _apply_choice_sort(choices, "priority")
-        assert result[0].priority == "critical"
+        assert result[0].priority == "high"
 
     def test_sort_by_created_at_descending(self):
         choices = [

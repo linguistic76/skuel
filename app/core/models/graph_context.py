@@ -254,7 +254,7 @@ class IntelligenceInsight:
     # Actionability
     is_actionable: bool
     suggested_actions: list[str]
-    priority: str  # "low", "medium", "high", "critical"
+    priority: str  # "low", "medium", "high"
 
     # Metadata
     domains_involved: list[Domain]
@@ -266,7 +266,7 @@ class IntelligenceInsight:
 
     def is_urgent(self) -> bool:
         """Check if this insight requires urgent attention."""
-        return self.priority in ["high", "critical"] and self.is_actionable
+        return self.priority == "high" and self.is_actionable
 
 
 # Factory functions

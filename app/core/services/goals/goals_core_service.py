@@ -804,7 +804,7 @@ class GoalsCoreService(
 
         # Publish GoalAbandoned event
         if result.is_ok:
-            progress_at_abandonment = getattr(goal, "progress", 0.0) or 0.0
+            progress_at_abandonment = goal.calculate_progress()
 
             # Calculate days active
             days_active = 0

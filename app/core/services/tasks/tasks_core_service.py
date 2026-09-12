@@ -171,10 +171,10 @@ class TasksCoreService(
     # caller. Both doors now run that caller (see ``create`` below), so the hook is
     # reachable and resolves to the inherited no-op BY CHOICE, not by accident — the
     # rule contradicted two live producers of exactly that shape:
-    #   - the Activity DSL: @priority(1|2) maps to CRITICAL/HIGH while due_date is set
+    #   - the Activity DSL: @priority(1|2) maps to HIGH while due_date is set
     #     only when @when() is present, so undated urgent tasks are ordinary DSL output
     #     (core/services/dsl/activity_domain_converters.py)
-    #   - GoalTaskGenerator: mints HIGH ("Learn: ...") and CRITICAL tasks with no due date
+    #   - GoalTaskGenerator: mints HIGH ("Learn: ...", "URGENT: ...") tasks with no due date
     #
     # Priority and due_date are independent in this domain. What IS enforced on due_date
     # lives at the request edge (TaskCreateRequest: validate_future_date, and
@@ -1005,9 +1005,6 @@ class TasksCoreService(
                 user_uid=task.user_uid,
                 old_priority=old_task.priority or "medium",
                 new_priority=task.priority or "medium",
-                escalated_to_urgent=(
-                    Priority(task.priority).to_numeric() == 4 if task.priority else False
-                ),  # CRITICAL = 4
             )
             await publish_event(self.event_bus, priority_event, self.logger)
 

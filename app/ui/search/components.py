@@ -686,7 +686,6 @@ _PRIORITY_OPTIONS = [
     ("low", "Low"),
     ("medium", "Medium"),
     ("high", "High"),
-    ("critical", "Critical"),
 ]
 
 _FREQUENCY_OPTIONS = [

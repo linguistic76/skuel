@@ -32,7 +32,7 @@ from __future__ import annotations
 from enum import Enum
 
 from core.models.enums import Domain, KuComplexity, LearningLevel, MasteryImpact, SELCategory
-from core.models.enums.activity_enums import Confidence, EngagementState
+from core.models.enums.activity_enums import Confidence, EngagementState, Priority
 from core.models.enums.choice_enums import ChoiceType
 from core.models.enums.curriculum_enums import LpType, PublicationState, StepDifficulty
 from core.models.enums.entity_enums import EntityStatus, EntityType
@@ -58,6 +58,10 @@ ENUM_FIELD_TYPES: dict[str, type[Enum]] = {
     "status": EntityStatus,
     "domain": Domain,
     "visibility": Visibility,
+    # Every UserOwnedEntity carries priority; authored PathStep frontmatter does too.
+    # Registered so the vault door canonicalizes casing and refuses any value outside
+    # the three-level vocabulary.
+    "priority": Priority,
     # Curriculum fields
     "confidence": Confidence,
     "complexity": KuComplexity,

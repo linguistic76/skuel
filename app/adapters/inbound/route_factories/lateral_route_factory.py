@@ -42,6 +42,7 @@ from adapters.inbound.auth import require_authenticated_user
 from adapters.inbound.boundary import boundary_handler
 from adapters.inbound.csrf import csrf_protected
 from adapters.inbound.fasthtml_types import Request
+from core.models.enums.activity_enums import Priority
 from core.models.relationship_names import RelationshipName
 from core.models.type_hints import EntityUID, Neo4jProperties
 from core.ports.query_types import RelationshipGraphData
@@ -66,6 +67,21 @@ logger = get_logger(__name__)
 # Emitted by every lateral write (create/delete) so the shared readers and the
 # relationship graph refresh off one DOM event. See LATERAL_RELATIONSHIPS_VISUALIZATION.md.
 _RELATIONSHIPS_CHANGED_HEADERS: dict[str, str] = {"HX-Trigger": "relationships-changed"}
+
+
+def _lateral_priority(raw: str) -> Result[str]:
+    """The relationship's priority as a ``Priority`` member value.
+
+    Lateral edges persist ``priority`` verbatim and the graph reads it back for
+    edge width, so the vocabulary is enforced here, at the write: a value
+    outside low / medium / high is a validation error, never a stored string.
+    """
+    try:
+        return Result.ok(Priority(raw.strip().lower()).value)
+    except ValueError:
+        return Result.fail(
+            Errors.validation("priority must be low, medium or high", field="priority")
+        )
 
 
 class LateralRouteFactory:
@@ -126,9 +142,12 @@ class LateralRouteFactory:
                 reason: Why blocker must complete first
                 severity: "required", "recommended", or "suggested"
                 confidence: Certainty of this constraint (0.0-1.0; default 1.0 — hard constraints are explicit)
-                priority: Relative importance of this relationship (low/medium/high/critical)
+                priority: Relative importance of this relationship (low/medium/high)
             """
             user_uid = require_authenticated_user(request)
+            edge_priority = _lateral_priority(priority)
+            if edge_priority.is_error:
+                return Result.fail(edge_priority)
 
             result = await self.lateral_service.create_lateral_relationship(
                 source_uid=uid,
@@ -138,7 +157,7 @@ class LateralRouteFactory:
                     "reason": reason,
                     "severity": severity,
                     "confidence": confidence,
-                    "priority": priority,
+                    "priority": edge_priority.value,
                     "domain": self.domain,
                     "created_by": user_uid,
                 },
@@ -242,9 +261,12 @@ class LateralRouteFactory:
                 strength: How essential prerequisite is (0.0-1.0)
                 reasoning: Optional explanation
                 confidence: Certainty of this prerequisite (0.0-1.0; default 1.0 — asserting a hard requirement)
-                priority: Relative importance of this relationship (low/medium/high/critical)
+                priority: Relative importance of this relationship (low/medium/high)
             """
             user_uid = require_authenticated_user(request)
+            edge_priority = _lateral_priority(priority)
+            if edge_priority.is_error:
+                return Result.fail(edge_priority)
 
             result = await self.lateral_service.create_lateral_relationship(
                 source_uid=uid,
@@ -254,7 +276,7 @@ class LateralRouteFactory:
                     "strength": strength,
                     "reasoning": reasoning,
                     "confidence": confidence,
-                    "priority": priority,
+                    "priority": edge_priority.value,
                     "domain": self.domain,
                     "created_by": user_uid,
                 },
@@ -348,19 +370,22 @@ class LateralRouteFactory:
                 comparison_criteria: How to compare alternatives
                 tradeoffs: Optional list of tradeoffs
                 confidence: Certainty that these are genuine alternatives (0.0-1.0; default 0.8 — softer assertion)
-                priority: Relative importance of this relationship (low/medium/high/critical)
+                priority: Relative importance of this relationship (low/medium/high)
                 timeframe: How long this alternative takes (e.g. "about 18 months")
                 difficulty: How hard it is (e.g. "steep at first")
                 resources: What it costs to pursue (e.g. "one mentor plus a rowing machine")
             """
             user_uid = require_authenticated_user(request)
+            edge_priority = _lateral_priority(priority)
+            if edge_priority.is_error:
+                return Result.fail(edge_priority)
 
             tradeoffs_widened: list[str | int | float] = list(tradeoffs) if tradeoffs else []
             metadata: Neo4jProperties = {
                 "comparison_criteria": comparison_criteria,
                 "tradeoffs": tradeoffs_widened,
                 "confidence": confidence,
-                "priority": priority,
+                "priority": edge_priority.value,
                 "domain": self.domain,
                 "created_by": user_uid,
             }
@@ -448,9 +473,12 @@ class LateralRouteFactory:
                 synergy_description: How entities complement each other
                 synergy_score: Strength of synergy (0.0-1.0)
                 confidence: Certainty of this synergy (0.0-1.0; default 0.8 — softer assertion)
-                priority: Relative importance of this relationship (low/medium/high/critical)
+                priority: Relative importance of this relationship (low/medium/high)
             """
             user_uid = require_authenticated_user(request)
+            edge_priority = _lateral_priority(priority)
+            if edge_priority.is_error:
+                return Result.fail(edge_priority)
 
             result = await self.lateral_service.create_lateral_relationship(
                 source_uid=uid,
@@ -460,7 +488,7 @@ class LateralRouteFactory:
                     "synergy_description": synergy_description,
                     "synergy_score": synergy_score,
                     "confidence": confidence,
-                    "priority": priority,
+                    "priority": edge_priority.value,
                     "domain": self.domain,
                     "created_by": user_uid,
                 },

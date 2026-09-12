@@ -9,24 +9,38 @@ this file keeps the detail view, the request form, and the hub preview.
 Routes:
 - GET /activity-reports/detail — Activity report detail view
 - GET /activity-reports/detail/content — HTMX fragment: detail body
+- GET /activity-reports/md?uid= — Download own report as Markdown
 - GET /submit-activity-report — On-demand activity report request form
+- POST /api/reports/progress/generate — Generate a report now (answers the request
+  form's HTMX post with a fragment; a cooldown refusal renders inline)
+- POST /api/activity-reports/annotate — Save commentary/revision on own report (fragment)
 - GET /reports/progress-list — HTMX fragment: progress reports (request form page)
 - GET /api/gradebook/activity-reports/preview — HTMX hub preview block
 
 See: /docs/patterns/DOMAIN_ROUTE_CONFIG_PATTERN.md
 """
 
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from fasthtml.common import (
     Div,
+    P,
     Span,
 )
+from starlette.responses import Response
 
 from adapters.inbound.auth import require_authenticated_user
-from adapters.inbound.boundary import ui_boundary_handler
+from adapters.inbound.boundary import boundary_handler, ui_boundary_handler
+from adapters.inbound.csrf import csrf_protected
 from adapters.inbound.fasthtml_types import Request, RouteDecorator
+from adapters.inbound.form_helpers import parse_form_body
+from adapters.outbound.activity_report_renderer import (
+    activity_report_filename,
+    render_activity_report_md,
+)
+from core.models.entity_requests import AnnotationFormRequest, ProgressReportGenerateRequest
 from core.utils.logging import get_logger
+from core.utils.result_simplified import ErrorCategory, Errors, Result
 from core.utils.text_truncation import truncate_to_budget
 from ui.gradebook.nav import render_gradebook_sidebar_page
 from ui.learning_loop.report import (
@@ -41,8 +55,37 @@ from ui.patterns.generate_report import (
 from ui.patterns.hub import HubPreviewCard, HubPreviewEmpty, HubPreviewGrid
 from ui.patterns.loading import content_loading_placeholder
 from ui.patterns.page_header import PageHeader
+from ui.primitives import ButtonLink
+
+if TYPE_CHECKING:
+    from fasthtml.common import FT
+
+    from core.ports.report_protocols import ProgressReportOperations
 
 logger = get_logger("skuel.routes.activity_reports")
+
+# The two report forms swap these fragments into their status slots
+# (#generate-status, #annotation-status); a refusal the user can act on
+# (cooldown, a mode without its text) renders here too — HTMX leaves a 4xx
+# body unswapped, which would show the user nothing.
+_INLINE_ERROR_CATEGORIES = frozenset({ErrorCategory.VALIDATION, ErrorCategory.BUSINESS})
+
+
+def _status_note(message: str, *, ok: bool) -> "FT":
+    tone = "text-success" if ok else "text-warning"
+    return P(message, cls=f"text-sm {tone}", role="status")
+
+
+def _progress_list_refresh() -> Div:
+    """Out-of-band re-fetch of the recent-reports list after a generation."""
+    return Div(
+        Span("Refreshing recent reports…", cls="sr-only"),
+        id="progress-list",
+        hx_get="/reports/progress-list",
+        hx_trigger="load",
+        hx_swap="outerHTML",
+        hx_swap_oob="true",
+    )
 
 
 # ============================================================================
@@ -54,13 +97,15 @@ def create_activity_reports_ui_routes(
     _app: Any,
     rt: RouteDecorator,
     orchestrator: Any = None,
+    progress_generator: "ProgressReportOperations | None" = None,
 ) -> list[Any]:
-    """Create activity-report detail/request/preview routes.
+    """Create activity-report detail/request/generate/annotate/download routes.
 
     Args:
         _app: FastHTML application instance
         rt: Router instance
-        orchestrator: SubmissionsOrchestrator for unified states
+        orchestrator: UserEntryOrchestrator (owner-scoped report reads + annotate)
+        progress_generator: ProgressReportGenerator — the on-demand producer
     """
 
     # ========================================================================
@@ -147,6 +192,119 @@ def create_activity_reports_ui_routes(
         )
 
     # ========================================================================
+    # PRODUCERS — generate now, annotate, download
+    # ========================================================================
+
+    @rt("/api/reports/progress/generate", methods=["POST"])
+    @csrf_protected
+    @boundary_handler()
+    async def generate_activity_report(request: Request) -> Result["FT"]:
+        """Generate a report for the signed-in user now.
+
+        Answers the request form's url-encoded post (``time_period``, ``depth``)
+        with a fragment for ``#generate-status``: a link to the new report plus
+        an out-of-band refresh of the recent-reports list. The generator's
+        cooldown refusal (a report within the last hour) renders inline; a body
+        outside the period/depth vocabulary is 400; anything else propagates.
+        """
+        user_uid = require_authenticated_user(request)
+        if progress_generator is None:
+            return Result.fail(Errors.system("Activity report generator unavailable"))
+        parsed = await parse_form_body(request, ProgressReportGenerateRequest)
+        if parsed.is_error:
+            return Result.fail(parsed)
+        req = parsed.value
+        result = await progress_generator.generate(
+            user_uid=user_uid,
+            time_period=req.time_period,
+            domains=req.domains or None,
+            depth=req.depth,
+            include_insights=req.include_insights,
+        )
+        if result.is_error:
+            error = result.expect_error()
+            if error.category in _INLINE_ERROR_CATEGORIES:
+                return Result.ok(_status_note(error.message, ok=False))
+            return Result.fail(result)
+        report = result.value
+        return Result.ok(
+            Div(
+                _status_note("Report generated.", ok=True),
+                ButtonLink(
+                    "Open report",
+                    href=f"/activity-reports/detail?uid={report.uid}",
+                    size="sm",
+                ),
+                _progress_list_refresh(),
+                cls="flex items-center gap-3",
+            )
+        )
+
+    @rt("/api/activity-reports/annotate", methods=["POST"])
+    @csrf_protected
+    @boundary_handler()
+    async def annotate_activity_report(request: Request) -> Result["FT"]:
+        """Save the owner's commentary or replacement text on one of their reports.
+
+        Answers the detail page's url-encoded post (``uid``, ``annotation_mode``,
+        ``annotation_text``) with a fragment for ``#annotation-status``; the one
+        text field lands in the field the chosen mode stores. A mode without its
+        text renders inline; a report the user does not own is not found (404),
+        as every owner-scoped read.
+        """
+        user_uid = require_authenticated_user(request)
+        if orchestrator is None:
+            return Result.fail(Errors.system("Activity report orchestrator unavailable"))
+        parsed = await parse_form_body(request, AnnotationFormRequest)
+        if parsed.is_error:
+            return Result.fail(parsed)
+        req = parsed.value.to_save_request()
+        result = await orchestrator.annotate_activity_report(
+            req.uid,
+            user_uid,
+            req.annotation_mode,
+            user_annotation=req.user_annotation,
+            user_revision=req.user_revision,
+        )
+        if result.is_error:
+            error = result.expect_error()
+            if error.category in _INLINE_ERROR_CATEGORIES:
+                return Result.ok(_status_note(error.message, ok=False))
+            return Result.fail(result)
+        return Result.ok(_status_note("Saved.", ok=True))
+
+    @rt("/activity-reports/md")
+    async def download_activity_report_md(request: Request) -> Response:
+        """Download one of the user's reports as a Markdown file.
+
+        Owner-scoped through the orchestrator's ``get_activity_report`` — a
+        foreign or unknown uid is "not found", never rendered; a read that
+        fails for any other reason is reported as unavailable, not as absent.
+        """
+        user_uid = require_authenticated_user(request)
+        uid = request.query_params.get("uid", "").strip()
+        not_found = Response("Report not found", status_code=404, media_type="text/plain")
+        if not uid or orchestrator is None:
+            return not_found
+        result = await orchestrator.get_activity_report(uid, user_uid)
+        if result.is_error:
+            error = result.expect_error()
+            if error.category == ErrorCategory.NOT_FOUND:
+                return not_found
+            logger.error("activity-report download failed for uid=%s: %s", uid, error.message)
+            return Response("Report unavailable", status_code=503, media_type="text/plain")
+        if not result.value:
+            return not_found
+        report = result.value
+        return Response(
+            content=render_activity_report_md(report),
+            media_type="text/markdown; charset=utf-8",
+            headers={
+                "Content-Disposition": f'attachment; filename="{activity_report_filename(report)}"'
+            },
+        )
+
+    # ========================================================================
     # HTMX ENDPOINTS
     # ========================================================================
 
@@ -207,12 +365,15 @@ def create_activity_reports_ui_routes(
 
     logger.info(
         "Activity Reports UI routes created "
-        "(/activity-reports/detail, /submit-activity-report + hub preview)"
+        "(/activity-reports/detail, /submit-activity-report, generate/annotate/md + hub preview)"
     )
 
     return [
         submit_activity_report_page,
         activity_report_detail,
         activity_report_detail_content,
+        generate_activity_report,
+        annotate_activity_report,
+        download_activity_report_md,
         progress_list_fragment,
     ]

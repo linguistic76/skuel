@@ -1,7 +1,7 @@
 ---
 title: Events Domain
 created: 2025-12-04
-updated: 2026-09-05
+updated: 2026-09-11
 status: current
 category: domains
 tags: [events, scheduling-domain, integration-domain, domain]
@@ -49,7 +49,7 @@ Events additionally has an integration sub-service (`EventsHabitIntegrationServi
 | `RecurrencePattern` | `core.models.enums` | NONE, DAILY, WEEKDAYS, WEEKENDS, WEEKLY, BIWEEKLY, MONTHLY, QUARTERLY, YEARLY, CUSTOM | `recurrence_pattern` |
 | `EnergyLevel` | `core.models.enums` | LOW, MEDIUM, HIGH, VARIABLE | — (scheduling) |
 | `ActivityType` | `core.models.enums` | TASK, HABIT, EVENT, LEARNING, MILESTONE, DEADLINE, MEETING, PRACTICE, REVIEW, BREAK, BLOCK, PLACEHOLDER | `event_type` |
-| `Priority` | `core.models.enums` | LOW, MEDIUM, HIGH, CRITICAL | `priority` |
+| `Priority` | `core.models.enums` | LOW, MEDIUM, HIGH | `priority` |
 
 **See:** [Enum Architecture](../architecture/ENUM_ARCHITECTURE.md)
 

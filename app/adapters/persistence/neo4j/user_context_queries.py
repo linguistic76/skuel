@@ -150,18 +150,20 @@ WITH user, active_task_uids, completed_task_uids, overdue_task_uids, today_task_
              subtasks: task_subtasks,
              dependencies: task_dependencies,
              applied_knowledge: task_knowledge,
-             goal_context: CASE WHEN goal IS NOT NULL THEN {uid: goal.uid, title: goal.title, progress: goal.progress} ELSE null END
+             goal_context: CASE WHEN goal IS NOT NULL THEN {uid: goal.uid, title: goal.title, progress: coalesce(goal.progress_percentage, 0.0) / 100.0} ELSE null END
          }
      } END) as tasks_rich
 
 // ====================================================================
 // GOALS - Fetch with BOTH UIDs and rich data
 // ====================================================================
+// progress_percentage (0-100) is the Goal's only progress field; every
+// progress emitted below is scaled to the 0-1 fraction context.goal_progress speaks.
 OPTIONAL MATCH (user)-[:OWNS]->(goal:Goal)
 WITH user, active_task_uids, completed_task_uids, overdue_task_uids, today_task_uids, tasks_rich,
      collect(CASE WHEN goal.status = $status_active THEN goal.uid END) as active_goal_uids,
      collect(CASE WHEN goal.status = $status_completed THEN goal.uid END) as completed_goal_uids,
-     collect(CASE WHEN goal IS NOT NULL THEN {uid: goal.uid, progress: coalesce(goal.progress, 0.0)} END) as goal_progress_data,
+     collect(CASE WHEN goal IS NOT NULL THEN {uid: goal.uid, progress: coalesce(goal.progress_percentage, 0.0) / 100.0} END) as goal_progress_data,
      collect(goal) as all_goals_nodes
 
 // Filter goals for rich data — active status always included; window entities included if touched since $window_start
@@ -177,7 +179,7 @@ WHERE goal IS NOT NULL
 WITH user, active_task_uids, completed_task_uids, overdue_task_uids, today_task_uids, tasks_rich,
      active_goal_uids, completed_goal_uids, goal_progress_data,
      goal, goal_tasks,
-     collect(DISTINCT CASE WHEN subgoal IS NOT NULL THEN {uid: subgoal.uid, title: subgoal.title, progress: subgoal.progress} END) as goal_subgoals
+     collect(DISTINCT CASE WHEN subgoal IS NOT NULL THEN {uid: subgoal.uid, title: subgoal.title, progress: coalesce(subgoal.progress_percentage, 0.0) / 100.0} END) as goal_subgoals
 
 OPTIONAL MATCH (goal)-[req_rel:REQUIRES_KNOWLEDGE]->(req_ku:Entity)
 WHERE goal IS NOT NULL AND coalesce(req_rel.confidence, 1.0) >= $min_confidence
@@ -1320,7 +1322,7 @@ WITH user, active_task_uids, completed_task_uids, overdue_task_uids, today_task_
      active_habit_uids, habit_data,
      collect(CASE WHEN goal.status = $status_active THEN goal.uid END) as active_goal_uids,
      collect(CASE WHEN goal.status = $status_completed THEN goal.uid END) as completed_goal_uids,
-     collect(CASE WHEN goal IS NOT NULL THEN {uid: goal.uid, progress: coalesce(goal.progress, 0.0)} END) as goal_data
+     collect(CASE WHEN goal IS NOT NULL THEN {uid: goal.uid, progress: coalesce(goal.progress_percentage, 0.0) / 100.0} END) as goal_data
 
 // Knowledge - parallel collection with mastery scores
 OPTIONAL MATCH (user)-[mastered:MASTERED]->(ku:Entity)

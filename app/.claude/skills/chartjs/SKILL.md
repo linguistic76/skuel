@@ -200,7 +200,7 @@ For Priority and Status colors, use the enum methods directly:
 ```python
 from core.models.enums import Priority, EntityStatus
 
-Priority.CRITICAL.get_color()      # "#DC2626"
+Priority.HIGH.get_color()          # "#F59E0B"
 EntityStatus.COMPLETED.get_color() # "#10B981"
 ```
 

@@ -1,5 +1,5 @@
 ---
-updated: 2026-07-10
+updated: 2026-09-11
 ---
 
 # Tasks Quick-Add Guide
@@ -19,7 +19,7 @@ The form has two rows of fields:
 |-------|-------------|----------|
 | **Title** | Task name (e.g., "Review pull request") | Yes |
 | **Project** | Free-text field with autocomplete - type any project name (e.g., "Work", "Home", "Q4 Planning") | No |
-| **Priority** | P1-P4 flag (P1=Critical/Red, P2=High/Orange, P3=Medium/Blue, P4=Low/Gray) | No (default: P3) |
+| **Priority** | P1-P3 flag (P1=High/Orange, P2=Medium/Blue, P3=Low/Gray) | No (default: P2) |
 | **Add Task** | Submit button | - |
 
 **Note:** The Project field lets you type ANY project name. As you create tasks with projects, those project names will appear as autocomplete suggestions for future tasks.

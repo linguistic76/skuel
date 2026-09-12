@@ -919,8 +919,7 @@ class PriorityScoringWeight:
     PRIORITY_LEVEL: Final[dict[str, float]] = {
         "LOW": 0.2,
         "MEDIUM": 0.5,
-        "HIGH": 0.8,
-        "CRITICAL": 1.0,
+        "HIGH": 1.0,
     }
     DEFAULT_PRIORITY: Final = 0.5
 
@@ -943,9 +942,8 @@ class KnowledgeEnhancementScore:
     DEFAULT_ENHANCEMENT: Final = 0.5
     NO_KNOWLEDGE_BASELINE: Final = 0.1
 
-    # Priority boosts for knowledge enhancement
-    CRITICAL_PRIORITY_BOOST: Final = 0.2
-    HIGH_PRIORITY_BOOST: Final = 0.1
+    # Priority boost for knowledge enhancement
+    HIGH_PRIORITY_BOOST: Final = 0.2
 
     # Mastery progression weights
     VELOCITY_WEIGHT: Final = 0.6

@@ -314,7 +314,7 @@ class CalendarOptimizationService(_SchedulingStrategiesMixin):
         if task.knowledge_mastery_check:
             intrinsic_load += 0.2  # Estimate for knowledge application tasks
 
-        if task.priority in (Priority.HIGH, Priority.CRITICAL):
+        if task.priority == Priority.HIGH:
             intrinsic_load += 0.2
 
         # Extraneous load (environmental factors)

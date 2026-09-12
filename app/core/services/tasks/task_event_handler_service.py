@@ -239,7 +239,6 @@ class TaskEventHandlerService:
                     "old_priority": event.old_priority,
                     "new_priority": event.new_priority,
                     "change_type": change_type,
-                    "escalated_to_urgent": event.escalated_to_urgent,
                     "event_type": "task.priority.changed",
                 },
             )
@@ -436,9 +435,9 @@ class TaskEventHandlerService:
                 )
 
     async def _detect_priority_inflation(self, event: TaskPriorityChanged) -> None:
-        """Detect if user has too many high/critical priority tasks.
+        """Detect if user has too many high-priority tasks.
 
-        Warns if >60% of recent tasks are urgent/high priority.
+        Warns if >60% of recent tasks are high priority.
         """
         tasks_result = await self.backend.find_by(user_uid=event.user_uid)
         if tasks_result.is_error:
@@ -453,7 +452,7 @@ class TaskEventHandlerService:
 
         if inflation_ratio > 0.6:
             self.logger.warning(
-                f"Priority inflation detected: {inflation_ratio:.0%} of tasks are high/critical",
+                f"Priority inflation detected: {inflation_ratio:.0%} of tasks are high priority",
                 extra={
                     "user_uid": event.user_uid,
                     "high_priority_count": high_count,
@@ -473,7 +472,7 @@ class TaskEventHandlerService:
                     insight_type=InsightType.IMBALANCE_DETECTED,
                     domain="tasks",
                     title="Priority Inflation Detected",
-                    description=f"{inflation_ratio:.0%} of your tasks are high or critical priority. Consider re-evaluating priorities.",
+                    description=f"{inflation_ratio:.0%} of your tasks are high priority. Consider re-evaluating priorities.",
                     confidence=0.9,
                     impact=InsightImpact.HIGH,
                     entity_uid=EntityUID(event.task_uid),

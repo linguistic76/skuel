@@ -1,6 +1,6 @@
 ---
 title: SKUEL Activity DSL - Formal Specification
-updated: 2026-09-05
+updated: 2026-09-11
 status: current
 category: dsl
 tags: [dsl, grammar, specification, formal, syntax]
@@ -252,9 +252,12 @@ PriorityNumber ::= "1" | "2" | "3" | "4" | "5"
 - `1` → Highest priority
 - `5` → Lowest priority
 
+SKUEL's `Priority` has three levels; the five DSL steps map `1`–`2` → HIGH, `3` → MEDIUM,
+`4`–`5` → LOW (`core/services/dsl/dsl_mappings.py`).
+
 **Examples:**
 ```markdown
-@priority(1)    # Critical
+@priority(1)    # High
 @priority(3)    # Normal
 @priority(5)    # Low
 ```

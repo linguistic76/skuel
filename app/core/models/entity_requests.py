@@ -586,6 +586,24 @@ class AnnotationSaveRequest(BaseModel):
     user_revision: str | None = Field(default=None, description="Replacement text")
 
 
+class AnnotationFormRequest(BaseModel):
+    """The report detail page's notes form: one text field, a mode that says what it is."""
+
+    uid: str = Field(..., min_length=1, description="ActivityReport UID")
+    annotation_mode: str = Field(..., pattern=r"^(additive|revision)$")
+    annotation_text: str | None = Field(default=None, description="The note or the replacement")
+
+    def to_save_request(self) -> AnnotationSaveRequest:
+        """Route the single text field to the field the chosen mode stores."""
+        additive = self.annotation_mode == "additive"
+        return AnnotationSaveRequest(
+            uid=self.uid,
+            annotation_mode=self.annotation_mode,
+            user_annotation=self.annotation_text if additive else None,
+            user_revision=None if additive else self.annotation_text,
+        )
+
+
 class ActivityReviewRequest(BaseModel):
     """User requests an activity review from an admin."""
 

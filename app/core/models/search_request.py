@@ -197,9 +197,7 @@ class SearchRequest(BaseModel):
     )
 
     # Priority filter - for tasks, events
-    priority: Priority | None = Field(
-        default=None, description="Priority level: low, medium, high, critical"
-    )
+    priority: Priority | None = Field(default=None, description="Priority level: low, medium, high")
 
     # ========================================================================
     # RELATIONSHIP-BASED FACETS (Graph-aware filters)

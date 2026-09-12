@@ -126,7 +126,7 @@ def test_get_severity_numeric_ordering():
 
 def test_get_priority_color_all_levels():
     """Test priority color mapping."""
-    for priority in [Priority.LOW, Priority.MEDIUM, Priority.HIGH, Priority.CRITICAL]:
+    for priority in [Priority.LOW, Priority.MEDIUM, Priority.HIGH]:
         color = priority.get_color()
         assert isinstance(color, str)
         assert len(color) > 0
@@ -134,7 +134,7 @@ def test_get_priority_color_all_levels():
 
 def test_get_priority_badge_class_all_levels():
     """Test priority badge CSS classes."""
-    for priority in ["low", "medium", "high", "critical"]:
+    for priority in ["low", "medium", "high"]:
         badge_class = get_priority_badge_class(priority)
         assert isinstance(badge_class, str)
         assert "bg-" in badge_class  # Tailwind utility class
@@ -323,7 +323,7 @@ def test_badge_component_with_class():
 
 def test_render_priority_badge_all_levels():
     """Test priority badge rendering for all priority levels."""
-    for priority in ["low", "medium", "high", "critical"]:
+    for priority in ["low", "medium", "high"]:
         badge = render_priority_badge(priority)
         assert badge is not None
 

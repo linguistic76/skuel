@@ -476,7 +476,7 @@ class TestGoalsCoreOperations:
             success_criteria="Complete advanced courses and build 3 projects",
             potential_obstacles=("Time constraints", "Complex topics"),
             strategies=("Daily practice", "Seek mentorship", "Join community"),
-            priority=Priority.CRITICAL,
+            priority=Priority.HIGH,
             tags=("career", "learning", "tech"),
         )
 

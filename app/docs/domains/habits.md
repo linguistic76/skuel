@@ -1,7 +1,7 @@
 ---
 title: Habits Domain
 created: 2025-12-04
-updated: 2026-09-05
+updated: 2026-09-11
 status: current
 category: domains
 tags:
@@ -60,7 +60,7 @@ Habits represent recurring behaviors with streak tracking. They form the "system
 | `CompletionStatus` | `core.models.enums` | DONE, PARTIAL, SKIPPED, MISSED, PAUSED | — (daily tracking) |
 | `RecurrencePattern` | `core.models.enums` | DAILY, WEEKLY, MONTHLY, etc. (10 values) | `recurrence_pattern` |
 | `TimeOfDay` | `core.models.enums` | EARLY_MORNING, MORNING, AFTERNOON, EVENING, NIGHT, LATE_NIGHT, ANYTIME | `preferred_time` |
-| `Priority` | `core.models.enums` | LOW, MEDIUM, HIGH, CRITICAL | `priority` |
+| `Priority` | `core.models.enums` | LOW, MEDIUM, HIGH | `priority` |
 
 **See:** [Enum Architecture](../architecture/ENUM_ARCHITECTURE.md)
 

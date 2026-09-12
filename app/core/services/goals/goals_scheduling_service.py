@@ -65,8 +65,7 @@ if TYPE_CHECKING:
 
 # Maximum recommended active goals by priority level
 DEFAULT_MAX_ACTIVE_GOALS = 5  # Total active goals limit
-DEFAULT_MAX_CRITICAL_GOALS = 1  # Only 1 CRITICAL goal at a time
-DEFAULT_MAX_HIGH_GOALS = 2  # Up to 2 HIGH priority goals
+DEFAULT_MAX_HIGH_GOALS = 2  # Up to 2 HIGH priority goals (advisory)
 
 # Complexity scoring by goal type
 COMPLEXITY_BY_TYPE = {
@@ -284,15 +283,6 @@ class GoalsSchedulingService(BaseService[GoalsOperations, Goal]):
         # Check priority constraints
         recommendations = []
 
-        if proposed_priority == Priority.CRITICAL:
-            critical_count = priority_distribution.get("critical", 0)
-            if critical_count >= DEFAULT_MAX_CRITICAL_GOALS:
-                can_add = False
-                recommendations.append(
-                    f"Already have {critical_count} CRITICAL goal(s). "
-                    "Complete one before adding another CRITICAL goal."
-                )
-
         if proposed_priority == Priority.HIGH:
             high_count = priority_distribution.get("high", 0)
             if high_count >= DEFAULT_MAX_HIGH_GOALS:
@@ -357,7 +347,7 @@ class GoalsSchedulingService(BaseService[GoalsOperations, Goal]):
 
     def _analyze_priority_distribution(self, goals: list[Goal]) -> dict[str, int]:
         """Analyze how goals are distributed across priorities."""
-        distribution = {"critical": 0, "high": 0, "medium": 0, "low": 0}
+        distribution = {"high": 0, "medium": 0, "low": 0}
 
         for goal in goals:
             priority_key = goal.priority.lower() if goal.priority else "medium"
@@ -770,8 +760,7 @@ class GoalsSchedulingService(BaseService[GoalsOperations, Goal]):
 
             # Factor 2: Priority (0-0.3)
             priority_scores = {
-                Priority.CRITICAL: 0.3,
-                Priority.HIGH: 0.25,
+                Priority.HIGH: 0.3,
                 Priority.MEDIUM: 0.15,
                 Priority.LOW: 0.1,
             }

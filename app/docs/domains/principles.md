@@ -1,7 +1,7 @@
 ---
 title: Principles Domain
 created: 2025-12-04
-updated: 2026-09-05
+updated: 2026-09-11
 status: current
 category: domains
 tags: [principles, activity-domain, domain, reflections, planning]
@@ -52,7 +52,7 @@ Principles represent core values and guiding beliefs that inform goals, choices,
 | `PrincipleStrength` | `core.models.enums` | CORE, STRONG, MODERATE, DEVELOPING, EXPLORING | `strength` |
 | `AlignmentLevel` | `core.models.enums` | FLOURISHING, ALIGNED, MOSTLY_ALIGNED, EXPLORING, PARTIAL, DRIFTING, MISALIGNED, UNKNOWN | — (reflection scoring) |
 | `TriggerType` | `core.models.enums` | GOAL, HABIT, EVENT, CHOICE, MANUAL | — (what activates a principle) |
-| `Priority` | `core.models.enums` | LOW, MEDIUM, HIGH, CRITICAL | `priority` |
+| `Priority` | `core.models.enums` | LOW, MEDIUM, HIGH | `priority` |
 
 **See:** [Enum Architecture](../architecture/ENUM_ARCHITECTURE.md)
 

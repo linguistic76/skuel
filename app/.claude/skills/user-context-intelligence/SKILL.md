@@ -360,18 +360,13 @@ async def get_ready_to_work_on_today(
     """
 ```
 
-### Priority & Confidence in get_ready_to_work_on_today()
+### Priority in get_ready_to_work_on_today()
 
-`get_ready_to_work_on_today()` applies a **CRITICAL priority override** before returning its
-ranked plan. Any entity with `priority = "critical"` from `context.entities_rich` (all 6 Activity
-Domains) is moved to the front of its uid list, capped at **3 items total** across all domains.
+`daily_planning.py` does not read `Priority`. Priority reaches planning through the surfaces
+that rank by it (calendar optimization, search scoring, Today, previews, list sorts), each
+through `Priority.sort_order()` / `to_numeric()`; the enum has three levels — LOW, MEDIUM, HIGH.
 
-**Guard:** Only fires when `context.is_rich_context` is `True`
-(i.e., `build_rich()` was called, not `build()`).
-
-**File:** `core/services/user/intelligence/daily_planning.py` — "CRITICAL PRIORITY OVERRIDE" block
-
-**See:** `/docs/architecture/PRIORITY_CONFIDENCE_ARCHITECTURE.md`
+**See:** `/docs/architecture/PRIORITY_CONFIDENCE_ARCHITECTURE.md` § Planning Layer
 
 ---
 

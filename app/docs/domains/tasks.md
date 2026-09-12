@@ -1,7 +1,7 @@
 ---
 title: Tasks Domain
 created: 2025-12-04
-updated: 2026-09-08
+updated: 2026-09-11
 status: current
 category: domains
 tags:
@@ -49,7 +49,7 @@ Tasks represent work items with dependencies, deadlines, and knowledge requireme
 
 | Enum | Import | Values | YAML Field |
 |------|--------|--------|------------|
-| `Priority` | `core.models.enums` | LOW, MEDIUM, HIGH, CRITICAL | `priority` |
+| `Priority` | `core.models.enums` | LOW, MEDIUM, HIGH | `priority` |
 | `EntityStatus` | `core.models.enums` | DRAFT, SCHEDULED, ACTIVE, PAUSED, BLOCKED, COMPLETED, CANCELLED, POSTPONED, FAILED | `status` |
 | `RecurrencePattern` | `core.models.enums` | DAILY, WEEKLY, MONTHLY, etc. (10 values) | `recurrence_pattern` |
 | `EnergyLevel` | `core.models.enums` | LOW, MEDIUM, HIGH, VARIABLE | — (scheduling) |

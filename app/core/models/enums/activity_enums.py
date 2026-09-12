@@ -17,22 +17,22 @@ from enum import StrEnum
 
 class Priority(StrEnum):
     """
-    Universal priority levels used across all entities.
+    Universal priority: three levels — LOW, MEDIUM, HIGH.
 
-    Used by: Tasks, Events, Habits, Learning Sessions
+    Lives on every UserOwnedEntity (ADR-045). HIGH is the top: it is what a
+    calendar lens filters up to and what "urgent" resolves to.
     """
 
     LOW = "low"
     MEDIUM = "medium"
     HIGH = "high"
-    CRITICAL = "critical"
 
     def to_numeric(self) -> int:
-        """Convert to numeric value for scoring (LOW=1 ... CRITICAL=4)."""
+        """Convert to numeric value for scoring (LOW=1, MEDIUM=2, HIGH=3)."""
         return _PRIORITY_NUMERIC_VALUES[self]
 
     def sort_order(self) -> int:
-        """Sort order for priority lists (CRITICAL first, LOW last)."""
+        """Sort order for priority lists (HIGH first, LOW last)."""
         return _PRIORITY_SORT_ORDERS[self]
 
     @classmethod
@@ -53,30 +53,12 @@ class Priority(StrEnum):
             Priority.LOW: "#10B981",  # Green
             Priority.MEDIUM: "#3B82F6",  # Blue
             Priority.HIGH: "#F59E0B",  # Amber
-            Priority.CRITICAL: "#DC2626",  # Red
         }
         return colors.get(self, "#6B7280")  # Gray default
-
-    def get_calendar_color(self) -> str:
-        """
-        Get color for calendar/timeline display.
-
-        Calendar uses a different palette than general UI:
-        - LOW is gray (de-emphasized) rather than green
-        - Colors are more saturated for visibility on calendar grids
-        """
-        colors = {
-            Priority.LOW: "#9ca3af",  # Gray - de-emphasized on calendar
-            Priority.MEDIUM: "#3b82f6",  # Blue
-            Priority.HIGH: "#f97316",  # Orange - more urgent than amber
-            Priority.CRITICAL: "#ef4444",  # Red
-        }
-        return colors.get(self, "#9ca3af")  # Gray default
 
     def get_badge_class(self) -> str:
         """Get Tailwind badge classes for priority display."""
         return {
-            Priority.CRITICAL: "bg-red-100 text-red-800 border-red-200",
             Priority.HIGH: "bg-yellow-100 text-yellow-800 border-yellow-200",
             Priority.MEDIUM: "bg-blue-100 text-blue-800 border-blue-200",
             Priority.LOW: "bg-green-100 text-green-800 border-green-200",
@@ -85,7 +67,6 @@ class Priority(StrEnum):
     def get_text_class(self) -> str:
         """Get Tailwind text color class for priority display."""
         return {
-            Priority.CRITICAL: "text-red-600",
             Priority.HIGH: "text-yellow-600",
             Priority.MEDIUM: "text-blue-600",
             Priority.LOW: "text-muted-foreground",
@@ -94,7 +75,6 @@ class Priority(StrEnum):
     def get_border_class(self) -> str:
         """Get Tailwind border-left class for priority display."""
         return {
-            Priority.CRITICAL: "border-l-red-500",
             Priority.HIGH: "border-l-red-500",
             Priority.MEDIUM: "border-l-yellow-500",
             Priority.LOW: "border-l-green-500",
@@ -103,7 +83,6 @@ class Priority(StrEnum):
     def get_dot_class(self) -> str:
         """Get Tailwind dot background class for priority display."""
         return {
-            Priority.CRITICAL: "bg-red-500",
             Priority.HIGH: "bg-red-500",
             Priority.MEDIUM: "bg-yellow-500",
             Priority.LOW: "bg-green-500",
@@ -114,10 +93,14 @@ class Priority(StrEnum):
         synonyms = {
             Priority.LOW: ("low", "minor", "trivial", "someday", "optional", "nice to have"),
             Priority.MEDIUM: ("medium", "normal", "standard", "moderate", "regular", "typical"),
-            Priority.HIGH: ("high", "important", "soon", "urgent", "priority", "significant"),
-            Priority.CRITICAL: (
-                "critical",
+            Priority.HIGH: (
+                "high",
+                "important",
+                "soon",
                 "urgent",
+                "priority",
+                "significant",
+                "critical",
                 "emergency",
                 "now",
                 "asap",
@@ -133,7 +116,6 @@ class Priority(StrEnum):
             Priority.LOW: "Low priority - flexible timing",
             Priority.MEDIUM: "Medium priority - standard importance",
             Priority.HIGH: "High priority - needs attention soon",
-            Priority.CRITICAL: "Critical - urgent action required",
         }
         return descriptions.get(self, "")
 
@@ -152,14 +134,12 @@ _PRIORITY_NUMERIC_VALUES: dict[Priority, int] = {
     Priority.LOW: 1,
     Priority.MEDIUM: 2,
     Priority.HIGH: 3,
-    Priority.CRITICAL: 4,
 }
 
 _PRIORITY_SORT_ORDERS: dict[Priority, int] = {
-    Priority.CRITICAL: 0,
-    Priority.HIGH: 1,
-    Priority.MEDIUM: 2,
-    Priority.LOW: 3,
+    Priority.HIGH: 0,
+    Priority.MEDIUM: 1,
+    Priority.LOW: 2,
 }
 
 
