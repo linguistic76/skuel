@@ -10,10 +10,12 @@ activity reports' calendar-aligned ``time_period`` tokens.
     quarterly ``{year}-Q{quarter}``    (``2026-Q3``)
     yearly    ``{year}``               (``2026``)
 
-Parsers return ``None`` for a key that does not parse — a weekly key handed to
-the monthly parser, a daily date, junk — so callers degrade to "no period"
-rather than guess one. The builders are the inverse for the two kinds reports
-speak (week, month).
+Parsers accept the canonical spelling ONLY and return ``None`` for anything
+else — a weekly key handed to the monthly parser, a daily date, a padded or
+unpadded variant (``02026-09``, ``2026-W037``, ``2026-9``), junk — so callers
+degrade to "no period" rather than guess one, and two spellings can never name
+one period (the report cooldown and the period door compare stored tokens
+exactly). The builders are the inverse for the two kinds reports speak.
 
 Reference date → key is the direction here; a date INSIDE a period → its note's
 URL and label is ``ui/journals/period_links.py``'s.
@@ -21,16 +23,22 @@ URL and label is ``ui/journals/period_links.py``'s.
 
 from __future__ import annotations
 
+import re
 from datetime import date
+
+_WEEKLY_KEY = re.compile(r"^(\d{4})-W(\d{2})$")
+_MONTHLY_KEY = re.compile(r"^(\d{4})-(\d{2})$")
+_QUARTERLY_KEY = re.compile(r"^(\d{4})-Q([1-4])$")
+_YEARLY_KEY = re.compile(r"^(\d{4})$")
 
 
 def weekly_period_start(period_key: str) -> date | None:
     """Monday of the ISO week a weekly period key names (``2026-W32``)."""
-    year_str, sep, week_str = period_key.partition("-W")
-    if not sep:
+    match = _WEEKLY_KEY.match(period_key)
+    if match is None:
         return None
     try:
-        return date.fromisocalendar(int(year_str), int(week_str), 1)
+        return date.fromisocalendar(int(match[1]), int(match[2]), 1)
     except ValueError:
         return None
 
@@ -41,29 +49,22 @@ def monthly_period_start(period_key: str) -> date | None:
     A weekly key (``2026-W32``) and a daily key (``2026-08-03``) are both
     rejected, never coerced.
     """
-    year_str, sep, month_str = period_key.partition("-")
-    if not sep or "-" in month_str or not month_str.isdigit():
+    match = _MONTHLY_KEY.match(period_key)
+    if match is None:
         return None
     try:
-        return date(int(year_str), int(month_str), 1)
+        return date(int(match[1]), int(match[2]), 1)
     except ValueError:
         return None
 
 
 def quarterly_period_start(period_key: str) -> date | None:
     """First day of the quarter a quarterly period key names (``2026-Q3``)."""
-    year_str, sep, quarter_str = period_key.partition("-Q")
-    if not sep:
+    match = _QUARTERLY_KEY.match(period_key)
+    if match is None:
         return None
     try:
-        year = int(year_str)
-        quarter = int(quarter_str)
-    except ValueError:
-        return None
-    if not 1 <= quarter <= 4:
-        return None
-    try:
-        return date(year, 3 * (quarter - 1) + 1, 1)
+        return date(int(match[1]), 3 * (int(match[2]) - 1) + 1, 1)
     except ValueError:
         return None
 
@@ -71,13 +72,14 @@ def quarterly_period_start(period_key: str) -> date | None:
 def yearly_period_start(period_key: str) -> date | None:
     """January 1 of the year a yearly period key names (``2026``).
 
-    Only a bare year parses — ``2026-W32``, ``2026-08``, ``2026-Q3`` and
-    ``2026-08-03`` are all rejected.
+    Only a bare four-digit year parses — ``2026-W32``, ``2026-08``, ``2026-Q3``
+    and ``2026-08-03`` are all rejected.
     """
-    if not period_key.isdigit():
+    match = _YEARLY_KEY.match(period_key)
+    if match is None:
         return None
     try:
-        return date(int(period_key), 1, 1)
+        return date(int(match[1]), 1, 1)
     except ValueError:
         return None
 

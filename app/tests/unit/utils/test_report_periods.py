@@ -104,7 +104,26 @@ def test_a_period_has_started_once_its_first_instant_has_passed() -> None:
 # ---------------------------------------------------------------------------
 
 
-@pytest.mark.parametrize("token", ["unknown", "", "2026", "2026-Q3", "2026-13", "2026-W99", "7"])
+@pytest.mark.parametrize(
+    "token",
+    [
+        "unknown",
+        "",
+        "2026",
+        "2026-Q3",
+        "2026-13",
+        "2026-W99",
+        "7",
+        # Non-canonical spellings of a real period are refused too: the cooldown
+        # and the period door compare stored tokens exactly, so a second spelling
+        # would be a second period.
+        "02026-09",
+        "2026-9",
+        "2026-W037",
+        "2026-W7",
+        " 2026-09",
+    ],
+)
 def test_unknown_tokens_raise_instead_of_defaulting(token: str) -> None:
     with pytest.raises(UnknownReportPeriodError):
         resolve_report_period(token, NOW)

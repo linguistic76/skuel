@@ -44,6 +44,7 @@ from core.models.report.activity_report import ActivityReport
 from core.models.type_hints import UserUID
 from core.ports.infrastructure_protocols import EventBusOperations
 from core.prompts import PROMPT_REGISTRY
+from core.services.report.period_eligibility import PeriodEligibility
 from core.utils.exception_types import DATA_CONVERSION_EXCEPTIONS, LLM_EXCEPTIONS, NEO4J_EXCEPTIONS
 from core.utils.logging import get_logger
 from core.utils.neo4j_props import coerce_int
@@ -54,17 +55,8 @@ from core.utils.report_periods import (
     resolve_report_period,
 )
 from core.utils.result_simplified import Errors, Result
-from core.utils.timestamp_helpers import parse_date_value
 
 logger = get_logger("skuel.services.report.progress_generator")
-
-
-def _is_terminal_status(raw: object) -> bool:
-    """Whether a stored status string names a terminal state; unreadable reads as open."""
-    try:
-        return EntityStatus(str(raw)).is_terminal()
-    except ValueError:
-        return False
 
 
 class ProgressReportGenerator:
@@ -192,6 +184,9 @@ class ProgressReportGenerator:
                     window_end=end_date,
                     period_end=period.end,
                     habit_completions=habit_counts.value,
+                    # The live streak is the streak at the cutoff only while the
+                    # cutoff is now — a closed period regenerated later has none.
+                    streaks_are_current=not period.is_closed(now),
                 )
 
             # 2. Get active insights if requested
@@ -462,14 +457,14 @@ class ProgressReportGenerator:
         # Habits
         habits_details = completions.get("habits_details", [])
         habits_completed = completions.get("habits_completed", 0)
-        avg_streak = 0.0
-        if habits_details:
-            streaks = [h.get("streak") or 0 for h in habits_details]
-            avg_streak = sum(streaks) / len(streaks) if streaks else 0.0
+        # A closed period's details carry no streak (``streak`` is None) — the
+        # average is then unknown, never zero.
+        streaks = [h["streak"] for h in habits_details if h.get("streak") is not None]
+        avg_streak = round(sum(streaks) / len(streaks), 1) if streaks else None
         trends["habits"] = {
             "total": len(habits_details),
             "completed": habits_completed,
-            "avg_streak": round(avg_streak, 1),
+            "avg_streak": avg_streak,
         }
 
         # Events
@@ -550,8 +545,8 @@ class ProgressReportGenerator:
 
         # Habit streaks
         habits = domain_trends.get("habits", {})
-        avg_streak = habits.get("avg_streak", 0)
-        if habits.get("total", 0) > 0 and avg_streak < 3:
+        avg_streak = habits.get("avg_streak")
+        if habits.get("total", 0) > 0 and avg_streak is not None and avg_streak < 3:
             recommendations.append(
                 {
                     "domain": "habits",
@@ -678,7 +673,8 @@ class ProgressReportGenerator:
             "task_titles": [t.get("title", "") for t in completions.get("tasks_details", [])[:10]],
             "goal_titles": [g.get("title", "") for g in completions.get("goals_details", [])[:10]],
             "habit_summary": [
-                {"title": h.get("title", ""), "streak": h.get("streak", 0)}
+                {"title": h.get("title", "")}
+                | ({"streak": h["streak"]} if h.get("streak") is not None else {})
                 for h in completions.get("habits_details", [])[:10]
             ],
             "event_summary": [
@@ -823,6 +819,7 @@ class ProgressReportGenerator:
         window_end: datetime,
         period_end: datetime | None = None,
         habit_completions: dict[str, int] | None = None,
+        streaks_are_current: bool = True,
     ) -> dict[str, Any]:
         """Map context.entities_rich into the completions dict.
 
@@ -880,50 +877,12 @@ class ProgressReportGenerator:
         """
         include_all = domains is None
         result = self._empty_completions()
-        window_floor = as_naive_utc(window_start)
-        window_ceiling = as_naive_utc(window_end)
-        period_ceiling = as_naive_utc(period_end) if period_end is not None else window_ceiling
+        # One predicate set with the admin snapshot (``period_eligibility.py``):
+        # what the period counts, and what it may list at all.
+        eligible = PeriodEligibility.for_window(window_start, window_end, period_end)
+        in_period = eligible.in_period
+        existed_by_period_end = eligible.existed_by_end
         completions_by_habit = habit_completions or {}
-
-        def as_moment(stamp: object) -> datetime | None:
-            moment = as_naive_utc(stamp)
-            if moment is None:
-                day = parse_date_value(stamp)
-                if day is None:
-                    return None
-                moment = datetime.combine(day, datetime.min.time())
-            return moment
-
-        def in_period(stamp: object) -> bool:
-            moment = as_moment(stamp)
-            if moment is None:
-                return False
-            return (window_floor is None or moment >= window_floor) and (
-                window_ceiling is None or moment <= window_ceiling
-            )
-
-        def existed_by_period_end(entity: dict[str, Any]) -> bool:
-            """Created no later than the period's end — the rich query hands over
-            the CURRENT inventory (open goals, alive habits, pending choices,
-            every principle) whatever the window, and a report of a closed
-            period must not list what did not exist yet."""
-            created = as_moment(entity.get("created_at"))
-            return not (
-                created is not None and period_ceiling is not None and created > period_ceiling
-            )
-
-        def open_at_period_end(entity: dict[str, Any]) -> bool:
-            """Open at the period's end, as far as the node's stamps can tell."""
-            if not existed_by_period_end(entity):
-                return False
-            if not _is_terminal_status(entity.get("status")):
-                return True
-            closed_at = as_moment(entity.get("completion_date")) or as_moment(
-                entity.get("updated_at")
-            )
-            return (
-                closed_at is not None and period_ceiling is not None and closed_at > period_ceiling
-            )
 
         # Tasks
         if include_all or "tasks" in (domains or []):
@@ -937,10 +896,7 @@ class ProgressReportGenerator:
                     for ref in graph_ctx.get("applied_knowledge") or []
                     if ref.get("title")
                 ]
-                status = entity.get("status")
-                completed_in_period = status == EntityStatus.COMPLETED and in_period(
-                    entity.get("completion_date")
-                )
+                completed_in_period = eligible.completed_in_period(entity)
                 # The completion rate's denominator is the period's own: what was
                 # completed in it plus what was open at its end. A completion from
                 # an earlier period (re-edited or not) is neither, and counting it
@@ -952,7 +908,7 @@ class ProgressReportGenerator:
                     result["tasks_total"] += 1
                     result["goal_alignments"].extend(goal_titles)
                     result["knowledge_applications"].extend(ku_titles)
-                elif open_at_period_end(entity):
+                elif eligible.open_at_end(entity):
                     result["tasks_total"] += 1
                 else:
                     continue
@@ -996,7 +952,10 @@ class ProgressReportGenerator:
                         "uid": entity["uid"],
                         "title": entity["title"],
                         "status": entity.get("status", ""),
-                        "streak": entity.get("current_streak", 0),
+                        # ``current_streak`` is rewritten by every completion, so
+                        # it is the streak AT the cutoff only while the cutoff is
+                        # now; a closed period regenerated later carries none.
+                        "streak": entity.get("current_streak", 0) if streaks_are_current else None,
                     }
                 )
 
@@ -1004,11 +963,7 @@ class ProgressReportGenerator:
         if include_all or "events" in (domains or []):
             for item in context.entities_rich.get("events", []):
                 entity = item["entity"]
-                event_day = parse_date_value(entity.get("event_date"))
-                if event_day is not None and (
-                    (window_floor is not None and event_day < window_floor.date())
-                    or (window_ceiling is not None and event_day > window_ceiling.date())
-                ):
+                if not eligible.event_in_window(entity):
                     continue
                 if entity.get("status") == EntityStatus.COMPLETED:
                     result["events_attended"] += 1
@@ -1192,8 +1147,9 @@ class ProgressReportGenerator:
             sections.append(f"- **Completed this period:** {habits_completed}")
             if depth != ProgressDepth.SUMMARY:
                 for habit in habits_details[:10]:
-                    streak = habit.get("streak") or 0
-                    sections.append(f"  - {habit['title']} [{habit['status']}] (streak: {streak})")
+                    streak = habit.get("streak")
+                    note = f" (streak: {streak})" if streak is not None else ""
+                    sections.append(f"  - {habit['title']} [{habit['status']}]{note}")
             sections.append("")
 
         # Events

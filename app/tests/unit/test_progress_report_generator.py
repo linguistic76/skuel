@@ -7,7 +7,7 @@ and depth control with mocked dependencies.
 """
 
 from datetime import date, datetime
-from unittest.mock import AsyncMock, MagicMock
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
@@ -1082,6 +1082,64 @@ class TestCalendarPeriods:
             generator._empty_completions(), [], period, period.end, ProgressDepth.SUMMARY
         )
         assert "Partial" not in content
+
+
+class TestStreaksAtTheCutoff:
+    """``current_streak`` is rewritten by every completion, so it is the streak
+    at the cutoff only while the cutoff is now; a closed period regenerated
+    later reports none, and nothing downstream reads an absent streak as zero."""
+
+    def _habit_rows(self):
+        return {
+            "habits": [_row({"uid": "h1", "title": "Run", "status": "active", "current_streak": 7})]
+        }
+
+    def test_a_closed_period_carries_no_streak(self, generator):
+        completions = generator._completions_from_context(
+            _rich_context(self._habit_rows()),
+            None,
+            window_start=datetime(2026, 9, 1),
+            window_end=datetime(2026, 9, 30, 23, 59, 59),
+            streaks_are_current=False,
+        )
+        assert completions["habits_details"][0]["streak"] is None
+        trends = generator._compute_domain_trends(completions)
+        assert trends["habits"]["avg_streak"] is None
+        # No "streaks are low" advice from an unknown average.
+        assert not any(
+            r["domain"] == "habits"
+            for r in generator._synthesize_recommendations(trends, completions)
+        )
+        prompt = generator._build_llm_prompt(completions, [], "September 2026", "standard")
+        assert '"streak"' not in prompt
+        content = generator._build_report_content(
+            completions,
+            [],
+            resolve_report_period("2026-09", datetime(2026, 10, 15)),
+            datetime(2026, 9, 30, 23, 59, 59),
+            ProgressDepth.STANDARD,
+        )
+        assert "streak:" not in content
+
+    def test_a_live_cutoff_keeps_the_streak(self, generator):
+        completions = generator._completions_from_context(
+            _rich_context(self._habit_rows()),
+            None,
+            window_start=datetime(2026, 9, 1),
+            window_end=datetime(2026, 9, 12),
+        )
+        assert completions["habits_details"][0]["streak"] == 7
+        assert generator._compute_domain_trends(completions)["habits"]["avg_streak"] == 7.0
+
+    @pytest.mark.asyncio
+    async def test_generate_passes_the_cutoff_verdict(self, generator):
+        with patch.object(
+            generator, "_completions_from_context", wraps=generator._completions_from_context
+        ) as mapper:
+            await generator.generate(user_uid="user_alice", time_period="2026-01")
+            assert mapper.call_args.kwargs["streaks_are_current"] is False
+            await generator.generate(user_uid="user_alice", time_period="7d")
+            assert mapper.call_args.kwargs["streaks_are_current"] is True
 
 
 class TestPeriodEndDenominator:

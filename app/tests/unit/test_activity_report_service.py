@@ -161,7 +161,10 @@ class TestSnapshotRecordMapping:
 
     @pytest.mark.asyncio
     async def test_task_records_mapped(self, service):
-        """entities_rich tasks → tasks domain with completed count."""
+        """entities_rich tasks → tasks domain: the period's play (completed in it
+        by ``completion_date``, or open at its end), never an old completion the
+        context carried along."""
+        today = datetime.now().date().isoformat()
         context = _make_context(
             activity_rich={
                 "tasks": [
@@ -170,6 +173,7 @@ class TestSnapshotRecordMapping:
                             "uid": "t1",
                             "title": "Write tests",
                             "status": "completed",
+                            "completion_date": today,
                             "priority": "high",
                             "progress": None,
                         },
@@ -185,6 +189,15 @@ class TestSnapshotRecordMapping:
                         },
                         "graph_context": {"goal_context": None, "applied_knowledge": []},
                     },
+                    {
+                        "entity": {
+                            "uid": "t0",
+                            "title": "Done years ago",
+                            "status": "completed",
+                            "completion_date": "2020-01-01",
+                        },
+                        "graph_context": {"goal_context": None, "applied_knowledge": []},
+                    },
                 ],
             }
         )
@@ -194,8 +207,61 @@ class TestSnapshotRecordMapping:
         tasks = result.value["domains"]["tasks"]
         assert tasks["count"] == 2
         assert tasks["completed"] == 1
-        assert tasks["items"][0]["title"] == "Write tests"
-        assert tasks["items"][1]["title"] == "Fix bug"
+        assert [item["title"] for item in tasks["items"]] == ["Write tests", "Fix bug"]
+
+    @pytest.mark.asyncio
+    async def test_closed_period_snapshot_admits_only_what_existed_by_its_end(self, service):
+        """A closed calendar period's snapshot applies the generator's own
+        eligibility: rows created after the period are absent, and the live
+        streak — rewritten by every completion since — is not reported."""
+        context = _make_context(
+            activity_rich={
+                "goals": [
+                    {
+                        "entity": {
+                            "uid": "g_jan",
+                            "title": "January",
+                            "created_at": "2026-01-05T09:00:00",
+                        }
+                    },
+                    {
+                        "entity": {
+                            "uid": "g_feb",
+                            "title": "February",
+                            "created_at": "2026-02-05T09:00:00",
+                        }
+                    },
+                ],
+                "habits": [
+                    {
+                        "entity": {
+                            "uid": "h_jan",
+                            "title": "Old habit",
+                            "created_at": "2025-12-01T09:00:00",
+                            "current_streak": 9,
+                        }
+                    },
+                ],
+                "events": [
+                    {"entity": {"uid": "e_jan", "title": "In January", "event_date": "2026-01-20"}},
+                    {
+                        "entity": {
+                            "uid": "e_feb",
+                            "title": "In February",
+                            "event_date": "2026-02-02",
+                        }
+                    },
+                ],
+            }
+        )
+
+        result = await service.create_snapshot(context, time_period="2026-01")
+
+        assert result.is_ok, result.error
+        domains = result.value["domains"]
+        assert [g["title"] for g in domains["goals"]["items"]] == ["January"]
+        assert domains["habits"]["items"][0]["streak"] is None
+        assert [e["title"] for e in domains["events"]["items"]] == ["In January"]
 
     @pytest.mark.asyncio
     async def test_choice_principles_mapped(self, service):

@@ -15,11 +15,11 @@ Review queue management (ReviewRequest nodes) lives in ReviewQueueService.
 See: /docs/architecture/REPORT_ARCHITECTURE.md
 """
 
+from collections.abc import Mapping
 from datetime import datetime
 from itertools import islice
 from typing import TYPE_CHECKING, Any, cast
 
-from core.models.enums import EntityStatus
 from core.models.type_hints import Neo4jProperties, TypeConverter, UserUID
 from core.ports.query_types import AnnotationResult, AnnotationState, PrivacySummary
 from core.ports.report_protocols import ActivityReportBackendOperations
@@ -34,6 +34,7 @@ from core.events.learning_loop_events import ActivitySnapshotAccessed
 from core.models.enums.pipeline import ReportSource
 from core.models.report.activity_report import ActivityReport
 from core.models.report.activity_report_dto import ActivityReportDTO
+from core.services.report.period_eligibility import PeriodEligibility
 from core.utils.exception_types import DATA_CONVERSION_EXCEPTIONS, NEO4J_EXCEPTIONS
 from core.utils.logging import get_logger
 from core.utils.report_periods import (
@@ -152,21 +153,38 @@ class ActivityReportService:
             "domains": {},
         }
 
-        tasks = activity.get("tasks", [])
-        goals = activity.get("goals", [])
-        habits = activity.get("habits", [])
-        choices = activity.get("choices", [])
-        events = activity.get("events", [])
-        principles = activity.get("principles", [])
+        # The context is the CURRENT inventory plus what was touched since the
+        # period's start, with no upper bound; the snapshot admits what the
+        # period's report would — the generator's own predicates.
+        eligible = PeriodEligibility.for_window(start_date, end_date, period.end)
+
+        def _entity(item: Mapping[str, Any]) -> Mapping[str, Any]:
+            return item.get("entity") or {}
+
+        tasks = [item for item in activity.get("tasks", []) if eligible.task_in_play(_entity(item))]
+        goals = [
+            item for item in activity.get("goals", []) if eligible.existed_by_end(_entity(item))
+        ]
+        habits = [
+            item for item in activity.get("habits", []) if eligible.existed_by_end(_entity(item))
+        ]
+        choices = [
+            item for item in activity.get("choices", []) if eligible.existed_by_end(_entity(item))
+        ]
+        events = [
+            item for item in activity.get("events", []) if eligible.event_in_window(_entity(item))
+        ]
+        principles = [
+            item
+            for item in activity.get("principles", [])
+            if eligible.existed_by_end(_entity(item))
+        ]
+        streaks_are_current = not period.is_closed(now)
 
         if include_all or "tasks" in (domains or []):
             snapshot["domains"]["tasks"] = {
                 "count": len(tasks),
-                "completed": sum(
-                    1
-                    for item in tasks
-                    if item.get("entity", {}).get("status") == EntityStatus.COMPLETED
-                ),
+                "completed": sum(eligible.completed_in_period(_entity(item)) for item in tasks),
                 "items": [
                     {
                         "title": item.get("entity", {}).get("title", ""),
@@ -196,7 +214,11 @@ class ActivityReportService:
                     {
                         "title": item.get("entity", {}).get("title", ""),
                         "status": item.get("entity", {}).get("status", ""),
-                        "streak": item.get("entity", {}).get("current_streak", 0),
+                        "streak": (
+                            item.get("entity", {}).get("current_streak", 0)
+                            if streaks_are_current
+                            else None
+                        ),
                     }
                     for item in habits[:10]
                 ],

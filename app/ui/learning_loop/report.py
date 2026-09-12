@@ -662,8 +662,12 @@ def _render_comparison_banner(
             label = "Goals"
             fmt = "{:+.0f}%"
         elif domain == "habits":
-            prev_val = prev.get("avg_streak", 0)
-            curr_val = curr.get("avg_streak", 0)
+            # A closed period's report carries no streak average (None, not 0):
+            # there is no delta to draw against or from it.
+            if prev.get("avg_streak") is None or curr.get("avg_streak") is None:
+                continue
+            prev_val = prev["avg_streak"]
+            curr_val = curr["avg_streak"]
             label = "Habits"
             fmt = "{:+.1f}"
         else:
