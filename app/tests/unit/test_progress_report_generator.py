@@ -856,11 +856,12 @@ class TestCompletionsFromContext:
             },
         )
         # Only the open task is in play; the old completions and the cancelled
-        # task are outside the period's denominator.
+        # task are outside the period's denominator — and outside the details,
+        # which list exactly what was counted.
         assert completions["tasks_total"] == 1
         assert completions["tasks_completed"] == 0
         assert completions["goal_alignments"] == []
-        assert len(completions["tasks_details"]) == 4
+        assert [t["uid"] for t in completions["tasks_details"]] == ["t3"]
 
     def test_events_attended_counts_only_completed_in_window_events(self, generator):
         completions = self._map(
@@ -1167,6 +1168,43 @@ class TestPeriodEndDenominator:
             ],
         )
         assert completions["tasks_total"] == 1
+
+    def test_details_list_exactly_the_tasks_counted(self, generator):
+        """A task created after the period is neither completed in it nor open at
+        its end — and the details (the prompt's and the fallback's task list)
+        must not name it; the rich query hands over every open task regardless."""
+        completions = self._map(
+            generator,
+            [
+                _row(
+                    {
+                        "uid": "after",
+                        "title": "October task",
+                        "status": "active",
+                        "created_at": "2026-10-02T09:00:00",
+                    }
+                ),
+                _row(
+                    {
+                        "uid": "done",
+                        "title": "Done in September",
+                        "status": "completed",
+                        "created_at": "2026-09-02T09:00:00",
+                        "completion_date": "2026-09-20",
+                    }
+                ),
+                _row(
+                    {
+                        "uid": "open",
+                        "title": "Still open",
+                        "status": "active",
+                        "created_at": "2026-09-05T09:00:00",
+                    }
+                ),
+            ],
+        )
+        assert [t["uid"] for t in completions["tasks_details"]] == ["done", "open"]
+        assert completions["tasks_total"] == 2
 
     def test_an_open_task_created_in_the_period_counts(self, generator):
         completions = self._map(

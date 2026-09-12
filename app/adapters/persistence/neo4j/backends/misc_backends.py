@@ -98,8 +98,10 @@ class ActivityReportBackend(UniversalNeo4jBackend[ActivityReport]):
         """The subject's ActivityReports, newest first; ``ending_before`` (ISO)
         keeps only reports whose ``period_end`` precedes it, so a calendar
         period's comparison reaches the period BEFORE it — never its own
-        regenerations, never a later period regenerated earlier. Coerced:
-        ``period_end`` is stored as an ISO string."""
+        regenerations, never a later period regenerated earlier — and orders
+        those by the nearest period end first, creation time deciding only
+        among regenerations of one period. Coerced: ``period_end`` and
+        ``created_at`` are stored as ISO strings."""
         return await self.execute_query(
             """
             MATCH (n:Entity {entity_type: $entity_type, subject_uid: $subject_uid})
@@ -107,7 +109,9 @@ class ActivityReportBackend(UniversalNeo4jBackend[ActivityReport]):
                OR (n.period_end IS NOT NULL
                    AND datetime(n.period_end) <= datetime($ending_before))
             RETURN n
-            ORDER BY n.created_at DESC
+            ORDER BY CASE WHEN $ending_before IS NULL THEN datetime(n.created_at)
+                          ELSE datetime(n.period_end) END DESC,
+                     datetime(n.created_at) DESC
             LIMIT $limit
             """,
             {

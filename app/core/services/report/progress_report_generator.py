@@ -869,7 +869,8 @@ class ProgressReportGenerator:
         ``updated_at``) after it. A task terminal before the period and merely
         edited after it reads as open — SKUEL persists no status-transition
         history, and the report's metadata names that limit rather than
-        promising a precision the data cannot keep.
+        promising a precision the data cannot keep. ``tasks_details`` lists
+        exactly the tasks counted — never one created after the period.
 
         Consumed by _build_report_content() and _build_llm_prompt().
         """
@@ -928,9 +929,11 @@ class ProgressReportGenerator:
                     entity.get("completion_date")
                 )
                 # The completion rate's denominator is the period's own: what was
-                # completed in it plus what is still open now. A completion from an
-                # earlier period (re-edited or not) is neither, and counting it
-                # would print a falsely low rate.
+                # completed in it plus what was open at its end. A completion from
+                # an earlier period (re-edited or not) is neither, and counting it
+                # would print a falsely low rate; a task created after the period
+                # is neither either — the rich query hands over every open task
+                # regardless of the window, and the details must not list it.
                 if completed_in_period:
                     result["tasks_completed"] += 1
                     result["tasks_total"] += 1
@@ -938,6 +941,8 @@ class ProgressReportGenerator:
                     result["knowledge_applications"].extend(ku_titles)
                 elif open_at_period_end(entity):
                     result["tasks_total"] += 1
+                else:
+                    continue
                 result["tasks_details"].append(
                     {
                         "uid": entity["uid"],
