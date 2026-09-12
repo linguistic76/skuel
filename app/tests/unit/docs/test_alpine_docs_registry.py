@@ -16,19 +16,12 @@ is *derived*, so deleting a component breaks the build on its own.
 
 ``skuel.js`` is not the whole registry
 --------------------------------------
-The obvious assumption — "all Alpine components live in ``static/js/skuel.js``" —
-is **false**, and asserting it is how the first version of this module shipped a
-wrong ground truth. Five files under ``static/js/`` call ``Alpine.data()``:
-``skuel.js`` holds the shared components, and three page-local bundles
-(``explore-reading.js``, ``ku-reading.js``, ``ps-detail.js``) each register one
-more, loaded by their own routes. A guard built on ``skuel.js`` alone reports a
-live component as dead — the page-local ``today`` component (retired with the
-day-view arc) was documented correctly in its handoff and would have been
-flagged.
-
-So the registry here is the **union across every registrar**, discovered by
-globbing rather than by a hard-coded file list, and a new bundle is picked up
-automatically.
+``static/js/skuel.js`` holds the shared components, and page-local bundles under
+``static/js/`` register their own with ``Alpine.data()``, loaded by their own
+routes. A guard built on ``skuel.js`` alone reports a page-local component as
+dead, so the registry here is the **union across every registrar**, discovered
+by globbing rather than by a hard-coded file list — a new bundle is picked up
+automatically, and no count of bundles is asserted anywhere.
 
 What is checked
 ---------------

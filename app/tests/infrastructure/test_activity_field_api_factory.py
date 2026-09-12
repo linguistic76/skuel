@@ -8,13 +8,14 @@ spinning up FastHTML or a real DB.
 
 from __future__ import annotations
 
+import json
 from dataclasses import dataclass
 from types import SimpleNamespace
 from typing import Any
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
-from fasthtml.common import to_xml
+from fasthtml.common import Div, to_xml
 
 from adapters.inbound.route_factories import (
     PRIORITY_VALUES,
@@ -65,11 +66,21 @@ def _request(form_data: dict[str, str] | None, user_uid: str = "user_test") -> A
     )
 
 
+def _card(entity: Any) -> Any:
+    """A minimal domain card: the handler serializes whatever card_fn returns."""
+    return Div(entity.uid, id=f"card-{entity.uid}")
+
+
+def _updated_event(response: Any) -> dict[str, Any]:
+    """The update event a successful field write announces (HX-Trigger, JSON)."""
+    return json.loads(response.headers["HX-Trigger"])
+
+
 def _config(
     *,
     service: Any,
     fields: tuple[FieldUpdateSpec, ...],
-    card_fn: Any = lambda entity: SimpleNamespace(rendered=entity),
+    card_fn: Any = _card,
     domain_name: str = "tasks",
     singular: str = "task",
 ) -> ActivityFieldApiConfig:
@@ -153,14 +164,19 @@ async def test_success_returns_card_for_updated_entity() -> None:
     entity = _FakeEntity(uid="task.1", status="completed")
     service = SimpleNamespace(verify_ownership=AsyncMock(return_value=Result.ok(None)))
     update = AsyncMock(return_value=Result.ok(entity))
-    card_fn = MagicMock(side_effect=lambda e: SimpleNamespace(rendered=e))
+    card_fn = MagicMock(side_effect=_card)
 
     handler = _register(_status_config(service=service, update_status=update, card_fn=card_fn))
     response = await handler(_request({"status": "completed"}), uid="task.1")
 
     update.assert_awaited_once_with("task.1", "completed")
     card_fn.assert_called_once_with(entity)
-    assert response.rendered is entity
+    # The serialized card, and the one signal that the entity really changed
+    # (a refusal is also a 200 here, so listeners key on the event, not status).
+    assert 'id="card-task.1"' in response.body.decode()
+    assert _updated_event(response) == {
+        "activity-field-updated": {"domain": "tasks", "field": "status"}
+    }
 
 
 @pytest.mark.asyncio
@@ -168,7 +184,7 @@ async def test_priority_success_applies_value_and_returns_card() -> None:
     entity = _FakeEntity(uid="task.1", status="active")
     service = SimpleNamespace(verify_ownership=AsyncMock(return_value=Result.ok(None)))
     update = AsyncMock(return_value=Result.ok(entity))
-    card_fn = MagicMock(side_effect=lambda e: SimpleNamespace(rendered=e))
+    card_fn = MagicMock(side_effect=_card)
 
     config = _config(
         service=service,
@@ -179,7 +195,8 @@ async def test_priority_success_applies_value_and_returns_card() -> None:
     response = await handler(_request({"priority": "high"}), uid="task.1")
 
     update.assert_awaited_once_with("task.1", "high")
-    assert response.rendered is entity
+    assert 'id="card-task.1"' in response.body.decode()
+    assert _updated_event(response)["activity-field-updated"]["field"] == "priority"
 
 
 # ============================================================================
