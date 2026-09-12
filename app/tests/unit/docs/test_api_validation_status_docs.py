@@ -45,6 +45,7 @@ from core.models.enums.entity_enums import EntityType
 from core.models.search_request import SearchRequest
 from core.models.task.task_request import TaskUpdateRequest
 from core.utils.result_simplified import Errors, Result
+from tests.fixtures.csrf import CSRF_COOKIE_NAME, CSRF_HEADER_NAME, mint_token
 
 _DOC = Path(__file__).resolve().parents[3] / "docs" / "patterns" / "API_VALIDATION_PATTERNS.md"
 _TABLE_HEADING = "## When to Use Each Pattern"
@@ -339,8 +340,17 @@ def test_path_params_row_reports_the_disagreement_it_documents(
         "an unparseable date no longer degrades to today"
     )
 
-    # The route beside it rejects instead, with a different status again.
-    assert client.get("/today/tasks/task_someone_else/drawer").status_code == 404
+    # The route beside it rejects instead, with a different status again: the
+    # defer POST answers 404 for a uid the caller does not own (a CSRF pair is
+    # minted so the 404 is the ownership verdict, not the CSRF one).
+    token = mint_token()
+    client.cookies.set(CSRF_COOKIE_NAME, token)
+    response = client.post(
+        "/today/tasks/task_someone_else/defer",
+        data={"span": "1d", "source": "day", "view_date": date.today().isoformat()},
+        headers={CSRF_HEADER_NAME: token},
+    )
+    assert response.status_code == 404
 
     assert _documented_rows()["Path Params"] == "varies"
 

@@ -5,47 +5,17 @@
  * cache-first for static assets (CSS, JS, vendor libs).
  */
 
-// Bumped v10 -> v11 for skuel.js: searchFilters now tracks the NOUS topic and
-// drives a knowledge mode from it, which is what makes the four knowledge
-// context filters reachable again after the Type dropdown lost its Ku option.
-// A client serving the v10 bundle would pair the new markup (the Nous select's
-// x-model / x-bind:disabled, the panel's x-on:change.capture) with a component
-// that has neither `nousTopic` nor `adoptScope` — an Alpine expression error, a
-// Type control disabled by nothing, and every context filter (plus a stale
-// sub-topic) still riding requests it no longer belongs to.
-// Bumped v9 -> v10 for skuel.js: the /search Type dropdown is now the 6 Activity
-// Domains, and searchFilters' entityTypeFilters map dropped path_step,
-// learning_path and user_entry to match. A client serving the v9 bundle would
-// keep revealing knowledge facets for types the page no longer returns.
-// Bumped v8 -> v9 for today.js: the write queue is now keyed per task, so a
-// re-complete after Undo waits for that reopen instead of racing it. A client
-// serving the v8 bundle would keep firing the unqueued third write.
-// Bumped v7 -> v8 for today.js: Today's Undo now POSTs the prior status to
-// reopen the task instead of only un-hiding the card. today.js is a page-local
-// bundle (not precached), but cacheFirst() caches it like any other /static/
-// asset, so PWA clients would keep serving the lying version indefinitely.
-// Bumped v6 -> v7 for the Tailwind v3 -> v4 migration: output.css is not in
-// PRECACHE_URLS but cacheFirst() below caches every /static/ fetch into
-// STATIC_CACHE, so the regenerated output.css at the same URL needs a version
-// bump or PWA clients keep the v3 stylesheet indefinitely.
-// Bumped v5 -> v6 to purge the stale static cache holding the pre-redesign
-// search.css + skuel.js (the /search facets moved from a left rail back to a
-// horizontal bar with a "More filters" disclosure + mobile filter drawer).
-// Bumped v4 -> v5 to purge the stale static cache holding the pre-fix skuel.js
-// (the /search "Ask" verb read facets off $el instead of $root — PR #556). The
-// `activate` handler below deletes any cache whose key != the current versioned
-// names, so any client that had registered the service worker drops the stale
-// skuel.js on the next activation and re-precaches the fixed file.
-// CRITICAL: this cache-first strategy hides ALL app-asset (JS/CSS) updates
-// between version bumps — EVERY change to a file served under /static/ must
-// bump CACHE_VERSION here, or clients keep serving the stale asset
-// indefinitely. PRECACHE_URLS membership is NOT the trigger: cacheFirst()
-// below caches every /static/ response, so page-local bundles that were never
-// precached (output.css, today.js) go stale exactly the same way.
-// (The SW now registers correctly via the dedicated /service-worker.js route in
-// adapters/inbound/pwa_routes.py — the former catch-all 404 shadowing is fixed;
-// TECHNICAL_DEBT.md item 11's cache-invalidation half remains this manual bump.)
-const CACHE_VERSION = 'skuel-v11';
+// CACHE_VERSION names the static cache. Bump it whenever an asset served
+// under /static/ changes at the same URL, or a precached file is added or
+// removed: cacheFirst() below caches EVERY /static/ response (PRECACHE_URLS
+// membership is not the trigger — page-local bundles such as output.css and
+// calendar.css go stale exactly the same way), and `activate` deletes every
+// cache whose key differs from the current versioned names, which is the only
+// way a stale bundle leaves an installed PWA client. The SW registers through
+// the dedicated /service-worker.js route in adapters/inbound/pwa_routes.py;
+// cache invalidation is this manual bump (TECHNICAL_DEBT.md item 11).
+// What each bump purged: git log -L /CACHE_VERSION/,+1:static/service-worker.js
+const CACHE_VERSION = 'skuel-v12';
 const STATIC_CACHE = `${CACHE_VERSION}-static`;
 const RUNTIME_CACHE = `${CACHE_VERSION}-runtime`;
 

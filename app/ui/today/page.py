@@ -1,112 +1,79 @@
-"""Today page — FastHTML translation of ``handoff/today/today.html``.
+"""The day view — one day of dated Activity, server-rendered.
 
-Structural 1:1 port. The Alpine factory ``today()`` lives in
-``static/js/today.js``; this module emits the DOM tree it binds to plus
-the ``window.SEED`` block seeded from the server-built
-``TodayPageContext``.
+The third temporal lens beside the calendar's Week and Month: the same nav
+cluster, kind legend and chips (``ui/calendar/components.py``) around
+per-domain sections rendered through the domain list cards. No page-local
+JavaScript: interaction is HTMX (the cards' status toggles, quick-add, defer)
+and the shared ``calendarLegend`` Alpine component (one filter, one storage
+key, across every calendar surface).
 
-Wiring: route handler (Phase 4) wraps this in
-``BasePage(layout=STANDARD, active_page="today",
-extra_css=["/static/css/today.css"])``.
+Wiring: ``adapters/inbound/today_routes.py`` wraps ``TodayPage(ctx)`` in the
+activity sidebar page with ``/static/css/calendar.css`` (chips + kind filters).
 """
 
 from __future__ import annotations
 
-import json
+from collections.abc import Callable
 from datetime import date, timedelta
 from typing import TYPE_CHECKING
 
-from fasthtml.common import (
-    H1,
-    H2,
-    Aside,
-    Button,
-    Div,
-    Form,
-    Header,
-    Input,
-    Li,
-    Main,
-    NotStr,
-    P,
-    Script,
-    Section,
-    Span,
-    Template,
-    Ul,
-)
+from fasthtml.common import H1, H2, A, Button, Div, Form, Header, Input, Main, P, Section, Span
 
-from ui.calendar.components import calendar_nav_cluster
+from core.models.event.calendar_models import CalendarItemType
+from ui.activities._shared import ActivityList
+from ui.activities.events_views import EventCard
+from ui.activities.tasks_views import TaskCard
+from ui.calendar.components import DAY_KINDS, _event_chip, calendar_nav_cluster, create_kind_legend
 from ui.components import Icon
-from ui.patterns.keyboard_hints import keyboard_hint, keyboard_hints_bar
-from ui.primitives import section_label
+from ui.patterns.empty_state import EmptyState
+from ui.today.orchestrator import moment_is_on_day
 
 if TYPE_CHECKING:
     from fasthtml.common import FT
 
+    from core.models.choice.choice import Choice
+    from core.models.event.calendar_models import CalendarItem
+    from core.models.event.event import Event
+    from core.models.goal.goal import Goal
+    from core.models.task.task import Task
     from ui.page_contexts import TodayPageContext
 
-
 _CONTAINER_CLS = "mx-auto max-w-[1280px] py-8 pb-24"
+_SECTION_TITLE_CLS = "text-11 font-bold uppercase tracking-[0.09em] text-muted-foreground mb-2"
+_SECTION_KEYS = ("overdue", "tasks", "events", "habits", "milestones", "choices")
 
 
 def TodayPage(ctx: TodayPageContext) -> FT:
-    """Render the complete Today surface from a ``TodayPageContext``.
+    """Render the day view from a ``TodayPageContext``.
 
-    The context is serialized into ``window.SEED`` so the Alpine factory
-    (``static/js/today.js``) can read it without a second HTTP round-trip.
+    The Prev/Now/Next cluster and every date-anchored form field derive from
+    ``ctx["today_iso"]`` — the day the orchestrator built the context for — so a
+    second ``date.today()`` here cannot disagree across a midnight boundary.
     """
-    seed_json = json.dumps(dict(ctx), default=str)
-
-    # The Prev/Now/Next cluster + Daily-note link are static server HTML (not
-    # Alpine-seeded) so their href state is correct without JS. Anchor them to the
-    # SAME date the orchestrator built the context from (ctx["today_iso"]) — a
-    # second date.today() here could disagree across a midnight boundary and send
-    # the user to a different day's daily note than the page's data reflects.
     view_date = date.fromisoformat(ctx["today_iso"])
-
+    has_anything = any(ctx[key] for key in _SECTION_KEYS)  # type: ignore[literal-required]
     return Main(
-        _seed_script(seed_json),
-        _header(view_date, ctx["heading"]),
-        _two_column(view_date, can_quick_add=ctx["can_quick_add"]),
-        _flash_toast(),
-        _drawer(),
-        # Synchronous (no defer) so this registers the alpine:init listener
-        # BEFORE Alpine's deferred bundle fires that event and scans the DOM.
-        # With defer on both, Alpine runs first and our Alpine.data('today', ...)
-        # registration misses the initial scan.
-        Script(src="/static/js/today.js"),
+        _header(view_date, ctx["heading"], ctx["date_label"]),
+        _quick_add(view_date) if ctx["can_quick_add"] else None,
+        _caught_up() if not has_anything else None,
+        _overdue_section(ctx["overdue"], view_date) if ctx["overdue"] else None,
+        _tasks_section(ctx["tasks"], view_date) if has_anything else None,
+        _events_section(ctx["events"]) if ctx["events"] else None,
+        _habits_section(ctx["habits"], view_date) if ctx["habits"] else None,
+        _milestones_section(ctx["milestones"]) if ctx["milestones"] else None,
+        _choices_section(ctx["choices"], view_date) if ctx["choices"] else None,
         cls=_CONTAINER_CLS,
-        **{
-            "x-data": "today",
-            "@keydown.window": "onKey($event)",
-        },
+        # The calendar's legend controller: toggles cal-hide-*/cal-spot-* on this
+        # shell, and the pure-CSS filters (calendar.css) apply to the
+        # data-item-type sections and chips below — the same filter, same stored
+        # state, as the week.
+        x_data="calendarLegend",
+        **{":class": "filterClasses()"},
     )
 
 
 # ============================================================================
-# Seed data
-# ============================================================================
-
-
-def _seed_script(seed_json: str) -> FT:
-    # NotStr so FastHTML doesn't escape the JSON braces/quotes — but then
-    # we owe the JS-context escape ourselves: `</`, `<!`, U+2028, U+2029
-    # can break out of a <script> tag or act as JS line terminators
-    # inside a string literal. json.dumps doesn't handle this; the five
-    # replacements below do, without affecting JSON validity.
-    safe = (
-        seed_json.replace("<", "\\u003c")
-        .replace(">", "\\u003e")
-        .replace("&", "\\u0026")
-        .replace(" ", "\\u2028")
-        .replace(" ", "\\u2029")
-    )
-    return Script(NotStr(f"window.SEED = {safe};"))
-
-
-# ============================================================================
-# Header — date, title, subtitle, stats row
+# Header — eyebrow date, heading, nav cluster + kind legend
 # ============================================================================
 
 
@@ -124,32 +91,18 @@ def _step_day(view_date: date, days: int) -> date:
     return view_date + timedelta(days=days)
 
 
-def _header(view_date: date, heading: str) -> FT:
+def _header(view_date: date, heading: str, date_label: str) -> FT:
     return Header(
         Div(
             Div(
+                date_label,
                 cls="text-11 font-bold uppercase tracking-[0.09em] text-muted-foreground",
-                **{"x-text": "seed.date_label"},
             ),
-            # Server-rendered (not x-text) so the relative word — "Today" /
-            # "Yesterday" / "Tomorrow" / a date — is correct without JS and needs
-            # the real ``today`` the orchestrator resolved, which the client lacks.
             H1(heading, cls="mt-1.5 text-[44px] font-bold leading-none tracking-tight"),
-            P(
-                cls="mt-2.5 text-sm text-muted-foreground max-w-lg leading-relaxed",
-                **{
-                    "x-text": (
-                        "allEmpty "
-                        "? 'Your ribbons are clear.' "
-                        ": 'One ribbon per LifePath. Drag any item right to defer. "
-                        "Press j/k to move.'"
-                    ),
-                },
-            ),
             cls="min-w-[280px] flex-1",
         ),
         # Right column: the Prev/Now/Next day-nav cluster (matching the Week/Month
-        # calendar toolbar) sits top-right, the stats row below it.
+        # calendar toolbar) sits top-right, the kind legend below it.
         Div(
             calendar_nav_cluster(
                 # Clamp at date.min/date.max: the route accepts any ISO date, and
@@ -159,59 +112,11 @@ def _header(view_date: date, heading: str) -> FT:
                 next_href=f"/today/{_step_day(view_date, +1).isoformat()}",
                 today_href="/today",
             ),
-            _stats_row(),
+            create_kind_legend(DAY_KINDS),
             cls="flex flex-col items-end gap-4",
         ),
         cls="flex flex-wrap items-end justify-between gap-5 mb-8",
     )
-
-
-def _stats_row() -> FT:
-    stat_cell = Div(
-        Span(
-            cls="text-xl font-semibold tabular-nums leading-none",
-            **{":class": "s.accent || 'text-foreground'", "x-text": "s.value"},
-        ),
-        Span(
-            cls="mt-1 text-11 font-medium uppercase tracking-[0.08em] text-muted-foreground",
-            **{"x-text": "s.label"},
-        ),
-        cls="flex flex-col items-start",
-    )
-    return Div(
-        Template(stat_cell, **{"x-for": "s in statList", ":key": "s.label"}),
-        cls="flex items-center gap-6",
-        **{"x-show": "!allEmpty"},
-    )
-
-
-# ============================================================================
-# Two-column layout — ribbons left, day spine right
-# ============================================================================
-
-
-def _two_column(view_date: date, *, can_quick_add: bool) -> FT:
-    return Div(
-        _ribbons_column(view_date, can_quick_add=can_quick_add),
-        _day_spine(),
-        cls="grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_252px] gap-7 items-start",
-    )
-
-
-def _ribbons_column(view_date: date, *, can_quick_add: bool) -> FT:
-    # Quick-add sits above the ribbons and outside the allEmpty gate, so a caught-up
-    # day still offers a way to add the first task (act-from arc C6). Absent on past
-    # days — you plan work forward, not into a day already gone.
-    children: list[FT] = []
-    if can_quick_add:
-        children.append(_quick_add(view_date))
-    children += [
-        _empty_state(),
-        _triage_bar(),
-        _lifepath_ribbons(),
-        _keyboard_hints(),
-    ]
-    return Div(*children)
 
 
 def _quick_add(view_date: date) -> FT:
@@ -255,12 +160,7 @@ def _quick_add(view_date: date) -> FT:
     )
 
 
-# ---- Empty state ----------------------------------------------------------
-
-
-def _empty_state() -> FT:
-    # x-show (not x-if) keeps the empty-state block in the DOM and toggles visibility,
-    # matching the other always-rendered sections; icons are server-rendered inline SVG.
+def _caught_up() -> FT:
     return Div(
         Div(
             Icon("check-circle-2", size=28),
@@ -269,693 +169,214 @@ def _empty_state() -> FT:
                 "flex items-center justify-center"
             ),
         ),
-        H2(
-            "You're caught up.",
-            cls="text-xl font-bold tracking-tight mb-2",
-        ),
+        H2("You're caught up.", cls="text-xl font-bold tracking-tight mb-2"),
         P(
-            "No nodes scheduled for today. This is the point where most apps would "
+            "Nothing dated for this day. This is the point where most apps would "
             "offer you more to do. SKUEL suggests you close the laptop.",
             cls="text-13 text-muted-foreground leading-relaxed",
         ),
         cls="text-center mx-auto max-w-md py-20 px-8",
-        **{"x-show": "allEmpty"},
     )
 
 
-# ---- Task row (shared by triage bar + LifePath ribbons) -------------------
-#
-# Rendered inside an Alpine ``<template x-for="t in ...">``. Alpine binds
-# ``t`` to the current task and handles HTML escaping of every ``x-text`` /
-# attribute binding — task titles containing ``<script>`` render as text,
-# never as markup. The previous innerHTML / template-literal renderer
-# required two hand-maintained escape contexts (HTML and JS-string); this
-# structural swap eliminates both.
+# ============================================================================
+# Sections — one per dated domain, each a data-item-type container so the
+# shared legend filter (calendar.css) can hide or spotlight it
+# ============================================================================
 
 
-def _task_row(*, is_triage: bool) -> FT:
-    # Composite (source, uid) card key — a dual-membership task renders one
-    # card per surface and ALL interaction state (selection, hide, drawer)
-    # is keyed per card, never per task (C7). Matches cardKey() in today.js.
-    source = "triage" if is_triage else "ribbon"
-    row_key_expr = f"'{source}:' + t.id"
-    right_label_expr = "t.reason || ''" if is_triage else "t.due_label || ''"
-    row_classes = (
-        "task-row relative flex items-center gap-3 px-3.5 py-2.5 bg-card "
-        "rounded-[12px] cursor-grab select-none"
-    )
-    if is_triage:
-        row_classes += " border border-border"
-
-    kind_icon = Div(
-        Span(**{"x-html": "kindIconHtml(t.kind)"}),
-        cls=(
-            "w-[34px] h-[34px] rounded-[8px] flex-none flex items-center justify-center "
-            "bg-blue-50 text-blue-600"
-        ),
-    )
-
-    title_block = Div(
-        Div(
-            Span(
-                cls="text-sm font-semibold text-foreground leading-snug truncate",
-                **{"x-text": "t.label"},
-            ),
-            Span(
-                cls="w-1.5 h-1.5 rounded-full flex-none",
-                **{
-                    ":class": (
-                        "t.priority === 'high' ? 'bg-priority-high' "
-                        ": t.priority === 'medium' ? 'bg-priority-medium' "
-                        ": 'bg-priority-low'"
-                    ),
-                    ":title": "t.priority",
-                },
-            ),
-            cls="flex items-center gap-2",
-        ),
-        Div(
-            cls="text-xs text-slate-400 font-mono mt-0.5 truncate",
-            **{"x-text": "t.meta || ''"},
-        ),
-        cls="flex-1 min-w-0",
-    )
-
-    right_block = Div(
-        Span(
-            cls="text-11 font-semibold text-foreground",
-            **{"x-text": right_label_expr},
-        ),
-        Span(
-            Span(**{"x-text": "t.est_min"}),
-            "m",
-            cls="text-10 text-muted-foreground font-mono",
-        ),
-        cls="flex flex-col items-end gap-0.5 flex-none",
-    )
-
-    open_btn = Button(
-        Icon("play", size=12),
-        type="button",
-        cls="w-7 h-7 rounded-sm flex-none flex items-center justify-center",
-        **{
-            ":class": (
-                f"selectedKey === {row_key_expr} "
-                "? 'bg-primary text-primary-foreground' "
-                ": 'text-muted-foreground hover:bg-muted'"
-            ),
-            ":aria-label": "'Open ' + (t.label || '')",
-            "@click.stop": f"openDrawer({row_key_expr})",
-        },
-    )
-
-    inner_row = Div(
-        kind_icon,
-        title_block,
-        right_block,
-        open_btn,
-        cls=row_classes,
-        role="button",
-        tabindex="0",
-        **{
-            ":class": f"{{ 'ring-2 ring-primary/40 shadow-focus': selectedKey === {row_key_expr} }}",
-            ":aria-label": (
-                f"(t.label || '') + ' · ' + ({right_label_expr}) + ' · ' + t.est_min + 'm'"
-            ),
-            "@mousedown": f"rowDown($event, {row_key_expr})",
-            "@click": f"rowClick($event, {row_key_expr})",
-            "@keydown": f"rowKey($event, {row_key_expr})",
-        },
-    )
-
-    backdrop = Div(
-        Span("drag to defer", cls="opacity-50", **{"data-defer-hint": True}),
-        cls=(
-            "defer-backdrop absolute inset-0 rounded-md flex items-center justify-end "
-            "px-4 text-xs font-semibold tracking-wide pointer-events-none"
-        ),
-        **{"data-defer-backdrop": True},
-    )
-
-    return Div(
-        backdrop,
-        inner_row,
-        cls="relative",
-        **{":data-task-row": row_key_expr},
-    )
-
-
-# ---- Triage bar -----------------------------------------------------------
-
-
-def _triage_bar() -> FT:
-    heading = Div(
-        Div(
-            Icon("alert-triangle", size=13),
-            cls=(
-                "w-[22px] h-[22px] rounded-sm bg-destructive/15 text-destructive "
-                "flex items-center justify-center"
-            ),
-        ),
-        Div(
-            Div(
-                "Face first",
-                id="triage-heading",
-                cls="text-10 font-bold uppercase tracking-[0.09em] text-destructive",
-            ),
-            Div(
-                Span(**{"x-text": "fTriage.length"}),
-                " item",
-                Span("s", **{"x-show": "fTriage.length !== 1"}),
-                " need",
-                Span("s", **{"x-show": "fTriage.length === 1"}),
-                " your attention",
-                cls="text-13 font-semibold text-foreground",
-            ),
-            cls="flex-1 min-w-0",
-        ),
-        Span(
-            "drag → to defer",
-            cls="font-mono text-11 text-muted-foreground hidden sm:inline",
-        ),
-        cls="flex items-center gap-2.5 mb-3",
-    )
-    list_body = Ul(
-        Template(
-            Li(_task_row(is_triage=True)),
-            **{"x-for": "t in fTriage", ":key": "t.id"},
-        ),
-        cls="flex flex-col gap-2",
-        role="list",
-    )
+def _section(kind: CalendarItemType, title: str, body: FT) -> FT:
     return Section(
-        heading,
-        list_body,
-        cls=(
-            "mb-7 rounded-lg border border-destructive/40 "
-            "bg-linear-to-b from-destructive/5 to-transparent "
-            "px-[18px] py-3.5 shadow-[0_1px_2px_rgba(220,38,38,0.08)]"
-        ),
-        role="region",
+        H2(title, cls=_SECTION_TITLE_CLS),
+        body,
+        cls="mb-8",
+        data_item_type=kind.value,
+        aria_label=title,
+    )
+
+
+def _defer_form(task: Task, view_date: date, *, source: str) -> FT:
+    """Server-rendered "Defer 1d / 1w" control posting the existing defer route.
+
+    ``source`` speaks the card's language (``day`` moves the field(s) placing
+    the task on this day; ``triage`` moves the deadline); the route re-derives
+    membership from the fresh task and replies ``HX-Redirect`` back to the day,
+    so the moved task leaves the list on the reload rather than by client
+    bookkeeping.
+    """
+    button_cls = (
+        "text-11 font-medium px-2 py-0.5 rounded-sm border border-border bg-card "
+        "text-muted-foreground hover:bg-accent focus:outline-hidden focus:shadow-focus"
+    )
+    return Form(
+        Input(type="hidden", name="view_date", value=view_date.isoformat()),
+        Input(type="hidden", name="source", value=source),
+        Span("Defer", cls="text-11 text-muted-foreground/70"),
+        Button("1d", type="submit", name="span", value="1d", cls=button_cls),
+        Button("1w", type="submit", name="span", value="1w", cls=button_cls),
+        # The route's refusals are actionable text in a 400 body ("would pass the
+        # deadline", "no longer on this day's lens"), which HTMX never swaps. Show
+        # it beside the buttons instead of letting the click look inert.
+        Span(cls="text-11 text-warning", role="status", **{"data-defer-note": True}),
+        hx_post=f"/today/tasks/{task.uid}/defer",
+        hx_swap="none",
         **{
-            "x-show": "!allEmpty && fTriage.length > 0",
-            "aria-labelledby": "triage-heading",
-        },
-    )
-
-
-# ---- LifePath ribbons -----------------------------------------------------
-
-
-def _lifepath_ribbons() -> FT:
-    return Template(
-        Section(
-            _dormant_ribbon(),
-            _active_ribbon(),
-            cls="mb-5",
-            role="region",
-            **{":aria-labelledby": "'ribbon-' + lp.id"},
-        ),
-        **{"x-for": "lp in seed.lifepaths", ":key": "lp.id"},
-    )
-
-
-def _dormant_ribbon() -> FT:
-    inner = Div(
-        Div(
-            cls="w-1.5 h-5.5 rounded-xs",
-            **{":style": "`background:${lp.color};opacity:.4`"},
-        ),
-        Div(
-            Div(
-                Span(**{":id": "'ribbon-' + lp.id", "x-text": "lp.label"}),
-                Span(
-                    "dormant",
-                    cls=(
-                        "ml-2 inline-block text-10 font-semibold uppercase "
-                        "tracking-[0.08em] px-1.5 py-0.5 rounded-sm bg-muted text-muted-foreground"
-                    ),
-                ),
-                cls="text-13 font-semibold text-foreground",
-            ),
-            Div(
-                "Nothing active today. Last touched ",
-                Span(**{"x-text": "lp.last_touched"}),
-                ".",
-                Template(
-                    NotStr("<em x-text=\"' · ' + principlesFor(lp.id)[0].label\"></em>"),
-                    **{"x-if": "principlesFor(lp.id)[0]"},
-                ),
-                cls="text-11 mt-0.5",
-            ),
-            cls="flex-1 min-w-0",
-        ),
-        Button(
-            "Wake this path",
-            type="button",
-            cls=(
-                "bg-transparent border border-border px-3 py-1.5 rounded-sm text-xs font-medium "
-                "text-foreground hover:bg-muted focus:outline-hidden focus:shadow-focus"
-            ),
-            **{
-                ":hx-post": "`/today/lifepaths/${lp.id}/wake`",
-                "hx-target": "closest section",
-                "hx-swap": "outerHTML",
-            },
-        ),
-        cls=(
-            "flex items-center gap-3.5 px-[18px] py-3 rounded-lg bg-card "
-            "border border-dashed border-border text-muted-foreground"
-        ),
-    )
-    return Template(inner, **{"x-if": "lp.dormant"})
-
-
-def _active_ribbon() -> FT:
-    ribbon_header = Header(
-        Div(cls="w-1.5 h-6 rounded-xs", **{":style": "`background:${lp.color}`"}),
-        Div(
-            Div(
-                H2(
-                    cls="text-15 font-semibold tracking-tight",
-                    **{":id": "'ribbon-' + lp.id", "x-text": "lp.label"},
-                ),
-                Span(
-                    cls="text-11 text-muted-foreground font-mono",
-                    **{"x-text": "lp.blurb"},
-                ),
-                cls="flex items-center gap-2",
-            ),
-            Div(
-                Template(
-                    Span(
-                        Span(**{"x-text": "p.label"}),
-                        Span(
-                            cls="font-mono opacity-60",
-                            **{
-                                "x-text": "p.embodiment_rate > 0 "
-                                "? ('· ' + Math.round(p.embodiment_rate * 100) + '%') "
-                                ": ''"
-                            },
-                        ),
-                        cls="inline-flex items-center gap-1 text-10 font-medium px-1.5 py-0.5 rounded-full",
-                        **{":class": "strengthClass(p.strength)"},
-                    ),
-                    **{"x-for": "p in principlesFor(lp.id)", ":key": "p.id"},
-                ),
-                cls="mt-1 flex items-center gap-1.5 flex-wrap",
-            ),
-            cls="flex-1 min-w-0",
-        ),
-        Span(
-            cls="text-11 text-muted-foreground font-mono flex-none",
-            **{"x-text": "tasksFor(lp.id).length + ' today'"},
-        ),
-        cls="flex items-center gap-3 px-[18px] py-3 border-b border-border/70",
-    )
-    tasks_list = Ul(
-        Template(
-            Li(_task_row(is_triage=False)),
-            **{"x-for": "t in tasksFor(lp.id)", ":key": "t.id"},
-        ),
-        Template(
-            Li(
-                "Nothing committed for today on this ribbon.",
-                cls="px-[18px] py-3 text-xs leading-snug text-muted-foreground italic",
-            ),
-            **{"x-if": "tasksFor(lp.id).length === 0"},
-        ),
-        cls="divide-y divide-border/70",
-        role="list",
-    )
-    inner = Div(
-        ribbon_header,
-        tasks_list,
-        cls="rounded-lg border border-border bg-card overflow-hidden",
-    )
-    return Template(inner, **{"x-if": "!lp.dormant"})
-
-
-# ---- Keyboard hints -------------------------------------------------------
-
-
-def _keyboard_hints() -> FT:
-    return keyboard_hints_bar(
-        keyboard_hint("move", "j", "k"),
-        keyboard_hint("open", "↵"),
-        keyboard_hint("complete", "x"),
-        keyboard_hint("defer 1d", "d"),
-        keyboard_hint("defer 1w", "⇧", "d"),
-        Span("or drag any card →", cls="ml-auto"),
-        **{"x-show": "!allEmpty"},
-    )
-
-
-# ============================================================================
-# Right column — day spine
-# ============================================================================
-
-
-def _day_spine() -> FT:
-    return Aside(
-        Div(
-            "Day spine",
-            cls=(
-                "absolute top-3.5 left-[18px] text-10 font-bold uppercase "
-                "tracking-[0.09em] text-muted-foreground"
-            ),
-        ),
-        Div(cls="absolute left-[30px] top-[52px] bottom-[18px] w-0.5 bg-border"),
-        _hour_ticks(),
-        _now_marker(),
-        _rituals_list(),
-        cls=(
-            "relative sticky top-7 h-[640px] w-full max-w-[252px] bg-card "
-            "border border-border rounded-lg shadow-[0_1px_3px_rgba(0,0,0,0.03)] "
-            "pt-12 pr-3.5 pb-[18px] pl-12 box-border overflow-hidden"
-        ),
-        **{"aria-label": "Day spine"},
-    )
-
-
-def _hour_ticks() -> FT:
-    return Template(
-        Div(
-            cls="absolute left-2.5 -translate-y-1/2 text-10 text-muted-foreground/70 font-mono",
-            **{
-                ":style": "`top: calc(52px + ${((h - 6) / 16) * (640 - 70)}px)`",
-                "x-text": "String(h).padStart(2, '0')",
-            },
-        ),
-        **{"x-for": "h in [8, 12, 16, 20]", ":key": "h"},
-    )
-
-
-def _now_marker() -> FT:
-    return Div(
-        Span(cls="absolute left-[18px] -top-1 w-2 h-2 rounded-full bg-destructive"),
-        Span(
-            "NOW · ",
-            Span(**{"x-text": "seed.now_hhmm"}),
-            cls=(
-                "absolute left-8 -top-2 text-10 font-bold text-destructive "
-                "bg-card px-1 font-mono whitespace-nowrap"
-            ),
-        ),
-        cls="absolute left-2.5 right-3 h-px bg-destructive",
-        # NOW is a present-moment marker — hide it while browsing another day.
-        **{
-            "x-show": "seed.is_today",
-            ":style": "`top: calc(52px + ${(nowPct / 100) * (640 - 70)}px)`",
-        },
-    )
-
-
-def _rituals_list() -> FT:
-    dot = Div(
-        Span(**{"x-html": "ritualIconHtml(r.time)"}),
-        cls="w-[18px] h-[18px] rounded-full flex-none flex items-center justify-center",
-        **{
-            ":class": (
-                "ritualPast(r.time) "
-                "? 'bg-muted text-muted-foreground border border-border' "
-                ": 'bg-strength-core/10 text-strength-core border-2 border-strength-core'"
+            "hx-on::response-error": (
+                "this.querySelector('[data-defer-note]').textContent"
+                " = event.detail.xhr.responseText"
             ),
         },
-    )
-    body = Div(
-        Div(
-            cls="text-11 font-semibold truncate",
-            **{
-                ":class": (
-                    "ritualPast(r.time) ? 'text-muted-foreground line-through' : 'text-foreground'"
-                ),
-                "x-text": "r.label",
-            },
-        ),
-        Div(
-            Span(**{"x-text": "r.time"}),
-            " · ",
-            Span(**{"x-text": "r.est_min"}),
-            "m",
-            cls="text-10 font-mono text-muted-foreground",
-        ),
-        cls="flex-1 min-w-0",
-    )
-    return Template(
-        Div(
-            dot,
-            body,
-            cls="absolute left-2.5 right-3 -translate-y-1/2 flex items-center gap-2",
-            **{":style": "`top: calc(52px + ${ritualPct(r.time) * (640 - 70)}px)`"},
-        ),
-        **{"x-for": "r in seed.rituals", ":key": "r.id"},
+        cls="flex items-center gap-1.5 mt-1 pl-1 flex-wrap",
     )
 
 
-# ============================================================================
-# Flash toast
-# ============================================================================
+def _task_card_with_defer(
+    view_date: date, *, source: str
+) -> Callable[[Task, list[dict[str, str]]], FT]:
+    """A ``TaskCard`` followed by its defer control — the ``card_fn`` shape
+    ``ActivityList`` calls with ``(item, connections)``."""
 
-
-def _flash_toast() -> FT:
-    return Div(
-        Span(**{"x-text": "flash?.msg"}),
-        Button(
-            "Undo",
-            type="button",
-            cls=(
-                "bg-transparent border border-background/20 text-background "
-                "px-2.5 py-1 rounded-sm text-11 font-semibold uppercase tracking-wider "
-                "hover:bg-background/10 focus:outline-hidden focus:shadow-focus"
+    def card(task: Task, connections: list[dict[str, str]]) -> FT:
+        # The card's status toggle swaps only the card (its own outerHTML target),
+        # which would leave a completed task on the day beside a live defer
+        # control. The day is server-rendered, so a status UPDATE reloads it —
+        # membership then decides what the day shows, as on defer and quick-add.
+        # The signal is the field route's HX-Trigger (fired only for a real
+        # update, bubbling up from the card's button), not the HTTP status: a
+        # refusal there is a 200 banner the card swaps in, which must stay.
+        return Div(
+            TaskCard(task, connections),
+            _defer_form(task, view_date, source=source),
+            # hx-on-<event>: htmx's colon-free spelling of hx-on:<event> — the
+            # kwarg form the ui-browser skill prefers over a splat.
+            hx_on_activity_field_updated=(
+                "if (event.detail.field === 'status') window.location.reload()"
             ),
-            **{"x-show": "flash?.action === 'undo'", "@click": "undoFlash()"},
-        ),
-        cls=(
-            "fixed bottom-6 left-1/2 -translate-x-1/2 z-20 "
-            "bg-foreground text-background rounded-lg px-4 py-2.5 pr-3 "
-            "flex items-center gap-3.5 text-13 shadow-xl"
-        ),
-        role="status",
-        **{
-            "x-show": "flash",
-            "x-cloak": True,
-            "x-transition.opacity.duration.150ms": True,
-            "aria-live": "polite",
-        },
-    )
-
-
-# ============================================================================
-# Detail drawer
-# ============================================================================
-
-
-def _drawer() -> FT:
-    scrim = Div(
-        cls="absolute inset-0 bg-foreground/40",
-        **{
-            "x-show": "openTask",
-            "x-transition.opacity.duration.200ms": True,
-            "@click": "closeDrawer()",
-        },
-    )
-    panel = _drawer_panel()
-    return Div(
-        scrim,
-        panel,
-        cls="fixed inset-0 z-30",
-        role="dialog",
-        **{
-            "x-show": "openTask",
-            "x-cloak": True,
-            ":aria-labelledby": "openTask ? 'drawer-title' : null",
-            "aria-modal": "true",
-            "@keydown.escape.window": "closeDrawer()",
-        },
-    )
-
-
-def _drawer_panel() -> FT:
-    return Aside(
-        Template(_drawer_inner(), **{"x-if": "openTask"}),
-        cls=(
-            "absolute top-0 right-0 h-full w-full max-w-[440px] bg-background "
-            "border-l border-border shadow-2xl overflow-y-auto"
-        ),
-        **{
-            "x-show": "openTask",
-            "x-transition:enter": "transition ease-out duration-200",
-            "x-transition:enter-start": "translate-x-full",
-            "x-transition:enter-end": "translate-x-0",
-            "x-transition:leave": "transition ease-in duration-150",
-            "x-transition:leave-start": "translate-x-0",
-            "x-transition:leave-end": "translate-x-full",
-            # Server-swapped richer body. `openDrawer()` in today.js fires
-            # `load-drawer` on body (after setting openTaskKey) to trigger this.
-            ":hx-get": "openTask ? `/today/tasks/${openTask.id}/drawer` : null",
-            "hx-trigger": "load-drawer from:body",
-            "hx-target": "#drawer-body",
-            "hx-swap": "innerHTML",
-        },
-    )
-
-
-def _drawer_inner() -> FT:
-    return Div(
-        _drawer_toolbar(),
-        _drawer_title_meta(),
-        _drawer_primary_action(),
-        _drawer_secondary_actions(),
-        _drawer_connects(),
-        Div(id="drawer-body", cls="mt-6"),
-        cls="p-6",
-    )
-
-
-def _drawer_toolbar() -> FT:
-    kind_chip = Span(
-        Span(**{"x-html": "openTaskIconHtml()"}),
-        Span(**{"x-text": "seed.kinds[openTask.kind]?.label || openTask.kind"}),
-        cls=(
-            "inline-flex items-center gap-1.5 px-2 py-1 rounded-sm text-10 "
-            "font-semibold uppercase tracking-[0.08em] bg-muted text-muted-foreground"
-        ),
-    )
-    star_btn = Button(
-        Icon("star", size=14),
-        type="button",
-        cls="w-7 h-7 rounded-sm hover:bg-muted flex items-center justify-center",
-        **{":hx-post": "`/today/tasks/${openTask.id}/star`", "aria-label": "Star"},
-    )
-    close_btn = Button(
-        Icon("x", size=14),
-        type="button",
-        cls="w-7 h-7 rounded-sm hover:bg-muted flex items-center justify-center",
-        **{"@click": "closeDrawer()", "aria-label": "Close drawer"},
-    )
-    return Div(
-        kind_chip,
-        Div(star_btn, close_btn, cls="flex items-center gap-1"),
-        cls="flex items-center justify-between mb-5",
-    )
-
-
-def _drawer_title_meta() -> FT:
-    priority_dot = Span(
-        cls="w-1.5 h-1.5 rounded-full",
-        **{
-            ":class": (
-                "openTask.priority === 'high'   ? 'bg-priority-high' "
-                ": openTask.priority === 'medium' ? 'bg-priority-medium' "
-                ": 'bg-priority-low'"
-            ),
-        },
-    )
-    sep = Span(cls="w-[3px] h-[3px] rounded-full bg-border")
-    return Div(
-        H2(
-            id="drawer-title",
-            cls="text-xl font-bold tracking-tight leading-tight",
-            **{"x-text": "openTask.label"},
-        ),
-        Div(
-            Span(**{"x-text": "openTask.meta"}),
-            sep,
-            Span(
-                **{
-                    ":class": (
-                        "(openTask.due_label || '').startsWith('Overdue') || "
-                        "(openTask.reason || '').startsWith('Overdue') "
-                        "? 'text-destructive' : ''"
-                    ),
-                    "x-text": "openTask.due_label || openTask.reason || 'Triage'",
-                },
-            ),
-            sep,
-            Span(
-                priority_dot,
-                Span(**{"x-text": "openTask.priority"}),
-                cls="inline-flex items-center gap-1",
-            ),
-            sep,
-            Span(Span(**{"x-text": "openTask.est_min"}), "m"),
-            cls="mt-2.5 flex items-center gap-3 text-xs text-muted-foreground font-mono",
-        ),
-    )
-
-
-def _drawer_primary_action() -> FT:
-    # One transport per control: completeTask() posts via htmx.ajax — an
-    # hx-post twin here would double-submit (same defect family C7 fixed on
-    # the defer buttons below).
-    return Button(
-        Icon("check", size=16),
-        "Mark complete",
-        type="button",
-        cls=(
-            "mt-4 w-full inline-flex items-center justify-center gap-2 "
-            "px-4 py-2.5 rounded-md bg-foreground text-background "
-            "text-sm font-semibold hover:opacity-90 "
-            "focus:outline-hidden focus:shadow-focus"
-        ),
-        **{
-            "@click": "completeTask(openTask.id); closeDrawer()",
-        },
-    )
-
-
-def _drawer_secondary_actions() -> FT:
-    # Exactly ONE transport per defer control (C7): deferTask() owns the POST
-    # (fetch with rollback-on-error). The former :hx-post twin double-submitted;
-    # under the fresh-membership guard the second request fails the match and
-    # its non-2xx handler would falsely restore a card whose defer succeeded.
-    def _defer_btn(label: str, span: str) -> FT:
-        return Button(
-            label,
-            type="button",
-            cls=(
-                "px-3 py-2 rounded-md border border-border bg-card "
-                "text-sm font-medium hover:bg-muted "
-                "focus:outline-hidden focus:shadow-focus"
-            ),
-            **{
-                "@click": (
-                    f"deferTask(keySource(openTaskKey), keyId(openTaskKey), '{span}'); "
-                    "closeDrawer()"
-                ),
-            },
         )
 
-    return Div(
-        _defer_btn("Defer tomorrow", "1d"),
-        _defer_btn("Defer next week", "1w"),
-        cls="mt-2.5 grid grid-cols-2 gap-2",
-    )
+    return card
 
 
-def _drawer_connects() -> FT:
-    def _row(icon: str, label: str, field_expr: str, if_expr: str) -> FT:
-        return Template(
-            Div(
-                Icon(icon, size=14, cls="text-muted-foreground"),
-                Span(label, cls="text-muted-foreground"),
-                Span(cls="font-medium", **{"x-text": field_expr}),
-                cls="flex items-center gap-2 text-13",
-            ),
-            **{"x-if": if_expr},
-        )
-
-    return Section(
-        section_label("Connects"),
-        Div(
-            _row("target", "Goal:", "goalFor(openTask).label", "goalFor(openTask)"),
-            _row("anchor", "Principle:", "principleFor(openTask).label", "principleFor(openTask)"),
-            _row("compass", "LifePath:", "lifepathFor(openTask).label", "lifepathFor(openTask)"),
-            cls="rounded-lg border border-border bg-muted/40 p-3.5 space-y-2",
+def _overdue_section(overdue: list[Task], view_date: date) -> FT:
+    """The live day's triage: tasks due strictly before today (deadline language)."""
+    return _section(
+        CalendarItemType.TASK,
+        "Overdue",
+        ActivityList(
+            overdue,
+            "task",
+            _task_card_with_defer(view_date, source="triage"),
+            list_id="day-overdue",
         ),
-        cls="mt-7",
     )
 
 
-__all__ = ["TodayPage"]
+def _tasks_section(tasks: list[Task], view_date: date) -> FT:
+    return _section(
+        CalendarItemType.TASK,
+        "Tasks",
+        ActivityList(
+            tasks,
+            "task",
+            _task_card_with_defer(view_date, source="day"),
+            empty_state=EmptyState(
+                title="No tasks on this day",
+                description="Nothing is scheduled or due here.",
+            ),
+            list_id="day-tasks",
+        ),
+    )
+
+
+def _events_section(events: list[Event]) -> FT:
+    return _section(
+        CalendarItemType.EVENT,
+        "Events",
+        ActivityList(events, "event", EventCard, list_id="day-events"),
+    )
+
+
+def _habits_section(habits: list[CalendarItem], view_date: date) -> FT:
+    """The day's habit occurrences as the calendar's day-stamped chips — each
+    opens the day-aware item-details modal with the per-day complete door."""
+    return _section(CalendarItemType.HABIT, "Habits", habits_fragment(habits, view_date))
+
+
+def habits_fragment(habits: list[CalendarItem], view_date: date) -> FT:
+    """The habit chips container — the page's and the refresh fragment's one shape.
+
+    The per-day complete door answers with ``HX-Trigger: calendar-refresh``
+    (the event the month and week grids re-render on); this container listens
+    for it too and swaps itself with ``GET /today/{date}/habits``, so a chip
+    completed from its modal turns completed without a reload.
+    """
+    return Div(
+        *[_event_chip(item, large=True) for item in habits],
+        id="day-habits",
+        cls="flex flex-col gap-1.5",
+        hx_get=f"/today/{view_date.isoformat()}/habits",
+        hx_trigger="calendar-refresh from:body",
+        hx_swap="outerHTML",
+    )
+
+
+def _read_only_row(
+    title: str, href: str, label: str, *, item_id: str, kind: CalendarItemType
+) -> FT:
+    color = kind.get_color()
+    return Div(
+        Span(cls="flex-none w-2 h-2 rounded-full", style=f"background-color: {color}"),
+        A(title, href=href, cls="text-sm font-medium hover:underline truncate"),
+        Span(label, cls="ml-auto text-11 text-muted-foreground whitespace-nowrap"),
+        id=item_id,
+        cls="flex items-center gap-2.5 px-3 py-2 rounded-md border border-border bg-card",
+    )
+
+
+def _milestones_section(milestones: list[Goal]) -> FT:
+    """Goals whose target date is this day — read-only rows; goal target dates
+    move on the goals surface, not here."""
+    return _section(
+        CalendarItemType.MILESTONE,
+        "Milestones",
+        Div(
+            *[
+                _read_only_row(
+                    goal.title or "Untitled goal",
+                    f"/goals/detail?uid={goal.uid}",
+                    "Target date",
+                    item_id=f"day-milestone-{goal.uid}",
+                    kind=CalendarItemType.MILESTONE,
+                )
+                for goal in milestones
+            ],
+            id="day-milestones",
+            cls="flex flex-col gap-1.5",
+        ),
+    )
+
+
+def _choices_section(choices: list[Choice], view_date: date) -> FT:
+    """Choices due to be decided or decided on this day — read-only rows
+    linking to the choice (the only other dated domain; Principles are
+    dateless and have no day section)."""
+    return _section(
+        CalendarItemType.CHOICE,
+        "Choices",
+        Div(
+            *[
+                _read_only_row(
+                    choice.title or "Untitled choice",
+                    f"/choices/detail?uid={choice.uid}",
+                    "Decided"
+                    if moment_is_on_day(choice.decided_at, view_date)
+                    else "Decide by this day",
+                    item_id=f"day-choice-{choice.uid}",
+                    kind=CalendarItemType.CHOICE,
+                )
+                for choice in choices
+            ],
+            id="day-choices",
+            cls="flex flex-col gap-1.5",
+        ),
+    )

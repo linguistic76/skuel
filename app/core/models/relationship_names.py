@@ -263,9 +263,6 @@ class RelationshipName(StrEnum):
     # User-specific relationships for social features and preferences
     # =========================================================================
     PINNED = "PINNED"  # (user)-[:PINNED {order: int}]->(entity) - User's pinned items
-    PINNED_TODAY = (
-        "PINNED_TODAY"  # (user)-[:PINNED_TODAY {pinned_at: datetime}]->(entity) - Today-surface pin
-    )
     FOLLOWS = "FOLLOWS"  # (user)-[:FOLLOWS]->(user) - Social following
     INTERESTED_IN = "INTERESTED_IN"  # (user)-[:INTERESTED_IN {interest_score, interest_source}]->(ku) - written by UserBackend.record_interest
     PURSUING_GOAL = "PURSUING_GOAL"  # (user)-[:PURSUING_GOAL]->(goal) - Active goals

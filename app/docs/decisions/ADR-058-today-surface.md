@@ -1,6 +1,6 @@
 ---
 title: "ADR-058: Today as the Post-Login Landing Surface"
-updated: 2026-08-23
+updated: 2026-09-12
 status: current
 category: decisions
 tags: [adr, decisions, ui, landing, today, lifepath]
@@ -9,11 +9,48 @@ related: [ADR-050, ADR-055]
 
 # ADR-058: Today as the Post-Login Landing Surface
 
-**Status:** Accepted
+**Status:** Accepted (amended 2026-09-12)
 
 **Date:** 2026-04-23
 
 **Decision Type:** Pattern/Practice
+
+---
+
+## Amendment (2026-09-12 — day-view arc D.1)
+
+The landing decision stands: ``/today`` is the post-login surface. The
+*surface itself* was rebuilt as a server-rendered **day view**
+(``ui/today/page.py``, [`calendar-priority-lens-arc.md`](../roadmap/calendar-priority-lens-arc.md)
+§ D.1), and the handoff this ADR adopted is archived at
+[`today-surface-handoff.md`](../roadmap/done/today-surface-handoff.md). What
+changed:
+
+- **Rendering.** Per-domain sections — Overdue (live day only), Tasks, Events,
+  Habits, Milestones, Choices — rendered through the domain list cards and the
+  calendar's chips, nav cluster and kind legend (one filter component and one
+  storage key across Today/Weekly/Monthly). No page-local JavaScript:
+  ``static/js/today.js``, ``static/css/today.css``, ``ui/today/drawer.py``, the
+  ``window.SEED`` block and the six view TypedDicts are gone; ``TodayPageContext``
+  carries domain models.
+- **Interaction.** Quick-add (C6) and a server-rendered Defer 1d/1w control
+  (C7, ``source=day|triage``, reloads the day via ``HX-Redirect``) stay as Today
+  routes. Completing a task is the card's status toggle through the one
+  completion door (``POST /api/tasks/{uid}/status``); completing a habit is
+  the chip's modal through the calendar's per-day door, whose
+  ``calendar-refresh`` the habits container listens for (re-fetching
+  ``GET /today/{date}/habits``, the same shape the page rendered). The drawer, star/pin
+  (``PINNED_TODAY`` edge — detached by
+  ``scripts/migrations/detach_pinned_today_2026_09.cypher``), LifePath wake,
+  keyboard map, drag-to-defer and optimistic UI are retired.
+- **Navigation claim corrected.** The brand link goes to ``/explore``; Today is
+  the mobile bottom-nav item, the activity sidebar's first row and the
+  post-login redirect — not the brand link.
+
+The orchestrator's ``ui/`` placement rationale below still holds and is why
+SKUEL032 cites this ADR. Everything after this section describes the surface
+as adopted in April 2026; where it conflicts with the amendment, the amendment
+is current.
 
 ---
 
@@ -31,7 +68,7 @@ LifePaths contradicts that model. Users repeatedly asked "where do I start
 each morning?" — the hub was never a satisfying answer.
 
 A dedicated design handoff (now archived at
-`docs/design-handoff/today/`) re-delivered the surface in SKUEL's actual
+`docs/roadmap/done/today-surface-handoff.md`) re-delivered the surface in SKUEL's actual
 stack (FastHTML + HTMX + Alpine + MonsterUI) with production tokens. The
 handoff targets: a Triage bar for overdue/blocked items, one ribbon per
 LifePath (with a dormant variant), a Day spine of time-anchored rituals,
@@ -56,10 +93,9 @@ Implementation:
 - Home Hub's filter axes (Submissions / GradeBook / Library) are demoted
   to sidebar options reachable from Today, not peers of it.
 
-**Live spec:** [`docs/design-handoff/today/today.md`](../design-handoff/today/today.md)
-remains the source of truth for the surface's data shape, endpoints,
-keymap, and accessibility requirements. `today.html` in the same folder
-is the self-contained reference mock.
+**Live spec (at adoption):** the design handoff, now archived at
+[`today-surface-handoff.md`](../roadmap/done/today-surface-handoff.md) — see
+the amendment above for the surface as built today.
 
 ---
 
@@ -163,7 +199,6 @@ would be wrong here since these endpoints return fragments, not full pages).
 ---
 
 ## References
-- [`docs/design-handoff/today/today.md`](../design-handoff/today/today.md) — live spec
-- [`docs/design-handoff/today/today.html`](../design-handoff/today/today.html) — reference mock
+- [`today-surface-handoff.md`](../roadmap/done/today-surface-handoff.md) — the adopted handoff, archived (its mock lives in git history)
 - ADR-050: PWA as Mobile Strategy — establishes the open-web-standards lens Today inherits
 - ADR-055: Architectural Lenses — Today sits in the cross-cutting "view" layer, not a subsystem

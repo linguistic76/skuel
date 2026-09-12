@@ -29,7 +29,7 @@ meta:
     contract: core/models/relationship_registry.py
     findings: scripts/lint_skuel.py::SkuelLinter.SKUEL030_BASELINE
   coverage:
-    relationships: {total: 172, with_contract: 95}
+    relationships: {total: 171, with_contract: 95}
     labels: {total: 61, with_contract: 16}
   legacy_label_config_aliases: [Lesson, Ls, Lp]
 
@@ -613,8 +613,6 @@ relationships:
   BOOKMARKED:
     contract: null
   PINNED:
-    contract: null
-  PINNED_TODAY:
     contract: null
   FOLLOWS:
     contract: null

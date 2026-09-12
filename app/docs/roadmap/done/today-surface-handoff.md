@@ -1,6 +1,20 @@
 ---
-updated: 2026-08-24
+title: "Today Surface Handoff (archived)"
+updated: 2026-09-12
+status: "done — superseded by the day view (calendar-priority-lens arc D.1)"
 ---
+
+> **Archived 2026-09-12.** This is the design handoff the first Today surface was
+> built from (ADR-058): a client-rendered page — Alpine ``today()`` factory,
+> LifePath ribbon, Triage bar, Day spine, drawer, drag-to-defer, keyboard map.
+> The day-view arc (D.1 of [`calendar-priority-lens-arc.md`](../calendar-priority-lens-arc.md))
+> replaced it with a server-rendered day view (``ui/today/page.py``): per-domain
+> sections rendered through the domain cards, the calendar's chips, nav cluster
+> and kind legend, HTMX quick-add and defer, and no page-local JavaScript. The
+> paired mock (``today.html``) is deleted; git history holds it. Nothing below is
+> live — §2 data shape, §3 Alpine state, §4 keymap and §5 endpoints all describe
+> the retired surface.
+
 
 # Today — surface spec
 
@@ -122,7 +136,7 @@ Server MUST provide `now_hhmm` (not the client) so SSR and optimistic UI agree.
 
 ## 3. Alpine state
 
-Component root: `x-data="today()"` on `<main>`.
+Component root: the retired Alpine factory (`today`) sat on `<main>`.
 
 ```js
 {

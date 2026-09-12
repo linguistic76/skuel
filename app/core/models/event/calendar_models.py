@@ -24,17 +24,21 @@ from core.models.type_hints import EntityUID
 
 
 class CalendarItemType(StrEnum):
-    """Kind of item displayed on calendar.
+    """Kind of item displayed on a calendar surface.
 
-    Four kinds — one per grid-rendered thing (periodic-notes arc E1). Due-ness
-    is NOT a kind: a due-but-unscheduled task is still a Task, carrying the
-    ``CalendarItem.is_due`` state flag (the way completed is a state).
+    Four grid kinds — one per chip the month/week render (periodic-notes arc
+    E1) — plus CHOICE, which only the day view renders (as rows, never chips:
+    a choice is not a ``CalendarItem``); it is a kind so the day's legend and
+    the shared ``data-item-type`` filter can name it. Due-ness is NOT a kind: a
+    due-but-unscheduled task is still a Task, carrying the ``CalendarItem.is_due``
+    state flag (the way completed is a state).
     """
 
     EVENT = "event"  # Native event (meeting, appointment)
     TASK = "task"  # Task chip (scheduled work, or due-only via is_due)
     HABIT = "habit"  # Recurring habit block
     MILESTONE = "milestone"  # Goal target date
+    CHOICE = "choice"  # A choice due or decided on the day (day view rows)
 
     def get_color(self) -> str:
         """Hex color for this type — chip fill/accent/dot and legend swatch.
@@ -50,6 +54,7 @@ class CalendarItemType(StrEnum):
             CalendarItemType.TASK: "#6366f1",
             CalendarItemType.HABIT: "#16a34a",
             CalendarItemType.MILESTONE: "#9333ea",
+            CalendarItemType.CHOICE: "#0f766e",
         }
         return colors.get(self, "#3B82F6")
 
@@ -60,6 +65,7 @@ class CalendarItemType(StrEnum):
             CalendarItemType.TASK: "Task",
             CalendarItemType.HABIT: "Habit",
             CalendarItemType.MILESTONE: "Milestone",
+            CalendarItemType.CHOICE: "Choice",
         }
         return labels.get(self, "Event")
 

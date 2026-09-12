@@ -1,103 +1,202 @@
-"""Render tests for the Today surface page (``ui/today/page.py``).
+"""Render tests for the day view (``ui/today/page.py``).
 
-Shape-level: the Alpine behaviour lives in ``static/js/today.js`` and is
-exercised by the render-smoke gate. These guard the server-rendered pieces —
-notably the day-lens Prev/Next hrefs, which must survive arbitrary ISO dates
-the ``/today/{date_str}`` route accepts.
+Server-rendered, so everything is asserted on the markup: the sections and
+their ``data-item-type`` containers (the shared legend filter's hook), the
+defer controls and their source language, the calendar chips for habits, the
+read-only rows, the quick-add gate, and the Prev/Next hrefs — which must
+survive arbitrary ISO dates the ``/today/{date_str}`` route accepts.
 """
 
 from __future__ import annotations
 
-from datetime import date
+from datetime import date, datetime
 
-from fasthtml.common import to_xml
+from fastcore.xml import to_xml  # type: ignore[import-untyped]
 
+from core.models.choice.choice import Choice
+from core.models.enums import EntityStatus
+from core.models.event.calendar_models import CalendarItem, CalendarItemType
+from core.models.event.event import Event
+from core.models.goal.goal import Goal
+from core.models.task.task import Task
 from ui.today.page import TodayPage, _step_day
 
+USER = "user_page"
 
-def _ctx(
-    today_iso: str,
-    *,
-    heading: str = "Today",
-    is_today: bool = True,
-    can_quick_add: bool = True,
-) -> dict:
-    return {
+
+def _ctx(today_iso: str, *, heading: str = "Today", can_quick_add: bool = True, **sections) -> dict:  # type: ignore[no-untyped-def]  # boundary: test context bag
+    base = {
         "today_iso": today_iso,
-        "date_label": "X",
+        "date_label": "Saturday · March 22",
         "heading": heading,
-        "is_today": is_today,
+        "is_today": True,
         "can_quick_add": can_quick_add,
-        "now_hhmm": "09:00",
-        "stats": {"nodes": 0, "committed_min": 0, "done": 0},
-        "triage": [],
-        "lifepaths": [],
-        "principles": [],
-        "goals": [],
+        "overdue": [],
         "tasks": [],
-        "rituals": [],
-        "kinds": {},
-        "ritual_icons": {"past": "", "upcoming": ""},
+        "events": [],
+        "habits": [],
+        "milestones": [],
+        "choices": [],
     }
+    base.update(sections)
+    return base
+
+
+def _task(uid: str, **fields) -> Task:  # type: ignore[no-untyped-def]  # boundary: dto-kwargs
+    return Task(uid=uid, user_uid=USER, title=f"Task {uid}", status=EntityStatus.ACTIVE, **fields)
+
+
+def _render(ctx: dict) -> str:  # type: ignore[type-arg]
+    return to_xml(TodayPage(ctx))  # type: ignore[arg-type]
+
+
+# ---------------------------------------------------------------------------
+# Header + navigation
+# ---------------------------------------------------------------------------
 
 
 def test_step_day_steps_within_range() -> None:
-    d = date(2026, 7, 22)
-    assert _step_day(d, -1) == date(2026, 7, 21)
-    assert _step_day(d, +1) == date(2026, 7, 23)
+    assert _step_day(date(2026, 7, 21), 1) == date(2026, 7, 22)
+    assert _step_day(date(2026, 7, 21), -1) == date(2026, 7, 20)
 
 
 def test_step_day_clamps_at_boundaries() -> None:
-    # ±1 past the representable range would raise OverflowError; clamp instead.
     assert _step_day(date.min, -1) == date.min
-    assert _step_day(date.max, +1) == date.max
-    # The opposite direction still steps normally at each boundary.
-    assert _step_day(date.min, +1) == date(1, 1, 2)
-    assert _step_day(date.max, -1) == date(9999, 12, 30)
+    assert _step_day(date.max, 1) == date.max
 
 
 def test_today_page_renders_at_date_boundaries() -> None:
-    # Boundary dates must not crash render; the boundary arrow self-links.
-    min_xml = to_xml(TodayPage(_ctx("0001-01-01", heading="Jan 1")))
-    assert 'href="/today/0001-01-01"' in min_xml  # Prev clamped to self
-
-    max_xml = to_xml(TodayPage(_ctx("9999-12-31", heading="Dec 31")))
-    assert 'href="/today/9999-12-31"' in max_xml  # Next clamped to self
+    for iso in ("0001-01-01", "9999-12-31"):
+        html = _render(_ctx(iso))
+        assert f'href="/today/{iso}"' in html  # the clamped arrow self-links
 
 
-def test_task_rows_are_keyed_by_source_and_uid() -> None:
-    """C7: a dual-membership task renders one card per surface — every card
-    binding (row key, selection, drawer open) must carry the source prefix so
-    the two cards act independently."""
-    xml = to_xml(TodayPage(_ctx("2026-08-02")))
-    # Both surfaces emit composite-key bindings, never a bare t.id key.
-    assert "data-task-row=\"'triage:' + t.id\"" in xml
-    assert "data-task-row=\"'ribbon:' + t.id\"" in xml
-    assert 'data-task-row="t.id"' not in xml
-    assert "selectedId" not in xml  # replaced by selectedKey end to end
+def test_header_binds_the_shared_legend_with_the_day_swatch_set() -> None:
+    html = _render(_ctx("2026-09-12"))
+    assert 'x-data="calendarLegend"' in html
+    assert 'href="/today/2026-09-11"' in html and 'href="/today/2026-09-13"' in html
+    for label in ("Task", "Event", "Habit", "Milestone", "Choice"):
+        assert f">{label}</span>" in html
+    assert html.count("toggleType(") == 5
 
 
-def test_drawer_defer_buttons_have_exactly_one_transport() -> None:
-    """C7: the drawer defer buttons must NOT carry an hx-post twin — the
-    deferTask() fetch (with rollback-on-error) is the only request. Same for
-    the complete button (identical double-submit family)."""
-    xml = to_xml(TodayPage(_ctx("2026-08-02")))
-    assert "/defer`" not in xml  # no `:hx-post` template literal for defer
-    assert "/complete`" not in xml  # no hx-post twin on Mark complete either
-    assert "deferTask(keySource(openTaskKey), keyId(openTaskKey)" in xml
+# ---------------------------------------------------------------------------
+# Quick-add gate + empty day
+# ---------------------------------------------------------------------------
 
 
 def test_quick_add_present_on_actable_day_anchored_to_view_date() -> None:
-    """C6: today/future lenses carry a tasks-only quick-add posting to the
-    day-lens create route, anchored to the viewed day."""
-    xml = to_xml(TodayPage(_ctx("2026-08-20")))
-    assert 'hx-post="/today/tasks/quick-add"' in xml
-    assert 'name="view_date"' in xml
-    assert 'value="2026-08-20"' in xml
-    assert 'name="title"' in xml
+    html = _render(_ctx("2027-04-23"))
+    assert 'hx-post="/today/tasks/quick-add"' in html
+    assert 'name="view_date" value="2027-04-23"' in html
 
 
 def test_quick_add_absent_on_past_day() -> None:
-    """C6: a past-day lens offers no add — the POST refuses past dates too."""
-    xml = to_xml(TodayPage(_ctx("2020-01-01", heading="Jan 1", can_quick_add=False)))
-    assert "/today/tasks/quick-add" not in xml
+    html = _render(_ctx("2020-01-01", heading="Jan 1", can_quick_add=False))
+    assert "/today/tasks/quick-add" not in html
+
+
+def test_empty_day_shows_caught_up_and_no_sections() -> None:
+    html = _render(_ctx("2026-09-12"))
+    assert "You're caught up." in html
+    assert "data-item-type=" not in html
+
+
+# ---------------------------------------------------------------------------
+# Sections
+# ---------------------------------------------------------------------------
+
+
+def test_overdue_and_tasks_render_cards_with_defer_controls() -> None:
+    late = _task("late", due_date=date(2026, 9, 10))
+    planned = _task("plan", scheduled_date=date(2026, 9, 12))
+    html = _render(_ctx("2026-09-12", overdue=[late], tasks=[planned]))
+    assert 'data-item-type="task"' in html
+    assert ">Overdue</h2>" in html and ">Tasks</h2>" in html
+    # The cards are the domain list's TaskCard — status toggles through the one door.
+    assert 'hx-post="/api/tasks/late/status"' in html
+    assert 'hx-post="/api/tasks/plan/status"' in html
+    # Each card carries its defer control, speaking its surface's language.
+    assert 'hx-post="/today/tasks/late/defer"' in html
+    assert 'hx-post="/today/tasks/plan/defer"' in html
+    assert 'name="source" value="triage"' in html
+    assert 'name="source" value="day"' in html
+    assert html.count('name="view_date" value="2026-09-12"') >= 3  # quick-add + two defers
+    # A refused defer shows the server's reason beside the buttons; a card whose
+    # status really changed reloads the day so membership decides what stays —
+    # on the field route's update event, not on the response status (a refusal
+    # is a 200 banner the card must keep showing).
+    assert html.count('role="status" data-defer-note') == 2
+    assert html.count("hx-on::response-error") == 2
+    assert html.count("hx-on-activity-field-updated") == 2
+    assert "if (event.detail.field === 'status') window.location.reload()" in html
+    assert "hx-on::after-request" not in html
+
+
+def test_tasks_section_has_its_own_empty_state_when_other_sections_render() -> None:
+    event = Event(
+        uid="ev1",
+        user_uid=USER,
+        title="Standup",
+        status=EntityStatus.SCHEDULED,
+        event_date=date(2026, 9, 12),
+    )
+    html = _render(_ctx("2026-09-12", events=[event]))
+    assert "No tasks on this day" in html
+    assert 'data-item-type="event"' in html
+    assert "Standup" in html
+    assert "You're caught up." not in html
+
+
+def test_habits_render_as_day_stamped_calendar_chips() -> None:
+    chip = CalendarItem(
+        uid="habit-h1",
+        source_uid="h1",
+        item_type=CalendarItemType.HABIT,
+        title="Meditate",
+        start_time=datetime(2026, 9, 12, 9, 0),
+        end_time=datetime(2026, 9, 12, 9, 20),
+        occurrence_data={"date": "2026-09-12", "status": "pending"},
+    )
+    html = _render(_ctx("2026-09-12", habits=[chip]))
+    assert 'data-item-type="habit"' in html
+    assert "Meditate" in html
+    # The chip opens the day-aware modal — the per-day complete door lives there.
+    assert "/cal/item-details/habit-h1?date=2026-09-12" in html
+
+
+def test_habits_container_listens_for_calendar_refresh() -> None:
+    """The per-day complete door answers ``HX-Trigger: calendar-refresh``; the
+    habits container must re-fetch itself on it, or a chip completed from its
+    modal stays pending until a reload."""
+    chip = CalendarItem(
+        uid="habit-h1",
+        source_uid="h1",
+        item_type=CalendarItemType.HABIT,
+        title="Meditate",
+        start_time=datetime(2026, 9, 12, 9, 0),
+        end_time=datetime(2026, 9, 12, 9, 20),
+        occurrence_data={"date": "2026-09-12", "status": "pending"},
+    )
+    html = _render(_ctx("2026-09-12", habits=[chip]))
+    container = html[html.index('id="day-habits"') - 200 : html.index('id="day-habits"') + 200]
+    assert 'hx-get="/today/2026-09-12/habits"' in container
+    assert 'hx-trigger="calendar-refresh from:body"' in container
+    assert 'hx-swap="outerHTML"' in container
+
+
+def test_milestones_and_choices_render_read_only_rows() -> None:
+    goal = Goal(uid="g1", user_uid=USER, title="Ship it", target_date=date(2026, 9, 12))
+    due = Choice(
+        uid="c1", user_uid=USER, title="Pick a stack", decision_deadline=datetime(2026, 9, 12, 8)
+    )
+    decided = Choice(uid="c2", user_uid=USER, title="Chose", decided_at=datetime(2026, 9, 12, 20))
+    html = _render(_ctx("2026-09-12", milestones=[goal], choices=[due, decided]))
+    assert 'data-item-type="milestone"' in html
+    assert 'href="/goals/detail?uid=g1"' in html
+    assert 'data-item-type="choice"' in html
+    assert 'href="/choices/detail?uid=c1"' in html
+    assert "Decide by this day" in html
+    assert ">Decided<" in html
+    # Read-only: no status doors for these rows.
+    assert "/api/goals/" not in html and "/api/choices/" not in html

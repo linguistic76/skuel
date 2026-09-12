@@ -16,18 +16,12 @@ is *derived*, so deleting a component breaks the build on its own.
 
 ``skuel.js`` is not the whole registry
 --------------------------------------
-The obvious assumption — "all Alpine components live in ``static/js/skuel.js``" —
-is **false**, and asserting it is how the first version of this module shipped a
-wrong ground truth. Five files under ``static/js/`` call ``Alpine.data()``:
-``skuel.js`` holds the 22 shared components, and four page-local bundles
-(``today.js``, ``explore-reading.js``, ``ku-reading.js``, ``ps-detail.js``) each
-register one more, loaded by their own routes. A guard built on ``skuel.js``
-alone reports a live component as dead — ``today`` is documented correctly in
-``docs/design-handoff/today/today.md`` and would have been flagged.
-
-So the registry here is the **union across every registrar**, discovered by
-globbing rather than by a hard-coded file list, and a new bundle is picked up
-automatically.
+``static/js/skuel.js`` holds the shared components, and page-local bundles under
+``static/js/`` register their own with ``Alpine.data()``, loaded by their own
+routes. A guard built on ``skuel.js`` alone reports a page-local component as
+dead, so the registry here is the **union across every registrar**, discovered
+by globbing rather than by a hard-coded file list — a new bundle is picked up
+automatically, and no count of bundles is asserted anywhere.
 
 What is checked
 ---------------
@@ -38,8 +32,8 @@ What is checked
    FastHTML docs favour), ``Alpine.data('name', …)`` definitions, and prose that
    *instructs* a mount. Mount-only checking left a copy-paste ``swipeHandler``
    recipe in ``patterns-reference.md`` green while the architecture doc said
-   touch/swipe had no live successor. Both ``.md`` and ``.html`` — the Today
-   design handoff is HTML and mounts ``x-data="today()"``. Tree-wide, because a
+   touch/swipe had no live successor. Both ``.md`` and ``.html`` — a design
+   handoff can be HTML and mount ``x-data="name()"``. Tree-wide, because a
    stale example is equally broken wherever it sits — five docs outside the
    original three were teaching deleted or never-existing components.
 
@@ -139,9 +133,9 @@ _X_DATA_RE = re.compile(r"""x[-_]data["']?\s*[:=]\s*[rRbBuUfF]{0,2}["']\s*([A-Za
 # prose mention cannot register); against docs it runs on raw text (so a prose
 # mention IS a finding). The safety difference lives in the input, not here.
 #
-# Deliberately NOT anchored to line-start: today.js registers mid-line via
-# `if (window.Alpine) window.Alpine.data('today', …)`, and an anchor would
-# silently drop a live component.
+# Deliberately NOT anchored to line-start: a page-local bundle may register
+# mid-line via `if (window.Alpine) window.Alpine.data('name', …)`, and an
+# anchor would silently drop a live component.
 _ALPINE_DATA_RE = re.compile(r"""Alpine\.data\(\s*['"]([A-Za-z_]\w*)['"]""")
 # Backticked `name(...)` call — used only on lines that also mention x-data.
 _PROSE_CALL_RE = re.compile(r"`([a-z][A-Za-z0-9]*)\([^`]*\)`")
@@ -252,11 +246,10 @@ def _components_in_regions(text: str, begin: str = REGION_BEGIN, end: str = REGI
 def _all_doc_files() -> list[Path]:
     """First-party docs that can carry an Alpine snippet.
 
-    ``.html`` as well as ``.md``: ``docs/design-handoff/today/today.html`` is a
-    copyable design handoff that mounts ``x-data="today()"``, and a Markdown-only
-    glob left it unchecked while the module claimed to cover any doc under
-    ``docs/``. Rename or delete ``today`` and that file would have gone stale
-    silently.
+    ``.html`` as well as ``.md``: a design handoff can be a copyable HTML mock
+    that mounts a component, and this module claims to cover any doc under
+    ``docs/`` — a Markdown-only glob would leave such a file unchecked, so a
+    renamed or deleted component could go stale there silently.
 
     ``docs/llms.txt/`` is excluded: vendored upstream reference material
     (FastHTML, MonsterUI, DaisyUI, shad4fast). Their examples are not SKUEL's

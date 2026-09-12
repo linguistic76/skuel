@@ -25,6 +25,7 @@ Tasks and Events itself.
 
 from __future__ import annotations
 
+from calendar import monthrange
 from dataclasses import replace
 from datetime import date, datetime, timedelta
 from typing import TYPE_CHECKING
@@ -126,6 +127,19 @@ def _habit_block_on(habit: Habit, day: date) -> tuple[datetime, datetime]:
 # This allows the entire codebase to update when enum definitions change.
 
 
+def _advance(day: date, delta: timedelta) -> date | None:
+    """``day + delta``, or ``None`` past the last representable date.
+
+    The day view clamps its navigation at ``date.max``, so a projection loop
+    can be asked for occurrences ending there; stepping once more would raise
+    where the calendar ends, and every loop below stops instead.
+    """
+    try:
+        return day + delta
+    except OverflowError:
+        return None
+
+
 class CalendarService:
     """Calendar meta-service: composes the injected domain services into one surface.
 
@@ -207,7 +221,17 @@ class CalendarService:
 
         habit_occurrences = {}
         if spec.admits_kind(CalendarItemType.HABIT):
-            for habit in await self._fetch_habits(user_uid, include_completed):
+            habits_read = await self._fetch_habits(user_uid, include_completed)
+            habits: list[Habit] = []
+            if habits_read.is_error:
+                # Per-kind degradation, as the task/event/goal fetches above: the
+                # grid renders without habits rather than not at all.
+                logger.warning(
+                    "Calendar: habits read failed: %s", habits_read.expect_error().message
+                )
+            else:
+                habits = habits_read.value
+            for habit in habits:
                 base = self._habit_to_calendar_item(habit)
                 if not spec.admits(base.item_type, base.priority):
                     continue
@@ -262,6 +286,35 @@ class CalendarService:
             for item in (*task_items, *event_items, *goal_items)
             if start_date <= item.start_time.date() <= end_date
         ]
+        items.sort(key=_planning_item_start)
+        return Result.ok(items)
+
+    @with_error_handling("habit_items_for_day", error_type="system", uid_param="user_uid")
+    async def habit_items_for_day(self, user_uid: UserUID, day: date) -> Result[list[CalendarItem]]:
+        """The user's habits that recur on ``day``, as day-stamped calendar items.
+
+        Producer for the day view's Habits section: each item is scoped to the
+        day the same way the item-details modal scopes it
+        (``_stamp_habit_occurrence`` — re-dated block, ``occurrence_data`` with
+        the day and its completion state), so a chip, the modal it opens and the
+        per-day complete door agree about the day. Every priority renders: the
+        day lens shows the day's truth, not a view's floor. A failed completions
+        read propagates — a chip rendering a done day as pending would offer a
+        second "Mark Complete" for it.
+        """
+        items: list[CalendarItem] = []
+        habits_read = await self._fetch_habits(user_uid)
+        if habits_read.is_error:
+            return Result.fail(habits_read)
+        for habit in habits_read.value:
+            if not self._is_occurrence_day(habit, day):
+                continue
+            stamped = await self._stamp_habit_occurrence(
+                self._habit_to_calendar_item(habit), habit.uid, day
+            )
+            if stamped.is_error:
+                return Result.fail(stamped)
+            items.append(stamped.value)
         items.sort(key=_planning_item_start)
         return Result.ok(items)
 
@@ -634,7 +687,7 @@ class CalendarService:
 
     async def _fetch_habits(
         self, user_uid: UserUID, include_completed: bool = False
-    ) -> list[Habit]:
+    ) -> Result[list[Habit]]:
         """
         Fetch the user's habits — status-filtered, NEVER date-filtered.
 
@@ -651,22 +704,19 @@ class CalendarService:
         span its creation day — present on the month view, absent from a later
         week of the same month. Fetching by status keeps month and week
         consistent.
-        """
-        habits: list[Habit] = []
 
+        A failed read is returned as a failure, never as "no habits": the caller
+        decides whether the kind degrades (a grid) or the read fails (a fragment
+        that would otherwise replace live chips with an empty container).
+        """
         try:
-            result = (
+            return (
                 await self.habits_service.get_user_habits(user_uid)
                 if include_completed
                 else await self.habits_service.get_active(user_uid)
             )
-            if result.is_ok:
-                habits = result.value
-
         except NEO4J_EXCEPTIONS as e:
-            logger.warning(f"Failed to fetch habits: {e}")
-
-        return habits
+            return Result.fail(Errors.database("calendar.fetch_habits", f"user {user_uid}: {e}"))
 
     async def _read_completions(
         self, habit_uid: str, start_date: date, end_date: date
@@ -922,7 +972,7 @@ class CalendarService:
         if recurrence_end is not None and recurrence_end < end_date:
             end_date = recurrence_end
 
-        current_date = start_date
+        current_date: date | None = start_date
 
         if pattern == "none":
             # One-time practice — a single occurrence on its inception day.
@@ -930,37 +980,42 @@ class CalendarService:
                 occurrences.append(self._create_occurrence(habit, anchor))
 
         elif pattern == "daily":
-            while current_date <= end_date:
+            while current_date is not None and current_date <= end_date:
                 occurrences.append(self._create_occurrence(habit, current_date))
-                current_date += timedelta(days=1)
+                current_date = _advance(current_date, timedelta(days=1))
 
         elif pattern == "weekdays":
-            while current_date <= end_date:
+            while current_date is not None and current_date <= end_date:
                 if current_date.weekday() < 5:  # Monday=0 … Friday=4
                     occurrences.append(self._create_occurrence(habit, current_date))
-                current_date += timedelta(days=1)
+                current_date = _advance(current_date, timedelta(days=1))
 
         elif pattern == "weekends":
-            while current_date <= end_date:
+            while current_date is not None and current_date <= end_date:
                 if current_date.weekday() >= 5:  # Saturday=5, Sunday=6
                     occurrences.append(self._create_occurrence(habit, current_date))
-                current_date += timedelta(days=1)
+                current_date = _advance(current_date, timedelta(days=1))
 
         elif pattern == "weekly":
             # Same weekday as the anchor, every week.
-            current_date = self._advance_to_weekday(current_date, anchor.weekday(), end_date)
-            while current_date <= end_date:
+            current_date = self._advance_to_weekday(start_date, anchor.weekday(), end_date)
+            while current_date is not None and current_date <= end_date:
                 occurrences.append(self._create_occurrence(habit, current_date))
-                current_date += timedelta(weeks=1)
+                current_date = _advance(current_date, timedelta(weeks=1))
 
         elif pattern == "biweekly":
             # Same weekday as the anchor, on the anchor's fixed 14-day parity.
-            current_date = self._advance_to_weekday(current_date, anchor.weekday(), end_date)
-            if current_date <= end_date and ((current_date - anchor).days // 7) % 2:
-                current_date += timedelta(weeks=1)  # shift onto the anchor's cycle
-            while current_date <= end_date:
+            current_date = self._advance_to_weekday(start_date, anchor.weekday(), end_date)
+            if (
+                current_date is not None
+                and current_date <= end_date
+                and ((current_date - anchor).days // 7) % 2
+            ):
+                # shift onto the anchor's cycle
+                current_date = _advance(current_date, timedelta(weeks=1))
+            while current_date is not None and current_date <= end_date:
                 occurrences.append(self._create_occurrence(habit, current_date))
-                current_date += timedelta(weeks=2)
+                current_date = _advance(current_date, timedelta(weeks=2))
 
         elif pattern == "monthly":
             # Anchor day-of-month, every month (clamped to each month's length).
@@ -998,15 +1053,16 @@ class CalendarService:
         self.logger.debug(f"Generated {len(occurrences)} occurrences for habit {habit.uid}")
         return occurrences
 
-    def _advance_to_weekday(self, start: date, weekday: int, limit: date) -> date:
+    def _advance_to_weekday(self, start: date, weekday: int, limit: date) -> date | None:
         """First date on ``weekday`` (0=Mon) at or after ``start``.
 
-        Returns a date past ``limit`` if the weekday never occurs in range, so the
-        caller's ``while d <= limit`` loop simply produces no occurrences.
+        Returns a date past ``limit`` if the weekday never occurs in range — or
+        ``None`` when the calendar ends first — so the caller's loop simply
+        produces no occurrences.
         """
-        d = start
-        while d <= limit and d.weekday() != weekday:
-            d += timedelta(days=1)
+        d: date | None = start
+        while d is not None and d <= limit and d.weekday() != weekday:
+            d = _advance(d, timedelta(days=1))
         return d
 
     def _monthly_occurrences(
@@ -1037,11 +1093,14 @@ class CalendarService:
                 occurrence_date = month.replace(day=min(target_day, self._days_in_month(month)))
                 if start_date <= occurrence_date <= end_date:
                     result.append(self._create_occurrence(habit, occurrence_date))
-            month = (
-                month.replace(year=month.year + 1, month=1)
-                if month.month == 12
-                else month.replace(month=month.month + 1)
-            )
+            try:
+                month = (
+                    month.replace(year=month.year + 1, month=1)
+                    if month.month == 12
+                    else month.replace(month=month.month + 1)
+                )
+            except ValueError:
+                break  # the calendar ends with this month
         return result
 
     def _habit_inception_date(self, habit: Habit) -> date | None:
@@ -1095,14 +1154,9 @@ class CalendarService:
         )
 
     def _days_in_month(self, date_obj: date) -> int:
-        """Get number of days in a month."""
-        if date_obj.month == 12:
-            next_month = date_obj.replace(year=date_obj.year + 1, month=1)
-        else:
-            next_month = date_obj.replace(month=date_obj.month + 1)
-
-        last_day_of_month = next_month - timedelta(days=1)
-        return last_day_of_month.day
+        """Get number of days in a month — from the calendar, not from a date
+        in the following month (there is none after December 9999)."""
+        return monthrange(date_obj.year, date_obj.month)[1]
 
     def _format_recurrence_pattern(self, habit: Habit) -> str:
         """Format recurrence pattern for display."""

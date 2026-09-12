@@ -168,34 +168,42 @@ async def test_get_overdue_excludes_archived(search_service, mock_backend):
 
 
 @pytest.mark.asyncio
-async def test_get_active_includes_paused(search_service, mock_backend):
-    """Habits.get_active keeps paused entries (they are still 'alive')."""
+async def test_get_active_excludes_terminal_statuses_in_the_query_and_keeps_paused(
+    search_service, mock_backend
+):
+    """Habits.get_active keeps paused entries (still 'alive') and filters IN THE
+    QUERY: excluding statuses after a fetched page lets archived rows consume
+    the limit and drop an alive habit past it."""
     paused = _habit("habit:paused", status=EntityStatus.PAUSED)
     active = _habit("habit:active", status=EntityStatus.ACTIVE)
-    archived = _habit("habit:archived", status=EntityStatus.ARCHIVED)
-    mock_backend.find_by.return_value = Result.ok(
-        [paused.to_dto().to_dict(), active.to_dto().to_dict(), archived.to_dto().to_dict()]
+    mock_backend.active_raw.return_value = Result.ok(
+        [paused.to_dto().to_dict(), active.to_dto().to_dict()]
     )
 
-    result = await search_service.get_active(user_uid="user_demo")
+    result = await search_service.get_active(user_uid="user_demo", limit=25)
 
     assert result.is_ok
-    uids = {h.uid for h in result.value}
-    # Paused + active survive, archived is filtered out
-    assert uids == {"habit:paused", "habit:active"}
+    assert {h.uid for h in result.value} == {"habit:paused", "habit:active"}
+    kwargs = mock_backend.active_raw.call_args.kwargs
+    assert kwargs["user_uid"] == "user_demo"
+    assert kwargs["limit"] == 25
+    assert set(kwargs["exclude_statuses"]) == {
+        EntityStatus.ARCHIVED.value,
+        EntityStatus.COMPLETED.value,
+        EntityStatus.CANCELLED.value,
+    }
+    mock_backend.find_by.assert_not_awaited()
 
 
 @pytest.mark.asyncio
-async def test_get_active_requires_user_uid(search_service, mock_backend):
-    """get_active still requires a user_uid — no admin-wide call."""
-    # Mock returns empty so the filter step won't raise; we assert via call
-    mock_backend.find_by.return_value = Result.ok([])
+async def test_get_active_propagates_a_failed_read(search_service, mock_backend):
+    from core.utils.result_simplified import Errors
+
+    mock_backend.active_raw.return_value = Result.fail(Errors.database("active_raw", "boom"))
 
     result = await search_service.get_active(user_uid="user_demo")
 
-    assert result.is_ok
-    kwargs = mock_backend.find_by.call_args.kwargs
-    assert kwargs["user_uid"] == "user_demo"
+    assert result.is_error
 
 
 # ============================================================================

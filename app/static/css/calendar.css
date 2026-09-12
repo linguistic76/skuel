@@ -31,13 +31,14 @@
 /*
  * Legend type filters (calendarLegend Alpine component, skuel.js).
  * The shell wrapper carries cal-hide-* / cal-spot-* classes; items carry
- * data-item-type (chips in month/week).
+ * data-item-type (chips in month/week; the day view's sections and chips).
  * Pure CSS so filters keep applying to HTMX-swapped grid content.
  */
 .cal-hide-event [data-item-type="event"],
 .cal-hide-task [data-item-type="task"],
 .cal-hide-habit [data-item-type="habit"],
-.cal-hide-milestone [data-item-type="milestone"] {
+.cal-hide-milestone [data-item-type="milestone"],
+.cal-hide-choice [data-item-type="choice"] {
     display: none;
 }
 
@@ -49,7 +50,8 @@
 .cal-spot-event [data-item-type]:not([data-item-type="event"]),
 .cal-spot-task [data-item-type]:not([data-item-type="task"]),
 .cal-spot-habit [data-item-type]:not([data-item-type="habit"]),
-.cal-spot-milestone [data-item-type]:not([data-item-type="milestone"]) {
+.cal-spot-milestone [data-item-type]:not([data-item-type="milestone"]),
+.cal-spot-choice [data-item-type]:not([data-item-type="choice"]) {
     opacity: 0.25;
 }
 

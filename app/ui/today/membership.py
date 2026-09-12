@@ -12,7 +12,10 @@ The Today surface renders two task surfaces:
 
 Both surfaces exclude the same statuses (today: exactly ``COMPLETED`` —
 whether dated CANCELLED/FAILED tasks *should* render is lens-status truth,
-out of C7's scope).
+out of C7's scope). The Tasks domain's ``completed_statuses`` is that same
+set, so the orchestrator's dated reads apply it in the query
+(``include_completed=False``) and the predicates here restate it in memory —
+one rule, applied twice by design, never two rules.
 
 ``TodayOrchestrator.build_context()`` (``ui/today/orchestrator.py``) renders
 by these functions, and the defer guard (``adapters/inbound/today_routes.py``)

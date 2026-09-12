@@ -20,6 +20,7 @@ in the loop.
 
 from __future__ import annotations
 
+import json
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
@@ -203,6 +204,10 @@ class TestFieldUpdateRoutes:
         tasks_service.update_task.assert_awaited_once_with(
             _TASK_UID, TaskUpdateIntent(status="completed")
         )
+        # The one honest "it changed" signal: a refusal is also a 200 (banner).
+        assert json.loads(response.headers["HX-Trigger"]) == {
+            "activity-field-updated": {"domain": "tasks", "field": "status"}
+        }
 
     def test_invalid_priority_value_refused(self, monkeypatch: pytest.MonkeyPatch) -> None:
         client, tasks_service, _goals = _make_client(monkeypatch)
@@ -210,4 +215,20 @@ class TestFieldUpdateRoutes:
         response = _post_form(client, f"/api/tasks/{_TASK_UID}/priority", {"priority": "bananas"})
 
         assert "Invalid priority value" in response.text
+        assert "HX-Trigger" not in response.headers
         tasks_service.update_task.assert_not_awaited()
+
+    def test_failed_update_answers_a_banner_without_the_update_event(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        client, tasks_service, _goals = _make_client(monkeypatch)
+        tasks_service.update_task = AsyncMock(
+            return_value=Result.fail(Errors.database("update_task", "boom"))
+        )
+
+        response = _post_form(client, f"/api/tasks/{_TASK_UID}/status", {"status": "completed"})
+
+        # Swapped in at 200 so the user sees it; no update event, so a listener
+        # that reloads on a real update leaves the banner in place.
+        assert response.status_code == 200
+        assert "HX-Trigger" not in response.headers

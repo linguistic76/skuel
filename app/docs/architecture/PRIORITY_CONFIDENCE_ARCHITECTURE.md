@@ -1,5 +1,5 @@
 ---
-updated: 2026-09-11
+updated: 2026-09-12
 ---
 
 # Priority & Confidence Architecture
@@ -139,7 +139,7 @@ rank by it — every one of them through the enum's own methods, never a hand-wr
 |---------|------|
 | Calendar optimization (`calendar_optimization_service.py`, `_strategies.py`) | HIGH tasks add intrinsic load and join the peak-energy bucket, ordered by `sort_order()` |
 | Search scoring (`core/models/search/scoring.py`) | `score_priority_level` → HIGH 1.0 / MEDIUM 0.5 / LOW 0.25 |
-| Today, profile previews, list sorts (`ui/today/orchestrator.py`, `profile_orchestrator.py`, `core/utils/entity_filters.py`) | sort by `sort_order()`; the view vocabulary IS the enum's three values |
+| Profile previews, list sorts (`profile_orchestrator.py`, `core/utils/entity_filters.py`) | sort by `sort_order()`; the view vocabulary IS the enum's three values (the day view orders by date, not priority — every priority renders there) |
 | Goal scheduling (`goals_scheduling_service.py`) | priority weight in the goal score; the HIGH-count recommendation is advisory |
 
 ---

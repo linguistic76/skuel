@@ -380,6 +380,14 @@ detaches the persisted `PINNED_TODAY` edges; Codex P2, round 6), the six seed Ty
 `membership.py` stays. Amend ADR-058 (keep the `ui/` placement rationale SKUEL032 cites; fix the brand-link
 claim). Ride-alongs: the deferred `0m` duration fix (its trigger is "next touch of /today"); C7's
 lens-status question (dated CANCELLED/FAILED tasks: **render** — the lens shows the day's truth).
+**Implemented (D1 PR):** the legend takes a swatch set — ``create_kind_legend(DAY_KINDS)`` beside
+``create_calendar_legend(view)`` — because the day is not a ``CalendarView`` (no floors: every
+priority renders); ``CalendarItemType.CHOICE`` exists for the legend and the ``data-item-type``
+filter only (choices render as rows, never chips); habits come from a new
+``CalendarService.habit_items_for_day`` (the modal's own day stamp); the defer route's success
+is 204 + ``HX-Redirect`` to the day; the handoff pair is archived at
+``docs/roadmap/done/today-surface-handoff.md`` (the mock deleted); ``PINNED_TODAY`` edges are
+detached by ``scripts/migrations/detach_pinned_today_2026_09.cypher``.
 
 ### Arc E — Sidebar + report doors (after A and C)
 
