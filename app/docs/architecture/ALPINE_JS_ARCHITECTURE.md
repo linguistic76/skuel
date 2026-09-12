@@ -113,7 +113,7 @@ and CLAUDE.md § UI Component Pattern.
 
 ```
 static/js/
-├── skuel.js          # SHARED Alpine.data() components (~2600 lines, 22 of the 26)
+├── skuel.js          # the SHARED Alpine.data() components
 ├── explore-reading.js  # page-local: exploreReading
 ├── ku-reading.js     # page-local: kuReading
 └── ps-detail.js      # page-local: pathstep
@@ -130,13 +130,15 @@ ui/
 
 ## Available Components
 
-There are **26** components, and `skuel.js` is **not** the only registrar — a
-natural assumption, and a wrong one. `skuel.js` holds the **22 shared**
-components; three page-local bundles register one each and are loaded only by
-their own routes.
+`skuel.js` holds the shared components and is **not** the only registrar — a
+natural assumption, and a wrong one: page-local bundles register their own and
+are loaded only by their own routes. No count is stated here on purpose — the
+registry is the union across every registrar, derived by
+`tests/unit/docs/test_alpine_docs_registry.py`, and a number in prose is what
+rots when a bundle is added or retired.
 
 The table below is the **canonical page-local inventory** — the one place those
-four are enumerated; other docs point here rather than repeat the list.
+components are enumerated; other docs point here rather than repeat the list.
 
 Only the **Component** column is machine-checked (it must equal the set of
 components registered outside `skuel.js`). The path columns are ordinary prose
