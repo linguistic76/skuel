@@ -368,10 +368,15 @@ class PrinciplesService(
 
         reflection_uid = str(UIDGenerator.generate_uid("refl"))
 
+        # Owner-scoped like the route in front of it: this method takes ``user_uid``
+        # and is documented for direct use, so a foreign uid must read as not-found
+        # here too — never a stamp on someone else's principle.
+        owned = await self.core.verify_ownership(principle_uid, user_uid)
+        if owned.is_error:
+            return Result.fail(owned)
         # The reflection's one persisted trace is the principle's review stamp — the
         # review cadence and the report's principles_reviewed counter read it — so it
-        # is written (owner-scoped, not-found on a foreign uid) before anything is
-        # announced.
+        # is written before anything is announced.
         stamped = await self.core.update_principle(
             principle_uid, PrincipleUpdateIntent(last_review_date=date.today())
         )

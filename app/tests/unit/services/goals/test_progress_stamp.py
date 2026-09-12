@@ -98,7 +98,7 @@ async def test_re_posting_the_stored_figure_leaves_the_stamp_alone() -> None:
 @pytest.mark.asyncio
 async def test_habit_progress_recompute_to_the_same_capped_figure_leaves_the_stamp_alone() -> None:
     """A streak advancing past the normalization window recomputes to the same
-    100%: the write happens, the stamp does not (Codex P2 on this PR)."""
+    100%: the write happens, the stamp does not."""
     goal = _goal(progress=100.0)
     goal = Goal(**{**goal.__dict__, "measurement_type": MeasurementType.HABIT_BASED})
     backend, recorder = guarded_backend(goal, goal)
@@ -153,7 +153,8 @@ async def test_re_completing_a_completed_milestone_leaves_the_stamp_alone() -> N
 
 @pytest.mark.asyncio
 async def test_intent_carrying_progress_stamps_last_progress_update() -> None:
-    goal = _goal(progress=55.0)
+    """A figure that moves the stored one is a progress event."""
+    goal = _goal(progress=20.0)
     backend, recorder = guarded_backend(goal, goal)
     core = GoalsCoreService(backend=backend, event_bus=None)
 
@@ -163,6 +164,21 @@ async def test_intent_carrying_progress_stamps_last_progress_update() -> None:
     changes = recorder.last_updates
     assert changes["progress_percentage"] == 55.0
     assert isinstance(changes["last_progress_update"], datetime)
+
+
+@pytest.mark.asyncio
+async def test_intent_re_posting_the_stored_figure_leaves_the_stamp_alone() -> None:
+    """An explicit edit that names the current percentage changes nothing — the
+    write happens, the stamp does not."""
+    goal = _goal(progress=40.0)
+    backend, recorder = guarded_backend(goal, goal)
+    core = GoalsCoreService(backend=backend, event_bus=None)
+
+    result = await core.update_goal(_GOAL, GoalUpdateIntent(progress_percentage=40.0))
+
+    assert result.is_ok
+    assert recorder.last_updates["progress_percentage"] == 40.0
+    assert "last_progress_update" not in recorder.last_updates
 
 
 @pytest.mark.asyncio

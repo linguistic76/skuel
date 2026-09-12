@@ -132,6 +132,30 @@ def _with_reopen_progress_reset(
     return dataclasses.replace(guard, patch_if_prior_in=(statuses, reset))
 
 
+def _progress_moves(
+    current: Goal | None,
+    # boundary: the materialized update patch — only ``status`` and the progress
+    # figure are read here, both narrowed on use.
+    changes: dict[str, Any],
+) -> bool:
+    """Whether the carried progress figure is a progress EVENT for this goal.
+
+    A completion target is always one (the transition is the event, and the stamp
+    rides its prior condition). Otherwise the figure must differ from the stored
+    one — re-posting the current percentage records no progress. With no stored
+    goal to compare against the figure is taken at its word.
+    """
+    raw_target = changes.get("status")
+    if raw_target is not None:
+        target = raw_target if isinstance(raw_target, EntityStatus) else EntityStatus(raw_target)
+        if target is EntityStatus.COMPLETED:
+            return True
+    if current is None:
+        return True
+    stored = float(current.progress_percentage or 0.0)
+    return abs(float(changes["progress_percentage"]) - stored) >= 0.01
+
+
 def _with_completion_progress(
     guard: StatusWriteGuard,
     # boundary: the same materialized update patch as above — read for ``status``'s
@@ -755,30 +779,34 @@ class GoalsCoreService(
         ``GoalsProgressService``, which owns the progress-propagation provenance.)
         """
         changes = intent.to_changes()
-        # A progress figure carried by the intent (complete_goal's 100%, an explicit
-        # edit) is a progress event: stamp last_progress_update — the field
-        # GoalsProgressService stamps on every progress write and the report's
-        # goals_progressed counter reads. On a completion the figure and this stamp
-        # move onto the transition condition below (``_with_completion_progress``).
-        if "progress_percentage" in changes:
-            changes["last_progress_update"] = datetime.now()
-        # Capture the intended fields now: the backend stamps updated_at in place, so
-        # reading changes.keys() after the write would leak that bump into the event.
-        updated_fields = list(changes.keys())
+        carries_progress = "progress_percentage" in changes
 
         # Advisory pre-read — for the one rule ``_validate_update`` still holds
         # (target-after-start), which falls back to the goal's STORED dates when the
         # update supplies only one of them. Gated on exactly the fields that rule reads,
         # so a status-only update reads nothing before writing: its verdicts come from
         # the write itself now.
+        # The same read tells whether a carried progress figure MOVES the stored one.
         old_goal: Goal | None = None
-        if "target_date" in changes or "start_date" in changes:
+        if "target_date" in changes or "start_date" in changes or carries_progress:
             current_result = await self.get(uid)
             if current_result.is_error:
                 # Fail fast: a failed read must not be silently read as "no rule
                 # applies" — the date rule is gated on the goal's stored dates.
                 return Result.fail(current_result)
             old_goal = current_result.value
+
+        # A progress figure carried by the intent (complete_goal's 100%, an explicit
+        # edit) is a progress event when it CHANGES the figure — the field
+        # GoalsProgressService stamps on every real progress write and the report's
+        # goals_progressed counter reads. Re-posting the stored figure is not one. A
+        # completion always is: its figure and stamp move onto the transition
+        # condition below (``_with_completion_progress``), gated by the prior status.
+        if carries_progress and _progress_moves(old_goal, changes):
+            changes["last_progress_update"] = datetime.now()
+        # Capture the intended fields now: the backend stamps updated_at in place, so
+        # reading changes.keys() after the write would leak that bump into the event.
+        updated_fields = list(changes.keys())
 
         # Domain validation BEFORE the write. Called explicitly because the facade routes
         # ``update`` / ``update_for_user`` to this method, so the inherited CRUD hook that
