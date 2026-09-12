@@ -17,7 +17,7 @@ domain services, so we build the service with mocks and call it directly.
 
 from __future__ import annotations
 
-from datetime import date, datetime
+from datetime import date, datetime, timedelta
 from types import SimpleNamespace
 from unittest.mock import AsyncMock, Mock
 
@@ -543,3 +543,46 @@ async def test_habit_items_for_day_propagates_a_failed_completions_read() -> Non
     result = await svc.habit_items_for_day("user_test", date(2026, 7, 21))
 
     assert result.is_error
+
+
+# ---------------------------------------------------------------------------
+# The calendar's last day — the day view clamps navigation at date.max
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.parametrize(
+    "pattern",
+    [
+        RecurrencePattern.DAILY,
+        RecurrencePattern.WEEKDAYS,
+        RecurrencePattern.WEEKENDS,
+        RecurrencePattern.WEEKLY,
+        RecurrencePattern.BIWEEKLY,
+        RecurrencePattern.MONTHLY,
+        RecurrencePattern.QUARTERLY,
+        RecurrencePattern.YEARLY,
+    ],
+)
+def test_occurrences_stop_at_the_last_representable_day(pattern: RecurrencePattern) -> None:
+    """Projecting up to ``date.max`` must end where the calendar does — stepping
+    once more raised, which failed the day's Habits read and the refresh."""
+    svc = _service()
+    habit = _habit(pattern, created=datetime(2026, 7, 1))
+    window_start = date.max - timedelta(days=40)
+
+    occurrences = svc._generate_habit_occurrences(habit, window_start, date.max)
+
+    assert all(window_start <= occ.date <= date.max for occ in occurrences)
+
+
+@pytest.mark.asyncio
+async def test_habit_items_for_the_last_day_read_ok() -> None:
+    svc = _service()
+    daily = _habit(RecurrencePattern.DAILY, created=datetime(2026, 7, 1))
+    svc.habits_service.get_active = AsyncMock(return_value=Result.ok([daily]))
+    svc.habits_service.completions.get_completions_for_habit = AsyncMock(return_value=Result.ok([]))
+
+    result = await svc.habit_items_for_day("user_x", date.max)
+
+    assert result.is_ok, result.error
+    assert [(item.occurrence_data or {})["date"] for item in result.value] == [date.max.isoformat()]

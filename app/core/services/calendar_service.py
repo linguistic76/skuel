@@ -25,6 +25,7 @@ Tasks and Events itself.
 
 from __future__ import annotations
 
+from calendar import monthrange
 from dataclasses import replace
 from datetime import date, datetime, timedelta
 from typing import TYPE_CHECKING
@@ -124,6 +125,19 @@ def _habit_block_on(habit: Habit, day: date) -> tuple[datetime, datetime]:
 # Note: Presentation constants (colors, icons) are now dynamic.
 # All styling is derived from enum methods in shared_enums.py and calendar_models.py.
 # This allows the entire codebase to update when enum definitions change.
+
+
+def _advance(day: date, delta: timedelta) -> date | None:
+    """``day + delta``, or ``None`` past the last representable date.
+
+    The day view clamps its navigation at ``date.max``, so a projection loop
+    can be asked for occurrences ending there; stepping once more would raise
+    where the calendar ends, and every loop below stops instead.
+    """
+    try:
+        return day + delta
+    except OverflowError:
+        return None
 
 
 class CalendarService:
@@ -958,7 +972,7 @@ class CalendarService:
         if recurrence_end is not None and recurrence_end < end_date:
             end_date = recurrence_end
 
-        current_date = start_date
+        current_date: date | None = start_date
 
         if pattern == "none":
             # One-time practice — a single occurrence on its inception day.
@@ -966,37 +980,42 @@ class CalendarService:
                 occurrences.append(self._create_occurrence(habit, anchor))
 
         elif pattern == "daily":
-            while current_date <= end_date:
+            while current_date is not None and current_date <= end_date:
                 occurrences.append(self._create_occurrence(habit, current_date))
-                current_date += timedelta(days=1)
+                current_date = _advance(current_date, timedelta(days=1))
 
         elif pattern == "weekdays":
-            while current_date <= end_date:
+            while current_date is not None and current_date <= end_date:
                 if current_date.weekday() < 5:  # Monday=0 … Friday=4
                     occurrences.append(self._create_occurrence(habit, current_date))
-                current_date += timedelta(days=1)
+                current_date = _advance(current_date, timedelta(days=1))
 
         elif pattern == "weekends":
-            while current_date <= end_date:
+            while current_date is not None and current_date <= end_date:
                 if current_date.weekday() >= 5:  # Saturday=5, Sunday=6
                     occurrences.append(self._create_occurrence(habit, current_date))
-                current_date += timedelta(days=1)
+                current_date = _advance(current_date, timedelta(days=1))
 
         elif pattern == "weekly":
             # Same weekday as the anchor, every week.
-            current_date = self._advance_to_weekday(current_date, anchor.weekday(), end_date)
-            while current_date <= end_date:
+            current_date = self._advance_to_weekday(start_date, anchor.weekday(), end_date)
+            while current_date is not None and current_date <= end_date:
                 occurrences.append(self._create_occurrence(habit, current_date))
-                current_date += timedelta(weeks=1)
+                current_date = _advance(current_date, timedelta(weeks=1))
 
         elif pattern == "biweekly":
             # Same weekday as the anchor, on the anchor's fixed 14-day parity.
-            current_date = self._advance_to_weekday(current_date, anchor.weekday(), end_date)
-            if current_date <= end_date and ((current_date - anchor).days // 7) % 2:
-                current_date += timedelta(weeks=1)  # shift onto the anchor's cycle
-            while current_date <= end_date:
+            current_date = self._advance_to_weekday(start_date, anchor.weekday(), end_date)
+            if (
+                current_date is not None
+                and current_date <= end_date
+                and ((current_date - anchor).days // 7) % 2
+            ):
+                # shift onto the anchor's cycle
+                current_date = _advance(current_date, timedelta(weeks=1))
+            while current_date is not None and current_date <= end_date:
                 occurrences.append(self._create_occurrence(habit, current_date))
-                current_date += timedelta(weeks=2)
+                current_date = _advance(current_date, timedelta(weeks=2))
 
         elif pattern == "monthly":
             # Anchor day-of-month, every month (clamped to each month's length).
@@ -1034,15 +1053,16 @@ class CalendarService:
         self.logger.debug(f"Generated {len(occurrences)} occurrences for habit {habit.uid}")
         return occurrences
 
-    def _advance_to_weekday(self, start: date, weekday: int, limit: date) -> date:
+    def _advance_to_weekday(self, start: date, weekday: int, limit: date) -> date | None:
         """First date on ``weekday`` (0=Mon) at or after ``start``.
 
-        Returns a date past ``limit`` if the weekday never occurs in range, so the
-        caller's ``while d <= limit`` loop simply produces no occurrences.
+        Returns a date past ``limit`` if the weekday never occurs in range — or
+        ``None`` when the calendar ends first — so the caller's loop simply
+        produces no occurrences.
         """
-        d = start
-        while d <= limit and d.weekday() != weekday:
-            d += timedelta(days=1)
+        d: date | None = start
+        while d is not None and d <= limit and d.weekday() != weekday:
+            d = _advance(d, timedelta(days=1))
         return d
 
     def _monthly_occurrences(
@@ -1073,11 +1093,14 @@ class CalendarService:
                 occurrence_date = month.replace(day=min(target_day, self._days_in_month(month)))
                 if start_date <= occurrence_date <= end_date:
                     result.append(self._create_occurrence(habit, occurrence_date))
-            month = (
-                month.replace(year=month.year + 1, month=1)
-                if month.month == 12
-                else month.replace(month=month.month + 1)
-            )
+            try:
+                month = (
+                    month.replace(year=month.year + 1, month=1)
+                    if month.month == 12
+                    else month.replace(month=month.month + 1)
+                )
+            except ValueError:
+                break  # the calendar ends with this month
         return result
 
     def _habit_inception_date(self, habit: Habit) -> date | None:
@@ -1131,14 +1154,9 @@ class CalendarService:
         )
 
     def _days_in_month(self, date_obj: date) -> int:
-        """Get number of days in a month."""
-        if date_obj.month == 12:
-            next_month = date_obj.replace(year=date_obj.year + 1, month=1)
-        else:
-            next_month = date_obj.replace(month=date_obj.month + 1)
-
-        last_day_of_month = next_month - timedelta(days=1)
-        return last_day_of_month.day
+        """Get number of days in a month — from the calendar, not from a date
+        in the following month (there is none after December 9999)."""
+        return monthrange(date_obj.year, date_obj.month)[1]
 
     def _format_recurrence_pattern(self, habit: Habit) -> str:
         """Format recurrence pattern for display."""
