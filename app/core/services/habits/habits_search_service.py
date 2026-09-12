@@ -508,28 +508,29 @@ class HabitsSearchService(BaseService[HabitsOperations, Habit]):
     @with_error_handling("get_active", error_type="database", uid_param="user_uid")
     async def get_active(self, user_uid: UserUID, limit: int = 100) -> Result[list[Habit]]:
         """
-        Get active (non-archived, non-completed) habits for a user.
+        Get the user's alive habits — active AND paused.
 
-        Override of TimeQueryMixin.get_active — habits include paused entries
-        (paused habits are still "alive", just temporarily suspended).
+        Override of TimeQueryMixin.get_active: a paused habit is still alive
+        (temporarily suspended), so the excluded set is the terminal one
+        (archived / completed / cancelled), not the mixin's configured
+        exclusions. The status filter runs in the query (``active_raw``), never
+        on a fetched page: filtering after the fetch lets archived and completed
+        rows consume the limit and silently drops an alive habit past it.
 
         Args:
             user_uid: User identifier
             limit: Maximum results to return
 
         Returns:
-            Result with list of active habits
+            Result with list of alive habits
         """
-        # Get all user habits
-        result = await self.backend.find_by(user_uid=user_uid)
+        result = await self.backend.active_raw(
+            user_uid=user_uid, exclude_statuses=list(self._TERMINAL_STATUSES), limit=limit
+        )
         if result.is_error:
-            return result
+            return Result.fail(result)
 
-        habits = self._to_domain_models(result.value, HabitDTO, Habit)
-
-        # Filter to active habits (exclude archived, completed, cancelled but include paused)
-        active_habits = [h for h in habits if self._is_active(h, include_paused=True)][:limit]
-
+        active_habits = self._to_domain_models(result.value, HabitDTO, Habit)
         self.logger.debug(f"Found {len(active_habits)} active habits for user {user_uid}")
         return Result.ok(active_habits)
 
