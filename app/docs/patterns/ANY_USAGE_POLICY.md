@@ -1,5 +1,5 @@
 ---
-updated: 2026-08-21
+updated: 2026-09-13
 ---
 
 # Any Usage Policy
@@ -117,7 +117,7 @@ validator: Validator[Habit]  # = Callable[[Habit], list[str]]
 
 - **Domain model returns:** `Result[SubmissionEntity]`, `Result[EntryReport]`, `Result[Askesis]`,
   `Result[CalendarData]`, `Result[Group]`, `Result[UserEntry]`, `Result[Exercise]`,
-  `Result[FormTemplate]`, `Result[FormSubmission]`, `Result[ReportSchedule]`, `Result[ActivityReport]`
+  `Result[FormTemplate]`, `Result[FormSubmission]`, `Result[ActivityReport]`
 - **110 output TypedDicts** in `query_types.py` for structured dict returns:
 
 | TypedDict | Protocol / Field | Methods |

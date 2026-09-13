@@ -1473,19 +1473,10 @@ async def compose_services(
             f"descriptors (personal transport: {_vault_transport}, ADR-075)"
         )
 
-        # Create progress report generator and schedule service
-        from adapters.persistence.neo4j.backends.misc_backends import ReportScheduleBackend
-        from core.models.report_schedule import ReportSchedule
-        from core.services.report.progress_report_generator import ProgressReportGenerator
-        from core.services.report.progress_schedule_service import ProgressScheduleService
-
-        progress_schedule_backend = ReportScheduleBackend(
-            driver, NeoLabel.REPORT_SCHEDULE, ReportSchedule, prometheus_metrics=prometheus_metrics
-        )
-        progress_schedule_service = ProgressScheduleService(backend=progress_schedule_backend)
-
+        # Create the progress report generator
         # Create ActivityReportService (processor-neutral ActivityReport CRUD)
         from core.services.report.activity_report_service import ActivityReportService
+        from core.services.report.progress_report_generator import ProgressReportGenerator
         from core.services.report.review_queue_service import ReviewQueueService
 
         activity_report_service = ActivityReportService(
@@ -1513,17 +1504,7 @@ async def compose_services(
             analytics_service=None,  # Post-wired below after analytics_service creation
             knowledge_intelligence=activity_knowledge_intelligence,
         )
-
-        # Create progress report background worker (February 2026)
-        # Worker checks hourly for due schedules and generates ActivityReport Entity nodes
-        from core.services.background.progress_report_worker import ProgressReportWorker
-
-        progress_report_worker = ProgressReportWorker(
-            schedule_service=progress_schedule_service,
-            progress_generator=progress_generator,
-            check_interval_seconds=3600,  # Hourly check
-        )
-        logger.info("✅ Progress report generator, schedule service, and background worker created")
+        logger.info("✅ Progress report generator created")
 
         # Create analytics service
         from core.services.analytics_service import AnalyticsService
@@ -1829,9 +1810,8 @@ async def compose_services(
             user_entry_processor=user_entry_processor,
             user_entry_assessment=user_entry_assessment,
             vault_reconciler=vault_reconciler,
-            # Progress report (February 2026)
+            # Progress report
             progress_report_generator=progress_generator,
-            progress_schedule=progress_schedule_service,
             # Activity report + review queue (March 2026 refactor)
             activity_report=activity_report_service,
             review_queue=review_queue_service,
@@ -1876,9 +1856,8 @@ async def compose_services(
             # GenAI services (Neo4j native - January 2026)
             embeddings_service=embeddings_service,
             vector_search_service=vector_search_service,
-            # Background workers (January 2026)
+            # Background worker
             embedding_worker=embedding_worker,
-            progress_report_worker=progress_report_worker,
             # Analytics
             analytics=analytics_service,
             cross_domain_analytics=advanced["cross_domain_analytics"],

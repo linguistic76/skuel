@@ -1,5 +1,5 @@
 ---
-updated: 2026-09-05
+updated: 2026-09-13
 ---
 
 # Model Architecture
@@ -141,7 +141,7 @@ core/models/{domain}/
 | `lesson_content/` | CurriculumContent, ContentChunk, ContentMetadata | Curriculum | PathStep body storage + RAG chunking |
 | `ku/` | Ku + KuDTO | Curriculum | Atomic knowledge units |
 | `resource/` | Resource + ResourceDTO | Shared | Curated content (books, talks) |
-| `user_entry/` | UserEntry + DTOs | User Entry | + report_schedule.py |
+| `user_entry/` | UserEntry + DTOs | User Entry | |
 | `report/` | ActivityReport + ActivityReportDTO, EntryReport + EntryReportDTO | Report | ActivityReport: no file fields; EntryReport: tied to submission via subject_uid |
 | `life_path/` | LifePath + LifePathDTO | Destination | |
 | `group/` | Group + request | Organizational | Teacher-student classes (ADR-040) |

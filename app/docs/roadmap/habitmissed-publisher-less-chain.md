@@ -1,6 +1,6 @@
 ---
 title: "HabitMissed — Publisher-less Chain"
-updated: 2026-09-05
+updated: 2026-09-13
 status: "staged (ruled keep-staged)"
 registered: 2026-08-28
 ruled: 2026-08-28
@@ -28,10 +28,11 @@ a store other events already feed, not a fan-out with no reader.
 
 **What the publisher must be:** a detector that finds occurrence days with no completion. Tier
 does not constrain its shape: CORE's guarantee is **AI-scoped** ("no AI background workers" —
-`GRACEFUL_DEGRADATION_ARCHITECTURE.md` § Why This Matters; the hourly `ProgressReportWorker` IS a
-CORE-tier Analog worker, and `done/reopen-vault-surface.md` records "CORE runs no background
-workers" as a falsified premise). So a **scheduled Analog detector** on the `ProgressReportWorker`
-pattern, a **read-time** scan (compute misses since the last observation when the habit list or
+`GRACEFUL_DEGRADATION_ARCHITECTURE.md` § Why This Matters; the 5-min graph-health poller
+(`update_graph_health_metrics`, `scripts/dev/bootstrap.py`) IS a CORE-tier Analog worker, and
+`done/reopen-vault-surface.md` records "CORE runs no background workers" as a falsified premise).
+So a **scheduled Analog detector** on that poller's pattern (a task started at bootstrap, no
+LLM), a **read-time** scan (compute misses since the last observation when the habit list or
 `/today` loads, publish, record the watermark) and a **one-shot** (`./dev habit-miss-scan`, like
 telemetry retention) are all legitimate; the constraints are no LLM, no API cost, and the day
 model. Its day maths must honour the future-completion ruling (a future completion is not a

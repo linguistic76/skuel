@@ -29,8 +29,8 @@ meta:
     contract: core/models/relationship_registry.py
     findings: scripts/lint_skuel.py::SkuelLinter.SKUEL030_BASELINE
   coverage:
-    relationships: {total: 171, with_contract: 95}
-    labels: {total: 61, with_contract: 16}
+    relationships: {total: 170, with_contract: 95}
+    labels: {total: 60, with_contract: 16}
   legacy_label_config_aliases: [Lesson, Ls, Lp]
 
 relationships:
@@ -780,8 +780,6 @@ relationships:
     contract: null
   HAS_REFERENCE_CHUNK:
     contract: null
-  HAS_SCHEDULE:
-    contract: null
   REPORT_FOR:
     contract:
       - config: UserEntry
@@ -1208,8 +1206,6 @@ labels:
   ReferenceChunk:
     contract: null
   ReportProject:
-    contract: null
-  ReportSchedule:
     contract: null
   Transcription:
     contract: null

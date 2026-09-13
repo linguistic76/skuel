@@ -1,6 +1,6 @@
 ---
 title: "Goals and Choices as Weekly-Calendar Chips"
-updated: 2026-09-11
+updated: 2026-09-13
 status: "deferred — founder wish recorded; contradicts three standing rulings"
 registered: 2026-09-11
 trigger: "lived use of the priority-lens weekly view (calendar-priority-lens-arc C1) wants high-priority goals and choices on the grid"
@@ -15,7 +15,7 @@ nothing in it remains open.*
 ## The wish
 
 Recorded 2026-09-11 while ruling the
-[calendar priority-lens arc](calendar-priority-lens-arc.md): after the weekly view shows high+medium
+[calendar priority-lens arc](done/calendar-priority-lens-arc.md): after the weekly view shows high+medium
 events, high+medium habits and high tasks, the founder would "ultimately" like **high-priority goals
 and choices** on it too. Ruled **deferred** the same day (ruling 3): it is recorded here rather than
 built, because building it silently would override three standing rulings.

@@ -1,6 +1,6 @@
 ---
 title: Model-to-Adapter Dynamic Architecture
-updated: 2026-08-29
+updated: 2026-09-13
 category: patterns
 related_skills: []
 related_docs:
@@ -142,7 +142,7 @@ adapters/persistence/neo4j/
         forms_backends.py         # FormTemplateBackend, FormSubmissionBackend
         templates_backends.py     # TaskTemplateBackend, GoalTemplateBackend, HabitTemplateBackend, EventTemplateBackend, ChoiceTemplateBackend, PrincipleTemplateBackend
         collab_backends.py        # GroupBackend, LateralRelationshipBackend, NotificationBackend, ReviewQueueBackend
-        misc_backends.py          # ActivityReportBackend, ResourceBackend, InteractionBackend, ReportScheduleBackend, ActivityReportGeneratorBackend
+        misc_backends.py          # ActivityReportBackend, ResourceBackend, InteractionBackend, ActivityReportGeneratorBackend
 ```
 
 **Class declaration:**
@@ -245,7 +245,6 @@ Two more services migrated to domain backends — zero inline Cypher remains in 
 | `get_annotation` | Get annotation state for owned ActivityReport |
 | `get_admin_snapshots` | Privacy audit: admin-written reports received by user |
 | `get_shares_granted` | Privacy audit: SHARES_WITH access to user's entities |
-| `get_report_schedule` | Privacy audit: active report schedule |
 
 **Existing backends extended:**
 | Backend | Methods Added |
@@ -382,7 +381,7 @@ Created 5 new standalone typed backends for infrastructure and cross-domain serv
 | `backends/forms_backends.py` | FormTemplateBackend, FormSubmissionBackend |
 | `backends/journal_backends.py` | JournalInputBackend, JournalOutputBackend |
 | `backends/collab_backends.py` | GroupBackend, LateralRelationshipBackend, NotificationBackend, ReviewQueueBackend |
-| `backends/misc_backends.py` | ActivityReportBackend, ResourceBackend, InteractionBackend, ReportScheduleBackend, ActivityReportGeneratorBackend |
+| `backends/misc_backends.py` | ActivityReportBackend, ResourceBackend, InteractionBackend, ActivityReportGeneratorBackend |
 
 `backends/__init__.py` re-exports every class. The old `domain_backends.py` shim was deleted — all call sites import directly from the cluster file.
 

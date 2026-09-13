@@ -1,6 +1,6 @@
 ---
 title: "ADR-045: Priority & Confidence as First-Class Customization Dials"
-updated: 2026-09-11
+updated: 2026-09-13
 status: current
 category: decisions
 tags: [adr, decisions, enums, priority, confidence, planning, graph-visualization]
@@ -20,7 +20,7 @@ the vault door refuses the value (`priority` is registered in `ENUM_FIELD_TYPES`
 justification the original text gave for the fourth level — a "CRITICAL priority override" at the
 top of the daily plan — never existed in `daily_planning.py`; Priority reaches planning through
 the surfaces that rank by it (see `/docs/architecture/PRIORITY_CONFIDENCE_ARCHITECTURE.md`
-§ Planning Layer). Contract: `/docs/roadmap/calendar-priority-lens-arc.md`.
+§ Planning Layer). Contract: `/docs/roadmap/done/calendar-priority-lens-arc.md`.
 
 **Decision Type:** ⬜ Query Architecture  ⬜ Graph Schema  ✅ Pattern/Practice
 

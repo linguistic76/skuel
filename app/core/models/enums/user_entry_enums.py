@@ -52,22 +52,6 @@ class EnrichmentMode(StrEnum):
     CRITICAL_THINKING = "critical_thinking"
 
 
-class ScheduleType(StrEnum):
-    """Frequency of progress report generation."""
-
-    WEEKLY = "weekly"
-    BIWEEKLY = "biweekly"
-    MONTHLY = "monthly"
-
-    def get_display_name(self) -> str:
-        """Get human-readable display name."""
-        return {
-            ScheduleType.WEEKLY: "Weekly",
-            ScheduleType.BIWEEKLY: "Every 2 Weeks",
-            ScheduleType.MONTHLY: "Monthly",
-        }[self]
-
-
 class ReportPeriodKind(StrEnum):
     """How an activity report's window is anchored.
 

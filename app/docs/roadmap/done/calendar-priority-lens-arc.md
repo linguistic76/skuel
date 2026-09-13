@@ -1,15 +1,16 @@
 ---
 title: "Calendar Priority-Lens Arc — Rulings & Contract"
-updated: 2026-09-12
-status: "active"
+updated: 2026-09-13
+status: "done"
 registered: 2026-09-11
 ruled: 2026-09-11
 ---
 
 # Calendar Priority-Lens Arc — Rulings & Contract
 
-**Status:** ACTIVE 2026-09-11 (founder rulings taken the same day against a full code read + live-graph
-census). Five sub-arcs, A→E, each a short PR chain run in a fresh context against this document.
+**Status:** DONE 2026-09-13 — every PR in the contract table merged (0, A1, A2, A1c, B2, B1, C1, D0, D1,
+E1, E2a, E2b, E3); the deferred half lives on in its own case file. Ruled ACTIVE 2026-09-11 (founder
+rulings taken the same day against a full code read + live-graph census). Five sub-arcs, A→E, each a short PR chain run in a fresh context against this document.
 PR 0 (#1312) Codex review, eight rounds, all findings accepted and folded in (round 8: a
 calendar-period report counts from persisted HISTORY — `HabitCompletion` rows, `progress_history`,
 `alignment_history` — never from a latest-only stamp that a later transition overwrites; its
@@ -33,15 +34,15 @@ inventory — tasks by `completion_date`, events attended only when COMPLETED; t
 *dated* domain (Choices included, Principles are dateless) and binds the calendar's legend controller
 with Choice added to the filter CSS; the legendless month view binds no legend controller, so a kind
 hidden on the week can never blank it.
-**Related:** [`done/calendar-act-from-arc.md`](done/calendar-act-from-arc.md) (C1–C7),
-[`done/calendar-periodic-notes-arc.md`](done/calendar-periodic-notes-arc.md) (R1–R5, E1–E4, S1–S4),
-[`done/habit-rhythm-arc.md`](done/habit-rhythm-arc.md) (M1–M7),
-[ADR-045](../decisions/ADR-045-priority-confidence-customization-dials.md),
-[ADR-058](../decisions/ADR-058-today-surface.md),
-[ADR-069](../decisions/ADR-069-extract-activities-pipeline-and-entry-report.md) Decision 3,
-[ADR-087](../decisions/ADR-087-status-guarded-conditional-writes.md),
-[`weekly-goals-choices-chips.md`](weekly-goals-choices-chips.md) (the deferred half of ruling 3),
-[`goal-progress-reads-an-unwritten-edge.md`](goal-progress-reads-an-unwritten-edge.md) (compounding
+**Related:** [`done/calendar-act-from-arc.md`](calendar-act-from-arc.md) (C1–C7),
+[`done/calendar-periodic-notes-arc.md`](calendar-periodic-notes-arc.md) (R1–R5, E1–E4, S1–S4),
+[`done/habit-rhythm-arc.md`](habit-rhythm-arc.md) (M1–M7),
+[ADR-045](../../decisions/ADR-045-priority-confidence-customization-dials.md),
+[ADR-058](../../decisions/ADR-058-today-surface.md),
+[ADR-069](../../decisions/ADR-069-extract-activities-pipeline-and-entry-report.md) Decision 3,
+[ADR-087](../../decisions/ADR-087-status-guarded-conditional-writes.md),
+[`weekly-goals-choices-chips.md`](../weekly-goals-choices-chips.md) (the deferred half of ruling 3),
+[`goal-progress-reads-an-unwritten-edge.md`](../goal-progress-reads-an-unwritten-edge.md) (compounding
 defect, separate case file).
 
 ---
@@ -66,7 +67,7 @@ commitments filtered by priority*; the Activity Domains as a whole are understoo
 |---|--------|----------|
 | 1 | Priority collapse mechanics | **Delete `Priority.CRITICAL` outright + one-shot graph backfill** `critical → high` (authorised, see ruling 8). No input-only alias — aliasing would launder data and hide the count. DSL `@priority(1,2)` → HIGH, `3` → MEDIUM, `4,5` → LOW. Obsidian 🔺 ⏫ → HIGH, 🔼 → MEDIUM, none → MEDIUM, 🔽 ⏬ → LOW (aligned with Obsidian's own names). |
 | 2 | Month rule | **A definition, not a preference** — server-side per-view membership. "ONLY" is a contract. |
-| 3 | Goals + Choices on weekly | **Deferred** to its own ruling — case file [`weekly-goals-choices-chips.md`](weekly-goals-choices-chips.md). It contradicts M4, R2 and S1 outright, so it is recorded, not silently overridden. |
+| 3 | Goals + Choices on weekly | **Deferred** to its own ruling — case file [`weekly-goals-choices-chips.md`](../weekly-goals-choices-chips.md). It contradicts M4, R2 and S1 outright, so it is recorded, not silently overridden. |
 | 4 | Day view keeps | **Overdue: must keep.** Defer control: keep, as a server-rendered control on the existing route (C7's guard + predicate intact). Keyboard j/k and drag: drop with the Alpine bundle. *(Defer/keyboard were "not sure" — this is the orchestrator's recommendation, adopted unless the founder objects.)* |
 | 5 | Completion door | **The status door is the one door** — `TasksCoreService.update_task`, the ADR-087 chokepoint. The "cascade door" is the explicit-complete path whose four extra steps are `logger.debug("Would …")` stubs and whose one real step moves behind the event bus. Founder deferred to best practice; see Arc D.0. |
 | 6 | Sidebar | **Slimmer variant on calendar/Today pages only** (Today / Weekly / Monthly / Journal / Reports). Domain pages keep their rows and badges. |
@@ -154,7 +155,7 @@ longer has.
 | **C3** (per-day habit tick on month AND week) | month + week | week (habits ≥ medium) + the day lens. The month view carries no habits. |
 | **C5** ("every legend entry has a producer") | one four-kind legend | the legend is **per-view**: month has none (one kind, nothing to toggle); week shows Event / Habit / Task / Milestone — every kind the WEEK spec renders. |
 | **S1 / habit-rhythm non-goal** ("four-kind legend ships as-is; no new filter vocabulary") | frozen | superseded by the per-view legend above. Priority is NOT a legend control — it is view membership (ruling 2). |
-| **M4 / R2** (Goals, Choices, Principles are not weekly filters / chips) | binding | **unchanged** — deferred half in [`weekly-goals-choices-chips.md`](weekly-goals-choices-chips.md). Goals still reach the grid as Milestones (C5) — on the WEEK view only, ≥ medium. |
+| **M4 / R2** (Goals, Choices, Principles are not weekly filters / chips) | binding | **unchanged** — deferred half in [`weekly-goals-choices-chips.md`](../weekly-goals-choices-chips.md). Goals still reach the grid as Milestones (C5) — on the WEEK view only, ≥ medium. |
 | **ADR-045** (four levels, CRITICAL "surfaces to top of daily plan") | LOW/MEDIUM/HIGH/CRITICAL | LOW/MEDIUM/HIGH. The cited override never existed; the amendment de-fictions it. |
 | **ADR-058** (Ribbon, Day spine, drawer, keymap, drag-to-defer) | the Ribbon design | `/today` stays the landing page and the day lens (C6); the spine, ribbon, drawer, star, keymap and Alpine bundle are deleted; the surface is server-rendered from the `/tasks` card stack. |
 | **C7** (defer contract) | `source=ribbon\|triage` | substance unchanged (view-date-anchored, membership-guarded, no Undo); `source=ribbon` → `source=day`; the "(source, uid) keyed client state" and "one transport per control" clauses are moot without Alpine. |
@@ -334,7 +335,7 @@ below).
   idempotent — no `is_repeat` gate; its 5 tests move with it. **What the door gives up** (Codex P1 on
   #1320): the retired cascade re-ran on a repeat click, an accidental manual replay for a subscriber that
   failed transiently; a re-post through `update_task` publishes nothing, so a lost subscriber run is
-  lost until the outbox in [`ingest-transition-obligation-durability.md`](ingest-transition-obligation-durability.md)
+  lost until the outbox in [`ingest-transition-obligation-durability.md`](../ingest-transition-obligation-durability.md)
   — whose scope now includes the app door — exists. Recorded there, not patched here.
 - Delete: `complete_task_with_cascade` + the four stubs + the four cascade-only context helpers,
   `_OrchestrationMixin.complete_task_with_cascade`, `TasksService.complete_task`, `TasksOperations.complete_task`
@@ -462,22 +463,26 @@ detached by ``scripts/migrations/detach_pinned_today_2026_09.cypher``.
   appends a dated `AlignmentAssessment(kind="reflection")` to `alignment_history` beside the
   self-assessment flow's entries; `goals_progressed` / `principles_reviewed` count from those entries
   for every period kind, and the only limitation a calendar-period report records is the period-end
-  denominator. **Run at deploy, before E.2b's code:** `scripts/migrations/seed_activity_history_2026_09.cypher`
-  seeds one entry per stamped, history-less node (live census 2026-09-12: 0 goals, 2 principles).
-- **E.3 retire the schedule producer** (ruling 7): worker, `ProgressScheduleService`, `core/models/report_schedule/`,
-  `ReportScheduleBackend`, both protocols, `ScheduleType`, both request models, `NeoLabel.REPORT_SCHEDULE`,
-  `RelationshipName.HAS_SCHEDULE`, `MIN_AUTO_REPORT_INTERVAL_HOURS`, compose/container/bootstrap wiring, the
-  PLANNED entry + 3 registrations, `stale_names.py` entries, `PrivacySummary.report_schedule`, 16 model
-  tests, the fixture in `test_timestamp_field_coercion_residual.py`; regenerate `GRAPH_CONTRACT.yaml`;
-  amend ADR-069 D3 rows 6–8 (and row 9's schedule clause); repoint the five "hourly ProgressReportWorker
-  is the CORE Analog worker" citations (CLAUDE.md, GRACEFUL_DEGRADATION_ARCHITECTURE, DO_MIGRATION_GUIDE,
-  neo4j-cypher-patterns skill, habitmissed case file) to the 5-min graph-health poller. **The cleanup
-  rule is a repo-wide grep for every retired name** (`ProgressScheduleService`, `ReportSchedule*`,
-  `ScheduleType`, `REPORT_SCHEDULE`, `HAS_SCHEDULE`, `MIN_AUTO_REPORT_INTERVAL_HOURS`,
-  `ProgressReportWorker`), not the citation list above — Codex (P2, round 10) named five more
-  authoritative docs still presenting the scheduler as live: `REPORT_ARCHITECTURE.md`,
-  `ENTITY_TYPE_ARCHITECTURE.md`, `PROTOCOL_REFERENCE.md`, `constants_usage_guide.md`,
-  `ANY_USAGE_POLICY.md`.
+  denominator. **Ran against Aura 2026-09-13, right after #1324 merged:** `scripts/migrations/seed_activity_history_2026_09.cypher`
+  seeded one entry per stamped, history-less node (0 goals, 2 principles — `properties_set=2`; a second run
+  wrote nothing).
+- **E.3 retire the schedule producer** (ruling 7) — **executed 2026-09-13.** Retired together, as one
+  closure: the hourly worker, the schedule service and its model package, the schedule backend and both
+  schedule protocols, the frequency enum, both schedule request models, the schedule node label and the
+  user→schedule edge, the auto-interval constant, the compose/container/bootstrap wiring (no worker
+  starts at bootstrap), the PLANNED entry and its 3 registrations, the privacy summary's schedule section
+  (ADR-069 D3 row 9 amended alongside rows 6–8), the 16 model tests and the residual-coercion fixture.
+  `GRAPH_CONTRACT.yaml` regenerated (170 relationships / 60 labels). The five "hourly worker is the CORE
+  Analog worker" citations (CLAUDE.md, GRACEFUL_DEGRADATION_ARCHITECTURE, DO_MIGRATION_GUIDE, the
+  neo4j-cypher-patterns skill, the habitmissed case file) now name the 5-min graph-health poller
+  (`update_graph_health_metrics`, `scripts/dev/bootstrap.py`). **The cleanup rule was a repo-wide grep
+  for every retired name**, not the citation list — it reached the five docs Codex named (P2, round 10 of
+  PR 0: `REPORT_ARCHITECTURE.md`, `ENTITY_TYPE_ARCHITECTURE.md`, `PROTOCOL_REFERENCE.md`,
+  `constants_usage_guide.md`, `ANY_USAGE_POLICY.md`) and seven more (ENUM_ARCHITECTURE, MODEL_ARCHITECTURE,
+  RELATIONSHIPS_ARCHITECTURE, SERVICE_TOPOLOGY, MODEL_TO_ADAPTER_DYNAMIC_ARCHITECTURE, the learning-loop
+  skill, `done/reopen-vault-surface.md`); every retired name is a `stale_names.py` DELETED entry, so a
+  future mention in a code span fails the health check. Live census before deletion: 0 schedule nodes,
+  0 edges, no index or constraint on the label — nothing to migrate.
 
 ## Non-goals (this arc)
 
@@ -486,14 +491,16 @@ Goals/Choices chips on the weekly view (deferred — own case file). Habits in t
 navigation on the day view. A `CalendarView.DAY` member. External calendar sync. Finance as a seventh
 domain. Re-litigating Monday-start / ISO rail or any C/R/E/M ruling not named in the amendments table.
 
-## Open questions (answer in the PR that first touches them)
+## Open questions — all answered
 
-- Admin activity review (`ActivityReviewRequest.time_period` default `7d`): move to calendar tokens with
-  E.2, or does the trailing-window vocabulary survive for the admin snapshot only?
-- `habits_completed`: derive from `last_completed` (A.1, undercounts multi-completion weeks) vs add a
-  `HabitCompletion` count to the MEGA-QUERY (accurate; touches the 1200-line query) — A.1 takes the
-  cheap path and records the choice.
-- Month legend: none, or a single Event swatch for spotlight only? C takes **none**.
+- Admin activity review (`ActivityReviewRequest.time_period` default `7d`): **one vocabulary** (E2a).
+  `create_snapshot` and `submit_report` resolve the token through `core/utils/report_periods.py` like
+  the generator — trailing and calendar tokens alike, an unknown or not-started period refused; the
+  request models keep the `7d` default. No trailing-only survival.
+- `habits_completed`: A.1 took the `last_completed` path; **E2a replaced it** with per-habit
+  `HabitCompletion` counts from the backend (`count_habit_completions`), bounded to the data cutoff —
+  a September report generated in October no longer reads zero for a habit done in both months.
+- Month legend: C took **none**.
 
 ## Standing conventions that bind every PR here
 

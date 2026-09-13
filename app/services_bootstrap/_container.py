@@ -30,7 +30,6 @@ if TYPE_CHECKING:
     from core.services.analytics_service import AnalyticsService
     from core.services.askesis_ai_service import AskesisAIService
     from core.services.background.embedding_worker import EmbeddingBackgroundWorker
-    from core.services.background.progress_report_worker import ProgressReportWorker
 
     # Facade services — concrete class IS the contract (no parallel protocol needed)
     from core.services.choices_service import ChoicesService
@@ -59,7 +58,6 @@ if TYPE_CHECKING:
     from core.services.ps_service import PsService
     from core.services.report.activity_report_service import ActivityReportService
     from core.services.report.progress_report_generator import ProgressReportGenerator
-    from core.services.report.progress_schedule_service import ProgressScheduleService
     from core.services.report.report_mastery_service import ReportMasteryService
     from core.services.report.review_queue_service import ReviewQueueService
     from core.services.resource_service import ResourceService
@@ -348,13 +346,11 @@ class Services:
     embeddings_service: "EmbeddingsService | None" = None
     vector_search_service: "Neo4jVectorSearchService | None" = None
 
-    # Background workers (January 2026)
+    # Background workers
     embedding_worker: "EmbeddingBackgroundWorker | None" = None
-    progress_report_worker: "ProgressReportWorker | None" = None
 
     # Progress report generation (February 2026)
     progress_report_generator: "ProgressReportGenerator | None" = None
-    progress_schedule: "ProgressScheduleService | None" = None
 
     # Activity report + review queue (March 2026 refactor: ActivityReviewService split)
     activity_report: "ActivityReportService | None" = None

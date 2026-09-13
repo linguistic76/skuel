@@ -373,7 +373,6 @@ class RelationshipName(StrEnum):
     HAS_REFERENCE_CHUNK = (
         "HAS_REFERENCE_CHUNK"  # (Resource)-[:HAS_REFERENCE_CHUNK]->(ReferenceChunk) - canon shelf
     )
-    HAS_SCHEDULE = "HAS_SCHEDULE"  # (User)-[:HAS_SCHEDULE]->(ReportSchedule) - User's report generation schedule
     REPORT_FOR = "REPORT_FOR"  # (Entity)-[:REPORT_FOR]->(Entity) - Report targets submission
 
     # =========================================================================

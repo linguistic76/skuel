@@ -13,7 +13,7 @@ Module Organization:
 - choice_enums: ChoiceType
 - event_enums: EventType, AttendanceStatus
 - principle_enums: TriggerType, PrincipleCategory, PrincipleSource, PrincipleStrength, AlignmentLevel
-- user_entry_enums: SubmissionModality, ExerciseScope, EnrichmentMode, ScheduleType, ProgressDepth, ReportPeriodKind
+- user_entry_enums: SubmissionModality, ExerciseScope, EnrichmentMode, ProgressDepth, ReportPeriodKind
 - pipeline: Pipeline, JeUse, ProcessingMode, ReportSource, ExchangeStatus
 - curriculum_enums: LpType, PublicationState, StepDifficulty
 - lifepath_enums: ThemeCategory
@@ -150,7 +150,6 @@ from .user_entry_enums import (
     ExerciseScope,
     ProgressDepth,
     ReportPeriodKind,
-    ScheduleType,
     SubmissionModality,
 )
 
@@ -244,7 +243,6 @@ __all__ = [
     "RelationshipType",
     "ResponseTone",
     "SELCategory",
-    "ScheduleType",
     "SearchVisibility",
     "SubmissionModality",
     "SeverityLevel",

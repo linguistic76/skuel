@@ -1,4 +1,4 @@
-"""Miscellaneous backends: ActivityReport, Resource, Interaction, ReportSchedule, ActivityReportGenerator."""
+"""Miscellaneous backends: ActivityReport, Resource, Interaction, ActivityReportGenerator."""
 
 from __future__ import annotations
 
@@ -18,7 +18,6 @@ if TYPE_CHECKING:
     from core.models.forms.form_template import FormTemplate  # noqa: F401
     from core.models.group.group import Group  # noqa: F401
     from core.models.interaction.interaction import Interaction  # noqa: F401
-    from core.models.report_schedule import ReportSchedule  # noqa: F401
     from core.models.resource.resource import Resource  # noqa: F401
 
 
@@ -33,8 +32,7 @@ class ActivityReportBackend(UniversalNeo4jBackend[ActivityReport]):
 
     Moves inline Cypher from ActivityReportService into named backend methods.
     Methods: get_for_user, get_latest_for_owner, find_by_period, get_history,
-    annotate, get_annotation, get_admin_snapshots, get_shares_granted,
-    get_report_schedule.
+    annotate, get_annotation, get_admin_snapshots, get_shares_granted.
 
     ``created_at`` is a mixed column (ISO strings, a minority of zoned
     datetimes), and Neo4j orders values of different types by TYPE before
@@ -187,21 +185,6 @@ class ActivityReportBackend(UniversalNeo4jBackend[ActivityReport]):
             {"user_uid": user_uid, "limit": limit},
         )
 
-    async def get_report_schedule(self, user_uid: UserUID) -> Result[list[Neo4jProperties]]:
-        """Get active report schedule for user (privacy audit)."""
-        return await self.execute_query(
-            """
-            MATCH (u:User {uid: $user_uid})-[:HAS_SCHEDULE]->(s:ReportSchedule)
-            WHERE s.is_active = true
-            RETURN s.schedule_type AS schedule_type,
-                   s.day_of_week AS day_of_week,
-                   s.next_due_at AS next_due_at,
-                   s.last_generated_at AS last_generated_at
-            LIMIT 1
-            """,
-            {"user_uid": user_uid},
-        )
-
 
 class ResourceBackend(UniversalNeo4jBackend["Resource"]):
     """
@@ -278,51 +261,6 @@ class InteractionBackend(UniversalNeo4jBackend["Interaction"]):
         rows = result.value or []
         transitioned = int(rows[0].get("transitioned", 0)) if rows else 0
         return Result.ok(transitioned)
-
-
-class ReportScheduleBackend(UniversalNeo4jBackend["ReportSchedule"]):
-    """
-    Domain backend for ReportSchedule entities.
-
-    Extends UniversalNeo4jBackend with schedule-specific queries:
-    - create_user_schedule_relationship: HAS_SCHEDULE link
-    - get_due_schedules: Active schedules past their next_due_at
-    """
-
-    async def create_user_schedule_relationship(
-        self, user_uid: str, schedule_uid: str
-    ) -> Result[list[Neo4jProperties]]:
-        """Create HAS_SCHEDULE relationship between User and ReportSchedule."""
-        return await self.execute_query(
-            """
-            MATCH (u:User {uid: $user_uid})
-            MATCH (s:ReportSchedule {uid: $schedule_uid})
-            MERGE (u)-[:HAS_SCHEDULE]->(s)
-            RETURN true AS success
-            """,
-            {"user_uid": user_uid, "schedule_uid": schedule_uid},
-        )
-
-    async def get_due_schedules(self, min_interval_hours: int) -> Result[list[Neo4jProperties]]:
-        """
-        Get all active schedules that are due for generation.
-
-        Enforces a minimum interval between automatic report generations.
-        """
-        return await self.execute_query(
-            """
-            MATCH (s:ReportSchedule)
-            WHERE s.is_active = true
-              AND datetime(s.next_due_at) <= datetime()
-              AND (
-                s.last_generated_at IS NULL
-                OR datetime(s.last_generated_at) <= datetime() - duration({hours: $min_interval_hours})
-              )
-            RETURN s
-            ORDER BY s.next_due_at ASC
-            """,
-            {"min_interval_hours": min_interval_hours},
-        )
 
 
 class ActivityReportGeneratorBackend:

@@ -2537,7 +2537,6 @@ class PrivacySummary(TypedDict, total=False):
     admin_snapshot_count: int
     shares_granted: list[dict[str, Any]]
     shares_granted_count: int
-    report_schedule: dict[str, Any]
 
 
 # ============================================================================

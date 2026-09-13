@@ -1,6 +1,6 @@
 ---
 title: Constants Usage Guide
-updated: 2026-09-12
+updated: 2026-09-13
 category: patterns
 related_skills: []
 related_docs: []
@@ -360,7 +360,6 @@ used by `ActivityReportService` and `ProgressReportGenerator`:
 | `DEFAULT` | `"7d"` | Default period string (the request form's preselected option) |
 | `DAYS` | `dict[str, int]` | Trailing token → day count — half the vocabulary; `core/utils/report_periods.py` resolves these beside the calendar tokens, and an unknown token fails there (no default day count) |
 | `MIN_REPORT_COOLDOWN_MINUTES` | `60` | Minimum gap between on-demand `ACTIVITY_REPORT` generations (rate limiting) |
-| `MIN_AUTO_REPORT_INTERVAL_HOURS` | `24` | Minimum interval between automatic scheduled reports (frequency floor) |
 
 **Usage:**
 ```python

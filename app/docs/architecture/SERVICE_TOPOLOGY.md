@@ -1,5 +1,5 @@
 ---
-updated: 2026-09-12
+updated: 2026-09-13
 ---
 
 # Service Architecture: File Organization & Topology
@@ -671,8 +671,7 @@ Routes / Application Code
     ├─ activity_report_service.py     (CRUD for ActivityReport — delegates to ActivityReportBackend)
     ├─ review_queue_service.py        (ReviewRequest node management)
     ├─ teacher_review_service.py      (delegates to UserEntryBackend, EntryReportBackend, ExerciseBackend, GroupBackend)
-    ├─ progress_report_generator.py   (LLM → processed_content)
-    └─ progress_schedule_service.py
+    └─ progress_report_generator.py   (LLM → processed_content)
 ```
 
 ---

@@ -1,6 +1,6 @@
 ---
 title: "ADR-058: Today as the Post-Login Landing Surface"
-updated: 2026-09-12
+updated: 2026-09-13
 status: current
 category: decisions
 tags: [adr, decisions, ui, landing, today, lifepath]
@@ -21,7 +21,7 @@ related: [ADR-050, ADR-055]
 
 The landing decision stands: ``/today`` is the post-login surface. The
 *surface itself* was rebuilt as a server-rendered **day view**
-(``ui/today/page.py``, [`calendar-priority-lens-arc.md`](../roadmap/calendar-priority-lens-arc.md)
+(``ui/today/page.py``, [`calendar-priority-lens-arc.md`](../roadmap/done/calendar-priority-lens-arc.md)
 § D.1), and the handoff this ADR adopted is archived at
 [`today-surface-handoff.md`](../roadmap/done/today-surface-handoff.md). What
 changed:
