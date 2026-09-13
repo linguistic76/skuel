@@ -554,7 +554,9 @@ the same method.
    activity window; `context.entities_rich` covers all 6 Activity Domains;
    `context.knowledge_units_rich`, `context.enrolled_paths_rich`,
    `context.active_path_steps_rich` cover the Curriculum track
-2. Cross-reference active Insights
+2. Cross-reference active Insights (a current-only read — a closed calendar
+   period's report carries none, nor the life-path / ZPD / knowledge analyses;
+   see `/docs/architecture/REPORT_ARCHITECTURE.md`)
 3. Send stats as JSON context to LLM via activity_feedback.md prompt template
 4. LLM returns qualitative analysis with patterns, trends, recommendations
 5. Create ActivityReport with processed_content = LLM output
