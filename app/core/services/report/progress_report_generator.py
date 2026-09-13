@@ -503,11 +503,14 @@ class ProgressReportGenerator:
 
         # Principles
         principles_details = completions.get("principles_details", [])
-        aligned = sum(
-            1 for p in principles_details if p.get("alignment") in ("aligned", "flourishing")
+        # A closed period's details carry no alignment (None) — the split is
+        # then unknown, never "0 aligned, 0 need attention".
+        known = [p for p in principles_details if p.get("alignment") is not None]
+        aligned = (
+            sum(1 for p in known if p["alignment"] in ("aligned", "flourishing")) if known else None
         )
-        needs_attention = sum(
-            1 for p in principles_details if p.get("alignment") in ("drifting", "misaligned")
+        needs_attention = (
+            sum(1 for p in known if p["alignment"] in ("drifting", "misaligned")) if known else None
         )
         trends["principles"] = {
             "total": len(principles_details),
@@ -574,8 +577,8 @@ class ProgressReportGenerator:
 
         # Principle alignment
         principles = domain_trends.get("principles", {})
-        needs_attn = principles.get("needs_attention", 0)
-        if needs_attn > 0:
+        needs_attn = principles.get("needs_attention")
+        if needs_attn:  # None (unknown) and 0 alike give no advice
             recommendations.append(
                 {
                     "domain": "principles",
@@ -709,11 +712,8 @@ class ProgressReportGenerator:
                 if c.get("principles")
             ][:5],
             "principle_summary": [
-                {
-                    "title": p.get("title", ""),
-                    "alignment": p.get("alignment", ""),
-                    "strength": p.get("strength", ""),
-                }
+                {"title": p.get("title", ""), "strength": p.get("strength", "")}
+                | ({"alignment": p["alignment"]} if p.get("alignment") is not None else {})
                 for p in completions.get("principles_details", [])[:10]
             ],
             # Curriculum track
@@ -1032,7 +1032,12 @@ class ProgressReportGenerator:
                         "uid": entity["uid"],
                         "title": entity["title"],
                         "status": entity.get("status", ""),
-                        "alignment": entity.get("current_alignment", ""),
+                        # current_alignment moves with every assessment, so it
+                        # is the cutoff's only while the cutoff is now; strength
+                        # is the user's classification of the principle, kept.
+                        "alignment": (
+                            entity.get("current_alignment", "") if figures_are_current else None
+                        ),
                         "strength": entity.get("strength", ""),
                         "category": entity.get("principle_category", ""),
                     }
@@ -1225,10 +1230,13 @@ class ProgressReportGenerator:
                 sections.append(f"- **Need attention:** {len(needs_attention)}")
             if depth != ProgressDepth.SUMMARY:
                 for principle in principles_details[:10]:
-                    alignment = principle.get("alignment") or "unknown"
+                    alignment = principle.get("alignment")
+                    alignment_label = (
+                        f" [{alignment or 'unknown'}]" if alignment is not None else ""
+                    )
                     strength = principle.get("strength") or ""
                     strength_label = f" ({strength})" if strength else ""
-                    sections.append(f"  - {principle['title']}{strength_label} [{alignment}]")
+                    sections.append(f"  - {principle['title']}{strength_label}{alignment_label}")
             sections.append("")
 
         # Knowledge Study (curriculum track)

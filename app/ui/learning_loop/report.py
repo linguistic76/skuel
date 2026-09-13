@@ -788,7 +788,7 @@ def _render_trends_section(domain_trends: dict[str, Any]) -> Any:
                     cls="text-xs text-muted-foreground",
                 )
             )
-        if "aligned" in data:
+        if data.get("aligned") is not None:
             metrics.append(
                 P(
                     f"Aligned: {data['aligned']}, Needs attention: {data.get('needs_attention', 0)}",

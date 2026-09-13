@@ -47,6 +47,20 @@ from core.utils.result_simplified import Errors, Result
 logger = get_logger("skuel.services.report.activity_report")
 
 
+def _node_props(row: Neo4jProperties) -> Neo4jProperties:
+    """A ``RETURN n`` row's node as its property dict.
+
+    The driver hands the node under ``n`` as a neo4j ``Node`` — a Mapping at
+    runtime that the ``Neo4jProperties`` alias does not name — so the one
+    conversion lives here; a row already flattened to properties passes through.
+    """
+    inner = row.get("n", row)
+    if isinstance(inner, dict):
+        return inner
+    # boundary: neo4j Node — Mapping at runtime, untyped by the driver stubs
+    return cast("Neo4jProperties", dict(cast("Mapping[str, Any]", inner)))
+
+
 def _report_from_props(props: Neo4jProperties) -> ActivityReport:
     """A stored ActivityReport node's properties as the domain model — through
     the DTO's parse layer (``dto_from_dict``), the one place JSON blobs such as
@@ -267,7 +281,11 @@ class ActivityReportService:
                     {
                         "title": item.get("entity", {}).get("title", ""),
                         "status": item.get("entity", {}).get("status", ""),
-                        "alignment": item.get("entity", {}).get("current_alignment"),
+                        "alignment": (
+                            item.get("entity", {}).get("current_alignment")
+                            if figures_are_current
+                            else None
+                        ),
                     }
                     for item in principles[:10]
                 ],
@@ -494,19 +512,11 @@ class ActivityReportService:
         return Result.ok(report)
 
     @staticmethod
-    def _first_report(records: list[Any]) -> ActivityReport | None:
+    def _first_report(records: list[Neo4jProperties]) -> ActivityReport | None:
         """The first row's node as a report, or ``None`` for no rows."""
         if not records:
             return None
-        node = records[0]
-        inner = node.get("n") if isinstance(node, dict) and "n" in node else node
-        # Neo4j Node implements Mapping at runtime but isn't typed as such
-        props = (
-            cast("Neo4jProperties", inner)
-            if isinstance(inner, dict)
-            else cast("Neo4jProperties", dict(cast("Any", inner)))
-        )
-        return _report_from_props(props)
+        return _report_from_props(_node_props(records[0]))
 
     async def get_history(
         self,
@@ -531,18 +541,7 @@ class ActivityReportService:
             return Result.fail(query_result)
 
         records = query_result.value or []
-        feedbacks = []
-        for record in records:
-            node = record.get("n") if isinstance(record, dict) else record
-            if node:
-                # Neo4j Node implements Mapping at runtime but isn't typed as such
-                if isinstance(node, dict):
-                    props = node
-                else:
-                    props = cast("Neo4jProperties", dict(cast("Any", node)))
-                feedbacks.append(_report_from_props(props))
-
-        return Result.ok(feedbacks)
+        return Result.ok([_report_from_props(_node_props(record)) for record in records])
 
     async def annotate(
         self,

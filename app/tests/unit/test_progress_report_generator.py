@@ -1157,6 +1157,16 @@ class TestStreaksAtTheCutoff:
         rows = {
             **self._habit_rows(),
             "goals": [_row({"uid": "g1", "title": "Ship", "progress_percentage": 80.0})],
+            "principles": [
+                _row(
+                    {
+                        "uid": "p1",
+                        "title": "Honesty",
+                        "current_alignment": "drifting",
+                        "strength": "core",
+                    }
+                )
+            ],
         }
         completions = generator._completions_from_context(
             _rich_context(rows),
@@ -1167,9 +1177,19 @@ class TestStreaksAtTheCutoff:
         )
         assert completions["habits_details"][0]["streak"] is None
         assert completions["goals_details"][0]["progress"] is None
+        # The alignment moves with every assessment; the classification stays.
+        assert completions["principles_details"][0]["alignment"] is None
+        assert completions["principles_details"][0]["strength"] == "core"
         trends = generator._compute_domain_trends(completions)
         assert trends["habits"]["avg_streak"] is None
         assert trends["goals"]["avg_progress"] is None
+        assert trends["principles"]["aligned"] is None
+        assert trends["principles"]["needs_attention"] is None
+        # No "needs attention" advice from an unknown split.
+        assert not any(
+            r["domain"] == "principles"
+            for r in generator._synthesize_recommendations(trends, completions)
+        )
         # No "streaks are low" advice from an unknown average.
         assert not any(
             r["domain"] == "habits"
@@ -1186,6 +1206,9 @@ class TestStreaksAtTheCutoff:
         )
         assert "streak:" not in content
         assert "(progress: —)" in content
+        assert "[drifting]" not in content and "[unknown]" not in content
+        assert "Need attention" not in content
+        assert '"alignment"' not in prompt
 
     def test_a_live_cutoff_keeps_the_streak(self, generator):
         completions = generator._completions_from_context(
