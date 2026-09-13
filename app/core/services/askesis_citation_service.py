@@ -140,7 +140,9 @@ class CitationBundle:
         """
         Format citations for Askesis response.
 
-        Returns formatted string with all citations for display in chat.
+        Returns formatted string with all citations for display in chat — and
+        the empty string for an empty bundle, so a consumer's "any text means
+        citations" check (``has_citations``) is true only when there are some.
 
         Example:
             To learn Django Models, you should first understand these prerequisites:
@@ -160,7 +162,7 @@ class CitationBundle:
                ...
         """
         if not self.citations:
-            return "No citations available for this knowledge unit."
+            return ""
 
         lines = [
             f"To learn **{self.knowledge_title}**, you should first understand these prerequisites:",

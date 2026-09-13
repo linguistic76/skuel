@@ -199,5 +199,6 @@ column now takes an explicit `NEO4J_URI` on a throwaway harness.
   one-query rationale in its docstring), the ZPD capstone
 - `core/services/user/user_context_cache.py` — the 300 s TTL and the invalidation policy
 - `/docs/architecture/UNIFIED_USER_ARCHITECTURE.md` — the UserContext contract the query serves
-- [askesis-extraction-match-unverified.md](askesis-extraction-match-unverified.md) — the sibling
-  finding from the same investigation
+- [done/askesis-extraction-match-unverified.md](done/askesis-extraction-match-unverified.md) — the
+  sibling finding from the same investigation (its test landed; the design half lives on in
+  [askesis-extraction-lookup-shape.md](askesis-extraction-lookup-shape.md))

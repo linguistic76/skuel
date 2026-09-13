@@ -197,7 +197,7 @@ Without a bundle, Askesis uses `generate_context_aware_answer()` with the full U
 
 ### Step 9b: Format Citations
 
-After LLM generation, `QueryProcessor._format_citations_for_askesis()` calls `AskesisCitationService.format_citations_for_askesis()` for each matched knowledge UID (up to 3). The citation service traverses `REQUIRES_KNOWLEDGE` chains up to 3 levels deep via `ProvenanceQueries.build_citation_export_query()`, returning `RelationshipCitation` objects with evidence counts. Citations are appended to the answer text.
+After LLM generation, `QueryProcessor._retrieve_citations_for_knowledge_units()` calls `AskesisCitationService.format_citations_for_askesis()` for each matched knowledge UID (up to 3). The citation service follows the entity's outgoing `REQUIRES_KNOWLEDGE` chain (`(entity)-[:REQUIRES_KNOWLEDGE*1..3]->(prerequisite)`, the direction every writer records — see GRAPH_CONTRACT) via `ProvenanceQueries.build_citation_export_query()`, keeping only edges that carry `evidence`, and returns `RelationshipCitation` objects. A matched entity with no evidenced prerequisite yields no text; `has_citations` is true only when a Sources & Evidence section was actually appended to the answer.
 
 The citation service is wired at bootstrap: `AskesisCitationService(backend=ps_service.core.backend)` → passed through `create_askesis_service()` → `AskesisDeps.citation_service` → `QueryProcessor`. Without the service (if `citation_service` is `None`), citation formatting returns an empty string — the answer is still generated, just without source references.
 
