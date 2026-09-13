@@ -64,8 +64,8 @@ class TestHabitAchievementsFlow:
         """Create HabitEventHandlerService with backend and event bus."""
         return HabitEventHandlerService(backend=habit_backend, event_bus=event_bus)
 
-    @pytest_asyncio.fixture
-    async def test_user_uid(self):
+    @pytest.fixture
+    def test_user_uid(self) -> str:
         """Standard test user UID."""
         return "user_test_habit_achievements"
 
