@@ -86,16 +86,16 @@ async def test_create_roundtrip(tasks_backend, clean_neo4j):
 
 | Fixture | Provides |
 |---------|----------|
-| `skuel_app` (session) | Full bootstrapped app via `scripts/dev/bootstrap.py` |
-| `authenticated_client` / `authenticated_client_simple` | `TestClient` with session cookie (register+login / dev user) |
-| `test_user_uid` | `"test_graphql_user"` |
 | Embedding mocks | `mock_embedding_vector`, `mock_embeddings_service`, `mock_embeddings_unavailable`, `mock_vector_search_service`, `mock_vector_search_unavailable`, `services_with_embeddings` (re-exported from `tests/fixtures/embedding_fixtures.py`) |
+
+The root conftest also runs `load_dotenv()` — every `.env` value the developer runs the app with is in the test process (credential backend, tier, vault paths). **The Neo4j target is the one exception**, overridden by the app fixture below.
 
 ### Shared fixtures — `tests/integration/conftest.py`
 
 | Fixture | Provides |
 |---------|----------|
 | `neo4j_container` / `neo4j_uri` / `neo4j_driver` (session) | Testcontainers `Neo4jContainer(NEO4J_IMAGE)` — the tag is read from `infrastructure/docker-compose.yml` (`tests/integration/_neo4j_pin.py`) + async driver |
+| `skuel_app_container` / `skuel_app` (session) | The whole app bootstrapped via `scripts/dev/bootstrap.py` **against a testcontainer of its own** (same pinned image, no APOC): the fixture overrides `NEO4J_URI` / `NEO4J_USERNAME` / `NEO4J_PASSWORD` with that container before settings are built, and refuses to yield an app whose driver reports any other kernel (`.env` names the production AuraDB instance — `tests/integration/test_skuel_app_fixture.py` is the permanent guard). Private, not shared, because the app's boot syncs uniqueness constraints on `:User` that the shared graph's accumulated users violate. Seed app-fixture data through `skuel_app.state.services.neo4j_driver`, never `neo4j_driver`. Needs `OPENAI_API_KEY` (bootstrap's `EnvironmentValidator.REQUIRED_VARS`), so consumers skip without it |
 | `clean_neo4j` | Per-test wipe of all non-`:User` nodes + creates `entity_embedding_idx` vector index |
 | `ensure_test_users` (session) | MERGEs the shared test-user UIDs (`user_test_*`, `user_mike`, …) plus the resolved ingestion fallback owner. **Required by any test that creates or ingests an owned entity** — the `:OWNS` write doors refuse an owner with no `:User` node (ADR-086) |
 | `{tasks,goals,habits,events,choices,principles}_backend` / `_service` | Real `UniversalNeo4jBackend[T]` + core sub-service per domain |

@@ -5,7 +5,7 @@ Integration Test Fixtures
 Provides test infrastructure for integration tests with real Neo4j database.
 
 Setup:
-- Neo4j testcontainer
+- Neo4j testcontainer (shared), plus the bootstrapped app's own (``skuel_app_container``)
 - Temporary file system
 - Real service instances
 """
@@ -24,7 +24,11 @@ from testcontainers.neo4j import Neo4jContainer  # type: ignore[import-untyped]
 from adapters.persistence.neo4j.universal_backend import UniversalNeo4jBackend
 from core.constants import SYSTEM_USER_UID
 from core.services.ingestion.config import DEFAULT_USER_UID
-from tests.integration._neo4j_pin import NEO4J_IMAGE
+from tests.integration._neo4j_pin import (
+    NEO4J_IMAGE,
+    NEO4J_SERVER_VERSION,
+    running_kernel_version,
+)
 
 # Lazy imports to avoid circular import issues
 # These are imported inside fixtures that need them
@@ -91,6 +95,81 @@ async def neo4j_driver(neo4j_uri):
 
     # Cleanup
     await driver.close()
+
+
+@pytest.fixture(scope="session")
+def skuel_app_container():
+    """
+    The bootstrapped app's own Neo4j — the pinned image, a private graph.
+
+    Deliberately NOT the shared ``neo4j_container``: bootstrapping the app
+    syncs its schema into whatever graph it reaches — uniqueness constraints
+    on ``:User`` uid and email among ~70 indexes — and the shared graph is not
+    a graph those constraints accept. ``clean_neo4j`` preserves ``:User`` nodes
+    across tests and the suite seeds the same uid / email more than once, so
+    the sync fails on the duplicates, and a half-synced constraint set then
+    refuses later tests' user writes. A private graph keeps the app fixture
+    independent of suite order in both directions.
+
+    No APOC: the runtime calls no ``apoc.*`` procedure (SKUEL001), and the
+    plugin liveness canary has the shared container for that.
+    """
+    container = Neo4jContainer(NEO4J_IMAGE)
+    container.with_env("NEO4J_dbms_security_auth__enabled", "false")
+
+    container.start()
+    yield container
+    container.stop()
+
+
+@pytest_asyncio.fixture(scope="session", loop_scope="session")
+async def skuel_app(skuel_app_container):
+    """
+    Bootstrap the whole SKUEL app once per session — against its own testcontainer.
+
+    ``bootstrap_skuel()`` takes its Neo4j target from the process environment
+    (``DatabaseConfig.from_env`` reads ``NEO4J_URI`` / ``NEO4J_USERNAME``), and
+    ``tests/conftest.py``'s ``load_dotenv()`` has already filled that
+    environment from ``.env`` — the production AuraDB instance since the
+    2026-08-15 cutover. So the container is written over those variables
+    here, BEFORE the cached settings are built, and the kernel check below
+    refuses to yield an app whose driver reached anything else.
+
+    The password only has to be non-empty for config validation: the
+    container runs with auth disabled and ignores the tuple. ``get_credential``
+    reads the credential store before the environment, so on a machine with a
+    keychain the stored value is what the driver sends (and the container
+    ignores); the env value fills a store-less process (CI).
+
+    Consumers: the Askesis integration modules, the RAG data fixtures below
+    (which write through the app's driver, i.e. into this graph), and
+    ``test_skuel_app_fixture.py`` — this guard, kept as a permanent test.
+    """
+    from core.config.settings import reload_config
+    from scripts.dev.bootstrap import bootstrap_skuel
+
+    with pytest.MonkeyPatch.context() as env:
+        env.setenv("NEO4J_URI", skuel_app_container.get_connection_url())
+        env.setenv("NEO4J_USERNAME", "neo4j")
+        env.setenv("NEO4J_PASSWORD", "testpassword")
+        # get_settings() is lru_cached — anything that built it earlier in the
+        # session built it against .env.
+        reload_config()
+
+        container = await bootstrap_skuel()
+        try:
+            version = await running_kernel_version(container.services.neo4j_driver)
+            if version != NEO4J_SERVER_VERSION:
+                raise RuntimeError(
+                    f"skuel_app bootstrapped against a Neo4j kernel reporting {version!r}, "
+                    f"not the pinned testcontainer ({NEO4J_SERVER_VERSION!r}). An '-aura' "
+                    "suffix means the app read .env's NEO4J_URI — the production graph. "
+                    "Refusing to yield it."
+                )
+            yield container.app
+        finally:
+            await container.services.cleanup()
+            reload_config()
 
 
 @pytest_asyncio.fixture(scope="session", loop_scope="session")

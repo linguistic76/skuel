@@ -101,29 +101,22 @@ async def clean_neo4j(neo4j_container):
 
 ## Event Loop Scoping
 
-### Session-Scoped Event Loop
+### Loop scope is configuration, not a fixture
 
-For session-scoped async fixtures (like TestContainers), you need a session-scoped event loop:
-
-```python
-# In root conftest.py
-@pytest.fixture(scope="session")
-def event_loop():
-    """Create session-scoped event loop for async fixtures."""
-    loop = asyncio.get_event_loop_policy().new_event_loop()
-    yield loop
-    loop.close()
-```
-
-### Why Session Scope Matters
+pytest-asyncio ≥ 1.0 owns the event loops. `pyproject.toml` sets
+`asyncio_default_fixture_loop_scope = "session"` and
+`asyncio_default_test_loop_scope = "session"`, so every async fixture and test
+runs on one session loop unless it says otherwise (`loop_scope=` on the
+decorator). **Do not define an `event_loop` fixture** — pytest-asyncio never
+requests one, so it would be an ordinary, unused fixture that only misleads.
 
 ```python
-# Session-scoped container needs session-scoped loop
+# Session-scoped container + session-scoped async driver, no loop plumbing
 @pytest.fixture(scope="session")
 def neo4j_container(): ...
 
-@pytest_asyncio.fixture(scope="session")
-async def neo4j_driver(neo4j_uri):  # Works with session loop
+@pytest_asyncio.fixture(scope="session", loop_scope="session")
+async def neo4j_driver(neo4j_uri):
     driver = AsyncGraphDatabase.driver(neo4j_uri)
     yield driver
     await driver.close()
@@ -182,15 +175,13 @@ async def test_operation_timeout():
 RuntimeError: Event loop is closed
 ```
 
-**Cause:** Fixture cleanup running after loop closed.
+**Cause:** Fixture cleanup running after loop closed — a session-scoped async
+fixture whose loop scope is narrower than its fixture scope.
 
-**Fix:** Ensure session-scoped fixtures use session-scoped event loop:
+**Fix:** Give the fixture the loop scope its lifetime needs:
 ```python
-@pytest.fixture(scope="session")
-def event_loop():
-    loop = asyncio.get_event_loop_policy().new_event_loop()
-    yield loop
-    loop.close()
+@pytest_asyncio.fixture(scope="session", loop_scope="session")
+async def neo4j_driver(neo4j_uri): ...
 ```
 
 ### Coroutine Never Awaited

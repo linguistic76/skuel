@@ -15,12 +15,21 @@ The tag is validated, not just read: a floating tag (``neo4j:latest``,
 loudly at import — ADR-067's "never a floating tag" rule enforced at the only
 reader that could silently tolerate one. YAML-parsed, so a validly quoted
 ``image: "neo4j:2026.07.1"`` reads the same as the bare form.
+
+``running_kernel_version`` is the other half of the comparison: what the server
+on the far end of a driver actually reports. The version canary compares the
+two, and the ``skuel_app`` fixture refuses to yield an app whose driver reports
+anything else — an AuraDB kernel reports ``5.27-aura``, never a calendar tag.
 """
 
 import re
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 import yaml
+
+if TYPE_CHECKING:
+    from neo4j import AsyncDriver
 
 # tests/integration/_neo4j_pin.py → parents: [0] integration, [1] tests, [2] app, [3] repo root
 COMPOSE_FILE = Path(__file__).resolve().parents[3] / "infrastructure" / "docker-compose.yml"
@@ -52,3 +61,23 @@ NEO4J_IMAGE: str = neo4j_image_from_compose()
 
 NEO4J_SERVER_VERSION: str = NEO4J_IMAGE.removeprefix("neo4j:")
 """What ``CALL dbms.components()`` must report for the running container."""
+
+
+async def running_kernel_version(driver: "AsyncDriver") -> str:
+    """The ``Neo4j Kernel`` version the server behind ``driver`` reports.
+
+    ``CALL dbms.components()`` is the one procedure that names the server
+    itself rather than its data, and it is callable on every deployment shape
+    (container, self-host, AuraDB) — which is what makes it usable as a
+    "which graph am I talking to" probe.
+    """
+    async with driver.session() as session:
+        result = await session.run(
+            "CALL dbms.components() "
+            "YIELD name, versions "
+            "WHERE name = 'Neo4j Kernel' "
+            "RETURN versions[0] AS version"
+        )
+        record = await result.single()
+    assert record is not None, "dbms.components() reported no 'Neo4j Kernel' component"
+    return str(record["version"])
