@@ -4,13 +4,13 @@ Shared Test Fixtures for SKUEL
 
 Root conftest: loads ``.env`` and re-exports the embedding mocks for every tier.
 
-The app fixture (``skuel_app``) lives in ``tests/integration/conftest.py`` — it
-bootstraps the whole app, which needs a graph, and the only graphs a test may
-touch are integration testcontainers. Keeping it there, next to the container
-fixtures, is what stops ``.env``'s ``NEO4J_URI`` (the production AuraDB
-instance since 2026-08-15) from ever becoming a test target again.
+No app or database fixture lives here. The app fixture (``skuel_app``) is in
+``tests/integration/conftest.py``: it bootstraps the whole app, which needs a
+graph, and the only graphs a test may touch are integration testcontainers —
+never the graph ``.env``'s ``NEO4J_URI`` names, which is the production AuraDB
+instance.
 
-``load_dotenv()`` still runs here for everything else ``.env`` carries into the
+``load_dotenv()`` runs here for everything else ``.env`` carries into the
 process — the credential-backend selector, the intelligence tier, vault paths —
 so an integration test sees the same non-database configuration the developer
 runs the app with. It does not override a variable that is already set.

@@ -130,10 +130,10 @@ async def skuel_app(skuel_app_container):
     ``bootstrap_skuel()`` takes its Neo4j target from the process environment
     (``DatabaseConfig.from_env`` reads ``NEO4J_URI`` / ``NEO4J_USERNAME``), and
     ``tests/conftest.py``'s ``load_dotenv()`` has already filled that
-    environment from ``.env`` — the production AuraDB instance since the
-    2026-08-15 cutover. So the container is written over those variables
-    here, BEFORE the cached settings are built, and the kernel check below
-    refuses to yield an app whose driver reached anything else.
+    environment from ``.env`` — whose ``NEO4J_URI`` is the production AuraDB
+    instance. So the container is written over those variables here, BEFORE
+    the cached settings are built, and the kernel check below refuses to yield
+    an app whose driver reached anything else.
 
     The password only has to be non-empty for config validation: the
     container runs with auth disabled and ignores the tuple. ``get_credential``

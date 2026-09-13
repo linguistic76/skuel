@@ -2,13 +2,12 @@
 The pinned Neo4j server image, read from the ONE place it is authored.
 
 ADR-067 § 3a pins the server to an exact calendar release (``neo4j:YYYY.MM.N``)
-in ``infrastructure/docker-compose.yml``. The integration testcontainer and the
-version canary used to carry a *copy* of that tag, and the APOC-lockdown suite a
-third reader; the copies drifted from the compose pin for a month unnoticed
-(2026.06.0 vs the published 2026.07.1). This module is the single reader:
-``conftest`` starts the image it names, the version canary asserts the running
-server reports exactly it, and the lockdown suite's own container uses it too —
-so a bump is one line in one file and the readers agree by construction.
+in ``infrastructure/docker-compose.yml``, and this module is its single reader:
+every integration container (``conftest``'s shared one, the app fixture's own,
+the APOC-lockdown suite's) starts the image it names, and the version canary
+asserts the running server reports exactly it — so a bump is one line in one
+file and the readers agree by construction (the ADR records why a copy is
+never kept).
 
 The tag is validated, not just read: a floating tag (``neo4j:latest``,
 ``neo4j:2026``), a suffixed one (``…-community``), or a missing service fails
