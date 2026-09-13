@@ -992,6 +992,10 @@ async def enrolled_user_with_lp(skuel_app):
           and ps.current_mastery < ps.mastery_threshold
     3. The PathStep references at least one Ku
 
+    The PathStep also REQUIRES_KNOWLEDGE an evidenced prerequisite Ku, so the
+    citations branch (PREREQUISITE intent + a matched knowledge entity) has a
+    citation to retrieve.
+
     Uses direct Cypher so the fixture doesn't depend on service-level wiring
     that itself might be under test.
     """
@@ -1004,6 +1008,7 @@ async def enrolled_user_with_lp(skuel_app):
     lp_uid = "lp:test:guided-pipeline"
     ps_uid = "ps:test:guided-step"
     ku_uid = "ku_test_guided_concept"  # kind derives from the :Ku label/entity_type, never the uid spelling
+    prereq_ku_uid = "ku_test_guided_prerequisite"
     created_at = datetime.now().isoformat()
 
     async with driver.session() as session:
@@ -1085,6 +1090,30 @@ async def enrolled_user_with_lp(skuel_app):
             ku_uid=ku_uid,
         )
 
+        # PS → prerequisite Ku via an EVIDENCED REQUIRES_KNOWLEDGE edge (outgoing
+        # from the step, per the graph contract) — what the Askesis citations
+        # branch reads: a PREREQUISITE question that matches this PathStep cites
+        # this edge's source + evidence.
+        await session.run(
+            """
+            MERGE (k:Entity:Ku {uid: $prereq_ku_uid})
+            SET k.title = 'Test Guided Prerequisite',
+                k.entity_type = 'ku',
+                k.summary = 'What the guided step builds on',
+                k.status = 'active',
+                k.created_at = datetime($ts)
+            WITH k
+            MATCH (ps:PathStep {uid: $ps_uid})
+            MERGE (ps)-[r:REQUIRES_KNOWLEDGE]->(k)
+            SET r.source = 'curriculum',
+                r.confidence = 0.9,
+                r.evidence = ['Fixture: the guided step is authored on this concept']
+            """,
+            prereq_ku_uid=prereq_ku_uid,
+            ps_uid=ps_uid,
+            ts=created_at,
+        )
+
         # Enrollment: (User)-[:ENROLLED_IN]->(LearningPath) → populates enrolled_path_uids
         await session.run(
             """
@@ -1113,6 +1142,7 @@ async def enrolled_user_with_lp(skuel_app):
         "lp_uid": lp_uid,
         "ps_uid": ps_uid,
         "ku_uid": ku_uid,
+        "prereq_ku_uid": prereq_ku_uid,
     }
 
     # Cleanup
@@ -1123,7 +1153,7 @@ async def enrolled_user_with_lp(skuel_app):
             WHERE n.uid IN $uids
             DETACH DELETE n
             """,
-            uids=[user_uid, lp_uid, ps_uid, ku_uid],
+            uids=[user_uid, lp_uid, ps_uid, ku_uid, prereq_ku_uid],
         )
 
 

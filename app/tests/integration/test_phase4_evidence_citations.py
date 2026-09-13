@@ -404,6 +404,12 @@ class TestCitationBundle:
         assert "**Python OOP**" in formatted
         assert "Source: Expert-verified" in formatted
 
+    def test_format_for_askesis_empty_bundle_is_empty_text(self):
+        """No citations → no text: Askesis's has_citations is bool(text)."""
+        bundle = CitationBundle(knowledge_uid="ku.django", knowledge_title="Django Models")
+
+        assert bundle.format_for_askesis() == ""
+
 
 @pytest.mark.asyncio
 class TestAskesisCitationServiceIntegration:

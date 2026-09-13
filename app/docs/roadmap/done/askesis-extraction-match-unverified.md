@@ -11,11 +11,24 @@ registered: "2026-09-13 (PR #1326 — found while diagnosing the pipeline timeou
 
 **Status: ✅ DONE — 2026-09-13.** `test_ask_endpoint_entity_extraction` now asks *"What do I need
 to know before Test Guided PathStep?"*, asserts the in-progress PathStep is in
-`mentioned_entities.knowledge`, and asserts `has_citations is True`; the `-s` log of the module
-carries exactly one `Extracted 1 entities` line (intent `prerequisite`, `citations: yes`). The
-two design observations recorded below are tracked in
+`mentioned_entities.knowledge`, and asserts the answer carries the Sources & Evidence section
+naming the step's evidenced prerequisite (`has_citations is True` alongside); the `-s` log of
+the module carries exactly one `Extracted 1 entities` line (intent `prerequisite`,
+`citations: yes`). The two design observations recorded below are tracked in
 [../askesis-extraction-lookup-shape.md](../askesis-extraction-lookup-shape.md). The rest of this
 file is the investigation as it stood when the test landed.
+
+**What running the branch found (three defects, all fixed in the test's PR):** the citation
+export walked `REQUIRES_KNOWLEDGE` *backwards* (`(node)<-[…]-(prereq)`, reporting a node's
+dependents as its prerequisites — every writer records the edge outgoing, per the graph
+contract); an empty `CitationBundle` formatted to the truthy placeholder *"No citations
+available for this knowledge unit."*, so `has_citations` was `True` with zero citations
+(the first draft of this test asserted exactly that, and would have passed on the
+placeholder — Codex, #1329); and `test_ask_endpoint_validation`'s `with TestClient(app)`
+ran the ASGI lifespan, whose shutdown closed the session-scoped app's driver for every
+test after it — the neo4j driver keeps answering after `close()` (deprecation warning),
+but every `_is_driver_closed()`-guarded backend read returned nothing, silently. That is
+why the branch's output was invisible in a module run and visible in a single-test run.
 
 ## The gap
 

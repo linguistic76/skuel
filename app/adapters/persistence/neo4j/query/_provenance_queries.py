@@ -343,7 +343,12 @@ class ProvenanceQueries:
 
         Use Case: "Generate bibliography for Askesis response"
 
-        Returns all evidence from prerequisite chain formatted for citation.
+        Returns all evidence from the node's prerequisite chain formatted for
+        citation. The chain follows the edge OUTWARD from the node —
+        ``(node)-[:REQUIRES_KNOWLEDGE]->(prerequisite)`` is how every writer
+        records "node requires prerequisite" (GRAPH_CONTRACT: the relationship is
+        ``outgoing`` on Task / Goal / PathStep / LearningPath / Exercise; its
+        ``incoming`` side is ``dependents``).
 
         Args:
             node_uid: Starting node UID
@@ -364,7 +369,7 @@ class ProvenanceQueries:
             # ku.python_oop | Python OOP | expert | [...] | "Source: Expert-verified..."
         """
         cypher = f"""
-        MATCH (end:{node_label} {{uid: $node_uid}})<-[r:{relationship_type}*1..{depth}]-(prereq:{node_label})
+        MATCH (end:{node_label} {{uid: $node_uid}})-[r:{relationship_type}*1..{depth}]->(prereq:{node_label})
         WITH prereq, r
         WHERE size(coalesce(r[0].evidence, [])) > 0
         UNWIND r as rel

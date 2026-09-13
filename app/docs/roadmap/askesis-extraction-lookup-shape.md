@@ -36,15 +36,17 @@ to a PathStep lookup — but decide which first.
 
 ## 2. `_extract_matching_entities` is N sequential round-trips per question
 
-It awaits `service.get(uid)` one uid at a time, for every uid in seven sets (known KUs, active
-tasks, active goals, active habits, today + upcoming events, core principles, pending
-choices), inside the 30 s `AskesisPipelineTimeout`. That is the exact shape PR #1326 removed
-from the intent-exemplar load — except this one is **per question** and grows with the
-learner: 40 tasks + 20 goals + 30 habits + 100 mastered Kus ≈ 190 sequential round-trips
-≈ 10–19 s on AuraDB from a developer machine, every question. The rich context already
-carries `entities_rich[...]` with titles for the six activity domains and `knowledge_rich`
-for curriculum — the titles are in memory before extraction starts. Match against the
-context; do not re-fetch it. The fix is the same size as #1326's.
+It awaits `service.get(uid)` one uid at a time, for every uid in the five sets the extractor
+fetches — known KUs, active tasks, active goals, active habits, today + upcoming events
+(`principles` and `choices` are hard-coded to `[]` in `extract_entities_from_query`; they are
+not looked up at all, which is its own unwired surface) — inside the 30 s
+`AskesisPipelineTimeout`. That is the exact shape PR #1326 removed from the intent-exemplar
+load — except this one is **per question** and grows with the learner: 40 tasks + 20 goals +
+30 habits + 100 mastered Kus ≈ 190 sequential round-trips ≈ 10–19 s on AuraDB from a
+developer machine, every question. The rich context already carries `entities_rich[...]`
+with titles for the six activity domains and `knowledge_rich` for curriculum — the titles
+are in memory before extraction starts. Match against the context; do not re-fetch it. The
+fix is the same size as #1326's.
 
 (Also noted: fuzzy strategy 2 matches any title word longer than three characters — the
 probe matched "Test Guided PathStep" from a question about "Test Guided Concept". Loose by

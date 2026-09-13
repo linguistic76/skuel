@@ -50,16 +50,21 @@ def test_ask_endpoint_validation(skuel_app):
     """Test that /api/askesis/ask validates required parameters."""
     from starlette.testclient import TestClient
 
-    # Test unauthenticated access (no session) → 401
-    with TestClient(skuel_app) as unauthenticated_client:
-        response = unauthenticated_client.get("/api/askesis/ask?question=What should I learn?")
-        assert response.status_code == 401, "Should reject unauthenticated access"
+    # NOT `with TestClient(...)`: the context manager runs the ASGI lifespan, and
+    # its shutdown closes the SESSION-scoped app's driver and event bus for every
+    # test after this one (the neo4j driver still answers after close(), with a
+    # deprecation warning, but every `_is_driver_closed()`-guarded backend read
+    # silently returns nothing). The routes need no lifespan — the fixture already
+    # bootstrapped the services.
+    unauthenticated_client = TestClient(skuel_app)
 
-        # Test missing question also returns 401 (auth check happens first)
-        response = unauthenticated_client.get("/api/askesis/ask")
-        assert response.status_code == 401, (
-            "Should reject unauthenticated access even without question"
-        )
+    # Test unauthenticated access (no session) → 401
+    response = unauthenticated_client.get("/api/askesis/ask?question=What should I learn?")
+    assert response.status_code == 401, "Should reject unauthenticated access"
+
+    # Test missing question also returns 401 (auth check happens first)
+    response = unauthenticated_client.get("/api/askesis/ask")
+    assert response.status_code == 401, "Should reject unauthenticated access even without question"
 
 
 @pytest.mark.asyncio
@@ -112,8 +117,10 @@ async def test_ask_endpoint_entity_extraction(
     "Test Guided PathStep" — never the fixture's Ku, and never `populated_test_data`'s
     corpus (which retrieval searches, not extraction). The question names that
     title and classifies PREREQUISITE, the intent whose citations branch runs
-    only WITH a matched knowledge entity; `has_citations` is that branch's
-    observable output (`bool(citations_text)` — the key alone is always present).
+    only WITH a matched knowledge entity. That branch cites the step's evidenced
+    `REQUIRES_KNOWLEDGE` prerequisite (seeded by the fixture): the answer carries
+    the Sources & Evidence section naming it, and `has_citations` — true only
+    when citation text was produced — says so.
     """
     if not await _embeddings_available(skuel_app):
         pytest.skip("Requires embeddings service for intent classification")
@@ -139,8 +146,11 @@ async def test_ask_endpoint_entity_extraction(
     assert any(k["uid"] == enrolled_user_with_lp["ps_uid"] for k in knowledge), (
         f"extraction did not match the in-progress PathStep; knowledge = {knowledge!r}"
     )
-    # ... and the PREREQUISITE + matched-entity citations branch produced text
+    # ... and the PREREQUISITE + matched-entity citations branch cited the step's
+    # evidenced prerequisite — the answer ends with the Sources & Evidence section
     assert data["has_citations"] is True, "the citations branch produced no citation text"
+    assert "Sources & Evidence" in data["answer"], data["answer"][-400:]
+    assert "Test Guided Prerequisite" in data["answer"], data["answer"][-400:]
 
 
 @pytest.mark.asyncio
