@@ -194,7 +194,7 @@ renders them as a table in Obsidian, and a session derives the same table with
 
 ## Askesis Entity Extraction — Ku Uids Never Resolve, and the Lookup Is N Round-Trips per Question
 
-[Askesis Entity Extraction — Ku Uids Never Resolve, and the Lookup Is N Round-Trips per Question](askesis-extraction-lookup-shape.md) — `EntityExtractor` resolves every `known_or_engaged_ku_uids` entry through `PsService`, so mastered Ku uids fail silently at one round-trip each; and `_extract_matching_entities` awaits `service.get(uid)` sequentially across seven sets per question, inside the 30 s pipeline budget, when the rich context already holds every title it re-fetches. Decide Kus-or-PathSteps first, then match against the context.
+[Askesis Entity Extraction — Ku Uids Never Resolve, and the Lookup Is N Round-Trips per Question](askesis-extraction-lookup-shape.md) — `EntityExtractor` resolves every `known_or_engaged_ku_uids` entry through `PsService`, so mastered Ku uids fail silently at one round-trip each; and `_extract_matching_entities` awaits `service.get(uid)` sequentially across the five sets it fetches per question, inside the 30 s pipeline budget, when the rich context already holds every title it re-fetches. Decide Kus-or-PathSteps first, then match against the context.
 
 ## MEGA-QUERY Sits on the Plan-Cache Cliff
 

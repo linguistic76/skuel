@@ -298,9 +298,11 @@ class TestProvenanceQueries:
         assert isinstance(query, str)
         assert isinstance(params, dict)
 
-        # Verify query structure
-        assert "MATCH (end:Entity {uid: $node_uid})" in query
-        assert "WHERE size(coalesce(r[0].evidence, [])) > 0" in query
+        # Verify query structure: outgoing chain, every edge evidence-filtered,
+        # each row attributed to its own edge's target
+        assert "MATCH (end:Entity {uid: $node_uid})-[r:REQUIRES_KNOWLEDGE*1..3]->(:Entity)" in query
+        assert "WHERE size(coalesce(rel.evidence, [])) > 0" in query
+        assert "endNode(rel) AS prereq" in query
         assert "rel.evidence as evidence" in query
         assert "'Source: ' + rel.source" in query
 

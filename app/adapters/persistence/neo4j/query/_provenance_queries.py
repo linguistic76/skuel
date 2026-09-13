@@ -350,6 +350,11 @@ class ProvenanceQueries:
         ``outgoing`` on Task / Goal / PathStep / LearningPath / Exercise; its
         ``incoming`` side is ``dependents``).
 
+        One row per EDGE in the chain that carries evidence, attributed to that
+        edge's own target (``endNode``) — a deeper hop's evidence is never filed
+        under the path's endpoint, an evidence-less hop yields no row, and an
+        edge reached by several paths is exported once.
+
         Args:
             node_uid: Starting node UID
             node_label: Neo4j label (default: KnowledgeUnit)
@@ -369,11 +374,11 @@ class ProvenanceQueries:
             # ku.python_oop | Python OOP | expert | [...] | "Source: Expert-verified..."
         """
         cypher = f"""
-        MATCH (end:{node_label} {{uid: $node_uid}})-[r:{relationship_type}*1..{depth}]->(prereq:{node_label})
-        WITH prereq, r
-        WHERE size(coalesce(r[0].evidence, [])) > 0
-        UNWIND r as rel
-        WITH DISTINCT prereq, rel
+        MATCH (end:{node_label} {{uid: $node_uid}})-[r:{relationship_type}*1..{depth}]->(:{node_label})
+        UNWIND r AS rel
+        WITH DISTINCT rel
+        WHERE size(coalesce(rel.evidence, [])) > 0
+        WITH rel, endNode(rel) AS prereq
         RETURN
             prereq.uid as prerequisite_uid,
             prereq.title as prerequisite_title,
