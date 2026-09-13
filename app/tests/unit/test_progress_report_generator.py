@@ -1177,9 +1177,13 @@ class TestStreaksAtTheCutoff:
         )
         assert completions["habits_details"][0]["streak"] is None
         assert completions["goals_details"][0]["progress"] is None
-        # The alignment moves with every assessment; the classification stays.
+        # Every live state is absent: alignment moves with each assessment,
+        # strength has its own transition, status with each write.
         assert completions["principles_details"][0]["alignment"] is None
-        assert completions["principles_details"][0]["strength"] == "core"
+        assert completions["principles_details"][0]["strength"] is None
+        assert completions["principles_details"][0]["status"] is None
+        assert completions["goals_details"][0]["status"] is None
+        assert completions["habits_details"][0]["status"] is None
         trends = generator._compute_domain_trends(completions)
         assert trends["habits"]["avg_streak"] is None
         assert trends["goals"]["avg_progress"] is None
@@ -1207,8 +1211,47 @@ class TestStreaksAtTheCutoff:
         assert "streak:" not in content
         assert "(progress: —)" in content
         assert "[drifting]" not in content and "[unknown]" not in content
+        assert "[active]" not in content and "[None]" not in content
+        assert "(core)" not in content
         assert "Need attention" not in content
-        assert '"alignment"' not in prompt
+        assert '"alignment"' not in prompt and '"strength"' not in prompt
+
+    def test_a_task_completed_in_a_closed_period_keeps_that_fact(self, generator):
+        """The counted fact is never live: a task completed in the period reads
+        "completed" whatever its node says now; an open task's status is absent."""
+        completions = generator._completions_from_context(
+            _rich_context(
+                {
+                    "tasks": [
+                        _row(
+                            {
+                                "uid": "t_done",
+                                "title": "Done in period",
+                                "status": "completed",
+                                "created_at": "2026-09-02T09:00:00",
+                                "completion_date": "2026-09-20",
+                            }
+                        ),
+                        _row(
+                            {
+                                "uid": "t_open",
+                                "title": "Open at end, closed since",
+                                "status": "completed",
+                                "created_at": "2026-09-02T09:00:00",
+                                "completion_date": "2026-10-04",
+                            }
+                        ),
+                    ]
+                }
+            ),
+            None,
+            window_start=datetime(2026, 9, 1),
+            window_end=datetime(2026, 9, 30, 23, 59, 59),
+            figures_are_current=False,
+        )
+        by_uid = {t["uid"]: t for t in completions["tasks_details"]}
+        assert by_uid["t_done"]["status"] == "completed"
+        assert by_uid["t_open"]["status"] is None
 
     def test_a_live_cutoff_keeps_the_streak(self, generator):
         completions = generator._completions_from_context(

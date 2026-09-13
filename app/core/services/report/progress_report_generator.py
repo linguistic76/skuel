@@ -59,6 +59,12 @@ from core.utils.result_simplified import Errors, Result
 logger = get_logger("skuel.services.report.progress_generator")
 
 
+def _state_label(state: object) -> str:
+    """`` [state]`` for a present state; nothing for an absent one (a closed
+    period's details carry no live state)."""
+    return f" [{state}]" if state is not None else ""
+
+
 class ProgressReportGenerator:
     """
     Generates activity reports for users by querying historical completions
@@ -712,7 +718,8 @@ class ProgressReportGenerator:
                 if c.get("principles")
             ][:5],
             "principle_summary": [
-                {"title": p.get("title", ""), "strength": p.get("strength", "")}
+                {"title": p.get("title", "")}
+                | ({"strength": p["strength"]} if p.get("strength") is not None else {})
                 | ({"alignment": p["alignment"]} if p.get("alignment") is not None else {})
                 for p in completions.get("principles_details", [])[:10]
             ],
@@ -898,6 +905,14 @@ class ProgressReportGenerator:
         # One predicate set with the admin snapshot (``period_eligibility.py``):
         # what the period counts, and what it may list at all.
         eligible = PeriodEligibility.for_window(window_start, window_end, period_end)
+
+        def live(value: object) -> object:
+            """A node's live state — status, strength, alignment, streak, figure —
+            is the cutoff's only while the cutoff is now; a closed period
+            regenerated later carries None for it, and every renderer skips None.
+            The counted facts (completed in period, attended) are never live."""
+            return value if figures_are_current else None
+
         in_period = eligible.in_period
         existed_by_period_end = eligible.existed_by_end
         completions_by_habit = habit_completions or {}
@@ -934,7 +949,13 @@ class ProgressReportGenerator:
                     {
                         "uid": entity["uid"],
                         "title": entity["title"],
-                        "status": entity.get("status", ""),
+                        # Completed in the period is the counted fact; an open
+                        # task's current status is live state.
+                        "status": (
+                            EntityStatus.COMPLETED.value
+                            if completed_in_period
+                            else live(entity.get("status", ""))
+                        ),
                         "goals": goal_titles,
                         "kus": ku_titles,
                     }
@@ -952,12 +973,8 @@ class ProgressReportGenerator:
                     {
                         "uid": entity["uid"],
                         "title": entity["title"],
-                        "status": entity.get("status", ""),
-                        # The live figure is the cutoff's only while the cutoff
-                        # is now (as the habit streak below).
-                        "progress": (
-                            entity.get("progress_percentage") if figures_are_current else None
-                        ),
+                        "status": live(entity.get("status", "")),
+                        "progress": live(entity.get("progress_percentage")),
                     }
                 )
 
@@ -973,10 +990,8 @@ class ProgressReportGenerator:
                     {
                         "uid": entity["uid"],
                         "title": entity["title"],
-                        "status": entity.get("status", ""),
-                        # Rewritten by every completion, so it is the streak AT
-                        # the cutoff only while the cutoff is now.
-                        "streak": entity.get("current_streak", 0) if figures_are_current else None,
+                        "status": live(entity.get("status", "")),
+                        "streak": live(entity.get("current_streak", 0)),
                     }
                 )
 
@@ -1031,14 +1046,11 @@ class ProgressReportGenerator:
                     {
                         "uid": entity["uid"],
                         "title": entity["title"],
-                        "status": entity.get("status", ""),
-                        # current_alignment moves with every assessment, so it
-                        # is the cutoff's only while the cutoff is now; strength
-                        # is the user's classification of the principle, kept.
-                        "alignment": (
-                            entity.get("current_alignment", "") if figures_are_current else None
-                        ),
-                        "strength": entity.get("strength", ""),
+                        "status": live(entity.get("status", "")),
+                        "alignment": live(entity.get("current_alignment", "")),
+                        # Strength has its own transition (PrincipleStrengthChanged),
+                        # so it is live state too; the category is authored identity.
+                        "strength": live(entity.get("strength", "")),
                         "category": entity.get("principle_category", ""),
                     }
                 )
@@ -1132,10 +1144,9 @@ class ProgressReportGenerator:
             )
             if depth != ProgressDepth.SUMMARY:
                 for task in completions.get("tasks_details", [])[:10]:
-                    status_icon = (
-                        "done" if task["status"] == EntityStatus.COMPLETED else task["status"]
-                    )
-                    sections.append(f"  - {task['title']} [{status_icon}]")
+                    status = task.get("status")
+                    status_icon = "done" if status == EntityStatus.COMPLETED else status
+                    sections.append(f"  - {task['title']}{_state_label(status_icon)}")
             sections.append("")
 
         # Goal Alignment
@@ -1153,7 +1164,8 @@ class ProgressReportGenerator:
                     progress = goal.get("progress")
                     progress = f"{progress}" if progress is not None else "—"
                     sections.append(
-                        f"  - {goal['title']} [{goal['status']}] (progress: {progress})"
+                        f"  - {goal['title']}{_state_label(goal.get('status'))}"
+                        f" (progress: {progress})"
                     )
             sections.append("")
 
@@ -1176,7 +1188,9 @@ class ProgressReportGenerator:
                 for habit in habits_details[:10]:
                     streak = habit.get("streak")
                     note = f" (streak: {streak})" if streak is not None else ""
-                    sections.append(f"  - {habit['title']} [{habit['status']}]{note}")
+                    sections.append(
+                        f"  - {habit['title']}{_state_label(habit.get('status'))}{note}"
+                    )
             sections.append("")
 
         # Events
@@ -1231,8 +1245,8 @@ class ProgressReportGenerator:
             if depth != ProgressDepth.SUMMARY:
                 for principle in principles_details[:10]:
                     alignment = principle.get("alignment")
-                    alignment_label = (
-                        f" [{alignment or 'unknown'}]" if alignment is not None else ""
+                    alignment_label = _state_label(
+                        (alignment or "unknown") if alignment is not None else None
                     )
                     strength = principle.get("strength") or ""
                     strength_label = f" ({strength})" if strength else ""

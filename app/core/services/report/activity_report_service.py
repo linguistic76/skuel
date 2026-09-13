@@ -31,6 +31,7 @@ if TYPE_CHECKING:
 
 from core.events import publish_event
 from core.events.learning_loop_events import ActivitySnapshotAccessed
+from core.models.enums import EntityStatus
 from core.models.enums.pipeline import ReportSource
 from core.models.report.activity_report import ActivityReport
 from core.models.report.activity_report_dto import ActivityReportDTO
@@ -195,6 +196,10 @@ class ActivityReportService:
         ]
         figures_are_current = not period.is_closed(now)
 
+        def live(value: Any) -> Any:  # boundary: a node property, passed through or dropped
+            """A node's live state is the cutoff's only while the cutoff is now."""
+            return value if figures_are_current else None
+
         if include_all or "tasks" in (domains or []):
             snapshot["domains"]["tasks"] = {
                 "count": len(tasks),
@@ -202,7 +207,11 @@ class ActivityReportService:
                 "items": [
                     {
                         "title": item.get("entity", {}).get("title", ""),
-                        "status": item.get("entity", {}).get("status", ""),
+                        "status": (
+                            EntityStatus.COMPLETED.value
+                            if eligible.completed_in_period(_entity(item))
+                            else live(item.get("entity", {}).get("status", ""))
+                        ),
                     }
                     for item in tasks[:10]
                 ],
@@ -214,12 +223,8 @@ class ActivityReportService:
                 "items": [
                     {
                         "title": item.get("entity", {}).get("title", ""),
-                        "status": item.get("entity", {}).get("status", ""),
-                        "progress": (
-                            item.get("entity", {}).get("progress_percentage")
-                            if figures_are_current
-                            else None
-                        ),
+                        "status": live(item.get("entity", {}).get("status", "")),
+                        "progress": live(item.get("entity", {}).get("progress_percentage")),
                     }
                     for item in goals[:10]
                 ],
@@ -231,12 +236,8 @@ class ActivityReportService:
                 "items": [
                     {
                         "title": item.get("entity", {}).get("title", ""),
-                        "status": item.get("entity", {}).get("status", ""),
-                        "streak": (
-                            item.get("entity", {}).get("current_streak", 0)
-                            if figures_are_current
-                            else None
-                        ),
+                        "status": live(item.get("entity", {}).get("status", "")),
+                        "streak": live(item.get("entity", {}).get("current_streak", 0)),
                     }
                     for item in habits[:10]
                 ],
@@ -280,12 +281,8 @@ class ActivityReportService:
                 "items": [
                     {
                         "title": item.get("entity", {}).get("title", ""),
-                        "status": item.get("entity", {}).get("status", ""),
-                        "alignment": (
-                            item.get("entity", {}).get("current_alignment")
-                            if figures_are_current
-                            else None
-                        ),
+                        "status": live(item.get("entity", {}).get("status", "")),
+                        "alignment": live(item.get("entity", {}).get("current_alignment")),
                     }
                     for item in principles[:10]
                 ],
