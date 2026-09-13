@@ -1,5 +1,5 @@
 ---
-updated: 2026-09-12
+updated: 2026-09-13
 ---
 
 # Deferred Work
@@ -191,6 +191,14 @@ renders them as a table in Obsidian, and a session derives the same table with
 ## Ingest Transition Obligation Durability
 
 [Ingest Transition Obligation Durability](ingest-transition-obligation-durability.md) — A status transition the ingest doors discover is graph state, not recorded intent, so a failure between the committed status write and the publish loses the cascade permanently — and since D.0 the app door has the same property one step later (a failed `TaskCompleted` subscriber, with no re-click replay); closing it needs an outbox, and the ordering it fights with is the one that has to win.
+
+## Askesis Entity-Extraction Match Is Unverified
+
+[Askesis Entity-Extraction Match Is Unverified](askesis-extraction-match-unverified.md) — No test has ever seen `EntityExtractor` match into `mentioned_entities` or the citations branch run; probed live, the match is reachable with the fixture as it is (one question naming the in-progress PathStep, two assertions) — build it on the next touch of the module. Holds two separate observations: mastered Kus never resolve (the lookup is `PsService`), and the lookup is N sequential round-trips per question.
+
+## MEGA-QUERY Sits on the Plan-Cache Cliff
+
+[MEGA-QUERY Sits on the Plan-Cache Cliff](mega-query-plan-cache-cliff.md) — The rich-context query executes in ~40 ms but is re-planned on every run (~0.5 s self-hosted, ~1.05 s Aura Free) because it is one block past the size at which Neo4j stops caching it; measured and bisected, three options priced — remove one block now, split into concurrent statements when the next section is needed.
 
 ## Review Schedule
 
