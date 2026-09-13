@@ -24,7 +24,6 @@ def mock_backend():
     backend.get_annotation = AsyncMock(return_value=Result.ok([]))
     backend.get_admin_snapshots = AsyncMock(return_value=Result.ok([]))
     backend.get_shares_granted = AsyncMock(return_value=Result.ok([]))
-    backend.get_report_schedule = AsyncMock(return_value=Result.ok([]))
     return backend
 
 

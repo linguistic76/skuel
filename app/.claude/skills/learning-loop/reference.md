@@ -536,8 +536,7 @@ annotation_updated_at: datetime | None
 
 | Source | Service | ReportSource | Trigger |
 |--------|---------|---------------|---------|
-| Scheduled system | `ProgressReportWorker` → `ProgressReportGenerator` | `AUTOMATIC` | Cron schedule |
-| On-demand AI | `ProgressReportGenerator.generate()` | `LLM` | User requests via API |
+| Generated on request | `ProgressReportGenerator.generate()` | `LLM` (`AUTOMATIC` on LLM failure → programmatic fallback) | The request form, or the calendar's period door (`/activity-reports/for`) — never a schedule |
 | Admin writes | `ActivityReportService.submit_report()` | `HUMAN` | Admin reviews snapshot |
 
 **Structural position:** Cross-domain aggregator. Cannot fit the leaf domain model
@@ -746,8 +745,6 @@ RelationshipName.REVISES_EXERCISE        # RevisedExercise → Exercise
 | **Learning Loop Intelligence (read)** | `LearningLoopQueryService` | — | `UserEntryBackend` (port `UserEntryOperations`) | `get_submissions_for_path_step(user_uid, ps_uid, limit=QueryLimit.COMPREHENSIVE)` — Interaction traversal + report-status enrichment, bounded by `limit` (default 100), entity_type filter parameterized via `EntityType.USER_ENTRY.value`. New learning-loop reads land here, not on a separate search service |
 | **Teacher review** | `TeacherReviewService` | `TeacherReviewOperations` | `UserEntryBackend` + `EntryReportBackend` + `ExerciseBackend` + `GroupBackend` | **Review actions:** `get_review_queue`, `get_submission_detail`, `submit_report` (file upload → `processed_content` + `report_file_path`), `request_revision` (text notes), `approve_report`, `get_report_file_path` · **Exercise view:** `get_exercises_with_submission_counts`, `get_submissions_for_exercise` · **Student view:** `get_students_summary` (sources from OWNS exercise_submission — any submitter, no PathStep enrollment required), `get_student_submissions` · **Dashboard:** `get_dashboard_stats`, `get_teacher_groups_with_stats`, `get_group_detail` · **Report listing moved:** use `EntryReportService.list_for_submission()` for typed report reads (not `get_report_history`, which was deleted) |
 | **Activity Report (auto/LLM)** | `ProgressReportGenerator` | `ProgressReportOperations` | `UserContextBuilder` | `generate` |
-| **Activity Report (scheduled)** | `ProgressReportWorker` | — | — | Background worker; calls `ProgressReportGenerator` on schedule |
-| **Activity Report (schedule CRUD)** | `ProgressScheduleService` | `ProgressScheduleOps` | — | `get_schedules`, `create_schedule`, `delete_schedule` |
 | **Activity Report (human)** | `ActivityReportService` | `ActivityReportOperations` | `ActivityReportBackend` + `UserContextBuilder` | `create_snapshot`, `submit_report`, `persist`, `get_history`, `annotate` |
 
 **Protocols location:** `core/ports/report_protocols.py` (report + teacher review + review queue + report relationships, both service- and backend-level), `core/ports/user_entry_protocols.py` (the 5 mixin-facing `UserEntry*Operations` slices + the composite `UserEntryOperations` backend port + `UserEntryProcessingOperations` — `submission_protocols.py` was deleted under ADR-054), `core/ports/group_protocols.py` (group CRUD only)

@@ -598,7 +598,7 @@ ever changes, the test says so.
 | `backends/forms_backends.py` | FormTemplateBackend, FormSubmissionBackend |
 | `backends/templates_backends.py` | TaskTemplateBackend, GoalTemplateBackend, HabitTemplateBackend, EventTemplateBackend, ChoiceTemplateBackend, PrincipleTemplateBackend |
 | `backends/collab_backends.py` | GroupBackend, LateralRelationshipBackend, NotificationBackend, ReviewQueueBackend |
-| `backends/misc_backends.py` | ActivityReportBackend, ResourceBackend, InteractionBackend, ReportScheduleBackend, ActivityReportGeneratorBackend |
+| `backends/misc_backends.py` | ActivityReportBackend, ResourceBackend, InteractionBackend, ActivityReportGeneratorBackend |
 
 Always import directly from the cluster file, e.g. `from adapters.persistence.neo4j.backends.activity_backends import TasksBackend`.
 

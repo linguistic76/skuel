@@ -708,10 +708,6 @@ class ReportTimePeriod:
     # Prevents rapid-fire LLM calls from the /api/reports/progress/generate endpoint.
     MIN_REPORT_COOLDOWN_MINUTES: Final = 60
 
-    # Minimum interval between automatic (scheduled) report generations.
-    # Prevents schedule misconfiguration from flooding a user with low-value reports.
-    MIN_AUTO_REPORT_INTERVAL_HOURS: Final = 24
-
 
 # ============================================================================
 # USAGE EXAMPLES

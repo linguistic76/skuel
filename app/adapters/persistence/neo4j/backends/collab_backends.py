@@ -18,7 +18,6 @@ if TYPE_CHECKING:
     from core.models.exercises.revised_exercise import RevisedExercise  # noqa: F401
     from core.models.forms.form_template import FormTemplate  # noqa: F401
     from core.models.interaction.interaction import Interaction  # noqa: F401
-    from core.models.report_schedule import ReportSchedule  # noqa: F401
     from core.models.resource.resource import Resource  # noqa: F401
     from core.ports.query_types import (
         BlockingChainRow,

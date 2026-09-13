@@ -1,6 +1,6 @@
 ---
 title: Relationships Architecture
-updated: 2026-09-11
+updated: 2026-09-13
 status: current
 category: architecture
 version: 2.0.0
@@ -151,7 +151,7 @@ relationship at least one predicate matches, so 117 entries have none.
 | Life Path | `SERVES_LIFE_PATH`, `ULTIMATE_PATH`, `ALIGNMENT_SNAPSHOT` |
 | Exercise / Group | `FULFILLS_EXERCISE`, `ASSIGNED_TO` |
 | Resource | `CITES_RESOURCE` — `(PathStep/Ku)-[:CITES_RESOURCE {context}]->(Resource)` |
-| Content / Processing | `REPORT_FOR`, `TRANSCRIBED_FOR`, `HAS_SCHEDULE` |
+| Content / Processing | `REPORT_FOR`, `TRANSCRIBED_FOR` |
 | Lateral | the `lateral` trait in the generated `GRAPH_CONTRACT.yaml` (`_LATERAL_TYPES` in `core/models/relationship_names.py`); `PREREQUISITE_FOR` ↔ `REQUIRES_PREREQUISITE`, `BLOCKS` ↔ `BLOCKED_BY` — `DEPENDS_ON` is the separate Task scheduling edge, not a lateral type |
 
 ---

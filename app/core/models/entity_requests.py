@@ -520,49 +520,6 @@ class ProgressReportGenerateRequest(BaseModel):
     )
 
 
-class ScheduleCreateRequest(BaseModel):
-    """Request model for creating an entity generation schedule."""
-
-    schedule_type: str = Field(
-        default="weekly",
-        description="Schedule frequency: weekly, biweekly, or monthly",
-        pattern=r"^(weekly|biweekly|monthly)$",
-    )
-    day_of_week: int = Field(
-        default=0,
-        ge=0,
-        le=6,
-        description="Day of week (0=Monday, 6=Sunday)",
-    )
-    domains: list[str] = Field(
-        default_factory=list,
-        description="Domains to include (empty = all)",
-    )
-    depth: str = Field(
-        default="standard",
-        description="Report depth: summary, standard, or detailed",
-        pattern=r"^(summary|standard|detailed)$",
-    )
-
-
-class ScheduleUpdateRequest(BaseModel):
-    """Request model for updating an entity schedule. All fields optional."""
-
-    schedule_type: str | None = Field(
-        default=None,
-        description="Schedule frequency",
-        pattern=r"^(weekly|biweekly|monthly)$",
-    )
-    day_of_week: int | None = Field(default=None, ge=0, le=6, description="Day of week")
-    domains: list[str] | None = Field(default=None, description="Domains to include")
-    depth: str | None = Field(
-        default=None,
-        description="Report depth",
-        pattern=r"^(summary|standard|detailed)$",
-    )
-    is_active: bool | None = Field(default=None, description="Enable/disable schedule")
-
-
 # =============================================================================
 # ACTIVITY FEEDBACK / REVIEW REQUEST MODELS
 # =============================================================================

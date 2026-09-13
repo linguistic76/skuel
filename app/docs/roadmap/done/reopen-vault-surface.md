@@ -1,6 +1,6 @@
 ---
 title: "Roadmap: the reopen vault surface"
-updated: 2026-08-26
+updated: 2026-09-13
 status: complete
 category: roadmap
 tags: [roadmap, vault, obsidian, tasks, events, done]
@@ -136,8 +136,9 @@ rejects.
 
 - ❌ *"CORE tier runs no background workers."* The guarantee is **AI-scoped**.
   `GRACEFUL_DEGRADATION_ARCHITECTURE.md` says *"No **AI** background workers spin up"* and then
-  documents one that does: the hourly `ProgressReportWorker` (graph analytics only) IS a CORE-tier
-  Analog worker. ADR-043 makes no no-workers claim, and the bus plus all ~45 subscriptions in
+  documents one that does: the 5-min graph-health poller (`update_graph_health_metrics`,
+  `scripts/dev/bootstrap.py` — graph statistics only) IS a CORE-tier Analog worker (the hourly
+  report-schedule worker this once cited was retired with its producer, 2026-09). ADR-043 makes no no-workers claim, and the bus plus all ~45 subscriptions in
   `services_bootstrap/_event_wiring.py` are wired unconditionally in CORE.
 - ❌ *"A subscriber is a background write in all but name."* `publish_event` awaits
   `InMemoryEventBus.publish_async`, which awaits handlers through `asyncio.gather`. A subscriber

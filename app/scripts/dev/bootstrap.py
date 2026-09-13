@@ -959,17 +959,6 @@ async def startup_skuel(
             "(ingestion never embeds inline, ADR-074)"
         )
 
-    # Start progress report background worker (February 2026)
-    # Worker checks hourly for due schedules and generates AI_FEEDBACK Entity nodes
-    if container.services.progress_report_worker:
-        progress_task = asyncio.create_task(
-            container.services.progress_report_worker.start(), name="progress_report_worker"
-        )
-        container.app.state.progress_report_worker_task = progress_task
-        logger.info("✅ Progress report worker started (hourly schedule check)")
-    else:
-        logger.info("⏭️  Progress report worker not available")
-
 
 async def shutdown_skuel(container: AppContainer) -> None:
     """Handle application shutdown with proper resource cleanup"""
@@ -987,18 +976,6 @@ async def shutdown_skuel(container: AppContainer) -> None:
                 logger.info("✅ Embedding background worker stopped")
             except Exception as e:
                 logger.warning(f"⚠️  Error stopping embedding worker: {e}")
-
-        # Stop progress report background worker if running (February 2026)
-        progress_worker_task = getattr(container.app.state, "progress_report_worker_task", None)
-        if progress_worker_task and not progress_worker_task.done():
-            logger.info("🛑 Stopping progress report worker...")
-            progress_worker_task.cancel()
-            try:
-                await progress_worker_task
-            except asyncio.CancelledError:
-                logger.info("✅ Progress report worker stopped")
-            except Exception as e:
-                logger.warning(f"⚠️  Error stopping progress report worker: {e}")
 
         # Stop schema-change monitoring if it was started (opt-in via NEO4J_SCHEMA_MONITORING).
         # The detector owns its own poll task; stop_schema_monitoring() cancels it cleanly.

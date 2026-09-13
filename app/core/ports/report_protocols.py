@@ -35,7 +35,6 @@ Protocol Responsibilities
     EntryReportOperations     — AI report + typed reads (generate_report, list_for_submission)
     AssessmentOperations         — A student's received teacher assessments (get_assessments_for_student)
     ProgressReportOperations     — Auto-generated progress reports (ACTIVITY_REPORT entities)
-    ProgressScheduleOperations   — Recurring progress report scheduling
     ActivityReportOperations     — Processor-neutral ActivityReport CRUD (snapshot, submit, history, annotate)
     ReviewQueueOperations        — ReviewRequest queue management (request_review, get_pending_reviews)
     TeacherReviewOperations      — Teacher review queue, report, revision, approval
@@ -74,7 +73,6 @@ if TYPE_CHECKING:
     from core.models.exercises.revised_exercise import RevisedExercise
     from core.models.report.activity_report import ActivityReport
     from core.models.report.entry_report import EntryReport
-    from core.models.report_schedule import ReportSchedule
     from core.models.user_entry.user_entry import UserEntry
     from core.ports.query_types import (
         AnnotationResult,
@@ -274,38 +272,6 @@ class ProgressReportOperations(Protocol):
 
 
 @runtime_checkable
-class ProgressScheduleOperations(Protocol):
-    """Recurring progress report scheduling operations.
-
-    Route consumer: progress_report_api.py
-    Implementation: ProgressScheduleService
-    """
-
-    async def create_schedule(
-        self,
-        user_uid: UserUID,
-        schedule_type: str = "weekly",
-        day_of_week: int = 0,
-        domains: list[str] | None = None,
-        depth: str = "standard",
-    ) -> "Result[ReportSchedule]":
-        """Create a recurring progress report schedule. Returns Result[ReportSchedule]."""
-        ...
-
-    async def get_user_schedule(self, user_uid: UserUID) -> "Result[ReportSchedule | None]":
-        """Get the user's active report schedule. Returns Result[ReportSchedule | None]."""
-        ...
-
-    async def update_schedule(self, uid: str, updates: dict[str, Any]) -> "Result[ReportSchedule]":
-        """Update a schedule's configuration. Returns Result[ReportSchedule]."""
-        ...
-
-    async def deactivate_schedule(self, uid: str) -> Result[bool]:
-        """Deactivate a schedule (soft delete). Returns Result[bool]."""
-        ...
-
-
-@runtime_checkable
 class ActivityReportOperations(Protocol):
     """Processor-neutral ActivityReport CRUD — snapshot, submit, history, annotate.
 
@@ -386,7 +352,7 @@ class ActivityReportOperations(Protocol):
         ...
 
     async def get_privacy_summary(self, user_uid: UserUID) -> "Result[PrivacySummary]":
-        """Return privacy-transparency summary for the user (admin snapshots, shares, schedule).
+        """Return privacy-transparency summary for the user (admin snapshots, shares).
 
         User-facing — always scoped to the requesting user's own data.
         """
@@ -432,23 +398,6 @@ class ActivityReportBackendOperations(BackendOperations["ActivityReport"], Proto
     async def get_shares_granted(
         self, user_uid: UserUID, limit: int = 100
     ) -> Result[list[Neo4jProperties]]: ...
-
-    async def get_report_schedule(self, user_uid: UserUID) -> Result[list[Neo4jProperties]]: ...
-
-
-@runtime_checkable
-class ReportScheduleBackendOperations(BackendOperations["ReportSchedule"], Protocol):
-    """Backend operations for ReportSchedule — base CRUD + schedule-specific.
-
-    Implementation: ReportScheduleBackend (backends/misc_backends.py)
-    Consumer: ProgressScheduleService.__init__
-    """
-
-    async def create_user_schedule_relationship(
-        self, user_uid: str, schedule_uid: str
-    ) -> Result[list[Neo4jProperties]]: ...
-
-    async def get_due_schedules(self, min_interval_hours: int) -> Result[list[Neo4jProperties]]: ...
 
 
 @runtime_checkable

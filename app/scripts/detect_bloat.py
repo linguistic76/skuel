@@ -481,18 +481,10 @@ _REPORT_EXERCISE_CHAIN = PlannedEntry(
     "exercise detail view (Mike ruled PLANNED 2026-06-12)",
     since=date(2026, 6, 12),
 )
-_REPORT_SCHEDULE_PRODUCER = PlannedEntry(
-    Readiness.READY,
-    "missing producer of a LIVE consumer — ProgressReportWorker starts at bootstrap "
-    "(scripts/dev/bootstrap.py) and polls get_due_schedules, but no route creates/manages "
-    "ReportSchedule nodes, so the loop polls an eternally-empty table; wire a report-schedule "
-    "settings route/UI to complete the periodic ActivityReport feature (ADR-069 §3)",
-    since=date(2026, 6, 12),
-)
 _REPORT_PRIVACY_AUDIT = PlannedEntry(
     Readiness.DELAYED,
-    "privacy-transparency surface staged — per-user audit of admin snapshots, shares granted, "
-    "and report schedule; the producer side (ActivitySnapshotAccessed audit events) already "
+    "privacy-transparency surface staged — per-user audit of admin snapshots and shares "
+    "granted; the producer side (ActivitySnapshotAccessed audit events) already "
     "publishes; wire a /privacy route + UI per the security posture "
     "(Mike ruled PLANNED 2026-06-12)",
     since=date(2026, 6, 12),
@@ -845,16 +837,7 @@ PLANNED_METHODS: dict[str, PlannedEntry] = {
     "core/services/report/report_relationship_service.py::get_learning_loop_chain": (
         _REPORT_EXERCISE_CHAIN
     ),
-    # --- Reports: missing producers of live consumers ---
-    "core/services/report/progress_schedule_service.py::create_schedule": (
-        _REPORT_SCHEDULE_PRODUCER
-    ),
-    "core/services/report/progress_schedule_service.py::get_user_schedule": (
-        _REPORT_SCHEDULE_PRODUCER
-    ),
-    "core/services/report/progress_schedule_service.py::deactivate_schedule": (
-        _REPORT_SCHEDULE_PRODUCER
-    ),
+    # --- Reports: missing producer of a live consumer ---
     "core/services/report/review_queue_service.py::request_review": _REVIEW_REQUEST_PRODUCER,
     # --- Sharing: revoke / visibility-ladder / management-view surface (ADR-038) ---
     "core/services/sharing/unified_sharing_service.py::unshare": _SHARING_MANAGEMENT,

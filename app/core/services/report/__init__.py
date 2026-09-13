@@ -15,13 +15,11 @@ Sub-services:
 - ReviewQueueService: ReviewRequest queue management (user requests, admin queue)
 - TeacherReviewService: Human teacher assessment and review queue
 - ProgressReportGenerator: AI-generated progress reports
-- ProgressScheduleService: Scheduled processing triggers
 """
 
 from core.services.report.activity_report_service import ActivityReportService
 from core.services.report.entry_report_service import EntryReportService
 from core.services.report.progress_report_generator import ProgressReportGenerator
-from core.services.report.progress_schedule_service import ProgressScheduleService
 from core.services.report.report_relationship_service import ReportRelationshipService
 from core.services.report.review_queue_service import ReviewQueueService
 from core.services.report.teacher_review_service import TeacherReviewService
@@ -29,7 +27,6 @@ from core.services.report.teacher_review_service import TeacherReviewService
 __all__ = [
     "ActivityReportService",
     "ProgressReportGenerator",
-    "ProgressScheduleService",
     "ReportRelationshipService",
     "ReviewQueueService",
     "EntryReportService",

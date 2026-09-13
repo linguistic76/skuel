@@ -1,5 +1,5 @@
 ---
-updated: 2026-09-11
+updated: 2026-09-13
 ---
 
 # Enum Architecture
@@ -26,7 +26,7 @@ Every enum lives in exactly one file. The `__init__.py` re-exports all public en
 | `event_enums.py` | Event domain classification | EventType |
 | `principle_enums.py` | Principle classification and alignment | PrincipleCategory, PrincipleSource, PrincipleStrength, AlignmentLevel, TriggerType |
 | `pipeline.py` | User entry processing dispatch + report provenance (ADR-054, supersede ProcessorType) | Pipeline, ReportSource |
-| `user_entry_enums.py` | User entry (submissions/journal) processing and scheduling | SubmissionModality, ExerciseScope, EnrichmentMode, ScheduleType, ProgressDepth |
+| `user_entry_enums.py` | User entry (submissions/journal) processing and report periods | SubmissionModality, ExerciseScope, EnrichmentMode, ProgressDepth, ReportPeriodKind |
 | `curriculum_enums.py` | Learning path and step types | LpType, StepDifficulty |
 | `lifepath_enums.py` | Vision theme classification | ThemeCategory |
 | `scheduling_enums.py` | Time, recurrence, energy | RecurrencePattern, TimeOfDay, EnergyLevel |
@@ -327,7 +327,7 @@ AlignmentLevel has `to_score()` / `from_score()` methods for the dual-track asse
 | SubmissionModality | FILE_UPLOAD, STRUCTURED_FORM | Submission format: file upload vs inline form. Set on `Exercise.expected_modality` (auto-derived from `form_schema`) and `UserEntry.modality` (set at creation). Orthogonal to `Pipeline` (what processes) — modality is *how* the submission was created. |
 | ExerciseScope | PERSONAL, ASSIGNED, ASSESSMENT, CURRICULUM | Exercise scope (user's own / teacher-assigned / formal test / content-vault-authored). Enforced at Pydantic boundary (`ExerciseCreateRequest.scope`) and all comparison sites — zero raw string comparisons remain. |
 | EnrichmentMode | ACTIVITY_TRACKING, IDEA_ARTICULATION, CRITICAL_THINKING | Journal LLM processing strategy. Used on `Exercise.enrichment_mode` and `UserEntry.enrichment_mode`. Maps to prompt templates via `InstructionResolver._MODE_TEMPLATE_MAP`. |
-| ScheduleType | WEEKLY, BIWEEKLY, MONTHLY | Progress report frequency |
+| ReportPeriodKind | TRAILING, WEEK, MONTH | How an activity report's window is anchored (`is_calendar`) |
 | ProgressDepth | SUMMARY, STANDARD, DETAILED | Report detail level |
 
 **Curriculum** (`curriculum_enums.py`):

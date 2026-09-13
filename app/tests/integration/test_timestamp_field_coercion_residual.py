@@ -4,8 +4,6 @@ Closes the string-stored-temporal bug class (companions: #199 date fields, #202
 created_at). These domain timestamp fields are written via DTO `.isoformat()` →
 stored as ISO **strings**, but were compared directly to `datetime()`/`date()`:
 
-* ReportSchedule.next_due_at / last_generated_at — `get_due_schedules` (the scheduled
-  -report worker never saw due schedules).
 * Insight.expires_at — `get_active_insights` (TTL'd insights vanished).
 * Habit.last_completed — `get_active_habits_prioritized` (streak-at-risk ordering lost).
 
@@ -22,36 +20,16 @@ from typing import cast
 import pytest
 
 from adapters.persistence.neo4j.backends.activity_backends import HabitsBackend
-from adapters.persistence.neo4j.backends.misc_backends import ReportScheduleBackend
 from adapters.persistence.neo4j.insight_backend import InsightBackend
 from adapters.persistence.neo4j.neo4j_query_executor import Neo4jQueryExecutor
 from core.models.enums.neo_labels import NeoLabel
 from core.models.habit.habit import Habit
-from core.models.report_schedule.report_schedule import ReportSchedule
 from core.models.type_hints import Neo4jProperties
 
 
 @pytest.mark.asyncio
 class TestTimestampFieldCoercionResidual:
     """String-stored domain timestamps must match temporal comparisons."""
-
-    async def test_get_due_schedules_matches_string_next_due_at(self, neo4j_driver, clean_neo4j):
-        """A schedule whose string next_due_at is in the past is returned as due."""
-        past = (datetime.now(UTC) - timedelta(hours=2)).isoformat()
-        async with neo4j_driver.session() as session:
-            await session.run(
-                """
-                CREATE (:ReportSchedule {uid: 'sched_due', is_active: true,
-                    next_due_at: $past, last_generated_at: null})
-                """,
-                past=past,
-            )
-        backend = ReportScheduleBackend(neo4j_driver, NeoLabel.REPORT_SCHEDULE, ReportSchedule)
-
-        result = await backend.get_due_schedules(min_interval_hours=1)
-        assert result.is_ok, f"get_due_schedules failed: {result}"
-        uids = {cast("Neo4jProperties", row["s"])["uid"] for row in result.value}
-        assert "sched_due" in uids  # empty under string-vs-datetime
 
     async def test_get_active_insights_includes_string_future_expiry(
         self, neo4j_driver, clean_neo4j

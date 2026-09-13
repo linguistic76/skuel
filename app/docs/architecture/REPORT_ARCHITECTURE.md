@@ -226,13 +226,14 @@ Both use atomic Cypher: create entity + `REPORT_FOR` + `SHARES_WITH` (to the sub
 
 **`ActivityReport` has no `Submission` ancestry by design** — it has no file fields (`original_filename`, `file_path`, `file_size`). It is about a user over time, not a submitted artifact.
 
-**Three sources — same entity type:**
+**Two sources — same entity type:**
 
 | Source | Service | ReportSource | Trigger |
 |--------|---------|---------------|---------|
-| Scheduled system | `ProgressReportWorker` → `ProgressReportGenerator` | `AUTOMATIC` | `ProgressSchedule` cron |
-| On-demand AI | `ProgressReportGenerator.generate()` | `LLM` | `POST /api/reports/progress/generate` |
+| Generated on request | `ProgressReportGenerator.generate()` | `LLM` (`AUTOMATIC` when the LLM fails and the programmatic fallback writes) | `POST /api/reports/progress/generate` (the request form), `POST /activity-reports/for` (the calendar's period door) |
 | Admin writes feedback | `ActivityReportService.submit_report()` | `HUMAN` | Admin reviews snapshot |
+
+There is no scheduled generation: a report exists because a person asked for one. The former schedule producer (a `ReportSchedule` node, an hourly worker) was retired 2026-09-13 — it was a second period vocabulary beside the calendar periods, and nothing ever consumed an unrequested report (ADR-069 Decision 3 rows 6–8, as amended).
 
 **Graph pattern:**
 ```cypher
@@ -371,7 +372,7 @@ ACTIVITY_REPORT node
 
 `ProgressReportGenerator` accepts a `UserContextBuilder` (primary data source). The primary data comes from `context_builder.build_rich(user_uid, window=...)` — MEGA_QUERY extended with six activity-window CALL{} blocks. Per SKUEL's architecture rule: **domain-specific Cypher belongs on the domain backend; cross-domain aggregation stays in services.** `ProgressReportGenerator` is the cross-domain aggregation service — it sits above the domain backends by design.
 
-`ActivityReportBackend` owns the ActivityReport entity's persistence and privacy audit queries (get_history, annotate, get_annotation, get_admin_snapshots, get_shares_granted, get_report_schedule). `ProgressReportGenerator` is the cross-domain *aggregation* layer that builds report *content* — the backend handles *storage*. The `build_rich()` result (`context.entities_rich`, `context.knowledge_units_rich`, `context.enrolled_paths_rich`, `context.active_path_steps_rich`) gives the full cross-domain picture in a single Neo4j round-trip.
+`ActivityReportBackend` owns the ActivityReport entity's persistence and privacy audit queries (get_history, annotate, get_annotation, get_admin_snapshots, get_shares_granted). `ProgressReportGenerator` is the cross-domain *aggregation* layer that builds report *content* — the backend handles *storage*. The `build_rich()` result (`context.entities_rich`, `context.knowledge_units_rich`, `context.enrolled_paths_rich`, `context.active_path_steps_rich`) gives the full cross-domain picture in a single Neo4j round-trip.
 
 ### Summary
 
@@ -487,9 +488,6 @@ When `openai_service` is available, the generator:
 | `/api/activity-reports/annotate` | POST | User | Save annotation or revision to own report (fragment) |
 | `/activity-reports/md?uid=` | GET | User | Download own report as `.md` (owner-scoped; foreign uid → 404) |
 
-The report *schedule* surface (`ReportSchedule`, `ProgressScheduleService`, the hourly
-`ProgressReportWorker`) has no producer route and is slated for retirement — see
-`/docs/roadmap/calendar-priority-lens-arc.md` § Arc E.
 | `/api/activity-review/request` | POST | User | Request an activity review from admin |
 | `/api/activity-review/queue` | GET | Admin | Pending review queue |
 | `/api/activity-review/history` | GET | User/Admin | Received activity feedback history |

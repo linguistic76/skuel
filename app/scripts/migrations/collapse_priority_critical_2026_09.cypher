@@ -1,7 +1,7 @@
 // Migration: Collapse persisted priority 'critical' to 'high' (2026-09)
 // =====================================================================
 // Ruling: Priority has exactly three levels — low / medium / high
-//   (docs/roadmap/calendar-priority-lens-arc.md, ruling 1; amends ADR-045).
+//   (docs/roadmap/done/calendar-priority-lens-arc.md, ruling 1; amends ADR-045).
 //   The enum member Priority.CRITICAL is deleted in the code PR that follows
 //   this migration (arc B1). This file runs FIRST: Priority(task.priority) is
 //   constructed directly on every calendar and Today read, so a deleted member

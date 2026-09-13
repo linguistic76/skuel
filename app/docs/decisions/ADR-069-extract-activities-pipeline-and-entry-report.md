@@ -1,11 +1,13 @@
 ---
-updated: 2026-09-03
+updated: 2026-09-13
 ---
 
 # ADR-069: EXTRACT_ACTIVITIES Pipeline + EntryReport Convergence
 
 **Status:** Accepted (Decisions 1–2, Mike 2026-06-12). Decision 3 ruled
-and executed 2026-06-12: all 10 findings PLANNED, no deletions (§3 table).
+and executed 2026-06-12: all 10 findings PLANNED, no deletions (§3 table);
+rows 6–8 amended 2026-09-13 — the schedule producer AND its worker retired
+together (calendar-priority-lens arc, ruling 7).
 **Date:** 2026-06-12
 **Builds on:** [ADR-054 UserEntry](ADR-054-user-entry-unified-submissions.md) (incl. Postscript),
 [ADR-043 Intelligence Tier Toggle](ADR-043-intelligence-tier-toggle.md)
@@ -347,10 +349,10 @@ entry itself remains fully functional — Analog-complete).
 Wiring evidence verified 2026-06-12: the 5 `ReportRelationshipService` methods
 have **zero callers** — the service is constructed and injected into
 UserContextIntelligence (`core/services/user/intelligence/core.py:218`) and never
-invoked (the phantom-injection pattern). `ProgressReportWorker` **is started** at
-bootstrap (`scripts/dev/bootstrap.py:802`) and calls
-`get_due_schedules`/`mark_generated` — but no route creates a schedule, so the
-loop polls an eternally-empty table (0 ReportSchedule nodes). The admin review
+invoked (the phantom-injection pattern). The hourly report-schedule worker
+**was started** at bootstrap and polled for due schedules — but no route created
+a schedule, so the loop polled an eternally-empty table (0 ReportSchedule nodes;
+still 0 when the worker was retired with its producer, 2026-09-13). The admin review
 queue page is **live** (`activity_review_ui.py` → `get_pending_reviews`) but no
 route calls `request_review`, so the queue is eternally empty (0 ReviewRequest
 nodes). `get_privacy_summary`'s docstring claims `GET /api/privacy/audit` — **no
@@ -363,8 +365,8 @@ privacy route exists anywhere in `adapters/inbound/`**.
 | 3 | `get_unsubmitted_exercises` | **PLANNED (Mike, 2026-06-12)** | Assigned-work nag for daily planning — staged under the daily-plan phantom-dispatch repair thread. |
 | 4 | `get_report_summary` | **PLANNED (Mike, 2026-06-12)** | Completion-rate read surface over REPORT_FOR; wire a progress/dashboard consumer. |
 | 5 | `get_learning_loop_chain` | **PLANNED (Mike, 2026-06-12)** | Exercise-rooted loop traversal; awaits a teaching-UI exercise detail view (the entry-rooted twin is design-claimed). |
-| 6–8 | `progress_schedule_service.create_schedule` / `get_user_schedule` / `deactivate_schedule` | **PLANNED — completion backlog of a live consumer** | The worker runs at every bootstrap; these are the missing *producer* surface (a settings route/UI). Deleting them strands a running loop — incoherent. Periodic ActivityReports are also this design's §2.1 aggregate lens over journal-derived activity. |
-| 9 | `activity_report_service.get_privacy_summary` | **PLANNED (Mike, 2026-06-12)** | Privacy-transparency surface aligned with the security posture (admin-snapshot audit events already publish for it). The docstring's claimed-but-nonexistent `GET /api/privacy/audit` route reference is fixed in the campaign PR. |
+| 6–8 | `progress_schedule_service.create_schedule` / `get_user_schedule` / `deactivate_schedule` | **PLANNED (2026-06-12) → RETIRED with the worker (2026-09-13)** | *Original ruling:* the worker runs at every bootstrap; these are the missing *producer* surface (a settings route/UI); deleting them alone strands a running loop — incoherent. *Amendment 2026-09-13 (calendar-priority-lens arc, ruling 7):* row 10's all-or-nothing rule applied symmetrically — the loop retired WITH its producer. The schedule was a second period vocabulary (trailing windows + a weekday cadence) beside the calendar periods reports now speak, nothing consumed an unrequested report, and the table stayed empty from the day it was built. The one period-report path is the find-or-generate door (`GET`/`POST /activity-reports/for`, `docs/architecture/REPORT_ARCHITECTURE.md`); periodic ActivityReports as this design's §2.1 aggregate lens are those calendar-period reports, generated when a person opens the period. |
+| 9 | `activity_report_service.get_privacy_summary` | **PLANNED (Mike, 2026-06-12)** | Privacy-transparency surface aligned with the security posture (admin-snapshot audit events already publish for it). The docstring's claimed-but-nonexistent `GET /api/privacy/audit` route reference is fixed in the campaign PR. *Amendment 2026-09-13:* the summary's schedule section went with rows 6–8; it reports admin snapshots and shares granted. |
 | 10 | `review_queue_service.request_review` | **PLANNED — completion backlog of a live consumer** | The admin queue page ships and reads `get_pending_reviews`; this is its missing producer (user-side "request a review" button). All-or-nothing cross-surface rule: either both sides live or both go — the consumer is live. |
 
 **Campaign executed 2026-06-12 (no-deletion campaign):** all 10 findings registered

@@ -217,7 +217,6 @@ from .report_protocols import (
     AssessmentOperations,
     EntryReportOperations,
     ProgressReportOperations,
-    ProgressScheduleOperations,
     ReviewQueueOperations,
     TeacherReviewOperations,
 )
@@ -411,7 +410,6 @@ __all__ = [
     "AssessmentOperations",
     "EntryReportOperations",
     "ProgressReportOperations",
-    "ProgressScheduleOperations",
     "ReviewQueueOperations",
     # ========== EXERCISE PROTOCOLS ==========
     "ExerciseOperations",

@@ -5,10 +5,10 @@ Activity Report Service
 Processor-neutral CRUD for ActivityReport entities. Owns all ActivityReport
 persistence regardless of who authored it — human admin or AI.
 
-Three creation paths all converge here:
+Two creation paths converge here:
     Admin-written:   submit_report() → ReportSource.HUMAN
-    AI-generated:    persist() called by ProgressReportGenerator → ReportSource.LLM / AUTOMATIC
-    Scheduled:       persist() called by ProgressReportWorker → ReportSource.AUTOMATIC
+    Generated:       persist() called by ProgressReportGenerator → ReportSource.LLM
+                     (AUTOMATIC when the LLM fails and the programmatic fallback writes)
 
 Review queue management (ReviewRequest nodes) lives in ReviewQueueService.
 
@@ -658,12 +658,11 @@ class ActivityReportService:
         """
         Return a privacy-transparency summary for the authenticated user.
 
-        Three data points:
+        Two data points:
             admin_snapshots  — ActivityReports written by admins about this user
                                (processor_type=human, subject_uid=user_uid)
             shares_granted   — Users who currently have SHARES_WITH access to
                                the user's entities
-            report_schedule  — Current automatic report schedule + last generated
 
         Staged (PLANNED tier, ADR-069 §3): no route consumes this yet — wire a
         /privacy route + UI. User-facing — always scoped to the requesting
@@ -673,8 +672,8 @@ class ActivityReportService:
             user_uid: Authenticated user requesting their own privacy summary
 
         Returns:
-            Result[dict] — privacy summary with admin_snapshots, shares_granted,
-                           and report_schedule sections
+            Result[dict] — privacy summary with admin_snapshots and shares_granted
+                           sections
         """
         # 1. Admin-written ActivityReports received by this user
         admin_snapshots_result = await self.backend.get_admin_snapshots(user_uid)
@@ -708,31 +707,11 @@ class ActivityReportService:
                     }
                 )
 
-        # 3. Active report schedule + last generated report
-        schedule_result = await self.backend.get_report_schedule(user_uid)
-        report_schedule: dict[str, Any] = {"active": False}
-        if schedule_result.is_ok and schedule_result.value:
-            record = schedule_result.value[0]
-            report_schedule = {
-                "active": True,
-                "schedule_type": record.get("schedule_type", ""),
-                "day_of_week": record.get("day_of_week"),
-                "next_due_at": (
-                    str(record.get("next_due_at")) if record.get("next_due_at") else None
-                ),
-                "last_generated_at": (
-                    str(record.get("last_generated_at"))
-                    if record.get("last_generated_at")
-                    else None
-                ),
-            }
-
         summary: PrivacySummary = {
             "user_uid": user_uid,
             "admin_snapshots": admin_snapshots,
             "admin_snapshot_count": len(admin_snapshots),
             "shares_granted": shares_granted,
             "shares_granted_count": len(shares_granted),
-            "report_schedule": report_schedule,
         }
         return Result.ok(summary)

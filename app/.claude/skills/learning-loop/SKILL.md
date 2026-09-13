@@ -341,7 +341,6 @@ that never closes the loop.
 | `core/services/report/progress_report_generator.py` | 4 | ActivityReport generation |
 | `core/services/report/activity_report_service.py` | 4 | Admin human report; all write paths converge here |
 | `core/services/report/teacher_review_service.py` | 4 | Teacher review workflow (review queue, revision, approval) |
-| `core/services/background/progress_report_worker.py` | 4 | Scheduled activity report background worker |
 | `core/ports/user_entry_protocols.py` | 3 | UserEntry protocols — backend port (`UserEntryOperations`) + CRUD/lifecycle/assessment/report-query/content sub-protocols |
 | `core/ports/report_protocols.py` | 7 | All report protocols incl. `TeacherReviewOperations`, `ReviewQueueOperations`, `ReportRelationshipOperations` — typed returns (`ReviewRequestResult`, `PendingReviewItem`, `GroupMemberProgress`) |
 | `core/ports/group_protocols.py` | support | `GroupOperations` only (group CRUD + membership) |

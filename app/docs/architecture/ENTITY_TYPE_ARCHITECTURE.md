@@ -1,6 +1,6 @@
 ---
 title: SKUEL Architecture — 25 Entity Types + 5 Cross-Cutting Systems
-updated: 2026-09-04
+updated: 2026-09-13
 status: current
 category: architecture
 version: 8.1.0
@@ -398,7 +398,7 @@ The educational loop: `PathStep -> Exercise -> UserEntry -> EntryReport -> Revis
 
 **Services:**
 - `core/services/user_entry/` — `UserEntryService` (facade), `UserEntryProcessingService` (pipeline dispatch: Deepgram transcribe, LLM summarize, transcribe-and-structure, DSL activity extraction per ADR-069), `AssessmentService`, `ReviewQueueService`, relationship + exercise linking helpers.
-- `core/services/report/` — `EntryReportService`, `ProgressReportGenerator`, `ProgressScheduleService`.
+- `core/services/report/` — `EntryReportService`, `ProgressReportGenerator`, `ActivityReportService`.
 
 **See:** `/docs/architecture/REPORT_ARCHITECTURE.md`, [ADR-054](../decisions/ADR-054-user-entry-unified-submissions.md)
 

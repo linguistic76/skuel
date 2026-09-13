@@ -134,8 +134,6 @@ RENAMED: dict[str, str] = {
     "SubmissionReportOperations": "EntryReportOperations",
     "FeedbackRelationshipService": "ReportRelationshipService",
     "ProgressFeedbackGenerator": "ProgressReportGenerator",
-    "ProgressFeedbackWorker": "ProgressReportWorker",
-    "progress_feedback_worker": "progress_report_worker",
     "progress_feedback_generator": "progress_report_generator",
     # UserEntry collapse (ADR-054, April 2026) — SKUEL018
     "EntityType.EXERCISE_SUBMISSION": "EntityType.USER_ENTRY (pipeline=teacher_review)",
@@ -170,6 +168,24 @@ DELETED: dict[str, str] = {
     "TasksService.ku_generation_service": "removed — now private as self._ku_generation_service",
     # Deleted classes / concepts
     "ProfileLayout": "deleted — use BasePage(page_type=PageType.CUSTOM)",
+    # The scheduled-report producer (retired 2026-09; calendar-priority-lens arc E3):
+    # a report is minted by the find-or-generate door (GET/POST /activity-reports/for)
+    # or the request form, never by a schedule.
+    "ProgressReportWorker": "deleted — no scheduled report generation; reports are generated on request",
+    "ProgressFeedbackWorker": "deleted — no scheduled report generation; reports are generated on request",
+    "progress_report_worker": "deleted — no scheduled report generation; reports are generated on request",
+    "progress_feedback_worker": "deleted — no scheduled report generation; reports are generated on request",
+    "ProgressScheduleService": "deleted — no report schedules; reports are generated on request",
+    "ProgressScheduleOperations": "deleted — no report schedules; reports are generated on request",
+    "ReportScheduleBackend": "deleted — no ReportSchedule nodes",
+    "ReportScheduleBackendOperations": "deleted — no ReportSchedule nodes",
+    "ReportScheduleDTO": "deleted — no ReportSchedule nodes",
+    "core.models.report_schedule": "deleted — no ReportSchedule nodes",
+    "ScheduleCreateRequest": "deleted — no report schedules",
+    "ScheduleUpdateRequest": "deleted — no report schedules",
+    "MIN_AUTO_REPORT_INTERVAL_HOURS": "deleted — no scheduled report generation (MIN_REPORT_COOLDOWN_MINUTES is the on-demand cooldown)",
+    "NeoLabel.REPORT_SCHEDULE": "deleted — no ReportSchedule nodes",
+    "RelationshipName.HAS_SCHEDULE": "deleted — no ReportSchedule nodes",
     "PageType.HUB": "deleted — sidebar pages use PageType.CUSTOM + SidebarPage",
     "PageHead": "deleted — use build_head() from ui.layouts.base_page",
     # Deleted enum members
@@ -319,7 +335,7 @@ ALLOWED_OCCURRENCES: dict[str, dict[tuple[int, str], Allow]] = {
         (44, "ProcessorType"): Allow(_skill_ll),
     },
     ".claude/skills/learning-loop/reference.md": {
-        (744, "JournalOutputService"): Allow(_ref_ll),
+        (743, "JournalOutputService"): Allow(_ref_ll),
     },
     "docs/TROUBLESHOOTING.md": {
         (132, "daisy_components"): Allow(_trouble, hits=2),
