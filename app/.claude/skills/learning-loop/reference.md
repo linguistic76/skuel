@@ -650,7 +650,7 @@ enables student notification and learning loop progression tracking.
   - `GET /api/revised-exercises/my-revisions` (student_uid match)
   - `GET /api/revised-exercises/view?uid=` (student_uid or owner match)
   - Daily planning: `get_ready_to_work_on_today()` surfaces them at Priority 2.3 via
-    `context.pending_revised_exercises` (populated by MEGA-QUERY)
+    `context.pending_revised_exercises` (populated from `SUBMISSION_STATS_QUERY`, fetched beside the MEGA-QUERY)
 
 **Student-facing UI (GradeBook 3→1, feedback-loop UX arc 2 C1):**
 
@@ -849,7 +849,7 @@ RelationshipName.REVISES_EXERCISE        # RevisedExercise → Exercise
    Tasks, Goals, Habits, Events, Choices, Principles + KU mastery, LP progress, PS progress
        ↓
 2. UserContextBuilder.build_rich()                  → core/services/user/user_context_builder.py
-   MEGA-QUERY fetches all domain data including submission_stats
+   MEGA-QUERY fetches all domain data; submission_stats arrives from SUBMISSION_STATS_QUERY beside it
        ↓
 3. ProgressReportGenerator.generate()               → core/services/report/progress_report_generator.py
    Uses context.entities_rich + LLM (or programmatic fallback)

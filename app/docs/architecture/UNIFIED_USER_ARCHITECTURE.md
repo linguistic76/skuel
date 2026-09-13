@@ -1,6 +1,6 @@
 ---
 title: User Architecture — User Model, Auth, Roles, and UserContext
-updated: 2026-09-05
+updated: 2026-09-13
 status: current
 category: architecture
 tags:
@@ -165,13 +165,15 @@ async def admin_only_route(request, current_user):
 
 **The problem:** Understanding a user without `UserContext` requires 15+ separate queries across all domains. Stats are disconnected from UIDs. Intelligence services can't see across domain boundaries.
 
-**The solution:** One object (~250 fields), built by one query (MEGA-QUERY), consumed by all intelligence services. Stats are computed FROM UIDs — no duplication, no drift. Core identity fields (`user_uid`, `username`, `display_name`, `email`, `user_role`) are populated from the `User` model during context building — callers should use `UserContext` directly instead of fetching `User` separately (the builder already resolves the user internally).
+**The solution:** One object (~250 fields), built by one concurrent round-trip — the MEGA-QUERY plus the statements that run beside it — and consumed by all intelligence services. Stats are computed FROM UIDs — no duplication, no drift. Core identity fields (`user_uid`, `username`, `display_name`, `email`, `user_role`) are populated from the `User` model during context building — callers should use `UserContext` directly instead of fetching `User` separately (the builder already resolves the user internally).
 
 ```
-Graph (Neo4j) → MEGA-QUERY → UserContext → UserContextIntelligence → Recommendations
-                  ^                              ^
-             one query                   "What should I work on?"
+Graph (Neo4j) → MEGA-QUERY + its side statements → UserContext → UserContextIntelligence → Recommendations
+                  ^                                                     ^
+       one concurrent round-trip                               "What should I work on?"
 ```
+
+**Why more than one statement (2026-09):** a Cypher statement is served from the server's plan cache only up to a size — cumulative across `MATCH`es, `WITH`s and the `RETURN` map — past which the server re-plans it on *every* execution (~0.5 s self-hosted, ~1 s on AuraDB Free, against ~40 ms of actual execution). `MEGA_QUERY` sits just under that edge; the learning-loop reads (`SUBMISSION_STATS_QUERY`, `ENTRY_KNOWLEDGE_APPLIED_QUERY`) are statements of their own, run with `asyncio.gather` alongside the current-path-step, engagement and group reads, so the wall cost is the slowest statement. `tests/integration/test_user_context_plan_cache.py` pins every rich-context statement under the edge with the driver's `result_available_after` — **a new section belongs in a statement of its own, never appended to `MEGA_QUERY`** (a line or `OPTIONAL MATCH` count is the wrong guard; the edge is server-version dependent). Measured and priced in [../roadmap/mega-query-plan-cache-cliff.md](../roadmap/mega-query-plan-cache-cliff.md).
 
 ### Two Depths
 
@@ -262,7 +264,7 @@ Domain intelligence services (`TasksIntelligenceService`, etc.) analyse single d
 
 ```
 user_context_builder.py    (~331 lines)   Orchestration — build() vs build_rich()
-user_context_queries.py    (~1000 lines)  MEGA_QUERY + CONSOLIDATED_QUERY
+user_context_queries.py    (~1700 lines)  MEGA_QUERY, SUBMISSION_STATS_QUERY, ENTRY_KNOWLEDGE_APPLIED_QUERY, CONSOLIDATED_QUERY + the executor
 user_context_extractor.py  (~351 lines)   Result parsing + relationship extraction
 user_context_populator.py  (~235 lines)   Context field population
 ```
@@ -403,7 +405,7 @@ async def get_advancing_goals(self, user_uid: UserUID) -> Result[list[Contextual
 
 **Orchestration layer builds context once:**
 ```python
-context = await context_builder.build_rich(user_uid)  # ONE query
+context = await context_builder.build_rich(user_uid)  # one concurrent round-trip
 result = await service.some_method(context)            # zero re-queries
 ```
 

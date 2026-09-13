@@ -2551,6 +2551,17 @@ class CurrentPathStepItem(TypedDict):
     title: str
 
 
+class EntryKnowledgeAppliedRow(TypedDict):
+    """One UserEntry and the Ku uids it APPLIES_KNOWLEDGE to (ADR-069), PathStep→Ku rollup applied.
+
+    Row of ``ENTRY_KNOWLEDGE_APPLIED_QUERY``; the source of
+    ``UserContext.entry_knowledge_applied``.
+    """
+
+    uid: str
+    ku_uids: list[str]
+
+
 class UnsubmittedExerciseItem(TypedDict):
     """Shape for UserContext.unsubmitted_exercises items."""
 

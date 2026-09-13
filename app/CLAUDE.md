@@ -379,7 +379,7 @@ Bidirectional sync between a user's personal Obsidian vault and SKUEL. Tasks wri
 
 **Core Principle:** "UserContext is THE single object for understanding a user's complete state"
 
-One object (~250 fields), built by one query (MEGA-QUERY), consumed by all intelligence services. Carries core identity from the `User` model (`user_uid`, `username`, `display_name`, `email`, `user_role`) — only fetch `User` directly when you need `user.preferences`.
+One object (~250 fields), built by one concurrent round-trip (the MEGA-QUERY plus the statements beside it — `SUBMISSION_STATS_QUERY`, `ENTRY_KNOWLEDGE_APPLIED_QUERY`, path steps, engagements, groups — via `asyncio.gather`), consumed by all intelligence services. Carries core identity from the `User` model (`user_uid`, `username`, `display_name`, `email`, `user_role`) — only fetch `User` directly when you need `user.preferences`. **Never append a section to `MEGA_QUERY`:** it sits just under the server's plan-cache size edge (past it, every execution re-plans at ~0.5–1 s); a new read is a statement of its own, and `tests/integration/test_user_context_plan_cache.py` measures the edge rather than counting lines.
 
 | Depth | Method | Use Case |
 |-------|--------|----------|
