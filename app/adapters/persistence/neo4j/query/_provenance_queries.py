@@ -44,6 +44,16 @@ class ProvenanceQueries:
 
         Use Case: "Show only expert-verified prerequisites"
 
+        Follows the node's OUTGOING chain — ``(node)-[:REQUIRES_KNOWLEDGE]->(prerequisite)``
+        is how every writer records "node requires prerequisite" (GRAPH_CONTRACT:
+        ``outgoing`` on the dependent; ``incoming`` = dependents). A chain is kept
+        only when EVERY edge on it is from an allowed source at or above
+        ``min_confidence``, and only its root is returned: the far prerequisite
+        that itself requires nothing further (the whole path and its per-edge
+        metadata ride along). A trusted chain whose far node still has an
+        untrusted prerequisite of its own therefore yields nothing — the root
+        test is on the graph, not on the trusted subgraph.
+
         Args:
             node_uid: Starting node UID
             node_label: Neo4j label (default: KnowledgeUnit)
@@ -65,13 +75,13 @@ class ProvenanceQueries:
             allowed_sources = ["expert_verified", "curriculum"]
 
         cypher = f"""
-        MATCH path = (end:{node_label} {{uid: $node_uid}})<-[rs:{relationship_type}*1..{depth}]-(start)
+        MATCH path = (end:{node_label} {{uid: $node_uid}})-[rs:{relationship_type}*1..{depth}]->(start)
         WHERE all(r IN rs WHERE
             r.source IN $allowed_sources AND
             coalesce(r.confidence, 1.0) >= $min_confidence
         )
         WITH path, rs, start
-        WHERE NOT (start)<-[:{relationship_type}]-()
+        WHERE NOT (start)-[:{relationship_type}]->()
         RETURN start, path, length(path) as depth,
                [r IN rs | {{source: r.source, confidence: r.confidence, evidence: r.evidence}}] as metadata
         ORDER BY depth DESC
@@ -291,6 +301,12 @@ class ProvenanceQueries:
 
         Use Case: "Show only well-documented prerequisites (3+ evidence items)"
 
+        Same chain shape as ``build_trust_filtered_prerequisite_chain`` — the
+        node's outgoing ``REQUIRES_KNOWLEDGE`` chain, every edge carrying at
+        least ``min_evidence_count`` evidence items, only chain roots returned
+        (the far prerequisite that requires nothing further, path and per-edge
+        metadata alongside).
+
         Args:
             node_uid: Starting node UID
             node_label: Neo4j label (default: KnowledgeUnit)
@@ -310,10 +326,10 @@ class ProvenanceQueries:
             # Returns: Only prerequisites with 3+ evidence items
         """
         cypher = f"""
-        MATCH path = (end:{node_label} {{uid: $node_uid}})<-[rs:{relationship_type}*1..{depth}]-(start)
+        MATCH path = (end:{node_label} {{uid: $node_uid}})-[rs:{relationship_type}*1..{depth}]->(start)
         WHERE all(r IN rs WHERE size(coalesce(r.evidence, [])) >= $min_evidence_count)
         WITH path, rs, start
-        WHERE NOT (start)<-[:{relationship_type}]-()
+        WHERE NOT (start)-[:{relationship_type}]->()
         RETURN start, path, length(path) as depth,
                [r IN rs | {{
                    source: r.source,

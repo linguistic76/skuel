@@ -216,11 +216,15 @@ class TestProvenanceQueries:
         assert isinstance(query, str)
         assert isinstance(params, dict)
 
-        # Verify query structure
-        assert "MATCH path" in query
+        # Verify query structure: outgoing chain, every edge filtered, chain roots only
+        assert (
+            "MATCH path = (end:Entity {uid: $node_uid})-[rs:REQUIRES_KNOWLEDGE*1..5]->(start)"
+            in query
+        )
         assert "WHERE all(r IN rs WHERE" in query
         assert "r.source IN $allowed_sources" in query
         assert "coalesce(r.confidence, 1.0) >= $min_confidence" in query
+        assert "WHERE NOT (start)-[:REQUIRES_KNOWLEDGE]->()" in query
 
         # Verify parameters
         assert params["node_uid"] == "ku.advanced_python"
@@ -277,11 +281,16 @@ class TestProvenanceQueries:
         assert isinstance(query, str)
         assert isinstance(params, dict)
 
-        # Verify query structure
+        # Verify query structure: outgoing chain, every edge filtered, chain roots only
+        assert (
+            "MATCH path = (end:Entity {uid: $node_uid})-[rs:REQUIRES_KNOWLEDGE*1..5]->(start)"
+            in query
+        )
         assert (
             "WHERE all(r IN rs WHERE size(coalesce(r.evidence, [])) >= $min_evidence_count)"
             in query
         )
+        assert "WHERE NOT (start)-[:REQUIRES_KNOWLEDGE]->()" in query
         assert "evidence_count: size(r.evidence)" in query
 
         # Verify parameters
