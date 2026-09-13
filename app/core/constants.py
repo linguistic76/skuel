@@ -336,11 +336,13 @@ class AskesisPipelineTimeout:
     """
     Timeout limits for the Askesis RAG pipeline.
 
-    A typical pipeline (MEGA-QUERY + intent + extraction + bundle + LLM)
-    completes in 5-7 seconds. The timeout prevents infinite hangs from
-    slow Neo4j queries, unresponsive LLM APIs, or network issues.
-
-    March 2026: Added to prevent unbounded pipeline execution.
+    A warm pipeline (cached UserContext + intent + extraction + bundle + LLM)
+    completes in ~3-5 seconds. The budget must also cover the FIRST question
+    of a process, which pays the one-time costs inside it: the rich UserContext
+    build on a cache miss (MEGA-QUERY + ZPD capstone, ~10s on a cold graph)
+    and the intent-exemplar embedding load (one concurrent round-trip). The
+    timeout prevents unbounded hangs from slow Neo4j queries, unresponsive LLM
+    APIs, or network issues — it is not a per-stage SLA.
     """
 
     # Maximum seconds for the complete answer_user_question() pipeline.

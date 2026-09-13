@@ -22,6 +22,7 @@ March 2026: Added classify_pedagogical_intent() for PS-scoped Socratic pipeline.
 
 from __future__ import annotations
 
+import asyncio
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any
 
@@ -624,30 +625,47 @@ class IntentClassifier:
 
         logger.info("Loading intent exemplar embeddings (one-time initialization)...")
 
+        # Every exemplar is embedded CONCURRENTLY: the load costs one round-trip's
+        # latency, not the sum of the set in series. It runs lazily inside the first
+        # question's `AskesisPipelineTimeout` budget, so its wall-clock IS that
+        # learner's wait. Failures stay per-exemplar (one refused text does not
+        # discard the rest) — hence gathered `create_embedding` calls rather than
+        # `create_batch_embeddings`, which fails the whole batch on its first error.
+        # A RAISED failure propagates to the caller's safety net.
+        keyed_exemplars = [
+            (intent, exemplar_query)
+            for intent, exemplar_queries in INTENT_EXEMPLARS.items()
+            for exemplar_query in exemplar_queries
+        ]
+        embedding_results = await asyncio.gather(
+            *(
+                self.embeddings_service.create_embedding(exemplar_query)
+                for _intent, exemplar_query in keyed_exemplars
+            )
+        )
+
         exemplar_embeddings: dict[QueryIntent, list[list[float]]] = {}
         failed_count = 0
 
+        for (intent, exemplar_query), embedding_result in zip(
+            keyed_exemplars, embedding_results, strict=True
+        ):
+            if embedding_result.is_ok:
+                exemplar_embeddings.setdefault(intent, []).append(embedding_result.value)
+            else:
+                failed_count += 1
+                logger.warning(
+                    "Failed to embed exemplar '%s' (%s): %s",
+                    exemplar_query,
+                    intent.value,
+                    embedding_result.error,
+                )
+
         for intent, exemplar_queries in INTENT_EXEMPLARS.items():
-            embeddings_for_intent = []
-
-            for exemplar_query in exemplar_queries:
-                embedding_result = await self.embeddings_service.create_embedding(exemplar_query)
-                if embedding_result.is_ok:
-                    embeddings_for_intent.append(embedding_result.value)
-                else:
-                    failed_count += 1
-                    logger.warning(
-                        "Failed to embed exemplar '%s' (%s): %s",
-                        exemplar_query,
-                        intent.value,
-                        embedding_result.error,
-                    )
-
-            if embeddings_for_intent:
-                exemplar_embeddings[intent] = embeddings_for_intent
+            if intent in exemplar_embeddings:
                 logger.debug(
                     "Loaded %d/%d exemplars for %s",
-                    len(embeddings_for_intent),
+                    len(exemplar_embeddings[intent]),
                     len(exemplar_queries),
                     intent.value,
                 )

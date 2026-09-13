@@ -10,13 +10,19 @@ NOTE: These tests require:
 2. OPENAI_API_KEY environment variable (for full app bootstrap)
 3. HF_API_TOKEN environment variable (for embeddings)
 
-KNOWN FLAKE: these tests exercise the live OpenAI API end-to-end, so they can
-fail transiently (network, rate limits, nondeterministic LLM output). Observed
-once 2026-07-20: test_ask_endpoint_success failed in a full-suite run, then
-passed in isolation AND on the full re-run of the same commit (during the
-neo4j 2026.06.0 bump — the bump was exonerated by exactly this pattern).
-Policy: capture the traceback BEFORE re-running; add retry machinery only if
-it recurs — a blanket retry could mask a real Askesis regression.
+LIVE-LATENCY NOTE: these tests exercise the live OpenAI API end-to-end, so they
+can fail transiently (network, rate limits, nondeterministic LLM output). The
+first live question of a process is the sensitive one — it pays every one-time
+cost INSIDE `AskesisPipelineTimeout.ANSWER_QUESTION_SECONDS` (30s): the rich
+UserContext build (~10s cold on the testcontainer: MEGA-QUERY first execution
+plus the ZPD capstone) and the intent-exemplar embedding load (48 texts,
+concurrent, ~0.5s), before the ~3-5s of per-question work. The warm pipeline
+runs in ~3s. `test_ask_endpoint_success` is that first question whenever this
+module runs alone. A timeout here is therefore a cold-path budget question
+first: measure the stages (`-s` shows the structlog stage lines, `--log-cli-level=INFO`
+the httpx round-trips) before suspecting the pipeline. Policy stands: capture
+the traceback BEFORE re-running; no blanket retry — it would mask a real
+Askesis regression.
 """
 
 import pytest
@@ -93,12 +99,22 @@ async def test_ask_endpoint_success(skuel_app, enrolled_user_with_lp):
 
 
 @pytest.mark.asyncio
-async def test_ask_endpoint_entity_extraction(skuel_app, populated_test_data):
-    """Test that entity extraction works with populated knowledge units."""
+async def test_ask_endpoint_entity_extraction(
+    skuel_app, populated_test_data, enrolled_user_with_lp
+):
+    """A prerequisite question runs the full pipeline for an enrolled learner.
+
+    The learner is `enrolled_user_with_lp` so the PS-first enrollment gate passes
+    and intent classification, entity extraction, retrieval and generation all
+    run; `populated_test_data` supplies the knowledge-unit corpus. Extraction is
+    scoped to the learner's known/engaged KUs (`known_or_engaged_ku_uids`), which
+    this learner's fixture does not link to the corpus — so the test asserts the
+    `mentioned_entities` SHAPE when present, not a match.
+    """
     if not await _embeddings_available(skuel_app):
         pytest.skip("Requires embeddings service for intent classification")
     askesis = skuel_app.state.services.askesis
-    user_uid = populated_test_data["user_uid"]
+    user_uid = enrolled_user_with_lp["user_uid"]
 
     result = await askesis.answer_user_question(
         user_uid, "What prerequisites do I need for async programming?"
@@ -106,6 +122,7 @@ async def test_ask_endpoint_entity_extraction(skuel_app, populated_test_data):
 
     assert result.is_ok, f"RAG pipeline failed: {result.error}"
     data = result.value
+    assert data["mode"] != "enrollment_gate", "enrolled learner must reach the pipeline"
 
     # Verify standard response structure
     assert "answer" in data, "Response should include answer field"
@@ -121,18 +138,23 @@ async def test_ask_endpoint_entity_extraction(skuel_app, populated_test_data):
 
 
 @pytest.mark.asyncio
-async def test_ask_endpoint_semantic_search(skuel_app, populated_test_data):
-    """Test that semantic search pathway works (question without exact keyword match)."""
+async def test_ask_endpoint_semantic_search(skuel_app, populated_test_data, enrolled_user_with_lp):
+    """A question with no keyword match runs the full pipeline for an enrolled learner.
+
+    Same fixture pairing as `test_ask_endpoint_entity_extraction`: the enrolled
+    learner passes the gate, the populated corpus is what retrieval searches.
+    """
     if not await _embeddings_available(skuel_app):
         pytest.skip("Requires embeddings service for intent classification")
     askesis = skuel_app.state.services.askesis
-    user_uid = populated_test_data["user_uid"]
+    user_uid = enrolled_user_with_lp["user_uid"]
 
     # Ask question without exact keyword match — tests semantic understanding
     result = await askesis.answer_user_question(user_uid, "How do I make my code run concurrently?")
 
     assert result.is_ok, f"RAG pipeline failed: {result.error}"
     data = result.value
+    assert data["mode"] != "enrollment_gate", "enrolled learner must reach the pipeline"
 
     # Verify standard response structure
     assert "answer" in data, "Response should include answer field"
