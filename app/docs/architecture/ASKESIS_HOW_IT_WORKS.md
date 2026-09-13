@@ -1,5 +1,5 @@
 ---
-updated: 2026-08-31
+updated: 2026-09-13
 ---
 
 # How Askesis Works
@@ -325,6 +325,8 @@ The entire RAG pipeline (Steps 1–10) runs under `asyncio.wait_for()` with a **
 - Slow Neo4j MEGA-QUERY (cold cache, large graph)
 - Unresponsive LLM API (rate limit, network partition)
 - Cascading slowness from multiple partial failures
+
+The budget is sized for the **first question of a process**, which pays the one-time costs inside it: the rich UserContext build on a cache miss (MEGA-QUERY + ZPD capstone, ~10s on a cold graph) and the intent-exemplar embedding load (48 texts, embedded concurrently in one round-trip). A warm question completes in ~3–5s.
 
 On timeout: `Result.fail()` with user message *"Your question is taking too long. Please try again."* Both `answer_user_question()` and `process_query_with_context()` have independent timeouts — a slow query processor doesn't block the outer pipeline indefinitely.
 

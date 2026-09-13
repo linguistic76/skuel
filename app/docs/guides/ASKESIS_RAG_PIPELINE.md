@@ -1,5 +1,5 @@
 ---
-updated: 2026-08-31
+updated: 2026-09-13
 ---
 
 # Askesis RAG Pipeline — Developer Guide
@@ -268,7 +268,7 @@ intent = await intent_classifier.classify_intent(question)
 | `AGGREGATION` | "How many tasks do I have?" |
 | `RELATIONSHIP` | "How are these topics connected?" |
 
-The six exemplar intents above (`SPECIFIC` is the default fallback when no match clears the threshold) each have 8 exemplar sentences. Exemplar embeddings are lazily computed on first classification and cached.
+The six exemplar intents above (`SPECIFIC` is the default fallback when no match clears the threshold) each have 8 exemplar sentences. Exemplar embeddings are computed lazily on the first classification of a process and cached for its lifetime — all 48 texts embed **concurrently** (one round-trip's latency, not 48 in series), because that load runs inside the first question's `AskesisPipelineTimeout` budget and its wall-clock is that learner's wait.
 
 ⚠️ **The gate was unreachable until 2026-08-31 (PR-2).** At the previous value of 0.65 —
 an *average* over 8 diverse short exemplars — real queries scored 0.078–0.291 and even a
