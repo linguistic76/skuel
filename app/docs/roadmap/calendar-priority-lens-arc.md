@@ -453,16 +453,17 @@ detached by ``scripts/migrations/detach_pinned_today_2026_09.cypher``.
   the period's reusable report or renders the pill's "Generate" state — and the generation transition
   (LLM call, persisted `ActivityReport`, cooldown consumption) is a CSRF-protected
   `POST /activity-reports/for`, so a prefetch or speculative navigation can never mint a report.
-  **History has no writer yet** (Codex P1s, round 9): no production path appends `Goal.progress_history`
-  (`update_goal_progress` writes the figure and, with notes, `metadata["progress_notes"]`; A1c stamps
-  `last_progress_update`), and `record_principle_reflection` publishes events and stamps
-  `last_review_date` while `alignment_history` is appended only by the self-assessment flow. Before
-  `goals_progressed` / `principles_reviewed` read history for a closed period, E.2 makes every
-  progress-writing path (`update_goal_progress`, `GoalsCoreService.update_goal` on a
-  `progress_percentage` change, `complete_goal`) append `{date, progress_percentage}` to
-  `progress_history`, and reflections persist a dated occurrence (an `alignment_history` entry with
-  `kind: reflection` and no score); until then a calendar-period report keeps the trailing-stamp read and
-  records the limitation in its metadata, like the period-end denominator.
+  **History has writers (E.2b)** (Codex P1s, round 9 found none): every progress-writing path
+  (`update_goal_progress`, `complete_milestone`, the habit- and task-completion propagations,
+  `GoalsCoreService.update_goal` on a `progress_percentage` change — `complete_goal` included, whose
+  entry rides the completion transition — and the reopen reset, whose 0% entry rides the prior-COMPLETED
+  patch; the manual door dates its entry at the supplied `update_date`) appends `{date, progress_percentage}` to
+  `Goal.progress_history` (`core/services/goals/progress_history.py`), and `record_principle_reflection`
+  appends a dated `AlignmentAssessment(kind="reflection")` to `alignment_history` beside the
+  self-assessment flow's entries; `goals_progressed` / `principles_reviewed` count from those entries
+  for every period kind, and the only limitation a calendar-period report records is the period-end
+  denominator. **Run at deploy, before E.2b's code:** `scripts/migrations/seed_activity_history_2026_09.cypher`
+  seeds one entry per stamped, history-less node (live census 2026-09-12: 0 goals, 2 principles).
 - **E.3 retire the schedule producer** (ruling 7): worker, `ProgressScheduleService`, `core/models/report_schedule/`,
   `ReportScheduleBackend`, both protocols, `ScheduleType`, both request models, `NeoLabel.REPORT_SCHEDULE`,
   `RelationshipName.HAS_SCHEDULE`, `MIN_AUTO_REPORT_INTERVAL_HOURS`, compose/container/bootstrap wiring, the

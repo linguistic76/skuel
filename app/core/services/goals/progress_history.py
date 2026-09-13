@@ -1,0 +1,49 @@
+"""The goal's progress history — every progress event, appended by its writer.
+
+``Goal.progress_history`` is the persisted record a period report counts from:
+``last_progress_update`` is a single stamp every later write overwrites, so a
+September report generated in October would read zero for a goal progressed in
+both months. Each writer that moves ``progress_percentage`` — the manual door,
+the milestone door, the habit- and task-completion propagations, an intent
+carrying a figure through the core update, and the reopen reset (a completed
+goal back to non-terminal: 100% → 0%) — appends one entry beside the stamp,
+from the goal it pre-read (the append is a read-modify-write of one JSON
+property; two writers racing the same goal last-writer-win on the list, a
+personal record's acceptable odds). The manual door dates its entry at the
+``update_date`` the caller supplies, so a correction entered later lands in
+the period it belongs to.
+"""
+
+from __future__ import annotations
+
+from datetime import datetime
+from typing import TYPE_CHECKING, cast
+
+from core.models.goal.progress_history import ProgressHistoryEntry
+
+if TYPE_CHECKING:
+    from core.models.goal.goal import Goal
+
+
+def progress_entry(figure: float | None, at: datetime) -> ProgressHistoryEntry:
+    """One progress event: the figure written and when."""
+    return ProgressHistoryEntry(date=at.isoformat(), progress_percentage=figure)
+
+
+def with_progress_entry(
+    goal: Goal | None, figure: float | None, at: datetime
+) -> list[ProgressHistoryEntry]:
+    """The goal's history with this event appended — the list the write persists.
+
+    ``goal`` is the writer's pre-read (``None`` when it had none, which starts
+    the history); its entries were written in this record shape and are
+    carried as read-only views, so they are copied out into plain records.
+    """
+    existing = [
+        cast("ProgressHistoryEntry", dict(entry))
+        for entry in (goal.progress_history if goal is not None else ())
+    ]
+    return [*existing, progress_entry(figure, at)]
+
+
+__all__ = ["progress_entry", "with_progress_entry"]

@@ -32,6 +32,7 @@ from __future__ import annotations
 from dataclasses import dataclass, fields
 from typing import TYPE_CHECKING, Any
 
+from core.models.principle.principle_types import AlignmentHistoryRecord
 from core.models.sentinels import UNSET, Unset
 
 if TYPE_CHECKING:
@@ -72,10 +73,13 @@ class PrincipleUpdateIntent:
     priority: str | Unset | None = UNSET
     tags: list[str] | Unset | None = UNSET
 
-    # --- Review stamp (service-set, not request-settable) --------------------
-    # The date of the last reflection or self-assessment; the review cadence and
-    # the report's principles_reviewed counter read it.
+    # --- Review stamp + history (service-set, not request-settable) ----------
+    # The date of the last reflection or self-assessment (the review cadence reads
+    # it) and the dated entries themselves — ``AlignmentHistoryRecord``, the
+    # ``AlignmentAssessment.to_record()`` shape — which the report's
+    # principles_reviewed counter reads by date.
     last_review_date: date | Unset | None = UNSET
+    alignment_history: list[AlignmentHistoryRecord] | Unset | None = UNSET
 
     def to_changes(self) -> dict[str, Any]:
         """Return only the explicitly-set fields as a backend-ready patch.

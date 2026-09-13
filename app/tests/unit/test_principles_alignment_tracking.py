@@ -293,7 +293,40 @@ class TestSelfAssessmentReviewStamp:
         mock_backend.update.assert_awaited_once()
         written = mock_backend.update.await_args.args[1]
         assert str(written["last_review_date"])[:10] == date.today().isoformat()
-        assert written["alignment_history"][-1]["evidence"] == "Kept my word under pressure"
+        # The stored record shape: ISO date, level value, kind — JSON-encodable
+        # as the node stores the list (a native date would fail the write).
+        assert written["alignment_history"][-1] == {
+            "assessed_date": date.today().isoformat(),
+            "alignment_level": "aligned",
+            "evidence": "Kept my word under pressure",
+            "reflection": "Felt right",
+            "kind": "assessment",
+        }
+        # The stored entries come first, in their record shape.
+        assert written["alignment_history"][0]["assessed_date"] == "2025-10-01"
+        from adapters.persistence.neo4j.neo4j_mapper import to_neo4j_node
+
+        to_neo4j_node({"alignment_history": written["alignment_history"]})  # encodes
+
+    @pytest.mark.asyncio
+    async def test_a_failed_store_fails_the_assessment(
+        self, alignment_service, mock_backend, sample_principle_with_alignment
+    ) -> None:
+        """An assessment that was never stored is not announced as one."""
+        from core.models.enums.principle_enums import AlignmentLevel
+        from core.utils.result_simplified import Errors
+
+        mock_backend.get = AsyncMock(return_value=Result.ok(sample_principle_with_alignment))
+        mock_backend.update = AsyncMock(return_value=Result.fail(Errors.database("update", "boom")))
+
+        result = await alignment_service.assess_with_user_input(
+            sample_principle_with_alignment.uid,
+            sample_principle_with_alignment.user_uid,
+            AlignmentLevel.ALIGNED,
+            "kept my word",
+        )
+
+        assert result.is_error
 
     @pytest.mark.asyncio
     async def test_assessing_a_foreign_principle_is_not_found_and_stores_nothing(

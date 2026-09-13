@@ -121,9 +121,11 @@ Also handles: recommendation generation (via `backend.get_achievement_context()`
 | `goal_type` | `GoalType` | Outcome, Process, Learning, Project, Milestone, Mastery |
 | `timeframe` | `GoalTimeframe` | Daily, Weekly, Monthly, Quarterly, Yearly, Multi-year |
 | `status` | `GoalStatus` | Not Started, In Progress, Completed, etc. |
-| `priority` | `Priority` | Low, Medium, High, Urgent |
+| `priority` | `Priority` | Low, Medium, High |
 | `target_date` | `date?` | Target completion date |
-| `progress` | `float` | Progress percentage (0.0-1.0) |
+| `progress_percentage` | `float` | Progress percentage (0-100) — the goal's one progress field |
+| `last_progress_update` | `datetime?` | Stamp of the last progress EVENT (a figure that moved); overwritten by every later one |
+| `progress_history` | `tuple[ProgressHistoryEntry, ...]` | Every progress event, `{date, progress_percentage}`, appended by each writer that moves the figure (manual door, milestone door, task/habit propagation, an intent carrying a figure, the reopen reset); the activity report's `goals_progressed` counts from these, never from the stamp |
 | `measurement_type` | `MeasurementType` | Binary, Percentage, Numeric, Milestone, etc. |
 | `domain` | `Domain` | TECH, HEALTH, PERSONAL, etc. |
 

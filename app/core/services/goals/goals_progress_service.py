@@ -30,6 +30,7 @@ from core.services.base_service import BaseService
 from core.services.completion_stamp import COMPLETION_FIELDS, is_completion_transition
 from core.services.domain_config import create_activity_domain_config
 from core.services.goals.goal_relationships import GoalRelationships
+from core.services.goals.progress_history import with_progress_entry
 from core.services.infrastructure import ProgressCalculator
 from core.services.user import UserContext
 from core.services.user.rich_context import (
@@ -100,6 +101,19 @@ def _achievement_write(target_achieved: bool) -> tuple[StatusWriteGuard, Neo4jPr
 if TYPE_CHECKING:
     from core.events.habit_events import HabitCompleted
     from core.services.relationships import UnifiedRelationshipService
+
+
+def _parse_progress_date(raw: str) -> datetime | None:
+    """An ISO date or datetime as the naive local instant the graph's stamps use;
+    ``None`` when it does not parse. A bare date is that day's first instant; an
+    aware datetime is brought to local time and stripped."""
+    try:
+        parsed = datetime.fromisoformat(raw)
+    except ValueError:
+        return None
+    if parsed.tzinfo is not None:
+        parsed = parsed.astimezone().replace(tzinfo=None)
+    return parsed
 
 
 class GoalsProgressService(BaseService[GoalsOperations, Goal]):
@@ -393,7 +407,9 @@ class GoalsProgressService(BaseService[GoalsOperations, Goal]):
             "current_value": completed_count,
         }
         if not target_milestone.is_completed:
-            updates["last_progress_update"] = datetime.now()
+            now = datetime.now()
+            updates["last_progress_update"] = now
+            updates["progress_history"] = with_progress_entry(goal, new_progress, now)
         guard, achievement = _achievement_write(target_achieved)
 
         update_result = await self.backend.update_with_status_guard(goal_uid, updates, guard)
@@ -501,7 +517,9 @@ class GoalsProgressService(BaseService[GoalsOperations, Goal]):
             # normalization window recomputes to the same capped figure, and that
             # is not a progress event a period report should count.
             if abs(new_progress - old_progress) >= 0.01:
-                updates["last_progress_update"] = datetime.now()
+                now = datetime.now()
+                updates["last_progress_update"] = now
+                updates["progress_history"] = with_progress_entry(goal, new_progress, now)
 
             # Check if goal is achieved — on the TRANSITION, matching the gate in
             # _update_goal_from_habit_completion. `>= 100` alone re-stamps
@@ -777,11 +795,31 @@ class GoalsProgressService(BaseService[GoalsOperations, Goal]):
             uid: Goal UID
             progress_value: New progress value (0-100)
             notes: Optional progress notes
-            update_date: Optional update date (ISO format)
+            update_date: The date the progress happened (ISO date or datetime),
+                when it is not now — a September correction entered in October
+                is a September event. Unparseable or in the future: validation
+                failure.
 
         Returns:
             Result containing progress update confirmation with old/new values
         """
+        at = datetime.now()
+        if update_date:
+            parsed = _parse_progress_date(update_date)
+            if parsed is None:
+                return Result.fail(
+                    Errors.validation(
+                        message=f"Invalid update_date {update_date!r}", field="update_date"
+                    )
+                )
+            if parsed > at:
+                return Result.fail(
+                    Errors.validation(
+                        message="update_date cannot be in the future", field="update_date"
+                    )
+                )
+            at = parsed
+
         # Get current goal
         goal_result = await self.backend.get_goal(uid)
         if goal_result.is_error:
@@ -799,15 +837,14 @@ class GoalsProgressService(BaseService[GoalsOperations, Goal]):
         # records a CHANGE: re-posting the stored figure is not a progress event.
         updates: dict[str, Any] = {"progress_percentage": progress_value}
         if abs(progress_value - old_progress) >= 0.01:
-            updates["last_progress_update"] = datetime.now()
+            updates["last_progress_update"] = at
+            updates["progress_history"] = with_progress_entry(goal, progress_value, at)
 
         if notes:
             # Append notes to metadata (access via DTO)
             metadata: dict[str, Any] = goal_dto.metadata or {}
             progress_notes = metadata.get("progress_notes", [])
-            progress_notes.append(
-                {"date": update_date or datetime.now().isoformat(), "notes": notes}
-            )
+            progress_notes.append({"date": at.isoformat(), "notes": notes})
             metadata["progress_notes"] = progress_notes
             updates["metadata"] = metadata
 
@@ -831,7 +868,7 @@ class GoalsProgressService(BaseService[GoalsOperations, Goal]):
                 "old_progress": old_progress,
                 "new_progress": progress_value,
                 "notes": notes,
-                "update_date": update_date or datetime.now().isoformat(),
+                "update_date": at.isoformat(),
             }
         )
 
@@ -1115,7 +1152,9 @@ class GoalsProgressService(BaseService[GoalsOperations, Goal]):
         # The stamp records a CHANGE of the figure; a tally repair alone is not one.
         updates: dict[str, Any] = {"progress_percentage": new_progress}
         if progress_changed:
-            updates["last_progress_update"] = datetime.now()
+            now = datetime.now()
+            updates["last_progress_update"] = now
+            updates["progress_history"] = with_progress_entry(goal, new_progress, now)
 
         if goal.measurement_type == MeasurementType.TASK_BASED:
             # The measurement IS the linked-task tally, so this writer owns both ends of
@@ -1329,7 +1368,9 @@ class GoalsProgressService(BaseService[GoalsOperations, Goal]):
         # The stamp records a CHANGE of the figure; a measurement repair alone is not one.
         updates: dict[str, Any] = {"progress_percentage": new_progress}
         if progress_changed:
-            updates["last_progress_update"] = datetime.now()
+            now = datetime.now()
+            updates["last_progress_update"] = now
+            updates["progress_history"] = with_progress_entry(goal, new_progress, now)
 
         if goal.measurement_type == MeasurementType.HABIT_BASED:
             # target_value is the desired streak length (see the division above), so

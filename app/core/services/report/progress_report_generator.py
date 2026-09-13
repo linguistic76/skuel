@@ -20,9 +20,11 @@ See: /docs/architecture/REPORT_ARCHITECTURE.md
 
 import json
 from datetime import datetime
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, cast
 
 from core.models.enums import EntityStatus
+from core.models.goal.progress_history import ProgressHistoryEntry
+from core.models.principle.principle_types import AlignmentHistoryRecord
 
 if TYPE_CHECKING:
     from core.ports import QueryExecutor
@@ -63,6 +65,33 @@ def _state_label(state: object) -> str:
     """`` [state]`` for a present state; nothing for an absent or empty one (a
     closed period's details carry no live state)."""
     return f" [{state}]" if state else ""
+
+
+def _json_entries(raw: object) -> list[dict[str, Any]]:  # boundary: a JSON property decoded
+    """A node's history property as a list of dict entries.
+
+    ``progress_history`` and ``alignment_history`` are lists of records on the
+    model and ONE JSON string on the node, which is how a rich-context row
+    carries them (``properties(n)``); an unreadable value reads as no history.
+    """
+    if isinstance(raw, str):
+        try:
+            raw = json.loads(raw)
+        except ValueError:
+            return []
+    if not isinstance(raw, list | tuple):
+        return []
+    return [dict(entry) for entry in raw if isinstance(entry, dict)]
+
+
+def _progress_history(raw: object) -> list[ProgressHistoryEntry]:
+    """The row's ``progress_history`` as the records its writers persist."""
+    return [cast("ProgressHistoryEntry", entry) for entry in _json_entries(raw)]
+
+
+def _alignment_history(raw: object) -> list[AlignmentHistoryRecord]:
+    """The row's ``alignment_history`` as the records its writers persist."""
+    return [cast("AlignmentHistoryRecord", entry) for entry in _json_entries(raw)]
 
 
 class ProgressReportGenerator:
@@ -896,23 +925,27 @@ class ProgressReportGenerator:
         (the rich query selects completed tasks by ``updated_at``, so an old
         completion re-edited in the period must not count) over ``tasks_total`` =
         completed in period + open now, the period's own denominator; ``goals_progressed`` =
-        ``last_progress_update`` in period; ``habits_completed`` = ``last_completed``
-        in period (a habit whose NODE status is completed is a retired habit);
-        ``events_attended`` = in-period events whose status is completed (attendance
-        is the completed state, as ``EventsProgressService.get_attendance_rate``
-        defines it — a cancelled or merely passed event is inventory);
-        ``choices_made`` = ``decided_at`` in period; ``principles_reviewed`` =
-        ``last_review_date`` in period. Events are kept only when their
+        a ``progress_history`` entry dated in period; ``habits_completed`` = a
+        ``HabitCompletion`` row in period (a habit whose NODE status is completed is
+        a retired habit); ``events_attended`` = in-period events whose status is
+        completed (attendance is the completed state, as
+        ``EventsProgressService.get_attendance_rate`` defines it — a cancelled or
+        merely passed event is inventory); ``choices_made`` = ``decided_at`` in
+        period; ``principles_reviewed`` = an ``alignment_history`` entry (a
+        self-assessment or a reflection) dated in period. Events are kept only when their
         ``event_date`` falls inside the period — the rich query selects every event
         from ``window_start`` onward with no upper bound, so a scheduled future
         event would otherwise read as already attended.
 
-        ``habits_completed`` reads persisted history, not a stamp: the habits
-        with at least one ``HabitCompletion`` row in the period
-        (``habit_completions`` — per-habit counts from the backend), since
-        ``last_completed`` is overwritten by every later completion and a
-        September report generated in October would otherwise count zero for
-        a habit done in both months.
+        The habit, goal and principle counters read persisted history, never a
+        latest stamp: the habits with at least one ``HabitCompletion`` row in the
+        period (``habit_completions`` — per-habit counts from the backend), the
+        goals with a ``progress_history`` entry in it, the principles with an
+        ``alignment_history`` entry in it. ``last_completed``,
+        ``last_progress_update`` and ``last_review_date`` are overwritten by
+        every later completion, progress write or review, and a September
+        report generated in October would otherwise count zero for a habit done
+        in both months.
 
         ``tasks_total``'s "open" half is open AT ``period_end`` (default: the
         window's end): created no later than it and either non-terminal now or
@@ -996,7 +1029,11 @@ class ProgressReportGenerator:
                 entity = item["entity"]
                 if not existed_by_period_end(entity):
                     continue
-                if in_period(entity.get("last_progress_update")):
+                progressed_in_period = any(
+                    in_period(entry.get("date"))
+                    for entry in _progress_history(entity.get("progress_history"))
+                )
+                if progressed_in_period:
                     result["goals_progressed"] += 1
                 result["goals_details"].append(
                     {
@@ -1074,7 +1111,11 @@ class ProgressReportGenerator:
                 entity = item["entity"]
                 if not existed_by_period_end(entity):
                     continue
-                if in_period(entity.get("last_review_date")):
+                reviewed_in_period = any(
+                    in_period(entry.get("assessed_date"))
+                    for entry in _alignment_history(entity.get("alignment_history"))
+                )
+                if reviewed_in_period:
                     result["principles_reviewed"] += 1
                 result["principles_details"].append(
                     {
@@ -1372,14 +1413,11 @@ class ProgressReportGenerator:
         """The named approximations a calendar-period report carries.
 
         Recorded in the report's metadata so a reader knows what the counts
-        can and cannot say; a trailing window ending now has neither.
+        can and cannot say; a trailing window ending now has none.
         """
         if not period.is_calendar:
             return []
         return [
-            "goals_progressed and principles_reviewed read each entity's latest stamp "
-            "(last_progress_update, last_review_date); a progress write or review after "
-            "this period overwrites it, so a closed period can undercount them.",
             "tasks_total counts a task as open at the period's end when it was created by "
             "then and is either non-terminal now or terminal after the period; a task "
             "closed before the period and merely edited after it is counted as open.",
