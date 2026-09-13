@@ -77,7 +77,7 @@ def _json_entries(raw: object) -> list[dict[str, Any]]:  # boundary: a JSON prop
     if isinstance(raw, str):
         try:
             raw = json.loads(raw)
-        except ValueError:
+        except json.JSONDecodeError:
             return []
     if not isinstance(raw, list | tuple):
         return []
