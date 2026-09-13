@@ -194,7 +194,7 @@ renders them as a table in Obsidian, and a session derives the same table with
 
 ## Askesis Entity-Extraction Match Is Unverified
 
-[Askesis Entity-Extraction Match Is Unverified](askesis-extraction-match-unverified.md) — No test has ever seen `EntityExtractor` match a KU into `mentioned_entities`: the enrolled fixture puts `IN_PROGRESS` on the PathStep, never on the Ku that `known_or_engaged_ku_uids` reads; specified down to the one edge, the one question and the one assertion — build it on the next touch of the module.
+[Askesis Entity-Extraction Match Is Unverified](askesis-extraction-match-unverified.md) — No test has ever seen `EntityExtractor` match into `mentioned_entities` or the citations branch run; probed live, the match is reachable with the fixture as it is (one question naming the in-progress PathStep, two assertions) — build it on the next touch of the module. Holds two separate observations: mastered Kus never resolve (the lookup is `PsService`), and the lookup is N sequential round-trips per question.
 
 ## MEGA-QUERY Sits on the Plan-Cache Cliff
 
