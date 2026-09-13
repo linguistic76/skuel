@@ -76,7 +76,7 @@ async def skuel_app(skuel_app_container):
             await container.services.cleanup()
 ```
 
-`tests/integration/test_skuel_app_fixture.py` keeps that refusal as a permanent test. The app's graph is *not* the shared `neo4j_driver` graph — fixtures that seed data for the app (`populated_test_data`, `enrolled_user_with_lp`) write through `skuel_app.state.services.neo4j_driver`. Consumers (the Askesis integration modules) skip without `OPENAI_API_KEY`, which `bootstrap_skuel()` demands through `EnvironmentValidator.REQUIRED_VARS`.
+`tests/integration/test_skuel_app_fixture.py` keeps that refusal as a permanent test. The app's graph is *not* the shared `neo4j_driver` graph — fixtures that seed data for the app (`populated_test_data`, `enrolled_user_with_lp`) write through `skuel_app.state.services.neo4j_driver`. The fixture boots at any tier (CI runs the integration job at `INTELLIGENCE_TIER=core`, no API key); only FULL demands `OPENAI_API_KEY` through `EnvironmentValidator.REQUIRED_VARS`. The Askesis modules skip on their own gate (FULL + a live key).
 
 ```python
 

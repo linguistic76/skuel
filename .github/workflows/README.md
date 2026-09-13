@@ -89,7 +89,11 @@ documentation_metrics (push to main only)         gate ── "CI Gate" (require
 - **`integration_tests`** runs `tests/integration/` — testcontainers boots the
   pinned Neo4j image on the runner's Docker daemon, same as `./dev test-integration`
   locally. This is the only tier that executes real Cypher (unit tests mock the
-  driver), so it gates persistence regressions that `unit_tests` cannot see.
+  driver), so it gates persistence regressions that `unit_tests` cannot see. The
+  job runs at `INTELLIGENCE_TIER=core` with `SKUEL_CREDENTIAL_BACKEND=env`, so the
+  `skuel_app` fixture bootstraps the whole app against its own testcontainer with
+  no API key on the runner (the Askesis modules, which need FULL + a live key,
+  skip on their own gate).
 - **`smoke`** renders the unauthenticated pages and loads them in headless Chrome,
   failing if any never reaches idle (catches client-side render hangs / infinite
   JS loops that unit tests can't see). No server or Neo4j needed.

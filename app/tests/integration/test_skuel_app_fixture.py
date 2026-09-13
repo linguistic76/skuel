@@ -1,33 +1,33 @@
 """
-The ``skuel_app`` fixture boots the app against the integration testcontainer.
+The ``skuel_app`` fixture boots the app against a testcontainer of its own.
 
 ``bootstrap_skuel()`` takes its Neo4j target from the process environment, and
 ``tests/conftest.py`` fills that environment from the developer's ``.env`` —
-which since the AuraDB cutover (2026-08-15) names the PRODUCTION graph. A
-session-scoped app fixture with no dependency on the container fixture
-therefore boots against production while looking, from the test's side,
-exactly like one that doesn't. Nothing in a passing run distinguishes the two;
-only the server's own report does.
+whose ``NEO4J_URI`` is the production AuraDB instance. An app that booted
+against it would look, from a test's side, exactly like one that didn't;
+only the server's own report tells the two apart.
 
 These tests are that report, kept permanent: the app's driver must reach a
 container (the calendar-pinned kernel, never an ``-aura`` one), and it must be
 the app fixture's OWN container — a version match alone would also pass
 against a self-hosted sandbox on the pinned image.
 
-Gated on what ``bootstrap_skuel()`` itself demands (``OPENAI_API_KEY`` through
-``EnvironmentValidator.REQUIRED_VARS``), not on Askesis — the fixture is
-tier-independent.
+The fixture boots at any tier; only FULL demands credentials
+(``EnvironmentValidator.REQUIRED_VARS``), so the one environment that cannot
+run this is FULL without ``OPENAI_API_KEY`` — CI runs the integration job at
+CORE and executes it.
 """
 
 import pytest
 from neo4j import AsyncGraphDatabase
 
 from core.config.credential_store import get_credential
+from core.config.intelligence_tier import IntelligenceTier
 from tests.integration._neo4j_pin import NEO4J_SERVER_VERSION, running_kernel_version
 
 pytestmark = pytest.mark.skipif(
-    not get_credential("OPENAI_API_KEY"),
-    reason="bootstrap_skuel() requires OPENAI_API_KEY (EnvironmentValidator.REQUIRED_VARS)",
+    IntelligenceTier.from_env().ai_enabled and not get_credential("OPENAI_API_KEY"),
+    reason="FULL tier cannot bootstrap without OPENAI_API_KEY — run with INTELLIGENCE_TIER=core",
 )
 
 _MARKER_UID = "skuel_app_fixture_probe"

@@ -173,10 +173,18 @@ class TestGetDeepgramKey:
 
 
 class TestValidateAll:
-    """Tests for EnvironmentValidator.validate_all()."""
+    """Tests for EnvironmentValidator.validate_all().
 
-    def test_validate_all_success(self, mock_get_credential):
+    The intelligence tier is the ceiling on which credentials boot reads
+    (ADR-043): FULL requires OpenAI and reads Deepgram; CORE reads neither.
+    Every test pins the tier — the developer's ``.env`` (loaded by the root
+    conftest) says ``full`` and CI's default is ``full``, so an unpinned test
+    would prove only that default.
+    """
+
+    def test_validate_all_success(self, mock_get_credential, monkeypatch):
         """Test returns ValidatedConfig when all validations pass."""
+        monkeypatch.setenv("INTELLIGENCE_TIER", "full")
 
         def mock_credential(key, fallback_to_env=False):
             credentials = {
@@ -205,14 +213,34 @@ class TestValidateAll:
             assert result["neo4j"]["password"] == "neo4j_pass"
             assert result["deepgram_api_key"] == "deepgram-key"
 
-    def test_validate_all_raises_on_missing_openai(self, mock_get_credential):
-        """Test raises ConfigurationError when OpenAI key missing."""
+    def test_validate_all_raises_on_missing_openai(self, mock_get_credential, monkeypatch):
+        """FULL tier raises ConfigurationError when the OpenAI key is missing."""
+        monkeypatch.setenv("INTELLIGENCE_TIER", "full")
         mock_get_credential.return_value = None
 
         from core.config.environment_validator import EnvironmentValidator
 
         with pytest.raises(ConfigurationError):
             EnvironmentValidator.validate_all()
+
+    def test_validate_all_core_tier_reads_no_ai_credential(self, mock_get_credential, monkeypatch):
+        """CORE boots with a graph and nothing else — the AI keys are not even read."""
+        monkeypatch.setenv("INTELLIGENCE_TIER", "core")
+
+        def mock_credential(key, fallback_to_env=False):
+            return {"NEO4J_PASSWORD": "neo4j_pass"}.get(key)
+
+        mock_get_credential.side_effect = mock_credential
+
+        from core.config.environment_validator import EnvironmentValidator
+
+        result = EnvironmentValidator.validate_all()
+
+        assert result["openai_api_key"] is None
+        assert result["deepgram_api_key"] is None
+        assert result["neo4j"]["password"] == "neo4j_pass"
+        read_keys = {call.args[0] for call in mock_get_credential.call_args_list}
+        assert read_keys == {"NEO4J_PASSWORD"}, f"CORE read an AI credential: {read_keys}"
 
 
 class TestCheckOptional:
@@ -251,8 +279,9 @@ class TestCheckOptional:
 class TestConvenienceFunctions:
     """Tests for convenience functions."""
 
-    def test_validate_environment_returns_config(self, mock_get_credential):
+    def test_validate_environment_returns_config(self, mock_get_credential, monkeypatch):
         """Test validate_environment returns ValidatedConfig."""
+        monkeypatch.setenv("INTELLIGENCE_TIER", "full")
 
         def mock_credential(key, fallback_to_env=False):
             credentials = {
