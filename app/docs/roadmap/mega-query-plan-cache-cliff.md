@@ -157,12 +157,13 @@ dependent, and the driver summary measures the real thing.
 ## Provenance note
 
 These numbers were taken while diagnosing the Askesis `test_ask_endpoint_success` timeout
-(PR #1326). The `skuel_app` integration fixture bootstraps from `.env`, which since the
-2026-08-15 cutover points at AuraDB Free — so the "Aura" column above **is** the production
-graph, measured from the app's own driver path; the "container" column is the
-`neo4j_driver` fixture. That the app-fixture tests run against Aura at all is a separate finding
-(the two Askesis integration modules are the only consumers, and they clean up after
-themselves), recorded and fixed outside this file.
+(PR #1326). At the time the `skuel_app` integration fixture bootstrapped from `.env`, which
+since the 2026-08-15 cutover points at AuraDB Free — so the "Aura" column above **is** the
+production graph, measured from the app's own driver path; the "container" column is the
+`neo4j_driver` fixture. The fixture has since been bound to a testcontainer of its own
+(`tests/integration/conftest.py::skuel_app`, guarded by `test_skuel_app_fixture.py`), so a
+re-measurement through the app fixture lands in the "container" column; reproducing the Aura
+column now takes an explicit `NEO4J_URI` on a throwaway harness.
 
 ## Related
 

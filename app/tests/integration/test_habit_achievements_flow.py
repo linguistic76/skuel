@@ -64,6 +64,11 @@ class TestHabitAchievementsFlow:
         """Create HabitEventHandlerService with backend and event bus."""
         return HabitEventHandlerService(backend=habit_backend, event_bus=event_bus)
 
+    @pytest.fixture
+    def test_user_uid(self) -> str:
+        """Standard test user UID."""
+        return "user_test_habit_achievements"
+
     @pytest_asyncio.fixture
     async def test_user(self, neo4j_driver, test_user_uid):
         """Create test user node in Neo4j."""

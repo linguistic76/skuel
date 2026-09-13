@@ -23,16 +23,17 @@ This template demonstrates SKUEL testing patterns for integration tests.
 - /tests/integration/test_curriculum_core_integration.py - Reference implementation
 """
 
-from collections.abc import Generator
-from typing import Any
+from collections.abc import AsyncGenerator
 
 import pytest
+import pytest_asyncio
 
 # Import domain models
 from core.models.example.example import Example  # Replace with your domain model
 
 # Import services (if testing service layer)
 from core.services.example_service import ExampleService  # Replace with your service
+from neo4j import AsyncDriver
 from testcontainers.neo4j import Neo4jContainer
 
 # Import backends (if testing backend layer)
@@ -89,31 +90,30 @@ def example_service(example_backend: UniversalNeo4jBackend[Example]) -> ExampleS
     return ExampleService(example_backend)
 
 
-@pytest.fixture
-def clean_database(neo4j_container: Neo4jContainer, event_loop: Any) -> Generator[None]:
+@pytest_asyncio.fixture
+async def clean_database(neo4j_driver: AsyncDriver) -> AsyncGenerator[None]:
     """
     Clean database before and after tests.
 
     **Pattern:**
     - Setup: Clean database before test
     - Yield: Run test
-    - Teardown: Clean database after test and close driver
+    - Teardown: Clean database after test
+
+    An async fixture awaits its own I/O — pytest-asyncio runs it on the
+    session loop (``asyncio_default_fixture_loop_scope``); there is no
+    ``event_loop`` fixture to drive by hand.
 
     Args:
-        neo4j_container: TestContainers Neo4j instance
-        event_loop: pytest-asyncio event loop
+        neo4j_driver: session driver on the testcontainer (provided by conftest.py)
 
     Yields:
         None (fixture setup/teardown only)
     """
-    from neo4j import AsyncGraphDatabase
-
-    uri = neo4j_container.get_connection_url()
-    driver = AsyncGraphDatabase.driver(uri)
 
     async def cleanup() -> None:
         """Delete all test data."""
-        async with driver.session() as session:
+        async with neo4j_driver.session() as session:
             await session.run("""
                 MATCH (n:Example)
                 OPTIONAL MATCH (n)-[r]-()
@@ -121,13 +121,12 @@ def clean_database(neo4j_container: Neo4jContainer, event_loop: Any) -> Generato
             """)
 
     # Setup: Clean before test
-    event_loop.run_until_complete(cleanup())
+    await cleanup()
 
     yield  # Run test
 
     # Teardown: Clean after test
-    event_loop.run_until_complete(cleanup())
-    event_loop.run_until_complete(driver.close())
+    await cleanup()
 
 
 # ============================================================================
@@ -533,7 +532,7 @@ Integration Test Best Practices Checklist:
 ✅ Fixtures:
    - Backend fixtures return UniversalNeo4jBackend[T]
    - Service fixtures inject backend dependencies
-   - Cleanup fixtures use Generator[None, None, None]
+   - Cleanup fixtures are async and await their own I/O (AsyncGenerator[None])
    - Fixtures have clear docstrings
 
 ✅ Test Organization:

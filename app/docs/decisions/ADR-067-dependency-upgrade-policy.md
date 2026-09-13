@@ -1,6 +1,6 @@
 ---
 title: "ADR-067: Dependency upgrade policy (latest-stable default, documented pins)"
-updated: 2026-08-29
+updated: 2026-09-13
 status: current
 category: decisions
 tags: [adr, decisions, dependencies, uv, python, javascript, npm, node, tooling, maintenance]
@@ -327,7 +327,7 @@ safe-fixable), TC003 **162**, TC002 **91**. They are two kinds of work:
   check that actually COMPOSES the app — `uv run python -c "import asyncio; from scripts.dev.bootstrap import bootstrap_skuel; asyncio.run(bootstrap_skuel())"`
   against a reachable Neo4j (it is what `main()` runs; `bootstrap_skuel()` builds the services and
   registers every `@rt` handler, which is the moment FastHTML evaluates the signatures) — or
-  `./dev test-integration`, whose `tests/conftest.py` app fixture calls the same function. A bare
+  `./dev test-integration`, whose `tests/integration/conftest.py` app fixture (`skuel_app`) calls the same function. A bare
   `import main` registers nothing (`main()` is `__main__`-guarded) and `./dev smoke` renders static
   fixtures without a server, so neither can see the failure. A `NameError` at bootstrap names the
   site, which keeps its quotes (or gains a runtime import). Churn across most of the tree → its

@@ -12,6 +12,7 @@ import os
 from typing import ClassVar, TypedDict
 
 from core.config.credential_store import get_credential
+from core.config.intelligence_tier import IntelligenceTier
 from core.errors import ConfigurationError
 from core.utils.logging import get_logger
 
@@ -28,9 +29,13 @@ class Neo4jConfig(TypedDict):
 
 
 class ValidatedConfig(TypedDict):
-    """Complete validated configuration structure."""
+    """Complete validated configuration structure.
 
-    openai_api_key: str
+    The AI keys are ``None`` at CORE tier, where they are not read at all
+    (ADR-043 — the Analog layer boots at $0 with no API keys).
+    """
+
+    openai_api_key: str | None
     neo4j: Neo4jConfig
     deepgram_api_key: str | None
 
@@ -43,7 +48,8 @@ class EnvironmentValidator:
     No scattered checks - all validation happens here.
     """
 
-    # Required environment variables
+    # Required at FULL tier. CORE reads none of them — the tier is the ceiling
+    # on which credentials boot even looks at (ADR-043).
     REQUIRED_VARS: ClassVar[dict[str, str]] = {
         "OPENAI_API_KEY": "OpenAI API key for embeddings and AI features"
     }
@@ -59,7 +65,7 @@ class EnvironmentValidator:
     @classmethod
     def validate_required(cls) -> None:
         """
-        Validate all required environment variables.
+        Validate the credentials FULL tier requires.
 
         Raises:
             ConfigurationError: If any required variable is missing
@@ -154,29 +160,42 @@ class EnvironmentValidator:
 
         This should be called at application startup.
 
+        The intelligence tier (ADR-043) is the ceiling: at FULL the AI
+        credentials are required (OpenAI) or read (Deepgram); at CORE neither
+        is read — the Analog layer boots with a graph and nothing else.
+
         Returns:
             Typed configuration containing all validated settings
 
         Raises:
             ConfigurationError: If required configuration is missing
         """
-        # Validate required variables
-        cls.validate_required()
+        tier = IntelligenceTier.from_env()
+
+        openai_api_key: str | None = None
+        deepgram_api_key: str | None = None
+        if tier.ai_enabled:
+            cls.validate_required()
+            openai_api_key = cls.validate_openai()
+            deepgram_api_key = cls.get_deepgram_key()
 
         # Build configuration dictionary with explicit type annotation
         config: ValidatedConfig = {
-            "openai_api_key": cls.validate_openai(),
+            "openai_api_key": openai_api_key,
             "neo4j": cls.get_neo4j_config(),
-            "deepgram_api_key": cls.get_deepgram_key(),
+            "deepgram_api_key": deepgram_api_key,
         }
 
         # Log configuration status (without exposing keys)
         logger.info("Configuration validated:")
-        logger.info("  • OpenAI: Configured")
+        if tier.ai_enabled:
+            logger.info("  • OpenAI: Configured")
+            logger.info(
+                f"  • Deepgram: {'Configured' if config['deepgram_api_key'] else 'Not configured'}"
+            )
+        else:
+            logger.info("  • OpenAI / Deepgram: not read (intelligence tier: CORE)")
         logger.info(f"  • Neo4j: {config['neo4j']['uri']}")
-        logger.info(
-            f"  • Deepgram: {'Configured' if config['deepgram_api_key'] else 'Not configured'}"
-        )
 
         return config
 

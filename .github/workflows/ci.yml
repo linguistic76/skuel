@@ -900,8 +900,18 @@ jobs:
     # Pin every uv command in this job to the committed lock (see the mypy job
     # for the full note). `uv run` re-locks just like `uv sync`, so the flag on
     # the install step alone would not hold. Not set on dep_audit.
+    #
+    # The app fixture (`skuel_app`, tests/integration/conftest.py) bootstraps
+    # the whole app against a testcontainer. CORE tier is the tier that boots
+    # with a graph and nothing else (ADR-043 — no AI credential is read), which
+    # is exactly what a runner has; the tests that need FULL + a live key
+    # (Askesis) skip on their own gate. The env credential backend is the
+    # headless shape (no keychain daemon to reach): the fixture's
+    # NEO4J_PASSWORD arrives through the environment, same as the droplet's.
     env:
       UV_FROZEN: "1"
+      INTELLIGENCE_TIER: core
+      SKUEL_CREDENTIAL_BACKEND: env
     steps:
       - name: Checkout code
         uses: actions/checkout@v7

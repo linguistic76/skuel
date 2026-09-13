@@ -19,32 +19,7 @@ SKUEL fixtures follow the protocol-based architecture: services depend on protoc
 
 ### Root conftest.py (`/tests/conftest.py`)
 
-```python
-@pytest.fixture(scope="session")
-def event_loop():
-    """Session-scoped event loop for async fixtures."""
-    loop = asyncio.get_event_loop_policy().new_event_loop()
-    yield loop
-    loop.close()
-
-
-@pytest_asyncio.fixture(scope="session")
-async def skuel_app():
-    """Bootstrap SKUEL app once per test session."""
-    container = await bootstrap_skuel()
-    yield container.app
-    await container.services.cleanup()
-
-
-@pytest.fixture
-def authenticated_client(skuel_app):
-    """TestClient with authenticated session."""
-    with TestClient(skuel_app) as client:
-        # Register and login
-        client.post("/register", data={...})
-        client.post("/login", data={...})
-        yield client
-```
+Runs `load_dotenv()` and re-exports the embedding mocks (`tests/fixtures/embedding_fixtures.py`). No app or database fixture lives here: anything that needs a graph belongs in the integration conftest, next to the container it must use. pytest-asyncio ≥ 1.0 provides the loops itself (`asyncio_default_fixture_loop_scope = "session"` in `pyproject.toml`) — there is no `event_loop` fixture to define or request.
 
 ### Integration conftest.py (`/tests/integration/conftest.py`)
 
@@ -72,6 +47,38 @@ async def neo4j_driver(neo4j_uri):
     driver = AsyncGraphDatabase.driver(neo4j_uri, auth=("neo4j", "testpassword"))
     yield driver
     await driver.close()
+
+
+@pytest.fixture(scope="session")
+def skuel_app_container():
+    """The app's own Neo4j — same pinned image, private graph (the boot syncs :User constraints)."""
+    container = Neo4jContainer(NEO4J_IMAGE)
+    container.with_env("NEO4J_dbms_security_auth__enabled", "false")
+    container.start()
+    yield container
+    container.stop()
+
+
+@pytest_asyncio.fixture(scope="session", loop_scope="session")
+async def skuel_app(skuel_app_container):
+    """Bootstrap the whole app once per session — against its own testcontainer."""
+    with pytest.MonkeyPatch.context() as env:
+        env.setenv("NEO4J_URI", skuel_app_container.get_connection_url())  # .env's value is production AuraDB
+        env.setenv("NEO4J_USERNAME", "neo4j")
+        env.setenv("NEO4J_PASSWORD", "testpassword")  # container runs with auth disabled
+        reload_config()                                # get_settings() is lru_cached
+        container = await bootstrap_skuel()
+        try:
+            # refuses to yield an app whose driver reports a kernel other than the pinned image
+            ...
+            yield container.app
+        finally:
+            await container.services.cleanup()
+```
+
+`tests/integration/test_skuel_app_fixture.py` keeps that refusal as a permanent test. The app's graph is *not* the shared `neo4j_driver` graph — fixtures that seed data for the app (`populated_test_data`, `enrolled_user_with_lp`) write through `skuel_app.state.services.neo4j_driver`. The fixture boots at any tier (CI runs the integration job at `INTELLIGENCE_TIER=core`, no API key); only FULL demands `OPENAI_API_KEY` through `EnvironmentValidator.REQUIRED_VARS`. The Askesis modules skip on their own gate (FULL + a live key).
+
+```python
 
 
 @pytest_asyncio.fixture
@@ -286,9 +293,9 @@ async def count_relationships(neo4j_container):
 
 ```
 tests/
-├── conftest.py                    # Root: event_loop, skuel_app, auth clients
+├── conftest.py                    # Root: load_dotenv(), embedding mocks
 ├── integration/
-│   └── conftest.py                # TestContainers, backends, services
+│   └── conftest.py                # TestContainers (shared + the app's own), skuel_app, backends, services
 ├── unit/
 │   └── conftest.py (optional)     # Unit-test specific mocks
 └── domain_specific/

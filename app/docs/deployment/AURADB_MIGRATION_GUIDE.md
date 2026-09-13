@@ -1,6 +1,6 @@
 ---
 title: AuraDB Migration Guide
-updated: 2026-08-29
+updated: 2026-09-13
 category: deployment
 tags: [deployment, auradb, neo4j, migration]
 related_skills:
@@ -131,6 +131,8 @@ NEO4J_USERNAME=<dbid>
 `neo4j+s://` is required in production — `SKUEL_ENVIRONMENT=production` boot-refuses plaintext schemes (`/core/config/validation.py`). TLS comes solely from the URI scheme; there is no separate encryption knob (the dead `NEO4J_ENCRYPTED` flag was deleted).
 
 There is no database-name knob either. Every query opens on the driver's **home database** — no call site passes `database=` / `database_=` — which is `neo4j` on both self-hosted Community (single user database) and AuraDB. The inert `NEO4J_DATABASE` flag was deleted for the same reason as `NEO4J_ENCRYPTED`: it was documented but never reached a query.
+
+**The test suite never reads this `NEO4J_URI`.** `tests/conftest.py` loads `.env`, but the only graphs a test may touch are integration testcontainers: the `skuel_app` fixture in `tests/integration/conftest.py` overrides `NEO4J_URI` / `NEO4J_USERNAME` / `NEO4J_PASSWORD` with a container of its own before the app's settings are built, and refuses to yield an app whose driver reports an `-aura` kernel (`tests/integration/test_skuel_app_fixture.py` keeps that guard permanent). Every other integration fixture takes its driver from the shared container directly.
 
 ### 6.2 Remove Docker-Specific Configuration (self-host-only knobs)
 

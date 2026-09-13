@@ -16,12 +16,12 @@ All SKUEL services return `Result[T]`. Tests verify success via `result.is_ok` a
 
 ```
 tests/
-├── conftest.py                 # Session fixtures (app, auth clients)
+├── conftest.py                 # load_dotenv() + embedding mocks (no app / DB fixture here)
 ├── fixtures/
 │   └── service_factories.py    # Mock creation utilities
 ├── helpers/
 ├── integration/
-│   ├── conftest.py             # TestContainers, backends
+│   ├── conftest.py             # TestContainers (shared + the app's own), skuel_app, backends
 │   └── test_*.py               # Real Neo4j tests
 ├── unit/
 │   ├── scripts/                # Linter unit tests (lint_skuel, cypher_linter)

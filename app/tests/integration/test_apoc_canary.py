@@ -15,7 +15,7 @@ Run before/after Neo4j version upgrades to catch breaking changes.
 import pytest
 from neo4j import AsyncDriver
 
-from tests.integration._neo4j_pin import NEO4J_SERVER_VERSION
+from tests.integration._neo4j_pin import NEO4J_SERVER_VERSION, running_kernel_version
 
 
 @pytest.mark.asyncio
@@ -35,27 +35,18 @@ class TestApocCanary:
 
         Critical for compatibility - APOC version must exactly match Neo4j.
         """
-        async with neo4j_driver.session() as session:
-            # Get Neo4j version
-            neo4j_result = await session.run(
-                "CALL dbms.components() "
-                "YIELD name, versions "
-                "WHERE name = 'Neo4j Kernel' "
-                "RETURN versions[0] as version"
-            )
-            neo4j_record = await neo4j_result.single()
-            neo4j_version = neo4j_record["version"]
+        neo4j_version = await running_kernel_version(neo4j_driver)
 
-            # Get APOC version
+        async with neo4j_driver.session() as session:
             apoc_result = await session.run("RETURN apoc.version() as version")
             apoc_record = await apoc_result.single()
             apoc_version = apoc_record["version"]
 
-            # Versions must match
-            assert neo4j_version == apoc_version, (
-                f"Version mismatch! Neo4j: {neo4j_version}, APOC: {apoc_version}. "
-                "APOC version must exactly match Neo4j version."
-            )
+        # Versions must match
+        assert neo4j_version == apoc_version, (
+            f"Version mismatch! Neo4j: {neo4j_version}, APOC: {apoc_version}. "
+            "APOC version must exactly match Neo4j version."
+        )
 
     async def test_periodic_iterate_works(self, neo4j_driver: AsyncDriver):
         """
@@ -343,28 +334,15 @@ class TestNeo4jVersionCanary:
         version — exact match, because the pin is exact (a hotfix `.1` is a
         different pin, not a tolerated drift).
         """
-        async with neo4j_driver.session() as session:
-            result = await session.run(
-                "CALL dbms.components() "
-                "YIELD name, versions, edition "
-                "WHERE name = 'Neo4j Kernel' "
-                "RETURN versions[0] as version, edition"
-            )
-            record = await result.single()
+        version = await running_kernel_version(neo4j_driver)
 
-            version = record["version"]
-            edition = record["edition"]
-
-            # The pin is exact, so the match is exact
-            assert version == NEO4J_SERVER_VERSION, (
-                f"Expected Neo4j {NEO4J_SERVER_VERSION} (infrastructure/docker-compose.yml), "
-                f"got {version}. The testcontainer reads the same pin, so a mismatch means "
-                "a stale local image or a compose edit that skipped the exact-tag form "
-                "(ADR-067 § 3a)."
-            )
-
-            # Log edition for reference
-            print(f"Neo4j {version} ({edition})")
+        # The pin is exact, so the match is exact
+        assert version == NEO4J_SERVER_VERSION, (
+            f"Expected Neo4j {NEO4J_SERVER_VERSION} (infrastructure/docker-compose.yml), "
+            f"got {version}. The testcontainer reads the same pin, so a mismatch means "
+            "a stale local image or a compose edit that skipped the exact-tag form "
+            "(ADR-067 § 3a)."
+        )
 
     async def test_driver_version_is_5_26_0(self, neo4j_driver: AsyncDriver):
         """
