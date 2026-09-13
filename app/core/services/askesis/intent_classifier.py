@@ -26,7 +26,7 @@ import asyncio
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any
 
-from core.constants import IntelligenceThreshold
+from core.constants import EmbeddingFanOut, IntelligenceThreshold
 from core.models.askesis.pedagogical_intent import PedagogicalIntent
 from core.models.enums import GuidanceMode
 from core.models.query_types import QueryIntent
@@ -625,23 +625,29 @@ class IntentClassifier:
 
         logger.info("Loading intent exemplar embeddings (one-time initialization)...")
 
-        # Every exemplar is embedded CONCURRENTLY: the load costs one round-trip's
-        # latency, not the sum of the set in series. It runs lazily inside the first
-        # question's `AskesisPipelineTimeout` budget, so its wall-clock IS that
-        # learner's wait. Failures stay per-exemplar (one refused text does not
-        # discard the rest) — hence gathered `create_embedding` calls rather than
-        # `create_batch_embeddings`, which fails the whole batch on its first error.
-        # A RAISED failure propagates to the caller's safety net.
+        # The exemplars are embedded CONCURRENTLY, at most `EmbeddingFanOut.MAX_IN_FLIGHT`
+        # abreast: the load costs a few round-trips' latency, not the sum of the set
+        # in series — it runs lazily inside the first question's
+        # `AskesisPipelineTimeout` budget, so its wall-clock IS that learner's wait —
+        # and the ceiling keeps the burst inside a provider's concurrency limit, since
+        # a refused exemplar is cached as an incomplete load for the process lifetime.
+        # Failures stay per-exemplar (one refused text does not discard the rest) —
+        # hence gathered `create_embedding` calls rather than `create_batch_embeddings`,
+        # which fails the whole batch on its first error. A RAISED failure propagates
+        # to the caller's safety net.
         keyed_exemplars = [
             (intent, exemplar_query)
             for intent, exemplar_queries in INTENT_EXEMPLARS.items()
             for exemplar_query in exemplar_queries
         ]
+        in_flight = asyncio.Semaphore(EmbeddingFanOut.MAX_IN_FLIGHT)
+
+        async def embed_bounded(exemplar_query: str) -> Result[list[float]]:
+            async with in_flight:
+                return await self.embeddings_service.create_embedding(exemplar_query)
+
         embedding_results = await asyncio.gather(
-            *(
-                self.embeddings_service.create_embedding(exemplar_query)
-                for _intent, exemplar_query in keyed_exemplars
-            )
+            *(embed_bounded(exemplar_query) for _intent, exemplar_query in keyed_exemplars)
         )
 
         exemplar_embeddings: dict[QueryIntent, list[list[float]]] = {}

@@ -16,7 +16,7 @@ first live question of a process is the sensitive one — it pays every one-time
 cost INSIDE `AskesisPipelineTimeout.ANSWER_QUESTION_SECONDS` (30s): the rich
 UserContext build (~10s cold on the testcontainer: MEGA-QUERY first execution
 plus the ZPD capstone) and the intent-exemplar embedding load (48 texts,
-concurrent, ~0.5s), before the ~3-5s of per-question work. The warm pipeline
+`EmbeddingFanOut.MAX_IN_FLIGHT` abreast, ~1s), before the ~3-5s of per-question work. The warm pipeline
 runs in ~3s. `test_ask_endpoint_success` is that first question whenever this
 module runs alone. A timeout here is therefore a cold-path budget question
 first: measure the stages (`-s` shows the structlog stage lines, `--log-cli-level=INFO`

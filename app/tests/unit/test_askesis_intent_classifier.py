@@ -15,7 +15,7 @@ from unittest.mock import AsyncMock, Mock
 
 import pytest
 
-from core.constants import IntelligenceThreshold
+from core.constants import EmbeddingFanOut, IntelligenceThreshold
 from core.services.askesis.intent_classifier import (
     INTENT_EXEMPLARS,
     ExemplarLoad,
@@ -178,35 +178,50 @@ class TestExemplarLoad:
     """The lazy exemplar load runs inside the first question's pipeline timeout."""
 
     @pytest.mark.asyncio
-    async def test_every_exemplar_is_embedded_concurrently(self, mock_embeddings) -> None:
-        """The whole set is in flight at once — the load costs one round-trip, not N.
+    async def test_exemplars_embed_concurrently_up_to_the_fan_out_ceiling(
+        self, mock_embeddings
+    ) -> None:
+        """Peak in-flight equals `EmbeddingFanOut.MAX_IN_FLIGHT` — no less, no more.
 
         The load is lazy and sits inside `AskesisPipelineTimeout` for the first
-        question of a process, so N serial round-trips would be N times the provider's
-        latency charged to that learner. Peak in-flight concurrency equal to the
-        set size is the property; a serial loop measures 1.
+        question of a process, so N serial round-trips would be N times the
+        provider's latency charged to that learner: a serial loop measures a peak
+        of 1 and fails here. The ceiling is the other half — an unbounded gather
+        measures the whole set and fails here too, because a burst past a
+        provider's concurrency limit refuses exemplars, and a refused exemplar is
+        an incomplete load cached for the process lifetime.
         """
         total = sum(len(exemplars) for exemplars in INTENT_EXEMPLARS.values())
+        ceiling = EmbeddingFanOut.MAX_IN_FLIGHT
+        assert ceiling < total, "the fixture set must exceed the ceiling for the bound to show"
         in_flight = 0
         peak = 0
+        calls = 0
         release = asyncio.Event()
 
         async def embed(_text: str) -> Result[list[float]]:
-            nonlocal in_flight, peak
+            nonlocal in_flight, peak, calls
+            calls += 1
             in_flight += 1
             peak = max(peak, in_flight)
-            if peak == total:
-                release.set()  # every call has arrived — let them all finish
-            await release.wait()
+            await release.wait()  # park here until the test has counted the wave
             in_flight -= 1
             return Result.ok([0.1] * 1024)
 
         mock_embeddings.create_embedding = AsyncMock(side_effect=embed)
         classifier = IntentClassifier(embeddings_service=mock_embeddings)
 
-        await asyncio.wait_for(classifier._ensure_exemplars_loaded(), timeout=2)
+        load = asyncio.create_task(classifier._ensure_exemplars_loaded())
+        for _ in range(10):  # let every scheduled call reach its first await
+            await asyncio.sleep(0)
+        # Sampled while the whole wave is parked: a serial loop shows 1, an
+        # unbounded gather shows the whole set — only the ceiling shows `ceiling`.
+        assert in_flight == ceiling, f"in flight {in_flight}, ceiling {ceiling}, set {total}"
+        release.set()
+        await asyncio.wait_for(load, timeout=2)
 
-        assert peak == total, f"peak in-flight {peak} of {total} — the load is not concurrent"
+        assert peak == ceiling, f"peak in-flight {peak}, ceiling {ceiling}, set {total}"
+        assert calls == total
         assert classifier._exemplar_load is not None
         assert classifier._exemplar_load.is_complete()
 

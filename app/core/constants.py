@@ -340,9 +340,10 @@ class AskesisPipelineTimeout:
     completes in ~3-5 seconds. The budget must also cover the FIRST question
     of a process, which pays the one-time costs inside it: the rich UserContext
     build on a cache miss (MEGA-QUERY + ZPD capstone, ~10s on a cold graph)
-    and the intent-exemplar embedding load (one concurrent round-trip). The
-    timeout prevents unbounded hangs from slow Neo4j queries, unresponsive LLM
-    APIs, or network issues — it is not a per-stage SLA.
+    and the intent-exemplar embedding load (a few round-trips at
+    `EmbeddingFanOut.MAX_IN_FLIGHT` abreast). The timeout prevents unbounded
+    hangs from slow Neo4j queries, unresponsive LLM APIs, or network issues —
+    it is not a per-stage SLA.
     """
 
     # Maximum seconds for the complete answer_user_question() pipeline.
@@ -440,6 +441,23 @@ class EmbeddingGeometry:
         "Task",
         "Goal",
     )
+
+
+class EmbeddingFanOut:
+    """
+    Ceiling on simultaneous single-text embedding requests from one caller.
+
+    Both embedding adapters expose a single-text ``embed()`` and retry a rate
+    limit with the same fixed backoff, so an unbounded burst that trips the
+    provider's concurrency limit retries in lockstep and can trip it again. A
+    caller that fans a set out concurrently keeps at most this many requests in
+    flight — enough that a set embeds in a few round-trips, few enough that a
+    provider with a modest per-account concurrency limit accepts them all.
+    """
+
+    # The width the embedding background worker already fans out at — its
+    # per-batch gather is `batch_size` (25) single-text requests abreast.
+    MAX_IN_FLIGHT: Final = 25
 
 
 class QueryProcessorConfidence:
