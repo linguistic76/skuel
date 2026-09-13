@@ -102,14 +102,18 @@ async def test_ask_endpoint_success(skuel_app, enrolled_user_with_lp):
 async def test_ask_endpoint_entity_extraction(
     skuel_app, populated_test_data, enrolled_user_with_lp
 ):
-    """A prerequisite question runs the full pipeline for an enrolled learner.
+    """A prerequisite question that names the in-progress PathStep is MATCHED, and cited.
 
-    The learner is `enrolled_user_with_lp` so the PS-first enrollment gate passes
-    and intent classification, entity extraction, retrieval and generation all
-    run; `populated_test_data` supplies the knowledge-unit corpus. Extraction is
-    scoped to the learner's known/engaged KUs (`known_or_engaged_ku_uids`), which
-    this learner's fixture does not link to the corpus — so the test asserts the
-    `mentioned_entities` SHAPE when present, not a match.
+    Entity extraction scopes "knowledge" to the learner's `known_or_engaged_ku_uids`
+    (mastered + in_progress + blocked) and resolves each uid through the PathStep
+    service (`askesis_factory` wires `knowledge_service=learning_services["ps"]`),
+    so the only knowledge entity this learner can match is the PathStep its
+    `IN_PROGRESS` edge points at — `enrolled_user_with_lp["ps_uid"]`, titled
+    "Test Guided PathStep" — never the fixture's Ku, and never `populated_test_data`'s
+    corpus (which retrieval searches, not extraction). The question names that
+    title and classifies PREREQUISITE, the intent whose citations branch runs
+    only WITH a matched knowledge entity; `has_citations` is that branch's
+    observable output (`bool(citations_text)` — the key alone is always present).
     """
     if not await _embeddings_available(skuel_app):
         pytest.skip("Requires embeddings service for intent classification")
@@ -117,7 +121,7 @@ async def test_ask_endpoint_entity_extraction(
     user_uid = enrolled_user_with_lp["user_uid"]
 
     result = await askesis.answer_user_question(
-        user_uid, "What prerequisites do I need for async programming?"
+        user_uid, "What do I need to know before Test Guided PathStep?"
     )
 
     assert result.is_ok, f"RAG pipeline failed: {result.error}"
@@ -130,19 +134,23 @@ async def test_ask_endpoint_entity_extraction(
     assert isinstance(data["answer"], str), "Answer should be a string"
     assert len(data["answer"]) > 0, "Answer should not be empty"
 
-    # Context may include mentioned_entities if entity extractor found matches
-    context = data["context_used"]
-    if "mentioned_entities" in context:
-        entities = context["mentioned_entities"]
-        assert isinstance(entities, dict), "Mentioned entities should be a dict"
+    # The in-progress PathStep is the matched knowledge entity ...
+    knowledge = data["context_used"]["mentioned_entities"]["knowledge"]
+    assert any(k["uid"] == enrolled_user_with_lp["ps_uid"] for k in knowledge), (
+        f"extraction did not match the in-progress PathStep; knowledge = {knowledge!r}"
+    )
+    # ... and the PREREQUISITE + matched-entity citations branch produced text
+    assert data["has_citations"] is True, "the citations branch produced no citation text"
 
 
 @pytest.mark.asyncio
 async def test_ask_endpoint_semantic_search(skuel_app, populated_test_data, enrolled_user_with_lp):
     """A question with no keyword match runs the full pipeline for an enrolled learner.
 
-    Same fixture pairing as `test_ask_endpoint_entity_extraction`: the enrolled
-    learner passes the gate, the populated corpus is what retrieval searches.
+    Same fixture pairing as `test_ask_endpoint_entity_extraction`, and its other
+    half: that test proves the pipeline cites when extraction MATCHES; this one
+    proves it still answers when extraction finds NOTHING (the question names
+    no engaged entity) and retrieval alone carries the context.
     """
     if not await _embeddings_available(skuel_app):
         pytest.skip("Requires embeddings service for intent classification")

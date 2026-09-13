@@ -1,15 +1,21 @@
 ---
 title: "Askesis Entity-Extraction Match Is Unverified"
 updated: 2026-09-13
-status: "open — the match is REACHABLE today with no fixture change (probed live 2026-09-13); the test is one question and two assertions away. Two design observations recorded below are separate open points."
+status: "done — `test_ask_endpoint_entity_extraction` asks the question that names the in-progress PathStep and asserts the match and `has_citations is True`; the two design observations moved to askesis-extraction-lookup-shape.md"
 trigger: "any change to EntityExtractor, to known_or_engaged_ku_uids, to the MEGA-QUERY KNOWLEDGE section, or to the PREREQUISITE / HIERARCHICAL citations branch of QueryProcessor — or the next time test_askesis_ask_endpoint.py is opened for any reason"
-check: "grep -c 'Extracted 0 entities' in a `-s` run of tests/integration/test_askesis_ask_endpoint.py — every live question in the module logs 0 today; closed when one question logs a match AND the module asserts on `mentioned_entities` and `has_citations`"
+check: "grep -c 'Extracted 1 entities' in a `-s` run of tests/integration/test_askesis_ask_endpoint.py — exactly one live question logs a match, and the module asserts on `mentioned_entities` and `has_citations`"
 registered: "2026-09-13 (PR #1326 — found while diagnosing the pipeline timeout; spec corrected after Codex review of #1327 and a live probe)"
 ---
 
 # Askesis Entity-Extraction Match Is Unverified
 
-*Case file for the [deferred-work.md](deferred-work.md) entry of the same name; move to `done/` when nothing in it remains open.*
+**Status: ✅ DONE — 2026-09-13.** `test_ask_endpoint_entity_extraction` now asks *"What do I need
+to know before Test Guided PathStep?"*, asserts the in-progress PathStep is in
+`mentioned_entities.knowledge`, and asserts `has_citations is True`; the `-s` log of the module
+carries exactly one `Extracted 1 entities` line (intent `prerequisite`, `citations: yes`). The
+two design observations recorded below are tracked in
+[../askesis-extraction-lookup-shape.md](../askesis-extraction-lookup-shape.md). The rest of this
+file is the investigation as it stood when the test landed.
 
 ## The gap
 
@@ -74,7 +80,7 @@ In `test_ask_endpoint_entity_extraction`:
 
 No fixture change. Cost: one warm live question (~3 s), already paid by the test.
 
-## Two design observations this surfaced — separate open points, not for the test PR
+## Two design observations this surfaced — tracked in [../askesis-extraction-lookup-shape.md](../askesis-extraction-lookup-shape.md)
 
 **1. "Knowledge" extraction never matches a mastered Ku, and pays a round-trip to find out.**
 Every Ku uid in `mastered_knowledge_uids` is passed to `PsService.get()`, fails, and is skipped
@@ -112,8 +118,8 @@ recorded so nobody reads a match as precision.)
 
 - PR #1326 — the diagnosis that found this; the two tests now reach the pipeline.
 - PR #1327 — this file's first draft, corrected after Codex review and the live probe.
-- [askesis-intent-classification-activation.md](askesis-intent-classification-activation.md) —
+- [../askesis-intent-classification-activation.md](../askesis-intent-classification-activation.md) —
   the intent side of the same pipeline; the `PREREQUISITE` exemplar shapes live in
   `core/services/askesis/intent_classifier.py`.
-- [mega-query-plan-cache-cliff.md](mega-query-plan-cache-cliff.md) — the sibling finding from
+- [../mega-query-plan-cache-cliff.md](../mega-query-plan-cache-cliff.md) — the sibling finding from
   the same investigation; the KNOWLEDGE section it bisects is the one that feeds these sets.
