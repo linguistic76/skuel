@@ -150,10 +150,19 @@ class ActivityReport(UserOwnedEntity):
         from core.utils.uid_generator import UIDGenerator
 
         uid = UIDGenerator.generate_uid("ar")
+        # The title names the range the report COUNTS. A partial report of an
+        # open calendar period is counted through its data cutoff, not the
+        # period's end, and says so everywhere only the title is shown (recent
+        # cards, hub previews).
+        counted_to = period_end
+        if data_cutoff is not None and data_cutoff < period_end:
+            counted_to = data_cutoff
         title = (
             f"Activity Report — {period_start.strftime('%b %d')} "
-            f"to {period_end.strftime('%b %d, %Y')}"
+            f"to {counted_to.strftime('%b %d, %Y')}"
         )
+        if counted_to < period_end:
+            title += " (partial)"
         return cls(
             uid=uid,
             title=title,

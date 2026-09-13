@@ -990,6 +990,70 @@ class TestCalendarPeriods:
         )
 
     @pytest.mark.asyncio
+    async def test_a_closed_period_carries_no_current_only_analysis(
+        self, generator, mock_insight_store
+    ):
+        """The life-path alignment, the ZPD summary, knowledge suggestions and
+        active insights are reads of the user NOW; a closed period's report
+        is built without them, and the prompt says why."""
+        context = generator.context_builder.build_rich.return_value.value
+        context.life_path_alignment_score = 0.7
+        context.zpd_assessment = MagicMock(readiness_scores={}, proximal_zone=[])
+        generator.analytics_service = MagicMock()
+        generator.analytics_service.detect_cross_domain_patterns = AsyncMock(return_value={})
+        generator.analytics_service.calculate_life_path_alignment = AsyncMock(
+            return_value=Result.ok({"alignment_score": 0.8})
+        )
+        generator.knowledge_intelligence = MagicMock()
+        generator.knowledge_intelligence.get_knowledge_suggestions = AsyncMock(
+            return_value=Result.ok([])
+        )
+        generator.knowledge_intelligence.get_learning_opportunities = AsyncMock(
+            return_value=Result.ok([])
+        )
+        insight = MagicMock(uid="insight_1", title="Now", impact="high")
+        mock_insight_store.get_active_insights.return_value = Result.ok([insight])
+        generator.chat_port = MagicMock()
+        generator.chat_port.complete = AsyncMock(
+            return_value=Result.ok(MagicMock(text="An LLM report"))
+        )
+
+        result = await generator.generate(user_uid="user_alice", time_period="2026-01")
+
+        assert result.is_ok, result.error
+        report = _persisted(generator)
+        intelligence = report.metadata["intelligence"]
+        assert "life_path" not in intelligence
+        assert "zpd_summary" not in intelligence
+        assert "knowledge" not in intelligence
+        assert "cross_domain_patterns" in intelligence  # windowed by the period's dates
+        generator.analytics_service.calculate_life_path_alignment.assert_not_awaited()
+        generator.knowledge_intelligence.get_knowledge_suggestions.assert_not_awaited()
+        mock_insight_store.get_active_insights.assert_not_awaited()
+        assert report.metadata["insights_referenced"] == 0
+        assert report.insights_referenced == ()
+        prompt = generator.chat_port.complete.await_args.args[0][0]["content"]
+        assert "insights are current, not the period's" in prompt
+        assert "No active insights" not in prompt
+
+    @pytest.mark.asyncio
+    async def test_an_open_period_carries_the_current_analysis_as_of_its_cutoff(
+        self, generator, mock_insight_store
+    ):
+        context = generator.context_builder.build_rich.return_value.value
+        context.life_path_alignment_score = 0.7
+        insight = MagicMock(uid="insight_1", title="Now", impact="high")
+        mock_insight_store.get_active_insights.return_value = Result.ok([insight])
+        token = monthly_period_key(date.today())  # the current month: open
+
+        result = await generator.generate(user_uid="user_alice", time_period=token)
+
+        assert result.is_ok, result.error
+        report = _persisted(generator)
+        assert report.metadata["intelligence"]["life_path"] == {"alignment_score": 0.7}
+        assert report.metadata["insights_referenced"] == 1
+
+    @pytest.mark.asyncio
     async def test_a_period_that_has_not_started_is_refused_before_any_read(self, generator):
         """A future month holds nothing yet: counting today's open work against
         an inverted window would persist misleading statistics."""
@@ -1252,6 +1316,66 @@ class TestStreaksAtTheCutoff:
         by_uid = {t["uid"]: t for t in completions["tasks_details"]}
         assert by_uid["t_done"]["status"] == "completed"
         assert by_uid["t_open"]["status"] is None
+
+    def test_a_closed_period_keeps_attendance_and_no_other_event_state(self, generator):
+        """Attendance is the period's fact; an event's type, milestone flag and
+        any other status are editable live state, so a closed period prints none
+        and its milestone trend is unknown, not zero."""
+        events = [
+            _row(
+                {
+                    "uid": "e_attended",
+                    "title": "Attended",
+                    "event_date": "2026-09-10",
+                    "status": "completed",
+                    "event_type": "meeting",
+                    "is_milestone_event": True,
+                }
+            ),
+            _row(
+                {
+                    "uid": "e_missed",
+                    "title": "Missed",
+                    "event_date": "2026-09-11",
+                    "status": "cancelled",
+                    "event_type": "meeting",
+                    "is_milestone_event": False,
+                }
+            ),
+        ]
+        window = {
+            "window_start": datetime(2026, 9, 1),
+            "window_end": datetime(2026, 9, 30, 23, 59, 59),
+        }
+        closed = generator._completions_from_context(
+            _rich_context({"events": events}), None, figures_are_current=False, **window
+        )
+        attended, missed = closed["events_details"]
+        assert closed["events_attended"] == 1
+        assert attended["status"] == "completed" and missed["status"] is None
+        assert attended["event_type"] is None and attended["is_milestone"] is None
+        assert generator._compute_domain_trends(closed)["events"] == {
+            "total": 2,
+            "milestones": None,
+        }
+        october = datetime(2026, 10, 15)
+        content = generator._build_report_content(
+            closed, [], resolve_report_period("2026-09", october), october, ProgressDepth.DETAILED
+        )
+        assert "Milestone events" not in content and "[meeting]" not in content
+        assert "  - Attended\n" in content
+
+        live = generator._completions_from_context(
+            _rich_context({"events": events}), None, figures_are_current=True, **window
+        )
+        attended, missed = live["events_details"]
+        assert missed["status"] == "cancelled"
+        assert attended["event_type"] == "meeting" and attended["is_milestone"] is True
+        assert generator._compute_domain_trends(live)["events"] == {"total": 2, "milestones": 1}
+        assert generator._compute_domain_trends(generator._empty_completions())["events"] == {
+            "total": 0,
+            "milestones": 0,
+        }
 
     def test_a_live_cutoff_keeps_the_streak(self, generator):
         completions = generator._completions_from_context(

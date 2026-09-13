@@ -60,9 +60,9 @@ logger = get_logger("skuel.services.report.progress_generator")
 
 
 def _state_label(state: object) -> str:
-    """`` [state]`` for a present state; nothing for an absent one (a closed
-    period's details carry no live state)."""
-    return f" [{state}]" if state is not None else ""
+    """`` [state]`` for a present state; nothing for an absent or empty one (a
+    closed period's details carry no live state)."""
+    return f" [{state}]" if state else ""
 
 
 class ProgressReportGenerator:
@@ -173,6 +173,12 @@ class ProgressReportGenerator:
             f"Generating activity report for {user_uid}: period={time_period}, depth={depth}"
         )
 
+        # A node's live state and every current-only analysis — active insights,
+        # the life-path alignment, the ZPD summary, knowledge suggestions — are
+        # the cutoff's only while the cutoff is now. A closed period regenerated
+        # later carries none of them.
+        figures_are_current = not period.is_closed(now)
+
         try:
             # 1. Build UserContext once (single MEGA-QUERY round-trip)
             ctx_result = await self.context_builder.build_rich(user_uid, window=time_period)
@@ -190,22 +196,25 @@ class ProgressReportGenerator:
                     window_end=end_date,
                     period_end=period.end,
                     habit_completions=habit_counts.value,
-                    # A node's live figures (streak, progress) are the cutoff's only
-                    # while the cutoff is now — a closed period regenerated later
-                    # carries none.
-                    figures_are_current=not period.is_closed(now),
+                    figures_are_current=figures_are_current,
                 )
 
-            # 2. Get active insights if requested
-            insights: list[Any] = []
-            if include_insights and self.insight_store:
+            # 2. Active insights if requested — None when the period is closed:
+            # not "none active", but not read at all.
+            insights: list[Any] | None = [] if figures_are_current else None
+            if include_insights and self.insight_store and insights is not None:
                 insights_result = await self.insight_store.get_active_insights(user_uid, limit=10)
                 if insights_result.is_ok:
                     insights = insights_result.value or []
 
             # 3. Collect intelligence data (baked into report at generation time)
             intelligence = await self._collect_intelligence(
-                user_uid, completions, start_date, end_date, ctx_result
+                user_uid,
+                completions,
+                start_date,
+                end_date,
+                ctx_result,
+                figures_are_current=figures_are_current,
             )
             # A partial report is not compared: its elapsed slice against a full
             # prior period would print declines the unequal windows caused. The
@@ -271,7 +280,7 @@ class ProgressReportGenerator:
                 "events_attended": completions.get("events_attended", 0),
                 "choices_made": completions.get("choices_made", 0),
                 "principles_reviewed": completions.get("principles_reviewed", 0),
-                "insights_referenced": len(insights),
+                "insights_referenced": len(insights or []),
                 "llm_generated": processor_type == ReportSource.LLM,
             }
             limitations = self._limitations(period)
@@ -295,7 +304,7 @@ class ProgressReportGenerator:
                 depth=depth,
                 processing_error=processing_error,
                 insights_referenced=tuple(
-                    getattr(i, "uid", "") for i in insights if getattr(i, "uid", None)
+                    getattr(i, "uid", "") for i in insights or [] if getattr(i, "uid", None)
                 ),
                 metadata=metadata,
                 data_cutoff=end_date,
@@ -326,11 +335,19 @@ class ProgressReportGenerator:
         start_date: datetime,
         end_date: datetime,
         ctx_result: "Result[RichUserContext]",
+        *,
+        figures_are_current: bool = True,
     ) -> dict[str, Any] | None:
         """Collect intelligence data from analytics and knowledge services.
 
         All intelligence is computed once at generation time and baked into
         report metadata — the detail view reads from this snapshot, not live.
+        The domain trends, the cross-domain patterns (windowed by the period's
+        dates) and the recommendations built on the trends describe the period;
+        the life-path alignment, the ZPD summary and the knowledge suggestions
+        are current-only reads — the cutoff's while the cutoff is now — so a
+        closed period's report (``figures_are_current`` False) carries none of
+        them.
 
         Returns None if no intelligence services are available.
         """
@@ -340,7 +357,7 @@ class ProgressReportGenerator:
         intelligence["domain_trends"] = self._compute_domain_trends(completions)
 
         # Life path alignment — from UserContext if available
-        if ctx_result.is_ok:
+        if ctx_result.is_ok and figures_are_current:
             context = ctx_result.value
             lp_score = getattr(context, "life_path_alignment_score", None)
             intelligence["life_path"] = {
@@ -361,7 +378,9 @@ class ProgressReportGenerator:
             except Exception as e:  # safety-net: intelligence is optional
                 logger.warning(f"Failed to collect cross-domain patterns: {e}")
 
-            # Life path alignment (detailed) — from AnalyticsLifePathService
+        # Life path alignment (detailed) — from AnalyticsLifePathService; it
+        # reads the user's cumulative, unwindowed activity, so it is current-only.
+        if self.analytics_service and figures_are_current:
             try:
                 alignment = await self.analytics_service.calculate_life_path_alignment(user_uid)
                 if alignment.is_ok:
@@ -370,7 +389,7 @@ class ProgressReportGenerator:
                 logger.warning(f"Failed to collect life path alignment: {e}")
 
         # Knowledge intelligence — from ActivityKnowledgeIntelligenceService
-        if self.knowledge_intelligence:
+        if self.knowledge_intelligence and figures_are_current:
             try:
                 suggestions_result = await self.knowledge_intelligence.get_knowledge_suggestions(
                     user_uid
@@ -492,10 +511,16 @@ class ProgressReportGenerator:
 
         # Events
         events_details = completions.get("events_details", [])
-        milestone_count = sum(1 for e in events_details if e.get("is_milestone"))
+        # The milestone flag is a live classification: unknown (None) when a
+        # closed period's events carry none, zero when there are no events.
+        flagged = [e for e in events_details if e.get("is_milestone") is not None]
         trends["events"] = {
             "total": len(events_details),
-            "milestones": milestone_count,
+            "milestones": (
+                sum(1 for e in flagged if e["is_milestone"])
+                if flagged or not events_details
+                else None
+            ),
         }
 
         # Choices
@@ -633,7 +658,7 @@ class ProgressReportGenerator:
     async def _generate_llm_report(
         self,
         completions: dict[str, Any],
-        insights: list[Any],
+        insights: list[Any] | None,
         time_period: str,
         depth: str,
         previous_annotation: str | None = None,
@@ -673,7 +698,7 @@ class ProgressReportGenerator:
     def _build_llm_prompt(
         self,
         completions: dict[str, Any],
-        insights: list[Any],
+        insights: list[Any] | None,
         time_period: str,
         depth: str,
         previous_annotation: str | None = None,
@@ -705,11 +730,9 @@ class ProgressReportGenerator:
                 for h in completions.get("habits_details", [])[:10]
             ],
             "event_summary": [
-                {
-                    "title": e.get("title", ""),
-                    "type": e.get("event_type", ""),
-                    "milestone": e.get("is_milestone", False),
-                }
+                {"title": e.get("title", "")}
+                | ({"type": e["event_type"]} if e.get("event_type") else {})
+                | ({"milestone": e["is_milestone"]} if e.get("is_milestone") is not None else {})
                 for e in completions.get("events_details", [])[:10]
             ],
             "principled_choices": [
@@ -741,7 +764,13 @@ class ProgressReportGenerator:
             ],
         }
 
-        insights_section = "No active insights."
+        if insights is None:
+            insights_section = (
+                "Not part of this report: the period is closed, and insights are "
+                "current, not the period's."
+            )
+        else:
+            insights_section = "No active insights."
         if insights:
             insight_lines = []
             for insight in insights[:5]:
@@ -1001,15 +1030,20 @@ class ProgressReportGenerator:
                 entity = item["entity"]
                 if not eligible.event_in_window(entity):
                     continue
-                if entity.get("status") == EntityStatus.COMPLETED:
+                attended = entity.get("status") == EntityStatus.COMPLETED
+                if attended:
                     result["events_attended"] += 1
                 result["events_details"].append(
                     {
                         "uid": entity["uid"],
                         "title": entity["title"],
-                        "status": entity.get("status", ""),
-                        "event_type": entity.get("event_type", ""),
-                        "is_milestone": bool(entity.get("is_milestone_event", False)),
+                        "status": (
+                            EntityStatus.COMPLETED.value
+                            if attended
+                            else live(entity.get("status", ""))
+                        ),
+                        "event_type": live(entity.get("event_type", "")),
+                        "is_milestone": live(bool(entity.get("is_milestone_event", False))),
                     }
                 )
 
@@ -1112,7 +1146,7 @@ class ProgressReportGenerator:
     def _build_report_content(
         self,
         completions: dict[str, Any],
-        insights: list[Any],
+        insights: list[Any] | None,
         period: ReportPeriod,
         cutoff: datetime,
         depth: ProgressDepth,
@@ -1203,9 +1237,11 @@ class ProgressReportGenerator:
                 sections.append(f"- **Milestone events:** {len(milestone_events)}")
             if depth != ProgressDepth.SUMMARY:
                 for event in events_details[:10]:
-                    event_type = event.get("event_type") or "event"
                     milestone_marker = " ★" if event.get("is_milestone") else ""
-                    sections.append(f"  - {event['title']} [{event_type}]{milestone_marker}")
+                    sections.append(
+                        f"  - {event['title']}{_state_label(event.get('event_type'))}"
+                        f"{milestone_marker}"
+                    )
             sections.append("")
 
         # Principle Alignment (from choices)

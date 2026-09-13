@@ -243,7 +243,25 @@ class TestSnapshotRecordMapping:
                     },
                 ],
                 "events": [
-                    {"entity": {"uid": "e_jan", "title": "In January", "event_date": "2026-01-20"}},
+                    {
+                        "entity": {
+                            "uid": "e_jan",
+                            "title": "In January",
+                            "event_date": "2026-01-20",
+                            "status": "completed",
+                            "event_type": "meeting",
+                            "is_milestone_event": True,
+                        }
+                    },
+                    {
+                        "entity": {
+                            "uid": "e_jan_missed",
+                            "title": "Missed in January",
+                            "event_date": "2026-01-22",
+                            "status": "cancelled",
+                            "event_type": "meeting",
+                        }
+                    },
                     {
                         "entity": {
                             "uid": "e_feb",
@@ -261,7 +279,13 @@ class TestSnapshotRecordMapping:
         domains = result.value["domains"]
         assert [g["title"] for g in domains["goals"]["items"]] == ["January"]
         assert domains["habits"]["items"][0]["streak"] is None
-        assert [e["title"] for e in domains["events"]["items"]] == ["In January"]
+        attended, missed = domains["events"]["items"]
+        assert [attended["title"], missed["title"]] == ["In January", "Missed in January"]
+        # Attendance is the counted fact; type, milestone flag and any other
+        # status are live state and absent on a closed period.
+        assert attended["status"] == "completed"
+        assert missed["status"] is None
+        assert attended["event_type"] is None and attended["is_milestone"] is None
 
     @pytest.mark.asyncio
     async def test_choice_principles_mapped(self, service):
@@ -318,6 +342,47 @@ class TestSnapshotRecordMapping:
 # ============================================================================
 # PERSIST TESTS
 # ============================================================================
+
+
+class TestReportTitle:
+    """``ActivityReport.create`` names the range the report COUNTS: a partial
+    report says so and ends at its cutoff wherever only the title is shown."""
+
+    @staticmethod
+    def _create(**overrides):
+        from core.models.enums.pipeline import ReportSource
+        from core.models.report.activity_report import ActivityReport
+
+        return ActivityReport.create(
+            user_uid="user_alice",
+            subject_uid="user_alice",
+            content="Test content",
+            processor_type=ReportSource.AUTOMATIC,
+            time_period="2026-09",
+            **overrides,
+        )
+
+    def test_a_partial_report_is_titled_through_its_cutoff(self):
+        report = self._create(
+            period_start=datetime(2026, 9, 1),
+            period_end=datetime(2026, 9, 30, 23, 59, 59),
+            data_cutoff=datetime(2026, 9, 12, 10, 30),
+        )
+        assert report.title == "Activity Report — Sep 01 to Sep 12, 2026 (partial)"
+
+    def test_a_final_report_is_titled_through_the_period_end(self):
+        report = self._create(
+            period_start=datetime(2026, 9, 1),
+            period_end=datetime(2026, 9, 30, 23, 59, 59),
+            data_cutoff=datetime(2026, 9, 30, 23, 59, 59),
+        )
+        assert report.title == "Activity Report — Sep 01 to Sep 30, 2026"
+
+    def test_a_report_without_a_cutoff_is_titled_through_the_period_end(self):
+        report = self._create(
+            period_start=datetime(2026, 9, 1), period_end=datetime(2026, 9, 7, 23, 59, 59)
+        )
+        assert report.title == "Activity Report — Sep 01 to Sep 07, 2026"
 
 
 class TestPersist:

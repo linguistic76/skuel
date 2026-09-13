@@ -265,10 +265,15 @@ class ActivityReportService:
                 "items": [
                     {
                         "title": item.get("entity", {}).get("title", ""),
-                        "status": item.get("entity", {}).get("status", ""),
-                        "event_type": item.get("entity", {}).get("event_type", ""),
-                        "is_milestone": bool(
-                            item.get("entity", {}).get("is_milestone_event", False)
+                        # Attendance is the counted fact; the rest is live state.
+                        "status": (
+                            EntityStatus.COMPLETED.value
+                            if _entity(item).get("status") == EntityStatus.COMPLETED
+                            else live(item.get("entity", {}).get("status", ""))
+                        ),
+                        "event_type": live(item.get("entity", {}).get("event_type", "")),
+                        "is_milestone": live(
+                            bool(item.get("entity", {}).get("is_milestone_event", False))
                         ),
                     }
                     for item in events[:10]
