@@ -501,6 +501,8 @@ CASE WHEN date(datetime(h.last_completed)) < date() THEN 0 ELSE 1 END
 - `date(x)` — parses date-only strings and native temporals; **ERRORS on a datetime string**. Safe only for date-typed fields.
 - So when unsure, `datetime(...)` (or `date(datetime(...))` if you need a date) is the safe choice.
 
+**`ORDER BY` on a mixed column is the same trap without a comparison operator.** Neo4j orders values of different types by TYPE before value (strings sort after temporals, so FIRST under `DESC`), so `ORDER BY n.created_at DESC LIMIT 1` over a string+datetime column returns the string-stored row whatever its age. Order "newest first" by `datetime(n.created_at) DESC`. Guard: `TestNewestFirstCoercion` in `test_created_at_window_coercion.py` seeds both shapes in both arrangements — the raw ordering fails one of them.
+
 **Two valid styles, but pick one and be consistent on BOTH sides:** either coerce the stored field as above, OR (Key Rule #17) build the comparison bound as a matching ISO **string** and compare string-vs-string. Mixing a string field with a temporal bound (or vice-versa) is the bug.
 
 **Verify against real Neo4j** — `string >= datetime()` returning `null` cannot be caught by a mocked backend; a unit test with stubbed rows passes while production returns empty. Seed both a string and a native value, assert the row is matched, and prove the test fails before the coercion (`datetime(string) >= datetime($w) → true`, `string >= datetime($w) → null`).

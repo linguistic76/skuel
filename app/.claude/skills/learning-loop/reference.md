@@ -516,9 +516,10 @@ activity feed to discover new reports.
 ```python
 processor_type: ReportSource | None    # AUTOMATIC | LLM | HUMAN
 subject_uid: str | None                 # user whose activity was reviewed
-time_period: str | None                 # "7d" | "14d" | "30d" | "90d"
+time_period: str | None                 # trailing "7d"…"90d" | calendar "2026-W37" / "2026-09"
 period_start: datetime | None
-period_end: datetime | None
+period_end: datetime | None             # fixed for a calendar period
+data_cutoff: datetime | None            # < period_end = a partial report
 domains_covered: tuple[str, ...]        # which activity domains included
 depth: str | None                       # "summary" | "standard" | "detailed"
 processed_content: str | None           # LLM output or human-written feedback (immutable)
@@ -553,7 +554,9 @@ the same method.
    activity window; `context.entities_rich` covers all 6 Activity Domains;
    `context.knowledge_units_rich`, `context.enrolled_paths_rich`,
    `context.active_path_steps_rich` cover the Curriculum track
-2. Cross-reference active Insights
+2. Cross-reference active Insights (a current-only read — a closed calendar
+   period's report carries none, nor the life-path / ZPD / knowledge analyses;
+   see `/docs/architecture/REPORT_ARCHITECTURE.md`)
 3. Send stats as JSON context to LLM via activity_feedback.md prompt template
 4. LLM returns qualitative analysis with patterns, trends, recommendations
 5. Create ActivityReport with processed_content = LLM output

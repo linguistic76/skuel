@@ -61,9 +61,12 @@ class ActivityReportDTO(UserOwnedDTO):
     # =========================================================================
     # TIME WINDOW
     # =========================================================================
-    time_period: str | None = None  # "7d" | "14d" | "30d" | "90d"
+    time_period: str | None = None  # "7d" … "90d" | "2026-W37" | "2026-09"
     period_start: datetime | None = None
     period_end: datetime | None = None
+    # The instant the counts ran up to — min(generated at, period_end). Earlier
+    # than period_end = a partial report of a period still open when it was made.
+    data_cutoff: datetime | None = None
 
     # =========================================================================
     # ANALYSIS CONFIGURATION
@@ -106,6 +109,7 @@ class ActivityReportDTO(UserOwnedDTO):
                 "updated_at",
                 "period_start",
                 "period_end",
+                "data_cutoff",
                 "annotation_updated_at",
             ],
         )
@@ -130,6 +134,7 @@ class ActivityReportDTO(UserOwnedDTO):
                 "updated_at",
                 "period_start",
                 "period_end",
+                "data_cutoff",
                 "annotation_updated_at",
             ],
             list_fields=["tags", "domains_covered", "insights_referenced"],

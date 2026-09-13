@@ -319,7 +319,7 @@ ALLOWED_OCCURRENCES: dict[str, dict[tuple[int, str], Allow]] = {
         (44, "ProcessorType"): Allow(_skill_ll),
     },
     ".claude/skills/learning-loop/reference.md": {
-        (741, "JournalOutputService"): Allow(_ref_ll),
+        (744, "JournalOutputService"): Allow(_ref_ll),
     },
     "docs/TROUBLESHOOTING.md": {
         (132, "daisy_components"): Allow(_trouble, hits=2),

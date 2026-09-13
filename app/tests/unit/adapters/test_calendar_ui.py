@@ -530,3 +530,22 @@ class TestPageShells:
         assert 'hx-get="/cal/week/2026-09-09/content"' in html
         assert 'x-data="calendarLegend"' in html
         assert html.count("toggleType(") == 4
+
+
+class TestReportPill:
+    """Each calendar view's toolbar doors to the period's activity report."""
+
+    def test_month_toolbar_opens_the_months_report(self, routes_and_service) -> None:
+        registry, _service = routes_and_service
+        handler = registry.get("/cal/month/{year}/{month}")
+        html = _render_page(handler(_make_request(), year=2026, month=9))
+        assert "Report for September" in html
+        assert 'href="/activity-reports/for?kind=monthly&amp;date=2026-09-01"' in html
+
+    def test_week_toolbar_opens_the_weeks_report(self, routes_and_service) -> None:
+        registry, _service = routes_and_service
+        handler = registry.get("/cal/week/{date_str}")
+        html = _render_page(handler(_make_request(), date_str="2026-09-09"))
+        assert "Report for W37" in html
+        # Anchored on the week's Monday, whichever day of it was viewed.
+        assert 'href="/activity-reports/for?kind=weekly&amp;date=2026-09-07"' in html

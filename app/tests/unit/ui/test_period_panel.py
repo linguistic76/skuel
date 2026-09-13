@@ -19,15 +19,13 @@ from datetime import date, datetime
 from fastcore.xml import to_xml  # type: ignore[import-untyped]
 
 from core.models.event.calendar_models import CalendarItem, CalendarItemType
-from ui.journals.period_panel import (
-    PlanningPanel,
-    PlanningPeriod,
+from core.utils.period_keys import (
     monthly_period_start,
-    planning_period,
     quarterly_period_start,
     weekly_period_start,
     yearly_period_start,
 )
+from ui.journals.period_panel import PlanningPanel, PlanningPeriod, planning_period
 
 _WEEK_START = date(2026, 8, 3)  # Monday of ISO week 2026-W32
 

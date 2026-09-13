@@ -465,3 +465,193 @@ class TestLatest:
 
         assert response.status_code == 302
         assert response.headers["location"] == "/submit-activity-report"
+
+
+# ============================================================================
+# Period door — GET looks up, POST mints
+# ============================================================================
+
+
+@pytest.fixture
+def prompt_pages(monkeypatch: pytest.MonkeyPatch):
+    """Render the sidebar shell as a dict so the prompt's content is inspectable."""
+
+    def fake_base_page(**kwargs):
+        return {"__base_page__": True, **kwargs}
+
+    import ui.patterns.sidebar as sidebar_module
+
+    monkeypatch.setattr(sidebar_module, "BasePage", fake_base_page)
+
+
+def _content_html(page) -> str:
+    assert page["__base_page__"] is True
+    return to_xml(page["content"])
+
+
+class TestForPeriodLookup:
+    @pytest.mark.asyncio
+    async def test_reusable_report_redirects_to_its_detail(self, registry_orchestrator_generator):
+        registry, orchestrator, _ = registry_orchestrator_generator
+        orchestrator.find_activity_report_for_period = AsyncMock(
+            return_value=Result.ok(_report(uid="ar_sep", time_period="2026-09"))
+        )
+        handler = registry.get("/activity-reports/for", "GET")
+
+        response = await handler(
+            _make_request(method="GET", query_params={"kind": "monthly", "date": "2026-09-14"})
+        )
+
+        assert response.status_code == 302
+        assert response.headers["location"] == "/activity-reports/detail?uid=ar_sep"
+        orchestrator.find_activity_report_for_period.assert_awaited_once_with(
+            "user_reports", "2026-09"
+        )
+
+    @pytest.mark.asyncio
+    async def test_week_kind_resolves_the_iso_week_token(self, registry_orchestrator_generator):
+        registry, orchestrator, _ = registry_orchestrator_generator
+        orchestrator.find_activity_report_for_period = AsyncMock(
+            return_value=Result.ok(_report(uid="ar_w37", time_period="2026-W37"))
+        )
+        handler = registry.get("/activity-reports/for", "GET")
+
+        await handler(
+            _make_request(method="GET", query_params={"kind": "weekly", "date": "2026-09-09"})
+        )
+
+        orchestrator.find_activity_report_for_period.assert_awaited_once_with(
+            "user_reports", "2026-W37"
+        )
+
+    @pytest.mark.asyncio
+    async def test_no_report_renders_the_generate_prompt_and_mints_nothing(
+        self, registry_orchestrator_generator, prompt_pages
+    ):
+        registry, orchestrator, generator = registry_orchestrator_generator
+        orchestrator.find_activity_report_for_period = AsyncMock(return_value=Result.ok(None))
+        handler = registry.get("/activity-reports/for", "GET")
+
+        page = await handler(
+            _make_request(method="GET", query_params={"kind": "monthly", "date": "2026-01-14"})
+        )
+
+        html = _content_html(page)
+        assert "No report for January 2026 yet" in html
+        # The one minting transition is the CSRF-protected POST the user chooses.
+        assert 'action="/activity-reports/for"' in html and 'method="post"' in html
+        assert 'name="time_period" value="2026-01"' in html
+        assert 'name="csrf_token"' in html
+        generator.generate.assert_not_awaited()
+
+    @pytest.mark.asyncio
+    async def test_a_future_period_renders_the_prompt_without_a_generate_form(
+        self, registry_orchestrator_generator, prompt_pages
+    ):
+        registry, orchestrator, generator = registry_orchestrator_generator
+        orchestrator.find_activity_report_for_period = AsyncMock(return_value=Result.ok(None))
+        handler = registry.get("/activity-reports/for", "GET")
+        next_year = datetime.now().year + 1
+
+        page = await handler(
+            _make_request(
+                method="GET", query_params={"kind": "monthly", "date": f"{next_year}-01-14"}
+            )
+        )
+
+        html = _content_html(page)
+        assert "has not started" in html
+        assert 'action="/activity-reports/for"' not in html
+        generator.generate.assert_not_awaited()
+
+    @pytest.mark.asyncio
+    async def test_bad_date_and_unknown_kind_are_400(self, registry_orchestrator_generator):
+        registry, _, _ = registry_orchestrator_generator
+        handler = registry.get("/activity-reports/for", "GET")
+
+        no_date = await handler(_make_request(method="GET", query_params={"kind": "monthly"}))
+        bad_kind = await handler(
+            _make_request(method="GET", query_params={"kind": "quarterly", "date": "2026-09-14"})
+        )
+
+        assert no_date.status_code == 400
+        assert bad_kind.status_code == 400
+
+    @pytest.mark.asyncio
+    async def test_a_failed_lookup_still_offers_generation(
+        self, registry_orchestrator_generator, prompt_pages
+    ):
+        registry, orchestrator, _ = registry_orchestrator_generator
+        orchestrator.find_activity_report_for_period = AsyncMock(
+            return_value=Result.fail(Errors.database("find_by_period", "boom"))
+        )
+        handler = registry.get("/activity-reports/for", "GET")
+
+        page = await handler(
+            _make_request(method="GET", query_params={"kind": "monthly", "date": "2026-01-14"})
+        )
+
+        assert "Could not look up" in _content_html(page)
+
+
+class TestForPeriodGenerate:
+    @pytest.mark.asyncio
+    async def test_generates_the_period_and_lands_on_the_report(
+        self, registry_orchestrator_generator
+    ):
+        registry, _, generator = registry_orchestrator_generator
+        generator.generate = AsyncMock(
+            return_value=Result.ok(_report(uid="ar_new", time_period="2026-01"))
+        )
+        handler = registry.get("/activity-reports/for", "POST")
+
+        response = await handler(_make_request(form_data={"time_period": "2026-01"}))
+
+        assert response.status_code == 302
+        assert response.headers["location"] == "/activity-reports/detail?uid=ar_new"
+        generator.generate.assert_awaited_once_with(user_uid="user_reports", time_period="2026-01")
+
+    @pytest.mark.asyncio
+    async def test_cooldown_refusal_re_renders_the_prompt_with_the_reason(
+        self, registry_orchestrator_generator, prompt_pages
+    ):
+        registry, _, generator = registry_orchestrator_generator
+        generator.generate = AsyncMock(
+            return_value=Result.fail(Errors.business("report_cooldown", "Wait an hour."))
+        )
+        handler = registry.get("/activity-reports/for", "POST")
+
+        page = await handler(_make_request(form_data={"time_period": "2026-01"}))
+
+        assert "Wait an hour." in _content_html(page)
+
+    @pytest.mark.asyncio
+    async def test_unknown_token_is_400_before_any_generation(
+        self, registry_orchestrator_generator
+    ):
+        registry, _, generator = registry_orchestrator_generator
+        handler = registry.get("/activity-reports/for", "POST")
+
+        response = await handler(_make_request(form_data={"time_period": "someday"}))
+
+        assert response.status_code == 400
+        generator.generate.assert_not_awaited()
+
+    @pytest.mark.asyncio
+    async def test_missing_csrf_is_refused(self, registry_orchestrator_generator):
+        registry, _, generator = registry_orchestrator_generator
+        handler = registry.get("/activity-reports/for", "POST")
+        request = SimpleNamespace(
+            session={"user_uid": "user_reports"},
+            url=SimpleNamespace(path="/activity-reports/for"),
+            method="POST",
+            cookies={},
+            headers={},
+            query_params={},
+            form=AsyncMock(return_value={"time_period": "2026-01"}),
+        )
+
+        response = await handler(request)
+
+        assert response.status_code == 403
+        generator.generate.assert_not_awaited()

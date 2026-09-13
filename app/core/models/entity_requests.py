@@ -499,8 +499,11 @@ class ProgressReportGenerateRequest(BaseModel):
 
     time_period: str = Field(
         default="7d",
-        description="Time period: 7d, 14d, 30d, or 90d",
-        pattern=r"^(7d|14d|30d|90d)$",
+        description=(
+            "The report-period token: a trailing window (7d, 14d, 30d, 90d) or a "
+            "calendar period (2026-W37, 2026-09); resolved by core/utils/report_periods.py"
+        ),
+        pattern=r"^(7d|14d|30d|90d|\d{4}-(0[1-9]|1[0-2])|\d{4}-W(0[1-9]|[1-4]\d|5[0-3]))$",
     )
     domains: list[str] = Field(
         default_factory=list,

@@ -161,7 +161,10 @@ class TestSnapshotRecordMapping:
 
     @pytest.mark.asyncio
     async def test_task_records_mapped(self, service):
-        """entities_rich tasks → tasks domain with completed count."""
+        """entities_rich tasks → tasks domain: the period's play (completed in it
+        by ``completion_date``, or open at its end), never an old completion the
+        context carried along."""
+        today = datetime.now().date().isoformat()
         context = _make_context(
             activity_rich={
                 "tasks": [
@@ -170,6 +173,7 @@ class TestSnapshotRecordMapping:
                             "uid": "t1",
                             "title": "Write tests",
                             "status": "completed",
+                            "completion_date": today,
                             "priority": "high",
                             "progress": None,
                         },
@@ -185,6 +189,15 @@ class TestSnapshotRecordMapping:
                         },
                         "graph_context": {"goal_context": None, "applied_knowledge": []},
                     },
+                    {
+                        "entity": {
+                            "uid": "t0",
+                            "title": "Done years ago",
+                            "status": "completed",
+                            "completion_date": "2020-01-01",
+                        },
+                        "graph_context": {"goal_context": None, "applied_knowledge": []},
+                    },
                 ],
             }
         )
@@ -194,8 +207,85 @@ class TestSnapshotRecordMapping:
         tasks = result.value["domains"]["tasks"]
         assert tasks["count"] == 2
         assert tasks["completed"] == 1
-        assert tasks["items"][0]["title"] == "Write tests"
-        assert tasks["items"][1]["title"] == "Fix bug"
+        assert [item["title"] for item in tasks["items"]] == ["Write tests", "Fix bug"]
+
+    @pytest.mark.asyncio
+    async def test_closed_period_snapshot_admits_only_what_existed_by_its_end(self, service):
+        """A closed calendar period's snapshot applies the generator's own
+        eligibility: rows created after the period are absent, and the live
+        streak — rewritten by every completion since — is not reported."""
+        context = _make_context(
+            activity_rich={
+                "goals": [
+                    {
+                        "entity": {
+                            "uid": "g_jan",
+                            "title": "January",
+                            "created_at": "2026-01-05T09:00:00",
+                        }
+                    },
+                    {
+                        "entity": {
+                            "uid": "g_feb",
+                            "title": "February",
+                            "created_at": "2026-02-05T09:00:00",
+                        }
+                    },
+                ],
+                "habits": [
+                    {
+                        "entity": {
+                            "uid": "h_jan",
+                            "title": "Old habit",
+                            "created_at": "2025-12-01T09:00:00",
+                            "current_streak": 9,
+                        }
+                    },
+                ],
+                "events": [
+                    {
+                        "entity": {
+                            "uid": "e_jan",
+                            "title": "In January",
+                            "event_date": "2026-01-20",
+                            "status": "completed",
+                            "event_type": "meeting",
+                            "is_milestone_event": True,
+                        }
+                    },
+                    {
+                        "entity": {
+                            "uid": "e_jan_missed",
+                            "title": "Missed in January",
+                            "event_date": "2026-01-22",
+                            "status": "cancelled",
+                            "event_type": "meeting",
+                        }
+                    },
+                    {
+                        "entity": {
+                            "uid": "e_feb",
+                            "title": "In February",
+                            "event_date": "2026-02-02",
+                        }
+                    },
+                ],
+            }
+        )
+
+        result = await service.create_snapshot(context, time_period="2026-01")
+
+        assert result.is_ok, result.error
+        domains = result.value["domains"]
+        assert [g["title"] for g in domains["goals"]["items"]] == ["January"]
+        assert domains["habits"]["items"][0]["streak"] is None
+        attended, missed = domains["events"]["items"]
+        assert [attended["title"], missed["title"]] == ["In January", "Missed in January"]
+        # Attendance is the counted fact; type, milestone flag and any other
+        # status are live state and absent on a closed period.
+        assert attended["status"] == "completed"
+        assert missed["status"] is None
+        assert attended["event_type"] is None and attended["is_milestone"] is None
 
     @pytest.mark.asyncio
     async def test_choice_principles_mapped(self, service):
@@ -254,6 +344,47 @@ class TestSnapshotRecordMapping:
 # ============================================================================
 
 
+class TestReportTitle:
+    """``ActivityReport.create`` names the range the report COUNTS: a partial
+    report says so and ends at its cutoff wherever only the title is shown."""
+
+    @staticmethod
+    def _create(**overrides):
+        from core.models.enums.pipeline import ReportSource
+        from core.models.report.activity_report import ActivityReport
+
+        return ActivityReport.create(
+            user_uid="user_alice",
+            subject_uid="user_alice",
+            content="Test content",
+            processor_type=ReportSource.AUTOMATIC,
+            time_period="2026-09",
+            **overrides,
+        )
+
+    def test_a_partial_report_is_titled_through_its_cutoff(self):
+        report = self._create(
+            period_start=datetime(2026, 9, 1),
+            period_end=datetime(2026, 9, 30, 23, 59, 59),
+            data_cutoff=datetime(2026, 9, 12, 10, 30),
+        )
+        assert report.title == "Activity Report — Sep 01 to Sep 12, 2026 (partial)"
+
+    def test_a_final_report_is_titled_through_the_period_end(self):
+        report = self._create(
+            period_start=datetime(2026, 9, 1),
+            period_end=datetime(2026, 9, 30, 23, 59, 59),
+            data_cutoff=datetime(2026, 9, 30, 23, 59, 59),
+        )
+        assert report.title == "Activity Report — Sep 01 to Sep 30, 2026"
+
+    def test_a_report_without_a_cutoff_is_titled_through_the_period_end(self):
+        report = self._create(
+            period_start=datetime(2026, 9, 1), period_end=datetime(2026, 9, 7, 23, 59, 59)
+        )
+        assert report.title == "Activity Report — Sep 01 to Sep 07, 2026"
+
+
 class TestPersist:
     """persist() delegates to backend.create()."""
 
@@ -278,3 +409,173 @@ class TestPersist:
 
         assert mock_backend.create.call_count == 1
         assert mock_backend.create.call_args[0][0] is report
+
+
+# ============================================================================
+# find_by_period — the period door's reusable-report verdict
+# ============================================================================
+
+
+def _period_report(token: str, cutoff: datetime | None):
+    from core.models.enums.pipeline import ReportSource
+    from core.models.report.activity_report import ActivityReport
+
+    return ActivityReport(
+        uid=f"ar_{token}",
+        title=f"Report {token}",
+        user_uid="user_alice",
+        subject_uid="user_alice",
+        processor_type=ReportSource.AUTOMATIC,
+        time_period=token,
+        period_start=datetime(2026, 1, 1),
+        period_end=datetime(2026, 1, 31, 23, 59, 59, 999999),
+        data_cutoff=cutoff,
+    )
+
+
+class TestFindByPeriod:
+    """Reuse while the period stands; a closed period's partial report is stale."""
+
+    @pytest.mark.asyncio
+    async def test_reads_the_newest_owned_report_for_the_token(self, service, mock_backend):
+        mock_backend.find_by_period = AsyncMock(return_value=Result.ok([]))
+
+        result = await service.latest_for_period("user_alice", "user_alice", "2026-01")
+
+        assert result.is_ok and result.value is None
+        mock_backend.find_by_period.assert_awaited_once_with("user_alice", "user_alice", "2026-01")
+
+    @pytest.mark.asyncio
+    async def test_a_closed_periods_final_report_is_reused(self, service, mock_backend):
+        final = _period_report("2026-01", datetime(2026, 1, 31, 23, 59, 59, 999999))
+        mock_backend.find_by_period = AsyncMock(return_value=Result.ok([final.to_dto().to_dict()]))
+
+        result = await service.find_by_period("user_alice", "user_alice", "2026-01")
+
+        assert result.is_ok and result.value is not None
+        assert result.value.uid == "ar_2026-01"
+
+    @pytest.mark.asyncio
+    async def test_a_closed_periods_partial_report_is_stale_and_absent(self, service, mock_backend):
+        partial = _period_report("2026-01", datetime(2026, 1, 20, 9, 0))
+        mock_backend.find_by_period = AsyncMock(
+            return_value=Result.ok([partial.to_dto().to_dict()])
+        )
+
+        result = await service.find_by_period("user_alice", "user_alice", "2026-01")
+
+        assert result.is_ok and result.value is None
+
+    @pytest.mark.asyncio
+    async def test_a_report_with_no_recorded_cutoff_is_stale_once_closed(
+        self, service, mock_backend
+    ):
+        unknown = _period_report("2026-01", None)
+        mock_backend.find_by_period = AsyncMock(
+            return_value=Result.ok([unknown.to_dto().to_dict()])
+        )
+
+        result = await service.find_by_period("user_alice", "user_alice", "2026-01")
+
+        assert result.is_ok and result.value is None
+
+    @pytest.mark.asyncio
+    async def test_an_open_periods_partial_report_is_reused(self, service, mock_backend):
+        token = f"{datetime.now().year + 1}-01"  # next January: still open
+        partial = _period_report(token, datetime(2026, 1, 20, 9, 0))
+        mock_backend.find_by_period = AsyncMock(
+            return_value=Result.ok([partial.to_dto().to_dict()])
+        )
+
+        result = await service.find_by_period("user_alice", "user_alice", token)
+
+        assert result.is_ok and result.value is not None
+
+    @pytest.mark.asyncio
+    async def test_a_trailing_window_report_is_always_reused(self, service, mock_backend):
+        weekly = _period_report("7d", None)
+        mock_backend.find_by_period = AsyncMock(return_value=Result.ok([weekly.to_dto().to_dict()]))
+
+        result = await service.find_by_period("user_alice", "user_alice", "7d")
+
+        assert result.is_ok and result.value is not None
+
+    @pytest.mark.asyncio
+    async def test_unknown_token_is_a_validation_failure(self, service, mock_backend):
+        mock_backend.find_by_period = AsyncMock(return_value=Result.ok([]))
+
+        result = await service.find_by_period("user_alice", "user_alice", "someday")
+
+        assert result.is_error
+        mock_backend.find_by_period.assert_not_awaited()
+
+
+class TestFuturePeriods:
+    """A period that has not started generates nothing on the admin paths either."""
+
+    @pytest.mark.asyncio
+    async def test_snapshot_of_a_future_period_is_refused(self, service):
+        token = f"{datetime.now().year + 1}-01"
+        result = await service.create_snapshot(_make_context(), time_period=token)
+        assert result.is_error
+        assert "has not started" in result.expect_error().message
+
+    @pytest.mark.asyncio
+    async def test_submit_report_for_an_open_period_persists_its_cutoff(
+        self, service, mock_backend
+    ):
+        """A human-authored report of a period still open is partial like a
+        generated one: the door and the detail page read the same cutoff."""
+        from core.utils.period_keys import monthly_period_key
+
+        mock_backend.create.return_value = Result.ok(MagicMock())
+        token = monthly_period_key(datetime.now().date())
+
+        result = await service.submit_report("user_admin", "user_alice", "text", time_period=token)
+
+        assert result.is_ok, result.error
+        report = mock_backend.create.call_args[0][0]
+        assert report.data_cutoff is not None and report.period_end is not None
+        assert report.data_cutoff < report.period_end
+        assert report.metadata["is_partial"] is True
+        assert report.metadata["data_cutoff"] == report.data_cutoff.isoformat()
+
+    @pytest.mark.asyncio
+    async def test_submit_report_for_a_future_period_is_refused(self, service, mock_backend):
+        token = f"{datetime.now().year + 1}-01"
+        result = await service.submit_report("admin_1", "user_alice", "text", time_period=token)
+        assert result.is_error
+        mock_backend.create.assert_not_called()
+
+
+class TestRowConversion:
+    """Every owner-scoped read decodes the stored node through the DTO's parse
+    layer — the temporal fields and the JSON ``metadata`` blob included."""
+
+    @pytest.mark.asyncio
+    async def test_get_for_user_decodes_the_stored_node(self, service, mock_backend):
+        stored = _period_report("2026-01", datetime(2026, 1, 31, 23, 59, 59, 999999))
+        node = stored.to_dto().to_dict()
+        # The node holds ISO strings for every temporal field, data_cutoff included.
+        assert isinstance(node["data_cutoff"], str)
+        mock_backend.get_for_user = AsyncMock(return_value=Result.ok([{"n": node}]))
+
+        result = await service.get_for_user("ar_2026-01", "user_alice")
+
+        assert result.is_ok
+        assert result.value.uid == "ar_2026-01"
+        assert result.value.time_period == "2026-01"
+        assert result.value.data_cutoff == datetime(2026, 1, 31, 23, 59, 59, 999999)
+
+    @pytest.mark.asyncio
+    async def test_get_history_decodes_every_row(self, service, mock_backend):
+        rows = [
+            {"n": _period_report("2026-01", None).to_dto().to_dict()},
+            {"n": _period_report("7d", None).to_dto().to_dict()},
+        ]
+        mock_backend.get_history = AsyncMock(return_value=Result.ok(rows))
+
+        result = await service.get_history("user_alice")
+
+        assert result.is_ok
+        assert [r.time_period for r in result.value] == ["2026-01", "7d"]

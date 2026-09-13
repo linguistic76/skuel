@@ -73,6 +73,7 @@ from ui.calendar.components import (
     view_has_legend,
 )
 from ui.components import Button, ButtonT
+from ui.journals.period_links import period_link
 from ui.patterns.loading import content_loading_placeholder
 from ui.patterns.modal import AlpineModal
 
@@ -134,8 +135,14 @@ def _calendar_shell(
     today_href: str,
     content_route: str,
     content_id: str,
+    report_kind: str,
+    report_anchor: date,
 ) -> "FT":
     """Assemble the shared calendar chrome (header + toolbar) around an HTMX-loaded grid.
+
+    ``report_kind`` / ``report_anchor`` name the calendar period this view shows
+    (``monthly`` + a day in the month, ``weekly`` + a day in the week) for the
+    toolbar's "Report for …" pill — the door to the period's activity report.
 
     The grid loads lazily via ``content_loading_placeholder`` so each view renders its
     chrome immediately.
@@ -154,7 +161,15 @@ def _calendar_shell(
         # Periodic notes live in the navbar "Notes" picker, which still opens the
         # month/week on screen (it reads the period off the request path).
         # Per-cell date-number links remain the door to any specific day's note.
-        create_calendar_toolbar(prev_href, next_href, today_href),
+        create_calendar_toolbar(
+            prev_href,
+            next_href,
+            today_href,
+            report_href=(
+                f"/activity-reports/for?kind={report_kind}&date={report_anchor.isoformat()}"
+            ),
+            report_label=f"Report for {period_link(report_kind, report_anchor).short_label}",
+        ),
         content_loading_placeholder(
             content_route,
             content_id,
@@ -213,6 +228,8 @@ def create_calendar_ui_routes(_app, rt, calendar_service):
             today_href="/cal",
             content_route=f"/cal/month/{year}/{month}/content",
             content_id="calendar-month-content",
+            report_kind="monthly",
+            report_anchor=date(year, month, 1),
         )
 
     @rt("/cal/month/{year}/{month}/content")
@@ -263,6 +280,8 @@ def create_calendar_ui_routes(_app, rt, calendar_service):
             today_href=f"/cal/week/{date.today().isoformat()}",
             content_route=f"/cal/week/{date_str}/content",
             content_id="calendar-week-content",
+            report_kind="weekly",
+            report_anchor=week_start,
         )
 
     @rt("/cal/week/{date_str}/content")

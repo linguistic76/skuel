@@ -19,7 +19,7 @@ See: /docs/architecture/REPORT_ARCHITECTURE.md
 """
 
 import json
-from datetime import UTC, datetime, timedelta
+from datetime import datetime
 from typing import TYPE_CHECKING, Any
 
 from core.models.enums import EntityStatus
@@ -44,40 +44,25 @@ from core.models.report.activity_report import ActivityReport
 from core.models.type_hints import UserUID
 from core.ports.infrastructure_protocols import EventBusOperations
 from core.prompts import PROMPT_REGISTRY
+from core.services.report.period_eligibility import PeriodEligibility
 from core.utils.exception_types import DATA_CONVERSION_EXCEPTIONS, LLM_EXCEPTIONS, NEO4J_EXCEPTIONS
 from core.utils.logging import get_logger
 from core.utils.neo4j_props import coerce_int
-from core.utils.neo4j_temporal import convert_neo4j_datetime
+from core.utils.report_periods import (
+    ReportPeriod,
+    UnknownReportPeriodError,
+    as_naive_utc,
+    resolve_report_period,
+)
 from core.utils.result_simplified import Errors, Result
-from core.utils.timestamp_helpers import parse_date_value, parse_iso_utc
 
 logger = get_logger("skuel.services.report.progress_generator")
 
 
-def _is_terminal_status(raw: object) -> bool:
-    """Whether a stored status string names a terminal state; unreadable reads as open."""
-    try:
-        return EntityStatus(str(raw)).is_terminal()
-    except ValueError:
-        return False
-
-
-def _naive_utc(value: object) -> datetime | None:
-    """A stored timestamp as a naive-UTC datetime, or None when absent or unreadable.
-
-    Node properties arrive as Neo4j DateTime objects, native datetimes, or ISO
-    strings (the temporal split); aware values are normalised to UTC and stripped,
-    naive ones are UTC by convention (``parse_iso_utc``). One shape on both sides
-    of a comparison keeps the window test TypeError-free.
-    """
-    moment = convert_neo4j_datetime(value)
-    if moment is None and isinstance(value, str):
-        moment = parse_iso_utc(value)
-    if moment is None:
-        return None
-    if moment.tzinfo is not None:
-        moment = moment.astimezone(UTC).replace(tzinfo=None)
-    return moment
+def _state_label(state: object) -> str:
+    """`` [state]`` for a present state; nothing for an absent or empty one (a
+    closed period's details carry no live state)."""
+    return f" [{state}]" if state else ""
 
 
 class ProgressReportGenerator:
@@ -144,7 +129,9 @@ class ProgressReportGenerator:
 
         Args:
             user_uid: User to generate activity report for
-            time_period: Time window (7d, 14d, 30d, 90d)
+            time_period: The report-period token — a trailing window (7d, 14d,
+                30d, 90d) or a calendar period (2026-W37, 2026-09); an unknown
+                token is a validation failure, never a default window
             domains: Domains to include (empty = all activity domains)
             depth: Detail level (summary, standard, detailed)
             include_insights: Whether to include active insights
@@ -156,20 +143,41 @@ class ProgressReportGenerator:
         Returns:
             Result[ActivityReport] — the created report entity
         """
-        # Rate-limit on-demand generation. Returns failure if a report was created
-        # within MIN_REPORT_COOLDOWN_MINUTES. Prevents rapid-fire LLM calls.
-        cooldown_result = await self._check_cooldown(user_uid)
+        now = datetime.now()
+        try:
+            period = resolve_report_period(time_period, now)
+        except UnknownReportPeriodError as e:
+            return Result.fail(Errors.validation(message=str(e), field="time_period"))
+        if not period.has_started(now):
+            # A future period holds nothing yet; a report of it would count
+            # today's open work against an inverted window. Nothing generates.
+            return Result.fail(
+                Errors.validation(
+                    message=f"{period.label} has not started yet", field="time_period"
+                )
+            )
+        start_date = period.start
+        # The DATA cutoff. A calendar period still open is counted up to now and
+        # the report is partial; a closed one up to its end. The rich query's
+        # touched window carries no upper bound — the mapper's stamps are it.
+        end_date = period.data_cutoff(now)
+        progress_depth = ProgressDepth(depth) if depth else ProgressDepth.STANDARD
+
+        # Rate-limit on-demand generation per (user, period) — a closed period
+        # whose newest report is partial is exempt (its final snapshot).
+        cooldown_result = await self._check_cooldown(user_uid, period, now)
         if cooldown_result.is_error:
             return Result.fail(cooldown_result)
-
-        days = ReportTimePeriod.DAYS.get(time_period, ReportTimePeriod.DEFAULT_DAYS)
-        end_date = datetime.now()
-        start_date = end_date - timedelta(days=days)
-        progress_depth = ProgressDepth(depth) if depth else ProgressDepth.STANDARD
 
         logger.info(
             f"Generating activity report for {user_uid}: period={time_period}, depth={depth}"
         )
+
+        # A node's live state and every current-only analysis — active insights,
+        # the life-path alignment, the ZPD summary, knowledge suggestions — are
+        # the cutoff's only while the cutoff is now. A closed period regenerated
+        # later carries none of them.
+        figures_are_current = not period.is_closed(now)
 
         try:
             # 1. Build UserContext once (single MEGA-QUERY round-trip)
@@ -178,22 +186,44 @@ class ProgressReportGenerator:
                 logger.warning(f"Failed to build context for {user_uid}: {ctx_result.error}")
                 completions = self._empty_completions()
             else:
+                habit_counts = await self._habit_completion_counts(user_uid, start_date, end_date)
+                if habit_counts.is_error:
+                    return Result.fail(habit_counts)
                 completions = self._completions_from_context(
-                    ctx_result.value, domains, window_start=start_date, window_end=end_date
+                    ctx_result.value,
+                    domains,
+                    window_start=start_date,
+                    window_end=end_date,
+                    period_end=period.end,
+                    habit_completions=habit_counts.value,
+                    figures_are_current=figures_are_current,
                 )
 
-            # 2. Get active insights if requested
-            insights: list[Any] = []
-            if include_insights and self.insight_store:
+            # 2. Active insights if requested — None when the period is closed:
+            # not "none active", but not read at all.
+            insights: list[Any] | None = [] if figures_are_current else None
+            if include_insights and self.insight_store and insights is not None:
                 insights_result = await self.insight_store.get_active_insights(user_uid, limit=10)
                 if insights_result.is_ok:
                     insights = insights_result.value or []
 
             # 3. Collect intelligence data (baked into report at generation time)
             intelligence = await self._collect_intelligence(
-                user_uid, completions, start_date, end_date, ctx_result
+                user_uid,
+                completions,
+                start_date,
+                end_date,
+                ctx_result,
+                figures_are_current=figures_are_current,
             )
-            comparison = await self._collect_comparison(user_uid, time_period)
+            # A partial report is not compared: its elapsed slice against a full
+            # prior period would print declines the unequal windows caused. The
+            # final report, counted through the period's end, carries the comparison.
+            comparison = (
+                None
+                if period.is_partial_at(end_date)
+                else await self._collect_comparison(user_uid, period)
+            )
 
             # 4. Build content — LLM when available, programmatic fallback
             processor_type = ReportSource.AUTOMATIC
@@ -211,7 +241,7 @@ class ProgressReportGenerator:
                 llm_result = await self._generate_llm_report(
                     completions,
                     insights,
-                    time_period,
+                    period.label_through(end_date),
                     depth,
                     effective_annotation,
                     intelligence=intelligence,
@@ -225,18 +255,24 @@ class ProgressReportGenerator:
                     processing_error = f"LLM generation failed: {llm_result.expect_error()}"
                     logger.warning(f"LLM fallback for {user_uid}: {processing_error}")
                     content = self._build_report_content(
-                        completions, insights, start_date, end_date, progress_depth
+                        completions, insights, period, end_date, progress_depth
                     )
             else:
                 content = self._build_report_content(
-                    completions, insights, start_date, end_date, progress_depth
+                    completions, insights, period, end_date, progress_depth
                 )
 
-            # 5. Build metadata stats (raw data — preserved regardless of LLM use)
+            # 5. Build metadata stats (raw data — preserved regardless of LLM use).
+            # end_date is the data cutoff; period_end the period's own end — they
+            # differ exactly when the report is partial.
             metadata: dict[str, Any] = {
                 "time_period": time_period,
+                "period_kind": period.kind.value,
                 "start_date": start_date.isoformat(),
                 "end_date": end_date.isoformat(),
+                "period_end": period.end.isoformat(),
+                "data_cutoff": end_date.isoformat(),
+                "is_partial": period.is_partial_at(end_date),
                 "depth": depth,
                 "tasks_completed": completions.get("tasks_completed", 0),
                 "goals_progressed": completions.get("goals_progressed", 0),
@@ -244,9 +280,12 @@ class ProgressReportGenerator:
                 "events_attended": completions.get("events_attended", 0),
                 "choices_made": completions.get("choices_made", 0),
                 "principles_reviewed": completions.get("principles_reviewed", 0),
-                "insights_referenced": len(insights),
+                "insights_referenced": len(insights or []),
                 "llm_generated": processor_type == ReportSource.LLM,
             }
+            limitations = self._limitations(period)
+            if limitations:
+                metadata["limitations"] = limitations
             if intelligence:
                 metadata["intelligence"] = intelligence
             if comparison:
@@ -259,15 +298,16 @@ class ProgressReportGenerator:
                 content=content,
                 processor_type=processor_type,
                 period_start=start_date,
-                period_end=end_date,
+                period_end=period.end,
                 time_period=time_period,
                 domains=domains,
                 depth=depth,
                 processing_error=processing_error,
                 insights_referenced=tuple(
-                    getattr(i, "uid", "") for i in insights if getattr(i, "uid", None)
+                    getattr(i, "uid", "") for i in insights or [] if getattr(i, "uid", None)
                 ),
                 metadata=metadata,
+                data_cutoff=end_date,
             )
 
             create_result = await self.activity_report_service.persist(report)
@@ -295,11 +335,19 @@ class ProgressReportGenerator:
         start_date: datetime,
         end_date: datetime,
         ctx_result: "Result[RichUserContext]",
+        *,
+        figures_are_current: bool = True,
     ) -> dict[str, Any] | None:
         """Collect intelligence data from analytics and knowledge services.
 
         All intelligence is computed once at generation time and baked into
         report metadata — the detail view reads from this snapshot, not live.
+        The domain trends, the cross-domain patterns (windowed by the period's
+        dates) and the recommendations built on the trends describe the period;
+        the life-path alignment, the ZPD summary and the knowledge suggestions
+        are current-only reads — the cutoff's while the cutoff is now — so a
+        closed period's report (``figures_are_current`` False) carries none of
+        them.
 
         Returns None if no intelligence services are available.
         """
@@ -309,7 +357,7 @@ class ProgressReportGenerator:
         intelligence["domain_trends"] = self._compute_domain_trends(completions)
 
         # Life path alignment — from UserContext if available
-        if ctx_result.is_ok:
+        if ctx_result.is_ok and figures_are_current:
             context = ctx_result.value
             lp_score = getattr(context, "life_path_alignment_score", None)
             intelligence["life_path"] = {
@@ -330,7 +378,9 @@ class ProgressReportGenerator:
             except Exception as e:  # safety-net: intelligence is optional
                 logger.warning(f"Failed to collect cross-domain patterns: {e}")
 
-            # Life path alignment (detailed) — from AnalyticsLifePathService
+        # Life path alignment (detailed) — from AnalyticsLifePathService; it
+        # reads the user's cumulative, unwindowed activity, so it is current-only.
+        if self.analytics_service and figures_are_current:
             try:
                 alignment = await self.analytics_service.calculate_life_path_alignment(user_uid)
                 if alignment.is_ok:
@@ -339,7 +389,7 @@ class ProgressReportGenerator:
                 logger.warning(f"Failed to collect life path alignment: {e}")
 
         # Knowledge intelligence — from ActivityKnowledgeIntelligenceService
-        if self.knowledge_intelligence:
+        if self.knowledge_intelligence and figures_are_current:
             try:
                 suggestions_result = await self.knowledge_intelligence.get_knowledge_suggestions(
                     user_uid
@@ -365,20 +415,36 @@ class ProgressReportGenerator:
         return intelligence if intelligence else None
 
     async def _collect_comparison(
-        self, user_uid: UserUID, time_period: str
+        self, user_uid: UserUID, period: ReportPeriod
     ) -> dict[str, Any] | None:
-        """Fetch prior report's intelligence metadata and compute deltas.
+        """The previous report's intelligence metadata, for the UI's deltas.
 
-        Returns None if no prior report with intelligence data exists.
+        A calendar period is compared with the period immediately BEFORE it —
+        the month before a month, the ISO week before a week — and only with
+        that period's reusable report (its final one, or its partial while it
+        is open), never with a report of another kind or length that happens to
+        end earlier. A trailing window is compared with the newest earlier
+        report carrying intelligence. Returns None when there is none.
         """
-        history_result = await self.activity_report_service.get_history(
-            subject_uid=user_uid, limit=5
-        )
-        if history_result.is_error or not history_result.value:
-            return None
+        if period.is_calendar:
+            previous_token = period.preceding_token()
+            if previous_token is None:
+                return None
+            previous = await self.activity_report_service.find_by_period(
+                user_uid, user_uid, previous_token
+            )
+            if previous.is_error or previous.value is None:
+                return None
+            candidates = [previous.value]
+        else:
+            history_result = await self.activity_report_service.get_history(
+                subject_uid=user_uid, limit=5
+            )
+            if history_result.is_error or not history_result.value:
+                return None
+            candidates = list(history_result.value)
 
-        # Find most recent prior report with intelligence data
-        for prior_report in history_result.value:
+        for prior_report in candidates:
             prior_metadata = getattr(prior_report, "metadata", None) or {}
             if not isinstance(prior_metadata, dict):
                 continue
@@ -393,7 +459,7 @@ class ProgressReportGenerator:
 
             return {
                 "previous_report_uid": getattr(prior_report, "uid", ""),
-                "previous_period": getattr(prior_report, "time_period", time_period),
+                "previous_period": getattr(prior_report, "time_period", period.token),
                 "previous_trends": prior_trends,
                 "previous_life_path_score": prior_life_path.get("alignment_score"),
             }
@@ -420,35 +486,41 @@ class ProgressReportGenerator:
         # Goals
         goals_details = completions.get("goals_details", [])
         goals_progressed = completions.get("goals_progressed", 0)
-        avg_progress = 0.0
-        if goals_details:
-            progress_values = [g.get("progress") or 0 for g in goals_details]
-            avg_progress = sum(progress_values) / len(progress_values) if progress_values else 0.0
+        # A closed period's details carry no live figure (``progress`` is None)
+        # — the average is then unknown, never zero.
+        figures = [g["progress"] for g in goals_details if g.get("progress") is not None]
+        avg_progress = round(sum(figures) / len(figures), 2) if figures else None
         trends["goals"] = {
             "total": len(goals_details),
             "progressed": goals_progressed,
-            "avg_progress": round(avg_progress, 2),
+            "avg_progress": avg_progress,
         }
 
         # Habits
         habits_details = completions.get("habits_details", [])
         habits_completed = completions.get("habits_completed", 0)
-        avg_streak = 0.0
-        if habits_details:
-            streaks = [h.get("streak") or 0 for h in habits_details]
-            avg_streak = sum(streaks) / len(streaks) if streaks else 0.0
+        # A closed period's details carry no streak (``streak`` is None) — the
+        # average is then unknown, never zero.
+        streaks = [h["streak"] for h in habits_details if h.get("streak") is not None]
+        avg_streak = round(sum(streaks) / len(streaks), 1) if streaks else None
         trends["habits"] = {
             "total": len(habits_details),
             "completed": habits_completed,
-            "avg_streak": round(avg_streak, 1),
+            "avg_streak": avg_streak,
         }
 
         # Events
         events_details = completions.get("events_details", [])
-        milestone_count = sum(1 for e in events_details if e.get("is_milestone"))
+        # The milestone flag is a live classification: unknown (None) when a
+        # closed period's events carry none, zero when there are no events.
+        flagged = [e for e in events_details if e.get("is_milestone") is not None]
         trends["events"] = {
             "total": len(events_details),
-            "milestones": milestone_count,
+            "milestones": (
+                sum(1 for e in flagged if e["is_milestone"])
+                if flagged or not events_details
+                else None
+            ),
         }
 
         # Choices
@@ -462,11 +534,14 @@ class ProgressReportGenerator:
 
         # Principles
         principles_details = completions.get("principles_details", [])
-        aligned = sum(
-            1 for p in principles_details if p.get("alignment") in ("aligned", "flourishing")
+        # A closed period's details carry no alignment (None) — the split is
+        # then unknown, never "0 aligned, 0 need attention".
+        known = [p for p in principles_details if p.get("alignment") is not None]
+        aligned = (
+            sum(1 for p in known if p["alignment"] in ("aligned", "flourishing")) if known else None
         )
-        needs_attention = sum(
-            1 for p in principles_details if p.get("alignment") in ("drifting", "misaligned")
+        needs_attention = (
+            sum(1 for p in known if p["alignment"] in ("drifting", "misaligned")) if known else None
         )
         trends["principles"] = {
             "total": len(principles_details),
@@ -521,8 +596,8 @@ class ProgressReportGenerator:
 
         # Habit streaks
         habits = domain_trends.get("habits", {})
-        avg_streak = habits.get("avg_streak", 0)
-        if habits.get("total", 0) > 0 and avg_streak < 3:
+        avg_streak = habits.get("avg_streak")
+        if habits.get("total", 0) > 0 and avg_streak is not None and avg_streak < 3:
             recommendations.append(
                 {
                     "domain": "habits",
@@ -533,8 +608,8 @@ class ProgressReportGenerator:
 
         # Principle alignment
         principles = domain_trends.get("principles", {})
-        needs_attn = principles.get("needs_attention", 0)
-        if needs_attn > 0:
+        needs_attn = principles.get("needs_attention")
+        if needs_attn:  # None (unknown) and 0 alike give no advice
             recommendations.append(
                 {
                     "domain": "principles",
@@ -583,7 +658,7 @@ class ProgressReportGenerator:
     async def _generate_llm_report(
         self,
         completions: dict[str, Any],
-        insights: list[Any],
+        insights: list[Any] | None,
         time_period: str,
         depth: str,
         previous_annotation: str | None = None,
@@ -594,7 +669,9 @@ class ProgressReportGenerator:
         Args:
             completions: Raw activity stats from _completions_from_context()
             insights: Active insights for the user
-            time_period: e.g. "7d"
+            time_period: the period as a sentence names it ("the last 7 days",
+                "September 2026", "September 2026 so far (counted through Sep
+                12, 2026)" for a partial period) — the prompt's wording, not the token
             depth: "summary" | "standard" | "detailed"
             previous_annotation: User's self-reflection from their most recent prior report
             intelligence: Pre-computed intelligence data (trends, patterns, alignment)
@@ -621,7 +698,7 @@ class ProgressReportGenerator:
     def _build_llm_prompt(
         self,
         completions: dict[str, Any],
-        insights: list[Any],
+        insights: list[Any] | None,
         time_period: str,
         depth: str,
         previous_annotation: str | None = None,
@@ -648,15 +725,14 @@ class ProgressReportGenerator:
             "task_titles": [t.get("title", "") for t in completions.get("tasks_details", [])[:10]],
             "goal_titles": [g.get("title", "") for g in completions.get("goals_details", [])[:10]],
             "habit_summary": [
-                {"title": h.get("title", ""), "streak": h.get("streak", 0)}
+                {"title": h.get("title", "")}
+                | ({"streak": h["streak"]} if h.get("streak") is not None else {})
                 for h in completions.get("habits_details", [])[:10]
             ],
             "event_summary": [
-                {
-                    "title": e.get("title", ""),
-                    "type": e.get("event_type", ""),
-                    "milestone": e.get("is_milestone", False),
-                }
+                {"title": e.get("title", "")}
+                | ({"type": e["event_type"]} if e.get("event_type") else {})
+                | ({"milestone": e["is_milestone"]} if e.get("is_milestone") is not None else {})
                 for e in completions.get("events_details", [])[:10]
             ],
             "principled_choices": [
@@ -665,11 +741,9 @@ class ProgressReportGenerator:
                 if c.get("principles")
             ][:5],
             "principle_summary": [
-                {
-                    "title": p.get("title", ""),
-                    "alignment": p.get("alignment", ""),
-                    "strength": p.get("strength", ""),
-                }
+                {"title": p.get("title", "")}
+                | ({"strength": p["strength"]} if p.get("strength") is not None else {})
+                | ({"alignment": p["alignment"]} if p.get("alignment") is not None else {})
                 for p in completions.get("principles_details", [])[:10]
             ],
             # Curriculum track
@@ -690,7 +764,13 @@ class ProgressReportGenerator:
             ],
         }
 
-        insights_section = "No active insights."
+        if insights is None:
+            insights_section = (
+                "Not part of this report: the period is closed, and insights are "
+                "current, not the period's."
+            )
+        else:
+            insights_section = "No active insights."
         if insights:
             insight_lines = []
             for insight in insights[:5]:
@@ -791,6 +871,9 @@ class ProgressReportGenerator:
         *,
         window_start: datetime,
         window_end: datetime,
+        period_end: datetime | None = None,
+        habit_completions: dict[str, int] | None = None,
+        figures_are_current: bool = True,
     ) -> dict[str, Any]:
         """Map context.entities_rich into the completions dict.
 
@@ -824,23 +907,44 @@ class ProgressReportGenerator:
         from ``window_start`` onward with no upper bound, so a scheduled future
         event would otherwise read as already attended.
 
+        ``habits_completed`` reads persisted history, not a stamp: the habits
+        with at least one ``HabitCompletion`` row in the period
+        (``habit_completions`` — per-habit counts from the backend), since
+        ``last_completed`` is overwritten by every later completion and a
+        September report generated in October would otherwise count zero for
+        a habit done in both months.
+
+        ``tasks_total``'s "open" half is open AT ``period_end`` (default: the
+        window's end): created no later than it and either non-terminal now or
+        terminal with its terminal stamp (``completion_date``, else
+        ``updated_at``) after it. A task terminal before the period and merely
+        edited after it reads as open — SKUEL persists no status-transition
+        history, and the report's metadata names that limit rather than
+        promising a precision the data cannot keep. ``tasks_details`` lists
+        exactly the tasks counted — never one created after the period — and
+        every other Activity detail list skips an entity created after
+        ``period_end`` the same way: the rich query hands over the CURRENT
+        inventory whatever the window. The curriculum lists (``ku``,
+        ``learning_paths``, ``path_steps``) are current engagement by design.
+
         Consumed by _build_report_content() and _build_llm_prompt().
         """
         include_all = domains is None
         result = self._empty_completions()
-        window_floor = _naive_utc(window_start)
-        window_ceiling = _naive_utc(window_end)
+        # One predicate set with the admin snapshot (``period_eligibility.py``):
+        # what the period counts, and what it may list at all.
+        eligible = PeriodEligibility.for_window(window_start, window_end, period_end)
 
-        def in_period(stamp: object) -> bool:
-            moment = _naive_utc(stamp)
-            if moment is None:
-                day = parse_date_value(stamp)
-                if day is None:
-                    return False
-                moment = datetime.combine(day, datetime.min.time())
-            return (window_floor is None or moment >= window_floor) and (
-                window_ceiling is None or moment <= window_ceiling
-            )
+        def live(value: object) -> object:
+            """A node's live state — status, strength, alignment, streak, figure —
+            is the cutoff's only while the cutoff is now; a closed period
+            regenerated later carries None for it, and every renderer skips None.
+            The counted facts (completed in period, attended) are never live."""
+            return value if figures_are_current else None
+
+        in_period = eligible.in_period
+        existed_by_period_end = eligible.existed_by_end
+        completions_by_habit = habit_completions or {}
 
         # Tasks
         if include_all or "tasks" in (domains or []):
@@ -854,26 +958,33 @@ class ProgressReportGenerator:
                     for ref in graph_ctx.get("applied_knowledge") or []
                     if ref.get("title")
                 ]
-                status = entity.get("status")
-                completed_in_period = status == EntityStatus.COMPLETED and in_period(
-                    entity.get("completion_date")
-                )
+                completed_in_period = eligible.completed_in_period(entity)
                 # The completion rate's denominator is the period's own: what was
-                # completed in it plus what is still open now. A completion from an
-                # earlier period (re-edited or not) is neither, and counting it
-                # would print a falsely low rate.
+                # completed in it plus what was open at its end. A completion from
+                # an earlier period (re-edited or not) is neither, and counting it
+                # would print a falsely low rate; a task created after the period
+                # is neither either — the rich query hands over every open task
+                # regardless of the window, and the details must not list it.
                 if completed_in_period:
                     result["tasks_completed"] += 1
                     result["tasks_total"] += 1
                     result["goal_alignments"].extend(goal_titles)
                     result["knowledge_applications"].extend(ku_titles)
-                elif not _is_terminal_status(status):
+                elif eligible.open_at_end(entity):
                     result["tasks_total"] += 1
+                else:
+                    continue
                 result["tasks_details"].append(
                     {
                         "uid": entity["uid"],
                         "title": entity["title"],
-                        "status": entity.get("status", ""),
+                        # Completed in the period is the counted fact; an open
+                        # task's current status is live state.
+                        "status": (
+                            EntityStatus.COMPLETED.value
+                            if completed_in_period
+                            else live(entity.get("status", ""))
+                        ),
                         "goals": goal_titles,
                         "kus": ku_titles,
                     }
@@ -883,14 +994,16 @@ class ProgressReportGenerator:
         if include_all or "goals" in (domains or []):
             for item in context.entities_rich.get("goals", []):
                 entity = item["entity"]
+                if not existed_by_period_end(entity):
+                    continue
                 if in_period(entity.get("last_progress_update")):
                     result["goals_progressed"] += 1
                 result["goals_details"].append(
                     {
                         "uid": entity["uid"],
                         "title": entity["title"],
-                        "status": entity.get("status", ""),
-                        "progress": entity.get("progress_percentage"),
+                        "status": live(entity.get("status", "")),
+                        "progress": live(entity.get("progress_percentage")),
                     }
                 )
 
@@ -898,14 +1011,16 @@ class ProgressReportGenerator:
         if include_all or "habits" in (domains or []):
             for item in context.entities_rich.get("habits", []):
                 entity = item["entity"]
-                if in_period(entity.get("last_completed")):
+                if not existed_by_period_end(entity):
+                    continue
+                if completions_by_habit.get(entity.get("uid", ""), 0) > 0:
                     result["habits_completed"] += 1
                 result["habits_details"].append(
                     {
                         "uid": entity["uid"],
                         "title": entity["title"],
-                        "status": entity.get("status", ""),
-                        "streak": entity.get("current_streak", 0),
+                        "status": live(entity.get("status", "")),
+                        "streak": live(entity.get("current_streak", 0)),
                     }
                 )
 
@@ -913,21 +1028,22 @@ class ProgressReportGenerator:
         if include_all or "events" in (domains or []):
             for item in context.entities_rich.get("events", []):
                 entity = item["entity"]
-                event_day = parse_date_value(entity.get("event_date"))
-                if event_day is not None and (
-                    (window_floor is not None and event_day < window_floor.date())
-                    or (window_ceiling is not None and event_day > window_ceiling.date())
-                ):
+                if not eligible.event_in_window(entity):
                     continue
-                if entity.get("status") == EntityStatus.COMPLETED:
+                attended = entity.get("status") == EntityStatus.COMPLETED
+                if attended:
                     result["events_attended"] += 1
                 result["events_details"].append(
                     {
                         "uid": entity["uid"],
                         "title": entity["title"],
-                        "status": entity.get("status", ""),
-                        "event_type": entity.get("event_type", ""),
-                        "is_milestone": bool(entity.get("is_milestone_event", False)),
+                        "status": (
+                            EntityStatus.COMPLETED.value
+                            if attended
+                            else live(entity.get("status", ""))
+                        ),
+                        "event_type": live(entity.get("event_type", "")),
+                        "is_milestone": live(bool(entity.get("is_milestone_event", False))),
                     }
                 )
 
@@ -935,6 +1051,8 @@ class ProgressReportGenerator:
         if include_all or "choices" in (domains or []):
             for item in context.entities_rich.get("choices", []):
                 entity = item["entity"]
+                if not existed_by_period_end(entity):
+                    continue
                 graph_ctx = item.get("graph_context", {})
                 if in_period(entity.get("decided_at")):
                     result["choices_made"] += 1
@@ -954,15 +1072,19 @@ class ProgressReportGenerator:
         if include_all or "principles" in (domains or []):
             for item in context.entities_rich.get("principles", []):
                 entity = item["entity"]
+                if not existed_by_period_end(entity):
+                    continue
                 if in_period(entity.get("last_review_date")):
                     result["principles_reviewed"] += 1
                 result["principles_details"].append(
                     {
                         "uid": entity["uid"],
                         "title": entity["title"],
-                        "status": entity.get("status", ""),
-                        "alignment": entity.get("current_alignment", ""),
-                        "strength": entity.get("strength", ""),
+                        "status": live(entity.get("status", "")),
+                        "alignment": live(entity.get("current_alignment", "")),
+                        # Strength has its own transition (PrincipleStrengthChanged),
+                        # so it is live state too; the category is authored identity.
+                        "strength": live(entity.get("strength", "")),
                         "category": entity.get("principle_category", ""),
                     }
                 )
@@ -1024,16 +1146,25 @@ class ProgressReportGenerator:
     def _build_report_content(
         self,
         completions: dict[str, Any],
-        insights: list[Any],
-        start_date: datetime,
-        end_date: datetime,
+        insights: list[Any] | None,
+        period: ReportPeriod,
+        cutoff: datetime,
         depth: ProgressDepth,
     ) -> str:
-        """Build markdown report content from completions data."""
+        """Build markdown report content from completions data.
+
+        ``cutoff`` is the instant the counts ran up to; before the period's end
+        the report says so in its first line.
+        """
         sections: list[str] = []
-        period_label = f"{start_date.strftime('%b %d')} - {end_date.strftime('%b %d, %Y')}"
+        period_label = f"{period.start.strftime('%b %d')} - {cutoff.strftime('%b %d, %Y')}"
 
         sections.append(f"# Progress Report: {period_label}\n")
+        if period.is_partial_at(cutoff):
+            sections.append(
+                f"_Partial: {period.label} is still open — counted through "
+                f"{cutoff.strftime('%b %d, %Y')}._\n"
+            )
 
         # Task Completion Summary
         tasks_completed = completions.get("tasks_completed", 0)
@@ -1047,10 +1178,9 @@ class ProgressReportGenerator:
             )
             if depth != ProgressDepth.SUMMARY:
                 for task in completions.get("tasks_details", [])[:10]:
-                    status_icon = (
-                        "done" if task["status"] == EntityStatus.COMPLETED else task["status"]
-                    )
-                    sections.append(f"  - {task['title']} [{status_icon}]")
+                    status = task.get("status")
+                    status_icon = "done" if status == EntityStatus.COMPLETED else status
+                    sections.append(f"  - {task['title']}{_state_label(status_icon)}")
             sections.append("")
 
         # Goal Alignment
@@ -1065,9 +1195,11 @@ class ProgressReportGenerator:
                 sections.append(f"- **Tasks served goals:** {', '.join(unique_goals[:5])}")
             if depth != ProgressDepth.SUMMARY:
                 for goal in completions.get("goals_details", [])[:10]:
-                    progress = goal.get("progress") or "—"
+                    progress = goal.get("progress")
+                    progress = f"{progress}" if progress is not None else "—"
                     sections.append(
-                        f"  - {goal['title']} [{goal['status']}] (progress: {progress})"
+                        f"  - {goal['title']}{_state_label(goal.get('status'))}"
+                        f" (progress: {progress})"
                     )
             sections.append("")
 
@@ -1088,8 +1220,11 @@ class ProgressReportGenerator:
             sections.append(f"- **Completed this period:** {habits_completed}")
             if depth != ProgressDepth.SUMMARY:
                 for habit in habits_details[:10]:
-                    streak = habit.get("streak") or 0
-                    sections.append(f"  - {habit['title']} [{habit['status']}] (streak: {streak})")
+                    streak = habit.get("streak")
+                    note = f" (streak: {streak})" if streak is not None else ""
+                    sections.append(
+                        f"  - {habit['title']}{_state_label(habit.get('status'))}{note}"
+                    )
             sections.append("")
 
         # Events
@@ -1102,9 +1237,11 @@ class ProgressReportGenerator:
                 sections.append(f"- **Milestone events:** {len(milestone_events)}")
             if depth != ProgressDepth.SUMMARY:
                 for event in events_details[:10]:
-                    event_type = event.get("event_type") or "event"
                     milestone_marker = " ★" if event.get("is_milestone") else ""
-                    sections.append(f"  - {event['title']} [{event_type}]{milestone_marker}")
+                    sections.append(
+                        f"  - {event['title']}{_state_label(event.get('event_type'))}"
+                        f"{milestone_marker}"
+                    )
             sections.append("")
 
         # Principle Alignment (from choices)
@@ -1143,10 +1280,13 @@ class ProgressReportGenerator:
                 sections.append(f"- **Need attention:** {len(needs_attention)}")
             if depth != ProgressDepth.SUMMARY:
                 for principle in principles_details[:10]:
-                    alignment = principle.get("alignment") or "unknown"
+                    alignment = principle.get("alignment")
+                    alignment_label = _state_label(
+                        (alignment or "unknown") if alignment is not None else None
+                    )
                     strength = principle.get("strength") or ""
                     strength_label = f" ({strength})" if strength else ""
-                    sections.append(f"  - {principle['title']}{strength_label} [{alignment}]")
+                    sections.append(f"  - {principle['title']}{strength_label}{alignment_label}")
             sections.append("")
 
         # Knowledge Study (curriculum track)
@@ -1203,19 +1343,75 @@ class ProgressReportGenerator:
 
         return "\n".join(sections)
 
-    async def _check_cooldown(self, user_uid: UserUID) -> Result[None]:
-        """Return failure if an ActivityReport was generated within MIN_REPORT_COOLDOWN_MINUTES.
+    async def _habit_completion_counts(
+        self, user_uid: UserUID, start: datetime, end: datetime
+    ) -> Result[dict[str, int]]:
+        """Per-habit ``HabitCompletion`` counts in [``start``, ``end``].
 
-        Uses a Cypher datetime comparison to avoid Python-side datetime parsing of
-        Neo4j temporal values. Returns Result.ok(None) on any query error so that
-        a broken cooldown check never blocks legitimate generation (fail-safe open).
+        A failed read fails the report: a count that silently reads as zero is
+        the defect this read exists to remove. Without a backend (tests), there
+        are no completions to count.
+        """
+        if not self.report_backend:
+            return Result.ok({})
+        rows = await self.report_backend.count_habit_completions(
+            user_uid=user_uid, start=start.isoformat(), end=end.isoformat()
+        )
+        if rows.is_error:
+            return Result.fail(rows)
+        return Result.ok(
+            {
+                str(row.get("habit_uid")): coerce_int(row.get("completions"))
+                for row in rows.value or []
+                if row.get("habit_uid")
+            }
+        )
+
+    @staticmethod
+    def _limitations(period: ReportPeriod) -> list[str]:
+        """The named approximations a calendar-period report carries.
+
+        Recorded in the report's metadata so a reader knows what the counts
+        can and cannot say; a trailing window ending now has neither.
+        """
+        if not period.is_calendar:
+            return []
+        return [
+            "goals_progressed and principles_reviewed read each entity's latest stamp "
+            "(last_progress_update, last_review_date); a progress write or review after "
+            "this period overwrites it, so a closed period can undercount them.",
+            "tasks_total counts a task as open at the period's end when it was created by "
+            "then and is either non-terminal now or terminal after the period; a task "
+            "closed before the period and merely edited after it is counted as open.",
+        ]
+
+    async def _check_cooldown(
+        self, user_uid: UserUID, period: ReportPeriod, now: datetime
+    ) -> Result[None]:
+        """Refuse a report for this period generated within MIN_REPORT_COOLDOWN_MINUTES.
+
+        Keyed per (user, period): a September report does not block a weekly
+        one. A closed period whose newest report is partial is exempt — its
+        final snapshot must never wait on the partial generated in the period's
+        last hour. Returns Result.ok(None) on any query error so that a broken
+        cooldown check never blocks legitimate generation (fail-safe open).
         """
         if not self.report_backend:
             return Result.ok(None)  # fail-safe: allow generation if no backend
 
+        if period.is_closed(now):
+            newest = await self.activity_report_service.latest_for_period(
+                user_uid, user_uid, period.token
+            )
+            if newest.is_ok and newest.value is not None:
+                cutoff = as_naive_utc(newest.value.data_cutoff)
+                if cutoff is None or period.is_partial_at(cutoff):
+                    return Result.ok(None)  # finalising a partial report
+
         result = await self.report_backend.check_cooldown(
             user_uid=user_uid,
             cooldown_minutes=ReportTimePeriod.MIN_REPORT_COOLDOWN_MINUTES,
+            time_period=period.token,
         )
         if result.is_error or not result.value:
             return Result.ok(None)  # fail-safe: allow generation if check errors
@@ -1225,7 +1421,7 @@ class ProgressReportGenerator:
             return Result.fail(
                 Errors.business(
                     "report_cooldown",
-                    f"A report was generated within the last "
+                    f"A report for {period.label} was generated within the last "
                     f"{ReportTimePeriod.MIN_REPORT_COOLDOWN_MINUTES} minutes. "
                     f"Please wait before generating another.",
                 )

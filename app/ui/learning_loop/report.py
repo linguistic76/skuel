@@ -6,6 +6,7 @@ Renderers for teacher assessments, activity reports, and progress report cards.
 Includes intelligence sections: trends, recommendations, life path, knowledge.
 """
 
+from datetime import datetime
 from enum import Enum
 from typing import Any
 
@@ -26,9 +27,11 @@ from fasthtml.common import (
     Ul,
 )
 
+from core.utils.report_periods import UnknownReportPeriodError, as_naive_utc, resolve_report_period
 from ui.components import Button, ButtonT, Card, CardBody
 from ui.feedback import Badge, BadgeT, Progress, ProgressT
 from ui.layout import Size
+from ui.patterns.csrf import csrf_hidden_input
 from ui.patterns.empty_state import EmptyState
 from ui.patterns.error_banner import render_error_banner
 from ui.patterns.format_date import format_date
@@ -450,6 +453,7 @@ def render_activity_report_detail(
         badges.append(Badge(str(depth), variant=BadgeT.outline, size=Size.sm))
     badges.append(render_processor_badge(ptype_str))
     domain_badges = [Badge(str(d), variant=BadgeT.ghost, size=Size.sm) for d in domains_covered]
+    period_section = _render_period_line(report)
 
     # Comparison banner (when prior report exists)
     comparison_section = _render_comparison_banner(comparison, intelligence) if comparison else None
@@ -566,6 +570,7 @@ def render_activity_report_detail(
             P(date_str, cls="text-sm text-muted-foreground") if date_str else None,
             Div(*badges, cls="flex flex-wrap gap-1 mt-2") if badges else None,
             Div(*domain_badges, cls="flex flex-wrap gap-1 mt-1") if domain_badges else None,
+            period_section,
             cls="mb-6",
         ),
         comparison_section,
@@ -574,6 +579,46 @@ def render_activity_report_detail(
         *domain_cards,
         annotation_section,
         back,
+    )
+
+
+def _render_period_line(report: Any) -> Any:
+    """The calendar period a report is aligned to, and its explicit refresh.
+
+    Only a calendar-period report (``2026-09`` / ``2026-W37``) carries this:
+    the period's name, whether the counts stopped before its end (a partial
+    report of a period still open when it was generated), and a Regenerate
+    form — the one explicit refresh, posting to the period door under CSRF.
+    A trailing window is what its badge says and needs neither.
+    """
+    token = getattr(report, "time_period", None)
+    if not token:
+        return None
+    try:
+        period = resolve_report_period(str(token), datetime.now())
+    except UnknownReportPeriodError:
+        return None
+    if not period.is_calendar:
+        return None
+    metadata = getattr(report, "metadata", None) or {}
+    cutoff = as_naive_utc(getattr(report, "data_cutoff", None))
+    partial = bool(metadata.get("is_partial")) if isinstance(metadata, dict) else False
+    if cutoff is not None and period.is_partial_at(cutoff):
+        partial = True
+    through = f" · counted through {cutoff.strftime('%b %d, %Y')}" if cutoff else ""
+    state = f"Partial{through} — {period.label} was still open" if partial else "Final"
+    return Div(
+        P(f"{period.label} · {state}", cls="text-sm text-muted-foreground"),
+        Form(
+            csrf_hidden_input(),
+            Input(type="hidden", name="time_period", value=str(token)),
+            Button("Regenerate", type="submit", cls=ButtonT.secondary, size=Size.sm),
+            method="post",
+            action="/activity-reports/for",
+            cls="mt-2",
+        ),
+        cls="mt-3",
+        data_report_period=str(token),
     )
 
 
@@ -612,13 +657,20 @@ def _render_comparison_banner(
             label = "Tasks"
             fmt = "{:+.0%}"
         elif domain == "goals":
-            prev_val = prev.get("avg_progress", 0)
-            curr_val = curr.get("avg_progress", 0)
+            # A closed period's report carries no progress average (None, not 0).
+            if prev.get("avg_progress") is None or curr.get("avg_progress") is None:
+                continue
+            prev_val = prev["avg_progress"]
+            curr_val = curr["avg_progress"]
             label = "Goals"
             fmt = "{:+.0f}%"
         elif domain == "habits":
-            prev_val = prev.get("avg_streak", 0)
-            curr_val = curr.get("avg_streak", 0)
+            # A closed period's report carries no streak average (None, not 0):
+            # there is no delta to draw against or from it.
+            if prev.get("avg_streak") is None or curr.get("avg_streak") is None:
+                continue
+            prev_val = prev["avg_streak"]
+            curr_val = curr["avg_streak"]
             label = "Habits"
             fmt = "{:+.1f}"
         else:
@@ -736,7 +788,7 @@ def _render_trends_section(domain_trends: dict[str, Any]) -> Any:
                     cls="text-xs text-muted-foreground",
                 )
             )
-        if "aligned" in data:
+        if data.get("aligned") is not None:
             metrics.append(
                 P(
                     f"Aligned: {data['aligned']}, Needs attention: {data.get('needs_attention', 0)}",
