@@ -10,11 +10,12 @@ Tests the askesis intent classification service:
 
 from __future__ import annotations
 
+import asyncio
 from unittest.mock import AsyncMock, Mock
 
 import pytest
 
-from core.constants import IntelligenceThreshold
+from core.constants import EmbeddingFanOut, IntelligenceThreshold
 from core.services.askesis.intent_classifier import (
     INTENT_EXEMPLARS,
     ExemplarLoad,
@@ -166,6 +167,94 @@ class TestIntentTypeCoverage:
                     f"{exemplar!r} belongs to both {seen.get(exemplar)} and {intent}"
                 )
                 seen[exemplar] = intent
+
+
+# ============================================================================
+# TESTS: the one-time exemplar load
+# ============================================================================
+
+
+class TestExemplarLoad:
+    """The lazy exemplar load runs inside the first question's pipeline timeout."""
+
+    @pytest.mark.asyncio
+    async def test_exemplars_embed_concurrently_up_to_the_fan_out_ceiling(
+        self, mock_embeddings
+    ) -> None:
+        """Peak in-flight equals `EmbeddingFanOut.MAX_IN_FLIGHT` — no less, no more.
+
+        The load is lazy and sits inside `AskesisPipelineTimeout` for the first
+        question of a process, so N serial round-trips would be N times the
+        provider's latency charged to that learner: a serial loop measures a peak
+        of 1 and fails here. The ceiling is the other half — an unbounded gather
+        measures the whole set and fails here too, because a burst past a
+        provider's concurrency limit refuses exemplars, and a refused exemplar is
+        an incomplete load cached for the process lifetime.
+        """
+        total = sum(len(exemplars) for exemplars in INTENT_EXEMPLARS.values())
+        ceiling = EmbeddingFanOut.MAX_IN_FLIGHT
+        assert ceiling < total, "the fixture set must exceed the ceiling for the bound to show"
+        in_flight = 0
+        peak = 0
+        calls = 0
+        release = asyncio.Event()
+
+        async def embed(_text: str) -> Result[list[float]]:
+            nonlocal in_flight, peak, calls
+            calls += 1
+            in_flight += 1
+            peak = max(peak, in_flight)
+            await release.wait()  # park here until the test has counted the wave
+            in_flight -= 1
+            return Result.ok([0.1] * 1024)
+
+        mock_embeddings.create_embedding = AsyncMock(side_effect=embed)
+        classifier = IntentClassifier(embeddings_service=mock_embeddings)
+
+        load = asyncio.create_task(classifier._ensure_exemplars_loaded())
+        for _ in range(10):  # let every scheduled call reach its first await
+            await asyncio.sleep(0)
+        # Sampled while the whole wave is parked: a serial loop shows 1, an
+        # unbounded gather shows the whole set — only the ceiling shows `ceiling`.
+        assert in_flight == ceiling, f"in flight {in_flight}, ceiling {ceiling}, set {total}"
+        release.set()
+        await asyncio.wait_for(load, timeout=2)
+
+        assert peak == ceiling, f"peak in-flight {peak}, ceiling {ceiling}, set {total}"
+        assert calls == total
+        assert classifier._exemplar_load is not None
+        assert classifier._exemplar_load.is_complete()
+
+    @pytest.mark.asyncio
+    async def test_one_refused_exemplar_does_not_discard_the_rest(self, mock_embeddings) -> None:
+        """Failure tolerance is per exemplar, and the incompleteness is recorded.
+
+        The load gathers individual `create_embedding` calls rather than the
+        batch API precisely so a single refused text costs one exemplar, not the
+        set — and `ExemplarLoad` still records the load as incomplete, which is
+        what makes both callers refuse to classify from it.
+        """
+        refused = INTENT_EXEMPLARS[QueryIntent.PRACTICE][0]
+
+        async def embed(text: str) -> Result[list[float]]:
+            if text == refused:
+                return Result.fail(Errors.integration(service="embeddings", message="refused"))
+            return Result.ok([0.1] * 1024)
+
+        mock_embeddings.create_embedding = AsyncMock(side_effect=embed)
+        classifier = IntentClassifier(embeddings_service=mock_embeddings)
+
+        await classifier._ensure_exemplars_loaded()
+
+        load = classifier._exemplar_load
+        assert load is not None
+        assert load.expected == sum(len(e) for e in INTENT_EXEMPLARS.values())
+        assert load.loaded == load.expected - 1
+        assert not load.is_complete()
+        assert classifier._intent_exemplar_embeddings is not None
+        practice = classifier._intent_exemplar_embeddings[QueryIntent.PRACTICE]
+        assert len(practice) == len(INTENT_EXEMPLARS[QueryIntent.PRACTICE]) - 1
+        assert load.intents_loaded == len(INTENT_EXEMPLARS)
 
 
 # ============================================================================
