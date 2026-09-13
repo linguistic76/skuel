@@ -361,7 +361,7 @@ Created 5 new standalone typed backends for infrastructure and cross-domain serv
 
 **Remaining exempted `execute_query` usage (infrastructure, not domain):**
 - `schema_service.py` — 9 DDL/schema introspection queries (`CALL db.labels()`, `SHOW INDEXES`)
-- `user_context_queries.py` — 3 MEGA-QUERY fragments (full user state snapshot)
+- `user_context_queries.py` — the rich-context statements (MEGA-QUERY + the two learning-loop reads beside it) and CONSOLIDATED_QUERY (full user state snapshot)
 - Ingestion pipeline — 5 raw driver calls (bulk cross-domain writes)
 - `semantic_relationship_linker.py` — 1 call through backend (tolerated)
 

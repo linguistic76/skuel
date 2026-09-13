@@ -206,8 +206,10 @@ tasks are pre-filtered to ready, so a task line would be inert. See
 
 | Query | Method | Speed | ActivityReport fields | Intelligence-ready? |
 |-------|--------|-------|-----------------------|---------------------|
-| `MEGA_QUERY` (~875 lines) | `build_rich()` | ~150-200ms | ✅ populated | **Yes** — full entities + graph |
+| `MEGA_QUERY` (~1,000 lines) + the statements beside it (`SUBMISSION_STATS_QUERY`, `ENTRY_KNOWLEDGE_APPLIED_QUERY`, path steps, engagements, groups), one `asyncio.gather` | `build_rich()` | ~220 ms warm on a plan-cached server | ✅ populated | **Yes** — full entities + graph |
 | `CONSOLIDATED_QUERY` (lightweight) | `build()` | ~50-100ms | ✅ populated | No — UIDs only |
+
+**Never append a section to `MEGA_QUERY`.** It sits just under the server's plan-cache size edge — past it, every execution re-plans (~0.5–1 s). A new read is a statement of its own, gathered beside it; `tests/integration/test_user_context_plan_cache.py` measures the edge (`result_available_after`) rather than counting lines.
 
 **What both paths share (March 2026):** `latest_activity_report_*` fields (`uid`, `period`, `period_end`, `content`, `user_annotation`) are now populated by both queries. CONSOLIDATED_QUERY fetches the latest ActivityReport via the same OPTIONAL MATCH + ORDER BY + collect-first-one pattern as MEGA_QUERY, and shapes the result with identical key names so `populate_activity_report()` works unchanged on both paths.
 
