@@ -32,7 +32,7 @@ from __future__ import annotations
 
 import dataclasses
 from datetime import date, datetime, timedelta
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, cast
 from unittest.mock import AsyncMock, Mock
 
 import pytest
@@ -352,11 +352,19 @@ class TestGoalsChokepoint:
         assert result.is_ok
         statuses, reset = recorder.last_guard.patch_if_prior_in
         assert statuses == frozenset({"completed"})
-        # The reset is a progress write, so it carries the progress stamp too.
+        # The reset is a progress write, so it carries the progress stamp and the
+        # history entry the report counts from, too.
         assert reset["achieved_date"] is None
         assert reset["progress_percentage"] == 0.0
         assert isinstance(reset["last_progress_update"], datetime)
-        assert set(reset) == {"achieved_date", "progress_percentage", "last_progress_update"}
+        history = cast("list[dict[str, Any]]", reset["progress_history"])
+        assert history[-1]["progress_percentage"] == 0.0
+        assert set(reset) == {
+            "achieved_date",
+            "progress_percentage",
+            "last_progress_update",
+            "progress_history",
+        }
         assert recorder.merged_patch()["progress_percentage"] == 0.0
 
     async def test_an_open_goal_is_not_zeroed_by_the_reopen_reset(self):
@@ -394,7 +402,7 @@ class TestGoalsChokepoint:
         assert statuses == frozenset({"completed"})
         assert reset["progress_percentage"] == 0.0
         assert isinstance(reset["last_progress_update"], datetime)
-        assert set(reset) == {"progress_percentage", "last_progress_update"}
+        assert set(reset) == {"progress_percentage", "last_progress_update", "progress_history"}
         merged = recorder.merged_patch()
         assert merged["progress_percentage"] == 0.0
         assert merged["achieved_date"] is None, "the caller's clear kept authority"

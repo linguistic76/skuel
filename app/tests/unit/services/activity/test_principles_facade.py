@@ -172,16 +172,26 @@ class TestPrinciplesServiceRelationships:
 
 
 class TestRecordPrincipleReflection:
-    """A reflection's one persisted trace is the principle's review stamp, written
-    after the ownership check and before anything is announced."""
+    """A reflection's persisted trace is the principle's review stamp plus a dated
+    entry in its alignment history, written after the ownership check and
+    before anything is announced."""
 
     @pytest.mark.asyncio
-    async def test_reflection_stamps_last_review_date_through_the_core(
+    async def test_reflection_stamps_and_appends_to_the_history_through_the_core(
         self, principles_service: PrinciplesService
     ) -> None:
         from datetime import date
 
-        principles_service.core.verify_ownership = AsyncMock(return_value=Result.ok(Mock()))
+        from core.models.enums.principle_enums import AlignmentLevel
+        from core.models.principle.principle_types import AlignmentAssessment
+
+        earlier = AlignmentAssessment(
+            assessed_date=date(2026, 8, 1),
+            alignment_level=AlignmentLevel.PARTIAL,
+            evidence="Self-rated",
+        )
+        owned = Mock(alignment_history=(earlier,))
+        principles_service.core.verify_ownership = AsyncMock(return_value=Result.ok(owned))
         update_principle = AsyncMock(return_value=Result.ok(Mock()))
         principles_service.core.update_principle = update_principle
 
@@ -196,7 +206,37 @@ class TestRecordPrincipleReflection:
         uid, intent = call.args
         assert uid == "principle_1"
         assert intent.last_review_date == date.today()
-        assert intent.to_changes() == {"last_review_date": date.today()}
+        changes = intent.to_changes()
+        assert changes["last_review_date"] == date.today()
+        # The stored history, then the reflection as a dated occurrence.
+        assert changes["alignment_history"] == [
+            earlier.to_record(),
+            {
+                "assessed_date": date.today().isoformat(),
+                "alignment_level": "aligned",
+                "evidence": "Held the line in a hard meeting",
+                "reflection": None,
+                "kind": "reflection",
+            },
+        ]
+
+    @pytest.mark.asyncio
+    async def test_an_unknown_alignment_level_is_refused_before_any_write(
+        self, principles_service: PrinciplesService
+    ) -> None:
+        principles_service.core.verify_ownership = AsyncMock(
+            return_value=Result.ok(Mock(alignment_history=()))
+        )
+        update_principle = AsyncMock(return_value=Result.ok(Mock()))
+        principles_service.core.update_principle = update_principle
+
+        result = await principles_service.record_principle_reflection(
+            "principle_1", "user_1", "somewhat", "x"
+        )
+
+        assert result.is_error
+        assert result.expect_error().category.value == "validation"
+        update_principle.assert_not_awaited()
 
     @pytest.mark.asyncio
     async def test_reflection_on_a_foreign_principle_is_not_found(

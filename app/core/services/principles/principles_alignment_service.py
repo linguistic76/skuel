@@ -14,7 +14,7 @@ Responsibilities:
 Part of the PrinciplesService decomposition.
 """
 
-from dataclasses import asdict, dataclass
+from dataclasses import dataclass
 from datetime import date
 from operator import itemgetter
 from typing import Any
@@ -377,8 +377,11 @@ class PrinciplesAlignmentService:
             reflection=user_reflection,
         )
 
-        # 3. Store user assessment in alignment_history
-        await self._store_user_assessment(principle_uid, user_assessment)
+        # 3. Store user assessment in alignment_history — before anything is
+        # computed or announced from it.
+        stored = await self._store_user_assessment(principle_uid, user_assessment)
+        if stored.is_error:
+            return Result.fail(stored)
 
         # 4. Calculate system alignment from goals/habits/choices
         system_result = await self._calculate_system_alignment(principle, user_uid)
@@ -424,45 +427,40 @@ class PrinciplesAlignmentService:
 
     async def _store_user_assessment(
         self, principle_uid: str, assessment: UserAlignmentAssessment
-    ) -> None:
-        """Store user's self-assessment in principle's alignment_history."""
-        # Get current principle
+    ) -> Result[None]:
+        """Persist a self-assessment: a dated ``alignment_history`` entry (the
+        record shape the node stores — ``to_record()``, ISO date and level
+        value, which the JSON encoding of the list requires) beside the review
+        stamp the review cadence and the report's ``principles_reviewed``
+        counter read. A failed write is the caller's failure: an assessment
+        that was never stored must not be announced as one.
+        """
         principle_result = await self.backend.get(principle_uid)
         if principle_result.is_error:
-            self.logger.warning(f"Could not store assessment: {principle_result.error}")
-            return
-
+            return Result.fail(principle_result)
         principle = principle_result.value
         if principle is None:
-            self.logger.warning(f"Could not store assessment: principle {principle_uid} not found")
-            return
+            return Result.fail(Errors.not_found(resource="Principle", identifier=principle_uid))
 
-        dto = principle.to_dto()
-
-        # Add assessment to history (append pattern — no assess_alignment method on PrincipleDTO)
-
-        from core.models.principle.principle_types import (
-            AlignmentAssessment as KuAlignmentAssessment,
-        )
-
-        ku_assessment = KuAlignmentAssessment(
-            assessed_date=date.today(),
+        today = date.today()
+        occurrence = UserAlignmentAssessment(
+            assessed_date=today,
             alignment_level=assessment.alignment_level,
             evidence=assessment.evidence,
             reflection=assessment.reflection,
         )
-        # DTO stores alignment_history as list[dict] (flattened on to_dict via asdict);
-        # convert here so the transfer-tier contract stays honest. See Principle._from_dto.
-        dto.alignment_history.append(asdict(ku_assessment))
-        # A self-assessment IS a review: stamp the date the review cadence and the
-        # report's principles_reviewed counter read.
-        dto.last_review_date = date.today()
-
-        # raw-write: full-DTO entity replace after appending to alignment_history (not a
-        # partial property patch). ADR-066's PrincipleUpdateIntent models partial column
-        # patches, not whole-entity persistence or history mutation — dto.to_dict() is the
-        # honest shape here.
-        await self.backend.update(principle_uid, dto.to_dict())
+        history = [
+            *(entry.to_record() for entry in principle.alignment_history),
+            occurrence.to_record(),
+        ]
+        # boundary: pre-serialization patch — the history list is JSON-serialized at
+        # the write (``to_neo4j_node``), a nested shape the ``Neo4jProperties`` alias
+        # does not name, as every history writer's patch is.
+        patch: dict[str, Any] = {"alignment_history": history, "last_review_date": today}
+        stamped = await self.backend.update(principle_uid, patch)
+        if stamped.is_error:
+            return Result.fail(stamped)
+        return Result.ok(None)
 
     async def _calculate_system_alignment(
         self, principle: Principle, user_uid: UserUID

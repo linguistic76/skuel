@@ -27,10 +27,11 @@ from datetime import date
 from typing import TYPE_CHECKING, Any
 
 from core.models.enums.entity_enums import EntityStatus
-from core.models.enums.principle_enums import PrincipleCategory, PrincipleStrength
+from core.models.enums.principle_enums import AlignmentLevel, PrincipleCategory, PrincipleStrength
 from core.models.principle.principle import Principle
 from core.models.principle.principle_dto import PrincipleDTO
 from core.models.principle.principle_request import PrincipleCreateRequest
+from core.models.principle.principle_types import AlignmentAssessment as AlignmentHistoryEntry
 from core.models.principle.principle_update_intent import PrincipleUpdateIntent
 from core.models.type_hints import EntityUID, UserUID
 from core.ports.domain_protocols import PrinciplesOperations
@@ -56,7 +57,7 @@ from core.services.relationships import UnifiedRelationshipService
 from core.utils.activity_stats import compute_principle_stats
 from core.utils.list_helpers import SortConfig, apply_entity_sort
 from core.utils.logging import get_logger
-from core.utils.result_simplified import Result
+from core.utils.result_simplified import Errors, Result
 from core.utils.sort_functions import get_created_at_attr, get_title_or_name_lower
 from core.utils.type_converters import normalize_enum_str
 
@@ -374,11 +375,31 @@ class PrinciplesService(
         owned = await self.core.verify_ownership(principle_uid, user_uid)
         if owned.is_error:
             return Result.fail(owned)
-        # The reflection's one persisted trace is the principle's review stamp — the
-        # review cadence and the report's principles_reviewed counter read it — so it
-        # is written before anything is announced.
+        try:
+            level = AlignmentLevel(alignment_level)
+        except ValueError:
+            return Result.fail(
+                Errors.validation(
+                    message=f"Unknown alignment level {alignment_level!r}",
+                    field="alignment_level",
+                )
+            )
+        # The reflection is persisted before anything is announced: the principle's
+        # review stamp (the review cadence reads it)…
+        # …and the reflection itself joins the principle's alignment history as a
+        # dated entry, so a period report counts the review even after a later
+        # one has moved the stamp on.
+        today = date.today()
+        occurrence = AlignmentHistoryEntry(
+            assessed_date=today, alignment_level=level, evidence=evidence, kind="reflection"
+        )
+        history = [
+            *(entry.to_record() for entry in owned.value.alignment_history),
+            occurrence.to_record(),
+        ]
         stamped = await self.core.update_principle(
-            principle_uid, PrincipleUpdateIntent(last_review_date=date.today())
+            principle_uid,
+            PrincipleUpdateIntent(last_review_date=today, alignment_history=history),
         )
         if stamped.is_error:
             return Result.fail(stamped)

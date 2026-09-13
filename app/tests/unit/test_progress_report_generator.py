@@ -6,6 +6,7 @@ Tests generation flow, content building, time period parsing,
 and depth control with mocked dependencies.
 """
 
+import json
 from datetime import date, datetime
 from unittest.mock import AsyncMock, MagicMock, patch
 
@@ -767,7 +768,9 @@ class TestCompletionsFromContext:
         )
         assert completions["habits_completed"] == 0
 
-    def test_goals_progressed_counts_in_period_progress_updates(self, generator):
+    def test_goals_progressed_counts_goals_with_a_history_entry_in_period(self, generator):
+        """The counter reads ``progress_history`` — the node carries it as one JSON
+        string — never ``last_progress_update``, a stamp every later write moves."""
         completions = self._map(
             generator,
             {
@@ -775,8 +778,14 @@ class TestCompletionsFromContext:
                     _row(
                         {
                             "uid": "g1",
-                            "title": "Moved",
-                            "last_progress_update": datetime(2026, 9, 3),
+                            "title": "Moved in period, moved again after",
+                            "last_progress_update": datetime(2026, 10, 3),
+                            "progress_history": json.dumps(
+                                [
+                                    {"date": "2026-09-03T09:00:00", "progress_percentage": 40.0},
+                                    {"date": "2026-10-03T09:00:00", "progress_percentage": 60.0},
+                                ]
+                            ),
                         }
                     ),
                     _row(
@@ -784,16 +793,26 @@ class TestCompletionsFromContext:
                             "uid": "g2",
                             "title": "Stale",
                             "last_progress_update": datetime(2026, 7, 1),
+                            "progress_history": [
+                                {"date": "2026-07-01T09:00:00", "progress_percentage": 10.0}
+                            ],
                         }
                     ),
-                    _row({"uid": "g3", "title": "Never moved"}),
+                    _row(
+                        {
+                            "uid": "g3",
+                            "title": "Stamp only, no history",
+                            "last_progress_update": datetime(2026, 9, 3),
+                        }
+                    ),
+                    _row({"uid": "g4", "title": "Never moved"}),
                 ]
             },
         )
         assert completions["goals_progressed"] == 1
-        assert len(completions["goals_details"]) == 3
+        assert len(completions["goals_details"]) == 4
         trends = generator._compute_domain_trends(completions)["goals"]
-        assert (trends["total"], trends["progressed"]) == (3, 1)
+        assert (trends["total"], trends["progressed"]) == (4, 1)
 
     def test_choices_made_counts_in_period_decisions(self, generator):
         completions = self._map(
@@ -812,26 +831,72 @@ class TestCompletionsFromContext:
         assert len(completions["choices_details"]) == 3
         assert generator._compute_domain_trends(completions)["choices"]["decided"] == 1
 
-    def test_principles_reviewed_counts_in_period_reviews(self, generator):
+    def test_principles_reviewed_counts_principles_with_a_history_entry_in_period(self, generator):
+        """The counter reads ``alignment_history`` — a self-assessment or a
+        reflection dated in the period — never ``last_review_date``."""
         completions = self._map(
             generator,
             {
                 "principles": [
-                    _row({"uid": "p1", "title": "Reviewed", "last_review_date": date(2026, 9, 6)}),
+                    _row(
+                        {
+                            "uid": "p1",
+                            "title": "Reflected in period, assessed after",
+                            "last_review_date": date(2026, 10, 6),
+                            "alignment_history": json.dumps(
+                                [
+                                    {
+                                        "assessed_date": "2026-09-06",
+                                        "alignment_level": "aligned",
+                                        "evidence": "x",
+                                        "kind": "reflection",
+                                    },
+                                    {
+                                        "assessed_date": "2026-10-06",
+                                        "alignment_level": "partial",
+                                        "evidence": "y",
+                                    },
+                                ]
+                            ),
+                        }
+                    ),
                     _row(
                         {
                             "uid": "p2",
-                            "title": "Reviewed (string)",
-                            "last_review_date": "2026-09-02",
+                            "title": "Assessed in period (list row)",
+                            "alignment_history": [
+                                {
+                                    "assessed_date": "2026-09-02",
+                                    "alignment_level": "aligned",
+                                    "evidence": "z",
+                                }
+                            ],
                         }
                     ),
-                    _row({"uid": "p3", "title": "Long ago", "last_review_date": date(2026, 1, 6)}),
-                    _row({"uid": "p4", "title": "Never"}),
+                    _row(
+                        {
+                            "uid": "p3",
+                            "title": "Long ago",
+                            "alignment_history": json.dumps(
+                                [
+                                    {
+                                        "assessed_date": "2026-01-06",
+                                        "alignment_level": "aligned",
+                                        "evidence": "w",
+                                    }
+                                ]
+                            ),
+                        }
+                    ),
+                    _row(
+                        {"uid": "p4", "title": "Stamp only", "last_review_date": date(2026, 9, 6)}
+                    ),
+                    _row({"uid": "p5", "title": "Never"}),
                 ]
             },
         )
         assert completions["principles_reviewed"] == 2
-        assert len(completions["principles_details"]) == 4
+        assert len(completions["principles_details"]) == 5
         assert generator._compute_domain_trends(completions)["principles"]["reviewed"] == 2
 
     def test_task_completed_before_the_period_does_not_count(self, generator):
@@ -933,7 +998,7 @@ class TestCalendarPeriods:
         assert report.metadata["is_partial"] is False
         assert report.metadata["data_cutoff"] == report.metadata["end_date"]
         assert report.metadata["period_end"] == report.period_end.isoformat()
-        assert len(report.metadata["limitations"]) == 2
+        assert len(report.metadata["limitations"]) == 1
 
     @pytest.mark.asyncio
     async def test_open_period_is_counted_through_now_and_marked_partial(self, generator):

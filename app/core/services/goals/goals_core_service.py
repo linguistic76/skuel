@@ -53,6 +53,7 @@ from core.services.completion_stamp import (
     stranded_stamp_error,
 )
 from core.services.domain_config import create_activity_domain_config
+from core.services.goals.progress_history import with_progress_entry
 from core.services.mixins.hierarchy_read_mixin import HierarchyReadMixin
 from core.services.mixins.link_edge_guard import (
     KNOWLEDGE_LABELS,
@@ -77,6 +78,26 @@ DEFAULT_PROGRESS_WEIGHT: Final = 1.0
 _COMPLETED_ONLY: Final = frozenset({EntityStatus.COMPLETED.value})
 
 
+def _reopens(changes: Mapping[str, Any]) -> bool:  # boundary: the materialized update patch
+    """Whether the patch names a non-terminal status and no figure of its own —
+    the shape whose write resets a completed goal's progress (the reopen).
+
+    Runs BEFORE the guard's legality check (it decides whether to pre-read), so
+    a target that is not a canonical status — ``None`` from an explicit
+    ``{"status": null}``, a misspelling — is simply not a reopen here; the
+    guard refuses it as the validation failure it is.
+    """
+    if "status" not in changes or "progress_percentage" in changes:
+        return False
+    raw_target = changes["status"]
+    if isinstance(raw_target, EntityStatus):
+        return not raw_target.is_terminal()
+    try:
+        return not EntityStatus(str(raw_target)).is_terminal()
+    except ValueError:
+        return False
+
+
 def _with_reopen_progress_reset(
     guard: StatusWriteGuard,
     # boundary: a materialized update patch (``GoalUpdateIntent.to_changes()``) — genuinely
@@ -86,6 +107,7 @@ def _with_reopen_progress_reset(
     # narrowed to ``EntityStatus`` on the next line); ``progress_percentage`` is a key test,
     # and what this helper WRITES is typed (``reset`` below).
     changes: Mapping[str, Any],
+    current: Goal | None,
 ) -> StatusWriteGuard:
     """Add the reopen progress reset to a Goal's status guard (ADR-087).
 
@@ -109,25 +131,29 @@ def _with_reopen_progress_reset(
         guard: The stamp guard from ``status_transition_guard`` — already legality-
             checked, which is what lets the target below be coerced without a guard.
         changes: The materialized update patch. Never mutated.
+        current: The goal as pre-read for a reopen candidate — the history the
+            reset's entry is appended to (``None`` starts one).
 
     Returns:
         The guard, with the reset merged into its prior-in patch when it applies.
     """
-    if "status" not in changes or "progress_percentage" in changes:
-        return guard
-
-    raw_target = changes["status"]
-    target = raw_target if isinstance(raw_target, EntityStatus) else EntityStatus(raw_target)
-    if target.is_terminal():
+    if not _reopens(changes):
         return guard
 
     statuses, patch = guard.patch_if_prior_in or (_COMPLETED_ONLY, {})
     # The reset is a progress write (100% → 0%), so it carries the progress stamp
-    # the report's goals_progressed counter reads — under the same prior condition.
-    reset: Neo4jProperties = {
+    # and the history entry the report's goals_progressed counter reads — under
+    # the same prior condition, so a status change that reopens nothing (a pause
+    # of an active goal) records nothing.
+    now = datetime.now()
+    # boundary: pre-serialization patch — the history entries are JSON-serialized at
+    # the write (``to_neo4j_node``), so this patch carries a nested list the
+    # ``Neo4jProperties`` alias does not name, as every progress writer's does.
+    reset: dict[str, Any] = {
         **patch,
         "progress_percentage": 0.0,
-        "last_progress_update": datetime.now(),
+        "last_progress_update": now,
+        "progress_history": with_progress_entry(current, 0.0, now),
     }
     return dataclasses.replace(guard, patch_if_prior_in=(statuses, reset))
 
@@ -172,11 +198,12 @@ def _with_completion_progress(
     ``complete_goal`` carries ``progress_percentage=100.0`` beside ``status=COMPLETED``.
     As a base-patch field it would land on every re-posted completion — and the
     progress stamp with it, so a repeat days later would read as a progress event in
-    that period's report. On a COMPLETED target the figure and its
-    ``last_progress_update`` therefore leave the base patch and ride the guard's
-    prior-NOT-in patch, beside the achievement stamp that already rides that
-    condition: applied only when the prior was not already COMPLETED. A repeat writes
-    neither. Only the write knows the prior, so this is a condition, not a pre-read.
+    that period's report. On a COMPLETED target the figure, its
+    ``last_progress_update`` and the ``progress_history`` entry therefore leave the
+    base patch and ride the guard's prior-NOT-in patch, beside the achievement stamp
+    that already rides that condition: applied only when the prior was not already
+    COMPLETED. A repeat writes none of them. Only the write knows the prior, so this
+    is a condition, not a pre-read.
 
     ⚠ Constructed when absent, like the reopen reset: an intent that supplies its own
     ``achieved_date`` arrives with a guard carrying no patches at all.
@@ -208,6 +235,10 @@ def _with_completion_progress(
         "progress_percentage": figure,
         "last_progress_update": stamp,
     }
+    # The history entry is part of the same transition: a repeated completion
+    # appends nothing, exactly as it stamps nothing.
+    if "progress_history" in base:
+        transition["progress_history"] = base.pop("progress_history")
     return dataclasses.replace(guard, patch_if_prior_not_in=(statuses, transition)), base
 
 
@@ -790,9 +821,15 @@ class GoalsCoreService(
         # update supplies only one of them. Gated on exactly the fields that rule reads,
         # so a status-only update reads nothing before writing: its verdicts come from
         # the write itself now.
-        # The same read tells whether a carried progress figure MOVES the stored one.
+        # The same read tells whether a carried progress figure MOVES the stored one,
+        # and supplies the history a reopen's reset entry is appended to.
         old_goal: Goal | None = None
-        if "target_date" in changes or "start_date" in changes or carries_progress:
+        if (
+            "target_date" in changes
+            or "start_date" in changes
+            or carries_progress
+            or _reopens(changes)
+        ):
             current_result = await self.get(uid)
             if current_result.is_error:
                 # Fail fast: a failed read must not be silently read as "no rule
@@ -807,7 +844,11 @@ class GoalsCoreService(
         # completion always is: its figure and stamp move onto the transition
         # condition below (``_with_completion_progress``), gated by the prior status.
         if carries_progress and _progress_moves(old_goal, changes):
-            changes["last_progress_update"] = datetime.now()
+            now = datetime.now()
+            changes["last_progress_update"] = now
+            changes["progress_history"] = with_progress_entry(
+                old_goal, changes["progress_percentage"], now
+            )
         # Capture the intended fields now: the backend stamps updated_at in place, so
         # reading changes.keys() after the write would leak that bump into the event.
         updated_fields = list(changes.keys())
@@ -829,7 +870,7 @@ class GoalsCoreService(
         guard_result = status_transition_guard(EntityType.GOAL, changes)
         if guard_result.is_error:
             return Result.fail(guard_result)
-        guard = _with_reopen_progress_reset(guard_result.value, changes)
+        guard = _with_reopen_progress_reset(guard_result.value, changes, old_goal)
         guard, changes = _with_completion_progress(guard, changes)
 
         update_result = await self.backend.update_with_status_guard(uid, changes, guard)
