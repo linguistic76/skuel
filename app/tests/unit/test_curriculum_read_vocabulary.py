@@ -215,14 +215,25 @@ def test_the_mega_query_composition_token_is_actually_substituted() -> None:
     Every learner would then read as having applied nothing, which is precisely
     the failure this whole area keeps producing.
 
-    So this asserts on the BUILT query, never the source text.
+    So this asserts on the BUILT queries, never the source text — both the
+    MEGA-QUERY and the applied-knowledge statement that runs beside it.
     """
-    assert user_context_queries._COMPOSITION_EDGES_TOKEN not in user_context_queries.MEGA_QUERY, (
-        "a composition token survived into the built query — it will match zero rows"
+    token = user_context_queries._COMPOSITION_EDGES_TOKEN
+    rollup = f"[:{CURRICULUM_COMPOSITION_EDGES}]->(k:Ku)"
+
+    assert token not in user_context_queries.MEGA_QUERY, (
+        "a composition token survived into the built MEGA-QUERY — it will match zero rows"
     )
-    assert (
-        user_context_queries.MEGA_QUERY.count(f"[:{CURRICULUM_COMPOSITION_EDGES}]->(k:Ku)") == 6
-    ), "the six activity→Ku rollups must all traverse the shared composition triple"
+    assert user_context_queries.MEGA_QUERY.count(rollup) == 5, (
+        "the five activity→Ku rollups must all traverse the shared composition triple"
+    )
+
+    assert token not in user_context_queries.ENTRY_KNOWLEDGE_APPLIED_QUERY, (
+        "a composition token survived into the built applied-knowledge query"
+    )
+    assert user_context_queries.ENTRY_KNOWLEDGE_APPLIED_QUERY.count(rollup) == 1, (
+        "the entry→Ku rollup must traverse the shared composition triple"
+    )
 
 
 def test_the_shared_composition_alternation_is_built_from_registered_edges() -> None:

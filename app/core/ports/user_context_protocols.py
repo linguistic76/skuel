@@ -17,16 +17,18 @@ executor that runs them is built at the composition root and injected, so no
 here — signatures are lifted from the implementation, and the slice is exactly
 what ``UserContextBuilder`` uses.
 
-**Why three returns are ``dict[str, Any]`` — tier C, with tier B tested first.**
+**Why four returns are ``dict[str, Any]`` — tier C, with tier B tested first.**
 ``Neo4jProperties`` was tried on these signatures and produced **28 MyPy errors
 in ``user_context_builder.py`` alone** (79 across both new ports' consumers).
 These are not property dicts: the MEGA-QUERY returns one deeply nested
-``{uids, entities, rich}`` object spanning every domain, and ``fetch_user_groups``
-returns five heterogeneous collections. ``Neo4jValue`` describes a scalar
-property, which is a different thing. ``fetch_current_path_steps`` is the
-counter-example that proves the rest is not laziness — it *is* flat, so it
-returns a real ``CurrentPathStepItem`` TypedDict, which the implementation
-**constructs** row by row rather than merely annotating.
+``{uids, entities, rich}`` object spanning every domain, ``fetch_user_groups``
+returns five heterogeneous collections, and ``fetch_submission_stats`` a map of
+counts, a date and two item lists. ``Neo4jValue`` describes a scalar property,
+which is a different thing. ``fetch_current_path_steps`` and
+``fetch_entry_knowledge_applied`` are the counter-examples that prove the rest
+is not laziness — they *are* flat, so they return real TypedDict rows
+(``CurrentPathStepItem``, ``EntryKnowledgeAppliedRow``), which the
+implementation **constructs** row by row rather than merely annotating.
 
 Implementation: adapters/persistence/neo4j/user_context_queries.py
 See: /docs/patterns/ANY_USAGE_POLICY.md
@@ -38,7 +40,7 @@ from datetime import datetime
 from typing import Any, Protocol, runtime_checkable
 
 from core.models.type_hints import UserUID
-from core.ports.query_types import CurrentPathStepItem
+from core.ports.query_types import CurrentPathStepItem, EntryKnowledgeAppliedRow
 from core.utils.result_simplified import Result
 
 
@@ -60,6 +62,20 @@ class UserContextQueryOperations(Protocol):
         self, user_uid: UserUID
     ) -> Result[dict[str, Any]]:  # boundary: per-domain UID lists, keyed by domain
         """Run the standard-depth CONSOLIDATED_QUERY (UIDs only)."""
+        ...
+
+    async def fetch_submission_stats(
+        self, user_uid: UserUID, window_start: datetime
+    ) -> Result[
+        dict[str, Any]
+    ]:  # boundary: the submission_stats map — counts, a date, 2 item lists
+        """Fetch the learning-loop tail (submission & feedback stats) — its own statement, beside the MEGA-QUERY."""
+        ...
+
+    async def fetch_entry_knowledge_applied(
+        self, user_uid: UserUID, min_confidence: float = 0.7
+    ) -> Result[list[EntryKnowledgeAppliedRow]]:
+        """Fetch the learner's entry→Ku applied-knowledge rows (ADR-069) — its own statement, beside the MEGA-QUERY."""
         ...
 
     async def fetch_current_path_steps(

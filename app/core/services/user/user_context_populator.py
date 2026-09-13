@@ -28,7 +28,7 @@ from core.utils.logging import get_logger
 from core.utils.sort_functions import get_updated_timestamp
 
 if TYPE_CHECKING:
-    from core.ports.query_types import RichEntityItem
+    from core.ports.query_types import EntryKnowledgeAppliedRow, RichEntityItem
     from core.services.user import UserContext
     from core.services.user.user_context_extractor import GraphSourcedData
 
@@ -317,10 +317,10 @@ class UserContextPopulator:
         context.ready_to_learn_uids = graph_data.knowledge.ready_to_learn_uids
 
     def populate_entry_knowledge_applied(
-        self, context: UserContext, raw: list[dict[str, Any]] | None
+        self, context: UserContext, raw: list[EntryKnowledgeAppliedRow] | None
     ) -> None:
         """
-        Populate entry→Ku applied-knowledge map from MEGA-QUERY results.
+        Populate entry→Ku applied-knowledge map from the applied-knowledge rows.
 
         Source edges are ``(UserEntry)-[:APPLIES_KNOWLEDGE]->(Ku)``, written by
         the EXTRACT_ACTIVITIES pipeline (ADR-069). Consumed by the substance
@@ -328,8 +328,8 @@ class UserContextPopulator:
 
         Args:
             context: UserContext to populate
-            raw: The "entry_knowledge_applied" section from MEGA-QUERY results
-                 Shape: [{"uid": entry_uid, "ku_uids": [...]}, ...]
+            raw: Rows of ``ENTRY_KNOWLEDGE_APPLIED_QUERY``
+                 (``UserContextQueryOperations.fetch_entry_knowledge_applied``)
         """
         if not raw:
             return
@@ -525,10 +525,11 @@ class UserContextPopulator:
         context.latest_activity_report_user_annotation = record.get("user_annotation")
 
     def populate_submission_stats(self, context: UserContext, stats: dict[str, Any] | None) -> None:
-        """Populate submission & feedback awareness fields from MEGA-QUERY submission_stats.
+        """Populate submission & feedback awareness fields from the submission_stats map.
 
-        stats: dict from MEGA-QUERY submission_stats key, or None if no data.
-        None → all fields remain at defaults (0 / None / []).
+        stats: the map ``SUBMISSION_STATS_QUERY`` returns
+        (``UserContextQueryOperations.fetch_submission_stats``), or empty / None
+        if no data → all fields remain at defaults (0 / None / []).
         """
         if not stats:
             return

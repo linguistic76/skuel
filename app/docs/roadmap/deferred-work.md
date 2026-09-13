@@ -198,7 +198,7 @@ renders them as a table in Obsidian, and a session derives the same table with
 
 ## MEGA-QUERY Sits on the Plan-Cache Cliff
 
-[MEGA-QUERY Sits on the Plan-Cache Cliff](mega-query-plan-cache-cliff.md) — The rich-context query executes in ~40 ms but is re-planned on every run (~0.5 s self-hosted, ~1.05 s Aura Free) because it is one block past the size at which Neo4j stops caching it; measured and bisected, three options priced — remove one block now, split into concurrent statements when the next section is needed.
+[MEGA-QUERY Sits on the Plan-Cache Cliff](mega-query-plan-cache-cliff.md) — The rich-context query is under the server's plan-cache size edge only because its learning-loop tail runs as two statements of its own beside it (Option A, landed; the guard measures `result_available_after`, never a line count); Option B — split by section — stays priced for the next read the context needs, since a section appended to `MEGA_QUERY` puts it back over the edge.
 
 ## Review Schedule
 

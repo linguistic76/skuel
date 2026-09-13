@@ -5,7 +5,9 @@ User Context Queries - Cypher Query Definitions and Execution
 **EXTRACTED (December 2025):** From user_context_builder.py for separation of concerns.
 
 This module contains:
-- MEGA_QUERY: Complete user context in single query (rich + standard)
+- MEGA_QUERY: Complete user context (rich + standard), less the reads that run beside it
+- SUBMISSION_STATS_QUERY: the learning-loop tail (submission & feedback stats), its own statement
+- ENTRY_KNOWLEDGE_APPLIED_QUERY: the entry→Ku applied-knowledge rows, its own statement
 - CONSOLIDATED_QUERY: Standard context query (UIDs only)
 - UserContextQueryExecutor: Query execution with error handling
 
@@ -25,7 +27,7 @@ from typing import TYPE_CHECKING, Any
 from adapters.persistence.neo4j.query.cypher import CURRICULUM_COMPOSITION_EDGES
 from core.models.enums.entity_enums import EntityStatus
 from core.models.type_hints import UserUID
-from core.ports.query_types import CurrentPathStepItem, GroupSummary
+from core.ports.query_types import CurrentPathStepItem, EntryKnowledgeAppliedRow, GroupSummary
 from core.utils.decorators import with_error_handling
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Result
@@ -1042,200 +1044,6 @@ WITH user, active_task_uids, completed_task_uids, overdue_task_uids, today_task_
      } ELSE null END) WHERE x IS NOT NULL][0..10] AS active_insights_raw
 
 // ====================================================================
-// SUBMISSION & FEEDBACK STATS - Learning loop engagement tracking
-// ====================================================================
-OPTIONAL MATCH (user)-[:OWNS]->(sub:Entity)
-WHERE sub.entity_type = 'user_entry'
-  AND NOT sub.pipeline IN ['reference', 'knowledge']
-WITH user, active_task_uids, completed_task_uids, overdue_task_uids, today_task_uids, tasks_rich,
-     active_goal_uids, completed_goal_uids, goal_progress_data, goals_rich,
-     knowledge_mastery_data, knowledge_rich,
-     ku_view_data, ku_marked_as_read_uids, ku_bookmarked_uids,
-     active_habit_uids, habit_metadata, habits_rich,
-     upcoming_event_uids, today_event_uids, events_rich,
-     core_principle_uids, principles_rich,
-     pending_choice_uids, choices_rich,
-     enrolled_path_uids, paths_rich,
-     steps_rich,
-     life_path_uid, life_path_designated_at, life_path_alignment_score,
-     active_moc_uids, moc_metadata,
-     latest_ar, active_insights_raw,
-     count(CASE WHEN sub.pipeline IS NOT NULL AND sub.pipeline <> 'transcribe_and_structure' THEN 1 END) AS total_submission_count,
-     count(CASE WHEN datetime(sub.created_at) >= datetime($window_start) THEN 1 END) AS submissions_in_window,
-     max(sub.created_at) AS last_submission_date,
-     collect(sub.uid) AS all_submission_uids
-
-// Feedback received for user's submissions
-OPTIONAL MATCH (user)-[:OWNS]->(owned_sub:Entity)<-[:REPORT_FOR]-(fb:Entity)
-WHERE owned_sub.entity_type = 'user_entry'
-WITH user, active_task_uids, completed_task_uids, overdue_task_uids, today_task_uids, tasks_rich,
-     active_goal_uids, completed_goal_uids, goal_progress_data, goals_rich,
-     knowledge_mastery_data, knowledge_rich,
-     ku_view_data, ku_marked_as_read_uids, ku_bookmarked_uids,
-     active_habit_uids, habit_metadata, habits_rich,
-     upcoming_event_uids, today_event_uids, events_rich,
-     core_principle_uids, principles_rich,
-     pending_choice_uids, choices_rich,
-     enrolled_path_uids, paths_rich,
-     steps_rich,
-     life_path_uid, life_path_designated_at, life_path_alignment_score,
-     active_moc_uids, moc_metadata,
-     latest_ar, active_insights_raw,
-     total_submission_count, submissions_in_window,
-     last_submission_date, all_submission_uids,
-     count(fb) AS feedback_received_count,
-     count(CASE WHEN datetime(fb.created_at) >= datetime($window_start) THEN 1 END) AS feedback_in_window,
-     collect(DISTINCT owned_sub.uid) AS submissions_with_feedback
-
-// Pending feedback = submissions without any feedback
-WITH user, active_task_uids, completed_task_uids, overdue_task_uids, today_task_uids, tasks_rich,
-     active_goal_uids, completed_goal_uids, goal_progress_data, goals_rich,
-     knowledge_mastery_data, knowledge_rich,
-     ku_view_data, ku_marked_as_read_uids, ku_bookmarked_uids,
-     active_habit_uids, habit_metadata, habits_rich,
-     upcoming_event_uids, today_event_uids, events_rich,
-     core_principle_uids, principles_rich,
-     pending_choice_uids, choices_rich,
-     enrolled_path_uids, paths_rich,
-     steps_rich,
-     life_path_uid, life_path_designated_at, life_path_alignment_score,
-     active_moc_uids, moc_metadata,
-     latest_ar, active_insights_raw,
-     total_submission_count, submissions_in_window,
-     last_submission_date,
-     feedback_received_count, feedback_in_window,
-     size([uid IN all_submission_uids WHERE NOT uid IN submissions_with_feedback]) AS pending_feedback_count
-
-// Assigned exercises and unsubmitted exercises
-OPTIONAL MATCH (user)-[:MEMBER_OF]->(grp:Group)<-[:SHARED_WITH_GROUP]-(ex:Entity {entity_type: 'exercise', scope: 'assigned'})
-WITH user, active_task_uids, completed_task_uids, overdue_task_uids, today_task_uids, tasks_rich,
-     active_goal_uids, completed_goal_uids, goal_progress_data, goals_rich,
-     knowledge_mastery_data, knowledge_rich,
-     ku_view_data, ku_marked_as_read_uids, ku_bookmarked_uids,
-     active_habit_uids, habit_metadata, habits_rich,
-     upcoming_event_uids, today_event_uids, events_rich,
-     core_principle_uids, principles_rich,
-     pending_choice_uids, choices_rich,
-     enrolled_path_uids, paths_rich,
-     steps_rich,
-     life_path_uid, life_path_designated_at, life_path_alignment_score,
-     active_moc_uids, moc_metadata,
-     latest_ar, active_insights_raw,
-     total_submission_count, submissions_in_window,
-     last_submission_date,
-     feedback_received_count, feedback_in_window, pending_feedback_count,
-     count(ex) AS assigned_exercise_count,
-     collect(CASE WHEN NOT (:Entity {user_uid: user.uid})-[:FULFILLS_EXERCISE]->(ex) THEN {
-         uid: ex.uid,
-         title: coalesce(ex.title, 'Untitled Exercise'),
-         due_date: ex.due_date
-     } END) AS unsubmitted_raw
-
-WITH user, active_task_uids, completed_task_uids, overdue_task_uids, today_task_uids, tasks_rich,
-     active_goal_uids, completed_goal_uids, goal_progress_data, goals_rich,
-     knowledge_mastery_data, knowledge_rich,
-     ku_view_data, ku_marked_as_read_uids, ku_bookmarked_uids,
-     active_habit_uids, habit_metadata, habits_rich,
-     upcoming_event_uids, today_event_uids, events_rich,
-     core_principle_uids, principles_rich,
-     pending_choice_uids, choices_rich,
-     enrolled_path_uids, paths_rich,
-     steps_rich,
-     life_path_uid, life_path_designated_at, life_path_alignment_score,
-     active_moc_uids, moc_metadata,
-     latest_ar, active_insights_raw,
-     total_submission_count, submissions_in_window,
-     last_submission_date,
-     feedback_received_count, feedback_in_window, pending_feedback_count,
-     assigned_exercise_count,
-     assigned_exercise_count - size([x IN unsubmitted_raw WHERE x IS NOT NULL]) AS completed_exercise_count,
-     [x IN unsubmitted_raw WHERE x IS NOT NULL][0..5] AS unsubmitted_exercises
-
-// REVISED EXERCISES — Pending teacher-created revisions targeting this student
-// A RevisedExercise is "pending" when the student hasn't submitted against it yet.
-OPTIONAL MATCH (re:RevisedExercise {student_uid: user.uid})
-WHERE NOT EXISTS {
-    MATCH (:Entity {user_uid: user.uid})-[:FULFILLS_EXERCISE]->(re)
-}
-WITH user, active_task_uids, completed_task_uids, overdue_task_uids, today_task_uids, tasks_rich,
-     active_goal_uids, completed_goal_uids, goal_progress_data, goals_rich,
-     knowledge_mastery_data, knowledge_rich,
-     ku_view_data, ku_marked_as_read_uids, ku_bookmarked_uids,
-     active_habit_uids, habit_metadata, habits_rich,
-     upcoming_event_uids, today_event_uids, events_rich,
-     core_principle_uids, principles_rich,
-     pending_choice_uids, choices_rich,
-     enrolled_path_uids, paths_rich,
-     steps_rich,
-     life_path_uid, life_path_designated_at, life_path_alignment_score,
-     active_moc_uids, moc_metadata,
-     latest_ar, active_insights_raw,
-     total_submission_count, submissions_in_window,
-     last_submission_date,
-     feedback_received_count, feedback_in_window, pending_feedback_count,
-     assigned_exercise_count, completed_exercise_count, unsubmitted_exercises,
-     [x IN collect(CASE WHEN re IS NOT NULL THEN {
-         uid: re.uid,
-         title: coalesce(re.title, 'Revision'),
-         instructions: re.instructions,
-         original_exercise_uid: re.original_exercise_uid,
-         report_uid: re.report_uid,
-         revision_number: re.revision_number,
-         created_at: re.created_at
-     } END) WHERE x IS NOT NULL][0..5] AS pending_revised_exercises
-
-// ====================================================================
-// ENTRY KNOWLEDGE APPLIED — (UserEntry)-[:APPLIES_KNOWLEDGE]->(Ku)
-// Written by the EXTRACT_ACTIVITIES pipeline (ADR-069); read here for the
-// substance "entries" channel and the ZPD entry_application signal.
-// Same Ku-grain rollup as the task subquery above (ADR-046).
-// ====================================================================
-OPTIONAL MATCH (user)-[:OWNS]->(entry:UserEntry)-[entry_app_rel:APPLIES_KNOWLEDGE]->(entry_applied:Entity)
-WHERE coalesce(entry_app_rel.confidence, 1.0) >= $min_confidence
-WITH user, active_task_uids, completed_task_uids, overdue_task_uids, today_task_uids, tasks_rich,
-     active_goal_uids, completed_goal_uids, goal_progress_data, goals_rich,
-     knowledge_mastery_data, knowledge_rich,
-     ku_view_data, ku_marked_as_read_uids, ku_bookmarked_uids,
-     active_habit_uids, habit_metadata, habits_rich,
-     upcoming_event_uids, today_event_uids, events_rich,
-     core_principle_uids, principles_rich,
-     pending_choice_uids, choices_rich,
-     enrolled_path_uids, paths_rich,
-     steps_rich,
-     life_path_uid, life_path_designated_at, life_path_alignment_score,
-     active_moc_uids, moc_metadata,
-     latest_ar, active_insights_raw,
-     total_submission_count, submissions_in_window,
-     last_submission_date,
-     feedback_received_count, feedback_in_window, pending_feedback_count,
-     assigned_exercise_count, completed_exercise_count, unsubmitted_exercises,
-     pending_revised_exercises,
-     entry, collect(DISTINCT entry_applied) AS entry_applied_nodes
-WITH user, active_task_uids, completed_task_uids, overdue_task_uids, today_task_uids, tasks_rich,
-     active_goal_uids, completed_goal_uids, goal_progress_data, goals_rich,
-     knowledge_mastery_data, knowledge_rich,
-     ku_view_data, ku_marked_as_read_uids, ku_bookmarked_uids,
-     active_habit_uids, habit_metadata, habits_rich,
-     upcoming_event_uids, today_event_uids, events_rich,
-     core_principle_uids, principles_rich,
-     pending_choice_uids, choices_rich,
-     enrolled_path_uids, paths_rich,
-     steps_rich,
-     life_path_uid, life_path_designated_at, life_path_alignment_score,
-     active_moc_uids, moc_metadata,
-     latest_ar, active_insights_raw,
-     total_submission_count, submissions_in_window,
-     last_submission_date,
-     feedback_received_count, feedback_in_window, pending_feedback_count,
-     assigned_exercise_count, completed_exercise_count, unsubmitted_exercises,
-     pending_revised_exercises,
-     collect(CASE WHEN entry IS NOT NULL THEN {
-         uid: entry.uid,
-         ku_uids: [n IN entry_applied_nodes WHERE n:Ku | n.uid] +
-                  reduce(acc = [], p IN entry_applied_nodes | acc + [(p)-[:__COMPOSITION_EDGES__]->(k:Ku) | k.uid])
-     } END) AS entry_knowledge_raw
-
-// ====================================================================
 // Return BOTH UIDs (standard context) AND rich data (rich context)
 // ====================================================================
 RETURN {
@@ -1294,21 +1102,129 @@ RETURN {
         content: latest_ar.processed_content,
         user_annotation: latest_ar.user_annotation
     } ELSE null END,
-    active_insights_raw: active_insights_raw,
-    entry_knowledge_applied: [x IN entry_knowledge_raw WHERE x IS NOT NULL],
-    submission_stats: {
-        total_submission_count: total_submission_count,
-        submissions_in_window: submissions_in_window,
-        last_submission_date: last_submission_date,
-        feedback_received_count: feedback_received_count,
-        feedback_in_window: feedback_in_window,
-        pending_feedback_count: pending_feedback_count,
-        assigned_exercise_count: assigned_exercise_count,
-        completed_exercise_count: completed_exercise_count,
-        unsubmitted_exercises: unsubmitted_exercises,
-        pending_revised_exercises: pending_revised_exercises
-    }
+    active_insights_raw: active_insights_raw
 } as result
+""".replace(_COMPOSITION_EDGES_TOKEN, CURRICULUM_COMPOSITION_EDGES)
+
+
+# The rich context is MEGA_QUERY plus the statements below it, which
+# build_rich_user_context runs CONCURRENTLY with it. They are not sections of
+# MEGA_QUERY because the server serves a statement from its plan cache only up
+# to a size — cumulative across MATCHes, WITHs and the RETURN map alike — past
+# which it re-plans on every execution (~0.5 s self-hosted, ~1 s on AuraDB,
+# against ~40 ms of actual execution). MEGA_QUERY sits just under that edge;
+# tests/integration/test_user_context_plan_cache.py pins every statement under
+# it. A new read belongs in a statement of its own, never appended to
+# MEGA_QUERY.
+
+# The learning-loop tail — submission & feedback stats, assigned and revised
+# exercises. Returns exactly the map populate_submission_stats consumes.
+SUBMISSION_STATS_QUERY: str = """
+MATCH (user:User {uid: $user_uid})
+
+// ====================================================================
+// SUBMISSION & FEEDBACK STATS - Learning loop engagement tracking
+// ====================================================================
+OPTIONAL MATCH (user)-[:OWNS]->(sub:Entity)
+WHERE sub.entity_type = 'user_entry'
+  AND NOT sub.pipeline IN ['reference', 'knowledge']
+WITH user,
+     count(CASE WHEN sub.pipeline IS NOT NULL AND sub.pipeline <> 'transcribe_and_structure' THEN 1 END) AS total_submission_count,
+     count(CASE WHEN datetime(sub.created_at) >= datetime($window_start) THEN 1 END) AS submissions_in_window,
+     max(sub.created_at) AS last_submission_date,
+     collect(sub.uid) AS all_submission_uids
+
+// Feedback received for user's submissions
+OPTIONAL MATCH (user)-[:OWNS]->(owned_sub:Entity)<-[:REPORT_FOR]-(fb:Entity)
+WHERE owned_sub.entity_type = 'user_entry'
+WITH user,
+     total_submission_count, submissions_in_window,
+     last_submission_date, all_submission_uids,
+     count(fb) AS feedback_received_count,
+     count(CASE WHEN datetime(fb.created_at) >= datetime($window_start) THEN 1 END) AS feedback_in_window,
+     collect(DISTINCT owned_sub.uid) AS submissions_with_feedback
+
+// Pending feedback = submissions without any feedback
+WITH user,
+     total_submission_count, submissions_in_window,
+     last_submission_date,
+     feedback_received_count, feedback_in_window,
+     size([uid IN all_submission_uids WHERE NOT uid IN submissions_with_feedback]) AS pending_feedback_count
+
+// Assigned exercises and unsubmitted exercises
+OPTIONAL MATCH (user)-[:MEMBER_OF]->(grp:Group)<-[:SHARED_WITH_GROUP]-(ex:Entity {entity_type: 'exercise', scope: 'assigned'})
+WITH user,
+     total_submission_count, submissions_in_window,
+     last_submission_date,
+     feedback_received_count, feedback_in_window, pending_feedback_count,
+     count(ex) AS assigned_exercise_count,
+     collect(CASE WHEN NOT (:Entity {user_uid: user.uid})-[:FULFILLS_EXERCISE]->(ex) THEN {
+         uid: ex.uid,
+         title: coalesce(ex.title, 'Untitled Exercise'),
+         due_date: ex.due_date
+     } END) AS unsubmitted_raw
+
+WITH user,
+     total_submission_count, submissions_in_window,
+     last_submission_date,
+     feedback_received_count, feedback_in_window, pending_feedback_count,
+     assigned_exercise_count,
+     assigned_exercise_count - size([x IN unsubmitted_raw WHERE x IS NOT NULL]) AS completed_exercise_count,
+     [x IN unsubmitted_raw WHERE x IS NOT NULL][0..5] AS unsubmitted_exercises
+
+// REVISED EXERCISES — Pending teacher-created revisions targeting this student
+// A RevisedExercise is "pending" when the student hasn't submitted against it yet.
+OPTIONAL MATCH (re:RevisedExercise {student_uid: user.uid})
+WHERE NOT EXISTS {
+    MATCH (:Entity {user_uid: user.uid})-[:FULFILLS_EXERCISE]->(re)
+}
+WITH user,
+     total_submission_count, submissions_in_window,
+     last_submission_date,
+     feedback_received_count, feedback_in_window, pending_feedback_count,
+     assigned_exercise_count, completed_exercise_count, unsubmitted_exercises,
+     [x IN collect(CASE WHEN re IS NOT NULL THEN {
+         uid: re.uid,
+         title: coalesce(re.title, 'Revision'),
+         instructions: re.instructions,
+         original_exercise_uid: re.original_exercise_uid,
+         report_uid: re.report_uid,
+         revision_number: re.revision_number,
+         created_at: re.created_at
+     } END) WHERE x IS NOT NULL][0..5] AS pending_revised_exercises
+
+RETURN {
+    total_submission_count: total_submission_count,
+    submissions_in_window: submissions_in_window,
+    last_submission_date: last_submission_date,
+    feedback_received_count: feedback_received_count,
+    feedback_in_window: feedback_in_window,
+    pending_feedback_count: pending_feedback_count,
+    assigned_exercise_count: assigned_exercise_count,
+    completed_exercise_count: completed_exercise_count,
+    unsubmitted_exercises: unsubmitted_exercises,
+    pending_revised_exercises: pending_revised_exercises
+} AS submission_stats
+"""
+
+
+# The entry→Ku applied-knowledge rows (ADR-069). Returns one row per entry.
+ENTRY_KNOWLEDGE_APPLIED_QUERY: str = """
+MATCH (user:User {uid: $user_uid})
+
+// ENTRY KNOWLEDGE APPLIED — (UserEntry)-[:APPLIES_KNOWLEDGE]->(Ku)
+// Written by the EXTRACT_ACTIVITIES pipeline (ADR-069); read here for the
+// substance "entries" channel and the ZPD entry_application signal.
+// Same Ku-grain rollup as the MEGA-QUERY task subquery (ADR-046).
+OPTIONAL MATCH (user)-[:OWNS]->(entry:UserEntry)-[entry_app_rel:APPLIES_KNOWLEDGE]->(entry_applied:Entity)
+WHERE coalesce(entry_app_rel.confidence, 1.0) >= $min_confidence
+WITH entry, collect(DISTINCT entry_applied) AS entry_applied_nodes
+WHERE entry IS NOT NULL
+RETURN {
+    uid: entry.uid,
+    ku_uids: [n IN entry_applied_nodes WHERE n:Ku | n.uid] +
+             reduce(acc = [], p IN entry_applied_nodes | acc + [(p)-[:__COMPOSITION_EDGES__]->(k:Ku) | k.uid])
+} AS entry
 """.replace(_COMPOSITION_EDGES_TOKEN, CURRICULUM_COMPOSITION_EDGES)
 
 
@@ -1533,6 +1449,30 @@ def empty_context_data() -> dict[str, Any]:
 # =============================================================================
 
 
+def build_mega_query_params(
+    user_uid: UserUID,
+    min_confidence: float = 0.7,
+    window_start: datetime | None = None,
+    window_end: datetime | None = None,
+) -> dict[str, Any]:
+    """The complete parameter map ``MEGA_QUERY`` runs with.
+
+    Always carries ``$window_start`` / ``$window_end`` (default: the trailing
+    30 days), ``$today`` and the status vocabulary; one builder so the
+    executor and the plan-cache guard run the statement the same way.
+    """
+    effective_end = window_end or datetime.now()
+    effective_start = window_start or (effective_end - timedelta(days=30))
+    return {
+        "user_uid": user_uid,
+        "today": date.today().isoformat(),
+        "min_confidence": min_confidence,
+        "window_start": effective_start.isoformat(),
+        "window_end": effective_end.isoformat(),
+        **STATUS_PARAMS,
+    }
+
+
 class UserContextQueryExecutor:
     """
     Execute user context queries against Neo4j.
@@ -1582,20 +1522,9 @@ class UserContextQueryExecutor:
         Returns:
             Result containing dict with "uids", "entities", and "rich" keys
         """
-        today = date.today().isoformat()
-
-        # Always compute window bounds — default 30d lookback when not provided
-        effective_end = window_end or datetime.now()
-        effective_start = window_start or (effective_end - timedelta(days=30))
-
-        params: dict[str, Any] = {
-            "user_uid": user_uid,
-            "today": today,
-            "min_confidence": min_confidence,
-            "window_start": effective_start.isoformat(),
-            "window_end": effective_end.isoformat(),
-            **STATUS_PARAMS,
-        }
+        params = build_mega_query_params(
+            user_uid, min_confidence, window_start=window_start, window_end=window_end
+        )
 
         result = await self.executor.execute_query(MEGA_QUERY, params)
         if result.is_error:
@@ -1608,6 +1537,64 @@ class UserContextQueryExecutor:
             return Result.ok({"uids": {}, "entities": {}, "rich": {}})
 
         return Result.ok(record["result"])
+
+    @with_error_handling("fetch_submission_stats", error_type="database", uid_param="user_uid")
+    async def fetch_submission_stats(
+        self, user_uid: UserUID, window_start: datetime
+    ) -> Result[dict[str, Any]]:
+        """
+        Fetch the learner's submission & feedback stats — the learning-loop tail.
+
+        Counts of submissions and feedback (total and within the window from
+        ``window_start``), pending feedback, assigned / completed / unsubmitted
+        exercises and pending revised exercises — the map
+        ``populate_submission_stats`` consumes. Empty when the user does not exist.
+
+        Args:
+            user_uid: User identifier
+            window_start: Start of the activity window the in-window counts use
+        """
+        result = await self.executor.execute_query(
+            SUBMISSION_STATS_QUERY,
+            {"user_uid": user_uid, "window_start": window_start.isoformat()},
+        )
+        if result.is_error:
+            return Result.fail(result)
+        records = result.value or []
+        return Result.ok(dict(records[0]["submission_stats"]) if records else {})
+
+    @with_error_handling(
+        "fetch_entry_knowledge_applied", error_type="database", uid_param="user_uid"
+    )
+    async def fetch_entry_knowledge_applied(
+        self, user_uid: UserUID, min_confidence: float = 0.7
+    ) -> Result[list[EntryKnowledgeAppliedRow]]:
+        """
+        Fetch the learner's entry→Ku applied-knowledge rows (ADR-069 read side).
+
+        One row per UserEntry that APPLIES_KNOWLEDGE at or above ``min_confidence``,
+        with the PathStep→Ku rollup applied — the shape
+        ``populate_entry_knowledge_applied`` consumes.
+
+        Args:
+            user_uid: User identifier
+            min_confidence: Minimum relationship confidence (default 0.7)
+        """
+        result = await self.executor.execute_query(
+            ENTRY_KNOWLEDGE_APPLIED_QUERY,
+            {"user_uid": user_uid, "min_confidence": min_confidence},
+        )
+        if result.is_error:
+            return Result.fail(result)
+        return Result.ok(
+            [
+                EntryKnowledgeAppliedRow(
+                    uid=str(record["entry"]["uid"]),
+                    ku_uids=[str(uid) for uid in record["entry"]["ku_uids"] or []],
+                )
+                for record in result.value or []
+            ]
+        )
 
     @with_error_handling("fetch_current_ps_uids", error_type="database", uid_param="user_uid")
     async def fetch_current_ps_uids(self, user_uid: UserUID) -> Result[list[str]]:

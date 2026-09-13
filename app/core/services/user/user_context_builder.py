@@ -28,6 +28,7 @@ Responsibilities:
 - Public API surface (build, build_rich, build_user_context, build_rich_user_context)
 """
 
+import asyncio
 from datetime import datetime
 from typing import TYPE_CHECKING
 
@@ -45,6 +46,7 @@ from core.utils.result_simplified import Errors, Result
 if TYPE_CHECKING:
     from core.ports.user_context_protocols import UserContextQueryOperations
     from core.services.ps_engagement import PsEngagementService
+    from core.services.ps_engagement.engagement import Engagement
     from core.services.user_service import UserService
     from core.services.zpd.zpd_service import ZPDService
 
@@ -319,13 +321,22 @@ class UserContextBuilder:
         window: str = "30d",
     ) -> Result[RichUserContext]:
         """
-        Build COMPLETE UserContext with BOTH standard AND rich fields in ONE query.
+        Build COMPLETE UserContext with BOTH standard AND rich fields — one
+        concurrent round-trip.
 
-        **ARCHITECTURE:** Uses TRUE MEGA-QUERY pattern - single comprehensive query
-        that fetches BOTH standard context (UIDs) AND rich context (full entities
-        with graph neighborhoods) in ONE database round-trip.
+        **ARCHITECTURE:** The MEGA-QUERY fetches BOTH standard context (UIDs) AND
+        rich context (full entities with graph neighborhoods) in one statement;
+        the reads that are not part of it — current path steps, engagements,
+        groups, the submission & feedback stats, the entry→Ku applied-knowledge
+        rows — run *concurrently* with it (``asyncio.gather``), so the wall cost
+        is the slowest statement, not the sum. Every statement stays small
+        enough to be served from the server's plan cache; the MEGA-QUERY sits
+        just under that edge, which is why the learning-loop reads are
+        statements of their own (``SUBMISSION_STATS_QUERY``,
+        ``ENTRY_KNOWLEDGE_APPLIED_QUERY``) and a new section must never be
+        appended to it.
 
-        This single query fetches:
+        The MEGA-QUERY fetches:
         1. **Standard context fields** (UIDs, relationships, metadata)
            - active_task_uids, active_goal_uids, active_habit_uids
            - habit_streaks, knowledge_mastery, goal_progress
@@ -348,9 +359,8 @@ class UserContextBuilder:
             Result[UserContext] with ALL ~240 fields populated
 
         Performance:
-            - ProfileHubData path (old): 1-2 queries
-            - Dashboard path (old): 2-3 queries (standard + MEGA-QUERY)
-            - Unified path (new): 1 query (TRUE MEGA-QUERY)
+            - 1 MEGA-QUERY + 5 smaller reads, all in flight at once; each is plan-cached
+              after its first execution on a server.
         """
         # Validate min_confidence bounds
         if not (0.0 <= min_confidence <= 1.0):
@@ -392,12 +402,40 @@ class UserContextBuilder:
         window_start = period.start
         window_end = period.end
 
-        # Execute MEGA-QUERY — fetches UIDs AND rich data in one shot.
-        mega_result = await self._query_executor.execute_mega_query(
-            user_uid, min_confidence, window_start=window_start, window_end=window_end
+        # The MEGA-QUERY and the five reads beside it share nothing but user_uid,
+        # so they go out together — the wall cost is the slowest of the six.
+        async def _engaged() -> Result[list[Engagement]] | None:
+            if self.ps_engagement_service is None:
+                return None
+            return await self.ps_engagement_service.list_engaged(user_uid)
+
+        (
+            mega_result,
+            ps_result,
+            engaged_result,
+            groups_result,
+            submission_result,
+            entry_result,
+        ) = await asyncio.gather(
+            self._query_executor.execute_mega_query(
+                user_uid, min_confidence, window_start=window_start, window_end=window_end
+            ),
+            self._query_executor.fetch_current_path_steps(user_uid),
+            _engaged(),
+            self._query_executor.fetch_user_groups(user_uid),
+            self._query_executor.fetch_submission_stats(user_uid, window_start),
+            self._query_executor.fetch_entry_knowledge_applied(user_uid, min_confidence),
         )
         if mega_result.is_error:
             return Result.fail(mega_result)
+        # The submission stats and the applied-knowledge rows are the MEGA-QUERY's
+        # own reads in separate statements; a failed read still fails the build
+        # rather than silently zeroing the learning-loop fields, the substance
+        # "entries" channel and the ZPD entry_application signal.
+        if submission_result.is_error:
+            return Result.fail(submission_result)
+        if entry_result.is_error:
+            return Result.fail(entry_result)
 
         mega_data = mega_result.value
 
@@ -411,12 +449,14 @@ class UserContextBuilder:
         #     "progress_counts": {tasks_completed, habits_maintained, goals_achieved, ...},
         #     "activity_report": {uid, period, period_end, content, user_annotation} or null,
         #     "active_insights_raw": [{uid, type, title, impact, confidence}, ...] (up to 10),
-        #     "submission_stats": {total_submission_count, submissions_in_window,
-        #         last_submission_date, feedback_received_count,
-        #         feedback_in_window, pending_feedback_count, assigned_exercise_count,
-        #         completed_exercise_count, unsubmitted_exercises},
-        #     "entry_knowledge_applied": [{uid, ku_uids}, ...],  <- ADR-069 APPLIES_KNOWLEDGE edges
         # }
+        # Fetched beside it, in statements of their own: the submission_stats map
+        # ({total_submission_count, submissions_in_window, last_submission_date,
+        # feedback_received_count, feedback_in_window, pending_feedback_count,
+        # assigned_exercise_count, completed_exercise_count, unsubmitted_exercises,
+        # pending_revised_exercises}, SUBMISSION_STATS_QUERY) and the entry→Ku
+        # applied-knowledge rows ([{uid, ku_uids}, ...], ADR-069,
+        # ENTRY_KNOWLEDGE_APPLIED_QUERY).
         # entities_rich["ku"] is derived Python-side from mastery_timestamps + ku_view_data
         uids_data = mega_data.get("uids", {})
         entities_data = mega_data.get("entities", {})
@@ -425,17 +465,15 @@ class UserContextBuilder:
         # Populate standard context fields (UIDs, relationships, metadata)
         self._populator.populate_standard_fields(context, uids_data)
 
-        # Fetch current path steps (lightweight secondary query)
-        ps_result = await self._query_executor.fetch_current_path_steps(user_uid)
+        # Current path steps (fetched beside the MEGA-QUERY)
         if ps_result.is_ok:
             context.current_path_steps = ps_result.value
             context.current_ps_uids = {item["uid"] for item in ps_result.value}
 
-        # Fetch active PS engagements (per ADR-059 — engagement-aware planning).
+        # Active PS engagements (per ADR-059 — engagement-aware planning).
         # Failure of the engagement read must not kill context build — the daily
         # plan still works without bucketing, it just won't have engaged_ps_groups.
-        if self.ps_engagement_service is not None:
-            engaged_result = await self.ps_engagement_service.list_engaged(user_uid)
+        if engaged_result is not None:
             if engaged_result.is_ok:
                 context.active_ps_engagements = {eng.ps_uid: eng for eng in engaged_result.value}
                 context.spawned_uid_to_ps_uid = {
@@ -449,8 +487,7 @@ class UserContextBuilder:
                     "— context.active_ps_engagements left as None"
                 )
 
-        # Fetch group memberships, ownerships, and assigned curriculum
-        groups_result = await self._query_executor.fetch_user_groups(user_uid)
+        # Group memberships, ownerships, and assigned curriculum (fetched beside the MEGA-QUERY)
         if groups_result.is_ok:
             self._populator.populate_group_awareness(context, groups_result.value)
 
@@ -475,13 +512,13 @@ class UserContextBuilder:
             context, mega_data.get("active_insights_raw")
         )
 
-        # Populate submission & feedback stats (learning loop engagement)
-        self._populator.populate_submission_stats(context, mega_data.get("submission_stats"))
+        # Populate submission & feedback stats (learning loop engagement) from the
+        # statement fetched beside the MEGA-QUERY
+        self._populator.populate_submission_stats(context, submission_result.value)
 
-        # Populate entry→Ku applied-knowledge map (ADR-069 — substance + ZPD read side)
-        self._populator.populate_entry_knowledge_applied(
-            context, mega_data.get("entry_knowledge_applied")
-        )
+        # Populate entry→Ku applied-knowledge map (ADR-069 — substance + ZPD read
+        # side) from the statement fetched beside the MEGA-QUERY
+        self._populator.populate_entry_knowledge_applied(context, entry_result.value)
 
         # Populate progress metrics (Priority 6)
         self._populator.populate_progress_metrics(context, mega_data.get("progress_counts", {}))

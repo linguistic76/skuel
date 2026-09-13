@@ -26,6 +26,10 @@ def _executor() -> MagicMock:
     executor.fetch_user_groups = AsyncMock(
         return_value=Result.fail(Errors.system(message="not in this test"))
     )
+    # Fetched beside the MEGA-QUERY; a failure in either fails the rich build
+    # (they are its own reads in separate statements), so both answer empty.
+    executor.fetch_submission_stats = AsyncMock(return_value=Result.ok({}))
+    executor.fetch_entry_knowledge_applied = AsyncMock(return_value=Result.ok([]))
     return executor
 
 

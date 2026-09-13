@@ -1,9 +1,9 @@
 ---
 title: "MEGA-QUERY Sits on the Plan-Cache Cliff"
 updated: 2026-09-13
-status: "open — measured, decision not taken; three options priced below"
-trigger: "the next section added to MEGA_QUERY (it is already past the edge — a new section cannot make it worse, but the first section REMOVED or the first split restores plan reuse), OR any user-facing latency complaint on a cold rich-context build, OR the AuraDB tier changing"
-check: "run MEGA_QUERY three times back-to-back against the graph and read `summary.result_available_after`; today it is ~500 ms (self-hosted) / ~1,050 ms (Aura Free) on EVERY run, while CONSOLIDATED_QUERY drops to 2 ms on its second — the cliff is closed when the third run reads single-digit ms"
+status: "Option A landed — MEGA_QUERY is under the edge and every rich-context statement is pinned there by tests/integration/test_user_context_plan_cache.py; Option B (split by section) stays open for the next section that needs adding"
+trigger: "the next read the rich context needs — it is a statement of its own, never a MEGA_QUERY section (the guard fails otherwise); OR any user-facing latency complaint on a cold rich-context build; OR the AuraDB tier changing"
+check: "tests/integration/test_user_context_plan_cache.py — the third back-to-back execution of MEGA_QUERY, SUBMISSION_STATS_QUERY, ENTRY_KNOWLEDGE_APPLIED_QUERY and CONSOLIDATED_QUERY each reads `result_available_after` under 100 ms (cached: 2-5 ms; re-planned: 500+ ms)"
 registered: "2026-09-13 (measured while diagnosing the Askesis pipeline timeout, PR #1326)"
 ---
 
@@ -133,6 +133,32 @@ is unaffected by either.
 
 **Recommendation:** A now (it is a one-PR change with a measured 100× on the recurring cost),
 B when the next section is needed, C never alone.
+
+### What landed (Option A, wider than priced)
+
+Lifting ENTRY KNOWLEDGE APPLIED alone did **not** put the statement under the edge: the
+bisect above closed each prefix with a *minimal* `RETURN`, and the real 70-line `RETURN` map
+counts toward the same budget. Measured on the container with the block removed
+(57 `OPTIONAL MATCH` / 75 `WITH`, the full `RETURN`): still 543–646 ms on every run. Removing
+REVISED EXERCISES as well: still 552 ms. Removing the `submission_stats` map from the `RETURN`
+as well: **3 ms**. So the whole learning-loop tail left the statement — SUBMISSION & FEEDBACK
+STATS + REVISED EXERCISES became `SUBMISSION_STATS_QUERY` (returns exactly the map
+`populate_submission_stats` consumes), ENTRY KNOWLEDGE APPLIED became
+`ENTRY_KNOWLEDGE_APPLIED_QUERY` (one row per entry, a `EntryKnowledgeAppliedRow`), and
+`build_rich_user_context` runs all six statements (MEGA + those two + current path steps,
+engagements, groups) under one `asyncio.gather`. `MEGA_QUERY` is now 53 `OPTIONAL MATCH` /
+69 `WITH`, ~1,010 lines, and caches.
+
+`build_rich_user_context` wall time on the container, five back-to-back builds:
+**before** `[7049, 991, 1044, 1029, 929]` ms — **after** `[4980, 219, 259, 219, 216]` ms.
+The remaining ~220 ms warm is transport (the ~65 KB statement text and its result) plus
+Python population, not planning; the cold first build is the first-ever planning of the
+six statements on that server.
+
+The guard is `tests/integration/test_user_context_plan_cache.py`: three executions of each
+statement with the app's own parameter builder (`build_mega_query_params`), the third under
+100 ms `result_available_after`. Proven to fail first — against the pre-split `MEGA_QUERY` it
+read `[7378, 639, 597]`.
 
 ### Guarding it
 
