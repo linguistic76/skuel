@@ -3,9 +3,9 @@
 ``TasksCoreService.create`` is the one create path for Tasks: the creation rule
 (``Task.with_creation_due_date``), the entity-carried link edges (FULFILLS_GOAL,
 REINFORCES_HABIT), ``TaskCreated`` and the ADR-074 embedding request all happen
-there. A generator handing a DTO to ``backend.create_task`` skipped every one of
-them — its knowledge tasks landed undated (absent from Today and the calendar),
-un-announced and un-embedded. Pinned here with a fake Tasks facade:
+there — so a task that reaches the graph any other way reaches it undated (absent
+from Today and the calendar), un-announced and un-embedded. Pinned here with a
+fake Tasks facade:
 
 - every generated task reaches ``tasks_service.create`` as a ``Task``;
 - a habit-reinforcement task carries its habit as ``reinforces_habit_uid`` — the

@@ -2,10 +2,9 @@
 
 ``EventsCoreService.create`` is the one create path for Events: the duration
 rule, the entity-carried REINFORCES_HABIT edge, ``CalendarEventCreated`` and the
-ADR-074 embedding request all happen there. A scheduler handing a DTO to
-``backend.create_event`` skipped every one of them — its events landed
-unchecked, un-announced, un-embedded and unlinked. Pinned here with a fake
-Events facade:
+ADR-074 embedding request all happen there — so an event that reaches the graph
+any other way reaches it unchecked, un-announced, un-embedded and unlinked.
+Pinned here with a fake Events facade:
 
 - every scheduled event reaches ``events_service.create`` as an ``Event``
   carrying the habit as ``reinforces_habit_uid`` — the edge's INPUT on create —

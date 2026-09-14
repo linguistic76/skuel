@@ -115,11 +115,12 @@ DEFAULT_PROGRESS_WEIGHT: Final = 1.0
 _LENS_DATE_FIELDS: Final = ("due_date", "scheduled_date")
 
 
-def _clears_a_date(changes: Mapping[str, Any]) -> bool:
+def _clears_a_date(changes: Mapping[str, object]) -> bool:
     """Whether a materialized patch clears ``due_date`` or ``scheduled_date``.
 
     The one shape that can leave a task undated: a key present with ``None``
     (``TaskUpdateIntent`` omits untouched fields, so presence means intent).
+    Values are only ever compared to ``None`` here, hence ``object``.
     """
     return any(field in changes and changes[field] is None for field in _LENS_DATE_FIELDS)
 
@@ -209,7 +210,7 @@ class TasksCoreService(
         which is why creation fills one in (``Task.with_creation_due_date``), and
         why an update that would clear the last one is refused rather than let the
         task vanish. Moving a date, clearing one while the other stands, or clearing
-        one while setting the other in the same update are all allowed (ruled 2026-09-14).
+        one while setting the other in the same update are all allowed.
 
         ``update_task`` calls this explicitly — it is NOT reached through the inherited
         CRUD hook, because the facade overrides ``update`` / ``update_for_user`` and
