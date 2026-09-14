@@ -296,8 +296,8 @@ on it (`get`) and was fed from `AskesisDeps.knowledge_service: Any`, so the anno
 was never checked. Its four sibling params (`TasksOperations`, `GoalsOperations`,
 `HabitsOperations`, `EventsOperations`) failed the identical probe. The remedy was
 `EntityLookup` (`core/services/askesis/types.py`), which `ContextRetriever.ps_service`
-still types against; the extractor itself no longer holds any handle — it matches in
-memory against the rich context — and PS is single-layer.
+still types against; the extractor itself holds no handle — it matches in memory against
+the rich context — and PS is single-layer.
 
 Two traps worth naming, both measured:
 

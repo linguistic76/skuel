@@ -64,8 +64,8 @@ async def test_askesis_service_wiring(skuel_app):
     )
 
     # dependencies (Entity extraction) — matches in memory against the rich
-    # context the pipeline hands it, so the extractor holds no service handle;
-    # the PathStep facade it once resolved uids through is the retriever's.
+    # context the pipeline hands it, so the extractor holds no service handle.
+    # The PathStep facade is the retriever's: it loads the PS bundle through it.
     assert askesis.entity_extractor is not None, "entity_extractor is None (Phase 2.5)"
     assert askesis.context_retriever.ps_service is not None, (
         "ps_service is None on ContextRetriever (PS bundle loading)"
