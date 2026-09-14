@@ -97,8 +97,8 @@ async def test_every_generated_task_reaches_the_entity_door_as_a_task(rels) -> N
     assert result.is_ok
     assert facade.created, "nothing reached the entity door"
     assert all(isinstance(t, Task) for t in facade.created)
-    # The knowledge task — the undated shape the old backend path persisted
-    # as-is — is exactly what the door's creation rule exists for.
+    # The knowledge task is built undated — the shape the door's creation rule
+    # exists for — so reaching the door is what puts it on a day.
     knowledge = [t for t in facade.created if t.title == "Learn: ku.python.basics"]
     assert len(knowledge) == 1
     assert knowledge[0].fulfills_goal_uid == GOAL_UID

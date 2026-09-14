@@ -339,7 +339,11 @@ def _build(
     Pure — no I/O — so it unit-tests without backends. Replaces the six former
     ``_build_*`` functions; all per-domain variation now lives in the spec.
     ``entity_type`` is left out of the copy-through so the instance keeps its own
-    class default (``Task`` not ``TaskTemplate``).
+    class default (``Task`` not ``TaskTemplate``). So are the lifecycle stamps:
+    the instance is created at the engagement — ``created_at`` is the anchor,
+    the same moment every offset resolves against — not when its template was
+    authored; a copied authoring stamp would make a creation-day default (the
+    Task creation rule) date the instance in the template's past.
     """
     managed = {
         "uid",
@@ -347,6 +351,8 @@ def _build(
         "engagement_state",
         "entity_type",
         "source_path_step_uid",
+        "created_at",
+        "updated_at",
         *(dst for _src, dst, _kind in spec.offset_rewrites),
         *spec.field_rewrites.values(),
     }
@@ -356,6 +362,8 @@ def _build(
         "user_uid": student_uid,
         "engagement_state": EngagementState.ENGAGED,
         "source_path_step_uid": ps_uid,
+        "created_at": anchor,
+        "updated_at": anchor,
         **_copy_through(template, _field_names(spec.instance_cls) - managed),
         **_resolve_offsets(template, spec.offset_rewrites, anchor),
         **_resolve_refs(template, spec.field_rewrites, template_to_instance),
