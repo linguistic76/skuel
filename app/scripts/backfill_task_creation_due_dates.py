@@ -5,28 +5,27 @@ A ONE-SHOT migration — no background loop, so the CORE "no background workers"
 guarantee holds.
 
 The rule: a task created with neither ``due_date`` nor ``scheduled_date`` is due
-the day it is created (``Task.with_creation_due_date``). The service create
-primitive and the template spawn apply it now; the vault frontmatter bulk-upsert
-does not (see the method's docstring), so this script is also the remedy for a
-``type: task`` file authored without dates. Before the rule, most captured
-tasks — daily-note extractions, quick entries — carried no date at all, and the
-day lens and calendar, which place a task by exactly those two fields, showed
-none of them on any day (measured 2026-09-14 on AuraDB ``d2d160c4``: 60 of 77
-Tasks, every open one among them). This script applies the rule to that history,
-once — and again whenever the frontmatter door has let an undated task in.
+the day it is created (``Task.with_creation_due_date``). The day lens and the
+calendar place a task by exactly those two fields, so an undated task renders on
+no day. Every creator applies the rule to new tasks — the service create
+primitive, the template spawn, and the vault door's post-persist pass — and this
+script applies it to whatever the graph already holds: tasks that predate the
+rule, or that reached the graph past it (a failed post-persist write, an
+out-of-band load).
 
 **The written value is the rule, not an approximation of it.** Per undated node:
 ``due_date`` = the ``created_at`` calendar day, or the ``completion_date`` when
 that is *earlier* — a historical ``✅`` line was lived on the day it was done,
 not the day it was ingested (the same branch the model method takes). A task
 completed on or after its creation day keeps the creation day: it was due then
-and finished later.
+and finished later. The expression is IMPORTED from the vault door's write
+backend (``TASK_CREATION_DUE_DATE_CYPHER``), never retyped, so the live rule
+and this backfill cannot drift.
 
 **Storage shape matches the writers.** ``due_date`` round-trips through
-``to_neo4j_node``/``from_neo4j_node`` as an ISO ``YYYY-MM-DD`` **string**;
-``created_at`` and ``completion_date`` are ISO strings on the live graph too, but
-the projection goes through ``toString()`` regardless so a native temporal on
-either source flattens to the one shape every app writer stores.
+``to_neo4j_node``/``from_neo4j_node`` as an ISO ``YYYY-MM-DD`` **string**; the
+projection goes through ``toString()`` on both sources so an ISO string and a
+native temporal ``created_at``/``completion_date`` flatten to that one shape.
 
 Non-destructive and idempotent: only nodes with BOTH date fields NULL are
 matched, so a date set by any real path is never overwritten, and the second run
@@ -44,6 +43,7 @@ import argparse
 import asyncio
 import sys
 
+from adapters.persistence.neo4j.ingestion_write_backend import TASK_CREATION_DUE_DATE_CYPHER
 from core.models.enums.neo_labels import NeoLabel
 
 TASK_LABEL = NeoLabel.TASK.value
@@ -54,16 +54,9 @@ TASK_LABEL = NeoLabel.TASK.value
 DUE_FIELD = "due_date"
 SCHEDULED_FIELD = "scheduled_date"
 
-#: The rule as a Cypher expression over an undated node ``n``: the creation day,
-#: or the completion day when that came first. ``substring(toString(…), 0, 10)``
-#: is the ``YYYY-MM-DD`` prefix whatever the source's storage type; ISO date
-#: strings compare correctly as strings.
-CREATED_DAY = "substring(toString(n.created_at), 0, 10)"
-DONE_DAY = "substring(toString(n.completion_date), 0, 10)"
-RULE_PROJECTION = (
-    f"CASE WHEN n.completion_date IS NOT NULL AND {DONE_DAY} < {CREATED_DAY} "
-    f"THEN {DONE_DAY} ELSE {CREATED_DAY} END"
-)
+#: The rule as a Cypher expression over an undated node ``n`` — the vault door's
+#: own, imported so the two cannot drift.
+RULE_PROJECTION = TASK_CREATION_DUE_DATE_CYPHER
 
 UNDATED = f"n.{DUE_FIELD} IS NULL AND n.{SCHEDULED_FIELD} IS NULL"
 

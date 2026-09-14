@@ -85,6 +85,11 @@ class IngestionResult:
     #: the node's write-lock (ADR-087). ``None`` for a node the write created.
     #: Empty for every operation that is not a node upsert.
     prior_status_by_uid: dict[str, str | None] = field(default_factory=dict)
+    #: The uids of the nodes THIS write created, from the upsert's own create
+    #: marker — never inferred from a null prior status, which a re-synced node
+    #: that carries no ``status`` property also reports. Empty for every
+    #: operation that is not a node upsert.
+    created_uids: frozenset[str] = field(default_factory=frozenset)
 
     @property
     def success_rate(self) -> float:

@@ -22,6 +22,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, Any
 
 from core.models.enums.entity_enums import EntityStatus
+from core.models.enums.neo_labels import NeoLabel
 
 if TYPE_CHECKING:
     from collections.abc import Sequence
@@ -29,9 +30,23 @@ if TYPE_CHECKING:
     from neo4j import AsyncDriver
 
     from core.ingestion.ingestion_types import AuthoredEdge
-    from core.models.enums.neo_labels import NeoLabel
     from core.models.relationship_names import RelationshipName
 
+
+# The task creation rule over a node bound as ``n`` (``Task.with_creation_due_date``
+# in Cypher): the ``created_at`` calendar day, or the ``completion_date`` day when
+# that came first. ``substring(toString(…), 0, 10)`` is the ``YYYY-MM-DD`` prefix
+# whatever the property's storage type — ISO string or native temporal — and the
+# result is the ISO date string every app writer stores for ``due_date``; ISO
+# date strings compare correctly as strings. Shared by the vault door's
+# ``apply_task_creation_due_dates`` and ``scripts/backfill_task_creation_due_dates.py``
+# so the live rule and the history backfill cannot drift.
+_CREATED_DAY = "substring(toString(n.created_at), 0, 10)"
+_DONE_DAY = "substring(toString(n.completion_date), 0, 10)"
+TASK_CREATION_DUE_DATE_CYPHER = (
+    f"CASE WHEN n.completion_date IS NOT NULL AND {_DONE_DAY} < {_CREATED_DAY} "
+    f"THEN {_DONE_DAY} ELSE {_CREATED_DAY} END"
+)
 
 # Carries MERGE's create/match signal from the ON CREATE / ON MATCH branches to
 # the RETURN, then is removed in the same transaction — it is never committed,
@@ -304,6 +319,45 @@ class IngestionWriteBackend:
             completed_status=EntityStatus.COMPLETED.value,
         )
         return int(records[0]["cleared"]) if records else 0
+
+    async def apply_task_creation_due_dates(self, uids: list[str]) -> int:
+        """SET the creation-rule ``due_date`` on each named undated Task; return how many.
+
+        The vault door's copy of ``Task.with_creation_due_date``: a task created
+        with neither ``due_date`` nor ``scheduled_date`` is due the day it is
+        created — the ``created_at`` day, or an earlier ``completion_date`` (a
+        historical ``✅`` line was lived on the day it was done). The bulk upsert
+        never builds a ``Task``, so the rule the service create primitive applies
+        on the entity is applied here on the node, by the same expression the
+        history backfill writes (``TASK_CREATION_DUE_DATE_CYPHER``).
+
+        **Conditional on the node still being undated when the write lands.**
+        The caller names the uids the upsert reported as created, but the write
+        happens later — at end-of-sync for the directory door — and an app
+        writer may have dated the task in between; the ``IS NULL`` guards make
+        the rule a no-op exactly then, and a re-sync of the same file (whose
+        uid is no longer a create) never reaches here at all. A node with no
+        ``created_at`` has no day to derive and is left alone.
+
+        The interpolated ``TASK_CREATION_DUE_DATE_CYPHER`` is Cypher *structure*
+        — an expression over ``n``'s own properties, a module constant no
+        request data reaches — which is what makes it safe where a value must
+        be a driver parameter (the ``uids`` are).
+        """
+        if not uids:
+            return 0
+        records, _, _ = await self._driver.execute_query(  # pyright: ignore[reportArgumentType, reportCallIssue]
+            f"""
+            UNWIND $uids AS uid
+            MATCH (n:{NeoLabel.TASK.value} {{uid: uid}})
+            WHERE n.due_date IS NULL AND n.scheduled_date IS NULL
+              AND n.created_at IS NOT NULL
+            SET n.due_date = {TASK_CREATION_DUE_DATE_CYPHER} // noqa: CYP003 - a code-owned expression over the node's own properties (module constant), not a value; see docstring
+            RETURN count(n) AS dated
+            """,
+            uids=list(uids),
+        )
+        return int(records[0]["dated"]) if records else 0
 
     async def read_entity_fields(
         self, uids: list[str], fields: list[str]

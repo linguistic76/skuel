@@ -6,9 +6,9 @@ rot without a query running:
 
 1. **Field names.** The script writes and guards on property names that must
    be real ``Task`` fields — a typo would match nothing and report a clean run.
-2. **The rule.** The Cypher projection and the model method are two statements
-   of one rule; the guard predicate must be the model's ("neither date"), and
-   the projection must take the completion day only when it is earlier.
+2. **The rule.** The Cypher projection is the vault door's own expression,
+   imported; the guard predicate must be the model's ("neither date"), and the
+   projection must take the completion day only when it is earlier.
 
 The Cypher itself runs against a real graph in
 ``tests/integration/test_backfill_task_creation_due_dates.py``.
@@ -25,6 +25,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[3] / "scripts"))
 
 import backfill_task_creation_due_dates as migration  # type: ignore[import-not-found]
 
+from adapters.persistence.neo4j.ingestion_write_backend import TASK_CREATION_DUE_DATE_CYPHER
 from core.models.task.task import Task
 
 TASK_FIELDS = {f.name for f in dataclasses.fields(Task)}
@@ -46,9 +47,12 @@ def test_the_guard_is_neither_date_and_the_write_is_the_due_date():
     assert f"n.{migration.SCHEDULED_FIELD} =" not in migration.BACKFILL_QUERY
 
 
-def test_the_projection_prefers_an_earlier_completion_day():
-    """``completion_date < created_at`` → the completion day; otherwise the
-    creation day — the branch order of ``Task.with_creation_due_date``."""
+def test_the_projection_is_the_vault_doors_own():
+    """One expression, imported — the backfill and the live vault-door rule
+    cannot drift. Its shape: ``completion_date < created_at`` → the completion
+    day; otherwise the creation day — the branch order of
+    ``Task.with_creation_due_date``."""
+    assert migration.RULE_PROJECTION is TASK_CREATION_DUE_DATE_CYPHER
     assert migration.RULE_PROJECTION == (
         "CASE WHEN n.completion_date IS NOT NULL AND "
         "substring(toString(n.completion_date), 0, 10) < substring(toString(n.created_at), 0, 10) "

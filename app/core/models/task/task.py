@@ -172,13 +172,13 @@ class Task(UserOwnedEntity):
         untouched when either date is already set: a work date without a
         deadline ("I'll do it that day") is a date, not an absence.
 
-        Applied by ``TasksCoreService._create_with_links`` (both service doors)
-        and the template spawn's ``_build`` (``TASK_SPEC``). The vault
-        frontmatter bulk-upsert (``type: task`` files) is the one creator that
-        does NOT: it never builds a ``Task``, and its preparer cannot tell a
-        first ingest from a re-sync, where a "today" default would re-date the
-        node on every edit. History was aligned once by
-        ``scripts/backfill_task_creation_due_dates.py``.
+        Applied on the entity by ``TasksCoreService._create_with_links`` (both
+        service doors) and the template spawn's ``_build`` (``TASK_SPEC``); the
+        vault frontmatter bulk-upsert never builds a ``Task``, so its
+        post-persist pass applies the same rule on the node
+        (``IngestionWriteBackend.apply_task_creation_due_dates``, for the uids
+        the upsert reports as created). ``scripts/backfill_task_creation_due_dates.py``
+        applies it to whatever the graph already holds.
         """
         if self.due_date is not None or self.scheduled_date is not None:
             return self

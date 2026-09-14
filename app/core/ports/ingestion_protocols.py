@@ -177,6 +177,20 @@ class IngestionWriteOperations(Protocol):
         """
         ...
 
+    async def apply_task_creation_due_dates(self, uids: list[str]) -> int:
+        """Date each named undated Task by the creation rule; return how many were dated.
+
+        The vault door's copy of ``Task.with_creation_due_date``: a task created
+        with neither ``due_date`` nor ``scheduled_date`` is due the day it is
+        created (its ``created_at`` day, or an earlier ``completion_date``). The
+        bulk upsert never builds a ``Task``, so the caller names the uids the
+        upsert reported as created and the rule is applied to the node. The
+        write is conditional on the node still being undated when it lands — an
+        app writer may have dated it since — and a node with no ``created_at``
+        is left alone.
+        """
+        ...
+
     async def read_entity_fields(
         self, uids: list[str], fields: list[str]
     ) -> dict[str, dict[str, Any]]:

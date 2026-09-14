@@ -583,16 +583,80 @@ class UnifiedIngestionService:
         content the engine popped pre-upsert (``chunk_sources`` is empty for
         every other type).
 
-        The ADR-087 status-transition step is NOT here: it publishes events
-        whose subscribers traverse edges the batch door has not written yet, so
-        it runs as ``status_transition_fn`` at end-of-sync instead. Neither
-        step below reads an edge, which is why they stay in phase 1.
+        The primitive-parity step (the Task creation rule + the ADR-087 status
+        transitions) is NOT here: the latter publishes events whose subscribers
+        traverse edges the batch door has not written yet, so both run as
+        ``status_transition_fn`` at end-of-sync instead. Neither step below
+        reads an edge, which is why they stay in phase 1.
         """
         await self._publish_embedding_requests(entity_type, entities)
         params = resolve_chunking_params(entity_type)
         for uid, source in chunk_sources.items():
             await self._chunk_entity_content(
                 uid, source.content, source.file_format, source.source_path, params
+            )
+
+    async def _apply_primitive_parity(
+        self,
+        entity_type: EntityType | NonKuDomain,
+        entities: list[dict[str, Any]],
+        prior_status_by_uid: Mapping[str, str | None],
+        created_uids: frozenset[str],
+    ) -> None:
+        """What the domain primitives would have done for this batch — both ingest doors.
+
+        The bulk upsert ``MERGE``s node properties and bypasses every domain
+        service, so the rules those services apply at create and at a status
+        write are reproduced here, from what the upsert itself reported under
+        each node's write-lock — which branch its MERGE took, and the prior
+        status: the Task creation rule for the batch's creates
+        (``_apply_creation_rules``), then ADR-087's status contract
+        (``_apply_status_transitions``). Creation first: a born-completed task's
+        completion event reads ``due_date`` back to decide ``was_overdue``, and
+        the service door publishes that event from the dated entity too.
+
+        Registered as ``status_transition_fn`` with the directory door (run at
+        end-of-sync, after every edge this run writes — see that parameter's
+        doc in ``batch.ingest_directory``) and called directly by the
+        single-file door.
+        """
+        await self._apply_creation_rules(entity_type, created_uids)
+        await self._apply_status_transitions(entity_type, entities, prior_status_by_uid)
+
+    async def _apply_creation_rules(
+        self, entity_type: EntityType | NonKuDomain, created_uids: frozenset[str]
+    ) -> None:
+        """Apply the Task creation rule to the batch's creates (both ingest doors).
+
+        A task created with neither ``due_date`` nor ``scheduled_date`` is due
+        the day it is created (``Task.with_creation_due_date``) — the service
+        create primitive and the template spawn apply it on the entity; this
+        door never builds one, so the write backend applies the same rule on
+        the node. ``created_uids`` is what the upsert's own MERGE branch
+        reported (``IngestionResult.created_uids``), never an inference from a
+        null prior status — a re-synced node with no ``status`` property has
+        one of those too. A re-sync is not a creation: a file whose dates were
+        deliberately removed keeps them removed, exactly as an app update that
+        clears both dates does. The write itself is conditional on the node
+        still being undated when it lands. A failed write is logged, not
+        raised — the entity has already landed, and the backfill script is the
+        remedy for an undated task, so failing the file would only hide it.
+        """
+        if entity_type is not EntityType.TASK or not created_uids:
+            return
+        try:
+            dated = await self._write_backend.apply_task_creation_due_dates(sorted(created_uids))
+        except NEO4J_EXCEPTIONS as e:
+            self.logger.error(
+                f"Failed to apply the creation due date to {len(created_uids)} new task(s) — "
+                f"an undated one renders on no day until "
+                f"scripts/backfill_task_creation_due_dates.py runs: {e}"
+            )
+            return
+        if dated:
+            self.logger.info(
+                f"Creation rule: dated {dated} of {len(created_uids)} new task(s) on their "
+                "creation day (neither due_date nor scheduled_date authored)"
             )
 
     async def _apply_status_transitions(
@@ -1187,7 +1251,9 @@ class UnifiedIngestionService:
         # repair a cascade they skipped, since the next ingest reads the node as
         # already completed and publishes nothing. Same rule and same reason as
         # the batch door's end-of-sync pass.
-        await self._apply_status_transitions(entity_type, [entity_data], stats.prior_status_by_uid)
+        await self._apply_primitive_parity(
+            entity_type, [entity_data], stats.prior_status_by_uid, stats.created_uids
+        )
 
         result_payload: dict[str, Any] = {
             "uid": entity_data["uid"],
@@ -1341,7 +1407,7 @@ class UnifiedIngestionService:
             owner_is_authoritative=self._owner_is_authoritative,
             post_persist_fn=self._ingest_post_persist,
             moc_pass_fn=self._apply_moc_links,
-            status_transition_fn=self._apply_status_transitions,
+            status_transition_fn=self._apply_primitive_parity,
         )
 
     async def ingest_vault(
