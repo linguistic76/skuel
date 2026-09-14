@@ -59,7 +59,7 @@ from core.utils.timestamp_helpers import (
     prev_week,
     week_bounds,
 )
-from ui.activities.nav import CALENDAR_SIDEBAR_ITEMS, render_activity_sidebar_page
+from ui.activities.nav import render_activity_sidebar_page
 from ui.calendar.components import (
     create_calendar_header,
     create_calendar_toolbar,
@@ -100,9 +100,6 @@ def _wrap_calendar_page(request: Request, content: Any, title: str, active: str)
         # "calendar" lights the navbar calendar icon.
         active_page="calendar",
         content_max_width="max-w-none",
-        # The slimmer variant: temporal lenses + Journal + Reports, no domain
-        # rows and no badge request (ruling 6).
-        items=CALENDAR_SIDEBAR_ITEMS,
     )
 
 
@@ -142,7 +139,7 @@ def _calendar_shell(
 
     ``report_kind`` / ``report_anchor`` name the calendar period this view shows
     (``monthly`` + a day in the month, ``weekly`` + a day in the week) for the
-    toolbar's "Report for …" pill — the door to the period's activity report.
+    toolbar's "Report for …" pill, which opens the activity report request form.
 
     The grid loads lazily via ``content_loading_placeholder`` so each view renders its
     chrome immediately.
@@ -165,9 +162,7 @@ def _calendar_shell(
             prev_href,
             next_href,
             today_href,
-            report_href=(
-                f"/activity-reports/for?kind={report_kind}&date={report_anchor.isoformat()}"
-            ),
+            report_href="/submit-activity-report",
             report_label=f"Report for {period_link(report_kind, report_anchor).short_label}",
         ),
         content_loading_placeholder(

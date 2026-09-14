@@ -1,10 +1,8 @@
 """Activity Domain sidebar navigation.
 
-Renders a collapsible sidebar with all 6 Activity Domains on every domain page,
-and a slimmer variant — the temporal lenses plus the Journal and Reports doors,
-no domain rows, no badge request — on the calendar and Today pages (ruling 6 of
-the calendar-priority-lens arc: the Activity Domains are understood there
-through Activity Reports, not sidebar counts).
+Renders a collapsible sidebar — the three temporal lenses (Today / Weekly /
+Monthly), the Activity Domain rows with their count and health badges, and the
+Journal — as ONE list on every domain page, the calendar views and Today.
 
 Usage:
     from ui.activities.nav import render_activity_sidebar_page
@@ -42,18 +40,6 @@ ACTIVITY_SIDEBAR_ITEMS: list[SidebarItem] = [
     SidebarItem("Journal", "/journals", "journals", icon="book-open"),
 ]
 
-#: The calendar/Today variant: the three temporal lenses, the Journal, and the
-#: Reports door (the newest owned report, or the request form when none). No
-#: domain rows — and no ``/api/sidebar/badges`` request, which builds the RICH
-#: UserContext for counts these rows never show.
-CALENDAR_SIDEBAR_ITEMS: list[SidebarItem] = [
-    SidebarItem("Today", "/today", "today", icon="sun"),
-    SidebarItem("Weekly", "/cal/week", "weekly", icon="calendar-range"),
-    SidebarItem("Monthly", "/cal/month", "monthly", icon="calendar-days"),
-    SidebarItem("Journal", "/journals", "journals", icon="book-open"),
-    SidebarItem("Reports", "/activity-reports/latest", "reports", icon="file-text"),
-]
-
 
 def render_activity_sidebar_page(
     content: Any,
@@ -63,7 +49,6 @@ def render_activity_sidebar_page(
     title: str = "Tasks+",
     active_page: str = "activity",
     content_max_width: str = "max-w-6xl",
-    items: list[SidebarItem] | None = None,
 ) -> "FT":
     """Wrap content in Activity Domain sidebar page.
 
@@ -76,14 +61,10 @@ def render_activity_sidebar_page(
         active_page: Top-nav active key passed to BasePage; defaults to "activity".
         content_max_width: Tailwind max-width class for the content column;
             "max-w-none" lets fluid pages (calendar) fill the available width.
-        items: The sidebar rows; the full domain list by default. The calendar
-            and Today pages pass ``CALENDAR_SIDEBAR_ITEMS``, which also switches
-            the badge request off — the rows it would decorate are not there.
     """
-    rows = ACTIVITY_SIDEBAR_ITEMS if items is None else items
     return SidebarPage(
         content=content,
-        items=rows,
+        items=ACTIVITY_SIDEBAR_ITEMS,
         active=active,
         title=title,
         storage_key=ACTIVITY_STORAGE_KEY,
@@ -91,7 +72,6 @@ def render_activity_sidebar_page(
         active_page=active_page,
         extra_css=extra_css,
         content_max_width=content_max_width,
-        badges=rows is ACTIVITY_SIDEBAR_ITEMS,
     )
 
 

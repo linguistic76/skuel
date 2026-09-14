@@ -1,5 +1,5 @@
-"""The activity report request form's period vocabulary and the period door's
-"generate" state (``ui/patterns/generate_report.py``)."""
+"""The activity report request form's period vocabulary and the period prompt
+a refused regenerate renders (``ui/patterns/generate_report.py``)."""
 
 from __future__ import annotations
 
@@ -53,7 +53,7 @@ def test_period_prompt_is_a_csrf_protected_post_carrying_the_token() -> None:
             token="2026-08", label="August 2026", is_closed=True, note="Wait an hour."
         )
     )
-    assert "No report for August 2026 yet" in html
+    assert "Generate a report for August 2026" in html
     assert "has closed" in html
     assert 'name="csrf_token"' in html
     assert 'name="time_period" value="2026-08"' in html

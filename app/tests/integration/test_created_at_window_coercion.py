@@ -133,12 +133,10 @@ class TestNewestFirstCoercion:
         )
 
         found = await backend.find_by_period("user_order", "user_order", "2026-09")
-        latest = await backend.get_latest_for_owner("user_order")
         history = await backend.get_history("user_order")
 
-        assert found.is_ok and latest.is_ok and history.is_ok
+        assert found.is_ok and history.is_ok
         assert _uid(found.value[0]) == "ar_newer"
-        assert _uid(latest.value[0]) == "ar_newer"
         assert [_uid(row) for row in history.value] == ["ar_newer", "ar_older"]
 
 

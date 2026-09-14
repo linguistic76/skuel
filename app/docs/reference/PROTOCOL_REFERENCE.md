@@ -1,6 +1,6 @@
 ---
 title: Protocol Reference Guide
-updated: 2026-09-13
+updated: 2026-09-14
 status: current
 category: reference
 tags: [protocol, reference]
@@ -479,7 +479,7 @@ ENTRY_REPORT entities are produced two ways, behind **separate route-facing prot
 | `AssessmentOperations` (service) | `user_entry_assessment` | get_assessments_for_student → `list[EntryReport]` (reads student `OWNS` — the visibility anchor, C1 feedback-loop UX arc). Teacher-authored HUMAN feedback is *written* by `TeacherReviewOperations` (submission-anchored); this is its paired read | `entry_reports_ui.py` via `UserEntryOrchestrator` |
 | `EntryReportBackendOperations` (backend) | `EntryReportService.backend` (typed `self.backend`) | list_for_submission, get_reports_for_student_exercise, get_reports_by_teacher (all → `list[EntryReport]` via `from_neo4j_node`), get_linked_ku_and_student (mastery-loop scalar projection) | — (backend-only) |
 | `ProgressReportOperations` | `progress_report_generator` | 1 (generate → `ACTIVITY_REPORT` entity, `LLM` or `AUTOMATIC`) | `progress_report_api.py` |
-| `ActivityReportOperations` | `activity_report` | 7 (create_snapshot, submit_report → `ACTIVITY_REPORT` `HUMAN`, get_history, get_latest_for_owner (owner-scoped newest, the sidebar's Reports door), annotate → `AnnotationResult`, get_annotation → `AnnotationState`, get_privacy_summary → `PrivacySummary`) | `progress_report_api.py` |
+| `ActivityReportOperations` | `activity_report` | 8 (create_snapshot, submit_report → `ACTIVITY_REPORT` `HUMAN`, get_history, latest_for_period, find_by_period (the period's reusable report — the generator's previous-period comparison), annotate → `AnnotationResult`, get_annotation → `AnnotationState`, get_privacy_summary → `PrivacySummary`) | `progress_report_api.py` |
 | `ReviewQueueOperations` | `review_queue` | 2 (request_review → `ReviewRequestResult`, get_pending_reviews → `list[PendingReviewItem]`) | `progress_report_api.py` |
 | `ReportRelationshipOperations` | `report_relationships` | 5 (get_pending_submissions, get_unsubmitted_exercises, get_report_summary → `ReportSummary`, get_learning_loop_chain → `LearningLoopChain`, get_submission_chain → `SubmissionChain`) | context intelligence |
 | `TeacherReviewOperations` | `teacher_review` | 13 (review queue → `list[ReviewQueueItem]`, submission detail → `SubmissionDetailResult`, feedback history, submit/request/approve, exercises, students, dashboard → `TeacherDashboardStats`, classes → `list[GroupMemberProgress]`) | `teaching_api.py` |

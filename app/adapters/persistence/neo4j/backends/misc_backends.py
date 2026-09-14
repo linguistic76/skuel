@@ -31,8 +31,8 @@ class ActivityReportBackend(UniversalNeo4jBackend[ActivityReport]):
     Domain backend for ActivityReport entities.
 
     Moves inline Cypher from ActivityReportService into named backend methods.
-    Methods: get_for_user, get_latest_for_owner, find_by_period, get_history,
-    annotate, get_annotation, get_admin_snapshots, get_shares_granted.
+    Methods: get_for_user, find_by_period, get_history, annotate, get_annotation,
+    get_admin_snapshots, get_shares_granted.
 
     ``created_at`` is a mixed column (ISO strings, a minority of zoned
     datetimes), and Neo4j orders values of different types by TYPE before
@@ -48,24 +48,6 @@ class ActivityReportBackend(UniversalNeo4jBackend[ActivityReport]):
             RETURN n
             """,
             {"entity_type": _ACTIVITY_REPORT, "uid": uid, "user_uid": user_uid},
-        )
-
-    async def get_latest_for_owner(self, user_uid: UserUID) -> Result[list[Neo4jProperties]]:
-        """The newest ActivityReport the user OWNS (``user_uid``), at most one row.
-
-        Owner-scoped like ``get_for_user``, unlike ``get_history`` (subject-scoped):
-        a report an admin authored ABOUT the user is the user's subject row but not
-        the user's own, and the owner-scoped detail read refuses it — so the door
-        that lands on "your latest report" must select by owner.
-        """
-        return await self.execute_query(
-            """
-            MATCH (n:Entity {entity_type: $entity_type, user_uid: $user_uid})
-            RETURN n
-            ORDER BY datetime(n.created_at) DESC
-            LIMIT 1
-            """,
-            {"entity_type": _ACTIVITY_REPORT, "user_uid": user_uid},
         )
 
     async def find_by_period(

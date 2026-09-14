@@ -1,9 +1,9 @@
-"""Activity report request form and the calendar door's "generate" state.
+"""Activity report request form and the period prompt.
 
 The request card is shared by the Transfer hub (HTMX fragment) and the Study
-submit-activity-report page; the period prompt is what
-``GET /activity-reports/for`` renders when the period has no reusable report
-yet — the one place a report is minted from is its CSRF-protected POST.
+submit-activity-report page — where the calendar toolbar's "Report for …" pill
+lands; the period prompt is what ``POST /activity-reports/for`` (the detail
+page's "Regenerate") renders when it refuses to mint the period's report.
 """
 
 from __future__ import annotations
@@ -111,24 +111,23 @@ def render_period_report_prompt(
     has_started: bool = True,
     note: str | None = None,
 ) -> FT:
-    """The calendar door's "generate" state: no reusable report for the period.
+    """The period's "not generated" state: the refusal (``note``) and the offer
+    to try again.
 
     A plain (non-HTMX) form so the transition that mints the report is one
     CSRF-protected POST the user chose — never a prefetch or a speculative
-    navigation of the GET that rendered this. A period that has not started
-    offers no form: there is nothing to count yet.
+    navigation. A period that has not started offers no form: there is nothing
+    to count yet.
     """
     if not has_started:
         status = f"{label} has not started; a report can be generated once it begins."
     elif is_closed:
         status = f"{label} has closed; its report will count the whole period."
     else:
-        status = (
-            f"{label} is still open; a report now is partial and re-opens until the period closes."
-        )
+        status = f"{label} is still open; a report now is partial, counted through today."
     return Card(
         CardBody(
-            H3(f"No report for {label} yet", cls="font-semibold mb-2"),
+            H3(f"Generate a report for {label}", cls="font-semibold mb-2"),
             P(status, cls="text-sm text-muted-foreground mb-4"),
             P(note, cls="text-sm text-warning mb-4", role="status") if note else None,
             Form(

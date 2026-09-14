@@ -391,7 +391,7 @@ class ActivityReportService:
             )
         start_date, end_date = period.start, period.end
         # A human-authored report of a period still open is partial exactly as a
-        # generated one: its cutoff is now, and the period door treats it alike.
+        # generated one: its cutoff is now, and ``find_by_period`` treats it alike.
         cutoff = period.data_cutoff(now)
 
         try:
@@ -459,20 +459,6 @@ class ActivityReportService:
         if report is None:
             return Result.fail(Errors.not_found("ActivityReport", uid))
         return Result.ok(report)
-
-    async def get_latest_for_owner(self, user_uid: UserUID) -> Result[ActivityReport | None]:
-        """The newest ActivityReport the user owns, or ``None`` when there is none.
-
-        Owner-scoped (``user_uid``), not subject-scoped: a HUMAN report an admin
-        authored about this user is a subject row the owner-scoped detail read
-        refuses, so the "latest report" door must never select it.
-
-        Backend: ``ActivityReportBackend.get_latest_for_owner``.
-        """
-        query_result = await self.backend.get_latest_for_owner(user_uid)
-        if query_result.is_error:
-            return Result.fail(query_result)
-        return Result.ok(self._first_report(query_result.value or []))
 
     async def latest_for_period(
         self, user_uid: UserUID, subject_uid: str, time_period: str

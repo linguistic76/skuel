@@ -536,7 +536,7 @@ annotation_updated_at: datetime | None
 
 | Source | Service | ReportSource | Trigger |
 |--------|---------|---------------|---------|
-| Generated on request | `ProgressReportGenerator.generate()` | `LLM` (`AUTOMATIC` on LLM failure → programmatic fallback) | The request form, or the calendar's period door (`/activity-reports/for`) — never a schedule |
+| Generated on request | `ProgressReportGenerator.generate()` | `LLM` (`AUTOMATIC` on LLM failure → programmatic fallback) | The request form (where the calendar toolbar's "Report for …" pill lands), or the detail page's "Regenerate" (`POST /activity-reports/for`) — never a schedule |
 | Admin writes | `ActivityReportService.submit_report()` | `HUMAN` | Admin reviews snapshot |
 
 **Structural position:** Cross-domain aggregator. Cannot fit the leaf domain model

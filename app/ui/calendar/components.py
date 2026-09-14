@@ -245,7 +245,7 @@ def create_calendar_toolbar(
     Thin margin wrapper around :func:`calendar_nav_cluster`; the Today surface
     embeds the bare cluster in its header column instead. ``report_href`` /
     ``report_label`` render the "Report for September" pill that opens the
-    period's calendar-aligned activity report (``/activity-reports/for``).
+    activity report request form (``/submit-activity-report``).
     """
     report = (
         _nav_button(report_label, report_href, "bar-chart-2")

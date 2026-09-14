@@ -588,7 +588,7 @@ def _render_period_line(report: Any) -> Any:
     Only a calendar-period report (``2026-09`` / ``2026-W37``) carries this:
     the period's name, whether the counts stopped before its end (a partial
     report of a period still open when it was generated), and a Regenerate
-    form — the one explicit refresh, posting to the period door under CSRF.
+    form — the one explicit refresh, a CSRF-protected ``POST /activity-reports/for``.
     A trailing window is what its badge says and needs neither.
     """
     token = getattr(report, "time_period", None)
