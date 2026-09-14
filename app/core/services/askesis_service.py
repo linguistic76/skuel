@@ -188,13 +188,8 @@ class AskesisService:
         self.recommendation_engine = ActionRecommendationEngine()
         self.relevance_engine = ContextRelevanceEngine(graph_intel=deps.graph_intel)
 
-        self.entity_extractor = EntityExtractor(
-            knowledge_service=deps.knowledge_service,
-            tasks_service=deps.tasks_service,
-            goals_service=deps.goals_service,
-            habits_service=deps.habits_service,
-            events_service=deps.events_service,
-        )
+        # Matches in memory against the rich context the pipeline hands it; no handles.
+        self.entity_extractor = EntityExtractor()
 
         self.context_retriever = ContextRetriever(
             # search_router is post-wired in compose (built after Askesis)

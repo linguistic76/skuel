@@ -279,4 +279,4 @@ column now takes an explicit `NEO4J_URI` on a throwaway harness.
 - `/docs/architecture/UNIFIED_USER_ARCHITECTURE.md` — the UserContext contract the query serves
 - [askesis-extraction-match-unverified.md](askesis-extraction-match-unverified.md) — the
   sibling finding from the same investigation (its test landed; the design half lives on in
-  [../askesis-extraction-lookup-shape.md](../askesis-extraction-lookup-shape.md))
+  [askesis-extraction-lookup-shape.md](askesis-extraction-lookup-shape.md))

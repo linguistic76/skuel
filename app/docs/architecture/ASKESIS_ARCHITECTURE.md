@@ -1,5 +1,5 @@
 ---
-updated: 2026-08-27
+updated: 2026-09-14
 ---
 
 # Askesis Architecture - Cross-Cutting Intelligence System
@@ -79,7 +79,7 @@ class AskesisService:
         self.state_analyzer = UserStateAnalyzer()
         self.recommendation_engine = ActionRecommendationEngine()
         self.relevance_engine = ContextRelevanceEngine(graph_intel=deps.graph_intel)
-        self.entity_extractor = EntityExtractor(...)
+        self.entity_extractor = EntityExtractor()  # matches in memory against the rich context
 
         # ContextRetriever handles graph retrieval + PS bundle loading.
         # August 2026: its graph_intel param deleted — superseded by

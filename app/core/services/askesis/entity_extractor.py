@@ -2,12 +2,13 @@
 Entity Extractor - Entity Extraction from Natural Language
 ===========================================================
 
-Focused service for extracting entities mentioned in natural language queries.
+Focused service for extracting entities mentioned in natural language queries —
+from the rich context, in memory. A question never reads the graph to find out
+what it names.
 
 Responsibilities:
-- Extract knowledge entities from queries (global, legacy pipeline)
-- Extract activity entities from queries (global, legacy pipeline)
-- Extract KU UIDs from PS bundle (scoped, Socratic pipeline)
+- Extract knowledge and activity entities from a question (global pipeline)
+- Extract KU UIDs from a PS bundle (scoped, Socratic pipeline)
 - Fuzzy match entity titles against query text
 
 This service is part of the refactored AskesisService architecture:
@@ -19,32 +20,27 @@ This service is part of the refactored AskesisService architecture:
 - AskesisService: Facade coordinating all sub-services
 
 Architecture:
-- Requires domain services (knowledge, tasks, goals, habits, events) for entity lookup
+- Matches against the titles ``RichUserContext`` already carries —
+  ``entities_rich`` for the six activity domains, ``knowledge_units_rich`` for
+  every MASTERED | IN_PROGRESS target — which the MEGA-QUERY fetched once and
+  the context cache holds. Zero graph reads per question, whatever the learner's
+  size; the pipeline's 30 s budget is spent on the answer, not on re-fetching
+  titles one uid at a time.
 - Uses fuzzy matching for flexible entity recognition
-
-March 2026: All domain services required — no graceful degradation.
-March 2026: Added extract_from_bundle() for PS-scoped Socratic pipeline.
 """
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
-from core.ports.base_protocols import HasTitle
-from core.services.askesis.types import EntityLookup
-from core.utils.exception_types import NEO4J_EXCEPTIONS
 from core.utils.logging import get_logger
 
 if TYPE_CHECKING:
-    from collections.abc import Iterable
+    from collections.abc import Collection, Iterable
 
     from core.models.askesis.ps_bundle import PsBundle
-    from core.models.event.event import Event
-    from core.models.goal.goal import Goal
-    from core.models.habit.habit import Habit
-    from core.models.pathways.path_step import PathStep
-    from core.models.task.task import Task
-    from core.services.user import UserContext
+    from core.ports.query_types import RichEntityItem
+    from core.services.user.unified_user_context import RichUserContext
 
 
 logger = get_logger(__name__)
@@ -55,115 +51,89 @@ class EntityExtractor:
     Extract entities mentioned in natural language queries.
 
     This service handles entity extraction:
-    - Extract entities from queries (knowledge, tasks, goals, habits, events)
+    - Extract entities from queries (knowledge, tasks, goals, habits, events,
+      principles, choices)
     - Fuzzy match entity titles against query text
     - Link natural language references to Neo4j UIDs
     - Support for acronyms and partial word matching
 
     Architecture:
-    - Requires domain services for entity lookup (injected)
-    - Uses UserContext for entity UID lists
+    - Reads titles from the rich context it is handed; holds no service handles
     - Fuzzy matching with multiple strategies
     """
-
-    def __init__(
-        self,
-        knowledge_service: EntityLookup[PathStep],
-        tasks_service: EntityLookup[Task],
-        goals_service: EntityLookup[Goal],
-        habits_service: EntityLookup[Habit],
-        events_service: EntityLookup[Event],
-    ) -> None:
-        """
-        Initialize entity extractor.
-
-        Every handle is a domain FACADE (``PsService``, ``TasksService``, ...)
-        and this class does exactly one thing with each: ``get(uid)``. So each
-        is typed against that slice. These five used to name the domains'
-        ``*Operations`` ports instead — backend protocols that no facade
-        satisfies (``PsService`` implements 8 of ``PsOperations``' 142 public
-        callables; the other four fail the same probe). Nothing caught it
-        because ``AskesisDeps`` types all five fields ``Any``, so the
-        annotations were never checked against what is injected.
-
-        Args:
-            knowledge_service: PathStep facade — entity lookup by UID
-            tasks_service: Task facade — entity lookup by UID
-            goals_service: Goal facade — entity lookup by UID
-            habits_service: Habit facade — entity lookup by UID
-            events_service: Event facade — entity lookup by UID
-        """
-        self.knowledge_service: EntityLookup[PathStep] = knowledge_service
-        self.tasks_service: EntityLookup[Task] = tasks_service
-        self.goals_service: EntityLookup[Goal] = goals_service
-        self.habits_service: EntityLookup[Habit] = habits_service
-        self.events_service: EntityLookup[Event] = events_service
-
-        logger.info("EntityExtractor initialized")
 
     # ========================================================================
     # PUBLIC API - ENTITY EXTRACTION
     # ========================================================================
 
-    async def extract_entities_from_query(  # skuel-lint: disable=SKUEL005 -- fail-soft extraction: unlinked entities degrade to fewer matches, not an error
-        self, query: str, user_context: UserContext
+    def extract_entities_from_query(
+        self, query: str, user_context: RichUserContext
     ) -> dict[str, list[dict[str, str]]]:
         """
         Extract and link entities mentioned in query to Neo4j UIDs.
 
-        Identifies specific entities (knowledge, tasks, goals, habits, events)
-        that the user is asking about, enabling more targeted responses.
+        Identifies specific entities (knowledge, tasks, goals, habits, events,
+        principles, choices) that the user is asking about, enabling more
+        targeted responses. Every candidate title is read from the context —
+        ``entities_rich`` for the activity domains, ``knowledge_units_rich`` for
+        knowledge — so this is pure computation over a context the pipeline has
+        already built; the parameter is typed ``RichUserContext`` because a
+        standard-depth context carries those fields empty.
+
+        Each domain is scoped to the uids the standard context marks live:
+        open tasks, active goals and habits, today's and upcoming events, the
+        core principles, pending choices, and — for knowledge — everything the
+        learner is engaged with (``known_or_engaged_ku_uids``: mastered and
+        in-progress targets, a Ku or a PathStep alike). Every match carries the
+        node's ``entity_type``, which is how a reader tells a Ku from a PathStep
+        under the one "knowledge" key — by the label-derived field, never by the
+        uid's spelling (ADR-013).
 
         Args:
             query: User's question
-            user_context: Complete user context with entity UIDs
+            user_context: The rich context the question is answered against
 
         Returns:
-            Dict of entity types to list of matched entities with UIDs and titles
+            Dict of entity types to list of matched entities, each
+            ``{"uid", "title", "entity_type"}``
 
         Examples:
             "What do I need to learn before async programming?"
-            → {"knowledge": [{"uid": "ku.async_programming", "title": "Async Programming"}]}
+            → {"knowledge": [{"uid": "ku.async_programming", "title": "Async Programming",
+                              "entity_type": "ku"}]}
 
             "How's my REST API goal going?"
-            → {"goals": [{"uid": "goal.rest_api", "title": "Build REST API"}]}
-
-            "Should I work on the Python task?"
-            → {"tasks": [{"uid": "task.python_project", "title": "Python Project"}]}
+            → {"goals": [{"uid": "goal.rest_api", "title": "Build REST API", "entity_type": "goal"}]}
         """
         query_lower = query.lower()
-
-        # Combine today + upcoming events, preserving order and removing duplicates
-        event_uids = dict.fromkeys(user_context.today_event_uids + user_context.upcoming_event_uids)
+        rich = user_context.entities_rich
+        event_uids = set(user_context.today_event_uids) | set(user_context.upcoming_event_uids)
 
         entities = {
-            "knowledge": await self._extract_matching_entities(
+            "knowledge": self._match_titles(
                 query_lower,
+                (
+                    (uid, item.get("ku") or {})
+                    for uid, item in user_context.knowledge_units_rich.items()
+                ),
                 user_context.known_or_engaged_ku_uids(),
-                self.knowledge_service,
             ),
-            "tasks": await self._extract_matching_entities(
-                query_lower,
-                user_context.active_task_uids,
-                self.tasks_service,
+            "tasks": self._match_activities(
+                query_lower, rich.get("tasks", []), user_context.active_task_uids
             ),
-            "goals": await self._extract_matching_entities(
-                query_lower,
-                user_context.active_goal_uids,
-                self.goals_service,
+            "goals": self._match_activities(
+                query_lower, rich.get("goals", []), user_context.active_goal_uids
             ),
-            "habits": await self._extract_matching_entities(
-                query_lower,
-                user_context.active_habit_uids,
-                self.habits_service,
+            "habits": self._match_activities(
+                query_lower, rich.get("habits", []), user_context.active_habit_uids
             ),
-            "events": await self._extract_matching_entities(
-                query_lower,
-                event_uids,
-                self.events_service,
+            "events": self._match_activities(query_lower, rich.get("events", []), event_uids),
+            "principles": self._match_activities(
+                query_lower, rich.get("principles", []), user_context.core_principle_uids
             ),
-            "principles": [],
-            "choices": [],
+            "choices": self._match_activities(
+                query_lower, rich.get("choices", []), user_context.pending_choice_uids
+            ),
         }
 
         total_matches = sum(len(ent_list) for ent_list in entities.values())
@@ -182,8 +152,8 @@ class EntityExtractor:
         only UIDs that are part of the PS bundle — no global search.
 
         This is the scoped equivalent of extract_entities_from_query() for
-        the Socratic pipeline. It's synchronous because it doesn't need
-        to fetch entities — the bundle already has them.
+        the Socratic pipeline: the bundle already holds the entities, as the
+        rich context holds them for the global pipeline, so neither fetches.
 
         Args:
             question: User's natural language question
@@ -230,37 +200,51 @@ class EntityExtractor:
         return matched_uids
 
     # ========================================================================
-    # PRIVATE - ENTITY EXTRACTION (GENERIC)
+    # PRIVATE - ENTITY MATCHING (IN MEMORY)
     # ========================================================================
 
-    async def _extract_matching_entities[T: HasTitle](
+    def _match_activities(
         self,
         query_lower: str,
-        uids: Iterable[str],
-        service: EntityLookup[T],
+        items: Iterable[RichEntityItem],
+        scope: Collection[str],
     ) -> list[dict[str, str]]:
-        """Fetch entities by UID and return those whose title fuzzy-matches the query.
+        """Match one activity domain's rich items, scoped to the uids the context marks live."""
+        return self._match_titles(
+            query_lower,
+            ((str(entity.get("uid")), entity) for item in items if (entity := item.get("entity"))),
+            scope,
+        )
+
+    def _match_titles(
+        self,
+        query_lower: str,
+        # boundary: node properties exactly as the rich items carry them —
+        # RichEntityItem.entity and RichKnowledgeUnitItem.ku are dict[str, Any]
+        candidates: Iterable[tuple[str, dict[str, Any]]],
+        scope: Collection[str],
+    ) -> list[dict[str, str]]:
+        """Return ``{"uid", "title", "entity_type"}`` for every in-scope node whose title fuzzy-matches.
 
         Args:
             query_lower: Lowercase query string
-            uids: Entity UIDs to check (set, list, or dict_keys)
-            service: Any domain service with an async `get(uid)` returning Result[T]
-
-        Returns:
-            List of dicts with 'uid' and 'title' keys for matched entities
+            candidates: ``(uid, node properties)`` pairs from the rich context
+            scope: The uids eligible for matching (a domain's live set)
         """
-        matched = []
-        for uid in uids:
-            try:
-                result = await service.get(uid)
-                if result.is_ok and result.value:
-                    entity = result.value
-                    if self._fuzzy_match(entity.title, query_lower):
-                        matched.append({"uid": uid, "title": entity.title})
-            except NEO4J_EXCEPTIONS:
+        eligible = set(scope)
+        matched: list[dict[str, str]] = []
+        for uid, node in candidates:
+            if uid not in eligible:
                 continue
-            except Exception:  # safety-net: catch unexpected errors
+            title = node.get("title")
+            if not isinstance(title, str) or not title:
                 continue
+            if self._fuzzy_match(title, query_lower):
+                match = {"uid": uid, "title": title}
+                entity_type = node.get("entity_type")
+                if isinstance(entity_type, str) and entity_type:
+                    match["entity_type"] = entity_type
+                matched.append(match)
         return matched
 
     # ========================================================================

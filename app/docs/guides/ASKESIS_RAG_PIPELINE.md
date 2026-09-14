@@ -1,5 +1,5 @@
 ---
-updated: 2026-09-13
+updated: 2026-09-14
 ---
 
 # Askesis RAG Pipeline — Developer Guide
@@ -297,17 +297,22 @@ and are no longer comparable across intents.
 **Service:** `EntityExtractor` (`core/services/askesis/entity_extractor.py`)
 
 ```python
-entities = await entity_extractor.extract_entities_from_query(question, user_context)
+entities = entity_extractor.extract_entities_from_query(question, user_context)
 ```
 
-Finds entities mentioned in the question using fuzzy matching:
+Finds entities mentioned in the question using fuzzy matching — **in memory, against the
+rich context** (`entities_rich` for the six activity domains, `knowledge_units_rich` for
+every MASTERED | IN_PROGRESS target, Ku or PathStep). No graph read per question, whatever
+the learner's size; the extractor holds no service handle. Each domain is scoped to the
+uids the context marks live (open tasks, active goals and habits, today's and upcoming
+events, core principles, pending choices, engaged knowledge):
 1. **Exact match** — title appears verbatim in query
 2. **Partial word match** — significant words (>3 chars) from the title appear in query
 3. **Acronym match** — "REST API" matches "rest"
 
-Returns: `{"knowledge": [...], "tasks": [...], "goals": [...], "habits": [...], "events": [...]}`
+Returns: `{"knowledge": [...], "tasks": [...], "goals": [...], "habits": [...], "events": [...], "principles": [...], "choices": [...]}`, each match `{"uid", "title", "entity_type"}` — `entity_type` is how a reader tells a Ku from a PathStep under the one "knowledge" key (the label-derived field, never the uid's spelling — ADR-013).
 
-**Error tolerance:** If entity extraction fails, the pipeline continues with empty matches. The LLM can still answer using context from other stages.
+Matching is loose by design (a shared significant word is a match); a match is a mention, not a resolution.
 
 ### Step 5d: Retrieve Context
 

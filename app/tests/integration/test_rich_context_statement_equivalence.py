@@ -138,7 +138,7 @@ CREATE (lp)-[:EMBODIES_PRINCIPLE]->(p)
 // choices
 CREATE (c:Entity:Choice {uid: 'choice.eq.pending', entity_type: 'choice', title: 'Pending choice', status: 'draft',
                          created_at: $iso, user_uid: $user_uid})
-CREATE (c_old:Entity:Choice {uid: 'choice.eq.old', entity_type: 'choice', title: 'Old choice', status: 'decided',
+CREATE (c_old:Entity:Choice {uid: 'choice.eq.old', entity_type: 'choice', title: 'Old choice', status: 'completed',
                              created_at: $old, decided_at: $old, user_uid: $user_uid})
 CREATE (u)-[:OWNS]->(c) CREATE (u)-[:OWNS]->(c_old)
 CREATE (p)-[:GUIDES_CHOICE]->(c)

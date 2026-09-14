@@ -1,5 +1,5 @@
 ---
-updated: 2026-08-31
+updated: 2026-09-14
 ---
 
 # Askesis Intelligence - Cross-Cutting Life Context Synthesis
@@ -294,10 +294,9 @@ Both methods run the same PS-first pipeline: enrollment gate (an active PathStep
 **Purpose:** Extract entities from natural language
 
 **Key Methods:**
-- `extract_entities_from_query()` - Multi-domain extraction
-- `_extract_knowledge_entities()` - KU extraction
-- `_extract_task_entities()` - Task extraction
-- `_fuzzy_match()` - Flexible entity matching
+- `extract_entities_from_query()` - Multi-domain extraction, in memory against the rich context (no graph reads per question); every match carries the node's `entity_type`
+- `extract_from_bundle()` - PS-scoped extraction for the Socratic pipeline
+- `_fuzzy_match()` - Flexible entity matching (exact / significant word / acronym)
 
 **Strategies:** Exact match, partial word match, acronym match
 

@@ -86,7 +86,9 @@ def _make_processor(
     response_generator.generate_suggested_actions = MagicMock(return_value=[])
 
     entity_extractor = MagicMock()
-    entity_extractor.extract_entities_from_query = AsyncMock(return_value={})
+    entity_extractor.extract_entities_from_query = MagicMock(
+        return_value={}
+    )  # sync: in-memory matching
     entity_extractor.extract_from_bundle = MagicMock(return_value=[])
 
     context_retriever = MagicMock()

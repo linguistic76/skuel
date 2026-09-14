@@ -110,17 +110,17 @@ async def test_ask_endpoint_entity_extraction(
     """A prerequisite question that names the in-progress PathStep is MATCHED, and cited.
 
     Entity extraction scopes "knowledge" to the learner's `known_or_engaged_ku_uids`
-    (mastered + in_progress + blocked) and resolves each uid through the PathStep
-    service (`askesis_factory` wires `knowledge_service=learning_services["ps"]`),
-    so the only knowledge entity this learner can match is the PathStep its
+    (mastered + in-progress targets) and matches their titles from the rich
+    context. This learner is engaged with exactly one: the PathStep its
     `IN_PROGRESS` edge points at — `enrolled_user_with_lp["ps_uid"]`, titled
-    "Test Guided PathStep" — never the fixture's Ku, and never `populated_test_data`'s
-    corpus (which retrieval searches, not extraction). The question names that
-    title and classifies PREREQUISITE, the intent whose citations branch runs
-    only WITH a matched knowledge entity. That branch cites the step's evidenced
-    `REQUIRES_KNOWLEDGE` prerequisite (seeded by the fixture): the answer carries
-    the Sources & Evidence section naming it, and `has_citations` — true only
-    when citation text was produced — says so.
+    "Test Guided PathStep". The fixture's Ku is not mastered (see
+    `test_ask_endpoint_matches_a_mastered_ku` for that case), and
+    `populated_test_data`'s corpus is what retrieval searches, not extraction.
+    The question names that title and classifies PREREQUISITE, the intent whose
+    citations branch runs only WITH a matched knowledge entity. That branch
+    cites the step's evidenced `REQUIRES_KNOWLEDGE` prerequisite (seeded by the
+    fixture): the answer carries the Sources & Evidence section naming it, and
+    `has_citations` — true only when citation text was produced — says so.
     """
     if not await _embeddings_available(skuel_app):
         pytest.skip("Requires embeddings service for intent classification")
@@ -151,6 +151,53 @@ async def test_ask_endpoint_entity_extraction(
     assert data["has_citations"] is True, "the citations branch produced no citation text"
     assert "Sources & Evidence" in data["answer"], data["answer"][-400:]
     assert "Test Guided Prerequisite" in data["answer"], data["answer"][-400:]
+
+
+@pytest.mark.asyncio
+async def test_ask_endpoint_matches_a_mastered_ku(
+    skuel_app, populated_test_data, enrolled_user_with_lp
+):
+    """A prerequisite question naming a MASTERED Ku matches the Ku, typed as one.
+
+    "Knowledge" extraction matches the question against the titles the rich
+    context holds for every MASTERED | IN_PROGRESS target — the concept and the
+    step alike — and each match carries the node's ``entity_type``, so a reader
+    tells a Ku from a PathStep by that field, never by the uid's spelling
+    (ADR-013). The fixture's Ku ("Test Guided Concept") is mastered here; its
+    in-progress PathStep ("Test Guided PathStep") shares two title words with the
+    question and is matched too, typed as a step.
+    """
+    if not await _embeddings_available(skuel_app):
+        pytest.skip("Requires embeddings service for intent classification")
+    services = skuel_app.state.services
+    user_uid = enrolled_user_with_lp["user_uid"]
+    ku_uid = enrolled_user_with_lp["ku_uid"]
+    async with services.neo4j_driver.session() as session:
+        await session.run(
+            """
+            MATCH (u:User {uid: $user_uid})
+            MATCH (k:Entity {uid: $ku_uid})
+            MERGE (u)-[r:MASTERED]->(k)
+            SET r.mastery_score = 1.0, r.mastered_at = datetime()
+            """,
+            user_uid=user_uid,
+            ku_uid=ku_uid,
+        )
+    # The rich context is cached per user across this module; the new edge must be read.
+    await services.user.activity.invalidate_context(user_uid, immediate=True)
+
+    result = await services.askesis.answer_user_question(
+        user_uid, "What do I need to know before Test Guided Concept?"
+    )
+
+    assert result.is_ok, f"RAG pipeline failed: {result.error}"
+    data = result.value
+    assert data["mode"] != "enrollment_gate", "enrolled learner must reach the pipeline"
+    knowledge = {k["uid"]: k for k in data["context_used"]["mentioned_entities"]["knowledge"]}
+    assert ku_uid in knowledge, f"the mastered Ku was not matched; knowledge = {knowledge!r}"
+    assert knowledge[ku_uid]["title"] == "Test Guided Concept"
+    assert knowledge[ku_uid]["entity_type"] == "ku"
+    assert knowledge[enrolled_user_with_lp["ps_uid"]]["entity_type"] == "path_step"
 
 
 @pytest.mark.asyncio
