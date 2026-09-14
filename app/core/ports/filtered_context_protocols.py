@@ -4,7 +4,7 @@ FilteredContextProvider is the standard interface through which intelligence
 services understand domain state — a per-domain drill-down that complements
 UserContext's broad snapshot.
 
-UserContext is the map (broad snapshot from MEGA_QUERY).
+UserContext is the map (broad snapshot from the MEGA-QUERY).
 get_filtered_context() is the zoom lens (per-domain filtered view with stats).
 
 Implemented by all 6 Activity Domain facades and 5 Curriculum facades.

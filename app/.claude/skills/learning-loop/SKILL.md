@@ -383,11 +383,11 @@ class ReportBackend(UniversalNeo4jBackend):
     async def get_all_activity_completions(self):
         # Can't do this from one domain backend
 
-# CORRECT — cross-domain aggregation uses UserContext.build_rich() (MEGA_QUERY)
+# CORRECT — cross-domain aggregation uses UserContext.build_rich() (the MEGA-QUERY)
 class ProgressReportGenerator:
     def __init__(self, context_builder: UserContextBuilder, executor: QueryExecutor, ...):
-        # context_builder.build_rich(user_uid, window=...) — MEGA_QUERY with 6-domain
-        # activity window CALL{} blocks; entities_rich covers all Activity Domains
+        # context_builder.build_rich(user_uid, window=...) — the MEGA-QUERY with the
+        # activity window on its six activity sections; entities_rich covers all Activity Domains
         # executor — raw Cypher for annotation lookup only
 ```
 
@@ -417,7 +417,7 @@ class AdminSummary(UserOwnedEntity):  # New entity for admin-written reports?
 
 ## Deep Dive Resources
 
-- [LEARNING_LOOP_ARCHITECTURE.md](/docs/architecture/LEARNING_LOOP_ARCHITECTURE.md) — entry-point overview: two tracks, four phases, how MEGA_QUERY feeds the loop
+- [LEARNING_LOOP_ARCHITECTURE.md](/docs/architecture/LEARNING_LOOP_ARCHITECTURE.md) — entry-point overview: two tracks, four phases, how the MEGA-QUERY feeds the loop
 - [REPORT_ARCHITECTURE.md](/docs/architecture/REPORT_ARCHITECTURE.md) — canonical report reference
 - [REPORT_ARCHITECTURE.md](/docs/architecture/REPORT_ARCHITECTURE.md) — canonical report reference — all services, APIs, graph patterns, ReportSource taxonomy, Exercise pipeline
 - [ADR-038: Content Sharing Model](/docs/decisions/ADR-038-content-sharing-model.md)

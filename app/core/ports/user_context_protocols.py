@@ -8,9 +8,10 @@ Protocol Responsibilities
                                  UserContextBuilder (and passed through by the
                                  UserService facade that constructs it).
 
-The MEGA-QUERY and CONSOLIDATED_QUERY live below the boundary (ADR-044); the
-executor that runs them is built at the composition root and injected, so no
-``core/`` module imports the adapter (SKUEL022 / SKUEL023).
+The rich-context statements (``RICH_CONTEXT_STATEMENTS`` — the MEGA-QUERY) and
+CONSOLIDATED_QUERY live below the boundary (ADR-044); the executor that runs
+them is built at the composition root and injected, so no ``core/`` module
+imports the adapter (SKUEL022 / SKUEL023).
 
 **ISP slice, not the whole executor.** ``UserContextQueryExecutor`` also exposes
 ``fetch_current_ps_uids``; no consumer calls it, so it is deliberately absent
@@ -55,7 +56,8 @@ class UserContextQueryOperations(Protocol):
         window_start: datetime | None = None,
         window_end: datetime | None = None,
     ) -> Result[dict[str, Any]]:  # boundary: nested {uids, entities, rich}, all domains
-        """Run the MEGA-QUERY — ``uids`` + ``entities`` + ``rich`` in one round-trip."""
+        """Run the rich-context statements concurrently and merge them into the one
+        ``uids`` + ``entities`` + ``rich`` (+ life path, progress, report, insights) map."""
         ...
 
     async def execute_consolidated_query(

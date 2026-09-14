@@ -47,7 +47,7 @@ def create_home_routes(
 
     @rt("/api/personal-header")
     async def personal_header_fragment(request: Request) -> Any:
-        """HTMX fragment: Focus + Velocity header (lazy-loaded to avoid MEGA_QUERY blocking page render)."""
+        """HTMX fragment: Focus + Velocity header (lazy-loaded to avoid the MEGA-QUERY blocking page render)."""
         user_uid = require_authenticated_user(request)
         user_service = services.user
         if not user_service:

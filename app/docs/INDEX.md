@@ -1,6 +1,6 @@
 ---
 title: Documentation Index
-updated: 2026-09-12
+updated: 2026-09-14
 status: current
 category: index
 tags: [index, navigation, documentation]
@@ -460,6 +460,7 @@ See [CROSS_REFERENCE_INDEX.md](CROSS_REFERENCE_INDEX.md) for skills ↔ docs map
 
 | Document | Completed | Description |
 |----------|-----------|-------------|
+| [MEGA-QUERY Sits on the Plan-Cache Cliff](roadmap/done/mega-query-plan-cache-cliff.md) | 2026-09-13 | The rich context's one 1,013-line statement was re-planned on every execution (~0.5 s self-hosted, ~1 s on AuraDB) because it sat one block past the server's plan-cache size edge — bisected on the container, the mechanism unconfirmed. Option A (#1330) lifted the learning-loop tail; Option B split the rest into the six `RICH_CONTEXT_STATEMENTS`, grouping decided by cold-plan measurement (planner cost is super-linear in statement size, so the cold build is set by the largest statement). Holds the before/after numbers and the three silent defects the split exposed — a dismissed-insights row filter that emptied the whole context, a JSON-string `milestones` TypeError, `completed_exercise_count = -1` |
 | [Catalog Copies in Code](roadmap/done/catalog-copies-in-code.md) | 2026-09-10 | The duplicated-fact class in code: ten measured instances, the rule for new code, the remedies strongest-first. Closed when item 5 was ruled (a) and built — the `RelationshipName` group table lost its Count column and became a labelled orientation aid — carrying a second ruling: no discovering drift test is buildable over relationship names in prose, both candidate corpora measured |
 | [Stranded Completion Stamp](roadmap/done/stranded-completion-stamp.md) | 2026-09-07 | The two halves of "non-null exactly when completed" that need the PRIOR, both closed (#1298, #1299). The vault door's clear stopped being gated on a transition out of `completed` — a file authored open beside a stamp has no prior to transition from — and a patch carrying a stamp with no status now travels to the write as `refuse_unless_prior_in={completed}`, refused with a message naming the status the write saw. Ruled: a refusal, not a silent clear, because there the stamp is the caller's only edit. Measured on AuraDB before building: zero stranded stamps live |
 | [`TaskUpdateRequest` Future `completion_date`](roadmap/done/task-update-future-completion-date.md) | 2026-09-07 | The create/update asymmetry, ruled: the update door refuses a future completion stamp too, since the habits precedent (a future *occurrence* is real) does not reach a task claiming it was *completed* next year. The investigation found the create door enforcing TWO rules and the update door neither — the second, "non-null exactly when completed", was a live bug that let a reopen keep its stamp, now refused at the ADR-087 guard for all five stamping domains. Reachable from the edit form's "Completed on" input, not just the API |

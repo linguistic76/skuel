@@ -16,7 +16,7 @@ def personal_header_placeholder() -> Div:
     """HTMX placeholder that lazy-loads the Focus + Velocity header.
 
     Use this instead of ``personal_header(context)`` when you don't
-    already have a UserContext — avoids running the MEGA_QUERY on the
+    already have a UserContext — avoids running the MEGA-QUERY on the
     critical path of the page render.
     """
     return Div(

@@ -202,8 +202,10 @@ class TestRichUserContextPattern:
         goal_graph = goal_rich["graph_context"]
         assert "contributing_tasks" in goal_graph
         assert "required_knowledge" in goal_graph
-        assert "milestone_progress" in goal_graph
         assert "sub_goals" in goal_graph
+        # Goal.milestones is a JSON string on the node; a Cypher count over it
+        # is a type error, so the count is derived from the parsed Goal, never here.
+        assert "milestone_progress" not in goal_graph
 
     async def test_performance_comparison(self, services, test_user):
         """

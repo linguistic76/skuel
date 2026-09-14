@@ -1,5 +1,5 @@
 ---
-updated: 2026-09-12
+updated: 2026-09-14
 ---
 
 # Route Map
@@ -72,7 +72,7 @@ is a "Self-Assessment" section on each activity detail page → `POST /{domain}/
 
 Legacy hub superseded. `/submissions` and `/library` are standalone MOC root pages (sidebar-free card grids); `/gradebook` is the one received-feedback page (arc 2 C1). Route in `adapters/inbound/home_routes.py` only registers shared HTMX fragments (`/api/navbar/notification-badge`, `/api/personal-header`).
 
-Also registers `GET /api/personal-header` — HTMX fragment endpoint for the Focus+Velocity header used on all 6 Activity Domain list pages (Tasks, Goals, Habits, Events, Choices, Principles) and any future page that wants it without loading the full MEGA_QUERY on the critical path.
+Also registers `GET /api/personal-header` — HTMX fragment endpoint for the Focus+Velocity header used on all 6 Activity Domain list pages (Tasks, Goals, Habits, Events, Choices, Principles) and any future page that wants it without loading the full MEGA-QUERY on the critical path.
 
 **Two patterns for Focus+Velocity:**
 - `personal_header(context)` — when `UserContext` is already in scope (today only the `/api/personal-header` endpoint itself)

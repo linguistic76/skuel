@@ -5,11 +5,24 @@ User Context Queries - Cypher Query Definitions and Execution
 **EXTRACTED (December 2025):** From user_context_builder.py for separation of concerns.
 
 This module contains:
-- MEGA_QUERY: Complete user context (rich + standard), less the reads that run beside it
+- RICH_CONTEXT_STATEMENTS: the rich context's graph reads — six statements, one per
+  read family (tasks & goals, habits & events, principles & choices, knowledge,
+  curriculum, learner state), run concurrently and merged into one map
 - SUBMISSION_STATS_QUERY: the learning-loop tail (submission & feedback stats), its own statement
 - ENTRY_KNOWLEDGE_APPLIED_QUERY: the entry→Ku applied-knowledge rows, its own statement
 - CONSOLIDATED_QUERY: Standard context query (UIDs only)
 - UserContextQueryExecutor: Query execution with error handling
+
+Why six statements and not one: a Cypher statement is served from the server's
+plan cache only up to a size — cumulative across MATCHes, WITHs and the RETURN
+map — past which it is re-planned on every execution (~0.5 s self-hosted, ~1 s
+on AuraDB Free, against ~40 ms of execution), and the planner's cost grows
+faster than linearly with statement size, so the cold first build is set by the
+largest statement. Each statement here reads one family, carries only its own
+names through its WITH lists, and returns the partial of the ``mega_data`` map
+it owns; ``tests/integration/test_user_context_plan_cache.py`` pins every one
+of them under the edge, and ``test_rich_context_statement_equivalence.py`` pins
+what the merged map contains. A new read is a new entry in the registry.
 
 Architecture:
 - Pure query logic, no context population
@@ -21,6 +34,7 @@ port, never against this class (SKUEL023 / ADR-044). The port is an ISP slice:
 ``fetch_current_ps_uids`` is deliberately absent because nothing calls it.
 """
 
+import asyncio
 from datetime import date, datetime, timedelta
 from typing import TYPE_CHECKING, Any
 
@@ -30,7 +44,7 @@ from core.models.type_hints import UserUID
 from core.ports.query_types import CurrentPathStepItem, EntryKnowledgeAppliedRow, GroupSummary
 from core.utils.decorators import with_error_handling
 from core.utils.logging import get_logger
-from core.utils.result_simplified import Result
+from core.utils.result_simplified import Errors, Result
 from core.utils.sort_functions import get_updated_timestamp
 
 if TYPE_CHECKING:
@@ -53,10 +67,10 @@ def _sort_by_last_viewed_at(item: dict[str, Any]) -> Any:
 # STATUS-SET PARAMETERS
 # =============================================================================
 
-# MEGA_QUERY and CONSOLIDATED_QUERY express the same status-set business rules
-# ("which statuses count as open / overdue-eligible / pending"). They ride in
-# as parameters computed from EntityStatus so each rule exists exactly once
-# and cannot drift between the two queries or from the enum.
+# The rich-context statements and CONSOLIDATED_QUERY express the same status-set
+# business rules ("which statuses count as open / overdue-eligible / pending").
+# They ride in as parameters computed from EntityStatus so each rule exists
+# exactly once and cannot drift between the statements or from the enum.
 STATUS_PARAMS: dict[str, Any] = {
     "open_task_statuses": [
         EntityStatus.DRAFT.value,
@@ -81,20 +95,23 @@ STATUS_PARAMS: dict[str, Any] = {
 # =============================================================================
 
 # ``__COMPOSITION_EDGES__`` is substituted below with the ONE canonical
-# PathStep→Ku alternation. Substituted rather than interpolated because this
-# query is a plain string full of Cypher map literals, and an f-string would
-# mean doubling every brace in ~1300 lines to share one token.
+# PathStep→Ku alternation — in every statement that rolls activity→knowledge
+# edges up to Ku grain (tasks, habits, events, principles, choices; five
+# rollups). Substituted rather than interpolated because these statements are
+# plain strings full of Cypher map literals, and an f-string would mean
+# doubling every brace to share one token.
 #
 # It must be shared: these rollups and the batched substance scorer
 # (PsIntelligenceBackend.fetch_taught_ku_uids_for_steps) score the SAME learner
 # against the SAME Kus for the detail pages and the weekly metric respectively.
 # A rename that moved one and not the other would put two different personal
-# scores on the same knowledge — the inconsistency this PR exists to remove.
+# scores on the same knowledge.
 _COMPOSITION_EDGES_TOKEN = "__COMPOSITION_EDGES__"
 
-MEGA_QUERY: str = """
+# Tasks and goals — one statement because progress_counts spans both and each
+# projects the other (a task's goal_context, a goal's contributing_tasks).
+TASKS_AND_GOALS_QUERY: str = """
 MATCH (user:User {uid: $user_uid})
-
 // ====================================================================
 // TASKS - Fetch with BOTH UIDs and rich data
 // ====================================================================
@@ -205,105 +222,52 @@ WITH user, active_task_uids, completed_task_uids, overdue_task_uids, today_task_
 
 WITH user, active_task_uids, completed_task_uids, overdue_task_uids, today_task_uids, tasks_rich,
      active_goal_uids, completed_goal_uids, goal_progress_data,
+     // No milestone_progress: Goal.milestones is stored as a JSON string
+     // (neo4j_mapper serializes a list of maps), which Cypher can neither
+     // iterate nor count; it is derived from the parsed Goal when needed
+     // (GOALS_CONFIG), and properties(goal) carries the string for that.
      collect(CASE WHEN goal IS NOT NULL THEN {
          entity: properties(goal),
          graph_context: {
              contributing_tasks: goal_tasks,
              sub_goals: goal_subgoals,
-             required_knowledge: goal_required_knowledge,
-             milestone_progress: {
-                 total: size(coalesce(goal.milestones, [])),
-                 completed: size([m IN coalesce(goal.milestones, []) WHERE m.completed = true])
-             }
+             required_knowledge: goal_required_knowledge
          }
      } END) as goals_rich
 
-// ====================================================================
-// KNOWLEDGE - Fetch with BOTH UIDs and rich data
-// ====================================================================
-OPTIONAL MATCH (user)-[mastered:MASTERED|IN_PROGRESS]->(ku:Entity)
-WITH user, active_task_uids, completed_task_uids, overdue_task_uids, today_task_uids, tasks_rich,
-     active_goal_uids, completed_goal_uids, goal_progress_data, goals_rich,
-     collect(CASE WHEN ku IS NOT NULL THEN {
-         uid: ku.uid,
-         // MASTERED carries mastery_score; IN_PROGRESS carries progress (0.0-1.0)
-         // from record_knowledge_progress / UserProgressBackend.record_progress.
-         // The constants are the last resort for an edge with neither.
-         score: coalesce(mastered.mastery_score, mastered.progress, CASE WHEN type(mastered) = 'MASTERED' THEN 1.0 ELSE 0.1 END),
-         mastered_at: mastered.mastered_at,
-         confidence: coalesce(mastered.confidence, 1.0)
-     } END) as knowledge_mastery_data,
-     collect(ku) as all_knowledge_nodes
+RETURN {
+    uids: {
+        active_task_uids: [uid IN active_task_uids WHERE uid IS NOT NULL],
+        completed_task_uids: [uid IN completed_task_uids WHERE uid IS NOT NULL],
+        overdue_task_uids: [uid IN overdue_task_uids WHERE uid IS NOT NULL],
+        today_task_uids: [uid IN today_task_uids WHERE uid IS NOT NULL],
+        active_goal_uids: [uid IN active_goal_uids WHERE uid IS NOT NULL],
+        completed_goal_uids: [uid IN completed_goal_uids WHERE uid IS NOT NULL],
+        goal_progress: [item IN goal_progress_data WHERE item.uid IS NOT NULL | {uid: item.uid, progress: item.progress}]
+    },
+    entities: {
+        tasks: [item IN tasks_rich WHERE item.entity IS NOT NULL],
+        goals: [item IN goals_rich WHERE item.entity IS NOT NULL]
+    },
+    progress_counts: {
+        tasks_completed: size([uid IN completed_task_uids WHERE uid IS NOT NULL]),
+        tasks_total: size([uid IN active_task_uids WHERE uid IS NOT NULL]) + size([uid IN completed_task_uids WHERE uid IS NOT NULL]),
+        goals_completed: size([uid IN completed_goal_uids WHERE uid IS NOT NULL]),
+        goals_total: size([uid IN active_goal_uids WHERE uid IS NOT NULL]) + size([uid IN completed_goal_uids WHERE uid IS NOT NULL])
+    }
+} as result
+""".replace(_COMPOSITION_EDGES_TOKEN, CURRICULUM_COMPOSITION_EDGES)
 
-// Filter knowledge for rich data (with prerequisites/dependents)
-UNWIND CASE WHEN size(all_knowledge_nodes) > 0 THEN all_knowledge_nodes ELSE [null] END as ku
-OPTIONAL MATCH (ku)-[prereq_rel:REQUIRES_KNOWLEDGE]->(prereq:Entity)
-WHERE ku IS NOT NULL AND coalesce(prereq_rel.confidence, 1.0) >= $min_confidence
-WITH user, active_task_uids, completed_task_uids, overdue_task_uids, today_task_uids, tasks_rich,
-     active_goal_uids, completed_goal_uids, goal_progress_data, goals_rich,
-     knowledge_mastery_data,
-     ku, collect(DISTINCT CASE WHEN prereq IS NOT NULL THEN {uid: prereq.uid, title: prereq.title, confidence: prereq_rel.confidence} END) as ku_prerequisites
-
-OPTIONAL MATCH (dependent:Entity)-[dep_rel:REQUIRES_KNOWLEDGE]->(ku)
-WHERE ku IS NOT NULL AND coalesce(dep_rel.confidence, 1.0) >= $min_confidence
-WITH user, active_task_uids, completed_task_uids, overdue_task_uids, today_task_uids, tasks_rich,
-     active_goal_uids, completed_goal_uids, goal_progress_data, goals_rich,
-     knowledge_mastery_data,
-     ku, ku_prerequisites,
-     collect(DISTINCT CASE WHEN dependent IS NOT NULL THEN {uid: dependent.uid, title: dependent.title, confidence: dep_rel.confidence} END) as ku_dependents
-
-WITH user, active_task_uids, completed_task_uids, overdue_task_uids, today_task_uids, tasks_rich,
-     active_goal_uids, completed_goal_uids, goal_progress_data, goals_rich,
-     knowledge_mastery_data,
-     collect(CASE WHEN ku IS NOT NULL THEN {
-         uid: ku.uid,
-         ku: properties(ku),
-         graph_context: {
-             prerequisites: ku_prerequisites,
-             dependents: ku_dependents
-         }
-     } END) as knowledge_rich
-
-// ====================================================================
-// KU INTERACTION TRACKING (MVP - Phase B)
-// ====================================================================
-// Track view counts, time spent, and recently viewed KUs from VIEWED relationships
-OPTIONAL MATCH (user)-[viewed:VIEWED]->(viewed_ku:Entity)
-WITH user, active_task_uids, completed_task_uids, overdue_task_uids, today_task_uids, tasks_rich,
-     active_goal_uids, completed_goal_uids, goal_progress_data, goals_rich,
-     knowledge_mastery_data, knowledge_rich,
-     collect(CASE WHEN viewed_ku IS NOT NULL THEN {
-         uid: viewed_ku.uid,
-         view_count: coalesce(viewed.view_count, 1),
-         time_spent_seconds: coalesce(viewed.time_spent_seconds, 0),
-         last_viewed_at: viewed.last_viewed_at
-     } END) as ku_view_data
-
-// Track marked as read KUs
-OPTIONAL MATCH (user)-[:MARKED_AS_READ]->(read_ku:Entity)
-WITH user, active_task_uids, completed_task_uids, overdue_task_uids, today_task_uids, tasks_rich,
-     active_goal_uids, completed_goal_uids, goal_progress_data, goals_rich,
-     knowledge_mastery_data, knowledge_rich,
-     ku_view_data,
-     collect(read_ku.uid) as ku_marked_as_read_uids
-
-// Track bookmarked KUs
-OPTIONAL MATCH (user)-[:BOOKMARKED]->(bookmarked_ku:Entity)
-WITH user, active_task_uids, completed_task_uids, overdue_task_uids, today_task_uids, tasks_rich,
-     active_goal_uids, completed_goal_uids, goal_progress_data, goals_rich,
-     knowledge_mastery_data, knowledge_rich,
-     ku_view_data, ku_marked_as_read_uids,
-     collect(bookmarked_ku.uid) as ku_bookmarked_uids
-
+# Habits and events — the practice pair: an event's practiced_habits and
+# reinforced_habits are the same Habit rows the habits section projects.
+HABITS_AND_EVENTS_QUERY: str = """
+MATCH (user:User {uid: $user_uid})
 // ====================================================================
 // HABITS - Fetch UIDs, metadata, AND rich data with graph neighborhoods
 // ====================================================================
 OPTIONAL MATCH (user)-[:OWNS]->(habit:Habit)
 WHERE habit.status = $status_active OR datetime(habit.updated_at) >= datetime($window_start)
-WITH user, active_task_uids, completed_task_uids, overdue_task_uids, today_task_uids, tasks_rich,
-     active_goal_uids, completed_goal_uids, goal_progress_data, goals_rich,
-     knowledge_mastery_data, knowledge_rich,
-     ku_view_data, ku_marked_as_read_uids, ku_bookmarked_uids,
+WITH user,
      collect(CASE WHEN habit.status = $status_active THEN habit.uid END) as active_habit_uids,
      collect(CASE WHEN habit.status = $status_active THEN {uid: habit.uid, streak: coalesce(habit.current_streak, 0), rate: coalesce(habit.completion_rate, 0.0)} END) as habit_metadata,
      collect(habit) as all_habit_nodes
@@ -312,28 +276,16 @@ WITH user, active_task_uids, completed_task_uids, overdue_task_uids, today_task_
 UNWIND CASE WHEN size(all_habit_nodes) > 0 THEN all_habit_nodes ELSE [null] END as habit
 OPTIONAL MATCH (habit)-[:FULFILLS_GOAL|SUPPORTS_GOAL|CONTRIBUTES_TO_GOAL]->(linked_goal:Goal)
 WHERE habit IS NOT NULL
-WITH user, active_task_uids, completed_task_uids, overdue_task_uids, today_task_uids, tasks_rich,
-     active_goal_uids, completed_goal_uids, goal_progress_data, goals_rich,
-     knowledge_mastery_data, knowledge_rich,
-     ku_view_data, ku_marked_as_read_uids, ku_bookmarked_uids,
-     active_habit_uids, habit_metadata,
+WITH user, active_habit_uids, habit_metadata,
      habit, collect(DISTINCT CASE WHEN linked_goal IS NOT NULL THEN {uid: linked_goal.uid, title: linked_goal.title, status: linked_goal.status} END) as habit_linked_goals
 
 // Roll activity→knowledge edges up to atomic Ku grain (ADR-046 § Ku-grain substance).
 OPTIONAL MATCH (habit)-[:APPLIES_KNOWLEDGE|REINFORCES_KNOWLEDGE]->(habit_applied:Entity)
 WHERE habit IS NOT NULL
-WITH user, active_task_uids, completed_task_uids, overdue_task_uids, today_task_uids, tasks_rich,
-     active_goal_uids, completed_goal_uids, goal_progress_data, goals_rich,
-     knowledge_mastery_data, knowledge_rich,
-     ku_view_data, ku_marked_as_read_uids, ku_bookmarked_uids,
-     active_habit_uids, habit_metadata,
+WITH user, active_habit_uids, habit_metadata,
      habit, habit_linked_goals,
      collect(DISTINCT habit_applied) as habit_applied_nodes
-WITH user, active_task_uids, completed_task_uids, overdue_task_uids, today_task_uids, tasks_rich,
-     active_goal_uids, completed_goal_uids, goal_progress_data, goals_rich,
-     knowledge_mastery_data, knowledge_rich,
-     ku_view_data, ku_marked_as_read_uids, ku_bookmarked_uids,
-     active_habit_uids, habit_metadata,
+WITH user, active_habit_uids, habit_metadata,
      habit, habit_linked_goals,
      [n IN habit_applied_nodes WHERE n:Ku | {uid: n.uid, title: n.title}] +
      reduce(acc = [], p IN habit_applied_nodes | acc + [(p)-[:__COMPOSITION_EDGES__]->(k:Ku) | {uid: k.uid, title: k.title}])
@@ -350,29 +302,17 @@ WITH user, active_task_uids, completed_task_uids, overdue_task_uids, today_task_
 // (pure Cypher — APOC stays scoped to apoc.meta.*).
 OPTIONAL MATCH (prereq_habit:Habit)-[:ENABLES_HABIT|PREREQUISITE_FOR]->(habit)
 WHERE habit IS NOT NULL
-WITH user, active_task_uids, completed_task_uids, overdue_task_uids, today_task_uids, tasks_rich,
-     active_goal_uids, completed_goal_uids, goal_progress_data, goals_rich,
-     knowledge_mastery_data, knowledge_rich,
-     ku_view_data, ku_marked_as_read_uids, ku_bookmarked_uids,
-     active_habit_uids, habit_metadata,
+WITH user, active_habit_uids, habit_metadata,
      habit, habit_linked_goals, habit_applied_knowledge,
      collect(DISTINCT CASE WHEN prereq_habit IS NOT NULL THEN {uid: prereq_habit.uid, title: prereq_habit.title} END) +
      [(habit)-[:REQUIRES_PREREQUISITE_HABIT]->(rp:Habit) | {uid: rp.uid, title: rp.title}]
      as habit_prerequisites_raw
-WITH user, active_task_uids, completed_task_uids, overdue_task_uids, today_task_uids, tasks_rich,
-     active_goal_uids, completed_goal_uids, goal_progress_data, goals_rich,
-     knowledge_mastery_data, knowledge_rich,
-     ku_view_data, ku_marked_as_read_uids, ku_bookmarked_uids,
-     active_habit_uids, habit_metadata,
+WITH user, active_habit_uids, habit_metadata,
      habit, habit_linked_goals, habit_applied_knowledge,
      reduce(acc = [], p IN habit_prerequisites_raw |
             CASE WHEN p IN acc THEN acc ELSE acc + p END) as habit_prerequisites
 
-WITH user, active_task_uids, completed_task_uids, overdue_task_uids, today_task_uids, tasks_rich,
-     active_goal_uids, completed_goal_uids, goal_progress_data, goals_rich,
-     knowledge_mastery_data, knowledge_rich,
-     ku_view_data, ku_marked_as_read_uids, ku_bookmarked_uids,
-     active_habit_uids, habit_metadata,
+WITH user, active_habit_uids, habit_metadata,
      collect(CASE WHEN habit IS NOT NULL THEN {
          entity: properties(habit),
          graph_context: {
@@ -387,11 +327,7 @@ WITH user, active_task_uids, completed_task_uids, overdue_task_uids, today_task_
 // ====================================================================
 OPTIONAL MATCH (user)-[:OWNS]->(event:Event)
 WHERE date(left(toString(event.event_date), 10)) >= date(datetime($window_start))
-WITH user, active_task_uids, completed_task_uids, overdue_task_uids, today_task_uids, tasks_rich,
-     active_goal_uids, completed_goal_uids, goal_progress_data, goals_rich,
-     knowledge_mastery_data, knowledge_rich,
-     ku_view_data, ku_marked_as_read_uids, ku_bookmarked_uids,
-     active_habit_uids, habit_metadata, habits_rich,
+WITH user, active_habit_uids, habit_metadata, habits_rich,
      collect(CASE WHEN date(left(toString(event.event_date), 10)) >= date($today) THEN event.uid END) as upcoming_event_uids,
      collect(CASE WHEN date(left(toString(event.event_date), 10)) = date($today) THEN event.uid END) as today_event_uids,
      collect(event) as all_event_nodes
@@ -401,18 +337,10 @@ UNWIND CASE WHEN size(all_event_nodes) > 0 THEN all_event_nodes ELSE [null] END 
 // Roll activity→knowledge edges up to atomic Ku grain (ADR-046 § Ku-grain substance).
 OPTIONAL MATCH (event)-[:APPLIES_KNOWLEDGE]->(event_applied:Entity)
 WHERE event IS NOT NULL
-WITH user, active_task_uids, completed_task_uids, overdue_task_uids, today_task_uids, tasks_rich,
-     active_goal_uids, completed_goal_uids, goal_progress_data, goals_rich,
-     knowledge_mastery_data, knowledge_rich,
-     ku_view_data, ku_marked_as_read_uids, ku_bookmarked_uids,
-     active_habit_uids, habit_metadata, habits_rich,
+WITH user, active_habit_uids, habit_metadata, habits_rich,
      upcoming_event_uids, today_event_uids,
      event, collect(DISTINCT event_applied) as event_applied_nodes
-WITH user, active_task_uids, completed_task_uids, overdue_task_uids, today_task_uids, tasks_rich,
-     active_goal_uids, completed_goal_uids, goal_progress_data, goals_rich,
-     knowledge_mastery_data, knowledge_rich,
-     ku_view_data, ku_marked_as_read_uids, ku_bookmarked_uids,
-     active_habit_uids, habit_metadata, habits_rich,
+WITH user, active_habit_uids, habit_metadata, habits_rich,
      upcoming_event_uids, today_event_uids,
      event, (
        [n IN event_applied_nodes WHERE n:Ku | {uid: n.uid, title: n.title}] +
@@ -421,33 +349,21 @@ WITH user, active_task_uids, completed_task_uids, overdue_task_uids, today_task_
 
 OPTIONAL MATCH (event)-[:CONTRIBUTES_TO_GOAL]->(event_goal:Goal)
 WHERE event IS NOT NULL
-WITH user, active_task_uids, completed_task_uids, overdue_task_uids, today_task_uids, tasks_rich,
-     active_goal_uids, completed_goal_uids, goal_progress_data, goals_rich,
-     knowledge_mastery_data, knowledge_rich,
-     ku_view_data, ku_marked_as_read_uids, ku_bookmarked_uids,
-     active_habit_uids, habit_metadata, habits_rich,
+WITH user, active_habit_uids, habit_metadata, habits_rich,
      upcoming_event_uids, today_event_uids,
      event, event_applied_knowledge,
      collect(DISTINCT CASE WHEN event_goal IS NOT NULL THEN {uid: event_goal.uid, title: event_goal.title, status: event_goal.status} END)[0..10] as event_linked_goals
 
 OPTIONAL MATCH (event_habit:Habit)-[:PRACTICED_AT_EVENT]->(event)
 WHERE event IS NOT NULL
-WITH user, active_task_uids, completed_task_uids, overdue_task_uids, today_task_uids, tasks_rich,
-     active_goal_uids, completed_goal_uids, goal_progress_data, goals_rich,
-     knowledge_mastery_data, knowledge_rich,
-     ku_view_data, ku_marked_as_read_uids, ku_bookmarked_uids,
-     active_habit_uids, habit_metadata, habits_rich,
+WITH user, active_habit_uids, habit_metadata, habits_rich,
      upcoming_event_uids, today_event_uids,
      event, event_applied_knowledge, event_linked_goals,
      collect(DISTINCT CASE WHEN event_habit IS NOT NULL THEN {uid: event_habit.uid, title: event_habit.title} END)[0..10] as event_practiced_habits
 
 OPTIONAL MATCH (event)-[:CONFLICTS_WITH]-(conflicting_event:Event)
 WHERE event IS NOT NULL AND conflicting_event.uid <> event.uid
-WITH user, active_task_uids, completed_task_uids, overdue_task_uids, today_task_uids, tasks_rich,
-     active_goal_uids, completed_goal_uids, goal_progress_data, goals_rich,
-     knowledge_mastery_data, knowledge_rich,
-     ku_view_data, ku_marked_as_read_uids, ku_bookmarked_uids,
-     active_habit_uids, habit_metadata, habits_rich,
+WITH user, active_habit_uids, habit_metadata, habits_rich,
      upcoming_event_uids, today_event_uids,
      event, event_applied_knowledge, event_linked_goals, event_practiced_habits,
      collect(DISTINCT CASE WHEN conflicting_event IS NOT NULL THEN {uid: conflicting_event.uid, title: conflicting_event.title} END)[0..5] as event_conflicting_events
@@ -456,22 +372,14 @@ WITH user, active_task_uids, completed_task_uids, overdue_task_uids, today_task_
 // reinforces_habit_uid property). Loaded into graph_context.reinforced_habits.
 OPTIONAL MATCH (event)-[:REINFORCES_HABIT]->(event_reinforced_habit:Habit)
 WHERE event IS NOT NULL
-WITH user, active_task_uids, completed_task_uids, overdue_task_uids, today_task_uids, tasks_rich,
-     active_goal_uids, completed_goal_uids, goal_progress_data, goals_rich,
-     knowledge_mastery_data, knowledge_rich,
-     ku_view_data, ku_marked_as_read_uids, ku_bookmarked_uids,
-     active_habit_uids, habit_metadata, habits_rich,
+WITH user, active_habit_uids, habit_metadata, habits_rich,
      upcoming_event_uids, today_event_uids,
      event, event_applied_knowledge, event_linked_goals, event_practiced_habits,
      event_conflicting_events,
      collect(DISTINCT CASE WHEN event_reinforced_habit IS NOT NULL THEN {uid: event_reinforced_habit.uid, title: event_reinforced_habit.title} END)[0..10] as event_reinforced_habits
 
 // Aggregate events into rich format
-WITH user, active_task_uids, completed_task_uids, overdue_task_uids, today_task_uids, tasks_rich,
-     active_goal_uids, completed_goal_uids, goal_progress_data, goals_rich,
-     knowledge_mastery_data, knowledge_rich,
-     ku_view_data, ku_marked_as_read_uids, ku_bookmarked_uids,
-     active_habit_uids, habit_metadata, habits_rich,
+WITH user, active_habit_uids, habit_metadata, habits_rich,
      upcoming_event_uids, today_event_uids,
      collect(CASE WHEN event IS NOT NULL THEN {
          entity: properties(event),
@@ -484,16 +392,29 @@ WITH user, active_task_uids, completed_task_uids, overdue_task_uids, today_task_
          }
      } END) as events_rich
 
+RETURN {
+    uids: {
+        active_habit_uids: active_habit_uids,
+        upcoming_event_uids: upcoming_event_uids,
+        today_event_uids: [uid IN today_event_uids WHERE uid IS NOT NULL],
+        habit_metadata: habit_metadata
+    },
+    entities: {
+        habits: [item IN habits_rich WHERE item.entity IS NOT NULL],
+        events: [item IN events_rich WHERE item.entity IS NOT NULL]
+    }
+} as result
+""".replace(_COMPOSITION_EDGES_TOKEN, CURRICULUM_COMPOSITION_EDGES)
+
+# Principles and choices — the values pair the populator integrates
+# (populate_principle_choice_integration reads both projections together).
+PRINCIPLES_AND_CHOICES_QUERY: str = """
+MATCH (user:User {uid: $user_uid})
 // ====================================================================
 // PRINCIPLES - Fetch UIDs AND rich data with graph neighborhoods
 // ====================================================================
 OPTIONAL MATCH (user)-[:OWNS]->(principle:Principle)
-WITH user, active_task_uids, completed_task_uids, overdue_task_uids, today_task_uids, tasks_rich,
-     active_goal_uids, completed_goal_uids, goal_progress_data, goals_rich,
-     knowledge_mastery_data, knowledge_rich,
-     ku_view_data, ku_marked_as_read_uids, ku_bookmarked_uids,
-     active_habit_uids, habit_metadata, habits_rich,
-     upcoming_event_uids, today_event_uids, events_rich,
+WITH user,
      collect(principle.uid) as core_principle_uids,
      collect(principle) as all_principle_nodes
 
@@ -502,21 +423,9 @@ UNWIND CASE WHEN size(all_principle_nodes) > 0 THEN all_principle_nodes ELSE [nu
 // Roll activity→knowledge edges up to atomic Ku grain (ADR-046 § Ku-grain substance).
 OPTIONAL MATCH (principle)-[:GROUNDED_IN_KNOWLEDGE]->(principle_grounded:Entity)
 WHERE principle IS NOT NULL
-WITH user, active_task_uids, completed_task_uids, overdue_task_uids, today_task_uids, tasks_rich,
-     active_goal_uids, completed_goal_uids, goal_progress_data, goals_rich,
-     knowledge_mastery_data, knowledge_rich,
-     ku_view_data, ku_marked_as_read_uids, ku_bookmarked_uids,
-     active_habit_uids, habit_metadata, habits_rich,
-     upcoming_event_uids, today_event_uids, events_rich,
-     core_principle_uids,
+WITH user, core_principle_uids,
      principle, collect(DISTINCT principle_grounded) as principle_grounded_nodes
-WITH user, active_task_uids, completed_task_uids, overdue_task_uids, today_task_uids, tasks_rich,
-     active_goal_uids, completed_goal_uids, goal_progress_data, goals_rich,
-     knowledge_mastery_data, knowledge_rich,
-     ku_view_data, ku_marked_as_read_uids, ku_bookmarked_uids,
-     active_habit_uids, habit_metadata, habits_rich,
-     upcoming_event_uids, today_event_uids, events_rich,
-     core_principle_uids,
+WITH user, core_principle_uids,
      principle, (
        [n IN principle_grounded_nodes WHERE n:Ku | {uid: n.uid, title: n.title}] +
        reduce(acc = [], p IN principle_grounded_nodes | acc + [(p)-[:__COMPOSITION_EDGES__]->(k:Ku) | {uid: k.uid, title: k.title}])
@@ -524,60 +433,30 @@ WITH user, active_task_uids, completed_task_uids, overdue_task_uids, today_task_
 
 OPTIONAL MATCH (principle)-[:GUIDES_GOAL]->(principle_goal:Goal)
 WHERE principle IS NOT NULL
-WITH user, active_task_uids, completed_task_uids, overdue_task_uids, today_task_uids, tasks_rich,
-     active_goal_uids, completed_goal_uids, goal_progress_data, goals_rich,
-     knowledge_mastery_data, knowledge_rich,
-     ku_view_data, ku_marked_as_read_uids, ku_bookmarked_uids,
-     active_habit_uids, habit_metadata, habits_rich,
-     upcoming_event_uids, today_event_uids, events_rich,
-     core_principle_uids,
+WITH user, core_principle_uids,
      principle, principle_grounded_knowledge,
      collect(DISTINCT CASE WHEN principle_goal IS NOT NULL THEN {uid: principle_goal.uid, title: principle_goal.title, status: principle_goal.status} END)[0..10] as principle_guided_goals
 
 OPTIONAL MATCH (principle)-[:GUIDES_CHOICE]->(principle_choice:Choice)
 WHERE principle IS NOT NULL
-WITH user, active_task_uids, completed_task_uids, overdue_task_uids, today_task_uids, tasks_rich,
-     active_goal_uids, completed_goal_uids, goal_progress_data, goals_rich,
-     knowledge_mastery_data, knowledge_rich,
-     ku_view_data, ku_marked_as_read_uids, ku_bookmarked_uids,
-     active_habit_uids, habit_metadata, habits_rich,
-     upcoming_event_uids, today_event_uids, events_rich,
-     core_principle_uids,
+WITH user, core_principle_uids,
      principle, principle_grounded_knowledge, principle_guided_goals,
      collect(DISTINCT CASE WHEN principle_choice IS NOT NULL THEN {uid: principle_choice.uid, title: principle_choice.title} END)[0..10] as principle_guided_choices
 
 OPTIONAL MATCH (principle_habit:Habit)-[:EMBODIES_PRINCIPLE]->(principle)
 WHERE principle IS NOT NULL
-WITH user, active_task_uids, completed_task_uids, overdue_task_uids, today_task_uids, tasks_rich,
-     active_goal_uids, completed_goal_uids, goal_progress_data, goals_rich,
-     knowledge_mastery_data, knowledge_rich,
-     ku_view_data, ku_marked_as_read_uids, ku_bookmarked_uids,
-     active_habit_uids, habit_metadata, habits_rich,
-     upcoming_event_uids, today_event_uids, events_rich,
-     core_principle_uids,
+WITH user, core_principle_uids,
      principle, principle_grounded_knowledge, principle_guided_goals, principle_guided_choices,
      collect(DISTINCT CASE WHEN principle_habit IS NOT NULL THEN {uid: principle_habit.uid, title: principle_habit.title} END)[0..10] as principle_embodying_habits
 
 OPTIONAL MATCH (principle_task:Task)-[:ALIGNED_WITH_PRINCIPLE]->(principle)
 WHERE principle IS NOT NULL
-WITH user, active_task_uids, completed_task_uids, overdue_task_uids, today_task_uids, tasks_rich,
-     active_goal_uids, completed_goal_uids, goal_progress_data, goals_rich,
-     knowledge_mastery_data, knowledge_rich,
-     ku_view_data, ku_marked_as_read_uids, ku_bookmarked_uids,
-     active_habit_uids, habit_metadata, habits_rich,
-     upcoming_event_uids, today_event_uids, events_rich,
-     core_principle_uids,
+WITH user, core_principle_uids,
      principle, principle_grounded_knowledge, principle_guided_goals, principle_guided_choices, principle_embodying_habits,
      collect(DISTINCT CASE WHEN principle_task IS NOT NULL THEN {uid: principle_task.uid, title: principle_task.title, status: principle_task.status} END)[0..10] as principle_aligned_tasks
 
 // Aggregate principles into rich format
-WITH user, active_task_uids, completed_task_uids, overdue_task_uids, today_task_uids, tasks_rich,
-     active_goal_uids, completed_goal_uids, goal_progress_data, goals_rich,
-     knowledge_mastery_data, knowledge_rich,
-     ku_view_data, ku_marked_as_read_uids, ku_bookmarked_uids,
-     active_habit_uids, habit_metadata, habits_rich,
-     upcoming_event_uids, today_event_uids, events_rich,
-     core_principle_uids,
+WITH user, core_principle_uids,
      collect(CASE WHEN principle IS NOT NULL THEN {
          entity: properties(principle),
          graph_context: {
@@ -596,13 +475,7 @@ OPTIONAL MATCH (user)-[:OWNS]->(choice:Choice)
 WHERE choice.status IN $pending_choice_statuses
    OR datetime(choice.created_at) >= datetime($window_start)
    OR (choice.decided_at IS NOT NULL AND datetime(choice.decided_at) >= datetime($window_start))
-WITH user, active_task_uids, completed_task_uids, overdue_task_uids, today_task_uids, tasks_rich,
-     active_goal_uids, completed_goal_uids, goal_progress_data, goals_rich,
-     knowledge_mastery_data, knowledge_rich,
-     ku_view_data, ku_marked_as_read_uids, ku_bookmarked_uids,
-     active_habit_uids, habit_metadata, habits_rich,
-     upcoming_event_uids, today_event_uids, events_rich,
-     core_principle_uids, principles_rich,
+WITH user, core_principle_uids, principles_rich,
      collect(CASE WHEN choice.status IN $pending_choice_statuses THEN choice.uid END) as pending_choice_uids,
      collect(choice) as all_choice_nodes
 
@@ -611,22 +484,10 @@ UNWIND CASE WHEN size(all_choice_nodes) > 0 THEN all_choice_nodes ELSE [null] EN
 // Roll activity→knowledge edges up to atomic Ku grain (ADR-046 § Ku-grain substance).
 OPTIONAL MATCH (choice)-[:INFORMED_BY_KNOWLEDGE]->(choice_informing:Entity)
 WHERE choice IS NOT NULL
-WITH user, active_task_uids, completed_task_uids, overdue_task_uids, today_task_uids, tasks_rich,
-     active_goal_uids, completed_goal_uids, goal_progress_data, goals_rich,
-     knowledge_mastery_data, knowledge_rich,
-     ku_view_data, ku_marked_as_read_uids, ku_bookmarked_uids,
-     active_habit_uids, habit_metadata, habits_rich,
-     upcoming_event_uids, today_event_uids, events_rich,
-     core_principle_uids, principles_rich,
+WITH user, core_principle_uids, principles_rich,
      pending_choice_uids,
      choice, collect(DISTINCT choice_informing) as choice_informing_nodes
-WITH user, active_task_uids, completed_task_uids, overdue_task_uids, today_task_uids, tasks_rich,
-     active_goal_uids, completed_goal_uids, goal_progress_data, goals_rich,
-     knowledge_mastery_data, knowledge_rich,
-     ku_view_data, ku_marked_as_read_uids, ku_bookmarked_uids,
-     active_habit_uids, habit_metadata, habits_rich,
-     upcoming_event_uids, today_event_uids, events_rich,
-     core_principle_uids, principles_rich,
+WITH user, core_principle_uids, principles_rich,
      pending_choice_uids,
      choice, (
        [n IN choice_informing_nodes WHERE n:Ku | {uid: n.uid, title: n.title}] +
@@ -635,64 +496,34 @@ WITH user, active_task_uids, completed_task_uids, overdue_task_uids, today_task_
 
 OPTIONAL MATCH (choice)-[:INFORMED_BY_PRINCIPLE]->(choice_principle:Principle)
 WHERE choice IS NOT NULL
-WITH user, active_task_uids, completed_task_uids, overdue_task_uids, today_task_uids, tasks_rich,
-     active_goal_uids, completed_goal_uids, goal_progress_data, goals_rich,
-     knowledge_mastery_data, knowledge_rich,
-     ku_view_data, ku_marked_as_read_uids, ku_bookmarked_uids,
-     active_habit_uids, habit_metadata, habits_rich,
-     upcoming_event_uids, today_event_uids, events_rich,
-     core_principle_uids, principles_rich,
+WITH user, core_principle_uids, principles_rich,
      pending_choice_uids,
      choice, choice_informing_knowledge,
      collect(DISTINCT CASE WHEN choice_principle IS NOT NULL THEN {uid: choice_principle.uid, title: choice_principle.title} END)[0..10] as choice_guiding_principles
 
 OPTIONAL MATCH (choice)-[:AFFECTS_GOAL]->(choice_goal:Goal)
 WHERE choice IS NOT NULL
-WITH user, active_task_uids, completed_task_uids, overdue_task_uids, today_task_uids, tasks_rich,
-     active_goal_uids, completed_goal_uids, goal_progress_data, goals_rich,
-     knowledge_mastery_data, knowledge_rich,
-     ku_view_data, ku_marked_as_read_uids, ku_bookmarked_uids,
-     active_habit_uids, habit_metadata, habits_rich,
-     upcoming_event_uids, today_event_uids, events_rich,
-     core_principle_uids, principles_rich,
+WITH user, core_principle_uids, principles_rich,
      pending_choice_uids,
      choice, choice_informing_knowledge, choice_guiding_principles,
      collect(DISTINCT CASE WHEN choice_goal IS NOT NULL THEN {uid: choice_goal.uid, title: choice_goal.title, status: choice_goal.status} END)[0..10] as choice_affected_goals
 
 OPTIONAL MATCH (choice)-[:OPENS_LEARNING_PATH]->(choice_path:LearningPath)
 WHERE choice IS NOT NULL
-WITH user, active_task_uids, completed_task_uids, overdue_task_uids, today_task_uids, tasks_rich,
-     active_goal_uids, completed_goal_uids, goal_progress_data, goals_rich,
-     knowledge_mastery_data, knowledge_rich,
-     ku_view_data, ku_marked_as_read_uids, ku_bookmarked_uids,
-     active_habit_uids, habit_metadata, habits_rich,
-     upcoming_event_uids, today_event_uids, events_rich,
-     core_principle_uids, principles_rich,
+WITH user, core_principle_uids, principles_rich,
      pending_choice_uids,
      choice, choice_informing_knowledge, choice_guiding_principles, choice_affected_goals,
      collect(DISTINCT CASE WHEN choice_path IS NOT NULL THEN {uid: choice_path.uid, title: choice_path.title} END)[0..5] as choice_opened_paths
 
 OPTIONAL MATCH (choice_task:Task)-[:IMPLEMENTS_CHOICE]->(choice)
 WHERE choice IS NOT NULL
-WITH user, active_task_uids, completed_task_uids, overdue_task_uids, today_task_uids, tasks_rich,
-     active_goal_uids, completed_goal_uids, goal_progress_data, goals_rich,
-     knowledge_mastery_data, knowledge_rich,
-     ku_view_data, ku_marked_as_read_uids, ku_bookmarked_uids,
-     active_habit_uids, habit_metadata, habits_rich,
-     upcoming_event_uids, today_event_uids, events_rich,
-     core_principle_uids, principles_rich,
+WITH user, core_principle_uids, principles_rich,
      pending_choice_uids,
      choice, choice_informing_knowledge, choice_guiding_principles, choice_affected_goals, choice_opened_paths,
      collect(DISTINCT CASE WHEN choice_task IS NOT NULL THEN {uid: choice_task.uid, title: choice_task.title, status: choice_task.status} END)[0..10] as choice_implementing_tasks
 
 // Aggregate choices into rich format
-WITH user, active_task_uids, completed_task_uids, overdue_task_uids, today_task_uids, tasks_rich,
-     active_goal_uids, completed_goal_uids, goal_progress_data, goals_rich,
-     knowledge_mastery_data, knowledge_rich,
-     ku_view_data, ku_marked_as_read_uids, ku_bookmarked_uids,
-     active_habit_uids, habit_metadata, habits_rich,
-     upcoming_event_uids, today_event_uids, events_rich,
-     core_principle_uids, principles_rich,
+WITH user, core_principle_uids, principles_rich,
      pending_choice_uids,
      collect(CASE WHEN choice IS NOT NULL THEN {
          entity: properties(choice),
@@ -705,18 +536,108 @@ WITH user, active_task_uids, completed_task_uids, overdue_task_uids, today_task_
          }
      } END) as choices_rich
 
+RETURN {
+    uids: {
+        core_principle_uids: [uid IN core_principle_uids WHERE uid IS NOT NULL],
+        pending_choice_uids: [uid IN pending_choice_uids WHERE uid IS NOT NULL]
+    },
+    entities: {
+        principles: [item IN principles_rich WHERE item.entity IS NOT NULL],
+        choices: [item IN choices_rich WHERE item.entity IS NOT NULL]
+    }
+} as result
+""".replace(_COMPOSITION_EDGES_TOKEN, CURRICULUM_COMPOSITION_EDGES)
+
+# Knowledge — every user→Ku edge: mastery / in-progress, viewed, marked as
+# read, bookmarked.
+KNOWLEDGE_QUERY: str = """
+MATCH (user:User {uid: $user_uid})
+// ====================================================================
+// KNOWLEDGE - Fetch with BOTH UIDs and rich data
+// ====================================================================
+OPTIONAL MATCH (user)-[mastered:MASTERED|IN_PROGRESS]->(ku:Entity)
+WITH user,
+     collect(CASE WHEN ku IS NOT NULL THEN {
+         uid: ku.uid,
+         // MASTERED carries mastery_score; IN_PROGRESS carries progress (0.0-1.0)
+         // from record_knowledge_progress / UserProgressBackend.record_progress.
+         // The constants are the last resort for an edge with neither.
+         score: coalesce(mastered.mastery_score, mastered.progress, CASE WHEN type(mastered) = 'MASTERED' THEN 1.0 ELSE 0.1 END),
+         mastered_at: mastered.mastered_at,
+         confidence: coalesce(mastered.confidence, 1.0)
+     } END) as knowledge_mastery_data,
+     collect(ku) as all_knowledge_nodes
+
+// Filter knowledge for rich data (with prerequisites/dependents)
+UNWIND CASE WHEN size(all_knowledge_nodes) > 0 THEN all_knowledge_nodes ELSE [null] END as ku
+OPTIONAL MATCH (ku)-[prereq_rel:REQUIRES_KNOWLEDGE]->(prereq:Entity)
+WHERE ku IS NOT NULL AND coalesce(prereq_rel.confidence, 1.0) >= $min_confidence
+WITH user, knowledge_mastery_data,
+     ku, collect(DISTINCT CASE WHEN prereq IS NOT NULL THEN {uid: prereq.uid, title: prereq.title, confidence: prereq_rel.confidence} END) as ku_prerequisites
+
+OPTIONAL MATCH (dependent:Entity)-[dep_rel:REQUIRES_KNOWLEDGE]->(ku)
+WHERE ku IS NOT NULL AND coalesce(dep_rel.confidence, 1.0) >= $min_confidence
+WITH user, knowledge_mastery_data,
+     ku, ku_prerequisites,
+     collect(DISTINCT CASE WHEN dependent IS NOT NULL THEN {uid: dependent.uid, title: dependent.title, confidence: dep_rel.confidence} END) as ku_dependents
+
+WITH user, knowledge_mastery_data,
+     collect(CASE WHEN ku IS NOT NULL THEN {
+         uid: ku.uid,
+         ku: properties(ku),
+         graph_context: {
+             prerequisites: ku_prerequisites,
+             dependents: ku_dependents
+         }
+     } END) as knowledge_rich
+
+// ====================================================================
+// KU INTERACTION TRACKING (MVP - Phase B)
+// ====================================================================
+// Track view counts, time spent, and recently viewed KUs from VIEWED relationships
+OPTIONAL MATCH (user)-[viewed:VIEWED]->(viewed_ku:Entity)
+WITH user, knowledge_mastery_data, knowledge_rich,
+     collect(CASE WHEN viewed_ku IS NOT NULL THEN {
+         uid: viewed_ku.uid,
+         view_count: coalesce(viewed.view_count, 1),
+         time_spent_seconds: coalesce(viewed.time_spent_seconds, 0),
+         last_viewed_at: viewed.last_viewed_at
+     } END) as ku_view_data
+
+// Track marked as read KUs
+OPTIONAL MATCH (user)-[:MARKED_AS_READ]->(read_ku:Entity)
+WITH user, knowledge_mastery_data, knowledge_rich,
+     ku_view_data,
+     collect(read_ku.uid) as ku_marked_as_read_uids
+
+// Track bookmarked KUs
+OPTIONAL MATCH (user)-[:BOOKMARKED]->(bookmarked_ku:Entity)
+WITH user, knowledge_mastery_data, knowledge_rich,
+     ku_view_data, ku_marked_as_read_uids,
+     collect(bookmarked_ku.uid) as ku_bookmarked_uids
+
+RETURN {
+    uids: {
+        knowledge_mastery: [item IN knowledge_mastery_data WHERE item.uid IS NOT NULL | {uid: item.uid, score: item.score, mastered_at: item.mastered_at, confidence: item.confidence}],
+        ku_view_data: [item IN ku_view_data WHERE item.uid IS NOT NULL | {uid: item.uid, view_count: item.view_count, time_spent_seconds: item.time_spent_seconds, last_viewed_at: item.last_viewed_at}],
+        ku_marked_as_read_uids: [uid IN ku_marked_as_read_uids WHERE uid IS NOT NULL],
+        ku_bookmarked_uids: [uid IN ku_bookmarked_uids WHERE uid IS NOT NULL]
+    },
+    rich: {
+        knowledge: knowledge_rich
+    }
+} as result
+"""
+
+# Curriculum structure — enrolled paths, the steps in progress, and the
+# user's organizers (emergent MOCs).
+CURRICULUM_QUERY: str = """
+MATCH (user:User {uid: $user_uid})
 // ====================================================================
 // LEARNING PATHS - Fetch with BOTH UIDs and rich data
 // ====================================================================
 OPTIONAL MATCH (user)-[:ENROLLED_IN|OWNS]->(lp:LearningPath)
-WITH user, active_task_uids, completed_task_uids, overdue_task_uids, today_task_uids, tasks_rich,
-     active_goal_uids, completed_goal_uids, goal_progress_data, goals_rich,
-     knowledge_mastery_data, knowledge_rich,
-     ku_view_data, ku_marked_as_read_uids, ku_bookmarked_uids,
-     active_habit_uids, habit_metadata, habits_rich,
-     upcoming_event_uids, today_event_uids, events_rich,
-     core_principle_uids, principles_rich,
-     pending_choice_uids, choices_rich,
+WITH user,
      collect(lp.uid) as enrolled_path_uids,
      collect(lp) as all_lp_nodes
 
@@ -727,15 +648,7 @@ UNWIND CASE WHEN size(all_lp_nodes) > 0 THEN all_lp_nodes ELSE [null] END as lp
 // never had a writer.
 OPTIONAL MATCH (lp)-[r_step:HAS_STEP]->(step:PathStep)
 WHERE lp IS NOT NULL
-WITH user, active_task_uids, completed_task_uids, overdue_task_uids, today_task_uids, tasks_rich,
-     active_goal_uids, completed_goal_uids, goal_progress_data, goals_rich,
-     knowledge_mastery_data, knowledge_rich,
-     ku_view_data, ku_marked_as_read_uids, ku_bookmarked_uids,
-     active_habit_uids, habit_metadata, habits_rich,
-     upcoming_event_uids, today_event_uids, events_rich,
-     core_principle_uids, principles_rich,
-     pending_choice_uids, choices_rich,
-     enrolled_path_uids,
+WITH user, enrolled_path_uids,
      // A path with no HAS_STEP edge yields one unmatched row; collect() drops
      // the null the CASE emits for it, so an empty path collects [] and the
      // derived total_steps / progress_percentage below count real steps only.
@@ -748,55 +661,23 @@ WITH user, active_task_uids, completed_task_uids, overdue_task_uids, today_task_
 
 OPTIONAL MATCH (lp)-[:REQUIRES_KNOWLEDGE]->(prereq_ku:Entity)
 WHERE lp IS NOT NULL
-WITH user, active_task_uids, completed_task_uids, overdue_task_uids, today_task_uids, tasks_rich,
-     active_goal_uids, completed_goal_uids, goal_progress_data, goals_rich,
-     knowledge_mastery_data, knowledge_rich,
-     ku_view_data, ku_marked_as_read_uids, ku_bookmarked_uids,
-     active_habit_uids, habit_metadata, habits_rich,
-     upcoming_event_uids, today_event_uids, events_rich,
-     core_principle_uids, principles_rich,
-     pending_choice_uids, choices_rich,
-     enrolled_path_uids,
+WITH user, enrolled_path_uids,
      lp, lp_steps,
      collect(DISTINCT CASE WHEN prereq_ku IS NOT NULL THEN {uid: prereq_ku.uid, title: prereq_ku.title} END) as lp_prereqs
 
 OPTIONAL MATCH (lp)-[:ALIGNED_WITH_GOAL]->(lp_goal:Goal)
 WHERE lp IS NOT NULL
-WITH user, active_task_uids, completed_task_uids, overdue_task_uids, today_task_uids, tasks_rich,
-     active_goal_uids, completed_goal_uids, goal_progress_data, goals_rich,
-     knowledge_mastery_data, knowledge_rich,
-     ku_view_data, ku_marked_as_read_uids, ku_bookmarked_uids,
-     active_habit_uids, habit_metadata, habits_rich,
-     upcoming_event_uids, today_event_uids, events_rich,
-     core_principle_uids, principles_rich,
-     pending_choice_uids, choices_rich,
-     enrolled_path_uids,
+WITH user, enrolled_path_uids,
      lp, lp_steps, lp_prereqs,
      collect(DISTINCT CASE WHEN lp_goal IS NOT NULL THEN {uid: lp_goal.uid, title: lp_goal.title, status: lp_goal.status} END) as lp_goals
 
 OPTIONAL MATCH (lp)-[:EMBODIES_PRINCIPLE]->(lp_principle:Principle)
 WHERE lp IS NOT NULL
-WITH user, active_task_uids, completed_task_uids, overdue_task_uids, today_task_uids, tasks_rich,
-     active_goal_uids, completed_goal_uids, goal_progress_data, goals_rich,
-     knowledge_mastery_data, knowledge_rich,
-     ku_view_data, ku_marked_as_read_uids, ku_bookmarked_uids,
-     active_habit_uids, habit_metadata, habits_rich,
-     upcoming_event_uids, today_event_uids, events_rich,
-     core_principle_uids, principles_rich,
-     pending_choice_uids, choices_rich,
-     enrolled_path_uids,
+WITH user, enrolled_path_uids,
      lp, lp_steps, lp_prereqs, lp_goals,
      collect(DISTINCT CASE WHEN lp_principle IS NOT NULL THEN {uid: lp_principle.uid, title: lp_principle.title} END) as lp_embodied_principles
 
-WITH user, active_task_uids, completed_task_uids, overdue_task_uids, today_task_uids, tasks_rich,
-     active_goal_uids, completed_goal_uids, goal_progress_data, goals_rich,
-     knowledge_mastery_data, knowledge_rich,
-     ku_view_data, ku_marked_as_read_uids, ku_bookmarked_uids,
-     active_habit_uids, habit_metadata, habits_rich,
-     upcoming_event_uids, today_event_uids, events_rich,
-     core_principle_uids, principles_rich,
-     pending_choice_uids, choices_rich,
-     enrolled_path_uids,
+WITH user, enrolled_path_uids,
      collect(CASE WHEN lp IS NOT NULL THEN {
          path: properties(lp),
          graph_context: {
@@ -822,30 +703,14 @@ OPTIONAL MATCH (user)-[:IN_PROGRESS]->(ps:PathStep)
 // Vault-ingested PathSteps carry no status property (NULL) — treat missing
 // status as active; the filter only excludes explicitly terminal states.
 WHERE ps.status IS NULL OR ps.status IN $open_ps_statuses
-WITH user, active_task_uids, completed_task_uids, overdue_task_uids, today_task_uids, tasks_rich,
-     active_goal_uids, completed_goal_uids, goal_progress_data, goals_rich,
-     knowledge_mastery_data, knowledge_rich,
-     ku_view_data, ku_marked_as_read_uids, ku_bookmarked_uids,
-     active_habit_uids, habit_metadata, habits_rich,
-     upcoming_event_uids, today_event_uids, events_rich,
-     core_principle_uids, principles_rich,
-     pending_choice_uids, choices_rich,
-     enrolled_path_uids, paths_rich,
+WITH user, enrolled_path_uids, paths_rich,
      collect(ps) as all_ps_nodes
 
 // Filter path steps for rich data (with graph neighborhoods)
 UNWIND CASE WHEN size(all_ps_nodes) > 0 THEN all_ps_nodes ELSE [null] END as ps
 OPTIONAL MATCH (ps)-[:REQUIRES_STEP]->(prereq_step:PathStep)
 WHERE ps IS NOT NULL
-WITH user, active_task_uids, completed_task_uids, overdue_task_uids, today_task_uids, tasks_rich,
-     active_goal_uids, completed_goal_uids, goal_progress_data, goals_rich,
-     knowledge_mastery_data, knowledge_rich,
-     ku_view_data, ku_marked_as_read_uids, ku_bookmarked_uids,
-     active_habit_uids, habit_metadata, habits_rich,
-     upcoming_event_uids, today_event_uids, events_rich,
-     core_principle_uids, principles_rich,
-     pending_choice_uids, choices_rich,
-     enrolled_path_uids, paths_rich,
+WITH user, enrolled_path_uids, paths_rich,
      ps, collect(DISTINCT CASE WHEN prereq_step IS NOT NULL THEN {uid: prereq_step.uid, title: prereq_step.title, completed: prereq_step.completed} END) as ps_prereq_steps
 
 // Owner predicate re-ties the projection to the anchored user (ADR-085 §4/G2):
@@ -854,30 +719,14 @@ WITH user, active_task_uids, completed_task_uids, overdue_task_uids, today_task_
 // learner another user's habit (the shape the exercise projections below use).
 OPTIONAL MATCH (ps)-[:BUILDS_HABIT]->(ps_habit:Habit)
 WHERE ps IS NOT NULL AND ps_habit.user_uid = user.uid
-WITH user, active_task_uids, completed_task_uids, overdue_task_uids, today_task_uids, tasks_rich,
-     active_goal_uids, completed_goal_uids, goal_progress_data, goals_rich,
-     knowledge_mastery_data, knowledge_rich,
-     ku_view_data, ku_marked_as_read_uids, ku_bookmarked_uids,
-     active_habit_uids, habit_metadata, habits_rich,
-     upcoming_event_uids, today_event_uids, events_rich,
-     core_principle_uids, principles_rich,
-     pending_choice_uids, choices_rich,
-     enrolled_path_uids, paths_rich,
+WITH user, enrolled_path_uids, paths_rich,
      ps, ps_prereq_steps,
      collect(DISTINCT CASE WHEN ps_habit IS NOT NULL THEN {uid: ps_habit.uid, title: ps_habit.title} END) as ps_habits
 
 // Same anchor re-tie as ps_habit above (ADR-085 G2): Tasks are OWNER_ONLY.
 OPTIONAL MATCH (ps)-[:ASSIGNS_TASK]->(ps_task:Task)
 WHERE ps IS NOT NULL AND ps_task.user_uid = user.uid
-WITH user, active_task_uids, completed_task_uids, overdue_task_uids, today_task_uids, tasks_rich,
-     active_goal_uids, completed_goal_uids, goal_progress_data, goals_rich,
-     knowledge_mastery_data, knowledge_rich,
-     ku_view_data, ku_marked_as_read_uids, ku_bookmarked_uids,
-     active_habit_uids, habit_metadata, habits_rich,
-     upcoming_event_uids, today_event_uids, events_rich,
-     core_principle_uids, principles_rich,
-     pending_choice_uids, choices_rich,
-     enrolled_path_uids, paths_rich,
+WITH user, enrolled_path_uids, paths_rich,
      ps, ps_prereq_steps, ps_habits,
      collect(DISTINCT CASE WHEN ps_task IS NOT NULL THEN {uid: ps_task.uid, title: ps_task.title, status: ps_task.status} END) as ps_tasks
 
@@ -889,29 +738,13 @@ WITH user, active_task_uids, completed_task_uids, overdue_task_uids, today_task_
 // TRAINS_KU/CONTAINS_KNOWLEDGE) from prerequisite/enabled neighbors.
 OPTIONAL MATCH (ps)-[ps_ku_r:USES_KU|TRAINS_KU|CONTAINS_KNOWLEDGE|REQUIRES_KNOWLEDGE|ENABLES_KNOWLEDGE]->(ps_ku:Entity)
 WHERE ps IS NOT NULL
-WITH user, active_task_uids, completed_task_uids, overdue_task_uids, today_task_uids, tasks_rich,
-     active_goal_uids, completed_goal_uids, goal_progress_data, goals_rich,
-     knowledge_mastery_data, knowledge_rich,
-     ku_view_data, ku_marked_as_read_uids, ku_bookmarked_uids,
-     active_habit_uids, habit_metadata, habits_rich,
-     upcoming_event_uids, today_event_uids, events_rich,
-     core_principle_uids, principles_rich,
-     pending_choice_uids, choices_rich,
-     enrolled_path_uids, paths_rich,
+WITH user, enrolled_path_uids, paths_rich,
      ps, ps_prereq_steps, ps_habits, ps_tasks,
      collect(DISTINCT CASE WHEN ps_ku IS NOT NULL THEN {uid: ps_ku.uid, title: ps_ku.title, domain: ps_ku.domain, entity_type: ps_ku.entity_type, rel_type: type(ps_ku_r)} END) as ps_knowledge
 
 OPTIONAL MATCH (lp_parent:LearningPath)-[:HAS_STEP]->(ps)
 WHERE ps IS NOT NULL
-WITH user, active_task_uids, completed_task_uids, overdue_task_uids, today_task_uids, tasks_rich,
-     active_goal_uids, completed_goal_uids, goal_progress_data, goals_rich,
-     knowledge_mastery_data, knowledge_rich,
-     ku_view_data, ku_marked_as_read_uids, ku_bookmarked_uids,
-     active_habit_uids, habit_metadata, habits_rich,
-     upcoming_event_uids, today_event_uids, events_rich,
-     core_principle_uids, principles_rich,
-     pending_choice_uids, choices_rich,
-     enrolled_path_uids, paths_rich,
+WITH user, enrolled_path_uids, paths_rich,
      collect(CASE WHEN ps IS NOT NULL THEN {
          step: properties(ps),
          graph_context: {
@@ -929,6 +762,37 @@ WITH user, active_task_uids, completed_task_uids, overdue_task_uids, today_task_
      } END) as steps_rich
 
 // ====================================================================
+// MOCs - Maps of Content (emergent — any Entity with ORGANIZES relationships)
+// ====================================================================
+OPTIONAL MATCH (user)-[:OWNS]->(moc:Entity)-[:ORGANIZES]->(:Entity)
+WITH user, enrolled_path_uids, paths_rich,
+     steps_rich,
+     collect(DISTINCT moc.uid) as active_moc_uids,
+     collect(DISTINCT CASE WHEN moc IS NOT NULL THEN {uid: moc.uid, updated: moc.updated_at} END) as moc_metadata
+
+RETURN {
+    uids: {
+        enrolled_path_uids: enrolled_path_uids,
+        active_moc_uids: [uid IN active_moc_uids WHERE uid IS NOT NULL],
+        moc_metadata: [item IN moc_metadata WHERE item.uid IS NOT NULL]
+    },
+    entities: {
+        learning_paths: [item IN paths_rich WHERE item.path IS NOT NULL | {entity: item.path, graph_context: item.graph_context}],
+        path_steps: [item IN steps_rich WHERE item.step IS NOT NULL | {entity: item.step, graph_context: item.graph_context}]
+    },
+    rich: {
+        learning_paths: [item IN paths_rich WHERE item.path IS NOT NULL],
+        path_steps: [item IN steps_rich WHERE item.step IS NOT NULL]
+    }
+} as result
+"""
+
+# Learner state — the designated life path, the latest activity report and
+# the active insights. The group most likely to grow (the ZPD capstone's own
+# reads are the next candidates), which is why it is a statement of its own.
+LEARNER_STATE_QUERY: str = """
+MATCH (user:User {uid: $user_uid})
+// ====================================================================
 // LIFE PATH - Fetch user's designated life path
 // The ULTIMATE_PATH edge IS the designation — it carries the alignment score
 // and nothing on the node marks it (LifePathBackend.designate_life_path /
@@ -937,103 +801,32 @@ WITH user, active_task_uids, completed_task_uids, overdue_task_uids, today_task_
 // zero rows and report every designated learner as having no life path.
 // ====================================================================
 OPTIONAL MATCH (user)-[lp_rel:ULTIMATE_PATH]->(life_path:Entity)
-WITH user, active_task_uids, completed_task_uids, overdue_task_uids, today_task_uids, tasks_rich,
-     active_goal_uids, completed_goal_uids, goal_progress_data, goals_rich,
-     knowledge_mastery_data, knowledge_rich,
-     ku_view_data, ku_marked_as_read_uids, ku_bookmarked_uids,
-     active_habit_uids, habit_metadata, habits_rich,
-     upcoming_event_uids, today_event_uids, events_rich,
-     core_principle_uids, principles_rich,
-     pending_choice_uids, choices_rich,
-     enrolled_path_uids, paths_rich,
-     steps_rich,
+WITH user,
      life_path.uid AS life_path_uid,
      lp_rel.designated_at AS life_path_designated_at,
      lp_rel.alignment_score AS life_path_alignment_score
 
 // ====================================================================
-// MOCs - Maps of Content (emergent — any Entity with ORGANIZES relationships)
-// ====================================================================
-OPTIONAL MATCH (user)-[:OWNS]->(moc:Entity)-[:ORGANIZES]->(:Entity)
-WITH user, active_task_uids, completed_task_uids, overdue_task_uids, today_task_uids, tasks_rich,
-     active_goal_uids, completed_goal_uids, goal_progress_data, goals_rich,
-     knowledge_mastery_data, knowledge_rich,
-     ku_view_data, ku_marked_as_read_uids, ku_bookmarked_uids,
-     active_habit_uids, habit_metadata, habits_rich,
-     upcoming_event_uids, today_event_uids, events_rich,
-     core_principle_uids, principles_rich,
-     pending_choice_uids, choices_rich,
-     enrolled_path_uids, paths_rich,
-     steps_rich,
-     life_path_uid, life_path_designated_at, life_path_alignment_score,
-     collect(DISTINCT moc.uid) as active_moc_uids,
-     collect(DISTINCT CASE WHEN moc IS NOT NULL THEN {uid: moc.uid, updated: moc.updated_at} END) as moc_metadata
-
-// ====================================================================
 // ACTIVITY REPORT - Latest report for intelligence reasoning
 // ====================================================================
 OPTIONAL MATCH (user)-[:OWNS]->(ar:ActivityReport)
-WITH user, active_task_uids, completed_task_uids, overdue_task_uids, today_task_uids, tasks_rich,
-     active_goal_uids, completed_goal_uids, goal_progress_data, goals_rich,
-     knowledge_mastery_data, knowledge_rich,
-     ku_view_data, ku_marked_as_read_uids, ku_bookmarked_uids,
-     active_habit_uids, habit_metadata, habits_rich,
-     upcoming_event_uids, today_event_uids, events_rich,
-     core_principle_uids, principles_rich,
-     pending_choice_uids, choices_rich,
-     enrolled_path_uids, paths_rich,
-     steps_rich,
-     life_path_uid, life_path_designated_at, life_path_alignment_score,
-     active_moc_uids, moc_metadata,
+WITH user, life_path_uid, life_path_designated_at, life_path_alignment_score,
      ar
 ORDER BY ar.period_end DESC
-WITH user, active_task_uids, completed_task_uids, overdue_task_uids, today_task_uids, tasks_rich,
-     active_goal_uids, completed_goal_uids, goal_progress_data, goals_rich,
-     knowledge_mastery_data, knowledge_rich,
-     ku_view_data, ku_marked_as_read_uids, ku_bookmarked_uids,
-     active_habit_uids, habit_metadata, habits_rich,
-     upcoming_event_uids, today_event_uids, events_rich,
-     core_principle_uids, principles_rich,
-     pending_choice_uids, choices_rich,
-     enrolled_path_uids, paths_rich,
-     steps_rich,
-     life_path_uid, life_path_designated_at, life_path_alignment_score,
-     active_moc_uids, moc_metadata,
+WITH user, life_path_uid, life_path_designated_at, life_path_alignment_score,
      collect(ar)[0] AS latest_ar
 
 // ====================================================================
 // ACTIVE INSIGHTS - For cross_domain_insights intelligence field
 // ====================================================================
+// The predicate belongs to the OPTIONAL MATCH: a WHERE after the WITH filters
+// ROWS, and a learner whose every insight is dismissed, actioned or expired then
+// has no row left for the grouped aggregation below — the statement returns
+// nothing, and the life path and activity report above go with it.
 OPTIONAL MATCH (user)-[:HAS_INSIGHT]->(ins:Insight)
-WITH user, active_task_uids, completed_task_uids, overdue_task_uids, today_task_uids, tasks_rich,
-     active_goal_uids, completed_goal_uids, goal_progress_data, goals_rich,
-     knowledge_mastery_data, knowledge_rich,
-     ku_view_data, ku_marked_as_read_uids, ku_bookmarked_uids,
-     active_habit_uids, habit_metadata, habits_rich,
-     upcoming_event_uids, today_event_uids, events_rich,
-     core_principle_uids, principles_rich,
-     pending_choice_uids, choices_rich,
-     enrolled_path_uids, paths_rich,
-     steps_rich,
-     life_path_uid, life_path_designated_at, life_path_alignment_score,
-     active_moc_uids, moc_metadata,
-     latest_ar, ins
-WHERE ins IS NULL OR (
-    NOT ins.dismissed AND NOT ins.actioned
-    AND (ins.expires_at IS NULL OR datetime(ins.expires_at) > datetime())
-)
-WITH user, active_task_uids, completed_task_uids, overdue_task_uids, today_task_uids, tasks_rich,
-     active_goal_uids, completed_goal_uids, goal_progress_data, goals_rich,
-     knowledge_mastery_data, knowledge_rich,
-     ku_view_data, ku_marked_as_read_uids, ku_bookmarked_uids,
-     active_habit_uids, habit_metadata, habits_rich,
-     upcoming_event_uids, today_event_uids, events_rich,
-     core_principle_uids, principles_rich,
-     pending_choice_uids, choices_rich,
-     enrolled_path_uids, paths_rich,
-     steps_rich,
-     life_path_uid, life_path_designated_at, life_path_alignment_score,
-     active_moc_uids, moc_metadata,
+WHERE NOT ins.dismissed AND NOT ins.actioned
+  AND (ins.expires_at IS NULL OR datetime(ins.expires_at) > datetime())
+WITH user, life_path_uid, life_path_designated_at, life_path_alignment_score,
      latest_ar,
      [x IN collect(CASE WHEN ins IS NOT NULL THEN {
          uid: ins.uid,
@@ -1043,57 +836,12 @@ WITH user, active_task_uids, completed_task_uids, overdue_task_uids, today_task_
          confidence: coalesce(ins.confidence, 0.0)
      } ELSE null END) WHERE x IS NOT NULL][0..10] AS active_insights_raw
 
-// ====================================================================
-// Return BOTH UIDs (standard context) AND rich data (rich context)
-// ====================================================================
+
 RETURN {
-    uids: {
-        active_task_uids: [uid IN active_task_uids WHERE uid IS NOT NULL],
-        completed_task_uids: [uid IN completed_task_uids WHERE uid IS NOT NULL],
-        overdue_task_uids: [uid IN overdue_task_uids WHERE uid IS NOT NULL],
-        today_task_uids: [uid IN today_task_uids WHERE uid IS NOT NULL],
-        active_goal_uids: [uid IN active_goal_uids WHERE uid IS NOT NULL],
-        completed_goal_uids: [uid IN completed_goal_uids WHERE uid IS NOT NULL],
-        active_habit_uids: active_habit_uids,
-        upcoming_event_uids: upcoming_event_uids,
-        today_event_uids: [uid IN today_event_uids WHERE uid IS NOT NULL],
-        core_principle_uids: [uid IN core_principle_uids WHERE uid IS NOT NULL],
-        pending_choice_uids: [uid IN pending_choice_uids WHERE uid IS NOT NULL],
-        enrolled_path_uids: enrolled_path_uids,
-        goal_progress: [item IN goal_progress_data WHERE item.uid IS NOT NULL | {uid: item.uid, progress: item.progress}],
-        knowledge_mastery: [item IN knowledge_mastery_data WHERE item.uid IS NOT NULL | {uid: item.uid, score: item.score, mastered_at: item.mastered_at, confidence: item.confidence}],
-        ku_view_data: [item IN ku_view_data WHERE item.uid IS NOT NULL | {uid: item.uid, view_count: item.view_count, time_spent_seconds: item.time_spent_seconds, last_viewed_at: item.last_viewed_at}],
-        ku_marked_as_read_uids: [uid IN ku_marked_as_read_uids WHERE uid IS NOT NULL],
-        ku_bookmarked_uids: [uid IN ku_bookmarked_uids WHERE uid IS NOT NULL],
-        habit_metadata: habit_metadata,
-        active_moc_uids: [uid IN active_moc_uids WHERE uid IS NOT NULL],
-        moc_metadata: [item IN moc_metadata WHERE item.uid IS NOT NULL]
-    },
-    entities: {
-        tasks: [item IN tasks_rich WHERE item.entity IS NOT NULL],
-        goals: [item IN goals_rich WHERE item.entity IS NOT NULL],
-        habits: [item IN habits_rich WHERE item.entity IS NOT NULL],
-        events: [item IN events_rich WHERE item.entity IS NOT NULL],
-        principles: [item IN principles_rich WHERE item.entity IS NOT NULL],
-        choices: [item IN choices_rich WHERE item.entity IS NOT NULL],
-        learning_paths: [item IN paths_rich WHERE item.path IS NOT NULL | {entity: item.path, graph_context: item.graph_context}],
-        path_steps: [item IN steps_rich WHERE item.step IS NOT NULL | {entity: item.step, graph_context: item.graph_context}]
-    },
-    rich: {
-        knowledge: knowledge_rich,
-        learning_paths: [item IN paths_rich WHERE item.path IS NOT NULL],
-        path_steps: [item IN steps_rich WHERE item.step IS NOT NULL]
-    },
     life_path: {
         uid: life_path_uid,
         designated_at: life_path_designated_at,
         alignment_score: life_path_alignment_score
-    },
-    progress_counts: {
-        tasks_completed: size([uid IN completed_task_uids WHERE uid IS NOT NULL]),
-        tasks_total: size([uid IN active_task_uids WHERE uid IS NOT NULL]) + size([uid IN completed_task_uids WHERE uid IS NOT NULL]),
-        goals_completed: size([uid IN completed_goal_uids WHERE uid IS NOT NULL]),
-        goals_total: size([uid IN active_goal_uids WHERE uid IS NOT NULL]) + size([uid IN completed_goal_uids WHERE uid IS NOT NULL])
     },
     activity_report: CASE WHEN latest_ar IS NOT NULL THEN {
         uid: latest_ar.uid,
@@ -1104,18 +852,30 @@ RETURN {
     } ELSE null END,
     active_insights_raw: active_insights_raw
 } as result
-""".replace(_COMPOSITION_EDGES_TOKEN, CURRICULUM_COMPOSITION_EDGES)
+"""
+
+# The rich context's graph reads, one statement per read family, in ONE tuple:
+# ``execute_mega_query`` runs every entry concurrently and merges the partial maps
+# into the one ``mega_data`` map the populator reads, and
+# tests/integration/test_user_context_plan_cache.py derives its parametrization
+# from it — a statement registered here is guarded by construction. A new read
+# is a new entry (its own statement, its own ``RETURN`` partial), never a section
+# appended to an existing one: the server serves a statement from its plan cache
+# only up to a size, past which it re-plans on every execution.
+RICH_CONTEXT_STATEMENTS: tuple[tuple[str, str], ...] = (
+    ("tasks_and_goals", TASKS_AND_GOALS_QUERY),
+    ("habits_and_events", HABITS_AND_EVENTS_QUERY),
+    ("principles_and_choices", PRINCIPLES_AND_CHOICES_QUERY),
+    ("knowledge", KNOWLEDGE_QUERY),
+    ("curriculum", CURRICULUM_QUERY),
+    ("learner_state", LEARNER_STATE_QUERY),
+)
 
 
-# The rich context is MEGA_QUERY plus the statements below it, which
-# build_rich_user_context runs CONCURRENTLY with it. They are not sections of
-# MEGA_QUERY because the server serves a statement from its plan cache only up
-# to a size — cumulative across MATCHes, WITHs and the RETURN map alike — past
-# which it re-plans on every execution (~0.5 s self-hosted, ~1 s on AuraDB,
-# against ~40 ms of actual execution). MEGA_QUERY sits just under that edge;
-# tests/integration/test_user_context_plan_cache.py pins every statement under
-# it. A new read belongs in a statement of its own, never appended to
-# MEGA_QUERY.
+# The two reads below run beside the registry's statements, gathered by
+# build_rich_user_context; each has its own executor method and result
+# contract (a stats map; typed EntryKnowledgeAppliedRow rows), like the
+# current-path-step and group reads. The plan-cache guard covers them too.
 
 # The learning-loop tail — submission & feedback stats, assigned and revised
 # exercises. Returns exactly the map populate_submission_stats consumes.
@@ -1158,7 +918,10 @@ WITH user,
      last_submission_date,
      feedback_received_count, feedback_in_window, pending_feedback_count,
      count(ex) AS assigned_exercise_count,
-     collect(CASE WHEN NOT (:Entity {user_uid: user.uid})-[:FULFILLS_EXERCISE]->(ex) THEN {
+     // ex IS NOT NULL first: NOT over a pattern whose endpoint is null is true, so a
+     // learner with no assigned exercise would otherwise collect one phantom map
+     // and read completed_exercise_count = 0 - 1.
+     collect(CASE WHEN ex IS NOT NULL AND NOT (:Entity {user_uid: user.uid})-[:FULFILLS_EXERCISE]->(ex) THEN {
          uid: ex.uid,
          title: coalesce(ex.title, 'Untitled Exercise'),
          due_date: ex.due_date
@@ -1444,6 +1207,30 @@ def empty_context_data() -> dict[str, Any]:
     }
 
 
+def merge_partial_context(
+    # boundary: the nested {uids, entities, rich, …} map spanning every domain — the
+    # tier-C ruling on UserContextQueryOperations.execute_mega_query's return (a
+    # TypedDict was tried there and cost 28 MyPy errors in the builder alone); each
+    # partial is the subset of that map one statement owns, and this is its writer.
+    mega_data: dict[str, Any],
+    partial: dict[str, Any],
+) -> None:
+    """Fold one statement's ``RETURN`` partial into the merged ``mega_data`` map.
+
+    The top-level keys are the map's sections; a section several statements
+    contribute to (``uids`` is split across five of them, ``entities`` across
+    four, ``rich`` across two) is merged key by key, and a section one statement
+    owns outright (``progress_counts``, ``life_path``, ``activity_report``,
+    ``active_insights_raw``) is taken as is.
+    """
+    for key, value in partial.items():
+        present = mega_data.get(key)
+        if isinstance(value, dict) and isinstance(present, dict):
+            present.update(value)
+        else:
+            mega_data[key] = value
+
+
 # =============================================================================
 # QUERY EXECUTOR
 # =============================================================================
@@ -1455,11 +1242,13 @@ def build_mega_query_params(
     window_start: datetime | None = None,
     window_end: datetime | None = None,
 ) -> dict[str, Any]:
-    """The complete parameter map ``MEGA_QUERY`` runs with.
+    """The complete parameter map every ``RICH_CONTEXT_STATEMENTS`` entry runs with.
 
     Always carries ``$window_start`` / ``$window_end`` (default: the trailing
-    30 days), ``$today`` and the status vocabulary; one builder so the
-    executor and the plan-cache guard run the statement the same way.
+    30 days), ``$today`` and the status vocabulary; one map for all six
+    statements (a parameter a statement does not read is fine in Cypher, a
+    missing one is a ``ParameterMissing`` error), and one builder so the
+    executor and the plan-cache guard run the statements the same way.
     """
     effective_end = window_end or datetime.now()
     effective_start = window_start or (effective_end - timedelta(days=30))
@@ -1504,14 +1293,23 @@ class UserContextQueryExecutor:
         window_end: datetime | None = None,
     ) -> Result[dict[str, Any]]:
         """
-        Execute the MEGA-QUERY for complete user context.
+        Run the rich context's graph reads — every ``RICH_CONTEXT_STATEMENTS``
+        entry concurrently, each in a session of its own — and merge their
+        partial maps into the one ``mega_data`` map the populator reads:
+        ``uids`` / ``entities`` / ``rich`` / ``life_path`` / ``progress_counts`` /
+        ``activity_report`` / ``active_insights_raw``. The wall cost is the
+        slowest statement, not the sum.
 
-        Returns both UIDs (standard) and rich data (entities + graph neighborhoods)
-        in a single database round-trip.
-
-        Always passes $window_start and $window_end parameters to the query.
-        These control which completed/past entities are included in entities_rich
+        Always passes $window_start and $window_end to every statement. These
+        control which completed/past entities are included in ``entities``
         alongside the always-present active entities.
+
+        Every statement anchors on ``MATCH (user:User {uid: $user_uid})`` and
+        aggregates with ``user`` as its only grouping key, so each returns
+        exactly one row for a user that exists and none for one that does not.
+        No row from every statement is the unknown-user sentinel; a row from
+        some statements but not others is a statement whose aggregation
+        collapsed — the silent-empty shape — and fails the read loudly.
 
         Args:
             user_uid: User identifier
@@ -1520,23 +1318,43 @@ class UserContextQueryExecutor:
             window_end: Activity window end datetime (default: now)
 
         Returns:
-            Result containing dict with "uids", "entities", and "rich" keys
+            Result containing the merged map, ``{"uids": {}, "entities": {}, "rich": {}}``
+            for an unknown user
         """
         params = build_mega_query_params(
             user_uid, min_confidence, window_start=window_start, window_end=window_end
         )
 
-        result = await self.executor.execute_query(MEGA_QUERY, params)
-        if result.is_error:
-            return Result.fail(result)
+        results = await asyncio.gather(
+            *(self.executor.execute_query(query, params) for _, query in RICH_CONTEXT_STATEMENTS)
+        )
 
-        records = result.value or []
-        record = records[0] if records else None
+        # boundary: the port's tier-C return shape (see merge_partial_context)
+        mega_data: dict[str, Any] = {}
+        answered: list[str] = []
+        for (name, _), result in zip(RICH_CONTEXT_STATEMENTS, results, strict=True):
+            if result.is_error:
+                return Result.fail(result)
+            records = result.value or []
+            if not records:
+                continue
+            answered.append(name)
+            merge_partial_context(mega_data, records[0]["result"])
 
-        if not record or not record["result"]:
+        if not answered:
             return Result.ok({"uids": {}, "entities": {}, "rich": {}})
-
-        return Result.ok(record["result"])
+        if len(answered) != len(RICH_CONTEXT_STATEMENTS):
+            silent = [name for name, _ in RICH_CONTEXT_STATEMENTS if name not in answered]
+            return Result.fail(
+                Errors.database(
+                    operation="execute_mega_query",
+                    message=(
+                        f"rich-context statements {silent} returned no row for {user_uid} "
+                        f"while {answered} did — an aggregation collapsed to zero rows"
+                    ),
+                )
+            )
+        return Result.ok(mega_data)
 
     @with_error_handling("fetch_submission_stats", error_type="database", uid_param="user_uid")
     async def fetch_submission_stats(

@@ -210,7 +210,7 @@ class UserContextBuilder:
 
         This is the simplified API for build_rich_user_context(). It encapsulates:
         1. User resolution (fetching User from UserService)
-        2. Rich context building (MEGA-QUERY with graph neighborhoods)
+        2. Rich context building (the MEGA-QUERY — six statements, graph neighborhoods)
         3. Error handling (returns Result[UserContext])
 
         Use this when you need full entities + graph neighborhoods, not just UIDs.
@@ -324,17 +324,19 @@ class UserContextBuilder:
         Build COMPLETE UserContext with BOTH standard AND rich fields — one
         concurrent round-trip.
 
-        **ARCHITECTURE:** The MEGA-QUERY fetches BOTH standard context (UIDs) AND
-        rich context (full entities with graph neighborhoods) in one statement;
-        the reads that are not part of it — current path steps, engagements,
-        groups, the submission & feedback stats, the entry→Ku applied-knowledge
-        rows — run *concurrently* with it (``asyncio.gather``), so the wall cost
-        is the slowest statement, not the sum. Every statement stays small
-        enough to be served from the server's plan cache; the MEGA-QUERY sits
-        just under that edge, which is why the learning-loop reads are
-        statements of their own (``SUBMISSION_STATS_QUERY``,
-        ``ENTRY_KNOWLEDGE_APPLIED_QUERY``) and a new section must never be
-        appended to it.
+        **ARCHITECTURE:** The MEGA-QUERY — the name, throughout ``core/``, for the
+        rich context's graph read — fetches BOTH standard context (UIDs) AND
+        rich context (full entities with graph neighborhoods). It is six
+        statements, one per read family (``RICH_CONTEXT_STATEMENTS`` — tasks &
+        goals, habits & events, principles & choices, knowledge, curriculum,
+        learner state), run concurrently by ``execute_mega_query`` and merged
+        into one map. The reads beside it — current
+        path steps, engagements, groups, the submission & feedback stats, the
+        entry→Ku applied-knowledge rows — go out in the same ``asyncio.gather``,
+        so the wall cost is the slowest statement, not the sum. Every statement
+        is far under the size past which the server re-plans it on every
+        execution, and a new read is a statement of its own (a registry entry),
+        never a section appended to an existing one.
 
         The MEGA-QUERY fetches:
         1. **Standard context fields** (UIDs, relationships, metadata)
@@ -359,8 +361,8 @@ class UserContextBuilder:
             Result[UserContext] with ALL ~240 fields populated
 
         Performance:
-            - 1 MEGA-QUERY + 5 smaller reads, all in flight at once; each is plan-cached
-              after its first execution on a server.
+            - 6 rich-context statements + 5 reads beside them, all in flight at
+              once; each is plan-cached after its first execution on a server.
         """
         # Validate min_confidence bounds
         if not (0.0 <= min_confidence <= 1.0):
@@ -403,7 +405,7 @@ class UserContextBuilder:
         window_end = period.end
 
         # The MEGA-QUERY and the five reads beside it share nothing but user_uid,
-        # so they go out together — the wall cost is the slowest of the six.
+        # so they go out together — the wall cost is the slowest statement.
         async def _engaged() -> Result[list[Engagement]] | None:
             if self.ps_engagement_service is None:
                 return None
@@ -428,8 +430,8 @@ class UserContextBuilder:
         )
         if mega_result.is_error:
             return Result.fail(mega_result)
-        # The submission stats and the applied-knowledge rows are the MEGA-QUERY's
-        # own reads in separate statements; a failed read still fails the build
+        # The submission stats and the applied-knowledge rows are the rich
+        # context's own reads in separate statements; a failed read still fails the build
         # rather than silently zeroing the learning-loop fields, the substance
         # "entries" channel and the ZPD entry_application signal.
         if submission_result.is_error:
@@ -439,7 +441,8 @@ class UserContextBuilder:
 
         mega_data = mega_result.value
 
-        # MEGA_QUERY result shape (see user_context_queries.py MEGA_QUERY):
+        # The merged shape (see user_context_queries.py RICH_CONTEXT_STATEMENTS —
+        # each statement returns the partial it owns; execute_mega_query merges them):
         # {
         #     "uids": {active_task_uids, completed_task_uids, goal_progress, knowledge_mastery, ...},
         #     "entities": {tasks, goals, habits, events, choices, principles,
@@ -450,7 +453,7 @@ class UserContextBuilder:
         #     "activity_report": {uid, period, period_end, content, user_annotation} or null,
         #     "active_insights_raw": [{uid, type, title, impact, confidence}, ...] (up to 10),
         # }
-        # Fetched beside it, in statements of their own: the submission_stats map
+        # Fetched beside them, in statements of their own: the submission_stats map
         # ({total_submission_count, submissions_in_window, last_submission_date,
         # feedback_received_count, feedback_in_window, pending_feedback_count,
         # assigned_exercise_count, completed_exercise_count, unsubmitted_exercises,
@@ -506,7 +509,7 @@ class UserContextBuilder:
         # Populate life path fields (Priority 2)
         self._populator.populate_life_path(context, mega_data.get("life_path", {}))
 
-        # Populate activity report + insights from MEGA-QUERY (no separate roundtrip)
+        # Populate activity report + insights from the learner-state statement
         self._populator.populate_activity_report(context, mega_data.get("activity_report"))
         self._populator.populate_cross_domain_insights(
             context, mega_data.get("active_insights_raw")

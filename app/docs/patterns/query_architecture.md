@@ -1,6 +1,6 @@
 ---
 title: Query Architecture
-updated: 2026-09-05
+updated: 2026-09-14
 category: patterns
 related_skills:
 - skuel-search-architecture
@@ -705,7 +705,7 @@ This is the **primary query architecture documentation**. Start here.
 
 All 11 domain facades (6 Activity + 5 Curriculum) implement `get_filtered_context()` returning `Result[ListContext]`, satisfying the `FilteredContextProvider` protocol. This provides the standard interface through which both UI routes and intelligence services access per-domain entity state.
 
-**Architecture:** UserContext is the **map** (broad snapshot from MEGA_QUERY, ~250 fields). `get_filtered_context()` is the **zoom lens** (per-domain filtered view with stats, on-demand).
+**Architecture:** UserContext is the **map** (broad snapshot from the MEGA-QUERY, ~250 fields). `get_filtered_context()` is the **zoom lens** (per-domain filtered view with stats, on-demand).
 
 **Shared skeleton** (`core/services/filtered_context.py`): `build_filtered_context()` enforces the fetch → stats → filter → sort → return pattern. Each domain provides callables for domain-specific stats, filters, and sorting.
 
