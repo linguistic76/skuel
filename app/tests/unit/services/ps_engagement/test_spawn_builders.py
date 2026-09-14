@@ -22,7 +22,7 @@ End-to-end ``spawn()`` is exercised by integration tests with a Neo4j fixture.
 from __future__ import annotations
 
 from dataclasses import replace
-from datetime import date, datetime
+from datetime import date, datetime, timedelta
 
 import pytest
 
@@ -114,11 +114,22 @@ class TestTaskBuilder:
         edges = _compute_cross_edges(tt, TASK_SPEC.cross_edges, uid_map)
         assert edges == [("REINFORCES_HABIT", "habit_uid")]
 
-    def test_unset_offset_yields_none(self) -> None:
+    def test_unset_offsets_fall_to_the_creation_rule(self) -> None:
+        """A template with neither offset spawns a task due on the day it is
+        spawned — ``TASK_SPEC.creation_rule`` is ``Task.with_creation_due_date``,
+        the same rule the service create path applies. This door writes through
+        the backend, so without the spec hook it would be the rule's one exempt
+        writer and the spawned task would render on no day."""
         tt = TaskTemplate(uid="ttpl_no_offset", title="t")
         task = _build(TASK_SPEC, tt, STUDENT, PS, ANCHOR, {"ttpl_no_offset": "task_uid"})
-        assert task.due_date is None
+        assert task.due_date == task.created_at.date()
         assert task.scheduled_date is None
+
+    def test_a_set_offset_is_not_overridden_by_the_creation_rule(self) -> None:
+        tt = TaskTemplate(uid="ttpl_sched", title="t", scheduled_offset=RelativeOffset(days=3))
+        task = _build(TASK_SPEC, tt, STUDENT, PS, ANCHOR, {"ttpl_sched": "task_uid"})
+        assert task.scheduled_date == (ANCHOR + timedelta(days=3)).date()
+        assert task.due_date is None
 
 
 class TestGoalBuilder:

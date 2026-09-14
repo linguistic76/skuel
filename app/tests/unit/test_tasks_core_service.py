@@ -181,6 +181,50 @@ async def test_create_task_success(
 
 
 @pytest.mark.asyncio
+async def test_create_applies_the_creation_rule_on_both_doors(core_service, mock_backend):
+    """A task created with neither date reaches the backend due on its creation day.
+
+    The rule (``Task.with_creation_due_date``) runs in ``_create_with_links``,
+    the one path both doors land on — so it is asserted on what the BACKEND
+    received, for a request-door create and an entity-door create alike. A
+    create that already carries a date is handed through untouched.
+    """
+
+    async def echo(entity: Task) -> Result[Task]:
+        return Result.ok(entity)
+
+    mock_backend.create.side_effect = echo
+
+    # Request door — the DSL extraction / API / UI form shape: no dates at all.
+    result = await core_service.create_task(
+        TaskCreateRequest(title="Pay monthly bills"), user_uid="user_demo"
+    )
+    assert result.is_ok
+    persisted = mock_backend.create.call_args.args[0]
+    assert isinstance(persisted, Task)
+    assert persisted.due_date == persisted.created_at.date()
+    assert persisted.scheduled_date is None
+
+    # Entity door — the same rule, from the same place.
+    undated = Task(uid="task_entity_door", user_uid="user_demo", title="Vacuum")
+    result = await core_service.create(undated)
+    assert result.is_ok
+    persisted = mock_backend.create.call_args.args[0]
+    assert persisted.due_date == undated.created_at.date()
+
+    # Control: a work date is a date — no deadline is invented beside it.
+    scheduled = Task(
+        uid="task_scheduled",
+        user_uid="user_demo",
+        title="Quick-add chip",
+        scheduled_date=date.today() + timedelta(days=1),
+    )
+    result = await core_service.create(scheduled)
+    assert result.is_ok
+    assert mock_backend.create.call_args.args[0] is scheduled
+
+
+@pytest.mark.asyncio
 async def test_create_task_with_knowledge_inference(
     core_service, mock_backend, mock_ku_inference_service, sample_task_request, sample_task_dto
 ):

@@ -340,7 +340,13 @@ class TasksCoreService(
         ``result.value.parent_uid`` is always None. They are read off the INPUT entity and
         passed down explicitly. ``fulfills_goal_uid`` is the third link and a real node
         column, so the persisted task carries it and ``_write_link_edges`` reads it there.
+
+        The creation rule runs first, on the entity, so it holds for both doors: a
+        task created with neither ``due_date`` nor ``scheduled_date`` is due the day it
+        is created (``Task.with_creation_due_date``) — otherwise the day lens and the
+        calendar, which place a task by those two fields, would never show it.
         """
+        entity = entity.with_creation_due_date()
         result: Result[Task] = await self._create_validated(entity)
         if result.is_error:
             return result
