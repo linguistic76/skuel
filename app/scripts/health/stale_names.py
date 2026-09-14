@@ -169,8 +169,8 @@ DELETED: dict[str, str] = {
     # Deleted classes / concepts
     "ProfileLayout": "deleted — use BasePage(page_type=PageType.CUSTOM)",
     # The scheduled-report producer (retired 2026-09; calendar-priority-lens arc E3):
-    # a report is minted by the find-or-generate door (GET/POST /activity-reports/for)
-    # or the request form, never by a schedule.
+    # a report is minted by the request form or the detail page's Regenerate
+    # (POST /activity-reports/for), never by a schedule.
     "ProgressReportWorker": "deleted — no scheduled report generation; reports are generated on request",
     "ProgressFeedbackWorker": "deleted — no scheduled report generation; reports are generated on request",
     "progress_report_worker": "deleted — no scheduled report generation; reports are generated on request",

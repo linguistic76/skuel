@@ -7,14 +7,15 @@ GradeBook's conditional "Activity reports" group (/gradebook, arc 2 C1) —
 this file keeps the detail view, the request form, and the hub preview.
 
 Routes:
-- GET /activity-reports/latest — The sidebar's Reports door: redirect to the newest
-  report the user OWNS, or to the request form when there is none
 - GET /activity-reports/detail — Activity report detail view
 - GET /activity-reports/detail/content — HTMX fragment: detail body
 - GET /activity-reports/md?uid= — Download own report as Markdown
-- GET /submit-activity-report — On-demand activity report request form
+- GET /submit-activity-report — On-demand activity report request form (the
+  calendar toolbar's "Report for …" pill lands here)
 - POST /api/reports/progress/generate — Generate a report now (answers the request
   form's HTMX post with a fragment; a cooldown refusal renders inline)
+- POST /activity-reports/for — Mint one calendar period's report (the detail page's
+  "Regenerate"); a refusal re-renders the period prompt with the reason
 - POST /api/activity-reports/annotate — Save commentary/revision on own report (fragment)
 - GET /reports/progress-list — HTMX fragment: progress reports (request form page)
 - GET /api/gradebook/activity-reports/preview — HTMX hub preview block
@@ -37,7 +38,6 @@ from adapters.inbound.boundary import boundary_handler, ui_boundary_handler
 from adapters.inbound.csrf import csrf_protected
 from adapters.inbound.fasthtml_types import Request, RouteDecorator
 from adapters.inbound.form_helpers import parse_form_body
-from adapters.inbound.route_factories import parse_date_query_param
 from adapters.outbound.activity_report_renderer import (
     activity_report_filename,
     render_activity_report_md,
@@ -46,7 +46,6 @@ from core.models.entity_requests import AnnotationFormRequest, ProgressReportGen
 from core.utils.logging import get_logger
 from core.utils.report_periods import (
     UnknownReportPeriodError,
-    report_period_token,
     resolve_report_period,
 )
 from core.utils.result_simplified import ErrorCategory, Errors, Result
@@ -142,38 +141,12 @@ def create_activity_reports_ui_routes(
         )
 
     # ========================================================================
-    # LATEST REPORT — the calendar/Today sidebar's Reports door
+    # PERIOD REPORT — the detail page's "Regenerate" for one calendar period
     # ========================================================================
 
-    @rt("/activity-reports/latest")
-    async def activity_report_latest(request: Request) -> RedirectResponse:
-        """Redirect to the newest report the user owns, or to the request form.
-
-        Owner-scoped on purpose: the history read is subject-scoped and would
-        offer an admin-authored report the owner-scoped detail then refuses.
-        A failed read still lands somewhere useful — the request form.
-        """
-        user_uid = require_authenticated_user(request)
-        latest = await orchestrator.get_latest_activity_report(user_uid)
-        if latest.is_error:
-            logger.warning(
-                "activity-reports/latest read failed for user=%s: %s",
-                user_uid,
-                latest.expect_error().message,
-            )
-            return RedirectResponse("/submit-activity-report", status_code=302)
-        if latest.value is None:
-            return RedirectResponse("/submit-activity-report", status_code=302)
-        return RedirectResponse(f"/activity-reports/detail?uid={latest.value.uid}", status_code=302)
-
-    # ========================================================================
-    # PERIOD DOOR — the calendar's "Report for September" / "Report for W37"
-    # ========================================================================
-
-    def _period_prompt_page(
-        request: Request, token: str, *, note: str | None = None
-    ) -> Response | FT:
-        """The period's "generate" state, or 400 for a token no vocabulary names."""
+    def _period_prompt_page(request: Request, token: str, *, note: str) -> Response | FT:
+        """The period's "not generated" state — the refusal and the offer to try
+        again — or 400 for a token no vocabulary names."""
         try:
             period = resolve_report_period(token, datetime.now())
         except UnknownReportPeriodError:
@@ -182,7 +155,7 @@ def create_activity_reports_ui_routes(
             content=Div(
                 PageHeader(
                     f"Report for {period.label}",
-                    subtitle="A report aligned to the calendar period, reused while it stands",
+                    subtitle="A report aligned to the calendar period",
                 ),
                 render_period_report_prompt(
                     token=token,
@@ -196,55 +169,16 @@ def create_activity_reports_ui_routes(
             request=request,
         )
 
-    # boundary: fasthtml-app — FastHTML resolves the handler's annotations at
-    # registration, so the redirect/prompt/400 union stays Any on the route
-    # (the concrete Response | FT shape lives on _period_prompt_page).
-    @rt("/activity-reports/for", methods=["GET"])
-    async def activity_report_for_period(request: Request) -> Any:
-        """Lookup half of the period door: ``?kind=monthly|weekly&date=YYYY-MM-DD``.
-
-        Redirects to the period's reusable report — the newest one the user
-        owns for the token, unless the period has closed and that report is
-        partial (stale, superseded by the final one) — or renders the
-        "generate" state. A GET mints nothing: the generation is the POST
-        below, so a prefetch can never create a report.
-        """
-        user_uid = require_authenticated_user(request)
-        kind = request.query_params.get("kind", "").strip()
-        ref_date = parse_date_query_param(request.query_params, "date")
-        if ref_date is None:
-            return Response("Invalid or missing date", status_code=400)
-        try:
-            token = report_period_token(kind, ref_date)
-        except UnknownReportPeriodError:
-            return Response("Unknown report period kind", status_code=400)
-        found = await orchestrator.find_activity_report_for_period(user_uid, token)
-        if found.is_error:
-            logger.warning(
-                "activity-reports/for lookup failed for user=%s period=%s: %s",
-                user_uid,
-                token,
-                found.expect_error().message,
-            )
-            return _period_prompt_page(
-                request, token, note="Could not look up the period's report; generate it below."
-            )
-        if found.value is not None:
-            return RedirectResponse(
-                f"/activity-reports/detail?uid={found.value.uid}", status_code=302
-            )
-        return _period_prompt_page(request, token)
-
     @rt("/activity-reports/for", methods=["POST"])
     @csrf_protected
     async def generate_activity_report_for_period(
         request: Request,
     ) -> Any:  # boundary: fasthtml-app
-        """Generation half of the period door: mint the period's report.
+        """Mint one calendar period's report — the detail page's "Regenerate".
 
         Url-encoded ``time_period``; a token outside the vocabulary is 400. A
-        refusal the user can act on (the per-period cooldown) re-renders the
-        prompt with the reason; success lands on the new report.
+        refusal the user can act on (the per-period cooldown) renders the
+        period prompt with the reason; success lands on the new report.
         """
         user_uid = require_authenticated_user(request)
         if progress_generator is None:

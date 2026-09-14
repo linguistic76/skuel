@@ -317,10 +317,6 @@ class ActivityReportOperations(Protocol):
         """The subject's ActivityReports, newest first (LLM + human). Returns Result[list[ActivityReport]]."""
         ...
 
-    async def get_latest_for_owner(self, user_uid: UserUID) -> "Result[ActivityReport | None]":
-        """The newest ActivityReport the user owns, or None. Returns Result[ActivityReport | None]."""
-        ...
-
     async def latest_for_period(
         self, user_uid: UserUID, subject_uid: str, time_period: str
     ) -> "Result[ActivityReport | None]":
@@ -368,7 +364,6 @@ class ActivityReportBackendOperations(BackendOperations["ActivityReport"], Proto
     """
 
     async def get_for_user(self, uid: str, user_uid: str) -> Result[list[Neo4jProperties]]: ...
-    async def get_latest_for_owner(self, user_uid: UserUID) -> Result[list[Neo4jProperties]]: ...
     async def find_by_period(
         self, user_uid: UserUID, subject_uid: str, time_period: str
     ) -> Result[list[Neo4jProperties]]: ...

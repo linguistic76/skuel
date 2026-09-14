@@ -518,10 +518,10 @@ class TestPageShells:
         assert 'hx-get="/cal/month/2026/9/content"' in html
         assert "calendarLegend" not in html
         assert "toggleType(" not in html
-        # The calendar carries the slimmer sidebar: no domain rows, no badge request.
-        assert "/api/sidebar/badges" not in html
-        assert 'href="/activity-reports/latest"' in html
-        assert 'href="/tasks"' not in html
+        # The calendar carries the one activity sidebar: the domain rows and
+        # their badge request, exactly as /tasks does.
+        assert 'href="/tasks"' in html
+        assert 'hx-get="/api/sidebar/badges"' in html
 
     def test_week_shell_binds_the_legend_and_its_controller(self, routes_and_service) -> None:
         registry, _service = routes_and_service
@@ -533,19 +533,20 @@ class TestPageShells:
 
 
 class TestReportPill:
-    """Each calendar view's toolbar doors to the period's activity report."""
+    """Each calendar view's toolbar names its period and opens the report request form."""
 
-    def test_month_toolbar_opens_the_months_report(self, routes_and_service) -> None:
+    def test_month_toolbar_opens_the_request_form(self, routes_and_service) -> None:
         registry, _service = routes_and_service
         handler = registry.get("/cal/month/{year}/{month}")
         html = _render_page(handler(_make_request(), year=2026, month=9))
         assert "Report for September" in html
-        assert 'href="/activity-reports/for?kind=monthly&amp;date=2026-09-01"' in html
+        assert 'href="/submit-activity-report"' in html
+        assert "/activity-reports/for" not in html
 
-    def test_week_toolbar_opens_the_weeks_report(self, routes_and_service) -> None:
+    def test_week_toolbar_opens_the_request_form(self, routes_and_service) -> None:
         registry, _service = routes_and_service
         handler = registry.get("/cal/week/{date_str}")
         html = _render_page(handler(_make_request(), date_str="2026-09-09"))
         assert "Report for W37" in html
-        # Anchored on the week's Monday, whichever day of it was viewed.
-        assert 'href="/activity-reports/for?kind=weekly&amp;date=2026-09-07"' in html
+        assert 'href="/submit-activity-report"' in html
+        assert "/activity-reports/for" not in html

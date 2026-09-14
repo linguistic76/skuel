@@ -1,6 +1,6 @@
 ---
 title: "Calendar Priority-Lens Arc — Rulings & Contract"
-updated: 2026-09-13
+updated: 2026-09-14
 status: "done"
 registered: 2026-09-11
 ruled: 2026-09-11
@@ -34,6 +34,18 @@ inventory — tasks by `completion_date`, events attended only when COMPLETED; t
 *dated* domain (Choices included, Principles are dateless) and binds the calendar's legend controller
 with Choice added to the filter CSS; the legendless month view binds no legend controller, so a kind
 hidden on the week can never blank it.
+
+**Amended 2026-09-13 (founder, after the arc closed) — ruling 6 and the E.1 / E.2a doors:** the
+calendar views and `/today` carry the ONE activity sidebar again (Today / Weekly / Monthly, the domain
+rows with their badges, Journal) — `CALENDAR_SIDEBAR_ITEMS`, the `items=` parameter, the `badges`
+gate on `SidebarPage`/`SidebarNav` and the sidebar's Reports door (`GET /activity-reports/latest`
+with its owner-scoped `get_latest_for_owner` chain) are deleted, not archived. The toolbar's
+"Report for September" / "Report for W37" pill keeps its label and opens the request form,
+`/submit-activity-report`; the find-or-generate `GET /activity-reports/for` lookup it was the only
+door to is deleted with it. `POST /activity-reports/for` stays as the detail page's "Regenerate",
+and `ActivityReportService.find_by_period` / `latest_for_period` stay for the generator's
+previous-period comparison and per-period cooldown. Everything below describes the arc as it
+shipped; this paragraph is what changed after.
 **Related:** [`done/calendar-act-from-arc.md`](calendar-act-from-arc.md) (C1–C7),
 [`done/calendar-periodic-notes-arc.md`](calendar-periodic-notes-arc.md) (R1–R5, E1–E4, S1–S4),
 [`done/habit-rhythm-arc.md`](habit-rhythm-arc.md) (M1–M7),
@@ -70,7 +82,7 @@ commitments filtered by priority*; the Activity Domains as a whole are understoo
 | 3 | Goals + Choices on weekly | **Deferred** to its own ruling — case file [`weekly-goals-choices-chips.md`](../weekly-goals-choices-chips.md). It contradicts M4, R2 and S1 outright, so it is recorded, not silently overridden. |
 | 4 | Day view keeps | **Overdue: must keep.** Defer control: keep, as a server-rendered control on the existing route (C7's guard + predicate intact). Keyboard j/k and drag: drop with the Alpine bundle. *(Defer/keyboard were "not sure" — this is the orchestrator's recommendation, adopted unless the founder objects.)* |
 | 5 | Completion door | **The status door is the one door** — `TasksCoreService.update_task`, the ADR-087 chokepoint. The "cascade door" is the explicit-complete path whose four extra steps are `logger.debug("Would …")` stubs and whose one real step moves behind the event bus. Founder deferred to best practice; see Arc D.0. |
-| 6 | Sidebar | **Slimmer variant on calendar/Today pages only** (Today / Weekly / Monthly / Journal / Reports). Domain pages keep their rows and badges. |
+| 6 | Sidebar | **Slimmer variant on calendar/Today pages only** (Today / Weekly / Monthly / Journal / Reports). Domain pages keep their rows and badges. *Reversed 2026-09-13 — see the amendment above: one sidebar everywhere.* |
 | 7 | Report schedule producer | **Retire** (arc E's last PR) — it is a second period vocabulary (trailing windows + weekday cadence), not the automation half of find-or-generate; nothing consumes an unrequested report; zero tests; empty table since it was built. Amends ADR-069 Decision 3 rows 6–8. |
 | 8 | Graph backfill | **Authorised** — the census measured exactly **7 Task nodes** with `priority = 'critical'` (no other label, no odd spellings). Lateral relationships carry `r.priority` too and are rewritten in the same migration. |
 | 9 | Week report token | **ISO `2026-W37`** (the journals' period-key grammar); months `2026-09`. |
@@ -392,7 +404,7 @@ detached by ``scripts/migrations/detach_pinned_today_2026_09.cypher``.
 
 ### Arc E — Sidebar + report doors (after A and C)
 
-- **E.1 sidebar variant:** `render_activity_sidebar_page(items=...)` with `CALENDAR_SIDEBAR_ITEMS`
+- **E.1 sidebar variant** *(reversed 2026-09-13 — see the amendment at the top)*: `render_activity_sidebar_page(items=...)` with `CALENDAR_SIDEBAR_ITEMS`
   (Today / Weekly / Monthly / Journal / Reports → `/activity-reports/latest`); a `badges: bool` gate on
   `SidebarPage` so calendar/Today pages do not fire `/api/sidebar/badges`; fix the `events` slug drift.
   `GET /activity-reports/latest` redirects to the newest report the user OWNS — a new owner-scoped
