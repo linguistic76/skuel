@@ -26,6 +26,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[3] / "scripts"))
 import backfill_task_creation_due_dates as migration  # type: ignore[import-not-found]
 
 from adapters.persistence.neo4j.ingestion_write_backend import TASK_CREATION_DUE_DATE_CYPHER
+from core.models.enums.entity_enums import EntityStatus
 from core.models.task.task import Task
 
 TASK_FIELDS = {f.name for f in dataclasses.fields(Task)}
@@ -49,16 +50,24 @@ def test_the_guard_is_neither_date_and_the_write_is_the_due_date():
 
 def test_the_projection_is_the_vault_doors_own():
     """One expression, imported — the backfill and the live vault-door rule
-    cannot drift. Its shape: ``completion_date < created_at`` → the completion
-    day; otherwise the creation day — the branch order of
-    ``Task.with_creation_due_date``."""
+    cannot drift. Its shape: on a COMPLETED node, ``completion_date <
+    created_at`` → the completion day; otherwise the creation day — the branch
+    order of ``Task.with_creation_due_date``, status guard included."""
     assert migration.RULE_PROJECTION is TASK_CREATION_DUE_DATE_CYPHER
     assert migration.RULE_PROJECTION == (
-        "CASE WHEN n.completion_date IS NOT NULL AND "
+        "CASE WHEN n.status = $completed_status AND n.completion_date IS NOT NULL AND "
         "substring(toString(n.completion_date), 0, 10) < substring(toString(n.created_at), 0, 10) "
         "THEN substring(toString(n.completion_date), 0, 10) "
         "ELSE substring(toString(n.created_at), 0, 10) END"
     )
+
+
+def test_the_rule_parameter_is_the_completed_status():
+    """The expression reads ``$completed_status``; the script supplies exactly
+    the enum value the app writes, on every query that embeds the rule."""
+    assert {"completed_status": EntityStatus.COMPLETED.value} == migration.RULE_PARAMS
+    assert "$completed_status" in migration.BACKFILL_QUERY
+    assert "$completed_status" in migration.PREVIEW_QUERY
 
 
 def test_census_preview_and_write_agree_on_who_qualifies():

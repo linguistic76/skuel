@@ -34,18 +34,23 @@ if TYPE_CHECKING:
 
 
 # The task creation rule over a node bound as ``n`` (``Task.with_creation_due_date``
-# in Cypher): the ``created_at`` calendar day, or the ``completion_date`` day when
-# that came first. ``substring(toString(…), 0, 10)`` is the ``YYYY-MM-DD`` prefix
-# whatever the property's storage type — ISO string or native temporal — and the
-# result is the ISO date string every app writer stores for ``due_date``; ISO
-# date strings compare correctly as strings. Shared by the vault door's
+# in Cypher): the ``created_at`` calendar day, or — on a COMPLETED node only — the
+# ``completion_date`` day when that came first. The status guard is what keeps an
+# open node with a leftover stamp (the shape the stamp-clear undoes, and it runs
+# AFTER this rule in the vault door's pass) off the stale day; a node with no
+# status property compares to null and takes the creation day. ``substring(
+# toString(…), 0, 10)`` is the ``YYYY-MM-DD`` prefix whatever the property's
+# storage type — ISO string or native temporal — and the result is the ISO date
+# string every app writer stores for ``due_date``; ISO date strings compare
+# correctly as strings. Every query that embeds it passes ``$completed_status``
+# (``EntityStatus.COMPLETED.value``). Shared by the vault door's
 # ``apply_task_creation_due_dates`` and ``scripts/backfill_task_creation_due_dates.py``
 # so the live rule and the history backfill cannot drift.
 _CREATED_DAY = "substring(toString(n.created_at), 0, 10)"
 _DONE_DAY = "substring(toString(n.completion_date), 0, 10)"
 TASK_CREATION_DUE_DATE_CYPHER = (
-    f"CASE WHEN n.completion_date IS NOT NULL AND {_DONE_DAY} < {_CREATED_DAY} "
-    f"THEN {_DONE_DAY} ELSE {_CREATED_DAY} END"
+    f"CASE WHEN n.status = $completed_status AND n.completion_date IS NOT NULL "
+    f"AND {_DONE_DAY} < {_CREATED_DAY} THEN {_DONE_DAY} ELSE {_CREATED_DAY} END"
 )
 
 # Carries MERGE's create/match signal from the ON CREATE / ON MATCH branches to
@@ -325,8 +330,9 @@ class IngestionWriteBackend:
 
         The vault door's copy of ``Task.with_creation_due_date``: a task created
         with neither ``due_date`` nor ``scheduled_date`` is due the day it is
-        created — the ``created_at`` day, or an earlier ``completion_date`` (a
-        historical ``✅`` line was lived on the day it was done). The bulk upsert
+        created — the ``created_at`` day, or, on a completed task, an earlier
+        ``completion_date`` (a historical ``✅`` line was lived on the day it
+        was done; an open task's leftover stamp is not consulted). The bulk upsert
         never builds a ``Task``, so the rule the service create primitive applies
         on the entity is applied here on the node, by the same expression the
         history backfill writes (``TASK_CREATION_DUE_DATE_CYPHER``).
@@ -356,6 +362,7 @@ class IngestionWriteBackend:
             RETURN count(n) AS dated
             """,
             uids=list(uids),
+            completed_status=EntityStatus.COMPLETED.value,
         )
         return int(records[0]["dated"]) if records else 0
 

@@ -61,7 +61,7 @@ def _create_core_services(
 
 def _create_orchestration_services(
     goals_backend: Any,
-    tasks_backend: Any,
+    tasks_service: Any,
     habits_backend: Any,
     events_backend: Any,
 ) -> dict[str, Any]:
@@ -75,7 +75,8 @@ def _create_orchestration_services(
 
     Args:
         goals_backend: UniversalNeo4jBackend[Goal] (label=NeoLabel.GOAL)
-        tasks_backend: UniversalNeo4jBackend[Task] (label=NeoLabel.TASK)
+        tasks_service: TasksService — the generator persists through its entity
+            door (the one create path for Tasks), never a backend handle
         habits_backend: UniversalNeo4jBackend[Habit] (label=NeoLabel.HABIT)
         events_backend: UniversalNeo4jBackend[Event] (label=NeoLabel.EVENT)
     """
@@ -84,7 +85,7 @@ def _create_orchestration_services(
 
     return {
         "goal_task_generator": GoalTaskGenerator(
-            goals_backend=goals_backend, tasks_backend=tasks_backend
+            goals_backend=goals_backend, tasks_service=tasks_service
         ),
         "habit_event_scheduler": HabitEventScheduler(
             habits_backend=habits_backend, events_backend=events_backend

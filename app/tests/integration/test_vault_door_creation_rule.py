@@ -17,6 +17,8 @@ Pinned:
   a date;
 - an authored ``due_date`` is never overwritten;
 - a born-completed file whose ``✅`` day is earlier takes that day;
+- a file authored OPEN beside a leftover stamp line is due on its creation day
+  (the stamp is not consulted; the status step then clears it);
 - a re-sync of the same file is not a creation: a file whose ``due_date`` line
   was removed stays undated, as an app update that clears both dates does;
 - the directory door behaves the same.
@@ -121,6 +123,30 @@ async def test_a_born_completed_file_takes_its_earlier_completion_day(
 
     node = await _props(neo4j_driver, "task.rule-done")
     assert node["due_date"] == "2026-03-04"
+
+
+@pytest.mark.asyncio
+async def test_a_file_authored_open_beside_a_stamp_is_due_on_its_creation_day(
+    clean_neo4j, neo4j_driver, door, tmp_path: Path
+) -> None:
+    """The creation rule runs before the stamp-clear, so it must not read the
+    stamp it is about to lose: an open task's ``completion_date`` is not a day
+    it was lived."""
+    path = _write(tmp_path, "rule-open-stamp", "status: active\ncompletion_date: 2026-03-04\n")
+
+    assert (await door.ingest_file(path)).is_ok
+
+    node = await _props(neo4j_driver, "task.rule-open-stamp")
+    assert node["due_date"] == node["created_at"][:10]
+    assert node["due_date"] != "2026-03-04"
+    async with neo4j_driver.session() as session:
+        record = await (
+            await session.run(
+                "MATCH (n:Task {uid: $uid}) RETURN n.completion_date AS stamp",
+                {"uid": "task.rule-open-stamp"},
+            )
+        ).single()
+    assert record is not None and record["stamp"] is None, "the status step did not clear it"
 
 
 @pytest.mark.asyncio

@@ -14,9 +14,10 @@ rule, or that reached the graph past it (a failed post-persist write, an
 out-of-band load).
 
 **The written value is the rule, not an approximation of it.** Per undated node:
-``due_date`` = the ``created_at`` calendar day, or the ``completion_date`` when
-that is *earlier* — a historical ``✅`` line was lived on the day it was done,
-not the day it was ingested (the same branch the model method takes). A task
+``due_date`` = the ``created_at`` calendar day, or — on a completed task only —
+the ``completion_date`` when that is *earlier*: a historical ``✅`` line was
+lived on the day it was done, not the day it was ingested (the same branch the
+model method takes; an open task's leftover stamp is not consulted). A task
 completed on or after its creation day keeps the creation day: it was due then
 and finished later. The expression is IMPORTED from the vault door's write
 backend (``TASK_CREATION_DUE_DATE_CYPHER``), never retyped, so the live rule
@@ -44,9 +45,13 @@ import asyncio
 import sys
 
 from adapters.persistence.neo4j.ingestion_write_backend import TASK_CREATION_DUE_DATE_CYPHER
+from core.models.enums.entity_enums import EntityStatus
 from core.models.enums.neo_labels import NeoLabel
 
 TASK_LABEL = NeoLabel.TASK.value
+#: The one driver parameter the rule expression reads — passed by every query
+#: that embeds it.
+RULE_PARAMS = {"completed_status": EntityStatus.COMPLETED.value}
 
 #: The two fields the day lens and the calendar place a task by. A node is
 #: "undated" when BOTH are NULL — the exact predicate ``Task.with_creation_due_date``
@@ -113,7 +118,7 @@ async def run_backfill(*, confirm: bool) -> int:
             print("\nNothing to backfill — every Task already carries a due or scheduled date.")
             return 0
 
-        preview, _, _ = await driver.execute_query(PREVIEW_QUERY)
+        preview, _, _ = await driver.execute_query(PREVIEW_QUERY, **RULE_PARAMS)
         print(f"\n{'due_date':<10} {'status':<10} {'uid':<16} title")
         for item in preview:
             print(
@@ -125,7 +130,7 @@ async def run_backfill(*, confirm: bool) -> int:
             print(f"\nCensus only. Re-run with --confirm to write {fillable} due date(s).")
             return 0
 
-        records, _, _ = await driver.execute_query(BACKFILL_QUERY)
+        records, _, _ = await driver.execute_query(BACKFILL_QUERY, **RULE_PARAMS)
         written = int(records[0]["n"]) if records else 0
         print(f"\n✓ Task: set {DUE_FIELD} on {written} node(s) by the creation rule")
 

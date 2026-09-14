@@ -73,6 +73,16 @@ def test_born_completed_on_the_creation_day_keeps_the_creation_day() -> None:
     assert dated.due_date == CREATED_DAY
 
 
+def test_an_open_task_with_a_leftover_stamp_is_due_on_its_creation_day() -> None:
+    """The completion day is consulted only on a completed task. An open task
+    carrying a stale ``completion_date`` — the shape the vault door's
+    stamp-clear undoes, and that clear runs AFTER the creation rule — must not
+    be dated on the stamp."""
+    stale = date(2026, 7, 1)
+    dated = _task(status=EntityStatus.ACTIVE, completion_date=stale).with_creation_due_date()
+    assert dated.due_date == CREATED_DAY
+
+
 def test_rule_is_a_pure_replace() -> None:
     original = _task(tags=("bills",), priority=None)
     dated = original.with_creation_due_date()

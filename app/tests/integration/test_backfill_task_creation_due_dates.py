@@ -7,9 +7,10 @@ Four ways this migration could go wrong, each exercised against a real graph:
    real deadline, or invent one beside a work date the user chose. So the seed
    holds rows it must NOT touch — a task with a due date, a task with only a
    scheduled date — asserted unchanged.
-2. **Wrong day.** The rule is the creation day, except a completion day that
-   came first (a historical ``✅`` line). Both branches are seeded, plus the
-   "completed later" shape that must keep the creation day.
+2. **Wrong day.** The rule is the creation day, except — on a completed task —
+   a completion day that came first (a historical ``✅`` line). Both branches
+   are seeded, plus the "completed later" shape that must keep the creation
+   day, and an OPEN task with a leftover stamp, which must not be dated on it.
 3. **Wrong storage shape.** ``due_date`` round-trips through the mappers as an
    ISO ``YYYY-MM-DD`` string; a native DATE would read back and still diverge
    from every app writer. ``created_at`` is seeded both as a string and as a
@@ -45,6 +46,7 @@ _UIDS = [
     "task_bf_done_later",
     "task_bf_has_due",
     "task_bf_has_scheduled",
+    "task_bf_open_with_stale_stamp",
 ]
 
 
@@ -66,6 +68,8 @@ async def seeded(neo4j_driver):
                 status: 'draft', created_at: $created_at, due_date: $due})
             CREATE (:Entity:Task {uid: $has_sched, entity_type: 'task',
                 status: 'draft', created_at: $created_at, scheduled_date: $scheduled})
+            CREATE (:Entity:Task {uid: $open_stale, entity_type: 'task',
+                status: 'active', created_at: $created_at, completion_date: $earlier_done})
             """,
             undated=_UIDS[0],
             native=_UIDS[1],
@@ -73,6 +77,7 @@ async def seeded(neo4j_driver):
             later=_UIDS[3],
             has_due=_UIDS[4],
             has_sched=_UIDS[5],
+            open_stale=_UIDS[6],
             created_at=CREATED_AT,
             earlier_done=EARLIER_DONE,
             later_done=LATER_DONE,
@@ -85,7 +90,7 @@ async def seeded(neo4j_driver):
 
 
 async def _run(driver) -> int:
-    records, _, _ = await driver.execute_query(migration.BACKFILL_QUERY)
+    records, _, _ = await driver.execute_query(migration.BACKFILL_QUERY, **migration.RULE_PARAMS)
     return int(records[0]["n"])
 
 
@@ -106,7 +111,7 @@ async def test_dates_only_the_undated_by_the_creation_rule(neo4j_driver, seeded)
     assert int(before[0]["fillable"]) >= 4
 
     written = await _run(neo4j_driver)
-    assert written >= 4
+    assert written >= 5
 
     # The creation day, stored as the ISO date string every app writer stores.
     value, vt = await _props(neo4j_driver, _UIDS[0], "due_date")
@@ -126,6 +131,10 @@ async def test_dates_only_the_undated_by_the_creation_rule(neo4j_driver, seeded)
     value, _ = await _props(neo4j_driver, _UIDS[3], "due_date")
     assert value == CREATED_AT[:10]
 
+    # Open with a leftover stamp: the stamp is not consulted — creation day.
+    value, _ = await _props(neo4j_driver, _UIDS[6], "due_date")
+    assert value == CREATED_AT[:10], "an open task was dated on its stale completion stamp"
+
     # Controls: a deadline is never overwritten, a work date never gets a
     # deadline invented beside it.
     value, _ = await _props(neo4j_driver, _UIDS[4], "due_date")
@@ -137,7 +146,7 @@ async def test_dates_only_the_undated_by_the_creation_rule(neo4j_driver, seeded)
 
 
 async def test_second_run_changes_nothing(neo4j_driver, seeded):
-    assert await _run(neo4j_driver) >= 4
+    assert await _run(neo4j_driver) >= 5
     after_first = [await _props(neo4j_driver, uid, "due_date") for uid in _UIDS]
 
     await _run(neo4j_driver)
