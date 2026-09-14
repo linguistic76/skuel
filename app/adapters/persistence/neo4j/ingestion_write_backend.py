@@ -337,13 +337,14 @@ class IngestionWriteBackend:
         on the entity is applied here on the node, by the same expression the
         history backfill writes (``TASK_CREATION_DUE_DATE_CYPHER``).
 
-        **Conditional on the node still being undated when the write lands.**
-        The caller names the uids the upsert reported as created, but the write
-        happens later — at end-of-sync for the directory door — and an app
-        writer may have dated the task in between; the ``IS NULL`` guards make
-        the rule a no-op exactly then, and a re-sync of the same file (whose
-        uid is no longer a create) never reaches here at all. A node with no
-        ``created_at`` has no day to derive and is left alone.
+        **The guard is the selector.** The caller names every Task uid the batch
+        persisted — creates and re-syncs alike — and the ``IS NULL`` guards pick
+        the rows: a dated node is a no-op, an undated one (a new file authored
+        without dates, or a re-sync that dropped its last date line) is dated on
+        its creation day. The write happens later than the upsert — at
+        end-of-sync for the directory door — so a task an app writer dated in
+        between is a no-op too. A node with no ``created_at`` has no day to
+        derive and is left alone.
 
         The interpolated ``TASK_CREATION_DUE_DATE_CYPHER`` is Cypher *structure*
         — an expression over ``n``'s own properties, a module constant no

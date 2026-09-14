@@ -19,8 +19,10 @@ Pinned:
 - a born-completed file whose ``✅`` day is earlier takes that day;
 - a file authored OPEN beside a leftover stamp line is due on its creation day
   (the stamp is not consulted; the status step then clears it);
-- a re-sync of the same file is not a creation: a file whose ``due_date`` line
-  was removed stays undated, as an app update that clears both dates does;
+- a re-sync that removes the file's last date line has the creation day
+  restored — the vault's equivalent of the app's refusal to clear the last
+  date (``TasksCoreService._validate_update``), since the upsert has already
+  merged the removal; a re-sync that keeps a date changes nothing;
 - the directory door behaves the same.
 
 Requires: Docker running with Neo4j testcontainer.
@@ -150,21 +152,37 @@ async def test_a_file_authored_open_beside_a_stamp_is_due_on_its_creation_day(
 
 
 @pytest.mark.asyncio
-async def test_a_resync_is_not_a_creation(clean_neo4j, neo4j_driver, door, tmp_path: Path) -> None:
-    """Removing the ``due_date`` line from a file clears it on re-sync and the
-    rule does NOT put it back — the file has a prior status, so it is not
-    among the creates the pass names. Same posture as an app update that
-    clears both dates."""
+async def test_a_resync_that_drops_the_last_date_restores_the_creation_day(
+    clean_neo4j, neo4j_driver, door, tmp_path: Path
+) -> None:
+    """The blank line writes null and ``SET n += props`` deletes the property —
+    the upsert cannot refuse what the app's update rule refuses, so the pass
+    restores the creation day: the task keeps a day either way."""
     path = _write(tmp_path, "rule-resync", "due_date: 2026-12-31\n")
     assert (await door.ingest_file(path)).is_ok
-    assert str((await _props(neo4j_driver, "task.rule-resync"))["due_date"])[:10] == "2026-12-31"
+    first = await _props(neo4j_driver, "task.rule-resync")
+    assert str(first["due_date"])[:10] == "2026-12-31"
 
-    # The blank line writes null; ``SET n += props`` deletes the property.
     _write(tmp_path, "rule-resync", "due_date:\n")
     assert (await door.ingest_file(path)).is_ok
 
     node = await _props(neo4j_driver, "task.rule-resync")
-    assert node["due_date"] is None, "a re-sync re-dated a task whose deadline was removed"
+    assert node["due_date"] == first["created_at"][:10], "the task lost its last date"
+
+
+@pytest.mark.asyncio
+async def test_a_resync_that_keeps_a_date_changes_nothing(
+    clean_neo4j, neo4j_driver, door, tmp_path: Path
+) -> None:
+    path = _write(tmp_path, "rule-resync-kept", "scheduled_date: 2026-12-20\n")
+    assert (await door.ingest_file(path)).is_ok
+
+    _write(tmp_path, "rule-resync-kept", "scheduled_date: 2026-12-20\ndescription: edited\n")
+    assert (await door.ingest_file(path)).is_ok
+
+    node = await _props(neo4j_driver, "task.rule-resync-kept")
+    assert node["due_date"] is None, "a scheduled-only task was given a deadline on re-sync"
+    assert str(node["scheduled_date"])[:10] == "2026-12-20"
 
 
 @pytest.mark.asyncio

@@ -3,9 +3,9 @@
 ``TasksCoreService.create`` is the one create path for Tasks: the creation rule
 (``Task.with_creation_due_date``), the entity-carried link edges (FULFILLS_GOAL,
 REINFORCES_HABIT), ``TaskCreated`` and the ADR-074 embedding request all happen
-there. A generator handing a DTO to ``backend.create_task`` skipped every one of
-them — its knowledge tasks landed undated (absent from Today and the calendar),
-un-announced and un-embedded. Pinned here with a fake Tasks facade:
+there — so a task that reaches the graph any other way reaches it undated (absent
+from Today and the calendar), un-announced and un-embedded. Pinned here with a
+fake Tasks facade:
 
 - every generated task reaches ``tasks_service.create`` as a ``Task``;
 - a habit-reinforcement task carries its habit as ``reinforces_habit_uid`` — the
@@ -48,12 +48,14 @@ class _FakeTasksFacade:
 
 
 class _FakeGoalsBackend:
+    """The one read the generator makes, in ``GoalsOperations.get_goal``'s shape."""
+
     def __init__(self, goal: Goal) -> None:
         self._goal = goal
 
-    async def get_goal(self, goal_uid: str) -> Result[dict[str, Any]]:
-        assert goal_uid == self._goal.uid
-        return Result.ok(self._goal.to_dto().to_dict())
+    async def get_goal(self, goal_id: str) -> Result[Goal]:
+        assert goal_id == self._goal.uid
+        return Result.ok(self._goal)
 
 
 def _goal() -> Goal:
@@ -80,7 +82,7 @@ def rels(monkeypatch: pytest.MonkeyPatch) -> GoalRelationships:
 
 def _generator(facade: _FakeTasksFacade) -> GoalTaskGenerator:
     return GoalTaskGenerator(
-        goals_backend=_FakeGoalsBackend(_goal()),  # type: ignore[arg-type]
+        goals_backend=_FakeGoalsBackend(_goal()),  # type: ignore[arg-type]  # one method of the protocol
         tasks_service=facade,  # type: ignore[arg-type]
         relationship_service=object(),  # truthy → GoalRelationships.fetch (patched) runs
         config=TaskGenerationConfig(generate_check_in_tasks=False),

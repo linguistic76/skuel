@@ -493,6 +493,7 @@ def _stored_task(
     priority: str | None,
     due_date: date | None,
     status: str = EntityStatus.ACTIVE.value,
+    scheduled_date: date | None = None,
 ) -> dict[str, Any]:
     """A prior-state row as ``backend.get`` returns it (dict, not a model)."""
     return TaskDTO(
@@ -502,7 +503,105 @@ def _stored_task(
         priority=priority,
         status=status,
         due_date=due_date,
+        scheduled_date=scheduled_date,
     ).to_dict()
+
+
+# ---------------------------------------------------------------------------
+# Rule 2 — a task keeps a day: an update may not clear its last date field
+# ---------------------------------------------------------------------------
+
+_KEEP_A_DAY = "A task needs a due date or a scheduled date"
+
+
+@pytest.mark.asyncio
+async def test_update_refuses_clearing_the_last_date(core_service, mock_backend):
+    """The task has only a due date; clearing it would leave it on no day."""
+    mock_backend.get.return_value = Result.ok(_stored_task(priority=None, due_date=_TOMORROW))
+
+    result = await core_service.update_task("task:123", TaskUpdateIntent(due_date=None))
+
+    assert result.is_error
+    assert _KEEP_A_DAY in result.expect_error().message
+    mock_backend.update_with_status_guard.assert_not_called()  # refused BEFORE the write
+
+
+@pytest.mark.asyncio
+async def test_update_refuses_clearing_both_dates_at_once(core_service, mock_backend):
+    mock_backend.get.return_value = Result.ok(
+        _stored_task(priority=None, due_date=_TOMORROW, scheduled_date=_TOMORROW)
+    )
+
+    result = await core_service.update_task(
+        "task:123", TaskUpdateIntent(due_date=None, scheduled_date=None)
+    )
+
+    assert result.is_error
+    assert _KEEP_A_DAY in result.expect_error().message
+    mock_backend.update_with_status_guard.assert_not_called()
+
+
+@pytest.mark.asyncio
+async def test_update_allows_clearing_one_date_while_the_other_stands(core_service, mock_backend):
+    mock_backend.get.return_value = Result.ok(
+        _stored_task(priority=None, due_date=_TOMORROW, scheduled_date=_TOMORROW)
+    )
+    mock_backend.update.return_value = Result.ok(
+        _stored_task(priority=None, due_date=None, scheduled_date=_TOMORROW)
+    )
+
+    result = await core_service.update_task("task:123", TaskUpdateIntent(due_date=None))
+
+    assert result.is_ok
+    mock_backend.update_with_status_guard.assert_called_once_with(
+        "task:123", {"due_date": None}, ANY
+    )
+
+
+@pytest.mark.asyncio
+async def test_update_allows_clearing_one_date_while_setting_the_other(core_service, mock_backend):
+    """Swapping a deadline for a work date in one update is a move, not a clear."""
+    mock_backend.get.return_value = Result.ok(_stored_task(priority=None, due_date=_TOMORROW))
+    mock_backend.update.return_value = Result.ok(
+        _stored_task(priority=None, due_date=None, scheduled_date=_TOMORROW)
+    )
+
+    result = await core_service.update_task(
+        "task:123", TaskUpdateIntent(due_date=None, scheduled_date=_TOMORROW)
+    )
+
+    assert result.is_ok
+    mock_backend.update_with_status_guard.assert_called_once()
+
+
+@pytest.mark.asyncio
+async def test_setting_a_date_reads_nothing_before_writing(core_service, mock_backend):
+    """The gate: only a clear can leave a task undated, so a move or a reschedule
+    (the defer route's shape) costs no pre-read at all."""
+    mock_backend.update.return_value = Result.ok(_stored_task(priority=None, due_date=_TOMORROW))
+
+    result = await core_service.update_task(
+        "task:123", TaskUpdateIntent(due_date=_TOMORROW, scheduled_date=_TOMORROW)
+    )
+
+    assert result.is_ok
+    mock_backend.get.assert_not_called()
+
+
+@pytest.mark.asyncio
+async def test_a_failed_pre_read_on_a_clear_fails_fast(core_service, mock_backend):
+    """A failed read must not be read as "no rule applies"."""
+    mock_backend.get.return_value = Result.fail(Errors.database("get", "graph away"))
+
+    result = await core_service.update_task("task:123", TaskUpdateIntent(due_date=None))
+
+    assert result.is_error
+    mock_backend.update_with_status_guard.assert_not_called()
+
+
+# ---------------------------------------------------------------------------
+# Rule 1 — overdue-priority protection
+# ---------------------------------------------------------------------------
 
 
 @pytest.mark.asyncio

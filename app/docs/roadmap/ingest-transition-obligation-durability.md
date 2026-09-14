@@ -43,14 +43,15 @@ is the one case the script does repair.
 
 ## The creation rule is the one obligation in this pass that IS recoverable
 
-The same post-persist pass (`_apply_primitive_parity`) now also carries the Task creation rule —
-`apply_task_creation_due_dates` for the uids the upsert's own `created` marker names. It shares
-the window (a failure between the node committing and the pass running leaves the task undated)
-but not the loss shape: the obligation is **derivable from graph state** — "undated, has a
-`created_at`" — so `scripts/backfill_task_creation_due_dates.py` re-derives and fills it from the
-node alone, with no prior to have been consumed. An outbox would cover it for free, but nothing
-about it motivates one; it is listed here so the pass's inventory is complete, not as a second
-instance of the gap.
+The same post-persist pass (`_apply_primitive_parity`) now also carries the Task keep-a-day
+rule — `apply_task_creation_due_dates` over every task the batch persisted, the write's own
+guard selecting the undated rows. It shares the window (a failure between the node committing
+and the pass running leaves the task undated) but not the loss shape: the obligation is
+**derivable from graph state** — "undated, has a `created_at`" — so the next sync of the file
+re-derives it, and `scripts/backfill_task_creation_due_dates.py` fills it from the node alone,
+with no prior to have been consumed. An outbox would cover it for free, but nothing about it
+motivates one; it is listed here so the pass's inventory is complete, not as a second instance
+of the gap.
 
 ## The app door has the same property (one-completion-door arc D.0, PR #1320)
 

@@ -1539,7 +1539,7 @@ async def compose_services(
             goals_backend=goals_backend,
             tasks_service=activity_services["tasks"],
             habits_backend=habits_backend,
-            events_backend=events_backend,
+            events_service=activity_services["events"],
         )
         logger.info("✅ Orchestration services created")
 
