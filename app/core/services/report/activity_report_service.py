@@ -391,7 +391,7 @@ class ActivityReportService:
             )
         start_date, end_date = period.start, period.end
         # A human-authored report of a period still open is partial exactly as a
-        # generated one: its cutoff is now, and the period door treats it alike.
+        # generated one: its cutoff is now, and ``find_by_period`` treats it alike.
         cutoff = period.data_cutoff(now)
 
         try:

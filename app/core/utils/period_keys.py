@@ -14,7 +14,7 @@ Parsers accept the canonical spelling ONLY and return ``None`` for anything
 else — a weekly key handed to the monthly parser, a daily date, a padded or
 unpadded variant (``02026-09``, ``2026-W037``, ``2026-9``), junk — so callers
 degrade to "no period" rather than guess one, and two spellings can never name
-one period (the report cooldown and the period door compare stored tokens
+one period (the report cooldown and ``find_by_period`` compare stored tokens
 exactly). The builders are the inverse for the two kinds reports speak.
 
 Reference date → key is the direction here; a date INSIDE a period → its note's

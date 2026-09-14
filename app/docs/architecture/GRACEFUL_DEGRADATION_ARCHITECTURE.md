@@ -1,5 +1,5 @@
 ---
-updated: 2026-09-13
+updated: 2026-09-14
 ---
 
 # Graceful Degradation Architecture
@@ -20,7 +20,7 @@ The app is architecturally split into two layers. The foundational layer — CRU
 
 2. **Cost control.** `INTELLIGENCE_TIER=core` costs $0. No AI API calls are made. No AI background workers spin up. This is the right mode for content authoring, schema changes, and structural work.
 
-   > **Background workers in CORE tier:** The `EmbeddingBackgroundWorker` (AI) does not start. The 5-min graph-health poller (`update_graph_health_metrics` in `scripts/dev/bootstrap.py`) does — it is a CORE-tier Analog worker: it queries the graph for the Prometheus health gauges without any LLM calls. No API cost. Activity reports have no worker at all: a report is generated on request (the calendar's period door, the request form), never on a schedule. The **schema-change monitor** is separate from both and gated by its own `NEO4J_SCHEMA_MONITORING` flag (default **off**). See the neo4j-cypher-patterns skill § Schema-Change Monitoring.
+   > **Background workers in CORE tier:** The `EmbeddingBackgroundWorker` (AI) does not start. The 5-min graph-health poller (`update_graph_health_metrics` in `scripts/dev/bootstrap.py`) does — it is a CORE-tier Analog worker: it queries the graph for the Prometheus health gauges without any LLM calls. No API cost. Activity reports have no worker at all: a report is generated on request (the request form, or the detail page's "Regenerate" of a calendar-period report), never on a schedule. The **schema-change monitor** is separate from both and gated by its own `NEO4J_SCHEMA_MONITORING` flag (default **off**). See the neo4j-cypher-patterns skill § Schema-Change Monitoring.
 
 3. **Deployment flexibility.** A fresh deployment works immediately. Embeddings and AI features are activated when the curriculum is mature enough to benefit from them — not as a prerequisite.
 
