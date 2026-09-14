@@ -6,9 +6,8 @@ and none for one that does not; the executor merges the one-row partials into
 the ``mega_data`` map. The verdicts on the row counts are the point of this
 module: no row anywhere is the unknown-user sentinel, and a row from some
 statements but not others is a statement whose aggregation collapsed to zero
-rows — the shape that once emptied a whole rich context silently (a learner
-whose every insight was dismissed) — so it fails loudly rather than merging
-what arrived.
+rows — a row filter after a grouped ``WITH`` does exactly that — so it fails
+loudly rather than merging what arrived as "this learner has none of that".
 """
 
 from __future__ import annotations

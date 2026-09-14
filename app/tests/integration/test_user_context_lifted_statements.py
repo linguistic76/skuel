@@ -114,10 +114,10 @@ async def test_submission_stats_count_nothing_for_a_learner_with_no_assignments(
 ) -> None:
     """No group, no assigned exercise: zero assigned, zero completed, nothing unsubmitted.
 
-    ``NOT`` over a pattern whose endpoint is null is true, so an unguarded
-    ``collect(CASE WHEN NOT (…)-[:FULFILLS_EXERCISE]->(ex) …)`` emitted one
-    phantom map for the null ``ex`` row and ``completed_exercise_count`` read
-    ``0 - 1 = -1`` for every learner without an assignment.
+    ``NOT`` over a pattern whose endpoint is null is true, so the unsubmitted
+    ``CASE`` tests ``ex IS NOT NULL`` first; without that test the null ``ex``
+    row collects one phantom map and ``completed_exercise_count`` reads
+    ``0 - 1`` for every learner without an assignment.
     """
     executor = UserContextQueryExecutor(Neo4jQueryExecutor(neo4j_driver))
 

@@ -1207,7 +1207,14 @@ def empty_context_data() -> dict[str, Any]:
     }
 
 
-def merge_partial_context(mega_data: dict[str, Any], partial: dict[str, Any]) -> None:
+def merge_partial_context(
+    # boundary: the nested {uids, entities, rich, …} map spanning every domain — the
+    # tier-C ruling on UserContextQueryOperations.execute_mega_query's return (a
+    # TypedDict was tried there and cost 28 MyPy errors in the builder alone); each
+    # partial is the subset of that map one statement owns, and this is its writer.
+    mega_data: dict[str, Any],
+    partial: dict[str, Any],
+) -> None:
     """Fold one statement's ``RETURN`` partial into the merged ``mega_data`` map.
 
     The top-level keys are the map's sections; a section several statements
@@ -1322,6 +1329,7 @@ class UserContextQueryExecutor:
             *(self.executor.execute_query(query, params) for _, query in RICH_CONTEXT_STATEMENTS)
         )
 
+        # boundary: the port's tier-C return shape (see merge_partial_context)
         mega_data: dict[str, Any] = {}
         answered: list[str] = []
         for (name, _), result in zip(RICH_CONTEXT_STATEMENTS, results, strict=True):

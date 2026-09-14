@@ -1,38 +1,31 @@
 """
-The six rich-context statements, merged, read what the one statement read.
+The six rich-context statements, merged, read every section of a learner's graph.
 
-``RICH_CONTEXT_STATEMENTS`` replaced a single 1,013-line statement whose
-``WITH`` lists carried every earlier section's names through every later one.
-Un-threading those lists per statement is mechanical, and it is exactly where
-a field goes quietly wrong: a name dropped from a carry list is a Cypher error
-(good), but a name that survives with the wrong content is not. So this seeds
-a learner with at least one node in EVERY section — a task with a subtask, a
-dependency and applied knowledge (direct and through a PathStep), a goal with
-a subgoal, a mastered and an in-progress Ku, a viewed / read / bookmarked Ku, a
+``RICH_CONTEXT_STATEMENTS`` carries each read family in a statement of its own,
+and each statement's ``WITH`` lists carry only its own names. That is where a
+field goes quietly wrong: a name dropped from a carry list is a Cypher error
+(good), but a name that survives with the wrong content is not. So this seeds a
+learner with at least one node in EVERY section — a task with a subtask, a
+dependency and applied knowledge (direct and through a PathStep), a goal with a
+subgoal, a mastered and an in-progress Ku, a viewed / read / bookmarked Ku, a
 habit with a prerequisite, an event with a conflict, a principle, a choice, an
 enrolled path with an in-progress step, a life path, an organizer, two activity
 reports, a live and a dismissed insight — and pins every field group of the
-rich context to the values the SAME graph produced through the pre-split
-statement (captured from its text before it was deleted).
+merged map and of the built context. The pinned values are the contract; the
+measurement behind the split and the record of how they were captured is
+``docs/roadmap/done/mega-query-plan-cache-cliff.md``.
 
-The pinned values are the old statement's semantics, quirks included: a
-``PathStep`` the user is ``IN_PROGRESS`` on is matched by the knowledge
-section's ``MASTERED|IN_PROGRESS`` alternation and lands in
-``knowledge_mastery`` at the 0.1 default, and a ``REQUIRES_KNOWLEDGE`` edge
-without a ``confidence`` projects ``null``. Changing either is a decision, not
-a regression, and would re-pin here.
+Two of the pinned values are quirks, kept deliberately: a ``PathStep`` the user
+is ``IN_PROGRESS`` on is matched by the knowledge section's
+``MASTERED|IN_PROGRESS`` alternation and lands in ``knowledge_mastery`` at the
+0.1 default, and a ``REQUIRES_KNOWLEDGE`` edge without a ``confidence`` projects
+``null``. Changing either is a decision, not a regression, and re-pins here.
 
-Two deliberate departures from the old text, each proven to fail against it:
-
-- a learner whose EVERY insight was dismissed, actioned or expired got an
-  empty rich context — the insight predicate was a row filter after the
-  grouped ``WITH``, so no row survived to the aggregation and the whole
-  statement returned nothing; it is now on the ``OPTIONAL MATCH``.
-- a goal with milestones made the whole build fail with
-  ``Neo.ClientError.Statement.TypeError`` — ``Goal.milestones`` is stored as a
-  JSON string, which the old ``milestone_progress`` projection iterated as a
-  list. The projection had no consumer (``GOALS_CONFIG`` says it is derived
-  from the parsed Goal) and is gone.
+Two invariants have a test of their own below: a learner whose every insight is
+dismissed, actioned or expired keeps the rest of the context (the insight
+predicate is on the ``OPTIONAL MATCH``, not a row filter after the grouped
+``WITH``), and a goal with milestones builds (``Goal.milestones`` is a JSON
+string on the node, which no Cypher projection iterates).
 """
 
 import json
@@ -266,7 +259,7 @@ async def test_the_merged_map_has_the_shape_the_populator_reads(
 async def test_every_section_reads_what_the_one_statement_read(
     neo4j_driver: AsyncDriver, every_section_seeded: None
 ) -> None:
-    """Field group by field group, the values the pre-split statement produced."""
+    """Field group by field group, the pinned values for a learner seeded in every section."""
     executor = UserContextQueryExecutor(Neo4jQueryExecutor(neo4j_driver))
 
     result = await executor.execute_mega_query(_USER_UID)
@@ -529,7 +522,7 @@ async def test_every_section_reads_what_the_one_statement_read(
 async def test_the_rich_context_carries_every_section(
     neo4j_driver: AsyncDriver, every_section_seeded: None
 ) -> None:
-    """Through the builder: the populated fields the pre-split build produced from this graph."""
+    """Through the builder: the populated fields of the rich context for this graph."""
     builder = UserContextBuilder(UserContextQueryExecutor(Neo4jQueryExecutor(neo4j_driver)))
     user = User(uid=_USER_UID, title="eq", email="eq@test.com")
 
@@ -630,7 +623,7 @@ async def test_an_unknown_user_reads_as_the_empty_sentinel(
 async def test_a_learner_whose_every_insight_is_dismissed_keeps_the_rest_of_the_context(
     neo4j_driver: AsyncDriver, clean_neo4j
 ) -> None:
-    """Against the pre-split statement this learner's whole rich context was empty."""
+    """The insight predicate is on the OPTIONAL MATCH, so no row is filtered before the aggregation."""
     user_uid = UserUID("user_test_123")
     async with neo4j_driver.session() as session:
         await session.run(
@@ -660,7 +653,7 @@ async def test_a_learner_whose_every_insight_is_dismissed_keeps_the_rest_of_the_
 
 @pytest.mark.asyncio
 async def test_a_goal_with_milestones_builds(neo4j_driver: AsyncDriver, clean_neo4j) -> None:
-    """Against the pre-split statement this was a Neo.ClientError.Statement.TypeError."""
+    """Goal.milestones is a JSON string on the node; no projection iterates it as a list."""
     user_uid = UserUID("user_test_456")
     milestones = '[{"uid": "m1", "title": "First", "is_completed": true}]'
     async with neo4j_driver.session() as session:
