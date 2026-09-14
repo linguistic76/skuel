@@ -156,6 +156,21 @@ def _compute_cross_edges(
     return edges
 
 
+def _model_clock(moment: datetime) -> datetime:
+    """The engagement instant in the models' clock convention — naive, system-local.
+
+    ``Entity.created_at`` defaults to ``datetime.now()`` and every consumer
+    measures against that clock (naive cutoffs, ``datetime.now() - created_at``);
+    an offset-aware instant would raise ``TypeError`` on the first comparison.
+    The gateway records the engagement as aware UTC on its edge — that
+    convention stays there; the instances it spawns are stamped, and their
+    offsets resolved, in the models' own. A naive anchor passes through.
+    """
+    if moment.tzinfo is None:
+        return moment
+    return moment.astimezone().replace(tzinfo=None)
+
+
 def _copy_through(template: Any, allowed_fields: set[str]) -> dict[str, Any]:
     """Copy authoring-side fields verbatim from template → instance kwargs.
 
@@ -343,8 +358,10 @@ def _build(
     the instance is created at the engagement — ``created_at`` is the anchor,
     the same moment every offset resolves against — not when its template was
     authored; a copied authoring stamp would make a creation-day default (the
-    Task creation rule) date the instance in the template's past.
+    Task creation rule) date the instance in the template's past. The anchor is
+    taken in the models' clock (``_model_clock``) for stamps and offsets alike.
     """
+    anchor = _model_clock(anchor)
     managed = {
         "uid",
         "user_uid",

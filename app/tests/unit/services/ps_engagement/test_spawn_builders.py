@@ -22,7 +22,7 @@ End-to-end ``spawn()`` is exercised by integration tests with a Neo4j fixture.
 from __future__ import annotations
 
 from dataclasses import replace
-from datetime import date, datetime, timedelta
+from datetime import UTC, date, datetime, timedelta
 
 import pytest
 
@@ -126,6 +126,26 @@ class TestTaskBuilder:
         task = _build(TASK_SPEC, tt, STUDENT, PS, ANCHOR, {"ttpl_no_offset": "task_uid"})
         assert task.due_date == ANCHOR.date()
         assert task.scheduled_date is None
+
+    def test_an_aware_anchor_is_stamped_in_the_models_clock(self) -> None:
+        """The gateway mints the engagement as aware UTC; ``Entity.created_at``
+        and every consumer run on naive ``datetime.now()``. The instance is
+        stamped naive, in system-local time — the same instant — and its
+        offsets resolve against that same normalized anchor, so an offset day
+        and the creation day cannot disagree across a UTC midnight."""
+        aware = datetime(2026, 5, 9, 12, 0, 0, tzinfo=UTC)
+        expected = aware.astimezone().replace(tzinfo=None)
+        tt = TaskTemplate(uid="ttpl_aware", title="t", due_offset=RelativeOffset(days=7))
+        task = _build(TASK_SPEC, tt, STUDENT, PS, aware, {"ttpl_aware": "task_uid"})
+        assert task.created_at.tzinfo is None
+        assert task.created_at == expected
+        assert task.due_date == (expected + timedelta(days=7)).date()
+        # A naive comparison — the consumers' shape — must not raise.
+        assert task.created_at <= datetime.now()
+
+        undated = TaskTemplate(uid="ttpl_aware_undated", title="u")
+        task = _build(TASK_SPEC, undated, STUDENT, PS, aware, {"ttpl_aware_undated": "t2"})
+        assert task.due_date == expected.date()
 
     def test_an_instance_is_created_at_the_engagement_not_the_authoring(self) -> None:
         """``created_at``/``updated_at`` are the instance's own lifecycle stamps:
