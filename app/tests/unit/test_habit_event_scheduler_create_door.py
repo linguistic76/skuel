@@ -16,8 +16,6 @@ Pinned here with a fake Events facade:
 
 from __future__ import annotations
 
-from typing import Any
-
 import pytest
 
 from core.models.enums import EntityStatus, RecurrencePattern
@@ -49,12 +47,14 @@ class _FakeEventsFacade:
 
 
 class _FakeHabitsBackend:
+    """The one read the scheduler makes, in ``HabitsOperations.get_habit``'s shape."""
+
     def __init__(self, habit: Habit) -> None:
         self._habit = habit
 
-    async def get_habit(self, habit_uid: str) -> Result[dict[str, Any]]:
-        assert habit_uid == self._habit.uid
-        return Result.ok(self._habit.to_dto().to_dict())
+    async def get_habit(self, habit_id: str) -> Result[Habit]:
+        assert habit_id == self._habit.uid
+        return Result.ok(self._habit)
 
 
 def _habit() -> Habit:
@@ -70,7 +70,7 @@ def _habit() -> Habit:
 
 def _scheduler(facade: _FakeEventsFacade) -> HabitEventScheduler:
     return HabitEventScheduler(
-        habits_backend=_FakeHabitsBackend(_habit()),  # type: ignore[arg-type]
+        habits_backend=_FakeHabitsBackend(_habit()),  # type: ignore[arg-type]  # one method of the protocol
         events_service=facade,  # type: ignore[arg-type]
         config=EventSchedulingConfig(schedule_ahead_days=3),
     )
