@@ -1,6 +1,6 @@
 ---
 title: User Architecture — User Model, Auth, Roles, and UserContext
-updated: 2026-09-13
+updated: 2026-09-14
 status: current
 category: architecture
 tags:
@@ -27,7 +27,7 @@ SKUEL's user system has two distinct objects that serve different purposes:
 | `User` | `core/models/user/user.py` | Frozen domain model — identity, preferences, role |
 | `UserContext` | `core/services/user/unified_user_context.py` | Runtime state — everything a user has done (~250 fields) |
 
-`User` is what a user *is*. `UserContext` is what they *have* — all their entities, relationships, and graph neighbourhoods in one object, built by a single MEGA-QUERY. `UserContext` carries core identity fields (`user_uid`, `username`, `display_name`, `email`, `user_role`) from the `User` model — only fetch `User` directly when you need `user.preferences` (the full `UserPreferences` object).
+`User` is what a user *is*. `UserContext` is what they *have* — all their entities, relationships, and graph neighbourhoods in one object, built by the MEGA-QUERY. `UserContext` carries core identity fields (`user_uid`, `username`, `display_name`, `email`, `user_role`) from the `User` model — only fetch `User` directly when you need `user.preferences` (the full `UserPreferences` object).
 
 ---
 ## Related Skills
@@ -168,12 +168,12 @@ async def admin_only_route(request, current_user):
 **The solution:** One object (~250 fields), built by one concurrent round-trip — the MEGA-QUERY plus the statements that run beside it — and consumed by all intelligence services. Stats are computed FROM UIDs — no duplication, no drift. Core identity fields (`user_uid`, `username`, `display_name`, `email`, `user_role`) are populated from the `User` model during context building — callers should use `UserContext` directly instead of fetching `User` separately (the builder already resolves the user internally).
 
 ```
-Graph (Neo4j) → MEGA-QUERY + its side statements → UserContext → UserContextIntelligence → Recommendations
-                  ^                                                     ^
-       one concurrent round-trip                               "What should I work on?"
+Graph (Neo4j) → MEGA-QUERY (six statements, merged) + its side statements → UserContext → UserContextIntelligence → Recommendations
+                  ^                                                                          ^
+       one concurrent round-trip                                                    "What should I work on?"
 ```
 
-**Why more than one statement (2026-09):** a Cypher statement is served from the server's plan cache only up to a size — cumulative across `MATCH`es, `WITH`s and the `RETURN` map — past which the server re-plans it on *every* execution (~0.5 s self-hosted, ~1 s on AuraDB Free, against ~40 ms of actual execution). `MEGA_QUERY` sits just under that edge; the learning-loop reads (`SUBMISSION_STATS_QUERY`, `ENTRY_KNOWLEDGE_APPLIED_QUERY`) are statements of their own, run with `asyncio.gather` alongside the current-path-step, engagement and group reads, so the wall cost is the slowest statement. `tests/integration/test_user_context_plan_cache.py` pins every rich-context statement under the edge with the driver's `result_available_after` — **a new section belongs in a statement of its own, never appended to `MEGA_QUERY`** (a line or `OPTIONAL MATCH` count is the wrong guard; the edge is server-version dependent). Measured and priced in [../roadmap/mega-query-plan-cache-cliff.md](../roadmap/mega-query-plan-cache-cliff.md).
+**Why the MEGA-QUERY is six statements, not one:** a Cypher statement is served from the server's plan cache only up to a size — cumulative across `MATCH`es, `WITH`s and the `RETURN` map — past which the server re-plans it on *every* execution (~0.5 s self-hosted, ~1 s on AuraDB Free, against ~40 ms of actual execution), and the planner's cost is super-linear in statement size, so the cold first build on a server is set by the largest statement. `RICH_CONTEXT_STATEMENTS` (`user_context_queries.py`) is the registry: one statement per read family — tasks & goals (`progress_counts` spans both), habits & events (the practice pair), principles & choices (the values pair the populator integrates), knowledge (every user→Ku edge), curriculum (enrolled paths, active steps, MOCs), learner state (life path, latest report, active insights — the family most likely to grow). Each carries only its own names through its `WITH` lists and returns the partial of the merged map it owns; `execute_mega_query` runs them concurrently and merges by top-level key. The learning-loop reads (`SUBMISSION_STATS_QUERY`, `ENTRY_KNOWLEDGE_APPLIED_QUERY`) run beside them with the current-path-step, engagement and group reads, so the wall cost is the slowest statement. `tests/integration/test_user_context_plan_cache.py` derives its parametrization from the registry and pins every statement under the edge with the driver's `result_available_after` (a line or `OPTIONAL MATCH` count is the wrong guard; the edge is server-version dependent); `tests/integration/test_rich_context_statement_equivalence.py` pins what the merged map contains for a learner seeded in every section. **A new read is a new registry entry, never a section appended to an existing statement.** Measured in [../roadmap/done/mega-query-plan-cache-cliff.md](../roadmap/done/mega-query-plan-cache-cliff.md).
 
 ### Two Depths
 
@@ -182,7 +182,7 @@ Graph (Neo4j) → MEGA-QUERY + its side statements → UserContext → UserConte
 | **Standard** | `build(user_uid)` | UIDs only (~150) | API responses, ownership checks |
 | **Rich** | `build_rich(user_uid, window="30d")` | UIDs + full entities + graph (~250) | Intelligence, daily planning |
 
-`window` controls how far back the activity-window CALL{} blocks look (`"7d"`, `"14d"`, `"30d"`, `"90d"`).
+`window` controls how far back the six activity sections look (`"7d"`, `"14d"`, `"30d"`, `"90d"`, or a calendar period such as `"2026-W37"` / `"2026-09"`): an entity is admitted if it is open or touched since the window's start.
 
 ```python
 context.is_rich_context      # bool — False for standard, True for rich
@@ -264,7 +264,7 @@ Domain intelligence services (`TasksIntelligenceService`, etc.) analyse single d
 
 ```
 user_context_builder.py    (~331 lines)   Orchestration — build() vs build_rich()
-user_context_queries.py    (~1700 lines)  MEGA_QUERY, SUBMISSION_STATS_QUERY, ENTRY_KNOWLEDGE_APPLIED_QUERY, CONSOLIDATED_QUERY + the executor
+user_context_queries.py    (~1600 lines)  RICH_CONTEXT_STATEMENTS (six statements), SUBMISSION_STATS_QUERY, ENTRY_KNOWLEDGE_APPLIED_QUERY, CONSOLIDATED_QUERY + the executor
 user_context_extractor.py  (~351 lines)   Result parsing + relationship extraction
 user_context_populator.py  (~235 lines)   Context field population
 ```
@@ -319,9 +319,9 @@ class UserContextQueryExecutor:
 
 ## MEGA-QUERY Architecture
 
-The MEGA-QUERY in `user_context_queries.py` fetches UIDs and full entity data with graph neighbourhoods in a single Neo4j round-trip.
+The MEGA-QUERY in `user_context_queries.py` fetches UIDs and full entity data with graph neighbourhoods in one concurrent round-trip: the six `RICH_CONTEXT_STATEMENTS`, run together and merged (see *Why the MEGA-QUERY is six statements* above).
 
-`build_rich()` extends MEGA-QUERY with six activity-window CALL{} blocks — one per Activity Domain — and populates `context.entities_rich`.
+`build_rich()` passes the activity window (`$window_start`) to every statement; the six activity sections admit an entity if it is open or touched since the window's start, and populate `context.entities_rich`.
 
 ### `entities_rich` — The Unified Rich Field
 
@@ -336,7 +336,7 @@ The MEGA-QUERY in `user_context_queries.py` fetches UIDs and full entity data wi
 
 **A `graph_context` sub-collection is EMPTY when the entity has no neighbours** — never a one-element list of a null-filled map. That guarantee is load-bearing: `len(graph_context["guided_choices"])` is a legitimate way to count neighbours, and consumers do.
 
-It is not free, because Cypher makes the wrong thing the default. `collect()` drops null *values*, but a **map literal is never null** — only its fields are — so `collect({uid: x.uid, …})` over an OPTIONAL MATCH that found nothing yields `[{uid: null, …}]`. Every map-collecting projection in `MEGA_QUERY` / `CONSOLIDATED_QUERY` is therefore written guarded (the shape exists elsewhere in the adapter layer and is not swept — see the test module's scope note):
+It is not free, because Cypher makes the wrong thing the default. `collect()` drops null *values*, but a **map literal is never null** — only its fields are — so `collect({uid: x.uid, …})` over an OPTIONAL MATCH that found nothing yields `[{uid: null, …}]`. Every map-collecting projection in the rich-context statements / `CONSOLIDATED_QUERY` is therefore written guarded (the shape exists elsewhere in the adapter layer and is not swept — see the test module's scope note):
 
 ```cypher
 collect(DISTINCT CASE WHEN x IS NOT NULL THEN {uid: x.uid, title: x.title} END) AS …
@@ -362,7 +362,7 @@ Both CONSOLIDATED_QUERY (standard) and MEGA-QUERY (rich) fetch the latest `Activ
 
 ### Submission & Feedback Stats — Rich Path Only
 
-MEGA-QUERY populates 11 submission/feedback tracking fields via `populate_submission_stats()`:
+`SUBMISSION_STATS_QUERY`, run beside the MEGA-QUERY, populates 11 submission/feedback tracking fields via `populate_submission_stats()`:
 
 | UserContext Field | What |
 |-----------------|------|

@@ -1,5 +1,5 @@
 ---
-updated: 2026-09-13
+updated: 2026-09-14
 ---
 
 # Deferred Work
@@ -195,10 +195,6 @@ renders them as a table in Obsidian, and a session derives the same table with
 ## Askesis Entity Extraction — Ku Uids Never Resolve, and the Lookup Is N Round-Trips per Question
 
 [Askesis Entity Extraction — Ku Uids Never Resolve, and the Lookup Is N Round-Trips per Question](askesis-extraction-lookup-shape.md) — `EntityExtractor` resolves every `known_or_engaged_ku_uids` entry through `PsService`, so mastered Ku uids fail silently at one round-trip each; and `_extract_matching_entities` awaits `service.get(uid)` sequentially across the five sets it fetches per question, inside the 30 s pipeline budget, when the rich context already holds every title it re-fetches. Decide Kus-or-PathSteps first, then match against the context.
-
-## MEGA-QUERY Sits on the Plan-Cache Cliff
-
-[MEGA-QUERY Sits on the Plan-Cache Cliff](mega-query-plan-cache-cliff.md) — The rich-context query is under the server's plan-cache size edge only because its learning-loop tail runs as two statements of its own beside it (Option A, landed; the guard measures `result_available_after`, never a line count); Option B — split by section — stays priced for the next read the context needs, since a section appended to `MEGA_QUERY` puts it back over the edge.
 
 ## Review Schedule
 

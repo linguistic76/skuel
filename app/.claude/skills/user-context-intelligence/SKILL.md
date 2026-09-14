@@ -200,20 +200,20 @@ tasks are pre-filtered to ready, so a task line would be inert. See
 
 ---
 
-## Build Paths: MEGA_QUERY vs CONSOLIDATED_QUERY
+## Build Paths: MEGA-QUERY vs CONSOLIDATED_QUERY
 
 `UserContextIntelligence` always requires **rich context** from `build_rich()`. The two build paths produce structurally similar `UserContext` objects but with different data density:
 
 | Query | Method | Speed | ActivityReport fields | Intelligence-ready? |
 |-------|--------|-------|-----------------------|---------------------|
-| `MEGA_QUERY` (~1,000 lines) + the statements beside it (`SUBMISSION_STATS_QUERY`, `ENTRY_KNOWLEDGE_APPLIED_QUERY`, path steps, engagements, groups), one `asyncio.gather` | `build_rich()` | ~220 ms warm on a plan-cached server | ✅ populated | **Yes** — full entities + graph |
+| The MEGA-QUERY — six statements (`RICH_CONTEXT_STATEMENTS`: tasks & goals, habits & events, principles & choices, knowledge, curriculum, learner state), merged — + the statements beside it (`SUBMISSION_STATS_QUERY`, `ENTRY_KNOWLEDGE_APPLIED_QUERY`, path steps, engagements, groups), one `asyncio.gather` | `build_rich()` | tens of ms warm on a plan-cached server; the cold first build on a server is the largest statement's plan | ✅ populated | **Yes** — full entities + graph |
 | `CONSOLIDATED_QUERY` (lightweight) | `build()` | ~50-100ms | ✅ populated | No — UIDs only |
 
-**Never append a section to `MEGA_QUERY`.** It sits just under the server's plan-cache size edge — past it, every execution re-plans (~0.5–1 s). A new read is a statement of its own, gathered beside it; `tests/integration/test_user_context_plan_cache.py` measures the edge (`result_available_after`) rather than counting lines.
+**A new read is a new `RICH_CONTEXT_STATEMENTS` entry, never a section appended to an existing statement.** The server serves a statement from its plan cache only up to a size — past it, every execution re-plans (~0.5–1 s) — and the planner's cost is super-linear in size, so the cold build is set by the largest statement. `tests/integration/test_user_context_plan_cache.py` derives its parametrization from the registry and measures the edge (`result_available_after`) rather than counting lines; `test_rich_context_statement_equivalence.py` pins what the merged map contains.
 
-**What both paths share (March 2026):** `latest_activity_report_*` fields (`uid`, `period`, `period_end`, `content`, `user_annotation`) are now populated by both queries. CONSOLIDATED_QUERY fetches the latest ActivityReport via the same OPTIONAL MATCH + ORDER BY + collect-first-one pattern as MEGA_QUERY, and shapes the result with identical key names so `populate_activity_report()` works unchanged on both paths.
+**What both paths share (March 2026):** `latest_activity_report_*` fields (`uid`, `period`, `period_end`, `content`, `user_annotation`) are now populated by both queries. CONSOLIDATED_QUERY fetches the latest ActivityReport via the same OPTIONAL MATCH + ORDER BY + collect-first-one pattern as the MEGA-QUERY's learner-state statement, and shapes the result with identical key names so `populate_activity_report()` works unchanged on both paths.
 
-**What only MEGA_QUERY provides:** Full entity objects (`entities_rich["tasks"]`, `entities_rich["goals"]`, etc.), graph neighborhoods, `cross_domain_insights` (active_insights_raw). These are absent in standard context.
+**What only the MEGA-QUERY provides:** Full entity objects (`entities_rich["tasks"]`, `entities_rich["goals"]`, etc.), graph neighborhoods, `cross_domain_insights` (active_insights_raw). These are absent in standard context.
 
 **`build_rich()` optional `window` parameter:** a report-period token — a trailing window
 (`"7d"`, `"14d"`, `"30d"`, `"90d"`, ending now) or a calendar period (`"2026-W37"` ISO week,

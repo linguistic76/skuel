@@ -1,6 +1,6 @@
 ---
 title: Four-Phase Learning Loop
-updated: 2026-09-05
+updated: 2026-09-14
 status: current
 category: architecture
 related:
@@ -477,7 +477,7 @@ on-demand AI (`LLM`), or admin-written (`HUMAN`).
 **EntityType:** `EntityType.ACTIVITY_REPORT`
 **Structural position:** Cross-domain aggregator — sits above the domain backends by design.
 Reads across all 6 Activity Domains **and** the Curriculum track (KU mastery, LP progress,
-PS progress) in a single MEGA_QUERY round-trip.
+PS progress) in one concurrent MEGA-QUERY round-trip.
 
 **See:** [REPORT_ARCHITECTURE.md](REPORT_ARCHITECTURE.md) —
 canonical taxonomy, all services, API routes, ReportSource table, graph patterns.
@@ -579,11 +579,11 @@ Every node in the chain `Exercise → UserEntry → EntryReport → RevisedExerc
 
 ## How UserContext Feeds the Loop
 
-The Activity Track's data source is `UserContext.build_rich()` — the MEGA_QUERY extended
-with six activity-window CALL{} blocks (one per Activity Domain) plus curriculum state.
+The Activity Track's data source is `UserContext.build_rich()` — the MEGA-QUERY with the
+activity window applied to its six activity sections (one per Activity Domain) plus curriculum state.
 
 ```
-                       MEGA_QUERY
+                       MEGA-QUERY
                            │
                   build_rich(window="30d")
                            │

@@ -1,15 +1,18 @@
 ---
 title: "MEGA-QUERY Sits on the Plan-Cache Cliff"
-updated: 2026-09-13
-status: "Option A landed — MEGA_QUERY is under the edge and every rich-context statement is pinned there by tests/integration/test_user_context_plan_cache.py; Option B (split by section) stays open for the next section that needs adding"
-trigger: "the next read the rich context needs — it is a statement of its own, never a MEGA_QUERY section (the guard fails otherwise); OR any user-facing latency complaint on a cold rich-context build; OR the AuraDB tier changing"
-check: "tests/integration/test_user_context_plan_cache.py — the third back-to-back execution of MEGA_QUERY, SUBMISSION_STATS_QUERY, ENTRY_KNOWLEDGE_APPLIED_QUERY and CONSOLIDATED_QUERY each reads `result_available_after` under 100 ms (cached: 2-5 ms; re-planned: 500+ ms)"
+updated: 2026-09-14
+status: "done — Option A (the learning-loop tail lifted) then Option B (the statement split into the six RICH_CONTEXT_STATEMENTS, merged by execute_mega_query); the cliff is structurally unreachable and every statement is pinned under the edge by tests/integration/test_user_context_plan_cache.py, which derives its parametrization from the registry"
+trigger: "the next read the rich context needs — it is a new RICH_CONTEXT_STATEMENTS entry, never a section appended to an existing statement (the guard fails otherwise); OR the AuraDB tier changing"
+check: "tests/integration/test_user_context_plan_cache.py — the third back-to-back execution of every RICH_CONTEXT_STATEMENTS entry, SUBMISSION_STATS_QUERY, ENTRY_KNOWLEDGE_APPLIED_QUERY and CONSOLIDATED_QUERY reads `result_available_after` under 100 ms (cached: 2-5 ms; re-planned: 500+ ms), and test_every_statement_constant_is_guarded names any *_QUERY constant the parametrization misses"
 registered: "2026-09-13 (measured while diagnosing the Askesis pipeline timeout, PR #1326)"
 ---
 
 # MEGA-QUERY Sits on the Plan-Cache Cliff
 
-*Case file for the [deferred-work.md](deferred-work.md) entry of the same name; move to `done/` when nothing in it remains open.*
+**Status: ✅ DONE — 2026-09-13.** Option A lifted the learning-loop tail (#1330); Option B split
+the remaining statement into the six `RICH_CONTEXT_STATEMENTS` — see *What landed (Option B)*
+at the end. Nothing here remains open; the guard is the registry-derived
+`tests/integration/test_user_context_plan_cache.py`.
 
 **One sentence:** the rich-context MEGA-QUERY (`adapters/persistence/neo4j/user_context_queries.py`,
 1,219 lines, 70 KB) executes in ~40 ms but is **re-planned on every execution** — ~0.5 s on a
@@ -168,6 +171,81 @@ against the testcontainer (the bisect harness was exactly this, ~20 s). A line-c
 `OPTIONAL MATCH`-count assertion is the wrong guard: the edge is cumulative and server-version
 dependent, and the driver summary measures the real thing.
 
+### What landed (Option B)
+
+The remaining 1,013-line statement became six, one per read family, in ONE registry
+(`RICH_CONTEXT_STATEMENTS`, `user_context_queries.py`): **tasks & goals** (`progress_counts`
+spans both, and each projects the other), **habits & events** (the practice pair — an event's
+practiced / reinforced habits), **principles & choices** (the values pair the populator
+integrates), **knowledge** (every user→Ku edge: mastery, viewed, read, bookmarked),
+**curriculum** (enrolled paths, active steps, MOCs), **learner state** (life path, latest
+report, active insights — the family most likely to grow, so a statement of its own). Each
+carries only its own names through its `WITH` lists and returns the partial of the merged map
+it owns; `execute_mega_query` runs them concurrently (each in a session of its own) and merges
+by top-level key into the exact `mega_data` shape the populator reads — the port, the builder,
+the populator, the extractor and the three unit fakes did not change.
+
+**The grouping was decided by measurement.** Prefix statements cut at section boundaries were
+generated mechanically from the old text (the `WITH` lists un-threaded per statement) and timed
+on the container, cold (`db.clearQueryCaches()`, first build) and warm, three repetitions:
+
+| Grouping | statements | largest | cold build | warm build |
+|---|---|---|---|---|
+| one statement (the old shape, regenerated) | 1 | 59 KB | ~2,350 ms | ~40 ms |
+| activities / curriculum / learner state | 3 | 32 KB | ~1,400 ms | ~28 ms |
+| activities halved (by size) / curriculum / learner state | 4 | 14 KB | ~720 ms | ~20 ms |
+| the six read families above | 6 | 9 KB | ~580 ms | ~19 ms |
+| one per domain (tasks+goals, 4 activities, knowledge, paths, learner state) | 8 | 9 KB | ~570 ms | ~18 ms |
+
+The planner's cost is super-linear in statement size — the six-section activities statement
+alone (504 lines) planned in ~2.2 s, the whole old statement in ~2.5 s — so the cold build is
+set by the largest statement and the step that matters is getting every statement to
+~250 lines; finer than that buys ~10 ms and doubles the concurrent sessions. Six is the
+coarsest grouping at that size whose every pairing the codebase already names.
+
+**Before / after, same container, same session, interleaved** (`build_rich_user_context`, five
+builds after `db.clearQueryCaches()`): before `[5386, 72, 53, 50, 53]` and `[2977, 32, 39, 32, 36]` ms;
+after `[1075, 27, 28, 26, 29]` and `[775, 18, 22, 22, 27]` ms. Per statement, cold plan → cached:
+the old statement `[2558, 4, 3]`; tasks & goals `[439, 2, 3]`, habits & events `[402, 3, 3]`,
+principles & choices `[369, 2, 2]`, knowledge `[153, 2, 2]`, curriculum `[295, 10, 2]`, learner
+state `[134, 4, 2]` — the six sum to 1.8 s of planning against 2.6 s, so a single-core server
+that serialized them would still come out ahead. Statement text 59,402 → 39,503 bytes in total
+(the carried names were a third of the old text), 9,420 at most per statement. On AuraDB the
+warm gain is the smaller per-statement upload; the cold gain depends on how many statements it
+plans concurrently — neither was re-measured there.
+
+**Three silent defects the split exposed, each proven against the old text first:**
+
+- **A learner whose every insight was dismissed, actioned or expired got an EMPTY rich context.**
+  The insight predicate was `WITH …, ins WHERE ins IS NULL OR (…)` — a row filter after the
+  grouped aggregation — so no row survived and the whole statement returned nothing
+  (`{"uids": {}, "entities": {}, "rich": {}}` for a user with an active task). The predicate is
+  on the `OPTIONAL MATCH` now, and `execute_mega_query` refuses a half-answer: a row from some
+  statements but not others is a collapsed aggregation and fails the read loudly.
+- **A goal with milestones failed the whole build** with `Neo.ClientError.Statement.TypeError:
+  Type mismatch: expected a map but was String(…)` — `Goal.milestones` is stored as a JSON
+  string (`neo4j_mapper` serializes a list of maps), which the `milestone_progress` projection
+  iterated as a list. The projection had no consumer (`GOALS_CONFIG` says the count is derived
+  from the parsed Goal) and is gone.
+- **`completed_exercise_count` read −1 for every learner with no group-assigned exercise**
+  (`SUBMISSION_STATS_QUERY`): `NOT` over a `FULFILLS_EXERCISE` pattern whose endpoint is null is
+  true, so the unguarded `CASE` collected one phantom map and `0 − 1` followed. Guarded on
+  `ex IS NOT NULL`.
+
+**Guards:** `test_user_context_plan_cache.py` parametrizes over the registry plus the reads
+beside it, and `test_every_statement_constant_is_guarded` fails on any `*_QUERY` constant it
+does not run; `test_rich_context_statement_equivalence.py` seeds a learner in every section and
+pins every field group of the merged map and of the built context to the values the SAME graph
+produced through the pre-split text (captured before it was deleted), plus the two departures
+above; `tests/unit/test_rich_context_statement_merge.py` pins the merge and the row-count
+verdicts with a fake executor; `test_mega_query_null_placeholders.py` scans the module source,
+so every statement stays in its scope.
+
+**Observed, not changed (a decision, not a regression):** the knowledge section's
+`MASTERED|IN_PROGRESS` alternation also matches the `PathStep` the user is `IN_PROGRESS` on, so
+the step lands in `knowledge_mastery` at the 0.1 default; the equivalence test pins that as the
+old semantics.
+
 ## What would settle more
 
 - **Mechanism:** run the 1,147-line cut with `CYPHER runtime=slotted` prepended. Drops to ms →
@@ -193,12 +271,12 @@ column now takes an explicit `NEO4J_URI` on a throwaway harness.
 
 ## Related
 
-- `adapters/persistence/neo4j/user_context_queries.py` — `MEGA_QUERY`, `CONSOLIDATED_QUERY`,
+- `adapters/persistence/neo4j/user_context_queries.py` — `RICH_CONTEXT_STATEMENTS`, `CONSOLIDATED_QUERY`,
   `UserContextQueryExecutor.execute_mega_query`
 - `core/services/user/user_context_builder.py` — `build_rich_user_context` (the November 2025
   one-query rationale in its docstring), the ZPD capstone
 - `core/services/user/user_context_cache.py` — the 300 s TTL and the invalidation policy
 - `/docs/architecture/UNIFIED_USER_ARCHITECTURE.md` — the UserContext contract the query serves
-- [done/askesis-extraction-match-unverified.md](done/askesis-extraction-match-unverified.md) — the
+- [askesis-extraction-match-unverified.md](askesis-extraction-match-unverified.md) — the
   sibling finding from the same investigation (its test landed; the design half lives on in
-  [askesis-extraction-lookup-shape.md](askesis-extraction-lookup-shape.md))
+  [../askesis-extraction-lookup-shape.md](../askesis-extraction-lookup-shape.md))

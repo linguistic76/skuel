@@ -1,6 +1,6 @@
 ---
 title: Report Architecture
-updated: 2026-09-13
+updated: 2026-09-14
 status: current
 category: architecture
 version: 3.2.0
@@ -370,7 +370,7 @@ Tasks + Goals + Habits + Events + Choices + Principles
 ACTIVITY_REPORT node
 ```
 
-`ProgressReportGenerator` accepts a `UserContextBuilder` (primary data source). The primary data comes from `context_builder.build_rich(user_uid, window=...)` — MEGA_QUERY extended with six activity-window CALL{} blocks. Per SKUEL's architecture rule: **domain-specific Cypher belongs on the domain backend; cross-domain aggregation stays in services.** `ProgressReportGenerator` is the cross-domain aggregation service — it sits above the domain backends by design.
+`ProgressReportGenerator` accepts a `UserContextBuilder` (primary data source). The primary data comes from `context_builder.build_rich(user_uid, window=...)` — the MEGA-QUERY with the activity window applied to its six activity sections. Per SKUEL's architecture rule: **domain-specific Cypher belongs on the domain backend; cross-domain aggregation stays in services.** `ProgressReportGenerator` is the cross-domain aggregation service — it sits above the domain backends by design.
 
 `ActivityReportBackend` owns the ActivityReport entity's persistence and privacy audit queries (get_history, annotate, get_annotation, get_admin_snapshots, get_shares_granted). `ProgressReportGenerator` is the cross-domain *aggregation* layer that builds report *content* — the backend handles *storage*. The `build_rich()` result (`context.entities_rich`, `context.knowledge_units_rich`, `context.enrolled_paths_rich`, `context.active_path_steps_rich`) gives the full cross-domain picture in a single Neo4j round-trip.
 
@@ -430,7 +430,7 @@ queue's missing input) and the privacy-transparency audit surface
 Admin selects user + time window
         ↓
 GET /api/activity-review/snapshot → ActivityReportService.create_snapshot(admin_uid=...)
-        ↓  (calls context_builder.build_rich(user_uid, window=...) — MEGA_QUERY with activity window)
+        ↓  (calls context_builder.build_rich(user_uid, window=...) — the MEGA-QUERY with activity window)
         ↓  emits ActivitySnapshotAccessed event → audit trail
 Admin reads Tasks, Goals, Habits, Events, Choices, Principles summary
         ↓
@@ -462,7 +462,7 @@ Admin follows admin-initiated path above
 When `openai_service` is available, the generator:
 
 0. Resolves `time_period` through `core/utils/report_periods.py` — the one vocabulary: a trailing window (`7d`…`90d`, ending now) or a calendar period (`2026-W37` ISO week, `2026-09` month) with a fixed end. An unknown or non-canonical token (`02026-09`, `2026-W7`) is a validation failure, and so is a calendar period that has not started (nothing to count yet); nothing defaults. The generator's mapper and the admin snapshot share one eligibility (`core/services/report/period_eligibility.py`): a closed period lists only what existed by its end, counts a task completed in it or open at its end, and reports no live node state at all — no status, habit streak, goal progress figure, event type or milestone flag, principle strength or alignment (a node's live state is the cutoff's only while the cutoff is now; the counted facts — completed in the period, attended — stay, and the trend split, the milestone count and the recommendations built on live state are then unknown, never zero). The same cutoff rule holds for the current-only analyses: a closed period's report carries no active insights, life-path alignment, ZPD summary or knowledge suggestions — only the domain trends, the cross-domain patterns windowed by the period's dates, and the recommendations built on the trends. A partial report's title ends at its cutoff and says "(partial)", since the recent-report cards and hub previews show nothing else. A calendar period's comparison is with the period immediately before it — the month before a month, the ISO week before a week — through that period's own reusable report, never a report of another kind that ends earlier. The DATA cutoff is `min(now, period_end)`: a report of a period still open is *partial* (`data_cutoff` < `period_end`, `metadata["is_partial"]`), re-opened by the calendar door until the period closes and then superseded by the final one; a partial report tells the LLM the period is open ("September 2026 so far (counted through Sep 12, 2026)") and carries no period-over-period comparison — the final report does
-1. Calls `context_builder.build_rich(user_uid, window=time_period)` — the MEGA_QUERY selects open entities plus those touched since the period's start (`updated_at`, coerced, applied to the ROW, no upper bound — the mapper's own stamps are the bound); `context.entities_rich` contains all domains (same method used by `ActivityReportService.create_snapshot()`)
+1. Calls `context_builder.build_rich(user_uid, window=time_period)` — the MEGA-QUERY selects open entities plus those touched since the period's start (`updated_at`, coerced, applied to the ROW, no upper bound — the mapper's own stamps are the bound); `context.entities_rich` contains all domains (same method used by `ActivityReportService.create_snapshot()`)
 2. Cross-references active Insights; reads per-habit `HabitCompletion` counts in [start, cutoff] (`habits_completed` counts habits with at least one persisted completion — never `last_completed`, which every later completion overwrites); `goals_progressed` and `principles_reviewed` read the rows' own `progress_history` / `alignment_history` entries dated in the period the same way
 3. Checks cooldown per (user, period): a report for the same `time_period` within the last `ReportTimePeriod.MIN_REPORT_COOLDOWN_MINUTES` (60 min) is a business error rather than an LLM call — except the final report of a closed period whose newest report is partial, which is never blocked by that partial
 4. Fetches `user_annotation` from the most recent prior `ActivityReport` (`period_end < current_period_start`) via `_fetch_previous_annotation()`
@@ -601,7 +601,7 @@ User annotates report (additive or revision mode)
 
 ## See Also
 
-- [LEARNING_LOOP_ARCHITECTURE.md](LEARNING_LOOP_ARCHITECTURE.md) — Entry-point overview: two tracks, four phases, how MEGA_QUERY feeds the loop
+- [LEARNING_LOOP_ARCHITECTURE.md](LEARNING_LOOP_ARCHITECTURE.md) — Entry-point overview: two tracks, four phases, how the MEGA-QUERY feeds the loop
 - [ADR-038: Content Sharing Model](../decisions/ADR-038-content-sharing-model.md)
 - [ADR-040: Teacher Exercise Workflow](../decisions/ADR-040-teacher-exercise-workflow.md)
 - [Entity Type Architecture](ENTITY_TYPE_ARCHITECTURE.md)

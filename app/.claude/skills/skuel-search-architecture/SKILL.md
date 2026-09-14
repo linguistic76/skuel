@@ -268,7 +268,7 @@ offers. And treat any published figure as a dated snapshot: re-measure, never re
 
 ## UserContext and Search
 
-SearchRouter and BaseService search services are independent of UserContext. They run their own domain queries and do not consume MEGA_QUERY or CONSOLIDATED_QUERY output. If you need to personalize or enrich search results with user state, the right approach is:
+SearchRouter and BaseService search services are independent of UserContext. They run their own domain queries and do not consume MEGA-QUERY or CONSOLIDATED_QUERY output. If you need to personalize or enrich search results with user state, the right approach is:
 
 ```python
 # Get user state (standard context is sufficient for most search personalization)
@@ -281,9 +281,9 @@ context = await builder.build_rich(user_uid)  # Full entity + graph — slower (
 results = await search_router.search(EntityType.TASK, query)
 ```
 
-**Key distinction:** `MEGA_QUERY` (via `build()` and `build_rich(window=...)`) builds the user's *current state*. SearchRouter queries are *content searches* across entity properties. They solve different problems and compose independently.
+**Key distinction:** the MEGA-QUERY (via `build_rich(window=...)`; `build()` runs `CONSOLIDATED_QUERY`) builds the user's *current state*. SearchRouter queries are *content searches* across entity properties. They solve different problems and compose independently.
 
-**See:** `@user-context-intelligence` skill for MEGA_QUERY vs CONSOLIDATED_QUERY details.
+**See:** `@user-context-intelligence` skill for MEGA-QUERY vs CONSOLIDATED_QUERY details.
 
 ## Related Skills
 

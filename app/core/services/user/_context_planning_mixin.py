@@ -148,13 +148,9 @@ class _ContextPlanningMixin:
         - Cache miss: Builds context with MEGA-QUERY and caches result
         - Auto-invalidation: Domain events (TaskCompleted, GoalAchieved, etc.) clear cache
 
-        **ARCHITECTURE REFACTOR (November 24, 2025):**
-        This now uses the TRUE MEGA-QUERY that fetches EVERYTHING in a single database query.
-
-        **Before:** 2-3 queries (standard context + MEGA-QUERY)
-        **After:** 1 query (TRUE MEGA-QUERY) with caching
-
-        This single comprehensive query fetches:
+        **ARCHITECTURE:** the MEGA-QUERY (``UserContextBuilder.build_rich``) is
+        one concurrent round-trip — six plan-cached statements merged into one
+        map, plus the reads beside them — and it fetches:
         1. **Standard context fields** (UIDs, relationships, metadata)
            - active_task_uids, active_goal_uids, active_habit_uids
            - habit_streaks, knowledge_mastery, goal_progress
@@ -213,10 +209,10 @@ class _ContextPlanningMixin:
             )
 
         # ========================================================================
-        # STEP 2: Cache miss - build from database (MEGA_QUERY)
+        # STEP 2: Cache miss - build from database (the MEGA-QUERY)
         # ========================================================================
         # Use builder-owned user resolution to avoid duplicating lookup/error handling
-        # and keep MEGA_QUERY orchestration in a single place.
+        # and keep MEGA-QUERY orchestration in a single place.
         context_result = await self.context_builder.build_rich(
             user_uid, min_confidence=min_confidence
         )

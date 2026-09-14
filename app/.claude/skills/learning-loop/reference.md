@@ -542,14 +542,14 @@ annotation_updated_at: datetime | None
 **Structural position:** Cross-domain aggregator. Cannot fit the leaf domain model
 because it reads across all 6 Activity Domain backends **and** the Curriculum track
 (KU mastery, LP progress, active PS). `ProgressReportGenerator` accepts a
-`UserContextBuilder` and calls `build_rich(user_uid, window=...)` — MEGA_QUERY
-with activity window CALL{} blocks. This gives the generator access to full graph
+`UserContextBuilder` and calls `build_rich(user_uid, window=...)` — the MEGA-QUERY
+with the activity window applied to its activity sections. This gives the generator access to full graph
 neighbourhoods across both tracks. `ActivityReportService.create_snapshot()` uses
 the same method.
 
 **LLM generation flow:**
 ```
-1. Call `context_builder.build_rich(user_uid, window=...)` — MEGA_QUERY with
+1. Call `context_builder.build_rich(user_uid, window=...)` — the MEGA-QUERY with
    activity window; `context.entities_rich` covers all 6 Activity Domains;
    `context.knowledge_units_rich`, `context.enrolled_paths_rich`,
    `context.active_path_steps_rich` cover the Curriculum track

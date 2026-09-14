@@ -1,6 +1,6 @@
 ---
 title: "Askesis Entity-Extraction Match Is Unverified"
-updated: 2026-09-13
+updated: 2026-09-14
 status: "done — `test_ask_endpoint_entity_extraction` asks the question that names the in-progress PathStep and asserts the match and `has_citations is True`; the two design observations moved to askesis-extraction-lookup-shape.md"
 trigger: "any change to EntityExtractor, to known_or_engaged_ku_uids, to the MEGA-QUERY KNOWLEDGE section, or to the PREREQUISITE / HIERARCHICAL citations branch of QueryProcessor — or the next time test_askesis_ask_endpoint.py is opened for any reason"
 check: "grep -c 'Extracted 1 entities' in a `-s` run of tests/integration/test_askesis_ask_endpoint.py — exactly one live question logs a match, and the module asserts on `mentioned_entities` and `has_citations`"
@@ -134,5 +134,5 @@ recorded so nobody reads a match as precision.)
 - [../askesis-intent-classification-activation.md](../askesis-intent-classification-activation.md) —
   the intent side of the same pipeline; the `PREREQUISITE` exemplar shapes live in
   `core/services/askesis/intent_classifier.py`.
-- [../mega-query-plan-cache-cliff.md](../mega-query-plan-cache-cliff.md) — the sibling finding from
+- [mega-query-plan-cache-cliff.md](mega-query-plan-cache-cliff.md) — the sibling finding from
   the same investigation; the KNOWLEDGE section it bisects is the one that feeds these sets.

@@ -202,31 +202,46 @@ def test_batch_cross_domain_context_drops_the_dead_funds_arms() -> None:
     assert "collect(DISTINCT habit)" not in source
 
 
-def test_the_mega_query_composition_token_is_actually_substituted() -> None:
+def test_the_rich_context_composition_token_is_actually_substituted() -> None:
     """An unsubstituted placeholder is a silent zero, not a syntax error.
 
-    ``MEGA_QUERY`` is a plain string (Cypher map literals everywhere, so an
-    f-string would mean doubling ~1300 lines of braces), and shares the one
-    canonical composition alternation by ``.replace()`` of a token. That buys
-    the sharing at the cost of a new failure mode: a token that never gets
-    substituted — a typo, a rollup added to a different string constant, a
-    dropped ``.replace()`` — leaves ``[:__COMPOSITION_EDGES__]`` in the query.
+    The rich-context statements are plain strings (Cypher map literals
+    everywhere, so an f-string would mean doubling every brace), and share the
+    one canonical composition alternation by ``.replace()`` of a token. That
+    buys the sharing at the cost of a new failure mode: a token that never gets
+    substituted — a typo, a rollup added to a statement whose constant lacks
+    the ``.replace()`` — leaves ``[:__COMPOSITION_EDGES__]`` in the query.
     Neo4j does not error on an unknown relationship type; it matches zero rows.
     Every learner would then read as having applied nothing, which is precisely
     the failure this whole area keeps producing.
 
-    So this asserts on the BUILT queries, never the source text — both the
-    MEGA-QUERY and the applied-knowledge statement that runs beside it.
+    So this asserts on the BUILT statements, never the source text — every
+    registry entry and the applied-knowledge statement that runs beside them.
+    The rollup lives with the activity sections: one per activity domain, so
+    the count is pinned per statement and sums to five.
     """
     token = user_context_queries._COMPOSITION_EDGES_TOKEN
     rollup = f"[:{CURRICULUM_COMPOSITION_EDGES}]->(k:Ku)"
+    rollups_per_statement = {
+        "tasks_and_goals": 1,
+        "habits_and_events": 2,
+        "principles_and_choices": 2,
+        "knowledge": 0,
+        "curriculum": 0,
+        "learner_state": 0,
+    }
 
-    assert token not in user_context_queries.MEGA_QUERY, (
-        "a composition token survived into the built MEGA-QUERY — it will match zero rows"
-    )
-    assert user_context_queries.MEGA_QUERY.count(rollup) == 5, (
-        "the five activity→Ku rollups must all traverse the shared composition triple"
-    )
+    assert [name for name, _ in user_context_queries.RICH_CONTEXT_STATEMENTS] == list(
+        rollups_per_statement
+    ), "the registry and the pinned rollup census name the same statements, in order"
+    for name, query in user_context_queries.RICH_CONTEXT_STATEMENTS:
+        assert token not in query, (
+            f"a composition token survived into the built {name} statement — it will match zero rows"
+        )
+        assert query.count(rollup) == rollups_per_statement[name], (
+            f"{name}: the activity→Ku rollups must all traverse the shared composition triple"
+        )
+    assert sum(rollups_per_statement.values()) == 5, "one rollup per activity domain"
 
     assert token not in user_context_queries.ENTRY_KNOWLEDGE_APPLIED_QUERY, (
         "a composition token survived into the built applied-knowledge query"
