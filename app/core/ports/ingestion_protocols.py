@@ -182,12 +182,13 @@ class IngestionWriteOperations(Protocol):
 
         The vault door's copy of ``Task.with_creation_due_date``: a task created
         with neither ``due_date`` nor ``scheduled_date`` is due the day it is
-        created (its ``created_at`` day, or an earlier ``completion_date``). The
-        bulk upsert never builds a ``Task``, so the caller names the uids the
-        upsert reported as created and the rule is applied to the node. The
-        write is conditional on the node still being undated when it lands — an
-        app writer may have dated it since — and a node with no ``created_at``
-        is left alone.
+        created (its ``created_at`` day, or, on a completed task, an earlier
+        ``completion_date``). The bulk upsert never builds a ``Task``, so the
+        caller names every Task uid the batch persisted and the write's own
+        guard selects the undated ones — a new file authored without dates, or a
+        re-sync that dropped its last date line (the vault's equivalent of the
+        app's refusal to clear the last date). A node an app writer has dated
+        since is a no-op; a node with no ``created_at`` is left alone.
         """
         ...
 

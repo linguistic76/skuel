@@ -97,19 +97,6 @@ def _prior_statuses(
     return prior
 
 
-def _created_uids(
-    # boundary: raw Neo4j records — see ``_prior_statuses``.
-    rows: list[dict[str, Any]],
-) -> frozenset[str]:
-    """The uids whose row carries the node template's ``created`` marker as true.
-
-    Read from the MERGE branch the write itself took, never inferred from the
-    prior status: a re-synced node that carries no ``status`` property reports
-    a null prior exactly like a fresh create does.
-    """
-    return frozenset(str(row["uid"]) for row in rows if row.get("uid") and row.get("created"))
-
-
 def build_node_upsert_template(
     entity_label: str,
     base_label: str | None,
@@ -121,9 +108,7 @@ def build_node_upsert_template(
     are excluded in Python (``batch_preparer``) so relationship sources never
     leak onto the node as properties.
 
-    Returns one row per item carrying ``uid``, ``created`` (this write's own
-    MERGE branch — the one honest "is new" signal, since a re-synced node with
-    no ``status`` property reports a null prior too) and the node's **prior status** —
+    Returns one row per item carrying ``uid`` and the node's **prior status** —
     the status the node held before this ingest overwrote it, read between the
     ``MERGE`` and the property write and therefore under the node's write-lock
     (ADR-087: a status transition is decided BY the write, never before it).
@@ -156,7 +141,7 @@ def build_node_upsert_template(
 // The stale-owner DELETE enforces the single-owner invariant on re-ingest:
 // when the resolved owner changes (or an out-of-band edge exists), the
 // former owner must not keep access through a leftover :OWNS edge.
-WITH item, props, n, prior_status, created
+WITH item, props, n, prior_status
 CALL (n, props) {
   WITH n, props.user_uid AS _owner_uid
   WHERE _owner_uid IS NOT NULL
@@ -195,7 +180,7 @@ FOREACH (_ IN CASE WHEN created THEN [] ELSE [1] END |
       n.updated_at = datetime())
 REMOVE n.{_CREATE_MARKER}
 {owns_clause}
-RETURN item.uid AS uid, prior_status, created
+RETURN item.uid AS uid, prior_status
 """
     return CypherTemplate(
         name=f"{entity_label.lower()}_node_upsert",
@@ -340,7 +325,6 @@ class BulkUpsertBackend:
                         relationships_created=0,
                         errors=[],
                         prior_status_by_uid=_prior_statuses(stats.get("rows", [])),
-                        created_uids=_created_uids(stats.get("rows", [])),
                     )
                 )
 
@@ -543,8 +527,7 @@ class BulkUpsertBackend:
                 nodes_updated=nodes.nodes_updated,
                 relationships_created=rels_result.value.relationships_created,
                 errors=[],
-                # The prior statuses and creates belong to phase 1; phase 2 writes only edges.
+                # The prior statuses belong to phase 1; phase 2 writes only edges.
                 prior_status_by_uid=nodes.prior_status_by_uid,
-                created_uids=nodes.created_uids,
             )
         )

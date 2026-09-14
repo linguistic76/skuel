@@ -84,19 +84,17 @@ revealed `POST /api/goals/create-with-scheduling` was LIVE on one of them, so
   whether two gate-flavors per domain should remain is a separate design
   question.
 
-**Still open — probably functional but bypassing the primitives (DTO
-`to_dict()` carries uid/user_uid; no events published, no embedding requested,
-no admission guard):**
+**Closed — both orchestration producers now create through their domain's
+primitive (the #969 treatment), not the backend:**
+- `GoalTaskGenerator.generate_tasks_for_goal` (#1335) takes the Tasks facade and
+  persists through its entity door (`TasksCoreService.create`) — the creation
+  rule, FULFILLS_GOAL / REINFORCES_HABIT (the habit link rides on the entity as
+  `reinforces_habit_uid`), `TaskCreated` and the embedding request all reach
+  generated tasks. Surfaced by Codex as the creation rule's last exempt writer.
 - `HabitEventScheduler.schedule_events_for_habit` and
-  `schedule_streak_maintenance` — `events_backend.create_event(...to_dict())`
+  `schedule_streak_maintenance` (the PR after #1335) take the Events facade and
+  persist through `EventsCoreService.create` — the duration rule,
+  REINFORCES_HABIT, `CalendarEventCreated` and the embedding request all reach
+  scheduled events.
 
-**Done (#1335):** `GoalTaskGenerator.generate_tasks_for_goal` now takes the Tasks
-facade and persists through its entity door (`TasksCoreService.create`) — the
-creation rule, FULFILLS_GOAL / REINFORCES_HABIT (the habit link rides on the
-entity as `reinforces_habit_uid`), `TaskCreated` and the embedding request all
-reach generated tasks. Surfaced by Codex as the creation rule's last exempt
-writer; the same #969 treatment is what the scheduler still owes.
-
-The scheduler is a live-documented feature, so the fix direction is the #969
-treatment — route through the domain's core primitive — not deletion. Decide as
-its own arc.
+Nothing in this section remains open.

@@ -104,7 +104,7 @@ Also handles: duration calibration (EMA on User node), cascade impact analysis, 
 | `user_uid` | `str` | Owner user (indexed) |
 | `title` | `str` | Task title |
 | `description` | `str?` | Optional description |
-| `due_date` | `date?` | When task is due (indexed). **Creation rule:** a task created with neither `due_date` nor `scheduled_date` is due the day it is created — `Task.with_creation_due_date()` fills this from `created_at` (or an earlier `completion_date`, for a historical `✅` line), applied on the entity by `TasksCoreService._create_with_links` (both service doors) and the template spawn (`TASK_SPEC.creation_rule`), and on the node by the vault door's post-persist pass (`IngestionWriteBackend.apply_task_creation_due_dates`, for the uids the upsert reports as created). The day lens and calendar place a task by these two fields, so an undated task would render on no day. `scripts/backfill_task_creation_due_dates.py` applies the same expression to whatever the graph already holds |
+| `due_date` | `date?` | When task is due (indexed). **Creation rule:** a task created with neither `due_date` nor `scheduled_date` is due the day it is created — `Task.with_creation_due_date()` fills this from `created_at` (or an earlier `completion_date`, for a historical `✅` line), applied on the entity by `TasksCoreService._create_with_links` (both service doors) and the template spawn (`TASK_SPEC.creation_rule`), and on the node by the vault door's post-persist pass (`IngestionWriteBackend.apply_task_creation_due_dates`, over every task the batch persisted — a re-sync that drops the last date line has the day restored). The day lens and calendar place a task by these two fields, so an undated task would render on no day; the update rule (below) keeps it that way. `scripts/backfill_task_creation_due_dates.py` applies the same expression to whatever the graph already holds |
 | `scheduled_date` | `date?` | When task is scheduled (indexed). A work date without a deadline is a date — the creation rule leaves it alone (quick-add creates this shape) |
 | `completion_date` | `date?` | When task was completed |
 | `duration_minutes` | `int` | Estimated duration (default: 30) |
@@ -330,15 +330,25 @@ completions in the window reports `0.0`; the cumulative figures beside it are un
 
 ## Update Validation
 
-Tasks carries **one** update business rule: the priority of an **overdue** task cannot be
-lowered (`TasksCoreService._validate_update`). Raising it, or lowering it on a task that is
-not overdue, is ordinary re-planning. "Overdue" is `Task.is_overdue()` — past `due_date` and
-not completed.
+Tasks carries **two** update business rules (`TasksCoreService._validate_update`):
 
-`update_task` invokes the hook **explicitly**, the way `HabitsCoreService.update_habit` does.
-The facade overrides `update` / `update_for_user` and routes both to `update_task`, so the
-inherited CRUD hook never fires for Tasks — which is why this rule was dead code until
-2026-08-23 (cascade-idempotency arc, correction #14).
+1. The priority of an **overdue** task cannot be lowered. Raising it, or lowering it on a
+   task that is not overdue, is ordinary re-planning. "Overdue" is `Task.is_overdue()` — past
+   `due_date` and not completed.
+2. **A task keeps a day** (ruled 2026-09-14): an update may not leave the task with neither
+   `due_date` nor `scheduled_date` — the day lens and calendar place a task by exactly those
+   two fields. Clearing one while the other stands, or clearing one while setting the other
+   in the same update, is allowed; clearing the last one is refused with a 400 (the edit form
+   re-renders with the banner).
+
+`update_task` invokes the hook **explicitly**, the way `HabitsCoreService.update_habit` does,
+behind an advisory pre-read gated on the only shapes that can fail it — a priority change, or
+a date **clear** (setting a date can never leave a task undated, so a move or a reschedule
+reads nothing). The facade overrides `update` / `update_for_user` and routes both to
+`update_task`, so the inherited CRUD hook never fires for Tasks — which is why rule 1 was dead
+code until 2026-08-23 (cascade-idempotency arc, correction #14). The pre-read is advisory the
+way rule 1's is: the guard speaks prior-*status* only (ADR-087), so two concurrent partial
+updates each clearing a different date could both pass; the backfill script is the remedy.
 
 **Terminal ≠ frozen.** A second rule refusing *every* change to a
 completed/cancelled/archived task was declared here and never had a caller; it was deleted

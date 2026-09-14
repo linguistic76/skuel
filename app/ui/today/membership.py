@@ -10,10 +10,12 @@ The Today surface renders two task surfaces:
   on the live current day (``build_context`` gates that); the predicate itself
   is day-agnostic so the defer guard applies it verbatim.
 
-Every created task has a day to render on: creation fills ``due_date`` with
-the creation day when neither date is supplied (``Task.with_creation_due_date``
-— applied by every creator, the vault door included). A task absent from every
-lens has had both dates cleared since.
+Every task has a day to render on — an invariant, not a hope: creation fills
+``due_date`` with the creation day when neither date is supplied
+(``Task.with_creation_due_date`` — applied by every creator, the vault door
+included), and an update may not clear the last date
+(``TasksCoreService._validate_update``). A task absent from every lens reached
+the graph out-of-band; ``scripts/backfill_task_creation_due_dates.py`` is the remedy.
 
 Both surfaces exclude the same statuses (today: exactly ``COMPLETED`` —
 whether dated CANCELLED/FAILED tasks *should* render is lens-status truth,

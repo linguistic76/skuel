@@ -63,7 +63,7 @@ def _create_orchestration_services(
     goals_backend: Any,
     tasks_service: Any,
     habits_backend: Any,
-    events_backend: Any,
+    events_service: Any,
 ) -> dict[str, Any]:
     """Create cross-domain orchestration services.
 
@@ -78,7 +78,8 @@ def _create_orchestration_services(
         tasks_service: TasksService — the generator persists through its entity
             door (the one create path for Tasks), never a backend handle
         habits_backend: UniversalNeo4jBackend[Habit] (label=NeoLabel.HABIT)
-        events_backend: UniversalNeo4jBackend[Event] (label=NeoLabel.EVENT)
+        events_service: EventsService — the scheduler persists through its entity
+            door (the one create path for Events), never a backend handle
     """
     from core.services.goal_task_generator import GoalTaskGenerator
     from core.services.habit_event_scheduler import HabitEventScheduler
@@ -88,7 +89,7 @@ def _create_orchestration_services(
             goals_backend=goals_backend, tasks_service=tasks_service
         ),
         "habit_event_scheduler": HabitEventScheduler(
-            habits_backend=habits_backend, events_backend=events_backend
+            habits_backend=habits_backend, events_service=events_service
         ),
     }
 

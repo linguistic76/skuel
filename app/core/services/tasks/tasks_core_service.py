@@ -19,6 +19,7 @@ Handles basic task lifecycle management.
 from __future__ import annotations
 
 import dataclasses
+from collections.abc import Mapping
 from datetime import date
 from typing import TYPE_CHECKING, Any, Final
 
@@ -110,6 +111,19 @@ class WrittenLinks:
 DEFAULT_PROGRESS_WEIGHT: Final = 1.0
 
 
+#: The two fields the day lens and the calendar place a task by.
+_LENS_DATE_FIELDS: Final = ("due_date", "scheduled_date")
+
+
+def _clears_a_date(changes: Mapping[str, Any]) -> bool:
+    """Whether a materialized patch clears ``due_date`` or ``scheduled_date``.
+
+    The one shape that can leave a task undated: a key present with ``None``
+    (``TaskUpdateIntent`` omits untouched fields, so presence means intent).
+    """
+    return any(field in changes and changes[field] is None for field in _LENS_DATE_FIELDS)
+
+
 class TasksCoreService(
     HierarchyReadMixin["TasksOperations", Task],
     BaseService["TasksOperations", Task, TaskUpdateIntent],
@@ -182,18 +196,26 @@ class TasksCoreService(
 
     def _validate_update(self, current: Task, updates: TaskUpdateIntent) -> Result[None]:
         """
-        Validate task updates with the domain's one business rule.
+        Validate task updates with the domain's two business rules.
 
-        Business Rule — overdue-priority protection: the priority of an overdue task
-        cannot be lowered. Lowering it sweeps a missed deadline under the rug instead
-        of facing it; raising it, or lowering it on a task that is not overdue, is
+        Rule 1 — overdue-priority protection: the priority of an overdue task cannot
+        be lowered. Lowering it sweeps a missed deadline under the rug instead of
+        facing it; raising it, or lowering it on a task that is not overdue, is
         ordinary re-planning and is allowed.
+
+        Rule 2 — a task keeps a day: an update may not leave the task with neither
+        ``due_date`` nor ``scheduled_date``. The day lens and the calendar place a
+        task by exactly those two fields, so an undated task renders on no day —
+        which is why creation fills one in (``Task.with_creation_due_date``), and
+        why an update that would clear the last one is refused rather than let the
+        task vanish. Moving a date, clearing one while the other stands, or clearing
+        one while setting the other in the same update are all allowed (ruled 2026-09-14).
 
         ``update_task`` calls this explicitly — it is NOT reached through the inherited
         CRUD hook, because the facade overrides ``update`` / ``update_for_user`` and
         routes both to ``update_task``. That is why the hook had no production caller at
         all until it was wired here (cascade-idempotency arc, correction #14). The
-        override is kept so the rule still applies if the generic CRUD is ever entered
+        override is kept so the rules still apply if the generic CRUD is ever entered
         directly. Same shape as Habits (``update_habit`` → ``_validate_habit_update``).
 
         A second rule — terminal-state protection, refusing *every* change to a
@@ -212,10 +234,31 @@ class TasksCoreService(
             Result.ok(None) if valid, Result.fail() with a validation error if not
         """
         changes = updates.to_changes()
-        # ``Task.is_overdue()`` is the domain's own definition of overdue and excludes
-        # completed tasks. That matters now that terminal tasks are editable: a raw
-        # ``due_date < today`` here would invent a NEW prohibition on past-due completed
-        # tasks, which the deleted terminal rule had merely made unreachable.
+
+        # Rule 2. The post-update value of each date is the patch's when present
+        # (``None`` = an explicit clear), else the stored one; only a patch that
+        # clears can reach the undated state, which is the gate ``update_task``
+        # pre-reads on (``_clears_a_date``).
+        if _clears_a_date(changes):
+            due_after = changes.get("due_date", current.due_date)
+            scheduled_after = changes.get("scheduled_date", current.scheduled_date)
+            if due_after is None and scheduled_after is None:
+                cleared = "due_date" if "due_date" in changes else "scheduled_date"
+                return Result.fail(
+                    Errors.validation(
+                        message=(
+                            "A task needs a due date or a scheduled date — set one before "
+                            "clearing the other"
+                        ),
+                        field=cleared,
+                        value=None,
+                    )
+                )
+
+        # Rule 1. ``Task.is_overdue()`` is the domain's own definition of overdue and
+        # excludes completed tasks. That matters now that terminal tasks are editable: a
+        # raw ``due_date < today`` here would invent a NEW prohibition on past-due
+        # completed tasks, which the deleted terminal rule had merely made unreachable.
         if "priority" not in changes or not current.is_overdue():
             return Result.ok(None)
 
@@ -904,15 +947,22 @@ class TasksCoreService(
         # copy of the patch, and the completion stamp now rides the guard, not ``changes``).
         updated_fields = list(changes.keys())
 
-        # Advisory pre-read — for the overdue-priority rule and the priority-change event
-        # only. The status verdicts used to need it too; they now come from the write
-        # itself, so a status-only update reads nothing before writing.
+        # Advisory pre-read — for the two ``_validate_update`` rules and the
+        # priority-change event only: a priority change (rule 1) or a date CLEAR
+        # (rule 2 — setting a date can never leave the task undated, so a move or a
+        # reschedule reads nothing). The status verdicts used to need it too; they
+        # now come from the write itself, so a status-only update reads nothing
+        # before writing. Advisory means what it does for rule 1: the verdict is
+        # taken from a read the write does not hold a lock over (the guard speaks
+        # prior-STATUS only — ADR-087), so two concurrent partial updates each
+        # clearing a different date could both pass; the backfill script is the
+        # remedy for a task that state ever strands.
         old_task = None
-        if "priority" in changes:
+        if "priority" in changes or _clears_a_date(changes):
             old_result = await self.backend.get(task_uid)
             if old_result.is_error:
                 # Fail fast: a failed read must not be silently read as "no rule applies"
-                # — the overdue-priority rule below is gated on the prior priority/due_date.
+                # — both rules below are gated on the prior task.
                 return Result.fail(old_result)
             if old_result.value:
                 old_task = self._to_domain_model(old_result.value, TaskDTO, Task)
@@ -921,7 +971,8 @@ class TasksCoreService(
         # routes ``update`` / ``update_for_user`` to this method, so the inherited CRUD
         # hook that would otherwise run it is unreachable for Tasks — the reason its one
         # rule was dead until now (cascade-idempotency arc, correction #14). Only a
-        # priority change can fail it, and ``old_task`` is in hand for exactly that case.
+        # priority change or a date clear can fail it, and ``old_task`` is in hand for
+        # exactly those cases.
         if old_task is not None:
             validation = self._validate_update(old_task, intent)
             if validation.is_error:

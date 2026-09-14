@@ -8,7 +8,7 @@ and learning reinforcement needs. Uses UserContext for intelligent scheduling.
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from datetime import date, time, timedelta
 from enum import Enum
 from typing import TYPE_CHECKING
@@ -27,7 +27,8 @@ from core.utils.logging import get_logger
 from core.utils.result_simplified import Result
 
 if TYPE_CHECKING:
-    from core.ports import EventsOperations, HabitsOperations
+    from core.ports import HabitsOperations
+    from core.services.events_service import EventsService
     from core.services.user import UserContext
 
 
@@ -74,7 +75,7 @@ class HabitEventScheduler:
     def __init__(
         self,
         habits_backend: HabitsOperations,
-        events_backend: EventsOperations,
+        events_service: EventsService,
         config: EventSchedulingConfig | None = None,
         relationship_service=None,
     ) -> None:
@@ -83,21 +84,26 @@ class HabitEventScheduler:
 
         Args:
             habits_backend: Backend for habit operations,
-            events_backend: Backend for event operations,
+            events_service: The Events facade — scheduled events are persisted
+                through its entity door, the one create path for Events
+                (``EventsCoreService.create``): the duration rule, the
+                REINFORCES_HABIT edge, ``CalendarEventCreated`` and the embedding
+                request all happen there and nowhere else. A backend handle would
+                skip every one of them.
             config: Scheduling configuration,
             relationship_service: Service for fetching habit relationships
 
         Note:
-            Context invalidation now happens via event-driven architecture.
-            Created events trigger domain events which invalidate context.
+            Context invalidation happens via the ``CalendarEventCreated`` event the
+            create primitive publishes.
         """
         if not habits_backend:
             raise ValueError("Habits backend is required")
-        if not events_backend:
-            raise ValueError("Events backend is required")
+        if not events_service:
+            raise ValueError("Events service is required")
 
         self.habits_backend = habits_backend
-        self.events_backend = events_backend
+        self.events_service = events_service
         self.config = config or EventSchedulingConfig()
         self.relationships = relationship_service
         self.logger = get_logger("skuel.services.habit_event_scheduler")
@@ -184,25 +190,23 @@ class HabitEventScheduler:
         # Avoid conflicts with existing events
         scheduled_events = self._avoid_conflicts(scheduled_events, user_context)
 
-        # Create events if requested
+        # Create events if requested — through the Events entity door, the one
+        # create path. Every event here reinforces this habit: the link rides on
+        # the entity (``reinforces_habit_uid`` is the edge's INPUT on create), so
+        # the primitive writes the REINFORCES_HABIT edge.
         created_events = []
         if auto_create:
             for event_template in scheduled_events:
-                create_result = await self.events_backend.create_event(event_template.to_dict())
+                event = replace(Event.from_dto(event_template), reinforces_habit_uid=habit_uid)
+                create_result = await self.events_service.create(event)
                 if create_result.is_ok:
-                    created_event = to_domain_model(create_result.value, EventDTO, Event)
-                    created_events.append(created_event.to_dto())
-                    # Habit reinforcement is a graph edge, not a property — all
-                    # events here reinforce this habit.
-                    if self.relationships:
-                        await self.relationships.create_relationship(
-                            "habits", created_event.uid, habit_uid
-                        )
+                    created_events.append(create_result.value.to_dto())
                 else:
                     self.logger.warning(f"Failed to create event: {create_result.error}")
 
-            # Context invalidation happens via domain events (event-driven architecture)
-            # Event handlers in bootstrap will call user_service.invalidate_context()
+            # Context invalidation happens via the CalendarEventCreated event the
+            # primitive publishes; event handlers in bootstrap call
+            # user_service.invalidate_context()
 
             self.logger.info(
                 "Scheduled and created %d events for habit %s", len(created_events), habit_uid
@@ -305,7 +309,7 @@ class HabitEventScheduler:
             )
 
             # Add habit integration. Habit reinforcement is a graph edge — track
-            # event_uid → habit_uid and write the edge after persistence.
+            # event_uid → habit_uid, set on the entity at create.
             event.recurrence_maintains_habit = True
             event.skip_breaks_habit_streak = True
             event.metadata["is_urgent"] = True
@@ -314,21 +318,23 @@ class HabitEventScheduler:
             maintenance_events.append(event)
             maintenance_habit_links[event.uid] = habit_uid
 
-        # Create events if requested
+        # Create events if requested — through the Events entity door; the habit
+        # link rides on the entity and the primitive writes the edge.
         if auto_create and maintenance_events:
             created = []
-            for event in maintenance_events:
-                create_result = await self.events_backend.create_event(event.to_dict())
+            for event_dto in maintenance_events:
+                entity = replace(
+                    Event.from_dto(event_dto),
+                    reinforces_habit_uid=maintenance_habit_links.get(event_dto.uid),
+                )
+                create_result = await self.events_service.create(entity)
                 if create_result.is_ok:
-                    created_event = to_domain_model(create_result.value, EventDTO, Event)
-                    created.append(created_event.to_dto())
-                    linked_habit = maintenance_habit_links.get(created_event.uid)
-                    if linked_habit and self.relationships:
-                        await self.relationships.create_relationship(
-                            "habits", created_event.uid, linked_habit
-                        )
+                    created.append(create_result.value.to_dto())
+                else:
+                    self.logger.warning(f"Failed to create event: {create_result.error}")
 
-            # Context invalidation happens via domain events (event-driven architecture)
+            # Context invalidation happens via the CalendarEventCreated event the
+            # primitive publishes.
 
             return Result.ok(created)
 

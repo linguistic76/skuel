@@ -1,13 +1,15 @@
-"""The vault door's copy of the Task creation rule — the engine's post-persist pass.
+"""The vault door's copy of the Task keep-a-day rule — the engine's post-persist pass.
 
-``UnifiedIngestionService._apply_creation_rules`` hands the write backend the
-uids the upsert's own MERGE branch reported as CREATED when the batch is Tasks,
-and nothing otherwise. What is pinned here, DB-free:
+``UnifiedIngestionService._apply_creation_rules`` hands the write backend every
+Task uid the batch persisted — creates and re-syncs alike — and the write's own
+guard (undated, has a ``created_at``) selects the rows. What is pinned here,
+DB-free:
 
-- the create signal is the upsert's marker, never a null prior status — a
-  re-synced node that carries no ``status`` property reports a null prior too,
-  and a re-sync is not a creation (a file whose dates were removed keeps them
-  removed, as an app update that clears both dates does);
+- every uid in the batch is named, whatever its prior status: the invariant
+  "a task keeps a day" holds on re-sync too, because a file that dropped its
+  last date line cannot be refused mid-upsert the way an app update is
+  (``TasksCoreService._validate_update``) — restoring the day is the vault's
+  equivalent;
 - only the Task batch reaches the backend;
 - the pass runs BEFORE the ADR-087 status step (a born-completed task's
   completion event reads ``due_date`` back for ``was_overdue``);
@@ -55,33 +57,21 @@ def _service(backend: _FakeWriteBackend) -> Any:
 
 
 @pytest.mark.asyncio
-async def test_only_the_batchs_creates_are_named():
+async def test_every_persisted_task_is_named_whatever_its_prior():
+    """Creates (null prior) and re-syncs alike: the write's guard, not the
+    prior status, decides which rows are touched."""
     backend = _FakeWriteBackend()
     await _service(backend)._apply_creation_rules(
-        EntityType.TASK, frozenset({"task.new", "task.also-new"})
-    )
-    assert backend.calls == [["task.also-new", "task.new"]]
-
-
-@pytest.mark.asyncio
-async def test_a_null_prior_status_is_not_a_create():
-    """The marker, not the prior: a re-synced file with no ``status:`` line
-    reports a null prior and must NOT be re-dated — the parity pass names
-    only what the upsert's MERGE branch created."""
-    backend = _FakeWriteBackend()
-    await _service(backend)._apply_primitive_parity(
         EntityType.TASK,
-        [{"uid": "task.resynced", "title": "no status line"}],
-        {"task.resynced": None},
-        frozenset(),
+        {"task.new": None, "task.resynced": "draft", "task.no-status-line": None},
     )
-    assert backend.calls == []
+    assert backend.calls == [["task.new", "task.no-status-line", "task.resynced"]]
 
 
 @pytest.mark.asyncio
-async def test_a_batch_with_no_creates_never_reaches_the_backend():
+async def test_an_empty_batch_never_reaches_the_backend():
     backend = _FakeWriteBackend()
-    await _service(backend)._apply_creation_rules(EntityType.TASK, frozenset())
+    await _service(backend)._apply_creation_rules(EntityType.TASK, {})
     assert backend.calls == []
 
 
@@ -89,7 +79,7 @@ async def test_a_batch_with_no_creates_never_reaches_the_backend():
 async def test_only_tasks_have_a_creation_rule():
     backend = _FakeWriteBackend()
     for entity_type in (EntityType.GOAL, EntityType.HABIT, EntityType.KU, EntityType.EVENT):
-        await _service(backend)._apply_creation_rules(entity_type, frozenset({"x.new"}))
+        await _service(backend)._apply_creation_rules(entity_type, {"x.new": None})
     assert backend.calls == []
 
 
@@ -97,7 +87,7 @@ async def test_only_tasks_have_a_creation_rule():
 async def test_a_failed_write_is_logged_not_raised():
     """The entity has landed; the backfill script is the remedy, not a failed file."""
     backend = _FakeWriteBackend(fail=True)
-    await _service(backend)._apply_creation_rules(EntityType.TASK, frozenset({"task.new"}))
+    await _service(backend)._apply_creation_rules(EntityType.TASK, {"task.new": None})
     assert backend.calls == []
 
 
@@ -113,6 +103,5 @@ async def test_the_parity_pass_dates_before_it_transitions():
         EntityType.TASK,
         [{"uid": "task.new", "status": "draft", "completion_date": "2026-03-04"}],
         {"task.new": None},
-        frozenset({"task.new"}),
     )
     assert backend.order == ["creation_rule", "stamp_clear"]

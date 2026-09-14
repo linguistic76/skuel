@@ -618,12 +618,7 @@ async def ingest_directory(
     | None = None,
     moc_pass_fn: Callable[[str, list[str], Path, list[str]], Awaitable[list[str]]] | None = None,
     status_transition_fn: Callable[
-        [
-            EntityType | NonKuDomain,
-            list[dict[str, Any]],
-            Mapping[str, str | None],
-            frozenset[str],
-        ],
+        [EntityType | NonKuDomain, list[dict[str, Any]], Mapping[str, str | None]],
         Awaitable[None],
     ]
     | None = None,
@@ -692,12 +687,11 @@ async def ingest_directory(
         status_transition_fn: Optional per-type-batch callback for the rules the
             domain primitives would have applied to a batch the upsert bypassed
             (``UnifiedIngestionService._apply_primitive_parity``: the Task
-            creation rule for the batch's creates, then the ADR-087 status
-            contract — the completion event a file's status change earns, and
-            the stamp-clear it owes), invoked with the persisted entity dicts,
-            the prior status the upsert read under each node's write-lock, and
-            the uids the upsert's own create marker names as new.
-            Signature: ``async (entity_type, entities, prior_status_by_uid, created_uids)``.
+            keep-a-day rule over the batch, then the ADR-087 status contract —
+            the completion event a file's status change earns, and the
+            stamp-clear it owes), invoked with the persisted entity dicts and
+            the prior status the upsert read under each node's write-lock.
+            Signature: ``async (entity_type, entities, prior_status_by_uid)``.
             Deliberately NOT part of ``post_persist_fn``: a completion event is
             consumed SYNCHRONOUSLY by subscribers that traverse the entity's
             edges — ``PsPracticeService.handle_event_completed`` follows
@@ -1152,15 +1146,10 @@ async def ingest_directory(
     # IngestionMetadata rows. (entity_uid, ordered link suffixes, source file,
     # frontmatter ``organizes:`` targets spared from the stale-edge refresh)
     moc_items: list[tuple[str, list[str], Path, list[str]]] = []
-    # Per-type (entities, prior statuses, created uids) for the deferred
-    # primitive-parity pass at end-of-sync — see ``status_transition_fn``.
+    # Per-type (entities, prior statuses) for the deferred primitive-parity
+    # pass at end-of-sync — see ``status_transition_fn``.
     status_transition_batches: list[
-        tuple[
-            EntityType | NonKuDomain,
-            list[dict[str, Any]],
-            Mapping[str, str | None],
-            frozenset[str],
-        ]
+        tuple[EntityType | NonKuDomain, list[dict[str, Any]], Mapping[str, str | None]]
     ] = []
 
     # Per-file routing — two types whose persistence is more than the bulk
@@ -1379,9 +1368,7 @@ async def ingest_directory(
             # The status-transition step is DEFERRED to end-of-sync (see the
             # pass below): its subscribers traverse edges no phase-1 batch has
             # written yet.
-            status_transition_batches.append(
-                (entity_type, entities, stats.prior_status_by_uid, stats.created_uids)
-            )
+            status_transition_batches.append((entity_type, entities, stats.prior_status_by_uid))
             # Only persisted entities get their MOC edge pass — a failed
             # batch would refresh edges against a node that never landed.
             moc_items.extend(batch_moc_items)
@@ -1614,8 +1601,8 @@ async def ingest_directory(
     # silently fall outside it. (Same ordering constraint the create door states
     # in ``TasksCoreService._publish_created``.)
     if status_transition_fn is not None:
-        for st_entity_type, st_entities, st_prior, st_created in status_transition_batches:
-            await status_transition_fn(st_entity_type, st_entities, st_prior, st_created)
+        for st_entity_type, st_entities, st_prior in status_transition_batches:
+            await status_transition_fn(st_entity_type, st_entities, st_prior)
 
     duration = (datetime.now() - start_time).total_seconds()
 

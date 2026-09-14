@@ -179,9 +179,11 @@ class Task(UserOwnedEntity):
         service doors) and the template spawn's ``_build`` (``TASK_SPEC``); the
         vault frontmatter bulk-upsert never builds a ``Task``, so its
         post-persist pass applies the same rule on the node
-        (``IngestionWriteBackend.apply_task_creation_due_dates``, for the uids
-        the upsert reports as created). ``scripts/backfill_task_creation_due_dates.py``
-        applies it to whatever the graph already holds.
+        (``IngestionWriteBackend.apply_task_creation_due_dates``, over every
+        task it persisted). The other half of the invariant is the update
+        rule: an update may not clear the last date
+        (``TasksCoreService._validate_update``). ``scripts/backfill_task_creation_due_dates.py``
+        applies the rule to whatever the graph already holds.
         """
         if self.due_date is not None or self.scheduled_date is not None:
             return self
