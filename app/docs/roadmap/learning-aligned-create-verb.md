@@ -1,6 +1,6 @@
 ---
 title: The learning-aligned create verb — ideas preserved from the deleted bridge create half
-updated: '2026-09-03'
+updated: '2026-09-14'
 category: roadmap
 status: UNSCHEDULED — build when a lived workflow demands it
 related_docs:
@@ -87,10 +87,16 @@ revealed `POST /api/goals/create-with-scheduling` was LIVE on one of them, so
 **Still open — probably functional but bypassing the primitives (DTO
 `to_dict()` carries uid/user_uid; no events published, no embedding requested,
 no admission guard):**
-- `GoalTaskGenerator.generate_tasks_for_goal` — `tasks_backend.create_task(task_template.to_dict())`
 - `HabitEventScheduler.schedule_events_for_habit` and
   `schedule_streak_maintenance` — `events_backend.create_event(...to_dict())`
 
-These are live-documented features (GoalTaskGenerator mints tasks on goal
-creation), so the fix direction is the #969 treatment — route through the
-domain's core primitive — not deletion. Decide as its own arc.
+**Done (#1335):** `GoalTaskGenerator.generate_tasks_for_goal` now takes the Tasks
+facade and persists through its entity door (`TasksCoreService.create`) — the
+creation rule, FULFILLS_GOAL / REINFORCES_HABIT (the habit link rides on the
+entity as `reinforces_habit_uid`), `TaskCreated` and the embedding request all
+reach generated tasks. Surfaced by Codex as the creation rule's last exempt
+writer; the same #969 treatment is what the scheduler still owes.
+
+The scheduler is a live-documented feature, so the fix direction is the #969
+treatment — route through the domain's core primitive — not deletion. Decide as
+its own arc.
