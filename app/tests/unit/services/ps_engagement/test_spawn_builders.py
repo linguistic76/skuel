@@ -22,7 +22,7 @@ End-to-end ``spawn()`` is exercised by integration tests with a Neo4j fixture.
 from __future__ import annotations
 
 from dataclasses import replace
-from datetime import date, datetime
+from datetime import UTC, date, datetime, timedelta
 
 import pytest
 
@@ -114,11 +114,58 @@ class TestTaskBuilder:
         edges = _compute_cross_edges(tt, TASK_SPEC.cross_edges, uid_map)
         assert edges == [("REINFORCES_HABIT", "habit_uid")]
 
-    def test_unset_offset_yields_none(self) -> None:
-        tt = TaskTemplate(uid="ttpl_no_offset", title="t")
+    def test_unset_offsets_fall_to_the_creation_rule(self) -> None:
+        """A template with neither offset spawns a task due on the ENGAGEMENT
+        day — ``TASK_SPEC.creation_rule`` is ``Task.with_creation_due_date``,
+        the same rule the service create path applies, and the instance's
+        creation day is the anchor. The template here was authored well before
+        the anchor: a copied authoring stamp would date the task in the past and
+        spawn it overdue. This door writes through the backend, so without the
+        spec hook it would be the rule's one exempt writer."""
+        tt = TaskTemplate(uid="ttpl_no_offset", title="t", created_at=ANCHOR - timedelta(days=40))
         task = _build(TASK_SPEC, tt, STUDENT, PS, ANCHOR, {"ttpl_no_offset": "task_uid"})
-        assert task.due_date is None
+        assert task.due_date == ANCHOR.date()
         assert task.scheduled_date is None
+
+    def test_an_aware_anchor_is_stamped_in_the_models_clock(self) -> None:
+        """The gateway mints the engagement as aware UTC; ``Entity.created_at``
+        and every consumer run on naive ``datetime.now()``. The instance is
+        stamped naive, in system-local time — the same instant — and its
+        offsets resolve against that same normalized anchor, so an offset day
+        and the creation day cannot disagree across a UTC midnight."""
+        aware = datetime(2026, 5, 9, 12, 0, 0, tzinfo=UTC)
+        expected = aware.astimezone().replace(tzinfo=None)
+        tt = TaskTemplate(uid="ttpl_aware", title="t", due_offset=RelativeOffset(days=7))
+        task = _build(TASK_SPEC, tt, STUDENT, PS, aware, {"ttpl_aware": "task_uid"})
+        assert task.created_at.tzinfo is None
+        assert task.created_at == expected
+        assert task.due_date == (expected + timedelta(days=7)).date()
+        # A naive comparison — the consumers' shape — must not raise.
+        assert task.created_at <= datetime.now()
+
+        undated = TaskTemplate(uid="ttpl_aware_undated", title="u")
+        task = _build(TASK_SPEC, undated, STUDENT, PS, aware, {"ttpl_aware_undated": "t2"})
+        assert task.due_date == expected.date()
+
+    def test_an_instance_is_created_at_the_engagement_not_the_authoring(self) -> None:
+        """``created_at``/``updated_at`` are the instance's own lifecycle stamps:
+        the anchor, never the template's — for every domain, since the
+        copy-through is generic."""
+        authored = ANCHOR - timedelta(days=40)
+        for spec, template in (
+            (TASK_SPEC, TaskTemplate(uid="ttpl_s", title="t", created_at=authored)),
+            (GOAL_SPEC, GoalTemplate(uid="gtpl_s", title="g", created_at=authored)),
+            (HABIT_SPEC, HabitTemplate(uid="htpl_s", title="h", created_at=authored)),
+        ):
+            instance = _build(spec, template, STUDENT, PS, ANCHOR, {template.uid: "inst_uid"})
+            assert instance.created_at == ANCHOR, spec.instance_cls.__name__
+            assert instance.updated_at == ANCHOR, spec.instance_cls.__name__
+
+    def test_a_set_offset_is_not_overridden_by_the_creation_rule(self) -> None:
+        tt = TaskTemplate(uid="ttpl_sched", title="t", scheduled_offset=RelativeOffset(days=3))
+        task = _build(TASK_SPEC, tt, STUDENT, PS, ANCHOR, {"ttpl_sched": "task_uid"})
+        assert task.scheduled_date == (ANCHOR + timedelta(days=3)).date()
+        assert task.due_date is None
 
 
 class TestGoalBuilder:

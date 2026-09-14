@@ -10,6 +10,11 @@ The Today surface renders two task surfaces:
   on the live current day (``build_context`` gates that); the predicate itself
   is day-agnostic so the defer guard applies it verbatim.
 
+Every created task has a day to render on: creation fills ``due_date`` with
+the creation day when neither date is supplied (``Task.with_creation_due_date``
+— applied by every creator, the vault door included). A task absent from every
+lens has had both dates cleared since.
+
 Both surfaces exclude the same statuses (today: exactly ``COMPLETED`` —
 whether dated CANCELLED/FAILED tasks *should* render is lens-status truth,
 out of C7's scope). The Tasks domain's ``completed_statuses`` is that same

@@ -17,7 +17,7 @@ days_remaining, get_summary, category, parent_goal_uid.
 See: /docs/architecture/ENTITY_TYPE_ARCHITECTURE.md
 """
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from datetime import date
 from types import MappingProxyType
 from typing import TYPE_CHECKING, Any
@@ -158,6 +158,41 @@ class Task(UserOwnedEntity):
         if self.knowledge_mastery_check:
             score += 0.3
         return min(1.0, score)
+
+    def with_creation_due_date(self) -> "Task":
+        """The creation rule: a task created without a date is due the day it is created.
+
+        The day lens and the calendar place a task by ``due_date`` or
+        ``scheduled_date``; a task carrying neither would render on no day at
+        all — captured and then invisible. So creation gives it a deadline: its
+        ``created_at`` calendar day. A task born COMPLETED whose completion day
+        is earlier takes that instead — a historical ``✅`` line ingested later
+        was lived on the day it was done, not the day it was ingested, and a
+        deadline after the completion would be fiction. The completion day is
+        consulted only on a completed task: an open task carrying a leftover
+        ``completion_date`` (a shape the vault door's stamp-clear exists to
+        undo) is due on its creation day, not on the stale stamp. Returns
+        ``self`` untouched when either date is already set: a work date without
+        a deadline ("I'll do it that day") is a date, not an absence.
+
+        Applied on the entity by ``TasksCoreService._create_with_links`` (both
+        service doors) and the template spawn's ``_build`` (``TASK_SPEC``); the
+        vault frontmatter bulk-upsert never builds a ``Task``, so its
+        post-persist pass applies the same rule on the node
+        (``IngestionWriteBackend.apply_task_creation_due_dates``, for the uids
+        the upsert reports as created). ``scripts/backfill_task_creation_due_dates.py``
+        applies it to whatever the graph already holds.
+        """
+        if self.due_date is not None or self.scheduled_date is not None:
+            return self
+        created_day = self.created_at.date()
+        if (
+            self.is_completed
+            and self.completion_date is not None
+            and self.completion_date < created_day
+        ):
+            return replace(self, due_date=self.completion_date)
+        return replace(self, due_date=created_day)
 
     def is_overdue(self) -> bool:
         """Check if past due_date without completion."""

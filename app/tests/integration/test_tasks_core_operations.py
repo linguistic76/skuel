@@ -349,7 +349,9 @@ class TestTasksCoreOperations:
         GoalTaskGenerator mints undated HIGH tasks.
 
         What IS enforced on due_date lives at the request edge (``TaskCreateRequest``:
-        future-date validation, and ``due_date >= scheduled_date``).
+        future-date validation, and ``due_date >= scheduled_date``) — plus the creation
+        rule, which is why the persisted task is not undated: created with neither date,
+        it is due on its creation day (``Task.with_creation_due_date``).
         """
         # Arrange - high priority, no due date: ordinary DSL output
         task = Task(
@@ -367,7 +369,7 @@ class TestTasksCoreOperations:
         # Assert
         assert result.is_ok, f"an undated HIGH-priority task was refused: {result.error}"
         assert result.value.priority == Priority.HIGH
-        assert result.value.due_date is None
+        assert result.value.due_date == task.created_at.date()
 
     async def test_task_with_time_tracking(self, tasks_service, test_user_uid):
         """Test creating a task with duration estimates and tracking."""
@@ -442,7 +444,10 @@ class TestTasksCoreOperations:
         assert result.is_ok
         created = result.value
         assert created.description is None
-        assert created.due_date is None
+        # The creation rule: no date supplied → due on the creation day. The day
+        # lens and the calendar place a task by due/scheduled date, so a minimal
+        # task still has a day to render on.
+        assert created.due_date == task.created_at.date()
         assert created.scheduled_date is None
         # Check defaults are set
         assert created.status == EntityStatus.DRAFT

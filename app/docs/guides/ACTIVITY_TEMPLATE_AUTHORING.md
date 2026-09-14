@@ -1,7 +1,7 @@
 ---
 title: Activity Template Authoring
 created: 2026-09-06
-updated: 2026-09-06
+updated: 2026-09-14
 status: current
 category: guides
 tags: [yaml, ingestion, authoring, curriculum, activity-templates, pathstep, engagement]
@@ -284,6 +284,12 @@ offset, spawning something due today while the write reported success.
 | EventTemplate | `event_offset`, `recurrence_end_offset` | `event_date`, `recurrence_end_date` |
 | ChoiceTemplate | `decision_deadline_offset` | `decision_deadline` |
 | PrincipleTemplate | — | — |
+
+A TaskTemplate with **neither** `due_offset` nor `scheduled_offset` spawns a task due on
+the engagement day — the task creation rule (`Task.with_creation_due_date`, wired as
+`TASK_SPEC.creation_rule`): a task with no date would render on no day of the calendar or
+`/today`. Give a task a `scheduled_offset` if you mean "work on it that day" without a
+deadline; the rule leaves a scheduled-only task alone.
 
 ---
 
@@ -817,6 +823,7 @@ Everything you authored is copied through, except the fields spawning owns:
 | `entity_type` | the instance type (`Task`, not `TaskTemplate`) |
 | `engagement_state` | `engaged`, then `owned` if kept |
 | `source_path_step_uid` | the step they engaged |
+| `created_at`, `updated_at` | the engagement moment — the instance's own lifecycle, not your file's authoring date (this is the day an undated task's creation rule reads) |
 | every `*_offset` | resolved to an absolute date against the engagement moment |
 | every `*_template_uid` | re-pointed at the sibling instance, as a property or an edge |
 

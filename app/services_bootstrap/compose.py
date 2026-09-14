@@ -1537,7 +1537,7 @@ async def compose_services(
         # Create orchestration services (GoalTaskGenerator and HabitEventScheduler only)
         orchestration = _create_orchestration_services(
             goals_backend=goals_backend,
-            tasks_backend=tasks_backend,
+            tasks_service=activity_services["tasks"],
             habits_backend=habits_backend,
             events_backend=events_backend,
         )

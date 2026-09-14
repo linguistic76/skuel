@@ -1,7 +1,7 @@
 ---
 title: "Askesis Entity Extraction — Ku Uids Never Resolve, and the Lookup Is N Round-Trips per Question"
 updated: 2026-09-14
-status: "done — extraction matches in memory against the rich context (zero graph reads per question) and "knowledge" matches both Kus and PathSteps, each carrying entity_type; ruled by Mike 2026-09-13 (match both)"
+status: "done — extraction matches in memory against the rich context (zero graph reads per question) and 'knowledge' matches both Kus and PathSteps, each carrying entity_type; ruled by Mike 2026-09-13 (match both)"
 trigger: "any change to EntityExtractor or to what the knowledge statement feeds known_or_engaged_ku_uids"
 check: "tests/unit/test_askesis_entity_extractor.py::test_the_extractor_reaches_no_service (no service handle exists to read through) and tests/integration/test_askesis_ask_endpoint.py::test_ask_endpoint_matches_a_mastered_ku (a mastered Ku named in a question is matched, typed ku)"
 registered: "2026-09-13 (split out of the extraction-match case file when its test landed)"

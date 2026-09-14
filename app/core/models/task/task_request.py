@@ -54,7 +54,14 @@ class TaskCreateRequest(CreateRequestBase):
     description: str | None = Field(default=None, description="Detailed description")
 
     # Scheduling
-    due_date: date | None = Field(default=None, description="Due date")
+    due_date: date | None = Field(
+        default=None,
+        description=(
+            "Due date. A task created with neither due_date nor scheduled_date is "
+            "due the day it is created — the create path fills this in "
+            "(Task.with_creation_due_date)"
+        ),
+    )
     scheduled_date: date | None = Field(default=None, description="Scheduled work date")
     duration_minutes: int | None = Field(
         default=None, ge=5, le=480, description="Estimated duration"

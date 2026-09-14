@@ -1,6 +1,6 @@
 ---
 title: "Ingest Transition Obligation Durability"
-updated: 2026-09-12
+updated: 2026-09-14
 status: "open — design needed"
 trigger: "a report of a vault-completed entity whose cascade did not run, OR a task completed in the app whose TRIGGERS_ON_COMPLETION dependents were never scheduled, OR a second writer of ingest-time status transitions"
 check: "no instrumentation today; the loss is silent by construction — count ERROR logs from `_publish_completions` / the reopen-clear / `TaskEventHandlerService.handle_dependent_scheduling`, or add a counter, before deciding it is worth an outbox"
@@ -40,6 +40,17 @@ one that exists (`coalesce`, deliberate: the handler's value is the real moment,
 day-grained reconstruction). So a user who already had both stamps and then lost an announcement
 keeps a stale `last_completion_at`, and nothing today fixes it. A user left without a stamp at all
 is the one case the script does repair.
+
+## The creation rule is the one obligation in this pass that IS recoverable
+
+The same post-persist pass (`_apply_primitive_parity`) now also carries the Task creation rule —
+`apply_task_creation_due_dates` for the uids the upsert's own `created` marker names. It shares
+the window (a failure between the node committing and the pass running leaves the task undated)
+but not the loss shape: the obligation is **derivable from graph state** — "undated, has a
+`created_at`" — so `scripts/backfill_task_creation_due_dates.py` re-derives and fills it from the
+node alone, with no prior to have been consumed. An outbox would cover it for free, but nothing
+about it motivates one; it is listed here so the pass's inventory is complete, not as a second
+instance of the gap.
 
 ## The app door has the same property (one-completion-door arc D.0, PR #1320)
 

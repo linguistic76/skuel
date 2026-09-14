@@ -22,6 +22,11 @@ Each spec carries:
 - ``cross_edges`` — template refs realised as graph edges between spawned
   instances (e.g. ``(Goal)-[:INSPIRED_BY_CHOICE]->(Choice)``) rather than
   properties.
+- ``creation_rule`` — the domain's own creation invariant, applied to the built
+  instance before it is persisted. This door writes through the backend, not
+  the domain service, so a rule the service create path enforces must be named
+  here too or the spawn would be its one exempt writer (Task: an instance with
+  no due/scheduled offset is due on the engagement day).
 
 The orchestrator:
 
@@ -77,7 +82,7 @@ from core.utils.uid_generator import UIDGenerator
 from ._template_bundle import TemplateBundle
 
 if TYPE_CHECKING:
-    from collections.abc import Sequence
+    from collections.abc import Callable, Sequence
     from datetime import date, datetime
 
 logger = get_logger(__name__)
@@ -151,6 +156,21 @@ def _compute_cross_edges(
     return edges
 
 
+def _model_clock(moment: datetime) -> datetime:
+    """The engagement instant in the models' clock convention — naive, system-local.
+
+    ``Entity.created_at`` defaults to ``datetime.now()`` and every consumer
+    measures against that clock (naive cutoffs, ``datetime.now() - created_at``);
+    an offset-aware instant would raise ``TypeError`` on the first comparison.
+    The gateway records the engagement as aware UTC on its edge — that
+    convention stays there; the instances it spawns are stamped, and their
+    offsets resolved, in the models' own. A naive anchor passes through.
+    """
+    if moment.tzinfo is None:
+        return moment
+    return moment.astimezone().replace(tzinfo=None)
+
+
 def _copy_through(template: Any, allowed_fields: set[str]) -> dict[str, Any]:
     """Copy authoring-side fields verbatim from template → instance kwargs.
 
@@ -222,6 +242,7 @@ class DomainSpawnSpec(Generic[InstanceT]):
     offset_rewrites: tuple[tuple[str, str, OffsetKind], ...] = ()
     field_rewrites: dict[str, str] = field(default_factory=dict)
     cross_edges: tuple[tuple[str, RelationshipName], ...] = ()
+    creation_rule: Callable[[InstanceT], InstanceT] | None = None
 
 
 CHOICE_SPEC = DomainSpawnSpec(
@@ -299,6 +320,9 @@ TASK_SPEC = DomainSpawnSpec(
     },
     # reinforces_habit_template_uid → (Task)-[:REINFORCES_HABIT]->(Habit) edge
     cross_edges=(("reinforces_habit_template_uid", RelationshipName.REINFORCES_HABIT),),
+    # A template with neither due nor scheduled offset spawns a task due on the
+    # engagement day — the same rule the service create path applies.
+    creation_rule=Task.with_creation_due_date,
 )
 
 # Declaration order is the UID pre-allocation order; build order is by ``layer``.
@@ -330,14 +354,22 @@ def _build(
     Pure — no I/O — so it unit-tests without backends. Replaces the six former
     ``_build_*`` functions; all per-domain variation now lives in the spec.
     ``entity_type`` is left out of the copy-through so the instance keeps its own
-    class default (``Task`` not ``TaskTemplate``).
+    class default (``Task`` not ``TaskTemplate``). So are the lifecycle stamps:
+    the instance is created at the engagement — ``created_at`` is the anchor,
+    the same moment every offset resolves against — not when its template was
+    authored; a copied authoring stamp would make a creation-day default (the
+    Task creation rule) date the instance in the template's past. The anchor is
+    taken in the models' clock (``_model_clock``) for stamps and offsets alike.
     """
+    anchor = _model_clock(anchor)
     managed = {
         "uid",
         "user_uid",
         "engagement_state",
         "entity_type",
         "source_path_step_uid",
+        "created_at",
+        "updated_at",
         *(dst for _src, dst, _kind in spec.offset_rewrites),
         *spec.field_rewrites.values(),
     }
@@ -347,11 +379,14 @@ def _build(
         "user_uid": student_uid,
         "engagement_state": EngagementState.ENGAGED,
         "source_path_step_uid": ps_uid,
+        "created_at": anchor,
+        "updated_at": anchor,
         **_copy_through(template, _field_names(spec.instance_cls) - managed),
         **_resolve_offsets(template, spec.offset_rewrites, anchor),
         **_resolve_refs(template, spec.field_rewrites, template_to_instance),
     }
-    return spec.instance_cls(**kwargs)
+    instance = spec.instance_cls(**kwargs)
+    return spec.creation_rule(instance) if spec.creation_rule is not None else instance
 
 
 def _class_name_to_entity_type(cls: type) -> EntityType | None:

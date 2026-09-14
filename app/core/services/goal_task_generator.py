@@ -8,7 +8,7 @@ and habit dependencies. Uses UserContext for intelligent task creation.
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from datetime import date, timedelta
 from typing import TYPE_CHECKING, Any
 
@@ -25,7 +25,8 @@ from core.utils.logging import get_logger
 from core.utils.result_simplified import Result
 
 if TYPE_CHECKING:
-    from core.ports import GoalsOperations, TasksOperations
+    from core.ports import GoalsOperations
+    from core.services.tasks_service import TasksService
     from core.services.user import UserContext
 
 
@@ -58,7 +59,7 @@ class GoalTaskGenerator:
     def __init__(
         self,
         goals_backend: GoalsOperations,
-        tasks_backend: TasksOperations,
+        tasks_service: TasksService,
         relationship_service: Any = None,
         tasks_relationship_service: Any = None,
         config: TaskGenerationConfig | None = None,
@@ -68,22 +69,27 @@ class GoalTaskGenerator:
 
         Args:
             goals_backend: Backend for goal operations,
-            tasks_backend: Backend for task operations,
+            tasks_service: The Tasks facade — generated tasks are persisted through
+                its entity door, which is the one create path for Tasks
+                (``TasksCoreService.create``): the creation rule, the link edges
+                (FULFILLS_GOAL, REINFORCES_HABIT), ``TaskCreated`` and the embedding
+                request all happen there and nowhere else. A backend handle would
+                skip every one of them.
             relationship_service: UnifiedRelationshipService for fetching goal relationships,
             tasks_relationship_service: UnifiedRelationshipService for creating task-knowledge relationships,
             config: Generation configuration
 
         Note:
-            Context invalidation now happens via event-driven architecture.
-            Created tasks trigger TaskCreated events which invalidate context.
+            Context invalidation happens via the ``TaskCreated`` event the create
+            primitive publishes.
         """
         if not goals_backend:
             raise ValueError("Goals backend is required")
-        if not tasks_backend:
-            raise ValueError("Tasks backend is required")
+        if not tasks_service:
+            raise ValueError("Tasks service is required")
 
         self.goals_backend = goals_backend
-        self.tasks_backend = tasks_backend
+        self.tasks_service = tasks_service
         self.relationships = relationship_service
         self.tasks_relationships = tasks_relationship_service
         self.config = config or TaskGenerationConfig()
@@ -146,30 +152,32 @@ class GoalTaskGenerator:
         # Limit total tasks
         generated_tasks = generated_tasks[: self.config.max_tasks_per_goal]
 
-        # Create tasks if requested
+        # Create tasks if requested — through the Tasks entity door, the one create
+        # path: the creation rule, the FULFILLS_GOAL / REINFORCES_HABIT edges,
+        # TaskCreated and the embedding request are all its work. The habit link
+        # rides on the entity (``reinforces_habit_uid`` is the edge's INPUT on
+        # create), so the primitive writes that edge too.
         created_tasks = []
         if auto_create:
             for task_template in generated_tasks:
-                create_result = await self.tasks_backend.create_task(task_template.to_dict())
+                task = Task.from_dto(task_template)
+                habit_uid = habit_links.get(task.uid)
+                if habit_uid is not None:
+                    task = replace(task, reinforces_habit_uid=habit_uid)
+                create_result = await self.tasks_service.create(task)
                 if create_result.is_ok:
-                    created_task = to_domain_model(create_result.value, TaskDTO, Task)
-                    created_tasks.append(created_task.to_dto())
+                    created_tasks.append(create_result.value.to_dto())
 
-                    # Create graph relationships for knowledge requirements
+                    # Knowledge edges are read off the generator's own metadata
+                    # (the persisted task is round-tripped through the mapper), and
+                    # are not entity-carried links the primitive knows.
                     if self.tasks_relationships:
-                        await self._create_task_knowledge_relationships(created_task)
-
-                    # Create the habit-reinforcement edge if this task targets a habit
-                    habit_uid = habit_links.get(created_task.uid)
-                    if habit_uid and self.tasks_relationships:
-                        await self.tasks_relationships.create_relationship(
-                            "habits", created_task.uid, habit_uid
-                        )
+                        await self._create_task_knowledge_relationships(task)
                 else:
                     self.logger.warning(f"Failed to create task: {create_result.error}")
 
-            # Context invalidation happens via TaskCreated events (event-driven architecture)
-            # Event handlers in bootstrap will call user_service.invalidate_context()
+            # Context invalidation happens via the TaskCreated event the primitive
+            # publishes; event handlers in bootstrap call user_service.invalidate_context()
 
             self.logger.info(
                 "Generated and created %d tasks for goal %s", len(created_tasks), goal_uid
@@ -367,9 +375,10 @@ class GoalTaskGenerator:
     ) -> list[TaskDTO]:
         """Generate tasks for reinforcing supporting habits.
 
-        The task→habit linkage is graph-native ((Task)-[:REINFORCES_HABIT]->(Habit)),
-        so instead of setting a property we record ``task.uid → habit_uid`` in
-        ``habit_links``; ``generate_tasks_for_goal`` writes the edge after persisting.
+        The task→habit linkage is graph-native ((Task)-[:REINFORCES_HABIT]->(Habit))
+        and rides on no DTO field, so we record ``task.uid → habit_uid`` in
+        ``habit_links``; ``generate_tasks_for_goal`` sets it as the entity's
+        ``reinforces_habit_uid`` and the create primitive writes the edge.
         """
         tasks: list[TaskDTO] = []
 
@@ -394,7 +403,7 @@ class GoalTaskGenerator:
                     )
 
                     # Add goal/habit integration. Habit link is a graph edge —
-                    # record it for edge creation after persistence.
+                    # recorded here, set on the entity at create.
                     task.fulfills_goal_uid = goal.uid
                     habit_links[task.uid] = habit_uid
                     task.habit_streak_maintainer = True
