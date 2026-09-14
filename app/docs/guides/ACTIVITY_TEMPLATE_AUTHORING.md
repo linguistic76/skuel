@@ -823,6 +823,7 @@ Everything you authored is copied through, except the fields spawning owns:
 | `entity_type` | the instance type (`Task`, not `TaskTemplate`) |
 | `engagement_state` | `engaged`, then `owned` if kept |
 | `source_path_step_uid` | the step they engaged |
+| `created_at`, `updated_at` | the engagement moment — the instance's own lifecycle, not your file's authoring date (this is the day an undated task's creation rule reads) |
 | every `*_offset` | resolved to an absolute date against the engagement moment |
 | every `*_template_uid` | re-pointed at the sibling instance, as a property or an edge |
 
