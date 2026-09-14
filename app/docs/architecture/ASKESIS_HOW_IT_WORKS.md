@@ -1,5 +1,5 @@
 ---
-updated: 2026-09-13
+updated: 2026-09-14
 ---
 
 # How Askesis Works
@@ -114,7 +114,7 @@ That fail-soft default is indistinguishable from a genuine low-confidence verdic
 
 ### Step 4: Extract Entities
 
-`EntityExtractor.extract_entities_from_query(question, user_context)` uses fuzzy matching to find which specific entities (tasks, goals, habits, knowledge units, events) the user is referring to. For example, "How's my REST API goal going?" matches a goal titled "Build REST API."
+`EntityExtractor.extract_entities_from_query(question, user_context)` uses fuzzy matching to find which specific entities (tasks, goals, habits, events, principles, choices, and the knowledge — Kus and PathSteps — the learner is engaged with) the user is referring to, reading every title from the rich context in memory rather than the graph. For example, "How's my REST API goal going?" matches a goal titled "Build REST API."
 
 **Error tolerance:** If entity extraction fails (e.g., a domain service is unavailable), the pipeline continues with empty matches rather than crashing. The LLM can still answer the question using context from other pipeline stages.
 

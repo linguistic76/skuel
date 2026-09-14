@@ -63,10 +63,12 @@ async def test_askesis_service_wiring(skuel_app):
         "embeddings_service is None on IntentClassifier (Phase 2: Semantic search)"
     )
 
-    # dependencies (Entity extraction) — EntityExtractor.get(uid)
+    # dependencies (Entity extraction) — matches in memory against the rich
+    # context the pipeline hands it, so the extractor holds no service handle.
+    # The PathStep facade is the retriever's: it loads the PS bundle through it.
     assert askesis.entity_extractor is not None, "entity_extractor is None (Phase 2.5)"
-    assert askesis.entity_extractor.knowledge_service is not None, (
-        "knowledge_service is None on EntityExtractor (Phase 2.5: Entity extraction)"
+    assert askesis.context_retriever.ps_service is not None, (
+        "ps_service is None on ContextRetriever (PS bundle loading)"
     )
 
     # Verify RAG method exists
@@ -81,8 +83,8 @@ async def test_askesis_service_wiring(skuel_app):
         f"{type(askesis.intent_classifier.embeddings_service).__name__} (on IntentClassifier)"
     )
     print(
-        "   - knowledge_service: "
-        f"{type(askesis.entity_extractor.knowledge_service).__name__} (on EntityExtractor)"
+        "   - ps_service: "
+        f"{type(askesis.context_retriever.ps_service).__name__} (on ContextRetriever)"
     )
     print("   - answer_user_question: Available")
 

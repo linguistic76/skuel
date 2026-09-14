@@ -407,7 +407,7 @@ ALLOWED_OCCURRENCES: dict[str, dict[tuple[int, str], Allow]] = {
         (118, "Pipeline.JOURNAL"): Allow(_adr073),
     },
     "docs/intelligence/ASKESIS_INTELLIGENCE.md": {
-        (361, "ActivityReviewService"): Allow(_askesis_intel),
+        (360, "ActivityReviewService"): Allow(_askesis_intel),
     },
     "docs/intelligence/INTELLIGENCE_SERVICES_INDEX.md": {
         # 503 → 505: the "## Quick Start" stub above it became "## Related Skills"

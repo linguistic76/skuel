@@ -47,7 +47,9 @@ def _make_processor(user_context: MagicMock) -> tuple[QueryProcessor, MagicMock]
     response_generator.generate_suggested_actions = MagicMock(return_value=[])
 
     entity_extractor = MagicMock()
-    entity_extractor.extract_entities_from_query = AsyncMock(return_value={})
+    entity_extractor.extract_entities_from_query = MagicMock(
+        return_value={}
+    )  # sync: in-memory matching
 
     context_retriever = MagicMock()
     context_retriever.retrieve_relevant_context = AsyncMock(return_value={})

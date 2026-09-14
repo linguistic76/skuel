@@ -67,7 +67,6 @@ from core.services.askesis.query_tools import (
 )
 from core.services.canon import CanonContext
 from core.utils.decorators import with_error_handling
-from core.utils.exception_types import NEO4J_EXCEPTIONS
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
 from core.utils.text_truncation import truncate_to_budget
@@ -295,29 +294,10 @@ class QueryProcessor:
             )
         intent = intent_result.value
 
-        # Step 5: Extract entities
-        extracted_entities: dict[str, list[dict[str, Any]]] = {
-            "knowledge": [],
-            "tasks": [],
-            "goals": [],
-            "habits": [],
-            "events": [],
-            "principles": [],
-            "choices": [],
-        }
-        try:
-            extracted_entities = await self.entity_extractor.extract_entities_from_query(
-                question, user_context
-            )
-        except NEO4J_EXCEPTIONS:
-            logger.warning(
-                "Entity extraction failed (database error) — continuing without entity matches",
-                exc_info=True,
-            )
-        except Exception:  # safety-net: catch unexpected errors
-            logger.warning(
-                "Entity extraction failed — continuing without entity matches", exc_info=True
-            )
+        # Step 5: Extract entities — in memory, from the rich context; no graph reads
+        extracted_entities = self.entity_extractor.extract_entities_from_query(
+            question, user_context
+        )
 
         # Step 6: Retrieve relevant context
         relevant_context = await self.context_retriever.retrieve_relevant_context(

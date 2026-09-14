@@ -1,6 +1,6 @@
 ---
 title: BackendOperations Protocol Architecture
-updated: 2026-09-03
+updated: 2026-09-14
 category: patterns
 related_skills: []
 related_docs:
@@ -294,8 +294,10 @@ of them, diverges on 15 more, and is missing **119** — `execute_query`, `find_
 sole "facade holder", `EntityExtractor.knowledge_service`, called exactly one method
 on it (`get`) and was fed from `AskesisDeps.knowledge_service: Any`, so the annotation
 was never checked. Its four sibling params (`TasksOperations`, `GoalsOperations`,
-`HabitsOperations`, `EventsOperations`) failed the identical probe. All five now type
-against `EntityLookup` (`core/services/askesis/types.py`), and PS is single-layer.
+`HabitsOperations`, `EventsOperations`) failed the identical probe. The remedy was
+`EntityLookup` (`core/services/askesis/types.py`), which `ContextRetriever.ps_service`
+still types against; the extractor itself holds no handle — it matches in memory against
+the rich context — and PS is single-layer.
 
 Two traps worth naming, both measured:
 

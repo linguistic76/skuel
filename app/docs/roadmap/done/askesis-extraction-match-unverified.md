@@ -15,7 +15,7 @@ to know before Test Guided PathStep?"*, asserts the in-progress PathStep is in
 naming the step's evidenced prerequisite (`has_citations is True` alongside); the `-s` log of
 the module carries exactly one `Extracted 1 entities` line (intent `prerequisite`,
 `citations: yes`). The two design observations recorded below are tracked in
-[../askesis-extraction-lookup-shape.md](../askesis-extraction-lookup-shape.md). The rest of this
+[askesis-extraction-lookup-shape.md](askesis-extraction-lookup-shape.md). The rest of this
 file is the investigation as it stood when the test landed.
 
 **What running the branch found (three defects, all fixed in the test's PR):** the citation
@@ -93,7 +93,7 @@ In `test_ask_endpoint_entity_extraction`:
 
 No fixture change. Cost: one warm live question (~3 s), already paid by the test.
 
-## Two design observations this surfaced — tracked in [../askesis-extraction-lookup-shape.md](../askesis-extraction-lookup-shape.md)
+## Two design observations this surfaced — tracked in [askesis-extraction-lookup-shape.md](askesis-extraction-lookup-shape.md)
 
 **1. "Knowledge" extraction never matches a mastered Ku, and pays a round-trip to find out.**
 Every Ku uid in `mastered_knowledge_uids` is passed to `PsService.get()`, fails, and is skipped

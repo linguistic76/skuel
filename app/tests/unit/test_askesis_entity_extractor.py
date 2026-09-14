@@ -1,240 +1,168 @@
 """
-Test Suite for EntityExtractor
-===============================
+EntityExtractor matches a question against the rich context, in memory.
 
-Tests the askesis entity extraction service:
-- Exact match extraction
-- Partial word match extraction
-- Acronym match extraction
+Every candidate title comes from ``RichUserContext.entities_rich`` (the six
+activity domains) and ``knowledge_units_rich`` (every MASTERED | IN_PROGRESS
+target, Ku or PathStep); the extractor holds no service handle and makes no
+graph read per question. Each domain is scoped to the uids the standard
+context marks live, and every match carries the node's ``entity_type``.
 """
 
 from __future__ import annotations
 
-from unittest.mock import AsyncMock, Mock
+from typing import Any
 
 import pytest
 
+from core.models.type_hints import UserUID
+from core.ports.query_types import RichEntityItem
 from core.services.askesis.entity_extractor import EntityExtractor
-from core.utils.result_simplified import Errors, Result
-
-# ============================================================================
-# MOCK FACTORIES
-# ============================================================================
+from core.services.user.unified_user_context import RichUserContext
 
 
-def create_mock_ku_service() -> Mock:
-    """Create mock KuService that returns entities with .title attribute."""
-    ku_service = Mock()
-
-    # Mock .get() to return entity with .title (entity_extractor.py line 197-202)
-    async def mock_get(uid: str):
-        entities = {
-            "ku.python-basics": Mock(title="Python Basics", uid="ku.python-basics"),
-            "ku.machine-learning": Mock(
-                title="Machine Learning Fundamentals", uid="ku.machine-learning"
-            ),
-        }
-        if uid in entities:
-            return Result.ok(entities[uid])
-        return Result.fail(Errors.not_found("Entity", uid))
-
-    ku_service.get = AsyncMock(side_effect=mock_get)
-    return ku_service
+def _item(uid: str, title: str, entity_type: str, **props: Any) -> RichEntityItem:
+    """A rich activity item, in the ``{"entity": …, "graph_context": …}`` shape."""
+    return {
+        "entity": {"uid": uid, "title": title, "entity_type": entity_type, **props},
+        "graph_context": {},
+    }
 
 
-def create_mock_tasks_service() -> Mock:
-    """Create mock TasksService that returns entities with .title attribute."""
-    tasks_service = Mock()
+@pytest.fixture
+def context() -> RichUserContext:
+    """A learner engaged with two Kus and one PathStep, with live activities in every domain."""
+    ctx = RichUserContext(user_uid=UserUID("user_test"))
+    ctx.mastered_knowledge_uids = {"ku.python-basics"}
+    ctx.in_progress_knowledge_uids = {"ku.machine-learning", "ps.data-pipelines"}
+    ctx.knowledge_units_rich = {
+        "ku.python-basics": {
+            "ku": {"uid": "ku.python-basics", "title": "Python Basics", "entity_type": "ku"},
+            "graph_context": {},
+        },
+        "ku.machine-learning": {
+            "ku": {"uid": "ku.machine-learning", "title": "Machine Learning", "entity_type": "ku"},
+            "graph_context": {},
+        },
+        "ps.data-pipelines": {
+            "ku": {
+                "uid": "ps.data-pipelines",
+                "title": "Data Pipelines",
+                "entity_type": "path_step",
+            },
+            "graph_context": {},
+        },
+    }
+    ctx.active_task_uids = ["task_001", "task_002"]
+    ctx.active_goal_uids = ["goal_001"]
+    ctx.active_habit_uids = ["habit_001"]
+    ctx.today_event_uids = ["event_today"]
+    ctx.upcoming_event_uids = ["event_today", "event_next"]
+    ctx.core_principle_uids = ["principle_001"]
+    ctx.pending_choice_uids = ["choice_001"]
+    ctx.entities_rich = {
+        "tasks": [
+            _item("task_001", "Complete Python project", "task"),
+            _item("task_002", "Review ML code", "task"),
+            # touched inside the window but completed: in the rich rows, not in active_task_uids
+            _item("task_done", "Python retrospective", "task", status="completed"),
+        ],
+        "goals": [_item("goal_001", "Learn Machine Learning", "goal")],
+        "habits": [_item("habit_001", "Daily Python kata", "habit")],
+        "events": [
+            _item("event_today", "Python meetup", "event"),
+            _item("event_next", "Data study group", "event"),
+        ],
+        "principles": [_item("principle_001", "Ship in public", "principle")],
+        "choices": [_item("choice_001", "Pick a capstone project", "choice")],
+    }
+    return ctx
 
-    async def mock_get(uid: str):
-        entities = {
-            "task_001": Mock(title="Complete Python project", uid="task_001"),
-            "task_002": Mock(title="Review ML code", uid="task_002"),
-        }
-        if uid in entities:
-            return Result.ok(entities[uid])
-        return Result.fail(Errors.not_found("Entity", uid))
 
-    tasks_service.get = AsyncMock(side_effect=mock_get)
-    return tasks_service
+def _uids(entities: dict[str, list[dict[str, str]]], key: str) -> list[str]:
+    return [match["uid"] for match in entities[key]]
 
 
-def create_mock_goals_service() -> Mock:
-    """Create mock GoalsService that returns entities with .title attribute."""
-    goals_service = Mock()
-
-    async def mock_get(uid: str):
-        entities = {
-            "goal_001": Mock(title="Learn Machine Learning", uid="goal_001"),
-            "goal_002": Mock(title="Master Python Programming", uid="goal_002"),
-        }
-        if uid in entities:
-            return Result.ok(entities[uid])
-        return Result.fail(Errors.not_found("Entity", uid))
-
-    goals_service.get = AsyncMock(side_effect=mock_get)
-    return goals_service
-
-
-def create_mock_user_context() -> Mock:
-    """Create mock UserContext with actual field names from entity_extractor.py."""
-    context = Mock()
-    context.user_uid = "test_user"
-
-    # Knowledge UIDs (consumed via UserContext.known_or_engaged_ku_uids())
-    context.mastered_knowledge_uids = {"ku.python-basics"}
-    context.in_progress_knowledge_uids = {"ku.machine-learning"}
-    context.blocked_knowledge_uids = set()
-    context.known_or_engaged_ku_uids = Mock(
-        return_value=context.mastered_knowledge_uids
-        | context.in_progress_knowledge_uids
-        | context.blocked_knowledge_uids
+def test_exact_title_match_across_every_domain(context: RichUserContext) -> None:
+    entities = EntityExtractor().extract_entities_from_query(
+        "Before Python Basics, should I Complete Python project, join the Python meetup, "
+        "keep the Daily Python kata, honour Ship in public and Pick a capstone project?",
+        context,
     )
 
-    # Activity UIDs
-    context.active_task_uids = ["task_001"]
-    context.active_goal_uids = ["goal_001"]
-    context.active_habit_uids = []
-    context.today_event_uids = []
-    context.upcoming_event_uids = []
-
-    return context
-
-
-# ============================================================================
-# TEST FIXTURES
-# ============================================================================
+    assert _uids(entities, "knowledge") == ["ku.python-basics"]
+    assert _uids(entities, "tasks") == ["task_001"]
+    assert _uids(entities, "habits") == ["habit_001"]
+    assert _uids(entities, "events") == ["event_today"]
+    assert _uids(entities, "principles") == ["principle_001"]
+    assert _uids(entities, "choices") == ["choice_001"]
+    # "Learn Machine Learning" shares no significant word (>3 chars) with the question
+    assert entities["goals"] == []
 
 
-@pytest.fixture
-def mock_ku_service():
-    return create_mock_ku_service()
-
-
-@pytest.fixture
-def mock_tasks_service():
-    return create_mock_tasks_service()
-
-
-@pytest.fixture
-def mock_goals_service():
-    return create_mock_goals_service()
-
-
-@pytest.fixture
-def mock_habits_service():
-    """Create mock HabitsService."""
-    habits_service = Mock()
-    habits_service.get = AsyncMock(return_value=Result.fail(Errors.not_found("Entity", "none")))
-    return habits_service
-
-
-@pytest.fixture
-def mock_events_service():
-    """Create mock EventsService."""
-    events_service = Mock()
-    events_service.get = AsyncMock(return_value=Result.fail(Errors.not_found("Entity", "none")))
-    return events_service
-
-
-@pytest.fixture
-def extractor_with_services(
-    mock_ku_service,
-    mock_tasks_service,
-    mock_goals_service,
-    mock_habits_service,
-    mock_events_service,
-):
-    """EntityExtractor with all domain services."""
-    return EntityExtractor(
-        knowledge_service=mock_ku_service,
-        tasks_service=mock_tasks_service,
-        goals_service=mock_goals_service,
-        habits_service=mock_habits_service,
-        events_service=mock_events_service,
+def test_every_match_carries_the_node_entity_type(context: RichUserContext) -> None:
+    entities = EntityExtractor().extract_entities_from_query(
+        "What comes after Python Basics and Data Pipelines?", context
     )
 
-
-@pytest.fixture
-def user_context():
-    return create_mock_user_context()
-
-
-# ============================================================================
-# TESTS: Exact Match Extraction
-# ============================================================================
+    # Ku and PathStep alike, told apart by the label-derived field, never the uid
+    assert {m["uid"]: m["entity_type"] for m in entities["knowledge"]} == {
+        "ku.python-basics": "ku",
+        "ps.data-pipelines": "path_step",
+    }
+    assert entities["knowledge"][0].keys() == {"uid", "title", "entity_type"}
 
 
-class TestExactMatchExtraction:
-    """Test exact match entity extraction."""
+def test_matching_is_case_insensitive(context: RichUserContext) -> None:
+    entities = EntityExtractor().extract_entities_from_query("tell me about python basics", context)
 
-    @pytest.mark.asyncio
-    async def test_extract_entities_exact_match(self, extractor_with_services, user_context):
-        """Extracts entities with exact title match."""
-        query = "I want to learn Python Basics"
-
-        entities = await extractor_with_services.extract_entities_from_query(
-            query=query,
-            user_context=user_context,
-        )
-
-        assert isinstance(entities, dict)
-        # Should extract knowledge unit "Python Basics"
-
-    @pytest.mark.asyncio
-    async def test_extract_entities_case_insensitive(self, extractor_with_services, user_context):
-        """Extraction is case-insensitive."""
-        query = "tell me about python basics"
-
-        entities = await extractor_with_services.extract_entities_from_query(
-            query=query,
-            user_context=user_context,
-        )
-
-        assert isinstance(entities, dict)
+    assert "ku.python-basics" in _uids(entities, "knowledge")
 
 
-# ============================================================================
-# TESTS: Partial Match Extraction
-# ============================================================================
+def test_partial_and_acronym_strategies(context: RichUserContext) -> None:
+    # "python" is a significant word of "Python Basics", "Complete Python project" and
+    # "Python meetup"; "ml" is the acronym of "Machine Learning". "Review ML code" has
+    # no significant word in the question and "ml" is too short to be one.
+    entities = EntityExtractor().extract_entities_from_query(
+        "How is my Python work and my ML progress?", context
+    )
+
+    assert set(_uids(entities, "knowledge")) == {"ku.python-basics", "ku.machine-learning"}
+    assert _uids(entities, "tasks") == ["task_001"]
+    assert _uids(entities, "events") == ["event_today"]
 
 
-class TestPartialMatchExtraction:
-    """Test partial word match entity extraction."""
+def test_a_rich_row_outside_the_live_scope_is_not_a_candidate(context: RichUserContext) -> None:
+    """The window admits a completed task into the rich rows; extraction scopes to open ones."""
+    entities = EntityExtractor().extract_entities_from_query(
+        "How did the Python retrospective go?", context
+    )
 
-    @pytest.mark.asyncio
-    async def test_extract_entities_partial_match(self, extractor_with_services, user_context):
-        """Extracts entities with partial word matches."""
-        query = "What's the status of my Python work?"
-
-        entities = await extractor_with_services.extract_entities_from_query(
-            query=query,
-            user_context=user_context,
-        )
-
-        assert isinstance(entities, dict)
+    assert "task_done" not in _uids(entities, "tasks")
 
 
-# ============================================================================
-# TESTS: Acronym Match Extraction
-# ============================================================================
+def test_an_event_in_both_today_and_upcoming_matches_once(context: RichUserContext) -> None:
+    entities = EntityExtractor().extract_entities_from_query("the Python meetup", context)
+
+    assert _uids(entities, "events") == ["event_today"]
 
 
-class TestAcronymMatchExtraction:
-    """Test acronym match entity extraction."""
+def test_no_match_yields_every_domain_empty(context: RichUserContext) -> None:
+    entities = EntityExtractor().extract_entities_from_query("What is the weather like?", context)
 
-    @pytest.mark.asyncio
-    async def test_extract_entities_acronym_match(self, extractor_with_services, user_context):
-        """Extracts entities with acronym matches (e.g., ML for Machine Learning)."""
-        query = "How is my ML progress?"
-
-        entities = await extractor_with_services.extract_entities_from_query(
-            query=query,
-            user_context=user_context,
-        )
-
-        assert isinstance(entities, dict)
+    assert entities == {
+        "knowledge": [],
+        "tasks": [],
+        "goals": [],
+        "habits": [],
+        "events": [],
+        "principles": [],
+        "choices": [],
+    }
 
 
-if __name__ == "__main__":
-    pytest.main([__file__, "-v"])
+def test_the_extractor_reaches_no_service() -> None:
+    """Zero graph reads per question: there is no handle to read through."""
+    extractor = EntityExtractor()
+
+    assert not any(name.endswith("_service") for name in vars(extractor))
+    assert not any(name.endswith("_service") for name in vars(EntityExtractor))
