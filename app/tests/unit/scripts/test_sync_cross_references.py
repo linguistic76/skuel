@@ -1,12 +1,13 @@
 """Writer tests for scripts/sync_cross_references.py.
 
-The script rewrites docs, so every defect in it lands in the tree as a diff nobody
-asked for. The first ``--all`` run after #1023 produced three such diffs — the blank
-line after the frontmatter fence vanished from every touched file, a new block
-landed with no blank line before its heading and two after, and replacing a block
-ran to the next ``## `` heading and swallowed a ``---`` rule kept between them.
-These pin the shape the writer must leave behind, and that a doc already in sync
-is reported as skipped rather than "updated".
+The script rewrites docs, so its output shape is the contract: the body after the
+closing frontmatter fence is preserved verbatim (that blank line included), a new
+``## Related Skills`` block is set off by exactly one blank line on each side, a
+replaced block is bounded by its own shape so anything the doc keeps between it and
+the next heading (a ``---`` rule) survives, a block that already matches its
+frontmatter is reported as skipped rather than rewritten, and ``ADR-TEMPLATE.md``
+is never walked — a block rendered into the template would be copied into every
+ADR authored from it.
 """
 
 from __future__ import annotations

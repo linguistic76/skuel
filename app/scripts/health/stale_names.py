@@ -349,7 +349,6 @@ ALLOWED_OCCURRENCES: dict[str, dict[tuple[int, str], Allow]] = {
         (446, "ActivityReviewService"): Allow(_askesis_arch),
     },
     "docs/architecture/ENTITY_TYPE_ARCHITECTURE.md": {
-        # +5 (2026-09-14): the rendered `## Related Skills` block was added above.
         (412, "ProcessorType"): Allow(_entity_arch),
         (421, "ProcessorType"): Allow(_entity_arch),
     },
@@ -387,8 +386,6 @@ ALLOWED_OCCURRENCES: dict[str, dict[tuple[int, str], Allow]] = {
     "docs/decisions/ADR-054-user-entry-unified-submissions.md": {
         # Re-anchored -2 (PR #1045): the execution note above lost 2 net lines when
         # its citation of two vanished plans/ files was removed.
-        # +6 (2026-09-14): a related_skills frontmatter line and the rendered
-        # `## Related Skills` block were added above every anchor.
         (106, "EntityType.EXERCISE_SUBMISSION"): Allow(_adr054),
         (106, "EntityType.JE_INPUT"): Allow(_adr054),
         (107, "EntityType.JE_OUTPUT"): Allow(_adr054),
