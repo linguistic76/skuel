@@ -77,6 +77,7 @@ Last Updated: April 2026
 import ast
 import io
 import itertools
+import os
 import re
 import string
 import subprocess
@@ -84,6 +85,7 @@ import sys
 import time
 import tokenize
 from collections.abc import Callable, Iterator
+from concurrent.futures import ProcessPoolExecutor
 from dataclasses import dataclass, field
 from enum import Enum
 from operator import itemgetter
@@ -1462,6 +1464,18 @@ class SkuelLinter:
         "scripts/lint_skuel",  # Linter files document patterns they check
     )
 
+    # Parallel-sweep policy (`_worker_count`), when no `jobs` is given. Per-file
+    # work is independent, so a sweep shards across processes and merges in
+    # file order. Below PARALLEL_MIN_FILES it stays serial: a pre-commit-sized
+    # `--staged` selection is done before a pool would pay for itself, and a
+    # tmp-tree test run stays in-process. Above it, one worker per CPU up to
+    # PARALLEL_MAX_WORKERS — the measured knee on the full sweep, past which
+    # the serial SKUEL026 audit is what remains. Jobs are chunks of
+    # PARALLEL_CHUNK_FILES so files of very different sizes still balance.
+    PARALLEL_MIN_FILES: ClassVar[int] = 32
+    PARALLEL_MAX_WORKERS: ClassVar[int] = 12
+    PARALLEL_CHUNK_FILES: ClassVar[int] = 16
+
     def _is_excluded(self, py_file: Path) -> bool:
         """True if the file lives under an excluded directory / path prefix."""
         rel = py_file.relative_to(self.root_dir)
@@ -1716,6 +1730,7 @@ class SkuelLinter:
         rules_filter: list[str] | None = None,
         changed_files: list[Path] | None = None,
         ignore_suppressions: bool = False,
+        jobs: int | None = None,
     ) -> None:
         self.root_dir = root_dir
         self.target_path = target_path
@@ -1724,6 +1739,8 @@ class SkuelLinter:
         # Shadow-lint mode for the SKUEL026 suppression audit: rules behave as if
         # no suppression comments existed, so the audit can see what WOULD fire.
         self.ignore_suppressions = ignore_suppressions
+        # Worker processes for the sweep: None = the PARALLEL_* policy, 1 = serial.
+        self.jobs = jobs
         self.result = LintResult()
         # Per-file memo for _inert_string_constant_ids — SKUEL001 and SKUEL021
         # share the same inert-docstring walk over the same tree. Keyed by the
@@ -1774,16 +1791,52 @@ class SkuelLinter:
         python_files = self._find_python_files()
         self.result.files_scanned = len(python_files)
 
-        for file_path in python_files:
-            self._lint_file(file_path)
+        workers = self._worker_count(len(python_files))
+        if workers == 1:
+            for file_path in python_files:
+                self._lint_file(file_path)
+        else:
+            self._lint_files_in_parallel(python_files, workers)
 
         # SKUEL026 suppression audit — skipped in shadow mode (the audit's own
-        # re-lint) and when a --rule filter excludes it.
+        # re-lint) and when a --rule filter excludes it. Serial by construction:
+        # it reads the merged main-run violations.
         if not self.ignore_suppressions and self._should_run_rule("SKUEL026"):
             self._audit_suppressions(python_files)
 
         self.result.scan_time_ms = (time.time() - start_time) * 1000
         return self.result
+
+    def _worker_count(self, file_count: int) -> int:
+        """Processes for the sweep: ``jobs`` when given (1 = serial), else the
+        PARALLEL_* policy — serial under the threshold, one per CPU up to the cap."""
+        if self.jobs is not None:
+            return max(1, self.jobs)
+        if file_count < self.PARALLEL_MIN_FILES:
+            return 1
+        return min(os.process_cpu_count() or 1, self.PARALLEL_MAX_WORKERS)
+
+    def _lint_files_in_parallel(self, python_files: list[Path], workers: int) -> None:
+        """The per-file sweep across ``workers`` processes, merged in file order.
+
+        Every file is linted exactly as the serial loop lints it: the same
+        `_lint_file`, on a linter each worker builds from this one's constructor
+        arguments (the per-file memos are per-instance, and no other state
+        crosses files). ``map`` yields chunks in submission order, so the merged
+        violations are the serial result, order included — the report and
+        ``--json`` cannot tell the two apart. A worker that dies propagates as
+        ``BrokenProcessPool``: no fallback, because a crashed worker is not a
+        verdict and the run must fail loudly rather than read as clean.
+        """
+        job = _LintJob(self.root_dir, self.rules_filter, self.ignore_suppressions)
+        chunks = [
+            python_files[i : i + self.PARALLEL_CHUNK_FILES]
+            for i in range(0, len(python_files), self.PARALLEL_CHUNK_FILES)
+        ]
+        with ProcessPoolExecutor(max_workers=workers) as pool:
+            for violations, internal_errors in pool.map(job.lint, chunks):
+                self.result.violations.extend(violations)
+                self.result.internal_errors.extend(internal_errors)
 
     def _should_run_rule(self, rule_id: str) -> bool:
         """Check if a rule should run based on filter."""
@@ -7313,6 +7366,33 @@ class SkuelLinter:
         return exit_code
 
 
+@dataclass(frozen=True)
+class _LintJob:
+    """A parallel sweep's worker side: the linter's constructor arguments, so a
+    worker rebuilds a linter identical to the one that sharded the files.
+
+    A frozen dataclass rather than a closure because the job crosses the process
+    boundary by pickle — under the ``forkserver`` start method each worker
+    re-imports this module and unpickles the job, so it must be a module-level
+    type with plain-data fields.
+    """
+
+    root_dir: Path
+    rules_filter: list[str] | None
+    ignore_suppressions: bool
+
+    def lint(self, files: list[Path]) -> tuple[list[Violation], list[tuple[Path, str, str]]]:
+        """Lint ``files`` on a fresh linter; return what it found."""
+        linter = SkuelLinter(
+            self.root_dir,
+            rules_filter=self.rules_filter,
+            ignore_suppressions=self.ignore_suppressions,
+        )
+        for file_path in files:
+            linter._lint_file(file_path)
+        return linter.result.violations, linter.result.internal_errors
+
+
 def explain_rule(rule_id: str) -> None:
     """Print detailed explanation of a rule."""
     rule_id = rule_id.upper()
@@ -7382,6 +7462,7 @@ Examples:
   %(prog)s --fix                    # Auto-fix violations
   %(prog)s --no-context             # Hide code context
   %(prog)s --quiet --strict         # CI/gate mode (warnings fail)
+  %(prog)s --jobs 1                 # Serial sweep (debugging a rule)
         """,
     )
     parser.add_argument("--fix", action="store_true", help="Auto-fix violations where possible")
@@ -7422,6 +7503,17 @@ Examples:
     )
     parser.add_argument("--list-rules", action="store_true", help="List all available rules")
     parser.add_argument("--no-color", action="store_true", help="Disable colored output")
+    parser.add_argument(
+        "--jobs",
+        "-j",
+        type=int,
+        default=None,
+        help=(
+            "Worker processes for the sweep. Default: serial below "
+            f"{SkuelLinter.PARALLEL_MIN_FILES} files, else one per CPU up to "
+            f"{SkuelLinter.PARALLEL_MAX_WORKERS}; 1 forces a serial run"
+        ),
+    )
     args = parser.parse_args()
 
     # Disable colors if requested or not a TTY
@@ -7479,6 +7571,7 @@ Examples:
         target_path=args.file,
         rules_filter=rules_filter,
         changed_files=changed_files,
+        jobs=args.jobs,
     )
     linter.lint()
 
@@ -7501,6 +7594,7 @@ Examples:
             target_path=args.file,
             rules_filter=rules_filter,
             changed_files=changed_files,
+            jobs=args.jobs,
         )
         linter.lint()
 
