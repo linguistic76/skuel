@@ -1214,6 +1214,33 @@ class TestMovesAndRevivals:
         svc.get_extracted_entities.assert_awaited_once()
 
     @pytest.mark.asyncio
+    async def test_a_vault_id_mentioned_in_prose_or_a_code_span_is_not_a_move(self):
+        """Only a 🆔 on a line the checkbox door parses counts (Codex P2 on
+        #1343): a prose mention or a fenced line is not a line the outbound
+        pass could write to, so provenance must not be re-pointed onto it.
+        No lookup, no re-point, no revival."""
+        entry = _make_entry(
+            Pipeline.EXTRACT_ACTIVITIES,
+            content=(
+                "Follow-up on the task 🆔 sk_prose1 from last week.\n"
+                "```\n- [ ] Fenced 🆔 sk_fence1\n```\n"
+                "- [ ] Real line 🆔 sk_real01\n"
+            ),
+        )
+        svc = _extract_entry_service(entry)
+        extractor = MagicMock()
+        extractor.extract_and_create = AsyncMock(
+            return_value=Result.ok(_extraction_result(entry.uid))
+        )
+
+        dispatcher = _make_dispatcher(entry_service=svc)
+        dispatcher.activity_extractor = extractor
+        result = await dispatcher.process(entry)
+
+        assert result.is_ok
+        svc.find_task_by_vault_id.assert_awaited_once_with("user_1", "sk_real01")
+
+    @pytest.mark.asyncio
     async def test_a_failed_repoint_fails_the_run_at_persist_links(self):
         """A re-point that fails leaves the edge where it was — the run fails
         like any provenance write, the file stays out of the checkpoint, and

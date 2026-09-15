@@ -49,6 +49,7 @@ The `@context()` tag values are now parsed to `EntityType` or `NonKuDomain` enum
 """
 
 import re
+from collections.abc import Iterator
 from dataclasses import dataclass, field
 from datetime import date, datetime
 from typing import Any
@@ -803,17 +804,10 @@ class ActivityDSLParser:
         from core.services.dsl.obsidian_tasks_adapter import obsidian_task_line_to_parsed
 
         lines = text.split("\n")
-        # Code spans are literal text, on every line they cover — including a
-        # span that straddles lines, which a per-line mask cannot see.
-        masked_lines = mask_code_spans_in_lines(lines)
         activities: list[ParsedActivityLine] = []
         errors: list[str] = []
 
-        for line_num, (line, masked) in enumerate(zip(lines, masked_lines, strict=True), start=1):
-            # A line lying entirely inside a code span is literal text for BOTH
-            # doors — neither a marker line nor a checkbox line.
-            if line.strip() and not masked.strip():
-                continue
+        for line_num, line, masked in _journal_lines(lines):
             # Non-@context lines: try the obsidian-tasks checkbox adapter.
             if "@context(" not in masked:
                 obsidian = obsidian_task_line_to_parsed(
@@ -1272,6 +1266,47 @@ def _escaped_at(line: str, index: int) -> bool:
     while index - backslashes - 1 >= 0 and line[index - backslashes - 1] == "\\":
         backslashes += 1
     return backslashes % 2 == 1
+
+
+def _journal_lines(lines: list[str]) -> Iterator[tuple[int, str, str]]:
+    """Yield ``(line_num, line, masked)`` for every line either parse door may read.
+
+    Code spans are literal text, on every line they cover — including a span
+    that straddles lines, which a per-line mask cannot see — so the mask is
+    document-level, and a line lying entirely inside a span is skipped: it is
+    neither a marker line nor a checkbox line. ``masked`` is the line with its
+    spans blanked, the text the routing predicate (``@context(`` present or
+    not) and the tag scan read.
+    """
+    masked_lines = mask_code_spans_in_lines(lines)
+    for line_num, (line, masked) in enumerate(zip(lines, masked_lines, strict=True), start=1):
+        if line.strip() and not masked.strip():
+            continue
+        yield line_num, line, masked
+
+
+def checkbox_vault_ids(text: str) -> set[str]:
+    """The 🆔s on the lines the obsidian-tasks door would parse as task lines.
+
+    The same routing as ``parse_journal``'s checkbox door — code spans masked,
+    ``@context`` lines excluded — reduced to the join keys. The move / revival
+    branch of extraction asks which 🆔s a note holds *as task lines*: a 🆔
+    mentioned in prose ("see 🆔 sk_…") or sitting inside a code span is not a
+    line the outbound pass could ever write to, and provenance re-pointed
+    onto it would be stranded on the wrong note. (The deleted-line verdict
+    deliberately uses the wider raw token scan — there, a 🆔 anywhere in the
+    text is a reason NOT to retire.)
+    """
+    from core.services.dsl.obsidian_tasks_adapter import obsidian_task_line_to_parsed
+
+    found: set[str] = set()
+    for _line_num, line, masked in _journal_lines(text.split("\n")):
+        if "@context(" in masked:
+            continue
+        parsed = obsidian_task_line_to_parsed(line)
+        if parsed is not None and parsed.vault_id is not None:
+            found.add(parsed.vault_id)
+    return found
 
 
 def mask_code_spans_in_lines(lines: list[str]) -> list[str]:

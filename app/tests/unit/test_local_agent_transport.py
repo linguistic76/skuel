@@ -562,6 +562,9 @@ class TestAdapterEdges:
         assert result.is_ok
         assert not (mirror_root / NOTE_PATH).exists()
         assert any("changed mid-sync" in w or NOTE_PATH in w for w in result.value.warnings)
+        # The skipped file is counted as stale: the ingest reads no fresh
+        # copy of it, so the retirement sweep must hold this sync (R4).
+        assert result.value.stale == 1
 
     @pytest.mark.asyncio
     async def test_per_update_outcomes_cross_the_wire(

@@ -798,3 +798,25 @@ class TestInlineCodeIsLiteral:
         text = "Explain `oops\n- [ ] Not real @context(task)\n`later`\n"
         parsed = parse_journal_text(text).value
         assert parsed.activities == []
+
+
+class TestCheckboxVaultIds:
+    """``checkbox_vault_ids`` — the move branch's oracle: 🆔s on task lines only."""
+
+    def test_only_checkbox_door_lines_count(self):
+        from core.services.dsl.activity_dsl_parser import checkbox_vault_ids
+
+        text = (
+            "Prose that mentions 🆔 sk_prose1 is not a task line.\n"
+            "```\n- [ ] Fenced 🆔 sk_fence1\n```\n"
+            "- [ ] Tagged @context(task) 🆔 sk_dsl001\n"  # the DSL door reads no 🆔
+            "- [x] Done 🆔 sk_done01 ✅ 2026-09-01\n"
+            "* [ ] Star bullet 🆔 sk_star01\n"
+            "- [ ] No id at all\n"
+        )
+        assert checkbox_vault_ids(text) == {"sk_done01", "sk_star01"}
+
+    def test_empty_text_has_none(self):
+        from core.services.dsl.activity_dsl_parser import checkbox_vault_ids
+
+        assert checkbox_vault_ids("") == set()

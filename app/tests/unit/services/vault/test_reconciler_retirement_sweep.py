@@ -37,6 +37,7 @@ from core.ports.query_types import VaultRetiredTaskRow
 from core.ports.vault_bridge_protocol import VaultBridgePort, VaultSyncStats
 from core.services.ingestion.config import SyncAllowlist
 from core.services.ingestion.types import IncrementalStats
+from core.services.vault.mirror_sync import MirrorPullStats, VaultMirrorPuller
 from core.services.vault.vault_descriptor import VaultDescriptor, VaultKind, VaultRegistry
 from core.services.vault.vault_reconciler import VaultReconciler, _merge_ingest_stats
 from core.utils.result_simplified import Errors, Result
@@ -51,7 +52,7 @@ CLOCK = datetime(2026, 9, 15, 12, 0, tzinfo=UTC)
 # =========================================================================
 
 
-def _registry(tmp_path: Path) -> VaultRegistry:
+def _registry(tmp_path: Path, mirror_pull: VaultMirrorPuller | None = None) -> VaultRegistry:
     def _descriptor(kind: VaultKind, root: Path, owner: str) -> VaultDescriptor:
         return VaultDescriptor(
             kind=kind,
@@ -60,6 +61,7 @@ def _registry(tmp_path: Path) -> VaultRegistry:
             allowlist=SyncAllowlist(governed_root=root.resolve(), allowed_dirs=frozenset()),
             bridge=cast("VaultBridgePort", object()),
             supports_task_round_trip=kind is VaultKind.PERSONAL,
+            mirror_pull=mirror_pull if kind is VaultKind.PERSONAL else None,
         )
 
     return VaultRegistry(
@@ -82,6 +84,7 @@ def _harness(
     *,
     pending: list[VaultRetiredTaskRow],
     ingest: IncrementalStats | None = None,
+    mirror_pull: VaultMirrorPuller | None = None,
 ) -> tuple[VaultReconciler, Mock, list[str]]:
     """A reconciler over mocks that records the ORDER of the reads it makes."""
     order: list[str] = []
@@ -112,7 +115,7 @@ def _harness(
     ingestion.ingest_directory = AsyncMock(side_effect=_ingest)
 
     reconciler = VaultReconciler(
-        registry=_registry(tmp_path),
+        registry=_registry(tmp_path, mirror_pull),
         unified_ingestion=ingestion,
         user_entry_service=user_entry,
         tasks_service=Mock(),
@@ -228,6 +231,33 @@ async def test_an_incomplete_inbound_pass_holds_every_stamp(
     assert [w for w in result.value.warnings if "2 vault retirement(s) held" in w], (
         result.value.warnings
     )
+
+
+@pytest.mark.asyncio
+async def test_a_stale_mirror_file_holds_the_sweep(tmp_path: Path) -> None:
+    """local_agent transport (Codex P1 on #1343): a file the mirror could not
+    bring current — torn read, fetch or write failure — is read stale by the
+    ingest, so that note has not had its say either. The refresh reports
+    such rows as warnings and keeps the old copy; the sweep must hold on
+    them exactly as on a failed file, or a restored line's revival is lost
+    and the next clean pull mints a twin."""
+    puller = Mock(spec=VaultMirrorPuller)
+    puller.refresh = AsyncMock(
+        return_value=Result.ok(
+            MirrorPullStats(
+                fetched=1, stale=1, warnings=["mirror refresh could not fetch 'notes/a.md': …"]
+            )
+        )
+    )
+    reconciler, user_entry, _order = _harness(
+        tmp_path, pending=[_row("done", status=EntityStatus.COMPLETED)], mirror_pull=puller
+    )
+    result = await reconciler.sync(VaultKind.PERSONAL, OWNER)
+
+    assert result.is_ok
+    assert result.value.mirror_files_stale == 1
+    user_entry.clear_vault_retirement_stamps.assert_not_awaited()
+    assert result.value.retirements_held == 1
 
 
 @pytest.mark.asyncio

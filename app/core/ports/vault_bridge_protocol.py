@@ -262,8 +262,14 @@ class VaultSyncStats:
     # could not re-link its task — so the retirement sweep holds while any
     # exist, as it does over ``files_failed`` (R4).
     files_broken: int = 0
+    # local_agent transport only: files the staging mirror could not bring
+    # current this sync (fetch failure, torn read, write failure) — the
+    # inbound pass then read a stale copy, or none. The third reason the
+    # sweep holds.
+    mirror_files_stale: int = 0
     # Retirement stamps the end-of-sync sweep left in place because the
-    # inbound pass was incomplete (``files_failed`` or ``files_broken``).
+    # inbound pass was incomplete (``files_failed``, ``files_broken`` or
+    # ``mirror_files_stale``).
     retirements_held: int = 0
     warnings: list[str] = field(default_factory=list)
     errors: list[str] = field(default_factory=list)

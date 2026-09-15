@@ -330,6 +330,10 @@ class VaultReconciler:
                 if pull_result.is_error:
                     return Result.fail(pull_result)
                 stats.warnings.extend(pull_result.value.warnings)
+                # A file the mirror could not refresh is read stale (or not at
+                # all) by the ingest below — it has not had its say, and the
+                # retirement sweep must hold on it like on a failed file.
+                stats.mirror_files_stale = pull_result.value.stale
 
             # Step 3: ingest (inbound — smart mode skips unchanged files). The
             # descriptor's own fail-closed allowlist scopes which folders are
@@ -1057,12 +1061,13 @@ class VaultReconciler:
         meanwhile indistinguishable from a pre-🆔-era orphan.
 
         The sweep runs only after a COMPLETE inbound pass. A note that failed
-        to ingest — or opted in and could not be read — has not had its say:
-        it may hold the very line that would revive a stamped task, and
-        clearing even a terminal task's stamp on such a sync destroys the only
-        🆔 mapping its restored line could revive by (Guard 4 ignores terminal
-        twins, so the next clean sync would mint a duplicate completed task).
-        With any such file, nothing is judged and the next clean sync decides.
+        to ingest — or opted in and could not be read, or that a local-agent
+        mirror could not refresh — has not had its say: it may hold the very
+        line that would revive a stamped task, and clearing even a terminal
+        task's stamp on such a sync destroys the only 🆔 mapping its restored
+        line could revive by (Guard 4 ignores terminal twins, so the next
+        clean sync would mint a duplicate completed task). With any such
+        file, nothing is judged and the next clean sync decides.
         """
         listed = await self._user_entry.list_vault_retired_tasks(owner, sync_cutoff)
         if listed.is_error:
@@ -1071,7 +1076,7 @@ class VaultReconciler:
         pending = listed.value or []
         if not pending:
             return
-        if stats.files_failed or stats.files_broken:
+        if stats.files_failed or stats.files_broken or stats.mirror_files_stale:
             stats.retirements_held = len(pending)
             stats.warnings.append(
                 f"{len(pending)} vault retirement(s) held: the sync had files it could "
