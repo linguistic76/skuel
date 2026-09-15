@@ -662,6 +662,62 @@ class _RelationshipCrudMixin[T: DomainModelProtocol]:
             )
         return Result.ok(link_count)
 
+    @safe_backend_operation("advance_extracted_from_links")
+    async def advance_extracted_from_links(
+        self, entry_uid: str, links: builtins.list[tuple[str, str, str, str]]
+    ) -> Result[int]:
+        """Move ``EXTRACTED_FROM`` edges' base and digest to the current line (ADR-070, R4).
+
+        For each ``(entity_uid, source_line_hash, vault_id, source_line)``, the edge
+        ``(entity)-[:EXTRACTED_FROM {vault_id}]->(entry)`` takes the given digest and
+        ``source_line`` as written — the reconciler has consumed the diff between
+        the base the edge held and this line (the write it implied landed, or
+        there was nothing to write), so the next sync diffs against this one. The
+        counterpart of ``create_extracted_from_links``' seed-and-keep: that write
+        never advances a present base, this one always does. Keyed on the 🆔 as
+        read, so an edge a concurrent writer re-keyed is left alone; MATCH, not
+        MERGE — an edge that is gone is not recreated.
+
+        Args:
+            entry_uid: UserEntry UID (target of EXTRACTED_FROM)
+            links: ``(entity_uid, source_line_hash, vault_id, source_line)``
+
+        Returns:
+            Result[int]: number of edges advanced
+        """
+        if not links:
+            return Result.ok(0)
+
+        query = """
+        MATCH (entry:UserEntry {uid: $entry_uid})
+        UNWIND $links AS link
+        MATCH (e:Entity {uid: link.uid})-[r:EXTRACTED_FROM {vault_id: link.vault_id}]->(entry)
+        SET r.source_line_hash = link.line_hash,
+            r.source_line = link.source_line
+        RETURN count(r) AS advanced_count
+        """
+        params = {
+            "entry_uid": entry_uid,
+            "links": [
+                {
+                    "uid": uid,
+                    "line_hash": line_hash,
+                    "vault_id": vault_id,
+                    "source_line": source_line,
+                }
+                for uid, line_hash, vault_id, source_line in links
+            ],
+        }
+        record = await self._run_single(query, params)
+        advanced_count = int(record["advanced_count"]) if record else 0
+
+        if advanced_count < len(links):
+            self.logger.warning(
+                f"EXTRACTED_FROM advance: moved {advanced_count}/{len(links)} bases "
+                f"for entry {entry_uid} (edge re-keyed or already gone)"
+            )
+        return Result.ok(advanced_count)
+
     @safe_backend_operation("update_extracted_from_vault_id")
     async def update_extracted_from_vault_id(
         self, entry_uid: str, entity_uid: str, vault_id: str

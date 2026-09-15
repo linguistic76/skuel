@@ -421,6 +421,7 @@ def _extract_entry_service(updated_entry: UserEntry) -> MagicMock:
     svc.get_user_active_extraction_twins = AsyncMock(return_value=Result.ok([]))
     svc.create_extracted_from_links = AsyncMock(return_value=Result.ok(1))
     svc.retire_extracted_from_links = AsyncMock(return_value=Result.ok(0))
+    svc.advance_extracted_from_links = AsyncMock(return_value=Result.ok(0))
     # The R4 move / revival branch: a 🆔 in the text that no edge of this entry
     # carries is looked up user-wide; nothing found is the phantom case.
     svc.find_task_by_vault_id = AsyncMock(return_value=Result.ok([]))
@@ -436,8 +437,10 @@ def _extraction_result(
     *,
     created_links: list[tuple[str, str, str | None, str | None]] | None = None,
     refreshed_links: list[tuple[str, str, str, str | None]] | None = None,
+    advanced_links: list[tuple[str, str, str, str]] | None = None,
     merged_links: list[tuple[str, str, str | None, str | None]] | None = None,
     retired_links: list[tuple[str, str]] | None = None,
+    reconciliation_errors: list[str] | None = None,
     created_ku_uids: list[str] | None = None,
     referenced_ku_uids: list[str] | None = None,
 ) -> ActivityExtractionResult:
@@ -446,8 +449,10 @@ def _extraction_result(
         user_uid="user_1",
         created_links=created_links or [],
         refreshed_links=refreshed_links or [],
+        advanced_links=advanced_links or [],
         merged_links=merged_links or [],
         retired_links=retired_links or [],
+        reconciliation_errors=reconciliation_errors or [],
         created_ku_uids=created_ku_uids or [],
         referenced_ku_uids=referenced_ku_uids or [],
     )
@@ -599,6 +604,109 @@ class TestExtractActivities:
         assert order == ["retire", "write"]
         summary = svc.update_processing_state.await_args.args[1]["metadata"]["activity_extraction"]
         assert summary["retired_links"] == [["task:old", "sk_gone01"]]
+
+    @pytest.mark.asyncio
+    async def test_advanced_links_take_their_own_write_after_the_provenance_write(self):
+        """Edges the reconciler consumed (R4 PR 2) advance base AND digest
+        through ``advance_extracted_from_links`` — never through the
+        seed-and-keep MERGE, which holds a present base — after the created /
+        merged / refreshed links are written. The refusals ride the summary
+        as ``reconciliation_errors``, where the ingest surface reads them as
+        warnings."""
+        entry = _make_vault_entry("- [x] Gym 🆔 sk_a1 ✅ 2026-09-15")
+        svc = _extract_entry_service(entry)
+        order: list[str] = []
+
+        async def _write(_entry_uid: str, _links: list) -> Result[int]:
+            order.append("write")
+            return Result.ok(1)
+
+        async def _advance(_entry_uid: str, _links: list) -> Result[int]:
+            order.append("advance")
+            return Result.ok(1)
+
+        svc.create_extracted_from_links = AsyncMock(side_effect=_write)
+        svc.advance_extracted_from_links = AsyncMock(side_effect=_advance)
+        advanced = ("task:gym", "hash_now", "sk_a1", "- [x] Gym 🆔 sk_a1 ✅ 2026-09-15")
+        extractor = MagicMock()
+        extractor.extract_and_create = AsyncMock(
+            return_value=Result.ok(
+                _extraction_result(
+                    entry.uid,
+                    refreshed_links=[("task:seed", "hash_seed", "sk_b2", "- [ ] Seed 🆔 sk_b2")],
+                    advanced_links=[advanced],
+                    reconciliation_errors=["'Held' (🆔 sk_c3): A task needs a due date"],
+                )
+            )
+        )
+
+        dispatcher = _make_dispatcher(entry_service=svc)
+        dispatcher.activity_extractor = extractor
+        dispatcher.user_service = _teacher_user_service()
+        result = await dispatcher.process(entry)
+
+        assert result.is_ok
+        svc.create_extracted_from_links.assert_awaited_once_with(
+            entry.uid, [("task:seed", "hash_seed", "sk_b2", "- [ ] Seed 🆔 sk_b2")]
+        )
+        svc.advance_extracted_from_links.assert_awaited_once_with(entry.uid, [advanced])
+        assert order == ["write", "advance"]
+        summary = svc.update_processing_state.await_args.args[1]["metadata"]["activity_extraction"]
+        assert summary["advanced_links"] == [["task:gym", "hash_now", "sk_a1"]]
+        assert summary["reconciliation_errors"] == ["'Held' (🆔 sk_c3): A task needs a due date"]
+
+    @pytest.mark.asyncio
+    async def test_no_advanced_links_means_no_advance_call(self):
+        entry = _make_vault_entry("- [ ] Gym 🆔 sk_a1")
+        svc = _extract_entry_service(entry)
+        extractor = MagicMock()
+        extractor.extract_and_create = AsyncMock(
+            return_value=Result.ok(_extraction_result(entry.uid))
+        )
+
+        dispatcher = _make_dispatcher(entry_service=svc)
+        dispatcher.activity_extractor = extractor
+        result = await dispatcher.process(entry)
+
+        assert result.is_ok
+        svc.advance_extracted_from_links.assert_not_awaited()
+
+    @pytest.mark.asyncio
+    async def test_advance_failure_fails_the_run_at_persist_links(self):
+        """A task write landed but the edge's base did not move: the run
+        fails so the file stays out of the checkpoint and the next sync
+        re-reads the same diff — which the domain door then finds already
+        applied (nothing to write) and the base advances then."""
+        entry = _make_vault_entry("- [x] Gym 🆔 sk_a1 ✅ 2026-09-15")
+        svc = _extract_entry_service(entry)
+        svc.advance_extracted_from_links = AsyncMock(
+            return_value=Result.fail(Errors.database("advance_extracted_from_links", "boom"))
+        )
+        extractor = MagicMock()
+        extractor.extract_and_create = AsyncMock(
+            return_value=Result.ok(
+                _extraction_result(
+                    entry.uid,
+                    advanced_links=[("task:gym", "hash_now", "sk_a1", "- [x] Gym 🆔 sk_a1")],
+                )
+            )
+        )
+        bus = MagicMock()
+        captured: list[BaseEvent] = []
+
+        async def _publish(event: BaseEvent) -> None:
+            captured.append(event)
+
+        bus.publish_async = AsyncMock(side_effect=_publish)
+
+        dispatcher = _make_dispatcher(entry_service=svc, event_bus=bus)
+        dispatcher.activity_extractor = extractor
+        result = await dispatcher.process(entry)
+
+        assert result.is_error
+        failed = [e for e in captured if isinstance(e, UserEntryProcessingFailed)]
+        assert len(failed) == 1
+        assert failed[0].failed_phase == "persist_links"
 
     @pytest.mark.asyncio
     async def test_no_retired_links_means_no_retire_call(self):

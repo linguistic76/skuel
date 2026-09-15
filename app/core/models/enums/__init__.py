@@ -13,7 +13,8 @@ Module Organization:
 - choice_enums: ChoiceType
 - event_enums: EventType, AttendanceStatus
 - principle_enums: TriggerType, PrincipleCategory, PrincipleSource, PrincipleStrength, AlignmentLevel
-- user_entry_enums: SubmissionModality, ExerciseScope, EnrichmentMode, ProgressDepth, ReportPeriodKind
+- user_entry_enums: SubmissionModality, ExerciseScope, EnrichmentMode, ProgressDepth, ReportPeriodKind,
+                    ParseDoor, CheckboxVerdict
 - pipeline: Pipeline, JeUse, ProcessingMode, ReportSource, ExchangeStatus
 - curriculum_enums: LpType, PublicationState, StepDifficulty
 - lifepath_enums: ThemeCategory
@@ -146,8 +147,10 @@ from .transcription_enums import TranscriptionStatus
 
 # User entry enums - processing and scheduling (renamed from submissions_enums)
 from .user_entry_enums import (
+    CheckboxVerdict,
     EnrichmentMode,
     ExerciseScope,
+    ParseDoor,
     ProgressDepth,
     ReportPeriodKind,
     SubmissionModality,
@@ -186,6 +189,7 @@ __all__ = [
     "DomainIdentifier",
     "EducationalLevel",
     "FeedbackCategory",
+    "CheckboxVerdict",
     "EnrichmentMode",
     "EngagementLevel",
     "EngagementState",
@@ -235,6 +239,7 @@ __all__ = [
     "TriggerType",
     "QueryComplexity",
     "ProductivityLevel",
+    "ParseDoor",
     "ProgressDepth",
     "ReportPeriodKind",
     "ProgressLevel",

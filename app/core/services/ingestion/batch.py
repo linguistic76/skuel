@@ -1262,6 +1262,16 @@ async def ingest_directory(
                                 frontmatter_organizes_targets(ue_entity),
                             )
                         )
+                # A refused vault edit of a 🆔 line (R4 C1: the task's domain
+                # door said no — a task keeps a day, an overdue priority is
+                # not lowered) is a WARNING, not a failure: the run completed
+                # and the entry persisted. But the edge held its base for a
+                # retry, and the retry is the note's next ingest — so the
+                # file is left un-stamped (its existing tracker row keeps the
+                # previous hash) and smart mode re-ingests it every sync,
+                # re-warning, until the line and the task agree.
+                if result_data.get("reconciliation_refusals"):
+                    file_entity_map.pop(str(ue_path), None)
                 # Per-line extraction problems (parse/creation/link
                 # errors) that did not fail the file: surface as
                 # warnings (G10) — the entry persisted and stays

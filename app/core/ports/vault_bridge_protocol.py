@@ -355,9 +355,10 @@ def _carries_skuel_done_marker(line: str) -> bool:
     * **Not the checkbox.** ``apply_mark_done`` ALWAYS appends a ``✅ date`` (its
       last act, unconditional once the box is checked), so SKUEL never authors a
       ``[x]`` without one. A dateless ``[x]`` on a 🆔 line is *definitionally*
-      something the USER checked in Obsidian — and a vault-side check does not
-      reach SKUEL (extraction Guard 2b; inbound parked, deferred-work § R4), so
-      reverting it silently erases a deliberate edit SKUEL cannot even read.
+      something the USER checked in Obsidian — a completion the inbound pass
+      reads and applies (extraction Guard 2b, ADR-070 Decision 3), so reverting
+      it here would undo the user's own edit and fight the completion it
+      produced.
     * **Not "anywhere".** ``apply_mark_done`` appends its token at the END, so a
       ``✅ date`` sitting inside the task's own text was never SKUEL's — it is
       prose the user wrote (*"Compare ✅ 2025-01-01 vs now"*). Only a TRAILING

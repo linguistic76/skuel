@@ -23,8 +23,10 @@ converter → facade create path.
 - ``#tag`` → ``extra_tags`` (plus ``period:{entry_kind}`` when supplied)
 
 Other obsidian-tasks markers (``🛫`` start, the created-date marker, ``🔁``
-recurrence) are stripped from the description but not yet mapped to fields —
-recurrence/round-trip are deferred follow-ons.
+recurrence) are stripped from the description but not mapped to fields
+(ADR-070 Decision 2: read-only). The same parse serves the vault round-trip
+both ways: it mints the task, and it reads the base and the current line the
+reconciler merges (``core.services.dsl.line_reconciliation``).
 
 The stored ``raw_line`` is checkbox-normalized to ``- [ ]`` (the ``[x]``/``[X]``
 state is captured separately in ``is_checked``) so the per-line dedup hash
@@ -36,6 +38,7 @@ import re
 from datetime import date, datetime
 
 from core.models.enums.entity_enums import EntityType
+from core.models.enums.user_entry_enums import ParseDoor
 from core.ports.vault_bridge_protocol import VAULT_ID_RE
 from core.services.dsl.activity_dsl_parser import ParsedActivityLine
 
@@ -157,8 +160,9 @@ def obsidian_task_line_to_parsed(
 
     # Canonicalize the checkbox prefix to '- [ ] ' — collapsing BOTH the checked
     # state AND the bullet char ('-' vs '*') — so the dedup hash is stable across
-    # check/uncheck and bullet style (the active flip-to-COMPLETED round-trip is
-    # deferred). Normalizing only the checked branch would leave a '* [ ]' task
+    # check/uncheck and bullet style (the checkbox itself is read from
+    # ``is_checked``, and the reconciler judges it against the edge's base, not
+    # the digest). Normalizing only the checked branch would leave a '* [ ]' task
     # hashing differently from its '* [x]' twin and let a force re-run duplicate it.
     #
     # Also strip 🆔 from raw_line so the hash is stable across ID injection
@@ -182,6 +186,7 @@ def obsidian_task_line_to_parsed(
         source_line=source_line,
         raw_line=normalized_raw,
         verbatim_line=line,
+        door=ParseDoor.OBSIDIAN_TASKS,
         is_checked=is_checked,
         vault_id=vault_id,
     )

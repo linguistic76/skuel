@@ -757,6 +757,21 @@ class UserEntryService(BaseService[UserEntryOperations, UserEntry]):
         """
         return await self.backend.create_extracted_from_links(entry_uid, links)
 
+    async def advance_extracted_from_links(
+        self, entry_uid: str, links: list[tuple[str, str, str, str]]
+    ) -> Result[int]:
+        """Move reconciled 🆔 lines' edges to the line as it now stands (ADR-070 Decision 3, R4).
+
+        ``links`` is ``(entity_uid, source_line_hash, vault_id, source_line)`` for
+        edges whose diff the reconciler consumed — the write it implied landed,
+        or there was nothing to write. Base and digest are written as given, so
+        the next sync diffs against this line; an edge whose write was refused
+        is not among them and keeps its base (C1).
+
+        Backend: UserEntryBackend.advance_extracted_from_links.
+        """
+        return await self.backend.advance_extracted_from_links(entry_uid, links)
+
     async def retire_extracted_from_links(
         self, entry_uid: str, links: list[tuple[str, str]]
     ) -> Result[int]:

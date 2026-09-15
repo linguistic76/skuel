@@ -46,8 +46,8 @@ filesystem bridge — never a re-implementation of any guard:
 7. **The write-back reverses.** Reopening the task in SKUEL un-checks its line
    and strips the ✅ date, restoring the pre-completion bytes exactly — and the
    sync after that writes nothing at all (ADR-070 Resolved Design Question 2,
-   amended 2026-08-24). ⚠️ Outbound only: a vault-side check or un-check still
-   does not reach SKUEL (deferred-work § R4).
+   amended 2026-08-24). The inbound half — a vault-side check or un-check
+   reaching the task — is ``test_vault_inbound_propagation.py``'s.
 8. **A deleted line retires its edge.** A 🆔 line deleted from a note that
    still exists is the one deletion file-level propagation cannot see. The
    extraction pre-pass retires every edge whose line is gone by BOTH keys —

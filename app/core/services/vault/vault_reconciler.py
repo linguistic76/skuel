@@ -44,6 +44,7 @@ from core.ports.vault_bridge_protocol import (
     VAULT_ID_RE,
     TaskLineUpdate,
     VaultSyncStats,
+    apply_task_updates,
     needs_mark_undone,
     normalize_vault_line_hash,
 )
@@ -164,6 +165,28 @@ class _PendingInjection:
     entity_uid: str
     vault_id: str
     update_index: int | None
+
+
+@dataclass(frozen=True)
+class _OwnWrite:
+    """One queued line mutation, with the edge's base it is applied to as well.
+
+    SKUEL's own outbound writes are, by definition, seen: the base
+    (``EXTRACTED_FROM.source_line``, the line as SKUEL last saw it — ADR-070
+    Decision 3) takes the SAME mutation the file takes, so the next ingest
+    does not read SKUEL's ``[x] ✅`` (or its un-check, or its 🆔) as a
+    vault-side edit — which, with the task reopened (or re-completed) in
+    SKUEL between the write and the ingest, would re-apply the state SKUEL
+    had just withdrawn. Applied to the BASE, not copied from the file: a
+    vault edit sitting on the line stays a diff against the new base. Gated
+    on the update landing (``WriteResult.was_applied``), like the 🆔 persist.
+    ``base`` is ``None`` for an edge that holds none yet (the ingest seeds it).
+    """
+
+    update_index: int
+    entity_uid: str
+    vault_id: str
+    base: str | None
 
 
 def _mint_vault_id() -> str:
@@ -758,9 +781,13 @@ class VaultReconciler:
         line is checked and stamped ``✅ date``, and a task that is no longer
         completed has its line un-checked and the stale ✅ date stripped. Both
         arms are driven by STATE — the task's current status against the line's
-        current shape — so each is idempotent and re-evaluable on any sync
-        (⚠ inbound is still parked, deferred-work § R4: a vault-side edit of a
-        🆔 line does not reach SKUEL).
+        current shape — so each is idempotent and re-evaluable on any sync.
+        Inbound runs first: a vault-side check, uncheck or field edit of a 🆔
+        line reaches the task on the note's ingest (the extraction identity
+        branch reconciles the line against the base its edge holds, ADR-070
+        Decision 3), so by the time this pass reads the task, the vault's own
+        edits are already in it and what it writes back is SKUEL's side of
+        the merge.
 
         A minted 🆔 is persisted onto its ``EXTRACTED_FROM`` edge only when the
         write reports THAT injection as applied — never on file-level success
@@ -810,6 +837,8 @@ class VaultReconciler:
 
         updates: list[TaskLineUpdate] = []
         injections: list[_PendingInjection] = []
+        # Every queued mutation, with the base it advances on landing.
+        own_writes: list[_OwnWrite] = []
         # Outbound write counters are settled AFTER the write, from each
         # update's own outcome — never at queue time. ``(entity_uid, index)``
         # for the un-checks because theirs is the one that can also warn.
@@ -831,6 +860,7 @@ class VaultReconciler:
             entity_uid = rel.get("entity_uid", "")
             vault_id = rel.get("vault_id")
             line_hash = rel.get("source_line_hash", "")
+            base = rel.get("source_line")
 
             if not vault_id or vault_id not in present_ids:
                 # The file does not carry this edge's 🆔 — the edge has none
@@ -886,6 +916,7 @@ class VaultReconciler:
                             update_index=len(updates) - 1,
                         )
                     )
+                    own_writes.append(_OwnWrite(len(updates) - 1, entity_uid, new_vault_id, base))
             else:
                 # The file carries the edge's 🆔 — check if COMPLETED in SKUEL
                 task_result = await self._tasks.get_task(entity_uid)
@@ -911,6 +942,7 @@ class VaultReconciler:
                         )
                     )
                     queued_dones.append(len(updates) - 1)
+                    own_writes.append(_OwnWrite(len(updates) - 1, entity_uid, vault_id, base))
                 elif needs_mark_undone(snapshot.content, vault_id):
                     # The vault surface of a reopen (ADR-070 Resolved Design
                     # Question 2, amended 2026-08-24). STATE, not the
@@ -925,15 +957,18 @@ class VaultReconciler:
                     # ⚠ The ✅ date, not the checkbox, is the discriminator: it
                     # is the token SKUEL wrote, so this only ever takes back
                     # SKUEL's own completion. A dateless [x] is a box the USER
-                    # ticked in Obsidian — unreadable to SKUEL (Guard 2b,
-                    # inbound parked § R4) and left alone rather than silently
-                    # reverted on the next sync.
+                    # ticked in Obsidian — a completion the inbound pass reads
+                    # (Guard 2b, ADR-070 Decision 3), after which the done arm
+                    # above stamps SKUEL's ✅ date onto it; should that
+                    # completion not have landed, the line stays as the user
+                    # wrote it rather than being reverted.
                     #
                     # The gate is what keeps this arm cheap: without it the
                     # batch would be non-empty for nearly every file holding
                     # tasks, and every sync would issue a write RPC per file.
                     updates.append(TaskLineUpdate(vault_id=vault_id, mark_undone=True))
                     queued_undones.append((entity_uid, len(updates) - 1))
+                    own_writes.append(_OwnWrite(len(updates) - 1, entity_uid, vault_id, base))
 
         if not updates and not injections:
             return
@@ -1028,6 +1063,33 @@ class VaultReconciler:
                 stats.errors.append(
                     f"update_extracted_vault_id failed ({pending.entity_uid}): "
                     f"{upd_result.expect_error()}"
+                )
+
+        # SKUEL's own writes are seen: each landed mutation is applied to its
+        # edge's base too, and base + digest advance to the result — after the
+        # 🆔 persist above, because the advance is keyed on the 🆔 an injection
+        # has only just written. A mutation that does not apply to the base
+        # (the base holds no 🆔 yet, or is already in the written state) leaves
+        # it for the ingest to bring current.
+        advances: list[tuple[str, str, str, str]] = []
+        for own in own_writes:
+            if own.base is None or not write_result.was_applied(own.update_index):
+                continue
+            advanced, (applied,) = apply_task_updates(own.base + "\n", [updates[own.update_index]])
+            if not applied:
+                continue
+            new_base = advanced.rstrip("\n")
+            advances.append(
+                (own.entity_uid, normalize_vault_line_hash(new_base), own.vault_id, new_base)
+            )
+        if advances:
+            advance_result = await self._user_entry.advance_extracted_from_links(
+                entry.uid, advances
+            )
+            if advance_result.is_error:
+                stats.errors.append(
+                    f"advance_extracted_from_links failed for {entry.uid}: "
+                    f"{advance_result.expect_error()}"
                 )
 
         # Update vault_sync_hash on UserEntry metadata
