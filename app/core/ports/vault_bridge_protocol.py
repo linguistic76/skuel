@@ -478,12 +478,19 @@ def needs_mark_undone(content: str, vault_id: str) -> bool:
 def apply_inject_id(
     lines: list[str], vault_id: str, source_line_hash: str | None
 ) -> tuple[list[str], bool]:
-    """Find the target checkbox line and append ``🆔 <vault_id>``.
+    """Find the target checkbox line and write ``🆔 <vault_id>`` onto it.
 
     When ``source_line_hash`` is provided, finds the line whose normalized hash
     matches — guaranteeing the right line is targeted even when multiple tasks
     in the same file lack an ID.  Falls back to the first ID-less checkbox line
     when no hash is provided.
+
+    The token goes at the end of the line — except in front of a TRAILING
+    ``✅ date``, which stays the last token. ``apply_mark_done`` keys its no-op
+    on that trailing marker, so a 🆔 appended after it would make the next
+    outbound pass append a second date to a line that is already done; the
+    obsidian-tasks plugin itself writes ``🆔`` before ``✅``. The digest is
+    🆔-blind and whitespace-collapsed, so it is the same either side.
     """
     for i, line in enumerate(lines):
         if not (_UNCHECKED_RE.match(line) or _CHECKED_RE.match(line)):
@@ -494,7 +501,13 @@ def apply_inject_id(
             continue
         stripped = line.rstrip("\n")
         eol = line[len(stripped) :]
-        lines[i] = f"{stripped} 🆔 {vault_id}{eol}"
+        marker = _TRAILING_DONE_DATE_RE.search(stripped)
+        if marker:
+            lines[i] = (
+                f"{stripped[: marker.start()]} 🆔 {vault_id}{stripped[marker.start() :]}{eol}"
+            )
+        else:
+            lines[i] = f"{stripped} 🆔 {vault_id}{eol}"
         return lines, True
     return lines, False
 

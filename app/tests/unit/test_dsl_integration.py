@@ -487,6 +487,92 @@ Some reflections on the day...
         assert extraction.to_dict()["lines_rehashed"] == 1
 
     @pytest.mark.asyncio
+    async def test_a_line_gone_by_both_keys_retires_its_edges(self, extractor):
+        """An edge whose 🆔 appears nowhere in the text AND whose digest no
+        🆔-less line carries is a line the user deleted from a note that still
+        exists — the case file-level deletion propagation never sees. Its
+        edges are queued for retirement and their digests leave the
+        exact-match set BEFORE any line is checked: a dead edge is not
+        consulted, so a line this entry has never seen by identity (a 🆔 it
+        holds no edge for) is extracted even at the deleted line's digest.
+        One key gone is not a deletion: a 🆔-less ``[x] … ✅`` line still
+        hashing to its edge is the same line with its token stripped —
+        recognised by hash as ever (re-minting it here would duplicate a
+        completed task, the #1143 shape); the outbound pass re-keys it. A 🆔
+        that IS in the text — on a parsed line, or inside a code fence the
+        parser masks — keeps its edges untouched; so does an edge that never
+        had a 🆔 (bridge / DSL prose), whose hash still blocks its line."""
+        from core.services.dsl.activity_extractor import (
+            ExtractedByVaultId,
+            normalized_line_hash,
+        )
+
+        deleted = "- [x] Water the plants ✅ 2026-08-10"  # its 🆔 line is gone for good
+        pasted = f"{deleted} 🆔 sk_paste1"  # same text, a 🆔 this entry holds no edge for
+        stripped = "- [x] Read ✅ 2026-08-20"  # its 🆔 was stripped; the text is still here
+        live = "- [ ] Buy milk 🆔 sk_live01"
+        fenced = "- [ ] Fenced 🆔 sk_fence1"  # masked from the parser, still in the file
+        prose = "- [ ] Reflect on the day @context(task)"  # 🆔-less DSL edge
+        entry = UserEntry(
+            uid="ue_gone",
+            title="Deleted line",
+            user_uid="user_mike",
+            entity_type=EntityType.USER_ENTRY,
+            status=EntityStatus.COMPLETED,
+            pipeline=Pipeline.NONE,
+            original_filename="gone.md",
+            file_path="/tmp/gone.md",
+            file_type="text/plain",
+            processed_content=(f"{pasted}\n{stripped}\n{live}\n```\n{fenced}\n```\n{prose}\n"),
+        )
+
+        result = await extractor.extract_and_create(
+            entry,
+            "user_mike",
+            existing_line_hashes=frozenset(
+                {
+                    normalized_line_hash(deleted),
+                    normalized_line_hash(stripped),
+                    normalized_line_hash(live),
+                    normalized_line_hash(fenced),
+                    normalized_line_hash(prose),
+                }
+            ),
+            existing_vault_ids={
+                # Two edges on the gone 🆔 (the original and the copy the
+                # Guard 2b bug once made) — both are the line's own.
+                "sk_gone01": (
+                    ExtractedByVaultId("task_gone", normalized_line_hash(deleted)),
+                    ExtractedByVaultId("task_gone_copy", normalized_line_hash(deleted)),
+                ),
+                "sk_strip1": (ExtractedByVaultId("task_strip", normalized_line_hash(stripped)),),
+                "sk_live01": (ExtractedByVaultId("task_live", normalized_line_hash(live)),),
+                "sk_fence1": (ExtractedByVaultId("task_fence", normalized_line_hash(fenced)),),
+            },
+        )
+
+        assert result.is_ok
+        extraction = result.value
+        assert extraction.retired_links == [
+            ("task_gone", "sk_gone01"),
+            ("task_gone_copy", "sk_gone01"),
+        ], "only the 🆔 gone by both keys retires — every edge it holds"
+        assert extraction.to_dict()["retired_links"] == [
+            ["task_gone", "sk_gone01"],
+            ["task_gone_copy", "sk_gone01"],
+        ]
+        # The pasted line is extracted under its own 🆔: the deleted edge's
+        # digest was retired before Guard 2 saw it. The stripped line is
+        # recognised by hash, the live 🆔 line by identity, the 🆔-less DSL
+        # line by hash.
+        assert extraction.tasks_created == 1, extraction.to_dict()
+        assert extraction.created_links == [
+            ("task:123", normalized_line_hash(deleted), "sk_paste1")
+        ]
+        assert extraction.lines_skipped_existing == 3
+        assert extraction.refreshed_links == [], "nothing moved; nothing to refresh"
+
+    @pytest.mark.asyncio
     async def test_bridge_generated_lines_never_tag_warn(self, extractor):
         """Bridge lines carry deliberately loose tags — not the user's values to fix."""
         from core.services.dsl.activity_extractor import normalized_line_hash

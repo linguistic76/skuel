@@ -1217,9 +1217,10 @@ def normalize_heading(text: str) -> str:
     Applied to BOTH sides (the file's headings and the registries' pointers),
     so a pointer may be written with or without the decoration. Three steps —
     the only inference in the anchor check, and the convention every existing
-    code citation already uses ("§ Line Deletions Leave EXTRACTED_FROM Edges"
-    in cleanup_duplicate_vault_tasks.py cites a backticked, suffixed heading by
-    its core text):
+    code citation already uses (``core/constants.py`` cites "§ Label-Generic
+    Vector Rung Has No Index for Most Domains" by its core text; a backticked
+    heading such as "Event Attendance Wiring (`ATTENDS`) — Staged Build" is
+    cited without the backticks):
 
     1. strip backticks;
     2. drop ONE trailing parenthetical — the ``(REGISTERED 2026-08-28 — ruled

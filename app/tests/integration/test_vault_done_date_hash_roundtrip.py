@@ -48,6 +48,18 @@ filesystem bridge — never a re-implementation of any guard:
    sync after that writes nothing at all (ADR-070 Resolved Design Question 2,
    amended 2026-08-24). ⚠️ Outbound only: a vault-side check or un-check still
    does not reach SKUEL (deferred-work § R4).
+8. **A deleted line retires its edge.** Deleting a 🆔 line from a note that
+   still exists is the case file-level deletion propagation never sees: the
+   edge (and its digest) stayed behind, feeding the guards on every later
+   sync, and the same text typed back later hashed into it and was
+   swallowed. The extraction pre-pass retires every edge whose line is gone
+   by BOTH keys — 🆔 nowhere in the text, digest on no 🆔-less line — and the
+   task itself stays in SKUEL (inbound propagation is parked, § R4).
+9. **A stripped token is re-minted, not re-extracted.** One key gone is not a
+   deletion: a 🆔-less line still hashing to its edge is the same line minus
+   its token. It is recognised by hash (a re-mint at ingest would duplicate a
+   completed ``[x] ✅`` line — the #1143 shape all over again) and the
+   outbound pass injects a fresh 🆔 and re-keys the edge to it.
 
 The unit-level contracts — which tokens the digest normalises, and Guard 2b
 at the extractor — are pinned DB-free in
@@ -121,6 +133,19 @@ class Rig:
         assert not stats.errors, stats.errors
         assert not stats.first_run_notice, "consent gate engaged — owner fixture lost its consent"
         return stats
+
+    async def extracted_edges(self) -> list[tuple[str, str | None]]:
+        """``(task uid, vault_id)`` of every EXTRACTED_FROM edge into the owner's entries."""
+        async with self.driver.session() as session:
+            result = await session.run(
+                """
+                MATCH (t:Task)-[r:EXTRACTED_FROM]->(:UserEntry {user_uid: $owner})
+                RETURN t.uid AS uid, r.vault_id AS vault_id
+                ORDER BY t.uid
+                """,
+                owner=OWNER,
+            )
+            return [(row["uid"], row["vault_id"]) async for row in result]
 
     async def owned_tasks(self) -> list[tuple[str, str]]:
         """``(uid, status)`` of every Task the owner holds."""
@@ -325,11 +350,11 @@ class TestDoneDateWriteBackRoundTrip:
         assert tasks[0][1] == EntityStatus.COMPLETED.value
 
         # A prose edit elsewhere in the note re-ingests the whole entry; the
-        # task line is byte-identical and must be recognised.
-        rig.note.write_text(
-            FRONTMATTER + f"- [x] {TITLE} ✅ 2026-08-20\n\nA note about the day.\n",
-            encoding="utf-8",
-        )
+        # task line — 🆔 injected by the first sync and all — is byte-identical
+        # and must be recognised.
+        written = rig.note.read_text(encoding="utf-8")
+        assert "🆔 sk_" in written, written
+        rig.note.write_text(written + "\nA note about the day.\n", encoding="utf-8")
         await rig.sync()
         assert await rig.owned_tasks() == tasks
 
@@ -430,3 +455,109 @@ class TestDoneDateWriteBackRoundTrip:
         tasks = await rig.owned_tasks()
         assert len(tasks) == 2, f"the second completed occurrence was swallowed: {tasks}"
         assert {status for _, status in tasks} == {EntityStatus.COMPLETED.value}
+
+
+@pytest.mark.asyncio
+@pytest.mark.integration
+class TestDeletedLinesRetireTheirEdges:
+    async def test_a_line_typed_back_after_its_deletion_synced_is_a_fresh_task(
+        self, rig: Rig
+    ) -> None:
+        """The swallow. A task is cancelled in SKUEL (terminal, so Guard 4
+        ignores it; no write-back, so its unchecked digest never moves). The
+        user clears the line; a later sync sees the same text typed back as a
+        new to-do. The dead edge's digest used to be in the exact-match set
+        forever, so Guard 2 dropped the new line: one task, a line nothing
+        would ever inject. Retiring the edge when the line went makes the
+        typed-back line a new task, injected as one."""
+        rig.note.write_text(FRONTMATTER + f"- [ ] {TITLE}\n", encoding="utf-8")
+        await rig.sync()
+        await rig.sync()  # the 🆔 edit re-ingests
+        ((task_uid, _),) = await rig.owned_tasks()
+        [(_, old_id)] = await rig.extracted_edges()
+        assert old_id and old_id.startswith("sk_"), old_id
+        cancelled = await rig.tasks.update_task(
+            task_uid, TaskUpdateRequest(status=EntityStatus.CANCELLED).to_intent()
+        )
+        assert cancelled.is_ok, cancelled
+
+        rig.note.write_text(FRONTMATTER + "Skipped it this week.\n", encoding="utf-8")
+        cleared = await rig.sync()
+        assert not cleared.warnings, cleared.warnings
+        assert await rig.extracted_edges() == [], "the cleared line's edge was left dangling"
+        assert await rig.owned_tasks() == [(task_uid, EntityStatus.CANCELLED.value)]
+
+        rig.note.write_text(FRONTMATTER + f"- [ ] {TITLE}\n", encoding="utf-8")
+        typed_back = await rig.sync()
+        tasks = await rig.owned_tasks()
+        assert len(tasks) == 2, f"the typed-back line was swallowed as the deleted one: {tasks}"
+        assert sorted(status for _, status in tasks) == sorted(
+            [EntityStatus.CANCELLED.value, EntityStatus.DRAFT.value]
+        )
+        assert typed_back.ids_injected == 1, typed_back
+        [(fresh_uid, fresh_id)] = await rig.extracted_edges()
+        assert fresh_uid != task_uid
+        written = rig.note.read_text(encoding="utf-8")
+        assert fresh_id and fresh_id != old_id and fresh_id in written, (fresh_id, written)
+
+    async def test_a_stripped_token_is_re_minted_onto_the_same_line(self, rig: Rig) -> None:
+        """One key gone is not a deletion. The user strips the 🆔 token from
+        a written-back ``[x] … ✅`` line and leaves the text: the line still
+        hashes to its edge, so it is recognised (no duplicate completed task —
+        the #1143 shape) and the outbound pass injects a fresh 🆔, re-keying
+        the edge, instead of aiming its write-back at an id the file no longer
+        carries."""
+        rig.note.write_text(FRONTMATTER + f"- [ ] {TITLE}\n", encoding="utf-8")
+        await rig.sync()
+        ((task_uid, _),) = await rig.owned_tasks()
+        await _complete_in_skuel(rig, task_uid)
+        await rig.sync()  # 🆔 re-ingest + [x] ✅ write-back
+        await rig.sync()  # the write-back re-ingests
+        [(_, old_id)] = await rig.extracted_edges()
+        written = rig.note.read_text(encoding="utf-8")
+        assert old_id and f"🆔 {old_id}" in written, (old_id, written)
+
+        rig.note.write_text(written.replace(f" 🆔 {old_id}", ""), encoding="utf-8")
+        stripped = await rig.sync()
+        assert not stripped.warnings, stripped.warnings
+        assert await rig.owned_tasks() == [(task_uid, EntityStatus.COMPLETED.value)], (
+            "the stripped line was re-extracted as a second completed task"
+        )
+        assert stripped.ids_injected == 1, stripped
+        [(edge_uid, new_id)] = await rig.extracted_edges()
+        assert edge_uid == task_uid
+        assert new_id and new_id != old_id
+        healed = rig.note.read_text(encoding="utf-8")
+        assert f"🆔 {new_id}" in healed and old_id not in healed, healed
+        assert healed.startswith(FRONTMATTER + f"- [x] {TITLE}"), healed
+
+        quiet = await rig.sync()  # the re-mint re-ingests: recognised by 🆔, nothing to write
+        assert (quiet.ids_injected, quiet.tasks_marked_done) == (0, 0), quiet
+        assert await rig.owned_tasks() == [(task_uid, EntityStatus.COMPLETED.value)]
+
+    async def test_clearing_every_task_line_leaves_the_tasks_and_no_edges(self, rig: Rig) -> None:
+        """The census shape (#1143: five 🆔 edges into a weekly note holding
+        no checkbox line at all). Clearing the lines is not a SKUEL deletion —
+        both tasks stay, untouched — but their provenance goes with the lines,
+        and the syncs after that are quiet: nothing to inject, nothing to
+        mark, nothing to warn about."""
+        rig.note.write_text(FRONTMATTER + "- [ ] Gym\n- [ ] Read\n", encoding="utf-8")
+        await rig.sync()
+        await rig.sync()  # the 🆔 edit re-ingests: the tracker now holds the injected note
+        tasks = await rig.owned_tasks()
+        assert len(tasks) == 2, tasks
+        assert len(await rig.extracted_edges()) == 2
+
+        rig.note.write_text(FRONTMATTER + "Cleared the week.\n", encoding="utf-8")
+        cleared = await rig.sync()
+        assert not cleared.warnings, cleared.warnings
+        assert await rig.owned_tasks() == tasks, (
+            "a vault-side line deletion is not a SKUEL deletion"
+        )
+        assert await rig.extracted_edges() == [], "the cleared lines' edges were left behind"
+
+        quiet = await rig.sync()
+        assert not quiet.warnings, quiet.warnings
+        assert (quiet.ids_injected, quiet.tasks_marked_done, quiet.tasks_marked_undone) == (0, 0, 0)
+        assert await rig.owned_tasks() == tasks
+        assert await rig.extracted_edges() == []

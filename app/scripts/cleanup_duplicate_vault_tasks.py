@@ -45,9 +45,11 @@ with ``--repair-id <id>``: the line's single edge-less same-title task gets the
 ``EXTRACTED_FROM`` edge (``vault_id`` + the door's ``source_line_hash``) on the
 entry the file's OTHER owned ids point to — the reconciler's own recovery case,
 applied to a task that predates the edge. A file with no owned id resolves no
-entry and is refused. **Dangling ids** (on edges, on no line) are counted; that
-class is registered (deferred-work.md § "Line Deletions Leave EXTRACTED_FROM
-Edges").
+entry and is refused. **Dangling ids** (on edges, on no line) are counted: the
+extraction pre-pass retires such an edge on its file's next re-ingest, so any
+listed here sit on files unchanged since the line went — one
+``./dev vault-sync --force`` retires them (roadmap/done § "Line Deletions Leave
+EXTRACTED_FROM Edges").
 
 Dry-run by default: prints every set and the exact ``--confirm`` invocation,
 changes nothing. Deletions go through ``TasksService.delete_task`` (cascade +
@@ -643,7 +645,10 @@ def _print_report(c: Classification, user_uid: str) -> None:
     print(f"\n{bar}\nDANGLING ids — on edges, on no vault line today: {len(c.dangling_ids)}\n{bar}")
     if c.dangling_ids:
         print("  " + ", ".join(c.dangling_ids))
-        print("  (registered: deferred-work.md § Line Deletions Leave EXTRACTED_FROM Edges)")
+        print(
+            "  (retired on the file's next re-ingest; for files unchanged since: "
+            "./dev vault-sync --force — roadmap/done § Line Deletions Leave EXTRACTED_FROM Edges)"
+        )
 
     if c.proposed_uids:
         confirms = " ".join(f"--confirm {uid}" for uid in c.proposed_uids)

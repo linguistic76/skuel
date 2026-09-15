@@ -49,7 +49,7 @@ from typing import Any
 from core.models.enums.entity_enums import EntityType, NonKuDomain
 from core.models.type_hints import UserUID
 from core.models.user_entry.user_entry import UserEntry
-from core.ports.vault_bridge_protocol import normalize_vault_line_hash
+from core.ports.vault_bridge_protocol import VAULT_ID_RE, normalize_vault_line_hash
 from core.services.dsl.activity_domain_converters import (
     # Activity Domains (6)
     activity_to_choice_request,
@@ -308,6 +308,16 @@ class ActivityExtractionResult:
     # the next same-text line the user adds (Codex P1 on #1143, round 3).
     # Written through the same batch edge write as created_links.
     refreshed_links: list[tuple[str, str, str]] = field(default_factory=list)
+    # (entity_uid, vault_id) pairs for edges whose line is gone — its 🆔
+    # appears nowhere in the text and no 🆔-less line hashes to its digest:
+    # the user deleted the line from a note that still exists, which
+    # file-level deletion propagation never sees. The edge is retired (the
+    # entity stays — a vault-side line deletion is not a SKUEL deletion,
+    # inbound propagation being parked § R4) and its digest leaves the
+    # exact-match set before any line is checked, so a same-text line the
+    # user types back is not swallowed as the deleted one. 🆔-less edges
+    # (bridge / DSL prose, never a physical line) are out of scope by design.
+    retired_links: list[tuple[str, str]] = field(default_factory=list)
     # Deduped Ku UIDs referenced via @ku()/linked-knowledge tags on any parsed
     # line (including dedup-skipped ones) — APPLIES_KNOWLEDGE candidates.
     referenced_ku_uids: list[str] = field(default_factory=list)
@@ -433,6 +443,7 @@ class ActivityExtractionResult:
             "referenced_ku_uids": self.referenced_ku_uids,
             "lines_skipped_existing": self.lines_skipped_existing,
             "lines_rehashed": len(self.refreshed_links),
+            "retired_links": [[uid, vault_id] for uid, vault_id in self.retired_links],
             "lines_merged_existing": self.lines_merged_existing,
             "lines_merged_cross_entry": self.lines_merged_cross_entry,
             # ================================================================
@@ -597,7 +608,13 @@ class ActivityExtractorService:
                 change signal — and the stale digest is retired from
                 ``existing_line_hashes`` BEFORE any line is checked against
                 it, so a same-text sibling arriving in the same ingest as the
-                write-back is not read as the old line.
+                write-back is not read as the old line. An edge whose 🆔
+                appears NOWHERE in the text and whose digest no 🆔-less line
+                carries is a line the user deleted from the note: it is
+                queued for retirement (``retired_links``) and its digest
+                leaves the exact-match set the same way. A 🆔-less line still
+                carrying the digest is the same line with its token stripped
+                — recognised by hash, re-minted by the outbound pass.
 
         Returns:
             Result containing ActivityExtractionResult with counts, UIDs,
@@ -731,7 +748,43 @@ class ActivityExtractorService:
         #     stale sibling edge must still be refreshed. The edges are this
         #     line's own (identity proven by 🆔), so the write is the line's
         #     change signal moving with it, not a clobber (cf. Guards 3/4).
+        #
+        # Deleted lines first. An edge's line is gone when BOTH of its keys
+        # are: its 🆔 appears nowhere in the text AND no 🆔-less line hashes
+        # to its digest. That is a line the user removed from a note that
+        # still exists — the case file-level deletion propagation never sees.
+        # Its edges are retired (the entity stays: a vault-side deletion is
+        # not a SKUEL deletion while inbound propagation is parked, § R4) and
+        # their digests leave the exact-match set for the same reason as
+        # above: the same text typed back would hash into the deleted line
+        # and be swallowed. One key gone is not a deletion: a 🆔-less line
+        # still hashing to the digest is the same line with its token
+        # stripped — Guard 2 recognises it by hash as ever (re-minting it
+        # here would duplicate a completed ``[x] ✅`` line, the #1143 shape)
+        # and the outbound pass re-mints its 🆔. The presence oracle is the
+        # raw token scan, not the parse — a 🆔 the parser cannot see (inside
+        # a code fence) is still on a line the outbound write-back can find.
+        # 🆔-bearing edges only: a bridge / DSL prose edge never had a
+        # physical line, and its hash matching nothing is its normal state.
+        present_vault_ids = set(VAULT_ID_RE.findall(content))
+        untokened_digests = {
+            normalized_line_hash(activity.raw_line or activity.description)
+            for activity in parsed.activities
+            if activity.vault_id is None
+        }
+        live_vault_ids: dict[str, tuple[ExtractedByVaultId, ...]] = {}
         retired_digests: set[str] = set()
+        for vault_id, owned_edges in existing_vault_ids.items():
+            if vault_id in present_vault_ids or any(
+                edge.source_line_hash in untokened_digests for edge in owned_edges
+            ):
+                live_vault_ids[vault_id] = owned_edges
+                continue
+            for edge in owned_edges:
+                retired_digests.add(edge.source_line_hash)
+                extraction.retired_links.append((edge.entity_uid, vault_id))
+        existing_vault_ids = live_vault_ids
+
         for activity in parsed.activities:
             if activity.vault_id is None:
                 continue
@@ -1019,7 +1072,8 @@ class ActivityExtractorService:
             f"Extraction complete for {entry.uid}: "
             f"created {extraction.total_created} entities, "
             f"skipped {extraction.lines_skipped_existing} already-extracted lines "
-            f"({len(extraction.refreshed_links)} rehashed by 🆔), "
+            f"({len(extraction.refreshed_links)} rehashed by 🆔, "
+            f"{len(extraction.retired_links)} 🆔 lines gone — edges retired), "
             f"merged {extraction.lines_merged_existing} semantic duplicates, "
             f"merged {extraction.lines_merged_cross_entry} cross-entry twins "
             f"({len(extraction.creation_errors)} errors)"

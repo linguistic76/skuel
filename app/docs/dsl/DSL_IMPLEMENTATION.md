@@ -1,6 +1,6 @@
 ---
 title: SKUEL Activity DSL - Implementation Guide
-updated: 2026-09-04
+updated: 2026-09-15
 status: current
 category: dsl
 tags: [dsl, implementation, parser, architecture, regex]
@@ -569,8 +569,12 @@ treatment), then writes one provenance edge back to the source UserEntry
 
 // Provenance: what line of which entry produced this entity.
 // source_line_hash is the SHA-256 of the normalized source line — the
-// idempotency key that lets edited notes re-sync without duplicating.
-(t)-[:EXTRACTED_FROM {source_line_hash: "...", extracted_at: datetime()}]->(entry:Entity:UserEntry)
+// idempotency key that lets edited notes re-sync without duplicating;
+// vault_id is the obsidian-tasks 🆔 the outbound pass injects (ADR-070).
+// The edge lives as long as its line: a 🆔 line deleted from a surviving
+// note retires it on the file's re-ingest (both keys gone — 🆔 absent, digest
+// on no 🆔-less line); the entity stays.
+(t)-[:EXTRACTED_FROM {source_line_hash: "...", vault_id: "sk_…", extracted_at: datetime()}]->(entry:Entity:UserEntry)
 
 // @ku() / @link() ride the create request as fields
 // (applies_knowledge_uids, fulfills_goal_uid, ...) and the graph-aware

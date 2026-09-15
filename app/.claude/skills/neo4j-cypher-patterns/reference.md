@@ -224,7 +224,7 @@ substance/ZPD edge from the entry itself.
 
 | Relationship | From | To | Purpose |
 |--------------|------|-----|---------|
-| `EXTRACTED_FROM` | created Entity (Task, Habit, ...) | UserEntry (source) | Extraction provenance; carries `extracted_at`, `source_line_hash` (sha256 of the DSL line normalized for whitespace, checkbox state and the 🆔 token — `normalize_vault_line_hash`, the re-run dedup key; the ✅ date stays in it as a discriminator), `vault_id` (the 🆔 — a line whose 🆔 already has an edge to the entry is recognised by it whatever its hash, Guard 2b) |
+| `EXTRACTED_FROM` | created Entity (Task, Habit, ...) | UserEntry (source) | Extraction provenance; carries `extracted_at`, `source_line_hash` (sha256 of the DSL line normalized for whitespace, checkbox state and the 🆔 token — `normalize_vault_line_hash`, the re-run dedup key; the ✅ date stays in it as a discriminator), `vault_id` (the 🆔 — a line whose 🆔 already has an edge to the entry is recognised by it whatever its hash, Guard 2b). The edge lives as long as its line: gone by both keys (🆔 absent, digest on no 🆔-less line) ⇒ retired on re-ingest, entity kept |
 | `APPLIES_KNOWLEDGE` | UserEntry | Ku | Knowledge applied/reflected in the entry (same contract edge as Task→Ku) |
 
 ## Authentication Relationships

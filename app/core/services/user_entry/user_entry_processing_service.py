@@ -406,7 +406,8 @@ class UserEntryProcessingService:
            entry MERGE instead of duplicating (semantic, R3 — the bridge
            rewords lines every run, so their hashes never repeat).
         3. Provenance: ``(created)-[:EXTRACTED_FROM {extracted_at,
-           source_line_hash}]->(entry)`` batch write.
+           source_line_hash}]->(entry)`` batch write — and the retirement of
+           edges whose 🆔 line is gone from the note (the entity stays).
         4. Knowledge contract: ``(entry)-[:APPLIES_KNOWLEDGE]->(ku)`` for every
            created Ku and resolved ``@ku()`` reference — the substance/ZPD
            edge. Each successful write publishes ``KnowledgeReflectedInEntry``
@@ -593,9 +594,25 @@ class UserEntryProcessingService:
         extraction = extract_result.value
 
         # --- Provenance edges ---------------------------------------------------
-        # New edges for what was created, plus the hash refresh for lines Guard
-        # 2b recognised by 🆔 after their text moved — the same MERGE, on the
-        # line's own edge, same vault_id, extracted_at untouched (ON CREATE).
+        # Retire first: edges whose 🆔 the extractor found nowhere in the text
+        # are lines the user deleted from a surviving note. The delete is
+        # keyed on the 🆔 as read, so a concurrently re-keyed edge stays; the
+        # entity is never touched (a vault-side deletion is not a SKUEL
+        # deletion, § R4). Then new edges for what was created, plus the hash
+        # refresh for lines Guard 2b recognised by 🆔 after their text moved —
+        # the same MERGE, on the line's own edge, same vault_id, extracted_at
+        # untouched (ON CREATE).
+        if extraction.retired_links:
+            retire_result = await self.entry_service.delete_extracted_from_links(
+                entry.uid, extraction.retired_links
+            )
+            if retire_result.is_error:
+                return await self._fail(entry, retire_result.expect_error(), phase="persist_links")
+            self.logger.info(
+                f"Retired {retire_result.value} EXTRACTED_FROM edge(s) for {entry.uid}: "
+                f"🆔 line(s) gone from the note — "
+                + ", ".join(f"{uid} ({vault_id})" for uid, vault_id in extraction.retired_links)
+            )
         provenance_links = [*extraction.created_links, *extraction.refreshed_links]
         if provenance_links:
             links_result = await self.entry_service.create_extracted_from_links(

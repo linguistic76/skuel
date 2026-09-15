@@ -410,6 +410,7 @@ def _extract_entry_service(updated_entry: UserEntry) -> MagicMock:
     svc.get_extracted_entities = AsyncMock(return_value=Result.ok([]))
     svc.get_user_active_extraction_twins = AsyncMock(return_value=Result.ok([]))
     svc.create_extracted_from_links = AsyncMock(return_value=Result.ok(1))
+    svc.delete_extracted_from_links = AsyncMock(return_value=Result.ok(0))
     svc.add_relationship = AsyncMock(return_value=Result.ok(True))
     svc.get_entry = AsyncMock(return_value=Result.ok(updated_entry))
     return svc
@@ -420,6 +421,7 @@ def _extraction_result(
     *,
     created_links: list[tuple[str, str, str | None]] | None = None,
     refreshed_links: list[tuple[str, str, str]] | None = None,
+    retired_links: list[tuple[str, str]] | None = None,
     created_ku_uids: list[str] | None = None,
     referenced_ku_uids: list[str] | None = None,
 ) -> ActivityExtractionResult:
@@ -428,6 +430,7 @@ def _extraction_result(
         user_uid="user_1",
         created_links=created_links or [],
         refreshed_links=refreshed_links or [],
+        retired_links=retired_links or [],
         created_ku_uids=created_ku_uids or [],
         referenced_ku_uids=referenced_ku_uids or [],
     )
@@ -513,6 +516,101 @@ class TestExtractActivities:
             entry.uid,
             [("task:new", "hash_new", "sk_b2"), ("task:gym", "hash_after_writeback", "sk_a1")],
         )
+
+    @pytest.mark.asyncio
+    async def test_retired_links_are_deleted_before_the_provenance_write(self):
+        """Edges whose 🆔 the extractor found nowhere in the text (a line the
+        user deleted from a surviving note) are retired through the keyed
+        delete — ``(entity_uid, vault_id)`` pairs as read — before the
+        created/refreshed links are written. The entity is never touched."""
+        entry = _make_entry(Pipeline.EXTRACT_ACTIVITIES, content="- [ ] Gym")
+        svc = _extract_entry_service(entry)
+        order: list[str] = []
+
+        async def _retire(_entry_uid: str, _links: list[tuple[str, str]]) -> Result[int]:
+            order.append("retire")
+            return Result.ok(1)
+
+        async def _write(_entry_uid: str, _links: list[tuple[str, str, str | None]]) -> Result[int]:
+            order.append("write")
+            return Result.ok(1)
+
+        svc.delete_extracted_from_links = AsyncMock(side_effect=_retire)
+        svc.create_extracted_from_links = AsyncMock(side_effect=_write)
+
+        extractor = MagicMock()
+        extractor.extract_and_create = AsyncMock(
+            return_value=Result.ok(
+                _extraction_result(
+                    entry.uid,
+                    created_links=[("task:fresh", "hash_gym", None)],
+                    retired_links=[("task:old", "sk_gone01")],
+                )
+            )
+        )
+
+        dispatcher = _make_dispatcher(entry_service=svc)
+        dispatcher.activity_extractor = extractor
+        dispatcher.user_service = _teacher_user_service()
+        result = await dispatcher.process(entry)
+
+        assert result.is_ok
+        svc.delete_extracted_from_links.assert_awaited_once_with(
+            entry.uid, [("task:old", "sk_gone01")]
+        )
+        assert order == ["retire", "write"]
+        summary = svc.update_processing_state.await_args.args[1]["metadata"]["activity_extraction"]
+        assert summary["retired_links"] == [["task:old", "sk_gone01"]]
+
+    @pytest.mark.asyncio
+    async def test_no_retired_links_means_no_delete_call(self):
+        entry = _make_entry(Pipeline.EXTRACT_ACTIVITIES, content="- [ ] Gym")
+        svc = _extract_entry_service(entry)
+        extractor = MagicMock()
+        extractor.extract_and_create = AsyncMock(
+            return_value=Result.ok(_extraction_result(entry.uid))
+        )
+
+        dispatcher = _make_dispatcher(entry_service=svc)
+        dispatcher.activity_extractor = extractor
+        result = await dispatcher.process(entry)
+
+        assert result.is_ok
+        svc.delete_extracted_from_links.assert_not_awaited()
+
+    @pytest.mark.asyncio
+    async def test_retirement_failure_fails_the_run_at_persist_links(self):
+        """A retirement that fails leaves the dangling edge in place — the
+        run fails like any other provenance write, so the file stays out of
+        the smart-mode checkpoint and the next sync retries it."""
+        entry = _make_entry(Pipeline.EXTRACT_ACTIVITIES, content="- [ ] Gym")
+        svc = _extract_entry_service(entry)
+        svc.delete_extracted_from_links = AsyncMock(
+            return_value=Result.fail(Errors.database("delete_extracted_from_links", "boom"))
+        )
+        extractor = MagicMock()
+        extractor.extract_and_create = AsyncMock(
+            return_value=Result.ok(
+                _extraction_result(entry.uid, retired_links=[("task:old", "sk_gone01")])
+            )
+        )
+        bus = MagicMock()
+        captured: list[Any] = []
+
+        async def _publish(event: Any) -> None:
+            captured.append(event)
+
+        bus.publish_async = AsyncMock(side_effect=_publish)
+
+        dispatcher = _make_dispatcher(entry_service=svc, event_bus=bus)
+        dispatcher.activity_extractor = extractor
+        result = await dispatcher.process(entry)
+
+        assert result.is_error
+        svc.create_extracted_from_links.assert_not_awaited()
+        failed = [e for e in captured if e.event_type == "user_entry.processing_failed"]
+        assert len(failed) == 1
+        assert failed[0].failed_phase == "persist_links"
 
     @pytest.mark.asyncio
     async def test_bridge_failure_degrades_to_parser_only(self):
