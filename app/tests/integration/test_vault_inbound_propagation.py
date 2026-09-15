@@ -247,6 +247,48 @@ class TestDoneLinesMoveToo:
 
 @pytest.mark.asyncio
 @pytest.mark.integration
+class TestDslCheckboxLinesMoveToo:
+    """A ``- [ ] … @context(task)`` checkbox line is a DSL line, and the outbound
+    pass injects a 🆔 into it like any checkbox line it tracks — so the DSL
+    door reads the 🆔 back (its identity when it moves), or a moved DSL line
+    would lose its task through Guard 4 and a completed one would be minted
+    twice. The obsidian-tasks metadata vocabulary stays uninterpreted on it."""
+
+    async def test_a_done_dsl_task_line_cut_into_another_note(self, rig: Rig) -> None:
+        task_uid, vault_id, _line = await _seeded_note(rig, "- [ ] Call mom @context(task)\n")
+        got = await rig.tasks.get_task(task_uid)
+        assert got.is_ok and got.value is not None and got.value.title == "Call mom"
+        await complete_in_skuel(rig, task_uid)
+        await rig.sync()  # [x] ✅ write-back
+        await rig.sync()  # re-ingests: the DSL door reads the 🆔 — one task
+        assert await rig.owned_tasks() == [(task_uid, EntityStatus.COMPLETED.value)]
+        done_line = next(
+            ln for ln in rig.note.read_text(encoding="utf-8").splitlines() if vault_id in ln
+        )
+        assert done_line.startswith("- [x]") and "@context(task)" in done_line, done_line
+
+        rig.note.write_text(FRONTMATTER + "Consolidated.\n", encoding="utf-8")
+        note_b = rig.note_at(NOTE_B)
+        note_b.write_text(FRONTMATTER_B + done_line + "\n", encoding="utf-8")
+        rig.order(note_b, rig.note)
+
+        moved = await rig.sync()
+        assert not moved.warnings, moved.warnings
+        assert await rig.owned_tasks() == [(task_uid, EntityStatus.COMPLETED.value)], (
+            "the moved DSL line minted a second completed task"
+        )
+        [(edge_uid, edge_id, entry, _)] = await rig.edges()
+        assert (edge_uid, edge_id) == (task_uid, vault_id)
+        assert entry.endswith(_entry_uid(NOTE_B))
+        assert await rig.stamps() == []
+        got = await rig.tasks.get_task(task_uid)
+        assert got.is_ok and got.value is not None and got.value.title == "Call mom", (
+            "the 🆔 token leaked into the title"
+        )
+
+
+@pytest.mark.asyncio
+@pytest.mark.integration
 class TestTheSweep:
     async def test_a_deleted_done_line_is_stamped_then_swept(self, rig: Rig) -> None:
         """Tidying a done line out of a note: the sync that sees it gone

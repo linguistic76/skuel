@@ -46,7 +46,7 @@ from core.models.enums.user_entry_enums import EnrichmentMode
 from core.models.relationship_names import RelationshipName
 from core.models.user_entry.user_entry import UserEntry
 from core.models.user_entry.user_entry_request import UserEntryCreateRequest
-from core.services.dsl.activity_dsl_parser import checkbox_vault_ids
+from core.services.dsl.activity_dsl_parser import parsed_vault_ids
 from core.services.dsl.activity_extractor import (
     USER_OWNED_DEDUP_LABELS,
     ExtractedByVaultId,
@@ -522,14 +522,14 @@ class UserEntryProcessingService:
         # carries the stamp — re-link it, the stamp's base becomes the
         # edge's). Resolved BEFORE the guards run, so the line then takes the
         # identity branch like any other 🆔 line this entry owns. Only 🆔s the
-        # checkbox door parses count — a 🆔 mentioned in prose or inside a
-        # code span is not a line the outbound pass could write to, and
-        # provenance moved onto it would be stranded on the wrong note (the
-        # deleted-line verdict uses the wider raw scan on purpose: there a 🆔
-        # anywhere is a reason not to retire). A 🆔 found nowhere is a phantom
-        # and stays the guards' to resolve.
+        # parser reads on activity lines count — a 🆔 mentioned in prose or
+        # inside a code span is not a line the outbound pass could write to,
+        # and provenance moved onto it would be stranded on the wrong note
+        # (the deleted-line verdict uses the wider raw scan on purpose: there
+        # a 🆔 anywhere is a reason not to retire). A 🆔 found nowhere is a
+        # phantom and stays the guards' to resolve.
         owned_ids = {vault_id for row in extracted_rows if (vault_id := row.get("vault_id"))}
-        foreign_ids = sorted(checkbox_vault_ids(working_text) - owned_ids)
+        foreign_ids = sorted(parsed_vault_ids(working_text) - owned_ids)
         relinked = 0
         for vault_id in foreign_ids:
             lookup = await self.entry_service.find_task_by_vault_id(entry.user_uid, vault_id)

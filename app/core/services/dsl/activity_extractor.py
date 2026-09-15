@@ -324,12 +324,11 @@ class ActivityExtractionResult:
     lines_rehashed: int = 0
     bases_seeded: int = 0
     # (twin_uid, source_line_hash, vault_id, source_line) for lines Guard 4
-    # merged into an owned active twin that had NO edge to this entry. Kody
-    # #501's no-write rule exists to keep a merge from clobbering the twin's
-    # edge TO THIS ENTRY; when there is none, MERGE creates and nothing is
-    # clobbered — and the line is tracked, so the outbound pass keys it (a
-    # line retyped for an open task is the cleanup script's LINE-BACKED class,
-    # closed here). Same batch edge write as created_links.
+    # merged into an owned active twin that has NO edge to this entry. A merge
+    # never rewrites an edge the twin already holds here — that edge's digest
+    # and 🆔 are its own line's state; where the twin has none, MERGE creates
+    # and the line is tracked from here on, keyed by the outbound pass to the
+    # 🆔 it carries or mints. Same batch edge write as created_links.
     merged_links: list[tuple[str, str, str | None, str | None]] = field(default_factory=list)
     # (entity_uid, vault_id) pairs for edges whose line is gone — its 🆔
     # appears nowhere in the text and no 🆔-less line hashes to its digest:
@@ -1215,12 +1214,12 @@ class ActivityExtractorService:
                 if uid := user_owned_semantic.get(key):
                     # Guard 4 merge (cross-entry, F4): the user already owns an
                     # ACTIVE twin (possibly extracted from another entry, or a
-                    # provenance-orphan the cleanup kept). Guard 3's no-write
-                    # rule protects the twin's edge TO THIS ENTRY from being
-                    # clobbered (Kody #501); when the twin has none, the line
-                    # gets its edge — MERGE creates, nothing is clobbered, and
-                    # the line is tracked from here on (the outbound pass keys
-                    # it to the 🆔 it carries or mints one).
+                    # provenance-orphan the cleanup kept). An edge the twin
+                    # already holds to this entry is left untouched, as in
+                    # Guard 3 — its digest and 🆔 are that line's own state;
+                    # when the twin has none, the line gets its edge (MERGE
+                    # creates) and is tracked from here on, keyed by the
+                    # outbound pass to the 🆔 it carries or mints.
                     extraction.lines_merged_cross_entry += 1
                     if uid not in existing_extracted.values():
                         extraction.merged_links.append(

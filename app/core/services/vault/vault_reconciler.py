@@ -272,8 +272,9 @@ class VaultReconciler:
         5. The retirement sweep (R4): every task whose 🆔 line vanished
            BEFORE this sync started and is still stamped has had its one-sync
            grace — terminal or still tracked from another note, the stamp is
-           cleared; open and untracked, it is left for the cancel consequence
-           (PR 3). Skipped entirely over an incomplete inbound pass.
+           cleared; open and untracked, it is left in place until the cancel
+           consequence exists (R4 build plan). Skipped entirely over an
+           incomplete inbound pass.
         """
         descriptor_result = self._resolve_guarded(kind, user_uid)
         if descriptor_result.is_error:
@@ -1055,10 +1056,11 @@ class VaultReconciler:
         BEFORE this sync started has had its grace. Terminal, or still
         tracked from another note (a task can hold two lines; losing one is
         not losing the task): the stamp is cleared. Open and untracked: the
-        line is gone for good — the cancel consequence is PR 3's, and until
-        it ships the stamp is left in place, because clearing deletion
-        evidence before any consequence exists would make every line deleted
-        meanwhile indistinguishable from a pre-🆔-era orphan.
+        line is gone for good — the cancel consequence is not built yet (R4
+        build plan), and until it exists the stamp is left in place, because
+        clearing deletion evidence with no consequence to apply would make
+        every line deleted meanwhile indistinguishable from a pre-🆔-era
+        orphan.
 
         The sweep runs only after a COMPLETE inbound pass. A note that failed
         to ingest — or opted in and could not be read, or that a local-agent

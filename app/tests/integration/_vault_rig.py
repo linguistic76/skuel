@@ -28,7 +28,7 @@ import os
 from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING
 from unittest.mock import AsyncMock, Mock
 
 import pytest_asyncio
@@ -53,6 +53,11 @@ from core.services.user_entry.user_entry_service import UserEntryService
 from core.services.vault.vault_descriptor import VaultDescriptor, VaultKind, VaultRegistry
 from core.services.vault.vault_reconciler import VaultReconciler, VaultSyncStats
 from core.utils.result_simplified import Result
+
+if TYPE_CHECKING:
+    from neo4j import AsyncDriver
+
+    from core.services.tasks.tasks_core_service import TasksCoreService
 
 OWNER = UserUID("user_vault_done_hash")
 NOTE = "periodic_notes/2026-08-23.md"
@@ -88,10 +93,10 @@ class Stamp:
 
 @dataclass
 class Rig:
-    driver: Any
+    driver: AsyncDriver
     vault: Path
     reconciler: VaultReconciler
-    tasks: Any
+    tasks: TasksCoreService
 
     @property
     def note(self) -> Path:
@@ -174,26 +179,6 @@ class Rig:
                 )
                 async for row in result
             ]
-
-    async def entry_uids(self) -> list[str]:
-        async with self.driver.session() as session:
-            result = await session.run(
-                "MATCH (e:UserEntry {user_uid: $owner}) RETURN e.uid AS uid ORDER BY uid",
-                owner=OWNER,
-            )
-            return [row["uid"] async for row in result]
-
-    async def backdate_stamp(self, task_uid: str, minutes: int) -> None:
-        """Move a task's ``vault_line_retired_at`` ``minutes`` into the past (graph clock)."""
-        async with self.driver.session() as session:
-            await session.run(
-                """
-                MATCH (t:Task {uid: $uid})
-                SET t.vault_line_retired_at = t.vault_line_retired_at - duration({minutes: $m})
-                """,
-                uid=task_uid,
-                m=minutes,
-            )
 
 
 @pytest_asyncio.fixture

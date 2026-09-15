@@ -510,13 +510,16 @@ Reflected on the morning walk. It felt unhurried.
         assert parsed.get_events() == []
 
     def test_tagged_checkbox_explicit_marker_wins_over_adapter(self):
-        """Precedence pin (Codex #924): a checkbox line that ALSO carries
-        ``@context(...)`` is a DSL line — the explicit marker wins (Goal, not
-        Task) and the obsidian-tasks vocabulary is NOT interpreted: emoji/🆔
-        stay literal description text; ``vault_id``/``when`` are not captured.
-        Documented in DSL_USAGE_GUIDE § Periodic Notes — The Parse Contract
-        ("one vocabulary per line"); changing this routing must update that
-        contract in the same PR.
+        """Precedence pin: a checkbox line that ALSO carries ``@context(...)``
+        is a DSL line — the explicit marker wins (Goal, not Task) and the
+        obsidian-tasks METADATA vocabulary is NOT interpreted: the 📅 date
+        stays literal description text and ``when`` is not captured. The 🆔
+        join key is the one token read on BOTH doors — it is SKUEL's own,
+        written into any checkbox line the outbound pass tracks, so the
+        inbound side must read it back (a one-directional identity would lose
+        the task the moment its line moved). Documented in DSL_USAGE_GUIDE §
+        Periodic Notes — The Parse Contract ("one vocabulary per line");
+        changing this routing must update that contract in the same PR.
         """
         from core.models.enums.entity_enums import EntityType
         from core.services.dsl.activity_dsl_parser import ActivityDSLParser
@@ -533,11 +536,13 @@ Reflected on the morning walk. It felt unhurried.
         assert len(goals) == 1
         assert goals[0].contexts == [EntityType.GOAL]
         # Obsidian-tasks metadata is not interpreted on a DSL line: the 📅 date
-        # does not become a schedule, the 🆔 token is not captured as the
-        # ADR-070 join key — both remain literal description text.
+        # does not become a schedule and stays in the description.
         assert goals[0].when is None
-        assert goals[0].vault_id is None
-        assert "sk_zz99yy" in goals[0].description
+        assert "2099-01-15" in goals[0].description
+        # The 🆔 join key is captured and leaves the description.
+        assert goals[0].vault_id == "sk_zz99yy"
+        assert "sk_zz99yy" not in goals[0].description
+        assert goals[0].description == "Ship the plan 📅 2099-01-15"
 
 
 class TestErrorHandling:
@@ -800,23 +805,24 @@ class TestInlineCodeIsLiteral:
         assert parsed.activities == []
 
 
-class TestCheckboxVaultIds:
-    """``checkbox_vault_ids`` — the move branch's oracle: 🆔s on task lines only."""
+class TestParsedVaultIds:
+    """``parsed_vault_ids`` — the move branch's oracle: 🆔s on activity lines only."""
 
-    def test_only_checkbox_door_lines_count(self):
-        from core.services.dsl.activity_dsl_parser import checkbox_vault_ids
+    def test_only_lines_the_parser_reads_count(self):
+        from core.services.dsl.activity_dsl_parser import parsed_vault_ids
 
         text = (
-            "Prose that mentions 🆔 sk_prose1 is not a task line.\n"
+            "Prose that mentions 🆔 sk_prose1 is not an activity line.\n"
             "```\n- [ ] Fenced 🆔 sk_fence1\n```\n"
-            "- [ ] Tagged @context(task) 🆔 sk_dsl001\n"  # the DSL door reads no 🆔
+            "- [ ] Tagged @context(task) 🆔 sk_dsl001\n"  # the DSL door reads the 🆔 too
             "- [x] Done 🆔 sk_done01 ✅ 2026-09-01\n"
             "* [ ] Star bullet 🆔 sk_star01\n"
             "- [ ] No id at all\n"
+            "Legend: `- [ ] Example @context(event) 🆔 sk_code01`\n"  # inline code is literal
         )
-        assert checkbox_vault_ids(text) == {"sk_done01", "sk_star01"}
+        assert parsed_vault_ids(text) == {"sk_dsl001", "sk_done01", "sk_star01"}
 
     def test_empty_text_has_none(self):
-        from core.services.dsl.activity_dsl_parser import checkbox_vault_ids
+        from core.services.dsl.activity_dsl_parser import parsed_vault_ids
 
-        assert checkbox_vault_ids("") == set()
+        assert parsed_vault_ids("") == set()
