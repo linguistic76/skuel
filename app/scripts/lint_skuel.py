@@ -108,7 +108,7 @@ from cypher_vocabulary import (  # type: ignore[import-not-found]
 )
 
 # Shared with audit_raw_headers.py — one exclusion vocabulary, one walk helper.
-from quality_discovery import is_excluded  # type: ignore[import-not-found]
+from quality_discovery import is_excluded, walk_python_files  # type: ignore[import-not-found]
 
 
 class Severity(Enum):
@@ -1467,6 +1467,20 @@ class SkuelLinter:
         rel = py_file.relative_to(self.root_dir)
         return is_excluded(rel, path_prefixes=self.EXCLUDED_PATH_PREFIXES)
 
+    @staticmethod
+    def _is_test_file(file_path: Path) -> bool:
+        """True for a test module — the scope most rules skip.
+
+        Exactly pytest's collection scope: ``testpaths = ["tests"]`` in
+        pyproject, so a module is a test iff it lives under a ``tests``
+        directory. Not a filename shape — ``scripts/`` holds CLI diagnostics
+        named ``test_*.py`` / ``*_test.py`` (``scripts/smoke_test.py``) and
+        seeders whose names merely contain ``test_``; no runner collects them,
+        and they are production code to every non-test rule. One owner, so the
+        test harness's scope mirror reads this predicate instead of a copy.
+        """
+        return "tests" in file_path.parts
+
     # Rules that honor `# skuel-lint: disable[-file]=SKUELXXX` — exactly the set
     # whose checkers call _is_line_suppressed/_is_file_suppressed. A suppression
     # comment naming any OTHER rule does nothing and is flagged by SKUEL026.
@@ -2098,7 +2112,12 @@ class SkuelLinter:
         else:
             search_root = self.root_dir
 
-        for py_file in search_root.rglob("*.py"):
+        # Pruned walk, then the full exclusion test per file: the walk never
+        # enters an excluded directory (so .venv's thousands of .py files are
+        # never listed), and `_is_excluded` still applies the root-relative
+        # prefix half. Sorted so the report and `--json` order never depend on
+        # directory-listing order.
+        for py_file in sorted(walk_python_files(search_root)):
             if self._is_excluded(py_file):
                 continue
 
@@ -2126,7 +2145,7 @@ class SkuelLinter:
             self._record_internal_error(rel_path, self.READ_FAILURE_ID, e)
             return
         lines = content.split("\n")
-        is_test = "test_" in file_path.name or "/tests/" in str(file_path)
+        is_test = self._is_test_file(file_path)
         is_service = "/services/" in str(file_path) and file_path.suffix == ".py"
         # SKUEL001 (APOC), SKUEL021 (raw Cypher), and SKUEL022 (import direction)
         # all enforce the ADR-044 hexagonal boundary. Cypher of any kind is authored
@@ -2533,7 +2552,7 @@ class SkuelLinter:
         """
         if node_index is None:
             node_index = cls._build_node_index(tree)
-        fstring_parts = fstring_part_ids(tree)
+        fstring_parts = fstring_part_ids(cls._nodes_of(node_index, ast.JoinedStr))
         composite_leaves: set[int] = set()
         nested_concats: set[int] = set()
         concat_roots: list[tuple[ast.BinOp, list[ast.expr]]] = []
@@ -2582,6 +2601,10 @@ class SkuelLinter:
         for root, leaves in concat_roots:
             take_whole(root, leaves)
 
+        # A torn piece of some whole — an f-string part or a concatenation leaf —
+        # never gets the head anchor on its own; its whole already did.
+        torn_pieces = fstring_parts | composite_leaves
+
         for node in cls._nodes_of(node_index, ast.JoinedStr, ast.Constant):
             if isinstance(node, ast.JoinedStr):
                 if id(node) not in composite_leaves:
@@ -2592,7 +2615,7 @@ class SkuelLinter:
                 # Anywhere-markers keep their per-piece granularity (and line
                 # numbers); the head anchor only ever runs on a whole.
                 marker = next((m for m in cls.CYPHER_MARKERS if m in node.value), None)
-                if marker is None and id(node) not in fstring_parts | composite_leaves:
+                if marker is None and id(node) not in torn_pieces:
                     marker = leading_cypher_clause(node.value)
                 if marker is not None:
                     found.append((node, marker))
@@ -6559,11 +6582,6 @@ class SkuelLinter:
         if self._is_file_suppressed(content, "SKUEL034"):
             return
 
-        # Real comment tokens only, computed once: a multi-line comparison can
-        # carry its suppression on any of its lines, and a raw line scan would
-        # let a string containing the marker suppress the rule reading it.
-        comment_lines = self._comment_lines(content)
-
         for node in self._nodes(tree, ast.Compare):
             # EVERY leg of a chain is evaluated, so `"tech" in uid == other` runs
             # the same membership test a lone `in` does (Codex, #1194). Each leg's
@@ -6592,6 +6610,13 @@ class SkuelLinter:
                 line = lines[line_num - 1] if 0 < line_num <= len(lines) else ""
                 span_start = node.lineno
                 span_end = node.end_lineno or span_start
+                # Real comment tokens only: a multi-line comparison can carry
+                # its suppression on any of its lines, and a raw line scan would
+                # let a string containing the marker suppress the rule reading
+                # it. Fetched here, not before the loop — tokenizing is the
+                # rule's whole cost on the files with no candidate at all, which
+                # is nearly every file (memoized per file, like SKUEL033).
+                comment_lines = self._comment_lines(content)
                 if any(
                     self._is_line_suppressed(comment_lines[lineno], "SKUEL034")
                     for lineno in range(span_start, span_end + 1)
@@ -6680,7 +6705,7 @@ class SkuelLinter:
 
         vocabulary = load_vocabulary()
         inert_ids = self._inert_ids_for(tree)
-        part_ids = fstring_part_ids(tree)
+        part_ids = fstring_part_ids(self._nodes(tree, ast.JoinedStr))
         reported: set[tuple[int, str]] = set()
 
         for node in self._nodes(tree, ast.JoinedStr, ast.Constant):

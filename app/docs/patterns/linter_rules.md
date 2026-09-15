@@ -1,6 +1,6 @@
 ---
 title: Code Quality Enforcement - Linter Rules
-updated: 2026-09-09
+updated: 2026-09-15
 category: patterns
 related_skills:
 - python
@@ -1259,6 +1259,8 @@ Add to pre-commit hooks or CI pipeline:
 ## Exclusion Patterns
 
 The linter automatically excludes certain files from specific rules. Per-file exemptions use inline suppression comments (see above) rather than hardcoded allowlists.
+
+"Tests" below means exactly pytest's collection scope — anything under a `tests/` directory (`SkuelLinter._is_test_file`, mirroring `testpaths = ["tests"]`). It is not a filename shape: `scripts/` holds CLI diagnostics named `test_*.py` / `*_test.py` and seeders whose names merely contain `test_`, and those are production code to every rule. The test harness's `lint_content` mirror reads the same predicate.
 
 | Rule | Auto-Excluded Directories | Per-File Suppression |
 |------|--------------------------|---------------------|

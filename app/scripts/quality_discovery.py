@@ -30,6 +30,7 @@ with tomllib).
 
 from __future__ import annotations
 
+import os
 from collections.abc import Iterator
 from pathlib import Path
 
@@ -77,6 +78,25 @@ def is_excluded(
     return bool(path_prefixes) and rel_path.as_posix().startswith(path_prefixes)
 
 
+def walk_python_files(
+    root: Path, *, extra_dir_names: frozenset[str] = frozenset()
+) -> Iterator[Path]:
+    """Yield every ``.py`` under ``root``, never descending into an excluded directory.
+
+    The name half of ``is_excluded`` applied at the directory, not the file: a
+    file under ``.venv`` is excluded by its parts whichever way it is reached, so
+    pruning the subtree changes nothing about WHICH files come out — only that
+    the ~12k vendored ``.py`` files under ``.venv`` and ``node_modules`` are never
+    listed, stat'd and rejected one by one. Unsorted; callers order.
+    """
+    excluded_names = EXCLUDED_DIR_NAMES | extra_dir_names
+    for dirpath, dirnames, filenames in os.walk(root):
+        dirnames[:] = [d for d in dirnames if d not in excluded_names]
+        for filename in filenames:
+            if filename.endswith(".py"):
+                yield Path(dirpath, filename)
+
+
 def iter_python_files(
     root: Path,
     *,
@@ -84,7 +104,7 @@ def iter_python_files(
     path_prefixes: tuple[str, ...] = (),
 ) -> Iterator[Path]:
     """Yield in-scope ``.py`` files under ``root``, sorted for stable output."""
-    for py_file in sorted(root.rglob("*.py")):
+    for py_file in sorted(walk_python_files(root, extra_dir_names=extra_dir_names)):
         rel = py_file.relative_to(root)
         if is_excluded(rel, extra_dir_names=extra_dir_names, path_prefixes=path_prefixes):
             continue
