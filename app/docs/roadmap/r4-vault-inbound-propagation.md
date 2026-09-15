@@ -188,20 +188,45 @@ Two doors retire, one record, one sweep.
   lines into the next note, delete the old one) re-links instead of cancelling.
 
 `VaultReconciler.sync` gains an end-of-sync step after ingest and deletion reconciliation:
-`list_vault_retired_tasks(user_uid, retired_before = sync_started_at)` returns every owned
-task whose stamp predates this sync. For each: terminal ⇒ clear the stamp; open ⇒ post
-`update_task(status = CANCELLED)` through the facade and **clear the stamp only when that
-write returns ok**. A refused or failed cancel keeps the stamp (sync warning naming the
+`list_vault_retired_tasks(user_uid, retired_before = sync_cutoff)` returns every owned task
+whose stamp predates this sync **and that holds no live 🆔-bearing `EXTRACTED_FROM` edge**
+(a task can be tracked from two notes — the Guard 4 re-link above writes a second edge for
+a line retyped elsewhere — and deleting one of its lines is not deleting the task). For
+each: terminal, or still tracked from another note ⇒ clear the stamp; open and untracked ⇒
+post `update_task(status = CANCELLED)` through the facade and **clear the stamp only when
+that write returns ok**. A refused or failed cancel keeps the stamp (sync warning naming the
 task), so the next sweep retries it — the stamp is the retry record and must outlive the
-attempt. **Until the cancel consequence ships (PR 4), the sweep clears terminal tasks'
-stamps only and leaves an open task's stamp in place:** a stamp is deletion evidence, and
-clearing it before any consequence exists would make every line deleted in the meantime
-indistinguishable from a pre-🆔-era orphan, never to be cancelled. PR 4's first sweep
-therefore cancels the backlog accumulated since PR 1 — the rule applied late, not skipped —
-and its PR description says so. A new counter, `VaultSyncStats.tasks_cancelled_by_deletion`,
-renders only when nonzero ("N tasks cancelled — their lines were removed from the vault"),
-beside "tasks re-opened". A cancel is a state change the user should see; a retirement
-alone still is not (#1341's reasoning stands).
+attempt.
+
+Two gates on the cancel, both named by the failure they prevent:
+
+- **The sweep cancels only after a complete inbound pass.** The batch engine records a
+  per-file failure (parse, persistence, extraction) in its stats and still returns ok; a
+  note that would have revived a stamped task but failed to ingest has not had its say. If
+  the sync's inbound half reports any failed file, the sweep clears terminal stamps and
+  **holds every open one** — one warning, "N deletions held: the sync had failures" — and the
+  next clean sync decides. The per-file failure is already surfaced and retried.
+- **One clock.** The stamp is written by Neo4j (`datetime()` inside the retiring statement,
+  which runs with no sync context); the cutoff is therefore read from Neo4j too — one
+  `RETURN datetime()` at sync start is `sync_cutoff`. An application-clock cutoff against a
+  database-clock stamp turns modest skew into a retirement that looks older than the sync
+  it happened in, and the grace disappears.
+
+**Until the cancel consequence ships (PR 4), the sweep clears terminal and still-tracked
+tasks' stamps only and leaves an open, untracked task's stamp in place:** a stamp is
+deletion evidence, and clearing it before any consequence exists would make every line
+deleted in the meantime indistinguishable from a pre-🆔-era orphan, never to be cancelled.
+PR 4's first sweep therefore cancels the backlog accumulated since PR 1 — the rule applied
+late, not skipped — and its PR description says so. A new counter,
+`VaultSyncStats.tasks_cancelled_by_deletion`, renders only when nonzero ("N tasks cancelled
+— their lines were removed from the vault"), beside "tasks re-opened". A cancel is a state
+change the user should see; a retirement alone still is not (#1341's reasoning stands).
+
+The three stamps are scalars and record the **most recently** retired line; a task tracked
+from two notes that loses both in one sync keeps the second's base. A revival of the first
+🆔 then finds no stamp and resolves the way a phantom does today — by title through Guard 4,
+which re-links it if the task is open. Two bases for one task is a shape not worth a
+collection property.
 
 The grace window: cut, sync, paste, sync — the first sync stamps, the second re-links before
 its sweep runs, and the sweep only acts on stamps older than that sync's start. A paste that
@@ -257,10 +282,13 @@ fixture module; new file `test_vault_inbound_propagation.py`), and the mutant it
    B-first ingest orders (name the files to force each); cut, sync, paste, sync → same task;
    delete, sync, restore in the same note, sync → same task, stamp cleared; delete a done
    line, sync, sync → stamp gone; delete an open line, sync, sync → still open, **still
-   stamped**; delete a note → its tasks stamped. Mutants: the lookup ignores stamped tasks
-   (the slow move mints a twin); the re-point as two calls with the create failing (the task
-   is left edge-less); the sweep clears an open task's stamp; the note-deletion statement
-   stamps nothing. Post-merge: one `--force` sync, then the W28→W29 fixture.
+   stamped**; delete a note → its tasks stamped; retype an open task's line in a second note
+   → two edges, delete the first line, sync, sync → stamp cleared, task untouched. Mutants:
+   the lookup ignores stamped tasks (the slow move mints a twin); the re-point as two calls
+   with the create failing (the task is left edge-less); the sweep clears an open, untracked
+   task's stamp; the note-deletion statement stamps nothing; the cutoff read from the
+   application clock (skew the test's stamp by a minute). Post-merge: one `--force` sync,
+   then the W28→W29 fixture.
 2. **Base line + status both directions.** `--force` seeds bases; `reconcile_task_line`
    (status rows of the table above) applied through `update_task`; base and digest refresh
    gated on ok. Rig: check in the vault → completed with the ✅ date; uncheck → reopened;
@@ -278,8 +306,11 @@ fixture module; new file `test_vault_inbound_propagation.py`), and the mutant it
    the PR says so; the counter and its fragment line. Rig: delete an open task's line, two
    syncs → cancelled; delete a done line → untouched; delete a whole note → its open tasks
    cancelled two syncs later, its done ones untouched; cut/paste across a sync boundary →
-   moved, not cancelled. Mutants: the sweep cancels terminal tasks; the stamp is cleared
-   before the cancel's result is known (a refused cancel becomes a permanent divergence).
+   moved, not cancelled; delete a line, then break the note that restores it (bad
+   frontmatter), sync → held with a warning, fix the note, sync → revived, not cancelled.
+   Mutants: the sweep cancels terminal tasks; the stamp is cleared before the cancel's result
+   is known (a refused cancel becomes a permanent divergence); the sweep runs over a failed
+   file (the broken note's task is cancelled); the sweep ignores a live second edge.
 5. **Docs.** ADR-070: status annotation retired, Decision 2's `[x]`/`✅` rows and the field
    rows true, `source_line` and the three stamps in Decision 1, a Decision 3 paragraph naming
    the three-way merge; CLAUDE.md § Obsidian VaultBridge and § Unified Content Ingestion; the
@@ -329,6 +360,8 @@ the status intent to ride in); 4 depends only on 1 and may land any time after i
   PR 1 (bases are written from then on) so PR 2 finds them in place.
 - A refused vault edit re-warns on every sync until the line and the task agree — standing
   visibility, the same contract as ignored files.
+- A sync with any failed file holds every pending cancel until a clean sync — deletion
+  waits on the vault being readable, which is the honest order.
 
 **Named cost while open:** unchanged from the parking ruling until PR 2 lands — vault-side
 checks, unchecks and edits of 🆔 lines do not propagate; tracked tasks must be completed and

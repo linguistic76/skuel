@@ -90,7 +90,7 @@ renders them as a table in Obsidian, and a session derives the same table with
 
 ## R4 Vault Inbound Propagation — Build Plan
 
-[R4 Vault Inbound Propagation — Build Plan](r4-vault-inbound-propagation.md) — Vault-side checks, unchecks, edits, moves and deletions of 🆔 lines propagating into SKUEL — **scheduled 2026-09-15** (deletion cancels open tasks, moves re-point, a three-way merge per field); six PRs, PR 1 next.
+[R4 Vault Inbound Propagation — Build Plan](r4-vault-inbound-propagation.md) — Vault-side checks, unchecks, edits, moves and deletions of 🆔 lines propagating into SKUEL — **scheduled 2026-09-15** (deletion cancels open tasks, moves re-point, a three-way merge per field); five PRs, PR 1 next.
 
 ## ⚠️ Vault Re-Sync Never Retracts a Share
 
