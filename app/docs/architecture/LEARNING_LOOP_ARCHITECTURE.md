@@ -1,6 +1,6 @@
 ---
 title: Four-Phase Learning Loop
-updated: 2026-09-14
+updated: 2026-09-15
 status: current
 category: architecture
 related:
@@ -28,6 +28,11 @@ Every layer is a frozen Python dataclass. Every connection is a Neo4j graph rela
 Every measurement flows from real user behaviour, not self-reported progress.
 
 ---
+
+## Related Skills
+
+For implementation guidance, see:
+- [@learning-loop](../../.claude/skills/learning-loop/SKILL.md)
 
 ## The Loop
 

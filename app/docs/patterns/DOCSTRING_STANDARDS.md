@@ -1,6 +1,6 @@
 ---
 title: Docstring Standards
-updated: 2026-09-05
+updated: 2026-09-15
 category: patterns
 related_skills:
 - python
@@ -15,6 +15,7 @@ related_docs: []
 ## Related Skills
 
 For implementation guidance, see:
+- [@docs-skills-evolution](../../.claude/skills/docs-skills-evolution/SKILL.md)
 - [@python](../../.claude/skills/python/SKILL.md)
 
 ## Three-Layer Documentation Philosophy

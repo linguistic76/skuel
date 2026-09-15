@@ -349,8 +349,8 @@ ALLOWED_OCCURRENCES: dict[str, dict[tuple[int, str], Allow]] = {
         (446, "ActivityReviewService"): Allow(_askesis_arch),
     },
     "docs/architecture/ENTITY_TYPE_ARCHITECTURE.md": {
-        (407, "ProcessorType"): Allow(_entity_arch),
-        (416, "ProcessorType"): Allow(_entity_arch),
+        (412, "ProcessorType"): Allow(_entity_arch),
+        (421, "ProcessorType"): Allow(_entity_arch),
     },
     "docs/decisions/ADR-028-ku-moc-unified-relationship-migration.md": {
         (140, "KuType"): Allow(_adr028),
@@ -386,22 +386,22 @@ ALLOWED_OCCURRENCES: dict[str, dict[tuple[int, str], Allow]] = {
     "docs/decisions/ADR-054-user-entry-unified-submissions.md": {
         # Re-anchored -2 (PR #1045): the execution note above lost 2 net lines when
         # its citation of two vanished plans/ files was removed.
-        (100, "EntityType.EXERCISE_SUBMISSION"): Allow(_adr054),
-        (100, "EntityType.JE_INPUT"): Allow(_adr054),
-        (101, "EntityType.JE_OUTPUT"): Allow(_adr054),
-        (140, "ProcessorType"): Allow(_adr054),
-        (145, "ProcessorType"): Allow(_adr054),
-        (148, "ProcessorType"): Allow(_adr054),
-        (150, "ProcessorType"): Allow(_adr054),
+        (106, "EntityType.EXERCISE_SUBMISSION"): Allow(_adr054),
+        (106, "EntityType.JE_INPUT"): Allow(_adr054),
+        (107, "EntityType.JE_OUTPUT"): Allow(_adr054),
+        (146, "ProcessorType"): Allow(_adr054),
+        (151, "ProcessorType"): Allow(_adr054),
+        (154, "ProcessorType"): Allow(_adr054),
+        (156, "ProcessorType"): Allow(_adr054),
         # 306/362/413/491/505 → +4 (2026-09-02): the audience table gained its
         # vault-notes-default-private amendment note; → +1 more the same day when
         # the note grew to name extract_activities. Anchors re-derived from the
         # scanner's report, never by adding the diff's line delta.
-        (311, "ProcessorType"): Allow(_adr054),
-        (367, "ProcessorType"): Allow(_adr054),
-        (418, "ProcessorType"): Allow(_adr054),
-        (496, "EntityType.EXERCISE_SUBMISSION"): Allow(_adr054),
-        (510, "ProcessorType"): Allow(_adr054),
+        (317, "ProcessorType"): Allow(_adr054),
+        (373, "ProcessorType"): Allow(_adr054),
+        (424, "ProcessorType"): Allow(_adr054),
+        (502, "EntityType.EXERCISE_SUBMISSION"): Allow(_adr054),
+        (516, "ProcessorType"): Allow(_adr054),
     },
     "docs/decisions/ADR-073-journals-zero-persistence-vault-memory.md": {
         (118, "Pipeline.JOURNAL"): Allow(_adr073),

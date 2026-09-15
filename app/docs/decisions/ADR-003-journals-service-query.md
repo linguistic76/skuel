@@ -1,10 +1,11 @@
 ---
 title: "ADR-003: Journal Context Gathering Query"
-updated: 2026-09-05
+updated: 2026-09-15
 status: current
 category: decisions
 tags: [003, adr, decisions, journals, query]
 related: []
+related_skills: [journals]
 ---
 
 # ADR-003: Journal Context Gathering Query
@@ -22,6 +23,11 @@ related: []
 - Related to: Step 3 Implementation (November 2025 - Single Query Context Retrieval)
 
 ---
+
+## Related Skills
+
+For implementation guidance, see:
+- [@journals](../../.claude/skills/journals/SKILL.md)
 
 ## Context
 

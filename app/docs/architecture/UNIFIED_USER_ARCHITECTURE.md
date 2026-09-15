@@ -1,6 +1,6 @@
 ---
 title: User Architecture — User Model, Auth, Roles, and UserContext
-updated: 2026-09-14
+updated: 2026-09-15
 status: current
 category: architecture
 tags:
@@ -34,7 +34,6 @@ SKUEL's user system has two distinct objects that serve different purposes:
 
 For implementation guidance, see:
 - [@user-context-intelligence](../../.claude/skills/user-context-intelligence/SKILL.md)
-
 
 ## The `User` Domain Model
 

@@ -1,6 +1,6 @@
 ---
 title: Relationships Architecture
-updated: 2026-09-13
+updated: 2026-09-15
 status: current
 category: architecture
 version: 2.0.0
@@ -10,6 +10,11 @@ related_skills: [vis-network]
 ---
 
 # Relationships Architecture
+
+## Related Skills
+
+For implementation guidance, see:
+- [@vis-network](../../.claude/skills/vis-network/SKILL.md)
 
 ## Two Layers
 

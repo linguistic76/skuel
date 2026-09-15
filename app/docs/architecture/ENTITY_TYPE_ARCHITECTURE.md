@@ -1,6 +1,6 @@
 ---
 title: SKUEL Architecture — 25 Entity Types + 5 Cross-Cutting Systems
-updated: 2026-09-13
+updated: 2026-09-15
 status: current
 category: architecture
 version: 8.1.0
@@ -18,6 +18,11 @@ related:
 ---
 
 # SKUEL Architecture
+
+## Related Skills
+
+For implementation guidance, see:
+- [@activity-domains](../../.claude/skills/activity-domains/SKILL.md)
 
 ## Executive Summary
 

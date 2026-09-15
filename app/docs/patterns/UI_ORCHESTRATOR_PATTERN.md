@@ -1,9 +1,8 @@
 ---
 title: UI Orchestrator Pattern
-updated: '2026-06-13'
+updated: '2026-09-15'
 category: patterns
 related_skills:
-- fasthtml
 - ui-orchestrator
 related_docs:
 - DOMAIN_ROUTE_CONFIG_PATTERN.md
@@ -16,7 +15,6 @@ related_docs:
 ## Related Skills
 
 For implementation guidance, see:
-- [@fasthtml](../../.claude/skills/fasthtml/SKILL.md)
 - [@ui-orchestrator](../../.claude/skills/ui-orchestrator/SKILL.md)
 
 ## Overview

@@ -1,6 +1,6 @@
 ---
 title: Domain Route Configuration Pattern
-updated: '2026-09-11'
+updated: '2026-09-15'
 category: patterns
 related_skills:
 - fasthtml
@@ -13,6 +13,7 @@ related_docs: []
 ## Related Skills
 
 For implementation guidance, see:
+- [@domain-route-config](../../.claude/skills/domain-route-config/SKILL.md)
 - [@fasthtml](../../.claude/skills/fasthtml/SKILL.md)
 
 ## Overview

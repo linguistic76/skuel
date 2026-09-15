@@ -53,15 +53,21 @@ def extract_frontmatter(content: str) -> tuple[dict[str, Any] | None, str, str]:
 
     Returns: (frontmatter dict, frontmatter text, body)
     """
-    raw, body = split_frontmatter(content)
+    raw, _ = split_frontmatter(content)
     if raw is None:
         return None, "", content
 
     try:
         frontmatter = yaml.safe_load(raw)
-        return frontmatter, raw, body
     except yaml.YAMLError:
         return None, "", content
+
+    # The body is everything after the closing fence LINE, verbatim. The shared
+    # frontmatter pattern's ``---\s*`` swallows the blank line(s) after the fence;
+    # this script writes the file back, so that blank line must survive the trip.
+    fence_end = content.find("\n", content.index("\n---", 3) + 1)
+    body = content[fence_end + 1 :] if fence_end != -1 else ""
+    return frontmatter, raw, body
 
 
 def has_quick_start_section(body: str) -> bool:
@@ -128,21 +134,13 @@ def find_insertion_point(body: str) -> int:
     for i in range(title_idx + 1, len(lines)):
         line = lines[i].strip()
 
-        # Found Quick Start or Core Principle - insert before it
-        if line.startswith("## Quick Start") or line.startswith("## Core Principle"):
-            # Skip back over any blank lines
-            insert_idx = i
-            while insert_idx > 0 and not lines[insert_idx - 1].strip():
-                insert_idx -= 1
-            return sum(len(lines[j]) + 1 for j in range(insert_idx))  # +1 for newline
-
-        # Found second ## heading - insert before it
-        if line.startswith("## ") and i > title_idx + 1:
-            # Skip back over any blank lines
-            insert_idx = i
-            while insert_idx > 0 and not lines[insert_idx - 1].strip():
-                insert_idx -= 1
-            return sum(len(lines[j]) + 1 for j in range(insert_idx))
+        # Found Quick Start, Core Principle, or the second ## heading — insert at the
+        # heading line itself, so the blank line(s) before it end up before the new
+        # block and the block's own trailing newline + the caller's separator give
+        # exactly one blank line after it.
+        is_named = line.startswith("## Quick Start") or line.startswith("## Core Principle")
+        if is_named or (line.startswith("## ") and i > title_idx + 1):
+            return sum(len(lines[j]) + 1 for j in range(i))  # +1 for newline
 
     # No special sections found, insert after title + blank line
     # Skip title and any immediate content (like status, last updated, etc.)
@@ -212,10 +210,15 @@ def sync_doc_cross_references(file_path: Path, dry_run: bool = True) -> DocUpdat
         start_idx = -1
         end_idx = -1
 
+        # The generated block is the heading, its lead-in line and the `- [@skill]`
+        # items; it ends at the first line that is none of those. Stopping at the
+        # next `## ` heading instead would swallow whatever the doc keeps between
+        # the block and that heading (a `---` rule, an anchor).
         for i, line in enumerate(lines):
-            if line.startswith("## Related Skills"):
-                start_idx = i
-            elif start_idx != -1 and line.startswith("## "):
+            if start_idx == -1:
+                if line.startswith("## Related Skills"):
+                    start_idx = i
+            elif line.strip() and not line.startswith(("For implementation guidance", "- [@")):
                 end_idx = i
                 break
 
@@ -223,11 +226,22 @@ def sync_doc_cross_references(file_path: Path, dry_run: bool = True) -> DocUpdat
             if end_idx == -1:
                 end_idx = len(lines)
 
-            # Rebuild body by replacing the section
+            # Rebuild body by replacing the section; one blank line separates the
+            # block from whatever follows it.
             prefix = "\n".join(lines[:start_idx])
             suffix = "\n".join(lines[end_idx:])
-            new_body = f"{prefix}\n{skills_section}\n{suffix}".strip() + "\n"
+            new_body = f"{prefix}\n{skills_section}\n{suffix}".rstrip("\n") + "\n"
             new_content = f"---\n{frontmatter_text}\n---\n{new_body}"
+
+            if new_content == original_content:
+                return DocUpdate(
+                    file_path=file_path,
+                    original_content=original_content,
+                    new_content=original_content,
+                    has_changes=False,
+                    status="skipped",
+                    message="Related Skills section already matches frontmatter",
+                )
 
             if not dry_run:
                 file_path.write_text(new_content)
@@ -294,7 +308,9 @@ def get_docs_to_process(base_path: Path, category: str | None, file_path: str | 
 
     if category in ("decisions", None):
         decisions_dir = base_path / "docs" / "decisions"
-        docs.extend(decisions_dir.glob("ADR-*.md"))
+        # ADR-TEMPLATE.md declares related_skills as a field example; a rendered block
+        # in it would be copied into every ADR authored from the template.
+        docs.extend(f for f in decisions_dir.glob("ADR-*.md") if f.name != "ADR-TEMPLATE.md")
 
     if category in ("intelligence", None):
         intel_dir = base_path / "docs" / "intelligence"

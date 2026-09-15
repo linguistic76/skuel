@@ -1,6 +1,6 @@
 ---
 title: HTMX Version Standardization Guide
-updated: 2026-08-13
+updated: 2026-09-15
 status: current
 category: guides
 tags:
@@ -18,8 +18,6 @@ related_skills:
 ---
 
 # HTMX Version Standardization Guide
-
-*Last updated: 2026-03-06*
 
 ## Overview
 
@@ -126,9 +124,9 @@ SKUEL uses these specific versions for stability:
 
 | Component | Version | Source | Notes |
 |-----------|---------|--------|-------|
-| **HTMX** | 1.9.10 | CDN (unpkg.com) | Critical for navigation |
+| **HTMX** | 1.9.10 | Self-hosted | `/static/vendor/htmx.org/` — vendored so the script is same-origin (a cross-site script host trips Firefox's cookie rejection); version constant `HTMX_VERSION` in `ui/theme.py` |
 | **Alpine.js** | 3.14.8 | Self-hosted | `/static/vendor/alpinejs/` |
-| **Lucide** | 1.22.0 | Self-hosted | `/static/vendor/lucide/` (icons) |
+| **Lucide** | 1.22.0 | Build input only | `/static/vendor/lucide/` feeds `scripts/gen_icons.py`; icons are server-rendered inline SVG, no runtime reaches the browser (ADR-072) |
 | **Tailwind** | CLI-compiled | `static/css/output.css` | Utility classes (no browser JIT, ADR-071) |
 | **Components** | — | `ui.components` + `skuel_headers()` | SKUEL-owned pure Tailwind (ADR-071) |
 
@@ -174,9 +172,9 @@ async def my_page(request):
 
 ### Step 2: Inspect Page Source
 
-In browser, view page source and search for `htmx.org`:
-- Should find: `htmx.org@1.9.10`
-- Problem if: `htmx.org@2.0` or no HTMX script
+In browser, view page source and search for `htmx`:
+- Should find: `/static/vendor/htmx.org/htmx.1.9.10.min.js`
+- Problem if: `htmx.org@2.0` (FastHTML's CDN default) or no HTMX script
 
 ### Step 3: Check Layout Function
 
@@ -238,7 +236,7 @@ Head(
 
 # RIGHT
 Head(
-    Script(src="https://unpkg.com/htmx.org@1.9.10"),
+    Script(src="/static/vendor/htmx.org/htmx.1.9.10.min.js"),
     Script(src="/static/vendor/alpinejs/alpine.3.14.8.min.js"),
 )
 ```
@@ -246,11 +244,11 @@ Head(
 ### Mistake 3: Wrong HTMX Version
 
 ```python
-# WRONG - using 2.0.x
+# WRONG - using 2.0.x, and from a CDN
 Script(src="https://unpkg.com/htmx.org@2.0.0")
 
-# RIGHT - using 1.9.10
-Script(src="https://unpkg.com/htmx.org@1.9.10")
+# RIGHT - the vendored 1.9.10
+Script(src="/static/vendor/htmx.org/htmx.1.9.10.min.js")
 ```
 
 ### Mistake 4: Not Using Shared Layout
@@ -272,8 +270,8 @@ def tasks_page(content, request=None):
 ```python
 # WRONG - manual head construction (versions will drift)
 Head(
-    # Headers are loaded via skuel_headers() — do not add CDN links manually
-    Script(src="https://unpkg.com/htmx.org@1.9.10"),
+    # Headers are loaded via skuel_headers() — do not add script tags manually
+    Script(src="/static/vendor/htmx.org/htmx.1.9.10.min.js"),
     ...
 )
 
@@ -303,7 +301,3 @@ The navbar navigation bug was traced to HTMX version mismatch:
 - `/docs/architecture/ALPINE_JS_ARCHITECTURE.md` - Alpine.js + HTMX coordination
 - `/docs/patterns/FASTHTML_ROUTE_REGISTRATION.md` - Route patterns
 
----
-
-**Last Updated:** March 6, 2026
-**Maintained By:** SKUEL Core Team

@@ -1,11 +1,11 @@
 ---
 title: "ADR-084: Compact Font-Size Tokens (Micro Type Scale)"
-updated: 2026-08-15
+updated: 2026-09-15
 status: accepted
 category: decisions
 tags: [adr, decisions, ui, tailwind, typography, tokens]
 related: [ADR-071]
-related_skills: [ui-css, skuel-ui]
+related_skills: [ui-css]
 ---
 
 # ADR-084: Compact Font-Size Tokens (Micro Type Scale)
@@ -20,6 +20,11 @@ related_skills: [ui-css, skuel-ui]
 - Extends: ADR-071 (SKUEL-owned Tailwind layer — token ownership moves to `input.css` `@theme inline`)
 
 ---
+
+## Related Skills
+
+For implementation guidance, see:
+- [@ui-css](../../.claude/skills/ui-css/SKILL.md)
 
 ## Context
 

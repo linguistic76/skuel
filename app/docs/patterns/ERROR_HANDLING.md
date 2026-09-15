@@ -1,9 +1,10 @@
 ---
 title: Error Handling Architecture
-updated: 2026-08-23
+updated: 2026-09-15
 category: patterns
 related_skills:
 - result-pattern
+- security
 - ui-error-handling
 related_docs: []
 ---

@@ -1,6 +1,6 @@
 ---
 title: "ADR-086: Universal :OWNS Ratified; Attendance Is ATTENDS"
-updated: 2026-09-04
+updated: 2026-09-15
 status: accepted
 category: decisions
 tags: [adr, decisions, ownership, owns, attends, events, graph-schema, relationships]
@@ -20,6 +20,13 @@ ADR-085 (read contract), `/docs/patterns/OWNERSHIP_VERIFICATION.md`.
 
 > Contract numbering note: the arc contract drafted these as "ADR-084/ADR-085"; ADR-084 was
 > already taken (compact font-size tokens), so they shipped as ADR-085/ADR-086.
+
+## Related Skills
+
+For implementation guidance, see:
+- [@activity-domains](../../.claude/skills/activity-domains/SKILL.md)
+- [@neo4j-cypher-patterns](../../.claude/skills/neo4j-cypher-patterns/SKILL.md)
+- [@security](../../.claude/skills/security/SKILL.md)
 
 ## Context
 

@@ -1,6 +1,6 @@
 ---
 title: Documentation Index
-updated: 2026-09-14
+updated: 2026-09-15
 status: current
 category: index
 tags: [index, navigation, documentation]
@@ -184,7 +184,6 @@ See [CROSS_REFERENCE_INDEX.md](CROSS_REFERENCE_INDEX.md) for skills ↔ docs map
 | [MyPy Pragmatic Strategy - Making Peace with 2200 E...](patterns/mypy_pragmatic_strategy.md) | |
 | [nous_subtopic Facet - Mechanism](patterns/NOUS_SUBTOPIC_FACET.md) | |
 | [Neo4j Server Tuning (memory, JVM, Vector API)](patterns/NEO4J_SERVER_TUNING.md) | |
-| [Performance Monitoring System](patterns/PERFORMANCE_MONITORING.md) | |
 | [Protocol Architecture](patterns/protocol_architecture.md) | |
 | [Protocol LSP Compliance Pattern](patterns/PROTOCOL_LSP_COMPLIANCE.md) | |
 | [Pure Cypher vs APOC: Strategic Decision Guide](patterns/CYPHER_VS_APOC_STRATEGY.md) | |
@@ -460,6 +459,7 @@ See [CROSS_REFERENCE_INDEX.md](CROSS_REFERENCE_INDEX.md) for skills ↔ docs map
 
 | Document | Completed | Description |
 |----------|-----------|-------------|
+| [Skill↔Doc Backlink Reconciliation](roadmap/done/skill-doc-backlink-reconciliation.md) | 2026-09-14 | The 62 skill↔doc links the canonical-field validator (#1023) surfaced as one-directional, each ruled by one rule (a declaration stands when the skill's own content overlaps the doc's subject, and the skill lists the doc back), and the rendered `## Related Skills` blocks regenerated from frontmatter — after three defects in the sync writer were fixed. Holds the rule, the drops, the tombstone deletion, and the observed-not-acted-on 75 skill-cited ADRs |
 | [Askesis Entity Extraction — in memory, both kinds](roadmap/done/askesis-extraction-lookup-shape.md) | 2026-09-13 | `EntityExtractor` re-fetched from the graph, one sequential `get` per uid per question, the titles the rich context already held (11 awaits for a small learner, 111 with 100 open tasks — ~22 s on AuraDB inside a 30 s budget), and resolved every knowledge uid through the PathStep facade, so a mastered Ku could never match. Ruled: match both Kus and PathSteps, each carrying `entity_type`. Now zero graph reads per question; principles and choices matched too |
 | [MEGA-QUERY Sits on the Plan-Cache Cliff](roadmap/done/mega-query-plan-cache-cliff.md) | 2026-09-13 | The rich context's one 1,013-line statement was re-planned on every execution (~0.5 s self-hosted, ~1 s on AuraDB) because it sat one block past the server's plan-cache size edge — bisected on the container, the mechanism unconfirmed. Option A (#1330) lifted the learning-loop tail; Option B split the rest into the six `RICH_CONTEXT_STATEMENTS`, grouping decided by cold-plan measurement (planner cost is super-linear in statement size, so the cold build is set by the largest statement). Holds the before/after numbers and the three silent defects the split exposed — a dismissed-insights row filter that emptied the whole context, a JSON-string `milestones` TypeError, `completed_exercise_count = -1` |
 | [Catalog Copies in Code](roadmap/done/catalog-copies-in-code.md) | 2026-09-10 | The duplicated-fact class in code: ten measured instances, the rule for new code, the remedies strongest-first. Closed when item 5 was ruled (a) and built — the `RelationshipName` group table lost its Count column and became a labelled orientation aid — carrying a second ruling: no discovering drift test is buildable over relationship names in prose, both candidate corpora measured |

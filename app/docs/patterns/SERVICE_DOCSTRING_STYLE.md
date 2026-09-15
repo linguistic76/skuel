@@ -1,6 +1,6 @@
 ---
 title: Service Docstring Style
-updated: 2026-07-29
+updated: 2026-09-15
 category: patterns
 related_skills:
 - python
@@ -15,6 +15,11 @@ related_docs:
 A narrow companion to [DOCSTRING_STANDARDS.md](DOCSTRING_STANDARDS.md). That doc covers the universal three-layer model (implementation / pattern / architecture). This one covers the specific drift that the layer model permits at the service/backend boundary.
 
 ---
+
+## Related Skills
+
+For implementation guidance, see:
+- [@python](../../.claude/skills/python/SKILL.md)
 
 ## Why this exists
 

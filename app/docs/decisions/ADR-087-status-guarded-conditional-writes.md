@@ -1,11 +1,11 @@
 ---
 title: "ADR-087: Status-Guarded Conditional Writes"
-updated: 2026-09-12
+updated: 2026-09-15
 status: accepted
 category: decisions
 tags: [adr, decisions, concurrency, status, completion-stamp, neo4j, write-path]
 related: [ADR-030, ADR-066, ADR-044]
-related_skills: [neo4j-cypher-patterns, activity-domains, result-pattern]
+related_skills: [activity-domains, neo4j-cypher-patterns]
 ---
 
 # ADR-087: Status-Guarded Conditional Writes
@@ -21,6 +21,12 @@ writers, and the deletion of the read-then-write form). Every status-bearing wri
 `core/services/` now goes through `update_with_status_guard`; there is no second path.
 **Related:** ADR-030 (node-lock sentinel, at-most-once execution), ADR-066 (typed update
 intents), ADR-044 (Neo4j as a committed choice), `core/services/completion_stamp.py`.
+
+## Related Skills
+
+For implementation guidance, see:
+- [@activity-domains](../../.claude/skills/activity-domains/SKILL.md)
+- [@neo4j-cypher-patterns](../../.claude/skills/neo4j-cypher-patterns/SKILL.md)
 
 ## Context
 

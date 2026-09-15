@@ -439,9 +439,12 @@ Write the code, tests, then docs.
 
 #### 4. Cross-Reference
 
-**In documentation** - Add skill references:
-```markdown
-See: @fasthtml for route registration patterns
+**In documentation** - Declare skill links in frontmatter (a prose `@skill`
+mention is not a link — the validator reads only this field):
+```yaml
+---
+related_skills: [fasthtml]
+---
 ```
 
 **In skill metadata** - Add doc references (if skill affected):
@@ -503,9 +506,12 @@ by glob. A few numbers were reused across ADRs; a bare one then matches several 
 and the resolver refuses to choose — write the full filename instead. See
 `scripts/adr_links.py`.
 
-**In Documentation** - Reference skills:
-```markdown
-See: @fasthtml for route registration patterns
+**In Documentation** - Declare skills in frontmatter (the canonical doc→skill
+representation; `sync_cross_references.py` renders the `## Related Skills` block from it):
+```yaml
+---
+related_skills: [fasthtml]
+---
 ```
 
 **Auto-Generated Index**: `/docs/CROSS_REFERENCE_INDEX.md`
