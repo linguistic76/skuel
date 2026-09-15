@@ -1,7 +1,7 @@
 ---
 title: "R4 Vault Inbound Propagation — Build Plan"
 updated: 2026-09-15
-status: "in progress — PR 1 (identity survives one sync: stamps, source_line base, re-point/revival, sweep) #1343; PR 2 (reconciliation: status both directions + field edits, one intent per line, base advances on ok) #PR2; PR 3 (deletion cancels open tasks) next"
+status: "in progress — PR 1 (identity survives one sync: stamps, source_line base, re-point/revival, sweep) #1343; PR 2 (reconciliation: status both directions + field edits, one intent per line, base advances on ok) #1344; PR 3 (deletion cancels open tasks) next"
 registered: 2026-08-24
 ruled: 2026-09-15
 trigger: "scheduled by Mike 2026-09-15 (was: Mike schedules it — product decision, not a data threshold)"
@@ -306,7 +306,7 @@ fixture module; new file `test_vault_inbound_propagation.py`), and the mutant it
    task's restored line mints a twin next sync); the note-deletion statement stamps nothing;
    the cutoff read from the application clock (skew the test's stamp by a minute).
    Post-merge: one `--force` sync, then the W28→W29 fixture.
-2. **Reconciliation — status both directions and field edits, together** — ✅ #PR2. One
+2. **Reconciliation — status both directions and field edits, together** — ✅ #1344. One
    base string, one intent, one write, one verdict; `reconcile_task_line` (the status rows of
    the table above plus title, due, scheduled, priority, tags — three-way per field) applied
    through `update_task`; base and digest advance only on ok; the "keep-a-day" refusal
