@@ -775,6 +775,53 @@ class TestReconciliation:
             "the untouched line overwrote SKUEL's edit"
         )
 
+    async def test_a_skuel_side_title_edit_survives_a_line_edited_elsewhere(self, rig: Rig) -> None:
+        """The stronger shape: the line DID change (a #tag was added), so the
+        merge runs field by field — the title, unchanged on the vault side,
+        keeps SKUEL's value while the tag lands."""
+        task_uid, vault_id, line = await _seeded_note(rig)
+        renamed = await rig.tasks.update_task(
+            task_uid, TaskUpdateRequest(title="Vacuum (renamed in SKUEL)").to_intent()
+        )
+        assert renamed.is_ok, renamed
+        tagged = line.replace(f"🆔 {vault_id}", f"#home 🆔 {vault_id}")
+        rig.note.write_text(FRONTMATTER + tagged + "\n", encoding="utf-8")
+
+        synced = await rig.sync()
+        assert not synced.warnings, synced.warnings
+        task = await _task_of(rig, task_uid)
+        assert task.title == "Vacuum (renamed in SKUEL)", "a field the vault left alone was applied"
+        assert "home" in task.tags, task.tags
+        [(_, _, _, base)] = await rig.edges()
+        assert base == tagged
+
+    async def test_reopened_in_skuel_before_the_write_back_re_ingests_stays_reopened(
+        self, rig: Rig
+    ) -> None:
+        """Why SKUEL's own writes advance the base. Complete in SKUEL; the
+        outbound pass writes ``[x] ✅`` — and the user reopens in SKUEL before
+        that write-back has been re-ingested. The re-ingest then meets SKUEL's
+        own ``[x] ✅`` on the line: with the base still at ``[ ]`` it would read
+        as a vault check and re-complete the task SKUEL just reopened. The
+        write-back advanced the base as it landed, so the box is unchanged
+        against it and the reopen stands; the outbound pass un-checks."""
+        task_uid, vault_id, line = await _seeded_note(rig)
+        await complete_in_skuel(rig, task_uid)
+        written = await rig.sync()  # [x] ✅ write-back, not yet re-ingested
+        assert written.tasks_marked_done == 1, written
+        [(_, _, _, base)] = await rig.edges()
+        assert base is not None and base.startswith("- [x] Vacuum") and "✅" in base, base
+
+        await reopen_in_skuel(rig, task_uid)
+        synced = await rig.sync()  # the write-back re-ingests, task reopened
+        assert not synced.warnings, synced.warnings
+        assert synced.entries_ingested == 1, synced
+        assert (await _task_of(rig, task_uid)).status == EntityStatus.ACTIVE, (
+            "SKUEL's own write-back was read as a vault check"
+        )
+        assert synced.tasks_marked_undone == 1, synced
+        assert _line_with(rig.note, vault_id) == line
+
     async def test_a_check_and_a_retitle_in_one_edit_both_land(self, rig: Rig) -> None:
         task_uid, vault_id, _line = await _seeded_note(rig)
         both = f"- [x] Vacuum upstairs 🆔 {vault_id} ✅ 2026-09-12"
