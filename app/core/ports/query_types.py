@@ -2464,6 +2464,37 @@ class ExtractionTwinRow(TypedDict):
     labels: list[str]
 
 
+class VaultIdTaskRow(TypedDict):
+    """One owned Task a 🆔 names, from ``find_task_by_vault_id()`` (ADR-070, R4).
+
+    Two shapes share the row. A LIVE row is an ``EXTRACTED_FROM {vault_id}``
+    edge into one of the user's entries: ``tracked_entry_uid`` is that entry,
+    ``source_line_hash`` / ``source_line`` the edge's digest and base. A
+    STAMPED row is a task carrying ``retired_vault_id = vault_id`` (its line
+    vanished within the grace): ``tracked_entry_uid`` is ``None``,
+    ``source_line`` is the base the stamp kept, ``source_line_hash`` ``None``.
+    """
+
+    entity_uid: str
+    tracked_entry_uid: str | None
+    source_line_hash: str | None
+    source_line: str | None
+
+
+class VaultRetiredTaskRow(TypedDict):
+    """One owned Task whose retirement stamp predates the sweep's cutoff.
+
+    ``still_tracked`` — the task holds a live 🆔-bearing ``EXTRACTED_FROM``
+    edge (tracked from another note); ``status`` is the raw stored value, for
+    the reconciler to judge through ``EntityStatus``.
+    """
+
+    entity_uid: str
+    retired_vault_id: str
+    status: str | None
+    still_tracked: bool
+
+
 class AlternativeComparisonItem(TypedDict, total=False):
     """Single alternative in get_alternatives_with_comparison() result.
 

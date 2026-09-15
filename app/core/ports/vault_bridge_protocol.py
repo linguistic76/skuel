@@ -255,6 +255,16 @@ class VaultSyncStats:
     # counted as failures.
     files_ignored: int = 0
     ignored: list[str] = field(default_factory=list)  # vault-relative "path — reason" lines
+    # The subset of ``files_ignored`` that opted in and could not be read: a
+    # declared type with a malformed field, a frontmatter fence that does not
+    # parse. A deliberate non-entity note (no ``type:`` at all) is not one.
+    # Such a note "has not had its say" this sync — a moved 🆔 line it holds
+    # could not re-link its task — so the retirement sweep holds while any
+    # exist, as it does over ``files_failed`` (R4).
+    files_broken: int = 0
+    # Retirement stamps the end-of-sync sweep left in place because the
+    # inbound pass was incomplete (``files_failed`` or ``files_broken``).
+    retirements_held: int = 0
     warnings: list[str] = field(default_factory=list)
     errors: list[str] = field(default_factory=list)
     # Retrievability (embedding coverage): how much of the corpus lacks a

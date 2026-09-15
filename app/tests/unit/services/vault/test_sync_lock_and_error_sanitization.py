@@ -13,6 +13,7 @@ basename), and the full absolute detail lives in logs only.
 from __future__ import annotations
 
 import asyncio
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import cast
 from unittest.mock import AsyncMock, Mock
@@ -80,6 +81,10 @@ def _reconciler(registry: VaultRegistry, ingestion: Mock, user_entry: Mock | Non
     if user_entry is None:
         user_entry = Mock()
         user_entry.list_for_user = AsyncMock(return_value=Result.ok([]))
+    # The R4 sweep's two reads — a clock and an empty retirement list — so a
+    # harness that only exercises the lock / sanitization contract stays quiet.
+    user_entry.read_graph_clock = AsyncMock(return_value=Result.ok(datetime.now(UTC)))
+    user_entry.list_vault_retired_tasks = AsyncMock(return_value=Result.ok([]))
     return VaultReconciler(
         registry=registry,
         unified_ingestion=ingestion,
@@ -201,6 +206,8 @@ async def test_read_note_failure_reports_vault_relative_path(tmp_path: Path) -> 
     user_entry.get_extracted_entities = AsyncMock(
         return_value=Result.ok([{"entity_uid": "task_x", "source_line_hash": "h"}])
     )
+    user_entry.read_graph_clock = AsyncMock(return_value=Result.ok(datetime.now(UTC)))
+    user_entry.list_vault_retired_tasks = AsyncMock(return_value=Result.ok([]))
 
     ingestion = Mock()
     ingestion.ingest_directory = AsyncMock(return_value=Result.ok(None))

@@ -45,10 +45,14 @@ from core.ports.query_types import (
     GroundingRemovalRow,
     KnowledgeEntryGroundingRow,
     OrganizerResult,
+    VaultIdTaskRow,
+    VaultRetiredTaskRow,
 )
 from core.utils.result_simplified import Result
 
 if TYPE_CHECKING:
+    from datetime import datetime
+
     from core.models.user_entry.user_entry import UserEntry
 
 
@@ -129,8 +133,48 @@ class UserEntryCrudOperations(Protocol):
         """Extracted entity UIDs + EXTRACTED_FROM edge properties for a UserEntry.
 
         Returns dicts with keys: entity_uid, title, labels, source_line_hash,
-        vault_id. Used by VaultReconciler for outbound ID injection (ADR-070)
-        and by UserEntryProcessingService for extraction dedup guards (R3).
+        vault_id, source_line. Used by VaultReconciler for outbound ID
+        injection (ADR-070) and by UserEntryProcessingService for extraction
+        dedup guards (R3).
+        """
+        ...
+
+    async def find_task_by_vault_id(
+        self, user_uid: UserUID, vault_id: str
+    ) -> Result[list[VaultIdTaskRow]]:
+        """Every owned Task a 🆔 names: live ``EXTRACTED_FROM`` edges plus stamped tasks.
+
+        A live row carries the entry its edge points at and the edge's digest
+        and base; a stamped row (``retired_vault_id = vault_id``, no
+        ``tracked_entry_uid``) carries the base the stamp kept. Input to the
+        move / revival branch of extraction (R4).
+        """
+        ...
+
+    async def list_vault_retired_tasks(
+        self, user_uid: UserUID, retired_before: datetime
+    ) -> Result[list[VaultRetiredTaskRow]]:
+        """Every owned Task whose retirement stamp predates ``retired_before``.
+
+        Each row says whether the task still holds a live 🆔-bearing
+        ``EXTRACTED_FROM`` edge (tracked from another note). Input to the
+        end-of-sync sweep (R4).
+        """
+        ...
+
+    async def clear_vault_retirement_stamps(
+        self, user_uid: UserUID, stamps: list[tuple[str, str]]
+    ) -> Result[int]:
+        """Remove the three retirement stamps from each ``(task_uid, retired_vault_id)``.
+
+        Keyed on the 🆔 as read, so a task re-stamped by a concurrent
+        retirement is left alone. Returns how many were cleared.
+        """
+        ...
+
+    async def read_graph_clock(self) -> Result[datetime]:
+        """The database's own ``datetime()`` — the one clock the sweep's cutoff shares
+        with the retirement stamps (an application clock would let skew erase the grace).
         """
         ...
 

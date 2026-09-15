@@ -191,14 +191,18 @@ class ExtractedByVaultId:
 
     ``entity_uid`` is the node the line resolved to (the refresh target);
     ``source_line_hash`` is the digest the edge stores, which is retired from
-    the exact-match set the moment the line's text has moved. A 🆔 normally has
-    exactly one edge per entry, but the graph may hold two for one 🆔 (a task
-    and a twin minted from the same line), so the input carries every edge for
-    the 🆔 and the guard treats them all as the line's own.
+    the exact-match set the moment the line's text has moved;
+    ``source_line`` is the base — the line verbatim as SKUEL last saw it
+    (ADR-070 Decision 3), ``None`` on an edge written before the base existed,
+    which the guard seeds with the current line. A 🆔 normally has exactly one
+    edge per entry, but the graph may hold two for one 🆔 (a task and a twin
+    minted from the same line), so the input carries every edge for the 🆔 and
+    the guard treats them all as the line's own.
     """
 
     entity_uid: str
     source_line_hash: str
+    source_line: str | None = None
 
 
 @dataclass
@@ -297,23 +301,43 @@ class ActivityExtractionResult:
     # ========================================================================
     # PROVENANCE & KNOWLEDGE LINKS (ADR-069)
     # ========================================================================
-    # (created_uid, source_line_hash, vault_id) triples across all domains — the
-    # input to the EXTRACTED_FROM batch edge write. vault_id is the obsidian-tasks
-    # 🆔 join key (ADR-070); None for @context() DSL lines.
-    created_links: list[tuple[str, str, str | None]] = field(default_factory=list)
-    # (entity_uid, source_line_hash, vault_id) triples for lines Guard 2b
-    # recognised by 🆔 whose text moved since extraction (SKUEL's own [x] + ✅
-    # write-back above all). The edge is that line's own, so its change signal
-    # is refreshed to the current digest — a stale hash would otherwise swallow
-    # the next same-text line the user adds (Codex P1 on #1143, round 3).
-    # Written through the same batch edge write as created_links.
-    refreshed_links: list[tuple[str, str, str]] = field(default_factory=list)
+    # (created_uid, source_line_hash, vault_id, source_line) across all domains
+    # — the input to the EXTRACTED_FROM batch edge write. vault_id is the
+    # obsidian-tasks 🆔 join key (ADR-070); None for @context() DSL lines.
+    # source_line is the line verbatim, the base a later sync diffs the vault's
+    # line against (Decision 3); None only when the parser kept no text.
+    created_links: list[tuple[str, str, str | None, str | None]] = field(default_factory=list)
+    # (entity_uid, source_line_hash, vault_id, source_line) for lines Guard 2b
+    # recognised by 🆔 whose edge is behind the line: its text moved since
+    # extraction (SKUEL's own [x] + ✅ write-back above all), or the edge holds
+    # no base yet. The edge is that line's own, so its change signal is
+    # refreshed to the current digest — a stale hash would otherwise swallow
+    # the next same-text line the user adds (Codex P1 on #1143, round 3) — and
+    # an absent base is SEEDED with the current line. A present base is never
+    # advanced here: the write keeps it (``coalesce``), because advancing it
+    # marks every vault edit in between as already seen before anything reads
+    # the diff (R4 build plan, C1). Written through the same batch edge write
+    # as created_links.
+    refreshed_links: list[tuple[str, str, str, str | None]] = field(default_factory=list)
+    # How many refreshed_links entries moved the digest (the line's text
+    # changed) and how many seeded an absent base — one entry may do both.
+    lines_rehashed: int = 0
+    bases_seeded: int = 0
+    # (twin_uid, source_line_hash, vault_id, source_line) for lines Guard 4
+    # merged into an owned active twin that had NO edge to this entry. Kody
+    # #501's no-write rule exists to keep a merge from clobbering the twin's
+    # edge TO THIS ENTRY; when there is none, MERGE creates and nothing is
+    # clobbered — and the line is tracked, so the outbound pass keys it (a
+    # line retyped for an open task is the cleanup script's LINE-BACKED class,
+    # closed here). Same batch edge write as created_links.
+    merged_links: list[tuple[str, str, str | None, str | None]] = field(default_factory=list)
     # (entity_uid, vault_id) pairs for edges whose line is gone — its 🆔
     # appears nowhere in the text and no 🆔-less line hashes to its digest:
     # the user deleted the line from a note that still exists, which
-    # file-level deletion propagation never sees. The edge is retired (the
-    # entity stays — a vault-side line deletion is not a SKUEL deletion,
-    # inbound propagation being parked § R4) and its digest leaves the
+    # file-level deletion propagation never sees. The edge is retired and the
+    # task stamped with what the edge knew (the R4 grace record: a 🆔 that
+    # reappears within one sync finds its task by the stamp; one gone for two
+    # is a deletion the end-of-sync sweep judges), and its digest leaves the
     # exact-match set before any line is checked, so a same-text line the
     # user types back is not swallowed as the deleted one. 🆔-less edges
     # (bridge / DSL prose, never a physical line) are out of scope by design.
@@ -438,11 +462,15 @@ class ActivityExtractionResult:
             # Provenance & knowledge links (ADR-069)
             # ================================================================
             "created_links": [
-                [uid, line_hash, vault_id] for uid, line_hash, vault_id in self.created_links
+                [uid, line_hash, vault_id] for uid, line_hash, vault_id, _line in self.created_links
             ],
             "referenced_ku_uids": self.referenced_ku_uids,
             "lines_skipped_existing": self.lines_skipped_existing,
-            "lines_rehashed": len(self.refreshed_links),
+            "lines_rehashed": self.lines_rehashed,
+            "bases_seeded": self.bases_seeded,
+            "merged_links": [
+                [uid, line_hash, vault_id] for uid, line_hash, vault_id, _line in self.merged_links
+            ],
             "retired_links": [[uid, vault_id] for uid, vault_id in self.retired_links],
             "lines_merged_existing": self.lines_merged_existing,
             "lines_merged_cross_entry": self.lines_merged_cross_entry,
@@ -608,7 +636,10 @@ class ActivityExtractorService:
                 change signal — and the stale digest is retired from
                 ``existing_line_hashes`` BEFORE any line is checked against
                 it, so a same-text sibling arriving in the same ingest as the
-                write-back is not read as the old line. An edge whose 🆔
+                write-back is not read as the old line. An edge with no
+                ``source_line`` base yet is seeded with the current line
+                through the same write; a present base is never advanced
+                here (R4 build plan, C1). An edge whose 🆔
                 appears NOWHERE in the text and whose digest no 🆔-less line
                 carries is a line the user deleted from the note: it is
                 queued for retirement (``retired_links``) and its digest
@@ -753,10 +784,11 @@ class ActivityExtractorService:
         # are: its 🆔 appears nowhere in the text AND no 🆔-less line hashes
         # to its digest. That is a line the user removed from a note that
         # still exists — the case file-level deletion propagation never sees.
-        # Its edges are retired (the entity stays: a vault-side deletion is
-        # not a SKUEL deletion while inbound propagation is parked, § R4) and
-        # their digests leave the exact-match set for the same reason as
-        # above: the same text typed back would hash into the deleted line
+        # Its edges are retired — and the task stamped by the retiring write
+        # with the edge's 🆔 and base, the grace record a re-appearing 🆔 is
+        # found by (the sweep at the end of the sync judges what stays gone)
+        # — and their digests leave the exact-match set for the same reason
+        # as above: the same text typed back would hash into the deleted line
         # and be swallowed. One key gone is not a deletion: a 🆔-less line
         # still hashing to the digest is the same line with its token
         # stripped — Guard 2 recognises it by hash as ever (re-extracting it
@@ -786,6 +818,10 @@ class ActivityExtractorService:
                 extraction.retired_links.append((edge.entity_uid, vault_id))
         existing_vault_ids = live_vault_ids
 
+        # A recognised line's edge is brought current: the digest to the
+        # line's (when the text moved) and the base seeded (when the edge has
+        # none). A present base is held — advancing it is the reconciler's to
+        # do once it consumes the diff, and only on an ok write (C1).
         for activity in parsed.activities:
             if activity.vault_id is None:
                 continue
@@ -794,11 +830,18 @@ class ActivityExtractorService:
                 continue
             current_hash = normalized_line_hash(activity.raw_line or activity.description)
             for edge in edges:
-                if edge.source_line_hash != current_hash:
+                hash_moved = edge.source_line_hash != current_hash
+                base_absent = edge.source_line is None
+                if not hash_moved and not base_absent:
+                    continue
+                if hash_moved:
                     retired_digests.add(edge.source_line_hash)
-                    extraction.refreshed_links.append(
-                        (edge.entity_uid, current_hash, activity.vault_id)
-                    )
+                    extraction.lines_rehashed += 1
+                if base_absent:
+                    extraction.bases_seeded += 1
+                extraction.refreshed_links.append(
+                    (edge.entity_uid, current_hash, activity.vault_id, activity.verbatim_line)
+                )
         existing_line_hashes = existing_line_hashes - retired_digests
 
         for activity in parsed.activities:
@@ -1074,7 +1117,8 @@ class ActivityExtractorService:
             f"created {extraction.total_created} entities, "
             f"skipped {extraction.lines_skipped_existing} already-extracted lines "
             f"({len(extraction.refreshed_links)} rehashed by 🆔, "
-            f"{len(extraction.retired_links)} 🆔 lines gone — edges retired), "
+            f"{len(extraction.retired_links)} 🆔 lines gone — edges retired, "
+            f"{extraction.bases_seeded} bases seeded), "
             f"merged {extraction.lines_merged_existing} semantic duplicates, "
             f"merged {extraction.lines_merged_cross_entry} cross-entry twins "
             f"({len(extraction.creation_errors)} errors)"
@@ -1113,14 +1157,15 @@ class ActivityExtractorService:
         existing uid, no new node is created and the existing provenance edge
         is left untouched. Guard 4 (cross-entry, F4): ANY line whose key
         matches an ACTIVE entity the user already owns merges the same way —
-        no node, no provenance write — so re-processing a note (e.g. after 🆔
-        injection changed its hash) cannot resurrect a node the F4 dedup
-        cleanup deleted. Terminal twins don't block: re-typing a completed
-        task's title is a new task.
+        no node — so re-processing a note (e.g. after 🆔 injection changed its
+        hash) cannot resurrect a node the F4 dedup cleanup deleted; a twin with
+        no edge to this entry gets one (``merged_links``), so the line is
+        tracked. Terminal twins don't block: re-typing a completed task's
+        title is a new task.
 
-        Returns (created_count, created_uids); appends (uid, line_hash) pairs
-        to `extraction.created_links` and failures to
-        `extraction.creation_errors`.
+        Returns (created_count, created_uids); appends
+        (uid, line_hash, vault_id, source_line) to `extraction.created_links`
+        and failures to `extraction.creation_errors`.
         """
         if existing_extracted is None:
             existing_extracted = {}
@@ -1170,10 +1215,18 @@ class ActivityExtractorService:
                 if uid := user_owned_semantic.get(key):
                     # Guard 4 merge (cross-entry, F4): the user already owns an
                     # ACTIVE twin (possibly extracted from another entry, or a
-                    # provenance-orphan the cleanup kept). Same no-write rule as
-                    # Guard 3 — touching provenance here would clobber the
-                    # twin's own edge state (Kody #501).
+                    # provenance-orphan the cleanup kept). Guard 3's no-write
+                    # rule protects the twin's edge TO THIS ENTRY from being
+                    # clobbered (Kody #501); when the twin has none, the line
+                    # gets its edge — MERGE creates, nothing is clobbered, and
+                    # the line is tracked from here on (the outbound pass keys
+                    # it to the 🆔 it carries or mints one).
                     extraction.lines_merged_cross_entry += 1
+                    if uid not in existing_extracted.values():
+                        extraction.merged_links.append(
+                            (uid, line_hash, activity.vault_id, activity.verbatim_line)
+                        )
+                        existing_extracted[key] = uid
                     self.logger.debug(
                         f"Cross-entry dedup: {label} '{activity.description[:40]}' "
                         f"merged into owned active twin {uid}"
@@ -1184,7 +1237,9 @@ class ActivityExtractorService:
             if result.is_ok and result.value:
                 created += 1
                 uids.append(result.value)
-                extraction.created_links.append((result.value, line_hash, activity.vault_id))
+                extraction.created_links.append(
+                    (result.value, line_hash, activity.vault_id, activity.verbatim_line)
+                )
                 if key is not None:
                     # Same-run duplicates (bridge rewording an already-created
                     # line later in this run) merge against this entity too.

@@ -131,7 +131,11 @@ class ParsedActivityLine:
         links: List of graph links from @link() tag
         source_file: Optional source file path for tracking
         source_line: Optional line number in source
-        raw_line: Original unparsed line text
+        raw_line: The line as the dedup digest sees it — verbatim for a DSL
+            line; for an obsidian-tasks checkbox line the adapter's normalised
+            form (checkbox canonicalised, 🆔 stripped, whitespace collapsed)
+        verbatim_line: The line exactly as it stands in the file, 🆔 token
+            included — the ``EXTRACTED_FROM.source_line`` base (ADR-070)
         is_checked: Whether checkbox is checked ([x] vs [ ])
         tag_warnings: Dropped-tag-value reports (written tag, unparseable value)
 
@@ -193,6 +197,12 @@ class ParsedActivityLine:
     source_file: str | None = None
     source_line: int | None = None
     raw_line: str | None = None
+    # The line verbatim — what SKUEL last saw of it. Stored on the provenance
+    # edge as ``source_line`` so a later sync can tell which fields the vault
+    # side changed (ADR-070 Decision 3's three-way merge). ``raw_line`` cannot
+    # serve: for checkbox lines it is the dedup-normalised form, which
+    # collapses ``[x]`` to ``[ ]`` and drops the 🆔.
+    verbatim_line: str | None = None
 
     # Checkbox state
     is_checked: bool = False  # [x] vs [ ]
@@ -726,6 +736,7 @@ class ActivityDSLParser:
                 source_file=source_file,
                 source_line=source_line_num,
                 raw_line=line,
+                verbatim_line=line,
                 is_checked=is_checked,
                 tag_warnings=tag_warnings,
             )

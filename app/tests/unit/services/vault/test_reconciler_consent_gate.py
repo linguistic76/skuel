@@ -11,6 +11,7 @@ The CONTENT vault (admin, inbound-only, no task round-trip) stays consent-free.
 
 from __future__ import annotations
 
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import cast
 from unittest.mock import AsyncMock, Mock
@@ -74,6 +75,8 @@ def _ingestion() -> Mock:
 def _reconciler(registry: VaultRegistry, ingestion: Mock, user_service: Mock) -> VaultReconciler:
     user_entry = Mock()
     user_entry.list_for_user = AsyncMock(return_value=Result.ok([]))
+    user_entry.read_graph_clock = AsyncMock(return_value=Result.ok(datetime.now(UTC)))
+    user_entry.list_vault_retired_tasks = AsyncMock(return_value=Result.ok([]))
     return VaultReconciler(
         registry=registry,
         unified_ingestion=ingestion,

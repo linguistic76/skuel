@@ -10,6 +10,7 @@ or turn a perfect sync's banner red.
 
 from __future__ import annotations
 
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import cast
 from unittest.mock import AsyncMock, Mock
@@ -83,6 +84,8 @@ def _reconciler(tmp_path: Path, probe: _CoverageProbe | None) -> VaultReconciler
 
     user_entry = Mock()
     user_entry.list_for_user = AsyncMock(return_value=Result.ok([]))
+    user_entry.read_graph_clock = AsyncMock(return_value=Result.ok(datetime.now(UTC)))
+    user_entry.list_vault_retired_tasks = AsyncMock(return_value=Result.ok([]))
 
     ingestion = Mock()
     ingestion.ingest_directory = AsyncMock(

@@ -22,7 +22,7 @@ from core.models.relationship_names import RelationshipName
 from core.models.user_entry.user_entry import PERIODIC_NOTE_KINDS, UserEntry
 from core.ports.output_generator_protocols import OutputInstruction
 from core.services.dsl import ActivityExtractionResult, DSLTransformResult
-from core.services.dsl.activity_extractor import ExtractedByVaultId
+from core.services.dsl.activity_extractor import ExtractedByVaultId, normalized_line_hash
 from core.services.user_entry.user_entry_processing_service import (
     UserEntryProcessingService,
 )
@@ -411,7 +411,12 @@ def _extract_entry_service(updated_entry: UserEntry) -> MagicMock:
     svc.get_extracted_entities = AsyncMock(return_value=Result.ok([]))
     svc.get_user_active_extraction_twins = AsyncMock(return_value=Result.ok([]))
     svc.create_extracted_from_links = AsyncMock(return_value=Result.ok(1))
-    svc.delete_extracted_from_links = AsyncMock(return_value=Result.ok(0))
+    svc.retire_extracted_from_links = AsyncMock(return_value=Result.ok(0))
+    # The R4 move / revival branch: a 🆔 in the text that no edge of this entry
+    # carries is looked up user-wide; nothing found is the phantom case.
+    svc.find_task_by_vault_id = AsyncMock(return_value=Result.ok([]))
+    svc.repoint_extracted_from_link = AsyncMock(return_value=Result.ok(True))
+    svc.revive_extracted_from_link = AsyncMock(return_value=Result.ok(True))
     svc.add_relationship = AsyncMock(return_value=Result.ok(True))
     svc.get_entry = AsyncMock(return_value=Result.ok(updated_entry))
     return svc
@@ -420,8 +425,9 @@ def _extract_entry_service(updated_entry: UserEntry) -> MagicMock:
 def _extraction_result(
     entry_uid: str,
     *,
-    created_links: list[tuple[str, str, str | None]] | None = None,
-    refreshed_links: list[tuple[str, str, str]] | None = None,
+    created_links: list[tuple[str, str, str | None, str | None]] | None = None,
+    refreshed_links: list[tuple[str, str, str, str | None]] | None = None,
+    merged_links: list[tuple[str, str, str | None, str | None]] | None = None,
     retired_links: list[tuple[str, str]] | None = None,
     created_ku_uids: list[str] | None = None,
     referenced_ku_uids: list[str] | None = None,
@@ -431,6 +437,7 @@ def _extraction_result(
         user_uid="user_1",
         created_links=created_links or [],
         refreshed_links=refreshed_links or [],
+        merged_links=merged_links or [],
         retired_links=retired_links or [],
         created_ku_uids=created_ku_uids or [],
         referenced_ku_uids=referenced_ku_uids or [],
@@ -461,7 +468,7 @@ class TestExtractActivities:
             return_value=Result.ok(
                 _extraction_result(
                     entry.uid,
-                    created_links=[("task:1", "hash1", None)],
+                    created_links=[("task:1", "hash1", None, "- [ ] Call mom @context(task)")],
                     referenced_ku_uids=["ku:tech/x"],
                 )
             )
@@ -474,7 +481,7 @@ class TestExtractActivities:
 
         assert result.is_ok
         svc.create_extracted_from_links.assert_awaited_once_with(
-            entry.uid, [("task:1", "hash1", None)]
+            entry.uid, [("task:1", "hash1", None, "- [ ] Call mom @context(task)")]
         )
         svc.add_relationship.assert_awaited_once()
         assert svc.add_relationship.await_args.args == (
@@ -501,8 +508,9 @@ class TestExtractActivities:
             return_value=Result.ok(
                 _extraction_result(
                     entry.uid,
-                    created_links=[("task:new", "hash_new", "sk_b2")],
-                    refreshed_links=[("task:gym", "hash_after_writeback", "sk_a1")],
+                    created_links=[("task:new", "hash_new", "sk_b2", "- [ ] New 🆔 sk_b2")],
+                    merged_links=[("task:twin", "hash_twin", None, "- [ ] Twin")],
+                    refreshed_links=[("task:gym", "hash_after_writeback", "sk_a1", None)],
                 )
             )
         )
@@ -513,17 +521,23 @@ class TestExtractActivities:
         result = await dispatcher.process(entry)
 
         assert result.is_ok
+        # Created, then Guard-4 merged (the twin's first edge here), then the
+        # identity refresh — one batch, one write.
         svc.create_extracted_from_links.assert_awaited_once_with(
             entry.uid,
-            [("task:new", "hash_new", "sk_b2"), ("task:gym", "hash_after_writeback", "sk_a1")],
+            [
+                ("task:new", "hash_new", "sk_b2", "- [ ] New 🆔 sk_b2"),
+                ("task:twin", "hash_twin", None, "- [ ] Twin"),
+                ("task:gym", "hash_after_writeback", "sk_a1", None),
+            ],
         )
 
     @pytest.mark.asyncio
-    async def test_retired_links_are_deleted_before_the_provenance_write(self):
+    async def test_retired_links_are_retired_before_the_provenance_write(self):
         """Edges whose 🆔 the extractor found nowhere in the text (a line the
         user deleted from a surviving note) are retired through the keyed
-        delete — ``(entity_uid, vault_id)`` pairs as read — before the
-        created/refreshed links are written. The entity is never touched."""
+        retirement — ``(entity_uid, vault_id)`` pairs as read; the write
+        stamps the task — before the created/refreshed links are written."""
         entry = _make_entry(Pipeline.EXTRACT_ACTIVITIES, content="- [ ] Gym")
         svc = _extract_entry_service(entry)
         order: list[str] = []
@@ -536,7 +550,7 @@ class TestExtractActivities:
             order.append("write")
             return Result.ok(1)
 
-        svc.delete_extracted_from_links = AsyncMock(side_effect=_retire)
+        svc.retire_extracted_from_links = AsyncMock(side_effect=_retire)
         svc.create_extracted_from_links = AsyncMock(side_effect=_write)
 
         extractor = MagicMock()
@@ -544,7 +558,7 @@ class TestExtractActivities:
             return_value=Result.ok(
                 _extraction_result(
                     entry.uid,
-                    created_links=[("task:fresh", "hash_gym", None)],
+                    created_links=[("task:fresh", "hash_gym", None, "- [ ] Gym")],
                     retired_links=[("task:old", "sk_gone01")],
                 )
             )
@@ -556,7 +570,7 @@ class TestExtractActivities:
         result = await dispatcher.process(entry)
 
         assert result.is_ok
-        svc.delete_extracted_from_links.assert_awaited_once_with(
+        svc.retire_extracted_from_links.assert_awaited_once_with(
             entry.uid, [("task:old", "sk_gone01")]
         )
         assert order == ["retire", "write"]
@@ -564,7 +578,7 @@ class TestExtractActivities:
         assert summary["retired_links"] == [["task:old", "sk_gone01"]]
 
     @pytest.mark.asyncio
-    async def test_no_retired_links_means_no_delete_call(self):
+    async def test_no_retired_links_means_no_retire_call(self):
         entry = _make_entry(Pipeline.EXTRACT_ACTIVITIES, content="- [ ] Gym")
         svc = _extract_entry_service(entry)
         extractor = MagicMock()
@@ -577,7 +591,7 @@ class TestExtractActivities:
         result = await dispatcher.process(entry)
 
         assert result.is_ok
-        svc.delete_extracted_from_links.assert_not_awaited()
+        svc.retire_extracted_from_links.assert_not_awaited()
 
     @pytest.mark.asyncio
     async def test_retirement_failure_fails_the_run_at_persist_links(self):
@@ -586,8 +600,8 @@ class TestExtractActivities:
         the smart-mode checkpoint and the next sync retries it."""
         entry = _make_entry(Pipeline.EXTRACT_ACTIVITIES, content="- [ ] Gym")
         svc = _extract_entry_service(entry)
-        svc.delete_extracted_from_links = AsyncMock(
-            return_value=Result.fail(Errors.database("delete_extracted_from_links", "boom"))
+        svc.retire_extracted_from_links = AsyncMock(
+            return_value=Result.fail(Errors.database("retire_extracted_from_links", "boom"))
         )
         extractor = MagicMock()
         extractor.extract_and_create = AsyncMock(
@@ -876,7 +890,10 @@ class TestExtractActivities:
 
     @pytest.mark.asyncio
     async def test_existing_hashes_are_read_and_threaded(self):
-        entry = _make_entry(Pipeline.EXTRACT_ACTIVITIES, content="- @context(task) X")
+        entry = _make_entry(
+            Pipeline.EXTRACT_ACTIVITIES,
+            content="- @context(task) X\n- [x] Water the plants 🆔 sk_mine01 ✅ 2026-08-17",
+        )
         svc = _extract_entry_service(entry)
         svc.get_extracted_entities = AsyncMock(
             return_value=Result.ok(
@@ -919,10 +936,13 @@ class TestExtractActivities:
         assert result.is_ok
         kwargs = extractor.extract_and_create.await_args.kwargs
         assert kwargs["existing_line_hashes"] == frozenset({"abc", "stale"})
-        # Guard 2b: the 🆔s already on this entry's edges ride the same read.
+        # Guard 2b: the 🆔s already on this entry's edges ride the same read —
+        # with the edge's base (None here: the row carries no ``source_line``).
         assert kwargs["existing_vault_ids"] == {
-            "sk_mine01": (ExtractedByVaultId("task_written_back", "stale"),)
+            "sk_mine01": (ExtractedByVaultId("task_written_back", "stale", None),)
         }
+        # A 🆔 the entry's own edges carry is never looked up user-wide.
+        svc.find_task_by_vault_id.assert_not_awaited()
         # Guard 3 (R3): the semantic map is built from the same read —
         # normalized title keyed by node label; the title-less row is skipped.
         assert kwargs["existing_extracted"] == {
@@ -977,7 +997,7 @@ class TestExtractActivities:
         extractor = MagicMock()
         extractor.extract_and_create = AsyncMock(
             return_value=Result.ok(
-                _extraction_result(entry.uid, created_links=[("task:1", "h", None)])
+                _extraction_result(entry.uid, created_links=[("task:1", "h", None, "- [ ] X")])
             )
         )
         bus = MagicMock()
@@ -1023,6 +1043,218 @@ class TestExtractActivities:
 # ---------------------------------------------------------------------------
 # Failure-event phase tagging (F8)
 # ---------------------------------------------------------------------------
+
+
+class TestMovesAndRevivals:
+    """The R4 move / revival branch, DB-free: a 🆔 in the text that none of this
+    entry's edges carry is looked up user-wide BEFORE extraction, and the guards
+    then read the graph as it stands after the re-link."""
+
+    @staticmethod
+    def _rows_then(rows_before: list[dict], rows_after: list[dict]) -> AsyncMock:
+        return AsyncMock(side_effect=[Result.ok(rows_before), Result.ok(rows_after)])
+
+    @pytest.mark.asyncio
+    async def test_a_live_edge_on_another_entry_is_repointed_and_the_guards_reread(self):
+        """The line was cut from another note and pasted here: the edge follows
+        it in one call (task, 🆔, from → to), and the extractor's inputs are
+        rebuilt from a second read — the re-pointed edge, base and digest as
+        the old note's edge carried them, is what Guard 2b now sees."""
+        entry = _make_entry(Pipeline.EXTRACT_ACTIVITIES, content="- [ ] Vacuum 🆔 sk_move01")
+        svc = _extract_entry_service(entry)
+        moved_row = {
+            "entity_uid": "task_vac",
+            "title": "Vacuum",
+            "labels": ["Entity", "Task"],
+            "source_line_hash": "old_digest",
+            "vault_id": "sk_move01",
+            "source_line": "- [ ] Vacuum 🆔 sk_move01",
+        }
+        svc.get_extracted_entities = self._rows_then([], [moved_row])
+        svc.find_task_by_vault_id = AsyncMock(
+            return_value=Result.ok(
+                [
+                    {
+                        "entity_uid": "task_vac",
+                        "tracked_entry_uid": "ue_old_note",
+                        "source_line_hash": "old_digest",
+                        "source_line": "- [ ] Vacuum 🆔 sk_move01",
+                    }
+                ]
+            )
+        )
+        extractor = MagicMock()
+        extractor.extract_and_create = AsyncMock(
+            return_value=Result.ok(_extraction_result(entry.uid))
+        )
+
+        dispatcher = _make_dispatcher(entry_service=svc)
+        dispatcher.activity_extractor = extractor
+        result = await dispatcher.process(entry)
+
+        assert result.is_ok
+        svc.find_task_by_vault_id.assert_awaited_once_with("user_1", "sk_move01")
+        svc.repoint_extracted_from_link.assert_awaited_once_with(
+            "task_vac", "sk_move01", "ue_old_note", entry.uid
+        )
+        svc.revive_extracted_from_link.assert_not_awaited()
+        assert svc.get_extracted_entities.await_count == 2
+        kwargs = extractor.extract_and_create.await_args.kwargs
+        assert kwargs["existing_vault_ids"] == {
+            "sk_move01": (
+                ExtractedByVaultId("task_vac", "old_digest", "- [ ] Vacuum 🆔 sk_move01"),
+            )
+        }
+        assert kwargs["existing_line_hashes"] == frozenset({"old_digest"})
+
+    @pytest.mark.asyncio
+    async def test_a_stamped_task_is_revived_with_the_digest_of_its_base(self):
+        """The 🆔 vanished within the grace and is back: the task is re-linked
+        here in one call, handed the digest of the base the stamp kept (the
+        identity guard refreshes it if the line has since moved)."""
+        entry = _make_entry(
+            Pipeline.EXTRACT_ACTIVITIES, content="- [x] Gym 🆔 sk_back01 ✅ 2026-09-01"
+        )
+        svc = _extract_entry_service(entry)
+        base = "- [ ] Gym 🆔 sk_back01"
+        svc.get_extracted_entities = self._rows_then(
+            [],
+            [
+                {
+                    "entity_uid": "task_gym",
+                    "title": "Gym",
+                    "labels": ["Entity", "Task"],
+                    "source_line_hash": normalized_line_hash(base),
+                    "vault_id": "sk_back01",
+                    "source_line": base,
+                }
+            ],
+        )
+        svc.find_task_by_vault_id = AsyncMock(
+            return_value=Result.ok(
+                [
+                    {
+                        "entity_uid": "task_gym",
+                        "tracked_entry_uid": None,
+                        "source_line_hash": None,
+                        "source_line": base,
+                    }
+                ]
+            )
+        )
+        extractor = MagicMock()
+        extractor.extract_and_create = AsyncMock(
+            return_value=Result.ok(_extraction_result(entry.uid))
+        )
+
+        dispatcher = _make_dispatcher(entry_service=svc)
+        dispatcher.activity_extractor = extractor
+        result = await dispatcher.process(entry)
+
+        assert result.is_ok
+        svc.revive_extracted_from_link.assert_awaited_once_with(
+            "user_1", "task_gym", "sk_back01", entry.uid, normalized_line_hash(base)
+        )
+        svc.repoint_extracted_from_link.assert_not_awaited()
+        assert svc.get_extracted_entities.await_count == 2
+
+    @pytest.mark.asyncio
+    async def test_a_stamp_with_no_base_revives_with_no_digest(self):
+        """A pre-base edge retired before it was ever seeded stamps a null
+        base; the revived edge gets no digest either, and the identity guard
+        brings it current on this very run."""
+        entry = _make_entry(Pipeline.EXTRACT_ACTIVITIES, content="- [ ] Read 🆔 sk_nobase")
+        svc = _extract_entry_service(entry)
+        svc.get_extracted_entities = self._rows_then([], [])
+        svc.find_task_by_vault_id = AsyncMock(
+            return_value=Result.ok(
+                [
+                    {
+                        "entity_uid": "task_read",
+                        "tracked_entry_uid": None,
+                        "source_line_hash": None,
+                        "source_line": None,
+                    }
+                ]
+            )
+        )
+        extractor = MagicMock()
+        extractor.extract_and_create = AsyncMock(
+            return_value=Result.ok(_extraction_result(entry.uid))
+        )
+
+        dispatcher = _make_dispatcher(entry_service=svc)
+        dispatcher.activity_extractor = extractor
+        result = await dispatcher.process(entry)
+
+        assert result.is_ok
+        svc.revive_extracted_from_link.assert_awaited_once_with(
+            "user_1", "task_read", "sk_nobase", entry.uid, None
+        )
+
+    @pytest.mark.asyncio
+    async def test_a_phantom_is_left_to_the_guards_with_no_reread(self):
+        """Found nowhere — no edge, no stamp: nothing is written and the
+        guards run over the first read."""
+        entry = _make_entry(Pipeline.EXTRACT_ACTIVITIES, content="- [ ] Ghost 🆔 sk_ghost1")
+        svc = _extract_entry_service(entry)
+        extractor = MagicMock()
+        extractor.extract_and_create = AsyncMock(
+            return_value=Result.ok(_extraction_result(entry.uid))
+        )
+
+        dispatcher = _make_dispatcher(entry_service=svc)
+        dispatcher.activity_extractor = extractor
+        result = await dispatcher.process(entry)
+
+        assert result.is_ok
+        svc.find_task_by_vault_id.assert_awaited_once_with("user_1", "sk_ghost1")
+        svc.repoint_extracted_from_link.assert_not_awaited()
+        svc.revive_extracted_from_link.assert_not_awaited()
+        svc.get_extracted_entities.assert_awaited_once()
+
+    @pytest.mark.asyncio
+    async def test_a_failed_repoint_fails_the_run_at_persist_links(self):
+        """A re-point that fails leaves the edge where it was — the run fails
+        like any provenance write, the file stays out of the checkpoint, and
+        the next sync retries the move."""
+        entry = _make_entry(Pipeline.EXTRACT_ACTIVITIES, content="- [ ] Vacuum 🆔 sk_move01")
+        svc = _extract_entry_service(entry)
+        svc.find_task_by_vault_id = AsyncMock(
+            return_value=Result.ok(
+                [
+                    {
+                        "entity_uid": "task_vac",
+                        "tracked_entry_uid": "ue_old_note",
+                        "source_line_hash": "old",
+                        "source_line": None,
+                    }
+                ]
+            )
+        )
+        svc.repoint_extracted_from_link = AsyncMock(
+            return_value=Result.fail(Errors.database("repoint_extracted_from_link", "boom"))
+        )
+        bus = MagicMock()
+        captured: list[BaseEvent] = []
+
+        async def _publish(event: BaseEvent) -> None:
+            captured.append(event)
+
+        bus.publish_async = AsyncMock(side_effect=_publish)
+        extractor = MagicMock()
+        extractor.extract_and_create = AsyncMock(
+            return_value=Result.ok(_extraction_result(entry.uid))
+        )
+
+        dispatcher = _make_dispatcher(entry_service=svc, event_bus=bus)
+        dispatcher.activity_extractor = extractor
+        result = await dispatcher.process(entry)
+
+        assert result.is_error
+        extractor.extract_and_create.assert_not_awaited()
+        failed = [e for e in captured if isinstance(e, UserEntryProcessingFailed)]
+        assert len(failed) == 1 and failed[0].failed_phase == "persist_links"
 
 
 class TestFailedPhaseEventTag:
