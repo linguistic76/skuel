@@ -8107,3 +8107,117 @@ class TestSweepDiscoveryIsPrunedAndOrdered:
         )
         found = SkuelLinter(root_dir=tmp_path)._find_python_files()
         assert found == [tmp_path / "core/a.py", tmp_path / "core/b.py", tmp_path / "ui/z.py"]
+
+
+# ============================================================================
+# PARALLEL SWEEP — sharded across processes, indistinguishable from serial
+# ============================================================================
+
+
+class TestParallelSweepIsTheSerialResult:
+    """``jobs > 1`` shards the per-file sweep across worker processes and merges
+    in file order. Everything downstream — the violations and their order, the
+    internal errors a worker recorded, ``files_scanned``, and the SKUEL026 audit
+    that rides on the merged violations — is what the serial loop produces."""
+
+    @staticmethod
+    def _tree(tmp_path: Path) -> None:
+        # Enough files for the auto policy's parallel side, findings spread
+        # across an AST rule and two line rules, one used suppression, one
+        # unused, and one unreadable file so an internal error crosses the
+        # process boundary too.
+        files: dict[str, str] = {}
+        for i in range(SkuelLinter.PARALLEL_MIN_FILES + 8):
+            body = 'x = hasattr(object(), "y")\n' if i % 5 == 0 else "x = 1\n"
+            if i % 7 == 0:
+                body += "# poetry install\n"
+            files[f"core/services/mod_{i:02d}.py"] = body
+        files["core/services/suppressed.py"] = (
+            'x = hasattr(object(), "y")  # skuel-lint: disable=SKUEL011\n'
+            "y = 1  # skuel-lint: disable=SKUEL012\n"
+        )
+        _write_tree(tmp_path, files)
+        (tmp_path / "core/services/unreadable.py").write_bytes(b"\xff\xfe x = 1\n")
+
+    @staticmethod
+    def _shape(result: LintResult) -> dict[str, object]:
+        return {
+            "files_scanned": result.files_scanned,
+            "violations": [
+                (str(v.file_path), v.line_number, v.column, v.rule_id, v.message, v.line_content)
+                for v in result.violations
+            ],
+            "internal_errors": [(str(f), rule, msg) for f, rule, msg in result.internal_errors],
+            "suppressions": [
+                (str(s.file_path), s.line_number, s.rule_id, s.file_level, s.used)
+                for s in result.suppressions
+            ],
+        }
+
+    def test_parallel_matches_serial_including_audit_and_internal_errors(
+        self, tmp_path: Path
+    ) -> None:
+        self._tree(tmp_path)
+        serial = SkuelLinter(root_dir=tmp_path, jobs=1).lint()
+        parallel = SkuelLinter(root_dir=tmp_path, jobs=3).lint()
+
+        assert self._shape(parallel) == self._shape(serial)
+        # Positive controls — the agreement is over something, not over nothing.
+        rules = {v.rule_id for v in serial.violations}
+        assert {"SKUEL011", "SKUEL016", "SKUEL026"} <= rules
+        assert [rule for _f, rule, _m in serial.internal_errors] == [SkuelLinter.READ_FAILURE_ID]
+        assert {s.used for s in serial.suppressions} == {True, False}
+        assert serial.exit_code(strict=False) == 2
+
+    def test_merged_violations_keep_file_order(self, tmp_path: Path) -> None:
+        """``map`` yields chunks in submission order, so a finding in the last
+        chunk never overtakes one in the first — the report and ``--json`` read
+        the same order a serial run prints."""
+        self._tree(tmp_path)
+        parallel = SkuelLinter(root_dir=tmp_path, jobs=3).lint()
+        files_in_report = [str(v.file_path) for v in parallel.violations if v.rule_id != "SKUEL026"]
+        assert files_in_report == sorted(files_in_report)
+
+    def test_worker_count_policy(self) -> None:
+        auto = SkuelLinter(root_dir=Path("/fake/root"))
+        assert auto._worker_count(SkuelLinter.PARALLEL_MIN_FILES - 1) == 1
+        assert (
+            1
+            <= auto._worker_count(SkuelLinter.PARALLEL_MIN_FILES)
+            <= (SkuelLinter.PARALLEL_MAX_WORKERS)
+        )
+        assert auto._worker_count(10_000) <= SkuelLinter.PARALLEL_MAX_WORKERS
+        # An explicit `jobs` is honoured either side of the threshold; 1 is serial.
+        assert SkuelLinter(root_dir=Path("/fake/root"), jobs=1)._worker_count(10_000) == 1
+        assert SkuelLinter(root_dir=Path("/fake/root"), jobs=3)._worker_count(1) == 3
+        assert SkuelLinter(root_dir=Path("/fake/root"), jobs=0)._worker_count(1) == 1
+
+    def test_cli_jobs_flag_reaches_the_sweep(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+    ) -> None:
+        """``--jobs 2`` on a two-file tree — below the auto threshold, so only the
+        flag can have chosen the parallel path — and the finding still lands in
+        the JSON: the flag is wired, and the worker's result reaches the report."""
+        import lint_skuel  # type: ignore[import-not-found]
+
+        _write_tree(
+            tmp_path,
+            {
+                "core/services/a.py": 'x = hasattr(object(), "y")\n',
+                "core/services/b.py": "x = 1\n",
+            },
+        )
+        monkeypatch.setattr(lint_skuel, "__file__", str(tmp_path / "scripts" / "lint_skuel.py"))
+        monkeypatch.setattr(sys, "argv", ["lint_skuel.py", "--json", "--strict", "--jobs", "2"])
+        for name in ("RED", "GREEN", "YELLOW", "BLUE", "CYAN", "BOLD", "DIM", "RESET"):
+            monkeypatch.setattr(lint_skuel.Colors, name, "")
+
+        with pytest.raises(SystemExit) as exc:
+            lint_skuel.main()
+
+        assert exc.value.code == 1  # SKUEL011 is a WARNING; --strict makes it fail
+        payload = json.loads(capsys.readouterr().out)
+        assert payload["files_scanned"] == 2
+        assert [(v["file"], v["rule_id"]) for v in payload["violations"]] == [
+            ("core/services/a.py", "SKUEL011")
+        ]

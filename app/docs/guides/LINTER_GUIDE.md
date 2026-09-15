@@ -1,6 +1,6 @@
 ---
 title: Linter Guide
-updated: 2026-09-05
+updated: 2026-09-15
 category: guides
 related_skills:
 - python
@@ -322,7 +322,13 @@ uv run python scripts/lint_skuel.py --context   # Show code around violations
 uv run python scripts/lint_skuel.py --quiet     # Minimal output (CI)
 uv run python scripts/lint_skuel.py --json      # Machine-readable output
 uv run python scripts/lint_skuel.py --strict    # Treat warnings as errors
+
+# Parallelism
+uv run python scripts/lint_skuel.py --jobs 1    # Serial sweep (debugging a rule)
+uv run python scripts/lint_skuel.py --jobs 4    # Exactly four worker processes
 ```
+
+A sweep shards its per-file work across processes and merges in file order, so the report and `--json` are the serial result either way. With no `--jobs` the policy is `SkuelLinter.PARALLEL_*`: serial below 32 files (a `--staged` pre-commit run), else one worker per CPU up to 12. The SKUEL026 suppression audit runs after the merge, serially — it reads the merged violations.
 
 ## Adding a New SKUEL Rule
 
