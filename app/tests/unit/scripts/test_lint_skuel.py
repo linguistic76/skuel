@@ -62,7 +62,7 @@ def lint_content(
     lines = content.split("\n")
 
     # Determine context flags
-    is_test = "test_" in fp.name or "/tests/" in str(fp)
+    is_test = linter._is_test_file(fp)
     is_core = "/core/" in str(fp) and fp.suffix == ".py"
     is_ui = "/ui/" in str(fp) and fp.suffix == ".py"
 
@@ -3748,7 +3748,7 @@ class TestSKUEL022:
         linter = make_linter(["SKUEL022"])
         content = "from adapters.persistence.neo4j.cross_domain_backend import CrossDomainBackend\n"
         violations = lint_content(
-            linter, content, file_path="core/services/test_example.py", is_service=False
+            linter, content, file_path="tests/unit/core/services/test_example.py", is_service=False
         )
         assert len(violations) == 0
 
@@ -5952,7 +5952,9 @@ class TestSKUEL027:
     def test_skips_test_files(self) -> None:
         linter = make_linter(["SKUEL027"])
         content = "from adapters.inbound.auth import require_authenticated_user\n"
-        violations = lint_content(linter, content, file_path="ui/test_example.py", is_service=False)
+        violations = lint_content(
+            linter, content, file_path="tests/unit/ui/test_example.py", is_service=False
+        )
         assert len(violations) == 0
 
     def test_line_suppression(self) -> None:
@@ -6128,7 +6130,7 @@ class TestSKUEL032:
         violations = lint_content(
             linter,
             "from ui.ui_types import ActivePathData\n",
-            file_path="core/services/test_lp_service.py",
+            file_path="tests/unit/core/services/test_lp_service.py",
         )
         assert violations == []
 
@@ -8032,3 +8034,76 @@ class TestExplicitFileTargetHonoursExclusions:
         linter.lint()
         assert linter.result.files_scanned == 0
         assert capsys.readouterr().err == ""
+
+
+# ============================================================================
+# TEST-FILE SCOPE — pytest's collection scope, not a filename shape
+# ============================================================================
+
+
+class TestTestFileScopeIsTheTestsTree:
+    """``_is_test_file`` is exactly ``testpaths = ["tests"]``: a module is a test
+    iff it lives under a ``tests`` directory. A filename SHAPE would be wrong in
+    both directions — ``scripts/`` holds CLI diagnostics named ``test_*.py`` and
+    ``*_test.py`` and seeders whose names merely contain ``test_``, none of
+    which any runner collects. Asserted through the production dispatch, not the
+    ``lint_content`` mirror (which reads the same predicate)."""
+
+    # SKUEL011 + SKUEL016: one AST rule, one line rule, both `not is_test`-gated.
+    PRODUCTION_ONLY = 'x = hasattr(object(), "y")  # poetry install\n'
+
+    @pytest.mark.parametrize(
+        "rel",
+        [
+            "scripts/test_metrics_endpoint.py",
+            "scripts/smoke_test.py",
+            "scripts/seed_search_test_data.py",
+            "core/services/test_shaped_module.py",
+        ],
+    )
+    def test_a_test_shaped_name_outside_tests_is_production(self, tmp_path: Path, rel: str) -> None:
+        _write_tree(tmp_path, {rel: self.PRODUCTION_ONLY})
+        linter = SkuelLinter(root_dir=tmp_path, rules_filter=["SKUEL011", "SKUEL016"])
+        linter.lint()
+        assert not linter._is_test_file(tmp_path / rel)
+        assert sorted(v.rule_id for v in linter.result.violations) == ["SKUEL011", "SKUEL016"]
+
+    @pytest.mark.parametrize(
+        "rel",
+        ["tests/unit/test_x.py", "tests/conftest.py", "tests/unit/scripts/helper.py"],
+    )
+    def test_anything_under_tests_is_a_test(self, tmp_path: Path, rel: str) -> None:
+        _write_tree(tmp_path, {rel: self.PRODUCTION_ONLY})
+        linter = SkuelLinter(root_dir=tmp_path, rules_filter=["SKUEL011", "SKUEL016"])
+        linter.lint()
+        assert linter._is_test_file(tmp_path / rel)
+        assert linter.result.violations == []
+
+
+# ============================================================================
+# FILE DISCOVERY — the sweep prunes excluded directories and is ordered
+# ============================================================================
+
+
+class TestSweepDiscoveryIsPrunedAndOrdered:
+    def test_excluded_directories_are_pruned_and_the_rest_sorted(self, tmp_path: Path) -> None:
+        """Same selection as before the pruned walk (an excluded directory's files
+        never appear; the lint-specific prefix still applies), now in a stable
+        order regardless of directory-listing order."""
+        from quality_discovery import EXCLUDED_DIR_NAMES  # type: ignore[import-not-found]
+
+        excluded_dir = min(EXCLUDED_DIR_NAMES)
+        prefix = SkuelLinter.EXCLUDED_PATH_PREFIXES[0]
+        _write_tree(
+            tmp_path,
+            {
+                "ui/z.py": "",
+                "core/b.py": "",
+                "core/a.py": "",
+                f"{excluded_dir}/vendored.py": "",
+                f"{excluded_dir}/nested/deep.py": "",
+                f"{prefix}/m001.py": "",
+            },
+        )
+        found = SkuelLinter(root_dir=tmp_path)._find_python_files()
+        assert found == [tmp_path / "core/a.py", tmp_path / "core/b.py", tmp_path / "ui/z.py"]

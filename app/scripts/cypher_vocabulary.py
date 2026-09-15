@@ -35,7 +35,7 @@ from __future__ import annotations
 
 import ast
 import re
-from collections.abc import Iterator
+from collections.abc import Iterable, Iterator
 from contextlib import contextmanager
 from dataclasses import dataclass
 from enum import StrEnum
@@ -796,6 +796,11 @@ def _blank(chars: list[str], start: int, end: int) -> None:
             chars[j] = " "
 
 
+# The characters that open anything ``_mask_cypher`` masks: the three string
+# delimiters, and the slash that starts either comment form.
+_MASK_DELIMITERS: tuple[str, ...] = ("'", '"', "`", "/")
+
+
 def _mask_cypher(
     text: str, *, keep_noqa: bool, blank_strings: bool, blank_escaped_names: bool
 ) -> str:
@@ -826,6 +831,12 @@ def _mask_cypher(
     The pattern and predicate scanners set neither flag —
     ``_TYPE_PREDICATE_RE`` reads vocabulary out of quoted operands on purpose.
     """
+    # Nothing to mask without a delimiter: every branch below that changes a
+    # character is entered on a quote, a backtick, or a slash. Exact, not a
+    # heuristic — and it is the common case, since the head anchor runs this
+    # over every line of every above-boundary docstring.
+    if not any(delimiter in text for delimiter in _MASK_DELIMITERS):
+        return text
     chars = list(text)
     in_string: str | None = None
     string_body_start = 0
@@ -1488,7 +1499,7 @@ def unregistered_edge_names(candidates: list[str], vocabulary: Vocabulary) -> li
     return [b for b in bare if b not in vocabulary.relationships]
 
 
-def fstring_part_ids(tree: ast.AST) -> set[int]:
+def fstring_part_ids(fstrings: Iterable[ast.JoinedStr]) -> set[int]:
     """``id()``s of the string Constants that are literal PARTS of an f-string.
 
     ``ast.walk`` yields a JoinedStr *and* its Constant children. Scanning both
@@ -1496,14 +1507,13 @@ def fstring_part_ids(tree: ast.AST) -> set[int]:
     arrives as `[:HAS_` and `]`, and the first parses as a bogus relationship
     type `HAS_`. Callers scan the reconstructed whole (``render_fstring``) and
     skip every id in this set.
+
+    Takes the file's ``JoinedStr`` nodes rather than a tree: the linter already
+    holds every node of the file in its per-file index, and a second
+    ``ast.walk`` here would re-walk the whole module for the handful of
+    f-strings in it.
     """
-    return {
-        id(part)
-        for node in ast.walk(tree)
-        if isinstance(node, ast.JoinedStr)
-        for part in node.values
-        if isinstance(part, ast.Constant)
-    }
+    return {id(part) for node in fstrings for part in node.values if isinstance(part, ast.Constant)}
 
 
 def render_fstring(node: ast.JoinedStr) -> str:
