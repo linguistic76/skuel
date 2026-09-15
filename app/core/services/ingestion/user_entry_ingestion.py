@@ -629,6 +629,7 @@ async def ingest_user_entry(
     # already committed — log it and surface it, let a re-sync retry.
     extraction_error: str | None = None
     extraction_warnings: list[str] = []
+    reconciliation_refusals = 0
     if user_entry_processor is not None and entry.pipeline == Pipeline.EXTRACT_ACTIVITIES:
         try:
             # force=True: edits must re-extract (the completed-run guard would
@@ -647,6 +648,7 @@ async def ingest_user_entry(
                 # them as warnings — the entry persisted, but the user must
                 # see which lines were dropped and why.
                 extraction_warnings = _extraction_warnings_from_entry(process_result.value)
+                reconciliation_refusals = _reconciliation_refusals_of(process_result.value)
         except Exception as exc:  # safety-net: extraction must not unwind persistence
             extraction_error = str(exc)
             logger.exception(f"EXTRACT_ACTIVITIES raised for {entry.uid} (journal persisted)")
@@ -678,6 +680,12 @@ async def ingest_user_entry(
             "submitted_copy_uid": submitted_copy_uid,
             "extraction_error": extraction_error,
             "extraction_warnings": extraction_warnings,
+            # A refused vault edit re-warns every sync until the line and the
+            # task agree: the batch door leaves the file un-stamped while this
+            # is nonzero, so smart mode re-ingests it next sync (ADR-070
+            # Decision 3, R4 C1 — the same standing visibility as an ignored
+            # file).
+            "reconciliation_refusals": reconciliation_refusals,
         }
     )
 
@@ -761,13 +769,32 @@ async def _file_submission_copy(
     return Result.ok(copy.uid)
 
 
+def _reconciliation_refusals_of(entry: UserEntry | None) -> int:
+    """How many recognised 🆔 lines of a COMPLETED run had their vault edit refused.
+
+    Read off the same run summary as the warnings. Nonzero means at least one
+    edge held its base for a retry; the file must not be stamped as
+    up-to-date, or the retry — and the warning — would wait for the next
+    edit of the note instead of the next sync.
+    """
+    if entry is None:
+        return 0
+    summary = (entry.metadata or {}).get("activity_extraction")
+    if not isinstance(summary, dict):
+        return 0
+    return len(summary.get("reconciliation_errors") or [])
+
+
 def _extraction_warnings_from_entry(entry: UserEntry | None) -> list[str]:
     """Per-line extraction problems recorded on a COMPLETED run (G10).
 
     ``UserEntryProcessingService`` stores its run summary under
     ``metadata.activity_extraction``; parse/creation/link errors there mean
-    lines were dropped without failing the file. Pull them out so the sync
-    stats can show them instead of leaving them buried on the node.
+    lines were dropped without failing the file, and a reconciliation error
+    means a vault-side edit of a 🆔 line was refused by the task's domain door
+    (its edge holds its base, so it is retried — and re-warned — every sync
+    until the line and the task agree; ADR-070 Decision 3, R4). Pull them out
+    so the sync stats can show them instead of leaving them buried on the node.
     """
     if entry is None:
         return []
@@ -775,7 +802,14 @@ def _extraction_warnings_from_entry(entry: UserEntry | None) -> list[str]:
     if not isinstance(summary, dict):
         return []
     warnings: list[str] = []
-    for key in ("parse_errors", "creation_errors", "link_errors", "unrouted_lines", "tag_warnings"):
+    for key in (
+        "parse_errors",
+        "creation_errors",
+        "link_errors",
+        "unrouted_lines",
+        "tag_warnings",
+        "reconciliation_errors",
+    ):
         for problem in summary.get(key) or []:
             warnings.append(str(problem))
     return warnings

@@ -52,6 +52,56 @@ class EnrichmentMode(StrEnum):
     CRITICAL_THINKING = "critical_thinking"
 
 
+class ParseDoor(StrEnum):
+    """Which door parsed an activity line out of a note — one vocabulary per line.
+
+    A line carrying ``@context(...)`` is a DSL line (``ActivityDSLParser.parse_line``):
+    schedule and priority come from ``@when()`` / ``@priority()``, and the
+    obsidian-tasks metadata emoji stay literal text. Any other checkbox line is an
+    obsidian-tasks line (``obsidian_task_line_to_parsed``): ``📅`` due, ``⏳``
+    scheduled, priority emoji and ``#tags`` are interpreted. The ``🆔 sk_*`` join key
+    is read on both. DSL_USAGE_GUIDE § The Parse Contract is the authority; a consumer
+    acting on the obsidian-tasks fields — the vault reconciler — acts on them only for a
+    line this door produced.
+    """
+
+    DSL = "dsl"
+    OBSIDIAN_TASKS = "obsidian_tasks"
+
+    @property
+    def interprets_task_metadata(self) -> bool:
+        """Whether 📅 / ⏳ / priority emoji / ``#tags`` on the line are fields, not text."""
+        return self is ParseDoor.OBSIDIAN_TASKS
+
+
+class CheckboxVerdict(StrEnum):
+    """What a recognised vault line's checkbox asked of its task (ADR-070 Decision 3, R4).
+
+    The three-way merge of the checkbox — base (the line as SKUEL last saw it),
+    theirs (the line now), ours (the task) — lands on exactly one of these:
+
+    UNCHANGED: the vault did not touch the box; SKUEL's state stands, and the
+        outbound pass writes it back (a completion made in SKUEL keeps its
+        ``[x] ✅``, a reopen made in SKUEL un-checks the line).
+    COMPLETED: the vault checked an open (or cancelled) task — completed on the
+        line's ``✅`` date, today when the tick carries none.
+    REDATED: both sides completed and the vault's ``✅`` date is the later one,
+        or the vault alone moved the date of a completion — the task is re-dated,
+        no completion event fires.
+    REOPENED: the vault un-checked a completed task.
+    STANDS: the vault touched the box but SKUEL's state stands — a tie or an
+        earlier vault date on a completion both sides made, a dateless tick on a
+        task SKUEL already completed, or ``[ ]`` on a cancelled task (a cancel is
+        SKUEL's decision; the line diverges visibly until the user acts on it).
+    """
+
+    UNCHANGED = "unchanged"
+    COMPLETED = "completed"
+    REDATED = "redated"
+    REOPENED = "reopened"
+    STANDS = "stands"
+
+
 class ReportPeriodKind(StrEnum):
     """How an activity report's window is anchored.
 

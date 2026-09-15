@@ -137,10 +137,10 @@ async def test_a_users_own_obsidian_check_is_never_reverted(tmp_path: Path) -> N
 
     A dateless ``[x]`` on a 🆔 line cannot have come from SKUEL —
     ``apply_mark_done`` always appends a ``✅ date``. It is the user checking
-    the box in Obsidian, which does not reach SKUEL (Guard 2b; inbound parked,
-    § R4). Reverting it would silently erase that edit on the very next sync.
-    The line stays checked and the divergence stays VISIBLE, which is the
-    pre-existing state § R4 exists to close.
+    the box in Obsidian — a completion the inbound pass reads and applies
+    (Guard 2b, ADR-070 Decision 3). This pass, handed a task the inbound pass
+    did NOT complete, must not revert the user's edit: the line stays checked
+    and the divergence stays visible.
     """
     stats, bridge = await _run(_open_task(), f"- [x] Ship the fix 🆔 {VAULT_ID}\n", tmp_path)
 

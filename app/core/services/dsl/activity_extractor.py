@@ -29,7 +29,12 @@ SKUEL entities:
    by `(source entry, node label, normalized title)`, catches LLM-bridge lines
    that hash differently on every sync — a match resolves to the existing
    entity instead of duplicating it (its original provenance edge stays
-   untouched).
+   untouched). Guard 2b (ADR-070, R4), identity by 🆔: a line whose 🆔 is
+   already on one of this entry's edges is that edge's own line whatever
+   its hash says — and, on a vault note, it is RECONCILED against the base
+   the edge holds (``core.services.dsl.line_reconciliation``): a vault-side
+   check, uncheck or field edit reaches the task through ``update_task``,
+   and the edge's base and digest advance only when that write lands.
 3. **Graph-aware**: Creates entities connected to the user's ownership graph;
    the caller writes `(created)-[:EXTRACTED_FROM]->(entry)` provenance from
    `ActivityExtractionResult.created_links`.
@@ -63,6 +68,8 @@ from core.services.dsl.activity_dsl_parser import (
     ActivityDSLParser,
     ParsedActivityLine,
 )
+from core.services.dsl.line_reconciliation import reconcile_task_line
+from core.services.dsl.obsidian_tasks_adapter import obsidian_task_line_to_parsed
 from core.services.dsl.specialized_domain_converters import (
     # Meta Domains (2)
     activity_to_calendar_dict,
@@ -76,7 +83,7 @@ from core.services.dsl.specialized_domain_converters import (
 )
 from core.utils.decorators import with_error_handling
 from core.utils.logging import get_logger
-from core.utils.result_simplified import Errors, Result
+from core.utils.result_simplified import ErrorCategory, Errors, Result
 
 # ============================================================================
 # LINE PROVENANCE
@@ -319,10 +326,31 @@ class ActivityExtractionResult:
     # the diff (R4 build plan, C1). Written through the same batch edge write
     # as created_links.
     refreshed_links: list[tuple[str, str, str, str | None]] = field(default_factory=list)
-    # How many refreshed_links entries moved the digest (the line's text
-    # changed) and how many seeded an absent base — one entry may do both.
+    # (entity_uid, source_line_hash, vault_id, source_line) for Task edges of
+    # vault-note lines the identity branch RECONCILED — the diff between the
+    # edge's base and the current line was read and either written to the
+    # task (ok) or found to ask nothing. These edges ADVANCE: base and digest
+    # move to the current line (``advance_extracted_from_links``), so the
+    # next sync diffs against what this one consumed. A refused or failed
+    # write queues nothing — the edge keeps its base and digest, the next
+    # sync sees the same diff and retries, and the refusal is re-reported
+    # (``reconciliation_errors``) until the line and the task agree (C1).
+    advanced_links: list[tuple[str, str, str, str]] = field(default_factory=list)
+    # How many refreshed_links / advanced_links entries moved the digest (the
+    # line's text changed) and how many seeded an absent base — one entry may
+    # do both.
     lines_rehashed: int = 0
     bases_seeded: int = 0
+    # Recognised vault lines whose vault-side change was written to the task
+    # (a check, an uncheck, a retitle, a re-date …) — a routine outcome, a
+    # counter on the run summary.
+    lines_reconciled: int = 0
+    # Recognised vault lines whose change could NOT be written: the domain
+    # door refused it (a task keeps a day; an overdue task's priority is not
+    # lowered; a future ✅ date) or the write failed. Each names the line.
+    # Warnings on the sync surface, re-raised every sync until the line and
+    # the task agree — that is the contract, the same as an ignored file.
+    reconciliation_errors: list[str] = field(default_factory=list)
     # (twin_uid, source_line_hash, vault_id, source_line) for lines Guard 4
     # merged into an owned active twin that has NO edge to this entry. A merge
     # never rewrites an edge the twin already holds here — that edge's digest
@@ -467,6 +495,12 @@ class ActivityExtractionResult:
             "lines_skipped_existing": self.lines_skipped_existing,
             "lines_rehashed": self.lines_rehashed,
             "bases_seeded": self.bases_seeded,
+            "advanced_links": [
+                [uid, line_hash, vault_id]
+                for uid, line_hash, vault_id, _line in self.advanced_links
+            ],
+            "lines_reconciled": self.lines_reconciled,
+            "reconciliation_errors": self.reconciliation_errors,
             "merged_links": [
                 [uid, line_hash, vault_id] for uid, line_hash, vault_id, _line in self.merged_links
             ],
@@ -637,8 +671,13 @@ class ActivityExtractorService:
                 it, so a same-text sibling arriving in the same ingest as the
                 write-back is not read as the old line. An edge with no
                 ``source_line`` base yet is seeded with the current line
-                through the same write; a present base is never advanced
-                here (R4 build plan, C1). An edge whose 🆔
+                through the same write. A Task edge on a vault note's task
+                line is RECONCILED against the base it holds (ADR-070
+                Decision 3, ``line_reconciliation``): the vault-side change
+                is written through ``update_task``, and base and digest
+                advance only on ok (``advanced_links``) — held on a refusal
+                or failure so the next sync retries (R4 build plan, C1).
+                Every other edge keeps a present base as is. An edge whose 🆔
                 appears NOWHERE in the text and whose digest no 🆔-less line
                 carries is a line the user deleted from the note: it is
                 queued for retirement (``retired_links``) and its digest
@@ -817,10 +856,18 @@ class ActivityExtractorService:
                 extraction.retired_links.append((edge.entity_uid, vault_id))
         existing_vault_ids = live_vault_ids
 
-        # A recognised line's edge is brought current: the digest to the
-        # line's (when the text moved) and the base seeded (when the edge has
-        # none). A present base is held — advancing it is the reconciler's to
-        # do once it consumes the diff, and only on an ok write (C1).
+        # A recognised line's stale digest is retired here, unconditionally —
+        # a same-text sibling in this ingest must not hash into it. Who then
+        # brings the edge current depends on whether the reconciler reads its
+        # diff. A task line on a vault note is the identity branch's
+        # (``_reconcile_recognised_line``): its Task edges advance base and
+        # digest only on an ok write, or on a verdict with nothing to write,
+        # and hold both otherwise (C1). Every other edge — another domain's,
+        # a task line on an entry the outbound pass never visits, a run with
+        # no tasks service — is queued here as a plain refresh: the digest to
+        # the line's (when the text moved), the base seeded (when the edge has
+        # none), a present base held (nothing consumes its diff).
+        reconciles = self._reconciles_vault_lines(entry)
         for activity in parsed.activities:
             if activity.vault_id is None:
                 continue
@@ -828,13 +875,15 @@ class ActivityExtractorService:
             if not edges:
                 continue
             current_hash = normalized_line_hash(activity.raw_line or activity.description)
+            deferred = reconciles and activity.is_task()
             for edge in edges:
                 hash_moved = edge.source_line_hash != current_hash
                 base_absent = edge.source_line is None
-                if not hash_moved and not base_absent:
-                    continue
                 if hash_moved:
                     retired_digests.add(edge.source_line_hash)
+                if deferred or (not hash_moved and not base_absent):
+                    continue
+                if hash_moved:
                     extraction.lines_rehashed += 1
                 if base_absent:
                     extraction.bases_seeded += 1
@@ -905,6 +954,7 @@ class ActivityExtractorService:
                 existing_extracted,
                 user_owned_semantic,
                 existing_vault_ids,
+                reconcile=reconciles,
             )
             extraction.tasks_created += created
             extraction.created_task_uids.extend(uids)
@@ -1115,7 +1165,9 @@ class ActivityExtractorService:
             f"Extraction complete for {entry.uid}: "
             f"created {extraction.total_created} entities, "
             f"skipped {extraction.lines_skipped_existing} already-extracted lines "
-            f"({len(extraction.refreshed_links)} rehashed by 🆔, "
+            f"({extraction.lines_rehashed} rehashed by 🆔, "
+            f"{extraction.lines_reconciled} reconciled from the vault, "
+            f"{len(extraction.reconciliation_errors)} reconciliations refused, "
             f"{len(extraction.retired_links)} 🆔 lines gone — edges retired, "
             f"{extraction.bases_seeded} bases seeded), "
             f"merged {extraction.lines_merged_existing} semantic duplicates, "
@@ -1141,16 +1193,23 @@ class ActivityExtractorService:
         existing_extracted: dict[tuple[str, str], str] | None = None,
         user_owned_semantic: dict[tuple[str, str], str] | None = None,
         existing_vault_ids: Mapping[str, tuple[ExtractedByVaultId, ...]] | None = None,
+        *,
+        reconcile: bool = False,
     ) -> tuple[int, list[str]]:
         """Run one domain's create loop with dedup guards and provenance capture.
 
-        Guard 2 (exact): lines whose normalized hash already carries an
-        EXTRACTED_FROM edge are skipped. Guard 2b (identity): so are lines
-        whose 🆔 already carries one to this entry — the hash is ADR-070's
-        change signal and the 🆔 its identity, so a line SKUEL already owns
-        is recognised even after its hash moved (SKUEL's own ``[x]`` + ``✅``
-        write-back above all; a just-completed task is terminal, so Guard 4
-        cannot catch it). Guard 3 (semantic, R3): bridge-
+        Guard 2b (identity) is judged first: a line whose 🆔 already carries
+        an EXTRACTED_FROM edge to this entry is that edge's own line whatever
+        its hash says — the hash is ADR-070's change signal and the 🆔 its
+        identity, so a line SKUEL already owns is recognised even after its
+        hash moved (SKUEL's own ``[x]`` + ``✅`` write-back above all; a
+        just-completed task is terminal, so Guard 4 cannot catch it) and,
+        with ``reconcile`` (the Task loop on a vault note), even when its
+        hash did NOT move — a dateless tick is invisible to the digest, which
+        collapses ``[x]`` to ``[ ]``. Never a new node; on a vault note the
+        line is reconciled against the base its edge holds
+        (``_reconcile_recognised_line``). Guard 2 (exact): lines whose
+        normalized hash already carries an edge are skipped. Guard 3 (semantic, R3): bridge-
         generated lines whose (node label, normalized title) matches an entity
         already extracted from this entry MERGE — the line resolves to the
         existing uid, no new node is created and the existing provenance edge
@@ -1177,20 +1236,27 @@ class ActivityExtractorService:
         uids: list[str] = []
         for activity in activities:
             line_hash = normalized_line_hash(activity.raw_line or activity.description)
-            if line_hash in existing_line_hashes:
-                extraction.lines_skipped_existing += 1
-                continue
-            if activity.vault_id is not None and activity.vault_id in existing_vault_ids:
+            if activity.vault_id is not None and (
+                owned_edges := existing_vault_ids.get(activity.vault_id)
+            ):
                 # Guard 2b: this entry already extracted the line that carries
-                # this 🆔; only its text moved since (SKUEL's own done-date
-                # write-back, or a user edit that inbound sync does not yet
-                # propagate). Never a new node. The edge's stale digest was
-                # retired, and its refresh queued, in the pre-pass above.
+                # this 🆔. Never a new node. Its edges' stale digests were
+                # retired in the pre-pass; on a vault note the line's diff
+                # against each Task edge's base is read and applied here, and
+                # the edge advances only when that lands (C1) — elsewhere the
+                # pre-pass queued the plain refresh.
                 extraction.lines_skipped_existing += 1
                 self.logger.debug(
                     f"Identity dedup: {label} '{activity.description[:40]}' "
                     f"already extracted as 🆔 {activity.vault_id}"
                 )
+                if reconcile:
+                    await self._reconcile_recognised_line(
+                        activity, activity.vault_id, owned_edges, line_hash, user_uid, extraction
+                    )
+                continue
+            if line_hash in existing_line_hashes:
+                extraction.lines_skipped_existing += 1
                 continue
 
             key: tuple[str, str] | None = None
@@ -1248,6 +1314,149 @@ class ActivityExtractorService:
                     f"{label} '{activity.description[:30]}...': {result.error}"
                 )
         return created, uids
+
+    def _reconciles_vault_lines(self, entry: UserEntry) -> bool:
+        """Whether recognised 🆔 task lines of this entry are reconciled against their base.
+
+        Vault notes only (``UserEntry.is_vault_note`` — the outbound pass's own
+        discriminator): a 🆔 line copied into an uploaded or API-processed entry
+        is not the line the outbound pass writes to, and a check made on such a
+        copy must not complete the task behind the real one. And only with a
+        tasks service to write through — the checkbox door mints Tasks only.
+        """
+        return self.tasks_service is not None and entry.is_vault_note()
+
+    async def _reconcile_recognised_line(
+        self,
+        activity: ParsedActivityLine,
+        vault_id: str,
+        edges: tuple[ExtractedByVaultId, ...],
+        current_hash: str,
+        user_uid: UserUID,
+        extraction: ActivityExtractionResult,
+    ) -> None:
+        """Reconcile one recognised 🆔 line against each Task edge it holds (ADR-070, R4).
+
+        For each edge: no base ⇒ seed it with the current line and apply nothing
+        (the first sight since the base existed — SKUEL's state stands, the
+        outbound pass writes it back). A base equal to the current line ⇒ the
+        vault did not touch it — nothing to read, nothing to advance. Otherwise
+        base and line are parsed through the adapter that minted the task, the
+        task is read, and ``reconcile_task_line`` returns the one intent (or
+        none). Ok write, or nothing to write ⇒ the edge ADVANCES (base and
+        digest to the current line). A refusal (the domain door's rule, the
+        request model's) or a failed write ⇒ recorded on
+        ``reconciliation_errors`` naming the line, and the edge HOLDS: the next
+        sync sees the same diff and retries, re-warning until the line and the
+        task agree (C1). An edge whose entity is not a Task of this user's (a
+        🆔 shared by a task and another domain's entity) takes the plain
+        refresh the pre-pass would have queued.
+        """
+        theirs_line = activity.verbatim_line
+        for edge in edges:
+            hash_moved = edge.source_line_hash != current_hash
+            if edge.source_line is None:
+                extraction.bases_seeded += 1
+                if hash_moved:
+                    extraction.lines_rehashed += 1
+                extraction.refreshed_links.append(
+                    (edge.entity_uid, current_hash, vault_id, theirs_line)
+                )
+                continue
+            if theirs_line is None:
+                continue
+            if edge.source_line == theirs_line:
+                # The vault did not touch the line: nothing to read. A digest
+                # behind its own base (the two are written together, but a
+                # base advanced by an older write may outrun it) catches up.
+                if hash_moved:
+                    self._advance(edge, current_hash, vault_id, theirs_line, extraction)
+                continue
+
+            base = obsidian_task_line_to_parsed(edge.source_line)
+            theirs = obsidian_task_line_to_parsed(theirs_line)
+            if base is None or theirs is None:
+                # Not a checkbox line on one side or the other — nothing this
+                # door can reconcile. The line as it stands is what SKUEL now
+                # sees of it.
+                self.logger.debug(
+                    f"Reconcile: 🆔 {vault_id} on {edge.entity_uid} — no checkbox to judge, "
+                    "base advanced"
+                )
+                self._advance(edge, current_hash, vault_id, theirs_line, extraction)
+                continue
+
+            ours = await self.tasks_service.get_task(edge.entity_uid)
+            if ours.is_error and ours.expect_error().category is not ErrorCategory.NOT_FOUND:
+                # A read that failed (not one that found nothing): the line
+                # is named on the run's warnings and the edge holds, so the
+                # next sync — which re-ingests the note — retries it.
+                extraction.reconciliation_errors.append(
+                    f"'{activity.description[:60]}' (🆔 {vault_id}): could not read task "
+                    f"{edge.entity_uid} — {ours.expect_error().message} — retried next sync"
+                )
+                continue
+            task = None if ours.is_error else ours.value
+            if task is None:
+                # Not a Task of this user's: another domain's entity under
+                # this 🆔 (a ``@context(task,habit)`` line holds one edge per
+                # domain). Not the reconciler's — brought current as the
+                # pre-pass would have. The facade answers not-found as an
+                # error; a bare ``ok(None)`` is read the same way.
+                if hash_moved:
+                    extraction.lines_rehashed += 1
+                extraction.refreshed_links.append(
+                    (edge.entity_uid, current_hash, vault_id, theirs_line)
+                )
+                continue
+            if task.user_uid != user_uid:
+                # An edge into this user's note names a task of theirs — nothing
+                # else can write one. Refused rather than trusted, and held.
+                extraction.reconciliation_errors.append(
+                    f"'{activity.description[:60]}' (🆔 {vault_id}): task {edge.entity_uid} "
+                    "is not owned by this user — not reconciled"
+                )
+                continue
+
+            outcome = reconcile_task_line(base, theirs, task, door=activity.door)
+            if outcome.refusal is not None:
+                extraction.reconciliation_errors.append(
+                    f"'{activity.description[:60]}' (🆔 {vault_id}): {outcome.refusal} — "
+                    "the vault edit was not applied; fix the line or the task"
+                )
+                continue
+            if outcome.intent is not None:
+                written = await self.tasks_service.update_task(edge.entity_uid, outcome.intent)
+                if written.is_error:
+                    extraction.reconciliation_errors.append(
+                        f"'{activity.description[:60]}' (🆔 {vault_id}): "
+                        f"{written.expect_error().message} — the vault edit was not applied; "
+                        "fix the line or the task"
+                    )
+                    continue
+                extraction.lines_reconciled += 1
+                self.logger.info(
+                    f"Reconciled 🆔 {vault_id} → {edge.entity_uid}: checkbox {outcome.checkbox.value}"
+                    + (
+                        f", fields {', '.join(outcome.changed_fields)}"
+                        if outcome.changed_fields
+                        else ""
+                    )
+                )
+            self._advance(edge, current_hash, vault_id, theirs_line, extraction)
+
+    @staticmethod
+    def _advance(
+        edge: ExtractedByVaultId,
+        current_hash: str,
+        vault_id: str,
+        theirs_line: str,
+        extraction: ActivityExtractionResult,
+    ) -> None:
+        """Queue the edge's base and digest to move to the current line (the diff is consumed)."""
+        if edge.source_line_hash != current_hash:
+            extraction.lines_rehashed += 1
+        extraction.advanced_links.append((edge.entity_uid, current_hash, vault_id, theirs_line))
 
     def _record_curriculum_gate(
         self,

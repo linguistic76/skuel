@@ -408,8 +408,12 @@ class UserEntryProcessingService:
            rewords lines every run, so their hashes never repeat).
         3. Provenance: ``(created)-[:EXTRACTED_FROM {extracted_at,
            source_line_hash, vault_id, source_line}]->(entry)`` batch write —
-           and the retirement of edges whose 🆔 line is gone from the note
-           (the task stays, stamped for the one-sync grace, R4).
+           the retirement of edges whose 🆔 line is gone from the note (the
+           task stays, stamped for the one-sync grace, R4) — and the advance
+           of edges whose line the extractor reconciled against its base (a
+           vault-side check, uncheck or field edit written to the task through
+           ``update_task``; base and digest move only when that write landed,
+           or when there was nothing to write — R4 C1).
         3b. Moves and revivals, BEFORE extraction: a 🆔 in the text that none
            of this entry's edges carry is looked up user-wide — a live edge on
            another entry is re-pointed here (the line moved), a task stamped
@@ -701,6 +705,17 @@ class UserEntryProcessingService:
             )
             if links_result.is_error:
                 return await self._fail(entry, links_result.expect_error(), phase="persist_links")
+        # Then the edges the reconciler consumed: base and digest ADVANCE to
+        # the line as it stands — a separate write from the seed-and-keep
+        # above, because a present base moves only here, and only for an edge
+        # whose implied task write landed (or asked nothing). A refused line's
+        # edge is not in this list and keeps its base for the retry (C1).
+        if extraction.advanced_links:
+            advance_result = await self.entry_service.advance_extracted_from_links(
+                entry.uid, extraction.advanced_links
+            )
+            if advance_result.is_error:
+                return await self._fail(entry, advance_result.expect_error(), phase="persist_links")
 
         # --- APPLIES_KNOWLEDGE edges (substance/ZPD contract) -------------------
         # A dangling @ku() reference (typo'd UID) must not fail the run — it

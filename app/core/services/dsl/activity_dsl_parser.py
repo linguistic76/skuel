@@ -54,6 +54,7 @@ from datetime import date, datetime
 from typing import Any
 
 from core.models.enums.entity_enums import EntityType, NonKuDomain
+from core.models.enums.user_entry_enums import ParseDoor
 from core.ports.vault_bridge_protocol import VAULT_ID_RE
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
@@ -137,6 +138,9 @@ class ParsedActivityLine:
             form (checkbox canonicalised, 🆔 stripped, whitespace collapsed)
         verbatim_line: The line exactly as it stands in the file, 🆔 token
             included — the ``EXTRACTED_FROM.source_line`` base (ADR-070)
+        door: Which door parsed the line — ``ParseDoor.DSL`` (``@context()``)
+            or ``ParseDoor.OBSIDIAN_TASKS`` (the checkbox adapter); one
+            vocabulary per line, DSL_USAGE_GUIDE § The Parse Contract
         is_checked: Whether checkbox is checked ([x] vs [ ])
         tag_warnings: Dropped-tag-value reports (written tag, unparseable value)
 
@@ -204,6 +208,13 @@ class ParsedActivityLine:
     # serve: for checkbox lines it is the dedup-normalised form, which
     # collapses ``[x]`` to ``[ ]`` and drops the 🆔.
     verbatim_line: str | None = None
+    # Which door parsed the line. The obsidian-tasks metadata vocabulary
+    # (📅 / ⏳ / priority emoji / #tags) is interpreted only on an
+    # obsidian-tasks line; on a DSL line it is literal text — so a consumer
+    # that acts on those fields (the vault reconciler) reads them from that
+    # door only. The default is the DSL door, whose parser constructs the
+    # line without naming it.
+    door: ParseDoor = ParseDoor.DSL
 
     # Checkbox state
     is_checked: bool = False  # [x] vs [ ]

@@ -1,11 +1,11 @@
 ---
 title: "R4 Vault Inbound Propagation — Build Plan"
 updated: 2026-09-15
-status: "in progress — PR 1 (identity survives one sync: stamps, source_line base, re-point/revival, sweep) #1343; PR 2 (reconciliation) next"
+status: "in progress — PR 1 (identity survives one sync: stamps, source_line base, re-point/revival, sweep) #1343; PR 2 (reconciliation: status both directions + field edits, one intent per line, base advances on ok) #1344; PR 3 (deletion cancels open tasks) next"
 registered: 2026-08-24
 ruled: 2026-09-15
 trigger: "scheduled by Mike 2026-09-15 (was: Mike schedules it — product decision, not a data threshold)"
-check: "each PR lands its rig test in tests/integration/test_vault_inbound_propagation.py and fails the mutant named beside it (PR 1: 8 of 8, in the PR body); after PR 1 one ./dev vault-sync --force seeds every base and the live W28→W29 fixture re-points with no twin minted"
+check: "each PR lands its rig test in tests/integration/test_vault_inbound_propagation.py and fails the mutant named beside it (PR 1: 8 of 8; PR 2: 3 of 3 — in the PR bodies); after PR 1 one ./dev vault-sync --force seeds every base and the live W28→W29 fixture re-points with no twin minted; after PR 2 the first plain sync meets the seeded bases against SKUEL's own write-backs as ties and applies nothing wrongly"
 ---
 
 # R4 Vault Inbound Propagation — Build Plan
@@ -306,11 +306,19 @@ fixture module; new file `test_vault_inbound_propagation.py`), and the mutant it
    task's restored line mints a twin next sync); the note-deletion statement stamps nothing;
    the cutoff read from the application clock (skew the test's stamp by a minute).
    Post-merge: one `--force` sync, then the W28→W29 fixture.
-2. **Reconciliation — status both directions and field edits, together.** One base string,
-   one intent, one write, one verdict; `reconcile_task_line` (the status rows of the table
-   above plus title, due, scheduled, priority, tags — three-way per field) applied through
-   `update_task`; base and digest advance only on ok; the "keep-a-day" refusal surfaces as a
-   warning and holds the base. Rig: check in the vault → completed with the ✅ date; uncheck
+2. **Reconciliation — status both directions and field edits, together** — ✅ #1344. One
+   base string, one intent, one write, one verdict; `reconcile_task_line` (the status rows of
+   the table above plus title, due, scheduled, priority, tags — three-way per field) applied
+   through `update_task`; base and digest advance only on ok; the "keep-a-day" refusal
+   surfaces as a warning, holds the base, and leaves the note un-stamped so it re-warns every
+   sync. Found while building: **SKUEL's own outbound writes must advance the base too** —
+   the `[x] ✅` write-back, the un-check and the 🆔 injection change the line *after* its
+   ingest, and a base that stopped at the ingest read SKUEL's own write-back as a vault
+   check on the next sync (a task reopened in SKUEL between the write-back and the re-ingest
+   was re-completed by its own `✅`). Each landed mutation is applied to the base as to the
+   file (`_OwnWrite` in the reconciler — the same pure function, on the base's text, so a
+   vault edit on the line stays a diff). Field rules apply to obsidian-tasks lines only; a
+   `@context(task)` line reconciles its checkbox (`ParseDoor`). Rig: check in the vault → completed with the ✅ date; uncheck
    → reopened; **complete in SKUEL, sync before the write-back → still completed** (the C1
    race); reopen in SKUEL, sync → still reopened; move a line and check it in one edit,
    A-first and B-first → completed (the base rode the stamp / the re-point); retitle +
@@ -382,6 +390,7 @@ Sequencing note: 1 → 2 is fixed (reconciliation needs the seeded base and the 
 - A sync with any failed file holds every pending cancel until a clean sync — deletion
   waits on the vault being readable, which is the honest order.
 
-**Named cost while open:** unchanged from the parking ruling until PR 2 lands — vault-side
-checks, unchecks and edits of 🆔 lines do not propagate; tracked tasks must be completed and
-edited in SKUEL. After PR 1, moves and retyped lines are tracked correctly.
+**Named cost while open:** after PR 2, vault-side checks, unchecks and edits of 🆔 lines
+propagate and moves and retyped lines are tracked; a deleted line still cancels nothing
+(PR 3) — an open task whose line is gone stays open and stamped until the sweep gains its
+consequence.

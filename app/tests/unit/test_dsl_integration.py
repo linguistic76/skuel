@@ -434,7 +434,11 @@ Some reflections on the day...
         is a new task, as is a line carrying a 🆔 the entry has never seen. A
         🆔 that holds TWO edges — the original task and the copy the bug once
         made — is treated as one line: every stale edge retired and refreshed,
-        an edge already at the current digest left alone."""
+        an edge already at the current digest left alone. This entry is NOT a
+        vault note (no ``vault_file_path``), so the line takes the plain
+        refresh — no task is read or reconciled, a present base is held
+        (``test_extractor_reconciliation_gating.py`` has the vault-note
+        branch)."""
         from core.services.dsl.activity_extractor import (
             ExtractedByVaultId,
             normalized_line_hash,
@@ -487,8 +491,8 @@ Some reflections on the day...
         ]
         # The matched edge's change signal moves with the line: a stale digest
         # would swallow the next same-text line the user adds. The line rides
-        # along for the write's ``coalesce`` — a present base is never advanced
-        # here (R4, C1), which the write-side test pins.
+        # along for the write's ``coalesce`` — a present base is not advanced
+        # by this write (R4, C1), which the write-side test pins.
         assert extraction.refreshed_links == [
             ("task_mine", normalized_line_hash(mine), "sk_mine01", mine)
         ], "only the stale edge is refreshed; the copy's edge is already current"
@@ -497,7 +501,9 @@ Some reflections on the day...
 
     @pytest.mark.asyncio
     async def test_an_edge_with_no_base_is_seeded_and_a_present_base_is_held(self, extractor):
-        """R4 PR 1: ``source_line`` is seeded where absent and never advanced.
+        """``source_line`` is seeded where absent; on an entry that is not a
+        vault note (this one) a present base is held — only the reconciler
+        advances it, and only on a vault note (R4).
 
         Three 🆔 lines this entry already owns. ``sk_seed01``'s edge is at the
         current digest but has no base (written before the base existed): it is

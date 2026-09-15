@@ -10,6 +10,7 @@ from datetime import datetime
 
 import pytest
 
+from core.models.enums.user_entry_enums import ParseDoor
 from core.services.dsl import (
     is_activity_line,
     parse_activity_line,
@@ -543,6 +544,22 @@ Reflected on the morning walk. It felt unhurried.
         assert goals[0].vault_id == "sk_zz99yy"
         assert "sk_zz99yy" not in goals[0].description
         assert goals[0].description == "Ship the plan 📅 2099-01-15"
+        # The line names its door, so a consumer of the obsidian-tasks fields
+        # (the vault reconciler) knows they were never interpreted here.
+        assert goals[0].door is ParseDoor.DSL
+
+    def test_each_door_names_itself(self):
+        """The obsidian-tasks adapter marks its lines; the DSL parser marks its
+        own. The reconciler reads the field vocabulary from the former only."""
+        from core.services.dsl.activity_dsl_parser import ActivityDSLParser
+
+        parsed = ActivityDSLParser().parse_journal(
+            "- [ ] Buy milk 📅 2099-01-15\n- [ ] Ship the plan @context(goal)\n"
+        )
+        assert parsed.is_ok
+        [task, goal] = parsed.value.activities
+        assert task.door is ParseDoor.OBSIDIAN_TASKS and task.when is not None
+        assert goal.door is ParseDoor.DSL
 
 
 class TestErrorHandling:

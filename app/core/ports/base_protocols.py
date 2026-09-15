@@ -947,6 +947,21 @@ class RelationshipCrudOperations(Protocol):
         """
         ...
 
+    async def advance_extracted_from_links(
+        self, entry_uid: str, links: builtins.list[tuple[str, str, str, str]]
+    ) -> ResultType[int]:
+        """Move ``(entity)-[:EXTRACTED_FROM {vault_id}]->(entry)`` edges' base and digest to the current line.
+
+        ``links`` is ``(entity_uid, source_line_hash, vault_id, source_line)``. The
+        reconciler consumed the diff between the base the edge held and this line —
+        the write it implied landed, or there was nothing to write — so both are
+        written as given; the seed-and-keep write never advances a present base, this
+        one always does (ADR-070 Decision 3, R4 C1). Keyed on the 🆔 as read; an edge
+        that is gone is not recreated.
+        Backend: ``_RelationshipCrudMixin.advance_extracted_from_links``.
+        """
+        ...
+
     async def retire_extracted_from_links(
         self, entry_uid: str, links: builtins.list[tuple[str, str]]
     ) -> ResultType[int]:

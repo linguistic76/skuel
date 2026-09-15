@@ -423,6 +423,26 @@ class TestExtractionWarnings:
         warnings = _extraction_warnings_from_entry(entry)  # type: ignore[arg-type]
         assert len(warnings) == 3
 
+    def test_a_refused_vault_reconciliation_is_a_warning(self):
+        """R4 PR 2: a vault-side edit of a 🆔 line the task's domain door refused
+        (the keep-a-day rule, an overdue task's priority) is a per-line problem
+        of a COMPLETED run — a warning on the sync surface, re-raised every
+        sync until the line and the task agree, never an error."""
+        entry = _EntryStub(
+            metadata={
+                "activity_extraction": {
+                    "reconciliation_errors": [
+                        "'Vacuum' (🆔 sk_ab12cd): A task needs a due date or a scheduled "
+                        "date — set one before clearing the other — the vault edit was "
+                        "not applied; fix the line or the task"
+                    ],
+                    "lines_reconciled": 3,
+                }
+            }
+        )
+        warnings = _extraction_warnings_from_entry(entry)  # type: ignore[arg-type]
+        assert len(warnings) == 1 and "sk_ab12cd" in warnings[0]
+
     def test_clean_summary_yields_no_warnings(self):
         entry = _EntryStub(
             metadata={"activity_extraction": {"parse_errors": [], "creation_errors": []}}

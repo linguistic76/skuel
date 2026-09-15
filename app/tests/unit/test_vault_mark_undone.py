@@ -87,9 +87,8 @@ def test_a_dateless_checked_line_is_the_users_own_check_and_is_left_alone() -> N
 
     ``apply_mark_done`` ALWAYS appends a ``✅ date``, so SKUEL never authors a
     dateless ``[x]``. One on a 🆔 line is therefore the user checking the box in
-    Obsidian — and a vault-side check does not reach SKUEL (Guard 2b; inbound
-    parked, § R4), so reverting it would silently erase a deliberate edit on the
-    very next sync, an edit SKUEL cannot even read.
+    Obsidian — a completion the inbound pass reads and applies (Guard 2b,
+    ADR-070 Decision 3); reverting it here would undo the user's own edit.
     """
     line = f"- [x] Ship the fix 🆔 {VAULT_ID}\n"
     lines, changed = apply_mark_undone([line], VAULT_ID)

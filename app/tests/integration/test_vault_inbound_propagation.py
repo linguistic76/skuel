@@ -1,4 +1,4 @@
-"""R4 PR 1 — identity survives a line's disappearance for one sync.
+"""R4 — vault inbound propagation: identity survives one sync (PR 1), lines reconcile (PR 2).
 
 The build plan (``docs/roadmap/r4-vault-inbound-propagation.md``) makes the
 vault the place tasks are edited. Its foundation, this PR: a 🆔 line that
@@ -14,31 +14,44 @@ began — clearing terminal and still-tracked tasks' stamps, leaving an open
 untracked task's in place until the cancel consequence ships (PR 3).
 
 ``EXTRACTED_FROM`` gains ``source_line`` — the line verbatim as SKUEL last saw
-it, the base PR 2's three-way merge diffs the vault against. Here it is
-written on create, seeded where absent, carried by re-point and revival, and
-NEVER advanced: a base that advances before its consumer ships absorbs every
-vault edit made in between as already seen.
+it, the base the three-way merge diffs the vault against. Written on create,
+seeded where absent, carried by re-point and revival; advanced by SKUEL's own
+outbound writes (a 🆔 injection, ``[x] ✅``, an un-check — each applied to the
+base as to the file) and by the reconciler once it has consumed the diff.
+
+PR 2 (``TestReconciliation``): a recognised 🆔 line is reconciled against that
+base — status both directions and the field edits, one intent, one write, one
+verdict per line (``core/services/dsl/line_reconciliation.py``). The base and
+digest advance only on an ok write; a refusal holds both and re-warns every
+sync until the line and the task agree (C1).
 
 Every case drives the real loop against the container (``_vault_rig.Rig``).
 Two orders matter throughout: files ingest newest-mtime first, so A-first and
 B-first are forced with ``Rig.order``; and a byte-identical rewrite is a
-tracker skip, so a scenario that deletes a line changes another byte too.
+tracker skip, so a scenario that deletes a line — or completes a task in SKUEL
+and syncs before the write-back — changes another byte too.
 
-Mutants each case must fail are named in the PR description; each was applied
-by hand, run, seen to fail here, and restored.
+Mutants each case must fail are named in the PR descriptions (#1343, PR 2);
+each was applied by hand, run, seen to fail here, and restored.
 """
 
 from __future__ import annotations
 
+from datetime import date
+
 import pytest
 
+from core.models.enums.activity_enums import Priority
 from core.models.enums.entity_enums import EntityStatus
+from core.models.task.task_request import TaskUpdateRequest
 from tests.integration._vault_rig import (
     FRONTMATTER,
     NOTE,
     Rig,
+    cancel_in_skuel,
     complete_in_skuel,
     daily_frontmatter,
+    reopen_in_skuel,
 )
 
 NOTE_B = "periodic_notes/2026-08-24.md"
@@ -47,7 +60,8 @@ FRONTMATTER_B = daily_frontmatter("2026-08-24")
 
 async def _seeded_note(rig: Rig, body: str = "- [ ] Vacuum\n") -> tuple[str, str, str]:
     """Two syncs over note A holding ``body``: the task exists, its line carries
-    a 🆔, and the injected note has been re-ingested (the tracker holds it).
+    a 🆔, the injected note has been re-ingested (the tracker holds it), and
+    the edge's base is the injected line (the injection is SKUEL's own write).
     Returns ``(task_uid, vault_id, injected_line)``."""
     rig.note.write_text(FRONTMATTER + body, encoding="utf-8")
     await rig.sync()
@@ -80,7 +94,7 @@ class TestMovesKeepTheirTask:
         no stamp left behind — and the outbound pass now aims at B."""
         task_uid, vault_id, line = await _seeded_note(rig)
         [(_, _, entry_a, base)] = await rig.edges()
-        assert base == "- [ ] Vacuum", base
+        assert base == line, base
 
         rig.note.write_text(FRONTMATTER + "Moved it.\n", encoding="utf-8")
         note_b = rig.note_at(NOTE_B)
@@ -105,26 +119,29 @@ class TestMovesKeepTheirTask:
         assert "- [x] Vacuum" in note_b.read_text(encoding="utf-8")
         assert "Vacuum" not in rig.note.read_text(encoding="utf-8")
 
-    async def test_a_line_edited_during_a_b_first_move_keeps_the_old_base(self, rig: Rig) -> None:
-        """The re-point carries the OLD edge's base, never the current line:
-        an edit made during the move is the diff PR 2 must still see. The
-        digest, by contrast, moves with the line (Guard 2b's refresh)."""
+    @pytest.mark.parametrize("first", ["A", "B"], ids=["A-first", "B-first"])
+    async def test_a_line_edited_during_a_move_lands_its_edit(self, rig: Rig, first: str) -> None:
+        """The re-point (B-first) and the stamp (A-first) carry the OLD base,
+        never the current line: an edit made during the move is a diff against
+        it, and the identity branch applies it on the destination. A re-point
+        that wrote the current line as the new base would drop the edit."""
         task_uid, vault_id, line = await _seeded_note(rig)
         edited = line.replace("Vacuum", "Vacuum the hallway")
 
         rig.note.write_text(FRONTMATTER + "Moved it.\n", encoding="utf-8")
         note_b = rig.note_at(NOTE_B)
         note_b.write_text(FRONTMATTER_B + edited + "\n", encoding="utf-8")
-        rig.order(note_b, rig.note)
+        rig.order(*((rig.note, note_b) if first == "A" else (note_b, rig.note)))
 
-        await rig.sync()
+        moved = await rig.sync()
+        assert not moved.warnings, moved.warnings
         assert await rig.owned_tasks() == [(task_uid, EntityStatus.DRAFT.value)]
         [(_, edge_id, entry, base)] = await rig.edges()
         assert edge_id == vault_id and entry.endswith(_entry_uid(NOTE_B))
-        assert base == "- [ ] Vacuum", f"the move-time edit became its own base: {base!r}"
-        # PR 1 applies nothing: the task's title is what SKUEL had.
+        assert base == edited, f"the base did not advance past the move-time edit: {base!r}"
         got = await rig.tasks.get_task(task_uid)
-        assert got.is_ok and got.value is not None and got.value.title == "Vacuum"
+        assert got.is_ok and got.value is not None
+        assert got.value.title == "Vacuum the hallway", "the move-time edit was dropped"
 
     async def test_cut_sync_paste_sync_is_the_same_task(self, rig: Rig) -> None:
         """The slow move across a sync boundary — the grace window itself. The
@@ -140,7 +157,7 @@ class TestMovesKeepTheirTask:
         assert (stamp.uid, stamp.retired_vault_id, stamp.retired_source_line) == (
             task_uid,
             vault_id,
-            "- [ ] Vacuum",
+            line,
         )
         assert stamp.retired_at is not None
 
@@ -153,7 +170,7 @@ class TestMovesKeepTheirTask:
         [(edge_uid, edge_id, entry, base)] = await rig.edges()
         assert (edge_uid, edge_id) == (task_uid, vault_id)
         assert entry.endswith(_entry_uid(NOTE_B))
-        assert base == "- [ ] Vacuum", "the revived edge carries the stamp's base"
+        assert base == line, "the revived edge carries the stamp's base"
         assert await rig.stamps() == []
 
     async def test_delete_sync_restore_in_the_same_note_sync_is_the_same_task(
@@ -304,9 +321,12 @@ class TestTheSweep:
         assert not tidied.warnings, tidied.warnings
         [stamp] = await rig.stamps()
         assert stamp.retired_vault_id == vault_id
-        # The base the stamp carries is the one the edge held — seeded at
-        # creation and never advanced, SKUEL's own write-back included.
-        assert stamp.retired_source_line == "- [ ] Vacuum"
+        # The base the stamp carries is the one the edge held — advanced to
+        # SKUEL's own ``[x] ✅`` write-back when that write landed.
+        assert stamp.retired_source_line is not None
+        assert stamp.retired_source_line.startswith("- [x] Vacuum") and "✅" in (
+            stamp.retired_source_line
+        )
 
         swept = await rig.sync()
         assert not swept.warnings, swept.warnings
@@ -341,8 +361,8 @@ class TestTheSweep:
         assert len(tasks) == 2, tasks
         edges = await rig.edges()
         assert len(edges) == 2
-        done_uid = next(uid for uid, _, _, base in edges if base == "- [ ] Read")
-        open_uid = next(uid for uid, _, _, base in edges if base == "- [ ] Vacuum")
+        done_uid = next(uid for uid, _, _, base in edges if (base or "").startswith("- [ ] Read"))
+        open_uid = next(uid for uid, _, _, base in edges if (base or "").startswith("- [ ] Vacuum"))
         ids = {uid: vault_id for uid, vault_id, _, _ in edges}
         await complete_in_skuel(rig, done_uid)
         await rig.sync()  # write-back into the note
@@ -357,7 +377,7 @@ class TestTheSweep:
         assert set(stamps) == {done_uid, open_uid}, stamps
         assert stamps[done_uid].retired_vault_id == ids[done_uid]
         assert stamps[open_uid].retired_vault_id == ids[open_uid]
-        assert stamps[open_uid].retired_source_line == "- [ ] Vacuum"
+        assert stamps[open_uid].retired_source_line == f"- [ ] Vacuum 🆔 {ids[open_uid]}"
 
         swept = await rig.sync()
         assert not swept.warnings, swept.warnings
@@ -485,26 +505,7 @@ class TestTheSweep:
 
 @pytest.mark.asyncio
 @pytest.mark.integration
-class TestTheBaseIsSeededNeverAdvanced:
-    async def test_a_present_base_survives_a_vault_edit(self, rig: Rig) -> None:
-        """The edge's ``source_line`` is what SKUEL last saw. A vault edit moves
-        the digest (Guard 2b's refresh) but must leave the base alone: no
-        reconciler consumes the diff yet, and advancing it would mark the edit
-        as already seen — lost for good once PR 2 lands."""
-        task_uid, vault_id, line = await _seeded_note(rig)
-        [(_, _, _, base)] = await rig.edges()
-        assert base == "- [ ] Vacuum"
-
-        rig.note.write_text(
-            FRONTMATTER + line.replace("Vacuum", "Vacuum upstairs") + "\n", encoding="utf-8"
-        )
-        edited = await rig.sync()
-        assert not edited.warnings, edited.warnings
-        assert await rig.owned_tasks() == [(task_uid, EntityStatus.DRAFT.value)]
-        [(edge_uid, edge_id, _, base_after)] = await rig.edges()
-        assert (edge_uid, edge_id) == (task_uid, vault_id)
-        assert base_after == "- [ ] Vacuum", f"the base advanced: {base_after!r}"
-
+class TestTheBaseIsSeeded:
     async def test_an_edge_without_a_base_is_seeded_by_a_force_sync(self, rig: Rig) -> None:
         """Edges written before the base existed have none. The first sight of
         the line seeds it — a ``--force`` sync re-processes unchanged files, so
@@ -530,3 +531,428 @@ class TestTheBaseIsSeededNeverAdvanced:
         assert (edge_uid, edge_id) == (task_uid, vault_id)
         assert seeded == line, "the seed is the line verbatim, 🆔 and all"
         assert await rig.owned_tasks() == [(task_uid, EntityStatus.DRAFT.value)]
+
+
+async def _task_of(rig: Rig, task_uid: str):
+    got = await rig.tasks.get_task(task_uid)
+    assert got.is_ok and got.value is not None, got
+    return got.value
+
+
+def _line_with(note, vault_id: str) -> str:
+    return next(ln for ln in note.read_text(encoding="utf-8").splitlines() if vault_id in ln)
+
+
+@pytest.mark.asyncio
+@pytest.mark.integration
+class TestReconciliation:
+    """R4 PR 2 — a recognised 🆔 line is reconciled three-way against its base.
+
+    One intent, one ``update_task``, one verdict per line; base and digest
+    advance only on ok. Status both directions, the field edits, and the
+    refusal that holds the base and re-warns."""
+
+    async def test_a_vault_check_completes_with_the_line_date(self, rig: Rig) -> None:
+        """Checked with the obsidian-tasks plugin, which writes ``✅ date``
+        after the 🆔. The task completes on that date; the outbound pass then
+        has nothing to write (the line already carries the trailing marker),
+        and the next sync is quiet."""
+        task_uid, vault_id, line = await _seeded_note(rig)
+        checked = line.replace("- [ ]", "- [x]") + " ✅ 2026-09-10"
+        rig.note.write_text(FRONTMATTER + checked + "\n", encoding="utf-8")
+
+        synced = await rig.sync()
+        assert not synced.warnings, synced.warnings
+        task = await _task_of(rig, task_uid)
+        assert task.status == EntityStatus.COMPLETED
+        assert task.completion_date == date(2026, 9, 10)
+        assert synced.tasks_marked_done == 0, "the line was already done — nothing to write back"
+        [(_, _, _, base)] = await rig.edges()
+        assert base == checked, "the base advanced to the line the write consumed"
+        assert _line_with(rig.note, vault_id) == checked
+
+        quiet = await rig.sync()
+        assert (quiet.entries_ingested, quiet.tasks_marked_done) == (0, 0), quiet
+
+    async def test_a_dateless_tick_completes_with_today_and_is_dated_by_the_outbound(
+        self, rig: Rig
+    ) -> None:
+        """Ticked in Obsidian without the plugin: no ✅. Today is the
+        completion, and the outbound pass appends SKUEL's ``✅ today`` — from
+        then on SKUEL owns the completion (a later reopen in SKUEL un-checks
+        it). The base follows SKUEL's own write, so the next sync reads no
+        vault edit."""
+        task_uid, vault_id, line = await _seeded_note(rig)
+        ticked = line.replace("- [ ]", "- [x]")
+        rig.note.write_text(FRONTMATTER + ticked + "\n", encoding="utf-8")
+
+        synced = await rig.sync()
+        assert not synced.warnings, synced.warnings
+        task = await _task_of(rig, task_uid)
+        assert task.status == EntityStatus.COMPLETED
+        assert task.completion_date == date.today()
+        assert synced.tasks_marked_done == 1, synced
+        dated = _line_with(rig.note, vault_id)
+        assert dated == f"{ticked} ✅ {date.today().isoformat()}", dated
+        [(_, _, _, base)] = await rig.edges()
+        assert base == dated, "SKUEL's own ✅ write advanced the base"
+
+        # The write-back re-ingests: the line equals its base, nothing moves.
+        again = await rig.sync()
+        assert not again.warnings and again.tasks_marked_done == 0, again
+        task = await _task_of(rig, task_uid)
+        assert task.status == EntityStatus.COMPLETED and task.completion_date == date.today()
+
+        # SKUEL now owns the completion: a reopen in SKUEL un-checks the line.
+        await reopen_in_skuel(rig, task_uid)
+        reopened = await rig.sync()
+        assert reopened.tasks_marked_undone == 1, reopened
+        assert _line_with(rig.note, vault_id) == line
+
+    async def test_a_vault_uncheck_reopens_and_the_stale_date_is_stripped(self, rig: Rig) -> None:
+        """The user clicks the box off in Obsidian; the plugin's ✅ token stays
+        on the line. The task reopens (stamp cleared by the guarded write),
+        and the outbound un-check strips the token SKUEL wrote."""
+        task_uid, vault_id, done_line = await _seeded_done_note(rig)
+        unchecked = done_line.replace("- [x]", "- [ ]")
+        rig.note.write_text(FRONTMATTER + unchecked + "\n", encoding="utf-8")
+
+        synced = await rig.sync()
+        assert not synced.warnings, synced.warnings
+        task = await _task_of(rig, task_uid)
+        assert task.status == EntityStatus.ACTIVE
+        assert task.completion_date is None
+        assert synced.tasks_marked_undone == 1, synced
+        restored = _line_with(rig.note, vault_id)
+        assert restored.startswith("- [ ] Vacuum") and "✅" not in restored, restored
+        [(_, _, _, base)] = await rig.edges()
+        assert base == restored
+
+        quiet = await rig.sync()
+        assert not quiet.warnings and quiet.tasks_marked_undone == 0, quiet
+        assert (await _task_of(rig, task_uid)).status == EntityStatus.ACTIVE
+
+    async def test_completed_in_skuel_and_synced_before_the_write_back_stays_completed(
+        self, rig: Rig
+    ) -> None:
+        """The C1 race. Inbound runs before outbound: on the sync right after a
+        completion in SKUEL the line still reads ``- [ ]``. The checkbox is
+        unchanged against the base, so SKUEL's completion stands and the same
+        sync's outbound pass writes ``[x] ✅``. The note changes another byte
+        so it is re-ingested at all (a byte-identical file is a tracker skip)."""
+        task_uid, vault_id, line = await _seeded_note(rig)
+        await complete_in_skuel(rig, task_uid)
+        rig.note.write_text(FRONTMATTER + line + "\nSome prose.\n", encoding="utf-8")
+
+        synced = await rig.sync()
+        assert not synced.warnings, synced.warnings
+        assert synced.entries_ingested == 1, synced
+        task = await _task_of(rig, task_uid)
+        assert task.status == EntityStatus.COMPLETED, "the inbound pass reopened it"
+        assert synced.tasks_marked_done == 1, synced
+        assert _line_with(rig.note, vault_id).startswith("- [x] Vacuum")
+
+    async def test_reopened_in_skuel_and_synced_before_the_un_check_stays_reopened(
+        self, rig: Rig
+    ) -> None:
+        """The mirror race: the line still reads ``[x] ✅`` — SKUEL's own
+        write, which the base already holds — so the reopen stands and the
+        outbound pass un-checks."""
+        task_uid, vault_id, done_line = await _seeded_done_note(rig)
+        await reopen_in_skuel(rig, task_uid)
+        rig.note.write_text(FRONTMATTER + done_line + "\nSome prose.\n", encoding="utf-8")
+
+        synced = await rig.sync()
+        assert not synced.warnings, synced.warnings
+        assert synced.entries_ingested == 1, synced
+        task = await _task_of(rig, task_uid)
+        assert task.status == EntityStatus.ACTIVE, "the inbound pass re-completed it"
+        assert synced.tasks_marked_undone == 1, synced
+        restored = _line_with(rig.note, vault_id)
+        assert restored.startswith("- [ ] Vacuum") and "✅" not in restored
+
+    @pytest.mark.parametrize("first", ["A", "B"], ids=["A-first", "B-first"])
+    async def test_a_line_moved_and_checked_in_one_edit_lands_its_check(
+        self, rig: Rig, first: str
+    ) -> None:
+        """Cut from A, pasted into B checked, one sync. A-first: the stamp
+        carries the base and the revival reconciles against it. B-first: the
+        re-point carries it. Either way the check lands on the destination."""
+        task_uid, vault_id, line = await _seeded_note(rig)
+        checked = line.replace("- [ ]", "- [x]") + " ✅ 2026-09-11"
+        rig.note.write_text(FRONTMATTER + "Moved it.\n", encoding="utf-8")
+        note_b = rig.note_at(NOTE_B)
+        note_b.write_text(FRONTMATTER_B + checked + "\n", encoding="utf-8")
+        rig.order(*((rig.note, note_b) if first == "A" else (note_b, rig.note)))
+
+        moved = await rig.sync()
+        assert not moved.warnings, moved.warnings
+        assert await rig.owned_tasks() == [(task_uid, EntityStatus.COMPLETED.value)], (
+            "the check did not land, or the move minted a twin"
+        )
+        task = await _task_of(rig, task_uid)
+        assert task.completion_date == date(2026, 9, 11)
+        [(edge_uid, edge_id, entry, base)] = await rig.edges()
+        assert (edge_uid, edge_id) == (task_uid, vault_id)
+        assert entry.endswith(_entry_uid(NOTE_B))
+        assert base == checked
+        assert await rig.stamps() == []
+
+    @pytest.mark.parametrize("first", ["A", "B"], ids=["A-first", "B-first"])
+    async def test_a_done_line_moved_and_unchecked_in_one_edit_reopens(
+        self, rig: Rig, first: str
+    ) -> None:
+        """The done-line variant, where a twin is the failure: Guard 4 ignores
+        terminal twins, so a completed line found by no edge and no stamp is
+        minted again. Moved AND un-checked in one edit: the task reopens on
+        the destination, no twin, and the outbound strips SKUEL's ✅."""
+        task_uid, vault_id, done_line = await _seeded_done_note(rig)
+        unchecked = done_line.replace("- [x]", "- [ ]")
+        rig.note.write_text(FRONTMATTER + "Moved it.\n", encoding="utf-8")
+        note_b = rig.note_at(NOTE_B)
+        note_b.write_text(FRONTMATTER_B + unchecked + "\n", encoding="utf-8")
+        rig.order(*((rig.note, note_b) if first == "A" else (note_b, rig.note)))
+
+        moved = await rig.sync()
+        assert not moved.warnings, moved.warnings
+        assert await rig.owned_tasks() == [(task_uid, EntityStatus.ACTIVE.value)], (
+            "the uncheck did not land, or the move minted a twin"
+        )
+        [(edge_uid, edge_id, entry, _)] = await rig.edges()
+        assert (edge_uid, edge_id) == (task_uid, vault_id)
+        assert entry.endswith(_entry_uid(NOTE_B))
+        assert moved.tasks_marked_undone == 1, moved
+        restored = _line_with(note_b, vault_id)
+        assert restored.startswith("- [ ] Vacuum") and "✅" not in restored
+        assert await rig.stamps() == []
+
+    async def test_a_retitle_and_a_re_date_in_the_vault_follow(self, rig: Rig) -> None:
+        """Title, 📅, ⏳, priority and #tags — each three-way, applied because
+        the vault changed it. The SKUEL-stamped ``period:daily`` tag survives
+        (it is never on the line)."""
+        task_uid, vault_id, _line = await _seeded_note(rig)
+        edited = f"- [ ] Vacuum the hallway ⏫ 📅 2026-09-20 ⏳ 2026-09-18 #home 🆔 {vault_id}"
+        rig.note.write_text(FRONTMATTER + edited + "\n", encoding="utf-8")
+
+        synced = await rig.sync()
+        assert not synced.warnings, synced.warnings
+        task = await _task_of(rig, task_uid)
+        assert task.title == "Vacuum the hallway"
+        assert task.due_date == date(2026, 9, 20)
+        assert task.scheduled_date == date(2026, 9, 18)
+        assert task.priority == Priority.HIGH.value
+        assert set(task.tags) == {"period:daily", "home"}, task.tags
+        assert task.status == EntityStatus.DRAFT
+        [(_, _, _, base)] = await rig.edges()
+        assert base == edited
+
+        # And back: the vault moves the date and drops the tag; the priority
+        # emoji goes — absence is medium.
+        again = f"- [ ] Vacuum the hallway 📅 2026-09-22 ⏳ 2026-09-18 🆔 {vault_id}"
+        rig.note.write_text(FRONTMATTER + again + "\n", encoding="utf-8")
+        synced = await rig.sync()
+        assert not synced.warnings, synced.warnings
+        task = await _task_of(rig, task_uid)
+        assert task.due_date == date(2026, 9, 22)
+        assert task.priority == Priority.MEDIUM.value
+        assert set(task.tags) == {"period:daily"}, task.tags
+
+    async def test_a_skuel_side_title_edit_survives_an_untouched_line(self, rig: Rig) -> None:
+        """The title changed in SKUEL, the line did not (theirs == base): the
+        merge keeps SKUEL's value. Another byte of the note changes so it
+        re-ingests at all."""
+        task_uid, _vault_id, line = await _seeded_note(rig)
+        renamed = await rig.tasks.update_task(
+            task_uid, TaskUpdateRequest(title="Vacuum (renamed in SKUEL)").to_intent()
+        )
+        assert renamed.is_ok, renamed
+        rig.note.write_text(FRONTMATTER + line + "\nSome prose.\n", encoding="utf-8")
+
+        synced = await rig.sync()
+        assert not synced.warnings and synced.entries_ingested == 1, synced
+        task = await _task_of(rig, task_uid)
+        assert task.title == "Vacuum (renamed in SKUEL)", (
+            "the untouched line overwrote SKUEL's edit"
+        )
+
+    async def test_a_skuel_side_title_edit_survives_a_line_edited_elsewhere(self, rig: Rig) -> None:
+        """The stronger shape: the line DID change (a #tag was added), so the
+        merge runs field by field — the title, unchanged on the vault side,
+        keeps SKUEL's value while the tag lands."""
+        task_uid, vault_id, line = await _seeded_note(rig)
+        renamed = await rig.tasks.update_task(
+            task_uid, TaskUpdateRequest(title="Vacuum (renamed in SKUEL)").to_intent()
+        )
+        assert renamed.is_ok, renamed
+        tagged = line.replace(f"🆔 {vault_id}", f"#home 🆔 {vault_id}")
+        rig.note.write_text(FRONTMATTER + tagged + "\n", encoding="utf-8")
+
+        synced = await rig.sync()
+        assert not synced.warnings, synced.warnings
+        task = await _task_of(rig, task_uid)
+        assert task.title == "Vacuum (renamed in SKUEL)", "a field the vault left alone was applied"
+        assert "home" in task.tags, task.tags
+        [(_, _, _, base)] = await rig.edges()
+        assert base == tagged
+
+    async def test_reopened_in_skuel_before_the_write_back_re_ingests_stays_reopened(
+        self, rig: Rig
+    ) -> None:
+        """Why SKUEL's own writes advance the base. Complete in SKUEL; the
+        outbound pass writes ``[x] ✅`` — and the user reopens in SKUEL before
+        that write-back has been re-ingested. The re-ingest then meets SKUEL's
+        own ``[x] ✅`` on the line: with the base still at ``[ ]`` it would read
+        as a vault check and re-complete the task SKUEL just reopened. The
+        write-back advanced the base as it landed, so the box is unchanged
+        against it and the reopen stands; the outbound pass un-checks."""
+        task_uid, vault_id, line = await _seeded_note(rig)
+        await complete_in_skuel(rig, task_uid)
+        written = await rig.sync()  # [x] ✅ write-back, not yet re-ingested
+        assert written.tasks_marked_done == 1, written
+        [(_, _, _, base)] = await rig.edges()
+        assert base is not None and base.startswith("- [x] Vacuum") and "✅" in base, base
+
+        await reopen_in_skuel(rig, task_uid)
+        synced = await rig.sync()  # the write-back re-ingests, task reopened
+        assert not synced.warnings, synced.warnings
+        assert synced.entries_ingested == 1, synced
+        assert (await _task_of(rig, task_uid)).status == EntityStatus.ACTIVE, (
+            "SKUEL's own write-back was read as a vault check"
+        )
+        assert synced.tasks_marked_undone == 1, synced
+        assert _line_with(rig.note, vault_id) == line
+
+    async def test_a_check_and_a_retitle_in_one_edit_both_land(self, rig: Rig) -> None:
+        task_uid, vault_id, _line = await _seeded_note(rig)
+        both = f"- [x] Vacuum upstairs 🆔 {vault_id} ✅ 2026-09-12"
+        rig.note.write_text(FRONTMATTER + both + "\n", encoding="utf-8")
+
+        synced = await rig.sync()
+        assert not synced.warnings, synced.warnings
+        task = await _task_of(rig, task_uid)
+        assert task.status == EntityStatus.COMPLETED
+        assert task.completion_date == date(2026, 9, 12)
+        assert task.title == "Vacuum upstairs"
+        [(_, _, _, base)] = await rig.edges()
+        assert base == both
+
+    async def test_removing_the_only_date_is_refused_held_and_re_warned(self, rig: Rig) -> None:
+        """The keep-a-day rule (a task keeps a day) refuses clearing the only
+        date. The refusal is a warning naming the line, the base is HELD, and
+        the note is left un-stamped so the next sync re-reads the same diff
+        and warns again — until the line and the task agree. Here the task
+        gets a scheduled date in SKUEL, after which the clear is legal."""
+        task_uid, vault_id, line = await _seeded_note(rig, "- [ ] Vacuum 📅 2026-09-20\n")
+        task = await _task_of(rig, task_uid)
+        assert (task.due_date, task.scheduled_date) == (date(2026, 9, 20), None)
+        [(_, _, _, base_before)] = await rig.edges()
+        assert base_before == line
+
+        undated = f"- [ ] Vacuum 🆔 {vault_id}"
+        rig.note.write_text(FRONTMATTER + undated + "\n", encoding="utf-8")
+        refused = await rig.sync()
+        assert refused.entries_ingested == 1, refused
+        [warning] = refused.warnings
+        assert "Vacuum" in warning and vault_id in warning, warning
+        assert "needs a due date or a scheduled date" in warning, warning
+        assert (await _task_of(rig, task_uid)).due_date == date(2026, 9, 20)
+        [(_, _, _, base_held)] = await rig.edges()
+        assert base_held == line, "the base advanced past a refused write"
+
+        # Nothing changed in the vault — and the warning comes back anyway.
+        again = await rig.sync()
+        assert again.entries_ingested == 1, "the refused note was stamped as up to date"
+        [warning] = again.warnings
+        assert vault_id in warning
+        [(_, _, _, base_still_held)] = await rig.edges()
+        assert base_still_held == line
+
+        # The task is given a day in SKUEL; the clear is now legal.
+        scheduled = await rig.tasks.update_task(
+            task_uid, TaskUpdateRequest(scheduled_date=date(2026, 9, 19)).to_intent()
+        )
+        assert scheduled.is_ok, scheduled
+        cleared = await rig.sync()
+        assert not cleared.warnings, cleared.warnings
+        task = await _task_of(rig, task_uid)
+        assert (task.due_date, task.scheduled_date) == (None, date(2026, 9, 19))
+        [(_, _, _, base_after)] = await rig.edges()
+        assert base_after == undated
+
+        quiet = await rig.sync()
+        assert quiet.entries_ingested == 0 and not quiet.warnings, quiet
+
+    async def test_an_edit_made_before_this_pr_lands_on_the_next_force_sync(self, rig: Rig) -> None:
+        """Between the seeding sync (#1343) and this PR, an edit synced under
+        PR 1 moved the digest and held the base — the note is stamped as
+        up to date, the diff is on the edge. A plain sync skips the unchanged
+        note; the edit lands on its next change or on a ``--force`` sync."""
+        task_uid, _vault_id, line = await _seeded_note(rig)
+        edited = line.replace("Vacuum", "Vacuum upstairs")
+        rig.note.write_text(FRONTMATTER + edited + "\n", encoding="utf-8")
+        await rig.sync()  # applied here — now put the graph back to PR 1's state
+        assert (await _task_of(rig, task_uid)).title == "Vacuum upstairs"
+        reverted = await rig.tasks.update_task(
+            task_uid, TaskUpdateRequest(title="Vacuum").to_intent()
+        )
+        assert reverted.is_ok, reverted
+        async with rig.driver.session() as session:
+            await session.run(
+                "MATCH (:Task {uid: $uid})-[r:EXTRACTED_FROM]->() SET r.source_line = $base",
+                uid=task_uid,
+                base=line,
+            )
+
+        plain = await rig.sync()
+        assert (plain.entries_ingested, plain.warnings) == (0, []), plain
+        assert (await _task_of(rig, task_uid)).title == "Vacuum"
+
+        forced = await rig.sync(force=True)
+        assert not forced.warnings, forced.warnings
+        assert (await _task_of(rig, task_uid)).title == "Vacuum upstairs"
+        [(_, _, _, base)] = await rig.edges()
+        assert base == edited
+
+    async def test_a_cancelled_task_is_not_reopened_by_an_unchecked_line(self, rig: Rig) -> None:
+        """A cancel is SKUEL's decision. The line stays open and diverges
+        visibly — and the user can still complete it in the vault: ``[x]`` on
+        a cancelled task is a check, applied."""
+        task_uid, vault_id, line = await _seeded_note(rig)
+        await cancel_in_skuel(rig, task_uid)
+        rig.note.write_text(FRONTMATTER + line + "\nSome prose.\n", encoding="utf-8")
+        synced = await rig.sync()
+        assert not synced.warnings and synced.entries_ingested == 1, synced
+        assert (await _task_of(rig, task_uid)).status == EntityStatus.CANCELLED
+        assert _line_with(rig.note, vault_id) == line, "the line diverges visibly, untouched"
+
+        # The user checks the cancelled task's line: a completion.
+        checked = line.replace("- [ ]", "- [x]") + " ✅ 2026-09-13"
+        rig.note.write_text(FRONTMATTER + checked + "\n", encoding="utf-8")
+        synced = await rig.sync()
+        assert not synced.warnings, synced.warnings
+        task = await _task_of(rig, task_uid)
+        assert task.status == EntityStatus.COMPLETED
+        assert task.completion_date == date(2026, 9, 13)
+
+    async def test_a_dsl_checkbox_line_reconciles_its_checkbox_only(self, rig: Rig) -> None:
+        """A ``@context(task)`` line is identity-tracked like any checkbox line:
+        its tick reaches the task. The obsidian-tasks field vocabulary stays
+        literal on it (one vocabulary per line) — a 📅 added to the line is
+        text, and the description is not rewritten as the title."""
+        task_uid, _vault_id, line = await _seeded_note(rig, "- [ ] Call mom @context(task)\n")
+        task = await _task_of(rig, task_uid)
+        assert task.title == "Call mom"
+        due_before = task.due_date
+        checked = (
+            line.replace("- [ ]", "- [x]").replace("@context(task)", "@context(task) 📅 2026-09-20")
+            + " ✅ 2026-09-14"
+        )
+        rig.note.write_text(FRONTMATTER + checked + "\n", encoding="utf-8")
+
+        synced = await rig.sync()
+        assert not synced.warnings, synced.warnings
+        task = await _task_of(rig, task_uid)
+        assert task.status == EntityStatus.COMPLETED
+        assert task.completion_date == date(2026, 9, 14)
+        assert task.title == "Call mom", "the DSL line's text was written as the title"
+        assert task.due_date == due_before, "the 📅 on a DSL line is literal text"
