@@ -1387,25 +1387,28 @@ class ActivityExtractorService:
                 continue
 
             ours = await self.tasks_service.get_task(edge.entity_uid)
-            if ours.is_error:
-                error = ours.expect_error()
-                if error.category is ErrorCategory.NOT_FOUND:
-                    # Another domain's entity under this 🆔 (a
-                    # ``@context(task,habit)`` line holds one edge per
-                    # domain): not the reconciler's, brought current as the
-                    # pre-pass would have.
-                    if hash_moved:
-                        extraction.lines_rehashed += 1
-                    extraction.refreshed_links.append(
-                        (edge.entity_uid, current_hash, vault_id, theirs_line)
-                    )
-                    continue
+            if ours.is_error and ours.expect_error().category is not ErrorCategory.NOT_FOUND:
+                # A read that failed (not one that found nothing): the line
+                # is named on the run's warnings and the edge holds, so the
+                # next sync — which re-ingests the note — retries it.
                 extraction.reconciliation_errors.append(
                     f"'{activity.description[:60]}' (🆔 {vault_id}): could not read task "
-                    f"{edge.entity_uid} — {error.message}"
+                    f"{edge.entity_uid} — {ours.expect_error().message} — retried next sync"
                 )
                 continue
-            task = ours.value
+            task = None if ours.is_error else ours.value
+            if task is None:
+                # Not a Task of this user's: another domain's entity under
+                # this 🆔 (a ``@context(task,habit)`` line holds one edge per
+                # domain). Not the reconciler's — brought current as the
+                # pre-pass would have. The facade answers not-found as an
+                # error; a bare ``ok(None)`` is read the same way.
+                if hash_moved:
+                    extraction.lines_rehashed += 1
+                extraction.refreshed_links.append(
+                    (edge.entity_uid, current_hash, vault_id, theirs_line)
+                )
+                continue
             if task.user_uid != user_uid:
                 # An edge into this user's note names a task of theirs — nothing
                 # else can write one. Refused rather than trusted, and held.

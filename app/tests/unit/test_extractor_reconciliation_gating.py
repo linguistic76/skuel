@@ -324,6 +324,21 @@ class TestTheGates:
             ("task_vacuum", normalized_line_hash(theirs), VAULT_ID, theirs)
         ]
 
+    async def test_a_bare_ok_none_from_the_task_read_is_a_not_found(self) -> None:
+        """The facade answers not-found as an error; a double (or a future
+        backend) answering ``Result.ok(None)`` must not crash the run — it is
+        the same not-a-task, and takes the same plain refresh."""
+        theirs = f"- [x] Vacuum 🆔 {VAULT_ID} ✅ {D1.isoformat()}"
+        svc = _tasks_service()
+        svc.get_task = AsyncMock(return_value=Result.ok(None))
+        extraction = await _run(theirs + "\n", svc)
+        svc.update_task.assert_not_awaited()
+        assert extraction.reconciliation_errors == []
+        assert extraction.advanced_links == []
+        assert extraction.refreshed_links == [
+            ("task_vacuum", normalized_line_hash(theirs), VAULT_ID, theirs)
+        ]
+
     async def test_a_same_text_sibling_is_still_a_new_task(self) -> None:
         """The pre-pass retirement of the stale digest is unconditional: a
         🆔-less sibling with the ORIGINAL text, arriving in the same ingest
