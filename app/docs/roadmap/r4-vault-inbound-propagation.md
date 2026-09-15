@@ -29,7 +29,7 @@ edit, move or deletion of a 🆔 line reaches the SKUEL task. Three product rule
    saw it (Decision 3's field-level merge, made concrete below).
 
 What this makes true: ADR-070's title. Its status annotation ("outbound-only for task state")
-retires with PR 5.
+retires with PR 4.
 
 ## History, in three lines
 
@@ -90,13 +90,20 @@ warning naming the line, never a crash and never a silent skip.
 ### Four properties: one on the edge, three on the task
 
 `EXTRACTED_FROM` gains `source_line` (the raw line as last seen, 🆔 token included — the
-parse base). `create_extracted_from_links` sets it on create and on the Guard 2b refresh (the
-refresh already rewrites the digest for a moved line; the line text rides with it).
+parse base). `create_extracted_from_links` sets it on create and **seeds** it on an edge that
+has none; it **advances** it (on the Guard 2b refresh, which already rewrites the digest for
+a moved line) only once reconciliation exists to consume the diff, and only on an ok write
+(C1). The two verbs are deliberately split across PRs: a base that advances before its
+consumer ships absorbs every vault edit made in between as "already seen", and the consumer
+then never applies them. So PR 1 seeds and never advances — edits made between PR 1 and
+PR 2 accumulate as diffs against the seeded base and land when PR 2 arrives — and status
+and fields ship together in PR 2, because they share one base string: advancing it for a
+status reconciliation would absorb an unreconciled title edit on the same line.
 `get_extracted_entities_for_entry` — the one read the guards and the reconciler share —
-returns it. Existing edges have no base: the first sight of a 🆔 line after PR 1 stores the
+returns it. Existing edges have no base: the first sight of a 🆔 line after PR 1 seeds the
 base and applies **nothing** (SKUEL's state stands, the outbound pass writes it back as today
 — the "Vacuum" case in the fixture). One `./dev vault-sync --force` after PR 1 seeds every
-base at once, so PR 2's reconciliation finds them in place.
+base at once.
 
 `Task` gains `retired_vault_id`, `retired_source_line` and `vault_line_retired_at` — the
 grace record, non-null only between a line's disappearance and the sweep (or its re-link).
@@ -149,9 +156,12 @@ this entry's edges own, and looks the rest up **user-wide** (new read:
 
 - **Live edge on another entry ⇒ a move.** Re-pointed in **one statement**
   (`repoint_extracted_from_link`): delete the old edge keyed on `(task, X)`, MERGE the new one
-  on this entry with the current digest and `source_line`. Two service calls would leave a
-  window in which the only identity edge is gone and a retry mints a twin — a re-point is one
-  transaction or it is not a re-point.
+  on this entry **carrying the old edge's `source_line` and digest unchanged** — the base is
+  what SKUEL last saw, and a line edited or checked during the move must still diff against
+  it; the identity branch then reconciles and, on ok, advances both (C1). Writing the
+  current line as the new edge's base would make the move-time edit its own base and drop
+  it. Two service calls would leave a window in which the only identity edge is gone and a
+  retry mints a twin — a re-point is one transaction or it is not a re-point.
 - **Stamped task, no edge (the line vanished in an earlier sync or earlier in this one — a
   slow move, an A-first move, a whole-note consolidation, or a line deleted and restored in
   the *same* note) ⇒ a revival.** One statement: MERGE the edge on this entry carrying the
@@ -188,35 +198,38 @@ Two doors retire, one record, one sweep.
   lines into the next note, delete the old one) re-links instead of cancelling.
 
 `VaultReconciler.sync` gains an end-of-sync step after ingest and deletion reconciliation:
-`list_vault_retired_tasks(user_uid, retired_before = sync_cutoff)` returns every owned task
-whose stamp predates this sync **and that holds no live 🆔-bearing `EXTRACTED_FROM` edge**
-(a task can be tracked from two notes — the Guard 4 re-link above writes a second edge for
-a line retyped elsewhere — and deleting one of its lines is not deleting the task). For
-each: terminal, or still tracked from another note ⇒ clear the stamp; open and untracked ⇒
-post `update_task(status = CANCELLED)` through the facade and **clear the stamp only when
-that write returns ok**. A refused or failed cancel keeps the stamp (sync warning naming the
-task), so the next sweep retries it — the stamp is the retry record and must outlive the
-attempt.
+`list_vault_retired_tasks(user_uid, retired_before = sync_cutoff)` returns **every** owned
+task whose stamp predates this sync, each row saying whether the task still holds a live
+🆔-bearing `EXTRACTED_FROM` edge (a task can be tracked from two notes — the Guard 4 re-link
+above writes a second edge for a line retyped elsewhere — and deleting one of its lines is
+not deleting the task). The reconciler branches on that row: terminal, or still tracked from
+another note ⇒ clear the stamp; open and untracked ⇒ post `update_task(status = CANCELLED)`
+through the facade and **clear the stamp only when that write returns ok**. A refused or
+failed cancel keeps the stamp (sync warning naming the task), so the next sweep retries it —
+the stamp is the retry record and must outlive the attempt.
 
-Two gates on the cancel, both named by the failure they prevent:
+Two gates on the sweep, both named by the failure they prevent:
 
-- **The sweep cancels only after a complete inbound pass.** The batch engine records a
-  per-file failure (parse, persistence, extraction) in its stats and still returns ok; a
-  note that would have revived a stamped task but failed to ingest has not had its say. If
-  the sync's inbound half reports any failed file, the sweep clears terminal stamps and
-  **holds every open one** — one warning, "N deletions held: the sync had failures" — and the
-  next clean sync decides. The per-file failure is already surfaced and retried.
+- **The sweep runs only after a complete inbound pass — and holds every stamp otherwise,
+  terminal ones included.** The batch engine records a per-file failure (parse, persistence,
+  extraction) in its stats and still returns ok; a note that would have revived a stamped
+  task but failed to ingest has not had its say. Clearing even a *terminal* task's stamp on
+  such a sync destroys the only 🆔 mapping its restored line could revive by, and on the next
+  clean sync Guard 4 — which ignores terminal twins by design — mints a duplicate completed
+  task. So with any failed file the sweep does nothing at all — one warning, "N retirements
+  held: the sync had failures" — and the next clean sync decides. The per-file failure is
+  already surfaced and retried.
 - **One clock.** The stamp is written by Neo4j (`datetime()` inside the retiring statement,
   which runs with no sync context); the cutoff is therefore read from Neo4j too — one
   `RETURN datetime()` at sync start is `sync_cutoff`. An application-clock cutoff against a
   database-clock stamp turns modest skew into a retirement that looks older than the sync
   it happened in, and the grace disappears.
 
-**Until the cancel consequence ships (PR 4), the sweep clears terminal and still-tracked
+**Until the cancel consequence ships (PR 3), the sweep clears terminal and still-tracked
 tasks' stamps only and leaves an open, untracked task's stamp in place:** a stamp is
 deletion evidence, and clearing it before any consequence exists would make every line
 deleted in the meantime indistinguishable from a pre-🆔-era orphan, never to be cancelled.
-PR 4's first sweep therefore cancels the backlog accumulated since PR 1 — the rule applied
+PR 3's first sweep therefore cancels the backlog accumulated since PR 1 — the rule applied
 late, not skipped — and its PR description says so. A new counter,
 `VaultSyncStats.tasks_cancelled_by_deletion`, renders only when nonzero ("N tasks cancelled
 — their lines were removed from the vault"), beside "tasks re-opened". A cancel is a state
@@ -259,8 +272,8 @@ The cleanup script's DANGLING count reads 0 on the same graph — its definition
 purpose (ruled 2026-09-15): after PR 1, a `--force` sync must re-point Deck, Repair and Vacuum
 to W29 with no twin minted, retire the two W28 originals whose 🆔s W29's twins already own
 (stamped, then swept as terminal — uncancelled — and left as the script's RE-MINT proposals),
-and — after PR 2 seeds bases — write Vacuum's `[x] ✅` into W29 on the following sync. That
-is the arc's acceptance test on real data.
+and — once PR 2 reconciles against the seeded bases — write Vacuum's `[x] ✅` into W29 on the
+following sync. That is the arc's acceptance test on real data.
 
 ## PR sequence
 
@@ -270,9 +283,10 @@ fixture module; new file `test_vault_inbound_propagation.py`), and the mutant it
 (run it — the round-trip file's tests were each probed that way in #1341).
 
 1. **Identity survives a line's disappearance for one sync.** The three stamps on Task;
-   `source_line` on the edge (written on create and refresh, read back — no reconciliation
-   yet); `retire_extracted_from_links` (delete + stamp, one statement) replaces the delete in
-   the pre-pass; `delete_entities_with_metadata` stamps a deleted note's tasks;
+   `source_line` on the edge — written on create, **seeded** where absent, carried by
+   re-point and revival, never advanced (no reconciliation yet, so nothing may be marked
+   "seen"); `retire_extracted_from_links` (delete + stamp, one statement) replaces the delete
+   in the pre-pass; `delete_entities_with_metadata` stamps a deleted note's tasks;
    `find_task_by_vault_id` (live edges ∪ stamped tasks); `repoint_extracted_from_link` and
    the revival write, each one statement carrying the base; Guard 4 writes the edge when the
    twin has none to this entry; the end-of-sync sweep clears **terminal** tasks' stamps
@@ -285,23 +299,28 @@ fixture module; new file `test_vault_inbound_propagation.py`), and the mutant it
    stamped**; delete a note → its tasks stamped; retype an open task's line in a second note
    → two edges, delete the first line, sync, sync → stamp cleared, task untouched. Mutants:
    the lookup ignores stamped tasks (the slow move mints a twin); the re-point as two calls
-   with the create failing (the task is left edge-less); the sweep clears an open, untracked
-   task's stamp; the note-deletion statement stamps nothing; the cutoff read from the
-   application clock (skew the test's stamp by a minute). Post-merge: one `--force` sync,
-   then the W28→W29 fixture.
-2. **Base line + status both directions.** `--force` seeds bases; `reconcile_task_line`
-   (status rows of the table above) applied through `update_task`; base and digest refresh
-   gated on ok. Rig: check in the vault → completed with the ✅ date; uncheck → reopened;
-   **complete in SKUEL, sync before the write-back → still completed** (the C1 race); reopen
-   in SKUEL, sync → still reopened; move a line and check it in one edit, A-first → completed
-   (the base rode the stamp). Mutants: the branch ignores `base` (the race rows flip); the
-   refresh runs on a refused write (the edit is never retried).
-3. **Field edits.** Title, due, scheduled, priority, tags — three-way per field, in the same
-   intent as status; the "keep-a-day" refusal surfaces as a warning and holds the base. Rig:
-   retitle + re-date in the vault, sync, the task follows; a SKUEL-side title edit with an
-   untouched line survives the next sync; remove the only date in the vault → warning, base
-   held, warning again next sync. Mutant: any field applied without `theirs ≠ base`.
-4. **Deletion cancels open tasks.** The sweep posts `CANCELLED` for open tasks and clears
+   with the create failing (the task is left edge-less); the re-point writes the current
+   line as the new base (an edit made during a B-first move is dropped in PR 2's rig); the
+   Guard 2b refresh advances a present base (an edit made before PR 2 is lost); the sweep
+   clears an open, untracked task's stamp; the sweep runs over a failed file (a completed
+   task's restored line mints a twin next sync); the note-deletion statement stamps nothing;
+   the cutoff read from the application clock (skew the test's stamp by a minute).
+   Post-merge: one `--force` sync, then the W28→W29 fixture.
+2. **Reconciliation — status both directions and field edits, together.** One base string,
+   one intent, one write, one verdict; `reconcile_task_line` (the status rows of the table
+   above plus title, due, scheduled, priority, tags — three-way per field) applied through
+   `update_task`; base and digest advance only on ok; the "keep-a-day" refusal surfaces as a
+   warning and holds the base. Rig: check in the vault → completed with the ✅ date; uncheck
+   → reopened; **complete in SKUEL, sync before the write-back → still completed** (the C1
+   race); reopen in SKUEL, sync → still reopened; move a line and check it in one edit,
+   A-first and B-first → completed (the base rode the stamp / the re-point); retitle +
+   re-date in the vault → the task follows; a SKUEL-side title edit with an untouched line
+   survives the next sync; check and retitle in one edit → both land; remove the only date
+   in the vault → warning, base held, warning again next sync; an edit made between the
+   seeding sync and this PR's first sync → applied. Mutants: the branch ignores `base` (the
+   race rows flip); the refresh runs on a refused write (the edit is never retried); any
+   field applied without `theirs ≠ base`.
+3. **Deletion cancels open tasks.** The sweep posts `CANCELLED` for open tasks and clears
    the stamp only on an ok write; the backlog since PR 1 is cancelled on the first sweep and
    the PR says so; the counter and its fragment line. Rig: delete an open task's line, two
    syncs → cancelled; delete a done line → untouched; delete a whole note → its open tasks
@@ -311,14 +330,14 @@ fixture module; new file `test_vault_inbound_propagation.py`), and the mutant it
    Mutants: the sweep cancels terminal tasks; the stamp is cleared before the cancel's result
    is known (a refused cancel becomes a permanent divergence); the sweep runs over a failed
    file (the broken note's task is cancelled); the sweep ignores a live second edge.
-5. **Docs.** ADR-070: status annotation retired, Decision 2's `[x]`/`✅` rows and the field
+4. **Docs.** ADR-070: status annotation retired, Decision 2's `[x]`/`✅` rows and the field
    rows true, `source_line` and the three stamps in Decision 1, a Decision 3 paragraph naming
    the three-way merge; CLAUDE.md § Obsidian VaultBridge and § Unified Content Ingestion; the
    neo4j-cypher-patterns reference's `EXTRACTED_FROM` row; `cleanup_duplicate_vault_tasks.py`
    narrowed to pre-🆔-era repair; this file → `done/`.
 
-Sequencing note: 1 → 2 → 3 is fixed (status needs the base the stamp carries; edits need
-the status intent to ride in); 4 depends only on 1 and may land any time after it; 5 last.
+Sequencing note: 1 → 2 is fixed (reconciliation needs the seeded base and the stamps);
+3 depends only on 1 and may land any time after it; 4 last.
 
 ## Rejected alternatives
 
@@ -357,7 +376,7 @@ the status intent to ride in); 4 depends only on 1 and may land any time after i
   asymmetry, chosen over silently reopening cancelled work.
 - First sight seeds the base and applies nothing: a line that changed *between* the last
   pre-R4 sync and the seeding sync is not reconciled. Seed with `--force` immediately after
-  PR 1 (bases are written from then on) so PR 2 finds them in place.
+  PR 1; edits from then until PR 2 lands are diffs against that base and apply when it does.
 - A refused vault edit re-warns on every sync until the line and the task agree — standing
   visibility, the same contract as ignored files.
 - A sync with any failed file holds every pending cancel until a clean sync — deletion

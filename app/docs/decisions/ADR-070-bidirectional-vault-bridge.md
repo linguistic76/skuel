@@ -23,7 +23,7 @@ related_skills: []
 > disposition, #1139–#1143): docs corrected to the outbound truth; the build was parked with a
 > trigger + design sketch, **and scheduled 2026-09-15** — build plan in
 > `docs/roadmap/deferred-work.md` § "R4 Vault Inbound Propagation — Build Plan"; this
-> annotation retires with its PR 5.
+> annotation retires with its PR 4.
 >
 > **Amended 2026-08-24 (reopen-vault-surface arc):** the OUTBOUND half is now complete in both
 > directions of task state — a reopen un-checks the line and strips the `✅` date (Resolved
