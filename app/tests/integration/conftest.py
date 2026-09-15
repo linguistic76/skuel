@@ -30,6 +30,9 @@ from tests.integration._neo4j_pin import (
     running_kernel_version,
 )
 
+# The personal-vault sync rig (ADR-070 / R4) — one fixture, two test files.
+from tests.integration._vault_rig import rig  # noqa: F401
+
 # Lazy imports to avoid circular import issues
 # These are imported inside fixtures that need them
 

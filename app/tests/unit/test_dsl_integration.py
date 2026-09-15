@@ -191,22 +191,26 @@ Some reflections on the day...
 
     @pytest.mark.asyncio
     async def test_extract_records_line_provenance(self, extractor, mock_ku):
-        """Each created entity carries a (uid, line_hash, vault_id) provenance triple."""
+        """Each created entity carries (uid, line_hash, vault_id, source_line) provenance."""
         result = await extractor.extract_and_create(mock_ku, "user_mike")
 
         assert result.is_ok
         extraction = result.value
         assert len(extraction.created_links) == extraction.total_created
-        for uid, line_hash, _vault_id in extraction.created_links:
+        for uid, line_hash, _vault_id, source_line in extraction.created_links:
             assert uid == "task:123"
             assert len(line_hash) == 64  # sha256 hex digest
+            # The base is the line verbatim — never the digest's normalised form.
+            assert source_line is not None and "@context(" in source_line
 
     @pytest.mark.asyncio
     async def test_extract_skips_existing_line_hashes(self, extractor, mock_ku):
         """Guard 2: lines whose hash already has an EXTRACTED_FROM edge skip."""
         first = await extractor.extract_and_create(mock_ku, "user_mike")
         assert first.is_ok
-        existing = frozenset(line_hash for _, line_hash, _vault_id in first.value.created_links)
+        existing = frozenset(
+            line_hash for _, line_hash, _vault_id, _line in first.value.created_links
+        )
 
         second = await extractor.extract_and_create(
             mock_ku, "user_mike", existing_line_hashes=existing
@@ -465,8 +469,10 @@ Some reflections on the day...
             ),
             existing_vault_ids={
                 "sk_mine01": (
-                    ExtractedByVaultId("task_mine", normalized_line_hash(original)),  # stale
-                    ExtractedByVaultId("task_copy", normalized_line_hash(mine)),  # current
+                    # stale digest, base seeded earlier — the base is HELD
+                    ExtractedByVaultId("task_mine", normalized_line_hash(original), original),
+                    # current digest, base present — nothing to bring current
+                    ExtractedByVaultId("task_copy", normalized_line_hash(mine), mine),
                 )
             },
         )
@@ -475,16 +481,139 @@ Some reflections on the day...
         extraction = result.value
         assert extraction.lines_skipped_existing == 1
         assert extraction.tasks_created == 2, extraction.to_dict()
-        assert [vault_id for _uid, _hash, vault_id in extraction.created_links] == [
+        assert [vault_id for _uid, _hash, vault_id, _line in extraction.created_links] == [
             None,
             "sk_other2",
         ]
         # The matched edge's change signal moves with the line: a stale digest
-        # would swallow the next same-text line the user adds.
+        # would swallow the next same-text line the user adds. The line rides
+        # along for the write's ``coalesce`` — a present base is never advanced
+        # here (R4, C1), which the write-side test pins.
         assert extraction.refreshed_links == [
-            ("task_mine", normalized_line_hash(mine), "sk_mine01")
+            ("task_mine", normalized_line_hash(mine), "sk_mine01", mine)
         ], "only the stale edge is refreshed; the copy's edge is already current"
         assert extraction.to_dict()["lines_rehashed"] == 1
+        assert extraction.bases_seeded == 0
+
+    @pytest.mark.asyncio
+    async def test_an_edge_with_no_base_is_seeded_and_a_present_base_is_held(self, extractor):
+        """R4 PR 1: ``source_line`` is seeded where absent and never advanced.
+
+        Three 🆔 lines this entry already owns. ``sk_seed01``'s edge is at the
+        current digest but has no base (written before the base existed): it is
+        queued so the write seeds it with the line verbatim — and counted as a
+        seed, not a rehash. ``sk_held01``'s text moved AND its base is present:
+        queued for the digest refresh only; the base it carries is the OLD line,
+        and the entry hands the current line to a write that keeps a present
+        base. ``sk_done01`` is current on both — nothing queued."""
+        from core.services.dsl.activity_extractor import (
+            ExtractedByVaultId,
+            normalized_line_hash,
+        )
+
+        seed_line = "- [ ] Buy milk 🆔 sk_seed01"
+        held_old = "- [ ] Call mom 🆔 sk_held01"
+        held_now = "- [ ] Call mom tonight 🆔 sk_held01"  # edited in the vault
+        done_line = "- [x] Read 🆔 sk_done01 ✅ 2026-08-20"
+        entry = UserEntry(
+            uid="ue_seed",
+            title="Seed",
+            user_uid="user_mike",
+            entity_type=EntityType.USER_ENTRY,
+            status=EntityStatus.COMPLETED,
+            pipeline=Pipeline.NONE,
+            original_filename="seed.md",
+            file_path="/tmp/seed.md",
+            file_type="text/plain",
+            processed_content=f"{seed_line}\n{held_now}\n{done_line}\n",
+        )
+
+        result = await extractor.extract_and_create(
+            entry,
+            "user_mike",
+            existing_line_hashes=frozenset(
+                {
+                    normalized_line_hash(seed_line),
+                    normalized_line_hash(held_old),
+                    normalized_line_hash(done_line),
+                }
+            ),
+            existing_vault_ids={
+                "sk_seed01": (ExtractedByVaultId("task_seed", normalized_line_hash(seed_line)),),
+                "sk_held01": (
+                    ExtractedByVaultId("task_held", normalized_line_hash(held_old), held_old),
+                ),
+                "sk_done01": (
+                    ExtractedByVaultId("task_done", normalized_line_hash(done_line), done_line),
+                ),
+            },
+        )
+
+        assert result.is_ok
+        extraction = result.value
+        assert extraction.tasks_created == 0, extraction.to_dict()
+        assert extraction.lines_skipped_existing == 3
+        assert extraction.refreshed_links == [
+            ("task_seed", normalized_line_hash(seed_line), "sk_seed01", seed_line),
+            ("task_held", normalized_line_hash(held_now), "sk_held01", held_now),
+        ]
+        assert (extraction.lines_rehashed, extraction.bases_seeded) == (1, 1)
+        assert extraction.to_dict()["bases_seeded"] == 1
+
+    @pytest.mark.asyncio
+    async def test_guard_4_writes_the_edge_when_the_twin_has_none_to_this_entry(self, extractor):
+        """R4 PR 1: a line Guard 4 merges into an owned active twin is tracked.
+
+        Two lines match owned twins by (label, title). ``Vacuum``'s twin has no
+        edge to this entry (its uid is not among ``existing_extracted``'s
+        values) — the edge is written, carrying the line's 🆔 (a phantom, or
+        None for the outbound pass to mint) and the line verbatim as base.
+        ``Sweep``'s twin already has an edge here: Kody #501's no-write rule
+        stands, nothing is queued. A second same-title line in the same run
+        does not write a second edge."""
+        from core.services.dsl.activity_extractor import (
+            normalized_line_hash,
+            semantic_dedup_key,
+        )
+
+        vacuum = "- [ ] Vacuum 🆔 sk_phant0"
+        vacuum_again = "- [ ] Vacuum"
+        sweep = "- [ ] Sweep"
+        entry = UserEntry(
+            uid="ue_twin",
+            title="Twin",
+            user_uid="user_mike",
+            entity_type=EntityType.USER_ENTRY,
+            status=EntityStatus.COMPLETED,
+            pipeline=Pipeline.NONE,
+            original_filename="twin.md",
+            file_path="/tmp/twin.md",
+            file_type="text/plain",
+            processed_content=f"{vacuum}\n{sweep}\n{vacuum_again}\n",
+        )
+        existing_extracted = {semantic_dedup_key("Task", "Sweep"): "task_sweep"}
+
+        result = await extractor.extract_and_create(
+            entry,
+            "user_mike",
+            existing_extracted=existing_extracted,
+            user_owned_semantic={
+                semantic_dedup_key("Task", "Vacuum"): "task_vacuum",
+                semantic_dedup_key("Task", "Sweep"): "task_sweep",
+            },
+        )
+
+        assert result.is_ok
+        extraction = result.value
+        assert extraction.tasks_created == 0, extraction.to_dict()
+        assert extraction.lines_merged_cross_entry == 3
+        assert extraction.merged_links == [
+            ("task_vacuum", normalized_line_hash(vacuum), "sk_phant0", vacuum)
+        ]
+        assert extraction.to_dict()["merged_links"] == [
+            ["task_vacuum", normalized_line_hash(vacuum), "sk_phant0"]
+        ]
+        assert existing_extracted[semantic_dedup_key("Task", "Vacuum")] == "task_vacuum"
 
     @pytest.mark.asyncio
     async def test_a_line_gone_by_both_keys_retires_its_edges(self, extractor):
@@ -568,10 +697,15 @@ Some reflections on the day...
         # line by hash.
         assert extraction.tasks_created == 1, extraction.to_dict()
         assert extraction.created_links == [
-            ("task:123", normalized_line_hash(deleted), "sk_paste1")
+            ("task:123", normalized_line_hash(deleted), "sk_paste1", pasted)
         ]
         assert extraction.lines_skipped_existing == 3
-        assert extraction.refreshed_links == [], "nothing moved; nothing to refresh"
+        # The live edge carries no base, so the write seeds it. The fenced
+        # line is masked from the parser — its edge is kept but never queued.
+        assert extraction.refreshed_links == [
+            ("task_live", normalized_line_hash(live), "sk_live01", live),
+        ], "nothing moved; only the base-less live edge is brought current"
+        assert (extraction.lines_rehashed, extraction.bases_seeded) == (0, 1)
 
     @pytest.mark.asyncio
     async def test_bridge_generated_lines_never_tag_warn(self, extractor):

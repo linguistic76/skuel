@@ -294,6 +294,7 @@ def test_plan_repairs_builds_the_door_shaped_link_and_refuses_the_rest():
             vault_id="sk_bcd7if",
             is_checked=False,
             raw_line="- [ ] Physio therapist look 4 - yes🔼",
+            verbatim_line="- [ ] Physio therapist look 4 - yes🔼 🆔 sk_bcd7if",
         ),
         _line("move furniture", vault_id="sk_3uhmts", file="periodic_notes/Daily/2026-06-17.md"),
     ]
@@ -305,10 +306,13 @@ def test_plan_repairs_builds_the_door_shaped_link_and_refuses_the_rest():
 
     assert [r.task.uid for r in repairs] == ["task_091092e1"]
     assert repairs[0].entry_uid == "ue:daily:u:2026-06-29"
+    # The door-shaped link: digest of the normalised line, the 🆔, and the line
+    # verbatim as the edge's ``source_line`` base.
     assert repairs[0].link == (
         "task_091092e1",
         normalized_line_hash("- [ ] Physio therapist look 4 - yes🔼"),
         "sk_bcd7if",
+        "- [ ] Physio therapist look 4 - yes🔼 🆔 sk_bcd7if",
     )
     assert len(problems) == 2
     assert any(p.startswith("sk_3uhmts:") and "re-sync" in p for p in problems)

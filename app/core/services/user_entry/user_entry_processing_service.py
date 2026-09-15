@@ -46,6 +46,7 @@ from core.models.enums.user_entry_enums import EnrichmentMode
 from core.models.relationship_names import RelationshipName
 from core.models.user_entry.user_entry import UserEntry
 from core.models.user_entry.user_entry_request import UserEntryCreateRequest
+from core.services.dsl.activity_dsl_parser import parsed_vault_ids
 from core.services.dsl.activity_extractor import (
     USER_OWNED_DEDUP_LABELS,
     ExtractedByVaultId,
@@ -406,8 +407,14 @@ class UserEntryProcessingService:
            entry MERGE instead of duplicating (semantic, R3 — the bridge
            rewords lines every run, so their hashes never repeat).
         3. Provenance: ``(created)-[:EXTRACTED_FROM {extracted_at,
-           source_line_hash}]->(entry)`` batch write — and the retirement of
-           edges whose 🆔 line is gone from the note (the entity stays).
+           source_line_hash, vault_id, source_line}]->(entry)`` batch write —
+           and the retirement of edges whose 🆔 line is gone from the note
+           (the task stays, stamped for the one-sync grace, R4).
+        3b. Moves and revivals, BEFORE extraction: a 🆔 in the text that none
+           of this entry's edges carry is looked up user-wide — a live edge on
+           another entry is re-pointed here (the line moved), a task stamped
+           with it is re-linked (the line reappeared within the grace), and a
+           🆔 found nowhere is a phantom the guards resolve as before.
         4. Knowledge contract: ``(entry)-[:APPLIES_KNOWLEDGE]->(ku)`` for every
            created Ku and resolved ``@ku()`` reference — the substance/ZPD
            edge. Each successful write publishes ``KnowledgeReflectedInEntry``
@@ -506,6 +513,73 @@ class UserEntryProcessingService:
         if extracted_result.is_error:
             return await self._fail(entry, extracted_result.expect_error(), phase="read_provenance")
         extracted_rows = extracted_result.value or []
+
+        # --- Moves and revivals (R4) ---------------------------------------------
+        # A 🆔 on a task line that none of this entry's edges carry names a
+        # task elsewhere: the line was cut from another note and pasted here
+        # (its edge is live on that entry — re-point it, base and digest
+        # intact), or it vanished within the grace and is back (the task
+        # carries the stamp — re-link it, the stamp's base becomes the
+        # edge's). Resolved BEFORE the guards run, so the line then takes the
+        # identity branch like any other 🆔 line this entry owns. Only 🆔s the
+        # parser reads on activity lines count — a 🆔 mentioned in prose or
+        # inside a code span is not a line the outbound pass could write to,
+        # and provenance moved onto it would be stranded on the wrong note
+        # (the deleted-line verdict uses the wider raw scan on purpose: there
+        # a 🆔 anywhere is a reason not to retire). A 🆔 found nowhere is a
+        # phantom and stays the guards' to resolve. Vault notes only: an
+        # uploaded or API-processed entry holding a copied 🆔 line is not a
+        # note the outbound pass can write to, and provenance moved onto it
+        # would strand the task away from its real vault line.
+        owned_ids = {vault_id for row in extracted_rows if (vault_id := row.get("vault_id"))}
+        foreign_ids = (
+            sorted(parsed_vault_ids(working_text) - owned_ids) if entry.is_vault_note() else []
+        )
+        relinked = 0
+        for vault_id in foreign_ids:
+            lookup = await self.entry_service.find_task_by_vault_id(entry.user_uid, vault_id)
+            if lookup.is_error:
+                return await self._fail(entry, lookup.expect_error(), phase="read_provenance")
+            for hit in lookup.value or []:
+                tracked_entry_uid = hit["tracked_entry_uid"]
+                if tracked_entry_uid == entry.uid:
+                    continue  # already ours — the scan and the read raced
+                if tracked_entry_uid is not None:
+                    moved = await self.entry_service.repoint_extracted_from_link(
+                        hit["entity_uid"], vault_id, tracked_entry_uid, entry.uid
+                    )
+                    if moved.is_error:
+                        return await self._fail(entry, moved.expect_error(), phase="persist_links")
+                    if moved.value:
+                        relinked += 1
+                        self.logger.info(
+                            f"🆔 {vault_id} moved: EXTRACTED_FROM {hit['entity_uid']} "
+                            f"re-pointed {tracked_entry_uid} → {entry.uid}"
+                        )
+                    continue
+                base = hit["source_line"]
+                revived = await self.entry_service.revive_extracted_from_link(
+                    entry.user_uid,
+                    hit["entity_uid"],
+                    vault_id,
+                    entry.uid,
+                    normalized_line_hash(base) if base else None,
+                )
+                if revived.is_error:
+                    return await self._fail(entry, revived.expect_error(), phase="persist_links")
+                if revived.value:
+                    relinked += 1
+                    self.logger.info(
+                        f"🆔 {vault_id} reappeared: {hit['entity_uid']} re-linked to {entry.uid}"
+                    )
+        if relinked:
+            # The guards below read the graph as it now stands — every map is
+            # rebuilt from one read rather than patched by hand.
+            reread = await self.entry_service.get_extracted_entities(entry.uid)
+            if reread.is_error:
+                return await self._fail(entry, reread.expect_error(), phase="read_provenance")
+            extracted_rows = reread.value or []
+
         existing_line_hashes = frozenset(
             line_hash for row in extracted_rows if (line_hash := row.get("source_line_hash"))
         )
@@ -519,6 +593,7 @@ class UserEntryProcessingService:
                     ExtractedByVaultId(
                         entity_uid=row["entity_uid"],
                         source_line_hash=row.get("source_line_hash") or "",
+                        source_line=row.get("source_line"),
                     )
                 )
         existing_vault_ids = {
@@ -593,15 +668,16 @@ class UserEntryProcessingService:
 
         # --- Provenance edges ---------------------------------------------------
         # Retire first: edges whose 🆔 the extractor found nowhere in the text
-        # are lines the user deleted from a surviving note. The delete is
+        # are lines the user deleted from a surviving note. The retirement is
         # keyed on the 🆔 as read, so a concurrently re-keyed edge stays; the
-        # entity is never touched (a vault-side deletion is not a SKUEL
-        # deletion, § R4). Then new edges for what was created, plus the hash
-        # refresh for lines Guard 2b recognised by 🆔 after their text moved —
-        # the same MERGE, on the line's own edge, same vault_id, extracted_at
-        # untouched (ON CREATE).
+        # task is stamped with what the edge knew (the R4 grace record) and
+        # otherwise untouched. Then new edges for what was created, the edge
+        # for a line Guard 4 merged into a twin that had none here, and the
+        # refresh for lines Guard 2b recognised by 🆔 — the same MERGE, on the
+        # line's own edge, same vault_id, extracted_at untouched (ON CREATE),
+        # base seeded where absent and kept where present.
         if extraction.retired_links:
-            retire_result = await self.entry_service.delete_extracted_from_links(
+            retire_result = await self.entry_service.retire_extracted_from_links(
                 entry.uid, extraction.retired_links
             )
             if retire_result.is_error:
@@ -611,7 +687,14 @@ class UserEntryProcessingService:
                 f"🆔 line(s) gone from the note — "
                 + ", ".join(f"{uid} ({vault_id})" for uid, vault_id in extraction.retired_links)
             )
-        provenance_links = [*extraction.created_links, *extraction.refreshed_links]
+        # A Guard-4 edge tracks a line for the vault round-trip; on an entry
+        # the outbound pass never visits it would only be a second, inert
+        # provenance row, so the merge stays edge-less there.
+        provenance_links = [
+            *extraction.created_links,
+            *(extraction.merged_links if entry.is_vault_note() else []),
+            *extraction.refreshed_links,
+        ]
         if provenance_links:
             links_result = await self.entry_service.create_extracted_from_links(
                 entry.uid, provenance_links

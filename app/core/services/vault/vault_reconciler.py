@@ -32,7 +32,7 @@ import re
 import secrets
 import string
 from dataclasses import dataclass
-from datetime import date
+from datetime import date, datetime
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
@@ -269,6 +269,12 @@ class VaultReconciler:
            UserEntry with the EXTRACT_ACTIVITIES pipeline:
            a. inject 🆔 IDs into ID-less task lines;
            b. write ``[x]`` + ``✅ date`` for SKUEL-completed tasks.
+        5. The retirement sweep (R4): every task whose 🆔 line vanished
+           BEFORE this sync started and is still stamped has had its one-sync
+           grace — terminal or still tracked from another note, the stamp is
+           cleared; open and untracked, it is left in place until the cancel
+           consequence exists (R4 build plan). Skipped entirely over an
+           incomplete inbound pass.
         """
         descriptor_result = self._resolve_guarded(kind, user_uid)
         if descriptor_result.is_error:
@@ -293,6 +299,19 @@ class VaultReconciler:
 
             stats = VaultSyncStats()
 
+            # The sweep's cutoff, read BEFORE anything this sync retires and
+            # from the database's own clock (R4, "one clock"): the stamps are
+            # written by ``datetime()`` inside the retiring statements, and an
+            # application-clock cutoff against them would let modest skew make
+            # a retirement look older than the sync it happened in — the grace
+            # would vanish. Only vaults with the task round-trip retire.
+            sync_cutoff: datetime | None = None
+            if descriptor.supports_task_round_trip:
+                clock_result = await self._user_entry.read_graph_clock()
+                if clock_result.is_error:
+                    return Result.fail(clock_result)
+                sync_cutoff = clock_result.value
+
             # Retrievability before-probe: a snapshot of embedding coverage
             # BEFORE ingest, so the after-probe can report the delta — how many
             # items THIS sync added that are not yet vector-searchable.
@@ -312,6 +331,10 @@ class VaultReconciler:
                 if pull_result.is_error:
                     return Result.fail(pull_result)
                 stats.warnings.extend(pull_result.value.warnings)
+                # A file the mirror could not refresh is read stale (or not at
+                # all) by the ingest below — it has not had its say, and the
+                # retirement sweep must hold on it like on a failed file.
+                stats.mirror_files_stale = pull_result.value.stale
 
             # Step 3: ingest (inbound — smart mode skips unchanged files). The
             # descriptor's own fail-closed allowlist scopes which folders are
@@ -351,10 +374,14 @@ class VaultReconciler:
             # Step 4: outbound. Only vaults that support the task round-trip
             # have anything to write back; curriculum vaults are inbound-only
             # today (structural no-op).
-            if not descriptor.supports_task_round_trip:
+            if not descriptor.supports_task_round_trip or sync_cutoff is None:
                 return Result.ok(stats)
 
             await self._run_outbound(descriptor, stats)
+
+            # Step 5: the retirement sweep — after both halves, so a 🆔 that
+            # reappeared anywhere in this sync has already re-linked its task.
+            await self._sweep_retired_tasks(owner, sync_cutoff, stats)
             return Result.ok(stats)
 
     async def preview(self, kind: VaultKind, user_uid: UserUID) -> Result[VaultSyncPreview]:
@@ -1014,6 +1041,68 @@ class VaultReconciler:
                     f"vault_sync_hash update failed for {entry.uid}: {update_result.expect_error()}"
                 )
 
+    # =========================================================================
+    # RETIREMENT SWEEP (R4)
+    # =========================================================================
+
+    async def _sweep_retired_tasks(
+        self, owner: UserUID, sync_cutoff: datetime, stats: VaultSyncStats
+    ) -> None:
+        """Judge every retirement stamp older than this sync — the end of the grace.
+
+        A stamp is written when a 🆔 line vanishes (a line deleted from a
+        surviving note, or a deleted note) and cleared when the 🆔 reappears
+        within one sync (the revival re-link). What is still stamped from
+        BEFORE this sync started has had its grace. Terminal, or still
+        tracked from another note (a task can hold two lines; losing one is
+        not losing the task): the stamp is cleared. Open and untracked: the
+        line is gone for good — the cancel consequence is not built yet (R4
+        build plan), and until it exists the stamp is left in place, because
+        clearing deletion evidence with no consequence to apply would make
+        every line deleted meanwhile indistinguishable from a pre-🆔-era
+        orphan.
+
+        The sweep runs only after a COMPLETE inbound pass. A note that failed
+        to ingest — or opted in and could not be read, or that a local-agent
+        mirror could not refresh — has not had its say: it may hold the very
+        line that would revive a stamped task, and clearing even a terminal
+        task's stamp on such a sync destroys the only 🆔 mapping its restored
+        line could revive by (Guard 4 ignores terminal twins, so the next
+        clean sync would mint a duplicate completed task). With any such
+        file, nothing is judged and the next clean sync decides.
+        """
+        listed = await self._user_entry.list_vault_retired_tasks(owner, sync_cutoff)
+        if listed.is_error:
+            stats.errors.append(f"retirement sweep failed: {listed.expect_error()}")
+            return
+        pending = listed.value or []
+        if not pending:
+            return
+        if stats.files_failed or stats.files_broken or stats.mirror_files_stale:
+            stats.retirements_held = len(pending)
+            stats.warnings.append(
+                f"{len(pending)} vault retirement(s) held: the sync had files it could "
+                "not read — judged on the next clean sync"
+            )
+            return
+        clearable: list[tuple[str, str]] = []
+        for row in pending:
+            status = EntityStatus.from_string(row["status"] or "")
+            if row["still_tracked"] or (status is not None and status.is_terminal()):
+                clearable.append((row["entity_uid"], row["retired_vault_id"]))
+        if not clearable:
+            return
+        cleared = await self._user_entry.clear_vault_retirement_stamps(owner, clearable)
+        if cleared.is_error:
+            stats.errors.append(f"retirement sweep failed: {cleared.expect_error()}")
+            return
+        logger.info(
+            "retirement sweep: cleared %d of %d stamp(s) for %s (terminal or still tracked)",
+            cleared.value,
+            len(pending),
+            owner,
+        )
+
 
 # =========================================================================
 # HELPERS
@@ -1060,6 +1149,12 @@ def _merge_ingest_stats(
     for error in ingest.errors or []:
         if error.get("stage") in _CONTENT_FAULT_STAGES:
             stats.ignored.append(_format_ignored_file(error, vault_root))
+            # A file that opted in and could not be read is a note that has
+            # not had its say (the sweep holds on it); a loose note with no
+            # ``type:`` at all is deliberately not an entity and is not.
+            file = error.get("file")
+            if not file or not is_non_entity_note(Path(str(file))):
+                stats.files_broken += 1
         else:
             stats.errors.append(_format_ingest_error(error, vault_root))
     stats.files_ignored = len(stats.ignored)

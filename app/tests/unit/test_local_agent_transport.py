@@ -27,6 +27,7 @@ from __future__ import annotations
 import json
 from collections.abc import Callable
 from dataclasses import dataclass
+from datetime import UTC, datetime
 from pathlib import Path
 from types import SimpleNamespace
 from typing import Any
@@ -192,6 +193,8 @@ def rig(mirror_root: Path) -> TransportRig:
         get_extracted_entities=AsyncMock(return_value=Result.ok([])),
         update_extracted_vault_id=AsyncMock(return_value=Result.ok(None)),
         update_entry=AsyncMock(return_value=Result.ok(None)),
+        read_graph_clock=AsyncMock(return_value=Result.ok(datetime.now(UTC))),
+        list_vault_retired_tasks=AsyncMock(return_value=Result.ok([])),
     )
     tasks = SimpleNamespace(get_task=AsyncMock(return_value=Result.ok(None)))
     consented_user = SimpleNamespace(preferences=SimpleNamespace(vault_write_consent=True))
@@ -559,6 +562,9 @@ class TestAdapterEdges:
         assert result.is_ok
         assert not (mirror_root / NOTE_PATH).exists()
         assert any("changed mid-sync" in w or NOTE_PATH in w for w in result.value.warnings)
+        # The skipped file is counted as stale: the ingest reads no fresh
+        # copy of it, so the retirement sweep must hold this sync (R4).
+        assert result.value.stale == 1
 
     @pytest.mark.asyncio
     async def test_per_update_outcomes_cross_the_wire(

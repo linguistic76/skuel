@@ -351,6 +351,16 @@ class IngestionBackend:
         own store's delete-then-create only covers a re-ingest, not entity
         removal). Missing entities (already deleted by hand) still get their
         metadata row cleaned up.
+
+        A deleted note takes its ``EXTRACTED_FROM`` edges with it (DETACH), so
+        every Task tracked from it by a 🆔-bearing edge is stamped first —
+        ``retired_vault_id``, ``retired_source_line`` (the edge's base),
+        ``vault_line_retired_at`` — in this same statement: the R4 grace
+        record, the same one a line deleted from a surviving note leaves
+        (``retire_extracted_from_links``). Consolidating a week (paste its
+        lines into the next note, delete the old one) then re-links instead
+        of leaving the tasks edge-less; a line that never reappears is judged
+        by the end-of-sync sweep.
         """
         return await self._executor.execute_query(
             """
@@ -364,6 +374,12 @@ class IngestionBackend:
             DETACH DELETE chunk, refchunk
             WITH DISTINCT item, s, e, g, content
             DETACH DELETE content
+            WITH DISTINCT item, s, e, g
+            OPTIONAL MATCH (t:Task)-[x:EXTRACTED_FROM]->(e)
+            WHERE x.vault_id IS NOT NULL
+            SET t.retired_vault_id = x.vault_id,
+                t.retired_source_line = x.source_line,
+                t.vault_line_retired_at = datetime()
             WITH DISTINCT item, s, e, g
             DETACH DELETE e, g, s
             RETURN item.file_path AS file_path, item.entity_uid AS entity_uid

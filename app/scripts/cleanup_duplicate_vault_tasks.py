@@ -107,6 +107,7 @@ class VaultTaskLine:
     vault_id: str | None
     is_checked: bool
     raw_line: str = ""  # the door's normalized raw line — what ``source_line_hash`` digests
+    verbatim_line: str = ""  # the line as it stands in the file — the edge's ``source_line`` base
 
     @property
     def where(self) -> str:
@@ -159,18 +160,20 @@ class PhantomId:
 
 @dataclass(frozen=True)
 class Repair:
-    """One EXTRACTED_FROM edge to write: ``(task_uid, source_line_hash, vault_id)`` on ``entry_uid``."""
+    """One EXTRACTED_FROM edge to write on ``entry_uid``:
+    ``(task_uid, source_line_hash, vault_id, source_line)``."""
 
     phantom: PhantomId
     task: TaskRow
     entry_uid: str
 
     @property
-    def link(self) -> tuple[str, str, str | None]:
+    def link(self) -> tuple[str, str, str | None, str | None]:
         return (
             self.task.uid,
             normalized_line_hash(self.phantom.line.raw_line),
             self.phantom.line.vault_id,
+            self.phantom.line.verbatim_line or None,
         )
 
 
@@ -485,6 +488,7 @@ def scan_vault_task_lines(root: Path, allowlist: SyncAllowlist | None) -> list[V
                     vault_id=parsed.vault_id,
                     is_checked=parsed.is_checked,
                     raw_line=parsed.raw_line or "",
+                    verbatim_line=parsed.verbatim_line or "",
                 )
             )
     return found

@@ -29,7 +29,7 @@ from adapters.persistence.neo4j._backend_helpers import direction_clause
 from core.models.enums.neo_labels import NeoLabel
 from core.models.protocols import DomainModelProtocol
 from core.models.relationship_names import RelationshipName
-from core.models.type_hints import FilterParams
+from core.models.type_hints import FilterParams, UserUID
 from core.utils.error_boundary import safe_backend_operation
 from core.utils.result_simplified import ErrorCategory, ErrorContext, Errors, ErrorSeverity, Result
 
@@ -598,24 +598,29 @@ class _RelationshipCrudMixin[T: DomainModelProtocol]:
 
     @safe_backend_operation("create_extracted_from_links")
     async def create_extracted_from_links(
-        self, entry_uid: str, links: builtins.list[tuple[str, str, str | None]]
+        self, entry_uid: str, links: builtins.list[tuple[str, str, str | None, str | None]]
     ) -> Result[int]:
         """
         Batch-write DSL extraction provenance edges (ADR-069, ADR-070).
 
         Writes ``(created)-[:EXTRACTED_FROM {extracted_at, source_line_hash,
-        vault_id}]->(entry)`` for each ``(created_uid, line_hash, vault_id)``
-        triple. ``vault_id`` is the obsidian-tasks 🆔 join key (ADR-070); None
-        for @context() DSL lines. Dedicated writer rather than
-        ``create_relationship``: the source label is whichever entity the DSL
-        line produced (Task, Habit, Ku, ...), so routing through registry
-        validation would force registering provenance into every domain config.
-        MERGE keeps re-runs idempotent; ``extracted_at`` is set server-side as a
-        native Cypher datetime.
+        vault_id, source_line}]->(entry)`` for each ``(entity_uid, line_hash,
+        vault_id, source_line)``. ``vault_id`` is the obsidian-tasks 🆔 join
+        key (ADR-070); None for @context() DSL lines. ``source_line`` is the
+        line verbatim — the base a later sync diffs the vault's line against
+        (Decision 3): it is written where the edge has none and KEPT where it
+        has one (``coalesce``), because a base that advances before the diff
+        is consumed marks every vault edit in between as already seen. The
+        digest and 🆔 are written as given on every call. Dedicated writer
+        rather than ``create_relationship``: the source label is whichever
+        entity the DSL line produced (Task, Habit, Ku, ...), so routing through
+        registry validation would force registering provenance into every
+        domain config. MERGE keeps re-runs idempotent; ``extracted_at`` is set
+        server-side as a native Cypher datetime.
 
         Args:
             entry_uid: Source UserEntry UID the entities were extracted from
-            links: ``(created_uid, source_line_hash, vault_id)`` triples
+            links: ``(entity_uid, source_line_hash, vault_id, source_line)``
 
         Returns:
             Result[int]: number of provenance edges now present for the pairs
@@ -630,14 +635,20 @@ class _RelationshipCrudMixin[T: DomainModelProtocol]:
         MERGE (e)-[r:EXTRACTED_FROM]->(entry)
         ON CREATE SET r.extracted_at = datetime()
         SET r.source_line_hash = link.line_hash,
-            r.vault_id = link.vault_id
+            r.vault_id = link.vault_id,
+            r.source_line = coalesce(r.source_line, link.source_line)
         RETURN count(r) AS link_count
         """
         params = {
             "entry_uid": entry_uid,
             "links": [
-                {"uid": uid, "line_hash": line_hash, "vault_id": vault_id}
-                for uid, line_hash, vault_id in links
+                {
+                    "uid": uid,
+                    "line_hash": line_hash,
+                    "vault_id": vault_id,
+                    "source_line": source_line,
+                }
+                for uid, line_hash, vault_id, source_line in links
             ],
         }
 
@@ -684,27 +695,33 @@ class _RelationshipCrudMixin[T: DomainModelProtocol]:
             )
         return Result.ok(updated > 0)
 
-    @safe_backend_operation("delete_extracted_from_links")
-    async def delete_extracted_from_links(
+    @safe_backend_operation("retire_extracted_from_links")
+    async def retire_extracted_from_links(
         self, entry_uid: str, links: builtins.list[tuple[str, str]]
     ) -> Result[int]:
-        """Retire ``EXTRACTED_FROM`` edges whose vault line is gone (ADR-070).
+        """Retire ``EXTRACTED_FROM`` edges whose vault line is gone (ADR-070, R4).
 
         Deletes ``(entity)-[:EXTRACTED_FROM {vault_id}]->(entry)`` for each
         ``(entity_uid, vault_id)`` pair. The 🆔 is part of the match, not just
         the entity: a pair names the edge as the caller READ it, so an edge
         re-keyed by a concurrent writer (a fresh injection, the cleanup
         script's repair) is left alone rather than retired on a stale
-        observation. The entity itself is untouched — a task whose line was
-        deleted from its note stays in SKUEL, edge-less, the same shape
-        file-level deletion propagation leaves when the whole note goes.
+        observation. The entity survives; a Task is stamped in the same
+        statement with everything the edge knew — ``retired_vault_id``,
+        ``retired_source_line`` (the edge's base, read before the delete) and
+        ``vault_line_retired_at`` (``datetime()``, the database clock the
+        sweep's cutoff is read from) — the grace record a 🆔 that reappears
+        in any note within one sync is found by. The stamp is on the task, not
+        a tombstone on the edge, because an edge cannot outlive its note. Only
+        Tasks are stamped: the checkbox door mints Tasks, and the lookup and
+        sweep that read the record are Task-scoped.
 
         Args:
             entry_uid: UserEntry UID (target of EXTRACTED_FROM)
             links: ``(entity_uid, vault_id)`` pairs read off the edges
 
         Returns:
-            Result[int]: number of edges deleted
+            Result[int]: number of edges retired
         """
         if not links:
             return Result.ok(0)
@@ -713,22 +730,143 @@ class _RelationshipCrudMixin[T: DomainModelProtocol]:
         MATCH (entry:UserEntry {uid: $entry_uid})
         UNWIND $links AS link
         MATCH (e:Entity {uid: link.uid})-[r:EXTRACTED_FROM {vault_id: link.vault_id}]->(entry)
+        WITH link, e, r, r.source_line AS base
+        FOREACH (_ IN CASE WHEN e:Task THEN [1] ELSE [] END |
+            SET e.retired_vault_id = link.vault_id,
+                e.retired_source_line = base,
+                e.vault_line_retired_at = datetime()
+        )
         DELETE r
-        RETURN count(r) AS deleted_count
+        RETURN count(r) AS retired_count
         """
         params = {
             "entry_uid": entry_uid,
             "links": [{"uid": uid, "vault_id": vault_id} for uid, vault_id in links],
         }
         record = await self._run_single(query, params)
-        deleted_count = int(record["deleted_count"]) if record else 0
+        retired_count = int(record["retired_count"]) if record else 0
 
-        if deleted_count < len(links):
+        if retired_count < len(links):
             self.logger.warning(
-                f"EXTRACTED_FROM retirement: deleted {deleted_count}/{len(links)} edges "
+                f"EXTRACTED_FROM retirement: retired {retired_count}/{len(links)} edges "
                 f"for entry {entry_uid} (edge re-keyed or already gone)"
             )
-        return Result.ok(deleted_count)
+        return Result.ok(retired_count)
+
+    @safe_backend_operation("repoint_extracted_from_link")
+    async def repoint_extracted_from_link(
+        self, entity_uid: str, vault_id: str, from_entry_uid: str, to_entry_uid: str
+    ) -> Result[bool]:
+        """Move one 🆔 edge from ``from_entry`` to ``to_entry`` in one statement (R4).
+
+        A line cut from one note and pasted into another keeps its task: the
+        old edge, keyed on ``(task, vault_id)`` as read, is deleted and the new
+        one MERGEd onto ``to_entry`` carrying the old edge's digest, base and
+        ``extracted_at`` UNCHANGED — the base is what SKUEL last saw, and a
+        line edited or checked during the move must still diff against it.
+        One transaction: two service calls would leave a window in which the
+        task's only identity edge is gone and a retry mints a twin.
+
+        A task already tracked from ``to_entry`` under another 🆔 (a second
+        line of it there) keeps that edge: there is one provenance edge per
+        (task, entry), and overwriting it would silently drop the first
+        line's identity. The move is refused, the source edge left alone —
+        the source note's re-ingest retires it, and the sweep sees a task
+        still tracked.
+
+        Returns:
+            Result[bool]: whether an edge for ``(task, vault_id, from_entry)``
+            existed and was moved
+        """
+        query = """
+        MATCH (t:Task {uid: $entity_uid})
+              -[old:EXTRACTED_FROM {vault_id: $vault_id}]->(:UserEntry {uid: $from_entry_uid})
+        MATCH (to:UserEntry {uid: $to_entry_uid})
+        WHERE NOT EXISTS { (t)-[:EXTRACTED_FROM]->(to) }
+        WITH t, old, to,
+             old.source_line_hash AS line_hash,
+             old.source_line AS base,
+             old.extracted_at AS extracted_at
+        DELETE old
+        MERGE (t)-[r:EXTRACTED_FROM]->(to)
+        ON CREATE SET r.extracted_at = coalesce(extracted_at, datetime())
+        SET r.vault_id = $vault_id,
+            r.source_line_hash = line_hash,
+            r.source_line = base
+        RETURN count(r) AS repointed
+        """
+        record = await self._run_single(
+            query,
+            {
+                "entity_uid": entity_uid,
+                "vault_id": vault_id,
+                "from_entry_uid": from_entry_uid,
+                "to_entry_uid": to_entry_uid,
+            },
+        )
+        repointed = int(record["repointed"]) if record else 0
+        if repointed == 0:
+            self.logger.info(
+                f"repoint_extracted_from_link: EXTRACTED_FROM {{vault_id: {vault_id}}} "
+                f"{entity_uid} → {from_entry_uid} not moved to {to_entry_uid} "
+                "(re-keyed, already moved, or the task is already tracked there)"
+            )
+        return Result.ok(repointed > 0)
+
+    @safe_backend_operation("revive_extracted_from_link")
+    async def revive_extracted_from_link(
+        self,
+        user_uid: UserUID,
+        entity_uid: str,
+        vault_id: str,
+        entry_uid: str,
+        source_line_hash: str | None,
+    ) -> Result[bool]:
+        """Re-link a stamped Task to the entry its 🆔 reappeared in, in one statement (R4).
+
+        The task is matched on its stamp as read (``retired_vault_id =
+        vault_id``, owned by ``user_uid``) — a task re-stamped or cleared
+        meanwhile is left alone. The new edge carries the stamp's base as
+        ``source_line`` and the caller's digest (the base's own, or none when
+        the stamp held no base — the identity guard then refreshes it), and
+        the three stamps are cleared in the same statement. A task already
+        tracked from ``entry`` under another 🆔 keeps that edge and its stamp
+        (the sweep clears a still-tracked task's stamp): one provenance edge
+        per (task, entry), never overwritten.
+
+        Returns:
+            Result[bool]: whether a task carrying the stamp existed and was re-linked
+        """
+        query = """
+        MATCH (:User {uid: $user_uid})-[:OWNS]->(t:Task {uid: $entity_uid, retired_vault_id: $vault_id})
+        MATCH (to:UserEntry {uid: $entry_uid})
+        WHERE NOT EXISTS { (t)-[:EXTRACTED_FROM]->(to) }
+        WITH t, to, t.retired_source_line AS base
+        MERGE (t)-[r:EXTRACTED_FROM]->(to)
+        ON CREATE SET r.extracted_at = datetime()
+        SET r.vault_id = $vault_id,
+            r.source_line = base,
+            r.source_line_hash = $source_line_hash
+        REMOVE t.retired_vault_id, t.retired_source_line, t.vault_line_retired_at
+        RETURN count(r) AS revived
+        """
+        record = await self._run_single(
+            query,
+            {
+                "user_uid": user_uid,
+                "entity_uid": entity_uid,
+                "vault_id": vault_id,
+                "entry_uid": entry_uid,
+                "source_line_hash": source_line_hash,
+            },
+        )
+        revived = int(record["revived"]) if record else 0
+        if revived == 0:
+            self.logger.info(
+                f"revive_extracted_from_link: Task {entity_uid} not re-linked to {entry_uid} "
+                f"by 🆔 {vault_id} (stamp cleared or re-stamped, or already tracked there)"
+            )
+        return Result.ok(revived > 0)
 
     @safe_backend_operation("delete_relationship")
     async def delete_relationship(

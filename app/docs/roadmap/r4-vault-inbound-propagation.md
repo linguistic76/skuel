@@ -1,11 +1,11 @@
 ---
 title: "R4 Vault Inbound Propagation — Build Plan"
 updated: 2026-09-15
-status: "scheduled — build plan ruled 2026-09-15; PR 1 next"
+status: "in progress — PR 1 (identity survives one sync: stamps, source_line base, re-point/revival, sweep) #1343; PR 2 (reconciliation) next"
 registered: 2026-08-24
 ruled: 2026-09-15
 trigger: "scheduled by Mike 2026-09-15 (was: Mike schedules it — product decision, not a data threshold)"
-check: "each PR lands its rig test in tests/integration/test_vault_inbound_propagation.py and fails the mutant named beside it; after PR 1 the live W28→W29 fixture re-points with no twin minted"
+check: "each PR lands its rig test in tests/integration/test_vault_inbound_propagation.py and fails the mutant named beside it (PR 1: 8 of 8, in the PR body); after PR 1 one ./dev vault-sync --force seeds every base and the live W28→W29 fixture re-points with no twin minted"
 ---
 
 # R4 Vault Inbound Propagation — Build Plan
@@ -282,7 +282,7 @@ Each PR: unit tests for the pure/branch logic, one end-to-end case on the existi
 fixture module; new file `test_vault_inbound_propagation.py`), and the mutant it must fail
 (run it — the round-trip file's tests were each probed that way in #1341).
 
-1. **Identity survives a line's disappearance for one sync.** The three stamps on Task;
+1. **Identity survives a line's disappearance for one sync** — ✅ #1343. The three stamps on Task;
    `source_line` on the edge — written on create, **seeded** where absent, carried by
    re-point and revival, never advanced (no reconciliation yet, so nothing may be marked
    "seen"); `retire_extracted_from_links` (delete + stamp, one statement) replaces the delete

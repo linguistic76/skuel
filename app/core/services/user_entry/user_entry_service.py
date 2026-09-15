@@ -68,6 +68,8 @@ if TYPE_CHECKING:
         ExtractionTwinRow,
         KnowledgeEntryGroundingRow,
         OrganizerResult,
+        VaultIdTaskRow,
+        VaultRetiredTaskRow,
     )
     from core.services.exercises.exercise_service import ExerciseService
     from core.services.groups.group_service import GroupService
@@ -743,26 +745,92 @@ class UserEntryService(BaseService[UserEntryOperations, UserEntry]):
         return await self.backend.get_user_active_extraction_twins(user_uid, labels)
 
     async def create_extracted_from_links(
-        self, entry_uid: str, links: list[tuple[str, str, str | None]]
+        self, entry_uid: str, links: list[tuple[str, str, str | None, str | None]]
     ) -> Result[int]:
         """Batch-write EXTRACTED_FROM provenance edges for DSL-created entities (ADR-069).
+
+        ``links`` is ``(entity_uid, source_line_hash, vault_id, source_line)``;
+        the base (``source_line``) is written where the edge has none and kept
+        where it has one.
 
         Backend: UserEntryBackend.create_extracted_from_links.
         """
         return await self.backend.create_extracted_from_links(entry_uid, links)
 
-    async def delete_extracted_from_links(
+    async def retire_extracted_from_links(
         self, entry_uid: str, links: list[tuple[str, str]]
     ) -> Result[int]:
         """Retire the EXTRACTED_FROM edges of 🆔 lines deleted from a surviving note (ADR-070).
 
-        ``links`` is ``(entity_uid, vault_id)`` pairs. The entities stay — a
-        vault-side line deletion is not a SKUEL deletion (inbound propagation
-        is parked, deferred-work § R4); only the line's provenance goes.
+        ``links`` is ``(entity_uid, vault_id)`` pairs. The task stays and is
+        stamped with the edge's 🆔 and base — the R4 grace record: a 🆔 that
+        reappears in any note within one sync re-links through
+        ``revive_extracted_from_link``; the end-of-sync sweep judges the rest.
 
-        Backend: UserEntryBackend.delete_extracted_from_links.
+        Backend: UserEntryBackend.retire_extracted_from_links.
         """
-        return await self.backend.delete_extracted_from_links(entry_uid, links)
+        return await self.backend.retire_extracted_from_links(entry_uid, links)
+
+    async def find_task_by_vault_id(
+        self, user_uid: UserUID, vault_id: str
+    ) -> Result[list[VaultIdTaskRow]]:
+        """Every owned Task a 🆔 names — live edges first, then stamped tasks (R4).
+
+        Backend: UserEntryBackend.find_task_by_vault_id.
+        """
+        return await self.backend.find_task_by_vault_id(user_uid, vault_id)
+
+    async def repoint_extracted_from_link(
+        self, entity_uid: str, vault_id: str, from_entry_uid: str, to_entry_uid: str
+    ) -> Result[bool]:
+        """Move a 🆔 line's edge to the note it was pasted into, base and digest intact (R4).
+
+        Backend: UserEntryBackend.repoint_extracted_from_link.
+        """
+        return await self.backend.repoint_extracted_from_link(
+            entity_uid, vault_id, from_entry_uid, to_entry_uid
+        )
+
+    async def revive_extracted_from_link(
+        self,
+        user_uid: UserUID,
+        entity_uid: str,
+        vault_id: str,
+        entry_uid: str,
+        source_line_hash: str | None,
+    ) -> Result[bool]:
+        """Re-link a stamped task to the note its 🆔 reappeared in; the stamp clears (R4).
+
+        Backend: UserEntryBackend.revive_extracted_from_link.
+        """
+        return await self.backend.revive_extracted_from_link(
+            user_uid, entity_uid, vault_id, entry_uid, source_line_hash
+        )
+
+    async def list_vault_retired_tasks(
+        self, user_uid: UserUID, retired_before: datetime
+    ) -> Result[list[VaultRetiredTaskRow]]:
+        """Every owned Task stamped before ``retired_before`` — the sweep's input (R4).
+
+        Backend: UserEntryBackend.list_vault_retired_tasks.
+        """
+        return await self.backend.list_vault_retired_tasks(user_uid, retired_before)
+
+    async def clear_vault_retirement_stamps(
+        self, user_uid: UserUID, stamps: list[tuple[str, str]]
+    ) -> Result[int]:
+        """Clear the retirement stamps the sweep has judged, keyed on the 🆔 as read (R4).
+
+        Backend: UserEntryBackend.clear_vault_retirement_stamps.
+        """
+        return await self.backend.clear_vault_retirement_stamps(user_uid, stamps)
+
+    async def read_graph_clock(self) -> Result[datetime]:
+        """The database's ``datetime()`` — the sweep's cutoff, on the stamps' own clock (R4).
+
+        Backend: UserEntryBackend.read_graph_clock.
+        """
+        return await self.backend.read_graph_clock()
 
     async def update_processing_state(
         self,

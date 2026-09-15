@@ -181,6 +181,7 @@ def obsidian_task_line_to_parsed(
         source_file=source_file,
         source_line=source_line,
         raw_line=normalized_raw,
+        verbatim_line=line,
         is_checked=is_checked,
         vault_id=vault_id,
     )

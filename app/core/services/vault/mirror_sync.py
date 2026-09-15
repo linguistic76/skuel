@@ -72,11 +72,17 @@ class MirrorPullStats:
     ``warnings`` carries every skipped row (torn read, per-file fetch failure,
     server-side wall refusal) so a sync door never says "complete" over a
     partially-refreshed mirror; paths in it are vault-relative only.
+    ``stale`` counts the files the mirror could NOT bring current — a fetch
+    failure, a torn read, a write failure — whose previous copy (or absence)
+    is what the inbound pass then reads: those notes have not had their say
+    this sync, and the retirement sweep holds while any exist (R4). A wall
+    refusal is not stale: that file is outside what SKUEL may read at all.
     """
 
     fetched: int = 0
     unchanged: int = 0
     deleted: int = 0
+    stale: int = 0
     warnings: list[str] = field(default_factory=list)
 
 
@@ -175,11 +181,13 @@ class VaultMirrorPuller:
         try:
             snapshot = await self._transport.read_note(user_uid, relative_path)
         except FILE_IO_EXCEPTIONS as exc:
+            stats.stale += 1
             stats.warnings.append(f"mirror refresh could not fetch {relative_path!r}: {exc}")
             return
         if snapshot.sha256 != expected_sha256:
             # Torn-read guard: the file changed on the device between listing
             # and fetch — skip it; the next sync's listing catches it.
+            stats.stale += 1
             stats.warnings.append(
                 f"mirror refresh skipped {relative_path!r}: content changed mid-sync"
             )
@@ -196,6 +204,7 @@ class VaultMirrorPuller:
                 tmp_path.unlink(missing_ok=True)
                 raise
         except OSError as exc:
+            stats.stale += 1
             stats.warnings.append(
                 f"mirror refresh could not write {relative_path!r}: {type(exc).__name__}"
             )

@@ -180,6 +180,16 @@ class UserEntry(UserOwnedEntity):
         """
         return self.metadata.get("entry_kind") in PERIODIC_NOTE_KINDS
 
+    def is_vault_note(self) -> bool:
+        """True when this entry was ingested from a vault file it can be written back to.
+
+        The metadata ``vault_file_path`` stamp is the discriminator — the same
+        one the outbound pass keys the task round-trip on (ADR-070). An
+        uploaded or API-created entry has none: a 🆔 task line copied into it
+        must never pull the task's provenance away from its vault note.
+        """
+        return bool(self.metadata.get("vault_file_path"))
+
     def get_processing_duration(self) -> float | None:
         """Get processing duration in seconds, or None if not applicable."""
         if not self.processing_started_at or not self.processing_completed_at:

@@ -935,23 +935,62 @@ class RelationshipCrudOperations(Protocol):
         ...
 
     async def create_extracted_from_links(
-        self, entry_uid: str, links: builtins.list[tuple[str, str, str | None]]
+        self, entry_uid: str, links: builtins.list[tuple[str, str, str | None, str | None]]
     ) -> ResultType[int]:
         """Batch-write ``(created)-[:EXTRACTED_FROM]->(entry)`` provenance edges.
 
-        ``links`` is ``(created_uid, source_line_hash, vault_id)`` triples (ADR-070).
+        ``links`` is ``(entity_uid, source_line_hash, vault_id, source_line)`` (ADR-070).
+        The digest and 🆔 are written as given; ``source_line`` — the line verbatim, the
+        base a later sync diffs the vault against — is written where the edge has none
+        and kept where it has one (a present base advances only with its consumer).
         Backend: ``_RelationshipCrudMixin.create_extracted_from_links``.
         """
         ...
 
-    async def delete_extracted_from_links(
+    async def retire_extracted_from_links(
         self, entry_uid: str, links: builtins.list[tuple[str, str]]
     ) -> ResultType[int]:
         """Retire ``(entity)-[:EXTRACTED_FROM {vault_id}]->(entry)`` edges whose vault line is gone.
 
         ``links`` is ``(entity_uid, vault_id)`` pairs as read off the edges; the 🆔 is part of
-        the match, so a re-keyed edge is not retired on a stale read. The entity survives.
-        Backend: ``_RelationshipCrudMixin.delete_extracted_from_links``.
+        the match, so a re-keyed edge is not retired on a stale read. The entity survives;
+        a Task is stamped with the edge's 🆔 and base (``retired_vault_id``,
+        ``retired_source_line``, ``vault_line_retired_at``) in the same statement — the
+        grace record a 🆔 that reappears within one sync is found by.
+        Backend: ``_RelationshipCrudMixin.retire_extracted_from_links``.
+        """
+        ...
+
+    async def repoint_extracted_from_link(
+        self, entity_uid: str, vault_id: str, from_entry_uid: str, to_entry_uid: str
+    ) -> ResultType[bool]:
+        """Move one 🆔 edge from ``from_entry`` to ``to_entry`` in a single statement.
+
+        A vault line cut from one note and pasted into another keeps its task: the edge
+        follows the line, carrying its digest, base and ``extracted_at`` unchanged — the
+        base is what SKUEL last saw, and an edit made during the move must still diff
+        against it. One statement, so no retry ever finds the task edge-less. Refused
+        (False, nothing written) when the task is already tracked from ``to_entry``
+        under another 🆔 — one provenance edge per (task, entry), never overwritten.
+        Backend: ``_RelationshipCrudMixin.repoint_extracted_from_link``.
+        """
+        ...
+
+    async def revive_extracted_from_link(
+        self,
+        user_uid: UserUID,
+        entity_uid: str,
+        vault_id: str,
+        entry_uid: str,
+        source_line_hash: str | None,
+    ) -> ResultType[bool]:
+        """Re-link a Task stamped ``retired_vault_id = vault_id`` to ``entry`` in a single statement.
+
+        The 🆔 reappeared within the grace: the new edge carries the stamp's base as
+        ``source_line`` and the given digest (the base's own, or none when the stamp
+        held no base), and all three stamps are cleared. Keyed on the stamp as read;
+        refused (False, stamp kept) when the task is already tracked from ``entry``.
+        Backend: ``_RelationshipCrudMixin.revive_extracted_from_link``.
         """
         ...
 

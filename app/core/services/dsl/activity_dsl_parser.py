@@ -54,6 +54,7 @@ from datetime import date, datetime
 from typing import Any
 
 from core.models.enums.entity_enums import EntityType, NonKuDomain
+from core.ports.vault_bridge_protocol import VAULT_ID_RE
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
 
@@ -131,7 +132,11 @@ class ParsedActivityLine:
         links: List of graph links from @link() tag
         source_file: Optional source file path for tracking
         source_line: Optional line number in source
-        raw_line: Original unparsed line text
+        raw_line: The line as the dedup digest sees it — verbatim for a DSL
+            line; for an obsidian-tasks checkbox line the adapter's normalised
+            form (checkbox canonicalised, 🆔 stripped, whitespace collapsed)
+        verbatim_line: The line exactly as it stands in the file, 🆔 token
+            included — the ``EXTRACTED_FROM.source_line`` base (ADR-070)
         is_checked: Whether checkbox is checked ([x] vs [ ])
         tag_warnings: Dropped-tag-value reports (written tag, unparseable value)
 
@@ -193,6 +198,12 @@ class ParsedActivityLine:
     source_file: str | None = None
     source_line: int | None = None
     raw_line: str | None = None
+    # The line verbatim — what SKUEL last saw of it. Stored on the provenance
+    # edge as ``source_line`` so a later sync can tell which fields the vault
+    # side changed (ADR-070 Decision 3's three-way merge). ``raw_line`` cannot
+    # serve: for checkbox lines it is the dedup-normalised form, which
+    # collapses ``[x]`` to ``[ ]`` and drops the 🆔.
+    verbatim_line: str | None = None
 
     # Checkbox state
     is_checked: bool = False  # [x] vs [ ]
@@ -679,6 +690,16 @@ class ActivityDSLParser:
             # Check checkbox state
             is_checked = bool(self.CHECKBOX_CHECKED.match(line))
 
+            # The ADR-070 🆔 join key is read on BOTH parse doors: SKUEL's
+            # outbound pass injects it into any checkbox line it tracks, DSL
+            # lines included, and a token the inbound side could not read
+            # back would make the line's identity one-directional (moved, it
+            # would lose its task). It is SKUEL's key, not the obsidian-tasks
+            # vocabulary — 📅/⏳/priority emoji stay literal here (one
+            # vocabulary per line, DSL_USAGE_GUIDE § The Parse Contract).
+            vault_id_match = VAULT_ID_RE.search(masked_line)
+            vault_id = vault_id_match.group(1) if vault_id_match else None
+
             # Parse optional tags
             when = self._parse_when(tags.get("when"))
             priority = self._parse_priority(tags.get("priority"))
@@ -726,7 +747,9 @@ class ActivityDSLParser:
                 source_file=source_file,
                 source_line=source_line_num,
                 raw_line=line,
+                verbatim_line=line,
                 is_checked=is_checked,
+                vault_id=vault_id,
                 tag_warnings=tag_warnings,
             )
 
@@ -832,7 +855,7 @@ class ActivityDSLParser:
             source_file=source_file,
         )
 
-        self.logger.info(
+        self.logger.debug(
             f"Parsed journal: {len(activities)} activities from {len(lines)} lines "
             f"({len(errors)} errors)"
         )
@@ -886,6 +909,10 @@ class ActivityDSLParser:
         # from the masked copy, which is the same length as ``text``).
         for match in reversed(list(self.TAG_PATTERN.finditer(masked_text))):
             text = text[: match.start()] + text[match.end() :]
+
+        # The 🆔 join key is SKUEL's, never description text (ADR-070) —
+        # captured as ``vault_id`` by the caller, stripped here.
+        text = VAULT_ID_RE.sub(" ", text)
 
         # Clean up whitespace
         text = " ".join(text.split())
@@ -1261,6 +1288,23 @@ def _escaped_at(line: str, index: int) -> bool:
     while index - backslashes - 1 >= 0 and line[index - backslashes - 1] == "\\":
         backslashes += 1
     return backslashes % 2 == 1
+
+
+def parsed_vault_ids(text: str) -> set[str]:
+    """The 🆔s on the lines ``parse_journal`` reads as activity lines — both doors.
+
+    The move / revival branch of extraction asks which 🆔s a note holds *on
+    activity lines*: a 🆔 mentioned in prose ("see 🆔 sk_…") or sitting inside
+    a code span is not a line the outbound pass could ever write to, and
+    provenance re-pointed onto it would be stranded on the wrong note. One
+    parse path, so the oracle can never disagree with what extraction will
+    then recognise. (The deleted-line verdict deliberately uses the wider raw
+    token scan — there, a 🆔 anywhere in the text is a reason NOT to retire.)
+    """
+    parsed = ActivityDSLParser().parse_journal(text)
+    if parsed.is_error:
+        return set()
+    return {activity.vault_id for activity in parsed.value.activities if activity.vault_id}
 
 
 def mask_code_spans_in_lines(lines: list[str]) -> list[str]:

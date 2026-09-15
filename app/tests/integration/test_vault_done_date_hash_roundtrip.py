@@ -64,192 +64,26 @@ filesystem bridge — never a re-implementation of any guard:
 The unit-level contracts — which tokens the digest normalises, and Guard 2b
 at the extractor — are pinned DB-free in
 ``tests/unit/test_obsidian_tasks_adapter.py`` and
-``tests/unit/test_dsl_integration.py``; this file is path-filtered.
+``tests/unit/test_dsl_integration.py``; this file is path-filtered. The rig
+itself lives in ``tests/integration/_vault_rig.py``, shared with the R4 arc
+(``test_vault_inbound_propagation.py``): a retired line now also STAMPS its
+task for the one-sync grace, which is that file's subject — here the stamp
+is only ever asserted absent or irrelevant.
 """
 
 from __future__ import annotations
 
-from dataclasses import dataclass
-from pathlib import Path
-from typing import Any
-from unittest.mock import AsyncMock, Mock
-
 import pytest
-import pytest_asyncio
 
-from adapters.persistence.neo4j.backends.sharing_backend import SharingBackend
-from adapters.persistence.neo4j.backends.user_entry_backend import UserEntryBackend
-from adapters.persistence.neo4j.ingestion_backend import IngestionBackend
-from adapters.persistence.neo4j.ingestion_service_factory import make_unified_ingestion_service
-from adapters.persistence.neo4j.neo4j_query_executor import Neo4jQueryExecutor
-from adapters.vault.filesystem_adapter import FilesystemVaultAdapter
-from core.models.entity import Entity
 from core.models.enums.entity_enums import EntityStatus
-from core.models.enums.neo_labels import NeoLabel
-from core.models.task.task_request import TaskUpdateRequest
-from core.models.type_hints import UserUID
-from core.models.user.user import User, UserPreferences
-from core.services.dsl.activity_extractor import ActivityExtractorService
-from core.services.ingestion.config import build_sync_allowlist
-from core.services.sharing.unified_sharing_service import UnifiedSharingService
-from core.services.user_entry.user_entry_processing_service import UserEntryProcessingService
-from core.services.user_entry.user_entry_service import UserEntryService
-from core.services.vault.vault_descriptor import VaultDescriptor, VaultKind, VaultRegistry
-from core.services.vault.vault_reconciler import VaultReconciler, VaultSyncStats
-from core.utils.result_simplified import Result
-
-OWNER = UserUID("user_vault_done_hash")
-NOTE = "periodic_notes/2026-08-23.md"
-TITLE = "Water the plants"
-
-# A daily periodic note: the deterministic ``ue:daily:…`` uid makes every
-# re-sync upsert the same UserEntry, which is what puts the guards on the path.
-FRONTMATTER = (
-    "---\n"
-    "type: user_entry\n"
-    "pipeline: extract_activities\n"
-    "metadata:\n"
-    "  entry_kind: daily\n"
-    "date: 2026-08-23\n"
-    "---\n\n"
+from tests.integration._vault_rig import (
+    FRONTMATTER,
+    TITLE,
+    Rig,
+    cancel_in_skuel,
+    complete_in_skuel,
+    reopen_in_skuel,
 )
-
-
-@dataclass
-class Rig:
-    driver: Any
-    vault: Path
-    reconciler: VaultReconciler
-    tasks: Any
-
-    @property
-    def note(self) -> Path:
-        return self.vault / NOTE
-
-    async def sync(self) -> VaultSyncStats:
-        result = await self.reconciler.sync(VaultKind.PERSONAL, OWNER)
-        assert result.is_ok, result
-        stats = result.value
-        assert not stats.errors, stats.errors
-        assert not stats.first_run_notice, "consent gate engaged — owner fixture lost its consent"
-        return stats
-
-    async def extracted_edges(self) -> list[tuple[str, str | None]]:
-        """``(task uid, vault_id)`` of every EXTRACTED_FROM edge into the owner's entries."""
-        async with self.driver.session() as session:
-            result = await session.run(
-                """
-                MATCH (t:Task)-[r:EXTRACTED_FROM]->(:UserEntry {user_uid: $owner})
-                RETURN t.uid AS uid, r.vault_id AS vault_id
-                ORDER BY t.uid
-                """,
-                owner=OWNER,
-            )
-            return [(row["uid"], row["vault_id"]) async for row in result]
-
-    async def owned_tasks(self) -> list[tuple[str, str]]:
-        """``(uid, status)`` of every Task the owner holds."""
-        async with self.driver.session() as session:
-            result = await session.run(
-                """
-                MATCH (u:User {uid: $owner})-[:OWNS]->(t:Task)
-                RETURN t.uid AS uid, t.status AS status
-                ORDER BY t.uid
-                """,
-                owner=OWNER,
-            )
-            return [(row["uid"], row["status"]) async for row in result]
-
-
-@pytest_asyncio.fixture
-async def rig(neo4j_driver, clean_neo4j, tasks_service, tmp_path: Path) -> Rig:
-    """The production wiring of the personal-vault sync, over a temp vault.
-
-    Everything on the loop is real: ``VaultReconciler`` → smart-mode
-    ``ingest_directory`` (tracker-backed, so an edited file re-ingests) →
-    ``UserEntryService`` → ``UserEntryProcessingService`` (all three graph-read
-    guards) → ``ActivityExtractorService`` → the real ``TasksCoreService`` →
-    the outbound pass through ``FilesystemVaultAdapter``. The only double is
-    the user lookup: a ``User`` who has granted vault-write consent, so the
-    first-run gate lets the sync through — the gate is not under test.
-    """
-    vault = tmp_path / "vault"
-    (vault / "periodic_notes").mkdir(parents=True)
-    content_root = tmp_path / "content"  # distinct → the doorway-folder wall applies
-    content_root.mkdir()
-
-    executor = Neo4jQueryExecutor(neo4j_driver)
-    sharing = UnifiedSharingService(
-        backend=SharingBackend(neo4j_driver, NeoLabel.ENTITY, Entity),
-    )
-    user_entry_service = UserEntryService(
-        backend=UserEntryBackend(neo4j_driver),  # type: ignore[arg-type]
-        sharing_service=sharing,
-    )
-
-    consenting_owner = User(
-        uid=OWNER, title=OWNER, preferences=UserPreferences(vault_write_consent=True)
-    )
-    user_service = Mock()
-    user_service.get_user = AsyncMock(return_value=Result.ok(consenting_owner))
-
-    processor = UserEntryProcessingService(
-        entry_service=user_entry_service,
-        activity_extractor=ActivityExtractorService(tasks_service=tasks_service),
-        user_service=user_service,
-    )
-    ingestion = make_unified_ingestion_service(
-        driver=neo4j_driver,
-        default_user_uid=OWNER,
-        ingestion_backend=IngestionBackend(executor=executor),
-        user_entry_service=user_entry_service,
-        user_service=user_service,
-        user_entry_processor=processor,
-    )
-    allowlist = build_sync_allowlist(vault, content_root=content_root)
-    personal = VaultDescriptor(
-        kind=VaultKind.PERSONAL,
-        root=vault,
-        owner_uid=OWNER,
-        allowlist=allowlist,
-        bridge=FilesystemVaultAdapter(allowed_root=vault),
-        supports_task_round_trip=True,
-    )
-    registry = VaultRegistry(content=None, personal=personal)
-    ingestion.vault_registry = registry
-    ingestion.sync_allowlist = allowlist
-
-    reconciler = VaultReconciler(
-        registry=registry,
-        unified_ingestion=ingestion,
-        user_entry_service=user_entry_service,
-        tasks_service=tasks_service,
-        user_service=user_service,
-    )
-    return Rig(driver=neo4j_driver, vault=vault, reconciler=reconciler, tasks=tasks_service)
-
-
-async def _complete_in_skuel(rig: Rig, task_uid: str) -> None:
-    """The status-control door: stamps ``completion_date`` and cascades."""
-    done = await rig.tasks.update_task(
-        task_uid, TaskUpdateRequest(status=EntityStatus.COMPLETED).to_intent()
-    )
-    assert done.is_ok, done
-
-
-async def _reopen_in_skuel(rig: Rig, task_uid: str) -> None:
-    """The same status-control door, back out of ``completed`` (ADR-087).
-
-    The guarded write returns the prior status, so the reopen is detected
-    exactly — and consumed by the write that produced it. Nothing here
-    subscribes to ``TaskReopened``: the vault surface below is driven by the
-    outbound pass's STATE predicate instead, which is why it survives this
-    call returning and can be re-evaluated on any later sync.
-    """
-    reopened = await rig.tasks.update_task(
-        task_uid, TaskUpdateRequest(status=EntityStatus.ACTIVE).to_intent()
-    )
-    assert reopened.is_ok, reopened
 
 
 @pytest.mark.asyncio
@@ -274,7 +108,7 @@ class TestReopenUnchecksTheVaultLine:
         assert "🆔 sk_" in injected
 
         # Sync 2: completed in SKUEL → the outbound pass checks it and stamps ✅.
-        await _complete_in_skuel(rig, task_uid)
+        await complete_in_skuel(rig, task_uid)
         second = await rig.sync()
         assert second.tasks_marked_done == 1, second
         assert second.tasks_marked_undone == 0, second
@@ -282,7 +116,7 @@ class TestReopenUnchecksTheVaultLine:
         assert done_line.startswith("- [x]") and "✅ " in done_line, done_line
 
         # Sync 3: reopened in SKUEL → the line goes back to exactly what it was.
-        await _reopen_in_skuel(rig, task_uid)
+        await reopen_in_skuel(rig, task_uid)
         third = await rig.sync()
         assert third.tasks_marked_undone == 1, third
         assert third.tasks_marked_done == 0, third
@@ -321,7 +155,7 @@ class TestDoneDateWriteBackRoundTrip:
         assert status != EntityStatus.COMPLETED.value
         assert "🆔 sk_" in rig.note.read_text(encoding="utf-8")
 
-        await _complete_in_skuel(rig, task_uid)
+        await complete_in_skuel(rig, task_uid)
 
         # Sync 2: the 🆔 edit re-ingests (hash stable across injection — the
         # existing guarantee), then the outbound pass writes [x] + ✅.
@@ -368,7 +202,7 @@ class TestDoneDateWriteBackRoundTrip:
         rig.note.write_text(FRONTMATTER + "- [ ] Gym\n", encoding="utf-8")
         await rig.sync()
         ((task_uid, _),) = await rig.owned_tasks()
-        await _complete_in_skuel(rig, task_uid)
+        await complete_in_skuel(rig, task_uid)
         await rig.sync()  # 🆔 re-ingest + [x] ✅ write-back
         await rig.sync()  # the write-back re-ingests; Guard 2b recognises the line
         assert len(await rig.owned_tasks()) == 1
@@ -395,7 +229,7 @@ class TestDoneDateWriteBackRoundTrip:
         rig.note.write_text(FRONTMATTER + "- [ ] Gym\n", encoding="utf-8")
         await rig.sync()
         ((task_uid, _),) = await rig.owned_tasks()
-        await _complete_in_skuel(rig, task_uid)
+        await complete_in_skuel(rig, task_uid)
         await rig.sync()  # 🆔 re-ingest + [x] ✅ write-back — NOT re-ingested yet
         written = rig.note.read_text(encoding="utf-8")
         assert "- [x] Gym" in written, written
@@ -422,7 +256,7 @@ class TestDoneDateWriteBackRoundTrip:
         rig.note.write_text(FRONTMATTER + "- [ ] Gym\n", encoding="utf-8")
         await rig.sync()
         ((task_uid, _),) = await rig.owned_tasks()
-        await _complete_in_skuel(rig, task_uid)
+        await complete_in_skuel(rig, task_uid)
         await rig.sync()  # 🆔 re-ingest + [x] ✅ write-back
         await rig.sync()  # the write-back re-ingests: the edge's hash is refreshed
         assert len(await rig.owned_tasks()) == 1
@@ -474,10 +308,7 @@ class TestDeletedLinesRetireTheirEdges:
         ((task_uid, _),) = await rig.owned_tasks()
         [(_, old_id)] = await rig.extracted_edges()
         assert old_id and old_id.startswith("sk_"), old_id
-        cancelled = await rig.tasks.update_task(
-            task_uid, TaskUpdateRequest(status=EntityStatus.CANCELLED).to_intent()
-        )
-        assert cancelled.is_ok, cancelled
+        await cancel_in_skuel(rig, task_uid)
 
         rig.note.write_text(FRONTMATTER + "Skipped it this week.\n", encoding="utf-8")
         cleared = await rig.sync()
@@ -507,7 +338,7 @@ class TestDeletedLinesRetireTheirEdges:
         rig.note.write_text(FRONTMATTER + f"- [ ] {TITLE}\n", encoding="utf-8")
         await rig.sync()
         ((task_uid, _),) = await rig.owned_tasks()
-        await _complete_in_skuel(rig, task_uid)
+        await complete_in_skuel(rig, task_uid)
         await rig.sync()  # 🆔 re-ingest + [x] ✅ write-back
         await rig.sync()  # the write-back re-ingests
         [(_, old_id)] = await rig.extracted_edges()

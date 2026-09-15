@@ -25,7 +25,7 @@ from adapters.persistence.neo4j.neo4j_mapper import (
 from core.models.enums.entity_enums import EntityType
 from core.models.relationship_names import RelationshipName
 from core.models.type_hints import Neo4jProperties, UserUID
-from core.ports.query_types import ExtractionTwinRow
+from core.ports.query_types import ExtractionTwinRow, VaultIdTaskRow, VaultRetiredTaskRow
 from core.utils.result_simplified import Errors, Result
 
 if TYPE_CHECKING:
@@ -385,10 +385,11 @@ class _UserEntryCrudMixin:
         """Return extracted entity UIDs + EXTRACTED_FROM edge properties for a UserEntry.
 
         Returns a list of dicts with keys: entity_uid, title, labels,
-        source_line_hash, vault_id. Used by VaultReconciler for outbound ID
-        injection / status round-trip (ADR-070) and by
-        UserEntryProcessingService as the input to both extraction dedup
-        guards (Guard 2 hashes + Guard 3 semantic keys, R3).
+        source_line_hash, vault_id, source_line (the base — the line verbatim
+        as SKUEL last saw it, ``None`` on an edge not yet seeded). Used by
+        VaultReconciler for outbound ID injection / status round-trip
+        (ADR-070) and by UserEntryProcessingService as the input to both
+        extraction dedup guards (Guard 2 hashes + Guard 3 semantic keys, R3).
 
         Source is :Entity-bound: :Content chunk shadows share their entity's
         uid (G13) and must never match here.
@@ -399,7 +400,8 @@ class _UserEntryCrudMixin:
                e.title AS title,
                labels(e) AS labels,
                r.source_line_hash AS source_line_hash,
-               r.vault_id AS vault_id
+               r.vault_id AS vault_id,
+               r.source_line AS source_line
         """
         result = await self.execute_query(query, {"entry_uid": entry_uid})
         if result.is_error:
@@ -412,10 +414,157 @@ class _UserEntryCrudMixin:
                     "labels": rec.get("labels") or [],
                     "source_line_hash": rec.get("source_line_hash") or "",
                     "vault_id": rec.get("vault_id"),
+                    "source_line": rec.get("source_line"),
                 }
                 for rec in (result.value or [])
             ]
         )
+
+    # =========================================================================
+    # VAULT RETIREMENT — the R4 grace record (ADR-070)
+    # =========================================================================
+
+    async def find_task_by_vault_id(
+        self, user_uid: UserUID, vault_id: str
+    ) -> Result[list[VaultIdTaskRow]]:
+        """Every owned Task a 🆔 names: live ``EXTRACTED_FROM`` edges plus stamped tasks.
+
+        Live rows first (an edge is the stronger fact), then tasks stamped
+        ``retired_vault_id = $vault_id`` that hold no live edge for it. Both
+        shapes are owner-scoped through ``:OWNS`` (ADR-085); the live shape
+        additionally requires the edge's entry to be the user's own.
+        """
+        # The empty OPTIONAL MATCH collects one all-null map; it is dropped
+        # BEFORE the stamped branch's ``NOT … IN`` — a list holding a null
+        # makes that predicate null, which would silently discard every
+        # stamped row.
+        query = """
+        MATCH (u:User {uid: $user_uid})
+        OPTIONAL MATCH (u)-[:OWNS]->(live:Task)
+              -[r:EXTRACTED_FROM {vault_id: $vault_id}]->(entry:UserEntry {user_uid: $user_uid})
+        WITH u, [row IN collect({
+            entity_uid: live.uid,
+            tracked_entry_uid: entry.uid,
+            source_line_hash: r.source_line_hash,
+            source_line: r.source_line
+        }) WHERE row.entity_uid IS NOT NULL] AS live_rows
+        OPTIONAL MATCH (u)-[:OWNS]->(stamped:Task {retired_vault_id: $vault_id})
+        WHERE NOT stamped.uid IN [row IN live_rows | row.entity_uid]
+        WITH live_rows, [row IN collect({
+            entity_uid: stamped.uid,
+            tracked_entry_uid: null,
+            source_line_hash: null,
+            source_line: stamped.retired_source_line
+        }) WHERE row.entity_uid IS NOT NULL] AS stamped_rows
+        UNWIND live_rows + stamped_rows AS row
+        RETURN row.entity_uid AS entity_uid,
+               row.tracked_entry_uid AS tracked_entry_uid,
+               row.source_line_hash AS source_line_hash,
+               row.source_line AS source_line
+        """
+        result = await self.execute_query(query, {"user_uid": user_uid, "vault_id": vault_id})
+        if result.is_error:
+            return Result.fail(result)
+        return Result.ok(
+            [
+                {
+                    "entity_uid": rec["entity_uid"],
+                    "tracked_entry_uid": rec.get("tracked_entry_uid"),
+                    "source_line_hash": rec.get("source_line_hash"),
+                    "source_line": rec.get("source_line"),
+                }
+                for rec in (result.value or [])
+            ]
+        )
+
+    async def list_vault_retired_tasks(
+        self, user_uid: UserUID, retired_before: datetime
+    ) -> Result[list[VaultRetiredTaskRow]]:
+        """Every owned Task whose retirement stamp predates ``retired_before``.
+
+        ``still_tracked`` says whether the task holds a live 🆔-bearing
+        ``EXTRACTED_FROM`` edge into one of the user's entries — a task can be
+        tracked from two notes, and losing one line is not losing the task.
+        The comparison is DateTime against DateTime: the stamp was written by
+        ``datetime()`` and the cutoff read from the same clock.
+        """
+        query = """
+        MATCH (u:User {uid: $user_uid})-[:OWNS]->(t:Task)
+        WHERE t.retired_vault_id IS NOT NULL
+          AND t.vault_line_retired_at < $retired_before
+        RETURN t.uid AS entity_uid,
+               t.retired_vault_id AS retired_vault_id,
+               t.status AS status,
+               EXISTS {
+                   MATCH (t)-[r:EXTRACTED_FROM]->(:UserEntry {user_uid: $user_uid})
+                   WHERE r.vault_id IS NOT NULL
+               } AS still_tracked
+        ORDER BY t.uid
+        """
+        result = await self.execute_query(
+            query, {"user_uid": user_uid, "retired_before": retired_before}
+        )
+        if result.is_error:
+            return Result.fail(result)
+        return Result.ok(
+            [
+                {
+                    "entity_uid": rec["entity_uid"],
+                    "retired_vault_id": rec["retired_vault_id"],
+                    "status": rec.get("status"),
+                    "still_tracked": bool(rec.get("still_tracked")),
+                }
+                for rec in (result.value or [])
+            ]
+        )
+
+    async def clear_vault_retirement_stamps(
+        self, user_uid: UserUID, stamps: list[tuple[str, str]]
+    ) -> Result[int]:
+        """Remove the three retirement stamps from each ``(task_uid, retired_vault_id)``.
+
+        Keyed on the 🆔 as read: a task the sweep listed and a concurrent
+        retirement re-stamped since is left alone, so its newer record is
+        judged by a later sweep rather than erased by this one.
+        """
+        if not stamps:
+            return Result.ok(0)
+        query = """
+        MATCH (u:User {uid: $user_uid})
+        UNWIND $stamps AS stamp
+        MATCH (u)-[:OWNS]->(t:Task {uid: stamp.uid, retired_vault_id: stamp.vault_id})
+        REMOVE t.retired_vault_id, t.retired_source_line, t.vault_line_retired_at
+        RETURN count(t) AS cleared
+        """
+        result = await self.execute_query(
+            query,
+            {
+                "user_uid": user_uid,
+                "stamps": [{"uid": uid, "vault_id": vault_id} for uid, vault_id in stamps],
+            },
+        )
+        if result.is_error:
+            return Result.fail(result)
+        rows = result.value or []
+        return Result.ok(int(rows[0]["cleared"]) if rows else 0)
+
+    async def read_graph_clock(self) -> Result[datetime]:
+        """The database's own ``datetime()``, as a timezone-aware Python datetime.
+
+        The retirement stamps are written by ``datetime()`` inside their own
+        statements, so the sweep's cutoff is read from the same clock — an
+        application-clock cutoff would let modest skew make a retirement look
+        older than the sync it happened in, and the grace would vanish.
+        """
+        result = await self.execute_query("RETURN datetime() AS now")
+        if result.is_error:
+            return Result.fail(result)
+        rows = result.value or []
+        if not rows or rows[0].get("now") is None:
+            return Result.fail(Errors.database("read_graph_clock", "datetime() returned no row"))
+        now = rows[0]["now"]
+        # The driver hands back its own DateTime; ``to_native`` keeps the offset.
+        return Result.ok(now.to_native() if not isinstance(now, datetime) else now)
 
     async def get_user_active_extraction_twins(
         self, user_uid: UserUID, labels: list[str]

@@ -1,6 +1,6 @@
 ---
 title: SKUEL Activity DSL - Usage Guide
-updated: 2026-09-05
+updated: 2026-09-15
 status: current
 category: dsl
 tags: [dsl, examples, patterns, guide, usage, periodic-notes]
@@ -85,12 +85,16 @@ Settled by ruling E3 of the calendar × periodic-notes arc
 `@context(...)` is a DSL line, not an obsidian-tasks line: the explicit
 marker wins and the line parses as the type you declared — so
 `- [ ] … @context(goal)` creates a **Goal**, not a Task. The obsidian-tasks
-vocabulary is **not** interpreted on such a line: `📅`/`⏳`/priority emoji
-and any `🆔 sk_*` token are left as literal description text and `vault_id`
-is not captured, which puts the line outside the ADR-070 checkbox
-round-trip. On a DSL line, express schedule/priority with the DSL's own
-tags (`@when()`, `@priority()`); don't mix the two vocabularies on one
-line.
+*metadata* vocabulary is **not** interpreted on such a line: `📅`/`⏳`/
+priority emoji are left as literal description text and `when` is not
+captured. On a DSL line, express schedule/priority with the DSL's own tags
+(`@when()`, `@priority()`); don't mix the two vocabularies on one line. The
+one token read on **both** doors is the `🆔 sk_*` join key (ADR-070): it is
+SKUEL's own, written by the outbound pass into any checkbox line it tracks —
+DSL lines included — so the inbound side reads it back as `vault_id` (never as
+description text). A DSL checkbox line is therefore inside the checkbox
+round-trip like any other: its 🆔 is its identity when it moves (R4), and its
+`[x]` + `✅` write-back lands on it.
 
 **What never creates entities:**
 
