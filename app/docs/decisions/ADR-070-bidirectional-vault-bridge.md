@@ -20,9 +20,10 @@ related_skills: []
 > already-extracted line unconditionally (Decision 1's 2026-08-23 amendment, Guard 2b, makes that
 > skip *deliberate* for any 🆔 line whose hash moved). Resolved Design Questions § 2's claim that
 > inbound reopen "works for free" is false for the same reason. Ruled 2026-08-23 (cascade-residue
-> disposition, #1139–#1143): docs corrected to the outbound truth; the build is parked with
-> trigger + design sketch in `docs/roadmap/deferred-work.md` § "R4 Vault Inbound Propagation —
-> Parked Build".
+> disposition, #1139–#1143): docs corrected to the outbound truth; the build was parked with a
+> trigger + design sketch, **and scheduled 2026-09-15** — build plan in
+> `docs/roadmap/deferred-work.md` § "R4 Vault Inbound Propagation — Build Plan"; this
+> annotation retires with its PR 4.
 >
 > **Amended 2026-08-24 (reopen-vault-surface arc):** the OUTBOUND half is now complete in both
 > directions of task state — a reopen un-checks the line and strips the `✅` date (Resolved
@@ -323,7 +324,7 @@ personal vault's own direction statement).
 
 **The amendment (Mike, 2026-08-24), stated as built:** a reopen DOES un-check its vault line and strip the `✅` date — **but only the lines SKUEL itself completed.** A **trailing** `✅ date` token is the discriminator, not the checkbox: the done write always appends one at the end, so a dateless `[x]` on a 🆔 line is definitionally the user's own Obsidian check — and because it appends at the END, a `✅ date` inside the task's own text was never SKUEL's either. The done write keys on the same trailing predicate, so every checkbox SKUEL changes carries the marker that reverses it. Since a vault-side check does not reach SKUEL (Guard 2b, inbound parked), reverting it would silently erase a deliberate edit SKUEL cannot even read, on the sync right after they made it. So the operation is the narrow, defensible claim — *a withdrawn completion must not leave SKUEL's own completion token behind* — not a claim of ownership over the checkbox. A dateless `[x]` stays, diverging visibly, which is the pre-existing state § R4 exists to close. The trigger is the outbound pass's **state predicate** — "this task is not `completed` AND its line is still marked done" — not the `TaskReopened` event, which stays published and deliberately unsubscribed. `is_reopen` is only knowable after the guarded write returns the prior status (ADR-087), so the graph write has already committed before any consumer could run and a failed vault write would have **no retry**: re-issuing writes nothing, because the prior is no longer `completed`. A one-shot transition needs a state predicate, not an event. The field-authority table row for undone moves from "deferred" to SKUEL-authoritative.
 
-⚠️ **This is outbound-only and must not be read as bidirectional.** A vault-side check or un-check of a 🆔 line still does NOT reach SKUEL; that half is parked with a design sketch in `docs/roadmap/deferred-work.md` § "R4 Vault Inbound Propagation — Parked Build".
+⚠️ **This is outbound-only and must not be read as bidirectional.** A vault-side check or un-check of a 🆔 line still does NOT reach SKUEL; that half is scheduled (2026-09-15) with its build plan in `docs/roadmap/deferred-work.md` § "R4 Vault Inbound Propagation — Build Plan", and this paragraph retires with that plan's PR 2.
 
 **3. Hash database location:** Neo4j. Stored as `vault_sync_hash` on the `UserEntry` node — no extra state file alongside the vault.
 

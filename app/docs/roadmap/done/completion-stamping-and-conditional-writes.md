@@ -1,6 +1,6 @@
 ---
 title: "Roadmap: completion stamping → cascade idempotency → conditional writes"
-updated: 2026-08-26
+updated: 2026-09-15
 status: complete
 category: roadmap
 tags: [roadmap, tasks, goals, habits, events, status, vault, neo4j, done]
@@ -109,6 +109,6 @@ See ADR-087 § Consequences / § Scope for the contract, and its never-resurrect
 Vault **inbound** `[x]`-completion propagation was dispositioned alongside this chain
 (ruled 2026-08-23, docs corrected 2026-08-24): the `git log -S` discriminator ran, verdict
 **never wired**, the docs now state the outbound-only truth (CLAUDE.md § Obsidian
-VaultBridge, ADR-070's status annotation, both user guides), and the build is parked with a
-trigger and a design sketch — `../deferred-work.md` § R4 Vault Inbound Propagation — Parked
-Build.
+VaultBridge, ADR-070's status annotation, both user guides), and the build was parked with a
+trigger and a design sketch, then scheduled 2026-09-15 — `../deferred-work.md` § R4 Vault
+Inbound Propagation — Build Plan.
