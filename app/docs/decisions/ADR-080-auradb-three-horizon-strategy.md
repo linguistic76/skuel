@@ -1,6 +1,6 @@
 ---
 title: "ADR-080: AuraDB Three-Horizon Strategy & GDS Deferral"
-updated: 2026-07-22
+updated: 2026-09-15
 status: accepted
 category: decisions
 tags: [adr, decisions, neo4j, auradb, graph-data-science, infrastructure]
@@ -29,6 +29,11 @@ Cross-refs: `docs/architecture/ANALOG_DIGITAL_ARCHITECTURE.md`,
 `docs/patterns/NEO4J_SERVER_TUNING.md`.
 
 ---
+
+## Related Skills
+
+For implementation guidance, see:
+- [@neo4j-cypher-patterns](../../.claude/skills/neo4j-cypher-patterns/SKILL.md)
 
 ## Context
 

@@ -1,10 +1,11 @@
 ---
 title: "ADR-035: Three-Tier vs Two-Tier Pattern Selection Guidelines"
-updated: 2026-09-05
+updated: 2026-09-15
 status: accepted
 category: decisions
 tags: [adr, decisions, architecture, patterns, three-tier]
 related: [three_tier_type_system.md, DOMAIN_PATTERNS_CATALOG.md]
+related_skills: [pydantic, python]
 ---
 
 # ADR-035: Three-Tier vs Two-Tier Pattern Selection Guidelines
@@ -20,6 +21,12 @@ related: [three_tier_type_system.md, DOMAIN_PATTERNS_CATALOG.md]
 - Related to: ADR-022 (Graph-native authentication)
 
 ---
+
+## Related Skills
+
+For implementation guidance, see:
+- [@pydantic](../../.claude/skills/pydantic/SKILL.md)
+- [@python](../../.claude/skills/python/SKILL.md)
 
 ## Context
 

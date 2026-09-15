@@ -1,6 +1,6 @@
 ---
 title: "ADR-085: Ownership Read-Enforcement Contract"
-updated: 2026-08-30
+updated: 2026-09-15
 status: accepted
 category: decisions
 tags: [adr, decisions, ownership, multi-tenancy, security, search, reads]
@@ -22,6 +22,12 @@ of one root. This ADR is the read half; ADR-086 is the write half.
 
 > Contract numbering note: the arc contract drafted these as "ADR-084/ADR-085"; ADR-084 was
 > already taken (compact font-size tokens), so they shipped as ADR-085/ADR-086.
+
+## Related Skills
+
+For implementation guidance, see:
+- [@security](../../.claude/skills/security/SKILL.md)
+- [@skuel-search-architecture](../../.claude/skills/skuel-search-architecture/SKILL.md)
 
 ## Context
 

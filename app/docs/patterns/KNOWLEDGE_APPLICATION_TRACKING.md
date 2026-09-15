@@ -1,6 +1,6 @@
 ---
 title: Knowledge Application Tracking
-updated: '2026-07-24'
+updated: '2026-09-15'
 category: patterns
 related_skills:
 - activity-domains
@@ -23,6 +23,13 @@ It is the empirical proof that knowledge is *lived*, which is the foundation of 
 It is the single most important cross-layer signal in the app, and it is **graph-native**.
 
 ---
+
+## Related Skills
+
+For implementation guidance, see:
+- [@activity-domains](../../.claude/skills/activity-domains/SKILL.md)
+- [@learning-loop](../../.claude/skills/learning-loop/SKILL.md)
+- [@neo4j-cypher-patterns](../../.claude/skills/neo4j-cypher-patterns/SKILL.md)
 
 ## The edge IS the tracking
 

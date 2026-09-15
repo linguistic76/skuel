@@ -1,6 +1,6 @@
 ---
 title: HTMX Accessibility Patterns
-updated: '2026-08-12'
+updated: '2026-09-15'
 category: patterns
 related_skills:
 - accessibility-guide
@@ -17,7 +17,6 @@ related_docs: []
 For implementation guidance, see:
 - [@accessibility-guide](../../.claude/skills/accessibility-guide/SKILL.md)
 - [@ui-browser](../../.claude/skills/ui-browser/SKILL.md)
-
 
 ## Overview
 

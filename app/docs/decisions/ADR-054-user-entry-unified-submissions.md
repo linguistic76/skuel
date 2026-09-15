@@ -1,5 +1,6 @@
 ---
-updated: 2026-09-02
+updated: 2026-09-15
+related_skills: [journals]
 ---
 
 # ADR-054: UserEntry — Unified User-Authored Content
@@ -24,6 +25,11 @@ entity type split. Revises the "learning loop" framing of ADR-040.
 > — its decision-time service/backend names (`SubmissionsBackend`,
 > `submissions_processing_service.py`, …) were accurate when written and are
 > deliberately not back-renamed.**
+
+## Related Skills
+
+For implementation guidance, see:
+- [@journals](../../.claude/skills/journals/SKILL.md)
 
 ## Context
 

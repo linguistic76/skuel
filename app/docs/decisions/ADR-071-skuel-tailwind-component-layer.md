@@ -1,6 +1,6 @@
 ---
 title: "ADR-071: SKUEL-Owned Tailwind Component Layer"
-updated: 2026-09-01
+updated: 2026-09-15
 status: implemented
 category: decisions
 tags: [adr, decisions, ui, tailwind, alpine, components]
@@ -21,6 +21,13 @@ related_skills: [skuel-ui, ui-browser, ui-css]
 - Depends on: ADR-050 (PWA / static serving)
 
 ---
+
+## Related Skills
+
+For implementation guidance, see:
+- [@skuel-ui](../../.claude/skills/skuel-ui/SKILL.md)
+- [@ui-browser](../../.claude/skills/ui-browser/SKILL.md)
+- [@ui-css](../../.claude/skills/ui-css/SKILL.md)
 
 ## Context
 

@@ -1,5 +1,6 @@
 ---
-updated: 2026-09-01
+updated: 2026-09-15
+related_skills: [prometheus-grafana]
 ---
 
 # ADR-036: Prometheus as Primary with In-Memory Cache Pattern
@@ -9,6 +10,11 @@ updated: 2026-09-01
 **Decision Makers**: System Architecture
 
 ---
+
+## Related Skills
+
+For implementation guidance, see:
+- [@prometheus-grafana](../../.claude/skills/prometheus-grafana/SKILL.md)
 
 ## Context
 

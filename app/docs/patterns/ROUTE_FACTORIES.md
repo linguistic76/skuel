@@ -1,8 +1,9 @@
 ---
 title: Route Factory Pattern
-updated: '2026-09-12'
+updated: '2026-09-15'
 category: patterns
 related_skills:
+- domain-route-config
 - fasthtml
 related_docs: []
 ---
@@ -16,6 +17,7 @@ related_docs: []
 ## Related Skills
 
 For implementation guidance, see:
+- [@domain-route-config](../../.claude/skills/domain-route-config/SKILL.md)
 - [@fasthtml](../../.claude/skills/fasthtml/SKILL.md)
 
 ## Overview

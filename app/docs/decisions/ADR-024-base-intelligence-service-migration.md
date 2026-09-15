@@ -1,10 +1,11 @@
 ---
 title: "ADR-024: BaseIntelligenceService Migration (now BaseAnalyticsService)"
-updated: 2026-09-05
+updated: 2026-09-15
 status: accepted
 category: decisions
 tags: [adr, decisions, intelligence-services, base-class, facade-pattern, intelligence-operations-protocol, analytics, ai-separation]
 related: [ADR-023-curriculum-baseservice-migration.md, ADR-021-user-context-intelligence-modularization.md, ADR-030-dual-track-assessment-pattern.md]
+related_skills: [base-ai-service, base-analytics-service]
 ---
 
 # ADR-024: BaseIntelligenceService Migration (now BaseAnalyticsService)
@@ -14,6 +15,12 @@ related: [ADR-023-curriculum-baseservice-migration.md, ADR-021-user-context-inte
 **Date:** 2026-01-06 (Initial), 2026-01-08 (Extended to Curriculum Domains), 2026-01-17 (IntelligenceOperations Protocol), 2026-01-18 (Analytics/AI Separation), 2026-01-19 (Naming Convention Documented)
 
 ---
+
+## Related Skills
+
+For implementation guidance, see:
+- [@base-ai-service](../../.claude/skills/base-ai-service/SKILL.md)
+- [@base-analytics-service](../../.claude/skills/base-analytics-service/SKILL.md)
 
 ## Architecture Update (January 18, 2026)
 

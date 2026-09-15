@@ -1,5 +1,6 @@
 ---
-updated: 2026-09-05
+updated: 2026-09-15
+related_skills: [journals]
 ---
 
 # Journals: Domain Architecture
@@ -11,6 +12,11 @@ updated: 2026-09-05
 **This doc:** architecture and design intent of the Journals domain — what drives it, how the two tiers differ, and how it relates to Askesis.
 
 ---
+
+## Related Skills
+
+For implementation guidance, see:
+- [@journals](../../.claude/skills/journals/SKILL.md)
 
 ## 1. Purpose and Access Model
 

@@ -1,6 +1,6 @@
 ---
 title: Route Decorator Architecture
-updated: '2026-09-05'
+updated: '2026-09-15'
 category: patterns
 related_skills:
 - fasthtml
@@ -21,7 +21,6 @@ For implementation guidance, see:
 - [@domain-route-config](../../.claude/skills/domain-route-config/SKILL.md)
 - [@fasthtml](../../.claude/skills/fasthtml/SKILL.md)
 - [@result-pattern](../../.claude/skills/result-pattern/SKILL.md)
-
 
 ## The Core Idea
 

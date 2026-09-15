@@ -1,10 +1,11 @@
 ---
 title: "ADR-022: Graph-Native Authentication"
-updated: 2026-09-05
+updated: 2026-09-15
 status: current
 category: decisions
 tags: [adr, decisions, authentication, security, neo4j]
 related: [UNIFIED_USER_ARCHITECTURE.md, ADR-018-user-roles-four-tier-system.md]
+related_skills: [result-pattern, security]
 ---
 
 # ADR-022: Graph-Native Authentication
@@ -20,6 +21,12 @@ related: [UNIFIED_USER_ARCHITECTURE.md, ADR-018-user-roles-four-tier-system.md]
 - Related to: UNIFIED_USER_ARCHITECTURE.md
 
 ---
+
+## Related Skills
+
+For implementation guidance, see:
+- [@result-pattern](../../.claude/skills/result-pattern/SKILL.md)
+- [@security](../../.claude/skills/security/SKILL.md)
 
 ## Context
 

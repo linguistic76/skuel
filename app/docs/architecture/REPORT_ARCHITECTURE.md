@@ -1,6 +1,6 @@
 ---
 title: Report Architecture
-updated: 2026-09-14
+updated: 2026-09-15
 status: current
 category: architecture
 version: 3.2.0
@@ -35,7 +35,6 @@ All paths produce report entities. The `EntityType`, `ReportSource`, and `visibi
 
 For implementation guidance, see:
 - [@learning-loop](../../.claude/skills/learning-loop/SKILL.md)
-
 
 ## The EntityTypes
 

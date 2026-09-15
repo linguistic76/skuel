@@ -1,6 +1,6 @@
 ---
 title: "Pattern: Hub Page (MOC) Implementation"
-updated: 2026-08-02
+updated: 2026-09-15
 status: current
 category: patterns
 tags: [ui, navigation, moc, hub, cards]
@@ -14,6 +14,11 @@ related_skills: [ui-orchestrator]
 
 For the *design rationale* (why hub pages exist), see `/docs/design-principles/HUB_PAGES.md`.
 This document covers *how to build one*.
+
+## Related Skills
+
+For implementation guidance, see:
+- [@ui-orchestrator](../../.claude/skills/ui-orchestrator/SKILL.md)
 
 ## Architecture
 

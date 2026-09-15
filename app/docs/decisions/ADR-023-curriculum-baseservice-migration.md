@@ -1,10 +1,11 @@
 ---
 title: "ADR-023: Unified BaseService Architecture"
-updated: 2026-09-05
+updated: 2026-09-15
 status: accepted
 category: decisions
 tags: [adr, decisions, baseservice, unified-architecture, search, curriculum]
 related: [ADR-014-unified-ingestion.md, ADR-017-relationship-service-unification.md]
+related_skills: [curriculum-domains]
 ---
 
 # ADR-023: Unified BaseService Architecture
@@ -19,6 +20,11 @@ related: [ADR-014-unified-ingestion.md, ADR-017-relationship-service-unification
 - Related to: ADR-014 (Unified Ingestion), ADR-017 (Relationship Service Unification)
 
 ---
+
+## Related Skills
+
+For implementation guidance, see:
+- [@curriculum-domains](../../.claude/skills/curriculum-domains/SKILL.md)
 
 ## Context
 

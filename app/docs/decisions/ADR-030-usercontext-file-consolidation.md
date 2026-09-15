@@ -1,10 +1,11 @@
 ---
 title: "ADR-030: UserContext File Consolidation"
-updated: 2026-09-05
+updated: 2026-09-15
 status: current
 category: decisions
 tags: [adr, decisions, usercontext, cleanup]
 related: [ADR-016, ADR-021, ADR-029]
+related_skills: [user-context-intelligence]
 ---
 
 # ADR-030: UserContext File Consolidation
@@ -21,6 +22,11 @@ related: [ADR-016, ADR-021, ADR-029]
 - Related to: ADR-029 (GraphNative Service Removal)
 
 ---
+
+## Related Skills
+
+For implementation guidance, see:
+- [@user-context-intelligence](../../.claude/skills/user-context-intelligence/SKILL.md)
 
 ## Context
 

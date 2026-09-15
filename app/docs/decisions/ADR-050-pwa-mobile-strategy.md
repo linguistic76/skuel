@@ -1,9 +1,10 @@
 ---
 title: "ADR-050: PWA as Mobile Strategy"
-updated: 2026-09-01
+updated: 2026-09-15
 status: current
 category: decisions
 tags: [adr, decisions, mobile, pwa, service-worker]
+related_skills: [pwa]
 ---
 
 # ADR-050: PWA as Mobile Strategy
@@ -15,6 +16,11 @@ tags: [adr, decisions, mobile, pwa, service-worker]
 **Decision Type:** Pattern/Practice
 
 ---
+
+## Related Skills
+
+For implementation guidance, see:
+- [@pwa](../../.claude/skills/pwa/SKILL.md)
 
 ## Context
 

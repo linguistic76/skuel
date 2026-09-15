@@ -1,5 +1,6 @@
 ---
-updated: 2026-09-05
+updated: 2026-09-15
+related_skills: [neo4j-cypher-patterns, vis-network]
 ---
 
 # ADR-037: Lateral Relationships Visualization (Phase 5)
@@ -10,6 +11,12 @@ updated: 2026-09-05
 **Category:** UI Architecture, Graph Visualization
 
 ---
+
+## Related Skills
+
+For implementation guidance, see:
+- [@neo4j-cypher-patterns](../../.claude/skills/neo4j-cypher-patterns/SKILL.md)
+- [@vis-network](../../.claude/skills/vis-network/SKILL.md)
 
 ## Context
 

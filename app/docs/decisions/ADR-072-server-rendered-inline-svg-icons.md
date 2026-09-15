@@ -1,11 +1,11 @@
 ---
 title: "ADR-072: Server-Rendered Inline-SVG Icons"
-updated: 2026-06-30
+updated: 2026-09-15
 status: implemented
 category: decisions
 tags: [adr, decisions, ui, icons, lucide, performance]
 related: [ADR-071, ADR-050]
-related_skills: [skuel-ui, ui-css]
+related_skills: [skuel-ui]
 ---
 
 # ADR-072: Server-Rendered Inline-SVG Icons
@@ -23,6 +23,11 @@ related_skills: [skuel-ui, ui-css]
 - Depends on: ADR-050 (PWA / static serving)
 
 ---
+
+## Related Skills
+
+For implementation guidance, see:
+- [@skuel-ui](../../.claude/skills/skuel-ui/SKILL.md)
 
 ## Context
 

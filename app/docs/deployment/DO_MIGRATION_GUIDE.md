@@ -1,11 +1,10 @@
 ---
 title: Droplet Deployment Guide
-updated: 2026-09-13
+updated: 2026-09-15
 category: deployment
 tags: [deployment, droplet, caddy, auradb, operations]
 related_skills:
   - docker
-  - neo4j-cypher-patterns
 ---
 # Droplet Deployment Guide
 

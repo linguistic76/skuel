@@ -1,10 +1,10 @@
 ---
 title: PWA Architecture
-updated: 2026-09-12
+updated: 2026-09-15
 status: current
 category: architecture
 tags: [pwa, service-worker, offline, mobile]
-related_skills: [fasthtml, pwa]
+related_skills: [pwa]
 related_adrs: [ADR-050]
 ---
 # PWA Architecture
@@ -13,8 +13,7 @@ related_adrs: [ADR-050]
 ## Related Skills
 
 For implementation guidance, see:
-- [@fasthtml](../../.claude/skills/fasthtml/SKILL.md)
-
+- [@pwa](../../.claude/skills/pwa/SKILL.md)
 
 ## Overview
 

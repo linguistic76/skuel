@@ -1,10 +1,11 @@
 ---
 title: "ADR-031: BaseService Mixin Decomposition"
-updated: 2026-09-05
+updated: 2026-09-15
 status: current
 category: decisions
 tags: [adr, decisions, baseservice, mixin, srp, decomposition]
 related: [ADR-025-service-consolidation-patterns]
+related_skills: [base-analytics-service]
 ---
 
 # ADR-031: BaseService Mixin Decomposition
@@ -19,6 +20,11 @@ related: [ADR-025-service-consolidation-patterns]
 - Related to: ADR-025-service-consolidation-patterns
 
 ---
+
+## Related Skills
+
+For implementation guidance, see:
+- [@base-analytics-service](../../.claude/skills/base-analytics-service/SKILL.md)
 
 ## Context
 

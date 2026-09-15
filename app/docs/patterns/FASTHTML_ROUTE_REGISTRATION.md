@@ -1,9 +1,9 @@
 ---
 title: FastHTML Route Registration Pattern
-updated: 2026-09-05
+updated: 2026-09-15
 category: patterns
 related_skills:
-- ui-browser
+- domain-route-config
 - fasthtml
 related_docs:
 - /docs/decisions/ADR-020-fasthtml-route-registration-pattern.md

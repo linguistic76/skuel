@@ -1,5 +1,6 @@
 ---
-updated: 2026-09-05
+updated: 2026-09-15
+related_skills: [domain-route-config, fasthtml]
 ---
 
 # ADR-020: FastHTML Route Registration Pattern
@@ -7,6 +8,12 @@ updated: 2026-09-05
 **Status:** Accepted
 **Date:** 2025-12-07
 **Category:** Pattern/Practice
+
+## Related Skills
+
+For implementation guidance, see:
+- [@domain-route-config](../../.claude/skills/domain-route-config/SKILL.md)
+- [@fasthtml](../../.claude/skills/fasthtml/SKILL.md)
 
 ## Context
 

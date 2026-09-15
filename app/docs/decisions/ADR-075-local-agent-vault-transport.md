@@ -1,6 +1,6 @@
 ---
 title: "ADR-075: Stage-2 LocalAgentVaultAdapter — Hosted Vault Sync Transport"
-updated: 2026-08-25
+updated: 2026-09-15
 status: accepted
 category: decisions
 tags: [adr, decisions, vault, vault-bridge, local-agent, security, websocket, ed25519]
@@ -22,6 +22,11 @@ related_skills: [security]
 - Context: the 2026-07-05 vault security arc, PRs #521–#527 (per-user roots, owner-scoped deletion, consent-before-read, threshold valve, per-root lock + sanitized errors, visible privacy wall, dry-run preview)
 
 ---
+
+## Related Skills
+
+For implementation guidance, see:
+- [@security](../../.claude/skills/security/SKILL.md)
 
 ## Context
 

@@ -1,5 +1,5 @@
 ---
-updated: 2026-09-14
+updated: 2026-09-15
 ---
 
 # Deferred Work
@@ -63,10 +63,6 @@ renders them as a table in Obsidian, and a session derives the same table with
 ## Principles `_validate_update` Reform (or Deletion)
 
 [Principles _validate_update Reform (or Deletion)](principles-validate-update-reform.md) — A stale, partly unsatisfiable update hook that `update_principle` bypasses — and the same class in Events — resolved only by a ruling: reform onto the intent or delete.
-
-## Skill↔Doc Backlink Reconciliation (post-canonicalization)
-
-[Skill↔Doc Backlink Reconciliation (post-canonicalization)](skill-doc-backlink-reconciliation.md) — The 28 real backlink warnings the canonical-field validator surfaced, and the 3 drifted `## Related Skills` blocks — each a judgment call, neither blocking.
 
 ## Event Attendance Wiring (`ATTENDS`) — Staged Build
 

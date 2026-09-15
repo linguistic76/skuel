@@ -1,7 +1,7 @@
 ---
 related_skills:
 - ui-browser
-updated: 2026-09-12
+updated: 2026-09-15
 ---
 # Alpine.js Architecture
 *Last updated: 2026-08-04*
@@ -105,7 +105,7 @@ and CLAUDE.md § UI Component Pattern.
 | HTMX | 1.9.10 | Self-hosted (`/static/vendor/`) |
 | Alpine.js | 3.14.8 | Self-hosted (`/static/vendor/`) |
 | Tailwind CSS | (compiled) | `static/css/output.css` (Tailwind CLI) |
-| Lucide icons | 1.22.0 | Self-hosted (`/static/vendor/lucide/`) |
+| Lucide icons | 1.22.0 | Build input only — `/static/vendor/lucide/` feeds `scripts/gen_icons.py`; icons render as inline SVG server-side (ADR-072) |
 
 **See:** `/docs/patterns/UI_COMPONENT_PATTERNS.md#page-layout-architecture-critical` for detailed patterns.
 

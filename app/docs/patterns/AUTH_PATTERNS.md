@@ -1,6 +1,6 @@
 ---
 title: Authentication Patterns in SKUEL
-updated: '2026-09-09'
+updated: '2026-09-15'
 category: patterns
 related_skills: [security]
 related_docs: []
@@ -9,6 +9,11 @@ related_docs: []
 *Last updated: 2026-07-24*
 
 This document describes the authentication and authorization patterns used throughout SKUEL, including when to use each pattern and why.
+
+## Related Skills
+
+For implementation guidance, see:
+- [@security](../../.claude/skills/security/SKILL.md)
 
 ## Overview
 
