@@ -944,6 +944,17 @@ class RelationshipCrudOperations(Protocol):
         """
         ...
 
+    async def delete_extracted_from_links(
+        self, entry_uid: str, links: builtins.list[tuple[str, str]]
+    ) -> ResultType[int]:
+        """Retire ``(entity)-[:EXTRACTED_FROM {vault_id}]->(entry)`` edges whose vault line is gone.
+
+        ``links`` is ``(entity_uid, vault_id)`` pairs as read off the edges; the 🆔 is part of
+        the match, so a re-keyed edge is not retired on a stale read. The entity survives.
+        Backend: ``_RelationshipCrudMixin.delete_extracted_from_links``.
+        """
+        ...
+
     async def delete_relationship(
         self, from_uid: str, to_uid: str, relationship_type: RelationshipName
     ) -> ResultType[bool]:

@@ -1,6 +1,6 @@
 ---
 title: "R4 Vault Inbound Propagation — Parked Build"
-updated: 2026-09-05
+updated: 2026-09-15
 status: "parked"
 registered: 2026-08-24
 ruled: 2026-08-23
@@ -40,6 +40,12 @@ VaultBridge, ADR-070 status annotation, both user guides) — and park the build
 - The two historical guard-miss shapes the branch must not regress: Guard 2 misses when the
   hash moved (that miss becomes the reconciliation trigger), and Guard 4 filters to ACTIVE
   twins by design, so it can never catch a completed task.
+
+- The provenance the branch will read is honest since 2026-09-15: a 🆔 line deleted from a
+  surviving note retires its edge on the file's re-ingest (both keys gone), a stripped token
+  is re-minted by the outbound injection arm — `done/line-deletions-leave-extracted-from-edges.md`.
+  Deletion is the one vault-side edit that now reaches the graph, and only as far as the edge:
+  the task stays, which is this item's rule, not a gap.
 
 **Trigger:** Mike schedules it — product decision, not a data threshold.
 **Named cost while parked:** vault-side checks, unchecks, and edits of 🆔 lines silently do

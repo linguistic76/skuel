@@ -92,10 +92,10 @@ async def _run(
     return stats, bridge, user_entry
 
 
-def _rel(entity_uid: str, line: str) -> dict[str, str | None]:
+def _rel(entity_uid: str, line: str, vault_id: str | None = None) -> dict[str, str | None]:
     return {
         "entity_uid": entity_uid,
-        "vault_id": None,
+        "vault_id": vault_id,
         "source_line_hash": normalize_vault_line_hash(line),
     }
 
@@ -468,3 +468,48 @@ async def test_an_empty_batch_is_guard_only_and_touches_no_file(tmp_path: Path) 
     assert stale.success is False
     assert "Stale-read guard" in str(stale.error)
     assert note.read_text(encoding="utf-8") == after_edit  # nothing written, either way
+
+
+async def test_a_stale_id_whose_line_is_still_here_untokened_is_re_minted(
+    tmp_path: Path,
+) -> None:
+    """The edge names a 🆔 the file no longer carries, but the line's text is
+    still there without one — the user stripped the token. That is the
+    injection arm's case, not the write-back's: the line is found by its
+    digest, a fresh 🆔 is injected, and the edge is re-keyed to it. Left on
+    the write-back arm, the stale id would match no line and the task's
+    completion could never reach the file again."""
+    stats, bridge, user_entry = await _run(
+        [_rel("task_ship", FIRST_LINE, vault_id="sk_stale1")],
+        WriteResult(success=True, new_sha256=None, updates_applied=(True,)),
+        tmp_path,
+    )
+
+    queued = bridge.write_task_updates.await_args.kwargs["updates"]
+    assert len(queued) == 1 and queued[0].inject_vault_id is True
+    assert queued[0].vault_id != "sk_stale1"
+    assert queued[0].source_line_hash == normalize_vault_line_hash(FIRST_LINE)
+    user_entry.update_extracted_vault_id.assert_awaited_once()
+    assert user_entry.update_extracted_vault_id.await_args.args[1:] == (
+        "task_ship",
+        queued[0].vault_id,
+    )
+    assert stats.ids_injected == 1
+    assert stats.is_clean
+
+
+async def test_a_stale_id_whose_line_is_gone_is_skipped(tmp_path: Path) -> None:
+    """Both keys gone — the 🆔 is not in the file and no line hashes to the
+    edge's digest: the user deleted the line. Retiring the edge is the
+    extraction pre-pass's job on the file's re-ingest; this pass queues
+    nothing for it (no write, no warning) rather than a no-op write-back."""
+    stats, bridge, user_entry = await _run(
+        [_rel("task_gone", "- [ ] A line no longer in the note\n", vault_id="sk_stale1")],
+        WriteResult(success=True, new_sha256=None, updates_applied=()),
+        tmp_path,
+    )
+
+    bridge.write_task_updates.assert_not_awaited()
+    user_entry.update_extracted_vault_id.assert_not_awaited()
+    assert stats.ids_injected == 0
+    assert stats.is_clean

@@ -1,6 +1,6 @@
 ---
 title: Unified Ingestion Implementation Guide
-updated: 2026-09-11
+updated: 2026-09-15
 category: patterns
 related_skills: []
 related_docs:
@@ -1279,6 +1279,26 @@ Response fields: `entities_deleted`, `edges_deleted`, `stale_metadata_removed`.
 User-facing warning/error strings render paths **vault-relative** — the vault root's
 absolute host path never reaches stats (`core/utils/path_display.py`, vault security
 arc PR 5); full absolute detail stays in logs.
+
+**Line-level deletion (a 🆔 task line removed from a note that still exists)** is the one
+deletion the tracker cannot see — it is a file *change*, so it reaches the graph through the
+file's re-ingest, not through `reconcile_deletions`. The extraction pre-pass
+(`ActivityExtractorService.extract_and_create`, ahead of Guards 2/2b) retires every
+`EXTRACTED_FROM` edge whose line is gone by **both** keys — its 🆔 nowhere in the text and its
+digest on no 🆔-less line — through `UserEntryService.delete_extracted_from_links`, and drops
+those digests from Guard 2's exact-match set so the same text typed back later is a new task
+instead of being swallowed as the deleted line. **The task itself stays**: a vault-side line
+deletion is not a SKUEL deletion (inbound propagation is parked, deferred-work § R4) — the task
+becomes edge-less, exactly the shape a deleted *note* leaves its tasks in. One key gone is not a
+deletion: a 🆔-less line still hashing to its edge is that line with its token stripped, kept
+and recognised by hash, and the outbound pass re-mints a 🆔 onto it. The run summary
+(`metadata.activity_extraction.retired_links`) records each retirement as `[entity_uid,
+vault_id]`. Edges that never had a 🆔 (bridge / DSL prose) are out of scope by design. An
+**empty body** is a legitimate run, not a validation failure — a fresh periodic note, or one
+emptied down to its frontmatter — and it is the case where every 🆔 edge the entry holds is a
+gone line, so the pre-pass runs over it too. Edges left dangling from before this pre-pass
+existed, on files unchanged since, are retired by one `./dev vault-sync --force` (force
+re-processes unchanged files; a plain sync skips them).
 
 ### Example: Human-initiated incremental vault sync
 

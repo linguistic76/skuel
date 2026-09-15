@@ -739,6 +739,12 @@ class VaultReconciler:
         write reports THAT injection as applied — never on file-level success
         alone (done/reopen-vault-surface.md § Phantom-🆔). The two task-line counters are
         settled the same way, from what landed.
+
+        An edge whose 🆔 the file no longer carries takes the same injection
+        arm as one that never had a 🆔: the line is found by its digest and
+        the edge re-keyed to the 🆔 it ends up with. A line gone from the
+        note is not this pass's to retire — the extraction pre-pass does that
+        on the file's re-ingest (both keys absent), and this pass skips it.
         """
         owner = descriptor.owner_uid
         rels_result = await self._user_entry.get_extracted_entities(entry.uid)
@@ -787,6 +793,7 @@ class VaultReconciler:
         # owns is off the table before the loop starts, and every line a lookup
         # takes is off it afterwards.
         owned_ids = {rel.get("vault_id") for rel in rels if rel.get("vault_id")}
+        present_ids = set(VAULT_ID_RE.findall(snapshot.content))
         claimed_lines = {
             i
             for i, line in enumerate(snapshot.content.splitlines())
@@ -798,20 +805,26 @@ class VaultReconciler:
             vault_id = rel.get("vault_id")
             line_hash = rel.get("source_line_hash", "")
 
-            if not vault_id:
-                # No 🆔 in Neo4j yet — check if the vault file already has one
-                # (possible if a previous sync wrote the file but the DB update failed).
+            if not vault_id or vault_id not in present_ids:
+                # The file does not carry this edge's 🆔 — the edge has none
+                # (never minted; or a previous sync wrote the file but the DB
+                # update failed, so the FILE has one the edge does not), or the
+                # one on the edge is no longer in the note (the user stripped
+                # the token). Either way the line, if it is still here, is
+                # found by its digest, and the edge is (re-)keyed to whatever
+                # 🆔 that line ends up carrying: the one it already has, or a
+                # fresh mint.
                 if not line_hash:
                     continue
                 line_idx = _find_line_by_hash(snapshot.content, line_hash, claimed_lines)
                 if line_idx is None:
-                    # Entity was extracted from non-checkbox content (LLM bridge
-                    # augmentation or DSL prose).  Those lines have no physical
-                    # counterpart in the vault file and can't participate in the
-                    # 🆔 round-trip — skip silently.
+                    # No line to key: a bridge / DSL prose entity (no physical
+                    # counterpart in the file — nothing to round-trip), or a
+                    # 🆔 line the user deleted, whose edge the ingest pre-pass
+                    # retires on the file's re-ingest. Skip silently.
                     logger.debug(
                         "ID injection: skipping %s — no matching checkbox line in %s"
-                        " (bridge/DSL entity, not a vault checkbox line)",
+                        " (bridge/DSL entity, or a deleted 🆔 line)",
                         entity_uid,
                         vault_file_path,
                     )
@@ -847,7 +860,7 @@ class VaultReconciler:
                         )
                     )
             else:
-                # Has 🆔 — check if COMPLETED in SKUEL
+                # The file carries the edge's 🆔 — check if COMPLETED in SKUEL
                 task_result = await self._tasks.get_task(entity_uid)
                 if task_result.is_error or task_result.value is None:
                     continue

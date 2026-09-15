@@ -654,7 +654,7 @@ class _RelationshipCrudMixin[T: DomainModelProtocol]:
     @safe_backend_operation("update_extracted_from_vault_id")
     async def update_extracted_from_vault_id(
         self, entry_uid: str, entity_uid: str, vault_id: str
-    ) -> Result[None]:
+    ) -> Result[bool]:
         """Set vault_id on an existing EXTRACTED_FROM edge (ADR-070 ID injection).
 
         Called by VaultReconciler after injecting a 🆔 token into a vault file
@@ -664,6 +664,9 @@ class _RelationshipCrudMixin[T: DomainModelProtocol]:
             entry_uid: UserEntry UID (target of EXTRACTED_FROM)
             entity_uid: Extracted entity UID (source of EXTRACTED_FROM)
             vault_id: The injected 🆔 ID (e.g. ``sk_abc123``)
+
+        Returns:
+            Result[bool]: whether an edge for the pair existed and was set
         """
         query = """
         MATCH (e:Entity {uid: $entity_uid})-[r:EXTRACTED_FROM]->(entry:UserEntry {uid: $entry_uid})
@@ -674,11 +677,58 @@ class _RelationshipCrudMixin[T: DomainModelProtocol]:
             query,
             {"entity_uid": entity_uid, "entry_uid": entry_uid, "vault_id": vault_id},
         )
-        if not record or int(record["updated"]) == 0:
+        updated = int(record["updated"]) if record else 0
+        if updated == 0:
             self.logger.warning(
                 f"update_extracted_from_vault_id: no EXTRACTED_FROM edge {entity_uid} → {entry_uid}"
             )
-        return Result.ok(None)
+        return Result.ok(updated > 0)
+
+    @safe_backend_operation("delete_extracted_from_links")
+    async def delete_extracted_from_links(
+        self, entry_uid: str, links: builtins.list[tuple[str, str]]
+    ) -> Result[int]:
+        """Retire ``EXTRACTED_FROM`` edges whose vault line is gone (ADR-070).
+
+        Deletes ``(entity)-[:EXTRACTED_FROM {vault_id}]->(entry)`` for each
+        ``(entity_uid, vault_id)`` pair. The 🆔 is part of the match, not just
+        the entity: a pair names the edge as the caller READ it, so an edge
+        re-keyed by a concurrent writer (a fresh injection, the cleanup
+        script's repair) is left alone rather than retired on a stale
+        observation. The entity itself is untouched — a task whose line was
+        deleted from its note stays in SKUEL, edge-less, the same shape
+        file-level deletion propagation leaves when the whole note goes.
+
+        Args:
+            entry_uid: UserEntry UID (target of EXTRACTED_FROM)
+            links: ``(entity_uid, vault_id)`` pairs read off the edges
+
+        Returns:
+            Result[int]: number of edges deleted
+        """
+        if not links:
+            return Result.ok(0)
+
+        query = """
+        MATCH (entry:UserEntry {uid: $entry_uid})
+        UNWIND $links AS link
+        MATCH (e:Entity {uid: link.uid})-[r:EXTRACTED_FROM {vault_id: link.vault_id}]->(entry)
+        DELETE r
+        RETURN count(r) AS deleted_count
+        """
+        params = {
+            "entry_uid": entry_uid,
+            "links": [{"uid": uid, "vault_id": vault_id} for uid, vault_id in links],
+        }
+        record = await self._run_single(query, params)
+        deleted_count = int(record["deleted_count"]) if record else 0
+
+        if deleted_count < len(links):
+            self.logger.warning(
+                f"EXTRACTED_FROM retirement: deleted {deleted_count}/{len(links)} edges "
+                f"for entry {entry_uid} (edge re-keyed or already gone)"
+            )
+        return Result.ok(deleted_count)
 
     @safe_backend_operation("delete_relationship")
     async def delete_relationship(

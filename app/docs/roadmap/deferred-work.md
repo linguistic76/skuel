@@ -108,10 +108,6 @@ renders them as a table in Obsidian, and a session derives the same table with
 
 [HabitEventScheduler Stamps a Goal on a Field Event Does Not Have](habit-event-scheduler-dead-goal-stamp.md) — A dead `fulfills_goal_uid` stamp under a `type: ignore` — the real work is the `CONTRIBUTES_TO_GOAL` edge post-persist, guarded.
 
-## Line Deletions Leave `EXTRACTED_FROM` Edges
-
-[Line Deletions Leave EXTRACTED_FROM Edges](line-deletions-leave-extracted-from-edges.md) — Deleting a task LINE from a surviving note leaves its `EXTRACTED_FROM` edge and hash behind, feeding the extraction guards on every future sync.
-
 ## `UserLearningIntelligence` Write-Only Fields
 
 [UserLearningIntelligence Write-Only Fields](user-learning-intelligence-write-only-fields.md) — A dataclass whose sources were deleted: everything but `current_masteries` and the velocity reading is written and never read — trim it, or name a consumer.

@@ -751,6 +751,19 @@ class UserEntryService(BaseService[UserEntryOperations, UserEntry]):
         """
         return await self.backend.create_extracted_from_links(entry_uid, links)
 
+    async def delete_extracted_from_links(
+        self, entry_uid: str, links: list[tuple[str, str]]
+    ) -> Result[int]:
+        """Retire the EXTRACTED_FROM edges of 🆔 lines deleted from a surviving note (ADR-070).
+
+        ``links`` is ``(entity_uid, vault_id)`` pairs. The entities stay — a
+        vault-side line deletion is not a SKUEL deletion (inbound propagation
+        is parked, deferred-work § R4); only the line's provenance goes.
+
+        Backend: UserEntryBackend.delete_extracted_from_links.
+        """
+        return await self.backend.delete_extracted_from_links(entry_uid, links)
+
     async def update_processing_state(
         self,
         uid: str,
