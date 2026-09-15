@@ -567,12 +567,12 @@ class TestDeletionCancels:
         assert stamp.retired_vault_id == vault_id
 
         held = await rig.sync()
-        assert held.files_broken == 1, held
-        assert held.retirements_held == 1 and held.tasks_cancelled_by_deletion == 0, held
-        assert any("1 vault retirement(s) held" in w for w in held.warnings), held.warnings
         assert await rig.owned_tasks() == [(task_uid, EntityStatus.DRAFT.value)], (
             "the sweep cancelled over a note it could not read"
         )
+        assert held.files_broken == 1, held
+        assert held.retirements_held == 1 and held.tasks_cancelled_by_deletion == 0, held
+        assert any("1 vault retirement(s) held" in w for w in held.warnings), held.warnings
         [stamp] = await rig.stamps()
         assert stamp.retired_vault_id == vault_id
 
