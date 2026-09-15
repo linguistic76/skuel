@@ -31,6 +31,10 @@ would ever extract it).
 
 ## What landed (2026-09-15)
 
+*R4 PR 1 (same day) renamed the retirement `retire_extracted_from_links`: the keyed delete below
+now also stamps the task with the edge's 🆔 and base for the one-sync grace — see the R4 case
+file. The record below describes #1341 as it landed.*
+
 **Retire, don't blank — and the verdict needs both keys.** The edge is *deleted*, not
 blanked: an edge-less task is exactly the shape a deleted *note* already leaves its tasks in
 (the hygiene audit and the duplicate-task cleanup both treat it as legitimate history), and a

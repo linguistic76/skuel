@@ -1285,11 +1285,18 @@ deletion the tracker cannot see — it is a file *change*, so it reaches the gra
 file's re-ingest, not through `reconcile_deletions`. The extraction pre-pass
 (`ActivityExtractorService.extract_and_create`, ahead of Guards 2/2b) retires every
 `EXTRACTED_FROM` edge whose line is gone by **both** keys — its 🆔 nowhere in the text and its
-digest on no 🆔-less line — through `UserEntryService.delete_extracted_from_links`, and drops
+digest on no 🆔-less line — through `UserEntryService.retire_extracted_from_links`, and drops
 those digests from Guard 2's exact-match set so the same text typed back later is a new task
-instead of being swallowed as the deleted line. **The task itself stays**: a vault-side line
-deletion is not a SKUEL deletion (inbound propagation is parked, deferred-work § R4) — the task
-becomes edge-less, exactly the shape a deleted *note* leaves its tasks in. One key gone is not a
+instead of being swallowed as the deleted line. **The task itself stays, stamped**: the retiring
+statement writes `retired_vault_id` / `retired_source_line` / `vault_line_retired_at` on the
+task from the edge it deletes — the one-sync grace record of the R4 build plan
+(`/docs/roadmap/r4-vault-inbound-propagation.md`). A 🆔 that reappears in any note within one
+sync re-links its task by the stamp (`revive_extracted_from_link`); one live on another note is
+a move and its edge is re-pointed in one statement (`repoint_extracted_from_link`); the
+end-of-sync sweep clears the stamps of terminal or still-tracked tasks and, until PR 3 ships
+the cancel consequence, leaves an open untracked task's stamp in place. Whole-note deletion
+(`IngestionBackend.delete_entities_with_metadata`) stamps the note's tasks the same way in the
+statement that `DETACH DELETE`s the entry. One key gone is not a
 deletion: a 🆔-less line still hashing to its edge is that line with its token stripped, kept
 and recognised by hash, and the outbound pass re-mints a 🆔 onto it. The run summary
 (`metadata.activity_extraction.retired_links`) records each retirement as `[entity_uid,
