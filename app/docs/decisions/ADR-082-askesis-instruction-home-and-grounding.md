@@ -1,5 +1,6 @@
 ---
-updated: 2026-07-23
+updated: 2026-09-15
+related_skills: [prompt-templates]
 ---
 
 # ADR-082: Askesis instruction home — authored pedagogy floors + grounding projection
@@ -11,6 +12,11 @@ updated: 2026-07-23
 This is a **choices-doc**: each Decision lists Options → a Recommendation. Founder confirmation turns it into the contract (status → Accepted); disagreement redirects it before any branch or code.
 
 ---
+
+## Related Skills
+
+For implementation guidance, see:
+- [@prompt-templates](../../.claude/skills/prompt-templates/SKILL.md)
 
 ## The elicited workflow (founder, 2026-07-23)
 

@@ -5,7 +5,7 @@ status: accepted
 category: decisions
 tags: [adr, decisions, baseservice, unified-architecture, search, curriculum]
 related: [ADR-014-unified-ingestion.md, ADR-017-relationship-service-unification.md]
-related_skills: [curriculum-domains]
+related_skills: [curriculum-domains, skuel-search-architecture]
 ---
 
 # ADR-023: Unified BaseService Architecture
@@ -25,6 +25,7 @@ related_skills: [curriculum-domains]
 
 For implementation guidance, see:
 - [@curriculum-domains](../../.claude/skills/curriculum-domains/SKILL.md)
+- [@skuel-search-architecture](../../.claude/skills/skuel-search-architecture/SKILL.md)
 
 ## Context
 

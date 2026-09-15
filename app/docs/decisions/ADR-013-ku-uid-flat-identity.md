@@ -1,10 +1,11 @@
 ---
 title: "ADR-013: KU UID Flat Identity Design"
-updated: 2026-09-04
+updated: 2026-09-15
 status: implemented
 category: decisions
 tags: [adr, decisions, ku, uid, identity, curriculum, universal-hierarchical-pattern]
 related: [ENTITY_TYPE_ARCHITECTURE.md, CURRICULUM_GROUPING_PATTERNS.md, UNIVERSAL_HIERARCHICAL_PATTERN.md]
+related_skills: [neo4j-cypher-patterns]
 ---
 
 # ADR-013: KU UID Flat Identity Design
@@ -20,6 +21,11 @@ related: [ENTITY_TYPE_ARCHITECTURE.md, CURRICULUM_GROUPING_PATTERNS.md, UNIVERSA
 - Related to: Curriculum Grouping Patterns (KU, PS, LP, MOC)
 
 ---
+
+## Related Skills
+
+For implementation guidance, see:
+- [@neo4j-cypher-patterns](../../.claude/skills/neo4j-cypher-patterns/SKILL.md)
 
 ## Context
 

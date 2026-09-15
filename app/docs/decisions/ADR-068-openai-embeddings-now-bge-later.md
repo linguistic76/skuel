@@ -1,5 +1,6 @@
 ---
-updated: 2026-09-01
+updated: 2026-09-15
+related_skills: [neo4j-cypher-patterns]
 ---
 
 # ADR-068: OpenAI Embeddings Now, BGE Long-Term — Behind One Provider Chokepoint
@@ -7,6 +8,11 @@ updated: 2026-09-01
 **Status:** Accepted
 **Date:** 2026-06-10
 **Deciders:** MCF
+
+## Related Skills
+
+For implementation guidance, see:
+- [@neo4j-cypher-patterns](../../.claude/skills/neo4j-cypher-patterns/SKILL.md)
 
 ## Context
 

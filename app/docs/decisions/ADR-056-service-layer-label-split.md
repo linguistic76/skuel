@@ -1,12 +1,13 @@
 ---
 title: "ADR-056: Service-Layer Label Split — entity_label + config_lookup_label"
-updated: 2026-06-17
+updated: 2026-09-15
 status: current
 category: decisions
 tags: [adr, decisions, service-layer, domain-config, neo4j, registry]
 related:
   - ADR-026-unified-relationship-registry
   - ADR-031-baseservice-mixin-decomposition
+related_skills: [activity-domains]
 ---
 
 # ADR-056: Service-Layer Label Split — `entity_label` + `config_lookup_label`
@@ -16,6 +17,11 @@ related:
 **Related:**
 [ADR-026 Unified Relationship Registry](ADR-026-unified-relationship-registry.md),
 [ADR-031 BaseService Mixin Decomposition](ADR-031-baseservice-mixin-decomposition.md)
+
+## Related Skills
+
+For implementation guidance, see:
+- [@activity-domains](../../.claude/skills/activity-domains/SKILL.md)
 
 ## Context
 

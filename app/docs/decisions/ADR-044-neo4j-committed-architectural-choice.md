@@ -1,10 +1,11 @@
 ---
 title: "ADR-044: Neo4j as Committed Architectural Choice"
-updated: 2026-09-04
+updated: 2026-09-15
 status: current
 category: decisions
 tags: [adr, decisions, architecture, neo4j, hexagonal]
 related: [ADR-022, ADR-029, ADR-031, ADR-052, ADR-062]
+related_skills: [activity-domains, skuel-ui]
 ---
 
 # ADR-044: Neo4j as Committed Architectural Choice
@@ -23,6 +24,12 @@ related: [ADR-022, ADR-029, ADR-031, ADR-052, ADR-062]
 - Scoped by: ADR-062 (ChargeKeep Billing Layer) — the proposed billing store sits *outside* this commitment
 
 ---
+
+## Related Skills
+
+For implementation guidance, see:
+- [@activity-domains](../../.claude/skills/activity-domains/SKILL.md)
+- [@skuel-ui](../../.claude/skills/skuel-ui/SKILL.md)
 
 ## Context
 

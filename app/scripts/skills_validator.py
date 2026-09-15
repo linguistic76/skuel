@@ -10,12 +10,15 @@ Validates the skills metadata registry and skill directory structure:
 5. Documentation has backlinks (related_skills field)
 6. Registry completeness — every skill directory is registered in metadata
 7. related_skills references resolve to real skills
+8. Every ADR a SKILL.md cites is listed in that skill's related_adrs (the closure;
+   curated extras allowed, reference files free to mention)
 
 Usage:
     uv run python scripts/skills_validator.py           # Full validation
     uv run python scripts/skills_validator.py --json    # JSON output
 """
 
+import re
 import sys
 from dataclasses import asdict, dataclass, field
 from pathlib import Path
@@ -24,6 +27,9 @@ from typing import Any
 import yaml
 
 from core.utils.frontmatter import parse_frontmatter as _parse_frontmatter
+
+# An ADR citation anywhere in prose or code: ADR-020, ADR-030-dual-track-assessment-pattern.md.
+_ADR_CITATION = re.compile(r"\bADR-(\d{3})\b")
 
 # Soft line limit for SKILL.md before we nudge toward progressive disclosure.
 # Claude Code's guidance: keep SKILL.md under ~500 lines and move detail into
@@ -249,6 +255,55 @@ def validate_related_skills_references(
                     )
                 )
 
+    return errors
+
+
+def validate_skill_md_adr_closure(skills: list[dict], skills_dir: Path) -> list[ValidationError]:
+    """Every ADR a skill's ``SKILL.md`` cites is listed in its ``related_adrs``.
+
+    ``SKILL.md`` is the file that defines the skill — the whole of it re-enters context
+    on use — so an ADR it cites is one the skill's guidance depends on, and the registry
+    (hence the cross-reference index, hence the ADR's own ``related_skills`` backlink)
+    must say so. The supporting files (``reference.md``, ``PATTERNS.md``, …) may mention
+    an ADR freely. ``related_adrs`` may hold MORE than this closure — curated extras —
+    never less.
+
+    Matching is by number. A bare ``ADR-030`` in prose cannot pick one of the three files
+    that share the number; the registry entry carries the full filename and does, which
+    is also why the cross-reference resolver refuses a bare duplicated number there.
+    """
+    errors = []
+    for skill in skills:
+        name = str(skill.get("name", ""))
+        skill_md = skills_dir / name / "SKILL.md"
+        if not name or not skill_md.exists():
+            continue  # Check 2 reports the missing file
+        listed = {
+            m.group(0)
+            for entry in skill.get("related_adrs", []) or []
+            if (m := _ADR_CITATION.match(str(entry)))
+        }
+        cited = sorted({f"ADR-{n}" for n in _ADR_CITATION.findall(skill_md.read_text())})
+        for adr in cited:
+            if adr in listed:
+                continue
+            errors.append(
+                ValidationError(
+                    check="skill_md_adr_closure",
+                    severity="error",
+                    message=f"@{name}: SKILL.md cites {adr} but related_adrs does not list it",
+                    context={
+                        "skill": name,
+                        "adr": adr,
+                        "suggestion": (
+                            f"Add {adr} to @{name}'s related_adrs in skills_metadata.yaml "
+                            "(the full filename if the number is shared by several ADRs) "
+                            "and declare the skill in that ADR's related_skills — or move "
+                            "the mention out of SKILL.md into a reference file"
+                        ),
+                    },
+                )
+            )
     return errors
 
 
@@ -524,9 +579,18 @@ def run_validation(project_root: Path) -> ValidationReport:
     else:
         _progress("   ✅ All related_skills references resolve")
 
+    # Check 8: every ADR a SKILL.md cites is in that skill's related_adrs
+    _progress("8. Checking SKILL.md ADR citations against related_adrs...")
+    errors = validate_skill_md_adr_closure(skills, skills_dir)
+    all_errors.extend(errors)
+    if errors:
+        _progress(f"   ❌ Found {len(errors)} cited-but-unlisted ADR(s)")
+    else:
+        _progress("   ✅ Every ADR cited in a SKILL.md is listed in its related_adrs")
+
     _progress()
 
-    total_checks = 7
+    total_checks = 8
 
     # Generate report
     error_count = len([e for e in all_errors if e.severity == "error"])

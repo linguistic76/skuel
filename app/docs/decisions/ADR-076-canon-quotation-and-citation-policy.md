@@ -1,5 +1,6 @@
 ---
-updated: 2026-07-09
+updated: 2026-09-15
+related_skills: [journals]
 ---
 
 # ADR-076: Canon Quotation & Citation Policy — the Companion May Quote and Cite the Shelf
@@ -16,6 +17,11 @@ ADR-068 (OpenAI embeddings now), ADR-040/#565/#566 (Resources reference library 
 `docs/roadmap/canon-journaling-companion.md` (2026-07-08).
 
 ---
+
+## Related Skills
+
+For implementation guidance, see:
+- [@journals](../../.claude/skills/journals/SKILL.md)
 
 ## Context
 

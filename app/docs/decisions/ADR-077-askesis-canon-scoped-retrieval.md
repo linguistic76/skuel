@@ -1,5 +1,6 @@
 ---
-updated: 2026-08-13
+updated: 2026-09-15
+related_skills: [journals]
 ---
 
 # ADR-077: Companion Grounding via a Shared Corpus-Scope Seam — Askesis (PS-scoped) & Journals (vault-scoped) Share One Retrieve-and-Cite Contract
@@ -36,6 +37,11 @@ ADR-043 (intelligence tier toggle), ADR-044 (Neo4j hexagonal boundary),
 **Extends:** [ADR-076](ADR-076-canon-quotation-and-citation-policy.md) — the reusable capability it created.
 
 ---
+
+## Related Skills
+
+For implementation guidance, see:
+- [@journals](../../.claude/skills/journals/SKILL.md)
 
 ## Context
 

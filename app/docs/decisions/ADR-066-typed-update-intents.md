@@ -1,10 +1,11 @@
 ---
 title: "ADR-066: Typed Update Intents (frozen `*UpdateIntent`, one update path)"
-updated: 2026-08-08
+updated: 2026-09-15
 status: current
 category: decisions
 tags: [adr, decisions, architecture, dto, immutability, typing, hexagonal, activity-domains]
 related: [ADR-065, ADR-044, ADR-043, ADR-035]
+related_skills: [activity-domains, domain-route-config, pydantic, pytest, python]
 ---
 
 # ADR-066: Typed Update Intents (frozen `*UpdateIntent`, one update path)
@@ -28,6 +29,15 @@ related: [ADR-065, ADR-044, ADR-043, ADR-035]
   core; the `*UpdateIntent` is a core type, the `*UpdateRequest` stays the edge type.
 
 ---
+
+## Related Skills
+
+For implementation guidance, see:
+- [@activity-domains](../../.claude/skills/activity-domains/SKILL.md)
+- [@domain-route-config](../../.claude/skills/domain-route-config/SKILL.md)
+- [@pydantic](../../.claude/skills/pydantic/SKILL.md)
+- [@pytest](../../.claude/skills/pytest/SKILL.md)
+- [@python](../../.claude/skills/python/SKILL.md)
 
 ## Context
 

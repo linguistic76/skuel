@@ -69,6 +69,7 @@ skills:
       - /docs/patterns/protocol_architecture.md
     related_adrs:
       - ADR-035  # Tier selection guidelines
+      - ADR-066  # Typed Update Intents
     patterns:
       - /docs/patterns/DOCSTRING_STANDARDS.md
       - /docs/patterns/DOMAIN_PATTERNS_CATALOG.md
@@ -93,6 +94,7 @@ skills:
       - /docs/patterns/API_VALIDATION_PATTERNS.md
     related_adrs:
       - ADR-035  # Tier selection guidelines
+      - ADR-066  # Typed Update Intents
     patterns:
       - /docs/patterns/DOMAIN_PATTERNS_CATALOG.md
     keywords: [pydantic, validation, basemodel, serialization]
@@ -158,6 +160,7 @@ skills:
       - /docs/patterns/ROUTE_FACTORIES.md
     related_adrs:
       - ADR-020  # FastHTML route registration pattern
+      - ADR-071  # SKUEL-Owned Tailwind Component Layer
     patterns:
       - /docs/patterns/DOMAIN_ROUTE_CONFIG_PATTERN.md
       - /docs/patterns/ROUTE_FACTORIES.md
@@ -177,6 +180,7 @@ skills:
       - /docs/migrations/DOMAIN_ROUTE_CONFIG_MIGRATION_2026-02-03.md
     related_adrs:
       - ADR-020  # FastHTML route registration pattern
+      - ADR-066  # Typed Update Intents
     patterns:
       - /docs/patterns/ROUTE_FACTORIES.md
       - /docs/patterns/FASTHTML_ROUTE_REGISTRATION.md
@@ -232,6 +236,7 @@ skills:
     related_adrs:
       - ADR-071  # SKUEL-owned Tailwind component layer
       - ADR-072  # Server-rendered inline-SVG icons (the Icon component)
+      - ADR-044  # Neo4j as Committed Architectural Choice
     patterns:
       - /docs/patterns/HIERARCHY_COMPONENTS_GUIDE.md
       - /docs/patterns/API_VALIDATION_PATTERNS.md
@@ -246,7 +251,8 @@ skills:
     library_version: null
     primary_docs:
       - /docs/patterns/ERROR_HANDLING.md
-    related_adrs: []
+    related_adrs:
+      - ADR-054  # UserEntry — unified user-authored content
     patterns:
       - /docs/patterns/RETURN_TYPE_ERROR_PROPAGATION.md
       - /docs/patterns/error_handling_decorators.md
@@ -287,6 +293,10 @@ skills:
       - ADR-080  # AuraDB three-horizon strategy
       - ADR-086  # Universal :OWNS edge + ATTENDS attendance
       - ADR-087  # Status-guarded conditional writes (lock before read)
+      - ADR-013  # KU UID Flat Identity Design
+      - ADR-054  # UserEntry — unified user-authored content
+      - ADR-064  # Neo4j Per-Query Server-Side Timeout via Driver Wrapper
+      - ADR-068  # OpenAI Embeddings Now, BGE Long-Term
     patterns:
       - /docs/patterns/CONTEXT_FIRST_RELATIONSHIP_PATTERN.md
       - /docs/patterns/LATERAL_RELATIONSHIPS_VISUALIZATION.md
@@ -311,6 +321,9 @@ skills:
       - /monitoring/README.md
     related_adrs:
       - ADR-036  # Prometheus-primary cache pattern
+      - ADR-054  # UserEntry — unified user-authored content
+      - ADR-063  # LLM & Embedding SDKs Behind Ports
+      - ADR-080  # AuraDB Three-Horizon Strategy & GDS Deferral
     patterns: []
     keywords: [prometheus, grafana, metrics, observability, monitoring, alerts]
 
@@ -327,7 +340,8 @@ skills:
     library_version: null
     primary_docs:
       - /docs/deployment/DO_MIGRATION_GUIDE.md
-    related_adrs: []
+    related_adrs:
+      - ADR-052  # Firefly III Replaces SKUEL Expense/Budget/Reporting
     patterns: []
     keywords: [docker, compose, dockerfile, container, deployment, digitalocean, droplet, caddy, auradb]
 
@@ -409,6 +423,8 @@ skills:
     related_adrs:
       - ADR-024  # BaseIntelligence service migration
       - ADR-031  # BaseService mixin decomposition
+      - ADR-030-dual-track-assessment-pattern.md  # Dual-track assessment pattern (duplicate number — full filename required)
+      - ADR-080  # AuraDB Three-Horizon Strategy & GDS Deferral
     patterns:
       - /docs/patterns/CONFIGURATION_DRIVEN_SERVICE_ARCHITECTURE.md
       - /docs/patterns/STANDALONE_SERVICE_PATTERN.md
@@ -427,6 +443,8 @@ skills:
       - /docs/intelligence/INTELLIGENCE_SERVICES_INDEX.md
     related_adrs:
       - ADR-024  # BaseIntelligence service migration
+      - ADR-063  # LLM & Embedding SDKs Behind Ports
+      - ADR-074  # Ingestion never embeds inline — post-persist embedding events
     patterns: []
     keywords: [ai, llm, openai, embeddings, semantic]
 
@@ -438,7 +456,12 @@ skills:
     library_package: null  # SKUEL pattern, not external library
     library_version: null
     primary_docs: []
-    related_adrs: []
+    related_adrs:
+      - ADR-063  # LLM & Embedding SDKs Behind Ports
+      - ADR-069  # EXTRACT_ACTIVITIES Pipeline + EntryReport Convergence
+      - ADR-073  # Journals are a zero-persistence private workshop
+      - ADR-081  # Journals companion — authored instruction home + grounding
+      - ADR-082  # Askesis instruction home — authored pedagogy floors + grounding
     patterns: []
     keywords: [prompt, prompt-template, PROMPT_REGISTRY, llm, askesis, prompt-engineering]
 
@@ -458,6 +481,9 @@ skills:
     related_adrs:
       - ADR-086  # Universal :OWNS edge + ATTENDS attendance
       - ADR-087  # Status-guarded conditional writes
+      - ADR-044  # Neo4j as Committed Architectural Choice
+      - ADR-056  # Service-Layer Label Split
+      - ADR-066  # Typed Update Intents
     patterns:
       - /docs/patterns/OWNERSHIP_VERIFICATION.md
       - /docs/patterns/KNOWLEDGE_APPLICATION_TRACKING.md
@@ -495,6 +521,7 @@ skills:
       - /docs/reference/SEARCH_SERVICE_METHODS.md
     related_adrs:
       - ADR-085  # Ownership read-enforcement contract (build_search_visibility_clause)
+      - ADR-023  # Unified BaseService Architecture
     patterns:
       - /docs/patterns/search_service_pattern.md
     keywords: [search, SearchRouter, faceted, unified, BaseService]
@@ -511,6 +538,8 @@ skills:
       - /docs/intelligence/USER_CONTEXT_INTELLIGENCE.md
     related_adrs:
       - ADR-030-usercontext-file-consolidation.md  # duplicate number — full filename required
+      - ADR-021  # User Context Intelligence Modularization
+      - ADR-030-dual-track-assessment-pattern.md  # Dual-track assessment pattern (duplicate number — full filename required)
     patterns:
       - /docs/patterns/CONTEXT_FIRST_RELATIONSHIP_PATTERN.md
     keywords: [UserContext, intelligence, planning, alignment, recommendations]
@@ -528,7 +557,13 @@ skills:
     library_version: null
     primary_docs:
       - /docs/architecture/LEARNING_LOOP_ARCHITECTURE.md
-    related_adrs: []
+    related_adrs:
+      - ADR-038  # Content Sharing Model
+      - ADR-040  # Teacher Exercise Workflow
+      - ADR-043  # Intelligence Tier Toggle
+      - ADR-051  # User Interaction Contract
+      - ADR-054  # UserEntry — unified user-authored content
+      - ADR-069  # EXTRACT_ACTIVITIES Pipeline + EntryReport Convergence
     patterns:
       - /docs/architecture/REPORT_ARCHITECTURE.md
       - /docs/patterns/KNOWLEDGE_APPLICATION_TRACKING.md
@@ -543,7 +578,9 @@ skills:
     library_version: null
     primary_docs:
       - /docs/user-guides/zpd.md
-    related_adrs: []
+    related_adrs:
+      - ADR-046  # Activity Domains connect to Ku via edges, not inheritance
+      - ADR-069  # EXTRACT_ACTIVITIES Pipeline + EntryReport Convergence
     patterns: []
     keywords: [zpd, zone-of-proximal-development, readiness, blocking-gaps, compound-evidence, recommended-actions, askesis, pedagogy]
 
@@ -559,6 +596,11 @@ skills:
     related_adrs:
       - ADR-003
       - ADR-054
+      - ADR-073  # Journals are a zero-persistence private workshop
+      - ADR-076  # Canon Quotation & Citation Policy
+      - ADR-077  # Companion Grounding via a Shared Corpus-Scope Seam
+      - ADR-078  # Discussion Sessions Are Stored but Never Understood
+      - ADR-081  # Journals companion — authored instruction home + grounding
     patterns: []
     keywords: [journals, journal, DNWF, Scribe, Thought Partner, What Is Related, JournalMode, JournalService, instruction_loader, run_stage1, run_stage2, run_stage3]
 
@@ -576,7 +618,9 @@ skills:
     primary_docs:
       - /docs/patterns/TESTING_PATTERNS.md
       - /TESTING.md
-    related_adrs: []
+    related_adrs:
+      - ADR-066  # Typed Update Intents
+      - ADR-087  # Status-Guarded Conditional Writes
     patterns:
       - /docs/patterns/GRAPH_ACCESS_PATTERNS.md
       - /docs/patterns/SHARING_PATTERNS.md

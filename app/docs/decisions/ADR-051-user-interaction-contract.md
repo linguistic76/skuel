@@ -12,10 +12,16 @@ tags:
 related:
   - ADR-047-entity-types-replace-domain-categories
   - ADR-043-intelligence-tier-toggle
-updated: 2026-09-01
+updated: 2026-09-15
+related_skills: [learning-loop]
 ---
 
 # ADR-051: User Interaction Contract
+
+## Related Skills
+
+For implementation guidance, see:
+- [@learning-loop](../../.claude/skills/learning-loop/SKILL.md)
 
 ## Status
 

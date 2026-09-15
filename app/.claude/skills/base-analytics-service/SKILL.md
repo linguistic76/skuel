@@ -10,7 +10,7 @@ allowed-tools: Read, Grep, Glob
 
 SKUEL's intelligence layer uses `BaseAnalyticsService[B, T]` as the foundation for all 9 domain intelligence services. This skill covers creating, modifying, and extending analytics services.
 
-## Key Architecture (ADR-030)
+## Key Architecture (ADR-024)
 
 SKUEL separates analytics from AI with two base classes:
 

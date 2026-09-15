@@ -1,7 +1,7 @@
 ---
 title: "Skill↔Doc Backlink Reconciliation (post-canonicalization)"
 updated: 2026-09-15
-status: "done — every missing-reverse warning reconciled (62 by the time the pass ran, not the 28 registered), the rendered `## Related Skills` blocks regenerated from frontmatter across all 62 docs that declare one, and the sync writer's two whitespace defects fixed on the way; validator reads 137/137 bidirectional, 0 warnings"
+status: "done — every missing-reverse warning reconciled (62 by the time the pass ran, not the 28 registered), the rendered `## Related Skills` blocks regenerated from frontmatter, the sync writer's defects fixed, and the follow-on ruled and executed: `related_adrs` ⊇ the ADRs a SKILL.md cites (skills_validator check 8); validator reads 181/181 bidirectional, 0 warnings"
 registered: 2026-08-11
 trigger: "a new related_skills declaration or skills_metadata.yaml entry that the other side does not mirror — the validator's MISSING_REVERSE warning names it"
 check: "uv run python scripts/validate_cross_references.py — `Missing Reverse Links: 0`; uv run python scripts/sync_cross_references.py --all --dry-run — `Updated: 0` (a block that already matches its frontmatter is reported as skipped)"
@@ -114,7 +114,7 @@ said HTMX loads from unpkg and Lucide ships as a browser runtime (HTMX is vendor
 ADR-072; `ALPINE_JS_ARCHITECTURE.md` carried the same row). The two line-anchored
 `ALLOWED_OCCURRENCES` groups whose docs gained a block were re-anchored from the scanner's report.
 
-**Observed, not acted on:** a skill's `related_adrs` is a curated subset, not its citation
+**Observed, then ruled (below):** a skill's `related_adrs` is a curated subset, not its citation
 closure — the skills' own markdown cites **75** ADRs their `related_adrs` do not list (`journals`
 cites ADR-073/076/077/078/081 and lists ADR-003/054; `activity-domains` cites eight and listed
 none). Closing that is a different, larger judgment pass, and it would drive the orphan count
@@ -122,3 +122,39 @@ none). Closing that is a different, larger judgment pass, and it would drive the
 the rendered `## Related Skills` block is a projection of frontmatter that Obsidian and GitHub
 both already display as properties — whether to keep rendering it at all is a One-Path question
 nobody has asked yet.
+
+---
+
+## Ruling on the cited-but-unlisted ADRs (2026-09-14) — Option C, executed
+
+Three definitions were priced for what `related_adrs` means. **A, curated:** hand-picked,
+no written criterion — the state the tree was in, and it had not been curated: `journals`
+listed a 2025 query ADR and missed the five decisions its SKILL.md teaches from. **B, the
+citation closure over every skill file:** checkable, but 31 of the 68 pairs were single
+passing mentions in deep-dive files, and symmetry would have rendered "for implementation
+guidance, see @prometheus-grafana" into the embeddings ADR because an alerting reference
+named it. **C, the closure over `SKILL.md` only, extras allowed:** the entry file is what
+the skill teaches and what loads on use; supporting files may mention freely. Mike ruled C.
+
+**The contract:** `related_adrs` ⊇ {ADRs cited in `SKILL.md`}. `scripts/skills_validator.py`
+check 8 (`skill_md_adr_closure`, error severity — fails the Validate Documentation job)
+enforces it by number; a duplicated number is disambiguated by the full-filename registry
+entry, which is a human choice the check cannot make. A `SKILL.md` citation is a
+commitment; to mention an ADR without adopting it, mention it in a supporting file. No
+exclusion mechanism exists — the one candidate (`docs-skills-evolution`'s "Example ADRs
+Showing Evolution") was three dead links to unrelated ADRs and was deleted instead.
+
+**What the instrument found before it existed:** both intelligence skills cited
+**ADR-030** for the analytics/AI separation and the quick-reference linked
+`ADR-030-analytics-vs-ai-separation.md` — a file that never existed (the citation is in the
+initial commit). The separation is **ADR-024**, which both skills already listed; the
+citations are corrected. The genuine ADR-030 the analytics skill teaches from is the
+dual-track pattern, now listed by full filename.
+
+**Landed:** 44 `related_adrs` entries across 19 skills (one curated extra — the dual-track
+ADR on `user-context-intelligence`, which cites it for Method 9 under the number its
+consolidation ADR already covers); 28 ADRs gained or extended `related_skills`, 22 of them
+previously orphaned; blocks re-rendered; four `ALLOWED_OCCURRENCES` groups re-anchored.
+Residual C accepts, visible in the index: provenance parentheticals such as `skuel-ui` and
+`activity-domains` listing ADR-044 (the Neo4j-committed decision) because their file
+inventories say a backend sits "below the boundary, ADR-044".

@@ -1,5 +1,6 @@
 ---
-updated: 2026-09-10
+updated: 2026-09-15
+related_skills: [base-ai-service]
 ---
 
 # ADR-074: Ingestion Never Embeds Inline — One Post-Persist Event Chokepoint for Both Doors
@@ -11,6 +12,11 @@ and PR 3 (--stale backfill + empty-body clear path) shipped (see *Implementation
 ADR-068 (OpenAI embeddings now, BGE later), ADR-070 (VaultBridge — vault sync as the primary write path)
 
 ---
+
+## Related Skills
+
+For implementation guidance, see:
+- [@base-ai-service](../../.claude/skills/base-ai-service/SKILL.md)
 
 ## Context
 

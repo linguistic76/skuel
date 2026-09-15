@@ -506,6 +506,13 @@ by glob. A few numbers were reused across ADRs; a bare one then matches several 
 and the resolver refuses to choose — write the full filename instead. See
 `scripts/adr_links.py`.
 
+**What belongs in `related_adrs` (ruled 2026-09-14):** at least every ADR the skill's
+`SKILL.md` cites — `skills_validator.py` check 8 fails on a cited-but-unlisted ADR — plus
+any curated extras. A citation in `SKILL.md` is a commitment (the file is what loads on
+use, so an ADR named there is one the guidance depends on, and the ADR's own
+`related_skills` must point back); a mention in `reference.md` or another supporting file
+is free. To mention an ADR without adopting it, mention it in a supporting file.
+
 **In Documentation** - Declare skills in frontmatter (the canonical doc→skill
 representation; `sync_cross_references.py` renders the `## Related Skills` block from it):
 ```yaml

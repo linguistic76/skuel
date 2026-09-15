@@ -1,6 +1,6 @@
 ---
 updated: 2026-09-15
-related_skills: [journals]
+related_skills: [journals, learning-loop, neo4j-cypher-patterns, prometheus-grafana, ui-error-handling]
 ---
 
 # ADR-054: UserEntry — Unified User-Authored Content
@@ -30,6 +30,10 @@ entity type split. Revises the "learning loop" framing of ADR-040.
 
 For implementation guidance, see:
 - [@journals](../../.claude/skills/journals/SKILL.md)
+- [@learning-loop](../../.claude/skills/learning-loop/SKILL.md)
+- [@neo4j-cypher-patterns](../../.claude/skills/neo4j-cypher-patterns/SKILL.md)
+- [@prometheus-grafana](../../.claude/skills/prometheus-grafana/SKILL.md)
+- [@ui-error-handling](../../.claude/skills/ui-error-handling/SKILL.md)
 
 ## Context
 

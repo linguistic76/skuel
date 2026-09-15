@@ -1,5 +1,6 @@
 ---
-updated: 2026-09-05
+updated: 2026-09-15
+related_skills: [journals, prompt-templates]
 ---
 
 # ADR-073: Journals Are a Zero-Persistence Private Workshop; the Vault Is the Only Memory Channel
@@ -21,6 +22,12 @@ Understood).
 **Related:** ADR-054 (UserEntry collapse), ADR-069 (EXTRACT_ACTIVITIES pipeline + EntryReport), ADR-070 (bidirectional VaultBridge), PR #475 (SyncAllowlist fail-closed vault privacy wall)
 
 ---
+
+## Related Skills
+
+For implementation guidance, see:
+- [@journals](../../.claude/skills/journals/SKILL.md)
+- [@prompt-templates](../../.claude/skills/prompt-templates/SKILL.md)
 
 ## Context
 

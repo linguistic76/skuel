@@ -1,5 +1,6 @@
 ---
-updated: 2026-06-12
+updated: 2026-09-15
+related_skills: [zpd]
 ---
 
 # ADR-046: Activity Domains Connect to Ku via Graph Edges, Not Inheritance
@@ -7,6 +8,11 @@ updated: 2026-06-12
 **Status:** Accepted
 **Date:** 2026-03-06
 **Deciders:** Mike
+
+## Related Skills
+
+For implementation guidance, see:
+- [@zpd](../../.claude/skills/zpd/SKILL.md)
 
 ## Context
 

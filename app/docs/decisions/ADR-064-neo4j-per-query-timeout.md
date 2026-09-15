@@ -1,10 +1,11 @@
 ---
 title: "ADR-064: Neo4j Per-Query Server-Side Timeout via Driver Wrapper"
-updated: 2026-08-29
+updated: 2026-09-15
 status: current
 category: decisions
 tags: [adr, decisions, architecture, neo4j, persistence, performance, hexagonal]
 related: [ADR-044, ADR-049, ADR-063]
+related_skills: [neo4j-cypher-patterns]
 ---
 
 # ADR-064: Neo4j Per-Query Server-Side Timeout via Driver Wrapper
@@ -20,6 +21,11 @@ related: [ADR-044, ADR-049, ADR-063]
 - Sibling: ADR-063 (LLM & Embedding SDKs Behind Ports) — same hexagonal-boundary philosophy applied to outbound SDKs vs this inbound-to-Neo4j wrapper.
 
 ---
+
+## Related Skills
+
+For implementation guidance, see:
+- [@neo4j-cypher-patterns](../../.claude/skills/neo4j-cypher-patterns/SKILL.md)
 
 ## Context
 
