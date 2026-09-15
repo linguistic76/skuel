@@ -425,16 +425,14 @@ class UserEntryProcessingService:
                 phase="setup",
             )
 
-        source_text = entry.processed_content or entry.content
-        if not source_text:
-            return await self._fail(
-                entry,
-                Errors.validation(
-                    "EXTRACT_ACTIVITIES pipeline requires entry.content or entry.processed_content",
-                    field="content",
-                ),
-                phase="setup",
-            )
+        # An empty body is a legitimate run, not a validation failure: a fresh
+        # periodic note before anything is written, or a note whose last task
+        # line was just cleared. It parses to nothing — and the extraction
+        # pre-pass must still see it, because "no 🆔 anywhere" is exactly what
+        # retires the edges of every line the note held. A refusal here would
+        # leave those edges dangling and re-report the file as an extraction
+        # error on every sync (a failed run never checkpoints the file).
+        source_text = entry.processed_content or entry.content or ""
 
         # --- Bridge pre-pass (optional Digital enhancement) ------------------
         # Periodic notes (daily/weekly/monthly) NEVER take the bridge: the

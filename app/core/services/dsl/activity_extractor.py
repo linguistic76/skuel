@@ -636,10 +636,10 @@ class ActivityExtractorService:
             if content_override is not None
             else (entry.processed_content or entry.content or "")
         )
-        if not content:
-            self.logger.warning(f"No content to extract from entry {entry.uid}")
-            extraction.extraction_completed_at = datetime.now()
-            return Result.ok(extraction)
+        # Empty content is parsed like any other (to nothing) rather than
+        # short-circuited: the deleted-line pre-pass below has to run over it,
+        # because a note emptied of its last 🆔 line is the case where EVERY
+        # edge this entry holds is a line that is gone.
 
         # Step 1: Parse for Activity Lines. `entry_kind` (daily/weekly/...) rides
         # the entry metadata onto obsidian-tasks lines as a period:{kind} tag.
@@ -759,11 +759,12 @@ class ActivityExtractorService:
         # above: the same text typed back would hash into the deleted line
         # and be swallowed. One key gone is not a deletion: a 🆔-less line
         # still hashing to the digest is the same line with its token
-        # stripped — Guard 2 recognises it by hash as ever (re-minting it
-        # here would duplicate a completed ``[x] ✅`` line, the #1143 shape)
-        # and the outbound pass re-mints its 🆔. The presence oracle is the
-        # raw token scan, not the parse — a 🆔 the parser cannot see (inside
-        # a code fence) is still on a line the outbound write-back can find.
+        # stripped — Guard 2 recognises it by hash as ever (re-extracting it
+        # would duplicate a completed ``[x] ✅`` line, the twin Guard 2b
+        # exists to prevent) and the outbound pass re-mints its 🆔. The
+        # presence oracle is the raw token scan, not the parse — a 🆔 the
+        # parser cannot see (inside a code fence) is still on a line the
+        # outbound write-back can find.
         # 🆔-bearing edges only: a bridge / DSL prose edge never had a
         # physical line, and its hash matching nothing is its normal state.
         present_vault_ids = set(VAULT_ID_RE.findall(content))

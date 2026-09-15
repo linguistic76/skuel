@@ -497,8 +497,9 @@ Some reflections on the day...
         holds no edge for) is extracted even at the deleted line's digest.
         One key gone is not a deletion: a 🆔-less ``[x] … ✅`` line still
         hashing to its edge is the same line with its token stripped —
-        recognised by hash as ever (re-minting it here would duplicate a
-        completed task, the #1143 shape); the outbound pass re-keys it. A 🆔
+        recognised by hash as ever (re-extracting it would duplicate a
+        completed task, the twin Guard 2b exists to prevent); the outbound
+        pass re-keys it. A 🆔
         that IS in the text — on a parsed line, or inside a code fence the
         parser masks — keeps its edges untouched; so does an edge that never
         had a 🆔 (bridge / DSL prose), whose hash still blocks its line."""

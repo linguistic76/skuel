@@ -48,17 +48,17 @@ filesystem bridge — never a re-implementation of any guard:
    sync after that writes nothing at all (ADR-070 Resolved Design Question 2,
    amended 2026-08-24). ⚠️ Outbound only: a vault-side check or un-check still
    does not reach SKUEL (deferred-work § R4).
-8. **A deleted line retires its edge.** Deleting a 🆔 line from a note that
-   still exists is the case file-level deletion propagation never sees: the
-   edge (and its digest) stayed behind, feeding the guards on every later
-   sync, and the same text typed back later hashed into it and was
-   swallowed. The extraction pre-pass retires every edge whose line is gone
-   by BOTH keys — 🆔 nowhere in the text, digest on no 🆔-less line — and the
-   task itself stays in SKUEL (inbound propagation is parked, § R4).
+8. **A deleted line retires its edge.** A 🆔 line deleted from a note that
+   still exists is the one deletion file-level propagation cannot see. The
+   extraction pre-pass retires every edge whose line is gone by BOTH keys —
+   🆔 nowhere in the text, digest on no 🆔-less line — so the same text typed
+   back later is a new task, not a match against a dead edge; the task itself
+   stays in SKUEL (inbound propagation is parked, § R4). Record:
+   ``docs/roadmap/done/line-deletions-leave-extracted-from-edges.md``.
 9. **A stripped token is re-minted, not re-extracted.** One key gone is not a
    deletion: a 🆔-less line still hashing to its edge is the same line minus
-   its token. It is recognised by hash (a re-mint at ingest would duplicate a
-   completed ``[x] ✅`` line — the #1143 shape all over again) and the
+   its token. It is recognised by hash (re-extracting it would duplicate a
+   completed ``[x] ✅`` line, the twin Guard 2b exists to prevent) and the
    outbound pass injects a fresh 🆔 and re-keys the edge to it.
 
 The unit-level contracts — which tokens the digest normalises, and Guard 2b
@@ -463,13 +463,11 @@ class TestDeletedLinesRetireTheirEdges:
     async def test_a_line_typed_back_after_its_deletion_synced_is_a_fresh_task(
         self, rig: Rig
     ) -> None:
-        """The swallow. A task is cancelled in SKUEL (terminal, so Guard 4
-        ignores it; no write-back, so its unchecked digest never moves). The
-        user clears the line; a later sync sees the same text typed back as a
-        new to-do. The dead edge's digest used to be in the exact-match set
-        forever, so Guard 2 dropped the new line: one task, a line nothing
-        would ever inject. Retiring the edge when the line went makes the
-        typed-back line a new task, injected as one."""
+        """A task is cancelled in SKUEL (terminal, so Guard 4 ignores it; no
+        write-back, so its unchecked digest never moves). The user clears the
+        line; a later sync sees the same text typed back as a new to-do. The
+        cleared line's edge went with it, so nothing in the exact-match set
+        claims the typed-back line: it is a new task, injected as one."""
         rig.note.write_text(FRONTMATTER + f"- [ ] {TITLE}\n", encoding="utf-8")
         await rig.sync()
         await rig.sync()  # the 🆔 edit re-ingests
@@ -503,10 +501,9 @@ class TestDeletedLinesRetireTheirEdges:
     async def test_a_stripped_token_is_re_minted_onto_the_same_line(self, rig: Rig) -> None:
         """One key gone is not a deletion. The user strips the 🆔 token from
         a written-back ``[x] … ✅`` line and leaves the text: the line still
-        hashes to its edge, so it is recognised (no duplicate completed task —
-        the #1143 shape) and the outbound pass injects a fresh 🆔, re-keying
-        the edge, instead of aiming its write-back at an id the file no longer
-        carries."""
+        hashes to its edge, so it is recognised (one completed task, not two)
+        and the outbound pass injects a fresh 🆔 and re-keys the edge to it,
+        keeping the write-back aimed at an id the file carries."""
         rig.note.write_text(FRONTMATTER + f"- [ ] {TITLE}\n", encoding="utf-8")
         await rig.sync()
         ((task_uid, _),) = await rig.owned_tasks()
@@ -535,12 +532,15 @@ class TestDeletedLinesRetireTheirEdges:
         assert (quiet.ids_injected, quiet.tasks_marked_done) == (0, 0), quiet
         assert await rig.owned_tasks() == [(task_uid, EntityStatus.COMPLETED.value)]
 
-    async def test_clearing_every_task_line_leaves_the_tasks_and_no_edges(self, rig: Rig) -> None:
-        """The census shape (#1143: five 🆔 edges into a weekly note holding
-        no checkbox line at all). Clearing the lines is not a SKUEL deletion —
-        both tasks stay, untouched — but their provenance goes with the lines,
-        and the syncs after that are quiet: nothing to inject, nothing to
-        mark, nothing to warn about."""
+    @pytest.mark.parametrize("remaining_body", ["", "Cleared the week.\n"], ids=["empty", "prose"])
+    async def test_clearing_every_task_line_leaves_the_tasks_and_no_edges(
+        self, rig: Rig, remaining_body: str
+    ) -> None:
+        """A note emptied of every 🆔 line — down to its frontmatter, or with
+        prose left. Clearing the lines is not a SKUEL deletion — both tasks
+        stay, untouched — but their provenance goes with the lines, and the
+        syncs after that are quiet: no extraction error for an empty body,
+        nothing to inject, nothing to mark, nothing to warn about."""
         rig.note.write_text(FRONTMATTER + "- [ ] Gym\n- [ ] Read\n", encoding="utf-8")
         await rig.sync()
         await rig.sync()  # the 🆔 edit re-ingests: the tracker now holds the injected note
@@ -548,7 +548,7 @@ class TestDeletedLinesRetireTheirEdges:
         assert len(tasks) == 2, tasks
         assert len(await rig.extracted_edges()) == 2
 
-        rig.note.write_text(FRONTMATTER + "Cleared the week.\n", encoding="utf-8")
+        rig.note.write_text(FRONTMATTER + remaining_body, encoding="utf-8")
         cleared = await rig.sync()
         assert not cleared.warnings, cleared.warnings
         assert await rig.owned_tasks() == tasks, (

@@ -19,6 +19,7 @@ from core.ports.vault_bridge_protocol import (
     apply_mark_done,
     apply_mark_undone,
     apply_task_updates,
+    needs_mark_undone,
     normalize_vault_line_hash,
 )
 
@@ -54,6 +55,11 @@ VAULT_ID = "sk_a1b2c3"
             id="a-date-inside-the-prose-is-not-a-marker",
         ),
         pytest.param(
+            "- [ ] Ship the fix ✅ 2026-08-20\n",
+            f"- [ ] Ship the fix ✅ 2026-08-20 🆔 {VAULT_ID}\n",
+            id="an-unchecked-line-with-a-stray-trailing-date-appends",
+        ),
+        pytest.param(
             "- [x] Ship the fix ✅️ 2026-08-20\n",
             f"- [x] Ship the fix 🆔 {VAULT_ID} ✅️ 2026-08-20\n",
             id="variation-selector-on-the-marker",
@@ -70,7 +76,7 @@ def test_the_token_lands_where_the_plugin_puts_it(line: str, expected: str) -> N
 
 
 def test_a_done_line_is_a_no_op_for_mark_done_after_injection() -> None:
-    """The defect in one assertion: inject, then mark done — nothing to add."""
+    """The invariant in one assertion: inject, then mark done — nothing to add."""
     line = "- [x] Ship the fix ✅ 2026-08-20\n"
     injected, _ = apply_inject_id([line], VAULT_ID, None)
     marked, changed = apply_mark_done(list(injected), VAULT_ID, "2026-08-20")
@@ -88,6 +94,19 @@ def test_inject_then_reopen_restores_the_open_line_the_completion_would_have_wri
     assert reopened[0] == f"- [ ] Ship the fix 🆔 {VAULT_ID}\n"
     redone, _ = apply_mark_done(list(reopened), VAULT_ID, "2026-08-20")
     assert redone[0] == injected[0]
+
+
+def test_an_unchecked_lines_stray_date_is_out_of_both_arms_reach_after_injection() -> None:
+    """The adapter reads no completion from a ``✅ date`` on an unchecked line,
+    so neither outbound arm may treat it as SKUEL's: the un-check must not
+    strip it, and a completion must append its own marker after it."""
+    line = "- [ ] Ship the fix ✅ 2026-08-20\n"
+    injected, _ = apply_inject_id([line], VAULT_ID, None)
+    assert not needs_mark_undone(injected[0], VAULT_ID)
+    untouched, changed = apply_mark_undone(list(injected), VAULT_ID)
+    assert not changed and untouched == injected
+    done, _ = apply_mark_done(list(injected), VAULT_ID, "2026-09-15")
+    assert done[0] == f"- [x] Ship the fix ✅ 2026-08-20 🆔 {VAULT_ID} ✅ 2026-09-15\n"
 
 
 def test_through_the_batch_dispatcher() -> None:

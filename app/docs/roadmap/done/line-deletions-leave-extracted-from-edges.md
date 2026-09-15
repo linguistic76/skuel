@@ -70,6 +70,13 @@ not the parse — a 🆔 inside a code fence is still on a line the write-back c
   tells them apart. And Guard 4's no-provenance-write rule (Kody #501) still leaves a line
   retyped for an ACTIVE task merged but untracked — the cleanup script's LINE-BACKED class,
   unchanged by this work and R4's to close.
+- **Two Codex findings on the PR were real and are in the record above:** (1) the
+  before-marker 🆔 placement applies to CHECKED lines only — on an unchecked line a trailing
+  `✅ date` is the user's stray token, and appending after it is what keeps it out of both
+  arms' reach; (2) a note emptied down to its frontmatter used to be refused at the
+  processing service's non-empty-content guard, so the pre-pass never ran, the edges stayed,
+  and the sync reported an extraction error on every run — an empty body is now a legitimate
+  run (it is the case where every 🆔 edge is a gone line).
 - **Historical edges** (the W28 five, and any file unchanged since its deletion) are retired
   by one `./dev vault-sync --force` — a plain sync skips unchanged files before the pre-pass
   runs.

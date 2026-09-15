@@ -485,12 +485,17 @@ def apply_inject_id(
     in the same file lack an ID.  Falls back to the first ID-less checkbox line
     when no hash is provided.
 
-    The token goes at the end of the line — except in front of a TRAILING
-    ``✅ date``, which stays the last token. ``apply_mark_done`` keys its no-op
-    on that trailing marker, so a 🆔 appended after it would make the next
-    outbound pass append a second date to a line that is already done; the
-    obsidian-tasks plugin itself writes ``🆔`` before ``✅``. The digest is
-    🆔-blind and whitespace-collapsed, so it is the same either side.
+    The token goes at the end of the line — except on a CHECKED line ending in
+    a ``✅ date``, where it goes in front of that marker so the marker stays the
+    last token. ``apply_mark_done`` keys its no-op on a trailing marker, so a
+    🆔 appended after it would make the next outbound pass append a second
+    date to a line that is already done; the obsidian-tasks plugin itself
+    writes ``🆔`` before ``✅``. On an UNCHECKED line a trailing ``✅ date`` is
+    the user's own stray token (the adapter reads no completion from it), and
+    appending the 🆔 after it is what keeps it out of both arms' reach: left
+    trailing, ``apply_mark_undone`` would strip it as SKUEL's and
+    ``apply_mark_done`` would adopt it as the completion date. The digest is
+    🆔-blind and whitespace-collapsed, so it is the same either way.
     """
     for i, line in enumerate(lines):
         if not (_UNCHECKED_RE.match(line) or _CHECKED_RE.match(line)):
@@ -501,7 +506,7 @@ def apply_inject_id(
             continue
         stripped = line.rstrip("\n")
         eol = line[len(stripped) :]
-        marker = _TRAILING_DONE_DATE_RE.search(stripped)
+        marker = _TRAILING_DONE_DATE_RE.search(stripped) if _CHECKED_RE.match(line) else None
         if marker:
             lines[i] = (
                 f"{stripped[: marker.start()]} 🆔 {vault_id}{stripped[marker.start() :]}{eol}"

@@ -1293,9 +1293,12 @@ becomes edge-less, exactly the shape a deleted *note* leaves its tasks in. One k
 deletion: a 🆔-less line still hashing to its edge is that line with its token stripped, kept
 and recognised by hash, and the outbound pass re-mints a 🆔 onto it. The run summary
 (`metadata.activity_extraction.retired_links`) records each retirement as `[entity_uid,
-vault_id]`. Edges that never had a 🆔 (bridge / DSL prose) are out of scope by design. Edges
-left dangling from before this pre-pass existed, on files unchanged since, are retired by one
-`./dev vault-sync --force` (force re-processes unchanged files; a plain sync skips them).
+vault_id]`. Edges that never had a 🆔 (bridge / DSL prose) are out of scope by design. An
+**empty body** is a legitimate run, not a validation failure — a fresh periodic note, or one
+emptied down to its frontmatter — and it is the case where every 🆔 edge the entry holds is a
+gone line, so the pre-pass runs over it too. Edges left dangling from before this pre-pass
+existed, on files unchanged since, are retired by one `./dev vault-sync --force` (force
+re-processes unchanged files; a plain sync skips them).
 
 ### Example: Human-initiated incremental vault sync
 
