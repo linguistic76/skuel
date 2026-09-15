@@ -179,6 +179,72 @@ class TestMovesKeepTheirTask:
         assert await rig.stamps() == []
 
 
+async def _seeded_done_note(rig: Rig) -> tuple[str, str, str]:
+    """``_seeded_note``, then completed in SKUEL and written back: the line reads
+    ``- [x] Vacuum 🆔 sk_… ✅ date`` and the write-back has been re-ingested.
+    Returns ``(task_uid, vault_id, done_line)``."""
+    task_uid, vault_id, _line = await _seeded_note(rig)
+    await complete_in_skuel(rig, task_uid)
+    await rig.sync()  # [x] ✅ write-back
+    await rig.sync()  # the write-back re-ingests
+    done_line = next(
+        ln for ln in rig.note.read_text(encoding="utf-8").splitlines() if vault_id in ln
+    )
+    assert done_line.startswith("- [x]") and "✅" in done_line, done_line
+    return task_uid, vault_id, done_line
+
+
+@pytest.mark.asyncio
+@pytest.mark.integration
+class TestDoneLinesMoveToo:
+    """The twin shape the plan names. Guard 4 ignores terminal twins by design,
+    so a completed task's line found by no edge and no stamp is minted again —
+    a second COMPLETED copy. The stamp lookup (A-first, slow) and the one-
+    statement re-point (B-first) are what stand between a move and that twin."""
+
+    @pytest.mark.parametrize("first", ["A", "B"], ids=["A-first", "B-first"])
+    async def test_a_done_line_cut_into_another_note_in_one_edit(
+        self, rig: Rig, first: str
+    ) -> None:
+        task_uid, vault_id, done_line = await _seeded_done_note(rig)
+
+        rig.note.write_text(FRONTMATTER + "Consolidated.\n", encoding="utf-8")
+        note_b = rig.note_at(NOTE_B)
+        note_b.write_text(FRONTMATTER_B + done_line + "\n", encoding="utf-8")
+        rig.order(*((rig.note, note_b) if first == "A" else (note_b, rig.note)))
+
+        moved = await rig.sync()
+        assert not moved.warnings, moved.warnings
+        assert await rig.owned_tasks() == [(task_uid, EntityStatus.COMPLETED.value)], (
+            "the move minted a second completed task"
+        )
+        [(edge_uid, edge_id, entry, _)] = await rig.edges()
+        assert (edge_uid, edge_id) == (task_uid, vault_id)
+        assert entry.endswith(_entry_uid(NOTE_B))
+        assert await rig.stamps() == []
+        quiet = await rig.sync()
+        assert (quiet.ids_injected, quiet.tasks_marked_done) == (0, 0), quiet
+
+    async def test_a_done_line_cut_sync_paste_sync_is_the_same_task(self, rig: Rig) -> None:
+        task_uid, vault_id, done_line = await _seeded_done_note(rig)
+
+        rig.note.write_text(FRONTMATTER + "Consolidated.\n", encoding="utf-8")
+        await rig.sync()
+        [stamp] = await rig.stamps()
+        assert stamp.retired_vault_id == vault_id
+
+        rig.note_at(NOTE_B).write_text(FRONTMATTER_B + done_line + "\n", encoding="utf-8")
+        pasted = await rig.sync()
+        assert not pasted.warnings, pasted.warnings
+        assert await rig.owned_tasks() == [(task_uid, EntityStatus.COMPLETED.value)], (
+            "the slow move minted a second completed task"
+        )
+        [(edge_uid, edge_id, entry, _)] = await rig.edges()
+        assert (edge_uid, edge_id) == (task_uid, vault_id)
+        assert entry.endswith(_entry_uid(NOTE_B))
+        assert await rig.stamps() == []
+
+
 @pytest.mark.asyncio
 @pytest.mark.integration
 class TestTheSweep:
