@@ -488,6 +488,10 @@ class TestTheSweep:
         swept = await rig.sync()
         assert not swept.warnings, swept.warnings
         assert await rig.stamps() == []
+        assert await rig.owned_tasks() == [(task_uid, EntityStatus.DRAFT.value)], (
+            "a task still tracked from B was cancelled when A's line went"
+        )
+        assert swept.tasks_cancelled_by_deletion == 0
         assert [(uid, v) for uid, v, _, _ in await rig.edges()] == [(task_uid, second_id)]
 
     async def test_the_sweep_holds_over_a_note_it_could_not_read(self, rig: Rig) -> None:
