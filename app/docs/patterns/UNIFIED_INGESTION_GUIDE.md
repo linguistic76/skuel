@@ -1293,8 +1293,10 @@ task from the edge it deletes — the one-sync grace record of the R4 build plan
 (`/docs/roadmap/r4-vault-inbound-propagation.md`). A 🆔 that reappears in any note within one
 sync re-links its task by the stamp (`revive_extracted_from_link`); one live on another note is
 a move and its edge is re-pointed in one statement (`repoint_extracted_from_link`); the
-end-of-sync sweep clears the stamps of terminal or still-tracked tasks and, until PR 3 ships
-the cancel consequence, leaves an open untracked task's stamp in place. Whole-note deletion
+end-of-sync sweep clears the stamps of terminal or still-tracked tasks and cancels an open,
+untracked one through `TasksService.update_task` (R4 rule 1 — the stamp is cleared only when
+that write lands; a refused cancel keeps it and warns, naming the task; the count surfaces as
+`VaultSyncStats.tasks_cancelled_by_deletion`). Whole-note deletion
 (`IngestionBackend.delete_entities_with_metadata`) stamps the note's tasks the same way in the
 statement that `DETACH DELETE`s the entry. One key gone is not a
 deletion: a 🆔-less line still hashing to its edge is that line with its token stripped, kept

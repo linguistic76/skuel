@@ -190,8 +190,8 @@ def sync_stats_fragment(stats_dict: dict[str, Any]) -> Div:
     warning or error. ``coverage_probe_failed`` is deliberately not rendered —
     an optional probe's outage is not a sync problem.
 
-    Edge YAMLs, deleted files and re-opened tasks report only when they
-    happened. Entities and edges create no ``entries_ingested`` movement
+    Edge YAMLs, deleted files, re-opened tasks and tasks cancelled because
+    their vault line was removed (R4) report only when they happened. Entities and edges create no ``entries_ingested`` movement
     between them, so without these lines a sync that wrote five relationships
     and removed a note read exactly like one that did nothing at all.
 
@@ -202,6 +202,7 @@ def sync_stats_fragment(stats_dict: dict[str, Any]) -> Div:
     injected = stats_dict.get("ids_injected", 0)
     done = stats_dict.get("tasks_marked_done", 0)
     undone = stats_dict.get("tasks_marked_undone", 0)
+    cancelled = stats_dict.get("tasks_cancelled_by_deletion", 0)
     failed = stats_dict.get("files_failed", 0)
     walled = stats_dict.get("files_walled", 0)
     unsupported = stats_dict.get("files_unsupported", 0)
@@ -227,6 +228,15 @@ def sync_stats_fragment(stats_dict: dict[str, Any]) -> Div:
             Li(
                 Span(f"{undone}", cls="font-semibold"),
                 " tasks re-opened in vault (un-checked)",
+            )
+        )
+    if cancelled:
+        # A cancel is a state change the user should see; a retirement alone
+        # (the one-sync grace behind it) is not, and has no line here.
+        items.append(
+            Li(
+                Span(f"{cancelled}", cls="font-semibold"),
+                " tasks cancelled — their lines were removed from the vault",
             )
         )
     if moved:

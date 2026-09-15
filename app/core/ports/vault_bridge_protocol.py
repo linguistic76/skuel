@@ -271,6 +271,12 @@ class VaultSyncStats:
     # inbound pass was incomplete (``files_failed``, ``files_broken`` or
     # ``mirror_files_stale``).
     retirements_held: int = 0
+    # Open tasks the sweep CANCELLED because their 🆔 line was gone from the
+    # vault for two consecutive syncs (R4 rule 1). Counted from the write's
+    # own verdict — a refused cancel keeps its stamp, is named in ``warnings``
+    # and is not counted. A cancel is a state change the user sees; a
+    # retirement alone (the stamp, the grace) still is not.
+    tasks_cancelled_by_deletion: int = 0
     warnings: list[str] = field(default_factory=list)
     errors: list[str] = field(default_factory=list)
     # Retrievability (embedding coverage): how much of the corpus lacks a

@@ -1,4 +1,4 @@
-"""The end-of-sync retirement sweep (R4 PR 1) — DB-free.
+"""The end-of-sync retirement sweep (R4 PR 1 + PR 3) — DB-free.
 
 A 🆔 line's disappearance stamps its task (``retired_vault_id``,
 ``retired_source_line``, ``vault_line_retired_at``); a 🆔 that reappears within
@@ -9,9 +9,10 @@ What this file pins is the SWEEP that judges the rest at the end of
 - it lists stamps older than a cutoff read from the DATABASE clock at sync
   start — before ingest, before anything this sync retires;
 - terminal tasks and tasks still tracked from another note have their stamp
-  cleared; an open, untracked task's stamp is LEFT (the cancel consequence is
-  PR 3's — clearing deletion evidence before any consequence exists would make
-  every line deleted meanwhile indistinguishable from a pre-🆔-era orphan);
+  cleared; an open, untracked task is CANCELLED through the Tasks facade's
+  ``update_task`` (status only — C3, never ``backend.update``) and its stamp
+  cleared only when that write returns ok; a refused cancel keeps the stamp
+  (the retry record) and warns, naming the task;
 - it runs only after a complete inbound pass: any failed file, or any ignored
   file that opted in and could not be read (``files_broken``), holds every
   stamp — terminal ones included — with one warning;
@@ -32,6 +33,7 @@ from unittest.mock import AsyncMock, Mock
 import pytest
 
 from core.models.enums.entity_enums import EntityStatus
+from core.models.task.task_update_intent import TaskUpdateIntent
 from core.models.type_hints import UserUID
 from core.ports.query_types import VaultRetiredTaskRow
 from core.ports.vault_bridge_protocol import VaultBridgePort, VaultSyncStats
@@ -85,8 +87,11 @@ def _harness(
     pending: list[VaultRetiredTaskRow],
     ingest: IncrementalStats | None = None,
     mirror_pull: VaultMirrorPuller | None = None,
-) -> tuple[VaultReconciler, Mock, list[str]]:
-    """A reconciler over mocks that records the ORDER of the reads it makes."""
+) -> tuple[VaultReconciler, Mock, Mock, list[str]]:
+    """A reconciler over mocks that records the ORDER of the reads it makes.
+
+    Returns ``(reconciler, user_entry, tasks, order)`` — ``tasks`` is the
+    Tasks facade double every cancel the sweep posts lands on."""
     order: list[str] = []
     user = Mock()
     user.preferences.vault_write_consent = True
@@ -114,14 +119,26 @@ def _harness(
     ingestion = Mock()
     ingestion.ingest_directory = AsyncMock(side_effect=_ingest)
 
+    # The Tasks facade's status-guarded door: every cancel the sweep posts
+    # lands here. Default: every write is accepted.
+    tasks = Mock()
+    tasks.update_task = AsyncMock(return_value=Result.ok(Mock()))
+
     reconciler = VaultReconciler(
         registry=_registry(tmp_path, mirror_pull),
         unified_ingestion=ingestion,
         user_entry_service=user_entry,
-        tasks_service=Mock(),
+        tasks_service=tasks,
         user_service=user_service,
     )
-    return reconciler, user_entry, order
+    return reconciler, user_entry, tasks, order
+
+
+def _cancel_intent(call: object) -> TaskUpdateIntent:
+    """The intent one ``update_task`` call carried."""
+    _uid, intent = call.args  # type: ignore[attr-defined]
+    assert isinstance(intent, TaskUpdateIntent)
+    return intent
 
 
 # =========================================================================
@@ -130,42 +147,127 @@ def _harness(
 
 
 @pytest.mark.asyncio
-async def test_terminal_and_still_tracked_stamps_clear_open_untracked_stays(
+async def test_terminal_and_still_tracked_stamps_clear_open_untracked_is_cancelled(
     tmp_path: Path,
 ) -> None:
     """Four stamps past the grace: a completed task, a cancelled one, an open
     task still tracked from another note, and an open untracked one. The first
-    three are cleared in one keyed call; the fourth is left for PR 3."""
+    three never reach the cancel and are cleared; the fourth is cancelled
+    through the facade and, the write having landed, cleared in the same
+    keyed call. One counter, one clean sync."""
     pending = [
         _row("done", status=EntityStatus.COMPLETED),
         _row("dropped", status=EntityStatus.CANCELLED),
         _row("twice", status=EntityStatus.ACTIVE, still_tracked=True),
         _row("gone", status=EntityStatus.ACTIVE),
     ]
-    reconciler, user_entry, _order = _harness(tmp_path, pending=pending)
-    user_entry.clear_vault_retirement_stamps = AsyncMock(return_value=Result.ok(3))
+    reconciler, user_entry, tasks, _order = _harness(tmp_path, pending=pending)
+    user_entry.clear_vault_retirement_stamps = AsyncMock(return_value=Result.ok(4))
 
     result = await reconciler.sync(VaultKind.PERSONAL, OWNER)
 
     assert result.is_ok
-    user_entry.clear_vault_retirement_stamps.assert_awaited_once_with(
-        OWNER, [("done", "sk_done"), ("dropped", "sk_dropped"), ("twice", "sk_twice")]
+    assert [call.args[0] for call in tasks.update_task.await_args_list] == ["gone"], (
+        "a terminal or still-tracked task reached the cancel"
     )
+    user_entry.clear_vault_retirement_stamps.assert_awaited_once_with(
+        OWNER,
+        [
+            ("done", "sk_done"),
+            ("dropped", "sk_dropped"),
+            ("twice", "sk_twice"),
+            ("gone", "sk_gone"),
+        ],
+    )
+    assert result.value.tasks_cancelled_by_deletion == 1
     assert result.value.retirements_held == 0
     assert result.value.is_clean, (result.value.warnings, result.value.errors)
 
 
 @pytest.mark.asyncio
-async def test_an_open_untracked_stamp_alone_clears_nothing(tmp_path: Path) -> None:
-    """Deletion evidence with no consequence to apply yet: no clear call at all."""
-    reconciler, user_entry, _order = _harness(
+async def test_the_cancel_is_a_status_only_intent_through_the_facade(tmp_path: Path) -> None:
+    """C3: the write is ``update_task`` on the Tasks facade with an intent
+    that sets ``status = cancelled`` and nothing else — the status-guarded
+    door decides the transition from the prior it reads under the lock, and
+    no other field on the task is touched."""
+    reconciler, _user_entry, tasks, _order = _harness(
         tmp_path, pending=[_row("gone", status=EntityStatus.DRAFT)]
     )
     result = await reconciler.sync(VaultKind.PERSONAL, OWNER)
 
     assert result.is_ok
+    [call] = tasks.update_task.await_args_list
+    assert call.args[0] == "gone"
+    assert _cancel_intent(call).to_changes() == {"status": EntityStatus.CANCELLED.value}
+
+
+@pytest.mark.asyncio
+async def test_a_refused_cancel_keeps_the_stamp_and_warns_naming_the_task(
+    tmp_path: Path,
+) -> None:
+    """The stamp is the retry record: a refused write leaves it in place (no
+    clear for that task — the next sweep tries again), names the task in a
+    warning, and is not counted. A second open task on the same sweep whose
+    cancel lands is still cleared and counted."""
+    pending = [
+        _row("stuck", status=EntityStatus.ACTIVE),
+        _row("gone", status=EntityStatus.ACTIVE),
+    ]
+    reconciler, user_entry, tasks, _order = _harness(tmp_path, pending=pending)
+
+    async def _update(uid: str, _intent: TaskUpdateIntent) -> Result[Mock]:
+        if uid == "stuck":
+            return Result.fail(Errors.validation("status", "nope"))
+        return Result.ok(Mock())
+
+    tasks.update_task = AsyncMock(side_effect=_update)
+    user_entry.clear_vault_retirement_stamps = AsyncMock(return_value=Result.ok(1))
+
+    result = await reconciler.sync(VaultKind.PERSONAL, OWNER)
+
+    assert result.is_ok
+    user_entry.clear_vault_retirement_stamps.assert_awaited_once_with(OWNER, [("gone", "sk_gone")])
+    assert result.value.tasks_cancelled_by_deletion == 1
+    [warning] = result.value.warnings
+    assert "cancel refused for stuck" in warning and "retried next sync" in warning, warning
+    assert not result.value.is_clean
+
+
+@pytest.mark.asyncio
+async def test_every_cancel_refused_clears_nothing(tmp_path: Path) -> None:
+    """No landed write, no clear call at all — and no count."""
+    reconciler, user_entry, tasks, _order = _harness(
+        tmp_path, pending=[_row("stuck", status=EntityStatus.DRAFT)]
+    )
+    tasks.update_task = AsyncMock(return_value=Result.fail(Errors.database("update_task", "down")))
+    result = await reconciler.sync(VaultKind.PERSONAL, OWNER)
+
+    assert result.is_ok
     user_entry.clear_vault_retirement_stamps.assert_not_awaited()
-    assert result.value.is_clean
+    assert result.value.tasks_cancelled_by_deletion == 0
+    assert any("cancel refused for stuck" in w for w in result.value.warnings)
+
+
+@pytest.mark.asyncio
+async def test_an_unreadable_status_is_held_not_cancelled(tmp_path: Path) -> None:
+    """The sweep cancels what it can read as open, nothing else: a stamp whose
+    task carries a status ``EntityStatus`` cannot parse is neither terminal
+    nor open — held with a warning naming the task, retried next sync."""
+    row: VaultRetiredTaskRow = {
+        "entity_uid": "odd",
+        "retired_vault_id": "sk_odd",
+        "status": "???",
+        "still_tracked": False,
+    }
+    reconciler, user_entry, tasks, _order = _harness(tmp_path, pending=[row])
+    result = await reconciler.sync(VaultKind.PERSONAL, OWNER)
+
+    assert result.is_ok
+    tasks.update_task.assert_not_awaited()
+    user_entry.clear_vault_retirement_stamps.assert_not_awaited()
+    assert result.value.tasks_cancelled_by_deletion == 0
+    [warning] = result.value.warnings
+    assert "cancel not attempted for odd" in warning and "unreadable" in warning, warning
 
 
 @pytest.mark.asyncio
@@ -173,7 +275,7 @@ async def test_the_cutoff_is_the_graph_clock_read_before_ingest(tmp_path: Path) 
     """One clock: the cutoff comes from the database (the stamps' own
     ``datetime()``), and it is read BEFORE ingest so nothing this sync retires
     can predate it."""
-    reconciler, user_entry, order = _harness(
+    reconciler, user_entry, _tasks, order = _harness(
         tmp_path, pending=[_row("done", status=EntityStatus.COMPLETED)]
     )
     await reconciler.sync(VaultKind.PERSONAL, OWNER)
@@ -184,7 +286,7 @@ async def test_the_cutoff_is_the_graph_clock_read_before_ingest(tmp_path: Path) 
 
 @pytest.mark.asyncio
 async def test_nothing_pending_means_no_clear_and_no_warning(tmp_path: Path) -> None:
-    reconciler, user_entry, _order = _harness(tmp_path, pending=[])
+    reconciler, user_entry, _tasks, _order = _harness(tmp_path, pending=[])
     result = await reconciler.sync(VaultKind.PERSONAL, OWNER)
 
     assert result.is_ok
@@ -222,11 +324,13 @@ async def test_an_incomplete_inbound_pass_holds_every_stamp(
         _row("done", status=EntityStatus.COMPLETED),
         _row("gone", status=EntityStatus.ACTIVE),
     ]
-    reconciler, user_entry, _order = _harness(tmp_path, pending=pending, ingest=ingest)
+    reconciler, user_entry, tasks, _order = _harness(tmp_path, pending=pending, ingest=ingest)
     result = await reconciler.sync(VaultKind.PERSONAL, OWNER)
 
     assert result.is_ok
     user_entry.clear_vault_retirement_stamps.assert_not_awaited()
+    tasks.update_task.assert_not_awaited()
+    assert result.value.tasks_cancelled_by_deletion == 0
     assert result.value.retirements_held == 2
     assert [w for w in result.value.warnings if "2 vault retirement(s) held" in w], (
         result.value.warnings
@@ -249,7 +353,7 @@ async def test_a_stale_mirror_file_holds_the_sweep(tmp_path: Path) -> None:
             )
         )
     )
-    reconciler, user_entry, _order = _harness(
+    reconciler, user_entry, tasks, _order = _harness(
         tmp_path, pending=[_row("done", status=EntityStatus.COMPLETED)], mirror_pull=puller
     )
     result = await reconciler.sync(VaultKind.PERSONAL, OWNER)
@@ -257,6 +361,7 @@ async def test_a_stale_mirror_file_holds_the_sweep(tmp_path: Path) -> None:
     assert result.is_ok
     assert result.value.mirror_files_stale == 1
     user_entry.clear_vault_retirement_stamps.assert_not_awaited()
+    tasks.update_task.assert_not_awaited()
     assert result.value.retirements_held == 1
 
 
@@ -272,7 +377,7 @@ async def test_a_loose_note_does_not_hold_the_sweep(tmp_path: Path) -> None:
         files_failed=1,
         errors=[{"file": str(loose), "error": "no 'type:' field", "stage": "type_detection"}],
     )
-    reconciler, user_entry, _order = _harness(
+    reconciler, user_entry, _tasks, _order = _harness(
         tmp_path, pending=[_row("done", status=EntityStatus.COMPLETED)], ingest=ingest
     )
     result = await reconciler.sync(VaultKind.PERSONAL, OWNER)
@@ -286,7 +391,7 @@ async def test_a_loose_note_does_not_hold_the_sweep(tmp_path: Path) -> None:
 
 @pytest.mark.asyncio
 async def test_a_listing_failure_is_an_error_not_a_crash(tmp_path: Path) -> None:
-    reconciler, user_entry, _order = _harness(tmp_path, pending=[])
+    reconciler, user_entry, _tasks, _order = _harness(tmp_path, pending=[])
     user_entry.list_vault_retired_tasks = AsyncMock(
         return_value=Result.fail(Errors.database("list_vault_retired_tasks", "boom"))
     )
@@ -301,7 +406,7 @@ async def test_a_listing_failure_is_an_error_not_a_crash(tmp_path: Path) -> None
 async def test_a_clock_failure_fails_the_sync_before_ingest(tmp_path: Path) -> None:
     """Without a cutoff the sweep cannot be gated; the sync fails fast rather
     than ingesting and then guessing from the application clock."""
-    reconciler, user_entry, order = _harness(tmp_path, pending=[])
+    reconciler, user_entry, _tasks, order = _harness(tmp_path, pending=[])
     user_entry.read_graph_clock = AsyncMock(
         return_value=Result.fail(Errors.database("read_graph_clock", "down"))
     )
@@ -313,7 +418,7 @@ async def test_a_clock_failure_fails_the_sync_before_ingest(tmp_path: Path) -> N
 
 @pytest.mark.asyncio
 async def test_the_content_vault_reads_no_clock_and_sweeps_nothing(tmp_path: Path) -> None:
-    reconciler, user_entry, order = _harness(tmp_path, pending=[])
+    reconciler, user_entry, _tasks, order = _harness(tmp_path, pending=[])
     result = await reconciler.sync(VaultKind.CONTENT, ADMIN)
 
     assert result.is_ok

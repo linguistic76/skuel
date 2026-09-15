@@ -1,4 +1,4 @@
-"""R4 — vault inbound propagation: identity survives one sync (PR 1), lines reconcile (PR 2).
+"""R4 — vault inbound propagation: identity survives one sync (PR 1), lines reconcile (PR 2), deletion cancels (PR 3).
 
 The build plan (``docs/roadmap/r4-vault-inbound-propagation.md``) makes the
 vault the place tasks are edited. Its foundation, this PR: a 🆔 line that
@@ -10,8 +10,10 @@ STAMPS the task with everything the edge knew (``retired_vault_id``,
 note within one sync finds its task by the stamp and is re-linked; a 🆔 that is
 live on another note is a move, and its edge is re-pointed in one statement;
 and an end-of-sync sweep judges what is still stamped from before the sync
-began — clearing terminal and still-tracked tasks' stamps, leaving an open
-untracked task's in place until the cancel consequence ships (PR 3).
+began — clearing terminal and still-tracked tasks' stamps, and (PR 3,
+``TestDeletionCancels``) CANCELLING an open untracked task through the Tasks
+facade, its stamp cleared only when that write lands: removing an open task's
+line is a decision, and two consecutive syncs without the 🆔 is the deletion.
 
 ``EXTRACTED_FROM`` gains ``source_line`` — the line verbatim as SKUEL last saw
 it, the base the three-way merge diffs the vault against. Written on create,
@@ -31,8 +33,8 @@ B-first are forced with ``Rig.order``; and a byte-identical rewrite is a
 tracker skip, so a scenario that deletes a line — or completes a task in SKUEL
 and syncs before the write-back — changes another byte too.
 
-Mutants each case must fail are named in the PR descriptions (#1343, PR 2);
-each was applied by hand, run, seen to fail here, and restored.
+Mutants each case must fail are named in the PR descriptions (#1343, #1344,
+PR 3); each was applied by script, run, seen to fail here, and restored.
 """
 
 from __future__ import annotations
@@ -152,6 +154,7 @@ class TestMovesKeepTheirTask:
         rig.note.write_text(FRONTMATTER + "Cut it.\n", encoding="utf-8")
         cut = await rig.sync()
         assert not cut.warnings, cut.warnings
+        assert cut.tasks_cancelled_by_deletion == 0, "a cut was judged as a deletion"
         assert await rig.edges() == []
         [stamp] = await rig.stamps()
         assert (stamp.uid, stamp.retired_vault_id, stamp.retired_source_line) == (
@@ -164,8 +167,11 @@ class TestMovesKeepTheirTask:
         rig.note_at(NOTE_B).write_text(FRONTMATTER_B + line + "\n", encoding="utf-8")
         pasted = await rig.sync()
         assert not pasted.warnings, pasted.warnings
+        assert pasted.tasks_cancelled_by_deletion == 0, (
+            "the paste re-linked, then the sweep cancelled"
+        )
         assert await rig.owned_tasks() == [(task_uid, EntityStatus.DRAFT.value)], (
-            "the slow move minted a twin"
+            "the slow move minted a twin, or cancelled the task"
         )
         [(edge_uid, edge_id, entry, base)] = await rig.edges()
         assert (edge_uid, edge_id) == (task_uid, vault_id)
@@ -319,6 +325,7 @@ class TestTheSweep:
         rig.note.write_text(FRONTMATTER + "Tidied.\n", encoding="utf-8")
         tidied = await rig.sync()
         assert not tidied.warnings, tidied.warnings
+        assert tidied.tasks_cancelled_by_deletion == 0
         [stamp] = await rig.stamps()
         assert stamp.retired_vault_id == vault_id
         # The base the stamp carries is the one the edge held — advanced to
@@ -331,26 +338,49 @@ class TestTheSweep:
         swept = await rig.sync()
         assert not swept.warnings, swept.warnings
         assert await rig.stamps() == [], "a terminal task's stamp survives the grace"
-        assert await rig.owned_tasks() == [(task_uid, EntityStatus.COMPLETED.value)]
+        assert await rig.owned_tasks() == [(task_uid, EntityStatus.COMPLETED.value)], (
+            "tidying a done line out of a note is not a state change — the sweep cancelled it"
+        )
+        assert swept.tasks_cancelled_by_deletion == 0
 
-    async def test_a_deleted_open_line_stays_open_and_stamped(self, rig: Rig) -> None:
-        """Deletion evidence with no consequence yet: the stamp is left in
-        place sync after sync, so PR 3's first sweep can apply the rule late
-        rather than skip it."""
+    async def test_a_deleted_open_line_is_cancelled_two_syncs_later(self, rig: Rig) -> None:
+        """Rule 1. The sync that sees the line gone stamps the task and judges
+        nothing (the grace — the line may be on its way to another note); the
+        next sync's sweep finds an open, untracked task past the grace and
+        cancels it through the facade, clearing the stamp because that write
+        landed. Nothing is written to the vault by either sync (the line is
+        gone, so there is nothing to un-check), the count reports on the
+        sweep's sync only, and the sync after is quiet."""
         task_uid, vault_id, _line = await _seeded_note(rig)
 
         rig.note.write_text(FRONTMATTER + "Gone.\n", encoding="utf-8")
-        await rig.sync()
-        again = await rig.sync()
-        assert not again.warnings, again.warnings
+        gone = await rig.sync()
+        assert not gone.warnings, gone.warnings
+        assert gone.tasks_cancelled_by_deletion == 0, "judged in the sync that retired it"
         assert await rig.owned_tasks() == [(task_uid, EntityStatus.DRAFT.value)]
         [stamp] = await rig.stamps()
         assert (stamp.uid, stamp.retired_vault_id) == (task_uid, vault_id)
 
+        swept = await rig.sync()
+        assert not swept.warnings, swept.warnings
+        assert swept.tasks_cancelled_by_deletion == 1, swept
+        assert swept.tasks_marked_undone == 0 and swept.tasks_marked_done == 0
+        assert await rig.owned_tasks() == [(task_uid, EntityStatus.CANCELLED.value)]
+        assert await rig.stamps() == [], "the stamp outlived the cancel that landed"
+        assert rig.note.read_text(encoding="utf-8") == FRONTMATTER + "Gone.\n", (
+            "a cancel-by-deletion wrote into the vault"
+        )
+
+        quiet = await rig.sync()
+        assert not quiet.warnings, quiet.warnings
+        assert quiet.tasks_cancelled_by_deletion == 0 and quiet.tasks_marked_undone == 0
+        assert await rig.owned_tasks() == [(task_uid, EntityStatus.CANCELLED.value)]
+
     async def test_a_deleted_note_stamps_its_tasks(self, rig: Rig) -> None:
         """Whole-note deletion is ``DETACH DELETE`` on the entry, which takes
         every edge with it: the tasks are stamped in that same statement.
-        Then the sweep: the done one clears, the open one stays."""
+        Then the sweep: the done one clears, untouched; the open one is
+        cancelled — the note's deletion is the decision, two syncs later."""
         rig.note.write_text(FRONTMATTER + "- [ ] Vacuum\n- [ ] Read\n", encoding="utf-8")
         # A second note keeps the vault from looking wiped (the everything-
         # vanished refusal) once the first is deleted.
@@ -372,6 +402,7 @@ class TestTheSweep:
         deleted = await rig.sync()
         assert not deleted.warnings, deleted.warnings
         assert deleted.entities_deleted == 1, deleted
+        assert deleted.tasks_cancelled_by_deletion == 0, "judged in the sync that retired it"
         assert await rig.edges() == []
         stamps = {s.uid: s for s in await rig.stamps()}
         assert set(stamps) == {done_uid, open_uid}, stamps
@@ -381,9 +412,10 @@ class TestTheSweep:
 
         swept = await rig.sync()
         assert not swept.warnings, swept.warnings
-        assert [s.uid for s in await rig.stamps()] == [open_uid]
+        assert swept.tasks_cancelled_by_deletion == 1, swept
+        assert await rig.stamps() == []
         assert sorted(await rig.owned_tasks()) == sorted(
-            [(done_uid, EntityStatus.COMPLETED.value), (open_uid, EntityStatus.DRAFT.value)]
+            [(done_uid, EntityStatus.COMPLETED.value), (open_uid, EntityStatus.CANCELLED.value)]
         )
 
     async def test_a_task_retyped_in_a_second_note_is_tracked_twice(self, rig: Rig) -> None:
@@ -411,7 +443,10 @@ class TestTheSweep:
         swept = await rig.sync()
         assert not swept.warnings, swept.warnings
         assert await rig.stamps() == []
-        assert await rig.owned_tasks() == [(task_uid, EntityStatus.DRAFT.value)]
+        assert await rig.owned_tasks() == [(task_uid, EntityStatus.DRAFT.value)], (
+            "a task still tracked from its second note was cancelled"
+        )
+        assert swept.tasks_cancelled_by_deletion == 0
         assert [(uid, v) for uid, v, _, _ in await rig.edges()] == [(task_uid, second_id)]
 
     @pytest.mark.parametrize("first", ["A", "B"], ids=["A-first", "B-first"])
@@ -501,6 +536,155 @@ class TestTheSweep:
         assert (edge_uid, edge_id) == (task_uid, vault_id)
         assert entry.endswith(_entry_uid(NOTE_B))
         assert await rig.stamps() == []
+
+
+@pytest.mark.asyncio
+@pytest.mark.integration
+class TestDeletionCancels:
+    """R4 PR 3 — the shapes around the cancel that the sweep cases above do
+    not reach: the hold over an unreadable note with an OPEN task at stake,
+    and what a 🆔 line typed back AFTER its cancel meets (ruled for PR 3:
+    the stamp clears with the cancel, so a late re-type is a phantom)."""
+
+    async def test_an_open_task_is_held_over_a_note_it_could_not_read_then_revived(
+        self, rig: Rig
+    ) -> None:
+        """The open-task twin of ``TestTheSweep``'s hold case, where the stake
+        is a cancel rather than a twin. The line moves into B, but B's
+        frontmatter is broken: B has not had its say, so the sweep holds the
+        stamp with a warning and cancels nothing — once B is fixed, its line
+        revives the task by that stamp, still open. Without the hold the
+        sweep would cancel a task whose line was in the vault all along."""
+        task_uid, vault_id, line = await _seeded_note(rig)
+
+        rig.note.write_text(FRONTMATTER + "Consolidated.\n", encoding="utf-8")
+        broken_b = FRONTMATTER_B.replace("---\n\n", "  bad: [unclosed\n---\n\n", 1)
+        rig.note_at(NOTE_B).write_text(broken_b + line + "\n", encoding="utf-8")
+        stamped = await rig.sync()
+        assert stamped.files_broken == 1, stamped
+        assert stamped.retirements_held == 0 and stamped.tasks_cancelled_by_deletion == 0
+        [stamp] = await rig.stamps()
+        assert stamp.retired_vault_id == vault_id
+
+        held = await rig.sync()
+        assert held.files_broken == 1, held
+        assert held.retirements_held == 1 and held.tasks_cancelled_by_deletion == 0, held
+        assert any("1 vault retirement(s) held" in w for w in held.warnings), held.warnings
+        assert await rig.owned_tasks() == [(task_uid, EntityStatus.DRAFT.value)], (
+            "the sweep cancelled over a note it could not read"
+        )
+        [stamp] = await rig.stamps()
+        assert stamp.retired_vault_id == vault_id
+
+        rig.note_at(NOTE_B).write_text(FRONTMATTER_B + line + "\n", encoding="utf-8")
+        fixed = await rig.sync()
+        assert not fixed.warnings, fixed.warnings
+        assert fixed.tasks_cancelled_by_deletion == 0
+        assert await rig.owned_tasks() == [(task_uid, EntityStatus.DRAFT.value)], (
+            "revived, not cancelled — or a twin was minted"
+        )
+        [(edge_uid, edge_id, entry, base)] = await rig.edges()
+        assert (edge_uid, edge_id) == (task_uid, vault_id)
+        assert entry.endswith(_entry_uid(NOTE_B))
+        assert base == line
+        assert await rig.stamps() == []
+
+    async def test_a_line_typed_back_after_its_cancel_is_a_new_task_beside_it(
+        self, rig: Rig
+    ) -> None:
+        """The cost of clearing the stamp with the cancel (ruled, PR 3): a 🆔
+        line typed back AFTER the sweep has cancelled its task finds no edge
+        and no stamp — a phantom — and Guard 4 ignores terminal twins, so a
+        NEW open task is minted beside the cancelled one and adopts the
+        line's 🆔. The cancelled task is the record of the deletion, not
+        resurrected; the residual's other door is the next case."""
+        task_uid, vault_id, line = await _seeded_note(rig)
+        rig.note.write_text(FRONTMATTER + "Gone.\n", encoding="utf-8")
+        await rig.sync()
+        swept = await rig.sync()
+        assert swept.tasks_cancelled_by_deletion == 1, swept
+        assert await rig.stamps() == []
+
+        rig.note.write_text(FRONTMATTER + line + "\nBack.\n", encoding="utf-8")
+        back = await rig.sync()
+        assert not back.warnings, back.warnings
+        assert back.tasks_cancelled_by_deletion == 0
+        statuses = dict(await rig.owned_tasks())
+        assert statuses.pop(task_uid) == EntityStatus.CANCELLED.value, (
+            "the typed-back line resurrected the cancelled task"
+        )
+        [(new_uid, new_status)] = statuses.items()
+        assert new_status == EntityStatus.DRAFT.value
+        [(edge_uid, edge_id, entry, _)] = await rig.edges()
+        assert (edge_uid, edge_id) == (new_uid, vault_id), "the 🆔 names the new task now"
+        assert entry.endswith(_entry_uid(NOTE))
+
+    async def test_un_cancelling_in_skuel_then_typing_the_line_back_reunites_them(
+        self, rig: Rig
+    ) -> None:
+        """The residual's other door: un-cancel in SKUEL first (the task is an
+        active twin again), then type the line back — Guard 4 merges the
+        line into the open twin by title and, the twin having no edge to
+        this note, writes one carrying the line's 🆔. One task, tracked."""
+        task_uid, vault_id, line = await _seeded_note(rig)
+        rig.note.write_text(FRONTMATTER + "Gone.\n", encoding="utf-8")
+        await rig.sync()
+        await rig.sync()
+        assert await rig.owned_tasks() == [(task_uid, EntityStatus.CANCELLED.value)]
+
+        await reopen_in_skuel(rig, task_uid)
+        rig.note.write_text(FRONTMATTER + line + "\nBack.\n", encoding="utf-8")
+        back = await rig.sync()
+        assert not back.warnings, back.warnings
+        assert await rig.owned_tasks() == [(task_uid, EntityStatus.ACTIVE.value)], (
+            "the un-cancelled task was not reunited with its line"
+        )
+        [(edge_uid, edge_id, entry, base)] = await rig.edges()
+        assert (edge_uid, edge_id) == (task_uid, vault_id)
+        assert entry.endswith(_entry_uid(NOTE))
+        assert base == line
+
+    async def test_a_note_restored_after_its_tasks_were_cancelled_is_not_a_resurrection(
+        self, rig: Rig
+    ) -> None:
+        """Delete a note, sync, sync (its open task cancelled, its done task's
+        stamp cleared), then put the note back with both lines: neither task
+        is revived — both 🆔s are phantoms by then and Guard 4 ignores
+        terminal twins — so each line mints a new task beside its original.
+        The same shape as the typed-back line, at note scale; a restore
+        within one sync (the grace) is the revival, not this."""
+        rig.note.write_text(FRONTMATTER + "- [ ] Vacuum\n- [ ] Read\n", encoding="utf-8")
+        rig.note_at(NOTE_B).write_text(FRONTMATTER_B + "Still here.\n", encoding="utf-8")
+        await rig.sync()
+        await rig.sync()
+        edges = await rig.edges()
+        assert len(edges) == 2, edges
+        done_uid = next(uid for uid, _, _, base in edges if (base or "").startswith("- [ ] Read"))
+        open_uid = next(uid for uid, _, _, base in edges if (base or "").startswith("- [ ] Vacuum"))
+        await complete_in_skuel(rig, done_uid)
+        await rig.sync()
+        await rig.sync()
+        restored_text = rig.note.read_text(encoding="utf-8")
+
+        rig.note.unlink()
+        await rig.sync()
+        swept = await rig.sync()
+        assert swept.tasks_cancelled_by_deletion == 1, swept
+        assert await rig.stamps() == []
+
+        rig.note.write_text(restored_text + "Restored.\n", encoding="utf-8")
+        restored = await rig.sync()
+        assert not restored.warnings, restored.warnings
+        assert restored.tasks_cancelled_by_deletion == 0
+        statuses = dict(await rig.owned_tasks())
+        assert statuses.pop(open_uid) == EntityStatus.CANCELLED.value, "resurrected"
+        assert statuses.pop(done_uid) == EntityStatus.COMPLETED.value
+        assert sorted(statuses.values()) == sorted(
+            [EntityStatus.DRAFT.value, EntityStatus.COMPLETED.value]
+        ), statuses
+        assert {uid for uid, _, _, _ in await rig.edges()} == set(statuses), (
+            "the restored lines are tracked by the new tasks, not the originals"
+        )
 
 
 @pytest.mark.asyncio

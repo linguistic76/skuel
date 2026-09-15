@@ -180,6 +180,7 @@ class TestSyncStatsFragment:
         assert "relationships" not in xml
         assert "removed" not in xml
         assert "re-opened" not in xml
+        assert "cancelled" not in xml
 
     def test_reopened_tasks_render_beside_the_done_count(self):
         """The reopen's vault surface reaches the user through this line.
@@ -193,6 +194,20 @@ class TestSyncStatsFragment:
         )
         assert '<span class="font-semibold">2</span> tasks marked done in vault' in xml
         assert '<span class="font-semibold">3</span> tasks re-opened in vault' in xml
+
+    def test_tasks_cancelled_by_deletion_render_beside_the_reopened_count(self):
+        """R4 rule 1's surface: a cancel is a state change the user sees — a
+        retirement alone (the grace) has no line. Conditional like the
+        re-opened count, and never confusable with it; the JSON door carries
+        the same field through ``asdict``."""
+        stats = VaultSyncStats(tasks_marked_undone=1, tasks_cancelled_by_deletion=2)
+        assert asdict(stats)["tasks_cancelled_by_deletion"] == 2
+        xml = to_xml(sync_stats_fragment(asdict(stats)))
+        assert '<span class="font-semibold">1</span> tasks re-opened in vault' in xml
+        assert (
+            '<span class="font-semibold">2</span> tasks cancelled — their lines were removed'
+            " from the vault" in xml
+        )
 
 
 class TestRetrievabilityHonesty:
