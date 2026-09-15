@@ -1,6 +1,6 @@
 ---
 title: "Roadmap: the reopen vault surface"
-updated: 2026-09-13
+updated: 2026-09-15
 status: complete
 category: roadmap
 tags: [roadmap, vault, obsidian, tasks, events, done]
@@ -14,7 +14,7 @@ operation would otherwise have inherited.
 
 **Nothing below remains open.** Two neighbours stay live in `../deferred-work.md` and are
 *not* part of this record: § "Vault Has Un-Synced Changes" Signal (the honest version of
-the dirty flag this arc once proposed) and § R4 Vault Inbound Propagation — Parked Build.
+the dirty flag this arc once proposed) and § R4 Vault Inbound Propagation — Build Plan.
 
 ⚠️ **Both headings below are cited by name from code** — `core/ports/vault_bridge_protocol.py`,
 `core/services/vault/vault_reconciler.py`, and three test modules point at
@@ -159,5 +159,5 @@ the subscriber do?" is not a detail to fill in later, it is the design failing o
 **Still open, and separately registered** — both live in `../deferred-work.md`, not here: the
 want behind "mark the owner's vault dirty" is real but bigger than a reopen (§ "Vault Has
 Un-Synced Changes" Signal), and inbound propagation — a vault-side check/uncheck reaching
-SKUEL — stays parked (§ R4 Vault Inbound Propagation — Parked Build).
+SKUEL — scheduled 2026-09-15 (§ R4 Vault Inbound Propagation — Build Plan).
 

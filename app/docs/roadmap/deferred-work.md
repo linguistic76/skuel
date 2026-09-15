@@ -88,9 +88,9 @@ renders them as a table in Obsidian, and a session derives the same table with
 
 [Per-Node Substance Counters — the Unread Arm](per-node-substance-counters.md) — The per-node counter arm and its 8 model methods have zero production readers — ruled keep staged; the writers keep accruing, and retroactive credit is parked with it.
 
-## R4 Vault Inbound Propagation — Parked Build
+## R4 Vault Inbound Propagation — Build Plan
 
-[R4 Vault Inbound Propagation — Parked Build](r4-vault-inbound-propagation.md) — Vault-side checks, unchecks and edits of 🆔 lines propagating back into SKUEL — never wired, parked with a design sketch and the change-signal rule.
+[R4 Vault Inbound Propagation — Build Plan](r4-vault-inbound-propagation.md) — Vault-side checks, unchecks, edits, moves and deletions of 🆔 lines propagating into SKUEL — **scheduled 2026-09-15** (deletion cancels open tasks, moves re-point, a three-way merge per field); six PRs, PR 1 next.
 
 ## ⚠️ Vault Re-Sync Never Retracts a Share
 
