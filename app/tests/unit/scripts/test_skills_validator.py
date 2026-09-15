@@ -110,6 +110,34 @@ class TestSkillMdAdrClosure:
         skill = {"name": "s", "related_adrs": ["ADR-030-dual-track-assessment-pattern.md"]}
         assert validate_skill_md_adr_closure([skill], tmp_path) == []
 
+    def test_a_filename_citation_is_not_covered_by_another_file_of_the_same_number(
+        self, tmp_path: Path
+    ) -> None:
+        cite = "See /docs/decisions/ADR-030-dual-track-assessment-pattern.md for persistence.\n"
+        _skill(tmp_path, "s", "# S\n\n" + cite)
+        wrong = {"name": "s", "related_adrs": ["ADR-030-usercontext-file-consolidation.md"]}
+        errors = validate_skill_md_adr_closure([wrong], tmp_path)
+        assert [e.context["adr"] for e in errors] == ["ADR-030-dual-track-assessment-pattern.md"]
+        right = {"name": "s", "related_adrs": ["ADR-030-dual-track-assessment-pattern.md"]}
+        assert validate_skill_md_adr_closure([right], tmp_path) == []
+
+    def test_a_filename_citation_is_covered_by_a_bare_number_entry(self, tmp_path: Path) -> None:
+        # The resolver only accepts a bare number when it is unique; the check does not
+        # re-litigate that, so a bare entry satisfies a filename citation of its number.
+        _skill(tmp_path, "s", "# S\n\nSee ADR-066-typed-update-intents.md.\n")
+        skill = {"name": "s", "related_adrs": ["ADR-066"]}
+        assert validate_skill_md_adr_closure([skill], tmp_path) == []
+
+    def test_a_bare_and_a_filename_citation_of_one_number_are_distinct(
+        self, tmp_path: Path
+    ) -> None:
+        text = "# S\n\nADR-030 in prose; also ADR-030-dual-track-assessment-pattern.md.\n"
+        _skill(tmp_path, "s", text)
+        only_other = {"name": "s", "related_adrs": ["ADR-030-usercontext-file-consolidation.md"]}
+        errors = validate_skill_md_adr_closure([only_other], tmp_path)
+        # The bare citation is satisfied by any ADR-030 entry; the filename one is not.
+        assert [e.context["adr"] for e in errors] == ["ADR-030-dual-track-assessment-pattern.md"]
+
     def test_a_reference_file_may_mention_an_adr_freely(self, tmp_path: Path) -> None:
         _skill(
             tmp_path,

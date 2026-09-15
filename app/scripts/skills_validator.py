@@ -28,8 +28,11 @@ import yaml
 
 from core.utils.frontmatter import parse_frontmatter as _parse_frontmatter
 
-# An ADR citation anywhere in prose or code: ADR-020, ADR-030-dual-track-assessment-pattern.md.
+# An ADR citation anywhere in prose or code — bare (ADR-020) or the full filename
+# (ADR-030-dual-track-assessment-pattern.md). The number pattern also matches inside
+# a filename; the closure check separates the two by span.
 _ADR_CITATION = re.compile(r"\bADR-(\d{3})\b")
+_ADR_FILENAME = re.compile(r"\bADR-\d{3}-[\w.-]+?\.md\b")
 
 # Soft line limit for SKILL.md before we nudge toward progressive disclosure.
 # Claude Code's guidance: keep SKILL.md under ~500 lines and move detail into
@@ -268,42 +271,61 @@ def validate_skill_md_adr_closure(skills: list[dict], skills_dir: Path) -> list[
     an ADR freely. ``related_adrs`` may hold MORE than this closure — curated extras —
     never less.
 
-    Matching is by number. A bare ``ADR-030`` in prose cannot pick one of the three files
-    that share the number; the registry entry carries the full filename and does, which
-    is also why the cross-reference resolver refuses a bare duplicated number there.
+    A citation that carries the full filename must be listed by that filename (or by a
+    bare number, which the cross-reference resolver only accepts when the number is
+    unique): three ADRs share the number 030, and a registry entry for one of them says
+    nothing about a citation of another. A bare citation in prose cannot pick a file, so
+    it is satisfied by any entry with its number — there the choice is the author's.
     """
-    errors = []
+    errors: list[ValidationError] = []
     for skill in skills:
         name = str(skill.get("name", ""))
         skill_md = skills_dir / name / "SKILL.md"
         if not name or not skill_md.exists():
             continue  # Check 2 reports the missing file
-        listed = {
-            m.group(0)
-            for entry in skill.get("related_adrs", []) or []
-            if (m := _ADR_CITATION.match(str(entry)))
-        }
-        cited = sorted({f"ADR-{n}" for n in _ADR_CITATION.findall(skill_md.read_text())})
-        for adr in cited:
-            if adr in listed:
-                continue
-            errors.append(
-                ValidationError(
-                    check="skill_md_adr_closure",
-                    severity="error",
-                    message=f"@{name}: SKILL.md cites {adr} but related_adrs does not list it",
-                    context={
-                        "skill": name,
-                        "adr": adr,
-                        "suggestion": (
-                            f"Add {adr} to @{name}'s related_adrs in skills_metadata.yaml "
-                            "(the full filename if the number is shared by several ADRs) "
-                            "and declare the skill in that ADR's related_skills — or move "
-                            "the mention out of SKILL.md into a reference file"
-                        ),
-                    },
-                )
+        listed_files: set[str] = set()  # full-filename entries
+        listed_bare: set[str] = set()  # bare-number entries
+        for entry in skill.get("related_adrs", []) or []:
+            entry = str(entry)
+            if _ADR_FILENAME.fullmatch(entry):
+                listed_files.add(entry)
+            elif _ADR_CITATION.fullmatch(entry):
+                listed_bare.add(entry)
+        # Any entry, either form, names its number; a bare citation is satisfied by that.
+        listed_numbers = listed_bare | {f[:7] for f in listed_files}
+
+        text = skill_md.read_text()
+        file_spans = [m.span() for m in _ADR_FILENAME.finditer(text)]
+        cited_files = sorted({m.group(0) for m in _ADR_FILENAME.finditer(text)})
+        cited_bare = sorted(
+            {
+                m.group(0)
+                for m in _ADR_CITATION.finditer(text)
+                if not any(s <= m.start() < e for s, e in file_spans)
+            }
+        )
+        # A filename citation is satisfied by that filename, or by a BARE entry of its
+        # number — never by a different file of the same number ("ADR-030-…" → "ADR-030").
+        missing = [f for f in cited_files if f not in listed_files and f[:7] not in listed_bare]
+        missing += [n for n in cited_bare if n not in listed_numbers]
+        errors.extend(
+            ValidationError(
+                check="skill_md_adr_closure",
+                severity="error",
+                message=f"@{name}: SKILL.md cites {adr} but related_adrs does not list it",
+                context={
+                    "skill": name,
+                    "adr": adr,
+                    "suggestion": (
+                        f"Add {adr} to @{name}'s related_adrs in skills_metadata.yaml "
+                        "(the full filename if the number is shared by several ADRs) "
+                        "and declare the skill in that ADR's related_skills — or move "
+                        "the mention out of SKILL.md into a reference file"
+                    ),
+                },
             )
+            for adr in missing
+        )
     return errors
 
 

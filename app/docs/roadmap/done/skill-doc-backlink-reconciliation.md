@@ -138,8 +138,10 @@ the skill teaches and what loads on use; supporting files may mention freely. Mi
 
 **The contract:** `related_adrs` ⊇ {ADRs cited in `SKILL.md`}. `scripts/skills_validator.py`
 check 8 (`skill_md_adr_closure`, error severity — fails the Validate Documentation job)
-enforces it by number; a duplicated number is disambiguated by the full-filename registry
-entry, which is a human choice the check cannot make. A `SKILL.md` citation is a
+enforces it: a citation that carries the full filename must be listed by that filename (or
+by a bare entry of its number — the resolver only accepts one when the number is unique), so
+a registry entry for a *different* ADR-030 does not cover it; a bare citation in prose is
+satisfied by any entry of its number, because the choice of file is one the check cannot make. A `SKILL.md` citation is a
 commitment; to mention an ADR without adopting it, mention it in a supporting file. No
 exclusion mechanism exists — the one candidate (`docs-skills-evolution`'s "Example ADRs
 Showing Evolution") was three dead links to unrelated ADRs and was deleted instead.
