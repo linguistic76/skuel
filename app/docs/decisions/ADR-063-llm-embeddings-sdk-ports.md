@@ -1,10 +1,11 @@
 ---
 title: "ADR-063: LLM & Embedding SDKs Behind Ports"
-updated: 2026-09-01
+updated: 2026-09-15
 status: current
 category: decisions
 tags: [adr, decisions, architecture, llm, embeddings, hexagonal, ports]
 related: [ADR-044, ADR-043, ADR-049]
+related_skills: [base-ai-service, prometheus-grafana, prompt-templates]
 ---
 
 # ADR-063: LLM & Embedding SDKs Behind Ports
@@ -21,6 +22,13 @@ related: [ADR-044, ADR-043, ADR-049]
 - Builds on: ADR-049 (HuggingFace Embeddings Migration) — the HF inference client is the embedding adapter
 
 ---
+
+## Related Skills
+
+For implementation guidance, see:
+- [@base-ai-service](../../.claude/skills/base-ai-service/SKILL.md)
+- [@prometheus-grafana](../../.claude/skills/prometheus-grafana/SKILL.md)
+- [@prompt-templates](../../.claude/skills/prompt-templates/SKILL.md)
 
 ## Context
 

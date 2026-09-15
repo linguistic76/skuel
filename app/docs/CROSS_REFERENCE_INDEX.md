@@ -41,6 +41,9 @@ For each skill, this section shows all related documentation (architecture docs,
 **ADRs:**
 - [ADR-086](decisions/ADR-086-universal-owns-and-attends-attendance.md)
 - [ADR-087](decisions/ADR-087-status-guarded-conditional-writes.md)
+- [ADR-044](decisions/ADR-044-neo4j-committed-architectural-choice.md)
+- [ADR-056](decisions/ADR-056-service-layer-label-split.md)
+- [ADR-066](decisions/ADR-066-typed-update-intents.md)
 
 ### @base-ai-service
 
@@ -51,6 +54,8 @@ For each skill, this section shows all related documentation (architecture docs,
 
 **ADRs:**
 - [ADR-024](decisions/ADR-024-base-intelligence-service-migration.md)
+- [ADR-063](decisions/ADR-063-llm-embeddings-sdk-ports.md)
+- [ADR-074](decisions/ADR-074-post-persist-embedding-events.md)
 
 ### @base-analytics-service
 
@@ -71,6 +76,8 @@ For each skill, this section shows all related documentation (architecture docs,
 **ADRs:**
 - [ADR-024](decisions/ADR-024-base-intelligence-service-migration.md)
 - [ADR-031](decisions/ADR-031-baseservice-mixin-decomposition.md)
+- [ADR-030](decisions/ADR-030-dual-track-assessment-pattern.md)
+- [ADR-080](decisions/ADR-080-auradb-three-horizon-strategy.md)
 
 ### @chartjs
 
@@ -105,6 +112,9 @@ For each skill, this section shows all related documentation (architecture docs,
 **Other:**
 - [DO_MIGRATION_GUIDE.md](deployment/DO_MIGRATION_GUIDE.md)
 
+**ADRs:**
+- [ADR-052](decisions/ADR-052-firefly-iii-finance-integration.md)
+
 ### @docs-skills-evolution
 
 **Description:** How SKUEL's documentation and skills evolve in rhythm with the ecosystem
@@ -132,6 +142,7 @@ For each skill, this section shows all related documentation (architecture docs,
 
 **ADRs:**
 - [ADR-020](decisions/ADR-020-fasthtml-route-registration-pattern.md)
+- [ADR-066](decisions/ADR-066-typed-update-intents.md)
 
 ### @fasthtml
 
@@ -150,6 +161,7 @@ For each skill, this section shows all related documentation (architecture docs,
 
 **ADRs:**
 - [ADR-020](decisions/ADR-020-fasthtml-route-registration-pattern.md)
+- [ADR-071](decisions/ADR-071-skuel-tailwind-component-layer.md)
 
 ### @journals
 
@@ -161,6 +173,11 @@ For each skill, this section shows all related documentation (architecture docs,
 **ADRs:**
 - [ADR-003](decisions/ADR-003-journals-service-query.md)
 - [ADR-054](decisions/ADR-054-user-entry-unified-submissions.md)
+- [ADR-073](decisions/ADR-073-journals-zero-persistence-vault-memory.md)
+- [ADR-076](decisions/ADR-076-canon-quotation-and-citation-policy.md)
+- [ADR-077](decisions/ADR-077-askesis-canon-scoped-retrieval.md)
+- [ADR-078](decisions/ADR-078-discussion-sessions-stored-not-understood.md)
+- [ADR-081](decisions/ADR-081-journals-companion-authored-instructions-and-grounding.md)
 
 ### @learning-loop
 
@@ -172,6 +189,14 @@ For each skill, this section shows all related documentation (architecture docs,
 **Patterns (Additional):**
 - [REPORT_ARCHITECTURE.md](architecture/REPORT_ARCHITECTURE.md)
 - [KNOWLEDGE_APPLICATION_TRACKING.md](patterns/KNOWLEDGE_APPLICATION_TRACKING.md)
+
+**ADRs:**
+- [ADR-038](decisions/ADR-038-content-sharing-model.md)
+- [ADR-040](decisions/ADR-040-teacher-exercise-workflow.md)
+- [ADR-043](decisions/ADR-043-intelligence-tier-toggle.md)
+- [ADR-051](decisions/ADR-051-user-interaction-contract.md)
+- [ADR-054](decisions/ADR-054-user-entry-unified-submissions.md)
+- [ADR-069](decisions/ADR-069-extract-activities-pipeline-and-entry-report.md)
 
 ### @neo4j-cypher-patterns
 
@@ -195,6 +220,10 @@ For each skill, this section shows all related documentation (architecture docs,
 - [ADR-080](decisions/ADR-080-auradb-three-horizon-strategy.md)
 - [ADR-086](decisions/ADR-086-universal-owns-and-attends-attendance.md)
 - [ADR-087](decisions/ADR-087-status-guarded-conditional-writes.md)
+- [ADR-013](decisions/ADR-013-ku-uid-flat-identity.md)
+- [ADR-054](decisions/ADR-054-user-entry-unified-submissions.md)
+- [ADR-064](decisions/ADR-064-neo4j-per-query-timeout.md)
+- [ADR-068](decisions/ADR-068-openai-embeddings-now-bge-later.md)
 
 ### @prometheus-grafana
 
@@ -205,12 +234,20 @@ For each skill, this section shows all related documentation (architecture docs,
 
 **ADRs:**
 - [ADR-036](decisions/ADR-036-prometheus-primary-cache-pattern.md)
+- [ADR-054](decisions/ADR-054-user-entry-unified-submissions.md)
+- [ADR-063](decisions/ADR-063-llm-embeddings-sdk-ports.md)
+- [ADR-080](decisions/ADR-080-auradb-three-horizon-strategy.md)
 
 ### @prompt-templates
 
 **Description:** SKUEL's centralized LLM prompt template registry (PROMPT_REGISTRY) connecting services to templates
 
-*No documentation links yet.*
+**ADRs:**
+- [ADR-063](decisions/ADR-063-llm-embeddings-sdk-ports.md)
+- [ADR-069](decisions/ADR-069-extract-activities-pipeline-and-entry-report.md)
+- [ADR-073](decisions/ADR-073-journals-zero-persistence-vault-memory.md)
+- [ADR-081](decisions/ADR-081-journals-companion-authored-instructions-and-grounding.md)
+- [ADR-082](decisions/ADR-082-askesis-instruction-home-and-grounding.md)
 
 ### @pwa
 
@@ -235,6 +272,7 @@ For each skill, this section shows all related documentation (architecture docs,
 
 **ADRs:**
 - [ADR-035](decisions/ADR-035-tier-selection-guidelines.md)
+- [ADR-066](decisions/ADR-066-typed-update-intents.md)
 
 ### @pytest
 
@@ -249,6 +287,10 @@ For each skill, this section shows all related documentation (architecture docs,
 **Patterns (Additional):**
 - [GRAPH_ACCESS_PATTERNS.md](patterns/GRAPH_ACCESS_PATTERNS.md)
 - [SHARING_PATTERNS.md](patterns/SHARING_PATTERNS.md)
+
+**ADRs:**
+- [ADR-066](decisions/ADR-066-typed-update-intents.md)
+- [ADR-087](decisions/ADR-087-status-guarded-conditional-writes.md)
 
 ### @python
 
@@ -272,6 +314,7 @@ For each skill, this section shows all related documentation (architecture docs,
 
 **ADRs:**
 - [ADR-035](decisions/ADR-035-tier-selection-guidelines.md)
+- [ADR-066](decisions/ADR-066-typed-update-intents.md)
 
 ### @result-pattern
 
@@ -328,6 +371,7 @@ For each skill, this section shows all related documentation (architecture docs,
 
 **ADRs:**
 - [ADR-085](decisions/ADR-085-ownership-read-enforcement-contract.md)
+- [ADR-023](decisions/ADR-023-curriculum-baseservice-migration.md)
 
 ### @skuel-ui
 
@@ -343,6 +387,7 @@ For each skill, this section shows all related documentation (architecture docs,
 **ADRs:**
 - [ADR-071](decisions/ADR-071-skuel-tailwind-component-layer.md)
 - [ADR-072](decisions/ADR-072-server-rendered-inline-svg-icons.md)
+- [ADR-044](decisions/ADR-044-neo4j-committed-architectural-choice.md)
 
 ### @ui-browser
 
@@ -385,6 +430,9 @@ For each skill, this section shows all related documentation (architecture docs,
 - [RETURN_TYPE_ERROR_PROPAGATION.md](patterns/RETURN_TYPE_ERROR_PROPAGATION.md)
 - [error_handling_decorators.md](patterns/error_handling_decorators.md)
 
+**ADRs:**
+- [ADR-054](decisions/ADR-054-user-entry-unified-submissions.md)
+
 ### @ui-orchestrator
 
 **Description:** Creating and wiring a UI Orchestrator to resolve Dependency Gravity in Hub pages
@@ -411,6 +459,8 @@ For each skill, this section shows all related documentation (architecture docs,
 
 **ADRs:**
 - [ADR-030](decisions/ADR-030-usercontext-file-consolidation.md)
+- [ADR-021](decisions/ADR-021-user-context-intelligence-modularization.md)
+- [ADR-030](decisions/ADR-030-dual-track-assessment-pattern.md)
 
 ### @vis-network
 
@@ -434,6 +484,10 @@ For each skill, this section shows all related documentation (architecture docs,
 
 **Other:**
 - [zpd.md](user-guides/zpd.md)
+
+**ADRs:**
+- [ADR-046](decisions/ADR-046-activity-domains-not-ku-subtypes.md)
+- [ADR-069](decisions/ADR-069-extract-activities-pipeline-and-entry-report.md)
 
 ---
 
@@ -506,25 +560,48 @@ For each documentation category, this section shows which skills are relevant.
 ### ADRs (Architecture Decision Records)
 
 - [ADR-003](decisions/ADR-003-journals-service-query.md) → @journals
+- [ADR-013](decisions/ADR-013-ku-uid-flat-identity.md) → @neo4j-cypher-patterns
 - [ADR-020](decisions/ADR-020-fasthtml-route-registration-pattern.md) → @domain-route-config, @fasthtml
+- [ADR-021](decisions/ADR-021-user-context-intelligence-modularization.md) → @user-context-intelligence
 - [ADR-022](decisions/ADR-022-graph-native-authentication.md) → @result-pattern, @security
-- [ADR-023](decisions/ADR-023-curriculum-baseservice-migration.md) → @curriculum-domains
+- [ADR-023](decisions/ADR-023-curriculum-baseservice-migration.md) → @curriculum-domains, @skuel-search-architecture
 - [ADR-024](decisions/ADR-024-base-intelligence-service-migration.md) → @base-ai-service, @base-analytics-service
+- [ADR-030](decisions/ADR-030-dual-track-assessment-pattern.md) → @base-analytics-service, @user-context-intelligence
 - [ADR-030](decisions/ADR-030-usercontext-file-consolidation.md) → @user-context-intelligence
 - [ADR-031](decisions/ADR-031-baseservice-mixin-decomposition.md) → @base-analytics-service
 - [ADR-035](decisions/ADR-035-tier-selection-guidelines.md) → @pydantic, @python
 - [ADR-036](decisions/ADR-036-prometheus-primary-cache-pattern.md) → @prometheus-grafana
 - [ADR-037](decisions/ADR-037-lateral-relationships-visualization-phase5.md) → @neo4j-cypher-patterns, @vis-network
+- [ADR-038](decisions/ADR-038-content-sharing-model.md) → @learning-loop
+- [ADR-040](decisions/ADR-040-teacher-exercise-workflow.md) → @learning-loop
+- [ADR-043](decisions/ADR-043-intelligence-tier-toggle.md) → @learning-loop
+- [ADR-044](decisions/ADR-044-neo4j-committed-architectural-choice.md) → @activity-domains, @skuel-ui
+- [ADR-046](decisions/ADR-046-activity-domains-not-ku-subtypes.md) → @zpd
 - [ADR-050](decisions/ADR-050-pwa-mobile-strategy.md) → @pwa
-- [ADR-054](decisions/ADR-054-user-entry-unified-submissions.md) → @journals
-- [ADR-071](decisions/ADR-071-skuel-tailwind-component-layer.md) → @skuel-ui, @ui-browser, @ui-css
+- [ADR-051](decisions/ADR-051-user-interaction-contract.md) → @learning-loop
+- [ADR-052](decisions/ADR-052-firefly-iii-finance-integration.md) → @docker
+- [ADR-054](decisions/ADR-054-user-entry-unified-submissions.md) → @journals, @learning-loop, @neo4j-cypher-patterns, @prometheus-grafana, @ui-error-handling
+- [ADR-056](decisions/ADR-056-service-layer-label-split.md) → @activity-domains
+- [ADR-063](decisions/ADR-063-llm-embeddings-sdk-ports.md) → @base-ai-service, @prometheus-grafana, @prompt-templates
+- [ADR-064](decisions/ADR-064-neo4j-per-query-timeout.md) → @neo4j-cypher-patterns
+- [ADR-066](decisions/ADR-066-typed-update-intents.md) → @activity-domains, @domain-route-config, @pydantic, @pytest, @python
+- [ADR-068](decisions/ADR-068-openai-embeddings-now-bge-later.md) → @neo4j-cypher-patterns
+- [ADR-069](decisions/ADR-069-extract-activities-pipeline-and-entry-report.md) → @learning-loop, @prompt-templates, @zpd
+- [ADR-071](decisions/ADR-071-skuel-tailwind-component-layer.md) → @fasthtml, @skuel-ui, @ui-browser, @ui-css
 - [ADR-072](decisions/ADR-072-server-rendered-inline-svg-icons.md) → @skuel-ui
+- [ADR-073](decisions/ADR-073-journals-zero-persistence-vault-memory.md) → @journals, @prompt-templates
+- [ADR-074](decisions/ADR-074-post-persist-embedding-events.md) → @base-ai-service
 - [ADR-075](decisions/ADR-075-local-agent-vault-transport.md) → @security
-- [ADR-080](decisions/ADR-080-auradb-three-horizon-strategy.md) → @neo4j-cypher-patterns
+- [ADR-076](decisions/ADR-076-canon-quotation-and-citation-policy.md) → @journals
+- [ADR-077](decisions/ADR-077-askesis-canon-scoped-retrieval.md) → @journals
+- [ADR-078](decisions/ADR-078-discussion-sessions-stored-not-understood.md) → @journals
+- [ADR-080](decisions/ADR-080-auradb-three-horizon-strategy.md) → @base-analytics-service, @neo4j-cypher-patterns, @prometheus-grafana
+- [ADR-081](decisions/ADR-081-journals-companion-authored-instructions-and-grounding.md) → @journals, @prompt-templates
+- [ADR-082](decisions/ADR-082-askesis-instruction-home-and-grounding.md) → @prompt-templates
 - [ADR-084](decisions/ADR-084-compact-font-size-tokens.md) → @ui-css
 - [ADR-085](decisions/ADR-085-ownership-read-enforcement-contract.md) → @security, @skuel-search-architecture
 - [ADR-086](decisions/ADR-086-universal-owns-and-attends-attendance.md) → @activity-domains, @neo4j-cypher-patterns, @security
-- [ADR-087](decisions/ADR-087-status-guarded-conditional-writes.md) → @activity-domains, @neo4j-cypher-patterns
+- [ADR-087](decisions/ADR-087-status-guarded-conditional-writes.md) → @activity-domains, @neo4j-cypher-patterns, @pytest
 
 ---
 
@@ -534,7 +611,7 @@ For each documentation category, this section shows which skills are relevant.
 - **Architecture docs:** 10 docs linked to skills
 - **Intelligence docs:** 2 docs linked to skills
 - **Pattern docs:** 41 docs linked to skills
-- **ADRs:** 20 ADRs linked to skills
+- **ADRs:** 43 ADRs linked to skills
 
 ---
 

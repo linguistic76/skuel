@@ -1,10 +1,11 @@
 ---
 title: "ADR-021: User Context Intelligence Modularization"
-updated: 2026-09-04
+updated: 2026-09-15
 status: current
 category: decisions
 tags: [adr, architecture, refactoring, separation-of-concerns, one-path-forward]
 related: [ADR-016]
+related_skills: [user-context-intelligence]
 ---
 
 # ADR-021: User Context Intelligence Modularization
@@ -16,6 +17,11 @@ related: [ADR-016]
 **Decision Type:** Pattern/Practice
 
 ---
+
+## Related Skills
+
+For implementation guidance, see:
+- [@user-context-intelligence](../../.claude/skills/user-context-intelligence/SKILL.md)
 
 ## Context
 

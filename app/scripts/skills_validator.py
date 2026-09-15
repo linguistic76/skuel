@@ -10,12 +10,15 @@ Validates the skills metadata registry and skill directory structure:
 5. Documentation has backlinks (related_skills field)
 6. Registry completeness — every skill directory is registered in metadata
 7. related_skills references resolve to real skills
+8. Every ADR a SKILL.md cites is listed in that skill's related_adrs (the closure;
+   curated extras allowed, reference files free to mention)
 
 Usage:
     uv run python scripts/skills_validator.py           # Full validation
     uv run python scripts/skills_validator.py --json    # JSON output
 """
 
+import re
 import sys
 from dataclasses import asdict, dataclass, field
 from pathlib import Path
@@ -24,6 +27,12 @@ from typing import Any
 import yaml
 
 from core.utils.frontmatter import parse_frontmatter as _parse_frontmatter
+
+# An ADR citation anywhere in prose or code — bare (ADR-020) or the full filename
+# (ADR-030-dual-track-assessment-pattern.md). The number pattern also matches inside
+# a filename; the closure check separates the two by span.
+_ADR_CITATION = re.compile(r"\bADR-(\d{3})\b")
+_ADR_FILENAME = re.compile(r"\bADR-\d{3}-[\w.-]+?\.md\b")
 
 # Soft line limit for SKILL.md before we nudge toward progressive disclosure.
 # Claude Code's guidance: keep SKILL.md under ~500 lines and move detail into
@@ -249,6 +258,74 @@ def validate_related_skills_references(
                     )
                 )
 
+    return errors
+
+
+def validate_skill_md_adr_closure(skills: list[dict], skills_dir: Path) -> list[ValidationError]:
+    """Every ADR a skill's ``SKILL.md`` cites is listed in its ``related_adrs``.
+
+    ``SKILL.md`` is the file that defines the skill — the whole of it re-enters context
+    on use — so an ADR it cites is one the skill's guidance depends on, and the registry
+    (hence the cross-reference index, hence the ADR's own ``related_skills`` backlink)
+    must say so. The supporting files (``reference.md``, ``PATTERNS.md``, …) may mention
+    an ADR freely. ``related_adrs`` may hold MORE than this closure — curated extras —
+    never less.
+
+    A citation that carries the full filename must be listed by that filename (or by a
+    bare number, which the cross-reference resolver only accepts when the number is
+    unique): three ADRs share the number 030, and a registry entry for one of them says
+    nothing about a citation of another. A bare citation in prose cannot pick a file, so
+    it is satisfied by any entry with its number — there the choice is the author's.
+    """
+    errors: list[ValidationError] = []
+    for skill in skills:
+        name = str(skill.get("name", ""))
+        skill_md = skills_dir / name / "SKILL.md"
+        if not name or not skill_md.exists():
+            continue  # Check 2 reports the missing file
+        listed_files: set[str] = set()  # full-filename entries
+        listed_bare: set[str] = set()  # bare-number entries
+        for entry in skill.get("related_adrs", []) or []:
+            entry = str(entry)
+            if _ADR_FILENAME.fullmatch(entry):
+                listed_files.add(entry)
+            elif _ADR_CITATION.fullmatch(entry):
+                listed_bare.add(entry)
+        # Any entry, either form, names its number; a bare citation is satisfied by that.
+        listed_numbers = listed_bare | {f[:7] for f in listed_files}
+
+        text = skill_md.read_text()
+        file_spans = [m.span() for m in _ADR_FILENAME.finditer(text)]
+        cited_files = sorted({m.group(0) for m in _ADR_FILENAME.finditer(text)})
+        cited_bare = sorted(
+            {
+                m.group(0)
+                for m in _ADR_CITATION.finditer(text)
+                if not any(s <= m.start() < e for s, e in file_spans)
+            }
+        )
+        # A filename citation is satisfied by that filename, or by a BARE entry of its
+        # number — never by a different file of the same number ("ADR-030-…" → "ADR-030").
+        missing = [f for f in cited_files if f not in listed_files and f[:7] not in listed_bare]
+        missing += [n for n in cited_bare if n not in listed_numbers]
+        errors.extend(
+            ValidationError(
+                check="skill_md_adr_closure",
+                severity="error",
+                message=f"@{name}: SKILL.md cites {adr} but related_adrs does not list it",
+                context={
+                    "skill": name,
+                    "adr": adr,
+                    "suggestion": (
+                        f"Add {adr} to @{name}'s related_adrs in skills_metadata.yaml "
+                        "(the full filename if the number is shared by several ADRs) "
+                        "and declare the skill in that ADR's related_skills — or move "
+                        "the mention out of SKILL.md into a reference file"
+                    ),
+                },
+            )
+            for adr in missing
+        )
     return errors
 
 
@@ -524,9 +601,18 @@ def run_validation(project_root: Path) -> ValidationReport:
     else:
         _progress("   ✅ All related_skills references resolve")
 
+    # Check 8: every ADR a SKILL.md cites is in that skill's related_adrs
+    _progress("8. Checking SKILL.md ADR citations against related_adrs...")
+    errors = validate_skill_md_adr_closure(skills, skills_dir)
+    all_errors.extend(errors)
+    if errors:
+        _progress(f"   ❌ Found {len(errors)} cited-but-unlisted ADR(s)")
+    else:
+        _progress("   ✅ Every ADR cited in a SKILL.md is listed in its related_adrs")
+
     _progress()
 
-    total_checks = 7
+    total_checks = 8
 
     # Generate report
     error_count = len([e for e in all_errors if e.severity == "error"])

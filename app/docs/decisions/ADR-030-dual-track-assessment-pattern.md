@@ -1,5 +1,6 @@
 ---
-updated: 2026-07-29
+updated: 2026-09-15
+related_skills: [base-analytics-service, user-context-intelligence]
 ---
 
 # ADR-030: Dual-Track Assessment Pattern (BaseAnalyticsService Extension)
@@ -8,6 +9,12 @@ updated: 2026-07-29
 **Date:** 2026-01-18
 **Author:** Claude (with Mike)
 **Category:** Pattern/Practice
+
+## Related Skills
+
+For implementation guidance, see:
+- [@base-analytics-service](../../.claude/skills/base-analytics-service/SKILL.md)
+- [@user-context-intelligence](../../.claude/skills/user-context-intelligence/SKILL.md)
 
 ## Context
 

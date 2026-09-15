@@ -5,7 +5,7 @@ status: accepted
 category: decisions
 tags: [adr, decisions, concurrency, status, completion-stamp, neo4j, write-path]
 related: [ADR-030, ADR-066, ADR-044]
-related_skills: [activity-domains, neo4j-cypher-patterns]
+related_skills: [activity-domains, neo4j-cypher-patterns, pytest]
 ---
 
 # ADR-087: Status-Guarded Conditional Writes
@@ -27,6 +27,7 @@ intents), ADR-044 (Neo4j as a committed choice), `core/services/completion_stamp
 For implementation guidance, see:
 - [@activity-domains](../../.claude/skills/activity-domains/SKILL.md)
 - [@neo4j-cypher-patterns](../../.claude/skills/neo4j-cypher-patterns/SKILL.md)
+- [@pytest](../../.claude/skills/pytest/SKILL.md)
 
 ## Context
 

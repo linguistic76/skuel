@@ -5,7 +5,7 @@ status: accepted
 category: decisions
 tags: [adr, decisions, neo4j, auradb, graph-data-science, infrastructure]
 related: [ADR-043, ADR-044, ADR-067, ADR-068]
-related_skills: [neo4j-cypher-patterns]
+related_skills: [base-analytics-service, neo4j-cypher-patterns, prometheus-grafana]
 ---
 
 # ADR-080: AuraDB Three-Horizon Strategy & GDS Deferral
@@ -33,7 +33,9 @@ Cross-refs: `docs/architecture/ANALOG_DIGITAL_ARCHITECTURE.md`,
 ## Related Skills
 
 For implementation guidance, see:
+- [@base-analytics-service](../../.claude/skills/base-analytics-service/SKILL.md)
 - [@neo4j-cypher-patterns](../../.claude/skills/neo4j-cypher-patterns/SKILL.md)
+- [@prometheus-grafana](../../.claude/skills/prometheus-grafana/SKILL.md)
 
 ## Context
 

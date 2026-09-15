@@ -8,7 +8,7 @@ Use this skill when:
 - Adding AI-powered features to a domain (semantic search, LLM insights)
 - Implementing `BaseAIService[B, T]` subclasses
 - Working with embeddings or LLM integration
-- Understanding the AI vs Analytics separation (ADR-030)
+- Understanding the AI vs Analytics separation (ADR-024)
 
 ## Quick Reference
 
@@ -27,7 +27,7 @@ class TasksAIService(BaseAIService[TasksOperations, Task]):
 
 ## 1. Architecture Overview
 
-### AI vs Analytics Separation (ADR-030)
+### AI vs Analytics Separation (ADR-024)
 
 SKUEL separates intelligence into two layers:
 

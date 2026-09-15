@@ -36,7 +36,7 @@
 | `/docs/intelligence/INTELLIGENCE_SERVICES_INDEX.md` | Master index |
 | `/docs/intelligence/SHARED_INTELLIGENCE_UTILITIES.md` | Shared utilities guide |
 | `/docs/intelligence/{DOMAIN}_INTELLIGENCE.md` | Per-domain guides |
-| `/docs/decisions/ADR-030-analytics-vs-ai-separation.md` | Architecture decision |
+| `/docs/decisions/ADR-024-base-intelligence-service-migration.md` | Architecture decision — the analytics/AI base-class separation |
 
 ---
 

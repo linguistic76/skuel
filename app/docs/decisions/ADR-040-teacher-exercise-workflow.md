@@ -1,5 +1,6 @@
 ---
-updated: 2026-07-28
+updated: 2026-09-15
+related_skills: [learning-loop]
 ---
 
 # ADR-040: Teacher Exercise Workflow — Groups, Exercises, and Human Review
@@ -12,6 +13,11 @@ updated: 2026-07-28
 **Date:** 2026-02-06
 **Updated:** 2026-02-16 (ReportProject → Assignment rename), 2026-04-02 (admin fallback + auto-enrollment), 2026-04-02 (teacher feedback as .md file upload), 2026-04-02 (fix status guards for submit_report + request_revision), 2026-04-02 (review queue + dashboard stats switch to OWNS-based approach), 2026-04-03 (Assignment → Exercise rename throughout)
 **Author:** Claude Code
+
+## Related Skills
+
+For implementation guidance, see:
+- [@learning-loop](../../.claude/skills/learning-loop/SKILL.md)
 
 ## Context
 

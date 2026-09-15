@@ -356,10 +356,10 @@ ALLOWED_OCCURRENCES: dict[str, dict[tuple[int, str], Allow]] = {
         (140, "KuType"): Allow(_adr028),
     },
     "docs/decisions/ADR-040-teacher-exercise-workflow.md": {
-        (21, "ProcessorType"): Allow(_adr040),
-        (24, "SubmissionsSharingService"): Allow(_adr040),
-        (51, "ProcessorType"): Allow(_adr040),
-        (56, "ProcessorType"): Allow(_adr040),
+        (27, "ProcessorType"): Allow(_adr040),
+        (30, "SubmissionsSharingService"): Allow(_adr040),
+        (57, "ProcessorType"): Allow(_adr040),
+        (62, "ProcessorType"): Allow(_adr040),
     },
     "docs/decisions/ADR-041-unified-ku-model.md": {
         (22, "KuStatus"): Allow(_adr041),
@@ -381,30 +381,30 @@ ALLOWED_OCCURRENCES: dict[str, dict[tuple[int, str], Allow]] = {
         (271, "submissions_sharing_service"): Allow(_adr042),
     },
     "docs/decisions/ADR-043-intelligence-tier-toggle.md": {
-        (40, "JournalOutputService"): Allow(_adr043),
+        (46, "JournalOutputService"): Allow(_adr043),
     },
     "docs/decisions/ADR-054-user-entry-unified-submissions.md": {
         # Re-anchored -2 (PR #1045): the execution note above lost 2 net lines when
         # its citation of two vanished plans/ files was removed.
-        (106, "EntityType.EXERCISE_SUBMISSION"): Allow(_adr054),
-        (106, "EntityType.JE_INPUT"): Allow(_adr054),
-        (107, "EntityType.JE_OUTPUT"): Allow(_adr054),
-        (146, "ProcessorType"): Allow(_adr054),
-        (151, "ProcessorType"): Allow(_adr054),
-        (154, "ProcessorType"): Allow(_adr054),
-        (156, "ProcessorType"): Allow(_adr054),
+        (110, "EntityType.EXERCISE_SUBMISSION"): Allow(_adr054),
+        (110, "EntityType.JE_INPUT"): Allow(_adr054),
+        (111, "EntityType.JE_OUTPUT"): Allow(_adr054),
+        (150, "ProcessorType"): Allow(_adr054),
+        (155, "ProcessorType"): Allow(_adr054),
+        (158, "ProcessorType"): Allow(_adr054),
+        (160, "ProcessorType"): Allow(_adr054),
         # 306/362/413/491/505 → +4 (2026-09-02): the audience table gained its
         # vault-notes-default-private amendment note; → +1 more the same day when
         # the note grew to name extract_activities. Anchors re-derived from the
         # scanner's report, never by adding the diff's line delta.
-        (317, "ProcessorType"): Allow(_adr054),
-        (373, "ProcessorType"): Allow(_adr054),
-        (424, "ProcessorType"): Allow(_adr054),
-        (502, "EntityType.EXERCISE_SUBMISSION"): Allow(_adr054),
-        (516, "ProcessorType"): Allow(_adr054),
+        (321, "ProcessorType"): Allow(_adr054),
+        (377, "ProcessorType"): Allow(_adr054),
+        (428, "ProcessorType"): Allow(_adr054),
+        (506, "EntityType.EXERCISE_SUBMISSION"): Allow(_adr054),
+        (520, "ProcessorType"): Allow(_adr054),
     },
     "docs/decisions/ADR-073-journals-zero-persistence-vault-memory.md": {
-        (118, "Pipeline.JOURNAL"): Allow(_adr073),
+        (125, "Pipeline.JOURNAL"): Allow(_adr073),
     },
     "docs/intelligence/ASKESIS_INTELLIGENCE.md": {
         (360, "ActivityReviewService"): Allow(_askesis_intel),

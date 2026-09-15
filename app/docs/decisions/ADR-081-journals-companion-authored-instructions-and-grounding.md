@@ -1,5 +1,6 @@
 ---
-updated: 2026-07-23
+updated: 2026-09-15
+related_skills: [journals, prompt-templates]
 ---
 
 # ADR-081: Journals companion — authored instruction home + UserContext grounding
@@ -11,6 +12,12 @@ updated: 2026-07-23
 This is a **choices-doc**: each Decision lists Options → a Recommendation. Founder confirmation turns it into the contract (status → Accepted); disagreement redirects it before any branch or code.
 
 ---
+
+## Related Skills
+
+For implementation guidance, see:
+- [@journals](../../.claude/skills/journals/SKILL.md)
+- [@prompt-templates](../../.claude/skills/prompt-templates/SKILL.md)
 
 ## Reframe — what Phase 3 actually is
 

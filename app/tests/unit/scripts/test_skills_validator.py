@@ -69,3 +69,87 @@ class TestJsonStdoutContract:
             assert key in report, f"CI-parsed key missing from --json report: {key}"
         for error in report["errors"]:
             assert "severity" in error  # CI filters errors by severity
+
+
+# ---------------------------------------------------------------------------
+# Check 8: every ADR a SKILL.md cites is listed in that skill's related_adrs
+# ---------------------------------------------------------------------------
+
+sys.path.insert(0, str(Path(__file__).resolve().parents[3] / "scripts"))
+
+from skills_validator import (  # type: ignore[import-not-found]  # noqa: E402
+    validate_skill_md_adr_closure,
+)
+
+
+def _skill(skills_dir: Path, name: str, skill_md: str, **files: str) -> None:
+    d = skills_dir / name
+    d.mkdir(parents=True)
+    (d / "SKILL.md").write_text(skill_md)
+    for fname, body in files.items():
+        (d / fname).write_text(body)
+
+
+class TestSkillMdAdrClosure:
+    """A SKILL.md citation is a commitment; a reference-file mention is not."""
+
+    def test_a_skill_md_citation_must_be_listed(self, tmp_path: Path) -> None:
+        _skill(tmp_path, "s", "# S\n\nUpdates go through a typed intent (ADR-066).\n")
+        errors = validate_skill_md_adr_closure([{"name": "s", "related_adrs": []}], tmp_path)
+        assert [(e.check, e.severity, e.context["adr"]) for e in errors] == [
+            ("skill_md_adr_closure", "error", "ADR-066")
+        ]
+
+    def test_a_listed_citation_is_clean_and_extras_are_allowed(self, tmp_path: Path) -> None:
+        _skill(tmp_path, "s", "# S\n\nSee ADR-066.\n")
+        skill = {"name": "s", "related_adrs": ["ADR-066", "ADR-020"]}  # ADR-020 is a curated extra
+        assert validate_skill_md_adr_closure([skill], tmp_path) == []
+
+    def test_a_full_filename_entry_covers_a_bare_number(self, tmp_path: Path) -> None:
+        _skill(tmp_path, "s", "# S\n\nPersistence per ADR-030.\n")
+        skill = {"name": "s", "related_adrs": ["ADR-030-dual-track-assessment-pattern.md"]}
+        assert validate_skill_md_adr_closure([skill], tmp_path) == []
+
+    def test_a_filename_citation_is_not_covered_by_another_file_of_the_same_number(
+        self, tmp_path: Path
+    ) -> None:
+        cite = "See /docs/decisions/ADR-030-dual-track-assessment-pattern.md for persistence.\n"
+        _skill(tmp_path, "s", "# S\n\n" + cite)
+        wrong = {"name": "s", "related_adrs": ["ADR-030-usercontext-file-consolidation.md"]}
+        errors = validate_skill_md_adr_closure([wrong], tmp_path)
+        assert [e.context["adr"] for e in errors] == ["ADR-030-dual-track-assessment-pattern.md"]
+        right = {"name": "s", "related_adrs": ["ADR-030-dual-track-assessment-pattern.md"]}
+        assert validate_skill_md_adr_closure([right], tmp_path) == []
+
+    def test_a_filename_citation_is_covered_by_a_bare_number_entry(self, tmp_path: Path) -> None:
+        # The resolver only accepts a bare number when it is unique; the check does not
+        # re-litigate that, so a bare entry satisfies a filename citation of its number.
+        _skill(tmp_path, "s", "# S\n\nSee ADR-066-typed-update-intents.md.\n")
+        skill = {"name": "s", "related_adrs": ["ADR-066"]}
+        assert validate_skill_md_adr_closure([skill], tmp_path) == []
+
+    def test_a_bare_and_a_filename_citation_of_one_number_are_distinct(
+        self, tmp_path: Path
+    ) -> None:
+        text = "# S\n\nADR-030 in prose; also ADR-030-dual-track-assessment-pattern.md.\n"
+        _skill(tmp_path, "s", text)
+        only_other = {"name": "s", "related_adrs": ["ADR-030-usercontext-file-consolidation.md"]}
+        errors = validate_skill_md_adr_closure([only_other], tmp_path)
+        # The bare citation is satisfied by any ADR-030 entry; the filename one is not.
+        assert [e.context["adr"] for e in errors] == ["ADR-030-dual-track-assessment-pattern.md"]
+
+    def test_a_reference_file_may_mention_an_adr_freely(self, tmp_path: Path) -> None:
+        _skill(
+            tmp_path,
+            "s",
+            "# S\n\nNo citations here.\n",
+            **{"reference.md": "Deep dive (ADR-044).\n"},
+        )
+        assert validate_skill_md_adr_closure([{"name": "s", "related_adrs": []}], tmp_path) == []
+
+    def test_each_missing_adr_is_one_error(self, tmp_path: Path) -> None:
+        _skill(tmp_path, "s", "# S\n\nADR-013 and ADR-054, and ADR-013 again.\n")
+        errors = validate_skill_md_adr_closure(
+            [{"name": "s", "related_adrs": ["ADR-054"]}], tmp_path
+        )
+        assert [e.context["adr"] for e in errors] == ["ADR-013"]

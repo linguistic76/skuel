@@ -147,11 +147,6 @@ uv run python scripts/generate_cross_reference_index.py
 - `/docs/tools/HEALTH_CHECKS.md` - Complete reference for the three health scripts
 - `scripts/health/stale_names.py` - Maintainable RENAMED/DELETED tables (update on every rename)
 
-### Example ADRs Showing Evolution
-- `/docs/decisions/ADR-020.md` - FastHTML route registration
-- `/docs/decisions/ADR-035.md` - Pydantic tier selection
-- `/docs/decisions/ADR-037.md` - Neo4j lateral relationships
-
 ---
 
 **Last Updated:** 2026-03-03

@@ -1,5 +1,6 @@
 ---
-updated: 2026-08-21
+updated: 2026-09-15
+related_skills: [journals]
 ---
 
 # ADR-078: Discussion Sessions Are Stored but Never Understood
@@ -39,6 +40,11 @@ ADR-069 (EXTRACT_ACTIVITIES pipeline), ADR-077 (canon scoped retrieval),
 adapts).
 
 ---
+
+## Related Skills
+
+For implementation guidance, see:
+- [@journals](../../.claude/skills/journals/SKILL.md)
 
 ## Context
 

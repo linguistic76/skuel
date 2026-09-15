@@ -1,5 +1,6 @@
 ---
-updated: 2026-09-14
+updated: 2026-09-15
+related_skills: [learning-loop, prompt-templates, zpd]
 ---
 
 # ADR-069: EXTRACT_ACTIVITIES Pipeline + EntryReport Convergence
@@ -23,6 +24,13 @@ together (calendar-priority-lens arc, ruling 7).
 > journal-pipeline UserEntries: `ReportSource.LLM` + owner-only visibility. No new
 > EntityType. Journal privacy policy unchanged (`Pipeline.allows_sharing()` stays
 > `False` only for `TRANSCRIBE_AND_STRUCTURE`).
+
+## Related Skills
+
+For implementation guidance, see:
+- [@learning-loop](../../.claude/skills/learning-loop/SKILL.md)
+- [@prompt-templates](../../.claude/skills/prompt-templates/SKILL.md)
+- [@zpd](../../.claude/skills/zpd/SKILL.md)
 
 ## Context
 

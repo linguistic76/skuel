@@ -1,5 +1,6 @@
 ---
-updated: 2026-09-01
+updated: 2026-09-15
+related_skills: [learning-loop]
 ---
 
 # ADR-038: Content Sharing Model
@@ -11,6 +12,11 @@ updated: 2026-09-01
 **Status:** Accepted
 **Date:** 2026-02-02
 **Author:** Claude Code (Phase 1 Implementation)
+
+## Related Skills
+
+For implementation guidance, see:
+- [@learning-loop](../../.claude/skills/learning-loop/SKILL.md)
 
 ## Context
 
