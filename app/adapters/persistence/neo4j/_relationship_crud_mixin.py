@@ -767,6 +767,13 @@ class _RelationshipCrudMixin[T: DomainModelProtocol]:
         One transaction: two service calls would leave a window in which the
         task's only identity edge is gone and a retry mints a twin.
 
+        A task already tracked from ``to_entry`` under another 🆔 (a second
+        line of it there) keeps that edge: there is one provenance edge per
+        (task, entry), and overwriting it would silently drop the first
+        line's identity. The move is refused, the source edge left alone —
+        the source note's re-ingest retires it, and the sweep sees a task
+        still tracked.
+
         Returns:
             Result[bool]: whether an edge for ``(task, vault_id, from_entry)``
             existed and was moved
@@ -775,6 +782,7 @@ class _RelationshipCrudMixin[T: DomainModelProtocol]:
         MATCH (t:Task {uid: $entity_uid})
               -[old:EXTRACTED_FROM {vault_id: $vault_id}]->(:UserEntry {uid: $from_entry_uid})
         MATCH (to:UserEntry {uid: $to_entry_uid})
+        WHERE NOT EXISTS { (t)-[:EXTRACTED_FROM]->(to) }
         WITH t, old, to,
              old.source_line_hash AS line_hash,
              old.source_line AS base,
@@ -798,9 +806,10 @@ class _RelationshipCrudMixin[T: DomainModelProtocol]:
         )
         repointed = int(record["repointed"]) if record else 0
         if repointed == 0:
-            self.logger.warning(
-                f"repoint_extracted_from_link: no EXTRACTED_FROM {{vault_id: {vault_id}}} edge "
-                f"{entity_uid} → {from_entry_uid} (re-keyed or already moved)"
+            self.logger.info(
+                f"repoint_extracted_from_link: EXTRACTED_FROM {{vault_id: {vault_id}}} "
+                f"{entity_uid} → {from_entry_uid} not moved to {to_entry_uid} "
+                "(re-keyed, already moved, or the task is already tracked there)"
             )
         return Result.ok(repointed > 0)
 
@@ -820,7 +829,10 @@ class _RelationshipCrudMixin[T: DomainModelProtocol]:
         meanwhile is left alone. The new edge carries the stamp's base as
         ``source_line`` and the caller's digest (the base's own, or none when
         the stamp held no base — the identity guard then refreshes it), and
-        the three stamps are cleared in the same statement.
+        the three stamps are cleared in the same statement. A task already
+        tracked from ``entry`` under another 🆔 keeps that edge and its stamp
+        (the sweep clears a still-tracked task's stamp): one provenance edge
+        per (task, entry), never overwritten.
 
         Returns:
             Result[bool]: whether a task carrying the stamp existed and was re-linked
@@ -828,6 +840,7 @@ class _RelationshipCrudMixin[T: DomainModelProtocol]:
         query = """
         MATCH (:User {uid: $user_uid})-[:OWNS]->(t:Task {uid: $entity_uid, retired_vault_id: $vault_id})
         MATCH (to:UserEntry {uid: $entry_uid})
+        WHERE NOT EXISTS { (t)-[:EXTRACTED_FROM]->(to) }
         WITH t, to, t.retired_source_line AS base
         MERGE (t)-[r:EXTRACTED_FROM]->(to)
         ON CREATE SET r.extracted_at = datetime()
@@ -849,9 +862,9 @@ class _RelationshipCrudMixin[T: DomainModelProtocol]:
         )
         revived = int(record["revived"]) if record else 0
         if revived == 0:
-            self.logger.warning(
-                f"revive_extracted_from_link: no Task {entity_uid} stamped "
-                f"retired_vault_id={vault_id} for {user_uid} (cleared or re-stamped)"
+            self.logger.info(
+                f"revive_extracted_from_link: Task {entity_uid} not re-linked to {entry_uid} "
+                f"by 🆔 {vault_id} (stamp cleared or re-stamped, or already tracked there)"
             )
         return Result.ok(revived > 0)
 

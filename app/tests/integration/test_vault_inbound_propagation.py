@@ -394,6 +394,47 @@ class TestTheSweep:
         assert await rig.owned_tasks() == [(task_uid, EntityStatus.DRAFT.value)]
         assert [(uid, v) for uid, v, _, _ in await rig.edges()] == [(task_uid, second_id)]
 
+    @pytest.mark.parametrize("first", ["A", "B"], ids=["A-first", "B-first"])
+    async def test_consolidating_both_lines_of_a_task_into_one_note_keeps_that_notes_edge(
+        self, rig: Rig, first: str
+    ) -> None:
+        """A task tracked from A (🆔 X) and, retyped, from B (🆔 Y). The user
+        cuts A's line and pastes it into B, which now holds both lines. One
+        provenance edge per (task, entry): B's own edge (Y) must survive — a
+        re-point or revival that MERGEd onto it would overwrite Y's identity
+        and write-back mapping with X's. Either order: the move is refused,
+        A's edge retires and stamps, the sweep sees a task still tracked from
+        B and clears the stamp. No twin; X's line in B stays untracked."""
+        task_uid, vault_id, line = await _seeded_note(rig)
+        note_b = rig.note_at(NOTE_B)
+        note_b.write_text(FRONTMATTER_B + "- [ ] Vacuum\n", encoding="utf-8")
+        await rig.sync()  # Guard 4 merges and writes B's edge; Y injected
+        await rig.sync()  # the injection re-ingests
+        edges = await rig.edges()
+        assert [uid for uid, _, _, _ in edges] == [task_uid, task_uid], edges
+        second_id = next(v for _, v, entry, _ in edges if entry.endswith(_entry_uid(NOTE_B)))
+        assert second_id and second_id != vault_id
+        b_text = note_b.read_text(encoding="utf-8")
+        assert second_id in b_text
+
+        rig.note.write_text(FRONTMATTER + "Consolidated.\n", encoding="utf-8")
+        note_b.write_text(b_text + line + "\n", encoding="utf-8")  # now both lines
+        rig.order(*((rig.note, note_b) if first == "A" else (note_b, rig.note)))
+
+        moved = await rig.sync()
+        assert not moved.warnings, moved.warnings
+        assert await rig.owned_tasks() == [(task_uid, EntityStatus.DRAFT.value)], (
+            "consolidating minted a twin"
+        )
+        [(edge_uid, edge_id, entry, _)] = await rig.edges()
+        assert (edge_uid, edge_id) == (task_uid, second_id), "B's own edge was overwritten"
+        assert entry.endswith(_entry_uid(NOTE_B))
+
+        swept = await rig.sync()
+        assert not swept.warnings, swept.warnings
+        assert await rig.stamps() == []
+        assert [(uid, v) for uid, v, _, _ in await rig.edges()] == [(task_uid, second_id)]
+
     async def test_the_sweep_holds_over_a_note_it_could_not_read(self, rig: Rig) -> None:
         """A note that opted in and failed to ingest has not had its say. The
         done line moves into B, but B's frontmatter is broken: the sweep holds

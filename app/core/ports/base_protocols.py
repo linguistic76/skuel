@@ -969,7 +969,9 @@ class RelationshipCrudOperations(Protocol):
         A vault line cut from one note and pasted into another keeps its task: the edge
         follows the line, carrying its digest, base and ``extracted_at`` unchanged — the
         base is what SKUEL last saw, and an edit made during the move must still diff
-        against it. One statement, so no retry ever finds the task edge-less.
+        against it. One statement, so no retry ever finds the task edge-less. Refused
+        (False, nothing written) when the task is already tracked from ``to_entry``
+        under another 🆔 — one provenance edge per (task, entry), never overwritten.
         Backend: ``_RelationshipCrudMixin.repoint_extracted_from_link``.
         """
         ...
@@ -986,7 +988,8 @@ class RelationshipCrudOperations(Protocol):
 
         The 🆔 reappeared within the grace: the new edge carries the stamp's base as
         ``source_line`` and the given digest (the base's own, or none when the stamp
-        held no base), and all three stamps are cleared. Keyed on the stamp as read.
+        held no base), and all three stamps are cleared. Keyed on the stamp as read;
+        refused (False, stamp kept) when the task is already tracked from ``entry``.
         Backend: ``_RelationshipCrudMixin.revive_extracted_from_link``.
         """
         ...

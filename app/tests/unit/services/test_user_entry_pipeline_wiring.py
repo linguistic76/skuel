@@ -60,6 +60,15 @@ def _make_entry(
     )
 
 
+VAULT_NOTE = {"vault_file_path": "/vault/periodic_notes/2026-09-15.md"}
+
+
+def _make_vault_entry(content: str) -> UserEntry:
+    """An EXTRACT_ACTIVITIES entry ingested from a vault file — the only kind
+    the move / revival branch and the Guard-4 edge write apply to."""
+    return _make_entry(Pipeline.EXTRACT_ACTIVITIES, content=content, metadata=dict(VAULT_NOTE))
+
+
 def _instruction(prompt_text: str = "PROMPT: {content}") -> OutputInstruction:
     return OutputInstruction(
         prompt_text=prompt_text,
@@ -500,8 +509,22 @@ class TestExtractActivities:
         """A line Guard 2b recognised by 🆔 after its text moved hands back a
         refreshed (uid, hash, vault_id) triple; it is written through the same
         batch edge MERGE as the created links — its own edge, same vault_id."""
-        entry = _make_entry(Pipeline.EXTRACT_ACTIVITIES, content="- [x] Gym 🆔 sk_a1 ✅ 2026-08-17")
+        entry = _make_vault_entry("- [x] Gym 🆔 sk_a1 ✅ 2026-08-17")
         svc = _extract_entry_service(entry)
+        svc.get_extracted_entities = AsyncMock(
+            return_value=Result.ok(
+                [
+                    {
+                        "entity_uid": "task:gym",
+                        "title": "Gym",
+                        "labels": ["Entity", "Task"],
+                        "source_line_hash": "hash_before",
+                        "vault_id": "sk_a1",
+                        "source_line": None,
+                    }
+                ]
+            )
+        )
 
         extractor = MagicMock()
         extractor.extract_and_create = AsyncMock(
@@ -1060,7 +1083,7 @@ class TestMovesAndRevivals:
         it in one call (task, 🆔, from → to), and the extractor's inputs are
         rebuilt from a second read — the re-pointed edge, base and digest as
         the old note's edge carried them, is what Guard 2b now sees."""
-        entry = _make_entry(Pipeline.EXTRACT_ACTIVITIES, content="- [ ] Vacuum 🆔 sk_move01")
+        entry = _make_vault_entry("- [ ] Vacuum 🆔 sk_move01")
         svc = _extract_entry_service(entry)
         moved_row = {
             "entity_uid": "task_vac",
@@ -1112,9 +1135,7 @@ class TestMovesAndRevivals:
         """The 🆔 vanished within the grace and is back: the task is re-linked
         here in one call, handed the digest of the base the stamp kept (the
         identity guard refreshes it if the line has since moved)."""
-        entry = _make_entry(
-            Pipeline.EXTRACT_ACTIVITIES, content="- [x] Gym 🆔 sk_back01 ✅ 2026-09-01"
-        )
+        entry = _make_vault_entry("- [x] Gym 🆔 sk_back01 ✅ 2026-09-01")
         svc = _extract_entry_service(entry)
         base = "- [ ] Gym 🆔 sk_back01"
         svc.get_extracted_entities = self._rows_then(
@@ -1163,7 +1184,7 @@ class TestMovesAndRevivals:
         """A pre-base edge retired before it was ever seeded stamps a null
         base; the revived edge gets no digest either, and the identity guard
         brings it current on this very run."""
-        entry = _make_entry(Pipeline.EXTRACT_ACTIVITIES, content="- [ ] Read 🆔 sk_nobase")
+        entry = _make_vault_entry("- [ ] Read 🆔 sk_nobase")
         svc = _extract_entry_service(entry)
         svc.get_extracted_entities = self._rows_then([], [])
         svc.find_task_by_vault_id = AsyncMock(
@@ -1196,7 +1217,7 @@ class TestMovesAndRevivals:
     async def test_a_phantom_is_left_to_the_guards_with_no_reread(self):
         """Found nowhere — no edge, no stamp: nothing is written and the
         guards run over the first read."""
-        entry = _make_entry(Pipeline.EXTRACT_ACTIVITIES, content="- [ ] Ghost 🆔 sk_ghost1")
+        entry = _make_vault_entry("- [ ] Ghost 🆔 sk_ghost1")
         svc = _extract_entry_service(entry)
         extractor = MagicMock()
         extractor.extract_and_create = AsyncMock(
@@ -1219,13 +1240,10 @@ class TestMovesAndRevivals:
         #1343): a prose mention or a fenced line is not a line the outbound
         pass could write to, so provenance must not be re-pointed onto it.
         No lookup, no re-point, no revival."""
-        entry = _make_entry(
-            Pipeline.EXTRACT_ACTIVITIES,
-            content=(
-                "Follow-up on the task 🆔 sk_prose1 from last week.\n"
-                "```\n- [ ] Fenced 🆔 sk_fence1\n```\n"
-                "- [ ] Real line 🆔 sk_real01\n"
-            ),
+        entry = _make_vault_entry(
+            "Follow-up on the task 🆔 sk_prose1 from last week.\n"
+            "```\n- [ ] Fenced 🆔 sk_fence1\n```\n"
+            "- [ ] Real line 🆔 sk_real01\n"
         )
         svc = _extract_entry_service(entry)
         extractor = MagicMock()
@@ -1241,11 +1259,44 @@ class TestMovesAndRevivals:
         svc.find_task_by_vault_id.assert_awaited_once_with("user_1", "sk_real01")
 
     @pytest.mark.asyncio
+    async def test_a_non_vault_entry_never_relinks_and_keeps_merges_edgeless(self):
+        """An uploaded / API-processed entry (no ``vault_file_path``) holding
+        a 🆔 line copied from the vault: the outbound pass never visits it,
+        so provenance moved onto it would strand the task away from its real
+        line. No lookup at all — and a Guard-4 merge on such an entry writes
+        no edge either (Codex P1 on #1343, round 3)."""
+        entry = _make_entry(Pipeline.EXTRACT_ACTIVITIES, content="- [ ] Vacuum 🆔 sk_move01")
+        assert not entry.is_vault_note()
+        svc = _extract_entry_service(entry)
+        extractor = MagicMock()
+        extractor.extract_and_create = AsyncMock(
+            return_value=Result.ok(
+                _extraction_result(
+                    entry.uid,
+                    created_links=[("task:new", "h1", None, "- [ ] New")],
+                    merged_links=[("task:twin", "h2", "sk_move01", "- [ ] Vacuum 🆔 sk_move01")],
+                )
+            )
+        )
+
+        dispatcher = _make_dispatcher(entry_service=svc)
+        dispatcher.activity_extractor = extractor
+        result = await dispatcher.process(entry)
+
+        assert result.is_ok
+        svc.find_task_by_vault_id.assert_not_awaited()
+        svc.repoint_extracted_from_link.assert_not_awaited()
+        svc.revive_extracted_from_link.assert_not_awaited()
+        svc.create_extracted_from_links.assert_awaited_once_with(
+            entry.uid, [("task:new", "h1", None, "- [ ] New")]
+        )
+
+    @pytest.mark.asyncio
     async def test_a_failed_repoint_fails_the_run_at_persist_links(self):
         """A re-point that fails leaves the edge where it was — the run fails
         like any provenance write, the file stays out of the checkpoint, and
         the next sync retries the move."""
-        entry = _make_entry(Pipeline.EXTRACT_ACTIVITIES, content="- [ ] Vacuum 🆔 sk_move01")
+        entry = _make_vault_entry("- [ ] Vacuum 🆔 sk_move01")
         svc = _extract_entry_service(entry)
         svc.find_task_by_vault_id = AsyncMock(
             return_value=Result.ok(

@@ -527,9 +527,14 @@ class UserEntryProcessingService:
         # and provenance moved onto it would be stranded on the wrong note
         # (the deleted-line verdict uses the wider raw scan on purpose: there
         # a 🆔 anywhere is a reason not to retire). A 🆔 found nowhere is a
-        # phantom and stays the guards' to resolve.
+        # phantom and stays the guards' to resolve. Vault notes only: an
+        # uploaded or API-processed entry holding a copied 🆔 line is not a
+        # note the outbound pass can write to, and provenance moved onto it
+        # would strand the task away from its real vault line.
         owned_ids = {vault_id for row in extracted_rows if (vault_id := row.get("vault_id"))}
-        foreign_ids = sorted(parsed_vault_ids(working_text) - owned_ids)
+        foreign_ids = (
+            sorted(parsed_vault_ids(working_text) - owned_ids) if entry.is_vault_note() else []
+        )
         relinked = 0
         for vault_id in foreign_ids:
             lookup = await self.entry_service.find_task_by_vault_id(entry.user_uid, vault_id)
@@ -682,9 +687,12 @@ class UserEntryProcessingService:
                 f"🆔 line(s) gone from the note — "
                 + ", ".join(f"{uid} ({vault_id})" for uid, vault_id in extraction.retired_links)
             )
+        # A Guard-4 edge tracks a line for the vault round-trip; on an entry
+        # the outbound pass never visits it would only be a second, inert
+        # provenance row, so the merge stays edge-less there.
         provenance_links = [
             *extraction.created_links,
-            *extraction.merged_links,
+            *(extraction.merged_links if entry.is_vault_note() else []),
             *extraction.refreshed_links,
         ]
         if provenance_links:
