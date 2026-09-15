@@ -8087,9 +8087,9 @@ class TestTestFileScopeIsTheTestsTree:
 
 class TestSweepDiscoveryIsPrunedAndOrdered:
     def test_excluded_directories_are_pruned_and_the_rest_sorted(self, tmp_path: Path) -> None:
-        """Same selection as before the pruned walk (an excluded directory's files
-        never appear; the lint-specific prefix still applies), now in a stable
-        order regardless of directory-listing order."""
+        """A sweep never lists a file under an excluded directory name, still
+        applies the lint-specific path prefix, and returns what remains in
+        sorted order — independent of directory-listing order."""
         from quality_discovery import EXCLUDED_DIR_NAMES  # type: ignore[import-not-found]
 
         excluded_dir = min(EXCLUDED_DIR_NAMES)
