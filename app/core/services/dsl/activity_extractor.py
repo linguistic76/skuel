@@ -192,9 +192,9 @@ class ExtractedByVaultId:
     ``entity_uid`` is the node the line resolved to (the refresh target);
     ``source_line_hash`` is the digest the edge stores, which is retired from
     the exact-match set the moment the line's text has moved. A 🆔 normally has
-    exactly one edge per entry; the duplicate-creation bug this guard closes
-    left some with two (the original task and its copy), so the input carries
-    every edge for the 🆔 and the guard treats them all as the line's own.
+    exactly one edge per entry, but the graph may hold two for one 🆔 (a task
+    and a twin minted from the same line), so the input carries every edge for
+    the 🆔 and the guard treats them all as the line's own.
     """
 
     entity_uid: str
@@ -742,10 +742,10 @@ class ActivityExtractorService:
         #     with smart-mode then checkpointing the file; line order cannot
         #     matter here;
         #   - refresh here, not in the domain loop, because a 🆔 may hold more
-        #     than one edge (the original task and the copy this guard's bug
-        #     once made) and the one already at the current digest makes
-        #     Guard 2 skip the line before the identity branch ever runs — the
-        #     stale sibling edge must still be refreshed. The edges are this
+        #     than one edge (``ExtractedByVaultId``: every edge under the 🆔
+        #     is the line's own) and the one already at the current digest
+        #     makes Guard 2 skip the line before the identity branch ever runs
+        #     — the stale sibling edge must still be refreshed. The edges are this
         #     line's own (identity proven by 🆔), so the write is the line's
         #     change signal moving with it, not a clobber (cf. Guards 3/4).
         #

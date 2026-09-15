@@ -509,9 +509,9 @@ class UserEntryProcessingService:
         existing_line_hashes = frozenset(
             line_hash for row in extracted_rows if (line_hash := row.get("source_line_hash"))
         )
-        # Every edge per 🆔, not one: the duplicate-creation bug Guard 2b closes
-        # left some 🆔s with two (the original task and its copy), and all of
-        # them are the line's own — retired and refreshed together.
+        # Every edge per 🆔, not one: the graph may hold two for one 🆔 (a task
+        # and a twin minted from the same line), and all of them are the
+        # line's own — retired and refreshed together.
         edges_by_vault_id: dict[str, list[ExtractedByVaultId]] = {}
         for row in extracted_rows:
             if (vault_id := row.get("vault_id")) and row.get("entity_uid"):

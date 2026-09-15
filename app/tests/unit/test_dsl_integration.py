@@ -540,8 +540,8 @@ Some reflections on the day...
                 }
             ),
             existing_vault_ids={
-                # Two edges on the gone 🆔 (the original and the copy the
-                # Guard 2b bug once made) — both are the line's own.
+                # Two edges on the gone 🆔 (a task and a twin minted from the
+                # same line) — both are the line's own.
                 "sk_gone01": (
                     ExtractedByVaultId("task_gone", normalized_line_hash(deleted)),
                     ExtractedByVaultId("task_gone_copy", normalized_line_hash(deleted)),

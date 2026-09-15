@@ -9,11 +9,12 @@ driven with mocked ``DeepgramAdapter`` + ``UnifiedLLMCaller`` +
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Any
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
+from core.events.base import BaseEvent
+from core.events.user_entry_events import UserEntryProcessingFailed
 from core.models.enums.entity_enums import EntityStatus
 from core.models.enums.pipeline import Pipeline
 from core.models.enums.user_entry_enums import EnrichmentMode
@@ -595,9 +596,9 @@ class TestExtractActivities:
             )
         )
         bus = MagicMock()
-        captured: list[Any] = []
+        captured: list[BaseEvent] = []
 
-        async def _publish(event: Any) -> None:
+        async def _publish(event: BaseEvent) -> None:
             captured.append(event)
 
         bus.publish_async = AsyncMock(side_effect=_publish)
@@ -608,7 +609,7 @@ class TestExtractActivities:
 
         assert result.is_error
         svc.create_extracted_from_links.assert_not_awaited()
-        failed = [e for e in captured if e.event_type == "user_entry.processing_failed"]
+        failed = [e for e in captured if isinstance(e, UserEntryProcessingFailed)]
         assert len(failed) == 1
         assert failed[0].failed_phase == "persist_links"
 
@@ -980,9 +981,9 @@ class TestExtractActivities:
             )
         )
         bus = MagicMock()
-        captured: list[Any] = []
+        captured: list[BaseEvent] = []
 
-        async def _publish(event: Any) -> None:
+        async def _publish(event: BaseEvent) -> None:
             captured.append(event)
 
         bus.publish_async = AsyncMock(side_effect=_publish)
@@ -992,7 +993,7 @@ class TestExtractActivities:
         result = await dispatcher.process(entry)
 
         assert result.is_error
-        failed = [e for e in captured if e.event_type == "user_entry.processing_failed"]
+        failed = [e for e in captured if isinstance(e, UserEntryProcessingFailed)]
         assert len(failed) == 1
         assert failed[0].failed_phase == "persist_links"
 
@@ -1028,10 +1029,10 @@ class TestFailedPhaseEventTag:
     """UserEntryProcessingFailed.failed_phase identifies the broken stage."""
 
     @staticmethod
-    def _event_bus_and_captured() -> tuple[MagicMock, list[Any]]:
-        captured: list[Any] = []
+    def _event_bus_and_captured() -> tuple[MagicMock, list[BaseEvent]]:
+        captured: list[BaseEvent] = []
 
-        async def _publish(event: Any) -> None:
+        async def _publish(event: BaseEvent) -> None:
             captured.append(event)
 
         bus = MagicMock()
@@ -1053,7 +1054,7 @@ class TestFailedPhaseEventTag:
         )
         await dispatcher.process(entry)
 
-        failed = [e for e in captured if e.event_type == "user_entry.processing_failed"]
+        failed = [e for e in captured if isinstance(e, UserEntryProcessingFailed)]
         assert len(failed) == 1
         assert failed[0].failed_phase == "transcribe"
 
@@ -1066,7 +1067,7 @@ class TestFailedPhaseEventTag:
         dispatcher = _make_dispatcher(entry_service=svc, transcription_adapter=None, event_bus=bus)
         await dispatcher.process(entry)
 
-        failed = [e for e in captured if e.event_type == "user_entry.processing_failed"]
+        failed = [e for e in captured if isinstance(e, UserEntryProcessingFailed)]
         assert len(failed) == 1
         assert failed[0].failed_phase == "setup"
 
@@ -1098,7 +1099,7 @@ class TestFailedPhaseEventTag:
         )
         await dispatcher.process(source)
 
-        failed = [e for e in captured if e.event_type == "user_entry.processing_failed"]
+        failed = [e for e in captured if isinstance(e, UserEntryProcessingFailed)]
         assert len(failed) == 1
         assert failed[0].failed_phase == "structure"
 
@@ -1125,7 +1126,7 @@ class TestFailedPhaseEventTag:
         )
         await dispatcher.process(source)
 
-        failed = [e for e in captured if e.event_type == "user_entry.processing_failed"]
+        failed = [e for e in captured if isinstance(e, UserEntryProcessingFailed)]
         assert len(failed) == 1
         assert failed[0].failed_phase == "transcribe"
 
