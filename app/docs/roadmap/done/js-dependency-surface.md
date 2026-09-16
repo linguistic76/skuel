@@ -1,6 +1,6 @@
 ---
 title: JS/Node Dependency Surface — Audit Triage, Coverage Gaps, and the Node 20 Runway
-updated: 2026-08-05
+updated: 2026-09-16
 category: roadmap
 tags: [roadmap, dependencies, security, javascript, node, npm, maintenance]
 ---
@@ -179,7 +179,7 @@ the gate is red.
 **Migration sketch (small, once Node moves):** bump `node-version` in `ci.yml` to `22`; add
 an `engines` field and/or `.nvmrc` so local and CI agree; `npm install jsdom@^30`; run
 `npm run test:js`. The jsdom-30 API surface change that matters to us is bounded — the vitest
-`environment: 'jsdom'` harness in `vitest.config.js` and `tests/js/helpers/load-skuel.js` are
+`environment: 'jsdom'` harness in `vitest.config.mjs` and `tests/js/helpers/load-skuel.js` are
 the only consumers.
 
 ---
@@ -196,7 +196,7 @@ These need a founder ruling; none is urgent, all are cheap.
 3. ~~**Should `npm audit` run in CI?**~~ **RESOLVED 2026-08-03 — but the proposal above was
    wrong, and worth recording as such.** It suggested adding a step to `js_tests`. That job is
    gated on the `js` path filter (`static/js/**`, `tests/js/**`, `package*.json`,
-   `vitest.config.js`), and **this incident changed none of those files** — the lockfile sat
+   `vitest.config.mjs`), and **this incident changed none of those files** — the lockfile sat
    still while the advisories were published around it. That placement would have added the
    *appearance* of coverage while staying blind to the exact failure mode. Diff-gating is the
    wrong trigger for a check whose input changes on someone else's clock. Shipped instead as

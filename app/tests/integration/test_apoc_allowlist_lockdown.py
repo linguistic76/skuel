@@ -81,7 +81,7 @@ import pytest_asyncio
 import yaml
 from neo4j import AsyncDriver, AsyncGraphDatabase
 from neo4j.exceptions import ClientError
-from testcontainers.neo4j import Neo4jContainer  # type: ignore[import-untyped]
+from testcontainers.community.neo4j import Neo4jContainer  # type: ignore[import-untyped]
 
 from tests.integration._neo4j_pin import NEO4J_IMAGE
 

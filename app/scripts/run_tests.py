@@ -7,10 +7,10 @@ Usage:
 
 Modes:
     all           - Run everything under tests/ (needs Docker for integration/e2e)
-    comprehensive - unit + integration + infrastructure [RECOMMENDED]
+    comprehensive - unit + integration [RECOMMENDED]
     integration   - Integration tests only (local Docker Neo4j)
     unit          - Unit tests only — fast CI tier (no Docker)
-    quick         - Fastest smoke subset (integration + auth + error handling)
+    quick         - Integration + the auth / error-handling unit files
 
 Options:
     -v, --verbose     - Verbose output
@@ -19,7 +19,6 @@ Options:
     --cov             - Include coverage report
     --tb=short        - Short traceback format
     --tb=no           - No traceback (fast failures)
-    -n auto           - Parallel execution (pytest-xdist)
     --markers         - Show available test markers
 """
 
@@ -39,22 +38,21 @@ class TestRunner:
     def run_all(self, extra_args: list[str]) -> int:
         """Run the complete test suite (everything under tests/)."""
         print("🔍 Running COMPLETE test suite (all of tests/)")
-        print("   unit + integration + e2e + infrastructure + benchmarks")
+        print("   unit + integration + e2e")
         print("   Integration/e2e need local Docker Neo4j (testcontainers)\n")
 
         cmd = ["uv", "run", "pytest", "tests/", "-v", *extra_args]
         return subprocess.run(cmd, cwd=self.project_root).returncode
 
     def run_comprehensive(self, extra_args: list[str]) -> int:
-        """Run unit + integration + infrastructure (RECOMMENDED).
+        """Run unit + integration (RECOMMENDED) — both CI tiers in one session.
 
-        tests/unit/ is the fast CI tier (root-level tests were migrated into it
-        2026-07-10) — the old --ignore=tests/unit/ predates that and would
-        silently skip the bulk of the suite. Excludes only e2e (slow, worker
-        lifecycle) and benchmarks.
+        tests/unit/ is the fast CI tier: every Docker-free test lives there.
+        Excludes only e2e (slow, worker lifecycle) and the uncollected
+        benchmarks directory.
         """
         print("✅ Running COMPREHENSIVE test suite (recommended)")
-        print("   unit + integration (both CI tiers) + infrastructure")
+        print("   unit + integration (both CI tiers)")
         print("   Excludes: e2e, benchmarks")
         print("   Integration needs local Docker Neo4j (testcontainers)\n")
 
@@ -102,11 +100,15 @@ class TestRunner:
         return subprocess.run(cmd, cwd=self.project_root).returncode
 
     def run_quick(self, extra_args: list[str]) -> int:
-        """Run quick smoke test (fastest subset)."""
-        print("💨 Running QUICK smoke test")
-        print("   Tests: Integration + Auth + Error handling (~350 tests)")
-        print("   Expected: ~345 passing (99% success)")
-        print("   Runtime: ~30 seconds\n")
+        """Run the integration tier plus the auth / error-handling unit files.
+
+        Not a smoke test: it is the whole integration tier (~1800 tests, ~3 min)
+        with four unit files on top. ``./dev smoke`` is the render smoke test.
+        """
+        print("💨 Running QUICK subset")
+        print("   Tests: integration + auth + error handling")
+        print("   Expected: 100% passing")
+        print("   Runtime: ~3 minutes (needs local Docker Neo4j)\n")
 
         cmd = [
             "uv",
@@ -157,12 +159,6 @@ def main():
         help="Traceback format",
     )
 
-    parser.add_argument(
-        "-n",
-        metavar="NUM",
-        help="Run tests in parallel (use 'auto' for CPU count)",
-    )
-
     parser.add_argument("--markers", action="store_true", help="Show available test markers")
 
     args, extra = parser.parse_known_args()
@@ -198,9 +194,6 @@ def main():
 
     if args.tb:
         extra_args.append(f"--tb={args.tb}")
-
-    if args.n:
-        extra_args.extend(["-n", args.n])
 
     # Run selected mode
     mode_map = {

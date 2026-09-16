@@ -534,12 +534,11 @@ addopts = [
     # "--ruff-format-check"
 ]
 
-# Test markers for type safety testing
+# Test markers — every entry has a live @pytest.mark user (strict-markers rejects
+# undeclared ones; a declared-but-unused one is inert vocabulary, delete it).
 markers = [
-    "unit: Unit tests",
     "integration: Integration tests",
     "e2e: End-to-end tests",
-    "type_safety: Type safety validation tests",
     "slow: Slow running tests",
     "asyncio: Async tests"
 ]
@@ -551,11 +550,13 @@ asyncio_default_test_loop_scope = "session"
 
 # Warning filters - suppress third-party deprecation warnings
 filterwarnings = [
-    # Testcontainers library uses deprecated internal patterns (as of v4.13.2)
-    # These warnings come from the library itself, not SKUEL code
-    # Will be fixed when testcontainers migrates to structured wait strategies
-    "ignore:The @wait_container_is_ready decorator is deprecated:DeprecationWarning:testcontainers",
-    "ignore:The wait_for_logs function with string or callable predicates is deprecated:DeprecationWarning:testcontainers",
+    # Third-party callers of asyncio.iscoroutinefunction (removed in Python 3.16):
+    # the pinned neo4j==5.26.0 driver (six call sites — the pin's Python-3.16
+    # deadline, ADR-067 §3) and fastcore. Module-scoped on purpose: a first-party
+    # call would still surface. Unfiltered, the driver alone emits >100k lines per
+    # run and buries every other warning.
+    "ignore:'asyncio.iscoroutinefunction' is deprecated:DeprecationWarning:neo4j",
+    "ignore:'asyncio.iscoroutinefunction' is deprecated:DeprecationWarning:fastcore",
     # Suppress AsyncMock internal cleanup warnings (false positives from unittest.mock)
     "ignore::RuntimeWarning:unittest.mock",
 ]

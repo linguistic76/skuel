@@ -114,7 +114,7 @@ service = create_tasks_service_for_testing(backend=backend)
 
 ### Config — `pyproject.toml [tool.pytest.ini_options]`
 
-`asyncio_mode = "auto"` · `--strict-markers --strict-config` · markers: `unit`, `integration`, `e2e`, `type_safety`, `slow`, `asyncio` (undeclared markers ERROR under strict).
+`asyncio_mode = "auto"` · `--strict-markers --strict-config` · markers: `integration`, `e2e`, `slow`, `asyncio` (undeclared markers ERROR under strict).
 
 ---
 

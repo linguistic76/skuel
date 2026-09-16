@@ -1,6 +1,6 @@
 ---
 title: Intelligence Route Factory - Usage Guide
-updated: 2026-08-14
+updated: 2026-09-16
 status: current
 category: guides
 tags: [factory, guides, intelligence, route, usage]
@@ -464,7 +464,7 @@ def create_habits_intelligence_routes(app, rt, habits_intelligence_service):
 ### Unit Tests (16/16 Passing)
 
 ```bash
-uv run pytest tests/infrastructure/test_intelligence_route_factory.py -v
+uv run pytest tests/unit/infrastructure/test_intelligence_route_factory.py -v
 ```
 
 **Test Coverage:**
@@ -545,7 +545,7 @@ uv run pytest tests/infrastructure/test_intelligence_route_factory.py -v
 ## References
 
 - **Implementation:** `/adapters/inbound/route_factories/intelligence_route_factory.py`
-- **Tests:** `/tests/infrastructure/test_intelligence_route_factory.py`
+- **Tests:** `/tests/unit/infrastructure/test_intelligence_route_factory.py`
 - **CRUD Factory:** `/docs/CRUD_ROUTE_FACTORY_USAGE.md`
 - **Refactoring Plan:** `/docs/INBOUND_ADAPTER_REFACTORING_PLAN.md`
 

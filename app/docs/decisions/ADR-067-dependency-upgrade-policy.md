@@ -71,7 +71,10 @@ routine upgrade pass:
   calendar line (see § 3a) while the driver stays on the last 5.x driver, which the Bolt protocol
   keeps forward-compatible with 2026.x servers (verified live). Bumping the driver is a normal
   latest-stable upgrade under § 4 (test it against the pinned server); moving to the 6.x driver is a
-  deliberate migration with its own ADR. Not a silent `uv lock --upgrade`.
+  deliberate migration with its own ADR. Not a silent `uv lock --upgrade`. **Horizon:** the 5.26
+  driver calls `asyncio.iscoroutinefunction` (six call sites), which Python 3.16 removes — the pin
+  cannot outlive the interpreter's move to 3.16 (the `filterwarnings` entry in `pyproject.toml`
+  silences that deprecation in the test run and points back here).
 - **`deepgram-sdk>=4.8.1,<5.0.0`** — 5.x+ is a breaking SDK rewrite. Stay on 4.x until a deliberate
   migration.
 

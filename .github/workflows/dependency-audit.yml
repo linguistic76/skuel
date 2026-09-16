@@ -14,7 +14,7 @@ name: Scheduled Dependency Audit
 # high advisories with zero file changes, and surfaced only because someone ran
 # ./dev quality by hand (PR #929, ADR-067 § 5). Path-scoping an audit into the
 # js_tests job would NOT have caught it: the `js` filter needs one of
-# static/js/**, tests/js/**, package*.json or vitest.config.js to change, and
+# static/js/**, tests/js/**, package*.json or vitest.config.mjs to change, and
 # none did. Only a run that is not gated on a diff catches this class.
 #
 # WHY IT OPENS AN ISSUE

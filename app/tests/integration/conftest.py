@@ -19,7 +19,7 @@ from unittest.mock import AsyncMock
 import pytest
 import pytest_asyncio
 from neo4j import AsyncGraphDatabase
-from testcontainers.neo4j import Neo4jContainer  # type: ignore[import-untyped]
+from testcontainers.community.neo4j import Neo4jContainer  # type: ignore[import-untyped]
 
 from adapters.persistence.neo4j.universal_backend import UniversalNeo4jBackend
 from core.constants import SYSTEM_USER_UID

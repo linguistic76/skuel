@@ -24,6 +24,7 @@ tests/
 │   ├── conftest.py             # TestContainers (shared + the app's own), skuel_app, backends
 │   └── test_*.py               # Real Neo4j tests
 ├── unit/
+│   ├── infrastructure/         # Route-factory tests (CRUD / query / intelligence / field factories)
 │   ├── scripts/                # Linter unit tests (lint_skuel, cypher_linter)
 │   ├── ui/                     # UI helper tests (enum_helpers, calendar, text, layout, buttons)
 │   ├── services/               # Service unit tests (mocked backends)

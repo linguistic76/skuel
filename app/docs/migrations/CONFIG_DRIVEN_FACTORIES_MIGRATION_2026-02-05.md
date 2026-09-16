@@ -6,7 +6,7 @@ scope: Activity Domains (6 files)
 related_docs:
   - /docs/patterns/DOMAIN_ROUTE_CONFIG_PATTERN.md
   - /docs/patterns/ROUTE_FACTORIES.md
-updated: 2026-08-13
+updated: 2026-09-16
 ---
 
 # Config-Driven Route Factory Registration Migration
@@ -276,7 +276,7 @@ Changed from manual `DomainRouteConfig` to `create_activity_domain_route_config(
 Stripped CRUD/Query/Intelligence factory blocks (~80-120 lines removed per file).
 
 **Tests (1 new file):**
-- `tests/infrastructure/test_domain_route_factory.py` - 16 comprehensive tests
+- `tests/unit/infrastructure/test_domain_route_factory.py` - 16 comprehensive tests
 
 ### Per-Domain Configuration
 
@@ -405,10 +405,10 @@ uv run ruff check adapters/inbound/route_factories/ adapters/inbound/{tasks,goal
 # ✅ All checks passed
 
 # Tests
-uv run pytest tests/infrastructure/test_domain_route_factory.py -v
+uv run pytest tests/unit/infrastructure/test_domain_route_factory.py -v
 # ✅ 16 passed in 5.59s
 
-uv run pytest tests/test_adapter_less_crud_routes.py tests/infrastructure/test_intelligence_route_factory.py -v
+uv run pytest tests/unit/test_adapter_less_crud_routes.py tests/unit/infrastructure/test_intelligence_route_factory.py -v
 # ✅ 35 passed in 6.06s
 ```
 
@@ -467,7 +467,7 @@ This order ensures factories with static params run first, then domain-specific 
 
 - **Pattern Documentation:** `/docs/patterns/DOMAIN_ROUTE_CONFIG_PATTERN.md`
 - **Route Factories:** `/docs/patterns/ROUTE_FACTORIES.md`
-- **Test Suite:** `/tests/infrastructure/test_domain_route_factory.py`
+- **Test Suite:** `/tests/unit/infrastructure/test_domain_route_factory.py`
 
 ---
 
