@@ -52,6 +52,11 @@ name: Composed Test Run
 # gets a comment, not a sibling.
 
 on:
+  # TEMPORARY — pre-merge verification only, removed before merge: a workflow
+  # file that is not yet on the default branch cannot be dispatched, so the PR
+  # that adds this one runs it on push instead.
+  push:
+    branches: [chore/test-infra-pr4-composed-run]
   schedule:
     # Mondays 05:00 UTC — offset from mypy-suppressions.yml (Mondays 06:00),
     # weekly-janitor.yml (Mondays 06:30) and dependency-audit.yml (daily 07:00).
