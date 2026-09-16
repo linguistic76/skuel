@@ -31,11 +31,9 @@
 # The status widget is one issue comment Codex posts the moment it is summoned
 # (marker `<!-- codex-pull-request-review-summary -->`) and then EDITS in place:
 # a table whose Status cell moves from "Running" to "Completed". It carries no
-# findings and no clean signature on either state — the verdict still arrives
-# on the channels above (#1347: the clean comment landed twelve minutes after
-# the widget, which the "any other comment" branch had already returned rc 2
-# on, reading a pending state as a verdict). It is filtered out of the
-# issue-comment channel by its marker, so it can neither clean nor "find".
+# findings and no clean signature in either state — the verdict arrives on the
+# channels above, and can land minutes after the widget — so it is filtered out
+# of the issue-comment channel by its marker: it can neither clean nor "find".
 #
 # The first two are INDEPENDENT surfaces and a finding can arrive on either, so
 # every channel the verdict COUNTS is also PRINTED. Counting one without printing
