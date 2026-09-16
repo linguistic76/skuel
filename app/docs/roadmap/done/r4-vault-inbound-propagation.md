@@ -1,7 +1,7 @@
 ---
 title: "R4 Vault Inbound Propagation — Build Plan"
 updated: 2026-09-16
-status: "done — four PRs: PR 1 (identity survives one sync: stamps, source_line base, re-point/revival, sweep) #1343; PR 2 (reconciliation: status both directions + field edits, one intent per line, base advances on ok — and with SKUEL's own outbound writes) #1344; PR 3 (deletion cancels open tasks: the sweep posts CANCELLED through the facade, stamp cleared on ok, the counter; the hold widened to a vault in doubt as a whole) #1345; PR 4 (docs: ADR-070 states the built mechanism, CLAUDE.md, the guides, the cleanup script narrowed to pre-🆔-era repair) PR4_NUMBER"
+status: "done — four PRs: PR 1 (identity survives one sync: stamps, source_line base, re-point/revival, sweep) #1343; PR 2 (reconciliation: status both directions + field edits, one intent per line, base advances on ok — and with SKUEL's own outbound writes) #1344; PR 3 (deletion cancels open tasks: the sweep posts CANCELLED through the facade, stamp cleared on ok, the counter; the hold widened to a vault in doubt as a whole) #1345; PR 4 (docs: ADR-070 states the built mechanism, CLAUDE.md, the guides, the cleanup script narrowed to pre-🆔-era repair) #1346"
 registered: 2026-08-24
 ruled: 2026-09-15
 trigger: "scheduled by Mike 2026-09-15 (was: Mike schedules it — product decision, not a data threshold)"
@@ -12,7 +12,7 @@ check: "each PR lands its rig test in tests/integration/test_vault_inbound_propa
 
 *Case file for the former [deferred-work.md](../deferred-work.md) entry of the same name.*
 
-**Status: ✅ DONE — 2026-09-16.** All four PRs merged (#1343, #1344, #1345, PR4_NUMBER); the
+**Status: ✅ DONE — 2026-09-16.** All four PRs merged (#1343, #1344, #1345, #1346); the
 mechanism below is the one built, and ADR-070 Decisions 1–3 now state it. Kept as the record of
 the constraints, rulings and residuals; the live fixture (W28 → W29) was the acceptance test.
 
@@ -370,7 +370,7 @@ fixture module; new file `test_vault_inbound_propagation.py`), and the mutant it
    the sweep cancels terminal tasks; the stamp is cleared before the cancel's result is
    known (a refused cancel becomes a permanent divergence); the sweep runs over a failed
    file (the broken note's open task is cancelled); the sweep ignores a live second edge.
-4. **Docs** — ✅ PR4_NUMBER. ADR-070: status annotation retired, Decision 2's `[x]`/`✅` rows and
+4. **Docs** — ✅ #1346. ADR-070: status annotation retired, Decision 2's `[x]`/`✅` rows and
    the field rows true (plus rows for a moved and a deleted line; 🛫 marked not synced),
    `source_line` and the three stamps in Decision 1, a Decision 3 paragraph naming the
    three-way merge; CLAUDE.md § Obsidian VaultBridge and § Unified Content Ingestion; the
@@ -442,7 +442,7 @@ Sequencing note: 1 → 2 is fixed (reconciliation needs the seeded base and the 
   on the ingest the preview does not run (a stamped task may be revived by a file the sync
   would read). A "N stamped tasks awaiting judgment" count is a possible follow-up, not built.
 
-**Closed (PR 4, PR4_NUMBER):** every product rule is built and every doc that described the
+**Closed (PR 4, #1346):** every product rule is built and every doc that described the
 pre-R4 truth now describes what is built — ADR-070 (status annotation retired; Decisions 1–3
 state the base, the stamps, the merge and the sweep), CLAUDE.md § Obsidian VaultBridge and
 § Unified Content Ingestion, the ingestion guide, the two user guides, the cypher reference —
