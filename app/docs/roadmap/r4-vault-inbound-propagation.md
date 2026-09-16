@@ -415,8 +415,23 @@ Sequencing note: 1 → 2 is fixed (reconciliation needs the seeded base and the 
   PR 1; edits from then until PR 2 lands are diffs against that base and apply when it does.
 - A refused vault edit re-warns on every sync until the line and the task agree — standing
   visibility, the same contract as ignored files.
-- A sync with any failed file holds every pending cancel until a clean sync — deletion
-  waits on the vault being readable, which is the honest order.
+- A sync with any failed file — or a vault that read as empty or wiped — holds every pending
+  cancel until a clean sync — deletion waits on the vault being readable, which is the honest
+  order.
+- **A note moved out of the synced folders is a deleted note to the tracker** ("now walled"
+  is "gone": the entry is `DETACH DELETE`d and its tasks stamped), so filing a weekly note into
+  an unsynced `archive/` cancels its open tasks two syncs later. Consistent with rule 1 (the
+  note left SKUEL's view; its open tasks would otherwise sit edge-less and open forever, the
+  orphan shape this arc removes) — but a product consequence, not a ruling: move the lines,
+  not the note, to keep them; reverse here if the archive case should differ.
+- The sweep's open-vs-terminal verdict is read by its listing, milliseconds before the write;
+  the facade's `update_task` is target-only by design (every caller's status control has the
+  same shape), so a completion landing inside that window is overwritten by the cancel and the
+  user re-completes by hand. A prior-refusing cancel (`refuse_if_prior_in` on the guarded
+  write, ADR-087) would need a facade-level parameter — a chokepoint change, not this arc's.
+- `preview` reports would-ingest / would-delete, not would-cancel: the sweep's verdict depends
+  on the ingest the preview does not run (a stamped task may be revived by a file the sync
+  would read). A "N stamped tasks awaiting judgment" count is a possible follow-up, not built.
 
 **Named cost while open:** after PR 3 every product rule is built; what remains is PR 4 —
 the docs still describe the pre-R4 truth (ADR-070's status annotation, CLAUDE.md § Obsidian
