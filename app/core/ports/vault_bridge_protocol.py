@@ -324,7 +324,9 @@ class VaultSyncStats:
         one a local-agent mirror could not refresh, or a vault the walk found
         empty / the deletion valve refused: any of them may hold the very 🆔
         line that would revive a stamped task, so no retirement is judged
-        until a sync without them (R4 build plan, "two gates on the sweep").
+        until a sync without them (ADR-070 Decision 1, the R4 amendment; the
+        record: ``docs/roadmap/done/r4-vault-inbound-propagation.md`` § "Two
+        gates on the sweep").
         """
         return bool(
             self.files_failed
@@ -402,8 +404,8 @@ def _carries_skuel_done_marker(line: str) -> bool:
     So the un-check takes back only what SKUEL wrote. It is not an opinion about
     who owns the checkbox; it is the narrower and defensible claim that a
     withdrawn completion must not leave SKUEL's own completion token behind.
-    Anything else stays, diverging visibly — the pre-existing state § R4 exists
-    to close, not a new one this creates.
+    Anything else is the user's own and stays as they wrote it; the inbound
+    pass, not this arm, is what reads it (ADR-070 Decision 3).
 
     It shares ``_TRAILING_DONE_DATE_RE`` with the removal below, so detection and
     removal cannot disagree and leave a line half-reverted.

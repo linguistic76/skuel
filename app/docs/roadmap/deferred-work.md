@@ -88,10 +88,6 @@ renders them as a table in Obsidian, and a session derives the same table with
 
 [Per-Node Substance Counters — the Unread Arm](per-node-substance-counters.md) — The per-node counter arm and its 8 model methods have zero production readers — ruled keep staged; the writers keep accruing, and retroactive credit is parked with it.
 
-## R4 Vault Inbound Propagation — Build Plan
-
-[R4 Vault Inbound Propagation — Build Plan](r4-vault-inbound-propagation.md) — Vault-side checks, unchecks, edits, moves and deletions of 🆔 lines propagating into SKUEL — **scheduled 2026-09-15** (deletion cancels open tasks, moves re-point, a three-way merge per field); four PRs — PR 1 (#1343: stamps, the `source_line` base, re-point/revival, the sweep) and PR 2 (#1344: reconciliation — a vault-side check, uncheck or field edit reaches the task, three-way against the base) and PR 3 (#1345: deletion cancels open tasks — the sweep posts `CANCELLED` through the facade, stamp cleared on ok) merged, PR 4 (docs) next.
-
 ## ⚠️ Vault Re-Sync Never Retracts a Share
 
 [Vault Re-Sync Never Retracts a Share](vault-resync-never-retracts-a-share.md) — Narrowing or removing `audience:` does nothing on re-sync — the one write-once-widen door, ruled leave-registered until share reconciliation is built.

@@ -1,7 +1,7 @@
 ---
 title: Tasks User Guide
 created: 2026-06-25
-updated: 2026-09-05
+updated: 2026-09-16
 status: current
 category: guides
 tags: [tasks, user-guide, goals, subtasks, obsidian, learning-loop, applied-knowledge]
@@ -236,24 +236,29 @@ If you complete a task in SKUEL and then sync your vault, SKUEL writes the compl
 
 The `✅ YYYY-MM-DD` token is written by SKUEL so the obsidian-tasks plugin recognizes the completion date.
 
-**Completing it in Obsidian does not sync back.** Checking the box on a line that already carries a `🆔` does NOT mark the SKUEL Task completed — checkbox sync is outbound-only, and the sync deliberately skips lines it already tracks (the duplicate-task guard). Complete the task in SKUEL and the next sync writes the `✅` into your note. (A checkbox line you author *already checked*, before it has a `🆔`, is different: its first ingest creates the task in SKUEL as completed, with the `✅` date.)
+**Completing it in Obsidian syncs back too.** Check the box on a `🆔` line and the next sync completes the task in SKUEL — dated with the `✅` date if the obsidian-tasks plugin wrote one, with today if you ticked the box by hand (SKUEL then writes `✅ today` onto the line for you). Un-check a line SKUEL had completed and the task reopens. A checkbox line you author *already checked*, before it has a `🆔`, works the same way from the start: its first sync creates the task as completed, with the `✅` date.
 
-**Re-opening it in SKUEL does sync out.** If you re-open a completed task, the next sync un-checks its line and removes the `✅` date — restoring the line to exactly what it was before you completed it. Your note never keeps a completion you withdrew. SKUEL only ever takes back **its own** write: a box you ticked yourself in Obsidian (no `✅` date on the line) is left exactly as you left it. (Ticking or un-ticking a `🆔` line yourself still does not change the task in SKUEL; that direction is not built.)
+**Re-opening it in SKUEL syncs out.** If you re-open a completed task, the next sync un-checks its line and removes the `✅` date — restoring the line to exactly what it was before you completed it. Your note never keeps a completion you withdrew. SKUEL only ever takes back **its own** write: a box you ticked yourself in Obsidian (no `✅` date on the line) is never un-ticked for you.
+
+**Editing the line syncs back.** Change the title, the `📅` due date, the `⏳` scheduled date, the priority emoji or the `#tags` of a `🆔` line and the task follows on the next sync. Only what you changed moves: a field you left alone keeps SKUEL's value, and if you edited the task in SKUEL *and* the line in Obsidian, the line wins. If SKUEL cannot accept an edit — removing a task's only date, for example, since every task keeps a day — the sync reports a warning naming the line, and repeats it on every sync until the line and the task agree again.
+
+**Moving and deleting lines.** Cut a `🆔` line out of one note and paste it into another — it stays the same task, even if you sync between the cut and the paste (the same two-sync grace as a deletion). Delete a `🆔` line and, if it is still gone after **two syncs**, an open task is **cancelled** (a completed one is left alone). Deleted the wrong line? Type it back — `🆔` included — before the next sync and nothing happens; after the cancel, un-cancel the task in SKUEL first and then type the line back, and they are reunited. Deleting a whole note, or moving it into a folder SKUEL does not sync, cancels its open tasks the same way.
 
 **Field authority** — who owns what:
 
 | Field | Edited in | Syncs to |
 |-------|-----------|---------|
 | Title | Obsidian | → SKUEL (vault wins) |
-| Checkbox done | SKUEL | → Obsidian (outbound only; a vault-side check of a 🆔 line is not read back) |
-| Due date (📅) | Obsidian | → SKUEL |
+| Checkbox done / not done | Either | ↔ both ways: completing in either place completes it everywhere; un-checking a line SKUEL completed reopens the task; re-opening in SKUEL un-checks the line |
+| Due date (📅), scheduled date (⏳) | Obsidian | → SKUEL (removing the only date is refused — a task keeps a day) |
 | Priority (🔺⏫) | Obsidian | → SKUEL |
-| Tags (#hashtag) | Obsidian | → SKUEL (becomes `Task.tags`) |
+| Tags (#hashtag) | Obsidian | → SKUEL (becomes `Task.tags`; tags set in SKUEL stay) |
+| The line itself (moved, deleted) | Obsidian | → SKUEL (a move keeps the task; a deletion cancels an open task after two syncs) |
 | Goal link, habit link | SKUEL | SKUEL only (not in Obsidian) |
 | Knowledge connections | SKUEL | SKUEL only |
 | ZPD scores | SKUEL | SKUEL only |
 
-The vault→SKUEL rows apply when a line is **first extracted**. Once a line carries a `🆔`, later vault-side edits to it (title, dates, checkbox) are deliberately skipped by the sync — inbound propagation of edits is a parked build. Edit tracked tasks in SKUEL — checkbox state syncs outbound in both directions: a completion writes `[x]` + `✅`, and re-opening the task removes them again.
+One thing to know about cancelled tasks: un-ticking a line whose task you cancelled in SKUEL does not reopen it — a cancel is a decision you made in SKUEL, and the line simply stays open in your note until you tick it (which completes the task) or un-cancel it in SKUEL.
 
 **First-run notice:** The first time you sync, SKUEL will explain that it needs to inject `🆔 sk_<6>` IDs into your task lines. Approve once; subsequent syncs proceed silently.
 

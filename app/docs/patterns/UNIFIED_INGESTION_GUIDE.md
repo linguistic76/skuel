@@ -1291,16 +1291,20 @@ digest on no 🆔-less line — through `UserEntryService.retire_extracted_from_
 those digests from Guard 2's exact-match set so the same text typed back later is a new task
 instead of being swallowed as the deleted line. **The task itself stays, stamped**: the retiring
 statement writes `retired_vault_id` / `retired_source_line` / `vault_line_retired_at` on the
-task from the edge it deletes — the one-sync grace record of the R4 build plan
-(`/docs/roadmap/r4-vault-inbound-propagation.md`). A 🆔 that reappears in any note within one
-sync re-links its task by the stamp (`revive_extracted_from_link`); one live on another note is
-a move and its edge is re-pointed in one statement (`repoint_extracted_from_link`); the
-end-of-sync sweep clears the stamps of terminal or still-tracked tasks and cancels an open,
-untracked one through `TasksService.update_task` (R4 rule 1 — the stamp is cleared only when
-that write lands; a refused cancel keeps it and warns, naming the task; the count surfaces as
-`VaultSyncStats.tasks_cancelled_by_deletion`). Whole-note deletion
-(`IngestionBackend.delete_entities_with_metadata`) stamps the note's tasks the same way in the
-statement that `DETACH DELETE`s the entry. One key gone is not a
+task from the edge it deletes — the one-sync grace record of the R4 arc (ADR-070 Decision 1;
+the record: [r4-vault-inbound-propagation.md](../roadmap/done/r4-vault-inbound-propagation.md)).
+A 🆔 that reappears in any note within one sync re-links its task by the stamp
+(`revive_extracted_from_link`); one live on another note is a move and its edge is re-pointed in
+one statement (`repoint_extracted_from_link`); the end-of-sync sweep clears the stamps of
+terminal or still-tracked tasks and cancels an open, untracked one through
+`TasksService.update_task` (R4 rule 1 — the stamp is cleared only when that write lands; a
+refused cancel keeps it and warns, naming the task; the count surfaces as
+`VaultSyncStats.tasks_cancelled_by_deletion`). The sweep holds — every stamp, terminal ones
+included — over an incomplete inbound pass (`VaultSyncStats.inbound_pass_incomplete`: a failed or
+unreadable file, a stale mirror file, or a vault that read as empty or wiped), and the next clean
+sync decides. Whole-note deletion (`IngestionBackend.delete_entities_with_metadata`) stamps the
+note's tasks the same way in the statement that `DETACH DELETE`s the entry — a note moved out of
+the synced folders is a deleted note to the tracker. One key gone is not a
 deletion: a 🆔-less line still hashing to its edge is that line with its token stripped, kept
 and recognised by hash, and the outbound pass re-mints a 🆔 onto it. The run summary
 (`metadata.activity_extraction.retired_links`) records each retirement as `[entity_uid,

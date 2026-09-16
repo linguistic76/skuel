@@ -7,7 +7,8 @@ the vault changed it, or SKUEL changed the task behind it and the outbound pass 
 not written that back yet. The two look the same to a hash and to a bare comparison
 of line against task — and the sync runs inbound BEFORE outbound, so a bare "line
 state ≠ task state ⇒ apply the line" would reopen every task completed in SKUEL on
-the very next sync (R4 build plan, C1). What tells them apart is the line as SKUEL
+the very next sync (ADR-070 Decision 3; C1 of the R4 record,
+``docs/roadmap/done/r4-vault-inbound-propagation.md``). What tells them apart is the line as SKUEL
 LAST SAW IT — the ``EXTRACTED_FROM.source_line`` base — so each field is judged
 three ways:
 

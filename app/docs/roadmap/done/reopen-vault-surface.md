@@ -1,6 +1,6 @@
 ---
 title: "Roadmap: the reopen vault surface"
-updated: 2026-09-15
+updated: 2026-09-16
 status: complete
 category: roadmap
 tags: [roadmap, vault, obsidian, tasks, events, done]
@@ -12,9 +12,10 @@ tags: [roadmap, vault, obsidian, tasks, events, done]
 reopen a vault surface, and closed the write-outcome fragility that the third write
 operation would otherwise have inherited.
 
-**Nothing below remains open.** Two neighbours stay live in `../deferred-work.md` and are
-*not* part of this record: § "Vault Has Un-Synced Changes" Signal (the honest version of
-the dirty flag this arc once proposed) and § R4 Vault Inbound Propagation — Build Plan.
+**Nothing below remains open.** Two neighbours are *not* part of this record: § "Vault Has
+Un-Synced Changes" Signal (the honest version of the dirty flag this arc once proposed),
+still live in `../deferred-work.md`; and R4 Vault Inbound Propagation, built 2026-09-15/16 —
+[r4-vault-inbound-propagation.md](r4-vault-inbound-propagation.md).
 
 ⚠️ **Both headings below are cited by name from code** — `core/ports/vault_bridge_protocol.py`,
 `core/services/vault/vault_reconciler.py`, and three test modules point at
@@ -156,8 +157,8 @@ The ⚠ marker on the event's own docstring carries the decision, and it is what
 it. When the only actor able to act is the human, the event has no verb — and "what exactly does
 the subscriber do?" is not a detail to fill in later, it is the design failing out loud.
 
-**Still open, and separately registered** — both live in `../deferred-work.md`, not here: the
-want behind "mark the owner's vault dirty" is real but bigger than a reopen (§ "Vault Has
-Un-Synced Changes" Signal), and inbound propagation — a vault-side check/uncheck reaching
-SKUEL — scheduled 2026-09-15 (§ R4 Vault Inbound Propagation — Build Plan).
+**Separately registered, not here:** the want behind "mark the owner's vault dirty" is real but
+bigger than a reopen (`../deferred-work.md` § "Vault Has Un-Synced Changes" Signal, still open);
+and inbound propagation — a vault-side check/uncheck reaching SKUEL — scheduled 2026-09-15 and
+built as the R4 arc ([r4-vault-inbound-propagation.md](r4-vault-inbound-propagation.md)).
 

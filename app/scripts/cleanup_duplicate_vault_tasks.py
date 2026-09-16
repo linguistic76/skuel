@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""One-time care cleanup: Tasks minted twice from the SAME vault checkbox line.
+"""Care cleanup for pre-🆔-era vault tasks: re-mints, strays, phantom 🆔s.
 
 Why this exists (live census, 2026-08-27, AuraDB ``d2d160c4``): the 🆔→task join
 key lives on the ``EXTRACTED_FROM`` edge (``vault_id`` + ``source_line_hash``),
@@ -7,9 +7,21 @@ not on the Task node. Tasks minted before that edge existed — the 2026-06-28
 LLM-paraphrase door, and lines whose entry was later deleted and re-created —
 carry no edge at all, so no extraction guard can recognise them: Guard 2/2b
 read this entry's edges (none), and Guard 4 filters to ACTIVE twins by design
-(a recurring template line MUST re-mint after completion — deferred-work.md
-§ R4). Once such an orphan was completed in SKUEL its still-unchecked vault
-line minted a twin on the next sync, and the twin took the line's 🆔.
+(a recurring template line MUST re-mint after completion). Once such an orphan
+was completed in SKUEL its still-unchecked vault line minted a twin on the next
+sync, and the twin took the line's 🆔.
+
+What a sync now heals on its own is out of this script's scope (the R4 arc,
+``docs/roadmap/done/r4-vault-inbound-propagation.md``): an OPEN edge-less task
+whose title is on a live line is merged by Guard 4 and GIVEN the edge on that
+file's next sync, so the former LINE-BACKED class needs no report; a 🆔 line
+gone from the vault retires its edge and stamps its task (``retired_vault_id``,
+the one-sync grace), and the end-of-sync sweep cancels an open task whose line
+stays gone. A stamped task therefore OWNS its 🆔 here — a vault line carrying
+it is a revival in waiting, never a phantom, and the task is never a re-mint —
+and stamped ids are listed as IN GRACE, not as dangling. What is left is the
+pre-🆔-era repair: RE-MINT proposals, STRAYS, and ``--repair-id`` for a phantom
+🆔 whose only same-title task is COMPLETED (an open one heals itself).
 
 The script PROPOSES; a human CONFIRMS. Without an edge nothing ties an
 edge-less task to a line beyond its title — a completed app-created task with a
@@ -35,21 +47,27 @@ Proposal rule — **one physical vault checkbox line ⇒ one task**:
     deleted later — e.g. `task_b9d52706` 'move furniture', the real record of
     a task whose line the owner erased). Deleting one takes
     ``--include-strays`` on top of ``--confirm``, one deliberate act per
-    stray; the ready-to-run line never contains them (Codex #1166). A task
-    whose title matches a live line is that line's task (its edge was lost),
-    never a stray.
+    stray; the ready-to-run line never contains them (Codex #1166). A completed
+    task whose title matches a live line is not a stray: the next sync re-mints
+    that line (Guard 4 ignores terminal twins) and the run after proposes the
+    original as a RE-MINT — or, when the line carries a phantom 🆔, ``--repair-id``
+    re-ties it first.
 
-Also reported: **phantom 🆔s** — a vault line whose id no edge owns (the next
-sync of that file re-mints it, then recovers the id onto the new edge). Repair
-with ``--repair-id <id>``: the line's single edge-less same-title task gets the
-``EXTRACTED_FROM`` edge (``vault_id`` + the door's ``source_line_hash``) on the
-entry the file's OTHER owned ids point to — the reconciler's own recovery case,
-applied to a task that predates the edge. A file with no owned id resolves no
-entry and is refused. **Dangling ids** (on edges, on no line) are counted: the
-extraction pre-pass retires such an edge on its file's next re-ingest, so any
-listed here sit on files unchanged since the line went — one
-``./dev vault-sync --force`` retires them (roadmap/done § "Line Deletions Leave
-EXTRACTED_FROM Edges").
+Also reported: **phantom 🆔s** — a vault line whose id no edge and no stamp
+owns. With a COMPLETED same-title task the next sync of that file re-mints the
+line (Guard 4 ignores terminal twins), then recovers the id onto the new edge;
+with an OPEN one Guard 4 merges the line and writes the edge itself. Repair
+with ``--repair-id <id>`` — THE repair for a pre-🆔-era task: the line's single
+edge-less same-title task gets the ``EXTRACTED_FROM`` edge (``vault_id`` + the
+door's ``source_line_hash`` + the line as ``source_line`` base) on the entry the
+file's OTHER owned ids point to — the reconciler's own recovery case, applied
+to a task that predates the edge. A file with no owned id resolves no entry
+and is refused. **Dangling ids** (on edges, on no line) are counted: the
+extraction pre-pass retires such an edge — and stamps its task — on its file's
+next re-ingest, so any listed here sit on files unchanged since the line went
+— one ``./dev vault-sync --force`` retires them (roadmap/done § "Line Deletions
+Leave EXTRACTED_FROM Edges"), and the sweep judges the stamp after the grace.
+**In-grace ids** (stamped, on no line) are the sweep's, listed for the census.
 
 Dry-run by default: prints every set and the exact ``--confirm`` invocation,
 changes nothing. Deletions go through ``TasksService.delete_task`` (cascade +
@@ -125,10 +143,24 @@ class TaskRow:
     vault_ids: tuple[str, ...]  # 🆔s on its EXTRACTED_FROM edges
     edge_count: int  # EXTRACTED_FROM edges, ids or not
     other_rel_count: int = 0  # relationships other than OWNS / EXTRACTED_FROM
+    # The R4 grace record: the 🆔 of a line gone since the last sync, held until
+    # the end-of-sync sweep judges it (or a re-appearing line revives it).
+    retired_vault_id: str | None = None
 
     @property
     def is_edgeless(self) -> bool:
         return self.edge_count == 0
+
+    @property
+    def in_grace(self) -> bool:
+        return self.retired_vault_id is not None
+
+    @property
+    def claimed_ids(self) -> tuple[str, ...]:
+        """Every 🆔 this task owns: on its edges, or held by its grace stamp."""
+        if self.retired_vault_id is None:
+            return self.vault_ids
+        return (*self.vault_ids, self.retired_vault_id)
 
     @property
     def is_completed(self) -> bool:
@@ -184,7 +216,7 @@ class Classification:
     phantom_ids: list[PhantomId] = field(default_factory=list)
     dangling_ids: list[str] = field(default_factory=list)
     strays: list[TaskRow] = field(default_factory=list)
-    line_backed: list[TaskRow] = field(default_factory=list)  # edge-less, but a live line's task
+    in_grace: list[TaskRow] = field(default_factory=list)  # stamped; the sweep's, not ours
 
     @property
     def remint_uids(self) -> list[str]:
@@ -224,9 +256,12 @@ def classify(
     ``owned_vault_ids`` is every 🆔 any ``EXTRACTED_FROM`` edge into this
     user's entries carries — the phantom/dangling reconciliation set. It is a
     superset of the ids on ``tasks`` (checkbox lines only mint Tasks, but the
-    edge read is the honest source).
+    edge read is the honest source). A 🆔 held by a task's grace stamp
+    (``retired_vault_id``) is owned too: the line was gone at the last sync,
+    and one carrying the id now is a revival the next sync performs.
     """
     out = Classification()
+    stamped_ids = {task.retired_vault_id for task in tasks if task.retired_vault_id}
 
     lines_by_title: dict[str, list[VaultTaskLine]] = defaultdict(list)
     for line in lines:
@@ -237,12 +272,13 @@ def classify(
     for task in tasks:
         tasks_by_title[normalized_activity_title(task.title)].append(task)
     # 🆔 ownership across ALL the user's tasks, not the title group: a line
-    # whose id is owned by a task with a diverged title (vault edit; inbound
-    # propagation parked, § R4) belongs to THAT task, and the same-title
-    # group is not its re-mints (Codex #1165 r8).
+    # whose id is owned by a task with a diverged title (a vault-side retitle
+    # the next sync applies to the task) belongs to THAT task, and the
+    # same-title group is not its re-mints (Codex #1165 r8). A grace stamp
+    # counts as ownership for the same reason an edge does.
     owners_by_id: dict[str, list[TaskRow]] = defaultdict(list)
     for task in tasks:
-        for vault_id in task.vault_ids:
+        for vault_id in task.claimed_ids:
             owners_by_id[vault_id].append(task)
 
     proposed: set[str] = set()
@@ -277,15 +313,22 @@ def classify(
         if keeper is None:
             out.review.append(ReviewGroup(title=group[0].title, tasks=tuple(group), reason=blocker))
             continue
-        remints = tuple(t for t in group if t is not keeper and t.is_edgeless and t.is_completed)
+        # A task in the deletion grace had its OWN 🆔 line until the last sync
+        # (the stamp proves it) — it is that line's task, never this line's
+        # re-mint; the sweep, not this script, decides what becomes of it.
+        remints = tuple(
+            t
+            for t in group
+            if t is not keeper and t.is_edgeless and t.is_completed and not t.in_grace
+        )
         leftover = tuple(t for t in group if t is not keeper and t not in remints)
         if not remints:
             out.review.append(
                 ReviewGroup(
                     title=group[0].title,
                     tasks=tuple(group),
-                    reason="twins all carry provenance edges or are still active — "
-                    "nothing provably re-minted",
+                    reason="twins all carry provenance edges, are in the deletion grace, "
+                    "or are still active — nothing provably re-minted",
                 )
             )
             continue
@@ -296,25 +339,34 @@ def classify(
 
     line_ids = {line.vault_id for line in lines if line.vault_id}
     for line in lines:
-        if line.vault_id and line.vault_id not in owned_vault_ids:
+        # An id on no edge but held by a grace stamp is a line typed back within
+        # the grace — the next sync revives the task by the stamp. Not a phantom.
+        if line.vault_id and line.vault_id not in owned_vault_ids | stamped_ids:
             key = normalized_activity_title(line.title)
+            # A task in the grace had its own 🆔 line (the stamp names it) — it
+            # is not this line's owner whatever the title says.
             owners = tuple(
-                t for t in tasks_by_title.get(key, []) if t.is_edgeless and t.uid not in proposed
+                t
+                for t in tasks_by_title.get(key, [])
+                if t.is_edgeless and not t.in_grace and t.uid not in proposed
             )
             out.phantom_ids.append(PhantomId(line=line, likely_owners=owners))
     out.dangling_ids = sorted(owned_vault_ids - line_ids)
+    out.in_grace = sorted((t for t in tasks if t.in_grace), key=lambda t: t.created_at)
 
-    # Edge-less survivors: a live line with the same title makes the task that
-    # line's task (its edge was lost) — never a stray. No line at all = stray.
+    # Edge-less survivors. Completed, on no line at all, not in the grace ⇒ a
+    # STRAY (listed, never proposed). Everything else an edge-less task can be
+    # is a sync's to heal, not ours: an OPEN task whose title is on a live line
+    # is merged by Guard 4 and given the edge on that file's next sync (R4); a
+    # COMPLETED one with a live same-title line is re-minted by that sync — a
+    # phantom 🆔 on the line is repaired here beforehand (``--repair-id``), a
+    # 🆔-less line shows up afterwards as a PROPOSED re-mint; an open task on
+    # no line is app-created or awaiting its line, and not this script's.
     for task in sorted(tasks, key=lambda t: t.created_at):
-        if not task.is_edgeless or task.uid in proposed:
+        if not task.is_edgeless or task.uid in proposed or task.in_grace:
             continue
-        if normalized_activity_title(task.title) in lines_by_title:
-            out.line_backed.append(task)
-        elif task.is_completed:
+        if task.is_completed and normalized_activity_title(task.title) not in lines_by_title:
             out.strays.append(task)
-        else:
-            out.line_backed.append(task)  # active + edge-less: could be app-created; not ours
     return out
 
 
@@ -509,7 +561,8 @@ async def _fetch_tasks(driver: _ReadDriver, user_uid: str) -> list[TaskRow]:
         WHERE NOT type(o) IN $provenance_types
         RETURN t.uid AS uid, t.title AS title, t.status AS status,
                toString(t.created_at) AS created_at,
-               vault_ids, edge_count, count(o) AS other_rel_count
+               vault_ids, edge_count, count(o) AS other_rel_count,
+               t.retired_vault_id AS retired_vault_id
         ORDER BY created_at
         """,
         user_uid=user_uid,
@@ -526,6 +579,7 @@ async def _fetch_tasks(driver: _ReadDriver, user_uid: str) -> list[TaskRow]:
             vault_ids=tuple(str(v) for v in r["vault_ids"] if v),
             edge_count=int(r["edge_count"]),
             other_rel_count=int(r["other_rel_count"]),
+            retired_vault_id=str(r["retired_vault_id"]) if r["retired_vault_id"] else None,
         )
         for r in result.records
     ]
@@ -607,7 +661,7 @@ def _print_report(c: Classification, user_uid: str) -> None:
         for t in s.proposed:
             print(f"  DEL?  {_task_line(t)}")
         for t in s.left_for_review:
-            print(f"  ...   {_task_line(t)}  ← left alone (has edges or still active)")
+            print(f"  ...   {_task_line(t)}  ← left alone (has edges, in grace, or still active)")
 
     print(
         f"\n{bar}\nSTRAYS (listed, not proposed) — edge-less, completed, title on NO vault line: {len(c.strays)}\n{bar}"
@@ -629,15 +683,14 @@ def _print_report(c: Classification, user_uid: str) -> None:
             print(f"      {_task_line(t)}")
 
     print(
-        f"\n{bar}\nLINE-BACKED — edge-less, but a live vault line carries the title: {len(c.line_backed)}\n{bar}"
+        f"\n{bar}\nPHANTOM 🆔 — vault line whose id no edge (and no grace stamp) owns: {len(c.phantom_ids)}\n{bar}"
     )
-    print("  That line's task with its edge lost (or an active app-created task). Never proposed.")
-    for t in c.line_backed:
-        print(f"  {_task_line(t)}  {t.title!r}")
-
-    print(f"\n{bar}\nPHANTOM 🆔 — vault line whose id no edge owns: {len(c.phantom_ids)}\n{bar}")
-    print("  The next sync of that file re-mints the line, then recovers the id onto the new edge.")
-    print("  Repair with --repair-id <id> when exactly one edge-less task carries the title.")
+    print(
+        "  With a COMPLETED same-title task the next sync of that file re-mints the line, then\n"
+        "  recovers the id onto the new edge; with an OPEN one Guard 4 merges the line and writes\n"
+        "  the edge itself (R4). Repair a completed pre-🆔-era owner with --repair-id <id> when\n"
+        "  exactly one edge-less task carries the title."
+    )
     for p in c.phantom_ids:
         state = "[x]" if p.line.is_checked else "[ ]"
         print(f"\n  {p.line.where}  {state} {p.line.title!r}  🆔 {p.line.vault_id}")
@@ -650,9 +703,21 @@ def _print_report(c: Classification, user_uid: str) -> None:
     if c.dangling_ids:
         print("  " + ", ".join(c.dangling_ids))
         print(
-            "  (retired on the file's next re-ingest; for files unchanged since: "
-            "./dev vault-sync --force — roadmap/done § Line Deletions Leave EXTRACTED_FROM Edges)"
+            "  (retired — and the task stamped for one sync's grace — on the file's next re-ingest;\n"
+            "  for files unchanged since: ./dev vault-sync --force — roadmap/done § Line Deletions\n"
+            "  Leave EXTRACTED_FROM Edges; the sweep then judges the stamp —\n"
+            "  roadmap/done/r4-vault-inbound-propagation.md)"
         )
+
+    print(
+        f"\n{bar}\nIN GRACE — tasks stamped since their 🆔 line went (retired_vault_id): {len(c.in_grace)}\n{bar}"
+    )
+    print(
+        "  The next sync's sweep judges each: re-typed line ⇒ revived; still gone ⇒ an open task is\n"
+        "  CANCELLED, a done one left as it is. Never proposed, never a phantom's owner."
+    )
+    for t in c.in_grace:
+        print(f"  {_task_line(t)}  🆔 {t.retired_vault_id}  {t.title!r}")
 
     if c.proposed_uids:
         confirms = " ".join(f"--confirm {uid}" for uid in c.proposed_uids)

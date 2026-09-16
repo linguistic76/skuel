@@ -1,6 +1,6 @@
 ---
 title: Voice Journaling and Obsidian Guide
-updated: 2026-09-11
+updated: 2026-09-16
 status: current
 category: guides
 tags: [obsidian, journaling, voice, vaultbridge, activity-domains, daily-workflow, user-guide]
@@ -467,7 +467,8 @@ See the [YAML Authoring Guide](YAML_AUTHORING_GUIDE.md) for a full reference of 
 The VaultBridge creates a live connection between your Obsidian vault and SKUEL. It works in both directions:
 
 - **Obsidian → SKUEL:** Your periodic notes are read, journal entries are created, and activity lines with `@context()` tags are extracted into your graph.
-- **SKUEL → Obsidian:** Tasks that already exist in SKUEL (created via the app, via YAML upload, or extracted from a previous note) are written into your daily notes with a permanent ID. Completion flows this direction only: complete the task in SKUEL and the next sync writes `[x]` + `✅ date` into your note — checking it off in Obsidian does not propagate back.
+- **SKUEL → Obsidian:** Every task line SKUEL extracts from your notes is given a permanent ID in the note itself, and the task's state is written back onto that line: complete the task in SKUEL and the next sync writes `[x]` + `✅ date`; re-open it and the sync takes them off again.
+- **Both ways for a tracked line:** once a task line carries its ID, checking or un-checking it in Obsidian, editing its title, dates, priority or tags, moving it to another note, or deleting it all reach SKUEL on the next sync — see *Completing a task* below.
 
 ### Task IDs: the link between the two worlds
 
@@ -479,21 +480,27 @@ When SKUEL writes a task back into your Obsidian vault, it appends a short ID to
 
 The `🆔 sk_XXXXXX` token is the permanent join key. It's compatible with the **obsidian-tasks plugin**. SKUEL is responsible for minting these IDs — you don't need to type them yourself. Once the ID is there, SKUEL can always match that line to the right task, even if you edit the title or move the note.
 
-### Completing a task: do it in SKUEL
+### Completing a task: in Obsidian or in SKUEL
 
-Checkbox state is outbound-only. For a task line that carries a `🆔` (one SKUEL wrote out or has already extracted), checking the box in Obsidian does **not** update SKUEL — the sync deliberately skips lines it already tracks, so the check stays local to your note. Complete the task in SKUEL instead; the next sync marks the line done in your note with the obsidian-tasks done syntax:
+Checkbox state flows both ways. Complete the task in SKUEL and the next sync marks the line done in your note with the obsidian-tasks done syntax:
 
 ```
-- [x] Write Chapter 3 — Habits ✅ 2026-06-24 🆔 sk_a7c2f1
+- [x] Write Chapter 3 — Habits 🆔 sk_a7c2f1 ✅ 2026-06-24
 ```
 
-The `✅ YYYY-MM-DD` token is the completion date, written by SKUEL from the task's completion stamp. One exception runs inbound: a checkbox line you author *already checked*, before it has a `🆔`, is ingested on first sync as a completed task carrying the `✅` date.
+The `✅ YYYY-MM-DD` token is the completion date, written by SKUEL from the task's completion stamp. Re-open the task in SKUEL and the next sync un-checks the line and removes that date again — SKUEL only ever takes back its own write.
+
+Or check the box in Obsidian: the next sync completes the task in SKUEL — dated with the `✅` date if the obsidian-tasks plugin wrote one, with today if you ticked it by hand (SKUEL then writes `✅ today` onto the line). Un-check a line SKUEL had completed and the task reopens. A line you author *already checked*, before it has a `🆔`, is created as a completed task on its first sync, with the `✅` date.
+
+Editing a tracked line syncs back the same way: change its title, `📅` due date, `⏳` scheduled date, priority emoji or `#tags` and the task follows on the next sync — only the fields you changed, and if you changed the same thing in SKUEL and in the note, the note wins. An edit SKUEL cannot accept (removing a task's only date — a task keeps a day) becomes a warning on the sync page naming the line, repeated every sync until the line and the task agree.
+
+Cut a `🆔` line and paste it into another note and it stays the same task — even if you sync between the cut and the paste (the same two-sync grace as a deletion). Delete one and, if it is still gone after two syncs, an open task is cancelled (a done one is left alone) — type the line back before the next sync to keep it, or un-cancel the task in SKUEL and then type it back. Deleting a whole note, or moving it into a folder SKUEL does not sync, cancels its open tasks the same way.
 
 ### Running a sync at /submissions/sync
 
 Go to **[/submissions/sync](/submissions/sync)** and click **Sync**.
 
-SKUEL reads all the changed notes in your vault, processes them through the `extract_activities` pipeline, creates or updates your journal entries, and writes back into the vault files: new task IDs, plus `[x]` + `✅` dates for tasks you completed in SKUEL (and the reverse for ones you reopened).
+SKUEL reads all the changed notes in your vault, processes them through the `extract_activities` pipeline, creates or updates your journal entries, applies what you changed on tracked task lines to the tasks, and writes back into the vault files: new task IDs, plus `[x]` + `✅` dates for tasks you completed in SKUEL (and the reverse for ones you reopened). The sync page lists what happened — including any line edit SKUEL could not accept, and any task cancelled because its line was gone.
 
 **First-run consent:** The first time you sync, SKUEL will ask for your permission before it writes anything back into your vault files. This is a one-time gate. Once you click "Allow and sync", subsequent syncs happen silently. You can see the consent prompt text on the sync page — it explains exactly what will be written and in what format.
 
@@ -503,13 +510,14 @@ The VaultBridge follows a clear rule about which side is the source of truth for
 
 | Field | Who controls it |
 |-------|----------------|
-| Task title and description | Obsidian (you edit in your notes) |
-| Checkbox status (done/not done) | SKUEL, both directions outbound — completing in SKUEL writes `[x]` + `✅` to your note, and re-opening it removes them again, restoring the line exactly as it was. It only takes back its OWN write: a box you tick yourself (no `✅` date) is left alone. A vault-side check or un-check of a 🆔 line is still not read back |
-| Due dates, priority, tags | Obsidian |
+| Task title and description | Obsidian (you edit in your notes; a title changed in SKUEL stays in SKUEL) |
+| Checkbox status (done/not done) | Both — completing in either place completes it everywhere. SKUEL writes `[x]` + `✅` to your note when you complete a task in the app and removes them again when you re-open it; ticking a line yourself completes the task, un-ticking a line SKUEL completed reopens it. SKUEL only takes back its OWN write: a box you tick yourself is never un-ticked for you |
+| Due dates, priority, tags | Obsidian (removing a task's only date is refused — a task keeps a day) |
+| The line itself | Obsidian — moving it keeps the task; deleting it cancels an open task once it has been gone for two syncs |
 | `🆔` ID | SKUEL (minted and written once) |
 | History, relationships, ZPD scores | SKUEL only |
 
-The Obsidian-owned rows apply when a line is **first extracted**. Once a line carries a `🆔`, later vault-side edits to it (title, dates, checkbox) are skipped by the sync — if you check off a 🆔 line in Obsidian, SKUEL's status is unaffected. Make changes in SKUEL — the sync writes checkbox state outbound in both directions: a completion adds `[x]` + `✅`, and re-opening the task takes them back off. A box you ticked yourself is never un-ticked for you.
+Both sides can edit the same task between two syncs. Only what changed in the note moves into SKUEL — a field you left alone in Obsidian keeps whatever you set in SKUEL — and when the same field changed in both places, the note wins. One deliberate exception: un-ticking a line whose task you **cancelled** in SKUEL does not reopen it; the line stays open in your note until you tick it or un-cancel the task.
 
 ---
 

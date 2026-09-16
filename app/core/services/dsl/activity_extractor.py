@@ -323,7 +323,7 @@ class ActivityExtractionResult:
     # an absent base is SEEDED with the current line. A present base is never
     # advanced here: the write keeps it (``coalesce``), because advancing it
     # marks every vault edit in between as already seen before anything reads
-    # the diff (R4 build plan, C1). Written through the same batch edge write
+    # the diff (ADR-070 Decision 3, C1). Written through the same batch edge write
     # as created_links.
     refreshed_links: list[tuple[str, str, str, str | None]] = field(default_factory=list)
     # (entity_uid, source_line_hash, vault_id, source_line) for Task edges of
@@ -676,7 +676,7 @@ class ActivityExtractorService:
                 Decision 3, ``line_reconciliation``): the vault-side change
                 is written through ``update_task``, and base and digest
                 advance only on ok (``advanced_links``) — held on a refusal
-                or failure so the next sync retries (R4 build plan, C1).
+                or failure so the next sync retries (ADR-070 Decision 3, C1).
                 Every other edge keeps a present base as is. An edge whose 🆔
                 appears NOWHERE in the text and whose digest no 🆔-less line
                 carries is a line the user deleted from the note: it is
