@@ -52,11 +52,6 @@ name: Composed Test Run
 # gets a comment, not a sibling.
 
 on:
-  # TEMPORARY — pre-merge verification only, removed before merge: a workflow
-  # file that is not yet on the default branch cannot be dispatched, so the PR
-  # that adds this one runs it on push instead.
-  push:
-    branches: [chore/test-infra-pr4-composed-run]
   schedule:
     # Mondays 05:00 UTC — offset from mypy-suppressions.yml (Mondays 06:00),
     # weekly-janitor.yml (Mondays 06:30) and dependency-audit.yml (daily 07:00).
@@ -79,11 +74,13 @@ jobs:
   composed:
     name: Composed session (unit + integration, with coverage)
     runs-on: ubuntu-latest
-    # ≈3× the measured run (the first dispatch: see the PR that added this
-    # workflow), per ci.yml's header policy. pytest-timeout's 120 s per-test
+    # ≈3× the measured run, per ci.yml's header policy: the whole job takes
+    # ~10.5 min on ubuntu-latest (the session itself ~10 min — 13k tests,
+    # serial, with coverage; warm venv cache). pytest-timeout's 120 s per-test
     # ceiling (pyproject.toml) fails a hung TEST long before this budget does;
-    # this is for a hung runner, a container start that never returns.
-    timeout-minutes: 60
+    # this is for a hung runner, a container start that never returns. A job
+    # that outgrows its budget is re-measured, not re-tried.
+    timeout-minutes: 32
     # UV_FROZEN pins every uv command to the committed lock — the session runs
     # via `uv run`, and run_tests.py spawns `uv run pytest` underneath, which
     # inherits the env (see ci.yml's mypy job for the full note). Safe here:
