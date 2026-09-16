@@ -11,7 +11,7 @@ check: "uv run ruff check --select UP037 --statistics . | tail -3 → no UP037 r
 # py314 Annotation Sweeps — UP037 Swept and Live, TC002/TC003 Never
 
 *Completed record. This was the case file for a [deferred-work.md](../deferred-work.md) entry of
-the same name; the entry left the MOC when the UP037 sweep landed in PR #PRNUM on 2026-09-16.
+the same name; the entry left the MOC when the UP037 sweep landed in PR #1347 on 2026-09-16.
 The rationale, the two dispositions and the measured baseline stay where they always lived —
 [ADR-067 § "Deferred: TC/UP037 annotation-modernization sweep"](../../decisions/ADR-067-dependency-upgrade-policy.md).*
 

@@ -320,7 +320,7 @@ still work:
   `get_type_hints`-style consumer. A bulk move turns a lint pass into a bootstrap-time `NameError`.
   Enable either rule only per file, after checking no annotation in it is evaluated; the pyproject
   comment now says *permanent*, not *deferred*.
-- **`UP037` — swept 2026-09-16 (PR #PRNUM), the rule is live.** Under 3.14's deferred evaluation
+- **`UP037` — swept 2026-09-16 (PR #1347), the rule is live.** Under 3.14's deferred evaluation
   the quotes are redundant and ruff marks every fix safe, so the sweep was one mechanical
   `uv run ruff check --select UP037 --fix .` in a merge lull (1244 sites, 315 files at `78cef10f7`)
   and the `"UP037"` ignore came out of `pyproject.toml` with it. The one hazard is the mirror image
