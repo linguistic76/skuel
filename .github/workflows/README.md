@@ -86,9 +86,16 @@ documentation_metrics (push to main only)         gate ── "CI Gate" (require
   `.github/actions/install-osv-scanner`) — the same path as `./dev audit-deps`
   and `./dev quality` check 8. Accepted findings live in `app/osv-scanner.toml`,
   each with a documented reason and an `ignoreUntil` expiry (ADR-067 § 6e).
-- **`integration_tests`** runs `tests/integration/` — testcontainers boots the
-  pinned Neo4j image on the runner's Docker daemon, same as `./dev test-integration`
-  locally. This is the only tier that executes real Cypher (unit tests mock the
+- **`unit_tests`** runs `tests/unit/` in parallel — `-n auto --maxprocesses 8
+  --dist loadfile`, the same pytest-xdist shape as `./dev test-unit` (one worker
+  per physical core, at most eight — a 4-vCPU runner never reaches the cap — a
+  module never split across workers; `-x` stops every worker on the first
+  failure). The job log's `created: N/N workers` line is the worker count the
+  runner gave it.
+- **`integration_tests`** runs `tests/integration/` — serial: its session
+  fixtures are two testcontainers plus an app boot, which xdist would build once
+  per worker. testcontainers boots the pinned Neo4j image on the runner's Docker
+  daemon, same as `./dev test-integration` locally. This is the only tier that executes real Cypher (unit tests mock the
   driver), so it gates persistence regressions that `unit_tests` cannot see. The
   job runs at `INTELLIGENCE_TIER=core` with `SKUEL_CREDENTIAL_BACKEND=env`, so the
   `skuel_app` fixture bootstraps the whole app against its own testcontainer with
@@ -100,6 +107,12 @@ documentation_metrics (push to main only)         gate ── "CI Gate" (require
 - **`js_tests`** runs the vitest suite over `static/js/` (`npm run test:js`,
   same as `./dev test-js`). Path-filtered like `cypher`: a JS-only PR skips
   every py-gated job but must still exercise the JS under test.
+- **Every job carries `timeout-minutes`** — ≈3× the slowest of its recent
+  durations, with a floor (5 min for `changes` and `gate`, which install nothing;
+  10 min for the rest; `unit_tests` 20, `integration_tests` 25), so a hung step
+  frees its runner in minutes instead of GitHub's 360-minute default. Inside the
+  test jobs, pytest-timeout's 120 s per-test ceiling (`pyproject.toml`) fails a
+  hung test long before the job budget does.
 - **`gate` ("CI Gate")** always runs and passes only when every required job's
   result is `success` or `skipped`; any other value fails, naming the job and
   the literal result. An allow-list, deliberately: the old deny-list over

@@ -81,7 +81,13 @@ dev = [
     "pytest>=9.1.1",
     "pytest-asyncio>=1.4.0",
     "pytest-cov>=7.1.0",
-    "pytest-mypy>=1.0.1",
+    # The unit tier runs in parallel (scripts/run_tests.py `unit` mode appends
+    # `-n auto --maxprocesses 8 --dist loadfile`); pytest-timeout is the hang
+    # detector behind [tool.pytest.ini_options] `timeout` — --strict-config
+    # refuses that key the moment this plugin is missing, which is the
+    # dependency proving itself.
+    "pytest-xdist>=3.8.0",
+    "pytest-timeout>=2.4.0",
     # Code Quality with Enhanced Type Checking
     "black>=26.5.1",
     "isort>=8.0.1",
@@ -541,6 +547,17 @@ markers = [
 asyncio_mode = "auto"
 asyncio_default_fixture_loop_scope = "session"
 asyncio_default_test_loop_scope = "session"
+
+# pytest-timeout: a hang detector, not a budget. The slowest legitimate test is
+# a cold live-Askesis call (~15 s; the pipeline's own ceiling is 30 s), so 120 s
+# is only ever reached by a test that hung. timeout_func_only charges the test
+# body alone: the integration tier's session fixtures (two container starts,
+# one app boot — >30 s together) are not billed to the first test that requests
+# them, and a fixture that hangs is testcontainers' own wait timeout to catch.
+# A test that legitimately needs longer declares @pytest.mark.timeout(N) with a
+# one-line reason (pytest-timeout registers that marker itself).
+timeout = 120
+timeout_func_only = true
 
 # Warning filters - suppress third-party deprecation warnings
 filterwarnings = [

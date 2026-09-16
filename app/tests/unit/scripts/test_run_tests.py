@@ -14,10 +14,18 @@ reaches pytest. Three invariants, each pinned here:
   runner's ``--cov``.
 - **No pytest option is re-parsed**: a re-parse narrows what pytest accepts —
   ``--tb=auto`` is pytest's to validate, and pytest accepts it.
+
+The unit tier's parallel default is the fourth invariant and obeys the third:
+``unit`` appends ``-n auto --maxprocesses 8 --dist loadfile`` unless the
+forwarded args already carry a worker or distribution choice — a membership test on the args, not a
+declared ``-n`` — so ``./dev test-unit -n 1`` overrides it and the other three
+modes (each holds the integration tier and its session containers) never gain it.
 """
 
 import sys
 from pathlib import Path
+
+import pytest
 
 # scripts/ has no __init__.py — add it to sys.path for import
 sys.path.insert(0, str(Path(__file__).resolve().parents[3] / "scripts"))
@@ -26,8 +34,15 @@ from run_tests import (  # type: ignore[import-not-found]
     COVERAGE_ARGS,
     DEFAULT_MODE,
     MODE_NAMES,
+    UNIT_PARALLEL_ARGS,
+    carries_worker_choice,
     parse_invocation,
+    unit_tier_args,
 )
+
+# Bound under a name pytest does not collect: ``Test*`` in a test module is a
+# test class to the collector, and this one has a constructor.
+from run_tests import TestRunner as RunnerUnderTest  # type: ignore[import-not-found]
 
 
 def test_mode_omitted_keeps_value_taking_option_values() -> None:
@@ -86,3 +101,94 @@ def test_no_argument_means_the_default_mode_and_nothing_forwarded() -> None:
     assert invocation.mode == DEFAULT_MODE
     assert invocation.pytest_args == []
     assert invocation.cov is False
+
+
+def test_unit_tier_is_parallel_by_default() -> None:
+    """No worker choice forwarded: the default leads, the user's args follow, in order."""
+    assert unit_tier_args([]) == list(UNIT_PARALLEL_ARGS)
+    assert unit_tier_args(["-k", "tasks", "-x"]) == [*UNIT_PARALLEL_ARGS, "-k", "tasks", "-x"]
+    assert UNIT_PARALLEL_ARGS == ("-n", "auto", "--maxprocesses", "8", "--dist", "loadfile")
+
+
+def test_a_forwarded_cap_lands_after_the_default_so_pytest_keeps_it() -> None:
+    """``--maxprocesses 4`` is not a worker choice: the default stays, the cap wins by order."""
+    argv = ["--maxprocesses", "4"]
+    assert carries_worker_choice(argv) is False
+    args = unit_tier_args(argv)
+    assert args == [*UNIT_PARALLEL_ARGS, "--maxprocesses", "4"]
+    assert args[-2:] == ["--maxprocesses", "4"]
+
+
+@pytest.mark.parametrize(
+    "argv",
+    [
+        ["-n", "1"],
+        ["-n", "0"],
+        ["-n1"],
+        ["-nauto"],
+        ["--numprocesses", "2"],
+        ["--numprocesses=2"],
+        ["--dist", "loadgroup"],
+        ["--dist=no"],
+        ["-k", "tasks", "-n", "4", "-x"],
+    ],
+)
+def test_a_forwarded_worker_choice_withholds_the_whole_default(argv: list[str]) -> None:
+    """``-n 1`` is the override; ``-n 0`` must not gain a ``--dist`` xdist refuses."""
+    assert carries_worker_choice(argv) is True
+    assert unit_tier_args(argv) == argv
+
+
+@pytest.mark.parametrize(
+    "argv",
+    [
+        ["--no-header"],
+        ["--nf"],
+        ["-k", "n"],
+        ["-k", "numprocesses"],
+        ["tests/unit/test_x.py", "-x", "--tb=auto"],
+    ],
+)
+def test_only_the_worker_options_count_as_a_choice(argv: list[str]) -> None:
+    """A ``--n…`` long option, or ``n`` as a value, is not ``-n``."""
+    assert carries_worker_choice(argv) is False
+    assert unit_tier_args(argv) == [*UNIT_PARALLEL_ARGS, *argv]
+
+
+def test_the_worker_choice_reaches_the_runner_unparsed() -> None:
+    """``-n 1`` is forwarded verbatim — the runner declares no ``-n`` of its own."""
+    invocation = parse_invocation(["unit", "-n", "1", "-k", "tasks"])
+    assert invocation.mode == "unit"
+    assert invocation.pytest_args == ["-n", "1", "-k", "tasks"]
+
+
+def _captured_command(mode_method_name: str, extra_args: list[str]) -> list[str]:
+    runner = RunnerUnderTest()
+    captured: list[list[str]] = []
+
+    def record(cmd: list[str]) -> int:
+        captured.append(cmd)
+        return 0
+
+    runner._run = record  # type: ignore[method-assign]
+    getattr(runner, mode_method_name)(extra_args)
+    (cmd,) = captured
+    return cmd
+
+
+def test_unit_mode_runs_the_tier_in_parallel() -> None:
+    cmd = _captured_command("run_unit", ["-q"])
+    assert cmd == ["uv", "run", "pytest", "tests/unit/", *UNIT_PARALLEL_ARGS, "-q"]
+
+
+def test_unit_mode_override_is_the_forwarded_choice_alone() -> None:
+    cmd = _captured_command("run_unit", ["-n", "1"])
+    assert cmd == ["uv", "run", "pytest", "tests/unit/", "-n", "1"]
+
+
+@pytest.mark.parametrize("mode_method_name", ["run_comprehensive", "run_integration", "run_quick"])
+def test_the_modes_holding_the_integration_tier_stay_serial(mode_method_name: str) -> None:
+    """Session-scoped testcontainers: N xdist workers would mean N container sets."""
+    cmd = _captured_command(mode_method_name, ["-q"])
+    assert not carries_worker_choice(cmd)
+    assert cmd[-1] == "-q"

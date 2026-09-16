@@ -12,7 +12,7 @@ related_skills:
 # Run integration tests (real Neo4j via Docker)
 ./dev test-integration
 
-# Run unit tests (fast, no Docker)
+# Run unit tests (fast, no Docker; parallel — up to 8 xdist workers)
 ./dev test-unit
 
 # The pytest arms (test, test-unit, test-integration, test-quick) forward their flags
@@ -30,11 +30,12 @@ uv run pytest tests/unit/test_tasks_scheduling_service.py -v
 
 SKUEL runs two primary tiers, both gated in CI (`.github/workflows/ci.yml`):
 
-- **Unit** (`tests/unit/`) — mock-based, no Docker. `./dev test-unit`
-- **Integration** (`tests/integration/`) — real Neo4j via testcontainers. `./dev test-integration`
+- **Unit** (`tests/unit/`) — mock-based, no Docker, parallel. `./dev test-unit`
+- **Integration** (`tests/integration/`) — real Neo4j via testcontainers, serial. `./dev test-integration`
 
-Run both tiers in one session with `./dev test` (needs Docker), or the integration
-tier plus the auth / error-handling unit files with `./dev test-quick`.
+Run both tiers in one session with `./dev test` (needs Docker; serial — see
+[Parallel Execution](#parallel-execution)), or the integration tier plus the auth /
+error-handling unit files with `./dev test-quick`.
 
 **Why integration tests are the primary tier:**
 - Use a real database and services
@@ -47,9 +48,9 @@ tier plus the auth / error-handling unit files with `./dev test-quick`.
 
 | Category | Command | Notes |
 |----------|---------|-------|
-| **Integration** | `./dev test-integration` | Real Neo4j (Docker), slower than unit |
-| **Unit** | `./dev test-unit` | Mock-based, no Docker, fastest |
-| **Both** | `./dev test` | Unit + integration in one session, needs Docker |
+| **Integration** | `./dev test-integration` | Real Neo4j (Docker), serial, slower than unit |
+| **Unit** | `./dev test-unit` | Mock-based, no Docker, parallel — fastest |
+| **Both** | `./dev test` | Unit + integration in one serial session, needs Docker |
 
 ### By Domain
 
@@ -123,13 +124,39 @@ uv run pytest tests/unit/ --ignore=tests/unit/services
 
 ### Parallel Execution
 
-```bash
-# Run tests in parallel (requires pytest-xdist)
-uv run pytest tests/integration/ -n auto
+The **unit tier runs in parallel by default** — `./dev test-unit` (the `unit` mode of
+`scripts/run_tests.py`) appends `-n auto --maxprocesses 8 --dist loadfile`: pytest-xdist
+with one worker per physical core, at most eight, and a test module never split across
+workers (the corpus-scanning modules carry module-scoped fixtures, so the critical path
+is the longest module, not the sum). The cap is measured: every worker imports the app
+(~0.5 GB resident), and past eight workers the run is no shorter — the longest module is
+the floor — while fourteen of them push a 16 GB laptop with a desktop session into swap.
+CI's `unit_tests` job runs the same shape (a 4-vCPU runner never reaches the cap). Any
+worker or distribution choice in the forwarded flags replaces the default wholesale:
 
-# Limit parallel workers
-uv run pytest tests/integration/ -n 4
+```bash
+./dev test-unit                    # -n auto --maxprocesses 8 --dist loadfile
+./dev test-unit --maxprocesses 4   # a lower cap (pytest keeps the last one given)
+./dev test-unit -n 1               # one xdist worker
+./dev test-unit -n 0               # in-process serial — the shape bare `uv run pytest tests/unit/` has
 ```
+
+The **integration tier is serial, by ruling**, and so is every mode that holds it
+(`./dev test`, `./dev test-integration`, `./dev test-quick`): its session-scoped fixtures
+are two Neo4j testcontainers plus one app boot, and under xdist every worker builds its
+own set — N workers cost N container sets. `./dev test` is the composed-session guard
+(one session, both tiers — the shape CI never runs), and its wall time is the
+integration tier's plus the unit tier's, serial.
+
+**A test that only passes serially has a hidden dependency** — a fixed path, a fixed
+port, module state another worker also touches. Fix the test (`tmp_path`, per-test
+state); there is no serial marker, and none is enforced.
+
+Every test body has a **120 s ceiling** (`pytest-timeout`, `timeout = 120` with
+`timeout_func_only = true` in `pyproject.toml`): fixture setup — the container starts,
+the app boot — is not charged, and `Failed: Timeout (>120.0s) from pytest-timeout`
+means the body hung. A test that legitimately needs longer declares
+`@pytest.mark.timeout(N)` with a one-line reason.
 
 ## Test Philosophy
 
@@ -201,12 +228,18 @@ def test_tasks_service_creation():
 
 CI (`.github/workflows/ci.yml`, both jobs path-gated on Python changes) runs:
 
-- **`unit_tests`** — `pytest tests/unit/` (mock-based, no Docker)
-- **`integration_tests`** — `pytest tests/integration/`; testcontainers boots the
+- **`unit_tests`** — `pytest tests/unit/ -n auto --maxprocesses 8 --dist loadfile`
+  (mock-based, no Docker; the runner's parallel shape, `-x` stopping every worker on
+  the first failure)
+- **`integration_tests`** — `pytest tests/integration/`, serial; testcontainers boots the
   pinned Neo4j image on the runner's Docker daemon,
   identical to `./dev test-integration` locally. No `services:` block needed —
   the testcontainer fixture in `tests/integration/conftest.py` owns the
   container lifecycle.
+
+Every CI job carries a `timeout-minutes` budget (≈3× its measured duration; the test
+tiers 20 and 25 min), so a hung job frees its runner in minutes. Inside a job, a hung
+*test* is caught earlier by pytest-timeout's 120 s per-test ceiling.
 
 Every collected test runs in one of those two jobs. `tests/benchmarks/` holds an
 uncollected script (`./dev test` ignores the directory by name to guard that intent).
@@ -224,6 +257,13 @@ uncollected script (`./dev test` ignores the directory by name to guard that int
 ## Troubleshooting
 
 ### Tests Hang or Timeout
+
+**A single test fails with `Failed: Timeout (>120.0s) from pytest-timeout`:** the test
+body never returned — a wait on something that never arrives. Find the wait; the
+ceiling is a hang detector, not a budget to raise (`@pytest.mark.timeout(N)` is for a
+test that provably needs longer, with its reason on the line).
+
+**The whole integration run hangs before its first test:**
 
 **Cause:** Docker isn't ready. Integration tests boot an **ephemeral Neo4j
 testcontainer** (`tests/integration/conftest.py`) on the Docker daemon — not the

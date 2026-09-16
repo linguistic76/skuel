@@ -15,6 +15,12 @@ SKUEL fixtures follow the protocol-based architecture: services depend on protoc
 | `module` | Per test file | Expensive setup shared across file |
 | `session` | Entire test run | TestContainers, app bootstrap |
 
+Under pytest-xdist (the unit tier's default, `./dev test-unit`) a session is one
+*worker's* session: a `session` fixture is built once per worker, and a `module`
+fixture stays on one worker because `--dist loadfile` never splits a file. That is why
+the integration tier — whose session fixtures are two containers and an app boot —
+runs serially.
+
 ## Core SKUEL Fixtures
 
 ### Root conftest.py (`/tests/conftest.py`)

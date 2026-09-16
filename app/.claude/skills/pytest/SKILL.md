@@ -39,14 +39,20 @@ tests/
 | Command | Purpose |
 |---------|---------|
 | `uv run pytest` | Run all tests |
-| `uv run pytest tests/unit/` | Unit tests only (fast) |
-| `uv run pytest tests/integration/` | Integration tests (needs Docker) |
+| `./dev test-unit` | Unit tests only — in parallel (`-n auto --maxprocesses 8 --dist loadfile`: one xdist worker per physical core, at most eight); `./dev test-unit -n 1` for one worker, `-n 0` for in-process serial |
+| `uv run pytest tests/unit/` | Unit tests, serial (bare pytest adds no `-n`; the runner does) |
+| `uv run pytest tests/integration/` | Integration tests (needs Docker) — serial by ruling: its session fixtures are two testcontainers + an app boot, and xdist would build a set per worker |
 | `uv run pytest tests/unit/test_tasks_service.py` | Single file |
 | `uv run pytest -k "test_create"` | Tests matching pattern |
 | `uv run pytest -x` | Stop on first failure |
 | `uv run pytest -v` | Verbose output |
 | `uv run pytest --tb=short` | Short tracebacks |
 | `./dev test --cov` | With coverage — opt-in, the one path (writes `coverage.xml` + `htmlcov/`); the pytest `./dev test*` arms forward their flags |
+
+Every test body has a 120 s ceiling (`pytest-timeout`, `timeout_func_only` — fixture
+setup is not charged): `Failed: Timeout (>120.0s) from pytest-timeout` is a hang, not a
+slow test. A test that legitimately needs longer declares `@pytest.mark.timeout(N)` with
+a one-line reason.
 
 ## Result[T] Testing Patterns
 
