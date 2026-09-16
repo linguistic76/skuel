@@ -761,6 +761,6 @@ See [CROSS_REFERENCE_INDEX.md](/docs/CROSS_REFERENCE_INDEX.md) for the complete 
 
 **Routes Return 404:** Check both API and UI routes registered in `bootstrap.py`. Distinguish 401 (auth) vs 404 (missing).
 
-**Type Errors:** Forward reference unions use `Optional["Type"]` not `"Type" | None`.
+**Type Errors:** Never quote an annotation — UP037 is live and PEP 649 defers evaluation, so `Type | None` works for a `TYPE_CHECKING`-only name. A `NameError` from an `__annotate__` frame means something *read* the annotation: a `@rt()` handler needs a real import; a signature reader needs `annotation_format=Format.FORWARDREF`. **See:** `/docs/TROUBLESHOOTING.md § Forward References`.
 
 **See:** `/docs/TROUBLESHOOTING.md`
