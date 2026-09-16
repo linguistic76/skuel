@@ -198,6 +198,13 @@ case "$1" in
     uv run python scripts/knowledge_health_report.py "${@:2}"
     ;;
 
+  coverage-summary)
+    # Status to stderr so the tables on stdout can be redirected clean — the weekly
+    # composed run appends them to its step summary the same way.
+    echo -e "${GREEN}Rendering the coverage gap picture (coverage.json → three tables)...${NC}" >&2
+    uv run python scripts/coverage_summary.py "${@:2}"
+    ;;
+
   eval-chunk-retrieval)
     # Status to stderr so `./dev eval-chunk-retrieval --json` yields clean JSON on stdout.
     echo -e "${GREEN}Running chunk-retrieval eval (hit@k over /search semantic boost)...${NC}" >&2
@@ -401,6 +408,7 @@ case "$1" in
     echo "  ./dev test-js           - JS tests — vitest over static/js/ (npm run test:js)"
     echo "  ./dev test-quick        - Integration tier + auth / error-handling unit files (~3 min, Docker)"
     echo "  Flags forward: the pytest arms take --cov (coverage, opt-in), -k EXPR, -x, --tb=short; test-unit takes -n N (workers; -n 0 = serial); test-js takes vitest's"
+    echo "  ./dev coverage-summary  - Coverage gap picture from a --cov run's coverage.json (three tables; [path])"
     echo ""
     echo "Dependencies:"
     echo "  ./dev deps                    - List outdated direct deps + intentional pins (alias: outdated)"
@@ -440,7 +448,8 @@ case "$1" in
     echo "  ./dev format            # Before committing changes"
     echo "  ./dev quality-fix       # Fix all auto-fixable issues"
     echo "  ./dev test              # Comprehensive tests (recommended)"
-    echo "  ./dev test --cov        # ... with a coverage report (opt-in: coverage.xml + htmlcov/)"
+    echo "  ./dev test --cov        # ... with a coverage report (opt-in: coverage.xml + coverage.json + htmlcov/)"
+    echo "  ./dev coverage-summary  # ... then the gap picture: per-package rates, zero-coverage files, large low-coverage files"
     echo "  ./dev test-unit -k foo  # Flags forward to pytest"
     echo "  ./dev test-unit -n 1    # ... on one xdist worker (the default: -n logical, capped at 8)"
     echo "  ./dev bloat-events      # Find unused events"

@@ -13,7 +13,8 @@ uv run pytest tests/unit/ -q                   # the same tier, serial (bare pyt
 uv run pytest tests/integration/ -q            # needs LOCAL Docker (testcontainers Neo4j); serial by ruling
 uv run pytest tests/unit/test_foo.py -k "create" -x --tb=short
 ./dev test | test-unit | test-integration | test-quick | smoke   # flags forward: -k, -x, --tb=short
-./dev test --cov                               # coverage — opt-in, the one path (coverage.xml + htmlcov/)
+./dev test --cov                               # coverage — opt-in, the one path (coverage.xml + coverage.json + htmlcov/)
+./dev coverage-summary                         # the gap picture from coverage.json: per-package rates, zero-coverage files, large low-coverage files
 ```
 
 **When to use**: coverage is never collected by default (`addopts` carries only `--strict-markers --strict-config -v`; pass rate is the metric) — `--cov` on any of the pytest `./dev test*` arms (`test`, `test-unit`, `test-integration`, `test-quick`) is the one path that collects it; `test-js` forwards to vitest, which has no `--cov`. CI runs both tiers: `unit_tests` (`uv run pytest tests/unit/ -n logical --maxprocesses 8 --dist loadfile -x --tb=short -q` — the runner's parallel shape) and `integration_tests` (`tests/integration/` on the runner's Docker daemon, `INTELLIGENCE_TIER=core`, serial), each path-gated on Python changes. Only the unit tier is parallel: the integration tier's session fixtures (two testcontainers + an app boot) would be built once per xdist worker.

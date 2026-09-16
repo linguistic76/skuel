@@ -47,7 +47,8 @@ tests/
 | `uv run pytest -x` | Stop on first failure |
 | `uv run pytest -v` | Verbose output |
 | `uv run pytest --tb=short` | Short tracebacks |
-| `./dev test --cov` | With coverage — opt-in, the one path (writes `coverage.xml` + `htmlcov/`); the pytest `./dev test*` arms forward their flags |
+| `./dev test --cov` | With coverage — opt-in, the one path (writes `coverage.xml` + `coverage.json` + `htmlcov/`); the pytest `./dev test*` arms forward their flags |
+| `./dev coverage-summary` | The gap picture from `coverage.json` — per-package rates, zero-coverage files, large files under 50 % (`scripts/coverage_summary.py`; the weekly composed CI run appends the same tables to its step summary). An instrument, never a threshold |
 
 Every test body has a 120 s ceiling (`pytest-timeout`, `timeout_func_only` — fixture
 setup is not charged): `Failed: Timeout (>120.0s) from pytest-timeout` is a hang, not a

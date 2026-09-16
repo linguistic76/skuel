@@ -9,6 +9,7 @@ data/
 .git/
 htmlcov/
 coverage.xml
+coverage.json
 **/__pycache__
 *.pyc
 .pytest_cache/

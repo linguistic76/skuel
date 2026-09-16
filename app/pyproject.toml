@@ -524,11 +524,13 @@ pythonpath = ["."]
 
 # Coverage is OPT-IN, never collected here. `scripts/run_tests.py --cov` (reached as
 # `./dev test --cov`, or any of the pytest `./dev test*` arms) is the one path that
-# collects it —
-# it writes coverage.xml + htmlcov/ and prints term-missing, shaped by the
-# [tool.coverage.*] tables below. A plain run, in every CI tier and every local
-# arm, pays nothing for an instrument no path consumes: pass rate is the quality
-# metric, coverage a gap-finding instrument, and no threshold is enforced anywhere.
+# collects it — it writes coverage.xml + coverage.json + htmlcov/ and prints
+# term-missing, shaped by the [tool.coverage.*] tables below. A plain run, in every
+# CI tier and every local arm, pays nothing for an instrument no path consumes: pass
+# rate is the quality metric, coverage a gap-finding instrument, and no threshold is
+# enforced anywhere. The weekly composed run (.github/workflows/composed-test-run.yml)
+# is where the instrument reads: it uploads the reports and renders coverage.json
+# through scripts/coverage_summary.py.
 addopts = [
     "--strict-markers",
     "--strict-config",
@@ -596,6 +598,12 @@ omit = [
 ]
 
 [tool.coverage.report]
+# The measured trees are namespace packages most of the way down (core/, core/services/,
+# core/utils/, adapters/persistence/neo4j/ … carry no __init__.py). coverage's sweep for
+# never-imported files stops at the first directory without one unless told otherwise,
+# and a module nothing imports is then absent from every report — its statements out of
+# the denominator, its name off the zero-coverage table that exists to print it.
+include_namespace_packages = true
 exclude_lines = [
     "pragma: no cover",
     "def __repr__",
@@ -612,8 +620,15 @@ exclude_lines = [
 [tool.coverage.html]
 directory = "htmlcov"
 
+# Cobertura, for tools that read it. NOT what scripts/coverage_summary.py reads: with
+# four `--cov=` trees coverage writes each file relative to its own tree, keyed by that
+# relative name, so core/auth/__init__.py and ui/auth/__init__.py collapse into one entry.
 [tool.coverage.xml]
 output = "coverage.xml"
+
+# Lossless — every file keyed by its path from the app root. The summary's input.
+[tool.coverage.json]
+output = "coverage.json"
 
 
 # ============================================================================

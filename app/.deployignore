@@ -8,5 +8,7 @@ data/
 .env*
 .git/
 htmlcov/
+coverage.xml
+coverage.json
 __pycache__/
 neo4j/
