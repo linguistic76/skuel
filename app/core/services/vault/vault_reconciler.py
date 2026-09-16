@@ -1129,14 +1129,18 @@ class VaultReconciler:
         A stamp whose task carries no readable status is held the same way:
         the sweep cancels what it can read as open, nothing else.
 
-        The sweep runs only after a COMPLETE inbound pass. A note that failed
-        to ingest — or opted in and could not be read, or that a local-agent
+        The sweep runs only after a COMPLETE inbound pass
+        (``VaultSyncStats.inbound_pass_incomplete``). A note that failed to
+        ingest — or opted in and could not be read, or that a local-agent
         mirror could not refresh — has not had its say: it may hold the very
         line that would revive a stamped task, and clearing even a terminal
         task's stamp on such a sync destroys the only 🆔 mapping its restored
         line could revive by (Guard 4 ignores terminal twins, so the next
-        clean sync would mint a duplicate completed task). With any such
-        file, nothing is judged and the next clean sync decides.
+        clean sync would mint a duplicate completed task). A vault the walk
+        found empty or the deletion valve refused (unmounted, mid-resync,
+        wiped) is every note in doubt at once — the same hold, or an
+        unmounted vault would cancel every open task awaiting its paste. With
+        any of these, nothing is judged and the next clean sync decides.
         """
         listed = await self._user_entry.list_vault_retired_tasks(owner, sync_cutoff)
         if listed.is_error:
@@ -1145,11 +1149,12 @@ class VaultReconciler:
         pending = listed.value or []
         if not pending:
             return
-        if stats.files_failed or stats.files_broken or stats.mirror_files_stale:
+        if stats.inbound_pass_incomplete:
             stats.retirements_held = len(pending)
             stats.warnings.append(
-                f"{len(pending)} vault retirement(s) held: the sync had files it could "
-                "not read — judged on the next clean sync"
+                f"{len(pending)} vault retirement(s) held: not every note had its say "
+                "this sync (a file failed or could not be read, or the vault read as "
+                "empty or wiped) — judged on the next clean sync"
             )
             return
         clearable: list[tuple[str, str]] = []
@@ -1257,6 +1262,12 @@ def _merge_ingest_stats(
     # genuine failures.
     stats.files_failed = max(0, int(ingest.failed or 0) - stats.files_ignored)
     if isinstance(ingest, IncrementalStats):
+        # A walk that found nothing, or a deletion valve that refused, is a
+        # vault SKUEL could not trust this sync — every note is in doubt, not
+        # one file (``files_failed`` stays 0 on both). The sweep holds on it.
+        stats.vault_read_refused = int(ingest.total_files or 0) == 0 or bool(
+            ingest.mass_deletion_refused
+        )
         stats.edges_created = int(ingest.edges_created or 0)
         stats.edges_updated = int(ingest.edges_updated or 0)
         stats.entities_deleted = int(ingest.entities_deleted or 0)

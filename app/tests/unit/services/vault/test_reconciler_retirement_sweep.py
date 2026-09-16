@@ -13,9 +13,12 @@ What this file pins is the SWEEP that judges the rest at the end of
   ``update_task`` (status only — C3, never ``backend.update``) and its stamp
   cleared only when that write returns ok; a refused cancel keeps the stamp
   (the retry record) and warns, naming the task;
-- it runs only after a complete inbound pass: any failed file, or any ignored
-  file that opted in and could not be read (``files_broken``), holds every
-  stamp — terminal ones included — with one warning;
+- it runs only after a complete inbound pass: any failed file, any ignored
+  file that opted in and could not be read (``files_broken``), a stale mirror
+  file, or a vault the walk found empty / the deletion valve refused
+  (``vault_read_refused`` — an unmounted root reads as "every note in doubt",
+  not as "nothing to hold on") holds every stamp — terminal ones included —
+  with one warning;
 - the content vault (no task round-trip) reads no clock and sweeps nothing.
 
 The graph half — the stamp written by the retiring statement, the sweep read's
@@ -104,7 +107,13 @@ def _harness(
 
     async def _ingest(*_args: object, **_kwargs: object) -> Result[IncrementalStats]:
         order.append("ingest")
-        return Result.ok(ingest if ingest is not None else IncrementalStats(nodes_created=1))
+        # A walk that found no files is itself a hold reason, so the default
+        # ingest walked one file and ingested it.
+        return Result.ok(
+            ingest
+            if ingest is not None
+            else IncrementalStats(total_files=1, files_checked=1, files_ingested=1, nodes_created=1)
+        )
 
     async def _list(_owner: UserUID, _cutoff: datetime) -> Result[list[VaultRetiredTaskRow]]:
         order.append("list")
@@ -299,6 +308,7 @@ async def test_nothing_pending_means_no_clear_and_no_warning(tmp_path: Path) -> 
     [
         pytest.param(
             IncrementalStats(
+                total_files=1,
                 files_failed=1,
                 errors=[{"file": "/v/personal/notes/a.md", "error": "db", "stage": "ingestion"}],
             ),
@@ -306,6 +316,7 @@ async def test_nothing_pending_means_no_clear_and_no_warning(tmp_path: Path) -> 
         ),
         pytest.param(
             IncrementalStats(
+                total_files=1,
                 files_failed=1,
                 errors=[{"file": "/v/personal/notes/a.md", "error": "yaml", "stage": "parsing"}],
             ),
@@ -330,6 +341,63 @@ async def test_an_incomplete_inbound_pass_holds_every_stamp(
     assert result.is_ok
     user_entry.clear_vault_retirement_stamps.assert_not_awaited()
     tasks.update_task.assert_not_awaited()
+    assert result.value.tasks_cancelled_by_deletion == 0
+    assert result.value.retirements_held == 2
+    assert [w for w in result.value.warnings if "2 vault retirement(s) held" in w], (
+        result.value.warnings
+    )
+
+
+@pytest.mark.parametrize(
+    "ingest",
+    [
+        pytest.param(
+            IncrementalStats(total_files=0, errors=[{"message": "No files found"}]),
+            id="empty-walk",
+        ),
+        pytest.param(
+            IncrementalStats(
+                total_files=0,
+                mass_deletion_refused=True,
+                warnings=["Refusing deletion: every tracked file has vanished from disk …"],
+                errors=[{"message": "No files found"}],
+            ),
+            id="unmounted-root",
+        ),
+        pytest.param(
+            IncrementalStats(
+                total_files=2,
+                files_checked=2,
+                mass_deletion_refused=True,
+                warnings=["Refusing deletion: 9 of 11 tracked files would be deleted …"],
+            ),
+            id="majority-vanished",
+        ),
+    ],
+)
+@pytest.mark.asyncio
+async def test_a_vault_that_read_as_empty_or_wiped_holds_the_sweep(
+    tmp_path: Path, ingest: IncrementalStats
+) -> None:
+    """An unmounted root, a sync client mid-resync, a listing that came back
+    empty: the walk finds no files (``files_failed`` stays 0 — "No files
+    found" is a run-level error, not a per-file one) and the deletion valve
+    refuses. EVERY note is in doubt on such a sync, so the sweep holds — or an
+    unmounted vault would cancel every open task whose paste was one sync
+    away, and the remount would mint a twin beside each cancelled one."""
+    pending = [
+        _row("done", status=EntityStatus.COMPLETED),
+        _row("gone", status=EntityStatus.ACTIVE),
+    ]
+    reconciler, user_entry, tasks, _order = _harness(tmp_path, pending=pending, ingest=ingest)
+    result = await reconciler.sync(VaultKind.PERSONAL, OWNER)
+
+    assert result.is_ok
+    assert result.value.vault_read_refused
+    assert result.value.inbound_pass_incomplete
+    assert result.value.files_failed == 0
+    tasks.update_task.assert_not_awaited()
+    user_entry.clear_vault_retirement_stamps.assert_not_awaited()
     assert result.value.tasks_cancelled_by_deletion == 0
     assert result.value.retirements_held == 2
     assert [w for w in result.value.warnings if "2 vault retirement(s) held" in w], (
@@ -374,6 +442,7 @@ async def test_a_loose_note_does_not_hold_the_sweep(tmp_path: Path) -> None:
     loose.parent.mkdir(parents=True)
     loose.write_text("just a thought\n", encoding="utf-8")
     ingest = IncrementalStats(
+        total_files=1,
         files_failed=1,
         errors=[{"file": str(loose), "error": "no 'type:' field", "stage": "type_detection"}],
     )

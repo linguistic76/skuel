@@ -46,9 +46,11 @@ import pytest
 from core.models.enums.activity_enums import Priority
 from core.models.enums.entity_enums import EntityStatus
 from core.models.task.task_request import TaskUpdateRequest
+from core.services.vault.vault_descriptor import VaultKind
 from tests.integration._vault_rig import (
     FRONTMATTER,
     NOTE,
+    OWNER,
     Rig,
     cancel_in_skuel,
     complete_in_skuel,
@@ -586,6 +588,53 @@ class TestDeletionCancels:
         assert fixed.tasks_cancelled_by_deletion == 0
         assert await rig.owned_tasks() == [(task_uid, EntityStatus.DRAFT.value)], (
             "revived, not cancelled — or a twin was minted"
+        )
+        [(edge_uid, edge_id, entry, base)] = await rig.edges()
+        assert (edge_uid, edge_id) == (task_uid, vault_id)
+        assert entry.endswith(_entry_uid(NOTE_B))
+        assert base == line
+        assert await rig.stamps() == []
+
+    async def test_a_vault_that_reads_empty_holds_the_sweep_instead_of_cancelling(
+        self, rig: Rig
+    ) -> None:
+        """Cut the line, sync (stamped). Before the paste is synced the vault
+        reads EMPTY — an unmounted root, a sync client mid-resync: the walk
+        finds no files and the deletion valve refuses (every tracked file
+        vanished). ``files_failed`` is 0 on such a sync, yet no note has had
+        its say; the sweep must hold, or the unmount cancels the task whose
+        paste is one sync away and the remount mints a twin beside it. Then
+        the remount, with the paste in B: revived, not cancelled, no twin."""
+        task_uid, vault_id, line = await _seeded_note(rig)
+        rig.note.write_text(FRONTMATTER + "Cut it.\n", encoding="utf-8")
+        await rig.sync()
+        [stamp] = await rig.stamps()
+        assert stamp.retired_vault_id == vault_id
+
+        notes = rig.vault / "periodic_notes"
+        aside = rig.vault.parent / "unmounted"
+        notes.rename(aside)
+        notes.mkdir()
+        unmounted = await rig.reconciler.sync(VaultKind.PERSONAL, OWNER)
+        assert unmounted.is_ok, unmounted
+        stats = unmounted.value
+        assert await rig.owned_tasks() == [(task_uid, EntityStatus.DRAFT.value)], (
+            "an unmounted vault cancelled a task awaiting its paste"
+        )
+        assert stats.vault_read_refused and stats.files_failed == 0, stats
+        assert stats.retirements_held == 1 and stats.tasks_cancelled_by_deletion == 0, stats
+        assert stats.entities_deleted == 0, "the deletion valve did not refuse"
+        [stamp] = await rig.stamps()
+        assert stamp.retired_vault_id == vault_id
+
+        notes.rmdir()
+        aside.rename(notes)
+        rig.note_at(NOTE_B).write_text(FRONTMATTER_B + line + "\n", encoding="utf-8")
+        remounted = await rig.sync()
+        assert not remounted.warnings, remounted.warnings
+        assert remounted.tasks_cancelled_by_deletion == 0
+        assert await rig.owned_tasks() == [(task_uid, EntityStatus.DRAFT.value)], (
+            "the remount minted a twin"
         )
         [(edge_uid, edge_id, entry, base)] = await rig.edges()
         assert (edge_uid, edge_id) == (task_uid, vault_id)
