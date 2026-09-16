@@ -40,8 +40,8 @@ SCRIPT = APP_ROOT / "scripts" / "request_codex_review.sh"
 # Dispatch mirrors the script's distinct gh invocations. Order matters: the
 # body-extraction jq also contains the word "length" (`select($b | length > 0)`),
 # so it is matched on its own marker BEFORE the counting queries. The issue-channel
-# BODY read is told apart from its COUNT by `join(` — the status-widget filter
-# names `.body` in both programs, so `.body` alone no longer separates them.
+# BODY read is told apart from its COUNT by `join(` — both of those programs name
+# `.body` (the status-widget filter), so `.body` is not a separator.
 GH_STUB = """#!/usr/bin/env bash
 args="$*"
 # STUB_FAIL_MATCH names a substring of the invocation that must fail after
