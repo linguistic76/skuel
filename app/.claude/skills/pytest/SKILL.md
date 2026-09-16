@@ -46,7 +46,7 @@ tests/
 | `uv run pytest -x` | Stop on first failure |
 | `uv run pytest -v` | Verbose output |
 | `uv run pytest --tb=short` | Short tracebacks |
-| `uv run pytest --cov=core` | With coverage |
+| `./dev test --cov` | With coverage — opt-in, the one path (writes `coverage.xml` + `htmlcov/`); every `./dev test*` arm forwards its flags |
 
 ## Result[T] Testing Patterns
 

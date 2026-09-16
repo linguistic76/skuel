@@ -212,6 +212,10 @@ exclude = [
     "z_archives/.*",
     "legacy/.*",
     ".*_old\\.py$",  # Archived service files (deprecated code)
+    # The gitignored scratch tier (CLAUDE.md § Documentation Architecture): `mypy .`
+    # (the ./dev quality path — a CLI path overrides `files=`) would otherwise type
+    # check every draft script parked there. No tracked directory is named plans.
+    "plans/",
 ]
 
 # Per-module configuration for SKUEL-specific patterns
@@ -512,26 +516,16 @@ python_functions = ["test_*"]
 # Add project root to Python path (for package-mode = false projects)
 pythonpath = ["."]
 
-# Coverage configuration
-# Note: --cov-fail-under removed because different test types have different coverage expectations
-# - Integration tests: Focus on core/services (high coverage expected)
-# - Service tests: Include core + adapters (medium coverage expected)
-# - Full suite: Includes ui/ + services_bootstrap/ (measured since 2026-07; lower
-#   coverage there is expected — render code is exercised via the smoke test)
+# Coverage is OPT-IN, never collected here. `scripts/run_tests.py --cov` (reached as
+# `./dev test --cov`, or any `./dev test*` arm) is the one path that collects it —
+# it writes coverage.xml + htmlcov/ and prints term-missing, shaped by the
+# [tool.coverage.*] tables below. A plain run, in every CI tier and every local
+# arm, pays nothing for an instrument no path consumes: pass rate is the quality
+# metric, coverage a gap-finding instrument, and no threshold is enforced anywhere.
 addopts = [
-    "--cov=core",
-    "--cov=adapters",
-    "--cov=ui",
-    "--cov=services_bootstrap",
-    "--cov-report=html:htmlcov",
-    "--cov-report=term-missing",
-    "--cov-report=xml",
-    # Coverage thresholds enforced per test type in run_tests.py, not globally
     "--strict-markers",
     "--strict-config",
     "-v",
-    # Uncomment to enforce formatting before tests run:
-    # "--ruff-format-check"
 ]
 
 # Test markers — every entry has a live @pytest.mark user (strict-markers rejects
@@ -561,12 +555,10 @@ filterwarnings = [
 ]
 
 # ============================================================================
-# COVERAGE CONFIGURATION - Track type safety coverage
+# COVERAGE CONFIGURATION — shapes the report `run_tests.py --cov` asks for
 # ============================================================================
 
 [tool.coverage.run]
-
-
 source = ["."]
 omit = [
     "*/back_ups/*",

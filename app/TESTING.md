@@ -15,12 +15,15 @@ related_skills:
 # Run unit tests (fast, no Docker)
 ./dev test-unit
 
+# Every ./dev test* arm forwards its flags to pytest
+./dev test-unit -k "task" --tb=short
+
 # Run specific test files
 uv run pytest tests/unit/test_tasks_service.py -v
 uv run pytest tests/unit/test_tasks_scheduling_service.py -v
 
-# Run with coverage
-uv run pytest tests/integration/ --cov=core --cov-report=term-missing
+# Coverage is opt-in — the one path; writes coverage.xml + htmlcov/
+./dev test --cov
 ```
 
 ## Test Suite Status
@@ -30,8 +33,8 @@ SKUEL runs two primary tiers, both gated in CI (`.github/workflows/ci.yml`):
 - **Unit** (`tests/unit/`) — mock-based, no Docker. `./dev test-unit`
 - **Integration** (`tests/integration/`) — real Neo4j via testcontainers. `./dev test-integration`
 
-Run the full suite with `./dev test-all` (needs Docker), or the quick smoke subset
-with `./dev test-quick`.
+Run both tiers in one session with `./dev test` (needs Docker), or the integration
+tier plus the auth / error-handling unit files with `./dev test-quick`.
 
 **Why integration tests are the primary tier:**
 - Use a real database and services
@@ -46,7 +49,7 @@ with `./dev test-quick`.
 |----------|---------|-------|
 | **Integration** | `./dev test-integration` | Real Neo4j (Docker), slower than unit |
 | **Unit** | `./dev test-unit` | Mock-based, no Docker, fastest |
-| **All** | `./dev test-all` | Full suite, needs Docker |
+| **Both** | `./dev test` | Unit + integration in one session, needs Docker |
 
 ### By Domain
 
@@ -87,12 +90,18 @@ uv run pytest tests/unit/test_tasks_service.py -v -s
 
 ### Coverage Analysis
 
-```bash
-# Integration tests coverage
-uv run pytest tests/integration/ --cov=core/services --cov-report=term-missing
+Coverage is opt-in: a plain run collects none (pass rate is the quality metric), and
+`--cov` on any `./dev test*` arm is the one path that does — it writes `coverage.xml`
+and `htmlcov/` and prints `term-missing` for `core/`, `adapters/`, `ui/` and
+`services_bootstrap/`.
 
-# Specific service coverage
-uv run pytest tests/integration/ -k "task" --cov=core/services/tasks --cov-report=html
+```bash
+# Both tiers with coverage
+./dev test --cov
+
+# One tier, or a filtered subset, with coverage
+./dev test-integration --cov
+./dev test-unit --cov -k "task"
 
 # Open HTML coverage report
 xdg-open htmlcov/index.html
@@ -192,8 +201,8 @@ def test_tasks_service_creation():
 CI (`.github/workflows/ci.yml`, both jobs path-gated on Python changes) runs:
 
 - **`unit_tests`** — `pytest tests/unit/` (mock-based, no Docker)
-- **`integration_tests`** — `pytest tests/integration/ --override-ini=addopts=`;
-  testcontainers boots the pinned Neo4j image on the runner's Docker daemon,
+- **`integration_tests`** — `pytest tests/integration/`; testcontainers boots the
+  pinned Neo4j image on the runner's Docker daemon,
   identical to `./dev test-integration` locally. No `services:` block needed —
   the testcontainer fixture in `tests/integration/conftest.py` owns the
   container lifecycle.
@@ -273,7 +282,8 @@ that doesn't exist silently "passes" — only integration tests catch that bug c
 
 **For Comprehensive Verification:**
 ```bash
-./dev test-all  # Full suite (needs Docker)
+./dev test        # unit + integration in one session (needs Docker)
+./dev test --cov  # ... with a coverage report
 ```
 
 **For Specific Features:**

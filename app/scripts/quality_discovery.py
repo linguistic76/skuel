@@ -55,6 +55,13 @@ EXCLUDED_DIR_NAMES: frozenset[str] = frozenset(
         "z_archives",
         "zarchives",
         ".claude",  # Claude Code config/skills (documentation only)
+        # The gitignored scratch tier (CLAUDE.md § Documentation Architecture) —
+        # draft scripts parked there are not lint or audit subjects. The only
+        # gate walkers that reach it are this vocabulary's consumers and `mypy .`
+        # (excluded in pyproject); ruff honours .gitignore and pyright has an
+        # explicit include. Safe as an any-depth name: no tracked directory is
+        # named plans.
+        "plans",
     }
 )
 

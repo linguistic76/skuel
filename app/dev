@@ -148,34 +148,32 @@ case "$1" in
     uv run python scripts/docs_relative_links.py "${@:2}"
     ;;
 
+  # Every test* arm forwards "${@:2}" — the flags reach pytest (or vitest)
+  # verbatim: ./dev test --cov (coverage, opt-in), ./dev test-unit -k EXPR -x.
+  # An arm that drops them takes `./dev test --cov` silently back to a plain run.
   test)
     echo -e "${GREEN}Running COMPREHENSIVE test suite (recommended)${NC}"
-    uv run python scripts/run_tests.py comprehensive
-    ;;
-
-  test-all)
-    echo -e "${YELLOW}Running COMPLETE test suite (all of tests/)${NC}"
-    uv run python scripts/run_tests.py all
+    uv run python scripts/run_tests.py comprehensive "${@:2}"
     ;;
 
   test-integration)
     echo -e "${GREEN}Running integration tests (fast)${NC}"
-    uv run python scripts/run_tests.py integration
+    uv run python scripts/run_tests.py integration "${@:2}"
     ;;
 
   test-unit)
     echo -e "${GREEN}Running unit tests (fast CI tier)${NC}"
-    uv run python scripts/run_tests.py unit
+    uv run python scripts/run_tests.py unit "${@:2}"
     ;;
 
   test-js)
     echo -e "${GREEN}Running JS tests (vitest, static/js/)${NC}"
-    npm run test:js
+    npm run test:js -- "${@:2}"
     ;;
 
   test-quick)
-    echo -e "${GREEN}Running quick smoke test${NC}"
-    uv run python scripts/run_tests.py quick
+    echo -e "${GREEN}Running the quick subset (integration tier + auth / error-handling unit files)${NC}"
+    uv run python scripts/run_tests.py quick "${@:2}"
     ;;
 
   smoke)
@@ -397,11 +395,11 @@ case "$1" in
     echo ""
     echo "Testing:"
     echo "  ./dev test              - unit + integration (both CI tiers, one session) [RECOMMENDED]"
-    echo "  ./dev test-all          - Everything under tests/ (needs Docker)"
     echo "  ./dev test-integration  - Integration tests (local Docker Neo4j)"
     echo "  ./dev test-unit         - Unit tests — fast CI tier (no Docker) [FASTEST]"
     echo "  ./dev test-js           - JS tests — vitest over static/js/ (npm run test:js)"
-    echo "  ./dev test-quick        - Quick smoke subset (integration + auth + errors)"
+    echo "  ./dev test-quick        - Integration tier + auth / error-handling unit files (~3 min, Docker)"
+    echo "  Every test* arm forwards its flags: --cov (coverage, opt-in), -k EXPR, -x, --tb=short"
     echo ""
     echo "Dependencies:"
     echo "  ./dev deps                    - List outdated direct deps + intentional pins (alias: outdated)"
@@ -441,7 +439,8 @@ case "$1" in
     echo "  ./dev format            # Before committing changes"
     echo "  ./dev quality-fix       # Fix all auto-fixable issues"
     echo "  ./dev test              # Comprehensive tests (recommended)"
-    echo "  ./dev test-quick        # Fast smoke test (30s)"
+    echo "  ./dev test --cov        # ... with a coverage report (opt-in: coverage.xml + htmlcov/)"
+    echo "  ./dev test-unit -k foo  # Flags forward to pytest"
     echo "  ./dev bloat-events      # Find unused events"
     echo ""
     echo "Advanced Test Options:"
