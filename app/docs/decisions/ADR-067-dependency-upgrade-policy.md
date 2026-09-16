@@ -332,15 +332,19 @@ still work:
   calls `bootstrap_skuel()` — the function `main()` runs, which builds the services and registers
   every `@rt` handler, the moment FastHTML evaluates the signatures. A bare `import main`
   registers nothing (`main()` is `__main__`-guarded) and `./dev smoke` renders static fixtures
-  without a server, so neither can see that failure. FastHTML itself reads with `eval_str=True`,
-  so it evaluated the quoted strings already and the sweep could not add a registration failure;
-  the readers that DID change class were the ones on 3.14's default `inspect.signature()` /
-  `get_type_hints()` — three unit tests and one production site (`with_error_handling`'s uid
-  extraction), which the unit tier caught and which now read in `Format.FORWARDREF`. That is the
-  standing remedy: a reader that needs only names never evaluates; a reader that needs types
-  supplies its namespace; a `@rt()` handler uses a real import. Never a `# noqa: UP037`, never
-  re-ignoring the rule. `[tool.black]`'s `target-version` moved to `py314` in the same PR — its
-  `py312` lag was pinned to this sweep and had no other reason. The record:
-  `docs/roadmap/done/py314-annotation-sweeps.md`.
+  without a server, so neither can see that failure. It fired: FastHTML reads with `eval_str=True`,
+  which evaluates a whole-string annotation — so a handler typed `-> "FT"` had failed at
+  registration long before — but a quote NESTED in a subscript, `Result["FT"]` or
+  `Result[list["TaskDTO"]]`, evaluates to a `ForwardRef` inside a real object and was inert.
+  Unquoted, the inner name is evaluated at registration: eight handlers in two route files
+  (`activity_reports_ui`, `orchestration_routes`) raised `NameError` at bootstrap and their
+  types became runtime imports. The readers on 3.14's default `inspect.signature()` /
+  `get_type_hints()` changed class the same way — three unit tests and one production site
+  (`with_error_handling`'s uid extraction), which the unit tier caught and which now read in
+  `Format.FORWARDREF`. That is the standing remedy: a `@rt()` handler uses a real import; a
+  reader that needs only names never evaluates; a reader that needs types supplies its
+  namespace. Never a `# noqa: UP037`, never re-ignoring the rule. `[tool.black]`'s
+  `target-version` moved to `py314` in the same PR — its `py312` lag was pinned to this sweep and
+  had no other reason. The record: `docs/roadmap/done/py314-annotation-sweeps.md`.
 
 mypy/pyright type-check against 3.14 either way — neither backlog was ever a correctness gap.

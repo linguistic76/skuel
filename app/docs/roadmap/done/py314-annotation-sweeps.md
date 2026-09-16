@@ -39,11 +39,21 @@ but, unquoted, raises `NameError` the moment something reads the signature in 3.
 VALUE format. A static pass over the swept files found **249** now carrying such a name unquoted
 — most of the sweep — so the question was never *whether* the class exists but *who reads*:
 
-- **FastHTML's `@rt` registration reads with `eval_str=True`** (`fastcore.signature_ex`), which
-  evaluated the quoted strings already — a handler carrying a `TYPE_CHECKING`-only type failed at
-  registration before the sweep too, so the sweep cannot add a registration failure.
-  `./dev test-integration` proves it: its `skuel_app` fixture calls `bootstrap_skuel()`, the
-  function `main()` runs, against a Neo4j testcontainer. INTEGRATION_RESULT
+- **`./dev test-integration` — the boot check — fired.** Its `skuel_app` fixture calls
+  `bootstrap_skuel()`, the function `main()` runs, against a Neo4j testcontainer, in FULL tier
+  (`.env`), so every handler registers. First run: 1769 passed, **12 errors**, all twelve the
+  fixture itself — `RuntimeError: SKUEL bootstrap failed: name 'FT' is not defined` from
+  `adapters/inbound/activity_reports_ui.py`. The reasoning that said this could not happen was
+  wrong in a specific way worth keeping: FastHTML's `@rt` registration reads with `eval_str=True`
+  (`fastcore.signature_ex`), which does evaluate a *whole-string* annotation — so `-> "FT"` on a
+  handler would have failed before the sweep — but a quote **nested in a subscript**,
+  `Result["FT"]` / `Result[list["TaskDTO"]]`, evaluates to a `ForwardRef` inside a real object
+  and was inert. Unquoted, the inner name is evaluated at registration. Bootstrap aborts at the
+  first `NameError`, so the rest were found statically (`@rt`-decorated handlers plus the
+  factories' call-form `rt(path)(fn)` registrations, annotation names ∩ the module's
+  `TYPE_CHECKING`-only imports): **8 handlers in 2 files** — `FT` in `activity_reports_ui`,
+  `TaskDTO`/`EventDTO` in `orchestration_routes` — all made runtime imports. Re-run of the twelve:
+  12 passed; both scans at 0.
 - **`./dev test-unit` caught the readers that changed class** — 6 failures + 2 errors, every one
   a `NameError` from an `__annotate__` frame, in three tests that introspect constructor
   signatures with the 3.14 default: `Services` type hints
