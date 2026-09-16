@@ -6,7 +6,7 @@ Usage:
     uv run python scripts/run_tests.py [mode] [options]
 
 Modes:
-    all           - Run everything under tests/ (needs Docker for integration/e2e)
+    all           - Run everything under tests/ (needs Docker for integration)
     comprehensive - unit + integration [RECOMMENDED]
     integration   - Integration tests only (local Docker Neo4j)
     unit          - Unit tests only — fast CI tier (no Docker)
@@ -38,8 +38,8 @@ class TestRunner:
     def run_all(self, extra_args: list[str]) -> int:
         """Run the complete test suite (everything under tests/)."""
         print("🔍 Running COMPLETE test suite (all of tests/)")
-        print("   unit + integration + e2e")
-        print("   Integration/e2e need local Docker Neo4j (testcontainers)\n")
+        print("   unit + integration")
+        print("   Integration needs local Docker Neo4j (testcontainers)\n")
 
         cmd = ["uv", "run", "pytest", "tests/", "-v", *extra_args]
         return subprocess.run(cmd, cwd=self.project_root).returncode
@@ -47,13 +47,13 @@ class TestRunner:
     def run_comprehensive(self, extra_args: list[str]) -> int:
         """Run unit + integration (RECOMMENDED) — both CI tiers in one session.
 
-        tests/unit/ is the fast CI tier: every Docker-free test lives there.
-        Excludes only e2e (slow, worker lifecycle) and the uncollected
-        benchmarks directory.
+        tests/unit/ is the fast CI tier: every Docker-free test lives there;
+        tests/integration/ (e2e flows included) is the Docker tier. Excludes
+        only the uncollected benchmarks directory.
         """
         print("✅ Running COMPREHENSIVE test suite (recommended)")
         print("   unit + integration (both CI tiers)")
-        print("   Excludes: e2e, benchmarks")
+        print("   Excludes: benchmarks")
         print("   Integration needs local Docker Neo4j (testcontainers)\n")
 
         cmd = [
@@ -61,7 +61,6 @@ class TestRunner:
             "run",
             "pytest",
             "tests/",
-            "--ignore=tests/e2e/",
             "--ignore=tests/benchmarks/",
             "-v",
             *extra_args,

@@ -22,6 +22,7 @@ tests/
 ├── helpers/
 ├── integration/
 │   ├── conftest.py             # TestContainers (shared + the app's own), skuel_app, backends
+│   ├── e2e/                    # Whole-workflow flows (worker → stored vector → search); own conftest
 │   └── test_*.py               # Real Neo4j tests
 ├── unit/
 │   ├── infrastructure/         # Route-factory tests (CRUD / query / intelligence / field factories)

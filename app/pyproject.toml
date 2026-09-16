@@ -538,7 +538,6 @@ addopts = [
 # undeclared ones; a declared-but-unused one is inert vocabulary, delete it).
 markers = [
     "integration: Integration tests",
-    "e2e: End-to-end tests",
     "slow: Slow running tests",
     "asyncio: Async tests"
 ]

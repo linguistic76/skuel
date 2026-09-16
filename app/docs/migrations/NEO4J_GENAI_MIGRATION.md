@@ -1,5 +1,5 @@
 ---
-updated: 2026-09-09
+updated: 2026-09-16
 ---
 
 # Neo4j GenAI Plugin Migration Guide
@@ -432,7 +432,7 @@ uv run pytest tests/integration/test_vector_search.py -v
 
 ```bash
 # Run E2E tests
-uv run pytest tests/e2e/test_semantic_search_flow.py -v
+uv run pytest tests/integration/e2e/test_semantic_search_flow.py -v
 
 # Expected: 7/7 tests passing
 ```

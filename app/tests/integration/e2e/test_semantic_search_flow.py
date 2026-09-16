@@ -20,7 +20,6 @@ from core.services.ingestion.preparer import prepare_entity_data
 from core.utils.embedding_text_builder import build_embedding_text
 
 
-@pytest.mark.e2e
 @pytest.mark.asyncio
 async def test_complete_semantic_search_flow(
     neo4j_driver, clean_neo4j, services_with_embeddings, ku_backend
@@ -130,7 +129,6 @@ async def test_complete_semantic_search_flow(
         assert item["score"] >= 0.7
 
 
-@pytest.mark.e2e
 @pytest.mark.asyncio
 async def test_batch_embedding_generation_e2e(neo4j_driver, clean_neo4j, mock_embeddings_service):
     """
@@ -239,7 +237,6 @@ async def test_batch_embedding_generation_e2e(neo4j_driver, clean_neo4j, mock_em
     assert record["first_dim"] == 1024  # All embeddings 1536 dimensions
 
 
-@pytest.mark.e2e
 @pytest.mark.asyncio
 async def test_ingestion_to_search_pipeline(neo4j_driver, clean_neo4j, services_with_embeddings):
     """
@@ -336,7 +333,6 @@ async def test_ingestion_to_search_pipeline(neo4j_driver, clean_neo4j, services_
         assert item["score"] >= 0.5
 
 
-@pytest.mark.e2e
 @pytest.mark.asyncio
 async def test_semantic_search_with_fallback(neo4j_driver, clean_neo4j):
     """
@@ -387,7 +383,6 @@ async def test_semantic_search_with_fallback(neo4j_driver, clean_neo4j):
     # This test validates the pattern - actual fallback logic in domain services
 
 
-@pytest.mark.e2e
 @pytest.mark.asyncio
 async def test_cross_domain_semantic_search(neo4j_driver, clean_neo4j, services_with_embeddings):
     """
@@ -494,7 +489,6 @@ async def test_cross_domain_semantic_search(neo4j_driver, clean_neo4j, services_
         assert isinstance(results, list)
 
 
-@pytest.mark.e2e
 @pytest.mark.asyncio
 async def test_embedding_update_workflow(neo4j_driver, clean_neo4j, services_with_embeddings):
     """
@@ -571,7 +565,6 @@ async def test_embedding_update_workflow(neo4j_driver, clean_neo4j, services_wit
     assert record["embedding_dim"] == 1024
 
 
-@pytest.mark.e2e
 @pytest.mark.asyncio
 async def test_partial_batch_failure_handling(neo4j_driver, clean_neo4j, mock_embeddings_service):
     """
