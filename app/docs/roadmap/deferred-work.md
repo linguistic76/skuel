@@ -1,5 +1,5 @@
 ---
-updated: 2026-09-15
+updated: 2026-09-16
 ---
 
 # Deferred Work
@@ -90,7 +90,7 @@ renders them as a table in Obsidian, and a session derives the same table with
 
 ## R4 Vault Inbound Propagation — Build Plan
 
-[R4 Vault Inbound Propagation — Build Plan](r4-vault-inbound-propagation.md) — Vault-side checks, unchecks, edits, moves and deletions of 🆔 lines propagating into SKUEL — **scheduled 2026-09-15** (deletion cancels open tasks, moves re-point, a three-way merge per field); four PRs — PR 1 (#1343: stamps, the `source_line` base, re-point/revival, the sweep) and PR 2 (#1344: reconciliation — a vault-side check, uncheck or field edit reaches the task, three-way against the base) and PR 3 (deletion cancels open tasks: the sweep posts `CANCELLED` through the facade, stamp cleared on ok) merged, PR 4 (docs) next.
+[R4 Vault Inbound Propagation — Build Plan](r4-vault-inbound-propagation.md) — Vault-side checks, unchecks, edits, moves and deletions of 🆔 lines propagating into SKUEL — **scheduled 2026-09-15** (deletion cancels open tasks, moves re-point, a three-way merge per field); four PRs — PR 1 (#1343: stamps, the `source_line` base, re-point/revival, the sweep) and PR 2 (#1344: reconciliation — a vault-side check, uncheck or field edit reaches the task, three-way against the base) and PR 3 (#1345: deletion cancels open tasks — the sweep posts `CANCELLED` through the facade, stamp cleared on ok) merged, PR 4 (docs) next.
 
 ## ⚠️ Vault Re-Sync Never Retracts a Share
 

@@ -1,7 +1,7 @@
 ---
 title: "R4 Vault Inbound Propagation — Build Plan"
-updated: 2026-09-15
-status: "in progress — PR 1 (identity survives one sync: stamps, source_line base, re-point/revival, sweep) #1343; PR 2 (reconciliation: status both directions + field edits, one intent per line, base advances on ok) #1344; PR 3 (deletion cancels open tasks: the sweep posts CANCELLED through the facade, stamp cleared on ok, the counter) merged; PR 4 (docs) next"
+updated: 2026-09-16
+status: "in progress — PR 1 (identity survives one sync: stamps, source_line base, re-point/revival, sweep) #1343; PR 2 (reconciliation: status both directions + field edits, one intent per line, base advances on ok) #1344; PR 3 (deletion cancels open tasks: the sweep posts CANCELLED through the facade, stamp cleared on ok, the counter) #1345; PR 4 (docs) next"
 registered: 2026-08-24
 ruled: 2026-09-15
 trigger: "scheduled by Mike 2026-09-15 (was: Mike schedules it — product decision, not a data threshold)"
@@ -345,7 +345,7 @@ fixture module; new file `test_vault_inbound_propagation.py`), and the mutant it
    seeding sync and this PR's first sync → applied. Mutants: the branch ignores `base` (the
    race rows flip); the refresh runs on a refused write (the edit is never retried); any
    field applied without `theirs ≠ base`.
-3. **Deletion cancels open tasks** — ✅ PR 3. The sweep posts `CANCELLED` for open tasks
+3. **Deletion cancels open tasks** — ✅ #1345. The sweep posts `CANCELLED` for open tasks
    through `update_task` (status only) and clears the stamp only on an ok write; the
    backlog since PR 1 was cancelled on the first sweep and the PR says so (census in its
    body); the counter and its fragment line. Rig: delete an open task's line, two syncs →
