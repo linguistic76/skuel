@@ -164,10 +164,10 @@ tests/
 ├── integration/              # Real Neo4j via testcontainers (./dev test-integration)
 │   ├── routes/               # Route / API tests
 │   ├── relationships/        # Graph-edge tests
+│   ├── e2e/                  # Whole-workflow flows (worker → stored vector → search)
 │   ├── conftest.py           # Testcontainer lifecycle
 │   └── ...
 │
-├── e2e/                      # End-to-end (local only)
 └── conftest.py               # Shared fixtures
 ```
 
@@ -198,8 +198,8 @@ CI (`.github/workflows/ci.yml`, both jobs path-gated on Python changes) runs:
   the testcontainer fixture in `tests/integration/conftest.py` owns the
   container lifecycle.
 
-e2e, benchmarks, and infrastructure tiers remain local-only (`./dev test` /
-`scripts/run_tests.py all`).
+Every collected test runs in one of those two jobs. `tests/benchmarks/` holds an
+uncollected script (`./dev test` ignores the directory by name to guard that intent).
 
 ### Pre-Commit Hooks
 

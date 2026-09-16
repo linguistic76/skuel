@@ -396,7 +396,7 @@ case "$1" in
     done
     echo ""
     echo "Testing:"
-    echo "  ./dev test              - unit + integration + infrastructure [RECOMMENDED]"
+    echo "  ./dev test              - unit + integration (both CI tiers, one session) [RECOMMENDED]"
     echo "  ./dev test-all          - Everything under tests/ (needs Docker)"
     echo "  ./dev test-integration  - Integration tests (local Docker Neo4j)"
     echo "  ./dev test-unit         - Unit tests — fast CI tier (no Docker) [FASTEST]"

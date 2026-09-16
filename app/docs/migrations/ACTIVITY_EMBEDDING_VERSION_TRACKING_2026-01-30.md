@@ -1,5 +1,5 @@
 ---
-updated: 2026-03-12
+updated: 2026-09-16
 ---
 
 # Activity Domain Embedding Version Tracking - Implementation Complete
@@ -103,7 +103,7 @@ uv run python scripts/migrations/backfill_activity_embedding_versions.py
 Updated all test files to provide mock config:
 
 1. **`tests/integration/test_async_embeddings.py`** - Added mock config to 2 test cases
-2. **`tests/e2e/conftest.py`** - Added mock config to embedding_worker fixture
+2. **`tests/integration/e2e/conftest.py`** - Added mock config to embedding_worker fixture
 
 **Mock pattern:**
 ```python
@@ -253,7 +253,7 @@ RETURN t.embedding_version
 
 ### Tests (2 files)
 1. `/tests/integration/test_async_embeddings.py` - Mock config
-2. `/tests/e2e/conftest.py` - Mock config fixture
+2. `/tests/integration/e2e/conftest.py` - Mock config fixture
 
 **Total:** 9 files changed
 
