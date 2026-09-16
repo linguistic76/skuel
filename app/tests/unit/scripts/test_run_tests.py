@@ -67,7 +67,7 @@ def test_runner_options_are_taken_out_and_the_rest_stays_in_order() -> None:
 
 
 def test_coverage_args_are_the_whole_coverage_configuration() -> None:
-    """One path: the four source trees and the three reports PR 4 consumes."""
+    """One path: the four source trees and the three reports a coverage run writes."""
     assert {a for a in COVERAGE_ARGS if a.startswith("--cov=")} == {
         "--cov=core",
         "--cov=adapters",

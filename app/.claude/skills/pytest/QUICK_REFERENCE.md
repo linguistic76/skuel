@@ -14,7 +14,7 @@ uv run pytest tests/unit/test_foo.py -k "create" -x --tb=short
 ./dev test --cov                               # coverage — opt-in, the one path (coverage.xml + htmlcov/)
 ```
 
-**When to use**: coverage is never collected by default (`addopts` carries only `--strict-markers --strict-config -v`; pass rate is the metric) — `--cov` on any `./dev test*` arm is the one path that collects it. CI runs both tiers: `unit_tests` (`uv run pytest tests/unit/ -x --tb=short -q`) and `integration_tests` (`tests/integration/` on the runner's Docker daemon, `INTELLIGENCE_TIER=core`), each path-gated on Python changes.
+**When to use**: coverage is never collected by default (`addopts` carries only `--strict-markers --strict-config -v`; pass rate is the metric) — `--cov` on any of the pytest `./dev test*` arms (`test`, `test-unit`, `test-integration`, `test-quick`) is the one path that collects it; `test-js` forwards to vitest, which has no `--cov`. CI runs both tiers: `unit_tests` (`uv run pytest tests/unit/ -x --tb=short -q`) and `integration_tests` (`tests/integration/` on the runner's Docker daemon, `INTELLIGENCE_TIER=core`), each path-gated on Python changes.
 
 ---
 

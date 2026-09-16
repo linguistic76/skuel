@@ -15,7 +15,7 @@ related_skills:
 # Run unit tests (fast, no Docker)
 ./dev test-unit
 
-# Every ./dev test* arm forwards its flags to pytest
+# The pytest arms (test, test-unit, test-integration, test-quick) forward their flags
 ./dev test-unit -k "task" --tb=short
 
 # Run specific test files
@@ -91,9 +91,10 @@ uv run pytest tests/unit/test_tasks_service.py -v -s
 ### Coverage Analysis
 
 Coverage is opt-in: a plain run collects none (pass rate is the quality metric), and
-`--cov` on any `./dev test*` arm is the one path that does — it writes `coverage.xml`
-and `htmlcov/` and prints `term-missing` for `core/`, `adapters/`, `ui/` and
-`services_bootstrap/`.
+`--cov` on any of the pytest `./dev test*` arms (`test`, `test-unit`, `test-integration`,
+`test-quick`) is the one path that does — it writes `coverage.xml` and `htmlcov/` and
+prints `term-missing` for `core/`, `adapters/`, `ui/` and `services_bootstrap/`.
+(`./dev test-js` forwards its flags to vitest, which has no `--cov`.)
 
 ```bash
 # Both tiers with coverage

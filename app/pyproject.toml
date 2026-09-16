@@ -517,7 +517,8 @@ python_functions = ["test_*"]
 pythonpath = ["."]
 
 # Coverage is OPT-IN, never collected here. `scripts/run_tests.py --cov` (reached as
-# `./dev test --cov`, or any `./dev test*` arm) is the one path that collects it —
+# `./dev test --cov`, or any of the pytest `./dev test*` arms) is the one path that
+# collects it —
 # it writes coverage.xml + htmlcov/ and prints term-missing, shaped by the
 # [tool.coverage.*] tables below. A plain run, in every CI tier and every local
 # arm, pays nothing for an instrument no path consumes: pass rate is the quality

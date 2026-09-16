@@ -148,9 +148,10 @@ case "$1" in
     uv run python scripts/docs_relative_links.py "${@:2}"
     ;;
 
-  # Every test* arm forwards "${@:2}" — the flags reach pytest (or vitest)
-  # verbatim: ./dev test --cov (coverage, opt-in), ./dev test-unit -k EXPR -x.
-  # An arm that drops them takes `./dev test --cov` silently back to a plain run.
+  # Every test* arm forwards "${@:2}" verbatim — the four pytest arms to
+  # scripts/run_tests.py (./dev test --cov = coverage, opt-in; -k EXPR; -x),
+  # test-js to vitest (vitest's own flags; --cov is the pytest runner's). An arm
+  # that drops them takes `./dev test --cov` silently back to a plain run.
   test)
     echo -e "${GREEN}Running COMPREHENSIVE test suite (recommended)${NC}"
     uv run python scripts/run_tests.py comprehensive "${@:2}"
@@ -399,7 +400,7 @@ case "$1" in
     echo "  ./dev test-unit         - Unit tests — fast CI tier (no Docker) [FASTEST]"
     echo "  ./dev test-js           - JS tests — vitest over static/js/ (npm run test:js)"
     echo "  ./dev test-quick        - Integration tier + auth / error-handling unit files (~3 min, Docker)"
-    echo "  Every test* arm forwards its flags: --cov (coverage, opt-in), -k EXPR, -x, --tb=short"
+    echo "  Flags forward: the pytest arms take --cov (coverage, opt-in), -k EXPR, -x, --tb=short; test-js takes vitest's"
     echo ""
     echo "Dependencies:"
     echo "  ./dev deps                    - List outdated direct deps + intentional pins (alias: outdated)"

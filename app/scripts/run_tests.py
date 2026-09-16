@@ -18,8 +18,9 @@ Runner options (the only ones parsed here):
     --markers         - Show the declared pytest markers and exit
 
 Every other argument is pytest's and is forwarded verbatim, in order — ``-k EXPR``,
-``-x``, ``-q``, ``--tb=auto``, ``--lf`` … Each ``./dev test*`` arm forwards its
-flags here: ``./dev test-unit -k tasks -x``, ``./dev test --cov``.
+``-x``, ``-q``, ``--tb=auto``, ``--lf`` … The four pytest ``./dev test*`` arms
+(``test``, ``test-unit``, ``test-integration``, ``test-quick``) forward their flags
+here: ``./dev test-unit -k tasks -x``, ``./dev test --cov``.
 """
 
 import argparse
