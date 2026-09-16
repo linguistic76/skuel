@@ -1,5 +1,5 @@
 ---
-updated: 2026-08-08
+updated: 2026-09-16
 ---
 
 # SKUEL Troubleshooting Guide
@@ -241,32 +241,43 @@ grep -i "tasks.*service" /tmp/server.log
 
 ## Type Annotation Issues
 
-### Forward Reference Union Types
+### Forward References — Never Quote an Annotation
 
-**Symptom**: `TypeError: unsupported operand type(s) for |: 'str' and 'NoneType'`
+Python 3.14 evaluates annotations lazily (PEP 649), so a forward reference needs no quotes and
+`X | None` is always the form — `Optional[...]` buys nothing. Ruff's **UP037 is live**: a quoted
+annotation is a lint error, and `./dev quality` rewrites it (ADR-067 § Deferred).
 
-**Cause**: Using `|` operator with string forward references (Python 3.10+ syntax not compatible with strings)
-
-**Solution**:
 ```python
-# ❌ WRONG (forward reference with |)
-def my_function() -> "FT" | None:
-    pass
+# ❌ WRONG — UP037 rewrites this
+def my_function() -> "FT" | None: ...
 
-# ✅ CORRECT (use Optional)
-from typing import Optional
-
-def my_function() -> Optional["FT"]:
-    pass
+# ✅ CORRECT — lazily evaluated, FT may be a TYPE_CHECKING-only import
+def my_function() -> FT | None: ...
 ```
 
-**Rule**: Forward references (quoted types) must use `Optional[...]` or `Union[..., None]`, not `|`.
+**Symptom**: `NameError: name 'X' is not defined` raised from a `__annotate__` frame — at
+bootstrap, or the moment something reads a signature.
+
+**Cause**: `X` is imported only under `TYPE_CHECKING` and something evaluated the annotation in
+VALUE format. Two things do: FastHTML's `@rt` registration (`signature_ex(..., eval_str=True)`
+on every handler) and any `inspect.signature()` / `typing.get_type_hints()` /
+`cls.__annotations__` reader left on 3.14's default.
+
+**Solution** — fix the reader or the import, never re-quote:
+- A `@rt()` handler's parameter and return types must be real imports.
+- A reader that needs only names/kinds/defaults asks for
+  `inspect.signature(f, annotation_format=Format.FORWARDREF)` (`from annotationlib import Format`).
+- A reader that needs the types supplies the namespace:
+  `get_type_hints(cls, globalns=ns, format=Format.FORWARDREF)` and asserts nothing stays a
+  `ForwardRef` (see `tests/unit/adapters/test_route_service_attribute_contract.py`).
 
 ---
 
 ### TYPE_CHECKING Pattern
 
-**Best Practice**: Use `TYPE_CHECKING` for expensive imports only needed for type hints
+**Best Practice**: Use `TYPE_CHECKING` for imports only needed for type hints — and leave the
+annotation unquoted (see above). TC002/TC003 are permanently ignored, so ruff never *moves* an
+import under `TYPE_CHECKING` for you: do it only where nothing evaluates the annotation.
 
 ```python
 from typing import TYPE_CHECKING
@@ -274,7 +285,7 @@ from typing import TYPE_CHECKING
 if TYPE_CHECKING:
     from expensive.module import ExpensiveType
 
-def my_function(param: "ExpensiveType") -> None:  # Forward reference
+def my_function(param: ExpensiveType) -> None:  # lazily evaluated — no quotes
     pass
 ```
 

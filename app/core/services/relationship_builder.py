@@ -73,7 +73,7 @@ class _EdgeAwaitingType:
         self._backend = backend
         self._source_uid = source_uid
 
-    def via(self, relationship: RelationshipName) -> "_EdgeAwaitingTarget":
+    def via(self, relationship: RelationshipName) -> _EdgeAwaitingTarget:
         """Name the edge type. Takes the enum — there is no string overload."""
         return _EdgeAwaitingTarget(self._backend, self._source_uid, relationship)
 
@@ -94,7 +94,7 @@ class _EdgeAwaitingTarget:
         self._source_uid = source_uid
         self._relationship = relationship
 
-    def to(self, target_uid: str) -> "_EdgeReady":
+    def to(self, target_uid: str) -> _EdgeReady:
         """Name the target. The edge is now complete and can be written."""
         return _EdgeReady(self._backend, self._source_uid, self._relationship, target_uid)
 
@@ -118,7 +118,7 @@ class _EdgeReady:
         self._target_uid = target_uid
         self._properties: Neo4jProperties = {}
 
-    def with_properties(self, **properties: Neo4jValue) -> "_EdgeReady":
+    def with_properties(self, **properties: Neo4jValue) -> _EdgeReady:
         """Add edge properties. Repeat calls merge; later keys win."""
         self._properties.update(properties)
         return self

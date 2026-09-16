@@ -192,7 +192,7 @@ class LLMDSLBridgeService:
 
     def __init__(
         self,
-        chat_port: "ChatCompletionPort | None" = None,
+        chat_port: ChatCompletionPort | None = None,
         model: str = "gpt-4o-mini",
         use_compact_prompt: bool = False,
     ) -> None:

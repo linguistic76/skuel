@@ -44,7 +44,7 @@ def _make_service(
     get_related_uids_return: Result | None = None,
     count_related_return: Result | None = None,
     create_relationship_return: Result | None = None,
-) -> "UnifiedRelationshipService":
+) -> UnifiedRelationshipService:
     """
     Build a UnifiedRelationshipService instance without calling __init__.
 

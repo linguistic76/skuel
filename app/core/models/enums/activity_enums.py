@@ -120,7 +120,7 @@ class Priority(StrEnum):
         return descriptions.get(self, "")
 
     @classmethod
-    def from_search_text(cls, text: str) -> list["Priority"]:
+    def from_search_text(cls, text: str) -> list[Priority]:
         """Find matching priority levels from search text."""
         text_lower = text.lower()
         return [
@@ -196,7 +196,7 @@ class Confidence(StrEnum):
         }.get(self, ())
 
     @classmethod
-    def from_numeric(cls, value: float) -> "Confidence":
+    def from_numeric(cls, value: float) -> Confidence:
         """Convert numeric float to nearest Confidence level."""
         if value >= 0.95:
             return cls.CERTAIN
@@ -210,7 +210,7 @@ class Confidence(StrEnum):
             return cls.UNCERTAIN
 
     @classmethod
-    def from_search_text(cls, text: str) -> list["Confidence"]:
+    def from_search_text(cls, text: str) -> list[Confidence]:
         """Find matching confidence levels from search text."""
         text_lower = text.lower()
         return [
@@ -314,7 +314,7 @@ class ProductivityLevel(StrEnum):
         }.get(self, 0.5)
 
     @classmethod
-    def from_score(cls, score: float) -> "ProductivityLevel":
+    def from_score(cls, score: float) -> ProductivityLevel:
         """Convert numeric score to level."""
         if score >= 0.9:
             return cls.HIGHLY_PRODUCTIVE
@@ -353,7 +353,7 @@ class ProgressLevel(StrEnum):
         }.get(self, 0.5)
 
     @classmethod
-    def from_score(cls, score: float) -> "ProgressLevel":
+    def from_score(cls, score: float) -> ProgressLevel:
         """Convert numeric score to level."""
         if score >= 0.85:
             return cls.ON_TRACK
@@ -392,7 +392,7 @@ class ConsistencyLevel(StrEnum):
         }.get(self, 0.5)
 
     @classmethod
-    def from_score(cls, score: float) -> "ConsistencyLevel":
+    def from_score(cls, score: float) -> ConsistencyLevel:
         """Convert numeric score to level."""
         if score >= 0.9:
             return cls.ROCK_SOLID
@@ -431,7 +431,7 @@ class EngagementLevel(StrEnum):
         }.get(self, 0.5)
 
     @classmethod
-    def from_score(cls, score: float) -> "EngagementLevel":
+    def from_score(cls, score: float) -> EngagementLevel:
         """Convert numeric score to level."""
         if score >= 0.9:
             return cls.FULLY_ENGAGED
@@ -470,7 +470,7 @@ class DecisionQualityLevel(StrEnum):
         }.get(self, 0.5)
 
     @classmethod
-    def from_score(cls, score: float) -> "DecisionQualityLevel":
+    def from_score(cls, score: float) -> DecisionQualityLevel:
         """Convert numeric score to level."""
         if score >= 0.85:
             return cls.EXCELLENT
@@ -515,7 +515,7 @@ class MasteryLevel(StrEnum):
         }.get(self, 0.5)
 
     @classmethod
-    def from_score(cls, score: float) -> "MasteryLevel":
+    def from_score(cls, score: float) -> MasteryLevel:
         """Convert numeric score to level."""
         if score >= 0.85:
             return cls.MASTERED

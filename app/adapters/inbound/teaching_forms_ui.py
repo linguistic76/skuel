@@ -64,7 +64,7 @@ class ScopeSubject(Protocol):
 
 if TYPE_CHECKING:
 
-    def _user_satisfies_scope_subject(injected: "User") -> ScopeSubject:
+    def _user_satisfies_scope_subject(injected: User) -> ScopeSubject:
         """Static proof that what `@require_role` injects satisfies the protocol.
 
         Without this the protocol is decorative: nothing else in the tree checks
@@ -91,8 +91,8 @@ def _classroom_scope(current_user: ScopeSubject) -> UserUID | None:
 def create_teaching_forms_ui_routes(
     _app: Any,
     rt: Any,
-    form_template_service: "FormTemplateOperations",
-    form_submission_service: "FormSubmissionOperations",
+    form_template_service: FormTemplateOperations,
+    form_submission_service: FormSubmissionOperations,
     user_service: Any,
 ) -> list[Any]:
     """Create teaching forms UI routes.

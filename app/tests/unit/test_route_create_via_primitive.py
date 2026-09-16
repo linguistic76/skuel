@@ -306,10 +306,10 @@ class StubBackend:
 
 
 class _Inert:
-    def __getattr__(self, name: str) -> "_Inert":
+    def __getattr__(self, name: str) -> _Inert:
         return self
 
-    def __call__(self, *args: Any, **kwargs: Any) -> "_Inert":
+    def __call__(self, *args: Any, **kwargs: Any) -> _Inert:
         return self
 
 

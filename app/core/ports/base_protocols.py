@@ -588,10 +588,10 @@ class EntitySearchOperations[T: "DomainModelProtocol"](Protocol):
 
     async def find_by_date_range(
         self,
-        start_date: "date | str | None",
-        end_date: "date | str | None",
+        start_date: date | str | None,
+        end_date: date | str | None,
         date_field: str = "occurred_at",
-        additional_filters: "FilterParams | None" = None,
+        additional_filters: FilterParams | None = None,
         limit: int = 100,
     ) -> ResultType[builtins.list[T]]:
         """Find entities whose ``date_field`` falls in [start_date, end_date].

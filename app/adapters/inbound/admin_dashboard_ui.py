@@ -78,8 +78,8 @@ def _parse_user_filters(role: str | None, status: str | None) -> tuple[str | Non
 def create_admin_dashboard_routes(
     _app: Any,
     rt: Any,
-    orchestrator: "AdminOrchestrator",
-    prereq_suggestions: "PrereqSuggestionService",
+    orchestrator: AdminOrchestrator,
+    prereq_suggestions: PrereqSuggestionService,
 ) -> None:
     """
     Create admin dashboard UI routes.

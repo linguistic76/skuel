@@ -33,7 +33,7 @@ class SearchResult:
     snippet: str = ""
     related_skills: list[str] = field(default_factory=list)
 
-    def __lt__(self, other: "SearchResult") -> bool:
+    def __lt__(self, other: SearchResult) -> bool:
         """Sort by score descending."""
         return self.score > other.score
 

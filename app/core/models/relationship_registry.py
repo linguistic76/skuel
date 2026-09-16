@@ -2340,7 +2340,7 @@ LABEL_CONFIGS: dict[str, DomainRelationshipConfig] = {
 # LATERAL RELATIONSHIP SPECS — Single source of truth for lateral metadata
 # =============================================================================
 
-LATERAL_RELATIONSHIP_SPECS: dict[RelationshipName, "LateralRelationshipSpec"] = {
+LATERAL_RELATIONSHIP_SPECS: dict[RelationshipName, LateralRelationshipSpec] = {
     # --- Structural ---
     RelationshipName.SIBLING: LateralRelationshipSpec(
         relationship=RelationshipName.SIBLING,
@@ -2620,7 +2620,7 @@ def validate_relationship(source_label: str, relationship_type: str) -> bool:
     return any(rel.relationship.value == relationship_type for rel in config.relationships)
 
 
-def get_valid_relationships(source_label: str) -> dict[str, "ValidationRelationshipSpec"]:
+def get_valid_relationships(source_label: str) -> dict[str, ValidationRelationshipSpec]:
     """
     Get all valid relationships for a source label.
 
@@ -2645,7 +2645,7 @@ def get_valid_relationships(source_label: str) -> dict[str, "ValidationRelations
 
 def get_relationship_metadata(
     source_label: str, relationship_type: str
-) -> "ValidationRelationshipSpec | None":
+) -> ValidationRelationshipSpec | None:
     """
     Get metadata for a specific relationship type.
 

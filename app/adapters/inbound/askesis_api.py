@@ -43,7 +43,7 @@ def create_askesis_api_routes(
     rt: Any,
     askesis_service: AskesisOperations,
     intelligence_tier: IntelligenceTier | None = None,
-    user_service: "UserService | None" = None,
+    user_service: UserService | None = None,
 ) -> list[Any]:
     """Register the Askesis API routes.
 

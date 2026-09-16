@@ -109,7 +109,7 @@ class IntelligenceOperations(Protocol[T]):
     defines the common interface for generic route generation.
     """
 
-    async def get_with_context(self, uid: str, depth: int = 2) -> Result[tuple[T, "GraphContext"]]:
+    async def get_with_context(self, uid: str, depth: int = 2) -> Result[tuple[T, GraphContext]]:
         """
         Get entity with full graph context.
 

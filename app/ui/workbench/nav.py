@@ -27,8 +27,8 @@ SUBMISSIONS_SIDEBAR_ITEMS: list[SidebarItem] = [
 def render_submissions_sidebar_page(
     content: Any,
     active: str,
-    request: "Request | None" = None,
-) -> "FT":
+    request: Request | None = None,
+) -> FT:
     """Wrap content in Submissions sidebar page.
 
     Args:

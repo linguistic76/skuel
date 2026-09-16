@@ -254,7 +254,7 @@ class MetricsTimer:
         self.start_time: float | None = None
         self.had_error = False
 
-    def __enter__(self) -> "MetricsTimer":
+    def __enter__(self) -> MetricsTimer:
         self.start_time = time.perf_counter()
         return self
 

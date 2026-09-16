@@ -33,13 +33,13 @@ from adapters.inbound.auth import require_authenticated_user
 from adapters.inbound.boundary import boundary_handler
 from adapters.inbound.fasthtml_types import FastHTMLApp, RouteDecorator
 from adapters.inbound.route_factories import DomainRouteConfig, register_domain_routes
+from core.models.event.event_dto import EventDTO
+from core.models.task.task_dto import TaskDTO
 from core.services.user import UserContext
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Result
 
 if TYPE_CHECKING:
-    from core.models.event.event_dto import EventDTO
-    from core.models.task.task_dto import TaskDTO
     from core.ports import GoalTaskGeneratorOperations, HabitEventSchedulerOperations
 
 logger = get_logger("skuel.routes.orchestration")
@@ -51,7 +51,7 @@ logger = get_logger("skuel.routes.orchestration")
 
 
 def create_goal_task_routes(
-    _app: Any, rt: Any, goal_task_generator: "GoalTaskGeneratorOperations"
+    _app: Any, rt: Any, goal_task_generator: GoalTaskGeneratorOperations
 ) -> list[Any]:
     """Register Goal→Task generation endpoints."""
 
@@ -59,7 +59,7 @@ def create_goal_task_routes(
     @boundary_handler()
     async def generate_tasks(
         request: Request, uid: str, auto_create: bool = False
-    ) -> Result[list["TaskDTO"]]:
+    ) -> Result[list[TaskDTO]]:
         """
         Generate tasks for a goal based on milestones, knowledge requirements, and habits.
         Requires authentication.
@@ -77,7 +77,7 @@ def create_goal_task_routes(
 
     @rt("/goals/task-templates")
     @boundary_handler()
-    async def task_templates(request: Request, uid: str) -> Result[list["TaskDTO"]]:
+    async def task_templates(request: Request, uid: str) -> Result[list[TaskDTO]]:
         """
         Get task templates for a goal without creating them.
         Requires authentication.
@@ -105,7 +105,7 @@ def create_goal_task_routes(
 def create_goal_task_bulk_routes(
     _app: Any,
     rt: Any,
-    goal_task_generator: "GoalTaskGeneratorOperations",
+    goal_task_generator: GoalTaskGeneratorOperations,
     user_service: Any,
 ) -> list[Any]:
     """Register bulk Goal→Task generation endpoints.
@@ -119,7 +119,7 @@ def create_goal_task_bulk_routes(
     @boundary_handler()
     async def generate_tasks_all(
         request: Request, auto_create: bool = False
-    ) -> Result[dict[str, list["TaskDTO"]]]:
+    ) -> Result[dict[str, list[TaskDTO]]]:
         """Generate tasks for all active goals.
 
         Query params:
@@ -133,7 +133,7 @@ def create_goal_task_bulk_routes(
 
     @rt("/goals/critical-tasks")
     @boundary_handler()
-    async def critical_tasks(request: Request, limit: int = 5) -> Result[list["TaskDTO"]]:
+    async def critical_tasks(request: Request, limit: int = 5) -> Result[list[TaskDTO]]:
         """Next critical tasks across all active goals, prioritised by urgency.
 
         Query params:
@@ -154,7 +154,7 @@ def create_goal_task_bulk_routes(
 
 
 def create_habit_event_routes(
-    _app: Any, rt: Any, habit_event_scheduler: "HabitEventSchedulerOperations"
+    _app: Any, rt: Any, habit_event_scheduler: HabitEventSchedulerOperations
 ) -> list[Any]:
     """Register Habit→Event scheduling endpoints."""
 
@@ -162,7 +162,7 @@ def create_habit_event_routes(
     @boundary_handler()
     async def schedule_events(
         request: Request, uid: str, auto_create: bool = False, days_ahead: int = 7
-    ) -> Result[list["EventDTO"]]:
+    ) -> Result[list[EventDTO]]:
         """
         Schedule recurring events for a habit.
         Requires authentication.
@@ -181,7 +181,7 @@ def create_habit_event_routes(
 
     @rt("/habits/event-templates")
     @boundary_handler()
-    async def event_templates(request: Request, uid: str) -> Result[list["EventDTO"]]:
+    async def event_templates(request: Request, uid: str) -> Result[list[EventDTO]]:
         """
         Get event templates for a habit without creating them.
         Requires authentication.

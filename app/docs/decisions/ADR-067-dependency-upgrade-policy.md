@@ -1,6 +1,6 @@
 ---
 title: "ADR-067: Dependency upgrade policy (latest-stable default, documented pins)"
-updated: 2026-09-13
+updated: 2026-09-16
 status: current
 category: decisions
 tags: [adr, decisions, dependencies, uv, python, javascript, npm, node, tooling, maintenance]
@@ -58,7 +58,7 @@ This ADR records the policy and the structure that enforces it.
 | Type checking | `[tool.mypy]` `python_version`, `[tool.pyright]` `pythonVersion` | `3.14` |
 | Interpreter pin | `.python-version` | `3.14` |
 | Container base | `Dockerfile`, `Dockerfile.production` | `python:3.14-slim` |
-| **Lint/format syntax target** | `[tool.ruff]` / `[tool.black]` `target-version` | ruff: **`py314`** (TC002/TC003 permanently ignored, UP037 one scheduled sweep — see Deferred); black: **`py312`** (still intentionally lags) |
+| **Lint/format syntax target** | `[tool.ruff]` / `[tool.black]` `target-version` | both **`py314`** (TC002/TC003 permanently ignored; UP037 live since the 2026-09-16 sweep — see Deferred) |
 | **Node runtime** | **Two** `setup-node` pins that must move together — `../.github/workflows/ci.yml` (`js_tests`) and `../.github/workflows/dependency-audit.yml` (`js_audit`) — plus `app/package.json` `engines.node`, `app/.nvmrc`, and `app/.npmrc` (`engine-strict=true`) for local dev | `^24.15.0` (Node 24 LTS Krypton, at jsdom-30's floor; `.nvmrc` = `24`, enforced by engine-strict) — keeps jsdom on 30 / undici on 8.x (§ 6c) |
 
 ### 3. Intentional pins (exempt from routine upgrades)
@@ -303,12 +303,13 @@ nothing on day one.
 ### Deferred: TC/UP037 annotation-modernization sweep — ruled 2026-08-28, two dispositions
 
 Ruff `target-version` was bumped to `py314` in PR #340 (June 2026) with three rules suppressed in
-`pyproject.toml`. **These counts live here and nowhere else** — `CLAUDE.md`, `pyproject.toml` and
-`deferred-work.md` name the command instead of a number, because a copied count decays in both
-directions: the UP037 figure below was stale within a day, and TC003 was written as `161` into two
-files on a tree that measured `162`. Baseline at `fd08f3bd7`
+`pyproject.toml`. **These counts live here and nowhere else** — `CLAUDE.md` and `pyproject.toml`
+name the command instead of a number, because a copied count decays in both directions: the UP037
+figure below was stale within a day, and TC003 was written as `161` into two files on a tree that
+measured `162`. Baseline at `fd08f3bd7`
 (`uv run ruff check --select TC002,TC003,UP037 --statistics .`): UP037 **1222** (all marked
-safe-fixable), TC003 **162**, TC002 **91**. They are two kinds of work:
+safe-fixable), TC003 **162**, TC002 **91**. They were two kinds of work, and only one of them is
+still work:
 
 - **`TC002` / `TC003` — permanent ignore, never a sweep.** Moving an import under `TYPE_CHECKING` is
   only safe where nothing evaluates the annotation at runtime. `[tool.ruff.lint.flake8-type-checking]
@@ -319,20 +320,31 @@ safe-fixable), TC003 **162**, TC002 **91**. They are two kinds of work:
   `get_type_hints`-style consumer. A bulk move turns a lint pass into a bootstrap-time `NameError`.
   Enable either rule only per file, after checking no annotation in it is evaluated; the pyproject
   comment now says *permanent*, not *deferred*.
-- **`UP037` — one mechanical PR whenever convenient.** Under 3.14's deferred evaluation the quotes are
-  redundant and ruff marks every fix safe. The one hazard is the mirror image of the TC one: a
+- **`UP037` — swept 2026-09-16 (PR #1347), the rule is live.** Under 3.14's deferred evaluation
+  the quotes are redundant and ruff marks every fix safe, so the sweep was one mechanical
+  `uv run ruff check --select UP037 --fix .` in a merge lull (1244 sites, 315 files at `78cef10f7`)
+  and the `"UP037"` ignore came out of `pyproject.toml` with it. The one hazard is the mirror image
+  of the TC one, and it is what the live rule now guards against at lint time instead of at boot: a
   quoted name imported only under `TYPE_CHECKING` is inert as a string but, unquoted, becomes a
   deferred reference that raises `NameError` the moment something introspects that signature — the
-  FastHTML bootstrap gotcha. So the sweep is `uv run ruff check --select UP037 --fix .`, then a
-  check that actually COMPOSES the app — `uv run python -c "import asyncio; from scripts.dev.bootstrap import bootstrap_skuel; asyncio.run(bootstrap_skuel())"`
-  against a reachable Neo4j (it is what `main()` runs; `bootstrap_skuel()` builds the services and
-  registers every `@rt` handler, which is the moment FastHTML evaluates the signatures) — or
-  `./dev test-integration`, whose `tests/integration/conftest.py` app fixture (`skuel_app`) calls the same function. A bare
-  `import main` registers nothing (`main()` is `__main__`-guarded) and `./dev smoke` renders static
-  fixtures without a server, so neither can see the failure. A `NameError` at bootstrap names the
-  site, which keeps its quotes (or gains a runtime import). Churn across most of the tree → its
-  own PR in a merge lull.
+  FastHTML bootstrap gotcha. The sweep was therefore verified by a check that actually COMPOSES the
+  app: `./dev test-integration`, whose `tests/integration/conftest.py` app fixture (`skuel_app`)
+  calls `bootstrap_skuel()` — the function `main()` runs, which builds the services and registers
+  every `@rt` handler, the moment FastHTML evaluates the signatures. A bare `import main`
+  registers nothing (`main()` is `__main__`-guarded) and `./dev smoke` renders static fixtures
+  without a server, so neither can see that failure. It fired: FastHTML reads with `eval_str=True`,
+  which evaluates a whole-string annotation — so a handler typed `-> "FT"` had failed at
+  registration long before — but a quote NESTED in a subscript, `Result["FT"]` or
+  `Result[list["TaskDTO"]]`, evaluates to a `ForwardRef` inside a real object and was inert.
+  Unquoted, the inner name is evaluated at registration: eight handlers in two route files
+  (`activity_reports_ui`, `orchestration_routes`) raised `NameError` at bootstrap and their
+  types became runtime imports. The readers on 3.14's default `inspect.signature()` /
+  `get_type_hints()` changed class the same way — three unit tests and one production site
+  (`with_error_handling`'s uid extraction), which the unit tier caught and which now read in
+  `Format.FORWARDREF`. That is the standing remedy: a `@rt()` handler uses a real import; a
+  reader that needs only names never evaluates; a reader that needs types supplies its
+  namespace. Never a `# noqa: UP037`, never re-ignoring the rule. `[tool.black]`'s
+  `target-version` moved to `py314` in the same PR — its `py312` lag was pinned to this sweep and
+  had no other reason. The record: `docs/roadmap/done/py314-annotation-sweeps.md`.
 
-**Trigger + check** live in `deferred-work.md` § "py314 Annotation Sweeps" (UP037: Mike picks the
-window; TC002/TC003: never). mypy/pyright already type-check against 3.14 — the backlog is cosmetic,
-not a correctness gap.
+mypy/pyright type-check against 3.14 either way — neither backlog was ever a correctness gap.

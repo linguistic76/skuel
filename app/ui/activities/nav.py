@@ -44,12 +44,12 @@ ACTIVITY_SIDEBAR_ITEMS: list[SidebarItem] = [
 def render_activity_sidebar_page(
     content: Any,
     active: str,
-    request: "Request | None" = None,
+    request: Request | None = None,
     extra_css: list[str] | None = None,
     title: str = "Tasks+",
     active_page: str = "activity",
     content_max_width: str = "max-w-6xl",
-) -> "FT":
+) -> FT:
     """Wrap content in Activity Domain sidebar page.
 
     Args:
@@ -78,8 +78,8 @@ def render_activity_sidebar_page(
 def render_activity_sidebar_error(
     message: str,
     active: str,
-    request: "Request | None" = None,
-) -> "FT":
+    request: Request | None = None,
+) -> FT:
     """A whole Activity sidebar page whose only content is an error banner.
 
     The terminal state of every activity guard that has nothing left to render —

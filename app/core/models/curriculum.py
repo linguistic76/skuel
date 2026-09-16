@@ -521,11 +521,11 @@ class Curriculum(Entity):
     # =========================================================================
 
     @classmethod
-    def from_dto(cls, dto: "EntityDTO | CurriculumDTO") -> "Curriculum":
+    def from_dto(cls, dto: EntityDTO | CurriculumDTO) -> Curriculum:
         """Create Curriculum from an EntityDTO or CurriculumDTO."""
         return cls._from_dto(dto)
 
-    def to_dto(self) -> "CurriculumDTO":
+    def to_dto(self) -> CurriculumDTO:
         """Convert Curriculum to domain-specific CurriculumDTO."""
 
         from core.models.curriculum_dto import CurriculumDTO

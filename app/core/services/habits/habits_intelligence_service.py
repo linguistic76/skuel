@@ -71,10 +71,10 @@ class HabitsIntelligenceService(
     def __init__(
         self,
         backend: HabitsOperations,
-        relationship_service: "UnifiedRelationshipService[Any, Any, Any]",
-        cross_domain_query: "CrossDomainQueryService",
+        relationship_service: UnifiedRelationshipService[Any, Any, Any],
+        cross_domain_query: CrossDomainQueryService,
         graph_intel=None,
-        insight_store: "InsightStore | None" = None,
+        insight_store: InsightStore | None = None,
     ) -> None:
         """
         Initialize habits intelligence service.
@@ -110,7 +110,7 @@ class HabitsIntelligenceService(
 
     async def get_performance_analytics(
         self, user_uid: UserUID, _period_days: int = 30
-    ) -> "Result[dict[str, Any]]":
+    ) -> Result[dict[str, Any]]:
         """
         Get habit performance analytics for a user.
 
@@ -195,7 +195,7 @@ class HabitsIntelligenceService(
 
     async def get_domain_insights(
         self, uid: str, min_confidence: float = ConfidenceLevel.MEDIUM
-    ) -> "Result[dict[str, Any]]":
+    ) -> Result[dict[str, Any]]:
         """
         Get domain-specific insights for a habit.
 
@@ -219,8 +219,8 @@ class HabitsIntelligenceService(
     # ========================================================================
 
     async def get_event_uids_for_habit(  # skuel-lint: disable=SKUEL029 -- facade-delegated: habits_service awaits this via delegation (facade uniformity)
-        self, habit_uid: str, user_context: "UserContext", _days_ahead: int = 7
-    ) -> "Result[list[str]]":
+        self, habit_uid: str, user_context: UserContext, _days_ahead: int = 7
+    ) -> Result[list[str]]:
         """
         Get upcoming event UIDs that reinforce a specific habit.
 
@@ -242,8 +242,8 @@ class HabitsIntelligenceService(
         return Result.ok(upcoming)
 
     async def schedule_events_for_habit(
-        self, habit_uid: str, _user_context: "UserContext", days_to_schedule: int = 7
-    ) -> "Result[list[dict[str, Any]]]":
+        self, habit_uid: str, _user_context: UserContext, days_to_schedule: int = 7
+    ) -> Result[list[dict[str, Any]]]:
         """
         Generate event suggestion templates for maintaining a habit.
 
@@ -321,7 +321,7 @@ class HabitsIntelligenceService(
 
     async def analyze_learning_patterns(
         self, user_uid: UserUID, timeframe_days: int = 30
-    ) -> "Result[list[Any]]":
+    ) -> Result[list[Any]]:
         """Detect knowledge-learning patterns across the user's habit activities."""
         entities_result = await self.backend.find_by(user_uid=user_uid, limit=QueryLimit.MAXIMUM)
         if entities_result.is_error:

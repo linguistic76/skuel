@@ -29,7 +29,7 @@ if TYPE_CHECKING:
 
 def build_graph_context_query(
     node_uid: str,  # noqa: ARG001 - passed to query executor, not embedded in string
-    intent: "QueryIntent",
+    intent: QueryIntent,
     depth: int = 2,
 ) -> str:
     """

@@ -140,7 +140,7 @@ _PANEL_PAIRS: tuple[tuple[str, tuple[CalendarItemType, ...]], ...] = (
 )
 
 
-def PlanningPanel(items: "list[CalendarItem]", period: PlanningPeriod) -> Div:
+def PlanningPanel(items: list[CalendarItem], period: PlanningPeriod) -> Div:
     """Read-only panel of the period's existing entities, pair-grouped.
 
     ``items`` come from ``CalendarService.get_planning_items`` over
@@ -168,7 +168,7 @@ def _week_range_label(start: date, end: date) -> str:
     return f"{start.strftime('%b')} {start.day} – {end.strftime('%b')} {end.day}"
 
 
-def _panel_group(label: str, items: "list[CalendarItem]", period: PlanningPeriod) -> Div:
+def _panel_group(label: str, items: list[CalendarItem], period: PlanningPeriod) -> Div:
     """One pair group: legend-styled label + rows (or a muted empty state).
 
     Over a long period (``period.groups_by_month``) the rows are sub-headed by
@@ -190,7 +190,7 @@ def _panel_group(label: str, items: "list[CalendarItem]", period: PlanningPeriod
     )
 
 
-def _month_subheaded_rows(items: "list[CalendarItem]") -> "list[FT]":
+def _month_subheaded_rows(items: list[CalendarItem]) -> list[FT]:
     """Rows with a month sub-head opening each month's run.
 
     ``items`` arrive chronological, so a month change is simply the next row's
@@ -216,7 +216,7 @@ def _month_subheaded_rows(items: "list[CalendarItem]") -> "list[FT]":
     return rows
 
 
-def _panel_row(item: "CalendarItem") -> A:
+def _panel_row(item: CalendarItem) -> A:
     """One entity row — a link to its day's lens. Reading here, acting there.
 
     Kind travels as the color dot (the legend's color-communicates-kind rule);

@@ -191,7 +191,7 @@ class ReferenceIngestionService:
         self,
         reference_chunk_adapter: Any,  # boundary: Neo4jReferenceChunkAdapter (persistence)
         event_bus: EventBusOperations | None = None,
-        resource_service: "ResourceService | None" = None,
+        resource_service: ResourceService | None = None,
         logger: Any = logger,
     ) -> None:
         """

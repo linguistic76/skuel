@@ -58,7 +58,7 @@ async def compose_services(
     neo4j_adapter: Any,
     event_bus: EventBusOperations | None = None,
     config: Any = None,
-    prometheus_metrics: "PrometheusMetrics | None" = None,
+    prometheus_metrics: PrometheusMetrics | None = None,
     metrics_cache: Any = None,
 ) -> Result[Services]:
     """
@@ -337,7 +337,7 @@ async def compose_services(
         # Annotated, not merely unpacked: create_backends returns dict[str, Any],
         # so an unannotated local stays Any and every downstream call site that
         # takes it silently type-checks against nothing.
-        users_backend: "UserBackend" = backends["users_backend"]
+        users_backend: UserBackend = backends["users_backend"]
         ps_backend = backends["ps_backend"]
         ku_backend = backends["ku_backend"]
         principles_backend = backends["principles_backend"]

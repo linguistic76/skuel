@@ -58,8 +58,8 @@ class GoalsAIService(BaseAIService[GoalsOperations, Goal]):
     def __init__(
         self,
         backend: GoalsOperations,
-        llm_service: "LLMService",
-        embeddings_service: "EmbeddingsService",
+        llm_service: LLMService,
+        embeddings_service: EmbeddingsService,
         event_bus: Any | None = None,
     ) -> None:
         """

@@ -27,9 +27,9 @@ logger = get_logger("skuel.routes.settings")
 
 
 def create_settings_routes(
-    app: "FastHTMLApp",
-    rt: "RouteDecorator",
-    services: "Services",
+    app: FastHTMLApp,
+    rt: RouteDecorator,
+    services: Services,
 ) -> None:
     """Register Settings routes."""
 

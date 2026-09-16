@@ -40,7 +40,7 @@ class _ProductivityMixin:
     """
 
     # Populated by TasksIntelligenceService.__init__
-    backend: "TasksOperations"
+    backend: TasksOperations
     logger: Any
     _knowledge_analyzer: Any
     relationships: Any

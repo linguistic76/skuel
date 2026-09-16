@@ -33,8 +33,8 @@ from ui.page_contexts import NextStepRelatedGroup, RelatedConceptChip
 
 
 def _group(
-    ku_uid: str, ku_title: str, related: "list[RelatedConceptChip] | None" = None
-) -> "NextStepRelatedGroup":
+    ku_uid: str, ku_title: str, related: list[RelatedConceptChip] | None = None
+) -> NextStepRelatedGroup:
     return NextStepRelatedGroup(
         ku=RelatedConceptChip(uid=ku_uid, title=ku_title), related=related or []
     )

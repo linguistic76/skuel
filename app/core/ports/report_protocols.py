@@ -111,7 +111,7 @@ class EntryReportOperations(Protocol):
     async def list_for_submission(
         self,
         submission_uid: str,
-    ) -> "Result[list[EntryReport]]":
+    ) -> Result[list[EntryReport]]:
         """List all reports attached to a submission (ASC by created_at).
 
         Returns both HUMAN (teacher-authored) and LLM (AI-generated) reports —
@@ -126,12 +126,12 @@ class EntryReportOperations(Protocol):
 
     async def generate_report(
         self,
-        entry: "UserEntry",
-        exercise: "Exercise",
+        entry: UserEntry,
+        exercise: Exercise,
         user_uid: UserUID,
         temperature: float = 0.7,
         max_tokens: int = 4000,
-    ) -> "Result[EntryReport]":
+    ) -> Result[EntryReport]:
         """Generate AI report for a submission using exercise instructions.
 
         Creates ENTRY_REPORT entity (processor_type=LLM) in Neo4j, linked
@@ -169,7 +169,7 @@ class AssessmentOperations(Protocol):
         self,
         student_uid: str,
         limit: int = 50,
-    ) -> "Result[list[EntryReport]]":
+    ) -> Result[list[EntryReport]]:
         """Get feedback reports received by a student. Returns Result[list[EntryReport]]."""
         ...
 
@@ -187,26 +187,26 @@ class EntryReportBackendOperations(Protocol):
     ``EntryReportBackend(UniversalNeo4jBackend[EntryReport])``.
     """
 
-    async def get(self, uid: str) -> "Result[EntryReport | None]":
+    async def get(self, uid: str) -> Result[EntryReport | None]:
         """Typed single-fetch for EntryReport by UID.
 
         Returns ``Result.ok(None)`` when no matching node exists.
         """
         ...
 
-    async def list_for_submission(self, submission_uid: str) -> "Result[list[EntryReport]]":
+    async def list_for_submission(self, submission_uid: str) -> Result[list[EntryReport]]:
         """All reports attached to a submission, ASC by created_at."""
         ...
 
     async def get_reports_for_student_exercise(
         self, student_uid: str, exercise_uid: str
-    ) -> "Result[list[EntryReport]]":
+    ) -> Result[list[EntryReport]]:
         """All reports on a student's submissions for a given exercise."""
         ...
 
     async def get_reports_by_teacher(
         self, teacher_uid: str, limit: int = 50
-    ) -> "Result[list[EntryReport]]":
+    ) -> Result[list[EntryReport]]:
         """All reports authored by a teacher, newest first.
 
         Filters on ``author_uid`` (explicit authorship field). ``user_uid``
@@ -266,7 +266,7 @@ class ProgressReportOperations(Protocol):
         domains: list[str] | None = None,
         depth: str = "standard",
         include_insights: bool = True,
-    ) -> "Result[ActivityReport]":
+    ) -> Result[ActivityReport]:
         """Generate activity feedback (EntityType.ACTIVITY_REPORT). Returns Result[ActivityReport]."""
         ...
 
@@ -284,7 +284,7 @@ class ActivityReportOperations(Protocol):
 
     async def create_snapshot(
         self,
-        context: "UserContext",
+        context: UserContext,
         time_period: str = "7d",
         domains: list[str] | None = None,
         admin_uid: str = "",
@@ -305,7 +305,7 @@ class ActivityReportOperations(Protocol):
         time_period: str = "7d",
         domains: list[str] | None = None,
         snapshot_context: dict[str, Any] | None = None,
-    ) -> "Result[ActivityReport]":
+    ) -> Result[ActivityReport]:
         """Create ActivityReport entity from admin-written assessment. Returns Result[ActivityReport]."""
         ...
 
@@ -313,20 +313,20 @@ class ActivityReportOperations(Protocol):
         self,
         subject_uid: str,
         limit: int = 20,
-    ) -> "Result[list[ActivityReport]]":
+    ) -> Result[list[ActivityReport]]:
         """The subject's ActivityReports, newest first (LLM + human). Returns Result[list[ActivityReport]]."""
         ...
 
     async def latest_for_period(
         self, user_uid: UserUID, subject_uid: str, time_period: str
-    ) -> "Result[ActivityReport | None]":
+    ) -> Result[ActivityReport | None]:
         """The newest report the user owns about the subject for one period token,
         partial or final — or None. Returns Result[ActivityReport | None]."""
         ...
 
     async def find_by_period(
         self, user_uid: UserUID, subject_uid: str, time_period: str
-    ) -> "Result[ActivityReport | None]":
+    ) -> Result[ActivityReport | None]:
         """The period's REUSABLE report: the newest owned one for the token, unless
         the period has closed and that report is partial — then None, so the door
         generates the final one. Returns Result[ActivityReport | None]."""
@@ -339,15 +339,15 @@ class ActivityReportOperations(Protocol):
         annotation_mode: str,
         user_annotation: str | None = None,
         user_revision: str | None = None,
-    ) -> "Result[AnnotationResult]":
+    ) -> Result[AnnotationResult]:
         """Save user annotation or revision to an owned ActivityReport. Returns Result[AnnotationResult]."""
         ...
 
-    async def get_annotation(self, uid: str, user_uid: UserUID) -> "Result[AnnotationState]":
+    async def get_annotation(self, uid: str, user_uid: UserUID) -> Result[AnnotationState]:
         """Get current annotation state for an owned ActivityReport. Returns Result[AnnotationState]."""
         ...
 
-    async def get_privacy_summary(self, user_uid: UserUID) -> "Result[PrivacySummary]":
+    async def get_privacy_summary(self, user_uid: UserUID) -> Result[PrivacySummary]:
         """Return privacy-transparency summary for the user (admin snapshots, shares).
 
         User-facing — always scoped to the requesting user's own data.
@@ -549,7 +549,7 @@ class TeacherReviewOperations(Protocol):
         teacher_uid: str,
         status_filter: str | None = None,
         student_uid: str | None = None,
-    ) -> "Result[list[ReviewQueueItem]]":
+    ) -> Result[list[ReviewQueueItem]]:
         """Get teacher's pending review queue (group-shared entries only).
 
         ``student_uid`` scopes the queue to one student — the single
@@ -559,7 +559,7 @@ class TeacherReviewOperations(Protocol):
 
     async def get_submission_detail(
         self, submission_uid: str, teacher_uid: str
-    ) -> "Result[SubmissionDetailResult]":
+    ) -> Result[SubmissionDetailResult]:
         """Get full submission detail for teacher review (access-checked). Returns Result[SubmissionDetailResult]."""
         ...
 
@@ -640,7 +640,7 @@ class TeacherReviewOperations(Protocol):
         """Get all submissions from student shared with teacher."""
         ...
 
-    async def get_dashboard_stats(self, teacher_uid: str) -> "Result[TeacherDashboardStats]":
+    async def get_dashboard_stats(self, teacher_uid: str) -> Result[TeacherDashboardStats]:
         """Get at-a-glance stats for dashboard. Returns Result[TeacherDashboardStats]."""
         ...
 

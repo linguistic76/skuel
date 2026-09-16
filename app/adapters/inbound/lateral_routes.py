@@ -53,7 +53,7 @@ _LATERAL_DOMAINS: list[tuple[str, str, str | None]] = [
 
 
 def create_lateral_api_routes(
-    app: FastHTMLApp, rt: RouteDecorator, orchestrator: "LateralRelationshipsOrchestrator"
+    app: FastHTMLApp, rt: RouteDecorator, orchestrator: LateralRelationshipsOrchestrator
 ) -> list[Any]:
     """Register lateral relationship routes for all 9 domains."""
     all_routes: list[Any] = []

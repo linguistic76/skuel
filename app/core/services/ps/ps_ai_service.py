@@ -48,8 +48,8 @@ class PsAIService(BaseAIService[PsOperations, PathStep]):
     def __init__(
         self,
         backend: PsOperations,
-        llm_service: "LLMService",
-        embeddings_service: "EmbeddingsService",
+        llm_service: LLMService,
+        embeddings_service: EmbeddingsService,
         event_bus: Any | None = None,
     ) -> None:
         super().__init__(

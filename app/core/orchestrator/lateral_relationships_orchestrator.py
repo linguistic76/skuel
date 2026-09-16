@@ -40,13 +40,13 @@ class LateralRelationshipsOrchestrator:
 
     def __init__(
         self,
-        lateral_service: "LateralRelationshipOperations",
-        tasks_service: "TasksService",
-        goals_service: "GoalsService",
-        habits_service: "HabitsService",
-        events_service: "EventsService",
-        choices_service: "ChoicesService",
-        principles_service: "PrinciplesService",
+        lateral_service: LateralRelationshipOperations,
+        tasks_service: TasksService,
+        goals_service: GoalsService,
+        habits_service: HabitsService,
+        events_service: EventsService,
+        choices_service: ChoicesService,
+        principles_service: PrinciplesService,
     ) -> None:
         self._lateral = lateral_service
         self._domain_services: dict[str, OwnershipVerifier] = {
@@ -61,7 +61,7 @@ class LateralRelationshipsOrchestrator:
     # --- Service access ---
 
     @property
-    def lateral_service(self) -> "LateralRelationshipOperations":
+    def lateral_service(self) -> LateralRelationshipOperations:
         """Expose lateral service for LateralRouteFactory construction.
 
         LateralRouteFactory lives in the inbound adapter layer and cannot depend
@@ -70,7 +70,7 @@ class LateralRelationshipsOrchestrator:
         """
         return self._lateral
 
-    def get_domain_service(self, domain: str) -> "OwnershipVerifier | None":
+    def get_domain_service(self, domain: str) -> OwnershipVerifier | None:
         """Return the Activity Domain service for a given domain slug.
 
         Returns None for curriculum domains (ku, ps, lp), which have no ownership
@@ -90,8 +90,8 @@ class LateralRelationshipsOrchestrator:
         metadata: dict[str, Any],
         message: str,
         response_extra: dict[str, Any],
-        domain_service: "OwnershipVerifier | None" = None,
-    ) -> "Result[dict[str, Any]]":
+        domain_service: OwnershipVerifier | None = None,
+    ) -> Result[dict[str, Any]]:
         """Create a domain-specific lateral relationship with optional ownership check.
 
         Args:
@@ -130,8 +130,8 @@ class LateralRelationshipsOrchestrator:
         relationship_type: RelationshipName,
         direction: str,
         response_key: str,
-        domain_service: "OwnershipVerifier | None" = None,
-    ) -> "Result[dict[str, Any]]":
+        domain_service: OwnershipVerifier | None = None,
+    ) -> Result[dict[str, Any]]:
         """Get lateral relationships for an entity with optional ownership check.
 
         Args:

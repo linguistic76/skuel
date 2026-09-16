@@ -41,7 +41,7 @@ logger = get_logger("skuel.routes.visualization_api")
 def create_visualization_api_routes(
     app: Any,
     rt: Any,
-    visualization_service: "VisualizationOperations",
+    visualization_service: VisualizationOperations,
 ) -> list[Any]:
     """Create visualization API routes."""
     vis_service = visualization_service

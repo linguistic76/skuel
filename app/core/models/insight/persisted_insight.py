@@ -207,7 +207,7 @@ class PersistedInsight:
         cls,
         days: int = 30,
         **kwargs: Any,
-    ) -> "PersistedInsight":
+    ) -> PersistedInsight:
         """
         Create insight with default expiry.
 
@@ -271,7 +271,7 @@ class PersistedInsight:
         }
 
     @classmethod
-    def from_dict(cls, data: dict[str, Any]) -> "PersistedInsight":
+    def from_dict(cls, data: dict[str, Any]) -> PersistedInsight:
         """Create from dictionary."""
         # Parse datetime fields
         created_at = data.get("created_at")

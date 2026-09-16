@@ -171,7 +171,7 @@ def _assert_registry_in_sync() -> str | None:
     return None
 
 
-def _render_js_smoke_fixture() -> "FT":
+def _render_js_smoke_fixture() -> FT:
     """Build a hermetic page that mounts every skuel.js registry component.
 
     Uses the real ``build_head()`` bundle so the registration timing matches
@@ -309,7 +309,7 @@ window.addEventListener('load', function () {
 """
 
 
-def _render_authed_chrome_fixture() -> "FT":
+def _render_authed_chrome_fixture() -> FT:
     """Real authed-layout chrome (BasePage STANDARD + navbar) + htmx lifecycle.
 
     The other fixtures are bare Html shells, so exceptions carried by the shared
@@ -342,7 +342,7 @@ def _render_authed_chrome_fixture() -> "FT":
     return BasePage(content, title="Authed Chrome Smoke", is_authenticated=True)
 
 
-def _render_knowledge_health_fixture() -> "FT":
+def _render_knowledge_health_fixture() -> FT:
     """The /admin/knowledge-health page in the real admin sidebar chrome (ADR-080).
 
     Renders the full admin document (SidebarPage → build_head → skuel.js) around a
@@ -399,7 +399,7 @@ def _render_knowledge_health_fixture() -> "FT":
     )
 
 
-def _render_enroll_failure_fixture() -> "FT":
+def _render_enroll_failure_fixture() -> FT:
     """Hermetic page for the enroll-failure surfacing pipeline (G7 totality).
 
     Mounts toastManager + the ps-detail ``pathstep`` component, then drives

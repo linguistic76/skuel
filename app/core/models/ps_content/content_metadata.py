@@ -75,7 +75,7 @@ class ContentMetadata:
     # ==========================================================================
 
     @classmethod
-    def from_content(cls, content: CurriculumContent) -> "ContentMetadata":
+    def from_content(cls, content: CurriculumContent) -> ContentMetadata:
         """
         Generate comprehensive metadata from CurriculumContent.
 

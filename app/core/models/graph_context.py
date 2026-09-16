@@ -61,7 +61,7 @@ class GraphNode:
     relationship_to_origin: str | None = None  # Type of relationship
 
     # Query optimization metadata (optional, for batch operations)
-    optimization_strategy: "QueryOptimizationStrategy | None" = None
+    optimization_strategy: QueryOptimizationStrategy | None = None
 
     def to_cypher_params(self) -> dict[str, Any]:
         """
@@ -75,7 +75,7 @@ class GraphNode:
             "properties": self.properties,
         }
 
-    def validate_against_schema(self, schema: "SchemaContext") -> tuple[bool, list[str]]:
+    def validate_against_schema(self, schema: SchemaContext) -> tuple[bool, list[str]]:
         """
         Validate this node against a schema context.
 

@@ -46,7 +46,7 @@ CHOICES_CONFIG = create_activity_domain_route_config(
 
 
 def create_choices_routes(
-    app: FastHTMLApp, rt: RouteDecorator, services: "Services | None", _sync_service: Any = None
+    app: FastHTMLApp, rt: RouteDecorator, services: Services | None, _sync_service: Any = None
 ) -> None:
     """Wire choices API and UI routes using configuration-driven registration."""
     register_domain_routes(app, rt, services, CHOICES_CONFIG)

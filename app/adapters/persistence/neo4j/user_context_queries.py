@@ -1270,7 +1270,7 @@ class UserContextQueryExecutor:
     Contains only query execution logic, no result processing.
     """
 
-    def __init__(self, executor: "QueryExecutor") -> None:
+    def __init__(self, executor: QueryExecutor) -> None:
         """
         Initialize query executor.
 

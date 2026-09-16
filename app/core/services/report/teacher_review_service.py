@@ -73,9 +73,9 @@ class TeacherReviewService:
         report_backend: EntryReportBackendOperations,
         exercise_backend: TeacherReviewExerciseQueries,
         group_backend: TeacherReviewGroupQueries,
-        ku_interaction_service: "PsMasteryService",
-        report_mastery_service: "ReportMasteryService",
-        event_bus: "EventBusOperations",
+        ku_interaction_service: PsMasteryService,
+        report_mastery_service: ReportMasteryService,
+        event_bus: EventBusOperations,
     ) -> None:
         """
         Initialize the teacher review service.

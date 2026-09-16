@@ -72,10 +72,10 @@ class AskesisAIService(BaseAIService["UserService", Entity]):
 
     def __init__(
         self,
-        backend: "UserService",
-        llm_service: "LLMService",
-        embeddings_service: "EmbeddingsService",
-        graph_intel: "GraphIntelligenceService | None" = None,
+        backend: UserService,
+        llm_service: LLMService,
+        embeddings_service: EmbeddingsService,
+        graph_intel: GraphIntelligenceService | None = None,
         relationship_service: Any | None = None,
         event_bus: Any | None = None,
     ) -> None:

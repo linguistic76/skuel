@@ -158,7 +158,7 @@ def _rendered_text(inline: Token) -> str:
     return unicodedata.normalize("NFC", _HTML_SPACE.sub(" ", raw).strip(" \t\n\r\f"))
 
 
-def _contains_inline_html(tokens: "Sequence[Token] | None") -> bool:
+def _contains_inline_html(tokens: Sequence[Token] | None) -> bool:
     """True when any token in the tree is raw inline HTML."""
     for token in tokens or []:
         if token.type == "html_inline":
@@ -168,7 +168,7 @@ def _contains_inline_html(tokens: "Sequence[Token] | None") -> bool:
     return False
 
 
-def _visible_text(tokens: "Sequence[Token] | None") -> str:
+def _visible_text(tokens: Sequence[Token] | None) -> str:
     """Concatenate the displayed characters of an inline token list, recursively.
 
     ``image`` needs the recursion: its ``content`` is the RAW alt source, so

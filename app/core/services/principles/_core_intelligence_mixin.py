@@ -45,7 +45,7 @@ class _CoreIntelligenceMixin(_SharedCoreMixin):
     """
 
     # Populated by PrinciplesIntelligenceService.__init__
-    backend: "PrinciplesOperations"
+    backend: PrinciplesOperations
     logger: Any
 
     # ========================================================================

@@ -106,7 +106,7 @@ found = require_found(result, "Entity", uid)                      # adapters/inb
 | Path params on API routes | Query params (`/tasks/get?uid=...`); path params are UI/SEO only |
 | Forgetting `await` on `BasePage(...)` | It's `async def` — returns a coroutine, not FT |
 | Untyped `*c: Any, **kwargs: Any` without annotation | Add `# boundary: fasthtml-elements` (ASGI plumbing: `# boundary: fasthtml-app`) |
-| Forward-reference unions `"Type" \| None` | Use `Optional["Type"]` |
+| Quoted annotation `"Type"` / `Optional["Type"]` | Unquoted `Type \| None` — PEP 649 defers evaluation, UP037 is live. A `@rt()` handler's types must be REAL imports: FastHTML evaluates the signature at registration, so a `TYPE_CHECKING`-only name there is a bootstrap `NameError` |
 
 ---
 

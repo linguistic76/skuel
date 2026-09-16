@@ -232,7 +232,7 @@ class CurriculumContent:
         }
 
     @classmethod
-    def from_dict(cls, data: dict[str, Any]) -> "CurriculumContent":
+    def from_dict(cls, data: dict[str, Any]) -> CurriculumContent:
         """Create from dictionary (e.g., from database)"""
         # Handle datetime conversion
         if isinstance(data.get("created_at"), str):
@@ -273,7 +273,7 @@ class CurriculumContent:
         language: str = "en",
         source_path: str | None = None,
         chunking_params: ChunkingParams = DEFAULT_CHUNKING_PARAMS,
-    ) -> "CurriculumContent":
+    ) -> CurriculumContent:
         """
         Factory method to create new CurriculumContent with automatic chunking.
 

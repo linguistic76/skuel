@@ -41,10 +41,10 @@ class AdminOrchestrator:
 
     def __init__(
         self,
-        user_service: "UserService",
-        admin_stats: "AdminStatsService",
-        system_service: "SystemService | None" = None,
-        analytics_service: "AnalyticsService | None" = None,
+        user_service: UserService,
+        admin_stats: AdminStatsService,
+        system_service: SystemService | None = None,
+        analytics_service: AnalyticsService | None = None,
     ) -> None:
         self._user_service = user_service
         self._admin_stats = admin_stats
@@ -52,7 +52,7 @@ class AdminOrchestrator:
         self._analytics_service = analytics_service
 
     @property
-    def user_service(self) -> "UserService":
+    def user_service(self) -> UserService:
         """Exposed for make_service_getter() / @require_admin decorator."""
         return self._user_service
 
@@ -115,7 +115,7 @@ class AdminOrchestrator:
     # User Management
     # ------------------------------------------------------------------
 
-    async def get_user(self, uid: UserUID) -> "Result[User | None]":
+    async def get_user(self, uid: UserUID) -> Result[User | None]:
         """Fetch a single user by UID."""
         return await self._user_service.get_user(uid)
 
@@ -123,18 +123,18 @@ class AdminOrchestrator:
         self,
         role_filter: str | None = None,
         active_only: bool = True,
-    ) -> "Result[list[dict[str, Any]]]":
+    ) -> Result[list[dict[str, Any]]]:
         """Fetch users with their activity counts, optionally filtered."""
         return await self._admin_stats.get_users_with_activity_counts(
             role_filter=role_filter,
             active_only=active_only,
         )
 
-    async def get_user_role_counts(self) -> "Result[dict[str, int]]":
+    async def get_user_role_counts(self) -> Result[dict[str, int]]:
         """Fetch aggregate user counts grouped by role."""
         return await self._admin_stats.get_user_role_counts()
 
-    async def get_user_detail_stats(self, uid: UserUID) -> "Result[dict[str, int]]":
+    async def get_user_detail_stats(self, uid: UserUID) -> Result[dict[str, int]]:
         """Fetch per-user activity and session stats for the detail view."""
         return await self._admin_stats.get_user_detail_stats(uid)
 
@@ -142,7 +142,7 @@ class AdminOrchestrator:
     # Analytics
     # ------------------------------------------------------------------
 
-    async def _get_activity_entity_counts(self) -> "Result[dict[str, int]]":
+    async def _get_activity_entity_counts(self) -> Result[dict[str, int]]:
         """Fetch entity counts across activity domains (tasks, habits, etc.)."""
         return await self._admin_stats.get_activity_entity_counts()
 
@@ -193,7 +193,7 @@ class AdminOrchestrator:
     # Knowledge-Subgraph Structural Health (ADR-080 Horizon-1)
     # ------------------------------------------------------------------
 
-    async def get_knowledge_health(self) -> "Result[KnowledgeHealthReport]":
+    async def get_knowledge_health(self) -> Result[KnowledgeHealthReport]:
         """Corpus-level structural-health report over the knowledge subgraph.
 
         Delegates to the analytics facade's knowledge-health gauge. Returns a

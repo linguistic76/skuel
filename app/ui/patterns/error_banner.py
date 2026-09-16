@@ -44,7 +44,7 @@ def render_error_banner(
     technical_details: str | None = None,
     severity: str = "error",
     show_details: bool = False,
-) -> "FT":
+) -> FT:
     """
     Render user-friendly error banner.
 
@@ -112,7 +112,7 @@ def render_error_banner(
     )
 
 
-def render_inline_error(message: str) -> "FT":
+def render_inline_error(message: str) -> FT:
     """
     Render inline error message for form fields.
 
@@ -141,7 +141,7 @@ def render_empty_state_with_error(
     message: str,
     action_label: str | None = None,
     action_href: str | None = None,
-) -> "FT":
+) -> FT:
     """
     Render empty state with error context.
 

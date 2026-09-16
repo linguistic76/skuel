@@ -170,7 +170,7 @@ def render_ps_detail_content(
 # ---------------------------------------------------------------------------
 
 
-def _hero_card(step: Any, uid: str, user_uid: str | None) -> "FT":
+def _hero_card(step: Any, uid: str, user_uid: str | None) -> FT:
     title = getattr(step, "title", uid) or uid
     description = getattr(step, "description", "") or getattr(step, "intent", "") or ""
     est_minutes = getattr(step, "estimated_time_minutes", None)
@@ -212,7 +212,7 @@ def _hero_card(step: Any, uid: str, user_uid: str | None) -> "FT":
     )
 
 
-def _kind_badge() -> "FT":
+def _kind_badge() -> FT:
     return Span(
         Icon("route", cls="w-[13px] h-[13px]"),
         " Path step",
@@ -224,7 +224,7 @@ def _kind_badge() -> "FT":
     )
 
 
-def _bookmark_btn(uid: str) -> "FT":
+def _bookmark_btn(uid: str) -> FT:
     return Button(
         Icon("bookmark", cls="w-3.5 h-3.5"),
         Span("", **{"x-text": "bookmarked ? 'Saved' : 'Save'"}),
@@ -247,7 +247,7 @@ def _bookmark_btn(uid: str) -> "FT":
     )
 
 
-def _meta_chips(est_minutes: int | None, tags: tuple | list) -> "FT":
+def _meta_chips(est_minutes: int | None, tags: tuple | list) -> FT:
     items: list[Any] = []
 
     if est_minutes:
@@ -282,7 +282,7 @@ def _meta_chips(est_minutes: int | None, tags: tuple | list) -> "FT":
 # ---------------------------------------------------------------------------
 
 
-def _action_bar(uid: str) -> "FT":
+def _action_bar(uid: str) -> FT:
     return Div(
         # Progress bar
         Div(
@@ -368,7 +368,7 @@ def _action_bar(uid: str) -> "FT":
     )
 
 
-def _unauthenticated_cta() -> "FT":
+def _unauthenticated_cta() -> FT:
     return Div(
         A(
             "Log in to track your progress",
@@ -389,7 +389,7 @@ def _unauthenticated_cta() -> "FT":
 # ---------------------------------------------------------------------------
 
 
-def _body_section(content_html: str) -> "FT":
+def _body_section(content_html: str) -> FT:
     return Section(
         section_label("The idea", tag=H2, id="idea-h"),
         Div(NotStr(content_html), cls="skuel-prose"),
@@ -404,7 +404,7 @@ def _body_section(content_html: str) -> "FT":
 # ---------------------------------------------------------------------------
 
 
-def _kus_section(kus: list[dict]) -> "FT":
+def _kus_section(kus: list[dict]) -> FT:
     """Atomic Kus this PathStep composes (USES_KU edges) as reader links."""
     return Section(
         section_label("Knowledge in this step", tag=H2, id="ps-kus-h"),
@@ -435,7 +435,7 @@ def _kus_section(kus: list[dict]) -> "FT":
 # ---------------------------------------------------------------------------
 
 
-def _resources_section(resources: list[dict]) -> "FT":
+def _resources_section(resources: list[dict]) -> FT:
     """Curated Resources this PathStep cites (CITES_RESOURCE edges).
 
     Each chip links to the in-app Resource detail page (the citation click
@@ -458,7 +458,7 @@ def _resources_section(resources: list[dict]) -> "FT":
 # ---------------------------------------------------------------------------
 
 
-def _related_placeholder(uid: str) -> "FT":
+def _related_placeholder(uid: str) -> FT:
     """Lazy HTMX mount for the Related-concepts section.
 
     The fragment returns the full section (heading included) or an empty div,
@@ -474,7 +474,7 @@ def _related_placeholder(uid: str) -> "FT":
     )
 
 
-def render_ps_related_concepts(related: "list[RelatedConceptChip]") -> "FT":
+def render_ps_related_concepts(related: list[RelatedConceptChip]) -> FT:
     """Related concepts — vector-similar PathSteps as reader chips.
 
     Read-time lens over embeddings: no edges exist or are created for these
@@ -514,7 +514,7 @@ def render_ps_related_concepts(related: "list[RelatedConceptChip]") -> "FT":
 # ---------------------------------------------------------------------------
 
 
-def _next_step_related_placeholder() -> "FT":
+def _next_step_related_placeholder() -> FT:
     """Lazy HTMX mount for the "Related to your next step" section.
 
     The fragment is user-scoped (ZPD proximal zone), not PS-scoped, so the
@@ -531,7 +531,7 @@ def _next_step_related_placeholder() -> "FT":
     )
 
 
-def render_ps_next_step_related(groups: "list[NextStepRelatedGroup]") -> "FT":
+def render_ps_next_step_related(groups: list[NextStepRelatedGroup]) -> FT:
     """ "Related to your next step" — ZPD-recommended Kus + vector neighbours.
 
     Each group is ``{"ku": {uid, title}, "related": [node dicts]}``: the
@@ -548,7 +548,7 @@ def render_ps_next_step_related(groups: "list[NextStepRelatedGroup]") -> "FT":
     if not items:
         return Div(id="ps-next-step-fragment")
 
-    def _chip(node: "RelatedConceptChip", *, emphasis: bool = False) -> "FT":
+    def _chip(node: RelatedConceptChip, *, emphasis: bool = False) -> FT:
         base = (
             "inline-flex items-center px-3 py-1.5 rounded-full border "
             "text-13 font-medium hover:bg-accent hover:text-accent-foreground "
@@ -602,7 +602,7 @@ def render_ps_next_step_related(groups: "list[NextStepRelatedGroup]") -> "FT":
 # ---------------------------------------------------------------------------
 
 
-def _tasks_section(uid: str) -> "FT":
+def _tasks_section(uid: str) -> FT:
     """HTMX-loaded tasks section — shows tasks spawned from this PathStep.
 
     Loads on page render; reloads on `ps-engaged` custom event so newly
@@ -629,7 +629,7 @@ def _tasks_section(uid: str) -> "FT":
 # ---------------------------------------------------------------------------
 
 
-def _learning_loop_section(uid: str) -> "FT":
+def _learning_loop_section(uid: str) -> FT:
     """HTMX-loaded exercises + submissions section for authenticated users.
 
     Lazy-loads on page render. Exercises show status (submitted/reviewed/open);
@@ -665,7 +665,7 @@ def _learning_loop_section(uid: str) -> "FT":
 # ---------------------------------------------------------------------------
 
 
-def _deps_accordion() -> "FT":
+def _deps_accordion() -> FT:
     panel_id = "deps-panel"
     return Section(
         Button(

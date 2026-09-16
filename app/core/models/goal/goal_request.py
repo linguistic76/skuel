@@ -95,7 +95,7 @@ class GoalCreateRequest(BaseModel):
     _validate_title = validate_required_string("title")
 
     @model_validator(mode="after")
-    def validate_target_date(self, info: ValidationInfo) -> "GoalCreateRequest":
+    def validate_target_date(self, info: ValidationInfo) -> GoalCreateRequest:
         """Validate target date is in the future and after start date.
 
         The future check honors the ingestion validation context

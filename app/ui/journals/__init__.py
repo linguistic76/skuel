@@ -22,7 +22,7 @@ from ui.components import Button as StyledButton
 from ui.components import ButtonT, Card, CardBody, CardHeader, CardTitle
 
 
-def ModelControl(model: str, model_options: "list[tuple[str, str]] | None") -> Any:
+def ModelControl(model: str, model_options: list[tuple[str, str]] | None) -> Any:
     """The per-conversation model control for a discussion form/composer.
 
     A visible ``<select name="model">`` when options are available (the typed
@@ -155,11 +155,11 @@ def SessionBackedComposer(
     *,
     session_id: str,
     is_founder: bool = False,
-    canon_book_uids: "tuple[str, ...]" = (),
+    canon_book_uids: tuple[str, ...] = (),
     summon_canon: bool = False,
     summon_vault: bool = False,
     model: str = DEFAULT_CHAT_MODEL,
-    model_options: "list[tuple[str, str]] | None" = None,
+    model_options: list[tuple[str, str]] | None = None,
 ) -> Any:
     """Just the session-backed composer (``id=journal-composer``) — the *Save* swap.
 
@@ -235,11 +235,11 @@ def _Composer(
     session_id: str = "",
     transcript_json: str = "",
     is_founder: bool = False,
-    canon_book_uids: "tuple[str, ...]" = (),
+    canon_book_uids: tuple[str, ...] = (),
     summon_canon: bool = False,
     summon_vault: bool = False,
     model: str = DEFAULT_CHAT_MODEL,
-    model_options: "list[tuple[str, str]] | None" = None,
+    model_options: list[tuple[str, str]] | None = None,
 ) -> Any:
     """Sticky follow-up form pinned at the bottom of #journal-workspace.
 
@@ -575,14 +575,14 @@ def StandardResponseFragment(
     title: str,
     response_output: str,
     transcript_json: str,
-    mode: "JournalMode | None" = None,
+    mode: JournalMode | None = None,
     is_founder: bool = False,
-    sources: "tuple[CanonSource, ...] | None" = None,
-    canon_book_uids: "tuple[str, ...]" = (),
+    sources: tuple[CanonSource, ...] | None = None,
+    canon_book_uids: tuple[str, ...] = (),
     summon_canon: bool = False,
     summon_vault: bool = False,
     model: str = DEFAULT_CHAT_MODEL,
-    model_options: "list[tuple[str, str]] | None" = None,
+    model_options: list[tuple[str, str]] | None = None,
 ) -> Any:
     """Growing chat thread — opening discussion response with sticky composer.
 
@@ -637,13 +637,13 @@ def StandardResponseFragment(
 def DiscussionThreadFragment(
     session_id: str,
     title: str,
-    turns: "list[ConversationTurn]",
+    turns: list[ConversationTurn],
     is_founder: bool = False,
-    canon_book_uids: "tuple[str, ...]" = (),
+    canon_book_uids: tuple[str, ...] = (),
     summon_canon: bool = False,
     summon_vault: bool = False,
     model: str = DEFAULT_CHAT_MODEL,
-    model_options: "list[tuple[str, str]] | None" = None,
+    model_options: list[tuple[str, str]] | None = None,
 ) -> Any:
     """Rehydrated discussion workspace for *continue* (ADR-078 revisit/continue).
 
@@ -814,8 +814,8 @@ def FollowUpFragment(
     user_reply: str,
     ai_text: str,
     title: str,
-    mode: "JournalMode",
-    sources: "tuple[CanonSource, ...] | None" = None,
+    mode: JournalMode,
+    sources: tuple[CanonSource, ...] | None = None,
     transcript_json: str | None = None,
 ) -> Any:
     """Returned by the follow-up route — appended to #journal-thread via beforeend.
@@ -971,7 +971,7 @@ def SuggestedActivitiesContainer(content: str) -> Any:
 
 
 def SuggestedActivitiesPanel(
-    items: "list[SuggestedActivity] | None" = None,
+    items: list[SuggestedActivity] | None = None,
     *,
     unavailable: bool = False,
     error: bool = False,
@@ -1018,7 +1018,7 @@ def SuggestedActivitiesPanel(
     return Div(header, body)
 
 
-def _suggestion_row(item: "SuggestedActivity") -> Any:
+def _suggestion_row(item: SuggestedActivity) -> Any:
     """One copyable suggestion: domain chip + copy button + the canonical DSL line."""
     import json as _json
 

@@ -38,7 +38,7 @@ class LLMProvider(StrEnum):
     MOCK = "mock"
 
     @classmethod
-    def from_model(cls, model: str) -> "LLMProvider":
+    def from_model(cls, model: str) -> LLMProvider:
         """Infer the provider that serves ``model`` from its name prefix.
 
         Mirrors ``UnifiedLLMCaller``'s prefix routing (claude* → Anthropic,

@@ -47,7 +47,7 @@ class KuService:
 
     def __init__(
         self,
-        backend: "KuOperations | None" = None,
+        backend: KuOperations | None = None,
         graph_intel: Any = None,
         event_bus: Any = None,
     ) -> None:

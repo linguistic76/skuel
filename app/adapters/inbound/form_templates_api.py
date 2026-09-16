@@ -28,7 +28,7 @@ logger = get_logger(__name__)
 def create_form_templates_api_routes(
     app: Any,
     rt: Any,
-    form_template_service: "FormTemplateService",
+    form_template_service: FormTemplateService,
     user_service: Any = None,
     **_kwargs: Any,
 ) -> list[Any]:

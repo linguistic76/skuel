@@ -173,15 +173,15 @@ class ContextRetriever:
     def __init__(
         self,
         # PS bundle dependencies — all required (fail-fast per SKUEL philosophy)
-        ps_service: "EntityLookup[PathStep] | None" = None,
-        ku_service: "KuLookup[Ku] | None" = None,
+        ps_service: EntityLookup[PathStep] | None = None,
+        ku_service: KuLookup[Ku] | None = None,
         # Activity handles are the audience-aware slice: OWNER_ONLY domains
         # must be read through get_visible_to_user (ADR-085 G1), never bare get.
-        habits_service: "VisibleEntityLookup[Habit] | None" = None,
-        tasks_service: "VisibleEntityLookup[Task] | None" = None,
-        events_service: "VisibleEntityLookup[Event] | None" = None,
-        principles_service: "VisibleEntityLookup[Principle] | None" = None,
-        lp_service: "EntityLookup[LearningPath] | None" = None,
+        habits_service: VisibleEntityLookup[Habit] | None = None,
+        tasks_service: VisibleEntityLookup[Task] | None = None,
+        events_service: VisibleEntityLookup[Event] | None = None,
+        principles_service: VisibleEntityLookup[Principle] | None = None,
+        lp_service: EntityLookup[LearningPath] | None = None,
         # Backends for graph queries
         ku_backend: KuOperations | None = None,
         ps_backend: KnowledgeContextOperations | None = None,
@@ -220,7 +220,7 @@ class ContextRetriever:
         # after Askesis in bootstrap), never a constructor param. Typed against
         # the ISP slice the retriever actually uses, so compose's post-wire
         # assignment is a real conformance check.
-        self.search_router: "ScopedChunkRetrievalOperations | None" = None
+        self.search_router: ScopedChunkRetrievalOperations | None = None
 
         # PS bundle dependencies
         self.ps_service = ps_service

@@ -90,9 +90,9 @@ class LateralRouteFactory:
     def __init__(
         self,
         domain: str,  # "goals", "tasks", "habits", etc.
-        lateral_service: "LateralRelationshipOperations",
+        lateral_service: LateralRelationshipOperations,
         entity_name: str,  # "Goal", "Task", "Habit", etc.
-        domain_service: "OwnershipVerifier | None" = None,  # None = shared/curriculum
+        domain_service: OwnershipVerifier | None = None,  # None = shared/curriculum
     ) -> None:
         self.domain = domain
         self.lateral_service = lateral_service
@@ -643,7 +643,7 @@ class LateralRouteFactory:
             request: Request,
             uid: str,
             max_depth: int = 10,
-        ) -> "Result[FT]":
+        ) -> Result[FT]:
             """
             Get the transitive blocking chain, rendered as an HTML fragment.
 
@@ -682,7 +682,7 @@ class LateralRouteFactory:
         async def get_comparison(
             request: Request,
             uid: str,
-        ) -> "Result[FT]":
+        ) -> Result[FT]:
             """
             Get alternatives rendered as a side-by-side comparison HTML fragment.
 
@@ -723,7 +723,7 @@ class LateralRouteFactory:
             uid: str,
             depth: int = 2,
             types: str | None = None,
-        ) -> "Result[RelationshipGraphData]":
+        ) -> Result[RelationshipGraphData]:
             """
             Get relationship graph in Vis.js Network format.
 
@@ -781,7 +781,7 @@ class LateralRouteFactory:
         # GET /api/{domain}/{uid}/lateral/manage - Flat list of direct lateral edges
         @rt(f"/api/{self.domain}/{{uid}}/lateral/manage", methods=["GET"])
         @boundary_handler()
-        async def get_manage_list(request: Request, uid: str) -> "Result[FT]":
+        async def get_manage_list(request: Request, uid: str) -> Result[FT]:
             """Owner-scoped flat list of an entity's direct lateral edges, with delete buttons.
 
             Drives the existing DELETE route for removals; refreshes on the shared

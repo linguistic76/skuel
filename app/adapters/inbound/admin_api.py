@@ -48,7 +48,7 @@ def create_admin_api_routes(
     app: Any,
     rt: Any,
     user_service: Any,
-    graph_auth: "GraphAuthOperations | None" = None,
+    graph_auth: GraphAuthOperations | None = None,
 ) -> list[Any]:
     """
     Create admin API routes for user management.

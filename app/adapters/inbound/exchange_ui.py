@@ -38,14 +38,14 @@ logger = get_logger("skuel.routes.exchange")
 
 
 def create_exchange_ui_routes(
-    _app: FastHTMLApp, rt: RouteDecorator, orchestrator: "UserEntryOrchestrator"
+    _app: FastHTMLApp, rt: RouteDecorator, orchestrator: UserEntryOrchestrator
 ) -> None:
     """Register the /exchange thread page."""
 
     @rt("/exchange")
     async def exchange_thread_page(
         request: Request, exercise: str = "", student: str = ""
-    ) -> "FT | HTMLResponse":
+    ) -> FT | HTMLResponse:
         """The exchange thread for (viewer-or-student, exercise) — read-only."""
         user_uid = require_authenticated_user(request)
 

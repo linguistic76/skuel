@@ -502,7 +502,7 @@ class UserCoreService:
         self,
         limit: int = 100,
         offset: int = 0,
-        role_filter: "UserRole | None" = None,
+        role_filter: UserRole | None = None,
         active_only: bool = True,
     ) -> Result[list[User]]:
         """

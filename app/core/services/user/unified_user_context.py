@@ -794,7 +794,7 @@ class UserContext:
         capacity = self.available_minutes_daily // 15  # 15 min per item average
         return min(1.0, active_items / max(capacity, 1))
 
-    def get_capacity_warnings(self) -> "CapacityWarnings":
+    def get_capacity_warnings(self) -> CapacityWarnings:
         """Advisory warnings for surfaces that offer NEW work (search, recommendations).
 
         Empty dict means no concerns — callers put it straight on

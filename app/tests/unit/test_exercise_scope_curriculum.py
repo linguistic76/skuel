@@ -169,7 +169,7 @@ def test_ingestion_rejects_owner_bound_scopes(scope: str) -> None:
 # ============================================================================
 
 
-def _service_with_mocked_super() -> "ExerciseService":
+def _service_with_mocked_super() -> ExerciseService:
     from unittest.mock import MagicMock
 
     service = ExerciseService.__new__(ExerciseService)

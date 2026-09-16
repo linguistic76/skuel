@@ -19,7 +19,7 @@ def SectionHeader(
     title: str,
     action: Any = None,
     cls: str = "",
-) -> "FT":
+) -> FT:
     """Consistent section header with title and optional action.
 
     Args:

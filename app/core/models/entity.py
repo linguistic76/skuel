@@ -234,7 +234,7 @@ class Entity:
     # =========================================================================
 
     @classmethod
-    def from_dto(cls, dto: "EntityDTO") -> "Entity":
+    def from_dto(cls, dto: EntityDTO) -> Entity:
         """
         Dispatch to appropriate domain subclass based on dto.entity_type.
 
@@ -251,7 +251,7 @@ class Entity:
         return target_class._from_dto(dto)
 
     @classmethod
-    def _from_dto(cls, dto: "EntityDTO") -> Self:
+    def _from_dto(cls, dto: EntityDTO) -> Self:
         """
         Generic: extract only fields defined on THIS class from the unified DTO.
 
@@ -282,7 +282,7 @@ class Entity:
             kwargs["uid"] = EntityUID(str(kwargs["uid"]))
         return cls(**kwargs)
 
-    def to_dto(self) -> "EntityDTO":
+    def to_dto(self) -> EntityDTO:
         """
         Convert Entity to EntityDTO with common fields.
 

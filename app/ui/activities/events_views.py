@@ -42,7 +42,7 @@ if TYPE_CHECKING:
     from core.models.event.event import Event
 
 
-def EventStatsBar(events: list["Event"]) -> "FT":
+def EventStatsBar(events: list[Event]) -> FT:
     """Quick stats bar showing event counts."""
     total = len(events)
     upcoming = sum(1 for e in events if e.is_upcoming())
@@ -66,17 +66,17 @@ def EventStatsBar(events: list["Event"]) -> "FT":
 
 
 def EventList(
-    events: list["Event"],
+    events: list[Event],
     connections_map: dict[str, list[dict[str, str]]] | None = None,
-) -> "FT":
+) -> FT:
     """Render a list of event cards. Returns a replaceable container for HTMX."""
     return ActivityList(events, "event", EventCard, connections_map)
 
 
 def EventCard(
-    event: "Event",
+    event: Event,
     connections: list[dict[str, str]] | None = None,
-) -> "FT":
+) -> FT:
     """Single event card with date/time, location, and connections."""
     is_completed = event.status and event.status.value == "completed"
     is_past = event.is_past()
@@ -176,9 +176,9 @@ def EventCard(
 
 
 def EventDetailView(
-    event: "Event",
+    event: Event,
     connections: list[dict[str, str]],
-) -> "FT":
+) -> FT:
     """Full detail page for a single event."""
     # Subtitle
     subtitle_parts: list[str] = []
@@ -358,7 +358,7 @@ def EventDetailView(
     )
 
 
-def _format_time_range(event: "Event") -> str:
+def _format_time_range(event: Event) -> str:
     """Format start_time - end_time as a string."""
     parts = []
     if event.start_time:

@@ -159,7 +159,7 @@ class DomainRouteConfig:
 def register_domain_routes(
     app: FastHTMLApp,
     rt: RouteDecorator,
-    services: "Services | None",
+    services: Services | None,
     config: DomainRouteConfig,
 ) -> list[Any]:
     """

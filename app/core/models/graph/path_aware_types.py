@@ -92,7 +92,7 @@ class PathAwareTask:
     due_date: date | None = None
 
     @classmethod
-    def from_dict(cls, d: dict[str, Any]) -> "PathAwareTask":
+    def from_dict(cls, d: dict[str, Any]) -> PathAwareTask:
         """Build from a cross-domain-context bucket entry (uid/title/path metadata)."""
         return cls(
             uid=d["uid"],
@@ -124,7 +124,7 @@ class PathAwareGoal:
     progress: float | None = None
 
     @classmethod
-    def from_dict(cls, d: dict[str, Any]) -> "PathAwareGoal":
+    def from_dict(cls, d: dict[str, Any]) -> PathAwareGoal:
         """Build from a cross-domain-context bucket entry (uid/title/path metadata)."""
         return cls(
             uid=d["uid"],
@@ -154,7 +154,7 @@ class PathAwarePrinciple:
     description: str | None = None
 
     @classmethod
-    def from_dict(cls, d: dict[str, Any]) -> "PathAwarePrinciple":
+    def from_dict(cls, d: dict[str, Any]) -> PathAwarePrinciple:
         """Build from a cross-domain-context bucket entry (uid/title/path metadata)."""
         return cls(
             uid=d["uid"],
@@ -185,7 +185,7 @@ class PathAwareKnowledge:
     mastery_level: float | None = None
 
     @classmethod
-    def from_dict(cls, d: dict[str, Any]) -> "PathAwareKnowledge":
+    def from_dict(cls, d: dict[str, Any]) -> PathAwareKnowledge:
         """Build from a cross-domain-context bucket entry (uid/title/path metadata)."""
         return cls(
             uid=d["uid"],
@@ -220,7 +220,7 @@ class PathAwareLearningPath:
     status: str | None = None
 
     @classmethod
-    def from_dict(cls, d: dict[str, Any]) -> "PathAwareLearningPath":
+    def from_dict(cls, d: dict[str, Any]) -> PathAwareLearningPath:
         """Build from a cross-domain-context bucket entry (uid/title/path metadata)."""
         return cls(
             uid=d["uid"],
@@ -251,7 +251,7 @@ class PathAwareHabit:
     current_streak: int | None = None
 
     @classmethod
-    def from_dict(cls, d: dict[str, Any]) -> "PathAwareHabit":
+    def from_dict(cls, d: dict[str, Any]) -> PathAwareHabit:
         """Build from a cross-domain-context bucket entry (uid/title/path metadata)."""
         return cls(
             uid=d["uid"],
@@ -302,7 +302,7 @@ class PathAwareChoice:
     resolution: str | None = None
 
     @classmethod
-    def from_dict(cls, d: dict[str, Any]) -> "PathAwareChoice":
+    def from_dict(cls, d: dict[str, Any]) -> PathAwareChoice:
         """Build from a cross-domain-context bucket entry (uid/title/path metadata)."""
         return cls(
             uid=d["uid"],
@@ -343,7 +343,7 @@ class ChoiceCrossContext:
     @classmethod
     def from_categorized(
         cls, source_uid: str, categorized_data: dict[str, Any]
-    ) -> "ChoiceCrossContext":
+    ) -> ChoiceCrossContext:
         """Build the path-aware choice context from a ``get_cross_domain_context_typed``
         categorized payload (the CHOICES_CONFIG ``context_field_name`` buckets).
 
@@ -463,7 +463,7 @@ class GoalCrossContext:
     @classmethod
     def from_categorized(
         cls, source_uid: str, categorized_data: dict[str, Any]
-    ) -> "GoalCrossContext":
+    ) -> GoalCrossContext:
         """Build the path-aware goal context from a ``get_cross_domain_context_typed``
         categorized payload (the GOALS_CONFIG ``context_field_name`` buckets).
 
@@ -629,7 +629,7 @@ class PrincipleCrossContext:
     @classmethod
     def from_categorized(
         cls, source_uid: str, categorized_data: dict[str, Any]
-    ) -> "PrincipleCrossContext":
+    ) -> PrincipleCrossContext:
         """Build the path-aware principle context from a ``get_cross_domain_context_typed``
         categorized payload (the PRINCIPLES_CONFIG ``context_field_name`` buckets).
 
@@ -747,7 +747,7 @@ class TaskCrossContext:
     @classmethod
     def from_categorized(
         cls, source_uid: str, categorized_data: dict[str, Any]
-    ) -> "TaskCrossContext":
+    ) -> TaskCrossContext:
         """Build the path-aware task context from a ``get_cross_domain_context_typed``
         categorized payload (the TASKS_CONFIG ``context_field_name`` buckets).
 
@@ -845,7 +845,7 @@ class HabitCrossContext:
     @classmethod
     def from_categorized(
         cls, source_uid: str, categorized_data: dict[str, Any]
-    ) -> "HabitCrossContext":
+    ) -> HabitCrossContext:
         """Build the path-aware habit context from a ``get_cross_domain_context_typed``
         categorized payload (the HABITS_CONFIG ``context_field_name`` buckets).
 
@@ -952,7 +952,7 @@ class EventCrossContext:
     @classmethod
     def from_categorized(
         cls, source_uid: str, categorized_data: dict[str, Any]
-    ) -> "EventCrossContext":
+    ) -> EventCrossContext:
         """Build the path-aware event context from a ``get_cross_domain_context_typed``
         categorized payload (the EVENTS_CONFIG ``context_field_name`` buckets).
 

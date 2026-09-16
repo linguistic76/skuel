@@ -246,7 +246,7 @@ class EdgeMetadata:
         return props
 
     @classmethod
-    def from_neo4j_properties(cls, props: dict[str, Any]) -> "EdgeMetadata":
+    def from_neo4j_properties(cls, props: dict[str, Any]) -> EdgeMetadata:
         """
         Reconstruct EdgeMetadata from Neo4j edge properties.
 
@@ -294,7 +294,7 @@ class EdgeMetadata:
         """Check if this relationship is frequently used (>= 10 traversals)."""
         return self.traversal_count >= 10
 
-    def increment_traversal(self) -> "EdgeMetadata":
+    def increment_traversal(self) -> EdgeMetadata:
         """
         Increment traversal count and update last_traversed timestamp.
 
@@ -317,7 +317,7 @@ class EdgeMetadata:
             notes=self.notes,
         )
 
-    def increment_co_occurrence(self) -> "EdgeMetadata":
+    def increment_co_occurrence(self) -> EdgeMetadata:
         """
         Increment co-occurrence count.
 
@@ -352,7 +352,7 @@ class EdgeMetadata:
         """Check if this relationship has strong evidence (3+ sources)."""
         return len(self.evidence) >= 3
 
-    def add_evidence(self, evidence_item: str) -> "EdgeMetadata":
+    def add_evidence(self, evidence_item: str) -> EdgeMetadata:
         """
         Add evidence to relationship.
 

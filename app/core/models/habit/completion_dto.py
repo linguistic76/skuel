@@ -52,7 +52,7 @@ class HabitCompletionDTO:
         notes: str | None = None,
         quality: int | None = None,
         duration_actual: int | None = None,
-    ) -> "HabitCompletionDTO":
+    ) -> HabitCompletionDTO:
         """Factory method to create new HabitCompletionDTO with generated UID."""
         return cls(
             uid=UIDGenerator.generate_random_uid("completion"),
@@ -85,7 +85,7 @@ class HabitCompletionDTO:
         )
 
     @classmethod
-    def from_dict(cls, data: dict[str, Any]) -> "HabitCompletionDTO":
+    def from_dict(cls, data: dict[str, Any]) -> HabitCompletionDTO:
         """Create DTO from dictionary."""
         from core.models.dto_helpers import ensure_dict_field, parse_datetime_fields
 

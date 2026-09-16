@@ -45,7 +45,7 @@ FINANCE_CONFIG = DomainRouteConfig(
 
 
 def create_finance_routes(
-    app: FastHTMLApp, rt: RouteDecorator, services: "Services | None", _sync_service: Any = None
+    app: FastHTMLApp, rt: RouteDecorator, services: Services | None, _sync_service: Any = None
 ) -> None:
     """
     Wire finance API and UI routes using configuration-driven registration.

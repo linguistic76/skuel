@@ -111,7 +111,7 @@ def render_resource_detail(resource: Any, cited_by: tuple | list = ()) -> Div:
 # ---------------------------------------------------------------------------
 
 
-def _attribution_line(resource: Any) -> "FT":
+def _attribution_line(resource: Any) -> FT:
     """Author · publisher · year, joined with middots."""
     author = getattr(resource, "author", None)
     publisher = getattr(resource, "publisher", None)
@@ -125,7 +125,7 @@ def _attribution_line(resource: Any) -> "FT":
     )
 
 
-def _meta_chips(resource: Any) -> "FT":
+def _meta_chips(resource: Any) -> FT:
     """ISBN + duration chips (only the present ones)."""
     isbn = getattr(resource, "isbn", None)
     duration = getattr(resource, "resource_duration_minutes", None)
@@ -142,7 +142,7 @@ def _meta_chips(resource: Any) -> "FT":
     return Div(*items, cls="flex items-center gap-3.5 flex-wrap mt-[14px]")
 
 
-def _open_source_button(source_url: str | None) -> "FT":
+def _open_source_button(source_url: str | None) -> FT:
     """Prominent external link — SKUEL points you at the source."""
     if not source_url:
         return Div()
@@ -162,7 +162,7 @@ def _open_source_button(source_url: str | None) -> "FT":
     )
 
 
-def _annotation_section(description: str) -> "FT":
+def _annotation_section(description: str) -> FT:
     """The curator's short annotation (Resource.description)."""
     if not description:
         return Div()
@@ -184,7 +184,7 @@ _CITER_ROUTES: dict[str, tuple[str, str]] = {
 }
 
 
-def _cited_by_section(cited_by: tuple | list) -> "FT":
+def _cited_by_section(cited_by: tuple | list) -> FT:
     """Reciprocal of the citation chip — the Kus / PathSteps that cite this Resource.
 
     Each row links to the citer's detail page and shows the citation locator
@@ -205,7 +205,7 @@ def _cited_by_section(cited_by: tuple | list) -> "FT":
     )
 
 
-def _cited_by_row(row: dict) -> "FT":
+def _cited_by_row(row: dict) -> FT:
     """One citer as a reference row — links to its detail page, shows the locator."""
     uid = row.get("uid") or ""
     title = row.get("title") or uid
@@ -234,7 +234,7 @@ def _cited_by_row(row: dict) -> "FT":
     return Span(*inner, cls=chip_cls)
 
 
-def _tags_section(tags: tuple | list) -> "FT":
+def _tags_section(tags: tuple | list) -> FT:
     tag_list = list(tags)[:8]
     if not tag_list:
         return Div()

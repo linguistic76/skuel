@@ -61,11 +61,11 @@ class EntryReportService:
     def __init__(
         self,
         llm_caller: LLMCallerProtocol | None,
-        backend: "EntryReportBackendOperations | None" = None,
-        ku_interaction_service: "PsMasteryService | None" = None,
-        report_mastery_service: "ReportMasteryService | None" = None,
-        entry_service: "UserEntryService | None" = None,
-        event_bus: "EventBusOperations | None" = None,
+        backend: EntryReportBackendOperations | None = None,
+        ku_interaction_service: PsMasteryService | None = None,
+        report_mastery_service: ReportMasteryService | None = None,
+        entry_service: UserEntryService | None = None,
+        event_bus: EventBusOperations | None = None,
     ) -> None:
         """
         Initialize with LLM caller and domain backends.

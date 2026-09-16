@@ -78,7 +78,7 @@ class AnalyticsMetricsService:
         content_enrichment=None,
         ku_service=None,
         lp_service=None,
-        cross_domain_backend: "CrossDomainBackendOperations | None" = None,
+        cross_domain_backend: CrossDomainBackendOperations | None = None,
     ) -> None:
         """
         Initialize with domain and layer services.
@@ -1123,7 +1123,7 @@ class AnalyticsMetricsService:
 
     async def _get_journal_reports(
         self, user_uid: UserUID, start_date: date, end_date: date
-    ) -> list["JournalEntryRow"]:
+    ) -> list[JournalEntryRow]:
         """Journal source entries for a user within a date range.
 
         Args:

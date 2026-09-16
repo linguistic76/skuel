@@ -67,7 +67,7 @@ class InsightStore:
     Thread Safety: Each method is atomic - safe for concurrent use.
     """
 
-    def __init__(self, backend: "InsightBackendOperations") -> None:
+    def __init__(self, backend: InsightBackendOperations) -> None:
         """
         Initialize InsightStore with backend.
 

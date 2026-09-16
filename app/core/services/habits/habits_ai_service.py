@@ -58,8 +58,8 @@ class HabitsAIService(BaseAIService[HabitsOperations, Habit]):
     def __init__(
         self,
         backend: HabitsOperations,
-        llm_service: "LLMService",
-        embeddings_service: "EmbeddingsService",
+        llm_service: LLMService,
+        embeddings_service: EmbeddingsService,
         event_bus: Any | None = None,
     ) -> None:
         """

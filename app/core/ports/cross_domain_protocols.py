@@ -137,7 +137,7 @@ class CrossDomainBackendOperations(Protocol):
         user_uid: str,
         start_datetime: str,
         end_datetime: str,
-    ) -> Result[list["JournalEntryRow"]]:
+    ) -> Result[list[JournalEntryRow]]:
         """Journal SOURCE entries in a datetime range.
 
         After ADR-054 these are ``:UserEntry`` with

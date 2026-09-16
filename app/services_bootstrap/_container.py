@@ -135,26 +135,26 @@ class Services:
     # Created by _create_activity_services(), access intelligence via .intelligence
     # Concrete types: facade service IS the contract — no parallel protocol needed.
     # ========================================================================
-    tasks: "TasksService | None" = None
-    goals: "GoalsService | None" = None
-    habits: "HabitsService | None" = None
-    events: "EventsService | None" = None
-    choices: "ChoicesService | None" = None
-    principles: "PrinciplesService | None" = None
+    tasks: TasksService | None = None
+    goals: GoalsService | None = None
+    habits: HabitsService | None = None
+    events: EventsService | None = None
+    choices: ChoicesService | None = None
+    principles: PrinciplesService | None = None
 
     # ========================================================================
     # FINANCE (1) - NOT an Activity Domain (standalone facade)
     # ========================================================================
-    finance: "FinanceService | None" = None
+    finance: FinanceService | None = None
 
     # ========================================================================
     # CURRICULUM DOMAINS (3) - PS, KU, LP
     # ========================================================================
-    ku: "KuService | None" = None  # KuService (atomic knowledge units)
-    resource: "ResourceService | None" = (
+    ku: KuService | None = None  # KuService (atomic knowledge units)
+    resource: ResourceService | None = (
         None  # ResourceService (curated content — books, talks, films)
     )
-    activity_knowledge_intelligence: "ActivityKnowledgeIntelligenceService | None" = (
+    activity_knowledge_intelligence: ActivityKnowledgeIntelligenceService | None = (
         None  # Knowledge intelligence for all 6 activity domains (March 2026)
     )
     # adaptive_sel removed — absorbed into PsService.adaptive (February 2026)
@@ -162,11 +162,11 @@ class Services:
     # its only consumer was the discover_cross_domain resolver.
 
     # Content services
-    content_enrichment: "ContentEnrichmentService | None" = None
-    transcription: "TranscriptionService | None" = None
+    content_enrichment: ContentEnrichmentService | None = None
+    transcription: TranscriptionService | None = None
 
     # Report services (LLM-based processing)
-    report_mastery: "ReportMasteryService | None" = (
+    report_mastery: ReportMasteryService | None = (
         None  # ReportMasteryService - Explicit mastery propagation
     )
     entry_report: EntryReportOperations | None = (
@@ -180,13 +180,13 @@ class Services:
     )
 
     # General-purpose forms (March 2026)
-    form_templates: "FormTemplateOperations | None" = None
-    form_submissions: "FormSubmissionOperations | None" = None
+    form_templates: FormTemplateOperations | None = None
+    form_submissions: FormSubmissionOperations | None = None
 
     # Batch transcription service (Tier 1: audio → txt).
     # Tier 2 (BatchProcessingService) retired with ADR-054 Commit 6a — the
     # LLM-driven txt→md path lives inside UserEntryProcessingService now.
-    batch_transcription: "BatchTranscriptionService | None" = None
+    batch_transcription: BatchTranscriptionService | None = None
 
     # Sharing (cross-domain)
     sharing: SharingOperations | None = (
@@ -195,9 +195,9 @@ class Services:
 
     # UserEntry (ADR-054) — unified user-authored content facade.
     # Replaces the legacy submission + journal services.
-    user_entry: "UserEntryService | None" = None
-    user_entry_processor: "UserEntryProcessingService | None" = None
-    user_entry_assessment: "AssessmentService | None" = None
+    user_entry: UserEntryService | None = None
+    user_entry_processor: UserEntryProcessingService | None = None
+    user_entry_assessment: AssessmentService | None = None
 
     # ========================================================================
     # GROUP & TEACHING (ADR-040) - Teacher exercise workflow
@@ -206,7 +206,7 @@ class Services:
     teacher_review: TeacherReviewOperations | None = (
         None  # TeacherReviewService - review queue + feedback
     )
-    notifications: "NotificationService | None" = None  # NotificationService - in-app notifications
+    notifications: NotificationService | None = None  # NotificationService - in-app notifications
 
     # System services
     # Note: sync field REMOVED (January 2026) - use unified_ingestion instead
@@ -217,7 +217,7 @@ class Services:
     system: SystemServiceOperations | None = (
         None  # SystemService - health checks and system monitoring
     )
-    admin_stats: "AdminStatsService | None" = (
+    admin_stats: AdminStatsService | None = (
         None  # AdminStatsService - cross-domain admin dashboard statistics
     )
     visualization: VisualizationOperations | None = (
@@ -225,32 +225,32 @@ class Services:
     )
 
     # User management (fundamental)
-    user: "UserService | None" = None  # Facade — concrete type per CLAUDE.md
-    user_relationships: "UserRelationshipOperations | None" = None
+    user: UserService | None = None  # Facade — concrete type per CLAUDE.md
+    user_relationships: UserRelationshipOperations | None = None
     graph_auth: GraphAuthOperations | None = None  # GraphAuthService - graph-native authentication
     context: UserContextOperations | None = (
         None  # UserContextService - context-aware intelligence (NEW: 2025-11-18)
     )
-    context_intelligence: "UserContextIntelligenceFactory | None" = None
+    context_intelligence: UserContextIntelligenceFactory | None = None
 
     # Consolidated Learning Services (V4)
-    user_progress: "UserProgressService | None" = None
+    user_progress: UserProgressService | None = None
     # Note: unified_progress DELETED (January 2026) - use user_progress or UserContextBuilder
-    lp: "LpService | None" = None  # LpService - All path management
-    ps: "PsService | None" = None  # PsService - Dedicated path step management
+    lp: LpService | None = None  # LpService - All path management
+    ps: PsService | None = None  # PsService - Dedicated path step management
     # PS+Activity Templates lifecycle facade (Phase 4 — May 2026)
     # Owns 4 transitions: publish/engage/complete/abandon over PS templates.
-    ps_engagement: "PsEngagementService | None" = None
+    ps_engagement: PsEngagementService | None = None
 
     # PS+Activity Templates CRUD services (Phase 5 — May 2026).
     # PS-owned curriculum (no per-user state). Routes wire SHARED scope +
     # TEACHER role gate. Each service exposes attach/detach/list_for_pathstep.
-    task_templates: "TaskTemplateService | None" = None
-    goal_templates: "GoalTemplateService | None" = None
-    habit_templates: "HabitTemplateService | None" = None
-    event_templates: "EventTemplateService | None" = None
-    choice_templates: "ChoiceTemplateService | None" = None
-    principle_templates: "PrincipleTemplateService | None" = None
+    task_templates: TaskTemplateService | None = None
+    goal_templates: GoalTemplateService | None = None
+    habit_templates: HabitTemplateService | None = None
+    event_templates: EventTemplateService | None = None
+    choice_templates: ChoiceTemplateService | None = None
+    principle_templates: PrincipleTemplateService | None = None
     learning_intelligence: IntelligenceOperations | None = (
         None  # LpIntelligenceService - analysis and recommendations
     )
@@ -267,12 +267,12 @@ class Services:
     )
 
     # Infrastructure adapters
-    graph_adapter: "Neo4jAdapter | None" = None
+    graph_adapter: Neo4jAdapter | None = None
     event_bus: EventBusOperations | None = None
-    prometheus_metrics: "PrometheusMetrics | None" = None
+    prometheus_metrics: PrometheusMetrics | None = None
 
     # Event-driven intelligence
-    insight_store: "InsightStore | None" = None
+    insight_store: InsightStore | None = None
 
     # Note: choices moved to Activity Domains section above
 
@@ -283,7 +283,7 @@ class Services:
     # Batch chunk regeneration (Phase 2, May 2026) — admin tool for rechunking
     # existing :Content when CHUNKING_ALGORITHM_VERSION changes. event_bus is
     # wired only in FULL tier; CORE tier gets a regen-only instance.
-    batch_chunking_service: "BatchChunkingService | None" = None
+    batch_chunking_service: BatchChunkingService | None = None
 
     # The Destination - LifePath (Domain #14)
     # "Everything flows toward the life path"
@@ -293,14 +293,14 @@ class Services:
     )
 
     # Analytics services (meta-service, not a domain)
-    analytics: "AnalyticsService | None" = None
+    analytics: AnalyticsService | None = None
     cross_domain_analytics: CrossDomainAnalyticsOperations | None = (
         None  # CrossDomainAnalyticsService - Event-driven analytics
     )
 
     # Search infrastructure (One Path Forward, January 2026)
     # Concrete class like the other orchestrator fields — the router IS the contract.
-    search_router: "SearchRouter | None" = None  # THE path for all search
+    search_router: SearchRouter | None = None  # THE path for all search
 
     # Orchestration services
     # Note: principles moved to Activity Domains section above
@@ -311,75 +311,75 @@ class Services:
         None  # HabitEventScheduler - Auto-schedule events from habits
     )
     # Orchestrators (Application Layer)
-    admin_orchestrator: "AdminOrchestrator | None" = None
+    admin_orchestrator: AdminOrchestrator | None = None
     # Prerequisite-edge suggestion queue (Discovery Analytics PR 4) — admin surface
-    prereq_suggestions: "PrereqSuggestionService | None" = None
+    prereq_suggestions: PrereqSuggestionService | None = None
     # Entry→Ku grounding (Entry-Enrichment PR 3) — post-sync pass + removal route
-    entry_grounding: "EntryGroundingService | None" = None
-    profile_orchestrator: "ProfileOrchestrator | None" = None
-    user_entry_orchestrator: "UserEntryOrchestrator | None" = None
-    explore_orchestrator: "ExploreOrchestrator | None" = None
-    library_orchestrator: "LibraryOrchestrator | None" = None
-    teacher_orchestrator: "TeacherOrchestrator | None" = None
-    activity_review_orchestrator: "ActivityReviewOrchestrator | None" = None
-    pathways_orchestrator: "PathwaysOrchestrator | None" = None
-    lateral_orchestrator: "LateralRelationshipsOrchestrator | None" = None
-    calendar_optimization_orchestrator: "CalendarOptimizationOrchestrator | None" = None
-    today_orchestrator: "TodayOrchestrator | None" = None
+    entry_grounding: EntryGroundingService | None = None
+    profile_orchestrator: ProfileOrchestrator | None = None
+    user_entry_orchestrator: UserEntryOrchestrator | None = None
+    explore_orchestrator: ExploreOrchestrator | None = None
+    library_orchestrator: LibraryOrchestrator | None = None
+    teacher_orchestrator: TeacherOrchestrator | None = None
+    activity_review_orchestrator: ActivityReviewOrchestrator | None = None
+    pathways_orchestrator: PathwaysOrchestrator | None = None
+    lateral_orchestrator: LateralRelationshipsOrchestrator | None = None
+    calendar_optimization_orchestrator: CalendarOptimizationOrchestrator | None = None
+    today_orchestrator: TodayOrchestrator | None = None
 
     # Advanced services
-    jupyter_sync: "JupyterNeo4jSync | None" = None
-    performance_optimization: "PerformanceOptimizationService | None" = None
+    jupyter_sync: JupyterNeo4jSync | None = None
+    performance_optimization: PerformanceOptimizationService | None = None
 
     # Cross-cutting AI services (require LLM/embeddings - ADR-030: Two-Tier Intelligence Design)
-    askesis_ai: "AskesisAIService | None" = None
-    context_aware_ai: "ContextAwareAIService | None" = None
+    askesis_ai: AskesisAIService | None = None
+    context_aware_ai: ContextAwareAIService | None = None
 
     # Infrastructure - Neo4j driver and query executor
-    neo4j_driver: "AsyncDriver | None" = None
-    query_executor: "QueryExecutor | None" = None
+    neo4j_driver: AsyncDriver | None = None
+    query_executor: QueryExecutor | None = None
     # Cross-domain connection fetcher for Activity Domain list/detail pages.
     # Below-the-boundary backend behind ConnectionFetchOperations (ADR-044).
-    connection_fetch_backend: "ConnectionFetchOperations | None" = None
+    connection_fetch_backend: ConnectionFetchOperations | None = None
 
     # Embedding + vector search services (ADR-068)
-    embeddings_service: "EmbeddingsService | None" = None
-    vector_search_service: "Neo4jVectorSearchService | None" = None
+    embeddings_service: EmbeddingsService | None = None
+    vector_search_service: Neo4jVectorSearchService | None = None
 
     # Background workers
-    embedding_worker: "EmbeddingBackgroundWorker | None" = None
+    embedding_worker: EmbeddingBackgroundWorker | None = None
 
     # Progress report generation (February 2026)
-    progress_report_generator: "ProgressReportGenerator | None" = None
+    progress_report_generator: ProgressReportGenerator | None = None
 
     # Activity report + review queue (March 2026 refactor: ActivityReviewService split)
-    activity_report: "ActivityReportService | None" = None
-    review_queue: "ReviewQueueService | None" = None
+    activity_report: ActivityReportService | None = None
+    review_queue: ReviewQueueService | None = None
 
     # ========================================================================
     # LATERAL RELATIONSHIP SERVICES (January 2026) - Core Graph Architecture
     # ========================================================================
-    lateral: "LateralRelationshipOperations | None" = None
+    lateral: LateralRelationshipOperations | None = None
 
     # Interaction audit (User Interaction Contract — EntityType.INTERACTION)
-    interaction_service: "InteractionService | None" = None
+    interaction_service: InteractionService | None = None
 
     # Vault bridge (ADR-070) — bidirectional Obsidian ↔ SKUEL sync
-    vault_reconciler: "VaultReconciler | None" = None
+    vault_reconciler: VaultReconciler | None = None
 
     # Journal domain — DNWF three-stage workflow (FULL tier only)
-    journal: "JournalService | None" = None
+    journal: JournalService | None = None
 
     # Journal batch pipeline — zero-persistence je_in/upload → je_out engine
     # (ADR-073). Tier-independent: present in CORE and FULL.
-    journal_batch: "JournalBatchService | None" = None
+    journal_batch: JournalBatchService | None = None
 
     # Conversation store — owner-private discussion sessions (ADR-078).
     # Tier-independent (pure persistence); the understanding-agnostic boundary.
-    conversation: "ConversationOperations | None" = None
+    conversation: ConversationOperations | None = None
 
     # Intelligence tier (ADR-043: CORE = analytics only, FULL = analytics + AI)
-    intelligence_tier: "IntelligenceTier | None" = None
+    intelligence_tier: IntelligenceTier | None = None
 
     # Services are ready when constructed - no lifecycle needed
 

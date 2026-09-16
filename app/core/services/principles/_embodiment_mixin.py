@@ -31,7 +31,7 @@ class _EmbodimentMixin:
 
     # Populated by PrinciplesService.__init__
     core: Any
-    backend: "PrinciplesOperations"
+    backend: PrinciplesOperations
     relationships: Any
     logger: Any
 

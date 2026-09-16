@@ -135,11 +135,11 @@ class LifePath(UserOwnedEntity):
     # =========================================================================
 
     @classmethod
-    def from_dto(cls, dto: "EntityDTO | LifePathDTO") -> "LifePath":
+    def from_dto(cls, dto: EntityDTO | LifePathDTO) -> LifePath:
         """Create LifePath from an EntityDTO or LifePathDTO."""
         return cls._from_dto(dto)
 
-    def to_dto(self) -> "LifePathDTO":
+    def to_dto(self) -> LifePathDTO:
         """Convert LifePath to domain-specific LifePathDTO."""
 
         from core.models.dto_helpers import domain_to_dto

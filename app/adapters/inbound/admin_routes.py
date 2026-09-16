@@ -27,7 +27,7 @@ ADMIN_CONFIG = DomainRouteConfig(
 
 
 def create_admin_routes(
-    app: FastHTMLApp, rt: RouteDecorator, services: "Services | None", _sync_service: Any = None
+    app: FastHTMLApp, rt: RouteDecorator, services: Services | None, _sync_service: Any = None
 ) -> None:
     """Wire admin API routes using configuration-driven registration."""
     register_domain_routes(app, rt, services, ADMIN_CONFIG)

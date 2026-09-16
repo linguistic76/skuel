@@ -44,7 +44,7 @@ logger = get_logger("skuel.routes.system.api")
 def create_system_api_routes(
     app: Any,
     rt: Any,
-    system_service: "SystemServiceOperations",
+    system_service: SystemServiceOperations,
     user_service: Any = None,
 ) -> list[Any]:
     """

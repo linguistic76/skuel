@@ -45,7 +45,7 @@ class _AlignmentIntelligenceMixin:
     """
 
     # Populated by PrinciplesIntelligenceService.__init__
-    backend: "PrinciplesOperations"
+    backend: PrinciplesOperations
     relationships: Any
     logger: Any
     # Provided by BaseAnalyticsService via multiple inheritance on the composed service.

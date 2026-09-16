@@ -111,7 +111,7 @@ class Session:
         """
         return self.time_until_expiry() < timedelta(days=threshold_days)
 
-    def with_updated_activity(self) -> "Session":
+    def with_updated_activity(self) -> Session:
         """
         Create new session with updated last_active_at.
 
@@ -133,7 +133,7 @@ class Session:
             token_hash=self.token_hash,
         )
 
-    def invalidate(self) -> "Session":
+    def invalidate(self) -> Session:
         """
         Create invalidated version of this session.
 

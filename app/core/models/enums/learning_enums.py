@@ -239,7 +239,7 @@ class LearningLevel(StrEnum):
         }
         return mapping.get(self, 2)
 
-    def can_handle(self, content_level: "LearningLevel") -> bool:
+    def can_handle(self, content_level: LearningLevel) -> bool:
         """Check if user at this level can handle content at given level"""
         return self.to_numeric() >= content_level.to_numeric()
 
@@ -541,7 +541,7 @@ class ContentType(StrEnum):
         return descriptions.get(self, "")
 
     @classmethod
-    def from_search_text(cls, text: str) -> list["ContentType"]:
+    def from_search_text(cls, text: str) -> list[ContentType]:
         """Find matching content types from search text"""
         text_lower = text.lower()
         return [

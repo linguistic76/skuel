@@ -45,7 +45,7 @@ if TYPE_CHECKING:
     from core.models.goal.milestone import Milestone
 
 
-def GoalStatsBar(goals: list["Goal"]) -> "FT":
+def GoalStatsBar(goals: list[Goal]) -> FT:
     """Quick stats bar showing goal counts by status.
 
     "Wobbly" is the opposite of "On Track" — goals that need attention:
@@ -74,17 +74,17 @@ def GoalStatsBar(goals: list["Goal"]) -> "FT":
 
 
 def GoalList(
-    goals: list["Goal"],
+    goals: list[Goal],
     connections_map: dict[str, list[dict[str, str]]] | None = None,
-) -> "FT":
+) -> FT:
     """Render a list of goal cards. Returns a replaceable container for HTMX."""
     return ActivityList(goals, "goal", GoalCard, connections_map)
 
 
 def GoalCard(
-    goal: "Goal",
+    goal: Goal,
     connections: list[dict[str, str]] | None = None,
-) -> "FT":
+) -> FT:
     """Single goal card with progress bar, badges, and connection counts."""
     progress = goal.calculate_progress()
     progress_pct = int(progress * 100)
@@ -176,9 +176,9 @@ def GoalCard(
 
 
 def GoalDetailView(
-    goal: "Goal",
+    goal: Goal,
     connections: list[dict[str, str]],
-) -> "FT":
+) -> FT:
     """Full detail page for a single goal."""
     # Subtitle
     subtitle_parts: list[str] = []
@@ -317,7 +317,7 @@ def GoalDetailView(
     )
 
 
-def MilestonesSection(milestones: tuple["Milestone", ...]) -> "FT":
+def MilestonesSection(milestones: tuple[Milestone, ...]) -> FT:
     """Visual checklist of goal milestones."""
     items: list[Any] = []
     for ms in milestones:

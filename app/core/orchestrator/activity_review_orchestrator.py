@@ -34,10 +34,10 @@ class ActivityReviewOrchestrator:
 
     def __init__(
         self,
-        activity_report: "ActivityReportOperations",
-        user_service: "UserService",
-        review_queue: "ReviewQueueOperations | None" = None,
-        context_builder: "UserContextBuilder | None" = None,
+        activity_report: ActivityReportOperations,
+        user_service: UserService,
+        review_queue: ReviewQueueOperations | None = None,
+        context_builder: UserContextBuilder | None = None,
     ) -> None:
         self._activity_report = activity_report
         self._user_service = user_service
@@ -45,13 +45,13 @@ class ActivityReviewOrchestrator:
         self._context_builder = context_builder
 
     @property
-    def user_service(self) -> "UserService":
+    def user_service(self) -> UserService:
         """Expose user service for admin role checks."""
         return self._user_service
 
     # --- Review Queue ---
 
-    async def get_pending_reviews(self, admin_uid: UserUID, limit: int = 20) -> "Result[list[Any]]":
+    async def get_pending_reviews(self, admin_uid: UserUID, limit: int = 20) -> Result[list[Any]]:
         """Return pending review requests. Empty list when queue service unavailable."""
         if self._review_queue is None:
             return Result.ok([])
@@ -61,7 +61,7 @@ class ActivityReviewOrchestrator:
 
     async def build_rich_context(
         self, subject_uid: UserUID, window: str = "7d"
-    ) -> "Result[RichUserContext]":
+    ) -> Result[RichUserContext]:
         """Build rich UserContext for a subject user. Fails when builder unavailable."""
         if self._context_builder is None:
             return Result.fail(
@@ -76,10 +76,10 @@ class ActivityReviewOrchestrator:
 
     async def create_snapshot(
         self,
-        context: "UserContext",
+        context: UserContext,
         time_period: str = "7d",
         domains: list[str] | None = None,
-    ) -> "Result[dict[str, Any]]":
+    ) -> Result[dict[str, Any]]:
         """Build activity snapshot from pre-built UserContext."""
         return await self._activity_report.create_snapshot(
             context=context,
@@ -94,7 +94,7 @@ class ActivityReviewOrchestrator:
         feedback_text: str,
         time_period: str = "7d",
         domains: list[str] | None = None,
-    ) -> "Result[ActivityReport]":
+    ) -> Result[ActivityReport]:
         """Create ActivityReport from admin-written assessment."""
         return await self._activity_report.submit_report(
             admin_uid=admin_uid,

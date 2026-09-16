@@ -164,9 +164,7 @@ class DomainSearchOperations(Protocol[T]):
         """
         ...
 
-    async def get_prioritized(
-        self, user_context: "UserContext", limit: int = 10
-    ) -> Result[list[T]]:
+    async def get_prioritized(self, user_context: UserContext, limit: int = 10) -> Result[list[T]]:
         """
         Get entities prioritized for the user's current context.
 
@@ -300,43 +298,43 @@ class EventsSearchOperations(DomainSearchOperations["Event"], Protocol):
     # --- Event-specific methods ---
     async def get_in_range(
         self,
-        start_date: "date",
-        end_date: "date",
+        start_date: date,
+        end_date: date,
         user_uid: UserUID | None = None,
         limit: int = 100,
-    ) -> Result[list["Event"]]:
+    ) -> Result[list[Event]]:
         """Get events within a date range."""
         ...
 
     async def get_recurring(
         self, user_uid: UserUID | None = None, limit: int = 100
-    ) -> Result[list["Event"]]:
+    ) -> Result[list[Event]]:
         """Get recurring events."""
         ...
 
     async def get_for_goal(
         self, goal_uid: str, user_uid: UserUID | None = None
-    ) -> Result[list["Event"]]:
+    ) -> Result[list[Event]]:
         """Get events supporting a goal."""
         ...
 
-    async def get_conflicting(self, event_uid: str) -> Result[list["Event"]]:
+    async def get_conflicting(self, event_uid: str) -> Result[list[Event]]:
         """Get events that conflict with a given event."""
         ...
 
     async def get_for_habit(
         self, habit_uid: str, user_uid: UserUID | None = None
-    ) -> Result[list["Event"]]:
+    ) -> Result[list[Event]]:
         """Get events reinforcing a habit."""
         ...
 
     async def get_calendar_events(
         self,
         user_uid: UserUID,
-        start_date: "date | None" = None,
-        end_date: "date | None" = None,
+        start_date: date | None = None,
+        end_date: date | None = None,
         limit: int = 100,
-    ) -> Result[list["Event"]]:
+    ) -> Result[list[Event]]:
         """Get events for calendar display."""
         ...
 
@@ -359,38 +357,38 @@ class HabitsSearchOperations(DomainSearchOperations["Habit"], Protocol):
 
     # --- Habit-specific methods ---
     async def enrich_with_goal_links(
-        self, habits: list["Habit"], active_goal_uids: list[str] | None = None
-    ) -> list["Habit"]:
+        self, habits: list[Habit], active_goal_uids: list[str] | None = None
+    ) -> list[Habit]:
         """Populate each habit's derived ``supports_goal_uid`` from its SUPPORTS_GOAL edge."""
         ...
 
-    async def get_by_frequency(self, frequency: str, limit: int = 100) -> Result[list["Habit"]]:
+    async def get_by_frequency(self, frequency: str, limit: int = 100) -> Result[list[Habit]]:
         """Get habits by frequency pattern."""
         ...
 
     async def get_needing_attention(
         self, user_uid: UserUID, limit: int = 20
-    ) -> Result[list["Habit"]]:
+    ) -> Result[list[Habit]]:
         """Get habits that need attention (broken streaks, missed completions)."""
         ...
 
     async def get_at_risk(
         self, user_uid: UserUID, days_threshold: int = 3, limit: int = 20
-    ) -> Result[list["Habit"]]:
+    ) -> Result[list[Habit]]:
         """Get habits at risk of breaking streak."""
         ...
 
-    async def get_user_due_today(self, user_uid: UserUID) -> Result[list["Habit"]]:
+    async def get_user_due_today(self, user_uid: UserUID) -> Result[list[Habit]]:
         """Get habits due today for a specific user."""
         ...
 
-    async def get_all_due_today(self) -> Result[list["Habit"]]:
+    async def get_all_due_today(self) -> Result[list[Habit]]:
         """Get all habits due today (admin use)."""
         ...
 
     async def get_by_category(
         self, category: str, user_uid: UserUID | None = None, limit: int = 100
-    ) -> Result[list["Habit"]]:
+    ) -> Result[list[Habit]]:
         """Get habits by category, optionally filtered by user."""
         ...
 
@@ -420,39 +418,39 @@ class TasksSearchOperations(DomainSearchOperations["Task"], Protocol):
     """
 
     # --- Task-specific methods ---
-    async def get_tasks_for_goal(self, goal_uid: str) -> Result[list["Task"]]:
+    async def get_tasks_for_goal(self, goal_uid: str) -> Result[list[Task]]:
         """Get tasks that fulfill a goal."""
         ...
 
-    async def get_tasks_for_habit(self, habit_uid: str) -> Result[list["Task"]]:
+    async def get_tasks_for_habit(self, habit_uid: str) -> Result[list[Task]]:
         """Get tasks related to a habit."""
         ...
 
-    async def get_tasks_applying_knowledge(self, knowledge_uid: str) -> Result[list["Task"]]:
+    async def get_tasks_applying_knowledge(self, knowledge_uid: str) -> Result[list[Task]]:
         """Get tasks that apply a knowledge unit."""
         ...
 
-    async def get_blocked_by_prerequisites(self, user_uid: UserUID) -> Result[list["Task"]]:
+    async def get_blocked_by_prerequisites(self, user_uid: UserUID) -> Result[list[Task]]:
         """Get tasks blocked by unfulfilled prerequisites."""
         ...
 
-    async def get_curriculum_tasks(self) -> Result[list["Task"]]:
+    async def get_curriculum_tasks(self) -> Result[list[Task]]:
         """Get tasks related to curriculum learning."""
         ...
 
-    async def get_tasks_for_path_step(self, step_uid: str) -> Result[list["Task"]]:
+    async def get_tasks_for_path_step(self, step_uid: str) -> Result[list[Task]]:
         """Get tasks for a path step."""
         ...
 
     async def get_user_assigned_tasks(
         self, user_uid: UserUID, include_completed: bool = False, limit: int = 100
-    ) -> Result[list["Task"]]:
+    ) -> Result[list[Task]]:
         """Get tasks assigned to a user."""
         ...
 
     async def get_tasks_requiring_knowledge(
         self, knowledge_uid: str, limit: int = 20
-    ) -> Result[list["Task"]]:
+    ) -> Result[list[Task]]:
         """Get tasks requiring a knowledge unit."""
         ...
 
@@ -473,7 +471,7 @@ class GoalsSearchOperations(DomainSearchOperations["Goal"], Protocol):
     # --- Goal-specific methods ---
     async def get_by_category(
         self, category: str, user_uid: UserUID | None = None, limit: int = 100
-    ) -> Result[list["Goal"]]:
+    ) -> Result[list[Goal]]:
         """Get goals by category."""
         ...
 
@@ -502,19 +500,19 @@ class ChoicesSearchOperations(DomainSearchOperations["Choice"], Protocol):
     """
 
     # --- Choice-specific methods ---
-    async def get_pending(self, user_uid: UserUID, limit: int = 100) -> Result[list["Choice"]]:
+    async def get_pending(self, user_uid: UserUID, limit: int = 100) -> Result[list[Choice]]:
         """Get pending choices for a user."""
         ...
 
     async def get_needing_decision(
         self, user_uid: UserUID, deadline_days: int = 7
-    ) -> Result[list["Choice"]]:
+    ) -> Result[list[Choice]]:
         """Get choices needing decision within deadline."""
         ...
 
     async def get_by_category(
         self, category: str, user_uid: UserUID | None = None, limit: int = 100
-    ) -> Result[list["Choice"]]:
+    ) -> Result[list[Choice]]:
         """Get choices by category."""
         ...
 
@@ -545,19 +543,19 @@ class PrinciplesSearchOperations(DomainSearchOperations["Principle"], Protocol):
     # --- Principle-specific methods ---
     async def get_by_category(
         self, category: str, user_uid: UserUID | None = None, limit: int = 100
-    ) -> Result[list["Principle"]]:
+    ) -> Result[list[Principle]]:
         """Get principles by category."""
         ...
 
     async def get_for_habit(
         self, habit_uid: str, limit: int = 10, user_uid: UserUID | None = None
-    ) -> Result[list["Principle"]]:
+    ) -> Result[list[Principle]]:
         """Get principles relevant to a habit, scoped to the requesting user (ADR-085 G3)."""
         ...
 
     async def get_for_goal(
         self, goal_uid: str, limit: int = 10, user_uid: UserUID | None = None
-    ) -> Result[list["Principle"]]:
+    ) -> Result[list[Principle]]:
         """Get principles guiding a goal, scoped to the requesting user (ADR-085 G3)."""
         ...
 
@@ -571,13 +569,13 @@ class PrinciplesSearchOperations(DomainSearchOperations["Principle"], Protocol):
 
     async def get_needing_review(
         self, user_uid: UserUID | None = None, days_since_review: int = 30, limit: int = 20
-    ) -> Result[list["Principle"]]:
+    ) -> Result[list[Principle]]:
         """Get principles needing review."""
         ...
 
     async def get_related_principles(
         self, principle_uid: str, limit: int = 10
-    ) -> Result[list["Principle"]]:
+    ) -> Result[list[Principle]]:
         """Get principles related to a given principle."""
         ...
 
@@ -609,12 +607,12 @@ class ScopedChunkRetrievalOperations(Protocol):
 
     async def retrieve_scoped_chunks(
         self,
-        request: "SearchRequest",
+        request: SearchRequest,
         *,
         chunk_types: list[str] | None = None,
         min_score: float | None = None,
         user_uid: UserUID | None = None,
-    ) -> Result[list["SemanticSearchChunkResult"]]:
+    ) -> Result[list[SemanticSearchChunkResult]]:
         """Retrieve lesson-BODY passages scoped to the request's facets."""
         ...
 
@@ -749,7 +747,7 @@ class SupportsGraphAwareSearch(Protocol):
 
     async def graph_aware_faceted_search(
         self,
-        request: "SearchRequest",
+        request: SearchRequest,
         user_uid: UserUID | None,
     ) -> Result[list[dict[str, Any]]]:
         """
@@ -858,7 +856,7 @@ class SearchEventBackendOperations(Protocol):
     Backend: adapters/persistence/neo4j/search_event_backend.py
     """
 
-    async def record_search_event(self, props: "SearchEventProps") -> Result[None]:
+    async def record_search_event(self, props: SearchEventProps) -> Result[None]:
         """Persist one :SearchEvent node from a search.executed event's properties."""
         ...
 
@@ -868,7 +866,7 @@ class SearchEventBackendOperations(Protocol):
         max_result_count: int = 2,
         days: int = 90,
         limit: int = 50,
-    ) -> Result[list["SearchGapRow"]]:
+    ) -> Result[list[SearchGapRow]]:
         """
         Aggregate low/zero-result searches — the content-authoring gap queue.
 

@@ -24,7 +24,7 @@ VISUALIZATION_CONFIG = DomainRouteConfig(
 
 
 def create_visualization_routes(
-    app: FastHTMLApp, rt: RouteDecorator, services: "Services | None", _sync_service: Any = None
+    app: FastHTMLApp, rt: RouteDecorator, services: Services | None, _sync_service: Any = None
 ) -> None:
     """Wire visualization API routes using configuration-driven registration."""
     register_domain_routes(app, rt, services, VISUALIZATION_CONFIG)

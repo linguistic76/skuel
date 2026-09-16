@@ -93,7 +93,7 @@ class UserProgress:
         return self.tracked_at
 
     @classmethod
-    def from_dto(cls, dto: dict[str, Any]) -> "UserProgress":
+    def from_dto(cls, dto: dict[str, Any]) -> UserProgress:
         """Create UserProgress from dict payload — no dedicated DTO."""
         return cls(**dto)
 
@@ -125,7 +125,7 @@ class UserProgress:
         """Get completion percentage (0-100)."""
         return self.progress_value * 100.0
 
-    def with_updated_progress(self, new_progress: float, time_invested: int = 0) -> "UserProgress":
+    def with_updated_progress(self, new_progress: float, time_invested: int = 0) -> UserProgress:
         """
         Create new instance with updated progress.
 
@@ -150,7 +150,7 @@ class UserProgress:
             tracked_at=datetime.now(),
         )
 
-    def with_mastery(self, mastery_score: float, confidence: float = 0.8) -> "UserProgress":
+    def with_mastery(self, mastery_score: float, confidence: float = 0.8) -> UserProgress:
         """
         Create new instance marking as mastered.
 

@@ -61,7 +61,7 @@ def parse_period_params(request: Request) -> PeriodParams:
 
 
 def create_analytics_ui_routes(
-    app: FastHTMLApp, rt: RouteDecorator, analytics_service: "AnalyticsService"
+    app: FastHTMLApp, rt: RouteDecorator, analytics_service: AnalyticsService
 ) -> None:
     """Register analytics UI routes."""
 

@@ -82,8 +82,8 @@ class AnalyticsService:
         report_dir: Path | None = None,
         event_bus=None,
         cross_domain_backend=None,
-        knowledge_health_backend: "KnowledgeHealthOperations | None" = None,
-        embedding_coverage_backend: "EmbeddingCoverageOperations | None" = None,
+        knowledge_health_backend: KnowledgeHealthOperations | None = None,
+        embedding_coverage_backend: EmbeddingCoverageOperations | None = None,
     ) -> None:
         """
         Initialize analytics facade with all domain and curriculum services.
@@ -651,7 +651,7 @@ class AnalyticsService:
     # KNOWLEDGE-SUBGRAPH STRUCTURAL HEALTH (ADR-080 Horizon-1)
     # ========================================================================
 
-    async def analyze_knowledge_subgraph_health(self) -> "Result[KnowledgeHealthReport]":
+    async def analyze_knowledge_subgraph_health(self) -> Result[KnowledgeHealthReport]:
         """Corpus-level structural-health report over the knowledge subgraph.
 
         The Horizon-1 gauge (ADR-080): node counts, Ku degree distribution, the

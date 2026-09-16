@@ -195,9 +195,9 @@ def _new_group_modal() -> Any:
 def create_teaching_ui_routes(
     _app: Any,
     rt: Any,
-    orchestrator: "TeacherOrchestrator",
+    orchestrator: TeacherOrchestrator,
     user_service: Any,
-    entry_report_service: "EntryReportOperations | None" = None,
+    entry_report_service: EntryReportOperations | None = None,
 ) -> None:
     """
     Create teaching UI routes for the teacher dashboard.

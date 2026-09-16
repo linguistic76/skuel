@@ -45,8 +45,8 @@ class AdminStatsService:
 
     def __init__(
         self,
-        backend: "CrossDomainBackendOperations",
-        search_event_backend: "SearchEventBackendOperations | None" = None,
+        backend: CrossDomainBackendOperations,
+        search_event_backend: SearchEventBackendOperations | None = None,
     ) -> None:
         self.backend = backend
         self.search_event_backend = search_event_backend
@@ -258,7 +258,7 @@ class AdminStatsService:
         max_result_count: int = 2,
         days: int = 90,
         limit: int = 50,
-    ) -> Result[list["SearchGapRow"]]:
+    ) -> Result[list[SearchGapRow]]:
         """Zero/low-result searches grouped by normalized query — the content authoring queue.
 
         Empty list when no search-event backend is wired (nothing logged, nothing to show).

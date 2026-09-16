@@ -122,7 +122,7 @@ class UserDTO:
         email: str,
         display_name: str | None = None,
         learning_level: LearningLevel = LearningLevel.INTERMEDIATE,
-    ) -> "UserDTO":
+    ) -> UserDTO:
         """Factory method to create new UserDTO with generated UID"""
         from core.utils.uid_generator import UIDGenerator
 
@@ -222,7 +222,7 @@ class UserDTO:
         )
 
     @classmethod
-    def from_dict(cls, data: dict[str, Any]) -> "UserDTO":
+    def from_dict(cls, data: dict[str, Any]) -> UserDTO:
         """Create DTO from dictionary"""
         from core.models.dto_helpers import parse_datetime_fields
 

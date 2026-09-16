@@ -34,9 +34,9 @@ def create_askesis_ui_routes(
     rt: Any,
     _askesis_service: Any,
     intelligence_tier: IntelligenceTier | None = None,
-    user_service: "UserService | None" = None,
+    user_service: UserService | None = None,
     ku_service: Any = None,
-    search_router: "SearchRouter | None" = None,
+    search_router: SearchRouter | None = None,
 ) -> list[Any]:
     """Create UI routes for Askesis AI assistant."""
 

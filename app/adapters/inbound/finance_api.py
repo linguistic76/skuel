@@ -35,7 +35,7 @@ logger = get_logger("skuel.routes.finance.api")
 
 
 def create_finance_api_routes(
-    app: Any, rt: Any, finance_service: "FinanceService", user_service: Any = None
+    app: Any, rt: Any, finance_service: FinanceService, user_service: Any = None
 ) -> list[Any]:
     """
     Create finance API routes (JSON endpoints only).

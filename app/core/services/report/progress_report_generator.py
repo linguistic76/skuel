@@ -118,15 +118,15 @@ class ProgressReportGenerator:
 
     def __init__(
         self,
-        executor: "QueryExecutor",
-        activity_report_service: "ActivityReportService",
-        context_builder: "UserContextBuilder",
-        chat_port: "ChatCompletionPort | None" = None,
-        insight_store: "InsightStore | None" = None,
+        executor: QueryExecutor,
+        activity_report_service: ActivityReportService,
+        context_builder: UserContextBuilder,
+        chat_port: ChatCompletionPort | None = None,
+        insight_store: InsightStore | None = None,
         event_bus: EventBusOperations | None = None,
-        analytics_service: "AnalyticsService | None" = None,
-        knowledge_intelligence: "ActivityKnowledgeIntelligenceService | None" = None,
-        report_backend: "ActivityReportGeneratorBackendOperations | None" = None,
+        analytics_service: AnalyticsService | None = None,
+        knowledge_intelligence: ActivityKnowledgeIntelligenceService | None = None,
+        report_backend: ActivityReportGeneratorBackendOperations | None = None,
     ) -> None:
         self.executor = executor
         self.activity_report_service = activity_report_service
@@ -363,7 +363,7 @@ class ProgressReportGenerator:
         completions: dict[str, Any],
         start_date: datetime,
         end_date: datetime,
-        ctx_result: "Result[RichUserContext]",
+        ctx_result: Result[RichUserContext],
         *,
         figures_are_current: bool = True,
     ) -> dict[str, Any] | None:
@@ -895,7 +895,7 @@ class ProgressReportGenerator:
 
     def _completions_from_context(
         self,
-        context: "UserContext",
+        context: UserContext,
         domains: list[str] | None = None,
         *,
         window_start: datetime,

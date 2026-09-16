@@ -50,7 +50,7 @@ PATHWAYS_CONFIG = DomainRouteConfig(
 
 
 def create_pathways_routes(
-    app: FastHTMLApp, rt: RouteDecorator, services: "Services | None", _sync_service: Any = None
+    app: FastHTMLApp, rt: RouteDecorator, services: Services | None, _sync_service: Any = None
 ) -> None:
     """
     Wire pathways API and UI routes using configuration-driven registration.

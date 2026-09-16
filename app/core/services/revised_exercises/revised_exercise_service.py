@@ -90,7 +90,7 @@ class RevisedExerciseService(BaseService[RevisedExerciseBackendOperations, Revis
     def __init__(
         self,
         backend: RevisedExerciseBackendOperations,
-        event_bus: "EventBusOperations | None" = None,
+        event_bus: EventBusOperations | None = None,
     ) -> None:
         """Initialize with backend and optional event bus."""
         super().__init__(backend, "revised_exercises")

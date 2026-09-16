@@ -296,7 +296,7 @@ class SessionBackend(Neo4jSessionRunner):
 
     @safe_backend_operation("update_role_and_revoke_sessions")
     async def update_role_and_revoke_sessions(
-        self, user_uid: UserUID, new_role: "UserRole"
+        self, user_uid: UserUID, new_role: UserRole
     ) -> Result[int]:
         """Atomically persist a role change AND revoke every live session.
 

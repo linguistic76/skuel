@@ -27,6 +27,7 @@ from datetime import datetime
 from typing import TYPE_CHECKING, Any
 
 from fasthtml.common import (
+    FT,
     Div,
     P,
     Span,
@@ -67,8 +68,6 @@ from ui.patterns.page_header import PageHeader
 from ui.primitives import ButtonLink
 
 if TYPE_CHECKING:
-    from fasthtml.common import FT
-
     from core.ports.report_protocols import ProgressReportOperations
 
 logger = get_logger("skuel.routes.activity_reports")
@@ -80,7 +79,7 @@ logger = get_logger("skuel.routes.activity_reports")
 _INLINE_ERROR_CATEGORIES = frozenset({ErrorCategory.VALIDATION, ErrorCategory.BUSINESS})
 
 
-def _status_note(message: str, *, ok: bool) -> "FT":
+def _status_note(message: str, *, ok: bool) -> FT:
     tone = "text-success" if ok else "text-warning"
     return P(message, cls=f"text-sm {tone}", role="status")
 
@@ -106,7 +105,7 @@ def create_activity_reports_ui_routes(
     _app: Any,
     rt: RouteDecorator,
     orchestrator: Any = None,
-    progress_generator: "ProgressReportOperations | None" = None,
+    progress_generator: ProgressReportOperations | None = None,
 ) -> list[Any]:
     """Create activity-report detail/request/generate/annotate/download routes.
 
@@ -270,7 +269,7 @@ def create_activity_reports_ui_routes(
     @rt("/api/reports/progress/generate", methods=["POST"])
     @csrf_protected
     @boundary_handler()
-    async def generate_activity_report(request: Request) -> Result["FT"]:
+    async def generate_activity_report(request: Request) -> Result[FT]:
         """Generate a report for the signed-in user now.
 
         Answers the request form's url-encoded post (``time_period``, ``depth``)
@@ -315,7 +314,7 @@ def create_activity_reports_ui_routes(
     @rt("/api/activity-reports/annotate", methods=["POST"])
     @csrf_protected
     @boundary_handler()
-    async def annotate_activity_report(request: Request) -> Result["FT"]:
+    async def annotate_activity_report(request: Request) -> Result[FT]:
         """Save the owner's commentary or replacement text on one of their reports.
 
         Answers the detail page's url-encoded post (``uid``, ``annotation_mode``,

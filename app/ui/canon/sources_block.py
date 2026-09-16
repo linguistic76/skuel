@@ -19,7 +19,7 @@ if TYPE_CHECKING:
     from core.services.canon import CanonSource
 
 
-def CanonSourcesBlock(sources: "tuple[CanonSource, ...]", cls: str = "") -> Any:
+def CanonSourcesBlock(sources: tuple[CanonSource, ...], cls: str = "") -> Any:
     """Clickable "Sources" block for a grounded response — kind-aware links.
 
     ``cls`` carries caller-specific placement (margins/alignment) — the journal

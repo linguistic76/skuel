@@ -479,7 +479,7 @@ class RelationshipName(StrEnum):
     # =========================================================================
 
     @classmethod
-    def from_string(cls, value: str) -> "RelationshipName | None":
+    def from_string(cls, value: str) -> RelationshipName | None:
         """
         Convert a string to RelationshipName, returning None if invalid.
 
@@ -645,7 +645,7 @@ class RelationshipName(StrEnum):
         """Check if this lateral relationship is symmetric (same type both ways)."""
         return self in _SYMMETRIC_LATERAL_TYPES
 
-    def get_lateral_inverse(self) -> "RelationshipName | None":
+    def get_lateral_inverse(self) -> RelationshipName | None:
         """Get inverse for asymmetric lateral relationships. None if symmetric."""
         return _LATERAL_INVERSES.get(self)
 

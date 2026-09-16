@@ -67,7 +67,7 @@ class ReportRelationshipService:
     See: /docs/architecture/REPORT_ARCHITECTURE.md
     """
 
-    def __init__(self, backend: "UserEntryReportQueryOperations") -> None:
+    def __init__(self, backend: UserEntryReportQueryOperations) -> None:
         self.backend = backend
         self.logger = get_logger("skuel.services.report_relationship")
 
@@ -76,7 +76,7 @@ class ReportRelationshipService:
     # ========================================================================
 
     async def get_pending_submissions(
-        self, user_uid: UserUID, pipelines: "list[Pipeline] | None" = None
+        self, user_uid: UserUID, pipelines: list[Pipeline] | None = None
     ) -> Result[list[str]]:
         """
         Get UIDs of submissions that have not yet received a report.

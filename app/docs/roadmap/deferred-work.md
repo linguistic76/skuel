@@ -144,10 +144,6 @@ renders them as a table in Obsidian, and a session derives the same table with
 
 [PathStep → Ku Wiring Backlog — Ku-less PathSteps, PathStep-less Kus](pathstep-ku-wiring-backlog.md) — One PathStep Askesis cannot ground and 67 Kus no PathStep composes (and no MOC organises) — a content backlog with three counts as its check.
 
-## py314 Annotation Sweeps — UP037 Schedulable, TC002/TC003 Never
-
-[py314 Annotation Sweeps — UP037 Schedulable, TC002/TC003 Never](py314-annotation-sweeps.md) — The UP037 mechanical sweep waits for a churn window; TC002/TC003 are a permanent ignore — the rationale lives in ADR-067 § Deferred.
-
 ## Parked Features — Memory-Only Until Now
 
 [Parked Features — Memory-Only Until Now](parked-features.md) — Three feature-shaped threads — activity ledger, interest/engagement signal, icon provider swap — each with its ruled constraint and an absence check.

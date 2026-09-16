@@ -30,7 +30,7 @@ if TYPE_CHECKING:
     from fasthtml.common import FT
 
 
-def resource_chip(resource: dict) -> "FT":
+def resource_chip(resource: dict) -> FT:
     """One cited Resource as a reference chip linking to its detail page.
 
     Args:

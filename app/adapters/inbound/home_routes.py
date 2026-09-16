@@ -21,9 +21,9 @@ if TYPE_CHECKING:
 
 
 def create_home_routes(
-    app: "FastHTMLApp",
-    rt: "RouteDecorator",
-    services: "Services",
+    app: FastHTMLApp,
+    rt: RouteDecorator,
+    services: Services,
 ) -> None:
     """Register shared HTMX fragments used by every page."""
 

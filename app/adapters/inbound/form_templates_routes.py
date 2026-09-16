@@ -45,7 +45,7 @@ FORM_TEMPLATES_CONFIG = DomainRouteConfig(
 
 
 def create_form_templates_routes(
-    app: FastHTMLApp, rt: RouteDecorator, services: "Services | None", _sync_service: Any = None
+    app: FastHTMLApp, rt: RouteDecorator, services: Services | None, _sync_service: Any = None
 ) -> None:
     """Wire form template API routes using configuration-driven registration."""
     register_domain_routes(app, rt, services, FORM_TEMPLATES_CONFIG)

@@ -21,6 +21,7 @@ from __future__ import annotations
 
 import ast
 import inspect
+from annotationlib import Format
 
 import pytest
 
@@ -79,7 +80,9 @@ def test_registered_class_accepts_the_factory_kwargs(domain: str, slot: str) -> 
         return
 
     passed = _factory_call_kwargs()[slot]
-    params = inspect.signature(registered.__init__).parameters
+    # Names, kinds and defaults only — FORWARDREF never evaluates the annotations, so a
+    # sub-service typing a constructor parameter with a TYPE_CHECKING-only import stays checkable.
+    params = inspect.signature(registered.__init__, annotation_format=Format.FORWARDREF).parameters
     takes_var_kwargs = any(p.kind is inspect.Parameter.VAR_KEYWORD for p in params.values())
 
     unaccepted = [name for name in passed if name not in params and not takes_var_kwargs]

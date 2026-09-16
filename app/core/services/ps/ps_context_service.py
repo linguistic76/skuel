@@ -51,10 +51,10 @@ class PsContextService:
     @with_error_handling("get_ready_to_learn_for_user", error_type="database")
     async def get_ready_to_learn_for_user(
         self,
-        context: "UserContext",
+        context: UserContext,
         domain: str | None = None,
         limit: int = 10,
-    ) -> Result[list["ContextualKnowledge"]]:
+    ) -> Result[list[ContextualKnowledge]]:
         """
         Get knowledge units the user is ready to learn (prerequisites met).
 
@@ -114,10 +114,10 @@ class PsContextService:
     @with_error_handling("get_learning_gaps_for_user", error_type="database")
     async def get_learning_gaps_for_user(
         self,
-        context: "UserContext",
+        context: UserContext,
         goal_uid: str | None = None,
         limit: int = 10,
-    ) -> Result[list["ContextualKnowledge"]]:
+    ) -> Result[list[ContextualKnowledge]]:
         """
         Get knowledge gaps blocking user's progress toward goals.
 
@@ -189,10 +189,10 @@ class PsContextService:
     @with_error_handling("get_steps_to_reinforce_for_user", error_type="database")
     async def get_steps_to_reinforce_for_user(
         self,
-        context: "UserContext",
+        context: UserContext,
         mastery_threshold: float = 0.7,
         limit: int = 10,
-    ) -> Result[list["ContextualKnowledge"]]:
+    ) -> Result[list[ContextualKnowledge]]:
         """
         Get path steps the user should reinforce (mastered but decaying).
 
@@ -291,7 +291,7 @@ class PsContextService:
     @staticmethod
     def _find_application_opportunities(
         ku_uid: str,
-        context: "UserContext",
+        context: UserContext,
     ) -> list[str]:
         """
         Find tasks/habits where user can apply this knowledge.

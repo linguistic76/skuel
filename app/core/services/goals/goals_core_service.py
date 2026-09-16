@@ -483,7 +483,7 @@ class GoalsCoreService(
         entity: Goal,
         *,
         progress_weight: float,
-        request: "GoalCreateRequest | None" = None,
+        request: GoalCreateRequest | None = None,
     ) -> Result[Goal]:
         """The one create path: validate + persist, write the edges, then announce.
 
@@ -573,7 +573,7 @@ class GoalsCoreService(
                 edge_result.error,
             )
 
-    async def _write_link_edges(self, goal: Goal, request: "GoalCreateRequest") -> None:
+    async def _write_link_edges(self, goal: Goal, request: GoalCreateRequest) -> None:
         """GRAPH-NATIVE: turn the request's three link lists into edges, in one batch.
 
         Each names a registered, READ relationship that nothing was writing at creation
@@ -729,9 +729,7 @@ class GoalsCoreService(
             self.logger,
         )
 
-    async def create_goal(
-        self, goal_request: "GoalCreateRequest", user_uid: UserUID
-    ) -> Result[Goal]:
+    async def create_goal(self, goal_request: GoalCreateRequest, user_uid: UserUID) -> Result[Goal]:
         """
         Create a goal from a request with user_uid.
 

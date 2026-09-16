@@ -48,7 +48,7 @@ _PS_PILL_CLS = (
 
 def _sidebar_link_with_pill(
     title: str, href: str, entity_type: str, is_current: bool = False
-) -> "FT":
+) -> FT:
     """Sidebar link with Ku/PS type pill badge."""
     is_ku = entity_type == EntityType.KU.value
     pill_cls = _KU_PILL_CLS if is_ku else _PS_PILL_CLS
@@ -67,12 +67,12 @@ def _sidebar_link_with_pill(
 
 def _build_section(
     title: str,
-    links: list["FT"],
+    links: list[FT],
     empty_text: str = "",
     collapsible: bool = False,
     see_all_href: str = "",
     filter_name: str = "",
-) -> "FT":
+) -> FT:
     """Render a sidebar section with header + link list.
 
     Args:
@@ -131,11 +131,11 @@ def _build_section(
 def render_explore_sidebar_page(
     content: Any,
     sidebar_data: dict[str, Any] | None,
-    request: "Request",
+    request: Request,
     page_title: str = "Explore",
     current_uid: str = "",
     current_entity_type: str = "",
-) -> "FT":
+) -> FT:
     """Wrap content in Explore sidebar page with graph hero + filtered lists.
 
     Args:

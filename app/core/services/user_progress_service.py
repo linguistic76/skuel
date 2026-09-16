@@ -159,7 +159,7 @@ class UserProgressService:
     flows through this service.
     """
 
-    def __init__(self, backend: "UserProgressBackendOperations") -> None:
+    def __init__(self, backend: UserProgressBackendOperations) -> None:
         """
         Initialize with backend.
 

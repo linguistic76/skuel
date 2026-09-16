@@ -49,7 +49,7 @@ class _BehavioralSignalsMixin:
     """
 
     # Populated by ChoicesIntelligenceService.__init__
-    backend: "ChoicesOperations"
+    backend: ChoicesOperations
     relationships: Any
     insight_store: Any
     logger: Any

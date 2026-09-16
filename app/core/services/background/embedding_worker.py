@@ -104,7 +104,7 @@ class EmbeddingBackgroundWorker:
     def __init__(
         self,
         event_bus: EventBusOperations,
-        embeddings_service: "EmbeddingsService",
+        embeddings_service: EmbeddingsService,
         content_adapter: Any | None = None,  # Neo4jContentAdapter for chunk storage
         reference_chunk_adapter: Any | None = None,  # Neo4jReferenceChunkAdapter for canon chunks
         batch_size: int = 25,

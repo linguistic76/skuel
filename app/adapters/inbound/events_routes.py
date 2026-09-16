@@ -51,7 +51,7 @@ EVENTS_CONFIG = create_activity_domain_route_config(
 
 
 def create_events_routes(
-    app: FastHTMLApp, rt: RouteDecorator, services: "Services | None", _sync_service: Any = None
+    app: FastHTMLApp, rt: RouteDecorator, services: Services | None, _sync_service: Any = None
 ) -> None:
     """Wire events API and UI routes using configuration-driven registration."""
     register_domain_routes(app, rt, services, EVENTS_CONFIG)

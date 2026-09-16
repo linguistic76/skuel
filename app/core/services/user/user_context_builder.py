@@ -75,8 +75,8 @@ class UserContextBuilder:
 
     def __init__(
         self,
-        query_executor: "UserContextQueryOperations",
-        user_service: "UserService | None" = None,
+        query_executor: UserContextQueryOperations,
+        user_service: UserService | None = None,
     ) -> None:
         """
         Initialize context builder with composed modules.

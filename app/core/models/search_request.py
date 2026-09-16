@@ -683,7 +683,7 @@ class SearchRequest(BaseModel):
         # Pagination
         limit: int = 20,
         offset: int = 0,
-    ) -> "SearchRequest":
+    ) -> SearchRequest:
         """Build a SearchRequest from raw HTML form string parameters.
 
         Handles empty-string-to-None normalization, checkbox-to-bool conversion,

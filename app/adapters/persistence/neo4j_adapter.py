@@ -138,7 +138,7 @@ class Neo4jAdapter:
             await self.connection.close()
             logger.info("Neo4j connection closed")
 
-    async def __aenter__(self) -> "Neo4jAdapter":
+    async def __aenter__(self) -> Neo4jAdapter:
         """Async context manager entry"""
         await self.connect()
         return self

@@ -32,7 +32,7 @@ logger = get_logger(__name__)
 def create_form_submissions_api_routes(
     app: Any,
     rt: Any,
-    form_submission_service: "FormSubmissionService",
+    form_submission_service: FormSubmissionService,
     user_service: Any = None,
 ) -> list[Any]:
     """Create form submission API routes (authenticated users)."""

@@ -280,7 +280,7 @@ def _pct(fraction: float) -> str:
     return f"{round(fraction * 100)}%"
 
 
-def _coverage_stat(label: str, metric: "KnowledgeCoverageMetric", total_kus: int) -> StatItem:
+def _coverage_stat(label: str, metric: KnowledgeCoverageMetric, total_kus: int) -> StatItem:
     """A coverage slice as a StatItem: `edges · participating/total Kus`."""
     coverage = metric["coverage"]
     color = "success" if coverage >= 0.5 else ("warning" if coverage > 0 else "error")
@@ -292,7 +292,7 @@ def _coverage_stat(label: str, metric: "KnowledgeCoverageMetric", total_kus: int
     )
 
 
-def _readiness_banner(report: "KnowledgeHealthReport") -> Any:
+def _readiness_banner(report: KnowledgeHealthReport) -> Any:
     """The headline GDS-readiness score, badge, and progress bar (ADR-080)."""
     score_pct = round(report["gds_readiness_score"] * 100)
     ready = report["gds_ready"]
@@ -372,7 +372,7 @@ def _orphan_card(orphan_kus: list[Any], orphan_count: int) -> Any:
     )
 
 
-def knowledge_health_page(report: "KnowledgeHealthReport") -> Any:
+def knowledge_health_page(report: KnowledgeHealthReport) -> Any:
     """/admin/knowledge-health — ADR-080 Horizon-1 structural-health gauge.
 
     One consolidated corpus-level report over the knowledge subgraph

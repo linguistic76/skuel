@@ -38,7 +38,7 @@ _MASTERY_LEVELS: list[tuple[str, str]] = [
 def render_ku_mastery_section(
     ku_uid: str,
     checkins: list[dict[str, Any]],
-) -> "FT":
+) -> FT:
     """Mastery self-check section for the Ku detail page (authenticated users only).
 
     Renders a segmented mastery control (state owned by the parent
@@ -138,7 +138,7 @@ def render_ku_mastery_section(
 def render_ku_mastery_result(
     result: DualTrackResult[MasteryLevel],
     checkins: list[dict[str, Any]],
-) -> "FT":
+) -> FT:
     """HTMX fragment after a mastery self-rating: gap card + refreshed trend."""
     return Div(
         gap_card("Knowledge Mastery", result),

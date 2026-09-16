@@ -56,7 +56,7 @@ class GroupDTO:
         }
 
     @classmethod
-    def from_dict(cls, data: dict[str, Any]) -> "GroupDTO":
+    def from_dict(cls, data: dict[str, Any]) -> GroupDTO:
         """Create GroupDTO from dictionary (from database).
 
         Completes the DTOProtocol contract (``metadata`` + ``to_dict`` + ``from_dict``)
@@ -111,11 +111,11 @@ class Group:
         return f"{self.name} ({status})"
 
     @classmethod
-    def from_dto(cls, dto: "GroupDTO") -> "Group":
+    def from_dto(cls, dto: GroupDTO) -> Group:
         """Create Group from GroupDTO — delegates to group_dto_to_pure."""
         return group_dto_to_pure(dto)
 
-    def to_dto(self) -> "GroupDTO":
+    def to_dto(self) -> GroupDTO:
         """Convert Group to GroupDTO — delegates to group_pure_to_dto."""
         return group_pure_to_dto(self)
 

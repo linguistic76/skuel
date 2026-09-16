@@ -107,7 +107,7 @@ async def _load_ku_mastery_checkins(
 
 def _make_ku_mastery_store(
     user_service: Any, user_uid: str
-) -> "Callable[[str, DualTrackResult[MasteryLevel]], Awaitable[None]]":
+) -> Callable[[str, DualTrackResult[MasteryLevel]], Awaitable[None]]:
     """Build the dual-track ``store_callback(ku_uid, result)`` for the Knowledge
     dimension, with ``user_uid`` bound — persists per-(user, Ku) on the :User node."""
 
@@ -125,11 +125,11 @@ def _make_ku_mastery_store(
 def create_learning_loop_detail_routes(
     _app: FastHTMLApp,
     rt: RouteDecorator,
-    orchestrator: "ExploreOrchestrator",
-    ps_engagement_service: "PsEngagementService | None" = None,
+    orchestrator: ExploreOrchestrator,
+    ps_engagement_service: PsEngagementService | None = None,
     user_service: Any = None,
-    vector_search_service: "Neo4jVectorSearchService | None" = None,
-    zpd_service: "ZPDOperations | None" = None,
+    vector_search_service: Neo4jVectorSearchService | None = None,
+    zpd_service: ZPDOperations | None = None,
 ) -> None:
     """Register /explore/ku/{uid} and /explore/ps/{uid} detail routes.
 
@@ -261,7 +261,7 @@ def create_learning_loop_detail_routes(
         return chips
 
     @rt("/explore/ku/{uid}/related")
-    async def explore_ku_related_fragment(request: Request, uid: str) -> "FT":
+    async def explore_ku_related_fragment(request: Request, uid: str) -> FT:
         """HTMX fragment: Related concepts — vector-similar Kus (read-time lens)."""
         related = await _related_fragment("Ku", uid, "ku-related-fragment")
         return render_ku_related_concepts(related)
@@ -431,7 +431,7 @@ def create_learning_loop_detail_routes(
         )
 
     @rt("/explore/ps/{uid}/related")
-    async def explore_ps_related_fragment(request: Request, uid: str) -> "FT":
+    async def explore_ps_related_fragment(request: Request, uid: str) -> FT:
         """HTMX fragment: Related concepts — vector-similar PathSteps (read-time lens)."""
         related = await _related_fragment("PathStep", uid, "ps-related-fragment")
         return render_ps_related_concepts(related)
@@ -445,7 +445,7 @@ def create_learning_loop_detail_routes(
     next_step_ku_limit = 2
 
     @rt("/explore/next-step/related")
-    async def explore_next_step_related_fragment(request: Request) -> "FT":
+    async def explore_next_step_related_fragment(request: Request) -> FT:
         """HTMX fragment: ZPD next-step Kus + their undirected vector neighbours.
 
         User-scoped (not PS-scoped): the next-step Kus come from the viewer's
@@ -507,8 +507,8 @@ def create_learning_loop_detail_routes(
 def create_learning_loop_fragment_routes(
     _app: FastHTMLApp,
     rt: RouteDecorator,
-    orchestrator: "ExploreOrchestrator",
-    form_submission_service: "FormSubmissionOperations | None" = None,
+    orchestrator: ExploreOrchestrator,
+    form_submission_service: FormSubmissionOperations | None = None,
 ) -> None:
     """Register /learning-loop/* HTMX fragment routes.
 
@@ -591,12 +591,12 @@ def create_learning_loop_fragment_routes(
 def create_learning_loop_routes(
     app: FastHTMLApp,
     rt: RouteDecorator,
-    orchestrator: "ExploreOrchestrator",
-    ps_engagement_service: "PsEngagementService | None" = None,
+    orchestrator: ExploreOrchestrator,
+    ps_engagement_service: PsEngagementService | None = None,
     user_service: Any = None,
-    form_submission_service: "FormSubmissionOperations | None" = None,
-    vector_search_service: "Neo4jVectorSearchService | None" = None,
-    zpd_service: "ZPDOperations | None" = None,
+    form_submission_service: FormSubmissionOperations | None = None,
+    vector_search_service: Neo4jVectorSearchService | None = None,
+    zpd_service: ZPDOperations | None = None,
 ) -> None:
     """Register all learning loop routes (detail pages + fragments).
 

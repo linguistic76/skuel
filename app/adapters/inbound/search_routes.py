@@ -135,7 +135,7 @@ def scope_to_search_page(request: SearchRequest) -> SearchRequest:
 def create_search_api_routes(
     app: FastHTMLApp,
     rt: RouteDecorator,
-    search_router: "SearchRouter",
+    search_router: SearchRouter,
     ku_service: Any = None,
     intelligence_tier: IntelligenceTier | None = None,
     user_service: Any = None,
@@ -577,7 +577,7 @@ SEARCH_CONFIG = DomainRouteConfig(
 
 
 def create_search_routes(
-    app: FastHTMLApp, rt: RouteDecorator, services: "Services", _sync_service: Any = None
+    app: FastHTMLApp, rt: RouteDecorator, services: Services, _sync_service: Any = None
 ) -> None:
     """Wire search routes via DomainRouteConfig."""
     register_domain_routes(app, rt, services, SEARCH_CONFIG)

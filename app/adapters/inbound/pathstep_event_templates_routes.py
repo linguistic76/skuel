@@ -34,7 +34,7 @@ PATHSTEP_EVENT_TEMPLATES_CONFIG = make_pathstep_template_route_config(
 def create_pathstep_event_templates_routes(
     app: FastHTMLApp,
     rt: RouteDecorator,
-    services: "Services | None",
+    services: Services | None,
     _sync_service: Any = None,
 ) -> None:
     """Wire EventTemplate CRUD + PS-attachment routes."""

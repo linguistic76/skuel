@@ -1400,7 +1400,7 @@ class KnowledgeHealthBackend:
     GDS-readiness score, and the authoring flags from these facts (ADR-080 H1).
     """
 
-    def __init__(self, executor: "Neo4jQueryExecutor") -> None:
+    def __init__(self, executor: Neo4jQueryExecutor) -> None:
         self.executor = executor
         self.logger = get_logger("skuel.backends.knowledge_health")
 
@@ -1495,7 +1495,7 @@ class EmbeddingCoverageBackend:
     off.
     """
 
-    def __init__(self, executor: "Neo4jQueryExecutor") -> None:
+    def __init__(self, executor: Neo4jQueryExecutor) -> None:
         self.executor = executor
         self.logger = get_logger("skuel.backends.embedding_coverage")
 

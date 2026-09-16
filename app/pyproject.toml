@@ -128,11 +128,8 @@ packages = ["."]
 
 [tool.black]
 line-length = 88
-# Lint/format syntax target intentionally LAGS the runtime (requires-python = 3.14).
-# Bumping to py314 would trigger the UP037 annotation sweep (scheduled separately —
-# deferred-work.md § py314 Annotation Sweeps; TC002/TC003 stay ignored permanently).
-# See ADR-067 § Deferred.
-target-version = ['py312']
+# Matches requires-python (3.14) — ADR-067 § Deferred.
+target-version = ['py314']
 include = '\.pyi?$'
 extend-exclude = '''
 /(
@@ -618,9 +615,11 @@ output = "coverage.xml"
 # 2026-08-28): moving an import under TYPE_CHECKING is only safe where nothing
 # evaluates the annotation at runtime, and FastHTML handler signatures are
 # introspected at registration by a local decorator ruff cannot be told about.
-# UP037 is a single scheduled mechanical sweep, tree-wide — rationale and measured
-# baseline in ADR-067 § Deferred, trigger + check in deferred-work.md § py314
-# Annotation Sweeps.
+# UP037 (quoted annotations) is LIVE: under 3.14's deferred evaluation the quotes
+# are redundant, and a quoted name that is imported only under TYPE_CHECKING is
+# the mirror hazard — inert as a string, a NameError once unquoted and
+# introspected — so a new one is caught here, not at bootstrap. Rationale in
+# ADR-067 § Deferred; the sweep record in docs/roadmap/done/py314-annotation-sweeps.md.
 target-version = "py314"
 line-length = 100
 include = ["*.py", "*.pyi"]
@@ -729,7 +728,6 @@ ignore = [
     "TC001",   # TYPE_CHECKING imports - false positives for runtime imports
     "TC002",   # PERMANENT — TYPE_CHECKING moves break runtime-evaluated annotations (FastHTML handlers); ADR-067 § Deferred
     "TC003",   # PERMANENT — same as TC002
-    "UP037",   # scheduled sweep, one mechanical PR — deferred-work.md § py314 Annotation Sweeps
     "UP046",   # Generic[T] syntax - keep existing pattern for compatibility
     "UP047",   # TypeVar in function signatures - keep existing pattern for consistency with UP046
 ]

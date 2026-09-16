@@ -124,7 +124,7 @@ class Neo4jConnection:
 
     async def __aenter__(
         self,
-    ) -> "Neo4jConnection":  # skuel-lint: disable=SKUEL029 -- async context-manager protocol: `async with` awaits __aenter__
+    ) -> Neo4jConnection:  # skuel-lint: disable=SKUEL029 -- async context-manager protocol: `async with` awaits __aenter__
         """Async context manager entry."""
         self.connect()
         return self

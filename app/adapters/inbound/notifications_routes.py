@@ -30,7 +30,7 @@ NOTIFICATIONS_CONFIG = DomainRouteConfig(
 
 
 def create_notifications_routes(
-    app: FastHTMLApp, rt: RouteDecorator, services: "Services | None", _sync_service: Any = None
+    app: FastHTMLApp, rt: RouteDecorator, services: Services | None, _sync_service: Any = None
 ) -> None:
     """Wire notifications UI routes using configuration-driven registration."""
     register_domain_routes(app, rt, services, NOTIFICATIONS_CONFIG)

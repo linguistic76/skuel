@@ -49,7 +49,7 @@ class TaskStats:
     overdue: int
 
 
-def compute_task_stats(tasks: list["Task"]) -> TaskStats:
+def compute_task_stats(tasks: list[Task]) -> TaskStats:
     """Compute aggregate stats from a list of Task domain models.
 
     Semantics:
@@ -111,7 +111,7 @@ _GOAL_TERMINAL_STATUSES = (
 )
 
 
-def compute_goal_stats(goals: list["Goal"]) -> GoalStats:
+def compute_goal_stats(goals: list[Goal]) -> GoalStats:
     """Compute aggregate stats from a list of Goal domain models.
 
     Semantics:
@@ -162,7 +162,7 @@ class HabitStats:
     keystone_count: int
 
 
-def compute_habit_stats(habits: list["Habit"]) -> HabitStats:
+def compute_habit_stats(habits: list[Habit]) -> HabitStats:
     """Compute aggregate stats from a list of Habit domain models.
 
     Semantics:
@@ -203,7 +203,7 @@ class EventStats:
 _EVENT_TERMINAL_STATUSES = frozenset({"completed", "cancelled", "archived"})
 
 
-def compute_event_stats(events: list["Event"]) -> EventStats:
+def compute_event_stats(events: list[Event]) -> EventStats:
     """Compute aggregate stats from a list of Event domain models.
 
     Semantics:
@@ -243,7 +243,7 @@ class ChoiceStats:
     decided: int
 
 
-def compute_choice_stats(choices: list["Choice"]) -> ChoiceStats:
+def compute_choice_stats(choices: list[Choice]) -> ChoiceStats:
     """Compute aggregate stats from a list of Choice domain models.
 
     Semantics:
@@ -281,7 +281,7 @@ def _principle_strength_rank(p: Any) -> int:
     return PrincipleStrength.from_value(getattr(p, "strength", PrincipleStrength.MODERATE)).rank()
 
 
-def compute_principle_stats(principles: list["Principle"]) -> PrincipleStats:
+def compute_principle_stats(principles: list[Principle]) -> PrincipleStats:
     """Compute aggregate stats from a list of Principle domain models.
 
     Semantics:

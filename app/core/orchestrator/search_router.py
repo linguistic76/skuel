@@ -163,7 +163,7 @@ CURRICULUM_FACET_DOMAINS: tuple[EntityType, ...] = (EntityType.KU, EntityType.PA
 _TAG_SCOPE_PROPERTY = "user_uid"
 
 
-def _sweep_sort_key(sort_field: str) -> "Callable[[dict[str, Any]], str]":
+def _sweep_sort_key(sort_field: str) -> Callable[[dict[str, Any]], str]:
     """Sort-key factory for cross-domain merges on a shared entity field.
 
     Per-domain result sets arrive Cypher-sorted; the merged list re-sorts on
@@ -230,7 +230,7 @@ class UnifiedSearchResult:
     """
 
     query: str
-    parsed_query: "ParsedSearchQuery | None" = None
+    parsed_query: ParsedSearchQuery | None = None
     results_by_domain: dict[EntityType | NonKuDomain, list[SearchResultItem]] = field(
         default_factory=dict
     )
@@ -361,24 +361,24 @@ class SearchRouter:
     def __init__(
         self,
         *,
-        tasks: "TasksService | None" = None,
-        goals: "GoalsService | None" = None,
-        habits: "HabitsService | None" = None,
-        events: "EventsService | None" = None,
-        choices: "ChoicesService | None" = None,
-        principles: "PrinciplesService | None" = None,
-        finance: "FinanceService | None" = None,
-        ku: "KuService | None" = None,
-        ps: "PsService | None" = None,
-        lp: "LpService | None" = None,
-        exercises: "ExerciseOperations | None" = None,
-        revised_exercises: "RevisedExerciseOperations | None" = None,
-        user_entry: "UserEntryService | None" = None,
-        lifepath: "LifePathOperations | None" = None,
-        calendar: "CalendarServiceOperations | None" = None,
-        user: "UserService | None" = None,
-        vector_search_service: "Neo4jVectorSearchService | None" = None,
-        event_bus: "EventBusOperations | None" = None,
+        tasks: TasksService | None = None,
+        goals: GoalsService | None = None,
+        habits: HabitsService | None = None,
+        events: EventsService | None = None,
+        choices: ChoicesService | None = None,
+        principles: PrinciplesService | None = None,
+        finance: FinanceService | None = None,
+        ku: KuService | None = None,
+        ps: PsService | None = None,
+        lp: LpService | None = None,
+        exercises: ExerciseOperations | None = None,
+        revised_exercises: RevisedExerciseOperations | None = None,
+        user_entry: UserEntryService | None = None,
+        lifepath: LifePathOperations | None = None,
+        calendar: CalendarServiceOperations | None = None,
+        user: UserService | None = None,
+        vector_search_service: Neo4jVectorSearchService | None = None,
+        event_bus: EventBusOperations | None = None,
     ) -> None:
         """
         Initialize router with explicit dependencies.
@@ -403,7 +403,7 @@ class SearchRouter:
         self._event_bus = event_bus
         # Keys are exactly _SERVICE_REGISTRY's keys (guarded by
         # test_search_router_registry) so enum-driven dispatch cannot dangle.
-        self._domain_services: "dict[EntityType | NonKuDomain, DomainService | None]" = {
+        self._domain_services: dict[EntityType | NonKuDomain, DomainService | None] = {
             EntityType.TASK: tasks,
             EntityType.GOAL: goals,
             EntityType.HABIT: habits,
@@ -422,7 +422,7 @@ class SearchRouter:
         }
         self.logger = get_logger(__name__)
 
-    def get_service(self, entity_type: EntityType | NonKuDomain) -> "DomainService | None":
+    def get_service(self, entity_type: EntityType | NonKuDomain) -> DomainService | None:
         """
         Get the appropriate service for a EntityType or NonKuDomain.
 
@@ -443,8 +443,8 @@ class SearchRouter:
         return service
 
     async def _nous_subtopic_pairs(
-        self, scope: "Sequence[EntityType]" = CURRICULUM_FACET_DOMAINS
-    ) -> "list[NousSubtopicPair]":
+        self, scope: Sequence[EntityType] = CURRICULUM_FACET_DOMAINS
+    ) -> list[NousSubtopicPair]:
         """Gather (nous, nous_subtopic) co-occurrence pairs across curriculum domains.
 
         The cross-domain aggregation point (SearchRouter is THE cross-domain
@@ -465,7 +465,7 @@ class SearchRouter:
         Fails soft per domain: a missing service or an errored call contributes
         nothing rather than failing the whole vocabulary.
         """
-        pairs: "list[NousSubtopicPair]" = []
+        pairs: list[NousSubtopicPair] = []
         for entity_type, service in (
             (EntityType.KU, self._ku),
             (EntityType.PATH_STEP, self._ps),
@@ -480,7 +480,7 @@ class SearchRouter:
         return pairs
 
     async def nous_subtopic_map(
-        self, scope: "Sequence[EntityType]" = CURRICULUM_FACET_DOMAINS
+        self, scope: Sequence[EntityType] = CURRICULUM_FACET_DOMAINS
     ) -> Result[dict[str, list[str]]]:
         """Map each NOUS topic to the sub-topics authored alongside it.
 
@@ -502,9 +502,9 @@ class SearchRouter:
 
     async def tag_frequencies(
         self,
-        scope: "Sequence[EntityType]" = CURRICULUM_FACET_DOMAINS,
+        scope: Sequence[EntityType] = CURRICULUM_FACET_DOMAINS,
         user_uid: UserUID | None = None,
-    ) -> Result["list[TagFrequency]"]:
+    ) -> Result[list[TagFrequency]]:
         """Tag vocabulary across the domains in `scope`, most-used first.
 
         Powers the frequency-ranked /explore/library tag chips and the /search
@@ -588,7 +588,7 @@ class SearchRouter:
         def most_used_first(item: tuple[str, int]) -> tuple[int, str]:
             return (-item[1], item[0])
 
-        ordered: "list[TagFrequency]" = [
+        ordered: list[TagFrequency] = [
             {"tag": tag, "count": count}
             for tag, count in sorted(counts.items(), key=most_used_first)
         ]
@@ -596,7 +596,7 @@ class SearchRouter:
 
     async def list_tags(
         self,
-        scope: "Sequence[EntityType]" = CURRICULUM_FACET_DOMAINS,
+        scope: Sequence[EntityType] = CURRICULUM_FACET_DOMAINS,
         user_uid: UserUID | None = None,
     ) -> Result[list[str]]:
         """Flat alphabetical tag vocabulary — the /search tags-filter shape.
@@ -612,7 +612,7 @@ class SearchRouter:
         return Result.ok(sorted(item["tag"] for item in result.value))
 
     async def list_nous_subtopics(
-        self, scope: "Sequence[EntityType]" = CURRICULUM_FACET_DOMAINS
+        self, scope: Sequence[EntityType] = CURRICULUM_FACET_DOMAINS
     ) -> Result[list[str]]:
         """Flat NOUS sub-topic vocabulary — every distinct sub-topic, deduped + sorted.
 
@@ -756,7 +756,7 @@ class SearchRouter:
             SearchVisibility.SCOPE_AWARE,
         )
 
-    def _get_search_service(self, service: "DomainService") -> SupportsTextSearch | None:
+    def _get_search_service(self, service: DomainService) -> SupportsTextSearch | None:
         """
         Get the search sub-service from a domain service.
 
@@ -885,12 +885,12 @@ class SearchRouter:
 
     async def faceted_search(
         self,
-        request: "SearchRequest",
+        request: SearchRequest,
         user_uid: UserUID | None = None,
         *,
         log_event: bool = True,
         entry_point: str = "faceted",
-    ) -> Result["SearchResponse"]:
+    ) -> Result[SearchResponse]:
         """
         Faceted search - THE entry point for all UI-driven search.
 
@@ -925,7 +925,7 @@ class SearchRouter:
             # Route 1: Single domain specified — either request.domain or a
             # single entity-type filter (the /search dropdown path)
             domain_str = self._resolve_single_domain(request)
-            response: Result["SearchResponse"] | None = None
+            response: Result[SearchResponse] | None = None
             if domain_str:
                 # Privacy line: refuse loudly rather than fall through to the
                 # sweep and return an empty success for a misprogrammed caller
@@ -1010,7 +1010,7 @@ class SearchRouter:
             self.logger.error(f"Faceted search failed (unexpected): {e}")
             return Result.fail(Errors.database(operation="faceted_search", message=str(e)))
 
-    def _peek_capacity_warnings(self, user_uid: UserUID) -> "CapacityWarnings":
+    def _peek_capacity_warnings(self, user_uid: UserUID) -> CapacityWarnings:
         """Capacity warnings from the WARM UserContext cache — never builds.
 
         Cache-hit-only by design: search must not pay MEGA-QUERY latency
@@ -1027,12 +1027,12 @@ class SearchRouter:
 
     async def retrieve_scoped_chunks(
         self,
-        request: "SearchRequest",
+        request: SearchRequest,
         *,
         chunk_types: list[str] | None = None,
         min_score: float | None = None,
         user_uid: UserUID | None = None,
-    ) -> Result[list["SemanticSearchChunkResult"]]:
+    ) -> Result[list[SemanticSearchChunkResult]]:
         """Retrieve lesson-BODY passages (:ContentChunk) scoped to the request's facets.
 
         The chunk-level (RAG) counterpart to ``faceted_search``: where that method
@@ -1120,10 +1120,10 @@ class SearchRouter:
 
     async def _augment_with_body_chunks(
         self,
-        request: "SearchRequest",
+        request: SearchRequest,
         domain_str: str | None,
-        response: "SearchResponse",
-    ) -> "SearchResponse":
+        response: SearchResponse,
+    ) -> SearchResponse:
         """Fold lesson-BODY semantic hits (Ku/PS :ContentChunk) into results.
 
         Digital-layer enhancement (ADR-043). Embeds the query, finds similar
@@ -1233,12 +1233,12 @@ class SearchRouter:
 
     @staticmethod
     def _stamp_body_fold(
-        response: "SearchResponse",
-        status: "BodyFoldStatus",
+        response: SearchResponse,
+        status: BodyFoldStatus,
         *,
         chunk_candidates: int = 0,
         parents_added: int = 0,
-    ) -> "SearchResponse":
+    ) -> SearchResponse:
         """Record what the body-chunk fold did, on the response it did it to.
 
         In place, because ``faceted_search`` holds this same object and enriches
@@ -1255,7 +1255,7 @@ class SearchRouter:
 
     @staticmethod
     def _aggregate_body_chunk_parents(
-        hits: list["SemanticSearchChunkResult"],
+        hits: list[SemanticSearchChunkResult],
         target_values: frozenset[str],
         existing_uids: set[str],
     ) -> list[dict[str, Any]]:
@@ -1268,7 +1268,7 @@ class SearchRouter:
         result dicts ranked by best-chunk score (descending).
         """
 
-        def _score(hit: "SemanticSearchChunkResult") -> float:
+        def _score(hit: SemanticSearchChunkResult) -> float:
             return hit.get("similarity_score", 0.0)
 
         best_by_parent: dict[str, SemanticSearchChunkResult] = {}
@@ -1286,7 +1286,7 @@ class SearchRouter:
         return [SearchRouter._chunk_hit_to_result(hit) for hit in ranked]
 
     @staticmethod
-    def _chunk_hit_to_result(hit: "SemanticSearchChunkResult") -> dict[str, Any]:
+    def _chunk_hit_to_result(hit: SemanticSearchChunkResult) -> dict[str, Any]:
         """Build a parent-entity result card dict from a body-chunk hit.
 
         The matched passage becomes the card ``description`` so the learner sees
@@ -1316,7 +1316,7 @@ class SearchRouter:
             return raw
         return EntityType.from_string(str(raw)) or NonKuDomain.from_string(str(raw))
 
-    def _resolve_single_domain(self, request: "SearchRequest") -> str | None:
+    def _resolve_single_domain(self, request: SearchRequest) -> str | None:
         """Resolve the request to a single domain string, if one is targeted.
 
         Two sources, in precedence order:
@@ -1367,7 +1367,7 @@ class SearchRouter:
         }
     )
 
-    def _resolve_graph_aware_service(self, domain_str: str) -> "SupportsGraphAwareSearch | None":
+    def _resolve_graph_aware_service(self, domain_str: str) -> SupportsGraphAwareSearch | None:
         """Resolve a domain string to its graph-aware search service, if any.
 
         Domain strings in _GRAPH_AWARE_DOMAINS are _SERVICE_REGISTRY values
@@ -1394,10 +1394,10 @@ class SearchRouter:
 
     async def _graph_aware_domain_search(
         self,
-        request: "SearchRequest",
+        request: SearchRequest,
         user_uid: UserUID | None,
         domain_str: str,
-    ) -> Result["SearchResponse"] | None:
+    ) -> Result[SearchResponse] | None:
         """
         Graph-aware search for domains that support graph_aware_faceted_search.
 
@@ -1446,10 +1446,10 @@ class SearchRouter:
 
     async def _simple_domain_search(
         self,
-        request: "SearchRequest",
+        request: SearchRequest,
         domain_str: str,
         user_uid: UserUID | None = None,
-    ) -> Result["SearchResponse"] | None:
+    ) -> Result[SearchResponse] | None:
         """Simple text search for curriculum and other domains.
 
         ``user_uid`` must be forwarded even though most domains routed here are
@@ -1526,7 +1526,7 @@ class SearchRouter:
 
     async def _cross_domain_search(
         self,
-        request: "SearchRequest",
+        request: SearchRequest,
         user_uid: UserUID | None = None,
     ) -> list[dict]:
         """Search across multiple domains and aggregate results.
@@ -1599,7 +1599,7 @@ class SearchRouter:
 
     async def _faceted_sweep(
         self,
-        request: "SearchRequest",
+        request: SearchRequest,
         user_uid: UserUID | None,
         sweep_domains: list[EntityType | NonKuDomain],
     ) -> list[dict]:
@@ -1678,7 +1678,7 @@ class SearchRouter:
         self,
         query: str,
         user_uid: UserUID | None = None,
-        user_context: "UserContext | None" = None,
+        user_context: UserContext | None = None,
         limit: int = 50,
     ) -> Result[UnifiedSearchResult]:
         """
@@ -1791,7 +1791,7 @@ class SearchRouter:
 
     def _determine_target_domains(
         self,
-        parsed: "ParsedSearchQuery",
+        parsed: ParsedSearchQuery,
     ) -> list[EntityType | NonKuDomain]:
         """
         Determine which domains to search based on parsed query.
@@ -1824,8 +1824,8 @@ class SearchRouter:
 
     async def advanced_search(
         self,
-        request: "SearchRequest",
-        user_context: "UserContext | None" = None,
+        request: SearchRequest,
+        user_context: UserContext | None = None,
     ) -> Result[UnifiedSearchResult]:
         """
         Advanced unified search combining text, graph, and array filters.
@@ -1978,8 +1978,8 @@ class SearchRouter:
 
     async def _embed_query_for_hybrid_rung(
         self,
-        request: "SearchRequest",
-        eligible_domains: "Sequence[EntityType | NonKuDomain]",
+        request: SearchRequest,
+        eligible_domains: Sequence[EntityType | NonKuDomain],
     ) -> list[float] | None:
         """
         Embed the query once, for every hybrid-eligible domain in this request.
@@ -2034,7 +2034,7 @@ class SearchRouter:
         self,
         search_service: SupportsTextSearch,
         entity_type: EntityType | NonKuDomain,
-        request: "SearchRequest",
+        request: SearchRequest,
         limit_per_domain: int,
         query_embedding: list[float] | None = None,
     ) -> list[SearchResultItem]:
@@ -2167,7 +2167,7 @@ class SearchRouter:
         self,
         search_service: SupportsTextSearch,
         entity_type: EntityType | NonKuDomain,
-        request: "SearchRequest",
+        request: SearchRequest,
         limit_per_domain: int,
     ) -> list[SearchResultItem]:
         """
@@ -2192,7 +2192,7 @@ class SearchRouter:
     async def _semantic_or_learning_search(
         self,
         entity_type: EntityType | NonKuDomain,
-        request: "SearchRequest",
+        request: SearchRequest,
         limit: int,
     ) -> list[SearchResultItem]:
         """
@@ -2301,7 +2301,7 @@ class SearchRouter:
         self,
         search_service: SupportsTextSearch,
         entity_type: EntityType | NonKuDomain,
-        request: "SearchRequest",
+        request: SearchRequest,
         limit: int,
         query_embedding: list[float] | None = None,
     ) -> list[SearchResultItem]:
@@ -2407,7 +2407,7 @@ class SearchRouter:
             self.logger.error(f"Hybrid search failed for {entity_type.value} (unexpected): {e}")
             return []  # Fall through to CONTAINS
 
-    def _hybrid_match_reason(self, vec_result: "HybridSearchHit") -> str:
+    def _hybrid_match_reason(self, vec_result: HybridSearchHit) -> str:
         """
         Describe which half of hybrid search actually produced this hit.
 
@@ -2469,7 +2469,7 @@ class SearchRouter:
     def _filter_by_tags_from_request(
         self,
         items: list[SearchResultItem],
-        request: "SearchRequest",
+        request: SearchRequest,
     ) -> list[SearchResultItem]:
         """
         Post-filter results by tags.
@@ -2599,7 +2599,7 @@ class SearchRouter:
     def _apply_semantic_filters(
         self,
         items: list[SearchResultItem],
-        parsed: "ParsedSearchQuery",
+        parsed: ParsedSearchQuery,
     ) -> list[SearchResultItem]:
         """
         Filter results based on extracted semantic filters.
@@ -2640,7 +2640,7 @@ class SearchRouter:
     async def _score_results(
         self,
         items: list[SearchResultItem],
-        user_context: "UserContext",
+        user_context: UserContext,
     ) -> list[SearchResultItem]:
         """
         Score results using unified scoring framework.
