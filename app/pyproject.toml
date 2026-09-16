@@ -82,7 +82,7 @@ dev = [
     "pytest-asyncio>=1.4.0",
     "pytest-cov>=7.1.0",
     # The unit tier runs in parallel (scripts/run_tests.py `unit` mode appends
-    # `-n auto --maxprocesses 8 --dist loadfile`); pytest-timeout is the hang
+    # `-n logical --maxprocesses 8 --dist loadfile`); pytest-timeout is the hang
     # detector behind [tool.pytest.ini_options] `timeout` — --strict-config
     # refuses that key the moment this plugin is missing, which is the
     # dependency proving itself.

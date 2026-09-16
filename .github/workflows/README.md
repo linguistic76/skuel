@@ -86,12 +86,12 @@ documentation_metrics (push to main only)         gate ── "CI Gate" (require
   `.github/actions/install-osv-scanner`) — the same path as `./dev audit-deps`
   and `./dev quality` check 8. Accepted findings live in `app/osv-scanner.toml`,
   each with a documented reason and an `ignoreUntil` expiry (ADR-067 § 6e).
-- **`unit_tests`** runs `tests/unit/` in parallel — `-n auto --maxprocesses 8
+- **`unit_tests`** runs `tests/unit/` in parallel — `-n logical --maxprocesses 8
   --dist loadfile`, the same pytest-xdist shape as `./dev test-unit` (one worker
-  per physical core, at most eight — a 4-vCPU runner never reaches the cap — a
-  module never split across workers; `-x` stops every worker on the first
-  failure). The job log's `created: N/N workers` line is the worker count the
-  runner gave it.
+  per logical CPU — `auto` would resolve to the runner's two physical cores —
+  at most eight, which a 4-vCPU runner never reaches; a module never split
+  across workers; `-x` stops every worker on the first failure). The job log's
+  `created: N/N workers` line is the worker count the runner gave it.
 - **`integration_tests`** runs `tests/integration/` — serial: its session
   fixtures are two testcontainers plus an app boot, which xdist would build once
   per worker. testcontainers boots the pinned Neo4j image on the runner's Docker

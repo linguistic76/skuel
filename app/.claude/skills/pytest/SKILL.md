@@ -39,7 +39,7 @@ tests/
 | Command | Purpose |
 |---------|---------|
 | `uv run pytest` | Run all tests |
-| `./dev test-unit` | Unit tests only — in parallel (`-n auto --maxprocesses 8 --dist loadfile`: one xdist worker per physical core, at most eight); `./dev test-unit -n 1` for one worker, `-n 0` for in-process serial |
+| `./dev test-unit` | Unit tests only — in parallel (`-n logical --maxprocesses 8 --dist loadfile`: one xdist worker per logical CPU, at most eight); `./dev test-unit -n 1` for one worker, `-n 0` for in-process serial |
 | `uv run pytest tests/unit/` | Unit tests, serial (bare pytest adds no `-n`; the runner does) |
 | `uv run pytest tests/integration/` | Integration tests (needs Docker) — serial by ruling: its session fixtures are two testcontainers + an app boot, and xdist would build a set per worker |
 | `uv run pytest tests/unit/test_tasks_service.py` | Single file |

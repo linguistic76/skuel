@@ -16,7 +16,7 @@ reaches pytest. Three invariants, each pinned here:
   ``--tb=auto`` is pytest's to validate, and pytest accepts it.
 
 The unit tier's parallel default is the fourth invariant and obeys the third:
-``unit`` appends ``-n auto --maxprocesses 8 --dist loadfile`` unless the
+``unit`` appends ``-n logical --maxprocesses 8 --dist loadfile`` unless the
 forwarded args already carry a worker or distribution choice — a membership test on the args, not a
 declared ``-n`` — so ``./dev test-unit -n 1`` overrides it and the other three
 modes (each holds the integration tier and its session containers) never gain it.
@@ -107,7 +107,7 @@ def test_unit_tier_is_parallel_by_default() -> None:
     """No worker choice forwarded: the default leads, the user's args follow, in order."""
     assert unit_tier_args([]) == list(UNIT_PARALLEL_ARGS)
     assert unit_tier_args(["-k", "tasks", "-x"]) == [*UNIT_PARALLEL_ARGS, "-k", "tasks", "-x"]
-    assert UNIT_PARALLEL_ARGS == ("-n", "auto", "--maxprocesses", "8", "--dist", "loadfile")
+    assert UNIT_PARALLEL_ARGS == ("-n", "logical", "--maxprocesses", "8", "--dist", "loadfile")
 
 
 def test_a_forwarded_cap_lands_after_the_default_so_pytest_keeps_it() -> None:

@@ -125,8 +125,8 @@ uv run pytest tests/unit/ --ignore=tests/unit/services
 ### Parallel Execution
 
 The **unit tier runs in parallel by default** — `./dev test-unit` (the `unit` mode of
-`scripts/run_tests.py`) appends `-n auto --maxprocesses 8 --dist loadfile`: pytest-xdist
-with one worker per physical core, at most eight, and a test module never split across
+`scripts/run_tests.py`) appends `-n logical --maxprocesses 8 --dist loadfile`: pytest-xdist
+with one worker per logical CPU, at most eight, and a test module never split across
 workers (the corpus-scanning modules carry module-scoped fixtures, so the critical path
 is the longest module, not the sum). The cap is measured: every worker imports the app
 (~0.5 GB resident), and past eight workers the run is no shorter — the longest module is
@@ -135,7 +135,7 @@ CI's `unit_tests` job runs the same shape (a 4-vCPU runner never reaches the cap
 worker or distribution choice in the forwarded flags replaces the default wholesale:
 
 ```bash
-./dev test-unit                    # -n auto --maxprocesses 8 --dist loadfile
+./dev test-unit                    # -n logical --maxprocesses 8 --dist loadfile
 ./dev test-unit --maxprocesses 4   # a lower cap (pytest keeps the last one given)
 ./dev test-unit -n 1               # one xdist worker
 ./dev test-unit -n 0               # in-process serial — the shape bare `uv run pytest tests/unit/` has
@@ -228,7 +228,7 @@ def test_tasks_service_creation():
 
 CI (`.github/workflows/ci.yml`, both jobs path-gated on Python changes) runs:
 
-- **`unit_tests`** — `pytest tests/unit/ -n auto --maxprocesses 8 --dist loadfile`
+- **`unit_tests`** — `pytest tests/unit/ -n logical --maxprocesses 8 --dist loadfile`
   (mock-based, no Docker; the runner's parallel shape, `-x` stopping every worker on
   the first failure)
 - **`integration_tests`** — `pytest tests/integration/`, serial; testcontainers boots the

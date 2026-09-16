@@ -896,15 +896,17 @@ jobs:
         run: uv sync --frozen --no-install-project
 
       # The same parallel shape as `./dev test-unit` (scripts/run_tests.py
-      # `unit` mode): pytest-xdist, one worker per physical core, capped at
-      # eight — the cap is the developer laptop's memory ceiling; a 4-vCPU
-      # runner never reaches it — and a module never split across workers.
+      # `unit` mode): pytest-xdist, one worker per logical CPU (`auto` would
+      # resolve to the runner's two physical cores and leave its hyperthreads
+      # idle), capped at eight — the cap is the developer laptop's memory
+      # ceiling; a 4-vCPU runner never reaches it — and a module never split
+      # across workers.
       # `-x` stops every worker on the first failure. pytest-timeout
       # (pyproject: 120 s per test body) turns a hung test into a failure long
       # before the job budget above does.
       - name: Run unit tests
         working-directory: app
-        run: uv run pytest tests/unit/ -n auto --maxprocesses 8 --dist loadfile -x --tb=short -q
+        run: uv run pytest tests/unit/ -n logical --maxprocesses 8 --dist loadfile -x --tb=short -q
 
   # Integration tests — the only tier that executes real Cypher against Neo4j
   # (unit tests mock the driver). Runs the same command as ./dev test-integration:
