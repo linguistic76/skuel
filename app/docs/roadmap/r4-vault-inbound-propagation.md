@@ -217,8 +217,15 @@ Two gates on the sweep, both named by the failure they prevent:
   such a sync destroys the only 🆔 mapping its restored line could revive by, and on the next
   clean sync Guard 4 — which ignores terminal twins by design — mints a duplicate completed
   task. So with any failed file the sweep does nothing at all — one warning, "N retirements
-  held: the sync had failures" — and the next clean sync decides. The per-file failure is
-  already surfaced and retried.
+  held: not every note had its say" — and the next clean sync decides. The per-file failure is
+  already surfaced and retried. **The same hold for a vault in doubt as a whole** (found by
+  review on PR 3): a walk that finds no files ("No files found" is a run-level error —
+  `files_failed` stays 0) and a mass-deletion refusal (the valve's verdict, which survived only
+  as a warning string until `IncrementalStats.mass_deletion_refused`) are every note in doubt at
+  once; without the hold an unmounted root or a sync client mid-resync would cancel every open
+  task whose paste was one sync away, and the remount would mint a twin beside each. One
+  predicate, `VaultSyncStats.inbound_pass_incomplete` (`files_failed` / `files_broken` /
+  `mirror_files_stale` / `vault_read_refused`), is the sweep's gate.
 - **One clock.** The stamp is written by Neo4j (`datetime()` inside the retiring statement,
   which runs with no sync context); the cutoff is therefore read from Neo4j too — one
   `RETURN datetime()` at sync start is `sync_cutoff`. An application-clock cutoff against a

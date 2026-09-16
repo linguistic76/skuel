@@ -1,6 +1,6 @@
 ---
 title: Unified Ingestion Implementation Guide
-updated: 2026-09-15
+updated: 2026-09-16
 category: patterns
 related_skills: []
 related_docs:
@@ -1264,8 +1264,10 @@ malformed edges, and foreign-owned skips never inflate the ratio and a refusal s
 that cleanup done — refuses when at least `MASS_DELETION_MIN_COUNT` (10) entities/edges
 would actually be deleted AND they exceed `MASS_DELETION_MAX_FRACTION` (0.5) of all
 tracked files (deleting all-but-one file must not wipe the graph in one sync). Refusals
-surface as `refusal_warning` → stats `warnings`; escape hatch: delete explicitly via the
-ingestion dashboard, or sync in smaller batches. **Owner scope (descriptor-governed syncs):** a tracked
+surface as `refusal_warning` → stats `warnings` AND as `IncrementalStats.mass_deletion_refused`
+(a flag, because the vault retirement sweep must HOLD on a refusal — `VaultSyncStats.
+vault_read_refused`, set on a refusal or an empty walk — and cannot key on prose); escape
+hatch: delete explicitly via the ingestion dashboard, or sync in smaller batches. **Owner scope (descriptor-governed syncs):** a tracked
 user-owned node whose owner differs from the syncing vault's owner is never deleted —
 node and tracking row both survive and the mismatch is surfaced as a warning
 (`ownership_mismatches` → stats `warnings`); the owner lookup failing fails the run closed.
