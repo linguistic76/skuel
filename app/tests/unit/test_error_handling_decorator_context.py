@@ -10,9 +10,11 @@ invariants are pinned here:
   (UP037 is live, TC002/TC003 permanently ignored — ADR-067 § Deferred), and the
   VALUE format would raise ``NameError`` on it at the moment an error was being
   reported.
-"""
 
-from __future__ import annotations
+No ``from __future__ import annotations`` here, deliberately: PEP 563 would stringize the
+annotations and let a VALUE-format reader pass without evaluating anything, which is the
+defect the last test exists to catch.
+"""
 
 import asyncio
 from typing import TYPE_CHECKING
