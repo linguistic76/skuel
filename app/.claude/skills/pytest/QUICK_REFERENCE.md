@@ -7,14 +7,16 @@
 ## Running Tests
 
 ```bash
-uv run pytest tests/unit/ -q                   # fast unit sweep (no Docker)
-uv run pytest tests/integration/ -q            # needs LOCAL Docker (testcontainers Neo4j)
+./dev test-unit -q                             # unit tier, parallel (-n logical --maxprocesses 8 --dist loadfile; no Docker)
+./dev test-unit -n 1 -k "create"               # ... one worker (-n 0 = in-process serial); flags forward
+uv run pytest tests/unit/ -q                   # the same tier, serial (bare pytest adds no -n)
+uv run pytest tests/integration/ -q            # needs LOCAL Docker (testcontainers Neo4j); serial by ruling
 uv run pytest tests/unit/test_foo.py -k "create" -x --tb=short
 ./dev test | test-unit | test-integration | test-quick | smoke   # flags forward: -k, -x, --tb=short
 ./dev test --cov                               # coverage — opt-in, the one path (coverage.xml + htmlcov/)
 ```
 
-**When to use**: coverage is never collected by default (`addopts` carries only `--strict-markers --strict-config -v`; pass rate is the metric) — `--cov` on any of the pytest `./dev test*` arms (`test`, `test-unit`, `test-integration`, `test-quick`) is the one path that collects it; `test-js` forwards to vitest, which has no `--cov`. CI runs both tiers: `unit_tests` (`uv run pytest tests/unit/ -x --tb=short -q`) and `integration_tests` (`tests/integration/` on the runner's Docker daemon, `INTELLIGENCE_TIER=core`), each path-gated on Python changes.
+**When to use**: coverage is never collected by default (`addopts` carries only `--strict-markers --strict-config -v`; pass rate is the metric) — `--cov` on any of the pytest `./dev test*` arms (`test`, `test-unit`, `test-integration`, `test-quick`) is the one path that collects it; `test-js` forwards to vitest, which has no `--cov`. CI runs both tiers: `unit_tests` (`uv run pytest tests/unit/ -n logical --maxprocesses 8 --dist loadfile -x --tb=short -q` — the runner's parallel shape) and `integration_tests` (`tests/integration/` on the runner's Docker daemon, `INTELLIGENCE_TIER=core`, serial), each path-gated on Python changes. Only the unit tier is parallel: the integration tier's session fixtures (two testcontainers + an app boot) would be built once per xdist worker.
 
 ---
 
@@ -115,7 +117,7 @@ service = create_tasks_service_for_testing(backend=backend)
 
 ### Config — `pyproject.toml [tool.pytest.ini_options]`
 
-`asyncio_mode = "auto"` · `--strict-markers --strict-config` · markers: `integration`, `slow`, `asyncio` (undeclared markers ERROR under strict; a declared marker nobody selects is deleted).
+`asyncio_mode = "auto"` · `--strict-markers --strict-config` · markers: `integration`, `slow`, `asyncio` (undeclared markers ERROR under strict; a declared marker nobody selects is deleted) · `timeout = 120` + `timeout_func_only = true` (pytest-timeout: a per-test-body hang detector, fixture setup uncharged; `@pytest.mark.timeout(N)` with a reason for a test that needs more — the plugin registers that marker itself).
 
 ---
 
@@ -133,6 +135,8 @@ service = create_tasks_service_for_testing(backend=backend)
 | Mocking domain models (`mock_task.is_overdue.return_value`) | Construct the real frozen dataclass; mock only the backend |
 | Event assertions on real bus | Mock bus: `event_bus.publish_async.assert_called_once()` + check event type |
 | Test data leaks between integration tests | Depend on `clean_neo4j` (preserves `:User` nodes only) |
+| `Failed: Timeout (>120.0s) from pytest-timeout` | The test body hung (pytest-timeout) — find the wait that never returns; only a test that provably needs longer gets `@pytest.mark.timeout(N)` |
+| A unit test passes alone, fails under `./dev test-unit` | Parallel unsafety — a fixed path, port, or module state another worker also touches; fix the test (`tmp_path`, per-test state), never a serial marker |
 
 ---
 

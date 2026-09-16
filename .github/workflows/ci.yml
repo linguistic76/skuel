@@ -7,6 +7,14 @@ name: CI
 # would never report on an unrelated PR and would deadlock a required check.
 # The `gate` job always runs and aggregates their results, so "CI Gate" is the
 # one safe required status check.
+#
+# Every job carries `timeout-minutes`, sized at roughly 3x the slowest of its
+# recent durations with a floor (5 min for the two jobs that install nothing,
+# 10 min for the rest), so a hung step — a stalled runner, a network fetch that
+# never returns, a test that waits forever — frees its runner in minutes rather
+# than at GitHub's 360-minute default. The test tiers' budgets are their own:
+# unit_tests 20, integration_tests 25. A job that outgrows its budget is
+# re-measured, not re-tried.
 
 on:
   push:
@@ -28,6 +36,7 @@ jobs:
   changes:
     name: Detect changes
     runs-on: ubuntu-latest
+    timeout-minutes: 5
     outputs:
       py: ${{ steps.filter.outputs.py }}
       docs: ${{ steps.filter.outputs.docs }}
@@ -244,6 +253,7 @@ jobs:
     needs: changes
     if: needs.changes.outputs.py == 'true'
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     # Pin every uv command in this job to the committed lock. See the canonical
     # note on the install step below; the short version is that `uv sync` is not
     # the only command that re-locks — `uv run` does too, so flagging the sync
@@ -396,6 +406,7 @@ jobs:
     # Tailwind @source tree — so a JS-only PR must still run the lint job.
     if: needs.changes.outputs.py == 'true' || needs.changes.outputs.cypher == 'true' || needs.changes.outputs.js == 'true'
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     # Pin every uv command in this job to the committed lock (see the mypy job
     # for the full note). `uv run` re-locks just like `uv sync`, so the flag on
     # the install step alone would not hold. Not set on dep_audit.
@@ -505,6 +516,7 @@ jobs:
     needs: changes
     if: needs.changes.outputs.py == 'true' || needs.changes.outputs.audit == 'true'
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     # NO `env: UV_FROZEN` here, unlike every other uv job above — and this is
     # load-bearing, not an oversight. The audit script's staleness gate is
     # `uv lock --check`, and UV_FROZEN does not conflict with it loudly — it
@@ -536,6 +548,7 @@ jobs:
     needs: changes
     if: needs.changes.outputs.docs == 'true'
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     permissions:
       contents: read
       pull-requests: write  # allow the "Comment on PR" step to post results
@@ -764,6 +777,7 @@ jobs:
     name: Generate Metrics
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
+    timeout-minutes: 10
 
     # Pin every uv command in this job to the committed lock (see the mypy job
     # for the full note). `uv run` re-locks just like `uv sync`, so the flag on
@@ -851,6 +865,7 @@ jobs:
     needs: changes
     if: needs.changes.outputs.py == 'true'
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     # Pin every uv command in this job to the committed lock (see the mypy job
     # for the full note). `uv run` re-locks just like `uv sync`, so the flag on
     # the install step alone would not hold. Not set on dep_audit.
@@ -880,9 +895,18 @@ jobs:
         working-directory: app
         run: uv sync --frozen --no-install-project
 
+      # The same parallel shape as `./dev test-unit` (scripts/run_tests.py
+      # `unit` mode): pytest-xdist, one worker per logical CPU (`auto` would
+      # resolve to the runner's two physical cores and leave its hyperthreads
+      # idle), capped at eight — the cap is the developer laptop's memory
+      # ceiling; a 4-vCPU runner never reaches it — and a module never split
+      # across workers.
+      # `-x` stops every worker on the first failure. pytest-timeout
+      # (pyproject: 120 s per test body) turns a hung test into a failure long
+      # before the job budget above does.
       - name: Run unit tests
         working-directory: app
-        run: uv run pytest tests/unit/ -x --tb=short -q
+        run: uv run pytest tests/unit/ -n logical --maxprocesses 8 --dist loadfile -x --tb=short -q
 
   # Integration tests — the only tier that executes real Cypher against Neo4j
   # (unit tests mock the driver). Runs the same command as ./dev test-integration:
@@ -946,6 +970,7 @@ jobs:
     needs: changes
     if: needs.changes.outputs.py == 'true' || needs.changes.outputs.ui == 'true'
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     # Pin every uv command in this job to the committed lock (see the mypy job
     # for the full note). `uv run` re-locks just like `uv sync`, so the flag on
     # the install step alone would not hold. Not set on dep_audit.
@@ -991,6 +1016,7 @@ jobs:
     needs: changes
     if: needs.changes.outputs.js == 'true'
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
       - name: Checkout code
         uses: actions/checkout@v7
@@ -1026,6 +1052,7 @@ jobs:
     needs: changes
     if: needs.changes.outputs.css == 'true'
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
       - name: Checkout code
         uses: actions/checkout@v7
@@ -1058,6 +1085,7 @@ jobs:
   content_boundary:
     name: Content Boundary
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
       - name: Checkout code
         uses: actions/checkout@v7
@@ -1090,6 +1118,7 @@ jobs:
     needs: [changes, mypy, lint, dep_audit, validate_documentation, unit_tests, integration_tests, smoke, content_boundary, js_tests, css_freshness]
     if: always()
     runs-on: ubuntu-latest
+    timeout-minutes: 5
     steps:
       - name: Verify required jobs
         run: |
