@@ -26,6 +26,14 @@
 #   - the BODY of a submitted review                    = FINDINGS
 #   - plain issue comment matching the clean signature  = CLEAN
 #   - any other Codex issue comment                     = READ-it (rc 2)
+#   - EXCEPT the review-status widget                   = PENDING, never a verdict
+#
+# The status widget is one issue comment Codex posts the moment it is summoned
+# (marker `<!-- codex-pull-request-review-summary -->`) and then EDITS in place:
+# a table whose Status cell moves from "Running" to "Completed". It carries no
+# findings and no clean signature in either state — the verdict arrives on the
+# channels above, and can land minutes after the widget — so it is filtered out
+# of the issue-comment channel by its marker: it can neither clean nor "find".
 #
 # The first two are INDEPENDENT surfaces and a finding can arrive on either, so
 # every channel the verdict COUNTS is also PRINTED. Counting one without printing
@@ -198,14 +206,18 @@ check_verdict() {
     fi
     return 2
   fi
+  # The status widget (see header) is excluded by its marker on both the count
+  # and the body read below — the two must agree or the branch prints a
+  # different set than it counted.
+  local widget='select(.body|test("codex-pull-request-review-summary")|not)'
   comments=$(gh_retry api "repos/$REPO/issues/$PR/comments?since=$since&per_page=100" \
-    --jq "[.[] | select(.user.login|test(\"codex\";\"i\")) | select(.created_at > \"$since\")] | length" \
+    --jq "[.[] | select(.user.login|test(\"codex\";\"i\")) | select(.created_at > \"$since\") | $widget] | length" \
     2>/dev/null) || return 4
   [[ "$comments" =~ ^[0-9]+$ ]] || return 4
   if (( comments > 0 )); then
     local body
     body=$(gh_retry api "repos/$REPO/issues/$PR/comments?since=$since&per_page=100" \
-      --jq "[.[] | select(.user.login|test(\"codex\";\"i\")) | select(.created_at > \"$since\") | .body] | join(\"\n\")" || true)
+      --jq "[.[] | select(.user.login|test(\"codex\";\"i\")) | select(.created_at > \"$since\") | $widget | .body] | join(\"\n\")" || true)
     # Only the known clean signature counts as clean. Anything else from Codex
     # on this channel (agentic task summaries, suggestion lists, account/connect
     # boilerplate) must be READ, not auto-labeled — observed live: an agentic
