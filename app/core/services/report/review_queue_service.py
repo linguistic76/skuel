@@ -41,7 +41,7 @@ class ReviewQueueService:
     Activity Domain data. Admins call get_pending_reviews() to see the queue.
     """
 
-    def __init__(self, backend: "ReviewQueueBackendOperations") -> None:
+    def __init__(self, backend: ReviewQueueBackendOperations) -> None:
         self.backend = backend
 
     async def request_review(

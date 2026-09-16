@@ -48,7 +48,7 @@ class Neo4jVectorSearchService:
 
     def __init__(
         self,
-        backend: "VectorSearchBackendOperations",
+        backend: VectorSearchBackendOperations,
         embeddings_service: Any | None = None,
         config: VectorSearchConfig | None = None,
     ) -> None:

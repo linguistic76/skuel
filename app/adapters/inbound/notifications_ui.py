@@ -37,12 +37,12 @@ logger = get_logger("skuel.routes.notifications.ui")
 def create_notifications_ui_routes(
     app: Any,
     rt: Any,
-    notification_service: "NotificationService",
+    notification_service: NotificationService,
     **_kwargs: Any,
 ) -> list[Any]:
     """Create UI routes for notifications."""
 
-    def get_notification_service() -> "NotificationService":
+    def get_notification_service() -> NotificationService:
         return notification_service
 
     @rt("/notifications")

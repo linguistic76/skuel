@@ -35,8 +35,8 @@ LIBRARY_SIDEBAR_ITEMS: list[SidebarItem] = [
 def render_library_sidebar_page(
     content: Any,
     active: str,
-    request: "Request | None" = None,
-) -> "FT":
+    request: Request | None = None,
+) -> FT:
     """Wrap content in Library sidebar page.
 
     Args:

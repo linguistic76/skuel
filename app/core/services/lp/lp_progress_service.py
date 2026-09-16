@@ -41,7 +41,7 @@ class LpProgressService:
 
     def __init__(
         self,
-        backend: "LpProgressBackendOperations | None" = None,
+        backend: LpProgressBackendOperations | None = None,
         event_bus=None,
     ) -> None:
         """

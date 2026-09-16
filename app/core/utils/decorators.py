@@ -22,6 +22,7 @@ DRY Impact: These decorators eliminate ~500+ repetitive try/except patterns.
 from __future__ import annotations
 
 import inspect
+from annotationlib import Format
 from collections.abc import Callable
 from functools import wraps
 from typing import Any, Literal, TypeVar
@@ -142,13 +143,16 @@ def _extract_context(
         if uid_param in kwargs:
             context["uid"] = kwargs[uid_param]
         else:
-            # Try positional args using function signature
+            # Only the parameter NAMES are needed, so the annotations are never
+            # evaluated: a decorated method may legally type a parameter with a
+            # TYPE_CHECKING-only import, which the VALUE format would NameError on.
             try:
-                sig = inspect.signature(func)
-                params = list(sig.parameters.keys())
+                sig = inspect.signature(func, annotation_format=Format.FORWARDREF)
+                # The wrappers bind `self` separately, so `args` starts at the
+                # signature's SECOND parameter.
+                params = list(sig.parameters.keys())[1:]
                 if uid_param in params:
                     idx = params.index(uid_param)
-                    # Account for 'self' in method signatures
                     if idx < len(args):
                         context["uid"] = args[idx]
             except (ValueError, IndexError):  # fmt: skip

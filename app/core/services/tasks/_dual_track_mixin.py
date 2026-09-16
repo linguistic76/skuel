@@ -38,7 +38,7 @@ class _DualTrackMixin:
     """
 
     # Populated by TasksIntelligenceService / BaseAnalyticsService
-    backend: "TasksOperations"
+    backend: TasksOperations
     logger: Any
     _dual_track_assessment: Any  # provided by BaseAnalyticsService
 

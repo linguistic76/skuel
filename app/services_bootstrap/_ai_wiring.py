@@ -15,7 +15,7 @@ def _wire_ai_services(
     embeddings_service: Any,
     _activity_services: dict[str, Any],
     learning_services: dict[str, Any],
-    user_service: "UserService",
+    user_service: UserService,
     graph_intelligence: Any,
 ) -> tuple[Any, Any]:
     """Create and wire AI services into domain facades (ADR-030: Two-Tier Intelligence).

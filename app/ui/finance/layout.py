@@ -22,8 +22,8 @@ def create_finance_page(
     content: Any,
     active_section: str = "",
     title: str = "Finance Hub",
-    request: "Request | None" = None,
-) -> "FT":
+    request: Request | None = None,
+) -> FT:
     """Create a finance hub page using the unified SidebarPage pattern.
 
     Args:

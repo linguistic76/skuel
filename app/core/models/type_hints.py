@@ -196,7 +196,7 @@ class Timestamped(Protocol):
 class Prioritizable(Protocol):
     """Protocol for entities with priority"""
 
-    priority: "Priority"  # Forward ref: imported under TYPE_CHECKING above
+    priority: Priority  # Forward ref: imported under TYPE_CHECKING above
 
 
 @runtime_checkable
@@ -312,7 +312,7 @@ class TypeConverter:
         return EntityUID(value)
 
     @staticmethod
-    def to_entity_uid_safe(value: str) -> "BoundaryResult[EntityUID]":
+    def to_entity_uid_safe(value: str) -> BoundaryResult[EntityUID]:
         """
         Convert string to EntityUID with Result-based error handling.
 

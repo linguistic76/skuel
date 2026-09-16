@@ -44,7 +44,7 @@ class EventBusOperations(Protocol):
     is fire-and-forget. Subscription is synchronous configuration.
     """
 
-    def publish(self, event: "BaseEvent") -> None:
+    def publish(self, event: BaseEvent) -> None:
         """
         Publish a typed event to the bus (sync version).
 
@@ -53,7 +53,7 @@ class EventBusOperations(Protocol):
         """
         ...
 
-    def subscribe[E: "BaseEvent"](self, event_type: type[E], handler: "EventHandler[E]") -> None:
+    def subscribe[E: "BaseEvent"](self, event_type: type[E], handler: EventHandler[E]) -> None:
         """
         Subscribe to events of a given type.
 
@@ -64,7 +64,7 @@ class EventBusOperations(Protocol):
         """
         ...
 
-    def unsubscribe[E: "BaseEvent"](self, event_type: type[E], handler: "EventHandler[E]") -> None:
+    def unsubscribe[E: "BaseEvent"](self, event_type: type[E], handler: EventHandler[E]) -> None:
         """
         Unsubscribe a previously-registered handler.
 
@@ -77,7 +77,7 @@ class EventBusOperations(Protocol):
         """
         ...
 
-    async def publish_async(self, event: "BaseEvent") -> None:
+    async def publish_async(self, event: BaseEvent) -> None:
         """
         Publish a typed event asynchronously (preferred for async contexts).
 
@@ -109,30 +109,30 @@ class UserCrudOperations(Protocol):
     See: /docs/patterns/BACKEND_OPERATIONS_ISP.md
     """
 
-    async def create_user(self, user: "User") -> Result["User"]:
+    async def create_user(self, user: User) -> Result[User]:
         """Create a new user."""
         ...
 
-    async def get_user_by_uid(self, user_uid: UserUID) -> Result["User | None"]:
+    async def get_user_by_uid(self, user_uid: UserUID) -> Result[User | None]:
         """Get user by UID."""
         ...
 
-    async def get_user_by_username(self, username: str) -> Result["User | None"]:
+    async def get_user_by_username(self, username: str) -> Result[User | None]:
         """Get user by username."""
         ...
 
-    async def get_user_by_email(self, email: str) -> Result["User | None"]:
+    async def get_user_by_email(self, email: str) -> Result[User | None]:
         """Get user by email address — the sign-in lookup."""
         ...
 
-    async def update_user(self, user: "User") -> Result["User"]:
+    async def update_user(self, user: User) -> Result[User]:
         """Update user data."""
         ...
 
     async def atomic_append_dual_track_checkin(
         self,
         user_uid: UserUID,
-        snapshot: "dict[str, Any]",
+        snapshot: dict[str, Any],
         history_limit: int,
         dimension: str,
     ) -> Result[bool]:
@@ -145,7 +145,7 @@ class UserCrudOperations(Protocol):
     async def atomic_append_knowledge_checkin(
         self,
         user_uid: UserUID,
-        snapshot: "dict[str, Any]",
+        snapshot: dict[str, Any],
         history_limit: int,
         ku_uid: str,
     ) -> Result[bool]:
@@ -163,7 +163,7 @@ class UserCrudOperations(Protocol):
         """Delete a user + every OWNS-linked entity (GDPR erasure)."""
         ...
 
-    async def find_by(self, **filters: FilterValue) -> Result[list["User"]]:
+    async def find_by(self, **filters: FilterValue) -> Result[list[User]]:
         """Find users by field filters.
 
         The implementer builds a Cypher WHERE clause and hands the dict
@@ -282,7 +282,7 @@ class UserActivityOperations(Protocol):
 
     async def get_active_learners(
         self, since_hours: int = 24, limit: int = 100
-    ) -> Result[list["User"]]:
+    ) -> Result[list[User]]:
         """Get list of active learners."""
         ...
 
@@ -332,17 +332,15 @@ class SchemaOperations(SchemaQueryExecutor, Protocol):
         """Get all relationship types."""
         ...
 
-    async def get_node_properties(self, label: "NeoLabel") -> list[dict[str, str]]:
+    async def get_node_properties(self, label: NeoLabel) -> list[dict[str, str]]:
         """Get properties for a node label."""
         ...
 
-    async def create_index(self, label: "NeoLabel", property: str) -> bool:
+    async def create_index(self, label: NeoLabel, property: str) -> bool:
         """Create an index on a property."""
         ...
 
-    async def create_constraint(
-        self, label: "NeoLabel", property: str, constraint_type: str
-    ) -> bool:
+    async def create_constraint(self, label: NeoLabel, property: str, constraint_type: str) -> bool:
         """Create a constraint."""
         ...
 
@@ -403,7 +401,7 @@ class IngestionOperations(Protocol):
         dry_run: bool = False,
         *,
         user_uid: UserUID | None = None,
-    ) -> "Result[IngestionStats | IncrementalStats | DryRunPreview]":
+    ) -> Result[IngestionStats | IncrementalStats | DryRunPreview]:
         """Ingest all supported files in a directory.
 
         ``force=True`` re-processes unchanged files while keeping tracked-mode
@@ -418,12 +416,12 @@ class IngestionOperations(Protocol):
         subdirs: list[str] | None = None,
         *,
         user_uid: UserUID | None = None,
-    ) -> "Result[IngestionStats]":
+    ) -> Result[IngestionStats]:
         """Ingest an Obsidian vault or specific subdirectories."""
         ...
 
     async def ingest_bundle(
-        self, bundle_path: Path, *, user_uid: "UserUID | None" = None
-    ) -> "Result[BundleStats]":
+        self, bundle_path: Path, *, user_uid: UserUID | None = None
+    ) -> Result[BundleStats]:
         """Ingest a domain bundle using manifest file."""
         ...

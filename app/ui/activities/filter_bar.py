@@ -125,7 +125,7 @@ def with_user_categories(
 def ActivityFilterBar(
     config: FilterBarConfig,
     current_values: dict[str, str] | None = None,
-) -> "FT":
+) -> FT:
     """Render a config-driven filter bar for any Activity Domain.
 
     Args:

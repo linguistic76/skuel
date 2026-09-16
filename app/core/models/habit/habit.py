@@ -289,11 +289,11 @@ class Habit(UserOwnedEntity):
     # =========================================================================
 
     @classmethod
-    def from_dto(cls, dto: "EntityDTO | HabitDTO") -> "Habit":
+    def from_dto(cls, dto: EntityDTO | HabitDTO) -> Habit:
         """Create Habit from an EntityDTO or HabitDTO."""
         return cls._from_dto(dto)
 
-    def to_dto(self) -> "HabitDTO":
+    def to_dto(self) -> HabitDTO:
         """Convert Habit to domain-specific HabitDTO."""
 
         from core.models.dto_helpers import domain_to_dto

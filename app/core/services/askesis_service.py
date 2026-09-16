@@ -323,8 +323,8 @@ class AskesisService:
         user_uid: UserUID,
         question: str,
         session_id: str | None = None,
-        preferred_mode: "GuidanceMode | None" = None,
-        scope: "SearchRequest | None" = None,
+        preferred_mode: GuidanceMode | None = None,
+        scope: SearchRequest | None = None,
         model: str | None = None,
     ) -> Result[dict[str, Any]]:
         """Answer user question via RAG pipeline. Delegated to query_processor.

@@ -89,7 +89,7 @@ class EmbeddingVector:
             return self.embedding
         return [v / mag for v in self.embedding]
 
-    def cosine_similarity(self, other: "EmbeddingVector") -> float:
+    def cosine_similarity(self, other: EmbeddingVector) -> float:
         """
         Calculate cosine similarity with another embedding.
 
@@ -112,7 +112,7 @@ class EmbeddingVector:
         # Clamp to [0, 1] range (handle floating point errors)
         return max(0.0, min(1.0, similarity))
 
-    def euclidean_distance(self, other: "EmbeddingVector") -> float:
+    def euclidean_distance(self, other: EmbeddingVector) -> float:
         """
         Calculate Euclidean distance to another embedding.
 

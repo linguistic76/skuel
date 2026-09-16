@@ -189,7 +189,7 @@ class DualTrackResult(Generic[L]):
         }
 
     @classmethod
-    def from_dict(cls, data: dict[str, Any], level_class: type[L]) -> "DualTrackResult[L]":
+    def from_dict(cls, data: dict[str, Any], level_class: type[L]) -> DualTrackResult[L]:
         """
         Create from dictionary.
 

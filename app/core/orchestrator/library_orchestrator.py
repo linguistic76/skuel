@@ -35,12 +35,12 @@ class LibraryOrchestrator:
 
     def __init__(
         self,
-        exercises_service: "ExerciseService",
-        resource_service: "ResourceService",
-        ku_service: "KuService",
-        ps_service: "PsService",
-        user_entry_service: "UserEntryService",
-        user_relationship_service: "UserRelationshipOperations",
+        exercises_service: ExerciseService,
+        resource_service: ResourceService,
+        ku_service: KuService,
+        ps_service: PsService,
+        user_entry_service: UserEntryService,
+        user_relationship_service: UserRelationshipOperations,
     ) -> None:
         self._exercises = exercises_service
         self._resource = resource_service

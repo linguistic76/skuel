@@ -94,7 +94,7 @@ class APIConfig:
     rate_limit_period: int = 60  # seconds
 
     @classmethod
-    def from_env(cls) -> "APIConfig":
+    def from_env(cls) -> APIConfig:
         """Create config from environment variables"""
         return cls(
             # APP_* is THE env naming for these (matches .env.example and both
@@ -336,7 +336,7 @@ class DatabaseConfig:
     use_bulk_operations: bool = True
 
     @classmethod
-    def from_env(cls) -> "DatabaseConfig":
+    def from_env(cls) -> DatabaseConfig:
         """Create config from environment variables"""
         # A non-positive poll interval makes the monitor loop busy-spin: a
         # negative delay is truthy (so start_monitoring installs it) and
@@ -678,7 +678,7 @@ class VaultConfig:
         return p if p.is_absolute() else Path.cwd() / p
 
     @classmethod
-    def from_env(cls) -> "VaultConfig":
+    def from_env(cls) -> VaultConfig:
         """Create config from environment variables"""
         return cls(
             vault_root=os.getenv("VAULT_ROOT", "/home/mike/0bsidian/skuel"),
@@ -755,7 +755,7 @@ class UnifiedConfig:
     created_at: datetime = field(default_factory=datetime.now)
 
     @classmethod
-    def from_environment(cls, env: Environment | None = None) -> "UnifiedConfig":
+    def from_environment(cls, env: Environment | None = None) -> UnifiedConfig:
         """
         Create configuration based on environment.
 

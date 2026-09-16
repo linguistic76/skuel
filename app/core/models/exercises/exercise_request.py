@@ -172,7 +172,7 @@ class ExerciseCreateRequest(BaseModel):
         return v
 
     @model_validator(mode="after")
-    def validate_exercise_fields(self) -> "ExerciseCreateRequest":
+    def validate_exercise_fields(self) -> ExerciseCreateRequest:
         """Validate scope-specific requirements."""
         if self.scope == ExerciseScope.CURRICULUM:
             msg = (

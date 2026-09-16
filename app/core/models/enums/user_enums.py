@@ -94,7 +94,7 @@ class UserRole(StrEnum):
         }
         return hierarchy[self]
 
-    def has_permission(self, required_role: "UserRole") -> bool:
+    def has_permission(self, required_role: UserRole) -> bool:
         """
         Check if this role has at least the permissions of required_role.
 
@@ -123,7 +123,7 @@ class UserRole(StrEnum):
         return self == UserRole.REGISTERED
 
     @classmethod
-    def from_string(cls, value: str | None) -> "UserRole | None":
+    def from_string(cls, value: str | None) -> UserRole | None:
         """
         Parse string to UserRole, handling case-insensitivity.
 
@@ -141,7 +141,7 @@ class UserRole(StrEnum):
             return None
 
     @classmethod
-    def default(cls) -> "UserRole":
+    def default(cls) -> UserRole:
         """Get the default role for new users."""
         return cls.REGISTERED
 
@@ -245,7 +245,7 @@ class JournalTier(StrEnum):
     FOUNDER = "founder"
 
     @classmethod
-    def default(cls) -> "JournalTier":
+    def default(cls) -> JournalTier:
         return cls.STANDARD
 
     def is_founder(self) -> bool:
@@ -265,11 +265,11 @@ class JournalMode(StrEnum):
     WHAT_IS_RELATED = "what_is_related"
 
     @classmethod
-    def default(cls) -> "JournalMode":
+    def default(cls) -> JournalMode:
         return cls.THOUGHT_PARTNER
 
     @classmethod
-    def from_string(cls, value: str | None) -> "JournalMode":
+    def from_string(cls, value: str | None) -> JournalMode:
         if not value:
             return cls.default()
         normalized = value.lower().strip().replace(" ", "_").replace("-", "_")

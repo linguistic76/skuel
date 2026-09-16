@@ -37,7 +37,7 @@ class _BehavioralSignalsMixin:
     """
 
     # Populated by EventsIntelligenceService.__init__
-    backend: "EventsOperations"
+    backend: EventsOperations
     relationships: Any
     logger: Any
     _dual_track_assessment: Any  # provided by BaseAnalyticsService

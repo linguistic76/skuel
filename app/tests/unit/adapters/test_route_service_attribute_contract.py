@@ -73,6 +73,7 @@ import pkgutil
 import sys
 import textwrap
 import typing
+from annotationlib import Format, ForwardRef
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -111,9 +112,13 @@ def _container_type_hints() -> dict[str, object]:
     """Resolve ``Services``' annotations, including its TYPE_CHECKING-only imports.
 
     ``services_bootstrap._container`` imports every service class under
-    ``if TYPE_CHECKING``, so ``get_type_hints`` cannot resolve them from the
-    module's runtime globals. Read the file's own import statements and import
-    those modules for real rather than hand-maintaining a name -> class map.
+    ``if TYPE_CHECKING``, so the class's own ``__annotate__`` cannot resolve them
+    and the VALUE format raises ``NameError``. Read the file's own import
+    statements and import those modules for real rather than hand-maintaining a
+    name -> class map, then ask for the FORWARDREF format: an unresolvable name
+    comes back as a ``ForwardRef`` that is evaluated against this namespace
+    instead of the module's globals. Nothing may remain a ``ForwardRef`` — a
+    silently-unresolved field would drop out of the audit.
     """
     module = sys.modules[Services.__module__]
     source_file = inspect.getsourcefile(Services)
@@ -127,7 +132,15 @@ def _container_type_hints() -> dict[str, object]:
                 imported = importlib.import_module(sub.module)
                 for alias in sub.names:
                     namespace[alias.asname or alias.name] = getattr(imported, alias.name)
-    return typing.get_type_hints(Services, globalns=namespace)
+    hints = typing.get_type_hints(Services, globalns=namespace, format=Format.FORWARDREF)
+    unresolved = {
+        name: hint
+        for name, hint in hints.items()
+        if isinstance(hint, ForwardRef)
+        or any(isinstance(arg, ForwardRef) for arg in typing.get_args(hint))
+    }
+    assert not unresolved, f"Services annotations left unresolved: {unresolved}"
+    return hints
 
 
 def _strip_optional(annotation: object) -> object:

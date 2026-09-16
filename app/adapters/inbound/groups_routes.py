@@ -46,7 +46,7 @@ GROUPS_CONFIG = DomainRouteConfig(
 
 
 def create_groups_routes(
-    app: FastHTMLApp, rt: RouteDecorator, services: "Services | None", _sync_service: Any = None
+    app: FastHTMLApp, rt: RouteDecorator, services: Services | None, _sync_service: Any = None
 ) -> None:
     """Wire group API and UI routes using configuration-driven registration."""
     register_domain_routes(app, rt, services, GROUPS_CONFIG)

@@ -136,14 +136,14 @@ class TaskCreateRequest(CreateRequestBase):
     )
 
     @model_validator(mode="after")
-    def validate_due_after_scheduled(self) -> "TaskCreateRequest":
+    def validate_due_after_scheduled(self) -> TaskCreateRequest:
         """Due date must not be before scheduled date."""
         if self.due_date and self.scheduled_date and self.due_date < self.scheduled_date:
             raise ValueError("Due date cannot be before scheduled date")
         return self
 
     @model_validator(mode="after")
-    def default_completion_date_when_completed(self) -> "TaskCreateRequest":
+    def default_completion_date_when_completed(self) -> TaskCreateRequest:
         """A task born COMPLETED carries a completion date — today unless supplied.
 
         Creation into COMPLETED is the degenerate completion transition; leaving
@@ -190,7 +190,7 @@ class TaskUpdateRequest(UpdateRequestBase):
     prerequisite_task_uids: list[str] | None = None
 
     @model_validator(mode="after")
-    def resolve_completion_date(self) -> "TaskUpdateRequest":
+    def resolve_completion_date(self) -> TaskUpdateRequest:
         """Leaving ``completed`` clears the stamp; what survives must not be future.
 
         **The clear.** The stamp is non-null exactly when the task is completed, so

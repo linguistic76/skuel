@@ -235,7 +235,7 @@ class IngestionTracker:
     Used by ingest_directory() to skip unchanged files.
     """
 
-    def __init__(self, backend: "IngestionBackendOperations") -> None:
+    def __init__(self, backend: IngestionBackendOperations) -> None:
         """
         Initialize ingestion tracker.
 
@@ -399,7 +399,7 @@ class IngestionTracker:
         file_path: Path,
         entity_uid: EntityUID,
         content_hash: str,
-        authored_edges: "Sequence[str]" = (),
+        authored_edges: Sequence[str] = (),
     ) -> Result[None]:
         """
         Update ingestion metadata after successful ingestion.
@@ -458,7 +458,7 @@ class IngestionTracker:
 
     async def update_ingestion_metadata_batch(
         self,
-        updates: list[tuple[Path, str, str, "Sequence[str]"]],
+        updates: list[tuple[Path, str, str, Sequence[str]]],
     ) -> Result[int]:
         """
         Batch update ingestion metadata for multiple files.
@@ -551,7 +551,7 @@ class IngestionTracker:
         directory: Path,
         pattern: str = "*",
         *,
-        allowlist: "SyncAllowlist | None" = None,
+        allowlist: SyncAllowlist | None = None,
         owner_uid: UserUID | None = None,
     ) -> Result[_GoneRowClassification | None]:
         """Shared gone-row classification — the valve-free half of ``plan_deletions``.
@@ -662,7 +662,7 @@ class IngestionTracker:
         directory: Path,
         pattern: str = "*",
         *,
-        allowlist: "SyncAllowlist | None" = None,
+        allowlist: SyncAllowlist | None = None,
         owner_uid: UserUID | None = None,
     ) -> Result[DeletionPlan]:
         """
@@ -824,7 +824,7 @@ class IngestionTracker:
         files_to_process: list[Path],
         pattern: str = "*",
         *,
-        allowlist: "SyncAllowlist | None" = None,
+        allowlist: SyncAllowlist | None = None,
         owner_uid: UserUID | None = None,
     ) -> Result[MovePlan]:
         """Content-hash move pre-pass: turn uid-less renames into row rewrites.
@@ -1114,7 +1114,7 @@ class IngestionTracker:
         directory: Path,
         pattern: str = "*",
         *,
-        allowlist: "SyncAllowlist | None" = None,
+        allowlist: SyncAllowlist | None = None,
         owner_uid: UserUID | None = None,
     ) -> Result[DeletionReconciliation]:
         """

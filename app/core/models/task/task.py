@@ -159,7 +159,7 @@ class Task(UserOwnedEntity):
             score += 0.3
         return min(1.0, score)
 
-    def with_creation_due_date(self) -> "Task":
+    def with_creation_due_date(self) -> Task:
         """The creation rule: a task created without a date is due the day it is created.
 
         The day lens and the calendar place a task by ``due_date`` or
@@ -308,11 +308,11 @@ class Task(UserOwnedEntity):
     # =========================================================================
 
     @classmethod
-    def from_dto(cls, dto: "EntityDTO | TaskDTO") -> "Task":
+    def from_dto(cls, dto: EntityDTO | TaskDTO) -> Task:
         """Create Task from an EntityDTO or TaskDTO."""
         return cls._from_dto(dto)
 
-    def to_dto(self) -> "TaskDTO":
+    def to_dto(self) -> TaskDTO:
         """Convert Task to domain-specific TaskDTO."""
 
         from core.models.dto_helpers import domain_to_dto
@@ -321,7 +321,7 @@ class Task(UserOwnedEntity):
         return domain_to_dto(self, TaskDTO)
 
     @classmethod
-    def from_request(cls, request: "TaskCreateRequest", *, user_uid: "UserUID") -> "Task":
+    def from_request(cls, request: TaskCreateRequest, *, user_uid: UserUID) -> Task:
         """Construct a frozen Task from a validated TaskCreateRequest.
 
         Relationship-typed request fields are written as graph edges by the service

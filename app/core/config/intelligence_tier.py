@@ -32,7 +32,7 @@ class IntelligenceTier(StrEnum):
     FULL = "full"  # Analytics + AI services
 
     @classmethod
-    def from_env(cls) -> "IntelligenceTier":
+    def from_env(cls) -> IntelligenceTier:
         """Read tier from INTELLIGENCE_TIER env var (default: full)."""
         raw = os.getenv("INTELLIGENCE_TIER", "full").strip().lower()
         try:

@@ -19,7 +19,7 @@ if TYPE_CHECKING:
 
 
 def render_embedded_forms(
-    forms: list["FormTemplate"],
+    forms: list[FormTemplate],
     ps_uid: str,
 ) -> Div:
     """Render all FormTemplates embedded in a PathStep as inline forms."""
@@ -34,7 +34,7 @@ def render_embedded_forms(
     )
 
 
-def render_embedded_forms_success(form: "FormTemplate", ps_uid: str) -> Div:
+def render_embedded_forms_success(form: FormTemplate, ps_uid: str) -> Div:
     """Render a submission-confirmed card to replace the submitted form."""
     return Div(
         Card(
@@ -48,7 +48,7 @@ def render_embedded_forms_success(form: "FormTemplate", ps_uid: str) -> Div:
     )
 
 
-def render_embedded_forms_error(form: "FormTemplate", ps_uid: str, message: str) -> Div:
+def render_embedded_forms_error(form: FormTemplate, ps_uid: str, message: str) -> Div:
     """Render the form again with an error banner above it (preserves user input is lost — HTMX swap)."""
     return Div(
         render_inline_error(message),
@@ -57,7 +57,7 @@ def render_embedded_forms_error(form: "FormTemplate", ps_uid: str, message: str)
     )
 
 
-def _render_form(form: "FormTemplate", ps_uid: str) -> Div:
+def _render_form(form: FormTemplate, ps_uid: str) -> Div:
     """Render a single FormTemplate as an HTMX-submittable inline form."""
     fields: list[Any] = [csrf_hidden_input()]
 

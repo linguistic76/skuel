@@ -537,7 +537,7 @@ _JE_PRO_DIRNAME = "je_pro"
 _JE_PRO_GATE_READ_CHARS = 64 * 1024
 
 
-def _in_je_pro_scope(path: Path, allowlist: "SyncAllowlist | None") -> bool:
+def _in_je_pro_scope(path: Path, allowlist: SyncAllowlist | None) -> bool:
     """Whether the je_pro consent gate applies to ``path``.
 
     Personal vaults only. With an allowlist, the gate applies inside the

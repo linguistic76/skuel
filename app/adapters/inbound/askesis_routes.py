@@ -44,7 +44,7 @@ ASKESIS_CONFIG = DomainRouteConfig(
 
 
 def create_askesis_routes(
-    app: FastHTMLApp, rt: RouteDecorator, services: "Services | None", _sync_service: Any = None
+    app: FastHTMLApp, rt: RouteDecorator, services: Services | None, _sync_service: Any = None
 ) -> None:
     """
     Wire askesis API and UI routes using configuration-driven registration.

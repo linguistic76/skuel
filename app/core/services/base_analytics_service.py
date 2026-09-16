@@ -325,8 +325,8 @@ class BaseAnalyticsService(Generic[B, T]):
         require_entity: bool = True,
         insight_generator: Callable[[str, float, str], list[str]] | None = None,
         recommendation_generator: Callable[[str, float, Any, list[str]], list[str]] | None = None,
-        store_callback: Callable[[str, "DualTrackResult[L]"], Awaitable[None]] | None = None,
-    ) -> "Result[DualTrackResult[L]]":
+        store_callback: Callable[[str, DualTrackResult[L]], Awaitable[None]] | None = None,
+    ) -> Result[DualTrackResult[L]]:
         """
         Template method for dual-track assessment.
 
@@ -585,7 +585,7 @@ class BaseAnalyticsService(Generic[B, T]):
 
         return recommendations[:4]
 
-    async def _store_dual_track_checkin(self, uid: str, result: "DualTrackResult[L]") -> None:
+    async def _store_dual_track_checkin(self, uid: str, result: DualTrackResult[L]) -> None:
         """
         Canonical store_callback for per-entity dual-track assessments (ADR-030).
 

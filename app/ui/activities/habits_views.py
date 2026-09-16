@@ -53,7 +53,7 @@ _POLARITY_VARIANTS: dict[str, BadgeT] = {
 }
 
 
-def HabitStatsBar(habits: list["Habit"]) -> "FT":
+def HabitStatsBar(habits: list[Habit]) -> FT:
     """Quick stats bar showing habit counts."""
     s = compute_habit_stats(habits)
     stats = [
@@ -75,17 +75,17 @@ def HabitStatsBar(habits: list["Habit"]) -> "FT":
 
 
 def HabitList(
-    habits: list["Habit"],
+    habits: list[Habit],
     connections_map: dict[str, list[dict[str, str]]] | None = None,
-) -> "FT":
+) -> FT:
     """Render a list of habit cards. Returns a replaceable container for HTMX."""
     return ActivityList(habits, "habit", HabitCard, connections_map)
 
 
 def HabitCard(
-    habit: "Habit",
+    habit: Habit,
     connections: list[dict[str, str]] | None = None,
-) -> "FT":
+) -> FT:
     """Single habit card with streak, polarity, category, and connections."""
     is_completed = habit.status and habit.status.value == "completed"
     is_paused = habit.status and habit.status.value == "paused"
@@ -190,7 +190,7 @@ def HabitCard(
     )
 
 
-def _insight_card(pattern: dict[str, Any], positive: bool) -> "FT":
+def _insight_card(pattern: dict[str, Any], positive: bool) -> FT:
     """Single pattern insight card with confidence badge + recommendation."""
     confidence_pct = int(float(pattern.get("confidence", 0.0)) * 100)
     badge_variant = BadgeT.success if positive else BadgeT.warning
@@ -205,7 +205,7 @@ def _insight_card(pattern: dict[str, Any], positive: bool) -> "FT":
     )
 
 
-def HabitInsightsSection(analysis: "PatternAnalysis") -> "FT":
+def HabitInsightsSection(analysis: PatternAnalysis) -> FT:
     """Atomic Habits pattern insights (success + failure patterns).
 
     Rendered by the /habits/insights-fragment HTMX endpoint and swapped into
@@ -234,7 +234,7 @@ def HabitInsightsSection(analysis: "PatternAnalysis") -> "FT":
     )
 
 
-def _choice_links(choices: list[dict[str, Any]]) -> "FT":
+def _choice_links(choices: list[dict[str, Any]]) -> FT:
     """Render linked choice titles for one direction of the Habit ↔ Choice lens."""
     return Div(
         *[
@@ -252,7 +252,7 @@ def _choice_links(choices: list[dict[str, Any]]) -> "FT":
 def HabitChoicesSection(
     informed_choices: list[dict[str, Any]],
     impacting_choices: list[dict[str, Any]],
-) -> "FT":
+) -> FT:
     """Habit ↔ Choice lens: choices this habit informed + choices impacting it.
 
     Graph edges: (Habit)-[:INFORMS_CHOICE]->(Choice) and
@@ -282,9 +282,9 @@ def HabitChoicesSection(
 
 
 def HabitDetailView(
-    habit: "Habit",
+    habit: Habit,
     connections: list[dict[str, str]],
-) -> "FT":
+) -> FT:
     """Full detail page for a single habit."""
     # Subtitle
     subtitle_parts: list[str] = []

@@ -59,13 +59,13 @@ class ProfileOrchestrator:
 
     def __init__(
         self,
-        tasks_service: "TasksService",
-        goals_service: "GoalsService",
-        habits_service: "HabitsService",
-        events_service: "EventsService",
-        choices_service: "ChoicesService",
-        principles_service: "PrinciplesService",
-        sharing_service: "SharingOperations",
+        tasks_service: TasksService,
+        goals_service: GoalsService,
+        habits_service: HabitsService,
+        events_service: EventsService,
+        choices_service: ChoicesService,
+        principles_service: PrinciplesService,
+        sharing_service: SharingOperations,
     ) -> None:
         self._tasks_service = tasks_service
         self._goals_service = goals_service
@@ -111,7 +111,7 @@ class ProfileOrchestrator:
         self,
         user_uid: UserUID,
         limit: int = 50,
-        entity_type: "EntityType | None" = None,
+        entity_type: EntityType | None = None,
         sharer_uid: UserUID | None = None,
     ) -> Result[list[SharedWithMeItem]]:
         """Get content shared with the user (entity DTO + share-edge metadata

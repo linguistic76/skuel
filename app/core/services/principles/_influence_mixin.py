@@ -33,7 +33,7 @@ class _InfluenceMixin:
     """
 
     # Populated by PrinciplesIntelligenceService.__init__
-    backend: "PrinciplesOperations"
+    backend: PrinciplesOperations
     relationships: Any
     logger: Any
 

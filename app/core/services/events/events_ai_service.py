@@ -43,9 +43,9 @@ class EventsAIService(BaseAIService["EventsOperations", Event]):
 
     def __init__(
         self,
-        backend: "EventsOperations",
-        llm_service: "LLMService",
-        embeddings_service: "EmbeddingsService",
+        backend: EventsOperations,
+        llm_service: LLMService,
+        embeddings_service: EmbeddingsService,
         event_bus: Any | None = None,
     ) -> None:
         super().__init__(

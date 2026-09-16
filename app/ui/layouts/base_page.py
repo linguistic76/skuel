@@ -63,7 +63,7 @@ def build_head(
     title: str,
     extra_css: list[str] | None = None,
     extra_scripts: list[str] | None = None,
-) -> "FT":
+) -> FT:
     """Build complete HTML head for any SKUEL page.
 
     This is the single source of truth for <head> content. Used by BasePage
@@ -116,12 +116,12 @@ def build_head(
 
 
 def _build_navbar(
-    request: "Request | None",
+    request: Request | None,
     active_page: str,
     user_display_name: str,
     is_authenticated: bool,
     is_admin: bool,
-) -> "FT":
+) -> FT:
     """Build slim top navbar, preferring request-based for auto-detection."""
     if request is not None:
         return create_navbar_for_request(request, active_page=active_page)
@@ -134,11 +134,11 @@ def _build_navbar(
 
 
 def _build_bottom_nav(
-    request: "Request | None",
+    request: Request | None,
     active_page: str,
     is_authenticated: bool,
     is_admin: bool,
-) -> "FT":
+) -> FT:
     """Build mobile bottom nav, preferring request-based for auto-detection."""
     if request is not None:
         return create_bottom_nav_for_request(request, active_page=active_page)
@@ -153,14 +153,14 @@ def BasePage(
     content: Any,
     title: str = "SKUEL",
     page_type: PageType = PageType.STANDARD,
-    request: "Request | None" = None,
+    request: Request | None = None,
     active_page: str = "",
     extra_css: list[str] | None = None,
     extra_scripts: list[str] | None = None,
     user_display_name: str = "",
     is_authenticated: bool = True,
     is_admin: bool = False,
-) -> "FT":
+) -> FT:
     """Unified page wrapper for consistent UX across SKUEL.
 
     Provides:
@@ -318,7 +318,7 @@ def BasePage(
 def AuthPage(
     content: Any,
     title: str = "SKUEL",
-) -> "FT":
+) -> FT:
     """Lightweight page wrapper for unauthenticated pages (login, register).
 
     Loads the full SKUEL CSS stack via build_head() but renders no navbar,

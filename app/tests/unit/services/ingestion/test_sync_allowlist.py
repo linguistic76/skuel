@@ -297,7 +297,7 @@ def test_collect_files_staging_floor_matches_component_exactly(tmp_path: Path) -
 # ---------------------------------------------------------------------------
 
 
-def _service_with_wall(wall: SyncAllowlist | None) -> "object":
+def _service_with_wall(wall: SyncAllowlist | None) -> object:
     from unittest.mock import Mock
 
     from core.services.ingestion.unified_ingestion_service import UnifiedIngestionService

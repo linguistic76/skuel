@@ -39,7 +39,7 @@ if TYPE_CHECKING:
 
 
 def create_analytics_summary_api_routes(
-    app: FastHTMLApp, rt: RouteDecorator, analytics_service: "AnalyticsService"
+    app: FastHTMLApp, rt: RouteDecorator, analytics_service: AnalyticsService
 ) -> list[Any]:
     """
     Create Analytics Summary API routes (read-only analytics).

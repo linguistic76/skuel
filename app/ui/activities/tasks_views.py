@@ -48,7 +48,7 @@ if TYPE_CHECKING:
     from core.ports.query_types import TaskDependencyNeighbor, TaskDependencyNeighbors
 
 
-def TaskStatsBar(tasks: list["Task"]) -> "FT":
+def TaskStatsBar(tasks: list[Task]) -> FT:
     """Quick stats bar showing task counts by status."""
     s = compute_task_stats(tasks)
     stats = [
@@ -68,17 +68,17 @@ def TaskStatsBar(tasks: list["Task"]) -> "FT":
 
 
 def TaskList(
-    tasks: list["Task"],
+    tasks: list[Task],
     connections_map: dict[str, list[dict[str, str]]] | None = None,
-) -> "FT":
+) -> FT:
     """Render a list of task cards. Returns a replaceable container for HTMX."""
     return ActivityList(tasks, "task", TaskCard, connections_map)
 
 
 def TaskCard(
-    task: "Task",
+    task: Task,
     knowledge_connections: list[dict[str, str]] | None = None,
-) -> "FT":
+) -> FT:
     """Single task card with status toggle, priority, due date, and connections."""
     is_completed = task.status and task.status.value == "completed"
     overdue = task.is_overdue()
@@ -163,9 +163,9 @@ def TaskCard(
 
 
 def _task_connection_badges(
-    task: "Task",
+    task: Task,
     connections: list[dict[str, str]],
-) -> "FT":
+) -> FT:
     """Connection badges with task-specific fallback to fulfills_goal_uid."""
     if connections:
         return ConnectionBadges(connections)
@@ -185,7 +185,7 @@ def _task_connection_badges(
     return Span()
 
 
-def SubtaskSection(task_uid: str) -> "FT":
+def SubtaskSection(task_uid: str) -> FT:
     """Section shell that HTMX auto-loads the subtask list on page render."""
     list_id = f"subtasks-list-{safe_id(task_uid)}"
     return Div(
@@ -202,9 +202,9 @@ def SubtaskSection(task_uid: str) -> "FT":
 
 def SubtaskListFragment(
     parent_uid: str,
-    parent: "Task | None",
-    children: "list[Task]",
-) -> "FT":
+    parent: Task | None,
+    children: list[Task],
+) -> FT:
     """Replaceable HTMX fragment: parent breadcrumb + child rows + quick-add form."""
     list_id = f"subtasks-list-{safe_id(parent_uid)}"
 
@@ -255,7 +255,7 @@ def SubtaskListFragment(
     )
 
 
-def _subtask_row(task: "Task") -> "FT":
+def _subtask_row(task: Task) -> FT:
     """Compact row: status indicator + title link to the task's own detail page."""
     is_completed = task.status and task.status.value == "completed"
     icon_cls = f"flex-none {'text-success' if is_completed else 'text-muted-foreground'}"
@@ -284,7 +284,7 @@ def _dependency_container_id(task_uid: str) -> str:
     return f"dependencies-{safe_id(task_uid)}"
 
 
-def DependencySection(task_uid: str) -> "FT":
+def DependencySection(task_uid: str) -> FT:
     """Section shell that HTMX auto-loads the task's DEPENDS_ON dependency list.
 
     DEPENDS_ON is the lightweight *scheduling* edge that feeds the planner/gantt —
@@ -303,7 +303,7 @@ def DependencySection(task_uid: str) -> "FT":
     )
 
 
-def _dependency_row(task_uid: str, neighbor: "TaskDependencyNeighbor", direction: str) -> "FT":
+def _dependency_row(task_uid: str, neighbor: TaskDependencyNeighbor, direction: str) -> FT:
     """One dependency row with a delete button.
 
     ``direction`` is "depends_on" (edge this→neighbor) or "required_by"
@@ -347,9 +347,9 @@ def _dependency_row(task_uid: str, neighbor: "TaskDependencyNeighbor", direction
 
 def DependencyListFragment(
     task_uid: str,
-    neighbors: "TaskDependencyNeighbors",
+    neighbors: TaskDependencyNeighbors,
     error: str | None = None,
-) -> "FT":
+) -> FT:
     """Replaceable HTMX fragment: depends-on + required-by rows + add form.
 
     ``error`` renders an inline banner above the lists (ownership / cycle
@@ -407,9 +407,9 @@ def DependencyListFragment(
 
 
 def TaskDetailView(
-    task: "Task",
+    task: Task,
     connections: list[dict[str, str]],
-) -> "FT":
+) -> FT:
     """Full detail page for a single task."""
     # Header badges
     badges: list[Any] = []

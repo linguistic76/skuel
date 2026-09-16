@@ -30,7 +30,7 @@ logger = get_logger("skuel.routes.insights.api")
 def create_insights_api_routes(
     app: Any,
     rt: Any,
-    insight_store: "InsightStore",
+    insight_store: InsightStore,
 ) -> list[Any]:
     """Create insights API routes.
 

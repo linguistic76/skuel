@@ -35,8 +35,8 @@ TEACHING_SIDEBAR_ITEMS: list[SidebarItem] = [
 def render_teaching_sidebar_page(
     content: Any,
     active: str,
-    request: "Request | None" = None,
-) -> "FT":
+    request: Request | None = None,
+) -> FT:
     """Wrap content in Teaching sidebar page.
 
     Args:

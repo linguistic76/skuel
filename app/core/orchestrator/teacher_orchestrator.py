@@ -37,8 +37,8 @@ class TeacherOrchestrator:
 
     def __init__(
         self,
-        teacher_review_service: "TeacherReviewOperations",
-        admin_stats: "AdminStatsService | None" = None,
+        teacher_review_service: TeacherReviewOperations,
+        admin_stats: AdminStatsService | None = None,
     ) -> None:
         self._review = teacher_review_service
         self._admin_stats = admin_stats

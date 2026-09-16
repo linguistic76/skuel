@@ -70,7 +70,7 @@ class JupyterNeo4jSync:
 
     def __init__(
         self,
-        backend: "JupyterSyncBackendOperations",
+        backend: JupyterSyncBackendOperations,
         vault_path: Path,
         conflict_strategy: ConflictResolution = ConflictResolution.MANUAL,
     ) -> None:

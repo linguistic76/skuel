@@ -48,7 +48,7 @@ logger = get_logger("skuel.routes.activity_review.ui")
 def create_activity_review_ui_routes(
     _app: Any,
     rt: Any,
-    orchestrator: "ActivityReviewOrchestrator",
+    orchestrator: ActivityReviewOrchestrator,
 ) -> list[Any]:
     """Create Activity Review admin UI routes."""
     logger.info("Creating Activity Review UI routes")

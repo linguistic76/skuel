@@ -44,7 +44,7 @@ if TYPE_CHECKING:
     from core.models.choice.choice_option import ChoiceOption
 
 
-def ChoiceStatsBar(choices: list["Choice"]) -> "FT":
+def ChoiceStatsBar(choices: list[Choice]) -> FT:
     """Quick stats bar showing choice counts."""
     total = len(choices)
     pending = sum(
@@ -81,17 +81,17 @@ def ChoiceStatsBar(choices: list["Choice"]) -> "FT":
 
 
 def ChoiceList(
-    choices: list["Choice"],
+    choices: list[Choice],
     connections_map: dict[str, list[dict[str, str]]] | None = None,
-) -> "FT":
+) -> FT:
     """Render a list of choice cards. Returns a replaceable container for HTMX."""
     return ActivityList(choices, "choice", ChoiceCard, connections_map)
 
 
 def ChoiceCard(
-    choice: "Choice",
+    choice: Choice,
     connections: list[dict[str, str]] | None = None,
-) -> "FT":
+) -> FT:
     """Single choice card with type, deadline, decision status, and connections."""
     is_decided = bool(choice.decided_at) or (choice.status and choice.status.value == "completed")
 
@@ -187,9 +187,9 @@ def ChoiceCard(
 
 
 def ChoiceDetailView(
-    choice: "Choice",
+    choice: Choice,
     connections: list[dict[str, str]],
-) -> "FT":
+) -> FT:
     """Full detail page for a single choice."""
     is_decided = bool(choice.decided_at) or (choice.status and choice.status.value == "completed")
 
@@ -328,7 +328,7 @@ def ChoiceDetailView(
     )
 
 
-def OptionsSection(options: tuple["ChoiceOption", ...], selected_uid: str | None) -> "FT":
+def OptionsSection(options: tuple[ChoiceOption, ...], selected_uid: str | None) -> FT:
     """Render choice options as a visual list with selected indicator."""
     items: list[Any] = []
     for opt in options:

@@ -62,7 +62,7 @@ _ALIGNMENT_COLORS = {
 }
 
 
-def PrincipleStatsBar(principles: list["Principle"]) -> "FT":
+def PrincipleStatsBar(principles: list[Principle]) -> FT:
     """Quick stats bar showing principle counts."""
     total = len(principles)
     core = sum(
@@ -97,17 +97,17 @@ def PrincipleStatsBar(principles: list["Principle"]) -> "FT":
 
 
 def PrincipleList(
-    principles: list["Principle"],
+    principles: list[Principle],
     connections_map: dict[str, list[dict[str, str]]] | None = None,
-) -> "FT":
+) -> FT:
     """Render a list of principle cards. Returns a replaceable container for HTMX."""
     return ActivityList(principles, "principle", PrincipleCard, connections_map)
 
 
 def PrincipleCard(
-    principle: "Principle",
+    principle: Principle,
     connections: list[dict[str, str]] | None = None,
-) -> "FT":
+) -> FT:
     """Single principle card with strength, category, alignment, and connections."""
     is_inactive = principle.is_active is not None and not principle.is_active
 
@@ -200,9 +200,9 @@ def PrincipleCard(
 
 
 def PrincipleDetailView(
-    principle: "Principle",
+    principle: Principle,
     connections: list[dict[str, str]],
-) -> "FT":
+) -> FT:
     """Full detail page for a single principle."""
     # Subtitle
     subtitle_parts: list[str] = []
@@ -441,7 +441,7 @@ _CONNECTION_LABELS: dict[str, tuple[str, str, str]] = {
 }
 
 
-def StrengthBadge(strength: str) -> "FT":
+def StrengthBadge(strength: str) -> FT:
     """Color-coded badge for PrincipleStrength."""
     hex_color = StrengthColor.for_level(strength)
     style = f"background-color: {hex_color}; color: white;"

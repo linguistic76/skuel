@@ -43,9 +43,9 @@ class ChoicesAIService(BaseAIService["ChoicesOperations", Choice]):
 
     def __init__(
         self,
-        backend: "ChoicesOperations",
-        llm_service: "LLMService",
-        embeddings_service: "EmbeddingsService",
+        backend: ChoicesOperations,
+        llm_service: LLMService,
+        embeddings_service: EmbeddingsService,
         event_bus: Any | None = None,
     ) -> None:
         super().__init__(

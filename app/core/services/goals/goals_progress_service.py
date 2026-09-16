@@ -147,7 +147,7 @@ class GoalsProgressService(BaseService[GoalsOperations, Goal]):
         self,
         backend: GoalsOperations,
         event_bus=None,
-        relationship_service: "UnifiedRelationshipService | None" = None,
+        relationship_service: UnifiedRelationshipService | None = None,
     ) -> None:
         """
         Initialize goals progress service.
@@ -1225,7 +1225,7 @@ class GoalsProgressService(BaseService[GoalsOperations, Goal]):
             await publish_event(self.event_bus, achieved_event, self.logger)
             self.logger.info(f"🎉 Goal {goal_uid} achieved!")
 
-    async def handle_habit_completed(self, event: "HabitCompleted") -> None:
+    async def handle_habit_completed(self, event: HabitCompleted) -> None:
         """
         Update goal progress when a habit is completed.
 

@@ -33,7 +33,7 @@ class _OrchestrationMixin:
     """
 
     # Populated by HabitsService.__init__ / BaseService
-    backend: "HabitsOperations"
+    backend: HabitsOperations
     core: Any
     completions: Any
     learning: Any

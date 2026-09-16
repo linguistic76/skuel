@@ -33,7 +33,7 @@ logger = get_logger(__name__)
 def create_revised_exercises_api_routes(
     app: Any,
     rt: Any,
-    revised_exercise_service: "RevisedExerciseService",
+    revised_exercise_service: RevisedExerciseService,
     user_service: Any = None,
 ) -> list[Any]:
     """Create revised exercises domain-specific API routes."""

@@ -281,12 +281,12 @@ class Principle(UserOwnedEntity):
     # =========================================================================
 
     @classmethod
-    def from_dto(cls, dto: "EntityDTO | PrincipleDTO") -> "Principle":
+    def from_dto(cls, dto: EntityDTO | PrincipleDTO) -> Principle:
         """Create Principle from an EntityDTO or PrincipleDTO."""
         return cls._from_dto(dto)
 
     @classmethod
-    def _from_dto(cls, dto: "EntityDTO") -> Self:
+    def _from_dto(cls, dto: EntityDTO) -> Self:
         """Extend the generic extraction to rehydrate typed nested records.
 
         ``PrincipleDTO`` stores ``alignment_history`` and ``expressions`` as
@@ -309,7 +309,7 @@ class Principle(UserOwnedEntity):
             expressions=tuple(_to_principle_expression(entry) for entry in instance.expressions),
         )
 
-    def to_dto(self) -> "PrincipleDTO":
+    def to_dto(self) -> PrincipleDTO:
         """Convert Principle to domain-specific PrincipleDTO."""
 
         from core.models.dto_helpers import domain_to_dto

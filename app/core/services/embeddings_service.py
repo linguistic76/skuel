@@ -64,8 +64,8 @@ class EmbeddingsService:
 
     def __init__(
         self,
-        backend: "EmbeddingsBackendOperations",
-        embedding_client: "EmbeddingClientOperations",
+        backend: EmbeddingsBackendOperations,
+        embedding_client: EmbeddingClientOperations,
         prometheus_metrics: Any | None = None,
     ) -> None:
         self.backend = backend

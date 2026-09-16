@@ -32,7 +32,7 @@ logger = get_logger(__name__)
 def create_groups_api_routes(
     app: Any,
     rt: Any,
-    group_service: "GroupOperations",
+    group_service: GroupOperations,
     user_service: Any,
 ) -> list[Any]:
     """

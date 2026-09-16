@@ -89,7 +89,7 @@ class _PredictiveMixin:
     """
 
     # Populated by GoalsIntelligenceService.__init__
-    backend: "GoalsOperations"
+    backend: GoalsOperations
     relationships: Any
     habits_service: Any
     logger: Any

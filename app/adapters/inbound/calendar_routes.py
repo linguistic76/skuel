@@ -29,7 +29,7 @@ CALENDAR_CONFIG = DomainRouteConfig(
 
 
 def create_calendar_routes(
-    app: FastHTMLApp, rt: RouteDecorator, services: "Services | None", _sync_service: Any = None
+    app: FastHTMLApp, rt: RouteDecorator, services: Services | None, _sync_service: Any = None
 ) -> None:
     """Wire the calendar UI routes using configuration-driven registration."""
     register_domain_routes(app, rt, services, CALENDAR_CONFIG)

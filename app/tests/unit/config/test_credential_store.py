@@ -41,7 +41,7 @@ class _FakeKeyring:
     def delete_password(self, service: str, key: str) -> None:
         del self.store[(service, key)]
 
-    def get_keyring(self) -> "_FakeKeyring":
+    def get_keyring(self) -> _FakeKeyring:
         return self
 
 

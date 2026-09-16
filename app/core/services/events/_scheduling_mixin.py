@@ -35,7 +35,7 @@ class _SchedulingMixin:
     """
 
     # Populated by EventsService.__init__ / BaseService
-    backend: "EventsOperations"
+    backend: EventsOperations
     core: EventsCoreService
     search: Any
     logger: Any

@@ -34,7 +34,7 @@ PATHSTEP_HABIT_TEMPLATES_CONFIG = make_pathstep_template_route_config(
 def create_pathstep_habit_templates_routes(
     app: FastHTMLApp,
     rt: RouteDecorator,
-    services: "Services | None",
+    services: Services | None,
     _sync_service: Any = None,
 ) -> None:
     """Wire HabitTemplate CRUD + PS-attachment routes."""

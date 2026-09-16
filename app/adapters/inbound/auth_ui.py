@@ -104,7 +104,7 @@ def _first_validation_error(e: ValidationError) -> str:
 def create_auth_ui_routes(
     app: Any,
     rt: Any,
-    graph_auth: "GraphAuthOperations",
+    graph_auth: GraphAuthOperations,
     user_service: Any = None,
 ) -> list[Any]:
     """

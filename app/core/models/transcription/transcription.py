@@ -99,7 +99,7 @@ class Transcription:
     # ========================================================================
 
     @classmethod
-    def from_dto(cls, dto: dict[str, Any]) -> "Transcription":
+    def from_dto(cls, dto: dict[str, Any]) -> Transcription:
         """Create Transcription from dict — delegates to from_dict."""
         return cls.from_dict(dto)
 
@@ -130,7 +130,7 @@ class Transcription:
         }
 
     @classmethod
-    def from_dict(cls, data: dict[str, Any]) -> "Transcription":
+    def from_dict(cls, data: dict[str, Any]) -> Transcription:
         """Create from dictionary."""
         # Handle status enum
         status = data.get("status", "pending")

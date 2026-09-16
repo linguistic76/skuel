@@ -140,7 +140,7 @@ class ActivityReport(UserOwnedEntity):
         insights_referenced: tuple[str, ...] = (),
         metadata: dict[str, Any] | None = None,
         data_cutoff: datetime | None = None,
-    ) -> "ActivityReport":
+    ) -> ActivityReport:
         """
         Factory method — generates uid, formats title, constructs ActivityReport.
 
@@ -183,11 +183,11 @@ class ActivityReport(UserOwnedEntity):
         )
 
     @classmethod
-    def from_dto(cls, dto: "EntityDTO | ActivityReportDTO") -> "ActivityReport":
+    def from_dto(cls, dto: EntityDTO | ActivityReportDTO) -> ActivityReport:
         """Create ActivityReport from an EntityDTO or ActivityReportDTO."""
         return cls._from_dto(dto)
 
-    def to_dto(self) -> "ActivityReportDTO":
+    def to_dto(self) -> ActivityReportDTO:
         """Convert ActivityReport to domain-specific ActivityReportDTO."""
 
         from core.models.dto_helpers import domain_to_dto

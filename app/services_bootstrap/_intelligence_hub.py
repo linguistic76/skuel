@@ -14,7 +14,7 @@ logger = get_logger("skuel.bootstrap")
 
 
 def _create_intelligence_hub(
-    services: "Services",
+    services: Services,
     activity_services: dict[str, Any],
     learning_services: dict[str, Any],
     user_entry_backend: Any,
@@ -22,7 +22,7 @@ def _create_intelligence_hub(
     vector_search_service: Any,
     driver: Any,
     event_bus: EventBusOperations,
-    tier: "IntelligenceTier",
+    tier: IntelligenceTier,
     context_builder: Any,
     user_service: Any,
     askesis_core_service: Any,

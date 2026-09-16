@@ -34,7 +34,7 @@ PATHSTEP_CHOICE_TEMPLATES_CONFIG = make_pathstep_template_route_config(
 def create_pathstep_choice_templates_routes(
     app: FastHTMLApp,
     rt: RouteDecorator,
-    services: "Services | None",
+    services: Services | None,
     _sync_service: Any = None,
 ) -> None:
     """Wire ChoiceTemplate CRUD + PS-attachment routes."""

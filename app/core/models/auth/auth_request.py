@@ -31,7 +31,7 @@ class RegistrationRequest(RequestBase):
     invite_code: str = Field(default="", max_length=200)
 
     @model_validator(mode="after")
-    def validate_registration(self) -> "RegistrationRequest":
+    def validate_registration(self) -> RegistrationRequest:
         if self.password != self.confirm_password:
             raise ValueError("Passwords do not match")
         if not self.accept_terms:
@@ -54,7 +54,7 @@ class ResetPasswordRequest(RequestBase):
     confirm_password: SecretStr = Field(min_length=1)
 
     @model_validator(mode="after")
-    def validate_passwords_match(self) -> "ResetPasswordRequest":
+    def validate_passwords_match(self) -> ResetPasswordRequest:
         if self.password != self.confirm_password:
             raise ValueError("Passwords do not match")
         return self

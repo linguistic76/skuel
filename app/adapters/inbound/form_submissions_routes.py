@@ -31,7 +31,7 @@ FORM_SUBMISSIONS_CONFIG = DomainRouteConfig(
 
 
 def create_form_submissions_routes(
-    app: FastHTMLApp, rt: RouteDecorator, services: "Services | None", _sync_service: Any = None
+    app: FastHTMLApp, rt: RouteDecorator, services: Services | None, _sync_service: Any = None
 ) -> None:
     """Wire form submission routes using configuration-driven registration."""
     register_domain_routes(app, rt, services, FORM_SUBMISSIONS_CONFIG)

@@ -102,7 +102,7 @@ def error_page(
 # ============================================================================
 
 
-def setup_user_profile_routes(rt: Any, services: "Services") -> None:
+def setup_user_profile_routes(rt: Any, services: Services) -> None:
     """
     Setup user profile routes.
 

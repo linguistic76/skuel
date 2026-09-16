@@ -52,7 +52,7 @@ class EventsSchedulingService(BaseService["EventsOperations", Event]):
     # Configure BaseService
     _date_field = "event_date"
 
-    def __init__(self, backend: "EventsOperations", event_bus=None) -> None:
+    def __init__(self, backend: EventsOperations, event_bus=None) -> None:
         """
         Initialize scheduling service.
 

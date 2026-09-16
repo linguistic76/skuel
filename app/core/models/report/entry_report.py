@@ -109,11 +109,11 @@ class EntryReport(UserOwnedEntity):
     # =========================================================================
 
     @classmethod
-    def from_dto(cls, dto: "EntityDTO | EntryReportDTO") -> "EntryReport":
+    def from_dto(cls, dto: EntityDTO | EntryReportDTO) -> EntryReport:
         """Create EntryReport from an EntityDTO or EntryReportDTO."""
         return cls._from_dto(dto)
 
-    def to_dto(self) -> "EntryReportDTO":
+    def to_dto(self) -> EntryReportDTO:
         """Convert to EntryReportDTO."""
 
         from core.models.dto_helpers import domain_to_dto

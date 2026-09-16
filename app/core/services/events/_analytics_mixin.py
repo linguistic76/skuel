@@ -31,7 +31,7 @@ class _AnalyticsMixin:
     """
 
     # Populated by EventsIntelligenceService.__init__
-    backend: "EventsOperations"
+    backend: EventsOperations
     relationships: Any
     cross_domain_query: CrossDomainQueryService | None
     logger: Any

@@ -182,11 +182,11 @@ class RevisedExercise(UserOwnedEntity):
     # =========================================================================
 
     @classmethod
-    def from_dto(cls, dto: "EntityDTO | RevisedExerciseDTO") -> "RevisedExercise":
+    def from_dto(cls, dto: EntityDTO | RevisedExerciseDTO) -> RevisedExercise:
         """Create RevisedExercise from an EntityDTO or RevisedExerciseDTO."""
         return cls._from_dto(dto)
 
-    def to_dto(self) -> "RevisedExerciseDTO":
+    def to_dto(self) -> RevisedExerciseDTO:
         """Convert RevisedExercise to domain-specific RevisedExerciseDTO."""
 
         from core.models.dto_helpers import domain_to_dto

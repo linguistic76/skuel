@@ -53,9 +53,9 @@ class EventsLearningService(BaseService["EventsOperations", Event]):
 
     def __init__(
         self,
-        backend: "EventsOperations",
+        backend: EventsOperations,
         event_bus=None,
-        relationship_service: "UnifiedRelationshipService | None" = None,
+        relationship_service: UnifiedRelationshipService | None = None,
     ) -> None:
         """
         Initialize events learning service.

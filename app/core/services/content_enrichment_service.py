@@ -79,7 +79,7 @@ class ContentEnrichmentService(BaseService[BackendOperations[Entity], Entity]):
         self,
         backend: BackendOperations[Entity],
         transcription_service=None,
-        chat_port: "ChatCompletionPort | None" = None,  # For intelligent editing
+        chat_port: ChatCompletionPort | None = None,  # For intelligent editing
         event_bus=None,  # For publishing domain events
     ) -> None:
         """

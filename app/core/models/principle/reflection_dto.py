@@ -67,7 +67,7 @@ class PrincipleReflectionDTO:
         trigger_uid: str | None = None,
         trigger_context: str | None = None,
         reflection_date: date | None = None,
-    ) -> "PrincipleReflectionDTO":
+    ) -> PrincipleReflectionDTO:
         """
         Factory method to create new PrincipleReflectionDTO with generated UID.
 
@@ -165,7 +165,7 @@ class PrincipleReflectionDTO:
         )
 
     @classmethod
-    def from_dict(cls, data: dict[str, Any]) -> "PrincipleReflectionDTO":
+    def from_dict(cls, data: dict[str, Any]) -> PrincipleReflectionDTO:
         """Create DTO from dictionary (e.g., from database)."""
         from core.models.dto_helpers import ensure_dict_field, parse_datetime_fields
 

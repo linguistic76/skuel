@@ -74,12 +74,12 @@ class UserService(_AdminLifecycleMixin, _ContextPlanningMixin):
     def __init__(
         self,
         user_repo: UserOperations,
-        query_executor: "UserContextQueryOperations | None" = None,
+        query_executor: UserContextQueryOperations | None = None,
         event_bus: EventBusOperations | None = None,
         intelligence_factory: UserContextIntelligenceFactory | None = None,
         metrics_cache=None,
         device_service: DeviceService | None = None,
-        session_invalidator: "SessionInvalidationOperations | None" = None,
+        session_invalidator: SessionInvalidationOperations | None = None,
     ) -> None:
         """
         Initialize facade with all sub-services.
@@ -143,7 +143,7 @@ class UserService(_AdminLifecycleMixin, _ContextPlanningMixin):
 
         # Session revocation on privilege change — auth infrastructure behind
         # this facade, like devices above
-        self.session_invalidator: "SessionInvalidationOperations | None" = session_invalidator
+        self.session_invalidator: SessionInvalidationOperations | None = session_invalidator
 
         # Intelligence factory (wired with 13 domain relationship services)
         # Note: Factory is wired post-construction via services_bootstrap.py
@@ -459,12 +459,12 @@ class UserService(_AdminLifecycleMixin, _ContextPlanningMixin):
 
 def create_user_service(
     user_repo: UserOperations,
-    query_executor: "UserContextQueryOperations | None" = None,
+    query_executor: UserContextQueryOperations | None = None,
     event_bus: Any | None = None,
     intelligence_factory: UserContextIntelligenceFactory | None = None,
     metrics_cache=None,
     device_service: DeviceService | None = None,
-    session_invalidator: "SessionInvalidationOperations | None" = None,
+    session_invalidator: SessionInvalidationOperations | None = None,
 ) -> UserService:
     """
     Factory function to create a UserService instance.

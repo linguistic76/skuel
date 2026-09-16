@@ -14,8 +14,8 @@ logger = get_logger("skuel.bootstrap")
 
 def create_all_backends(
     driver: Any,
-    query_executor: "QueryExecutor",
-    prometheus_metrics: "PrometheusMetrics | None" = None,
+    query_executor: QueryExecutor,
+    prometheus_metrics: PrometheusMetrics | None = None,
 ) -> dict[str, Any]:
     """Create all domain backends (100% dynamic pattern — direct instantiation).
 

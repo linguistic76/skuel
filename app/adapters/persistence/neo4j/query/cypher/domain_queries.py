@@ -117,7 +117,7 @@ def build_simple_prerequisite_chain(
 
 def build_entity_with_context(
     entity_label: NeoLabel,
-    relationships: list["RelationshipSpec"],
+    relationships: list[RelationshipSpec],
     confidence_param: str | None = "min_confidence",
     default_confidence: float = 0.7,
 ) -> tuple[str, dict[str, Neo4jValue]]:
@@ -964,8 +964,8 @@ def build_user_activity_query(
     user_uid: UserUID,
     node_label: NeoLabel,
     date_field: str | list[str] | None = None,
-    start_date: "date | None" = None,
-    end_date: "date | None" = None,
+    start_date: date | None = None,
+    end_date: date | None = None,
     exclude_statuses: list[str] | None = None,
     limit: int = 100,
 ) -> tuple[str, dict[str, Neo4jValue]]:

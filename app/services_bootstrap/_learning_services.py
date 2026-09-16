@@ -21,9 +21,9 @@ def _create_learning_services(
     user_service: Any,
     graph_intelligence: Any,
     llm_service: Any,  # LLMService for RAG generation (None when CORE tier)
-    tier: "IntelligenceTier",  # resolved once in compose_services — the single from_env() read
+    tier: IntelligenceTier,  # resolved once in compose_services — the single from_env() read
     event_bus: Any = None,
-    prometheus_metrics: "PrometheusMetrics | None" = None,
+    prometheus_metrics: PrometheusMetrics | None = None,
     query_executor: Any = None,
     activity_knowledge_intelligence: Any = None,
 ) -> dict[str, Any]:

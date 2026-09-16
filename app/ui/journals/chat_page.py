@@ -36,11 +36,11 @@ if TYPE_CHECKING:
 
 
 def JournalsLandingPage(
-    user: "User",
-    shelf_books: "list[dict[str, str]] | None" = None,
-    sessions: "list[ConversationSession] | None" = None,
+    user: User,
+    shelf_books: list[dict[str, str]] | None = None,
+    sessions: list[ConversationSession] | None = None,
     workspace: Any = None,
-    model_options: "list[tuple[str, str]] | None" = None,
+    model_options: list[tuple[str, str]] | None = None,
 ) -> Any:
     """3-column journal landing page — Claude.ai project-view style.
 
@@ -89,9 +89,9 @@ def JournalsLandingPage(
 
 
 def PeriodicNotePage(
-    entry: "UserEntry",
+    entry: UserEntry,
     initial_workspace: Any,
-    planning_panel: "FT | None" = None,
+    planning_panel: FT | None = None,
 ) -> Any:
     """Full-height layout for periodic notes (daily/weekly/monthly).
 
@@ -123,7 +123,7 @@ def PeriodicNotePage(
     )
 
 
-def _periodic_note_sidebar(entry: "UserEntry") -> Any:
+def _periodic_note_sidebar(entry: UserEntry) -> Any:
     """The periodic note's navigation column: a mini month, then a period rail.
 
     Two pickers, no overlap. The **mini month** is the fine-grained one — its
@@ -170,7 +170,7 @@ def _periodic_note_sidebar(entry: "UserEntry") -> Any:
     )
 
 
-def _note_anchor(kind: str, period_key: str) -> "tuple[datetime.date, set[datetime.date]]":
+def _note_anchor(kind: str, period_key: str) -> tuple[datetime.date, set[datetime.date]]:
     """Where the sidebar centres, and which days the mini month marks.
 
     The anchor is the note's period START, so a week crossing a month boundary
@@ -301,8 +301,8 @@ def _period_rail_step(kind: str, ref_date: datetime.date, steps: int, name: str)
 
 def _mini_month_calendar(
     ref_date: datetime.date,
-    highlight_dates: "set[datetime.date]",
-    active_week: "tuple[int, int] | None" = None,
+    highlight_dates: set[datetime.date],
+    active_week: tuple[int, int] | None = None,
 ) -> Any:
     """A month at sidebar scale, with the same two doors as the full month grid.
 
@@ -356,7 +356,7 @@ def _mini_month_calendar(
             cls=f"{cls} no-underline",
         )
 
-    def _week_rail(week: "list[int]") -> Any:
+    def _week_rail(week: list[int]) -> Any:
         """The week number for a rendered row, linked to its weekly note.
 
         The row's own days name the week: any real day in it carries the same
@@ -413,7 +413,7 @@ def _mini_month_calendar(
 # ─────────────────────────────────────────────────────────────────────────────
 
 
-def journal_sidebar(user: "User", sessions: "list[ConversationSession] | None" = None) -> Any:
+def journal_sidebar(user: User, sessions: list[ConversationSession] | None = None) -> Any:
     return Div(
         # Full sidebar (shown when open): entry point, the revisit list of past
         # discussions (ADR-078 — owner-private sessions), and identity.
@@ -511,7 +511,7 @@ def _sb_new_journal_btn() -> Any:
     )
 
 
-def _sb_identity_footer(user: "User") -> Any:
+def _sb_identity_footer(user: User) -> Any:
     initials = (user.display_name or user.title or "U")[0].upper()
     name = user.display_name or user.title or "User"
     tier = getattr(user.journal_tier, "value", str(user.journal_tier)).upper()
@@ -543,7 +543,7 @@ def _sb_identity_footer(user: "User") -> Any:
 # ─────────────────────────────────────────────────────────────────────────────
 
 
-def discussions_revisit_panel(sessions: "list[ConversationSession]", *, oob: bool = False) -> Any:
+def discussions_revisit_panel(sessions: list[ConversationSession], *, oob: bool = False) -> Any:
     """Scrollable list of the user's owned discussions (revisit, ADR-078).
 
     Carries a stable ``id=journal-discussions-panel`` so ``POST /journals/save``
@@ -577,7 +577,7 @@ def discussions_revisit_panel(sessions: "list[ConversationSession]", *, oob: boo
     )
 
 
-def DiscussionRow(session: "ConversationSession") -> Any:
+def DiscussionRow(session: ConversationSession) -> Any:
     """One revisit-list row: title link + hover actions (rename/export/delete).
 
     Inline rename toggles an Alpine ``editing`` flag local to the row; the rename
@@ -662,10 +662,10 @@ def _DiscussionRowActions(sid: str, title: str) -> Any:
 
 
 def _landing_center_column(
-    shelf_books: "list[dict[str, str]]",
+    shelf_books: list[dict[str, str]],
     is_founder: bool,
     workspace: Any = None,
-    model_options: "list[tuple[str, str]] | None" = None,
+    model_options: list[tuple[str, str]] | None = None,
 ) -> Any:
     # A flex-1 flex-col wrapper whose direct child carries id="journal-workspace".
     # /journals/start retargets here (HX-Retarget) and replaces the child in place
@@ -697,7 +697,7 @@ def _landing_center_column(
     )
 
 
-def _landing_source_panel(shelf_books: "list[dict[str, str]]") -> Any:
+def _landing_source_panel(shelf_books: list[dict[str, str]]) -> Any:
     """FOUNDER discussion source picker — canon shelf checkboxes + vault toggle.
 
     A native ``<details>`` disclosure (no JS) inside the composer form, so the
@@ -765,9 +765,9 @@ def _landing_source_panel(shelf_books: "list[dict[str, str]]") -> Any:
 
 
 def _landing_text_form(
-    shelf_books: "list[dict[str, str]]",
+    shelf_books: list[dict[str, str]],
     is_founder: bool,
-    model_options: "list[tuple[str, str]] | None" = None,
+    model_options: list[tuple[str, str]] | None = None,
 ) -> Any:
     from fasthtml.common import Form, Textarea
 

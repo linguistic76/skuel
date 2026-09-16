@@ -79,7 +79,7 @@ def _sub_status_badge(status: str | None) -> Any:
     return Badge(label, variant=variant, cls=custom_cls, size=Size.sm)
 
 
-def _submission_item(sub: "UserEntry") -> Div:
+def _submission_item(sub: UserEntry) -> Div:
     """Single row for a user's exercise submission."""
     status = sub.status.value
 
@@ -105,7 +105,7 @@ def _submission_item(sub: "UserEntry") -> Div:
     )
 
 
-def render_submissions_list(submissions: "list[UserEntry]") -> Div:
+def render_submissions_list(submissions: list[UserEntry]) -> Div:
     """Render the user's exercise submissions for the Library Submissions tab."""
     if not submissions:
         return EmptyState(
@@ -189,7 +189,7 @@ def render_resource_list(resources: list[Any]) -> Div:
 def create_library_ui_routes(
     _app: Any,
     rt: RouteDecorator,
-    orchestrator: "LibraryOrchestrator",
+    orchestrator: LibraryOrchestrator,
 ) -> None:
     """Create /library hub routes.
 

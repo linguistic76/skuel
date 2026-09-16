@@ -86,9 +86,9 @@ class CalendarServiceOperations(Protocol):
         user_uid: UserUID,
         start_date: date,
         end_date: date,
-        view_type: "CalendarView" = ...,
+        view_type: CalendarView = ...,
         include_completed: bool = False,
-    ) -> "Result[CalendarData]":
+    ) -> Result[CalendarData]:
         """The view's declared membership (VIEW_SPECS) for a date range. Returns Result[CalendarData]."""
         ...
 
@@ -97,7 +97,7 @@ class CalendarServiceOperations(Protocol):
         user_uid: UserUID,
         start_date: date,
         end_date: date,
-    ) -> "Result[list[CalendarItem]]":
+    ) -> Result[list[CalendarItem]]:
         """The range's plannable items — tasks + events + goal Milestones, no habits.
 
         Weekly/monthly-note read-panel producer (periodic-notes arc S3);
@@ -105,9 +105,7 @@ class CalendarServiceOperations(Protocol):
         """
         ...
 
-    async def habit_items_for_day(
-        self, user_uid: UserUID, day: date
-    ) -> "Result[list[CalendarItem]]":
+    async def habit_items_for_day(self, user_uid: UserUID, day: date) -> Result[list[CalendarItem]]:
         """The user's habits recurring on ``day``, as day-stamped calendar items.
 
         Day-view Habits-section producer: each item is scoped to the day the way
@@ -118,7 +116,7 @@ class CalendarServiceOperations(Protocol):
 
     async def get_item(
         self, user_uid: UserUID, item_uid: str, on_date: date | None = None
-    ) -> "Result[CalendarItem | None]":
+    ) -> Result[CalendarItem | None]:
         """Get a calendar item by UID, scoped to its owner. Returns Result[CalendarItem | None].
 
         ``on_date`` scopes a habit item to that occurrence day (day + completion
@@ -131,7 +129,7 @@ class CalendarServiceOperations(Protocol):
         user_uid: UserUID,
         item_uid: str,
         new_start: datetime,
-    ) -> "Result[CalendarItem]":
+    ) -> Result[CalendarItem]:
         """Reschedule a calendar item the user owns. Returns Result[CalendarItem]."""
         ...
 
@@ -141,7 +139,7 @@ class CalendarServiceOperations(Protocol):
         habit_uid: str,
         on_date: str,
         notes: str | None = None,
-    ) -> "Result[HabitCompletion]":
+    ) -> Result[HabitCompletion]:
         """Record a habit completion for the given day (verifies habit ownership)."""
         ...
 
@@ -271,7 +269,7 @@ class SystemServiceOperations(Protocol):
         """Update alert thresholds."""
         ...
 
-    def get_alert_thresholds(self) -> "AlertThresholds":
+    def get_alert_thresholds(self) -> AlertThresholds:
         """Get current alert thresholds."""
         ...
 
@@ -293,7 +291,7 @@ class CrossDomainAnalyticsOperations(Protocol):
         self,
         user_uid: UserUID,
         days_back: int,
-    ) -> "Result[LearningVelocityMetrics]":
+    ) -> Result[LearningVelocityMetrics]:
         """Get learning velocity metrics. Returns Result[LearningVelocityMetrics]."""
         ...
 
@@ -325,9 +323,7 @@ class LifePathAlignmentOperations(Protocol):
     Implementation: LifePathAlignmentService
     """
 
-    async def calculate_alignment(
-        self, context: "UserContext"
-    ) -> "Result[LifePathAlignmentResult]":
+    async def calculate_alignment(self, context: UserContext) -> Result[LifePathAlignmentResult]:
         """Calculate life path alignment from a pre-built UserContext."""
         ...
 
@@ -344,7 +340,7 @@ class LifePathOperations(Protocol):
 
     alignment: LifePathAlignmentOperations
 
-    async def get_full_status(self, user_uid: UserUID) -> "Result[LifePathStatus]":
+    async def get_full_status(self, user_uid: UserUID) -> Result[LifePathStatus]:
         """Get full life path status. Returns Result[LifePathStatus]."""
         ...
 
@@ -352,7 +348,7 @@ class LifePathOperations(Protocol):
         self,
         user_uid: UserUID,
         vision_statement: str,
-    ) -> "Result[LifePathRecommendation]":
+    ) -> Result[LifePathRecommendation]:
         """Capture vision and get recommendations. Returns Result[LifePathRecommendation]."""
         ...
 
@@ -360,11 +356,11 @@ class LifePathOperations(Protocol):
         self,
         user_uid: UserUID,
         life_path_uid: str,
-    ) -> "Result[LifePathDesignation]":
+    ) -> Result[LifePathDesignation]:
         """Designate LP as life path and calculate alignment. Returns Result[LifePathDesignation]."""
         ...
 
-    async def get_alignment(self, user_uid: UserUID) -> "Result[LifePathAlignmentResult]":
+    async def get_alignment(self, user_uid: UserUID) -> Result[LifePathAlignmentResult]:
         """Get alignment data. Builds context and delegates to alignment sub-service."""
         ...
 
@@ -389,7 +385,7 @@ class GraphAuthOperations(Protocol):
         username: str,
         display_name: str | None = None,
         user_metadata: dict[str, Any] | None = None,
-    ) -> "Result[SignUpResult]":
+    ) -> Result[SignUpResult]:
         """Register a new user. Returns Result[SignUpResult]."""
         ...
 
@@ -399,7 +395,7 @@ class GraphAuthOperations(Protocol):
         password: str,
         ip_address: str = "unknown",
         user_agent: str = "unknown",
-    ) -> "Result[SignInResult]":
+    ) -> Result[SignInResult]:
         """Authenticate a user. Returns Result[SignInResult]."""
         ...
 
@@ -456,7 +452,7 @@ class SessionInvalidationOperations(Protocol):
     """
 
     async def update_role_and_revoke_sessions(
-        self, user_uid: UserUID, new_role: "UserRole"
+        self, user_uid: UserUID, new_role: UserRole
     ) -> Result[int]:
         """Atomically persist a role change AND revoke every live session."""
         ...
@@ -485,11 +481,11 @@ class SessionBackendOperations(Protocol):
     See: /docs/patterns/BACKEND_OPERATIONS_ISP.md
     """
 
-    async def create_session(self, session: "Session") -> Result["Session"]:
+    async def create_session(self, session: Session) -> Result[Session]:
         """Persist a new session."""
         ...
 
-    async def get_session_by_token(self, session_token: str) -> Result["Session | None"]:
+    async def get_session_by_token(self, session_token: str) -> Result[Session | None]:
         """Fetch a session by its token value."""
         ...
 
@@ -511,7 +507,7 @@ class SessionBackendOperations(Protocol):
         """Invalidate every live session for a user. Returns the count revoked."""
         ...
 
-    async def log_auth_event(self, event: "AuthEvent") -> Result["AuthEvent"]:
+    async def log_auth_event(self, event: AuthEvent) -> Result[AuthEvent]:
         """Record an authentication event — the substrate rate limiting counts."""
         ...
 
@@ -523,11 +519,11 @@ class SessionBackendOperations(Protocol):
         """Whether failed attempts from this IP exceed the per-IP threshold."""
         ...
 
-    async def create_reset_token(self, token: "PasswordResetToken") -> Result["PasswordResetToken"]:
+    async def create_reset_token(self, token: PasswordResetToken) -> Result[PasswordResetToken]:
         """Persist a password-reset token."""
         ...
 
-    async def get_reset_token(self, token_value: str) -> Result["PasswordResetToken | None"]:
+    async def get_reset_token(self, token_value: str) -> Result[PasswordResetToken | None]:
         """Fetch a reset token by its value."""
         ...
 
@@ -552,25 +548,25 @@ class GoalTaskGeneratorOperations(Protocol):
     async def generate_tasks_for_goal(
         self,
         goal_uid: str,
-        user_context: "UserContext",
+        user_context: UserContext,
         auto_create: bool = False,
-    ) -> "Result[list[TaskDTO]]":
+    ) -> Result[list[TaskDTO]]:
         """Generate tasks for a single goal."""
         ...
 
     async def generate_tasks_for_all_goals(
         self,
-        user_context: "UserContext",
+        user_context: UserContext,
         auto_create: bool = False,
-    ) -> "Result[dict[str, list[TaskDTO]]]":
+    ) -> Result[dict[str, list[TaskDTO]]]:
         """Generate tasks for all active goals, skipping those already at capacity."""
         ...
 
     async def generate_next_critical_tasks(
         self,
-        user_context: "UserContext",
+        user_context: UserContext,
         limit: int = 5,
-    ) -> "Result[list[TaskDTO]]":
+    ) -> Result[list[TaskDTO]]:
         """Generate the next critical tasks across all goals, prioritised by urgency."""
         ...
 
@@ -586,10 +582,10 @@ class HabitEventSchedulerOperations(Protocol):
     async def schedule_events_for_habit(
         self,
         habit_uid: str,
-        user_context: "UserContext",
+        user_context: UserContext,
         auto_create: bool = False,
         days_ahead: int | None = None,
-    ) -> "Result[list[EventDTO]]":
+    ) -> Result[list[EventDTO]]:
         """Schedule events for a habit."""
         ...
 
@@ -614,7 +610,7 @@ class OwnershipVerifier(Protocol):
 
     async def verify_ownership(
         self, uid: str, user_uid: UserUID
-    ) -> "Result[Any]": ...  # boundary: internal ownership callback — see class docstring
+    ) -> Result[Any]: ...  # boundary: internal ownership callback — see class docstring
 
 
 @runtime_checkable
@@ -651,7 +647,7 @@ class LateralRelationshipOperations(Protocol):
         include_metadata: bool = True,
         user_uid: UserUID | None = None,
         domain_service: OwnershipVerifier | None = None,
-    ) -> "Result[list[LateralRelationshipItem]]": ...
+    ) -> Result[list[LateralRelationshipItem]]: ...
 
     async def get_blocking_chain(
         self,
@@ -659,14 +655,14 @@ class LateralRelationshipOperations(Protocol):
         max_depth: int = 10,
         user_uid: UserUID | None = None,
         domain_service: OwnershipVerifier | None = None,
-    ) -> "Result[BlockingChainResult]": ...
+    ) -> Result[BlockingChainResult]: ...
 
     async def get_alternatives_with_comparison(
         self,
         entity_uid: EntityUID,
         user_uid: UserUID | None = None,
         domain_service: OwnershipVerifier | None = None,
-    ) -> "Result[list[AlternativeComparisonItem]]": ...
+    ) -> Result[list[AlternativeComparisonItem]]: ...
 
     async def get_relationship_graph(
         self,
@@ -675,7 +671,7 @@ class LateralRelationshipOperations(Protocol):
         relationship_types: list[RelationshipName] | None = None,
         user_uid: UserUID | None = None,
         domain_service: OwnershipVerifier | None = None,
-    ) -> "Result[RelationshipGraphData]": ...
+    ) -> Result[RelationshipGraphData]: ...
 
     async def get_siblings(
         self,

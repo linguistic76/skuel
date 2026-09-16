@@ -169,7 +169,7 @@ class EntityType(StrEnum):
         """Check if this is one of the 6 PS-owned Activity Template types."""
         return self in _ACTIVITY_TEMPLATE_TYPES
 
-    def instance_type(self) -> "EntityType":
+    def instance_type(self) -> EntityType:
         """Return the Activity instance type spawned by this template.
 
         Only valid for the 6 Activity Template types; raises ValueError otherwise.
@@ -179,7 +179,7 @@ class EntityType(StrEnum):
         except KeyError:
             raise ValueError(f"{self!r} is not an Activity Template type") from None
 
-    def template_type(self) -> "EntityType":
+    def template_type(self) -> EntityType:
         """Return the Activity Template type that spawns this instance type.
 
         Only valid for the 6 Activity Domain instance types; raises ValueError otherwise.

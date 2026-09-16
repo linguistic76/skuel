@@ -33,7 +33,7 @@ INGESTION_CONFIG = DomainRouteConfig(
 
 
 def create_ingestion_routes(
-    app: FastHTMLApp, rt: RouteDecorator, services: "Services | None", _sync_service: Any = None
+    app: FastHTMLApp, rt: RouteDecorator, services: Services | None, _sync_service: Any = None
 ) -> None:
     """Wire ingestion API and UI routes using configuration-driven registration."""
     register_domain_routes(app, rt, services, INGESTION_CONFIG)

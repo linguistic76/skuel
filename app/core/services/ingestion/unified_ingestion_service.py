@@ -165,7 +165,7 @@ class UnifiedIngestionService:
         content_adapter: Any | None = None,
         event_bus: Any | None = None,
         embeddings_enabled: bool = True,
-        ingestion_backend: "IngestionBackendOperations | None" = None,
+        ingestion_backend: IngestionBackendOperations | None = None,
         user_entry_service: UserEntryService | None = None,
         user_service: UserService | None = None,
         user_entry_processor: UserEntryProcessingService | None = None,

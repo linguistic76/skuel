@@ -39,7 +39,7 @@ logger = get_logger("skuel.routes.lifepath.api")
 def create_lifepath_api_routes(
     app: Any,
     rt: Any,
-    lifepath_service: "LifePathOperations",
+    lifepath_service: LifePathOperations,
 ) -> list[Any]:
     """
     Create LifePath API routes.

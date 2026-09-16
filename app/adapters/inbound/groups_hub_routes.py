@@ -24,9 +24,9 @@ if TYPE_CHECKING:
 
 
 def create_groups_hub_routes(
-    app: "FastHTMLApp",
-    rt: "RouteDecorator",
-    services: "Services",
+    app: FastHTMLApp,
+    rt: RouteDecorator,
+    services: Services,
 ) -> None:
     """Register the /groups hub page and its HTMX preview endpoint."""
 

@@ -65,7 +65,7 @@ class _AnalyticsMixin:
     """
 
     # Populated by TasksIntelligenceService.__init__
-    backend: "TasksOperations"
+    backend: TasksOperations
     logger: Any
 
     async def get_behavioral_insights(

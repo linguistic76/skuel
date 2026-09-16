@@ -107,11 +107,11 @@ class Resource(Entity):
     # =========================================================================
 
     @classmethod
-    def from_dto(cls, dto: "EntityDTO | ResourceDTO") -> "Resource":
+    def from_dto(cls, dto: EntityDTO | ResourceDTO) -> Resource:
         """Create Resource from an EntityDTO or ResourceDTO."""
         return cls._from_dto(dto)
 
-    def to_dto(self) -> "ResourceDTO":
+    def to_dto(self) -> ResourceDTO:
         """Convert Resource to domain-specific ResourceDTO."""
 
         from core.models.dto_helpers import domain_to_dto

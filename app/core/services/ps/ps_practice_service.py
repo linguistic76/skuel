@@ -40,7 +40,7 @@ class PsPracticeService:
 
     def __init__(
         self,
-        backend: "PsOperations",
+        backend: PsOperations,
         event_bus: Any = None,
     ) -> None:
         """

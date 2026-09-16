@@ -168,12 +168,12 @@ class PsService:
 
     def __init__(
         self,
-        backend: "PsOperations | None" = None,
+        backend: PsOperations | None = None,
         executor: Any = None,
         graph_intel: Any = None,
         event_bus: Any = None,
         ai_service: PsAIService | None = None,
-        ku_backend: "KuOperations | None" = None,
+        ku_backend: KuOperations | None = None,
         chunking_service: Any | None = None,
         user_service: Any | None = None,
         vector_search_service: Any | None = None,

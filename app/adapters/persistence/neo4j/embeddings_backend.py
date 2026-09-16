@@ -24,7 +24,7 @@ logger = get_logger(__name__)
 class EmbeddingsBackend:
     """Neo4j backend for embedding storage and retrieval."""
 
-    def __init__(self, executor: "QueryExecutor") -> None:
+    def __init__(self, executor: QueryExecutor) -> None:
         self.executor = executor
 
     async def store_embedding_metadata(

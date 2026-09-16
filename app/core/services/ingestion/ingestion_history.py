@@ -66,7 +66,7 @@ class IngestionHistoryEntry:
 class IngestionHistoryService:
     """Tracks ingestion operations in Neo4j for audit trail."""
 
-    def __init__(self, backend: "IngestionBackendOperations") -> None:
+    def __init__(self, backend: IngestionBackendOperations) -> None:
         """
         Initialize ingestion history service.
 
@@ -349,7 +349,7 @@ class IngestionHistoryService:
     # Test-covered count API — no production caller yet (PLANNED)
     # -------------------------------------------------------------------------
 
-    async def get_total_count(self) -> "Result[int]":
+    async def get_total_count(self) -> Result[int]:
         """
         Get total count of ingestion history entries.
 

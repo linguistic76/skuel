@@ -83,8 +83,8 @@ class ActivityReportService:
     def __init__(
         self,
         backend: ActivityReportBackendOperations,
-        context_builder: "UserContextBuilder",
-        event_bus: "EventBusOperations",
+        context_builder: UserContextBuilder,
+        event_bus: EventBusOperations,
     ) -> None:
         self.backend = backend
         self.context_builder = context_builder
@@ -107,7 +107,7 @@ class ActivityReportService:
 
     async def create_snapshot(
         self,
-        context: "UserContext",
+        context: UserContext,
         time_period: str = "7d",
         domains: list[str] | None = None,
         admin_uid: str = "",

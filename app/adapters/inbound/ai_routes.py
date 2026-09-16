@@ -334,7 +334,7 @@ _SIGNATURE_FACTORIES = {
 # ---------------------------------------------------------------------------
 
 
-def create_ai_routes(app: FastHTMLApp, rt: RouteDecorator, services: "Services | None") -> None:
+def create_ai_routes(app: FastHTMLApp, rt: RouteDecorator, services: Services | None) -> None:
     """Create routes for AI-powered domain features.
 
     All routes check if the domain's .ai service is available.

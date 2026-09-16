@@ -322,11 +322,11 @@ class Goal(UserOwnedEntity):
     # =========================================================================
 
     @classmethod
-    def from_dto(cls, dto: "EntityDTO | GoalDTO") -> "Goal":
+    def from_dto(cls, dto: EntityDTO | GoalDTO) -> Goal:
         """Create Goal from an EntityDTO or GoalDTO."""
         return cls._from_dto(dto)
 
-    def to_dto(self) -> "GoalDTO":
+    def to_dto(self) -> GoalDTO:
         """Convert Goal to domain-specific GoalDTO."""
 
         from core.models.dto_helpers import domain_to_dto

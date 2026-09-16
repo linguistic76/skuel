@@ -29,8 +29,9 @@ from adapters.inbound.csrf import csrf_protected
 from adapters.inbound.form_helpers import parse_form_body
 from core.models.teaching.teaching_request import RequestRevisionRequest
 
-# NOTE: FastHTML evaluates string annotations at runtime via signature_ex(),
-# so types used in @rt() handler return annotations must be real imports.
+# NOTE: FastHTML evaluates every @rt() handler annotation at registration
+# (signature_ex with eval_str), so the types in a handler signature must be
+# real imports, never TYPE_CHECKING-only.
 from core.ports.query_types import (
     ExerciseWithSubmissionCounts,
     GroupMemberProgress,
@@ -75,12 +76,12 @@ def _save_report_file(teacher_uid: str, submission_uid: str, content: str) -> st
 def create_teaching_api_routes(
     app: Any,
     rt: Any,
-    teacher_review_service: "TeacherReviewOperations",
+    teacher_review_service: TeacherReviewOperations,
     user_service: Any,
     exercises_service: Any,
     user_entry_service: Any = None,
     revised_exercise_service: Any = None,
-    entry_report_service: "EntryReportOperations | None" = None,
+    entry_report_service: EntryReportOperations | None = None,
 ) -> list[Any]:
     """
     Create teaching API routes.
@@ -101,7 +102,7 @@ def create_teaching_api_routes(
     @boundary_handler()
     async def review_queue(
         request: Request, current_user: Any = None
-    ) -> "Result[list[ReviewQueueItem]]":
+    ) -> Result[list[ReviewQueueItem]]:
         """Get teacher's pending review queue (group-shared entries only)."""
         status_filter = request.query_params.get("status", None)
         return await teacher_review_service.get_review_queue(
@@ -279,7 +280,7 @@ def create_teaching_api_routes(
     @boundary_handler()
     async def get_submission_detail(
         request: Request, uid: str, current_user: Any = None
-    ) -> "Result[SubmissionDetailResult]":
+    ) -> Result[SubmissionDetailResult]:
         """Get full submission detail for teacher review.
 
         Returns submission content, student info, and linked exercise.

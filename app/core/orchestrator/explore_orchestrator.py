@@ -43,12 +43,12 @@ class ExploreOrchestrator:
 
     def __init__(
         self,
-        ku_service: "KuService",
-        ps_service: "PsService",
-        user_relationship_service: "UserRelationshipOperations",
-        exercises_service: "ExerciseService",
-        learning_loop_query_service: "LearningLoopQueryService",
-        form_template_service: "FormTemplateOperations | None" = None,
+        ku_service: KuService,
+        ps_service: PsService,
+        user_relationship_service: UserRelationshipOperations,
+        exercises_service: ExerciseService,
+        learning_loop_query_service: LearningLoopQueryService,
+        form_template_service: FormTemplateOperations | None = None,
     ) -> None:
         self._ku = ku_service
         self._ps = ps_service
@@ -85,14 +85,14 @@ class ExploreOrchestrator:
         self,
         user_uid: UserUID,
         ku_uid: str,
-        user_level: "MasteryLevel",
+        user_level: MasteryLevel,
         user_evidence: str,
-        user_context: "UserContext",
+        user_context: UserContext,
         user_reflection: str | None = None,
         store_callback: (
-            "Callable[[str, DualTrackResult[MasteryLevel]], Awaitable[None]] | None"
+            Callable[[str, DualTrackResult[MasteryLevel]], Awaitable[None]] | None
         ) = None,
-    ) -> "Result[DualTrackResult[MasteryLevel]]":
+    ) -> Result[DualTrackResult[MasteryLevel]]:
         """Run a dual-track Knowledge-mastery assessment for a Ku (ADR-030)."""
         return await self._ku.assess_mastery_dual_track(
             user_uid,
@@ -160,7 +160,7 @@ class ExploreOrchestrator:
         """Get a user's submissions + feedback for a specific PathStep."""
         return await self._learning_loop_queries.get_submissions_for_path_step(user_uid, ps_uid)
 
-    async def get_forms_for_path_step(self, ps_uid: str) -> "Result[list[FormTemplate]]":
+    async def get_forms_for_path_step(self, ps_uid: str) -> Result[list[FormTemplate]]:
         """Get FormTemplates embedded in a PathStep via EMBEDS_FORM."""
         if self._form_templates is None:
             return Result.ok([])

@@ -170,10 +170,10 @@ class ProfileHubData:
     @staticmethod
     def from_context(
         user: Any,
-        context: "UserContext",
+        context: UserContext,
         recent_activities: list[dict[str, Any]],
         recommendations: list[dict[str, str]],
-    ) -> "ProfileHubData":
+    ) -> ProfileHubData:
         """
         Build ProfileHubData from UserContext.
 
@@ -211,7 +211,7 @@ class ProfileHubData:
 # =============================================================================
 
 
-def _compute_domain_stats_from_context(context: "UserContext") -> DomainStatsAggregate:
+def _compute_domain_stats_from_context(context: UserContext) -> DomainStatsAggregate:
     """
     Compute all domain statistics from UserContext.
 
@@ -318,7 +318,7 @@ def _compute_domain_stats_from_context(context: "UserContext") -> DomainStatsAgg
     )
 
 
-def _compute_overall_metrics_from_context(context: "UserContext") -> OverallMetrics:
+def _compute_overall_metrics_from_context(context: UserContext) -> OverallMetrics:
     """
     Compute overall cross-domain metrics from UserContext.
     """
@@ -374,7 +374,7 @@ def _compute_overall_metrics_from_context(context: "UserContext") -> OverallMetr
     )
 
 
-def _calculate_task_completion_rate(context: "UserContext") -> float:
+def _calculate_task_completion_rate(context: UserContext) -> float:
     """Calculate task completion rate from context."""
     total_tasks = len(context.active_task_uids) + len(context.completed_task_uids)
     if total_tasks == 0:

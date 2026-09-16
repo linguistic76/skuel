@@ -155,7 +155,7 @@ def stage3_system_prompt(
 
 def discussion_system_prompt(
     user_context_summary: str,
-    mode: "JournalMode | None" = None,
+    mode: JournalMode | None = None,
     canon_context: str = "",
     vault_context: str = "",
 ) -> str:
@@ -215,7 +215,7 @@ _DISCUSSION_BASE_DEFAULTS: Final[dict[str, str]] = {
 }
 
 
-def _discussion_base(mode: "JournalMode") -> str:
+def _discussion_base(mode: JournalMode) -> str:
     """Opening-turn discussion base — committed floor, optional authored override (ADR-081 D1)."""
     override = _load_optional_override(f"journals.discussion.{mode.value}.md")
     return override if override is not None else _DISCUSSION_BASE_DEFAULTS[mode.value]
@@ -223,7 +223,7 @@ def _discussion_base(mode: "JournalMode") -> str:
 
 def follow_up_system_prompt(
     user_context_summary: str,
-    mode: "JournalMode | None" = None,
+    mode: JournalMode | None = None,
     canon_context: str = "",
     vault_context: str = "",
 ) -> str:
@@ -280,13 +280,13 @@ _FOLLOW_UP_BASE_DEFAULTS: Final[dict[str, str]] = {
 }
 
 
-def _follow_up_base(mode: "JournalMode") -> str:
+def _follow_up_base(mode: JournalMode) -> str:
     """Follow-up base — committed floor, optional authored override (ADR-081 D1)."""
     override = _load_optional_override(f"journals.follow_up.{mode.value}.md")
     return override if override is not None else _FOLLOW_UP_BASE_DEFAULTS[mode.value]
 
 
-def journal_mode_addendum(mode: "JournalMode") -> str:
+def journal_mode_addendum(mode: JournalMode) -> str:
     """Function addendum injected into upload-pipeline LLM prompts (LLM_SUMMARY / TRANSCRIBE_AND_STRUCTURE)."""
     from core.models.enums.user_enums import JournalMode
 

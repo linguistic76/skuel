@@ -84,7 +84,7 @@ class FireflyClient:
 
     async def __aenter__(
         self,
-    ) -> "FireflyClient":  # skuel-lint: disable=SKUEL029 -- async context-manager protocol: `async with` awaits __aenter__
+    ) -> FireflyClient:  # skuel-lint: disable=SKUEL029 -- async context-manager protocol: `async with` awaits __aenter__
         return self
 
     async def __aexit__(self, *_: object) -> None:

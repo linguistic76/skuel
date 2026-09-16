@@ -62,7 +62,7 @@ NEO4J_SERVER_VERSION: str = NEO4J_IMAGE.removeprefix("neo4j:")
 """What ``CALL dbms.components()`` must report for the running container."""
 
 
-async def running_kernel_version(driver: "AsyncDriver") -> str:
+async def running_kernel_version(driver: AsyncDriver) -> str:
     """The ``Neo4j Kernel`` version the server behind ``driver`` reports.
 
     ``CALL dbms.components()`` is the one procedure that names the server

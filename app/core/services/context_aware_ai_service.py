@@ -73,7 +73,7 @@ class ContextAwareAIService(BaseAIService["UserService", Entity]):
 
     def __init__(
         self,
-        backend: "UserService",
+        backend: UserService,
         llm_service: LLMService,
         embeddings_service: EmbeddingsService,
         graph_intel: GraphIntelligenceService | None = None,

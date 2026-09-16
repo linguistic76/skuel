@@ -55,10 +55,10 @@ class EventsIntelligenceService(
 
     def __init__(
         self,
-        backend: "EventsOperations",
+        backend: EventsOperations,
         graph_intel=None,
-        relationship_service: "UnifiedRelationshipService[Any, Any, Any] | None" = None,
-        cross_domain_query: "CrossDomainQueryService | None" = None,
+        relationship_service: UnifiedRelationshipService[Any, Any, Any] | None = None,
+        cross_domain_query: CrossDomainQueryService | None = None,
         insight_store: Any | None = None,
     ) -> None:
         """

@@ -135,7 +135,7 @@ class TimeOfDay(StrEnum):
         return time(self.get_default_hour(), 0)
 
     @classmethod
-    def from_hour(cls, hour: int) -> "TimeOfDay":
+    def from_hour(cls, hour: int) -> TimeOfDay:
         """Classify a clock hour into the slot whose range contains it.
 
         Inverse of :meth:`get_hour_range` — the one place an observed hour
@@ -166,7 +166,7 @@ class EnergyLevel(StrEnum):
     HIGH = "high"  # Requires peak energy/focus
     VARIABLE = "variable"  # Depends on context
 
-    def matches(self, available_energy: "EnergyLevel") -> bool:
+    def matches(self, available_energy: EnergyLevel) -> bool:
         """Check if required energy matches available energy"""
         if self == EnergyLevel.VARIABLE or available_energy == EnergyLevel.VARIABLE:
             return True

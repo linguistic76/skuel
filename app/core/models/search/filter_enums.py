@@ -94,7 +94,7 @@ class SearchSortOrder(StrEnum):
         return self.value.endswith("_desc") or self == self.RELEVANCE
 
     @classmethod
-    def from_string(cls, value: str | None) -> "SearchSortOrder":
+    def from_string(cls, value: str | None) -> SearchSortOrder:
         """Parse a form/query value; unknown or empty → RELEVANCE (fail-soft boundary)."""
         if not value:
             return cls.RELEVANCE

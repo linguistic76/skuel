@@ -73,11 +73,11 @@ class FormSubmission(UserOwnedEntity):
     # =========================================================================
 
     @classmethod
-    def from_dto(cls, dto: "EntityDTO | FormSubmissionDTO") -> "FormSubmission":
+    def from_dto(cls, dto: EntityDTO | FormSubmissionDTO) -> FormSubmission:
         """Create FormSubmission from an EntityDTO or FormSubmissionDTO."""
         return cls._from_dto(dto)
 
-    def to_dto(self) -> "FormSubmissionDTO":
+    def to_dto(self) -> FormSubmissionDTO:
         """Convert to FormSubmissionDTO."""
         from core.models.dto_helpers import domain_to_dto
         from core.models.forms.form_submission_dto import FormSubmissionDTO

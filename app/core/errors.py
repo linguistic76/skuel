@@ -74,22 +74,22 @@ class DatabaseError(ApplicationError):
         self.operation = operation
 
     @classmethod
-    def query_failed(cls, details: str) -> "DatabaseError":
+    def query_failed(cls, details: str) -> DatabaseError:
         """Create error for failed query"""
         return cls(f"Database query failed: {details}", operation="query")
 
     @classmethod
-    def connection_failed(cls, details: str) -> "DatabaseError":
+    def connection_failed(cls, details: str) -> DatabaseError:
         """Create error for failed connection"""
         return cls(f"Database connection failed: {details}", operation="connect")
 
     @classmethod
-    def transaction_failed(cls, details: str) -> "DatabaseError":
+    def transaction_failed(cls, details: str) -> DatabaseError:
         """Create error for failed transaction"""
         return cls(f"Database transaction failed: {details}", operation="transaction")
 
     @classmethod
-    def operation_failed(cls, details: str) -> "DatabaseError":
+    def operation_failed(cls, details: str) -> DatabaseError:
         """Create error for failed database operation"""
         return cls(f"Database operation failed: {details}", operation="operation")
 

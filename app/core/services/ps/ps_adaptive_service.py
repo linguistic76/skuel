@@ -58,7 +58,7 @@ class PsAdaptiveService:
 
     def __init__(
         self,
-        backend: "PsOperations",
+        backend: PsOperations,
         user_service: Any = None,
     ) -> None:
         if not backend:

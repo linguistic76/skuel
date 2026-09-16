@@ -59,7 +59,7 @@ class GoalsLearningService(BaseService[GoalsOperations, Goal]):
         self,
         backend: GoalsOperations,
         event_bus=None,
-        relationship_service: "UnifiedRelationshipService | None" = None,
+        relationship_service: UnifiedRelationshipService | None = None,
     ) -> None:
         """
         Initialize goals learning service.

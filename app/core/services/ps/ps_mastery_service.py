@@ -83,7 +83,7 @@ class PsMasteryService:
 
     def __init__(
         self,
-        backend: "PsOperations",
+        backend: PsOperations,
         event_bus=None,
     ) -> None:
         self.backend = backend

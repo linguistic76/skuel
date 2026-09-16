@@ -55,8 +55,8 @@ def _parse_insights_filters(request: Request) -> InsightsFilters:
 
 
 def _apply_insight_filters(
-    insight_store: "InsightStore", insights: "list[PersistedInsight]", filters: InsightsFilters
-) -> "list[PersistedInsight]":
+    insight_store: InsightStore, insights: list[PersistedInsight], filters: InsightsFilters
+) -> list[PersistedInsight]:
     """Apply in-memory filters via InsightStore.filter_insights (staticmethod on the injected store)."""
     return insight_store.filter_insights(
         insights,

@@ -330,7 +330,7 @@ class BulkUpsertBackend:
 
     async def _refuse_unknown_owners(
         self,
-        session: "AsyncSession",
+        session: AsyncSession,
         base_label: str | None,
         # boundary: prepared batch items are genuinely heterogeneous — a uid
         # string, the nested ``_node_props`` map, and one flattened list per

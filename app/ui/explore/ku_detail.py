@@ -149,7 +149,7 @@ def _article_header(
     reading_minutes: int,
     user_uid: str | None,
     is_pinned: bool = False,
-) -> "FT":
+) -> FT:
     meta_items: list[FT] = [
         Span(f"{reading_minutes} min read", cls="font-mono text-xs text-muted-foreground"),
         Span("·", cls="text-muted-foreground/40"),
@@ -173,8 +173,8 @@ def _article_header(
     )
 
 
-def _status_control(uid: str) -> "FT":
-    def _btn(label: str, val: str, endpoint: str) -> "FT":
+def _status_control(uid: str) -> FT:
+    def _btn(label: str, val: str, endpoint: str) -> FT:
         return Button(
             label,
             type="button",
@@ -203,12 +203,12 @@ def _status_control(uid: str) -> "FT":
 # ---------------------------------------------------------------------------
 
 
-def _reading_body(content_html: str) -> "FT":
+def _reading_body(content_html: str) -> FT:
     body = content_html or "<p>No content available.</p>"
     return Div(NotStr(body), cls="skuel-prose mt-7")
 
 
-def _end_of_read_marker() -> "FT":
+def _end_of_read_marker() -> FT:
     return Div(
         Span(cls="h-px flex-1 bg-border"),
         Icon("check-circle", cls="w-4 h-4 text-muted-foreground/60"),
@@ -222,7 +222,7 @@ def _end_of_read_marker() -> "FT":
 # ---------------------------------------------------------------------------
 
 
-def _relationships_section(uid: str) -> "FT":
+def _relationships_section(uid: str) -> FT:
     return Section(
         Div(
             "Relationships",
@@ -241,7 +241,7 @@ def _relationships_section(uid: str) -> "FT":
 # ---------------------------------------------------------------------------
 
 
-def _resources_section(resources: list[dict]) -> "FT":
+def _resources_section(resources: list[dict]) -> FT:
     """Curated Resources this Ku cites (CITES_RESOURCE edges).
 
     Each chip links to the in-app Resource detail page (the citation click
@@ -269,7 +269,7 @@ def _resources_section(resources: list[dict]) -> "FT":
 # ---------------------------------------------------------------------------
 
 
-def _related_placeholder(uid: str) -> "FT":
+def _related_placeholder(uid: str) -> FT:
     """Lazy HTMX mount for the Related-concepts section.
 
     The fragment returns the full section (heading included) or an empty div,
@@ -285,7 +285,7 @@ def _related_placeholder(uid: str) -> "FT":
     )
 
 
-def render_ku_related_concepts(related: "list[RelatedConceptChip]") -> "FT":
+def render_ku_related_concepts(related: list[RelatedConceptChip]) -> FT:
     """Related concepts — vector-similar Kus as reading-page chips.
 
     Read-time lens over embeddings: no edges exist or are created for these

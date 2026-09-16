@@ -85,7 +85,7 @@ class CurriculumCommonSubServices(Generic[T_Intelligence]):
 
 
 def create_curriculum_sub_services(
-    backend: "KuOperations",
+    backend: KuOperations,
     graph_intel: Any,
     event_bus: Any = None,
 ) -> CurriculumCommonSubServices[KuIntelligenceService]:
@@ -133,16 +133,16 @@ def create_curriculum_sub_services(
 
 
 def create_ps_sub_services(
-    backend: "PsOperations",
+    backend: PsOperations,
     _chunking_service: Any | None,
     graph_intel: Any,
-    event_bus: "EventBusOperations | None",
+    event_bus: EventBusOperations | None,
     _executor: Any | None = None,
     user_service: Any | None = None,
     _vector_search_service: Any | None = None,
     _embeddings_service: Any | None = None,
     ps_intelligence_backend: Any | None = None,
-) -> "PsSubServices":
+) -> PsSubServices:
     """Factory function to create all 12 PsService sub-services.
 
     Creation Order:
@@ -236,36 +236,36 @@ def create_ps_sub_services(
 class PsSubServices:
     """Container for all PsService sub-services created by the factory."""
 
-    core: "PsCoreService"
-    search: "PsSearchService"
-    graph: "PsGraphService"
-    semantic: "PsSemanticService"
-    practice: "PsPracticeService"
-    mastery: "PsMasteryService"
-    relationships: "UnifiedRelationshipService"
-    intelligence: "PsIntelligenceService"
-    adaptive: "PsAdaptiveService"
-    application_discovery: "PsApplicationDiscoveryService"
-    context_service: "PsContextService"
-    organization: "PsOrganizationService"
+    core: PsCoreService
+    search: PsSearchService
+    graph: PsGraphService
+    semantic: PsSemanticService
+    practice: PsPracticeService
+    mastery: PsMasteryService
+    relationships: UnifiedRelationshipService
+    intelligence: PsIntelligenceService
+    adaptive: PsAdaptiveService
+    application_discovery: PsApplicationDiscoveryService
+    context_service: PsContextService
+    organization: PsOrganizationService
 
 
 @dataclass
 class LpSubServices:
     """Container for all LpService sub-services created by the factory."""
 
-    core: "LpCoreService"
-    search: "LpSearchService"
-    relationships: "UnifiedRelationshipService"
-    intelligence: "LpIntelligenceService"
-    progress: "LpProgressService"
+    core: LpCoreService
+    search: LpSearchService
+    relationships: UnifiedRelationshipService
+    intelligence: LpIntelligenceService
+    progress: LpProgressService
 
 
 def create_lp_sub_services(
-    backend: "LpOperations",
-    ps_service: "PsService",
+    backend: LpOperations,
+    ps_service: PsService,
     graph_intel: Any,
-    event_bus: "EventBusOperations | None" = None,
+    event_bus: EventBusOperations | None = None,
     progress_backend: Any | None = None,
     user_service: Any | None = None,
 ) -> LpSubServices:

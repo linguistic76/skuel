@@ -31,8 +31,8 @@ class ReportMasteryService:
 
     def __init__(
         self,
-        user_entry_backend: "UserEntryAssessmentOperations",
-        ku_interaction_service: "PsMasteryService | None",
+        user_entry_backend: UserEntryAssessmentOperations,
+        ku_interaction_service: PsMasteryService | None,
     ) -> None:
         self.user_entry_backend = user_entry_backend
         self.ku_interaction_service = ku_interaction_service

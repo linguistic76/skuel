@@ -47,8 +47,8 @@ class LpAIService(BaseAIService[LpOperations, LearningPath]):
     def __init__(
         self,
         backend: LpOperations,
-        llm_service: "LLMService",
-        embeddings_service: "EmbeddingsService",
+        llm_service: LLMService,
+        embeddings_service: EmbeddingsService,
         event_bus: Any | None = None,
     ) -> None:
         super().__init__(

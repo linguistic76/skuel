@@ -45,9 +45,9 @@ def create_admin_page(
     active_section: str = "",
     admin_username: str = "",
     title: str = "Admin Dashboard",
-    request: "Request | None" = None,
+    request: Request | None = None,
     system_status: str = "healthy",
-) -> "FT":
+) -> FT:
     """Create an admin dashboard page using the unified SidebarPage pattern.
 
     Args:

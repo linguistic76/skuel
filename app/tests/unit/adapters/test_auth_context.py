@@ -287,7 +287,7 @@ class TestMiddlewareWiringOrder:
     requests would 500.
     """
 
-    def _client(self, stub: _StubGraphAuth) -> "TestClient":
+    def _client(self, stub: _StubGraphAuth) -> TestClient:
         from fasthtml.common import fast_app
         from starlette.middleware import Middleware
         from starlette.responses import PlainTextResponse

@@ -49,7 +49,7 @@ HABITS_CONFIG = create_activity_domain_route_config(
 
 
 def create_habits_routes(
-    app: FastHTMLApp, rt: RouteDecorator, services: "Services | None", _sync_service: Any = None
+    app: FastHTMLApp, rt: RouteDecorator, services: Services | None, _sync_service: Any = None
 ) -> None:
     """Wire habits API and UI routes using configuration-driven registration."""
     register_domain_routes(app, rt, services, HABITS_CONFIG)

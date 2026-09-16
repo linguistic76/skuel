@@ -159,7 +159,7 @@ def create_explore_api_routes(
     _app: Any,
     rt: Any,
     orchestrator: Any,
-    search_router: "SearchRouter | None",
+    search_router: SearchRouter | None,
 ) -> list[Any]:
     """Register /api/explore/* JSON + HTMX API routes."""
     if orchestrator is None:
@@ -252,7 +252,7 @@ def create_explore_ui_routes(
     _app: Any,
     rt: Any,
     orchestrator: Any,
-    search_router: "SearchRouter | None",
+    search_router: SearchRouter | None,
 ) -> list[Any]:
     """Create /explore discovery UI routes."""
     if orchestrator is None:

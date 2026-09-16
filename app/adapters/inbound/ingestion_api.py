@@ -155,9 +155,9 @@ def _validate_ingestion_path(path_str: str | None) -> Result[Path]:
 def create_ingestion_api_routes(
     app,
     rt,
-    unified_ingestion: "IngestionOperations",
+    unified_ingestion: IngestionOperations,
     user_service=None,
-    batch_chunking_service: "BatchChunkingService | None" = None,
+    batch_chunking_service: BatchChunkingService | None = None,
 ):
     """
     Create unified ingestion API routes.

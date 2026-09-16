@@ -134,7 +134,7 @@ def _calendar_shell(
     content_id: str,
     report_kind: str,
     report_anchor: date,
-) -> "FT":
+) -> FT:
     """Assemble the shared calendar chrome (header + toolbar) around an HTMX-loaded grid.
 
     ``report_kind`` / ``report_anchor`` name the calendar period this view shows

@@ -15,6 +15,7 @@ guards monkeypatch the router's internals.
 
 import dataclasses
 import inspect
+from annotationlib import Format
 from typing import Any
 
 import pytest
@@ -76,7 +77,9 @@ class TestRegistryCompleteness:
         ``services.<name>`` to the parameter of the same name, so a registry
         value without a matching parameter is a domain search silently lost.
         """
-        params = set(inspect.signature(SearchRouter.__init__).parameters) - {"self"}
+        params = set(
+            inspect.signature(SearchRouter.__init__, annotation_format=Format.FORWARDREF).parameters
+        ) - {"self"}
         phantom = {
             et: attr for et, attr in SearchRouter._SERVICE_REGISTRY.items() if attr not in params
         }
@@ -91,7 +94,9 @@ class TestRegistryCompleteness:
         (``SearchRouter(tasks=services.tasks, ...)``) — a container rename
         must rename the router parameter with it.
         """
-        params = set(inspect.signature(SearchRouter.__init__).parameters) - {"self"}
+        params = set(
+            inspect.signature(SearchRouter.__init__, annotation_format=Format.FORWARDREF).parameters
+        ) - {"self"}
         phantom = sorted(params - SERVICES_FIELD_NAMES)
         assert not phantom, (
             f"SearchRouter.__init__ takes parameters with no Services field: {phantom}. "

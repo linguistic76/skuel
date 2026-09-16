@@ -186,7 +186,7 @@ class DomainScoringStrategy(Protocol):
     how entities in that domain are scored for prioritization.
     """
 
-    def score(self, entity: Any, context: "UserContext") -> PriorityScore:
+    def score(self, entity: Any, context: UserContext) -> PriorityScore:
         """
         Calculate priority score for an entity.
 
@@ -279,7 +279,7 @@ def score_deadline_proximity(
 
 
 def score_priority_level(
-    priority: "Priority | str | None",
+    priority: Priority | str | None,
 ) -> ComponentScore:
     """
     Score based on explicit Priority enum value.
@@ -492,7 +492,7 @@ def score_streak_protection(
 # =============================================================================
 
 
-def score_task(task: "Task", context: "UserContext") -> PriorityScore:
+def score_task(task: Task, context: UserContext) -> PriorityScore:
     """
     Calculate priority score for a task using full-graph context.
 
@@ -633,7 +633,7 @@ def score_task(task: "Task", context: "UserContext") -> PriorityScore:
     )
 
 
-def score_goal(goal: "Goal", context: "UserContext") -> PriorityScore:
+def score_goal(goal: Goal, context: UserContext) -> PriorityScore:
     """
     Calculate priority score for a goal.
 
@@ -715,7 +715,7 @@ def score_goal(goal: "Goal", context: "UserContext") -> PriorityScore:
     )
 
 
-def score_habit(habit: "Habit", context: "UserContext") -> PriorityScore:
+def score_habit(habit: Habit, context: UserContext) -> PriorityScore:
     """
     Calculate priority score for a habit.
 
@@ -842,7 +842,7 @@ def score_habit(habit: "Habit", context: "UserContext") -> PriorityScore:
     )
 
 
-def score_event(event: "Event", context: "UserContext") -> PriorityScore:
+def score_event(event: Event, context: UserContext) -> PriorityScore:
     """
     Calculate priority score for an event.
 
@@ -964,7 +964,7 @@ def score_event(event: "Event", context: "UserContext") -> PriorityScore:
     )
 
 
-def score_choice(choice: "Choice", context: "UserContext") -> PriorityScore:
+def score_choice(choice: Choice, context: UserContext) -> PriorityScore:
     """
     Calculate priority score for a choice/decision.
 
@@ -1040,7 +1040,7 @@ def score_choice(choice: "Choice", context: "UserContext") -> PriorityScore:
     )
 
 
-def score_principle(principle: "Principle", context: "UserContext") -> PriorityScore:
+def score_principle(principle: Principle, context: UserContext) -> PriorityScore:
     """
     Calculate priority score for a principle.
 

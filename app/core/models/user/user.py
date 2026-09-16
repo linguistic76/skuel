@@ -339,7 +339,7 @@ class UserServiceContext:
     @classmethod
     def from_user(
         cls, user: User, session_id: str | None = None, current_goal_uids: list[str] | None = None
-    ) -> "UserServiceContext":
+    ) -> UserServiceContext:
         """
         Create service context from user model.
 
@@ -406,7 +406,7 @@ class UserStatistics:
     @classmethod
     def compute_from_progress(
         cls, user_uid: UserUID, progress_records: list[Any]
-    ) -> "UserStatistics":
+    ) -> UserStatistics:
         """
         Compute statistics from progress records.
 

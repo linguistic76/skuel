@@ -42,7 +42,7 @@ class PsProgressService:
 
     def __init__(
         self,
-        backend: "PsProgressBackendOperations | None" = None,
+        backend: PsProgressBackendOperations | None = None,
         event_bus=None,
     ) -> None:
         self.backend = backend

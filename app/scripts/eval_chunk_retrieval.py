@@ -267,7 +267,7 @@ def score_query(
     )
 
 
-def fold_status_error(report: "BodyFoldReport") -> str | None:
+def fold_status_error(report: BodyFoldReport) -> str | None:
     """Reject a row whose response did not actually search lesson bodies (pure, DB-free).
 
     The fold is fail-soft: on the CORE tier or a provider error it returns the

@@ -58,7 +58,7 @@ _FILTER_TABS = [
 ]
 
 
-def _filter_tabs() -> "FT":
+def _filter_tabs() -> FT:
     """Render filter tab buttons below the graph."""
     tabs = []
     for filter_id, label in _FILTER_TABS:
@@ -84,7 +84,7 @@ def ExploreGraphView(
     entity_type: str = "",
     standalone: bool = True,
     height: str = "260px",
-) -> "FT":
+) -> FT:
     """Interactive Vis.js graph for the Explore sidebar.
 
     Args:

@@ -303,14 +303,14 @@ class ContextualTask(ContextualEntity):
     # Built from the SAME PrerequisiteChecker split that drives readiness/gaps, via
     # build_learning_requirements — the single source of mastery-gap truth. None when
     # the task requires no knowledge. See: _shared lens (Goal + Task), PR #254.
-    learning_requirements: "LearningRequirements | None" = None
+    learning_requirements: LearningRequirements | None = None
 
     @classmethod
     def from_entity_and_context(
         cls,
         uid: str,
         title: str,
-        context: "UserContext",
+        context: UserContext,
         *,
         goal_uids: list[str] | None = None,
         knowledge_uids: list[str] | None = None,
@@ -323,7 +323,7 @@ class ContextualTask(ContextualEntity):
         urgency_override: float | None = None,
         priority_override: float | None = None,
         weights: tuple[float, float, float] = (0.4, 0.4, 0.2),
-    ) -> "ContextualTask":
+    ) -> ContextualTask:
         """
         Factory: build a ContextualTask from entity data + UserContext.
 
@@ -465,7 +465,7 @@ class ContextualKnowledge(ContextualEntity):
         cls,
         uid: str,
         title: str,
-        context: "UserContext",
+        context: UserContext,
         *,
         prerequisite_uids: list[str] | None = None,
         application_task_uids: list[str] | None = None,
@@ -475,7 +475,7 @@ class ContextualKnowledge(ContextualEntity):
         relevance_override: float | None = None,
         priority_override: float | None = None,
         weights: tuple[float, ...] = (0.5, 0.3, 0.2),
-    ) -> "ContextualKnowledge":
+    ) -> ContextualKnowledge:
         """
         Factory: build a ContextualKnowledge from entity data + UserContext.
 
@@ -593,14 +593,14 @@ class ContextualGoal(ContextualEntity):
     # Built from the SAME PrerequisiteChecker split that drives readiness/gaps, via
     # build_learning_requirements — the single source of mastery-gap truth. None when
     # the goal requires no knowledge. See: _shared lens (Goal + Task), PR #254.
-    learning_requirements: "LearningRequirements | None" = None
+    learning_requirements: LearningRequirements | None = None
 
     @classmethod
     def from_entity_and_context(
         cls,
         uid: str,
         title: str,
-        context: "UserContext",
+        context: UserContext,
         *,
         contributing_task_uids: list[str] | None = None,
         contributing_habit_uids: list[str] | None = None,
@@ -610,7 +610,7 @@ class ContextualGoal(ContextualEntity):
         urgency_override: float | None = None,
         priority_override: float | None = None,
         weights: tuple[float, ...] = (0.3, 0.4, 0.2, 0.1),
-    ) -> "ContextualGoal":
+    ) -> ContextualGoal:
         """
         Factory: build a ContextualGoal from entity data + UserContext.
 
@@ -758,7 +758,7 @@ class ContextualHabit(ContextualEntity):
         cls,
         uid: str,
         title: str,
-        context: "UserContext",
+        context: UserContext,
         *,
         supported_goal_uids: list[str] | None = None,
         applied_knowledge_uids: list[str] | None = None,
@@ -773,7 +773,7 @@ class ContextualHabit(ContextualEntity):
         urgency_override: float | None = None,
         priority_override: float | None = None,
         weights: tuple[float, float, float] = (0.3, 0.3, 0.4),
-    ) -> "ContextualHabit":
+    ) -> ContextualHabit:
         """
         Factory: build a ContextualHabit from entity data + UserContext.
 
@@ -910,13 +910,13 @@ class ContextualEvent(ContextualEntity):
         cls,
         uid: str,
         title: str,
-        _context: "UserContext",
+        _context: UserContext,
         *,
         days_until: int = 0,
         duration_minutes: int = 0,
         supports_habits: list[str] | None = None,
         applies_knowledge: list[str] | None = None,
-    ) -> "ContextualEvent":
+    ) -> ContextualEvent:
         """
         Factory: build a ContextualEvent from entity data + UserContext.
 
@@ -1010,7 +1010,7 @@ class ContextualPrinciple(ContextualEntity):
         cls,
         uid: str,
         title: str,
-        context: "UserContext",
+        context: UserContext,
         *,
         alignment_score: float = 0.5,
         days_since_reflection: int = 0,
@@ -1023,7 +1023,7 @@ class ContextualPrinciple(ContextualEntity):
         practice_opportunity: str = "",
         priority_override: float | None = None,
         relevance_override: float | None = None,
-    ) -> "ContextualPrinciple":
+    ) -> ContextualPrinciple:
         """
         Factory: build a ContextualPrinciple from entity data + UserContext.
 
@@ -1144,12 +1144,12 @@ class ContextualChoice(ContextualEntity):
         cls,
         uid: str,
         title: str,
-        context: "UserContext",
+        context: UserContext,
         *,
         priority_level: str = "medium",
         informed_by_knowledge: list[str] | None = None,
         aligned_principles: list[str] | None = None,
-    ) -> "ContextualChoice":
+    ) -> ContextualChoice:
         """
         Factory: build a ContextualChoice from entity data + UserContext.
 
@@ -1492,7 +1492,7 @@ class EngagedPsGroup:
     """
 
     ps_uid: str
-    engagement: "Engagement"
+    engagement: Engagement
     pending_task_uids: tuple[str, ...] = ()
     pending_habit_uids: tuple[str, ...] = ()
     pending_event_uids: tuple[str, ...] = ()

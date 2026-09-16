@@ -55,7 +55,7 @@ class HabitCompletion:
     # ========================================================================
 
     @classmethod
-    def from_dto(cls, dto: HabitCompletionDTO) -> "HabitCompletion":
+    def from_dto(cls, dto: HabitCompletionDTO) -> HabitCompletion:
         """Create domain model from DTO."""
         return cls(
             uid=dto.uid,
@@ -181,7 +181,7 @@ class HabitCompletion:
         """
         return TimeOfDay.from_hour(self.completed_at.hour)
 
-    def is_streak_eligible(self, previous_completion: "HabitCompletion" | None = None) -> bool:
+    def is_streak_eligible(self, previous_completion: HabitCompletion | None = None) -> bool:
         """
         Check if this completion is eligible for streak counting.
 
@@ -258,7 +258,7 @@ class HabitCompletion:
     # COMPARISON AND ANALYSIS
     # ========================================================================
 
-    def is_better_than(self, other: "HabitCompletion", target_duration: int | None = None) -> bool:
+    def is_better_than(self, other: HabitCompletion, target_duration: int | None = None) -> bool:
         """
         Compare this completion to another completion.
 

@@ -179,11 +179,11 @@ class Choice(UserOwnedEntity):
     # =========================================================================
 
     @classmethod
-    def from_dto(cls, dto: "EntityDTO | ChoiceDTO") -> "Choice":
+    def from_dto(cls, dto: EntityDTO | ChoiceDTO) -> Choice:
         """Create Choice from an EntityDTO or ChoiceDTO."""
         return cls._from_dto(dto)
 
-    def to_dto(self) -> "ChoiceDTO":
+    def to_dto(self) -> ChoiceDTO:
         """Convert Choice to domain-specific ChoiceDTO."""
 
         from core.models.choice.choice_dto import ChoiceDTO

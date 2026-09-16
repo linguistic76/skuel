@@ -84,7 +84,7 @@ class PasswordResetToken:
         """Get time remaining until expiry."""
         return self.expires_at - datetime.now(UTC)
 
-    def mark_used(self) -> "PasswordResetToken":
+    def mark_used(self) -> PasswordResetToken:
         """
         Create used version of this token.
 

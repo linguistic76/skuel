@@ -70,7 +70,7 @@ class LateralRelationshipService:
     - Store relationship metadata
     """
 
-    def __init__(self, backend: "LateralRelationshipBackendOperations") -> None:
+    def __init__(self, backend: LateralRelationshipBackendOperations) -> None:
         self.backend = backend
 
     async def create_lateral_relationship(
@@ -82,7 +82,7 @@ class LateralRelationshipService:
         validate: bool = True,
         auto_inverse: bool = True,
         user_uid: UserUID | None = None,
-        domain_service: "OwnershipVerifier | None" = None,
+        domain_service: OwnershipVerifier | None = None,
     ) -> Result[bool]:
         """
         Create explicit lateral relationship between two entities.
@@ -195,7 +195,7 @@ class LateralRelationshipService:
         relationship_type: RelationshipName,
         delete_inverse: bool = True,
         user_uid: UserUID | None = None,
-        domain_service: "OwnershipVerifier | None" = None,
+        domain_service: OwnershipVerifier | None = None,
     ) -> Result[bool]:
         """
         Delete explicit lateral relationship.
@@ -260,7 +260,7 @@ class LateralRelationshipService:
         direction: str = "outgoing",  # "outgoing", "incoming", "both"
         include_metadata: bool = True,
         user_uid: UserUID | None = None,
-        domain_service: "OwnershipVerifier | None" = None,
+        domain_service: OwnershipVerifier | None = None,
     ) -> Result[list[LateralRelationshipItem]]:
         """
         Get all lateral relationships for an entity.
@@ -323,7 +323,7 @@ class LateralRelationshipService:
         entity_uid: EntityUID,
         include_explicit_only: bool = False,
         user_uid: UserUID | None = None,
-        domain_service: "OwnershipVerifier | None" = None,
+        domain_service: OwnershipVerifier | None = None,
     ) -> Result[list[dict[str, Any]]]:
         """
         Get sibling entities (same parent).
@@ -426,7 +426,7 @@ class LateralRelationshipService:
         self,
         entity_uid: str,
         user_uid: UserUID | None,
-        domain_service: "OwnershipVerifier | None",
+        domain_service: OwnershipVerifier | None,
     ) -> Result[bool]:
         """Confirm the caller may reach this entity, or refuse it as not-found.
 
@@ -636,7 +636,7 @@ class LateralRelationshipService:
         entity_uid: EntityUID,
         max_depth: int = 10,
         user_uid: UserUID | None = None,
-        domain_service: "OwnershipVerifier | None" = None,
+        domain_service: OwnershipVerifier | None = None,
     ) -> Result[BlockingChainResult]:
         """
         Get transitive blocking chain with depth levels.
@@ -724,7 +724,7 @@ class LateralRelationshipService:
         self,
         entity_uid: EntityUID,
         user_uid: UserUID | None = None,
-        domain_service: "OwnershipVerifier | None" = None,
+        domain_service: OwnershipVerifier | None = None,
     ) -> Result[list[AlternativeComparisonItem]]:
         """
         Get alternative entities with side-by-side comparison data.
@@ -795,7 +795,7 @@ class LateralRelationshipService:
         depth: int = 2,
         relationship_types: list[RelationshipName] | None = None,
         user_uid: UserUID | None = None,
-        domain_service: "OwnershipVerifier | None" = None,
+        domain_service: OwnershipVerifier | None = None,
     ) -> Result[RelationshipGraphData]:
         """
         Get relationship graph in Vis.js Network format.

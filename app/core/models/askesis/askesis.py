@@ -133,7 +133,7 @@ class Askesis:
         return hours_since_update >= hours_threshold
 
     @classmethod
-    def from_dto(cls, dto: "AskesisDTO") -> "Askesis":
+    def from_dto(cls, dto: AskesisDTO) -> Askesis:
         """Convert from mutable DTO to immutable domain model."""
 
         return cls(
@@ -181,7 +181,7 @@ class Askesis:
             last_intelligence_update=dto.last_intelligence_update,
         )
 
-    def to_dto(self) -> "AskesisDTO":
+    def to_dto(self) -> AskesisDTO:
         """Convert from immutable domain model to mutable DTO."""
         from core.models.dto_helpers import domain_to_dto
 

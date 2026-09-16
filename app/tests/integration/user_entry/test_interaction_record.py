@@ -38,7 +38,7 @@ from core.services.user_entry.user_entry_service import UserEntryService
 
 
 @pytest_asyncio.fixture
-async def interaction_service(neo4j_driver) -> "AsyncIterator[InteractionService]":
+async def interaction_service(neo4j_driver) -> AsyncIterator[InteractionService]:
     """Real ``InteractionService`` over a real ``InteractionBackend``."""
     backend = InteractionBackend(
         driver=neo4j_driver,
@@ -55,7 +55,7 @@ async def user_entry_service_with_interactions(
     user_entry_backend,
     sharing_service,
     interaction_service: InteractionService,
-) -> "AsyncIterator[UserEntryService]":
+) -> AsyncIterator[UserEntryService]:
     """``UserEntryService`` wired like production compose: interaction_service set."""
     yield UserEntryService(
         backend=user_entry_backend,  # type: ignore[arg-type]

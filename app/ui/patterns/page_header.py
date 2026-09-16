@@ -20,7 +20,7 @@ def PageHeader(
     subtitle: str | None = None,
     actions: Any = None,
     cls: str = "",
-) -> "FT":
+) -> FT:
     """Consistent page header with title, optional subtitle, and actions.
 
     Args:

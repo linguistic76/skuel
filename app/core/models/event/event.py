@@ -174,7 +174,7 @@ class Event(UserOwnedEntity):
             return start + timedelta(minutes=self.duration_minutes)
         return None
 
-    def overlaps_with(self, other: "Event") -> bool:
+    def overlaps_with(self, other: Event) -> bool:
         """Check if two events overlap in time."""
         my_start = self.start_datetime()
         my_end = self.end_datetime()
@@ -228,11 +228,11 @@ class Event(UserOwnedEntity):
     # =========================================================================
 
     @classmethod
-    def from_dto(cls, dto: "EntityDTO | EventDTO") -> "Event":
+    def from_dto(cls, dto: EntityDTO | EventDTO) -> Event:
         """Create Event from an EntityDTO or EventDTO."""
         return cls._from_dto(dto)
 
-    def to_dto(self) -> "EventDTO":
+    def to_dto(self) -> EventDTO:
         """Convert Event to domain-specific EventDTO."""
 
         from core.models.dto_helpers import domain_to_dto

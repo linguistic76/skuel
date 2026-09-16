@@ -30,7 +30,7 @@ class HeadingNode:
     title: str
     slug: str
     content: str = ""  # Text content after heading until next heading
-    children: list["HeadingNode"] = field(default_factory=list)
+    children: list[HeadingNode] = field(default_factory=list)
     parent_slug: str | None = None  # For building relationships
 
     @property

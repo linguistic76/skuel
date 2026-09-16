@@ -169,7 +169,7 @@ class SemanticRelationshipType(StrEnum):
     CONNECTS_PRINCIPLES = "moc:connects_principles"
 
     @classmethod
-    def to_semantic(cls, generic_type: RelationshipType) -> "SemanticRelationshipType":
+    def to_semantic(cls, generic_type: RelationshipType) -> SemanticRelationshipType:
         """
         Convert generic RelationshipType to semantic equivalent.
 
@@ -229,7 +229,7 @@ class SemanticRelationshipType(StrEnum):
         """Extract local name without namespace prefix."""
         return self.value.split(":", 1)[1] if ":" in self.value else self.value
 
-    def get_inverse(self) -> "SemanticRelationshipType" | None:
+    def get_inverse(self) -> SemanticRelationshipType | None:
         """Get the inverse relationship if one exists."""
         inverses = {
             self.REQUIRES_THEORETICAL_UNDERSTANDING: self.PROVIDES_FOUNDATION_FOR,
@@ -430,7 +430,7 @@ class SemanticRelationship:
         self.object_uid = object_uid
         self.metadata = metadata or RelationshipMetadata()
 
-    def to_triple(self) -> "SemanticTriple":
+    def to_triple(self) -> SemanticTriple:
         """Convert to SemanticTriple format."""
         return SemanticTriple(
             subject=self.subject_uid,
@@ -462,7 +462,7 @@ class SemanticTriple:
         """Human-readable representation."""
         return f"({self.subject}) --[{self.predicate.local_name}]--> ({self.object})"
 
-    def get_inverse(self) -> "SemanticTriple" | None:
+    def get_inverse(self) -> SemanticTriple | None:
         """Create inverse triple if relationship has an inverse."""
         inverse_predicate = self.predicate.get_inverse()
         if inverse_predicate:
@@ -486,9 +486,7 @@ class TripleBuilder:
         self._subject = subject
         self._triples: list[SemanticTriple] = []
 
-    def requires_understanding(
-        self, knowledge_uid: str, confidence: float = 1.0
-    ) -> "TripleBuilder":
+    def requires_understanding(self, knowledge_uid: str, confidence: float = 1.0) -> TripleBuilder:
         """Add theoretical understanding requirement."""
         triple = SemanticTriple(
             subject=self._subject,
@@ -499,7 +497,7 @@ class TripleBuilder:
         self._triples.append(triple)
         return self
 
-    def requires_practice(self, skill_uid: str, confidence: float = 1.0) -> "TripleBuilder":
+    def requires_practice(self, skill_uid: str, confidence: float = 1.0) -> TripleBuilder:
         """Add practical application requirement."""
         triple = SemanticTriple(
             subject=self._subject,
@@ -510,7 +508,7 @@ class TripleBuilder:
         self._triples.append(triple)
         return self
 
-    def builds_model(self, model_uid: str, strength: float = 1.0) -> "TripleBuilder":
+    def builds_model(self, model_uid: str, strength: float = 1.0) -> TripleBuilder:
         """Add mental model building relationship."""
         triple = SemanticTriple(
             subject=self._subject,
@@ -521,7 +519,7 @@ class TripleBuilder:
         self._triples.append(triple)
         return self
 
-    def enables_task(self, task_uid: str) -> "TripleBuilder":
+    def enables_task(self, task_uid: str) -> TripleBuilder:
         """Add task enablement relationship."""
         triple = SemanticTriple(
             subject=self._subject,
@@ -532,7 +530,7 @@ class TripleBuilder:
         self._triples.append(triple)
         return self
 
-    def practiced_by_habit(self, habit_uid: str, strength: float = 1.0) -> "TripleBuilder":
+    def practiced_by_habit(self, habit_uid: str, strength: float = 1.0) -> TripleBuilder:
         """Add habit practice relationship."""
         triple = SemanticTriple(
             subject=self._subject,
@@ -543,7 +541,7 @@ class TripleBuilder:
         self._triples.append(triple)
         return self
 
-    def contrasts_with(self, other_uid: str, notes: str | None = None) -> "TripleBuilder":
+    def contrasts_with(self, other_uid: str, notes: str | None = None) -> TripleBuilder:
         """Add contrasting relationship."""
         triple = SemanticTriple(
             subject=self._subject,
@@ -556,7 +554,7 @@ class TripleBuilder:
 
     def custom(
         self, predicate: SemanticRelationshipType, object_uid: str, **metadata_kwargs: Any
-    ) -> "TripleBuilder":
+    ) -> TripleBuilder:
         """Add custom semantic relationship."""
         triple = SemanticTriple(
             subject=self._subject,

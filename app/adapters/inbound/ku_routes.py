@@ -41,7 +41,7 @@ KU_CONFIG = DomainRouteConfig(
 
 
 def create_ku_routes(
-    app: FastHTMLApp, rt: RouteDecorator, services: "Services | None", _sync_service: Any = None
+    app: FastHTMLApp, rt: RouteDecorator, services: Services | None, _sync_service: Any = None
 ) -> None:
     """Wire Ku UI routes."""
     register_domain_routes(app, rt, services, KU_CONFIG)

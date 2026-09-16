@@ -62,7 +62,7 @@ class UserStatsAggregator:
         self,
         user_core_service: Any,  # UserCoreService
         context_builder: Any,  # UserContextBuilder
-        cross_domain_backend: "CrossDomainBackendOperations",
+        cross_domain_backend: CrossDomainBackendOperations,
     ) -> None:
         """
         Initialize stats aggregator.

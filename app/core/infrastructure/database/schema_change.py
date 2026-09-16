@@ -81,7 +81,7 @@ class SchemaFingerprint:
     relationship_count: int
 
     @classmethod
-    def from_schema_context(cls, schema: SchemaContext) -> "SchemaFingerprint":
+    def from_schema_context(cls, schema: SchemaContext) -> SchemaFingerprint:
         """Create fingerprint from a schema context"""
         timestamp = datetime.now()
 
@@ -162,11 +162,11 @@ class SchemaFingerprint:
         json_str = json.dumps(obj, sort_keys=True, default=str)
         return hashlib.sha256(json_str.encode()).hexdigest()[:16]  # 16 char hash
 
-    def has_changed(self, other: "SchemaFingerprint") -> bool:
+    def has_changed(self, other: SchemaFingerprint) -> bool:
         """Check if schema has changed compared to another fingerprint"""
         return self.version_hash != other.version_hash
 
-    def get_changed_areas(self, other: "SchemaFingerprint") -> list[str]:
+    def get_changed_areas(self, other: SchemaFingerprint) -> list[str]:
         """Get list of schema areas that have changed"""
         changes = []
 
@@ -293,7 +293,7 @@ class SchemaEvolutionStats:
     stability_score: float = 1.0  # 0.0 (very unstable) to 1.0 (very stable)
 
     @classmethod
-    def from_history(cls, history: SchemaMigrationHistory) -> "SchemaEvolutionStats":
+    def from_history(cls, history: SchemaMigrationHistory) -> SchemaEvolutionStats:
         """Generate statistics from migration history"""
         all_changes = []
         for report in history.change_history:

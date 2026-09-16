@@ -92,7 +92,7 @@ class PrincipleReflection:
     # ========================================================================
 
     @classmethod
-    def from_dto(cls, dto: "PrincipleReflectionDTO") -> "PrincipleReflection":
+    def from_dto(cls, dto: PrincipleReflectionDTO) -> PrincipleReflection:
         """Create domain model from DTO."""
         return cls(
             uid=dto.uid,
@@ -111,7 +111,7 @@ class PrincipleReflection:
             metadata=dto.metadata or {},
         )
 
-    def to_dto(self) -> "PrincipleReflectionDTO":
+    def to_dto(self) -> PrincipleReflectionDTO:
         """Convert to DTO for transfer operations."""
         from core.models.dto_helpers import domain_to_dto
 
@@ -252,7 +252,7 @@ class PrincipleReflection:
     # COMPARISON
     # ========================================================================
 
-    def is_better_than(self, other: "PrincipleReflection") -> bool:
+    def is_better_than(self, other: PrincipleReflection) -> bool:
         """
         Compare this reflection to another reflection.
 

@@ -195,11 +195,11 @@ class FormTemplate(Entity):
     # =========================================================================
 
     @classmethod
-    def from_dto(cls, dto: "EntityDTO | FormTemplateDTO") -> "FormTemplate":
+    def from_dto(cls, dto: EntityDTO | FormTemplateDTO) -> FormTemplate:
         """Create FormTemplate from an EntityDTO or FormTemplateDTO."""
         return cls._from_dto(dto)
 
-    def to_dto(self) -> "FormTemplateDTO":
+    def to_dto(self) -> FormTemplateDTO:
         """Convert to FormTemplateDTO."""
         from core.models.dto_helpers import domain_to_dto
         from core.models.forms.form_template_dto import FormTemplateDTO

@@ -113,7 +113,7 @@ def labelled_parent_types() -> frozenset[str]:
     return frozenset({EntityType.KU.value, EntityType.PATH_STEP.value})
 
 
-def unlabelled_in_window(hits: list["SemanticSearchChunkResult"]) -> int:
+def unlabelled_in_window(hits: list[SemanticSearchChunkResult]) -> int:
     """Chunks in one arm's prompt window whose parent the query set cannot label.
 
     Per ARM, never once for the run: when the intent filter is live the three
@@ -251,10 +251,10 @@ class DrawRow:
 
 
 def backfill(
-    filtered: list["SemanticSearchChunkResult"],
-    unfiltered: list["SemanticSearchChunkResult"],
+    filtered: list[SemanticSearchChunkResult],
+    unfiltered: list[SemanticSearchChunkResult],
     k: int,
-) -> tuple[list["SemanticSearchChunkResult"], int]:
+) -> tuple[list[SemanticSearchChunkResult], int]:
     """Top a thin intent-filtered draw up to k from the unfiltered draw (pure, DB-free).
 
     Every filtered hit is KEPT and keeps its position — the intent preference is
@@ -277,7 +277,7 @@ def backfill(
     return merged, len(merged) - len(filtered)
 
 
-def parents_of(hits: list["SemanticSearchChunkResult"]) -> list[str]:
+def parents_of(hits: list[SemanticSearchChunkResult]) -> list[str]:
     """Distinct parent uids in draw order (pure, DB-free).
 
     Callers must slice the CHUNK list to the prompt window BEFORE calling this —
@@ -345,8 +345,8 @@ def summarize(rows: list[DrawRow], query_set: QuerySet, viewer_uid: str | None) 
 
 
 async def measure_classification(
-    classifier: "IntentClassifier", query: str
-) -> "IntentClassification | str":
+    classifier: IntentClassifier, query: str
+) -> IntentClassification | str:
     """Classify one query through the OBSERVABLE classifier API.
 
     Not ``classify_intent``: that one is fail-soft in exactly the way this

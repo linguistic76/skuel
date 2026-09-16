@@ -121,7 +121,7 @@ def render_user_message(text: str) -> Any:
 def render_assistant_message(
     text: str,
     sources: list[dict] | None = None,
-    canon_sources: "tuple[CanonSource, ...] | None" = None,
+    canon_sources: tuple[CanonSource, ...] | None = None,
 ) -> Any:
     """Left-aligned AI message with avatar, optional sources accordion, and action bar.
 

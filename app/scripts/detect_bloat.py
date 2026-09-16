@@ -1324,7 +1324,7 @@ def audit_blocked_by(
 
 
 def measure_vulture_blind_spot(
-    codebase: "ParsedCodebase", used_names: frozenset[str], scope: str = METHOD_SCOPE
+    codebase: ParsedCodebase, used_names: frozenset[str], scope: str = METHOD_SCOPE
 ) -> tuple[int, int]:
     """
     Size the blind spot this detector declares but long left unquantified.
@@ -2805,7 +2805,7 @@ class ModelFieldIndex:
         self._models: dict[str, list[ast.ClassDef]] = defaultdict(list)
         self._codebase = codebase
 
-    def build(self) -> "ModelFieldIndex":
+    def build(self) -> ModelFieldIndex:
         for tree in self._codebase.production.values():
             for node in ast.walk(tree):
                 if isinstance(node, ast.ClassDef):

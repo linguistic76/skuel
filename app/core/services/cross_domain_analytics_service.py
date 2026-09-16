@@ -89,7 +89,7 @@ class CrossDomainAnalyticsService:
     - No semantic relationship types used (event-driven aggregation only)
     """
 
-    def __init__(self, backend: "CrossDomainBackendOperations") -> None:
+    def __init__(self, backend: CrossDomainBackendOperations) -> None:
         """
         Initialize cross-domain analytics service.
 

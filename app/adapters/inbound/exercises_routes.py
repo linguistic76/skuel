@@ -53,7 +53,7 @@ EXERCISES_CONFIG = DomainRouteConfig(
 
 
 def create_exercises_routes(
-    app: FastHTMLApp, rt: RouteDecorator, services: "Services | None", _sync_service: Any = None
+    app: FastHTMLApp, rt: RouteDecorator, services: Services | None, _sync_service: Any = None
 ) -> None:
     """Wire exercise API and UI routes using configuration-driven registration."""
     register_domain_routes(app, rt, services, EXERCISES_CONFIG)

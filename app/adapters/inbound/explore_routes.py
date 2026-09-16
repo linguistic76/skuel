@@ -29,7 +29,7 @@ if TYPE_CHECKING:
 
 
 def create_explore_routes(
-    app: FastHTMLApp, rt: RouteDecorator, services: "Services", _sync_service: Any = None
+    app: FastHTMLApp, rt: RouteDecorator, services: Services, _sync_service: Any = None
 ) -> None:
     """Wire explore UI + API routes via ExploreOrchestrator."""
     if services.explore_orchestrator is None:

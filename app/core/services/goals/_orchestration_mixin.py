@@ -35,7 +35,7 @@ class _OrchestrationMixin:
     """
 
     # Populated by GoalsService.__init__ / BaseService
-    backend: "GoalsOperations"
+    backend: GoalsOperations
     core: GoalsCoreService
     learning: Any
     relationships: Any

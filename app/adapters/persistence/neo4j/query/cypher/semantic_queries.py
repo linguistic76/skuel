@@ -30,7 +30,7 @@ if TYPE_CHECKING:
     )
 
 
-def _coarse_alternation(semantic_types: "list[SemanticRelationshipType]") -> str:
+def _coarse_alternation(semantic_types: list[SemanticRelationshipType]) -> str:
     """Deduped RelationshipName alternation for the edge pattern (the coarse bucket).
 
     Since roadmap Phase 1, many semantic predicates collapse onto one
@@ -42,7 +42,7 @@ def _coarse_alternation(semantic_types: "list[SemanticRelationshipType]") -> str
 
 
 def _semantic_values(
-    semantic_types: "list[SemanticRelationshipType]",
+    semantic_types: list[SemanticRelationshipType],
 ) -> list[str | int | float]:
     """The precise namespaced predicate values, for ``r.semantic_type IN $...`` filtering.
 
@@ -56,7 +56,7 @@ def _semantic_values(
 
 def build_semantic_context(
     node_uid: str,
-    semantic_types: list["SemanticRelationshipType"],
+    semantic_types: list[SemanticRelationshipType],
     depth: int = 2,
     min_confidence: float = 0.0,
 ) -> tuple[str, dict[str, Neo4jValue]]:
@@ -115,7 +115,7 @@ def build_semantic_context(
 
 
 def build_semantic_merge(
-    triple: "SemanticTriple",
+    triple: SemanticTriple,
 ) -> tuple[str, dict[str, Neo4jValue]]:
     """
     Build the MERGE query + params that persist a single semantic triple.
@@ -298,7 +298,7 @@ def build_domain_context_with_paths(
 
 def build_prerequisite_chain(
     node_uid: str,
-    semantic_types: list["SemanticRelationshipType"],
+    semantic_types: list[SemanticRelationshipType],
     depth: int = 3,
     min_confidence: float = 0.7,
     min_strength: float = 0.0,
@@ -360,7 +360,7 @@ def build_prerequisite_chain(
 def build_semantic_traversal(
     start_uid: str,
     end_uid: str,
-    semantic_types: list["SemanticRelationshipType"],
+    semantic_types: list[SemanticRelationshipType],
     max_depth: int = 5,
 ) -> tuple[str, dict[str, Neo4jValue]]:
     """
@@ -412,8 +412,8 @@ def build_semantic_traversal(
 
 def build_hierarchical_context(
     node_uid: str,
-    parent_types: list["SemanticRelationshipType"],
-    child_types: list["SemanticRelationshipType"],
+    parent_types: list[SemanticRelationshipType],
+    child_types: list[SemanticRelationshipType],
     depth: int = 2,
 ) -> tuple[str, dict[str, Neo4jValue]]:
     """
@@ -475,7 +475,7 @@ def build_hierarchical_context(
 def build_cross_domain_bridges(
     domain_a: str,
     domain_b: str,
-    semantic_types: list["SemanticRelationshipType"],
+    semantic_types: list[SemanticRelationshipType],
     limit: int = 10,
 ) -> tuple[str, dict[str, Neo4jValue]]:
     """
@@ -529,7 +529,7 @@ def build_cross_domain_bridges(
 
 def build_semantic_filter_query(
     label: NeoLabel,
-    semantic_type: "SemanticRelationshipType",
+    semantic_type: SemanticRelationshipType,
     min_confidence: float = 0.8,
     direction: str = "outgoing",
     limit: int = 50,

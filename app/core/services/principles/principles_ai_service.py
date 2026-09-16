@@ -45,8 +45,8 @@ class PrinciplesAIService(BaseAIService[PrinciplesOperations, Entity]):
     def __init__(
         self,
         backend: PrinciplesOperations,
-        llm_service: "LLMService",
-        embeddings_service: "EmbeddingsService",
+        llm_service: LLMService,
+        embeddings_service: EmbeddingsService,
         event_bus: Any | None = None,
     ) -> None:
         super().__init__(

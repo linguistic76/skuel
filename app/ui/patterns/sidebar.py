@@ -61,15 +61,15 @@ class SidebarItem:
     description: str = ""
     badge_text: str = ""
     hx_attrs: dict[str, str] = field(default_factory=dict)
-    children: list["SidebarItem"] = field(default_factory=list)
+    children: list[SidebarItem] = field(default_factory=list)
 
 
-def _chevron_svg() -> "FT":
+def _chevron_svg() -> FT:
     """Collapse toggle chevron icon."""
     return Icon("chevron-left", size=16, cls="", aria_hidden="true")
 
 
-def _render_accordion_item(item: SidebarItem, is_active: bool) -> "FT":
+def _render_accordion_item(item: SidebarItem, is_active: bool) -> FT:
     """Render a sidebar item as an accordion with expandable children."""
     active_cls = "bg-accent font-semibold" if is_active else ""
     header_children: list[Any] = []
@@ -128,7 +128,7 @@ def _render_accordion_item(item: SidebarItem, is_active: bool) -> "FT":
     )
 
 
-def _default_item_renderer(item: SidebarItem, is_active: bool) -> "FT":
+def _default_item_renderer(item: SidebarItem, is_active: bool) -> FT:
     """Default sidebar item renderer."""
     # Accordion for items with children
     if item.children:
@@ -186,7 +186,7 @@ def _default_item_renderer(item: SidebarItem, is_active: bool) -> "FT":
     )
 
 
-def SidebarLink(text: str, href: str) -> "FT":
+def SidebarLink(text: str, href: str) -> FT:
     """Compact sidebar link for entity lists (bookmarks, latest, etc.)."""
     return Li(
         A(
@@ -206,7 +206,7 @@ def alpine_section_renderer(
     The `slug` field on each SidebarItem maps to the section value.
     """
 
-    def _render(item: SidebarItem, _is_active: bool) -> "FT":
+    def _render(item: SidebarItem, _is_active: bool) -> FT:
         children: list[Any] = []
         if item.icon:
             children.append(Icon(item.icon, size=18, cls="shrink-0", aria_hidden="true"))
@@ -239,7 +239,7 @@ def alpine_mobile_section_renderer(
     Returns tab-shaped elements with @click instead of href.
     """
 
-    def _render(item: SidebarItem, _is_active: bool) -> "FT":
+    def _render(item: SidebarItem, _is_active: bool) -> FT:
         tab_children: list[Any] = []
         if item.icon:
             tab_children.append(Icon(item.icon, size=16, cls="shrink-0", aria_hidden="true"))
@@ -272,11 +272,11 @@ def SidebarNav(
     item_renderer: Callable[[SidebarItem, bool], Any] | None = None,
     title_href: str = "",
     default_collapsed: bool = False,
-    title_prefix: "FT | None" = None,
+    title_prefix: FT | None = None,
     mobile_item_renderer: Callable[[SidebarItem, bool], Any] | None = None,
     title_icon: str = "",
     sidebar_width: str = "w-64",
-) -> "FT":
+) -> FT:
     """Build sidebar navigation (desktop) + horizontal tabs (mobile).
 
     Args:
@@ -429,12 +429,12 @@ def SidebarPage(
     extra_sidebar_sections: list[Any] | None = None,
     extra_mobile_sections: list[Any] | None = None,
     page_title: str = "",
-    request: "Request | None" = None,
+    request: Request | None = None,
     active_page: str = "",
     item_renderer: Callable[[SidebarItem, bool], Any] | None = None,
     title_href: str = "",
     default_collapsed: bool = False,
-    title_prefix: "FT | None" = None,
+    title_prefix: FT | None = None,
     mobile_item_renderer: Callable[[SidebarItem, bool], Any] | None = None,
     alpine_state: str = "",
     title_icon: str = "",
@@ -442,7 +442,7 @@ def SidebarPage(
     extra_css: list[str] | None = None,
     extra_scripts: list[str] | None = None,
     content_max_width: str = "max-w-6xl",
-) -> "FT":
+) -> FT:
     """Create a full page with collapsible sidebar navigation.
 
     Desktop: Fixed sidebar (collapsible) + content area with left margin.

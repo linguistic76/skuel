@@ -571,7 +571,7 @@ NOUS_SUBTOPIC_COLUMN_ID = "nous-subtopic-column"
 
 def render_nous_subtopic_inner(
     nous_subtopics: list[str], *, nous_selected: bool = True
-) -> tuple["FT", "FT"]:
+) -> tuple[FT, FT]:
     """Inner label + select for the sub-topic column (the HTMX-swapped fragment).
 
     Options are DERIVED from the graph, never hardcoded (content boundary). The

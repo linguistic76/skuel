@@ -42,7 +42,7 @@ class GroupBackendOperations(BackendOperations["Group"], Protocol):
 
     async def get_user_groups(
         self, user_uid: UserUID, role: str | None = None
-    ) -> "Result[builtins.list[Group]]": ...
+    ) -> Result[builtins.list[Group]]: ...
 
     async def add_member(
         self,
@@ -50,13 +50,13 @@ class GroupBackendOperations(BackendOperations["Group"], Protocol):
         user_uid: UserUID,
         joined_at: str,
         role: str = "student",
-    ) -> "Result[builtins.list[Neo4jProperties]]": ...
+    ) -> Result[builtins.list[Neo4jProperties]]: ...
 
     async def remove_member(
         self, group_uid: str, user_uid: UserUID
-    ) -> "Result[builtins.list[Neo4jProperties]]": ...
+    ) -> Result[builtins.list[Neo4jProperties]]: ...
 
-    async def get_members(self, group_uid: str) -> "Result[builtins.list[Neo4jProperties]]": ...
+    async def get_members(self, group_uid: str) -> Result[builtins.list[Neo4jProperties]]: ...
 
     async def get_member_count(self, group_uid: str) -> Result[int]: ...
 
@@ -70,11 +70,11 @@ class GroupOperations(Protocol):
     """
 
     # Standard CRUD (CRUDRouteFactory-compatible)
-    async def create(self, entity: "Group") -> "Result[Group]":
+    async def create(self, entity: Group) -> Result[Group]:
         """Create a group. Returns Result[Group]."""
         ...
 
-    async def get(self, uid: str) -> "Result[Group]":
+    async def get(self, uid: str) -> Result[Group]:
         """Get group by UID; a missing UID is a NOT_FOUND error, not a None value.
 
         Matches ``BaseService.get()``, which converts the backend's
@@ -85,15 +85,15 @@ class GroupOperations(Protocol):
         """
         ...
 
-    async def get_for_user(self, uid: str, user_uid: UserUID) -> "Result[Group]":
+    async def get_for_user(self, uid: str, user_uid: UserUID) -> Result[Group]:
         """Get group if user is owner or member. Returns Result[Group]."""
         ...
 
-    async def verify_ownership(self, uid: str, user_uid: UserUID) -> "Result[Group]":
+    async def verify_ownership(self, uid: str, user_uid: UserUID) -> Result[Group]:
         """Verify user owns the group (owner_uid match). Returns Result[Group]."""
         ...
 
-    async def update(self, uid: str, updates: RawChanges) -> "Result[Group]":
+    async def update(self, uid: str, updates: RawChanges) -> Result[Group]:
         """Update a group. Returns Result[Group]."""
         ...
 
@@ -111,14 +111,14 @@ class GroupOperations(Protocol):
         user_uid: UserUID | None = None,
         order_by: str | None = None,
         order_desc: bool = False,
-    ) -> "Result[tuple[builtins.list[Group], int]]":
+    ) -> Result[tuple[builtins.list[Group], int]]:
         """List groups with pagination and user filtering."""
         ...
 
     # Domain-specific (manual routes)
     async def get_user_groups(
         self, user_uid: UserUID, role: str | None = None
-    ) -> "Result[builtins.list[Group]]":
+    ) -> Result[builtins.list[Group]]:
         """List groups the user is a member of, optionally filtered by MEMBER_OF role.
 
         Pass role="student" to count only student-role memberships.

@@ -11,7 +11,7 @@ if TYPE_CHECKING:
 
 
 def render_askesis_page(
-    request: "Request",
+    request: Request,
     *,
     username: str = "User",
     learning_scope_label: str = "Your learning",

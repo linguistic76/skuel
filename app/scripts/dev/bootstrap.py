@@ -54,7 +54,7 @@ logger = get_logger("skuel.bootstrap")
 
 # Module-level handle for the graph-health poller so the task isn't
 # garbage-collected mid-flight (RUF006); lives until process exit.
-_graph_health_task: "asyncio.Task[None] | None" = None
+_graph_health_task: asyncio.Task[None] | None = None
 
 
 @dataclass(frozen=True)

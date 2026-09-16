@@ -155,10 +155,10 @@ class StubBackend:
 class _Inert:
     """Collaborator stub for facade construction — never exercised by create."""
 
-    def __getattr__(self, name: str) -> "_Inert":
+    def __getattr__(self, name: str) -> _Inert:
         return self
 
-    def __call__(self, *args: Any, **kwargs: Any) -> "_Inert":
+    def __call__(self, *args: Any, **kwargs: Any) -> _Inert:
         return self
 
 

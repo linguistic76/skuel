@@ -40,7 +40,7 @@ class _AnalyticsMixin:
     """
 
     # Populated by ChoicesIntelligenceService.__init__
-    backend: "ChoicesOperations"
+    backend: ChoicesOperations
     # Optional in the type, never None at runtime: ChoicesIntelligenceService declares
     # _require_relationships = True, so BaseAnalyticsService.__init__ refuses to construct
     # without one. The annotation stays optional only because the base assigns it from its
@@ -52,10 +52,10 @@ class _AnalyticsMixin:
     # stored via ChoicesIntelligenceService.__init__'s equally-parameterised argument.
     # Declaring the attribute narrower than what is assigned to it would assert a type
     # nothing checks; narrowing for real means re-parameterising the shared factory.
-    relationships: "UnifiedRelationshipService[Any, Any, Any] | None"
-    logger: "structlog.BoundLogger"
+    relationships: UnifiedRelationshipService[Any, Any, Any] | None
+    logger: structlog.BoundLogger
 
-    async def _fetch_choice_relationships(self, choice_uid: str) -> "ChoiceRelationships":
+    async def _fetch_choice_relationships(self, choice_uid: str) -> ChoiceRelationships:
         """Relationship container for one choice — the callable form the batch paths need."""
         from core.services.choices.choice_relationships import ChoiceRelationships
 
@@ -216,7 +216,7 @@ class _AnalyticsMixin:
 
     async def _find_choices_in_window(
         self, user_uid: UserUID, start_date: date, end_date: date
-    ) -> Result[list["Choice"]]:
+    ) -> Result[list[Choice]]:
         """
         Fetch the user's choices that entered the corpus within [start_date, end_date].
 

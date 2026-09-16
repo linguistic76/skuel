@@ -25,7 +25,7 @@ if TYPE_CHECKING:
 def ConnectionsSection(
     connections: list[dict[str, str]],
     domain_labels: dict[str, tuple[str, str, str]],
-) -> "FT":
+) -> FT:
     """Detail-page 'Connections' block: linked entities grouped by domain.
 
     Args:
@@ -70,7 +70,7 @@ def ConnectionsSection(
     return ConnectionsBlock(*sections)
 
 
-def tag_badges(tags: Sequence[str], limit: int | None = None) -> list["FT"]:
+def tag_badges(tags: Sequence[str], limit: int | None = None) -> list[FT]:
     """Secondary badges for an entity's tags, optionally capped at ``limit``.
 
     Cards cap at 5; detail pages render the full set.
@@ -79,7 +79,7 @@ def tag_badges(tags: Sequence[str], limit: int | None = None) -> list["FT"]:
     return [Badge(tag, variant=BadgeT.secondary, cls="mr-2") for tag in shown]
 
 
-def TagsBlock(tags: Sequence[str]) -> "FT":
+def TagsBlock(tags: Sequence[str]) -> FT:
     """Detail-page 'Tags' block. Renders an empty Div when there are no tags."""
     if not tags:
         return Div()
@@ -90,7 +90,7 @@ def TagsBlock(tags: Sequence[str]) -> "FT":
     )
 
 
-def ConnectionsBlock(*body: "FT") -> "FT":
+def ConnectionsBlock(*body: FT) -> FT:
     """Detail-page 'Connections' wrapper: the section label + a caller-supplied body.
 
     The body varies by lens — flat :func:`ConnectionBadges` for domains that show
@@ -101,7 +101,7 @@ def ConnectionsBlock(*body: "FT") -> "FT":
     return Div(section_label("Connections"), *body, cls="my-4")
 
 
-def MetadataField(label: str, *value: "FT") -> "FT":
+def MetadataField(label: str, *value: FT) -> FT:
     """Label + value pair for detail page metadata grids."""
     return Div(
         Small(label, cls="text-muted-foreground block text-sm"),
@@ -119,7 +119,7 @@ def PriorityBadgeDropdown(
     priority: str | None,
     domain: str,
     singular: str,
-) -> "FT":
+) -> FT:
     """Interactive priority badge: click opens a dropdown of the three priority levels.
 
     Alpine owns the open/close state (inline ``x-data``); picking a level does
@@ -206,7 +206,7 @@ CONNECTION_ICONS: dict[str, tuple[str, str]] = {
 }
 
 
-def CurriculumOriginField(ps_uid: str, ps_title: str) -> "FT":
+def CurriculumOriginField(ps_uid: str, ps_title: str) -> FT:
     """Breadcrumb-style banner linking a spawned activity to its source PathStep.
 
     Rendered above the detail body when an activity carries ``source_path_step_uid``
@@ -226,7 +226,7 @@ def CurriculumOriginField(ps_uid: str, ps_title: str) -> "FT":
     )
 
 
-def ConnectionBadges(connections: list[dict[str, str]]) -> "FT":
+def ConnectionBadges(connections: list[dict[str, str]]) -> FT:
     """Render typed connection badges for cross-domain links.
 
     Each badge shows an icon + title and links to the target entity's detail page.
@@ -256,7 +256,7 @@ def ConnectionBadges(connections: list[dict[str, str]]) -> "FT":
     return Div(*badges, cls="mt-2")
 
 
-def ConnectionSummary(connections: list[dict[str, str]]) -> "FT":
+def ConnectionSummary(connections: list[dict[str, str]]) -> FT:
     """Render a compact summary of connection counts by domain type.
 
     Shows icon + count for each domain (e.g. "2 tasks, 1 habit").
@@ -290,9 +290,9 @@ def ActivityList(
     card_fn: Callable,
     connections_map: dict[str, list[dict[str, str]]] | None = None,
     *,
-    empty_state: "FT | None" = None,
+    empty_state: FT | None = None,
     list_id: str | None = None,
-) -> "FT":
+) -> FT:
     """Generic list renderer for any Activity Domain.
 
     Eliminates the near-identical {Domain}List functions across the 6 view files.

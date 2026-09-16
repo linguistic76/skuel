@@ -42,7 +42,7 @@ TEACHING_API_CONFIG = DomainRouteConfig(
 
 
 def create_teaching_routes(
-    app: FastHTMLApp, rt: RouteDecorator, services: "Services | None", _sync_service: Any = None
+    app: FastHTMLApp, rt: RouteDecorator, services: Services | None, _sync_service: Any = None
 ) -> None:
     """Wire teaching API + UI routes.
 

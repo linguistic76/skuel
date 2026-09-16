@@ -40,7 +40,7 @@ class ReviewStatus:
     is_overdue: bool
     priority: str  # critical, high, medium, low
 
-    def __lt__(self, other: "ReviewStatus") -> bool:
+    def __lt__(self, other: ReviewStatus) -> bool:
         """Sort by priority then days_until_due."""
         priority_order = {"critical": 0, "high": 1, "medium": 2, "low": 3}
         if priority_order[self.priority] != priority_order[other.priority]:

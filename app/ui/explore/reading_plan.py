@@ -80,7 +80,7 @@ _CAP_STYLES: dict[str, tuple[str, str, str, str]] = {
 # ---------------------------------------------------------------------------
 
 
-def ExploreReadingView(plan: dict[str, Any]) -> "FT":
+def ExploreReadingView(plan: dict[str, Any]) -> FT:
     """Reading-column layout for /explore.
 
     plan: dict returned by ExploreOrchestrator.get_reading_plan().
@@ -134,7 +134,7 @@ def _build_alpine_seed(plan: dict[str, Any]) -> dict[str, Any]:
 # ---------------------------------------------------------------------------
 
 
-def _greeting_header(plan: dict[str, Any]) -> "FT":
+def _greeting_header(plan: dict[str, Any]) -> FT:
     last_completed = plan.get("last_completed", {})
     last_title = last_completed.get("title", "")
     date_label = plan.get("date_label", "")
@@ -168,7 +168,7 @@ def _greeting_header(plan: dict[str, Any]) -> "FT":
 # ---------------------------------------------------------------------------
 
 
-def _hero_article(plan: dict[str, Any]) -> "FT":
+def _hero_article(plan: dict[str, Any]) -> FT:
     featured = plan.get("featured", {})
     uid = featured.get("uid", "")
     if not uid:
@@ -215,7 +215,7 @@ def _hero_article(plan: dict[str, Any]) -> "FT":
     )
 
 
-def _why_now_panel(featured: dict[str, Any]) -> "FT":
+def _why_now_panel(featured: dict[str, Any]) -> FT:
     why_now_text = featured.get("why_now", "")
     why_evidence = featured.get("why", [])
 
@@ -262,7 +262,7 @@ def _why_now_panel(featured: dict[str, Any]) -> "FT":
     )
 
 
-def _evidence_item(row: dict[str, Any]) -> "FT":
+def _evidence_item(row: dict[str, Any]) -> FT:
     met = row.get("met")
     text = row.get("text", "")
 
@@ -283,7 +283,7 @@ def _evidence_item(row: dict[str, Any]) -> "FT":
     )
 
 
-def _hero_actions(uid: str, minutes: int) -> "FT":
+def _hero_actions(uid: str, minutes: int) -> FT:
     return Div(
         A(
             Icon("book-open", cls="w-[17px] h-[17px]"),
@@ -322,7 +322,7 @@ def _hero_actions(uid: str, minutes: int) -> "FT":
 # ---------------------------------------------------------------------------
 
 
-def _thread_rail(plan: dict[str, Any]) -> "FT":
+def _thread_rail(plan: dict[str, Any]) -> FT:
     also_ready = plan.get("also_ready", [])
     if not also_ready:
         return Div()
@@ -356,7 +356,7 @@ def _thread_rail(plan: dict[str, Any]) -> "FT":
     )
 
 
-def _thread_card(ku: dict[str, Any]) -> "FT":
+def _thread_card(ku: dict[str, Any]) -> FT:
     thread_color = ku.get("thread_color", "currentColor")
     minutes = ku.get("reading_minutes", 0)
 
@@ -392,7 +392,7 @@ def _thread_card(ku: dict[str, Any]) -> "FT":
 # ---------------------------------------------------------------------------
 
 
-def _in_progress_section(plan: dict[str, Any]) -> "FT":
+def _in_progress_section(plan: dict[str, Any]) -> FT:
     in_progress = plan.get("in_progress", [])
     if not in_progress:
         return Div()
@@ -412,7 +412,7 @@ def _in_progress_section(plan: dict[str, Any]) -> "FT":
     )
 
 
-def _in_progress_row(r: dict[str, Any]) -> "FT":
+def _in_progress_row(r: dict[str, Any]) -> FT:
     progress = r.get("progress", 0)
     minutes_left = r.get("minutes_left", 0)
     width_pct = f"{round(progress * 100)}%"
@@ -449,7 +449,7 @@ def _in_progress_row(r: dict[str, Any]) -> "FT":
 # ---------------------------------------------------------------------------
 
 
-def _path_step_section(plan: dict[str, Any]) -> "FT":
+def _path_step_section(plan: dict[str, Any]) -> FT:
     ps = plan.get("active_path_step")
     if not ps:
         return Div()
@@ -477,7 +477,7 @@ def _path_step_section(plan: dict[str, Any]) -> "FT":
     )
 
 
-def _ps_header(ps: dict[str, Any]) -> "FT":
+def _ps_header(ps: dict[str, Any]) -> FT:
     units_read = ps.get("units_read", 0)
     units_total = ps.get("units_total", 0)
     progress = ps.get("progress", 0.0)
@@ -513,7 +513,7 @@ def _ps_header(ps: dict[str, Any]) -> "FT":
     )
 
 
-def _ps_ku_list(ps: dict[str, Any]) -> "FT":
+def _ps_ku_list(ps: dict[str, Any]) -> FT:
     kus = ps.get("knowledge_units", [])
     units_total = ps.get("units_total", len(kus))
     rows = [_ps_ku_row(ku) for ku in kus]
@@ -528,7 +528,7 @@ def _ps_ku_list(ps: dict[str, Any]) -> "FT":
     )
 
 
-def _ps_ku_row(ku: dict[str, Any]) -> "FT":
+def _ps_ku_row(ku: dict[str, Any]) -> FT:
     status = ku.get("status", "upcoming")
     uid = ku.get("uid", "")
     title = ku.get("title", "")
@@ -584,7 +584,7 @@ def _ps_ku_row(ku: dict[str, Any]) -> "FT":
     )
 
 
-def _ps_capabilities(ps: dict[str, Any]) -> "FT":
+def _ps_capabilities(ps: dict[str, Any]) -> FT:
     capabilities = ps.get("capabilities", [])
     if not capabilities:
         return Div()
@@ -610,7 +610,7 @@ def _ps_capabilities(ps: dict[str, Any]) -> "FT":
     )
 
 
-def _ps_capability_button(cap: dict[str, Any], ps_uid: str) -> "FT":
+def _ps_capability_button(cap: dict[str, Any], ps_uid: str) -> FT:
     kind = cap.get("kind", "practice")
     locked = cap.get("locked", False)
     icon_name, label, icon_bg_cls, label_cls = _CAP_STYLES.get(
@@ -676,7 +676,7 @@ def _ps_capability_button(cap: dict[str, Any], ps_uid: str) -> "FT":
 # ---------------------------------------------------------------------------
 
 
-def _related_section(plan: dict[str, Any]) -> "FT":
+def _related_section(plan: dict[str, Any]) -> FT:
     related = plan.get("related", [])
     last_title = plan.get("last_completed", {}).get("title", "")
     if not related:
@@ -698,7 +698,7 @@ def _related_section(plan: dict[str, Any]) -> "FT":
     )
 
 
-def _related_row(k: dict[str, Any]) -> "FT":
+def _related_row(k: dict[str, Any]) -> FT:
     kind = k.get("kind", "")
     minutes = k.get("reading_minutes", 0)
 
@@ -737,7 +737,7 @@ def _related_row(k: dict[str, Any]) -> "FT":
 # ---------------------------------------------------------------------------
 
 
-def _library_section(plan: dict[str, Any]) -> "FT":
+def _library_section(plan: dict[str, Any]) -> FT:
     library = plan.get("library", {})
     total = library.get("total", 0)
     tags = library.get("tags", [])
@@ -804,7 +804,7 @@ def _library_section(plan: dict[str, Any]) -> "FT":
 # ---------------------------------------------------------------------------
 
 
-def _keyboard_hints() -> "FT":
+def _keyboard_hints() -> FT:
     return keyboard_hints_bar(
         keyboard_hint("read", "r"),
         keyboard_hint("why am I ready", "w"),
