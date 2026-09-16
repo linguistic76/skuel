@@ -34,7 +34,7 @@ from core.models.example.example import Example  # Replace with your domain mode
 # Import services (if testing service layer)
 from core.services.example_service import ExampleService  # Replace with your service
 from neo4j import AsyncDriver
-from testcontainers.neo4j import Neo4jContainer
+from testcontainers.community.neo4j import Neo4jContainer
 
 # Import backends (if testing backend layer)
 from adapters.persistence.neo4j.universal_backend import UniversalNeo4jBackend

@@ -194,10 +194,9 @@ async def test_form_body_row_names_both_answers_its_consumers_give(
         "adapters.inbound.tasks_ui.require_authenticated_user", _fake_authenticated_user
     )
     create_tasks_ui_routes(app, rt, MagicMock(), MagicMock())
-    ui_response = TestClient(app).post(
+    ui_response = TestClient(app, cookies={"csrf_token": "tok"}).post(
         "/tasks/create",
         data={"title": ""},
-        cookies={"csrf_token": "tok"},
         headers={"X-CSRF-Token": "tok"},
     )
 

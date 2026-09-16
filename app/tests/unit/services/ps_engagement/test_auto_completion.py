@@ -19,7 +19,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from typing import Any
-from unittest.mock import AsyncMock
+from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
@@ -56,7 +56,7 @@ def _service_with_stubs(
     """
     svc = PsEngagementService.__new__(PsEngagementService)
     svc._backend = backend  # type: ignore[assignment]
-    svc.logger = AsyncMock()  # silences the info/warning logs
+    svc.logger = MagicMock()  # the logger is sync — an AsyncMock here leaves un-awaited coroutines
     if complete_mock is not None:
         svc.complete_pathstep = complete_mock  # type: ignore[method-assign]
     return svc

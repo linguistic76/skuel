@@ -66,7 +66,7 @@ def _crud_client(monkeypatch: pytest.MonkeyPatch) -> TestClient:
         update_schema=_Schema,
         entity_converter=_to_entity,
     ).register_routes(app, rt)
-    return TestClient(app)
+    return TestClient(app, cookies=_COOKIES)
 
 
 def _assert_validation_400(response: Response) -> None:
@@ -82,9 +82,7 @@ def test_crud_factory_rejects_a_bad_body_with_400(
     monkeypatch: pytest.MonkeyPatch, path: str
 ) -> None:
     """Both CRUD write routes validate the body themselves — and answer 400."""
-    response = _crud_client(monkeypatch).post(
-        path, json={"title": ""}, headers=_CSRF, cookies=_COOKIES
-    )
+    response = _crud_client(monkeypatch).post(path, json={"title": ""}, headers=_CSRF)
 
     _assert_validation_400(response)
 
@@ -95,11 +93,10 @@ def test_pathways_progress_rejects_a_bad_body_with_400(monkeypatch: pytest.Monke
     monkeypatch.setattr(pathways_api, "require_authenticated_user", _fake_authenticated_user)
     pathways_api.create_pathways_api_routes(app, rt, MagicMock(), MagicMock(), MagicMock())
 
-    response = TestClient(app).post(
+    response = TestClient(app, cookies=_COOKIES).post(
         "/api/pathways/progress",
         json={"step_uid": "ps.demo.step", "mastery_level": 5.0},
         headers=_CSRF,
-        cookies=_COOKIES,
     )
 
     assert response.status_code == 400, response.text
@@ -109,7 +106,7 @@ def test_pathways_progress_rejects_a_bad_body_with_400(monkeypatch: pytest.Monke
 def test_a_valid_body_still_reaches_the_service(monkeypatch: pytest.MonkeyPatch) -> None:
     """The guard rejects bad input without swallowing good input."""
     response = _crud_client(monkeypatch).post(
-        "/api/tasks/create", json={"title": "a real task"}, headers=_CSRF, cookies=_COOKIES
+        "/api/tasks/create", json={"title": "a real task"}, headers=_CSRF
     )
 
     assert response.status_code == 201, response.text

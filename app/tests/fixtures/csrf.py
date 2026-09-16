@@ -1,6 +1,6 @@
 """Real-token CSRF helper for route tests.
 
-The route suites (unit, integration, and infrastructure) call
+The route suites (unit and integration) call
 ``@csrf_protected`` handlers directly with fabricated request stubs
 (``SimpleNamespace``), not through a ``TestClient``. For real CSRF
 verification to pass, a stub needs what a browser round-trip would give

@@ -18,7 +18,8 @@ from pathlib import Path
 
 import pytest
 
-pytestmark = pytest.mark.asyncio(loop_scope="session")
+# No module-wide asyncio mark: asyncio_mode=auto runs the async tests on the session
+# loop, and the guard test below is sync.
 
 _SCRIPT = Path(__file__).resolve().parents[2] / "scripts" / "backfill_lateral_created_at.py"
 

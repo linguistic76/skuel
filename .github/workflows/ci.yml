@@ -199,7 +199,7 @@ jobs:
               - 'app/package-lock.json'
               - 'app/.nvmrc'
               - 'app/.npmrc'
-              - 'app/vitest.config.js'
+              - 'app/vitest.config.mjs'
               - '.github/workflows/ci.yml'
             css:
               # css_freshness surface (ADR-084): the committed output.css must
