@@ -53,7 +53,9 @@ filesystem bridge — never a re-implementation of any guard:
    extraction pre-pass retires every edge whose line is gone by BOTH keys —
    🆔 nowhere in the text, digest on no 🆔-less line — so the same text typed
    back later is a new task, not a match against a dead edge; the task itself
-   stays in SKUEL (inbound propagation is parked, § R4). Record:
+   stays in SKUEL — stamped, and (R4 rule 1) an OPEN one is cancelled by the
+   next sync's sweep, a terminal one left as it is; the sweep's cases are
+   ``test_vault_inbound_propagation.py``'s. Record:
    ``docs/roadmap/done/line-deletions-leave-extracted-from-edges.md``.
 9. **A stripped token is re-minted, not re-extracted.** One key gone is not a
    deletion: a 🆔-less line still hashing to its edge is the same line minus
@@ -368,10 +370,12 @@ class TestDeletedLinesRetireTheirEdges:
         self, rig: Rig, remaining_body: str
     ) -> None:
         """A note emptied of every 🆔 line — down to its frontmatter, or with
-        prose left. Clearing the lines is not a SKUEL deletion — both tasks
-        stay, untouched — but their provenance goes with the lines, and the
-        syncs after that are quiet: no extraction error for an empty body,
-        nothing to inject, nothing to mark, nothing to warn about."""
+        prose left. Clearing the lines is not a hard deletion — both tasks
+        stay in the graph, untouched by the sync that sees them gone (the
+        grace) — but their provenance goes with the lines: no extraction
+        error for an empty body, nothing to inject, nothing to mark, nothing
+        to warn about. Two syncs on, both being open, the sweep cancels them
+        (R4 rule 1) — still without writing to the note."""
         rig.note.write_text(FRONTMATTER + "- [ ] Gym\n- [ ] Read\n", encoding="utf-8")
         await rig.sync()
         await rig.sync()  # the 🆔 edit re-ingests: the tracker now holds the injected note
@@ -382,13 +386,18 @@ class TestDeletedLinesRetireTheirEdges:
         rig.note.write_text(FRONTMATTER + remaining_body, encoding="utf-8")
         cleared = await rig.sync()
         assert not cleared.warnings, cleared.warnings
+        assert cleared.tasks_cancelled_by_deletion == 0, "judged in the sync that retired them"
         assert await rig.owned_tasks() == tasks, (
-            "a vault-side line deletion is not a SKUEL deletion"
+            "a vault-side line deletion is not a hard deletion, and not judged yet"
         )
         assert await rig.extracted_edges() == [], "the cleared lines' edges were left behind"
 
-        quiet = await rig.sync()
-        assert not quiet.warnings, quiet.warnings
-        assert (quiet.ids_injected, quiet.tasks_marked_done, quiet.tasks_marked_undone) == (0, 0, 0)
-        assert await rig.owned_tasks() == tasks
+        swept = await rig.sync()
+        assert not swept.warnings, swept.warnings
+        assert (swept.ids_injected, swept.tasks_marked_done, swept.tasks_marked_undone) == (0, 0, 0)
+        assert swept.tasks_cancelled_by_deletion == 2, swept
+        assert await rig.owned_tasks() == [
+            (uid, EntityStatus.CANCELLED.value) for uid, _ in tasks
+        ], "both open tasks were past the grace"
         assert await rig.extracted_edges() == []
+        assert rig.note.read_text(encoding="utf-8") == FRONTMATTER + remaining_body

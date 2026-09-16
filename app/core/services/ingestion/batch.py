@@ -768,6 +768,7 @@ async def ingest_directory(
         entities_deleted = 0
         edges_deleted = 0
         stale_metadata_removed = 0
+        mass_deletion_refused = False
         if ingestion_backend is not None and not dry_run:
             empty_tracker = IngestionTracker(ingestion_backend)
             reconcile_result = await empty_tracker.reconcile_deletions(
@@ -781,6 +782,7 @@ async def ingest_directory(
                 edges_deleted = reconcile_result.value.edges_deleted
                 stale_metadata_removed = reconcile_result.value.stale_metadata_removed
                 empty_warnings.extend(reconcile_result.value.ownership_mismatches)
+                mass_deletion_refused = reconcile_result.value.mass_deletion_refused
                 if reconcile_result.value.refusal_warning:
                     empty_warnings.append(reconcile_result.value.refusal_warning)
             else:
@@ -799,6 +801,7 @@ async def ingest_directory(
                 stale_metadata_removed=stale_metadata_removed,
                 files_walled=collection_skips.walled,
                 files_unsupported=collection_skips.unsupported,
+                mass_deletion_refused=mass_deletion_refused,
                 warnings=empty_warnings,
                 errors=empty_errors,
             )
@@ -859,6 +862,7 @@ async def ingest_directory(
         entities_deleted = 0
         edges_deleted = 0
         stale_metadata_removed = 0
+        mass_deletion_refused = False
         reconcile_errors: list[dict[str, Any]] = []
         reconcile_warnings: list[str] = list(collection_skips.warnings)
         if tracker is not None and not dry_run:
@@ -873,6 +877,7 @@ async def ingest_directory(
                 edges_deleted = reconcile_result.value.edges_deleted
                 stale_metadata_removed = reconcile_result.value.stale_metadata_removed
                 reconcile_warnings.extend(reconcile_result.value.ownership_mismatches)
+                mass_deletion_refused = reconcile_result.value.mass_deletion_refused
                 if reconcile_result.value.refusal_warning:
                     reconcile_warnings.append(reconcile_result.value.refusal_warning)
             else:
@@ -901,6 +906,7 @@ async def ingest_directory(
                 stale_metadata_removed=stale_metadata_removed,
                 files_walled=collection_skips.walled,
                 files_unsupported=collection_skips.unsupported,
+                mass_deletion_refused=mass_deletion_refused,
                 warnings=reconcile_warnings,
                 errors=reconcile_errors if reconcile_errors else None,
             )
@@ -1551,6 +1557,7 @@ async def ingest_directory(
     entities_deleted = 0
     edges_deleted = 0
     stale_metadata_removed = 0
+    mass_deletion_refused = False
     if tracker is not None and ingestion_mode != "full" and not dry_run:
         reconcile_result = await tracker.reconcile_deletions(
             directory,
@@ -1563,6 +1570,7 @@ async def ingest_directory(
             edges_deleted = reconcile_result.value.edges_deleted
             stale_metadata_removed = reconcile_result.value.stale_metadata_removed
             validation_warnings.extend(reconcile_result.value.ownership_mismatches)
+            mass_deletion_refused = reconcile_result.value.mass_deletion_refused
             if reconcile_result.value.refusal_warning:
                 validation_warnings.append(reconcile_result.value.refusal_warning)
         else:
@@ -1656,6 +1664,7 @@ async def ingest_directory(
                 moves=applied_moves,
                 files_walled=collection_skips.walled,
                 files_unsupported=collection_skips.unsupported,
+                mass_deletion_refused=mass_deletion_refused,
                 warnings=validation_warnings,
                 errors=errors if errors else None,
             )

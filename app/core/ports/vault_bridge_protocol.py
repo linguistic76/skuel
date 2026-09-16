@@ -267,10 +267,23 @@ class VaultSyncStats:
     # inbound pass then read a stale copy, or none. The third reason the
     # sweep holds.
     mirror_files_stale: int = 0
+    # The inbound pass had reason to distrust the vault AS A WHOLE: the
+    # directory walk found no files at all (an unmounted root, a sync client
+    # mid-resync, a local-agent listing that came back empty), or the
+    # mass-deletion valve refused (every tracked file vanished at once, or a
+    # majority would be deleted in one sync). No note has had its say on such
+    # a sync — the fourth reason the sweep holds. The refusal's own text is
+    # in ``warnings``; "No files found" is in ``errors``.
+    vault_read_refused: bool = False
     # Retirement stamps the end-of-sync sweep left in place because the
-    # inbound pass was incomplete (``files_failed``, ``files_broken`` or
-    # ``mirror_files_stale``).
+    # inbound pass was incomplete (``inbound_pass_incomplete``).
     retirements_held: int = 0
+    # Open tasks the sweep CANCELLED because their 🆔 line was gone from the
+    # vault for two consecutive syncs (R4 rule 1). Counted from the write's
+    # own verdict — a refused cancel keeps its stamp, is named in ``warnings``
+    # and is not counted. A cancel is a state change the user sees; a
+    # retirement alone (the stamp, the grace) still is not.
+    tasks_cancelled_by_deletion: int = 0
     warnings: list[str] = field(default_factory=list)
     errors: list[str] = field(default_factory=list)
     # Retrievability (embedding coverage): how much of the corpus lacks a
@@ -302,6 +315,23 @@ class VaultSyncStats:
     # too: the sync door's header variant carries that signal instead.
     coverage_probe_failed: bool = False
     first_run_notice: bool = False
+
+    @property
+    def inbound_pass_incomplete(self) -> bool:
+        """Some note may not have had its say this sync — the sweep's hold predicate.
+
+        A file that failed to ingest, one that opted in and could not be read,
+        one a local-agent mirror could not refresh, or a vault the walk found
+        empty / the deletion valve refused: any of them may hold the very 🆔
+        line that would revive a stamped task, so no retirement is judged
+        until a sync without them (R4 build plan, "two gates on the sweep").
+        """
+        return bool(
+            self.files_failed
+            or self.files_broken
+            or self.mirror_files_stale
+            or self.vault_read_refused
+        )
 
     @property
     def is_clean(self) -> bool:

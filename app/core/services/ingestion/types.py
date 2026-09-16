@@ -153,6 +153,12 @@ class IncrementalStats:
     files_skipped: int = 0  # Unchanged files
     files_ingested: int = 0  # Actually processed
     files_failed: int = 0
+    # The mass-deletion valve fired (``DeletionReconciliation.mass_deletion_refused``):
+    # every tracked file vanished at once, or a majority would be deleted in one
+    # run. Deletions were refused; the refusal text is in ``warnings``. Carried
+    # as a flag too because a consumer that must HOLD on it (the vault
+    # retirement sweep) cannot key on prose.
+    mass_deletion_refused: bool = False
     nodes_created: int = 0
     nodes_updated: int = 0
     relationships_created: int = 0

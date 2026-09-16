@@ -38,8 +38,10 @@ from typing import TYPE_CHECKING, Any
 
 from core.models.enums.entity_enums import EntityStatus
 from core.models.enums.pipeline import Pipeline
+from core.models.task.task_request import TaskUpdateRequest
 from core.models.type_hints import UserUID
 from core.models.user_entry.user_entry_request import UserEntryUpdateRequest
+from core.ports.query_types import VaultRetiredTaskRow
 from core.ports.vault_bridge_protocol import (
     VAULT_ID_RE,
     TaskLineUpdate,
@@ -295,9 +297,9 @@ class VaultReconciler:
         5. The retirement sweep (R4): every task whose 🆔 line vanished
            BEFORE this sync started and is still stamped has had its one-sync
            grace — terminal or still tracked from another note, the stamp is
-           cleared; open and untracked, it is left in place until the cancel
-           consequence exists (R4 build plan). Skipped entirely over an
-           incomplete inbound pass.
+           cleared; open and untracked, the task is CANCELLED through the
+           Tasks facade and the stamp cleared only when that write lands
+           (R4 rule 1). Skipped entirely over an incomplete inbound pass.
         """
         descriptor_result = self._resolve_guarded(kind, user_uid)
         if descriptor_result.is_error:
@@ -1118,20 +1120,27 @@ class VaultReconciler:
         BEFORE this sync started has had its grace. Terminal, or still
         tracked from another note (a task can hold two lines; losing one is
         not losing the task): the stamp is cleared. Open and untracked: the
-        line is gone for good — the cancel consequence is not built yet (R4
-        build plan), and until it exists the stamp is left in place, because
-        clearing deletion evidence with no consequence to apply would make
-        every line deleted meanwhile indistinguishable from a pre-🆔-era
-        orphan.
+        line is gone for good, and removing an open task's line is a decision
+        — the task is CANCELLED (R4 rule 1: reversible, the graph keeps its
+        edges and history) through the Tasks facade's status-guarded door
+        (C3), and its stamp is cleared only when that write returns ok. A
+        refused or failed cancel keeps the stamp — it is the retry record —
+        and is named in the sync's warnings, so the next sweep tries again.
+        A stamp whose task carries no readable status is held the same way:
+        the sweep cancels what it can read as open, nothing else.
 
-        The sweep runs only after a COMPLETE inbound pass. A note that failed
-        to ingest — or opted in and could not be read, or that a local-agent
+        The sweep runs only after a COMPLETE inbound pass
+        (``VaultSyncStats.inbound_pass_incomplete``). A note that failed to
+        ingest — or opted in and could not be read, or that a local-agent
         mirror could not refresh — has not had its say: it may hold the very
         line that would revive a stamped task, and clearing even a terminal
         task's stamp on such a sync destroys the only 🆔 mapping its restored
         line could revive by (Guard 4 ignores terminal twins, so the next
-        clean sync would mint a duplicate completed task). With any such
-        file, nothing is judged and the next clean sync decides.
+        clean sync would mint a duplicate completed task). A vault the walk
+        found empty or the deletion valve refused (unmounted, mid-resync,
+        wiped) is every note in doubt at once — the same hold, or an
+        unmounted vault would cancel every open task awaiting its paste. With
+        any of these, nothing is judged and the next clean sync decides.
         """
         listed = await self._user_entry.list_vault_retired_tasks(owner, sync_cutoff)
         if listed.is_error:
@@ -1140,29 +1149,57 @@ class VaultReconciler:
         pending = listed.value or []
         if not pending:
             return
-        if stats.files_failed or stats.files_broken or stats.mirror_files_stale:
+        if stats.inbound_pass_incomplete:
             stats.retirements_held = len(pending)
             stats.warnings.append(
-                f"{len(pending)} vault retirement(s) held: the sync had files it could "
-                "not read — judged on the next clean sync"
+                f"{len(pending)} vault retirement(s) held: not every note had its say "
+                "this sync (a file failed or could not be read, or the vault read as "
+                "empty or wiped) — judged on the next clean sync"
             )
             return
         clearable: list[tuple[str, str]] = []
+        to_cancel: list[VaultRetiredTaskRow] = []
         for row in pending:
             status = EntityStatus.from_string(row["status"] or "")
             if row["still_tracked"] or (status is not None and status.is_terminal()):
                 clearable.append((row["entity_uid"], row["retired_vault_id"]))
+            elif status is None:
+                stats.warnings.append(
+                    f"cancel not attempted for {row['entity_uid']} (its 🆔 line was removed "
+                    f"from the vault): status {row['status']!r} is unreadable — retried next sync"
+                )
+            else:
+                to_cancel.append(row)
+
+        # One intent for every cancel: status only, so the guarded write
+        # decides the transition from the prior it reads under the node's
+        # lock (ADR-087) and nothing else on the task is touched.
+        cancel = TaskUpdateRequest(status=EntityStatus.CANCELLED).to_intent()
+        for row in to_cancel:
+            cancelled = await self._tasks.update_task(row["entity_uid"], cancel)
+            if cancelled.is_error:
+                stats.warnings.append(
+                    f"cancel refused for {row['entity_uid']} (its 🆔 line was removed from "
+                    f"the vault): {cancelled.expect_error()} — retried next sync"
+                )
+                continue
+            stats.tasks_cancelled_by_deletion += 1
+            clearable.append((row["entity_uid"], row["retired_vault_id"]))
+
         if not clearable:
             return
         cleared = await self._user_entry.clear_vault_retirement_stamps(owner, clearable)
         if cleared.is_error:
+            # The cancels that landed are terminal now; their stamps are
+            # cleared by the next sweep's clear-only path, never re-cancelled.
             stats.errors.append(f"retirement sweep failed: {cleared.expect_error()}")
             return
         logger.info(
-            "retirement sweep: cleared %d of %d stamp(s) for %s (terminal or still tracked)",
+            "retirement sweep: cleared %d of %d stamp(s) for %s (%d cancelled by deletion)",
             cleared.value,
             len(pending),
             owner,
+            stats.tasks_cancelled_by_deletion,
         )
 
 
@@ -1225,6 +1262,12 @@ def _merge_ingest_stats(
     # genuine failures.
     stats.files_failed = max(0, int(ingest.failed or 0) - stats.files_ignored)
     if isinstance(ingest, IncrementalStats):
+        # A walk that found nothing, or a deletion valve that refused, is a
+        # vault SKUEL could not trust this sync — every note is in doubt, not
+        # one file (``files_failed`` stays 0 on both). The sweep holds on it.
+        stats.vault_read_refused = int(ingest.total_files or 0) == 0 or bool(
+            ingest.mass_deletion_refused
+        )
         stats.edges_created = int(ingest.edges_created or 0)
         stats.edges_updated = int(ingest.edges_updated or 0)
         stats.entities_deleted = int(ingest.entities_deleted or 0)

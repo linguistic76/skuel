@@ -1,6 +1,6 @@
 ---
 title: Unified Ingestion Implementation Guide
-updated: 2026-09-15
+updated: 2026-09-16
 category: patterns
 related_skills: []
 related_docs:
@@ -1264,8 +1264,10 @@ malformed edges, and foreign-owned skips never inflate the ratio and a refusal s
 that cleanup done — refuses when at least `MASS_DELETION_MIN_COUNT` (10) entities/edges
 would actually be deleted AND they exceed `MASS_DELETION_MAX_FRACTION` (0.5) of all
 tracked files (deleting all-but-one file must not wipe the graph in one sync). Refusals
-surface as `refusal_warning` → stats `warnings`; escape hatch: delete explicitly via the
-ingestion dashboard, or sync in smaller batches. **Owner scope (descriptor-governed syncs):** a tracked
+surface as `refusal_warning` → stats `warnings` AND as `IncrementalStats.mass_deletion_refused`
+(a flag, because the vault retirement sweep must HOLD on a refusal — `VaultSyncStats.
+vault_read_refused`, set on a refusal or an empty walk — and cannot key on prose); escape
+hatch: delete explicitly via the ingestion dashboard, or sync in smaller batches. **Owner scope (descriptor-governed syncs):** a tracked
 user-owned node whose owner differs from the syncing vault's owner is never deleted —
 node and tracking row both survive and the mismatch is surfaced as a warning
 (`ownership_mismatches` → stats `warnings`); the owner lookup failing fails the run closed.
@@ -1293,8 +1295,10 @@ task from the edge it deletes — the one-sync grace record of the R4 build plan
 (`/docs/roadmap/r4-vault-inbound-propagation.md`). A 🆔 that reappears in any note within one
 sync re-links its task by the stamp (`revive_extracted_from_link`); one live on another note is
 a move and its edge is re-pointed in one statement (`repoint_extracted_from_link`); the
-end-of-sync sweep clears the stamps of terminal or still-tracked tasks and, until PR 3 ships
-the cancel consequence, leaves an open untracked task's stamp in place. Whole-note deletion
+end-of-sync sweep clears the stamps of terminal or still-tracked tasks and cancels an open,
+untracked one through `TasksService.update_task` (R4 rule 1 — the stamp is cleared only when
+that write lands; a refused cancel keeps it and warns, naming the task; the count surfaces as
+`VaultSyncStats.tasks_cancelled_by_deletion`). Whole-note deletion
 (`IngestionBackend.delete_entities_with_metadata`) stamps the note's tasks the same way in the
 statement that `DETACH DELETE`s the entry. One key gone is not a
 deletion: a 🆔-less line still hashing to its edge is that line with its token stripped, kept
