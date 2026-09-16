@@ -27,6 +27,7 @@ from datetime import datetime
 from typing import TYPE_CHECKING, Any
 
 from fasthtml.common import (
+    FT,
     Div,
     P,
     Span,
@@ -67,8 +68,6 @@ from ui.patterns.page_header import PageHeader
 from ui.primitives import ButtonLink
 
 if TYPE_CHECKING:
-    from fasthtml.common import FT
-
     from core.ports.report_protocols import ProgressReportOperations
 
 logger = get_logger("skuel.routes.activity_reports")

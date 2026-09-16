@@ -33,13 +33,13 @@ from adapters.inbound.auth import require_authenticated_user
 from adapters.inbound.boundary import boundary_handler
 from adapters.inbound.fasthtml_types import FastHTMLApp, RouteDecorator
 from adapters.inbound.route_factories import DomainRouteConfig, register_domain_routes
+from core.models.event.event_dto import EventDTO
+from core.models.task.task_dto import TaskDTO
 from core.services.user import UserContext
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Result
 
 if TYPE_CHECKING:
-    from core.models.event.event_dto import EventDTO
-    from core.models.task.task_dto import TaskDTO
     from core.ports import GoalTaskGeneratorOperations, HabitEventSchedulerOperations
 
 logger = get_logger("skuel.routes.orchestration")
