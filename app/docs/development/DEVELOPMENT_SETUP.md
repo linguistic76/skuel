@@ -1,5 +1,5 @@
 ---
-updated: 2026-09-09
+updated: 2026-09-16
 ---
 
 # Development Setup Guide
@@ -125,14 +125,14 @@ Run formatting and linting before committing:
 ## Testing
 
 ```bash
-# Run all tests
-uv run pytest
+# Both CI tiers in one session (the integration tier needs Docker)
+./dev test
 
 # Run specific test file
-uv run pytest app/tests/unit/test_something.py
+uv run pytest tests/unit/test_something.py
 
-# Run with coverage
-uv run pytest --cov=app
+# Coverage is opt-in (writes coverage.xml + htmlcov/)
+./dev test --cov
 ```
 
 ## Common Issues

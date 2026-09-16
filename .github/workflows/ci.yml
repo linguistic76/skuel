@@ -604,7 +604,7 @@ jobs:
         working-directory: app
         run: |
           echo "Running the CROSS_REFERENCE_INDEX drift + honesty guards..."
-          uv run pytest tests/unit/scripts/test_generate_cross_reference_index.py -q --no-cov || echo "xref_drift_failed=true" >> $GITHUB_OUTPUT
+          uv run pytest tests/unit/scripts/test_generate_cross_reference_index.py -q || echo "xref_drift_failed=true" >> $GITHUB_OUTPUT
         continue-on-error: true
 
       # Same reasoning again, and the same shape: this module DISCOVERS every
@@ -620,7 +620,7 @@ jobs:
         working-directory: app
         run: |
           echo "Running the health-check roster parity + docs pins..."
-          uv run pytest tests/unit/scripts/test_health_check_parity.py -q --no-cov || echo "health_roster_failed=true" >> $GITHUB_OUTPUT
+          uv run pytest tests/unit/scripts/test_health_check_parity.py -q || echo "health_roster_failed=true" >> $GITHUB_OUTPUT
         continue-on-error: true
 
       # Same reasoning as the drift test above: this guard's input is every doc
@@ -632,7 +632,7 @@ jobs:
         working-directory: app
         run: |
           echo "Running the validation-status claim guard..."
-          uv run pytest tests/unit/docs/test_no_validation_422_claims.py -q --no-cov || echo "status_claims_failed=true" >> $GITHUB_OUTPUT
+          uv run pytest tests/unit/docs/test_no_validation_422_claims.py -q || echo "status_claims_failed=true" >> $GITHUB_OUTPUT
         continue-on-error: true
 
       - name: Check for broken documentation links (optional)
@@ -887,8 +887,9 @@ jobs:
   # Integration tests — the only tier that executes real Cypher against Neo4j
   # (unit tests mock the driver). Runs the same command as ./dev test-integration:
   # testcontainers spins up the pinned neo4j image via the runner's Docker daemon
-  # (preinstalled on ubuntu-latest). addopts is cleared to skip coverage collection,
-  # matching scripts/run_tests.py — pass rate is the quality metric here.
+  # (preinstalled on ubuntu-latest). Coverage is opt-in (scripts/run_tests.py
+  # --cov is the one path that collects it), so nothing here needs clearing —
+  # pass rate is the quality metric.
   integration_tests:
     name: Integration Tests
     needs: changes
@@ -938,7 +939,7 @@ jobs:
 
       - name: Run integration tests
         working-directory: app
-        run: uv run pytest tests/integration/ -x --tb=short -q --override-ini=addopts=
+        run: uv run pytest tests/integration/ -x --tb=short -q
 
   smoke:
     name: Render Smoke Test

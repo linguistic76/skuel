@@ -7,13 +7,14 @@
 ## Running Tests
 
 ```bash
-uv run pytest tests/unit/ --no-cov -q          # fast unit sweep (skip coverage addopts)
+uv run pytest tests/unit/ -q                   # fast unit sweep (no Docker)
 uv run pytest tests/integration/ -q            # needs LOCAL Docker (testcontainers Neo4j)
 uv run pytest tests/unit/test_foo.py -k "create" -x --tb=short
-./dev test | test-unit | test-integration | test-quick | smoke
+./dev test | test-unit | test-integration | test-quick | smoke   # flags forward: -k, -x, --tb=short
+./dev test --cov                               # coverage — opt-in, the one path (coverage.xml + htmlcov/)
 ```
 
-**When to use**: `--no-cov` — `addopts` in `pyproject.toml` bakes in `--cov=core --cov=adapters --cov=components` + `-v`; disable for speed. **CI runs `tests/unit/` ONLY** (`uv run pytest tests/unit/ -x --tb=short -q`) — integration behavior is NOT in CI and needs local Docker.
+**When to use**: coverage is never collected by default (`addopts` carries only `--strict-markers --strict-config -v`; pass rate is the metric) — `--cov` on any of the pytest `./dev test*` arms (`test`, `test-unit`, `test-integration`, `test-quick`) is the one path that collects it; `test-js` forwards to vitest, which has no `--cov`. CI runs both tiers: `unit_tests` (`uv run pytest tests/unit/ -x --tb=short -q`) and `integration_tests` (`tests/integration/` on the runner's Docker daemon, `INTELLIGENCE_TIER=core`), each path-gated on Python changes.
 
 ---
 
@@ -127,7 +128,7 @@ service = create_tasks_service_for_testing(backend=backend)
 | `Mock()` for an async method → "coroutine was never awaited" / not awaitable | `AsyncMock(return_value=Result.ok(...))` |
 | Mock returns raw value (`= task`) | Return `Result.ok(task)` — services unwrap Result |
 | Mocked backend "passes" for a method that doesn't exist | Guard with an integration round-trip against real Neo4j |
-| Unit tests green in CI but integration broken | CI runs `tests/unit/` only — run `./dev test-integration` locally |
+| Unit tests green but a Cypher path broken | Mocks resolve any attribute — run `./dev test-integration` (real Neo4j; CI's `integration_tests` job runs the same tier) |
 | New `@pytest.mark.foo` errors | `--strict-markers` — declare it in `pyproject.toml` markers list |
 | Mocking domain models (`mock_task.is_overdue.return_value`) | Construct the real frozen dataclass; mock only the backend |
 | Event assertions on real bus | Mock bus: `event_bus.publish_async.assert_called_once()` + check event type |
