@@ -39,7 +39,9 @@ SCRIPT = APP_ROOT / "scripts" / "request_codex_review.sh"
 
 # Dispatch mirrors the script's distinct gh invocations. Order matters: the
 # body-extraction jq also contains the word "length" (`select($b | length > 0)`),
-# so it is matched on its own marker BEFORE the counting queries.
+# so it is matched on its own marker BEFORE the counting queries. The issue-channel
+# BODY read is told apart from its COUNT by `join(` — the status-widget filter
+# names `.body` in both programs, so `.body` alone no longer separates them.
 GH_STUB = """#!/usr/bin/env bash
 args="$*"
 # STUB_FAIL_MATCH names a substring of the invocation that must fail after
@@ -54,7 +56,7 @@ case "$args" in
   *reviews*)             echo "${STUB_REVIEW_COUNT}" ;;
   *pulls*comments*.path*) printf '%s' "${STUB_INLINE_TEXT}" ;;
   *pulls*comments*)      echo "${STUB_INLINE_COUNT}" ;;
-  *issues*comments*.body*) printf '%s' "${STUB_ISSUE_BODY}" ;;
+  *issues*comments*join*) printf '%s' "${STUB_ISSUE_BODY}" ;;
   *issues*comments*)     echo "${STUB_ISSUE_COUNT}" ;;
   *) echo "gh stub: unexpected invocation: $args" >&2; exit 64 ;;
 esac
@@ -229,6 +231,38 @@ class TestBoilerplateStripIsTargeted:
             "wrote, including supporting evidence — hiding submitted content is the "
             "defect this function exists to prevent."
         )
+
+
+class TestStatusWidgetIsNeverAVerdict:
+    """Codex's review-status widget is pending, never a verdict.
+
+    Source-level for the same reason as the strip test: the filter lives in the
+    jq programs `gh` runs. What it pins is the shape that makes the rule safe —
+    the widget is excluded by its marker from BOTH the issue-channel count and
+    the body read, because a channel counted on one set and printed on another
+    is the #1301 defect in a new coat.
+    """
+
+    MARKER = "codex-pull-request-review-summary"
+
+    def test_widget_is_filtered_from_count_and_body_alike(self) -> None:
+        source = SCRIPT.read_text()
+        assert f'select(.body|test("{self.MARKER}")|not)' in source, (
+            "the widget must be excluded by its HTML-comment marker, not by its "
+            "wording — the table text changes as the review runs"
+        )
+        lines = source.splitlines()
+        # Each read is a two-line statement: the URL line, then its `--jq` continuation.
+        reads = [
+            f"{lines[i].strip()} {lines[i + 1].strip()}"
+            for i, line in enumerate(lines)
+            if "issues/$PR/comments?since=" in line
+        ]
+        assert len(reads) == 2, reads
+        for statement in reads:
+            assert "$widget" in statement, (
+                f"the widget filter must sit on every issue-channel read: {statement}"
+            )
 
 
 class TestScriptShape:
