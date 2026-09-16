@@ -4,17 +4,16 @@ run_tests.py — the runner forwards pytest's flags and owns only its own
 
 Every ``./dev test*`` arm forwards ``"${@:2}"`` to ``scripts/run_tests.py``, so
 what the runner does with an argument it does not own decides whether a flag
-reaches pytest. Three ways it can mangle one, each pinned here:
+reaches pytest. Three invariants, each pinned here:
 
-- **A ``mode`` positional would eat an option's value** whenever the mode is
-  omitted — argparse cannot know the arity of an option it does not declare, so
-  ``run_tests.py -k tasks`` would read ``tasks`` as the mode (Codex P2, #1351).
-  The mode is therefore position-first (the first argument when it names one)
-  and the parser declares no positional at all.
-- **Abbreviation matching would claim pytest's ``--co``** (collect-only) as the
+- **The mode is position-first and the parser declares no positional.**
+  argparse cannot know the arity of an option it does not declare, so a
+  ``mode`` positional would take the ``tasks`` of ``-k tasks`` (or the
+  ``short`` of ``--tb short``) as the mode whenever the mode is omitted.
+- **No abbreviation matching**: pytest's ``--co`` (collect-only) is not the
   runner's ``--cov``.
-- **Re-parsing a pytest option narrows it** — the retired ``--tb`` re-parse
-  carried a five-value ``choices`` list that rejected ``--tb=auto``.
+- **No pytest option is re-parsed**: a re-parse narrows what pytest accepts —
+  ``--tb=auto`` is pytest's to validate, and pytest accepts it.
 """
 
 import sys
