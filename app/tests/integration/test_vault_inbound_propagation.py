@@ -1,7 +1,7 @@
 """R4 — vault inbound propagation: identity survives one sync (PR 1), lines reconcile (PR 2), deletion cancels (PR 3).
 
-The build plan (``docs/roadmap/r4-vault-inbound-propagation.md``) makes the
-vault the place tasks are edited. Its foundation, this PR: a 🆔 line that
+The build plan (``docs/roadmap/done/r4-vault-inbound-propagation.md``) makes
+the vault the place tasks are edited. Its foundation, PR 1: a 🆔 line that
 vanishes from a note no longer loses its task's identity at once. The retiring
 write — the extraction pre-pass for a line gone from a surviving note, the
 deletion statement for a deleted note — hard-deletes the edge as before and

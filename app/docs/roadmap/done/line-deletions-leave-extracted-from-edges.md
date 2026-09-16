@@ -1,6 +1,6 @@
 ---
 title: "Line Deletions Leave EXTRACTED_FROM Edges"
-updated: 2026-09-15
+updated: 2026-09-16
 status: "done — the extraction pre-pass retires an edge whose line is gone by both keys (🆔 absent, digest on no 🆔-less line); the task stays; a stripped token is re-minted by the outbound injection arm; the 🆔 is written in front of a trailing ✅ so the done marker stays trailing"
 registered: 2026-08-24
 trigger: "the R4 build, or the next reconciler touch"
@@ -73,7 +73,9 @@ not the parse — a 🆔 inside a code fence is still on a line the write-back c
   then checked off), not as a new occurrence. After the write-back the `✅` inside the digest
   tells them apart. And Guard 4's no-provenance-write rule (Kody #501) still leaves a line
   retyped for an ACTIVE task merged but untracked — the cleanup script's LINE-BACKED class,
-  unchanged by this work and R4's to close.
+  unchanged by this work and R4's to close (closed by R4 PR 1, #1343: Guard 4 writes the edge
+  when the twin has none to the entry; the class left the script in R4 PR 4 —
+  [r4-vault-inbound-propagation.md](r4-vault-inbound-propagation.md)).
 - **Two Codex findings on the PR were real and are in the record above:** (1) the
   before-marker 🆔 placement applies to CHECKED lines only — on an unchecked line a trailing
   `✅ date` is the user's stray token, and appending after it is what keeps it out of both

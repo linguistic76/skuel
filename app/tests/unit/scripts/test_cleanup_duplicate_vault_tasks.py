@@ -3,9 +3,12 @@
 The script is a CLI over the live graph + the personal vault; the rules are
 pure and pinned here. Proposal rule: one physical vault checkbox line ⇒ one
 task — the keeper is the line's 🆔 owner (else the oldest), and only edge-less,
-COMPLETED twins are proposed; strays are edge-less completed tasks on no line
-at all. Nothing is deleted without a matching ``--confirm`` (Codex #1165 P1):
-``select_confirmed`` refuses any uid the run does not propose.
+COMPLETED twins outside the deletion grace are proposed; strays are edge-less
+completed tasks on no line at all. A task stamped ``retired_vault_id`` (the R4
+grace) owns that 🆔: a line carrying it is not a phantom, and the task is never
+a re-mint or a phantom's owner. Nothing is deleted without a matching
+``--confirm`` (Codex #1165 P1): ``select_confirmed`` refuses any uid the run
+does not propose.
 """
 
 from __future__ import annotations
@@ -30,7 +33,9 @@ from cleanup_duplicate_vault_tasks import (  # type: ignore[import-not-found]
 from core.services.dsl.activity_extractor import normalized_line_hash
 
 
-def _task(uid, title, *, created, vault_ids=(), edges=None, status="completed", other=0):
+def _task(
+    uid, title, *, created, vault_ids=(), edges=None, status="completed", other=0, stamped=None
+):
     edge_count = len(vault_ids) if edges is None else edges
     return TaskRow(
         uid=uid,
@@ -40,6 +45,7 @@ def _task(uid, title, *, created, vault_ids=(), edges=None, status="completed", 
         vault_ids=tuple(vault_ids),
         edge_count=edge_count,
         other_rel_count=other,
+        retired_vault_id=stamped,
     )
 
 
@@ -78,11 +84,11 @@ def test_vault_linked_twin_is_kept_and_edgeless_completed_original_proposed():
     assert out.remint_uids == ["task_699a931e"]
     assert out.proposed_uids == ["task_699a931e"]
     assert out.confirmable_uids(include_strays=True) == ["task_699a931e"]
-    assert out.review == [] and out.strays == [] and out.line_backed == []
+    assert out.review == [] and out.strays == [] and out.in_grace == []
 
 
 def test_both_edgeless_keeps_the_oldest_and_proposes_the_later_remint():
-    """'move furniture': neither task owns the line's 🆔 (phantom) → oldest wins, stays line-backed."""
+    """'move furniture': neither task owns the line's 🆔 (phantom) → oldest wins, not a stray."""
     older = _task("task_b9d52706", "move furniture", created="2026-07-04T05:28:43", other=2)
     later = _task("task_0aa1f578", "move furniture", created="2026-07-11T20:59:06")
     line = _line(
@@ -94,11 +100,11 @@ def test_both_edgeless_keeps_the_oldest_and_proposes_the_later_remint():
     s = out.duplicate_sets[0]
     assert s.keep is older
     assert [t.uid for t in s.proposed] == ["task_0aa1f578"]
-    # The phantom id is reported with the KEPT task as its only likely owner,
-    # and the keeper is line-backed — never a stray.
+    # The phantom id is reported with the KEPT task as its only likely owner
+    # (the --repair-id target); a task with a live same-title line is never a
+    # stray.
     assert [p.line.vault_id for p in out.phantom_ids] == ["sk_3uhmts"]
     assert [t.uid for t in out.phantom_ids[0].likely_owners] == ["task_b9d52706"]
-    assert [t.uid for t in out.line_backed] == ["task_b9d52706"]
     assert out.strays == []
 
 
@@ -125,7 +131,7 @@ def test_no_vault_line_today_is_review_and_the_edgeless_twin_is_a_stray():
 
 
 def test_recurring_template_line_in_two_notes_is_not_a_duplicate():
-    """One 'Reflect…' line per daily note ⇒ one task per note. Never merged; edge-less one is line-backed."""
+    """One 'Reflect…' line per daily note ⇒ one task per note. Never merged; edge-less one is not a stray."""
     a = _task("task_a", "Reflect on what went well today", created="2026-07-01T11:56:33", edges=1)
     b = _task("task_b", "Reflect on what went well today", created="2026-07-22T08:18:16")
     lines = [
@@ -135,7 +141,6 @@ def test_recurring_template_line_in_two_notes_is_not_a_duplicate():
     out = classify([a, b], lines, owned_vault_ids=set())
     assert out.duplicate_sets == []
     assert "recurring" in out.review[0].reason
-    assert [t.uid for t in out.line_backed] == ["task_b"]
     assert out.strays == []
 
 
@@ -158,12 +163,12 @@ def test_active_edgeless_twin_is_left_for_review_not_proposed():
     assert s.keep is keeper
     assert [t.uid for t in s.proposed] == ["task_y"]
     assert [t.uid for t in s.left_for_review] == ["task_x"]
-    assert [t.uid for t in out.line_backed] == ["task_x"]  # active + edge-less: not a stray
+    assert out.strays == []  # active + edge-less: Guard 4 re-tracks it on the next sync
 
 
 def test_id_owned_by_a_task_outside_the_title_group_is_review():
-    """The line's 🆔 positively ties it to a task whose title diverged (vault edit, inbound
-    propagation parked) — the same-title group is NOT that line's re-mints (Codex r8)."""
+    """The line's 🆔 positively ties it to a task whose title diverged (a vault-side retitle
+    the next sync applies) — the same-title group is NOT that line's re-mints (Codex r8)."""
     outside = _task(
         "task_z", "Physio look 4 — OLD title", created="2026-06-20", vault_ids=("sk_x",)
     )
@@ -186,7 +191,7 @@ def test_contested_id_is_review():
     assert "more than one task" in out.review[0].reason
 
 
-# --- STRAYS vs LINE-BACKED ----------------------------------------------------
+# --- STRAYS ---------------------------------------------------------------------
 
 
 def test_stray_needs_no_line_at_all_and_completed_status():
@@ -196,8 +201,7 @@ def test_stray_needs_no_line_at_all_and_completed_status():
     out = classify(
         [paraphrase, draft, owner], [_line("Consider the trailer", vault_id=None)], set()
     )
-    assert [t.uid for t in out.strays] == ["task_p"]
-    assert [t.uid for t in out.line_backed] == ["task_o", "task_d"]
+    assert [t.uid for t in out.strays] == ["task_p"]  # task_o has a line; task_d is open
     # A stray is listed, never proposed: it enters the confirmable set only on
     # explicit opt-in (Codex #1166 — `task_b9d52706` is real history, not a re-mint).
     assert out.proposed_uids == []
@@ -220,7 +224,55 @@ def test_phantom_and_dangling_ids_are_reconciled_both_ways():
     assert [p.line.vault_id for p in out.phantom_ids] == ["sk_bcd7if"]
     assert [t.uid for t in out.phantom_ids[0].likely_owners] == ["task_p"]
     assert out.dangling_ids == ["sk_gone01"]
-    assert [t.uid for t in out.line_backed] == ["task_p"]
+    assert out.strays == [] and out.in_grace == []
+
+
+# --- The R4 grace: a stamped task owns its 🆔 ---------------------------------
+
+
+def test_a_stamped_task_owns_its_id_so_the_line_that_carries_it_is_not_a_phantom():
+    """The line was cut last sync (edge retired, task stamped) and typed back since: the next
+    sync revives the task by the stamp. Not a phantom, not dangling — in grace."""
+    stamped = _task("task_s", "Deck coating purchase", created="2026-07-01", stamped="sk_deck01")
+    line = _line(
+        "Deck coating purchase", vault_id="sk_deck01", file="periodic_notes/Weekly/2026-W30.md"
+    )
+    out = classify([stamped], [line], owned_vault_ids=set())
+    assert out.phantom_ids == []
+    assert out.dangling_ids == []
+    assert [t.uid for t in out.in_grace] == ["task_s"]
+    assert out.strays == []  # edge-less and completed, but the grace owns it
+
+
+def test_a_stamped_task_is_the_keeper_of_its_line_and_never_a_remint():
+    """Its 🆔 ties the line to the stamped task exactly as an edge would (the keeper rule);
+    and a same-title edge-less twin in the grace is that other line's task, not a re-mint."""
+    stamped = _task("task_s", "Vacuum", created="2026-07-01", stamped="sk_vac001")
+    remint = _task("task_r", "Vacuum", created="2026-07-11")
+    out = classify(
+        [stamped, remint], [_line("Vacuum", vault_id="sk_vac001")], owned_vault_ids=set()
+    )
+    s = out.duplicate_sets[0]
+    assert s.keep is stamped
+    assert [t.uid for t in s.proposed] == ["task_r"]
+
+    # Reversed: the line's 🆔 is on task_k's edge; the stamped twin had its own line.
+    keeper = _task("task_k", "Vacuum", created="2026-07-11", vault_ids=("sk_vac002",))
+    out = classify([stamped, keeper], [_line("Vacuum", vault_id="sk_vac002")], {"sk_vac002"})
+    assert out.duplicate_sets == []
+    assert "deletion grace" in out.review[0].reason
+    assert out.proposed_uids == []
+
+
+def test_a_stamped_task_is_not_a_phantom_lines_likely_owner():
+    """A phantom 🆔 with the stamped task's title: the stamp names the task's own line, so it is
+    not this one's owner — --repair-id has no candidate here."""
+    stamped = _task("task_s", "Physio", created="2026-07-01", stamped="sk_own001")
+    out = classify([stamped], [_line("Physio", vault_id="sk_other1")], owned_vault_ids=set())
+    assert [p.line.vault_id for p in out.phantom_ids] == ["sk_other1"]
+    assert out.phantom_ids[0].likely_owners == ()
+    repairs, problems = plan_repairs(out, ["sk_other1"], {})
+    assert repairs == [] and len(problems) == 1 and "0 edge-less task(s)" in problems[0]
 
 
 # --- The human census: --confirm --------------------------------------------
