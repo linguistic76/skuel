@@ -5,7 +5,7 @@ SKUEL Test Runner - Comprehensive test suite execution with multiple modes.
 Usage:
     uv run python scripts/run_tests.py [mode] [--cov] [pytest args...]
 
-Modes:
+Modes (the FIRST argument when given; omitted = comprehensive):
     comprehensive - unit + integration [RECOMMENDED]
     integration   - Integration tests only (local Docker Neo4j)
     unit          - Unit tests only — fast CI tier (no Docker)
@@ -25,6 +25,7 @@ flags here: ``./dev test-unit -k tasks -x``, ``./dev test --cov``.
 import argparse
 import subprocess
 import sys
+from dataclasses import dataclass
 from pathlib import Path
 
 # Coverage is opt-in: pyproject's addopts collects none, so these flags are the
@@ -39,6 +40,9 @@ COVERAGE_ARGS: tuple[str, ...] = (
     "--cov-report=xml",
     "--cov-report=html:htmlcov",
 )
+
+DEFAULT_MODE = "comprehensive"
+MODE_NAMES: tuple[str, ...] = (DEFAULT_MODE, "integration", "unit", "quick")
 
 
 class TestRunner:
@@ -125,54 +129,70 @@ class TestRunner:
         return self._run(cmd)
 
 
-def main() -> int:
-    # allow_abbrev=False: argparse would otherwise claim any unambiguous prefix
-    # of a runner option, so pytest's own ``--co`` (collect-only) would arrive
-    # here as ``--cov``. Only the mode and the two runner options are parsed;
-    # everything else reaches pytest untouched.
+@dataclass(frozen=True)
+class Invocation:
+    """What one command line asks for: a mode, the two runner options, pytest's args."""
+
+    mode: str
+    cov: bool
+    markers: bool
+    pytest_args: list[str]
+
+
+def parse_invocation(argv: list[str]) -> Invocation:
+    """Split a command line into the runner's part and pytest's part.
+
+    The mode is the FIRST argument when it names one, otherwise the default —
+    position is the only thing that can tell a mode word from a pytest option's
+    value: argparse cannot know the arity of an option it does not declare, so a
+    ``mode`` positional would swallow the ``tasks`` of ``-k tasks`` (or the
+    ``short`` of ``--tb short``) whenever the mode is omitted. Only ``--cov`` and
+    ``--markers`` are parsed; everything else is pytest's, forwarded verbatim
+    and in order. ``allow_abbrev=False`` because argparse would otherwise claim
+    any unambiguous prefix of a runner option — pytest's own ``--co``
+    (collect-only) would arrive as ``--cov``.
+    """
+    if argv and argv[0] in MODE_NAMES:
+        mode, rest = argv[0], argv[1:]
+    else:
+        mode, rest = DEFAULT_MODE, argv
+
     parser = argparse.ArgumentParser(
+        prog="run_tests.py",
+        usage="%(prog)s [mode] [--cov] [pytest args...]",
         description="SKUEL Test Runner",
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog=__doc__,
         allow_abbrev=False,
     )
-
-    parser.add_argument(
-        "mode",
-        nargs="?",
-        default="comprehensive",
-        choices=["comprehensive", "integration", "unit", "quick"],
-        help="Test mode to run (default: comprehensive)",
-    )
-
     parser.add_argument(
         "--cov",
         action="store_true",
         help="Collect coverage (opt-in; writes coverage.xml + htmlcov/)",
     )
-
     parser.add_argument("--markers", action="store_true", help="Show the declared markers")
+    args, pytest_args = parser.parse_known_args(rest)
+    return Invocation(mode=mode, cov=args.cov, markers=args.markers, pytest_args=pytest_args)
 
-    args, extra_args = parser.parse_known_args()
 
+def main() -> int:
+    invocation = parse_invocation(sys.argv[1:])
     runner = TestRunner()
 
-    # Show markers and exit
-    if args.markers:
+    if invocation.markers:
         return runner.show_markers()
 
-    if args.cov:
+    extra_args = list(invocation.pytest_args)
+    if invocation.cov:
         extra_args.extend(COVERAGE_ARGS)
 
-    # Run selected mode
     mode_map = {
         "comprehensive": runner.run_comprehensive,
         "integration": runner.run_integration,
         "unit": runner.run_unit,
         "quick": runner.run_quick,
     }
-
-    return mode_map[args.mode](extra_args)
+    return mode_map[invocation.mode](extra_args)
 
 
 if __name__ == "__main__":
