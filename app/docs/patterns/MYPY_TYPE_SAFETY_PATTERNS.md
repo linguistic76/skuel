@@ -1,6 +1,6 @@
 ---
 title: MyPy Type Safety Patterns - Systematic Error Reduction
-updated: 2026-08-08
+updated: 2026-09-16
 category: patterns
 related_skills:
 - python
@@ -42,7 +42,7 @@ Every mypy error falls into one of five categories. Fix the root cause, not the 
 
 **Problem:** Route factories receive services without type annotations → mypy treats them as `Any` → cascading `no-any-return` errors
 
-**Solution:** Use `TYPE_CHECKING` imports for zero-cost type safety with forward references
+**Solution:** Use `TYPE_CHECKING` imports for zero-cost type safety — unquoted: Python 3.14 evaluates annotations lazily (PEP 649), and ruff's UP037 rewrites a quoted one
 
 ### ❌ Before (Untyped - Causes no-any-return Errors)
 
@@ -75,21 +75,27 @@ def create_reports_api_routes(
 ```python
 from typing import TYPE_CHECKING, Any
 
+# A @rt() handler's parameter and return types are REAL imports: FastHTML
+# evaluates every handler signature at registration (signature_ex, eval_str=True),
+# so a TYPE_CHECKING-only name there is a NameError at bootstrap.
+from core.models.user_entry.user_entry import UserEntry
+from core.utils.result_simplified import Result
+
 if TYPE_CHECKING:
-    from core.models.user_entry.user_entry import UserEntry
+    # The factory's own parameters are never introspected — TYPE_CHECKING is safe here.
     from core.services.user_entry.user_entry_processing_service import UserEntryProcessingService
 
 def create_user_entry_api_routes(
     _app: Any,                                              # FastHTML boundary
     rt: Any,                                                # FastHTML boundary
-    processing_service: "UserEntryProcessingService",       # Type-safe
+    processing_service: UserEntryProcessingService,         # Type-safe, lazily evaluated
 ) -> list[Any]:
     """Create UserEntry API routes."""
 
     @rt("/api/submissions/reprocess")
-    async def reprocess_route(request, entry: "UserEntry") -> "Result[UserEntry]":
-        # ✅ No error — process() is typed Result[UserEntry] via the
-        # string-annotated service, so mypy validates the return concretely
+    async def reprocess_route(request, entry: UserEntry) -> Result[UserEntry]:
+        # ✅ No error — process() is typed Result[UserEntry] on the annotated
+        # service, so mypy validates the return concretely
         return await processing_service.process(entry, force=True)
 ```
 
@@ -98,7 +104,7 @@ def create_user_entry_api_routes(
 - ✅ **Zero runtime cost** - TYPE_CHECKING imports removed by Python
 - ✅ **Full IDE autocomplete** - All methods visible
 - ✅ **Compile-time safety** - Method changes caught immediately
-- ✅ **No circular imports** - Forward references as strings
+- ✅ **No circular imports** - the import never runs; the annotation is evaluated lazily (PEP 649), not at import time
 
 ### Pattern Template
 
@@ -112,8 +118,8 @@ if TYPE_CHECKING:
 def create_api_routes(
     app: Any,
     rt: Any,
-    service: "ConcreteService",                    # Required service
-    optional_service: "OptionalService | None" = None,  # Optional service
+    service: ConcreteService,                      # Required service — unquoted
+    optional_service: OptionalService | None = None,  # Optional service
 ) -> list[Any]:
     """Create API routes with type-safe service parameters."""
     ...
@@ -123,7 +129,7 @@ def create_api_routes(
 
 1. **Avoids circular imports** - Type checking imports don't run at runtime
 2. **Zero cost** - No performance impact
-3. **Forward references** - String annotations prevent import-time evaluation
+3. **Forward references need no quotes** - annotations are evaluated lazily (PEP 649); UP037 is live, a quoted one is a lint error. The one place a `TYPE_CHECKING`-only name is NOT safe is a signature something evaluates at runtime — a `@rt()` handler above all (ADR-067 § Deferred; `/docs/TROUBLESHOOTING.md § Forward References`)
 4. **Best practice** - PEP 484 recommended pattern
 
 ### Impact
@@ -812,7 +818,7 @@ from typing import TYPE_CHECKING
 if TYPE_CHECKING:
     from module import Service
 
-def create_routes(service: "Service") -> list[Any]:
+def create_routes(service: Service) -> list[Any]:  # unquoted — PEP 649, UP037
     ...
 
 # return-value → Union return types

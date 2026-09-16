@@ -330,13 +330,17 @@ still work:
   FastHTML bootstrap gotcha. The sweep was therefore verified by a check that actually COMPOSES the
   app: `./dev test-integration`, whose `tests/integration/conftest.py` app fixture (`skuel_app`)
   calls `bootstrap_skuel()` — the function `main()` runs, which builds the services and registers
-  every `@rt` handler, the moment FastHTML evaluates the signatures — plus the other runtime
-  introspection consumers the unit tier exercises (`get_type_hints` in `conversion_service`,
-  `crud_queries`, `neo4j_mapper`; `__annotations__` in `form_generator`). A bare `import main`
+  every `@rt` handler, the moment FastHTML evaluates the signatures. A bare `import main`
   registers nothing (`main()` is `__main__`-guarded) and `./dev smoke` renders static fixtures
-  without a server, so neither can see that failure. Should a future `NameError` at bootstrap name
-  a site, the fix is a runtime import (or a `# noqa: UP037` with the reason), never re-ignoring the
-  rule. `[tool.black]`'s `target-version` moved to `py314` in the same PR — its `py312` lag was
-  pinned to this sweep and had no other reason. The record: `docs/roadmap/done/py314-annotation-sweeps.md`.
+  without a server, so neither can see that failure. FastHTML itself reads with `eval_str=True`,
+  so it evaluated the quoted strings already and the sweep could not add a registration failure;
+  the readers that DID change class were the ones on 3.14's default `inspect.signature()` /
+  `get_type_hints()` — three unit tests and one production site (`with_error_handling`'s uid
+  extraction), which the unit tier caught and which now read in `Format.FORWARDREF`. That is the
+  standing remedy: a reader that needs only names never evaluates; a reader that needs types
+  supplies its namespace; a `@rt()` handler uses a real import. Never a `# noqa: UP037`, never
+  re-ignoring the rule. `[tool.black]`'s `target-version` moved to `py314` in the same PR — its
+  `py312` lag was pinned to this sweep and had no other reason. The record:
+  `docs/roadmap/done/py314-annotation-sweeps.md`.
 
 mypy/pyright type-check against 3.14 either way — neither backlog was ever a correctness gap.

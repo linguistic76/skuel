@@ -32,20 +32,43 @@ One mechanical PR in a merge lull (only Renovate dependency PRs open, both roadm
   sweep and had no other reason; nothing in `dev`, `scripts/`, CI or pre-commit invokes black, so
   the value is a statement of the syntax target, not a behaviour change.
 
-## How it was verified — the check that COMPOSES the app
+## How it was verified — the check that COMPOSES the app, and what it caught
 
 The ADR's hazard is that a quoted name imported only under `TYPE_CHECKING` is inert as a string
-but, unquoted, raises `NameError` the moment something introspects the signature — and FastHTML
-introspects every `@rt` handler at registration. So the verification had to reach registration:
+but, unquoted, raises `NameError` the moment something reads the signature in 3.14's default
+VALUE format. A static pass over the swept files found **249** now carrying such a name unquoted
+— most of the sweep — so the question was never *whether* the class exists but *who reads*:
 
-- `./dev quality` — ruff, SKUEL lint, Cypher validation, the audits, MyPy **0 errors** (2222
-  files), Pyright **0 errors**.
-- `./dev test-unit` — exercises the other runtime introspection consumers
-  (`get_type_hints` in `conversion_service`, `crud_queries`, `neo4j_mapper`; `__annotations__`
-  in `form_generator`).
-- `./dev test-integration` — its `skuel_app` fixture calls `bootstrap_skuel()`, the function
-  `main()` runs, against a Neo4j testcontainer; that is the moment every handler signature is
-  evaluated. RESULTS_PLACEHOLDER
+- **FastHTML's `@rt` registration reads with `eval_str=True`** (`fastcore.signature_ex`), which
+  evaluated the quoted strings already — a handler carrying a `TYPE_CHECKING`-only type failed at
+  registration before the sweep too, so the sweep cannot add a registration failure.
+  `./dev test-integration` proves it: its `skuel_app` fixture calls `bootstrap_skuel()`, the
+  function `main()` runs, against a Neo4j testcontainer. INTEGRATION_RESULT
+- **`./dev test-unit` caught the readers that changed class** — 6 failures + 2 errors, every one
+  a `NameError` from an `__annotate__` frame, in three tests that introspect constructor
+  signatures with the 3.14 default: `Services` type hints
+  (`test_route_service_attribute_contract`), `SearchRouter.__init__`
+  (`test_search_router_registry`), the activity sub-service constructors
+  (`test_activity_domain_config`). Each now asks for what it needs —
+  `annotation_format=Format.FORWARDREF` where only names, kinds and defaults are read;
+  `get_type_hints(..., format=Format.FORWARDREF)` with the test's own namespace where the types
+  are, asserting nothing stays a `ForwardRef`. Re-run: green.
+- **One production reader hardened:** `with_error_handling`'s uid extraction
+  (`core/utils/decorators.py`) called bare `inspect.signature(func)` for parameter *names*, with
+  an `except` that did not cover `NameError`. No decorated method names a `TYPE_CHECKING`-only
+  type today, but the live rule now *mandates* the unquoted form, so the first one would have
+  raised at the moment an error was being reported. It reads in FORWARDREF format now. Found
+  beside it: the positional path indexed `args` with a position that counted `self`, so a
+  positional call never carried the uid into the error details — fixed, and both pinned by
+  `tests/unit/test_error_handling_decorator_context.py` (which deliberately has no
+  `from __future__ import annotations`: PEP 563 would let the VALUE-format mutant survive — it
+  did, until the import came out).
+- `./dev quality` end to end — ruff (UP037 live), SKUEL lint, Cypher, the audits, MyPy **0
+  errors** (2222 files), Pyright **0 errors**.
+
+Docs that taught the quoted shape were rewritten with it: `TROUBLESHOOTING.md § Forward
+References` (the pre-3.14 `"FT" | None` TypeError and its `Optional["FT"]` remedy are gone; the
+`NameError`-from-`__annotate__` remedy replaces them) and CLAUDE.md's Troubleshooting line.
 
 ## The residual ruling — TC002/TC003, never as a sweep
 
