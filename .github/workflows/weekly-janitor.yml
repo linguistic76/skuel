@@ -59,6 +59,7 @@ jobs:
   janitor:
     name: Health checks + bloat report
     runs-on: ubuntu-latest
+    timeout-minutes: 10  # ~1.5–2.5 min of health checks + the bloat report; 3× the slowest, at the floor
     # Pin every uv command to the committed lock — `uv run` re-locks just like
     # `uv sync` (see ci.yml's mypy job for the full note). Safe here: nothing
     # in this job passes an explicit --locked, the one thing UV_FROZEN

@@ -48,6 +48,7 @@ jobs:
     # issue_comment fires on issues too; only act on PR comments.
     if: ${{ github.event_name != 'issue_comment' || github.event.issue.pull_request }}
     runs-on: ubuntu-latest
+    timeout-minutes: 5  # github-script only, ~10 s; the no-install floor
     steps:
       - name: Evaluate Codex Review Gate
         uses: actions/github-script@v9

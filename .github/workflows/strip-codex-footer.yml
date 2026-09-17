@@ -38,8 +38,12 @@ on:
   issue_comment:
     types: [created]
 
+# The comment lives on a pull request: the PATCH is authorised by the
+# pull-requests scope, and issues: write alone is refused with "Resource not
+# accessible by integration".
 permissions:
   issues: write
+  pull-requests: write
 
 jobs:
   strip:
@@ -50,6 +54,7 @@ jobs:
       github.event.issue.pull_request &&
       github.event.comment.user.login == 'chatgpt-codex-connector[bot]'
     runs-on: ubuntu-latest
+    timeout-minutes: 5  # one comment GET + PATCH; the no-install floor
     steps:
       - name: Remove the About-Codex footer block
         uses: actions/github-script@v9
