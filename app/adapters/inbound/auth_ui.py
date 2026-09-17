@@ -106,7 +106,7 @@ def create_auth_ui_routes(
     rt: Any,
     graph_auth: GraphAuthOperations,
     user_service: Any = None,
-) -> list[Any]:
+) -> None:
     """
     Create authentication UI routes.
 
@@ -130,7 +130,6 @@ def create_auth_ui_routes(
     Returns:
         List of created routes
     """
-    routes: list[Any] = []
 
     # ========================================================================
     # REGISTRATION
@@ -509,22 +508,8 @@ def create_auth_ui_routes(
         return RedirectResponse("/login", status_code=303)
 
     # Collect all routes
-    routes.extend(
-        [
-            register_page,
-            register_submit,
-            login_page,
-            login_submit,
-            forgot_password_page,
-            forgot_password_submit,
-            reset_password_page,
-            reset_password_submit,
-            logout,
-        ]
-    )
 
-    logger.info(f"Auth UI routes registered: {len(routes)} endpoints")
-    return routes
+    logger.info("Auth UI routes registered")
 
 
 __all__ = ["create_auth_ui_routes"]

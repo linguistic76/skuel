@@ -39,7 +39,7 @@ def create_auth_api_routes(
     rt: Any,
     graph_auth: Any,
     user_service: Any = None,
-) -> list[Any]:
+) -> None:
     """
     Create authentication API routes (debug endpoints).
 
@@ -52,7 +52,6 @@ def create_auth_api_routes(
     Returns:
         List of created routes
     """
-    routes: list[Any] = []
 
     get_user_service = make_service_getter(user_service)
 
@@ -132,15 +131,8 @@ def create_auth_api_routes(
         )
 
     # Collect all routes
-    routes.extend(
-        [
-            debug_session,
-            whoami,
-        ]
-    )
 
-    logger.info(f"Auth API routes registered: {len(routes)} endpoints")
-    return routes
+    logger.info("Auth API routes registered")
 
 
 __all__ = ["create_auth_api_routes"]

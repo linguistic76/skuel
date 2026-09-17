@@ -42,10 +42,9 @@ def create_visualization_api_routes(
     app: Any,
     rt: Any,
     visualization_service: VisualizationOperations,
-) -> list[Any]:
+) -> None:
     """Create visualization API routes."""
     vis_service = visualization_service
-    routes: list[Any] = []
 
     # =========================================================================
     # Chart.js Endpoints
@@ -100,19 +99,8 @@ def create_visualization_api_routes(
         return await vis_service.get_goal_gantt_data(user_uid=user_uid, goal_uid=goal_uid)
 
     # Collect all routes
-    routes.extend(
-        [
-            get_completion_chart,
-            get_priority_distribution,
-            get_streak_chart,
-            get_status_distribution,
-            get_tasks_gantt,
-            get_goal_gantt,
-        ]
-    )
 
-    logger.info(f"Visualization API routes registered: {len(routes)} endpoints")
-    return routes
+    logger.info("Visualization API routes registered")
 
 
 __all__ = ["create_visualization_api_routes"]

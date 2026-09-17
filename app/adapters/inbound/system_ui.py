@@ -28,7 +28,7 @@ def create_system_ui_routes(
     rt: Any,
     system_service: Any,
     services: Any = None,
-) -> list[Any]:
+) -> None:
     """
     Create system UI routes for the application.
 
@@ -41,7 +41,6 @@ def create_system_ui_routes(
     Returns:
         List of registered routes
     """
-    routes: list[Any] = []
 
     @rt("/")
     def home(request: Request) -> Any:
@@ -63,10 +62,7 @@ def create_system_ui_routes(
         """404 Not Found page."""
         return render_404_page()
 
-    routes.extend([home, not_found])
-
-    logger.info(f"System UI routes registered: {len(routes)} endpoints")
-    return routes
+    logger.info("System UI routes registered")
 
 
 __all__ = ["create_system_ui_routes"]

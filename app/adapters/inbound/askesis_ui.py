@@ -37,10 +37,8 @@ def create_askesis_ui_routes(
     user_service: UserService | None = None,
     ku_service: Any = None,
     search_router: SearchRouter | None = None,
-) -> list[Any]:
+) -> None:
     """Create UI routes for Askesis AI assistant."""
-
-    routes = []
 
     async def _load_nous_topics() -> list[str]:
         """Fetch the NOUS topic vocabulary for the composer scope control.
@@ -135,15 +133,11 @@ def create_askesis_ui_routes(
             model_options=model_options,
         )
 
-    routes.append(askesis_home)
-
     @rt("/askesis/new-chat")
     def askesis_new_chat(
         request: Request,
     ) -> Any:
         return RedirectResponse("/askesis", status_code=302)
-
-    routes.append(askesis_new_chat)
 
     @rt("/askesis/history")
     def askesis_history(
@@ -151,23 +145,17 @@ def create_askesis_ui_routes(
     ) -> Any:
         return RedirectResponse("/askesis", status_code=302)
 
-    routes.append(askesis_history)
-
     @rt("/askesis/analytics")
     def askesis_analytics(
         request: Request,
     ) -> Any:
         return RedirectResponse("/askesis", status_code=302)
 
-    routes.append(askesis_analytics)
-
     @rt("/askesis/settings")
     def askesis_settings(
         request: Request,
     ) -> Any:
         return RedirectResponse("/askesis", status_code=302)
-
-    routes.append(askesis_settings)
 
     @rt("/askesis/api/submit")
     @csrf_protected
@@ -259,10 +247,7 @@ def create_askesis_ui_routes(
             ai_response, canon_sources=canon_sources
         )
 
-    routes.append(submit_message)
-
-    logger.info(f"Askesis UI routes registered: {len(routes)} endpoints")
-    return routes
+    logger.info("Askesis UI routes registered")
 
 
 __all__ = ["create_askesis_ui_routes"]

@@ -50,7 +50,7 @@ def create_choices_ui_routes(
     rt: RouteDecorator,
     choices_service: ChoicesService,
     connection_fetch_backend: ConnectionFetchOperations,
-) -> list[Any]:
+) -> None:
     """Register Choices UI routes (list/detail + create/edit forms)."""
     config = ActivityUIConfig(
         domain_name="choices",
@@ -68,7 +68,7 @@ def create_choices_ui_routes(
         detail_component=ChoiceDetailView,
         create_href="/choices/create",
     )
-    base_routes = create_activity_ui_routes(app, rt, config)
+    create_activity_ui_routes(app, rt, config)
 
     @rt("/choices/create", methods=["GET"])
     def choice_create_page(request: Request) -> Any:
@@ -183,11 +183,3 @@ def create_choices_ui_routes(
             return render_activity_sidebar_page(content, active="choices", request=request)
 
         return RedirectResponse(f"/choices/detail?uid={uid}", status_code=303)
-
-    return [
-        *base_routes,
-        choice_create_page,
-        choice_create_submit,
-        choice_edit_page,
-        choice_edit_submit,
-    ]

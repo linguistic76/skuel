@@ -51,7 +51,7 @@ def create_principles_ui_routes(
     rt: RouteDecorator,
     principles_service: PrinciplesService,
     connection_fetch_backend: ConnectionFetchOperations,
-) -> list[Any]:
+) -> None:
     """Register Principles UI routes (list/detail + create/edit forms)."""
     config = ActivityUIConfig(
         domain_name="principles",
@@ -78,7 +78,7 @@ def create_principles_ui_routes(
         dual_track_label="Alignment",
         list_categories=principles_service.search.list_user_categories,
     )
-    base_routes = create_activity_ui_routes(app, rt, config)
+    create_activity_ui_routes(app, rt, config)
 
     @rt("/principles/create", methods=["GET"])
     def principle_create_page(request: Request) -> Any:
@@ -195,11 +195,3 @@ def create_principles_ui_routes(
             return render_activity_sidebar_page(content, active="principles", request=request)
 
         return RedirectResponse(f"/principles/detail?uid={uid}", status_code=303)
-
-    return [
-        *base_routes,
-        principle_create_page,
-        principle_create_submit,
-        principle_edit_page,
-        principle_edit_submit,
-    ]

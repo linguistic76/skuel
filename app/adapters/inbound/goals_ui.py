@@ -52,7 +52,7 @@ def create_goals_ui_routes(
     rt: RouteDecorator,
     goals_service: GoalsService,
     connection_fetch_backend: ConnectionFetchOperations,
-) -> list[Any]:
+) -> None:
     """Register Goals UI routes (list/detail + create/edit forms)."""
     config = ActivityUIConfig(
         domain_name="goals",
@@ -74,7 +74,7 @@ def create_goals_ui_routes(
         dual_track_label="Progress",
         list_categories=goals_service.search.list_user_categories,
     )
-    base_routes = create_activity_ui_routes(app, rt, config)
+    create_activity_ui_routes(app, rt, config)
 
     # ------------------------------------------------------------------
     # Create form: GET /goals/create  +  POST /goals/create
@@ -201,11 +201,3 @@ def create_goals_ui_routes(
             return render_activity_sidebar_page(content, active="goals", request=request)
 
         return RedirectResponse(f"/goals/detail?uid={uid}", status_code=303)
-
-    return [
-        *base_routes,
-        goal_create_page,
-        goal_create_submit,
-        goal_edit_page,
-        goal_edit_submit,
-    ]

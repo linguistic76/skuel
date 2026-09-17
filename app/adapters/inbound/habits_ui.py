@@ -63,7 +63,7 @@ def create_habits_ui_routes(
     habits_service: HabitsService,
     connection_fetch_backend: ConnectionFetchOperations,
     choices_ownership: OwnershipVerifier | None = None,
-) -> list[Any]:
+) -> None:
     """Register Habits UI routes (list/detail + create/edit forms).
 
     ``choices_ownership`` is an owner-scoped verifier for the Habit ↔ Choice
@@ -92,7 +92,7 @@ def create_habits_ui_routes(
         dual_track_label="Consistency",
         list_categories=habits_service.search.list_user_categories,
     )
-    base_routes = create_activity_ui_routes(app, rt, config)
+    create_activity_ui_routes(app, rt, config)
 
     @rt("/habits/insights-fragment")
     async def habit_insights_fragment(request: Request) -> Any:
@@ -281,13 +281,3 @@ def create_habits_ui_routes(
             return render_activity_sidebar_page(content, active="habits", request=request)
 
         return RedirectResponse(f"/habits/detail?uid={uid}", status_code=303)
-
-    return [
-        *base_routes,
-        habit_insights_fragment,
-        habit_choices_fragment,
-        habit_create_page,
-        habit_create_submit,
-        habit_edit_page,
-        habit_edit_submit,
-    ]

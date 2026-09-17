@@ -127,7 +127,7 @@ def create_activity_ui_routes(
     app: FastHTMLApp,
     rt: RouteDecorator,
     config: ActivityUIConfig,
-) -> list[Any]:
+) -> None:
     """Generate the standard 5-route UI pattern for an Activity Domain.
 
     The generated routes follow the shell-first pattern: page routes return
@@ -327,8 +327,6 @@ def create_activity_ui_routes(
 
         return body
 
-    routes = [page, content_fragment, list_fragment, detail_page, detail_content_fragment]
-
     # ------------------------------------------------------------------
     # 6. Dual-track results fragment: /{domain}/dual-track/results (ADR-030)
     #    Registered only for domains with a per-entity dual-track dimension
@@ -380,7 +378,3 @@ def create_activity_ui_routes(
                 getattr(refreshed.value, "dual_track_checkins", ()) if refreshed.is_ok else ()
             )
             return render_dual_track_result(config.dual_track_label, assess_result.value, checkins)
-
-        routes.append(dual_track_results)
-
-    return routes

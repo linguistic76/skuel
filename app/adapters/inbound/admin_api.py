@@ -49,7 +49,7 @@ def create_admin_api_routes(
     rt: Any,
     user_service: Any,
     graph_auth: GraphAuthOperations | None = None,
-) -> list[Any]:
+) -> None:
     """
     Create admin API routes for user management.
 
@@ -64,7 +64,6 @@ def create_admin_api_routes(
     Returns:
         List of created routes
     """
-    routes: list[Any] = []
 
     get_user_service = make_service_getter(user_service)
 
@@ -476,20 +475,8 @@ def create_admin_api_routes(
         )
 
     # Collect all routes
-    routes.extend(
-        [
-            list_users,
-            get_user_details,
-            change_user_role,
-            deactivate_user,
-            activate_user,
-            hard_delete_user,
-            generate_reset_token,
-        ]
-    )
 
-    logger.info(f"Admin API routes registered: {len(routes)} endpoints")
-    return routes
+    logger.info("Admin API routes registered")
 
 
 __all__ = ["create_admin_api_routes"]

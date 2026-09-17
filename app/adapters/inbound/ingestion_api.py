@@ -173,11 +173,10 @@ def create_ingestion_api_routes(
     Returns:
         List of created routes
     """
-    routes: list[Any] = []
 
     if not unified_ingestion:
         logger.error("UnifiedIngestionService not provided to ingestion API routes")
-        return routes
+        return
 
     get_user_service = make_service_getter(user_service)
 
@@ -463,7 +462,6 @@ def create_ingestion_api_routes(
 
     # Chunk regeneration — admin tool, only registered when service is wired.
     # In CORE tier the service exists but publishes no embedding events.
-    chunk_routes: list[Any] = []
     if batch_chunking_service is not None:
 
         @rt("/api/chunks/regenerate", methods=["POST"])
@@ -507,21 +505,9 @@ def create_ingestion_api_routes(
                 return Result.fail(result)
             return Result.ok(result.value.to_dict())
 
-        chunk_routes.append(regenerate_chunks_route)
-
     # Collect all routes
-    routes.extend(
-        [
-            ingest_file_route,
-            ingest_vault_route,
-            ingest_bundle_route,
-            domain_ingest,
-            *chunk_routes,
-        ]
-    )
 
-    logger.info(f"Ingestion API routes registered: {len(routes)} endpoints")
-    return routes
+    logger.info("Ingestion API routes registered")
 
 
 __all__ = ["create_ingestion_api_routes"]

@@ -30,7 +30,7 @@ if TYPE_CHECKING:
 
 def create_hierarchy_api_routes(
     app: FastHTMLApp, rt: RouteDecorator, _primary: Any, **kwargs: Any
-) -> list[Any]:
+) -> None:
     """
     Register hierarchy routes for all hierarchical domains.
 
@@ -43,7 +43,6 @@ def create_hierarchy_api_routes(
     Returns:
         List of registered route functions
     """
-    routes: list[Any] = []
 
     # Activity domains (5) — each carries its *UpdateRequest so inline title edits build
     # the typed *UpdateIntent (ADR-066), not a plain dict the facade can no longer accept.
@@ -68,7 +67,7 @@ def create_hierarchy_api_routes(
             entity_name=entity_name,
             update_schema=update_schema,
         )
-        routes.extend(factory.create_routes())
+        factory.create_routes()
 
     # LP (special case - uses "steps" instead of "subpaths"; SHARED content, so its
     # children fragment stays on this factory rather than the activity hierarchy factory)
@@ -86,9 +85,7 @@ def create_hierarchy_api_routes(
             get_parent_method="get_parent_path",
             register_children_route=True,
         )
-        routes.extend(lp_factory.create_routes())
-
-    return routes
+        lp_factory.create_routes()
 
 
 HIERARCHY_CONFIG = DomainRouteConfig(
