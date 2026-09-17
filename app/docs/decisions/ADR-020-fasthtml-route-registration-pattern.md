@@ -1,5 +1,5 @@
 ---
-updated: 2026-09-15
+updated: 2026-09-17
 related_skills: [domain-route-config, fasthtml]
 ---
 
@@ -87,17 +87,21 @@ def create_domain_routes(_app, rt, service, user_service):
 
     @rt("/domain")
     @require_admin(get_user_service)
-    async def domain_dashboard(request, current_user):
+    async def domain_dashboard(request: Request, current_user: Any = None):
         ...
 
     @rt("/domain/section")
     @require_admin(get_user_service)
-    async def domain_section(request, current_user):
+    async def domain_section(request: Request, current_user: Any = None):
         ...
 
     logger.info("Domain routes registered")
     # No return statement needed
 ```
+
+> Spelling converged 2026-09: the injected parameter is `current_user: Any = None` — the one
+> form `require_role` accepts; it keeps the name out of FastHTML's request binding
+> ([AUTH_PATTERNS.md § Pattern 3](../patterns/AUTH_PATTERNS.md)).
 
 ## Anti-Pattern (Do Not Use)
 

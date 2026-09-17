@@ -278,11 +278,17 @@ async def test_cross_domain_flow(services, clean_neo4j):
 # pyproject.toml
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
-asyncio_default_fixture_loop_scope = "function"
-
-[tool.pytest]
+asyncio_default_fixture_loop_scope = "session"
+asyncio_default_test_loop_scope = "session"
+timeout = 120
+timeout_func_only = true
 filterwarnings = [
-    "ignore::DeprecationWarning:pytest_asyncio",
+    # module-scoped ignores for third-party deprecation noise (neo4j, fastcore, unittest.mock) ...
+    # ... and one escalation: a handler parameter FastHTML cannot bind (a `_request`) is an
+    # error, so it fails the first test that registers its route. The decorator-injected
+    # `current_user: Any = None` never reaches FastHTML's binder — `require_role` publishes the
+    # handler's signature without it and refuses any other spelling at decoration.
+    "error:.*has no type annotation and is not a recognised special name:UserWarning:fasthtml",
 ]
 ```
 

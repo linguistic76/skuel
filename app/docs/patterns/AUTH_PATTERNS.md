@@ -1,6 +1,6 @@
 ---
 title: Authentication Patterns in SKUEL
-updated: '2026-09-15'
+updated: '2026-09-17'
 category: patterns
 related_skills: [security]
 related_docs: []
@@ -151,14 +151,8 @@ get_user_service = make_service_getter(services.user)
 
 @rt("/api/admin/users")
 @require_admin(get_user_service)
-async def list_all_users(request, current_user):
+async def list_all_users(request: Request, current_user: Any = None):
     # current_user is the FULL User entity (not just uid)
-    #
-    # ⚠️ If you ANNOTATE the param, it MUST default to None:
-    # `current_user: Any = None`. FastHTML resolves the wrapped signature
-    # and 400s ("Missing required field: current_user") on an annotated
-    # param with no default BEFORE the decorator can inject it.
-    # Unannotated params resolve to None, so the bare form also works.
     admin_uid = current_user.uid
     admin_role = current_user.role
 
@@ -169,10 +163,28 @@ async def list_all_users(request, current_user):
 
 @rt("/api/ku", methods=["POST"])
 @require_teacher(get_user_service)
-async def create_knowledge_unit(request, current_user):
+async def create_knowledge_unit(request: Request, current_user: Any = None):
     # Teachers and Admins can create curriculum content
     return await ku_service.create(created_by=current_user.uid)
 ```
+
+**The one spelling is `current_user: Any = None`, next to a parameter named `request`.**
+FastHTML fills a handler's parameters from the request by reading the registered callable's
+signature. The role decorator publishes the handler's signature *minus* `current_user` on its
+wrapper (`signature_for_binding` in `adapters/inbound/auth/roles.py`), so FastHTML never binds
+that name: a value a caller sends under it — query string, header, form field — is neither read
+nor coerced, and the decorator's assignment is its only writer. `Any` rather than `User` on
+purpose — it is a documented boundary (`# boundary: injected-user`, [ANY_USAGE_POLICY.md](ANY_USAGE_POLICY.md)):
+FastHTML binds a dataclass-annotated parameter from the request body, so `current_user: User` on
+a handler that *lacks* the decorator would receive a `User` built from the caller's own form
+fields (a caller-chosen `uid`), while `Any = None` on the same mistake leaves `None` and the
+first attribute read fails. The default because a request never carries the value. Any other
+spelling (bare, no default, another annotation) or a missing parameter fails at decoration time
+with a `TypeError` naming the spelling — at registration, so the first test that registers the
+route fails. The handler's **first** parameter is `request`, even when its body never reads it:
+the wrapper receives the request from FastHTML under that name and passes it on as the handler's
+first positional argument, so another name (`_request`) or position would leave the wrapper's own
+`request` unfilled on every call — the same check refuses that at decoration.
 
 **Behavior:**
 - Validates authentication (401 if not logged in)
@@ -188,12 +200,12 @@ Role checking requires fetching the user from the database anyway, so the decora
 ```python
 # ✅ CORRECT — use current_user.uid from decorator
 @require_teacher(get_user_service)
-async def create_item(request, current_user):
+async def create_item(request: Request, current_user: Any = None):
     teacher_uid = current_user.uid
 
 # ❌ WRONG — redundant auth call
 @require_teacher(get_user_service)
-async def create_item(request, current_user):
+async def create_item(request: Request, current_user: Any = None):
     teacher_uid = require_authenticated_user(request)  # Already done by decorator
 ```
 

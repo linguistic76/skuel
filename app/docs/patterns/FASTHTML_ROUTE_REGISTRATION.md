@@ -1,6 +1,6 @@
 ---
 title: FastHTML Route Registration Pattern
-updated: 2026-09-15
+updated: 2026-09-17
 category: patterns
 related_skills:
 - domain-route-config
@@ -75,17 +75,17 @@ def create_domain_routes(_app, rt, service, user_service):
 
     @rt("/domain")
     @require_admin(get_user_service)
-    async def domain_dashboard(request, current_user):
+    async def domain_dashboard(request: Request, current_user: Any = None):
         ...
 
     @rt("/domain/section")
     @require_admin(get_user_service)
-    async def domain_section(request, current_user):
+    async def domain_section(request: Request, current_user: Any = None):
         ...
 
     @rt("/domain/another")
     @require_admin(get_user_service)
-    async def domain_another(request, current_user):
+    async def domain_another(request: Request, current_user: Any = None):
         ...
 
     logger.info("Domain routes registered")

@@ -1,5 +1,5 @@
 ---
-updated: 2026-09-13
+updated: 2026-09-17
 ---
 
 # Any Usage Policy
@@ -171,6 +171,7 @@ FastHTML/fastcore present four distinct surfaces, and `Any` is justified at only
 | Route handler return | `Result[FT]` for HTML fragments; `Result[Goal]` etc. for models | *none — the concrete type IS the contract* |
 | FT element internals (`*c`, `**kwargs`) | none — HTML is structurally heterogeneous | `# boundary: fasthtml-elements` |
 | ASGI plumbing (`scope/receive/send`) | none — Starlette doesn't export usable types | `# boundary: fasthtml-app` |
+| The role-decorator-injected `current_user: Any = None` | none that fails closed — see below | `# boundary: injected-user` (tagged once, at the contract in `roles.py`) |
 
 #### `# boundary: fasthtml-elements`
 
@@ -180,6 +181,18 @@ FastHTML HTML element factories (`Div`, `Span`, `CardBody`, etc.) accept variadi
 def CardBody(*c: Any, cls: str = "", **kwargs: Any) -> Any:
     # boundary: fasthtml-elements — html children and attrs are structurally dynamic
 ```
+
+#### `# boundary: injected-user`
+
+A role-gated handler declares the user the decorator injects as `current_user: Any = None`.
+The value is always a `User`, but `User` is not a safe annotation at that boundary: FastHTML
+binds a dataclass-annotated parameter from the request body, so `current_user: User` on a
+handler that *lacks* the decorator would receive a `User` built from the caller's own form
+fields — a caller-chosen `uid` — while `Any = None` on the same mistake leaves `None` and the
+first attribute read fails. `require_role` keeps the name out of FastHTML's binding on decorated
+handlers and refuses any other spelling at decoration, so the tag lives once, at that check in
+`adapters/inbound/auth/roles.py`, not on each of the handler sites (ANN401 is bought out for
+`adapters/**`). See [AUTH_PATTERNS.md § Pattern 3](AUTH_PATTERNS.md).
 
 #### `# boundary: fasthtml-app`
 

@@ -1,6 +1,6 @@
 ---
 related_skills: [security]
-updated: 2026-08-17
+updated: 2026-09-17
 ---
 # Route Authentication Requirements
 
@@ -91,7 +91,7 @@ get_user_service = make_service_getter(services.user)
 
 @rt("/api/admin/endpoint")
 @require_admin(get_user_service)
-async def admin_route(request, current_user):
+async def admin_route(request: Request, current_user: Any = None):
     # current_user is guaranteed to be admin
 ```
 

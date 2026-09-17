@@ -133,6 +133,14 @@ class TestInvoiceReads:
 
         assert response.status_code == 404
 
+    def test_get_happy_binds_uid_from_query(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        harness = _make_harness(monkeypatch)
+
+        response = harness.client.get(f"/api/invoices/get?uid={_INVOICE_UID}")
+
+        assert response.status_code == 200
+        harness.finance.get_invoice.assert_awaited_once_with(_INVOICE_UID)
+
     def test_stats_happy(self, monkeypatch: pytest.MonkeyPatch) -> None:
         harness = _make_harness(monkeypatch)
 

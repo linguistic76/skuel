@@ -1,6 +1,6 @@
 ---
 title: User Architecture — User Model, Auth, Roles, and UserContext
-updated: 2026-09-15
+updated: 2026-09-17
 status: current
 category: architecture
 tags:
@@ -152,7 +152,7 @@ Four-tier system stored in `User.role` (Neo4j field):
 get_user_service = make_service_getter(services.user)
 
 @require_admin(get_user_service)
-async def admin_only_route(request, current_user):
+async def admin_only_route(request: Request, current_user: Any = None):
     ...
 ```
 

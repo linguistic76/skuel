@@ -1,6 +1,6 @@
 ---
 title: Admin Dashboard Architecture
-updated: 2026-07-10
+updated: 2026-09-17
 status: current
 category: architecture
 tags:
@@ -295,7 +295,7 @@ get_user_service = make_service_getter(services.user)
 @rt("/admin/users")
 @require_admin(get_user_service)
 @boundary_handler()
-async def admin_users_list(request, current_user: Any = None):
+async def admin_users_list(request: Request, current_user: Any = None):
     # current_user is injected by decorator
     # Guaranteed to be ADMIN role
     ...
@@ -496,7 +496,7 @@ All API routes return Result[T], converted to HTTP at boundaries:
 @rt("/admin/users")
 @require_admin(get_user_service)
 @boundary_handler()  # Converts Result[T] → HTTP response
-async def admin_users_list(request, current_user):
+async def admin_users_list(request: Request, current_user: Any = None):
     # Return Result.ok(...) or Result.fail(...)
 ```
 
@@ -533,7 +533,7 @@ class AdminLogsComponents:
 @rt("/admin/logs")
 @require_admin(get_user_service)
 @boundary_handler()
-async def admin_logs(request, current_user: Any = None):
+async def admin_logs(request: Request, current_user: Any = None):
     content = Div(...)
     return create_admin_page(
         content=content,

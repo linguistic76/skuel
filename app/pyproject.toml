@@ -561,7 +561,7 @@ asyncio_default_test_loop_scope = "session"
 timeout = 120
 timeout_func_only = true
 
-# Warning filters - suppress third-party deprecation warnings
+# Warning filters — silence third-party deprecation noise; escalate a first-party defect
 filterwarnings = [
     # Third-party callers of asyncio.iscoroutinefunction (removed in Python 3.16):
     # the pinned neo4j==5.26.0 driver (six call sites — the pin's Python-3.16
@@ -572,6 +572,15 @@ filterwarnings = [
     "ignore:'asyncio.iscoroutinefunction' is deprecated:DeprecationWarning:fastcore",
     # Suppress AsyncMock internal cleanup warnings (false positives from unittest.mock)
     "ignore::RuntimeWarning:unittest.mock",
+    # A handler parameter FastHTML cannot bind is a defect, not noise: an
+    # unannotated name that is neither special nor a `request`/`session` prefix
+    # (`_request`, say) is silently passed as None. FastHTML warns at
+    # registration and again on every request; as an error it fails the first
+    # test that registers the route — and the integration `skuel_app` boot
+    # registers every route in the app. (The decorator-injected `current_user`
+    # never reaches FastHTML's binder: `require_role` publishes the handler's
+    # signature without it and pins its spelling — adapters/inbound/auth/roles.py.)
+    "error:.*has no type annotation and is not a recognised special name:UserWarning:fasthtml",
 ]
 
 # ============================================================================

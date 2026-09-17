@@ -8,6 +8,8 @@ Security:
 - Dashboard requires admin role
 """
 
+from typing import Any
+
 from adapters.inbound.auth import make_service_getter, require_admin
 from adapters.inbound.fasthtml_types import Request
 from core.config.settings import get_settings
@@ -42,7 +44,7 @@ def create_ingestion_ui_routes(
 
     @rt("/ingest")
     @require_admin(get_user_service)
-    def ingest_dashboard(request: Request, current_user):
+    def ingest_dashboard(request: Request, current_user: Any = None):
         """Unified ingestion dashboard UI. Requires ADMIN role."""
         return BasePage(
             build_ingestion_dashboard(vault_path=str(get_settings().vault.ingestion_path)),

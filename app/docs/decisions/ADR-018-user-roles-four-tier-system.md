@@ -1,6 +1,6 @@
 ---
 title: "ADR-018: Four-Tier User Role System"
-updated: 2026-09-04
+updated: 2026-09-17
 status: current
 category: decisions
 tags: [adr, decisions, user, roles, authorization, authentication]
@@ -191,10 +191,14 @@ get_user_service = make_service_getter(services.user_service)
 @rt("/api/admin/users")
 @require_admin(get_user_service)
 @boundary_handler()
-async def list_users(request, current_user):
+async def list_users(request: Request, current_user: Any = None):
     # Only admins reach here
     ...
 ```
+
+> Spelling converged 2026-09: the injected parameter is `current_user: Any = None` — the one
+> form `require_role` accepts; it keeps the name out of FastHTML's request binding
+> ([AUTH_PATTERNS.md § Pattern 3](../patterns/AUTH_PATTERNS.md)).
 
 ```python
 # Permission check in services

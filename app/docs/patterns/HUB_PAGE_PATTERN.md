@@ -1,6 +1,6 @@
 ---
 title: "Pattern: Hub Page (MOC) Implementation"
-updated: 2026-09-15
+updated: 2026-09-17
 status: current
 category: patterns
 tags: [ui, navigation, moc, hub, cards]
@@ -209,7 +209,7 @@ HTMX matches each response fragment to its page target by `id` and swaps them in
 ```python
 @rt("/api/teaching/students/{uid}/submissions/preview")
 @require_role(UserRole.TEACHER, get_user_service)
-async def student_submissions_preview(request, uid, current_user=None):
+async def student_submissions_preview(request: Request, uid: str, current_user: Any = None):
     """OOB fragment: all 3 submission bucket previews in one DB round-trip."""
     user_uid = require_authenticated_user(request)
     # Orchestrator returns bucketed raw dicts; route converts to SubmissionRow view models

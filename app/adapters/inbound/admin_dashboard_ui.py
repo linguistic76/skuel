@@ -101,7 +101,7 @@ def create_admin_dashboard_routes(
 
     @rt("/admin")
     @require_admin(get_user_service)
-    async def admin_overview(request, current_user):
+    async def admin_overview(request: Request, current_user: Any = None):
         """Admin dashboard overview with key stats."""
         system_status = await orchestrator.get_system_status()
 
@@ -120,7 +120,7 @@ def create_admin_dashboard_routes(
 
     @rt("/admin/batch-transcribe")
     @require_admin(get_user_service)
-    def admin_batch_transcribe(request, current_user):
+    def admin_batch_transcribe(request: Request, current_user: Any = None):
         """Batch audio→text transcription console.
 
         Renders the Alpine-driven panel that drives
@@ -141,8 +141,8 @@ def create_admin_dashboard_routes(
     @rt("/admin/users")
     @require_admin(get_user_service)
     async def admin_users_list(
-        request,
-        current_user,
+        request: Request,
+        current_user: Any = None,
         role: str | None = None,
         status: str | None = None,
     ):
@@ -194,8 +194,8 @@ def create_admin_dashboard_routes(
     @rt("/admin/users/partial")
     @require_admin(get_user_service)
     async def admin_users_partial(
-        request,
-        current_user,
+        request: Request,
+        current_user: Any = None,
         role: str | None = None,
         status: str | None = None,
     ):
@@ -213,7 +213,7 @@ def create_admin_dashboard_routes(
 
     @rt("/admin/users/{uid}")
     @require_admin(get_user_service)
-    async def admin_user_detail(request, uid: str, current_user):
+    async def admin_user_detail(request: Request, uid: str, current_user: Any = None):
         """User detail view with role form and account actions."""
         user_uid = UserUID(uid)
         result = await orchestrator.get_user(user_uid)
@@ -260,7 +260,7 @@ def create_admin_dashboard_routes(
 
     @rt("/admin/users/{uid}/role-form")
     @require_admin(get_user_service)
-    async def admin_user_role_form(request, uid: str, current_user):
+    async def admin_user_role_form(request: Request, uid: str, current_user: Any = None):
         """HTMX partial for role change form."""
         result = await orchestrator.get_user(UserUID(uid))
 
@@ -286,7 +286,7 @@ def create_admin_dashboard_routes(
 
     @rt("/admin/analytics")
     @require_admin(get_user_service)
-    async def admin_analytics(request, current_user):
+    async def admin_analytics(request: Request, current_user: Any = None):
         """Analytics dashboard with user and activity stats."""
         system_status = await orchestrator.get_system_status()
         analytics_data = await orchestrator.get_analytics_data()
@@ -306,7 +306,7 @@ def create_admin_dashboard_routes(
 
     @rt("/admin/knowledge-health")
     @require_admin(get_user_service)
-    async def admin_knowledge_health(request, current_user):
+    async def admin_knowledge_health(request: Request, current_user: Any = None):
         """Structural-health gauge over the knowledge subgraph (ADR-080)."""
         system_status = await orchestrator.get_system_status()
         health_result = await orchestrator.get_knowledge_health()
@@ -406,7 +406,7 @@ def create_admin_dashboard_routes(
 
     @rt("/admin/system")
     @require_admin(get_user_service)
-    async def admin_system(request, current_user):
+    async def admin_system(request: Request, current_user: Any = None):
         """System health dashboard."""
         health_data = await orchestrator.get_full_health_status()
 
