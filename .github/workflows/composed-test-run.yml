@@ -45,13 +45,14 @@ name: Composed Test Run
 # nowhere is indistinguishable from no check at all. A failing composed run
 # opens (or comments on) one marker-keyed issue carrying pytest's short
 # summary and the run link — and so does a run whose session never started
-# (a failed checkout, toolchain setup, cache restore or `uv sync`) or never
-# finished (killed at the session step's own budget): the issue step runs
-# whatever the steps before it did, keyed on the session step's outcome, and
-# the body says which of the three it is. The issue step is not gated on the
-# default branch, so a branch dispatch that fails opens it too — that is what
-# lets a PR verify the failure paths before it merges. The marker
-# de-duplicates: an open issue gets a comment, not a sibling.
+# (a failed checkout, toolchain setup, cache restore or `uv sync`), never
+# finished (killed at the session step's own budget), or passed while an
+# artifact upload failed: the issue step runs whatever the steps before it
+# did, keyed on the session step's outcome and the uploads', and the body
+# says which case it is. The issue step is not gated on the default branch,
+# so a branch dispatch that fails opens it too — that is what lets a PR
+# verify the failure paths before it merges. The marker de-duplicates: an
+# open issue gets a comment, not a sibling.
 
 on:
   schedule:
@@ -155,16 +156,28 @@ jobs:
           echo "exit_code=$rc" >> "$GITHUB_OUTPUT"
           echo "pytest exited $rc"
 
-          # The excerpt a reader needs first: pytest's short test summary (the
-          # `-r` section — FAILED / ERROR lines) through the final status line.
-          # Absent one — a collection error, an interrupted session — the tail
-          # of the output is the best available. ANSI stripped, then capped
-          # well under the 65536-character issue-body limit; two steps, not a
-          # pipeline (`sed | head -c` is a SIGPIPE trap under pipefail).
+      # The excerpt the issue carries — its own `always()` step, so a session
+      # killed at its budget gets one too. A finished session: pytest's short
+      # test summary (the `-r` section — FAILED / ERROR lines) through the
+      # final status line. A session without one (killed, interrupted, a
+      # collection error): the tail of its output by BYTES, not lines — one
+      # runaway line would otherwise carry the whole file into the issue body.
+      # ANSI stripped, then capped at 20000 characters, well under the
+      # 65536-character issue-body limit (the tail is taken wider than the cap
+      # so the truncation note fires when there was more); two steps each, not
+      # a pipeline (`sed | head -c` is a SIGPIPE trap under pipefail).
+      - name: Excerpt the session output
+        if: always()
+        working-directory: app
+        run: |
+          if [ ! -f pytest-output.txt ]; then
+            echo "The session produced no output — see the run log." > pytest-excerpt.txt
+            exit 0
+          fi
           if grep -q 'short test summary info' pytest-output.txt; then
             sed -n '/short test summary info/,$p' pytest-output.txt > excerpt-raw.txt
           else
-            tail -n 80 pytest-output.txt > excerpt-raw.txt
+            tail -c 30000 pytest-output.txt > excerpt-raw.txt
           fi
           sed 's/\x1b\[[0-9;]*m//g' excerpt-raw.txt > excerpt-stripped.txt
           head -c 20000 excerpt-stripped.txt > pytest-excerpt.txt
@@ -206,25 +219,56 @@ jobs:
           echo "exit_code=$rc" >> "$GITHUB_OUTPUT"
           echo "coverage summary exited $rc"
 
-      # Before the artifacts: steps carry an implicit success() check, so a
-      # transient artifact-service failure ahead of this one would skip it and
-      # a red week would land only in the Actions log — the artifact is a
-      # convenience, the issue is the promise. `always()` for the same reason
-      # one layer up: a setup step that fails (checkout, Python/uv, the venv
-      # cache, `uv sync`) or a session killed at its step budget would
-      # otherwise skip this step too. The session step's OUTCOME tells the
-      # cases apart — `skipped` (a setup step failed), `failure` (killed at
-      # its budget: the captured exit code is the only other way it ends, and
-      # that never fails the step), `success` (the session ran; the exit codes
+      # The artifacts go up BEFORE the issue is filed, so the issue step can
+      # report an upload that failed: an artifact-service error after a green
+      # session would otherwise turn the run red with nothing filed. Both
+      # `always()` — a red session still leaves its output worth keeping.
+      - name: Upload the coverage reports
+        id: upload_coverage
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: coverage-report
+          path: |
+            app/coverage.xml
+            app/coverage.json
+            app/htmlcov/
+          retention-days: 30
+
+      - name: Upload the pytest output
+        id: upload_output
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: pytest-output
+          path: |
+            app/pytest-output.txt
+            app/pytest-excerpt.txt
+            app/coverage-summary.md
+          retention-days: 30
+
+      # `always()`: steps carry an implicit success() check, so a setup step
+      # that fails (checkout, Python/uv, the venv cache, `uv sync`), a session
+      # killed at its step budget, or a failed upload ahead of this step would
+      # otherwise skip it — and a red week would land only in the Actions log.
+      # The issue is the promise. The session step's OUTCOME tells the cases
+      # apart — `skipped` (a setup step failed), `failure` (killed at its
+      # budget: the captured exit code is the only other way it ends, and that
+      # never fails the step), `success` (the session ran; the exit codes
       # decide) — and the body says which, claiming nothing about tests that
-      # never ran.
+      # never ran. A failed upload after a green session is its own case.
       - name: Open an issue when the run is red
-        if: always() && (steps.tests.outcome != 'success' || steps.tests.outputs.exit_code != '0' || steps.summary.outputs.exit_code != '0')
+        if: >-
+          always() && (steps.tests.outcome != 'success'
+          || steps.tests.outputs.exit_code != '0' || steps.summary.outputs.exit_code != '0'
+          || steps.upload_coverage.outcome == 'failure' || steps.upload_output.outcome == 'failure')
         uses: actions/github-script@v9
         env:
           TESTS_OUTCOME: ${{ steps.tests.outcome }}
           TESTS_EXIT_CODE: ${{ steps.tests.outputs.exit_code }}
           SUMMARY_EXIT_CODE: ${{ steps.summary.outputs.exit_code }}
+          UPLOAD_COVERAGE_OUTCOME: ${{ steps.upload_coverage.outcome }}
+          UPLOAD_OUTPUT_OUTCOME: ${{ steps.upload_output.outcome }}
         with:
           script: |
             const fs = require('fs');
@@ -235,11 +279,10 @@ jobs:
                 return fallback;
               }
             };
+            // Bounded by the excerpt step (20000 characters) — the issue body
+            // never carries the raw output.
             const excerpt = read('app/pytest-excerpt.txt', 'The session produced no output — see the run log.');
             const summaryErr = read('app/coverage-summary.err', '');
-            // The last lines of the raw output — the only excerpt a session
-            // killed at its budget leaves (its own excerpt step never ran).
-            const rawTail = read('app/pytest-output.txt', '').split('\n').slice(-40).join('\n');
 
             const title = 'The composed test run is red';
             const marker = '<!-- composed-test-run -->';
@@ -247,6 +290,11 @@ jobs:
             const outcome = process.env.TESTS_OUTCOME;
             const testsRc = process.env.TESTS_EXIT_CODE;
             const summaryRc = process.env.SUMMARY_EXIT_CODE;
+            const uploads = {
+              'coverage-report': process.env.UPLOAD_COVERAGE_OUTCOME,
+              'pytest-output': process.env.UPLOAD_OUTPUT_OUTCOME,
+            };
+            const failedUploads = Object.entries(uploads).filter(([, o]) => o === 'failure').map(([n]) => n);
 
             const parts = [
               marker,
@@ -273,8 +321,17 @@ jobs:
                 'returned. The output it produced ends with:',
                 '',
                 '```',
-                rawTail.trim() || '(no output)',
+                excerpt.trim() || '(no output)',
                 '```',
+              );
+            } else if (testsRc === '0' && summaryRc === '0') {
+              // A green session; only an upload failed. The run is red for
+              // that alone, and the artifacts are the thing missing.
+              parts.push(
+                '**The session passed** (`' + testsRc + '`) and the summary rendered, but an artifact',
+                'upload failed: `' + failedUploads.join('`, `') + '`. Usually the artifact service —',
+                're-run the workflow to get the artifacts; the step summary on the run still has the',
+                'coverage tables.',
               );
             } else {
               parts.push(
@@ -292,6 +349,9 @@ jobs:
               if (summaryRc !== '0') {
                 parts.push('', 'The coverage summary could not be rendered:', '', '```', summaryErr.trim(), '```');
               }
+            }
+            if (failedUploads.length && !(testsRc === '0' && summaryRc === '0')) {
+              parts.push('', 'Artifact upload(s) that failed on this run: `' + failedUploads.join('`, `') + '`.');
             }
             const issueBody = parts.join('\n');
 
@@ -331,33 +391,13 @@ jobs:
               });
             }
 
-      - name: Upload the coverage reports
-        if: always()
-        uses: actions/upload-artifact@v7
-        with:
-          name: coverage-report
-          path: |
-            app/coverage.xml
-            app/coverage.json
-            app/htmlcov/
-          retention-days: 30
-
-      - name: Upload the pytest output
-        if: always()
-        uses: actions/upload-artifact@v7
-        with:
-          name: pytest-output
-          path: |
-            app/pytest-output.txt
-            app/pytest-excerpt.txt
-            app/coverage-summary.md
-          retention-days: 30
-
       # Fail the job LAST, for any non-zero pytest exit and for a summary that
       # could not render — the run reads red after the issue and the artifacts
-      # are in place. env, not interpolation: a `${{ }}` expression is pasted
-      # in BEFORE bash parses, so any backtick or $( ) in a value would execute
-      # as code. Both values are numeric today; the rule is the mechanism.
+      # are in place. (A failed upload or a session killed at its budget has
+      # already failed its own step; the job is red without this one.) env, not
+      # interpolation: a `${{ }}` expression is pasted in BEFORE bash parses, so
+      # any backtick or $( ) in a value would execute as code. Both values are
+      # numeric today; the rule is the mechanism.
       - name: Fail the job on a red session
         if: steps.tests.outputs.exit_code != '0' || steps.summary.outputs.exit_code != '0'
         env:
