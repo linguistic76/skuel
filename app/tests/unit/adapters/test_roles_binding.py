@@ -160,6 +160,36 @@ class TestTheOneSpellingIsPinnedAtDecoration:
             async def handler(request: Request, current_user: object = None) -> None: ...
 
 
+class TestRequestIsTheFirstParameter:
+    """The wrapper passes the request on as the handler's first positional argument."""
+
+    def test_underscore_request_is_refused(self) -> None:
+        with pytest.raises(
+            TypeError, match=r"takes `request` as its first parameter; got `_request"
+        ):
+
+            @require_admin(_getter_for(UserRole.ADMIN))
+            async def handler(_request: Request, uid: str, current_user: Any = None) -> None: ...
+
+    def test_request_not_first_is_refused(self) -> None:
+        with pytest.raises(TypeError, match=r"got `uid: str` first"):
+
+            @require_admin(_getter_for(UserRole.ADMIN))
+            async def handler(uid: str, request: Request, current_user: Any = None) -> None: ...
+
+    def test_keyword_only_request_is_refused(self) -> None:
+        with pytest.raises(TypeError, match=r"takes `request` as its first parameter"):
+
+            @require_admin(_getter_for(UserRole.ADMIN))
+            async def handler(*, request: Request, current_user: Any = None) -> None: ...
+
+    def test_no_parameters_is_refused(self) -> None:
+        with pytest.raises(TypeError, match=r"got no parameters"):
+
+            @require_admin(_getter_for(UserRole.ADMIN))
+            async def handler() -> None: ...
+
+
 class TestWhyAnyAndNotUser:
     """The boundary's reason, held as a fact about FastHTML rather than prose.
 

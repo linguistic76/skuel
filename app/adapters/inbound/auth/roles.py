@@ -35,21 +35,22 @@ requires fetching the user from the database anyway.
         admin_role = current_user.role
     ```
 
-The one spelling is `current_user: Any = None`, beside a parameter named
-`request`. FastHTML fills a handler's parameters from the request by reading
-the registered callable's signature; the role decorator publishes the
-handler's signature minus `current_user` on its wrapper, so FastHTML never
-binds that name — a value a caller sends under it is neither read nor
-coerced, and the decorator's assignment is the only writer. `Any` rather
+The one spelling is `current_user: Any = None`, with `request` as the
+handler's first parameter. FastHTML fills a handler's parameters from the
+request by reading the registered callable's signature; the role decorator
+publishes the handler's signature minus `current_user` on its wrapper, so
+FastHTML never binds that name — a value a caller sends under it is neither
+read nor coerced, and the decorator's assignment is the only writer. `Any` rather
 than `User` on purpose (`# boundary: injected-user`): FastHTML binds a
 dataclass-annotated parameter from the request body, so `current_user: User`
 on a handler missing the decorator would receive a caller-built User, while
 `Any = None` on the same mistake fails closed; the default because a
-request never carries the value. Any other spelling fails at decoration. The
-wrapper takes `request` positionally and FastHTML fills the call by the
-handler's parameter names, so the handler keeps a parameter named `request`
-even when its body never reads it — `_request` leaves that positional
-unfilled on every request.
+request never carries the value. The wrapper receives the request from
+FastHTML under the name `request` and passes it on as the handler's first
+positional argument, so the handler keeps `request` first even when its
+body never reads it — another name (`_request`) or position would leave the
+wrapper's own `request` unfilled on every call. Either departure fails at
+decoration.
 
 Pattern 2: Direct Auth → `user_uid: UserUID` (just the identifier)
 --------------------------------------------------------------
@@ -246,6 +247,8 @@ def check_role_permission(user: Any, required_role: UserRole) -> Result[bool]:
 # ============================================================================
 
 INJECTED_PARAM = "current_user"
+REQUEST_PARAM = "request"
+_POSITIONAL = (inspect.Parameter.POSITIONAL_ONLY, inspect.Parameter.POSITIONAL_OR_KEYWORD)
 
 
 def signature_for_binding(func: Callable[..., Any]) -> inspect.Signature:
@@ -269,8 +272,20 @@ def signature_for_binding(func: Callable[..., Any]) -> inspect.Signature:
     injection to land), fails here at decoration time rather than on the
     first request. String annotations are evaluated, so a module under
     `from __future__ import annotations` reads the same.
+
+    The handler's first parameter is `request`, positional: the wrapper
+    receives the request from FastHTML under that name and passes it on as
+    the handler's first positional argument, so any other name (`_request`)
+    or position would leave the wrapper's own `request` unfilled on every
+    call — refused here for the same reason.
     """
     sig = inspect.signature(func, eval_str=True)
+    first = next(iter(sig.parameters.values()), None)
+    if first is None or first.name != REQUEST_PARAM or first.kind not in _POSITIONAL:
+        raise TypeError(
+            f"{func.__qualname__}: a role-gated handler takes `{REQUEST_PARAM}` as its first "
+            f"parameter; got {'no parameters' if first is None else f'`{first}` first'}"
+        )
     param = sig.parameters.get(INJECTED_PARAM)
     # boundary: injected-user — `Any` fails closed without the decorator; a
     # `User` annotation would be body-bound by FastHTML (see the docstring).

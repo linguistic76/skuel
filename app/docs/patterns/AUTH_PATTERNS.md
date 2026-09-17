@@ -181,10 +181,10 @@ fields (a caller-chosen `uid`), while `Any = None` on the same mistake leaves `N
 first attribute read fails. The default because a request never carries the value. Any other
 spelling (bare, no default, another annotation) or a missing parameter fails at decoration time
 with a `TypeError` naming the spelling — at registration, so the first test that registers the
-route fails. The wrapper takes `request` positionally and FastHTML fills the call by the
-handler's parameter names, so the handler keeps a parameter named `request` even when its body
-never reads it (`_request` leaves the wrapper's positional unfilled, and every request to the
-route is a `TypeError`).
+route fails. The handler's **first** parameter is `request`, even when its body never reads it:
+the wrapper receives the request from FastHTML under that name and passes it on as the handler's
+first positional argument, so another name (`_request`) or position would leave the wrapper's own
+`request` unfilled on every call — the same check refuses that at decoration.
 
 **Behavior:**
 - Validates authentication (401 if not logged in)

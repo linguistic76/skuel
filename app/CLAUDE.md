@@ -440,7 +440,7 @@ Analytics is a meta-service, not a domain. No Analytics nodes in Neo4j. READ-ONL
 | TEACHER | 2 | Member + create curriculum |
 | ADMIN | 3 | Teacher + user management |
 
-Auth: `require_authenticated_user(request) -> UserUID` (from `adapters.inbound.auth`); role gates like `@require_admin(get_user_service)` take a named function, not a lambda (SKUEL012). A role-gated handler declares the injected user as `current_user: Any = None` beside a parameter named `request` — `require_role` publishes the handler's signature without `current_user` (FastHTML never binds it from the request) and refuses any other spelling at decoration.
+Auth: `require_authenticated_user(request) -> UserUID` (from `adapters.inbound.auth`); role gates like `@require_admin(get_user_service)` take a named function, not a lambda (SKUEL012). A role-gated handler takes `request` first and declares the injected user as `current_user: Any = None` — `require_role` publishes the handler's signature without `current_user` (FastHTML never binds it from the request) and refuses any other spelling, or any other first parameter, at decoration.
 
 **See:** `/docs/patterns/AUTH_PATTERNS.md`
 
