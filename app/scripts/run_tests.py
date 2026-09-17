@@ -36,8 +36,9 @@ critical path is its longest module (the corpus scanners, ~20–35 s), so eight
 workers already sit on that floor — fourteen run no shorter and cost a 16 GB
 laptop its swap. A 4-vCPU runner never reaches the cap. The other three modes
 run serially, by ruling: each holds the integration tier, whose session-scoped
-fixtures are three Neo4j testcontainers and one app boot, and under xdist every
-worker builds its own set — N workers cost N container sets. ``comprehensive``
+fixtures are three Neo4j testcontainers and one app boot, and under xdist a
+session fixture is built on every worker whose files request it — up to N
+container sets for N workers, never fewer than N shared containers. ``comprehensive``
 is the composed-session guard (one session, both tiers — the shape the per-tier
 CI jobs never run; ``.github/workflows/composed-test-run.yml`` runs it weekly,
 with ``--cov``); its wall time is the integration tier's plus the unit tier's,

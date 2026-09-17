@@ -157,8 +157,11 @@ worker or distribution choice in the forwarded flags replaces the default wholes
 The **integration tier is serial, by ruling**, and so is every mode that holds it
 (`./dev test`, `./dev test-integration`, `./dev test-quick`): its session-scoped fixtures
 are three Neo4j testcontainers (two in `conftest.py`, the APOC-lockdown suite's third)
-plus one app boot, and under xdist every worker builds its own set — N workers cost N
-container sets. Each container's JVM is **sized for the test graphs, not for the host**:
+plus one app boot, and under xdist a session fixture is built on every worker whose
+assigned files request it — with `--dist loadfile` the shared container on nearly every
+worker, the app container and its boot on every worker that receives an Askesis or route
+module, the lockdown container once — so N workers cost up to N container sets and never
+less than N shared containers. Each container's JVM is **sized for the test graphs, not for the host**:
 `bounded_neo4j_container()` (`tests/integration/_container_lifecycle.py`) pins 128m
 initial / 512m max heap and a 128m page cache, measured at ~2.8 GiB for the three
 together at the tier's peak (the busy shared container ~1.4 GiB, the other two ~0.6–0.9)
