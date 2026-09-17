@@ -173,8 +173,12 @@ FastHTML fills a handler's parameters from the request by reading the registered
 signature. The role decorator publishes the handler's signature *minus* `current_user` on its
 wrapper (`signature_for_binding` in `adapters/inbound/auth/roles.py`), so FastHTML never binds
 that name: a value a caller sends under it — query string, header, form field — is neither read
-nor coerced, and the decorator's assignment is its only writer. `Any` because the decorator, not
-the request, supplies the value; the default because a request never carries it. Any other
+nor coerced, and the decorator's assignment is its only writer. `Any` rather than `User` on
+purpose — it is a documented boundary (`# boundary: injected-user`, [ANY_USAGE_POLICY.md](ANY_USAGE_POLICY.md)):
+FastHTML binds a dataclass-annotated parameter from the request body, so `current_user: User` on
+a handler that *lacks* the decorator would receive a `User` built from the caller's own form
+fields (a caller-chosen `uid`), while `Any = None` on the same mistake leaves `None` and the
+first attribute read fails. The default because a request never carries the value. Any other
 spelling (bare, no default, another annotation) or a missing parameter fails at decoration time
 with a `TypeError` naming the spelling — at registration, so the first test that registers the
 route fails. The wrapper takes `request` positionally and FastHTML fills the call by the

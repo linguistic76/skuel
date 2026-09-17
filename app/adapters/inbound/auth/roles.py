@@ -40,9 +40,12 @@ The one spelling is `current_user: Any = None`, beside a parameter named
 the registered callable's signature; the role decorator publishes the
 handler's signature minus `current_user` on its wrapper, so FastHTML never
 binds that name — a value a caller sends under it is neither read nor
-coerced, and the decorator's assignment is the only writer. `Any` because
-the decorator, not the request, supplies the value; the default because a
-request never carries it. Any other spelling fails at decoration time. The
+coerced, and the decorator's assignment is the only writer. `Any` rather
+than `User` on purpose (`# boundary: injected-user`): FastHTML binds a
+dataclass-annotated parameter from the request body, so `current_user: User`
+on a handler missing the decorator would receive a caller-built User, while
+`Any = None` on the same mistake fails closed; the default because a
+request never carries the value. Any other spelling fails at decoration. The
 wrapper takes `request` positionally and FastHTML fills the call by the
 handler's parameter names, so the handler keeps a parameter named `request`
 even when its body never reads it — `_request` leaves that positional
@@ -255,15 +258,22 @@ def signature_for_binding(func: Callable[..., Any]) -> inspect.Signature:
     is never bound from the request: nothing a caller sends under it is read
     or coerced, and the decorator's assignment is its only writer.
 
-    The handler declares the parameter as `current_user: Any = None` — `Any`
-    because the decorator, not the request, supplies the value; the default
-    because a request never carries it. Any other spelling, or no parameter
-    at all (nowhere for the injection to land), fails here at decoration
-    time rather than on the first request. String annotations are evaluated,
-    so a module under `from __future__ import annotations` reads the same.
+    The handler declares the parameter as `current_user: Any = None`. `Any`
+    is a boundary, chosen over the injected value's real type on purpose:
+    FastHTML binds a dataclass-annotated parameter from the request body, so
+    `current_user: User` on a handler that lacks the decorator would hand it
+    a User built from the caller's own form fields — a caller-chosen
+    identity — while `Any = None` on the same mistake leaves None and the
+    first attribute read fails. The default because a request never carries
+    the value. Any other spelling, or no parameter at all (nowhere for the
+    injection to land), fails here at decoration time rather than on the
+    first request. String annotations are evaluated, so a module under
+    `from __future__ import annotations` reads the same.
     """
     sig = inspect.signature(func, eval_str=True)
     param = sig.parameters.get(INJECTED_PARAM)
+    # boundary: injected-user — `Any` fails closed without the decorator; a
+    # `User` annotation would be body-bound by FastHTML (see the docstring).
     if param is None or param.annotation is not Any or param.default is not None:
         spelled = "no such parameter" if param is None else f"`{param}`"
         raise TypeError(

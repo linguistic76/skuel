@@ -27,6 +27,7 @@ from starlette.testclient import TestClient
 from adapters.inbound.auth.roles import INJECTED_PARAM, require_admin, signature_for_binding
 from adapters.inbound.fasthtml_types import Request
 from core.models.enums import UserRole
+from core.models.user.user import User
 from core.utils.result_simplified import Result
 
 _USER_UID = "user_admin"
@@ -157,3 +158,50 @@ class TestTheOneSpellingIsPinnedAtDecoration:
 
             @require_admin(_getter_for(UserRole.ADMIN))
             async def handler(request: Request, current_user: object = None) -> None: ...
+
+
+class TestWhyAnyAndNotUser:
+    """The boundary's reason, held as a fact about FastHTML rather than prose.
+
+    On a handler that LACKS the role decorator, FastHTML binds a
+    dataclass-annotated parameter from the request: ``current_user: User``
+    would hand the handler a User built from the caller's own fields — a
+    caller-chosen identity. ``current_user: Any = None`` on the same mistake
+    leaves None, and the first attribute read fails closed.
+    """
+
+    def test_a_user_annotation_is_body_bound_on_an_undecorated_handler(self) -> None:
+        app, rt = fast_app(pico=False, default_hdrs=False)
+        received: list[Any] = []
+
+        @rt("/forgot-the-decorator")
+        async def handler(request: Request, current_user: User) -> dict[str, str]:
+            received.append(current_user)
+            return {"uid": current_user.uid}
+
+        response = TestClient(app).get("/forgot-the-decorator?uid=user_admin&title=Mallory")
+
+        assert response.status_code == 200
+        assert isinstance(received[-1], User)
+        assert received[-1].uid == "user_admin"
+
+    def test_the_boundary_spelling_fails_closed_on_an_undecorated_handler(self) -> None:
+        app, rt = fast_app(pico=False, default_hdrs=False)
+        received: list[Any] = []
+
+        @rt("/forgot-the-decorator")
+        async def handler(request: Request, current_user: Any = None) -> dict[str, str]:
+            received.append(current_user)
+            return {"uid": current_user.uid}
+
+        client = TestClient(app)
+
+        # Nothing supplied: the slot holds None and the first attribute read fails.
+        with pytest.raises(AttributeError):
+            client.get("/forgot-the-decorator?uid=user_admin")
+        assert received == [None]
+
+        # A supplied value never reaches the handler: `Any("x")` raises in the binder.
+        with pytest.raises(TypeError, match="Any cannot be instantiated"):
+            client.get("/forgot-the-decorator?current_user=x")
+        assert received == [None]

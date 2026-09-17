@@ -8,9 +8,10 @@ two classes of gap on **state-changing** endpoints:
 
 1. **CSRF** — a mutation handler that lacks the ``@csrf_protected`` decorator.
 2. **Auth** — a mutation handler with no authentication marker (no ``@require_*``
-   role decorator, no ``current_user`` parameter, and no call to
-   ``require_authenticated_user`` / ``verify_entity_ownership`` /
-   ``require_owned_entity`` in its body).
+   role decorator and no call to ``require_authenticated_user`` /
+   ``verify_entity_ownership`` / ``require_owned_entity`` in its body). A
+   ``current_user`` parameter is not a marker: it is the slot the role
+   decorator fills, and on a handler without the decorator it holds nothing.
 
 **Why this exists.** Route factories (CRUD / Status / Analytics / lateral) bake
 in both ``@csrf_protected`` and auth, so the risk lives in hand-written ``@rt``
@@ -174,8 +175,6 @@ def _body_signal(node: ast.AST, include_json: bool) -> str | None:
 
 
 def _has_auth(node: ast.AsyncFunctionDef | ast.FunctionDef) -> bool:
-    if "current_user" in {a.arg for a in node.args.args}:
-        return True
     for x in ast.walk(node):
         if isinstance(x, ast.Call):
             f = x.func
