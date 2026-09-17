@@ -38,7 +38,6 @@ def create_ingestion_ui_routes(
     Returns:
         List of created routes
     """
-    routes = []
 
     get_user_service = make_service_getter(user_service)
 
@@ -53,10 +52,7 @@ def create_ingestion_ui_routes(
             active_page="ingest",
         )
 
-    routes.extend([ingest_dashboard])
-
-    logger.info(f"Ingestion UI routes registered: {len(routes)} endpoints")
-    return routes
+    logger.info("Ingestion UI routes registered")
 
 
 __all__ = ["create_ingestion_ui_routes"]

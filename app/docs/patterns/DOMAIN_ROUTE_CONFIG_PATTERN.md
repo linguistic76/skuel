@@ -1,6 +1,6 @@
 ---
 title: Domain Route Configuration Pattern
-updated: '2026-09-15'
+updated: 2026-09-17
 category: patterns
 related_skills:
 - fasthtml
@@ -718,15 +718,12 @@ def create_insights_routes(app, rt, services, _sync_service=None):
     additional history routes registered separately.
     """
     # Register main API + UI routes via DomainRouteConfig
-    routes = register_domain_routes(app, rt, services, INSIGHTS_CONFIG)
+    register_domain_routes(app, rt, services, INSIGHTS_CONFIG)
 
     # Additional history routes (separate from main API/UI)
     if services and services.insight_store:
-        history_routes = create_insights_history_routes(app, rt, services.insight_store)
-        routes.extend(history_routes)
-        logger.info(f"  ✅ Insights history routes registered: {len(history_routes)} endpoints")
-
-    return routes
+        create_insights_history_routes(app, rt, services.insight_store)
+        logger.info("Insights history routes registered")
 ```
 
 **Key features:**
@@ -753,10 +750,9 @@ PATHWAYS_CONFIG = DomainRouteConfig(
 )
 
 def create_pathways_routes(app, rt, services, _sync_service=None):
-    routes = register_domain_routes(app, rt, services, PATHWAYS_CONFIG)
+    register_domain_routes(app, rt, services, PATHWAYS_CONFIG)
     # PS routes via its own DomainRouteConfig (soft-fail if ls service missing)
-    routes.extend(register_domain_routes(app, rt, services, PS_CONFIG))
-    return routes
+    register_domain_routes(app, rt, services, PS_CONFIG)
 ```
 
 ```python
@@ -854,20 +850,16 @@ ORCHESTRATION_CONFIG = DomainRouteConfig(
 
 
 def create_orchestration_routes(app, rt, services, _sync_service=None):
-    routes = register_domain_routes(app, rt, services, ORCHESTRATION_CONFIG)
+    register_domain_routes(app, rt, services, ORCHESTRATION_CONFIG)
 
     if services and services.habit_event_scheduler:
-        routes.extend(create_habit_event_routes(app, rt, services.habit_event_scheduler))
+        create_habit_event_routes(app, rt, services.habit_event_scheduler)
 
     if services and services.goals_intelligence:
-        routes.extend(create_goals_intelligence_routes(
-            app, rt, services.goals_intelligence, services.habits
-        ))
+        create_goals_intelligence_routes(app, rt, services.goals_intelligence, services.habits)
 
     if services and services.principles:
-        routes.extend(create_principle_alignment_routes(app, rt, services.principles))
-
-    return routes
+        create_principle_alignment_routes(app, rt, services.principles)
 ```
 
 **Key features:**
@@ -901,15 +893,13 @@ ADVANCED_CONFIG = DomainRouteConfig(
 
 
 def create_advanced_routes(app, rt, services, _sync_service=None):
-    routes = register_domain_routes(app, rt, services, ADVANCED_CONFIG)
+    register_domain_routes(app, rt, services, ADVANCED_CONFIG)
 
     if services and services.jupyter_sync:
-        routes.extend(create_jupyter_sync_routes(app, rt, services.jupyter_sync))
+        create_jupyter_sync_routes(app, rt, services.jupyter_sync)
 
     if services and services.performance_optimization:
-        routes.extend(create_performance_routes(app, rt, services.performance_optimization))
-
-    return routes
+        create_performance_routes(app, rt, services.performance_optimization)
 ```
 
 **Key features:**

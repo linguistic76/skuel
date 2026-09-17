@@ -107,12 +107,15 @@ documentation_metrics (push to main only)         gate ── "CI Gate" (require
 - **`js_tests`** runs the vitest suite over `static/js/` (`npm run test:js`,
   same as `./dev test-js`). Path-filtered like `cypher`: a JS-only PR skips
   every py-gated job but must still exercise the JS under test.
-- **Every job carries `timeout-minutes`** — ≈3× the slowest of its recent
-  durations, with a floor (5 min for `changes` and `gate`, which install nothing;
-  10 min for the rest; `unit_tests` 20, `integration_tests` 25), so a hung step
-  frees its runner in minutes instead of GitHub's 360-minute default. Inside the
-  test jobs, pytest-timeout's 120 s per-test ceiling (`pyproject.toml`) fails a
-  hung test long before the job budget does.
+- **Every job in every workflow carries `timeout-minutes`** — ≈3× the slowest of
+  its recent durations, with a floor (5 min for a job that installs nothing —
+  `changes`, `gate`, the three `github-script`-only workflows; 10 min for the
+  rest; `unit_tests` 20, `integration_tests` 25, the composed run its own), so a
+  hung step frees its runner in minutes instead of GitHub's 360-minute default.
+  The scheduled workflows sit at the 10-minute floor (`mypy-suppressions` and
+  `weekly-janitor` run 2–3 min; `dependency-audit` ~20 s). Inside the test jobs,
+  pytest-timeout's 120 s per-test ceiling (`pyproject.toml`) fails a hung test
+  long before the job budget does.
 - **`gate` ("CI Gate")** always runs and passes only when every required job's
   result is `success` or `skipped`; any other value fails, naming the job and
   the literal result. An allow-list, deliberately: the old deny-list over

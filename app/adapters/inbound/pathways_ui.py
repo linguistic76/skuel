@@ -26,10 +26,8 @@ logger = get_logger("skuel.ui.pathways")
 
 def create_pathways_ui_routes(
     _app: Any, rt: Any, _primary_service: Any, orchestrator: Any = None
-) -> list[Any]:
+) -> None:
     """Create UI routes for pathway browsing and progress tracking."""
-
-    routes: list[Any] = []
 
     @rt("/pathways")
     def pathways_dashboard(request) -> Any:
@@ -43,8 +41,6 @@ def create_pathways_ui_routes(
             active_page="pathways",
         )
 
-    routes.append(pathways_dashboard)
-
     @rt("/pathways/content")
     async def pathways_dashboard_content(request) -> Any:
         """HTMX fragment: pathways dashboard body."""
@@ -55,8 +51,6 @@ def create_pathways_ui_routes(
         summary = summary_result.value
         active_paths = [to_active_path_data(row) for row in summary["paths"]]
         return pages.dashboard_content(active_paths, to_learning_stats(summary))
-
-    routes.append(pathways_dashboard_content)
 
     @rt("/pathways/browse")
     def browse_learning_paths(request) -> Any:
@@ -69,8 +63,6 @@ def create_pathways_ui_routes(
             active_page="pathways",
         )
 
-    routes.append(browse_learning_paths)
-
     @rt("/pathways/browse/content")
     async def browse_learning_paths_content(request) -> Any:
         """HTMX fragment: browse learning paths body."""
@@ -79,8 +71,6 @@ def create_pathways_ui_routes(
         if not paths_result.is_error and paths_result.value:
             available_paths.extend(path_to_display_dict(path) for path in paths_result.value)
         return pages.browse_content(available_paths)
-
-    routes.append(browse_learning_paths_content)
 
     @rt("/pathways/steps")
     async def browse_path_steps(request) -> Any:
@@ -97,8 +87,6 @@ def create_pathways_ui_routes(
             request=request,
             active_page="pathways",
         )
-
-    routes.append(browse_path_steps)
 
     @rt("/api/pathways/filter-paths", methods=["POST"])
     @csrf_protected
@@ -118,8 +106,6 @@ def create_pathways_ui_routes(
         paths = filter_result.value if not filter_result.is_error else []
         return pages.paths_grid(paths, empty_message="No learning paths match your filters.")
 
-    routes.append(filter_learning_paths)
-
     @rt("/pathways/path/{path_uid}")
     def learning_path_detail(request, path_uid: str) -> Any:
         """Learning path detail — shell only, content loads via HTMX."""
@@ -132,8 +118,6 @@ def create_pathways_ui_routes(
             active_page="pathways",
         )
 
-    routes.append(learning_path_detail)
-
     @rt("/pathways/path/{path_uid}/content")
     async def learning_path_detail_content(request, path_uid: str) -> Any:
         """HTMX fragment: learning path detail body."""
@@ -142,8 +126,6 @@ def create_pathways_ui_routes(
         if detail_result.is_error:
             return pages.path_detail_not_found(path_uid)
         return pages.path_detail_content(path_uid, detail_result.value)
-
-    routes.append(learning_path_detail_content)
 
     @rt("/pathways/analytics")
     def learning_analytics(request) -> Any:
@@ -157,8 +139,6 @@ def create_pathways_ui_routes(
             active_page="pathways",
         )
 
-    routes.append(learning_analytics)
-
     @rt("/pathways/analytics/content")
     async def learning_analytics_content(request) -> Any:
         """HTMX fragment: learning analytics body."""
@@ -166,8 +146,6 @@ def create_pathways_ui_routes(
         analytics_result = await orchestrator.get_learning_analytics(user_uid)
         analytics = analytics_result.value if not analytics_result.is_error else {}
         return pages.analytics_content(analytics)
-
-    routes.append(learning_analytics_content)
 
     @rt("/lp/{uid}")
     async def lp_detail_view(request, uid: str) -> Any:
@@ -183,7 +161,4 @@ def create_pathways_ui_routes(
             active_page="pathways",
         )
 
-    routes.append(lp_detail_view)
-
-    logger.info(f"Pathways UI routes registered: {len(routes)} endpoints")
-    return routes
+    logger.info("Pathways UI routes registered")

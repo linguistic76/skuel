@@ -85,6 +85,7 @@ jobs:
     # Also stay quiet on drafts; the `ready_for_review` event covers draft -> ready.
     if: github.event_name == 'pull_request' && github.event.pull_request.draft == false
     runs-on: ubuntu-latest
+    timeout-minutes: 5  # one comment POST; the no-install floor (workflow disabled — see the header)
     steps:
       - name: Debounce burst pushes
         # A newer push to the same PR cancels this run before it posts (see the

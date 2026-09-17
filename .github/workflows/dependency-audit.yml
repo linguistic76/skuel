@@ -80,6 +80,7 @@ jobs:
   audit:
     name: Dependency CVE audit (both ecosystems)
     runs-on: ubuntu-latest
+    timeout-minutes: 10  # ~20 s of osv-scanner over two lockfiles; the install floor
     steps:
       - name: Checkout code
         uses: actions/checkout@v7

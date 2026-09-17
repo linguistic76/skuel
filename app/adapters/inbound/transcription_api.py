@@ -43,7 +43,7 @@ def create_transcription_api_routes(
     app: Any,
     rt: Any,
     transcription_service: TranscriptionService,
-) -> list[Any]:
+) -> None:
     """
     Create transcription API routes.
 
@@ -55,7 +55,6 @@ def create_transcription_api_routes(
     Returns:
         List of created routes
     """
-    routes: list[Any] = []
 
     # ========================================================================
     # CRUD ROUTES
@@ -232,23 +231,8 @@ def create_transcription_api_routes(
         }
 
     # Collect all routes
-    routes.extend(
-        [
-            create_transcription,
-            get_transcription,
-            delete_transcription,
-            list_transcriptions,
-            process_transcription,
-            retry_transcription,
-            search_transcriptions,
-            get_by_status,
-            transcription_health,
-        ]
-    )
 
-    logger.info(f"Transcription API routes registered: {len(routes)} endpoints")
-
-    return routes
+    logger.info("Transcription API routes registered")
 
 
 __all__ = ["create_transcription_api_routes"]

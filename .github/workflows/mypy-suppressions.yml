@@ -40,6 +40,7 @@ jobs:
   audit:
     name: Audit mypy suppressions
     runs-on: ubuntu-latest
+    timeout-minutes: 10  # ~2–3 min of per-(block, code) mypy runs; 3× the slowest, at the floor
     # Pin every uv command to the committed lock — the census below runs via
     # `uv run`, which re-locks just like `uv sync` (see ci.yml's mypy job).
     # Safe here: nothing in this job passes an explicit --locked, which is the
@@ -135,13 +136,25 @@ jobs:
               '```',
             ].join('\n');
 
-            const existing = await github.rest.issues.listForRepo({
+            // Every open issue, not the first page: past 100 open issues and
+            // PRs the marker issue can sit on page two, and a lookup that never
+            // reaches it files a duplicate every week.
+            const open = await github.paginate(github.rest.issues.listForRepo, {
               owner: context.repo.owner,
               repo: context.repo.repo,
               state: 'open',
               per_page: 100,
             });
-            const prior = existing.data.find(i => i.body && i.body.includes(marker));
+            // The marker is PUBLIC — it is in every issue this step files — and
+            // listForRepo returns pull requests too. Only an ISSUE authored by
+            // this workflow's own identity is the tracking issue; a PR or an
+            // issue anyone else opened with the marker in its body must not
+            // become the thread every later report is redirected into.
+            const BOT = 'github-actions[bot]';
+            const prior = open.find(i =>
+              i && i.body && !i.pull_request &&
+              i.user && i.user.login === BOT &&
+              i.body.includes(marker));
 
             if (prior) {
               await github.rest.issues.createComment({

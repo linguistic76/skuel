@@ -52,9 +52,8 @@ _LATERAL_DOMAINS: list[tuple[str, str, str | None]] = [
 
 def create_lateral_api_routes(
     app: FastHTMLApp, rt: RouteDecorator, orchestrator: LateralRelationshipsOrchestrator
-) -> list[Any]:
+) -> None:
     """Register lateral relationship routes for all 9 domains."""
-    all_routes: list[Any] = []
 
     # Register standard lateral routes for all 9 domains
     for domain, entity_name, service_attr in _LATERAL_DOMAINS:
@@ -65,7 +64,7 @@ def create_lateral_api_routes(
             entity_name=entity_name,
             domain_service=domain_service,
         )
-        all_routes.extend(factory.register_routes(app, rt))
+        factory.register_routes(app, rt)
 
     logger.info("Standard lateral routes registered for all 9 domains")
 
@@ -117,8 +116,6 @@ def create_lateral_api_routes(
             domain_service=orchestrator.get_domain_service("habits"),
         )
 
-    all_routes.extend([create_habit_stack, get_habit_stack])
-
     # --- Events: Scheduling Conflicts ---
 
     @rt("/api/events/{uid}/lateral/conflicts", methods=["POST"])
@@ -163,8 +160,6 @@ def create_lateral_api_routes(
             domain_service=orchestrator.get_domain_service("events"),
         )
 
-    all_routes.extend([create_event_conflict, get_event_conflicts])
-
     # --- Choices: Value Conflicts ---
 
     @rt("/api/choices/{uid}/lateral/conflicts", methods=["POST"])
@@ -208,8 +203,6 @@ def create_lateral_api_routes(
             response_key="conflicts",
             domain_service=orchestrator.get_domain_service("choices"),
         )
-
-    all_routes.extend([create_choice_conflict, get_choice_conflicts])
 
     # --- Principles: Value Tensions ---
 
@@ -259,8 +252,6 @@ def create_lateral_api_routes(
             response_key="conflicts",
             domain_service=orchestrator.get_domain_service("principles"),
         )
-
-    all_routes.extend([create_principle_conflict, get_principle_conflicts])
 
     # --- KU: ENABLES Relationships ---
 
@@ -313,10 +304,7 @@ def create_lateral_api_routes(
             response_key="enabled_by",
         )
 
-    all_routes.extend([create_entity_enables, get_entity_enables, get_entity_enabled_by])
-
-    logger.info(f"Lateral relationship routes registered: {len(all_routes)} total routes")
-    return all_routes
+    logger.info("Lateral relationship routes registered")
 
 
 # ============================================================================

@@ -56,7 +56,7 @@ def create_events_ui_routes(
     user_service: Any = None,  # kept for DomainRouteConfig signature compat
     goals_service: GoalsService | None = None,
     habits_service: HabitsService | None = None,
-) -> list[Any]:
+) -> None:
     """Register Events UI routes (list/detail + create/edit forms)."""
     config = ActivityUIConfig(
         domain_name="events",
@@ -77,7 +77,7 @@ def create_events_ui_routes(
         # Monthly, the generated list/detail shells included.
         sidebar_active="monthly",
     )
-    base_routes = create_activity_ui_routes(app, rt, config)
+    create_activity_ui_routes(app, rt, config)
 
     async def _resolve_picker_titles(
         habit_uid: str | None, goal_uid: str | None
@@ -247,11 +247,3 @@ def create_events_ui_routes(
             return render_activity_sidebar_page(content, active="monthly", request=request)
 
         return RedirectResponse(f"/events/detail?uid={uid}", status_code=303)
-
-    return [
-        *base_routes,
-        event_create_page,
-        event_create_submit,
-        event_edit_page,
-        event_edit_submit,
-    ]

@@ -55,7 +55,7 @@ def create_calendar_optimization_routes(
     _app: FastHTMLApp,
     rt: RouteDecorator,
     calendar_optimization_orchestrator: CalendarOptimizationOrchestrator,
-) -> list[Any]:
+) -> None:
     """Register calendar optimization endpoints."""
 
     @rt("/cal/optimize")
@@ -127,8 +127,6 @@ def create_calendar_optimization_routes(
             }
         )
 
-    return [optimize, cognitive_load]
-
 
 # ---------------------------------------------------------------------------
 # Jupyter Sync - Jupyter-Neo4j-Obsidian Workflow (extension)
@@ -137,7 +135,7 @@ def create_calendar_optimization_routes(
 
 def create_jupyter_sync_routes(
     _app: FastHTMLApp, rt: RouteDecorator, jupyter_sync: Any, user_service: Any
-) -> list[Any]:
+) -> None:
     """Register Jupyter-Neo4j-Obsidian sync endpoints (ADMIN-gated curriculum authoring)."""
 
     get_user_service = make_service_getter(user_service)
@@ -192,8 +190,6 @@ def create_jupyter_sync_routes(
         """
         return await jupyter_sync.detect_conflicts(uid)
 
-    return [fetch, save, sync_to_obsidian, detect_conflicts]
-
 
 # ---------------------------------------------------------------------------
 # Performance Optimization - Scale & Speed (extension)
@@ -202,7 +198,7 @@ def create_jupyter_sync_routes(
 
 def create_performance_routes(
     _app: FastHTMLApp, rt: RouteDecorator, performance_optimization: Any, user_service: Any
-) -> list[Any]:
+) -> None:
     """Register performance optimization endpoints (ADMIN-gated ops/diagnostics)."""
 
     get_user_service = make_service_getter(user_service)
@@ -259,8 +255,6 @@ def create_performance_routes(
             }
         )
 
-    return [metrics, cache_stats, optimize_performance, scale_test]
-
 
 # ---------------------------------------------------------------------------
 # DomainRouteConfig + Multi-Factory wiring
@@ -285,15 +279,13 @@ def create_advanced_routes(
 
     See: /docs/patterns/DOMAIN_ROUTE_CONFIG_PATTERN.md
     """
-    routes = register_domain_routes(app, rt, services, ADVANCED_CONFIG)
+    register_domain_routes(app, rt, services, ADVANCED_CONFIG)
 
     if services and services.jupyter_sync:
-        routes.extend(create_jupyter_sync_routes(app, rt, services.jupyter_sync, services.user))
+        create_jupyter_sync_routes(app, rt, services.jupyter_sync, services.user)
 
     if services and services.performance_optimization:
-        routes.extend(
-            create_performance_routes(app, rt, services.performance_optimization, services.user)
-        )
+        create_performance_routes(app, rt, services.performance_optimization, services.user)
 
 
 __all__ = ["create_advanced_routes"]

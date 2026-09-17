@@ -52,7 +52,7 @@ logger = get_logger("skuel.routes.orchestration")
 
 def create_goal_task_routes(
     _app: Any, rt: Any, goal_task_generator: GoalTaskGeneratorOperations
-) -> list[Any]:
+) -> None:
     """Register Goal→Task generation endpoints."""
 
     @rt("/goals/generate-tasks")
@@ -94,8 +94,6 @@ def create_goal_task_routes(
             auto_create=False,  # Templates only
         )
 
-    return [generate_tasks, task_templates]
-
 
 # ---------------------------------------------------------------------------
 # Goal → Task Bulk Generation (extension)
@@ -107,7 +105,7 @@ def create_goal_task_bulk_routes(
     rt: Any,
     goal_task_generator: GoalTaskGeneratorOperations,
     user_service: Any,
-) -> list[Any]:
+) -> None:
     """Register bulk Goal→Task generation endpoints.
 
     Routes:
@@ -145,8 +143,6 @@ def create_goal_task_bulk_routes(
             return Result.fail(ctx_result)
         return await goal_task_generator.generate_next_critical_tasks(ctx_result.value, limit)
 
-    return [generate_tasks_all, critical_tasks]
-
 
 # ---------------------------------------------------------------------------
 # Habit → Event Scheduling (extension)
@@ -155,7 +151,7 @@ def create_goal_task_bulk_routes(
 
 def create_habit_event_routes(
     _app: Any, rt: Any, habit_event_scheduler: HabitEventSchedulerOperations
-) -> list[Any]:
+) -> None:
     """Register Habit→Event scheduling endpoints."""
 
     @rt("/habits/schedule-events")
@@ -198,15 +194,13 @@ def create_habit_event_routes(
             auto_create=False,  # Templates only
         )
 
-    return [schedule_events, event_templates]
-
 
 # ---------------------------------------------------------------------------
 # Goals Intelligence - Predictive Analytics (extension)
 # ---------------------------------------------------------------------------
 
 
-def create_goals_intelligence_routes(_app: Any, rt: Any, goals_intelligence: Any) -> list[Any]:
+def create_goals_intelligence_routes(_app: Any, rt: Any, goals_intelligence: Any) -> None:
     """Register predictive goal analytics endpoints."""
 
     @rt("/goals/predict-success")
@@ -246,8 +240,6 @@ def create_goals_intelligence_routes(_app: Any, rt: Any, goals_intelligence: Any
         """
         return await goals_intelligence.assess_goal_risk(goal_uid=uid)
 
-    return [predict_success, habit_impact, risk_assessment]
-
 
 # ---------------------------------------------------------------------------
 # Principle Alignment - Motivational Intelligence (extension)
@@ -256,7 +248,7 @@ def create_goals_intelligence_routes(_app: Any, rt: Any, goals_intelligence: Any
 
 def create_principle_alignment_routes(
     _app: FastHTMLApp, rt: RouteDecorator, principles: Any
-) -> list[Any]:
+) -> None:
     """Register principle alignment and motivational intelligence endpoints."""
 
     @rt("/principles/list")
@@ -324,8 +316,6 @@ def create_principle_alignment_routes(
             }
         )
 
-    return [list_principles, goal_alignment, habit_alignment, motivational_profile, suggest_actions]
-
 
 # ---------------------------------------------------------------------------
 # DomainRouteConfig + Multi-Factory wiring
@@ -350,21 +340,19 @@ def create_orchestration_routes(
 
     See: /docs/patterns/DOMAIN_ROUTE_CONFIG_PATTERN.md
     """
-    routes = register_domain_routes(app, rt, services, ORCHESTRATION_CONFIG)
+    register_domain_routes(app, rt, services, ORCHESTRATION_CONFIG)
 
     if services and services.goal_task_generator and services.user:
-        routes.extend(
-            create_goal_task_bulk_routes(app, rt, services.goal_task_generator, services.user)
-        )
+        create_goal_task_bulk_routes(app, rt, services.goal_task_generator, services.user)
 
     if services and services.habit_event_scheduler:
-        routes.extend(create_habit_event_routes(app, rt, services.habit_event_scheduler))
+        create_habit_event_routes(app, rt, services.habit_event_scheduler)
 
     if services and services.goals:
-        routes.extend(create_goals_intelligence_routes(app, rt, services.goals.intelligence))
+        create_goals_intelligence_routes(app, rt, services.goals.intelligence)
 
     if services and services.principles:
-        routes.extend(create_principle_alignment_routes(app, rt, services.principles))
+        create_principle_alignment_routes(app, rt, services.principles)
 
 
 __all__ = ["create_orchestration_routes"]

@@ -64,7 +64,7 @@ def create_tasks_ui_routes(
     user_service: Any = None,  # kept for DomainRouteConfig signature compat
     goals_service: GoalsService | None = None,
     habits_service: HabitsService | None = None,
-) -> list[Any]:
+) -> None:
     """Register Tasks UI routes (list/detail + create/edit forms)."""
     config = ActivityUIConfig(
         domain_name="tasks",
@@ -82,7 +82,7 @@ def create_tasks_ui_routes(
         detail_component=TaskDetailView,
         create_href="/tasks/create",
     )
-    base_routes = create_activity_ui_routes(app, rt, config)
+    create_activity_ui_routes(app, rt, config)
 
     # ------------------------------------------------------------------
     # Create form: GET /tasks/create  +  POST /tasks/create
@@ -401,16 +401,3 @@ def create_tasks_ui_routes(
         if removed.is_error:
             return await _dependencies_view(uid, user_uid, error="Could not remove the dependency.")
         return await _dependencies_view(uid, user_uid)
-
-    return [
-        *base_routes,
-        task_create_page,
-        task_create_submit,
-        task_edit_page,
-        task_edit_submit,
-        subtasks_fragment,
-        subtasks_add,
-        dependencies_fragment,
-        dependencies_add,
-        dependencies_remove,
-    ]
