@@ -81,9 +81,8 @@ import pytest_asyncio
 import yaml
 from neo4j import AsyncDriver, AsyncGraphDatabase
 from neo4j.exceptions import ClientError
-from testcontainers.community.neo4j import Neo4jContainer  # type: ignore[import-untyped]
 
-from tests.integration._neo4j_pin import NEO4J_IMAGE
+from tests.integration._container_lifecycle import bounded_neo4j_container
 
 # ============================================================================
 # Compose configuration — the source of truth for the profile under test
@@ -181,11 +180,11 @@ def locked_neo4j_container():
     is a registration-level filter and applies regardless of auth (a blocked
     procedure reports as *not found*, not as *not permitted*).
     """
-    # The pin is read by tests/integration/_neo4j_pin.py — the one reader every
-    # integration container shares, so this suite can never validate allowlist
-    # behaviour against a stale APOC on an old release (ADR-067 § 3a).
-    container = Neo4jContainer(NEO4J_IMAGE)
-    container.with_env("NEO4J_dbms_security_auth__enabled", "false")
+    # The pin is read by tests/integration/_neo4j_pin.py and applied by the
+    # shared builder every integration container goes through, so this suite
+    # can never validate allowlist behaviour against a stale APOC on an old
+    # release (ADR-067 § 3a).
+    container = bounded_neo4j_container()
 
     for key, value in resolve_locked_profile().items():
         container.with_env(key, value)
