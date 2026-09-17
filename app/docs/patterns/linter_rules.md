@@ -842,7 +842,7 @@ The tempting generalisation — walk the whole right-hand side for any uid-ish n
 
 ## Rule: SKUEL035 - Request Is Imported From adapters.inbound.fasthtml_types
 
-**Pattern:** any `from <module> import … Request …` in `adapters/inbound/` where the module is not `adapters.inbound.fasthtml_types` — `fasthtml.common`, `fasthtml.core`, `starlette.requests`. Single-line and parenthesised multi-line imports alike (AST, so the multi-line form a line-regex misses is covered). Only the name `Request`; `Response`, `JSONResponse` and the FT tags keep their sources.
+**Pattern:** any `from <module> import … Request …` in `adapters/inbound/` where the module is not `adapters.inbound.fasthtml_types` — `fasthtml.common`, `fasthtml.core`, `starlette.requests` — and any attribute-qualified `<base>.Request` whose base is not the door (`starlette.requests.Request` after `import starlette.requests`, `fh.Request` after `import fasthtml.common as fh`). Single-line and parenthesised multi-line imports alike (AST, so the multi-line form a line-regex misses is covered); the attribute half exists because SKUEL020 accepts the fully-qualified Starlette annotation, so a module import would otherwise pass both rules. Only the name `Request`; `Response`, `JSONResponse` and the FT tags keep their sources.
 
 **Why it exists:** `fasthtml_types.py` re-exports the concrete Starlette `Request` so every handler annotates the same name through one boundary module, next to `RouteDecorator` / `FastHTMLApp` / `Response`. The class is the same through every door, so nothing breaks when a file uses another — which is exactly why a tree grows a third: a new file copies whichever import it saw last. At the sweep that introduced the rule, 24 of ~150 route files had drifted (22 via `fasthtml.common`, one via `fasthtml.core`, one via `starlette.requests`) against the documented spelling.
 
@@ -850,7 +850,7 @@ The tempting generalisation — walk the whole right-hand side for any uid-ish n
 
 **Fix:** `from adapters.inbound.fasthtml_types import Request` — a runtime import, since a handler annotation is evaluated at registration (SKUEL020 explains the 400 that follows a wrong annotation).
 
-**Guard test:** `tests/unit/scripts/test_lint_skuel.py::TestSKUEL035` — the three deleted shapes (tag-adjacent single line, parenthesised multi-line, bare Starlette), the clean door, other names from `fasthtml`, the re-export module's exemption, the out-of-scope `ui/` tree, and line suppression.
+**Guard test:** `tests/unit/scripts/test_lint_skuel.py::TestSKUEL035` — the tag-adjacent single line, the parenthesised multi-line import, the bare Starlette import, the module-import-plus-qualified-annotation bypass and its aliased form, the clean door (bare and qualified), other names from `fasthtml`, the re-export module's exemption, the out-of-scope `ui/` tree, and line suppression.
 
 **Suppression:**
 - `# skuel-lint: disable=SKUEL035 -- <reason>` (line)

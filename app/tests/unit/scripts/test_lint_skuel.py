@@ -7715,9 +7715,10 @@ class TestOptInRulesDrift:
 class TestSKUEL035:
     """One door for the name `Request` in the route layer.
 
-    The fixtures are the shapes the sweep deleted: a single-line import next to
-    tags, a parenthesised multi-line one (the shape a line-regex census missed),
-    and the bare Starlette import.
+    Fixtures: every other door — a single-line import next to tags, a
+    parenthesised multi-line one (invisible to a line regex, so the AST
+    walk is what covers it), the bare Starlette import, and the
+    attribute-qualified spelling a module import enables.
     """
 
     ROUTE = "adapters/inbound/example_routes.py"
@@ -7737,6 +7738,34 @@ class TestSKUEL035:
         content = "from starlette.requests import Request\n"
         violations = lint_content(make_linter(["SKUEL035"]), content, file_path=self.ROUTE)
         assert [v.rule_id for v in violations] == ["SKUEL035"]
+
+    def test_module_import_plus_qualified_annotation_is_flagged(self) -> None:
+        """`import starlette.requests` never names `Request`; the qualified
+        annotation does — and SKUEL020 accepts that spelling, so this rule is
+        the only one that sees the door being bypassed."""
+        content = (
+            "import starlette.requests\n\n"
+            '@rt("/x")\n'
+            "async def handler(request: starlette.requests.Request):\n"
+            "    return request\n"
+        )
+        violations = lint_content(make_linter(["SKUEL035"]), content, file_path=self.ROUTE)
+        assert [(v.rule_id, v.line_number) for v in violations] == [("SKUEL035", 4)]
+        assert "starlette.requests.Request" in violations[0].message
+
+    def test_aliased_module_import_is_flagged(self) -> None:
+        content = (
+            "import fasthtml.common as fh\n\ndef f(request: fh.Request):\n    return request\n"
+        )
+        violations = lint_content(make_linter(["SKUEL035"]), content, file_path=self.ROUTE)
+        assert [(v.rule_id, v.line_number) for v in violations] == [("SKUEL035", 3)]
+
+    def test_qualified_door_spelling_is_clean(self) -> None:
+        content = (
+            "from adapters.inbound import fasthtml_types\n\n"
+            "def f(request: fasthtml_types.Request):\n    return request\n"
+        )
+        assert lint_content(make_linter(["SKUEL035"]), content, file_path=self.ROUTE) == []
 
     def test_the_one_door_is_clean(self) -> None:
         content = (
@@ -7773,8 +7802,9 @@ class TestSKUEL035:
 class TestSKUEL036:
     """The decorator authenticated and injected the caller; a second
     `require_authenticated_user` in the same handler is the mix AUTH_PATTERNS
-    § Pattern 3 forbids. Fixtures are the two shapes the sweep deleted: the
-    assigned call and the bare call whose value nobody read.
+    § Pattern 3 forbids. Fixtures: the assigned call and the bare call whose
+    value nobody reads, a nested factory handler, and the three shapes that
+    are not the mix.
     """
 
     ROUTE = "adapters/inbound/teaching_ui.py"

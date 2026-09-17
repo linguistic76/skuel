@@ -1327,10 +1327,13 @@ boundary module (with `RouteDecorator`, `FastHTMLApp`, `Response`). `fasthtml.co
 `fasthtml.core` and `starlette.requests` hand out the same class through other doors, and a
 tree with two doors grows a third: a new file copies whichever import it saw last.
 
-Scope: `adapters/inbound/` (the re-export module itself excepted). Flags an import of the
-name `Request` from any module other than `adapters.inbound.fasthtml_types`, at the import
-line. Only the name `Request` — `Response`, `JSONResponse` and the FastHTML tags keep their
-usual sources.
+Scope: `adapters/inbound/` (the re-export module itself excepted). Two shapes, both at
+their own line: an import of the name `Request` from any module other than
+`adapters.inbound.fasthtml_types`, and an attribute-qualified use — `starlette.requests.Request`,
+`fasthtml.common.Request`, `sr.Request` after `import starlette.requests as sr` — whose base
+is not the door (SKUEL020 accepts the fully-qualified Starlette annotation, so without this
+half a module import would pass both rules). Only the name `Request` — `Response`,
+`JSONResponse` and the FastHTML tags keep their usual sources.
 
 Fix: `from adapters.inbound.fasthtml_types import Request` (a runtime import — a handler
 annotation is evaluated at registration).
@@ -4392,6 +4395,10 @@ class SkuelLinter:
     # layer, and the module that defines it (its own import is the re-export).
     REQUEST_SOURCE_MODULE: ClassVar[str] = "adapters.inbound.fasthtml_types"
     REQUEST_SOURCE_FILE: ClassVar[str] = "adapters/inbound/fasthtml_types.py"
+    # SKUEL035: the attribute-qualified spellings of the door itself.
+    REQUEST_DOOR_BASES: ClassVar[frozenset[str]] = frozenset(
+        {"fasthtml_types", "adapters.inbound.fasthtml_types"}
+    )
 
     def _check_request_import_source(
         self,
@@ -4404,9 +4411,12 @@ class SkuelLinter:
         """
         SKUEL035 [ERROR]: ``Request`` comes from ``adapters.inbound.fasthtml_types``.
 
-        Flags ``from <other> import Request`` (any alias list containing the
-        name) at the import line. The re-export module itself is exempt — its
-        import IS the one door.
+        Two shapes, each at its own line: ``from <other> import Request`` (any
+        alias list containing the name), and an attribute-qualified
+        ``<base>.Request`` whose base is not the door — the spelling a module
+        import (``import starlette.requests``) enables, which SKUEL020 accepts
+        as an annotation. The re-export module itself is exempt — its import
+        IS the one door.
         """
         if rel_path.as_posix() == self.REQUEST_SOURCE_FILE:
             return
@@ -4414,12 +4424,20 @@ class SkuelLinter:
             return
         if "Request" not in content or tree is None:
             return
+        found: list[tuple[int, int, str]] = []
         for node in self._nodes(tree, ast.ImportFrom):
             if node.module == self.REQUEST_SOURCE_MODULE:
                 continue
-            if not any(alias.name == "Request" for alias in node.names):
+            if any(alias.name == "Request" for alias in node.names):
+                found.append((node.lineno, node.col_offset, f"imported from `{node.module}`"))
+        for attr in self._nodes(tree, ast.Attribute):
+            if attr.attr != "Request":
                 continue
-            line_num = node.lineno
+            base = self._dotted_name(attr.value)
+            if base is None or base in self.REQUEST_DOOR_BASES:
+                continue
+            found.append((attr.lineno, attr.col_offset, f"reached as `{base}.Request`"))
+        for line_num, col, how in found:
             line = lines[line_num - 1] if 0 < line_num <= len(lines) else ""
             if self._is_line_suppressed(line, "SKUEL035"):
                 continue
@@ -4427,12 +4445,12 @@ class SkuelLinter:
                 Violation(
                     file_path=rel_path,
                     line_number=line_num,
-                    column=node.col_offset,
+                    column=col,
                     severity=Severity.ERROR,
                     rule_id="SKUEL035",
                     message=(
-                        f"`Request` imported from `{node.module}` — the route layer's one "
-                        f"spelling is `{self.REQUEST_SOURCE_MODULE}`"
+                        f"`Request` {how} — the route layer's one spelling is "
+                        f"`{self.REQUEST_SOURCE_MODULE}`"
                     ),
                     suggestion=f"from {self.REQUEST_SOURCE_MODULE} import Request",
                     line_content=line.strip(),
