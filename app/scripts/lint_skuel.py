@@ -4395,10 +4395,35 @@ class SkuelLinter:
     # layer, and the module that defines it (its own import is the re-export).
     REQUEST_SOURCE_MODULE: ClassVar[str] = "adapters.inbound.fasthtml_types"
     REQUEST_SOURCE_FILE: ClassVar[str] = "adapters/inbound/fasthtml_types.py"
-    # SKUEL035: the attribute-qualified spellings of the door itself.
-    REQUEST_DOOR_BASES: ClassVar[frozenset[str]] = frozenset(
-        {"fasthtml_types", "adapters.inbound.fasthtml_types"}
-    )
+    # SKUEL035: the module whose name may be bound to a local qualifier
+    # (`from adapters.inbound import fasthtml_types [as x]`), and the package it
+    # lives in. A qualifier is the door only through one of these bindings —
+    # never by spelling, since `import starlette.requests as fasthtml_types`
+    # would otherwise pass.
+    REQUEST_DOOR_PACKAGE: ClassVar[str] = "adapters.inbound"
+    REQUEST_DOOR_LEAF: ClassVar[str] = "fasthtml_types"
+
+    def _request_door_qualifiers(self, tree: ast.Module) -> set[str]:
+        """The local dotted names that resolve to the ``fasthtml_types`` module.
+
+        ``import adapters.inbound.fasthtml_types`` binds the full dotted path;
+        ``import adapters.inbound.fasthtml_types as ft`` binds ``ft``;
+        ``from adapters.inbound import fasthtml_types [as ft]`` binds the leaf or
+        the alias. Any other import binds a name that is NOT the door, whatever
+        it is called.
+        """
+        door: set[str] = set()
+        for plain in self._nodes(tree, ast.Import):
+            for alias in plain.names:
+                if alias.name == self.REQUEST_SOURCE_MODULE:
+                    door.add(alias.asname or alias.name)
+        for from_import in self._nodes(tree, ast.ImportFrom):
+            if from_import.module != self.REQUEST_DOOR_PACKAGE:
+                continue
+            for alias in from_import.names:
+                if alias.name == self.REQUEST_DOOR_LEAF:
+                    door.add(alias.asname or alias.name)
+        return door
 
     def _check_request_import_source(
         self,
@@ -4428,13 +4453,18 @@ class SkuelLinter:
         for node in self._nodes(tree, ast.ImportFrom):
             if node.module == self.REQUEST_SOURCE_MODULE:
                 continue
-            if any(alias.name == "Request" for alias in node.names):
-                found.append((node.lineno, node.col_offset, f"imported from `{node.module}`"))
+            for alias in node.names:
+                if alias.name != "Request":
+                    continue
+                # The alias's own position: in a parenthesised import the name
+                # sits on its own line, which is where a suppression is written.
+                found.append((alias.lineno, alias.col_offset, f"imported from `{node.module}`"))
+        door = self._request_door_qualifiers(tree)
         for attr in self._nodes(tree, ast.Attribute):
             if attr.attr != "Request":
                 continue
             base = self._dotted_name(attr.value)
-            if base is None or base in self.REQUEST_DOOR_BASES:
+            if base is None or base in door:
                 continue
             found.append((attr.lineno, attr.col_offset, f"reached as `{base}.Request`"))
         for line_num, col, how in found:

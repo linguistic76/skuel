@@ -7767,6 +7767,35 @@ class TestSKUEL035:
         )
         assert lint_content(make_linter(["SKUEL035"]), content, file_path=self.ROUTE) == []
 
+    def test_the_door_is_resolved_through_its_import_not_its_spelling(self) -> None:
+        """A qualifier named like the door but bound to Starlette is Starlette."""
+        content = (
+            "import starlette.requests as fasthtml_types\n\n"
+            "def f(request: fasthtml_types.Request):\n    return request\n"
+        )
+        violations = lint_content(make_linter(["SKUEL035"]), content, file_path=self.ROUTE)
+        assert [(v.rule_id, v.line_number) for v in violations] == [("SKUEL035", 3)]
+
+    def test_an_aliased_door_import_is_the_door(self) -> None:
+        content = (
+            "import adapters.inbound.fasthtml_types\n"
+            "import adapters.inbound.fasthtml_types as ft\n"
+            "from adapters.inbound import fasthtml_types as door\n\n"
+            "def f(a: ft.Request, b: door.Request, c: adapters.inbound.fasthtml_types.Request):\n"
+            "    return a, b, c\n"
+        )
+        assert lint_content(make_linter(["SKUEL035"]), content, file_path=self.ROUTE) == []
+
+    def test_parenthesised_import_reports_and_suppresses_at_the_alias_line(self) -> None:
+        content = "from fasthtml.common import (\n    Div,\n    Request,\n    Span,\n)\n"
+        violations = lint_content(make_linter(["SKUEL035"]), content, file_path=self.ROUTE)
+        assert [(v.rule_id, v.line_number) for v in violations] == [("SKUEL035", 3)]
+        suppressed = (
+            "from fasthtml.common import (\n    Div,\n"
+            "    Request,  # skuel-lint: disable=SKUEL035 -- why\n    Span,\n)\n"
+        )
+        assert lint_content(make_linter(["SKUEL035"]), suppressed, file_path=self.ROUTE) == []
+
     def test_the_one_door_is_clean(self) -> None:
         content = (
             "from fasthtml.common import Div, Span\n\n"
