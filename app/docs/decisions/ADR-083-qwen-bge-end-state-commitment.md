@@ -4,7 +4,7 @@ updated: 2026-09-17
 
 # ADR-083: Qwen + BGE End-State — Committed Destination, Staged Convergence
 
-**Status:** Accepted — founder-confirmed 2026-07-24. The end-state is hosted serving and is not gated on the development machine; only *local* experiments with these models are — see [development-machine-capacity](../roadmap/development-machine-capacity.md).
+**Status:** Accepted — founder-confirmed 2026-07-24. Serving is hosted initially (§ 4), so nothing in this decision waits on the development machine; only *local* experiments with these models are gated on it — see [development-machine-capacity](../roadmap/development-machine-capacity.md).
 **Date:** 2026-07-24
 **Deciders:** MCF
 **Arc:** LLM-root convergence — upgrades ADR-081's north star ("Qwen + BGE; don't build against

@@ -42,7 +42,7 @@ Whoever changes the machine re-measures this block first; every number below was
 | Waits on remote work are **bounded foreground calls** (`request_codex_review.sh <PR#> 540`, then `--resume`) | `docs/development/PR_WORKFLOW.md` step 5, `AGENTS.md`, `scripts/request_codex_review.sh` | the harness guard above; a killed background wait loses the poll | harness |
 | The SKUEL linter sweep runs on at most **12 workers** | `scripts/lint_skuel.py` `PARALLEL_MAX_WORKERS` (line 1539) | 8 → 1.14 s, 12 → 0.91 s, 16 → 0.95 s on the full tree — a **CPU** knee on 18 cores, ~40 MB per worker; not a memory bound and not lifted by RAM | CPU |
 | The monitoring stack (`./dev up-monitoring`: Prometheus + Grafana + the sandbox Neo4j) and the local Neo4j sandbox are **not run beside a test session** | discipline — the sandbox's own JVM is *configured* for 1 G / 1.5 G heap + 2 G page cache (`.env` `NEO4J_HEAP_*` / `NEO4J_PAGECACHE`, `../infrastructure/docker-compose.yml` lines 52–56), ~3.5 GB by configuration; not measured, it is stopped | the sandbox is an opt-in, stopped by default (CLAUDE.md § Neo4j Infrastructure); the two monitoring containers are ~80 MB and are up now | memory (the sandbox) |
-| **Local inference of the ADR-083 models is not runnable here** — BGE-M3 (568 M params: ~1.1 GB of fp16 weights, ~2.3 GB fp32) and a Qwen chat model (7 B: ~15 GB fp16, ~4–5 GB at 4-bit) beside the test infrastructure | nothing in the tree — the committed end-state is **hosted** (BGE-M3 via the HuggingFace Inference API, Qwen behind a vLLM / DashScope / Together endpoint: ADR-083 § 4 — "the droplet has no GPU, so serving is hosted initially") | this row gates only a *local* experiment — the fine-tuning work ADR-081/083 name as Arc 2's trigger, or offline development against the real models. It does **not** gate the cut-over, and it is not why the app is on OpenAI embeddings: ADR-068's "now" is that the key and SDK were already FULL-tier requirements and the BGE data migration had never run | memory / VRAM |
+| **Local inference of the ADR-083 models is not runnable here** — BGE-M3 (568 M params: ~1.1 GB of fp16 weights, ~2.3 GB fp32) and a Qwen chat model (7 B: ~15 GB fp16, ~4–5 GB at 4-bit) beside the test infrastructure | nothing in the tree — serving is **hosted initially** (BGE-M3 via the HuggingFace Inference API, Qwen behind a vLLM / DashScope / Together endpoint: ADR-083 § 4 — "the droplet has no GPU, so serving is hosted initially"; the endpoint is chosen at Arc 2's start, and later self-hosting is not ruled out — that would be a production-host decision, not this laptop's) | this row gates only a *local* experiment — the fine-tuning work ADR-081/083 name as Arc 2's trigger, or offline development against the real models. It does **not** gate the cut-over, and it is not why the app is on OpenAI embeddings: ADR-068's "now" is that the key and SDK were already FULL-tier requirements and the BGE data migration had never run | memory / VRAM |
 | Neo4j Graph Data Science (GDS / AuraDS) is deferred | ADR-080 (three-horizon strategy) | **density-gated, not memory-gated** — it waits on graph size and a Digital-layer need, and would run on AuraDS, not on this machine. Listed so nobody moves it here by mistake | not this file's |
 
 Not a bound, but the number that sets the ceiling: the composed session's peak is **~2.8 GiB of
@@ -65,7 +65,7 @@ not change. A battery number never travels; a ceiling never becomes host-derived
 | bounded foreground waits | none — the guard is the harness's, not the machine's, and a killed wait losing its poll is true at any RAM; `--resume` stays the path | whether the guard fires at all on the new box (it reads `MemFree`; a machine that never dips below the threshold never trips it) | the script's invariants (never label without a read verdict; every counted channel printed) |
 | 12 linter workers | a CPU knee — re-measure on a machine with more **cores**, not more RAM | the 8 / 12 / 16 / 24 curve on the full tree | `PARALLEL_MIN_FILES` (a pre-commit-sized selection stays serial) |
 | monitoring + sandbox | at ≥ 32 GB the sandbox Neo4j can stay up beside a test session | the sandbox's real RSS (`docker stats skuel-neo4j`) — its `.env` sizing is for the app's own graph, not for tests | the sandbox stays an opt-in; AuraDB Free stays the daily graph (ADR-080) |
-| local ADR-083 models | a GPU with ≥ 16 GB VRAM makes local BGE-M3 and a 4-bit 7B Qwen runnable for experiments — the **production** path stays hosted per ADR-083, and Arc 2 stays trigger-gated on a concrete reason to chat with Qwen | the models' actual VRAM at the chosen quantisation; the laptop's number is a datasheet estimate | ADR-083 § 3's design rules; `create_embedding_client()` as the one provider chokepoint (ADR-068); `EmbeddingGeometry.DIMENSION` |
+| local ADR-083 models | a GPU with ≥ 16 GB VRAM makes local BGE-M3 and a 4-bit 7B Qwen runnable for experiments — the production serving topology is ADR-083's to choose (hosted initially; self-hosting later is a droplet question, not this one), and Arc 2 stays trigger-gated on a concrete reason to chat with Qwen | the models' actual VRAM at the chosen quantisation; the laptop's number is a datasheet estimate | ADR-083 § 3's design rules; `create_embedding_client()` as the one provider chokepoint (ADR-068); `EmbeddingGeometry.DIMENSION` |
 | GDS | nothing here — density-gated | — | — |
 
 ## The rulings this file carries
@@ -75,15 +75,15 @@ not change. A battery number never travels; a ceiling never becomes host-derived
   host-derived shape, and they cost 3.1 GiB and a reaper race nobody saw.
 - **A larger machine re-measures before it re-tunes.** The `Re-measure first` column is not
   advice; a number carried from this box to the next is the kind of "measured" that isn't.
-- **The corrections to what was assumed when this arc was planned** (the tree wins): the
-  ADR-083 end-state is hosted and is not gated on this machine; ADR-068's "OpenAI now" is not a
+- **The corrections to what was assumed when this arc was planned** (the tree wins): ADR-083
+  serves its models hosted, initially, and nothing in it waits on this machine; ADR-068's "OpenAI now" is not a
   memory decision; the linter's 12-worker knee is CPU, not memory; the tier runs three Neo4j
   containers, not two.
 
 ## Related
 
 - [ADR-080 — AuraDB three-horizon strategy](../decisions/ADR-080-auradb-three-horizon-strategy.md) (GDS deferred, density-gated)
-- [ADR-083 — Qwen + BGE end-state](../decisions/ADR-083-qwen-bge-end-state-commitment.md) (hosted serving; Arc 2 trigger-gated)
+- [ADR-083 — Qwen + BGE end-state](../decisions/ADR-083-qwen-bge-end-state-commitment.md) (hosted initially; Arc 2 trigger-gated)
 - [ADR-068 — OpenAI embeddings now, BGE later](../decisions/ADR-068-openai-embeddings-now-bge-later.md)
 - [BGE embeddings migration](bge-embeddings-migration.md) (Arc 3 — the cut-over runbook, independent of this file's trigger)
 - `TESTING.md` § Parallel Execution (the tiers' shapes and the serial ruling); `docs/development/PR_WORKFLOW.md` step 5 (the bounded foreground wait)
