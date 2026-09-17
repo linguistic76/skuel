@@ -1332,8 +1332,9 @@ their own line: an import of the name `Request` from any module other than
 `adapters.inbound.fasthtml_types`, and an attribute-qualified use — `starlette.requests.Request`,
 `fasthtml.common.Request`, `sr.Request` after `import starlette.requests as sr` — whose base
 is not the door (SKUEL020 accepts the fully-qualified Starlette annotation, so without this
-half a module import would pass both rules). Only the name `Request` — `Response`,
-`JSONResponse` and the FastHTML tags keep their usual sources.
+half a module import would pass both rules); a quoted annotation is parsed and walked the
+same way. The door is resolved through the file's own imports, never by spelling. Only the
+name `Request` — `Response`, `JSONResponse` and the FastHTML tags keep their usual sources.
 
 Fix: `from adapters.inbound.fasthtml_types import Request` (a runtime import — a handler
 annotation is evaluated at registration).
@@ -1357,8 +1358,9 @@ function, so a reader has to check that they agree (AUTH_PATTERNS.md § Pattern 
 mix patterns").
 
 Scope: `adapters/inbound/`. Flags every `require_authenticated_user(...)` call whose
-enclosing function carries a role decorator, at the call line. A handler with no role
-decorator is Pattern 2 and untouched.
+enclosing function carries a role decorator, at the call line. Both names are resolved
+through the file's `from … import … as …` bindings, so an alias neither hides the gate nor
+the call. A handler with no role decorator is Pattern 2 and untouched.
 
 Fix: `user_uid = UserUID(current_user.uid)`; or delete the call when its value was unused.
 
@@ -4403,6 +4405,31 @@ class SkuelLinter:
     REQUEST_DOOR_PACKAGE: ClassVar[str] = "adapters.inbound"
     REQUEST_DOOR_LEAF: ClassVar[str] = "fasthtml_types"
 
+    def _string_annotations(self, tree: ast.Module) -> list[ast.Constant]:
+        """Every quoted annotation in the module: parameters, returns, AnnAssign."""
+        found: list[ast.Constant] = []
+        for func in self._nodes(tree, ast.FunctionDef, ast.AsyncFunctionDef):
+            if not isinstance(func, ast.FunctionDef | ast.AsyncFunctionDef):
+                continue  # already true — narrows the join type
+            a = func.args
+            annotations = [arg.annotation for arg in (*a.posonlyargs, *a.args, *a.kwonlyargs)] + [
+                func.returns
+            ]
+            if a.vararg is not None:
+                annotations.append(a.vararg.annotation)
+            if a.kwarg is not None:
+                annotations.append(a.kwarg.annotation)
+            found.extend(
+                annotation
+                for annotation in annotations
+                if isinstance(annotation, ast.Constant) and isinstance(annotation.value, str)
+            )
+        for assign in self._nodes(tree, ast.AnnAssign):
+            annotation = assign.annotation
+            if isinstance(annotation, ast.Constant) and isinstance(annotation.value, str):
+                found.append(annotation)
+        return found
+
     def _request_door_qualifiers(self, tree: ast.Module) -> set[str]:
         """The local dotted names that resolve to the ``fasthtml_types`` module.
 
@@ -4467,6 +4494,24 @@ class SkuelLinter:
             if base is None or base in door:
                 continue
             found.append((attr.lineno, attr.col_offset, f"reached as `{base}.Request`"))
+        # A string annotation is the same expression behind quotes — SKUEL020
+        # accepts "starlette.requests.Request" as a forward reference, and ruff's
+        # UP037 leaves a DOTTED quoted annotation alone — so it is parsed and
+        # walked like the bare one, reported at the string's line.
+        for constant in self._string_annotations(tree):
+            if not isinstance(constant.value, str):
+                continue  # already true — _string_annotations only yields strings
+            try:
+                inner = ast.parse(constant.value.strip(), mode="eval")
+            except SyntaxError:
+                continue
+            for attr in self._nodes(inner, ast.Attribute):
+                if attr.attr != "Request":
+                    continue
+                base = self._dotted_name(attr.value)
+                if base is None or base in door:
+                    continue
+                found.append((constant.lineno, constant.col_offset, f'reached as "{base}.Request"'))
         for line_num, col, how in found:
             line = lines[line_num - 1] if 0 < line_num <= len(lines) else ""
             if self._is_line_suppressed(line, "SKUEL035"):
@@ -4493,6 +4538,14 @@ class SkuelLinter:
         {"require_role", "require_admin", "require_teacher", "require_member", "require_registered"}
     )
     SESSION_AUTH_CALL: ClassVar[str] = "require_authenticated_user"
+
+    def _from_import_bindings(self, tree: ast.Module) -> dict[str, str]:
+        """``from m import a as b`` → ``{"b": "a"}`` for every from-import in the module."""
+        bound: dict[str, str] = {}
+        for node in self._nodes(tree, ast.ImportFrom):
+            for alias in node.names:
+                bound[alias.asname or alias.name] = alias.name
+        return bound
 
     @staticmethod
     def _decorator_base_name(dec: ast.expr) -> str | None:
@@ -4521,18 +4574,31 @@ class SkuelLinter:
         """
         if self._is_file_suppressed(content, "SKUEL036"):
             return
-        if self.SESSION_AUTH_CALL not in content or tree is None:
+        if tree is None:
+            return
+        # A name is what its import bound it to, not what it is called: a
+        # decorator imported `as gated` is still the gate, and a local name that
+        # an import bound to something else is not.
+        bound = self._from_import_bindings(tree)
+        if not any(
+            bound.get(n, n) == self.SESSION_AUTH_CALL for n in {*bound, self.SESSION_AUTH_CALL}
+        ):
             return
         for func in self._nodes(tree, ast.FunctionDef, ast.AsyncFunctionDef):
             if not isinstance(func, ast.FunctionDef | ast.AsyncFunctionDef):
                 continue  # already true — narrows the join type
-            names = {self._decorator_base_name(d) for d in func.decorator_list}
+            names = {
+                bound.get(name, name)
+                for d in func.decorator_list
+                if (name := self._decorator_base_name(d)) is not None
+            }
             if not names & self.ROLE_GATE_DECORATORS:
                 continue
             for node in ast.walk(func):
                 if not isinstance(node, ast.Call):
                     continue
-                if self._decorator_base_name(node) != self.SESSION_AUTH_CALL:
+                called = self._decorator_base_name(node)
+                if called is None or bound.get(called, called) != self.SESSION_AUTH_CALL:
                     continue
                 line_num = node.lineno
                 line = lines[line_num - 1] if 0 < line_num <= len(lines) else ""

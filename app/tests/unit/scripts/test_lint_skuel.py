@@ -7786,6 +7786,27 @@ class TestSKUEL035:
         )
         assert lint_content(make_linter(["SKUEL035"]), content, file_path=self.ROUTE) == []
 
+    def test_string_annotation_is_the_same_expression_behind_quotes(self) -> None:
+        """SKUEL020 accepts the quoted qualified spelling and UP037 leaves a
+        dotted quoted annotation alone, so the string is parsed and walked."""
+        content = (
+            "import starlette.requests as fasthtml_types\n\n"
+            'def f(request: "fasthtml_types.Request") -> "starlette.requests.Request":\n'
+            "    return request\n"
+        )
+        violations = lint_content(make_linter(["SKUEL035"]), content, file_path=self.ROUTE)
+        assert [(v.rule_id, v.line_number) for v in violations] == [
+            ("SKUEL035", 3),
+            ("SKUEL035", 3),
+        ]
+
+    def test_string_annotation_naming_the_door_is_clean(self) -> None:
+        content = (
+            "from adapters.inbound import fasthtml_types\n\n"
+            'def f(request: "fasthtml_types.Request") -> None:\n    return None\n'
+        )
+        assert lint_content(make_linter(["SKUEL035"]), content, file_path=self.ROUTE) == []
+
     def test_parenthesised_import_reports_and_suppresses_at_the_alias_line(self) -> None:
         content = "from fasthtml.common import (\n    Div,\n    Request,\n    Span,\n)\n"
         violations = lint_content(make_linter(["SKUEL035"]), content, file_path=self.ROUTE)
@@ -7871,6 +7892,29 @@ class TestSKUEL036:
         )
         violations = lint_content(make_linter(["SKUEL036"]), content, file_path=self.ROUTE)
         assert [(v.rule_id, v.line_number) for v in violations] == [("SKUEL036", 5)]
+
+    def test_aliased_names_are_resolved_through_their_imports(self) -> None:
+        """`gated` is still the gate and `authenticate` is still the call."""
+        content = (
+            "from adapters.inbound.auth import require_authenticated_user as authenticate\n"
+            "from adapters.inbound.auth.roles import require_role as gated\n\n"
+            "@gated(UserRole.TEACHER, get_user_service)\n"
+            "async def fragment(request: Request, current_user: Any = None):\n"
+            "    user_uid = authenticate(request)\n"
+            "    return user_uid\n"
+        )
+        violations = lint_content(make_linter(["SKUEL036"]), content, file_path=self.ROUTE)
+        assert [(v.rule_id, v.line_number) for v in violations] == [("SKUEL036", 6)]
+
+    def test_a_local_name_bound_elsewhere_is_not_the_gate(self) -> None:
+        """A name that only looks like the decorator is whatever its import says."""
+        content = (
+            "from somewhere import cached as require_role\n\n"
+            "@require_role\n"
+            "async def fragment(request: Request):\n"
+            "    return require_authenticated_user(request)\n"
+        )
+        assert lint_content(make_linter(["SKUEL036"]), content, file_path=self.ROUTE) == []
 
     def test_the_one_path_is_clean(self) -> None:
         content = (
