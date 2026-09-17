@@ -1,5 +1,5 @@
 ---
-updated: 2026-09-16
+updated: 2026-09-17
 ---
 
 # Deferred Work
@@ -10,8 +10,7 @@ updated: 2026-09-16
 (see its Priority Order table for current status).
 
 **⚠️ Open privacy gap, deliberately unbuilt:** § *Vault Re-Sync Never Retracts a Share* — a vault note's
-`audience:` is write-once-widen until share reconciliation is built. Read it before touching sharing fan-out
-or planning a second user.
+`audience:` is write-once-widen until share reconciliation is built. Read it before touching sharing fan-out or planning a second user.
 
 **How to read this file — it is a MOC (map of content):** one `##` per item. The heading is the
 anchor — `blocked_by` pointers in `scripts/detect_bloat.py` and `§` citations in code resolve
@@ -175,6 +174,10 @@ renders them as a table in Obsidian, and a session derives the same table with
 ## Ingest Transition Obligation Durability
 
 [Ingest Transition Obligation Durability](ingest-transition-obligation-durability.md) — A status transition the ingest doors discover is graph state, not recorded intent, so a failure between the committed status write and the publish loses the cascade permanently — and since D.0 the app door has the same property one step later (a failed `TaskCompleted` subscriber, with no re-click replay); closing it needs an outbox, and the ordering it fights with is the one that has to win.
+
+## Development Machine Capacity
+
+[Development Machine Capacity — what is memory-gated today, and what changes on a bigger machine](development-machine-capacity.md) — Every bound the 15 GB development laptop put in the tree (8 unit workers, the serial composed session, the testcontainer JVM caps, no `./dev quality` beside a test session, bounded foreground waits) with its file:line and its measurement, and per row what a ≥ 32 GB / ≥ 16 GB-VRAM machine changes — after re-measuring, never by copying a number — and what stays a code-side ceiling regardless.
 
 ## Review Schedule
 

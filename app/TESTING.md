@@ -157,14 +157,21 @@ worker or distribution choice in the forwarded flags replaces the default wholes
 The **integration tier is serial, by ruling**, and so is every mode that holds it
 (`./dev test`, `./dev test-integration`, `./dev test-quick`): its session-scoped fixtures
 are three Neo4j testcontainers (two in `conftest.py`, the APOC-lockdown suite's third)
-plus one app boot, and under xdist every worker builds its own set — N workers cost N
-container sets. Each container's JVM is **sized for the test graphs, not for the host**:
+plus one app boot, and under xdist a session fixture is built on every worker whose
+assigned files request it — with `--dist loadfile` the shared container on nearly every
+worker, the app container and its boot only on the worker(s) that receive the three modules
+requesting `skuel_app` (the two Askesis modules and the fixture guard), the lockdown container once — so N workers cost up to N container sets and never
+less than N shared containers. Each container's JVM is **sized for the test graphs, not for the host**:
 `bounded_neo4j_container()` (`tests/integration/_container_lifecycle.py`) pins 128m
 initial / 512m max heap and a 128m page cache, measured at ~2.8 GiB for the three
 together at the tier's peak (the busy shared container ~1.4 GiB, the other two ~0.6–0.9)
 against ~3.1 GiB unsized, with the tier's wall time unchanged. The numbers are a
 code-side ceiling and stay one on a larger machine — a bigger host is not a licence to
-size from it again. `./dev test` is the composed-session guard
+size from it again. On the development laptop, **do not run `./dev quality` beside a test session**: the gate's
+processes peak at ~1.9 GiB (Pyright the larger) for ~80 s, and beside eight unit workers or the
+container set the box swaps. Every memory bound in the test tooling, where it lives, and what a
+larger machine changes is the [development-machine-capacity](docs/roadmap/development-machine-capacity.md)
+case file. `./dev test` is the composed-session guard
 (one session, both tiers — the shape the per-tier CI jobs never run; its CI twin is the
 weekly `composed-test-run.yml`, see [Continuous Integration](#continuous-integration)), and its wall time is the
 integration tier's plus the unit tier's, serial.
