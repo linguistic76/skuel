@@ -266,7 +266,9 @@ status **`Codex Review Gate`**, operating in **two tiers**:
 - Gate is 🔴 **RED** immediately when the PR opens, regardless of whether `@codex review`
   was posted.
 - Clears to 🟢 **GREEN** only when the **`codex-considered`** label is applied.
-- Run `app/scripts/request_codex_review.sh <PR#>` to summon Codex and wait for its verdict.
+- Run `app/scripts/request_codex_review.sh <PR#>` to summon Codex and wait for its verdict —
+  in a bounded foreground call on the development laptop (`… <PR#> 540`), then
+  `… <PR#> 540 --resume` to keep waiting without a second summon (PR_WORKFLOW.md step 5).
 
 **Tier 2 — Docs/tooling only (no `.py` files):**
 - A PR with **no `@codex review` request** → 🟢 **GREEN automatically** (no friction).

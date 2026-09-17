@@ -99,6 +99,16 @@ invariants — keep comments focused on real, high-priority risks.
   review" toggle off). It reviews only on **`@kody start-review`**; when a PR opens it
   posts a "Code Review Skipped" check. When summoned it runs in request-changes mode, so
   a Kody `CHANGES_REQUESTED` holds the merge.
+- **Waiting on Codex from an agent harness:** the wait lives in
+  `app/scripts/request_codex_review.sh` (portable bash, no harness scheduler). On the
+  development laptop the harness's low-memory guard stops *background* commands on
+  transient memory spikes, and a killed wait loses the poll, not the summon — so wait in a
+  bounded **foreground** call under the harness's tool timeout
+  (`app/scripts/request_codex_review.sh <PR#> 540`) and, on exit 3, keep waiting with
+  `app/scripts/request_codex_review.sh <PR#> 540 --resume`: it posts no new
+  `@codex review`, anchors at the first unanswered summon by the authenticated account,
+  and never re-nudges. A plain re-run posts a second summon and anchors at it, so a verdict
+  landing between the two is never read.
 - **Codex Review Gate** (required check, `.github/workflows/codex-gate.yml`) —
   **scoped to on-request**: a PR with no `@codex review` passes automatically; once a
   human posts `@codex review`, the gate is **RED** until the review is considered and

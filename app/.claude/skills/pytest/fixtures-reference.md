@@ -18,7 +18,7 @@ SKUEL fixtures follow the protocol-based architecture: services depend on protoc
 Under pytest-xdist (the unit tier's default, `./dev test-unit`) a session is one
 *worker's* session: a `session` fixture is built once per worker, and a `module`
 fixture stays on one worker because `--dist loadfile` never splits a file. That is why
-the integration tier — whose session fixtures are two containers and an app boot —
+the integration tier — whose session fixtures are three containers and an app boot —
 runs serially.
 
 ## Core SKUEL Fixtures
@@ -29,12 +29,18 @@ Runs `load_dotenv()` and re-exports the embedding mocks (`tests/fixtures/embeddi
 
 ### Integration conftest.py (`/tests/integration/conftest.py`)
 
+Every Neo4j container in the tier — these two and the APOC-lockdown suite's — is built
+by `bounded_neo4j_container()` (`tests/integration/_container_lifecycle.py`): the pinned
+image, auth off, the JVM sized for the test graphs (`NEO4J_TESTCONTAINER_MEMORY` — a
+code-side ceiling, never derived from the host; the numbers and their measurement are in
+TESTING.md § Parallel Execution), and Ryuk's `ACK` read before the container starts, so a
+killed session is still reaped (TESTING.md § Troubleshooting).
+
 ```python
 @pytest.fixture(scope="session")
 def neo4j_container():
     """Start Neo4j container for integration tests."""
-    container = Neo4jContainer(NEO4J_IMAGE)  # tag read from infrastructure/docker-compose.yml
-    container.with_env("NEO4J_dbms_security_auth__enabled", "false")
+    container = bounded_neo4j_container()  # tag from infrastructure/docker-compose.yml, JVM capped
     container.with_env("NEO4J_PLUGINS", '["apoc"]')
     container.start()
     yield container
@@ -58,8 +64,7 @@ async def neo4j_driver(neo4j_uri):
 @pytest.fixture(scope="session")
 def skuel_app_container():
     """The app's own Neo4j — same pinned image, private graph (the boot syncs :User constraints)."""
-    container = Neo4jContainer(NEO4J_IMAGE)
-    container.with_env("NEO4J_dbms_security_auth__enabled", "false")
+    container = bounded_neo4j_container()
     container.start()
     yield container
     container.stop()
