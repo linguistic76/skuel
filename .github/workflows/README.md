@@ -137,21 +137,27 @@ uv run python scripts/skills_validator.py
 
 ## Scheduled workflows (no PR trigger, not status checks)
 
-Three workflows run on a clock instead of on a diff. None feeds the `gate` job, so none can
+Four workflows run on a clock instead of on a diff. None feeds the `gate` job, so none can
 block a merge — all are advisory, and all **file an issue** on failure, because a red scheduled
 run that lands nowhere is indistinguishable from no check at all.
 
 | Workflow | Cadence | What it does | On failure |
 |---|---|---|---|
+| `composed-test-run.yml` | Mondays 05:00 UTC | The CI twin of `./dev test`: `scripts/run_tests.py comprehensive --cov --tb=short -q` — every collected test, both tiers in ONE pytest session (serial, Docker-backed, `INTELLIGENCE_TIER=core`), the shape the per-tier PR jobs never run. The one run that collects coverage: uploads `coverage.xml` + `coverage.json` + `htmlcov/` and the pytest output (30 days) and appends the gap picture (`scripts/coverage_summary.py`, `./dev coverage-summary`) to the step summary. Coverage is an instrument — no threshold, ever | Opens/comments on a marker-keyed issue (`<!-- composed-test-run -->`, "The composed test run is red") carrying pytest's short summary — or stating that the session never ran, when a setup step failed; fails the run on any non-zero pytest exit, exit 5 (nothing collected) included. Also dispatchable from a PR branch |
 | `mypy-suppressions.yml` | Mondays 06:00 UTC | Finds mypy suppressions that suppress nothing (`scripts/health/mypy_suppressions.py`, `./dev health-mypy`) | Opens/comments on a marker-keyed issue; fails the run |
 | `weekly-janitor.yml` | Mondays 06:30 UTC | Runs the `./dev health` checks (roster in `docs/tools/HEALTH_CHECKS.md` — a member list here is a catalog copy that goes stale the moment a check is added) plus the full advisory bloat report (`detect_bloat.py`, no `--check`) with its PLANNED-tier aging summary | Fails the job on health-check findings or an aborted bloat run (bloat *findings* never fail it — the WARNING tier already gates PRs via `--check`), and maintains **one always-open status issue** (same `file-audit-issue` action as the dependency audit). Issues are written only on default-branch runs |
 | `dependency-audit.yml` | Daily 07:00 UTC | Runs the consolidated CVE audit — osv-scanner over `app/uv.lock` + `app/package-lock.json` via `scripts/audit_dependencies.sh` (same script as the required `dep_audit` job) | Fails the job, and maintains **one always-open status issue** whose body is the current state (clean, findings, or could-not-measure — the script's three-state exit contract). Comments only when the reported content **changes**, so an unchanged result is silent. Issues are written only on default-branch runs |
 
-**Why a schedule rather than a PR check.** Both watch for things that change without a diff. An
-advisory is published against a lockfile nobody touched; a suppression goes dead when *source* is
-fixed, with the config untouched. Path-filtered PR jobs cannot see either. `undici` 7.28.0 sat in
-`app/package-lock.json` accruing five high advisories with zero file changes and surfaced only
-because a developer ran `./dev quality` by hand (PR #929).
+**Why a schedule rather than a PR check.** The audits watch for things that change without a
+diff. An advisory is published against a lockfile nobody touched; a suppression goes dead when
+*source* is fixed, with the config untouched. Path-filtered PR jobs cannot see either. `undici`
+7.28.0 sat in `app/package-lock.json` accruing five high advisories with zero file changes and
+surfaced only because a developer ran `./dev quality` by hand (PR #929). The composed test run
+watches for a defect class the PR jobs cannot see either — a failure that exists only when both
+tiers share one process: a test package shadowing `scripts/` once the integration tree joined the
+collection path broke every `skuel_app` test in `./dev test` for three days while `unit_tests` and
+`integration_tests` stayed green (PR #1349). Weekly, because the composed session is serial by
+ruling (it holds the integration tier's containers) and costs both tiers' time plus coverage.
 
 **Why `dependency-audit.yml` is not a required check.** A cron run has no PR to gate — this
 workflow is the diff-independent backstop for advisories published against untouched lockfiles.
@@ -160,7 +166,8 @@ The PR-side gate is `dep_audit` in `ci.yml` (required, same script). The histori
 `app/osv-scanner.toml` accepts findings for both ecosystems with reasons + `ignoreUntil` expiries
 (ADR-067 § 6e).
 
-Run any of them locally: `./dev health-mypy`, `./dev health` + `./dev bloat`, and `./dev audit-deps`.
+Run any of them locally: `./dev test --cov` + `./dev coverage-summary`, `./dev health-mypy`,
+`./dev health` + `./dev bloat`, and `./dev audit-deps`.
 
 ## `codex-review.yml`
 

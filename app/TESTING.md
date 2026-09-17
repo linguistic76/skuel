@@ -22,8 +22,9 @@ related_skills:
 uv run pytest tests/unit/test_tasks_service.py -v
 uv run pytest tests/unit/test_tasks_scheduling_service.py -v
 
-# Coverage is opt-in — the one path; writes coverage.xml + htmlcov/
+# Coverage is opt-in — the one path; writes coverage.xml + coverage.json + htmlcov/
 ./dev test --cov
+./dev coverage-summary   # the gap picture from coverage.json (three tables)
 ```
 
 ## Test Suite Status
@@ -93,9 +94,18 @@ uv run pytest tests/unit/test_tasks_service.py -v -s
 
 Coverage is opt-in: a plain run collects none (pass rate is the quality metric), and
 `--cov` on any of the pytest `./dev test*` arms (`test`, `test-unit`, `test-integration`,
-`test-quick`) is the one path that does — it writes `coverage.xml` and `htmlcov/` and
-prints `term-missing` for `core/`, `adapters/`, `ui/` and `services_bootstrap/`.
+`test-quick`) is the one path that does — it writes `coverage.xml`, `coverage.json` and
+`htmlcov/` and prints `term-missing` for `core/`, `adapters/`, `ui/` and `services_bootstrap/`.
 (`./dev test-js` forwards its flags to vitest, which has no `--cov`.)
+
+`./dev coverage-summary [path]` (`scripts/coverage_summary.py`) renders the gap picture from
+`coverage.json` as three Markdown tables — per-package rates, files with zero coverage, large
+files under 50 % — the same tables the weekly composed CI run appends to its step summary. It
+reads the JSON report rather than the Cobertura XML because, with four `--cov=` trees, coverage
+writes each file into the XML relative to its own tree: `core/auth/__init__.py` and
+`ui/auth/__init__.py` collapse into one entry, and `auth/graph_auth.py` names no tree. Coverage
+numbers carry no threshold anywhere — pass rate is the quality metric; the tables say where
+the next test is worth writing.
 
 ```bash
 # Both tiers with coverage
@@ -107,6 +117,9 @@ prints `term-missing` for `core/`, `adapters/`, `ui/` and `services_bootstrap/`.
 
 # Open HTML coverage report
 xdg-open htmlcov/index.html
+
+# The three gap tables (per package / zero coverage / large under 50 %)
+./dev coverage-summary
 ```
 
 ### Filtering Tests
@@ -145,7 +158,8 @@ The **integration tier is serial, by ruling**, and so is every mode that holds i
 (`./dev test`, `./dev test-integration`, `./dev test-quick`): its session-scoped fixtures
 are two Neo4j testcontainers plus one app boot, and under xdist every worker builds its
 own set — N workers cost N container sets. `./dev test` is the composed-session guard
-(one session, both tiers — the shape CI never runs), and its wall time is the
+(one session, both tiers — the shape the per-tier CI jobs never run; its CI twin is the
+weekly `composed-test-run.yml`, see [Continuous Integration](#continuous-integration)), and its wall time is the
 integration tier's plus the unit tier's, serial.
 
 **A test that only passes serially has a hidden dependency** — a fixed path, a fixed
@@ -241,8 +255,19 @@ Every CI job carries a `timeout-minutes` budget (≈3× its measured duration; t
 tiers 20 and 25 min), so a hung job frees its runner in minutes. Inside a job, a hung
 *test* is caught earlier by pytest-timeout's 120 s per-test ceiling.
 
-Every collected test runs in one of those two jobs. `tests/benchmarks/` holds an
-uncollected script (`./dev test` ignores the directory by name to guard that intent).
+Every collected test runs in one of those two jobs — as separate processes. The
+composed session (`./dev test`, both tiers in one process) has a CI twin of its own:
+`.github/workflows/composed-test-run.yml` runs `scripts/run_tests.py comprehensive --cov
+--tb=short -q` weekly (Mondays 05:00 UTC) and on `workflow_dispatch`, serial, at
+`INTELLIGENCE_TIER=core`. A defect in the *composition* — a test package shadowing a
+top-level one once both trees share a collection path, a session fixture one tier leaves
+behind for the other — is what that run catches and the per-tier jobs cannot. It is the
+one run that collects coverage: `coverage.xml` + `coverage.json` + `htmlcov/` and the
+pytest output are uploaded as artifacts (30 days), the gap picture from
+`./dev coverage-summary` is appended to the step summary, and a red run opens or comments
+on one marker-keyed issue ("The composed test run is red"). Advisory — it feeds no gate,
+and no coverage number is a failure condition. `tests/benchmarks/` holds an uncollected
+script (`./dev test` ignores the directory by name to guard that intent).
 
 ### Pre-Commit Hooks
 

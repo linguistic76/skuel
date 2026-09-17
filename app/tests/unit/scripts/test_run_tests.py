@@ -20,12 +20,19 @@ The unit tier's parallel default is the fourth invariant and obeys the third:
 forwarded args already carry a worker or distribution choice — a membership test on the args, not a
 declared ``-n`` — so ``./dev test-unit -n 1`` overrides it and the other three
 modes (each holds the integration tier and its session containers) never gain it.
+
+The weekly CI twin of the composed run (``.github/workflows/composed-test-run.yml``)
+is pinned to that ruling at the end: the composed mode, coverage on, no worker
+choice, and the integration tier's environment read from ci.yml rather than restated.
 """
 
+import re
+import shlex
 import sys
 from pathlib import Path
 
 import pytest
+import yaml
 
 # scripts/ has no __init__.py — add it to sys.path for import
 sys.path.insert(0, str(Path(__file__).resolve().parents[3] / "scripts"))
@@ -82,7 +89,7 @@ def test_runner_options_are_taken_out_and_the_rest_stays_in_order() -> None:
 
 
 def test_coverage_args_are_the_whole_coverage_configuration() -> None:
-    """One path: the four source trees and the three reports a coverage run writes."""
+    """One path: the four source trees and the four reports a coverage run writes."""
     assert {a for a in COVERAGE_ARGS if a.startswith("--cov=")} == {
         "--cov=core",
         "--cov=adapters",
@@ -92,6 +99,7 @@ def test_coverage_args_are_the_whole_coverage_configuration() -> None:
     assert {a for a in COVERAGE_ARGS if a.startswith("--cov-report=")} == {
         "--cov-report=term-missing",
         "--cov-report=xml",
+        "--cov-report=json",
         "--cov-report=html:htmlcov",
     }
 
@@ -192,3 +200,49 @@ def test_the_modes_holding_the_integration_tier_stay_serial(mode_method_name: st
     cmd = _captured_command(mode_method_name, ["-q"])
     assert not carries_worker_choice(cmd)
     assert cmd[-1] == "-q"
+
+
+# --- The weekly CI twin runs the composed mode the way ./dev test does --------------
+
+WORKFLOWS_DIR = Path(__file__).resolve().parents[4] / ".github" / "workflows"
+
+
+def _workflow_job(name: str, job: str) -> dict[str, object]:
+    document = yaml.safe_load((WORKFLOWS_DIR / name).read_text(encoding="utf-8"))
+    return document["jobs"][job]
+
+
+def _runner_invocation(job: dict[str, object]) -> list[str]:
+    """The argv the workflow hands ``run_tests.py`` — text after the script, before any redirect."""
+    steps = job["steps"]
+    assert isinstance(steps, list)
+    for step in steps:
+        run = step.get("run") or ""
+        match = re.search(r"scripts/run_tests\.py ([^>|]*)", run)
+        if match:
+            return shlex.split(match.group(1))
+    raise AssertionError("no step invokes scripts/run_tests.py")
+
+
+def test_the_composed_workflow_runs_comprehensive_with_coverage_and_no_workers() -> None:
+    """``composed-test-run.yml`` is ``./dev test --cov`` on a runner: the composed
+    mode, coverage on, and no ``-n`` — serial by ruling, since the session holds
+    the integration tier's containers. A worker choice added there is this test
+    naming the ruling, not a speed-up."""
+    invocation = parse_invocation(
+        _runner_invocation(_workflow_job("composed-test-run.yml", "composed"))
+    )
+    assert invocation.mode == "comprehensive"
+    assert invocation.cov is True
+    assert not carries_worker_choice(invocation.pytest_args), invocation.pytest_args
+
+
+def test_the_composed_workflow_boots_the_app_the_way_the_integration_tier_does() -> None:
+    """The tier and credential-backend env are ci.yml's ``integration_tests`` values,
+    read from that job rather than restated: the ``skuel_app`` fixture in the composed
+    session is the same fixture, and the shape it needs is decided in one place."""
+    integration_env = _workflow_job("ci.yml", "integration_tests")["env"]
+    composed_env = _workflow_job("composed-test-run.yml", "composed")["env"]
+    assert isinstance(integration_env, dict) and isinstance(composed_env, dict)
+    for key in ("INTELLIGENCE_TIER", "SKUEL_CREDENTIAL_BACKEND", "UV_FROZEN"):
+        assert composed_env.get(key) == integration_env[key], key

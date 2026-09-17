@@ -1,0 +1,419 @@
+name: Composed Test Run
+
+# The CI twin of `./dev test`: every collected test — the unit tier and the
+# integration tier — in ONE pytest session, with coverage, on a clock.
+#
+# WHY THE COMPOSED SESSION NEEDS ITS OWN RUN
+#
+# ci.yml runs the two tiers as SEPARATE processes (`unit_tests` and
+# `integration_tests`), and every test passes in one of them. The recommended
+# local command composes them: `./dev test` is `scripts/run_tests.py
+# comprehensive`, one session over tests/ that collects both tiers together.
+# A defect in the COMPOSITION is invisible to the per-tier jobs — a test
+# package whose name shadows a top-level package once the integration tree is
+# on the collection path, a session fixture one tier leaves behind for the
+# other, an import-order dependency between two modules that never share a
+# process in CI. Each of those passes both PR jobs and fails `./dev test`.
+# This workflow is the one automated run of the composed shape.
+#
+# WHY WEEKLY, NOT PER PR
+#
+# The composed session is serial by ruling: it holds the integration tier,
+# whose session fixtures are two Neo4j testcontainers plus one app boot, and
+# under pytest-xdist every worker would build its own set. So it costs the
+# unit tier's serial time plus the integration tier's plus coverage — more
+# than either PR job, for a class of defect that accrues slowly. Weekly is the
+# right cadence; `workflow_dispatch` is there for a PR that changes the
+# composition (a conftest, the runner, the tiers' layout). It stays OUT of
+# ci.yml deliberately: that workflow's jobs feed the `gate` job branch
+# protection requires, and this run is advisory.
+#
+# COVERAGE IS AN INSTRUMENT, NEVER A GATE
+#
+# This is the one run that collects coverage (`run_tests.py --cov` — the PR
+# tiers collect none), and what it does with the numbers is RENDER them: the
+# reports are uploaded as an artifact, and scripts/coverage_summary.py appends
+# the gap picture (per-package rates, zero-coverage files, large files under
+# 50 %) to the step summary, one click from the run. There is no threshold,
+# no `--cov-fail-under`, and no failure condition on any coverage number,
+# ever. Pass rate is the quality metric; coverage says where the next test
+# is worth writing.
+#
+# WHY A RED RUN OPENS AN ISSUE
+#
+# Same reason mypy-suppressions.yml does: a red scheduled run that lands
+# nowhere is indistinguishable from no check at all. A failing composed run
+# opens (or comments on) one marker-keyed issue carrying pytest's short
+# summary and the run link — and so does a run whose session never started
+# (a failed checkout, toolchain setup, cache restore or `uv sync`), never
+# finished (killed at the session step's own budget), or passed while an
+# artifact upload failed: the issue step runs whatever the steps before it
+# did, keyed on the session step's outcome and the uploads', and the body
+# says which case it is. The issue step is not gated on the default branch,
+# so a branch dispatch that fails opens it too — that is what lets a PR
+# verify the failure paths before it merges. The marker de-duplicates: an
+# open issue gets a comment, not a sibling.
+
+on:
+  schedule:
+    # Mondays 05:00 UTC — offset from mypy-suppressions.yml (Mondays 06:00),
+    # weekly-janitor.yml (Mondays 06:30) and dependency-audit.yml (daily 07:00).
+    - cron: '0 5 * * 1'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  issues: write
+
+# The marker-issue step is read-then-write, so two overlapping runs (a manual
+# dispatch racing the cron, or two dispatches) could both miss the open issue
+# and file two. Serialize; never cancel mid-run — a cancelled session is a
+# silently skipped one.
+concurrency:
+  group: composed-test-run
+  cancel-in-progress: false
+
+jobs:
+  composed:
+    name: Composed session (unit + integration, with coverage)
+    runs-on: ubuntu-latest
+    # The session step below carries its own budget (30 min, ≈3× its measured
+    # ~10 min); this is that budget plus the setup ahead of it and the
+    # reporting behind it. A JOB budget cancels every remaining step, so it
+    # must never be the one that fires on a hung session — the issue and the
+    # artifacts are steps too. A job that outgrows its budget is re-measured,
+    # not re-tried.
+    timeout-minutes: 35
+    # UV_FROZEN pins every uv command to the committed lock — the session runs
+    # via `uv run`, and run_tests.py spawns `uv run pytest` underneath, which
+    # inherits the env (see ci.yml's mypy job for the full note). Safe here:
+    # nothing in this job passes an explicit --locked.
+    #
+    # INTELLIGENCE_TIER / SKUEL_CREDENTIAL_BACKEND are the integration tier's
+    # shape, copied from ci.yml's integration_tests: the `skuel_app` fixture
+    # bootstraps the whole app against a testcontainer, and CORE is the tier
+    # that boots with a graph and nothing else (no AI credential is read; the
+    # live Askesis modules skip on their own gate). The env credential backend
+    # is the headless shape — no keychain daemon on a runner; the fixture's
+    # NEO4J_PASSWORD arrives through the environment.
+    env:
+      UV_FROZEN: "1"
+      INTELLIGENCE_TIER: core
+      SKUEL_CREDENTIAL_BACKEND: env
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v7
+
+      - name: Set up Python
+        uses: actions/setup-python@v7
+        with:
+          python-version: '3.14'
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v10.0.1
+
+      - name: Load cached venv
+        id: cached-uv-dependencies
+        uses: actions/cache@v6
+        with:
+          path: app/.venv
+          key: venv-${{ runner.os }}-py3.14-${{ hashFiles('app/uv.lock') }}
+
+      - name: Install dependencies
+        if: steps.cached-uv-dependencies.outputs.cache-hit != 'true'
+        working-directory: app
+        run: uv sync --frozen --no-install-project
+
+      # The exact composed command, invoked directly rather than as `./dev test`
+      # (the uv.lock pinning guard classifies `./dev` verbs it meets in a
+      # workflow and refuses an unclassified one). No `-n`: serial by ruling
+      # (see the header). pytest's exit code is the finding signal and is
+      # captured rather than allowed to fail the step, so the issue and the
+      # artifacts below still run; the LAST step fails the job on it. Every
+      # non-zero code stays red — including 5, "no tests collected", which a
+      # broken collection path would produce and which must never read green.
+      # The step budget, not the job budget, is what catches a hung session:
+      # ≈3× the measured ~10 min (13k tests, serial, with coverage), per
+      # ci.yml's header policy. pytest-timeout's 120 s per-test ceiling
+      # (pyproject.toml) fails a hung TEST long before this does; this is for
+      # what pytest-timeout cannot charge — a container start that never
+      # returns, a stalled runner. A step that times out FAILS (outcome
+      # `failure`, no exit code written), the issue step below still runs and
+      # says the session was killed at its budget, and the rest of the job
+      # stays alive to report it.
+      - name: Run the composed test session
+        id: tests
+        timeout-minutes: 30
+        working-directory: app
+        run: |
+          # Actions runs this under `bash -e`, so capture with `|| rc=$?` rather
+          # than a `| tee` pipeline: piping would make the step's status tee's,
+          # and reading the real code back out depends on PIPESTATUS surviving
+          # the -e semantics. Redirect-then-cat has neither subtlety.
+          rc=0
+          uv run python scripts/run_tests.py comprehensive --cov --tb=short -q > pytest-output.txt 2>&1 || rc=$?
+          cat pytest-output.txt
+          echo "exit_code=$rc" >> "$GITHUB_OUTPUT"
+          echo "pytest exited $rc"
+
+      # The excerpt the issue carries — its own `always()` step, so a session
+      # killed at its budget gets one too. A finished session: pytest's short
+      # test summary (the `-r` section — FAILED / ERROR lines) through the
+      # final status line. A session without one (killed, interrupted, a
+      # collection error): the tail of its output by BYTES, not lines — one
+      # runaway line would otherwise carry the whole file into the issue body.
+      # ANSI stripped, then capped at 20000 characters, well under the
+      # 65536-character issue-body limit (the tail is taken wider than the cap
+      # so the truncation note fires when there was more); two steps each, not
+      # a pipeline (`sed | head -c` is a SIGPIPE trap under pipefail).
+      - name: Excerpt the session output
+        if: always()
+        working-directory: app
+        run: |
+          if [ ! -f pytest-output.txt ]; then
+            echo "The session produced no output — see the run log." > pytest-excerpt.txt
+            exit 0
+          fi
+          if grep -q 'short test summary info' pytest-output.txt; then
+            sed -n '/short test summary info/,$p' pytest-output.txt > excerpt-raw.txt
+          else
+            tail -c 30000 pytest-output.txt > excerpt-raw.txt
+          fi
+          sed 's/\x1b\[[0-9;]*m//g' excerpt-raw.txt > excerpt-stripped.txt
+          head -c 20000 excerpt-stripped.txt > pytest-excerpt.txt
+          if [ "$(wc -c < excerpt-stripped.txt)" -gt 20000 ]; then
+            echo "" >> pytest-excerpt.txt
+            echo "_Truncated at 20000 characters — the full output is in the pytest-output artifact on this run._" >> pytest-excerpt.txt
+          fi
+
+      # The gap picture, one click from the run. Captured, never a step
+      # failure of its own: a summary that could not render is reported by the
+      # issue step and the last step, not by aborting the job before they run.
+      # `always()`: a session that died before its report (killed at its
+      # budget, a crash) leaves no coverage.json, and the step summary then
+      # says so instead of staying blank.
+      - name: Render the coverage summary
+        id: summary
+        if: always()
+        working-directory: app
+        run: |
+          rc=0
+          if [ -f coverage.json ]; then
+            uv run python scripts/coverage_summary.py coverage.json > coverage-summary.md 2> coverage-summary.err || rc=$?
+          else
+            echo "_No coverage.json — the session did not reach its coverage report._" > coverage-summary.md
+            touch coverage-summary.err
+          fi
+          cat coverage-summary.err
+          if [ "$rc" -eq 0 ]; then
+            cat coverage-summary.md >> "$GITHUB_STEP_SUMMARY"
+          else
+            {
+              echo "## Coverage summary could not be rendered (exit $rc)"
+              echo ""
+              echo '```'
+              cat coverage-summary.err
+              echo '```'
+            } >> "$GITHUB_STEP_SUMMARY"
+          fi
+          echo "exit_code=$rc" >> "$GITHUB_OUTPUT"
+          echo "coverage summary exited $rc"
+
+      # The artifacts go up BEFORE the issue is filed, so the issue step can
+      # report an upload that failed: an artifact-service error after a green
+      # session would otherwise turn the run red with nothing filed. Both
+      # `always()` — a red session still leaves its output worth keeping.
+      - name: Upload the coverage reports
+        id: upload_coverage
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: coverage-report
+          path: |
+            app/coverage.xml
+            app/coverage.json
+            app/htmlcov/
+          retention-days: 30
+
+      - name: Upload the pytest output
+        id: upload_output
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: pytest-output
+          path: |
+            app/pytest-output.txt
+            app/pytest-excerpt.txt
+            app/coverage-summary.md
+          retention-days: 30
+
+      # `always()`: steps carry an implicit success() check, so a setup step
+      # that fails (checkout, Python/uv, the venv cache, `uv sync`), a session
+      # killed at its step budget, or a failed upload ahead of this step would
+      # otherwise skip it — and a red week would land only in the Actions log.
+      # The issue is the promise. The session step's OUTCOME tells the cases
+      # apart — `skipped` (a setup step failed), `failure` (killed at its
+      # budget: the captured exit code is the only other way it ends, and that
+      # never fails the step), `success` (the session ran; the exit codes
+      # decide) — and the body says which, claiming nothing about tests that
+      # never ran. A failed upload after a green session is its own case.
+      - name: Open an issue when the run is red
+        if: >-
+          always() && (steps.tests.outcome != 'success'
+          || steps.tests.outputs.exit_code != '0' || steps.summary.outputs.exit_code != '0'
+          || steps.upload_coverage.outcome == 'failure' || steps.upload_output.outcome == 'failure')
+        uses: actions/github-script@v9
+        env:
+          TESTS_OUTCOME: ${{ steps.tests.outcome }}
+          TESTS_EXIT_CODE: ${{ steps.tests.outputs.exit_code }}
+          SUMMARY_EXIT_CODE: ${{ steps.summary.outputs.exit_code }}
+          UPLOAD_COVERAGE_OUTCOME: ${{ steps.upload_coverage.outcome }}
+          UPLOAD_OUTPUT_OUTCOME: ${{ steps.upload_output.outcome }}
+        with:
+          script: |
+            const fs = require('fs');
+            const read = (path, fallback) => {
+              try {
+                return fs.readFileSync(path, 'utf8');
+              } catch (e) {
+                return fallback;
+              }
+            };
+            // Bounded by the excerpt step (20000 characters) — the issue body
+            // never carries the raw output.
+            const excerpt = read('app/pytest-excerpt.txt', 'The session produced no output — see the run log.');
+            const summaryErr = read('app/coverage-summary.err', '');
+
+            const title = 'The composed test run is red';
+            const marker = '<!-- composed-test-run -->';
+            const runUrl = `${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`;
+            const outcome = process.env.TESTS_OUTCOME;
+            const testsRc = process.env.TESTS_EXIT_CODE;
+            const summaryRc = process.env.SUMMARY_EXIT_CODE;
+            const uploads = {
+              'coverage-report': process.env.UPLOAD_COVERAGE_OUTCOME,
+              'pytest-output': process.env.UPLOAD_OUTPUT_OUTCOME,
+            };
+            const failedUploads = Object.entries(uploads).filter(([, o]) => o === 'failure').map(([n]) => n);
+
+            const parts = [
+              marker,
+              'The weekly [composed test run](' + runUrl + ') — `./dev test`, both tiers in one',
+              'pytest session — is red.',
+              '',
+            ];
+            if (outcome === 'skipped') {
+              // A step before the session failed (checkout, Python/uv setup,
+              // the venv cache, `uv sync`). Nothing is known about the tests,
+              // and the body must not imply otherwise.
+              parts.push(
+                '**The session never ran** — a setup step failed before it (see the run log).',
+                'No claim is made about the tests; a re-run usually clears a transient runner or',
+                'package-service failure.',
+              );
+            } else if (outcome !== 'success') {
+              // The session step ended without writing its exit code: killed at
+              // its step budget (`timeout-minutes` on the step), or cancelled.
+              parts.push(
+                '**The session did not finish** (step outcome: `' + outcome + '`) — it was killed at',
+                'its step budget or cancelled before it could report. pytest-timeout charges test',
+                'bodies only, so the usual cause is a container start or an app boot that never',
+                'returned. The output it produced ends with:',
+                '',
+                '```',
+                excerpt.trim() || '(no output)',
+                '```',
+              );
+            } else if (testsRc === '0' && summaryRc === '0') {
+              // A green session; only an upload failed. The run is red for
+              // that alone, and the artifacts are the thing missing.
+              parts.push(
+                '**The session passed** (`' + testsRc + '`) and the summary rendered, but an artifact',
+                'upload failed: `' + failedUploads.join('`, `') + '`. Usually the artifact service —',
+                're-run the workflow to get the artifacts; the step summary on the run still has the',
+                'coverage tables.',
+              );
+            } else {
+              parts.push(
+                'The per-tier PR jobs may still be green: a failure that appears only here is a',
+                'defect in the COMPOSITION (a shadowing test package, a fixture one tier leaves',
+                'behind, an import-order dependency). Reproduce with `./dev test`.',
+                '',
+                '- pytest exit code: `' + testsRc + '`' + (testsRc === '5' ? ' (no tests collected)' : ''),
+                '- coverage summary exit code: `' + summaryRc + '`',
+                '',
+                '```',
+                excerpt.trim(),
+                '```',
+              );
+              if (summaryRc !== '0') {
+                parts.push('', 'The coverage summary could not be rendered:', '', '```', summaryErr.trim(), '```');
+              }
+            }
+            if (failedUploads.length && !(testsRc === '0' && summaryRc === '0')) {
+              parts.push('', 'Artifact upload(s) that failed on this run: `' + failedUploads.join('`, `') + '`.');
+            }
+            const issueBody = parts.join('\n');
+
+            // Every open issue, not the first page: past 100 open issues and
+            // PRs the marker issue can sit on page two, and a lookup that never
+            // reaches it files a duplicate every week.
+            const open = await github.paginate(github.rest.issues.listForRepo, {
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              state: 'open',
+              per_page: 100,
+            });
+            // The marker is PUBLIC — it is in every issue this step files — and
+            // listForRepo returns pull requests too. Only an ISSUE authored by
+            // this workflow's own identity is the tracking issue; a PR or an
+            // issue anyone else opened with the marker in its body must not
+            // become the thread every later report is redirected into.
+            const BOT = 'github-actions[bot]';
+            const prior = open.find(i =>
+              i && i.body && !i.pull_request &&
+              i.user && i.user.login === BOT &&
+              i.body.includes(marker));
+
+            if (prior) {
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: prior.number,
+                body: 'Still failing as of the latest run.\n\n' + issueBody,
+              });
+            } else {
+              await github.rest.issues.create({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                title,
+                body: issueBody,
+              });
+            }
+
+      # Fail the job LAST, for any non-zero pytest exit and for a summary that
+      # could not render — the run reads red after the issue and the artifacts
+      # are in place. (A failed upload or a session killed at its budget has
+      # already failed its own step; the job is red without this one.) env, not
+      # interpolation: a `${{ }}` expression is pasted in BEFORE bash parses, so
+      # any backtick or $( ) in a value would execute as code. Both values are
+      # numeric today; the rule is the mechanism.
+      - name: Fail the job on a red session
+        if: steps.tests.outputs.exit_code != '0' || steps.summary.outputs.exit_code != '0'
+        env:
+          TESTS_EXIT_CODE: ${{ steps.tests.outputs.exit_code }}
+          SUMMARY_EXIT_CODE: ${{ steps.summary.outputs.exit_code }}
+        run: |
+          case "$TESTS_EXIT_CODE" in
+            0) ;;
+            1) echo "::error::Tests failed in the composed session — see the issue and the pytest-output artifact." ;;
+            2) echo "::error::The composed session was interrupted (pytest exit 2)." ;;
+            3) echo "::error::pytest hit an internal error (exit 3)." ;;
+            4) echo "::error::pytest usage error (exit 4) — the runner's command line is wrong." ;;
+            5) echo "::error::No tests were collected (pytest exit 5) — the collection path is broken; this is not a green week." ;;
+            *) echo "::error::The composed session did not run to completion (exit '$TESTS_EXIT_CODE')." ;;
+          esac
+          if [ "$SUMMARY_EXIT_CODE" != '0' ]; then
+            echo "::error::The coverage summary could not be rendered (exit '$SUMMARY_EXIT_CODE') — see the step summary."
+          fi
+          exit 1

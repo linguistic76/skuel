@@ -131,7 +131,7 @@ Run formatting and linting before committing:
 # Run specific test file
 uv run pytest tests/unit/test_something.py
 
-# Coverage is opt-in (writes coverage.xml + htmlcov/)
+# Coverage is opt-in (writes coverage.xml + coverage.json + htmlcov/)
 ./dev test --cov
 ```
 

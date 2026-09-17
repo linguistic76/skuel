@@ -13,8 +13,8 @@ Modes (the FIRST argument when given; omitted = comprehensive):
 
 Runner options (the only ones parsed here):
     --cov             - Collect coverage — THE one coverage path (opt-in; writes
-                        coverage.xml + htmlcov/ and prints term-missing). A plain
-                        run collects none.
+                        coverage.xml + coverage.json + htmlcov/ and prints
+                        term-missing). A plain run collects none.
     --markers         - Show the declared pytest markers and exit
 
 Every other argument is pytest's and is forwarded verbatim, in order — ``-k EXPR``,
@@ -38,8 +38,10 @@ laptop its swap. A 4-vCPU runner never reaches the cap. The other three modes
 run serially, by ruling: each holds the integration tier, whose session-scoped
 fixtures are two Neo4j testcontainers and one app boot, and under xdist every
 worker builds its own set — N workers cost N container sets. ``comprehensive``
-is the composed-session guard (one session, both tiers, the shape CI never
-runs); its wall time is the integration tier's plus the unit tier's, serial.
+is the composed-session guard (one session, both tiers — the shape the per-tier
+CI jobs never run; ``.github/workflows/composed-test-run.yml`` runs it weekly,
+with ``--cov``); its wall time is the integration tier's plus the unit tier's,
+serial.
 """
 
 import argparse
@@ -50,7 +52,10 @@ from pathlib import Path
 
 # Coverage is opt-in: pyproject's addopts collects none, so these flags are the
 # whole coverage configuration a run receives. Report shapes (omit list, html
-# directory, xml path) live in pyproject's [tool.coverage.*] tables.
+# directory, xml and json paths) live in pyproject's [tool.coverage.*] tables.
+# Four reports, four readers: term-missing for the console, html for a browser,
+# xml (Cobertura) for tools that read it, json for scripts/coverage_summary.py —
+# the one lossless form under four `--cov=` trees (see that script's docstring).
 COVERAGE_ARGS: tuple[str, ...] = (
     "--cov=core",
     "--cov=adapters",
@@ -58,6 +63,7 @@ COVERAGE_ARGS: tuple[str, ...] = (
     "--cov=services_bootstrap",
     "--cov-report=term-missing",
     "--cov-report=xml",
+    "--cov-report=json",
     "--cov-report=html:htmlcov",
 )
 
@@ -243,7 +249,7 @@ def parse_invocation(argv: list[str]) -> Invocation:
     parser.add_argument(
         "--cov",
         action="store_true",
-        help="Collect coverage (opt-in; writes coverage.xml + htmlcov/)",
+        help="Collect coverage (opt-in; writes coverage.xml + coverage.json + htmlcov/)",
     )
     parser.add_argument("--markers", action="store_true", help="Show the declared markers")
     args, pytest_args = parser.parse_known_args(rest)

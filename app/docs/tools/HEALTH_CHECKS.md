@@ -1,6 +1,6 @@
 ---
 title: Codebase Health Checks
-updated: 2026-09-10
+updated: 2026-09-16
 status: current
 category: tools
 tags: [health, scripts, dead-code, documentation, maintenance, drift]
@@ -44,7 +44,13 @@ and all of them now ARE: everything in `./dev health` runs weekly via
 full bloat report), which maintains an always-open status issue and fails
 its run on findings; `health-mypy` has its own weekly workflow
 (`mypy-suppressions.yml`, Mondays 06:00 UTC). Both are advisory — neither
-feeds the CI gate.
+feeds the CI gate. The third Monday instrument beside them is not a health
+check: `composed-test-run.yml` (05:00 UTC) runs the composed test session —
+`./dev test --cov`, both tiers in one process, the shape the PR jobs never
+run — and appends the coverage gap picture (`./dev coverage-summary`) to its
+step summary; a red run opens a marker-keyed issue. Same advisory standing,
+same reason for the clock; described in `TESTING.md` § Continuous Integration
+and `.github/workflows/README.md` § Scheduled workflows.
 
 > The per-check sections below are the inventory. This overview deliberately carries no
 > count: the command block above is a *pinned* copy of the roster, and
@@ -727,7 +733,7 @@ Once a rename has been fully applied to ALL code and docs and the scanner report
 | Monthly maintenance | Catch slow drift |
 | Before cutting a release | Ensure docs are accurate |
 
-The `./dev health` scripts are fast enough to run on every commit if desired (a few seconds each); since 2026-08 they run weekly regardless via `.github/workflows/weekly-janitor.yml`, so drift no longer waits for someone to remember. `mypy_suppressions.py` runs a full type check per suppression, so it has its own weekly CI schedule (`.github/workflows/mypy-suppressions.yml`) and is worth running locally when editing `[tool.mypy]` config.
+The `./dev health` scripts are fast enough to run on every commit if desired (a few seconds each); since 2026-08 they run weekly regardless via `.github/workflows/weekly-janitor.yml`, so drift no longer waits for someone to remember. `mypy_suppressions.py` runs a full type check per suppression, so it has its own weekly CI schedule (`.github/workflows/mypy-suppressions.yml`) and is worth running locally when editing `[tool.mypy]` config. The composed test run (`.github/workflows/composed-test-run.yml`, Mondays 05:00 UTC) keeps the same clock for the test suite itself — a session, not a scan, so its description lives in `TESTING.md`.
 
 ---
 
