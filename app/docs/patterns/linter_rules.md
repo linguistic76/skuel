@@ -1,6 +1,6 @@
 ---
 title: Code Quality Enforcement - Linter Rules
-updated: 2026-09-15
+updated: 2026-09-17
 category: patterns
 related_skills:
 - python
@@ -89,6 +89,8 @@ warnings without failing, which is the on-ramp for prototyping a new rule.
 | **SKUEL031** | Stale pip references (`pip/pip3 install\|uninstall\|freeze`, `python -m pip`, incl. `uv pip install`) | SKUEL is lockfile-managed by uv — `uv add` / `uv sync` / `uv remove` / `uv export`; the `pip-audit` tool name is not caught |
 | **SKUEL033** | A docstring in `core/services/`, `core/orchestrator/`, `core/ports/`, `core/models/` that *opens* with a Cypher clause, or *hosts* a query (≥2 clause-leading lines) | State intent and the guarantee; mechanism belongs in the backend docstring (AST rule, shares SKUEL021's head anchor; `core/utils/` excluded by the same table it enforces) |
 | **SKUEL034** | A string-literal membership test against a *singular* uid (`"tech" in knowledge_uid.lower()`) | Read the field that carries the fact — `entity_type`, the Neo4j label, `sel_category`, or the edge (AST rule, ADR-013 never-sniff; collections, `startswith`, and `split` are out of scope) |
+| **SKUEL035** | `Request` imported into `adapters/inbound/` from anywhere but `adapters.inbound.fasthtml_types` (`fasthtml.common`, `fasthtml.core`, `starlette.requests`) | `from adapters.inbound.fasthtml_types import Request` — the one boundary re-export (AST rule; the re-export module itself is exempt) |
+| **SKUEL036** | `require_authenticated_user(...)` called inside a handler that carries `@require_admin` / `@require_teacher` / `@require_member` / `@require_role` | Read the caller the decorator injected — `UserUID(current_user.uid)` — or delete the call (AST rule, AUTH_PATTERNS § Pattern 3 "do not mix"; ungated handlers are Pattern 2 and untouched) |
 
 ## Inline Suppression
 
@@ -102,7 +104,7 @@ route_count = len(app.routes) if hasattr(app, "routes") else 0  # skuel-lint: di
 # skuel-lint: disable-file=SKUEL005 -- Cache service, raw values not Result[T]
 ```
 
-**Supported rules:** SKUEL005, SKUEL011, SKUEL012, SKUEL013, SKUEL014, SKUEL015, SKUEL016, SKUEL017, SKUEL018, SKUEL019, SKUEL020, SKUEL021, SKUEL022, SKUEL023, SKUEL024, SKUEL025, SKUEL027, SKUEL028, SKUEL029, SKUEL030, SKUEL031, SKUEL032, SKUEL033, SKUEL034 — the `SUPPRESSIBLE_RULES` set in `lint_skuel.py`. Two pins, two subjects: `TestSuppressibleRulesDrift` pins that *set* to the checkers' suppression-helper call sites, and `tests/unit/docs/test_suppressible_rules_docs.py` pins every "Supported rules:" list in the docs to the set — a member added to one and not the other fails the build (SKUEL033 was once missing here for a month with the set-side pin green). Write the list explicitly, in ascending order; range notation is refused. A comment naming any other rule does nothing and is flagged by SKUEL026.
+**Supported rules:** SKUEL005, SKUEL011, SKUEL012, SKUEL013, SKUEL014, SKUEL015, SKUEL016, SKUEL017, SKUEL018, SKUEL019, SKUEL020, SKUEL021, SKUEL022, SKUEL023, SKUEL024, SKUEL025, SKUEL027, SKUEL028, SKUEL029, SKUEL030, SKUEL031, SKUEL032, SKUEL033, SKUEL034, SKUEL035, SKUEL036 — the `SUPPRESSIBLE_RULES` set in `lint_skuel.py`. Two pins, two subjects: `TestSuppressibleRulesDrift` pins that *set* to the checkers' suppression-helper call sites, and `tests/unit/docs/test_suppressible_rules_docs.py` pins every "Supported rules:" list in the docs to the set — a member added to one and not the other fails the build (SKUEL033 was once missing here for a month with the set-side pin green). Write the list explicitly, in ascending order; range notation is refused. A comment naming any other rule does nothing and is flagged by SKUEL026.
 
 **SKUEL017** additionally recognizes `# intentional-broad: <reason>` and `# safety-net: <reason>` (anywhere in the except-clause header, or the line above — both survive formatter wrapping).
 
@@ -838,6 +840,38 @@ The tempting generalisation — walk the whole right-hand side for any uid-ish n
 - `# skuel-lint: disable=SKUEL034 -- <reason>` (line — honoured anywhere on the comparison's span, since a wrapped comparison starts at the string literal rather than at the uid)
 - `# skuel-lint: disable-file=SKUEL034 -- <reason>` (file)
 
+## Rule: SKUEL035 - Request Is Imported From adapters.inbound.fasthtml_types
+
+**Pattern:** any `from <module> import … Request …` in `adapters/inbound/` where the module is not `adapters.inbound.fasthtml_types` — `fasthtml.common`, `fasthtml.core`, `starlette.requests`. Single-line and parenthesised multi-line imports alike (AST, so the multi-line form a line-regex misses is covered). Only the name `Request`; `Response`, `JSONResponse` and the FT tags keep their sources.
+
+**Why it exists:** `fasthtml_types.py` re-exports the concrete Starlette `Request` so every handler annotates the same name through one boundary module, next to `RouteDecorator` / `FastHTMLApp` / `Response`. The class is the same through every door, so nothing breaks when a file uses another — which is exactly why a tree grows a third: a new file copies whichever import it saw last. At the sweep that introduced the rule, 24 of ~150 route files had drifted (22 via `fasthtml.common`, one via `fasthtml.core`, one via `starlette.requests`) against the documented spelling.
+
+**Scope:** `adapters/inbound/` only. `ui/` renders what routes hand it and has no `Request` import; `fasthtml_types.py` itself is exempt — its `from starlette.requests import Request as Request` *is* the door.
+
+**Fix:** `from adapters.inbound.fasthtml_types import Request` — a runtime import, since a handler annotation is evaluated at registration (SKUEL020 explains the 400 that follows a wrong annotation).
+
+**Guard test:** `tests/unit/scripts/test_lint_skuel.py::TestSKUEL035` — the three deleted shapes (tag-adjacent single line, parenthesised multi-line, bare Starlette), the clean door, other names from `fasthtml`, the re-export module's exemption, the out-of-scope `ui/` tree, and line suppression.
+
+**Suppression:**
+- `# skuel-lint: disable=SKUEL035 -- <reason>` (line)
+- `# skuel-lint: disable-file=SKUEL035 -- <reason>` (file)
+
+## Rule: SKUEL036 - A Role-Gated Handler Never Authenticates Twice
+
+**Pattern:** a call to `require_authenticated_user(...)` inside a function whose decorator list carries `require_admin`, `require_teacher`, `require_member`, `require_registered` or `require_role(...)`. Reported at the call line; nested handlers inside a route factory are walked with their enclosing function.
+
+**Why it exists:** the role decorator (`adapters/inbound/auth/roles.py`) authenticates the request, fetches the caller and injects it as `current_user`. A second `require_authenticated_user(request)` in the same handler reads the session again and leaves two spellings of "who is calling" in one function, so a reader has to check they agree. [AUTH_PATTERNS.md](AUTH_PATTERNS.md) § Pattern 3 has said "do not mix patterns" since the decorator existed, and the prose did not hold: twelve handlers across three teaching/templates modules carried both (nine assigned the second result to `user_uid`, three called it for nothing). The prose is now this rule.
+
+**Scope:** `adapters/inbound/`. A handler with no role decorator is Pattern 2 — `require_authenticated_user` is *its* one path — and is untouched; so is `roles.py`'s own wrapper, which calls it by design and carries no role decorator.
+
+**Fix:** `user_uid = UserUID(current_user.uid)`, or delete the call when its value was unused.
+
+**Guard test:** `tests/unit/scripts/test_lint_skuel.py::TestSKUEL036` — the assigned and bare deleted shapes, a nested factory handler, the one-path positive, the ungated Pattern-2 handler, the decorator module itself, and line suppression.
+
+**Suppression:**
+- `# skuel-lint: disable=SKUEL036 -- <reason>` (line)
+- `# skuel-lint: disable-file=SKUEL036 -- <reason>` (file)
+
 ## Rule: SKUEL024 - No cls= / **kwargs Collision in FT Helpers
 
 **Pattern:** A UI/FT helper that hardcodes a `cls=` keyword **and** splats `**kwargs` into the same call, without declaring an explicit `cls` parameter, is a latent crash. When any caller passes `cls=`, that value lands in `**kwargs` and collides with the hardcoded keyword: `TypeError: <fn>() got multiple values for keyword argument 'cls'`.
@@ -1250,7 +1284,7 @@ Add to pre-commit hooks or CI pipeline:
 ## Linter Configuration Files
 
 - **pyproject.toml** - Main configuration for ruff, mypy, pyright
-- **scripts/lint_skuel.py** - Custom SKUEL pattern enforcement (33 rules)
+- **scripts/lint_skuel.py** - Custom SKUEL pattern enforcement (35 rules)
 - **scripts/cypher_linter.py** - Cypher query static analysis (11 rules, 2 disabled)
 - **Exceptions documented in:** `pyproject.toml` section `[tool.ruff.lint.per-file-ignores]`
 
@@ -1285,4 +1319,4 @@ The linter automatically excludes certain files from specific rules. Per-file ex
 ---
 
 **Last Updated:** 2026-08-07
-**Status:** Active - 33 rules (SKUEL001–SKUEL034; SKUEL004 deleted 2026-07, IDs not renumbered) enforcing SKUEL architectural patterns, unified inline suppression via `# skuel-lint: disable=SKUELXXX` with a per-run unused-suppression audit (SKUEL026). Files are parsed ONCE per run — `_lint_file` hands a shared AST to every tree-based rule — and a sweep shards its per-file work across worker processes, merged in file order (`--jobs`; serial below 32 files). Unit tests cover both linters.
+**Status:** Active - 35 rules (SKUEL001–SKUEL036; SKUEL004 deleted 2026-07, IDs not renumbered) enforcing SKUEL architectural patterns, unified inline suppression via `# skuel-lint: disable=SKUELXXX` with a per-run unused-suppression audit (SKUEL026). Files are parsed ONCE per run — `_lint_file` hands a shared AST to every tree-based rule — and a sweep shards its per-file work across worker processes, merged in file order (`--jobs`; serial below 32 files). Unit tests cover both linters.

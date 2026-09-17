@@ -1,6 +1,6 @@
 ---
 title: Linter Guide
-updated: 2026-09-15
+updated: 2026-09-17
 category: guides
 related_skills:
 - python
@@ -30,7 +30,7 @@ SKUEL enforces code quality through three linting layers, all run via `uv run` u
 | Layer | Tool | Scope | Config |
 |-------|------|-------|--------|
 | **Standard Python** | Ruff | 33 rule families (F, E, W, I, N, UP, B, SIM, RET, PERF, etc.) | `pyproject.toml` `[tool.ruff]` |
-| **SKUEL Patterns** | `scripts/lint_skuel.py` | 33 architectural rules (SKUEL001–SKUEL034; SKUEL004 deleted, IDs not renumbered) | Inline in script |
+| **SKUEL Patterns** | `scripts/lint_skuel.py` | 35 architectural rules (SKUEL001–SKUEL036; SKUEL004 deleted, IDs not renumbered) | Inline in script |
 | **Cypher Queries** | `scripts/cypher_linter.py` | Neo4j query rules CYP001–CYP012 (CYP007/CYP008/CYP010 disabled — see the script docstring) | Inline in script |
 
 Additional type checkers run during `./dev quality`:
@@ -65,7 +65,7 @@ Configured in `pyproject.toml` under `[tool.ruff]`:
 - **All rules auto-fixable:** `fixable = ["ALL"]`
 - **Per-file ignores:** Extensive config for tests, UI, routes, scripts (see `[tool.ruff.lint.per-file-ignores]`)
 
-## SKUEL Pattern Rules (SKUEL001–SKUEL034)
+## SKUEL Pattern Rules (SKUEL001–SKUEL036)
 
 These enforce SKUEL-specific architectural patterns that Ruff cannot catch.
 
@@ -119,6 +119,8 @@ them without failing.
 | **SKUEL031** | Stale pip references | uv is the one path (`uv add` / `uv sync`) — SKUEL016's pip sibling |
 | **SKUEL033** | Cypher-shaped docstrings in `core/services`, `core/orchestrator`, `core/ports`, `core/models` | State intent + the guarantee; the query belongs in the backend docstring (see SERVICE_DOCSTRING_STYLE.md) |
 | **SKUEL034** | Substring test against a *singular* uid (`"tech" in knowledge_uid.lower()`) | Read the field that carries the fact — `entity_type`, the label, `sel_category`, or the edge (ADR-013 never-sniff; bare collections / `startswith` / `split` out of scope, but `str(uids)`-style serialization is flagged) |
+| **SKUEL035** | `Request` imported into `adapters/inbound/` from `fasthtml.common` / `fasthtml.core` / `starlette.requests` | `from adapters.inbound.fasthtml_types import Request` — the one boundary re-export |
+| **SKUEL036** | `require_authenticated_user(...)` inside a `@require_admin` / `@require_teacher` / `@require_role` handler | `UserUID(current_user.uid)` — the decorator already authenticated and injected the caller (AUTH_PATTERNS § Pattern 3) |
 
 ### INFO
 
@@ -292,7 +294,7 @@ route_count = len(app.routes) if hasattr(app, "routes") else 0  # skuel-lint: di
 # skuel-lint: disable-file=SKUEL005 -- Cache service, raw values not Result[T]
 ```
 
-**Supported rules:** SKUEL005, SKUEL011, SKUEL012, SKUEL013, SKUEL014, SKUEL015, SKUEL016, SKUEL017, SKUEL018, SKUEL019, SKUEL020, SKUEL021, SKUEL022, SKUEL023, SKUEL024, SKUEL025, SKUEL027, SKUEL028, SKUEL029, SKUEL030, SKUEL031, SKUEL032, SKUEL033, SKUEL034 (the `SUPPRESSIBLE_RULES` set in `lint_skuel.py`; `TestSuppressibleRulesDrift` pins the set to the checkers' call sites, `tests/unit/docs/test_suppressible_rules_docs.py` pins this list to the set — explicit ids only, no ranges). Every run audits suppressions and flags unused ones as SKUEL026.
+**Supported rules:** SKUEL005, SKUEL011, SKUEL012, SKUEL013, SKUEL014, SKUEL015, SKUEL016, SKUEL017, SKUEL018, SKUEL019, SKUEL020, SKUEL021, SKUEL022, SKUEL023, SKUEL024, SKUEL025, SKUEL027, SKUEL028, SKUEL029, SKUEL030, SKUEL031, SKUEL032, SKUEL033, SKUEL034, SKUEL035, SKUEL036 (the `SUPPRESSIBLE_RULES` set in `lint_skuel.py`; `TestSuppressibleRulesDrift` pins the set to the checkers' call sites, `tests/unit/docs/test_suppressible_rules_docs.py` pins this list to the set — explicit ids only, no ranges). Every run audits suppressions and flags unused ones as SKUEL026.
 
 **SKUEL017 additional markers:**
 ```python
@@ -332,7 +334,7 @@ A sweep shards its per-file work across processes and merges in file order, so t
 
 ## Adding a New SKUEL Rule
 
-1. **Choose a rule ID** — next available `SKUELXXX` number (last allocated: **SKUEL034**; SKUEL004 was deleted 2026-07 and must NOT be reused)
+1. **Choose a rule ID** — next available `SKUELXXX` number (last allocated: **SKUEL036**; SKUEL004 was deleted 2026-07 and must NOT be reused)
 2. **Add a check method** in `scripts/lint_skuel.py` — follow the pattern of existing `_check_skuelXXX()` methods
 3. **Register the rule** in the `RULE_DOCS` dict with severity, description, and good/bad examples (used by `--explain`)
 4. **Wire it into `_lint_file`** with the correct context gate (e.g. `not is_test`, `is_service`), AND add the id to `AST_RULE_IDS` if the rule reads the shared tree — omitting it leaves `tree` as `None`, so `--rule SKUELXXX` silently reports zero while a full sweep works
@@ -354,7 +356,7 @@ Both custom linters have comprehensive test coverage:
 |------|---------|
 | `dev` | CLI wrapper — `./dev lint`, `./dev quality`, etc. |
 | `pyproject.toml` | Ruff, MyPy, Pyright configuration |
-| `scripts/lint_skuel.py` | SKUEL pattern linter (33 rules; SKUEL004 deleted 2026-07, IDs not renumbered) |
+| `scripts/lint_skuel.py` | SKUEL pattern linter (35 rules; SKUEL004 deleted 2026-07, IDs not renumbered) |
 | `scripts/cypher_linter.py` | Cypher query linter (CYP001–CYP012; CYP007/CYP008/CYP010 disabled) |
 | `scripts/cypher_vocabulary.py` | Shared registry reader + name scanner for SKUEL030/CYP011 and the `looks_like_cypher` admission gate — one anchor, both linters |
 | `scripts/cypher_scan_diagnostics.py` | Diagnostic (not a rule): replays both rules' real scan paths and reports every span the scanner admitted but could not read |

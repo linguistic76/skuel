@@ -126,6 +126,13 @@ def lint_content(
     # production gate reads so the two cannot drift.
     is_inbound_layer = rel.as_posix().startswith(SkuelLinter.INBOUND_LAYER_PREFIXES)
 
+    # The route layer proper (SKUEL035 / SKUEL036) — same prefix as production.
+    if rel.as_posix().startswith(SkuelLinter.ROUTE_LAYER_PREFIX) and not is_test:
+        if linter._should_run_rule("SKUEL035"):
+            linter._check_request_import_source(fp, rel, content, lines, tree)
+        if linter._should_run_rule("SKUEL036"):
+            linter._check_role_gated_reauth(fp, rel, content, lines, tree)
+
     # Boundary rules (ADR-044): SKUEL001 (APOC) + SKUEL021 (raw Cypher) run on all of
     # core/, any /services/ path, AND the inbound/presentation layers — mirror
     # _lint_file's is_above_boundary.
@@ -7698,6 +7705,154 @@ class TestOptInRulesDrift:
         from lint_skuel import RULE_DOCS
 
         assert set(RULE_DOCS) >= SkuelLinter.OPT_IN_RULES
+
+
+# ============================================================================
+# SKUEL035 — Request Is Imported From adapters.inbound.fasthtml_types
+# ============================================================================
+
+
+class TestSKUEL035:
+    """One door for the name `Request` in the route layer.
+
+    The fixtures are the shapes the sweep deleted: a single-line import next to
+    tags, a parenthesised multi-line one (the shape a line-regex census missed),
+    and the bare Starlette import.
+    """
+
+    ROUTE = "adapters/inbound/example_routes.py"
+
+    def test_single_line_import_next_to_tags_is_flagged(self) -> None:
+        content = "from fasthtml.common import Div, Request, Span\n"
+        violations = lint_content(make_linter(["SKUEL035"]), content, file_path=self.ROUTE)
+        assert [(v.rule_id, v.line_number) for v in violations] == [("SKUEL035", 1)]
+        assert "fasthtml.common" in violations[0].message
+
+    def test_parenthesised_multi_line_import_is_flagged(self) -> None:
+        content = "from fasthtml.common import (\n    Div,\n    Request,\n    Span,\n)\n"
+        violations = lint_content(make_linter(["SKUEL035"]), content, file_path=self.ROUTE)
+        assert [v.rule_id for v in violations] == ["SKUEL035"]
+
+    def test_starlette_import_is_flagged(self) -> None:
+        content = "from starlette.requests import Request\n"
+        violations = lint_content(make_linter(["SKUEL035"]), content, file_path=self.ROUTE)
+        assert [v.rule_id for v in violations] == ["SKUEL035"]
+
+    def test_the_one_door_is_clean(self) -> None:
+        content = (
+            "from fasthtml.common import Div, Span\n\n"
+            "from adapters.inbound.fasthtml_types import FastHTMLApp, Request\n"
+        )
+        assert lint_content(make_linter(["SKUEL035"]), content, file_path=self.ROUTE) == []
+
+    def test_other_names_from_fasthtml_are_not_the_rules_business(self) -> None:
+        content = "from fasthtml.common import JSONResponse, Response\n"
+        assert lint_content(make_linter(["SKUEL035"]), content, file_path=self.ROUTE) == []
+
+    def test_the_re_export_module_itself_is_exempt(self) -> None:
+        content = "from starlette.requests import Request as Request\n"
+        violations = lint_content(
+            make_linter(["SKUEL035"]), content, file_path=SkuelLinter.REQUEST_SOURCE_FILE
+        )
+        assert violations == []
+
+    def test_outside_the_route_layer_is_out_of_scope(self) -> None:
+        content = "from starlette.requests import Request\n"
+        assert lint_content(make_linter(["SKUEL035"]), content, file_path="ui/layouts/x.py") == []
+
+    def test_line_suppression_is_honoured(self) -> None:
+        content = "from fasthtml.common import Request  # skuel-lint: disable=SKUEL035 -- why\n"
+        assert lint_content(make_linter(["SKUEL035"]), content, file_path=self.ROUTE) == []
+
+
+# ============================================================================
+# SKUEL036 — A Role-Gated Handler Never Authenticates Twice
+# ============================================================================
+
+
+class TestSKUEL036:
+    """The decorator authenticated and injected the caller; a second
+    `require_authenticated_user` in the same handler is the mix AUTH_PATTERNS
+    § Pattern 3 forbids. Fixtures are the two shapes the sweep deleted: the
+    assigned call and the bare call whose value nobody read.
+    """
+
+    ROUTE = "adapters/inbound/teaching_ui.py"
+
+    def test_assigned_call_inside_a_gated_handler_is_flagged(self) -> None:
+        content = (
+            '@rt("/teaching/students/content")\n'
+            "@require_role(UserRole.TEACHER, get_user_service)\n"
+            "async def fragment(request: Request, current_user: Any = None):\n"
+            "    user_uid = require_authenticated_user(request)\n"
+            "    return user_uid\n"
+        )
+        violations = lint_content(make_linter(["SKUEL036"]), content, file_path=self.ROUTE)
+        assert [(v.rule_id, v.line_number) for v in violations] == [("SKUEL036", 4)]
+        assert "fragment" in violations[0].message
+
+    def test_bare_call_is_the_same_mix(self) -> None:
+        content = (
+            "@require_admin(get_user_service)\n"
+            "async def panel(request: Request, ps_uid: str, current_user: Any = None):\n"
+            "    require_authenticated_user(request)\n"
+            "    return ps_uid\n"
+        )
+        violations = lint_content(make_linter(["SKUEL036"]), content, file_path=self.ROUTE)
+        assert [v.rule_id for v in violations] == ["SKUEL036"]
+
+    def test_nested_handler_in_a_factory_is_walked(self) -> None:
+        content = (
+            "def create_routes(rt):\n"
+            '    @rt("/x")\n'
+            "    @require_teacher(get_user_service)\n"
+            "    async def handler(request: Request, current_user: Any = None):\n"
+            "        user_uid = require_authenticated_user(request)\n"
+            "        return user_uid\n"
+        )
+        violations = lint_content(make_linter(["SKUEL036"]), content, file_path=self.ROUTE)
+        assert [(v.rule_id, v.line_number) for v in violations] == [("SKUEL036", 5)]
+
+    def test_the_one_path_is_clean(self) -> None:
+        content = (
+            "@require_role(UserRole.TEACHER, get_user_service)\n"
+            "async def fragment(request: Request, current_user: Any = None):\n"
+            "    user_uid = UserUID(current_user.uid)\n"
+            "    return user_uid\n"
+        )
+        assert lint_content(make_linter(["SKUEL036"]), content, file_path=self.ROUTE) == []
+
+    def test_an_ungated_handler_is_pattern_two_and_untouched(self) -> None:
+        content = (
+            '@rt("/api/things")\n'
+            "async def things(request: Request):\n"
+            "    user_uid = require_authenticated_user(request)\n"
+            "    return user_uid\n"
+        )
+        assert lint_content(make_linter(["SKUEL036"]), content, file_path=self.ROUTE) == []
+
+    def test_the_decorator_module_itself_is_untouched(self) -> None:
+        """roles.py's wrapper calls require_authenticated_user by design — and
+        carries no role decorator of its own, so the rule has nothing to say."""
+        content = (
+            "def require_role(required_role, user_service_getter):\n"
+            "    def decorator(func):\n"
+            "        async def wrapper(request, *args, **kwargs):\n"
+            "            user_uid = require_authenticated_user(request)\n"
+            "            return await func(request, *args, **kwargs)\n"
+            "        return wrapper\n"
+            "    return decorator\n"
+        )
+        route = "adapters/inbound/auth/roles.py"
+        assert lint_content(make_linter(["SKUEL036"]), content, file_path=route) == []
+
+    def test_line_suppression_is_honoured(self) -> None:
+        content = (
+            "@require_admin(get_user_service)\n"
+            "async def panel(request: Request, current_user: Any = None):\n"
+            "    require_authenticated_user(request)  # skuel-lint: disable=SKUEL036 -- why\n"
+        )
+        assert lint_content(make_linter(["SKUEL036"]), content, file_path=self.ROUTE) == []
 
 
 class TestSuppressibleRulesDrift:

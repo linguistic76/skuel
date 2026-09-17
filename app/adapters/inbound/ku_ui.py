@@ -18,12 +18,12 @@ from fasthtml.common import (
     H3,
     Div,
     P,
-    Request,
     Span,
 )
 
 from adapters.inbound.auth import require_authenticated_user
 from adapters.inbound.csrf import csrf_protected
+from adapters.inbound.fasthtml_types import Request
 from core.models.enums.user_entry_enums import ExerciseScope
 from core.utils.logging import get_logger
 from ui.components import Button, ButtonT

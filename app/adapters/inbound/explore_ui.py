@@ -23,12 +23,12 @@ from fasthtml.common import (
     A,
     Div,
     P,
-    Request,
     Script,
 )
 from starlette.responses import RedirectResponse
 
 from adapters.inbound.auth import is_authenticated, require_authenticated_user
+from adapters.inbound.fasthtml_types import Request
 from core.models.enums.entity_enums import EntityType
 from core.models.enums.learning_enums import LearningLevel
 from core.models.search.filter_enums import SearchSortOrder
