@@ -56,17 +56,22 @@
 # RESUMING (--resume): a wait that dies — the harness stops it, the terminal
 # goes away — loses the poll, not the summon. Re-running plainly would post a
 # SECOND `@codex review` and anchor its window at that second comment, so a
-# verdict landing between the two is never read. `--resume` posts nothing: it
-# anchors at the OLDEST `@codex review` by the authenticated user in the
-# current review cycle — the cycle begins at the later of the head commit's
-# date (the gate strips the label on every push, so a summon that predates the
-# head reviewed other code) and the last `codex-considered` labeling (a
-# considered verdict closes its cycle). Oldest, never newest: a verdict lands
-# on whichever summon Codex answers, and anchoring at the first one reads it
-# wherever it lands — after the summon, after the halfway re-nudge, or between
-# the two. Codex's own activity is deliberately not consulted: a verdict that
-# landed just before a re-nudge would otherwise make the re-nudge look like
-# the unanswered one, and every resumed poll would filter that verdict out.
+# verdict landing between the two is never read. `--resume` posts nothing.
+# Every summon this script posts records the head SHA it asks about
+# (`<!-- codex-summon head=<sha> -->`, invisible in the rendered PR), and a
+# resumed wait anchors at the OLDEST summon by the authenticated user FOR THE
+# CURRENT HEAD since the last `codex-considered` labeling. A verdict is about a
+# SHA: a summon for another head reviewed other code, whatever its date (commit
+# dates are supplied by the commit — a force-push of an older commit carries an
+# older date — so no timestamp can stand in for the SHA), and a considered
+# verdict closes its cycle (the label event's time is the server's, not the
+# commit's). Oldest, never newest: a verdict lands on whichever summon Codex
+# answers, and anchoring at the first one reads it wherever it lands — after
+# the summon, after the halfway re-nudge, or between the two. Codex's own
+# activity is deliberately not consulted: a verdict that landed just before a
+# re-nudge would otherwise make the re-nudge look like the unanswered one, and
+# every resumed poll would filter that verdict out. A summon posted by hand or
+# without the marker is not resumable — run plainly to summon.
 # The deadline is per call, from now, so the recommended shape on a
 # memory-bounded machine — a bounded FOREGROUND call under the harness's tool
 # timeout, re-run with --resume until a verdict — is
@@ -153,48 +158,51 @@ acquire_token || { echo "✗ could not read gh auth token" >&2; exit 1; }
 # channel — verdict count, verdict body, resume anchor — filters on it.
 widget='select(.body|test("codex-pull-request-review-summary")|not)'
 
+# The SHA a verdict would be about.
+head_sha() {
+  gh_retry api "repos/$REPO/pulls/$PR" --jq .head.sha
+}
+
 # Prints the summon timestamp; prints nothing on failure (exit inside $(...)
-# only leaves the subshell, so callers must check for empty output).
+# only leaves the subshell, so callers must check for empty output). The
+# comment records the head it asks about — the join key a resumed wait uses.
 summon() {
-  local since
+  local since sha
   since=$(date -u +%Y-%m-%dT%H:%M:%SZ)
-  gh_retry api "repos/$REPO/issues/$PR/comments" -f body="@codex review" --jq .html_url >/dev/null \
+  sha=$(head_sha) && [[ -n "$sha" ]] || { echo "✗ could not read the head sha of #$PR" >&2; return 1; }
+  gh_retry api "repos/$REPO/issues/$PR/comments" \
+    -f body="@codex review
+<!-- codex-summon head=$sha -->" --jq .html_url >/dev/null \
     || { echo "✗ failed to post summon comment" >&2; return 1; }
   echo "$since"
 }
 
-# Prints the moment the current review cycle began: the later of the head
-# commit's committer date and the last `codex-considered` labeling. Paginated:
-# whole-history reads, not since-windows; --paginate emits one value per page
-# and ISO-8601 Z timestamps sort as text, so the last sorted line is the max.
-cycle_start() {
-  local head labeled
-  head=$(gh_retry api --paginate "repos/$REPO/pulls/$PR/commits?per_page=100" \
-    --jq '.[-1].commit.committer.date') || return 1
-  labeled=$(gh_retry api --paginate "repos/$REPO/issues/$PR/events?per_page=100" \
-    --jq '[.[] | select(.event == "labeled") | select(.label.name == "codex-considered") | .created_at] | max // empty') || return 1
-  printf '%s\n%s\n' "$head" "$labeled" | sed '/^$/d' | sort | tail -1
-}
-
-# Prints the anchor for a resumed wait: the oldest `@codex review` comment by
-# the authenticated user since the current cycle began (see the header for why
-# oldest, and why Codex's activity plays no part). Prints nothing, with the
-# reason on stderr, when there is no summon to resume.
+# Prints the anchor for a resumed wait: the oldest summon by the authenticated
+# user that names the current head, posted after the last `codex-considered`
+# labeling (see the header for why the SHA, why oldest, and why Codex's own
+# activity plays no part). Prints nothing, with the reason on stderr, when
+# there is no summon to resume. Paginated: whole-history reads, not
+# since-windows; --paginate emits one value per page, and ISO-8601 Z
+# timestamps sort as text.
 find_resume_anchor() {
-  local login start summons anchor
+  local login sha labeled summons anchor
   login=$(gh_retry api user --jq .login) || { echo "✗ could not read the authenticated login" >&2; return 1; }
   [[ -n "$login" ]] || { echo "✗ gh reports no login" >&2; return 1; }
-  start=$(cycle_start) || { echo "✗ could not read the head commit / label history of #$PR" >&2; return 1; }
+  sha=$(head_sha) && [[ -n "$sha" ]] || { echo "✗ could not read the head sha of #$PR" >&2; return 1; }
+  labeled=$(gh_retry api --paginate "repos/$REPO/issues/$PR/events?per_page=100" \
+    --jq '[.[] | select(.event == "labeled") | select(.label.name == "codex-considered") | .created_at] | max // empty') \
+    || { echo "✗ could not read the label history of #$PR" >&2; return 1; }
+  labeled=$(sed '/^$/d' <<< "$labeled" | sort | tail -1)
   summons=$(gh_retry api --paginate "repos/$REPO/issues/$PR/comments?per_page=100" \
-    --jq ".[] | select(.user.login == \"$login\") | select(.body|test(\"@codex review\")) | .created_at") \
+    --jq ".[] | select(.user.login == \"$login\") | select(.body|test(\"codex-summon head=$sha\")) | .created_at") \
     || { echo "✗ could not list the summons on #$PR" >&2; return 1; }
-  anchor=$(sed '/^$/d' <<< "$summons" | sort | awk -v start="$start" '$0 > start { print; exit }')
+  anchor=$(sed '/^$/d' <<< "$summons" | sort | awk -v start="$labeled" '$0 > start { print; exit }')
   if [[ -z "$anchor" ]]; then
-    echo "✗ no @codex review by $login on #$PR since the current cycle began (${start:-the beginning}:" >&2
-    echo "  the head commit, or the last codex-considered) — nothing to resume; run without --resume to summon" >&2
+    echo "✗ no @codex review by $login for the head of #$PR (${sha:0:10}) since the last" >&2
+    echo "  codex-considered — nothing to resume; run without --resume to summon" >&2
     return 1
   fi
-  echo "  anchor: summon at $anchor (cycle began ${start:-at the first commit})" >&2
+  echo "  anchor: summon at $anchor for head ${sha:0:10}" >&2
   echo "$anchor"
 }
 

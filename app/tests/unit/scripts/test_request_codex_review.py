@@ -60,11 +60,15 @@ fi
 case "$args" in
   *"auth token"*)        echo "stub-token" ;;
   *"api user"*)          echo "${STUB_LOGIN:-linguistic76}" ;;
-  # The resume anchor's whole-history reads: the head commit's date, the last
-  # codex-considered labeling, the summons by the user.
-  *pulls*commits*)       printf '%s' "${STUB_HEAD_DATE}" ;;
+  # The resume anchor's whole-history reads: the head sha, the last
+  # codex-considered labeling, the summons by the user for that head.
+  # STUB_SUMMONS holds `<sha> <created_at>` lines; the stub answers the sha the
+  # query names, which is the selection the real jq marker match performs.
+  *".head.sha"*)         echo "${STUB_HEAD_SHA}" ;;
   *issues*events*)       printf '%s' "${STUB_LABELED}" ;;
-  *'test("@codex review")'*) printf '%s' "${STUB_SUMMONS}" ;;
+  *"codex-summon head="*)
+    [[ "$args" =~ codex-summon.head=([0-9a-f]+) ]]
+    awk -v sha="${BASH_REMATCH[1]}" '$1 == sha { print $2 }' <<< "${STUB_SUMMONS}" ;;
   *"review on"*)         printf '%s' "${STUB_REVIEW_BODIES}" ;;
   *reviews*)             echo "${STUB_REVIEW_COUNT}" ;;
   *pulls*comments*.path*) printf '%s' "${STUB_INLINE_TEXT}" ;;
@@ -89,7 +93,7 @@ def _stub_env(
     issue_body: str = "",
     fail_match: str = "",
     summons: str = "",
-    head_date: str = "",
+    head_sha: str = "",
     labeled: str = "",
 ) -> dict[str, str]:
     """Install the gh stub on PATH and describe one PR state to it."""
@@ -108,7 +112,7 @@ def _stub_env(
         "STUB_ISSUE_BODY": issue_body,
         "STUB_FAIL_MATCH": fail_match,
         "STUB_SUMMONS": summons,
-        "STUB_HEAD_DATE": head_date,
+        "STUB_HEAD_SHA": head_sha,
         "STUB_LABELED": labeled,
         "STUB_POST_LOG": str(tmp_path / "posts.log"),
     }
@@ -146,11 +150,11 @@ def run_find_resume_anchor(
     tmp_path: Path,
     *,
     summons: str,
-    head_date: str = "",
+    head_sha: str = "b" * 40,
     labeled: str = "",
 ) -> subprocess.CompletedProcess[str]:
     """Source the real script and run find_resume_anchor against one stubbed PR history."""
-    env = _stub_env(tmp_path, summons=summons, head_date=head_date, labeled=labeled)
+    env = _stub_env(tmp_path, summons=summons, head_sha=head_sha, labeled=labeled)
     program = f'source "{SCRIPT}" 1301\nfind_resume_anchor\nexit $?\n'
     return subprocess.run(
         ["bash", "-c", program], capture_output=True, text=True, env=env, check=False
@@ -348,21 +352,26 @@ class TestScriptShape:
         assert f"pulls/$PR/{channel}" in source
 
 
-HEAD_1 = "2026-09-17T13:50:00Z"
+HEAD_A = "a" * 40
+HEAD_B = "b" * 40
 SUMMON_1 = "2026-09-17T14:00:00Z"
 RENUDGE_1 = "2026-09-17T14:10:00Z"
 OLD_SUMMON = "2026-09-16T09:00:00Z"
 OLD_LABELED = "2026-09-16T09:20:00Z"
 
 
-class TestResumeAnchor:
-    """A resumed wait anchors at the oldest summon of the current cycle — and posts no new one."""
+def _summons(*pairs: tuple[str, str]) -> str:
+    return "".join(f"{sha} {at}\n" for sha, at in pairs)
 
-    def test_one_summon_is_the_anchor(self, tmp_path: Path) -> None:
-        result = run_find_resume_anchor(tmp_path, summons=SUMMON_1, head_date=HEAD_1)
+
+class TestResumeAnchor:
+    """A resumed wait anchors at the oldest summon for the current head — and posts no new one."""
+
+    def test_one_summon_for_the_head_is_the_anchor(self, tmp_path: Path) -> None:
+        result = run_find_resume_anchor(tmp_path, summons=_summons((HEAD_B, SUMMON_1)))
         assert result.returncode == 0, result.stderr
         assert result.stdout.strip() == SUMMON_1
-        assert f"cycle began {HEAD_1}" in result.stderr
+        assert f"for head {HEAD_B[:10]}" in result.stderr
 
     def test_the_first_summon_wins_over_its_renudge(self, tmp_path: Path) -> None:
         """The verdict lands on whichever summon Codex answers — after the summon,
@@ -370,45 +379,60 @@ class TestResumeAnchor:
         the killed wait's history can be summon → verdict → re-nudge, and an anchor at
         the re-nudge would filter that verdict out of every resumed poll."""
         result = run_find_resume_anchor(
-            tmp_path, summons=f"{RENUDGE_1}\n{SUMMON_1}\n", head_date=HEAD_1
+            tmp_path, summons=_summons((HEAD_B, RENUDGE_1), (HEAD_B, SUMMON_1))
         )
         assert result.returncode == 0, result.stderr
         assert result.stdout.strip() == SUMMON_1
 
-    def test_a_previous_cycle_is_closed_by_its_label(self, tmp_path: Path) -> None:
+    def test_a_summon_for_another_head_is_never_the_anchor(self, tmp_path: Path) -> None:
+        """Dates play no part: the other head's summon is NEWER here — the shape a
+        force-push of an older commit leaves behind — and still not this head's."""
+        result = run_find_resume_anchor(
+            tmp_path, summons=_summons((HEAD_B, OLD_SUMMON), (HEAD_A, SUMMON_1))
+        )
+        assert result.returncode == 0, result.stderr
+        assert result.stdout.strip() == OLD_SUMMON
+
+    def test_a_new_head_with_no_summon_of_its_own_has_nothing_to_resume(
+        self, tmp_path: Path
+    ) -> None:
+        """A push after a summon opens a cycle with no summon yet, whatever the
+        commit's date says — a plain run must summon for the new head."""
+        result = run_find_resume_anchor(tmp_path, summons=_summons((HEAD_A, SUMMON_1)))
+        assert result.returncode == 1
+        assert result.stdout.strip() == ""
+        assert "nothing to resume" in result.stderr
+
+    def test_a_force_push_back_to_a_reviewed_head_resumes_that_heads_summon(
+        self, tmp_path: Path
+    ) -> None:
         result = run_find_resume_anchor(
             tmp_path,
-            summons=f"{OLD_SUMMON}\n{SUMMON_1}\n",
-            head_date="2026-09-15T08:00:00Z",
-            labeled=OLD_LABELED,
+            summons=_summons((HEAD_A, OLD_SUMMON), (HEAD_B, SUMMON_1)),
+            head_sha=HEAD_A,
         )
         assert result.returncode == 0, result.stderr
-        assert result.stdout.strip() == SUMMON_1
-
-    def test_a_previous_cycle_is_closed_by_a_push(self, tmp_path: Path) -> None:
-        """The gate strips the label on every push: a summon older than the head
-        reviewed other code and is not this cycle's."""
-        result = run_find_resume_anchor(
-            tmp_path, summons=f"{OLD_SUMMON}\n{SUMMON_1}\n", head_date=HEAD_1
-        )
-        assert result.returncode == 0, result.stderr
-        assert result.stdout.strip() == SUMMON_1
+        assert result.stdout.strip() == OLD_SUMMON
 
     def test_a_considered_cycle_has_nothing_to_resume(self, tmp_path: Path) -> None:
         result = run_find_resume_anchor(
-            tmp_path, summons=SUMMON_1, head_date=HEAD_1, labeled="2026-09-17T14:30:00Z"
+            tmp_path, summons=_summons((HEAD_B, SUMMON_1)), labeled="2026-09-17T14:30:00Z"
         )
         assert result.returncode == 1
         assert result.stdout.strip() == ""
         assert "nothing to resume" in result.stderr
 
-    def test_a_summon_older_than_the_head_has_nothing_to_resume(self, tmp_path: Path) -> None:
-        result = run_find_resume_anchor(tmp_path, summons=OLD_SUMMON, head_date=HEAD_1)
-        assert result.returncode == 1
-        assert "nothing to resume" in result.stderr
+    def test_a_label_from_a_previous_cycle_does_not_close_this_one(self, tmp_path: Path) -> None:
+        result = run_find_resume_anchor(
+            tmp_path,
+            summons=_summons((HEAD_A, OLD_SUMMON), (HEAD_B, SUMMON_1)),
+            labeled=OLD_LABELED,
+        )
+        assert result.returncode == 0, result.stderr
+        assert result.stdout.strip() == SUMMON_1
 
     def test_no_summon_is_an_error_not_a_summon(self, tmp_path: Path) -> None:
-        result = run_find_resume_anchor(tmp_path, summons="", head_date=HEAD_1)
+        result = run_find_resume_anchor(tmp_path, summons="")
         assert result.returncode == 1
         assert result.stdout.strip() == ""
         assert "nothing to resume" in result.stderr
@@ -431,8 +455,8 @@ class TestResumedRun:
     def test_a_resumed_wait_posts_no_summon_and_reads_the_findings(self, tmp_path: Path) -> None:
         env = _stub_env(
             tmp_path,
-            summons=SUMMON_1,
-            head_date=HEAD_1,
+            summons=_summons((HEAD_B, SUMMON_1)),
+            head_sha=HEAD_B,
             review_count="1",
             review_bodies=BODY_FINDING,
         )
@@ -446,15 +470,16 @@ class TestResumedRun:
 
     def test_a_resumed_wait_never_renudges(self, tmp_path: Path) -> None:
         """A 2 s deadline with a 1 s poll passes the halfway mark; a plain run would nudge."""
-        env = _stub_env(tmp_path, summons=SUMMON_1, head_date=HEAD_1)
+        env = _stub_env(tmp_path, summons=_summons((HEAD_B, SUMMON_1)), head_sha=HEAD_B)
         result = self._run(tmp_path, env)
         assert result.returncode == 3, result.stdout + result.stderr
         assert not (tmp_path / "posts.log").exists(), "the resumed wait re-summoned"
         assert "--resume" in result.stdout, "the timeout message must name the resume path"
 
     def test_a_plain_run_still_summons_and_renudges(self, tmp_path: Path) -> None:
-        """The control: without --resume the flow posts the summon (and its nudge)."""
-        env = {**_stub_env(tmp_path), "CODEX_POLL_INTERVAL": "1"}
+        """The control: without --resume the flow posts the summon (and its nudge),
+        each naming the head it asks about — the key a later --resume joins on."""
+        env = {**_stub_env(tmp_path, head_sha=HEAD_B), "CODEX_POLL_INTERVAL": "1"}
         result = subprocess.run(
             ["bash", str(SCRIPT), "1301", "2"],
             capture_output=True,
@@ -463,6 +488,6 @@ class TestResumedRun:
             check=False,
         )
         assert result.returncode == 3, result.stdout + result.stderr
-        posts = (tmp_path / "posts.log").read_text().splitlines()
+        posts = (tmp_path / "posts.log").read_text().split("@codex review")[1:]
         assert len(posts) == 2, posts
-        assert all("@codex review" in post for post in posts)
+        assert all(f"codex-summon head={HEAD_B}" in post for post in posts)
