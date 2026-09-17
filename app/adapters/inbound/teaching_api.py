@@ -20,12 +20,12 @@ import secrets
 from typing import TYPE_CHECKING, Any
 
 import starlette.datastructures
-from fasthtml.common import Request
 from starlette.responses import FileResponse
 
 from adapters.inbound.auth.roles import UserRole, make_service_getter, require_role
 from adapters.inbound.boundary import boundary_handler
 from adapters.inbound.csrf import csrf_protected
+from adapters.inbound.fasthtml_types import Request
 from adapters.inbound.form_helpers import parse_form_body
 from core.models.teaching.teaching_request import RequestRevisionRequest
 

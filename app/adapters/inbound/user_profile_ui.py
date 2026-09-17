@@ -23,7 +23,7 @@ from typing import TYPE_CHECKING, Any
 
 # FT imported at runtime: FastHTML resolves handler signature annotations at
 # registration, so a TYPE_CHECKING-only import would kill bootstrap.
-from fasthtml.common import FT, Div, Request
+from fasthtml.common import FT, Div
 
 from core.config.settings import get_settings
 from core.models.enums.entity_enums import EntityType
@@ -33,6 +33,7 @@ if TYPE_CHECKING:
     from services_bootstrap import Services
 
 from adapters.inbound.auth import is_authenticated, require_authenticated_user
+from adapters.inbound.fasthtml_types import Request
 from core.services.user.unified_user_context import RichUserContext
 from core.utils.logging import get_logger
 from ui.activities.hub import render_domain_card_preview

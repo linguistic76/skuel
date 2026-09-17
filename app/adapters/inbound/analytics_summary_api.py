@@ -26,11 +26,9 @@ Routes:
 from datetime import date, timedelta
 from typing import TYPE_CHECKING, Any
 
-from fasthtml.common import Request
-
 from adapters.inbound.auth import require_authenticated_user
 from adapters.inbound.boundary import boundary_handler
-from adapters.inbound.fasthtml_types import FastHTMLApp, RouteDecorator
+from adapters.inbound.fasthtml_types import FastHTMLApp, Request, RouteDecorator
 from adapters.inbound.route_factories import parse_date_param_strict, parse_int_param_strict
 from core.utils.result_simplified import Errors, Result
 

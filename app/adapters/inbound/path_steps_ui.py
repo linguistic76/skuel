@@ -9,13 +9,14 @@ Detail view lives at /explore/ps/{uid} (explore_ui.py).
 
 from typing import Any, cast
 
-from fasthtml.common import A, Div, P, Request, Span
+from fasthtml.common import A, Div, P, Span
 from starlette.datastructures import FormData
 
 from adapters.inbound.auth import get_current_user, require_authenticated_user
 from adapters.inbound.auth.roles import get_user_role
 from adapters.inbound.boundary import result_to_response
 from adapters.inbound.csrf import csrf_protected
+from adapters.inbound.fasthtml_types import Request
 from adapters.inbound.result_helpers import require_found
 from core.models.enums import UserRole
 from core.models.enums.learning_enums import KnowledgeStatus

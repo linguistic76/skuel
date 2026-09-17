@@ -26,10 +26,9 @@ from fasthtml.common import FT, Div, to_xml
 from pydantic import ValidationError
 from pydantic_core import to_jsonable_python
 from starlette.exceptions import HTTPException
-from starlette.requests import Request
 from starlette.responses import HTMLResponse, JSONResponse, Response
 
-from adapters.inbound.fasthtml_types import FastHTMLApp
+from adapters.inbound.fasthtml_types import FastHTMLApp, Request
 from core.config.settings import get_settings
 from core.utils.logging import get_logger
 from core.utils.result_simplified import ErrorCategory, ErrorContext, Errors, Result

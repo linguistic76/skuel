@@ -12,11 +12,10 @@ curriculum linking.
 
 from typing import Any
 
-from fasthtml.common import Request
-
 from adapters.inbound.auth import make_service_getter, require_authenticated_user, require_teacher
 from adapters.inbound.boundary import boundary_handler
 from adapters.inbound.csrf import csrf_protected
+from adapters.inbound.fasthtml_types import Request
 from adapters.inbound.form_helpers import parse_form_body, parse_json_body
 from adapters.inbound.rate_limit import llm_quota_allowed, llm_quota_exceeded_error
 from core.config.intelligence_tier import IntelligenceTier

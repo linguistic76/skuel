@@ -8,7 +8,7 @@ API routes for managing event-driven insights (dismiss, mark as actioned).
 
 from typing import TYPE_CHECKING, Any
 
-from fasthtml.common import FT, Request
+from fasthtml.common import FT
 
 if TYPE_CHECKING:
     from core.services.insight.insight_store import InsightStore
@@ -16,6 +16,7 @@ if TYPE_CHECKING:
 from adapters.inbound.auth import require_authenticated_user
 from adapters.inbound.boundary import boundary_handler
 from adapters.inbound.csrf import csrf_protected
+from adapters.inbound.fasthtml_types import Request
 from adapters.inbound.form_helpers import parse_json_body
 from core.models.entity_requests import SmartDismissRequest
 from core.models.insight_request import BulkInsightUidsRequest, SnoozeInsightRequest

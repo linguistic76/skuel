@@ -25,11 +25,12 @@ See: /docs/patterns/HIERARCHY_COMPONENTS_GUIDE.md
 
 from typing import Any, Protocol
 
-from fasthtml.common import Div, Request, Span
+from fasthtml.common import Div, Span
 from pydantic import BaseModel
 
 from adapters.inbound.auth import require_authenticated_user
 from adapters.inbound.csrf import csrf_protected
+from adapters.inbound.fasthtml_types import Request
 from core.models.type_hints import UserUID
 from core.models.update_contracts import RawChanges, SupportsToChanges, SupportsToIntent
 from core.utils.result_simplified import Errors, Result

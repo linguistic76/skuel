@@ -7,12 +7,12 @@ User-facing routes for submitting, viewing, and sharing form responses.
 
 from typing import TYPE_CHECKING, Any
 
-from fasthtml.common import Request
 from pydantic import ValidationError
 
 from adapters.inbound.auth import require_authenticated_user
 from adapters.inbound.boundary import boundary_handler
 from adapters.inbound.csrf import csrf_protected
+from adapters.inbound.fasthtml_types import Request
 from adapters.inbound.route_factories import parse_int_query_param
 from core.models.entity_converters import entity_to_response
 from core.models.forms.form_submission import FormSubmission

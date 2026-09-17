@@ -20,10 +20,9 @@ caller exists.
 
 from typing import TYPE_CHECKING, Any
 
-from fasthtml.common import Request
-
 from adapters.inbound.auth import require_authenticated_user
 from adapters.inbound.boundary import boundary_handler
+from adapters.inbound.fasthtml_types import Request
 from adapters.inbound.rate_limit import llm_quota_allowed, llm_quota_exceeded_error
 from adapters.inbound.result_helpers import require_found
 from core.config.intelligence_tier import IntelligenceTier

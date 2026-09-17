@@ -10,11 +10,12 @@ and ORGANIZES hierarchy operations.
 
 from typing import Any
 
-from fasthtml.common import Div, P, Request
+from fasthtml.common import Div, P
 
 from adapters.inbound.auth import make_service_getter, require_admin, require_authenticated_user
 from adapters.inbound.boundary import boundary_handler
 from adapters.inbound.csrf import csrf_protected
+from adapters.inbound.fasthtml_types import Request
 from adapters.inbound.form_helpers import parse_json_body
 from adapters.inbound.result_helpers import require_found
 from adapters.inbound.route_factories import parse_int_query_param

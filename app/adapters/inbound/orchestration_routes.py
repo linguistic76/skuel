@@ -27,11 +27,11 @@ Routes:
 
 from typing import TYPE_CHECKING, Any
 
-from fasthtml.common import JSONResponse, Request
+from fasthtml.common import JSONResponse
 
 from adapters.inbound.auth import require_authenticated_user
 from adapters.inbound.boundary import boundary_handler
-from adapters.inbound.fasthtml_types import FastHTMLApp, RouteDecorator
+from adapters.inbound.fasthtml_types import FastHTMLApp, Request, RouteDecorator
 from adapters.inbound.route_factories import DomainRouteConfig, register_domain_routes
 from core.models.event.event_dto import EventDTO
 from core.models.task.task_dto import TaskDTO
