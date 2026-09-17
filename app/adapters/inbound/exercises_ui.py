@@ -19,6 +19,7 @@ from fasthtml.common import Div, P
 
 from adapters.inbound.auth import make_service_getter, require_authenticated_user, require_teacher
 from adapters.inbound.boundary import ui_boundary_handler
+from adapters.inbound.fasthtml_types import Request
 from core.utils.logging import get_logger
 from ui.components import ButtonT
 from ui.exercises.cards import render_exercises_list
@@ -89,14 +90,14 @@ def create_exercises_ui_routes(
 
     @app.get("/exercises/new")
     @require_teacher(get_user_service)
-    def new_exercise_form(request, current_user=None) -> Any:
+    def new_exercise_form(request: Request, current_user: Any = None) -> Any:
         """New exercise form — ownership comes from the session at POST time."""
         return render_exercise_editor(mode="create")
 
     @app.get("/exercises/{uid}/edit")
     @require_teacher(get_user_service)
     @ui_boundary_handler("Error loading exercise")
-    async def edit_exercise_form(_request, uid: str, current_user=None) -> Any:
+    async def edit_exercise_form(request: Request, uid: str, current_user: Any = None) -> Any:
         """Edit exercise form — the teacher's own exercises only.
 
         TEACHER gates whether you may author exercises at all, never *whose*:
@@ -123,7 +124,7 @@ def create_exercises_ui_routes(
     @app.get("/exercises/{uid}/view")
     @require_teacher(get_user_service)
     @ui_boundary_handler("Error viewing exercise")
-    async def view_exercise(_request, uid: str, current_user=None) -> Any:
+    async def view_exercise(request: Request, uid: str, current_user: Any = None) -> Any:
         """View exercise with transparency and required Ku foundation.
 
         The authoring surface's read view — it links straight to the editor

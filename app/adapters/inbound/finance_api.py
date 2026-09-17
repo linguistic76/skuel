@@ -61,7 +61,9 @@ def create_finance_api_routes(
     @rt("/api/invoices", methods=["GET"])
     @require_admin(get_user_service)
     @boundary_handler()
-    async def list_invoices_route(request, current_user) -> Result[dict[str, Any]]:
+    async def list_invoices_route(
+        request: Request, current_user: Any = None
+    ) -> Result[dict[str, Any]]:
         """List all invoices with optional filters (admin only)"""
         # Get query params
         invoice_type = request.query_params.get("type")  # outgoing or incoming
@@ -88,7 +90,9 @@ def create_finance_api_routes(
     @csrf_protected
     @require_admin(get_user_service)
     @boundary_handler()
-    async def create_invoice_route(request, current_user) -> Result[dict[str, Any]]:
+    async def create_invoice_route(
+        request: Request, current_user: Any = None
+    ) -> Result[dict[str, Any]]:
         """Create a new invoice (admin only)"""
         from core.models.finance.invoice import (
             InvoiceCreateRequest,
@@ -121,7 +125,9 @@ def create_finance_api_routes(
     @rt("/api/invoices/stats")
     @require_admin(get_user_service)
     @boundary_handler()
-    async def get_invoice_stats_route(request, current_user) -> Result[InvoiceStats]:
+    async def get_invoice_stats_route(
+        request: Request, current_user: Any = None
+    ) -> Result[InvoiceStats]:
         """Get invoice statistics (admin only)"""
         result = await finance_service.get_invoice_stats()
 
@@ -132,7 +138,9 @@ def create_finance_api_routes(
     @rt("/api/invoices/get")
     @require_admin(get_user_service)
     @boundary_handler()
-    async def get_invoice_route(request: Request, current_user, uid: str) -> Result[dict[str, Any]]:
+    async def get_invoice_route(
+        request: Request, uid: str, current_user: Any = None
+    ) -> Result[dict[str, Any]]:
         """Get a specific invoice by UID (admin only)"""
         found = require_found(await finance_service.get_invoice(uid), "Invoice", uid)
         if found.is_error:
@@ -145,7 +153,7 @@ def create_finance_api_routes(
 
     @rt("/api/invoices/pdf")
     @require_admin(get_user_service)
-    async def download_invoice_pdf_route(request: Request, current_user, uid: str):
+    async def download_invoice_pdf_route(request: Request, uid: str, current_user: Any = None):
         """Download invoice as PDF (admin only)"""
         from starlette.responses import Response
 

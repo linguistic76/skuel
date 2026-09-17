@@ -189,7 +189,7 @@ def create_ingestion_api_routes(
     @csrf_protected
     @require_admin(get_user_service)
     @boundary_handler()
-    async def ingest_file_route(request: Request, current_user):
+    async def ingest_file_route(request: Request, current_user: Any = None):
         """
         Ingest a single file (MD or YAML) into Neo4j.
 
@@ -246,7 +246,7 @@ def create_ingestion_api_routes(
     @csrf_protected
     @require_admin(get_user_service)
     @boundary_handler()
-    async def ingest_vault_route(request: Request, current_user):
+    async def ingest_vault_route(request: Request, current_user: Any = None):
         """
         Ingest an Obsidian vault or specific subdirectories.
 
@@ -309,7 +309,7 @@ def create_ingestion_api_routes(
     @csrf_protected
     @require_admin(get_user_service)
     @boundary_handler()
-    async def ingest_bundle_route(request: Request, current_user):
+    async def ingest_bundle_route(request: Request, current_user: Any = None):
         """
         Ingest a domain bundle with manifest.
 
@@ -376,7 +376,7 @@ def create_ingestion_api_routes(
     @csrf_protected
     @require_admin(get_user_service)
     @boundary_handler(success_status=200)
-    async def domain_ingest(request: Request, domain_name: str, current_user):
+    async def domain_ingest(request: Request, domain_name: str, current_user: Any = None):
         """
         Domain-specific ingestion endpoint.
 
@@ -470,7 +470,7 @@ def create_ingestion_api_routes(
         @csrf_protected
         @require_admin(get_user_service)
         @boundary_handler()
-        async def regenerate_chunks_route(request: Request, current_user):
+        async def regenerate_chunks_route(request: Request, current_user: Any = None):
             """
             Regenerate :ContentChunk nodes for :Content parents.
 

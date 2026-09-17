@@ -29,11 +29,23 @@ requires fetching the user from the database anyway.
     ```python
     @rt("/api/admin/users")
     @require_admin(get_user_service)
-    async def list_users(request, current_user):
+    async def list_users(request: Request, current_user: Any = None):
         # current_user is the FULL User entity (has .uid, .role, .email, etc.)
         admin_uid = current_user.uid
         admin_role = current_user.role
     ```
+
+The one spelling is `current_user: Any = None`, and the handler keeps a
+parameter named `request`. FastHTML reads the HANDLER's signature through
+the `@wraps` chain and binds every parameter itself, before the decorator
+runs: an annotated parameter with no default is required from the request
+(400 "Missing required field" when absent), an unannotated one is passed as
+None with a warning (an error under pytest), and a dataclass annotation such
+as `User` is parsed from the request body. `Any` is opaque to that binder
+and the default lets the request omit it, so FastHTML passes None and the
+decorator replaces it with the User. The wrapper takes `request`
+positionally, and FastHTML fills the call by the handler's parameter names
+— a handler without one (`_request`) leaves it unfilled on every request.
 
 Pattern 2: Direct Auth → `user_uid: UserUID` (just the identifier)
 --------------------------------------------------------------
@@ -60,12 +72,15 @@ See also: /docs/patterns/AUTH_PATTERNS.md for complete documentation.
 
 Usage:
     ```python
+    from typing import Any
+
     from adapters.inbound.auth import (
         make_service_getter,
         require_role,
         require_admin,
         require_teacher,
     )
+    from adapters.inbound.fasthtml_types import Request
     from core.models.enums import UserRole
 
     get_user_service = make_service_getter(user_service)
@@ -74,19 +89,19 @@ Usage:
     # Require specific role
     @rt("/api/admin/users")
     @require_role(UserRole.ADMIN, get_user_service)
-    async def list_users(request, current_user): ...
+    async def list_users(request: Request, current_user: Any = None): ...
 
 
     # Shortcut for admin-only routes
     @rt("/api/admin/users/{uid}/role")
     @require_admin(get_user_service)
-    async def change_role(request, current_user): ...
+    async def change_role(request: Request, uid: str, current_user: Any = None): ...
 
 
     # Shortcut for teacher-only routes
     @rt("/api/ku")
     @require_teacher(get_user_service)
-    async def create_ku(request, current_user): ...
+    async def create_ku(request: Request, current_user: Any = None): ...
     ```
 """
 
@@ -131,7 +146,7 @@ def make_service_getter(service: Any) -> Callable[[], Any]:
 
         @rt("/api/admin/users")
         @require_admin(get_user_service)
-        async def list_users(request, current_user): ...
+        async def list_users(request: Request, current_user: Any = None): ...
         ```
     """
 
@@ -245,7 +260,7 @@ def require_role(required_role: UserRole, user_service_getter: Callable[[], Any]
 
         @rt("/api/admin/users")
         @require_role(UserRole.ADMIN, get_user_service)
-        async def list_all_users(request, current_user):
+        async def list_all_users(request: Request, current_user: Any = None):
             # current_user is the full User entity
             ...
         ```
@@ -279,7 +294,9 @@ def require_role(required_role: UserRole, user_service_getter: Callable[[], Any]
                 )
                 raise HTTPException(403, f"Requires {required_role.value} role or higher")
 
-            # 4. Inject current_user (full User entity) into kwargs
+            # 4. Inject current_user (full User entity) into kwargs.
+            # FastHTML has already bound the handler's `current_user: Any = None`
+            # to None from the request; this assignment replaces it.
             # NOTE: This is the FULL User entity, not just user_uid string.
             # Routes using role decorators receive current_user: User
             # while routes using require_authenticated_user() get user_uid: UserUID
@@ -307,7 +324,7 @@ def require_member(user_service_getter: Callable[[], Any]):
 
         @rt("/api/premium/feature")
         @require_member(get_user_service)
-        async def premium_feature(request, current_user): ...
+        async def premium_feature(request: Request, current_user: Any = None): ...
         ```
     """
     return require_role(UserRole.MEMBER, user_service_getter)
@@ -326,7 +343,7 @@ def require_teacher(user_service_getter: Callable[[], Any]):
 
         @rt("/api/ku")
         @require_teacher(get_user_service)
-        async def create_knowledge_unit(request, current_user): ...
+        async def create_knowledge_unit(request: Request, current_user: Any = None): ...
         ```
     """
     return require_role(UserRole.TEACHER, user_service_getter)
@@ -345,7 +362,7 @@ def require_admin(user_service_getter: Callable[[], Any]):
 
         @rt("/api/admin/users")
         @require_admin(get_user_service)
-        async def list_users(request, current_user): ...
+        async def list_users(request: Request, current_user: Any = None): ...
         ```
     """
     return require_role(UserRole.ADMIN, user_service_getter)

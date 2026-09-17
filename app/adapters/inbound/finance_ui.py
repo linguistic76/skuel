@@ -54,7 +54,7 @@ def create_finance_ui_routes(_app, rt, finance_service, user_service: Any = None
 
     @rt("/finance/invoices")
     @require_admin(get_user_service)
-    async def finance_invoices(request: Request, current_user) -> Any:
+    async def finance_invoices(request: Request, current_user: Any = None) -> Any:
         """Invoice management page with list and create form."""
         logger.info(f"Finance invoices accessed by {current_user.uid}")
 

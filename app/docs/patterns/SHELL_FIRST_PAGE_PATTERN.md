@@ -1,6 +1,6 @@
 ---
 title: "Pattern: Shell-First Page Loading"
-updated: 2026-07-11
+updated: 2026-09-17
 status: current
 category: patterns
 tags: [ui, htmx, performance, page-load]
@@ -168,13 +168,13 @@ Apply `@require_role` to **both** shell and fragment:
 ```python
 @rt("/teaching/students")
 @require_role(UserRole.TEACHER, get_user_service)
-def teaching_students_page(request, current_user=None):
+def teaching_students_page(request: Request, current_user: Any = None):
     content = Div(PageHeader("Students"), content_loading_placeholder("/teaching/students/content", "students-content"))
     return render_teaching_sidebar_page(content, active="students", request=request)
 
 @rt("/teaching/students/content")
 @require_role(UserRole.TEACHER, get_user_service)
-async def teaching_students_content_fragment(request, current_user=None):
+async def teaching_students_content_fragment(request: Request, current_user: Any = None):
     user_uid = require_authenticated_user(request)
     result = await orchestrator.get_students_summary(teacher_uid=user_uid)
     ...

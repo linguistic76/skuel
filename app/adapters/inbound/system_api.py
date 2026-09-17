@@ -131,7 +131,9 @@ def create_system_api_routes(
     @rt("/api/health")
     @require_admin(get_user_service)
     @boundary_handler()
-    async def health_check_route(request: Request, current_user) -> Result[dict[str, Any]]:
+    async def health_check_route(
+        request: Request, current_user: Any = None
+    ) -> Result[dict[str, Any]]:
         """
         Basic health check endpoint.
 
@@ -166,7 +168,7 @@ def create_system_api_routes(
     @rt("/api/status")
     @require_admin(get_user_service)
     @boundary_handler()
-    async def status_route(request: Request, current_user) -> Result[dict[str, Any]]:
+    async def status_route(request: Request, current_user: Any = None) -> Result[dict[str, Any]]:
         """
         Basic status endpoint with health summary.
 
@@ -206,7 +208,9 @@ def create_system_api_routes(
     @rt("/api/health/detailed")
     @require_admin(get_user_service)
     @boundary_handler()
-    async def detailed_health_route(request: Request, current_user) -> Result[dict[str, Any]]:
+    async def detailed_health_route(
+        request: Request, current_user: Any = None
+    ) -> Result[dict[str, Any]]:
         """
         Detailed health check with component status.
 
@@ -246,7 +250,9 @@ def create_system_api_routes(
     @rt("/api/version")
     @require_admin(get_user_service)
     @boundary_handler()
-    async def version_info_route(request: Request, current_user) -> Result[dict[str, Any]]:
+    async def version_info_route(
+        request: Request, current_user: Any = None
+    ) -> Result[dict[str, Any]]:
         """
         Get version information.
 
@@ -270,7 +276,9 @@ def create_system_api_routes(
     @rt("/api/diagnostics")
     @require_admin(get_user_service)
     @boundary_handler()
-    async def system_diagnostics_route(request: Request, current_user) -> Result[dict[str, Any]]:
+    async def system_diagnostics_route(
+        request: Request, current_user: Any = None
+    ) -> Result[dict[str, Any]]:
         """
         System diagnostics for troubleshooting.
 
@@ -335,7 +343,9 @@ def create_system_api_routes(
     @csrf_protected
     @require_admin(get_user_service)
     @boundary_handler(success_status=201)
-    async def register_service_route(request: Request, current_user) -> Result[dict[str, Any]]:
+    async def register_service_route(
+        request: Request, current_user: Any = None
+    ) -> Result[dict[str, Any]]:
         """
         Register a new service for health monitoring.
 
@@ -383,7 +393,9 @@ def create_system_api_routes(
     @csrf_protected
     @require_admin(get_user_service)
     @boundary_handler()
-    async def unregister_service_route(request: Request, current_user) -> Result[dict[str, Any]]:
+    async def unregister_service_route(
+        request: Request, current_user: Any = None
+    ) -> Result[dict[str, Any]]:
         """
         Unregister a service from health monitoring.
 
@@ -414,7 +426,7 @@ def create_system_api_routes(
     @require_admin(get_user_service)
     @boundary_handler()
     async def list_services_route(
-        request: Request, current_user
+        request: Request, current_user: Any = None
     ) -> Result[
         dict[str, Any]
     ]:  # skuel-lint: disable=SKUEL029 -- wrapped by @boundary_handler() which awaits the handler unconditionally (boundary.py)
@@ -441,7 +453,7 @@ def create_system_api_routes(
     @require_admin(get_user_service)
     @boundary_handler()
     async def validate_system_route(
-        request: Request, current_user
+        request: Request, current_user: Any = None
     ) -> Result[HealthCheckValidation]:
         """
         Validate health checkers and system components.
@@ -471,7 +483,9 @@ def create_system_api_routes(
     @rt("/api/summary")
     @require_admin(get_user_service)
     @boundary_handler()
-    async def system_summary_route(request: Request, current_user) -> Result[dict[str, Any]]:
+    async def system_summary_route(
+        request: Request, current_user: Any = None
+    ) -> Result[dict[str, Any]]:
         """
         Complete system summary - all key information in one call.
 
@@ -570,7 +584,9 @@ def create_system_api_routes(
     @rt("/api/alerts")
     @require_admin(get_user_service)
     @boundary_handler()
-    async def check_alerts_route(request: Request, current_user) -> Result[AlertCheckResult]:
+    async def check_alerts_route(
+        request: Request, current_user: Any = None
+    ) -> Result[AlertCheckResult]:
         """
         Check for triggered alerts.
 
@@ -601,7 +617,7 @@ def create_system_api_routes(
     @require_admin(get_user_service)
     @boundary_handler()
     async def get_alert_thresholds_route(
-        request: Request, current_user
+        request: Request, current_user: Any = None
     ) -> Result[
         dict[str, Any]
     ]:  # skuel-lint: disable=SKUEL029 -- wrapped by @boundary_handler() which awaits the handler unconditionally (boundary.py)
@@ -619,7 +635,7 @@ def create_system_api_routes(
     @require_admin(get_user_service)
     @boundary_handler()
     async def update_alert_thresholds_route(
-        request: Request, current_user
+        request: Request, current_user: Any = None
     ) -> Result[dict[str, Any]]:
         """
         Update alert thresholds.
