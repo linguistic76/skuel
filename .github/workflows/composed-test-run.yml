@@ -13,10 +13,8 @@ name: Composed Test Run
 # package whose name shadows a top-level package once the integration tree is
 # on the collection path, a session fixture one tier leaves behind for the
 # other, an import-order dependency between two modules that never share a
-# process in CI. That is not hypothetical: a `tests/…/scripts` package shadowed
-# `scripts/` and broke every `skuel_app` test in the composed run for three
-# days while both CI tiers stayed green, because nothing automated ever ran
-# the composed shape. This workflow runs it.
+# process in CI. Each of those passes both PR jobs and fails `./dev test`.
+# This workflow is the one automated run of the composed shape.
 #
 # WHY WEEKLY, NOT PER PR
 #
@@ -46,10 +44,13 @@ name: Composed Test Run
 # Same reason mypy-suppressions.yml does: a red scheduled run that lands
 # nowhere is indistinguishable from no check at all. A failing composed run
 # opens (or comments on) one marker-keyed issue carrying pytest's short
-# summary and the run link. The issue step is not gated on the default branch,
-# so a branch dispatch that fails opens it too — that is what lets a PR verify
-# the failure path before it merges. The marker de-duplicates: an open issue
-# gets a comment, not a sibling.
+# summary and the run link — and so does a run whose session never started
+# (a failed checkout, toolchain setup, cache restore or `uv sync`): the issue
+# step runs on `failure()` as well, and says which of the two it is. The issue
+# step is not gated on the default branch, so a branch dispatch that fails
+# opens it too — that is what lets a PR verify the failure path before it
+# merges. The marker de-duplicates: an open issue gets a comment, not a
+# sibling.
 
 on:
   schedule:
@@ -195,9 +196,13 @@ jobs:
       # Before the artifacts: steps carry an implicit success() check, so a
       # transient artifact-service failure ahead of this one would skip it and
       # a red week would land only in the Actions log — the artifact is a
-      # convenience, the issue is the promise.
+      # convenience, the issue is the promise. `failure()` for the same reason
+      # one layer up: a setup step that fails (checkout, Python/uv, the venv
+      # cache, `uv sync`) would otherwise skip this step too, and the session's
+      # exit code is empty then — the body says the session never ran and
+      # claims nothing about the tests.
       - name: Open an issue when the run is red
-        if: steps.tests.outputs.exit_code != '0' || steps.summary.outputs.exit_code != '0'
+        if: failure() || steps.tests.outputs.exit_code != '0' || steps.summary.outputs.exit_code != '0'
         uses: actions/github-script@v9
         env:
           TESTS_EXIT_CODE: ${{ steps.tests.outputs.exit_code }}
@@ -224,20 +229,34 @@ jobs:
             const parts = [
               marker,
               'The weekly [composed test run](' + runUrl + ') — `./dev test`, both tiers in one',
-              'pytest session — is red. The per-tier PR jobs may still be green: a failure that',
-              'appears only here is a defect in the COMPOSITION (a shadowing test package, a',
-              'fixture one tier leaves behind, an import-order dependency). Reproduce with',
-              '`./dev test`.',
+              'pytest session — is red.',
               '',
-              '- pytest exit code: `' + testsRc + '`' + (testsRc === '5' ? ' (no tests collected)' : ''),
-              '- coverage summary exit code: `' + summaryRc + '`',
-              '',
-              '```',
-              excerpt.trim(),
-              '```',
             ];
-            if (summaryRc !== '0') {
-              parts.push('', 'The coverage summary could not be rendered:', '', '```', summaryErr.trim(), '```');
+            if (!testsRc) {
+              // The session never started: a step before it failed (checkout,
+              // Python/uv setup, the venv cache, `uv sync`). Nothing is known
+              // about the tests, and the body must not imply otherwise.
+              parts.push(
+                '**The session never ran** — a setup step failed before it (see the run log).',
+                'No claim is made about the tests; a re-run usually clears a transient runner or',
+                'package-service failure.',
+              );
+            } else {
+              parts.push(
+                'The per-tier PR jobs may still be green: a failure that appears only here is a',
+                'defect in the COMPOSITION (a shadowing test package, a fixture one tier leaves',
+                'behind, an import-order dependency). Reproduce with `./dev test`.',
+                '',
+                '- pytest exit code: `' + testsRc + '`' + (testsRc === '5' ? ' (no tests collected)' : ''),
+                '- coverage summary exit code: `' + summaryRc + '`',
+                '',
+                '```',
+                excerpt.trim(),
+                '```',
+              );
+              if (summaryRc !== '0') {
+                parts.push('', 'The coverage summary could not be rendered:', '', '```', summaryErr.trim(), '```');
+              }
             }
             const issueBody = parts.join('\n');
 
