@@ -57,12 +57,19 @@
 # goes away — loses the poll, not the summon. Re-running plainly would post a
 # SECOND `@codex review` and anchor its window at that second comment, so a
 # verdict landing between the two is never read. `--resume` posts nothing: it
-# anchors at the FIRST unanswered summon by the authenticated user (the summon,
-# not its halfway re-nudge — so a verdict landing in between is still seen), or
-# at the newest summon when every summon has been answered (the killed wait's
-# verdict arrived; this reads it). The deadline is per call, from now, so the
-# recommended shape on a memory-bounded machine — a bounded FOREGROUND call
-# under the harness's tool timeout, re-run with --resume until a verdict — is
+# anchors at the OLDEST `@codex review` by the authenticated user in the
+# current review cycle — the cycle begins at the later of the head commit's
+# date (the gate strips the label on every push, so a summon that predates the
+# head reviewed other code) and the last `codex-considered` labeling (a
+# considered verdict closes its cycle). Oldest, never newest: a verdict lands
+# on whichever summon Codex answers, and anchoring at the first one reads it
+# wherever it lands — after the summon, after the halfway re-nudge, or between
+# the two. Codex's own activity is deliberately not consulted: a verdict that
+# landed just before a re-nudge would otherwise make the re-nudge look like
+# the unanswered one, and every resumed poll would filter that verdict out.
+# The deadline is per call, from now, so the recommended shape on a
+# memory-bounded machine — a bounded FOREGROUND call under the harness's tool
+# timeout, re-run with --resume until a verdict — is
 # `scripts/request_codex_review.sh <PR#> 540` then
 # `scripts/request_codex_review.sh <PR#> 540 --resume`, as many times as needed.
 # A resumed wait never re-nudges (the summon is on the PR — the operator can
@@ -156,50 +163,38 @@ summon() {
   echo "$since"
 }
 
-# The newest timestamp at which Codex did anything on this PR — a review, an
-# inline comment, or an issue comment other than the status widget. Empty when
-# it never has. Paginated: this is a whole-history read, not a since-window.
-latest_codex_activity() {
-  local reviews inline comments
-  reviews=$(gh_retry api --paginate "repos/$REPO/pulls/$PR/reviews?per_page=100" \
-    --jq '[.[] | select(.user.login|test("codex";"i")) | .submitted_at] | max // empty') || return 1
-  inline=$(gh_retry api --paginate "repos/$REPO/pulls/$PR/comments?per_page=100" \
-    --jq '[.[] | select(.user.login|test("codex";"i")) | .created_at] | max // empty') || return 1
-  comments=$(gh_retry api --paginate "repos/$REPO/issues/$PR/comments?per_page=100" \
-    --jq "[.[] | select(.user.login|test(\"codex\";\"i\")) | $widget | .created_at] | max // empty") || return 1
-  # --paginate emits one value per page; ISO-8601 Z timestamps sort as text.
-  printf '%s\n%s\n%s\n' "$reviews" "$inline" "$comments" | sed '/^$/d' | sort | tail -1
+# Prints the moment the current review cycle began: the later of the head
+# commit's committer date and the last `codex-considered` labeling. Paginated:
+# whole-history reads, not since-windows; --paginate emits one value per page
+# and ISO-8601 Z timestamps sort as text, so the last sorted line is the max.
+cycle_start() {
+  local head labeled
+  head=$(gh_retry api --paginate "repos/$REPO/pulls/$PR/commits?per_page=100" \
+    --jq '.[-1].commit.committer.date') || return 1
+  labeled=$(gh_retry api --paginate "repos/$REPO/issues/$PR/events?per_page=100" \
+    --jq '[.[] | select(.event == "labeled") | select(.label.name == "codex-considered") | .created_at] | max // empty') || return 1
+  printf '%s\n%s\n' "$head" "$labeled" | sed '/^$/d' | sort | tail -1
 }
 
 # Prints the anchor for a resumed wait: the oldest `@codex review` comment by
-# the authenticated user that is newer than Codex's latest activity (the first
-# unanswered summon — a re-nudge is never the anchor, so a verdict landing
-# between summon and nudge is still read), or the newest summon when every
-# one has been answered (the verdict for the killed wait is already on the PR
-# and this reads it). Prints nothing, with the reason on stderr, when there is
-# no summon to resume.
+# the authenticated user since the current cycle began (see the header for why
+# oldest, and why Codex's activity plays no part). Prints nothing, with the
+# reason on stderr, when there is no summon to resume.
 find_resume_anchor() {
-  local login summons latest anchor="" s
+  local login start summons anchor
   login=$(gh_retry api user --jq .login) || { echo "✗ could not read the authenticated login" >&2; return 1; }
   [[ -n "$login" ]] || { echo "✗ gh reports no login" >&2; return 1; }
+  start=$(cycle_start) || { echo "✗ could not read the head commit / label history of #$PR" >&2; return 1; }
   summons=$(gh_retry api --paginate "repos/$REPO/issues/$PR/comments?per_page=100" \
     --jq ".[] | select(.user.login == \"$login\") | select(.body|test(\"@codex review\")) | .created_at") \
     || { echo "✗ could not list the summons on #$PR" >&2; return 1; }
-  summons=$(sed '/^$/d' <<< "$summons" | sort)
-  if [[ -z "$summons" ]]; then
-    echo "✗ no @codex review comment by $login on #$PR — nothing to resume; run without --resume to summon" >&2
+  anchor=$(sed '/^$/d' <<< "$summons" | sort | awk -v start="$start" '$0 > start { print; exit }')
+  if [[ -z "$anchor" ]]; then
+    echo "✗ no @codex review by $login on #$PR since the current cycle began (${start:-the beginning}:" >&2
+    echo "  the head commit, or the last codex-considered) — nothing to resume; run without --resume to summon" >&2
     return 1
   fi
-  latest=$(latest_codex_activity) || { echo "✗ could not read Codex's activity on #$PR" >&2; return 1; }
-  while read -r s; do
-    if [[ -z "$latest" || "$s" > "$latest" ]]; then anchor="$s"; break; fi
-  done <<< "$summons"
-  if [[ -n "$anchor" ]]; then
-    echo "  anchor: summon at $anchor (unanswered — Codex's latest activity: ${latest:-none})" >&2
-  else
-    anchor=$(tail -1 <<< "$summons")
-    echo "  anchor: summon at $anchor (answered — Codex's latest activity $latest is newer; reading it)" >&2
-  fi
+  echo "  anchor: summon at $anchor (cycle began ${start:-at the first commit})" >&2
   echo "$anchor"
 }
 

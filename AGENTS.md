@@ -106,8 +106,9 @@ invariants — keep comments focused on real, high-priority risks.
   bounded **foreground** call under the harness's tool timeout
   (`app/scripts/request_codex_review.sh <PR#> 540`) and, on exit 3, keep waiting with
   `app/scripts/request_codex_review.sh <PR#> 540 --resume`: it posts no new
-  `@codex review`, anchors at the first unanswered summon by the authenticated account,
-  and never re-nudges. A plain re-run posts a second summon and anchors at it, so a verdict
+  `@codex review`, anchors at the oldest summon by the authenticated account in the
+  current review cycle (since the head commit or the last `codex-considered`), and never
+  re-nudges. A plain re-run posts a second summon and anchors at it, so a verdict
   landing between the two is never read.
 - **Codex Review Gate** (required check, `.github/workflows/codex-gate.yml`) —
   **scoped to on-request**: a PR with no `@codex review` passes automatically; once a
