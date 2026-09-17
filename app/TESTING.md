@@ -164,7 +164,9 @@ initial / 512m max heap and a 128m page cache, measured at ~2.8 GiB for the thre
 together at the tier's peak (the busy shared container ~1.4 GiB, the other two ~0.6–0.9)
 against ~3.1 GiB unsized, with the tier's wall time unchanged. The numbers are a
 code-side ceiling and stay one on a larger machine — a bigger host is not a licence to
-size from it again. `./dev test` is the composed-session guard
+size from it again. Every memory bound in the test tooling, where it lives, and what a larger
+machine changes is the [development-machine-capacity](docs/roadmap/development-machine-capacity.md)
+case file. `./dev test` is the composed-session guard
 (one session, both tiers — the shape the per-tier CI jobs never run; its CI twin is the
 weekly `composed-test-run.yml`, see [Continuous Integration](#continuous-integration)), and its wall time is the
 integration tier's plus the unit tier's, serial.
