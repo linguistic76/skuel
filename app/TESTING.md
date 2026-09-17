@@ -156,8 +156,15 @@ worker or distribution choice in the forwarded flags replaces the default wholes
 
 The **integration tier is serial, by ruling**, and so is every mode that holds it
 (`./dev test`, `./dev test-integration`, `./dev test-quick`): its session-scoped fixtures
-are two Neo4j testcontainers plus one app boot, and under xdist every worker builds its
-own set — N workers cost N container sets. `./dev test` is the composed-session guard
+are three Neo4j testcontainers (two in `conftest.py`, the APOC-lockdown suite's third)
+plus one app boot, and under xdist every worker builds its own set — N workers cost N
+container sets. Each container's JVM is **sized for the test graphs, not for the host**:
+`bounded_neo4j_container()` (`tests/integration/_container_lifecycle.py`) pins 128m
+initial / 512m max heap and a 128m page cache, measured at ~2.8 GiB for the three
+together at the tier's peak (the busy shared container ~1.4 GiB, the other two ~0.6–0.9)
+against ~3.1 GiB unsized, with the tier's wall time unchanged. The numbers are a
+code-side ceiling and stay one on a larger machine — a bigger host is not a licence to
+size from it again. `./dev test` is the composed-session guard
 (one session, both tiers — the shape the per-tier CI jobs never run; its CI twin is the
 weekly `composed-test-run.yml`, see [Continuous Integration](#continuous-integration)), and its wall time is the
 integration tier's plus the unit tier's, serial.
@@ -304,6 +311,32 @@ docker ps
 
 # If startup is the problem, inspect the most recent container's logs
 docker logs "$(docker ps -lq)"
+```
+
+### Orphaned Neo4j Testcontainers After a Killed Run
+
+**Symptom:** `docker ps` shows `neo4j:…` containers from an earlier session — a run the
+harness stopped, a terminal that went away, a `kill -9` — still up and holding ~1 GiB
+each; a later `free -g` is short by that much.
+
+**Cause:** Ryuk (testcontainers' reaper) was never told what to reap. The library
+sends the session filter the moment the Ryuk container is *running*, without waiting
+for the process inside to *listen*, and never reads the reply; on a Linux daemon
+docker-proxy accepts that early connection on Ryuk's behalf and resets it, so Ryuk
+never sees a client, exits on its own 60 s first-connection timer, and the session runs
+with no reaper (testcontainers-python#1114 — observed here in 2 of 4 sessions).
+`bounded_neo4j_container()` closes the hole for every container it builds: it reads
+Ryuk's `ACK` before starting the container and re-registers when the ACK is missing, so
+a killed session's containers are removed ~10 s after the process dies
+(`RYUK_RECONNECTION_TIMEOUT`). Verify with `docker logs -f "$(docker ps -q --filter
+name=testcontainers-ryuk)"` during a run: a registered session shows
+`New client connected` and `Adding {"label":…}`; a lost one shows `Timeout waiting for
+connection`.
+
+**Remedy** for containers that leaked anyway (a session started on an older tree, Ryuk
+disabled by `TESTCONTAINERS_RYUK_DISABLED`):
+```bash
+docker ps -aq --filter label=org.testcontainers=true | xargs -r docker rm -f
 ```
 
 ### Import Errors

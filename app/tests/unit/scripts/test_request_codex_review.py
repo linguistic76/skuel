@@ -50,8 +50,25 @@ if [[ -n "${STUB_FAIL_MATCH:-}" && "$args" == *"${STUB_FAIL_MATCH}"* ]]; then
   echo "stub: simulated API failure" >&2
   exit 1
 fi
+# Every POST (a summon, a consideration note) is recorded, so a test can assert
+# what the script wrote to the PR — a resumed wait must write no summon.
+if [[ "$args" == *"-f body="* ]]; then
+  printf '%s\n' "$args" >> "${STUB_POST_LOG:-/dev/null}"
+  echo "https://example.invalid/comment"
+  exit 0
+fi
 case "$args" in
   *"auth token"*)        echo "stub-token" ;;
+  *"api user"*)          echo "${STUB_LOGIN:-linguistic76}" ;;
+  # The resume anchor's whole-history reads: the head sha, the last
+  # codex-considered labeling, the summons by the user for that head.
+  # STUB_SUMMONS holds `<sha> <created_at>` lines; the stub answers the sha the
+  # query names, which is the selection the real jq marker match performs.
+  *".head.sha"*)         echo "${STUB_HEAD_SHA}" ;;
+  *issues*events*)       printf '%s' "${STUB_LABELED}" ;;
+  *"codex-summon head="*)
+    [[ "$args" =~ codex-summon.head=([0-9a-f]+) ]]
+    awk -v sha="${BASH_REMATCH[1]}" '$1 == sha { print $2 }' <<< "${STUB_SUMMONS}" ;;
   *"review on"*)         printf '%s' "${STUB_REVIEW_BODIES}" ;;
   *reviews*)             echo "${STUB_REVIEW_COUNT}" ;;
   *pulls*comments*.path*) printf '%s' "${STUB_INLINE_TEXT}" ;;
@@ -63,6 +80,42 @@ esac
 """
 
 SINCE = "2026-09-08T18:35:00Z"
+
+
+def _stub_env(
+    tmp_path: Path,
+    *,
+    review_count: str = "0",
+    review_bodies: str = "",
+    inline_count: str = "0",
+    inline_text: str = "",
+    issue_count: str = "0",
+    issue_body: str = "",
+    fail_match: str = "",
+    summons: str = "",
+    head_sha: str = "",
+    labeled: str = "",
+) -> dict[str, str]:
+    """Install the gh stub on PATH and describe one PR state to it."""
+    bin_dir = tmp_path / "bin"
+    bin_dir.mkdir(exist_ok=True)
+    gh = bin_dir / "gh"
+    gh.write_text(GH_STUB)
+    gh.chmod(0o755)
+    return {
+        "PATH": f"{bin_dir}:/usr/bin:/bin",
+        "STUB_REVIEW_COUNT": review_count,
+        "STUB_REVIEW_BODIES": review_bodies,
+        "STUB_INLINE_COUNT": inline_count,
+        "STUB_INLINE_TEXT": inline_text,
+        "STUB_ISSUE_COUNT": issue_count,
+        "STUB_ISSUE_BODY": issue_body,
+        "STUB_FAIL_MATCH": fail_match,
+        "STUB_SUMMONS": summons,
+        "STUB_HEAD_SHA": head_sha,
+        "STUB_LABELED": labeled,
+        "STUB_POST_LOG": str(tmp_path / "posts.log"),
+    }
 
 
 def run_check_verdict(
@@ -77,23 +130,32 @@ def run_check_verdict(
     fail_match: str = "",
 ) -> subprocess.CompletedProcess[str]:
     """Source the real script and run check_verdict against one stubbed PR state."""
-    bin_dir = tmp_path / "bin"
-    bin_dir.mkdir(exist_ok=True)
-    gh = bin_dir / "gh"
-    gh.write_text(GH_STUB)
-    gh.chmod(0o755)
-
-    env = {
-        "PATH": f"{bin_dir}:/usr/bin:/bin",
-        "STUB_REVIEW_COUNT": review_count,
-        "STUB_REVIEW_BODIES": review_bodies,
-        "STUB_INLINE_COUNT": inline_count,
-        "STUB_INLINE_TEXT": inline_text,
-        "STUB_ISSUE_COUNT": issue_count,
-        "STUB_ISSUE_BODY": issue_body,
-        "STUB_FAIL_MATCH": fail_match,
-    }
+    env = _stub_env(
+        tmp_path,
+        review_count=review_count,
+        review_bodies=review_bodies,
+        inline_count=inline_count,
+        inline_text=inline_text,
+        issue_count=issue_count,
+        issue_body=issue_body,
+        fail_match=fail_match,
+    )
     program = f'source "{SCRIPT}" 1301\ncheck_verdict "{SINCE}"\nexit $?\n'
+    return subprocess.run(
+        ["bash", "-c", program], capture_output=True, text=True, env=env, check=False
+    )
+
+
+def run_find_resume_anchor(
+    tmp_path: Path,
+    *,
+    summons: str,
+    head_sha: str = "b" * 40,
+    labeled: str = "",
+) -> subprocess.CompletedProcess[str]:
+    """Source the real script and run find_resume_anchor against one stubbed PR history."""
+    env = _stub_env(tmp_path, summons=summons, head_sha=head_sha, labeled=labeled)
+    program = f'source "{SCRIPT}" 1301\nfind_resume_anchor\nexit $?\n'
     return subprocess.run(
         ["bash", "-c", program], capture_output=True, text=True, env=env, check=False
     )
@@ -288,3 +350,144 @@ class TestScriptShape:
         """Counting a channel without printing it is the defect this file pins."""
         source = SCRIPT.read_text()
         assert f"pulls/$PR/{channel}" in source
+
+
+HEAD_A = "a" * 40
+HEAD_B = "b" * 40
+SUMMON_1 = "2026-09-17T14:00:00Z"
+RENUDGE_1 = "2026-09-17T14:10:00Z"
+OLD_SUMMON = "2026-09-16T09:00:00Z"
+OLD_LABELED = "2026-09-16T09:20:00Z"
+
+
+def _summons(*pairs: tuple[str, str]) -> str:
+    return "".join(f"{sha} {at}\n" for sha, at in pairs)
+
+
+class TestResumeAnchor:
+    """A resumed wait anchors at the oldest summon for the current head — and posts no new one."""
+
+    def test_one_summon_for_the_head_is_the_anchor(self, tmp_path: Path) -> None:
+        result = run_find_resume_anchor(tmp_path, summons=_summons((HEAD_B, SUMMON_1)))
+        assert result.returncode == 0, result.stderr
+        assert result.stdout.strip() == SUMMON_1
+        assert f"for head {HEAD_B[:10]}" in result.stderr
+
+    def test_the_first_summon_wins_over_its_renudge(self, tmp_path: Path) -> None:
+        """The verdict lands on whichever summon Codex answers — after the summon,
+        after the re-nudge, or between the two. Only the oldest anchor reads all three;
+        the killed wait's history can be summon → verdict → re-nudge, and an anchor at
+        the re-nudge would filter that verdict out of every resumed poll."""
+        result = run_find_resume_anchor(
+            tmp_path, summons=_summons((HEAD_B, RENUDGE_1), (HEAD_B, SUMMON_1))
+        )
+        assert result.returncode == 0, result.stderr
+        assert result.stdout.strip() == SUMMON_1
+
+    def test_a_summon_for_another_head_is_never_the_anchor(self, tmp_path: Path) -> None:
+        """Dates play no part: the other head's summon is NEWER here — the shape a
+        force-push of an older commit leaves behind — and still not this head's."""
+        result = run_find_resume_anchor(
+            tmp_path, summons=_summons((HEAD_B, OLD_SUMMON), (HEAD_A, SUMMON_1))
+        )
+        assert result.returncode == 0, result.stderr
+        assert result.stdout.strip() == OLD_SUMMON
+
+    def test_a_new_head_with_no_summon_of_its_own_has_nothing_to_resume(
+        self, tmp_path: Path
+    ) -> None:
+        """A push after a summon opens a cycle with no summon yet, whatever the
+        commit's date says — a plain run must summon for the new head."""
+        result = run_find_resume_anchor(tmp_path, summons=_summons((HEAD_A, SUMMON_1)))
+        assert result.returncode == 1
+        assert result.stdout.strip() == ""
+        assert "nothing to resume" in result.stderr
+
+    def test_a_force_push_back_to_a_reviewed_head_resumes_that_heads_summon(
+        self, tmp_path: Path
+    ) -> None:
+        result = run_find_resume_anchor(
+            tmp_path,
+            summons=_summons((HEAD_A, OLD_SUMMON), (HEAD_B, SUMMON_1)),
+            head_sha=HEAD_A,
+        )
+        assert result.returncode == 0, result.stderr
+        assert result.stdout.strip() == OLD_SUMMON
+
+    def test_a_considered_cycle_has_nothing_to_resume(self, tmp_path: Path) -> None:
+        result = run_find_resume_anchor(
+            tmp_path, summons=_summons((HEAD_B, SUMMON_1)), labeled="2026-09-17T14:30:00Z"
+        )
+        assert result.returncode == 1
+        assert result.stdout.strip() == ""
+        assert "nothing to resume" in result.stderr
+
+    def test_a_label_from_a_previous_cycle_does_not_close_this_one(self, tmp_path: Path) -> None:
+        result = run_find_resume_anchor(
+            tmp_path,
+            summons=_summons((HEAD_A, OLD_SUMMON), (HEAD_B, SUMMON_1)),
+            labeled=OLD_LABELED,
+        )
+        assert result.returncode == 0, result.stderr
+        assert result.stdout.strip() == SUMMON_1
+
+    def test_no_summon_is_an_error_not_a_summon(self, tmp_path: Path) -> None:
+        result = run_find_resume_anchor(tmp_path, summons="")
+        assert result.returncode == 1
+        assert result.stdout.strip() == ""
+        assert "nothing to resume" in result.stderr
+        assert not (tmp_path / "posts.log").exists(), "a missing anchor must never summon"
+
+
+class TestResumedRun:
+    """The whole flow with --resume: no summon is posted, the verdict is read."""
+
+    def _run(self, tmp_path: Path, env: dict[str, str]) -> subprocess.CompletedProcess[str]:
+        env = {**env, "CODEX_POLL_INTERVAL": "1"}
+        return subprocess.run(
+            ["bash", str(SCRIPT), "1301", "2", "--resume"],
+            capture_output=True,
+            text=True,
+            env=env,
+            check=False,
+        )
+
+    def test_a_resumed_wait_posts_no_summon_and_reads_the_findings(self, tmp_path: Path) -> None:
+        env = _stub_env(
+            tmp_path,
+            summons=_summons((HEAD_B, SUMMON_1)),
+            head_sha=HEAD_B,
+            review_count="1",
+            review_bodies=BODY_FINDING,
+        )
+        result = self._run(tmp_path, env)
+        assert result.returncode == 2, result.stdout + result.stderr
+        assert "Include root commits in the push diff" in result.stdout
+        assert "resuming the wait" in result.stdout
+        assert not (tmp_path / "posts.log").exists(), (
+            f"a resumed wait posted to the PR: {(tmp_path / 'posts.log').read_text()}"
+        )
+
+    def test_a_resumed_wait_never_renudges(self, tmp_path: Path) -> None:
+        """A 2 s deadline with a 1 s poll passes the halfway mark; a plain run would nudge."""
+        env = _stub_env(tmp_path, summons=_summons((HEAD_B, SUMMON_1)), head_sha=HEAD_B)
+        result = self._run(tmp_path, env)
+        assert result.returncode == 3, result.stdout + result.stderr
+        assert not (tmp_path / "posts.log").exists(), "the resumed wait re-summoned"
+        assert "--resume" in result.stdout, "the timeout message must name the resume path"
+
+    def test_a_plain_run_still_summons_and_renudges(self, tmp_path: Path) -> None:
+        """The control: without --resume the flow posts the summon (and its nudge),
+        each naming the head it asks about — the key a later --resume joins on."""
+        env = {**_stub_env(tmp_path, head_sha=HEAD_B), "CODEX_POLL_INTERVAL": "1"}
+        result = subprocess.run(
+            ["bash", str(SCRIPT), "1301", "2"],
+            capture_output=True,
+            text=True,
+            env=env,
+            check=False,
+        )
+        assert result.returncode == 3, result.stdout + result.stderr
+        posts = (tmp_path / "posts.log").read_text().split("@codex review")[1:]
+        assert len(posts) == 2, posts
+        assert all(f"codex-summon head={HEAD_B}" in post for post in posts)

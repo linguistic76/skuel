@@ -19,16 +19,12 @@ from unittest.mock import AsyncMock
 import pytest
 import pytest_asyncio
 from neo4j import AsyncGraphDatabase
-from testcontainers.community.neo4j import Neo4jContainer  # type: ignore[import-untyped]
 
 from adapters.persistence.neo4j.universal_backend import UniversalNeo4jBackend
 from core.constants import SYSTEM_USER_UID
 from core.services.ingestion.config import DEFAULT_USER_UID
-from tests.integration._neo4j_pin import (
-    NEO4J_IMAGE,
-    NEO4J_SERVER_VERSION,
-    running_kernel_version,
-)
+from tests.integration._container_lifecycle import bounded_neo4j_container
+from tests.integration._neo4j_pin import NEO4J_SERVER_VERSION, running_kernel_version
 
 # The personal-vault sync rig (ADR-070 / R4) — one fixture, two test files.
 from tests.integration._vault_rig import rig  # noqa: F401
@@ -48,7 +44,8 @@ def neo4j_container():
     Note: Requires Docker to be running.
     Image = the calendar release pinned in infrastructure/docker-compose.yml,
     read from that file (tests/integration/_neo4j_pin.py) — one authored site,
-    nothing to bump here (ADR-067 § 3a).
+    nothing to bump here (ADR-067 § 3a). JVM sizing and the reaper handshake
+    come from the shared builder (tests/integration/_container_lifecycle.py).
 
     ⚠ The APOC profile here is DELIBERATELY more permissive than compose, which
     sets both `..._unrestricted` and `..._allowlist` to `apoc.meta.*`. Do not
@@ -61,9 +58,7 @@ def neo4j_container():
     fixture as the positive control for its refusal assertions. Both profiles
     are load-bearing; neither replaces the other.
     """
-    container = Neo4jContainer(NEO4J_IMAGE)
-    # Disable auth completely for testing
-    container.with_env("NEO4J_dbms_security_auth__enabled", "false")
+    container = bounded_neo4j_container()
     container.with_env("NEO4J_PLUGINS", '["apoc"]')
     # Allow APOC procedures without role checks
     container.with_env("NEO4J_dbms_security_procedures_unrestricted", "apoc.*")
@@ -117,8 +112,7 @@ def skuel_app_container():
     No APOC: the runtime calls no ``apoc.*`` procedure (SKUEL001), and the
     plugin liveness canary has the shared container for that.
     """
-    container = Neo4jContainer(NEO4J_IMAGE)
-    container.with_env("NEO4J_dbms_security_auth__enabled", "false")
+    container = bounded_neo4j_container()
 
     container.start()
     yield container

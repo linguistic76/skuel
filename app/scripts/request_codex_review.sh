@@ -53,8 +53,35 @@
 # GitHub auth incidents (2026-06-10) showed per-call 401 flapping that a single
 # retry usually clears.
 #
+# RESUMING (--resume): a wait that dies — the harness stops it, the terminal
+# goes away — loses the poll, not the summon. Re-running plainly would post a
+# SECOND `@codex review` and anchor its window at that second comment, so a
+# verdict landing between the two is never read. `--resume` posts nothing.
+# Every summon this script posts records the head SHA it asks about
+# (`<!-- codex-summon head=<sha> -->`, invisible in the rendered PR), and a
+# resumed wait anchors at the OLDEST summon by the authenticated user FOR THE
+# CURRENT HEAD since the last `codex-considered` labeling. A verdict is about a
+# SHA: a summon for another head reviewed other code, whatever its date (commit
+# dates are supplied by the commit — a force-push of an older commit carries an
+# older date — so no timestamp can stand in for the SHA), and a considered
+# verdict closes its cycle (the label event's time is the server's, not the
+# commit's). Oldest, never newest: a verdict lands on whichever summon Codex
+# answers, and anchoring at the first one reads it wherever it lands — after
+# the summon, after the halfway re-nudge, or between the two. Codex's own
+# activity is deliberately not consulted: a verdict that landed just before a
+# re-nudge would otherwise make the re-nudge look like the unanswered one, and
+# every resumed poll would filter that verdict out. A summon posted by hand or
+# without the marker is not resumable — run plainly to summon.
+# The deadline is per call, from now, so the recommended shape on a
+# memory-bounded machine — a bounded FOREGROUND call under the harness's tool
+# timeout, re-run with --resume until a verdict — is
+# `scripts/request_codex_review.sh <PR#> 540` then
+# `scripts/request_codex_review.sh <PR#> 540 --resume`, as many times as needed.
+# A resumed wait never re-nudges (the summon is on the PR — the operator can
+# see it; a fresh summon is a plain run, deliberately).
+#
 # Usage:
-#   scripts/request_codex_review.sh <pr-number> [deadline-seconds]
+#   scripts/request_codex_review.sh <pr-number> [deadline-seconds] [--resume]
 #
 # Exit codes: 0 clean (labeled) | 2 findings (read, not labeled)
 #             3 timeout/pending (NOT labeled, gate stays red) | 1 usage / unreadable
@@ -62,9 +89,23 @@
 set -uo pipefail
 
 REPO="linguistic76/skuel"
-PR="${1:-}"
-DEADLINE="${2:-1200}"
-POLL_INTERVAL=30
+PR=""
+DEADLINE=""
+RESUME=0
+for arg in "$@"; do
+  case "$arg" in
+    --resume) RESUME=1 ;;
+    *)
+      if [[ -z "$PR" ]]; then PR="$arg"
+      elif [[ -z "$DEADLINE" ]]; then DEADLINE="$arg"
+      else echo "usage: $0 <pr-number> [deadline-seconds] [--resume]" >&2; exit 1
+      fi ;;
+  esac
+done
+DEADLINE="${DEADLINE:-1200}"
+# Seconds between verdict polls. Overridable for the unit tests only, which
+# drive the whole flow against a stubbed gh and cannot afford a real interval.
+POLL_INTERVAL="${CODEX_POLL_INTERVAL:-30}"
 # Absolute, so every follow-up command this script PRINTS is runnable from the
 # caller's cwd — the repo root and app/ both document invoking this script.
 SCRIPT_DIR=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
@@ -74,7 +115,7 @@ SCRIPT_DIR=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
 APPLY_CMD=$(printf '%q' "$SCRIPT_DIR/apply_codex_considered.sh")
 
 if [[ -z "$PR" || ! "$PR" =~ ^[0-9]+$ ]]; then
-  echo "usage: $0 <pr-number> [deadline-seconds]" >&2
+  echo "usage: $0 <pr-number> [deadline-seconds] [--resume]" >&2
   exit 1
 fi
 if [[ ! "$DEADLINE" =~ ^[0-9]+$ ]] || (( DEADLINE < POLL_INTERVAL )); then
@@ -113,14 +154,56 @@ acquire_token || { echo "✗ could not read gh auth token" >&2; exit 1; }
 
 # --- summon + poll ---------------------------------------------------------
 
+# The status widget's marker (see header): every read of the issue-comment
+# channel — verdict count, verdict body, resume anchor — filters on it.
+widget='select(.body|test("codex-pull-request-review-summary")|not)'
+
+# The SHA a verdict would be about.
+head_sha() {
+  gh_retry api "repos/$REPO/pulls/$PR" --jq .head.sha
+}
+
 # Prints the summon timestamp; prints nothing on failure (exit inside $(...)
-# only leaves the subshell, so callers must check for empty output).
+# only leaves the subshell, so callers must check for empty output). The
+# comment records the head it asks about — the join key a resumed wait uses.
 summon() {
-  local since
+  local since sha
   since=$(date -u +%Y-%m-%dT%H:%M:%SZ)
-  gh_retry api "repos/$REPO/issues/$PR/comments" -f body="@codex review" --jq .html_url >/dev/null \
+  sha=$(head_sha) && [[ -n "$sha" ]] || { echo "✗ could not read the head sha of #$PR" >&2; return 1; }
+  gh_retry api "repos/$REPO/issues/$PR/comments" \
+    -f body="@codex review
+<!-- codex-summon head=$sha -->" --jq .html_url >/dev/null \
     || { echo "✗ failed to post summon comment" >&2; return 1; }
   echo "$since"
+}
+
+# Prints the anchor for a resumed wait: the oldest summon by the authenticated
+# user that names the current head, posted after the last `codex-considered`
+# labeling (see the header for why the SHA, why oldest, and why Codex's own
+# activity plays no part). Prints nothing, with the reason on stderr, when
+# there is no summon to resume. Paginated: whole-history reads, not
+# since-windows; --paginate emits one value per page, and ISO-8601 Z
+# timestamps sort as text.
+find_resume_anchor() {
+  local login sha labeled summons anchor
+  login=$(gh_retry api user --jq .login) || { echo "✗ could not read the authenticated login" >&2; return 1; }
+  [[ -n "$login" ]] || { echo "✗ gh reports no login" >&2; return 1; }
+  sha=$(head_sha) && [[ -n "$sha" ]] || { echo "✗ could not read the head sha of #$PR" >&2; return 1; }
+  labeled=$(gh_retry api --paginate "repos/$REPO/issues/$PR/events?per_page=100" \
+    --jq '[.[] | select(.event == "labeled") | select(.label.name == "codex-considered") | .created_at] | max // empty') \
+    || { echo "✗ could not read the label history of #$PR" >&2; return 1; }
+  labeled=$(sed '/^$/d' <<< "$labeled" | sort | tail -1)
+  summons=$(gh_retry api --paginate "repos/$REPO/issues/$PR/comments?per_page=100" \
+    --jq ".[] | select(.user.login == \"$login\") | select(.body|test(\"codex-summon head=$sha\")) | .created_at") \
+    || { echo "✗ could not list the summons on #$PR" >&2; return 1; }
+  anchor=$(sed '/^$/d' <<< "$summons" | sort | awk -v start="$labeled" '$0 > start { print; exit }')
+  if [[ -z "$anchor" ]]; then
+    echo "✗ no @codex review by $login for the head of #$PR (${sha:0:10}) since the last" >&2
+    echo "  codex-considered — nothing to resume; run without --resume to summon" >&2
+    return 1
+  fi
+  echo "  anchor: summon at $anchor for head ${sha:0:10}" >&2
+  echo "$anchor"
 }
 
 # Prints the verdict (if any) and returns:
@@ -209,7 +292,6 @@ check_verdict() {
   # The status widget (see header) is excluded by its marker on both the count
   # and the body read below — the two must agree or the branch prints a
   # different set than it counted.
-  local widget='select(.body|test("codex-pull-request-review-summary")|not)'
   comments=$(gh_retry api "repos/$REPO/issues/$PR/comments?since=$since&per_page=100" \
     --jq "[.[] | select(.user.login|test(\"codex\";\"i\")) | select(.created_at > \"$since\") | $widget] | length" \
     2>/dev/null) || return 4
@@ -268,7 +350,9 @@ apply_label() {
 
 # Poll a single anchored window to the deadline. One cheap re-summon at the
 # halfway mark guards against a dropped mention (anchored at the FIRST summon so
-# a verdict that lands in the gap is still seen — Codex P2 on #276). Returns:
+# a verdict that lands in the gap is still seen — Codex P2 on #276); a resumed
+# wait never re-nudges — its summon is on the PR already, and every re-run
+# would otherwise add one more. Returns:
 #   0 clean | 2 findings | 1 genuine timeout (>=1 successful read) |
 #   4 window had ZERO successful reads (channels unreadable — caller must NOT
 #     treat as a verdict, never label)
@@ -280,7 +364,7 @@ wait_for_verdict() {
     case $rc in
       0|2) return $rc ;;
       1)   read_ok=1
-           if (( ! resummoned && elapsed >= DEADLINE / 2 )); then
+           if (( ! RESUME && ! resummoned && elapsed >= DEADLINE / 2 )); then
              summon >/dev/null && resummoned=1
              echo "  … ${elapsed}s / ${DEADLINE}s (re-nudged @codex)" >&2
            else
@@ -299,10 +383,17 @@ wait_for_verdict() {
 # below runs as normal.
 [[ "${BASH_SOURCE[0]}" != "$0" ]] && return 0
 
-echo "▶ summoning @codex review on #$PR"
-echo "  waiting up to ${DEADLINE}s — Codex on this repo has taken >13min; patience is in-script by design (portable across harnesses)."
-SINCE=$(summon)
-[[ -n "$SINCE" ]] || exit 1
+if (( RESUME )); then
+  echo "▶ resuming the wait for Codex on #$PR — no new summon"
+  echo "  waiting up to ${DEADLINE}s more; re-run with --resume to keep waiting."
+  SINCE=$(find_resume_anchor)
+  [[ -n "$SINCE" ]] || exit 1
+else
+  echo "▶ summoning @codex review on #$PR"
+  echo "  waiting up to ${DEADLINE}s — Codex on this repo has taken >13min; patience is in-script by design (portable across harnesses)."
+  SINCE=$(summon)
+  [[ -n "$SINCE" ]] || exit 1
+fi
 
 wait_for_verdict "$SINCE"; RC=$?
 case $RC in
@@ -325,7 +416,8 @@ case $RC in
   *)
     echo "▶ no Codex verdict after ${DEADLINE}s. This is NOT a no-show to label past —"
     echo "  Codex reviews here have taken >13min. The Codex Review Gate stays RED."
-    echo "  Re-run this script to keep waiting, or check the PR shortly. Apply"
+    echo "  Keep waiting WITHOUT a second summon: $0 $PR ${DEADLINE} --resume"
+    echo "  (a plain re-run posts a new @codex review). Or check the PR shortly. Apply"
     echo "  codex-considered ONLY after reading a real verdict. If Codex is genuinely"
     echo "  down and you must proceed, that is a deliberate call — add a consideration"
     echo "  note saying so, then: $APPLY_CMD $PR"
