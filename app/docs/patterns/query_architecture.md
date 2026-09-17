@@ -1,6 +1,6 @@
 ---
 title: Query Architecture
-updated: 2026-09-14
+updated: 2026-09-17
 category: patterns
 related_skills:
 - skuel-search-architecture
@@ -547,7 +547,7 @@ for processor in config.post_processors:
 
 ### Key Files
 
-- **Processor functions:** `/adapters/persistence/neo4j/query/cypher/post_processors.py`
+- **Processor functions:** `/core/models/post_processors.py`
 - **Registry config:** `/core/models/relationship_registry.py`
 - **BaseService integration:** `/core/services/base_service.py` (`_parse_context_result`)
 
@@ -686,9 +686,6 @@ This is the **primary query architecture documentation**. Start here.
 |----------|---------|-------------|
 | [curriculum_query_patterns.md](curriculum/curriculum_query_patterns.md) | Curriculum-specific patterns (LP, KU, substance) | Learning path queries, life alignment |
 | [PEDAGOGICAL_QUESTIONS.md](../intelligence/PEDAGOGICAL_QUESTIONS.md) | 7 core pedagogical questions and their production service cross-references | Understanding what the intelligence layer answers |
-
-### Archived
-- [QUERY_DECISION_MATRIX.md](../archive/patterns/QUERY_DECISION_MATRIX.md) - Phase 5/7 decision matrix (October 2025, superseded by this doc)
 
 ### Key Files
 

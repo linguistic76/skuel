@@ -1,6 +1,6 @@
 ---
 title: Ownership Verification Pattern
-updated: '2026-08-21'
+updated: '2026-09-17'
 category: patterns
 related_skills:
 - activity-domains
@@ -625,6 +625,6 @@ async def test_ownership_prevents_cross_user_access():
 - `/docs/decisions/ADR-085-ownership-read-enforcement-contract.md` - The two-chokepoint read contract + gap census
 - `/docs/decisions/ADR-086-universal-owns-and-attends-attendance.md` - Universal `:OWNS` ratification + `ATTENDS` attendance design
 - `/core/services/base_service.py` - Ownership methods
-- `/core/auth/session.py` - `with_ownership` decorator
+- `/adapters/inbound/auth/session.py` - `with_ownership` decorator
 - `/adapters/inbound/route_factories/crud_route_factory.py` - Factory implementation
 - `/docs/patterns/ERROR_HANDLING.md` - Result[T] pattern

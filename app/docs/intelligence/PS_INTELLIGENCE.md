@@ -1,5 +1,5 @@
 ---
-updated: 2026-08-25
+updated: 2026-09-17
 ---
 
 # PsIntelligenceService - Practice Integration & Guidance Assessment
@@ -611,20 +611,6 @@ if ps_service.ai:
 
 ## Testing
 
-### Unit Tests
-```bash
-uv run python -m pytest tests/unit/services/test_ps_intelligence_service.py -v
-```
-
-### Integration Tests
-```bash
-# Test with real backend
-uv run python -m pytest tests/integration/intelligence/test_ls_intelligence.py -v
-
-# Test specific method
-uv run python -m pytest tests/integration/intelligence/ -k "test_is_ready" -v
-```
-
 ### Example Test
 ```python
 from unittest.mock import Mock
@@ -669,8 +655,8 @@ async def test_practice_completeness_score():
 
 - `/docs/intelligence/INTELLIGENCE_SERVICES_INDEX.md` - Master index
 - `/docs/decisions/ADR-024-base-intelligence-service-migration.md` - BaseAnalyticsService pattern
-- `/core/services/base_intelligence_service.py` - Base implementation
-- `/core/services/ps/ps_service.py` - PsService facade
+- `/core/services/base_analytics_service.py` - Base implementation (BaseAnalyticsService)
+- `/core/services/ps_service.py` - PsService facade
 - `/core/services/ps/ps_ai_service.py` - PsAIService (FULL tier AI features)
-- `/core/services/graph_query_executor.py` - GraphQueryExecutor pattern
+- `/adapters/persistence/neo4j/neo4j_query_executor.py` - Neo4jQueryExecutor, the `QueryExecutor` port adapter (Cypher runs below the boundary, ADR-044)
 - `/docs/architecture/CURRICULUM_GROUPING_PATTERNS.md` - Path Step architecture

@@ -1,7 +1,7 @@
 ---
 title: Finance Domain
 created: 2025-12-04
-updated: 2026-08-13
+updated: 2026-09-17
 status: current
 category: domains
 tags: [finance, firefly, chargekeep, billing, invoicing, admin-only, adr-052, adr-062]
@@ -29,11 +29,11 @@ Finance is the polystore exception to SKUEL's Neo4j commitment — see
 
 ## Current state (2026-05-25)
 
-Almost none of the migration is wired in the running app. Two ADRs set the direction; the legacy module still serves every `/finance` page.
+The expense half of the migration has landed as a demolition (see *Phase 5 demolition* below); the invoice half is still the legacy module, and it is the only `/finance` page left.
 
 | Piece | State today |
 |---|---|
-| **Legacy SKUEL finance module** — expense, budget, reporting, categories, invoices (Neo4j-backed) | ✅ **Present and live.** The admin `/finance` hub (`finance_ui.py`, `@require_admin`) reads these local services (`finance_service.get_dashboard_context()` / `get_expenses_context()` / `get_budgets_context()` / `get_reports_context()`). **Nothing has been deleted.** |
+| **Legacy SKUEL finance module** — invoices only (Neo4j-backed) | ✅ **Invoices present and live** at `/finance/invoices` (`finance_ui.py`, `@require_admin`). The expense / budget / reporting / categories half **is gone** — see *Phase 5 demolition* below. |
 | **Firefly III Docker sidecar** (`finance` profile) | ✅ Built (ADR-052 Phase 1) — `firefly` + `firefly-db` (MariaDB), its own store. |
 | `firefly_client.py` + `FireflyOperations` protocol (+17 unit tests) | ✅ Built (ADR-052 Phase 2), but **unwired** — no running code path calls it yet. |
 | **SaaS billing / subscriptions / checkout / webhooks** | ❌ **Greenfield — does not exist.** Role upgrades (`REGISTERED → MEMBER → …`) are **manual**: admin → `admin_api.py` → `user_service.update_role()`. |
@@ -132,24 +132,28 @@ billing webhook flow.
 
 ---
 
-## What will be deleted in Phase 5 (NOT yet done)
+## Phase 5 demolition — what is gone, what is still open
 
-⚠️ **None of this has happened.** The code below is **still live today** — the migration is
-in the *planning* stage (roadmap status: *not started*), gated on the ChargeKeep spike.
-When Phase 5 runs, it removes:
+Phase 5 is **partial** (roadmap table destaled 2026-08-21). The expense side landed in
+#143 + #144 (ADR-052 Phase 5, 1/2 + 2/2, 2026-05-31); the invoice side waits on the
+ChargeKeep invoicing gate.
 
-- **Expense / budget / reporting / categories** models + services + Neo4j labels:
-  `core/models/finance/finance_pure.py`, `core/services/finance/finance_core_service.py`,
-  `finance_budget_service.py`, `finance_reporting_service.py`, `finance_categories.py`,
-  the expense/budget backend in `misc_backends.py`, the `Expense`/`Budget` labels.
-- **The whole custom finance UI:** `adapters/inbound/finance_ui.py` + the `ui/finance/`
-  package (layout, section_views, invoice_views, components, types) + the `/finance` route
-  wiring (`finance_routes.py`).
+**Gone (#144):** the expense / budget / reporting / categories models + services + Neo4j
+label — the former `finance_pure.py`, `finance_core_service.py`, `finance_budget_service.py`,
+`finance_reporting_service.py`, `finance_categories.py`, the expense-backed cross-domain
+analytics, the `Expense` label (`NonKuDomain.FINANCE` now maps to `NeoLabel.INVOICE`), the
+expense sections/components of `ui/finance/`, and the `/finance` dashboard hub (only
+`/finance/invoices` survives). `FinanceService` wraps the one remaining sub-service.
+
+**Still open — deleted when the ChargeKeep invoice-quality check passes:**
+
 - **The local invoice module:** `core/models/finance/invoice.py`,
   `core/services/finance/finance_invoice_service.py`, `adapters/outbound/invoice_renderer.py`
   (WeasyPrint) — invoices move to ChargeKeep.
-- Expense/budget/invoice endpoints in `adapters/inbound/finance_api.py`; the finance Neo4j
-  backend(s); their tests.
+- **The invoice UI:** `adapters/inbound/finance_ui.py` + the `ui/finance/` package (layout,
+  invoice_views, types) + the route wiring (`finance_routes.py`).
+- Invoice endpoints in `adapters/inbound/finance_api.py`; the `UniversalNeo4jBackend[InvoicePure]`
+  backend; their tests.
 - `firefly_client` / `FireflyOperations` **trimmed to write-only** — keep `create_transaction`,
   `find_transaction_by_external_id`, `health_check`; drop the read methods that only existed
   for the now-cancelled read-through UI.
@@ -164,16 +168,16 @@ build against it.
 
 | Component | Location | Note |
 |-----------|----------|------|
-| **Legacy finance facade** | `core/services/finance_service.py` | Live; backs the `/finance` hub |
-| **Legacy finance models** | `core/models/finance/` (`finance_pure.py`, `invoice.py`, DTOs, converters) | Live; Phase-5 deletion target |
-| **Finance UI** | `adapters/inbound/finance_ui.py`, `ui/finance/` | Live; Phase-5 deletion target |
+| **Finance facade** | `core/services/finance_service.py` | Live (invoice-only); backs `/finance/invoices` |
+| **Finance models** | `core/models/finance/` (`invoice.py`) | Live; the expense/budget/reporting models are gone (Phase 5) |
+| **Finance UI** | `adapters/inbound/finance_ui.py`, `ui/finance/invoice_views.py` | Live (invoices only); the invoice side waits on the ChargeKeep gate |
 | **Finance API** | `adapters/inbound/finance_api.py` | Live; Phase-5 deletion target |
 | **Firefly adapter** | `adapters/outbound/firefly_client.py` | Built, unwired |
 | **Firefly protocol + DTOs** | `core/ports/finance_protocols.py` | Built |
 | **Firefly exceptions** | `core/utils/exception_types.py` (`FIREFLY_EXCEPTIONS`) | — |
 | **Firefly unit tests** | `tests/unit/test_firefly_client.py` (17 tests, mocked httpx) | — |
 | **Docker stack** | `docker-compose.yml` (`finance` profile) | Built |
-| **Billing port / ChargeKeep adapter / webhook route** | `core/ports/billing_protocols.py`, `adapters/outbound/chargekeep_client.py`, `adapters/inbound/webhook_routes.py` | **Not created** (greenfield) |
+| **Billing port / ChargeKeep adapter / webhook route** | — | **Not created** (greenfield); planned locations in [`roadmap/finance-billing-migration.md` § Code-touch inventory](../roadmap/finance-billing-migration.md) |
 
 ---
 

@@ -1,6 +1,6 @@
 ---
 title: Unified Ingestion Implementation Guide
-updated: 2026-09-16
+updated: 2026-09-17
 category: patterns
 related_skills: []
 related_docs:
@@ -433,7 +433,7 @@ inert, human-visible property that nothing queries — a node is a MOC because
 it has ORGANIZES edges (the "ORGANIZES Path" to knowledge).
 
 - **Link forms:** wiki-links (`[[target]]`, `|alias`, `#heading`) and
-  markdown links (`[label](target.md)`, URL-encoded paths decoded). External
+  markdown links (`[label](<target>.md)`, URL-encoded paths decoded). External
   URLs, image embeds, and non-`.md` attachments are ignored.
 - **Resolution:** link target → vault file path suffix →
   `IngestionMetadata` path→uid row, scoped to the vault that governs the MOC
@@ -817,7 +817,7 @@ not remove the `services_bootstrap/compose.py` exclusion without that ruling.
 Ingest a single file (Markdown or YAML).
 
 ```python
-result = await service.ingest_file(Path("/docs/ku_python-basics.md"))
+result = await service.ingest_file(Path("0vault/ku_python-basics.md"))
 
 if result.is_ok:
     entity = result.value
@@ -1412,7 +1412,7 @@ Pre-validate files before ingestion:
 from core.services.ingestion import validate_file, validate_directory
 
 # Single file
-result = await service.validate_file(Path("/docs/ku_test.md"))
+result = await service.validate_file(Path("0vault/ku_test.md"))
 if result.value.valid:
     print(f"Valid: {result.value.entity_type} - {result.value.uid}")
 else:
@@ -1464,8 +1464,8 @@ from core.services.ingestion import (
 
 # Example: Check if file needs ingestion
 tracker = IngestionTracker(driver)
-metadata_map = await tracker.get_ingestion_metadata([Path("/docs/ku_test.md")])
-decision = tracker.needs_ingestion(Path("/docs/ku_test.md"), metadata_map.get("/docs/ku_test.md"))
+metadata_map = await tracker.get_ingestion_metadata([Path("0vault/ku_test.md")])
+decision = tracker.needs_ingestion(Path("0vault/ku_test.md"), metadata_map.get("0vault/ku_test.md"))
 print(f"Needs ingestion: {decision.needs_ingestion} ({decision.reason})")
 ```
 

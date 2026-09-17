@@ -1,6 +1,6 @@
 ---
 title: Protocol Definition Template
-updated: 2026-03-28
+updated: 2026-09-17
 status: current
 category: reference
 tags: [definition, protocol, reference]
@@ -261,13 +261,11 @@ class ConcreteBackend(SomeOperations[Task]):
 
 ## Related Documentation
 
-- [Protocol-Based Architecture](/home/mike/0bsidian/skuel/docs/architecture/protocol_based_architecture.md)
-- [ADR-001: Why Protocols?](/home/mike/0bsidian/skuel/docs/archive/decisions/ADR-001_why_protocols.md)
-- [Service Creation Template](/home/mike/0bsidian/skuel/docs/reference/templates/service_creation.md)
+- [Protocol-Based Architecture](../../patterns/protocol_architecture.md)
+- [Service Creation Template](service_creation.md)
 
 ## Examples
 
 **Real protocol definitions:**
 - `/core/ports/domain_protocols.py`
-- `/core/ports/knowledge_protocols.py`
 - `/core/ports/search_protocols.py`

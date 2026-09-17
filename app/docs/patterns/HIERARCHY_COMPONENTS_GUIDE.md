@@ -1,6 +1,6 @@
 ---
 title: Hierarchy Components Guide
-updated: '2026-08-09'
+updated: '2026-09-17'
 category: patterns
 related_skills:
 - skuel-ui
@@ -675,7 +675,7 @@ def render_hierarchy_view(root_uid: str, root_goal: Goal) -> Div:
 
 | File | Purpose |
 |------|---------|
-| `/ui/goals/views.py` | Example: Goals hierarchy view |
+| `/adapters/inbound/route_factories/hierarchy_api_factory.py` | Live consumer: Activity Domain `GET /api/{domain}/{uid}/children` renders `TreeNodeList` |
 | `/adapters/inbound/goals_ui.py` | Example: Route handler |
 
 ---

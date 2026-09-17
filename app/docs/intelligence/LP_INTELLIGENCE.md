@@ -1,5 +1,5 @@
 ---
-updated: 2026-08-20
+updated: 2026-09-17
 ---
 
 # LpIntelligenceService - Learning State & Content Intelligence
@@ -556,7 +556,7 @@ if result.is_ok:
 
 **Content Features Detected:**
 - Code blocks (```python...```)
-- Images (![alt](url))
+- Images (`![alt](...)` or `<img>`)
 - External links ([text](http...))
 - Exercises/questions (? or "Exercise:" patterns)
 
@@ -937,22 +937,10 @@ This allows any content type (KU, PS, LP, MOC, even external content) to be anal
 
 ## Testing
 
-### Unit Tests
-```bash
-# Test facade
-uv run python -m pytest tests/unit/services/test_lp_intelligence_service.py -v
-
-# Test sub-services
-uv run python -m pytest tests/unit/services/lp_intelligence/ -v
-```
-
 ### Integration Tests
 ```bash
 # Test with real backends
-uv run python -m pytest tests/integration/intelligence/test_lp_intelligence.py -v
-
-# Test specific method
-uv run python -m pytest tests/integration/intelligence/ -k "test_analyze_learning_state" -v
+uv run python -m pytest tests/integration/test_lp_intelligence_consolidated.py -v
 ```
 
 ### Example Test
@@ -992,8 +980,8 @@ result = await service.analyze_learning_state(mock_user_context)
 
 - `/docs/intelligence/INTELLIGENCE_SERVICES_INDEX.md` - Master index
 - `/docs/decisions/ADR-024-base-intelligence-service-migration.md` - BaseAnalyticsService pattern
-- `/core/services/base_intelligence_service.py` - Base implementation
-- `/core/services/lp/lp_service.py` - LpService facade
+- `/core/services/base_analytics_service.py` - Base implementation (`BaseAnalyticsService`)
+- `/core/services/lp_service.py` - LpService facade
 - `/core/services/lp_intelligence/` - Sub-service implementations
 - `/core/ports/content_protocols.py` - ContentAdapter protocol
 - `/core/services/lp_intelligence/types.py` - Shared types and dataclasses

@@ -1,6 +1,6 @@
 ---
 title: PWA Architecture
-updated: 2026-09-15
+updated: 2026-09-17
 status: current
 category: architecture
 tags: [pwa, service-worker, offline, mobile]
@@ -190,7 +190,7 @@ const PRECACHE_URLS = [
   '/offline.html',
   '/static/css/main.css',
   // Add new asset here:
-  '/static/css/new-feature.css',
+  '/static/css/<new-asset>.css',
 ];
 ```
 

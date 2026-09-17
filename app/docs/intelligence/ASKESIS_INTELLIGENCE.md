@@ -1,5 +1,5 @@
 ---
-updated: 2026-09-14
+updated: 2026-09-17
 ---
 
 # Askesis Intelligence - Cross-Cutting Life Context Synthesis
@@ -402,10 +402,10 @@ def process_user(askesis: AskesisOperations) -> Result[...]:
 
 ```bash
 # Unit tests
-uv run pytest tests/unit/services/test_askesis_service.py -v
+uv run pytest tests/unit -k askesis -v
 
 # Integration tests
-uv run pytest tests/integration/askesis/ -v
+uv run pytest tests/integration -k askesis -v
 
 # Protocol compliance
 uv run python -c "

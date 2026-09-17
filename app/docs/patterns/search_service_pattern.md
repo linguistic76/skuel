@@ -1,6 +1,6 @@
 ---
 title: SearchService Pattern for Activity Domains
-updated: 2026-08-21
+updated: 2026-09-17
 category: patterns
 related_skills:
 - base-analytics-service
@@ -545,8 +545,7 @@ class PsService:
 - `/core/ports/search_protocols.py` - Protocol definition
 - `/core/services/base_service.py` - BaseService with generic filter methods
 - `/core/orchestrator/search_router.py` - THE search orchestrator (One Path Forward)
-- `/core/services/goals/goal_search_service.py` - Reference implementation (uses inherited methods)
-- `/core/services/principles/principle_search_service.py` - Example of custom overrides
+- `/core/services/goals/goals_search_service.py` - Reference implementation (uses inherited methods)
+- `/core/services/principles/principles_search_service.py` - Example of custom overrides
 - `/core/services/ps/ps_search_service.py` - Path Steps search (standalone pattern)
 - `/core/services/lp/lp_search_service.py` - Learning Paths search (standalone pattern)
-- `/core/services/moc/moc_search_service.py` - MOC search (standalone pattern template)

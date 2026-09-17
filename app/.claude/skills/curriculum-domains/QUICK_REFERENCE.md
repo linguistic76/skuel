@@ -78,7 +78,7 @@ PathStep is THE curriculum content entity — it composes atomic Kus into cohere
 | KU | `adapters/inbound/ku_routes.py` + `ku_ui.py` (KuService — index, detail, studying/understood) |
 | PS (API + UI) | `adapters/inbound/path_steps_routes.py` → `path_steps_api.py` + `path_steps_ui.py` |
 | LP | `adapters/inbound/pathways_routes.py` |
-| Exercise | `adapters/inbound/exercise_routes.py` + `exercise_ui.py` |
+| Exercise | `adapters/inbound/exercises_routes.py` + `exercises_ui.py` |
 
 **PathStep UI / learning-loop routes:**
 - `GET /path-steps` — PathStep list (fragment: `/path-steps/content`); rows link to `/explore/ps/{uid}`, with an "Enrolled" badge on the session user's IN_PROGRESS steps

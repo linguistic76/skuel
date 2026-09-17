@@ -1,6 +1,6 @@
 ---
 title: Domain-Specific Hooks Pattern
-updated: 2026-09-07
+updated: 2026-09-17
 category: patterns
 related_skills: []
 related_docs: []
@@ -644,7 +644,7 @@ def _validate_create(self, entity: T) -> Result[None]:  # noqa: ARG002
 - Base Service: `/core/services/base_service.py`
 - Tasks Service Example: `/core/services/tasks/tasks_core_service.py`
 - FormTemplate Post-Hook Example: `/core/services/forms/form_template_service.py`
-- Error Handling: `/docs/patterns/error_handling.md` (SKUEL standard)
+- Error Handling: `/docs/patterns/ERROR_HANDLING.md` (SKUEL standard)
 
 ## Philosophy
 

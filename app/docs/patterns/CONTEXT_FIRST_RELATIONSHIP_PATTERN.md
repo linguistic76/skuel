@@ -1,6 +1,6 @@
 ---
 title: Context-First Relationship Pattern
-updated: 2026-09-05
+updated: 2026-09-17
 category: patterns
 related_skills:
 - neo4j-cypher-patterns
@@ -633,12 +633,12 @@ UserContext (MEGA-QUERY)
 | File | Purpose |
 |------|---------|
 | `core/models/context_types.py` | Scoring engine + 7 types + factories (canonical) |
-| `core/services/relationships/planning_mixin.py` | 6 methods → factory delegation |
+| `core/services/tasks_service.py` … `core/services/principles_service.py` (the 6 Activity facades) | the 6 daily-plan methods (`get_actionable_tasks_for_user` … `get_aligned_principles_for_user`) — Tasks, Goals, Habits and Principles delegate to the planning services below; Events and Choices answer on the facade itself |
 | `core/services/tasks/tasks_planning_service.py` | 3 task planning methods |
 | `core/services/goals/goals_planning_service.py` | 3 goal planning methods |
 | `core/services/habits/habits_planning_service.py` | 5 habit planning methods |
 | `core/services/principles/principles_planning_service.py` | 2 principle planning methods + 1 direct |
-| `core/services/ku/ku_graph_service.py` | 3 knowledge planning methods |
+| `core/services/ps/ps_context_service.py` | 3 knowledge planning methods |
 | `core/utils/sort_functions.py` | Sorting helpers (`get_priority_score`, etc.) |
 | `core/services/infrastructure/prerequisite_checker.py` | `PrerequisiteChecker.check_prerequisites` (readiness + blocking reasons — the single mastery split for all context-first types and planning/scheduling) + `build_learning_requirements` (Goal+Task lens) |
 

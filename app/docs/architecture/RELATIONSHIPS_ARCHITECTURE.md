@@ -1,6 +1,6 @@
 ---
 title: Relationships Architecture
-updated: 2026-09-15
+updated: 2026-09-17
 status: current
 category: architecture
 version: 2.0.0
@@ -439,4 +439,4 @@ ORDER BY complementary.synergy_score DESC
 
 - [UNIFIED_RELATIONSHIP_SERVICE.md](../patterns/UNIFIED_RELATIONSHIP_SERVICE.md) — complete service documentation
 - [LATERAL_RELATIONSHIPS_VISUALIZATION.md](../patterns/LATERAL_RELATIONSHIPS_VISUALIZATION.md) — Phase 5 vis.js integration
-- [ADR-028](/docs/decisions/ADR-028.md) — KU & MOC migration rationale
+- [ADR-028](../decisions/ADR-028-ku-moc-unified-relationship-migration.md) — KU & MOC migration rationale

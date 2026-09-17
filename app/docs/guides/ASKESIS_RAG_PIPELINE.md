@@ -1,5 +1,5 @@
 ---
-updated: 2026-09-14
+updated: 2026-09-17
 ---
 
 # Askesis RAG Pipeline — Developer Guide
@@ -552,5 +552,5 @@ Single-word titles under 4 characters won't match via partial word. Titles not i
 - **Search Architecture:** `/docs/architecture/SEARCH_ARCHITECTURE.md` — SearchRouter, domain search
 - **UserContext:** `/docs/architecture/UNIFIED_USER_ARCHITECTURE.md` — the MEGA-QUERY and ~250 fields
 - **Embeddings ADRs:** `/docs/decisions/ADR-068-openai-embeddings-now-bge-later.md` — provider + 1024 dims; `/docs/decisions/ADR-074-post-persist-embedding-events.md` — how embeddings get and stay fresh
-- **Prompt Templates:** `/docs/patterns/PROMPT_TEMPLATES.md` — centralized LLM prompt registry
+- **Prompt Templates:** the `@prompt-templates` skill — centralized LLM prompt registry (`PROMPT_REGISTRY`)
 - **Analog/Digital Architecture:** `/docs/architecture/ANALOG_DIGITAL_ARCHITECTURE.md` — how intelligence tier toggle works

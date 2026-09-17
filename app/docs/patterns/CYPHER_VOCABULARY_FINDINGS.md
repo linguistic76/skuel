@@ -1,5 +1,5 @@
 ---
-updated: 2026-08-28
+updated: 2026-09-17
 ---
 
 # Cypher Vocabulary Findings (SKUEL030 introduction sweep, 2026-07-19)
@@ -117,7 +117,7 @@ consumer-less on top of label-less: the intelligence factory stored it as
 `self.analytics` and no code called any of its 12 methods; the live report stack
 is `ReportRelationshipService` + `REPORT_FOR` against
 `NeoLabel.ACTIVITY_REPORT` / `NeoLabel.ENTRY_REPORT`. Removed together:
-`adapters/persistence/neo4j/analytics_relationship_backend.py`, the
+the `analytics_relationship_backend.py` module (under `adapters/persistence/neo4j/`), the
 `AnalyticsRelationshipOperations` protocol and its `core/ports` export, the hub
 wiring, and the `analytics` parameter/attribute on
 `UserContextIntelligenceFactory` + `UserContextIntelligence` (12 → 11 required
@@ -604,7 +604,7 @@ rescues it: the second lookup only strips the subdirectory.
 
 `upsert_batch` had **zero callers repo-wide** — protocol declaration plus
 implementation, nothing else. Its one historical caller was
-`scripts/ingest_knowledge_vault.py`, deleted in May 2026 (PR #56) as part of the
+`ingest_knowledge_vault.py` (under `scripts/`), deleted in May 2026 (PR #56) as part of the
 "never-functional conceptual-trajectory vector code"; these templates were
 residue of that same demolition, missed at the time.
 

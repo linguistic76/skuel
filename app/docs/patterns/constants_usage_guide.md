@@ -1,6 +1,6 @@
 ---
 title: Constants Usage Guide
-updated: 2026-09-13
+updated: 2026-09-17
 category: patterns
 related_skills: []
 related_docs: []
@@ -431,21 +431,6 @@ from `core.constants`.
 
 ## Migration
 
-### Automated Migration
-
-Use the migration script to identify and replace hardcoded values:
-
-```bash
-# Analyze codebase (report only)
-uv run python scripts/migrate_to_constants.py --analyze
-
-# Dry run (show proposed changes)
-uv run python scripts/migrate_to_constants.py --dry-run
-
-# Apply changes
-uv run python scripts/migrate_to_constants.py --apply
-```
-
 ### Manual Migration
 
 **Before:**
@@ -617,27 +602,8 @@ def test_confidence_filtering():
     results = filter_by_confidence(relationships, min_confidence=ConfidenceLevel.MEDIUM)
 ```
 
-## Migration Status (November 2025)
-
-**Analysis Complete:**
-- **283 hardcoded values** identified across codebase
-- **Top 5 categories:** Confidence (89), Depth (75), Limits (110), Mastery (9)
-
-**Ready for Migration:**
-- Migration script created: `/scripts/migrate_to_constants.py`
-- Dry-run tested on top 10 files
-- All patterns validated
-
-**Next Steps:**
-1. Review analysis output
-2. Run `--dry-run` to verify changes
-3. Run `--apply` to migrate codebase
-4. Verify tests pass
-5. Commit changes
-
 ## See Also
 
-- **Dynamic Enum Pattern:** `/home/mike/0bsidian/skuel/docs/patterns/CLAUDE.md` (§1.8)
+- **Dynamic Enum Pattern:** `/docs/architecture/ENUM_ARCHITECTURE.md` (§ Dynamic Enum Patterns; quick reference in `/CLAUDE.md` § Dynamic Enum Pattern)
 - **Constants Module:** `/core/constants.py`
-- **Migration Script:** `/scripts/migrate_to_constants.py`
 - **Shared Enums:** `/core/models/enums/`

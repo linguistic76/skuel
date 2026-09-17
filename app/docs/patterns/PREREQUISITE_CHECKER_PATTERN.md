@@ -1,6 +1,6 @@
 ---
 title: PrerequisiteChecker & the Learning-Requirements Lens
-updated: 2026-09-05
+updated: 2026-09-17
 category: patterns
 related_docs:
   - /docs/intelligence/GOALS_INTELLIGENCE.md
@@ -84,7 +84,7 @@ behaviour exactly, so context-free callers are unchanged.
 - `GoalsIntelligenceService.get_goal_learning_requirements(uid, ..., user_context=None)` returns the
   three blocks for a single goal.
 - **UI note:** the former profile-overview renderer (`_goal_focus_section` in
-  `ui/profile/overview.py`) was removed 2026-07-05 with the dead overview surface — the
+  the since-deleted profile `overview.py` module) was removed 2026-07-05 with the dead overview surface — the
   `learning_requirements` payload currently has no UI renderer; it reaches consumers via
   `to_dict` / programmatic access. **Goals only** by design — actionable tasks are pre-filtered
   to ready in the planning service, so a task line would be inert. The Task field is still

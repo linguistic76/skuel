@@ -1,5 +1,5 @@
 ---
-updated: 2026-08-14
+updated: 2026-09-17
 ---
 
 # SKUEL Quick Start - Mindfulness 101 Demo
@@ -20,20 +20,17 @@ This gives you a completely clean Neo4j database - like a fresh install.
 
 ### Step 2: Ingest Mindfulness 101
 
-**Load the complete curriculum bundle:**
+**Load the curriculum bundle:** the Mindfulness 101 curriculum (`lp.mindfulness-101` and its path steps) is authored in the content vault and ingested by the content-vault door:
 
 ```bash
-uv run python scripts/fresh_start_mindfulness.py
+./dev vault-sync --vault content
 ```
 
-**When prompted, type:** `FRESH START`
-
-This will:
-- Create fresh constraints for the curriculum entities
-- Ingest all Knowledge Units (3)
-- Ingest all Path Steps (2)
-- Ingest the Learning Path (1)
-- **Note**: Supporting entities (principles, habits, tasks, etc.) will show in the manifest but won't be ingested yet - they need handlers added to YamlIngestionService
+This runs the one-shot content-vault reconciler (`scripts/vault_bridge_sync.py`) over every
+typed file in the content vault (`INGESTION_PATH`, default `/home/mike/0bsidian/0vault/`) — the
+Mindfulness 101 learning path (`Lp/lp_mindfulness-101.md`), its path steps (`Ps/Ps_dev/mindfulness-101*`)
+and its exercise (`Exer/mindfulness-starter_exer.md`) among them. Unchanged files are skipped;
+`--preview` shows what would be ingested without writing.
 
 ### Step 3: Verify in Neo4j Browser
 
@@ -188,14 +185,10 @@ Should show 19 YAML files + manifest.yaml + README.md
 
 **Your workflow:**
 1. `uv run python scripts/clear_neo4j.py reset` → Type `DELETE EVERYTHING`
-2. `uv run python scripts/fresh_start_mindfulness.py` → Type `FRESH START`
+2. `./dev vault-sync --vault content`
 3. Open http://localhost:7474 and explore!
 
 **You'll get:**
 - Clean Neo4j database
-- 6 core curriculum entities (ku, ls, lp)
-- Ready to adjust and experiment
-
-**To get all 19 entities:**
-- Extend YamlIngestionService with handlers for supporting entity types
-- Re-run fresh_start_mindfulness.py
+- The content vault's typed entities — the Mindfulness 101 learning path, its path steps and exercise among them
+- Ready to adjust and experiment: edit the vault files and re-run the sync (unchanged files are skipped)

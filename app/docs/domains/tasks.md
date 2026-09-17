@@ -1,7 +1,7 @@
 ---
 title: Tasks Domain
 created: 2025-12-04
-updated: 2026-09-14
+updated: 2026-09-17
 status: current
 category: domains
 tags:
@@ -190,7 +190,7 @@ anything else is refused with a message naming the status the write saw
 
 ## MEGA-QUERY Sections
 
-The MEGA-QUERY in `/core/services/user/user_context_queries.py` fetches:
+The MEGA-QUERY in `/adapters/persistence/neo4j/user_context_queries.py` fetches:
 
 - `active_task_uids` - Active task UIDs
 - `completed_task_uids` - Completed task UIDs

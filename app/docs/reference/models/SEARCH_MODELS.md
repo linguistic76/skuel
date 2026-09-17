@@ -1,7 +1,7 @@
 ---
 title: Search Models Reference
 created: 2026-01-03
-updated: 2026-08-31
+updated: 2026-09-17
 status: active
 category: reference
 tags: [search, models, reference, pedagogical, nous]
@@ -473,8 +473,6 @@ else:
 ## See Also
 
 - [search_service_pattern.md](../../patterns/search_service_pattern.md) - Search service implementation pattern
-- [SIMPLE_SEARCH_QUICK_REFERENCE.md](../../guides/SIMPLE_SEARCH_QUICK_REFERENCE.md) - Quick reference and examples
-- [SIMPLE_SEARCH_SETUP_GUIDE.md](../../guides/SIMPLE_SEARCH_SETUP_GUIDE.md) - Setup and integration guide
 - [SEARCH_ARCHITECTURE.md](../../architecture/SEARCH_ARCHITECTURE.md) - Complete search architecture
 - `/core/models/search_request.py` - Source code (canonical)
 

@@ -1,5 +1,5 @@
 ---
-updated: 2026-07-24
+updated: 2026-09-17
 ---
 
 # Neo4j Server Tuning (memory, JVM, Vector API)
@@ -46,7 +46,7 @@ entrypoint wipes `$NEO4J_HOME/conf/*` whenever `/conf` is mounted (an empty `/co
 erase the whole vendor flag set on every boot — restored 2026-07-20; symptoms while erased:
 "restricted method ... native access" boot warnings, no `AlwaysPreTouch`, Lucene vectorization
 sysprop missing). `NEO4J_server_jvm_additional` is append-not-replace
-(`_append_not_replace_configs` in `/startup/docker-entrypoint.sh`), so our Vector API flag
+(`_append_not_replace_configs` in the Neo4j image's own `docker-entrypoint.sh`), so our Vector API flag
 APPENDS: live JVM = 22 vendor flags + `--add-modules jdk.incubator.vector` + `-Xms`/`-Xmx`. One
 vendor-conf setting is deliberately overridden: the vendor pins
 `db.query.default_language=CYPHER_25` for new installs, while SKUEL's query corpus runs CYPHER_5 —

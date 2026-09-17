@@ -1,10 +1,10 @@
 ---
-updated: 2026-09-05
+updated: 2026-09-17
 ---
 
 # MOC Intelligence (Emergent Identity, KU-Canonical)
 
-**Last Updated:** January 20, 2026 · **Code-accuracy audit:** August 8, 2026 (removed a fictional `MocNavigationService`/`MOCService` architecture; see below)
+**Last Updated:** January 20, 2026 · **Code-accuracy audit:** August 8, 2026 (replaced a stale `MocNavigationService`/`MOCService` class-stack description — those services were deleted with the MOC Ku type; see below)
 
 ---
 
@@ -39,17 +39,19 @@ KU analytics are handled by `KuIntelligenceService`. There is **no MOC service o
 | MOC navigation surface (UserEntry UI) | `GET /gradebook/{uid}` (`adapters/inbound/user_entry_ui.py`) renders a `moc: true` UserEntry's ORGANIZES children as a **"Map of Content"** card — via `UserEntryOrchestrator.get_entry_organized_children` → `UserEntryService.get_organized_children` (shared `_OrganizesMixin` backend). This is the implemented non-PathStep MOC read/navigation flow. |
 | KU/MOC analytics | `KuIntelligenceService` is the KU analytics service (a Ku that organizes others is analyzed as a Ku). Its `assess_mastery_dual_track` **is** consumed (the Ku mastery-checkin route, `POST /explore/ku/{uid}/mastery-checkin`), but its **three generic route-factory methods** (`get_with_context` / `get_performance_analytics` / `get_domain_insights`) have no KU route (see the INDEX). Corpus-level KU structural health is separately reported by `KnowledgeHealthService`. |
 
-> **Prior fiction (corrected 2026-08-08 audit).** Earlier revisions described a `MOCService` →
-> `MocNavigationService` → `KuService` **class stack** (files `core/services/moc_service.py`,
-> `core/services/moc/moc_navigation_service.py`) with **KU-scoped** methods `is_moc(ku_uid)` /
+> **Stale description (corrected 2026-08-08 audit).** Earlier revisions described a `MOCService` →
+> `MocNavigationService` → `KuService` **class stack** (files `moc_service.py`,
+> `moc_navigation_service.py`) with **KU-scoped** methods `is_moc(ku_uid)` /
 > `get_moc_view(ku_uid)` / `find_mocs_containing(ku_uid)` / `list_root_mocs()`. **That class
-> architecture and those KU-scoped names never existed.**
+> architecture is gone** — `MOCService` was deleted when the MOC Ku type was removed (ORGANIZES generalised to
+> all Ku types), and `MocNavigationService` is the ancestor, via `KuOrganizationService` and the Article →
+> Lesson → PathStep renames, of today's `PsOrganizationService`; none of the KU-scoped names is live.
 >
 > The ORGANIZES **operations themselves do exist** — but on **PathSteps**, via `PsOrganizationService`
 > and the `PsService` facade (backed by `adapters/persistence/neo4j/_organizes_mixin.py`, registered by
 > `adapters/inbound/path_steps_api.py`): `organize` / `unorganize` / `reorder` / `get_organized_children`
 > verbatim, plus `is_organizer` / `get_organization_view` / `find_organizers` / `list_root_organizers`
-> (the real, PathStep-scoped equivalents of the fictional KU-scoped names above).
+> (the real, PathStep-scoped equivalents of the former KU-scoped names above).
 
 ## Two Paths to Knowledge
 

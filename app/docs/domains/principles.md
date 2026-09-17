@@ -1,7 +1,7 @@
 ---
 title: Principles Domain
 created: 2025-12-04
-updated: 2026-09-11
+updated: 2026-09-17
 status: current
 category: domains
 tags: [principles, activity-domain, domain, reflections, planning]
@@ -38,7 +38,7 @@ Principles represent core values and guiding beliefs that inform goals, choices,
 | **Planning Service** | `/core/services/principles/principles_planning_service.py` |
 | Facade | `/core/services/principles_service.py` |
 | Config | `PRINCIPLES_CONFIG` in `/core/models/relationship_registry.py` |
-| UI Components | `/ui/principles/views.py` |
+| UI Components | `/ui/activities/principles_views.py` |
 | Routes | `/adapters/inbound/principles_ui.py` |
 | Events | `/core/events/principle_events.py` |
 | Context Types | `/core/models/context_types.py` (ContextualPrinciple, PracticeOpportunity) |

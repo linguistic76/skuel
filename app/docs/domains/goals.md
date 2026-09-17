@@ -1,7 +1,7 @@
 ---
 title: Goals Domain
 created: 2025-12-04
-updated: 2026-09-12
+updated: 2026-09-17
 status: current
 category: domains
 tags:
@@ -46,7 +46,7 @@ Goals represent desired outcomes that guide learning and habit formation. They p
 | Config | `GOALS_CONFIG` in `/core/models/relationship_registry.py` |
 | Events | `/core/events/goal_events.py` |
 | UI Routes | `/adapters/inbound/goals_ui.py` |
-| View Components | `/ui/goals/views.py` |
+| View Components | `/ui/activities/goals_views.py` |
 
 ## Domain Enums
 

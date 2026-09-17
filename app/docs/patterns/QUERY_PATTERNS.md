@@ -1,6 +1,6 @@
 ---
 title: Query Patterns
-updated: '2026-08-17'
+updated: '2026-09-17'
 category: patterns
 related_skills:
 - neo4j-cypher-patterns
@@ -143,7 +143,7 @@ for entity in entities:
 For complex user context, SKUEL uses a single comprehensive query:
 
 ```python
-# Location: /core/services/user/user_context_queries.py
+# Location: /adapters/persistence/neo4j/user_context_queries.py
 # Purpose: Fetch complete user state in ONE query
 
 # The MEGA-QUERY fetches:

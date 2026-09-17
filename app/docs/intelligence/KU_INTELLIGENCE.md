@@ -1,5 +1,5 @@
 ---
-updated: 2026-06-17
+updated: 2026-09-17
 ---
 
 # PsIntelligenceService - Semantic Knowledge & Cross-Domain Discovery
@@ -541,20 +541,6 @@ When `EmbeddingsService` is available, the service provides:
 
 ## Testing
 
-### Unit Tests
-```bash
-uv run python -m pytest tests/unit/services/test_ps_intelligence_service.py -v
-```
-
-### Integration Tests
-```bash
-# Test with real backend
-uv run python -m pytest tests/integration/intelligence/test_ku_intelligence.py -v
-
-# Test specific method
-uv run python -m pytest tests/integration/intelligence/ -k "test_get_knowledge_suggestions" -v
-```
-
 ### Example Test
 ```python
 from unittest.mock import Mock
@@ -618,7 +604,7 @@ assert data["connections"][0]["relationship"] == "ENABLES_KNOWLEDGE"
 - `/docs/intelligence/INTELLIGENCE_SERVICES_INDEX.md` - Master index
 - `/docs/decisions/ADR-024-base-intelligence-service-migration.md` - BaseAnalyticsService pattern
 - `/docs/architecture/knowledge_substance_philosophy.md` - Knowledge substance tracking
-- `/core/services/base_intelligence_service.py` - Base implementation
+- `/core/services/base_analytics_service.py` - Base implementation (`BaseAnalyticsService`)
 - `/core/services/ku_service.py` - KuService facade
 - `/core/services/ku/ku_core_service.py` - KU core operations
 - `/core/services/infrastructure/graph_intelligence_service.py` - Graph intelligence utilities

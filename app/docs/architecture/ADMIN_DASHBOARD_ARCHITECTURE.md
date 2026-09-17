@@ -550,7 +550,7 @@ async def admin_logs(request: Request, current_user: Any = None):
 - **User Roles**: `/docs/decisions/ADR-018-user-roles-four-tier-system.md`
 - **Route Patterns**: `/docs/patterns/ROUTE_FACTORIES.md`
 - **StatsGrid**: `/ui/patterns/stats_grid.py` (typed statistics display)
-- **ProfileLayout**: `/ui/profile/layout.py` (reference implementation)
+- **SidebarPage**: `/ui/patterns/sidebar.py` (the unified sidebar layout `create_admin_page` composes)
 
 ---
 
@@ -562,5 +562,5 @@ async def admin_logs(request: Request, current_user: Any = None):
 | `ui/admin/views.py` | User/Analytics/System/Learning UI components |
 | `adapters/inbound/admin_dashboard_ui.py` | Dashboard UI routes |
 | `adapters/inbound/admin_routes.py` | API routes (JSON) |
-| `core/auth/roles.py` | @require_admin decorator |
+| `adapters/inbound/auth/roles.py` | @require_admin decorator |
 | `scripts/dev/bootstrap.py:332-336` | Route registration |

@@ -1,6 +1,6 @@
 ---
 title: FastHTML Type Hints Pattern Guide
-updated: 2026-09-12
+updated: 2026-09-17
 category: patterns
 related_skills:
 - ui-browser
@@ -424,10 +424,7 @@ async def action_name(              # Descriptive function name
 
 ## References
 
-- FastHTML Best Practices: `/docs/FastHTML Best Practices – fasthtml.html`
-- Migration Guide: `/docs/API_MIGRATION_FASTHTML.md`
 - Route Factory: `/adapters/inbound/route_factories/crud_route_factory.py`
-- Cleanup Analysis: `/docs/analysis/ROUTE_CLEANUP_OPPORTUNITIES.md`
 
 ---
 

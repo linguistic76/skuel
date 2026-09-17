@@ -1,5 +1,5 @@
 ---
-updated: 2026-08-14
+updated: 2026-09-17
 ---
 
 # PrinciplesIntelligenceService - Cross-Domain Principle Alignment & Conflict Detection
@@ -805,20 +805,6 @@ The service discovers where principles can be applied:
 
 ## Testing
 
-### Unit Tests
-```bash
-uv run python -m pytest tests/unit/services/test_principles_intelligence_service.py -v
-```
-
-### Integration Tests
-```bash
-# Test with real backend
-uv run python -m pytest tests/integration/intelligence/test_principles_intelligence.py -v
-
-# Test specific method
-uv run python -m pytest tests/integration/intelligence/ -k "test_assess_principle_alignment" -v
-```
-
 ### Example Test
 ```python
 from unittest.mock import Mock
@@ -851,7 +837,7 @@ assert service.config_lookup_label == "Principle"  # LABEL_CONFIGS registry key
 
 - `/docs/intelligence/INTELLIGENCE_SERVICES_INDEX.md` - Master index
 - `/docs/decisions/ADR-024-base-intelligence-service-migration.md` - BaseAnalyticsService pattern
-- `/core/services/base_intelligence_service.py` - Base implementation
-- `/core/services/principles/principles_service.py` - PrinciplesService facade
-- `/core/services/intelligence/cross_domain_context_service.py` - Phase 3 context retrieval
+- `/core/services/base_analytics_service.py` - Base implementation (BaseAnalyticsService)
+- `/core/services/principles_service.py` - PrinciplesService facade
+- `/core/services/relationships/unified_relationship_service.py` - `UnifiedRelationshipService.get_cross_domain_context_typed`, the canonical cross-domain context reader (via `BaseAnalyticsService._analyze_entity_with_typed_context`)
 - `/core/services/principles/principle_relationships.py` - PrincipleRelationships helper

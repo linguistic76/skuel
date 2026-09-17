@@ -360,7 +360,6 @@ The step-by-step checklist for adding Vis.js graphs to a new domain lives in **[
 |----------|---------|--------------|
 | `/docs/patterns/LATERAL_RELATIONSHIPS_VISUALIZATION.md` | Complete pattern guide | Three-layer architecture, configuration, UI components |
 | `/docs/architecture/RELATIONSHIPS_ARCHITECTURE.md` | Graph modeling | Lateral relationship types, service API, Cypher patterns |
-| `/PHASE5_COMPLETE.md` | Implementation completion guide | Deployment checklist, testing, verification |
 
 ---
 

@@ -1,6 +1,6 @@
 ---
 title: HTMX Version Standardization Guide
-updated: 2026-09-15
+updated: 2026-09-17
 status: current
 category: guides
 tags:
@@ -291,8 +291,8 @@ The navbar navigation bug was traced to HTMX version mismatch:
 3. **Fix:** Changed all Activity Domain layouts to return `Html` with explicit HTMX 1.9.10
 
 **Files Modified:**
-- `ui/layouts/activity_layout.py` - Returns `Html` instead of `Div`
-- `ui/tasks/layout.py` - Delegates to `create_activity_page()`
+- the former `activity_layout.py` (Activity Domain layout, deleted when the Activity Domain CRUD UI was shelved) - Returns `Html` instead of `Div`
+- the former Tasks `layout.py` (shelved and deleted with it) - Delegates to `create_activity_page()`
 - `ui/layouts/navbar.py` - Previously added `hx-boost="false"` as defensive measure (later removed — hx-boost was never being set)
 
 ## See Also

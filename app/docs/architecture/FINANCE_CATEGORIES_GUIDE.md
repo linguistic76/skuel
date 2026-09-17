@@ -1,6 +1,6 @@
 ---
 title: Finance Categories System (LEGACY — being replaced by Firefly III)
-updated: 2026-04-12
+updated: 2026-09-17
 status: legacy
 category: archive
 tags: [archive, legacy, finance, superseded-by-adr-052]
@@ -39,7 +39,7 @@ The finance categories system provides a **hierarchical, YAML-configured** appro
 
 ## Configuration File
 
-**Location:** `/data/config/finance_categories.yaml`
+**Location (former):** `finance_categories.yaml` — deleted with the module (ADR-052 Phase 5, #144)
 
 **Structure:**
 
@@ -407,7 +407,7 @@ async def create_expense_with_categorization(
 
 ### Adding a New Category
 
-**Edit:** `/data/config/finance_categories.yaml`
+**Edit (former):** `finance_categories.yaml` — deleted with the module (ADR-052 Phase 5, #144)
 
 ```yaml
 subcategories:
@@ -561,8 +561,8 @@ subcategories:
 ## Related Documentation
 
 - **FinanceService:** `/core/services/finance_service.py`
-- **Categories Loader:** `/core/services/finance/finance_categories.py`
-- **Config File:** `/data/config/finance_categories.yaml`
+- **Categories Loader:** the former `finance_categories.py` module — deleted (ADR-052 Phase 5, #144)
+- **Config File:** the former `finance_categories.yaml` — deleted (ADR-052 Phase 5, #144)
 
 ---
 

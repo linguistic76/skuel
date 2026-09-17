@@ -1,6 +1,6 @@
 ---
 title: Neo4j Setup Migration Summary
-updated: 2026-08-16
+updated: 2026-09-17
 category: deployment
 tags: [deployment, neo4j, auradb, history]
 ---
@@ -40,7 +40,7 @@ Applied SKUEL's "One Path Forward" principle to Neo4j infrastructure documentati
    - Troubleshooting, rollback plans, cost analysis
 
 ### Deleted
-1. **`/docs/deployment/ENABLE_GENAI_PLUGIN.md`** (265 lines)
+1. **`ENABLE_GENAI_PLUGIN.md`** (265 lines, the former deployment doc)
    - 100% AuraDB console workflow
    - All content moved to AURADB_MIGRATION_GUIDE.md
    - No Docker equivalent needed
@@ -54,7 +54,7 @@ Applied SKUEL's "One Path Forward" principle to Neo4j infrastructure documentati
    - Added clear "Production Deployment" section pointing to migration guide
 
 ### Updated (Code Comments)
-1. **`/core/services/neo4j_genai_embeddings_service.py`**
+1. **`neo4j_genai_embeddings_service.py`** (the former GenAI-plugin embeddings service, since deleted as a dead shim after ADR-049)
    - Module docstring: Docker-focused with AuraDB migration note
    - Class docstring: Clarified Docker vs AuraDB setup
    - Method comments: Added Docker vs AuraDB security notes

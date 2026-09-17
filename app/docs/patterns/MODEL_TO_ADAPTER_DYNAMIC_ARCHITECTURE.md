@@ -1,6 +1,6 @@
 ---
 title: Model-to-Adapter Dynamic Architecture
-updated: 2026-09-13
+updated: 2026-09-17
 category: patterns
 related_skills: []
 related_docs:
@@ -37,7 +37,7 @@ New standalone **`SearchEventBackend`** (`adapters/persistence/neo4j/search_even
 
 ## May 2026 Update: Connection-Fetch Backend Below the Boundary (ADR-044)
 
-`core/utils/connection_fetcher.py` — which both authored AND executed cross-domain Cypher via an injected `QueryExecutor` — was the last live raw-Cypher leak in `core/`. Its two queries moved verbatim into a new standalone **`ConnectionFetchBackend`** (`adapters/persistence/neo4j/connection_fetch_backend.py`) behind the **`ConnectionFetchOperations`** port (`core/ports/connection_fetch_protocols.py`; methods `fetch_entity_connections(config, uids)` + `fetch_source_pathstep(ps_uid)`). Like `CrossDomainBackend` / `InsightBackend`, it takes the shared `QueryExecutor` directly rather than extending `UniversalNeo4jBackend`.
+The former `connection_fetcher.py` in `core/utils/` — which both authored AND executed cross-domain Cypher via an injected `QueryExecutor` — was the last live raw-Cypher leak in `core/`. Its two queries moved verbatim into a new standalone **`ConnectionFetchBackend`** (`adapters/persistence/neo4j/connection_fetch_backend.py`) behind the **`ConnectionFetchOperations`** port (`core/ports/connection_fetch_protocols.py`; methods `fetch_entity_connections(config, uids)` + `fetch_source_pathstep(ps_uid)`). Like `CrossDomainBackend` / `InsightBackend`, it takes the shared `QueryExecutor` directly rather than extending `UniversalNeo4jBackend`.
 
 The source file was renamed `core/utils/connection_configs.py` and is now **pure data** — the `ConnectionConfig` dataclass + the 6 per-domain constants (`TASK_CONNECTION_CONFIG`, …). `config_lookup_label` is typed `NeoLabel`, so the interpolated node-label seam is enum-typed at the source and `validate_label`-checked in the backend before interpolation.
 
@@ -92,7 +92,7 @@ adapters/external/
 
 **Ports** (`core/ports/`): `llm_protocols.py` (`ChatCompletionPort.complete(messages, *, system_prompt, model, ...) -> Result[LLMCompletion]`) and `embeddings_protocols.py` (`EmbeddingClientOperations.embed(text) -> Result[list[float]]`, plus the Neo4j-storage `EmbeddingsBackendOperations`).
 
-**Consumers stay in `core/`, SDK-free:** `UnifiedLLMCaller`, `ProgressReportGenerator`, `ContentEnrichmentService`, `EmbeddingsService`, and `LLMDSLBridgeService` each take an **injected** port; `LLMService` (Askesis's RAG root) is instead injected the multi-provider `UnifiedLLMCaller` so it reaches whichever provider a call's model names (gpt* → OpenAI, claude* → Anthropic). None construct a client or read a credential. The API key is read at the composition root (`services_bootstrap/`) and the concrete adapter is injected, mirroring the Neo4j backend wiring. `core/services/ai_service.py` was deleted (collapsed into the chat adapters); only `core/utils/exception_types.py` may import the SDK exception classes, guarded by `tests/unit/test_llm_sdk_boundary.py`.
+**Consumers stay in `core/`, SDK-free:** `UnifiedLLMCaller`, `ProgressReportGenerator`, `ContentEnrichmentService`, `EmbeddingsService`, and `LLMDSLBridgeService` each take an **injected** port; `LLMService` (Askesis's RAG root) is instead injected the multi-provider `UnifiedLLMCaller` so it reaches whichever provider a call's model names (gpt* → OpenAI, claude* → Anthropic). None construct a client or read a credential. The API key is read at the composition root (`services_bootstrap/`) and the concrete adapter is injected, mirroring the Neo4j backend wiring. The former `ai_service.py` in `core/services/` was deleted (collapsed into the chat adapters); only `core/utils/exception_types.py` may import the SDK exception classes, guarded by `tests/unit/test_llm_sdk_boundary.py`.
 
 **See:** `/docs/decisions/ADR-063-llm-embeddings-sdk-ports.md`.
 

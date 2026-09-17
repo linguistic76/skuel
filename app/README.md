@@ -381,15 +381,14 @@ Try SKUEL with a complete curriculum bundle:
 uv run python scripts/clear_neo4j.py reset
 # Type: DELETE EVERYTHING
 
-# 2. Load curriculum bundle
-uv run python scripts/fresh_start_mindfulness.py
-# Type: FRESH START
+# 2. Ingest the content vault (the Mindfulness 101 bundle lives there)
+./dev vault-sync --vault content
 
 # 3. Explore in Neo4j Browser
 # Open: http://localhost:7474
 ```
 
-This demo creates 6 curriculum entities (3 KUs, 2 Path Steps, 1 Learning Path) to explore SKUEL's knowledge-centric approach.
+The Mindfulness 101 bundle in the content vault (a learning path, its path steps and an exercise) is the smallest end-to-end curriculum to explore SKUEL's knowledge-centric approach.
 
 **For complete demo documentation**, see `/docs/examples/mindfulness-101-demo.md`
 

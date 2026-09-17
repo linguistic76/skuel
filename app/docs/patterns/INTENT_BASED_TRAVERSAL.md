@@ -1,6 +1,6 @@
 ---
 title: Intent-Based Graph Traversal
-updated: 2026-08-15
+updated: 2026-09-17
 category: patterns
 related_skills: []
 related_docs:
@@ -38,7 +38,7 @@ All three end at `query_with_intent(...)` and the same builder; they differ only
 comes from*.
 
 - **A — model-suggested (`GraphContextLoader`).** `GraphContextLoader.get_with_context`
-  (`core/services/intelligence/graph_context_loader.py`, reached via the shared
+  (the former `graph_context_loader.py` — deleted; see the banner — reached via the shared
   `_CoreIntelligenceMixin`, `core/services/intelligence/_core_intelligence_mixin.py`) passes **no
   explicit intent**, so it falls back to `entity.get_suggested_query_intent()`. Every Activity Domain
   model inherits `Entity.get_suggested_query_intent()` (`core/models/entity.py:233`) →
@@ -164,7 +164,7 @@ async def query_with_intent(
 
 The Cypher is built by the module-level function
 `build_context_query_for_intent(intent, depth)` in
-`adapters/persistence/neo4j/query/graph_context_query_builder.py`. The **seven filtered intent
+the former `graph_context_query_builder.py` (deleted in #243; `query_with_intent` now folds onto the shared `build_domain_context_with_paths` producer). The **seven filtered intent
 clauses** (HIERARCHICAL, PREREQUISITE, PRACTICE, GOAL_ACHIEVEMENT, and the three dead ones) differ from
 each other **only** in their `type(r) IN [...]` edge list — identical depth (`[*0..{depth}]`),
 direction (bidirectional), return shape, and **no `LIMIT`**. The **generic `else` branch**
@@ -200,7 +200,7 @@ class UnifiedRelationshipService[Ops, Model, DtoType](...):
 
 ### 3. GraphContextLoader — Mechanism A (model-suggested)
 
-**Location:** `core/services/intelligence/graph_context_loader.py`
+**Location:** the former `graph_context_loader.py` under `core/services/intelligence/` — deleted (see the banner)
 
 Most intelligence-service `get_with_context` paths (and the Goals/Habits/Choices/Principles facades)
 load context through this. With no explicit `intent`, it uses `entity.get_suggested_query_intent()` —
@@ -271,10 +271,10 @@ behavior. They are listed here only so the gap is visible.
 |-----------|------|
 | QueryIntent enum | `core/models/query_types.py` |
 | GraphIntelligenceService | `core/services/infrastructure/graph_intelligence_service.py` |
-| `build_context_query_for_intent` | `adapters/persistence/neo4j/query/graph_context_query_builder.py` |
+| `build_context_query_for_intent` | the former `graph_context_query_builder.py` — deleted in #243; `query_with_intent` now runs `build_domain_context_with_paths` (`adapters/persistence/neo4j/query/cypher/semantic_queries.py`) |
 | Registry config (intent + edges) | `core/models/relationship_registry.py` (`DomainRelationshipConfig`, `default_context_intent`, `intent_mappings`, `cross_domain_relationship_types`) |
 | UnifiedRelationshipService (mechanism B) | `core/services/relationships/unified_relationship_service.py` (+ `relationships/_intelligence_mixin.py`) |
-| GraphContextLoader (mechanism A) | `core/services/intelligence/graph_context_loader.py` (+ `intelligence/_core_intelligence_mixin.py`) |
+| GraphContextLoader (mechanism A) | the former `graph_context_loader.py` — deleted; its host `_CoreIntelligenceMixin` (`core/services/intelligence/_core_intelligence_mixin.py`) is now mechanism B |
 | `get_entity_context` (mechanism C) | `core/services/infrastructure/graph_intelligence_service.py:504` |
 | `@requires_graph_intelligence` | `core/utils/decorators.py` |
 | **Facades** | |

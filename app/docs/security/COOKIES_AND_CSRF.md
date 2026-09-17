@@ -1,6 +1,6 @@
 ---
 title: Cookies and CSRF in SKUEL
-updated: '2026-08-08'
+updated: 2026-09-17
 category: security
 audience: learners
 related_skills: [security]
@@ -139,7 +139,7 @@ These aren't bugs; they're places where the design is less obvious than it looks
 
 When a browser first visits SKUEL, it opens the HTML **and in parallel** fires subresource requests for CSS, JS, the PWA manifest, the service worker, and the favicon. If `CSRFMiddleware` minted a fresh cookie on each of those parallel requests, the last one to complete would overwrite the cookie that the HTML's hidden input was seeded from. The form would then carry an old token, and the next POST would fail with `token_mismatch`.
 
-The fix: the middleware never mints on `/static/*`, `/manifest.json`, `/service-worker.js`, `/favicon.ico`, `/robots.txt`. Only HTML requests mint.
+The fix: the middleware never mints on its static-asset exemptions — `_MINT_EXEMPT_PREFIXES` (the static mount) and `_MINT_EXEMPT_PATHS` (the manifest, the service worker, the favicon, robots) in `/adapters/inbound/csrf.py`. Only HTML requests mint.
 
 **Source:** [`adapters/inbound/csrf.py:78-92, 195-199`](../../adapters/inbound/csrf.py)
 

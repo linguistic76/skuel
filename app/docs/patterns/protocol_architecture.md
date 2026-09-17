@@ -1,6 +1,6 @@
 ---
 title: Protocol-Based Architecture
-updated: 2026-09-12
+updated: 2026-09-17
 category: patterns
 related_skills:
 - python
@@ -137,7 +137,7 @@ Re-measure rather than increment.
 
 | Category | File | Purpose | Count |
 |----------|------|---------|-------|
-| **Type Checking** | `core/protocols.py` | Attribute checking (replaces hasattr) | 30+ |
+| **Type Checking** | `base_protocols.py` (its "Attribute Protocols" section, beside the backend ISP hierarchy) | Attribute checking (replaces hasattr) — `HasUID`, `HasScore`, `HasCreatedAt`, … | 19 |
 | **Domain Operations** | `domain_protocols.py` | Business logic (Tasks, Goals, etc.) | 8 |
 | **Curriculum** | `curriculum_protocols.py` | KU, PS, LP, Exercise + their backend slices | 15 |
 | **Search** | `search_protocols.py` | Search and query operations | 15 |

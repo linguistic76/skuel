@@ -1,7 +1,7 @@
 ---
 title: SKUEL Documentation Hub
 created: 2025-10-17
-updated: 2026-09-01
+updated: 2026-09-17
 status: active
 audience: all
 tags: [documentation, index, hub, architecture, patterns]
@@ -42,7 +42,7 @@ tags: [documentation, index, hub, architecture, patterns]
 | **[patterns/](patterns/)** | Implementation patterns, coding standards | [Query Architecture](patterns/query_architecture.md), [Error Handling](patterns/ERROR_HANDLING.md) |
 | **[decisions/](decisions/)** | Architecture Decision Records (ADRs) | [ADR-015 MEGA-QUERY](decisions/ADR-015-mega-query-rich-queries-completion.md), [ADR-016 Context Builder](decisions/ADR-016-context-builder-decomposition.md) |
 | **[dsl/](dsl/)** | Activity DSL specification | [DSL Specification](dsl/DSL_SPECIFICATION.md), [DSL Usage Guide](dsl/DSL_USAGE_GUIDE.md) |
-| **[guides/](guides/)** | Step-by-step implementation guides | [Event-Driven Migration](guides/EVENT_DRIVEN_MIGRATION_GUIDE.md), [UI Components](guides/SHARED_UI_COMPONENTS_GUIDE.md) |
+| **[guides/](guides/)** | Step-by-step implementation guides | [BaseService Quick Start](guides/BASESERVICE_QUICK_START.md), [Protocol Implementation](guides/PROTOCOL_IMPLEMENTATION_GUIDE.md) |
 | **[reference/](reference/)** | Templates, checklists | [Protocol Reference](reference/PROTOCOL_REFERENCE.md) |
 | **[intelligence/](intelligence/)** | Intelligence services & AI features | [Intelligence Services Index](intelligence/INTELLIGENCE_SERVICES_INDEX.md) |
 | **[technical_debt/](technical_debt/)** | Known limitations | [MyPy Backend Limitations](technical_debt/MYPY_BACKEND_LIMITATIONS.md) |
@@ -70,9 +70,9 @@ tags: [documentation, index, hub, architecture, patterns]
 
 | Component | Location |
 |-----------|----------|
-| MEGA-QUERY | `/core/services/user/user_context_queries.py` |
+| MEGA-QUERY | `/adapters/persistence/neo4j/user_context_queries.py` |
 | Context Builder | `/core/services/user/user_context_builder.py` |
-| Domain Configs | `/core/services/relationships/domain_configs.py` |
+| Domain Configs | `/core/models/relationship_registry.py` |
 | UnifiedRelationshipService | `/core/services/relationships/unified_relationship_service.py` |
 | EntityType / NonKuDomain Enums | `/core/models/enums/entity_enums.py` |
 
@@ -169,7 +169,7 @@ doc (the cross-reference validator reads that one). A document carrying only
 
 | Component | Documentation |
 |-----------|---------------|
-| Tasks | Part of 6 Activity Domains - see [domain_configs.py](../core/services/relationships/domain_configs.py) |
+| Tasks | Part of 6 Activity Domains - see [relationship_registry.py](/core/models/relationship_registry.py) |
 | Goals | Part of 6 Activity Domains |
 | Habits | Part of 6 Activity Domains |
 | Events | Part of 6 Activity Domains |

@@ -1,7 +1,7 @@
 ---
 related_skills:
 - user-context-intelligence
-updated: 2026-09-05
+updated: 2026-09-17
 ---
 # UserContextIntelligence - Central Intelligence Hub
 ## Related Skills
@@ -252,7 +252,7 @@ async def get_ready_to_work_on_today(self) -> Result[DailyWorkPlan]:
 ```
 
 **MEGA-QUERY for Rich Context:**
-- Location: `/core/services/user/user_context_queries.py`
+- Location: `/adapters/persistence/neo4j/user_context_queries.py`
 - Single ~1,000 line Cypher query
 - Fetches UIDs + entities + graph context in one round-trip
 - Populates all ~240 fields of UserContext

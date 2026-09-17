@@ -1,6 +1,6 @@
 ---
 title: Service Creation Template
-updated: 2026-03-23
+updated: 2026-09-17
 status: current
 category: reference
 tags: [creation, reference, service]
@@ -130,10 +130,9 @@ return Result.fail(Errors.system(message="Operation failed", exception=e))
 
 ## Related Documentation
 
-- [Protocol-Based Architecture](/home/mike/0bsidian/skuel/docs/architecture/protocol_based_architecture.md)
-- [ADR-001: Why Protocols?](/home/mike/0bsidian/skuel/docs/archive/decisions/ADR-001_why_protocols.md)
-- [Protocol Definition Template](/home/mike/0bsidian/skuel/docs/reference/templates/protocol_definition.md)
-- [Error Handling Standard](/home/mike/0bsidian/skuel/docs/patterns/error_handling.md)
+- [Protocol-Based Architecture](../../patterns/protocol_architecture.md)
+- [Protocol Definition Template](protocol_definition.md)
+- [Error Handling Standard](../../patterns/ERROR_HANDLING.md)
 
 ## Examples
 

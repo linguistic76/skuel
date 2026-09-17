@@ -1,6 +1,6 @@
 ---
 title: Protocol LSP Compliance Pattern
-updated: 2026-04-14
+updated: 2026-09-17
 category: patterns
 related_skills:
 - python
@@ -208,17 +208,15 @@ class SomeOperations(BackendOperations, Protocol):
 
 ## MyPy Verification
 
-**Before fix:**
+**Before fix** (mypy over the former `moc_protocols.py` module, since removed with `MocOperations`):
 ```bash
-$ uv run mypy core/ports/moc_protocols.py
 error: Argument 2 of "update" is incompatible with supertype
 error: Signature of "delete" incompatible with supertype
 Found 2 errors
 ```
 
-**After fix:**
+**After fix** (same module):
 ```bash
-$ uv run mypy core/ports/moc_protocols.py
 ✅ No override violations found!
 ```
 

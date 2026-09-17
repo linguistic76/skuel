@@ -453,7 +453,7 @@ async def test_full_daily_planning():
 ### Step 1: Create New Mixin
 
 ```python
-# core/services/user/intelligence/focus_intelligence.py
+# New module: focus_intelligence.py (beside daily_planning.py in the intelligence package)
 class FocusIntelligenceMixin:
     """Mixin for focus and deep work recommendations."""
 

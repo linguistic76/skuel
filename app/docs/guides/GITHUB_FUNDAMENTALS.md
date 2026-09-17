@@ -1,6 +1,6 @@
 ---
 title: GitHub Fundamentals - Local to Remote Workflow
-updated: 2026-07-24
+updated: 2026-09-17
 status: current
 category: guides
 tags: [git, github, guide, workflow]
@@ -204,7 +204,7 @@ git status
 On branch main
 Changes not staged for commit:
   modified:   core/services/tasks_service.py
-  modified:   docs/patterns/SERVICE_PATTERNS.md
+  modified:   docs/patterns/SERVICE_CONSOLIDATION_PATTERNS.md
 
 Untracked files:
   tests/unit/test_new_feature.py

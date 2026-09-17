@@ -1,5 +1,5 @@
 ---
-updated: 2026-09-13
+updated: 2026-09-17
 ---
 
 # Enum Architecture
@@ -642,7 +642,7 @@ connections:
 
 Every value after the colon is validated against the corresponding enum. A typo like `polarity: built` produces a clear Pydantic validation error at ingestion time — not a silent bad value in Neo4j.
 
-**See:** [YAML Authoring Guide](../guides/YAML_AUTHORING_GUIDE.md) (authoring reference), [Schema Templates](/yaml_templates/_schemas/) (complete field reference per entity type)
+**See:** [YAML Authoring Guide](../guides/YAML_AUTHORING_GUIDE.md) — authoring reference (enum-governed field quick reference, per-domain `connections` fields)
 
 ---
 

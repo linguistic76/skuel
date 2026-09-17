@@ -1,7 +1,7 @@
 ---
 title: LP (Learning Path) Domain
 created: 2025-12-04
-updated: 2026-07-27
+updated: 2026-09-17
 status: current
 category: domains
 tags:
@@ -133,8 +133,8 @@ All Cypher queries are encapsulated in `LpBackend` (28 methods decomposed into 3
 | Step Mixin | `/adapters/persistence/neo4j/_lp_step_mixin.py` (14 methods) |
 | Progress Mixin | `/adapters/persistence/neo4j/_lp_progress_mixin.py` (6 methods) |
 | Intelligence Mixin | `/adapters/persistence/neo4j/_lp_intelligence_mixin.py` (10 methods) |
-| Model | `/core/models/lp/lp.py` |
-| DTO | `/core/models/lp/lp_dto.py` |
+| Model | `/core/models/pathways/learning_path.py` |
+| DTO | `/core/models/pathways/learning_path_dto.py` |
 | Relationship Config | `LP_CONFIG` in `/core/models/relationship_registry.py` |
 
 ### Intelligence Sub-Services
@@ -348,7 +348,7 @@ domains (Tasks, Habits, Events).
 
 ### See Also
 
-- [PS Domain: Practice Infrastructure](ls.md#cross-domain-practice-infrastructure)
+- [PS Domain: Practice Infrastructure](ps.md#cross-domain-practice-infrastructure)
 - [Knowledge Substance Philosophy](../architecture/knowledge_substance_philosophy.md)
 - [Curriculum Grouping Patterns](../architecture/CURRICULUM_GROUPING_PATTERNS.md)
 
@@ -356,14 +356,14 @@ domains (Tasks, Habits, Events).
 
 ## Related ADRs
 
-- [ADR-023: Curriculum BaseService Migration](../decisions/ADR-023-curriculum-base-service.md)
-- [ADR-024: BaseAnalyticsService Migration](../decisions/ADR-024-base-intelligence-service.md)
+- [ADR-023: Curriculum BaseService Migration](../decisions/ADR-023-curriculum-baseservice-migration.md)
+- [ADR-024: BaseAnalyticsService Migration](../decisions/ADR-024-base-intelligence-service-migration.md)
 - [ADR-030: Curriculum Domain Unification](../decisions/ADR-030-curriculum-domain-unification.md)
 - **ADR-031: LP Intelligence Unification** - Dead code removal, internal creation pattern (January 2026)
 
 ## See Also
 
-- [PS Domain](ls.md) - Paths contain steps
+- [PS Domain](ps.md) - Paths contain steps
 - [KU Domain](ku.md) - Steps contain KUs
 - [LifePath Domain](lifepath.md) - Ultimate learning goal
 - [Curriculum Grouping Patterns](../architecture/CURRICULUM_GROUPING_PATTERNS.md)

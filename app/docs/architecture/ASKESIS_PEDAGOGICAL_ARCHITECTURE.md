@@ -1,5 +1,5 @@
 ---
-updated: 2026-09-05
+updated: 2026-09-17
 ---
 
 # Askesis: Pedagogical Architecture
@@ -154,7 +154,7 @@ After formatting, `JournalOutputGenerator` will run a second LLM pass to extract
 pedagogical signals into a `JournalInsight` object:
 
 ```python
-# core/models/submissions/journal_insight.py — shape defined, extraction deferred
+# JournalInsight — shape sketched here only (no module in the tree yet); extraction deferred
 @dataclass(frozen=True)
 class JournalInsight:
     journal_uid: str
@@ -388,7 +388,7 @@ assistant cannot do this. Askesis can.
 - `docs/roadmap/done/zpd-service-architecture.md` — ZPDService design
 - `docs/roadmap/done/conversation-neo4j-persistence-deferred.md` — archived original conversation-schema design (historical; ADR-078 rejected its pedagogical half — see §5)
 - `docs/roadmap/teacher-askesis-interface-deferred.md` — teacher interface design
-- `core/models/submissions/journal_insight.py` — JournalInsight dataclass stub
+- `JournalInsight` — dataclass shape sketched in §3 Phase 2 above; no module in the tree yet (the stub was deleted with the old journal files, extraction deferred)
 - `core/prompts/templates/askesis_stance.md` — shared stance fragment heading BOTH answer branches (ADR-082 D1/D3)
 - `core/prompts/templates/askesis_guided_*.md` — 8 guided system prompt templates (active)
 - `core/prompts/templates/askesis_scaffold_entry.md`, `askesis_socratic_turn.md`, `askesis_ku_bridge.md`, `askesis_journal_reflection.md` — 4 interaction pattern templates (staged — PLANNED, ADR-082 D4)

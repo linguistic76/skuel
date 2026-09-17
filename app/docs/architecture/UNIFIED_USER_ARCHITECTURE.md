@@ -465,12 +465,12 @@ No slice-conforming stubs needed.
 |---------|------|
 | User domain model | `core/models/user/user.py` |
 | User DTOs | `core/models/user/user_dto.py` |
-| User Pydantic schemas | `core/models/user/user_schemas.py` |
+| User Pydantic schemas | `core/models/user/user_request.py` |
 | Graph auth service | `core/auth/graph_auth.py` |
 | Session backend | `adapters/persistence/neo4j/session_backend.py` |
 | UserContext class | `core/services/user/unified_user_context.py` |
 | Context builder | `core/services/user/user_context_builder.py` |
-| MEGA-QUERY | `core/services/user/user_context_queries.py` |
+| MEGA-QUERY | `adapters/persistence/neo4j/user_context_queries.py` |
 | Extractor | `core/services/user/user_context_extractor.py` |
 | Populator | `core/services/user/user_context_populator.py` |
 | Context cache | `core/services/user/user_context_cache.py` |

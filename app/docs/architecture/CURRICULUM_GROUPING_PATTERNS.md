@@ -1,6 +1,6 @@
 ---
 title: "Curriculum Grouping Patterns: KU, PS, LP + MOC Organization"
-updated: 2026-09-15
+updated: 2026-09-17
 status: current
 category: architecture
 tags: [architecture, curriculum, grouping, patterns, moc, montessori]
@@ -526,8 +526,8 @@ The `UnifiedIngestionService` (at `core/services/ingestion/`) handles all curric
 | LP Model | `/core/models/pathways/learning_path.py` | Learning Path definition |
 | Curriculum Base | `/core/models/curriculum.py` | Shared base class for Ku, PS, LP |
 | KuService | `/core/services/ku_service.py` | Ku facade (CRUD, graph, semantics, organization) |
-| KuOrganizationService | `/core/services/ku/ku_organization_service.py` | ORGANIZES relationship management (MOC) |
-| KuIntelligenceService | `/core/services/ku_intelligence_service.py` | Standalone analytics for KU domain |
+| PsOrganizationService | `/core/services/ps/ps_organization_service.py` | ORGANIZES relationship management (MOC) |
+| KuIntelligenceService | `/core/services/ku/ku_intelligence_service.py` | Standalone analytics for KU domain |
 | PsService | `/core/services/ps_service.py` | Path Step facade |
 | LpService | `/core/services/lp_service.py` | Learning Path facade |
 | LpBackend | `/adapters/persistence/neo4j/backends/curriculum_backends.py` | LP-specific graph queries |

@@ -1,6 +1,6 @@
 ---
 title: "ADR-058: Today as the Post-Login Landing Surface"
-updated: 2026-09-13
+updated: 2026-09-17
 status: current
 category: decisions
 tags: [adr, decisions, ui, landing, today, lifepath]
@@ -30,7 +30,7 @@ changed:
   Habits, Milestones, Choices — rendered through the domain list cards and the
   calendar's chips, nav cluster and kind legend (one filter component and one
   storage key across Today/Weekly/Monthly). No page-local JavaScript:
-  ``static/js/today.js``, ``static/css/today.css``, ``ui/today/drawer.py``, the
+  ``static/js/today.js``, ``static/css/today.css``, ``ui/today/drawer.py``, the <!-- historical -->
   ``window.SEED`` block and the six view TypedDicts are gone; ``TodayPageContext``
   carries domain models.
 - **Interaction.** Quick-add (C6) and a server-rendered Defer 1d/1w control
@@ -145,7 +145,7 @@ usage data shows `/home` traffic has fallen off.
   and will not see Today until they click the brand link. Acceptable
   short-term cost; revisited when `/home` retirement is proposed.
 - Today's interactivity (drag-to-defer, optimistic updates) concentrates
-  more production JavaScript in `static/js/today.js` than prior pages
+  more production JavaScript in `static/js/today.js` than prior pages <!-- historical -->
   carried. Kept verbatim from the handoff mock to minimize drift; an
   `<template x-for>` conversion is a possible follow-up if the
   innerHTML-rendered row approach blocks a future a11y audit.
@@ -166,11 +166,13 @@ usage data shows `/home` traffic has fallen off.
 - `adapters/inbound/today_routes.py` — 8 endpoints (page + dated day-lens + drawer + 5 mutations)
 - `adapters/inbound/auth_ui.py` — redirect targets `/today` for non-admins
 - `adapters/inbound/home_routes.py` — `/home` retained as regression guard
-- `ui/today/page.py`, `ui/today/drawer.py` — FastHTML translation of the handoff
+- `ui/today/page.py` — FastHTML translation of the handoff (now the server-rendered day view — see the amendment)
+- `ui/today/drawer.py` — FastHTML translation of the handoff's detail drawer <!-- historical -->
 - `ui/today/orchestrator.py` — `TodayOrchestrator.build_context()` assembles the view shape. Lives under `ui/` (not `core/services/`) because the output is a page context, not a service-layer contract; putting it in `core/` would invert the `core → ui` import direction.
 - `ui/layouts/navbar.py`, `ui/layouts/nav_config.py` — brand + icon nav point at Today
-- `static/js/today.js` — Alpine `today` factory, shipped verbatim from the mock
-- `static/css/today.css`, `static/css/input.css` — task-row / defer-backdrop styles + strength tokens
+- `static/js/today.js` — Alpine `today` factory, shipped verbatim from the mock <!-- historical -->
+- `static/css/today.css` — task-row / defer-backdrop styles <!-- historical -->
+- `static/css/input.css` — strength tokens
 - `ui/page_contexts.py` — `TodayPageContext`, `TodayStats`, `LifePathRibbonView`, `TriageItemView`, `RitualView`, `KindMeta`, `TaskView`, `GoalView`, `PrincipleView` TypedDicts (page contexts are UI concerns; not in `core/ports/`)
 
 ### Endpoints (see `today.md` §5 for full signatures)
