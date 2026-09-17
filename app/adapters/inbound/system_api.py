@@ -26,11 +26,10 @@ import re
 from datetime import UTC, datetime
 from typing import TYPE_CHECKING, Any
 
-from fasthtml.common import Request
-
 from adapters.inbound.auth import make_service_getter, require_admin
 from adapters.inbound.boundary import boundary_handler
 from adapters.inbound.csrf import csrf_protected
+from adapters.inbound.fasthtml_types import Request
 from core.ports.query_types import AlertCheckResult, HealthCheckValidation
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result

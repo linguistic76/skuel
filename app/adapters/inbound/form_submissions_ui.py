@@ -13,9 +13,10 @@ Routes:
 
 from typing import Any
 
-from fasthtml.common import A, Div, P, Request, Span
+from fasthtml.common import A, Div, P, Span
 
 from adapters.inbound.auth import require_authenticated_user
+from adapters.inbound.fasthtml_types import Request
 from core.utils.logging import get_logger
 from ui.components import Button, ButtonT
 from ui.layouts.base_page import BasePage

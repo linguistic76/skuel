@@ -10,12 +10,11 @@ See: /docs/decisions/ADR-040-teacher-exercise-workflow.md
 
 from typing import TYPE_CHECKING, Any
 
-from fasthtml.common import Request
-
 from adapters.inbound.auth import require_authenticated_user
 from adapters.inbound.auth.roles import UserRole, make_service_getter, require_role
 from adapters.inbound.boundary import boundary_handler
 from adapters.inbound.csrf import csrf_protected
+from adapters.inbound.fasthtml_types import Request
 from adapters.inbound.form_helpers import parse_json_body
 from adapters.inbound.route_factories import verify_entity_ownership
 from core.models.group.group import Group

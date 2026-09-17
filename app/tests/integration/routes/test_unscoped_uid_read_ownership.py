@@ -602,7 +602,6 @@ def forms_list_handlers(monkeypatch: pytest.MonkeyPatch) -> dict[str, Any]:
 
     monkeypatch.setattr(tfu, "require_role", _fake_require_role)
     monkeypatch.setattr(tfu, "render_teaching_sidebar_page", _fake_render)
-    monkeypatch.setattr(tfu, "require_authenticated_user", lambda _request: "ignored")
 
     template = FormTemplate(
         uid=TEMPLATE_UID,

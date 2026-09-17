@@ -24,12 +24,12 @@ Routes:
 
 from typing import TYPE_CHECKING, Any
 
-from fasthtml.common import FT, Div, Request, Script
+from fasthtml.common import FT, Div, Script
 
 from adapters.inbound.auth import get_current_user, require_authenticated_user
 from adapters.inbound.auth.roles import get_user_role
 from adapters.inbound.csrf import csrf_protected
-from adapters.inbound.fasthtml_types import FastHTMLApp, RouteDecorator
+from adapters.inbound.fasthtml_types import FastHTMLApp, Request, RouteDecorator
 from core.models.enums import MasteryLevel
 from core.models.shared.dual_track import DualTrackResult
 from core.utils.logging import get_logger

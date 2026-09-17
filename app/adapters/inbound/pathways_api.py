@@ -11,12 +11,12 @@ __version__ = "4.0"
 
 from typing import Any
 
-from fasthtml.common import Request
 from starlette.responses import Response
 
 from adapters.inbound.auth import require_authenticated_user
 from adapters.inbound.boundary import boundary_handler
 from adapters.inbound.csrf import csrf_protected
+from adapters.inbound.fasthtml_types import Request
 from adapters.inbound.form_helpers import parse_json_body
 from adapters.inbound.result_helpers import require_found
 from core.models.pathways.path_step import PathStep

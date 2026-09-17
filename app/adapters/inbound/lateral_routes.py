@@ -15,12 +15,10 @@ See: /docs/architecture/RELATIONSHIPS_ARCHITECTURE.md
 
 from typing import TYPE_CHECKING, Any
 
-from fasthtml.common import Request
-
 from adapters.inbound.auth import require_authenticated_user
 from adapters.inbound.boundary import boundary_handler
 from adapters.inbound.csrf import csrf_protected
-from adapters.inbound.fasthtml_types import FastHTMLApp, RouteDecorator
+from adapters.inbound.fasthtml_types import FastHTMLApp, Request, RouteDecorator
 from adapters.inbound.route_factories.lateral_route_factory import LateralRouteFactory
 from core.models.relationship_names import RelationshipName
 from core.utils.logging import get_logger

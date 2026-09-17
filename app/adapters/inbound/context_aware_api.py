@@ -20,11 +20,10 @@ __version__ = "2.0"
 
 from typing import Any
 
-from fasthtml.common import Request
-
 from adapters.inbound.auth import require_authenticated_user
 from adapters.inbound.boundary import boundary_handler
 from adapters.inbound.csrf import csrf_protected
+from adapters.inbound.fasthtml_types import Request
 from adapters.inbound.route_factories import parse_bool_query_param
 from core.models.goal.goal_request import ContextualGoalTaskGenerationRequest
 from core.models.habit.habit import Habit

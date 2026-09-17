@@ -175,7 +175,7 @@ def teaching_students_page(request: Request, current_user: Any = None):
 @rt("/teaching/students/content")
 @require_role(UserRole.TEACHER, get_user_service)
 async def teaching_students_content_fragment(request: Request, current_user: Any = None):
-    user_uid = require_authenticated_user(request)
+    user_uid = UserUID(current_user.uid)  # the decorator authenticated and fetched the caller
     result = await orchestrator.get_students_summary(teacher_uid=user_uid)
     ...
 ```

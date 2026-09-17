@@ -25,12 +25,12 @@ Routes:
 from datetime import date
 from typing import Any
 
-from fasthtml.common import JSONResponse, Request
+from fasthtml.common import JSONResponse
 
 from adapters.inbound.auth import make_service_getter, require_admin, require_authenticated_user
 from adapters.inbound.boundary import boundary_handler
 from adapters.inbound.csrf import csrf_protected
-from adapters.inbound.fasthtml_types import FastHTMLApp, RouteDecorator
+from adapters.inbound.fasthtml_types import FastHTMLApp, Request, RouteDecorator
 from adapters.inbound.route_factories import (
     DomainRouteConfig,
     parse_date_param_strict,

@@ -16,7 +16,7 @@ from typing import TYPE_CHECKING, Any, Protocol
 from fasthtml.common import A, Div, Small, Span, to_xml
 from starlette.responses import HTMLResponse, Response
 
-from adapters.inbound.auth import make_service_getter, require_authenticated_user
+from adapters.inbound.auth import make_service_getter
 from adapters.inbound.auth.roles import UserRole, require_role
 from adapters.inbound.fasthtml_types import Request
 from core.models.type_hints import UserUID
@@ -108,7 +108,6 @@ def create_teaching_forms_ui_routes(
     @rt("/teaching/forms")
     @require_role(UserRole.TEACHER, get_user_service)
     async def teaching_forms_list(request: Request, current_user: Any = None) -> Any:
-        require_authenticated_user(request)
 
         result = await form_template_service.list(limit=200, order_by="created_at", order_desc=True)
         if result.is_error:
@@ -198,7 +197,6 @@ def create_teaching_forms_ui_routes(
     async def teaching_forms_detail(
         request: Request, uid: str = "", current_user: Any = None
     ) -> Any:
-        require_authenticated_user(request)
 
         if not uid:
             content = Div(

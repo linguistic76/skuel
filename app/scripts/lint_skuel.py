@@ -26,6 +26,10 @@ ERROR (blocks CI):
   SKUEL032: core/ must not import ui/ at runtime (ADR-058; SKUEL022's ui/ twin)
   SKUEL034: No substring test against a uid — entity kind comes from label /
             entity_type / edge, never from UID spelling (ADR-013 never-sniff)
+  SKUEL035: adapters/inbound/ imports Request from adapters.inbound.fasthtml_types —
+            the one boundary spelling, not fasthtml.common / starlette.requests
+  SKUEL036: A role-gated handler never calls require_authenticated_user — the
+            decorator authenticated and fetched the caller; read current_user.uid
 
 WARNING (blocks `./dev lint` / `./dev quality` via --strict; plain runs report only):
   SKUEL005: Result[T] return types on service methods
@@ -1314,6 +1318,65 @@ if "tech" in knowledge_uid.lower() or "python" in knowledge_uid.lower():
 elif "finance" in knowledge_uid.lower():
     return Domain.FINANCE""",
     },
+    "SKUEL035": {
+        "title": "Request Is Imported From adapters.inbound.fasthtml_types",
+        "severity": "ERROR",
+        "description": """`adapters/inbound/fasthtml_types.py` re-exports the concrete Starlette
+`Request` class so every route handler annotates the same name through the one hexagonal
+boundary module (with `RouteDecorator`, `FastHTMLApp`, `Response`). `fasthtml.common`,
+`fasthtml.core` and `starlette.requests` hand out the same class through other doors, and a
+tree with two doors grows a third: a new file copies whichever import it saw last.
+
+Scope: `adapters/inbound/` (the re-export module itself excepted). Two shapes, both at
+their own line: an import of the name `Request` from any module other than
+`adapters.inbound.fasthtml_types`, and an attribute-qualified use — `starlette.requests.Request`,
+`fasthtml.common.Request`, `sr.Request` after `import starlette.requests as sr` — whose base
+is not the door (SKUEL020 accepts the fully-qualified Starlette annotation, so without this
+half a module import would pass both rules); a quoted annotation is parsed and walked the
+same way. The door is resolved through the file's own imports, never by spelling. Only the
+name `Request` — `Response`, `JSONResponse` and the FastHTML tags keep their usual sources.
+
+Fix: `from adapters.inbound.fasthtml_types import Request` (a runtime import — a handler
+annotation is evaluated at registration).
+
+Suppress: # skuel-lint: disable=SKUEL035 -- <reason>
+File-level: # skuel-lint: disable-file=SKUEL035 -- <reason>""",
+        "good": """from fasthtml.common import Div, Span
+
+from adapters.inbound.fasthtml_types import Request""",
+        "bad": """from fasthtml.common import Div, Request, Span  # a second door to the same class""",
+    },
+    "SKUEL036": {
+        "title": "A Role-Gated Handler Never Authenticates Twice",
+        "severity": "ERROR",
+        "description": """A handler decorated with `@require_admin` / `@require_teacher` /
+`@require_member` / `@require_role(...)` has already been authenticated by the decorator,
+which also fetched the caller and injected it as `current_user`. Calling
+`require_authenticated_user(request)` inside such a handler is a second authentication of
+the same request — a redundant session read, and two spellings of "who is calling" in one
+function, so a reader has to check that they agree (AUTH_PATTERNS.md § Pattern 3, "Do not
+mix patterns").
+
+Scope: `adapters/inbound/`. Flags every `require_authenticated_user(...)` call whose
+enclosing function carries a role decorator, at the call line. Both names are resolved
+through the file's `from … import … as …` bindings, so an alias neither hides the gate nor
+the call. A handler with no role decorator is Pattern 2 and untouched.
+
+Fix: `user_uid = UserUID(current_user.uid)`; or delete the call when its value was unused.
+
+Suppress: # skuel-lint: disable=SKUEL036 -- <reason>
+File-level: # skuel-lint: disable-file=SKUEL036 -- <reason>""",
+        "good": """@rt("/teaching/students/content")
+@require_role(UserRole.TEACHER, get_user_service)
+async def teaching_students_content_fragment(request: Request, current_user: Any = None):
+    user_uid = UserUID(current_user.uid)
+    result = await orchestrator.get_students_summary(teacher_uid=user_uid)""",
+        "bad": """@rt("/teaching/students/content")
+@require_role(UserRole.TEACHER, get_user_service)
+async def teaching_students_content_fragment(request: Request, current_user: Any = None):
+    user_uid = require_authenticated_user(request)  # the decorator already did this
+    result = await orchestrator.get_students_summary(teacher_uid=user_uid)""",
+    },
 }
 
 
@@ -1525,6 +1588,8 @@ class SkuelLinter:
             "SKUEL032",
             "SKUEL033",
             "SKUEL034",
+            "SKUEL035",
+            "SKUEL036",
         }
     )
 
@@ -1593,6 +1658,8 @@ class SkuelLinter:
             "SKUEL032",
             "SKUEL033",
             "SKUEL034",
+            "SKUEL035",
+            "SKUEL036",
         }
     )
 
@@ -1615,6 +1682,8 @@ class SkuelLinter:
     # drifted (the mirror carried a phantom "api/" prefix for a directory that does
     # not exist, so three tests asserted a scope production never had).
     INBOUND_LAYER_PREFIXES: ClassVar[tuple[str, ...]] = ("adapters/inbound/", "ui/")
+    # SKUEL035 / SKUEL036: the route layer proper — handlers and their imports.
+    ROUTE_LAYER_PREFIX: ClassVar[str] = "adapters/inbound/"
 
     # SKUEL019: Credential keys that must route through get_credential().
     #
@@ -2269,6 +2338,9 @@ class SkuelLinter:
         # SKUEL007, SKUEL013, and SKUEL014 run on these layers in addition to
         # services.
         runs_service_or_inbound = (is_service or is_inbound_layer) and not is_test
+        # The route layer alone: adapters/inbound/, where handlers are defined and
+        # bound. ui/ is presentation and has neither handlers nor a Request import.
+        runs_route_layer = rel_path.as_posix().startswith(self.ROUTE_LAYER_PREFIX) and not is_test
 
         # The dispatch table — (rule id, gate, checker, args) in run order. Each
         # row runs in its own ``try`` below, so one crashing rule costs exactly
@@ -2324,6 +2396,9 @@ class SkuelLinter:
             ("SKUEL007", runs_service_or_inbound, self._check_string_result_fail, text_args),
             ("SKUEL013", runs_service_or_inbound, self._check_relationship_name_strings, ast_args),
             ("SKUEL014", runs_service_or_inbound, self._check_entity_type_strings, ast_args),
+            # Route-layer hygiene — adapters/inbound/ only (handlers live there).
+            ("SKUEL035", runs_route_layer, self._check_request_import_source, ast_args),
+            ("SKUEL036", runs_route_layer, self._check_role_gated_reauth, ast_args),
             (
                 "SKUEL008",
                 is_persistence,
@@ -4314,6 +4389,234 @@ class SkuelLinter:
                             f"from core.config.credential_store import get_credential\n"
                             f'    value = get_credential("{key}", fallback_to_env=True)'
                         ),
+                        line_content=line.strip(),
+                    )
+                )
+
+    # SKUEL035: the one module that may hand out the name `Request` in the route
+    # layer, and the module that defines it (its own import is the re-export).
+    REQUEST_SOURCE_MODULE: ClassVar[str] = "adapters.inbound.fasthtml_types"
+    REQUEST_SOURCE_FILE: ClassVar[str] = "adapters/inbound/fasthtml_types.py"
+    # SKUEL035: the module whose name may be bound to a local qualifier
+    # (`from adapters.inbound import fasthtml_types [as x]`), and the package it
+    # lives in. A qualifier is the door only through one of these bindings —
+    # never by spelling, since `import starlette.requests as fasthtml_types`
+    # would otherwise pass.
+    REQUEST_DOOR_PACKAGE: ClassVar[str] = "adapters.inbound"
+    REQUEST_DOOR_LEAF: ClassVar[str] = "fasthtml_types"
+
+    def _string_annotations(self, tree: ast.Module) -> list[ast.Constant]:
+        """Every quoted annotation in the module: parameters, returns, AnnAssign."""
+        found: list[ast.Constant] = []
+        for func in self._nodes(tree, ast.FunctionDef, ast.AsyncFunctionDef):
+            if not isinstance(func, ast.FunctionDef | ast.AsyncFunctionDef):
+                continue  # already true — narrows the join type
+            a = func.args
+            annotations = [arg.annotation for arg in (*a.posonlyargs, *a.args, *a.kwonlyargs)] + [
+                func.returns
+            ]
+            if a.vararg is not None:
+                annotations.append(a.vararg.annotation)
+            if a.kwarg is not None:
+                annotations.append(a.kwarg.annotation)
+            found.extend(
+                annotation
+                for annotation in annotations
+                if isinstance(annotation, ast.Constant) and isinstance(annotation.value, str)
+            )
+        for assign in self._nodes(tree, ast.AnnAssign):
+            annotation = assign.annotation
+            if isinstance(annotation, ast.Constant) and isinstance(annotation.value, str):
+                found.append(annotation)
+        return found
+
+    def _request_door_qualifiers(self, tree: ast.Module) -> set[str]:
+        """The local dotted names that resolve to the ``fasthtml_types`` module.
+
+        ``import adapters.inbound.fasthtml_types`` binds the full dotted path;
+        ``import adapters.inbound.fasthtml_types as ft`` binds ``ft``;
+        ``from adapters.inbound import fasthtml_types [as ft]`` binds the leaf or
+        the alias. Any other import binds a name that is NOT the door, whatever
+        it is called.
+        """
+        door: set[str] = set()
+        for plain in self._nodes(tree, ast.Import):
+            for alias in plain.names:
+                if alias.name == self.REQUEST_SOURCE_MODULE:
+                    door.add(alias.asname or alias.name)
+        for from_import in self._nodes(tree, ast.ImportFrom):
+            if from_import.module != self.REQUEST_DOOR_PACKAGE:
+                continue
+            for alias in from_import.names:
+                if alias.name == self.REQUEST_DOOR_LEAF:
+                    door.add(alias.asname or alias.name)
+        return door
+
+    def _check_request_import_source(
+        self,
+        file_path: Path,
+        rel_path: Path,
+        content: str,
+        lines: list[str],
+        tree: ast.Module | None,
+    ) -> None:
+        """
+        SKUEL035 [ERROR]: ``Request`` comes from ``adapters.inbound.fasthtml_types``.
+
+        Two shapes, each at its own line: ``from <other> import Request`` (any
+        alias list containing the name), and an attribute-qualified
+        ``<base>.Request`` whose base is not the door — the spelling a module
+        import (``import starlette.requests``) enables, which SKUEL020 accepts
+        as an annotation. The re-export module itself is exempt — its import
+        IS the one door.
+        """
+        if rel_path.as_posix() == self.REQUEST_SOURCE_FILE:
+            return
+        if self._is_file_suppressed(content, "SKUEL035"):
+            return
+        if "Request" not in content or tree is None:
+            return
+        found: list[tuple[int, int, str]] = []
+        for node in self._nodes(tree, ast.ImportFrom):
+            if node.module == self.REQUEST_SOURCE_MODULE:
+                continue
+            for alias in node.names:
+                if alias.name != "Request":
+                    continue
+                # The alias's own position: in a parenthesised import the name
+                # sits on its own line, which is where a suppression is written.
+                found.append((alias.lineno, alias.col_offset, f"imported from `{node.module}`"))
+        door = self._request_door_qualifiers(tree)
+        for attr in self._nodes(tree, ast.Attribute):
+            if attr.attr != "Request":
+                continue
+            base = self._dotted_name(attr.value)
+            if base is None or base in door:
+                continue
+            found.append((attr.lineno, attr.col_offset, f"reached as `{base}.Request`"))
+        # A string annotation is the same expression behind quotes — SKUEL020
+        # accepts "starlette.requests.Request" as a forward reference, and ruff's
+        # UP037 leaves a DOTTED quoted annotation alone — so it is parsed and
+        # walked like the bare one, reported at the string's line.
+        for constant in self._string_annotations(tree):
+            if not isinstance(constant.value, str):
+                continue  # already true — _string_annotations only yields strings
+            try:
+                inner = ast.parse(constant.value.strip(), mode="eval")
+            except SyntaxError:
+                continue
+            for attr in self._nodes(inner, ast.Attribute):
+                if attr.attr != "Request":
+                    continue
+                base = self._dotted_name(attr.value)
+                if base is None or base in door:
+                    continue
+                found.append((constant.lineno, constant.col_offset, f'reached as "{base}.Request"'))
+        for line_num, col, how in found:
+            line = lines[line_num - 1] if 0 < line_num <= len(lines) else ""
+            if self._is_line_suppressed(line, "SKUEL035"):
+                continue
+            self.result.violations.append(
+                Violation(
+                    file_path=rel_path,
+                    line_number=line_num,
+                    column=col,
+                    severity=Severity.ERROR,
+                    rule_id="SKUEL035",
+                    message=(
+                        f"`Request` {how} — the route layer's one spelling is "
+                        f"`{self.REQUEST_SOURCE_MODULE}`"
+                    ),
+                    suggestion=f"from {self.REQUEST_SOURCE_MODULE} import Request",
+                    line_content=line.strip(),
+                )
+            )
+
+    # SKUEL036: the decorators that authenticate, fetch the caller and inject it
+    # as `current_user` (adapters/inbound/auth/roles.py).
+    ROLE_GATE_DECORATORS: ClassVar[frozenset[str]] = frozenset(
+        {"require_role", "require_admin", "require_teacher", "require_member", "require_registered"}
+    )
+    SESSION_AUTH_CALL: ClassVar[str] = "require_authenticated_user"
+
+    def _from_import_bindings(self, tree: ast.Module) -> dict[str, str]:
+        """``from m import a as b`` → ``{"b": "a"}`` for every from-import in the module."""
+        bound: dict[str, str] = {}
+        for node in self._nodes(tree, ast.ImportFrom):
+            for alias in node.names:
+                bound[alias.asname or alias.name] = alias.name
+        return bound
+
+    @staticmethod
+    def _decorator_base_name(dec: ast.expr) -> str | None:
+        """``@name``, ``@name(...)``, ``@mod.name(...)`` → ``name``."""
+        target = dec.func if isinstance(dec, ast.Call) else dec
+        if isinstance(target, ast.Name):
+            return target.id
+        if isinstance(target, ast.Attribute):
+            return target.attr
+        return None
+
+    def _check_role_gated_reauth(
+        self,
+        file_path: Path,
+        rel_path: Path,
+        content: str,
+        lines: list[str],
+        tree: ast.Module | None,
+    ) -> None:
+        """
+        SKUEL036 [ERROR]: a role-gated handler never calls ``require_authenticated_user``.
+
+        Flags each call inside a function carrying a role decorator, at the call
+        line. Nested functions are walked with their enclosing handler; a helper
+        defined inside a gated handler is gated too.
+        """
+        if self._is_file_suppressed(content, "SKUEL036"):
+            return
+        if tree is None:
+            return
+        # A name is what its import bound it to, not what it is called: a
+        # decorator imported `as gated` is still the gate, and a local name that
+        # an import bound to something else is not.
+        bound = self._from_import_bindings(tree)
+        if not any(
+            bound.get(n, n) == self.SESSION_AUTH_CALL for n in {*bound, self.SESSION_AUTH_CALL}
+        ):
+            return
+        for func in self._nodes(tree, ast.FunctionDef, ast.AsyncFunctionDef):
+            if not isinstance(func, ast.FunctionDef | ast.AsyncFunctionDef):
+                continue  # already true — narrows the join type
+            names = {
+                bound.get(name, name)
+                for d in func.decorator_list
+                if (name := self._decorator_base_name(d)) is not None
+            }
+            if not names & self.ROLE_GATE_DECORATORS:
+                continue
+            for node in ast.walk(func):
+                if not isinstance(node, ast.Call):
+                    continue
+                called = self._decorator_base_name(node)
+                if called is None or bound.get(called, called) != self.SESSION_AUTH_CALL:
+                    continue
+                line_num = node.lineno
+                line = lines[line_num - 1] if 0 < line_num <= len(lines) else ""
+                if self._is_line_suppressed(line, "SKUEL036"):
+                    continue
+                self.result.violations.append(
+                    Violation(
+                        file_path=rel_path,
+                        line_number=line_num,
+                        column=node.col_offset,
+                        severity=Severity.ERROR,
+                        rule_id="SKUEL036",
+                        message=(
+                            f"Role-gated handler `{func.name}` calls "
+                            f"`{self.SESSION_AUTH_CALL}` — the decorator already "
+                            "authenticated and injected the caller as `current_user`"
+                        ),
+                        suggestion="user_uid = UserUID(current_user.uid), or delete the call",
                         line_content=line.strip(),
                     )
                 )

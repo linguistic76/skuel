@@ -53,12 +53,10 @@ async def test_forms_list_unpacks_list_int_tuple(monkeypatch):
     def _fake_render(content, active, request):
         return content
 
-    def _fake_auth(_request):
-        return "user_teacher"
-
     # require_role is applied as a decorator at route-creation time — patch before create.
+    # The handler reads the caller from the `current_user` the decorator injects, and
+    # from nowhere else — so that is the only identity the test supplies.
     monkeypatch.setattr(tfu, "require_role", _fake_require_role)
-    monkeypatch.setattr(tfu, "require_authenticated_user", _fake_auth)
     monkeypatch.setattr(tfu, "render_teaching_sidebar_page", _fake_render)
 
     captured: list = []
@@ -102,11 +100,7 @@ async def test_forms_list_does_not_render_a_failed_count_as_zero(monkeypatch):
     def _fake_render(content, active, request):
         return content
 
-    def _fake_auth(_request):
-        return "user_teacher"
-
     monkeypatch.setattr(tfu, "require_role", _fake_require_role)
-    monkeypatch.setattr(tfu, "require_authenticated_user", _fake_auth)
     monkeypatch.setattr(tfu, "render_teaching_sidebar_page", _fake_render)
 
     captured: list = []

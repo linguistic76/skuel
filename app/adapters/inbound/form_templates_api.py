@@ -9,11 +9,10 @@ via CRUDRouteConfig in form_templates_routes.py.
 
 from typing import TYPE_CHECKING, Any
 
-from fasthtml.common import Request
-
 from adapters.inbound.auth import make_service_getter, require_admin
 from adapters.inbound.boundary import boundary_handler
 from adapters.inbound.csrf import csrf_protected
+from adapters.inbound.fasthtml_types import Request
 from adapters.inbound.form_helpers import parse_json_body
 from core.models.forms.form_template_request import FormPathStepLinkRequest
 from core.utils.logging import get_logger
