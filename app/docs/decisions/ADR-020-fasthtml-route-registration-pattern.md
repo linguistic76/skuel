@@ -100,7 +100,8 @@ def create_domain_routes(_app, rt, service, user_service):
 ```
 
 > Spelling converged 2026-09: the injected parameter is `current_user: Any = None` — the one
-> form FastHTML binds without a warning ([AUTH_PATTERNS.md § Pattern 3](../patterns/AUTH_PATTERNS.md)).
+> form `require_role` accepts; it keeps the name out of FastHTML's request binding
+> ([AUTH_PATTERNS.md § Pattern 3](../patterns/AUTH_PATTERNS.md)).
 
 ## Anti-Pattern (Do Not Use)
 

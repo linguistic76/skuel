@@ -169,16 +169,18 @@ async def create_knowledge_unit(request: Request, current_user: Any = None):
 ```
 
 **The one spelling is `current_user: Any = None`, next to a parameter named `request`.**
-FastHTML reads the handler's own signature through the decorator's `@wraps` chain and binds
-every parameter itself, before the decorator runs: an annotated parameter with no default is
-required from the request (400 "Missing required field: current_user" when absent), an
-unannotated one is passed as None with a warning — an error under pytest, so the first test
-that registers the route fails — and a dataclass annotation such as `User` is parsed from the
-request body. `Any` is opaque to the binder and the default lets the request omit it; FastHTML
-passes None and the decorator replaces it with the `User`. The wrapper takes `request`
-positionally and FastHTML fills the call by the handler's parameter names, so the handler keeps
-a parameter named `request` even when its body never reads it (`_request` leaves the wrapper's
-positional unfilled, and every request to the route is a `TypeError`).
+FastHTML fills a handler's parameters from the request by reading the registered callable's
+signature. The role decorator publishes the handler's signature *minus* `current_user` on its
+wrapper (`signature_for_binding` in `adapters/inbound/auth/roles.py`), so FastHTML never binds
+that name: a value a caller sends under it — query string, header, form field — is neither read
+nor coerced, and the decorator's assignment is its only writer. `Any` because the decorator, not
+the request, supplies the value; the default because a request never carries it. Any other
+spelling (bare, no default, another annotation) or a missing parameter fails at decoration time
+with a `TypeError` naming the spelling — at registration, so the first test that registers the
+route fails. The wrapper takes `request` positionally and FastHTML fills the call by the
+handler's parameter names, so the handler keeps a parameter named `request` even when its body
+never reads it (`_request` leaves the wrapper's positional unfilled, and every request to the
+route is a `TypeError`).
 
 **Behavior:**
 - Validates authentication (401 if not logged in)

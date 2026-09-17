@@ -574,11 +574,12 @@ filterwarnings = [
     "ignore::RuntimeWarning:unittest.mock",
     # A handler parameter FastHTML cannot bind is a defect, not noise: an
     # unannotated name that is neither special nor a `request`/`session` prefix
-    # (the decorator-injected `current_user`, a `_request`) is silently passed
-    # as None. FastHTML warns at registration and again on every request; as an
-    # error it fails the first test that registers the route — and the
-    # integration `skuel_app` boot registers every route in the app. The one
-    # spelling is `current_user: Any = None` (adapters/inbound/auth/roles.py).
+    # (`_request`, say) is silently passed as None. FastHTML warns at
+    # registration and again on every request; as an error it fails the first
+    # test that registers the route — and the integration `skuel_app` boot
+    # registers every route in the app. (The decorator-injected `current_user`
+    # never reaches FastHTML's binder: `require_role` publishes the handler's
+    # signature without it and pins its spelling — adapters/inbound/auth/roles.py.)
     "error:.*has no type annotation and is not a recognised special name:UserWarning:fasthtml",
 ]
 

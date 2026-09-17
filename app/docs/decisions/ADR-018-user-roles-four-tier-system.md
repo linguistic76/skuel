@@ -197,7 +197,8 @@ async def list_users(request: Request, current_user: Any = None):
 ```
 
 > Spelling converged 2026-09: the injected parameter is `current_user: Any = None` — the one
-> form FastHTML binds without a warning ([AUTH_PATTERNS.md § Pattern 3](../patterns/AUTH_PATTERNS.md)).
+> form `require_role` accepts; it keeps the name out of FastHTML's request binding
+> ([AUTH_PATTERNS.md § Pattern 3](../patterns/AUTH_PATTERNS.md)).
 
 ```python
 # Permission check in services

@@ -35,17 +35,18 @@ requires fetching the user from the database anyway.
         admin_role = current_user.role
     ```
 
-The one spelling is `current_user: Any = None`, and the handler keeps a
-parameter named `request`. FastHTML reads the HANDLER's signature through
-the `@wraps` chain and binds every parameter itself, before the decorator
-runs: an annotated parameter with no default is required from the request
-(400 "Missing required field" when absent), an unannotated one is passed as
-None with a warning (an error under pytest), and a dataclass annotation such
-as `User` is parsed from the request body. `Any` is opaque to that binder
-and the default lets the request omit it, so FastHTML passes None and the
-decorator replaces it with the User. The wrapper takes `request`
-positionally, and FastHTML fills the call by the handler's parameter names
-— a handler without one (`_request`) leaves it unfilled on every request.
+The one spelling is `current_user: Any = None`, beside a parameter named
+`request`. FastHTML fills a handler's parameters from the request by reading
+the registered callable's signature; the role decorator publishes the
+handler's signature minus `current_user` on its wrapper, so FastHTML never
+binds that name — a value a caller sends under it is neither read nor
+coerced, and the decorator's assignment is the only writer. `Any` because
+the decorator, not the request, supplies the value; the default because a
+request never carries it. Any other spelling fails at decoration time. The
+wrapper takes `request` positionally and FastHTML fills the call by the
+handler's parameter names, so the handler keeps a parameter named `request`
+even when its body never reads it — `_request` leaves that positional
+unfilled on every request.
 
 Pattern 2: Direct Auth → `user_uid: UserUID` (just the identifier)
 --------------------------------------------------------------
@@ -241,6 +242,36 @@ def check_role_permission(user: Any, required_role: UserRole) -> Result[bool]:
 # ROLE-BASED ROUTE DECORATORS
 # ============================================================================
 
+INJECTED_PARAM = "current_user"
+
+
+def signature_for_binding(func: Callable[..., Any]) -> inspect.Signature:
+    """The handler's signature as FastHTML binds it: every parameter but the injected one.
+
+    FastHTML fills a route's parameters from the request by reading the
+    registered callable's signature — `inspect.signature` follows `__wrapped__`
+    until it meets an explicit `__signature__`. The role decorator publishes
+    the handler's signature minus `current_user` on its wrapper, so that name
+    is never bound from the request: nothing a caller sends under it is read
+    or coerced, and the decorator's assignment is its only writer.
+
+    The handler declares the parameter as `current_user: Any = None` — `Any`
+    because the decorator, not the request, supplies the value; the default
+    because a request never carries it. Any other spelling, or no parameter
+    at all (nowhere for the injection to land), fails here at decoration
+    time rather than on the first request. String annotations are evaluated,
+    so a module under `from __future__ import annotations` reads the same.
+    """
+    sig = inspect.signature(func, eval_str=True)
+    param = sig.parameters.get(INJECTED_PARAM)
+    if param is None or param.annotation is not Any or param.default is not None:
+        spelled = "no such parameter" if param is None else f"`{param}`"
+        raise TypeError(
+            f"{func.__qualname__}: a role-gated handler declares the injected user as "
+            f"`{INJECTED_PARAM}: Any = None`; got {spelled}"
+        )
+    return sig.replace(parameters=[p for p in sig.parameters.values() if p.name != INJECTED_PARAM])
+
 
 def require_role(required_role: UserRole, user_service_getter: Callable[[], Any]):
     """
@@ -294,9 +325,8 @@ def require_role(required_role: UserRole, user_service_getter: Callable[[], Any]
                 )
                 raise HTTPException(403, f"Requires {required_role.value} role or higher")
 
-            # 4. Inject current_user (full User entity) into kwargs.
-            # FastHTML has already bound the handler's `current_user: Any = None`
-            # to None from the request; this assignment replaces it.
+            # 4. Inject current_user (full User entity) into kwargs. FastHTML never
+            # binds this name (see signature_for_binding); this is its only writer.
             # NOTE: This is the FULL User entity, not just user_uid string.
             # Routes using role decorators receive current_user: User
             # while routes using require_authenticated_user() get user_uid: UserUID
@@ -306,6 +336,10 @@ def require_role(required_role: UserRole, user_service_getter: Callable[[], Any]
                 return await func(request, *args, **kwargs)
             return func(request, *args, **kwargs)
 
+        # What FastHTML binds from the request: the handler's parameters minus
+        # the one this wrapper supplies (function objects take the attribute;
+        # the type stubs do not declare it).
+        wrapper.__signature__ = signature_for_binding(func)  # type: ignore[attr-defined]
         return wrapper
 
     return decorator
@@ -384,4 +418,7 @@ __all__ = [
     "require_member",
     "require_role",
     "require_teacher",
+    # The binding contract the decorators publish
+    "INJECTED_PARAM",
+    "signature_for_binding",
 ]
