@@ -686,8 +686,20 @@ def _is_checkable_link_target(target: str) -> bool:
     need no rule of their own: the elided-segment substring already in
     ``PLACEHOLDER_SUBSTRINGS`` covers all four, including the ``http``-prefixed one that
     an exact-match rule would have missed (Codex, PR #1222).
+
+    **A bare word is not a path.** A PEP 695 generic class header inside a fence —
+    ``class CrudOperations[T: DomainModelProtocol](Protocol):`` — parses as link text
+    ``T: DomainModelProtocol`` and destination ``Protocol``; the raw-space test cannot
+    see it because the base class carries no space, and the same shape appears
+    unbounded (``[V = str | int | float](Protocol)``). A destination with no ``/``, no
+    ``.`` and no ``#`` names no file, directory or anchor this checker could resolve,
+    so it is not checkable — measured 4 in the corpus (three ``Protocol`` headers and a
+    literal ``[text](url)`` illustration), and zero bare-word destinations that
+    resolve: every real link here carries an extension or a separator.
     """
     if " " in target:
+        return False
+    if not any(ch in target for ch in "/.#"):
         return False
     return not _is_documentation_stand_in(target)
 

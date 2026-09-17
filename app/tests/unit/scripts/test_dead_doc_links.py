@@ -707,6 +707,34 @@ def test_link_destination_with_a_template_marker_is_skipped() -> None:
         assert not ddl._is_checkable_link_target(f"core/services/x{marker}y/service.py")
 
 
+@pytest.mark.parametrize(
+    "line",
+    [
+        "class CrudOperations[T: DomainModelProtocol](Protocol):",  # BACKEND_OPERATIONS_ISP
+        "class EnumLike[V = str | int | float](Protocol):",  # PROTOCOL_REFERENCE
+        "a markdown link `[text](url)` would show as raw characters",  # CANON_CITATION_DESIGN
+    ],
+)
+def test_bare_word_destination_is_not_a_link(docs_root: Path, line: str) -> None:
+    """A PEP 695 generic header, or a literal link illustration, parses as
+    `[…](Word)`: no space for the raw-space test to see, and no `/`, `.` or `#` that a
+    resolvable destination would carry. Measured 4 in the corpus, zero live links hidden."""
+    assert _report(docs_root, f"# P\n\n{line}\n") == set()
+
+
+@pytest.mark.parametrize("target", ["Protocol", "url", "README"])
+def test_bare_word_destinations_are_not_checkable(target: str) -> None:
+    assert not ddl._is_checkable_link_target(target)
+
+
+@pytest.mark.parametrize("target", ["README.md", "../patterns/x.md", "docs/", "#anchor-only"])
+def test_destinations_with_a_separator_stay_checkable(target: str) -> None:
+    """The narrowing must not widen: an extension, a path separator or an anchor is
+    still a destination the checker resolves (anchor-only links are skipped later, on
+    their own rule, not here)."""
+    assert ddl._is_checkable_link_target(target)
+
+
 def test_ordinary_dead_link_is_still_reported(docs_root: Path) -> None:
     """Positive control for the guard: it must not have quieted the link pass itself."""
     assert _report(docs_root, f"# P\n\nSee [the service]({DEAD_REL}).\n") == {(3, DEAD_REL, "link")}
