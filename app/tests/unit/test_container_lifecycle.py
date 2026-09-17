@@ -141,6 +141,11 @@ def reaper_state(monkeypatch: pytest.MonkeyPatch) -> Iterator[list[str]]:
         Reaper._socket.close()
 
 
+def _mib(size: str) -> int:
+    assert size.endswith("m"), size
+    return int(size[:-1])
+
+
 class TestSizedBuilder:
     def test_every_container_carries_the_memory_ceiling(
         self, monkeypatch: pytest.MonkeyPatch
@@ -161,9 +166,12 @@ class TestSizedBuilder:
             "NEO4J_server_memory_heap_max__size",
             "NEO4J_server_memory_pagecache_size",
         }
-        heap_initial = NEO4J_TESTCONTAINER_MEMORY["NEO4J_server_memory_heap_initial__size"]
-        heap_max = NEO4J_TESTCONTAINER_MEMORY["NEO4J_server_memory_heap_max__size"]
-        assert heap_initial == heap_max, "initial == max: the JVM never resizes mid-session"
+        heap_initial = _mib(NEO4J_TESTCONTAINER_MEMORY["NEO4J_server_memory_heap_initial__size"])
+        heap_max = _mib(NEO4J_TESTCONTAINER_MEMORY["NEO4J_server_memory_heap_max__size"])
+        assert heap_initial < heap_max, (
+            "the initial heap is committed at boot (AlwaysPreTouch) and is every "
+            "container's resting footprint; only max is the ceiling"
+        )
 
 
 class TestReaperHandshake:

@@ -38,13 +38,14 @@ from testcontainers.core.labels import LABEL_SESSION_ID, SESSION_ID
 
 from tests.integration._neo4j_pin import NEO4J_IMAGE
 
-# Heap initial == max so the JVM never resizes mid-session; the image's vendor
-# flags include AlwaysPreTouch, so the initial heap is committed at start and
-# is the container's resting footprint. The page cache holds the store files —
-# a few MB for these graphs plus seven 1024-dim vector indexes on a few
-# hundred nodes.
+# The ceiling is the MAX heap; the initial heap stays small on purpose. The
+# image's vendor JVM flags include AlwaysPreTouch, which commits the initial
+# heap at boot — so an initial size is a container's resting footprint, paid
+# by the two containers that stay mostly idle, while max is what the busy one
+# may grow into. The page cache holds the store files: a few MB for these
+# graphs plus seven 1024-dim vector indexes on a few hundred nodes.
 NEO4J_TESTCONTAINER_MEMORY: dict[str, str] = {
-    "NEO4J_server_memory_heap_initial__size": "512m",
+    "NEO4J_server_memory_heap_initial__size": "128m",
     "NEO4J_server_memory_heap_max__size": "512m",
     "NEO4J_server_memory_pagecache_size": "128m",
 }
