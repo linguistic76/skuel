@@ -45,12 +45,13 @@ name: Composed Test Run
 # nowhere is indistinguishable from no check at all. A failing composed run
 # opens (or comments on) one marker-keyed issue carrying pytest's short
 # summary and the run link — and so does a run whose session never started
-# (a failed checkout, toolchain setup, cache restore or `uv sync`): the issue
-# step runs on `failure()` as well, and says which of the two it is. The issue
-# step is not gated on the default branch, so a branch dispatch that fails
-# opens it too — that is what lets a PR verify the failure path before it
-# merges. The marker de-duplicates: an open issue gets a comment, not a
-# sibling.
+# (a failed checkout, toolchain setup, cache restore or `uv sync`) or never
+# finished (killed at the session step's own budget): the issue step runs
+# whatever the steps before it did, keyed on the session step's outcome, and
+# the body says which of the three it is. The issue step is not gated on the
+# default branch, so a branch dispatch that fails opens it too — that is what
+# lets a PR verify the failure paths before it merges. The marker
+# de-duplicates: an open issue gets a comment, not a sibling.
 
 on:
   schedule:
@@ -75,13 +76,13 @@ jobs:
   composed:
     name: Composed session (unit + integration, with coverage)
     runs-on: ubuntu-latest
-    # ≈3× the measured run, per ci.yml's header policy: the whole job takes
-    # ~10.5 min on ubuntu-latest (the session itself ~10 min — 13k tests,
-    # serial, with coverage; warm venv cache). pytest-timeout's 120 s per-test
-    # ceiling (pyproject.toml) fails a hung TEST long before this budget does;
-    # this is for a hung runner, a container start that never returns. A job
-    # that outgrows its budget is re-measured, not re-tried.
-    timeout-minutes: 32
+    # The session step below carries its own budget (30 min, ≈3× its measured
+    # ~10 min); this is that budget plus the setup ahead of it and the
+    # reporting behind it. A JOB budget cancels every remaining step, so it
+    # must never be the one that fires on a hung session — the issue and the
+    # artifacts are steps too. A job that outgrows its budget is re-measured,
+    # not re-tried.
+    timeout-minutes: 35
     # UV_FROZEN pins every uv command to the committed lock — the session runs
     # via `uv run`, and run_tests.py spawns `uv run pytest` underneath, which
     # inherits the env (see ci.yml's mypy job for the full note). Safe here:
@@ -130,8 +131,18 @@ jobs:
       # artifacts below still run; the LAST step fails the job on it. Every
       # non-zero code stays red — including 5, "no tests collected", which a
       # broken collection path would produce and which must never read green.
+      # The step budget, not the job budget, is what catches a hung session:
+      # ≈3× the measured ~10 min (13k tests, serial, with coverage), per
+      # ci.yml's header policy. pytest-timeout's 120 s per-test ceiling
+      # (pyproject.toml) fails a hung TEST long before this does; this is for
+      # what pytest-timeout cannot charge — a container start that never
+      # returns, a stalled runner. A step that times out FAILS (outcome
+      # `failure`, no exit code written), the issue step below still runs and
+      # says the session was killed at its budget, and the rest of the job
+      # stays alive to report it.
       - name: Run the composed test session
         id: tests
+        timeout-minutes: 30
         working-directory: app
         run: |
           # Actions runs this under `bash -e`, so capture with `|| rc=$?` rather
@@ -165,10 +176,12 @@ jobs:
       # The gap picture, one click from the run. Captured, never a step
       # failure of its own: a summary that could not render is reported by the
       # issue step and the last step, not by aborting the job before they run.
-      # A session that died before its report (a timeout, a crash) leaves no
-      # coverage.json — that is the session's exit code speaking, already red.
+      # `always()`: a session that died before its report (killed at its
+      # budget, a crash) leaves no coverage.json, and the step summary then
+      # says so instead of staying blank.
       - name: Render the coverage summary
         id: summary
+        if: always()
         working-directory: app
         run: |
           rc=0
@@ -196,15 +209,20 @@ jobs:
       # Before the artifacts: steps carry an implicit success() check, so a
       # transient artifact-service failure ahead of this one would skip it and
       # a red week would land only in the Actions log — the artifact is a
-      # convenience, the issue is the promise. `failure()` for the same reason
+      # convenience, the issue is the promise. `always()` for the same reason
       # one layer up: a setup step that fails (checkout, Python/uv, the venv
-      # cache, `uv sync`) would otherwise skip this step too, and the session's
-      # exit code is empty then — the body says the session never ran and
-      # claims nothing about the tests.
+      # cache, `uv sync`) or a session killed at its step budget would
+      # otherwise skip this step too. The session step's OUTCOME tells the
+      # cases apart — `skipped` (a setup step failed), `failure` (killed at
+      # its budget: the captured exit code is the only other way it ends, and
+      # that never fails the step), `success` (the session ran; the exit codes
+      # decide) — and the body says which, claiming nothing about tests that
+      # never ran.
       - name: Open an issue when the run is red
-        if: failure() || steps.tests.outputs.exit_code != '0' || steps.summary.outputs.exit_code != '0'
+        if: always() && (steps.tests.outcome != 'success' || steps.tests.outputs.exit_code != '0' || steps.summary.outputs.exit_code != '0')
         uses: actions/github-script@v9
         env:
+          TESTS_OUTCOME: ${{ steps.tests.outcome }}
           TESTS_EXIT_CODE: ${{ steps.tests.outputs.exit_code }}
           SUMMARY_EXIT_CODE: ${{ steps.summary.outputs.exit_code }}
         with:
@@ -219,10 +237,14 @@ jobs:
             };
             const excerpt = read('app/pytest-excerpt.txt', 'The session produced no output — see the run log.');
             const summaryErr = read('app/coverage-summary.err', '');
+            // The last lines of the raw output — the only excerpt a session
+            // killed at its budget leaves (its own excerpt step never ran).
+            const rawTail = read('app/pytest-output.txt', '').split('\n').slice(-40).join('\n');
 
             const title = 'The composed test run is red';
             const marker = '<!-- composed-test-run -->';
             const runUrl = `${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`;
+            const outcome = process.env.TESTS_OUTCOME;
             const testsRc = process.env.TESTS_EXIT_CODE;
             const summaryRc = process.env.SUMMARY_EXIT_CODE;
 
@@ -232,14 +254,27 @@ jobs:
               'pytest session — is red.',
               '',
             ];
-            if (!testsRc) {
-              // The session never started: a step before it failed (checkout,
-              // Python/uv setup, the venv cache, `uv sync`). Nothing is known
-              // about the tests, and the body must not imply otherwise.
+            if (outcome === 'skipped') {
+              // A step before the session failed (checkout, Python/uv setup,
+              // the venv cache, `uv sync`). Nothing is known about the tests,
+              // and the body must not imply otherwise.
               parts.push(
                 '**The session never ran** — a setup step failed before it (see the run log).',
                 'No claim is made about the tests; a re-run usually clears a transient runner or',
                 'package-service failure.',
+              );
+            } else if (outcome !== 'success') {
+              // The session step ended without writing its exit code: killed at
+              // its step budget (`timeout-minutes` on the step), or cancelled.
+              parts.push(
+                '**The session did not finish** (step outcome: `' + outcome + '`) — it was killed at',
+                'its step budget or cancelled before it could report. pytest-timeout charges test',
+                'bodies only, so the usual cause is a container start or an app boot that never',
+                'returned. The output it produced ends with:',
+                '',
+                '```',
+                rawTail.trim() || '(no output)',
+                '```',
               );
             } else {
               parts.push(
