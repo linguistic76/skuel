@@ -21,7 +21,7 @@ from __future__ import annotations
 import asyncio
 from typing import TYPE_CHECKING, Any, cast
 
-from adapters.inbound.auth import make_service_getter, require_authenticated_user
+from adapters.inbound.auth import make_service_getter
 from adapters.inbound.auth.roles import UserRole, require_role
 from adapters.inbound.fasthtml_types import Request
 from core.ports import ActivityTemplateOperations
@@ -107,7 +107,6 @@ def create_templates_ui_routes(
     async def templates_panel_fragment(
         request: Request, ps_uid: str, current_user: Any = None
     ) -> Any:
-        require_authenticated_user(request)
         attached = await _gather_attached(ps_uid)
         return render_templates_panel(ps_uid, attached)
 

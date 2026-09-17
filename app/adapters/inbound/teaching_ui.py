@@ -21,7 +21,7 @@ from typing import TYPE_CHECKING, Any
 
 from fasthtml.common import FT, H3, A, Div, Form, P
 
-from adapters.inbound.auth import make_service_getter, require_authenticated_user
+from adapters.inbound.auth import make_service_getter
 from adapters.inbound.auth.roles import UserRole, require_role
 from adapters.inbound.fasthtml_types import Request
 from core.models.enums.entity_enums import EntityStatus
@@ -239,7 +239,7 @@ def create_teaching_ui_routes(
     @require_role(UserRole.TEACHER, get_user_service)
     async def teaching_queue_page(request: Request, current_user: Any = None) -> Any:
         """Review queue — needs-review (default) and waiting-for-resubmit views."""
-        user_uid = require_authenticated_user(request)
+        user_uid = UserUID(current_user.uid)
 
         view_param = request.query_params.get("view")
         view = view_param if view_param in _QUEUE_VIEWS else _QUEUE_DEFAULT_VIEW
@@ -307,7 +307,7 @@ def create_teaching_ui_routes(
         request: Request, uid: str, current_user: Any = None
     ) -> Any:
         """HTMX fragment: review detail with submission content + feedback history + forms."""
-        user_uid = require_authenticated_user(request)
+        user_uid = UserUID(current_user.uid)
 
         # get_submission_detail is the access gate — it returns not-found for a
         # submission outside a group this teacher owns. The role gate said "may
@@ -426,7 +426,7 @@ def create_teaching_ui_routes(
     @require_role(UserRole.TEACHER, get_user_service)
     async def teaching_students_content_fragment(request: Request, current_user: Any = None) -> Any:
         """HTMX fragment: students list."""
-        user_uid = require_authenticated_user(request)
+        user_uid = UserUID(current_user.uid)
 
         result = await orchestrator.get_students_summary(teacher_uid=user_uid)
 
@@ -477,7 +477,7 @@ def create_teaching_ui_routes(
         request: Request, uid: str, current_user: Any = None
     ) -> Any:
         """HTMX fragment: student hub with resolved display name."""
-        user_uid = require_authenticated_user(request)
+        user_uid = UserUID(current_user.uid)
         result = await orchestrator.get_student_submissions(teacher_uid=user_uid, student_uid=uid)
         student_name = uid
         if not result.is_error and result.value:
@@ -504,7 +504,7 @@ def create_teaching_ui_routes(
         Uses a student-specific sidebar with Alpine-controlled instant section switching.
         Supports ?tab=pending|revision|completed|ku query param.
         """
-        user_uid = require_authenticated_user(request)
+        user_uid = UserUID(current_user.uid)
 
         pending, revision_requested, completed, student_name = await _get_bucketed_submissions(
             user_uid, uid
@@ -582,7 +582,7 @@ def create_teaching_ui_routes(
     @require_role(UserRole.TEACHER, get_user_service)
     async def teaching_groups_page(request: Request, current_user: Any = None) -> Any:
         """Groups page — teacher's groups with student and exercise counts."""
-        user_uid = require_authenticated_user(request)
+        user_uid = UserUID(current_user.uid)
 
         result = await orchestrator.get_teacher_groups_with_stats(teacher_uid=user_uid)
 
@@ -644,7 +644,7 @@ def create_teaching_ui_routes(
         request: Request, uid: str, current_user: Any = None
     ) -> Any:
         """Group detail page — members with submission progress stats."""
-        user_uid = require_authenticated_user(request)
+        user_uid = UserUID(current_user.uid)
 
         group_name = request.query_params.get("name") or uid
         result = await orchestrator.get_group_detail(group_uid=uid, teacher_uid=user_uid)
@@ -708,7 +708,7 @@ def create_teaching_ui_routes(
         Returns 3 OOB-swapped Divs targeting hub-panel-{slug} placeholders rendered
         by StudentHub without HTMX attrs.
         """
-        user_uid = require_authenticated_user(request)
+        user_uid = UserUID(current_user.uid)
         pending, revision, completed, _ = await _get_bucketed_submissions(user_uid, uid)
 
         def _make_fragment(slug: str, rows: list[SubmissionRow], empty_label: str) -> Div:
@@ -736,7 +736,7 @@ def create_teaching_ui_routes(
     @require_role(UserRole.TEACHER, get_user_service)
     async def student_ku_preview(request: Request, uid: str, current_user: Any = None) -> Any:
         """HTMX fragment: top 3 KU progress items for student hub preview."""
-        user_uid = require_authenticated_user(request)
+        user_uid = UserUID(current_user.uid)
         ku_detail = await orchestrator.get_student_ku_detail(teacher_uid=user_uid, student_uid=uid)
         if not ku_detail:
             return HubPreviewEmpty("KU progress")
