@@ -1,6 +1,6 @@
 ---
 title: Codebase Health Checks
-updated: 2026-09-16
+updated: 2026-09-17
 status: current
 category: tools
 tags: [health, scripts, dead-code, documentation, maintenance, drift]
@@ -14,6 +14,10 @@ related: [AUTOMATIC_DOCS_CHECK.md, BLOAT_DETECTION.md]
 **Location:** `scripts/health/`
 
 ## Overview
+
+> Reading this as the founder rather than as an engineer? Start with
+> [The Weekly Janitor](../user-guides/weekly-janitor.md) — where the Monday report lands, what red means, and
+> the two-minute ritual.
 
 Automated checks that prevent codebase drift — the kind that accumulates silently between refactors: orphaned files, broken doc links, stale names in documentation examples, duplicated document sections, skill↔doc cross-reference inconsistencies, mypy suppressions that have stopped suppressing anything, and a secret scan that has started firing on the repository's own content.
 
