@@ -891,7 +891,7 @@ def ErrorFragment(message: str) -> Any:
 
 
 def PeriodicNoteFragment(entry_uid: str, title: str, content: str) -> Any:
-    """Editable periodic note (daily / weekly / monthly).
+    """Editable periodic note (daily / weekly / monthly / quarterly / yearly).
 
     Mirrors the Obsidian Calendar plugin's periodic-note UX: open the note for
     a day, week, or month, read what is already there, edit it, and save. The
@@ -934,7 +934,7 @@ def PeriodicNoteFragment(entry_uid: str, title: str, content: str) -> Any:
             cls="max-w-[760px] mx-auto w-full px-6 py-8",
         ),
         id="journal-workspace",
-        cls="flex-1 overflow-y-auto",
+        cls="flex-1",
     )
 
 

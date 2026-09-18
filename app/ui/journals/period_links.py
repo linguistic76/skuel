@@ -9,7 +9,7 @@ neighbour arithmetic behind every prev/next arrow, lives beside it for the same
 reason: month, quarter and year all wrap at a boundary the calendar hides.
 
 The reference date is a date INSIDE the period, never a period key — the
-key-parsing direction is ``ui/journals/period_panel.py``'s job.
+key-parsing direction is ``core/utils/period_keys.py``'s job.
 """
 
 from __future__ import annotations
@@ -65,10 +65,10 @@ def period_link(kind: str, ref_date: date) -> PeriodLink:
     """The note of ``kind`` whose period contains ``ref_date``.
 
     ``ref_date`` is any date inside the period, so a week that crosses a month
-    boundary resolves to its Monday's month — the same anchor the ISO week and
-    the planning panel's range already use. An unknown ``kind`` resolves to the
-    yearly note rather than raising: every caller iterates ``PERIOD_KINDS``, so
-    a miss here would mean a typo, not user input.
+    boundary resolves to its Monday's month — the anchor the ISO week itself
+    uses. An unknown ``kind`` resolves to the yearly note rather than raising:
+    every caller iterates ``PERIOD_KINDS``, so a miss here would mean a typo,
+    not user input.
     """
     if kind == "daily":
         return PeriodLink(

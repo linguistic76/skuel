@@ -7,9 +7,7 @@ one dated surface.
 
 1. Displays each view's declared membership — ``VIEW_SPECS``: the month's
    events at medium or above; the week's events, habits and goal milestones at
-   medium or above plus high tasks (``get_calendar_view``) — and supplies a
-   period's plannable items, unfiltered, to the weekly/monthly-note panel
-   (``get_planning_items``).
+   medium or above plus high tasks (``get_calendar_view``).
 2. Reschedules tasks and events and records habit completions from the
    calendar (``reschedule_item``, ``record_habit_occurrence``).
 3. Projects habit recurrence across the view range with each day's real
@@ -86,8 +84,8 @@ def _stated_priority(raw: str | None) -> Priority | None:
     return Priority.from_value(raw) if raw else None
 
 
-def _planning_item_start(item: CalendarItem) -> datetime:
-    """Chronological sort key for planning-item lists (named — SKUEL012)."""
+def _item_start(item: CalendarItem) -> datetime:
+    """Chronological sort key for calendar-item lists (named — SKUEL012)."""
     return item.start_time
 
 
@@ -254,41 +252,6 @@ class CalendarService:
             )
         )
 
-    @with_error_handling("get_planning_items", error_type="system", uid_param="user_uid")
-    async def get_planning_items(
-        self,
-        user_uid: UserUID,
-        start_date: date,
-        end_date: date,
-    ) -> Result[list[CalendarItem]]:
-        """The range's plannable items — tasks + events + goal Milestones, no habits.
-
-        Producer for the weekly- and monthly-note read panels (periodic-notes
-        arc S3): the vault plans, the app shows. Composes the SAME internal
-        fetches as the calendar grid, so the due-OR-scheduled task semantics
-        (act-from arc C2) can never drift between the surfaces. Habits are
-        deliberately excluded — daily recurrence is calendar texture, not
-        planning matter (v1 ruling) — and each fetch degrades to empty on
-        failure, matching the grid's best-effort display contract.
-        """
-        task_items = await self._fetch_tasks(user_uid, start_date, end_date, False)
-        event_items = await self._fetch_events(user_uid, start_date, end_date, False)
-        goal_items = await self._fetch_goals(user_uid, start_date, end_date, False)
-        # The grid's range rule, applied listwise: an item lives on its
-        # ``start_time.date()`` (``_items_by_date``), and the due-OR-scheduled
-        # task fetch can match a task whose PLACEMENT day is outside the range
-        # (scheduled before the period, due within it). The grid never
-        # renders such a chip (its day is outside the view), so the panel
-        # filters identically — same fetch, same placement, same visibility;
-        # that task shows on the period its scheduled day lives in.
-        items = [
-            item
-            for item in (*task_items, *event_items, *goal_items)
-            if start_date <= item.start_time.date() <= end_date
-        ]
-        items.sort(key=_planning_item_start)
-        return Result.ok(items)
-
     @with_error_handling("habit_items_for_day", error_type="system", uid_param="user_uid")
     async def habit_items_for_day(self, user_uid: UserUID, day: date) -> Result[list[CalendarItem]]:
         """The user's habits that recur on ``day``, as day-stamped calendar items.
@@ -315,7 +278,7 @@ class CalendarService:
             if stamped.is_error:
                 return Result.fail(stamped)
             items.append(stamped.value)
-        items.sort(key=_planning_item_start)
+        items.sort(key=_item_start)
         return Result.ok(items)
 
     @with_error_handling("get_item", error_type="system", uid_param="item_uid")
