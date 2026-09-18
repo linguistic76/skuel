@@ -112,6 +112,15 @@ ICON_NAV_ITEMS: tuple[IconNavItem, ...] = (
         has_dropdown=False,
         icon="map",
     ),
+    IconNavItem(
+        "Submissions",
+        "",
+        "/submissions",
+        "submissions",
+        requires_auth=True,
+        has_dropdown=False,
+        icon="upload",
+    ),
 )
 
 

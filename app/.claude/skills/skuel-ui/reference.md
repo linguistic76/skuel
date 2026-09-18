@@ -311,13 +311,14 @@ Current `ICON_NAV_ITEMS` (in order):
 | Today | `sun` | `/today` | `"today"` | Mobile bottom nav only — no desktop nav item (brand link goes to `/explore`) |
 | Library | `globe` | `/explore/library` | `"library"` | Public (`requires_auth=False`) |
 | PathSteps | `map` | `/path-steps` | `"path-steps"` | Public (`requires_auth=False`) |
+| Submissions | `upload` | `/submissions` | `"submissions"` | The submissions MOC; every sub-page passes the same `active_page`, so the link stays lit across the section |
 
 ### Regular User Navbar
 
 - **Left:** SKUEL brand text link → `/explore` (authed) or `/` (anon)
 - **Center (desktop only):** text links from `ICON_NAV_ITEMS` (minus Today) + `MAIN_NAV_ITEMS` (Teaching, when teacher)
-- **Right (icon buttons):** Search (`/search`) and Calendar (`/cal`, `page_key="calendar"`) — both desktop only, mobile folds them into the bottom nav (the phone's top bar holds only what fits at 320px beside the brand as 44px tap targets) → Askesis flame (`/askesis`) → Shared-inbox (`/profile/shared`) → notification bell (HTMX lazy-loaded badge from `/api/navbar/notification-badge`) → Profile avatar (`/profile`) → Sign out (`/logout`, desktop only — the phone reaches it from the `sm:hidden` row on `/profile`, so exactly one door exists at every width)
-- **Mobile:** slim top bar (brand + right icon cluster, four icons) + fixed bottom nav via `create_bottom_nav()` — `ICON_NAV_ITEMS` tabs plus Calendar and Search tabs, `sm:hidden`, respects `safe-area-inset-bottom`
+- **Right (icon buttons):** Calendar (`/cal`, `page_key="calendar"`) — desktop only, mobile folds it into the bottom nav (the phone's top bar holds only what fits at 320px beside the brand as 44px tap targets) → Askesis flame (`/askesis`) → Shared-inbox (`/profile/shared`) → notification bell (HTMX lazy-loaded badge from `/api/navbar/notification-badge`) → Profile avatar (`/profile`) → Sign out (`/logout`, desktop only — the phone reaches it from the `sm:hidden` row on `/profile`, so exactly one door exists at every width)
+- **Mobile:** slim top bar (brand + right icon cluster, four icons) + fixed bottom nav via `create_bottom_nav()` — `ICON_NAV_ITEMS` tabs plus a Calendar tab, `sm:hidden`, respects `safe-area-inset-bottom`
 
 Every navbar item is a direct link — the regular navbar carries no dropdown. The periodic notes are reached from the Tasks+ sidebar's Journal row (today's note) and, inside a periodic note, the **period rail** (`ui/journals/chat_page.py`): one row per period kind, each opening that period's note and stepping to its neighbours; every door derives its URLs, labels and icons from `ui/journals/period_links.py`. `ACTIVITY_DROPDOWN_ITEMS` in `nav_config.py` lists the 6 activity domains for other surfaces; activity domains are reached via the Profile hub, not the navbar.
 

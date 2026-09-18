@@ -448,7 +448,7 @@ When building a new SKUEL page or feature, verify:
 |------|---------|
 | `/ui/layouts/base_page.py` | `BasePage` + `build_head()` — foundation for all pages |
 | `/ui/layouts/page_types.py` | `PageType` enum and config |
-| `/ui/layouts/navbar.py` | Navbar — admin: SKUEL logo + avatar + Sign out; regular: center links from `ICON_NAV_ITEMS` (Library, PathSteps; Today on mobile bottom nav) + right icon cluster (Search, Calendar, Askesis, Shared-inbox, bell, Profile avatar, Sign out) |
+| `/ui/layouts/navbar.py` | Navbar — admin: SKUEL logo + avatar + Sign out; regular: center links from `ICON_NAV_ITEMS` (Library, PathSteps, Submissions; Today on mobile bottom nav) + right icon cluster (Calendar, Askesis, Shared-inbox, bell, Profile avatar, Sign out) |
 | `/ui/layouts/nav_config.py` | `ICON_NAV_ITEMS`, `ACTIVITY_DROPDOWN_ITEMS`, `MAIN_NAV_ITEMS` |
 | `/ui/patterns/sidebar.py` | `SidebarItem`, `SidebarNav`, `SidebarPage` |
 | `/ui/curriculum/` | Curriculum sidebar, layout, landing page |

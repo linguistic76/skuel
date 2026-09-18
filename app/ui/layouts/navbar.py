@@ -6,8 +6,8 @@ Navigation bar using Tailwind utilities.
 
 Layout:
 - Mobile: slim top bar (brand + askesis + inbox + bell + avatar) + fixed bottom
-  nav derived from ``ICON_NAV_ITEMS`` with Calendar and Search appended
-- Desktop: the same bar plus text nav links, search, calendar and sign-out
+  nav derived from ``ICON_NAV_ITEMS`` with Calendar appended
+- Desktop: the same bar plus text nav links, calendar and sign-out
 
 Every item is a direct link — the navbar carries no dropdown. The periodic notes
 are reached from the Tasks+ sidebar's Journal row (today's note) and, inside a
@@ -72,19 +72,6 @@ def _nav_link(item: NavItem, active_page: str) -> A:
     inactive_cls = "text-muted-foreground hover:bg-accent hover:text-accent-foreground"
     cls = f"rounded-md px-3 py-2 text-sm font-medium focus:outline-hidden focus:ring-2 focus:ring-primary {active_cls if is_active else inactive_cls}"
     return A(item.label, href=item.href, cls=cls)
-
-
-def _search_button(active_page: str = "", desktop_only: bool = False) -> A:
-    """Search icon button linking to /search."""
-    is_active = active_page == "search"
-    color_cls = "text-foreground" if is_active else "text-muted-foreground hover:text-foreground"
-    visibility = "hidden sm:inline-flex" if desktop_only else "inline-flex"
-    return A(
-        Span("Search", cls="sr-only"),
-        Icon("search", cls="size-6", aria_hidden="true"),
-        href="/search",
-        cls=f"{visibility} items-center justify-center size-11 rounded-full hover:bg-accent {color_cls}",
-    )
 
 
 def _signout_button() -> A:
@@ -174,8 +161,8 @@ def _shared_inbox_button(active_page: str) -> A:
 def _calendar_button(active_page: str) -> A:
     """Calendar icon linking to /cal — the unified calendar view.
 
-    Desktop-only (like Search): mobile keeps the 44px tap-target minimum by
-    folding Calendar into the bottom nav instead of a seventh top-bar icon.
+    Desktop-only: mobile keeps the 44px tap-target minimum by folding Calendar
+    into the bottom nav instead of a sixth top-bar icon.
     """
     is_active = active_page == "calendar"  # skuel-lint: disable=SKUEL014 -- nav page id
     color_cls = "text-foreground" if is_active else "text-muted-foreground hover:text-foreground"
@@ -260,9 +247,9 @@ def create_navbar(
     """
     Create the slim top navigation bar.
 
-    Mobile: brand + askesis + inbox + bell + avatar (search and calendar live
-    in the bottom nav, sign-out on /profile).
-    Desktop: the same, plus text nav links, search, calendar and sign-out.
+    Mobile: brand + askesis + inbox + bell + avatar (calendar lives in the
+    bottom nav, sign-out on /profile).
+    Desktop: the same, plus text nav links, calendar and sign-out.
 
     Args:
         current_user: Current user's display name or UID
@@ -352,7 +339,6 @@ def create_navbar(
     # Right section
     if is_authenticated:
         right_section: Any = Div(
-            _search_button(active_page, desktop_only=True),
             _calendar_button(active_page),
             _askesis_button(active_page),
             _shared_inbox_button(active_page),
@@ -383,17 +369,8 @@ def create_navbar(
     )
 
 
-_SEARCH_TAB = IconNavItem(
-    label="Search",
-    letter="",
-    href="/search",
-    page_key="search",
-    requires_auth=True,
-    icon="search",
-)
-
-# Calendar mirrors Search: desktop keeps it as a right-section icon button,
-# mobile folds it into the bottom nav (six top-bar icons overflow 320px).
+# Desktop keeps Calendar as a right-section icon button; mobile folds it into
+# the bottom nav (six top-bar icons overflow 320px).
 _CALENDAR_TAB = IconNavItem(
     label="Calendar",
     letter="",
@@ -432,8 +409,8 @@ def create_bottom_nav(
 
     Shown only on mobile (sm:hidden) for authenticated non-admin users.
     Tabs are derived from ``ICON_NAV_ITEMS`` (same spec as the desktop center
-    menu) with Calendar and Search appended — desktop keeps those two as
-    separate icons in the right section, mobile folds them into the bottom nav.
+    menu) with Calendar appended — desktop keeps it as a separate icon in the
+    right section, mobile folds it into the bottom nav.
     Respects iOS safe-area-inset-bottom for notched devices.
 
     Args:
@@ -456,7 +433,6 @@ def create_bottom_nav(
             include_today=True,
         ),
         _CALENDAR_TAB,
-        _SEARCH_TAB,
     ]
 
     return Nav(
