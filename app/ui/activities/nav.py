@@ -1,9 +1,10 @@
 """Activity Domain sidebar navigation.
 
 Renders a collapsible sidebar — the three temporal lenses (Today / Weekly /
-Monthly), the Activity Domain rows with their count and health badges, and the
-Journal (today's daily periodic note) — as ONE list on every domain page, the
-calendar views, Today and the periodic notes.
+Monthly), the Activity Domain rows with their count and health badges, the
+Journal (today's daily periodic note) and the GradeBook (feedback received) —
+as ONE list on every domain page, the calendar views, Today and the periodic
+notes.
 
 Usage:
     from ui.activities.nav import render_activity_sidebar_page
@@ -46,6 +47,9 @@ ACTIVITY_SIDEBAR_ITEMS: list[SidebarItem] = [
     # redirect to the note page). The dateless route resolves "today" at click
     # time, so this list can stay a constant.
     SidebarItem("Journal", "/journals/daily", "journals", icon="book-open"),
+    # Feedback received on submitted work — the same slug + icon the GradeBook
+    # page's own sidebar uses, so the two doors read as one destination.
+    SidebarItem("GradeBook", "/gradebook", "gradebook", icon="clipboard-check"),
 ]
 
 

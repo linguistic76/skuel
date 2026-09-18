@@ -26,6 +26,14 @@ def test_the_journal_row_opens_todays_daily_note_through_the_dateless_door() -> 
     assert journal.label == "Journal"
 
 
+def test_the_gradebook_row_is_the_last_door_and_opens_the_one_gradebook_page() -> None:
+    gradebook = ACTIVITY_SIDEBAR_ITEMS[-1]
+
+    assert gradebook.slug == "gradebook"
+    assert gradebook.href == "/gradebook"
+    assert gradebook.label == "GradeBook"
+
+
 def test_the_sidebar_heading_never_follows_the_page_title() -> None:
     xml = to_xml(
         render_activity_sidebar_page(Div("x"), active="journals", title="Weekly Note: W38, 2026")
