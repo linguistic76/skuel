@@ -5,14 +5,13 @@ Navbar Component - SKUEL Patterns
 Navigation bar using Tailwind utilities.
 
 Layout:
-- Mobile: slim top bar (brand + Notes + askesis + inbox + bell + avatar) +
-  fixed bottom nav derived from ``ICON_NAV_ITEMS`` with Calendar and Search
-  appended — five icons, the width the bar carried before Notes arrived
+- Mobile: slim top bar (brand + askesis + inbox + bell + avatar) + fixed bottom
+  nav derived from ``ICON_NAV_ITEMS`` with Calendar and Search appended
 - Desktop: the same bar plus text nav links, search, calendar and sign-out
 
-The "Notes" picker (``ui/layouts/period_notes.py``) is the one door to all five
-periodic notes; it reads the period the page is showing off the request path, so
-the calendar's month view still opens the month on screen (#1278).
+Every item is a direct link — the navbar carries no dropdown. The periodic notes
+are reached from the Tasks+ sidebar's Journal row (today's note) and, inside a
+note, the period rail (``ui/journals/chat_page.py``).
 
 Usage:
     from ui.layouts.navbar import create_navbar, create_bottom_nav
@@ -33,7 +32,6 @@ from ui.layouts.nav_config import (
     IconNavItem,
     NavItem,
 )
-from ui.layouts.period_notes import PeriodNotesPicker
 
 if TYPE_CHECKING:
     from adapters.inbound.fasthtml_types import Request
@@ -92,11 +90,10 @@ def _search_button(active_page: str = "", desktop_only: bool = False) -> A:
 def _signout_button() -> A:
     """Sign-out icon button — desktop only.
 
-    The Notes picker made a sixth top-bar icon, and six 44px targets plus the
-    brand overflow a 320px viewport. Sign-out is the one that gives way because
-    it is the only icon whose destination is an action rather than a surface:
-    phones reach it from the ``sm:hidden`` sign-out row on /profile
-    (``ui/profile/hub.py``), so exactly one door exists at every width.
+    It is the one top-bar icon whose destination is an action rather than a
+    surface, and an account action is what a profile page is for: phones reach
+    it from the ``sm:hidden`` sign-out row on /profile (``ui/profile/hub.py``),
+    so exactly one door exists at every width.
     """
     return A(
         Span("Sign out", cls="sr-only"),
@@ -259,13 +256,12 @@ def create_navbar(
     active_page: str = "",
     is_admin: bool = False,
     is_teacher: bool = False,
-    path: str = "",
 ) -> Nav:
     """
     Create the slim top navigation bar.
 
-    Mobile: brand + Notes + askesis + inbox + bell + avatar (search and
-    calendar live in the bottom nav, sign-out on /profile).
+    Mobile: brand + askesis + inbox + bell + avatar (search and calendar live
+    in the bottom nav, sign-out on /profile).
     Desktop: the same, plus text nav links, search, calendar and sign-out.
 
     Args:
@@ -274,8 +270,6 @@ def create_navbar(
         active_page: Current page slug for highlighting
         is_admin: Whether user has admin role
         is_teacher: Whether user has teacher role or higher
-        path: Request path — the Notes picker reads the shown period off it
-            (see ``ui/layouts/period_notes.py``); "" means no period is shown
 
     Returns:
         FastHTML Nav element (slim top bar)
@@ -360,7 +354,6 @@ def create_navbar(
         right_section: Any = Div(
             _search_button(active_page, desktop_only=True),
             _calendar_button(active_page),
-            PeriodNotesPicker(path),
             _askesis_button(active_page),
             _shared_inbox_button(active_page),
             _notification_badge_placeholder(),
@@ -481,8 +474,7 @@ def create_navbar_for_request(
     """
     Create top navbar with automatic user/admin detection from the
     middleware-set auth context (AuthContextMiddleware mirrors the session
-    per request). The request also supplies the path the Notes picker reads
-    its period from.
+    per request; the request is kept so routes need no changes).
 
     Badge counts (notifications, insights) are lazy-loaded via HTMX from
     /api/navbar/notification-badge — not fetched here to keep page render fast.
@@ -501,7 +493,6 @@ def create_navbar_for_request(
         active_page=active_page,
         is_admin=auth.is_admin,
         is_teacher=auth.is_teacher,
-        path=request.url.path,
     )
 
 

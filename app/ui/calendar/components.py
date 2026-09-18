@@ -7,8 +7,9 @@ UI components for the redesigned calendar views (month, week).
 Both views share one visual language:
 - large period title + a per-type legend (``create_calendar_header``)
 - a Prev/Now/Next toolbar (``create_calendar_toolbar``) — lens switching lives
-  in the activity sidebar (Today / Weekly / Monthly links) and periodic notes in
-  the navbar "Notes" picker, not in the page chrome
+  in the activity sidebar (Today / Weekly / Monthly links), and the periodic
+  notes behind its Journal row and the grid's own date-number links, not in the
+  page chrome
 - per-type colored event chips (``_event_chip``) — a leading dot + accent bar in
   the item's type color, fill at ~10% alpha
 
@@ -208,9 +209,9 @@ def calendar_nav_cluster(prev_href: str, next_href: str, today_href: str) -> Div
     The recenter pill is labelled "Now" — the word "Today" belongs solely to the
     Today surface (sidebar link), keeping the two meanings distinct.
 
-    Periodic notes are NOT here: the "Notes" picker moved to the navbar, where it
-    is one click from every page and still opens the period this view is showing
-    (``ui/layouts/period_notes.py`` derives it from the request path).
+    Periodic notes are NOT here: the grid's date-number links open a day's
+    note, the ISO-week rail a week's, and the sidebar's Journal row today's —
+    the period rail inside any note reaches the rest.
 
     Shared by the calendar toolbar (Week/Month) and the Today day-lens header, so
     all three temporal lenses carry an identical navigation cluster (#665).

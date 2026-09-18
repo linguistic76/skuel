@@ -155,9 +155,9 @@ def _calendar_shell(
     )
     content = Div(
         create_calendar_header(title, view),
-        # Periodic notes live in the navbar "Notes" picker, which still opens the
-        # month/week on screen (it reads the period off the request path).
-        # Per-cell date-number links remain the door to any specific day's note.
+        # Periodic notes are not in the toolbar: the grid's date-number links
+        # and ISO-week rail open a day's or week's note directly, and the
+        # sidebar's Journal row opens today's.
         create_calendar_toolbar(
             prev_href,
             next_href,

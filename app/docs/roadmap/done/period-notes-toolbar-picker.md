@@ -1,6 +1,6 @@
 ---
 title: "Periodic-Note Doors — one \"Notes\" picker on the calendar and Today toolbars"
-updated: 2026-09-05
+updated: 2026-09-18
 status: "done"
 registered: 2026-09-05
 ruled: 2026-09-05
@@ -13,11 +13,13 @@ check: "shipped 2026-09-05 — chosen from four rendered options"
 *Shipped 2026-09-05. Additive to `quarterly-yearly-periodic-notes.md`; the period ladder
 inside a note is unchanged.*
 
-> **Where the picker lives now:** the navbar, not the calendar toolbar — Mike moved it the
-> same day. The component is `ui/layouts/period_notes.py`, and the viewed period it follows
-> is read off the request path instead of being passed in by the surface. Everything below
-> about the choice (why one disclosure, why the mixed row rule, why not four icons) still
-> holds; only the host changed.
+> **Retired 2026-09-18 (Mike):** the picker is deleted — `ui/layouts/period_notes.py`, its
+> `viewed_period` path-derivation and the navbar's `path` parameter are gone. The Tasks+
+> sidebar's Journal row (today's note, #1368) and the in-note period rail are the doors; the
+> navbar carries no dropdown. Between 2026-09-05 and then it lived in the navbar, not the
+> calendar toolbar — Mike moved it the same day it shipped, and the viewed period it followed
+> was read off the request path. Everything below about the choice (why one disclosure, why
+> the mixed row rule, why not four icons) is the record of a surface that no longer exists.
 
 ## The ask
 

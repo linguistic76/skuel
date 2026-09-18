@@ -1,9 +1,10 @@
 """``period_link`` / ``period_step`` — one derivation of a periodic note's
 URL, labels and neighbours.
 
-Two doors read them (the in-note period rail and the navbar "Notes" picker), so
-a boundary that resolved differently between them would be invisible on either
-page alone. These pin the boundaries.
+Several surfaces read them (the in-note period rail, the calendar's report
+link, the month grid's day and week links), so a boundary that resolved
+differently between them would be invisible on any one page alone. These pin
+the boundaries.
 """
 
 from datetime import date

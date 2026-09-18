@@ -338,8 +338,8 @@ def test_week_card_click_opens_day_lens_head_keeps_daily_note() -> None:
 
 
 # ---------------------------------------------------------------------------
-# Toolbar: Prev/Now/Next only. The "Notes" picker moved to the navbar
-# (tests/unit/ui/test_navbar_period_notes.py).
+# Toolbar: Prev/Now/Next only. The periodic notes are reached from the grid's
+# own date-number / ISO-week links and the sidebar's Journal row, never the chrome.
 # ---------------------------------------------------------------------------
 
 
@@ -354,8 +354,7 @@ def test_toolbar_carries_the_three_nav_pills_and_no_notes_door() -> None:
     assert 'href="/cal/month/2026/7"' in toolbar
     assert 'href="/cal/month/2026/9"' in toolbar
     assert 'href="/cal"' in toolbar
-    # The periodic-note door is the navbar's now — two doors would drift apart.
-    assert "period-note-menu" not in toolbar
+    # The grid's date-number links are the door — a second one here would drift.
     assert "/journals/" not in toolbar
 
 
