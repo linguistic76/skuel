@@ -26,7 +26,7 @@ Admin-only read-only gauge (sidebar: "Knowledge Health"; ADR-080 Horizon-1). One
 
 ## Regular User Navigation
 
-Navbar nav links (desktop center / mobile bottom nav, in order): **Today** (`/today`, mobile bottom nav only — no desktop nav item; the SKUEL brand link goes to `/explore` for authenticated users) → **Library** (`/explore/library`) → **PathSteps** (`/path-steps`); the mobile bottom nav appends **Calendar** and **Search** tabs. Right section (icon buttons): **Search** (`/search`) and **Calendar** (`/cal`) — both desktop only, mobile folds them into the bottom nav → **Askesis** (`/askesis`) → **Shared with me** (`/profile/shared`) → notification bell → **Profile** avatar (`/profile`) → **Sign out** (`/logout`). Tasks and the other activity domains are reached via the Profile hub.
+Navbar nav links (desktop center / mobile bottom nav, in order): **Today** (`/today`, mobile bottom nav only — no desktop nav item; the SKUEL brand link goes to `/explore` for authenticated users) → **Library** (`/explore/library`) → **PathSteps** (`/path-steps`) → **Submissions** (`/submissions`); the mobile bottom nav appends a **Calendar** tab. Right section (icon buttons): **Calendar** (`/cal`) — desktop only, mobile folds it into the bottom nav → **Askesis** (`/askesis`) → **Shared with me** (`/profile/shared`) → notification bell → **Profile** avatar (`/profile`) → **Sign out** (`/logout`). Tasks and the other activity domains are reached via the Profile hub.
 
 ### `/groups` — Student-Facing Group-Shares Hub
 
