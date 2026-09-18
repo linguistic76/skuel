@@ -751,6 +751,13 @@ def test_escaped_backtick_does_not_open_a_span(docs_root: Path) -> None:
     assert _report(docs_root, body) == {(3, "LICENSE", "link")}
 
 
+def test_backslash_inside_a_span_does_not_defer_its_closer(docs_root: Path) -> None:
+    """CommonMark processes no escapes inside a code span: in `foo\\` the backtick
+    after the backslash closes the span, and the link after it is prose."""
+    body = "# P\n\nsee `foo\\` [the license](LICENSE) `\n"
+    assert _report(docs_root, body) == {(3, "LICENSE", "link")}
+
+
 @pytest.mark.parametrize(
     ("line", "spans"),
     [
@@ -760,6 +767,10 @@ def test_escaped_backtick_does_not_open_a_span(docs_root: Path) -> None:
         ("x \\`y` z", []),  # escaped opener, then an unmatched run → literal
         ("`unclosed", []),
         ("`a` and `b`", [(0, 3), (8, 11)]),
+        (
+            "`foo\\` [a](LICENSE) `",
+            [(0, 6)],
+        ),  # no escapes inside a span: the backtick after \\ closes it
     ],
 )
 def test_inline_code_span_ranges(line: str, spans: list[tuple[int, int]]) -> None:

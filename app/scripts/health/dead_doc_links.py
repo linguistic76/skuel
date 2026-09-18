@@ -724,8 +724,10 @@ def _inline_code_span_ranges(line: str) -> list[tuple[int, int]]:
 
     A backtick string is a run of one or more backticks; a code span opens with one and
     closes at the next backtick string of exactly the same length (a longer or shorter
-    run inside the span is content). A backtick escaped by a backslash is a literal
-    character, not a delimiter. Counting backticks cannot express either rule — a
+    run inside the span is content). Outside a span a backtick escaped by a backslash
+    is a literal character, not a delimiter; inside one, escapes are not processed,
+    so a backslash before the closer does not defer it. Counting backticks cannot
+    express any of this — a
     double-backtick span has an even count before its content, and an escaped backtick
     in prose flips parity — so the scanner is the spec's, not a heuristic.
     """
@@ -742,12 +744,11 @@ def _inline_code_span_ranges(line: str) -> list[tuple[int, int]]:
         while i < n and line[i] == "`":
             i += 1
         run_len = i - run_start
-        # Find the closing string of exactly run_len backticks.
+        # Find the closing string of exactly run_len backticks. No escape handling
+        # here: backslash escapes are not processed inside a code span, so a
+        # backslash before the closer is content and the backtick still closes.
         j = i
         while j < n:
-            if line[j] == "\\":
-                j += 2
-                continue
             if line[j] == "`":
                 close_start = j
                 while j < n and line[j] == "`":
