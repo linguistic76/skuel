@@ -711,8 +711,7 @@ def _is_bare_word_in_code(
     or an inline code span (``_inline_code_spans_by_line``, the CommonMark backtick-string
     rule — not a backtick count; a span may cross a line ending). A separator-less destination in ordinary prose —
     ``[license](LICENSE)``, ``[docs](docs)`` — stays checkable, because CommonMark
-    allows it and a moved ``LICENSE`` must still report. Measured 4 in the corpus
-    (three ``Protocol`` headers and one ``url`` illustration), all in code.
+    allows it and a moved ``LICENSE`` must still report.
     """
     if any(ch in target for ch in "/.#"):
         return False
@@ -726,7 +725,8 @@ def _inline_code_spans_by_line(content: str) -> dict[int, list[tuple[int, int]]]
 
     A backtick string is a run of one or more backticks; a code span opens with one and
     closes at the next backtick string of exactly the same length (a longer or shorter
-    run inside the span is content), and it may cross line endings. Outside a span a
+    run inside the span is content), and it may cross a soft line break but never a
+    blank line — inline parsing is per block. Outside a span a
     backtick escaped by a backslash is a literal character, not a delimiter; inside one,
     escapes are not processed, so a backslash before the closer does not defer it.
     Fenced blocks (delimiters included) are masked before the scan — a fence delimiter
@@ -756,9 +756,13 @@ def _inline_code_spans_by_line(content: str) -> dict[int, list[tuple[int, int]]]
             i += 1
         run_len = i - run_start
         # Find the closing string of exactly run_len backticks. No escape handling
-        # here: backslash escapes are not processed inside a code span.
+        # here: backslash escapes are not processed inside a code span. Inline
+        # parsing is per block, so the search stops at a blank line — a span may
+        # cross a soft line break, never a paragraph boundary.
         j = i
         while j < n:
+            if masked[j] == "\n" and masked[j + 1 : j + 2] == "\n":
+                break
             if masked[j] == "`":
                 close_start = j
                 while j < n and masked[j] == "`":

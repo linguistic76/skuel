@@ -27,9 +27,11 @@ The bundle is authored in the content vault — an Obsidian vault outside this r
 A clean clone has no such vault, and Step 1 is destructive, so check the files are there first:
 
 ```bash
-ls "${INGESTION_PATH:-/home/mike/0bsidian/0vault}"/Lp/lp_mindfulness-101.md \
-   "${INGESTION_PATH:-/home/mike/0bsidian/0vault}"/Ps/Ps_dev/mindfulness-101*.md \
-   "${INGESTION_PATH:-/home/mike/0bsidian/0vault}"/Exer/mindfulness-starter_exer.md
+V="${INGESTION_PATH:-/home/mike/0bsidian/0vault}"
+ls "$V"/Lp/lp_mindfulness-101.md \
+   "$V"/Ps/Ps_dev/mindfulness-101_Ps.md "$V"/Ps/Ps_dev/mindfulness-101_step-1_Ps.md \
+   "$V"/Ps/Ps_dev/mindfulness-101_step-2_Ps.md \
+   "$V"/Exer/mindfulness-starter_exer.md
 ```
 
 If `ls` reports a missing file, stop: point `INGESTION_PATH` at a vault that holds the bundle

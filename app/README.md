@@ -383,7 +383,9 @@ touching the database:
 ```bash
 # 1. Confirm the vault holds the whole bundle (INGESTION_PATH, or the default vault) — stop here if any file is missing
 V="${INGESTION_PATH:-/home/mike/0bsidian/0vault}"
-ls "$V"/Lp/lp_mindfulness-101.md "$V"/Ps/Ps_dev/mindfulness-101*.md "$V"/Exer/mindfulness-starter_exer.md
+ls "$V"/Lp/lp_mindfulness-101.md "$V"/Ps/Ps_dev/mindfulness-101_Ps.md \
+   "$V"/Ps/Ps_dev/mindfulness-101_step-1_Ps.md "$V"/Ps/Ps_dev/mindfulness-101_step-2_Ps.md \
+   "$V"/Exer/mindfulness-starter_exer.md
 
 # 2. Complete database reset
 uv run python scripts/clear_neo4j.py reset

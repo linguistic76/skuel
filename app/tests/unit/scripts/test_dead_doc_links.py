@@ -774,10 +774,21 @@ def test_backslash_inside_a_span_does_not_defer_its_closer(docs_root: Path) -> N
         ),  # crosses a line ending
         ("```\n`not a span: fenced`\n```\n`real`", {4: [(0, 6)]}),  # fences masked first
         ("```\nlong fenced line here\n```\nx `y`", {4: [(2, 5)]}),  # offsets follow the MASKED text
+        (
+            "open `never\n\nclosed` later",
+            {},
+        ),  # a span never crosses a blank line (per-block parsing)
     ],
 )
 def test_inline_code_spans_by_line(text: str, spans: dict[int, list[tuple[int, int]]]) -> None:
     assert ddl._inline_code_spans_by_line(text) == spans
+
+
+def test_an_unmatched_backtick_does_not_swallow_the_next_paragraph(docs_root: Path) -> None:
+    """Inline parsing is per block: a stray backtick in one paragraph and a run in a
+    later one are not a span, so the link between them is prose and is reported."""
+    body = "# P\n\na stray ` here\n\nread [the license](LICENSE) now\n\nand `code` later\n"
+    assert _report(docs_root, body) == {(5, "LICENSE", "link")}
 
 
 def test_multiline_code_span_hides_a_bare_word_link_on_its_second_line(docs_root: Path) -> None:
