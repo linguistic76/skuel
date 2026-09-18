@@ -1,6 +1,6 @@
 ---
 title: Lateral Relationships Visualization Pattern
-updated: '2026-09-17'
+updated: '2026-09-18'
 category: patterns
 related_skills:
 - neo4j-cypher-patterns
@@ -383,18 +383,17 @@ class LateralRouteFactory:
         self.entity_name = entity_name
         self.domain_service = domain_service
 
-    def register_routes(self, _app, rt) -> list[Any]:
-        return [
-            self._create_blocking_routes(rt),
-            self._create_prerequisite_routes(rt),
-            self._create_alternative_routes(rt),
-            self._create_complementary_routes(rt),
-            self._create_sibling_route(rt),
-            self._create_delete_route(rt),
-            self._create_chain_route(rt),
-            self._create_comparison_route(rt),
-            self._create_graph_route(rt),
-        ]
+    def register_routes(self, _app, rt) -> None:
+        self._create_blocking_routes(rt)
+        self._create_prerequisite_routes(rt)
+        self._create_alternative_routes(rt)
+        self._create_complementary_routes(rt)
+        self._create_sibling_route(rt)
+        self._create_delete_route(rt)
+        self._create_chain_route(rt)
+        self._create_comparison_route(rt)
+        self._create_graph_route(rt)
+        self._create_manage_route(rt)
 ```
 
 **OwnershipVerifier protocol** (`core/ports/service_protocols.py`): single-method structural protocol (`verify_ownership(uid, user_uid) -> Result[Any]`) satisfied by every Activity Domain facade via `BaseServiceInterface[T]`. Replaces the old `domain_service: Any | None` threading.
@@ -403,9 +402,8 @@ class LateralRouteFactory:
 
 ```python
 def create_lateral_api_routes(
-    app: FastHTMLApp, rt: RouteDecorator, orchestrator: "LateralRelationshipsOrchestrator"
-) -> list[Any]:
-    all_routes: list[Any] = []
+    app: FastHTMLApp, rt: RouteDecorator, orchestrator: LateralRelationshipsOrchestrator
+) -> None:
     for domain, entity_name, service_attr in _LATERAL_DOMAINS:
         domain_service = orchestrator.get_domain_service(service_attr) if service_attr else None
         factory = LateralRouteFactory(
@@ -414,8 +412,7 @@ def create_lateral_api_routes(
             entity_name=entity_name,
             domain_service=domain_service,  # None for ku/ps/lp
         )
-        all_routes.extend(factory.register_routes(app, rt))
-    return all_routes
+        factory.register_routes(app, rt)
 ```
 
 The `orchestrator.lateral_service` property is the single documented layering exception: `LateralRouteFactory` lives in the inbound adapter layer and cannot import a core orchestrator, so routes hand it the raw service instead.

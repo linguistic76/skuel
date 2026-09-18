@@ -1,6 +1,6 @@
 ---
 title: MyPy Type Safety Patterns - Systematic Error Reduction
-updated: 2026-09-16
+updated: 2026-09-18
 category: patterns
 related_skills:
 - python
@@ -818,7 +818,7 @@ from typing import TYPE_CHECKING
 if TYPE_CHECKING:
     from module import Service
 
-def create_routes(service: Service) -> list[Any]:  # unquoted — PEP 649, UP037
+def create_routes(service: Service) -> None:  # unquoted — PEP 649, UP037
     ...
 
 # return-value → Union return types

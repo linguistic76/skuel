@@ -1,6 +1,6 @@
 ---
 title: Domain Route Configuration Pattern
-updated: 2026-09-17
+updated: 2026-09-18
 category: patterns
 related_skills:
 - fasthtml
@@ -42,8 +42,8 @@ For implementation guidance, see:
 class DomainRouteConfig:
     domain_name: str                           # Human-readable name (e.g., "tasks")
     primary_service_attr: str                  # Attribute on services container (e.g., "tasks")
-    api_factory: Callable[..., list[Any]] | None = None  # Optional API routes factory
-    ui_factory: Callable[..., list[Any]] | None = None  # Optional UI routes factory
+    api_factory: Callable[..., None] | None = None  # Optional API routes factory
+    ui_factory: Callable[..., None] | None = None   # Optional UI routes factory
     api_related_services: dict[str, str] = {}  # API factory dependencies
     ui_related_services: dict[str, str] = {}   # UI factory dependencies
     crud: CRUDRouteConfig | None = None        # Config-driven CRUD factory (optional)
@@ -102,13 +102,13 @@ For Activity Domains (Tasks, Goals, Habits, Events, Choices, Principles), use th
 def create_activity_domain_route_config(
     domain_name: str,
     primary_service_attr: str,
-    api_factory: Callable[..., list[Any]],
+    api_factory: Callable[..., None],
     create_schema: type,
     update_schema: type,
     uid_prefix: str,
     request_create_method: str,   # REQUIRED — e.g. "create_task"; binds POST /create
                                   # to the request-door primitive so link fields ride
-    ui_factory: Callable[..., list[Any]] | None = None,
+    ui_factory: Callable[..., None] | None = None,
     supports_goal_filter: bool = False,
     supports_habit_filter: bool = False,
     api_related_services: dict[str, str] | None = None,
@@ -193,11 +193,11 @@ api_factory(app, rt, primary_service,
 ```
 1. register_domain_routes() receives config
 2. Extract primary service: getattr(services, config.primary_service_attr)
-3. Validate primary service exists (return [] if missing)
+3. Validate primary service exists (warn and return if missing)
 4. Extract API-related services: sentinel-based getattr for each api_related_services entry (warns if attr missing, silent if None)
-5. Call api_factory(app, rt, primary_service, **api_related), collect returned routes
-6. (Optional) Extract UI-related services, call ui_factory, collect returned routes
-7. Return combined route list (API + UI)
+5. Call api_factory(app, rt, primary_service, **api_related) — its @rt decorators register the handlers
+6. (Optional) Extract UI-related services, call ui_factory the same way
+7. Return None — registration is the decorator's side effect; there is no route list
 ```
 
 **Service resolution warnings:** `register_domain_routes()` uses sentinel-based detection to distinguish two cases:
@@ -244,7 +244,7 @@ from adapters.inbound.route_factories import DomainRouteConfig, register_domain_
 
 def create_{domain}_routes(app, rt, services, _sync_service=None):
     """Wire {domain} API and UI routes using configuration-driven registration."""
-    return register_domain_routes(app, rt, services, {DOMAIN}_CONFIG)
+    register_domain_routes(app, rt, services, {DOMAIN}_CONFIG)
 
 
 __all__ = ["create_{domain}_routes"]
@@ -298,7 +298,7 @@ from core.models.{domain}.{domain}_request import {Domain}CreateRequest, {Domain
 
 def create_{domain}_routes(app, rt, services, _sync_service=None):
     """Wire {domain} API and UI routes using configuration-driven registration."""
-    return register_domain_routes(app, rt, services, {DOMAIN}_CONFIG)
+    register_domain_routes(app, rt, services, {DOMAIN}_CONFIG)
 
 
 __all__ = ["create_{domain}_routes"]
@@ -333,21 +333,18 @@ def create_{domain}_api_routes(
     rt: Any,
     primary_service: ServiceType,
     **related_services: Any  # Optional kwargs - MUST have defaults
-) -> list[Any]:
+) -> None:
     """
-    Create {domain} API routes.
+    Register {domain} API routes.
 
     Args:
         app: FastHTML application instance
         rt: Route decorator
         primary_service: {Domain}Service instance
         **related_services: Optional related services (e.g., user_service, goals_service)
-
-    Returns:
-        Empty list (sub-factory contract — DomainRouteConfig calls .extend() on result)
     """
-    # Register routes via @rt() decorators
-    return []
+    # Register routes via @rt() decorators — the decorator IS the registration,
+    # so the factory returns nothing.
 ```
 
 ### UI Factory Signature
@@ -360,9 +357,9 @@ def create_{domain}_ui_routes(
     # Related services are injected BY NAME via ui_related_services — each an explicit kwarg:
     connection_fetch_backend: ConnectionFetchOperations,
     goals_service: GoalsService | None = None,   # optional ones default to None
-) -> list[Any]:
+) -> None:
     """
-    Create {domain} UI routes.
+    Register {domain} UI routes.
 
     Args:
         app: FastHTML application instance
@@ -370,12 +367,8 @@ def create_{domain}_ui_routes(
         {domain}_service: {Domain}Service instance (primary service, positional)
         connection_fetch_backend / goals_service / ...: related services injected by
             name via ui_related_services (kwarg_name must match the param name)
-
-    Returns:
-        Empty list (sub-factory contract — DomainRouteConfig calls .extend() on result)
     """
-    # Register routes via @rt() decorators
-    return []
+    # Register routes via @rt() decorators — the factory returns nothing.
 ```
 
 **Key requirements:**
@@ -383,9 +376,7 @@ def create_{domain}_ui_routes(
 2. **Second param:** `rt` (route decorator)
 3. **Third param:** `primary_service` (the domain's main service, positional)
 4. **Related services (both API and UI):** declared as explicit **named** kwargs, injected by `register_domain_routes()` from `api_related_services` / `ui_related_services`. Required ones (e.g. `connection_fetch_backend` since PR #75) have no default; optional ones default to `None`. The registration path passes only `primary_service` + these named kwargs — it does **not** inject a whole `services` container.
-5. **Two-layer return contract:**
-   - **Sub-factories** (`api_factory`/`ui_factory`): return `list[Any]` — never `None`. `register_domain_routes()` calls `.extend()` on the result.
-   - **Top-level orchestrators** (`create_{domain}_routes`): return `None` — bootstrap discards the value.
+5. **Return nothing:** every layer — sub-factory (`api_factory`/`ui_factory`), `register_domain_routes()`, and the top-level `create_{domain}_routes` — returns `None`. The `@rt()` decorator registers the handler the moment it is applied; there is no route list to hand up.
 
 **Note:** A whole-`services` container is the convention for the separate **Orchestrator / Manual hub** wiring (home, explore, today, settings, lifepath, system — wired by hand in bootstrap), not for the DomainRouteConfig path, which injects named services via `ui_related_services`.
 
@@ -470,22 +461,21 @@ New route file for structural/infrastructure concerns?
 
 ```python
 # ✅ CORRECT - canonical signature
-def create_reports_api_routes(app, rt, reports_service):
-    return []
+def create_reports_api_routes(app, rt, reports_service) -> None:
+    ...  # @rt() handlers
 
 # ✅ CORRECT - with optional related services
-def create_finance_api_routes(app, rt, finance_service, user_service: Any = None):
-    return []
+def create_finance_api_routes(app, rt, finance_service, user_service: Any = None) -> None:
+    ...  # @rt() handlers
 
 # ❌ WRONG - takes full services container
 def create_system_api_routes(app, rt, services, sync_service):
     system_service = services.system
     # Must refactor to extract services.system first
 
-# ❌ WRONG - sub-factory doesn't return list (DomainRouteConfig calls .extend())
-def create_old_api_routes(app, rt, service):
-    # registers routes but returns None
-    pass  # Must add: return []
+# ❌ WRONG - collects the handlers @rt already registered and returns them
+def create_old_api_routes(app, rt, service) -> list[Any]:
+    return [handler_a, handler_b]  # nothing reads this — delete the list
 ```
 
 **Fix non-canonical signatures BEFORE migration.**
@@ -502,18 +492,17 @@ def create_tasks_routes(app, rt, services, _sync_service=None):
 
     if not tasks_service:
         logger.warning("Tasks routes registered without tasks service")
-        return []
+        return
 
-    api_routes = create_tasks_api_routes(
+    create_tasks_api_routes(
         app, rt, tasks_service,
         user_service=user_service,
         goals_service=goals_service,
         habits_service=habits_service,
     )
-    ui_routes = create_tasks_ui_routes(app, rt, tasks_service)
+    create_tasks_ui_routes(app, rt, tasks_service)
 
-    logger.info(f"Registered tasks routes: {len(api_routes)} API, {len(ui_routes)} UI")
-    return api_routes + ui_routes
+    logger.info("Tasks routes registered")
 ```
 
 **Analysis:**
@@ -552,19 +541,20 @@ def create_tasks_routes(app, rt, services, _sync_service=None) -> None:
 
 `_wire_all_routes()` in `bootstrap.py` calls DomainRouteConfig routes without per-route logging — a single summary log at the end reports total route count. `register_domain_routes()` logs a warning only when a primary service is missing. No `if services.X:` guard is needed in bootstrap — the soft-fail in `register_domain_routes()` handles `None` services.
 
-### Two-Layer Return Type Contract
+### Return Type Contract
 
 FastHTML uses `@rt()` decorators which register routes as a side effect. There are no
-route objects to collect. This creates a two-layer return type contract:
+route objects to collect, so every layer returns `None`:
 
-**Sub-factories** (`api_factory`/`ui_factory` wired into `DomainRouteConfig`):
-- Return `list[Any]` — `register_domain_routes()` calls `.extend()` on the result
-- `return []` at the end satisfies the `Callable[..., list[Any]]` type contract
-- Returning `None` causes `TypeError: 'NoneType' has no attribute 'extend'`
+- **Sub-factories** (`api_factory`/`ui_factory` wired into `DomainRouteConfig`) are
+  `Callable[..., None]` — no `return` statement.
+- **`register_domain_routes()`** returns `None`; a missing primary service is a warning
+  and an early `return`.
+- **Top-level orchestrators** (`create_{domain}_routes` called from `bootstrap.py`)
+  return `None` — bootstrap counts `app.routes` for its summary log.
 
-**Top-level orchestrators** (`create_{domain}_routes` called from `bootstrap.py`):
-- Return `None` — bootstrap discards the value
-- No `return` statement needed
+A helper that registers one route (`_register_*_route`) is the same: it applies
+`rt(path)(handler)` as a statement and returns nothing.
 
 ### Step 5: Test Registration
 
@@ -585,17 +575,20 @@ grep "Route wiring complete" logs/skuel.log
 ```python
 KU_CONFIG = DomainRouteConfig(
     domain_name="ku",
-    primary_service_attr="ku",  # services.ku
-    api_factory=create_ku_api_routes,
+    primary_service_attr="ku",  # services.ku -> KuService
+    # Ku API routes are registered inline in ku_ui.py via @rt().
     ui_factory=create_ku_ui_routes,
-    api_related_services={"user_service": "user"},  # Services.user
+    ui_related_services={
+        "user_relationship_service": "user_relationships",
+        "exercises_service": "exercises",
+    },
 )
 ```
 
 **Key features:**
-- KU routes serve `/ku/*` endpoints only
+- `api_factory` is optional — a UI-only domain simply omits it (no placeholder factory)
 - PathStep has its own routes in `pathways_routes.py` with `PS_CONFIG` (PsService serves `/path-steps`)
-- Demonstrates minimal DomainRouteConfig setup with one related service
+- Demonstrates minimal DomainRouteConfig setup with related services injected by name
 
 ### Example 2: API Dependencies Only (Habits)
 
@@ -927,24 +920,18 @@ def create_advanced_routes(app, rt, services, _sync_service=None):
 
 **Usage together:**
 ```python
-# Inside create_tasks_api_routes() - uses route factories
-def create_tasks_api_routes(app, rt, tasks_service, user_service, goals_service, habits_service, prometheus_metrics=None):
-    routes = []
-
-    # Use CRUDRouteFactory for standard endpoints
-    routes.extend(CRUDRouteFactory(
-        service=tasks_service.core,
-        scope=ContentScope.USER_OWNED,
-        ...
-    ).create_routes())
-
+# Inside create_tasks_api_routes() - the endpoint-level factories are called bare;
+# each registers with rt and returns nothing.
+def create_tasks_api_routes(app, rt, tasks_service, goals_service, **_kwargs) -> None:
     # Inline field updates (status, priority) via the field-api factory
-    routes.extend(create_activity_field_api_routes(rt, ActivityFieldApiConfig(...)))
+    create_activity_field_api_routes(rt, ActivityFieldApiConfig(...))
+    # Hierarchy + cross-domain link blocks
+    create_activity_hierarchy_api_routes(rt, ActivityHierarchyApiConfig(...))
+    create_activity_link_api_routes(rt, domain_name="tasks", ...)
 
-    return routes
-
-# tasks_routes.py - uses DomainRouteConfig
-TASKS_CONFIG = DomainRouteConfig(
+# tasks_routes.py - uses DomainRouteConfig; CRUD / Query / Intelligence come from
+# the config's crud= / query= / intelligence= fields, registered before api_factory
+TASKS_CONFIG = create_activity_domain_route_config(
     api_factory=create_tasks_api_routes,  # Calls function above
     ...
 )
@@ -1187,36 +1174,20 @@ RuntimeError: Error registering nous routes
 **Cause:** domain_route_factory.py attempts to call `config.api_factory()` without checking for None
 
 **Fix (infrastructure):**
-In `/adapters/inbound/route_factories/domain_route_factory.py` line 103, ensure null check exists:
+In `/adapters/inbound/route_factories/domain_route_factory.py`, ensure the null check exists:
 
 ```python
 # ✓ CORRECT - with null check
 if config.api_factory:
-    api_routes = config.api_factory(app, rt, primary_service, **api_related)
+    config.api_factory(app, rt, primary_service, **api_related)
 
 # ✗ WRONG - missing null check
-api_routes = config.api_factory(app, rt, primary_service, **api_related)
+config.api_factory(app, rt, primary_service, **api_related)
 ```
 
 **Status:** Fixed in infrastructure as of 2026-02-03. UI-only pattern (`api_factory=None`) now fully supported.
 
 **Use case:** Content-focused domains like NOUS that only need UI routes (no CRUD API operations)
-
-### Issue: TypeError about NoneType
-
-**Symptom:**
-```
-TypeError: unsupported operand type(s) for +: 'NoneType' and 'list'
-```
-
-**Cause:** Factory returns None instead of list
-
-**Fix:**
-```python
-def create_{domain}_api_routes(app, rt, service):
-    # ... register routes ...
-    return []  # Add this line
-```
 
 ## Performance Considerations
 

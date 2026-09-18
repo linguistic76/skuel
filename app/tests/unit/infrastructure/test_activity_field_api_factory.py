@@ -102,8 +102,8 @@ def _status_config(*, service: Any, update_status: Any, **kwargs: Any) -> Activi
 def _register(config: ActivityFieldApiConfig, field: str = "status") -> Any:
     """Register routes against a fake registry and return one field handler."""
     rt = _RouteRegistry()
-    handlers = create_activity_field_api_routes(rt, config)
-    assert len(handlers) == len(config.fields)
+    create_activity_field_api_routes(rt, config)
+    assert len(rt.handlers) == len(config.fields)
     return rt.get(f"/api/{config.domain_name}/{{uid}}/{field}", "POST")
 
 

@@ -37,12 +37,12 @@ class _FakeUpdateSchema:
     pass
 
 
-def _noop_api_factory(app: Any, rt: Any, primary: Any, **kwargs: Any) -> list[Any]:
-    return []
+def _noop_api_factory(app: Any, rt: Any, primary: Any, **kwargs: Any) -> None:
+    pass
 
 
-def _noop_ui_factory(app: Any, rt: Any, primary: Any, **kwargs: Any) -> list[Any]:
-    return []
+def _noop_ui_factory(app: Any, rt: Any, primary: Any, **kwargs: Any) -> None:
+    pass
 
 
 def _make_services(
@@ -224,7 +224,6 @@ def test_all_three_configs_called_in_order(mock_crud, mock_query, mock_intel):
 
     def api_factory(*_a, **_kw):
         call_order.append("api_factory")
-        return []
 
     config = DomainRouteConfig(
         domain_name="tasks",
@@ -285,7 +284,6 @@ def test_no_sub_configs_only_api_factory_called():
 
     def api_factory(*_a, **_kw):
         called.append("api_factory")
-        return []
 
     services = _make_services()
     config = DomainRouteConfig(
@@ -304,7 +302,6 @@ def test_none_primary_service_early_return():
 
     def api_factory(*_a, **_kw):
         called.append("api_factory")
-        return []
 
     # services has no 'tasks' attr
     services = MagicMock(spec=[])
@@ -317,8 +314,7 @@ def test_none_primary_service_early_return():
         ),
     )
 
-    result = register_domain_routes("app", "rt", services, config)
-    assert result == []
+    register_domain_routes("app", "rt", services, config)
     assert called == []
 
 
@@ -447,7 +443,6 @@ def test_full_roundtrip_factory_to_register(mock_crud, mock_query, mock_intel):
 
     def api_factory(*_a, **_kw):
         api_called.append(True)
-        return []
 
     config = create_activity_domain_route_config(
         domain_name="tasks",
@@ -481,9 +476,8 @@ def test_api_factory_kwargs_absorbs_extra_related_services():
     """api_factory with **_kwargs absorbs extra related services without error."""
     received_kwargs: dict[str, Any] = {}
 
-    def api_factory(app: Any, rt: Any, primary: Any, **kwargs: Any) -> list[Any]:
+    def api_factory(app: Any, rt: Any, primary: Any, **kwargs: Any) -> None:
         received_kwargs.update(kwargs)
-        return []
 
     services = _make_services(
         extras={
