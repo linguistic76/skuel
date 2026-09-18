@@ -795,8 +795,10 @@ def create_journals_routes(
     # ``UserEntryService.ensure_periodic_note`` (the persistence contract);
     # routes only compute the period key + display title and redirect.
 
-    async def _open_daily_note(request: Request, target_date: date) -> Any:
-        """Find-or-create the daily note for ``target_date`` and redirect to it."""
+    async def _open_daily_note(request: Request, target_date: date) -> Response:
+        """Find-or-create the daily note for ``target_date`` and redirect to it.
+
+        Every outcome is a ``Response`` — the 302 to the note, or a 503/500."""
         user_uid = require_authenticated_user(request)
         if user_entry_service is None:
             return Response("Service unavailable", status_code=503)
@@ -811,13 +813,13 @@ def create_journals_routes(
         return RedirectResponse(f"/journals/{ensured.value}", status_code=302)
 
     @rt("/journals/daily", methods=["GET"])
-    async def journal_daily_note_today(request: Request) -> Any:
+    async def journal_daily_note_today(request: Request) -> Response:
         """Today's daily note — the dateless door the Tasks+ sidebar's Journal
         item opens, resolved at click time (``/today`` ↔ ``/today/{date}``)."""
         return await _open_daily_note(request, date.today())
 
     @rt("/journals/daily/{date_str}", methods=["GET"])
-    async def journal_daily_note(request: Request, date_str: str) -> Any:
+    async def journal_daily_note(request: Request, date_str: str) -> Response:
         try:
             target_date = date.fromisoformat(date_str)
         except ValueError:
