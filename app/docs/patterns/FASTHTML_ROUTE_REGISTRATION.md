@@ -1,6 +1,6 @@
 ---
 title: FastHTML Route Registration Pattern
-updated: 2026-09-17
+updated: 2026-09-18
 category: patterns
 related_skills:
 - domain-route-config
@@ -96,8 +96,24 @@ def create_domain_routes(_app, rt, service, user_service):
 
 1. **No `routes = []`** - Don't create a list to collect routes
 2. **No `routes.append()`** - Don't append decorated functions
-3. **No `return routes`** - Don't return the list
+3. **No `return routes`** - Don't return the list — not as `return [handler, …]`, not as `return []`
 4. **Just define and decorate** - The `@rt()` decorator handles registration
+
+### The rule holds at every layer
+
+A route factory returns `None`, whatever its layer:
+
+| Layer | Contract |
+|-------|----------|
+| `create_{domain}_api_routes` / `create_{domain}_ui_routes` | `DomainRouteConfig.api_factory` / `ui_factory` are `Callable[..., None]` |
+| `register_domain_routes()` | returns `None`; a missing primary service is a warning and an early `return` |
+| `register_routes(app, rt)` on the route-factory classes (`crud`, `query`, `intelligence`, `ownership`, `analytics`, `lateral`) | returns `None` |
+| a single-route helper (`_register_*_route`, `create_knowledge_patterns_api_route`) | applies `rt(path)(handler)` as a statement and returns nothing |
+| `create_{domain}_routes` in `*_routes.py` | returns `None`; bootstrap counts `app.routes` once for its summary log |
+
+A test that needs the handler a factory registered captures it from a fake `rt`
+(see `tests/unit/infrastructure/test_activity_field_api_factory.py`'s `_RouteRegistry`),
+never from a return value.
 
 ---
 
@@ -166,27 +182,19 @@ If you see this pattern in your code and experience:
 
 ---
 
-## Route Counting Alternative
+## Route Counting
 
-If you need to count routes for logging:
+A factory does not count its own routes — a count in a log line is not a reader of
+a handler list, and a hand-maintained number drifts. `scripts/dev/bootstrap.py`
+logs one summary after all wiring, from the application's own route table:
 
 ```python
-def create_domain_routes(_app, rt, service, user_service):
-    """Create domain routes."""
-
-    @rt("/domain")
-    async def domain_dashboard(...): ...
-
-    @rt("/domain/section")
-    async def domain_section(...): ...
-
-    @rt("/domain/another")
-    async def domain_another(...): ...
-
-    # Log route count manually
-    route_count = 3
-    logger.info(f"Domain routes registered: {route_count}")
+route_count = len(getattr(app, "routes", []))
+logger.info(f"Route wiring complete: {route_count} routes registered")
 ```
+
+A per-factory log line, if wanted, names the surface without a count:
+`logger.info("Domain routes registered")`.
 
 ---
 

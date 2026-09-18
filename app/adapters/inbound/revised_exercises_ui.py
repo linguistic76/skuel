@@ -50,7 +50,7 @@ def create_revised_exercises_ui_routes(
     _app: Any,
     rt: RouteDecorator,
     orchestrator: Any = None,
-) -> list[Any]:
+) -> None:
     """Create revised-exercise detail + preview routes.
 
     Args:
@@ -148,7 +148,3 @@ def create_revised_exercises_ui_routes(
         return HubPreviewGrid(cards)
 
     logger.info("Revised Exercises UI routes created (/revised-exercises/detail + hub preview)")
-
-    return [
-        revised_exercise_detail,
-    ]

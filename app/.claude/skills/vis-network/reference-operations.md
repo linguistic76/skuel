@@ -309,24 +309,21 @@ async def get_graph(
 
 ### Step 1: Add Lateral Relationship Routes (10 min)
 
-**File:** `/adapters/inbound/{domain}_routes.py`
+**File:** `/adapters/inbound/lateral_routes.py` — all 9 domains are wired by one loop
+over `_LATERAL_DOMAINS`; a new domain is a row in that tuple, not a block in its own
+`{domain}_routes.py`.
 
 ```python
 from adapters.inbound.route_factories.lateral_route_factory import LateralRouteFactory
 
-def create_{domain}_routes(app, rt, services, _sync_service=None):
-    # ... existing routes ...
-
-    # Add lateral relationship routes
-    factory = LateralRouteFactory(
-        domain_name="{domain}",  # e.g., "tasks", "goals", "ku"
-        lateral_service=services.lateral_relationships,
-        entity_service=services.{domain},  # For ownership verification
-        content_scope=ContentScope.USER_OWNED,  # Or SHARED for curriculum
-    )
-
-    routes.extend(factory.create_routes(app, rt))
-    return routes
+for domain, entity_name, service_attr in _LATERAL_DOMAINS:
+    domain_service = orchestrator.get_domain_service(service_attr) if service_attr else None
+    LateralRouteFactory(
+        domain=domain,                  # e.g., "tasks", "goals", "ku"
+        lateral_service=orchestrator.lateral_service,
+        entity_name=entity_name,        # e.g., "Task"
+        domain_service=domain_service,  # ownership verifier; None for curriculum (ku/ps/lp)
+    ).register_routes(app, rt)          # @rt registers — nothing is returned
 ```
 
 **Verify:** Visit `/api/{domain}/{uid}/lateral/graph?depth=1` - should return JSON.

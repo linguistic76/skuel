@@ -130,20 +130,19 @@ GET /api/goals/goal_launch-product_def456/lateral/graph?depth=2
 **Route Factory Usage:**
 
 ```python
+# adapters/inbound/lateral_routes.py — one loop wires all 9 domains
 from adapters.inbound.route_factories.lateral_route_factory import LateralRouteFactory
 
-def create_tasks_lateral_routes(app, rt, tasks_service, lateral_service):
-    """Register lateral relationship routes for Tasks domain."""
-
-    factory = LateralRouteFactory(
-        domain_name="tasks",
-        lateral_service=lateral_service,
-        entity_service=tasks_service,  # For ownership verification
-        content_scope=ContentScope.USER_OWNED,
-    )
-
-    routes = factory.create_routes(app, rt)
-    return routes
+def create_lateral_api_routes(app, rt, orchestrator) -> None:
+    """Register lateral relationship routes for all 9 domains."""
+    for domain, entity_name, service_attr in _LATERAL_DOMAINS:
+        domain_service = orchestrator.get_domain_service(service_attr) if service_attr else None
+        LateralRouteFactory(
+            domain=domain,                  # "tasks", "goals", …, "ku"
+            lateral_service=orchestrator.lateral_service,
+            entity_name=entity_name,        # "Task", "Goal", …
+            domain_service=domain_service,  # ownership verifier; None for ku/ps/lp
+        ).register_routes(app, rt)          # @rt registers — nothing is returned
 ```
 
 **What the factory creates:**

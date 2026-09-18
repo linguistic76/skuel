@@ -79,7 +79,7 @@ def create_lifepath_ui_routes(
     rt: Any,
     lifepath_service: Any,
     services: Any = None,
-) -> list[Any]:
+) -> None:
     """Create LifePath UI routes."""
 
     @rt("/lifepath")
@@ -245,14 +245,3 @@ def create_lifepath_ui_routes(
         )
 
     logger.info("LifePath UI routes registered (6 routes)")
-
-    return [
-        lifepath_dashboard,
-        lifepath_dashboard_content,
-        vision_capture_page,
-        process_vision_capture,
-        designate_life_path,
-        alignment_dashboard,
-        alignment_dashboard_content,
-        alignment_radar_chart,
-    ]

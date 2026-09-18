@@ -30,7 +30,7 @@ def create_form_templates_api_routes(
     form_template_service: FormTemplateService,
     user_service: Any = None,
     **_kwargs: Any,
-) -> list[Any]:
+) -> None:
     """Create form template PathStep-linking routes (admin-only).
 
     CRUD routes are registered by CRUDRouteFactory before this function is called.
@@ -70,5 +70,3 @@ def create_form_templates_api_routes(
         req = parsed.value
 
         return await form_template_service.unlink_from_path_step(req.form_template_uid, req.ps_uid)
-
-    return []

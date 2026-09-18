@@ -11,7 +11,7 @@ allowed-tools:
 version: 1.0.0
 library: vis-network
 library_version: 9.1.9
-last_updated: 2026-02-02
+last_updated: 2026-09-17
 ---
 
 # Vis.js Network - Interactive Graph Visualization

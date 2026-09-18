@@ -35,7 +35,7 @@ from core.models.{domain}.{domain}_request import {Domain}CreateRequest, {Domain
 
 
 def create_{domain}_routes(app, rt, services, _sync_service=None):
-    return register_domain_routes(app, rt, services, {DOMAIN}_CONFIG)
+    register_domain_routes(app, rt, services, {DOMAIN}_CONFIG)
 
 
 __all__ = ["create_{domain}_routes"]
@@ -74,7 +74,7 @@ from adapters.inbound.route_factories import DomainRouteConfig, register_domain_
 
 def create_{domain}_routes(app, rt, services, _sync_service=None):
     """Wire {domain} API and UI routes using configuration-driven registration."""
-    return register_domain_routes(app, rt, services, {DOMAIN}_CONFIG)
+    register_domain_routes(app, rt, services, {DOMAIN}_CONFIG)
 
 
 __all__ = ["create_{domain}_routes"]
@@ -101,7 +101,7 @@ from adapters.inbound.route_factories import DomainRouteConfig, register_domain_
 
 def create_{domain}_routes(app, rt, services, _sync_service=None):
     """Wire {domain} API routes using configuration-driven registration."""
-    return register_domain_routes(app, rt, services, {DOMAIN}_CONFIG)
+    register_domain_routes(app, rt, services, {DOMAIN}_CONFIG)
 
 
 __all__ = ["create_{domain}_routes"]
@@ -127,7 +127,7 @@ from adapters.inbound.route_factories import DomainRouteConfig, register_domain_
 
 def create_{domain}_routes(app, rt, services, _sync_service=None):
     """Wire {domain} UI routes using configuration-driven registration."""
-    return register_domain_routes(app, rt, services, {DOMAIN}_CONFIG)
+    register_domain_routes(app, rt, services, {DOMAIN}_CONFIG)
 
 
 __all__ = ["create_{domain}_routes"]
@@ -210,7 +210,7 @@ from core.models.{domain}.{domain}_request import {Domain}CreateRequest, {Domain
 
 
 def create_{domain}_routes(app, rt, services, _sync_service=None):
-    return register_domain_routes(app, rt, services, {DOMAIN}_CONFIG)
+    register_domain_routes(app, rt, services, {DOMAIN}_CONFIG)
 
 
 __all__ = ["create_{domain}_routes"]
@@ -259,8 +259,7 @@ api_related_services={
 | Symptom | Cause | Fix |
 |---------|-------|-----|
 | Warning: `not found on services container` | `container_attr` doesn't match actual attribute on `services` (stale after rename) | Check `services_bootstrap/_container.py` for the real attr name |
-| `TypeError: 'NoneType' object is not callable` | `api_factory=None` without null guard in `register_domain_routes` | Null guard must exist at `domain_route_factory.py` line ~97 |
-| `TypeError: unsupported operand type(s) for +: 'NoneType' and 'list'` | Sub-factory returns `None` instead of `[]` | Add `return []` at end of sub-factory (api_factory/ui_factory must return `list[Any]`) |
+| `TypeError: 'NoneType' object is not callable` | `api_factory=None` without null guard in `register_domain_routes` | The `if config.api_factory:` guard in `register_domain_routes()` must stay |
 | `TypeError: missing required keyword argument` | Factory param not in `api_related_services` | Add the mapping to `api_related_services` |
 | Wrong service injected silently | `container_attr` points to wrong service | Verify key → value mapping matches intent |
 | `TypeError: unexpected keyword argument` in UI factory | A `ui_related_services` kwarg_name has no matching param on the UI factory | Make each `ui_related_services` kwarg_name match an explicit param on the factory signature |

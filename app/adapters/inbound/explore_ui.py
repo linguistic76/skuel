@@ -160,7 +160,7 @@ def create_explore_api_routes(
     rt: Any,
     orchestrator: Any,
     search_router: SearchRouter | None,
-) -> list[Any]:
+) -> None:
     """Register /api/explore/* JSON + HTMX API routes."""
     if orchestrator is None:
         raise RuntimeError("ExploreOrchestrator is required — bootstrap misconfigured")
@@ -240,7 +240,6 @@ def create_explore_api_routes(
         "Explore API routes registered: /api/explore/search, "
         "/api/explore/subtopics, /api/explore/graph"
     )
-    return []
 
 
 # =============================================================================
@@ -253,7 +252,7 @@ def create_explore_ui_routes(
     rt: Any,
     orchestrator: Any,
     search_router: SearchRouter | None,
-) -> list[Any]:
+) -> None:
     """Create /explore discovery UI routes."""
     if orchestrator is None:
         raise RuntimeError("ExploreOrchestrator is required — bootstrap misconfigured")
@@ -446,8 +445,6 @@ def create_explore_ui_routes(
         "Explore UI routes registered: /explore, /explore/content, "
         "/explore/read/{uid}, /explore/graph, /explore/library, /explore/library/content"
     )
-
-    return []
 
 
 __all__ = ["create_explore_api_routes", "create_explore_ui_routes"]

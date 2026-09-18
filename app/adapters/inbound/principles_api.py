@@ -66,7 +66,7 @@ def create_principles_api_routes(
     goals_service: Any = None,
     habits_service: Any = None,
     **_kwargs: Any,
-) -> list[Any]:
+) -> None:
     """Register Principles API routes."""
 
     async def update_status(uid: str, new_status: str) -> Result[Principle]:
@@ -82,7 +82,7 @@ def create_principles_api_routes(
             uid, PrincipleUpdateIntent(priority=new_priority)
         )
 
-    field_routes = create_activity_field_api_routes(
+    create_activity_field_api_routes(
         rt,
         ActivityFieldApiConfig(
             domain_name="principles",
@@ -108,7 +108,7 @@ def create_principles_api_routes(
             req.parent_uid, req.child_uid
         )
 
-    hierarchy_routes = create_activity_hierarchy_api_routes(
+    create_activity_hierarchy_api_routes(
         rt,
         ActivityHierarchyApiConfig(
             domain_name="principles",
@@ -131,7 +131,7 @@ def create_principles_api_routes(
             req.principle_uid, req.knowledge_uid, req.relevance
         )
 
-    link_routes = create_activity_link_api_routes(
+    create_activity_link_api_routes(
         rt,
         domain_name="principles",
         singular="principle",
@@ -367,22 +367,6 @@ def create_principles_api_routes(
     # KNOWLEDGE INTELLIGENCE — learning patterns
     # ================================================================
 
-    knowledge_patterns_route = create_knowledge_patterns_api_route(
+    create_knowledge_patterns_api_route(
         rt, "principles", principles_service.analyze_learning_patterns
     )
-
-    return [
-        *field_routes,
-        *hierarchy_routes,
-        *link_routes,
-        principle_create_expression,
-        principle_portfolio,
-        principle_integrity,
-        principle_create_link,
-        principle_get_links,
-        principle_quick_impact,
-        principle_batch_impact,
-        principle_choice_effectiveness,
-        principle_record_reflection,
-        knowledge_patterns_route,
-    ]

@@ -94,7 +94,7 @@ def create_teaching_forms_ui_routes(
     form_template_service: FormTemplateOperations,
     form_submission_service: FormSubmissionOperations,
     user_service: Any,
-) -> list[Any]:
+) -> None:
     """Create teaching forms UI routes.
 
     Returns list of route functions (FastHTML decorator registers immediately).
@@ -416,5 +416,3 @@ def create_teaching_forms_ui_routes(
             render_form_responses_section(submission.form_data, form_schema),
         )
         return render_teaching_sidebar_page(content, active="forms", request=request)
-
-    return [teaching_forms_list, teaching_forms_detail, teaching_forms_submission_detail]

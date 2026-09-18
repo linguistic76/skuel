@@ -23,15 +23,10 @@ if TYPE_CHECKING:
     from services_bootstrap import Services
 
 
-def _ku_api_routes(_app: Any, _rt: Any, _service: Any, **_kw: Any) -> list[Any]:
-    """Ku API routes are registered inline in ku_ui.py via @rt()."""
-    return []
-
-
 KU_CONFIG = DomainRouteConfig(
     domain_name="ku",
     primary_service_attr="ku",  # services.ku -> KuService
-    api_factory=_ku_api_routes,
+    # Ku API routes are registered inline in ku_ui.py via @rt().
     ui_factory=create_ku_ui_routes,
     ui_related_services={
         "user_relationship_service": "user_relationships",

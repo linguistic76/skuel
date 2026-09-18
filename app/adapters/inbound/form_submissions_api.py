@@ -34,7 +34,7 @@ def create_form_submissions_api_routes(
     rt: Any,
     form_submission_service: FormSubmissionService,
     user_service: Any = None,
-) -> list[Any]:
+) -> None:
     """Create form submission API routes (authenticated users)."""
 
     # ========================================================================
@@ -130,5 +130,3 @@ def create_form_submissions_api_routes(
             recipient_uids=req.recipient_uids,
             share_with_admin=req.share_with_admin,
         )
-
-    return []

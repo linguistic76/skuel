@@ -44,7 +44,7 @@ def create_exercises_api_routes(
     entry_report_service: EntryReportService | None,
     user_service: Any = None,
     intelligence_tier: IntelligenceTier | None = None,
-) -> list[Any]:
+) -> None:
     """
     Create exercises API routes using factory pattern.
 
@@ -336,5 +336,3 @@ def create_exercises_api_routes(
         )
 
     logger.info("Exercises API routes registered (Factory pattern + curriculum linking)")
-
-    return []

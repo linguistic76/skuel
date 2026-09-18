@@ -47,7 +47,7 @@ logger = get_logger("skuel.routes.context_aware.api")
 
 def create_context_aware_api_routes(
     _app: Any, rt: Any, context_service: UserContextOperations
-) -> list[Any]:
+) -> None:
     """
     Create clean API routes for context-aware functionality with service integration.
 
@@ -206,8 +206,6 @@ def create_context_aware_api_routes(
         return await context_service.get_context_health(user_uid)
 
     logger.info("Context-Aware API routes registered (service-based architecture)")
-
-    return []
 
 
 # ============================================================================

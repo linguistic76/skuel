@@ -55,7 +55,7 @@ def create_entry_reports_ui_routes(
     _app: Any,
     rt: RouteDecorator,
     orchestrator: Any = None,
-) -> list[Any]:
+) -> None:
     """Create entry-report detail + preview routes.
 
     Args:
@@ -153,7 +153,3 @@ def create_entry_reports_ui_routes(
         return HubPreviewGrid(cards)
 
     logger.info("Entry Reports UI routes created (/entry-reports/detail + hub preview)")
-
-    return [
-        entry_report_detail,
-    ]

@@ -96,16 +96,14 @@ class ActivityHierarchyApiConfig(Generic[T]):
 def create_activity_hierarchy_api_routes(
     rt: RouteDecorator,
     config: ActivityHierarchyApiConfig[T],
-) -> list[Any]:
+) -> None:
     """Register the shared hierarchy route block for one Activity Domain."""
-    return [
-        _register_children_json_route(rt, config),
-        _register_children_fragment_route(rt, config),
-        _register_parent_route(rt, config),
-        _register_hierarchy_route(rt, config),
-        _register_add_child_route(rt, config),
-        _register_remove_child_route(rt, config),
-    ]
+    _register_children_json_route(rt, config)
+    _register_children_fragment_route(rt, config)
+    _register_parent_route(rt, config)
+    _register_hierarchy_route(rt, config)
+    _register_add_child_route(rt, config)
+    _register_remove_child_route(rt, config)
 
 
 async def _fetch_owned_children(
@@ -127,7 +125,9 @@ async def _fetch_owned_children(
     return Result.ok([child for child in result.value if child.user_uid == user_uid])
 
 
-def _register_children_json_route(rt: RouteDecorator, config: ActivityHierarchyApiConfig[T]) -> Any:
+def _register_children_json_route(
+    rt: RouteDecorator, config: ActivityHierarchyApiConfig[T]
+) -> None:
     async def children(request: Request) -> Result[list[T]]:
         user_uid = require_authenticated_user(request)
         uid = request.query_params.get("uid", "")
@@ -137,12 +137,12 @@ def _register_children_json_route(rt: RouteDecorator, config: ActivityHierarchyA
 
     children.__name__ = f"{config.singular}_children"
     children.__doc__ = f"Direct children of a parent {config.singular} (JSON)."
-    return rt(f"/api/{config.domain_name}/children", methods=["GET"])(boundary_handler()(children))
+    rt(f"/api/{config.domain_name}/children", methods=["GET"])(boundary_handler()(children))
 
 
 def _register_children_fragment_route(
     rt: RouteDecorator, config: ActivityHierarchyApiConfig[T]
-) -> Any:
+) -> None:
     children_endpoint = f"/api/{config.domain_name}/{{uid}}/children"
 
     async def children_fragment(request: Request, uid: str, parent_depth: int = 0) -> Any:
@@ -178,10 +178,10 @@ def _register_children_fragment_route(
         )
 
     children_fragment.__name__ = f"{config.singular}_children_fragment"
-    return rt(children_endpoint, methods=["GET"])(children_fragment)
+    rt(children_endpoint, methods=["GET"])(children_fragment)
 
 
-def _register_parent_route(rt: RouteDecorator, config: ActivityHierarchyApiConfig[T]) -> Any:
+def _register_parent_route(rt: RouteDecorator, config: ActivityHierarchyApiConfig[T]) -> None:
     async def parent(request: Request) -> Result[Optional[T]]:  # noqa: UP045
         user_uid = require_authenticated_user(request)
         uid = request.query_params.get("uid", "")
@@ -201,10 +201,10 @@ def _register_parent_route(rt: RouteDecorator, config: ActivityHierarchyApiConfi
 
     parent.__name__ = f"{config.singular}_parent"
     parent.__doc__ = f"Immediate parent of a child {config.singular} (None if root-level)."
-    return rt(f"/api/{config.domain_name}/parent", methods=["GET"])(boundary_handler()(parent))
+    rt(f"/api/{config.domain_name}/parent", methods=["GET"])(boundary_handler()(parent))
 
 
-def _register_hierarchy_route(rt: RouteDecorator, config: ActivityHierarchyApiConfig[T]) -> Any:
+def _register_hierarchy_route(rt: RouteDecorator, config: ActivityHierarchyApiConfig[T]) -> None:
     async def hierarchy(request: Request) -> Result[dict[str, Any]]:
         user_uid = require_authenticated_user(request)
         uid = request.query_params.get("uid", "")
@@ -232,12 +232,10 @@ def _register_hierarchy_route(rt: RouteDecorator, config: ActivityHierarchyApiCo
 
     hierarchy.__name__ = f"{config.singular}_hierarchy"
     hierarchy.__doc__ = "Full hierarchy context: ancestors, current, siblings, children, depth."
-    return rt(f"/api/{config.domain_name}/hierarchy", methods=["GET"])(
-        boundary_handler()(hierarchy)
-    )
+    rt(f"/api/{config.domain_name}/hierarchy", methods=["GET"])(boundary_handler()(hierarchy))
 
 
-def _register_add_child_route(rt: RouteDecorator, config: ActivityHierarchyApiConfig[T]) -> Any:
+def _register_add_child_route(rt: RouteDecorator, config: ActivityHierarchyApiConfig[T]) -> None:
     async def add_child(request: Request) -> Result[dict[str, Any]]:
         user_uid = require_authenticated_user(request)
         parsed = await parse_json_body(request, AddHierarchyChildRequest)
@@ -271,12 +269,12 @@ def _register_add_child_route(rt: RouteDecorator, config: ActivityHierarchyApiCo
 
     add_child.__name__ = f"{config.singular}_add_child"
     add_child.__doc__ = f"Add a parent-child relationship between two {config.domain_name}."
-    return rt(f"/api/{config.domain_name}/add-child", methods=["POST"])(
+    rt(f"/api/{config.domain_name}/add-child", methods=["POST"])(
         csrf_protected(boundary_handler()(add_child))
     )
 
 
-def _register_remove_child_route(rt: RouteDecorator, config: ActivityHierarchyApiConfig[T]) -> Any:
+def _register_remove_child_route(rt: RouteDecorator, config: ActivityHierarchyApiConfig[T]) -> None:
     async def remove_child(request: Request) -> Result[dict[str, Any]]:
         user_uid = require_authenticated_user(request)
         parsed = await parse_json_body(request, RemoveHierarchyChildRequest)
@@ -298,7 +296,7 @@ def _register_remove_child_route(rt: RouteDecorator, config: ActivityHierarchyAp
     remove_child.__doc__ = (
         f"Remove a parent-child relationship (does not delete the {config.singular} nodes)."
     )
-    return rt(f"/api/{config.domain_name}/remove-child", methods=["POST"])(
+    rt(f"/api/{config.domain_name}/remove-child", methods=["POST"])(
         csrf_protected(boundary_handler()(remove_child))
     )
 

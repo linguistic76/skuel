@@ -27,7 +27,7 @@ logger = get_logger("skuel.routes.finance.ui")
 # ============================================================================
 
 
-def create_finance_ui_routes(_app, rt, finance_service, user_service: Any = None) -> list[Any]:
+def create_finance_ui_routes(_app, rt, finance_service, user_service: Any = None) -> None:
     """
     Create Finance Hub UI routes.
 
@@ -77,8 +77,6 @@ def create_finance_ui_routes(_app, rt, finance_service, user_service: Any = None
         )
 
     logger.info("Finance Hub UI routes registered")
-
-    return []
 
 
 # Export

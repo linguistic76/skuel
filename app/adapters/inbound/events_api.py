@@ -51,7 +51,7 @@ def create_events_api_routes(
     events_service: EventsService,
     goals_service: GoalsService,
     **_kwargs: Any,
-) -> list[Any]:
+) -> None:
     """Register Events API routes."""
 
     async def update_status(uid: str, new_status: str) -> Result[Event]:
@@ -60,7 +60,7 @@ def create_events_api_routes(
     async def update_priority(uid: str, new_priority: str) -> Result[Event]:
         return await events_service.update_event(uid, EventUpdateIntent(priority=new_priority))
 
-    field_routes = create_activity_field_api_routes(
+    create_activity_field_api_routes(
         rt,
         ActivityFieldApiConfig(
             domain_name="events",
@@ -80,7 +80,7 @@ def create_events_api_routes(
         # Events carry no progress_weight — the request field is ignored.
         return await events_service.create_subevent_relationship(req.parent_uid, req.child_uid)
 
-    hierarchy_routes = create_activity_hierarchy_api_routes(
+    create_activity_hierarchy_api_routes(
         rt,
         ActivityHierarchyApiConfig(
             domain_name="events",
@@ -99,7 +99,7 @@ def create_events_api_routes(
             req.event_uid, req.goal_uid, req.contribution_weight
         )
 
-    link_routes = create_activity_link_api_routes(
+    create_activity_link_api_routes(
         rt,
         domain_name="events",
         singular="event",
@@ -116,13 +116,4 @@ def create_events_api_routes(
         ),
     )
 
-    knowledge_patterns_route = create_knowledge_patterns_api_route(
-        rt, "events", events_service.analyze_learning_patterns
-    )
-
-    return [
-        *field_routes,
-        *hierarchy_routes,
-        *link_routes,
-        knowledge_patterns_route,
-    ]
+    create_knowledge_patterns_api_route(rt, "events", events_service.analyze_learning_patterns)

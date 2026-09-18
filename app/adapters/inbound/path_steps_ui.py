@@ -146,7 +146,7 @@ def create_path_steps_ui_routes(
     ps_engagement_service: PsEngagementService | None = None,
     user_service: Any = None,
     tasks_service: Any = None,
-) -> list[Any]:
+) -> None:
     """Create Path Steps UI routes.
 
     GET /path-steps lists all curriculum PathSteps. Detail view lives at
@@ -561,8 +561,6 @@ def create_path_steps_ui_routes(
         + publish_routes_note
         + tasks_routes_note
     )
-
-    return []
 
 
 def _ps_tasks_fragment(uid: str, tasks: list[Any]) -> Any:

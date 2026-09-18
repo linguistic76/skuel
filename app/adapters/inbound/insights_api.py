@@ -32,7 +32,7 @@ def create_insights_api_routes(
     app: Any,
     rt: Any,
     insight_store: InsightStore,
-) -> list[Any]:
+) -> None:
     """Create insights API routes.
 
     Args:
@@ -358,17 +358,3 @@ def create_insights_api_routes(
                 "days": days,
             }
         )
-
-    return [
-        dismiss_insight,
-        mark_insight_actioned,
-        get_active_insights,
-        get_insight_stats,
-        # Chart endpoints
-        impact_distribution_chart,
-        domain_distribution_chart,
-        type_distribution_chart,
-        action_rate_chart,
-        get_insight_details,
-        snooze_insight,
-    ]

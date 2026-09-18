@@ -63,7 +63,7 @@ def create_choices_api_routes(
     goals_service: GoalsService,
     principles_service: PrinciplesService,
     **_kwargs: Any,
-) -> list[Any]:
+) -> None:
     """Register Choices API routes."""
 
     async def update_status(uid: str, new_status: str) -> Result[Choice]:
@@ -75,7 +75,7 @@ def create_choices_api_routes(
     async def update_priority(uid: str, new_priority: str) -> Result[Choice]:
         return await choices_service.update_choice(uid, ChoiceUpdateIntent(priority=new_priority))
 
-    field_routes = create_activity_field_api_routes(
+    create_activity_field_api_routes(
         rt,
         ActivityFieldApiConfig(
             domain_name="choices",
@@ -99,7 +99,7 @@ def create_choices_api_routes(
         # Choices carry no progress_weight — the request field is ignored.
         return await choices_service.create_subchoice_relationship(req.parent_uid, req.child_uid)
 
-    hierarchy_routes = create_activity_hierarchy_api_routes(
+    create_activity_hierarchy_api_routes(
         rt,
         ActivityHierarchyApiConfig(
             domain_name="choices",
@@ -127,7 +127,7 @@ def create_choices_api_routes(
             req.choice_uid, req.principle_uid, req.alignment_score
         )
 
-    link_routes = create_activity_link_api_routes(
+    create_activity_link_api_routes(
         rt,
         domain_name="choices",
         singular="choice",
@@ -187,14 +187,4 @@ def create_choices_api_routes(
     # KNOWLEDGE INTELLIGENCE — learning patterns
     # ================================================================
 
-    knowledge_patterns_route = create_knowledge_patterns_api_route(
-        rt, "choices", choices_service.analyze_learning_patterns
-    )
-
-    return [
-        *field_routes,
-        *hierarchy_routes,
-        *link_routes,
-        choices_aligned_with_principle,
-        knowledge_patterns_route,
-    ]
+    create_knowledge_patterns_api_route(rt, "choices", choices_service.analyze_learning_patterns)

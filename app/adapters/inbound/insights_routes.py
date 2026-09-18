@@ -55,8 +55,8 @@ def create_insights_routes(
 
     # Additional history routes
     if services and services.insight_store:
-        history_routes = create_insights_history_routes(app, rt, services.insight_store)
-        logger.info(f"Insights history routes registered: {len(history_routes)} endpoints")
+        create_insights_history_routes(app, rt, services.insight_store)
+        logger.info("Insights history routes registered")
 
 
 __all__ = ["create_insights_routes"]

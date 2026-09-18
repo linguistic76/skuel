@@ -43,7 +43,7 @@ def create_batch_transcription_api_routes(
     journal_batch: JournalBatchService,
     user_service: Any = None,
     intelligence_tier: IntelligenceTier | None = None,
-) -> list[Any]:
+) -> None:
     """
     Create batch transcription API routes.
 
@@ -236,7 +236,6 @@ def create_batch_transcription_api_routes(
         )
 
     logger.info("Batch transcription API routes created")
-    return [batch_transcribe, folder_transcribe]
 
 
 __all__ = ["create_batch_transcription_api_routes"]

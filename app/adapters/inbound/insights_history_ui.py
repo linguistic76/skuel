@@ -57,7 +57,7 @@ def create_insights_history_routes(
     app: Any,
     rt: Any,
     insight_store: Any,
-) -> list[Any]:
+) -> None:
     """Create insights history UI routes.
 
     Args:
@@ -204,5 +204,3 @@ def create_insights_history_routes(
             request=request,
             active_page="insights",
         )
-
-    return [insights_history_page]

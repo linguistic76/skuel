@@ -340,7 +340,7 @@ class CRUDRouteFactory[T]:
             )(handler)
         )
 
-    def register_routes(self, _app, rt):
+    def register_routes(self, _app, rt) -> None:
         """
         Register all CRUD routes using FastHTML conventions.
 
@@ -369,7 +369,7 @@ class CRUDRouteFactory[T]:
             f"✅ CRUD routes registered for {self.domain} at {self.base_path} (FastHTML-aligned)"
         )
 
-    def _register_create_route(self, rt) -> Any:
+    def _register_create_route(self, rt) -> None:
         """
         Register create route: POST /{domain}/create
 
@@ -481,9 +481,9 @@ class CRUDRouteFactory[T]:
         instrumented = self._instrument_handler(
             create, f"{self.base_path}/create", success_status=201
         )
-        return rt(f"{self.base_path}/create")(instrumented)
+        rt(f"{self.base_path}/create")(instrumented)
 
-    def _register_get_route(self, rt) -> Any:
+    def _register_get_route(self, rt) -> None:
         """
         Register get route: GET /{domain}/get?uid=...
 
@@ -522,9 +522,9 @@ class CRUDRouteFactory[T]:
 
         # Apply instrumentation + boundary handling, then register route
         instrumented = self._instrument_handler(get, f"{self.base_path}/get")
-        return rt(f"{self.base_path}/get")(instrumented)
+        rt(f"{self.base_path}/get")(instrumented)
 
-    def _register_update_route(self, rt) -> Any:
+    def _register_update_route(self, rt) -> None:
         """
         Register update route: POST /{domain}/update?uid=...
 
@@ -584,9 +584,9 @@ class CRUDRouteFactory[T]:
 
         # Apply instrumentation if metrics enabled, then register route
         instrumented = self._instrument_handler(update, f"{self.base_path}/update")
-        return rt(f"{self.base_path}/update")(instrumented)
+        rt(f"{self.base_path}/update")(instrumented)
 
-    def _register_delete_route(self, rt) -> Any:
+    def _register_delete_route(self, rt) -> None:
         """
         Register delete route: POST /{domain}/delete?uid=...
 
@@ -628,9 +628,9 @@ class CRUDRouteFactory[T]:
 
         # Apply instrumentation if metrics enabled, then register route
         instrumented = self._instrument_handler(delete, f"{self.base_path}/delete")
-        return rt(f"{self.base_path}/delete")(instrumented)
+        rt(f"{self.base_path}/delete")(instrumented)
 
-    def _register_list_route(self, rt) -> Any:
+    def _register_list_route(self, rt) -> None:
         """
         Register list route: GET /{domain}/list
 
@@ -707,9 +707,9 @@ class CRUDRouteFactory[T]:
 
         # Apply instrumentation if metrics enabled, then register route
         instrumented = self._instrument_handler(list_entities, f"{self.base_path}/list")
-        return rt(f"{self.base_path}/list")(instrumented)
+        rt(f"{self.base_path}/list")(instrumented)
 
-    def _register_search_route(self, rt) -> Any:
+    def _register_search_route(self, rt) -> None:
         """
         Register search route: GET /{domain}/search?query=...
 
@@ -729,7 +729,7 @@ class CRUDRouteFactory[T]:
         """
         if not self.search_handler:
             logger.warning(f"Search route enabled for {self.domain} but no search_handler provided")
-            return None
+            return
 
         search_handler = self.search_handler
         domain = self.domain
@@ -771,7 +771,7 @@ class CRUDRouteFactory[T]:
 
         # Apply instrumentation if metrics enabled, then register route
         instrumented = self._instrument_handler(search, f"{self.base_path}/search")
-        return rt(f"{self.base_path}/search")(instrumented)
+        rt(f"{self.base_path}/search")(instrumented)
 
 
 # ============================================================================

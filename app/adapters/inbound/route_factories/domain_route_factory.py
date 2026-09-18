@@ -38,7 +38,7 @@ Usage:
     )
 
     def create_tasks_routes(app, rt, services, _sync_service=None):
-        return register_domain_routes(app, rt, services, TASKS_CONFIG)
+        register_domain_routes(app, rt, services, TASKS_CONFIG)
 """
 
 from collections.abc import Callable
@@ -127,10 +127,10 @@ class DomainRouteConfig:
     Attributes:
         domain_name: Human-readable domain name for logging (e.g., "tasks", "goals")
         primary_service_attr: Attribute name on services container (e.g., "tasks", "goals")
-        api_factory: Optional function to create API routes - signature:
-            (app, rt, primary_service, **related_services) -> list[Any]
-        ui_factory: Optional function to create UI routes - signature:
-            (app, rt, primary_service, **ui_related_services) -> list[Any]
+        api_factory: Optional function to register API routes - signature:
+            (app, rt, primary_service, **related_services) -> None
+        ui_factory: Optional function to register UI routes - signature:
+            (app, rt, primary_service, **ui_related_services) -> None
         api_related_services: Mapping of {kwarg_name: container_attr} for API factory.
             Keys must match parameter names in api_factory's signature.
             Values must be the exact attribute name on the services container.
@@ -143,14 +143,13 @@ class DomainRouteConfig:
 
     domain_name: str
     primary_service_attr: str
-    # Factory return is widened to `list[Any] | None` because ~half of the
-    # ~140 factories register via decorators and return None — the runtime
-    # `or []` in register_domain_routes handles both shapes.
-    api_factory: Callable[..., list[Any] | None] | None = None
-    ui_factory: Callable[..., list[Any] | None] | None = None
+    # A factory registers its handlers with `rt` and returns nothing — the
+    # decorator is the registration, so there is no handler list to hand back.
+    api_factory: Callable[..., None] | None = None
+    ui_factory: Callable[..., None] | None = None
     api_related_services: dict[str, str] = field(default_factory=dict)
     ui_related_services: dict[str, str] = field(default_factory=dict)
-    # Config-driven factory fields (all default None = backward compatible)
+    # Config-driven factory fields — None means the domain does not use that factory
     crud: CRUDRouteConfig | None = None
     query: QueryRouteConfig | None = None
     intelligence: IntelligenceRouteConfig | None = None
@@ -161,7 +160,7 @@ def register_domain_routes(
     rt: RouteDecorator,
     services: Services | None,
     config: DomainRouteConfig,
-) -> list[Any]:
+) -> None:
     """
     Register domain routes using configuration.
 
@@ -182,8 +181,8 @@ def register_domain_routes(
         services: Services container
         config: Domain route configuration
 
-    Returns:
-        List of registered routes (empty if primary service missing)
+    A missing primary service is a warning and an early return — nothing is
+    registered for the domain.
     """
     # Import factories here to avoid circular imports at module level
     from adapters.inbound.route_factories.crud_route_factory import CRUDRouteFactory
@@ -200,7 +199,7 @@ def register_domain_routes(
             f"{config.domain_name.title()} routes registered without "
             f"{config.primary_service_attr} service"
         )
-        return []
+        return
 
     # 2. Extract related services for API factory (kwarg_name -> value)
     _missing = object()
@@ -216,8 +215,6 @@ def register_domain_routes(
                 )
                 value = None
             api_related[kwarg_name] = value
-
-    registered: list[Any] = []
 
     # 3. Config-driven factory instantiation (order: CRUD → Query → Intelligence)
     if config.crud:
@@ -276,7 +273,7 @@ def register_domain_routes(
 
     # 4. Wire API routes (Status, Analytics, manual routes)
     if config.api_factory:
-        registered.extend(config.api_factory(app, rt, primary_service, **api_related) or [])
+        config.api_factory(app, rt, primary_service, **api_related)
 
     # 5. Wire UI routes (optional)
     if config.ui_factory:
@@ -292,9 +289,7 @@ def register_domain_routes(
                 value = None
             ui_related[kwarg_name] = value
 
-        registered.extend(config.ui_factory(app, rt, primary_service, **ui_related) or [])
-
-    return registered
+        config.ui_factory(app, rt, primary_service, **ui_related)
 
 
 # ============================================================================
@@ -305,12 +300,12 @@ def register_domain_routes(
 def create_activity_domain_route_config(
     domain_name: str,
     primary_service_attr: str,
-    api_factory: Callable[..., list[Any] | None],
+    api_factory: Callable[..., None],
     create_schema: type,
     update_schema: type,
     uid_prefix: str,
     request_create_method: str,
-    ui_factory: Callable[..., list[Any] | None] | None = None,
+    ui_factory: Callable[..., None] | None = None,
     supports_goal_filter: bool = False,
     supports_habit_filter: bool = False,
     api_related_services: dict[str, str] | None = None,

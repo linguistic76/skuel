@@ -57,7 +57,7 @@ HABITS_CONFIG = DomainRouteConfig(
 )
 
 def create_habits_routes(app, rt, services, _sync_service=None):
-    return register_domain_routes(app, rt, services, HABITS_CONFIG)
+    register_domain_routes(app, rt, services, HABITS_CONFIG)
 ```
 
 ### Trade-offs
@@ -180,8 +180,7 @@ The manual block mirrors exactly what `register_domain_routes()` does for the pr
 
 ```python
 if services and services.{service_attr}:
-    extra = create_extra_routes(app, rt, services.{service_attr})
-    routes.extend(extra)
+    create_extra_routes(app, rt, services.{service_attr})
 ```
 
 Two checks: `services` is not None (container exists), and the specific service attribute is not None (service was bootstrapped). Both are required.

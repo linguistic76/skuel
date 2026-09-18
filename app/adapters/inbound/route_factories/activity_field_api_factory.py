@@ -99,16 +99,17 @@ class ActivityFieldApiConfig[T]:
 def create_activity_field_api_routes[T](
     rt: RouteDecorator,
     config: ActivityFieldApiConfig[T],
-) -> list[Any]:
+) -> None:
     """Register ``POST /api/{domain}/{uid}/{field}`` routes for one domain."""
-    return [_register_field_route(rt, config, spec) for spec in config.fields]
+    for spec in config.fields:
+        _register_field_route(rt, config, spec)
 
 
 def _register_field_route[T](
     rt: RouteDecorator,
     config: ActivityFieldApiConfig[T],
     spec: FieldUpdateSpec[T],
-) -> Any:
+) -> None:
     not_found = f"{config.singular.capitalize()} not found"
 
     async def update_field(request: Request, uid: str) -> Any:
@@ -155,7 +156,7 @@ def _register_field_route[T](
         f"Update {config.singular} {spec.field} (HTMX endpoint). Returns updated card."
     )
     route_path = f"/api/{config.domain_name}/{{uid}}/{spec.field}"
-    return rt(route_path, methods=["POST"])(csrf_protected(update_field))
+    rt(route_path, methods=["POST"])(csrf_protected(update_field))
 
 
 __all__ = [

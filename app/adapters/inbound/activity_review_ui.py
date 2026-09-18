@@ -49,7 +49,7 @@ def create_activity_review_ui_routes(
     _app: Any,
     rt: Any,
     orchestrator: ActivityReviewOrchestrator,
-) -> list[Any]:
+) -> None:
     """Create Activity Review admin UI routes."""
     logger.info("Creating Activity Review UI routes")
 
@@ -252,14 +252,6 @@ def create_activity_review_ui_routes(
                 variant=AlertT.success,
             ),
         )
-
-    return [
-        activity_review_landing,
-        activity_review_queue_page,
-        activity_review_new_page,
-        activity_review_snapshot_fragment,
-        activity_review_submit_feedback,
-    ]
 
 
 __all__ = ["create_activity_review_ui_routes"]

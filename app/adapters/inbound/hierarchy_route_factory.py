@@ -114,18 +114,15 @@ class HierarchyRouteFactory:
         self.get_parent_method = get_parent_method or f"get_parent_{singular}"
         self.register_children_route = register_children_route
 
-    def create_routes(self) -> list[Any]:
-        """Create all hierarchy routes."""
-        routes = [
-            self._create_move_node_route(),
-            self._create_update_node_route(),
-            self._create_bulk_delete_route(),
-        ]
+    def create_routes(self) -> None:
+        """Register all hierarchy routes."""
+        self._create_move_node_route()
+        self._create_update_node_route()
+        self._create_bulk_delete_route()
         if self.register_children_route:
-            routes.insert(0, self._create_get_children_route())
-        return routes
+            self._create_get_children_route()
 
-    def _create_get_children_route(self) -> Any:
+    def _create_get_children_route(self) -> None:
         """GET /api/{domain}/{uid}/children - Fetch children for HTMX lazy loading."""
 
         @self.rt(f"/api/{self.domain}/{{uid}}/children", methods=["GET"])
@@ -194,8 +191,6 @@ class HierarchyRouteFactory:
                 parent_depth=parent_depth,  # Use actual parent depth from query parameter
             )
 
-        return get_children
-
     async def _move_node(self, uid: str, new_parent_uid: str) -> Result[bool]:
         """
         Move a node to a new parent: remove old parent relationship, create new one.
@@ -231,7 +226,7 @@ class HierarchyRouteFactory:
 
         return Result.ok(True)
 
-    def _create_move_node_route(self) -> Any:
+    def _create_move_node_route(self) -> None:
         """POST /api/{domain}/{uid}/move - Move node to new parent."""
 
         @self.rt(f"/api/{self.domain}/{{uid}}/move", methods=["POST"])
@@ -264,9 +259,7 @@ class HierarchyRouteFactory:
                 "message": f"{self.entity_name} moved successfully",
             }
 
-        return move_node
-
-    def _create_update_node_route(self) -> Any:
+    def _create_update_node_route(self) -> None:
         """PATCH /api/{domain}/{uid} - Update node title (inline editing)."""
 
         @self.rt(f"/api/{self.domain}/{{uid}}", methods=["PATCH"])
@@ -316,9 +309,7 @@ class HierarchyRouteFactory:
                 "title": title,
             }
 
-        return update_node
-
-    def _create_bulk_delete_route(self) -> Any:
+    def _create_bulk_delete_route(self) -> None:
         """POST /api/{domain}/bulk-delete - Delete multiple nodes."""
 
         @self.rt(f"/api/{self.domain}/bulk-delete", methods=["POST"])
@@ -356,5 +347,3 @@ class HierarchyRouteFactory:
                 "deleted_count": deleted_count,
                 "errors": errors,
             }
-
-        return bulk_delete

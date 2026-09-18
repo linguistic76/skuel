@@ -38,7 +38,7 @@ if TYPE_CHECKING:
 
 def create_analytics_summary_api_routes(
     app: FastHTMLApp, rt: RouteDecorator, analytics_service: AnalyticsService
-) -> list[Any]:
+) -> None:
     """
     Create Analytics Summary API routes (read-only analytics).
 
@@ -234,5 +234,3 @@ def create_analytics_summary_api_routes(
         return await analytics_service.detect_cross_domain_patterns(
             user_uid, start_result.value, end_result.value
         )
-
-    return []

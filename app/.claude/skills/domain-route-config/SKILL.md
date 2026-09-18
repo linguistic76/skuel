@@ -124,7 +124,7 @@ from adapters.inbound.route_factories import DomainRouteConfig, register_domain_
 
 def create_{domain}_routes(app, rt, services, _sync_service=None):
     """Wire {domain} API and UI routes using configuration-driven registration."""
-    return register_domain_routes(app, rt, services, {DOMAIN}_CONFIG)
+    register_domain_routes(app, rt, services, {DOMAIN}_CONFIG)
 
 
 __all__ = ["create_{domain}_routes"]
@@ -209,9 +209,13 @@ from adapters.inbound.route_factories import DomainRouteConfig, register_domain_
 KU_CONFIG = DomainRouteConfig(
     domain_name="ku",
     primary_service_attr="ku",
-    api_factory=_ku_api_routes,
+    # Ku API routes are registered inline in ku_ui.py via @rt() — api_factory is
+    # optional, so a UI-only domain simply omits it.
     ui_factory=create_ku_ui_routes,
-    ui_related_services={"user_relationship_service": "user_relationships"},
+    ui_related_services={
+        "user_relationship_service": "user_relationships",
+        "exercises_service": "exercises",
+    },
 )
 ```
 
@@ -276,16 +280,13 @@ INSIGHTS_CONFIG = DomainRouteConfig(
 )
 
 
-def create_insights_routes(app, rt, services, _sync_service=None):
+def create_insights_routes(app, rt, services, _sync_service=None) -> None:
     # Standard routes via config
-    routes = register_domain_routes(app, rt, services, INSIGHTS_CONFIG)
+    register_domain_routes(app, rt, services, INSIGHTS_CONFIG)
 
     # Additional history routes registered manually
     if services and services.insight_store:
-        history_routes = create_insights_history_routes(app, rt, services.insight_store)
-        routes.extend(history_routes)
-
-    return routes
+        create_insights_history_routes(app, rt, services.insight_store)
 ```
 
 The manual block follows the same service-null-guard pattern that `register_domain_routes()` uses internally: check `services` and the specific service before calling the factory.
@@ -373,9 +374,8 @@ def create_{domain}_api_routes(
     # Related services as keyword args with defaults:
     user_service: Any = None,
     goals_service: Any = None,
-) -> list[Any]:                      # Sub-factory: must return list[Any] (DomainRouteConfig contract)
+) -> None:                           # @rt() registers on definition — nothing to return
     ...
-    return []
 ```
 
 ### UI Factory
@@ -387,15 +387,14 @@ def create_{domain}_ui_routes(
     {domain}_service: ServiceType,               # Primary service (positional)
     connection_fetch_backend: ConnectionFetchOperations,  # related service, injected by name via ui_related_services
     goals_service: GoalsService | None = None,   # optional related services default to None
-) -> list[Any]:                                  # Sub-factory: must return list[Any] (DomainRouteConfig contract)
+) -> None:                                       # @rt() registers on definition — nothing to return
     ...
-    return []
 ```
 
 **Key requirements:**
 1. Positional order: `app`, `rt`, `primary_service` — always in this order
 2. Optional related services default to `None` (they may not be bootstrapped yet); always-present infrastructure (e.g. `connection_fetch_backend`) can be a required param with no default
-3. **Two-layer return contract:** Sub-factories (wired into `DomainRouteConfig.api_factory`/`ui_factory`) return `list[Any]` — never `None` — because `register_domain_routes()` calls `.extend()` on the result. Top-level orchestrators (`create_{domain}_routes`) return `None` — bootstrap discards the value.
+3. **Return nothing:** sub-factories (`DomainRouteConfig.api_factory`/`ui_factory` are `Callable[..., None]`), `register_domain_routes()`, and the top-level `create_{domain}_routes` all return `None` — `@rt()` registers the handler when applied, so there is no route list to hand up.
 4. Related services are explicit **named** kwargs injected via `ui_related_services` — `register_domain_routes()` passes `primary_service` + those kwargs, never a whole `services` container. (A whole-`services` container is the separate Orchestrator/Manual hub convention — see Anti-Pattern #1.)
 
 ---
@@ -433,25 +432,23 @@ api_related_services={
 
 This fails silently: `getattr` returns `None`, which is passed as the kwarg. The factory won't crash if the param has a default, but it will behave as if the service doesn't exist.
 
-### 3. Returning None from a sub-factory
+### 3. Collecting the handlers a factory already registered
 
 ```python
-# BAD — sub-factory returns None implicitly
-def create_tasks_api_routes(app, rt, tasks_service):
+# BAD — the list is dead: @rt registered get_tasks when it was applied,
+# and nothing reads what the factory returns
+def create_tasks_api_routes(app, rt, tasks_service) -> list[Any]:
     @rt("/api/tasks")
     async def get_tasks(): ...
-    # no return statement → None
+    return [get_tasks]
 
-# GOOD — sub-factories wired into DomainRouteConfig must return list[Any]
-def create_tasks_api_routes(app, rt, tasks_service):
+# GOOD — register and return nothing
+def create_tasks_api_routes(app, rt, tasks_service) -> None:
     @rt("/api/tasks")
     async def get_tasks(): ...
-    return []
 ```
 
-`register_domain_routes()` calls `.extend()` on the return value. `None.extend()` is a `TypeError`.
-
-**Note:** This applies to sub-factories (`api_factory`/`ui_factory`), not top-level orchestrators. Top-level `create_{domain}_routes()` functions return `None` — bootstrap discards their return value.
+`DomainRouteConfig.api_factory` / `ui_factory` are `Callable[..., None]`; `register_domain_routes()` and the top-level `create_{domain}_routes()` return `None` too — the same rule at every layer (see `/docs/patterns/FASTHTML_ROUTE_REGISTRATION.md`).
 
 ### 4. Forgetting the null guard in UI-only domains
 
@@ -459,7 +456,7 @@ def create_tasks_api_routes(app, rt, tasks_service):
 # BAD — if someone removes the null guard from domain_route_factory.py:
 # config.api_factory(app, rt, ...)  # TypeError when api_factory is None
 
-# The guard at domain_route_factory.py line ~97 MUST stay:
+# The `if config.api_factory:` guard in register_domain_routes() MUST stay:
 if config.api_factory:
     config.api_factory(app, rt, primary_service, **api_related)
 ```

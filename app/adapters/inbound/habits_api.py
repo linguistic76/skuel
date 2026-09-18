@@ -102,7 +102,7 @@ def create_habits_api_routes(
     habits_service: HabitsService,
     principles_service: PrinciplesService,
     **_kwargs: Any,
-) -> list[Any]:
+) -> None:
     """Register Habits API routes."""
 
     async def update_status(uid: str, new_status: str) -> Result[Habit]:
@@ -113,7 +113,7 @@ def create_habits_api_routes(
     async def update_priority(uid: str, new_priority: str) -> Result[Habit]:
         return await habits_service.update_habit(uid, HabitUpdateIntent(priority=new_priority))
 
-    field_routes = create_activity_field_api_routes(
+    create_activity_field_api_routes(
         rt,
         ActivityFieldApiConfig(
             domain_name="habits",
@@ -439,7 +439,7 @@ def create_habits_api_routes(
             req.parent_uid, req.child_uid, req.progress_weight
         )
 
-    hierarchy_routes = create_activity_hierarchy_api_routes(
+    create_activity_hierarchy_api_routes(
         rt,
         ActivityHierarchyApiConfig(
             domain_name="habits",
@@ -467,7 +467,7 @@ def create_habits_api_routes(
             req.habit_uid, req.principle_uid, req.embodiment_strength
         )
 
-    link_routes = create_activity_link_api_routes(
+    create_activity_link_api_routes(
         rt,
         domain_name="habits",
         singular="habit",
@@ -494,27 +494,4 @@ def create_habits_api_routes(
         ),
     )
 
-    knowledge_patterns_route = create_knowledge_patterns_api_route(
-        rt, "habits", habits_service.analyze_learning_patterns
-    )
-
-    return [
-        *field_routes,
-        habit_track,
-        habit_untrack,
-        habit_bulk_complete,
-        habit_streak,
-        habit_progress,
-        habit_history,
-        habit_completion_calendar,
-        habit_badge_progress,
-        habits_due_today,
-        habits_completed_today_count,
-        habit_set_reminder,
-        habit_get_reminders,
-        habit_delete_reminder,
-        habit_export,
-        *hierarchy_routes,
-        *link_routes,
-        knowledge_patterns_route,
-    ]
+    create_knowledge_patterns_api_route(rt, "habits", habits_service.analyze_learning_patterns)

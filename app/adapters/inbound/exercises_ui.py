@@ -47,7 +47,7 @@ def create_exercises_ui_routes(
     transcript_service=None,
     user_service=None,
     **related_services: Any,
-) -> list[Any]:
+) -> None:
     """
     Create exercises UI routes.
 
@@ -204,8 +204,6 @@ def create_exercises_ui_routes(
         return render_exercise_student_detail(exercise, from_ps=from_ps)
 
     logger.info("Exercises UI routes registered")
-
-    return []
 
 
 __all__ = ["create_exercises_ui_routes"]
