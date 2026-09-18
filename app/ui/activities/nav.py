@@ -2,7 +2,8 @@
 
 Renders a collapsible sidebar — the three temporal lenses (Today / Weekly /
 Monthly), the Activity Domain rows with their count and health badges, and the
-Journal — as ONE list on every domain page, the calendar views and Today.
+Journal (today's daily periodic note) — as ONE list on every domain page, the
+calendar views, Today and the periodic notes.
 
 Usage:
     from ui.activities.nav import render_activity_sidebar_page
@@ -28,6 +29,10 @@ if TYPE_CHECKING:
 
 ACTIVITY_STORAGE_KEY = "activity-sidebar"
 
+# The sidebar's heading — one name on every page that carries it, whatever the
+# page's own browser title is.
+ACTIVITY_SIDEBAR_TITLE = "Tasks+"
+
 ACTIVITY_SIDEBAR_ITEMS: list[SidebarItem] = [
     SidebarItem("Today", "/today", "today", icon="sun"),
     SidebarItem("Weekly", "/cal/week", "weekly", icon="calendar-range"),
@@ -37,7 +42,10 @@ ACTIVITY_SIDEBAR_ITEMS: list[SidebarItem] = [
     SidebarItem("Habits", "/habits", "habits", icon="repeat"),
     SidebarItem("Principles", "/principles", "principles", icon="compass"),
     SidebarItem("Choices", "/choices", "choices", icon="git-branch"),
-    SidebarItem("Journal", "/journals", "journals", icon="book-open"),
+    # The periodic notes' door: today's daily note (find-or-create, then a
+    # redirect to the note page). The dateless route resolves "today" at click
+    # time, so this list can stay a constant.
+    SidebarItem("Journal", "/journals/daily", "journals", icon="book-open"),
 ]
 
 
@@ -46,7 +54,7 @@ def render_activity_sidebar_page(
     active: str,
     request: Request | None = None,
     extra_css: list[str] | None = None,
-    title: str = "Tasks+",
+    title: str = ACTIVITY_SIDEBAR_TITLE,
     active_page: str = "activity",
     content_max_width: str = "max-w-6xl",
 ) -> FT:
@@ -57,7 +65,8 @@ def render_activity_sidebar_page(
         active: The active sidebar item slug (e.g. "tasks", "activities").
         request: The request object for auth detection.
         extra_css: Additional CSS file paths to include in the page head.
-        title: Browser/page title; defaults to "Tasks+" for activity domain pages.
+        title: Browser/page title only — the sidebar heading is always
+            ``ACTIVITY_SIDEBAR_TITLE``; defaults to that same name.
         active_page: Top-nav active key passed to BasePage; defaults to "activity".
         content_max_width: Tailwind max-width class for the content column;
             "max-w-none" lets fluid pages (calendar) fill the available width.
@@ -66,7 +75,8 @@ def render_activity_sidebar_page(
         content=content,
         items=ACTIVITY_SIDEBAR_ITEMS,
         active=active,
-        title=title,
+        title=ACTIVITY_SIDEBAR_TITLE,
+        page_title=title,
         storage_key=ACTIVITY_STORAGE_KEY,
         request=request,
         active_page=active_page,

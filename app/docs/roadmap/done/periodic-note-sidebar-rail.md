@@ -2,10 +2,12 @@
 status: done
 ruled: 2026-09-05
 registered: 2026-09-05
-updated: 2026-09-05
+updated: 2026-09-18
 ---
 
 # Periodic-note sidebar: week rail + period rail
+
+> **2026-09-18:** the column moved to the RIGHT of the editor (as the *period navigator*, `_period_navigator`) when the page took the Tasks+ sidebar on its left; both pickers are unchanged. Its tests now live in `tests/unit/ui/test_periodic_note_navigator.py`.
 
 *Shipped 2026-09-05. Supersedes the period ladder from `quarterly-yearly-periodic-notes.md`
 and completes the makeover that `period-notes-toolbar-picker.md` started at the navbar.*
@@ -76,5 +78,5 @@ everywhere is a separate ruling.
 | `ui/journals/period_links.py` | `+ PERIOD_ICONS`, `+ period_step()`, compact daily label |
 | `ui/journals/chat_page.py` | `_period_rail` replaces `_period_ladder`; `_note_anchor` extracted; `_mini_month_calendar` gains the week rail |
 | `ui/components/_icon_data.py` | `+ orbit` (regenerated) |
-| `tests/unit/ui/test_periodic_note_sidebar.py` | new — both pickers, the five rows, the year-boundary steps |
+| `tests/unit/ui/test_periodic_note_navigator.py` (then `test_periodic_note_sidebar.py`) | new — both pickers, the five rows, the year-boundary steps |
 | `tests/unit/ui/test_period_links.py` | `+ period_step` boundaries and reversibility |

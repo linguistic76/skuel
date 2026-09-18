@@ -1,6 +1,6 @@
 ---
 title: UI Component Patterns
-updated: '2026-09-14'
+updated: '2026-09-18'
 category: patterns
 related_skills:
   - accessibility-guide
@@ -399,7 +399,7 @@ app, rt = fast_app(hdrs=(*skuel_headers(), *pwa_headers()))
 
 **What `skuel_headers()` includes:**
 - Meta viewport tags
-- Compiled Tailwind CSS — `static/css/output.css` (built by `./dev css-build`)
+- Compiled Tailwind CSS — `static/css/output.css` (committed minified — rebuild with `./dev css-prod`; `./dev css-build` is the unminified dev build)
 - HTMX 1.9.10
 - Alpine.js 3.14.8 (self-hosted)
 - SKUEL custom CSS/JS

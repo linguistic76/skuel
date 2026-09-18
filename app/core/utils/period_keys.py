@@ -2,7 +2,7 @@
 
 One key form per period kind, shared by every surface that addresses a period
 by name rather than by a date inside it: the periodic notes' persistence
-contract (``ensure_periodic_note``), the planning panel's key parsing, and the
+contract (``ensure_periodic_note``), the note page's navigator anchor, and the
 activity reports' calendar-aligned ``time_period`` tokens.
 
     weekly    ``{year}-W{week:02d}``   ISO week (``2026-W37``)

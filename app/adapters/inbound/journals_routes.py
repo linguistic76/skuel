@@ -6,7 +6,9 @@ Routes:
     POST /journals/upload               — file upload handler (DNWF door)
     POST /journals/folder-process       — batch folder processing
     GET  /journals/je-out/{filename}    — download a journal output from je_out/
-    GET  /journals/{entry_uid}          — periodic-note page (daily/weekly/monthly)
+    GET  /journals/daily                — find-or-create TODAY's daily note, redirect to it (the Tasks+ sidebar's Journal door)
+    GET  /journals/{kind}/...           — find-or-create a period's note (daily/weekly/monthly/quarterly/yearly), redirect to it
+    GET  /journals/{entry_uid}          — periodic-note page (editor + period navigator, inside the Tasks+ sidebar)
     POST /journals/follow-up            — conversation continuation (all tiers)
     POST /journals/stage1               — Stage 1 Scribe (FOUNDER audio door, FULL tier)
     POST /journals/stage2               — Stage 2 Thought Partner (FOUNDER audio door, FULL tier)
@@ -278,10 +280,6 @@ def create_journals_routes(
         "ConversationService must be wired before journals routes"
     )
     conversation_service = services.conversation
-    # Weekly-note read panel producer (periodic-notes arc S3). Optional: the
-    # note page is the primary surface — an unwired calendar degrades to a
-    # panel-less page, never a 5xx.
-    calendar_service = services.calendar
 
     async def _load_ai_gated_user(user_uid: UserUID) -> User | None:
         """Load the user behind the per-user AI gate (ADR-043) — ``None`` = denied.
@@ -797,15 +795,11 @@ def create_journals_routes(
     # ``UserEntryService.ensure_periodic_note`` (the persistence contract);
     # routes only compute the period key + display title and redirect.
 
-    @rt("/journals/daily/{date_str}", methods=["GET"])
-    async def journal_daily_note(request: Request, date_str: str) -> Any:
+    async def _open_daily_note(request: Request, target_date: date) -> Any:
+        """Find-or-create the daily note for ``target_date`` and redirect to it."""
         user_uid = require_authenticated_user(request)
         if user_entry_service is None:
             return Response("Service unavailable", status_code=503)
-        try:
-            target_date = date.fromisoformat(date_str)
-        except ValueError:
-            target_date = date.today()
         ensured = await user_entry_service.ensure_periodic_note(
             user_uid,
             "daily",
@@ -815,6 +809,20 @@ def create_journals_routes(
         if ensured.is_error:
             return Response("Error loading note", status_code=500)
         return RedirectResponse(f"/journals/{ensured.value}", status_code=302)
+
+    @rt("/journals/daily", methods=["GET"])
+    async def journal_daily_note_today(request: Request) -> Any:
+        """Today's daily note — the dateless door the Tasks+ sidebar's Journal
+        item opens, resolved at click time (``/today`` ↔ ``/today/{date}``)."""
+        return await _open_daily_note(request, date.today())
+
+    @rt("/journals/daily/{date_str}", methods=["GET"])
+    async def journal_daily_note(request: Request, date_str: str) -> Any:
+        try:
+            target_date = date.fromisoformat(date_str)
+        except ValueError:
+            target_date = date.today()
+        return await _open_daily_note(request, target_date)
 
     @rt("/journals/weekly/{year}/{week}", methods=["GET"])
     async def journal_weekly_note(request: Request, year: int, week: int) -> Any:
@@ -1096,9 +1104,10 @@ def create_journals_routes(
         This route serves only the deliberate stored feature: periodic notes.
         Any non-periodic entry_uid → 404.
 
-        Every kind but daily additionally carries a read-only panel of the
-        period's existing entities (periodic-notes arc S3) — see
-        ``ui/journals/period_panel``.
+        The page is the note's editor with its period navigator (mini month +
+        period rail) beside it, wrapped in the Tasks+ sidebar page like the
+        activity domains, the calendar views and Today — the sidebar's Journal
+        row is lit.
         """
         from adapters.inbound.result_helpers import require_found
         from core.utils.result_simplified import ErrorCategory
@@ -1121,54 +1130,25 @@ def create_journals_routes(
         if not entry.is_periodic_note():
             return Response("Not found", status_code=404)
 
+        from ui.activities.nav import render_activity_sidebar_page
         from ui.journals import PeriodicNoteFragment
         from ui.journals.chat_page import PeriodicNotePage
-        from ui.journals.period_panel import PlanningPanel, planning_period
-        from ui.layouts.base_page import BasePage
-        from ui.layouts.page_types import PageType
-
-        # Weekly, monthly, quarterly and yearly notes gain a read panel of the
-        # period's existing entities (periodic-notes arc S3, ruling E2: the vault
-        # plans, the app shows). The daily note stays panel-less —
-        # ``planning_period`` answers None for it. Degrades to no panel on an unparseable period key or a
-        # failed fetch — the note is primary.
-        planning_panel = None
-        if calendar_service is not None:
-            # period_key is stamped by the calendar routes but not by vault
-            # ingestion; the UID always encodes it as the last colon segment.
-            period_key = str(entry.metadata.get("period_key") or entry.uid.rsplit(":", 1)[-1])
-            period = planning_period(str(entry.metadata.get("entry_kind")), period_key)
-            if period is not None:
-                items_result = await calendar_service.get_planning_items(
-                    user_uid, period.start, period.end
-                )
-                if items_result.is_error:
-                    logger.warning(
-                        "Planning panel fetch failed for %s: %s",
-                        entry.uid,
-                        items_result.expect_error(),
-                    )
-                else:
-                    planning_panel = PlanningPanel(items_result.value, period)
 
         initial_workspace = PeriodicNoteFragment(
             entry_uid=entry.uid,
             title=entry.title or "",
             content=entry.content or "",
         )
-        page_content = PeriodicNotePage(
-            entry=entry, initial_workspace=initial_workspace, planning_panel=planning_panel
-        )
-
-        if request.headers.get("HX-Request"):
-            return page_content
-
-        return BasePage(
-            content=page_content,
-            title=entry.title or "Periodic Note",
-            page_type=PageType.CUSTOM,
+        return render_activity_sidebar_page(
+            content=PeriodicNotePage(entry=entry, initial_workspace=initial_workspace),
+            active="journals",
             request=request,
+            title=entry.title or "Periodic Note",
+            # "calendar" lights the navbar calendar icon, as on the calendar views.
             active_page="calendar",
+            # The editor centres itself; the navigator needs the width a
+            # collapsed sidebar frees.
+            content_max_width="max-w-none",
         )
 
     # ------------------------------------------------------------------

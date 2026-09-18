@@ -76,8 +76,7 @@ if TYPE_CHECKING:
 class CalendarServiceOperations(Protocol):
     """Calendar aggregation service operations.
 
-    Route consumer: calendar_ui.py, journals_routes.py (weekly/monthly-note
-    read panel)
+    Route consumer: calendar_ui.py, today_routes.py (via the Today orchestrator)
     Implementation: CalendarService
     """
 
@@ -90,19 +89,6 @@ class CalendarServiceOperations(Protocol):
         include_completed: bool = False,
     ) -> Result[CalendarData]:
         """The view's declared membership (VIEW_SPECS) for a date range. Returns Result[CalendarData]."""
-        ...
-
-    async def get_planning_items(
-        self,
-        user_uid: UserUID,
-        start_date: date,
-        end_date: date,
-    ) -> Result[list[CalendarItem]]:
-        """The range's plannable items — tasks + events + goal Milestones, no habits.
-
-        Weekly/monthly-note read-panel producer (periodic-notes arc S3);
-        mirrors the grid's due-OR-scheduled task semantics (act-from arc C2).
-        """
         ...
 
     async def habit_items_for_day(self, user_uid: UserUID, day: date) -> Result[list[CalendarItem]]:

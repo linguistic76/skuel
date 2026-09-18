@@ -1,6 +1,6 @@
 ---
 title: "Quarterly / Yearly Periodic Notes — Founder Vault Pass First"
-updated: 2026-09-05
+updated: 2026-09-18
 status: "done"
 registered: 2026-08-28
 ruled: 2026-09-05
@@ -11,6 +11,8 @@ check: "shipped 2026-09-05 — the gate never fired; Mike ruled build anyway"
 # Quarterly / Yearly Periodic Notes — Founder Vault Pass First
 
 *Shipped 2026-09-05. Its `deferred-work.md` entry is deleted.*
+
+> **2026-09-18 — the planning panel is gone.** The periodic-note page now carries the Tasks+ sidebar (left) and the period navigator (right of the editor); `ui/journals/period_panel.py`, `CalendarService.get_planning_items` and their tests were deleted (One Path Forward). The record below stands as the history of what was built and why.
 
 The periodic-notes arc (`done/calendar-periodic-notes-arc.md`) unified daily + weekly + monthly:
 the ingestion door derives `ue:daily:{user}:{date}`, `ue:weekly:{user}:{week_of}` and

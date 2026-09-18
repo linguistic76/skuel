@@ -1,9 +1,9 @@
 ---
 title: "Habit-Rhythm Arc Follow-ups"
-updated: 2026-09-12
+updated: 2026-09-18
 status: "deferred"
 registered: 2026-08-07
-trigger: "lived weekly-review use wants habit rows; next touch of /today or habits_scheduling_service for the duration follow-up"
+trigger: "next touch of habits_scheduling_service for the duration follow-up"
 check: "ride-along, not standalone"
 ---
 
@@ -18,11 +18,11 @@ use rather than on work — the archive is the record, this register is the trac
 
 ## Habit rows in the weekly-note panel
 
-A5's backward-review half: the weekly-note panel does not yet show habit rows, per the arc's
-Non-goals.
-
-**Enable when**: lived weekly-review use wants the backward look — product need, not a data
-threshold.
+**Closed 2026-09-18 — moot.** A5's backward-review half asked for habit rows in the
+weekly-note planning panel; that panel was removed from the periodic-note page (the page now
+carries the Tasks+ sidebar and the period navigator; the panel module and the
+`get_planning_items` calendar read behind it are deleted). There is no panel to add rows to —
+the backward look over a week's habits is the calendar week view's.
 
 ## Non-positive-duration follow-ups (arc PR 2)
 

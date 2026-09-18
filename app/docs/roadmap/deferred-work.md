@@ -1,5 +1,5 @@
 ---
-updated: 2026-09-17
+updated: 2026-09-18
 ---
 
 # Deferred Work
@@ -37,7 +37,7 @@ renders them as a table in Obsidian, and a session derives the same table with
 
 ## Habit-Rhythm Arc Follow-ups
 
-[Habit-Rhythm Arc Follow-ups](habit-rhythm-arc-follow-ups.md) — Two follow-ups left open when the arc archived — habit rows in the weekly-note panel, and the `0m`/`15` non-positive-duration disagreement — gated on lived use or the next touch.
+[Habit-Rhythm Arc Follow-ups](habit-rhythm-arc-follow-ups.md) — One follow-up still open from the arc — the `0m`/`15` non-positive-duration disagreement, gated on the next touch of the scheduling service; the weekly-note-panel item closed when that panel was removed (2026-09-18).
 
 ## EntryReport / ActivityReport Search
 

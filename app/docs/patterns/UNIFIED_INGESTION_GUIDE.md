@@ -1,6 +1,6 @@
 ---
 title: Unified Ingestion Implementation Guide
-updated: 2026-09-17
+updated: 2026-09-18
 category: patterns
 related_skills: []
 related_docs:
@@ -215,7 +215,7 @@ deterministic UID automatically — no explicit `uid:` needed:
 Author the period key in exactly the form shown — each is parsed by exactly one
 kind, and the four written forms overlap (`2026-Q3` and `2026-W32` share a
 shape; `2026` is a prefix of all of them). A key in the wrong form ingests, but
-its note's planning panel can never resolve a period from it. YAML types are
+nothing can resolve its period — the note's navigator centres on the current period instead. YAML types are
 normalized where it is unambiguous: `date`/`month_of` coerce to dates and are
 truncated back (`month_of` to `YYYY-MM`), and `year_of` is accepted as an int,
 a string, or a date. Omit the field entirely and the note falls through to

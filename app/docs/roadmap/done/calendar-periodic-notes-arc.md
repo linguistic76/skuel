@@ -1,8 +1,10 @@
 ---
-updated: 2026-09-05
+updated: 2026-09-18
 ---
 
 # Calendar × Periodic Notes Arc — Rulings & Contract
+
+> **2026-09-18 — the planning panel is gone.** The periodic-note page now carries the Tasks+ sidebar (left) and the period navigator (right of the editor); `ui/journals/period_panel.py`, `CalendarService.get_planning_items` and their tests were deleted (One Path Forward). The record below stands as the history of what was built and why.
 
 **Status:** ✅ COMPLETE 2026-08-03 — all four PRs shipped the same day the arc went
 active: #921 (PR 0, this contract), #922 (PR 1, legend), #923 (PR 2, weekly panel),

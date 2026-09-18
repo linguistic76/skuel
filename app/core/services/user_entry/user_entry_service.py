@@ -469,7 +469,7 @@ class UserEntryService(BaseService[UserEntryOperations, UserEntry]):
         collisions. ``period_key`` is the ISO date (daily), ``{year}-W{week:02d}``
         (weekly), ``{year}-{month:02d}`` (monthly), ``{year}-Q{quarter}``
         (quarterly), or ``{year}`` (yearly) — one key form per kind, each
-        parseable by exactly one of ``ui.journals.period_panel``'s parsers.
+        parseable by exactly one of ``core/utils/period_keys.py``'s parsers.
 
         SEAM (intended): an in-app periodic note is a SKUEL-only stub. It is NOT
         task-round-trip-eligible — outbound sync (vault_reconciler._run_outbound)

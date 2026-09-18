@@ -1,8 +1,12 @@
-"""Journal chat page — dedicated session view at /journals/{entry_uid}.
+"""Journal page layouts.
 
-Two-column layout: collapsible sidebar (session history, search, identity)
-and a main workspace area where HTMX stage/follow-up fragments are swapped.
-Mirrors the Askesis shell from ui/askesis/chat.py.
+Two pages live here. ``JournalsLandingPage`` is the ``/journals`` discussion
+landing — a three-column shell (collapsible session sidebar, chat workspace,
+upload panel) mirroring the Askesis shell in ``ui/askesis/chat.py``, with no
+Tasks+ sidebar. ``PeriodicNotePage`` is the ``/journals/{entry_uid}`` periodic
+note — the editor with its period navigator beside it — and is rendered INSIDE
+the Tasks+ sidebar page (``render_activity_sidebar_page``), so the periodic
+notes share the activity domains' navigation.
 """
 
 from __future__ import annotations
@@ -28,8 +32,6 @@ from ui.journals.period_links import (
 )
 
 if TYPE_CHECKING:
-    from fasthtml.common import FT
-
     from core.models.conversation import ConversationSession
     from core.models.user.user import User
     from core.models.user_entry.user_entry import UserEntry
@@ -88,48 +90,30 @@ def JournalsLandingPage(
     )
 
 
-def PeriodicNotePage(
-    entry: UserEntry,
-    initial_workspace: Any,
-    planning_panel: FT | None = None,
-) -> Any:
-    """Full-height layout for periodic notes (daily/weekly/monthly).
+def PeriodicNotePage(entry: UserEntry, initial_workspace: Any) -> Any:
+    """The periodic note: its editor, with the period navigator beside it.
 
-    Uses a compact calendar navigation sidebar instead of the journal session
-    sidebar — periodic notes are date-oriented, not pipeline-session-oriented.
-
-    ``planning_panel`` — the note's read panel of the period's existing
-    entities (periodic-notes arc S3), rendered as a right column. The route
-    passes it for weekly and monthly notes; the daily page stays two-column.
+    Rendered inside the Tasks+ sidebar page, so the page's LEFT column is the
+    shared activity navigation and the note's own navigation — a mini month
+    plus the period rail (``_period_navigator``) — sits to the RIGHT of the
+    editor. Below ``lg`` the navigator stacks under the editor. The page
+    scrolls as one document; the navigator is sticky so it stays in reach
+    while a long note scrolls.
     """
-    columns: list[FT] = [
-        _periodic_note_sidebar(entry),
-        Div(
-            initial_workspace,
-            cls="flex-1 flex flex-col overflow-hidden",
-        ),
-    ]
-    if planning_panel is not None:
-        columns.append(
-            Div(
-                planning_panel,
-                cls=("w-[300px] shrink-0 border-l border-border bg-slate-50 overflow-y-auto p-4"),
-            )
-        )
     return Div(
-        *columns,
-        cls="flex overflow-hidden bg-background",
-        style="height: calc(100vh - 3.5rem);",
+        Div(initial_workspace, cls="flex-1 min-w-0 flex flex-col"),
+        _period_navigator(entry),
+        cls="flex flex-col lg:flex-row items-start gap-6",
     )
 
 
-def _periodic_note_sidebar(entry: UserEntry) -> Any:
+def _period_navigator(entry: UserEntry) -> Any:
     """The periodic note's navigation column: a mini month, then a period rail.
 
     Two pickers, no overlap. The **mini month** is the fine-grained one — its
     day cells open daily notes and its ISO-week rail opens weekly notes, the
     same two doors the full month grid carries (``ui/calendar/components.py``),
-    so the sidebar teaches the same gesture as the calendar it shrinks. The
+    so the navigator teaches the same gesture as the calendar it shrinks. The
     **period rail** below it is the coarse one: one row per period kind, each
     naming the period this note sits inside, opening it, and stepping to its
     neighbours.
@@ -166,18 +150,23 @@ def _periodic_note_sidebar(entry: UserEntry) -> Any:
             cls="py-3",
         ),
         _period_rail(kind, ref_date),
-        cls=("w-[240px] shrink-0 border-r border-border bg-slate-50 flex flex-col overflow-y-auto"),
+        id="period-navigator",
+        aria_label="Periodic note navigation",
+        cls=(
+            "w-[240px] max-w-full shrink-0 self-center lg:self-start lg:sticky lg:top-20"
+            " rounded-[12px] border border-border bg-slate-50 overflow-hidden flex flex-col"
+        ),
     )
 
 
 def _note_anchor(kind: str, period_key: str) -> tuple[datetime.date, set[datetime.date]]:
-    """Where the sidebar centres, and which days the mini month marks.
+    """Where the navigator centres, and which days the mini month marks.
 
     The anchor is the note's period START, so a week crossing a month boundary
-    shows (and ladders up to) its Monday's month — the same anchor the ISO week
-    and the planning panel's range already use. A period_key the parsers reject
-    falls back to the current period rather than raising: the sidebar renders
-    around whatever the route already served.
+    shows (and ladders up to) its Monday's month — the anchor the ISO week
+    itself uses. A period_key the parsers reject falls back to the current
+    period rather than raising: the navigator renders around whatever the
+    route already served.
 
     Only the two periods a month grid can draw are marked — a day and its week.
     A month, quarter or year would either mark the whole grid or lie about

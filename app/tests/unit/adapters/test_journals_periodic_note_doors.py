@@ -8,7 +8,7 @@ drift here silently splits a period into two nodes.
 
 All five doors must stay declared ABOVE the ``{entry_uid}`` catch-all;
 ``test_kind_doors_are_not_swallowed_by_the_catch_all`` is that guarantee.
-Harness mirrors ``test_journals_planning_panel.py``.
+Harness mirrors ``test_journals_periodic_note_page.py``.
 """
 
 from __future__ import annotations
@@ -98,11 +98,23 @@ def test_out_of_width_year_degrades_to_the_current_one(year: int) -> None:
     assert args[2] == str(date.today().year)
 
 
+def test_the_dateless_daily_door_opens_today() -> None:
+    """The Tasks+ sidebar's Journal row is a constant href — "today" is resolved
+    when the door is opened, never when the sidebar module was imported."""
+    today = date.today().isoformat()
+
+    args, location = _door("/journals/daily")
+
+    assert args[1:3] == ("daily", today)
+    assert location == f"/journals/ue:daily:{_USER_UID}:{today}"
+
+
 def test_kind_doors_are_not_swallowed_by_the_catch_all() -> None:
     """``/journals/{entry_uid}`` would match ``/journals/yearly`` — every kind
     door must stay declared above it (FastHTML resolves in declaration order)."""
     client, user_entry = _client()
     for path in (
+        "/journals/daily",
         "/journals/daily/2026-08-04",
         "/journals/weekly/2026/32",
         "/journals/monthly/2026/8",
@@ -110,4 +122,4 @@ def test_kind_doors_are_not_swallowed_by_the_catch_all() -> None:
         "/journals/yearly/2026",
     ):
         assert client.get(path).status_code == 302, path
-    assert user_entry.ensure_periodic_note.await_count == 5
+    assert user_entry.ensure_periodic_note.await_count == 6
