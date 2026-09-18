@@ -15,6 +15,7 @@ from fasthtml.common import Div, to_xml
 from ui.activities.nav import (
     ACTIVITY_SIDEBAR_ITEMS,
     ACTIVITY_SIDEBAR_TITLE,
+    render_activity_sidebar_error,
     render_activity_sidebar_page,
 )
 
@@ -48,3 +49,13 @@ def test_the_default_title_is_the_heading() -> None:
     xml = to_xml(render_activity_sidebar_page(Div("x"), active="tasks"))
 
     assert f"<title>{ACTIVITY_SIDEBAR_TITLE} - SKUEL</title>" in xml
+
+
+def test_the_error_page_names_its_tab_like_any_other_sidebar_page() -> None:
+    xml = to_xml(
+        render_activity_sidebar_error("Report not found", active="gradebook", title="GradeBook")
+    )
+
+    assert "<title>GradeBook - SKUEL</title>" in xml
+    assert "Report not found" in xml
+    assert re.search(rf"<h3[^>]*>{re.escape(ACTIVITY_SIDEBAR_TITLE)}</h3>", xml)

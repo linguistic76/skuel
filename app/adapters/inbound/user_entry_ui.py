@@ -45,11 +45,12 @@ from core.models.enums.entity_enums import EntityStatus
 from core.models.user_entry.user_entry import UserEntry
 from core.services.intelligence_tier_service import get_user_intelligence_tier
 from core.utils.logging import get_logger
-from ui.components import Button, ButtonT, Card, CardBody, CardHeader, CardTitle
+from ui.activities.nav import render_activity_sidebar_page
+from ui.components import Button, ButtonT, Card, CardBody, CardHeader, CardTitle, Icon
 from ui.feedback import Badge, BadgeT
-from ui.gradebook.nav import render_gradebook_sidebar_page
 from ui.gradebook.summary import (
     EXCHANGE_SECTION_ID,
+    GRADEBOOK_TITLE,
     normalize_exchange_filters,
     render_activity_reports_group,
     render_exchange_section,
@@ -582,19 +583,32 @@ def create_user_entry_ui_routes(
         """GradeBook — feedback received, one exchange line per exercise."""
         user_uid = require_authenticated_user(request)
         status, source = normalize_exchange_filters(status, source)
-        header = PageHeader("GradeBook", subtitle="Feedback you've received on your work")
+        header = PageHeader(
+            GRADEBOOK_TITLE,
+            subtitle="Feedback you've received on your work",
+            # The on-demand activity report's door lives on the page itself:
+            # the GradeBook renders under the Tasks+ sidebar and adds no row to it.
+            actions=ButtonLink(
+                Icon("bar-chart-2", cls="size-4 mr-2", aria_hidden="true"),
+                "Request activity report",
+                href="/submit-activity-report",
+                cls=f"{ButtonT.default} whitespace-nowrap",
+                size="sm",
+            ),
+        )
 
         summaries_result = await orchestrator.get_student_exchange_summaries(user_uid)
         if summaries_result.is_error:
             # Outage ≠ empty: a failed read must never render as a blank GradeBook.
             logger.error(f"Failed to load exchange summaries: {summaries_result.error}")
-            return render_gradebook_sidebar_page(
+            return render_activity_sidebar_page(
                 content=Div(
                     header,
                     render_error_banner("Could not load your feedback. Please try again."),
                 ),
                 active="gradebook",
                 request=request,
+                title=GRADEBOOK_TITLE,
             )
         summaries = summaries_result.value
 
@@ -619,10 +633,11 @@ def create_user_entry_ui_routes(
             activity_group,
             render_other_feedback_group(summaries["other_feedback"]),
         )
-        return render_gradebook_sidebar_page(
+        return render_activity_sidebar_page(
             content=content,
             active="gradebook",
             request=request,
+            title=GRADEBOOK_TITLE,
         )
 
     # Registered BEFORE /gradebook/{uid}: registration order keeps the
@@ -657,10 +672,11 @@ def create_user_entry_ui_routes(
                 PageHeader("Submission Not Found", subtitle=f"UID: {uid}"),
                 render_inline_error("Submission not found"),
             )
-            return render_gradebook_sidebar_page(
+            return render_activity_sidebar_page(
                 content=content,
-                active="submissions",
+                active="gradebook",
                 request=request,
+                title=GRADEBOOK_TITLE,
             )
 
         entry = entry_result.value
@@ -798,10 +814,11 @@ def create_user_entry_ui_routes(
             responses_section,
         )
 
-        return render_gradebook_sidebar_page(
+        return render_activity_sidebar_page(
             content=content,
             active="gradebook",
             request=request,
+            title=GRADEBOOK_TITLE,
         )
 
     logger.info("UserEntry UI routes created successfully")

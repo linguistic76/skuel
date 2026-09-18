@@ -1,6 +1,6 @@
 ---
 title: "Pattern: Hub Page (MOC) Implementation"
-updated: 2026-09-17
+updated: 2026-09-18
 status: current
 category: patterns
 tags: [ui, navigation, moc, hub, cards]
@@ -22,7 +22,7 @@ For implementation guidance, see:
 
 ## Architecture
 
-**`/submissions`** and **`/library`** are sidebar-free MOC root pages — a 2×2 grid of icon-badge cards, each linking to a section's sidebar sub-pages. The former unified `HomeHub(active_tab=...)` tabbed hub (`home_hub.py`) is retired. **`/gradebook`** left the MOC-root set in the arc-2 3→1 collapse: it is now THE received-feedback page (per-exercise exchange lines + conditional report groups) rendered under the GradeBook sidebar.
+**`/submissions`** and **`/library`** are sidebar-free MOC root pages — a 2×2 grid of icon-badge cards, each linking to a section's sidebar sub-pages. The former unified `HomeHub(active_tab=...)` tabbed hub (`home_hub.py`) is retired. **`/gradebook`** left the MOC-root set in the arc-2 3→1 collapse: it is now THE received-feedback page (per-exercise exchange lines + conditional report groups) rendered under the Tasks+ sidebar (`ui/activities/nav.py`, GradeBook row lit — it has no sidebar of its own).
 
 **Profile** (`/profile`) is the **personal overview hub** — four tabs (Activities / Curriculum / Submissions / Reports, `?tab=` selected, default `activities`). Activities, Curriculum, and Reports show HTMX lazy-loaded preview blocks (`ACTIVITY_BLOCKS` / `LIBRARY_BLOCKS` / `GRADEBOOK_BLOCKS`); Submissions is a simple 4-button link panel (Sync first) mirroring the `/submissions` sidebar (`SubmissionsTabPanel`, `ui/workbench/hub.py`). The old intermediate hubs (`/curriculum`, `/study`) are shelved — they redirect 301 to `/profile`.
 
@@ -355,7 +355,7 @@ Live consumer: `/gradebook/{uid}` (`submission_detail` in `user_entry_ui.py`) re
 
 **Flow:** Navbar icon → hub page (`BasePage(STANDARD)`, no sidebar) → click "View all" or preview card → child page (`SidebarPage`). Sidebar title links back to hub. Activity Domains live on the `/profile` Activities tab (accordion blocks, `ACTIVITY_BLOCKS`).
 
-**Files:** `ui/gradebook/hub.py` (`GRADEBOOK_BLOCKS`), `ui/library/hub.py` (`LIBRARY_BLOCKS`), `ui/workbench/hub.py` (`SubmissionsTabPanel`), `ui/activities/hub.py` (`ACTIVITY_BLOCKS`, Activities tab on `/profile`), `ui/gradebook/nav.py`, `ui/library/nav.py`, `ui/workbench/nav.py`, `ui/activities/nav.py`, `ui/teaching/nav.py` (sidebar nav for children). Teaching has no root hub page (its navbar entry points at `/teaching/students`) but does have a nested student hub: `ui/teaching/student_hub.py`.
+**Files:** `ui/gradebook/hub.py` (`GRADEBOOK_BLOCKS`), `ui/library/hub.py` (`LIBRARY_BLOCKS`), `ui/workbench/hub.py` (`SubmissionsTabPanel`), `ui/activities/hub.py` (`ACTIVITY_BLOCKS`, Activities tab on `/profile`), `ui/library/nav.py`, `ui/workbench/nav.py`, `ui/activities/nav.py`, `ui/teaching/nav.py` (sidebar nav for children). Teaching has no root hub page (its navbar entry points at `/teaching/students`) but does have a nested student hub: `ui/teaching/student_hub.py`.
 
 ## Retired Hubs
 
@@ -378,7 +378,7 @@ Live consumer: `/gradebook/{uid}` (`submission_detail` in `user_entry_ui.py`) re
 | Activity sidebar | `ui/activities/nav.py` |
 | MOC root pages | `adapters/inbound/user_entry_ui.py` (`submissions_moc`), `adapters/inbound/library_ui.py` (`library_moc`) |
 | GradeBook block definitions | `ui/gradebook/hub.py` (`GRADEBOOK_BLOCKS`, used by HTMX previews) |
-| GradeBook sidebar | `ui/gradebook/nav.py` |
+| GradeBook sidebar | — (none: `/gradebook` and its detail pages render under the Activity sidebar, `ui/activities/nav.py`, GradeBook row lit) |
 | Library block definitions | `ui/library/hub.py` (`LIBRARY_BLOCKS`) |
 | Library sidebar | `ui/library/nav.py` |
 | Submissions block definitions | `ui/workbench/hub.py` (`SUBMISSIONS_BLOCKS`) |

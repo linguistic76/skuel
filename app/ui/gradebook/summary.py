@@ -34,6 +34,11 @@ if TYPE_CHECKING:
 
 EXCHANGE_SECTION_ID = "gradebook-exchange"
 LINES_FRAGMENT_URL = "/gradebook/lines"
+# The page's name — its header, and the browser tab of every surface that
+# renders under the Tasks+ sidebar with the GradeBook row lit (the page,
+# the submission / report / revision detail pages). The GradeBook has no
+# sidebar of its own.
+GRADEBOOK_TITLE = "GradeBook"
 
 _ALL = "all"
 _VALID_STATUSES = {_ALL} | {s.value for s in ExchangeStatus}
@@ -237,6 +242,7 @@ def render_activity_reports_group(reports_list: FT | None) -> FT | None:
 
 __all__ = [
     "EXCHANGE_SECTION_ID",
+    "GRADEBOOK_TITLE",
     "LINES_FRAGMENT_URL",
     "filter_exchange_lines",
     "normalize_exchange_filters",

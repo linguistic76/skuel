@@ -9,18 +9,18 @@ Usage:
     from ui.patterns.sidebar import SidebarItem, SidebarPage
 
     items = [
-        SidebarItem("Submit", "/submit", "submit", icon="..."),
-        SidebarItem("Browse", "/profile?tab=reports", "browse", icon="..."),
+        SidebarItem("Exercises", "/library/exercises", "exercises", icon="book-open"),
+        SidebarItem("Resources", "/library/resources", "resources", icon="bookmark"),
     ]
 
     return SidebarPage(
         content=my_content,
         items=items,
-        active="submit",
-        title="GradeBook",
-        storage_key="gradebook-sidebar",
+        active="exercises",
+        title="Library",
+        storage_key="library-sidebar",
         request=request,
-        active_page="gradebook",
+        active_page="library",
     )
 """
 
