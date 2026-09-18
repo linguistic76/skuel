@@ -1,6 +1,6 @@
 ---
 title: Protocol Reference Guide
-updated: 2026-09-14
+updated: 2026-09-17
 status: current
 category: reference
 tags: [protocol, reference]
@@ -22,8 +22,7 @@ related: [ADR-025, ADR-027]
 3. [Backend Capability Protocols](#backend-capability-protocols)
 4. [Facade Services — Explicit Delegation (February 2026)](#facade-services--explicit-delegation-february-2026)
 5. [Route-Facing Service Protocols (February 2026)](#route-facing-service-protocols-february-2026)
-6. [Knowledge Carrier Protocols (ADR-027)](#knowledge-carrier-protocols-adr-027)
-7. [Usage Examples](#usage-examples)
+6. [Usage Examples](#usage-examples)
 
 ---
 
@@ -45,7 +44,6 @@ related: [ADR-025, ADR-027]
 | **Infrastructure Protocols** | `/core/ports/infrastructure_protocols.py` | EventBus, Schema, User (3 ISP sub-protocols + 1 composed), Ingestion, Closeable |
 | **Intelligence Protocols** | `/core/ports/intelligence_protocols.py` | Knowledge (shared) + Domain (per-service) + Composed |
 | **Facade Services** | `/core/services/{domain}_service.py` | Concrete classes with explicit delegation methods |
-| **Knowledge Carrier** | `/core/models/protocols/knowledge_carrier_protocol.py` | Knowledge integration |
 
 ---
 
@@ -764,7 +762,6 @@ Quick reference for common hasattr() patterns:
 | `hasattr(field_info, 'metadata')` | `isinstance(field_info, PydanticFieldInfo)` | `core.ports` |
 | `hasattr(constraint, 'min_length')` | `isinstance(constraint, MinLenConstraint)` | `core.ports` |
 | `hasattr(pydantic_model, 'field')` | Just access `model.field` (always defined) | N/A |
-| `hasattr(entity, 'knowledge_relevance')` | `isinstance(entity, KnowledgeCarrier)` | `core.models.protocols` |
 
 ---
 

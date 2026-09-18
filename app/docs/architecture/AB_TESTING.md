@@ -1,5 +1,5 @@
 ---
-updated: 2026-03-27
+updated: 2026-09-17
 ---
 
 # A/B Testing Infrastructure
@@ -128,11 +128,7 @@ async def search_results(request: Request, query: str) -> Any:
 
 ### 4. Metrics Analysis
 
-Use the analyzer script to compare results:
-
-```bash
-uv run python scripts/analyze_ab_test_results.py semantic_search_v1 --days 7
-```
+There is no analyzer script in the tree; a control-vs-treatment comparison reads like this:
 
 **Output:**
 ```

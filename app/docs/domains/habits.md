@@ -1,7 +1,7 @@
 ---
 title: Habits Domain
 created: 2025-12-04
-updated: 2026-09-11
+updated: 2026-09-17
 status: current
 category: domains
 tags:
@@ -35,7 +35,7 @@ Habits represent recurring behaviors with streak tracking. They form the "system
 | Relationships | `/core/services/habits/habit_relationships.py` |
 | **Backend** | `/adapters/persistence/neo4j/backends/activity_backends.py` (`HabitsBackend`) |
 | Core Service | `/core/services/habits/habits_core_service.py` |
-| Search Service | `/core/services/habits/habit_search_service.py` |
+| Search Service | `/core/services/habits/habits_search_service.py` |
 | Completion Service | `/core/services/habits/habits_completion_service.py` |
 | Completion Exporter | `/core/utils/completion_exporter.py` |
 | Progress Service | `/core/services/habits/habits_progress_service.py` |
@@ -48,7 +48,7 @@ Habits represent recurring behaviors with streak tracking. They form the "system
 | Config | `HABITS_CONFIG` in `/core/models/relationship_registry.py` |
 | Events | `/core/events/habit_events.py` |
 | UI Routes | `/adapters/inbound/habits_ui.py` |
-| View Components | `/ui/habits/views.py` |
+| View Components | `/ui/activities/habits_views.py` |
 
 ## Domain Enums
 
@@ -213,7 +213,7 @@ The habit model tracks all four components of the habit loop:
 
 ## Search Methods
 
-**Service:** `HabitsSearchService` (`/core/services/habits/habit_search_service.py`)
+**Service:** `HabitsSearchService` (`/core/services/habits/habits_search_service.py`)
 
 ### Inherited from BaseService
 

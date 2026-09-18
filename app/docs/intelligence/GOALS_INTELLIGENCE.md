@@ -1,5 +1,5 @@
 ---
-updated: 2026-09-05
+updated: 2026-09-17
 ---
 
 # GoalsIntelligenceService - Progress Forecasting & Predictive Analytics
@@ -818,7 +818,7 @@ assert service.relationships == relationships
 
 - `/docs/intelligence/INTELLIGENCE_SERVICES_INDEX.md` - Master index
 - `/docs/decisions/ADR-024-base-intelligence-service-migration.md` - BaseAnalyticsService pattern
-- `/core/services/base_intelligence_service.py` - Base implementation
+- `/core/services/base_analytics_service.py` - Base implementation
 - `/core/services/goals_service.py` - GoalsService facade
 - `/core/services/goals/goals_progress_service.py` - Velocity calculations
-- `/core/services/intelligence/cross_domain_context_service.py` - Phase 3 context retrieval
+- `/core/services/relationships/_intelligence_mixin.py` - Typed cross-domain context reader (`get_cross_domain_context_typed`, consumed via `BaseAnalyticsService._analyze_entity_with_typed_context`)

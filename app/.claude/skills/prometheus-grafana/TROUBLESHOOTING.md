@@ -418,7 +418,7 @@ rate(skuel_http_requests_total[5m])
 Create pre-computed aggregations:
 
 ```yaml
-# monitoring/prometheus/recording_rules.yml
+# new file: recording_rules.yml beside alerts.yml — SKUEL has none today; add it to rule_files: in prometheus.yml and mount it in docker-compose.yml
 groups:
   - name: skuel_aggregations
     interval: 30s
@@ -567,14 +567,14 @@ Dashboard JSON references datasource by UID:
 Or use Grafana provisioning (auto-loads dashboards):
 
 ```yaml
-# monitoring/grafana/provisioning/dashboards/dashboards.yml
+# monitoring/grafana/provisioning/dashboards/skuel.yml (live; mounted at /etc/grafana/provisioning)
 apiVersion: 1
 providers:
   - name: 'SKUEL Dashboards'
-    folder: 'SKUEL'
+    folder: ''
     type: file
     options:
-      path: /etc/grafana/provisioning/dashboards
+      path: /var/lib/grafana/dashboards
 ```
 
 ---

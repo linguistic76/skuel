@@ -1,7 +1,7 @@
 ---
 title: Claude Quick Start Guide
 created: 2025-12-04
-updated: 2026-08-15
+updated: 2026-09-17
 status: current
 category: guides
 tags: [claude, quickstart, onboarding, ai-assistant]
@@ -47,7 +47,7 @@ Activity (6)             Curriculum (4)      Content/Processing    Other
 | Project rules | `/CLAUDE.md` |
 | Domain enums | `/core/models/enums/` (EntityType, NonKuDomain, EntityStatus, Priority) |
 | Relationship configs | `/core/models/relationship_registry.py` |
-| MEGA-QUERY | `/core/services/user/user_context_queries.py` |
+| MEGA-QUERY | `/adapters/persistence/neo4j/user_context_queries.py` |
 | Service bootstrap | `/services_bootstrap/` |
 
 ---

@@ -1,6 +1,6 @@
 ---
 title: Sibling Signal Pattern
-updated: 2026-05-22
+updated: 2026-09-17
 status: proposed
 category: patterns
 tags: [patterns, activity-domains, intelligence, protocols, design]
@@ -77,10 +77,10 @@ Not every useful signal flows both ways. These seven are asymmetric — one doma
 
 Each Sibling Signal is a narrow `Protocol` in a single grouped file. Keep the protocol tight — one or two methods, scoped to the signal, not the producing domain's full intelligence surface.
 
-**Proposed location** (not yet created): `core/ports/sibling_signals.py`
+**Proposed location** (not yet created): a new `sibling_signals.py` module under `core/ports/`
 
 ```python
-# core/ports/sibling_signals.py
+# proposed: sibling_signals.py under core/ports/ (not yet created)
 from typing import Protocol
 
 from core.models.type_hints import Neo4jProperties
@@ -158,7 +158,7 @@ class _PredictiveMixin:
 
 ## Placement Rule
 
-All **peer-to-peer** sibling-signal protocols live in **one file**: `core/ports/sibling_signals.py`. This mirrors how `core/ports/domain_protocols.py` groups ISP slices. Single file keeps the edge↔signal mapping table (below) colocated with the contracts themselves.
+All **peer-to-peer** sibling-signal protocols live in **one file** — the proposed `sibling_signals.py` module under `core/ports/` (not yet created). This mirrors how `core/ports/domain_protocols.py` groups ISP slices. Single file keeps the edge↔signal mapping table (below) colocated with the contracts themselves.
 
 Implementations live on the *existing* intelligence services — no new sub-service is created. `HabitsIntelligenceService` implements `HabitConsistencySignal` by having a `get_consistency_trend()` method; structural typing does the rest.
 
@@ -217,7 +217,7 @@ async def test_goal_success_downgrades_on_habit_consistency_drop():
 
 ## Implementation Checklist (When Proceeding)
 
-1. Create `core/ports/sibling_signals.py` with one Protocol per signal.
+1. Create a `sibling_signals.py` module under `core/ports/` with one Protocol per signal.
 2. Create the supporting result types (`TrendResult`, `AlignmentScore`, etc.) — either alongside the protocols or in `core/ports/query_types.py` if they are reused.
 3. For each target intelligence mixin: add the signal as an `__init__` parameter typed as the Protocol, and consult it at the judgment site.
 4. Wire the signal implementations in `services_bootstrap/compose.py` — the producing intelligence service is passed as the sibling-signal parameter; structural typing does the rest.

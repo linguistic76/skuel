@@ -1,7 +1,7 @@
 ---
 title: PS (Path Step) Domain
 created: 2025-12-04
-updated: 2026-08-14
+updated: 2026-09-17
 status: current
 category: domains
 tags:
@@ -186,8 +186,8 @@ config = PS_CONFIG
 
 ## Related ADRs
 
-- [ADR-023: Curriculum BaseService Migration](../decisions/ADR-023-curriculum-base-service.md)
-- [ADR-024: BaseAnalyticsService Migration](../decisions/ADR-024-base-intelligence-service.md)
+- [ADR-023: Curriculum BaseService Migration](../decisions/ADR-023-curriculum-baseservice-migration.md)
+- [ADR-024: BaseAnalyticsService Migration](../decisions/ADR-024-base-intelligence-service-migration.md)
 - [ADR-030: Curriculum Domain Unification](../decisions/ADR-030-curriculum-domain-unification.md)
 
 ## See Also

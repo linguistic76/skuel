@@ -1,6 +1,6 @@
 ---
 title: Service Consolidation Patterns
-updated: 2026-09-05
+updated: 2026-09-17
 category: patterns
 related_skills:
 - base-analytics-service
@@ -8,7 +8,7 @@ related_skills:
 related_docs:
 - /docs/decisions/ADR-025-service-consolidation-patterns.md
 - /docs/decisions/ADR-031-baseservice-mixin-decomposition.md
-- /docs/patterns/DOMAINCONFIG_MIGRATION_COMPLETE.md
+- /docs/migrations/DOMAINCONFIG_MIGRATION_COMPLETE.md
 ---
 
 # Service Consolidation Patterns
@@ -542,7 +542,7 @@ for processor in config.post_processors:
 
 ### Adding New Processors
 
-1. Add function to `/adapters/persistence/neo4j/query/cypher/post_processors.py`
+1. Add function to `/core/models/post_processors.py`
 2. Register in `PROCESSOR_REGISTRY`
 3. Add `PostProcessor` to domain config in `relationship_registry.py`
 
@@ -816,7 +816,7 @@ class ChoicesService(
 | BaseService Mixins | `/core/services/mixins/` | `from core.services.mixins import ConversionHelpersMixin, CrudOperationsMixin, ...` |
 | Explicit Delegation | `/core/services/tasks_service.py` | Explicit `async def` methods on facade class (no import needed) |
 | Relationship Registry | `/core/models/relationship_registry.py` | `from core.models.relationship_registry import generate_graph_enrichment` |
-| Post-Query Processors | `/adapters/persistence/neo4j/query/cypher/post_processors.py` | `from adapters.persistence.neo4j.query.cypher.post_processors import apply_processor, PROCESSOR_REGISTRY` |
+| Post-Query Processors | `/core/models/post_processors.py` | `from core.models.post_processors import apply_processor, PROCESSOR_REGISTRY` |
 | PS/LP Factories | `/core/services/curriculum_domain_config.py` | `from core.services.curriculum_domain_config import create_ps_sub_services, create_lp_sub_services` |
 | Cross-Domain Reads | `/core/services/cross_domain/cross_domain_query_service.py` | `from core.services.cross_domain import CrossDomainQueryService` |
 | Activity Stats | `/core/utils/activity_stats.py` | `from core.utils.activity_stats import compute_task_stats, TaskStats` |

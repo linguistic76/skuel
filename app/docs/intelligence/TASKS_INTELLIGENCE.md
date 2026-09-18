@@ -1,5 +1,5 @@
 ---
-updated: 2026-09-05
+updated: 2026-09-17
 ---
 
 # TasksIntelligenceService - Behavioral & Performance Intelligence
@@ -429,20 +429,6 @@ This categorization enables rich UI experiences without coupling backend logic t
 
 ## Testing
 
-### Unit Tests
-```bash
-uv run python -m pytest tests/unit/services/test_tasks_intelligence_service.py -v
-```
-
-### Integration Tests
-```bash
-# Test with real backend
-uv run python -m pytest tests/integration/intelligence/test_tasks_intelligence.py -v
-
-# Test specific method
-uv run python -m pytest tests/integration/intelligence/ -k "test_get_knowledge_suggestions" -v
-```
-
 ### Example Test
 ```python
 from unittest.mock import Mock
@@ -471,5 +457,5 @@ assert service.graph_intel == graph_intel
 - `/docs/intelligence/INTELLIGENCE_SERVICES_INDEX.md` - Master index
 - `/docs/decisions/ADR-024-base-intelligence-service-migration.md` - Base service pattern (now BaseAnalyticsService)
 - `/core/services/base_analytics_service.py` - Base implementation (NO AI deps)
-- `/core/services/tasks/tasks_service.py` - TasksService facade
+- `/core/services/tasks_service.py` - TasksService facade
 - `/core/utils/intelligence_queries.py` - Shared intelligence utilities (Phase 2)

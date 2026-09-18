@@ -1,6 +1,6 @@
 ---
 title: Documentation Index
-updated: 2026-09-16
+updated: 2026-09-17
 status: current
 category: index
 tags: [index, navigation, documentation]
@@ -336,6 +336,7 @@ See [CROSS_REFERENCE_INDEX.md](CROSS_REFERENCE_INDEX.md) for skills ↔ docs map
 |----------|-------------|
 | [Tasks User Guide](guides/TASKS_USER_GUIDE.md) | Full guide: create, sub-tasks, goal links, PS engagement, Obsidian round-trip |
 | **[Documentation Freshness](user-guides/documentation-freshness.md)** | How SKUEL's three doc freshness systems work together (hooks + health checks + cross-refs) |
+| **[The Weekly Janitor](user-guides/weekly-janitor.md)** | The Monday rot report — what it runs, where it lands (issue #1007), what red means and what to do about each section |
 | **[Zone of Proximal Development](user-guides/zpd.md)** | How ZPD works — current zone, proximal zone, readiness scores, behavioral enrichment |
 | **[Journal Privacy](user-guides/journal-privacy.md)** | Who can see journal entries, SKUEL's policy commitment, and field-level encryption roadmap |
 | **[Context DSL Cheat-Sheet](user-guides/context-dsl-cheatsheet.md)** | Quick reference for @context() Activity Lines — context types, optional tags, full example |

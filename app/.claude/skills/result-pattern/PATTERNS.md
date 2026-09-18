@@ -127,4 +127,3 @@ def pattern_example():
 ---
 
 **See Also**: [SKILL.md](SKILL.md) for foundational concepts
-**See Also**: [EXAMPLES.md](EXAMPLES.md) for complete implementations

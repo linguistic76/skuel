@@ -1,6 +1,6 @@
 ---
 title: API Validation Patterns
-updated: 2026-09-12
+updated: 2026-09-17
 category: patterns
 related_skills:
 - pydantic
@@ -964,8 +964,8 @@ the 400 example above from this very model.
 - Uses `parse_json_body()` for create, update, add_member, remove_member routes
 
 **Finance API** (`adapters/inbound/finance_api.py`):
-- Uses `parse_json_body()` for receipt attachment, invoice creation, bulk categorize
-- Request models: `AttachReceiptRequest`, `BulkCategorizeExpensesRequest` in `core/models/finance/finance_request.py`
+- Uses `parse_json_body()` for invoice creation
+- Request model: `InvoiceCreateRequest` in `core/models/finance/invoice.py`
 
 **Insights API** (`adapters/inbound/insights_api.py`):
 - Uses `parse_json_body()` for bulk dismiss/action, smart dismiss, snooze

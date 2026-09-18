@@ -1,7 +1,7 @@
 ---
 title: MOC (Map of Content) - KU-Based Architecture
 created: 2025-12-04
-updated: 2026-03-30
+updated: 2026-09-17
 status: current
 category: domains
 tags:
@@ -90,10 +90,10 @@ roots = await moc_service.list_root_mocs(limit=50)
 
 | Component | Location |
 |-----------|----------|
-| Facade | `/core/services/moc_service.py` |
-| Navigation Service | `/core/services/moc/moc_navigation_service.py` |
+| Facade | `/core/services/ps_service.py` |
+| Navigation Service | `/core/services/ps/ps_organization_service.py` |
 | Relationship Config | `KU_CONFIG` in `/core/models/relationship_registry.py` (KU config with ORGANIZES) |
-| API Routes | `/adapters/inbound/moc_api.py` |
+| API Routes | `/adapters/inbound/path_steps_api.py` |
 
 ## ORGANIZES Relationship
 
@@ -187,6 +187,6 @@ The new architecture:
 ## Related Documentation
 
 - [KU Domain](ku.md) - The fundamental entity type
-- [PS Domain](ls.md) - Structured learning path (parallel to MOC)
+- [PS Domain](ps.md) - Structured learning path (parallel to MOC)
 - [LP Domain](lp.md) - Learning paths containing LSs
 - [Curriculum Grouping Patterns](../architecture/CURRICULUM_GROUPING_PATTERNS.md)

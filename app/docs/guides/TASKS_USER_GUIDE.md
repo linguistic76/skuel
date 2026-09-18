@@ -1,7 +1,7 @@
 ---
 title: Tasks User Guide
 created: 2026-06-25
-updated: 2026-09-16
+updated: 2026-09-17
 status: current
 category: guides
 tags: [tasks, user-guide, goals, subtasks, obsidian, learning-loop, applied-knowledge]
@@ -188,7 +188,7 @@ Change status from the task detail page using the status button, or from the tas
 
 ### Task List at `/tasks`
 
-Your task list at **[/tasks](/tasks)** shows all your tasks with filter controls:
+Your task list — the **Tasks** page — shows all your tasks with filter controls:
 
 - **Status filter**: Active, All, Completed, etc.
 - **Priority filter**: All, Critical, High, Medium, Low

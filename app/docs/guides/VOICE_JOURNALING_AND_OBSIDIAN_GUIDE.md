@@ -1,6 +1,6 @@
 ---
 title: Voice Journaling and Obsidian Guide
-updated: 2026-09-16
+updated: 2026-09-17
 status: current
 category: guides
 tags: [obsidian, journaling, voice, vaultbridge, activity-domains, daily-workflow, user-guide]
@@ -59,13 +59,13 @@ The page has two modes, toggled at the top:
 3. Click **Preview Files** to see what will be processed without transcribing
 4. Click **Transcribe All** to run Deepgram — `.txt` files are written to the output directory
 
-SKUEL transcribes the audio (via Deepgram), structures the content, and saves it as a journal entry. You'll see a status indicator as it processes. For most voice memos, transcription completes in seconds.
+SKUEL transcribes the audio (via Deepgram) and writes the transcript — or, with instructions attached, the compiled note — to your vault's `je_out/` folder. You'll see a status indicator as it processes. For most voice memos, transcription completes in seconds.
 
-### Browsing and responding at /journals/browse
+### Where the output goes — and talking it through
 
-All your journal entries live at **[/journals/browse](/journals/browse)**.
+Nothing you upload is stored in SKUEL — the journal is a private workshop and your vault is its only memory ([ADR-073](../decisions/ADR-073-journals-zero-persistence-vault-memory.md)). Each processed file lands flat in `je_out/` as a `.txt` transcript or a `_out.md` compiled note; the result panel on **[/journals](/journals)** offers it for download and copy. Open it in Obsidian and move what you want to keep into your notes — `je_out/` itself is never synced.
 
-Each card shows the transcription, the date, and a **Get AI response** button. Clicking it sends the entry to an AI coach that writes a reflective response — acknowledging patterns, asking a follow-up question, or surfacing a connection to something you've been studying. The response appears in your journal and is stored in SKUEL for future reference.
+The same result panel carries a follow-up composer, so you can talk the entry through right there — the reply might acknowledge a pattern, ask a follow-up question, or surface a connection to something you've been studying. Later, paste any transcript into the **What's on your mind?** box on **[/journals](/journals)** to open a discussion on it. Every discussion is ephemeral until you press **Save this chat**; saved ones are listed on **[/journals](/journals)** to revisit ([ADR-078](../decisions/ADR-078-discussion-sessions-stored-not-understood.md)).
 
 ---
 
@@ -601,9 +601,9 @@ This retrospective is stored in your journal entry. Over months, patterns become
 
 ---
 
-**Optional: check your journal entries**
+**Optional: talk this morning's memo through**
 
-Go to **[/journals/browse](/journals/browse)** to see today's transcription from the morning voice memo. If you want a reflective response, click **Get AI response**. The response might surface a connection between what you said this morning and a habit you've been building, or ask a clarifying question you hadn't thought to ask yourself.
+The transcript of the morning voice memo is a `.txt` file in your vault's `je_out/` folder — SKUEL kept nothing (see [Part 1](#part-1--voice-journaling)). Open it in Obsidian, and if you want a reflective response, paste it into the **What's on your mind?** box on **[/journals](/journals)**. The reply might surface a connection between what you said this morning and a habit you've been building, or ask a clarifying question you hadn't thought to ask yourself; press **Save this chat** if it is worth keeping.
 
 ---
 
@@ -618,7 +618,7 @@ When you're setting a new goal for the quarter, or want to define a principle th
 | What you want to do | Where to go |
 |--------------------|------------|
 | Upload a voice memo or text journal | [/journals](/journals) |
-| Browse journal entries and get AI responses | [/journals/browse](/journals/browse) |
+| Talk an entry through (ephemeral until **Save this chat**) or revisit a saved discussion | [/journals](/journals) |
 | Sync Obsidian vault with SKUEL (primary data path) | [/submissions/sync](/submissions/sync) |
 | Submit a completed exercise worksheet | [/submit](/submit) |
 

@@ -22,7 +22,7 @@ For implementation guidance, see:
 
 ## Architecture
 
-**`/submissions`** and **`/library`** are sidebar-free MOC root pages — a 2×2 grid of icon-badge cards, each linking to a section's sidebar sub-pages. The former unified `HomeHub(active_tab=...)` tabbed hub (`ui/home_hub.py`) is retired. **`/gradebook`** left the MOC-root set in the arc-2 3→1 collapse: it is now THE received-feedback page (per-exercise exchange lines + conditional report groups) rendered under the GradeBook sidebar.
+**`/submissions`** and **`/library`** are sidebar-free MOC root pages — a 2×2 grid of icon-badge cards, each linking to a section's sidebar sub-pages. The former unified `HomeHub(active_tab=...)` tabbed hub (`home_hub.py`) is retired. **`/gradebook`** left the MOC-root set in the arc-2 3→1 collapse: it is now THE received-feedback page (per-exercise exchange lines + conditional report groups) rendered under the GradeBook sidebar.
 
 **Profile** (`/profile`) is the **personal overview hub** — four tabs (Activities / Curriculum / Submissions / Reports, `?tab=` selected, default `activities`). Activities, Curriculum, and Reports show HTMX lazy-loaded preview blocks (`ACTIVITY_BLOCKS` / `LIBRARY_BLOCKS` / `GRADEBOOK_BLOCKS`); Submissions is a simple 4-button link panel (Sync first) mirroring the `/submissions` sidebar (`SubmissionsTabPanel`, `ui/workbench/hub.py`). The old intermediate hubs (`/curriculum`, `/study`) are shelved — they redirect 301 to `/profile`.
 
@@ -124,7 +124,7 @@ def HubDomainBlockList(blocks: list[HubBlockData]) -> Div:
     """Vertical stack of domain blocks."""
 ```
 
-Used by hub pages (`/groups`, `/activities`, `/teaching/students/{uid}`). Each block renders a colored header (icon + title + "View all" link) and an HTMX placeholder that loads preview cards when the block becomes visible. The Teaching root hub (`/teaching`) uses static `HubContainerGrid`; the nested student hub uses `HubDomainBlockList` with a mix of self-loading blocks and OOB-populated blocks (see pattern below).
+Used by hub pages (`/groups`, `/activities`, `/teaching/students/{uid}`). Each block renders a colored header (icon + title + "View all" link) and an HTMX placeholder that loads preview cards when the block becomes visible. The nested student hub (`/teaching/students/{uid}`) uses `HubDomainBlockList` with a mix of self-loading blocks and OOB-populated blocks (see pattern below); Teaching has no root hub — its nav entry lands on `/teaching/students`.
 
 ### HubAccordionBlock + HubAccordionBlockList (collapsible variant)
 
@@ -355,7 +355,7 @@ Live consumer: `/gradebook/{uid}` (`submission_detail` in `user_entry_ui.py`) re
 
 **Flow:** Navbar icon → hub page (`BasePage(STANDARD)`, no sidebar) → click "View all" or preview card → child page (`SidebarPage`). Sidebar title links back to hub. Activity Domains live on the `/profile` Activities tab (accordion blocks, `ACTIVITY_BLOCKS`).
 
-**Files:** `ui/gradebook/hub.py` (`GRADEBOOK_BLOCKS`), `ui/library/hub.py` (`LIBRARY_BLOCKS`), `ui/workbench/hub.py` (`SubmissionsTabPanel`), `ui/activities/hub.py` (`ACTIVITY_BLOCKS`, Activities tab on `/profile`), `ui/teaching/hub.py` (hub views), `ui/gradebook/nav.py`, `ui/library/nav.py`, `ui/workbench/nav.py`, `ui/activities/nav.py`, `ui/teaching/nav.py` (sidebar nav for children). Teaching also has a nested student hub: `ui/teaching/student_hub.py`.
+**Files:** `ui/gradebook/hub.py` (`GRADEBOOK_BLOCKS`), `ui/library/hub.py` (`LIBRARY_BLOCKS`), `ui/workbench/hub.py` (`SubmissionsTabPanel`), `ui/activities/hub.py` (`ACTIVITY_BLOCKS`, Activities tab on `/profile`), `ui/gradebook/nav.py`, `ui/library/nav.py`, `ui/workbench/nav.py`, `ui/activities/nav.py`, `ui/teaching/nav.py` (sidebar nav for children). Teaching has no root hub page (its navbar entry points at `/teaching/students`) but does have a nested student hub: `ui/teaching/student_hub.py`.
 
 ## Retired Hubs
 
@@ -384,7 +384,7 @@ Live consumer: `/gradebook/{uid}` (`submission_detail` in `user_entry_ui.py`) re
 | Submissions block definitions | `ui/workbench/hub.py` (`SUBMISSIONS_BLOCKS`) |
 | Submissions sidebar | `ui/workbench/nav.py` |
 | Submissions routes | `adapters/inbound/user_entry_ui.py` |
-| Teaching hub view | `ui/teaching/hub.py` |
+| Teaching hub view | — (removed; Teaching has no root hub, its entry page is `/teaching/students`) |
 | Teaching sidebar | `ui/teaching/nav.py` |
 | Student hub view | `ui/teaching/student_hub.py` |
 | Design rationale | `docs/design-principles/HUB_PAGES.md` |

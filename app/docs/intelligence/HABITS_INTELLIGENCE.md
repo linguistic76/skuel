@@ -1,5 +1,5 @@
 ---
-updated: 2026-06-25
+updated: 2026-09-17
 ---
 
 # HabitsIntelligenceService - Streak Pattern Analysis & Habit Formation
@@ -613,20 +613,6 @@ class HabitCrossContext:
 
 ## Testing
 
-### Unit Tests
-```bash
-uv run python -m pytest tests/unit/services/test_habits_intelligence_service.py -v
-```
-
-### Integration Tests
-```bash
-# Test with real backend
-uv run python -m pytest tests/integration/intelligence/test_habits_intelligence.py -v
-
-# Test specific method
-uv run python -m pytest tests/integration/intelligence/ -k "test_analyze_habit_performance" -v
-```
-
 ### Example Test
 ```python
 from unittest.mock import Mock
@@ -689,10 +675,10 @@ async def get_zpd_knowledge_signals(
 
 - `/docs/intelligence/INTELLIGENCE_SERVICES_INDEX.md` - Master index
 - `/docs/decisions/ADR-024-base-intelligence-service-migration.md` - BaseAnalyticsService pattern
-- `/core/services/base_intelligence_service.py` - Base implementation
-- `/core/services/habits/habits_service.py` - HabitsService facade
+- `/core/services/base_analytics_service.py` - Base implementation
+- `/core/services/habits_service.py` - HabitsService facade
 - `/core/services/habits/habits_planning_service.py` - Context-aware planning (January 2026)
 - `/core/services/habits/habits_scheduling_service.py` - Smart scheduling (January 2026)
-- `/core/services/intelligence/cross_domain_context_service.py` - Phase 3 context retrieval
+- `/core/services/relationships/_intelligence_mixin.py` - Typed cross-domain context reader (`get_cross_domain_context_typed`, consumed via `BaseAnalyticsService._analyze_entity_with_typed_context`)
 - `/core/models/habit/habit.py` - Habit domain model
 - `/docs/domains/habits.md` - Habits domain documentation

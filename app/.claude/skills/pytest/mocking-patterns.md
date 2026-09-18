@@ -179,7 +179,7 @@ Sequential results are a plain `side_effect`:
 backend.add_relationship = AsyncMock(side_effect=[Result.ok(True), Result.fail(...)])
 ```
 
-⚠️ **The old `tests/helpers/fluent_mocks.py` and `backend.relate()` are DELETED.**
+⚠️ **The old `fluent_mocks.py` test helper and `backend.relate()` are DELETED.**
 That was a chain-of-mocks helper for `RelationshipBuilder` in
 `adapters/persistence/neo4j/`, which no service could ever call — it sat below the
 hexagonal boundary and was on no port. It had zero importers, including from the

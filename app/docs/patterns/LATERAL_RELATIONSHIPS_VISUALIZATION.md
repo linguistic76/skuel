@@ -1,6 +1,6 @@
 ---
 title: Lateral Relationships Visualization Pattern
-updated: '2026-09-05'
+updated: '2026-09-17'
 category: patterns
 related_skills:
 - neo4j-cypher-patterns
@@ -713,8 +713,6 @@ The lateral relationship graph infrastructure was extended to power the **Explor
 
 - `/docs/architecture/RELATIONSHIPS_ARCHITECTURE.md` - Core graph modeling — lateral types, service API, Cypher patterns
 - `/docs/ui/COMPONENT_CATALOG.md` - ExploreGraphView component documentation
-- `/PHASE5_COMPLETE.md` - Implementation completion details
-- `/PHASE5_MANUAL_QA_CHECKLIST.md` - Testing guide
 - `/.claude/skills/ui-browser/` - Alpine.js + HTMX patterns
 - `/docs/llms.txt/fasthtml-llms.txt` - FastHTML + HTMX patterns
 

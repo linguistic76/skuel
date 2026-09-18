@@ -1,6 +1,6 @@
 ---
 title: Trial Limits Infrastructure
-updated: '2026-08-22'
+updated: '2026-09-17'
 category: patterns
 related_skills: []
 related_docs: []
@@ -15,7 +15,7 @@ related_docs: []
 > enforcement service and all domains are effectively unlimited. Build this before
 > treating any of the APIs below as real.
 
-**Proposed location** (to be created): `/core/services/trial_limits.py`
+**Proposed location** (to be created): a new `trial_limits.py` module under `/core/services/`
 
 ## Overview
 
@@ -203,7 +203,7 @@ if limit_check.is_error:
 
 | File | Purpose |
 |------|---------|
-| `/core/services/trial_limits.py` | Service implementation (~400 lines) — **to be created** |
+| `trial_limits.py` (new, under `/core/services/`) | Service implementation (~400 lines) — **to be created** |
 | `/core/models/enums/user_enums.py` | UserRole enum with `is_subscriber()` |
 | `/docs/decisions/ADR-018-user-roles-four-tier-system.md` | Role system ADR |
 

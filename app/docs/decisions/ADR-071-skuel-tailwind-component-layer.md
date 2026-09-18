@@ -1,6 +1,6 @@
 ---
 title: "ADR-071: SKUEL-Owned Tailwind Component Layer"
-updated: 2026-09-15
+updated: 2026-09-17
 status: implemented
 category: decisions
 tags: [adr, decisions, ui, tailwind, alpine, components]
@@ -228,7 +228,7 @@ is simpler than maintaining a 2.9MB dependency for color values.
 |------|------------|--------|------------|
 | Visual regression during call-site migration | Medium | Medium | Phase 2 is per-component; component gallery (`/admin/component-gallery`) validates parity before call-site migration |
 | Dynamic class strings missed by Tailwind scanner | Low | Low | Explicit safelist patterns in `tailwind.config.js` cover all known dynamic patterns; `static/js/*.js` added to Tailwind content scan (see Implementation Notes) |
-| JS-generated classes not visible to Python-based content scan | Medium | Medium | `static/js/today.js` builds classes like `bg-strength-strong/10` at runtime — covered by adding `static/js/*.js` to Tailwind content paths (see Implementation Notes) |
+| JS-generated classes not visible to Python-based content scan | Medium | Medium | Page-local JS that builds classes at runtime (the former `today.js` built `bg-strength-strong/10`) is covered by adding `static/js/*.js` to Tailwind content paths (see Implementation Notes) |
 | Lucide icons in Alpine-reactive DOM nodes render as blank | Medium | Medium | `<uk-icon :icon=...>` inside `x-for`/`x-if` auto-upgrades via UIkit's custom element registry; Lucide's `createIcons()` only processes elements present at call time. See M9 prerequisite below |
 | `output.css` not rebuilt after component changes | Low | Low | `./dev quality` (step 8) validates that `output.css` is up-to-date |
 
@@ -310,7 +310,7 @@ class name layer entirely.
 ### Tailwind content scanning — must include `static/js/`
 
 The Tailwind CLI scanner must cover JavaScript files that build class strings at runtime.
-`static/js/today.js`'s `strengthClass()` function returns classes like
+The former `today.js`'s `strengthClass()` function returned classes like
 `bg-strength-strong/10` and `bg-strength-developing/10` that are invisible to Python-only
 scanning. Add to `tailwind.config.js`:
 

@@ -1,5 +1,5 @@
 ---
-updated: 2026-09-13
+updated: 2026-09-17
 ---
 
 # Model Architecture
@@ -245,8 +245,6 @@ node and are outside this rule.)*
 ## Intelligence Architecture
 
 Intelligence logic lives in `*IntelligenceService` classes (extending `BaseAnalyticsService`), not in model files. These services use graph queries and shared utilities directly. Domain-specific enums live in `core/models/enums/`.
-
-The one exception is `core/models/finance/finance_intelligence.py` which defines `FinancialHealthScore` and related enums used by `cross_domain_analytics_service.py`.
 
 **See:** [ADR-048 Adaptive Learning Loop](../decisions/ADR-048-adaptive-learning-loop.md) for the architecture of learning from outcomes.
 

@@ -1,7 +1,7 @@
 ---
 title: Protocol Implementation Guide
 created: 2026-01-03
-updated: 2026-08-19
+updated: 2026-09-17
 status: active
 audience: developers
 tags: [guide, protocols, implementation]
@@ -17,7 +17,7 @@ This guide shows you how to implement and use protocols in SKUEL. For architectu
 
 ## Core Type-Checking Protocols
 
-SKUEL's type-checking protocols live in `core/protocols.py` and eliminate all `hasattr()` usage.
+SKUEL's type-checking protocols live in `/core/ports/base_protocols.py` (the `Has*` attribute protocols) and `/core/utils/type_converters.py` (the conversion protocols), and eliminate all `hasattr()` usage.
 
 ### Timestamp Protocols
 
@@ -363,7 +363,7 @@ class AlertOperations(Protocol):
 **Step 2**: Implement the backend (duck typing)
 
 ```python
-# File: adapters/persistence/alert_backend.py
+# Illustrative backend adapter (would live with the persistence adapters)
 from core.utils.result_simplified import Result
 
 class AlertBackend:
@@ -391,7 +391,7 @@ class AlertBackend:
 **Step 3**: Use in service
 
 ```python
-# File: core/services/alerts/alert_service.py
+# Illustrative service (would live with the core services)
 from core.ports.alert_protocols import AlertOperations
 
 class AlertService:
@@ -411,7 +411,7 @@ class AlertService:
 Protocols make testing trivial - just create a simple class that matches the protocol:
 
 ```python
-# Test file: tests/unit/test_alert_service.py
+# Illustrative unit test
 import pytest
 from core.services.alerts.alert_service import AlertService
 from core.utils.result_simplified import Result
@@ -464,7 +464,7 @@ async def test_notify_user():
 - [PORTS_TO_PROTOCOLS_MIGRATION.md](../migrations/PORTS_TO_PROTOCOLS_MIGRATION.md) - Migration history and lessons learned
 - [BACKEND_OPERATIONS_ISP.md](../patterns/BACKEND_OPERATIONS_ISP.md) - BackendOperations protocol hierarchy
 - [PROTOCOL_REFERENCE.md](../reference/PROTOCOL_REFERENCE.md) - Complete protocol catalog
-- `core/protocols.py` - All type-checking protocols (source of truth)
+- `/core/ports/base_protocols.py` - the `Has*` attribute protocols (`HasCreatedAt`, `HasUpdatedAt`, `HasScore`, `HasRelevanceScore`, …); `/core/utils/type_converters.py` - the conversion protocols (`PydanticModel`, `HasDict`, `HasToDict`)
 - `core/ports/` - All domain operation protocols
 
 ---

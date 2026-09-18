@@ -1,13 +1,12 @@
 ---
 title: UnifiedRelationshipService - Configuration-Driven Relationships
-updated: 2026-09-03
+updated: 2026-09-17
 category: patterns
 related_skills:
 - base-analytics-service
 - neo4j-cypher-patterns
 related_docs:
-- /docs/patterns/GENERIC_RELATIONSHIP_SERVICE.md
-- /docs/patterns/RELATIONSHIPS_ARCHITECTURE.md
+- /docs/architecture/RELATIONSHIPS_ARCHITECTURE.md
 - /docs/decisions/ADR-026-unified-relationship-registry.md
 - /docs/decisions/ADR-029-graphnative-service-removal.md
 ---
@@ -741,9 +740,6 @@ assert result.is_ok
 ### Integration Testing
 
 ```bash
-# Run relationship tests
-uv run pytest tests/integration/test_relationships.py -v
-
 # Validate configs
 uv run python -c "from core.models.relationship_registry import DOMAIN_CONFIGS; print(len(DOMAIN_CONFIGS))"
 ```

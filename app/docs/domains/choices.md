@@ -1,7 +1,7 @@
 ---
 title: Choices Domain
 created: 2025-12-04
-updated: 2026-09-11
+updated: 2026-09-17
 status: current
 category: domains
 tags: [choices, activity-domain, domain]
@@ -33,8 +33,8 @@ Choices represent decisions with outcome tracking. They connect knowledge, princ
 | Facade | `/core/services/choices_service.py` |
 | Config | `CHOICES_CONFIG` in `/core/models/relationship_registry.py` |
 | Events | `/core/events/choice_events.py` |
-| UI Routes | `/adapters/inbound/choice_ui.py` |
-| View Components | `/ui/choices/views.py` |
+| UI Routes | `/adapters/inbound/choices_ui.py` |
+| View Components | `/ui/activities/choices_views.py` |
 
 ## Domain Enums
 

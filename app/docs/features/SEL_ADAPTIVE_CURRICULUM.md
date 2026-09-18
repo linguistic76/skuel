@@ -1,6 +1,6 @@
 ---
 title: SEL Adaptive Curriculum
-updated: 2026-08-09
+updated: 2026-09-17
 status: production
 category: features
 tags: [sel, adaptive-learning, curriculum, personalization, htmx]
@@ -42,8 +42,8 @@ The SEL (Social Emotional Learning) adaptive curriculum delivers personalized kn
 ### Service Architecture
 
 ```python
-# Service: AdaptiveSELService (absorbed into KuAdaptiveService — February 2026)
-# Location: core/services/ku/ku_adaptive_service.py
+# Service: AdaptiveSELService (absorbed into KuAdaptiveService — February 2026; that class is today's PsAdaptiveService)
+# Location: /core/services/ps/ps_adaptive_service.py
 
 class AdaptiveSELService:
     """
@@ -463,7 +463,7 @@ See: `/docs/migrations/SEL_UX_MODERNIZATION_2026-02-03.md`
 
 ## Contact & Support
 
-**Service Location:** `core/services/ku/ku_adaptive_service.py` (absorbed from AdaptiveSELService February 2026 — SEL is a navigation lens over KUs)
+**Service Location:** `/core/services/ps/ps_adaptive_service.py` (absorbed from AdaptiveSELService February 2026 — SEL is a navigation lens over PathSteps)
 **Routes:** SEL routes removed February 2026 — curriculum access via `/ku` hub
 
 **Key Contributors:** Claude Sonnet 4.5 (UX Modernization - 2026-02-03)

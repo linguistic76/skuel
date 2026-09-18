@@ -1,10 +1,10 @@
 ---
 title: Documentation Freshness Guide
-updated: 2026-09-10
+updated: 2026-09-17
 status: current
 category: user-guides
 tags: [documentation, freshness, health-checks, hooks, cross-references, staleness]
-related: [HEALTH_CHECKS.md, AUTOMATIC_DOCS_CHECK.md, GIT_HOOKS.md]
+related: [HEALTH_CHECKS.md, AUTOMATIC_DOCS_CHECK.md, GIT_HOOKS.md, weekly-janitor.md]
 ---
 
 # Documentation Freshness Guide
@@ -92,7 +92,8 @@ A skill is flagged when either:
 
 Each check exits non-zero when issues are found (CI-compatible). Everything in the
 roster also runs weekly via `.github/workflows/weekly-janitor.yml`, which reads
-the roster from `./dev health --list`; `health-mypy` sits outside it (~80s) and
+the roster from `./dev health --list` and reports to issue #1007 (see
+[The Weekly Janitor](weekly-janitor.md)); `health-mypy` sits outside it (~80s) and
 has its own weekly workflow.
 
 **The roster and the per-check detail live in

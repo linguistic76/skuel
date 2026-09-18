@@ -335,7 +335,6 @@ that never closes the loop.
 | `core/services/llm_caller.py` | 3+4 | Unified LLM routing (OpenAI/Anthropic by model prefix) |
 | `core/services/output/instruction_resolver.py` | 3 | Instruction resolution (custom > exercise > mode > default) |
 | `core/services/transcription/batch_transcription_service.py` | 3 | Batch audio → txt (Tier 1, config via `config/deepgram.toml`) |
-| `core/services/transcription/batch_processing_service.py` | 3 | Batch txt → md (Tier 2) |
 | `config/deepgram.toml` | 3 | Deepgram options — model, utterances, intelligence, vocabulary |
 | `core/config/deepgram_config.py` | 3 | Config loader for `config/deepgram.toml` |
 | `core/services/report/progress_report_generator.py` | 4 | ActivityReport generation |
@@ -352,7 +351,7 @@ that never closes the loop.
 | `adapters/inbound/teaching_forms_ui.py` | — | Forms visibility: template list, per-template submissions, submission detail (teacher role) |
 | `adapters/inbound/teaching_api.py` | 4 | Teacher API (review queue, revision, approve, students, groups) |
 | `adapters/inbound/exchange_ui.py` | 2+4 | `/exchange` thread view — one (student, exercise) exchange chronologically (renderer: `ui/learning_loop/exchange_thread.py`) |
-| `ui/patterns/feedback_item.py` | 4 | Shared feedback rendering (used by teaching + submissions UI) |
+| `ui/patterns/report_item.py` | 4 | Shared report-item rendering (`render_report_item`; teaching review UI) |
 | `core/prompts/templates/activity_feedback.md` | 4 | LLM prompt template (via PROMPT_REGISTRY) |
 
 ---

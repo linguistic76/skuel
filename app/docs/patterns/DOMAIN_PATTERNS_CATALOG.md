@@ -1,6 +1,6 @@
 ---
 title: Domain Patterns Catalog
-updated: 2026-09-11
+updated: 2026-09-17
 category: patterns
 related_skills:
 - python
@@ -132,7 +132,6 @@ core/models/{domain}/
 ├── {domain}.py                # Tier 3: Frozen domain model
 ├── {domain}_dto.py            # Tier 2: Mutable DTO
 ├── {domain}_request.py        # Tier 1: Pydantic request/response
-├── {domain}_converters.py     # Tier transitions
 └── {domain}_relationships.py  # Graph-native relationships
 ```
 
@@ -485,30 +484,37 @@ class Task:
 #### Converters (Tier Transitions)
 
 ```python
-# core/models/task/task_converters.py
+# core/models/task/task.py — conversions are methods on the frozen domain model;
+# there is no separate converters module.
 
-def task_create_request_to_dto(
-    request: TaskCreateRequest,
-    user_uid: UserUID,
-) -> TaskDTO:
-    """Convert Pydantic request → DTO (Tier 1 → Tier 2)."""
-    return TaskDTO.create(
+@classmethod
+def from_request(cls, request: TaskCreateRequest, *, user_uid: UserUID) -> Task:
+    """Pydantic request → frozen domain model (Tier 1 → Tier 3).
+
+    The create path stays frozen-domain up to the persistence boundary; inference
+    enrichment is applied with dataclasses.replace(), never by DTO mutation.
+    """
+    return cls(
+        uid=EntityUID(UIDGenerator.generate_random_uid("task")),
+        entity_type=EntityType.TASK,
         user_uid=user_uid,
         title=request.title,
         description=request.description,
         due_date=request.due_date,
         priority=request.priority,
         duration_minutes=request.duration_minutes,
-        tags=request.tags,
+        tags=tuple(request.tags),
+        # ... remaining scalar request fields
     )
 
-def task_dto_to_pure(dto: TaskDTO) -> Task:
-    """Convert DTO → Domain (Tier 2 → Tier 3)."""
-    return Task.from_dto(dto)
+@classmethod
+def from_dto(cls, dto: EntityDTO | TaskDTO) -> Task:
+    """DTO → Domain (Tier 2 → Tier 3)."""
+    return cls._from_dto(dto)
 
-def task_pure_to_dto(task: Task) -> TaskDTO:
-    """Convert Domain → DTO (Tier 3 → Tier 2)."""
-    return task.to_dto()
+def to_dto(self) -> TaskDTO:
+    """Domain → DTO (Tier 3 → Tier 2)."""
+    return domain_to_dto(self, TaskDTO)
 ```
 
 ### Pros & Cons
@@ -521,7 +527,7 @@ def task_pure_to_dto(task: Task) -> TaskDTO:
 - ✅ Easy to test (business logic isolated)
 
 **Cons**:
-- ⚠️ More boilerplate (3 files per domain + converters)
+- ⚠️ More boilerplate (3 files per domain: domain, dto, request — conversions are classmethods on the domain model)
 - ⚠️ Conversion overhead (Pydantic→DTO→Domain→DTO→Pydantic)
 - ⚠️ Steeper learning curve for new developers
 
@@ -621,7 +627,7 @@ core/models/{domain}/
 #### Tier 1: Pydantic Request
 
 ```python
-# core/models/finance/finance_request.py
+# illustrative only — no live file: SKUEL has no native expense module (ADR-052 Phase 5 demolished it; Finance is a Firefly III sidecar)
 
 from datetime import date
 from pydantic import Field
@@ -645,7 +651,7 @@ class ExpenseCreateRequest(CreateRequestBase):
 #### Tier 2: DTO (Used Directly - No Domain Model)
 
 ```python
-# core/models/finance/expense_dto.py
+# illustrative only — no live file (see the Tier 1 note above)
 
 from dataclasses import dataclass, field
 from datetime import date, datetime
@@ -739,7 +745,7 @@ class ExpenseDTO:
 #### Service Usage (No Domain Model Needed)
 
 ```python
-# core/services/finance/finance_service.py
+# illustrative only — no live file (see the Tier 1 note above)
 
 class FinanceService:
     """Finance service uses DTO directly."""
@@ -846,7 +852,7 @@ Journals migrated to Pattern A via ADR-054 — they are now a `pipeline=TRANSCRI
 
 | Aspect | Pattern A (Three-Tier) | Pattern B (Two-Tier) |
 |--------|------------------------|----------------------|
-| **Files per domain** | 4-5 (dto, domain, request, converters) | 2 (dto, request) |
+| **Files per domain** | 3-4 (dto, domain, request, relationships) | 2 (dto, request) |
 | **Business logic location** | Domain model (frozen) | DTO (mutable) |
 | **Immutability** | Yes (frozen dataclass) | No (mutable dataclass) |
 | **Type safety** | `DomainModelProtocol` | Basic dataclass |
@@ -876,7 +882,6 @@ core/models/{domain}/
 ├── {domain}.py                # Domain model (frozen)
 ├── {domain}_dto.py            # DTO (mutable)
 ├── {domain}_request.py        # Pydantic models
-├── {domain}_converters.py     # Tier transitions
 └── {domain}_relationships.py  # Graph-native (optional)
 ```
 

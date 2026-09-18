@@ -478,7 +478,7 @@ their own file loaded via `rule_files:` in `prometheus.yml` — SKUEL has none t
 is a create-the-file step, not an edit:
 
 ```yaml
-# monitoring/prometheus/recording_rules.yml (would need adding to rule_files:)
+# new file: recording_rules.yml beside alerts.yml (would need adding to rule_files: in prometheus.yml and a mount in docker-compose.yml)
 groups:
   - name: skuel_aggregations
     interval: 30s

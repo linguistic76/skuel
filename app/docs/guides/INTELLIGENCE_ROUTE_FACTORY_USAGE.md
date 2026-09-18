@@ -1,6 +1,6 @@
 ---
 title: Intelligence Route Factory - Usage Guide
-updated: 2026-09-16
+updated: 2026-09-17
 status: current
 category: guides
 tags: [factory, guides, intelligence, route, usage]
@@ -546,8 +546,7 @@ uv run pytest tests/unit/infrastructure/test_intelligence_route_factory.py -v
 
 - **Implementation:** `/adapters/inbound/route_factories/intelligence_route_factory.py`
 - **Tests:** `/tests/unit/infrastructure/test_intelligence_route_factory.py`
-- **CRUD Factory:** `/docs/CRUD_ROUTE_FACTORY_USAGE.md`
-- **Refactoring Plan:** `/docs/INBOUND_ADAPTER_REFACTORING_PLAN.md`
+- **CRUD Factory:** `/docs/patterns/ROUTE_FACTORIES.md` (§ CRUDRouteFactory)
 
 ---
 

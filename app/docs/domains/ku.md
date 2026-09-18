@@ -1,7 +1,7 @@
 ---
 title: KU (Knowledge Unit) Domain
 created: 2025-12-04
-updated: 2026-07-27
+updated: 2026-09-17
 status: current
 category: domains
 tags:
@@ -254,14 +254,14 @@ config = KU_CONFIG
 ## Related ADRs
 
 - [ADR-013: KU UID Flat Identity](../decisions/ADR-013-ku-uid-flat-identity.md)
-- [ADR-023: Curriculum BaseService Migration](../decisions/ADR-023-curriculum-base-service.md)
-- [ADR-024: BaseAnalyticsService Migration](../decisions/ADR-024-base-intelligence-service.md)
+- [ADR-023: Curriculum BaseService Migration](../decisions/ADR-023-curriculum-baseservice-migration.md)
+- [ADR-024: BaseAnalyticsService Migration](../decisions/ADR-024-base-intelligence-service-migration.md)
 - [ADR-028: KU & MOC Unified Relationship Migration](../decisions/ADR-028-ku-moc-unified-relationship-migration.md)
 - [ADR-030: Curriculum Domain Unification](../decisions/ADR-030-curriculum-domain-unification.md)
 
 ## See Also
 
-- [PS Domain](ls.md) - Path Steps aggregate KUs
+- [PS Domain](ps.md) - Path Steps aggregate KUs
 - [LP Domain](lp.md) - Learning Paths sequence KUs
 - [MOC Domain](moc.md) - MOCs navigate KUs
 - [Curriculum Grouping Patterns](../architecture/CURRICULUM_GROUPING_PATTERNS.md)

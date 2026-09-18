@@ -1,6 +1,6 @@
 ---
 title: Search Architecture - Unified Search System
-updated: 2026-09-10
+updated: 2026-09-17
 status: current
 category: architecture
 tags:
@@ -395,7 +395,7 @@ response = await search_router.faceted_search(request, user_uid)
 
 **When Used:** Daily planning, ZPD assessment, Askesis — NOT the search path
 
-**Implementation:** `/core/services/user/user_context_queries.py`
+**Implementation:** `/adapters/persistence/neo4j/user_context_queries.py`
 
 **How it Works:**
 1. Single comprehensive Cypher query
@@ -1317,7 +1317,7 @@ and educational-level controls it does.
 | **Schema Manager** | `/adapters/persistence/neo4j/neo4j_schema_manager.py` | `sync_fulltext_indexes()` (always), `sync_vector_indexes()` (FULL tier only) |
 | **UI Components** | `/ui/search/components.py` | Query box, filter bar (+ mobile drawer), result cards, top-N headline (no pagination — #555 ruled DROP) |
 | **Query parsing & ranking** | `SearchQueryParser` (`/core/models/search/query_parser.py`) + `score_*` (`/core/models/search/scoring.py`) | Analog typed-filter (priority/status/domain) parse; `score_*` unified ranking applied by `SearchRouter._score_results` only when a caller supplies `user_context` (CORE tier) |
-| **MEGA-QUERY** | `/core/services/user/user_context_queries.py` | User state query |
+| **MEGA-QUERY** | `/adapters/persistence/neo4j/user_context_queries.py` | User state query |
 | **Ku Learning State** | `KuBackend` in `/adapters/persistence/neo4j/backends/curriculum_backends.py` | IN_PROGRESS, MASTERED (Ku-native two-tier: Studying + Understood) |
 | **PathStep Learning State** | `/core/services/ps/ps_mastery_service.py` | VIEWED/IN_PROGRESS/MASTERED/BOOKMARKED/MARKED_AS_READ |
 | **Relationship Names** | `/core/models/relationship_names.py` | VIEWED, IN_PROGRESS, MASTERED |
@@ -1331,4 +1331,3 @@ and educational-level controls it does.
 - [search_service_pattern.md](../patterns/search_service_pattern.md) — How to implement domain search services
 - [UNIFIED_USER_ARCHITECTURE.md](UNIFIED_USER_ARCHITECTURE.md) — UserContext and MEGA-QUERY
 - [query_architecture.md](../patterns/query_architecture.md) — Query builders and patterns
-- [NEO4J_GENAI_ARCHITECTURE.md](NEO4J_GENAI_ARCHITECTURE.md) — Vector search and embeddings

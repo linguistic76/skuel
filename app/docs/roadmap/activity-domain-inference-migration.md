@@ -1,5 +1,5 @@
 ---
-updated: 2026-06-21
+updated: 2026-09-17
 ---
 
 # Activity Domain Inference Migration
@@ -40,7 +40,7 @@ A functional-direction review (see [`functional-direction.md` § implementation 
 For each non-Task Activity Domain `X` to reach inference parity:
 
 1. **Define `core/models/x/x_inference_result.py::XInferenceResult`** as a frozen dataclass with enrichment fields. The three knowledge-graph fields (`knowledge_confidence_scores`, `knowledge_inference_metadata`, `learning_opportunities_count`) are domain-general and apply to any Activity Domain that touches the KU graph. Domain-specific enrichment fields are TBD per domain — confirm against real use cases, do not pre-commit them in this roadmap.
-2. **Re-export from `core/models/x/__init__.py`** (mirror `task/__init__.py`).
+2. **Re-export from `core/models/{x}/__init__.py`** (mirror `task/__init__.py`).
 3. **Inject `ku_inference_service: EntityInferenceService` into `XCoreService.__init__`** and wire from `services_bootstrap/compose.py`. Cross-reference Tasks' wiring as the canonical example.
 4. **Call inference from `create_x` / `update_x`** and apply via `dataclasses.replace(x_draft, **result.value.as_kwargs())`. The canonical caller pattern is `core/services/tasks/tasks_core_service.py::create_task` (post-ADR-065).
 5. **Surface domain-specific cross-domain context** via the CANONICAL typed reader (`get_cross_domain_context_typed` → a path-aware `*CrossContext` with a `from_categorized` seam in `core/models/graph/path_aware_types.py`), consumed through `BaseAnalyticsService._analyze_entity_with_typed_context`. Reference: any migrated domain's `_core_intelligence_mixin.py` / `get_domain_insights` (Tasks, Events, Goals, etc.). The former bespoke `categorize_cross_domain_context()` mixin pattern is retired.
@@ -83,4 +83,4 @@ This doc is scoped to the **inference contract migration** specifically — the 
 - [Three-Tier Type System](../patterns/three_tier_type_system.md) — § "Intelligence is the Exception" documents the doctrinal carve-out.
 - `core/models/task/task_inference_result.py` — the type template to mirror per domain.
 - `core/services/tasks/tasks_core_service.py::create_task` — the canonical caller pattern.
-- `core/services/tasks/_core_intelligence_mixin.py` — the mixin depth to mirror per domain.
+- `core/services/intelligence/_core_intelligence_mixin.py` — the shared core-intelligence mixin `TasksIntelligenceService` inherits; the mixin depth to mirror per domain.

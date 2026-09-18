@@ -1,5 +1,5 @@
 ---
-updated: 2026-07-25
+updated: 2026-09-17
 ---
 
 # Prometheus + Grafana Observability for SKUEL
@@ -852,7 +852,7 @@ docker logs skuel-app | grep "Graph health metrics"
 - Zero export lag (was 30 seconds with bridge)
 
 **Files Removed**:
-- `/core/infrastructure/monitoring/prometheus_bridge.py`
+- the former `prometheus_bridge.py` (the `PrometheusPerformanceBridge` module under the monitoring package)
 
 **Benefits**:
 - ✅ Single source of truth (Prometheus)

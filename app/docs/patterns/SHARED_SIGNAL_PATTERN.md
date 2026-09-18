@@ -1,6 +1,6 @@
 ---
 title: Shared Signal Pattern
-updated: 2026-08-11
+updated: 2026-09-17
 status: proposed
 category: patterns
 tags: [patterns, activity-domains, intelligence, protocols, cross-cutting, design]
@@ -113,7 +113,7 @@ class KnowledgeIntelligenceOperations(Protocol):
 
 **Naming rule:** `{Concern}IntelligenceOperations` or `{Concern}Operations` — `KnowledgeIntelligenceOperations`, `CalendarCollisionOperations`. The name identifies the *shared concern*, not any single producing service.
 
-Shared Signal protocols do **not** live in `core/ports/sibling_signals.py` — that file is reserved for peer-to-peer protocols. Shared Signal protocols live in `core/ports/intelligence_protocols.py` alongside the existing `KnowledgeIntelligenceOperations`.
+Shared Signal protocols do **not** belong in the Sibling Signal pattern's proposed sibling-signals module under `core/ports/` (nothing is built yet — see [SIBLING_SIGNAL_PATTERN.md](SIBLING_SIGNAL_PATTERN.md)); that module is reserved for peer-to-peer protocols. Shared Signal protocols live in `core/ports/intelligence_protocols.py` alongside the existing `KnowledgeIntelligenceOperations`.
 
 ## Consumption Shape
 

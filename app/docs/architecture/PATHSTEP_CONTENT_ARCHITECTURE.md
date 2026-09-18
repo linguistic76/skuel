@@ -1,5 +1,5 @@
 ---
-updated: 2026-08-30
+updated: 2026-09-17
 ---
 
 # PathStep Content Architecture
@@ -318,4 +318,4 @@ content: |
 | Post-persist embedding publish chokepoint | `core/events/embedding_publisher.py` |
 | Fetch PathStep + body for detail page | `core/services/ps_service.py` — `get_with_content()` (BaseService `ContextOperationsMixin`; :Content body read via `UniversalNeo4jBackend.get_content`) |
 | Semantic vector search on chunks | `adapters/persistence/neo4j/_adaptive_mixin.py` |
-| Sample vault PathStep | `/home/mike/0bsidian/0vault/Ps/ps_breath-awareness-basics.md` |
+| Sample vault PathStep | `Ps/breath-awareness-basics_Ps.md` in the content vault (`INGESTION_PATH`, default `/home/mike/0bsidian/0vault/`) |

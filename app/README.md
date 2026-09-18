@@ -374,22 +374,31 @@ uv run ruff format .
 
 ### Mindfulness 101 Demo
 
-Try SKUEL with a complete curriculum bundle:
+Try SKUEL with a complete curriculum bundle. **Prerequisite:** the bundle is authored in the
+content vault, an Obsidian vault *outside this repository* — `INGESTION_PATH` (default
+`/home/mike/0bsidian/0vault/`) must point at a vault holding `Lp/lp_mindfulness-101.md` and its
+`Ps/Ps_dev/mindfulness-101*` path steps. A clean clone has no such vault; confirm before
+touching the database:
 
 ```bash
-# 1. Complete database reset
+# 1. Confirm the vault holds the whole bundle (INGESTION_PATH, or the default vault) — stop here if any file is missing
+V="${INGESTION_PATH:-/home/mike/0bsidian/0vault}"
+ls "$V"/Lp/lp_mindfulness-101.md "$V"/Ps/Ps_dev/mindfulness-101_Ps.md \
+   "$V"/Ps/Ps_dev/mindfulness-101_step-1_Ps.md "$V"/Ps/Ps_dev/mindfulness-101_step-2_Ps.md \
+   "$V"/Exer/mindfulness-starter_exer.md
+
+# 2. Complete database reset
 uv run python scripts/clear_neo4j.py reset
 # Type: DELETE EVERYTHING
 
-# 2. Load curriculum bundle
-uv run python scripts/fresh_start_mindfulness.py
-# Type: FRESH START
+# 3. Ingest the content vault
+./dev vault-sync --vault content
 
-# 3. Explore in Neo4j Browser
+# 4. Explore in Neo4j Browser
 # Open: http://localhost:7474
 ```
 
-This demo creates 6 curriculum entities (3 KUs, 2 Path Steps, 1 Learning Path) to explore SKUEL's knowledge-centric approach.
+The Mindfulness 101 bundle in the content vault (a learning path, its path steps and an exercise) is the smallest end-to-end curriculum to explore SKUEL's knowledge-centric approach.
 
 **For complete demo documentation**, see `/docs/examples/mindfulness-101-demo.md`
 

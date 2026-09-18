@@ -1,5 +1,5 @@
 ---
-updated: 2026-09-08
+updated: 2026-09-17
 ---
 
 # Git Hooks for SKUEL
@@ -27,7 +27,7 @@ git config core.hooksPath app/scripts/git-hooks
 That relative path points git at the tracked hook scripts, so it resolves in any worktree and
 survives a fresh clone. It installs all three hooks at once; there are no symlinks to refresh.
 
-**Note:** Post-commit documentation checking was previously handled by a git `post-commit` hook (`scripts/hooks/post-commit` + `scripts/docs_contextual_check_v2.py`; that directory is gone — the hooks now live in `scripts/git-hooks/`). This was replaced (2026-03-30) by the Claude Code PostToolUse hook at `.claude/hooks/post-commit-docs.sh`. See `/docs/tools/AUTOMATIC_DOCS_CHECK.md`.
+**Note:** Post-commit documentation checking was previously handled by a git `post-commit` hook (the former `post-commit` script plus `docs_contextual_check_v2.py`, in a `hooks/` directory under `scripts/` that is gone — the hooks now live in `scripts/git-hooks/`). This was replaced (2026-03-30) by the Claude Code PostToolUse hook at `.claude/hooks/post-commit-docs.sh`. See `/docs/tools/AUTOMATIC_DOCS_CHECK.md`.
 
 ---
 

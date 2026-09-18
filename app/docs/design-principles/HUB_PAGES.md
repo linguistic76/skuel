@@ -1,6 +1,6 @@
 ---
 title: "Design Principle: Hub Pages"
-updated: 2026-08-02
+updated: 2026-09-17
 status: current
 category: design-principles
 tags: [design, principles, ui, navigation, moc, hub]
@@ -43,11 +43,11 @@ Each is a sidebar-free `BasePage(STANDARD)` with a 2×2 card grid. Cards use rou
 
 Child pages use `SidebarPage` for within-section navigation. Sidebar `title_href` links back to the MOC root (e.g. `/library`, `/gradebook`, `/submissions`).
 
-### Static Container Hub (Teaching)
+### Teaching (no section hub)
 
-**Teaching** (`/teaching`) — 4 containers: Students (`/teaching/students`), Groups (`/teaching/groups`), Review Queue (`/teaching/queue`), Forms (`/teaching/forms`). Hub view in `ui/teaching/hub.py`, sidebar nav in `ui/teaching/nav.py`. Individual students have a **nested hub** at `/teaching/students/{uid}` — 4 HTMX-loaded preview blocks (Needs Review, Revision Requested, Completed, KU Progress) showing actual submission/KU data inline, linking to `/teaching/students/{uid}/submissions?tab=...`. Preview endpoints: `/api/teaching/students/{uid}/{section}/preview`.
+**Teaching** has no hub page — `/teaching/students` is the section landing, and the sidebar nav in `ui/teaching/nav.py` reaches Groups (`/teaching/groups`), Review Queue (`/teaching/queue`) and Forms (`/teaching/forms`); the former static-container hub view and the `/teaching` route were removed. Individual students have a **nested hub** at `/teaching/students/{uid}` (`ui/teaching/student_hub.py`, built on `HubDomainBlockList`) — 4 HTMX-loaded preview blocks (Needs Review, Revision Requested, Completed, KU Progress) showing actual submission/KU data inline, linking to `/teaching/students/{uid}/submissions?tab=...`. Preview endpoints: `/api/teaching/students/{uid}/submissions/preview` (the 3 submission blocks share one call, filled by OOB swap) and `/api/teaching/students/{uid}/ku/preview`.
 
-**Components:** `HubContainerGrid` and `HubContainer` in `ui/patterns/hub.py` — bigger than `HubCard`, with more padding, full description, and arrow affordance.
+**Components:** `HubContainerGrid` and `HubContainer` in `ui/patterns/hub.py` (bigger than `HubCard`, with more padding, full description, and arrow affordance) have no consumer since the teaching hub left — a One Path Forward deletion candidate.
 
 ### Inline Hub Content
 

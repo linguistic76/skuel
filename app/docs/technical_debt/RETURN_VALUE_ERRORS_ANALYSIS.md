@@ -1,6 +1,6 @@
 ---
 title: Return Value Type Errors Analysis
-updated: 2026-03-25
+updated: 2026-09-17
 status: resolved
 category: technical-debt
 tags: [analysis, errors, return, technical-debt, value]
@@ -59,7 +59,7 @@ async def is_learning_task(self, task_uid: str) -> Result[bool]:
 ```
 
 **Files Affected**:
-- `core/services/tasks/tasks_relationship_service.py`: Lines 1170, 1192, 1215, 1226, 1248
+- the former `tasks_relationship_service.py` (Tasks domain): Lines 1170, 1192, 1215, 1226, 1248
   - `is_learning_task()`: Returns knowledge count
   - `has_subtasks()`: Returns subtask count
   - `has_prerequisites()`: Returns prerequisite count
@@ -145,8 +145,8 @@ async def get_with_context(
 ```
 
 **Files Affected**:
-- `core/services/tasks/tasks_relationship_service.py`
-- `core/services/finance/finance_intelligence_service.py`
+- the former `tasks_relationship_service.py` (Tasks domain)
+- the former `finance_intelligence_service.py` (Finance domain)
 
 **Fix Complexity**: MEDIUM
 **Estimated Time**: 30-60 minutes (need to implement context building)

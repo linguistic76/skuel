@@ -1,5 +1,5 @@
 ---
-updated: 2026-09-14
+updated: 2026-09-17
 ---
 
 # Askesis Architecture - Cross-Cutting Intelligence System
@@ -272,7 +272,7 @@ The `UserContextIntelligenceFactory` requires all domain relationship services. 
 |------|---------|
 | `/core/services/askesis_service.py` | Main facade + `AskesisDeps` typed dataclass |
 | `/core/services/askesis_factory.py` | `create_askesis_service()` — constructs AskesisDeps + returns AskesisService |
-| `/core/models/submissions/journal_insight.py` | `JournalInsight` frozen dataclass — ZPD signals from journal (Phase 2 stub) |
+| *(deferred — no module yet)* | `JournalInsight` — ZPD signals from processed journals; Phase 2 design only, see `ASKESIS_PEDAGOGICAL_ARCHITECTURE.md` §3 |
 | `/core/services/askesis/user_state_analyzer.py` | State assessment |
 | `/core/services/askesis/action_recommendation_engine.py` | Recommendations |
 | `/core/services/askesis/state_scoring.py` | Pure functions for state scoring (January 2026) |

@@ -434,7 +434,7 @@ Write the code, tests, then docs.
 ## Related
 
 - See: @relevant-skill
-- See: /docs/architecture/RELATED_ARCHITECTURE.md
+- See: /docs/architecture/ARCHITECTURE_DOC_NAME.md
 ```
 
 #### 4. Cross-Reference

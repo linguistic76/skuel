@@ -1,6 +1,6 @@
 ---
 title: Async/Sync Design Pattern
-updated: 2026-07-19
+updated: 2026-09-17
 category: patterns
 related_skills:
 - python
@@ -149,7 +149,7 @@ def from_neo4j_node[T](data: dict[str, Any], entity_class: type[T]) -> T:
 Domain models contain business logic, not I/O:
 
 ```python
-# core/models/task.py
+# core/models/task/task.py
 
 @dataclass(frozen=True)
 class Task:

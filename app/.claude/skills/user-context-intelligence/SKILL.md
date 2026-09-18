@@ -685,7 +685,7 @@ intelligence = factory.create(context)
 | `/core/services/user/intelligence/synergy_intelligence.py` | Method 6 |
 | `/core/services/user/intelligence/schedule_intelligence.py` | Method 8 |
 | `/core/services/report/report_relationship_service.py` | Level 1 — report loop graph queries |
-| `/core/services/relationships/_domain_planning_mixin.py` | 6 domain-specific planning methods called by DailyPlanningMixin on URS instances |
+| `/core/services/base_planning_service.py` | Base of the 4 per-domain planning sub-services (`{tasks,goals,habits,principles}_planning_service.py`); the six `*_for_user()` methods DailyPlanningMixin calls sit on the Activity facades |
 | `/docs/intelligence/USER_CONTEXT_INTELLIGENCE.md` | Documentation |
 
 ## Deep Dive Resources

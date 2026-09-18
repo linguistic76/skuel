@@ -3,7 +3,7 @@ title: Starting SKUEL
 related_docs:
   - docs/development/DEVELOPMENT_SETUP.md
   - docs/deployment/DO_MIGRATION_GUIDE.md
-updated: 2026-03-17
+updated: 2026-09-17
 ---
 # Starting SKUEL
 
@@ -77,11 +77,8 @@ Starts Neo4j + App together (monitoring is opt-in):
 **App fails to start — database connection error**
 Neo4j isn't running. Start it first: `./dev up-neo4j`
 
-**"User not found: user.dev"**
-Dev users not seeded. Run once:
-```bash
-uv run python scripts/seed_dev_users.py
-```
+**401 "Authentication required" on every page**
+There is no dev auto-login and no seed script. Register an account at `/register`, then log in.
 
 **Port 8000 already in use**
 ```bash

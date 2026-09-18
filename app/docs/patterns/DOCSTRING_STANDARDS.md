@@ -1,6 +1,6 @@
 ---
 title: Docstring Standards
-updated: 2026-09-15
+updated: 2026-09-17
 category: patterns
 related_skills:
 - python
@@ -566,8 +566,6 @@ async def calculate_priority_score(
     - Deadline urgency: +0.3 if due within 24h, +0.2 if within 48h
     - Learning alignment: +0.2 if task applies knowledge user has
     - Momentum: +0.2 if user completed similar tasks recently
-
-    See: /docs/intelligence/TASK_PRIORITY_ALGORITHM.md
 
     Args:
         task: Task to score

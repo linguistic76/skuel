@@ -1,5 +1,5 @@
 ---
-updated: 2026-07-29
+updated: 2026-09-17
 ---
 
 # EventsIntelligenceService - Cross-Domain Impact Analysis & Schedule Optimization
@@ -512,20 +512,6 @@ Events support recurring patterns for sustained practice:
 
 ## Testing
 
-### Unit Tests
-```bash
-uv run python -m pytest tests/unit/services/test_events_intelligence_service.py -v
-```
-
-### Integration Tests
-```bash
-# Test with real backend
-uv run python -m pytest tests/integration/intelligence/test_events_intelligence.py -v
-
-# Test specific method
-uv run python -m pytest tests/integration/intelligence/ -k "test_analyze_upcoming_events" -v
-```
-
 ### Example Test
 ```python
 from unittest.mock import Mock
@@ -558,6 +544,6 @@ assert service.relationships == relationships
 - `/docs/intelligence/TASKS_INTELLIGENCE.md` - Task knowledge generation patterns
 - `/docs/intelligence/GOALS_INTELLIGENCE.md` - Goal forecasting patterns
 - `/docs/decisions/ADR-024-base-intelligence-service-migration.md` - BaseAnalyticsService pattern
-- `/core/services/base_intelligence_service.py` - Base implementation
+- `/core/services/base_analytics_service.py` - Base implementation
 - `/core/services/events_service.py` - EventsService facade
 - `/docs/architecture/knowledge_substance_philosophy.md` - Applied knowledge measurement

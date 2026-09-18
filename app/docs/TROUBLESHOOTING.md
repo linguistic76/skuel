@@ -1,5 +1,5 @@
 ---
-updated: 2026-09-16
+updated: 2026-09-17
 ---
 
 # SKUEL Troubleshooting Guide
@@ -131,7 +131,7 @@ curl -s -w "HTTP %{http_code}\n" http://localhost:8000/tasks
 
 **Symptom**: `ImportError: cannot import name 'X' from 'ui.daisy_components'` or `ModuleNotFoundError: No module named 'ui.daisy_components'`
 
-**Cause**: `ui/daisy_components.py` was decomposed into 8 focused modules (March 2026). Standard HTML/FastHTML primitives (`H1`, `Div`, `Span`, etc.) were never part of SKUEL's wrappers.
+**Cause**: the former `daisy_components.py` UI module was decomposed into 8 focused modules (March 2026). Standard HTML/FastHTML primitives (`H1`, `Div`, `Span`, etc.) were never part of SKUEL's wrappers.
 
 **Solution**:
 ```python

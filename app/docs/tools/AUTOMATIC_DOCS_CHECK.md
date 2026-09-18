@@ -1,11 +1,11 @@
 ---
-updated: 2026-07-09
+updated: 2026-09-17
 ---
 
 # Automatic Documentation Check
 **Status:** Active (Claude Code PostToolUse hook)
 **Date Added:** 2026-01-30
-**Replaced:** 2026-03-30 (migrated from `scripts/docs_contextual_check.py` + git post-commit hook to Claude Code hook)
+**Replaced:** 2026-03-30 (migrated from the former `docs_contextual_check.py` / `docs_contextual_check_v2.py` scripts + git post-commit hook to Claude Code hook)
 
 ## Overview
 
@@ -178,7 +178,7 @@ Claude evaluates semantic staleness
 ## Historical Note
 
 Prior to 2026-03-30, documentation checking used two scripts:
-- `scripts/docs_contextual_check.py` (v1) / `scripts/docs_contextual_check_v2.py` — standalone Python scripts that ran LLM analysis
+- the former `docs_contextual_check.py` (v1) / `docs_contextual_check_v2.py` — standalone Python scripts that ran LLM analysis
 - `scripts/hooks/post-commit` — a git hook that called the v2 script
 
 These were replaced by the Claude Code PostToolUse hook, which is simpler (a shell script that injects context into the active Claude session) and costs $0 in additional API calls.

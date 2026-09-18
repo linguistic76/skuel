@@ -1,5 +1,5 @@
 ---
-updated: 2026-09-15
+updated: 2026-09-17
 related_skills: [journals]
 ---
 
@@ -185,7 +185,7 @@ The Journals domain produces the richest signal of where the user actually is �
 **What is deferred:** After a journal entry is processed, a second LLM pass would extract pedagogical signals into a `JournalInsight` object:
 
 ```python
-# core/models/submissions/journal_insight.py — shape defined, extraction deferred
+# JournalInsight — proposed shape only (no model file in the tree); extraction deferred
 @dataclass(frozen=True)
 class JournalInsight:
     journal_uid: str
@@ -225,4 +225,3 @@ class JournalInsight:
 | `core/services/journal/instruction_loader.py` | Prompt composition, file loading, discussion/follow-up floor + override home (ADR-081) |
 | `adapters/inbound/journals_routes.py` | Route layer, FOUNDER tier enforcement |
 | `core/services/journal/journal_batch_service.py` | `JournalBatchService` — the zero-persistence je_in/upload → je_out batch engine (transcribe, LLM compile, exemplar injection, output naming) |
-| `core/models/submissions/journal_insight.py` | `JournalInsight` dataclass stub (Phase 2) |

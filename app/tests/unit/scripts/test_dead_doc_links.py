@@ -707,6 +707,106 @@ def test_link_destination_with_a_template_marker_is_skipped() -> None:
         assert not ddl._is_checkable_link_target(f"core/services/x{marker}y/service.py")
 
 
+@pytest.mark.parametrize(
+    "body",
+    [
+        "```python\nclass CrudOperations[T: DomainModelProtocol](Protocol):\n```\n",  # BACKEND_OPERATIONS_ISP
+        "```python\nclass EnumLike[V = str | int | float](Protocol):\n```\n",  # PROTOCOL_REFERENCE
+        "a markdown link `[text](url)` would show as raw characters\n",  # CANON_CITATION_DESIGN
+    ],
+)
+def test_bare_word_destination_inside_code_is_not_a_link(docs_root: Path, body: str) -> None:
+    """A PEP 695 generic header in a fence, or a literal link illustration in a code
+    span, parses as `[…](Word)`: no space for the raw-space test to see, and no `/`,
+    `.` or `#`. Skipped in that context only. Measured 4 in the corpus, all in code."""
+    assert _report(docs_root, f"# P\n\n{body}") == set()
+
+
+def test_bare_word_destination_in_prose_stays_reported(docs_root: Path) -> None:
+    """CommonMark allows `[license](LICENSE)`; a moved LICENSE must still report. The
+    context rule is what keeps the fence/code-span skip from becoming a blind spot."""
+    assert _report(docs_root, "# P\n\nRead the [license](LICENSE) first.\n") == {
+        (3, "LICENSE", "link")
+    }
+
+
+def test_bare_word_after_a_closed_code_span_is_prose(docs_root: Path) -> None:
+    """`x` then [a](LICENSE): the span closed before the match, so it is prose."""
+    assert _report(docs_root, "# P\n\nRun `x`, then read [a](LICENSE).\n") == {
+        (3, "LICENSE", "link")
+    }
+
+
+def test_double_backtick_span_is_code(docs_root: Path) -> None:
+    """A ``…`` span (CommonMark: a backtick string of length 2 closes at the next run
+    of exactly 2) — a parity count would see an even prefix and report it."""
+    body = "# P\n\nwrite ``the `[text](url)` form`` in prose\n"
+    assert _report(docs_root, body) == set()
+
+
+def test_escaped_backtick_does_not_open_a_span(docs_root: Path) -> None:
+    """A \\` in prose is a literal backtick, not a delimiter — parity would flip and
+    hide the real link that follows."""
+    body = "# P\n\nType a literal \\` then read [the license](LICENSE).\n"
+    assert _report(docs_root, body) == {(3, "LICENSE", "link")}
+
+
+def test_backslash_inside_a_span_does_not_defer_its_closer(docs_root: Path) -> None:
+    """CommonMark processes no escapes inside a code span: in `foo\\` the backtick
+    after the backslash closes the span, and the link after it is prose."""
+    body = "# P\n\nsee `foo\\` [the license](LICENSE) `\n"
+    assert _report(docs_root, body) == {(3, "LICENSE", "link")}
+
+
+@pytest.mark.parametrize(
+    ("text", "spans"),
+    [
+        ("plain", {}),
+        ("a `b` c", {1: [(2, 5)]}),
+        ("``a `b` c`` d", {1: [(0, 11)]}),
+        ("x \\`y` z", {}),  # escaped opener, then an unmatched run → literal
+        ("`unclosed", {}),
+        ("`a` and `b`", {1: [(0, 3), (8, 11)]}),
+        ("`foo\\` [a](LICENSE) `", {1: [(0, 6)]}),  # no escapes inside a span
+        (
+            "open `here\n[text](url) still` code",
+            {1: [(5, 10)], 2: [(0, 18)]},
+        ),  # crosses a line ending
+        ("```\n`not a span: fenced`\n```\n`real`", {4: [(0, 6)]}),  # fences masked first
+        ("```\nlong fenced line here\n```\nx `y`", {4: [(2, 5)]}),  # offsets follow the MASKED text
+        (
+            "open `never\n\nclosed` later",
+            {},
+        ),  # a span never crosses a blank line (per-block parsing)
+    ],
+)
+def test_inline_code_spans_by_line(text: str, spans: dict[int, list[tuple[int, int]]]) -> None:
+    assert ddl._inline_code_spans_by_line(text) == spans
+
+
+def test_an_unmatched_backtick_does_not_swallow_the_next_paragraph(docs_root: Path) -> None:
+    """Inline parsing is per block: a stray backtick in one paragraph and a run in a
+    later one are not a span, so the link between them is prose and is reported."""
+    body = "# P\n\na stray ` here\n\nread [the license](LICENSE) now\n\nand `code` later\n"
+    assert _report(docs_root, body) == {(5, "LICENSE", "link")}
+
+
+def test_multiline_code_span_hides_a_bare_word_link_on_its_second_line(docs_root: Path) -> None:
+    """A code span may cross a line ending (CommonMark § 6.1); the `[text](url)` on
+    its second line is code, and a per-line scan would have reported it."""
+    body = "# P\n\nwrite `the\n[text](url) form` in prose\n"
+    assert _report(docs_root, body) == set()
+
+
+@pytest.mark.parametrize(
+    "target", ["README.md", "../patterns/x.md", "docs/", "#anchor-only", "LICENSE"]
+)
+def test_destinations_stay_checkable_by_shape(target: str) -> None:
+    """The context-free predicate never rejects on shape alone (anchor-only links are
+    skipped later, on their own rule, not here)."""
+    assert ddl._is_checkable_link_target(target)
+
+
 def test_ordinary_dead_link_is_still_reported(docs_root: Path) -> None:
     """Positive control for the guard: it must not have quieted the link pass itself."""
     assert _report(docs_root, f"# P\n\nSee [the service]({DEAD_REL}).\n") == {(3, DEAD_REL, "link")}

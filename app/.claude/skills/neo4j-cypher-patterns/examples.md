@@ -351,7 +351,7 @@ RETURN c as choice,
 ### MEGA-QUERY: Complete User Context
 ```cypher
 // This is a simplified version of SKUEL's MEGA-QUERY
-// See /core/services/user/user_context_queries.py for full version
+// See /adapters/persistence/neo4j/user_context_queries.py (RICH_CONTEXT_STATEMENTS) for the live statements
 
 MATCH (user:User {uid: $user_uid})
 

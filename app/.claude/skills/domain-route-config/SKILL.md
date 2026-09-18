@@ -237,24 +237,17 @@ TRANSCRIPTION_CONFIG = DomainRouteConfig(
 
 ### 3. UI-Only — omit `api_factory`
 
-**When to use:** Domains that only need server-rendered pages, with no CRUD API of their own. Example: Study (submission hub composing multiple services).
+**When to use:** Domains that only need server-rendered pages, with no CRUD API of their own. Example: Calendar (month/week views — every read is an HTMX fragment, no JSON API).
 
 **Detail:** `api_factory` defaults to `None`. Simply omit it. `register_domain_routes()` skips API wiring and `api_related_services` extraction when `api_factory` is `None`.
 
-**Exemplar:** `adapters/inbound/study_routes.py`
+**Exemplar:** `adapters/inbound/calendar_routes.py`
 
 ```python
-STUDY_CONFIG = DomainRouteConfig(
-    domain_name="study",
-    primary_service_attr="user_entry",
-    ui_factory=create_study_ui_routes,
-    ui_related_services={
-        "processing_service": "user_entry_processor",
-        "user_service": "user",
-        "exercises_service": "exercises",
-        "activity_report_service": "activity_report",
-        "teacher_review_service": "teacher_review",
-    },
+CALENDAR_CONFIG = DomainRouteConfig(
+    domain_name="calendar",
+    primary_service_attr="calendar",
+    ui_factory=create_calendar_ui_routes,
 )
 ```
 
@@ -483,7 +476,7 @@ Don't refactor `register_domain_routes()` without preserving both null guards (a
 | `adapters/inbound/route_factories/__init__.py` | Export surface: `DomainRouteConfig`, `register_domain_routes` |
 | `adapters/inbound/tasks_routes.py` | Exemplar: Standard pattern with related services |
 | `adapters/inbound/ku_routes.py` | Exemplar: Standard pattern with `ui_related_services` (UserRelationshipService for pins) |
-| `adapters/inbound/nous_routes.py` | Exemplar: UI-only pattern |
+| `adapters/inbound/calendar_routes.py` | Exemplar: UI-only pattern |
 | `adapters/inbound/insights_routes.py` | Exemplar: Multi-factory pattern |
 | `docs/patterns/DOMAIN_ROUTE_CONFIG_PATTERN.md` | Canonical pattern documentation (1,043 lines) |
 | `docs/migrations/DOMAIN_ROUTE_CONFIG_MIGRATION_2026-02-03.md` | Migration history and stats |

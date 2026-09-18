@@ -82,7 +82,7 @@ for f in raw_files:
         filename = f.filename
 ```
 
-**Example:** `/upload` page — see `adapters/inbound/upload_ui.py`.
+**Example:** the `/journals/upload` handler in `adapters/inbound/journals_routes.py` — `form.getlist("file")` filtered to `UploadFile` instances.
 
 ### Out-of-Band (OOB) Swaps — One Request, Multiple DOM Updates
 

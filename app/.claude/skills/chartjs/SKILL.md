@@ -90,7 +90,7 @@ def habit_dashboard():
 | `/static/js/skuel.js` | `chartVis()` Alpine component (lines 514-571) |
 | `/core/services/analytics/visualization_aggregation_service.py` | Data fetching + aggregation (owns domain service deps); delegates formatting |
 | `/core/services/visualization_service.py` | Pure Chart.js/Vis.js/Gantt formatter (no domain deps; import directly from `core`) |
-| `/ui/goals/visualization.py` | FastHTML component wrappers |
+| `/ui/insights/components.py` | `_chart_card()` — the FastHTML canvas + loading/error wrapper for `chartVis` (no shared module; `/ui/lifepath/alignment.py` inlines its own radar twin, `_alignment_radar()`) |
 | `/adapters/inbound/visualization_routes.py` | API endpoints returning Chart.js configs |
 | `/static/vendor/chart.js/` | Chart.js library (local vendor) |
 

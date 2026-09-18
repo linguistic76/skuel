@@ -1,6 +1,6 @@
 ---
 title: Return Type Error Propagation Pattern
-updated: 2026-06-11
+updated: 2026-09-17
 category: patterns
 related_skills:
 - result-pattern
@@ -273,6 +273,6 @@ $ uv run mypy core/services/lp/lp_core_service.py
 ## References
 
 - Result implementation: `/core/utils/result_simplified.py:181-206`
-- Error handling docs: `/home/mike/0bsidian/skuel/docs/patterns/error_handling.md`
-- SKUEL linter: `/scripts/lint_skuel_patterns.py`
+- Error handling docs: `/docs/patterns/ERROR_HANDLING.md`
+- SKUEL linter: `/scripts/lint_skuel.py`
 - CLAUDE.md section: "Error Handling"

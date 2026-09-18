@@ -1,5 +1,5 @@
 ---
-updated: 2026-09-07
+updated: 2026-09-17
 ---
 
 # Data Flow Walkthrough: Following a Task Creation Request
@@ -162,7 +162,7 @@ async def create_task(
 
 ### 2.2 Conversion: Pydantic → DTO (Tier 1 → Tier 2)
 
-**File**: `/core/models/task/task_converters.py`
+**File**: `/core/models/task/task.py` — `Task.from_request` (the block below shows the retired `task_converters.py` shape; see the note after it)
 
 ```python
 def task_create_request_to_dto(

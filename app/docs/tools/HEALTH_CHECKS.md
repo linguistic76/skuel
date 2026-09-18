@@ -1,6 +1,6 @@
 ---
 title: Codebase Health Checks
-updated: 2026-09-16
+updated: 2026-09-18
 status: current
 category: tools
 tags: [health, scripts, dead-code, documentation, maintenance, drift]
@@ -14,6 +14,10 @@ related: [AUTOMATIC_DOCS_CHECK.md, BLOAT_DETECTION.md]
 **Location:** `scripts/health/`
 
 ## Overview
+
+> Reading this as the founder rather than as an engineer? Start with
+> [The Weekly Janitor](../user-guides/weekly-janitor.md) — where the Monday report lands, what red means, and
+> the two-minute ritual.
 
 Automated checks that prevent codebase drift — the kind that accumulates silently between refactors: orphaned files, broken doc links, stale names in documentation examples, duplicated document sections, skill↔doc cross-reference inconsistencies, mypy suppressions that have stopped suppressing anything, and a secret scan that has started firing on the repository's own content.
 
@@ -203,6 +207,13 @@ no-leading-slash spelling (`docs/patterns/linter_rules.md`), not a third form.
 **External URLs** (`http://`, `https://`, etc.) and anchor-only links (`#section`) are skipped.
 **`%20`-encoded destinations are decoded** before resolution, so a correctly-encoded
 citation of a file whose name contains spaces resolves instead of reporting dead.
+**A separator-less destination inside code is not a link:** a PEP 695 generic header in
+a fence (`class X[T: Bound](Protocol):`) or a literal `[text](url)` in a code span parses as
+`[…](Word)`, and neither the raw-space guard nor the placeholder vocabulary can see it. It is
+skipped only in that context — the same `[license](LICENSE)` in prose stays checkable,
+because CommonMark allows it and a moved `LICENSE` must still report. Code spans are found by
+the CommonMark backtick-string rule over the whole file with fences masked (a span may cross a
+line ending; escapes are not processed inside one), never by counting backticks.
 
 **Four exclusions, every one visible (PRs B1 + B3).** A check reporting 871 findings is
 one nobody reads — but a check that goes quiet without saying so is worse, so each

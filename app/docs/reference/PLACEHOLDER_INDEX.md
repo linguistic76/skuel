@@ -1,5 +1,5 @@
 ---
-updated: 2026-09-11
+updated: 2026-09-17
 ---
 
 # Placeholder Parameter Index
@@ -409,7 +409,7 @@ These are FastHTML component functions that accept parameters that are not yet r
 ⚠ **Like Group B, the function has no caller** — the only occurrence of the name in the Python
 tree is its own definition.
 
-> **Settled (2026-08):** this group previously carried `ui/profile/curriculum_views.py`
+> **Settled (2026-08):** this group previously carried `ui/profile/`'s former `curriculum_views.py`
 > (`PathStepsDomainView(_context, _focus_uid)`) with an open abandoned-vs-staged question. The
 > dead-module triage ruled it abandoned — nothing imported the module, all four view functions were
 > unreached — and it was deleted per One Path Forward (`ui/profile/README.md` and the `skuel-ui`

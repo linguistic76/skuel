@@ -686,10 +686,113 @@ def _is_checkable_link_target(target: str) -> bool:
     need no rule of their own: the elided-segment substring already in
     ``PLACEHOLDER_SUBSTRINGS`` covers all four, including the ``http``-prefixed one that
     an exact-match rule would have missed (Codex, PR #1222).
+
+    **A bare word inside code is not a link** — see ``_is_bare_word_in_code``, which
+    the link pass applies with the line's context; this predicate is context-free and
+    keeps ``[license](LICENSE)``-shaped prose links checkable.
     """
     if " " in target:
         return False
     return not _is_documentation_stand_in(target)
+
+
+def _is_bare_word_in_code(
+    target: str, match_start: int, in_fence: bool, code_spans: list[tuple[int, int]]
+) -> bool:
+    """A separator-less destination sitting in code is Python (or an illustration), not a link.
+
+    A PEP 695 generic class header inside a fence —
+    ``class CrudOperations[T: DomainModelProtocol](Protocol):`` — parses as link text
+    ``T: DomainModelProtocol`` and destination ``Protocol``; the raw-space test cannot
+    see it because the base class carries no space, and the same shape appears
+    unbounded (``[V = str | int | float](Protocol)``). A literal ``[text](url)`` inside a
+    code span is the same thing in prose. Both are skipped ONLY in that context: the
+    destination has no ``/``, ``.`` or ``#`` AND the match sits inside a fenced block
+    or an inline code span (``_inline_code_spans_by_line``, the CommonMark backtick-string
+    rule — not a backtick count; a span may cross a line ending). A separator-less destination in ordinary prose —
+    ``[license](LICENSE)``, ``[docs](docs)`` — stays checkable, because CommonMark
+    allows it and a moved ``LICENSE`` must still report.
+    """
+    if any(ch in target for ch in "/.#"):
+        return False
+    if in_fence:
+        return True
+    return any(start <= match_start < end for start, end in code_spans)
+
+
+def _inline_code_spans_by_line(content: str) -> dict[int, list[tuple[int, int]]]:
+    """Inline code spans per 1-based line, as ``[start, end)`` column ranges — CommonMark § 6.1.
+
+    A backtick string is a run of one or more backticks; a code span opens with one and
+    closes at the next backtick string of exactly the same length (a longer or shorter
+    run inside the span is content), and it may cross a soft line break but never a
+    blank line — inline parsing is per block. Outside a span a
+    backtick escaped by a backslash is a literal character, not a delimiter; inside one,
+    escapes are not processed, so a backslash before the closer does not defer it.
+    Fenced blocks (delimiters included) are masked before the scan — a fence delimiter
+    is a backtick string too, and block structure outranks inline. Counting backticks
+    cannot express any of this — a double-backtick span has an even count before its
+    content, and an escaped backtick in prose flips parity — so the scanner is the
+    spec's, not a heuristic.
+    """
+    lines = content.splitlines()
+    fenced: set[int] = set()
+    for block in iter_code_fence_blocks(content):
+        first, last = block.span
+        fenced.update(range(first, last + 1))
+    masked = "\n".join("" if i in fenced else line for i, line in enumerate(lines, 1))
+
+    spans: list[tuple[int, int]] = []  # absolute [start, end) offsets into `masked`
+    i, n = 0, len(masked)
+    while i < n:
+        if masked[i] == "\\":
+            i += 2  # the escaped character, whatever it is, is literal
+            continue
+        if masked[i] != "`":
+            i += 1
+            continue
+        run_start = i
+        while i < n and masked[i] == "`":
+            i += 1
+        run_len = i - run_start
+        # Find the closing string of exactly run_len backticks. No escape handling
+        # here: backslash escapes are not processed inside a code span. Inline
+        # parsing is per block, so the search stops at a blank line — a span may
+        # cross a soft line break, never a paragraph boundary.
+        j = i
+        while j < n:
+            if masked[j] == "\n" and masked[j + 1 : j + 2] == "\n":
+                break
+            if masked[j] == "`":
+                close_start = j
+                while j < n and masked[j] == "`":
+                    j += 1
+                if j - close_start == run_len:
+                    spans.append((run_start, j))
+                    i = j
+                    break
+                continue
+            j += 1
+        # An unmatched opening run is literal; scanning resumes after it.
+
+    # Project absolute offsets (into the MASKED text — a masked line is empty, so
+    # its offsets follow the masked lengths, not the originals) onto (line, column).
+    masked_lines = masked.split("\n")
+    starts: list[int] = []
+    offset = 0
+    for line in masked_lines:
+        starts.append(offset)
+        offset += len(line) + 1
+    by_line: dict[int, list[tuple[int, int]]] = {}
+    for a, b in spans:
+        for lineno, line_start in enumerate(starts, 1):
+            line_end = line_start + len(masked_lines[lineno - 1])
+            if b <= line_start or a > line_end:
+                continue
+            by_line.setdefault(lineno, []).append(
+                (max(a, line_start) - line_start, min(b, line_end) - line_start)
+            )
+    return by_line
 
 
 def extract_markdown_links(content: str) -> list[tuple[int, str, str]]:
@@ -697,13 +800,18 @@ def extract_markdown_links(content: str) -> list[tuple[int, str, str]]:
     Extract [text](path) patterns whose destination is a checkable path.
     Returns list of (line_no, display_text, raw_path).
     """
+    fenced = {lineno for lineno, _lang, _text in iter_code_fence_lines(content)}
+    spans_by_line = _inline_code_spans_by_line(content)
     results = []
     for i, line in enumerate(content.splitlines(), 1):
         for match in MARKDOWN_LINK_RE.finditer(line):
             text = match.group(1)
             path = match.group(2).strip()
-            if _is_checkable_link_target(path):
-                results.append((i, text, path))
+            if not _is_checkable_link_target(path):
+                continue
+            if _is_bare_word_in_code(path, match.start(), i in fenced, spans_by_line.get(i, [])):
+                continue
+            results.append((i, text, path))
     return results
 
 

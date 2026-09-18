@@ -220,7 +220,7 @@ NotStr("<!DOCTYPE html>...")  # Use AuthPage() or BasePage()
 | `/static/css/input.css` | Tailwind v4 CSS-first config (the whole config — `@source` scanning + inline safelist, `@custom-variant dark`, `@theme inline` color tokens + compact font-size tokens `--text-10/11/13/15`, ADR-084) + SKUEL-owned semantic CSS variables (`--primary`, `--background`, `--card`, …) |
 | `/static/css/output.css` | Compiled Tailwind CLI output — **the production CSS asset** (ADR-071) |
 | `ui/components/` | **SKUEL-owned component layer (ADR-071 complete)** — pure Tailwind + Alpine.js. Button/ButtonT, Alert/AlertT/Loading/Progress, Icon, form set, table set, Divider, TabContainer, Accordion, layout helpers, Card/CardBody/CardHeader/CardTitle/CardFooter. |
-| `ui/forms/`, `ui/feedback.py`, `ui/layout.py`, `ui/data.py`, `ui/theme.py` | Pure Tailwind wrappers (ADR-071 complete). `ui/buttons.py`/`ui/cards.py`/`ui/text.py` deleted (PR E); `ui/navigation.py` deleted 2026-08 (zero consumers). |
+| `ui/forms/`, `ui/feedback.py`, `ui/layout.py`, `ui/data.py`, `ui/theme.py` | Pure Tailwind wrappers (ADR-071 complete). The former `buttons.py`/`cards.py`/`text.py` wrappers were deleted (PR E); the former `navigation.py` was deleted 2026-08 (zero consumers). |
 
 ## See Also
 

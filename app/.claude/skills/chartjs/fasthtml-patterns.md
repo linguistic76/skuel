@@ -429,4 +429,4 @@ Div(
 - [SKILL.md](SKILL.md) - Main Chart.js guide
 - [chart-types-reference.md](chart-types-reference.md) - Chart type catalog
 - [activity-domain-charts.md](activity-domain-charts.md) - Domain-specific patterns
-- `/ui/goals/visualization.py` - Source code for components
+- `/ui/insights/components.py` - `_chart_card()`, the live FastHTML wrapper for the `chartVis` component (each page inlines its own; there is no shared wrapper module)

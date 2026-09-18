@@ -1,10 +1,42 @@
 ---
-updated: 2026-08-14
+updated: 2026-09-18
 ---
 
 # SKUEL Quick Start - Mindfulness 101 Demo
 
+The smallest end-to-end curriculum in SKUEL: one learning path, three path steps and one
+exercise, authored as Markdown in the **content vault** and ingested by the content-vault door.
+This walkthrough resets the graph, ingests the vault, and shows you the result in the Neo4j
+Browser.
+
 ## True Fresh Start (Recommended)
+
+### Step 0: Confirm the content vault holds the bundle
+
+The bundle is authored in the content vault — an Obsidian vault outside this repository, at
+`INGESTION_PATH` (default `/home/mike/0bsidian/0vault/`):
+
+| File | Entity | UID |
+|---|---|---|
+| `Lp/lp_mindfulness-101.md` | LearningPath | `lp.mindfulness-101` |
+| `Ps/Ps_dev/mindfulness-101_Ps.md` | PathStep (intro) | `ps.mindfulness-101.intro` |
+| `Ps/Ps_dev/mindfulness-101_step-1_Ps.md` | PathStep | `ps.mindfulness-101.step-1` |
+| `Ps/Ps_dev/mindfulness-101_step-2_Ps.md` | PathStep | `ps.mindfulness-101.step-2` |
+| `Exer/mindfulness-starter_exer.md` | Exercise | `ex.mindfulness.starter-practice` |
+
+A clean clone has no such vault, and Step 1 is destructive, so check the files are there first:
+
+```bash
+V="${INGESTION_PATH:-/home/mike/0bsidian/0vault}"
+ls "$V"/Lp/lp_mindfulness-101.md \
+   "$V"/Ps/Ps_dev/mindfulness-101_Ps.md "$V"/Ps/Ps_dev/mindfulness-101_step-1_Ps.md \
+   "$V"/Ps/Ps_dev/mindfulness-101_step-2_Ps.md \
+   "$V"/Exer/mindfulness-starter_exer.md
+```
+
+If `ls` reports a missing file, stop: point `INGESTION_PATH` at a vault that holds the bundle
+before resetting anything. (`./dev vault-sync --vault content --preview` is the dry run of the
+sync itself, but it lists only new and changed files — an already-synced bundle is not in it.)
 
 ### Step 1: Complete Database Reset
 
@@ -16,186 +48,86 @@ uv run python scripts/clear_neo4j.py reset
 
 **When prompted, type:** `DELETE EVERYTHING`
 
-This gives you a completely clean Neo4j database - like a fresh install.
+This gives you a completely clean Neo4j database - like a fresh install. It targets whatever
+`NEO4J_URI` in `.env` names — on this repo's default configuration that is the AuraDB Free
+instance, not a local container; read the URI the prompt echoes back before you confirm.
 
-### Step 2: Ingest Mindfulness 101
-
-**Load the complete curriculum bundle:**
+### Step 2: Ingest the content vault
 
 ```bash
-uv run python scripts/fresh_start_mindfulness.py
+./dev vault-sync --vault content
 ```
 
-**When prompted, type:** `FRESH START`
+This runs the one-shot content-vault reconciler (`scripts/vault_bridge_sync.py`) over every
+typed file in the vault — the bundle above among them, plus every other Ku, PathStep,
+LearningPath and Exercise the vault holds. Files without a `type:` frontmatter field are set
+aside (they are notes, not entities); unchanged files are skipped on later runs.
 
-This will:
-- Create fresh constraints for the curriculum entities
-- Ingest all Knowledge Units (3)
-- Ingest all Path Steps (2)
-- Ingest the Learning Path (1)
-- **Note**: Supporting entities (principles, habits, tasks, etc.) will show in the manifest but won't be ingested yet - they need handlers added to YamlIngestionService
+**What you'll see** — a `=== VaultSyncStats ===` block, one line per counter (`entries_ingested`,
+`edges_written`, `entries_failed`, the ignored-file reasons), followed by the embedding drain
+when the app runs at the FULL intelligence tier. The bundle's entities and their edges
+(`(LearningPath)-[:HAS_STEP]->(PathStep)`, `(PathStep)-[:USES_KU]->(Ku)`) are written in this
+step.
 
 ### Step 3: Verify in Neo4j Browser
 
-**Open:** http://localhost:7474
+**Open:** the browser for the instance `NEO4J_URI` names (the AuraDB console's "Query" tab, or
+http://localhost:7474 for the local sandbox).
 
 **Run:**
 ```cypher
-// See what was created
-MATCH (n) RETURN n LIMIT 25
-
-// Count by type
-MATCH (n)
-RETURN labels(n) as type, count(n) as count
+// Count by entity type
+MATCH (n:Entity)
+RETURN n.entity_type AS type, count(n) AS count
 ORDER BY count DESC
 
 // View the learning path structure
-MATCH (lp:LearningPath {uid: 'lp.mindfulness-101'})
-OPTIONAL MATCH (lp)-[:HAS_STEP]->(ps:PathStep)
-OPTIONAL MATCH (ls)-[:PRIMARY_KNOWLEDGE]->(ku:Curriculum)
-RETURN lp, ls, ku
-```
-
-## Current State
-
-### ✅ What Works Now
-
-**Core Curriculum Ingestion** (6 entities):
-- 3 Knowledge Units (ku)
-- 2 Path Steps (ls)
-- 1 Learning Path (lp)
-
-These use the YamlIngestionService and will ingest successfully.
-
-### 🚧 What Needs Extension
-
-**Supporting Entities** (13 entities):
-- 2 Principles
-- 3 Choices
-- 2 Habits
-- 2 Tasks
-- 1 Event
-- 1 Goal
-- 2 Conversations (not created yet)
-
-These YAML files exist but YamlIngestionService doesn't have handlers for them yet.
-
-## Expected Output
-
-### Reset Output:
-```
-⚠️  WARNING: This will DELETE ALL DATA, CONSTRAINTS, AND INDEXES!
-   Connection: bolt://localhost:7687
-
-   Type 'DELETE EVERYTHING' to confirm: DELETE EVERYTHING
-
-🗑️  Deleting all nodes and relationships...
-🗑️  Dropping all constraints...
-   Dropped 12 constraints
-🗑️  Dropping all indexes...
-   Dropped 8 indexes
-✅ Database completely cleared (data, constraints, indexes)
-```
-
-### Fresh Start Output:
-```
-======================================================================
-  FRESH START: Mindfulness 101 Domain Bundle
-======================================================================
-
-📊 Found 0 existing nodes
-✅ Deleted 0 nodes successfully
-
-📦 Ingesting bundle from: yaml_templates/domains/mindfulness_101
-✅ Knowledge unit created: ku.breath-awareness-basics
-✅ Knowledge unit created: ku.posture-basics
-✅ Knowledge unit created: ku.mind-wandering-happens
-✅ Learning step created: ls:mindfulness-101:step-1
-✅ Learning step created: ls:mindfulness-101:step-2
-✅ Learning path created: lp.mindfulness-101
-
-📊 Final database stats:
-   Total nodes: 6
-
-======================================================================
-  ✅ FRESH START COMPLETE!
-======================================================================
-```
-
-## Next: Extend the Ingestion Service
-
-To ingest the full bundle (all 19 entities), we need to add handlers to YamlIngestionService for:
-
-1. **Principles** - Add `ingest_principle_yaml()`
-2. **Choices** - Add `ingest_choice_yaml()`
-3. **Habits** - Add `ingest_habit_yaml()`
-4. **Tasks** - Add `ingest_task_yaml()`
-5. **Events** - Add `ingest_event_yaml()`
-6. **Goals** - Add `ingest_goal_yaml()`
-
-Each follows the same pattern as Knowledge/PathStep:
-```python
-async def ingest_principle_yaml(self, yaml_path: Path) -> Result[Principle]:
-    # 1. Load YAML
-    # 2. Validate type
-    # 3. Tier 1: Pydantic validation
-    # 4. Tier 2: Convert to DTO
-    # 5. Tier 3: Convert to Pure
-    # 6. Save via UniversalNeo4jBackend
+MATCH (lp:Entity {uid: 'lp.mindfulness-101'})
+OPTIONAL MATCH (lp)-[:HAS_STEP]->(ps:Entity)
+OPTIONAL MATCH (ps)-[:USES_KU]->(ku:Entity)
+RETURN lp, ps, ku
 ```
 
 ## Adjusting the Demo
 
-After ingestion, you can adjust entities directly in Neo4j Browser:
+The vault is the source of truth. Edit the Markdown files in the vault — the frontmatter
+(`title`, `uid`, the edge-carrying fields) and the body — then re-run Step 2: only the files
+that changed are re-ingested, and a target dropped from a frontmatter field loses its edge on
+that file's next ingest. Editing a node in the Neo4j Browser instead is overwritten by the next
+sync of its file.
 
-```cypher
-// Update a knowledge unit
-MATCH (ku:Curriculum {uid: 'ku.breath-awareness-basics'})
-SET ku.content = 'Your updated content here'
-RETURN ku
-
-// Update a path step
-MATCH (ps:PathStep {uid: 'ps.mindfulness-101.step-1'})
-SET ls.title = 'Your new title'
-RETURN ls
-```
-
-Or edit the YAML files and re-run the ingestion scripts.
+The authoring rules for each entity type — which frontmatter fields are enum-governed, how
+edges are declared — are in `/docs/guides/YAML_AUTHORING_GUIDE.md`; the ingestion pipeline
+itself in `/docs/patterns/UNIFIED_INGESTION_GUIDE.md`.
 
 ## Troubleshooting
 
-### Neo4j Not Running
-```bash
-# Check status
-neo4j status
+### The sync ingested nothing
 
-# Start Neo4j
-neo4j start
-```
+Every bundle file already matched its tracker row — nothing changed since the last sync. Force a
+re-ingest with `./dev vault-sync --vault content --force` (unchanged files are re-processed;
+the wall and deletion reconciliation stay in place).
 
-### Connection Refused
-Check URI in scripts is correct: `bolt://localhost:7687`
+### A file was "set aside (no 'type:' field)"
 
-### No Entities Created
-Verify YAML files exist:
-```bash
-ls yaml_templates/domains/mindfulness_101/*.yaml
-```
+It is a note, not an entity. Every ingestible file declares its entity type in frontmatter
+(`type: PathStep`, `type: LearningPath`, …); the ingest gate refuses to guess.
 
-Should show 19 YAML files + manifest.yaml + README.md
+### Connection refused / Unauthorized
+
+`NEO4J_URI` and `NEO4J_USERNAME` in `.env` are the live values. For AuraDB the username is the
+instance id, not `neo4j`, and an instance idle for more than 72 hours is paused until resumed
+from the console — see `/docs/deployment/AURADB_MIGRATION_GUIDE.md` § 6.1.
 
 ## Summary
 
 **Your workflow:**
-1. `uv run python scripts/clear_neo4j.py reset` → Type `DELETE EVERYTHING`
-2. `uv run python scripts/fresh_start_mindfulness.py` → Type `FRESH START`
-3. Open http://localhost:7474 and explore!
+1. `ls` the bundle files in the content vault (Step 0) — stop if any is missing
+2. `uv run python scripts/clear_neo4j.py reset` → Type `DELETE EVERYTHING`
+3. `./dev vault-sync --vault content`
+4. Open the Neo4j Browser and run the queries above
 
 **You'll get:**
 - Clean Neo4j database
-- 6 core curriculum entities (ku, ls, lp)
-- Ready to adjust and experiment
-
-**To get all 19 entities:**
-- Extend YamlIngestionService with handlers for supporting entity types
-- Re-run fresh_start_mindfulness.py
+- The content vault's typed entities — the Mindfulness 101 learning path, its three path steps and its exercise among them
+- Ready to adjust and experiment: edit the vault files and re-run the sync

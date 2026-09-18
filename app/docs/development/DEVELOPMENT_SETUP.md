@@ -1,5 +1,5 @@
 ---
-updated: 2026-09-16
+updated: 2026-09-17
 ---
 
 # Development Setup Guide
@@ -34,28 +34,11 @@ SKUEL requires Neo4j as its primary database. All dependencies are REQUIRED — 
 
 **One path forward:** Same code in all environments, different data.
 
-Development and production use the same authentication code path. The difference is in the seeded data:
+Development and production use the same authentication code path and the same account door — there is no seed script and no dev auto-login:
 
-- **Development:** Seeded test users in database
-- **Production:** Real users in database
-
-#### Seeding Test Users
-
-Run the seed script to create test users in your development database:
-
-```bash
-uv run python scripts/seed_dev_users.py
-```
-
-This creates three test users:
-
-| UID | Username | Email | Role | Purpose |
-|-----|----------|-------|------|---------|
-| `user.dev` | dev | dev@skuel.local | ADMIN | Primary development user |
-| `user.alice` | alice | alice@skuel.local | MEMBER | Standard member testing |
-| `user.bob` | bob | bob@skuel.local | TEACHER | Teacher/curriculum testing |
-
-**Note:** The seed script is idempotent - it won't create duplicates if run multiple times.
+- **Accounts** are created through the registration form at `/register` (UID `user_{username}`, role REGISTERED); an admin changes a role via `POST /api/admin/users/role?uid=<uid>`.
+- **The system user** (`user_system`, ADMIN) is created at boot by `ensure_system_user()` (`services_bootstrap/compose.py`) and owns infrastructure-owned content.
+- **A request without a session is refused** — page and API handlers read the session through `require_authenticated_user()` (`adapters/inbound/auth/session.py`), which raises 401 "Authentication required"; log in with an account you registered.
 
 ## Authentication in Development
 
@@ -63,12 +46,12 @@ SKUEL enforces "one path forward" for authentication:
 
 - **No demo user fallbacks** - User service must succeed
 - **No silent failures** - Configuration errors surface immediately
-- **Same code, different data** - Development uses seeded users, production uses real users
+- **Same code, different data** - Development and production both use accounts registered through `/register`; only the data differs
 
 If you see authentication errors:
 1. Ensure Neo4j is running
-2. Run the seed script to create test users
-3. Check that user service is properly initialized in `services_bootstrap.py`
+2. Register an account at `/register` and log in (there is no seed script)
+3. Check that the user service is properly composed in `services_bootstrap/compose.py`
 
 ## Environment Variables
 
@@ -92,8 +75,7 @@ Credentials (`NEO4J_PASSWORD`, `OPENAI_API_KEY`, `DEEPGRAM_API_KEY`, …) are re
 # Install dependencies
 uv sync
 
-# Seed development users (first time only)
-uv run python scripts/seed_dev_users.py
+# First run: there is no seed script — register your account at http://localhost:8000/register once the app is up
 
 # Start the application
 uv run python main.py
@@ -129,7 +111,7 @@ Run formatting and linting before committing:
 ./dev test
 
 # Run specific test file
-uv run pytest tests/unit/test_something.py
+uv run pytest tests/unit/test_event_registry_derivation.py
 
 # Coverage is opt-in (writes coverage.xml + coverage.json + htmlcov/)
 ./dev test --cov
@@ -137,14 +119,11 @@ uv run pytest tests/unit/test_something.py
 
 ## Common Issues
 
-### "User not found" errors
+### "Authentication required" (401) on every page
 
-**Symptom:** Error page showing "User not found: user.dev"
+**Symptom:** 401 "Authentication required" on every page.
 
-**Solution:** Run the seed script to create development users:
-```bash
-uv run python scripts/seed_dev_users.py
-```
+**Solution:** There is no dev auto-login and no seed script — handlers read the session through `require_authenticated_user()` (`adapters/inbound/auth/session.py`). Register an account at `/register` and log in.
 
 ### "Failed to load context" errors
 
@@ -179,4 +158,4 @@ This ensures development environments accurately reflect production behavior.
 - `/docs/patterns/AUTH_PATTERNS.md` - Authentication patterns
 - `/docs/architecture/UNIFIED_USER_ARCHITECTURE.md` - User architecture
 - `/docs/decisions/ADR-022-graph-native-authentication.md` - Graph-native auth design
-- `/app/CLAUDE.md` - Development philosophy and quick reference
+- `/CLAUDE.md` - Development philosophy and quick reference

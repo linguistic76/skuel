@@ -16,7 +16,7 @@ SKUEL uses modern Python (3.11+) with strict typing, protocol-based architecture
 
 | Pattern | Location | Purpose |
 |---------|----------|---------|
-| **Result[T]** | `core/result.py` | Error handling without exceptions |
+| **Result[T]** | `/core/utils/result_simplified.py` | Error handling without exceptions |
 | **Protocols** | `core/ports/` | Interface contracts |
 | **Frozen Dataclasses** | Domain models | Immutable business entities |
 | **Pydantic Models** | API boundaries | Validation & serialization |

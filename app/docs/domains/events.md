@@ -1,7 +1,7 @@
 ---
 title: Events Domain
 created: 2025-12-04
-updated: 2026-09-11
+updated: 2026-09-17
 status: current
 category: domains
 tags: [events, scheduling-domain, integration-domain, domain]
@@ -40,7 +40,7 @@ Events additionally has an integration sub-service (`EventsHabitIntegrationServi
 | Config | `EVENTS_CONFIG` in `/core/models/relationship_registry.py` |
 | Events | `/core/events/calendar_event_events.py` |
 | UI Routes | `/adapters/inbound/events_ui.py` |
-| View Components | `/ui/events/views.py` |
+| View Components | `/ui/activities/events_views.py` |
 
 ## Domain Enums
 

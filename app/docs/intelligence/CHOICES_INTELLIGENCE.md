@@ -1,5 +1,5 @@
 ---
-updated: 2026-06-25
+updated: 2026-09-17
 ---
 
 # ChoicesIntelligenceService - Decision Support & Impact Analysis
@@ -886,16 +886,16 @@ Uses typed context retrieval with:
 
 ### Unit Tests
 ```bash
-uv run python -m pytest tests/unit/services/test_choices_intelligence_service.py -v
+uv run python -m pytest tests/unit/services/choices/ -v
 ```
 
 ### Integration Tests
 ```bash
 # Test with real backend
-uv run python -m pytest tests/integration/intelligence/test_choices_intelligence.py -v
+uv run python -m pytest tests/integration -k choices -v
 
 # Test specific method
-uv run python -m pytest tests/integration/intelligence/ -k "test_get_decision_intelligence" -v
+uv run python -m pytest tests/integration -k "test_get_decision_intelligence" -v
 ```
 
 ### Example Test
@@ -928,7 +928,7 @@ assert service.relationships == relationships
 
 - `/docs/intelligence/INTELLIGENCE_SERVICES_INDEX.md` - Master index
 - `/docs/decisions/ADR-024-base-intelligence-service-migration.md` - BaseAnalyticsService pattern
-- `/core/services/base_intelligence_service.py` - Base implementation
-- `/core/services/choices/choices_service.py` - ChoicesService facade
-- `/core/services/intelligence/cross_domain_context_service.py` - Phase 3 context retrieval
+- `/core/services/base_analytics_service.py` - Base implementation (NO AI deps)
+- `/core/services/choices_service.py` - ChoicesService facade
+- `/core/services/base_analytics_service.py` (`_analyze_entity_with_typed_context`) - Phase 3 typed cross-domain context retrieval
 - `/core/services/intelligence/path_aware_analyzer.py` - Phase 4 cascade analysis
