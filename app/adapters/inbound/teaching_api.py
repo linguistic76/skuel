@@ -82,7 +82,7 @@ def create_teaching_api_routes(
     user_entry_service: Any = None,
     revised_exercise_service: Any = None,
     entry_report_service: EntryReportOperations | None = None,
-) -> list[Any]:
+) -> None:
     """
     Create teaching API routes.
 
@@ -420,5 +420,3 @@ def create_teaching_api_routes(
         return ""
 
     logger.info("Teaching API routes registered")
-
-    return []

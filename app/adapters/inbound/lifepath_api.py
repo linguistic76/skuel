@@ -40,7 +40,7 @@ def create_lifepath_api_routes(
     app: Any,
     rt: Any,
     lifepath_service: LifePathOperations,
-) -> list[Any]:
+) -> None:
     """
     Create LifePath API routes.
 
@@ -114,5 +114,3 @@ def create_lifepath_api_routes(
         return await lifepath_service.get_alignment(user_uid)
 
     logger.info("LifePath API routes registered (4 routes)")
-
-    return [api_get_status, api_capture_vision, api_designate, api_get_alignment]

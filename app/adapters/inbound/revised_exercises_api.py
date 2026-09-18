@@ -34,7 +34,7 @@ def create_revised_exercises_api_routes(
     rt: Any,
     revised_exercise_service: RevisedExerciseService,
     user_service: Any = None,
-) -> list[Any]:
+) -> None:
     """Create revised exercises domain-specific API routes."""
 
     get_user_service = make_service_getter(user_service)
@@ -105,5 +105,3 @@ def create_revised_exercises_api_routes(
         return Result.ok(entity)
 
     logger.info("Revised Exercises API routes registered (four-phase learning loop)")
-
-    return []

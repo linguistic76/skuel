@@ -26,7 +26,7 @@ from core.utils.result_simplified import Errors, Result
 
 def create_user_pins_routes(
     _app: Any, rt: Any, user_relationship_service: UserRelationshipOperations
-) -> list[Any]:
+) -> None:
     """
     Create user pins API routes.
 
@@ -129,5 +129,3 @@ def create_user_pins_routes(
         return await user_relationship_service.reorder_pins(
             user_uid, parsed.value.ordered_entity_uids
         )
-
-    return [get_pinned_entities, pin_entity, unpin_entity, reorder_pins]

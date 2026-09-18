@@ -37,7 +37,7 @@ def create_pathways_api_routes(
     learning_service: LpService,
     user_service: Any = None,
     user_progress: Any = None,
-) -> list[Any]:
+) -> None:
     """
     Create pathways API routes using factory pattern.
 
@@ -209,8 +209,6 @@ def create_pathways_api_routes(
         return Response(headers={"HX-Redirect": f"/pathways/path/{uid}"})
 
     logger.info("Pathways API routes registered (CRUDRouteFactory + 7 domain routes)")
-
-    return []
 
 
 # Export the route creation function

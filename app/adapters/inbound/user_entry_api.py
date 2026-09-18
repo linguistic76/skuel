@@ -64,7 +64,7 @@ def create_user_entry_api_routes(
     user_entry_service: UserEntryService,
     processing_service: UserEntryProcessingService | None = None,
     grounding_service: EntryGroundingService | None = None,
-) -> list[Any]:
+) -> None:
     """Register UserEntry REST API routes.
 
     Args:
@@ -462,14 +462,3 @@ def create_user_entry_api_routes(
         return Result.ok({"uid": uid, "ku_uid": ku_uid, "removed": True})
 
     logger.info("UserEntry API routes created successfully")
-
-    return [
-        create_user_entry_route,
-        upload_user_entry_route,
-        submit_form_route,
-        process_user_entry_route,
-        get_user_entry_route,
-        list_user_entries_route,
-        delete_user_entry_route,
-        remove_grounded_knowledge_route,
-    ]

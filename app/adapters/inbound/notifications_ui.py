@@ -39,7 +39,7 @@ def create_notifications_ui_routes(
     rt: Any,
     notification_service: NotificationService,
     **_kwargs: Any,
-) -> list[Any]:
+) -> None:
     """Create UI routes for notifications."""
 
     def get_notification_service() -> NotificationService:
@@ -125,5 +125,3 @@ def create_notifications_ui_routes(
             return Div(*[render_notification_card(n) for n in notifications], cls="space-y-3")
 
         return render_notification_empty_state()
-
-    return []

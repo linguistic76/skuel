@@ -186,7 +186,7 @@ def create_user_entry_ui_routes(
     processing_service: Any | None = None,
     user_service: Any | None = None,
     intelligence_tier: Any | None = None,
-) -> list[Any]:
+) -> None:
     """Register the UserEntry UI routes.
 
     Args:
@@ -805,22 +805,6 @@ def create_user_entry_ui_routes(
         )
 
     logger.info("UserEntry UI routes created successfully")
-
-    return [
-        submissions_moc,
-        submissions_exercise_page,
-        submit_redirect,
-        submissions_journal_page,
-        submissions_history,
-        history_list,
-        delete_submission,
-        submissions_knowledge,
-        download_journal,
-        respond_to_entry,
-        gradebook_page,
-        gradebook_lines,
-        submission_detail,  # MUST BE LAST — catch-all /gradebook/{uid}
-    ]
 
 
 __all__ = ["create_user_entry_ui_routes"]

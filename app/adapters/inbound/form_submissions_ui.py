@@ -35,7 +35,7 @@ def create_form_submissions_ui_routes(
     rt: Any,
     form_submission_service: Any,
     user_service: Any = None,
-) -> list[Any]:
+) -> None:
     """Create form submission UI routes."""
 
     @rt("/my-forms")
@@ -170,5 +170,3 @@ def create_form_submissions_ui_routes(
             ),
             id="my-forms-detail-content",
         )
-
-    return []

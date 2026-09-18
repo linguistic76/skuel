@@ -106,7 +106,7 @@ def create_activity_reports_ui_routes(
     rt: RouteDecorator,
     orchestrator: Any = None,
     progress_generator: ProgressReportOperations | None = None,
-) -> list[Any]:
+) -> None:
     """Create activity-report detail/request/generate/annotate/download routes.
 
     Args:
@@ -438,13 +438,3 @@ def create_activity_reports_ui_routes(
         "Activity Reports UI routes created "
         "(/activity-reports/detail, /submit-activity-report, generate/annotate/md + hub preview)"
     )
-
-    return [
-        submit_activity_report_page,
-        activity_report_detail,
-        activity_report_detail_content,
-        generate_activity_report,
-        annotate_activity_report,
-        download_activity_report_md,
-        progress_list_fragment,
-    ]

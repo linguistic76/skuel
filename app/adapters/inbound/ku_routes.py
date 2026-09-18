@@ -23,9 +23,8 @@ if TYPE_CHECKING:
     from services_bootstrap import Services
 
 
-def _ku_api_routes(_app: Any, _rt: Any, _service: Any, **_kw: Any) -> list[Any]:
+def _ku_api_routes(_app: Any, _rt: Any, _service: Any, **_kw: Any) -> None:
     """Ku API routes are registered inline in ku_ui.py via @rt()."""
-    return []
 
 
 KU_CONFIG = DomainRouteConfig(

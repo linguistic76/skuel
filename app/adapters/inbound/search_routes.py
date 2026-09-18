@@ -140,7 +140,7 @@ def create_search_api_routes(
     intelligence_tier: IntelligenceTier | None = None,
     user_service: Any = None,
     **_kwargs: Any,
-) -> list[Any]:
+) -> None:
     """Create search routes with SearchRouter dependency."""
 
     async def _caller_ai_enabled(user_uid: str) -> bool:
@@ -552,14 +552,6 @@ def create_search_api_routes(
                 "top_results": [item.to_dict() for item in unified.top_results],
             }
         )
-
-    return [
-        search_page,
-        search_subtopics,
-        search_results,
-        unified_search_api,
-        intelligent_search_api,
-    ]
 
 
 SEARCH_CONFIG = DomainRouteConfig(

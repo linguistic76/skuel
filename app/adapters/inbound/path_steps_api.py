@@ -53,7 +53,7 @@ def create_path_steps_api_routes(
     ps_service: PsService,
     user_progress_service: UserProgressService,
     user_service: Any = None,
-) -> list[Any]:
+) -> None:
     """
     Create path steps API routes using factory pattern.
 
@@ -599,8 +599,6 @@ def create_path_steps_api_routes(
         "Path Steps domain routes registered "
         "(step-path, semantic, content, search, organization, analytics, ORGANIZES hierarchy)"
     )
-
-    return []
 
 
 __all__ = ["create_path_steps_api_routes"]

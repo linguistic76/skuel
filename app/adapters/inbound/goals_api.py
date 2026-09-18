@@ -82,7 +82,7 @@ def create_goals_api_routes(
     principles_service: PrinciplesService,
     user_service: UserService | None = None,
     **_kwargs: Any,
-) -> list[Any]:
+) -> None:
     """Register Goals API routes."""
 
     # Fail-fast: UserService is always wired at compose (api_related_services
@@ -97,7 +97,7 @@ def create_goals_api_routes(
     async def update_priority(uid: str, new_priority: str) -> Result[Goal]:
         return await goals_service.update_goal(uid, GoalUpdateIntent(priority=new_priority))
 
-    field_routes = create_activity_field_api_routes(
+    create_activity_field_api_routes(
         rt,
         ActivityFieldApiConfig(
             domain_name="goals",
@@ -122,7 +122,7 @@ def create_goals_api_routes(
             req.parent_uid, req.child_uid, req.progress_weight
         )
 
-    hierarchy_routes = create_activity_hierarchy_api_routes(
+    create_activity_hierarchy_api_routes(
         rt,
         ActivityHierarchyApiConfig(
             domain_name="goals",
@@ -233,7 +233,7 @@ def create_goals_api_routes(
             req.goal_uid, req.principle_uid, req.alignment_strength
         )
 
-    link_routes = create_activity_link_api_routes(
+    create_activity_link_api_routes(
         rt,
         domain_name="goals",
         singular="goal",
@@ -260,17 +260,4 @@ def create_goals_api_routes(
         ),
     )
 
-    knowledge_patterns_route = create_knowledge_patterns_api_route(
-        rt, "goals", goals_service.analyze_learning_patterns
-    )
-
-    return [
-        *field_routes,
-        *hierarchy_routes,
-        goals_stalled,
-        goals_achievable,
-        goals_advancing,
-        goal_create_with_scheduling,
-        *link_routes,
-        knowledge_patterns_route,
-    ]
+    create_knowledge_patterns_api_route(rt, "goals", goals_service.analyze_learning_patterns)

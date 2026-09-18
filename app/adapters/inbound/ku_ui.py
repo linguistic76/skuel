@@ -157,7 +157,7 @@ def create_ku_ui_routes(
     ku_service: Any,
     user_relationship_service: Any = None,
     exercises_service: Any = None,
-) -> list[Any]:
+) -> None:
     """Create /ku UI + API routes.
 
     POST mutation endpoints for HTMX learning state actions.
@@ -205,8 +205,6 @@ def create_ku_ui_routes(
         "Ku UI routes registered: /ku (→/explore), /ku/{uid} (→/explore/ku/{uid}), "
         "/api/ku/{uid}/mark-studying, /api/ku/{uid}/mark-understood"
     )
-
-    return []
 
 
 __all__ = ["create_ku_ui_routes"]

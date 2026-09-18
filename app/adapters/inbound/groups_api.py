@@ -33,7 +33,7 @@ def create_groups_api_routes(
     rt: Any,
     group_service: GroupOperations,
     user_service: Any,
-) -> list[Any]:
+) -> None:
     """
     Create group domain-specific API routes (membership + student-facing).
 
@@ -118,4 +118,3 @@ def create_groups_api_routes(
         return await group_service.get_members(uid)
 
     logger.info("Groups API routes registered (domain-specific only, CRUD via factory)")
-    return []

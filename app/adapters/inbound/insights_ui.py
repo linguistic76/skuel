@@ -87,7 +87,7 @@ def create_insights_ui_routes(
     app: Any,
     rt: Any,
     insight_store: Any,
-) -> list[Any]:
+) -> None:
     """Create insights UI routes.
 
     Args:
@@ -325,5 +325,3 @@ def create_insights_ui_routes(
                 hx_indicator="#loading-indicator",
             ),
         )
-
-    return [insights_dashboard, insights_stats, load_more_insights]

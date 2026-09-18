@@ -58,7 +58,7 @@ def create_tasks_api_routes(
     tasks_service: TasksService,
     goals_service: GoalsService,
     **_kwargs: Any,
-) -> list[Any]:
+) -> None:
     """Register Tasks API routes."""
 
     async def update_status(uid: str, new_status: str) -> Result[Task]:
@@ -67,7 +67,7 @@ def create_tasks_api_routes(
     async def update_priority(uid: str, new_priority: str) -> Result[Task]:
         return await tasks_service.update_task(uid, TaskUpdateIntent(priority=new_priority))
 
-    field_routes = create_activity_field_api_routes(
+    create_activity_field_api_routes(
         rt,
         ActivityFieldApiConfig(
             domain_name="tasks",
@@ -88,7 +88,7 @@ def create_tasks_api_routes(
             req.parent_uid, req.child_uid, req.progress_weight
         )
 
-    hierarchy_routes = create_activity_hierarchy_api_routes(
+    create_activity_hierarchy_api_routes(
         rt,
         ActivityHierarchyApiConfig(
             domain_name="tasks",
@@ -107,7 +107,7 @@ def create_tasks_api_routes(
             req.task_uid, req.goal_uid, req.contribution_percentage, req.milestone_uid
         )
 
-    link_routes = create_activity_link_api_routes(
+    create_activity_link_api_routes(
         rt,
         domain_name="tasks",
         singular="task",
@@ -124,9 +124,7 @@ def create_tasks_api_routes(
         ),
     )
 
-    knowledge_patterns_route = create_knowledge_patterns_api_route(
-        rt, "tasks", tasks_service.analyze_learning_patterns
-    )
+    create_knowledge_patterns_api_route(rt, "tasks", tasks_service.analyze_learning_patterns)
 
     # ================================================================
     # KNOWLEDGE INTELLIGENCE — priority scoring (Tasks-only)
@@ -162,11 +160,3 @@ def create_tasks_api_routes(
             for p in result.value
         ]
         return Result.ok({"priorities": priorities, "count": len(priorities)})
-
-    return [
-        *field_routes,
-        *hierarchy_routes,
-        *link_routes,
-        knowledge_patterns_route,
-        task_knowledge_priorities,
-    ]
