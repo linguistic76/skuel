@@ -696,7 +696,9 @@ def _is_checkable_link_target(target: str) -> bool:
     return not _is_documentation_stand_in(target)
 
 
-def _is_bare_word_in_code(target: str, line: str, match_start: int, in_fence: bool) -> bool:
+def _is_bare_word_in_code(
+    target: str, match_start: int, in_fence: bool, code_spans: list[tuple[int, int]]
+) -> bool:
     """A separator-less destination sitting in code is Python (or an illustration), not a link.
 
     A PEP 695 generic class header inside a fence —
@@ -706,8 +708,8 @@ def _is_bare_word_in_code(target: str, line: str, match_start: int, in_fence: bo
     unbounded (``[V = str | int | float](Protocol)``). A literal ``[text](url)`` inside a
     code span is the same thing in prose. Both are skipped ONLY in that context: the
     destination has no ``/``, ``.`` or ``#`` AND the match sits inside a fenced block
-    or an inline code span (``_inline_code_span_ranges``, the CommonMark backtick-string
-    rule — not a backtick count). A separator-less destination in ordinary prose —
+    or an inline code span (``_inline_code_spans_by_line``, the CommonMark backtick-string
+    rule — not a backtick count; a span may cross a line ending). A separator-less destination in ordinary prose —
     ``[license](LICENSE)``, ``[docs](docs)`` — stays checkable, because CommonMark
     allows it and a moved ``LICENSE`` must still report. Measured 4 in the corpus
     (three ``Protocol`` headers and one ``url`` illustration), all in code.
@@ -716,42 +718,50 @@ def _is_bare_word_in_code(target: str, line: str, match_start: int, in_fence: bo
         return False
     if in_fence:
         return True
-    return any(start <= match_start < end for start, end in _inline_code_span_ranges(line))
+    return any(start <= match_start < end for start, end in code_spans)
 
 
-def _inline_code_span_ranges(line: str) -> list[tuple[int, int]]:
-    """The ``[start, end)`` spans of inline code on one line, per CommonMark § 6.1.
+def _inline_code_spans_by_line(content: str) -> dict[int, list[tuple[int, int]]]:
+    """Inline code spans per 1-based line, as ``[start, end)`` column ranges — CommonMark § 6.1.
 
     A backtick string is a run of one or more backticks; a code span opens with one and
     closes at the next backtick string of exactly the same length (a longer or shorter
-    run inside the span is content). Outside a span a backtick escaped by a backslash
-    is a literal character, not a delimiter; inside one, escapes are not processed,
-    so a backslash before the closer does not defer it. Counting backticks cannot
-    express any of this — a
-    double-backtick span has an even count before its content, and an escaped backtick
-    in prose flips parity — so the scanner is the spec's, not a heuristic.
+    run inside the span is content), and it may cross line endings. Outside a span a
+    backtick escaped by a backslash is a literal character, not a delimiter; inside one,
+    escapes are not processed, so a backslash before the closer does not defer it.
+    Fenced blocks (delimiters included) are masked before the scan — a fence delimiter
+    is a backtick string too, and block structure outranks inline. Counting backticks
+    cannot express any of this — a double-backtick span has an even count before its
+    content, and an escaped backtick in prose flips parity — so the scanner is the
+    spec's, not a heuristic.
     """
-    spans: list[tuple[int, int]] = []
-    i, n = 0, len(line)
+    lines = content.splitlines()
+    fenced: set[int] = set()
+    for block in iter_code_fence_blocks(content):
+        first, last = block.span
+        fenced.update(range(first, last + 1))
+    masked = "\n".join("" if i in fenced else line for i, line in enumerate(lines, 1))
+
+    spans: list[tuple[int, int]] = []  # absolute [start, end) offsets into `masked`
+    i, n = 0, len(masked)
     while i < n:
-        if line[i] == "\\":
+        if masked[i] == "\\":
             i += 2  # the escaped character, whatever it is, is literal
             continue
-        if line[i] != "`":
+        if masked[i] != "`":
             i += 1
             continue
         run_start = i
-        while i < n and line[i] == "`":
+        while i < n and masked[i] == "`":
             i += 1
         run_len = i - run_start
         # Find the closing string of exactly run_len backticks. No escape handling
-        # here: backslash escapes are not processed inside a code span, so a
-        # backslash before the closer is content and the backtick still closes.
+        # here: backslash escapes are not processed inside a code span.
         j = i
         while j < n:
-            if line[j] == "`":
+            if masked[j] == "`":
                 close_start = j
-                while j < n and line[j] == "`":
+                while j < n and masked[j] == "`":
                     j += 1
                 if j - close_start == run_len:
                     spans.append((run_start, j))
@@ -759,9 +769,26 @@ def _inline_code_span_ranges(line: str) -> list[tuple[int, int]]:
                     break
                 continue
             j += 1
-        else:
-            pass  # unmatched opening run: literal backticks, keep scanning after it
-    return spans
+        # An unmatched opening run is literal; scanning resumes after it.
+
+    # Project absolute offsets (into the MASKED text — a masked line is empty, so
+    # its offsets follow the masked lengths, not the originals) onto (line, column).
+    masked_lines = masked.split("\n")
+    starts: list[int] = []
+    offset = 0
+    for line in masked_lines:
+        starts.append(offset)
+        offset += len(line) + 1
+    by_line: dict[int, list[tuple[int, int]]] = {}
+    for a, b in spans:
+        for lineno, line_start in enumerate(starts, 1):
+            line_end = line_start + len(masked_lines[lineno - 1])
+            if b <= line_start or a > line_end:
+                continue
+            by_line.setdefault(lineno, []).append(
+                (max(a, line_start) - line_start, min(b, line_end) - line_start)
+            )
+    return by_line
 
 
 def extract_markdown_links(content: str) -> list[tuple[int, str, str]]:
@@ -770,6 +797,7 @@ def extract_markdown_links(content: str) -> list[tuple[int, str, str]]:
     Returns list of (line_no, display_text, raw_path).
     """
     fenced = {lineno for lineno, _lang, _text in iter_code_fence_lines(content)}
+    spans_by_line = _inline_code_spans_by_line(content)
     results = []
     for i, line in enumerate(content.splitlines(), 1):
         for match in MARKDOWN_LINK_RE.finditer(line):
@@ -777,7 +805,7 @@ def extract_markdown_links(content: str) -> list[tuple[int, str, str]]:
             path = match.group(2).strip()
             if not _is_checkable_link_target(path):
                 continue
-            if _is_bare_word_in_code(path, line, match.start(), i in fenced):
+            if _is_bare_word_in_code(path, match.start(), i in fenced, spans_by_line.get(i, [])):
                 continue
             results.append((i, text, path))
     return results

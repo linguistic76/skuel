@@ -211,7 +211,9 @@ citation of a file whose name contains spaces resolves instead of reporting dead
 a fence (`class X[T: Bound](Protocol):`) or a literal `[text](url)` in a code span parses as
 `[…](Word)`, and neither the raw-space guard nor the placeholder vocabulary can see it. It is
 skipped only in that context — the same `[license](LICENSE)` in prose stays checkable,
-because CommonMark allows it and a moved `LICENSE` must still report.
+because CommonMark allows it and a moved `LICENSE` must still report. Code spans are found by
+the CommonMark backtick-string rule over the whole file with fences masked (a span may cross a
+line ending; escapes are not processed inside one), never by counting backticks.
 
 **Four exclusions, every one visible (PRs B1 + B3).** A check reporting 871 findings is
 one nobody reads — but a check that goes quiet without saying so is worse, so each

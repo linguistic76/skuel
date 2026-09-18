@@ -759,22 +759,32 @@ def test_backslash_inside_a_span_does_not_defer_its_closer(docs_root: Path) -> N
 
 
 @pytest.mark.parametrize(
-    ("line", "spans"),
+    ("text", "spans"),
     [
-        ("plain", []),
-        ("a `b` c", [(2, 5)]),
-        ("``a `b` c`` d", [(0, 11)]),
-        ("x \\`y` z", []),  # escaped opener, then an unmatched run → literal
-        ("`unclosed", []),
-        ("`a` and `b`", [(0, 3), (8, 11)]),
+        ("plain", {}),
+        ("a `b` c", {1: [(2, 5)]}),
+        ("``a `b` c`` d", {1: [(0, 11)]}),
+        ("x \\`y` z", {}),  # escaped opener, then an unmatched run → literal
+        ("`unclosed", {}),
+        ("`a` and `b`", {1: [(0, 3), (8, 11)]}),
+        ("`foo\\` [a](LICENSE) `", {1: [(0, 6)]}),  # no escapes inside a span
         (
-            "`foo\\` [a](LICENSE) `",
-            [(0, 6)],
-        ),  # no escapes inside a span: the backtick after \\ closes it
+            "open `here\n[text](url) still` code",
+            {1: [(5, 10)], 2: [(0, 18)]},
+        ),  # crosses a line ending
+        ("```\n`not a span: fenced`\n```\n`real`", {4: [(0, 6)]}),  # fences masked first
+        ("```\nlong fenced line here\n```\nx `y`", {4: [(2, 5)]}),  # offsets follow the MASKED text
     ],
 )
-def test_inline_code_span_ranges(line: str, spans: list[tuple[int, int]]) -> None:
-    assert ddl._inline_code_span_ranges(line) == spans
+def test_inline_code_spans_by_line(text: str, spans: dict[int, list[tuple[int, int]]]) -> None:
+    assert ddl._inline_code_spans_by_line(text) == spans
+
+
+def test_multiline_code_span_hides_a_bare_word_link_on_its_second_line(docs_root: Path) -> None:
+    """A code span may cross a line ending (CommonMark § 6.1); the `[text](url)` on
+    its second line is code, and a per-line scan would have reported it."""
+    body = "# P\n\nwrite `the\n[text](url) form` in prose\n"
+    assert _report(docs_root, body) == set()
 
 
 @pytest.mark.parametrize(
