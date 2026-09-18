@@ -274,7 +274,7 @@ The yearly template is identical in shape, with `year_of: 2026`, `entry_kind: ye
 
 - **Write the theme in prose.** Prose creates nothing — only checkbox lines and explicit `@context()` lines become entities (the parse contract, [Part 3](#part-3--writing-activities-in-your-notes)). A quarter's constraints and a year's standing commitments belong in prose precisely because they are thinking, not commitments the graph should track.
 - **Keep the checkbox count low.** A quarter holds a handful of big rocks, not a backlog; the week and month notes are where work gets scheduled.
-- **Reaching them in SKUEL:** the calendar has week and month views only, so the quarterly and yearly notes are reached through the **"Notes" picker** in the navbar (one control, all five periods, on every page), or through the **period rail** in the navigator beside any periodic note (the column to the right of the editor) — one row per period, each opening that period's note and stepping to the one before or after it with ‹ › arrows. The **Journal** row of the Tasks+ sidebar opens today's daily note.
+- **Reaching them in SKUEL:** the calendar has week and month views only, so the quarterly and yearly notes are reached through the **period rail** in the navigator beside any periodic note (the column to the right of the editor) — one row per period, each opening that period's note and stepping to the one before or after it with ‹ › arrows. The **Journal** row of the Tasks+ sidebar opens today's daily note, which is the way in.
 
 ---
 

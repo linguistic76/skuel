@@ -33,8 +33,7 @@ def _signout_row() -> A:
 
     ``sm:hidden`` mirrors the navbar button's ``hidden sm:inline-flex``
     (``ui/layouts/navbar.py``): exactly one sign-out door at every width, never
-    two. The Notes picker took the sixth top-bar slot, and an account action is
-    what a profile page is for.
+    two. An account action is what a profile page is for.
     """
     return A(
         Icon("log-out", cls="size-4", aria_hidden="true"),

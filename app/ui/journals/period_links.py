@@ -2,7 +2,7 @@
 
 A periodic note is addressed by the period that CONTAINS a reference date, and
 several surfaces need that mapping: the in-note period rail (``ui/journals/
-chat_page.py``), the navbar "Notes" picker (``ui/layouts/period_notes.py``),
+chat_page.py``), the calendar's report link (``adapters/inbound/calendar_ui.py``),
 and any future door. Deriving the URL twice is how a quarter boundary drifts
 between them, so it is derived once here — and :func:`period_step`, the
 neighbour arithmetic behind every prev/next arrow, lives beside it for the same

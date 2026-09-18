@@ -86,5 +86,6 @@ nothing** — the live proof of the FULL-tier `EXTRACT_ACTIVITIES` bridge bypass
   climbing daily → weekly → monthly → quarterly → yearly. This is the **in-note** door to the two
   new notes — the calendar has week and month views only, so without it the routes would be
   reachable by URL alone, which is the affordance-invisibility disease the calendar arc named
-  and cured twice. It was their only door until the top-level "Notes" picker landed (see
-  `period-notes-toolbar-picker.md`), which is additive: the ladder is unchanged.
+  and cured twice. The top-level "Notes" picker (see `period-notes-toolbar-picker.md`) was
+  additive to it for two weeks and is retired (2026-09-18); the rail — the ladder's successor
+  (#1277) — is again the in-note door, and the sidebar's Journal row the top-level one.
