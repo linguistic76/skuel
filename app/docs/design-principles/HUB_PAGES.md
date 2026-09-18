@@ -1,6 +1,6 @@
 ---
 title: "Design Principle: Hub Pages"
-updated: 2026-09-17
+updated: 2026-09-18
 status: current
 category: design-principles
 tags: [design, principles, ui, navigation, moc, hub]
@@ -39,7 +39,7 @@ SKUEL values standards-compliant, non-cutting-edge UI. Hub pages are the oldest 
 
 ### MOC Root Pages (`/submissions`, `/library`)
 
-Each is a sidebar-free `BasePage(STANDARD)` with a 2×2 card grid. Cards use rounded icon badges (`w-14 h-14 rounded-2xl`) + title + description and link directly to the section's sidebar sub-pages. The pattern is defined in `adapters/inbound/user_entry_ui.py` (`submissions_moc`) and `adapters/inbound/library_ui.py` (`library_moc`). `/gradebook` left this set in the arc-2 3→1 collapse — it is now a content page (per-exercise exchange lines, `ui/gradebook/summary.py`) under the GradeBook sidebar, not a card hub.
+Each is a sidebar-free `BasePage(STANDARD)` with a 2×2 card grid. Cards use rounded icon badges (`w-14 h-14 rounded-2xl`) + title + description and link directly to the section's sidebar sub-pages. The pattern is defined in `adapters/inbound/user_entry_ui.py` (`submissions_moc`) and `adapters/inbound/library_ui.py` (`library_moc`). `/gradebook` left this set in the arc-2 3→1 collapse — it is now a content page (per-exercise exchange lines, `ui/gradebook/summary.py`) under the Tasks+ sidebar (`ui/activities/nav.py`, GradeBook row lit), not a card hub.
 
 Child pages use `SidebarPage` for within-section navigation. Sidebar `title_href` links back to the MOC root (e.g. `/library`, `/gradebook`, `/submissions`).
 

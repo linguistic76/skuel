@@ -3,8 +3,9 @@
 Renders a collapsible sidebar — the three temporal lenses (Today / Weekly /
 Monthly), the Activity Domain rows with their count and health badges, the
 Journal (today's daily periodic note) and the GradeBook (feedback received) —
-as ONE list on every domain page, the calendar views, Today and the periodic
-notes.
+as ONE list on every domain page, the calendar views, Today, the periodic
+notes and the GradeBook surfaces (the page, its detail pages and the
+activity-report request form — the GradeBook has no sidebar of its own).
 
 Usage:
     from ui.activities.nav import render_activity_sidebar_page
@@ -47,8 +48,8 @@ ACTIVITY_SIDEBAR_ITEMS: list[SidebarItem] = [
     # redirect to the note page). The dateless route resolves "today" at click
     # time, so this list can stay a constant.
     SidebarItem("Journal", "/journals/daily", "journals", icon="book-open"),
-    # Feedback received on submitted work — the same slug + icon the GradeBook
-    # page's own sidebar uses, so the two doors read as one destination.
+    # Feedback received on submitted work. The GradeBook page and its detail
+    # pages render under THIS sidebar with the row lit — there is no other.
     SidebarItem("GradeBook", "/gradebook", "gradebook", icon="clipboard-check"),
 ]
 
@@ -93,6 +94,7 @@ def render_activity_sidebar_error(
     message: str,
     active: str,
     request: Request | None = None,
+    title: str = ACTIVITY_SIDEBAR_TITLE,
 ) -> FT:
     """A whole Activity sidebar page whose only content is an error banner.
 
@@ -106,9 +108,11 @@ def render_activity_sidebar_error(
         message: The user-facing error text.
         active: The active sidebar item slug (e.g. "tasks").
         request: The request object for auth detection.
+        title: Browser/page title only — see ``render_activity_sidebar_page``.
     """
     return render_activity_sidebar_page(
         Div(render_error_banner(message)),
         active=active,
         request=request,
+        title=title,
     )

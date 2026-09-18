@@ -463,7 +463,6 @@ When building a new SKUEL page or feature, verify:
 | `/static/js/skuel.js` | The 22 **shared** Alpine.data() components — not all of them; 3 more live in page-local bundles (`explore-reading.js`, `ku-reading.js`, `ps-detail.js`), 25 total. Inventory: `docs/architecture/ALPINE_JS_ARCHITECTURE.md` |
 | `/ui/profile/hub.py` | `ProfileHubView` — 4-tab hub (Activities / Curriculum / Submissions / Reports, default Activities); Activities/Curriculum/Reports render `HubAccordionBlockList` (native `<details>` accordions, lazy `intersect once` previews) |
 | `/ui/activities/nav.py` | Activity sidebar config (`ACTIVITY_SIDEBAR_ITEMS`) + `render_activity_sidebar_page()` helper |
-| `/ui/gradebook/nav.py` | GradeBook sidebar config (`GRADEBOOK_SIDEBAR_ITEMS`) + `render_gradebook_sidebar_page()` helper |
 | `/ui/workbench/hub.py` | `SubmissionsTabPanel` — Submissions tab on `/profile` (4 link buttons mirroring the sidebar) |
 | `/ui/workbench/nav.py` | Submissions sidebar config (`SUBMISSIONS_SIDEBAR_ITEMS`) + `render_submissions_sidebar_page()` helper |
 | `/adapters/inbound/user_entry_ui.py` | `submissions_moc` (MOC root), `gradebook_page` (exchange-lines GradeBook + `/gradebook/lines` fragment), submission history endpoints, knowledge-notes grounding page (`/submissions/knowledge`), journal submit/browse/download |

@@ -38,9 +38,9 @@ from adapters.inbound.fasthtml_types import Request, RouteDecorator
 from core.models.enums.pipeline import ReportSource
 from core.utils.logging import get_logger
 from core.utils.text_truncation import truncate_to_budget
-from ui.gradebook.nav import render_gradebook_sidebar_page
+from ui.activities.nav import render_activity_sidebar_error, render_activity_sidebar_page
+from ui.gradebook.summary import GRADEBOOK_TITLE
 from ui.learning_loop.report import render_entry_report_detail
-from ui.patterns.error_banner import render_error_banner
 from ui.patterns.hub import HubPreviewCard, HubPreviewEmpty, HubPreviewGrid
 
 logger = get_logger("skuel.routes.entry_reports")
@@ -75,36 +75,40 @@ def create_entry_reports_ui_routes(
         uid = request.query_params.get("uid", "").strip()
 
         if not uid:
-            return render_gradebook_sidebar_page(
-                content=Div(render_error_banner("Report UID is required")),
+            return render_activity_sidebar_error(
+                "Report UID is required",
                 active="gradebook",
                 request=request,
+                title=GRADEBOOK_TITLE,
             )
 
         if not orchestrator:
-            return render_gradebook_sidebar_page(
-                content=Div(render_error_banner("Report service unavailable")),
+            return render_activity_sidebar_error(
+                "Report service unavailable",
                 active="gradebook",
                 request=request,
+                title=GRADEBOOK_TITLE,
             )
 
         view_result = await orchestrator.get_entry_report_view(uid, user_uid)
         if view_result.is_error:
             logger.warning(f"Exercise report not found or inaccessible: {uid}")
-            return render_gradebook_sidebar_page(
-                content=Div(render_error_banner("Report not found")),
+            return render_activity_sidebar_error(
+                "Report not found",
                 active="gradebook",
                 request=request,
+                title=GRADEBOOK_TITLE,
             )
 
         view = view_result.value
         content = Div(
             render_entry_report_detail(view["report"], revised_exercise=view["revised_exercise"])
         )
-        return render_gradebook_sidebar_page(
+        return render_activity_sidebar_page(
             content=content,
             active="gradebook",
             request=request,
+            title=GRADEBOOK_TITLE,
         )
 
     # ========================================================================

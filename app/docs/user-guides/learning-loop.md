@@ -1,5 +1,5 @@
 ---
-updated: 2026-06-20
+updated: 2026-09-18
 ---
 
 # The Learning Loop
@@ -90,12 +90,12 @@ Revised Exercises:
 - Reference the specific feedback they're addressing
 - Contain categorized feedback points (accuracy, completeness, depth, clarity, application, methodology) with specific detail
 - Contain tailored instructions for your next attempt
-- Appear in your GradeBook sidebar under **Revisions** and in your daily plan
+- Appear in your GradeBook (the Tasks+ sidebar's **GradeBook** row) as exercises marked **Revision requested**, and in your daily plan
 - Link back to the original Exercise, forming a traceable revision chain
 
-**Where to find them:** Go to **GradeBook → Revisions** to see all your pending revision requests. Each revision shows the teacher's feedback points and instructions. Click **Submit** to begin your revised submission — the system tracks it as a new iteration in the learning loop.
+**Where to find them:** Open **GradeBook** from the Tasks+ sidebar and filter by **Revision requested**. Each line opens its exchange thread, where the revision shows the teacher's feedback points and instructions. Click **Submit** to begin your revised submission — the system tracks it as a new iteration in the learning loop.
 
-Your Entry Reports at **GradeBook → Entry Reports** now have a detail page showing the full report with outcome badge, processor badge, and assessment score. When a revision exists for a report, a "View Revision" link appears.
+Each report in an exchange thread opens a detail page showing the full report with outcome badge, processor badge, and assessment score. When a revision exists for a report, a "View Revision" link appears.
 
 You submit against the Revised Exercise just like the original, and the cycle continues: submission → feedback → revision → submission → ... until mastery.
 

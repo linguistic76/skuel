@@ -447,6 +447,21 @@ def _content_html(page) -> str:
     return to_xml(page["content"])
 
 
+class TestSubmitActivityReportShell:
+    def test_the_request_form_renders_under_the_tasks_plus_sidebar(
+        self, registry_orchestrator_generator, prompt_pages
+    ):
+        registry, _, _ = registry_orchestrator_generator
+        handler = registry.get("/submit-activity-report")
+
+        page = handler(_make_request(method="GET"))
+
+        html = _content_html(page)
+        assert 'aria-label="Tasks+ sidebar"' in html
+        assert 'aria-label="GradeBook sidebar"' not in html
+        assert page["title"] == "Request Activity Report"
+
+
 class TestForPeriodGenerate:
     @pytest.mark.asyncio
     async def test_generates_the_period_and_lands_on_the_report(

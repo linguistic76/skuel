@@ -344,12 +344,12 @@ The admin home hub at `/` shows two `HubCard`s (Admin + Teaching). Regular users
 
 ## 4. Sidebar Pages
 
-Use `SidebarPage()` for pages with collapsible, persistent sidebar navigation. Four sidebar groups exist:
+Use `SidebarPage()` for pages with collapsible, persistent sidebar navigation. The sidebar groups:
 
-- **Activity Domains** — `render_activity_sidebar_page()` from `ui/activities/nav.py` — `ACTIVITY_SIDEBAR_ITEMS` (Today, Weekly, Monthly, Tasks, Goals, Habits, Principles, Choices, Journal) on `/tasks`, `/goals`, `/habits`, `/choices`, `/principles`, the events pages (which highlight Monthly — the month view is the events lens), the calendar month/week pages and `/today` (`content_max_width="max-w-none"` on the calendar) — one list, the same badge request everywhere. Each calendar view shows its declared membership (`VIEW_SPECS`: month = events; week = events, habits, goal milestones and high-priority tasks, with the kind legend as filter).
+- **Activity Domains** — `render_activity_sidebar_page()` from `ui/activities/nav.py` — `ACTIVITY_SIDEBAR_ITEMS` (Today, Weekly, Monthly, Tasks, Goals, Habits, Principles, Choices, Journal, GradeBook) on `/tasks`, `/goals`, `/habits`, `/choices`, `/principles`, the events pages (which highlight Monthly — the month view is the events lens), the calendar month/week pages, `/today` (`content_max_width="max-w-none"` on the calendar) and the GradeBook surfaces (`/gradebook`, `/gradebook/{uid}`, the report/revision detail pages, `/submit-activity-report` — `active="gradebook"`; `title` names the tab) — one list, the same badge request everywhere. Each calendar view shows its declared membership (`VIEW_SPECS`: month = events; week = events, habits, goal milestones and high-priority tasks, with the kind legend as filter).
 - **Explore** — `render_explore_sidebar_page()` from `ui/explore/nav.py` — graph-centered sidebar (wider `w-96`/384px via `sidebar_width` param, no nav items, uses `extra_sidebar_sections`). **Signature:** `render_explore_sidebar_page(content, sidebar_data: dict[str, Any] | None, request, ...)` — route handlers call `orchestrator.get_sidebar_data(user_uid)` first, then pass the pre-fetched dict. Hero: `ExploreGraphView` (`ui/explore/graph.py`) — interactive Vis.js force-directed graph. Hub mode (`/explore`): user's learning universe with "You" center node + studying Kus + in-progress PSes; fetched from `GET /api/explore/graph`. Entity mode (`/explore/ku/{uid}`, `/explore/ps/{uid}`): centers on current entity with lateral relationships. Filter tabs (All/Learning/Saved) control both graph node highlighting and list section visibility. Three supporting sections below graph: Learning, Saved, Completed. Alpine component: `exploreGraph(mode, entity_uid, entity_type)` in `skuel.js`. Graph expands to full-screen JS overlay on `document.body` (Escape/backdrop click to close) — creates a second Vis.js network to escape sidebar `overflow:hidden` + `transform`. Node colors: violet for Ku, teal for PS, blue for "You". Detail pages pass `current_entity_type` for graph centering. Unauthenticated: shows graph + "Sign in to track your learning". **PathStep detail** (`/explore/ps/{uid}`) is the **learning loop anchor** — authenticated users see three HTMX-loaded sections (Exercises with status pills, My Submissions, Feedback) served by `/learning-loop/ps/{ps_uid}/*` fragment endpoints; unauthenticated users see simple exercise links. **Supporting module:** `ui/explore/cards.py` (card rendering + search panel); catalog filtering and sorting are server-side via `SearchRouter.faceted_search` (`adapters/inbound/explore_ui.py`).
 - **Submissions** — `render_submissions_sidebar_page()` from `ui/workbench/nav.py` — 5 items: Sync (`/submissions/sync`), Exercise (`/submissions/exercise`), Journal (`/submissions/journal`), History (`/submissions/history`), Knowledge (`/submissions/knowledge` — knowledge notes with removable grounded-Ku chips). Root `/submissions` is a sidebar-free MOC page with 5 cards. `/submit` → 302 → `/submissions/exercise`.
-- **GradeBook** — `render_gradebook_sidebar_page()` from `ui/gradebook/nav.py` — 2 items (GradeBook, Request Activity Report). `/gradebook` is THE received-feedback page (3→1 collapse, arc 2 C1): per-exercise exchange lines with status/source filter chips (`ui/gradebook/summary.py`, HTMX fragment `/gradebook/lines`) + conditional Activity-reports and Other-feedback groups. Detail pages (`/entry-reports/detail`, `/activity-reports/detail`, `/revised-exercises/detail`, `/gradebook/{uid}`) render under the same shell with `active="gradebook"`; `title_href="/gradebook"`. Block definitions in `ui/gradebook/hub.py` (`GRADEBOOK_BLOCKS`) still serve HTMX preview endpoints for the `/profile` Reports tab.
+- **GradeBook** — no sidebar of its own. `/gradebook` is THE received-feedback page (3→1 collapse, arc 2 C1): per-exercise exchange lines with status/source filter chips (`ui/gradebook/summary.py`, HTMX fragment `/gradebook/lines`) + conditional Activity-reports and Other-feedback groups; it and its detail pages (`/entry-reports/detail`, `/activity-reports/detail`, `/revised-exercises/detail`, `/gradebook/{uid}`) render under the Activity sidebar via `render_activity_sidebar_page(..., active="gradebook", title=GRADEBOOK_TITLE)` (error-only pages via `render_activity_sidebar_error`). The header's "Request activity report" action opens `/submit-activity-report`. Block definitions in `ui/gradebook/hub.py` (`GRADEBOOK_BLOCKS`) still serve HTMX preview endpoints for the `/profile` Reports tab.
 - **Library** — `render_library_sidebar_page()` from `ui/library/nav.py` — 4 items (Exercises, Resources, Ku, Path Steps). Used on child pages: `/library/exercises`, `/library/resources`, `/library/ku`, `/library/path-steps`. Root `/library` is a sidebar-free MOC page with 4 cards; `title_href="/library"`. Block definitions in `ui/library/hub.py` (`LIBRARY_BLOCKS`) still serve HTMX preview endpoints.
 
 `/profile` is a **4-tab personal hub** using `BasePage` directly — Activities / Curriculum / Submissions / Reports tabs (default Activities) mirroring the loop (live it / study / submit / grade); accordion blocks with HTMX lazy-loaded previews. See `ui/profile/hub.py`.
@@ -374,10 +374,10 @@ SidebarItem(
 
 ```python
 # Preferred: use the domain-specific helper (handles items, title, storage_key)
-from ui.gradebook.nav import render_gradebook_sidebar_page
+from ui.activities.nav import render_activity_sidebar_page
 
-return render_gradebook_sidebar_page(
-    content=my_content, active="gradebook", request=request
+return render_activity_sidebar_page(
+    content=my_content, active="gradebook", request=request, title="GradeBook"
 )
 
 # Submissions sidebar (Sync, Exercise, Journal, History, Knowledge):
@@ -391,23 +391,18 @@ return render_submissions_sidebar_page(
 from ui.patterns.sidebar import SidebarItem, SidebarPage
 
 items = [
-    SidebarItem("GradeBook", "/gradebook", "gradebook", icon="clipboard-check"),
-    SidebarItem(
-        "Request Activity Report",
-        "/submit-activity-report",
-        "submit-activity-report",
-        icon="bar-chart-2",
-    ),
+    SidebarItem("Exercises", "/library/exercises", "exercises", icon="book-open"),
+    SidebarItem("Resources", "/library/resources", "resources", icon="bookmark"),
 ]
 
 return SidebarPage(
     content=my_content,
     items=items,
-    active="gradebook",                 # Active item slug
-    title="GradeBook",                  # Sidebar heading
-    storage_key="gradebook-sidebar",    # localStorage key for collapse state
+    active="exercises",                 # Active item slug
+    title="Library",                    # Sidebar heading
+    storage_key="library-sidebar",      # localStorage key for collapse state
     request=request,
-    active_page="gradebook",            # Navbar active item
+    active_page="library",              # Navbar active item
     # Optional:
     subtitle="",                        # Sidebar subtitle
     extra_sidebar_sections=[],          # Additional content below nav items

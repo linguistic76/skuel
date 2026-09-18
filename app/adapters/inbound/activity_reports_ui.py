@@ -51,7 +51,8 @@ from core.utils.report_periods import (
 )
 from core.utils.result_simplified import ErrorCategory, Errors, Result
 from core.utils.text_truncation import truncate_to_budget
-from ui.gradebook.nav import render_gradebook_sidebar_page
+from ui.activities.nav import render_activity_sidebar_error, render_activity_sidebar_page
+from ui.gradebook.summary import GRADEBOOK_TITLE
 from ui.learning_loop.report import (
     render_activity_report_detail,
     render_progress_report_list,
@@ -133,10 +134,11 @@ def create_activity_reports_ui_routes(
             render_activity_report_request_card(),
             render_recent_reports_section(),
         )
-        return render_gradebook_sidebar_page(
+        return render_activity_sidebar_page(
             content=content,
-            active="submit-activity-report",
+            active="gradebook",
             request=request,
+            title="Request Activity Report",
         )
 
     # ========================================================================
@@ -150,7 +152,7 @@ def create_activity_reports_ui_routes(
             period = resolve_report_period(token, datetime.now())
         except UnknownReportPeriodError:
             return Response("Unknown report period", status_code=400)
-        return render_gradebook_sidebar_page(
+        return render_activity_sidebar_page(
             content=Div(
                 PageHeader(
                     f"Report for {period.label}",
@@ -164,8 +166,9 @@ def create_activity_reports_ui_routes(
                     note=note,
                 ),
             ),
-            active="submit-activity-report",
+            active="gradebook",
             request=request,
+            title=GRADEBOOK_TITLE,
         )
 
     @rt("/activity-reports/for", methods=["POST"])
@@ -212,10 +215,11 @@ def create_activity_reports_ui_routes(
         require_authenticated_user(request)
         uid = request.query_params.get("uid", "").strip()
         if not uid:
-            return render_gradebook_sidebar_page(
-                content=Div(render_error_banner("Report UID is required")),
+            return render_activity_sidebar_error(
+                "Report UID is required",
                 active="gradebook",
                 request=request,
+                title=GRADEBOOK_TITLE,
             )
         content = Div(
             content_loading_placeholder(
@@ -223,10 +227,11 @@ def create_activity_reports_ui_routes(
                 "activity-report-detail-content",
             )
         )
-        return render_gradebook_sidebar_page(
+        return render_activity_sidebar_page(
             content=content,
             active="gradebook",
             request=request,
+            title=GRADEBOOK_TITLE,
         )
 
     @rt("/activity-reports/detail/content")

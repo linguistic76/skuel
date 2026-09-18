@@ -1,5 +1,5 @@
 ---
-updated: 2026-08-21
+updated: 2026-09-18
 ---
 
 # Feedback-Loop UX — Design & Choices (Arc 2: GradeBook centerpiece, waiting both ways, inbox identity)
@@ -57,7 +57,8 @@ Arc 1 made the exchange correct, legible, and visible as one thread. Arc 2 answe
   The per-student page already buckets `revision` separately
   (`teacher_orchestrator.py:94-135`).
 - **`/gradebook` already exists as a hub** of three cards (`ui/gradebook/hub.py`) +
-  sidebar (`ui/gradebook/nav.py`) pointing at `/entry-reports`, `/activity-reports`,
+  sidebar (`ui/gradebook/nav.py`; retired 2026-09-18 — the GradeBook surfaces now
+  render under the Tasks+ sidebar) pointing at `/entry-reports`, `/activity-reports`,
   `/revised-exercises`; `/gradebook/{uid}` is the entry-anchored detail (keep). The three
   list pages have no filters; `/activity-reports` has a client-side time filter only.
 - **Shared-With-Me query** (`sharing_backend.py:197-246`, post-#904) returns
