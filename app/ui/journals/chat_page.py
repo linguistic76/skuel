@@ -204,10 +204,9 @@ def _note_anchor(kind: str, period_key: str) -> tuple[datetime.date, set[datetim
 # Period rail — one row per period kind, on every periodic note
 # ─────────────────────────────────────────────────────────────────────────────
 #
-# Replaces the "up"-links ladder (#1277) that showed only the periods WIDER
-# than the note and could not step between notes of a kind. The rail shows all
-# five, because a rail that changes shape per note is a rail you re-read every
-# time, and every row steps.
+# All five rows on every note, and every row steps: a rail that changed shape
+# per note would be re-read every time. Design record:
+# docs/roadmap/done/periodic-note-sidebar-rail.md
 #
 # Journal routes answer with a 302 redirect that HTMX boost would swap into the
 # current target instead of navigating, so every rail link opts out.
