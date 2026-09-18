@@ -251,7 +251,7 @@ class IntelligenceRouteFactory:
 
         logger.info(f"IntelligenceRouteFactory initialized for {domain_name} (scope={scope.value})")
 
-    def register_routes(self, _app, rt):
+    def register_routes(self, _app, rt) -> None:
         """
         Register all intelligence routes.
 
@@ -275,7 +275,7 @@ class IntelligenceRouteFactory:
 
         logger.info(f"Intelligence routes registered for {self.domain} at {self.base_path}")
 
-    def _register_analytics_route(self, rt) -> Any:
+    def _register_analytics_route(self, rt) -> None:
         """
         Register analytics route: GET /api/{domain}/analytics
 
@@ -298,9 +298,7 @@ class IntelligenceRouteFactory:
             logger.debug(f"Analytics retrieved for {domain}: user={user_uid}, period={period_days}")
             return result
 
-        return analytics_route
-
-    def _register_context_route(self, rt) -> Any:
+    def _register_context_route(self, rt) -> None:
         """
         Register context route: GET /api/{domain}/context?uid=...
 
@@ -352,9 +350,7 @@ class IntelligenceRouteFactory:
 
             return result
 
-        return context_route
-
-    def _register_insights_route(self, rt) -> Any:
+    def _register_insights_route(self, rt) -> None:
         """
         Register insights route: GET /api/{domain}/insights?uid=...
 
@@ -393,8 +389,6 @@ class IntelligenceRouteFactory:
                 f"Insights retrieved for {domain}: uid={uid}, user={user_uid}, min_confidence={min_confidence}"
             )
             return result
-
-        return insights_route
 
 
 # ============================================================================

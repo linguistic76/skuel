@@ -88,9 +88,10 @@ def create_activity_link_api_routes(
     singular: str,
     service: Any,
     specs: tuple[CrossDomainLinkSpec[Any], ...],
-) -> list[Any]:
+) -> None:
     """Register ``POST /api/{domain}/{action}`` link routes for one domain."""
-    return [_register_link_route(rt, domain_name, singular, service, spec) for spec in specs]
+    for spec in specs:
+        _register_link_route(rt, domain_name, singular, service, spec)
 
 
 def _register_link_route(
@@ -99,7 +100,7 @@ def _register_link_route(
     singular: str,
     service: Any,
     spec: CrossDomainLinkSpec[Any],
-) -> Any:
+) -> None:
     async def link(request: Request) -> Result[dict[str, Any]]:
         user_uid = require_authenticated_user(request)
         parsed = await parse_json_body(request, spec.request_model)
@@ -127,7 +128,7 @@ def _register_link_route(
 
     link.__name__ = f"{singular}_{spec.action.replace('-', '_')}"
     link.__doc__ = spec.doc or f"Link {singular} via {spec.action}."
-    return rt(f"/api/{domain_name}/{spec.action}", methods=["POST"])(
+    rt(f"/api/{domain_name}/{spec.action}", methods=["POST"])(
         csrf_protected(boundary_handler()(link))
     )
 
@@ -136,7 +137,7 @@ def create_knowledge_patterns_api_route(
     rt: RouteDecorator,
     domain_name: str,
     analyze_learning_patterns: Callable[[UserUID, int], Awaitable[Result[list[Any]]]],
-) -> Any:
+) -> None:
     """Register ``GET /api/{domain}/knowledge-patterns`` for one domain."""
 
     async def knowledge_patterns(request: Request) -> Result[dict[str, Any]]:
@@ -156,7 +157,7 @@ def create_knowledge_patterns_api_route(
     knowledge_patterns.__doc__ = (
         f"Detect knowledge-learning patterns across the authenticated user's {domain_name}."
     )
-    return rt(f"/api/{domain_name}/knowledge-patterns", methods=["GET"])(
+    rt(f"/api/{domain_name}/knowledge-patterns", methods=["GET"])(
         boundary_handler()(knowledge_patterns)
     )
 

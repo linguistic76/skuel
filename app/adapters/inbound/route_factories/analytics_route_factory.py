@@ -155,19 +155,14 @@ class AnalyticsRouteFactory:
             f"AnalyticsRouteFactory initialized for {domain_name} with {len(self.endpoints)} endpoints{role_mode}"
         )
 
-    def register_routes(self, _app, rt) -> list[Callable]:
+    def register_routes(self, _app, rt) -> None:
         """
         Register all analytics routes on the application.
 
         Args:
             app: FastHTML application instance
             rt: Router instance
-
-        Returns:
-            List of registered route functions
         """
-        routes = []
-
         for endpoint in self.endpoints:
             route_func = self._create_route_handler(endpoint)
 
@@ -175,11 +170,9 @@ class AnalyticsRouteFactory:
             for method in endpoint.methods:
                 rt(endpoint.path, methods=[method])(route_func)
 
-            routes.append(route_func)
             logger.debug(f"Registered analytics route: {endpoint.methods} {endpoint.path}")
 
-        logger.info(f"Analytics routes registered for {self.domain_name}: {len(routes)} endpoints")
-        return routes
+        logger.info(f"Analytics routes registered for {self.domain_name}")
 
     def _create_route_handler(self, endpoint: AnalyticsEndpoint) -> Callable:
         """

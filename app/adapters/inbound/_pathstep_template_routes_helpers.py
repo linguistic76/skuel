@@ -48,7 +48,7 @@ logger = get_logger(__name__)
 
 def make_pathstep_template_api_factory(
     domain_name: str,
-) -> Callable[..., list[Any]]:
+) -> Callable[..., None]:
     """Build the api_factory for a per-template route file.
 
     The factory registers three endpoints scoped to ``/api/{domain_name}``.
@@ -65,7 +65,7 @@ def make_pathstep_template_api_factory(
         primary_service: Any,
         user_service: Any = None,
         **_kwargs: Any,
-    ) -> list[Any]:
+    ) -> None:
         get_user_service = make_service_getter(user_service)
 
         @rt(f"/api/{domain_name}/attach", methods=["POST"])
@@ -121,8 +121,6 @@ def make_pathstep_template_api_factory(
                 "Result[list[dict[str, Any]]]",
                 await primary_service.list_for_pathstep(ps_uid),
             )
-
-        return [attach_template, detach_template, list_templates_by_ps]
 
     return api_factory
 

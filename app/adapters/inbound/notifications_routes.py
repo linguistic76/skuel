@@ -16,15 +16,9 @@ if TYPE_CHECKING:
     from services_bootstrap import Services
 
 
-def _noop_api_factory(_app: Any, _rt: Any, _primary: Any, **_kw: Any) -> list[Any]:
-    """No-op API factory for UI-only domains."""
-    return []
-
-
 NOTIFICATIONS_CONFIG = DomainRouteConfig(
     domain_name="notifications",
     primary_service_attr="notifications",
-    api_factory=_noop_api_factory,
     ui_factory=create_notifications_ui_routes,
 )
 

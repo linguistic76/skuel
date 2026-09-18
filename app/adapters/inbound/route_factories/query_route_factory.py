@@ -98,32 +98,25 @@ class CommonQueryRouteFactory:
         self.verify_ownership = scope == ContentScope.USER_OWNED
         self.base_path = base_path or f"/api/{domain_name}"
 
-    def register_routes(self, _app, rt):
-        """Register all common query routes. Returns route descriptions for diagnostics."""
-        route_descriptions = []
-
+    def register_routes(self, _app, rt) -> None:
+        """Register all common query routes."""
         # Single user query route (handles both own data and admin queries)
-        route_descriptions.append(self._register_user_query_route(rt))
+        self._register_user_query_route(rt)
 
         # Register status filter route (auth required)
-        route_descriptions.append(self._register_status_filter_route(rt))
+        self._register_status_filter_route(rt)
 
         # Conditionally register goal filter
         if self.supports_goal_filter:
-            route_descriptions.append(self._register_goal_filter_route(rt))
+            self._register_goal_filter_route(rt)
 
         # Conditionally register habit filter
         if self.supports_habit_filter:
-            route_descriptions.append(self._register_habit_filter_route(rt))
+            self._register_habit_filter_route(rt)
 
-        logger.info(
-            f"CommonQueryRouteFactory registered {len(route_descriptions)} "
-            f"query routes for {self.domain}: {route_descriptions}"
-        )
+        logger.info(f"Common query routes registered for {self.domain} at {self.base_path}")
 
-        return route_descriptions
-
-    def _register_user_query_route(self, rt) -> str:
+    def _register_user_query_route(self, rt) -> None:
         """
         Register GET /api/{domain}/user route.
 
@@ -193,9 +186,7 @@ class CommonQueryRouteFactory:
 
             return cast("Result[Any]", await method(target_user_uid))
 
-        return f"GET {self.base_path}/user[?user_uid=...]"
-
-    def _register_status_filter_route(self, rt) -> str:
+    def _register_status_filter_route(self, rt) -> None:
         """
         Register GET /api/{domain}/by-status?status=... route.
 
@@ -231,9 +222,7 @@ class CommonQueryRouteFactory:
                 "Result[Any]", await method(filters={"status": status, "user_uid": user_uid})
             )
 
-        return f"GET {self.base_path}/by-status?status=..."
-
-    def _register_goal_filter_route(self, rt) -> str:
+    def _register_goal_filter_route(self, rt) -> None:
         """
         Register GET /api/{domain}/goal?goal_uid=... route.
 
@@ -277,9 +266,7 @@ class CommonQueryRouteFactory:
 
             return cast("Result[Any]", await method(goal_uid))
 
-        return f"GET {self.base_path}/goal?goal_uid=..."
-
-    def _register_habit_filter_route(self, rt) -> str:
+    def _register_habit_filter_route(self, rt) -> None:
         """
         Register GET /api/{domain}/habit?habit_uid=... route.
 
@@ -322,8 +309,6 @@ class CommonQueryRouteFactory:
                 )
 
             return cast("Result[Any]", await method(habit_uid))
-
-        return f"GET {self.base_path}/habit?habit_uid=..."
 
 
 __all__ = ["CommonQueryRouteFactory"]
