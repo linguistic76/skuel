@@ -687,21 +687,36 @@ def _is_checkable_link_target(target: str) -> bool:
     ``PLACEHOLDER_SUBSTRINGS`` covers all four, including the ``http``-prefixed one that
     an exact-match rule would have missed (Codex, PR #1222).
 
-    **A bare word is not a path.** A PEP 695 generic class header inside a fence —
-    ``class CrudOperations[T: DomainModelProtocol](Protocol):`` — parses as link text
-    ``T: DomainModelProtocol`` and destination ``Protocol``; the raw-space test cannot
-    see it because the base class carries no space, and the same shape appears
-    unbounded (``[V = str | int | float](Protocol)``). A destination with no ``/``, no
-    ``.`` and no ``#`` names no file, directory or anchor this checker could resolve,
-    so it is not checkable — measured 4 in the corpus (three ``Protocol`` headers and a
-    literal ``[text](url)`` illustration), and zero bare-word destinations that
-    resolve: every real link here carries an extension or a separator.
+    **A bare word inside code is not a link** — see ``_is_bare_word_in_code``, which
+    the link pass applies with the line's context; this predicate is context-free and
+    keeps ``[license](LICENSE)``-shaped prose links checkable.
     """
     if " " in target:
         return False
-    if not any(ch in target for ch in "/.#"):
-        return False
     return not _is_documentation_stand_in(target)
+
+
+def _is_bare_word_in_code(target: str, line: str, match_start: int, in_fence: bool) -> bool:
+    """A separator-less destination sitting in code is Python (or an illustration), not a link.
+
+    A PEP 695 generic class header inside a fence —
+    ``class CrudOperations[T: DomainModelProtocol](Protocol):`` — parses as link text
+    ``T: DomainModelProtocol`` and destination ``Protocol``; the raw-space test cannot
+    see it because the base class carries no space, and the same shape appears
+    unbounded (``[V = str | int | float](Protocol)``). A literal ``[text](url)`` inside a
+    backtick span is the same thing in prose. Both are skipped ONLY in that context:
+    the destination has no ``/``, ``.`` or ``#`` AND the match sits inside a fenced
+    block or an inline code span. A separator-less destination in ordinary prose —
+    ``[license](LICENSE)``, ``[docs](docs)`` — stays checkable, because CommonMark
+    allows it and a moved ``LICENSE`` must still report. Measured 4 in the corpus
+    (three ``Protocol`` headers and one ``url`` illustration), all in code.
+    """
+    if any(ch in target for ch in "/.#"):
+        return False
+    if in_fence:
+        return True
+    # Inside an inline code span: an odd number of backticks precedes the match.
+    return line[:match_start].count("`") % 2 == 1
 
 
 def extract_markdown_links(content: str) -> list[tuple[int, str, str]]:
@@ -709,13 +724,17 @@ def extract_markdown_links(content: str) -> list[tuple[int, str, str]]:
     Extract [text](path) patterns whose destination is a checkable path.
     Returns list of (line_no, display_text, raw_path).
     """
+    fenced = {lineno for lineno, _lang, _text in iter_code_fence_lines(content)}
     results = []
     for i, line in enumerate(content.splitlines(), 1):
         for match in MARKDOWN_LINK_RE.finditer(line):
             text = match.group(1)
             path = match.group(2).strip()
-            if _is_checkable_link_target(path):
-                results.append((i, text, path))
+            if not _is_checkable_link_target(path):
+                continue
+            if _is_bare_word_in_code(path, line, match.start(), i in fenced):
+                continue
+            results.append((i, text, path))
     return results
 
 

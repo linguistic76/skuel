@@ -708,30 +708,41 @@ def test_link_destination_with_a_template_marker_is_skipped() -> None:
 
 
 @pytest.mark.parametrize(
-    "line",
+    "body",
     [
-        "class CrudOperations[T: DomainModelProtocol](Protocol):",  # BACKEND_OPERATIONS_ISP
-        "class EnumLike[V = str | int | float](Protocol):",  # PROTOCOL_REFERENCE
-        "a markdown link `[text](url)` would show as raw characters",  # CANON_CITATION_DESIGN
+        "```python\nclass CrudOperations[T: DomainModelProtocol](Protocol):\n```\n",  # BACKEND_OPERATIONS_ISP
+        "```python\nclass EnumLike[V = str | int | float](Protocol):\n```\n",  # PROTOCOL_REFERENCE
+        "a markdown link `[text](url)` would show as raw characters\n",  # CANON_CITATION_DESIGN
     ],
 )
-def test_bare_word_destination_is_not_a_link(docs_root: Path, line: str) -> None:
-    """A PEP 695 generic header, or a literal link illustration, parses as
-    `[…](Word)`: no space for the raw-space test to see, and no `/`, `.` or `#` that a
-    resolvable destination would carry. Measured 4 in the corpus, zero live links hidden."""
-    assert _report(docs_root, f"# P\n\n{line}\n") == set()
+def test_bare_word_destination_inside_code_is_not_a_link(docs_root: Path, body: str) -> None:
+    """A PEP 695 generic header in a fence, or a literal link illustration in a code
+    span, parses as `[…](Word)`: no space for the raw-space test to see, and no `/`,
+    `.` or `#`. Skipped in that context only. Measured 4 in the corpus, all in code."""
+    assert _report(docs_root, f"# P\n\n{body}") == set()
 
 
-@pytest.mark.parametrize("target", ["Protocol", "url", "README"])
-def test_bare_word_destinations_are_not_checkable(target: str) -> None:
-    assert not ddl._is_checkable_link_target(target)
+def test_bare_word_destination_in_prose_stays_reported(docs_root: Path) -> None:
+    """CommonMark allows `[license](LICENSE)`; a moved LICENSE must still report. The
+    context rule is what keeps the fence/code-span skip from becoming a blind spot."""
+    assert _report(docs_root, "# P\n\nRead the [license](LICENSE) first.\n") == {
+        (3, "LICENSE", "link")
+    }
 
 
-@pytest.mark.parametrize("target", ["README.md", "../patterns/x.md", "docs/", "#anchor-only"])
-def test_destinations_with_a_separator_stay_checkable(target: str) -> None:
-    """The narrowing must not widen: an extension, a path separator or an anchor is
-    still a destination the checker resolves (anchor-only links are skipped later, on
-    their own rule, not here)."""
+def test_bare_word_after_a_closed_code_span_is_prose(docs_root: Path) -> None:
+    """The span test counts backticks BEFORE the match: `x` then [a](LICENSE) is prose."""
+    assert _report(docs_root, "# P\n\nRun `x`, then read [a](LICENSE).\n") == {
+        (3, "LICENSE", "link")
+    }
+
+
+@pytest.mark.parametrize(
+    "target", ["README.md", "../patterns/x.md", "docs/", "#anchor-only", "LICENSE"]
+)
+def test_destinations_stay_checkable_by_shape(target: str) -> None:
+    """The context-free predicate never rejects on shape alone (anchor-only links are
+    skipped later, on their own rule, not here)."""
     assert ddl._is_checkable_link_target(target)
 
 
