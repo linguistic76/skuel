@@ -731,10 +731,39 @@ def test_bare_word_destination_in_prose_stays_reported(docs_root: Path) -> None:
 
 
 def test_bare_word_after_a_closed_code_span_is_prose(docs_root: Path) -> None:
-    """The span test counts backticks BEFORE the match: `x` then [a](LICENSE) is prose."""
+    """`x` then [a](LICENSE): the span closed before the match, so it is prose."""
     assert _report(docs_root, "# P\n\nRun `x`, then read [a](LICENSE).\n") == {
         (3, "LICENSE", "link")
     }
+
+
+def test_double_backtick_span_is_code(docs_root: Path) -> None:
+    """A ``…`` span (CommonMark: a backtick string of length 2 closes at the next run
+    of exactly 2) — a parity count would see an even prefix and report it."""
+    body = "# P\n\nwrite ``the `[text](url)` form`` in prose\n"
+    assert _report(docs_root, body) == set()
+
+
+def test_escaped_backtick_does_not_open_a_span(docs_root: Path) -> None:
+    """A \\` in prose is a literal backtick, not a delimiter — parity would flip and
+    hide the real link that follows."""
+    body = "# P\n\nType a literal \\` then read [the license](LICENSE).\n"
+    assert _report(docs_root, body) == {(3, "LICENSE", "link")}
+
+
+@pytest.mark.parametrize(
+    ("line", "spans"),
+    [
+        ("plain", []),
+        ("a `b` c", [(2, 5)]),
+        ("``a `b` c`` d", [(0, 11)]),
+        ("x \\`y` z", []),  # escaped opener, then an unmatched run → literal
+        ("`unclosed", []),
+        ("`a` and `b`", [(0, 3), (8, 11)]),
+    ],
+)
+def test_inline_code_span_ranges(line: str, spans: list[tuple[int, int]]) -> None:
+    assert ddl._inline_code_span_ranges(line) == spans
 
 
 @pytest.mark.parametrize(

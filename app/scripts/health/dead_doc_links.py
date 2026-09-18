@@ -704,9 +704,10 @@ def _is_bare_word_in_code(target: str, line: str, match_start: int, in_fence: bo
     ``T: DomainModelProtocol`` and destination ``Protocol``; the raw-space test cannot
     see it because the base class carries no space, and the same shape appears
     unbounded (``[V = str | int | float](Protocol)``). A literal ``[text](url)`` inside a
-    backtick span is the same thing in prose. Both are skipped ONLY in that context:
-    the destination has no ``/``, ``.`` or ``#`` AND the match sits inside a fenced
-    block or an inline code span. A separator-less destination in ordinary prose —
+    code span is the same thing in prose. Both are skipped ONLY in that context: the
+    destination has no ``/``, ``.`` or ``#`` AND the match sits inside a fenced block
+    or an inline code span (``_inline_code_span_ranges``, the CommonMark backtick-string
+    rule — not a backtick count). A separator-less destination in ordinary prose —
     ``[license](LICENSE)``, ``[docs](docs)`` — stays checkable, because CommonMark
     allows it and a moved ``LICENSE`` must still report. Measured 4 in the corpus
     (three ``Protocol`` headers and one ``url`` illustration), all in code.
@@ -715,8 +716,51 @@ def _is_bare_word_in_code(target: str, line: str, match_start: int, in_fence: bo
         return False
     if in_fence:
         return True
-    # Inside an inline code span: an odd number of backticks precedes the match.
-    return line[:match_start].count("`") % 2 == 1
+    return any(start <= match_start < end for start, end in _inline_code_span_ranges(line))
+
+
+def _inline_code_span_ranges(line: str) -> list[tuple[int, int]]:
+    """The ``[start, end)`` spans of inline code on one line, per CommonMark § 6.1.
+
+    A backtick string is a run of one or more backticks; a code span opens with one and
+    closes at the next backtick string of exactly the same length (a longer or shorter
+    run inside the span is content). A backtick escaped by a backslash is a literal
+    character, not a delimiter. Counting backticks cannot express either rule — a
+    double-backtick span has an even count before its content, and an escaped backtick
+    in prose flips parity — so the scanner is the spec's, not a heuristic.
+    """
+    spans: list[tuple[int, int]] = []
+    i, n = 0, len(line)
+    while i < n:
+        if line[i] == "\\":
+            i += 2  # the escaped character, whatever it is, is literal
+            continue
+        if line[i] != "`":
+            i += 1
+            continue
+        run_start = i
+        while i < n and line[i] == "`":
+            i += 1
+        run_len = i - run_start
+        # Find the closing string of exactly run_len backticks.
+        j = i
+        while j < n:
+            if line[j] == "\\":
+                j += 2
+                continue
+            if line[j] == "`":
+                close_start = j
+                while j < n and line[j] == "`":
+                    j += 1
+                if j - close_start == run_len:
+                    spans.append((run_start, j))
+                    i = j
+                    break
+                continue
+            j += 1
+        else:
+            pass  # unmatched opening run: literal backticks, keep scanning after it
+    return spans
 
 
 def extract_markdown_links(content: str) -> list[tuple[int, str, str]]:

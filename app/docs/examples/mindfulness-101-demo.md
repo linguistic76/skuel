@@ -1,10 +1,26 @@
 ---
-updated: 2026-09-17
+updated: 2026-09-18
 ---
 
 # SKUEL Quick Start - Mindfulness 101 Demo
 
 ## True Fresh Start (Recommended)
+
+### Step 0: Confirm the content vault holds the bundle
+
+The Mindfulness 101 curriculum is authored in the **content vault** — an Obsidian vault outside
+this repository, at `INGESTION_PATH` (default `/home/mike/0bsidian/0vault/`): `Lp/lp_mindfulness-101.md`,
+`Ps/Ps_dev/mindfulness-101*.md`, `Exer/mindfulness-starter_exer.md`. A clean clone has no such
+vault, and Step 1 is destructive, so check the files are there first:
+
+```bash
+ls "${INGESTION_PATH:-/home/mike/0bsidian/0vault}"/Lp/lp_mindfulness-101.md \
+   "${INGESTION_PATH:-/home/mike/0bsidian/0vault}"/Ps/Ps_dev/mindfulness-101*.md
+```
+
+If `ls` reports no such file, stop: point `INGESTION_PATH` at a vault that holds the bundle
+before resetting anything. (`./dev vault-sync --vault content --preview` is the dry run of the
+sync itself, but it lists only new and changed files — an already-synced bundle is not in it.)
 
 ### Step 1: Complete Database Reset
 

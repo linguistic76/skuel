@@ -374,17 +374,24 @@ uv run ruff format .
 
 ### Mindfulness 101 Demo
 
-Try SKUEL with a complete curriculum bundle:
+Try SKUEL with a complete curriculum bundle. **Prerequisite:** the bundle is authored in the
+content vault, an Obsidian vault *outside this repository* — `INGESTION_PATH` (default
+`/home/mike/0bsidian/0vault/`) must point at a vault holding `Lp/lp_mindfulness-101.md` and its
+`Ps/Ps_dev/mindfulness-101*` path steps. A clean clone has no such vault; confirm before
+touching the database:
 
 ```bash
-# 1. Complete database reset
+# 1. Confirm the vault holds the bundle (INGESTION_PATH, or the default vault) — stop here if it does not
+ls "${INGESTION_PATH:-/home/mike/0bsidian/0vault}"/Lp/lp_mindfulness-101.md
+
+# 2. Complete database reset
 uv run python scripts/clear_neo4j.py reset
 # Type: DELETE EVERYTHING
 
-# 2. Ingest the content vault (the Mindfulness 101 bundle lives there)
+# 3. Ingest the content vault
 ./dev vault-sync --vault content
 
-# 3. Explore in Neo4j Browser
+# 4. Explore in Neo4j Browser
 # Open: http://localhost:7474
 ```
 
