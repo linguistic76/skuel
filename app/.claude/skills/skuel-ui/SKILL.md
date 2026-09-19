@@ -413,7 +413,7 @@ When building a new SKUEL page or feature, verify:
 - [ ] `SidebarPage()` used (not raw drawer HTML)
 - [ ] `storage_key` is unique per page
 - [ ] Desktop collapse works; state persists on reload
-- [ ] Mobile shows horizontal tabs (not drawer)
+- [ ] Below lg the section nav renders (a `<nav>` list with `aria-current`, not a drawer, not `role="tab"`) and the page never scrolls sideways
 
 **Forms:**
 - [ ] All inputs use `LabelInput`, `LabelTextArea`, `LabelSelect`, or `LabelCheckbox`

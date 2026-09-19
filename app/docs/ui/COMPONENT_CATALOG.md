@@ -1178,9 +1178,9 @@ Unified sidebar component for all sidebar pages (Activity Domains, Explore, Grad
 
 **Functions:**
 - `SidebarPage(content, items, active, title, storage_key, request, ...)` - Full page with sidebar
-- `SidebarNav(items, active, title, ...)` - Sidebar + mobile tabs (no BasePage wrapper)
+- `SidebarNav(items, active, title, ...)` - Desktop sidebar + the below-lg section nav (no BasePage wrapper)
 - `alpine_section_renderer(state_var)` - Factory for Alpine-driven sidebar items (instant switching, no page navigation)
-- `alpine_mobile_section_renderer(state_var)` - Same for mobile horizontal tabs
+- `alpine_mobile_section_renderer(state_var)` - Same for the section-nav row (returns the `<li>`)
 
 **Dataclass:**
 - `SidebarItem(label, href, slug, icon, description, badge_text, ...)`
@@ -1189,7 +1189,7 @@ Unified sidebar component for all sidebar pages (Activity Domains, Explore, Grad
 - `title_prefix` - Element before sidebar title (e.g. back arrow)
 - `title_icon` - Lucide icon name replacing the text title (e.g. `"graduation-cap"` for Teaching sidebar)
 - `alpine_state` - Shared Alpine x-data on wrapper for sidebar + content communication
-- `mobile_item_renderer` - Custom renderer for mobile tabs
+- `mobile_item_renderer` - Custom renderer for section-nav items (must return an `<li>`; the default row's centring script is skipped)
 - `item_renderer` - Custom renderer for desktop sidebar items
 
 **See:** `@skuel-ui` Pattern 5 for Alpine section renderer guide

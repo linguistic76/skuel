@@ -1085,7 +1085,7 @@ Div(..., cls="hidden lg:block")
 
 ### Sidebar for Navigation
 
-Use `SidebarPage` from `ui/patterns/sidebar.py` for all sidebar pages. Desktop: collapsible fixed sidebar. Mobile: horizontal tabs.
+Use `SidebarPage` from `ui/patterns/sidebar.py` for all sidebar pages. Desktop: collapsible fixed sidebar. Below lg: the section nav — a scrolling `<nav>` list of the same links.
 
 ---
 

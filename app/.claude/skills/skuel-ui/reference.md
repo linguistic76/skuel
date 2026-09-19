@@ -406,7 +406,7 @@ return SidebarPage(
     # Optional:
     subtitle="",                        # Sidebar subtitle
     extra_sidebar_sections=[],          # Additional content below nav items
-    extra_mobile_sections=[],           # Below mobile tabs
+    extra_mobile_sections=[],           # Below the section nav
     item_renderer=None,                 # Custom render function
     title_href="",                      # Link on sidebar title
     title_icon="",                      # Lucide icon name replacing text title (e.g. "graduation-cap")
