@@ -1,6 +1,6 @@
 ---
 title: Admin Dashboard Architecture
-updated: 2026-09-17
+updated: 2026-09-19
 status: current
 category: architecture
 tags:
@@ -316,15 +316,13 @@ REGISTERED (0) < MEMBER (1) < TEACHER (2) < ADMIN (3)
 | 403 | Authenticated but not ADMIN |
 | 404 | User not found |
 
-### Admin Home Hub
+### Reaching the dashboard
 
-Admin users land on `/` after login, which renders a hub page with two cards:
-- **Admin** → `/admin` (dashboard, user management, analytics, system health)
-- **Teaching** → `/teaching` (hub page: Students, Groups, Review Queue, Forms)
+Every role lands on `/today` after login (`/` is a 303 to it; ADR-058, amended 2026-09-19) and sees the one chrome. The dashboard's doors are the role-gated `MAIN_NAV_ITEMS` in `ui/layouts/nav_config.py`:
+- **Admin** → `/admin` (dashboard, user management, analytics, system health) — admins only
+- **Teaching** → `/teaching/students` (Students, Groups, Review Queue, Forms) — teachers and admins
 
-The navbar for admin users shows a **SKUEL** logo in the left section linking to `/`. The center section is empty (no text nav links). The right section has the admin avatar (linking to `/`) and a Sign out link (icon+text). On mobile, the hamburger menu shows Admin, Teaching, and Sign out links.
-
-Regular users redirect to `/home` after login — a post-login landing hub with Focus+Velocity header, Submissions previews, GradeBook previews, and 4 navigational cards (Tasks+, Explore, Library, Settings).
+Both render as centre links in the navbar at lg+ and as `lg:hidden` rows on `/settings` below that width (the avatar is the door to `/settings` at every width). There is no admin-specific navbar, hamburger or home hub.
 
 **How `is_admin` is determined:**
 

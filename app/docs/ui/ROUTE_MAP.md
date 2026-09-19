@@ -12,7 +12,7 @@ For layout primitives (`BasePage`, `SidebarPage`, `AuthPage`) and shared compone
 
 ## Admin Navigation
 
-Admin navbar: SKUEL logo (left, → `/`) + empty center + avatar (→ `/`) + Sign out (icon+text). Admin home hub at `/` shows two cards: Admin (`/admin`) + Teaching (`/teaching/students`). Mobile: hamburger with Admin + Teaching + Sign out links. Icon links are hidden for admins.
+There is no admin navbar: an admin sees the one chrome every role sees (`ui/layouts/navbar.py`). Admin (`/admin`) and Teaching (`/teaching/students`) are role-gated `MAIN_NAV_ITEMS` doors — centre links at lg+, `lg:hidden` rows on `/settings` below. `/` is a 303 to `/today` for every authenticated role; the admin home hub is retired.
 
 ### `/admin/prereq-suggestions` — Prerequisite-Edge Suggestion Queue
 

@@ -1013,7 +1013,7 @@ class TestCYP012:
         violations = linter._check_delete_without_detach(query, Path("test.py"), 1)
         assert [v.rule_code for v in violations] == ["CYP002"]
 
-    def test_persistence_tree_is_clean_and_the_check_is_not_vacuous(self) -> None:
+    def test_persistence_tree_is_clean_and_the_check_is_not_vacuous(self, tmp_path: Path) -> None:
         """Real files report zero — and an INJECTED violation proves that means something.
 
         A bare "the tree is clean" assertion would pass just as happily if the
@@ -1021,6 +1021,8 @@ class TestCYP012:
         rule was born from: CYP002 was silent on four real sites for the whole
         time it shipped. So the same real file that reports clean is re-linted
         with one `DELETE` turned back into `DETACH DELETE`, and that MUST fire.
+        The corrupted copy lives under ``tmp_path``: a probe written into the
+        real tree is a file another worker's tree walk can find and then lose.
         """
         linter = make_linter()
         repo = Path(__file__).resolve().parents[3]
@@ -1034,12 +1036,9 @@ class TestCYP012:
         )
         assert "DETACH DELETE r" in corrupted, "injection missed — the anchor text moved"
 
-        injected = repo / "adapters/persistence/neo4j/_cyp012_probe_tmp.py"
-        try:
-            injected.write_text(corrupted, encoding="utf-8")
-            hits = [v for v in make_linter().lint_file(injected) if v.rule_code == "CYP012"]
-        finally:
-            injected.unlink(missing_ok=True)
+        injected = tmp_path / "_cyp012_probe.py"
+        injected.write_text(corrupted, encoding="utf-8")
+        hits = [v for v in make_linter().lint_file(injected) if v.rule_code == "CYP012"]
 
         assert len(hits) == 1, "CYP012 no longer catches the shape it was written for"
 

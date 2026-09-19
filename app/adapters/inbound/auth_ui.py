@@ -33,7 +33,6 @@ from starlette.responses import HTMLResponse, RedirectResponse
 from adapters.inbound.auth import (
     clear_current_user,
     get_current_user,
-    get_is_admin,
     is_authenticated,
     set_current_user,
 )
@@ -150,9 +149,9 @@ def create_auth_ui_routes(
         request: Request,
     ) -> Any:
         """Show registration page"""
-        # If already logged in, redirect to appropriate hub
+        # If already logged in, redirect to the landing
         if is_authenticated(request):
-            return RedirectResponse("/" if get_is_admin(request) else "/today", status_code=303)
+            return RedirectResponse("/today", status_code=303)
 
         return _registration_page()
 
@@ -256,7 +255,7 @@ def create_auth_ui_routes(
                 f"User registered and logged in: {reg.username} "
                 f"(admin={is_admin}, teacher={user.can_create_curriculum()})"
             )
-            return RedirectResponse("/" if is_admin else "/today", status_code=303)
+            return RedirectResponse("/today", status_code=303)
 
         except Exception as e:  # safety-net: HTTP error boundary
             logger.error(f"Registration error: {e}")
@@ -271,9 +270,9 @@ def create_auth_ui_routes(
         request: Request,
     ) -> Any:
         """Show login page"""
-        # If already logged in, redirect to appropriate hub
+        # If already logged in, redirect to the landing
         if is_authenticated(request):
-            return RedirectResponse("/" if get_is_admin(request) else "/today", status_code=303)
+            return RedirectResponse("/today", status_code=303)
 
         # no-store: the hidden csrf_token must always reflect the current
         # cookie. A cached copy of this page with a stale token would cause
@@ -368,7 +367,7 @@ def create_auth_ui_routes(
                 f"User logged in: {email} ({session_data['user_uid']}) "
                 f"(admin={is_admin}, teacher={user.can_create_curriculum()})"
             )
-            return RedirectResponse("/" if is_admin else "/today", status_code=303)
+            return RedirectResponse("/today", status_code=303)
 
         except Exception as e:  # safety-net: HTTP error boundary
             logger.error(f"Login error: {e}", exc_info=True)
@@ -414,9 +413,9 @@ def create_auth_ui_routes(
     @rt("/reset-password")
     def reset_password_page(request: Request, token: str = "") -> Any:
         """Show reset password form where users enter token and new password"""
-        # If already logged in, redirect to appropriate hub
+        # If already logged in, redirect to the landing
         if is_authenticated(request):
-            return RedirectResponse("/" if get_is_admin(request) else "/today", status_code=303)
+            return RedirectResponse("/today", status_code=303)
 
         return AuthComponents.render_reset_password_page(token=token)
 

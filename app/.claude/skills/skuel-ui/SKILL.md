@@ -103,7 +103,7 @@ Auth pages use the same SKUEL component wrappers (`LabelInput`, `Button`, `Card`
 | Type | Use Case | Sidebar | Container |
 |------|----------|---------|-----------|
 | **STANDARD** (default) | 90% of pages — forms, lists, detail pages | None | `max-w-6xl` centered |
-| **HUB** | Admin dashboard with fixed sidebar | Fixed left (256px) | Flexible. Admin home hub at `/` uses STANDARD with `HubSection` cards. |
+| **HUB** | Admin dashboard with fixed sidebar | Fixed left (256px) | Flexible |
 | **CUSTOM** | Collapsible sidebar with persistence | Custom via `SidebarPage()` | Flexible |
 
 **Notable STANDARD pages:**
@@ -448,8 +448,8 @@ When building a new SKUEL page or feature, verify:
 |------|---------|
 | `/ui/layouts/base_page.py` | `BasePage` + `build_head()` — foundation for all pages |
 | `/ui/layouts/page_types.py` | `PageType` enum and config |
-| `/ui/layouts/navbar.py` | Navbar — admin: SKUEL logo + avatar + Sign out; regular: center links from `ICON_NAV_ITEMS` (Library, PathSteps, Submissions; Today on mobile bottom nav) + right icon cluster (Calendar, Askesis, Shared-inbox, bell, Profile avatar, Sign out) |
-| `/ui/layouts/nav_config.py` | `ICON_NAV_ITEMS`, `ACTIVITY_DROPDOWN_ITEMS`, `MAIN_NAV_ITEMS` |
+| `/ui/layouts/navbar.py` | ONE navbar for every role — centre links (sm+) from `ICON_NAV_ITEMS` (Tasks+, Library, PathSteps, Submissions) + `MAIN_NAV_ITEMS` (Teaching, Admin — role-gated, lg+) + right icon cluster (Askesis, Shared-inbox, bell, avatar → `/settings`, Sign out); the same `ICON_NAV_ITEMS` as the phone bottom nav (<sm); `signout_row()` + `role_nav_rows()` are the phone's `/settings` rows |
+| `/ui/layouts/nav_config.py` | `ICON_NAV_ITEMS` (section doors, `page_keys` set), `MAIN_NAV_ITEMS` (role doors) |
 | `/ui/patterns/sidebar.py` | `SidebarItem`, `SidebarNav`, `SidebarPage` |
 | `/ui/curriculum/` | Curriculum sidebar, layout, landing page |
 | `/ui/patterns/__init__.py` | `PageHeader`, `SectionHeader`, `EmptyState`, `CardGenerator`, `StatCard`, `IconStat`, `StatTile`, `StatsGrid`, `FormGenerator`, `SettingToggle` |

@@ -40,7 +40,6 @@ from fasthtml.common import (
     Title,
 )
 
-from core.utils.auth_context import current_auth_state
 from ui.layouts.navbar import (
     create_bottom_nav,
     create_bottom_nav_for_request,
@@ -135,16 +134,11 @@ def _build_bottom_nav(
     request: Request | None,
     active_page: str,
     is_authenticated: bool,
-    is_admin: bool,
 ) -> FT:
-    """Build mobile bottom nav, preferring request-based for auto-detection."""
+    """Build the phone bottom nav, preferring request-based for auto-detection."""
     if request is not None:
         return create_bottom_nav_for_request(request, active_page=active_page)
-    return create_bottom_nav(
-        is_authenticated=is_authenticated,
-        active_page=active_page,
-        is_admin=is_admin,
-    )
+    return create_bottom_nav(is_authenticated=is_authenticated, active_page=active_page)
 
 
 def BasePage(
@@ -185,56 +179,44 @@ def BasePage(
     """
     config = PAGE_CONFIG[page_type]
 
-    # Determine effective admin/auth state for layout decisions. With a
-    # request, read the middleware-set auth context (AuthContextMiddleware
-    # mirrors the session per request); without one, use the explicit
-    # fallback parameters.
-    effective_is_admin = is_admin
-    effective_is_authenticated = is_authenticated
-    if request is not None:
-        auth = current_auth_state()
-        effective_is_admin = auth.is_admin
-        effective_is_authenticated = auth.is_authenticated
-
+    # With a request, both chrome builders read the middleware-set auth
+    # context themselves; the explicit flags are the no-request fallback.
     navbar = _build_navbar(
         request=request,
         active_page=active_page,
         user_display_name=user_display_name,
-        is_authenticated=effective_is_authenticated,
-        is_admin=effective_is_admin,
+        is_authenticated=is_authenticated,
+        is_admin=is_admin,
     )
 
     bottom_nav = _build_bottom_nav(
         request=request,
         active_page=active_page,
-        is_authenticated=effective_is_authenticated,
-        is_admin=effective_is_admin,
+        is_authenticated=is_authenticated,
     )
 
     # The fixed bottom nav covers the bottom of the viewport: its 4rem plus the
     # device's home-indicator inset (the nav grows by the same env() value).
-    # Pad main content by that height so nothing ends under the bar. Only
-    # authenticated non-admin users get the bar; sm:pb-0 removes the padding
-    # at the width the bar disappears.
-    bottom_pad = (
-        ""
-        if effective_is_admin or not effective_is_authenticated
-        else "pb-[calc(4rem+env(safe-area-inset-bottom))] sm:pb-0"
-    )
+    # Pad main content by that height so nothing ends under the bar. Every
+    # viewer gets the bar below sm; sm:pb-0 removes the padding at the width
+    # the bar disappears.
+    bottom_pad = "pb-[calc(4rem+env(safe-area-inset-bottom))] sm:pb-0"
 
     # Build main content area based on page type
     if page_type == PageType.CUSTOM:
         # Custom layout: page manages its own container and padding
         main_area = Main(content, id="main-content", cls=bottom_pad)
     else:
-        # Standard layout: centered content
+        # Standard layout: centered content. No viewport min-height: the
+        # sticky navbar already occupies 3.5rem of it, so a full-viewport
+        # main scrolls by that much on every short page.
         main_area = Main(
             Div(
                 content,
                 cls=f"{config['container']} {config['content_padding']}",
             ),
             id="main-content",
-            cls=f"min-h-screen {bottom_pad}",
+            cls=bottom_pad,
         )
 
     return Html(

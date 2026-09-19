@@ -38,7 +38,7 @@ Is it one-off UI for a single route?
 
 **Canonical example:** `ui/teaching/forms.py` — holds `render_feedback_submission_form()`, `render_revision_request_form()`, `render_waiting_actions()`, `render_submission_metadata()`. `teaching_ui.py` calls them; it imports none of the form primitives itself.
 
-**Adopted domains (Phase 1):** `ui/lifepath/` (vision form, alignment dashboard), `ui/askesis/` (welcome, chat, settings — dissolved `AskesisUI` class), `ui/activity_review/` (snapshot + feedback forms), `ui/analytics/` (dashboard, 7 domain metrics renderers — dissolved `AnalyticsUIComponents` class), `ui/ingestion/` (ingestion dashboard cards + JS), `ui/system/` (landing page, admin hub, 404 page), `ui/exercises/` (editor, cards, detail), `ui/explore/` (cards, filters).
+**Adopted domains (Phase 1):** `ui/lifepath/` (vision form, alignment dashboard), `ui/askesis/` (welcome, chat, settings — dissolved `AskesisUI` class), `ui/activity_review/` (snapshot + feedback forms), `ui/analytics/` (dashboard, 7 domain metrics renderers — dissolved `AnalyticsUIComponents` class), `ui/ingestion/` (ingestion dashboard cards + JS), `ui/system/` (landing page, 404 page), `ui/exercises/` (editor, cards, detail), `ui/explore/` (cards, filters).
 
 ### Component API Design
 
@@ -299,38 +299,33 @@ See: `/docs/patterns/ROUTE_FACTORIES.md`
 
 ### Nav Configuration (`ui/layouts/nav_config.py`)
 
-Two frozen dataclasses drive the navbar:
+Two frozen dataclasses drive the global chrome — ONE navbar and ONE bottom nav for every role; there is no admin fork:
 
-- `NavItem` (label, href, page_key, requires_auth, requires_admin, requires_teacher, hide_for_admin) — `MAIN_NAV_ITEMS` holds only the teacher-gated **Teaching** link (`/teaching/students`).
-- `IconNavItem` (label, letter, href, page_key, requires_auth, has_dropdown, icon, hide_for_teacher, hide_for_admin) — `ICON_NAV_ITEMS` is the primary nav spec, rendered as **desktop center text links** and **mobile bottom-nav icon tabs** (same list, filtered by `_visible_icon_items()` in `navbar.py`).
+- `IconNavItem` (label, href, page_keys, icon, requires_auth) — `ICON_NAV_ITEMS` is the section-door spec, rendered as **desktop centre text links** (sm+) AND **phone bottom-nav icon tabs** (<sm) from the same list (`_visible_icon_items()` in `navbar.py`; the only gate is `requires_auth`, so every authenticated role sees the same four). `page_keys` is a SET of section keys the door lights for.
+- `NavItem` (label, href, page_key, requires_admin, requires_teacher) — `MAIN_NAV_ITEMS` holds the role-gated doors (Teaching, Admin), rendered as **centre links at lg+** (`hidden lg:block` — at 640 the four section doors plus the icon cluster fill the bar, so Teaching + Admin do not fit in any font) AND **`lg:hidden` rows on `/settings`** (`role_nav_rows()`), filtered by the one predicate `NavItem.visible_to()`.
+
+**The rule:** the global chrome carries exactly ONE door per SECTION, lit for the whole section by a section key (`active_page`); the section's own pages are the sidebar's rows, lit by slug. A door's href is the section's landing, which is also the section nav's first row — that landing is the ONE sanctioned overlap between the chrome and any `*_SIDEBAR_ITEMS` list (pinned by `tests/unit/ui/test_navbar.py`).
 
 Current `ICON_NAV_ITEMS` (in order):
 
-| Label | Icon | Route | `page_key` | Notes |
-|-------|------|-------|------------|-------|
-| Today | `sun` | `/today` | `"today"` | Mobile bottom nav only — no desktop nav item (brand link goes to `/explore`) |
-| Library | `globe` | `/explore/library` | `"library"` | Public (`requires_auth=False`) |
-| PathSteps | `map` | `/path-steps` | `"path-steps"` | Public (`requires_auth=False`) |
-| Submissions | `upload` | `/submissions` | `"submissions"` | The submissions MOC; every sub-page passes the same `active_page`, so the link stays lit across the section |
+| Label | Icon | Route | `page_keys` | Notes |
+|-------|------|-------|-------------|-------|
+| Tasks+ | `activity` | `/today` | `{"activity"}` | Every page under the activity sidebar (`render_activity_sidebar_page`) passes `"activity"` — Today, the calendar views, the six domains, the periodic notes, the GradeBook |
+| Library | `globe` | `/explore/library` | `{"explore", "library"}` | Public (`requires_auth=False`); two keys because its landing lights `explore` while `/library/*` lights `library` (D5 in the Tasks+ brief) |
+| PathSteps | `map` | `/path-steps` | `{"path-steps"}` | Public (`requires_auth=False`) |
+| Submissions | `upload` | `/submissions` | `{"submissions"}` | The submissions MOC; every sub-page passes the same `active_page`, so the link stays lit across the section |
 
-### Regular User Navbar
+### The Navbar (every role)
 
 - **Left:** SKUEL brand text link → `/explore` (authed) or `/` (anon)
-- **Center (desktop only):** text links from `ICON_NAV_ITEMS` (minus Today) + `MAIN_NAV_ITEMS` (Teaching, when teacher)
-- **Right (icon buttons):** Calendar (`/cal`, `page_key="calendar"`) — desktop only, mobile folds it into the bottom nav (the phone's top bar holds only what fits at 320px beside the brand as 44px tap targets) → Askesis flame (`/askesis`) → Shared-inbox (`/profile/shared`) → notification bell (HTMX lazy-loaded badge from `/api/navbar/notification-badge`) → Profile avatar (`/profile`) → Sign out (`/logout`, desktop only — the phone reaches it from the `sm:hidden` row on `/profile`, so exactly one door exists at every width)
-- **Mobile:** slim top bar (brand + right icon cluster, four icons) + fixed bottom nav via `create_bottom_nav()` — `ICON_NAV_ITEMS` tabs plus a Calendar tab, `sm:hidden`, respects `safe-area-inset-bottom`
+- **Centre (sm+):** text links from `ICON_NAV_ITEMS`; at lg+ `MAIN_NAV_ITEMS` joins them (Teaching for teachers and admins, Admin for admins); the lit link carries `aria-current="page"`
+- **Right (icon buttons):** Askesis flame (`/askesis`) → Shared-inbox (`/profile/shared`) → notification bell (HTMX lazy-loaded badge from `/api/navbar/notification-badge`) → avatar (`/settings`, `page_key="settings"`) → Sign out (`/logout`, desktop only — the phone reaches it from `signout_row()` on `/settings`, so exactly one door exists at every width)
+- **Phone (<sm):** the slim top bar (brand + the four right icons) + the fixed bottom nav via `create_bottom_nav()` — the `ICON_NAV_ITEMS` tabs (four for every authenticated role; the two `requires_auth=False` doors for an anonymous visitor), `sm:hidden`, `min-h-16` + `safe-area-inset-bottom`. Sign out (`sm:hidden`) and Admin/Teaching (`lg:hidden`) are rows on `/settings` (`ui/settings/page.py`), rendered first and outside any HTMX fragment or `x-cloak` — each row is hidden exactly where its top-bar counterpart appears.
+- **Landing:** `/` → 303 `/today` for every authenticated role (ADR-058, amended); the login/register/reset redirects go there too. There is no admin hub.
 
-Every navbar item is a direct link — the regular navbar carries no dropdown. The periodic notes are reached from the Tasks+ sidebar's Journal row (today's note) and, inside a periodic note, the **period rail** (`ui/journals/chat_page.py`): one row per period kind, each opening that period's note and stepping to its neighbours; every door derives its URLs, labels and icons from `ui/journals/period_links.py`. `ACTIVITY_DROPDOWN_ITEMS` in `nav_config.py` lists the 6 activity domains for other surfaces; activity domains are reached via the Profile hub, not the navbar.
+Every navbar item is a direct link — the navbar carries no dropdown and no hamburger. The periodic notes are reached from the Tasks+ sidebar's Journal row (today's note) and, inside a periodic note, the **period rail** (`ui/journals/chat_page.py`): one row per period kind, each opening that period's note and stepping to its neighbours; every door derives its URLs, labels and icons from `ui/journals/period_links.py`.
 
-### Admin Navbar
-
-Admin users see a different navbar:
-- **Left:** SKUEL logo text link → `/` (admin home hub)
-- **Center:** Empty (no text nav links)
-- **Right:** Admin avatar (→ `/`) + Sign out (icon+text)
-- **Mobile:** Hamburger menu (inline Alpine `x-data="{ mobileMenuOpen: false }"`) with Admin (`/admin`) + Teaching (`/teaching/students`) + Sign out links; no bottom nav for admins
-
-The admin home hub at `/` shows two `HubCard`s (Admin + Teaching). Regular users redirect to `/home`. Nav links are hidden for admins. `/submissions`, `/gradebook`, and `/library` are sidebar-free MOC root pages (2×2 icon-badge card grids), not tabbed hubs — `HomeHub` is retired. `/reports` redirects 301 → `/library`.
+`/submissions`, `/gradebook`, and `/library` are sidebar-free MOC root pages (2×2 icon-badge card grids), not tabbed hubs — `HomeHub` is retired. `/reports` redirects 301 → `/library`.
 
 **Navbar accessibility requirements:**
 

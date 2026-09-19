@@ -2,12 +2,16 @@
 Navbar Component - SKUEL Patterns
 ==============================================
 
-Navigation bar using Tailwind utilities.
+The global chrome — one top bar and one bottom nav for every role.
 
 Layout:
-- Mobile: slim top bar (brand + askesis + inbox + bell + avatar) + fixed bottom
-  nav derived from ``ICON_NAV_ITEMS`` with Calendar appended
-- Desktop: the same bar plus text nav links, calendar and sign-out
+- Phone (<sm): slim top bar (brand + askesis + inbox + bell + avatar) + a
+  fixed bottom nav of the ``ICON_NAV_ITEMS`` section doors; sign-out is a
+  row on /settings
+- sm+: the same bar plus the ``ICON_NAV_ITEMS`` centre links and the
+  sign-out icon; no bottom nav
+- lg+: the role-gated doors (``MAIN_NAV_ITEMS``) join the centre links;
+  below lg they are rows on /settings
 
 Every item is a direct link — the navbar carries no dropdown. The periodic notes
 are reached from the Tasks+ sidebar's Journal row (today's note) and, inside a
@@ -26,61 +30,50 @@ from fasthtml.common import A, Div, Nav, Span
 
 from core.utils.auth_context import current_auth_state
 from ui.components import Icon
-from ui.layouts.nav_config import (
-    ICON_NAV_ITEMS,
-    MAIN_NAV_ITEMS,
-    IconNavItem,
-    NavItem,
-)
+from ui.layouts.nav_config import ICON_NAV_ITEMS, MAIN_NAV_ITEMS, IconNavItem, NavItem
 
 if TYPE_CHECKING:
     from adapters.inbound.fasthtml_types import Request
 
 
-def _visible_icon_items(
-    *,
-    is_authenticated: bool,
-    is_admin: bool,
-    is_teacher: bool,
-    include_today: bool,
-) -> list[IconNavItem]:
-    """Filter ICON_NAV_ITEMS by the viewer's auth/role flags.
-
-    Shared by desktop text links and the mobile bottom nav so both surfaces
-    stay in lockstep with nav_config. Desktop excludes Today (kept out of the
-    center links since the brand link moved to /explore — /today is reached
-    from within the app); mobile keeps it (include_today=True).
-    """
-    visible: list[IconNavItem] = []
-    for item in ICON_NAV_ITEMS:
-        if item.page_key == "today" and not include_today:
-            continue
-        if item.requires_auth and not is_authenticated:
-            continue
-        if item.hide_for_admin and is_admin:
-            continue
-        if item.hide_for_teacher and (is_teacher or is_admin):
-            continue
-        visible.append(item)
-    return visible
+def _visible_icon_items(*, is_authenticated: bool) -> list[IconNavItem]:
+    """The section doors this viewer sees — the same list for the desktop
+    centre links and the phone bottom nav, so both surfaces stay in lockstep
+    with nav_config. The only gate is authentication: every authenticated
+    role sees every door."""
+    return [item for item in ICON_NAV_ITEMS if is_authenticated or not item.requires_auth]
 
 
-def _nav_link(item: NavItem, active_page: str) -> A:
+def _visible_main_items(*, is_admin: bool, is_teacher: bool) -> list[NavItem]:
+    """The role-gated doors this viewer sees — the same list for the desktop
+    centre links and the phone rows on /settings."""
+    return [
+        item for item in MAIN_NAV_ITEMS if item.visible_to(is_admin=is_admin, is_teacher=is_teacher)
+    ]
+
+
+# The role doors join the centre links at lg+ only: at 640 the four section
+# doors plus the icon cluster fill the bar, and Teaching + Admin do not fit
+# in any font. Below lg they are the ``role_nav_rows`` on /settings.
+_ROLE_LINK_BREAKPOINT_CLS = "hidden lg:block"
+_ROLE_ROW_BREAKPOINT_CLS = "lg:hidden"
+
+
+def _nav_link(label: str, href: str, *, is_active: bool, extra_cls: str = "") -> A:
     """Desktop text nav link with active state."""
-    is_active = item.page_key == active_page
     active_cls = "bg-accent text-accent-foreground"
     inactive_cls = "text-muted-foreground hover:bg-accent hover:text-accent-foreground"
-    cls = f"rounded-md px-3 py-2 text-sm font-medium focus:outline-hidden focus:ring-2 focus:ring-primary {active_cls if is_active else inactive_cls}"
-    return A(item.label, href=item.href, cls=cls)
+    cls = f"rounded-md px-2 py-2 text-sm font-medium focus:outline-hidden focus:ring-2 focus:ring-primary {active_cls if is_active else inactive_cls} {extra_cls}".rstrip()
+    return A(label, href=href, cls=cls, **({"aria-current": "page"} if is_active else {}))
 
 
 def _signout_button() -> A:
     """Sign-out icon button — desktop only.
 
     It is the one top-bar icon whose destination is an action rather than a
-    surface, and an account action is what a profile page is for: phones reach
-    it from the ``sm:hidden`` sign-out row on /profile (``ui/profile/hub.py``),
-    so exactly one door exists at every width.
+    surface, and an account action is what the settings page is for: phones
+    reach it from ``signout_row`` on /settings, so exactly one door exists at
+    every width.
     """
     return A(
         Span("Sign out", cls="sr-only"),
@@ -88,6 +81,45 @@ def _signout_button() -> A:
         href="/logout",
         cls="hidden sm:inline-flex items-center justify-center size-11 rounded-full hover:bg-accent text-muted-foreground hover:text-foreground",
     )
+
+
+# A /settings row is a top-bar item's counterpart below the width that item
+# appears at; each row carries its own item's breakpoint.
+_SETTINGS_ROW_CLS = (
+    "flex items-center justify-center gap-2 mb-4 px-3 py-2 rounded-md"
+    " border border-border text-sm text-muted-foreground hover:bg-accent"
+    " hover:text-foreground"
+)
+
+
+def signout_row() -> A:
+    """Sign out — the phone's only door, since the navbar icon is desktop-only.
+
+    ``sm:hidden`` mirrors ``_signout_button``'s ``hidden sm:inline-flex``:
+    exactly one sign-out door at every width, never two. Rendered FIRST on
+    /settings, outside any HTMX fragment or ``x-cloak`` — signing out never
+    waits for a fragment or for Alpine.
+    """
+    return A(
+        Icon("log-out", cls="size-4", aria_hidden="true"),
+        Span("Sign out"),
+        href="/logout",
+        cls=f"sm:hidden {_SETTINGS_ROW_CLS}",
+    )
+
+
+def role_nav_rows(*, is_admin: bool, is_teacher: bool) -> list[A]:
+    """The role-gated section doors as rows for /settings below lg.
+
+    The centre links carry ``MAIN_NAV_ITEMS`` at lg+ and the bottom nav
+    carries none, so below lg these rows are an admin's or teacher's only
+    door to their section — the same spec, filtered by the same predicate,
+    ``lg:hidden`` where the centre links are ``hidden lg:block``.
+    """
+    return [
+        A(item.label, href=item.href, cls=f"{_ROLE_ROW_BREAKPOINT_CLS} {_SETTINGS_ROW_CLS}")
+        for item in _visible_main_items(is_admin=is_admin, is_teacher=is_teacher)
+    ]
 
 
 def _notification_button(unread_count: int = 0) -> A:
@@ -158,23 +190,6 @@ def _shared_inbox_button(active_page: str) -> A:
     )
 
 
-def _calendar_button(active_page: str) -> A:
-    """Calendar icon linking to /cal — the unified calendar view.
-
-    Desktop-only: mobile keeps the 44px tap-target minimum by folding Calendar
-    into the bottom nav instead of a sixth top-bar icon.
-    """
-    is_active = active_page == "calendar"  # skuel-lint: disable=SKUEL014 -- nav page id
-    color_cls = "text-foreground" if is_active else "text-muted-foreground hover:text-foreground"
-    return A(
-        Span("Calendar", cls="sr-only"),
-        Icon("calendar", cls="size-6", aria_hidden="true"),
-        href="/cal",
-        cls=f"hidden sm:inline-flex items-center justify-center size-11 rounded-full hover:bg-accent {color_cls}",
-        **({"aria-current": "page"} if is_active else {}),
-    )
-
-
 def _askesis_button(active_page: str) -> A:
     """Flame icon linking to /askesis — the ZPD-aware practice companion."""
     is_active = active_page == "askesis"
@@ -188,35 +203,17 @@ def _askesis_button(active_page: str) -> A:
     )
 
 
-def _profile_button(current_user: str, active_page: str) -> A:
-    """Avatar circle linking to /profile — regular user's entry point to their hub."""
-    is_active = active_page == "profile"
+def _account_button(current_user: str, active_page: str) -> A:
+    """Avatar circle linking to /settings — the account page (preferences,
+    devices, and on phones the sign-out and role rows)."""
+    is_active = active_page == "settings"
     ring = " ring-2 ring-primary" if is_active else ""
     return A(
-        Span("Profile", cls="sr-only"),
+        Span("Settings", cls="sr-only"),
         _avatar_circle(current_user),
-        href="/profile",
+        href="/settings",
         cls=("inline-flex items-center justify-center size-11 rounded-full hover:bg-accent" + ring),
         **({"aria-current": "page"} if is_active else {}),
-    )
-
-
-def _admin_right_section(current_user: str) -> Div:
-    """Admin right section: avatar link + sign out."""
-    return Div(
-        A(
-            Span("Go to home", cls="sr-only"),
-            _avatar_circle(current_user, fallback="A"),
-            href="/",
-            cls="inline-flex items-center justify-center size-11 rounded-full hover:bg-accent",
-        ),
-        A(
-            Icon("log-out", cls="size-4", aria_hidden="true"),
-            Span("Sign out"),
-            href="/logout",
-            cls="flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground px-2 py-1 rounded-sm hover:bg-accent",
-        ),
-        cls="flex items-center gap-2",
     )
 
 
@@ -245,93 +242,38 @@ def create_navbar(
     is_teacher: bool = False,
 ) -> Nav:
     """
-    Create the slim top navigation bar.
+    Create the slim top navigation bar — the same bar for every role.
 
-    Mobile: brand + askesis + inbox + bell + avatar (calendar lives in the
-    bottom nav, sign-out on /profile).
-    Desktop: the same, plus text nav links, calendar and sign-out.
+    Phone: brand + askesis + inbox + bell + avatar (the section doors live
+    in the bottom nav, sign-out and the role doors on /settings).
+    sm+: the same, plus the section-door centre links and sign-out.
+    lg+: the role doors join the centre links.
 
     Args:
         current_user: Current user's display name or UID
         is_authenticated: Whether user is logged in
-        active_page: Current page slug for highlighting
+        active_page: Current page's section key for highlighting
         is_admin: Whether user has admin role
         is_teacher: Whether user has teacher role or higher
 
     Returns:
         FastHTML Nav element (slim top bar)
     """
-    if is_admin:
-        # Admin: hamburger (mobile) + brand + avatar/signout
-        # Mobile dropdown links to /admin and /teaching/students (no bottom nav for admins)
-        return Nav(
-            Div(
-                # Hamburger button — mobile only
-                Div(
-                    A(
-                        Span("Menu", cls="sr-only"),
-                        Icon("menu", cls="size-5", aria_hidden="true"),
-                        cls="sm:hidden inline-flex items-center justify-center size-11 rounded-full"
-                        " hover:bg-accent text-muted-foreground hover:text-foreground cursor-pointer",
-                        **{"@click": "mobileMenuOpen = !mobileMenuOpen", "aria-label": "Open menu"},
-                    ),
-                    # Mobile dropdown panel — fixed below navbar, sm:hidden
-                    Div(
-                        A("Admin", href="/admin", cls="block px-4 py-3 text-sm hover:bg-accent"),
-                        A(
-                            "Teaching",
-                            href="/teaching/students",
-                            cls="block px-4 py-3 text-sm hover:bg-accent",
-                        ),
-                        A(
-                            "Sign out",
-                            href="/logout",
-                            cls="block px-4 py-3 text-sm text-destructive hover:bg-accent border-t border-border",
-                        ),
-                        cls="sm:hidden fixed top-14 inset-x-0 z-50 bg-background border-b border-border shadow-md",
-                        **{
-                            "x-show": "mobileMenuOpen",
-                            "@click.away": "mobileMenuOpen = false",
-                            "x-cloak": True,
-                        },
-                    ),
-                    **{"x-data": "{ mobileMenuOpen: false }"},
-                ),
-                # Brand — always visible
-                A(
-                    Span("SKUEL", cls="text-lg font-bold text-primary"),
-                    href="/",
-                    cls="inline-flex items-center justify-center px-2 py-1 rounded-sm hover:bg-accent",
-                ),
-                Div(
-                    _admin_right_section(current_user or "") if current_user else Div(),
-                    cls="flex items-center justify-end flex-1",
-                ),
-                cls="flex items-center h-full flex-1 px-4 sm:px-6 lg:px-8",
-            ),
-            cls="h-14 bg-background border-b border-border sticky top-0 z-40",
-        )
-
-    # --- Regular user top bar ---
-
-    # Desktop center: text links derived from ICON_NAV_ITEMS + teacher link.
-    # Today is mobile-bottom-nav-only (the brand link goes to /explore).
+    # Centre links: the section doors (sm+), then the role-gated doors (lg+)
+    # — both from the one spec the bottom nav and the /settings rows render.
     desktop_links = Div(
         *[
-            _nav_link(NavItem(item.label, item.href, item.page_key), active_page)
-            for item in _visible_icon_items(
-                is_authenticated=is_authenticated,
-                is_admin=is_admin,
-                is_teacher=is_teacher,
-                include_today=False,
-            )
+            _nav_link(item.label, item.href, is_active=item.lights(active_page))
+            for item in _visible_icon_items(is_authenticated=is_authenticated)
         ],
         *[
-            _nav_link(item, active_page)
-            for item in MAIN_NAV_ITEMS
-            if not (item.requires_admin and not is_admin)
-            and not (item.requires_teacher and not (is_teacher or is_admin))
-            and not (item.hide_for_admin and is_admin)
+            _nav_link(
+                item.label,
+                item.href,
+                is_active=item.page_key == active_page,
+                extra_cls=_ROLE_LINK_BREAKPOINT_CLS,
+            )
+            for item in _visible_main_items(is_admin=is_admin, is_teacher=is_teacher)
         ],
         cls="hidden sm:flex items-center gap-1",
     )
@@ -339,11 +281,10 @@ def create_navbar(
     # Right section
     if is_authenticated:
         right_section: Any = Div(
-            _calendar_button(active_page),
             _askesis_button(active_page),
             _shared_inbox_button(active_page),
             _notification_badge_placeholder(),
-            _profile_button(current_user or "", active_page),
+            _account_button(current_user or "", active_page),
             _signout_button(),
             cls="flex items-center gap-1",
         )
@@ -369,26 +310,14 @@ def create_navbar(
     )
 
 
-# Desktop keeps Calendar as a right-section icon button; mobile folds it into
-# the bottom nav (six top-bar icons overflow 320px).
-_CALENDAR_TAB = IconNavItem(
-    label="Calendar",
-    letter="",
-    href="/cal",
-    page_key="calendar",
-    requires_auth=True,
-    icon="calendar",
-)
-
-
 def _bottom_nav_tab(item: IconNavItem, active_page: str) -> A:
-    is_active = active_page == item.page_key
+    """One tab: icon over label — the label IS the accessible name."""
+    is_active = item.lights(active_page)
     color_cls = "text-primary" if is_active else "text-muted-foreground"
     extra: dict[str, Any] = {"aria-current": "page"} if is_active else {}
     return A(
-        Icon(item.icon or "circle", cls="size-5", aria_hidden="true"),
+        Icon(item.icon, cls="size-5", aria_hidden="true"),
         Span(item.label, cls="text-xs mt-0.5"),
-        Span(f"Go to {item.label}", cls="sr-only"),
         href=item.href,
         cls=(
             "flex flex-col items-center justify-center gap-0.5 flex-1 py-2"
@@ -398,19 +327,14 @@ def _bottom_nav_tab(item: IconNavItem, active_page: str) -> A:
     )
 
 
-def create_bottom_nav(
-    is_authenticated: bool = False,
-    active_page: str = "",
-    is_admin: bool = False,
-    is_teacher: bool = False,
-) -> Any:
+def create_bottom_nav(is_authenticated: bool = False, active_page: str = "") -> Nav:
     """
-    Create the mobile-only fixed bottom navigation bar.
+    Create the phone-only fixed bottom navigation bar.
 
-    Shown only on mobile (sm:hidden) for authenticated non-admin users.
-    Tabs are derived from ``ICON_NAV_ITEMS`` (same spec as the desktop center
-    menu) with Calendar appended — desktop keeps it as a separate icon in the
-    right section, mobile folds it into the bottom nav.
+    Shown below sm for every viewer: the ``ICON_NAV_ITEMS`` section doors
+    (the same spec as the desktop centre links) — four tabs for every
+    authenticated role, the two ``requires_auth=False`` doors for an
+    anonymous visitor.
     The bar is 4rem tall plus the device's home-indicator inset: it pads
     itself by ``env(safe-area-inset-bottom)`` and its height is a MINIMUM,
     so the inset grows the bar under the tabs instead of squeezing them.
@@ -419,28 +343,16 @@ def create_bottom_nav(
 
     Args:
         is_authenticated: Whether user is logged in
-        active_page: Current page slug for active tab highlighting
-        is_admin: Whether user has admin role
-        is_teacher: Whether user has teacher role or higher
+        active_page: Current page's section key for active tab highlighting
 
     Returns:
-        FastHTML Nav element or empty Div if not applicable
+        FastHTML Nav element
     """
-    if not is_authenticated or is_admin:
-        return Div()
-
-    items = [
-        *_visible_icon_items(
-            is_authenticated=is_authenticated,
-            is_admin=is_admin,
-            is_teacher=is_teacher,
-            include_today=True,
-        ),
-        _CALENDAR_TAB,
-    ]
-
     return Nav(
-        *[_bottom_nav_tab(item, active_page) for item in items],
+        *[
+            _bottom_nav_tab(item, active_page)
+            for item in _visible_icon_items(is_authenticated=is_authenticated)
+        ],
         cls="fixed bottom-0 inset-x-0 z-40 sm:hidden bg-background border-t border-border flex items-stretch min-h-16",
         style="padding-bottom: env(safe-area-inset-bottom)",
         **{"aria-label": "Primary navigation"},
@@ -452,7 +364,7 @@ def create_navbar_for_request(
     active_page: str = "",
 ) -> Nav:
     """
-    Create top navbar with automatic user/admin detection from the
+    Create top navbar with automatic user/role detection from the
     middleware-set auth context (AuthContextMiddleware mirrors the session
     per request; the request is kept so routes need no changes).
 
@@ -461,7 +373,7 @@ def create_navbar_for_request(
 
     Args:
         request: Starlette/FastHTML request object
-        active_page: Current page slug for highlighting
+        active_page: Current page's section key for highlighting
 
     Returns:
         FastHTML Nav element (slim top bar)
@@ -479,25 +391,20 @@ def create_navbar_for_request(
 def create_bottom_nav_for_request(
     request: Request,
     active_page: str = "",
-) -> Any:
+) -> Nav:
     """
-    Create mobile bottom nav with automatic auth/admin detection from the
+    Create the phone bottom nav with automatic auth detection from the
     middleware-set auth context (request kept so routes need no changes).
 
     Args:
         request: Starlette/FastHTML request object
-        active_page: Current page slug for active tab highlighting
+        active_page: Current page's section key for active tab highlighting
 
     Returns:
-        FastHTML Nav element or empty Div
+        FastHTML Nav element
     """
     auth = current_auth_state()
-    return create_bottom_nav(
-        is_authenticated=auth.is_authenticated,
-        active_page=active_page,
-        is_admin=auth.is_admin,
-        is_teacher=auth.is_teacher,
-    )
+    return create_bottom_nav(is_authenticated=auth.is_authenticated, active_page=active_page)
 
 
 __all__ = [
@@ -505,6 +412,8 @@ __all__ = [
     "create_bottom_nav_for_request",
     "create_navbar",
     "create_navbar_for_request",
+    "role_nav_rows",
+    "signout_row",
     "_notification_button",
     "_notification_badge_placeholder",
 ]

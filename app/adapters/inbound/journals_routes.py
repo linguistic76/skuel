@@ -1146,8 +1146,6 @@ def create_journals_routes(
             active="journals",
             request=request,
             title=entry.title or "Periodic Note",
-            # "calendar" lights the navbar calendar icon, as on the calendar views.
-            active_page="calendar",
             # The editor centres itself; the navigator needs the width a
             # collapsed sidebar frees.
             content_max_width="max-w-none",
