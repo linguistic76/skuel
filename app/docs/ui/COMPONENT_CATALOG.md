@@ -1104,11 +1104,10 @@ Generate navbar based on request context.
 - `request: Request` - Starlette request (auto-detects auth/admin)
 
 **Features:**
-- Auto-detects authenticated user
-- Shows admin-only links for admin users
-- Mobile-responsive with hamburger menu
-- WCAG 2.1 Level AA compliant
-- Focus trap on mobile menu (Phase 2, Task 9)
+- Auto-detects the viewer's auth state and role from the middleware-set auth context
+- One navbar for every role; the role-gated doors (Teaching, Admin) render as centre links at lg+
+- Below `sm` the section doors are the bottom nav (`create_bottom_nav_for_request`) — no hamburger, no drawer
+- WCAG 2.1 Level AA: `aria-label` landmarks, `aria-current="page"` on the lit door
 
 **Example:**
 ```python

@@ -427,7 +427,7 @@ When building a new SKUEL page or feature, verify:
 - [ ] Content works at 320px (mobile)
 - [ ] No horizontal scroll
 - [ ] Sidebar hidden on mobile
-- [ ] Navbar collapses to hamburger
+- [ ] Below `sm` the section doors are the bottom nav, not centre links (no hamburger, no drawer)
 
 **Accessibility:**
 - [ ] Keyboard navigation works (Tab, Enter, Escape)
