@@ -1,8 +1,8 @@
 """Hub page components — shared card grid infrastructure for hub pages.
 
-Hub pages are standalone pages that organize navigation through card grids.
-Profile is THE main hub; domain pages (KU, PathSteps, Submissions, Reports)
-are rich functional hubs that may use these components for sections.
+Hub pages organize navigation through card grids and HTMX-loaded domain
+blocks: the ``/library`` and ``/submissions`` MOC roots, the ``/groups`` hub
+and the teaching student hub compose these components for their sections.
 
 See: /docs/patterns/HUB_PAGE_PATTERN.md
 """
@@ -12,9 +12,9 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
-from fasthtml.common import H2, A, Details, Div, P, Span, Summary
+from fasthtml.common import H2, A, Div, P, Span
 
-from core.ports.query_types import OrganizerResult, RootOrganizerResult
+from core.ports.query_types import OrganizerResult
 from ui.components import ButtonT, Icon
 from ui.patterns.skeleton import SkeletonList
 from ui.primitives import ButtonLink
@@ -121,58 +121,7 @@ def HubSection(title: str | None, cards: list[HubCardData], cols: int = 2) -> Di
 
 
 # ---------------------------------------------------------------------------
-# Graph-driven card bridges
-# ---------------------------------------------------------------------------
-
-
-def HubContainer(card: HubCardData) -> A:
-    """Hub container — a substantial navigational block for hub pages.
-
-    Bigger than HubCard: more padding, larger icon, full description paragraph,
-    arrow affordance suggesting you are entering a section.
-    """
-    title_row: list[Span | P] = [
-        Span(card.icon, cls="text-2xl"),
-        Span(card.name, cls="text-lg font-semibold text-foreground"),
-    ]
-
-    if card.badge is not None and card.badge != 0:
-        title_row.append(
-            Span(
-                str(card.badge),
-                cls="ml-auto text-xs font-medium bg-primary/10 text-primary px-2 py-0.5 rounded-full",
-            )
-        )
-
-    return A(
-        Div(*title_row, cls="flex items-center gap-3 mb-3"),
-        P(card.description, cls="text-sm text-muted-foreground leading-relaxed"),
-        Div(
-            Span("→", cls="text-muted-foreground/60 text-lg"),
-            cls="flex justify-end mt-4",
-        ),
-        href=card.href,
-        cls="bg-background rounded-xl p-6 sm:p-8 shadow-xs hover:shadow-md transition-shadow block border border-border/50",
-    )
-
-
-def HubContainerGrid(cards: list[HubCardData], cols: int = 2) -> Div:
-    """Responsive grid of hub containers.
-
-    Args:
-        cards: Card data to render as containers.
-        cols: Grid columns at sm breakpoint (2 or 3).
-    """
-    col_classes = {
-        2: "grid grid-cols-1 sm:grid-cols-2 gap-5 lg:gap-6",
-        3: "grid grid-cols-1 sm:grid-cols-3 gap-5 lg:gap-6",
-    }
-    grid_cls = col_classes.get(cols, col_classes[2])
-    return Div(*[HubContainer(c) for c in cards], cls=grid_cls)
-
-
-# ---------------------------------------------------------------------------
-# HTMX-loaded hub domain blocks (Activity, GradeBook, Library hubs)
+# HTMX-loaded hub domain blocks (groups hub, teaching student hub)
 # ---------------------------------------------------------------------------
 
 
@@ -241,9 +190,9 @@ _HUB_BLOCK_CLS = "pb-5 mb-5 border-b border-border last:border-b-0 last:mb-0 las
 def _preview_panel(block: HubBlockData, trigger: str) -> Div:
     """HTMX lazy-loaded card area — self-loading when preview_url set, OOB target otherwise.
 
-    ``intersect once`` (the trigger at both call sites) only fires when the
-    panel gains a layout box in the viewport, so panels inside hidden tab
-    containers or closed ``<details>`` defer their fetch until revealed.
+    ``intersect once`` only fires when the panel gains a layout box in the
+    viewport, so a panel inside a hidden tab container defers its fetch until
+    revealed.
     """
     return Div(
         SkeletonList(count=3),
@@ -293,52 +242,6 @@ def HubDomainBlockList(blocks: list[HubBlockData]) -> Div:
     return Div(*[HubDomainBlock(b) for b in blocks])
 
 
-def HubAccordionBlock(block: HubBlockData, open: bool = False) -> FT:
-    """Collapsible domain block — native ``<details>``/``<summary>``.
-
-    The whole summary row toggles (label is a Span, not a link); "View all"
-    is the sole navigation and stops propagation so it doesn't also toggle.
-    The preview panel's ``intersect once`` trigger defers the HTMX fetch until
-    the block is actually open AND visible — closed accordions cost nothing.
-    """
-    return Details(
-        Summary(
-            Div(
-                Icon(
-                    "chevron-right",
-                    cls="size-4 transition-transform group-open:rotate-90",
-                ),
-                Icon(block.icon, cls="size-4"),
-                Span(
-                    block.label,
-                    cls="text-sm font-semibold uppercase tracking-wider",
-                ),
-                cls="flex items-center gap-2",
-                style=f"color: {block.color};",
-            ),
-            ButtonLink(
-                "View all →",
-                href=block.view_all_href or block.href,
-                cls=ButtonT.ghost,
-                size="xs",
-                **{"@click.stop": ""},
-            ),
-            cls=(
-                "list-none [&::-webkit-details-marker]:hidden cursor-pointer "
-                "select-none flex items-center justify-between mb-3"
-            ),
-        ),
-        _preview_panel(block, "intersect once"),
-        open=open,
-        cls=f"group {_HUB_BLOCK_CLS}",
-    )
-
-
-def HubAccordionBlockList(blocks: list[HubBlockData], open_first: bool = True) -> Div:
-    """Vertical stack of accordion blocks; the first starts open by default."""
-    return Div(*[HubAccordionBlock(b, open=open_first and i == 0) for i, b in enumerate(blocks)])
-
-
 # ---------------------------------------------------------------------------
 # Graph-driven card bridges
 # ---------------------------------------------------------------------------
@@ -383,35 +286,4 @@ def hub_cards_from_organizers(
             description=default_description,
         )
         for child in sorted_children
-    ]
-
-
-def hub_cards_from_root_organizers(
-    roots: list[RootOrganizerResult],
-    href_template: str = "/ku/{uid}",
-    default_icon: str = "\U0001f4d6",
-    default_description: str = "",
-) -> list[HubCardData]:
-    """Convert root organizer results into HubCardData list.
-
-    child_count maps to the badge slot.
-
-    Args:
-        roots: Results from list_root_organizers().
-        href_template: URL template with {uid} placeholder.
-        default_icon: Fallback icon for cards.
-        default_description: Fallback description for cards.
-
-    Returns:
-        List of HubCardData with child_count as badge.
-    """
-    return [
-        HubCardData(
-            icon=default_icon,
-            name=root["title"],
-            href=href_template.format(uid=root["uid"]),
-            description=default_description,
-            badge=root["child_count"] or None,
-        )
-        for root in roots
     ]

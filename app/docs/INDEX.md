@@ -1,6 +1,6 @@
 ---
 title: Documentation Index
-updated: 2026-09-18
+updated: 2026-09-19
 status: current
 category: index
 tags: [index, navigation, documentation]
@@ -480,7 +480,7 @@ See [CROSS_REFERENCE_INDEX.md](CROSS_REFERENCE_INDEX.md) for skills ↔ docs map
 | [The Ownership Bundle (ADR-085 / ADR-086)](roadmap/done/ownership-bundle.md) | 2026-08-21 | All 4 PRs (#1118–#1121): universal `:OWNS` ratified and the paper `HAS_*` family deleted, attendees retargeted onto `ATTENDS`, the read-side gap census G1–G7 closed, `DomainConfig.ownership_property` added for `Group`, and a `User.uid` uniqueness constraint applied to the live graph. The staged attendance wiring lives in [Deferred Work](roadmap/deferred-work.md) |
 | [Completion Stamping → Cascade Idempotency → Conditional Writes](roadmap/done/completion-stamping-and-conditional-writes.md) | 2026-08-24 | Three chained arcs (#1122–#1125, #1126–#1136, #1145–#1150) from one truth-pass residue: canonical completion stamps replacing the mutable `updated_at` proxy, `TaskCompleted.is_repeat` for repeatable cascades (retired 2026-09-12 with the explicit-complete cascade — one completion door, D.0), and ADR-087's `update_with_status_guard` — the lock-before-read primitive that made the transition verdict exact. Vault inbound propagation followed as the R4 arc — [R4 Vault Inbound Propagation](roadmap/done/r4-vault-inbound-propagation.md) |
 | [Today Surface Handoff (archived)](roadmap/done/today-surface-handoff.md) | 2026-09-12 | The client-rendered Today surface's design handoff (ADR-058), superseded by the server-rendered day view of the calendar-priority-lens arc (D.1): per-domain sections through the domain cards, the calendar's chips and kind legend, HTMX quick-add and defer, no page-local JavaScript |
-| [`/search` Facet Redesign](roadmap/done/search-facet-redesign.md) | 2026-08-26 | All 6 PRs (#1155–#1160): `/search` is the 6 Activity Domains + Ku; Type dropdown, Nous-driven knowledge mode, and the NOUS + tag facet vocabularies scoped to what the page returns. LearningPaths ruled *navigated, not searched*. The one open obligation — profile-side search — lives in [Deferred Work](roadmap/deferred-work.md) |
+| [`/search` Facet Redesign](roadmap/done/search-facet-redesign.md) | 2026-08-26 | All 6 PRs (#1155–#1160): `/search` is the 6 Activity Domains + Ku; Type dropdown, Nous-driven knowledge mode, and the NOUS + tag facet vocabularies scoped to what the page returns. LearningPaths ruled *navigated, not searched*. The one open obligation — lived-output search (one box per list) — lives in [Deferred Work](roadmap/deferred-work.md) |
 | [ZPDService — Design & Architecture](roadmap/done/zpd-service-architecture.md) | 2026-03 | ZPDService + ZPDBackend architecture: ZPDAssessment, graph traversal, readiness scores, behavioral enrichment — implemented |
 | [Semantic Analysis Implementation Roadmap](roadmap/done/SEMANTIC_ANALYSIS_ROADMAP.md) | 2026-07-10 | All three approved items shipped (#598–#600): concept-cluster chips, admin prereq suggestion queue, ZPD semantic feed; data-gated residue lives in [Deferred Work](roadmap/deferred-work.md) |
 | [Resources/ Reference Library — Ingestion Roadmap](roadmap/done/resources-reference-library.md) | 2026-07 | Tier 1 pointing/citations shipped (#562–#566); Tier 2 superseded by the canon shelf; "point at the raw" graduated into CANON_CITATION_DESIGN.md |

@@ -1,7 +1,7 @@
 ---
 title: UserEntry Domain
 created: 2026-09-01
-updated: 2026-09-05
+updated: 2026-09-19
 status: current
 category: domains
 tags: [user-entry, learning-loop, domain]
@@ -69,7 +69,6 @@ created. Making it real means having the upload and form routes stamp it themsel
 | Exercise linking | `/core/services/user_entry/exercise_linker.py` |
 | Learning-loop queries | `/core/services/user_entry/learning_loop_query.py` |
 | Learning-loop handlers | `/core/services/user_entry/learning_loop_handler.py` |
-| Assessment reads | `/core/services/user_entry/assessment_service.py` |
 | Orchestrator | `/core/orchestrator/user_entry_orchestrator.py` |
 | Protocol | `/core/ports/user_entry_protocols.py` |
 | Backend | `/adapters/persistence/neo4j/backends/user_entry_backend.py` |

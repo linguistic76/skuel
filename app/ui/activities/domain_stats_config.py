@@ -1,15 +1,16 @@
 """
-Profile Domain Stats Configuration
-===================================
+Tasks+ Domain Stats Configuration
+==================================
 
-Configuration-driven approach for calculating domain statistics from UserContext.
-Eliminates repetitive if-elif blocks in profile UI route logic.
+Configuration-driven approach for calculating Activity Domain statistics from
+UserContext — one extractor set per Tasks+ sidebar row, consumed by the
+``/api/sidebar/badges`` handler (``adapters/inbound/sidebar_badges_ui.py``).
 
 **Pattern:** Named functions (SKUEL012 compliance) + dataclass configuration
 
 **Usage:**
 ```python
-from ui.profile.domain_stats_config import DOMAIN_STATS_CONFIG
+from ui.activities.domain_stats_config import DOMAIN_STATS_CONFIG
 
 config = DOMAIN_STATS_CONFIG.get("tasks")
 if config:

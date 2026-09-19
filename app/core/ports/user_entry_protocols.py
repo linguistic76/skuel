@@ -301,15 +301,6 @@ class UserEntryAssessmentOperations(Protocol):
         """Verify teacher-student share an active group."""
         ...
 
-    async def get_assessments_for_student_raw(
-        self, student_uid: str, limit: int
-    ) -> Result[list[Neo4jProperties]]:
-        """RECEIVED feedback report nodes the student owns (``OWNS`` +
-        entity_type), newest first — teacher-review, AI, and assessment
-        reports. Excludes PRIVATE self-owned journal reflections, which are
-        the student's own artifacts, not received feedback."""
-        ...
-
     # -------- teacher review workflow --------
 
     async def get_report_file_path(self, report_uid: str, teacher_uid: str) -> Result[str | None]:

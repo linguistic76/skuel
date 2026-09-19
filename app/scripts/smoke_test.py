@@ -121,7 +121,6 @@ _REGISTRY_COMPONENTS = (
     "relationshipGraph('uid', 'tasks', 1)",
     "domainFilter",
     "insightDetailModal('i1')",
-    "profileFocusHandler('f1')",
     "insightFiltersDebounced({})",
     "offlineIndicator",
     "exploreSearch('tag')",

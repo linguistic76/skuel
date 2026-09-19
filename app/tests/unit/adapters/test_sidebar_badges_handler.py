@@ -16,12 +16,12 @@ import pytest
 from fasthtml.common import Div, fast_app, to_xml
 from starlette.testclient import TestClient
 
-import adapters.inbound.user_profile_ui as profile_module
-from adapters.inbound.user_profile_ui import setup_user_profile_routes
+import adapters.inbound.sidebar_badges_ui as badges_module
+from adapters.inbound.sidebar_badges_ui import setup_sidebar_badges_routes
 from core.services.user.unified_user_context import RichUserContext
 from core.utils.result_simplified import Result
+from ui.activities.domain_stats_config import DOMAIN_STATS_CONFIG
 from ui.activities.nav import ACTIVITY_SIDEBAR_ITEMS, render_activity_sidebar_page
-from ui.profile.domain_stats_config import DOMAIN_STATS_CONFIG
 
 ROW_SLUGS = {item.slug for item in ACTIVITY_SIDEBAR_ITEMS}
 BADGED_SLUGS = ROW_SLUGS & set(DOMAIN_STATS_CONFIG)
@@ -33,13 +33,13 @@ def _fake_authenticated_user(request: object) -> str:
 
 @pytest.fixture
 def client(monkeypatch: pytest.MonkeyPatch) -> TestClient:
-    monkeypatch.setattr(profile_module, "require_authenticated_user", _fake_authenticated_user)
+    monkeypatch.setattr(badges_module, "require_authenticated_user", _fake_authenticated_user)
     services = MagicMock()
     services.user.get_rich_unified_context = AsyncMock(
         return_value=Result.ok(RichUserContext(user_uid="user_test", username="test"))
     )
     app, rt = fast_app(pico=False, default_hdrs=False)
-    setup_user_profile_routes(rt, services)
+    setup_sidebar_badges_routes(rt, services)
     return TestClient(app)
 
 
@@ -87,11 +87,11 @@ def test_every_fragment_lands_in_a_slot_the_tasks_plus_sidebar_rendered(
 def test_a_failed_context_read_degrades_to_an_empty_fragment(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    monkeypatch.setattr(profile_module, "require_authenticated_user", _fake_authenticated_user)
+    monkeypatch.setattr(badges_module, "require_authenticated_user", _fake_authenticated_user)
     services = MagicMock()
     services.user.get_rich_unified_context = AsyncMock(return_value=Result.fail("down"))
     app, rt = fast_app(pico=False, default_hdrs=False)
-    setup_user_profile_routes(rt, services)
+    setup_sidebar_badges_routes(rt, services)
     response = TestClient(app).get("/api/sidebar/badges", headers=HX)
 
     assert response.status_code == 200

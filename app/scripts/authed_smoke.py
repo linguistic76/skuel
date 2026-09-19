@@ -14,7 +14,7 @@ a live server:
 
     uv run python scripts/authed_smoke.py                     # defaults to :8001
     uv run python scripts/authed_smoke.py --base-url http://localhost:8001 \
-        --pages /profile /home /library/exercises
+        --pages /today /profile/shared /library/exercises
 
 Credentials: username defaults to ``linguistic76``; the password is read via
 ``get_credential("TEST_USER_PASSWORD")`` and never printed.
@@ -46,9 +46,8 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 from core.config.credential_store import get_credential
 
 DEFAULT_PAGES = [
-    "/profile",
-    "/profile/shared",
     "/today",
+    "/profile/shared",
     "/library/exercises",
     "/tasks",
     "/goals",

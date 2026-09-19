@@ -174,8 +174,7 @@ class _UserEntryReportQueryMixin:
         entries, so gating the entries gates the whole chain.
 
         PRIVATE reports are excluded — a self-owned journal reflection is the
-        student's own artifact, not part of the teacher↔student exchange
-        (same class rule as ``get_assessments_for_student_raw``).
+        student's own artifact, not part of the teacher↔student exchange.
 
         Every ``created_at`` is emitted through ``toString()`` so the caller
         always receives ISO-8601 strings — entry timestamps are stored as ISO

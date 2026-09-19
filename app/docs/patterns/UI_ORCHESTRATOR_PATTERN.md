@@ -1,6 +1,6 @@
 ---
 title: UI Orchestrator Pattern
-updated: '2026-09-15'
+updated: '2026-09-19'
 category: patterns
 related_skills:
 - ui-orchestrator
@@ -30,7 +30,6 @@ For implementation guidance, see:
 | Orchestrator | Hub / Routes | Services Consolidated | Key Wins |
 |---|---|---|---|
 | `AdminOrchestrator` | `admin_dashboard_ui.py` | 3 → 1 | Eliminated repeated `_get_system_status(services)` helper across 4 routes; `get_analytics_data()` collapses two service calls into one |
-| `ProfileOrchestrator` | `user_profile_ui.py` | 9 → 1 | Terminal-state filtering, priority sorting |
 | `UserEntryOrchestrator` | `user_entry_routes.py` + 4 sub-factories | 9 → 1 | Successor to the former Submissions + Journal orchestrators (ADR-054 Commit 5c); eliminated multi-factory injection. `get_entry_report_view()` collapses fetch → access check → revision lookup; `get_entry()` backs ownership-verified journal download |
 | `ExploreOrchestrator` | `explore_ui.py` (API + UI factories) | 5 → 1 | Absorbed 80-line concurrent loader + 90-line Vis.js graph builder + sidebar data aggregation (`get_sidebar_data`) |
 | `LibraryOrchestrator` | `library_ui.py` | 6 → 1 | Deduplicated multi-step pin/enroll queries |
@@ -60,7 +59,6 @@ graph TD
 
     subgraph "Orchestrator Layer (Facades)"
         AO[AdminOrchestrator]
-        PO[ProfileOrchestrator]
         UEO[UserEntryOrchestrator]
         EO[ExploreOrchestrator]
         LO[LibraryOrchestrator]
@@ -86,7 +84,6 @@ graph TD
     end
 
     UI_Routes --> AO
-    UI_Routes --> PO
     UI_Routes --> UEO
     UI_Routes --> EO
     UI_Routes --> LO
@@ -97,7 +94,6 @@ graph TD
     UI_Routes --> COO
 
     AO --> US ; AO --> AS ; AO --> SS
-    PO --> TS ; PO --> GS ; PO --> HS
     UEO --> Sub ; UEO --> Proc ; UEO --> Rev
     EO --> KU ; EO --> PS ; EO --> Ex
     LO --> Res ; LO --> UR ; LO --> Ex
@@ -112,7 +108,7 @@ graph TD
     classDef dev fill:#dfd,stroke:#333;
 
     class UI_Routes route;
-    class AO,PO,UEO,EO,LO,TO,ARO,PWO,LRO,COO facade;
+    class AO,UEO,EO,LO,TO,ARO,PWO,LRO,COO facade;
     class TS,GS,HS,Sub,Proc,Rev,KU,PS,Ex,Res,UR,TR,AS,US,SS,AR,RQ,CB,LP,UP,LAT,EV,CH,PR,CAL dev;
 ```
 

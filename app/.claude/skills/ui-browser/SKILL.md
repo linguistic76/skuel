@@ -246,7 +246,6 @@ Named Alpine components live in a `/static/js/` bundle, never inline in a templa
 | `bulkInsightManager` | Multi-select + bulk actions on insight cards | `selectedUids`, `selectAllChecked` |
 | `insightDetailModal(uid)` | Insight detail modal | `isOpen`, `loading` |
 | `insightFiltersDebounced(filters)` | Insight filter form, navigates on apply | `filters`, `loading` |
-| `profileFocusHandler(uid)` | Scrolls the focused profile entity into view | `focusUid` |
 | `exploreSearch(tag)` | Explore sidebar tag/text search | `query`, `activeTag`, `moreFilters` |
 | `revisionForm` | Revision feedback-point form | `points`, `categories` |
 | `batchTranscribe` | Admin batch transcription console | job/progress state |

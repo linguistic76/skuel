@@ -17,7 +17,6 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any
 
-from core.models.enums.metadata_enums import Visibility
 from core.models.enums.pipeline import Pipeline
 from core.models.relationship_names import RelationshipName
 from core.models.type_hints import Neo4jProperties
@@ -60,40 +59,6 @@ class _UserEntryAssessmentMixin:
         """
         return await self.execute_query(
             query, {"teacher_uid": teacher_uid, "subject_uid": subject_uid}
-        )
-
-    async def get_assessments_for_student_raw(
-        self, student_uid: str, limit: int
-    ) -> Result[list[Neo4jProperties]]:
-        """RECEIVED feedback report nodes the student owns, newest first.
-
-        Ownership is THE visibility anchor: every report about a student's
-        work carries ``(student)-[:OWNS]->(report)`` — written atomically by
-        ``create_report_node`` (teacher/AI review) — so this one read surfaces
-        all received feedback.
-
-        PRIVATE reports are excluded: a self-owned journal reflection
-        (``_persist_entry_response``, ``visibility='private'``) is the
-        student's own artifact, not received feedback, and belongs to the
-        journals surface — not the exercise-feedback page. ``coalesce``
-        keeps a legacy node with no ``visibility`` property listed (the
-        pre-convergence report class was all student-facing feedback).
-        """
-        query = f"""
-        MATCH (u:User {{uid: $student_uid}})-[:{RelationshipName.OWNS.value}]->(report:Entity)
-        WHERE report.entity_type = 'entry_report'
-          AND coalesce(report.visibility, 'shared') <> $private_visibility
-        RETURN report
-        ORDER BY report.created_at DESC
-        LIMIT $limit
-        """
-        return await self.execute_query(
-            query,
-            {
-                "student_uid": student_uid,
-                "limit": limit,
-                "private_visibility": Visibility.PRIVATE.value,
-            },
         )
 
     # ========================================================================

@@ -4,7 +4,6 @@ Orchestrators act as facades to serve complex UI views or cross-domain aggregate
 business operations, mitigating 'Dependency Gravity' in the routing layer.
 
 Implemented orchestrators:
-- ProfileOrchestrator                  — User Profile Hub
 - UserEntryOrchestrator                 — UserEntry Hub (ADR-054 successor to the
                                           former Submissions + Journal orchestrators)
 - ExploreOrchestrator                  — Explore / Discovery Hub

@@ -88,7 +88,6 @@ def orchestrator(neo4j_driver, relationship_service) -> UserEntryOrchestrator:
         revised_exercise_service=None,  # type: ignore[arg-type]
         entry_report_service=None,  # type: ignore[arg-type]
         sharing_service=None,  # type: ignore[arg-type]
-        assessment_service=None,  # type: ignore[arg-type]
         report_relationship_service=relationship_service,
     )
 

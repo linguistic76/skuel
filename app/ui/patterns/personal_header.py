@@ -1,9 +1,7 @@
 """Personal header — Focus + Velocity compact display.
 
-Used at the top of the /profile page. Requires UserContext.
-
-For pages that don't already have UserContext loaded (e.g. /tasks),
-use ``personal_header_placeholder()`` — an HTMX div that lazy-loads
+``personal_header(context)`` requires a loaded UserContext; the /insights
+pages use ``personal_header_placeholder()`` — an HTMX div that lazy-loads
 the header via ``GET /api/personal-header`` without blocking the page render.
 """
 

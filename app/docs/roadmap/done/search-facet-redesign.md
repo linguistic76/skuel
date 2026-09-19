@@ -1,6 +1,6 @@
 ---
 title: "Roadmap: /search facet redesign"
-updated: 2026-08-26
+updated: 2026-09-19
 status: complete
 category: roadmap
 tags: [roadmap, search, facets, ownership, curriculum, done]
@@ -11,9 +11,9 @@ tags: [roadmap, search, facets, ownership, curriculum, done]
 **Status:** ✅ **COMPLETE — 2026-08-26.** Ruled in full 2026-08-25 (#1153) after a code
 trace of both search surfaces; built and closed the same week in six PRs.
 
-**Nothing below remains open.** The one obligation the arc created — the profile-side
+**Nothing below remains open.** The one obligation the arc created — the lived-output
 search that replaces what it stripped — is a live section of its own:
-`../deferred-work.md` § "Profile-Side Search for UserEntry, Exercise and RevisedExercise".
+`../deferred-work.md` § "Lived-Output Search for UserEntry, Exercise and RevisedExercise".
 This document is the closure record and is self-contained; it defers to nothing.
 
 `/search` is now one surface with one job — *your lived activity, plus the knowledge
@@ -35,11 +35,13 @@ behind it*: the 6 Activity Domains + Ku, and nothing else.
 1. **Removal is from the RESULTS, not just the filter.** A filter-only removal leaves an
    unfiltered search still returning rows no facet can reach. Encoded in
    `scope_to_search_page`'s docstring.
-2. **UserEntry, Exercise and RevisedExercise leave `/search` for the profile hub.**
+2. **UserEntry, Exercise and RevisedExercise leave `/search` for where they live.**
    Entries are lived *output* and are searched where they live. ⚠️ All **three** — a
    follow-up scoped to two would leave revision artifacts with no browser search at all.
    Mike sequenced it **strip first, build after**; the gap is accepted, and the build has
-   its own live section.
+   its own live section. *Amended 2026-09-19:* the arc named the `/profile` hub as that
+   home; the hub is retired (Tasks+ arc PR 5), so the home is one box per list —
+   `/submissions/history`, `/library/exercises`, `/gradebook` (ruled in the live section).
 3. **Type and Nous are MUTUALLY EXCLUSIVE.** `nous` is an array property only curriculum
    nodes carry, and the faceted sweep applies every property filter to *every* swept
    domain, so `Type=Task, Nous=body` returns zero **by construction**. The impossible

@@ -1,6 +1,7 @@
-"""Profile badge components.
+"""Tasks+ sidebar badge components.
 
-Status and count badges for the profile sidebar.
+Status and count badges swapped into the Tasks+ sidebar rows by
+``/api/sidebar/badges``.
 """
 
 from typing import Any

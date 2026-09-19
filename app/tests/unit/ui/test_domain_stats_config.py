@@ -1,6 +1,6 @@
 """
-Tests for Profile Domain Stats Configuration
-=============================================
+Tests for the Tasks+ Domain Stats Configuration
+===============================================
 
 Verifies the configuration-driven approach for calculating domain statistics
 from UserContext.
@@ -9,7 +9,7 @@ from UserContext.
 import pytest
 
 from core.services.user.unified_user_context import RichUserContext, UserContext
-from ui.profile.domain_stats_config import (
+from ui.activities.domain_stats_config import (
     DOMAIN_STATS_CONFIG,
     choices_active,
     choices_count,

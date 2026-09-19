@@ -414,7 +414,12 @@ class CardGenerator:
                         card_components.append(
                             Row(
                                 FlexItem(title_block, grow=True),
-                                FlexItem(Div(*badge_elements, cls="flex gap-2"), shrink=False),
+                                # Badges wrap rather than push the card past a
+                                # phone viewport — three of them are wider than
+                                # the room a 375px card leaves beside a title.
+                                FlexItem(
+                                    Div(*badge_elements, cls="flex flex-wrap gap-2 justify-end"),
+                                ),
                                 gap=3,
                             )
                         )

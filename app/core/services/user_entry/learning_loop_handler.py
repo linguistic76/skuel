@@ -223,8 +223,14 @@ class LearningLoopEventHandlerService:
                         ),
                         confidence=0.8,
                         impact=InsightImpact.MEDIUM,
-                        entity_uid=EntityUID(event.report_uid),
+                        # The anomaly is about the teacher's turnaround pattern,
+                        # not an entity to open (the empty uid is the model's
+                        # "no entity" — its reader defaults to it); the report
+                        # that tripped it is evidence, so it rides in
+                        # supporting_data.
+                        entity_uid=EntityUID(""),
                         supporting_data={
+                            "report_uid": event.report_uid,
                             "turnaround_hours": turnaround_hours,
                             "ema_hours": new_ema,
                             "anomaly_type": anomaly_type,

@@ -4,7 +4,7 @@ Activity Reports UI Routes — ActivityReport Pages
 
 Routes for viewing and requesting activity reports. The list surface is the
 GradeBook's conditional "Activity reports" group (/gradebook, arc 2 C1) —
-this file keeps the detail view, the request form, and the hub preview.
+this file keeps the detail view and the request form.
 
 Routes:
 - GET /activity-reports/detail — Activity report detail view
@@ -18,7 +18,6 @@ Routes:
   "Regenerate"); a refusal re-renders the period prompt with the reason
 - POST /api/activity-reports/annotate — Save commentary/revision on own report (fragment)
 - GET /reports/progress-list — HTMX fragment: progress reports (request form page)
-- GET /api/gradebook/activity-reports/preview — HTMX hub preview block
 
 See: /docs/patterns/DOMAIN_ROUTE_CONFIG_PATTERN.md
 """
@@ -50,7 +49,6 @@ from core.utils.report_periods import (
     resolve_report_period,
 )
 from core.utils.result_simplified import ErrorCategory, Errors, Result
-from core.utils.text_truncation import truncate_to_budget
 from ui.activities.nav import render_activity_sidebar_error, render_activity_sidebar_page
 from ui.gradebook.summary import GRADEBOOK_TITLE
 from ui.learning_loop.report import (
@@ -63,7 +61,6 @@ from ui.patterns.generate_report import (
     render_period_report_prompt,
     render_recent_reports_section,
 )
-from ui.patterns.hub import HubPreviewCard, HubPreviewEmpty, HubPreviewGrid
 from ui.patterns.loading import content_loading_placeholder
 from ui.patterns.page_header import PageHeader
 from ui.primitives import ButtonLink
@@ -403,43 +400,7 @@ def create_activity_reports_ui_routes(
             )
         return render_progress_report_list(result.value or [])
 
-    # ========================================================================
-    # HUB PREVIEW ENDPOINT (HTMX lazy-loaded from /profile Reports tab)
-    # ========================================================================
-
-    @rt("/api/gradebook/activity-reports/preview")
-    async def activity_reports_preview(request: Request) -> Any:
-        """HTMX fragment: 3 most recent activity reports for hub preview."""
-        user_uid = require_authenticated_user(request)
-        if not orchestrator:
-            return HubPreviewEmpty("activity reports")
-        result = await orchestrator.get_activity_report_history(user_uid, limit=3)
-        if result.is_error:
-            return HubPreviewEmpty("activity reports")
-        reports = result.value or []
-        if not reports:
-            return HubPreviewEmpty("activity reports")
-        cards = []
-        for report in reports[:3]:
-            uid = getattr(report, "uid", "") or ""
-            title = str(getattr(report, "title", None) or uid or "Report")
-            period = getattr(report, "time_period", None) or ""
-            badge = (
-                Span(period, cls="text-10 font-medium text-muted-foreground") if period else None
-            )
-            content = getattr(report, "processed_content", None) or ""
-            href = f"/activity-reports/detail?uid={uid}" if uid else "/gradebook"
-            cards.append(
-                HubPreviewCard(
-                    title=title,
-                    href=href,
-                    badge=badge,
-                    description=truncate_to_budget(content, 160) if content else None,
-                )
-            )
-        return HubPreviewGrid(cards)
-
     logger.info(
         "Activity Reports UI routes created "
-        "(/activity-reports/detail, /submit-activity-report, generate/annotate/md + hub preview)"
+        "(/activity-reports/detail, /submit-activity-report, generate/annotate/md)"
     )

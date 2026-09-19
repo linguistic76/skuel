@@ -1,6 +1,6 @@
 ---
 title: SKUEL Architecture — 25 Entity Types + 5 Cross-Cutting Systems
-updated: 2026-09-15
+updated: 2026-09-19
 status: current
 category: architecture
 version: 8.1.0
@@ -402,7 +402,7 @@ The educational loop: `PathStep -> Exercise -> UserEntry -> EntryReport -> Revis
 **Ingestion aliases:** `exercise_submission`, `submission`, `journal`, `je_input`, `je_output` still parse via `_ENTITY_TYPE_ALIASES` — all of them map to `EntityType.USER_ENTRY`, with `pipeline` inferred from the alias. Legacy YAMLs in `/home/mike/0bsidian/0vault/` continue ingesting without rewrites.
 
 **Services:**
-- `core/services/user_entry/` — `UserEntryService` (facade), `UserEntryProcessingService` (pipeline dispatch: Deepgram transcribe, LLM summarize, transcribe-and-structure, DSL activity extraction per ADR-069), `AssessmentService`, `ReviewQueueService`, relationship + exercise linking helpers.
+- `core/services/user_entry/` — `UserEntryService` (facade), `UserEntryProcessingService` (pipeline dispatch: Deepgram transcribe, LLM summarize, transcribe-and-structure, DSL activity extraction per ADR-069), `ReviewQueueService`, relationship + exercise linking helpers.
 - `core/services/report/` — `EntryReportService`, `ProgressReportGenerator`, `ActivityReportService`.
 
 **See:** `/docs/architecture/REPORT_ARCHITECTURE.md`, [ADR-054](../decisions/ADR-054-user-entry-unified-submissions.md)

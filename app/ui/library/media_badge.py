@@ -3,7 +3,7 @@ Resource Media-Type Badge — shared
 ==================================
 
 Colored pill badge for a Resource's media type (book / talk / film / podcast /
-article / music). Shared across the library hub list, the hub previews, and the
+article / music). Shared across the library resources list and the
 per-Resource detail page so the color language stays in one place.
 """
 

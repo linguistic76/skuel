@@ -1159,11 +1159,7 @@ async def compose_services(
 
         # ADR-054 — UserEntry facade + processing dispatcher (the successor to
         # the former submissions + journal services).
-        from core.services.user_entry import (
-            AssessmentService,
-            UserEntryProcessingService,
-            UserEntryService,
-        )
+        from core.services.user_entry import UserEntryProcessingService, UserEntryService
 
         user_entry_service = UserEntryService(
             backend=user_entry_backend,
@@ -1309,8 +1305,6 @@ async def compose_services(
         # built earlier (:588), the processor depends on it, so this closes the
         # cycle without a circular import.
         unified_ingestion.user_entry_processor = user_entry_processor
-
-        user_entry_assessment = AssessmentService(backend=user_entry_backend)
 
         # Vault bridge — ADR-070 bidirectional Obsidian ↔ SKUEL sync.
         # One descriptor-driven reconciler serves BOTH vaults: the admin content
@@ -1465,9 +1459,7 @@ async def compose_services(
             # content is not yet vector-searchable. Tier-independent.
             embedding_coverage=embedding_coverage_backend,
         )
-        logger.info(
-            "✅ UserEntry service + processing dispatcher + AssessmentService created (ADR-054)"
-        )
+        logger.info("✅ UserEntry service + processing dispatcher created (ADR-054)")
         logger.info(
             "✅ VaultReconciler wired (ADR-070) — content + per-user personal "
             f"descriptors (personal transport: {_vault_transport}, ADR-075)"
@@ -1543,19 +1535,6 @@ async def compose_services(
         )
         logger.info("✅ Orchestration services created")
 
-        from core.orchestrator.profile_orchestrator import ProfileOrchestrator
-
-        profile_orchestrator = ProfileOrchestrator(
-            tasks_service=activity_services["tasks"],
-            goals_service=activity_services["goals"],
-            habits_service=activity_services["habits"],
-            events_service=activity_services["events"],
-            choices_service=activity_services["choices"],
-            principles_service=activity_services["principles"],
-            sharing_service=unified_sharing_service,
-        )
-        logger.info("✅ Profile Orchestrator created")
-
         # ADR-054: the former SubmissionsOrchestrator + JournalOrchestrator are retired.
         # UserEntryOrchestrator is the sole facade for submissions + journals.
         from core.orchestrator.user_entry_orchestrator import UserEntryOrchestrator
@@ -1572,7 +1551,6 @@ async def compose_services(
             revised_exercise_service=revised_exercise_service,
             entry_report_service=entry_report_service,
             sharing_service=unified_sharing_service,
-            assessment_service=user_entry_assessment,
             report_relationship_service=report_relationship_service,
         )
         logger.info("✅ UserEntry Orchestrator created (ADR-054)")
@@ -1808,7 +1786,6 @@ async def compose_services(
             # UserEntry (ADR-054) — unified user-authored content
             user_entry=user_entry_service,
             user_entry_processor=user_entry_processor,
-            user_entry_assessment=user_entry_assessment,
             vault_reconciler=vault_reconciler,
             # Progress report
             progress_report_generator=progress_generator,
@@ -1869,7 +1846,6 @@ async def compose_services(
             admin_orchestrator=admin_orchestrator,
             prereq_suggestions=prereq_suggestions,
             entry_grounding=entry_grounding,
-            profile_orchestrator=profile_orchestrator,
             user_entry_orchestrator=user_entry_orchestrator,
             explore_orchestrator=explore_orchestrator,
             library_orchestrator=library_orchestrator,

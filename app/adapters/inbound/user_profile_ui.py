@@ -1,23 +1,13 @@
+"""Shared With Me — the reviewing inbox at ``/profile/shared``.
+
+Routes:
+- GET /profile/shared — Shared With Me inbox (SHARES_WITH entities, type-aware cards)
+- GET /profile/shared/list-fragment — the filtered card grid for a FilterBar change
+
+The navbar's inbox icon is the door. Nothing else answers under ``/profile``:
+a user's activities, curriculum, submissions and reports each have their own
+section (``/today``, ``/library``, ``/submissions``, ``/gradebook``).
 """
-User Profile UI Routes - Profile Hub Page (MOC Pattern)
-=======================================================
-
-Routes for the user profile hub page and related endpoints.
-
-Key Routes:
-- GET /profile - Profile hub (4 tabs: Curriculum / Activities / Submissions / Reports)
-- GET /profile/settings - 301 redirect to /settings
-- GET /profile/shared - Shared With Me inbox (SHARES_WITH entities, type-aware cards)
-
-Architecture:
-- /profile is a 4-tab hub (Alpine tab bar, HTMX lazy-loaded previews; no sidebar)
-- Uses BasePage(STANDARD) — the MOC pattern
-- Uses UserContext (~250 fields) as the authoritative source for user state
-
-See: /docs/design-principles/HUB_PAGES.md
-"""
-
-__version__ = "5.0"  # Hub page (MOC pattern) — no sidebar
 
 from typing import TYPE_CHECKING, Any
 
@@ -25,7 +15,6 @@ from typing import TYPE_CHECKING, Any
 # registration, so a TYPE_CHECKING-only import would kill bootstrap.
 from fasthtml.common import FT, Div
 
-from core.config.settings import get_settings
 from core.models.enums.entity_enums import EntityType
 from core.models.type_hints import UserUID
 
@@ -34,197 +23,32 @@ if TYPE_CHECKING:
 
 from adapters.inbound.auth import require_authenticated_user
 from adapters.inbound.fasthtml_types import Request
-from core.services.user.unified_user_context import RichUserContext
 from core.utils.logging import get_logger
-from ui.activities.hub import render_domain_card_preview
-from ui.activities.nav import ACTIVITY_SIDEBAR_ITEMS
 from ui.layouts.base_page import BasePage
-from ui.profile.domain_stats_config import DOMAIN_STATS_CONFIG
+from ui.patterns.error_banner import render_error_banner
+from ui.patterns.page_header import PageHeader
+from ui.profile.shared_view import (
+    SHARED_WITH_ME_SUBTITLE,
+    SharedWithMeView,
+    shared_items_content,
+)
 
 logger = get_logger("skuel.routes.user_profile")
 
-
-# ============================================================================
-# ERROR HANDLING HELPERS
-# ============================================================================
-
-
-def error_page(
-    message: str,
-    status_code: int,
-    user_display_name: str = "User",
-    request: Request | None = None,
-) -> Any:
-    """
-    Unified error page for profile routes.
-
-    One path forward: Clear errors with no silent fallbacks.
-
-    Args:
-        message: Error message to display
-        status_code: HTTP status code (404, 500, etc.)
-        user_display_name: User's display name for page header
-        request: Optional request for navbar auth detection
-
-    Returns:
-        Error page with consistent styling
-    """
-    from ui.patterns.error_banner import render_error_banner
-
-    content = Div(
-        render_error_banner(
-            f"Error {status_code}",
-            technical_details=message,
-            show_details=get_settings().application.debug,
-        ),
-        cls="flex flex-col items-center justify-center min-h-[400px] p-8",
-    )
-
-    return BasePage(
-        content=content,
-        title=f"Error {status_code}",
-        request=request,
-        active_page="profile",
-    )
-
-
-# ============================================================================
-# ROUTE SETUP
-# ============================================================================
+_INBOX_LIMIT = 50
 
 
 def setup_user_profile_routes(rt: Any, services: Services) -> None:
-    """
-    Setup user profile routes.
+    """Register the Shared With Me inbox routes.
 
     Args:
         rt: FastHTML route decorator
-        services: Services container with all backends
+        services: Services container — ``services.sharing`` is the one read
     """
 
-    if services.user is None:
-        raise RuntimeError("UserService is required for profile routes")
-    user_service = services.user
-
-    profile_orchestrator = services.profile_orchestrator
-    if profile_orchestrator is None:
-        raise RuntimeError("ProfileOrchestrator is required for profile routes")
-
-    # ========================================================================
-    # PROFILE HUB ROUTES
-    # ========================================================================
-
-    async def _get_context(
-        user_uid: UserUID,
-    ) -> RichUserContext:
-        """
-        Get rich UserContext — single call, includes user identity + role.
-
-        Args:
-            user_uid: Authenticated user's UID
-
-        Returns:
-            RichUserContext with ~250 fields including user_role, display_name, username
-
-        Raises:
-            ValueError: If context cannot be loaded
-        """
-        context_result = await user_service.get_rich_unified_context(user_uid)
-        if context_result.is_error:
-            raise ValueError(f"Failed to load context for user: {user_uid}")
-        return context_result.value
-
-    @rt("/profile")
-    def profile_hub(request: Request) -> Any:
-        """Profile hub — 4 tabs (Curriculum / Activities / Submissions / Reports).
-
-        The active tab is selected by `?tab=` (curriculum | activities |
-        submissions | reports), defaulting to "submissions" — the action tab
-        (links to the /submissions pages).
-        """
-        require_authenticated_user(request)
-
-        from ui.profile.hub import ProfileHubView, normalize_tab
-
-        active_tab = normalize_tab(request.query_params.get("tab"))
-
-        return BasePage(
-            content=ProfileHubView(active_tab=active_tab),
-            title="Profile",
-            request=request,
-            active_page="profile",
-        )
-
-    @rt("/api/profile/{slug}/preview")
-    async def domain_card_preview(request: Request, slug: str) -> Any:
-        """
-        HTMX fragment: top 3 active items for a domain block, sorted by priority.
-
-        Called by the Activities tab accordion blocks on /profile via
-        hx-trigger="intersect once". Returns a grid of up to 3 preview cards
-        (title + priority badge) or an empty-state message.
-
-        Requires authentication.
-        """
-        user_uid = require_authenticated_user(request)
-
-        result = await profile_orchestrator.get_domain_preview_items(user_uid, slug)
-
-        if result.is_error:
-            from fasthtml.common import P as Para
-
-            logger.warning(
-                "Failed to load domain card preview",
-                extra={"slug": slug, "user_uid": user_uid, "error": str(result.error)},
-            )
-            return Para("Unable to load items", cls="text-sm text-muted-foreground py-2")
-
-        return render_domain_card_preview(result.value, slug)
-
-    @rt("/api/sidebar/badges")
-    async def sidebar_badges(request: Request) -> Any:
-        """HTMX OOB-swap endpoint: the Tasks+ sidebar's count + health badges.
-
-        One fragment per Tasks+ row that has a stats config — exactly
-        ``ACTIVITY_SIDEBAR_ITEMS ∩ DOMAIN_STATS_CONFIG`` — each an OOB
-        ``sidebar-badge-{slug}`` span replacing the slot the sidebar rendered.
-        Only the Tasks+ sidebar (``badges=True``) requests this, once its
-        desktop sidebar is on screen; the whole user context is built for it,
-        so nothing is emitted that no row would swap in.
-        """
-        from fasthtml.common import Span
-
-        from ui.profile.badges import CountBadge, HealthIndicator
-
-        user_uid = require_authenticated_user(request)
-
-        try:
-            context = await _get_context(user_uid)
-        except ValueError:
-            # Degrade silently — badges are enhancement, not critical
-            return Div()
-
-        fragments: list[Any] = []
-        for item in ACTIVITY_SIDEBAR_ITEMS:
-            config = DOMAIN_STATS_CONFIG.get(item.slug)
-            if config is None:
-                continue
-            count = config.count_fn(context)
-            active = config.active_fn(context)
-            status_args = config.status_args_fn(context)
-            status = config.status_fn(*status_args)
-
-            fragments.append(
-                Span(
-                    CountBadge(count, active),
-                    HealthIndicator(status),
-                    id=f"sidebar-badge-{item.slug}",
-                    hx_swap_oob="true",
-                    cls="flex items-center gap-1",
-                )
-            )
-
-        return Div(*fragments)
+    if services.sharing is None:
+        raise RuntimeError("UnifiedSharingService is required for the shared-with-me routes")
+    sharing_service = services.sharing
 
     @rt("/profile/shared")
     async def profile_shared(request: Request) -> Any:
@@ -237,13 +61,11 @@ def setup_user_profile_routes(rt: Any, services: Services) -> None:
         """
         user_uid = require_authenticated_user(request)
 
-        from ui.patterns.error_banner import render_error_banner
-        from ui.patterns.page_header import PageHeader
-        from ui.profile.shared_view import SHARED_WITH_ME_SUBTITLE, SharedWithMeView
-
-        items_result = await profile_orchestrator.get_shared_with_me_items(
+        items_result = await sharing_service.get_shared_with_me(
             user_uid=user_uid,
-            limit=50,
+            limit=_INBOX_LIMIT,
+            entity_type=None,
+            sharer_uid=None,
         )
         if items_result.is_error:
             # Outage ≠ empty: a failed read must never render as a blank inbox.
@@ -275,15 +97,12 @@ def setup_user_profile_routes(rt: Any, services: Services) -> None:
         """
         user_uid = require_authenticated_user(request)
 
-        from ui.patterns.error_banner import render_error_banner
-        from ui.profile.shared_view import shared_items_content
-
         type_filter = EntityType.from_string(entity_type) if entity_type != "all" else None
         sharer_filter = UserUID(sharer) if sharer != "all" else None
 
-        items_result = await profile_orchestrator.get_shared_with_me_items(
+        items_result = await sharing_service.get_shared_with_me(
             user_uid=user_uid,
-            limit=50,
+            limit=_INBOX_LIMIT,
             entity_type=type_filter,
             sharer_uid=sharer_filter,
         )
@@ -297,7 +116,7 @@ def setup_user_profile_routes(rt: Any, services: Services) -> None:
         )
 
     logger.info(
-        "✅ Profile routes registered (/profile, /profile/shared, /profile/shared/list-fragment)"
+        "✅ Shared With Me routes registered (/profile/shared, /profile/shared/list-fragment)"
     )
 
 

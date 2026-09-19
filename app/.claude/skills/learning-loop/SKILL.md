@@ -302,7 +302,6 @@ that never closes the loop.
 |---------|-----------|-------|----------|
 | `TeacherReviewService` | `tests/unit/services/test_teacher_review_service.py` | 60 | 76% (157/207 lines) |
 | `UserEntryService` | `tests/unit/services/test_user_entry_service.py` | 41 | 69% (146/211 lines) |
-| `AssessmentService` | `tests/unit/test_assessment_service.py` | 2 | 100% (23/23 lines) |
 
 **TeacherReviewService tests cover:** access control (`_verify_teacher_has_group_access` — requires teacher and student share an active group), review queue filtering, report submission + event publishing, revision requests, approval with mastery updates, dashboard stats, group management, exercise/student views.
 
@@ -330,7 +329,6 @@ that never closes the loop.
 | `core/models/report/activity_report.py` | 4 | ActivityReport model |
 | `core/services/user_entry/user_entry_service.py` | 3+4 | UserEntry facade (BaseService) — shared `create_entry` write path, exercise linking |
 | `core/services/user_entry/user_entry_processing_service.py` | 3 | Pipeline processing — transcription, LLM summary/structure (the former journal track, now a `Pipeline`) |
-| `core/services/user_entry/assessment_service.py` | 4 | Teacher assessment CRUD, authority verification |
 | `core/services/report/entry_report_service.py` | 4 | AI report generation (via UnifiedLLMCaller) |
 | `core/services/llm_caller.py` | 3+4 | Unified LLM routing (OpenAI/Anthropic by model prefix) |
 | `core/services/output/instruction_resolver.py` | 3 | Instruction resolution (custom > exercise > mode > default) |
