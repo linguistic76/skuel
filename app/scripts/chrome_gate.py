@@ -283,6 +283,10 @@ window.addEventListener('load', function () {
       };
     }
     r.bottomNav = { real: measure(null), emulated34: measure(34) };
+    // Headless resolves env() to 0, so the inset can only be emulated on the
+    // bar; main's clearance under a real inset is main's measured padding plus
+    // the inset ONLY IF main declares the env() term itself — record that.
+    r.mainFollowsInset = !!(main && (main.getAttribute('class') || '').indexOf('env(safe-area-inset-bottom)') !== -1);
   }
   if (cur && r.rowVisible) {
     var rb = row.getBoundingClientRect(), cb = cur.getBoundingClientRect();
@@ -328,6 +332,7 @@ assert retired.status_code == 404 and "location" not in retired.headers, (
     retired.status_code,
 )
 print("ok  GET /profile → 404 (no redirect)")
+failures = 0
 for persona, page_names in PERSONA_PAGES.items():
     state = PERSONAS[persona]
     for page in page_names:
@@ -336,8 +341,13 @@ for persona, page_names in PERSONA_PAGES.items():
             r = client.get(PAGES[page])
             assert r.status_code == 200, (name, r.status_code, r.text[:300])
             rendered[name] = write_html(name, r.text)
-        except Exception:
-            print(f"{name}: FAILED")
+        except (
+            Exception
+        ):  # safety-net: a page that fails to render is a gate failure, not a skipped page
+            # Every viewport check of this page is lost with it, so the run
+            # must go RED here — otherwise a raising route reads as GREEN.
+            failures += 1
+            print(f"FAIL {name}: route did not render")
             traceback.print_exc()
 
 EXPECTED_ROLE_DOORS = {
@@ -347,7 +357,6 @@ EXPECTED_ROLE_DOORS = {
 }
 ICON_DOORS = ["/today", "/explore/library", "/path-steps", "/submissions"]
 
-failures = 0
 for name, html_path in rendered.items():
     persona, page = name.split("_", 1)
     is_sidebar_page = page not in ("settings", "shared")
@@ -384,6 +393,17 @@ for name, html_path in rendered.items():
         if res["scrollWidth"] != res["clientWidth"]:
             problems.append(f"page overflows {res['scrollWidth']} > {res['clientWidth']}")
         if is_sidebar_page:
+            # Both surfaces render the same SidebarItem list, so both must mark
+            # the current page and agree on which it is — a missing mark is a
+            # failure, never a skipped check.
+            if not res["current"]:
+                problems.append("section nav has no [aria-current=page] link")
+            if not res["deskCurrent"]:
+                problems.append("desktop sidebar has no [aria-current=page] link")
+            if res["current"] and res["deskCurrent"] and res["current"] != res["deskCurrent"]:
+                problems.append(
+                    f"section nav current {res['current']} != desktop current {res['deskCurrent']}"
+                )
             if w < 1024:
                 if not res["rowVisible"]:
                     problems.append("section nav not visible below lg")
@@ -483,12 +503,19 @@ for name, html_path in rendered.items():
             if bn is None:
                 problems.append("no bottom nav below sm")
             else:
+                if not res.get("mainFollowsInset"):
+                    problems.append(
+                        "main padding does not declare env(safe-area-inset-bottom) — "
+                        "the bar grows with the inset, the content clearance would not"
+                    )
                 for label, inset in (("real", 0), ("emulated34", 34)):
                     m = bn[label]
                     if m["contentBox"] < 44:
                         problems.append(
                             f"bottom nav content box {m['contentBox']}px < 44 ({label})"
                         )
+                    # `+ inset` is main's clearance under the emulated inset —
+                    # valid only because mainFollowsInset is asserted above.
                     if m["mainPadBottom"] is not None and m["mainPadBottom"] + inset < m["height"]:
                         problems.append(
                             f"main padding {m['mainPadBottom']}+{inset} < bottom nav {m['height']} ({label})"
