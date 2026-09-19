@@ -20,7 +20,8 @@ Asserts INVARIANTS, never pixels (the font is the host's fallback):
     Chrome resolves env(safe-area-inset-bottom) to 0) and with a 34px inset
     EMULATED by setting the bar's padding-bottom inline (the iPhone home
     indicator's value). A real device's env() is not measured here.
-  One navbar, one rule (three personas: member, pure teacher, admin):
+  One navbar, one rule (three personas: member, pure teacher, admin; one page
+  per section door, so every ICON_NAV_ITEMS / MAIN_NAV_ITEMS key is exercised):
   - below sm the bottom nav renders for EVERY role with exactly four tabs
   - exactly one global item is lit on the visible chrome surface (centre links
     at sm+, bottom tabs below), keyed by section: Tasks+ on every Tasks+ page,
@@ -56,11 +57,13 @@ from starlette.testclient import TestClient
 
 from core.utils.auth_context import AuthState
 from core.utils.result_simplified import Result
+from scripts.smoke_test import find_chrome
 
 OUT = Path(sys.argv[1] if len(sys.argv) > 1 else "/tmp/chrome_gate")
 OUT.mkdir(parents=True, exist_ok=True)
 STATIC = (APP_ROOT / "static").as_uri() + "/"
 WIDTHS = (320, 375, 640, 768, 1440)
+CHROME = find_chrome()  # CHROME_BIN, then google-chrome-stable / google-chrome / chromium
 
 app, rt = fast_app(pico=False, default_hdrs=False)
 
@@ -114,6 +117,7 @@ orch.get_student_exchange_summaries = AsyncMock(
     return_value=Result.ok({"exercises": [], "other_feedback": []})
 )
 orch.get_activity_report_history = AsyncMock(return_value=Result.ok([]))
+orch.list_exercise_entries = AsyncMock(return_value=Result.ok([]))  # /submissions/history
 kw = {p: MagicMock() for p in params}
 kw["orchestrator"] = orch
 ue.create_user_entry_ui_routes(app, rt, **kw)
@@ -173,6 +177,28 @@ admin_orch.user_service.get_user = AsyncMock(return_value=Result.ok(admin_user))
 admin_orch.get_system_status = AsyncMock(return_value={"status": "healthy", "healthy": True})
 adu.create_admin_dashboard_routes(app, rt, admin_orch, MagicMock())
 
+# The other three section landings' pages, so every ICON_NAV_ITEMS door is
+# rendered lit by its own section key: /library/exercises (Library sidebar,
+# key "library" — the door's page_keys set), /path-steps (no sidebar, key
+# "path-steps"), /submissions/history (Submissions sidebar, above).
+import adapters.inbound.library_ui as lu
+import adapters.inbound.path_steps_ui as psu
+
+lu.require_authenticated_user = fake_user
+lib_orch = MagicMock()
+lib_orch.get_student_exercises_with_status = AsyncMock(return_value=Result.ok([]))
+lu.create_library_ui_routes(app, rt, lib_orch)
+psu.create_path_steps_ui_routes(app, rt, MagicMock())
+
+# /teaching/students — the Teaching door's landing, a @require_role route:
+# the teacher and admin personas render it (the gate's user service answers
+# with a user whose has_permission grants every role).
+import adapters.inbound.teaching_ui as teu
+
+teach_user_service = MagicMock()
+teach_user_service.get_user = AsyncMock(return_value=Result.ok(admin_user))
+teu.create_teaching_ui_routes(app, rt, MagicMock(), teach_user_service)
+
 # /profile/shared — the one route left under the retired hub's prefix; it
 # lights the inbox icon and nothing else. /profile itself is a 404, no redirect.
 import adapters.inbound.user_profile_ui as pu
@@ -190,13 +216,18 @@ PAGES = {
     "gradebook": "/gradebook",
     "cal_week": f"/cal/week/{today.isoformat()}",
     "cal_month": f"/cal/month/{today.year}/{today.month}",
+    "library": "/library/exercises",
+    "path_steps": "/path-steps",
+    "submissions": "/submissions/history",
     "settings": "/settings",
+    "teaching": "/teaching/students",
     "admin": "/admin",
     "shared": "/profile/shared",
 }
-# Which persona renders which page. Every Tasks+ page is rendered as a member;
-# the teacher and admin personas render the landing, /settings (their role
-# rows) and, for the admin, the real /admin route.
+# Which persona renders which page. The member renders every Tasks+ page and
+# one page of each of the other three section doors; the teacher and admin
+# personas render the landing, /settings (their role rows) and their own
+# role door's landing.
 PERSONA_PAGES = {
     "member": [
         "today",
@@ -205,13 +236,26 @@ PERSONA_PAGES = {
         "gradebook",
         "cal_week",
         "cal_month",
+        "library",
+        "path_steps",
+        "submissions",
         "settings",
         "shared",
     ],
-    "teacher": ["today", "settings"],
-    "admin": ["today", "settings", "admin"],
+    "teacher": ["today", "settings", "teaching"],
+    "admin": ["today", "settings", "teaching", "admin"],
 }
 TASKS_PLUS = {"today", "tasks", "events", "gradebook", "cal_week", "cal_month"}
+# Which global door each non-Tasks+ page lights (the section key → door href).
+SECTION_DOOR = {
+    "library": "/explore/library",
+    "path_steps": "/path-steps",
+    "submissions": "/submissions",
+    "teaching": "/teaching/students",
+    "admin": "/admin",
+}
+# Pages that render under no sidebar at all (BasePage, no section nav).
+NO_SIDEBAR = {"settings", "shared", "path_steps"}
 
 GATE_JS = """
 <script>
@@ -372,7 +416,7 @@ ICON_DOORS = ["/today", "/explore/library", "/path-steps", "/submissions"]
 
 for name, html_path in rendered.items():
     persona, page = name.split("_", 1)
-    is_sidebar_page = page not in ("settings", "shared")
+    is_sidebar_page = page not in NO_SIDEBAR
     for w in WIDTHS:
         png = OUT / f"{name}_{w}.png"
         target = html_path
@@ -380,7 +424,7 @@ for name, html_path in rendered.items():
             target = OUT / f"{name}_{w}_frame.html"
             target.write_text(FRAME.format(w=w, src=html_path.name))
         base = [
-            "google-chrome",
+            CHROME,
             "--headless=new",
             "--no-sandbox",
             "--hide-scrollbars",
@@ -472,7 +516,7 @@ for name, html_path in rendered.items():
         expected_lit = (
             ["/today"]
             if page in TASKS_PLUS
-            else ([] if page in ("settings", "shared") else ["/admin"])
+            else ([SECTION_DOOR[page]] if page in SECTION_DOOR else [])
         )
         expected_icon_lit = {"settings": ["/settings"], "shared": ["/profile/shared"]}.get(page, [])
         if w >= 640 and res["centreLit"] != [h for h in expected_lit if h in expected_centre]:

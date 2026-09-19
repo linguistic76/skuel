@@ -17,8 +17,13 @@ in those docs; this file holds the measurements, the rulings overturned and the 
 **Owner:** Mike. **Rulings (2026-09-19):** Mike accepted every recommendation in §4, D1 included — the Calendar icon goes, "Tasks+" is the centre link and the bottom tab. Each PR runs in a fresh context.
 **Ledger:** PR 1 — MERGED #1373 (2026-09-19). PR 2 — MERGED #1374 (2026-09-19). PR 3 — MERGED #1375 (2026-09-19). PR 4 — MERGED #1376 (2026-09-19). PR 5 — MERGED #1377 (2026-09-19). PR 6 — MERGED #1378 (2026-09-19). Arc CLOSED.
 **Amendments from PR 6 (docs closure):** the chrome gate graduated with this record — it is `scripts/chrome_gate.py`
-(paths derived from `__file__`; 65 checks + the `GET /profile` 404 probe; GREEN before and after, no `static/` change,
-`CACHE_VERSION` stays v15). `HUB_PAGES.md` rewritten around the section/chrome rule (§3.5's last line); the
+(paths derived from `__file__`, Chrome resolved through `scripts/smoke_test.find_chrome`; GREEN before and after, no
+`static/` change, `CACHE_VERSION` stays v15). Codex's review of the move found the instrument soft in four places and
+narrow in one — a raising route was printed and dropped (GREEN with a page missing), a missing `aria-current` skipped
+the geometry check instead of failing, the emulated-inset arithmetic assumed main declares the `env()` term, and only
+Tasks+ pages were rendered, so a Library/PathSteps/Submissions/Teaching key regression could not fail it. Each was
+proven by fault injection, then fixed: 65 checks + the 404 probe on `main` → **90 checks + the probe** after, every
+`ICON_NAV_ITEMS` and `MAIN_NAV_ITEMS` door rendered lit by its own section key. `HUB_PAGES.md` rewritten around the section/chrome rule (§3.5's last line); the
 navbar's 28-entry "Evolution" changelog in `UI_COMPONENT_PATTERNS.md` and its "Legacy Pattern Removal" section
 deleted in favour of one present-tense chrome description that points here; `ROUTE_MAP.md`'s `/home`, `/profile`
 and `/ku` sections replaced by "The Tasks+ section" (there is no `/ku` route — the `ku_ui.py` log line that claimed
@@ -443,7 +448,8 @@ The verdict and critic JSON are gitignored scratch; this section is their record
   the admin sidebar page, mocked services, rendered in headless Chrome at 320/375/768/1440 — phone widths through an
   iframe, because headless Chrome clamps its window to 500px — asserting `scrollWidth == clientWidth`, the
   `[aria-current]` link inside the row, the right half hidden/visible per breakpoint, and zero `help-circle` fallback
-  icons, three personas (member, teacher, admin) at 320/375/640/768/1440, and a `GET /profile` → 404 probe.
+  icons, one page per section door (`/library/exercises`, `/path-steps`, `/submissions/history`, `/teaching/students`),
+  three personas (member, teacher, admin) at 320/375/640/768/1440, and a `GET /profile` → 404 probe.
   `uv run python scripts/chrome_gate.py <out_dir>` — exit 0 = green. Every later chrome PR runs it BEFORE and AFTER.
 - Real-device unknowns until the DigitalOcean unpark: safe-area behaviour, `100vh` in standalone mode, scroll
   restoration on back, every screen-reader announcement (inferred from role semantics, not recorded).
