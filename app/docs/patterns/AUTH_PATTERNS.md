@@ -1,6 +1,6 @@
 ---
 title: Authentication Patterns in SKUEL
-updated: '2026-09-17'
+updated: '2026-09-19'
 category: patterns
 related_skills: [security]
 related_docs: []
@@ -366,11 +366,14 @@ async def library_page(request: Request) -> Any:
 
 ### What the Navbar Shows
 
-| User State | Left Section | Center | Right Section |
-|------------|--------------|--------|---------------|
-| Unauthenticated | Icon links | None | Login / Sign Up |
-| Authenticated (Regular) | Avatar + Icon links | Teaching (if teacher) | Search + Notifications |
-| Authenticated (Admin) | SKUEL logo (→ `/`) | None | Avatar (→ `/`) + Sign out |
+One navbar for every role (`ui/layouts/navbar.py`); what changes by auth state is which doors render:
+
+| User State | Left | Centre (sm+) | Right | Bottom nav (<sm) |
+|------------|------|--------------|-------|------------------|
+| Unauthenticated | SKUEL (→ `/`) | Library, PathSteps | Login / Sign Up | Library, PathSteps |
+| Authenticated (any role) | SKUEL (→ `/explore`) | Tasks+, Library, PathSteps, Submissions | Askesis, Shared-inbox, Bell, Avatar (→ `/settings`), Sign out (sm+) | the same four tabs |
+| + Teacher | | + Teaching (lg+) | | (Teaching is a `/settings` row below lg) |
+| + Admin | | + Teaching, Admin (lg+) | | (both are `/settings` rows below lg) |
 
 ### Files Reference
 
