@@ -43,13 +43,13 @@ per One Path Forward). Not a hub dependency; the `/profile` retirement created n
 by their own tests). PR 5 orphaned three more and ruled a token deletion worthless — the module wants one census PR:
 keep what a route or view calls, delete the rest with their tests.
 
-## 4. `ui/patterns/tabs.py` — extract the one correct tabs widget
+## 4. `ui/patterns/tabs.py` <!-- planned --> — extract the one correct tabs widget
 
 Two live same-page switchers are tabs widgets and neither is right: the teaching student-detail page's rows
 (`alpine_section_renderer` / `alpine_mobile_section_renderer`, `ui/patterns/sidebar.py`) render `role="tab"` with
 `@click` and no keyboard path; `/groups` (`ui/groups/hub.py`) has a roving-tabindex widget whose tab bar is an inline
 `display:flex; width:100%` with no overflow rule — bounded at `MAX_STUDENT_GROUPS = 4`, so it does not overflow
-today. **Build:** one WAI-ARIA tab bar in `ui/patterns/tabs.py` — buttons, `aria-controls`, roving tabindex, arrow
+today. **Build:** one WAI-ARIA tab bar in `ui/patterns/tabs.py` <!-- planned --> — buttons, `aria-controls`, roving tabindex, arrow
 keys, `overflow-x-auto` + `shrink-0` — adopted by BOTH consumers. Mike sees the 1440 snapshot first.
 
 ## 5. `SidebarItem.group` + desktop dividers

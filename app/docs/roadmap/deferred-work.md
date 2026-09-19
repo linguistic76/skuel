@@ -173,7 +173,7 @@ renders them as a table in Obsidian, and a session derives the same table with
 
 ## Tasks+ / One-Chrome Follow-ons
 
-[Tasks+ / One-Chrome Follow-ons — Explore's Phone Form, the Doorless Census, the Tabs Widget, Three Small Rulings](tasks-plus-follow-ons.md) — What the one-chrome arc left outside itself by ruling: Explore's phone form + the MOC-roots question (D5), the ten doorless surfaces (D8), the `ui/enum_helpers.py` census, the `ui/patterns/tabs.py` extraction for both same-page switchers, sidebar group dividers, the "Transcribe" rename (D7) and PWA first-run — each its own PR, each waiting on a ruling or a first snapshot.
+[Tasks+ / One-Chrome Follow-ons — Explore's Phone Form, the Doorless Census, the Tabs Widget, Three Small Rulings](tasks-plus-follow-ons.md) — What the one-chrome arc left outside itself by ruling: Explore's phone form + the MOC-roots question (D5), the ten doorless surfaces (D8), the `ui/enum_helpers.py` census, the `ui/patterns/tabs.py` <!-- planned --> extraction for both same-page switchers, sidebar group dividers, the "Transcribe" rename (D7) and PWA first-run — each its own PR, each waiting on a ruling or a first snapshot.
 
 ## Ingest Transition Obligation Durability
 
