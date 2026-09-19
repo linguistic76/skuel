@@ -32,6 +32,9 @@ def Icon(name: str, cls: str = "", size: int = 16, **kwargs: Any) -> Any:
         **kwargs: Extra HTML attributes, rendered as ``key="value"`` on the <svg>.
     """
     inner = ICON_PATHS.get(name) or ICON_PATHS[_FALLBACK]
+    # Decorative by default; a caller's explicit aria_hidden replaces it, so the
+    # attribute is emitted exactly once.
+    kwargs.setdefault("aria_hidden", "true")
     classes = _cls(cls)
     class_attr = f' class="{classes}"' if classes else ""
     extra = "".join(f' {k.replace("_", "-")}="{v}"' for k, v in kwargs.items())
@@ -40,5 +43,5 @@ def Icon(name: str, cls: str = "", size: int = 16, **kwargs: Any) -> Any:
     return NotStr(
         f'<svg{class_attr} width="{size}" height="{size}" viewBox="0 0 24 24" '
         f'fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" '
-        f'stroke-linejoin="round" aria-hidden="true"{extra}>{inner}</svg>'
+        f'stroke-linejoin="round"{extra}>{inner}</svg>'
     )

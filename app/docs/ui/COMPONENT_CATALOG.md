@@ -1,5 +1,5 @@
 ---
-updated: 2026-09-02
+updated: 2026-09-19
 ---
 
 # SKUEL UI Component Catalog
@@ -57,7 +57,7 @@ These are the **lowest-level SKUEL building blocks** — imported directly in ro
 
 | Module | Symbols |
 |--------|---------|
-| `ui.components` | The unified import surface — re-exports Button/ButtonT, Card*, forms, feedback, layout, data, Icon, TabContainer, Accordion, Divider |
+| `ui.components` | The unified import surface — re-exports Button/ButtonT, Card*, forms, feedback, layout, data, Icon, Accordion, Divider |
 | `ui.primitives` | `icon_tile`, `section_label`, `primary_btn`, `card_row`, `ButtonLink`, `SelectableOptionRow`, `dropdown_menu`, `dropdown_separator`, `UploadDropzone`, `SelectedFileCard` |
 | `ui.layout` | `Size`, `DivHStacked`, `DivVStacked`, `DivFullySpaced`, `DivCentered`, `Grid`, `Container` |
 | `ui.forms` | `Input`, `Select`, `Textarea`, `Checkbox`, `Radio`, `Toggle`, `Range`, `LabelInput`, `LabelTextArea`, `LabelSelect`, `LabelCheckbox` |
@@ -1178,9 +1178,9 @@ Unified sidebar component for all sidebar pages (Activity Domains, Explore, Grad
 
 **Functions:**
 - `SidebarPage(content, items, active, title, storage_key, request, ...)` - Full page with sidebar
-- `SidebarNav(items, active, title, ...)` - Sidebar + mobile tabs (no BasePage wrapper)
+- `SidebarNav(items, active, title, ...)` - Desktop sidebar + the below-lg section nav (no BasePage wrapper)
 - `alpine_section_renderer(state_var)` - Factory for Alpine-driven sidebar items (instant switching, no page navigation)
-- `alpine_mobile_section_renderer(state_var)` - Same for mobile horizontal tabs
+- `alpine_mobile_section_renderer(state_var)` - Same for the below-lg row (returns a `role="tab"` item; the row becomes a `tablist`)
 
 **Dataclass:**
 - `SidebarItem(label, href, slug, icon, description, badge_text, ...)`
@@ -1189,7 +1189,7 @@ Unified sidebar component for all sidebar pages (Activity Domains, Explore, Grad
 - `title_prefix` - Element before sidebar title (e.g. back arrow)
 - `title_icon` - Lucide icon name replacing the text title (e.g. `"graduation-cap"` for Teaching sidebar)
 - `alpine_state` - Shared Alpine x-data on wrapper for sidebar + content communication
-- `mobile_item_renderer` - Custom renderer for mobile tabs
+- `mobile_item_renderer` - Custom renderer for the below-lg row: same-page tabs, so the row is a `tablist` of what it returns (no nav list, no centring script)
 - `item_renderer` - Custom renderer for desktop sidebar items
 
 **See:** `@skuel-ui` Pattern 5 for Alpine section renderer guide

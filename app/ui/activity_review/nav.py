@@ -10,8 +10,8 @@ if TYPE_CHECKING:
     from adapters.inbound.fasthtml_types import Request
 
 ACTIVITY_REVIEW_SIDEBAR_ITEMS = [
-    SidebarItem("Queue", "/activity-review/queue", "queue", icon="\U0001f4cb"),
-    SidebarItem("New Review", "/activity-review/new", "new", icon="\u270d\ufe0f"),
+    SidebarItem("Queue", "/activity-review/queue", "queue", icon="clipboard-list"),
+    SidebarItem("New Review", "/activity-review/new", "new", icon="pen-line"),
 ]
 
 

@@ -1,6 +1,6 @@
 ---
 title: "ADR-071: SKUEL-Owned Tailwind Component Layer"
-updated: 2026-09-17
+updated: 2026-09-19
 status: implemented
 category: decisions
 tags: [adr, decisions, ui, tailwind, alpine, components]
@@ -115,7 +115,6 @@ ui/components/
     form.py          — Input, TextArea, Select, Label, LabelInput, LabelTextArea, ...
     divider.py       — Divider
     table.py         — Table, TableFromLists, TableFromDicts, Td, Th, Tbody, TableT
-    nav.py           — TabContainer
     accordion.py     — Accordion, AccordionItem (Alpine.js-driven, no UIkit)
     layout.py        — DivFullySpaced, DivCentered, Center (the 3 MonsterUI re-exports)
 ```

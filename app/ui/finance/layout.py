@@ -14,7 +14,7 @@ if TYPE_CHECKING:
 
 
 FINANCE_SIDEBAR_ITEMS: list[SidebarItem] = [
-    SidebarItem("Invoices", "/finance/invoices", "invoices", icon="📄"),
+    SidebarItem("Invoices", "/finance/invoices", "invoices", icon="receipt"),
 ]
 
 

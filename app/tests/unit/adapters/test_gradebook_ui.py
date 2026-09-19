@@ -100,6 +100,6 @@ async def test_the_activity_report_request_is_the_header_action_not_a_sidebar_ro
 
     assert "Request activity report" in html
     assert len(_anchors_to(html, "/submit-activity-report")) == 1
-    # No sidebar item (desktop <li> or mobile tab) points at the request form.
+    # No sidebar item points at the request form — the desktop sidebar and the
+    # section nav are both lists, so one shape covers both rows.
     assert not re.search(r'<li[^>]*>\s*<a[^>]*href="/submit-activity-report"', html)
-    assert not re.search(r'<a[^>]*href="/submit-activity-report"[^>]*role="tab"', html)

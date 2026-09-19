@@ -30,7 +30,6 @@ from ui.components.form import (
 )
 from ui.components.icon import Icon
 from ui.components.layout import Center, DivCentered, DivFullySpaced
-from ui.components.nav import TabContainer
 from ui.components.table import (
     Table,
     TableFromDicts,
@@ -86,7 +85,6 @@ __all__ = [
     "DivCentered",
     "DivFullySpaced",
     # Nav
-    "TabContainer",
     # Table
     "Table",
     "TableFromDicts",
