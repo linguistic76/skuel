@@ -324,7 +324,6 @@ def test_validate_task_form_data_missing_title():
 - `/adapters/inbound/user_entry_ui.py` - HTMX fragments: journal loading, download auth, file-not-found, submission history (unified submissions + journals surface, ADR-054)
 - `/adapters/inbound/exercises_ui.py` - `render_error_banner()` for dashboard, `render_inline_error()` for edit/view
 - `/adapters/inbound/habits_ui.py` - `render_inline_error()` for completion, patterns, goal analytics
-- `/adapters/inbound/ku_ui.py` - Error state vs empty state distinction
 - `/adapters/inbound/admin_dashboard_ui.py` - `render_error_banner()` for user-not-found, warning severity for partial failures
 - `/adapters/inbound/insights_ui.py` - Error state with load-more pagination
 - `/ui/analytics/life_path.py` - `EmptyState` for no Life Path; `/ui/analytics/life_summary.py` - `EmptyState` for no weekly data (delegated from `analytics_ui.py`)
@@ -369,7 +368,7 @@ def test_validate_task_form_data_missing_title():
 - ✅ Exercises (`exercises_ui.py`) — `render_error_banner()` for dashboard; `render_inline_error()` for edit/view not-found
 - ✅ Habits (`habits_ui.py`) — `render_inline_error()` for completion, pattern analysis, goal system/velocity/impact
 - ✅ Goals (`goals_ui.py`) — `render_error_banner()` for full-page not-found
-- ✅ KU (`ku_ui.py`) — error banner on Ku list failure, logging for bookmark failures
+- ✅ KU (`ku_ui.py`) — the two learning-state POSTs return the unchanged buttons on a failed `Result` (HTMX swap keeps the page consistent)
 - ✅ Admin (`admin_dashboard_ui.py`) — `render_error_banner()` for user-not-found; warning banners for stats, system status
 - ✅ Insights (`insights_ui.py`) — error banner on insights/stats load failure, load-more endpoint
 - ✅ Finance (`finance_ui.py`) — typed context methods with Result[TypedDict]

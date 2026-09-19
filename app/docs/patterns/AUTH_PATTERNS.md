@@ -64,7 +64,7 @@ if user_uid:
 user_uid = require_authenticated_user(request)  # ← do not use for SHARED pages
 ```
 
-The `/ku` index established this pattern (line 470 in `ku_ui.py`); all other SHARED content pages follow it.
+The Ku reading page (`/explore/ku/{uid}`, `learning_loop_routes.py`) and `/path-steps` (`path_steps_ui.py`) are the live instances; every other SHARED content page follows them.
 
 ## The UserUID Type
 
