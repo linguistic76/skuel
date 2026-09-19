@@ -1,5 +1,5 @@
 ---
-updated: 2026-09-18
+updated: 2026-09-19
 ---
 
 # Route Map
@@ -82,7 +82,7 @@ Both live in `ui/patterns/personal_header.py`.
 
 ### `/profile` — Personal Overview Hub
 
-Four tabs selected by `?tab=` (default `activities`), mirroring the loop (live it / study / submit / grade): **Activities** (6 Activity Domain accordion blocks, previews from `/api/profile/{slug}/preview`; Tasks section open on load), **Curriculum** (former Library blocks), **Submissions** (4 link buttons mirroring the `/submissions` sidebar — Sync, Exercises, Journals, History), **Reports** (former GradeBook blocks). Tab view in `ui/profile/hub.py`. Activity sidebar (one list — Today / Weekly / Monthly, the domain rows with their badges, Journal, GradeBook (`/gradebook`, feedback received) — shared across `/tasks`, `/goals`, `/habits`, `/choices`, `/principles`, the periodic notes (`/journals/{entry_uid}` — the Journal row opens today's daily note via `/journals/daily`), the calendar views (`/cal`, month/week), `/today` and the GradeBook surfaces (`/gradebook`, its detail pages and the `/submit-activity-report` form — GradeBook row lit)) links back to `/profile`. Each calendar view renders its declared membership (`VIEW_SPECS`): the month shows events alone; the week adds habits, goal milestones and high-priority tasks, with the kind legend as filter.
+Four tabs selected by `?tab=` (default `activities`), mirroring the loop (live it / study / submit / grade): **Activities** (6 Activity Domain accordion blocks, previews from `/api/profile/{slug}/preview`; Tasks section open on load), **Curriculum** (former Library blocks), **Submissions** (4 link buttons mirroring the `/submissions` sidebar — Sync, Exercises, Journals, History), **Reports** (former GradeBook blocks). Tab view in `ui/profile/hub.py`. Activity sidebar (one list — Today / Weekly / Monthly, the six domain rows with their badges (loaded once the desktop sidebar is on screen; never on phones), Journal, GradeBook (`/gradebook`, feedback received) — shared across `/tasks`, `/goals`, `/habits`, `/events`, `/choices`, `/principles`, the periodic notes (`/journals/{entry_uid}` — the Journal row opens today's daily note via `/journals/daily`), the calendar views (`/cal`, month/week), `/today` and the GradeBook surfaces (`/gradebook`, its detail pages and the `/submit-activity-report` form — GradeBook row lit)) links back to `/profile`. Each calendar view renders its declared membership (`VIEW_SPECS`): the month shows events alone; the week adds habits, goal milestones and high-priority tasks, with the kind legend as filter.
 
 ### `/profile/shared` — Shared With Me
 

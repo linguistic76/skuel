@@ -56,7 +56,7 @@ Each Activities/Curriculum/Reports section is a `HubAccordionBlock`:
 
 ## Configuration-Driven Domain Statistics
 
-Used by the `/api/sidebar/badges` endpoint (not by the hub view itself).
+Used by the `/api/sidebar/badges` endpoint (not by the hub view itself), which emits one badge per Tasks+ row with a config — `ACTIVITY_SIDEBAR_ITEMS ∩ DOMAIN_STATS_CONFIG`.
 
 ```python
 # /ui/profile/domain_stats_config.py

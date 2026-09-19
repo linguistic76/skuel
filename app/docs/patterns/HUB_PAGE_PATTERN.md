@@ -1,6 +1,6 @@
 ---
 title: "Pattern: Hub Page (MOC) Implementation"
-updated: 2026-09-18
+updated: 2026-09-19
 status: current
 category: patterns
 tags: [ui, navigation, moc, hub, cards]
@@ -200,7 +200,7 @@ HTMX matches each response fragment to its page target by `id` and swaps them in
 
 **Two established examples:**
 
-1. **Sidebar badges** (`user_profile_ui.py:363`) — `GET /api/sidebar/badges` returns 9 badge spans (activity + curriculum domains) as OOB swaps. The sidebar renders each badge placeholder with its `id`; a single hidden trigger on the sidebar fires once on load.
+1. **Sidebar badges** (`user_profile_ui.py`) — `GET /api/sidebar/badges` returns one badge span per Tasks+ domain row (`ACTIVITY_SIDEBAR_ITEMS ∩ DOMAIN_STATS_CONFIG`, six today) as OOB swaps. Only the Tasks+ sidebar (`SidebarPage(badges=True)`) renders the `sidebar-badge-{slug}` slots and carries the trigger, which fires once the desktop sidebar is on screen (`intersect once`) — a phone, where the sidebar is `display:none`, makes no request.
 
 2. **StudentHub submission blocks** (`teaching_ui.py`) — `GET /api/teaching/students/{uid}/submissions/preview` returns 3 bucket previews (pending, revision, completed) as OOB swaps. One orchestrator fetch, three panels populated. Bucketing logic lives in `TeacherOrchestrator.get_bucketed_student_submissions()` — Needs Review AND Revision Requested are each the student-scoped review queue (default statuses vs `revision_requested` — one collapse rule, two surfaces), never raw status reads; anything both queues omit is history.
 

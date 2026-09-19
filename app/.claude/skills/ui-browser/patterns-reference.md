@@ -126,10 +126,12 @@ async def sidebar_badges(request):
 Span(id="sidebar-badge-tasks"),    # passive — waits for OOB
 Span(id="sidebar-badge-goals"),    # passive — waits for OOB
 
-# Hidden trigger — fires once on load, main swap is discarded
+# Hidden trigger — fires once the element is on screen, main swap is discarded
+# (`intersect once`: a display:none element never intersects, so a sidebar
+# hidden below lg never pays for the request; `load` would fire regardless)
 Div(
     hx_get="/api/sidebar/badges",
-    hx_trigger="load",
+    hx_trigger="intersect once",
     hx_swap="none",   # ← critical: trigger div has no content to swap
 )
 ```
@@ -184,7 +186,7 @@ Network tab before/after on `/teaching/students/{uid}`:
 
 | Location | Endpoint | OOB count | What it updates |
 |----------|----------|-----------|-----------------|
-| `user_profile_ui.py:363` | `GET /api/sidebar/badges` | 9 | Sidebar count+health badges |
+| `user_profile_ui.py` | `GET /api/sidebar/badges` | 6 | Tasks+ sidebar count+health badges (opt-in, `intersect once`) |
 | `teaching_ui.py` | `GET /api/teaching/students/{uid}/submissions/preview` | 3 | StudentHub submission buckets |
 
 #### Implementation checklist

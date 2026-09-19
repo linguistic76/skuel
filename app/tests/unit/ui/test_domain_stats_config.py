@@ -23,9 +23,6 @@ from ui.profile.domain_stats_config import (
     habits_active,
     habits_count,
     habits_status_args,
-    knowledge_active,
-    knowledge_count,
-    knowledge_status,
     principles_active,
     principles_count,
     principles_status_args,
@@ -76,13 +73,6 @@ def mock_context() -> RichUserContext:
     # Choices
     context.pending_choice_uids = ["choice_1", "choice_2"]
     context.resolved_choice_uids = {"choice_3"}
-
-    # Curriculum
-    context.mastered_knowledge_uids = {"ku_1", "ku_2"}
-    context.in_progress_knowledge_uids = {"ku_3"}
-    context.ready_to_learn_uids = {"ku_4", "ku_5"}
-    context.prerequisites_needed = {"ku_6": []}
-    context.enrolled_path_uids = ["lp_1"]
 
     return context
 
@@ -247,41 +237,6 @@ def test_choices_config() -> None:
     """Test choices configuration exists and has correct structure."""
     config = DOMAIN_STATS_CONFIG.get("choices")
     assert config is not None
-
-
-# ============================================================================
-# LEARNING DOMAIN TESTS
-# ============================================================================
-
-
-def test_knowledge_count(mock_context: UserContext) -> None:
-    """Test knowledge count calculation (mastered + in_progress + ready)."""
-    assert knowledge_count(mock_context) == 5  # 2 mastered + 1 in_progress + 2 ready
-
-
-def test_knowledge_active(mock_context: UserContext) -> None:
-    """Test knowledge active count calculation (in_progress)."""
-    assert knowledge_active(mock_context) == 1  # 1 in_progress
-
-
-def test_knowledge_status_warning(mock_context: UserContext) -> None:
-    """Test knowledge status calculation with some blocking."""
-    # 1 blocked, 2 mastered + 1 in_progress: 1 > 3*0.5=1.5 is False, but blocked > 0 = warning
-    status = knowledge_status(mock_context)
-    assert status == "warning"
-
-
-def test_knowledge_status_no_enrolled_paths() -> None:
-    """Test knowledge status with no enrolled paths."""
-    context = UserContext(
-        user_uid="user_test",
-        username="test",
-    )
-    context.prerequisites_needed = {"ku_1": [], "ku_2": []}
-    context.enrolled_path_uids = []
-
-    status = knowledge_status(context)
-    assert status == "warning"  # Blocked but no enrolled paths = warning
 
 
 # ============================================================================

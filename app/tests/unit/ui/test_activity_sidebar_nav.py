@@ -18,6 +18,7 @@ from ui.activities.nav import (
     render_activity_sidebar_error,
     render_activity_sidebar_page,
 )
+from ui.components._icon_data import ICON_PATHS
 
 
 def test_the_journal_row_opens_todays_daily_note_through_the_dateless_door() -> None:
@@ -59,3 +60,20 @@ def test_the_error_page_names_its_tab_like_any_other_sidebar_page() -> None:
     assert "<title>GradeBook - SKUEL</title>" in xml
     assert "Report not found" in xml
     assert re.search(rf"<h3[^>]*>{re.escape(ACTIVITY_SIDEBAR_TITLE)}</h3>", xml)
+
+
+def test_the_events_row_follows_habits_and_carries_a_registered_icon() -> None:
+    slugs = [item.slug for item in ACTIVITY_SIDEBAR_ITEMS]
+    events = ACTIVITY_SIDEBAR_ITEMS[slugs.index("events")]
+
+    assert slugs.index("events") == slugs.index("habits") + 1
+    assert events.href == "/events"
+    assert events.label == "Events"
+    assert events.icon in ICON_PATHS  # a lucide name — an unregistered one renders help-circle
+
+
+def test_the_events_pages_light_their_own_row() -> None:
+    xml = to_xml(render_activity_sidebar_page(Div("x"), active="events"))
+
+    assert re.search(r'<a href="/events"[^>]*aria-current="page"', xml)
+    assert not re.search(r'<a href="/cal/month"[^>]*aria-current="page"', xml)

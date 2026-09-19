@@ -32,24 +32,14 @@ from core.models.type_hints import UserUID
 if TYPE_CHECKING:
     from services_bootstrap import Services
 
-from adapters.inbound.auth import is_authenticated, require_authenticated_user
+from adapters.inbound.auth import require_authenticated_user
 from adapters.inbound.fasthtml_types import Request
 from core.services.user.unified_user_context import RichUserContext
 from core.utils.logging import get_logger
 from ui.activities.hub import render_domain_card_preview
+from ui.activities.nav import ACTIVITY_SIDEBAR_ITEMS
 from ui.layouts.base_page import BasePage
-from ui.profile.domain_stats_config import (
-    DOMAIN_STATS_CONFIG,
-    knowledge_active,
-    knowledge_count,
-    knowledge_status,
-    learning_paths_active,
-    learning_paths_count,
-    learning_paths_status,
-    path_steps_active,
-    path_steps_count,
-    path_steps_status,
-)
+from ui.profile.domain_stats_config import DOMAIN_STATS_CONFIG
 
 logger = get_logger("skuel.routes.user_profile")
 
@@ -193,21 +183,19 @@ def setup_user_profile_routes(rt: Any, services: Services) -> None:
 
     @rt("/api/sidebar/badges")
     async def sidebar_badges(request: Request) -> Any:
-        """HTMX OOB-swap endpoint: async-loaded count + status badges for sidebar items.
+        """HTMX OOB-swap endpoint: the Tasks+ sidebar's count + health badges.
 
-        Returns Span elements with hx-swap-oob="true" that replace the
-        `sidebar-badge-{slug}` placeholders rendered by `_default_item_renderer`.
+        One fragment per Tasks+ row that has a stats config — exactly
+        ``ACTIVITY_SIDEBAR_ITEMS ∩ DOMAIN_STATS_CONFIG`` — each an OOB
+        ``sidebar-badge-{slug}`` span replacing the slot the sidebar rendered.
+        Only the Tasks+ sidebar (``badges=True``) requests this, once its
+        desktop sidebar is on screen; the whole user context is built for it,
+        so nothing is emitted that no row would swap in.
         """
         from fasthtml.common import Span
 
         from ui.profile.badges import CountBadge, HealthIndicator
 
-        # Anonymous gets an empty fragment, not a 401: this loader fires on
-        # every sidebar page (hx-trigger="load", hx-swap="none"), and the
-        # global htmx 401 handler would bounce anonymous visitors to /login —
-        # killing anonymous surfaces like the /explore/library catalog browse.
-        if not is_authenticated(request):
-            return Div()
         user_uid = require_authenticated_user(request)
 
         try:
@@ -217,9 +205,10 @@ def setup_user_profile_routes(rt: Any, services: Services) -> None:
             return Div()
 
         fragments: list[Any] = []
-
-        # Activity domain badges
-        for slug, config in DOMAIN_STATS_CONFIG.items():
+        for item in ACTIVITY_SIDEBAR_ITEMS:
+            config = DOMAIN_STATS_CONFIG.get(item.slug)
+            if config is None:
+                continue
             count = config.count_fn(context)
             active = config.active_fn(context)
             status_args = config.status_args_fn(context)
@@ -229,39 +218,7 @@ def setup_user_profile_routes(rt: Any, services: Services) -> None:
                 Span(
                     CountBadge(count, active),
                     HealthIndicator(status),
-                    id=f"sidebar-badge-{slug}",
-                    hx_swap_oob="true",
-                    cls="flex items-center gap-1",
-                )
-            )
-
-        # Curriculum badges
-        curriculum_configs: list[tuple[str, int, int, str]] = [
-            (
-                "knowledge",
-                knowledge_count(context),
-                knowledge_active(context),
-                knowledge_status(context),
-            ),
-            (
-                "path-steps",
-                path_steps_count(context),
-                path_steps_active(context),
-                path_steps_status(context),
-            ),
-            (
-                "learning-paths",
-                learning_paths_count(context),
-                learning_paths_active(context),
-                learning_paths_status(context),
-            ),
-        ]
-        for slug, count, active, status in curriculum_configs:
-            fragments.append(
-                Span(
-                    CountBadge(count, active),
-                    HealthIndicator(status),
-                    id=f"sidebar-badge-{slug}",
+                    id=f"sidebar-badge-{item.slug}",
                     hx_swap_oob="true",
                     cls="flex items-center gap-1",
                 )

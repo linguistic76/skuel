@@ -1,11 +1,15 @@
 """Activity Domain sidebar navigation.
 
 Renders a collapsible sidebar — the three temporal lenses (Today / Weekly /
-Monthly), the Activity Domain rows with their count and health badges, the
+Monthly), the six Activity Domain rows with their count and health badges, the
 Journal (today's daily periodic note) and the GradeBook (feedback received) —
 as ONE list on every domain page, the calendar views, Today, the periodic
 notes and the GradeBook surfaces (the page, its detail pages and the
 activity-report request form — the GradeBook has no sidebar of its own).
+
+This is the one sidebar that opts into the badge loader: its domain rows are
+the badges' targets (``ACTIVITY_SIDEBAR_ITEMS ∩ DOMAIN_STATS_CONFIG``), and the
+loader fires only once the desktop sidebar is on screen.
 
 Usage:
     from ui.activities.nav import render_activity_sidebar_page
@@ -42,6 +46,7 @@ ACTIVITY_SIDEBAR_ITEMS: list[SidebarItem] = [
     SidebarItem("Tasks", "/tasks", "tasks", icon="check-square"),
     SidebarItem("Goals", "/goals", "goals", icon="target"),
     SidebarItem("Habits", "/habits", "habits", icon="repeat"),
+    SidebarItem("Events", "/events", "events", icon="calendar"),
     SidebarItem("Principles", "/principles", "principles", icon="compass"),
     SidebarItem("Choices", "/choices", "choices", icon="git-branch"),
     # The periodic notes' door: today's daily note (find-or-create, then a
@@ -87,6 +92,7 @@ def render_activity_sidebar_page(
         active_page=active_page,
         extra_css=extra_css,
         content_max_width=content_max_width,
+        badges=True,
     )
 
 
