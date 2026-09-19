@@ -11,7 +11,7 @@ check: "the code sites named under each item still exist in the stated shape; th
 
 *Case file for the [deferred-work.md](deferred-work.md) entry of the same name; move to `done/` when nothing in it remains open.*
 
-What the Tasks+ / one-chrome arc ([`done/tasks-plus-one-chrome.md`](done/tasks-plus-one-chrome.md), #1373–#PR6NUM)
+What the Tasks+ / one-chrome arc ([`done/tasks-plus-one-chrome.md`](done/tasks-plus-one-chrome.md), #1373–#1378)
 deliberately left outside itself. Each item was priced in the review (§4 D5, D7, D8; §5 item 7) and ruled *after
 the arc, its own PR*. None blocks anything; each waits on a ruling or a first snapshot. The arc's constraints hold for
 all of them: one `SidebarPage` for every sidebar, the improvement lands in the shared component, every chrome PR runs

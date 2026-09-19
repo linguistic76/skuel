@@ -13,9 +13,9 @@ block folded in at the top. Cited by `docs/design-principles/HUB_PAGES.md`, `doc
 `docs/patterns/UI_COMPONENT_PATTERNS.md`, `docs/ui/ROUTE_MAP.md` and `scripts/chrome_gate.py`. What the app IS lives
 in those docs; this file holds the measurements, the rulings overturned and the argument.*
 
-**Status:** DONE 2026-09-19 — all six PRs merged the day after the review (#1373–#PR6NUM). This is the review's outcome (v2, 2026-09-18) with every PR's amendment block folded in; the v1 brief and the review's raw artifacts (reader maps, lensed proposals, judge/refuter/critic JSON, 320/375/1440 snapshots) are gitignored scratch and are not cited here.
+**Status:** DONE 2026-09-19 — all six PRs merged the day after the review (#1373–#1378). This is the review's outcome (v2, 2026-09-18) with every PR's amendment block folded in; the v1 brief and the review's raw artifacts (reader maps, lensed proposals, judge/refuter/critic JSON, 320/375/1440 snapshots) are gitignored scratch and are not cited here.
 **Owner:** Mike. **Rulings (2026-09-19):** Mike accepted every recommendation in §4, D1 included — the Calendar icon goes, "Tasks+" is the centre link and the bottom tab. Each PR runs in a fresh context.
-**Ledger:** PR 1 — MERGED #1373 (2026-09-19). PR 2 — MERGED #1374 (2026-09-19). PR 3 — MERGED #1375 (2026-09-19). PR 4 — MERGED #1376 (2026-09-19). PR 5 — MERGED #1377 (2026-09-19). PR 6 — MERGED #PR6NUM (2026-09-19). Arc CLOSED.
+**Ledger:** PR 1 — MERGED #1373 (2026-09-19). PR 2 — MERGED #1374 (2026-09-19). PR 3 — MERGED #1375 (2026-09-19). PR 4 — MERGED #1376 (2026-09-19). PR 5 — MERGED #1377 (2026-09-19). PR 6 — MERGED #1378 (2026-09-19). Arc CLOSED.
 **Amendments from PR 6 (docs closure):** the chrome gate graduated with this record — it is `scripts/chrome_gate.py`
 (paths derived from `__file__`; 65 checks + the `GET /profile` 404 probe; GREEN before and after, no `static/` change,
 `CACHE_VERSION` stays v15). `HUB_PAGES.md` rewritten around the section/chrome rule (§3.5's last line); the
