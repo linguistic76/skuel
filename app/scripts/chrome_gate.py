@@ -327,8 +327,10 @@ window.addEventListener('load', function () {
   function hrefs(nodes) { return Array.prototype.map.call(nodes, function (a) { return a.getAttribute('href'); }); }
   if (top) {
     r.hashLinks = top.querySelectorAll('a[href="#"]').length + (bar0 ? bar0.querySelectorAll('a[href="#"]').length : 0);
-    var row = top.firstElementChild;
-    r.topOverflow = { scroll: row.scrollWidth, client: row.clientWidth, height: top.offsetHeight };
+    // `var` is function-scoped: this is the NAVBAR's inner row, and must not
+    // reuse the section-nav `row` the containment check below measures against.
+    var barRow = top.firstElementChild;
+    r.topOverflow = { scroll: barRow.scrollWidth, client: barRow.clientWidth, height: top.offsetHeight };
     var centre = top.querySelector('div[class~="sm:flex"]');
     r.centreVisible = visible(centre);
     if (centre) {
