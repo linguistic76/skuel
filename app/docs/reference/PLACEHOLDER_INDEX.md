@@ -1,5 +1,5 @@
 ---
-updated: 2026-09-17
+updated: 2026-09-19
 ---
 
 # Placeholder Parameter Index
@@ -412,8 +412,8 @@ tree is its own definition.
 > **Settled (2026-08):** this group previously carried `ui/profile/`'s former `curriculum_views.py`
 > (`PathStepsDomainView(_context, _focus_uid)`) with an open abandoned-vs-staged question. The
 > dead-module triage ruled it abandoned — nothing imported the module, all four view functions were
-> unreached — and it was deleted per One Path Forward (`ui/profile/README.md` and the `skuel-ui`
-> skill table were updated with it).
+> unreached — and it was deleted per One Path Forward (the `skuel-ui` skill table was updated
+> with it; `ui/profile/` itself retired with the hub — only the shared-with-me view remains).
 
 ---
 

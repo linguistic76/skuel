@@ -344,7 +344,7 @@ Adopted in: calendar components, sharing modal, insight card modal.
 
 ### Tabs
 
-There is no shared tabs component — a same-page tab bar is built per page (the WAI-ARIA widget in `ui/profile/hub.py` is the reference; links that change PAGE belong in the sidebar's section nav, a `<nav>` list with `aria-current`). For dynamic tab styling, use Alpine `:style` with SKUEL's semantic CSS custom properties (defined in `static/css/input.css`) — this bypasses all CSS class compilation concerns.
+There is no shared tabs component — a same-page tab bar is built per page (the WAI-ARIA widget in `ui/groups/hub.py` is the reference; links that change PAGE belong in the sidebar's section nav, a `<nav>` list with `aria-current`). For dynamic tab styling, use Alpine `:style` with SKUEL's semantic CSS custom properties (defined in `static/css/input.css`) — this bypasses all CSS class compilation concerns.
 
 ```python
 # ✅ SKUEL tab pattern — inline styles via Alpine :style (home_hub.py canonical example)

@@ -142,7 +142,7 @@ SKUEL's CSS is compiled by the **Tailwind CLI** (`./dev css-build`) into `static
 
 `output.css` is the production CSS asset, loaded by `skuel_headers()` / `build_head()`. Run `./dev css-prod` after changing component class strings so newly-used utilities are present in the committed compiled output — CI's `css_freshness` job recompiles and **fails on drift** whenever `input.css` or any scanned class-bearing tree changes (ADR-084). `./dev css-build` (unminified) is for local inspection only; the committed artifact is the `css-prod` build.
 
-**Tabs:** there is no shared tabs component and no DaisyUI `.tabs`/`.tab-active` classes. Same-page section switching is hand-built per page (`/profile`'s WAI-ARIA tab bar in `ui/profile/hub.py`, the teaching student page's Alpine renderers); a page-to-page row is the sidebar's section nav (`ui/patterns/sidebar.py`), a `<nav>` list with `aria-current`, never `role="tab"`. For dynamic active-state styling, use the Alpine `:style` pattern with semantic CSS variables (see below).
+**Tabs:** there is no shared tabs component and no DaisyUI `.tabs`/`.tab-active` classes. Same-page section switching is hand-built per page (`/groups`' WAI-ARIA tab bar in `ui/groups/hub.py`, the teaching student page's Alpine renderers); a page-to-page row is the sidebar's section nav (`ui/patterns/sidebar.py`), a `<nav>` list with `aria-current`, never `role="tab"`. For dynamic active-state styling, use the Alpine `:style` pattern with semantic CSS variables (see below).
 
 ## Dynamic Styling with Alpine `:style`
 

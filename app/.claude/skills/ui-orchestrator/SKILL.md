@@ -224,7 +224,6 @@ grep -rn 'service_a\|service_b' app/adapters/inbound/{name}_ui.py
 | Orchestrator | File | Services | Hub |
 |---|---|---|---|
 | `AdminOrchestrator` | `admin_orchestrator.py` | 3 | Admin Dashboard |
-| `ProfileOrchestrator` | `profile_orchestrator.py` | 7 | User Profile |
 | `UserEntryOrchestrator` | `user_entry_orchestrator.py` | 9 | UserEntry (Submissions + Journals / Timeline; owns `get_entry_report_view` + `get_entry` compositions) |
 | `ExploreOrchestrator` | `explore_orchestrator.py` | 5 | Explore & Knowledge |
 | `LibraryOrchestrator` | `library_orchestrator.py` | 6 | Library / Assets |

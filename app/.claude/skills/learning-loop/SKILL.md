@@ -329,7 +329,6 @@ that never closes the loop.
 | `core/models/report/activity_report.py` | 4 | ActivityReport model |
 | `core/services/user_entry/user_entry_service.py` | 3+4 | UserEntry facade (BaseService) — shared `create_entry` write path, exercise linking |
 | `core/services/user_entry/user_entry_processing_service.py` | 3 | Pipeline processing — transcription, LLM summary/structure (the former journal track, now a `Pipeline`) |
-| `core/services/user_entry/assessment_service.py` | 4 | Teacher assessment CRUD, authority verification |
 | `core/services/report/entry_report_service.py` | 4 | AI report generation (via UnifiedLLMCaller) |
 | `core/services/llm_caller.py` | 3+4 | Unified LLM routing (OpenAI/Anthropic by model prefix) |
 | `core/services/output/instruction_resolver.py` | 3 | Instruction resolution (custom > exercise > mode > default) |
