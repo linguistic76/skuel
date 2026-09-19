@@ -23,10 +23,12 @@ SKUEL's navigation has two levels, and one rule binds them (`ui/layouts/nav_conf
   they are the **section nav** — a horizontally scrolling `nav/ul/li/a[aria-current]` list above the content
   (`ui/patterns/sidebar.py`). The same `SidebarItem` list produces both.
 
-A door's href is the section's landing, which is also the section nav's first page — the one sanctioned place a URL
-appears at both levels (on `/today` the Tasks+ door lights as the section and the Today row lights as the page: two
-levels of one navigation, not a duplicate). Beyond the landing, no URL appears in both. `tests/unit/ui/test_navbar.py`
-pins the rule over every `*_SIDEBAR_ITEMS`.
+A door's href is the section's landing. The landing may or may not be a sidebar row: Tasks+ lands on `/today`, which
+IS its first row (the door lights as the section and the Today row lights as the page — two levels of one
+navigation, not a duplicate); Library and Submissions land on pages outside their sidebars (`/explore/library`, the
+`/submissions` MOC root); PathSteps has no sidebar. What the rule forbids is a URL at both levels anywhere else: a
+door's href may appear in a sidebar only as that sidebar's first row, and no other row may be a door.
+`tests/unit/ui/test_navbar.py` pins exactly that over every `*_SIDEBAR_ITEMS`.
 
 **Tasks+ IS a section.** Its sidebar (`ui/activities/nav.py`) is the one list — Today, Weekly, Monthly, the six
 Activity Domains, Journal, GradeBook — on every page under it, and the Tasks+ door (→ `/today`) is lit on all of

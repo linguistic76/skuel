@@ -12,9 +12,9 @@ The navbar renders on every page, so what it carries is a global contract:
   the ``lg:hidden`` rows on /settings (<lg).
 - Exactly one global item lights per page, keyed by SECTION: Tasks+ on every
   Tasks+ page, the Library door on both its keys, nothing doubled.
-- The chrome carries one door per section — the section's landing, which is
-  also the section nav's first row: that landing is the ONE sanctioned
-  overlap between the chrome and any ``*_SIDEBAR_ITEMS`` list.
+- The chrome carries one door per section — the section's landing. A door's
+  href may sit in a sidebar only as its FIRST row: that landing is the ONE
+  sanctioned overlap between the chrome and any ``*_SIDEBAR_ITEMS`` list.
 - Sign-out is present exactly once at any width: the desktop icon and the
   phone's /settings row trade places at the same breakpoint.
 """
@@ -222,9 +222,9 @@ def _sidebar_item_lists() -> dict[str, list]:
 
 
 def test_beyond_the_landing_no_url_is_both_a_door_and_a_row() -> None:
-    """A section door's href is the section's landing, which is also the
-    section nav's first row — two levels of one navigation. Any other URL in
-    both is a duplicate."""
+    """A section door's href is the section's landing; where the landing is a
+    sidebar row it is the first row — two levels of one navigation. Any other
+    URL in both is a duplicate."""
     doors = {item.href for item in ICON_NAV_ITEMS} | {item.href for item in MAIN_NAV_ITEMS}
     for name, items in _sidebar_item_lists().items():
         overlap = {item.href for item in items} & doors

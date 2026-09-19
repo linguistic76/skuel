@@ -54,8 +54,10 @@ class IconNavItem:
 
     Attributes:
         label: Display text (the tab's accessible name)
-        href: The section's landing — also the section nav's first page,
-            the one sanctioned overlap between the chrome and a sidebar
+        href: The section's landing. It may sit in the section's sidebar
+            only as the FIRST row (Tasks+ → /today) — the one sanctioned
+            overlap between the chrome and a sidebar — or outside it
+            (Library → /explore/library)
         page_keys: Every section key this door is lit for. One key per
             section; the Library door carries two because its landing
             (``/explore/library``) lights ``explore`` while ``/library/*``
