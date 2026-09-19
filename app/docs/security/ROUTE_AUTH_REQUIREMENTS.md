@@ -39,7 +39,8 @@ This document defines the authentication requirements for all SKUEL routes.
 | `/api/visualizations/**` | `visualization_routes.py` | User data visualization |
 | `/profile/shared`, `/profile/shared/list-fragment` | `user_profile_ui.py` | Shared-with-me inbox (the only `/profile/*` routes; `GET /profile` is a 404) |
 | `/api/sidebar/badges` | `sidebar_badges_ui.py` | Tasks+ sidebar badges (OOB fragments, `UserContext` build) |
-| `/settings/**` | `settings_routes.py` | Account page + preferences |
+| `/settings`, `/settings/content`, `/settings/save` | `settings_routes.py` | Account page + preferences |
+| `/settings/vault/sync`, `/settings/vault/preview`, `/settings/vault/preview/consent`, `/settings/vault/consent` | `vault_routes.py` | Personal-vault sync, dry-run preview and the first-run consent gate (all POST, CSRF-protected) |
 | `/tasks/**`, `/goals/**`, etc. | Domain routes | Activity domain CRUD |
 | `/settings/devices/**`, `/api/devices/pairing-code`, `/api/devices/{uid}/revoke` | `device_routes.py` | Vault-agent device management (ADR-075) |
 

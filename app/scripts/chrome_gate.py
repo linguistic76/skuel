@@ -77,11 +77,18 @@ PERSONAS = {
     "admin": AuthState(user_uid="user_x", is_admin=True, is_teacher=True),
 }
 state = PERSONAS["member"]
-nb.current_auth_state = lambda: state
+
+
+def persona_auth_state() -> AuthState:
+    """The persona under render — every chrome builder reads it through here."""
+    return state
+
+
+nb.current_auth_state = persona_auth_state
 
 import ui.settings.page as sp
 
-sp.current_auth_state = lambda: state
+sp.current_auth_state = persona_auth_state
 
 # /tasks
 import adapters.inbound.activity_ui_factory as auf
@@ -152,7 +159,13 @@ import adapters.inbound.auth.roles as roles
 
 roles.require_authenticated_user = fake_user
 admin_user = MagicMock()
-admin_user.has_permission = lambda _role: True
+
+
+def grant_every_role(_role: object) -> bool:
+    return True
+
+
+admin_user.has_permission = grant_every_role
 admin_user.display_name = "Mike"
 admin_user.title = "Mike"
 admin_orch = MagicMock()
