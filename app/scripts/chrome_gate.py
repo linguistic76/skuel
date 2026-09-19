@@ -57,7 +57,7 @@ from starlette.testclient import TestClient
 
 from core.utils.auth_context import AuthState
 from core.utils.result_simplified import Result
-from scripts.smoke_test import find_chrome
+from scripts.smoke_test import WALL_TIMEOUT_S, find_chrome
 
 OUT = Path(sys.argv[1] if len(sys.argv) > 1 else "/tmp/chrome_gate")
 OUT.mkdir(parents=True, exist_ok=True)
@@ -199,8 +199,9 @@ teach_user_service = MagicMock()
 teach_user_service.get_user = AsyncMock(return_value=Result.ok(admin_user))
 teu.create_teaching_ui_routes(app, rt, MagicMock(), teach_user_service)
 
-# /profile/shared — the one route left under the retired hub's prefix; it
-# lights the inbox icon and nothing else. /profile itself is a 404, no redirect.
+# /profile/shared — the shared-with-me inbox (the page + its list fragment
+# are the only /profile/* routes); it lights the inbox icon and nothing else.
+# GET /profile is a 404 with no redirect, probed below.
 import adapters.inbound.user_profile_ui as pu
 
 pu.require_authenticated_user = fake_user
@@ -432,13 +433,28 @@ for name, html_path in rendered.items():
             f"--window-size={max(w, 500)},1000",
             "--virtual-time-budget=4000",
         ]
-        subprocess.run([*base, f"--screenshot={png}", target.as_uri()], capture_output=True)
-        dom = subprocess.run(
-            [*base, "--dump-dom", target.as_uri()], capture_output=True, text=True
-        ).stdout
+        # --virtual-time-budget is not a wall-clock bound: a main-thread loop in
+        # a rendered page blocks virtual time too, so only a hard kill ends it —
+        # and a wedged run is a RED run, never a hang.
+        try:
+            subprocess.run(
+                [*base, f"--screenshot={png}", target.as_uri()],
+                capture_output=True,
+                timeout=WALL_TIMEOUT_S,
+            )
+            dom = subprocess.run(
+                [*base, "--dump-dom", target.as_uri()],
+                capture_output=True,
+                text=True,
+                timeout=WALL_TIMEOUT_S,
+            ).stdout
+        except subprocess.TimeoutExpired:
+            print(f"FAIL {name}@{w}: Chrome exceeded {WALL_TIMEOUT_S}s (page never settled)")
+            failures += 1
+            continue
         start = dom.find('<pre id="gate-result">')
         if start < 0:
-            print(f"{name}@{w}: NO GATE RESULT")
+            print(f"FAIL {name}@{w}: NO GATE RESULT")
             failures += 1
             continue
         res = json.loads(
