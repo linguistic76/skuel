@@ -1,6 +1,6 @@
 ---
 title: UI Component Patterns
-updated: '2026-09-18'
+updated: '2026-09-19'
 category: patterns
 related_skills:
   - accessibility-guide
@@ -79,7 +79,7 @@ SKUEL uses a layered UI component architecture built on its own pure-Tailwind + 
 
 **Evolution (2026-03-17c):** **⚛️** (Knowledge) icon added as first navbar item, linking to `/ku`. Emoji icons use `text-base` styling (vs `font-semibold text-sm` for letter icons). `/ku` page redesigned from SEL-category grouped sections to flat Ku listing with bookmarks + latest sidebar. Sidebar powered by `UserRelationshipService.get_pinned_entities()` for bookmarks. Navbar order: SKUEL logo → ⚛️ → C → S → avatar → logout → search → bell.
 
-**Evolution (2026-02-09):** All 5 sidebars (Profile, KU, Reports, Journals, Askesis) unified into single Tailwind + Alpine.js component (`SidebarPage`). Custom CSS/JS files (`profile_sidebar.css`, `profile_sidebar.js`) deleted. Mobile uses horizontal tabs (SKUEL `TabContainer`) instead of drawer/overlay.
+**Evolution (2026-02-09):** All 5 sidebars (Profile, KU, Reports, Journals, Askesis) unified into single Tailwind + Alpine.js component (`SidebarPage`). Custom CSS/JS files (`profile_sidebar.css`, `profile_sidebar.js`) deleted. Below lg a horizontal row of the same links replaces the sidebar instead of a drawer/overlay (rebuilt as the section nav, 2026-09-19).
 
 **Evolution (2026-03-29):** `/profile` evolved from card grid to **live actionable hub**. Data sourced from `UserContext.build_rich()`. See `ui/profile/hub.py`.
 
@@ -161,8 +161,8 @@ All sidebar pages (Activity Domains, Explore, GradeBook, Library, Teaching, Subm
 
 **Key Features:**
 - One component for all 6 sidebar pages
-- Desktop: Fixed sidebar (default 256px, configurable via `sidebar_width` param — Explore uses `w-96`/384px for graph) with smooth collapse to 48px edge
-- Mobile: Horizontal tabs (SKUEL `TabContainer`, no drawer/overlay)
+- Desktop: Fixed `<nav>` sidebar (default 256px, configurable via `sidebar_width` param — Explore uses `w-96`/384px for graph) with smooth collapse to 48px edge; the current row carries `aria-current="page"`
+- Below lg: the **section nav** — `<nav aria-label="{title}"><ul role="list">` of `shrink-0` `<li><a>` page links in a scrolling row, current page `aria-current="page"` (a nav list, not an ARIA tabs widget); a parse-time inline script centres the current link and stamps `data-overflow`/`data-at-end` for the `.section-nav` right-edge fade (`input.css`); no items → no row. No drawer/overlay: the siblings stay visible and the row works without JS
 - Alpine.js `collapsibleSidebar` + `Alpine.store()` for shared reactive state
 - localStorage persistence of collapsed state
 - Screen reader announcements on toggle
@@ -172,10 +172,9 @@ All sidebar pages (Activity Domains, Explore, GradeBook, Library, Teaching, Subm
 from ui.patterns.sidebar import SidebarItem, SidebarPage
 
 items = [
-    SidebarItem("Submit", "/submit", "submit", icon="📤"),
-    SidebarItem("History", "/submissions/history", "history", icon="📝"),
-    SidebarItem("GradeBook", "/gradebook", "gradebook", icon="📋"),
-    SidebarItem("Request Activity Report", "/submit-activity-report", "submit-activity-report", icon="⚡"),
+    SidebarItem("Submit", "/submit", "submit", icon="upload"),
+    SidebarItem("History", "/submissions/history", "history", icon="clock"),
+    SidebarItem("GradeBook", "/gradebook", "gradebook", icon="clipboard-check"),
 ]
 
 return SidebarPage(
@@ -188,6 +187,8 @@ return SidebarPage(
     active_page="study",
 )
 ```
+
+`icon` is a lucide name from the committed registry (`ui/components/_icon_data.py`) — an unregistered name (an emoji, a typo) renders the `help-circle` fallback.
 
 **Extension Points:**
 - `extra_sidebar_sections` — additional content below nav items (Explore uses for graph hero + filtered lists)

@@ -142,7 +142,7 @@ SKUEL's CSS is compiled by the **Tailwind CLI** (`./dev css-build`) into `static
 
 `output.css` is the production CSS asset, loaded by `skuel_headers()` / `build_head()`. Run `./dev css-prod` after changing component class strings so newly-used utilities are present in the committed compiled output — CI's `css_freshness` job recompiles and **fails on drift** whenever `input.css` or any scanned class-bearing tree changes (ADR-084). `./dev css-build` (unminified) is for local inspection only; the committed artifact is the `css-prod` build.
 
-**Tabs** use SKUEL's `TabContainer` from `ui.components` (pure Tailwind + Alpine.js) — there are no DaisyUI `.tabs`/`.tab-active` classes anymore. For dynamic active-state styling, use the Alpine `:style` pattern with semantic CSS variables (see below).
+**Tabs:** there is no shared tabs component and no DaisyUI `.tabs`/`.tab-active` classes. Same-page section switching is hand-built per page (`/profile`'s WAI-ARIA tab bar in `ui/profile/hub.py`, the teaching student page's Alpine renderers); a page-to-page row is the sidebar's section nav (`ui/patterns/sidebar.py`), a `<nav>` list with `aria-current`, never `role="tab"`. For dynamic active-state styling, use the Alpine `:style` pattern with semantic CSS variables (see below).
 
 ## Dynamic Styling with Alpine `:style`
 
@@ -219,7 +219,7 @@ NotStr("<!DOCTYPE html>...")  # Use AuthPage() or BasePage()
 | `/static/css/main.css` | Custom CSS: animations, HTMX states, button/input visibility overrides |
 | `/static/css/input.css` | Tailwind v4 CSS-first config (the whole config — `@source` scanning + inline safelist, `@custom-variant dark`, `@theme inline` color tokens + compact font-size tokens `--text-10/11/13/15`, ADR-084) + SKUEL-owned semantic CSS variables (`--primary`, `--background`, `--card`, …) |
 | `/static/css/output.css` | Compiled Tailwind CLI output — **the production CSS asset** (ADR-071) |
-| `ui/components/` | **SKUEL-owned component layer (ADR-071 complete)** — pure Tailwind + Alpine.js. Button/ButtonT, Alert/AlertT/Loading/Progress, Icon, form set, table set, Divider, TabContainer, Accordion, layout helpers, Card/CardBody/CardHeader/CardTitle/CardFooter. |
+| `ui/components/` | **SKUEL-owned component layer (ADR-071 complete)** — pure Tailwind + Alpine.js. Button/ButtonT, Alert/AlertT/Loading/Progress, Icon, form set, table set, Divider, Accordion, layout helpers, Card/CardBody/CardHeader/CardTitle/CardFooter. |
 | `ui/forms/`, `ui/feedback.py`, `ui/layout.py`, `ui/data.py`, `ui/theme.py` | Pure Tailwind wrappers (ADR-071 complete). The former `buttons.py`/`cards.py`/`text.py` wrappers were deleted (PR E); the former `navigation.py` was deleted 2026-08 (zero consumers). |
 
 ## See Also

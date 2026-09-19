@@ -14,18 +14,20 @@ if TYPE_CHECKING:
 
 
 ADMIN_SIDEBAR_ITEMS: list[SidebarItem] = [
-    SidebarItem("Overview", "/admin", "overview", icon="📊"),
-    SidebarItem("Users", "/admin/users", "users", icon="👥"),
-    SidebarItem("Analytics", "/admin/analytics", "analytics", icon="📈"),
-    SidebarItem("Knowledge Health", "/admin/knowledge-health", "knowledge-health", icon="🩺"),
-    SidebarItem("Prereq Edges", "/admin/prereq-suggestions", "prereq", icon="🔗"),
-    SidebarItem("Transcription", "/admin/batch-transcribe", "transcription", icon="🎙️"),
-    SidebarItem("System", "/admin/system", "system", icon="⚙️"),
+    SidebarItem("Overview", "/admin", "overview", icon="layout-dashboard"),
+    SidebarItem("Users", "/admin/users", "users", icon="users"),
+    SidebarItem("Analytics", "/admin/analytics", "analytics", icon="trending-up"),
+    SidebarItem(
+        "Knowledge Health", "/admin/knowledge-health", "knowledge-health", icon="stethoscope"
+    ),
+    SidebarItem("Prereq Edges", "/admin/prereq-suggestions", "prereq", icon="link"),
+    SidebarItem("Transcription", "/admin/batch-transcribe", "transcription", icon="mic"),
+    SidebarItem("System", "/admin/system", "system", icon="settings"),
     SidebarItem(
         "Finance",
         "/finance/invoices",
         "finance",
-        icon="💰",
+        icon="wallet",
         badge_text="→",
         hx_attrs={"target": "_blank"},
     ),
@@ -33,7 +35,7 @@ ADMIN_SIDEBAR_ITEMS: list[SidebarItem] = [
         "Ingestion",
         "/ingest",
         "ingestion",
-        icon="📥",
+        icon="folder-input",
         badge_text="→",
         hx_attrs={"target": "_blank"},
     ),

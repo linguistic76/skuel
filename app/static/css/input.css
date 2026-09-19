@@ -171,3 +171,23 @@
     color: hsl(var(--foreground));
   }
 }
+
+/* The section nav (ui/patterns/sidebar.py, below lg): a right-edge fade says
+   "more to the right" while the row overflows and is not scrolled to its end.
+   The row's inline script stamps data-overflow / data-at-end on the <nav>; the
+   native scrollbar stays — the fade is an affordance beside it, not instead. */
+@layer components {
+  .section-nav nav {
+    position: relative;
+  }
+  .section-nav nav[data-overflow]:not([data-at-end])::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    width: 2.5rem;
+    pointer-events: none;
+    background: linear-gradient(to right, transparent, hsl(var(--background)));
+  }
+}

@@ -10,9 +10,9 @@ if TYPE_CHECKING:
     from adapters.inbound.fasthtml_types import Request
 
 LIFEPATH_SIDEBAR_ITEMS: list[SidebarItem] = [
-    SidebarItem("Dashboard", "/lifepath", "dashboard", icon="\U0001f3e0"),
-    SidebarItem("Vision", "/lifepath/vision", "vision", icon="\U0001f441"),
-    SidebarItem("Alignment", "/lifepath/alignment", "alignment", icon="\U0001f4ca"),
+    SidebarItem("Dashboard", "/lifepath", "dashboard", icon="house"),
+    SidebarItem("Vision", "/lifepath/vision", "vision", icon="eye"),
+    SidebarItem("Alignment", "/lifepath/alignment", "alignment", icon="bar-chart-2"),
 ]
 
 

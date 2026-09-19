@@ -1,5 +1,5 @@
 ---
-updated: 2026-09-02
+updated: 2026-09-19
 ---
 
 # SKUEL UI Component Catalog
@@ -57,7 +57,7 @@ These are the **lowest-level SKUEL building blocks** — imported directly in ro
 
 | Module | Symbols |
 |--------|---------|
-| `ui.components` | The unified import surface — re-exports Button/ButtonT, Card*, forms, feedback, layout, data, Icon, TabContainer, Accordion, Divider |
+| `ui.components` | The unified import surface — re-exports Button/ButtonT, Card*, forms, feedback, layout, data, Icon, Accordion, Divider |
 | `ui.primitives` | `icon_tile`, `section_label`, `primary_btn`, `card_row`, `ButtonLink`, `SelectableOptionRow`, `dropdown_menu`, `dropdown_separator`, `UploadDropzone`, `SelectedFileCard` |
 | `ui.layout` | `Size`, `DivHStacked`, `DivVStacked`, `DivFullySpaced`, `DivCentered`, `Grid`, `Container` |
 | `ui.forms` | `Input`, `Select`, `Textarea`, `Checkbox`, `Radio`, `Toggle`, `Range`, `LabelInput`, `LabelTextArea`, `LabelSelect`, `LabelCheckbox` |

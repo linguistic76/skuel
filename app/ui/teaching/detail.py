@@ -480,24 +480,24 @@ def student_detail_sidebar_items(
             "Needs Review",
             href="",
             slug="pending",
-            icon="📥",
+            icon="inbox",
             badge_text=str(pending_count) if pending_count else "",
         ),
         SidebarItem(
             "Revision Requested",
             href="",
             slug="revision",
-            icon="✏️",
+            icon="pen-line",
             badge_text=str(revision_count) if revision_count else "",
         ),
         SidebarItem(
             "Completed",
             href="",
             slug="completed",
-            icon="✅",
+            icon="check-circle",
             badge_text=str(completed_count) if completed_count else "",
         ),
-        SidebarItem("KU Progress", href="", slug="ku", icon="📊"),
+        SidebarItem("KU Progress", href="", slug="ku", icon="bar-chart-2"),
     ]
 
 

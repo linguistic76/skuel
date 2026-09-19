@@ -30,7 +30,6 @@ from ui.components.form import (
 )
 from ui.components.icon import Icon
 from ui.components.layout import Center, DivCentered, DivFullySpaced
-from ui.components.nav import TabContainer
 from ui.components.table import (
     Table,
     TableFromDicts,
@@ -617,48 +616,6 @@ class TestLayoutComponents:
 
 
 # ============================================================================
-# TabContainer
-# ============================================================================
-
-
-class TestTabContainer:
-    def test_renders_with_tabs(self) -> None:
-        result = TabContainer(("Tab A", "Content A"), ("Tab B", "Content B"))
-        assert result is not None
-
-    def test_tab_labels_present(self) -> None:
-        xml = to_xml(TabContainer(("Overview", "ov"), ("Details", "det")))
-        assert "Overview" in xml
-        assert "Details" in xml
-
-    def test_tab_content_present(self) -> None:
-        xml = to_xml(TabContainer(("T1", "content-one"), ("T2", "content-two")))
-        assert "content-one" in xml
-        assert "content-two" in xml
-
-    def test_alpine_x_data_present(self) -> None:
-        xml = to_xml(TabContainer(("A", "a")))
-        assert "x-data" in xml
-        assert "activeTab" in xml
-
-    def test_active_tab_default_zero(self) -> None:
-        xml = to_xml(TabContainer(("A", "a"), ("B", "b")))
-        assert "activeTab: 0" in xml
-
-    def test_active_tab_custom(self) -> None:
-        xml = to_xml(TabContainer(("A", "a"), ("B", "b"), active_tab=1))
-        assert "activeTab: 1" in xml
-
-    def test_kwargs_passthrough(self) -> None:
-        xml = to_xml(TabContainer(("A", "a"), id="tabs-1"))
-        assert 'id="tabs-1"' in xml
-
-    def test_cls_merged(self) -> None:
-        xml = to_xml(TabContainer(("A", "a"), cls="my-tabs"))
-        assert "my-tabs" in xml
-
-
-# ============================================================================
 # Accordion
 # ============================================================================
 
@@ -768,7 +725,6 @@ class TestPackageExports:
             "Center",
             "DivCentered",
             "DivFullySpaced",
-            "TabContainer",
             "Table",
             "TableFromDicts",
             "TableFromLists",

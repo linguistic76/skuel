@@ -22,7 +22,7 @@ Each layer has a single responsibility: components handle styling, patterns hand
 
 ```
 Is it domain-agnostic styling (button, card, input)?
-├─ YES → /ui/components/ first (Button, Alert, Icon, form set, Table, Divider, Accordion, TabContainer, Card family, layout helpers); /ui/primitives.py for ButtonLink, dropdown_menu, icon_tile, SelectableOptionRow, UploadDropzone; /ui/forms/ for form wrappers
+├─ YES → /ui/components/ first (Button, Alert, Icon, form set, Table, Divider, Accordion, Card family, layout helpers); /ui/primitives.py for ButtonLink, dropdown_menu, icon_tile, SelectableOptionRow, UploadDropzone; /ui/forms/ for form wrappers
 Is it reusable across multiple domains?
 ├─ YES → /ui/patterns/ (Pattern)
 Is it domain-specific but reusable within domain?
@@ -418,7 +418,7 @@ return SidebarPage(
 
 **Desktop (lg: 1024px+):** Fixed left sidebar (256px) with collapse toggle → collapses to 48px edge. Content reflows into the freed space (collapse applies `lg:!ml-12` — the `!` is required because the static `lg:ml-64` can't be removed by Alpine's `:class` and wins on CSS order otherwise). Content is centered and capped at `content_max_width` (default `max-w-6xl`); pass `"max-w-none"` for pages that should fill the viewport — the calendar month/week grids do this.
 
-**Mobile:** Hidden sidebar; horizontal `tabs tabs-bordered` replace it. No drawer, no hamburger overlay.
+**Below lg:** Hidden sidebar; the **section nav** replaces it — `<nav aria-label="{title}"><ul role="list">` of `shrink-0` `<li><a>` page links in a horizontally scrolling row, the current page marked `aria-current="page"` server-side (never `role="tab"`/`aria-selected`: the links navigate between pages). A parse-time inline script after the row centres the current link (`scrollLeft`, never `scrollIntoView`) and stamps `data-overflow`/`data-at-end` on the `<nav>`; `.section-nav` in `input.css` draws a right-edge fade from those attributes beside the native scrollbar. No items → no row (Explore). The row stays rather than a drawer or hamburger because every sibling stays visible and it works without JS.
 
 ```
 Desktop:              Mobile:

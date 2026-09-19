@@ -1,9 +1,12 @@
 """Unified sidebar component — Tailwind + Alpine.js.
 
-Desktop: Collapsible fixed sidebar with toggle button.
-Mobile: Horizontal tabs at top of content area.
+Desktop (lg+): a collapsible fixed sidebar with a toggle button.
+Below lg: the section nav — a horizontally scrolling list of the same links
+above the content, the current page marked ``aria-current="page"`` and
+scrolled into the middle of the row before first paint.
 
-One pattern for all sidebar pages (Profile, KU, Submissions, Journals, Askesis).
+One pattern for every sidebar page (Tasks+, Library, Submissions, Teaching,
+Explore, Admin, Finance, LifePath, Activity Review).
 
 Usage:
     from ui.patterns.sidebar import SidebarItem, SidebarPage
@@ -28,7 +31,7 @@ from collections.abc import Callable
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any
 
-from fasthtml.common import H3, A, Button, Div, Li, P, Span, Ul
+from fasthtml.common import H3, A, Button, Div, Li, Nav, P, Script, Span, Ul
 
 from ui.components import Icon
 from ui.feedback import Badge, BadgeT
@@ -61,84 +64,47 @@ class SidebarItem:
     description: str = ""
     badge_text: str = ""
     hx_attrs: dict[str, str] = field(default_factory=dict)
-    children: list[SidebarItem] = field(default_factory=list)
+
+
+# The section nav's one-shot layout enhancement: centre the current page's link
+# in the row and stamp the overflow state the CSS fade reads. Inline and
+# parse-time (it runs as soon as the row above it exists, before the deferred
+# Alpine bundle) so the row never paints scrolled to 0 and then jumps. With JS
+# off the row is a plain scrolling list. `scrollLeft` is set directly —
+# `scrollIntoView` would scroll the page too.
+_SECTION_NAV_SCRIPT = """
+(function () {
+  var nav = document.currentScript.previousElementSibling;
+  var row = nav.querySelector('ul');
+  var current = row.querySelector('[aria-current="page"]');
+  function stamp() {
+    nav.toggleAttribute('data-overflow', row.scrollWidth > row.clientWidth);
+    nav.toggleAttribute('data-at-end', row.scrollLeft + row.clientWidth >= row.scrollWidth - 1);
+  }
+  if (current) {
+    var left = current.getBoundingClientRect().left - row.getBoundingClientRect().left;
+    row.scrollLeft = left - (row.clientWidth - current.offsetWidth) / 2;
+  }
+  stamp();
+  row.addEventListener('scroll', stamp, { passive: true });
+  window.addEventListener('resize', stamp, { passive: true });
+})();
+"""
 
 
 def _chevron_svg() -> FT:
     """Collapse toggle chevron icon."""
-    return Icon("chevron-left", size=16, cls="", aria_hidden="true")
-
-
-def _render_accordion_item(item: SidebarItem, is_active: bool) -> FT:
-    """Render a sidebar item as an accordion with expandable children."""
-    active_cls = "bg-accent font-semibold" if is_active else ""
-    header_children: list[Any] = []
-
-    if item.icon:
-        header_children.append(Icon(item.icon, size=18, cls="shrink-0", aria_hidden="true"))
-
-    header_children.append(Span(item.label, cls="flex-1"))
-
-    if item.badge_text:
-        header_children.append(Badge(item.badge_text, variant=BadgeT.neutral))
-
-    # Chevron that rotates when expanded
-    header_children.append(
-        Icon(
-            "chevron-down",
-            size=14,
-            cls="transition-transform duration-200",
-            **{":class": "open ? 'rotate-180' : ''"},
-        )
-    )
-
-    # Child links
-    child_links = [
-        Li(
-            A(
-                child.label,
-                href=child.href,
-                cls="text-sm text-muted-foreground hover:text-foreground transition-colors block py-1.5 px-3",
-            )
-        )
-        for child in item.children
-    ]
-
-    return Li(
-        Div(
-            # Clickable header — toggles accordion
-            Div(
-                *header_children,
-                cls=f"flex items-center gap-2 rounded-lg px-3 py-2.5 min-h-[44px] transition-colors hover:bg-accent cursor-pointer {active_cls}",
-                **{"@click": "open = !open"},
-                role="button",
-                aria_label=f"Toggle {item.label} list",
-            ),
-            # Collapsible child list
-            Ul(
-                *child_links,
-                cls="pl-6 list-none",
-                x_show="open",
-                **{"x-transition.duration.200ms": True},
-            ),
-            **{
-                "x-data": f"{{ open: {str(is_active).lower()} }}",
-            },
-        )
-    )
+    return Icon("chevron-left", size=16, cls="")
 
 
 def _default_item_renderer(item: SidebarItem, is_active: bool) -> FT:
     """Default sidebar item renderer."""
-    # Accordion for items with children
-    if item.children:
-        return _render_accordion_item(item, is_active)
-
     active_cls = "bg-accent font-semibold" if is_active else ""
+    current_attrs: dict[str, str] = {"aria_current": "page"} if is_active else {}
     children: list[Any] = []
 
     if item.icon:
-        children.append(Icon(item.icon, size=18, cls="shrink-0", aria_hidden="true"))
+        children.append(Icon(item.icon, size=18, cls="shrink-0"))
 
     children.append(Span(item.label, cls="flex-1"))
 
@@ -146,11 +112,7 @@ def _default_item_renderer(item: SidebarItem, is_active: bool) -> FT:
         # Two-line item (Askesis style)
         content = Div(
             Div(
-                (
-                    Icon(item.icon, size=18, cls="mr-2 shrink-0", aria_hidden="true")
-                    if item.icon
-                    else ""
-                ),
+                (Icon(item.icon, size=18, cls="mr-2 shrink-0") if item.icon else ""),
                 Span(item.label, cls="font-medium"),
                 cls="flex items-center",
             ),
@@ -166,6 +128,7 @@ def _default_item_renderer(item: SidebarItem, is_active: bool) -> FT:
                 content,
                 href=item.href,
                 cls=f"flex items-center rounded-lg px-3 py-2.5 min-h-[44px] transition-colors hover:bg-accent {active_cls}",
+                **current_attrs,
                 **item.hx_attrs,
             )
         )
@@ -181,6 +144,7 @@ def _default_item_renderer(item: SidebarItem, is_active: bool) -> FT:
             *children,
             href=item.href,
             cls=f"flex items-center gap-2 rounded-lg px-3 py-2.5 min-h-[44px] transition-colors hover:bg-accent {active_cls}",
+            **current_attrs,
             **item.hx_attrs,
         )
     )
@@ -209,7 +173,7 @@ def alpine_section_renderer(
     def _render(item: SidebarItem, _is_active: bool) -> FT:
         children: list[Any] = []
         if item.icon:
-            children.append(Icon(item.icon, size=18, cls="shrink-0", aria_hidden="true"))
+            children.append(Icon(item.icon, size=18, cls="shrink-0"))
         children.append(Span(item.label, cls="flex-1"))
         if item.badge_text:
             children.append(Badge(item.badge_text, variant=BadgeT.primary))
@@ -234,28 +198,32 @@ def alpine_section_renderer(
 def alpine_mobile_section_renderer(
     state_var: str = "section",
 ) -> Callable[[SidebarItem, bool], Any]:
-    """Mobile tab renderer for Alpine-driven section switching.
+    """Section-nav item renderer for Alpine-driven section switching.
 
-    Returns tab-shaped elements with @click instead of href.
+    Returns a list item whose tab-shaped element switches the section with
+    @click instead of navigating.
     """
 
     def _render(item: SidebarItem, _is_active: bool) -> FT:
         tab_children: list[Any] = []
         if item.icon:
-            tab_children.append(Icon(item.icon, size=16, cls="shrink-0", aria_hidden="true"))
+            tab_children.append(Icon(item.icon, size=16, cls="shrink-0"))
         tab_children.append(Span(item.label))
         if item.badge_text:
             tab_children.append(Span(item.badge_text, cls="ml-1 text-xs"))
 
-        return Div(
-            *tab_children,
-            role="tab",
-            cls="whitespace-nowrap px-3 py-2.5 min-h-[44px] text-sm border-b-2 cursor-pointer flex items-center gap-1.5",
-            **{
-                "@click": f"{state_var} = '{item.slug}'",
-                ":class": f"{state_var} === '{item.slug}' ? 'border-primary text-primary font-medium' : 'border-transparent text-muted-foreground hover:text-foreground hover:border-border'",
-                ":aria-selected": f"{state_var} === '{item.slug}'",
-            },
+        return Li(
+            Div(
+                *tab_children,
+                role="tab",
+                cls="whitespace-nowrap px-3 py-2.5 min-h-[44px] text-sm border-b-2 cursor-pointer flex items-center gap-1.5",
+                **{
+                    "@click": f"{state_var} = '{item.slug}'",
+                    ":class": f"{state_var} === '{item.slug}' ? 'border-primary text-primary font-medium' : 'border-transparent text-muted-foreground hover:text-foreground hover:border-border'",
+                    ":aria-selected": f"{state_var} === '{item.slug}'",
+                },
+            ),
+            cls="shrink-0",
         )
 
     return _render
@@ -277,7 +245,7 @@ def SidebarNav(
     title_icon: str = "",
     sidebar_width: str = "w-64",
 ) -> FT:
-    """Build sidebar navigation (desktop) + horizontal tabs (mobile).
+    """Build the desktop sidebar + the below-lg section nav.
 
     Args:
         items: Navigation items
@@ -286,14 +254,15 @@ def SidebarNav(
         subtitle: Optional subtitle below heading
         storage_key: localStorage key for collapse state
         extra_sidebar_sections: Additional content appended to desktop sidebar
-        extra_mobile_sections: Additional content below mobile tabs
+        extra_mobile_sections: Additional content below the section nav
         item_renderer: Custom function to render sidebar items
         title_href: Optional link for the title heading
         title_prefix: Optional element rendered before the title (e.g. back arrow)
-        mobile_item_renderer: Custom function to render mobile tab items
+        mobile_item_renderer: Custom function to render section-nav items;
+            it must return an ``<li>`` (the row is a list)
 
     Returns:
-        Div containing both desktop sidebar and mobile tabs
+        Div containing both the desktop sidebar and the section nav
     """
     _margin_cls, collapse_translate = _SIDEBAR_WIDTH_CONFIG.get(
         sidebar_width, ("lg:ml-64", "-translate-x-52")
@@ -334,7 +303,7 @@ def SidebarNav(
     else:
         header_el = title_el
 
-    sidebar = Div(
+    sidebar = Nav(
         Div(
             # Toggle button
             Button(
@@ -370,7 +339,6 @@ def SidebarNav(
         " border-r border-border z-40 transition-transform duration-300"
         " overflow-hidden",
         **{":class": f"collapsed ? '{collapse_translate}' : 'translate-x-0'"},
-        role="navigation",
         aria_label=f"{title} sidebar",
         # The async badge loader: OOB-swapped count/health badges on the domain rows.
         hx_get="/api/sidebar/badges",
@@ -379,42 +347,59 @@ def SidebarNav(
         **{"x-data": f"collapsibleSidebar('{storage_key}', {str(default_collapsed).lower()})"},
     )
 
-    # --- Mobile tabs (hidden at lg: and above) ---
-    tab_items = []
+    # --- Section nav (hidden at lg: and above) ---
+    # A nav of page links, not a tabs widget: these links navigate between
+    # pages, so the current one is marked aria-current, never aria-selected.
+    # role="list" restores the list semantics that `list-none` strips in
+    # VoiceOver; shrink-0 keeps every item whole so the ROW overflows, never
+    # the page.
+    section_items: list[Any] = []
     if mobile_item_renderer:
-        for item in items:
-            tab_items.append(mobile_item_renderer(item, item.slug == active))
+        section_items = [mobile_item_renderer(item, item.slug == active) for item in items]
     else:
         for item in items:
             is_active = item.slug == active
-            tab_children: list[Any] = []
+            link_children: list[Any] = []
             if item.icon:
-                tab_children.append(Icon(item.icon, size=16, cls="shrink-0", aria_hidden="true"))
-            tab_children.append(Span(item.label))
-            tab_items.append(
-                A(
-                    *tab_children,
-                    href=item.href,
-                    role="tab",
-                    cls=f"whitespace-nowrap px-3 py-2.5 min-h-[44px] text-sm border-b-2 flex items-center gap-1.5 {'border-primary text-primary font-medium' if is_active else 'border-transparent text-muted-foreground hover:text-foreground hover:border-border'}",
-                    **item.hx_attrs,
+                link_children.append(Icon(item.icon, size=16, cls="shrink-0"))
+            link_children.append(Span(item.label))
+            section_items.append(
+                Li(
+                    A(
+                        *link_children,
+                        href=item.href,
+                        cls=f"whitespace-nowrap px-3 py-2.5 min-h-[44px] text-sm border-b-2 flex items-center gap-1.5 {'border-primary text-primary font-medium' if is_active else 'border-transparent text-muted-foreground hover:text-foreground hover:border-border'}",
+                        **({"aria_current": "page"} if is_active else {}),
+                        **item.hx_attrs,
+                    ),
+                    cls="shrink-0",
                 )
             )
 
-    mobile_extra = []
-    if extra_mobile_sections:
-        mobile_extra = list(extra_mobile_sections)
+    section_nav: list[Any] = []
+    if section_items:
+        section_nav.append(
+            Nav(
+                Ul(
+                    *section_items,
+                    role="list",
+                    cls="flex overflow-x-auto gap-1 border-b border-border list-none m-0 p-0",
+                ),
+                aria_label=title,
+            )
+        )
+        # The centring script reads live geometry, so it is scoped to the
+        # default row: a custom renderer's row may sit inside an `x-cloak`
+        # wrapper, where the row has no size until Alpine boots.
+        if not mobile_item_renderer:
+            section_nav.append(Script(_SECTION_NAV_SCRIPT))
 
-    mobile_tabs = Div(
-        Div(
-            *tab_items,
-            cls="flex overflow-x-auto gap-1 border-b border-border",
-            role="tablist",
-            aria_label=f"{title} navigation",
-        ),
-        *mobile_extra,
-        cls="lg:hidden mb-4",
-    )
+    mobile_extra = list(extra_mobile_sections) if extra_mobile_sections else []
+
+    # No items and nothing extra → no empty bordered strip.
+    mobile_tabs: Any = ""
+    if section_nav or mobile_extra:
+        mobile_tabs = Div(*section_nav, *mobile_extra, cls="section-nav lg:hidden mb-4")
 
     return Div(sidebar, mobile_tabs)
 
@@ -446,7 +431,7 @@ def SidebarPage(
     """Create a full page with collapsible sidebar navigation.
 
     Desktop: Fixed sidebar (collapsible) + content area with left margin.
-    Mobile: Horizontal tabs above content, no sidebar.
+    Below lg: the section nav above the content, no sidebar.
 
     Args:
         alpine_state: Optional Alpine x-data placed on the wrapper div so sidebar
