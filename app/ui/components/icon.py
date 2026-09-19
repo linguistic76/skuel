@@ -32,8 +32,8 @@ def Icon(name: str, cls: str = "", size: int = 16, **kwargs: Any) -> Any:
         **kwargs: Extra HTML attributes, rendered as ``key="value"`` on the <svg>.
     """
     inner = ICON_PATHS.get(name) or ICON_PATHS[_FALLBACK]
-    # Decorative by default; a caller's explicit aria_hidden wins and never doubles
-    # the attribute (the shell used to hardcode it beside the kwargs' copy).
+    # Decorative by default; a caller's explicit aria_hidden replaces it, so the
+    # attribute is emitted exactly once.
     kwargs.setdefault("aria_hidden", "true")
     classes = _cls(cls)
     class_attr = f' class="{classes}"' if classes else ""

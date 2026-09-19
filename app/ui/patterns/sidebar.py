@@ -66,28 +66,34 @@ class SidebarItem:
     hx_attrs: dict[str, str] = field(default_factory=dict)
 
 
-# The section nav's one-shot layout enhancement: centre the current page's link
-# in the row and stamp the overflow state the CSS fade reads. Inline and
-# parse-time (it runs as soon as the row above it exists, before the deferred
-# Alpine bundle) so the row never paints scrolled to 0 and then jumps. With JS
-# off the row is a plain scrolling list. `scrollLeft` is set directly —
-# `scrollIntoView` would scroll the page too.
+# The section nav's layout enhancement: centre the current page's link in the
+# row and stamp the overflow state the CSS fade reads. Inline and parse-time
+# (it runs as soon as the row above it exists, before the deferred Alpine
+# bundle) so the row never paints scrolled to 0 and then jumps. With JS off the
+# row is a plain scrolling list. `scrollLeft` is set directly — `scrollIntoView`
+# would scroll the page too. Centring happens once, the first time the row has
+# a width: at lg+ the row is display:none and unmeasurable, so a page opened
+# wide and narrowed later (a tablet rotation) centres on that resize instead.
 _SECTION_NAV_SCRIPT = """
 (function () {
   var nav = document.currentScript.previousElementSibling;
   var row = nav.querySelector('ul');
   var current = row.querySelector('[aria-current="page"]');
+  var centred = !current;
   function stamp() {
     nav.toggleAttribute('data-overflow', row.scrollWidth > row.clientWidth);
     nav.toggleAttribute('data-at-end', row.scrollLeft + row.clientWidth >= row.scrollWidth - 1);
   }
-  if (current) {
-    var left = current.getBoundingClientRect().left - row.getBoundingClientRect().left;
+  function centre() {
+    if (centred || row.clientWidth === 0) return;
+    var left = current.getBoundingClientRect().left - row.getBoundingClientRect().left + row.scrollLeft;
     row.scrollLeft = left - (row.clientWidth - current.offsetWidth) / 2;
+    centred = true;
   }
-  stamp();
+  function layout() { centre(); stamp(); }
+  layout();
   row.addEventListener('scroll', stamp, { passive: true });
-  window.addEventListener('resize', stamp, { passive: true });
+  window.addEventListener('resize', layout, { passive: true });
 })();
 """
 
@@ -198,32 +204,29 @@ def alpine_section_renderer(
 def alpine_mobile_section_renderer(
     state_var: str = "section",
 ) -> Callable[[SidebarItem, bool], Any]:
-    """Section-nav item renderer for Alpine-driven section switching.
+    """Below-lg tab renderer for Alpine-driven section switching.
 
-    Returns a list item whose tab-shaped element switches the section with
-    @click instead of navigating.
+    Returns a tab that switches the section with @click instead of navigating;
+    the row that holds it is a ``tablist`` (see ``SidebarNav``).
     """
 
     def _render(item: SidebarItem, _is_active: bool) -> FT:
-        tab_children: list[Any] = []
+        tab_children: list[FT] = []
         if item.icon:
             tab_children.append(Icon(item.icon, size=16, cls="shrink-0"))
         tab_children.append(Span(item.label))
         if item.badge_text:
             tab_children.append(Span(item.badge_text, cls="ml-1 text-xs"))
 
-        return Li(
-            Div(
-                *tab_children,
-                role="tab",
-                cls="whitespace-nowrap px-3 py-2.5 min-h-[44px] text-sm border-b-2 cursor-pointer flex items-center gap-1.5",
-                **{
-                    "@click": f"{state_var} = '{item.slug}'",
-                    ":class": f"{state_var} === '{item.slug}' ? 'border-primary text-primary font-medium' : 'border-transparent text-muted-foreground hover:text-foreground hover:border-border'",
-                    ":aria-selected": f"{state_var} === '{item.slug}'",
-                },
-            ),
-            cls="shrink-0",
+        return Div(
+            *tab_children,
+            role="tab",
+            cls="shrink-0 whitespace-nowrap px-3 py-2.5 min-h-[44px] text-sm border-b-2 cursor-pointer flex items-center gap-1.5",
+            **{
+                "@click": f"{state_var} = '{item.slug}'",
+                ":class": f"{state_var} === '{item.slug}' ? 'border-primary text-primary font-medium' : 'border-transparent text-muted-foreground hover:text-foreground hover:border-border'",
+                ":aria-selected": f"{state_var} === '{item.slug}'",
+            },
         )
 
     return _render
@@ -258,8 +261,9 @@ def SidebarNav(
         item_renderer: Custom function to render sidebar items
         title_href: Optional link for the title heading
         title_prefix: Optional element rendered before the title (e.g. back arrow)
-        mobile_item_renderer: Custom function to render section-nav items;
-            it must return an ``<li>`` (the row is a list)
+        mobile_item_renderer: Custom function to render the below-lg row's
+            items as same-page tabs — the row is then a ``tablist`` of what it
+            returns, not the default nav list of page links
 
     Returns:
         Div containing both the desktop sidebar and the section nav
@@ -348,18 +352,23 @@ def SidebarNav(
     )
 
     # --- Section nav (hidden at lg: and above) ---
-    # A nav of page links, not a tabs widget: these links navigate between
-    # pages, so the current one is marked aria-current, never aria-selected.
-    # role="list" restores the list semantics that `list-none` strips in
-    # VoiceOver; shrink-0 keeps every item whole so the ROW overflows, never
-    # the page.
-    section_items: list[Any] = []
+    # The default row is a nav of page links, not a tabs widget: its links
+    # navigate between pages, so the current one is marked aria-current, never
+    # aria-selected. role="list" restores the list semantics that `list-none`
+    # strips in VoiceOver; shrink-0 keeps every item whole so the ROW
+    # overflows, never the page. A custom renderer's items switch sections on
+    # the SAME page (role="tab"), so that row is a tablist, not a nav.
+    row_cls = "flex overflow-x-auto gap-1 border-b border-border"
+    section_nav: list[FT] = []
     if mobile_item_renderer:
-        section_items = [mobile_item_renderer(item, item.slug == active) for item in items]
+        tabs = [mobile_item_renderer(item, item.slug == active) for item in items]
+        if tabs:
+            section_nav.append(Div(*tabs, role="tablist", aria_label=title, cls=row_cls))
     else:
+        section_items: list[FT] = []
         for item in items:
             is_active = item.slug == active
-            link_children: list[Any] = []
+            link_children: list[FT] = []
             if item.icon:
                 link_children.append(Icon(item.icon, size=16, cls="shrink-0"))
             link_children.append(Span(item.label))
@@ -375,29 +384,22 @@ def SidebarNav(
                     cls="shrink-0",
                 )
             )
-
-    section_nav: list[Any] = []
-    if section_items:
-        section_nav.append(
-            Nav(
-                Ul(
-                    *section_items,
-                    role="list",
-                    cls="flex overflow-x-auto gap-1 border-b border-border list-none m-0 p-0",
-                ),
-                aria_label=title,
+        if section_items:
+            section_nav.append(
+                Nav(
+                    Ul(*section_items, role="list", cls=f"{row_cls} list-none m-0 p-0"),
+                    aria_label=title,
+                )
             )
-        )
-        # The centring script reads live geometry, so it is scoped to the
-        # default row: a custom renderer's row may sit inside an `x-cloak`
-        # wrapper, where the row has no size until Alpine boots.
-        if not mobile_item_renderer:
+            # The centring script reads live geometry, so only the nav list gets
+            # it: a tablist's row may sit inside an `x-cloak` wrapper, where it
+            # has no size until Alpine boots.
             section_nav.append(Script(_SECTION_NAV_SCRIPT))
 
     mobile_extra = list(extra_mobile_sections) if extra_mobile_sections else []
 
     # No items and nothing extra → no empty bordered strip.
-    mobile_tabs: Any = ""
+    mobile_tabs: FT | str = ""
     if section_nav or mobile_extra:
         mobile_tabs = Div(*section_nav, *mobile_extra, cls="section-nav lg:hidden mb-4")
 

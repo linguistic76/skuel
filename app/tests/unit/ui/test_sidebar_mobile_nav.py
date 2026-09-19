@@ -87,6 +87,10 @@ def test_the_centring_script_follows_the_row_and_sets_scrollleft_not_scrollintov
     assert "scrollIntoView" not in script
     assert "'data-overflow'" in script
     assert "'data-at-end'" in script
+    # Centring re-runs on resize until the row has had a width once — a page
+    # opened at lg+ (row display:none) and narrowed later centres then.
+    assert "row.clientWidth === 0" in script
+    assert "addEventListener('resize', layout" in script
 
 
 def test_the_desktop_sidebar_is_a_nav_whose_current_row_is_marked() -> None:
@@ -119,9 +123,11 @@ def test_extra_mobile_sections_render_without_a_row_when_there_are_no_items() ->
     assert "<ul" not in html[html.index("section-nav") :]
 
 
-def test_a_custom_mobile_renderer_still_fills_a_list_and_gets_no_centring_script() -> None:
-    """The teaching student page switches sections in Alpine inside an x-cloak
-    wrapper, where the row has no geometry until Alpine boots."""
+def test_a_custom_renderer_makes_the_row_a_tablist_not_a_nav_and_gets_no_script() -> None:
+    """The teaching student page switches sections on the SAME page, so its
+    row is the tabs widget it claims to be: role=tab items owned by a tablist,
+    inside no nav landmark and no list. Its wrapper is x-cloak, so the row has
+    no geometry until Alpine boots — the centring script would measure nothing."""
     html = to_xml(
         SidebarNav(
             ITEMS,
@@ -132,8 +138,11 @@ def test_a_custom_mobile_renderer_still_fills_a_list_and_gets_no_centring_script
     )
     block = html[html.index('class="section-nav') :]
 
-    assert '<ul role="list"' in block
-    assert len(re.findall(r'<li class="shrink-0">', block)) == len(ITEMS)
+    assert re.search(r'<div role="tablist" aria-label="Student" class="[^"]*overflow-x-auto', block)
+    assert len(re.findall(r'<div[^>]*role="tab"', block)) == len(ITEMS)
+    assert "<nav" not in block
+    assert "<ul" not in block
+    assert "aria-current" not in block
     assert "<script>" not in block
 
 
