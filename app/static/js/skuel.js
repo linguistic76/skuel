@@ -2062,61 +2062,6 @@
         });
 
         // ---------------------------------------------------------------------
-        // Profile Drawer Component (Phase 3, Task 14)
-        // (profileDrawer removed — replaced by collapsibleSidebar above)
-
-        // ---------------------------------------------------------------------
-        // Profile Focus Handler Component (Phase 3, Task 11)
-        // ---------------------------------------------------------------------
-        /**
-         * Handles deep linking from insights to profile with scroll and highlight.
-         * Used in profile domain views when ?focus={entity_uid} query param is present.
-         *
-         * @param {string} focusUid - Entity UID to scroll to and highlight
-         * @returns {Object} Alpine.js component
-         *
-         * @example
-         * <div x-data="profileFocusHandler('habit_meditation_abc123')"
-         *      x-init="$nextTick(() => scrollToFocused())">
-         *   <!-- entity list items with data-uid attributes -->
-         * </div>
-         */
-        Alpine.data('profileFocusHandler', function(focusUid) {
-            return {
-                focusUid: focusUid,
-
-                scrollToFocused: function() {
-                    if (!this.focusUid) return;
-
-                    var self = this;
-                    // Find element with matching data-uid attribute
-                    var targetElement = this.$el.querySelector('[data-uid="' + this.focusUid + '"]');
-
-                    if (targetElement) {
-                        // Scroll to element with smooth behavior
-                        setTimeout(function() {
-                            targetElement.scrollIntoView({
-                                behavior: 'smooth',
-                                block: 'center',
-                                inline: 'nearest'
-                            });
-
-                            // Apply yellow border flash animation
-                            targetElement.classList.add('border-2', 'border-warning', 'transition-all', 'duration-1000');
-
-                            // Remove highlight after 2 seconds
-                            setTimeout(function() {
-                                targetElement.classList.remove('border-2', 'border-warning');
-                            }, 2000);
-                        }, 300); // Small delay to ensure DOM is ready
-                    } else {
-                        SKUEL.debug('Focus target not found', self.focusUid);
-                    }
-                }
-            };
-        });
-
-        // ---------------------------------------------------------------------
         // Phase 4, Task 16: Debounced Insight Filters
         // ---------------------------------------------------------------------
         /**

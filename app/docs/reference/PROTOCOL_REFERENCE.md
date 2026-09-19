@@ -1,6 +1,6 @@
 ---
 title: Protocol Reference Guide
-updated: 2026-09-17
+updated: 2026-09-19
 status: current
 category: reference
 tags: [protocol, reference]
@@ -449,7 +449,7 @@ Map to the **UserEntry** stage of the 4-phase learning loop
 |----------|---------|-------|
 | `UserEntryCrudOperations` | 12 | Entry CRUD |
 | `UserEntryLifecycleOperations` | 4 | Stage transitions |
-| `UserEntryAssessmentOperations` | 12 | Assessment + feedback reads |
+| `UserEntryAssessmentOperations` | 11 | Assessment + feedback reads |
 | `UserEntryReportQueryOperations` | 8 | Typed report-side reads |
 | `UserEntryContentOperations` | 8 | File + processed content |
 | `UserEntryOrganizesOperations` | 1 | ORGANIZES edges |
@@ -465,16 +465,15 @@ Entity-agnostic sharing. `UnifiedSharingService` implements this protocol and wo
 |----------|---------------|---------|----------------|
 | `SharingOperations` | `sharing` | share, unshare, get_shared_with, get_shared_with_me, set_visibility, check_access, verify_shareable, share_with_group, unshare_from_group, get_groups_shared_with, get_shared_with_me_via_groups (11 methods) | `user_entry_routes.py` |
 
-### Report Protocols (8) — `report_protocols.py`
+### Report Protocols (7) — `report_protocols.py`
 
 Map to the **Report** stage of the educational loop. `processor_type` discriminates source: `HUMAN` (teacher/admin), `LLM` (AI via Exercise or on-demand), `AUTOMATIC` (scheduled).
 
-ENTRY_REPORT entities are produced two ways, behind **separate route-facing protocols** (split 2026-05-30, PR #128): AI reports + typed reads via `EntryReportOperations` (`EntryReportService`); teacher-authored HUMAN feedback via `TeacherReviewOperations` (`TeacherReviewService.submit_report`, submission-anchored). `AssessmentOperations` (`AssessmentService`) is the paired *read* of a student's received assessments (not a producer). `EntryReportService` additionally uses the **backend-level** `EntryReportBackendOperations` to type its `self.backend`. Typed reads return `list[EntryReport]` end-to-end (no TypedDict projection); persisted nodes carry `:Entity:EntryReport` dual labels.
+ENTRY_REPORT entities are produced two ways, behind **separate route-facing protocols** (split 2026-05-30, PR #128): AI reports + typed reads via `EntryReportOperations` (`EntryReportService`); teacher-authored HUMAN feedback via `TeacherReviewOperations` (`TeacherReviewService.submit_report`, submission-anchored). `EntryReportService` additionally uses the **backend-level** `EntryReportBackendOperations` to type its `self.backend`. Typed reads return `list[EntryReport]` end-to-end (no TypedDict projection); persisted nodes carry `:Entity:EntryReport` dual labels.
 
 | Protocol | Services Field | Methods | Route Consumer |
 |----------|---------------|---------|----------------|
 | `EntryReportOperations` (service) | `entry_report` | generate_report(`UserEntry`, `Exercise`) → `EntryReport` `LLM`, list_for_submission → `list[EntryReport]` (both HUMAN + LLM, discriminated by `processor_type`) | `exercises_api.py`, `teaching_api.py`, `teaching_ui.py`, `user_entry_ui.py` |
-| `AssessmentOperations` (service) | `user_entry_assessment` | get_assessments_for_student → `list[EntryReport]` (reads student `OWNS` — the visibility anchor, C1 feedback-loop UX arc). Teacher-authored HUMAN feedback is *written* by `TeacherReviewOperations` (submission-anchored); this is its paired read | `entry_reports_ui.py` via `UserEntryOrchestrator` |
 | `EntryReportBackendOperations` (backend) | `EntryReportService.backend` (typed `self.backend`) | list_for_submission, get_reports_for_student_exercise, get_reports_by_teacher (all → `list[EntryReport]` via `from_neo4j_node`), get_linked_ku_and_student (mastery-loop scalar projection) | — (backend-only) |
 | `ProgressReportOperations` | `progress_report_generator` | 1 (generate → `ACTIVITY_REPORT` entity, `LLM` or `AUTOMATIC`) | `progress_report_api.py` |
 | `ActivityReportOperations` | `activity_report` | 8 (create_snapshot, submit_report → `ACTIVITY_REPORT` `HUMAN`, get_history, latest_for_period, find_by_period (the period's reusable report — the generator's previous-period comparison), annotate → `AnnotationResult`, get_annotation → `AnnotationState`, get_privacy_summary → `PrivacySummary`) | `progress_report_api.py` |
@@ -483,7 +482,7 @@ ENTRY_REPORT entities are produced two ways, behind **separate route-facing prot
 | `TeacherReviewOperations` | `teacher_review` | 13 (review queue → `list[ReviewQueueItem]`, submission detail → `SubmissionDetailResult`, feedback history, submit/request/approve, exercises, students, dashboard → `TeacherDashboardStats`, classes → `list[GroupMemberProgress]`) | `teaching_api.py` |
 
 **Why HUMAN and AI reports are SEPARATE protocols (PR #128):**
-`EntryReportService.generate_report()` creates AI (`processor_type=LLM`) `ENTRY_REPORT` entities; teacher-authored HUMAN reports are created by `TeacherReviewService.submit_report()` — both linked to the submission via `REPORT_FOR`, but **no single class implements both**. The AI + read methods used to share one `EntryReportOperations` protocol with the teacher-assessment methods, which was an impl-lie: `compose.py` injected `EntryReportService` (which lacks the assessment methods) where the bundled protocol was expected, masking a reachable `AttributeError` in `ProfileOrchestrator`. Splitting into `EntryReportOperations` (AI + reads) and `AssessmentOperations` (a student's received-assessment read) makes each protocol match its single implementing service — the conformance is now checked by mypy `arg-type` at the wiring root. `generate_report` accepts typed params: `entry: UserEntry`, `exercise: Exercise` (not `Any`); `list_for_submission` remains the unified typed read for both sources.
+`EntryReportService.generate_report()` creates AI (`processor_type=LLM`) `ENTRY_REPORT` entities; teacher-authored HUMAN reports are created by `TeacherReviewService.submit_report()` — both linked to the submission via `REPORT_FOR`, but **no single class implements both**. The AI + read methods used to share one `EntryReportOperations` protocol with the teacher-assessment methods, which was an impl-lie: `compose.py` injected `EntryReportService` (which lacks the assessment methods) where the bundled protocol was expected, masking a reachable `AttributeError` in the (since-retired) profile hub's orchestrator. Splitting the AI + read methods into `EntryReportOperations` makes the protocol match its single implementing service — the conformance is checked by mypy `arg-type` at the wiring root. (The split's read half, `AssessmentOperations`/`AssessmentService`, retired with the `/profile` hub — its one consumer was the hub's Reports preview; the GradeBook reads received feedback through `get_student_exchange_summaries`.) `generate_report` accepts typed params: `entry: UserEntry`, `exercise: Exercise` (not `Any`); `list_for_submission` remains the unified typed read for both sources.
 
 **Note on `AssignmentOperations`:** `AssignmentOperations` remains in `curriculum_protocols.py` — Assignments are curriculum entities (Exercise scope=assigned), not reports.
 

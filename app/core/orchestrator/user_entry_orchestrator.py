@@ -40,7 +40,6 @@ if TYPE_CHECKING:
     from core.services.report.teacher_review_service import TeacherReviewService
     from core.services.revised_exercises import RevisedExerciseService
     from core.services.sharing import UnifiedSharingService
-    from core.services.user_entry.assessment_service import AssessmentService
     from core.services.user_entry.user_entry_service import UserEntryService
     from core.services.user_service import UserService
 
@@ -75,7 +74,6 @@ class UserEntryOrchestrator:
         revised_exercise_service: RevisedExerciseService,
         entry_report_service: EntryReportService,
         sharing_service: UnifiedSharingService,
-        assessment_service: AssessmentService,
         report_relationship_service: ReportRelationshipService,
     ) -> None:
         self._entries = user_entry_service
@@ -86,7 +84,6 @@ class UserEntryOrchestrator:
         self._revised_exercise = revised_exercise_service
         self._entry_report = entry_report_service
         self._sharing = sharing_service
-        self._assessment = assessment_service
         self._report_relationship = report_relationship_service
 
     @property
@@ -307,12 +304,6 @@ class UserEntryOrchestrator:
             revision = revision_result.value
 
         return Result.ok({"report": report, "revised_exercise": revision})
-
-    async def get_assessments_for_student(
-        self, user_uid: UserUID, limit: int = 50
-    ) -> Result[list[EntryReport]]:
-        """Assessments (ENTRY_REPORT entities) received by a student."""
-        return await self._assessment.get_assessments_for_student(user_uid, limit)
 
     # ------------------------------------------------------------------
     # Activity Reports

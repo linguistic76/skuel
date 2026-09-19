@@ -75,7 +75,7 @@ def create_settings_routes(
                 "monthly_learning_hours": prefs.monthly_learning_hours,
             }
 
-        from ui.profile.preferences import UserPreferencesComponents
+        from ui.settings.preferences import UserPreferencesComponents
 
         return Div(
             UserPreferencesComponents.render_preferences_editor(prefs_dict),
@@ -139,7 +139,7 @@ def create_settings_routes(
 
         from fasthtml.common import Script
 
-        from ui.profile.preferences import UserPreferencesComponents
+        from ui.settings.preferences import UserPreferencesComponents
 
         saved_theme = preferences_update.get("theme", "light")
         dark_toggle = (

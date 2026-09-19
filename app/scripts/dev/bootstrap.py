@@ -905,9 +905,11 @@ async def _wire_all_routes(
 
     create_ai_routes(app, rt, services)
 
+    from adapters.inbound.sidebar_badges_ui import setup_sidebar_badges_routes
     from adapters.inbound.user_profile_ui import setup_user_profile_routes
 
     setup_user_profile_routes(rt, services)
+    setup_sidebar_badges_routes(rt, services)
 
     if services.user_relationships:
         from adapters.inbound.user_pins_api import create_user_pins_routes

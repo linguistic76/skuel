@@ -1,5 +1,5 @@
 ---
-updated: 2026-09-18
+updated: 2026-09-19
 ---
 
 # Deferred Work
@@ -47,9 +47,9 @@ renders them as a table in Obsidian, and a session derives the same table with
 
 [Domain-level fulltext-first text search (D1(b) follow-on)](domain-fulltext-first-search.md) — Relevance-ranked text search for what remains on `/search` — ruled DEFERRED twice, scope inverted by the facet redesign, and the owner of the "Relevance" label fiction; read its two rulings before scoping a third time.
 
-## Profile-Side Search for UserEntry, Exercise and RevisedExercise
+## Lived-Output Search for UserEntry, Exercise and RevisedExercise
 
-[Profile-Side Search for UserEntry, Exercise and RevisedExercise](profile-side-search.md) — The one obligation the `/search` facet redesign created: search for the three domains it stripped, built on `/profile` — all three, on Mike's scheduling.
+[Lived-Output Search for UserEntry, Exercise and RevisedExercise](lived-output-search.md) — The one obligation the `/search` facet redesign created: search for the three domains it stripped, one box per list (`/submissions/history`, `/library/exercises`, `/gradebook`) — all three, on Mike's scheduling.
 
 ## ZPD Snapshot History & Trend Analysis
 

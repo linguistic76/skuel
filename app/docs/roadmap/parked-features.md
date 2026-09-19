@@ -1,6 +1,6 @@
 ---
 title: "Parked Features — Memory-Only Until Now"
-updated: 2026-09-06
+updated: 2026-09-19
 status: "parked"
 registered: 2026-08-28
 trigger: "Mike schedules each — feature work, never self-scoped"
@@ -29,8 +29,12 @@ what to re-verify, not the line number.
 habit: Exercise · 2h ago", "Assessed alignment as mostly_aligned"). Complementary to
 `ActivityReport` (Tier D synthesis *about* activity), not competing with it. Two consumers:
 
-1. **Profile UI sibling** — a recent-activity feed alongside the recent-reports section
-   (`render_recent_reports_section`, `ui/patterns/generate_report.py`).
+1. **GradeBook sibling** — a recent-activity feed beside the GradeBook's Activity-reports
+   group (`/gradebook`, `ui/gradebook/summary.py`), the page that lists what the ledger would
+   itemize. *Re-ruled 2026-09-19:* the arc named the `/profile` hub as the sibling's home; the
+   hub is retired (Tasks+ arc PR 5). The recent-reports section on the request form
+   (`render_recent_reports_section`, `ui/patterns/generate_report.py`) is a form aid, not a
+   home.
 2. **`ActivityReport` evidence input** — the raw material report generation synthesizes from
    ("3 alignment assessments this period, trending up" beats entity counts). Rhymes with
    Knowledge Substance: substance accrues from lived activity; the ledger IS that activity,

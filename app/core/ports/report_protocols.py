@@ -25,7 +25,7 @@ The HUMAN and AI halves are SEPARATE protocols implemented by separate services
 (they are not a single-class union — that was split 2026-05-30, PR #128):
 
     AI report (LLM) + typed reads → EntryReportOperations  (EntryReportService)
-    Received teacher assessments (read) → AssessmentOperations (AssessmentService)
+    Teacher-authored HUMAN feedback (write) → TeacherReviewOperations (TeacherReviewService)
 
 ``list_for_submission`` (on EntryReportOperations) is the authoritative typed
 read for BOTH HUMAN and LLM reports — processor_type discriminates.
@@ -33,7 +33,6 @@ read for BOTH HUMAN and LLM reports — processor_type discriminates.
 Protocol Responsibilities
 --------------------------
     EntryReportOperations     — AI report + typed reads (generate_report, list_for_submission)
-    AssessmentOperations         — A student's received teacher assessments (get_assessments_for_student)
     ProgressReportOperations     — Auto-generated progress reports (ACTIVITY_REPORT entities)
     ActivityReportOperations     — Processor-neutral ActivityReport CRUD (snapshot, submit, history, annotate)
     ReviewQueueOperations        — ReviewRequest queue management (request_review, get_pending_reviews)
@@ -95,9 +94,9 @@ class EntryReportOperations(Protocol):
     BOTH HUMAN (teacher-authored) and LLM reports attached to a submission
     (processor_type discriminates the source).
 
-    Teacher-authored assessment *creation* and assessment queries live on the
-    sibling :class:`AssessmentOperations` (implemented by ``AssessmentService``)
-    — they are a distinct service, not a single-class union with this one.
+    Teacher-authored assessment *creation* lives on the sibling
+    :class:`TeacherReviewOperations` (implemented by ``TeacherReviewService``)
+    — a distinct service, not a single-class union with this one.
 
     Route consumers: exercises_api.py (AI reports), teaching_api.py / teaching_ui.py
     / user_entry_ui.py (report history).
@@ -148,29 +147,6 @@ class EntryReportOperations(Protocol):
 
         Returns Result[EntryReport] — the created ENTRY_REPORT entity.
         """
-        ...
-
-
-@runtime_checkable
-class AssessmentOperations(Protocol):
-    """A student's received teacher assessments — the read side of HUMAN feedback.
-
-    Teacher-authored HUMAN feedback is *written* by
-    :class:`TeacherReviewOperations` (submission-anchored review). This protocol
-    is the read that surfaces a student's received feedback: ENTRY_REPORT
-    entities the student owns (``OWNS`` is the visibility anchor).
-
-    Route consumer: entry_reports_ui.py via UserEntryOrchestrator (a student's
-    received feedback). Implementation: ``AssessmentService``
-    (core/services/user_entry/).
-    """
-
-    async def get_assessments_for_student(
-        self,
-        student_uid: str,
-        limit: int = 50,
-    ) -> Result[list[EntryReport]]:
-        """Get feedback reports received by a student. Returns Result[list[EntryReport]]."""
         ...
 
 

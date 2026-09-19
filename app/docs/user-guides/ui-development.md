@@ -1,5 +1,5 @@
 ---
-updated: 2026-09-02
+updated: 2026-09-19
 ---
 
 # UI Development Guide
@@ -844,7 +844,6 @@ These are purpose-built for specific features. Check `skuel.js` for their full A
 | `exploreGraph`, `exploreSearch` | Explore sidebar — graph + tag/text search |
 | `entityPicker` | Searchable cross-domain UID picker (pairs with `EntityPicker`) |
 | `bulkInsightManager`, `insightDetailModal`, `insightFiltersDebounced` | Insight cards |
-| `profileFocusHandler` | Profile hub focus navigation |
 | `revisionForm` | Revision feedback points |
 | `submit`, `batchTranscribe`, `userFolderTranscribe` | Submission + transcription surfaces |
 | `offlineIndicator` | PWA offline banner |

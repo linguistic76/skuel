@@ -1,6 +1,6 @@
 ---
 title: Protocol-Based Architecture
-updated: 2026-09-17
+updated: 2026-09-19
 category: patterns
 related_skills:
 - python
@@ -452,7 +452,7 @@ class Services:
 |------|-----------|---------|
 | `user_entry_protocols.py` | 9 | UserEntryCrud / Lifecycle / Assessment / ReportQuery / Content / Organizes / Processing + the composed `UserEntryOperations`. **Replaced `submission_protocols.py`, which no longer exists** (ADR-054) |
 | `sharing_protocols.py` | 2 | SharingOperations — entity-agnostic SHARES_WITH + SHARED_WITH_GROUP management |
-| `report_protocols.py` | 15 | EntryReportOperations (AI report + typed reads), AssessmentOperations (a student's received-assessment read — split from EntryReportOperations in PR #128; HUMAN feedback is written by TeacherReviewOperations), ProgressReportOperations, ProgressScheduleOperations, ActivityReportOperations, ReviewQueueOperations, TeacherReviewOperations |
+| `report_protocols.py` | 12 | EntryReportOperations (AI report + typed reads — split from the teacher-assessment methods in PR #128; HUMAN feedback is written by TeacherReviewOperations), ProgressReportOperations, ProgressScheduleOperations, ActivityReportOperations, ReviewQueueOperations, TeacherReviewOperations |
 | `form_protocols.py` | 4 | FormTemplateBackendOperations, FormSubmissionBackendOperations (backend-level, import directly from `form_protocols`); FormTemplateOperations, FormSubmissionOperations (route-level, re-exported from `__init__`) |
 | `group_protocols.py` | 2 | GroupBackendOperations (backend-level: CRUD + membership edges, `add_member` carries `joined_at`); GroupOperations (route-level, 9 methods) — same root word, two layers |
 | `service_protocols.py` | 14 | CalendarService, Visualization, System, CrossDomainAnalytics, LifePath+Alignment, GraphAuth, GoalTaskGenerator, HabitEventScheduler, OwnershipVerifier, LateralRelationship (route + backend); plus two backend slices of the SAME SessionBackend — SessionInvalidationOperations (revocation, consumed by UserService) and SessionBackendOperations (sign-in/session/token persistence, consumed by GraphAuthService) |

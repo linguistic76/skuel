@@ -14,14 +14,37 @@ from fasthtml.common import H3, Div, Form, Li, P, Span, Strong, Ul
 from core.models.insight.persisted_insight import InsightImpact, PersistedInsight
 from ui.components import Button, ButtonT
 from ui.feedback import Alert, AlertT, Badge, BadgeT
-from ui.layout import Row
 from ui.patterns.card_generator import CardGenerator
+from ui.patterns.entity_links import entity_detail_href
 from ui.patterns.modal import AlpineModal
 from ui.primitives import ButtonLink
 
 
 def _render_description(desc: str) -> Any:
     return Span(desc, cls="line-clamp-3 text-sm text-muted-foreground mt-2 block")
+
+
+# insight.domain → the entity_type whose detail page the insight's entity has.
+# The writers (the six Activity event handlers, the principle-alignment helper
+# and the learning-loop handler) stamp the domain's plural slug, or
+# ``user_entry`` for an insight about a student's own entry.
+_DOMAIN_ENTITY_TYPE: dict[str, str] = {
+    "tasks": "task",
+    "goals": "goal",
+    "habits": "habit",
+    "events": "event",
+    "choices": "choice",
+    "principles": "principle",
+    "user_entry": "user_entry",
+}
+
+
+def _entity_detail_href(insight: PersistedInsight) -> str | None:
+    """Detail page of the entity an insight is about, or ``None`` when its
+    domain has no detail page (the card then links to the filtered list)."""
+    if not insight.entity_uid:
+        return None
+    return entity_detail_href(_DOMAIN_ENTITY_TYPE.get(insight.domain), insight.entity_uid)
 
 
 def InsightCard(insight: PersistedInsight) -> Div:
@@ -128,11 +151,12 @@ def InsightCard(insight: PersistedInsight) -> Div:
             hx_confirm="Mark this insight as actioned?",
         ),
     ]
-    if insight.entity_uid:
+    entity_href = _entity_detail_href(insight)
+    if entity_href:
         action_buttons_list.append(
             ButtonLink(
                 "View Entity",
-                href=f"/profile/{insight.domain}?focus={insight.entity_uid}",
+                href=entity_href,
                 cls=ButtonT.ghost,
                 size="sm",
             )
@@ -165,84 +189,6 @@ def InsightCard(insight: PersistedInsight) -> Div:
         card,
         InsightDetailModal(insight),
         x_data=f"insightDetailModal('{insight.uid}')",
-    )
-
-
-def InsightMiniCard(insight: PersistedInsight, show_domain: bool = False) -> Div:
-    """Render a compact insight card for embedding in profile views.
-
-    Args:
-        insight: PersistedInsight model
-        show_domain: Whether to show domain badge (useful when embedding in overview)
-
-    Returns:
-        Compact card component for profile hub integration
-
-    Example:
-        # In profile habits view
-        InsightMiniCard(habit_insight, show_domain=False)
-
-        # In profile overview
-        InsightMiniCard(insight, show_domain=True)
-    """
-    # Impact indicator dot
-    from ui.enum_helpers import get_priority_dot_class
-
-    dot_color = get_priority_dot_class(insight.impact.value)
-
-    # Build badge
-    badges = []
-    impact_variant = (
-        BadgeT.error
-        if insight.impact in (InsightImpact.CRITICAL, InsightImpact.HIGH)
-        else BadgeT.warning
-        if insight.impact == InsightImpact.MEDIUM
-        else BadgeT.success
-    )
-    impact_badge = Badge(insight.impact.value.upper(), variant=impact_variant)
-    badges.append(impact_badge)
-
-    if show_domain:
-        domain_badge = Badge(insight.domain, variant=BadgeT.neutral)
-        badges.append(domain_badge)
-
-    # Determine link URL based on entity_uid
-    # If entity_uid exists, deep link to profile with focus parameter
-    # Otherwise, fall back to filtered insights page
-    link_url = (
-        f"/profile/{insight.domain}?focus={insight.entity_uid}"
-        if insight.entity_uid
-        else f"/insights?domain={insight.domain}"
-    )
-    button_text = "View in Profile" if insight.entity_uid else "View Details"
-
-    # Compact layout - single row with title, badges, and link
-    return Div(
-        Div(
-            # Impact dot indicator
-            Div(cls=f"size-2 rounded-full {dot_color} shrink-0"),
-            # Title (truncated)
-            Span(insight.title, cls="line-clamp-1 text-sm font-medium text-foreground grow"),
-            # Badges
-            Row(*badges, gap=1),
-            cls="flex items-center gap-3",
-        ),
-        # Description (truncated to 1 line)
-        Span(
-            insight.description or "", cls="line-clamp-1 text-xs text-muted-foreground mt-1 block"
-        ),
-        # Link button
-        Div(
-            Button(
-                button_text,
-                cls=ButtonT.ghost,
-                size="xs",
-                hx_get=link_url,
-            ),
-            cls="mt-2",
-        ),
-        cls="p-3 bg-muted rounded-lg border-l-2 border-l-warning cursor-pointer hover:bg-secondary transition-colors",
-        hx_get=link_url,
     )
 
 

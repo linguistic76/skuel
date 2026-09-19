@@ -20,7 +20,6 @@ if TYPE_CHECKING:
     )
     from core.orchestrator.library_orchestrator import LibraryOrchestrator
     from core.orchestrator.pathways_orchestrator import PathwaysOrchestrator
-    from core.orchestrator.profile_orchestrator import ProfileOrchestrator
     from core.orchestrator.search_router import SearchRouter
     from core.orchestrator.teacher_orchestrator import TeacherOrchestrator
     from core.orchestrator.user_entry_orchestrator import UserEntryOrchestrator
@@ -75,7 +74,6 @@ if TYPE_CHECKING:
     from core.services.user.intelligence.factory import (
         UserContextIntelligenceFactory,
     )
-    from core.services.user_entry.assessment_service import AssessmentService
     from core.services.user_entry.user_entry_processing_service import (
         UserEntryProcessingService,
     )
@@ -197,7 +195,6 @@ class Services:
     # Replaces the legacy submission + journal services.
     user_entry: UserEntryService | None = None
     user_entry_processor: UserEntryProcessingService | None = None
-    user_entry_assessment: AssessmentService | None = None
 
     # ========================================================================
     # GROUP & TEACHING (ADR-040) - Teacher exercise workflow
@@ -316,7 +313,6 @@ class Services:
     prereq_suggestions: PrereqSuggestionService | None = None
     # Entry→Ku grounding (Entry-Enrichment PR 3) — post-sync pass + removal route
     entry_grounding: EntryGroundingService | None = None
-    profile_orchestrator: ProfileOrchestrator | None = None
     user_entry_orchestrator: UserEntryOrchestrator | None = None
     explore_orchestrator: ExploreOrchestrator | None = None
     library_orchestrator: LibraryOrchestrator | None = None

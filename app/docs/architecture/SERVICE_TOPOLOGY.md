@@ -1,5 +1,5 @@
 ---
-updated: 2026-09-13
+updated: 2026-09-19
 ---
 
 # Service Architecture: File Organization & Topology
@@ -652,7 +652,6 @@ Routes / Application Code
 │
 ├─ user_entry/                            (ADR-054 — replaces submissions/ + journal/)
 │   ├─ user_entry_service.py              (entry point — UserEntryService facade over UserEntryBackend)
-│   ├─ assessment_service.py             (AssessmentService — reads a student's received teacher assessments)
 │   ├─ user_entry_processing_service.py  (UserEntryProcessingService — transcription/LLM → UserEntry)
 │   ├─ exercise_linker.py                (UserEntryExerciseLinker — links UserEntry to Exercise)
 │   ├─ audience_resolver.py              (AudienceResolver — shared sharing/audience helper)

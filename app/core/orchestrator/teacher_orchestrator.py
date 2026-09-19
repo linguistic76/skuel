@@ -8,8 +8,7 @@ for UI rendering.
 All service dependencies except admin_stats are required — bootstrap raises
 if any are missing (Fail-Fast Dependency Philosophy).
 
-admin_stats is optional — KU detail degrades gracefully when unavailable
-(same pattern as ProfileOrchestrator's context_intelligence).
+admin_stats is optional — KU detail degrades gracefully when unavailable.
 """
 
 from typing import TYPE_CHECKING, Any

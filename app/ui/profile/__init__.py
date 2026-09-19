@@ -1,21 +1,5 @@
-"""Profile UI components.
+"""Shared With Me — the reviewing inbox at ``/profile/shared``.
 
-This module provides the profile hub page and supporting components
-following the hub page (MOC) pattern.
-
-See: /docs/design-principles/HUB_PAGES.md
+The one surface left under the ``/profile`` prefix: ``ui/profile/shared_view.py``
+renders the SHARES_WITH inbox for ``adapters/inbound/user_profile_ui.py``.
 """
-
-from ui.profile._shared import DomainSummaryCard
-from ui.profile.badges import CountBadge, HealthIndicator
-from ui.profile.hub import ProfileHubView
-
-__all__ = [
-    # Hub
-    "ProfileHubView",
-    # Shared components
-    "DomainSummaryCard",
-    # Badges
-    "CountBadge",
-    "HealthIndicator",
-]

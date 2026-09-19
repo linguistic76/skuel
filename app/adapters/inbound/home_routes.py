@@ -1,7 +1,6 @@
 """Shared HTMX fragments for the navbar and personal header.
 
-The former /home hub was superseded by the /profile tabbed hub. This module
-only registers the cross-cutting fragments now.
+This module registers only the cross-cutting fragments every page shares.
 
 Routes:
 - GET /api/navbar/notification-badge — notification bell with unread count

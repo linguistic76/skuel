@@ -291,6 +291,10 @@ class TestHandleReportSubmitted:
         mock_insight_store.create_insight.assert_called_once()
         insight = mock_insight_store.create_insight.call_args[0][0]
         assert insight.supporting_data["anomaly_type"] == "fast"
+        # A turnaround anomaly is a pattern, not an entity to open: the
+        # report is evidence, the card renders no entity link.
+        assert insight.entity_uid == ""
+        assert insight.supporting_data["report_uid"] == event.report_uid
 
     @pytest.mark.anyio
     async def test_slow_anomaly_insight(

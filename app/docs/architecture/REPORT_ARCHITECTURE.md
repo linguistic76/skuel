@@ -1,6 +1,6 @@
 ---
 title: Report Architecture
-updated: 2026-09-15
+updated: 2026-09-19
 status: current
 category: architecture
 version: 3.2.0
@@ -311,7 +311,7 @@ Only `COMPLETED` entities can be shared (prevents sharing incomplete/failed work
 
 | Service | Protocol | Produces | Notes |
 |---------|----------|---------|-------|
-| `TeacherReviewService` | `TeacherReviewOperations` | `EntryReport` (HUMAN) | Teacher feedback on a submission (`submit_report`, `request_revision_with_exercise`); `REPORT_FOR`-anchored; verifies group membership. `AssessmentService`/`AssessmentOperations` is the paired *read* of a student's received assessments (not a producer) |
+| `TeacherReviewService` | `TeacherReviewOperations` | `EntryReport` (HUMAN) | Teacher feedback on a submission (`submit_report`, `request_revision_with_exercise`); `REPORT_FOR`-anchored; verifies group membership. |
 | `EntryReportService` | `EntryReportOperations` (service) + `EntryReportBackendOperations` (backend) | `EntryReport` (LLM) | AI evaluation via Exercise instructions (`UnifiedLLMCaller`). Also owns typed report reads: `list_for_submission` → `list[EntryReport]` (delegates to `EntryReportBackend`, which returns typed entities via `from_neo4j_node` — no TypedDict projection). Writes produce `:Entity:EntryReport` dual-labeled nodes; reads discriminate AI vs teacher via `EntryReport.processor_type` on the typed model |
 | `ProgressReportGenerator` | `ProgressReportOperations` | `ACTIVITY_REPORT` (AUTOMATIC or LLM) | Activity summary; LLM adds qualitative insights |
 | `ActivityReportService` | `ActivityReportOperations` | `ACTIVITY_REPORT` (HUMAN or via persist()) | Processor-neutral CRUD; all write paths converge here |
@@ -592,7 +592,6 @@ User annotates report (additive or revision mode)
 |---------|-----------|-------|----------|
 | `TeacherReviewService` | `tests/unit/services/test_teacher_review_service.py` | 60 | 76% |
 | `UserEntryService` | `tests/unit/services/test_user_entry_service.py` | 41 | 69% |
-| `AssessmentService` | `tests/unit/test_assessment_service.py` | 2 | 100% |
 
 ---
 

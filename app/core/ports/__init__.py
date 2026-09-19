@@ -214,7 +214,6 @@ from .relationship_backend_protocols import UserRelationshipOperations
 # Report protocols — Report stage of the educational loop
 from .report_protocols import (
     ActivityReportOperations,
-    AssessmentOperations,
     EntryReportOperations,
     ProgressReportOperations,
     ReviewQueueOperations,
@@ -407,7 +406,6 @@ __all__ = [
     "SharingOperations",
     # ========== REPORT PROTOCOLS (6) ==========
     "ActivityReportOperations",
-    "AssessmentOperations",
     "EntryReportOperations",
     "ProgressReportOperations",
     "ReviewQueueOperations",
