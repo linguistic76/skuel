@@ -1,14 +1,14 @@
-"""The generated page shells light the sidebar row the config names.
+"""The generated page shells light the domain's own sidebar row.
 
-Events have no activity-sidebar row of their own — every event page lights
-"Monthly" — so the shared factory's list and detail shells must take the row
-from ``ActivityUIConfig.sidebar_active`` rather than the domain slug, or a
-successful create would land on a detail page with no active row.
+Every Activity Domain has a Tasks+ row named by its slug — Events included —
+so the shared factory's list and detail shells (the missing-uid banner too)
+light ``domain_name`` and nothing else: a successful create lands on a detail
+page whose own row is lit.
 """
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, fields
 from typing import Any
 from unittest.mock import AsyncMock, MagicMock
 
@@ -47,9 +47,7 @@ def _detail_component(entity: _Item, connections: list[Any]) -> Div:
     return Div("detail")
 
 
-def _client(
-    monkeypatch: pytest.MonkeyPatch, *, sidebar_active: str | None
-) -> tuple[TestClient, list[str]]:
+def _client(monkeypatch: pytest.MonkeyPatch) -> tuple[TestClient, list[str]]:
     seen: list[str] = []
 
     def fake_sidebar_page(content: Any, **kwargs: Any) -> Any:
@@ -89,22 +87,19 @@ def _client(
         list_component=_list_component,
         stats_component=_stats_component,
         detail_component=_detail_component,
-        sidebar_active=sidebar_active,
     )
     create_activity_ui_routes(app, rt, config)
     return TestClient(app), seen
 
 
-def test_shells_light_the_configured_row(monkeypatch: pytest.MonkeyPatch) -> None:
-    client, seen = _client(monkeypatch, sidebar_active="monthly")
+def test_every_shell_lights_the_domain_row(monkeypatch: pytest.MonkeyPatch) -> None:
+    client, seen = _client(monkeypatch)
     client.get("/events")
     client.get("/events/detail?uid=event_1")
     client.get("/events/detail")  # the missing-uid banner is a shell too
-    assert seen == ["monthly", "monthly", "monthly"]
+    assert seen == ["events", "events", "events"]
 
 
-def test_shells_default_to_the_domain_slug(monkeypatch: pytest.MonkeyPatch) -> None:
-    client, seen = _client(monkeypatch, sidebar_active=None)
-    client.get("/events")
-    client.get("/events/detail?uid=event_1")
-    assert seen == ["events", "events"]
+def test_the_config_names_no_other_row() -> None:
+    """The row is the domain's slug, never a per-domain override."""
+    assert "sidebar_active" not in {f.name for f in fields(ActivityUIConfig)}

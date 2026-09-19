@@ -73,9 +73,6 @@ def create_events_ui_routes(
         stats_component=EventStatsBar,
         detail_component=EventDetailView,
         create_href="/events/create",
-        # Events have no sidebar row of their own: every event page lights
-        # Monthly, the generated list/detail shells included.
-        sidebar_active="monthly",
     )
     create_activity_ui_routes(app, rt, config)
 
@@ -103,7 +100,7 @@ def create_events_ui_routes(
         """Render the new-event form."""
         require_authenticated_user(request)
         content = Div(PageHeader("New Event"), EventCreateForm(), cls="space-y-6")
-        return render_activity_sidebar_page(content, active="monthly", request=request)
+        return render_activity_sidebar_page(content, active="events", request=request)
 
     @rt("/events/create", methods=["POST"])
     @csrf_protected
@@ -120,7 +117,7 @@ def create_events_ui_routes(
                 EventCreateForm(),
                 cls="space-y-6",
             )
-            return render_activity_sidebar_page(content, active="monthly", request=request)
+            return render_activity_sidebar_page(content, active="events", request=request)
 
         result = await events_service.create_event(parsed.value, user_uid)
         if result.is_error:
@@ -131,7 +128,7 @@ def create_events_ui_routes(
                 EventCreateForm(),
                 cls="space-y-6",
             )
-            return render_activity_sidebar_page(content, active="monthly", request=request)
+            return render_activity_sidebar_page(content, active="events", request=request)
 
         return RedirectResponse(f"/events/detail?uid={result.value.uid}", status_code=303)
 
@@ -143,7 +140,7 @@ def create_events_ui_routes(
         if not uid:
             return render_activity_sidebar_error(
                 "Missing event UID",
-                active="monthly",
+                active="events",
                 request=request,
             )
 
@@ -151,7 +148,7 @@ def create_events_ui_routes(
         if result.is_error or result.value.user_uid != user_uid:
             return render_activity_sidebar_error(
                 "Event not found",
-                active="monthly",
+                active="events",
                 request=request,
             )
 
@@ -173,7 +170,7 @@ def create_events_ui_routes(
             ),
             cls="space-y-6",
         )
-        return render_activity_sidebar_page(content, active="monthly", request=request)
+        return render_activity_sidebar_page(content, active="events", request=request)
 
     @rt("/events/edit", methods=["POST"])
     @csrf_protected
@@ -184,7 +181,7 @@ def create_events_ui_routes(
         if not uid:
             return render_activity_sidebar_error(
                 "Missing event UID",
-                active="monthly",
+                active="events",
                 request=request,
             )
 
@@ -192,7 +189,7 @@ def create_events_ui_routes(
         if existing.is_error or existing.value.user_uid != user_uid:
             return render_activity_sidebar_error(
                 "Event not found",
-                active="monthly",
+                active="events",
                 request=request,
             )
         event = existing.value
@@ -217,7 +214,7 @@ def create_events_ui_routes(
                 ),
                 cls="space-y-6",
             )
-            return render_activity_sidebar_page(content, active="monthly", request=request)
+            return render_activity_sidebar_page(content, active="events", request=request)
 
         # ADR-066: build the typed EventUpdateIntent from explicitly-set fields only
         # (model_fields_set). A field the edit form does not render is absent from the body
@@ -244,6 +241,6 @@ def create_events_ui_routes(
                 ),
                 cls="space-y-6",
             )
-            return render_activity_sidebar_page(content, active="monthly", request=request)
+            return render_activity_sidebar_page(content, active="events", request=request)
 
         return RedirectResponse(f"/events/detail?uid={uid}", status_code=303)

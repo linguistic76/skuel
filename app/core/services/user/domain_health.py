@@ -1,7 +1,7 @@
 """Domain health status calculators.
 
 Business rules for determining the health status ("healthy", "warning", "critical")
-of each activity and curriculum domain based on entity counts.
+of each activity domain based on entity counts.
 
 These are pure functions — no I/O, no service calls.
 
@@ -80,34 +80,6 @@ class DomainStatus:
         if pending_count > 5:
             return "critical"
         elif pending_count > 0:
-            return "warning"
-        return "healthy"
-
-    @staticmethod
-    def calculate_knowledge_status(
-        blocked: int,
-        mastered: int,
-        in_progress: int,
-    ) -> str:
-        """Calculate knowledge (KU) domain health status.
-
-        Critical when blocked prerequisites outnumber active learning by 50%.
-        """
-        if blocked > (mastered + in_progress) * 0.5 and (mastered + in_progress) > 0:
-            return "critical"
-        elif blocked > 0:
-            return "warning"
-        return "healthy"
-
-    @staticmethod
-    def calculate_learning_paths_status(blocked: int, enrolled: int) -> str:
-        """Calculate learning paths domain health status.
-
-        Critical when blocked prerequisites outnumber enrolled paths by 50%.
-        """
-        if blocked > enrolled * 0.5 and enrolled > 0:
-            return "critical"
-        elif blocked > 0:
             return "warning"
         return "healthy"
 

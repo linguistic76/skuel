@@ -159,69 +159,6 @@ def choices_status_args(ctx: UserContext) -> tuple[int]:
 
 
 # ============================================================================
-# CURRICULUM DOMAIN EXTRACTORS
-# ============================================================================
-
-
-# Knowledge domain extractors (KU)
-def knowledge_count(ctx: UserContext) -> int:
-    """Calculate total knowledge count (mastered + in_progress + ready)."""
-    mastered = len(ctx.mastered_knowledge_uids)
-    in_progress = len(ctx.in_progress_knowledge_uids)
-    ready = len(ctx.ready_to_learn_uids)
-    return mastered + in_progress + ready
-
-
-def knowledge_active(ctx: UserContext) -> int:
-    """Calculate active knowledge count (in_progress)."""
-    return len(ctx.in_progress_knowledge_uids)
-
-
-def knowledge_status(ctx: UserContext) -> str:
-    """Calculate knowledge domain status based on learning progress."""
-    return DomainStatus.calculate_knowledge_status(
-        blocked=len(ctx.prerequisites_needed),
-        mastered=len(ctx.mastered_knowledge_uids),
-        in_progress=len(ctx.in_progress_knowledge_uids),
-    )
-
-
-# Path Steps domain extractors (PS)
-def path_steps_count(_ctx: UserContext) -> int:
-    """Calculate total path steps count. Placeholder - no PS nodes yet."""
-    return 0
-
-
-def path_steps_active(_ctx: UserContext) -> int:
-    """Calculate active path steps count. Placeholder - no PS nodes yet."""
-    return 0
-
-
-def path_steps_status(_ctx: UserContext) -> str:
-    """Calculate path steps status. Placeholder - no PS nodes yet."""
-    return "healthy"
-
-
-# Learning Paths domain extractors (LP)
-def learning_paths_count(ctx: UserContext) -> int:
-    """Calculate total learning paths count (enrolled)."""
-    return len(ctx.enrolled_path_uids)
-
-
-def learning_paths_active(ctx: UserContext) -> int:
-    """Calculate active learning paths count (enrolled with progress < 1.0)."""
-    return len(ctx.enrolled_path_uids)
-
-
-def learning_paths_status(ctx: UserContext) -> str:
-    """Calculate learning paths status based on blocked prerequisites."""
-    return DomainStatus.calculate_learning_paths_status(
-        blocked=len(ctx.prerequisites_needed),
-        enrolled=len(ctx.enrolled_path_uids),
-    )
-
-
-# ============================================================================
 # CONFIGURATION DICTIONARIES
 # ============================================================================
 
@@ -268,13 +205,4 @@ DOMAIN_STATS_CONFIG: dict[str, DomainStatsConfig] = {
 __all__ = [
     "DomainStatsConfig",
     "DOMAIN_STATS_CONFIG",
-    "knowledge_active",
-    "knowledge_count",
-    "knowledge_status",
-    "learning_paths_active",
-    "learning_paths_count",
-    "learning_paths_status",
-    "path_steps_active",
-    "path_steps_count",
-    "path_steps_status",
 ]

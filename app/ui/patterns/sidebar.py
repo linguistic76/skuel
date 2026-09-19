@@ -29,6 +29,7 @@ Usage:
 
 from collections.abc import Callable
 from dataclasses import dataclass, field
+from functools import partial
 from typing import TYPE_CHECKING, Any
 
 from fasthtml.common import H3, A, Button, Div, Li, Nav, P, Script, Span, Ul
@@ -103,8 +104,13 @@ def _chevron_svg() -> FT:
     return Icon("chevron-left", size=16, cls="")
 
 
-def _default_item_renderer(item: SidebarItem, is_active: bool) -> FT:
-    """Default sidebar item renderer."""
+def _default_item_renderer(item: SidebarItem, is_active: bool, *, badge_slot: bool = False) -> FT:
+    """Default sidebar item renderer.
+
+    ``badge_slot`` adds the empty ``sidebar-badge-{slug}`` span the badge
+    loader's OOB fragments swap into; a sidebar without the loader renders no
+    slot, so nothing on the page waits for a request that never comes.
+    """
     active_cls = "bg-accent font-semibold" if is_active else ""
     current_attrs: dict[str, str] = {"aria_current": "page"} if is_active else {}
     children: list[Any] = []
@@ -142,8 +148,8 @@ def _default_item_renderer(item: SidebarItem, is_active: bool) -> FT:
     if item.badge_text:
         children.append(Badge(item.badge_text, variant=BadgeT.neutral))
 
-    # Badge placeholder for async OOB swap (Phase 5 sidebar badges)
-    children.append(Span(id=f"sidebar-badge-{item.slug}"))
+    if badge_slot:
+        children.append(Span(id=f"sidebar-badge-{item.slug}"))
 
     return Li(
         A(
@@ -247,6 +253,7 @@ def SidebarNav(
     mobile_item_renderer: Callable[[SidebarItem, bool], Any] | None = None,
     title_icon: str = "",
     sidebar_width: str = "w-64",
+    badges: bool = False,
 ) -> FT:
     """Build the desktop sidebar + the below-lg section nav.
 
@@ -264,6 +271,11 @@ def SidebarNav(
         mobile_item_renderer: Custom function to render the below-lg row's
             items as same-page tabs — the row is then a ``tablist`` of what it
             returns, not the default nav list of page links
+        badges: Load the count/health badges (``GET /api/sidebar/badges``,
+            OOB-swapped into the rows' badge slots) once the desktop sidebar
+            is on screen. The request builds the user's full context, so only
+            a sidebar whose rows the badges target opts in; the below-lg row
+            never carries badges
 
     Returns:
         Div containing both the desktop sidebar and the section nav
@@ -272,7 +284,7 @@ def SidebarNav(
         sidebar_width, ("lg:ml-64", "-translate-x-52")
     )
 
-    renderer = item_renderer or _default_item_renderer
+    renderer = item_renderer or partial(_default_item_renderer, badge_slot=badges)
 
     # --- Desktop sidebar (hidden below lg:) ---
     sidebar_items = [renderer(item, item.slug == active) for item in items]
@@ -306,6 +318,16 @@ def SidebarNav(
         header_el = Div(title_prefix, title_el, cls="flex items-center gap-2")
     else:
         header_el = title_el
+
+    # The badge loader fires when the desktop sidebar enters the viewport —
+    # never on a page load alone. Below lg the sidebar is display:none, which
+    # never intersects, so a phone makes no badge request; a window widened
+    # to lg+ later fires it then, once.
+    badge_loader_attrs: dict[str, str] = (
+        {"hx_get": "/api/sidebar/badges", "hx_trigger": "intersect once", "hx_swap": "none"}
+        if badges
+        else {}
+    )
 
     sidebar = Nav(
         Div(
@@ -344,10 +366,7 @@ def SidebarNav(
         " overflow-hidden",
         **{":class": f"collapsed ? '{collapse_translate}' : 'translate-x-0'"},
         aria_label=f"{title} sidebar",
-        # The async badge loader: OOB-swapped count/health badges on the domain rows.
-        hx_get="/api/sidebar/badges",
-        hx_trigger="load",
-        hx_swap="none",
+        **badge_loader_attrs,
         **{"x-data": f"collapsibleSidebar('{storage_key}', {str(default_collapsed).lower()})"},
     )
 
@@ -429,6 +448,7 @@ def SidebarPage(
     extra_css: list[str] | None = None,
     extra_scripts: list[str] | None = None,
     content_max_width: str = "max-w-6xl",
+    badges: bool = False,
 ) -> FT:
     """Create a full page with collapsible sidebar navigation.
 
@@ -441,6 +461,9 @@ def SidebarPage(
         content_max_width: Tailwind max-width class for the content column.
             Pass "max-w-none" for fluid pages (e.g. calendar grids) that should
             fill the space freed when the sidebar collapses.
+        badges: Opt the desktop sidebar into the count/health badge loader —
+            see ``SidebarNav``. Off by default: only a sidebar whose rows the
+            badges target (Tasks+) pays for the request.
 
     See: /docs/patterns/UI_COMPONENT_PATTERNS.md
     """
@@ -459,6 +482,7 @@ def SidebarPage(
         mobile_item_renderer=mobile_item_renderer,
         title_icon=title_icon,
         sidebar_width=sidebar_width,
+        badges=badges,
     )
 
     collapsed_default = str(default_collapsed).lower()
