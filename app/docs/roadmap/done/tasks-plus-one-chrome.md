@@ -22,8 +22,10 @@ in those docs; this file holds the measurements, the rulings overturned and the 
 narrow in one — a raising route was printed and dropped (GREEN with a page missing), a missing `aria-current` skipped
 the geometry check instead of failing, the emulated-inset arithmetic assumed main declares the `env()` term, and only
 Tasks+ pages were rendered, so a Library/PathSteps/Submissions/Teaching key regression could not fail it. Each was
-proven by fault injection, then fixed: 65 checks + the 404 probe on `main` → **90 checks + the probe** after, every
-`ICON_NAV_ITEMS` and `MAIN_NAV_ITEMS` door rendered lit by its own section key. `HUB_PAGES.md` rewritten around the section/chrome rule (§3.5's last line); the
+proven by fault injection, then fixed: 65 checks + the 404 probe on `main` → **95 checks + the probe** after, every
+`ICON_NAV_ITEMS` and `MAIN_NAV_ITEMS` door rendered lit by every one of its section keys (the Library door on BOTH
+`explore` and `library`), Chrome runs under `smoke_test`'s wall-clock bound, and the inset premise tested as a
+mechanism (drop the class carrying the `env()` term → main's computed padding must change), not a token. `HUB_PAGES.md` rewritten around the section/chrome rule (§3.5's last line); the
 navbar's 28-entry "Evolution" changelog in `UI_COMPONENT_PATTERNS.md` and its "Legacy Pattern Removal" section
 deleted in favour of one present-tense chrome description that points here; `ROUTE_MAP.md`'s `/home`, `/profile`
 and `/ku` sections replaced by "The Tasks+ section" (there is no `/ku` route — the `ku_ui.py` log line that claimed
@@ -448,7 +450,8 @@ The verdict and critic JSON are gitignored scratch; this section is their record
   the admin sidebar page, mocked services, rendered in headless Chrome at 320/375/768/1440 — phone widths through an
   iframe, because headless Chrome clamps its window to 500px — asserting `scrollWidth == clientWidth`, the
   `[aria-current]` link inside the row, the right half hidden/visible per breakpoint, and zero `help-circle` fallback
-  icons, one page per section door (`/library/exercises`, `/path-steps`, `/submissions/history`, `/teaching/students`),
+  icons, one page per section KEY (`/library/exercises`, `/explore/library`, `/path-steps`, `/submissions/history`,
+  `/teaching/students`),
   three personas (member, teacher, admin) at 320/375/640/768/1440, and a `GET /profile` → 404 probe.
   `uv run python scripts/chrome_gate.py <out_dir>` — exit 0 = green. Every later chrome PR runs it BEFORE and AFTER.
 - Real-device unknowns until the DigitalOcean unpark: safe-area behaviour, `100vh` in standalone mode, scroll

@@ -47,6 +47,7 @@ import sys
 import traceback
 from datetime import date
 from pathlib import Path
+from typing import Any
 from unittest.mock import AsyncMock, MagicMock
 
 APP_ROOT = Path(__file__).resolve().parent.parent
@@ -190,6 +191,30 @@ lib_orch.get_student_exercises_with_status = AsyncMock(return_value=Result.ok([]
 lu.create_library_ui_routes(app, rt, lib_orch)
 psu.create_path_steps_ui_routes(app, rt, MagicMock())
 
+# /explore/library — the Library door's own landing (key "explore", the other
+# member of the door's page_keys set); the Explore sidebar has no rows, so it
+# renders no section nav and marks no current link.
+import adapters.inbound.explore_ui as eu
+
+
+# boundary: stands in for adapters.inbound.auth.is_authenticated(request: Request)
+def always_authenticated(request: Any) -> bool:
+    return True
+
+
+eu.is_authenticated = always_authenticated
+eu.require_authenticated_user = fake_user
+explore_orch = MagicMock()
+explore_orch.get_sidebar_data = AsyncMock(
+    return_value={
+        "studying_kus": [],
+        "in_progress_ps": [],
+        "pinned_items": [],
+        "understood_kus": [],
+    }
+)
+eu.create_explore_ui_routes(app, rt, explore_orch, MagicMock())
+
 # /teaching/students — the Teaching door's landing, a @require_role route:
 # the teacher and admin personas render it (the gate's user service answers
 # with a user whose has_permission grants every role).
@@ -218,6 +243,7 @@ PAGES = {
     "cal_week": f"/cal/week/{today.isoformat()}",
     "cal_month": f"/cal/month/{today.year}/{today.month}",
     "library": "/library/exercises",
+    "explore": "/explore/library",
     "path_steps": "/path-steps",
     "submissions": "/submissions/history",
     "settings": "/settings",
@@ -238,6 +264,7 @@ PERSONA_PAGES = {
         "cal_week",
         "cal_month",
         "library",
+        "explore",
         "path_steps",
         "submissions",
         "settings",
@@ -250,13 +277,15 @@ TASKS_PLUS = {"today", "tasks", "events", "gradebook", "cal_week", "cal_month"}
 # Which global door each non-Tasks+ page lights (the section key → door href).
 SECTION_DOOR = {
     "library": "/explore/library",
+    "explore": "/explore/library",
     "path_steps": "/path-steps",
     "submissions": "/submissions",
     "teaching": "/teaching/students",
     "admin": "/admin",
 }
-# Pages that render under no sidebar at all (BasePage, no section nav).
-NO_SIDEBAR = {"settings", "shared", "path_steps"}
+# Pages with no sidebar rows: BasePage pages, and Explore (whose sidebar is
+# graph + lists with items=[] — no section nav, no current link).
+NO_SIDEBAR = {"settings", "shared", "path_steps", "explore"}
 
 GATE_JS = """
 <script>
@@ -343,8 +372,23 @@ window.addEventListener('load', function () {
     r.bottomNav = { real: measure(null), emulated34: measure(34) };
     // Headless resolves env() to 0, so the inset can only be emulated on the
     // bar; main's clearance under a real inset is main's measured padding plus
-    // the inset ONLY IF main declares the env() term itself — record that.
-    r.mainFollowsInset = !!(main && (main.getAttribute('class') || '').indexOf('env(safe-area-inset-bottom)') !== -1);
+    // the inset ONLY IF the env() term CONTROLS main's computed padding. Test
+    // the mechanism, not the token: drop the class that carries the term and
+    // the computed padding must change (a rule that does not win the cascade
+    // changes nothing), then restore it.
+    r.mainInsetControls = false;
+    if (main) {
+      var cls = main.getAttribute('class') || '';
+      var tokens = cls.split(' ').filter(Boolean);
+      var envTokens = tokens.filter(function (t) { return t.indexOf('env(safe-area-inset-bottom)') !== -1; });
+      if (envTokens.length) {
+        var withTerm = parseFloat(getComputedStyle(main).paddingBottom);
+        main.setAttribute('class', tokens.filter(function (t) { return envTokens.indexOf(t) === -1; }).join(' '));
+        var withoutTerm = parseFloat(getComputedStyle(main).paddingBottom);
+        main.setAttribute('class', cls);
+        r.mainInsetControls = withTerm !== withoutTerm;
+      }
+    }
   }
   if (cur && r.rowVisible) {
     var rb = row.getBoundingClientRect(), cb = cur.getBoundingClientRect();
@@ -576,9 +620,9 @@ for name, html_path in rendered.items():
             if bn is None:
                 problems.append("no bottom nav below sm")
             else:
-                if not res.get("mainFollowsInset"):
+                if not res.get("mainInsetControls"):
                     problems.append(
-                        "main padding does not declare env(safe-area-inset-bottom) — "
+                        "main's padding is not controlled by its env(safe-area-inset-bottom) term — "
                         "the bar grows with the inset, the content clearance would not"
                     )
                 for label, inset in (("real", 0), ("emulated34", 34)):
@@ -588,7 +632,7 @@ for name, html_path in rendered.items():
                             f"bottom nav content box {m['contentBox']}px < 44 ({label})"
                         )
                     # `+ inset` is main's clearance under the emulated inset —
-                    # valid only because mainFollowsInset is asserted above.
+                    # valid only because mainInsetControls is asserted above.
                     if m["mainPadBottom"] is not None and m["mainPadBottom"] + inset < m["height"]:
                         problems.append(
                             f"main padding {m['mainPadBottom']}+{inset} < bottom nav {m['height']} ({label})"
