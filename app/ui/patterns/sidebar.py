@@ -339,7 +339,7 @@ def SidebarNav(
             ),
             cls="h-full relative overflow-y-auto",
         ),
-        cls=f"hidden lg:block fixed top-16 left-0 bottom-0 {sidebar_width} bg-background"
+        cls=f"hidden lg:block fixed top-14 left-0 bottom-0 {sidebar_width} bg-background"
         " border-r border-border z-40 transition-transform duration-300"
         " overflow-hidden",
         **{":class": f"collapsed ? '{collapse_translate}' : 'translate-x-0'"},
@@ -477,7 +477,7 @@ def SidebarPage(
                 content,
                 cls=f"{content_max_width} mx-auto px-4 sm:px-6 lg:px-8 py-4 lg:py-6",
             ),
-            cls=f"{_SIDEBAR_MARGIN_MAP.get(sidebar_width, 'lg:ml-64')} lg:transition-[margin-left] lg:duration-300 min-h-[calc(100vh-64px)]",
+            cls=f"{_SIDEBAR_MARGIN_MAP.get(sidebar_width, 'lg:ml-64')} lg:transition-[margin-left] lg:duration-300",
             id="sidebar-content",
             **{
                 "x-data": f"collapsibleSidebar('{storage_key}', {collapsed_default})",

@@ -108,8 +108,6 @@ def build_head(
         *css_links,
         # Extra JS for specific pages
         *script_tags,
-        # Focus trap for accessible modals
-        Script(src="/static/js/focus_trap.js"),
         # PWA: manifest, icons, meta tags
         *pwa_headers(),
     )
@@ -213,10 +211,16 @@ def BasePage(
         is_admin=effective_is_admin,
     )
 
-    # Mobile bottom nav adds 4rem (h-16) to the viewport. Pad main content so it
-    # isn't hidden under the nav. Only needed for authenticated non-admin users on
-    # mobile; sm:pb-0 removes it on desktop where there is no bottom nav.
-    bottom_pad = "" if effective_is_admin or not effective_is_authenticated else "pb-16 sm:pb-0"
+    # The fixed bottom nav covers the bottom of the viewport: its 4rem plus the
+    # device's home-indicator inset (the nav grows by the same env() value).
+    # Pad main content by that height so nothing ends under the bar. Only
+    # authenticated non-admin users get the bar; sm:pb-0 removes the padding
+    # at the width the bar disappears.
+    bottom_pad = (
+        ""
+        if effective_is_admin or not effective_is_authenticated
+        else "pb-[calc(4rem+env(safe-area-inset-bottom))] sm:pb-0"
+    )
 
     # Build main content area based on page type
     if page_type == PageType.CUSTOM:
@@ -301,7 +305,7 @@ def BasePage(
                     "You are offline. Some features may be unavailable.",
                     cls="text-sm font-medium text-center",
                 ),
-                cls="fixed bottom-16 sm:bottom-0 inset-x-0 bg-yellow-500 text-yellow-950 px-4 py-2 z-50",
+                cls="fixed bottom-[calc(4rem+env(safe-area-inset-bottom))] sm:bottom-0 inset-x-0 bg-yellow-500 text-yellow-950 px-4 py-2 z-50",
                 **{"x-data": "offlineIndicator", "x-show": "isOffline", "x-cloak": ""},
             ),
             # PWA: service worker registration

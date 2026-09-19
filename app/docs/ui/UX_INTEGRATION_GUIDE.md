@@ -1,5 +1,5 @@
 ---
-updated: 2026-08-05
+updated: 2026-09-19
 ---
 
 # UX Improvements Integration Guide
@@ -213,43 +213,25 @@ worked example in `skuel.js`.
 
 ### Focus trapping
 
-`AlpineModal` does **not** trap focus for you. The capability still exists, but
-as a plain utility rather than an Alpine component: `static/js/focus_trap.js`
-is loaded on every page by `build_head()` (`ui/layouts/base_page.py`) and
-exposes `window.SKUEL.FocusTrap`.
-
-**No modal in the tree currently wires it up**, so there is no worked example
-here to copy — read `focus_trap.js`'s own header for the constructor options
-(`onEscape`, `initialFocus`, `restoreFocus`, `allowEscape`) and its usage block.
-
-Four constraints, each verified against the source, that an integration must
-satisfy. They are listed rather than pre-solved because an untested snippet for
-an unused capability is how this guide went stale in the first place:
+`AlpineModal` does **not** trap focus, and the tree ships no focus-trap
+utility: no modal wires one, and a capability nothing calls is deleted, not
+kept for a hypothetical caller. A modal that must trap focus —
+keeping Tab inside the dialog, restoring focus on close, closing on Escape —
+adds that behaviour in the change that needs it, as an Alpine component
+registered in `static/js/skuel.js` (UI state belongs to Alpine), with these
+constraints, each a way a trap goes wrong against this component:
 
 1. **Resolve the element by `id`.** `AlpineModal` accepts `id` but emits no
-   `x-ref`, so there is no `$refs` entry; the constructor throws on a missing
-   element (`"FocusTrap requires an element"`).
+   `x-ref`, so there is no `$refs` entry.
 2. **Activate after the modal is visible.** `x-show` has not revealed the
-   subtree on the same tick, and a trap over a hidden subtree finds nothing
-   focusable.
+   subtree on the same tick (`$nextTick`), and a trap over a hidden subtree
+   finds nothing focusable.
 3. **Route every dismissal through one path.** `AlpineModal` uses its `close`
    expression for click-out, so `close="isOpen = false"` would hide the modal
-   without deactivating the trap — leaving it intercepting Tab against an
+   without releasing the trap — leaving it intercepting Tab against an
    invisible element.
-4. **Pass `onEscape`.** Without it, `_handleKeydown` falls through to a bare
-   `deactivate()` (`focus_trap.js`), which drops the trap but leaves the modal
-   open — the opposite of the checklist above, which says Escape closes modals.
-
-`$nextTick` matters: `x-show` has not revealed the modal on the same tick, and a
-focus trap over a hidden subtree finds nothing focusable.
-
-> **Historical note.** This section previously told readers to replace modals
-> with a `focusTrapModal(false)` Alpine component providing `open()` /
-> `close()` / `handleKeydown($event)`. That component was deleted in
-> `327f26623` (2026-03-28), and the inline `{ isOpen: false }` it labelled the
-> "old" pattern is in fact the current one. Only the Alpine wrapper went — the
-> underlying `FocusTrap` utility above survived and is still shipped on every
-> page.
+4. **Escape closes the modal.** A trap that releases itself on Escape and
+   leaves the modal open is the opposite of the checklist above.
 
 ---
 
@@ -287,27 +269,15 @@ if not entities:
 
 ---
 
-## Safe Zone CSS Usage
+## Safe Zone (notched phones)
 
-### Mobile Bottom Navigation
-
-Replace hardcoded padding with safe zone class:
-
-```python
-# Old:
-Div(cls="pb-20")
-
-# New:
-Div(cls="mobile-bottom-nav")
-```
-
-### Content Padding
-
-For content that might be clipped by notches:
-
-```python
-Div(cls="safe-content px-4 py-6")
-```
+The bottom nav (`create_bottom_nav`, `ui/layouts/navbar.py`) pads itself by
+`env(safe-area-inset-bottom)` and has a *minimum* height of 4rem, so the
+home-indicator inset grows the bar instead of squeezing its tabs. Main content
+and the offline banner clear it with the same expression —
+`pb-[calc(4rem+env(safe-area-inset-bottom))]` / `bottom-[calc(…)]` in
+`ui/layouts/base_page.py`. A new fixed element at the bottom of the viewport
+uses that expression; there is no helper class for it.
 
 ---
 
@@ -421,16 +391,6 @@ Alpine.$data(document.querySelector('form'))
 2. HTMX `hx-swap="outerHTML"` used?
 3. Initial content includes skeleton?
 4. CSS animations working?
-
----
-
-### Focus Trap Not Working
-
-**Check:**
-1. Modal has `x-ref="modal"`?
-2. `@keydown="handleKeydown($event)"` added?
-3. Focusable elements exist in modal?
-4. Alpine initialized properly?
 
 ---
 

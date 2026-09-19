@@ -15,7 +15,7 @@
 // the dedicated /service-worker.js route in adapters/inbound/pwa_routes.py;
 // cache invalidation is this manual bump (TECHNICAL_DEBT.md item 11).
 // What each bump purged: git log -L /CACHE_VERSION/,+1:static/service-worker.js
-const CACHE_VERSION = 'skuel-v13';
+const CACHE_VERSION = 'skuel-v14';
 const STATIC_CACHE = `${CACHE_VERSION}-static`;
 const RUNTIME_CACHE = `${CACHE_VERSION}-runtime`;
 
@@ -24,7 +24,6 @@ const PRECACHE_URLS = [
   '/static/css/main.css',
   '/static/css/hierarchy.css',
   '/static/js/skuel.js',
-  '/static/js/focus_trap.js',
   '/static/icons/icon-192x192.png',
   '/static/icons/icon-512x512.png',
   '/static/vendor/alpinejs/alpine.3.14.8.min.js',

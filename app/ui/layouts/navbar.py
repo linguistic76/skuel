@@ -307,9 +307,9 @@ def create_navbar(
                     _admin_right_section(current_user or "") if current_user else Div(),
                     cls="flex items-center justify-end flex-1",
                 ),
-                cls="flex items-center h-14 flex-1 px-4 sm:px-6 lg:px-8",
+                cls="flex items-center h-full flex-1 px-4 sm:px-6 lg:px-8",
             ),
-            cls="bg-background border-b border-border sticky top-0 z-40",
+            cls="h-14 bg-background border-b border-border sticky top-0 z-40",
         )
 
     # --- Regular user top bar ---
@@ -362,9 +362,9 @@ def create_navbar(
             desktop_links,
             # Right: utilities
             Div(right_section, cls="flex items-center justify-end flex-1"),
-            cls="flex items-center h-14 px-4 sm:px-6",
+            cls="flex items-center h-full px-4 sm:px-6",
         ),
-        cls="bg-background border-b border-border sticky top-0 z-40",
+        cls="h-14 bg-background border-b border-border sticky top-0 z-40",
         **{"aria-label": "Main navigation"},
     )
 
@@ -411,7 +411,11 @@ def create_bottom_nav(
     Tabs are derived from ``ICON_NAV_ITEMS`` (same spec as the desktop center
     menu) with Calendar appended — desktop keeps it as a separate icon in the
     right section, mobile folds it into the bottom nav.
-    Respects iOS safe-area-inset-bottom for notched devices.
+    The bar is 4rem tall plus the device's home-indicator inset: it pads
+    itself by ``env(safe-area-inset-bottom)`` and its height is a MINIMUM,
+    so the inset grows the bar under the tabs instead of squeezing them.
+    ``base_page.py`` pads main content and offsets the offline banner by
+    the same ``4rem + env()`` so nothing ends under the bar.
 
     Args:
         is_authenticated: Whether user is logged in
@@ -437,7 +441,7 @@ def create_bottom_nav(
 
     return Nav(
         *[_bottom_nav_tab(item, active_page) for item in items],
-        cls="fixed bottom-0 inset-x-0 z-40 sm:hidden bg-background border-t border-border flex items-stretch h-16",
+        cls="fixed bottom-0 inset-x-0 z-40 sm:hidden bg-background border-t border-border flex items-stretch min-h-16",
         style="padding-bottom: env(safe-area-inset-bottom)",
         **{"aria-label": "Primary navigation"},
     )

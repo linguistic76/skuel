@@ -592,7 +592,7 @@ def create_user_entry_ui_routes(
                 Icon("bar-chart-2", cls="size-4 mr-2", aria_hidden="true"),
                 "Request activity report",
                 href="/submit-activity-report",
-                cls=f"{ButtonT.default} whitespace-nowrap",
+                cls=ButtonT.default,
                 size="sm",
             ),
         )

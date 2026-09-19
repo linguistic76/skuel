@@ -59,7 +59,7 @@ const options = {
     font: {
       size: 14,                    // Text size
       color: '#374151',            // Text color (gray-700)
-      face: 'Inter, sans-serif',   // Font family
+      face: 'system-ui, sans-serif', // Font family — the app's stack; no web font is shipped
     },
     borderWidth: 2,                // Border thickness
     borderWidthSelected: 4,        // Border when selected (visual feedback)
