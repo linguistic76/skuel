@@ -8,6 +8,8 @@ groups' hidden-when-empty rule (``None``, not an empty section).
 
 from __future__ import annotations
 
+import re
+
 from fasthtml.common import to_xml
 
 from core.models.enums.pipeline import ExchangeStatus
@@ -121,6 +123,17 @@ class TestExchangeSection:
         assert 'hx-get="/gradebook/lines?status=waiting&amp;source=all"' in html
         assert 'hx-target="#gradebook-exchange"' in html
         assert 'name="source"' in html
+
+    def test_chips_and_the_source_select_are_tap_targets(self) -> None:
+        """Phone geometry: every chip is at least 36px tall and the select,
+        the one control on the row that stands alone, is 44px."""
+        html = to_xml(render_exchange_section(_ROWS, "all", "all"))
+        chips = re.findall(r"<button[^>]*hx-get=\"/gradebook/lines[^>]*>", html)
+        assert len(chips) == 1 + len(ExchangeStatus)
+        assert all("min-h-[36px]" in chip for chip in chips)
+        select = re.search(r"<select[^>]*name=\"source\"[^>]*>", html)
+        assert select is not None
+        assert "min-h-[44px]" in select.group(0)
 
     def test_filtered_out_rows_do_not_render(self) -> None:
         html = to_xml(render_exchange_section(_ROWS, ExchangeStatus.WAITING.value, "all"))

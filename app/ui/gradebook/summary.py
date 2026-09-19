@@ -84,8 +84,12 @@ def _source_label(source: str | None) -> str:
 
 
 def _status_chip(label: str, value: str, active: bool, source: str) -> FT:
-    """One status filter chip — reloads the exchange section via HTMX."""
-    cls = "px-3 py-1 text-sm rounded-full border transition-colors "
+    """One status filter chip — reloads the exchange section via HTMX.
+
+    A chip is a phone tap target: at least 36px tall, with the row's gap
+    making up the 44px spacing floor between neighbours.
+    """
+    cls = "px-3 py-1 min-h-[36px] text-sm rounded-full border transition-colors "
     cls += (
         "bg-primary text-primary-foreground border-primary"
         if active
@@ -115,6 +119,8 @@ def _filter_bar(status: str, source: str) -> FT:
                 for text, value in _SOURCE_OPTIONS
             ],
             name="source",
+            # The one control on the row that is a tap target on its own: 44px.
+            cls="min-h-[44px]",
         ),
         hx_get=LINES_FRAGMENT_URL,
         hx_target=f"#{EXCHANGE_SECTION_ID}",

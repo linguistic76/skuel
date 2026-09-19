@@ -1,6 +1,6 @@
 ---
 title: PWA Architecture
-updated: 2026-09-17
+updated: 2026-09-19
 status: current
 category: architecture
 tags: [pwa, service-worker, offline, mobile]
@@ -80,7 +80,7 @@ These are cached during the `install` event:
 
 - `/offline.html` — offline fallback page
 - `/static/css/main.css`, `/static/css/hierarchy.css`
-- `/static/js/skuel.js`, `/static/js/focus_trap.js`
+- `/static/js/skuel.js`
 - `/static/icons/icon-192x192.png`, `/static/icons/icon-512x512.png`
 
 ### Offline Behavior

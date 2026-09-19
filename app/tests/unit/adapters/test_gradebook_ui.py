@@ -99,7 +99,11 @@ async def test_the_activity_report_request_is_the_header_action_not_a_sidebar_ro
     html = to_xml(page["content"])
 
     assert "Request activity report" in html
-    assert len(_anchors_to(html, "/submit-activity-report")) == 1
+    (button,) = _anchors_to(html, "/submit-activity-report")
+    # The header row wraps the action under the title when it does not fit,
+    # so the button never has to hold its line: a nowrap here is what pushed
+    # the page past a 320px viewport.
+    assert "whitespace-nowrap" not in button
     # No sidebar item points at the request form — the desktop sidebar and the
     # section nav are both lists, so one shape covers both rows.
     assert not re.search(r'<li[^>]*>\s*<a[^>]*href="/submit-activity-report"', html)

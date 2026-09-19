@@ -38,10 +38,13 @@ def PageHeader(
     )
 
     if actions:
+        # The row wraps: actions sit beside the title while both fit and drop
+        # under it when they don't, so a wide action never pushes the page
+        # past the viewport and never has to wrap its own label.
         return Div(
             title_section,
-            Div(actions, cls="flex gap-2"),
-            cls=f"flex justify-between items-start mb-8 {cls}".strip(),
+            Div(actions, cls="flex flex-wrap gap-2"),
+            cls=f"flex flex-wrap justify-between items-start gap-x-6 gap-y-3 mb-8 {cls}".strip(),
         )
 
     return Div(

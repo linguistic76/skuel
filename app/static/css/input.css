@@ -24,8 +24,11 @@
    background-color: hsl(var(--primary))), matching what v3 emitted — the
    runtime vars below stay the single dark-mode switch point. */
 @theme inline {
-  --font-sans: 'Inter', system-ui, sans-serif;
-  --font-mono: 'JetBrains Mono', ui-monospace, SFMono-Regular, monospace;
+  /* The type is the host's system stack by ruling — no web font is shipped,
+     so nothing here may name one (a declared-but-unshipped family resolves to
+     a per-device fallback and makes no row measurement portable). */
+  --font-sans: system-ui, sans-serif;
+  --font-mono: ui-monospace, SFMono-Regular, monospace;
 
   /* Base semantic tokens — components reference these via bg-primary, bg-card
      etc. Values are hsl() wrappers over CSS vars owned by this file (ADR-071:
@@ -162,7 +165,7 @@
   }
 
   html {
-    font-family: 'Inter', system-ui, sans-serif;
+    font-family: system-ui, sans-serif;
     -webkit-font-smoothing: antialiased;
   }
 
