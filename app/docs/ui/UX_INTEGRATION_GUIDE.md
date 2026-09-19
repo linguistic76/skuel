@@ -394,16 +394,6 @@ Alpine.$data(document.querySelector('form'))
 
 ---
 
-### Focus Trap Not Working
-
-**Check:**
-1. Modal has `x-ref="modal"`?
-2. `@keydown="handleKeydown($event)"` added?
-3. Focusable elements exist in modal?
-4. Alpine initialized properly?
-
----
-
 ## Performance Considerations
 
 ### Skeleton Loaders
