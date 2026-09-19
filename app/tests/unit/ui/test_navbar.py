@@ -155,9 +155,10 @@ def test_tasks_plus_is_the_first_door_and_lands_on_today() -> None:
     assert first.page_keys == frozenset({"activity"})
 
 
-def test_the_calendar_icon_and_the_today_tab_are_gone() -> None:
-    """The Calendar icon duplicated the Monthly row and the Today tab the
-    Today row; the Tasks+ door replaces both at every width."""
+def test_the_chrome_carries_no_calendar_or_today_door() -> None:
+    """Monthly and Today are ROWS of the Tasks+ section: a Calendar or Today
+    item in the chrome would be a second door to a page the section nav
+    already lights. The Tasks+ door is the section's one door at every width."""
     for html in (_navbar(), _navbar(**_ROLES["admin"]), _bottom_nav()):
         assert 'href="/cal"' not in html
         assert ">Today<" not in html

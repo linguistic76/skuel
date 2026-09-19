@@ -2,8 +2,8 @@
 
 Driven through a real app with a real session: a helper route writes the
 session flags the login flow would, then ``/`` is fetched without following
-redirects. An admin session lands where a member's does — the admin hub at
-``/`` is gone, and so is the ``"/" if admin`` split on every auth redirect.
+redirects. The contract is role-blind — an admin session lands exactly where
+a member's does — so both flags are exercised.
 """
 
 from __future__ import annotations
