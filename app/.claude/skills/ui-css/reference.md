@@ -147,7 +147,7 @@ Nav(
         A("Goals", href="/goals", cls="text-sm hover:text-primary"),
         cls="navbar-center hidden sm:flex gap-4",
     ),
-    Div(A("Profile", href="/profile"), cls="navbar-end"),
+    Div(A("Account", href="/settings"), cls="navbar-end"),
     cls="bg-white border-b border-gray-200 sticky top-0 z-50 px-4 py-2",
 )
 ```

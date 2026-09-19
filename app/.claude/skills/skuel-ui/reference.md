@@ -322,7 +322,7 @@ Current `ICON_NAV_ITEMS` (in order):
 
 Every navbar item is a direct link — the navbar carries no dropdown and no hamburger. The periodic notes are reached from the Tasks+ sidebar's Journal row (today's note) and, inside a periodic note, the **period rail** (`ui/journals/chat_page.py`): one row per period kind, each opening that period's note and stepping to its neighbours; every door derives its URLs, labels and icons from `ui/journals/period_links.py`.
 
-`/submissions`, `/gradebook`, and `/library` are sidebar-free MOC root pages (2×2 icon-badge card grids), not tabbed hubs — `HomeHub` is retired. `/reports` redirects 301 → `/library`.
+`/submissions` and `/library` are sidebar-free MOC root pages (icon-badge `MocCard` grids — five and four cards); `/gradebook` is a Tasks+ page (the received-feedback exchange lines, GradeBook row lit). There is no `/profile` hub, no `/home`, and no admin home: `GET /profile` is a 404 and `/` is a 303 to `/today`. A hub page earns its place only when it carries what the section nav cannot — `/docs/design-principles/HUB_PAGES.md`.
 
 **Navbar accessibility requirements:**
 
@@ -338,13 +338,12 @@ Every navbar item is a direct link — the navbar carries no dropdown and no ham
 
 Use `SidebarPage()` for pages with collapsible, persistent sidebar navigation. The sidebar groups:
 
-- **Activity Domains** — `render_activity_sidebar_page()` from `ui/activities/nav.py` — `ACTIVITY_SIDEBAR_ITEMS` (Today, Weekly, Monthly, Tasks, Goals, Habits, Events, Principles, Choices, Journal, GradeBook) on `/tasks`, `/goals`, `/habits`, `/events`, `/choices`, `/principles`, the calendar month/week pages, `/today` (`content_max_width="max-w-none"` on the calendar) and the GradeBook surfaces (`/gradebook`, `/gradebook/{uid}`, the report/revision detail pages, `/submit-activity-report` — `active="gradebook"`; `title` names the tab) — one list. This is the ONE sidebar that opts into the badge loader (`SidebarPage(badges=True)`): `GET /api/sidebar/badges` fires once the desktop sidebar is on screen (`hx-trigger="intersect once"` — never below `lg`, where the sidebar is `display:none`) and OOB-swaps exactly `ACTIVITY_SIDEBAR_ITEMS ∩ DOMAIN_STATS_CONFIG` (the six domain rows); every other sidebar renders no slots and makes no request. Each calendar view shows its declared membership (`VIEW_SPECS`: month = events; week = events, habits, goal milestones and high-priority tasks, with the kind legend as filter).
+- **Tasks+** — `render_activity_sidebar_page()` from `ui/activities/nav.py` — `ACTIVITY_SIDEBAR_ITEMS` (Today, Weekly, Monthly, Tasks, Goals, Habits, Events, Principles, Choices, Journal, GradeBook) on `/tasks`, `/goals`, `/habits`, `/events`, `/choices`, `/principles`, the calendar month/week pages, `/today`, the periodic notes (`/journals/{uid}`; `content_max_width="max-w-none"` on the calendar and the notes) and the GradeBook surfaces (`/gradebook`, `/gradebook/{uid}`, the report/revision detail pages, `/submit-activity-report` — `active="gradebook"`; `title` names the tab) — one list, and every one of those pages lights the Tasks+ door in the chrome (`active_page="activity"`, passed by the helper — callers never set it). This is the ONE sidebar that opts into the badge loader (`SidebarPage(badges=True)`): `GET /api/sidebar/badges` fires once the desktop sidebar is on screen (`hx-trigger="intersect once"` — never below `lg`, where the sidebar is `display:none`) and OOB-swaps exactly `ACTIVITY_SIDEBAR_ITEMS ∩ DOMAIN_STATS_CONFIG` (the six domain rows); every other sidebar renders no slots and makes no request. Each calendar view shows its declared membership (`VIEW_SPECS`: month = events; week = events, habits, goal milestones and high-priority tasks, with the kind legend as filter).
 - **Explore** — `render_explore_sidebar_page()` from `ui/explore/nav.py` — graph-centered sidebar (wider `w-96`/384px via `sidebar_width` param, no nav items, uses `extra_sidebar_sections`). **Signature:** `render_explore_sidebar_page(content, sidebar_data: dict[str, Any] | None, request, ...)` — route handlers call `orchestrator.get_sidebar_data(user_uid)` first, then pass the pre-fetched dict. Hero: `ExploreGraphView` (`ui/explore/graph.py`) — interactive Vis.js force-directed graph. Hub mode (`/explore`): user's learning universe with "You" center node + studying Kus + in-progress PSes; fetched from `GET /api/explore/graph`. Entity mode (`/explore/ku/{uid}`, `/explore/ps/{uid}`): centers on current entity with lateral relationships. Filter tabs (All/Learning/Saved) control both graph node highlighting and list section visibility. Three supporting sections below graph: Learning, Saved, Completed. Alpine component: `exploreGraph(mode, entity_uid, entity_type)` in `skuel.js`. Graph expands to full-screen JS overlay on `document.body` (Escape/backdrop click to close) — creates a second Vis.js network to escape sidebar `overflow:hidden` + `transform`. Node colors: violet for Ku, teal for PS, blue for "You". Detail pages pass `current_entity_type` for graph centering. Unauthenticated: shows graph + "Sign in to track your learning". **PathStep detail** (`/explore/ps/{uid}`) is the **learning loop anchor** — authenticated users see three HTMX-loaded sections (Exercises with status pills, My Submissions, Feedback) served by `/learning-loop/ps/{ps_uid}/*` fragment endpoints; unauthenticated users see simple exercise links. **Supporting module:** `ui/explore/cards.py` (card rendering + search panel); catalog filtering and sorting are server-side via `SearchRouter.faceted_search` (`adapters/inbound/explore_ui.py`).
 - **Submissions** — `render_submissions_sidebar_page()` from `ui/workbench/nav.py` — 5 items: Sync (`/submissions/sync`), Exercise (`/submissions/exercise`), Journal (`/submissions/journal`), History (`/submissions/history`), Knowledge (`/submissions/knowledge` — knowledge notes with removable grounded-Ku chips). Root `/submissions` is a sidebar-free MOC page with 5 cards. `/submit` → 302 → `/submissions/exercise`.
-- **GradeBook** — no sidebar of its own. `/gradebook` is THE received-feedback page (3→1 collapse, arc 2 C1): per-exercise exchange lines with status/source filter chips (`ui/gradebook/summary.py`, HTMX fragment `/gradebook/lines`) + conditional Activity-reports and Other-feedback groups; it and its detail pages (`/entry-reports/detail`, `/activity-reports/detail`, `/revised-exercises/detail`, `/gradebook/{uid}`) render under the Activity sidebar via `render_activity_sidebar_page(..., active="gradebook", title=GRADEBOOK_TITLE)` (error-only pages via `render_activity_sidebar_error`). The header's "Request activity report" action opens `/submit-activity-report`. Block definitions in `ui/gradebook/hub.py` (`GRADEBOOK_BLOCKS`) still serve HTMX preview endpoints for the `/profile` Reports tab.
-- **Library** — `render_library_sidebar_page()` from `ui/library/nav.py` — 4 items (Exercises, Resources, Ku, Path Steps). Used on child pages: `/library/exercises`, `/library/resources`, `/library/ku`, `/library/path-steps`. Root `/library` is a sidebar-free MOC page with 4 cards; `title_href="/library"`. Block definitions in `ui/library/hub.py` (`LIBRARY_BLOCKS`) still serve HTMX preview endpoints.
-
-`/profile` is a **4-tab personal hub** using `BasePage` directly — Activities / Curriculum / Submissions / Reports tabs (default Activities) mirroring the loop (live it / study / submit / grade); accordion blocks with HTMX lazy-loaded previews. See `ui/profile/hub.py`.
+- **GradeBook** — no sidebar of its own. `/gradebook` is THE received-feedback page (3→1 collapse, arc 2 C1): per-exercise exchange lines with status/source filter chips (`ui/gradebook/summary.py`, HTMX fragment `/gradebook/lines`) + conditional Activity-reports and Other-feedback groups; it and its detail pages (`/entry-reports/detail`, `/activity-reports/detail`, `/revised-exercises/detail`, `/gradebook/{uid}`) render under the Activity sidebar via `render_activity_sidebar_page(..., active="gradebook", title=GRADEBOOK_TITLE)` (error-only pages via `render_activity_sidebar_error`). The header's "Request activity report" action opens `/submit-activity-report`.
+- **Library** — `render_library_sidebar_page()` from `ui/library/nav.py` — 4 items (Exercises, Resources, Ku, Path Steps). Used on child pages: `/library/exercises`, `/library/resources`, `/library/ku`, `/library/path-steps`. Root `/library` is a sidebar-free MOC page with 4 cards; `title_href="/library"`.
+- **Teaching** — `ui/teaching/nav.py` — Students (`/teaching/students`, the section landing — there is no `/teaching` hub), Groups, Review Queue, Forms. **Admin** — `ui/admin/layout.py` (`ADMIN_SIDEBAR_ITEMS`).
 
 ### SidebarItem
 
@@ -438,36 +437,39 @@ extra_section = Div(
 return SidebarPage(..., extra_sidebar_sections=[extra_section])
 ```
 
-**Pattern 3 — Custom item renderer (badges, custom layout):**
+**Pattern 3 — Custom item renderer (custom layout):**
 ```python
-def _profile_item_renderer(item: SidebarItem, is_active: bool) -> Any:
-    active_cls = "bg-base-200 font-semibold" if is_active else ""
+def _item_renderer(item: SidebarItem, is_active: bool) -> FT:
+    active_cls = "bg-accent font-semibold" if is_active else ""
     return Li(A(
-        Span(item.icon, cls="text-lg"),
+        Icon(item.icon, size=18, cls="shrink-0") if item.icon else "",
         Span(item.label, cls="flex-1"),
         Badge(item.badge_text, variant=BadgeT.neutral) if item.badge_text else "",
         href=item.href,
-        cls=f"flex items-center gap-2 rounded-lg px-3 py-2 hover:bg-base-200 {active_cls}",
+        cls=f"flex items-center gap-2 rounded-lg px-3 py-2.5 min-h-[44px] hover:bg-accent {active_cls}",
+        **({"aria_current": "page"} if is_active else {}),
     ))
 
-return SidebarPage(..., item_renderer=_profile_item_renderer)
+return SidebarPage(..., item_renderer=_item_renderer)
 ```
+A renderer that navigates between pages keeps `aria-current="page"` on the current link — the default renderer's contract, and what the chrome gate measures.
 
 **Pattern 4 — Description items (two-line layout, no custom renderer needed):**
 ```python
-SidebarItem("Overview", "/askesis", "overview", icon="🏠", description="Your life context dashboard")
+SidebarItem("Overview", "/askesis", "overview", icon="house", description="Your life context dashboard")
 ```
+`icon` is a lucide name from `ui/components/_icon_data.py`; an unregistered name (an emoji, a typo) renders the `help-circle` fallback.
 
 **Pattern 5 — Alpine section renderer (instant switching, no page navigation):**
 
-Use when sidebar items should control Alpine `x-show` sections instead of navigating to different URLs. All content loads on initial render; switching is instant. Used by Teaching student submissions page (`/teaching/students/{uid}/submissions`).
+Use when sidebar items should control Alpine `x-show` sections instead of navigating to different URLs. All content loads on initial render; switching is instant. Used by the Teaching student submissions page (`/teaching/students/{uid}/submissions`). Because these rows switch sections on the SAME page they render `role="tab"` inside a `<div role="tablist">` — the default below-`lg` row is a `<nav>` list of page links marked `aria-current`, and the two must not be mixed (a nav list owning `role="tab"` children is an invalid tabs hierarchy).
 
 ```python
 from ui.patterns.sidebar import alpine_section_renderer, alpine_mobile_section_renderer
 
 items = [
-    SidebarItem("Needs Review", href="", slug="pending", icon="📥", badge_text="3"),
-    SidebarItem("Completed", href="", slug="completed", icon="✅"),
+    SidebarItem("Needs Review", href="", slug="pending", icon="inbox", badge_text="3"),
+    SidebarItem("Completed", href="", slug="completed", icon="check-circle"),
 ]
 
 # Content panels use x-show keyed to the same state variable

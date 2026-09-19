@@ -513,7 +513,7 @@ if intel_data.get("alignment") is not None:
 # ... conditionally append each section ...
 ```
 
-**Applied to:** historically the /profile intelligence HTMX endpoint (removed 2026-07-05 with the dead overview surface); the pattern remains the reference for any multi-call fragment
+**Applied to:** no live endpoint composes several intelligence calls into one fragment today; the pattern is the reference for the next multi-call fragment
 
 ---
 

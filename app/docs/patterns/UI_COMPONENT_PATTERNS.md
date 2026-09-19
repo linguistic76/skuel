@@ -41,7 +41,8 @@ SKUEL uses a layered UI component architecture built on its own pure-Tailwind + 
 **Key Files:**
 - `/ui/` - SKUEL UI design system (components, patterns, layouts, tokens)
 - `/ui/layouts/base_page.py` - Unified page wrapper
-- `/ui/layouts/page_types.py` - Page type definitions (HUB vs STANDARD)
+- `/ui/layouts/page_types.py` - Page type definitions (STANDARD vs CUSTOM)
+- `/ui/layouts/navbar.py`, `/ui/layouts/nav_config.py` - The global chrome (navbar + bottom nav) and its one spec
 - `/ui/tokens.py` - Spacing, container, and styling tokens
 - `/core/utils/palette.py` - Centralized hex color constants (SemanticColor, RelationshipColor, EventTypeColor, FrequencyColor, CalendarFallback) — `ui/palette.py` re-exports for backward compat
 - `/ui/feedback.py`, `/ui/layout.py` — pure Tailwind wrappers; `ButtonLink` in `ui/primitives.py` (also pure Tailwind)
@@ -59,69 +60,25 @@ SKUEL uses a layered UI component architecture built on its own pure-Tailwind + 
 
 | Type | Sidebar | Container | Use Case |
 |------|---------|-----------|----------|
-| `STANDARD` | None | `max-w-6xl` centered | Most pages (search, activity domains, forms) |
-| `HUB` | Left (w-64) | Flexible | Multi-domain dashboards (Admin Dashboard) |
-| `CUSTOM` | STANDARD + custom layout | Flexible | Complex layouts |
+| `STANDARD` | None | `max-w-6xl` centered | Most pages (MOC roots, forms, settings, reading pages) |
+| `CUSTOM` | Page manages its own layout | Flexible | `SidebarPage` (every sidebar section), the Explore reading column, chat pages |
 
-**Evolution (2026-02-01):** Profile Hub migrated from legacy `ProfileLayout` to `STANDARD` page type with custom sidebar implementation.
+Both render under the same chrome — the navbar above, the bottom nav below `sm` — and `BasePage` pads for the bottom nav on every page (`pb-[calc(4rem+env(safe-area-inset-bottom))]`).
 
-**Evolution (2026-02-06):** Activity Domains moved from profile sidebar to navbar avatar dropdown.
+### The Global Chrome (`ui/layouts/navbar.py`, spec in `ui/layouts/nav_config.py`)
 
-**Evolution (2026-02-16):** Events moved from main navbar to avatar dropdown — all 6 Activity Domains in one place.
+One navbar for every role, one rule: the chrome carries **one door per section**, lit for the whole section by a section key; a section's pages are its sidebar's rows, lit by slug (the landing is the one sanctioned overlap). `tests/unit/ui/test_navbar.py` pins it, including an anti-duplication invariant over every `*_SIDEBAR_ITEMS`.
 
-**Evolution (2026-03-11):** Major restructure into three focused areas. Navbar gains icon links: **A** (`/activities`) and **S** (`/study`). Profile stripped to lean (Focus + Steady + Settings). Activity domains at `/activities/{domain}` with Activity sidebar. Avatar dropdown removed — avatar is a direct link to `/profile`.
+- **Section doors — `ICON_NAV_ITEMS`, rendered twice from one spec:** the centre text links at `sm+` and the bottom-nav icon tabs below `sm` (`create_bottom_nav`). In order: **Tasks+** (→ `/today`, `page_keys={"activity"}`, `Icon("activity")`) · **Library** (→ `/explore/library`, lit on `{"explore", "library"}`) · **PathSteps** (→ `/path-steps`) · **Submissions** (→ `/submissions`). Identical for every authenticated role; an anonymous visitor gets the two `requires_auth=False` doors. Centre links are `px-2` — with the icon cluster a member's bar is exactly full at 640.
+- **Role doors — `MAIN_NAV_ITEMS`:** Teaching (`/teaching/students`, teachers and admins) and Admin (`/admin`) are centre links at `lg+` (`hidden lg:block` — measured: a teacher's bar needs 758px, an admin's 829px, so they cannot sit in the bar below `lg` in any font) and `lg:hidden` rows on `/settings` (`role_nav_rows()`).
+- **Right icon cluster:** Askesis (`/askesis`, flame) · Shared-inbox (`/profile/shared`) · notification bell (badge lazy-loaded from `/api/navbar/notification-badge`) · avatar → `/settings` (`page_key="settings"`) · Sign out (`hidden sm:inline-flex`). The phone's sign-out is `signout_row()` on `/settings` (`sm:hidden`) — exactly one sign-out door at every width; `signout_row()` and `role_nav_rows()` live beside `_signout_button` in `navbar.py` and render first on `ui/settings/page.py`, outside any HTMX fragment or `x-cloak`.
+- **Brand:** "SKUEL" → `/explore` (authenticated) or `/` (anonymous). **Landing:** `/` → 303 `/today` for every role; the login/register/reset redirects go there too.
+- **Geometry:** the navbar wrapper is `h-14` border included (the inner row is `h-full`); the desktop sidebar is `top-14` so it meets the bar exactly; the bottom nav is `min-h-16` with `padding-bottom: env(safe-area-inset-bottom)` so the inset grows the bar instead of squeezing its content.
+- **What the chrome does not have:** no dropdown, no hamburger, no drawer, no admin fork, no Calendar icon, no Today tab, no Search button (`/search` stays reachable from the error pages), no `href="#"`. The periodic notes are reached from the Tasks+ sidebar's Journal row and, inside a note, the period rail.
 
-**Evolution (2026-03-13):** `/study` was the student workspace hub landing page, with `/submit`, `/submissions`, `/entry-reports`, `/activity-reports` and `/submit-activity-report` as top-level routes sharing a 5-item Study sidebar, and the old `/submissions/*` and `/learn/*` UI paths 301-redirecting to them. *Superseded:* `/study` and those 301s are gone. `/submissions` is a standalone MOC root whose sub-pages are live routes, `/submit` 302-redirects to `/submissions/exercise`, and `/gradebook` is the one received-feedback page — `docs/ui/ROUTE_MAP.md` § Hub Sub-Pages is the authority.
+The measurements behind these choices and the rulings they overturned are the arc record, `docs/roadmap/done/tasks-plus-one-chrome.md`.
 
-**Evolution (2026-03-17a):** Navbar gains **C** (Curriculum) icon between A and S. All three icons (A, C, S) now have hover dropdown menus. `/curriculum` landing shows 4-card grid. Curriculum sub-pages (`/lessons`, `/path-steps`, `/learning-paths`, `/exercises`) share a 4-item Curriculum sidebar. Exercises moved from Study sidebar to Curriculum sidebar.
-
-**Evolution (2026-03-17b):** **A** icon removed from navbar. Activity links moved to avatar hover dropdown (`_avatar_dropdown()`). Navbar now: C, S + avatar (hover → Activities) + logout. `/profile` stripped of sidebar — uses `BasePage` directly. Journals card on `/activities` replaced with lightweight link. Sidebar badges loaded async via `GET /api/sidebar/badges` (HTMX OOB swap with `CountBadge` + `HealthIndicator`).
-
-**Evolution (2026-03-17c):** **⚛️** (Knowledge) icon added as first navbar item, linking to `/ku`. Emoji icons use `text-base` styling (vs `font-semibold text-sm` for letter icons). `/ku` page redesigned from SEL-category grouped sections to flat Ku listing with bookmarks + latest sidebar. Sidebar powered by `UserRelationshipService.get_pinned_entities()` for bookmarks. Navbar order: SKUEL logo → ⚛️ → C → S → avatar → logout → search → bell.
-
-**Evolution (2026-02-09):** All 5 sidebars (Profile, KU, Reports, Journals, Askesis) unified into single Tailwind + Alpine.js component (`SidebarPage`). Custom CSS/JS files (`profile_sidebar.css`, `profile_sidebar.js`) deleted. Below lg a horizontal row of the same links replaces the sidebar instead of a drawer/overlay (rebuilt as the section nav, 2026-09-19).
-
-**Evolution (2026-03-29):** `/profile` evolved from card grid to **live actionable hub**. Data sourced from `UserContext.build_rich()`. See `ui/profile/hub.py`.
-
-**Evolution (2026-04-03a):** `/profile` Activity Domains changed from Alpine.js tabbed view (one domain visible at a time) to all 6 domains visible as scrollable blocks. Each block has a colored domain header (icon + clickable title + "View all" link) and 3 priority-sorted cards HTMX lazy-loaded from `/api/profile/{slug}/preview`.
-
-**Evolution (2026-04-03b):** Activity Domains extracted from `/profile` into dedicated `/activities` hub with `SidebarPage` sidebar. The old horizontal `ActivityDomainNav` band replaced by collapsible Activity sidebar shared across `/activities`, `/tasks`, `/goals`, `/habits`, `/events`, `/choices`, `/principles`. Avatar dropdown simplified to Profile + Sign out. Activity icon added to navbar `ICON_NAV_ITEMS`. `/profile` retains Focus/Velocity, link to `/activities`, Nous placeholder, and Settings.
-
-**Evolution (2026-04-04b):** Activity Domains content merged back into `/profile` — `ActivityHubView()` rendered inline (6 HTMX-loaded domain blocks). Avatar dropdown gains 6 Activity Domain links (Tasks, Goals, Habits, Events, Choices, Principles) between Search and Sign out. `ACTIVITY_DROPDOWN_ITEMS` re-populated for mobile menu. Activity icon removed from navbar `ICON_NAV_ITEMS`; `/activities` route removed entirely (no redirect).
-
-**Evolution (2026-07-05):** Activity Domains return to `/profile` as a dedicated **Activities** tab (the May tab rework had dropped them, orphaning `ActivityHubView`). `ui/activities/hub.py` now holds `ACTIVITY_BLOCKS` + the preview renderer; the tab uses `HubAccordionBlockList` (#518 pattern). `ActivityHubView`, the `/profile` overview constellation (`OverviewView`, `/api/profile/intelligence-section`, `/api/profile/charts/*`), and `SkeletonIntelligence` deleted — Askesis is the intelligence UI. Alignment radar chart re-homed to `/lifepath/alignment`.
-
-**Evolution (2026-03-30):** Tasks and Goals have active read-focused UI views at `/tasks` and `/goals` with HTMX interactions, filtering, and knowledge connections. Tasks icon (check-square) added to navbar between Knowledge and Submissions. Habits, Events, Choices, and Principles read-focused UIs are planned. Navbar order: SKUEL logo → ⚛️ (Knowledge) → Tasks → ⇄ (Submissions) → avatar → logout.
-
-**Evolution (2026-04-03):** Admin accounts redirect to `/` after login instead of `/admin`. The `/` route renders an admin home hub with two cards (Admin → `/admin`, Teaching → `/teaching`). SKUEL logo in navbar left section links to `/`. "Admin Dashboard" and "Teaching" text links removed from navbar center. Admin navbar: SKUEL logo (left) → empty center → avatar + logout with icon (right). Mobile menu has explicit Admin + Teaching + Sign out links.
-
-**Evolution (2026-04-04):** Explore sidebar evolved from text-only "My Learning" sidebar to **graph-centered sidebar**. Hero: `ExploreGraphView` (`ui/explore/graph.py`) — interactive Vis.js force-directed graph with hub mode (learning universe) and entity mode (lateral relationships). Filter tabs (All/Learning/Saved) control both graph node highlighting and list visibility. Sidebar widened to `w-96` (384px) via new `sidebar_width` param on `SidebarPage`. Alpine component: `exploreGraph` in `skuel.js`. API: `GET /api/explore/graph`. Graph expands to full-screen JS overlay on `document.body` (creates a second Vis.js network to escape sidebar `overflow:hidden` + `transform`).
-
-**Evolution (2026-04-05):** Learning loop UI fully wired: EntryReport detail page at `/entry-reports/detail?uid=` (outcome badge, processor badge, assessment score bar); RevisedExercise student pages at `/revised-exercises` and `/revised-exercises/detail?uid=` (GradeBook sidebar); GradeBook expanded from 4 to 5 items (+ Revisions) and 5 hub blocks. Teaching revision form enhanced with structured `FeedbackCategory` feedback points (Alpine.js dynamic list). `AlpineModal` component standardized in `ui/patterns/modal.py` — adopted in calendar, sharing, and insights modals. Raw DaisyUI `Select` classes replaced with SKUEL `ui.forms.Select` wrapper in relationship_graph, profile, and calendar.
-
-**Evolution (2026-04-06a):** Post-login redirect changed from `/profile` to `/home` — a new post-login landing hub with 6 navigational cards (Tasks+, Explore, Library, Submissions, GradeBook, Settings) using `HubContainerGrid`. Hub view in the then-new `home_hub.py`, route in `adapters/inbound/home_routes.py`. (`/home` was later consolidated into the `/profile` tabs: the hub view module is gone, its successor is `ui/profile/hub.py`, and `home_routes.py` survives registering only API fragments.)
-
-**Evolution (2026-04-06b):** Navbar Hub access changed from right-side hamburger dropdown to a **Hub icon** (home) as the furthest-left icon link. Right section simplified to Search + notification bell only. `_hub_dropdown()` removed from `navbar.py`.
-
-**Evolution (2026-04-06c):** Avatar dropdown removed from navbar left section — Tasks+ icon already links to `/profile`, making it redundant. Sign-out icon added to navbar right section (Search + bell + Sign out). Focus+Velocity header extracted from `/profile` to shared `personal_header()` in `ui/patterns/personal_header.py` and added to top of `/home`. Nous placeholder removed from `/profile`. `/home` route now fetches `UserContext` via `get_rich_unified_context()`.
-
-**Evolution (2026-06-24):** Profile avatar button removed from navbar right section. Askesis flame icon (`Icon("flame")`) added linking to `/askesis`, placed between Search and notification bell. Right section is now: Search + Askesis (flame) + bell + Sign out. Brand "SKUEL" link (→ `/profile`) is the entry point to the profile hub.
-
-**Evolution (2026-06-28):** Profile avatar button (`_profile_button`) re-wired into navbar right section, placed between notification bell and Sign out. Brand "SKUEL" link updated from `/profile` → `/explore` (the ZPD-surfaced reading focal point — primary landing destination after login). `Explore` removed from `ICON_NAV_ITEMS`; the brand link is now the sole entry point. Right section is now: Search + Askesis (flame) + bell + Profile avatar + Sign out.
-
-**Evolution (2026-07-17):** Tasks+ removed from `ICON_NAV_ITEMS` (activity domains are reached via the Profile hub); Journals (`/journals`, `Icon("book-open")`) takes its slot. Calendar icon button (`_calendar_button`, `Icon("calendar")` → `/cal`) added to the navbar right section after Search — desktop only, mirroring Search: mobile folds Calendar into the bottom nav (`_CALENDAR_TAB`) to preserve 44px tap targets at 320px. Calendar pages now pass `active_page="calendar"` (was `"tasks"`). Right section is now: Search + Calendar (both desktop-only) + Askesis (flame) + Shared-inbox + bell + Profile avatar + Sign out.
-
-**Evolution (2026-09-05):** The "Notes" periodic-note picker (`PeriodNotesPicker`) moved off the calendar/Today toolbars into the navbar right section, after Calendar — the navbar's only dropdown, and visible at every width. Because global chrome has no viewed period to follow, `viewed_period(path)` reads it off the request path, so the month view's Monthly row still opens the month on screen. Sign-out became desktop-only (`hidden sm:inline-flex`) to keep the mobile bar at five icons; `/profile` carries an `sm:hidden` sign-out row instead (`ui/profile/hub.py`), so exactly one sign-out door exists at every width. Right section is now: Search + Calendar (both desktop-only) + Notes + Askesis (flame) + Shared-inbox + bell + Profile avatar + Sign out (desktop-only).
-
-**Evolution (2026-09-18):** The "Notes" picker removed (the `PeriodNotesPicker` module deleted with its `viewed_period` path-derivation and the navbar's `path` parameter) — the navbar carries no dropdown again; the periodic notes are reached from the Tasks+ sidebar's Journal row (today's note, #1368) and, inside a note, the period rail. Sign-out stays desktop-only with the `/profile` row as the phone's door — one door per width is the invariant, not the icon count (`tests/unit/ui/test_navbar.py`). Right section is now: Search + Calendar (both desktop-only) + Askesis (flame) + Shared-inbox + bell + Profile avatar + Sign out (desktop-only).
-
-**Evolution (2026-09-18b):** Search leaves the navbar — `_search_button` and the mobile `_SEARCH_TAB` deleted (`/search` itself stays; the error pages still link to it). Submissions (`/submissions`, `Icon("upload")`, `page_key="submissions"`) joins `ICON_NAV_ITEMS` after PathSteps, so it renders as a desktop center link and a bottom-nav tab from the one spec; the MOC and every `/submissions/*` sub-page already pass `active_page="submissions"`, so the item is lit across the section. The bottom nav stays at five tabs (Today, Library, PathSteps, Submissions, Calendar). Right section is now: Calendar (desktop-only) + Askesis (flame) + Shared-inbox + bell + Profile avatar + Sign out (desktop-only). Pinned by `tests/unit/ui/test_navbar.py`.
-
-**Evolution (2026-09-19 — Tasks+ arc PR 4, one navbar, one rule):** ONE navbar for every role — the admin branch of `create_navbar`, `_admin_right_section`, the hamburger and the admin hub at `/` are deleted; Admin and Teaching are role-gated `MAIN_NAV_ITEMS` centre links at lg+ (`hidden lg:block` — measured: with the four section doors and the icon cluster a member's bar is full at 640, a teacher's 758px and an admin's 829px, so the role doors cannot be centre links below lg in any font) and `lg:hidden` rows on `/settings` (`role_nav_rows()`). The global chrome carries ONE door per SECTION, lit by a section key: a "Tasks+" item (→ `/today`, `page_keys={"activity"}`, `Icon("activity")`) is first among the centre links and the bottom tabs, lit on every activity-sidebar page (`render_activity_sidebar_page` always passes `active_page="activity"`; its parameter and the Today/Calendar overrides are gone); the Calendar icon (`_calendar_button`, `_CALENDAR_TAB`) and the Today tab are deleted; the Library door lights on `{"explore", "library"}`. The bottom nav renders for every viewer — four identical tabs for every authenticated role, the two public doors for an anonymous visitor — so `BasePage` always pads for it; the STANDARD layout's `main` also loses its `min-h-screen` (under a 3.5rem sticky navbar it was 56px of phantom scroll on every short page). Centre links are `px-2`. The avatar opens `/settings` (`page_key="settings"`); `signout_row()` lives in `navbar.py` beside `_signout_button` and renders first on `ui/settings/page.py`. `/` → 303 `/today` for everyone; the five `"/" if admin` splits in `auth_ui.py` collapse. Dead fields deleted: `IconNavItem.letter/has_dropdown/hide_for_teacher/hide_for_admin`, `NavItem.requires_auth/hide_for_admin`, `ACTIVITY_DROPDOWN_ITEMS`/`DropdownItem`. Right section is now: Askesis (flame) + Shared-inbox + bell + avatar (→ `/settings`) + Sign out (desktop-only). Pinned by `tests/unit/ui/test_navbar.py` (incl. the anti-duplication invariant over every `*_SIDEBAR_ITEMS`).
-
-**Evolution (2026-04-06d):** Performance pass — `personal_header()` on `/tasks` was blocking the page render with the 1034-line MEGA_QUERY just for 3 fields. Replaced with `personal_header_placeholder()` — an HTMX div that lazy-loads via `GET /api/personal-header` (registered in `home_routes.py`) after the page renders. Use `personal_header_placeholder()` on any page that doesn't already have `UserContext` loaded; use `personal_header(context)` only when the full context is already in scope (e.g. `/home`). Explore page and sidebar queries parallelized with `asyncio.gather`. `RequestTimingMiddleware` added — logs all requests with duration; `SLOW` at WARNING for >100ms.
-
-**Background Convention (2026-02-05):** All layout surfaces (navbar, sidebars, body) are `bg-white`. Edges are defined by 1px borders (`border-b border-gray-200` on navbar, `border-r border-gray-200` on sidebars, CSS `border-right` on custom sidebars), not color contrast. Only interactive states (active nav links, hover) use tinted backgrounds.
+**Background convention:** All layout surfaces (navbar, sidebars, body) are `bg-white`. Edges are defined by 1px borders (`border-b border-gray-200` on navbar, `border-r border-gray-200` on sidebars, CSS `border-right` on custom sidebars), not color contrast. Only interactive states (active nav links, hover) use tinted backgrounds.
 
 ### BasePage Usage
 
@@ -157,12 +114,10 @@ return SidebarPage(
 
 ### Unified Sidebar Pattern (Tailwind + Alpine.js)
 
-**Added:** 2026-02-09 (unified from 3 implementations)
-
-All sidebar pages (Activity Domains, Explore, GradeBook, Library, Teaching, Submissions) use a single `SidebarPage()` component from `ui/patterns/sidebar.py`.
+Every sidebar section (Tasks+, Library, Submissions, Teaching, Explore, Admin, Finance, LifePath, Activity Review) uses the single `SidebarPage()` component from `ui/patterns/sidebar.py`. The GradeBook has no sidebar of its own — it is a Tasks+ page.
 
 **Key Features:**
-- One component for all 6 sidebar pages
+- One component for every sidebar section — the improvement lands in the shared component, never a per-section fork
 - Desktop: Fixed `<nav>` sidebar (default 256px, configurable via `sidebar_width` param — Explore uses `w-96`/384px for graph) with smooth collapse to 48px edge; the current row carries `aria-current="page"`
 - Below lg: the **section nav** — `<nav aria-label="{title}"><ul role="list">` of `shrink-0` `<li><a>` page links in a scrolling row, current page `aria-current="page"` (a nav list, not an ARIA tabs widget); a parse-time inline script centres the current link and stamps `data-overflow`/`data-at-end` for the `.section-nav` right-edge fade (`input.css`); no items → no row. No drawer/overlay: the siblings stay visible and the row works without JS
 - Alpine.js `collapsibleSidebar` + `Alpine.store()` for shared reactive state
@@ -194,23 +149,22 @@ return SidebarPage(
 
 **Extension Points:**
 - `extra_sidebar_sections` — additional content below nav items (Explore uses for graph hero + filtered lists)
-- `item_renderer` — custom render function for complex items (Profile uses for badges)
+- `item_renderer` / `mobile_item_renderer` — custom render functions (the teaching student page's same-page tab rows); the default renderer adds a `sidebar-badge-{slug}` slot only when `badges=True`
+- `badges` — opt into the badge loader (`GET /api/sidebar/badges`, `hx-trigger="intersect once"` on the desktop `<nav>`); Tasks+ is the one sidebar that passes it
 - `sidebar_width` — custom width class (`w-64` default, `w-80`, `w-96`). Explore uses `w-96` (384px) to accommodate the Vis.js graph hero. Width config auto-derives collapse offset and content margin.
 - `description` field on SidebarItem — two-line layout (Askesis uses for subtitles)
 
 **Files:**
 - `/ui/patterns/sidebar.py` - `SidebarItem`, `SidebarNav`, `SidebarPage`
-- `/static/js/skuel.js` (lines 917-953) - `collapsibleSidebar` Alpine component
+- `/static/js/skuel.js` - `collapsibleSidebar` Alpine component
 
 **See:** `@skuel-ui` for complete implementation guide
 
 #### Configuration-Driven Domain Stats
 
-**Added:** 2026-02-03
-
 **Core Principle:** "Configuration over repetition for domain statistics"
 
-The Profile Hub uses a configuration-driven pattern to calculate domain statistics (counts, active counts, status) from `UserContext`, eliminating repetitive if-elif blocks.
+The Tasks+ sidebar badges (`GET /api/sidebar/badges`, `adapters/inbound/sidebar_badges_ui.py`) use a configuration-driven pattern to calculate each domain row's statistics (count, active count, health status) from `UserContext`: the handler iterates `ACTIVITY_SIDEBAR_ITEMS` and emits one OOB badge fragment for every slug `DOMAIN_STATS_CONFIG` knows — exactly the six Activity Domains, drift-pinned both ways by `tests/unit/adapters/test_sidebar_badges_handler.py`.
 
 **Pattern Benefits:**
 - **DRY Compliance:** 80-line if-elif block reduced to 11-line config lookup (86% reduction)
@@ -221,7 +175,7 @@ The Profile Hub uses a configuration-driven pattern to calculate domain statisti
 **Configuration Structure:**
 
 ```python
-from ui.profile.domain_stats_config import DOMAIN_STATS_CONFIG
+from ui.activities.domain_stats_config import DOMAIN_STATS_CONFIG
 
 # Configuration lookup replaces if-elif blocks
 config = DOMAIN_STATS_CONFIG.get("tasks")
@@ -235,7 +189,7 @@ if config:
 **Adding a New Domain:**
 
 ```python
-# 1. Add extractor functions in /ui/profile/domain_stats_config.py
+# 1. Add extractor functions in /ui/activities/domain_stats_config.py
 def projects_count(ctx: UserContext) -> int:
     """Calculate total project count."""
     return len(ctx.active_project_uids) + len(ctx.completed_project_uids)
@@ -256,66 +210,34 @@ DOMAIN_STATS_CONFIG["projects"] = DomainStatsConfig(
     status_args_fn=projects_status_args,
 )
 
-# 3. Done! No changes needed in user_profile_ui.py route logic
+# 3. Add the SidebarItem to ACTIVITY_SIDEBAR_ITEMS — the handler emits
+#    exactly rows ∩ config, so a config entry with no row (or a row with no
+#    config) fails the drift test
 ```
 
 **Edge Cases Handled:**
 - **Habits:** `active = count` (special case - all active habits are counted)
 - **Events:** First status arg hardcoded to 0 (missed_today not tracked separately)
 - **Principles:** Uses int values for decisions, not UID lists
-- **Learning:** Custom status function with complex prerequisite logic
-- **Unknown domains:** Fallback to `count=0, active=0, status="healthy"`
+- **Rows without a config** (Today, Weekly, Monthly, Journal, GradeBook): no badge slot is rendered and no fragment is emitted
 
 **Files:**
-- `/core/services/user/domain_health.py` - `DomainStatus` class (canonical — 8 `calculate_*_status()` methods)
-- `/ui/profile/domain_stats_config.py` - Configuration and extractor functions (imports `DomainStatus` from core)
-- `/adapters/inbound/user_profile_ui.py` - Uses configuration in `_build_domain_items()`
-- `/tests/unit/ui/test_domain_stats_config.py` - 31 tests covering all domains
+- `/core/services/user/domain_health.py` - `DomainStatus` class (the six `calculate_*_status()` methods)
+- `/ui/activities/domain_stats_config.py` - Configuration and extractor functions (imports `DomainStatus` from core)
+- `/adapters/inbound/sidebar_badges_ui.py` - The `/api/sidebar/badges` handler
+- `/ui/activities/badges.py` - `CountBadge` + `HealthIndicator` renderers
+- `/tests/unit/ui/test_domain_stats_config.py`, `/tests/unit/adapters/test_sidebar_badges_handler.py`
 
 **Type Safety:**
 ```python
-from ui.profile.domain_stats_config import DomainStatsConfig, StatusCalculator
-
-class StatusCalculator(Protocol):
-    """Protocol for domain status calculator functions."""
-    def __call__(self, *args: int) -> str: ...
+from ui.activities.domain_stats_config import DomainStatsConfig
 
 @dataclass(frozen=True)
 class DomainStatsConfig:
     count_fn: Callable[[UserContext], int]
     active_fn: Callable[[UserContext], int]
-    status_fn: StatusCalculator
+    status_fn: Callable[..., str]   # arity varies (1 or 2 ints); called as status_fn(*status_args)
     status_args_fn: Callable[[UserContext], tuple[int, ...]]
-```
-
-**Before Refactoring (80 lines):**
-```python
-# Repetitive if-elif blocks in user_profile_ui.py
-if slug == "tasks":
-    count = len(context.active_task_uids) + len(context.completed_task_uids)
-    active = len(context.active_task_uids)
-    status = DomainStatus.calculate_tasks_status(
-        len(context.overdue_task_uids),
-        len(context.blocked_task_uids),
-    )
-elif slug == "events":
-    # ... 8 more lines
-# ... 4 more similar blocks
-```
-
-**After Refactoring (11 lines):**
-```python
-# Clean configuration lookup
-config = DOMAIN_STATS_CONFIG.get(slug)
-if config:
-    count = config.count_fn(context)
-    active = config.active_fn(context)
-    status_args = config.status_args_fn(context)
-    status = config.status_fn(*status_args)
-else:
-    count = 0
-    active = 0
-    status = "healthy"
 ```
 
 ### Design Tokens
@@ -982,7 +904,7 @@ StatsGrid([
 ], cols=2)
 ```
 
-**Adoption status:** Used across ~16 files (insights, pathways, analytics, finance, admin, profile). No hand-rolled stat grids remain.
+**Adoption status:** Used across ~16 files (insights, pathways, analytics, finance, admin). No hand-rolled stat grids remain.
 
 ### Don't Hand-Roll Modals
 
@@ -1401,7 +1323,7 @@ Domains outside the Activity pattern use the same principle — service methods 
 
 *Updated: 2026-03-18*
 
-Module-level helpers keep route handlers thin. The shared primitives in `form_helpers.py` are adopted by all UI files that handle form data — the 6 Activity domains, plus `auth_ui`, `calendar_ui`, `user_profile_ui`, `lifepath_ui`, `askesis_ui`, and `journals_ui`.
+Module-level helpers keep route handlers thin. The shared primitives in `form_helpers.py` are adopted by all UI files that handle form data — the 6 Activity domains, plus `auth_ui`, `settings_routes`, `lifepath_ui`, `askesis_ui`, and `activity_reports_ui`.
 
 | Helper | Purpose |
 |--------|---------|
@@ -1562,56 +1484,13 @@ uv run pytest tests/unit/ui/test_cross_domain_consistency.py -v
 
 ---
 
-## Legacy Pattern Removal (One Path Forward)
-
-### Sidebar Unification (2026-02-09)
-
-**Commits:** `949f201` (unify), `5856a7e` (fix shared state bug)
-
-Three sidebar implementations (~590 lines custom CSS/JS) unified into one Tailwind + Alpine.js component.
-
-**What Was Removed:**
-- `profile_sidebar.css` (172 lines) — custom CSS for sidebar animations
-- `profile_sidebar.js` (121 lines) — vanilla JS toggle + localStorage
-- Askesis inline CSS/JS (~300 lines) — separate breakpoints and behavior
-- `toggleProfileSidebar()`, `profileSidebarCollapsed`, `ProfileDomainItem`
-
-**What Replaced It:**
-
-```python
-# THE way (all 5 sidebar pages)
-from ui.patterns.sidebar import SidebarItem, SidebarPage
-
-return SidebarPage(content=..., items=..., active=..., title=..., ...)
-```
-
-**Result:** ~590 lines deleted, ~337 lines added (300 Python + 37 Alpine). One reusable component.
-
-### ProfileLayout Class (2026-02-01)
-
-**What Was Removed:**
-- **ProfileLayout class** (175 lines) — legacy drawer implementation
-- Replaced by `create_profile_page()` which now uses `SidebarPage()`
-
-### Philosophy Applied
-
-SKUEL does NOT maintain backward compatibility. When a better pattern emerges:
-- ❌ No deprecation warnings
-- ❌ No compatibility shims
-- ❌ No "use X instead" comments
-- ✅ Clean removal
-- ✅ Update all call sites
-- ✅ One canonical way
-
----
-
 ## Shared Components
 
 All live in `/ui/patterns/` or `/ui/feedback.py`.
 
 | Component | Purpose | Notes |
 |-----------|---------|-------|
-| `PageHeader` | Page title + subtitle + actions | Adopted across all 6 Activity Domain dashboards, Study, Curriculum, Admin, Analytics, Calendar, LifePath, Finance, Pathways, Askesis, Form Submissions, Submissions, Profile, Preferences. **Never use raw `H1()`/`H2()` for page headers.** |
+| `PageHeader` | Page title + subtitle + actions (`flex-wrap` — the actions drop under the title on narrow screens) | Adopted across all 6 Activity Domain dashboards, Admin, Analytics, Calendar, LifePath, Finance, Pathways, Askesis, Form Submissions, Submissions, Settings. **Never use raw `H1()`/`H2()` for page headers.** |
 | `SectionHeader` | Section titles | ~8 files. **Never use raw `H2()` for section headers outside cards.** |
 | `CardHeader` / `CardTitle` | Semantic card titles from `ui/cards` | **Never use raw `H2()`/`H3()` directly inside `Card()`.** Canonical pattern: `Card(CardHeader(CardTitle("…")), CardBody(content))`. |
 | `EmptyState` | Empty-list placeholder | ~75 usages across ~38 files. **Never hand-roll `Div(P("No …"))` for empty states.** |
@@ -1633,9 +1512,10 @@ Per-domain TypedDicts in `/ui/page_contexts.py` define route → UI contracts wi
 ## Key UI Files
 
 **Layout & navigation:**
-- `/ui/profile/hub.py` — Profile hub (absorbed the former `/home` hub)
-- `/ui/layouts/base_page.py`, `/ui/layouts/navbar.py`
+- `/ui/layouts/base_page.py`, `/ui/layouts/navbar.py`, `/ui/layouts/nav_config.py` (the chrome's one spec)
+- `/ui/settings/page.py` — the `/settings` shell (phone chrome rows first, then the preferences editor from `/ui/settings/preferences.py`)
 - `/ui/patterns/sidebar.py`, `/ui/patterns/modal.py` (AlpineModal)
+- `/ui/profile/shared_view.py` — the shared-with-me inbox (`/profile/shared`, the one `/profile/*` page)
 - `/ui/patterns/` — `PageHeader`, `form_generator`, `card_generator`, etc.
 
 **Explore:**
@@ -1668,9 +1548,9 @@ Per-domain TypedDicts in `/ui/page_contexts.py` define route → UI contracts wi
 - `/ui/finance/` (components, invoice_views, layout, section_views, types)
 - `/ui/vault/` (sync_fragments — vault sync/preview buttons, privacy wall, consent form, stats/preview/error fragments; routes stay in `vault_routes.py`)
 
-**Workbench:**
-- `/ui/workbench/hub.py` — `SubmissionsTabPanel` (Submissions tab on `/profile`: 4 link buttons mirroring the sidebar)
-- `/ui/workbench/nav.py` — Submissions sidebar
+**Sections:**
+- `/ui/activities/nav.py` — Tasks+ sidebar (`ACTIVITY_SIDEBAR_ITEMS`, the one `badges=True` sidebar); `/ui/activities/badges.py` + `domain_stats_config.py` — its badge renderers and extractors
+- `/ui/workbench/nav.py` — Submissions sidebar; `/ui/library/nav.py` — Library sidebar
 
 **Shared:**
 - `/ui/primitives.py` — `icon_tile`, `section_label`, `primary_btn`, `card_row`, `SelectableOptionRow`, `dropdown_menu`, `dropdown_separator`, `UploadDropzone`, `SelectedFileCard`: low-level building blocks from the /submit and Askesis UX redesigns; use these instead of duplicating class strings. `SelectableOptionRow` consolidates the icon+title+subtitle+checkmark pattern (active: `bg-blue-50`, hover: `hover:bg-slate-100` live here only). `dropdown_menu`/`dropdown_separator` are the canonical Alpine dropdown shell. `UploadDropzone`/`SelectedFileCard` are the canonical drag-drop empty/filled file-upload states.

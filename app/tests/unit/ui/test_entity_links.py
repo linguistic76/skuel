@@ -67,4 +67,4 @@ def test_hub_cards_template_path_still_default() -> None:
         {"uid": "ku.ns.a", "title": "A", "order": 0, "entity_type": "ku"},
     ]
     cards = hub_cards_from_organizers(children)
-    assert cards[0].href == "/ku/ku.ns.a"
+    assert cards[0].href == "/explore/ku/ku.ns.a"

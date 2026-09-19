@@ -22,29 +22,22 @@ For implementation guidance, see:
 
 ## Architecture
 
-**`/submissions`** and **`/library`** are sidebar-free MOC root pages — a 2×2 grid of icon-badge cards, each linking to a section's sidebar sub-pages. The former unified `HomeHub(active_tab=...)` tabbed hub (`home_hub.py`) is retired. **`/gradebook`** left the MOC-root set in the arc-2 3→1 collapse: it is now THE received-feedback page (per-exercise exchange lines + conditional report groups) rendered under the Tasks+ sidebar (`ui/activities/nav.py`, GradeBook row lit — it has no sidebar of its own).
+Sections are navigated by the chrome — one door per section in the navbar/bottom nav, the section's pages as sidebar rows (`SidebarPage`, a collapsible sidebar at `lg+` and the scrolling section nav below). A hub page is built only where it carries what that nav cannot (the design principle's table). Four live hub forms:
 
-**Profile** (`/profile`) is the **personal overview hub** — four tabs (Activities / Curriculum / Submissions / Reports, `?tab=` selected, default `activities`). Activities, Curriculum, and Reports show HTMX lazy-loaded preview blocks (`ACTIVITY_BLOCKS` / `LIBRARY_BLOCKS` / `GRADEBOOK_BLOCKS`); Submissions is a simple 4-button link panel (Sync first) mirroring the `/submissions` sidebar (`SubmissionsTabPanel`, `ui/workbench/hub.py`). The old intermediate hubs (`/curriculum`, `/study`) are shelved — they redirect 301 to `/profile`.
+| Route | Hub form | Built from |
+|-------|----------|-----------|
+| `/submissions` | MOC root — sidebar-free `BasePage(STANDARD)`, five `MocCard`s (Sync, Exercise, Journal, History, Knowledge) | `adapters/inbound/user_entry_ui.py` (`submissions_moc`) |
+| `/library` | MOC root — four `MocCard`s (Exercises, Resources, Ku, Path Steps) | `adapters/inbound/library_ui.py` (`library_moc`) |
+| `/groups` | one `HubDomainBlock` per group, each HTMX-loading a "Recent Shares" preview | `ui/groups/hub.py`, `adapters/inbound/groups_hub_routes.py` |
+| `/teaching/students/{uid}` | nested student hub — `HubDomainBlockList`, three OOB-populated buckets + one self-loading block | `ui/teaching/student_hub.py`, `adapters/inbound/teaching_ui.py` |
 
-Activity Domain child pages (`/tasks`, `/goals`, etc.) use `SidebarPage` with the shared Activity sidebar, which links back to `/profile`.
+Plus one graph-driven section: `/gradebook/{uid}` renders an entry's `ORGANIZES` children as a "Map of Content" `HubSection`.
 
-**Domain hub pages** are rich functional pages that Profile links to:
-
-| Route | Purpose | Status |
-|-------|---------|--------|
-| `/ku` | Knowledge browsing (ORGANIZES-driven) | Active |
-| `/path-steps` | Enrolled + available path steps | Active |
-| `/exercises` | Practice linked to PathSteps and Kus | Active |
-| `/submissions` | Full submission list + browse | Active |
-| `/gradebook` | Received feedback — exchange lines + activity reports + other feedback | Active |
-
-Domain hubs are NOT simple card grids — they have real capabilities (forms, entity lists, actions).
+Tasks+ has no hub — its sidebar (`ui/activities/nav.py`) is the one list on every page under it, and the Tasks+ door (→ `/today`) is lit on all of them. `/gradebook` is a Tasks+ page (the received-feedback exchange lines, GradeBook row lit), not a hub. Teaching has no root hub (`/teaching/students` is its landing).
 
 ## Shared Components
 
 **Location:** `ui/patterns/hub.py`
-
-These components are used by domain hub pages (e.g., KU index). Profile no longer uses them — it has its own live content sections.
 
 ### HubCardData
 
@@ -77,18 +70,6 @@ def HubSection(title: str | None, cards: list[HubCardData], cols: int = 2) -> Di
 - `title=None` renders grid without section header (for flat grids)
 - `cols`: 2 (default), 3, or 4
 
-### HubContainer + HubContainerGrid
-
-```python
-def HubContainer(card: HubCardData) -> A:
-    """Hub container — a substantial navigational block for hub pages."""
-
-def HubContainerGrid(cards: list[HubCardData], cols: int = 2) -> Div:
-    """Responsive grid of hub containers."""
-```
-
-Bigger than `HubCard` — more padding, larger icon, full description paragraph, and arrow affordance. Reuses `HubCardData`.
-
 ### MocCard
 
 ```python
@@ -96,7 +77,7 @@ def MocCard(title: str, description: str, href: str, icon: str, icon_bg: str = "
     """MOC root-page card — icon tile + title + description, wrapped in <A>."""
 ```
 
-Icon-tile card used by the MOC hub roots (`/library`, `/submissions`, `/gradebook`) to link their sub-pages. Takes plain args instead of `HubCardData` (needs `icon_bg`, no badge).
+Icon-tile card used by the MOC roots (`/library`, `/submissions`) to link their sub-pages. Takes plain args instead of `HubCardData` (needs `icon_bg`, no badge).
 
 ### HubDomainBlock + HubDomainBlockList (HTMX preview blocks)
 
@@ -107,44 +88,18 @@ class HubBlockData:
     slug: str
     icon: str               # Lucide icon name (rendered via Icon)
     color: str              # hex color for header
-    href: str               # "View all" link
+    href: str               # Header label link (primary action)
     preview_url: str | None = None  # HTMX endpoint; None = OOB-populated by a combined endpoint
+    view_all_href: str | None = None  # Override for "View all →"; falls back to href
 
 def HubDomainBlock(block: HubBlockData) -> Div:
-    """Colored header + HTMX lazy-loaded preview area.
-
-    When preview_url is set, the panel self-loads via hx-trigger="intersect once" —
-    the fetch fires the first time the panel becomes visible, so blocks inside
-    hidden tab containers defer until their tab is shown.
-    When preview_url is None, the panel renders as a passive OOB target (id set, no HTMX
-    attrs) — a combined endpoint will swap its content in via hx-swap-oob.
-    """
+    """A single domain block: colored header + HTMX lazy-loaded preview area."""
 
 def HubDomainBlockList(blocks: list[HubBlockData]) -> Div:
     """Vertical stack of domain blocks."""
 ```
 
-Used by hub pages (`/groups`, `/activities`, `/teaching/students/{uid}`). Each block renders a colored header (icon + title + "View all" link) and an HTMX placeholder that loads preview cards when the block becomes visible. The nested student hub (`/teaching/students/{uid}`) uses `HubDomainBlockList` with a mix of self-loading blocks and OOB-populated blocks (see pattern below); Teaching has no root hub — its nav entry lands on `/teaching/students`.
-
-### HubAccordionBlock + HubAccordionBlockList (collapsible variant)
-
-```python
-def HubAccordionBlock(block: HubBlockData, open: bool = False) -> FT:
-    """Collapsible domain block — native <details>/<summary>."""
-
-def HubAccordionBlockList(blocks: list[HubBlockData], open_first: bool = True) -> Div:
-    """Vertical stack of accordion blocks; the first starts open by default."""
-```
-
-Same `HubBlockData` config as `HubDomainBlock`, rendered as a native `<details>` element: the whole summary row toggles (chevron rotates via `group-open:rotate-90`, pure CSS), the label is a plain Span, and "View all →" is the sole navigation (`@click.stop` so it doesn't toggle). Because the preview panel uses `hx-trigger="intersect once"`, a closed accordion never fetches — content inside a closed `<details>` has no layout box, so the IntersectionObserver only fires once the section is open AND its tab visible. Used by the `/profile` Curriculum and Reports tabs.
-
-**Decision guide — flat vs accordion:**
-
-| Situation | Use |
-|-----------|-----|
-| Few blocks, all previews should be visible immediately | `HubDomainBlockList` |
-| Many sections where headers alone orient the user; open on demand | `HubAccordionBlockList` |
-| Blocks populated by a combined OOB endpoint (e.g. teaching student hub) | `HubDomainBlockList` — the OOB response would populate closed panels invisibly and skew the one-combined-fetch economics |
+Each block renders a colored header (icon + title + "View all →") and a preview panel. When `preview_url` is set the panel self-loads with `hx-trigger="intersect once"` — the fetch fires the first time the panel gains a layout box in the viewport, so a block inside a hidden container defers until revealed. When `preview_url` is `None` the panel is a passive OOB target (`id` set, no HTMX attributes) that a combined endpoint fills via `hx-swap-oob` (pattern below). Consumers: `/groups` (one block per group) and the nested student hub `/teaching/students/{uid}` (three OOB buckets + one self-loading block).
 
 ---
 
@@ -200,7 +155,7 @@ HTMX matches each response fragment to its page target by `id` and swaps them in
 
 **Two established examples:**
 
-1. **Sidebar badges** (`user_profile_ui.py`) — `GET /api/sidebar/badges` returns one badge span per Tasks+ domain row (`ACTIVITY_SIDEBAR_ITEMS ∩ DOMAIN_STATS_CONFIG`, six today) as OOB swaps. Only the Tasks+ sidebar (`SidebarPage(badges=True)`) renders the `sidebar-badge-{slug}` slots and carries the trigger, which fires once the desktop sidebar is on screen (`intersect once`) — a phone, where the sidebar is `display:none`, makes no request.
+1. **Sidebar badges** (`adapters/inbound/sidebar_badges_ui.py`) — `GET /api/sidebar/badges` returns one badge span per Tasks+ domain row (`ACTIVITY_SIDEBAR_ITEMS ∩ DOMAIN_STATS_CONFIG`, six today) as OOB swaps. Only the Tasks+ sidebar (`SidebarPage(badges=True)`) renders the `sidebar-badge-{slug}` slots and carries the trigger, which fires once the desktop sidebar is on screen (`intersect once`) — a phone, where the sidebar is `display:none`, makes no request.
 
 2. **StudentHub submission blocks** (`teaching_ui.py`) — `GET /api/teaching/students/{uid}/submissions/preview` returns 3 bucket previews (pending, revision, completed) as OOB swaps. One orchestrator fetch, three panels populated. Bucketing logic lives in `TeacherOrchestrator.get_bucketed_student_submissions()` — Needs Review AND Revision Requested are each the student-scoped review queue (default statuses vs `revision_requested` — one collapse rule, two surfaces), never raw status reads; anything both queues omit is history.
 
@@ -281,65 +236,40 @@ def HubPreviewEmpty(domain: str) -> Div:
     """Empty state for a preview block."""
 ```
 
-Returned by HTMX preview endpoints to populate `HubDomainBlock`/`HubAccordionBlock` areas. The entity title is the card's headline — don't lead with a badge that repeats the section header; reserve `badge` for genuinely informative status (submission state, media type, revision number).
+Returned by HTMX preview endpoints to populate `HubDomainBlock` panels. The entity title is the card's headline — don't lead with a badge that repeats the section header; reserve `badge` for genuinely informative status (submission state, media type, revision number).
 
 ### Graph-Driven Bridges
 
 ```python
 def hub_cards_from_organizers(
     children: list[OrganizerResult],
-    href_template: str = "/ku/{uid}",
+    href_template: str = "/explore/ku/{uid}",
     default_icon: str = "📖",
     default_description: str = "",
     href_for: Callable[[OrganizerResult], str] | None = None,
 ) -> list[HubCardData]:
-
-def hub_cards_from_root_organizers(
-    roots: list[RootOrganizerResult],
-    href_template: str = "/ku/{uid}",
-    default_icon: str = "📖",
-    default_description: str = "",
-) -> list[HubCardData]:
 ```
 
-Convert ORGANIZES query results into `HubCardData` for rendering. `RootOrganizerResult.child_count` maps to badge. `href_for` overrides `href_template` when children span entity types (`OrganizerResult.entity_type` + `entity_detail_href()` from `ui/patterns/entity_links.py` resolve the per-type detail URL).
+Converts ORGANIZES query results into `HubCardData` for rendering, sorted by `order`. `href_for` overrides `href_template` when children span entity types (`OrganizerResult.entity_type` + `entity_detail_href()` from `ui/patterns/entity_links.py` resolve the per-type detail URL).
 
-## Usage: Profile Hub (Personal Overview)
+## Usage: MOC Root Pages (`/submissions`, `/library`)
 
-Profile renders via `ProfileHubView(active_tab)` — no UserContext on the critical path. The route only calls `require_authenticated_user(request)` for auth, then renders the tab layout directly.
-
-`personal_header(context)` (Focus + Velocity) lives in `ui/patterns/personal_header.py` and is used on `/home` and the HTMX fragment endpoint (`GET /api/personal-header`). For pages that don't already have `UserContext` loaded, use `personal_header_placeholder()` — an HTMX div that lazy-loads without blocking the page render. The endpoint is registered in `adapters/inbound/home_routes.py`.
-
-## Usage: HTMX Hub Pages (Activity, GradeBook, Library, Submissions)
-
-All hub pages use `HubDomainBlockList` with `HubBlockData` config. Each block loads content via HTMX from its `preview_url`. Preview endpoints typically return `HubPreviewGrid(cards)` or `HubPreviewEmpty(domain)` for data blocks, or an embedded action widget (e.g. a form) for action-first blocks like the Submissions upload block.
-
-### Activities tab (on `/profile`)
-
-```python
-# ui/activities/hub.py
-ACTIVITY_BLOCKS = [
-    HubBlockData("Tasks", "tasks", "check-square", "#3B82F6", "/tasks", "/api/profile/tasks/preview"),
-    # ... 5 more Activity Domains
-]
-
-# ui/profile/hub.py renders it as an accordion tab panel:
-_panel("activities", HubAccordionBlockList(ACTIVITY_BLOCKS))
-```
-
-### MOC root pages (`/submissions`, `/library`)
-
-Each is a `BasePage(STANDARD)` with a `grid grid-cols-1 sm:grid-cols-2` of `MocCard()` components (shared, in `ui/patterns/hub.py`). No sidebar, no Alpine state. Routes in:
+Each is a `BasePage(STANDARD)` with a `grid grid-cols-1 sm:grid-cols-2` of `MocCard()` components. No sidebar, no Alpine state. Routes:
 
 - `adapters/inbound/user_entry_ui.py` — `submissions_moc`
 - `adapters/inbound/library_ui.py` — `library_moc`
 
-**HTMX preview endpoints** (still used by profile and teaching hubs):
-- Activity: `/api/profile/{slug}/preview` (6 domains, in `user_profile_ui.py`)
-- Library: `/api/library/{section}/preview` (4 sections, in `library_ui.py`, wired via `library_routes.py`)
-- GradeBook: `/api/gradebook/{section}/preview` (3 sections, split across `entry_reports_ui.py`, `activity_reports_ui.py`, `revised_exercises_ui.py`)
-- Submissions: `/api/submissions/{section}/preview` (3 sections in `user_entry_ui.py`)
-- Student hub: `/api/teaching/students/{uid}/submissions/preview` (OOB) + `/api/teaching/students/{uid}/ku/preview` (in `teaching_ui.py`)
+The child pages render under the section's `SidebarPage` (`ui/workbench/nav.py`, `ui/library/nav.py`), whose `title_href` links back to the root.
+
+## Usage: HTMX Hub Pages (`/groups`, the student hub)
+
+Blocks are `HubBlockData` configs rendered by `HubDomainBlock`; each loads its content via HTMX from `preview_url` (or is filled by a combined OOB endpoint). Preview endpoints return `HubPreviewGrid(cards)` or `HubPreviewEmpty(domain)`.
+
+**HTMX preview endpoints:**
+- Groups: `/api/groups/{group_uid}/shared/preview` (`groups_hub_routes.py`)
+- Student hub: `/api/teaching/students/{uid}/submissions/preview` (OOB, three buckets) + `/api/teaching/students/{uid}/ku/preview` (`teaching_ui.py`)
+
+`personal_header(context)` (Focus + Velocity, `ui/patterns/personal_header.py`) is not a hub component: pages that lack a loaded `UserContext` use `personal_header_placeholder()`, an HTMX div that lazy-loads from `GET /api/personal-header` (`adapters/inbound/home_routes.py`) without blocking the page render.
 
 ## Usage: Graph-Driven Hub Page
 
@@ -353,40 +283,24 @@ section = HubSection("Contents", cards)
 
 Live consumer: `/gradebook/{uid}` (`submission_detail` in `user_entry_ui.py`) renders an owned user entry's ORGANIZES children as a "Map of Content" `HubSection` — children span entity types, so it passes `href_for` backed by `entity_detail_href()`.
 
-**Flow:** Navbar icon → hub page (`BasePage(STANDARD)`, no sidebar) → click "View all" or preview card → child page (`SidebarPage`). Sidebar title links back to hub. Activity Domains live on the `/profile` Activities tab (accordion blocks, `ACTIVITY_BLOCKS`).
-
-**Files:** `ui/gradebook/hub.py` (`GRADEBOOK_BLOCKS`), `ui/library/hub.py` (`LIBRARY_BLOCKS`), `ui/workbench/hub.py` (`SubmissionsTabPanel`), `ui/activities/hub.py` (`ACTIVITY_BLOCKS`, Activities tab on `/profile`), `ui/library/nav.py`, `ui/workbench/nav.py`, `ui/activities/nav.py`, `ui/teaching/nav.py` (sidebar nav for children). Teaching has no root hub page (its navbar entry points at `/teaching/students`) but does have a nested student hub: `ui/teaching/student_hub.py`.
-
-## Retired Hubs
-
-| Old Route | Replaced By |
-|-----------|-------------|
-| `/curriculum` | `/profile` (301 redirect) |
-| `/study` | `/profile` (301 redirect) |
-| `/activities` | — (no redirect, route deleted; content lives on the `/profile` Activities tab) |
-| `HomeHub(active_tab=...)` | Independent top-level pages (`/submissions`, `/gradebook`, `/library`) |
+**Flow:** section door in the chrome → the section's landing (a MOC root for Library and Submissions; `/today` for Tasks+) → a child page under the section's `SidebarPage`. The sidebar's `title_href` links back to the root. The retired `/profile`, `/home`, `/curriculum`, `/study` and `/activities` hubs have no redirects — the record is `docs/roadmap/done/tasks-plus-one-chrome.md`.
 
 ## File Locations
 
 | Concern | File |
 |---------|------|
 | Shared components | `ui/patterns/hub.py` |
-| Profile hub | `ui/profile/hub.py` |
-| Profile routes | `adapters/inbound/user_profile_ui.py` |
-| Activity blocks + preview renderer | `ui/activities/hub.py` (Activities tab on `/profile`) |
-| Activity hub redirect | — (removed; `/activities` route no longer exists) |
-| Activity sidebar | `ui/activities/nav.py` |
+| Chrome spec (section doors, role doors) | `ui/layouts/nav_config.py`; rendered by `ui/layouts/navbar.py` |
+| Sidebar + section nav | `ui/patterns/sidebar.py` |
+| Tasks+ sidebar | `ui/activities/nav.py` (`ACTIVITY_SIDEBAR_ITEMS`, `render_activity_sidebar_page`) |
+| Sidebar badges endpoint | `adapters/inbound/sidebar_badges_ui.py` (`/api/sidebar/badges`); extractors in `ui/activities/domain_stats_config.py` |
 | MOC root pages | `adapters/inbound/user_entry_ui.py` (`submissions_moc`), `adapters/inbound/library_ui.py` (`library_moc`) |
-| GradeBook block definitions | `ui/gradebook/hub.py` (`GRADEBOOK_BLOCKS`, used by HTMX previews) |
-| GradeBook sidebar | — (none: `/gradebook` and its detail pages render under the Activity sidebar, `ui/activities/nav.py`, GradeBook row lit) |
-| Library block definitions | `ui/library/hub.py` (`LIBRARY_BLOCKS`) |
 | Library sidebar | `ui/library/nav.py` |
-| Submissions block definitions | `ui/workbench/hub.py` (`SUBMISSIONS_BLOCKS`) |
 | Submissions sidebar | `ui/workbench/nav.py` |
-| Submissions routes | `adapters/inbound/user_entry_ui.py` |
-| Teaching hub view | — (removed; Teaching has no root hub, its entry page is `/teaching/students`) |
-| Teaching sidebar | `ui/teaching/nav.py` |
+| Groups hub | `ui/groups/hub.py`, `adapters/inbound/groups_hub_routes.py` |
+| Teaching sidebar | `ui/teaching/nav.py` (no root hub — `/teaching/students` is the landing) |
 | Student hub view | `ui/teaching/student_hub.py` |
+| Shared-with-me inbox | `ui/profile/shared_view.py`, `adapters/inbound/user_profile_ui.py` (`/profile/shared` — the one `/profile/*` route) |
 | Design rationale | `docs/design-principles/HUB_PAGES.md` |
 | Base page wrapper | `ui/layouts/base_page.py` |
 
@@ -395,3 +309,4 @@ Live consumer: `/gradebook/{uid}` (`submission_detail` in `user_entry_ui.py`) re
 - `/docs/design-principles/HUB_PAGES.md` — why hub pages exist
 - `/docs/patterns/UI_COMPONENT_PATTERNS.md` — broader UI patterns
 - `/docs/architecture/CURRICULUM_GROUPING_PATTERNS.md` — MOC as graph pattern
+- `/docs/roadmap/done/tasks-plus-one-chrome.md` — the arc that retired the `/profile` hub and made the chrome one navigation

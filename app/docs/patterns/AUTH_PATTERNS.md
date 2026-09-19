@@ -33,13 +33,13 @@ SKUEL uses **graph-native authentication** (sessions stored in Neo4j) with cooki
 ```
 PUBLIC (no auth required)
   ContentScope.SHARED read views:
-    /ku, /ku/{uid}, /path-steps, /path-steps/{uid}/details,
+    /explore/ku/{uid}, /path-steps, /path-steps/{uid}/details,
     /learning-paths, /lp/{uid}, /library, /library/resources
   Auth pages: /login, /register, /forgot-password, /reset-password
 
 AUTHENTICATED (require_authenticated_user)
   ContentScope.USER_OWNED:
-    /profile, /tasks, /goals, /habits, /events, /choices, /principles,
+    /today, /settings, /tasks, /goals, /habits, /events, /choices, /principles,
     /submissions, /calendar, /activity-reports, /library/exercises
   All API mutation routes (POST, PUT, DELETE)
 

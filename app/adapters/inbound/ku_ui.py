@@ -158,10 +158,10 @@ def create_ku_ui_routes(
     user_relationship_service: Any = None,
     exercises_service: Any = None,
 ) -> None:
-    """Create /ku UI + API routes.
+    """Create the Ku learning-state API routes.
 
-    POST mutation endpoints for HTMX learning state actions.
-    Detail view lives at /explore/ku/{uid} (explore_ui.py).
+    POST mutation endpoints for HTMX learning state actions. The Ku detail
+    PAGE is /explore/ku/{uid} (learning_loop_routes.py); there is no /ku page.
     """
 
     # -----------------------------------------------------------------
@@ -202,8 +202,7 @@ def create_ku_ui_routes(
         return _ku_learning_buttons(uid, is_studying=True, is_understood=True)
 
     logger.info(
-        "Ku UI routes registered: /ku (→/explore), /ku/{uid} (→/explore/ku/{uid}), "
-        "/api/ku/{uid}/mark-studying, /api/ku/{uid}/mark-understood"
+        "Ku API routes registered: /api/ku/{uid}/mark-studying, /api/ku/{uid}/mark-understood"
     )
 
 

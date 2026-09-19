@@ -629,37 +629,41 @@ tablist.addEventListener('keydown', (e) => {
 
 ### Example 1: SKUEL Sidebar Navigation (Accessible Navigation)
 
-**File:** `/ui/patterns/sidebar.py` (the unified sidebar — the former per-section `activities/`, `curriculum/`, and `study/` sidebar modules were consolidated into it)
+**File:** `/ui/patterns/sidebar.py` — the one `SidebarPage` every sidebar section uses. It renders the same `SidebarItem` list twice: a fixed desktop sidebar at `lg+` and, below `lg`, the **section nav** — a horizontally scrolling row above the content.
 
-**Accessible features:**
+**The section nav (below `lg`):**
 
 ```python
-def _domain_menu_item(domain: ProfileDomainItem, is_active: bool) -> "FT":
-    """Accessible domain navigation item."""
-    active_cls = "menu-active" if is_active else ""
-
-    return Li(
-        Anchor(
-            Span(domain.icon, cls="text-lg", aria_hidden="true"),  # Decorative emoji
-            Span(domain.name, cls="flex-1"),  # Screen reader reads name
-            Div(
-                _count_badge(domain.count, domain.active_count),
-                _status_badge(domain.status),
-                cls="flex items-center gap-2",
-                aria_hidden="true",  # Badges are visual only
-            ),
-            href=domain.href,
-            cls=f"flex items-center gap-2 {active_cls}",
-            aria_current="page" if is_active else None,  # Marks active page
-        )
-    )
+Nav(
+    Ul(
+        *[
+            Li(
+                A(
+                    Icon(item.icon, size=16, cls="shrink-0"),   # Icon() sets aria-hidden itself
+                    Span(item.label),
+                    href=item.href,
+                    **({"aria_current": "page"} if item.slug == active else {}),
+                ),
+                cls="shrink-0",                                  # the ROW overflows, never the page
+            )
+            for item in items
+        ],
+        role="list",                                             # restores list semantics under list-none
+        cls="flex overflow-x-auto gap-1 border-b border-border list-none m-0 p-0",
+    ),
+    aria_label=title,                                            # "Tasks+", "Library", …
+)
 ```
 
+A parse-time inline `<script>` after the nav sets the row's `scrollLeft` so the `[aria-current="page"]` link is centred before first paint (never `scrollIntoView`, which scrolls ancestors), and stamps `data-overflow`/`data-at-end` for a CSS right-edge fade. With JS off the row is a plain scrolling list.
+
 **Why accessible:**
-- **aria-hidden on decorative content:** Emojis and badges not announced
-- **aria-current="page":** Screen reader announces "current page"
-- **Semantic `<a>` for links:** Native keyboard support
-- **Focus visible:** SKUEL `ui.components` menu items have built-in focus styles
+- **`<nav>` + `<ul role="list">` + `<a aria-current="page">`:** the links navigate between PAGES, so they are links in a navigation landmark — never `role="tab"`/`aria-selected`, which describe same-page panels. (The teaching student page's same-page switcher IS a tabs widget and renders `<div role="tablist">` instead; the two are never mixed — a nav list owning `role="tab"` children is an invalid tabs hierarchy.)
+- **`aria-label` on the `<nav>`:** names the landmark after the section, so a screen-reader user can tell the Tasks+ row from the Library row
+- **`role="list"`:** `list-none` strips list semantics in VoiceOver; the explicit role restores "list, 11 items"
+- **Decorative icons hidden:** `Icon()` owns `aria-hidden="true"` (`kwargs.setdefault`), so no call site has to remember it
+- **Native scrolling, siblings visible:** no drawer or hamburger — every sibling stays reachable by keyboard and touch, and the current link is on screen when the page loads
+- **44px targets:** every link is `min-h-[44px]`; the desktop rows carry `aria-current="page"` the same way
 
 ### Example 2: Task Form with Validation
 

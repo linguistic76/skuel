@@ -249,7 +249,7 @@ def HubDomainBlockList(blocks: list[HubBlockData]) -> Div:
 
 def hub_cards_from_organizers(
     children: list[OrganizerResult],
-    href_template: str = "/ku/{uid}",
+    href_template: str = "/explore/ku/{uid}",
     default_icon: str = "\U0001f4d6",
     default_description: str = "",
     href_for: Callable[[OrganizerResult], str] | None = None,

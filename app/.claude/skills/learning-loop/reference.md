@@ -659,7 +659,6 @@ Revisions surface on the GradeBook exchange lines (`/gradebook` — a
 status) and inside the `/exchange` thread; the former `/revised-exercises`
 list page is deleted. Kept surfaces:
 - `GET /revised-exercises/detail?uid=` — detail page with `render_revised_exercise_detail()` (feedback points, instructions, submit link)
-- `GET /api/gradebook/revised-exercises/preview` — hub preview block (`/profile` Reports tab)
 
 Routes in `adapters/inbound/revised_exercises_ui.py`. Renderer in `ui/learning_loop/revised_exercise.py`.
 The detail page links to `/submissions/exercise?exercise_uid={re_uid}` — triggering the two-path Cypher for

@@ -171,6 +171,10 @@ renders them as a table in Obsidian, and a session derives the same table with
 
 [Goal Progress Reads an Edge Nothing Writes](goal-progress-reads-an-unwritten-edge.md) — A live defect, not a deferral: four readers in `activity_backends.py` match `(Goal)-[:SUPPORTS_GOAL]->(activity)`, which no writer produces, so event-driven goal progress never updates from a task or habit completion on any door; scheduled for immediately after the vault-door completion-cascade arc.
 
+## Tasks+ / One-Chrome Follow-ons
+
+[Tasks+ / One-Chrome Follow-ons — Explore's Phone Form, the Doorless Census, the Tabs Widget, Three Small Rulings](tasks-plus-follow-ons.md) — What the one-chrome arc left outside itself by ruling: Explore's phone form + the MOC-roots question (D5), the ten doorless surfaces (D8), the `ui/enum_helpers.py` census, the `ui/patterns/tabs.py` extraction for both same-page switchers, sidebar group dividers, the "Transcribe" rename (D7) and PWA first-run — each its own PR, each waiting on a ruling or a first snapshot.
+
 ## Ingest Transition Obligation Durability
 
 [Ingest Transition Obligation Durability](ingest-transition-obligation-durability.md) — A status transition the ingest doors discover is graph state, not recorded intent, so a failure between the committed status write and the publish loses the cascade permanently — and since D.0 the app door has the same property one step later (a failed `TaskCompleted` subscriber, with no re-click replay); closing it needs an outbox, and the ordering it fights with is the one that has to win.

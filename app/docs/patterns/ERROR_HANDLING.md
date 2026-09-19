@@ -1,6 +1,6 @@
 ---
 title: Error Handling Architecture
-updated: 2026-09-17
+updated: 2026-09-19
 category: patterns
 related_skills:
 - result-pattern
@@ -477,8 +477,8 @@ def OverviewView(
 ### Route Handler Pattern
 
 ```python
-@rt("/profile")
-async def profile_page(request: Request) -> Any:
+@rt("/today")
+async def today_page(request: Request) -> Any:
     user_uid = require_authenticated_user(request)
     context = await _get_user_context(user_uid)
 
@@ -755,7 +755,7 @@ from adapters.inbound.form_helpers import safe_form_string, safe_form_int, safe_
 **Usage in Routes:**
 
 ```python
-@rt("/profile/settings/save")
+@rt("/settings/save")
 async def save_user_settings(request: Request) -> Any:
     user_uid = require_authenticated_user(request)
     form_data = await request.form()
@@ -934,8 +934,8 @@ async def _get_intelligence_data(
 **Route Handling:**
 
 ```python
-@rt("/profile")
-async def profile_page(request: Request) -> Any:
+@rt("/today")
+async def today_page(request: Request) -> Any:
     user_uid = require_authenticated_user(request)
     context = await _get_user_context(user_uid)
 

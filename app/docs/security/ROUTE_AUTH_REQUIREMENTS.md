@@ -1,6 +1,6 @@
 ---
 related_skills: [security]
-updated: 2026-09-17
+updated: 2026-09-19
 ---
 # Route Authentication Requirements
 
@@ -37,7 +37,9 @@ This document defines the authentication requirements for all SKUEL routes.
 |---------------|------|-------|
 | `/search/**` | `search_routes.py` | User-scoped search |
 | `/api/visualizations/**` | `visualization_routes.py` | User data visualization |
-| `/profile/**` | Various | User profile management |
+| `/profile/shared`, `/profile/shared/list-fragment` | `user_profile_ui.py` | Shared-with-me inbox (the only `/profile/*` routes; `GET /profile` is a 404) |
+| `/api/sidebar/badges` | `sidebar_badges_ui.py` | Tasks+ sidebar badges (OOB fragments, `UserContext` build) |
+| `/settings/**` | `settings_routes.py` | Account page + preferences |
 | `/tasks/**`, `/goals/**`, etc. | Domain routes | Activity domain CRUD |
 | `/settings/devices/**`, `/api/devices/pairing-code`, `/api/devices/{uid}/revoke` | `device_routes.py` | Vault-agent device management (ADR-075) |
 

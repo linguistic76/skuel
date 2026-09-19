@@ -395,7 +395,7 @@ Div(
   <button @click="open = !open" class="p-2 rounded-full hover:bg-base-200">👤</button>
   <div x-show="open" x-transition.origin.top.right
        class="absolute right-0 mt-2 w-48 bg-base-100 rounded-lg shadow-lg z-50">
-    <a href="/profile" class="block px-4 py-2 hover:bg-base-200">Profile</a>
+    <a href="/settings" class="block px-4 py-2 hover:bg-base-200">Account</a>
     <a href="/logout" class="block px-4 py-2 hover:bg-base-200">Sign out</a>
   </div>
 </div>
