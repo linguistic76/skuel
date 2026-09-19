@@ -392,33 +392,50 @@ class TestSessionManagement:
 
 
 class TestRedirectBehavior:
-    """Tests for redirect behavior on authenticated/unauthenticated access."""
+    """An already-authenticated visitor to an auth page is sent to the one
+    landing — ``/today`` for every role (ADR-058, amended) — through the real
+    handlers (collector ``rt`` harness), never a restated constant."""
 
-    def test_register_redirects_when_authenticated(self):
-        """Test that register page redirects authenticated users."""
-        # When user is authenticated, should redirect to /profile
-        redirect_target = "/profile"
-        assert redirect_target == "/profile"
+    @staticmethod
+    def _handlers() -> dict:
+        from adapters.inbound.auth_ui import create_auth_ui_routes
 
-    def test_login_redirects_when_authenticated(self):
-        """Test that login page redirects authenticated users."""
-        # When user is authenticated, should redirect to /profile
-        redirect_target = "/profile"
-        assert redirect_target == "/profile"
+        registered: dict = {}
 
-    def test_successful_login_redirects_to_profile(self):
-        """Test that successful login redirects to profile."""
-        redirect_target = "/profile"
-        status_code = 303
-        assert redirect_target == "/profile"
-        assert status_code == 303
+        def rt_collector(path: str, *_a, **_kw):
+            def decorator(fn):
+                registered[path] = fn
+                return fn
 
-    def test_logout_redirects_to_login(self):
-        """Test that logout redirects to login page."""
-        redirect_target = "/login"
-        status_code = 303
-        assert redirect_target == "/login"
-        assert status_code == 303
+            return decorator
+
+        create_auth_ui_routes(MagicMock(), rt_collector, MagicMock())
+        return registered
+
+    @staticmethod
+    def _authenticated_request(is_admin: bool):
+        from types import SimpleNamespace
+
+        return SimpleNamespace(
+            session={"user_uid": "user_x", "session_token": "tok", "is_admin": is_admin}
+        )
+
+    @pytest.mark.parametrize("path", ["/login", "/register", "/reset-password"])
+    @pytest.mark.parametrize("is_admin", [False, True])
+    def test_auth_pages_send_an_authenticated_visitor_to_today(
+        self, path: str, is_admin: bool
+    ) -> None:
+        response = self._handlers()[path](request=self._authenticated_request(is_admin))
+        assert response.status_code == 303
+        assert response.headers["location"] == "/today"
+
+    async def test_logout_redirects_to_login(self) -> None:
+        from types import SimpleNamespace
+
+        request = SimpleNamespace(session={}, client=None, headers={})
+        response = await self._handlers()["/logout"](request=request)
+        assert response.status_code == 303
+        assert response.headers["location"] == "/login"
 
 
 class TestFormValidation:

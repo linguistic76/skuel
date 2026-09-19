@@ -400,36 +400,5 @@ class TestPasswordSecurity:
         # - GraphAuthService.sign_in() fails with wrong password
 
 
-class TestRedirects:
-    """Test route redirect logic."""
-
-    def test_login_redirects_if_authenticated(self):
-        """Test login page redirects to home if already logged in."""
-        # If user is authenticated, should redirect to /
-        is_authenticated = True
-
-        redirect_to = "/" if is_authenticated else None
-
-        assert redirect_to == "/"
-
-    def test_register_redirects_if_authenticated(self):
-        """Test register page redirects to home if already logged in."""
-        # If user is authenticated, should redirect to /
-        is_authenticated = True
-
-        redirect_to = "/" if is_authenticated else None
-
-        assert redirect_to == "/"
-
-    def test_login_success_redirects_to_home(self):
-        """Test successful login redirects to home."""
-        # After successful login, should redirect to /
-        login_successful = True
-
-        redirect_to = "/" if login_successful else "/login"
-
-        assert redirect_to == "/"
-
-
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])

@@ -181,7 +181,8 @@ class TestTodayPage:
         response = await handlers["/today"](request=request)
         assert response["__base_page__"] is True
         assert response["title"] == "Today"
-        assert response["active_page"] == "today"
+        # Every Tasks+ page lights the Tasks+ door by its section key.
+        assert response["active_page"] == "activity"
         mock_services.today_orchestrator.build_context.assert_awaited_once_with("user_mike")
 
     async def test_context_error_returns_500(
@@ -206,7 +207,8 @@ class TestTodayDatedPage:
         request = _make_request()
         response = await handlers["/today/{date_str}"](request=request, date_str="2026-07-21")
         assert response["__base_page__"] is True
-        assert response["active_page"] == "today"
+        # Every Tasks+ page lights the Tasks+ door by its section key.
+        assert response["active_page"] == "activity"
         mock_services.today_orchestrator.build_context.assert_awaited_once_with(
             "user_mike", date(2026, 7, 21)
         )

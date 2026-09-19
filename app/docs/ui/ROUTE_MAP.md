@@ -12,7 +12,7 @@ For layout primitives (`BasePage`, `SidebarPage`, `AuthPage`) and shared compone
 
 ## Admin Navigation
 
-Admin navbar: SKUEL logo (left, → `/`) + empty center + avatar (→ `/`) + Sign out (icon+text). Admin home hub at `/` shows two cards: Admin (`/admin`) + Teaching (`/teaching/students`). Mobile: hamburger with Admin + Teaching + Sign out links. Icon links are hidden for admins.
+There is no admin navbar: an admin sees the one chrome every role sees (`ui/layouts/navbar.py`). Admin (`/admin`) and Teaching (`/teaching/students`) are role-gated `MAIN_NAV_ITEMS` doors — centre links at lg+, `lg:hidden` rows on `/settings` below. `/` is a 303 to `/today` for every authenticated role; the admin home hub is retired.
 
 ### `/admin/prereq-suggestions` — Prerequisite-Edge Suggestion Queue
 
@@ -26,7 +26,7 @@ Admin-only read-only gauge (sidebar: "Knowledge Health"; ADR-080 Horizon-1). One
 
 ## Regular User Navigation
 
-Navbar nav links (desktop center / mobile bottom nav, in order): **Today** (`/today`, mobile bottom nav only — no desktop nav item; the SKUEL brand link goes to `/explore` for authenticated users) → **Library** (`/explore/library`) → **PathSteps** (`/path-steps`) → **Submissions** (`/submissions`); the mobile bottom nav appends a **Calendar** tab. Right section (icon buttons): **Calendar** (`/cal`) — desktop only, mobile folds it into the bottom nav → **Askesis** (`/askesis`) → **Shared with me** (`/profile/shared`) → notification bell → **Profile** avatar (`/profile`) → **Sign out** (`/logout`). Tasks and the other activity domains are reached via the Profile hub.
+One navigation, one rule (`ui/layouts/nav_config.py`): the chrome carries one door per SECTION, lit by a section key; a section's pages are its sidebar's rows. Section doors (`ICON_NAV_ITEMS` — the desktop centre links at sm+ AND the phone bottom-nav tabs below, the same four for every authenticated role, in order): **Tasks+** (`/today`, lit on every activity-sidebar page — Today, the calendar views, the six domains, the periodic notes, the GradeBook) → **Library** (`/explore/library`, lit on `explore` and `library`) → **PathSteps** (`/path-steps`) → **Submissions** (`/submissions`). An anonymous visitor gets Library + PathSteps. Role doors (`MAIN_NAV_ITEMS`): **Teaching** (`/teaching/students`) and **Admin** (`/admin`) — centre links at lg+, rows on `/settings` below. Right section (icon buttons): **Askesis** (`/askesis`) → **Shared with me** (`/profile/shared`) → notification bell → avatar (`/settings`, the account page — preferences, devices and, on phones, the sign-out row) → **Sign out** (`/logout`, sm+ only). The SKUEL brand link goes to `/explore` for authenticated users; `/` is a 303 to `/today`.
 
 ### `/groups` — Student-Facing Group-Shares Hub
 

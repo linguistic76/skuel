@@ -1,6 +1,6 @@
 ---
 title: "ADR-058: Today as the Post-Login Landing Surface"
-updated: 2026-09-17
+updated: 2026-09-19
 status: current
 category: decisions
 tags: [adr, decisions, ui, landing, today, lifepath]
@@ -9,11 +9,41 @@ related: [ADR-050, ADR-055]
 
 # ADR-058: Today as the Post-Login Landing Surface
 
-**Status:** Accepted (amended 2026-09-12)
+**Status:** Accepted (amended 2026-09-12, 2026-09-19)
 
 **Date:** 2026-04-23
 
 **Decision Type:** Pattern/Practice
+
+---
+
+## Amendment (2026-09-19 — Tasks+ arc PR 4, one navbar, one rule)
+
+Two clauses of the Decision below are superseded. The rule that replaces
+them — one navigation, one rule — lives in `ui/layouts/nav_config.py` and is
+pinned by `tests/unit/ui/test_navbar.py`: the global chrome (bottom nav
+below `sm`, centre links at `sm+`, both from `ICON_NAV_ITEMS`) carries
+exactly ONE door per SECTION, lit for the whole section by a section key;
+a section's pages are its sidebar's rows, lit by slug. The same chrome
+renders for every role — the admin navbar fork is gone.
+
+- **"admins continue to `/`" — retired.** ``/today`` is the landing for
+  EVERY authenticated role: ``/`` is a 303 to it, the login, registration and
+  reset redirects go there, and the PWA ``start_url`` (``/``) resolves to it.
+  The admin hub that ``/`` served is deleted with the admin navbar fork: an
+  admin sees the one chrome, with Admin and Teaching as role-gated section
+  doors (centre links at lg+, rows on ``/settings`` below).
+- **"primary icon nav item ... icon `sun` and `page_key="today"`" —
+  retired.** The global chrome carries one door per SECTION, lit by a section
+  key. Today is a PAGE of the Tasks+ section: the ``ICON_NAV_ITEMS`` door is
+  **"Tasks+"** (→ ``/today``, ``page_keys={"activity"}``, icon ``activity``),
+  first among the centre links and the bottom-nav tabs, lit on every page
+  under the activity sidebar; the Today row of that sidebar is the page-level
+  light. The two lights on ``/today`` (door + row) are the one sanctioned
+  overlap — two levels of one navigation.
+
+Everything else in the 2026-09-12 amendment stands; where it names Today as
+"the mobile bottom-nav item", read "the Tasks+ door's landing".
 
 ---
 
@@ -85,9 +115,12 @@ regression guard.**
 
 Implementation:
 - Post-sign-in and post-registration redirects target `/today` for
-  non-admin users (admins continue to `/`).
+  non-admin users (admins continue to `/`). *Superseded 2026-09-19: every
+  role lands on `/today`.*
 - Navbar brand link (`SKUEL`) and primary icon nav item point to
-  `/today` with icon `sun` and `page_key="today"`.
+  `/today` with icon `sun` and `page_key="today"`. *Superseded 2026-09-12
+  (brand → `/explore`) and 2026-09-19 (the door is "Tasks+", keyed by
+  section).*
 - `/home` still resolves (no 404s, no broken bookmarks) but nothing
   routes users to it automatically.
 - Home Hub's filter axes (Submissions / GradeBook / Library) are demoted

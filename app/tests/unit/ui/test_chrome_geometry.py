@@ -139,11 +139,15 @@ def test_main_and_the_offline_banner_clear_the_bar_by_the_same_expression() -> N
     assert "bottom-16" not in html
 
 
-def test_a_page_without_a_bottom_nav_gets_no_clearance() -> None:
-    """The padding gate keys on the bar's presence: an admin has no bar."""
-    html = _authed_page(is_admin=True)
-    assert 'aria-label="Primary navigation"' not in html
-    assert f"pb-[{BOTTOM_NAV_CLEARANCE}]" not in _opening_tag(html, r"<main[^>]*>")
+def test_every_viewer_gets_the_bar_and_the_clearance() -> None:
+    """The bar renders for every role and for an anonymous visitor, so the
+    page always clears it — there is no viewer without a bar to pad for."""
+    for html in (
+        _authed_page(is_admin=True),
+        to_xml(BasePage(Div("body"), is_authenticated=False)),
+    ):
+        assert 'aria-label="Primary navigation"' in html
+        assert f"pb-[{BOTTOM_NAV_CLEARANCE}]" in _classes(_opening_tag(html, r"<main[^>]*>"))
 
 
 # --- page header --------------------------------------------------------------

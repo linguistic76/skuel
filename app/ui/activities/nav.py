@@ -65,10 +65,13 @@ def render_activity_sidebar_page(
     request: Request | None = None,
     extra_css: list[str] | None = None,
     title: str = ACTIVITY_SIDEBAR_TITLE,
-    active_page: str = "activity",
     content_max_width: str = "max-w-6xl",
 ) -> FT:
     """Wrap content in Activity Domain sidebar page.
+
+    Every page under this sidebar is a Tasks+ page, so every one lights the
+    Tasks+ door in the global chrome (``active_page="activity"``, the key
+    ``ICON_NAV_ITEMS`` declares) — the sidebar row is the only per-page light.
 
     Args:
         content: The page content to render in the main area.
@@ -77,7 +80,6 @@ def render_activity_sidebar_page(
         extra_css: Additional CSS file paths to include in the page head.
         title: Browser/page title only — the sidebar heading is always
             ``ACTIVITY_SIDEBAR_TITLE``; defaults to that same name.
-        active_page: Top-nav active key passed to BasePage; defaults to "activity".
         content_max_width: Tailwind max-width class for the content column;
             "max-w-none" lets fluid pages (calendar) fill the available width.
     """
@@ -89,7 +91,7 @@ def render_activity_sidebar_page(
         page_title=title,
         storage_key=ACTIVITY_STORAGE_KEY,
         request=request,
-        active_page=active_page,
+        active_page="activity",
         extra_css=extra_css,
         content_max_width=content_max_width,
         badges=True,

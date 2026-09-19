@@ -2,23 +2,17 @@
 System UI Routes
 ================
 
-System UI routes for home page and error pages.
-
-Version: 2.0 - Simplified root page with login form
+System UI routes for the root landing and error pages.
 """
-
-__version__ = "2.0"
-
 
 from typing import Any
 
 from starlette.responses import RedirectResponse
 
-from adapters.inbound.auth import get_is_admin, is_authenticated
+from adapters.inbound.auth import is_authenticated
 from adapters.inbound.fasthtml_types import Request
 from core.utils.logging import get_logger
-from ui.layouts.base_page import BasePage
-from ui.system import render_404_page, render_admin_hub_content, render_login_landing_page
+from ui.system import render_404_page, render_login_landing_page
 
 logger = get_logger("skuel.routes.system.ui")
 
@@ -44,15 +38,11 @@ def create_system_ui_routes(
 
     @rt("/")
     def home(request: Request) -> Any:
-        """Home page - admin hub, profile redirect, or login landing."""
+        """Root — the landing is /today for every authenticated role (the
+        post-login redirect and the PWA start_url resolve to the same page,
+        ADR-058); anonymous visitors get the login landing."""
         if is_authenticated(request):
-            if get_is_admin(request):
-                return BasePage(
-                    content=render_admin_hub_content(),
-                    title="Admin Hub",
-                    request=request,
-                )
-            return RedirectResponse("/profile", status_code=303)
+            return RedirectResponse("/today", status_code=303)
 
         logger.info("Unauthenticated user at root, showing login page")
         return render_login_landing_page()

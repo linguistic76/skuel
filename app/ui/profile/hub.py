@@ -10,10 +10,9 @@ sidebar categories. Default is "activities".
 
 from __future__ import annotations
 
-from fasthtml.common import A, Button, Div, Span
+from fasthtml.common import Button, Div
 
 from ui.activities.hub import ACTIVITY_BLOCKS
-from ui.components import Icon
 from ui.gradebook.hub import GRADEBOOK_BLOCKS
 from ui.library.hub import LIBRARY_BLOCKS
 from ui.patterns.hub import HubAccordionBlockList
@@ -28,33 +27,11 @@ def normalize_tab(slug: str | None) -> str:
     return slug if slug in _VALID_TABS else _DEFAULT_TAB_SLUG
 
 
-def _signout_row() -> A:
-    """Sign out — the phone's only door, since the navbar icon is desktop-only.
-
-    ``sm:hidden`` mirrors the navbar button's ``hidden sm:inline-flex``
-    (``ui/layouts/navbar.py``): exactly one sign-out door at every width, never
-    two. An account action is what a profile page is for.
-    """
-    return A(
-        Icon("log-out", cls="size-4", aria_hidden="true"),
-        Span("Sign out"),
-        href="/logout",
-        cls=(
-            "sm:hidden flex items-center justify-center gap-2 mb-4 px-3 py-2 rounded-md"
-            " border border-border text-sm text-muted-foreground hover:bg-accent"
-            " hover:text-foreground"
-        ),
-    )
-
-
 def ProfileHubView(active_tab: str = _DEFAULT_TAB_SLUG) -> Div:
     """Profile hub — 4 tabs (Curriculum / Activities / Submissions / Reports)."""
     active_tab = normalize_tab(active_tab)
     tabs_js = "[" + ", ".join(f"'{slug}'" for slug, _ in _TAB_SPEC) + "]"
     return Div(
-        # Outside the x-cloak block on purpose: signing out must not wait for
-        # Alpine to boot the tabs.
-        _signout_row(),
         Div(
             _tab_bar(),
             _tab_panels(),

@@ -16,8 +16,7 @@ from adapters.inbound.form_helpers import safe_form_bool, safe_form_int, safe_fo
 from core.utils.logging import get_logger
 from core.utils.type_converters import get_enum_value
 from ui.patterns.error_banner import render_error_banner
-from ui.patterns.loading import content_loading_placeholder
-from ui.patterns.page_header import PageHeader
+from ui.settings import render_settings_page
 
 if TYPE_CHECKING:
     from adapters.inbound.fasthtml_types import FastHTMLApp, RouteDecorator
@@ -41,28 +40,7 @@ def create_settings_routes(
     def settings_page(request: Request) -> Any:
         """User settings page — shell renders immediately, content loads via HTMX."""
         require_authenticated_user(request)
-        from fasthtml.common import A
-
-        from ui.layouts.base_page import BasePage
-
-        content = Div(
-            PageHeader("Settings", subtitle="Manage your preferences"),
-            Div(
-                A(
-                    "Devices — vault-agent enrollment →",
-                    href="/settings/devices",
-                    cls="link text-sm",
-                ),
-                cls="mb-4",
-            ),
-            content_loading_placeholder("/settings/content", "settings-content"),
-        )
-        return BasePage(
-            content=content,
-            title="Settings",
-            request=request,
-            active_page="settings",
-        )
+        return render_settings_page(request)
 
     @rt("/settings/content")
     async def settings_content_fragment(request: Request) -> Any:

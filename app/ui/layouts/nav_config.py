@@ -2,11 +2,14 @@
 Navigation Configuration
 ========================
 
-Type-safe navigation items for the navbar.
-Centralized configuration following SKUEL patterns.
+The global chrome's one spec. ``ICON_NAV_ITEMS`` renders as the desktop
+centre links (sm+) AND the phone bottom-nav tabs (<sm); ``MAIN_NAV_ITEMS``
+renders as the role-gated centre links (lg+) AND the ``lg:hidden`` rows on
+/settings (<lg). One item per SECTION, lit for the whole section by a
+section key — the section's own pages are the sidebar's rows, lit by slug.
 
 Usage:
-    from ui.layouts.nav_config import MAIN_NAV_ITEMS, NavItem
+    from ui.layouts.nav_config import ICON_NAV_ITEMS, MAIN_NAV_ITEMS
 """
 
 from dataclasses import dataclass
@@ -14,119 +17,84 @@ from dataclasses import dataclass
 
 @dataclass(frozen=True)
 class NavItem:
-    """
-    Immutable navigation item configuration.
+    """A role-gated text link: a centre link at lg+, a /settings row below.
 
     Attributes:
         label: Display text for the link
-        href: URL path to navigate to
-        page_key: Key for active state matching (matches active_page param)
-        requires_auth: Whether link requires authentication (default True)
-        requires_admin: Whether link requires admin role (default False)
-        requires_teacher: Whether link requires teacher role (default False)
+        href: The section's landing
+        page_key: Section key the link is lit for (matches ``active_page``)
+        requires_admin: Visible to admins only
+        requires_teacher: Visible to teachers and admins
     """
 
     label: str
     href: str
     page_key: str
-    requires_auth: bool = True
     requires_admin: bool = False
     requires_teacher: bool = False
-    hide_for_admin: bool = False
+
+    def visible_to(self, *, is_admin: bool, is_teacher: bool) -> bool:
+        """Whether the viewer's role clears this link's gate."""
+        if self.requires_admin and not is_admin:
+            return False
+        return not (self.requires_teacher and not (is_teacher or is_admin))
 
 
-# Main navigation items - order determines display order
+# Role-gated section doors — order determines display order
 MAIN_NAV_ITEMS: tuple[NavItem, ...] = (
-    NavItem(
-        "Teaching", "/teaching/students", "teaching", requires_teacher=True, hide_for_admin=True
-    ),
+    NavItem("Teaching", "/teaching/students", "teaching", requires_teacher=True),
+    NavItem("Admin", "/admin", "admin", requires_admin=True),
 )
 
 
 @dataclass(frozen=True)
 class IconNavItem:
-    """Immutable icon-only navigation item for the navbar left section.
+    """A section door rendered twice from one spec: a desktop centre text
+    link and a phone bottom-nav icon tab.
 
-    Renders as a circular button with a single letter (e.g., "A" for Activities).
+    Attributes:
+        label: Display text (the tab's accessible name)
+        href: The section's landing — also the section nav's first page,
+            the one sanctioned overlap between the chrome and a sidebar
+        page_keys: Every section key this door is lit for. One key per
+            section; the Library door carries two because its landing
+            (``/explore/library``) lights ``explore`` while ``/library/*``
+            lights ``library``
+        icon: Icon name (ui/components/icon.py) for the bottom-nav tab
+        requires_auth: False → visible to anonymous visitors too
+            (ContentScope.SHARED pages)
     """
 
     label: str
-    letter: str
     href: str
-    page_key: str
+    page_keys: frozenset[str]
+    icon: str
     requires_auth: bool = True
-    has_dropdown: bool = False
-    icon: str = ""  # Icon name (ui/components/icon.py); when set, renders Icon vs letter
-    hide_for_teacher: bool = False
-    hide_for_admin: bool = False
+
+    def lights(self, active_page: str) -> bool:
+        """Whether the page's ``active_page`` key lies in this door's section."""
+        return active_page in self.page_keys
 
 
-@dataclass(frozen=True)
-class DropdownItem:
-    """Single item in a navbar dropdown menu."""
-
-    label: str
-    href: str
-    icon: str = ""
-
-
-# Activity domain dropdown items — used in mobile menu and avatar dropdown
-ACTIVITY_DROPDOWN_ITEMS: tuple[DropdownItem, ...] = (
-    DropdownItem("Tasks", "/tasks", icon="check-square"),
-    DropdownItem("Events", "/events", icon="calendar"),
-    DropdownItem("Goals", "/goals", icon="target"),
-    DropdownItem("Habits", "/habits", icon="repeat"),
-    DropdownItem("Principles", "/principles", icon="compass"),
-    DropdownItem("Choices", "/choices", icon="git-branch"),
-)
-
-
-# Icon navigation items — rendered as circular icon buttons in the left navbar section
-# requires_auth=False → visible to unauthenticated users (ContentScope.SHARED pages)
-# requires_auth=True  → visible only when authenticated (ContentScope.USER_OWNED pages)
+# Section doors — one per section, identical for every authenticated role
 ICON_NAV_ITEMS: tuple[IconNavItem, ...] = (
-    IconNavItem(
-        "Today",
-        "",
-        "/today",
-        "today",
-        requires_auth=True,
-        has_dropdown=False,
-        icon="sun",
-    ),
+    # Tasks+: every page under the activity sidebar passes "activity"
+    IconNavItem("Tasks+", "/today", frozenset({"activity"}), icon="activity"),
     IconNavItem(
         "Library",
-        "",
         "/explore/library",
-        "library",
-        requires_auth=False,
-        has_dropdown=False,
+        frozenset({"explore", "library"}),
         icon="globe",
-    ),
-    IconNavItem(
-        "PathSteps",
-        "",
-        "/path-steps",
-        "path-steps",
         requires_auth=False,
-        has_dropdown=False,
-        icon="map",
     ),
     IconNavItem(
-        "Submissions",
-        "",
-        "/submissions",
-        "submissions",
-        requires_auth=True,
-        has_dropdown=False,
-        icon="upload",
+        "PathSteps", "/path-steps", frozenset({"path-steps"}), icon="map", requires_auth=False
     ),
+    IconNavItem("Submissions", "/submissions", frozenset({"submissions"}), icon="upload"),
 )
 
 
 __all__ = [
-    "ACTIVITY_DROPDOWN_ITEMS",
-    "DropdownItem",
     "ICON_NAV_ITEMS",
     "IconNavItem",
     "MAIN_NAV_ITEMS",

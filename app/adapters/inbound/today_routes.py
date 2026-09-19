@@ -100,7 +100,6 @@ def create_today_routes(
             # binds its legend, whose pure-CSS kind filters live there.
             extra_css=["/static/css/calendar.css"],
             title="Today",
-            active_page="today",
         )
 
     # boundary: fasthtml-app — registered route; FastHTML resolves the handler's

@@ -97,8 +97,6 @@ def _wrap_calendar_page(request: Request, content: Any, title: str, active: str)
         request=request,
         extra_css=["/static/css/calendar.css"],
         title=title,
-        # "calendar" lights the navbar calendar icon.
-        active_page="calendar",
         content_max_width="max-w-none",
     )
 
