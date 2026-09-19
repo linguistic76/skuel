@@ -1,10 +1,10 @@
-"""The ``/profile`` hub is retired; only the Shared With Me inbox keeps the prefix.
+"""``/profile`` answers only for the Shared With Me inbox.
 
-``GET /profile`` is a real 404 through the app — no route, no redirect: every
-hub tab has its own door (Tasks+ → ``/today``, Library → ``/library``,
-Submissions → ``/submissions``, Reports → ``/gradebook``). ``/profile/shared``
-and its list fragment stay at their URLs and read the sharing service
-directly — the inbox filters cross that boundary typed and untouched.
+``GET /profile`` is a real 404 through the app — no route, no redirect: a
+user's activities, curriculum, submissions and reports each have their own
+section (``/today``, ``/library``, ``/submissions``, ``/gradebook``).
+``/profile/shared`` and its list fragment read the sharing service directly —
+the inbox filters cross that boundary typed and untouched.
 """
 
 from __future__ import annotations

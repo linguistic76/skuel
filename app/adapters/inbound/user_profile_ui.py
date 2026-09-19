@@ -1,13 +1,12 @@
-"""Shared With Me — the reviewing inbox under the ``/profile`` prefix.
+"""Shared With Me — the reviewing inbox at ``/profile/shared``.
 
 Routes:
 - GET /profile/shared — Shared With Me inbox (SHARES_WITH entities, type-aware cards)
 - GET /profile/shared/list-fragment — the filtered card grid for a FilterBar change
 
-The ``/profile`` hub itself is retired (no route, no redirect): its tabs live
-where their content lives — Tasks+ (``/today``), Library (``/library``),
-Submissions (``/submissions``) and the GradeBook (``/gradebook``). The inbox
-keeps its URL — the navbar's inbox icon is its door.
+The navbar's inbox icon is the door. Nothing else answers under ``/profile``:
+a user's activities, curriculum, submissions and reports each have their own
+section (``/today``, ``/library``, ``/submissions``, ``/gradebook``).
 """
 
 from typing import TYPE_CHECKING, Any
