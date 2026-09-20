@@ -67,12 +67,12 @@ def _classes(body: str, name: str = "docs/patterns/probe.md") -> list[tuple[int,
 
 
 # ============================================================================
-# THE NEGATION GRAMMAR — nine corpus lines, both directions, written before the regex
+# THE NEGATION GRAMMAR — nine corpus lines, both directions
 # ============================================================================
 
-# (line as it stands in the corpus on 2026-09-19, {claim path: negated?}). The first
-# two are the only genuine span-adjacent negations; the other seven carry a negation
-# token somewhere on the line and assert the route as live all the same.
+# (a corpus line verbatim, {claim path: negated?}). The first two are the only genuine
+# span-adjacent negations; the other seven carry a negation token somewhere on the
+# line and assert the route as live all the same.
 NEGATION_CORPUS: list[tuple[str, dict[str, bool]]] = [
     ("- `/finance/expenses` → 404 (broken)", {"/finance/expenses": True}),
     ("- `/finance/budgets` → 404 (broken)", {"/finance/budgets": True}),

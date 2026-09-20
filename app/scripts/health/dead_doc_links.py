@@ -1163,7 +1163,14 @@ def _resolve_line_citation(file: str, source_file: Path) -> Path | str:
     if direct is not None and direct.is_file() and _is_tracked(direct):
         return direct
     needle = file.lstrip("/")
-    hits = [t for t in _tracked_files(ROOT) if t == needle or t.endswith(f"/{needle}")]
+    # The index is what git tracks; the worktree is what can be read. A tracked file
+    # deleted but not yet staged is in the first and not the second, and only a file
+    # that can be read is a candidate.
+    hits = [
+        t
+        for t in _tracked_files(ROOT)
+        if (t == needle or t.endswith(f"/{needle}")) and (ROOT / t).is_file()
+    ]
     if len(hits) == 1:
         return ROOT / hits[0]
     if hits:

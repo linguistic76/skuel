@@ -1523,6 +1523,21 @@ def _repo_tracking_only_ui(root: Path) -> tuple[Path, frozenset[str]]:
     return root, frozenset({"ui/x.py"})
 
 
+def test_a_tracked_file_missing_from_the_worktree_is_missing(
+    cited_tree: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """`git ls-files` still lists a file deleted but not yet staged; the citation
+    reports FILE_MISSING rather than the checker failing to read it."""
+    ddl._tracked_files.cache_clear()
+    monkeypatch.setattr(ddl, "_repo_tracked", _repo_tracking_a_ghost)
+    scan = _scan(cited_tree, "# P\n\n`ghost.py:3`\n")
+    assert _line_rows(scan) == {(3, "ghost.py:3 (FILE_MISSING)")}
+
+
+def _repo_tracking_a_ghost(root: Path) -> tuple[Path, frozenset[str]]:
+    return root, frozenset({"core/ghost.py", "ui/x.py"})
+
+
 def test_a_tracked_file_beside_the_app_is_a_valid_target() -> None:
     """Real-tree pin: the repository is wider than `app/`, and a doc may cite a
     tracked file beside it. The tracked set is the whole work tree's."""
