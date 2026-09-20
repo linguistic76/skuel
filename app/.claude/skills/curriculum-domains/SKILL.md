@@ -127,8 +127,8 @@ result = await lp_service.intelligence.validate_path_prerequisites(lp_uid)
 
 ### Organization (non-linear MOC navigation)
 ```python
-# The facade writes PathStep → PathStep edges only (organize() verifies both uids
-# through ps_core.get(), a :PathStep match); the reads answer for any :Entity.
+# Behind the unauthenticated PathStep API: a PathStep subject (ps_core.get()) and
+# shared-curriculum results only — a personal `moc: true` map is never read here.
 # A PathStep → Ku or UserEntry-map edge is authored in the vault (`moc: true`).
 await ps_service.organize(parent_ps_uid, child_ps_uid, order=1)
 await ps_service.get_organized_children(parent_uid)
@@ -174,7 +174,7 @@ NONE → VIEWED → IN_PROGRESS → MASTERED
 
 ## Note on MOC
 
-MOC (Map of Content) is NOT a separate domain or EntityType. Any Entity with outgoing `ORGANIZES` relationships IS an organizer — a PathStep, a Ku, or a vault-authored UserEntry knowledge map (`moc: true`). The operations live on `PsService.organization` (`PsOrganizationService`) over the `_OrganizesMixin` backend — the edge-level reads (`is_organizer`, `find_organizers`, `get_organized_children`, `list_root_organizers`) answer for any entity; `get_organization_view`, `get_navigation` and the create `organize` go through `ps_core.get()` and need a PathStep; cross-entity edges come from vault ingestion. `KuService` has no organization slot.
+MOC (Map of Content) is NOT a separate domain or EntityType. Any Entity with outgoing `ORGANIZES` relationships IS an organizer — a PathStep, a Ku, or a vault-authored UserEntry knowledge map (`moc: true`). The operations live on `PsService.organization` (`PsOrganizationService`) over the `_OrganizesMixin` backend — behind the unauthenticated PathStep API every read and the create take a PathStep subject (`ps_core.get()`) and return shared-curriculum entities only (`SHARED_CURRICULUM_TYPES`), so a personal `moc: true` map is never read through it; cross-entity edges come from vault ingestion and are read owner-verified on `/gradebook/{uid}`. `KuService` has no organization slot.
 
 See: `core/services/ps/ps_organization_service.py` and `docs/domains/moc.md`
 
