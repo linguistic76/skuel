@@ -285,6 +285,14 @@ def test_docs_flag_scans_the_md_files_under_a_directory(
     assert "Sweep queue: ./dev history-in-code --docs --top 20 --verbose" in out
 
 
+def test_docs_mode_refuses_an_explicit_non_markdown_file(tmp_path: Path) -> None:
+    """A Python file under the Markdown banner would contaminate a docs-only census."""
+    (tmp_path / "b.py").write_text("# was deleted 2026-01-01\n", encoding="utf-8")
+    with pytest.raises(SystemExit) as exc:
+        hic.main(["--docs", str(tmp_path / "b.py")])
+    assert exc.value.code == 2
+
+
 def test_docs_default_scope_is_the_link_checkers_corpus() -> None:
     """Carve-outs inherited: the history directories are out by construction."""
     paths, scope = hic.resolve_paths(hic.build_parser(), [], docs=True)

@@ -1535,7 +1535,6 @@ def test_a_direct_target_must_be_tracked(cited_tree: Path, monkeypatch: pytest.M
     cited path is a scratch artefact, and a citation of it is FILE_MISSING here as it
     would be in CI. The fixture root has no git, so existence IS the tracked set —
     a repository listing is planted to prove the direct path consults it."""
-    ddl._tracked_files.cache_clear()
     monkeypatch.setattr(ddl, "_repo_tracked", _repo_tracking_only_ui)
     scan = _scan(cited_tree, "# P\n\n`core/x.py:3` and `ui/x.py:3`\n")
     assert _line_rows(scan) == {(3, "core/x.py:3 (FILE_MISSING)")}
@@ -1550,7 +1549,6 @@ def test_a_tracked_file_missing_from_the_worktree_is_missing(
 ) -> None:
     """`git ls-files` still lists a file deleted but not yet staged; the citation
     reports FILE_MISSING rather than the checker failing to read it."""
-    ddl._tracked_files.cache_clear()
     monkeypatch.setattr(ddl, "_repo_tracked", _repo_tracking_a_ghost)
     scan = _scan(cited_tree, "# P\n\n`ghost.py:3`\n")
     assert _line_rows(scan) == {(3, "ghost.py:3 (FILE_MISSING)")}
@@ -1558,6 +1556,20 @@ def test_a_tracked_file_missing_from_the_worktree_is_missing(
 
 def _repo_tracking_a_ghost(root: Path) -> tuple[Path, frozenset[str]]:
     return root, frozenset({"core/ghost.py", "ui/x.py"})
+
+
+def test_a_suffix_citation_resolves_across_the_whole_repository() -> None:
+    """Real-tree pin: `.github/actions/file-audit-issue/action.yml` is tracked beside
+    the app and unique by its tail, so `actions/file-audit-issue/action.yml:1`
+    resolves — the suffix universe is the work tree's, as the direct path's is."""
+    target = ddl._resolve_line_citation(
+        "actions/file-audit-issue/action.yml", ddl.ROOT / "docs/x.md"
+    )
+    assert isinstance(target, Path)
+    assert (
+        target.resolve()
+        == (ddl.ROOT / ".." / ".github" / "actions" / "file-audit-issue" / "action.yml").resolve()
+    )
 
 
 def test_a_tracked_file_beside_the_app_is_a_valid_target() -> None:

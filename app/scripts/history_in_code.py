@@ -255,7 +255,11 @@ def python_files(paths: list[Path]) -> list[Path]:
 
 
 def markdown_files(paths: list[Path]) -> list[Path]:
-    """The ``.md`` files under the given files and directories, deduplicated, sorted."""
+    """The ``.md`` files under the given files and directories, deduplicated, sorted.
+
+    A file given explicitly must itself be Markdown — ``resolve_paths`` refuses any
+    other under ``--docs``, so a Python file cannot be counted under the Markdown banner.
+    """
     files: set[Path] = set()
     for path in paths:
         if path.is_file():
@@ -446,6 +450,8 @@ def resolve_paths(
     for path in paths:
         if not path.exists():
             parser.error(f"no such path: {path}")
+        if docs and path.is_file() and path.suffix != ".md":
+            parser.error(f"--docs takes Markdown files or directories, not {path}")
     return paths, [label_for(path) for path in paths]
 
 

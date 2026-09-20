@@ -1123,23 +1123,22 @@ def _repo_tracked(root: Path) -> tuple[Path, frozenset[str]] | None:
     return Path(top), frozenset(n for n in listed.stdout.decode("utf-8").split("\0") if n)
 
 
-@cache
-def _tracked_files(root: Path) -> frozenset[str]:
-    """Repo-relative POSIX paths of every tracked file under ``root`` — the suffix
-    search's universe.
+def _tracked_universe() -> tuple[Path, frozenset[str]]:
+    """The base and the base-relative POSIX paths every citation may resolve against.
 
     Tracked, so an untracked or gitignored file can never satisfy a citation — the
     scratch tier (`plans/`) holds prototypes named like the modules they copy, and a
-    checkout that has one would pass a citation a clean checkout fails. A root outside
-    any git work tree falls back to the walk, which is then the whole truth.
+    checkout that has one would pass a citation a clean checkout fails. The base is
+    the repository's top level, the same universe the direct path is checked against.
+    A root outside any git work tree falls back to a walk of the root, which is then
+    the whole truth.
     """
-    repo = _repo_tracked(root)
+    repo = _repo_tracked(ROOT)
     if repo is None:
-        return frozenset(p.relative_to(root).as_posix() for p in root.rglob("*") if p.is_file())
-    top, names = repo
-    below = root.resolve().relative_to(top).as_posix()
-    prefix = "" if below == "." else f"{below}/"
-    return frozenset(n[len(prefix) :] for n in names if n.startswith(prefix))
+        return ROOT, frozenset(
+            p.relative_to(ROOT).as_posix() for p in ROOT.rglob("*") if p.is_file()
+        )
+    return repo
 
 
 def _is_tracked(path: Path) -> bool:
@@ -1161,7 +1160,7 @@ def _resolve_line_citation(file: str, source_file: Path) -> Path | str:
     root-relative — the same order every other pass uses), accepted only if the file
     is TRACKED: the contract is the same in every checkout, so a scratch file on one
     machine cannot satisfy a citation. A citation that names no directory, or a
-    partial path, then resolves by UNIQUE suffix over the tracked tree:
+    partial path, then resolves by UNIQUE suffix over the tracked repository:
     ``markdown_fences.py:1`` finds the one module of that name; two candidates is a
     report, never a guess. A repo-rooted citation (leading ``/``) never takes the
     suffix search — its directory is the claim.
@@ -1174,16 +1173,15 @@ def _resolve_line_citation(file: str, source_file: Path) -> Path | str:
         # and the suffix search would retarget it onto the one in `scripts/health/`.
         return "FILE_MISSING"
     needle = file
+    base, tracked = _tracked_universe()
     # The index is what git tracks; the worktree is what can be read. A tracked file
     # deleted but not yet staged is in the first and not the second, and only a file
     # that can be read is a candidate.
     hits = [
-        t
-        for t in _tracked_files(ROOT)
-        if (t == needle or t.endswith(f"/{needle}")) and (ROOT / t).is_file()
+        t for t in tracked if (t == needle or t.endswith(f"/{needle}")) and (base / t).is_file()
     ]
     if len(hits) == 1:
-        return ROOT / hits[0]
+        return base / hits[0]
     if hits:
         return f"AMBIGUOUS_BASENAME ({len(hits)} tracked files end with {needle})"
     return "FILE_MISSING"
