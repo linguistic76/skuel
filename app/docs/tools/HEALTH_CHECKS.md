@@ -904,7 +904,7 @@ copy of the roster. These are the *neighbours*, which no roster names:
 
 | Script | Role |
 |--------|------|
-| `scripts/health/markdown_fences.py` | Shared CommonMark fence walker (links + names). A library, not a check — no `__main__`, so the parity test does not demand a roster entry for it |
+| `scripts/health/markdown_fences.py` | Shared CommonMark fence walker (links + names + claims + the docs census) and the frontmatter projection they mask by. A library, not a check — no `__main__`, so the parity test does not demand a roster entry for it |
 | `scripts/health/route_catalog.py` | Shared runtime route catalog (links + claims). A library, same rule — the wired route table, cached per process, with the three matching relations both readers use |
 | `scripts/docs_updated_field.py` | Shared stamp mechanics (guard + stamper + backfill) |
 | `scripts/stamp_docs_updated.py` | Pre-commit stamper (hook check 0) |
