@@ -112,20 +112,26 @@ There is no `namespace`, `ku_category` or `source` field — grouping lives in `
 
 ## Relationships
 
-| Relationship | Direction | Target | Description |
-|--------------|-----------|--------|-------------|
-| `REQUIRES_KNOWLEDGE` | Outgoing | Ku | Prerequisite knowledge |
-| `ENABLES_KNOWLEDGE` | Outgoing | Ku | Enables learning |
-| `HAS_BROADER` | Outgoing | Ku | Broader concept |
-| `HAS_NARROWER` | Outgoing | Ku | Narrower concept |
-| `RELATED_TO` | Both | Ku | Related concepts |
-| `APPLIES_KNOWLEDGE` | Incoming | Task, Event | Applied in activities |
-| `REQUIRES_KNOWLEDGE` | Incoming | Task, Goal | Required by activities |
-| `REINFORCES_KNOWLEDGE` | Incoming | Habit | Reinforced by habits |
+`KU_CONFIG` (`core/models/relationship_registry.py`) is the authority; its
+`prerequisite_relationship_names` and `enables_relationship_names` are **empty** — the
+`REQUIRES_KNOWLEDGE` / `ENABLES_KNOWLEDGE` vocabulary is PathStep's (`PS_CONFIG`), not Ku's.
+What a Ku carries:
 
-**Note:** KU uses `REQUIRES_KNOWLEDGE` and `ENABLES_KNOWLEDGE` for all KU-to-KU relationships;
-there is no bare `PREREQUISITE`, `REQUIRES` or `ENABLES` member in `RelationshipName`. Ingestion
-config derives from the relationship registry — see ADR-026.
+| Relationship | Direction | Other end | Source |
+|--------------|-----------|--------|-------------|
+| `USES_KU` | Incoming | PathStep (`Entity`) | `KU_CONFIG` — composition: a step uses this Ku |
+| `TRAINS_KU` | Incoming | PathStep (`Entity`) | `KU_CONFIG` — learning objective |
+| `CITES_RESOURCE` | Outgoing | Resource | `KU_CONFIG` |
+| `ORGANIZES` | Both | Ku / any Entity | `KU_CONFIG` bidirectional hierarchy (MOC — see [moc.md](moc.md)) |
+| `IN_PROGRESS`, `MASTERED` | Incoming | User | learning state (`mark_as_studying` / `mark_as_understood`) |
+| `PINNED` | Incoming | User | bookmark (`/library/ku`) |
+| `PREREQUISITE_FOR`, `LATERAL_ENABLES`, `SIMILAR_TO`, `COMPLEMENTARY_TO`, `ALTERNATIVE_TO`, … | Both | Ku | the lateral family (`/api/ku/{uid}/lateral/*`; `_LATERAL_TYPES` in `core/models/relationship_names.py`) |
+| `APPLIES_KNOWLEDGE {inferred, confidence}` | Incoming | UserEntry | `EntryGroundingService` (vector grounding) and explicit `@ku()` refs (ADR-069) — the grounded-journal channel of substance |
+
+The other activity → knowledge edges (`REQUIRES_KNOWLEDGE`, `APPLIES_KNOWLEDGE` from Tasks and
+Events, `REINFORCES_KNOWLEDGE` from Habits, `GROUNDED_IN_KNOWLEDGE` from Principles) are declared
+on the activity configs against `Entity`, so a Ku can be their target; they are not Ku's own
+vocabulary. Ingestion config derives from the registry — see ADR-026.
 
 ## Intelligence Methods
 
