@@ -164,6 +164,7 @@ def test_a_negation_token_elsewhere_on_the_line_is_not_a_negation(line: str) -> 
         "/api/tasks/create",
         "POST /api/tasks/create",
         "OPTIONS /api/tasks/create",  # every standard verb is a claim; the catalog judges it
+        "GET /manifest.json",  # a verb is a route signal: the link checker never reads this span
         "/api/tasks/{uid}/status",
         "/explore/ku/{ku_uid}",
         "/tasks?uid=abc",
@@ -208,6 +209,10 @@ def test_claim_shapes_admitted(text: str) -> None:
         ("/static/css/output.css", "a file-shaped PROJECT_PREFIX span — the link checker's"),
         ("/core/services/ps", "a PROJECT_PREFIX span naming an existing directory"),
         ("/services_bootstrap.py", "a span the link checker's path guard accepts"),
+        (
+            "/manifest.json",
+            "file-shaped without a verb — the link checker's (it matches routes too)",
+        ),
         ("/docs/patterns/foo.md", "a PROJECT_PREFIX path"),
         ("/patterns/", "a trailing-slash docs/ subdirectory"),
         ("/{domain}/list", "a metavariable first segment"),

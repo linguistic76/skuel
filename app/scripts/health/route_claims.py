@@ -224,11 +224,13 @@ def _repo_top_level_dirs() -> tuple[str, ...]:
     )
 
 
-def looks_like_file(path: str) -> bool:
+def looks_like_file(path: str, verb_written: bool = False) -> bool:
     """Is this leading-slash span a file or directory citation rather than a URL?
 
     Project-prefixed paths belong to the link checker (``/static/`` included — it is a
     mount as well as a directory, and the link checker already resolves it as files).
+    A written verb is a route signal: ``GET /manifest.json`` is a claim about a served
+    asset, and the link checker never reads a span with a verb in it.
     """
     if path.startswith(ddl.PROJECT_PREFIXES):
         # A repo-rooted span is a file citation — the link checker's — unless nothing
@@ -261,7 +263,8 @@ def looks_like_file(path: str) -> bool:
     # pass's to verify — it already resolves such a span as a file, then as a route
     # (`/manifest.json`), then reports it dead. The SAME predicate, so the two readers
     # partition leading-slash spans instead of both reporting `/services_bootstrap.py`.
-    return ddl._looks_like_local_path(path.split("?")[0])
+    # With a verb in the span the link checker reads nothing, so the claim stays here.
+    return not verb_written and ddl._looks_like_local_path(path.split("?")[0])
 
 
 def is_url_shape(text: str) -> tuple[str, str] | None:
@@ -276,7 +279,7 @@ def is_url_shape(text: str) -> tuple[str, str] | None:
         return None
     if any(ch in path for ch in NOT_A_PATH_CHARS):
         return None
-    if looks_like_file(path):
+    if looks_like_file(path, verb_written=bool(match.group(1))):
         return None
     if UPPERCASE_SEGMENT_RE.search(path):
         return None
