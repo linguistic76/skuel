@@ -192,6 +192,14 @@ DELETED: dict[str, str] = {
     # Verification Happens); a decorator form is not one of them.
     "with_ownership": "deleted — verify_entity_ownership (API) / require_owned_entity (UI)",
     "require_ownership_query": "deleted — verify_entity_ownership (API) / require_owned_entity (UI)",
+    # A config-driven ownership-verified route is create_activity_{field,hierarchy,link}_api_routes
+    # (a spec + a named ``apply`` adapter); a class factory resolving ``method_name`` strings is not.
+    "OwnershipRouteFactory": (
+        "deleted — verify_entity_ownership in the handler (API) / require_owned_entity (UI); "
+        "config-driven shapes live on create_activity_*_api_routes"
+    ),
+    "OwnershipRoute": "deleted — see OwnershipRouteFactory",
+    "OwnershipOperations": "deleted — OwnershipVerifier in core/ports/service_protocols.py",
     # Deleted enum members
     "Pipeline.JOURNAL": (
         "deleted — where a journal goes is stated in the Pipeline class docstring "

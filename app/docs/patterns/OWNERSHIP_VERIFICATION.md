@@ -162,42 +162,6 @@ then applies the domain's typed-intent update (``update_task(uid,
 TaskUpdateIntent(status=...))``), where status-target validity and completion
 stamping are enforced at the service seam.
 
-### OwnershipRouteFactory
-
-For domain-specific routes that follow a standard pattern (GET passthrough, GET with query params, POST with Pydantic model), use `OwnershipRouteFactory`:
-
-```python
-from adapters.inbound.route_factories import OwnershipRouteFactory, OwnershipRoute
-
-ownership_factory = OwnershipRouteFactory(
-    service=habits_service,
-    domain_name="habits",
-    routes=[
-        OwnershipRoute(path="/api/habits/streak", method_name="get_habit_streak"),
-        OwnershipRoute(
-            path="/api/habits/track",
-            method_name="track_habit",
-            request_schema=TrackHabitRequest,
-            schema_extra_uid_field="habit_uid",
-        ),
-    ],
-)
-ownership_factory.register_routes(app, rt)
-```
-
-For domains with non-default UID parameter names (e.g., `principle_uid`), set `uid_param` on the factory:
-
-```python
-OwnershipRouteFactory(
-    service=principles_service,
-    domain_name="principles",
-    uid_param="principle_uid",
-    routes=[...],
-)
-```
-
-See: `/docs/patterns/ROUTE_FACTORIES.md` for full parameter reference.
-
 ### UI Routes (require_owned_entity helper)
 
 For UI routes that return `Response` directly (not `Result[T]`), use the `require_owned_entity` helper which combines service availability + ownership verification. Its `error` IS the 404 `Response` (503 when the service is unavailable) — return it:

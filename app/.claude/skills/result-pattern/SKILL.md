@@ -309,17 +309,21 @@ Use `parse_json_body()` and `parse_form_body()` to convert Pydantic `ValidationE
 ```python
 from adapters.inbound.form_helpers import parse_json_body, parse_form_body
 
-@rt("/api/goals/milestones", methods=["POST"])
+@rt("/api/habits/track", methods=["POST"])
+@csrf_protected
 @boundary_handler(success_status=201)
-async def create_milestone(request: Request, entity: Any) -> Result[dict[str, Any]]:
-    result = await parse_json_body(request, MilestoneCreateRequest)
-    if result.is_error:
-        return result  # type: ignore[return-value]  → 400 with validation details
-    req = result.value
-    return await goals_service.create_milestone(entity.uid, req.title, req.target_date)
-
-# With extra fields (e.g., entity UID from ownership decorator)
-result = await parse_json_body(request, TrackHabitRequest, extra={"habit_uid": entity.uid})
+async def habit_track(request: Request) -> Result[dict[str, Any]]:
+    user_uid = require_authenticated_user(request)
+    parsed = await parse_json_body(request, TrackHabitRequest)
+    if parsed.is_error:
+        return Result.fail(parsed)  # 400 with validation details (SKUEL028: propagate, don't unwrap)
+    req = parsed.value
+    # Here the owner uid is a model field, so it is verified AFTER parsing (404 for a habit that is
+    # not yours). A query-string owner uid (POST /api/principles/link?uid=) is verified BEFORE parsing.
+    ownership_error = await verify_entity_ownership(habits_service, req.habit_uid, user_uid, "habit")
+    if ownership_error:
+        return ownership_error
+    ...
 
 # Form data (empty strings → None, then validated by Pydantic)
 result = await parse_form_body(request, RequestRevisionRequest)
