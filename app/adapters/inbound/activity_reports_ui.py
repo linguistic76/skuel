@@ -38,6 +38,7 @@ from adapters.inbound.boundary import boundary_handler, ui_boundary_handler
 from adapters.inbound.csrf import csrf_protected
 from adapters.inbound.fasthtml_types import Request, RouteDecorator
 from adapters.inbound.form_helpers import parse_form_body
+from adapters.inbound.route_factories import refuse_not_found
 from adapters.outbound.activity_report_renderer import (
     activity_report_filename,
     render_activity_report_md,
@@ -248,9 +249,12 @@ def create_activity_reports_ui_routes(
             )
         report_result = await orchestrator.get_activity_report(uid, user_uid)
         if report_result.is_error:
-            return Div(
-                render_error_banner("Report not found", str(report_result.error)),
-                id="activity-report-detail-content",
+            # Owner-scoped read: a foreign uid reads as missing — rendered 404.
+            return refuse_not_found(
+                Div(
+                    render_error_banner("Report not found", str(report_result.error)),
+                    id="activity-report-detail-content",
+                )
             )
         report = report_result.value
         metadata = getattr(report, "metadata", None) or {}

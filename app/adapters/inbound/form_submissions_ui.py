@@ -17,6 +17,7 @@ from fasthtml.common import A, Div, P, Span
 
 from adapters.inbound.auth import require_authenticated_user
 from adapters.inbound.fasthtml_types import Request
+from adapters.inbound.route_factories import refuse_not_found
 from core.utils.logging import get_logger
 from ui.components import Button, ButtonT
 from ui.layouts.base_page import BasePage
@@ -128,9 +129,12 @@ def create_form_submissions_ui_routes(
 
         result = await form_submission_service.get_submission(uid, user_uid)
         if result.is_error:
-            return Div(
-                render_error_banner("Form submission not found"),
-                id="my-forms-detail-content",
+            # Owner-scoped read: a foreign uid reads as missing — rendered 404.
+            return refuse_not_found(
+                Div(
+                    render_error_banner("Form submission not found"),
+                    id="my-forms-detail-content",
+                )
             )
 
         submission = result.value

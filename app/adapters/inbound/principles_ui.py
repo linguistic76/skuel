@@ -23,6 +23,7 @@ from adapters.inbound.auth import require_authenticated_user
 from adapters.inbound.csrf import csrf_protected
 from adapters.inbound.fasthtml_types import Request
 from adapters.inbound.form_helpers import parse_form_body
+from adapters.inbound.route_factories import refuse_not_found
 from core.models.enums.principle_enums import AlignmentLevel
 from core.models.principle.principle_request import PrincipleCreateRequest, PrincipleUpdateRequest
 from core.utils.connection_configs import PRINCIPLE_CONNECTION_CONFIG
@@ -64,7 +65,7 @@ def create_principles_ui_routes(
             ("sort_by", "strength"),
         ),
         get_all=principles_service.get_user_principles,
-        get_one=principles_service.get_principle,
+        get_owned=principles_service.verify_ownership,
         backend=connection_fetch_backend,
         filter_fn=filter_principles,
         connection_config=PRINCIPLE_CONNECTION_CONFIG,
@@ -129,15 +130,17 @@ def create_principles_ui_routes(
                 request=request,
             )
 
-        result = await principles_service.get_principle(uid)
-        if result.is_error or result.value.user_uid != user_uid:
-            return render_activity_sidebar_error(
-                "Principle not found",
-                active="principles",
-                request=request,
+        owned = await principles_service.verify_ownership(uid, user_uid)
+        if owned.is_error:
+            return refuse_not_found(
+                render_activity_sidebar_error(
+                    "Principle not found",
+                    active="principles",
+                    request=request,
+                )
             )
+        principle = owned.value
 
-        principle = result.value
         content = Div(
             PageHeader(f"Edit: {principle.title}"),
             PrincipleEditForm(principle),
@@ -158,14 +161,16 @@ def create_principles_ui_routes(
                 request=request,
             )
 
-        existing = await principles_service.get_principle(uid)
-        if existing.is_error or existing.value.user_uid != user_uid:
-            return render_activity_sidebar_error(
-                "Principle not found",
-                active="principles",
-                request=request,
+        owned = await principles_service.verify_ownership(uid, user_uid)
+        if owned.is_error:
+            return refuse_not_found(
+                render_activity_sidebar_error(
+                    "Principle not found",
+                    active="principles",
+                    request=request,
+                )
             )
-        principle = existing.value
+        principle = owned.value
 
         parsed = await parse_form_body(request, PrincipleUpdateRequest)
         if parsed.is_error:

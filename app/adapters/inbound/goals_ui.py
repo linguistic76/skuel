@@ -24,6 +24,7 @@ from adapters.inbound.auth import require_authenticated_user
 from adapters.inbound.csrf import csrf_protected
 from adapters.inbound.fasthtml_types import Request
 from adapters.inbound.form_helpers import parse_form_body
+from adapters.inbound.route_factories import refuse_not_found
 from core.models.enums.activity_enums import ProgressLevel
 from core.models.goal.goal_request import GoalCreateRequest, GoalUpdateRequest
 from core.utils.connection_configs import GOAL_CONNECTION_CONFIG
@@ -60,7 +61,7 @@ def create_goals_ui_routes(
         page_title="Goals",
         filter_params=(("status", "active"), ("category", "all"), ("sort_by", "target_date")),
         get_all=goals_service.get_user_goals,
-        get_one=goals_service.get_goal,
+        get_owned=goals_service.verify_ownership,
         backend=connection_fetch_backend,
         filter_fn=filter_goals,
         connection_config=GOAL_CONNECTION_CONFIG,
@@ -137,15 +138,17 @@ def create_goals_ui_routes(
                 request=request,
             )
 
-        result = await goals_service.get_goal(uid)
-        if result.is_error or result.value.user_uid != user_uid:
-            return render_activity_sidebar_error(
-                "Goal not found",
-                active="goals",
-                request=request,
+        owned = await goals_service.verify_ownership(uid, user_uid)
+        if owned.is_error:
+            return refuse_not_found(
+                render_activity_sidebar_error(
+                    "Goal not found",
+                    active="goals",
+                    request=request,
+                )
             )
+        goal = owned.value
 
-        goal = result.value
         content = Div(
             PageHeader(f"Edit: {goal.title}"),
             GoalEditForm(goal),
@@ -166,14 +169,16 @@ def create_goals_ui_routes(
                 request=request,
             )
 
-        existing = await goals_service.get_goal(uid)
-        if existing.is_error or existing.value.user_uid != user_uid:
-            return render_activity_sidebar_error(
-                "Goal not found",
-                active="goals",
-                request=request,
+        owned = await goals_service.verify_ownership(uid, user_uid)
+        if owned.is_error:
+            return refuse_not_found(
+                render_activity_sidebar_error(
+                    "Goal not found",
+                    active="goals",
+                    request=request,
+                )
             )
-        goal = existing.value
+        goal = owned.value
 
         parsed = await parse_form_body(request, GoalUpdateRequest)
         if parsed.is_error:

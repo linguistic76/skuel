@@ -41,6 +41,7 @@ from adapters.inbound.boundary import ui_boundary_handler
 from adapters.inbound.csrf import csrf_protected
 from adapters.inbound.fasthtml_types import Request, RouteDecorator
 from adapters.inbound.result_helpers import require_found
+from adapters.inbound.route_factories import refuse_not_found
 from core.models.enums.entity_enums import EntityStatus
 from core.models.user_entry.user_entry import UserEntry
 from core.services.intelligence_tier_service import get_user_intelligence_tier
@@ -443,7 +444,7 @@ def create_user_entry_ui_routes(
 
         entry_result = require_found(await orchestrator.get_entry(uid, user_uid), "UserEntry", uid)
         if entry_result.is_error:
-            return render_error_banner("Submission not found")
+            return refuse_not_found(render_error_banner("Submission not found"))
 
         # Fail closed: an entry that has received feedback must not be silently
         # lost, so block the delete whenever the feedback state can't be confirmed.

@@ -314,7 +314,11 @@ async def test_ownership_failure_renders_not_found_banner() -> None:
 
     update.assert_not_awaited()
     card_fn.assert_not_called()
-    assert "Task not found" in to_xml(response)
+    # A rendered refusal: the banner the card slot will swap in, carrying the 404
+    # (never a 200 — OWNERSHIP_VERIFICATION § UI Routes) and the swap opt-in header.
+    assert response.status_code == 404
+    assert response.headers == {"X-SKUEL-Refusal": "rendered"}
+    assert "Task not found" in to_xml(response.content)
 
 
 # ============================================================================
@@ -391,4 +395,5 @@ async def test_not_found_banner_capitalizes_singular() -> None:
     )
     response = await handler(_request({"status": "active"}), uid="p.1")
 
-    assert "Principle not found" in to_xml(response)
+    assert response.status_code == 404
+    assert "Principle not found" in to_xml(response.content)

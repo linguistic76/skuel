@@ -39,10 +39,11 @@ methods, and the factory owns auth, ownership verification, body parsing, and
 response shape. The JSON and HTMX children variants render from one
 ownership-checked fetch (One Path Forward).
 
-**Field-update response contract.** `POST /api/{domain}/{uid}/{field}` answers
-every refusal (not owned, missing or invalid value, a failed write) as an error
-banner at **200** — the card swaps it into its own target, and HTMX leaves a 4xx
-body unswapped, which would show the user nothing. A successful update answers
+**Field-update response contract.** `POST /api/{domain}/{uid}/{field}` answers an
+ownership refusal as the not-found banner at **404** through `refuse_not_found` (the
+card slot swaps it in on the `X-SKUEL-Refusal` header — OWNERSHIP_VERIFICATION § UI
+Routes), and a value or write refusal (missing or invalid value, a failed write) as
+an error banner at 200 that the card swaps into its own target. A successful update answers
 the domain card with `HX-Trigger: {"activity-field-updated": {"domain", "field"}}`
 (`FIELD_UPDATED_EVENT` in `activity_field_api_factory.py`), fired on the
 requesting element and bubbling. A surface that must react to a *real* update —

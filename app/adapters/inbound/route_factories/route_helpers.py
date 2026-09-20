@@ -8,7 +8,9 @@ boundary_handler converts to HTTP at the route level.
 
 Helpers:
     check_required_role       - Role-based access control (used by CRUD, Analytics)
-    verify_entity_ownership   - Ownership verification returning 404 on failure
+    verify_entity_ownership   - Ownership verification returning 404 on failure (API)
+    require_owned_entity      - Ownership verification returning a bare 404 Response (UI)
+    refuse_not_found          - A rendered refusal (page or fragment) carrying the 404
     parse_int_query_param     - Integer param with bounds clamping
     parse_bool_query_param    - Boolean param ("true"/"1"/"yes"/"on" → True)
     parse_date_query_param    - ISO date param with safe fallback
@@ -28,6 +30,7 @@ from dataclasses import dataclass
 from datetime import date
 from typing import Any, cast, overload
 
+from fasthtml.common import FT, FtResponse
 from starlette.responses import Response
 
 from adapters.inbound.auth.session import require_authenticated_user
@@ -188,8 +191,14 @@ def parse_float_query_param(
     return value
 
 
+#: Response header on a rendered refusal. ``static/js/skuel.js`` swaps a 404 fragment into
+#: its target only when this header is present — a plain-text 404 stays unswapped.
+REFUSAL_HEADER = "X-SKUEL-Refusal"
+REFUSAL_RENDERED = "rendered"
+
+
 async def require_owned_entity(
-    service_core: Any | None,
+    service: Any | None,
     uid: str,
     user_uid: UserUID,
     entity_name: str = "Entity",
@@ -197,30 +206,55 @@ async def require_owned_entity(
     """
     Combined service availability + ownership verification for UI routes.
 
-    Eliminates the repeated 5-line pattern:
-        if not service: return Response("Service unavailable", 503)
-        result = await service.core.verify_ownership(uid, user_uid)
-        if result.is_error: return Response("X not found", 404)
+    Returns ``(entity, None)`` when the caller owns the entity, else
+    ``(None, refusal)`` where the refusal is a bare 404 ``Response`` (503 when the
+    service is unavailable). Any object with ``verify_ownership(uid, user_uid)``
+    serves — every Activity facade inherits it.
 
-    Returns (entity, None) on success, (None, error_response) on failure.
+    The bare 404 is the right answer where nothing is rendered on refusal: a
+    mutation only a crafted request reaches, or a nested fragment whose parent
+    already refused. Where the learner sees the refusal — a full page, or the
+    top-level fragment a shell loads — wrap the rendered body in
+    :func:`refuse_not_found` so it carries the same 404.
 
     Usage:
-        entity, error = await require_owned_entity(
-            service and service.core, uid, user_uid, "Choice"
-        )
-        if error:
-            return error
+        task, refusal = await require_owned_entity(tasks_service, uid, user_uid, "Task")
+        if refusal:
+            return refusal
 
-    Security: Returns generic "not found" (404), never includes UID in response.
+    Security: "not found" (404), never "forbidden" — a foreign uid and a missing
+    one are indistinguishable, so UIDs cannot be enumerated.
 
     See: /docs/patterns/OWNERSHIP_VERIFICATION.md
     """
-    if service_core is None:
+    if service is None:
         return None, Response("Service unavailable", status_code=503)
-    result: Result[Any] = cast("Result[Any]", await service_core.verify_ownership(uid, user_uid))
+    result: Result[Any] = cast("Result[Any]", await service.verify_ownership(uid, user_uid))
     if result.is_error:
         return None, Response(f"{entity_name} not found", status_code=404)
     return result.value, None
+
+
+def refuse_not_found(body: FT) -> FtResponse:
+    """A rendered ownership refusal — the body the learner sees, with the status intact.
+
+    ``body`` is a full page (sidebar chrome + banner) or a fragment (the banner in
+    its slot); ``FtResponse`` renders either through FastHTML's own page/fragment
+    path (``HX-Request``-aware). The status is the invariant: an ownership failure
+    answers 404 to clients, caches and monitoring whatever the body says. The
+    ``X-SKUEL-Refusal: rendered`` header is the fragment swap opt-in that
+    ``skuel.js``'s ``htmx:beforeSwap`` listener reads; a page load ignores it.
+
+    Usage:
+        task, refusal = await require_owned_entity(tasks_service, uid, user_uid, "Task")
+        if refusal:
+            return refuse_not_found(
+                render_activity_sidebar_error("Task not found", active="tasks", request=request)
+            )
+
+    See: /docs/patterns/OWNERSHIP_VERIFICATION.md § UI Routes
+    """
+    return FtResponse(body, status_code=404, headers={REFUSAL_HEADER: REFUSAL_RENDERED})
 
 
 # ============================================================================

@@ -36,7 +36,7 @@ from adapters.inbound.boundary import boundary_handler
 from adapters.inbound.csrf import csrf_protected
 from adapters.inbound.fasthtml_types import Request
 from adapters.inbound.form_helpers import parse_json_body
-from adapters.inbound.route_factories.route_helpers import verify_entity_ownership
+from adapters.inbound.route_factories.route_helpers import refuse_not_found, verify_entity_ownership
 from core.models.entity_requests import (
     AddHierarchyChildRequest,
     RemoveHierarchyChildRequest,
@@ -155,11 +155,12 @@ def _register_children_fragment_route(
         result = await _fetch_owned_children(config, uid, user_uid)
         if result.is_error:
             error = result.expect_error()
-            message = (
-                "Not found or access denied"
-                if error.category is ErrorCategory.NOT_FOUND
-                else f"Error loading children: {error.display_message}"
-            )
+            if error.category is ErrorCategory.NOT_FOUND:
+                # Ownership refusal (a foreign uid reads as missing): rendered 404.
+                return refuse_not_found(
+                    Div(Span("Not found", cls="text-error text-sm"), cls="px-2 py-1")
+                )
+            message = f"Error loading children: {error.display_message}"
             return Div(Span(message, cls="text-error text-sm"), cls="px-2 py-1")
 
         nodes: list[dict[str, Any]] = []

@@ -24,6 +24,7 @@ from adapters.inbound.auth import require_authenticated_user
 from adapters.inbound.csrf import csrf_protected
 from adapters.inbound.fasthtml_types import Request
 from adapters.inbound.form_helpers import parse_form_body
+from adapters.inbound.route_factories import refuse_not_found
 from core.models.event.event_request import EventCreateRequest, EventUpdateRequest
 from core.utils.connection_configs import EVENT_CONNECTION_CONFIG
 from core.utils.entity_filters import filter_events
@@ -64,7 +65,7 @@ def create_events_ui_routes(
         page_title="Events",
         filter_params=(("status", "upcoming"), ("sort_by", "date")),
         get_all=events_service.get_user_events,
-        get_one=events_service.get_event,
+        get_owned=events_service.verify_ownership,
         backend=connection_fetch_backend,
         filter_fn=filter_events,
         connection_config=EVENT_CONNECTION_CONFIG,
@@ -144,15 +145,17 @@ def create_events_ui_routes(
                 request=request,
             )
 
-        result = await events_service.get_event(uid)
-        if result.is_error or result.value.user_uid != user_uid:
-            return render_activity_sidebar_error(
-                "Event not found",
-                active="events",
-                request=request,
+        owned = await events_service.verify_ownership(uid, user_uid)
+        if owned.is_error:
+            return refuse_not_found(
+                render_activity_sidebar_error(
+                    "Event not found",
+                    active="events",
+                    request=request,
+                )
             )
+        event = owned.value
 
-        event = result.value
         celebrated = await events_service.get_celebrated_goal(event.uid)
         goal_uid = celebrated.value if celebrated.is_ok else None
         reinforced = await events_service.get_reinforced_habit(event.uid)
@@ -185,14 +188,16 @@ def create_events_ui_routes(
                 request=request,
             )
 
-        existing = await events_service.get_event(uid)
-        if existing.is_error or existing.value.user_uid != user_uid:
-            return render_activity_sidebar_error(
-                "Event not found",
-                active="events",
-                request=request,
+        owned = await events_service.verify_ownership(uid, user_uid)
+        if owned.is_error:
+            return refuse_not_found(
+                render_activity_sidebar_error(
+                    "Event not found",
+                    active="events",
+                    request=request,
+                )
             )
-        event = existing.value
+        event = owned.value
         celebrated = await events_service.get_celebrated_goal(event.uid)
         goal_uid = celebrated.value if celebrated.is_ok else None
         reinforced = await events_service.get_reinforced_habit(event.uid)

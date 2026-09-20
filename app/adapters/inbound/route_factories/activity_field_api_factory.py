@@ -29,7 +29,7 @@ from starlette.responses import HTMLResponse
 from adapters.inbound.auth import require_authenticated_user
 from adapters.inbound.csrf import csrf_protected
 from adapters.inbound.fasthtml_types import Request
-from adapters.inbound.route_factories.route_helpers import verify_entity_ownership
+from adapters.inbound.route_factories.route_helpers import refuse_not_found, verify_entity_ownership
 from core.models.enums import Priority
 from ui.patterns.error_banner import render_error_banner
 
@@ -119,7 +119,9 @@ def _register_field_route[T](
             config.service, uid, user_uid, config.domain_name
         )
         if ownership_error is not None:
-            return render_error_banner(not_found)
+            # Ownership refusal: a rendered 404 — the card slot receives the
+            # banner (swapped on the refusal header), the status stays honest.
+            return refuse_not_found(render_error_banner(not_found))
 
         form = await request.form()
         raw_value = form.get(spec.field)
@@ -134,12 +136,11 @@ def _register_field_route[T](
         if result.is_error:
             return render_error_banner(result.expect_error().display_message)
 
-        # Every answer above is a banner the card swaps in at 200 (HTMX leaves a
-        # 4xx body unswapped, which would show the user nothing), so the HTTP
-        # status cannot tell a listener whether the entity changed. The updated
-        # card carries the one honest signal: an HX-Trigger naming the field,
-        # fired on the requesting element and bubbling to any surface that
-        # needs to react to a real update — never to ``successful``.
+        # The value/write refusals above are banners the card swaps in at 200,
+        # so the HTTP status cannot tell a listener whether the entity changed.
+        # The updated card carries the one honest signal: an HX-Trigger naming
+        # the field, fired on the requesting element and bubbling to any surface
+        # that needs to react to a real update — never to ``successful``.
         card = config.card_fn(result.value)
         return HTMLResponse(
             to_xml(card),

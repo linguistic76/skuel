@@ -13,12 +13,13 @@ TEACHER role required for all endpoints.
 import json
 from typing import TYPE_CHECKING, Any, Protocol
 
-from fasthtml.common import A, Div, Small, Span, to_xml
+from fasthtml.common import A, Div, FtResponse, Small, Span, to_xml
 from starlette.responses import HTMLResponse, Response
 
 from adapters.inbound.auth import make_service_getter
 from adapters.inbound.auth.roles import UserRole, require_role
 from adapters.inbound.fasthtml_types import Request
+from adapters.inbound.route_factories import refuse_not_found
 from core.models.type_hints import UserUID
 from core.utils.logging import get_logger
 from core.utils.result_simplified import ErrorCategory
@@ -217,7 +218,9 @@ def create_teaching_forms_ui_routes(
                 PageHeader("Form Submissions"),
                 render_error_banner("Template not found", f"No template with UID: {uid}"),
             )
-            return render_teaching_sidebar_page(content, active="forms", request=request)
+            return refuse_not_found(
+                render_teaching_sidebar_page(content, active="forms", request=request)
+            )
 
         template = template_result.value
 
@@ -319,7 +322,7 @@ def create_teaching_forms_ui_routes(
             )
             return render_teaching_sidebar_page(content, active="forms", request=request)
 
-        def render_not_found() -> Response:
+        def render_not_found() -> FtResponse:
             """The one not-found response — a submission outside the caller's
             classroom is indistinguishable from one that does not exist.
 
@@ -330,9 +333,8 @@ def create_teaching_forms_ui_routes(
                 PageHeader("Submission Detail"),
                 render_error_banner("Submission not found", f"No submission with UID: {uid}"),
             )
-            return HTMLResponse(
-                to_xml(render_teaching_sidebar_page(content, active="forms", request=request)),
-                status_code=404,
+            return refuse_not_found(
+                render_teaching_sidebar_page(content, active="forms", request=request)
             )
 
         def render_unavailable(detail: str) -> Response:

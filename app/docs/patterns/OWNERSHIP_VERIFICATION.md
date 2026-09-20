@@ -36,8 +36,9 @@ through `verify_entity_ownership`. A manual route calls `verify_entity_ownership
 `Result[T]`) or `require_owned_entity` (UI, `Response`) itself — both helpers in
 `adapters/inbound/route_factories/route_helpers.py` wrap the service's
 `verify_ownership(uid, user_uid)`, which a route calls directly when it needs the verified
-entity back (§ API Routes below). Those are the route-layer doors, and there is no
-decorator form; the census is
+entity back (§ API Routes, § UI Routes below). A UI refusal the learner sees is wrapped in
+`refuse_not_found` so the rendered body still carries the 404. Those are the route-layer
+doors, and there is no decorator form; the census is
 `grep -rnE "verify_entity_ownership\(|require_owned_entity\(|\.verify_ownership\(" adapters/inbound`.
 
 ## Overview
@@ -162,55 +163,72 @@ then applies the domain's typed-intent update (``update_task(uid,
 TaskUpdateIntent(status=...))``), where status-target validity and completion
 stamping are enforced at the service seam.
 
-### UI Routes (require_owned_entity helper)
+### UI Routes (require_owned_entity + refuse_not_found)
 
-For UI routes that return `Response` directly (not `Result[T]`), use the `require_owned_entity` helper which combines service availability + ownership verification. Its `error` IS the 404 `Response` (503 when the service is unavailable) — return it:
+A UI route answers a refusal with a **404 the learner can see**. Two helpers in
+`adapters/inbound/route_factories/route_helpers.py`, one status:
+
+- `require_owned_entity(service, uid, user_uid, entity_name)` → `(entity, refusal)`. The
+  refusal is a **bare** 404 `Response` (503 when the service is unavailable). Return it as-is
+  where nothing is rendered on refusal — a mutation only a crafted request reaches, or a
+  nested fragment whose parent page already refused (`/tasks/subtasks`,
+  `/tasks/{uid}/dependencies`).
+- `refuse_not_found(body)` → `FtResponse(body, status_code=404, headers={"X-SKUEL-Refusal":
+  "rendered"})`. Wrap the rendered body — a full page with its chrome, or the banner in a
+  fragment's slot — wherever the learner sees the refusal: the edit pages, the top-level
+  fragment a detail shell loads, the field-update card. FastHTML renders a page as a page and
+  a fragment as a fragment; the header is the swap opt-in `static/js/skuel.js` reads
+  (`htmx:beforeSwap` sets `shouldSwap` for a 404 that carries it — a plain-text 404 stays
+  unswapped, as HTMX 1.x defaults).
+
+A page that needs the entity calls the service's `verify_ownership` directly (it returns
+`Result[Task]`, so the value is typed) and wraps the refusal:
 
 ```python
-from adapters.inbound.auth import require_authenticated_user
-from adapters.inbound.route_factories import require_owned_entity
+@rt("/tasks/edit", methods=["GET"])
+async def task_edit_page(request: Request) -> Any:
+    user_uid = require_authenticated_user(request)
+    uid = request.query_params.get("uid", "")
+    ...
+    owned = await tasks_service.verify_ownership(uid, user_uid)
+    if owned.is_error:
+        return refuse_not_found(
+            render_activity_sidebar_error("Task not found", active="tasks", request=request)
+        )
+    task = owned.value
+```
 
+A fragment that does not need the entity uses the helper and wraps the banner:
+
+```python
 @rt("/habits/choices-fragment")
 async def habit_choices_fragment(request: Request) -> Any:
     user_uid = require_authenticated_user(request)
     uid = request.query_params.get("uid", "")
     if not uid:
-        return Div(render_error_banner("Missing habit UID"), id="habit-choices")
+        return refuse_not_found(Div(render_error_banner("Missing habit UID"), id="habit-choices"))
 
-    habit, error = await require_owned_entity(habits_service.core, uid, user_uid, "Habit")
-    if error:
-        return error  # the same 404 for "no such habit" and "not yours"
-
-    # Safe to proceed - habit is verified and available
+    _habit, refusal = await require_owned_entity(habits_service, uid, user_uid, "Habit")
+    if refusal:
+        return refuse_not_found(Div(render_error_banner("Habit not found"), id="habit-choices"))
     ...
 ```
 
 A fragment is not exempt. An ownership failure that answers 200 makes an unauthorized
 read look successful to clients, caches and monitoring, whatever the body says — the
-status code is part of the contract. The live handler behind this example
-(`adapters/inbound/habits_ui.py`) answers a 200 `render_error_banner("Habit not found")`
-in the slot instead of `error`, because HTMX does not swap a 4xx body into a target by
-default (the global `htmx:responseError` handler only announces "Item not found"); that
-is a defect against the invariant, not a shape to copy. The remedy belongs to the
-fragment layer — a 404 whose body is the banner, with the swap opted in — never to the
-status code.
+status code is part of the contract; the body is what the learner sees, and the header is
+what lets HTMX show it.
 
 A bare `get()` followed by an inline `entity.user_uid != user_uid` compare, standing in
 for the anchor's own verification, is the ad-hoc "is this yours?" check ADR-085 §4 forbids
-even when its logic is correct — route the read through the helper. (Filtering a *related*
-set by owner after the anchor was verified is scoping, not a gate — the hierarchy factory
-does that deliberately, because the traversal carries no owner predicate.) Census:
-`grep -rn "user_uid != user_uid" adapters/inbound`, read per hit.
-
-Use `_` instead of `entity` when the entity value is not needed after verification:
-
-```python
-_, error = await require_owned_entity(
-    service and service.core, uid, user_uid, "Task"
-)
-if error:
-    return error
-```
+even when its logic is correct — route the read through `verify_ownership`. Two inline
+compares are sanctioned because no service verifier expresses their rule (two owner fields,
+either of which grants the read) and both already answer 404:
+`adapters/inbound/exercises_api.py` (owner-or-teacher on an entry) and
+`adapters/inbound/revised_exercises_api.py` (student-or-owner). Filtering a *related* set
+by owner after the anchor was verified is scoping, not a gate — the hierarchy factory does
+that deliberately, because the traversal carries no owner predicate. Census:
+`grep -rn "user_uid != user_uid\|user_uid == user_uid" adapters/inbound`, read per hit.
 
 ### API Routes (verify_entity_ownership helper)
 

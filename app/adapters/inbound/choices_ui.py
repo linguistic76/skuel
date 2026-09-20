@@ -23,6 +23,7 @@ from adapters.inbound.auth import require_authenticated_user
 from adapters.inbound.csrf import csrf_protected
 from adapters.inbound.fasthtml_types import Request
 from adapters.inbound.form_helpers import parse_form_body
+from adapters.inbound.route_factories import refuse_not_found
 from core.models.choice.choice_request import ChoiceCreateRequest, ChoiceUpdateRequest
 from core.utils.connection_configs import CHOICE_CONNECTION_CONFIG
 from core.utils.entity_filters import filter_choices
@@ -58,7 +59,7 @@ def create_choices_ui_routes(
         page_title="Choices",
         filter_params=(("status", "pending"), ("sort_by", "deadline")),
         get_all=choices_service.get_user_choices,
-        get_one=choices_service.get_choice,
+        get_owned=choices_service.verify_ownership,
         backend=connection_fetch_backend,
         filter_fn=filter_choices,
         connection_config=CHOICE_CONNECTION_CONFIG,
@@ -119,15 +120,17 @@ def create_choices_ui_routes(
                 request=request,
             )
 
-        result = await choices_service.get_choice(uid)
-        if result.is_error or result.value.user_uid != user_uid:
-            return render_activity_sidebar_error(
-                "Choice not found",
-                active="choices",
-                request=request,
+        owned = await choices_service.verify_ownership(uid, user_uid)
+        if owned.is_error:
+            return refuse_not_found(
+                render_activity_sidebar_error(
+                    "Choice not found",
+                    active="choices",
+                    request=request,
+                )
             )
+        choice = owned.value
 
-        choice = result.value
         content = Div(
             PageHeader(f"Edit: {choice.title}"),
             ChoiceEditForm(choice),
@@ -148,14 +151,16 @@ def create_choices_ui_routes(
                 request=request,
             )
 
-        existing = await choices_service.get_choice(uid)
-        if existing.is_error or existing.value.user_uid != user_uid:
-            return render_activity_sidebar_error(
-                "Choice not found",
-                active="choices",
-                request=request,
+        owned = await choices_service.verify_ownership(uid, user_uid)
+        if owned.is_error:
+            return refuse_not_found(
+                render_activity_sidebar_error(
+                    "Choice not found",
+                    active="choices",
+                    request=request,
+                )
             )
-        choice = existing.value
+        choice = owned.value
 
         parsed = await parse_form_body(request, ChoiceUpdateRequest)
         if parsed.is_error:
