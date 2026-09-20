@@ -1030,12 +1030,14 @@ _LINE_CITATION_EXTENSIONS = "|".join(re.escape(ext[1:]) for ext in sorted(LOCAL_
 # (`csrf.py:78-92, 195-199`); every one is checked.
 _RANGE = r"L?\d{1,6}(?:[-–]L?\d{1,6})?"
 _RANGES = _RANGE + r"(?:,\s*" + _RANGE + r")*"
-# The trailing guard also refuses a dash: `file.py:3-oops` is an incomplete range, not
-# the citation `file.py:3` with a suffix.
+# The trailing guard refuses a dash and a further comma-range: `file.py:3-oops` and
+# `file.py:3, 8-oops` are malformed citations, not the citation `file.py:3` with a
+# suffix — a citation is read whole or not at all.
+_RANGES_END = r"(?![\w–-])(?!\s*,\s*L?\d)"
 LINE_CITATION_RE = re.compile(
     r"(?<![\w/.-])"
     r"(/?(?:[\w.-]+/)*[\w.-]+\.(?:" + _LINE_CITATION_EXTENSIONS + r"))"
-    r":(" + _RANGES + r")(?![\w–-])"
+    r":(" + _RANGES + r")" + _RANGES_END
 )
 # The prose forms: "line 470 of `ku_ui.py`", "`ku_ui.py` line 470", "`x.py` (lines 3–9, 40)".
 # The same leading lookbehind as the direct form, so a URL's tail never reads as a
@@ -1044,13 +1046,16 @@ _PROSE_FILE = r"(?<![\w/.-])`?(/?(?:[\w.-]+/)*[\w.-]+\.(?:" + _LINE_CITATION_EXT
 LINE_PROSE_RE = re.compile(
     r"\blines?\s+("
     + _RANGES
-    + r")\s+(?:of|in)\s+"
+    + r")"
+    + _RANGES_END
+    + r"\s+(?:of|in)\s+"
     + _PROSE_FILE
     + r"|"
     + _PROSE_FILE
     + r"\s*(?:\(|,\s*)?lines?\s+("
     + _RANGES
-    + r")\b",
+    + r")\b"
+    + _RANGES_END,
     re.IGNORECASE,
 )
 

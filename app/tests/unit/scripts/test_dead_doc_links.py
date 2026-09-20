@@ -1459,8 +1459,9 @@ def test_every_citation_form_checks_its_last_line(cited_tree: Path, citation: st
 
 
 def test_line_citation_of_a_missing_file_is_reported(cited_tree: Path) -> None:
-    """`_looks_like_local_path("core/gone.py:3")` is False — the colon fails the shape
-    test — so without this pass a `:N` citation of a deleted file is invisible."""
+    """A `:N` citation names a file the other passes do not read
+    (`_looks_like_local_path("core/gone.py:3")` is False on the colon); this pass
+    reports the missing file."""
     assert not ddl._looks_like_local_path("core/gone.py:3")
     scan = _scan(cited_tree, "# P\n\nSee `core/gone.py:3`.\n")
     assert _line_rows(scan) == {(3, "core/gone.py:3 (FILE_MISSING)")}
@@ -1535,6 +1536,9 @@ def test_a_descending_or_incomplete_range_is_reported(cited_tree: Path) -> None:
     scan = _scan(cited_tree, "# P\n\n`core/x.py:8-3`\n\n`core/x.py:3-oops`\n")
     assert _line_rows(scan) == {(3, "core/x.py:8-3 (NOT_A_RANGE — descending)")}
     assert ddl.extract_line_citations("`core/x.py:3-oops`") == []
+    # ...and a malformed LATER range does not leave a shorter, valid-looking citation.
+    assert ddl.extract_line_citations("`core/x.py:3, 8-oops`") == []
+    assert ddl.extract_line_citations("`core/x.py:3, 8-9`")[0].ranges == "3, 8-9"
 
 
 def test_a_direct_target_must_be_tracked(cited_tree: Path, monkeypatch: pytest.MonkeyPatch) -> None:
