@@ -327,7 +327,7 @@
             }
         });
 
-        // After HTMX request succeeds
+        // After HTMX swaps a response in
         body.addEventListener('htmx:afterSwap', function(event) {
             var target = event.detail.target;
             var elt = event.detail.elt;  // The element that triggered the request
@@ -335,6 +335,15 @@
             // Remove aria-busy from target element
             if (target) {
                 target.setAttribute('aria-busy', 'false');
+            }
+
+            // A swap is not a success: a rendered ownership refusal (404 with
+            // X-SKUEL-Refusal, opted in by the beforeSwap listener above) swaps
+            // its banner in and is still an error — announcing "Status updated"
+            // ahead of the banner's own alert would misreport it. htmx sets
+            // `successful` from the status before the swap.
+            if (event.detail.successful === false) {
+                return;
             }
 
             var successMessage = null;

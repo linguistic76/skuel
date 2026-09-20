@@ -100,6 +100,8 @@ Div(
    - Falls back to URL path auto-detection
 
 2. **`htmx:afterSwap`** — Clears `aria-busy`, announces success
+   - Returns after clearing `aria-busy` when `event.detail.successful` is false — a
+     swapped refusal (item 4) is not a success and must not read as "Status updated"
    - Checks `data-announce` on triggering element first
    - Checks `data-announce` in swapped content second
    - Falls back to URL path auto-detection

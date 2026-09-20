@@ -43,8 +43,9 @@ _USER = "user_owner"
 _FOREIGN_UID = "task_not_mine"
 
 # Each registrar is (app, rt, service, connection_fetch_backend, ...) — the six differ in
-# their optional tail, so the map is typed at the shape they share.
-_REGISTRARS: dict[str, Callable[..., Any]] = {
+# their optional tail (extra services / a verifier), so the map is typed at the four
+# positionals they share.
+_REGISTRARS: dict[str, Callable[..., Any]] = {  # boundary: six registrar signatures, one call shape
     "tasks": create_tasks_ui_routes,
     "goals": create_goals_ui_routes,
     "habits": create_habits_ui_routes,
