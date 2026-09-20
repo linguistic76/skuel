@@ -114,7 +114,7 @@ Dots join authored curriculum segments; a colon never appears in an authored cur
 |--------------|-----------|--------|---------|
 | `USES_KU` | outgoing | KU | PathStep composes atomic Kus |
 | `REQUIRES_KNOWLEDGE` | outgoing | KU | Knowledge prerequisites |
-| `ENABLES_KNOWLEDGE` | outgoing | KU | Knowledge this step unlocks |
+| `ENABLES_KNOWLEDGE` | outgoing | Entity (PS or KU) | What this step unlocks — `PS_CONFIG` registers it against `Entity`; `connections.enables` in a vault file draws PS → PS as readily as PS → KU |
 | `HAS_NARROWER` | outgoing | PS | Subconcepts |
 | `RELATED_TO` | both | PS | Related topics |
 | `ORGANIZES` | outgoing | PS / KU | Non-linear organization (MOC pattern) |
