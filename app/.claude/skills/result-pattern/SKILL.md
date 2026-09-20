@@ -318,7 +318,8 @@ async def habit_track(request: Request) -> Result[dict[str, Any]]:
     if parsed.is_error:
         return Result.fail(parsed)  # 400 with validation details (SKUEL028: propagate, don't unwrap)
     req = parsed.value
-    # The owner uid is a model field — verified AFTER parsing, 404 for a habit that is not yours.
+    # Here the owner uid is a model field, so it is verified AFTER parsing (404 for a habit that is
+    # not yours). A query-string owner uid (POST /api/principles/link?uid=) is verified BEFORE parsing.
     ownership_error = await verify_entity_ownership(habits_service, req.habit_uid, user_uid, "habit")
     if ownership_error:
         return ownership_error

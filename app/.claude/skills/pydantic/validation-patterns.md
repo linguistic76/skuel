@@ -419,9 +419,10 @@ req = result.value
 # Form data → Pydantic model → Result[T] (empty strings → None)
 result = await parse_form_body(request, RequestRevisionRequest)
 
-# An ownership-verified POST carries its owner uid as a model field (TrackHabitRequest.habit_uid):
-# parse first, then verify_entity_ownership(service, req.habit_uid, user_uid, ...) — nothing is
-# merged into the body before validation.
+# When the owner uid is a model field (TrackHabitRequest.habit_uid): parse first, then
+# verify_entity_ownership(service, req.habit_uid, user_uid, ...). When it is in the query string
+# (POST /api/principles/link?uid=): verify first, then parse — that model's `uid` is the target.
+# Nothing is merged into the body before validation.
 ```
 
 See: `/docs/patterns/API_VALIDATION_PATTERNS.md`

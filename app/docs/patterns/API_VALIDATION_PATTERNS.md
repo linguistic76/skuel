@@ -151,7 +151,7 @@ async def update_task(request: Request, uid: str) -> Result[Task]:
     return await tasks_service.update_task(uid, result.value.to_intent())
 ```
 
-**Ownership-verified POSTs** carry the owner uid as a field of the model (`TrackHabitRequest.habit_uid`) and verify it *after* parsing — `parse_json_body` then `verify_entity_ownership(habits_service, req.habit_uid, user_uid, "habit")` (`adapters/inbound/habits_api.py`, `POST /api/habits/track`). The parser merges nothing into the body.
+**Ownership-verified POSTs** verify the owner uid wherever it travels. When it is a model field (`TrackHabitRequest.habit_uid`): `parse_json_body`, then `verify_entity_ownership(habits_service, req.habit_uid, user_uid, "habit")` (`adapters/inbound/habits_api.py`, `POST /api/habits/track`). When it is in the query string (`POST /api/principles/link?uid=`): verify first, then parse — that model's `uid` is the link *target*, verified on its own. The parser merges nothing into the body.
 
 **Benefits:**
 - ✅ Automatic structure + type validation via Pydantic
@@ -838,7 +838,7 @@ async def update_task(request: Request, uid: str) -> Result[Task]:
     return await tasks_service.update_task(uid, result.value.to_intent())
 ```
 
-**For ownership-verified routes** (the owner uid is a model field; parse first, then verify — `POST /api/habits/track`):
+**For ownership-verified routes whose owner uid is a model field** (parse first, then verify — `POST /api/habits/track`; a query-string owner uid is verified before parsing, as `POST /api/principles/link?uid=` does):
 ```python
 @rt("/api/habits/track", methods=["POST"])
 @csrf_protected
@@ -962,7 +962,7 @@ the 400 example above from this very model.
 - `CreateTeachingExerciseRequest` — demonstrates enum coercion, cross-field validation, date parsing in a single Pydantic model
 
 **Activity Domain APIs** (habits, principles — the hand-written ownership-verified POSTs):
-- `parse_json_body()` first, then `verify_entity_ownership()` on the model's owner-uid field
+- owner uid in the model (`habits/track`): `parse_json_body()` first, then `verify_entity_ownership()` on that field; owner uid in the query (`principles/link?uid=`): verify first, then parse
 - Example: `POST /api/habits/track` above; `create_activity_link_api_routes` is the config-driven form of the same order (`CrossDomainLinkSpec.owner_uid_field`)
 
 **Groups API** (`adapters/inbound/groups_api.py`):
