@@ -62,7 +62,9 @@ Default scope is the link checker's corpus, `dead_doc_links.get_md_files()` — 
 `.claude/skills/` with its carve-outs inherited, so the history directories
 (`docs/roadmap/done/`, `docs/migrations/`, …) are out by construction: a dated record
 narrating is the record. A path argument under `--docs` scans the `.md` files beneath
-it; an explicit path ending in `.md` takes the Markdown reader with or without the flag.
+it (an explicit file there must itself be Markdown — a Python file under the Markdown
+banner is a usage error); an explicit path ending in `.md` takes the Markdown reader
+with or without the flag, and the report says so.
 
 **A `date` hit inside live `docs/roadmap/` is the case file doing its job.** Its
 `ruled:` / `registered:` lines are dated by contract (`deferred-work.md` is a MOC over
