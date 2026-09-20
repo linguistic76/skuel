@@ -18,6 +18,7 @@ from unittest.mock import AsyncMock, Mock
 import pytest
 
 from core.services.ps.ps_organization_service import (
+    SHARED_CURRICULUM_TYPES,
     OrganizedStep,
     PsOrganizationService,
     StepOrganizationView,
@@ -66,14 +67,28 @@ def sample_ku() -> Mock:
     return ku
 
 
+@pytest.fixture
+def subject_is_path_step(mock_ku_service, sample_ku) -> Mock:
+    """The subject uid resolves to a PathStep — every read's precondition."""
+    mock_ku_service.get.return_value = Result.ok(sample_ku)
+    return mock_ku_service
+
+
+@pytest.fixture
+def subject_is_not_path_step(mock_ku_service) -> Mock:
+    """The subject uid is not a PathStep (a Ku, a UserEntry, or nothing at all)."""
+    mock_ku_service.get.return_value = Result.ok(None)
+    return mock_ku_service
+
+
 # ============================================================================
 # IDENTITY TESTS
 # ============================================================================
 
 
 @pytest.mark.asyncio
-async def test_is_organizer_true(organization_service, mock_backend):
-    """Test is_organizer returns True when Ku has organized children."""
+async def test_is_organizer_true(organization_service, mock_backend, subject_is_path_step):
+    """Test is_organizer returns True when the PathStep has organized children."""
     mock_backend.is_organizer.return_value = Result.ok(True)
 
     result = await organization_service.is_organizer("ku.python-reference")
@@ -84,8 +99,8 @@ async def test_is_organizer_true(organization_service, mock_backend):
 
 
 @pytest.mark.asyncio
-async def test_is_organizer_false(organization_service, mock_backend):
-    """Test is_organizer returns False when Ku has no children."""
+async def test_is_organizer_false(organization_service, mock_backend, subject_is_path_step):
+    """Test is_organizer returns False when the PathStep has no children."""
     mock_backend.is_organizer.return_value = Result.ok(False)
 
     result = await organization_service.is_organizer("ku.standalone")
@@ -95,8 +110,8 @@ async def test_is_organizer_false(organization_service, mock_backend):
 
 
 @pytest.mark.asyncio
-async def test_is_organizer_not_found(organization_service, mock_backend):
-    """Test is_organizer returns error when Ku doesn't exist."""
+async def test_is_organizer_not_found(organization_service, mock_backend, subject_is_path_step):
+    """Test is_organizer propagates the backend's not-found."""
     mock_backend.is_organizer.return_value = Result.fail(
         Errors.not_found(resource="Ku", identifier="ku.nonexistent")
     )
@@ -104,6 +119,17 @@ async def test_is_organizer_not_found(organization_service, mock_backend):
     result = await organization_service.is_organizer("ku.nonexistent")
 
     assert result.is_error
+
+
+@pytest.mark.asyncio
+async def test_is_organizer_refuses_a_non_path_step_subject(
+    organization_service, mock_backend, subject_is_not_path_step
+):
+    """A UserEntry map (or any non-PathStep uid) is not-found before the graph is read."""
+    result = await organization_service.is_organizer("ue_private_map")
+
+    assert result.is_error
+    mock_backend.is_organizer.assert_not_called()
 
 
 # ============================================================================
@@ -212,8 +238,8 @@ async def test_reorder_success(organization_service, mock_backend):
 
 
 @pytest.mark.asyncio
-async def test_find_organizers_success(organization_service, mock_backend):
-    """Test find_organizers returns parent organizers."""
+async def test_find_organizers_success(organization_service, mock_backend, subject_is_path_step):
+    """find_organizers returns the parents the backend answers, scoped to shared curriculum."""
     mock_backend.find_organizers.return_value = Result.ok(
         [
             {"uid": "ku.python-reference", "title": "Python Reference", "order": 0},
@@ -228,11 +254,25 @@ async def test_find_organizers_success(organization_service, mock_backend):
     assert len(organizers) == 2
     assert organizers[0]["uid"] == "ku.python-reference"
     assert organizers[1]["uid"] == "ku.web-development"
+    mock_backend.find_organizers.assert_called_once_with(
+        "ku.python-basics", organizer_types=SHARED_CURRICULUM_TYPES
+    )
+
+
+@pytest.mark.asyncio
+async def test_find_organizers_refuses_a_non_path_step_subject(
+    organization_service, mock_backend, subject_is_not_path_step
+):
+    """A private map's organizers are never read through the PathStep door."""
+    result = await organization_service.find_organizers("ue_private_map")
+
+    assert result.is_error
+    mock_backend.find_organizers.assert_not_called()
 
 
 @pytest.mark.asyncio
 async def test_list_root_organizers_success(organization_service, mock_backend):
-    """Test list_root_organizers returns top-level organizers."""
+    """list_root_organizers is the one unanchored read — it carries the scope on every call."""
     mock_backend.list_root_organizers.return_value = Result.ok(
         [
             {"uid": "ku.python-reference", "title": "Python Reference", "child_count": 5},
@@ -246,11 +286,16 @@ async def test_list_root_organizers_success(organization_service, mock_backend):
     roots = result.value
     assert len(roots) == 2
     assert roots[0]["child_count"] == 5
+    mock_backend.list_root_organizers.assert_called_once_with(
+        50, root_types=SHARED_CURRICULUM_TYPES
+    )
 
 
 @pytest.mark.asyncio
-async def test_get_organized_children_success(organization_service, mock_backend):
-    """Test get_organized_children returns direct children."""
+async def test_get_organized_children_success(
+    organization_service, mock_backend, subject_is_path_step
+):
+    """get_organized_children returns the direct children, scoped to shared curriculum."""
     mock_backend.get_organized_children.return_value = Result.ok(
         [
             {"uid": "ku.python-basics", "title": "Python Basics", "order": 0},
@@ -265,6 +310,30 @@ async def test_get_organized_children_success(organization_service, mock_backend
     assert len(children) == 2
     assert children[0]["order"] == 0
     assert children[1]["order"] == 1
+    mock_backend.get_organized_children.assert_called_once_with(
+        "ku.python-reference", child_types=SHARED_CURRICULUM_TYPES
+    )
+
+
+@pytest.mark.asyncio
+async def test_get_organized_children_refuses_a_non_path_step_subject(
+    organization_service, mock_backend, subject_is_not_path_step
+):
+    """A private map's children are never read through the PathStep door."""
+    result = await organization_service.get_organized_children("ue_private_map")
+
+    assert result.is_error
+    mock_backend.get_organized_children.assert_not_called()
+
+
+def test_shared_curriculum_scope_excludes_every_user_owned_type():
+    """The scope is derived from the enum: every CURRICULUM-origin type, no user-owned type."""
+    from core.models.enums.entity_enums import ContentOrigin, EntityType
+
+    scoped = set(SHARED_CURRICULUM_TYPES)
+    assert scoped == {t.value for t in EntityType if t.content_origin() is ContentOrigin.CURRICULUM}
+    assert EntityType.USER_ENTRY.value not in scoped
+    assert not any(EntityType(t).requires_user_uid() for t in scoped)
 
 
 # ============================================================================

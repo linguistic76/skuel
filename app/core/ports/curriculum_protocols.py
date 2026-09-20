@@ -130,6 +130,7 @@ from core.ports.query_types import (
 from .base_protocols import BackendOperations, GraphRelationshipOperations
 
 if TYPE_CHECKING:
+    from collections.abc import Sequence
     from datetime import date
 
     from core.infrastructure.relationships.semantic_relationships import (
@@ -570,17 +571,29 @@ class PsOrganizesBackendOperations(Protocol):
         ...
 
     async def get_organized_children(
-        self, parent_uid: str, limit: int | None = None
+        self,
+        parent_uid: str,
+        limit: int | None = None,
+        *,
+        child_types: Sequence[str] | None = None,
     ) -> Result[list[OrganizerResult]]:
-        """Direct ORGANIZES children of an entity, ordered by position."""
+        """Direct ORGANIZES children of an entity, ordered by position.
+
+        ``child_types`` scopes the children by ``entity_type`` — the shared-content
+        caller's guard against returning a user-owned entity.
+        """
         ...
 
-    async def find_organizers(self, entity_uid: str) -> Result[list[OrganizerResult]]:
-        """Find all parent entities that organize the given entity."""
+    async def find_organizers(
+        self, entity_uid: str, *, organizer_types: Sequence[str] | None = None
+    ) -> Result[list[OrganizerResult]]:
+        """Find all parent entities that organize the given entity, scoped by ``entity_type``."""
         ...
 
-    async def list_root_organizers(self, limit: int = 50) -> Result[list[RootOrganizerResult]]:
-        """List entities that organize others but are not themselves organized."""
+    async def list_root_organizers(
+        self, limit: int = 50, *, root_types: Sequence[str] | None = None
+    ) -> Result[list[RootOrganizerResult]]:
+        """List entities that organize others but are not themselves organized, scoped by ``entity_type``."""
         ...
 
 

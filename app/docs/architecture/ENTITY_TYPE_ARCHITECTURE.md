@@ -452,7 +452,7 @@ Groups mediate ALL teacher-student relationships. Teacher creates group -> adds 
 
 ### MOC (Map of Content) — Emergent Organization
 
-MOC is NOT a separate entity — it IS an Entity with `ORGANIZES` relationships. An Entity "is" a MOC when it has outgoing `ORGANIZES` relationships (emergent identity). The operations are `PsService.organization` (`PsOrganizationService`) over the `_OrganizesMixin` backend — the edge-level reads (`is_organizer`, `find_organizers`, `get_organized_children`, `list_root_organizers`) answer for any entity; `get_organization_view`, `get_navigation` and the create `organize` go through `ps_core.get()` and need a PathStep; cross-entity edges are authored in the vault (`moc: true`).
+MOC is NOT a separate entity — it IS an Entity with `ORGANIZES` relationships. An Entity "is" a MOC when it has outgoing `ORGANIZES` relationships (emergent identity). The operations are `PsService.organization` (`PsOrganizationService`) over the `_OrganizesMixin` backend — behind the unauthenticated PathStep API every read and the create take a PathStep subject (`ps_core.get()`) and return shared-curriculum entities only (`SHARED_CURRICULUM_TYPES` on the query), so a personal `moc: true` map is never read through that door; cross-entity edges are authored in the vault (`moc: true`) and read owner-verified on `/gradebook/{uid}`.
 
 ```cypher
 (parent:Entity)-[:ORGANIZES {order: int}]->(child:Entity)

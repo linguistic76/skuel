@@ -20,17 +20,29 @@ See: /docs/architecture/CURRICULUM_GROUPING_PATTERNS.md
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, Final
 
 if TYPE_CHECKING:
+    from core.models.pathways.path_step import PathStep
     from core.ports.curriculum_protocols import PsOrganizesBackendOperations
     from core.services.ps.ps_core_service import PsCoreService
 
+from core.models.enums.entity_enums import ContentOrigin, EntityType
 from core.ports.query_types import OrganizerResult, RootOrganizerResult
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
 
 logger = get_logger("skuel.services.ps.organization")
+
+# The entity types this service's reads may return. The PathStep API answers
+# unauthenticated callers (curriculum is shared content), and the ORGANIZES edge
+# joins any two entities — a personal-vault ``moc: true`` UserEntry organizes
+# PathSteps too. Every read here is therefore scoped to shared curriculum by
+# ``entity_type``, so a user-owned organizer, child or root never leaves the
+# graph through this door. Derived from the enum, never hand-listed.
+SHARED_CURRICULUM_TYPES: Final[tuple[str, ...]] = tuple(
+    t.value for t in EntityType if t.content_origin() is ContentOrigin.CURRICULUM
+)
 
 
 @dataclass
@@ -89,6 +101,19 @@ class PsOrganizationService:
 
     Any PathStep can organize other PathSteps — not limited to a specific EntityType.
     This service provides convenient access patterns for hierarchical navigation.
+
+    Two guards make it safe behind the unauthenticated PathStep API:
+
+    - **The subject is a PathStep.** Every read and the create resolve their uid
+      through ``ps_core`` (a ``:PathStep`` match) and answer not-found for any
+      other entity, so a user-owned entity is never the subject of a read here.
+    - **The other end is shared curriculum.** Organizers, children and roots are
+      scoped to ``SHARED_CURRICULUM_TYPES`` on the backend query, so a personal
+      map that organizes a PathStep is not returned as its organizer and never
+      appears as a root.
+
+    ``unorganize`` and ``reorder`` act on an existing edge by its two uids and
+    carry no guard — they are admin-only at the route.
     """
 
     def __init__(
@@ -104,21 +129,30 @@ class PsOrganizationService:
     # IDENTITY OPERATIONS
     # =========================================================================
 
+    async def _require_path_step(self, ps_uid: str) -> Result[PathStep]:
+        """The subject of a read or a create, or not-found when it is not a PathStep."""
+        ps_result = await self.ps_core.get(ps_uid)
+        if ps_result.is_error:
+            return Result.fail(ps_result)
+        if not ps_result.value:
+            return Result.fail(Errors.not_found(resource="PathStep", identifier=ps_uid))
+        return Result.ok(ps_result.value)
+
     async def is_organizer(self, ps_uid: str) -> Result[bool]:
         """Check if a PathStep has organized children (outgoing ORGANIZES relationships)."""
+        subject = await self._require_path_step(ps_uid)
+        if subject.is_error:
+            return Result.fail(subject)
         return await self.backend.is_organizer(ps_uid)
 
     async def get_organization_view(
         self, ps_uid: str, max_depth: int = 3
     ) -> Result[StepOrganizationView]:
         """Get a PathStep with its organized children hierarchy."""
-        ps_result = await self.ps_core.get(ps_uid)
-        if ps_result.is_error:
-            return Result.fail(ps_result)
-
-        ps = ps_result.value
-        if not ps:
-            return Result.fail(Errors.not_found(resource="PathStep", identifier=ps_uid))
+        subject = await self._require_path_step(ps_uid)
+        if subject.is_error:
+            return Result.fail(subject)
+        ps = subject.value
 
         children, total = await self._get_organized_children(ps_uid, max_depth)
 
@@ -138,7 +172,9 @@ class PsOrganizationService:
         if current_depth >= max_depth:
             return [], 0
 
-        result = await self.backend.get_organized_children(parent_uid)
+        result = await self.backend.get_organized_children(
+            parent_uid, child_types=SHARED_CURRICULUM_TYPES
+        )
         if result.is_error:
             self.logger.error(
                 "Error getting organized children - returning empty",
@@ -186,19 +222,12 @@ class PsOrganizationService:
         order: int = 0,
     ) -> Result[bool]:
         """Organize a PathStep under another PathStep (create ORGANIZES relationship)."""
-        parent_result = await self.ps_core.get(parent_uid)
-        if parent_result.is_error:
-            return Result.fail(parent_result)
-        if not parent_result.value:
-            return Result.fail(
-                Errors.not_found(resource="PathStep (parent)", identifier=parent_uid)
-            )
-
-        child_result = await self.ps_core.get(child_uid)
-        if child_result.is_error:
-            return Result.fail(child_result)
-        if not child_result.value:
-            return Result.fail(Errors.not_found(resource="PathStep (child)", identifier=child_uid))
+        parent = await self._require_path_step(parent_uid)
+        if parent.is_error:
+            return Result.fail(parent)
+        child = await self._require_path_step(child_uid)
+        if child.is_error:
+            return Result.fail(child)
 
         return await self.backend.organize(parent_uid, child_uid, order)
 
@@ -220,7 +249,13 @@ class PsOrganizationService:
         Database errors are propagated (not hidden). Legitimate empty states
         (no organizers, not found in children) return empty StepNavigation.
         """
-        organizers_result = await self.backend.find_organizers(ps_uid)
+        subject = await self._require_path_step(ps_uid)
+        if subject.is_error:
+            return Result.fail(subject)
+
+        organizers_result = await self.backend.find_organizers(
+            ps_uid, organizer_types=SHARED_CURRICULUM_TYPES
+        )
         if organizers_result.is_error:
             return Result.fail(organizers_result)
 
@@ -256,13 +291,21 @@ class PsOrganizationService:
         )
 
     async def find_organizers(self, ps_uid: str) -> Result[list[OrganizerResult]]:
-        """Find all parent PathSteps that organize the given PathStep."""
-        return await self.backend.find_organizers(ps_uid)
+        """The shared-curriculum organizers of a PathStep; not-found for any other subject."""
+        subject = await self._require_path_step(ps_uid)
+        if subject.is_error:
+            return Result.fail(subject)
+        return await self.backend.find_organizers(ps_uid, organizer_types=SHARED_CURRICULUM_TYPES)
 
     async def list_root_organizers(self, limit: int = 50) -> Result[list[RootOrganizerResult]]:
-        """List PathSteps that organize others but are not themselves organized (root organizers)."""
-        return await self.backend.list_root_organizers(limit)
+        """Shared-curriculum entities that organize others and are organized by nothing."""
+        return await self.backend.list_root_organizers(limit, root_types=SHARED_CURRICULUM_TYPES)
 
     async def get_organized_children(self, ps_uid: str) -> Result[list[OrganizerResult]]:
-        """Get direct children of a PathStep organized by ORGANIZES relationship."""
-        return await self.backend.get_organized_children(ps_uid)
+        """The shared-curriculum children a PathStep organizes; not-found for any other subject."""
+        subject = await self._require_path_step(ps_uid)
+        if subject.is_error:
+            return Result.fail(subject)
+        return await self.backend.get_organized_children(
+            ps_uid, child_types=SHARED_CURRICULUM_TYPES
+        )

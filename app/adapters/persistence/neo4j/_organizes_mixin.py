@@ -29,6 +29,7 @@ from core.utils.result_simplified import Errors, Result
 if TYPE_CHECKING:
     import builtins
     import logging
+    from collections.abc import Sequence
 
     from core.models.type_hints import Neo4jProperties
 
@@ -40,6 +41,16 @@ class _OrganizesMixin:
     1. Add ``_OrganizesMixin`` to their class bases.
 
     All methods return raw records — the service layer converts to typed models.
+
+    Every statement matches ``:Entity`` — an organizer or a child can be any
+    entity type, which is what makes MOC identity emergent. The three reads that
+    return other nodes' uids and titles (``get_organized_children``,
+    ``find_organizers``, ``list_root_organizers``) therefore take an optional
+    ``entity_type`` scope: a caller serving shared content passes the curriculum
+    types so a user-owned entity (a personal-vault ``moc: true`` map) is never
+    returned through an unauthenticated read; an owner-verified caller
+    (``UserEntryBackend`` behind ``/gradebook/{uid}``) passes none. The scope is
+    the caller's policy; the mixin only applies it.
 
     Requires on concrete class:
         execute_query: async (query, params) -> Result[list[dict]]
@@ -124,16 +135,28 @@ class _OrganizesMixin:
         return Result.ok(bool(result.value and result.value[0]["success"]))
 
     async def get_organized_children(
-        self, parent_uid: str, limit: int | None = None
+        self,
+        parent_uid: str,
+        limit: int | None = None,
+        *,
+        child_types: Sequence[str] | None = None,
     ) -> Result[list[OrganizerResult]]:
-        """Get direct ORGANIZES children of an entity, ordered by position."""
-        query = """
-        MATCH (parent:Entity {uid: $parent_uid})-[r:ORGANIZES]->(child:Entity)
+        """Get direct ORGANIZES children of an entity, ordered by position.
+
+        ``child_types`` — when given, only children whose ``entity_type`` is in
+        it are returned (the shared-content scope; see the class docstring).
+        """
+        scope = "WHERE child.entity_type IN $child_types" if child_types is not None else ""
+        query = f"""
+        MATCH (parent:Entity {{uid: $parent_uid}})-[r:ORGANIZES]->(child:Entity)
+        {scope}
         RETURN child.uid AS uid, child.title AS title, r.order AS order,
                child.entity_type AS entity_type
         ORDER BY r.order ASC
         """
         params: dict[str, Any] = {"parent_uid": parent_uid}
+        if child_types is not None:
+            params["child_types"] = list(child_types)
         if limit is not None:
             query += "\nLIMIT $limit"
             params["limit"] = limit
@@ -151,15 +174,28 @@ class _OrganizesMixin:
         ]
         return Result.ok(children)
 
-    async def find_organizers(self, entity_uid: str) -> Result[list[OrganizerResult]]:
-        """Find all parent entities that organize the given entity."""
-        query = """
-        MATCH (parent:Entity)-[r:ORGANIZES]->(n:Entity {uid: $entity_uid})
+    async def find_organizers(
+        self, entity_uid: str, *, organizer_types: Sequence[str] | None = None
+    ) -> Result[list[OrganizerResult]]:
+        """Find all parent entities that organize the given entity.
+
+        ``organizer_types`` — when given, only parents whose ``entity_type`` is
+        in it are returned (the shared-content scope; see the class docstring).
+        """
+        scope = (
+            "WHERE parent.entity_type IN $organizer_types" if organizer_types is not None else ""
+        )
+        query = f"""
+        MATCH (parent:Entity)-[r:ORGANIZES]->(n:Entity {{uid: $entity_uid}})
+        {scope}
         RETURN parent.uid AS uid, parent.title AS title, r.order AS order,
                parent.entity_type AS entity_type
         ORDER BY parent.title
         """
-        result = await self.execute_query(query, {"entity_uid": entity_uid})
+        params: dict[str, Any] = {"entity_uid": entity_uid}
+        if organizer_types is not None:
+            params["organizer_types"] = list(organizer_types)
+        result = await self.execute_query(query, params)
         if result.is_error:
             return Result.fail(result)
         organizers: list[OrganizerResult] = [
@@ -173,23 +209,35 @@ class _OrganizesMixin:
         ]
         return Result.ok(organizers)
 
-    async def list_root_organizers(self, limit: int = 50) -> Result[list[RootOrganizerResult]]:
-        """List entities that organize others but are not themselves organized (root organizers)."""
+    async def list_root_organizers(
+        self, limit: int = 50, *, root_types: Sequence[str] | None = None
+    ) -> Result[list[RootOrganizerResult]]:
+        """List entities that organize others but are not themselves organized (root organizers).
+
+        ``root_types`` — when given, only roots whose ``entity_type`` is in it are
+        listed (the shared-content scope; see the class docstring). An unanchored
+        listing is the one read that can enumerate the whole graph, so the
+        unauthenticated caller must scope it.
+        """
         # Discovery: the MOC browse entry point — an unanchored listing of every
-        # root organizer, which on this graph is largely Kus and PathSteps.
-        # Draft curriculum withheld; NULL-tolerant (#1006).
+        # root organizer. Draft curriculum withheld; NULL-tolerant (#1006).
         published, published_params = build_publication_clause("root")
+        scope = "AND root.entity_type IN $root_types" if root_types is not None else ""
         query = f"""
         MATCH (root:Entity)-[:ORGANIZES]->(:Entity)
         WHERE NOT EXISTS((:Entity)-[:ORGANIZES]->(root))
           AND {published}
+          {scope}
         WITH DISTINCT root
         OPTIONAL MATCH (root)-[:ORGANIZES]->(child:Entity)
         RETURN root.uid AS uid, root.title AS title, count(child) AS child_count
         ORDER BY root.title
         LIMIT $limit
         """
-        result = await self.execute_query(query, {"limit": limit, **published_params})
+        params: dict[str, Any] = {"limit": limit, **published_params}
+        if root_types is not None:
+            params["root_types"] = list(root_types)
+        result = await self.execute_query(query, params)
         if result.is_error:
             return Result.fail(result)
         roots: list[RootOrganizerResult] = [
