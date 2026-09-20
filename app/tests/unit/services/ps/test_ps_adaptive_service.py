@@ -149,3 +149,40 @@ class TestQueryUserMasteriesCarriesSelCategory:
 
         assert masteries["ku.mind.attention"].sel_category == SELCategory.SELF_AWARENESS.value
         assert masteries["ku_labeling_a1b2c3d4"].sel_category is None
+
+
+class TestSelJourneyCompletion:
+    @pytest.mark.asyncio
+    async def test_journey_completion_is_derived_from_mastered_over_total(self) -> None:
+        """Two of four Self-Awareness steps mastered reads 50% for the category and
+        10% overall (one of five categories); the recommendation moves past it. The
+        counts are the ONLY input — nothing sets a percentage the service could forget."""
+        from core.models.pathways.path_step import PathStep
+
+        steps = [PathStep(uid=f"ps.sel.s{i}", title=f"S{i}") for i in range(4)]
+
+        async def find_by(**kwargs: str) -> Result[list[PathStep]]:
+            if kwargs["sel_category"] == SELCategory.SELF_AWARENESS.value:
+                return Result.ok(steps)
+            return Result.ok([])
+
+        backend = Mock()
+        backend.find_by = find_by
+        service = PsAdaptiveService(backend=backend, user_service=Mock())
+        intel = make_intelligence(
+            {
+                "ps.sel.s0": make_mastery("ps.sel.s0", SELCategory.SELF_AWARENESS.value),
+                "ps.sel.s1": make_mastery("ps.sel.s1", SELCategory.SELF_AWARENESS.value),
+            }
+        )
+        service._load_user_intelligence = AsyncMock(return_value=intel)  # type: ignore[method-assign]
+
+        result = await service.get_sel_journey("user_test")
+
+        journey = result.value
+        awareness = journey.category_progress[SELCategory.SELF_AWARENESS]
+        assert (awareness.steps_mastered, awareness.total_steps) == (2, 4)
+        assert awareness.completion_percentage == 50.0
+        assert awareness.current_level == LearningLevel.ADVANCED
+        assert journey.overall_completion == pytest.approx(10.0)
+        assert journey.get_next_recommended_category() == SELCategory.SELF_MANAGEMENT

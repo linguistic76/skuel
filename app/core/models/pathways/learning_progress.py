@@ -35,40 +35,32 @@ class CurriculumProgress:
     steps_available: int = 0
     total_steps: int = 0
 
-    # Computed Progress
-    completion_percentage: float = 0.0  # 0-100
-    current_level: LearningLevel = LearningLevel.BEGINNER
-
     # Journey Tracking
     started_at: datetime = field(default_factory=datetime.now)
     last_activity: datetime = field(default_factory=datetime.now)
     estimated_completion_date: datetime | None = None
 
-    def calculate_progress(self) -> float:
-        """
-        Calculate completion percentage.
-
-        Returns:
-            Float between 0-100 representing progress percentage
-        """
+    # Completion and level are DERIVED from the counts — one source of truth, so
+    # a constructor cannot leave them at a default that disagrees with the counts.
+    @property
+    def completion_percentage(self) -> float:
+        """Completion, 0-100; an empty category is 0."""
         if self.total_steps == 0:
             return 0.0
         return (self.steps_mastered / self.total_steps) * 100
 
-    def determine_level(self) -> LearningLevel:
+    @property
+    def current_level(self) -> LearningLevel:
         """
-        Determine current learning level based on mastery.
+        Learning level implied by mastery.
 
         Business rules:
         - 0-24% complete → BEGINNER
         - 25-49% complete → INTERMEDIATE
         - 50-74% complete → ADVANCED
         - 75-100% complete → EXPERT
-
-        Returns:
-            LearningLevel appropriate for current progress
         """
-        progress = self.calculate_progress()
+        progress = self.completion_percentage
         if progress < 25:
             return LearningLevel.BEGINNER
         elif progress < 50:
