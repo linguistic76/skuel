@@ -156,7 +156,7 @@ and is read on its page. What is registered:
 - `GET /library/ku` — the signed-in user's bookmarked Kus (`PINNED`); anonymous callers get a sign-in empty state
 
 ### Lateral relationships (`adapters/inbound/lateral_routes.py`)
-- `/api/ku/{uid}/lateral/*` — the same lateral family every domain has (`prerequisites`, `enables`, `blocks`, `alternatives`, `complementary`, `chain`, `graph`, …)
+- `/api/ku/{uid}/lateral/*` — the lateral family the nine hierarchical domains share (the 6 Activity domains + Ku, PathStep, LearningPath — `_LATERAL_DOMAINS` in `lateral_routes.py`): `prerequisites`, `enables`, `blocks`, `alternatives`, `complementary`, `chain`, `graph`, …
 
 ### AI — none for Ku
 `/api/knowledge/ai/*` carries the `knowledge` URL segment but is bound to `services.ps`
