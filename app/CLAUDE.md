@@ -498,7 +498,7 @@ POST (Create) → 201, GET/PUT/DELETE → 200, POST (Action) → 200
 |---------|---------|
 | CRUDRouteFactory | Standard CRUD |
 | create_activity_field_api_routes | Inline field updates incl. status (`POST /api/{domain}/{uid}/{field}`) |
-| OwnershipRouteFactory | Ownership-verified domain routes (GET/POST with ownership checks) |
+| create_activity_hierarchy_api_routes / create_activity_link_api_routes | Activity hierarchy block; cross-domain link POSTs (owner + optional target verified) |
 | CommonQueryRouteFactory | Query patterns |
 | AnalyticsRouteFactory | Analytics |
 All support `scope=ContentScope.USER_OWNED` (default) or `ContentScope.SHARED` (curriculum, with `require_role=UserRole.ADMIN`). `role_gates_reads=False` allows role-gated mutations with open reads (Groups pattern). Scope and role are orthogonal — both ownership verification and role checks apply independently.

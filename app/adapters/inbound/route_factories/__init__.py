@@ -16,7 +16,8 @@ Factories:
 - CRUDRouteFactory: Standard CRUD operations (create, get, update, delete, list)
 - CommonQueryRouteFactory: Common query patterns (by user, by status, by category)
 - IntelligenceRouteFactory: AI/intelligence endpoints (analytics, recommendations)
-- OwnershipRouteFactory: Ownership-verified domain-specific routes
+- create_activity_{field,hierarchy,link}_api_routes + create_knowledge_patterns_api_route:
+  config-driven Activity Domain route blocks (a spec + a named ``apply`` adapter per route)
 """
 
 from adapters.inbound.route_factories.activity_field_api_factory import (
@@ -51,11 +52,6 @@ from adapters.inbound.route_factories.intelligence_route_factory import (
     IntelligenceOperations,
     IntelligenceRouteFactory,
 )
-from adapters.inbound.route_factories.ownership_route_factory import (
-    OwnershipOperations,
-    OwnershipRoute,
-    OwnershipRouteFactory,
-)
 from adapters.inbound.route_factories.query_route_factory import CommonQueryRouteFactory
 from adapters.inbound.route_factories.route_helpers import (
     DateRangeParams,
@@ -81,10 +77,10 @@ __all__ = [
     "ActivityFieldApiConfig",
     "FieldUpdateSpec",
     "create_activity_field_api_routes",
-    # Activity Domain hierarchy endpoint factory (July 2026)
+    # Activity Domain hierarchy endpoint factory
     "ActivityHierarchyApiConfig",
     "create_activity_hierarchy_api_routes",
-    # Activity Domain cross-domain link + knowledge-pattern factory (July 2026)
+    # Activity Domain cross-domain link + knowledge-pattern factory
     "CrossDomainLinkSpec",
     "LinkTargetSpec",
     "create_activity_link_api_routes",
@@ -92,7 +88,7 @@ __all__ = [
     "CRUDOperations",
     "CRUDRouteFactory",
     "CommonQueryRouteFactory",
-    # Domain route factory (January 2026)
+    # Domain route factory
     "CRUDRouteConfig",
     "DomainRouteConfig",
     "IntelligenceRouteConfig",
@@ -101,10 +97,6 @@ __all__ = [
     "register_domain_routes",
     "IntelligenceOperations",
     "IntelligenceRouteFactory",
-    # Ownership route factory (March 2026)
-    "OwnershipOperations",
-    "OwnershipRoute",
-    "OwnershipRouteFactory",
     # Shared route helpers
     "DateRangeParams",
     "PaginationParams",

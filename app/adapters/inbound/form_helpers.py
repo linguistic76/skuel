@@ -141,7 +141,6 @@ def parse_datetime_safe(value: str | None) -> datetime | None:
 async def parse_json_body[T: BaseModel](
     request: Request,
     schema: type[T],
-    extra: dict[str, Any] | None = None,
 ) -> Result[T]:
     """Parse JSON request body into a Pydantic model, returning Result[T].
 
@@ -150,8 +149,6 @@ async def parse_json_body[T: BaseModel](
     Args:
         request: Starlette/FastHTML request
         schema: Pydantic model class to validate against
-        extra: Optional extra fields to merge into body before validation
-               (e.g., ``{"habit_uid": entity.uid}``)
 
     Returns:
         Result.ok(model) on success, Result.fail(validation error) on failure
@@ -167,9 +164,6 @@ async def parse_json_body[T: BaseModel](
         body = await request.json()
     except Exception:  # safety-net: JSON parsing boundary
         return Result.fail(Errors.validation("Invalid JSON body"))
-
-    if extra:
-        body = {**body, **extra}
 
     try:
         return Result.ok(schema.model_validate(body))

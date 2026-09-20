@@ -135,7 +135,7 @@ All 6 activity domain UI files extract form parsing into module-level pure funct
 - `ActivityFilters` + `parse_activity_filters()` — shared 2-field filter dataclass for Goals, Habits, Events, Choices
 
 **Structured body helpers** (for API routes with Pydantic models):
-- `parse_json_body(request, schema, extra=None)` → `Result[T]` — parses JSON body into a Pydantic model. Handles both JSON parse errors and ValidationError, converting to `Result.fail()`. Use `extra=` to merge additional fields (e.g., entity UID from ownership decorator).
+- `parse_json_body(request, schema)` → `Result[T]` — parses JSON body into a Pydantic model. Handles both JSON parse errors and ValidationError, converting to `Result.fail()`. An ownership-verified POST carries its owner uid as a model field and verifies it after parsing (`verify_entity_ownership`).
 - `parse_form_body(request, schema)` → `Result[T]` — parses form data into a Pydantic model. Empty strings become `None` (handles HTML form quirk). Use when form data has enough fields to warrant a Pydantic model with validators.
 
 ```python

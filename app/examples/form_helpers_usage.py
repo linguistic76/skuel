@@ -79,20 +79,9 @@ async def json_body_example(request):
 
     result = await parse_json_body(request, RequestRevisionRequest)
     if result.is_error:
-        return result  # 422 with validation details
+        return result  # 400 with validation details (ErrorCategory.VALIDATION)
     req = result.value
     return {"notes": req.notes}
-
-
-# ✅ parse_json_body with extra — merging entity UID from ownership decorator
-async def json_body_with_extra_example(request, entity):
-    """Use `extra=` to inject fields not in the request body."""
-    from core.models.habit.habit_request import TrackHabitRequest
-
-    result = await parse_json_body(request, TrackHabitRequest, extra={"habit_uid": entity.uid})
-    if result.is_error:
-        return result
-    return {"tracked": True}
 
 
 # ✅ parse_form_body — HTML form data → Pydantic model → Result[T]
@@ -102,6 +91,6 @@ async def form_body_example(request):
 
     result = await parse_form_body(request, CreateTeachingExerciseRequest)
     if result.is_error:
-        return result  # 422 with validation details
+        return result  # 400 with validation details (ErrorCategory.VALIDATION)
     req = result.value
     return {"name": req.name, "scope": req.scope.value}

@@ -187,7 +187,7 @@ __all__ = ["create_tasks_routes"]
 - `CommonQueryRouteFactory` — filter by status, domain, goal, habit
 - `IntelligenceRouteFactory` — context, recommendations
 
-**What stays in `api_factory`:** `OwnershipRouteFactory` (domain-specific ownership routes), `create_activity_field_api_routes` (inline status/priority updates), `AnalyticsRouteFactory`, and manual routes with custom logic.
+**What stays in `api_factory`:** `create_activity_field_api_routes` (inline status/priority updates), `create_activity_hierarchy_api_routes`, `create_activity_link_api_routes`, `create_knowledge_patterns_api_route`, `AnalyticsRouteFactory`, and manual routes with custom logic (`verify_entity_ownership` in the handler).
 
 **What `ui_factory` does (inside `create_{domain}_ui_routes`):**
 - Creates an `ActivityUIConfig` dataclass (~50 lines) with domain-specific callbacks and components

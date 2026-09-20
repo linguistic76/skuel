@@ -1,6 +1,6 @@
 ---
 title: Route Factory Pattern
-updated: '2026-09-15'
+updated: '2026-09-20'
 category: patterns
 related_skills:
 - domain-route-config
@@ -9,11 +9,6 @@ related_docs: []
 ---
 # Route Factory Pattern
 
-*Last updated: 2026-03-23*
-
-**March 2026 Update:** Added OwnershipRouteFactory for domain-specific ownership-verified routes (14 routes across 6 Activity Domains). Standardized service getters on `make_service_getter()`.
-
-**January 2026 Update:** Replaced `verify_ownership` boolean parameter with explicit `ContentScope` enum for type-safe ownership patterns.
 ## Related Skills
 
 For implementation guidance, see:
@@ -32,7 +27,6 @@ SKUEL uses **route factories** to eliminate boilerplate in API route definitions
 | **CommonQueryRouteFactory** | Common query patterns | by-status, by-category, active, recent |
 | **AnalyticsRouteFactory** | Analytics endpoints | domain-specific analytics |
 | **IntelligenceRouteFactory** | Intelligence endpoints | context, analytics, insights |
-| **OwnershipRouteFactory** | Ownership-verified domain routes | domain-specific GET/POST with ownership checks |
 | **create_activity_field_api_routes** | HTMX inline card field updates | POST /api/{domain}/{uid}/{field} (status, priority) |
 | **create_activity_hierarchy_api_routes** | Shared Activity Domain hierarchy block | GET children (JSON + HTMX fragment), parent, hierarchy; POST add-child, remove-child |
 | **create_activity_link_api_routes** | Cross-domain link endpoints | POST /api/{domain}/link-* → `{"linked": bool}` |
@@ -133,88 +127,6 @@ frozen `*UpdateIntent`; otherwise (curriculum, forms, groups, templates) it fall
 `RawChanges` patch from `model_dump()`. Either way the value satisfies `SupportsToChanges`,
 so the shared base materializes it once at `backend.update(uid, updates.to_changes())`. No
 domain wiring is needed beyond pointing `update_schema` at the request model.
-
-## OwnershipRouteFactory
-
-Generates ownership-verified routes for domain-specific operations that don't fit CRUD or Query patterns.
-
-### Usage
-
-```python
-from adapters.inbound.route_factories import OwnershipRouteFactory, OwnershipRoute
-
-ownership_factory = OwnershipRouteFactory(
-    service=habits_service,
-    domain_name="habits",
-    routes=[
-        # GET passthrough: service.get_habit_streak(entity_uid)
-        OwnershipRoute(
-            path="/api/habits/streak",
-            method_name="get_habit_streak",
-        ),
-        # GET with typed query params: service.get_habit_progress(entity_uid, period="month")
-        OwnershipRoute(
-            path="/api/habits/progress",
-            method_name="get_habit_progress",
-            query_params={"period": "month"},
-        ),
-        # POST with Pydantic model: parse_json_body -> service.track_habit(model)
-        OwnershipRoute(
-            path="/api/habits/track",
-            method_name="track_habit",
-            request_schema=TrackHabitRequest,
-            schema_extra_uid_field="habit_uid",
-        ),
-    ],
-)
-ownership_factory.register_routes(app, rt)
-```
-
-### Three Call Patterns
-
-| Pattern | Config | Generated Call |
-|---------|--------|----------------|
-| GET passthrough | `request_schema=None` | `service.method(entity_uid)` |
-| GET with params | `query_params={"period": "month", "limit": 20}` | `service.method(entity_uid, period=..., limit=...)` |
-| POST with model | `request_schema=X, schema_extra_uid_field="habit_uid"` | `parse_json_body` -> `service.method(model)` |
-
-Query param types are inferred from defaults: `int` defaults produce `int` values, `bool` defaults produce `bool`, everything else stays `str`.
-
-### OwnershipRoute Parameters
-
-| Parameter | Type | Default | Description |
-|-----------|------|---------|-------------|
-| `path` | str | required | Route path (e.g., "/api/habits/track") |
-| `method_name` | str | required | Service method to call (supports dotted paths like "intelligence.analyze") |
-| `request_schema` | type[BaseModel] | None | Pydantic model for POST body |
-| `schema_extra_uid_field` | str | None | Field to inject entity UID into (e.g., "habit_uid") |
-| `methods` | list[str] | None | HTTP methods (auto: POST if schema, GET otherwise) |
-| `query_params` | dict[str, Any] | None | Query param defaults for GET routes |
-| `include_user_uid` | bool | False | Pass user_uid as kwarg to service method |
-| `success_status` | int | 200 | HTTP status on success |
-| `uid_param` | str | None | Override factory-level uid_param for this route |
-
-### Factory Parameters
-
-| Parameter | Type | Default | Description |
-|-----------|------|---------|-------------|
-| `service` | OwnershipOperations | required | Service implementing verify_ownership |
-| `domain_name` | str | required | Domain name (e.g., "habits") |
-| `routes` | list[OwnershipRoute] | required | Route configurations |
-| `scope` | ContentScope | USER_OWNED | Content ownership model |
-| `uid_param` | str | "uid" | Default query parameter name for entity UID |
-
-### Adoption
-
-14 routes across all 6 Activity Domains:
-- **Habits:** track, untrack, streak, progress
-- **Tasks:** impact, practice-opportunities
-- **Goals:** milestones GET, habits GET
-- **Events:** status update, attendees GET
-- **Principles:** expressions GET, alignment-history, links GET, related
-- **Choices:** impact analysis, predict quality
-
-Routes with custom logic (UIDGenerator, multi-step orchestration, raw body construction) remain manual.
 
 ## Security: Content Scope
 
@@ -393,8 +305,11 @@ When `scope=ContentScope.USER_OWNED` and `ownership_service` is provided:
 **Use Factories:**
 - Standard CRUD operations → CRUDRouteFactory
 - Inline card field updates (status, priority) → create_activity_field_api_routes
+- Activity hierarchy block (children / parent / hierarchy / add-child / remove-child) → create_activity_hierarchy_api_routes
+- Cross-domain link POSTs (owner + optional target verification) → create_activity_link_api_routes
 - Common query patterns → CommonQueryRouteFactory
-- Ownership-verified GET/POST with simple service calls → OwnershipRouteFactory
+
+An ownership-verified route with a shape none of these express (a uid list, a verify-through-one-service-call-another, a conditional second entity) is a manual route: `require_authenticated_user` → `verify_entity_ownership` → the service call, in the handler.
 
 **Use Manual Routes:**
 - Custom body construction (field remapping, non-standard field names)
@@ -407,10 +322,13 @@ When `scope=ContentScope.USER_OWNED` and `ownership_service` is provided:
 | File | Purpose |
 |------|---------|
 | `/adapters/inbound/route_factories/crud_route_factory.py` | CRUDRouteFactory |
-| `/adapters/inbound/route_factories/ownership_route_factory.py` | OwnershipRouteFactory |
 | `/adapters/inbound/route_factories/query_route_factory.py` | CommonQueryRouteFactory |
 | `/adapters/inbound/route_factories/analytics_route_factory.py` | AnalyticsRouteFactory |
 | `/adapters/inbound/route_factories/intelligence_route_factory.py` | IntelligenceRouteFactory |
+| `/adapters/inbound/route_factories/activity_field_api_factory.py` | create_activity_field_api_routes |
+| `/adapters/inbound/route_factories/hierarchy_api_factory.py` | create_activity_hierarchy_api_routes |
+| `/adapters/inbound/route_factories/activity_link_api_factory.py` | create_activity_link_api_routes, create_knowledge_patterns_api_route |
+| `/adapters/inbound/route_factories/route_helpers.py` | verify_entity_ownership, require_owned_entity, query-param parsers |
 | `/adapters/inbound/route_factories/__init__.py` | Exports |
 
 ## See Also
