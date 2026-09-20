@@ -95,7 +95,9 @@ async def test_is_organizer_true(organization_service, mock_backend, subject_is_
 
     assert result.is_ok
     assert result.value is True
-    mock_backend.is_organizer.assert_called_once_with("ku.python-reference")
+    mock_backend.is_organizer.assert_called_once_with(
+        "ku.python-reference", child_types=SHARED_CURRICULUM_TYPES
+    )
 
 
 @pytest.mark.asyncio

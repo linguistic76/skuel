@@ -566,8 +566,10 @@ class PsOrganizesBackendOperations(Protocol):
         """Change the order of a child entity within its parent."""
         ...
 
-    async def is_organizer(self, entity_uid: str) -> Result[bool]:
-        """Check if an entity has organized children."""
+    async def is_organizer(
+        self, entity_uid: str, *, child_types: Sequence[str] | None = None
+    ) -> Result[bool]:
+        """Check if an entity has organized children, counting only ``child_types`` when given."""
         ...
 
     async def get_organized_children(
@@ -593,7 +595,7 @@ class PsOrganizesBackendOperations(Protocol):
     async def list_root_organizers(
         self, limit: int = 50, *, root_types: Sequence[str] | None = None
     ) -> Result[list[RootOrganizerResult]]:
-        """List entities that organize others but are not themselves organized, scoped by ``entity_type``."""
+        """List entities that organize others but are not themselves organized, scoped by ``entity_type`` — roots and their counted children alike."""
         ...
 
 

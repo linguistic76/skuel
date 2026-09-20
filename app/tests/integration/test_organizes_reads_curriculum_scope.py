@@ -32,6 +32,9 @@ PS_SIBLING = f"{PREFIX}ps_sibling"
 KU_CHILD = f"{PREFIX}ku_child"
 UE_MAP = f"{PREFIX}ue_map"  # a private personal-vault map that links curriculum
 UE_LEAF = f"{PREFIX}ue_leaf"  # a private entry a curriculum root (contrived) organizes
+PS_LONELY = f"{PREFIX}ps_lonely"  # a PathStep whose ONLY organized child is private
+PS_UNDER_MAP = f"{PREFIX}ps_under_map"  # a PathStep organized ONLY by the private map
+PS_GRANDCHILD = f"{PREFIX}ps_grandchild"  # … which organizes a curriculum child of its own
 
 
 @pytest_asyncio.fixture
@@ -60,12 +63,21 @@ async def graph(neo4j_driver) -> PsBackend:
             CREATE (leaf:Entity:UserEntry {uid: $ue_leaf, entity_type: 'user_entry',
                                            title: 'private journal entry',
                                            user_uid: 'user_private', status: 'active'})
+            CREATE (lonely:Entity:PathStep {uid: $ps_lonely, entity_type: 'path_step',
+                                            title: 'Zzz lonely step', status: 'active'})
+            CREATE (under:Entity:PathStep {uid: $ps_under_map, entity_type: 'path_step',
+                                           title: 'Under the map only', status: 'active'})
+            CREATE (grand:Entity:PathStep {uid: $ps_grandchild, entity_type: 'path_step',
+                                           title: 'Grandchild', status: 'active'})
             CREATE (root)-[:ORGANIZES {order: 0}]->(child)
             CREATE (root)-[:ORGANIZES {order: 1}]->(sib)
             CREATE (root)-[:ORGANIZES {order: 2}]->(ku)
             CREATE (root)-[:ORGANIZES {order: 3}]->(leaf)
             CREATE (map)-[:ORGANIZES {order: 0}]->(child)
             CREATE (map)-[:ORGANIZES {order: 1}]->(ku)
+            CREATE (lonely)-[:ORGANIZES {order: 0}]->(leaf)
+            CREATE (map)-[:ORGANIZES {order: 2}]->(under)
+            CREATE (under)-[:ORGANIZES {order: 0}]->(grand)
             """,
             ps_root=PS_ROOT,
             ps_child=PS_CHILD,
@@ -73,6 +85,9 @@ async def graph(neo4j_driver) -> PsBackend:
             ku_child=KU_CHILD,
             ue_map=UE_MAP,
             ue_leaf=UE_LEAF,
+            ps_lonely=PS_LONELY,
+            ps_under_map=PS_UNDER_MAP,
+            ps_grandchild=PS_GRANDCHILD,
         )
     yield PsBackend(neo4j_driver, NeoLabel.PATH_STEP, PathStep, base_label=NeoLabel.ENTITY)
     async with neo4j_driver.session() as session:
@@ -116,9 +131,17 @@ async def test_a_private_map_is_not_an_organizer_of_the_step_it_links(
 async def test_a_private_map_is_not_a_root_organizer(service: PsOrganizationService) -> None:
     result = await service.list_root_organizers(limit=100)
     assert result.is_ok
-    uids = {r["uid"] for r in result.value}
-    assert PS_ROOT in uids
-    assert UE_MAP not in uids
+    roots = {r["uid"]: r for r in result.value}
+    assert PS_ROOT in roots
+    assert UE_MAP not in roots
+    # The count agrees with get_organized_children under the same scope — the
+    # private leaf the root also organizes is not counted.
+    assert roots[PS_ROOT]["child_count"] == 3
+    # A root whose only child is private organizes nothing visible: not a root.
+    assert PS_LONELY not in roots
+    # A PathStep organized only by the private map is, through this door, organized
+    # by nothing — it IS a root here, with its one curriculum child counted.
+    assert roots[PS_UNDER_MAP]["child_count"] == 1
 
 
 @pytest.mark.asyncio
@@ -148,6 +171,22 @@ async def test_navigation_ignores_the_private_map_that_would_sort_first(
     assert nav.value.next_uid == PS_SIBLING
 
 
+@pytest.mark.asyncio
+async def test_an_edge_to_a_private_entity_reads_as_no_edge(service: PsOrganizationService) -> None:
+    """is_organizer agrees with get_organized_children: a PathStep whose only
+    child is private is not an organizer through this door."""
+    lonely = await service.is_organizer(PS_LONELY)
+    assert lonely.is_ok
+    assert lonely.value is False
+    children = await service.get_organized_children(PS_LONELY)
+    assert children.is_ok
+    assert children.value == []
+
+    root = await service.is_organizer(PS_ROOT)
+    assert root.is_ok
+    assert root.value is True
+
+
 # ── The unscoped mixin read the owner-verified door keeps ────────────────────
 
 
@@ -157,11 +196,11 @@ async def test_the_unscoped_backend_read_still_sees_the_private_map(graph: PsBac
     owner-verified ``/gradebook/{uid}`` read, a map's children are any type."""
     unscoped = await graph.get_organized_children(UE_MAP)
     assert unscoped.is_ok
-    assert [c["uid"] for c in unscoped.value] == [PS_CHILD, KU_CHILD]
+    assert [c["uid"] for c in unscoped.value] == [PS_CHILD, KU_CHILD, PS_UNDER_MAP]
 
     scoped = await graph.get_organized_children(UE_MAP, child_types=SHARED_CURRICULUM_TYPES)
     assert scoped.is_ok
-    assert [c["uid"] for c in scoped.value] == [PS_CHILD, KU_CHILD]
+    assert [c["uid"] for c in scoped.value] == [PS_CHILD, KU_CHILD, PS_UNDER_MAP]
 
     organizers = await graph.find_organizers(PS_CHILD)
     assert organizers.is_ok
@@ -169,4 +208,11 @@ async def test_the_unscoped_backend_read_still_sees_the_private_map(graph: PsBac
 
     roots = await graph.list_root_organizers(limit=100)
     assert roots.is_ok
-    assert {PS_ROOT, UE_MAP} <= {r["uid"] for r in roots.value}
+    by_uid = {r["uid"]: r for r in roots.value}
+    assert {PS_ROOT, UE_MAP, PS_LONELY} <= set(by_uid)
+    assert PS_UNDER_MAP not in by_uid  # unscoped, the private map organizes it
+    assert by_uid[PS_ROOT]["child_count"] == 4
+
+    lonely = await graph.is_organizer(PS_LONELY)
+    assert lonely.is_ok
+    assert lonely.value is True

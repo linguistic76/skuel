@@ -143,7 +143,7 @@ class PsOrganizationService:
         subject = await self._require_path_step(ps_uid)
         if subject.is_error:
             return Result.fail(subject)
-        return await self.backend.is_organizer(ps_uid)
+        return await self.backend.is_organizer(ps_uid, child_types=SHARED_CURRICULUM_TYPES)
 
     async def get_organization_view(
         self, ps_uid: str, max_depth: int = 3

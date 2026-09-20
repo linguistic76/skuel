@@ -64,14 +64,26 @@ class _OrganizesMixin:
             self, query: str, params: dict[str, Any] | None = None
         ) -> Result[builtins.list[dict[str, Any]]]: ...
 
-    async def is_organizer(self, entity_uid: str) -> Result[bool]:
-        """Check if an entity has organized children. Returns error if not found."""
-        query = """
-        MATCH (n:Entity {uid: $entity_uid})
+    async def is_organizer(
+        self, entity_uid: str, *, child_types: Sequence[str] | None = None
+    ) -> Result[bool]:
+        """Check if an entity has organized children. Returns error if not found.
+
+        ``child_types`` — when given, only children whose ``entity_type`` is in it
+        count, so the answer agrees with a ``get_organized_children`` call under the
+        same scope (an edge to a hidden entity reads as no edge).
+        """
+        scope = "WHERE child.entity_type IN $child_types" if child_types is not None else ""
+        query = f"""
+        MATCH (n:Entity {{uid: $entity_uid}})
         OPTIONAL MATCH (n)-[:ORGANIZES]->(child:Entity)
+        {scope}
         RETURN n IS NOT NULL AS entity_exists, count(child) > 0 AS is_organizer
         """
-        result = await self.execute_query(query, {"entity_uid": entity_uid})
+        params: dict[str, Any] = {"entity_uid": entity_uid}
+        if child_types is not None:
+            params["child_types"] = list(child_types)
+        result = await self.execute_query(query, params)
         if result.is_error:
             return Result.fail(result)
         if not result.value:
@@ -214,22 +226,32 @@ class _OrganizesMixin:
     ) -> Result[list[RootOrganizerResult]]:
         """List entities that organize others but are not themselves organized (root organizers).
 
-        ``root_types`` — when given, only roots whose ``entity_type`` is in it are
-        listed (the shared-content scope; see the class docstring). An unanchored
-        listing is the one read that can enumerate the whole graph, so the
-        unauthenticated caller must scope it.
+        ``root_types`` — when given, the listing is computed as if only entities of
+        those types existed: a root is one of them that organizes at least one of
+        them and is organized by none of them, and ``child_count`` counts only
+        them (the shared-content scope; see the class docstring — an edge to or
+        from a hidden entity reads as no edge, so the listing agrees with
+        ``get_organized_children`` and ``find_organizers`` under the same scope).
+        An unanchored listing is the one read that can enumerate the whole graph,
+        so the unauthenticated caller must scope it.
         """
         # Discovery: the MOC browse entry point — an unanchored listing of every
         # root organizer. Draft curriculum withheld; NULL-tolerant (#1006).
         published, published_params = build_publication_clause("root")
-        scope = "AND root.entity_type IN $root_types" if root_types is not None else ""
+        if root_types is None:
+            first_scope = organizer_scope = child_scope = ""
+        else:
+            first_scope = "AND root.entity_type IN $root_types AND first.entity_type IN $root_types"
+            organizer_scope = "WHERE organizer.entity_type IN $root_types"
+            child_scope = "WHERE child.entity_type IN $root_types"
         query = f"""
-        MATCH (root:Entity)-[:ORGANIZES]->(:Entity)
-        WHERE NOT EXISTS((:Entity)-[:ORGANIZES]->(root))
+        MATCH (root:Entity)-[:ORGANIZES]->(first:Entity)
+        WHERE NOT EXISTS {{ (organizer:Entity)-[:ORGANIZES]->(root) {organizer_scope} }}
           AND {published}
-          {scope}
+          {first_scope}
         WITH DISTINCT root
         OPTIONAL MATCH (root)-[:ORGANIZES]->(child:Entity)
+        {child_scope}
         RETURN root.uid AS uid, root.title AS title, count(child) AS child_count
         ORDER BY root.title
         LIMIT $limit
