@@ -755,7 +755,8 @@ they stay claims — and so does a citation of a directory no longer in the tree
 other pass reads and which reports here as fiction); any span § 2's `_looks_like_local_path` accepts
 (a leading-slash citation of a `.py` module — the backtick pass resolves it as a file, then
 as a route, then reports it; the same predicate, so a span is one reader's or the other's,
-never both); a
+never both — unless a verb is written: `GET /manifest.json` is a claim, since the link
+checker never reads a span with a verb in it); a
 trailing-slash `docs/` subdirectory (`/patterns/`); a metavariable first segment
 (`/{domain}/…`, `/domain/…`, `/section/…`); an all-numeric span (`/100`, a column header);
 and anything `_is_placeholder` rejects — **not**
