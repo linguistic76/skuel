@@ -61,7 +61,7 @@ Sequential learning                   /    |    \
 
 ## Service Architecture
 
-ORGANIZES operations are the `organization` slot of the PathStep facade — `PsService.organization` is a `PsOrganizationService` (`core/services/ps/ps_organization_service.py`), and the facade delegates every method. The backend is `_OrganizesMixin` (`adapters/persistence/neo4j/_organizes_mixin.py`), mixed into `PsBackend` and `UserEntryBackend`; its statements match `:Entity` by uid, so the **reads** (`is_organizer`, `get_organization_view`, `find_organizers`, `get_organized_children`, `list_root_organizers`) answer for any entity. The **write** is narrower: `organize()` verifies both uids through `ps_core.get()`, which matches `:PathStep`, so the facade and the API create PathStep → PathStep edges only. Cross-entity edges — a PathStep organizing a Ku, a UserEntry knowledge map — are authored in the vault and written by ingestion on `:Entity`: `moc: true` body links through `IngestionWriteBackend.refresh_moc_organizes`, an `organizes:` frontmatter list through the relationship-registry edge writer.
+ORGANIZES operations are the `organization` slot of the PathStep facade — `PsService.organization` is a `PsOrganizationService` (`core/services/ps/ps_organization_service.py`), and the facade delegates every method. The backend is `_OrganizesMixin` (`adapters/persistence/neo4j/_organizes_mixin.py`), mixed into `PsBackend` and `UserEntryBackend`; its statements match `:Entity` by uid, so the edge-level **reads** (`is_organizer`, `find_organizers`, `get_organized_children`, `list_root_organizers`, `get_navigation`) answer for any entity. Two methods first fetch the root through `ps_core.get()`, which matches `:PathStep`, and answer not-found for a Ku or UserEntry root: `get_organization_view()` (the depth-limited hierarchy) and the **write** `organize()` — so the facade and the API create PathStep → PathStep edges only. Cross-entity edges — a PathStep organizing a Ku, a UserEntry knowledge map — are authored in the vault and written by ingestion on `:Entity`: `moc: true` body links through `IngestionWriteBackend.refresh_moc_organizes`, an `organizes:` frontmatter list through the relationship-registry edge writer.
 
 ```python
 ps_service = services.ps  # PsService
@@ -69,7 +69,7 @@ ps_service = services.ps  # PsService
 # Identity — does this entity organize anything?
 is_moc = await ps_service.is_organizer("ps.core.python-reference")
 
-# The organizer with its organized children, depth-limited
+# The organizer with its organized children, depth-limited — PathStep roots only
 view = await ps_service.get_organization_view("ps.core.python-reference", max_depth=3)
 
 # Write the hierarchy — both uids must be PathSteps (a Ku or UserEntry uid is not found)
@@ -143,7 +143,7 @@ All in `adapters/inbound/path_steps_api.py`. The three writes are admin-only and
 | Endpoint | Method | Description |
 |----------|--------|-------------|
 | `/api/path-steps/{uid}/is-organizer` | GET | Does this entity organize anything? |
-| `/api/path-steps/{uid}/organization` | GET | The organizer with its organized-children hierarchy |
+| `/api/path-steps/{uid}/organization` | GET | The organizer with its organized-children hierarchy (PathStep roots only) |
 | `/api/path-steps/{uid}/organizers` | GET | Parents that organize this entity |
 | `/api/path-steps/{uid}/organized-children` | GET | Direct organized children, in order |
 | `/api/path-steps/root-organizers?limit=50` | GET | Root MOCs (organize others, organized by nothing) |

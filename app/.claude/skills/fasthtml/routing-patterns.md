@@ -85,7 +85,9 @@ There is no `PUT` route in SKUEL; updates are `POST /api/{domain}/update` or the
 ### Function Name Conventions
 
 FastHTML can derive the method from a handler named `get`/`post`/`put`/`delete`. SKUEL
-does not use it — every handler has a descriptive name and an explicit `methods=`.
+does not use it — every handler has a descriptive name. `methods=` is explicit on every
+mutation; a plain read may stay a bare `@rt(path)` (GET, HEAD and POST) — 287 registrations
+do, against 216 with `methods=` (`grep -rhoE '@rt\("[^"]+"\)$' adapters/inbound/*.py`).
 
 ## Path Parameters
 
