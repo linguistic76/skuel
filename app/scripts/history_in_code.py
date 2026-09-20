@@ -379,10 +379,7 @@ def print_report(
 ) -> None:
     rows = ranked(reports, top)
     print(f"History in code — advisory census over {' '.join(scope)}")
-    if docs:
-        print("(Markdown prose outside fences, frontmatter skipped; fenced examples unread)\n")
-    else:
-        print("(comments via tokenize, docstrings via ast; strings and log messages unread)\n")
+    print(f"({READER_BANNERS[reader_mode(reports, skipped, docs)]})\n")
     if not rows:
         print("No hits.")
     else:
@@ -410,6 +407,27 @@ def print_report(
         print(f"Skipped (not parseable as Python): {', '.join(skipped)}")
     queue = "--docs --top 20 --verbose" if docs else "--top 20 --verbose"
     print(f"Advisory — exit 0 always. Sweep queue: ./dev history-in-code {queue}")
+
+
+READER_BANNERS = {
+    "python": "comments via tokenize, docstrings via ast; strings and log messages unread",
+    "markdown": "Markdown prose outside fences, frontmatter skipped; fenced examples unread",
+    "mixed": "Python comments and docstrings AND Markdown prose — mixed inputs, one census",
+}
+
+
+def reader_mode(reports: list[FileReport], skipped: list[str], docs: bool) -> str:
+    """Which reader the census used, derived from the files it read — the banner
+    names what was actually read, not what the flag asked for."""
+    labels = [report.path for report in reports] + skipped
+    if not labels:
+        return "markdown" if docs else "python"
+    markdown = [label.endswith(".md") for label in labels]
+    if all(markdown):
+        return "markdown"
+    if not any(markdown):
+        return "python"
+    return "mixed"
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -460,13 +478,10 @@ def main(argv: list[str] | None = None) -> int:
     args = parser.parse_args(argv)
     paths, scope = resolve_paths(parser, args.paths, args.docs)
     reports, skipped = scan_paths(paths, docs=args.docs)
-    # The report names what was read: Markdown when the flag says so, or when every
-    # input given is a Markdown file — those take the Markdown reader regardless.
-    markdown = args.docs or (bool(paths) and all(path.suffix == ".md" for path in paths))
     if args.as_json:
         print(json.dumps(json_document(reports, skipped, scope, args.top), indent=2))
     else:
-        print_report(reports, skipped, scope, args.top, args.verbose, docs=markdown)
+        print_report(reports, skipped, scope, args.top, args.verbose, docs=args.docs)
     return 0
 
 

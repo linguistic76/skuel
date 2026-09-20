@@ -91,8 +91,8 @@ def test_static_view_is_a_strict_subset_of_the_runtime_table(
     """``ast_paths ⊆ runtime_paths``, gap printed, never asserted equal.
 
     A literal the runtime table lacks would mean a registration the probe does not
-    reach (a tier branch the mock does not satisfy, or a module bootstrap no longer
-    wires) — that is the assertion. The gap is the factories' share; it is printed so
+    reach (a tier branch the mock does not satisfy, or a module bootstrap does not
+    wire) — that is the assertion. The gap is the factories' share; it is printed so
     a change in it is visible in the test log, and not asserted because its exact
     size is a fact about the routes tree, not about this catalog.
     """

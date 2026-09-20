@@ -303,6 +303,12 @@ def test_family_prefix_is_a_class_because_it_hides_api_knowledge() -> None:
     assert found == [(3, "POST /api/knowledge", "family-prefix")]
 
 
+def test_a_span_crossing_a_line_break_is_not_a_claim() -> None:
+    """`` `/does-not-\nexist` `` is one code span whose content holds whitespace; its
+    per-line slices are fragments, not claims."""
+    assert _classes("# P\n\nsee `/does-not-\nexist` here\n") == []
+
+
 def test_frontmatter_spans_are_never_claims() -> None:
     """A backticked route in a `description:` is metadata, not the doc's voice."""
     body = "---\ntitle: X\ndescription: the `/old-route` door\n---\n\n# X\n\n`/ku`\n"

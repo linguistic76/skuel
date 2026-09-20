@@ -269,7 +269,10 @@ def test_explicit_md_path_takes_the_markdown_reader_without_the_flag(
     assert hic.main([str(doc)]) == 0
     out = capsys.readouterr().out
     assert "Markdown prose outside fences" in out
-    assert "--docs --top 20 --verbose" in out
+    # A mixed invocation says so — neither reader's banner alone is true of it.
+    (tmp_path / "m.py").write_text("# was deleted 2026-01-01\n", encoding="utf-8")
+    assert hic.main([str(doc), str(tmp_path / "m.py")]) == 0
+    assert "mixed inputs" in capsys.readouterr().out
 
 
 def test_docs_flag_scans_the_md_files_under_a_directory(

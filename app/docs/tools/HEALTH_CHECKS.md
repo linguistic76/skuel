@@ -780,7 +780,7 @@ static-vs-runtime gap without ever asserting it equal.
 never CI — is a separate ruling that waits on two sweep PRs each re-measuring ≥95%
 precision on a fresh draw; `family-prefix`, `relative-suffix` and `history` stay
 printed-only whatever that ruling says. Measured 2026-09-20 on the tree at PR #1379's
-head: 1628 inline claims — 1296 matched · **210 fiction in 51 files** (62 of them one
+head: 1626 inline claims — 1294 matched · **210 fiction in 51 files** (62 of them one
 section of `docs/patterns/OWNERSHIP_VERIFICATION.md`; 4 are dead directory citations) · 12
 history · 39 family-prefix · 53 relative-suffix · 15 negated · 2 + 1 marker-skipped;
 re-measure with `./dev health-claims`.

@@ -333,7 +333,13 @@ def _inline_claims(content: str) -> list[tuple[int, str, str, int, int]]:
             continue
         line = lines[lineno - 1]
         for start, end in spans:
-            shape = is_url_shape(line[start:end].strip("`").strip())
+            text = line[start:end]
+            # A span that crosses a soft line break arrives as one slice per line,
+            # and a slice missing its opening or closing backtick string is a
+            # fragment; a route claim never spans lines.
+            if len(text) < 2 or not (text.startswith("`") and text.endswith("`")):
+                continue
+            shape = is_url_shape(text.strip("`").strip())
             if shape:
                 out.append((lineno, shape[0], shape[1], start, end))
     return out
