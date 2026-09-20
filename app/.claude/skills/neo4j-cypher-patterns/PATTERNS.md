@@ -189,11 +189,12 @@ Guarded by `tests/unit/test_mega_query_null_placeholders.py` for the MEGA-QUERY 
 
 **Problem**: Find entities that do NOT have a certain relationship (e.g., root nodes in a hierarchy).
 
-**Context**: Finding root MOC organizers (Ku nodes that organize others but are not themselves organized).
+**Context**: Finding root MOC organizers (entities that organize others but are not themselves organized).
 
 **Solution**:
 ```cypher
-// KuBackend.list_root_organizers()
+// _OrganizesMixin.list_root_organizers() — PsBackend passes root_types=SHARED_CURRICULUM_TYPES
+// (AND root.entity_type IN $root_types) so the unauthenticated PathStep API lists curriculum roots only
 MATCH (root:Entity)-[:ORGANIZES]->(:Entity)
 WHERE NOT EXISTS((:Entity)-[:ORGANIZES]->(root))
 WITH DISTINCT root
@@ -216,7 +217,7 @@ RETURN true AS success
 - Two-step `WHERE NOT EXISTS` + `OPTIONAL MATCH` avoids cartesian products
 - `ON CREATE SET` adds metadata only on first creation (unlike `SET` which always runs)
 
-**Real-world usage**: `KuBackend.list_root_organizers()`, `ExerciseBackend.link_to_curriculum()`, `ExerciseBackend.link_to_path_step()`
+**Real-world usage**: `_OrganizesMixin.list_root_organizers()`, `ExerciseBackend.link_to_curriculum()`, `ExerciseBackend.link_to_path_step()`
 
 ---
 
@@ -294,7 +295,7 @@ RETURN t,
        collect(DISTINCT g) AS goals,
        collect(DISTINCT dep) AS dependencies
 
-// KuBackend.is_organizer() — check existence without failing
+// _OrganizesMixin.is_organizer() — check existence without failing
 MATCH (ku:Entity {uid: $ku_uid})
 OPTIONAL MATCH (ku)-[:ORGANIZES]->(child:Entity)
 RETURN ku IS NOT NULL AS ku_exists, count(child) > 0 AS is_organizer
@@ -308,7 +309,7 @@ RETURN ku IS NOT NULL AS ku_exists, count(child) > 0 AS is_organizer
   zero, which every counting consumer reads as one. See § The map-literal trap below.
 - `DISTINCT` in collect prevents duplicates when multiple paths reach the same node (Cartesian products)
 
-**Real-world usage**: All graph context queries, domain backends, `KuBackend.is_organizer()`
+**Real-world usage**: All graph context queries, domain backends, `_OrganizesMixin.is_organizer()`
 
 ---
 
@@ -320,7 +321,7 @@ RETURN ku IS NOT NULL AS ku_exists, count(child) > 0 AS is_organizer
 
 **Solution**:
 ```cypher
-// KuBackend.get_organized_children() — extract both node and relationship properties
+// _OrganizesMixin.get_organized_children() — extract both node and relationship properties
 MATCH (parent:Entity {uid: $parent_uid})-[r:ORGANIZES]->(child:Entity)
 RETURN child.uid AS uid,
        child.title AS title,
@@ -352,7 +353,7 @@ WHERE task IS NOT NULL
 - `coalesce()` provides defaults for nullable relationship properties — prevents null comparison failures
 - Filtering on relationship properties (`WHERE r.confidence >= x`) happens after matching — index can't help here
 
-**Real-world usage**: `KuBackend.get_organized_children()`, `ExerciseBackend.get_required_knowledge()`, MEGA-QUERY dependency segment
+**Real-world usage**: `_OrganizesMixin.get_organized_children()`, `ExerciseBackend.get_required_knowledge()`, MEGA-QUERY dependency segment
 
 ---
 
