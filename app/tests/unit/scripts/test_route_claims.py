@@ -165,6 +165,9 @@ def test_a_negation_token_elsewhere_on_the_line_is_not_a_negation(line: str) -> 
         "POST /api/tasks/create",
         "OPTIONS /api/tasks/create",  # every standard verb is a claim; the catalog judges it
         "GET /manifest.json",  # a verb is a route signal: the link checker never reads this span
+        "GET /ui/report.json",  # the same signal under a PROJECT_PREFIX
+        "/database",  # a mount prefix matches on a segment boundary only
+        "/configuration",
         "/api/tasks/{uid}/status",
         "/explore/ku/{ku_uid}",
         "/tasks?uid=abc",
@@ -196,6 +199,8 @@ def test_claim_shapes_admitted(text: str) -> None:
         ("/home/mike/0bsidian", "a filesystem prefix"),
         ("/opt/skuel", "a filesystem prefix"),
         ("/opt", "a bare mount"),
+        ("/data/x", "a mount subpath"),
+        ("/data", "a bare mount"),
         ("/conf", "a bare mount"),
         ("/swapfile", "a bare mount"),
         ("/etc", "a bare mount"),

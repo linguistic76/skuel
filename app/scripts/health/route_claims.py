@@ -150,6 +150,8 @@ UPPERCASE_SEGMENT_RE = re.compile(r"/[A-Z][a-z]")
 # subpath. The bare names are listed separately below, because one of them is not a
 # mount in this corpus: bare `/home` is the application's landing route (a dead one —
 # the claim this scanner exists to report), while `/home/<user>/…` is a filesystem path.
+# Every entry ends in `/` so it matches on a segment boundary: `/data/x` is a mount
+# path, `/database` is not.
 FS_PREFIXES = (
     "/home/",
     "/opt/",
@@ -162,20 +164,19 @@ FS_PREFIXES = (
     "/dev/",
     "/proc/",
     "/mnt/",
-    "/data",
+    "/data/",
     "/srv/",
     "/bin/",
     "/run/",
-    "/conf",
-    "/logs",
-    "/plugins",
-    "/import",
-    "/vault",
-    "/bundles",
+    "/conf/",
+    "/logs/",
+    "/plugins/",
+    "/import/",
+    "/vault/",
+    "/bundles/",
 )
 BARE_MOUNTS = frozenset(
-    {p.rstrip("/") for p in FS_PREFIXES if p != "/home/"}
-    | {"/swapfile", "/etc", "/dev", "/proc", "/sys", "/boot"}
+    {p.rstrip("/") for p in FS_PREFIXES if p != "/home/"} | {"/swapfile", "/sys", "/boot"}
 )
 # A first segment a pattern doc uses to mean "any domain" — the claim is a shape,
 # not a route. `{}` is what `normalize` turns any `{…}` first segment into.
@@ -234,20 +235,21 @@ def looks_like_file(path: str, verb_written: bool = False) -> bool:
     """
     if path.startswith(ddl.PROJECT_PREFIXES):
         # A repo-rooted span is a file citation — the link checker's — unless nothing
-        # about it says "file": no extension, no line number, no template or elision
-        # marker, and nothing in the tree at that path. Read as a route would be
-        # (query, anchor and trailing slash dropped) so `/ui/analytics/view/` and
-        # `/ui/analytics/view#chart` are the same claim as `/ui/analytics/view`. Five
-        # `/ui/analytics/*` routes share the `/ui/` prefix with the `ui/` package and
-        # carry no file signal — they stay claims. So does a citation of a directory
-        # absent from the tree: no route serves it and no other pass reads an
-        # extensionless directory citation, so it reports here as fiction — a name
-        # for something that does not exist.
+        # about it says "file": no extension (unless a verb is written — `GET
+        # /ui/report.json` is a claim the link checker never reads), no line number,
+        # no template or elision marker, and nothing in the tree at that path. Read
+        # as a route would be (query, anchor and trailing slash dropped) so
+        # `/ui/analytics/view/` and `/ui/analytics/view#chart` are the same claim as
+        # `/ui/analytics/view`. Five `/ui/analytics/*` routes share the `/ui/` prefix
+        # with the `ui/` package and carry no file signal — they stay claims. So does
+        # a citation of a directory absent from the tree: no route serves it and no
+        # other pass reads an extensionless directory citation, so it reports here
+        # as fiction — a name for something that does not exist.
         stem = normalize(path) or path
         return (
             "…" in stem
             or ddl._is_documentation_stand_in(stem)
-            or ddl._looks_like_local_path(stem)
+            or (not verb_written and ddl._looks_like_local_path(stem))
             or ddl.LINE_CITATION_RE.search(stem) is not None
             or (ROOT / stem.lstrip("/")).exists()
         )
