@@ -1,5 +1,5 @@
 ---
-updated: 2026-09-02
+updated: 2026-09-20
 ---
 
 # Teacher-Askesis Interface — Deferred Design
@@ -140,9 +140,9 @@ class TeacherAskesisService:
 
 ## UI Integration
 
-- **Teacher review queue** (`/teaching/review`) — already exists for Submission review
-- **Student detail view** (`/teaching/students/{uid}`) — new; shows ZPD snapshot + session list
-- **Group overview** (`/groups/{uid}/intelligence`) — new; momentum dashboard for all students
+- **Teacher review queue** (`/teaching/queue`) — already exists for Submission review
+- **Student detail view** (`/teaching/students/{uid}`) — exists; the plan adds a ZPD snapshot + session list to it
+- **Group overview** (`/groups/{uid}/intelligence`) — new; momentum dashboard for all students <!-- planned -->
 
 ---
 

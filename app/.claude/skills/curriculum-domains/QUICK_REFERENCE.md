@@ -75,7 +75,7 @@ PathStep is THE curriculum content entity — it composes atomic Kus into cohere
 ### Routes
 | Domain | Route file |
 |--------|-----------|
-| KU | `adapters/inbound/ku_routes.py` + `ku_ui.py` (KuService — index, detail, studying/understood) |
+| KU | `adapters/inbound/ku_routes.py` + `ku_ui.py` (KuService — the two learning-state POSTs); the Ku page is `learning_loop_routes.py`, the index `library_ui.py` |
 | PS (API + UI) | `adapters/inbound/path_steps_routes.py` → `path_steps_api.py` + `path_steps_ui.py` |
 | LP | `adapters/inbound/pathways_routes.py` |
 | Exercise | `adapters/inbound/exercises_routes.py` + `exercises_ui.py` |
@@ -85,13 +85,13 @@ PathStep is THE curriculum content entity — it composes atomic Kus into cohere
 - `GET /explore/ps/{uid}` — PathStep detail page in the Explore hub (reading-first, no sidebar; Alpine `pathstep` manages progress/bookmark)
 - `POST /explore/ps/{uid}/progress` — update progress state (`state=learning|read`)
 - `POST /explore/ps/{uid}/bookmark` — toggle bookmark (`on=true|false`)
-- `GET /learning-loop/ps/{ps_uid}/*` — HTMX fragment endpoints for exercises/submissions/feedback (wired but not surfaced on the PS detail page)
+- `GET /learning-loop/ps/{ps_uid}/exercises`, `/learning-loop/ps/{ps_uid}/submissions-and-feedback`, `/learning-loop/ps/{ps_uid}/forms` — the HTMX fragments the PathStep page loads for the learning loop
 - `POST /api/path-steps/organize` — ORGANIZES hierarchy (admin)
 - `POST /api/path-steps/content` — content updates (admin)
 
 **Ku UI Routes:**
-- `GET /ku` — Knowledge index with bookmarks sidebar
-- `GET /ku/{uid}` — Ku detail page (description content, metadata, exercises)
+- `GET /library/ku` — the Ku index
+- `GET /explore/ku/{uid}` — Ku page (shell; body via `/explore/ku/{uid}/content`, related via `/explore/ku/{uid}/related`; `POST /explore/ku/{uid}/mastery-checkin`); there is no `/ku` route
 - `POST /api/ku/{uid}/mark-studying` — Mark Ku as studying (IN_PROGRESS)
 - `POST /api/ku/{uid}/mark-understood` — Mark Ku as understood (MASTERED)
 
@@ -99,13 +99,13 @@ PathStep is THE curriculum content entity — it composes atomic Kus into cohere
 
 ## UID Formats
 
-| Domain | Format | Example |
+| Domain | Format (authored = stored) | Example |
 |--------|--------|---------|
-| KU | `ku_{slug}_{random}` | `ku_meditation-basics_x9y8z7w6` |
-| PS | `ps:{namespace}:{slug}` | `ps:core:meditation-basics` |
-| LP | `lp:{namespace}:{slug}` | `lp:core:intro-mindfulness` |
+| KU | `ku.{ns}.{slug}` authored; `ku_{slug}_{random}` API-generated | `ku.sel.empathy`, `ku_meditation-basics_x9y8z7w6` |
+| PS | `ps.{namespace}.{slug}` | `ps.core.meditation-basics` |
+| LP | `lp.{namespace}.{slug}` | `lp.core.intro-mindfulness` |
 
-**KU** is an atomic knowledge unit — lightweight, extends Entity directly. Hierarchy is in `ORGANIZES` relationships, not UIDs.
+Dots join authored segments; a colon is never an entity uid (see CLAUDE.md § Curriculum Grouping Patterns, Separator grammar). **KU** is an atomic knowledge unit — lightweight, extends Entity directly. Hierarchy is in `ORGANIZES` relationships, not UIDs.
 
 ## Key Relationships
 
@@ -114,7 +114,7 @@ PathStep is THE curriculum content entity — it composes atomic Kus into cohere
 |--------------|-----------|--------|---------|
 | `USES_KU` | outgoing | KU | PathStep composes atomic Kus |
 | `REQUIRES_KNOWLEDGE` | outgoing | KU | Knowledge prerequisites |
-| `ENABLES` | outgoing | PS | Unlocks next path steps |
+| `ENABLES_KNOWLEDGE` | outgoing | KU | Knowledge this step unlocks |
 | `HAS_NARROWER` | outgoing | PS | Subconcepts |
 | `RELATED_TO` | both | PS | Related topics |
 | `ORGANIZES` | outgoing | PS / KU | Non-linear organization (MOC pattern) |
@@ -176,34 +176,45 @@ from core.services.curriculum_domain_config import (
 Services wired in: `services_bootstrap/_learning_services.py`
 
 ```python
-# In _create_learning_services():
-    ku_service = KuService(ku_backend, event_bus)
-    ps_service = PsService(
-        backend=ps_backend,
-        executor=executor,
-        graph_intel=graph_intel,
-        event_bus=event_bus,
-        ai_service=ps_ai_service,
-    )
-    lp_service = LpService(
-        backend=lp_backend,
-        ps_service=ps_service,
-        graph_intel=graph_intel,
-        event_bus=event_bus,
-    )
+# The shape of the wiring — read the live keyword set off the file itself
+atomic_ku_service = KuService(
+    backend=atomic_ku_backend,
+    graph_intel=graph_intelligence,  # REQUIRED — fail-fast
+    event_bus=event_bus,
+)
+ps_service = PsService(
+    backend=knowledge_backend,
+    executor=query_executor,
+    graph_intel=graph_intelligence,
+    event_bus=event_bus,
+    ku_backend=atomic_ku_backend,
+    chunking_service=chunking_service,
+    user_service=user_service,
+    vector_search_service=vector_search_service,
+    embeddings_service=embeddings_service,
+    ps_intelligence_backend=PsIntelligenceBackend(query_executor),
+)
+learning_paths = LpService(
+    backend=lp_backend,
+    ps_service=ps_service,
+    ku_service=ps_service,  # PsService handles curriculum content
+    progress_service=user_progress,
+    graph_intel=graph_intelligence,
+    event_bus=event_bus,
+)
 ```
 
 ## Intelligence Service Access
 
 ```python
-# PS — 12 sub-services via facade
+# PS — the sub-service slots, read off PsService.__init__
 ps_service.core.create_step(step)
-ps_service.search.search_steps(query)
-ps_service.intelligence.is_ready(ps_uid, completed_uids)
+ps_service.search.search(query)                      # BaseService search
+ps_service.intelligence.is_ready(ps_uid, completed_step_uids)
 ps_service.adaptive.get_sel_journey(user_uid)
 ps_service.organization.get_organized_children(parent_uid)  # Non-linear nav (MOC)
-ps_service.mastery.mark_mastered(ps_uid, user_uid)
-ps_service.progress.record_completion(ps_uid, user_uid)
+ps_service.mastery.mark_mastered(user_uid, ps_uid, mastery_score)
+# ps_service.progress is event-driven (handle_knowledge_mastered) — nothing to call
 
 # KU — 4 sub-services
 ku_service.core.create_ku(...)
@@ -226,8 +237,8 @@ lp_service.get_learning_analytics(user_uid, user_progress)
 | Domain | Count | Key Services |
 |--------|-------|--------------|
 | **KU** | 4 | core, search, relationships, intelligence |
-| **PS** | 12 | core, search, graph, semantic, practice, mastery, adaptive, application_discovery, context_service, organization, intelligence, progress (+ optional `ai`) |
-| **LP** | 5 | core, search, progress, intelligence, (ai) |
+| **PS** | 13 | core, search, graph, semantic, practice, mastery, relationships, intelligence, adaptive, application_discovery, context_service, organization, progress (+ optional `ai`) — read them off `PsService.__init__` |
+| **LP** | 5 | core, search, relationships, intelligence, progress (+ optional `ai`) |
 
 ## Documentation
 

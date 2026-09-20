@@ -71,7 +71,7 @@ await backend.get_enrolled_ps_exercises_with_status(user_uid) # PERSONAL exercis
 await backend.get_ps_exercises_with_status(ps_uid, user_uid)  # Exercises for a SINGLE PathStep with status
 ```
 
-**PathStep detail page (2026-06-24 reading-first redesign):**
+**PathStep detail page (reading-first):**
 
 The PathStep detail page at `/explore/ps/{uid}` is a reading-first column (`max-w-[760px]`,
 `BasePage(CUSTOM)`, no sidebar) matching the KU reader design language. Alpine component
@@ -166,8 +166,8 @@ here; the pre-filled frontmatter is for the student's reference.
 > exercise ownership: `TeacherReviewService.get_review_queue()` →
 > `UserEntryBackend.get_review_queue_by_groups()` matches
 > `(teacher)-[:OWNS]->(:Group)<-[:SHARED_WITH_GROUP]-(entry:UserEntry)` where
-> `entry.pipeline = 'teacher_review'`. (The pre-ADR-054 `(teacher)-[:OWNS]->(exercise)`
-> traversal is no longer the queue path — relying on it hides valid group-shared entries.)
+> `entry.pipeline = 'teacher_review'`. (A `(teacher)-[:OWNS]->(exercise)` traversal is NOT
+> the queue path — it hides valid group-shared entries.)
 > This query is THE needs-review rule: scoped by `student_uid` it also feeds the per-student
 > page's Needs Review bucket (`TeacherOrchestrator.get_bucketed_student_submissions`), so the
 > queue and the student page share one copy-revision collapse and cannot drift. The same
@@ -198,9 +198,9 @@ processed and then evaluated. ADR-054 collapsed the former `Submission` / `Exerc
 **Neo4j labels:** `:Entity:UserEntry`
 **UID prefix:** `ue_` (e.g. `ue_a1b2c3d4`)
 
-> **Note (ADR-054):** Journals are no longer a standalone domain — they are a `UserEntry`
-> processing pipeline (`Pipeline.TRANSCRIBE_AND_STRUCTURE`). The former `core/models/journal/`
-> and `core/services/journal/` packages were deleted.
+> **Note (ADR-054):** Journals are not a standalone domain — they are a `UserEntry`
+> processing pipeline (`Pipeline.TRANSCRIBE_AND_STRUCTURE`); there is no `core/models/journal/`
+> or `core/services/journal/` package.
 
 **Key fields (added on top of `UserOwnedEntity`):**
 ```python
@@ -256,8 +256,8 @@ They are orthogonal — a form submission can still be part of a pipeline.
 | `TEACHER_REVIEW` | Exercise turn-in | None — routed to a teacher review queue via `SHARED_WITH_GROUP` |
 
 **One create method (`UserEntryService.create_entry()`):**
-(The former bytes-to-disk helper `submit_file()` was removed with ADR-073 — `/journals/upload`
-is now zero-persistence and processes to `je_out/` without creating a UserEntry.)
+(`/journals/upload` is zero-persistence — it processes to `je_out/` without creating a
+UserEntry, and there is no bytes-to-disk `submit_file()` helper — ADR-073.)
 ```
 FILE UPLOAD PATH                            INLINE FORM PATH
 POST /api/user-entries/upload               POST /api/user-entries/form
@@ -353,9 +353,9 @@ recording that a submission happened against a given exercise.
 **UID prefix:** `ia_`
 **Enums:** `InteractionType` (EXERCISE_SUBMISSION, KU_VIEW, PATH_STEP_COMPLETION, FORM_SUBMISSION),
 `InteractionResult` (PENDING → SHARED_WITH_TEACHER → REPORT_GENERATED → COMPLETED, FAILED
-from pre-report states — forward-only, wired to the report pipeline 2026-07-19)
+from pre-report states — forward-only, driven by the report pipeline)
 
-**What it captures today (ADR-054; PathStep context wired 2026-07-03).**
+**What it captures (ADR-054; PathStep context included).**
 `_create_interaction_record()` builds the Interaction with:
 - `interaction_type`: `InteractionType.EXERCISE_SUBMISSION`
 - `target_uid`: the Exercise UID being submitted against
@@ -386,7 +386,7 @@ a first-class graph node — you can traverse all interactions for a PathStep, o
 every student who submitted while enrolled in a given LearningPath. Embedding those
 fields in UserEntry would bury them.
 
-**Result lifecycle (ADR-051 Phase 2, wired 2026-07-19):** `result_status` transitions
+**Result lifecycle (ADR-051 Phase 2):** `result_status` transitions
 forward-only as the report pipeline progresses. `SHARED_WITH_TEACHER` is recorded
 directly by `UserEntryService.create_entry` after a successful TEACHER_REVIEW share;
 the rest are event-driven via `core/events/handlers/interaction_result_handler.py`:
@@ -656,8 +656,8 @@ enables student notification and learning loop progression tracking.
 
 Revisions surface on the GradeBook exchange lines (`/gradebook` — a
 `revision_requested` latest entry renders the line's "Revision requested"
-status) and inside the `/exchange` thread; the former `/revised-exercises`
-list page is deleted. Kept surfaces:
+status) and inside the `/exchange` thread; there is no `/revised-exercises`
+list page. The surfaces:
 - `GET /revised-exercises/detail?uid=` — detail page with `render_revised_exercise_detail()` (feedback points, instructions, submit link)
 
 Routes in `adapters/inbound/revised_exercises_ui.py`. Renderer in `ui/learning_loop/revised_exercise.py`.
@@ -738,15 +738,15 @@ RelationshipName.REVISES_EXERCISE        # RevisedExercise → Exercise
 | **RevisedExercise** | `RevisedExerciseService` | `RevisedExerciseOperations` | `RevisedExerciseBackend` | CRUD (CRUDRouteFactory), `list_for_student`, `get_revision_chain` |
 | **UserEntry** | `UserEntryService` (concrete facade — routes inject the class, no route-facing protocol) | backend port `UserEntryOperations` | `UserEntryBackend` | `create_entry`, `get_entry`, `list_for_user`, `get_review_queue`, `update_processed_content`, `delete_entry` (sharing via `UnifiedSharingService`, not the backend) |
 | **UserEntry processing** | `UserEntryProcessingService` | `UserEntryProcessingOperations` | — (dispatches; updates via `UserEntryService`) | `process(entry)` — pipeline dispatch by `Pipeline` (TRANSCRIBE / LLM_SUMMARY / TRANSCRIBE_AND_STRUCTURE) |
-| **Submission report** | `EntryReportService` (AI) + `TeacherReviewService` (HUMAN writes) | `EntryReportOperations` (service, AI + reads) + `EntryReportBackendOperations` (backend); `TeacherReviewOperations` (teacher writes) — split in PR #128, NOT a single-class union | `EntryReportBackend` (typed reads + report-node creation via `create_report_node` — student `OWNS` is the visibility anchor, written atomically with the report node) + `UserEntryBackend` (authority check) | `EntryReportService`: `generate_report` (via `UnifiedLLMCaller`), `list_for_submission` → typed `list[EntryReport]` (both sources). `TeacherReviewService`: `submit_report` (HUMAN feedback, `REPORT_FOR`-anchored). Writes land as `:Entity:EntryReport` dual-label; reads discriminate AI vs teacher via `processor_type` on the typed model — no TypedDict projection |
-| **Journal processing** | *(no standalone service — ADR-054)* | — | — | Journals are a `UserEntry` pipeline (`Pipeline.TRANSCRIBE_AND_STRUCTURE`) handled by `UserEntryProcessingService`; the former `JournalOutputService` was deleted |
+| **Submission report** | `EntryReportService` (AI) + `TeacherReviewService` (HUMAN writes) | `EntryReportOperations` (service, AI + reads) + `EntryReportBackendOperations` (backend); `TeacherReviewOperations` (teacher writes) — three protocols, NOT a single-class union | `EntryReportBackend` (typed reads + report-node creation via `create_report_node` — student `OWNS` is the visibility anchor, written atomically with the report node) + `UserEntryBackend` (authority check) | `EntryReportService`: `generate_report` (via `UnifiedLLMCaller`), `list_for_submission` → typed `list[EntryReport]` (both sources). `TeacherReviewService`: `submit_report` (HUMAN feedback, `REPORT_FOR`-anchored). Writes land as `:Entity:EntryReport` dual-label; reads discriminate AI vs teacher via `processor_type` on the typed model — no TypedDict projection |
+| **Journal processing** | *(no standalone service — ADR-054)* | — | — | Journals are a `UserEntry` pipeline (`Pipeline.TRANSCRIBE_AND_STRUCTURE`) handled by `UserEntryProcessingService` |
 | **Learning Loop Intelligence (write)** | `LearningLoopEventHandlerService` | — | `UserEntryBackend` (port `UserEntryOperations`) | `handle_submission_created` (iteration tracking), `handle_report_submitted` (feedback turnaround EMA), `handle_submission_approved` (mastery velocity) |
 | **Learning Loop Intelligence (read)** | `LearningLoopQueryService` | — | `UserEntryBackend` (port `UserEntryOperations`) | `get_submissions_for_path_step(user_uid, ps_uid, limit=QueryLimit.COMPREHENSIVE)` — Interaction traversal + report-status enrichment, bounded by `limit` (default 100), entity_type filter parameterized via `EntityType.USER_ENTRY.value`. New learning-loop reads land here, not on a separate search service |
-| **Teacher review** | `TeacherReviewService` | `TeacherReviewOperations` | `UserEntryBackend` + `EntryReportBackend` + `ExerciseBackend` + `GroupBackend` | **Review actions:** `get_review_queue`, `get_submission_detail`, `submit_report` (file upload → `processed_content` + `report_file_path`), `request_revision` (text notes), `approve_report`, `get_report_file_path` · **Exercise view:** `get_exercises_with_submission_counts`, `get_submissions_for_exercise` · **Student view:** `get_students_summary` (sources from OWNS exercise_submission — any submitter, no PathStep enrollment required), `get_student_submissions` · **Dashboard:** `get_dashboard_stats`, `get_teacher_groups_with_stats`, `get_group_detail` · **Report listing moved:** use `EntryReportService.list_for_submission()` for typed report reads (not `get_report_history`, which was deleted) |
+| **Teacher review** | `TeacherReviewService` | `TeacherReviewOperations` | `UserEntryBackend` + `EntryReportBackend` + `ExerciseBackend` + `GroupBackend` | **Review actions:** `get_review_queue`, `get_submission_detail`, `submit_report` (file upload → `processed_content` + `report_file_path`), `request_revision` (text notes), `approve_report`, `get_report_file_path` · **Exercise view:** `get_exercises_with_submission_counts`, `get_submissions_for_exercise` · **Student view:** `get_students_summary` (sources from OWNS exercise_submission — any submitter, no PathStep enrollment required), `get_student_submissions` · **Dashboard:** `get_dashboard_stats`, `get_teacher_groups_with_stats`, `get_group_detail` · **Report listing:** `EntryReportService.list_for_submission()` is the typed report read — there is no `get_report_history` |
 | **Activity Report (auto/LLM)** | `ProgressReportGenerator` | `ProgressReportOperations` | `UserContextBuilder` | `generate` |
 | **Activity Report (human)** | `ActivityReportService` | `ActivityReportOperations` | `ActivityReportBackend` + `UserContextBuilder` | `create_snapshot`, `submit_report`, `persist`, `get_history`, `annotate` |
 
-**Protocols location:** `core/ports/report_protocols.py` (report + teacher review + review queue + report relationships, both service- and backend-level), `core/ports/user_entry_protocols.py` (the 5 mixin-facing `UserEntry*Operations` slices + the composite `UserEntryOperations` backend port + `UserEntryProcessingOperations` — `submission_protocols.py` was deleted under ADR-054), `core/ports/group_protocols.py` (group CRUD only)
+**Protocols location:** `core/ports/report_protocols.py` (report + teacher review + review queue + report relationships, both service- and backend-level), `core/ports/user_entry_protocols.py` (the 5 mixin-facing `UserEntry*Operations` slices + the composite `UserEntryOperations` backend port + `UserEntryProcessingOperations`; there is no `submission_protocols.py`), `core/ports/group_protocols.py` (group CRUD only)
 
 ---
 
@@ -759,13 +759,11 @@ RelationshipName.REVISES_EXERCISE        # RevisedExercise → Exercise
 | **PS embedded forms (HTMX)** | `/learning-loop/ps/{ps_uid}/forms` | GET | Student |
 | **PS embedded form submit (HTMX)** | `/learning-loop/ps/{ps_uid}/forms/{template_uid}/submit` | POST | Student |
 | **Student assignments** | `/exercises` | GET | Student |
-| **Submission** | `/submissions/exercise` | GET | Student |
-| **Submission detail** | `/gradebook/{uid}` | GET | Student (owner) |
-| **Submission reports** | `/api/submissions/{uid}/reports` | GET | Student (owner) |
-| **Submission exercise link** | `/gradebook/{uid}/exercise` | GET (HTMX) | Student |
-| **Submission** | `/api/submissions/...` | GET/POST | Student |
-| **Submission sharing** | `/api/share/group` | POST | Student |
-| **Submission sharing** | `/api/submissions/shared-with-me` | GET | Teacher |
+| **Submission (turn-in form)** | `/submissions/exercise`, `/submit` | GET | Student |
+| **Submission (turn-in API)** | `/api/user-entries/upload` | POST | Student — the exercise turn-in door; `create_entry()` is the one convergence point (ADR-054) |
+| **Submission (API)** | `/api/user-entries` (list GET / create POST), `/api/user-entries/get?uid=`, `/api/user-entries/form`, `/api/user-entries/process`, `/api/user-entries/delete` | GET/POST | Student (owner) |
+| **Submission detail** | `/gradebook/{uid}` | GET | Student (owner) — exercise + reports render on the page |
+| **Shared with me** | `/profile/shared` (+ `/profile/shared/list-fragment`) | GET | Any user — the `SHARES_WITH` inbox |
 | **GradeBook** | `/gradebook` | GET | Student |
 | **GradeBook lines (HTMX)** | `/gradebook/lines?status=&source=` | GET | Student |
 | **Teacher review** | `/api/teaching/review-queue` | GET | Teacher |
@@ -773,6 +771,8 @@ RelationshipName.REVISES_EXERCISE        # RevisedExercise → Exercise
 | **Teacher review** | `/api/teaching/review/{uid}/report` | POST | Teacher |
 | **Teacher review** | `/api/teaching/review/{uid}/revision` | POST | Teacher |
 | **Teacher review** | `/api/teaching/review/{uid}/approve` | POST | Teacher |
+| **Teacher review (pages)** | `/teaching/queue`, `/teaching/review/{uid}` | GET | Teacher |
+| **Teacher report file** | `/api/reports/{report_uid}/download` | GET | Teacher |
 | **Teacher exercises** | `/api/teaching/exercises` | GET | Teacher |
 | **Teacher exercises** | `/api/teaching/exercises/{uid}/submissions` | GET | Teacher |
 | **Teacher students** | `/api/teaching/students` | GET | Teacher |
@@ -782,18 +782,16 @@ RelationshipName.REVISES_EXERCISE        # RevisedExercise → Exercise
 | **Teacher forms** | `/teaching/forms` | GET | Teacher |
 | **Teacher forms** | `/teaching/forms/detail?uid=` | GET | Teacher |
 | **Teacher forms** | `/teaching/forms/submission?uid=` | GET | Teacher |
-| **Notifications** | `/notifications` | GET | Student — **planned, not yet implemented** |
-| **Activity report** | `/api/reports/progress/generate` | POST | User |
-| **Activity report** | `/api/reports/progress` | GET | User |
-| **Activity report** | `/api/reports/schedule` | POST | User |
-| **Activity review (admin)** | `/api/activity-review/snapshot` | GET | Admin |
-| **Activity review (admin)** | `/api/activity-review/submit` | POST | Admin |
-| **Activity review (admin)** | `/api/activity-review/queue` | GET | Admin |
-| **Activity review (user)** | `/api/activity-review/history` | GET | User |
+| **Notifications** | `/notifications` (+ `POST /notifications/{notification_uid}/read`, `POST /notifications/read-all`) | GET/POST | User |
+| **Activity report (request)** | `/submit-activity-report` | GET | User — the request form |
+| **Activity report (generate)** | `/api/reports/progress/generate` | POST | User — answers the form with a fragment; cooldown refusals render inline |
+| **Activity report (regenerate)** | `/activity-reports/for` | POST | User — mints one calendar period's report |
+| **Activity report (read)** | `/activity-reports/detail?uid=` (+ `/activity-reports/detail/content`), `/reports/progress-list`, `/activity-reports/md?uid=` | GET | User (owner) — the list surface is the GradeBook's "Activity reports" group |
 | **Annotation** | `/api/activity-reports/annotate` | POST | User |
+| **Activity review (admin)** | `/activity-review/queue`, `/activity-review/new`, `/activity-review/snapshot-fragment` | GET | Admin — HTMX pages, no JSON API |
+| **Activity review (admin)** | `/activity-review/submit-feedback` | POST | Admin |
 | **Exercise report detail** | `/entry-reports/detail?uid=` | GET | Student (owner) |
 | **Revised exercises (detail)** | `/revised-exercises/detail?uid=` | GET | Student |
-| **Revised exercises (hub preview)** | `/api/gradebook/revised-exercises/preview` | GET | Student |
 | **Revised exercises (API)** | `/api/revised-exercises/my-revisions` | GET | Student |
 | **Revised exercises (API)** | `/api/revised-exercises/view?uid=` | GET | Student or Teacher |
 

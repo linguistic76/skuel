@@ -782,10 +782,15 @@ static-vs-runtime gap without ever asserting it equal.
 never CI — is a separate ruling that waits on two sweep PRs each re-measuring ≥95%
 precision on a fresh draw; `family-prefix`, `relative-suffix` and `history` stay
 printed-only whatever that ruling says. Measured 2026-09-20 on the tree at the docs
-de-fiction PR 3 head: 1544 inline claims — 1297 matched · **127 fiction in 46 files** (44
-of them in `docs/decisions/`; the largest cluster, 14, is ADR-058) · 16 history · 36
-family-prefix · 49 relative-suffix · 16 negated · 2 + 1 marker-skipped; re-measure with
-`./dev health-claims`.
+de-fiction PR 4 head: 1598 inline claims — 1399 matched · **92 fiction in 34 files** (44
+of them in `docs/decisions/`; the largest cluster, 14, is ADR-058) · 16 history · 26
+family-prefix · 41 relative-suffix · 20 negated · 2 + 2 marker-skipped; re-measure with
+`./dev health-claims`. The two precision draws the ruling waits on both came in under
+the bar — 15/30 (PR 3, seed `docs-defiction-pr3`, population 127) and 17/30 (PR 4, seed
+`docs-defiction-pr4`, population 92); the false positives are history vocabulary the
+`history` class does not carry, non-adjacent negation, dead directory citations and
+segment-vocabulary tables, each recorded in the PR body. The class stays advisory
+unless PR 7 rules otherwise.
 
 **Matching is directional and verb-aware.** A wildcard is wild in one direction per
 match — the claim is an *instance* of the registration (`/api/tasks/{uid}/status`

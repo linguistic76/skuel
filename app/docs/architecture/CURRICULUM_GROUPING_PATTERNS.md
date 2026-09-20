@@ -1,6 +1,6 @@
 ---
 title: "Curriculum Grouping Patterns: KU, PS, LP + MOC Organization"
-updated: 2026-09-17
+updated: 2026-09-20
 status: current
 category: architecture
 tags: [architecture, curriculum, grouping, patterns, moc, montessori]
@@ -9,8 +9,6 @@ related_skills: [curriculum-domains]
 ---
 
 # Curriculum Grouping Patterns: KU, PS, LP + MOC Organization
-
-*Last updated: 2026-08-14*
 ## Related Skills
 
 For implementation guidance, see:
@@ -225,7 +223,7 @@ came out of the graph is.
 
 **What it is:** A unit for learning that composes Kus into coherent content and sits within LearningPaths.
 
-**Note (2026-04):** The former `Lesson` entity type was merged into `PathStep`. PathStep IS the curriculum content entity. `"lesson"` is accepted by the ingestion detector (`TYPE_MAPPING` in `detector.py`); use `"ps"` or `"pathstep"` for DSL/`from_string()` parsing.
+**Note on "lesson":** there is no `Lesson` entity type — PathStep IS the curriculum content entity. `"lesson"` is accepted by the ingestion detector (`TYPE_MAPPING` in `detector.py`); use `"ps"` or `"pathstep"` for DSL/`from_string()` parsing.
 
 **Characteristics:**
 - Composes atomic Kus into a coherent learning narrative
@@ -524,8 +522,8 @@ The `UnifiedIngestionService` (at `core/services/ingestion/`) handles all curric
 | Ku Model | `/core/models/ku/ku.py` | Ku leaf class (`Ku(Entity)`) |
 | PS Model | `/core/models/pathways/path_step.py` | Path Step definition |
 | LP Model | `/core/models/pathways/learning_path.py` | Learning Path definition |
-| Curriculum Base | `/core/models/curriculum.py` | Shared base class for Ku, PS, LP |
-| KuService | `/core/services/ku_service.py` | Ku facade (CRUD, graph, semantics, organization) |
+| Curriculum Base | `/core/models/curriculum.py` | Shared base class for PS, LP, Exercise (Ku extends Entity directly) |
+| KuService | `/core/services/ku_service.py` | Ku facade (core, search, relationships, intelligence) |
 | PsOrganizationService | `/core/services/ps/ps_organization_service.py` | ORGANIZES relationship management (MOC) |
 | KuIntelligenceService | `/core/services/ku/ku_intelligence_service.py` | Standalone analytics for KU domain |
 | PsService | `/core/services/ps_service.py` | Path Step facade |
@@ -536,37 +534,29 @@ The `UnifiedIngestionService` (at `core/services/ingestion/`) handles all curric
 | Ingestion | `/core/services/ingestion/` | Ingest all patterns from markdown |
 | Unified Registry | `/core/models/relationship_registry.py` | All domain relationship configs |
 
-**Note (March 2026):** Curriculum models decomposed from `/core/models/curriculum/` into domain-specific directories: `/core/models/exercises/`, `/core/models/pathways/`, `/core/models/lesson_content/`, and `/core/models/ku/`. Base classes in `/core/models/curriculum.py` and `/core/models/curriculum_dto.py`. MOC has no separate model or service; it is handled by `KuOrganizationService`.
-
-**Note (April 2026):** `Lesson` entity type merged into `PathStep`. The `core/models/lesson/` directory is gone; PathStep at `/core/models/pathways/path_step.py` IS the curriculum content entity.
+Curriculum models live in domain directories — `/core/models/ku/`, `/core/models/pathways/` (PathStep and LearningPath), `/core/models/exercises/` — over the shared base classes `/core/models/curriculum.py` and `/core/models/curriculum_dto.py`. There is no `Lesson` model: PathStep at `/core/models/pathways/path_step.py` IS the curriculum content entity. MOC has no model or service of its own — ORGANIZES operations are `PsService.organization` (`PsOrganizationService`, listed above).
 
 ---
 
-## Service Architecture (January 2026)
+## Service Architecture
 
-Each Curriculum Domain follows the **decomposed facade pattern** with complexity appropriately sized to its needs.
+Each Curriculum Domain follows the **decomposed facade pattern** with complexity sized to its needs. The slot lists below are read off each facade's `__init__` — that is the authority, not this table.
 
 ### Service Comparison
 
-| Domain | Service | Sub-Services (dedicated) | Intelligence |
+| Domain | Service | Sub-service slots | Intelligence |
 |--------|---------|--------------------------|--------------|
-| **KU** | `KuService` | 4 in `ku/` package: Core, Search, Relationships, Intelligence | `KuIntelligenceService` (standalone at `ku_intelligence_service.py`) |
-| **LP** | `LpService` | 4 in `lp/` package: Core, Search, Progress, AI | `LpIntelligenceService` (standalone at `lp_intelligence_service.py`) |
-| **PS** | `PsService` | 10+ in `ps/` package: Core, Search, Intelligence, Mastery, Organization, Graph, Context, Semantic, Practice, AI | `PsIntelligenceService` (in `ps/` package) |
+| **KU** | `KuService` | 4: `core`, `search`, `relationships`, `intelligence` | `KuIntelligenceService` (`ku/ku_intelligence_service.py`) |
+| **LP** | `LpService` | 5: `core`, `search`, `relationships`, `intelligence`, `progress` (+ optional `ai`) | `LpIntelligenceService` (`lp/lp_intelligence_service.py`) |
+| **PS** | `PsService` | 13: `core`, `search`, `graph`, `semantic`, `practice`, `mastery`, `relationships`, `intelligence`, `adaptive`, `application_discovery`, `context_service`, `organization`, `progress` (+ optional `ai`) | `PsIntelligenceService` (`ps/ps_intelligence_service.py`) |
 
-**MOC (January 2026 - KU-Based):** There is no `MOCService`. MOC is handled by `KuOrganizationService` (sub-service of KuService). A Ku "is a MOC" when it has outgoing ORGANIZES relationships — emergent identity, not a separate service or EntityType.
+**MOC:** there is no MOC service. ORGANIZES operations are `PsService.organization` (`PsOrganizationService`) over the `_OrganizesMixin` backend, which matches `:Entity` — any Entity "is a MOC" when it has outgoing ORGANIZES relationships: emergent identity, not a separate service or EntityType.
 
 ### Why Different Sizes?
 
-**KU is the largest** because semantic knowledge management is inherently complex:
-- 9 dedicated sub-services: CRUD, search, semantics, graph, practice, interaction, organization, AI, adaptive
-- Semantic relationship management with confidence scoring
-- Event-driven substance tracking (applied knowledge philosophy)
-- ORGANIZES relationship operations (MOC) via `KuOrganizationService`
+**PS is the largest** because PathStep IS the curriculum content entity — composition (`USES_KU`), learning state, prerequisites and semantics, practice tracking, adaptive curriculum, organization and the learning-loop context all hang off it.
 
-**PS is leaner** because steps aggregate Kus into ordered sequences:
-- 4 sub-services: core, search, intelligence, AI
-- Simple aggregation of Kus into ordered steps
+**KU is lean** because a Ku is a lightweight ontology node: CRUD, search, relationships and a small intelligence service (usage summary, per-user substance, dual-track mastery). Prerequisite chains and semantics belong to PathStep, not Ku.
 
 ### Backend Pattern
 

@@ -78,7 +78,7 @@ The factory signature contract is rigid: `(app, rt, primary_service, **kwargs)`.
 
 ### Problem
 
-A domain like Transcription exposes only processing endpoints (`POST /api/transcribe`). There are no pages to render, so a `ui_factory` would be an empty function.
+A domain like Transcription exposes only processing endpoints (`POST /api/transcriptions/process`, `POST /api/transcriptions/retry`, `GET /api/transcriptions/status`). There are no pages to render, so a `ui_factory` would be an empty function.
 
 ### Solution
 
@@ -101,7 +101,7 @@ TRANSCRIPTION_CONFIG = DomainRouteConfig(
 
 ### When to use vs. Standard
 
-If there's even a single UI page (index, dashboard, settings), use Standard. API-Only is strictly for domains whose user-facing surface is entirely through other domains' UIs (e.g., transcription results appear in the Journals UI).
+If there's even a single UI page (index, dashboard, settings), use Standard. API-Only is strictly for domains whose user-facing surface is entirely through other domains' UIs (e.g., transcription results appear in the UserEntry journal UI at `/submissions/journal`).
 
 ---
 
