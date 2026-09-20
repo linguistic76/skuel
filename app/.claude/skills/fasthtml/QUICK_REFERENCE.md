@@ -66,7 +66,7 @@ async def get_task(request: Request, uid: str): ...
 async def update_status(request: Request, uid: str): ...
 ```
 
-**When to use**: CRUD reads, lists and query-style filters take the uid as a query parameter (`/api/tasks/get?uid=`, `/tasks/detail?uid=`). A per-entity action or relationship door takes it as a path segment (`POST /api/tasks/{uid}/status`, `/api/tasks/{uid}/lateral/*`, `/tasks/{uid}/dependencies`) — both shapes are live, on API and UI routes alike (`routing-patterns.md`). Every path parameter is a `str` uid. POST for all mutations.
+**When to use**: CRUD reads, lists and query-style filters take the uid as a query parameter (`/api/tasks/get?uid=`, `/tasks/detail?uid=`). A per-entity action or relationship door takes it as a path segment (`POST /api/tasks/{uid}/status`, `/api/tasks/{uid}/lateral/*`, `/tasks/{uid}/dependencies`) — both shapes are live, on API and UI routes alike (`routing-patterns.md`). Path parameters are `str` uids except the calendar and journal period routes, which annotate `year: int, month: int` (`/cal/month/{year}/{month}`); no Starlette converter is registered. Mutations are `POST`, plus `DELETE` on a few (`/api/transcriptions/delete`, `/api/form-submissions/delete`, `/api/path-steps/tags`, `/api/user/pins/{entity_uid}`, the lateral `/api/tasks/{uid}/lateral/{relationship_type}/{target_uid}` family) and `PATCH /api/{domain}/{uid}` from `HierarchyRouteFactory` (inline title edit) — every one CSRF-protected; there is no `PUT` route.
 
 ---
 

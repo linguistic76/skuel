@@ -88,8 +88,8 @@ RENAMED: dict[str, str] = {
     # Old enum type names (pre entity_enums split, Feb 2026)
     "KuStatus": "EntityStatus",
     "KuType": "EntityType",
-    # The ORGANIZES service followed the Ku → Article → Lesson → PathStep renames; it is
-    # the `organization` slot of the PathStep facade, and KuService has no such slot.
+    # ORGANIZES operations are the `organization` slot of the PathStep facade;
+    # KuService has no such slot.
     "KuOrganizationService": "PsOrganizationService (PsService.organization)",
     # UserContext field renames (Mar 2026 — entities_rich unification)
     "active_tasks_rich": 'entities_rich["tasks"]',

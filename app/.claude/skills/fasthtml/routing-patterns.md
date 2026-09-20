@@ -134,10 +134,16 @@ async def gradebook_lines(request: Request, status: str = "all", source: str = "
 # GET /gradebook/lines?status=pending
 ```
 
-### Type Coercion — SKUEL's helpers, not FastHTML's
+### Type Coercion — two live mechanisms, two failure codes
 
-Bool, int, date and CSV query parameters go through `route_factories/route_helpers.py` so a
-bad value is a 400 (`ErrorCategory.VALIDATION`), never a 500 and never a silent default:
+FastHTML coerces an annotated query parameter itself (`limit: int = 10`), and an uncoercible
+value is a **404** before the handler runs (measured with a `TestClient` on a bare
+`fast_app()`; a missing value takes the default). Thirteen handlers rely on that
+(`ai_routes.py`'s `limit: int`, the calendar fragments —
+`grep -rnE 'request: Request[^)]*: (int|float|bool)\b' adapters/inbound/`). The SKUEL shape
+for a parameter that carries validation — a range, a date format, a CSV list, a bool
+spelling — is a `route_factories/route_helpers.py` parser, which answers a **400**
+(`ErrorCategory.VALIDATION`) with the field named, never a silent default (36 call sites):
 
 ```python
 from adapters.inbound.route_factories.route_helpers import (
