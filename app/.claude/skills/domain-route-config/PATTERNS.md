@@ -78,7 +78,7 @@ The factory signature contract is rigid: `(app, rt, primary_service, **kwargs)`.
 
 ### Problem
 
-A domain like Transcription exposes only processing endpoints (`POST /api/transcriptions/process`, `POST /api/transcriptions/retry`, `GET /api/transcriptions/status`). There are no pages to render, so a `ui_factory` would be an empty function.
+A domain like Transcription exposes only API endpoints — processing (`POST /api/transcriptions/process`, `POST /api/transcriptions/retry`, `GET /api/transcriptions/status`) beside its CRUD and query family (`/api/transcriptions`, `/api/transcriptions/get`, `DELETE /api/transcriptions/delete`, `/api/transcriptions/search`, `/api/transcriptions/health`). There are no pages to render, so a `ui_factory` would be an empty function.
 
 ### Solution
 
