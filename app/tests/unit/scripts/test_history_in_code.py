@@ -221,3 +221,87 @@ def test_missing_path_is_a_usage_error_not_a_clean_run() -> None:
     with pytest.raises(SystemExit) as exc:
         hic.main(["--json", "/nonexistent/zzz-history-in-code"])
     assert exc.value.code == 2
+
+
+# ============================================================================
+# --docs — the same census over Markdown prose: fences and frontmatter unread
+# ============================================================================
+
+DOC = (
+    "---\n"
+    "title: Probe\n"
+    "updated: 2026-09-18\n"
+    "---\n"
+    "\n"
+    "# Probe\n"
+    "\n"
+    "The `/api/moc/organize` family was deleted in #241.\n"
+    "\n"
+    "```python\n"
+    "# fixed 2026-08-06, was removed (#965)\n"
+    "```\n"
+    "\n"
+    "See: docs/roadmap/done/x.md (2026-09-01)\n"
+)
+
+
+def test_markdown_reader_skips_frontmatter_and_fences_and_counts_prose() -> None:
+    """Three pinned lines: the frontmatter date is a stamp (ignored), the fenced line
+    is an example (ignored), the prose retelling is counted with every category it
+    carries — and the pointer line stays sanctioned in prose as in code."""
+    report = hic.scan_markdown(DOC, "probe.md")
+    assert [(h.lineno, h.kind, h.categories) for h in report.hits] == [
+        (8, "prose", ("pr_ref", "phrase"))
+    ]
+    assert report.source_lines == 14
+
+
+def test_explicit_md_path_takes_the_markdown_reader_without_the_flag(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    doc = tmp_path / "probe.md"
+    doc.write_text(DOC, encoding="utf-8")
+    assert hic.main(["--json", str(doc)]) == 0
+    payload = json.loads(capsys.readouterr().out)
+    assert payload["total_hits"] == 1
+    assert payload["files"][0]["lines"][0]["kind"] == "prose"
+    # ...and the table names what it read.
+    assert hic.main([str(doc)]) == 0
+    out = capsys.readouterr().out
+    assert "Markdown prose outside fences" in out
+    # A mixed invocation says so — neither reader's banner alone is true of it.
+    (tmp_path / "m.py").write_text("# was deleted 2026-01-01\n", encoding="utf-8")
+    assert hic.main([str(doc), str(tmp_path / "m.py")]) == 0
+    assert "mixed inputs" in capsys.readouterr().out
+
+
+def test_docs_flag_scans_the_md_files_under_a_directory(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    (tmp_path / "a.md").write_text(DOC, encoding="utf-8")
+    (tmp_path / "b.py").write_text("# was deleted 2026-01-01\n", encoding="utf-8")
+    assert hic.main(["--docs", str(tmp_path)]) == 0
+    out = capsys.readouterr().out
+    assert "Markdown prose outside fences" in out
+    assert "a.md" in out
+    assert "b.py" not in out  # a .py under --docs is not in scope
+    assert "Sweep queue: ./dev history-in-code --docs --top 20 --verbose" in out
+
+
+def test_docs_mode_refuses_an_explicit_non_markdown_file(tmp_path: Path) -> None:
+    """A Python file under the Markdown banner would contaminate a docs-only census."""
+    (tmp_path / "b.py").write_text("# was deleted 2026-01-01\n", encoding="utf-8")
+    with pytest.raises(SystemExit) as exc:
+        hic.main(["--docs", str(tmp_path / "b.py")])
+    assert exc.value.code == 2
+
+
+def test_docs_default_scope_is_the_link_checkers_corpus() -> None:
+    """Carve-outs inherited: the history directories are out by construction."""
+    paths, scope = hic.resolve_paths(hic.build_parser(), [], docs=True)
+    assert scope == ["docs", ".claude/skills"]
+    assert len(paths) > 100
+    rels = {p.relative_to(hic.ROOT).as_posix() for p in paths}
+    assert all(p.endswith(".md") for p in rels)
+    assert not any(p.startswith("docs/roadmap/done/") for p in rels)
+    assert "docs/tools/HISTORY_IN_CODE.md" in rels

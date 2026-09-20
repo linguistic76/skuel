@@ -1,6 +1,6 @@
 ---
 title: History-in-Code Finder
-updated: 2026-09-04
+updated: 2026-09-20
 status: current
 category: tools
 tags: [docstrings, comments, signal, maintenance, advisory]
@@ -12,7 +12,7 @@ related: [BLOAT_DETECTION.md, HEALTH_CHECKS.md]
 **Status:** ✅ Active — advisory by contract, never a gate
 **Location:** `scripts/history_in_code.py`
 **Tests:** `tests/unit/scripts/test_history_in_code.py`
-**Run:** `./dev history-in-code [--top N] [--verbose] [--json] [PATH ...]`
+**Run:** `./dev history-in-code [--top N] [--verbose] [--json] [--docs] [PATH ...]`
 
 ## What it measures
 
@@ -29,6 +29,8 @@ first. It is a census that orders a queue — not a rule that fails a build.
 ./dev history-in-code --top 20 --verbose     # the sweep queue, every hit listed under its file
 ./dev history-in-code --json > hits.json     # machine-readable; the status line goes to stderr
 ./dev history-in-code core/services/tasks    # any files or directories
+./dev history-in-code --docs                 # the same census over docs/ + .claude/skills/ prose
+./dev history-in-code --docs docs/patterns   # the .md files under a directory
 ```
 
 ## What it reads — and only this
@@ -45,6 +47,43 @@ trees.
 **Default scope:** `core/ adapters/ ui/ services_bootstrap/`. Tests are out — they carry
 rationale legitimately; `scripts/` is out — it is CLI prose. Any path argument overrides
 the scope.
+
+### `--docs` — the same census over Markdown
+
+The rule holds for a live doc as it does for a docstring: it states what IS, and points
+at the record rather than retelling it. `--docs` reads **prose lines outside fenced code
+blocks**, with YAML frontmatter skipped — a fenced block is an example and a
+frontmatter `updated:` is a stamp, neither is the doc's own voice — and applies the
+same four categories, the same table, the same `--json` shape (`kind` is `prose`). Fence
+boundaries come from `scripts/health/markdown_fences.py`, the CommonMark walker the
+link checker uses, never a delimiter count.
+
+Default scope is the link checker's corpus, `dead_doc_links.get_md_files()` — `docs/` and
+`.claude/skills/` with its carve-outs inherited, so the history directories
+(`docs/roadmap/done/`, `docs/migrations/`, …) are out by construction: a dated record
+narrating is the record. A path argument under `--docs` scans the `.md` files beneath
+it (an explicit file there must itself be Markdown — a Python file under the Markdown
+banner is a usage error); an explicit path ending in `.md` takes the Markdown reader
+with or without the flag, and the report says so.
+
+**A `date` hit inside live `docs/roadmap/` is the case file doing its job.** Its
+`ruled:` / `registered:` lines are dated by contract (`deferred-work.md` is a MOC over
+them), the same way the DSL example timestamps in `activity_dsl_parser.py` are dated by
+design. Reported, and skipped on read — no exemption syntax, for the reason there is
+none in code. The `--top` order over the whole corpus is therefore dominated by
+roadmap case files and `docs/INDEX.md`'s Completed table; the sweep reads
+`docs/patterns/`, `docs/architecture/` and the skills first, where a `phrase` hit is
+a pattern doc narrating its past.
+
+Advisory forever, and **not a health check**: it is not in the `HEALTH_CHECKS` roster,
+and it never will be — the finder's anti-goal applies to prose about prose exactly as it
+applies to prose about code. The route-claim scanner (`./dev health-claims`,
+[HEALTH_CHECKS.md § 9](HEALTH_CHECKS.md)) hands its `history` class here: a dead route
+on a line that also carries one of these signals is a retelling, and this census is
+the queue that reads it.
+
+Measured on `c4c0b26fb` (2026-09-19): 2317 lines in 363 of 474 files (pr_tag 171 ·
+pr_ref 544 · date 1423 · phrase 502); re-measure with `./dev history-in-code --docs`.
 
 ## Signals
 

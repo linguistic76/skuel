@@ -174,6 +174,23 @@ def iter_code_fence_blocks(content: str) -> list[FenceBlock]:
     return sorted(blocks, key=lambda block: block.span)
 
 
+# A YAML frontmatter block opens with `---` on line 1 and closes at the next `---` or
+# `...` line. It is metadata, not the document's voice: a scanner reading prose masks it.
+FRONTMATTER_CLOSERS = ("---", "...")
+
+
+def frontmatter_lines(content: str) -> range:
+    """The 1-based line numbers a leading YAML frontmatter block occupies, delimiters
+    included; empty when the document has none (or the block never closes)."""
+    lines = content.splitlines()
+    if not lines or lines[0].strip() != "---":
+        return range(0)
+    for lineno, line in enumerate(lines[1:], 2):
+        if line.strip() in FRONTMATTER_CLOSERS:
+            return range(1, lineno + 1)
+    return range(0)
+
+
 def iter_code_fence_lines(content: str) -> list[tuple[int, str, str]]:
     """
     Return (line_no, language_tag, line) for every line INSIDE a fenced code block.

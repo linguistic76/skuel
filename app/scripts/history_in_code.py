@@ -21,6 +21,19 @@ data, a month name in a fixture, a PR number in a user-facing message are not pr
 about the code, and reading prose alone is what makes this census tighter than a
 grep over the same trees.
 
+``--docs`` turns the same census on Markdown — ``docs/`` and ``.claude/skills/``
+through ``dead_doc_links.get_md_files()``, so the link checker's carve-outs (the
+history directories, the freeform notes, the templates) are inherited. What is read
+there, and only this: prose lines outside fenced code blocks, YAML frontmatter
+skipped. A fenced block is an example, a frontmatter ``updated:`` is a stamp, and
+neither is the doc's own voice. An explicit path ending in ``.md`` always takes the
+Markdown reader, ``--docs`` or not.
+
+A ``date`` hit inside live ``docs/roadmap/`` is the case file doing its job — its
+``ruled:`` / ``registered:`` lines ARE dated by contract — the same way the DSL
+example timestamps in code are. Reported, and skipped on read. No exemption
+syntax, for the reason there is none in code.
+
 Signals, counted per category (a line may carry several; ``dominant`` is the first
 it carries in this order):
 
@@ -55,6 +68,8 @@ Usage:
     ./dev history-in-code --top 20 --verbose   # the sweep queue, every hit listed
     ./dev history-in-code --json > hits.json   # machine-readable (status → stderr)
     ./dev history-in-code core/services/tasks  # any files or directories
+    ./dev history-in-code --docs               # the same census over docs/ + skills
+    ./dev history-in-code --docs --top 20      # the docs sweep queue
 """
 
 from __future__ import annotations
@@ -72,6 +87,14 @@ from pathlib import Path
 from typing import Any
 
 ROOT = Path(__file__).resolve().parents[1]
+
+# scripts/health/ is not a package — the fence walker and the docs corpus resolve at
+# runtime via sys.path but not for MyPy (the same ignore docs_relative_links.py carries).
+sys.path.insert(0, str(ROOT / "scripts" / "health"))
+from markdown_fences import (  # type: ignore[import-not-found]
+    frontmatter_lines,
+    iter_code_fence_blocks,
+)
 
 # Tests and scripts/ are out: tests carry rationale legitimately, scripts are CLI prose.
 DEFAULT_SCOPE: tuple[str, ...] = ("core", "adapters", "ui", "services_bootstrap")
@@ -102,7 +125,7 @@ POINTER_LINE = re.compile(r"^\s*(?:See|Backend):", re.IGNORECASE)
 
 DOCSTRING_HOSTS = (ast.Module, ast.ClassDef, ast.FunctionDef, ast.AsyncFunctionDef)
 
-Kind = str  # "comment" | "docstring"
+Kind = str  # "comment" | "docstring" | "prose"
 
 
 @dataclass(frozen=True)
@@ -187,8 +210,41 @@ def scan_source(source: str, path: str) -> FileReport:
     return FileReport(path=path, source_lines=len(source.splitlines()), hits=hits)
 
 
+def markdown_prose_lines(text: str) -> list[tuple[int, Kind, str]]:
+    """Every prose line of a Markdown document, as (lineno, "prose", text).
+
+    Outside fenced code blocks (``markdown_fences`` — the CommonMark walker, not a
+    delimiter count), and outside a leading YAML frontmatter block. Blank lines are
+    not prose.
+    """
+    lines = text.splitlines()
+    skipped: set[int] = set(frontmatter_lines(text))
+    for block in iter_code_fence_blocks(text):
+        first, last = block.span
+        skipped.update(range(first, last + 1))
+    return [
+        (lineno, "prose", line.strip())
+        for lineno, line in enumerate(lines, 1)
+        if lineno not in skipped and line.strip()
+    ]
+
+
+def scan_markdown(text: str, path: str) -> FileReport:
+    """Census one Markdown document's prose; ``path`` is the label the report carries."""
+    hits = tuple(
+        Hit(lineno, kind, categories, line)
+        for lineno, kind, line in markdown_prose_lines(text)
+        if (categories := classify(line))
+    )
+    return FileReport(path=path, source_lines=len(text.splitlines()), hits=hits)
+
+
 def python_files(paths: list[Path]) -> list[Path]:
-    """The ``.py`` files under the given files and directories, deduplicated, sorted."""
+    """The ``.py`` files under the given files and directories, deduplicated, sorted.
+
+    A file given explicitly is kept whatever its suffix — ``scan_paths`` routes a
+    ``.md`` to the Markdown reader.
+    """
     files: set[Path] = set()
     for path in paths:
         if path.is_file():
@@ -198,6 +254,29 @@ def python_files(paths: list[Path]) -> list[Path]:
     return sorted(files)
 
 
+def markdown_files(paths: list[Path]) -> list[Path]:
+    """The ``.md`` files under the given files and directories, deduplicated, sorted.
+
+    A file given explicitly must itself be Markdown — ``resolve_paths`` refuses any
+    other under ``--docs``, so a Python file cannot be counted under the Markdown banner.
+    """
+    files: set[Path] = set()
+    for path in paths:
+        if path.is_file():
+            files.add(path)
+            continue
+        files.update(path.rglob("*.md"))
+    return sorted(files)
+
+
+def docs_corpus() -> list[Path]:
+    """The ``--docs`` default scope: the link checker's corpus, carve-outs included."""
+    import dead_doc_links  # type: ignore[import-not-found]
+
+    files, _skips = dead_doc_links.get_md_files()
+    return files
+
+
 def label_for(path: Path) -> str:
     resolved = path.resolve()
     if resolved.is_relative_to(ROOT):
@@ -205,20 +284,30 @@ def label_for(path: Path) -> str:
     return path.as_posix()
 
 
-def scan_paths(paths: list[Path]) -> tuple[list[FileReport], list[str]]:
+def scan_paths(paths: list[Path], docs: bool = False) -> tuple[list[FileReport], list[str]]:
     """Reports for every parseable file (hits or not) and the labels of the rest.
 
     A file Python cannot parse is listed, never silently dropped — a count that
-    quietly excludes files is a census that lies about its own coverage.
+    quietly excludes files is a census that lies about its own coverage. A ``.md``
+    file takes the Markdown reader whether it was given explicitly or found under a
+    ``--docs`` directory.
     """
     reports: list[FileReport] = []
     skipped: list[str] = []
-    for file in python_files(paths):
+    files = markdown_files(paths) if docs else python_files(paths)
+    for file in files:
         label = label_for(file)
         try:
             source = file.read_text(encoding="utf-8")
+        except UnicodeDecodeError:
+            skipped.append(label)
+            continue
+        if file.suffix == ".md":
+            reports.append(scan_markdown(source, label))
+            continue
+        try:
             reports.append(scan_source(source, label))
-        except SyntaxError, tokenize.TokenError, UnicodeDecodeError:
+        except SyntaxError, tokenize.TokenError:
             skipped.append(label)
     return reports, skipped
 
@@ -281,11 +370,16 @@ def json_document(
 
 
 def print_report(
-    reports: list[FileReport], skipped: list[str], scope: list[str], top: int | None, verbose: bool
+    reports: list[FileReport],
+    skipped: list[str],
+    scope: list[str],
+    top: int | None,
+    verbose: bool,
+    docs: bool = False,
 ) -> None:
     rows = ranked(reports, top)
     print(f"History in code — advisory census over {' '.join(scope)}")
-    print("(comments via tokenize, docstrings via ast; strings and log messages unread)\n")
+    print(f"({READER_BANNERS[reader_mode(reports, skipped, docs)]})\n")
     if not rows:
         print("No hits.")
     else:
@@ -311,7 +405,29 @@ def print_report(
     )
     if skipped:
         print(f"Skipped (not parseable as Python): {', '.join(skipped)}")
-    print("Advisory — exit 0 always. Sweep queue: ./dev history-in-code --top 20 --verbose")
+    queue = "--docs --top 20 --verbose" if docs else "--top 20 --verbose"
+    print(f"Advisory — exit 0 always. Sweep queue: ./dev history-in-code {queue}")
+
+
+READER_BANNERS = {
+    "python": "comments via tokenize, docstrings via ast; strings and log messages unread",
+    "markdown": "Markdown prose outside fences, frontmatter skipped; fenced examples unread",
+    "mixed": "Python comments and docstrings AND Markdown prose — mixed inputs, one census",
+}
+
+
+def reader_mode(reports: list[FileReport], skipped: list[str], docs: bool) -> str:
+    """Which reader the census used, derived from the files it read — the banner
+    names what was actually read, not what the flag asked for."""
+    labels = [report.path for report in reports] + skipped
+    if not labels:
+        return "markdown" if docs else "python"
+    markdown = [label.endswith(".md") for label in labels]
+    if all(markdown):
+        return "markdown"
+    if not any(markdown):
+        return "python"
+    return "mixed"
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -333,30 +449,39 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--json", action="store_true", dest="as_json", help="emit the census as JSON on stdout"
     )
+    parser.add_argument(
+        "--docs",
+        action="store_true",
+        help="census Markdown prose instead: docs/ + .claude/skills/ by default, or the .md files under PATH",
+    )
     return parser
 
 
 def resolve_paths(
-    parser: argparse.ArgumentParser, given: list[str]
+    parser: argparse.ArgumentParser, given: list[str], docs: bool = False
 ) -> tuple[list[Path], list[str]]:
+    if not given and docs:
+        return docs_corpus(), ["docs", ".claude/skills"]
     if not given:
         return [ROOT / name for name in DEFAULT_SCOPE], list(DEFAULT_SCOPE)
     paths = [Path(p) for p in given]
     for path in paths:
         if not path.exists():
             parser.error(f"no such path: {path}")
+        if docs and path.is_file() and path.suffix != ".md":
+            parser.error(f"--docs takes Markdown files or directories, not {path}")
     return paths, [label_for(path) for path in paths]
 
 
 def main(argv: list[str] | None = None) -> int:
     parser = build_parser()
     args = parser.parse_args(argv)
-    paths, scope = resolve_paths(parser, args.paths)
-    reports, skipped = scan_paths(paths)
+    paths, scope = resolve_paths(parser, args.paths, args.docs)
+    reports, skipped = scan_paths(paths, docs=args.docs)
     if args.as_json:
         print(json.dumps(json_document(reports, skipped, scope, args.top), indent=2))
     else:
-        print_report(reports, skipped, scope, args.top, args.verbose)
+        print_report(reports, skipped, scope, args.top, args.verbose, docs=args.docs)
     return 0
 
 

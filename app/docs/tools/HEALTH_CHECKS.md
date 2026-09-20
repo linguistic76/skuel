@@ -1,6 +1,6 @@
 ---
 title: Codebase Health Checks
-updated: 2026-09-18
+updated: 2026-09-20
 status: current
 category: tools
 tags: [health, scripts, dead-code, documentation, maintenance, drift]
@@ -19,7 +19,7 @@ related: [AUTOMATIC_DOCS_CHECK.md, BLOAT_DETECTION.md]
 > [The Weekly Janitor](../user-guides/weekly-janitor.md) — where the Monday report lands, what red means, and
 > the two-minute ritual.
 
-Automated checks that prevent codebase drift — the kind that accumulates silently between refactors: orphaned files, broken doc links, stale names in documentation examples, duplicated document sections, skill↔doc cross-reference inconsistencies, mypy suppressions that have stopped suppressing anything, and a secret scan that has started firing on the repository's own content.
+Automated checks that prevent codebase drift — the kind that accumulates silently between refactors: orphaned files, broken doc links (line citations past the end of a file included), stale names in documentation examples, duplicated document sections, skill↔doc cross-reference inconsistencies, mypy suppressions that have stopped suppressing anything, a secret scan that has started firing on the repository's own content, and docs that describe routes the application does not register.
 
 ```bash
 ./dev health              # run every check except health-mypy
@@ -31,6 +31,7 @@ Automated checks that prevent codebase drift — the kind that accumulates silen
 ./dev health-updated      # docs whose `updated:` stamp has rotted or is missing
 ./dev health-xref         # cross-reference + staleness only
 ./dev health-secrets      # run the commit-time secret scan over the whole tracked corpus
+./dev health-claims       # route claims in docs vs the runtime route table (advisory, exit 0)
 ./dev health-mypy         # dead mypy suppressions only (~80s — NOT in ./dev health)
 ```
 
@@ -42,7 +43,8 @@ is pinned to that array by `tests/unit/scripts/test_health_check_parity.py`,
 which *discovers* command blocks rather than naming files — a second copy
 planted anywhere under `docs/` or `.claude/skills/` is covered on arrival.
 
-Every check exits non-zero when issues are found, so they can be used in CI —
+Every check but `health-claims` (§ 9 — advisory by ruling, exit 0 always) exits
+non-zero when issues are found, so they can be used in CI —
 and all of them now ARE: everything in `./dev health` runs weekly via
 `.github/workflows/weekly-janitor.yml` (Mondays 06:30 UTC, together with the
 full bloat report), which maintains an always-open status issue and fails
@@ -166,7 +168,7 @@ Dead Doc Link Validator
 Scanning 435 Markdown files in docs/ and .claude/skills/...
 6 file(s) carved out: freeform notes + templates (links unvalidatable by construction)
 73 file(s) carved out: history directories (dated records, where a dead link is the record being faithful)
-28 target(s) skipped: registered application routes (adapters/inbound/)
+30 target(s) skipped: registered application routes (891 paths in the runtime route table)
 0 target(s) skipped: <!-- historical --> markers
 0 target(s) skipped: <!-- planned --> markers
 
@@ -189,6 +191,7 @@ self-report as broken):
 | `[backtick]` | `` `core/services/base_service.py` `` | Inline code spans that look like paths |
 | `[bare]` | `/docs/patterns/linter_rules.md` in prose | Bare absolute paths with project prefixes |
 | `[code]` | `cp core/services/base_service.py …` inside a ` ``` ` block | Path-looking tokens in fenced code blocks |
+| `[line]` | `` `core/services/base_service.py:12` ``, "line 12 of `base_service.py`" | Line citations: the file must exist AND have at least that many lines (see below) |
 
 **Two citation forms, one per direction.** A link whose both ends are inside `docs/` is
 written **relative to the citing file** (`../patterns/linter_rules.md`; a sibling is just
@@ -223,7 +226,7 @@ exclusion prints its count on **every** run, zero included:
 |---|---|---|
 | Freeform notes + templates | `FREEFORM_FILES` / `TEMPLATE_FILES` (explicit FILE lists) and `TEMPLATE_DIRS` in `scripts/health/dead_doc_links.py`; skipped in `get_md_files()` | Links unvalidatable by construction — working notes citing an Obsidian vault outside the repo; template paths a reader substitutes. ⚠️ FILE-scoped for `docs/design-principles/` and for `docs/decisions/ADR-TEMPLATE.md`, never the directory: both also hold maintained content whose dead links are genuine rot |
 | History directories | `HISTORY_DIRS` (`docs/migrations`, `docs/roadmap/done`, `docs/investigations`, `docs/Reviews`); skipped in `get_md_files()` | Dated records of a past state, where a dead link is the record being **faithful** — the file really was there when the record was written. Directory membership IS the classification, so this one is a directory carve-out (Mike's ruling, 2026-09-01). ⚠️ `docs/roadmap/done/` and never `docs/roadmap/`: the live half is "what might still happen" and its dead links are ordinary rot |
-| Registered application routes | AST match against the `@rt("…")` literals in `adapters/inbound/` | Docs cite app URLs (`/journals`, `/manifest.json`) with the same leading-slash spelling a repo path uses. The class is defined by MATCHING a live registration — never by shape, never by a hand-kept URL list. ⚠️ Only literal paths match: a factory's `@rt(f"/{domain}")` is unresolvable statically, so `/tasks` stays reported. Fail toward reporting |
+| Registered application routes | Match against the **runtime route table** — `scripts/health/route_catalog.py` wires the real route tree onto a bare `fast_app()` with every service mocked (no Neo4j, no `.env`; ~3s, cached per process) | Docs cite app URLs (`/journals`, `/manifest.json`) with the same leading-slash spelling a repo path uses. The class is defined by MATCHING a live registration — never by shape, never by a hand-kept URL list. The table is read at runtime because the factories register through f-strings (`@rt(f"/{domain}")`, every CRUD / lateral / hierarchy factory) that no static pass can see — measured 2026-09-19: 475 literal paths against 891 registered. ONE catalog, two readers: § 9's route-claim scanner matches against the same object |
 | `<!-- historical -->` markers | Exact-shape comment on the citation's line, honored only under `docs/decisions/` | An Accepted ADR mixes faithful narrative ("we deleted X") with standing contract ("the chokepoint lives at X"), so the opt-out is per citation rather than per file. It skips a marked citation **only when the target is dead**, and a marker that skipped nothing is itself reported — the SKUEL026 inversion. That is what a blanket ADR carve-out could not offer, and why it was refused |
 | `<!-- planned -->` markers | Same mechanism, honored only under `docs/roadmap/` (the live half — `done/` is carved out of the scan entirely) | A live roadmap doc cites the files it intends to CREATE, and `not exists()` looks identical for a deleted file and an unbuilt one. Measured 2026-09-02: 8 of the 14 live-roadmap findings. ⭐ Chosen over leaving them reported because it **self-retires** — when the file is built the marker suppresses nothing, so the same inversion reports it and a permanent dead link becomes a build-completion signal (Mike's ruling, 2026-09-02) |
 
@@ -255,6 +258,31 @@ this page can document it at all (the same problem `stale_names.py` solves with
 - A file is renamed or deleted but the docs aren't updated
 - A skill directory is listed in the index before it's created
 - A test file referenced in a doc is deleted after the test is removed
+
+#### The `[line]` pass — `file.py:N` is a claim the other passes cannot see
+
+A `file.py:N` citation fails the path shape test on its colon, so the backtick, bare
+and fence passes never extract it — to them a `:N` citation of a **deleted** file is
+invisible, and a citation past the end of a live file is a claim no existence check can test.
+The pass strips the `:N` / `:N-M` / `:N–M` / `:LN` tail (and reads the prose forms:
+"line N of `f.py`", "`f.py` line N", "`f.py` (lines N–M)"), resolves the file — by path,
+or for a basename-only or partial citation (`markdown_fences.py:1`,
+`events/_orchestration_mixin.py:71`) by **unique suffix match over `git ls-files`** —
+and then asserts every cited line number is within the file, every range of a
+discontiguous citation (`adapters/inbound/csrf.py:78-92, 195-199`) included. Tracked files only, for the
+direct path as for the suffix search, so a gitignored prototype in `plans/` named like
+the module it copies can never satisfy a citation and the verdict is the same in every
+checkout; the tracked set is the whole repository's, so a doc may cite a tracked file
+beside the app (`../infrastructure/docker-compose.yml:52`). Five reasons, each printed with the row: `FILE_MISSING`,
+`AMBIGUOUS_BASENAME (K tracked files end with x.py)`, `NOT_A_LINE` (a `:0` — numbering
+starts at 1), `NOT_A_RANGE` (a descending `8-3`), `PAST_EOF (file has K lines)`. An
+incomplete range (`:3-oops`) is not a citation at all.
+Fences are read too — a `grep -n` sample cites lines the way prose does. An in-range
+citation is **not verified**: the line exists; what it says is a read.
+
+Markers apply as to every other kind. Measured on `c4c0b26fb` (2026-09-19): 29 findings
+(15 past EOF, 11 missing files, 3 ambiguous basenames), 9 of them in `docs/decisions/`;
+re-measure with `./dev health-links`.
 
 #### The `[code]` pass and the 807 → 908 step (PR #872)
 
@@ -677,6 +705,103 @@ is that the corpus is the honest test set.
 
 **See:** `/scripts/git-hooks/README.md` § The secret scan.
 
+### 9. `route_claims.py` — Docs That Name Routes the App Does Not Register
+
+A doc or skill that describes `/ku` when no handler serves it is fiction the link checker
+cannot see: § 2 tests link *targets* and repo *files*, and a route is neither. This
+scanner reads the **inline code spans** of the same corpus (`dead_doc_links.get_md_files()`
+— its carve-outs inherited) and matches each URL-shaped span (`` `/api/tasks/create` ``,
+`` `POST /api/user-entries/upload` ``) against the runtime route catalog § 2 already
+consumes (`scripts/health/route_catalog.py`; `{param}` segments wild on either side, so a
+pattern doc's `/api/{domain}/create` matches `/api/tasks/create`).
+
+```bash
+./dev health-claims                                    # per-file fiction counts + every class total
+uv run python scripts/health/route_claims.py --all     # every fiction site: file:line  METHOD /path
+uv run python scripts/health/route_claims.py --class history --all   # any class: fiction, history, family-prefix, relative-suffix, negated
+uv run python scripts/health/route_claims.py --file docs/patterns/your_doc.md …   # a sweep PR's ride-along: only these files
+uv run python scripts/health/route_claims.py --fences  # advisory view of route-shaped string literals inside fences
+```
+
+**Every claim lands in exactly one class, and every class prints its count on every run,
+zero included** — a class that goes quiet without saying so is what a rotted narrowing
+looks like from the outside:
+
+| Class | Rule | Tier |
+|---|---|---|
+| `matched` | registered — exact, or wildcard-segment | — |
+| `fiction` | unmatched, not negated, no history signal on the line | the sweep queue; the only class that could ever gate |
+| `history` | unmatched, and the line carries a `history_in_code` signal (its `classify` — one vocabulary, imported, never copied) — whatever shape the route has | printed; the line is `history_in_code --docs`'s to read |
+| `family-prefix` | unmatched, strict prefix of ≥1 registered route (`/api/context` naming the door to `/api/context/*`) | printed, **never a skip**: `POST /api/knowledge` is a prefix of `/api/knowledge/ai/*` and does not exist |
+| `relative-suffix` | unmatched single segment that ends ≥1 deeper route (`/create` cited relative to a base named earlier) | printed, **never a skip**: `/ku` lands here through `/library/ku` and has no handler |
+| `negated` | the **span** is the object of a present-tense negation: `` no `/x` ``, `` not `/x` ``, `` `/x` → 404 ``, `` `/x` is a 404 ``, `` `/x` returns 404 ``, `` `/x` does not exist `` | skipped, printed |
+| `marker-skipped:<name>` | `<!-- historical -->` inside `docs/decisions/`, `<!-- planned -->` inside live `docs/roadmap/` — § 2's `MarkerSpec` registry, not a second grammar | skipped, printed per marker, never summed |
+
+**The negation is span-adjacent, never line-scoped.** A negation token elsewhere on the
+line says nothing about this span: a line asserting a dead route "requires `@require_admin`"
+is fiction however many "no"s the rest of the sentence carries. The nine corpus lines a
+line-scoped grammar would skip are `tests/unit/scripts/test_route_claims.py`'s cases, both
+directions — the span-scoped grammar skips two of them and hides none.
+
+**Not every leading-slash span is a claim.** Rejected before matching, each pinned with a
+positive and a negative case: spaces and backticks; regex / glob / shell characters; an
+Uppercase segment (another vendor's API); filesystem prefixes and bare mounts (`/home/…`,
+`/opt/…`, `/conf`, `/swapfile`, `/etc`); repo top-level directories cited as paths
+(`/services_bootstrap`, `/services_bootstrap/x`); a `PROJECT_PREFIXES` span carrying any
+file signal — an extension, a line number, a template or elision marker, or a path that
+exists in the tree, read with query, anchor and trailing slash dropped (the
+`/ui/analytics/*` routes share the `/ui/` prefix with the `ui/` package and carry none, so
+they stay claims — and so does a citation of a directory no longer in the tree, which no
+other pass reads and which reports here as fiction); any span § 2's `_looks_like_local_path` accepts
+(a leading-slash citation of a `.py` module — the backtick pass resolves it as a file, then
+as a route, then reports it; the same predicate, so a span is one reader's or the other's,
+never both — unless a verb is written: `GET /manifest.json` is a claim, since the link
+checker never reads a span with a verb in it); a
+trailing-slash `docs/` subdirectory (`/patterns/`); a metavariable first segment
+(`/{domain}/…`, `/domain/…`, `/section/…`); an all-numeric span (`/100`, a column header);
+and anything `_is_placeholder` rejects — **not**
+`_is_documentation_stand_in`, whose template-marker half rejects `{uid}`, which every
+parameterised route carries.
+
+**One marker ledger.** A marker that skips nothing is rot in the marker, and that verdict
+is computed **once**, in § 2's `check_file`: its ledger consults this scanner, so a marker
+is stale only when it covers neither a dead link nor a dead route claim — and
+`./dev health-links` is where the stale marker reports. This scanner prints its skip
+counts and points there.
+
+**The catalog carries its own positive controls.** `fast_app()` installs a root static
+catch-all (`/{fname:path}.{ext:static}`) that bootstrap strips before wiring; normalised
+it is `/{}` and matches **every** single-segment claim — there is no `/ku`, no `/home`,
+no `/sel`, and a probe that kept the catch-all read all three as registered.
+`tests/unit/scripts/test_route_catalog.py` pins the
+catch-all's absence by name and holds controls in both directions — known-dead paths
+must not be registered, known-live factory paths must be — and prints the size of the
+static-vs-runtime gap without ever asserting it equal.
+
+**Advisory: exit 0 always.** Promotion of the `fiction` class to `./dev health` red —
+never CI — is a separate ruling that waits on two sweep PRs each re-measuring ≥95%
+precision on a fresh draw; `family-prefix`, `relative-suffix` and `history` stay
+printed-only whatever that ruling says. Measured 2026-09-20 on the tree at PR #1379's
+head: 1627 inline claims — 1295 matched · **210 fiction in 51 files** (62 of them one
+section of `docs/patterns/OWNERSHIP_VERIFICATION.md`; 4 are dead directory citations) · 17
+history · 36 family-prefix · 51 relative-suffix · 15 negated · 2 + 1 marker-skipped;
+re-measure with `./dev health-claims`.
+
+**Matching is directional and verb-aware.** A wildcard is wild in one direction per
+match — the claim is an *instance* of the registration (`/api/tasks/{uid}/status`
+serves `/api/tasks/abc/status`) or a *family* it belongs to (`/api/{domain}/create`
+names `/api/tasks/create`), never both at once: crossed,
+`/api/ku/related/{uid}` does not exist yet would read as served by
+`/api/ku/{uid}/mark-studying`. And the runtime table
+carries each route's HTTP methods, so there is no `PUT /api/events/{uid}/status` — the
+route is registered for `POST` alone, and the claim is fiction. The near-miss classes are
+verb-blind — printed, never matched, either way.
+
+**Companion:** `./dev history-in-code --docs` is the same census `history_in_code.py` runs
+over comments and docstrings, turned on Markdown prose — the queue the `history` class
+hands off to. Advisory forever, not in the roster (it is a census, not a check). See
+[HISTORY_IN_CODE.md](HISTORY_IN_CODE.md).
+
 
 ## Maintaining `stale_names.py`
 
@@ -761,10 +886,11 @@ The `./dev health` scripts are fast enough to run on every commit if desired (a 
 - Relative links in template files may appear broken (the template is never at its "real" location)
 - Links to anchors within files are not validated (only the file existence is checked)
 - Links inside HTML comments or non-standard syntax may be missed
-- Route matching reads *literal* `@rt("…")` paths only. A route registered through a
-  factory f-string (`@rt(f"/{domain}")`) is not in the catalog, so a doc citing it keeps
-  reporting — deliberate: an unmatched route costs one advisory line, a wrongly-matched
-  one hides real rot
+- The route catalog is the union over intelligence tiers (every service is a truthy
+  mock when the route tree is wired), so a FULL-tier route cited from a CORE-tier
+  checkout still matches — right for docs, which describe the product, not a tier
+- A `file.py:N` citation whose line exists is reported as nothing: the pass proves
+  absence (missing file, line past EOF), never that the line says what the doc says
 - A link destination containing a raw space is treated as not-a-link (it is a Python
   generic subscript far more often than a path, and CommonMark does not allow one), which
   also means the `[text](dest "title")` form is skipped rather than checked
@@ -786,7 +912,8 @@ copy of the roster. These are the *neighbours*, which no roster names:
 
 | Script | Role |
 |--------|------|
-| `scripts/health/markdown_fences.py` | Shared CommonMark fence walker (links + names). A library, not a check — no `__main__`, so the parity test does not demand a roster entry for it |
+| `scripts/health/markdown_fences.py` | Shared CommonMark fence walker (links + names + claims + the docs census) and the frontmatter projection they mask by. A library, not a check — no `__main__`, so the parity test does not demand a roster entry for it |
+| `scripts/health/route_catalog.py` | Shared runtime route catalog (links + claims). A library, same rule — the wired route table, cached per process, with the three matching relations both readers use |
 | `scripts/docs_updated_field.py` | Shared stamp mechanics (guard + stamper + backfill) |
 | `scripts/stamp_docs_updated.py` | Pre-commit stamper (hook check 0) |
 | `scripts/backfill_docs_updated.py` | One-shot seed from commit history |

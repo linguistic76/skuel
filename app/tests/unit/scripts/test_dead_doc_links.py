@@ -36,6 +36,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[3] / "scripts" / "health
 
 import dead_doc_links as ddl  # type: ignore[import-not-found]
 import markdown_fences as mf  # type: ignore[import-not-found]
+import route_catalog as rc  # type: ignore[import-not-found]
 
 DEAD_REL = "core/services/goals/goals_lateral_service.py"
 DEAD_ABS = "/core/services/goals/goals_lateral_service.py"
@@ -78,12 +79,23 @@ def _report(docs_root: Path, body: str) -> set[tuple[int, str, str]]:
     return {(lineno, raw, kind) for _src, lineno, raw, kind in _scan(docs_root, body).dead}
 
 
-def _scan(docs_root: Path, body: str, name: str = "probe.md") -> ddl.FileScan:
+# The injection seam: a throwaway root never boots the route tree. The runtime probe
+# is exercised once, on the real tree, in test_route_catalog.py.
+EMPTY_CATALOG = rc.RouteCatalog(())
+TWO_ROUTES = rc.RouteCatalog({"/journals", "/manifest.json", "/tasks"})
+
+
+def _scan(
+    docs_root: Path,
+    body: str,
+    name: str = "probe.md",
+    catalog: rc.RouteCatalog = EMPTY_CATALOG,
+) -> ddl.FileScan:
     """Run the real check_file over a probe doc; return the whole scan (dead + skips)."""
     probe = docs_root / "docs" / name
     probe.parent.mkdir(parents=True, exist_ok=True)
     probe.write_text(body, encoding="utf-8")
-    return ddl.check_file(probe, verbose=False)
+    return ddl.check_file(probe, verbose=False, catalog=catalog)
 
 
 def test_fenced_relative_path_is_reported(docs_root: Path) -> None:
@@ -1324,99 +1336,283 @@ def test_a_stale_marker_alone_fails_the_run(
 
 
 # ============================================================================
-# ROUTE-SHAPED TARGETS — matched against live registrations (PR B1)
+# ROUTE-SHAPED TARGETS — matched against the runtime route catalog (PR B1)
 # ============================================================================
 
 
-@pytest.fixture
-def fake_app(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
-    """A throwaway root whose `adapters/inbound/` registers exactly two routes."""
-    monkeypatch.setattr(ddl, "ROOT", tmp_path)
-    (tmp_path / "docs").mkdir()
-    inbound = tmp_path / "adapters" / "inbound"
-    inbound.mkdir(parents=True)
-    (inbound / "journals_routes.py").write_text(
-        "def register(rt):\n"
-        '    """Docstring example: @rt("/ghost") — prose, not a registration."""\n'
-        '    @rt("/journals", methods=["GET"])\n'
-        "    def journals(request):\n"
-        "        return None\n"
-        '    @rt("/manifest.json")\n'
-        "    def manifest(request):\n"
-        "        return None\n",
-        encoding="utf-8",
-    )
-    (inbound / "activity_ui_factory.py").write_text(
-        "def register(rt, domain):\n"
-        '    @rt(f"/{domain}")\n'
-        "    def listing(request):\n"
-        "        return None\n",
-        encoding="utf-8",
-    )
-    return tmp_path
-
-
-def test_registered_route_target_is_skipped_and_counted(fake_app: Path) -> None:
+def test_registered_route_target_is_skipped_and_counted(docs_root: Path) -> None:
     """Docs cite app URLs with the same spelling a repo path uses. A live route is not a
     missing file — but the skip is counted, never silent."""
-    scan = _scan(fake_app, "# P\n\nOpen [the journal](/journals) and `/manifest.json`.\n")
+    scan = _scan(
+        docs_root,
+        "# P\n\nOpen [the journal](/journals) and `/manifest.json`.\n",
+        catalog=TWO_ROUTES,
+    )
     assert scan.dead == []
     assert scan.route_skips == 2
 
 
-def test_unregistered_route_shaped_target_stays_red(fake_app: Path) -> None:
-    """⚠️ The class is defined by MATCHING a registration, never by shape (Codex, #1214).
+def test_unregistered_route_shaped_target_stays_red(docs_root: Path) -> None:
+    """⚠️ The class is defined by MATCHING a registration, never by shape.
 
-    `/journals/browse` is exactly the trap: route-shaped, cited three times in the voice
-    journaling guide, and registered nowhere since PR #420 deleted it. A shape rule would
-    have hidden it; matching keeps it red for the sweep queue.
+    `/journals/browse` is exactly the trap: route-shaped and registered nowhere. A
+    shape rule would hide it; matching keeps it red for the sweep queue.
     """
-    scan = _scan(fake_app, "# P\n\nSee [history](/journals/browse).\n")
+    scan = _scan(docs_root, "# P\n\nSee [history](/journals/browse).\n", catalog=TWO_ROUTES)
     assert {raw for _s, _l, raw, _k in scan.dead} == {"/journals/browse"}
     assert scan.route_skips == 0
 
 
-def test_route_paths_come_from_the_ast_not_the_text(fake_app: Path) -> None:
-    """A docstring is prose. Grepping `@rt("` would have registered `/ghost` from the
-    fixture's own docstring — an auditor's example silently suppressing real rot."""
-    assert "/ghost" not in ddl.registered_route_paths()
-    assert {"/journals", "/manifest.json"} <= ddl.registered_route_paths()
+def test_factory_registered_route_is_matched_through_the_runtime_catalog(docs_root: Path) -> None:
+    """`/tasks` is registered by `@rt(f"/{domain}")` — a static pass cannot see it, the
+    runtime table can. The link checker reads the same catalog `route_claims` reads,
+    so a factory route is a skip here and a match there, never red in one and live
+    in the other."""
+    scan = _scan(docs_root, "# P\n\nSee [tasks](/tasks).\n", catalog=TWO_ROUTES)
+    assert scan.dead == []
+    assert scan.route_skips == 1
 
 
-def test_fstring_route_is_not_extracted_and_its_target_stays_red(fake_app: Path) -> None:
-    """Documented direction, not an oversight. The activity/domain factories register
-    `@rt(f"/{domain}")`, which no static pass resolves, so the live `/tasks` keeps
-    reporting. An unmatched route costs one advisory line; a wrongly-matched one hides
-    real rot. Fail toward reporting."""
-    assert not any(p.startswith("/tasks") for p in ddl.registered_route_paths())
-    scan = _scan(fake_app, "# P\n\nSee [tasks](/tasks).\n")
-    assert {raw for _s, _l, raw, _k in scan.dead} == {"/tasks"}
+def test_file_shaped_targets_are_never_route_matched() -> None:
+    """A `/docs/patterns/x.md` citation is a file path by convention; a registration at
+    that path cannot make it live. The prefix alone is not a refusal: `/ui/analytics/*`
+    routes share the `/ui/` prefix with the `ui/` package, and a link to one is served."""
+    odd = rc.RouteCatalog({"/docs/patterns/gone.md", "/ui/analytics/view"})
+    assert odd.is_registered("/docs/patterns/gone.md")
+    assert not ddl._is_registered_route("/docs/patterns/gone.md", odd)
+    assert ddl._is_registered_route("/ui/analytics/view", odd)
 
 
-def test_repo_rooted_targets_are_never_route_matched(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    """A `/docs/…` or `/core/…` citation is a file path by convention. Measured: no live
-    route sits under a PROJECT_PREFIX — this blocks the class if one ever does."""
-    monkeypatch.setattr(ddl, "ROOT", tmp_path)
-    inbound = tmp_path / "adapters" / "inbound"
-    inbound.mkdir(parents=True)
-    (inbound / "odd.py").write_text(
-        'def register(rt):\n    @rt("/docs/patterns/gone.md")\n    def x(request):\n'
-        "        return None\n",
-        encoding="utf-8",
+def test_a_link_to_a_route_under_a_project_prefix_is_a_route_skip(docs_root: Path) -> None:
+    scan = _scan(
+        docs_root,
+        "# P\n\nSee [the view](/ui/analytics/view).\n",
+        catalog=rc.RouteCatalog({"/ui/analytics/view"}),
     )
-    assert "/docs/patterns/gone.md" in ddl.registered_route_paths()
-    assert not ddl._is_registered_route("/docs/patterns/gone.md")
+    assert scan.dead == []
+    assert scan.route_skips == 1
 
 
 def test_live_route_catalog_matches_the_real_registrations() -> None:
     """Corpus pin against the real tree: the PWA assets are registered in
-    `adapters/inbound/pwa_routes.py` and match; `/journals/browse` does not exist and
-    must not. If this goes quiet, the extractor stopped reading the routes tree."""
-    catalog = ddl.registered_route_paths()
-    assert len(catalog) > 100, f"route catalog looks empty: {len(catalog)}"
-    for served in ("/manifest.json", "/service-worker.js", "/offline.html", "/journals"):
-        assert ddl._is_registered_route(served), served
-    for gone in ("/journals/browse", "/yaml_templates/_schemas/"):
-        assert not ddl._is_registered_route(gone), gone
+    `adapters/inbound/pwa_routes.py` and match; `/tasks` is factory-registered and
+    must; `/ku` has no handler and must not. If this goes quiet, the probe stopped
+    wiring the routes tree.
+
+    `/journals/browse` is deliberately NOT the dead control here: `/journals/{entry_uid}`
+    is registered, so the path IS served (by a handler that will 404 the value) —
+    a wildcard registration matching a doc's literal is the catalog telling the
+    truth, not a false match.
+    """
+    catalog = rc.runtime_catalog()
+    assert len(catalog) > 500, f"route catalog looks empty: {len(catalog)}"
+    for served in ("/manifest.json", "/service-worker.js", "/offline.html", "/journals", "/tasks"):
+        assert ddl._is_registered_route(served, catalog), served
+    for gone in ("/yaml_templates/_schemas/", "/ku", "/journals/browse/deeper/still"):
+        assert not ddl._is_registered_route(gone, catalog), gone
+
+
+# ============================================================================
+# LINE CITATIONS — `file.py:N` must name a file that exists AND has N lines
+# ============================================================================
+
+
+@pytest.fixture
+def cited_tree(docs_root: Path) -> Path:
+    """A 10-line module at `core/x.py`, a second `x.py` elsewhere, and a unique `only.py`."""
+    for rel in ("core/x.py", "ui/x.py"):
+        path = docs_root / rel
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text("\n".join(f"line {i}" for i in range(1, 11)) + "\n", encoding="utf-8")
+    only = docs_root / "core" / "deep" / "only.py"
+    only.parent.mkdir(parents=True)
+    only.write_text("a\nb\nc\n", encoding="utf-8")
+    return docs_root
+
+
+def _line_rows(scan: ddl.FileScan) -> set[tuple[int, str]]:
+    return {(lineno, raw) for _s, lineno, raw, kind in scan.dead if kind == "line"}
+
+
+def test_line_citation_past_eof_is_reported_with_the_file_length(cited_tree: Path) -> None:
+    """THE claim no existence check can test: the file is live, the line is not."""
+    scan = _scan(cited_tree, "# P\n\nSee `core/x.py:42`.\n")
+    assert _line_rows(scan) == {(3, "core/x.py:42 (PAST_EOF — file has 10 lines)")}
+
+
+@pytest.mark.parametrize(
+    "citation",
+    [
+        "core/x.py:9-40",
+        "core/x.py:9\u201340",  # an en dash range, as prose writes it
+        "/core/x.py:L40",
+        "`core/x.py` lines 9-40",
+        "line 40 of `core/x.py`",
+    ],
+)
+def test_every_citation_form_checks_its_last_line(cited_tree: Path, citation: str) -> None:
+    scan = _scan(cited_tree, f"# P\n\nSee {citation}.\n")
+    rows = _line_rows(scan)
+    assert len(rows) == 1, rows
+    assert "PAST_EOF — file has 10 lines" in next(iter(rows))[1]
+
+
+def test_line_citation_of_a_missing_file_is_reported(cited_tree: Path) -> None:
+    """A `:N` citation names a file the other passes do not read
+    (`_looks_like_local_path("core/gone.py:3")` is False on the colon); this pass
+    reports the missing file."""
+    assert not ddl._looks_like_local_path("core/gone.py:3")
+    scan = _scan(cited_tree, "# P\n\nSee `core/gone.py:3`.\n")
+    assert _line_rows(scan) == {(3, "core/gone.py:3 (FILE_MISSING)")}
+
+
+def test_zero_is_not_a_line(cited_tree: Path) -> None:
+    """Line numbering starts at 1; `0 <= length` must not read `:0` as in range."""
+    scan = _scan(cited_tree, "# P\n\n`core/x.py:0`\n\n`core/x.py:0-3`\n")
+    assert _line_rows(scan) == {
+        (3, "core/x.py:0 (NOT_A_LINE)"),
+        (5, "core/x.py:0-3 (NOT_A_LINE)"),
+    }
+
+
+def test_in_range_citation_is_not_reported(cited_tree: Path) -> None:
+    """The line exists. Whether it says what the doc says is a read, never a rule."""
+    scan = _scan(cited_tree, "# P\n\nSee `core/x.py:10` and `core/x.py:1-10`.\n")
+    assert scan.dead == []
+
+
+def test_basename_only_citation_resolves_by_unique_suffix(cited_tree: Path) -> None:
+    """`only.py:117` names one tracked file; range-checked against it. `x.py:3` names
+    two, and two candidates is a report, never a guess."""
+    scan = _scan(cited_tree, "# P\n\n`only.py:9` and `deep/only.py:2` and `x.py:3`.\n")
+    assert _line_rows(scan) == {
+        (3, "only.py:9 (PAST_EOF — file has 3 lines)"),
+        (3, "x.py:3 (AMBIGUOUS_BASENAME (2 tracked files end with x.py))"),
+    }
+
+
+def test_a_rooted_citation_never_takes_the_suffix_search(cited_tree: Path) -> None:
+    """`/only.py:2` names a file at the repository root; the one `only.py` deeper in
+    the tree is not what it says."""
+    scan = _scan(cited_tree, "# P\n\n`/only.py:2` and `only.py:2`\n")
+    assert _line_rows(scan) == {(3, "/only.py:2 (FILE_MISSING)")}
+
+
+def test_line_citation_takes_the_historical_marker_in_decisions(cited_tree: Path) -> None:
+    body = f"# P\n\nThe old chokepoint at `core/x.py:42`. {HISTORICAL}\n"
+    scan = _scan(cited_tree, body, name="decisions/ADR-000.md")
+    assert scan.dead == []
+    assert scan.marker_skips["historical"] == 1
+    assert scan.stale_markers == []
+
+
+def test_missing_file_cited_two_ways_on_one_line_reports_once(cited_tree: Path) -> None:
+    """The backtick pass reports `core/gone.py`; the line pass keys its `:N` claim on
+    the same resolved target, so one dead file is one finding."""
+    scan = _scan(cited_tree, "# P\n\n`core/gone.py` and `core/gone.py:3`.\n")
+    assert [raw for _s, _l, raw, _k in scan.dead] == ["core/gone.py"]
+
+
+def test_a_url_is_not_a_line_citation() -> None:
+    assert ddl.extract_line_citations("see https://example.com/app.js:12 and `x.py:1:5`\n") == [
+        ddl.LineCitation(1, "x.py:1", "x.py", "1")
+    ]
+    # ...in the prose forms too: a URL's tail is not a repo-rooted file.
+    assert ddl.extract_line_citations("see `https://example.com/x.py` line 3\n") == []
+    assert ddl.extract_line_citations("line 3 of https://example.com/x.py\n") == []
+
+
+def test_every_range_of_a_discontiguous_citation_is_checked(cited_tree: Path) -> None:
+    """`csrf.py:78-92, 195-199` cites two ranges; the highest line of ANY of them is
+    what the file must reach."""
+    scan = _scan(cited_tree, "# P\n\n`core/x.py:1-2, 40` and `core/x.py` (lines 3, 9\u201310)\n")
+    assert _line_rows(scan) == {(3, "core/x.py:1-2, 40 (PAST_EOF — file has 10 lines)")}
+    assert ddl.extract_line_citations("`a.py:78-92, 195-199`")[0].lines == (78, 92, 195, 199)
+
+
+def test_a_descending_or_incomplete_range_is_reported(cited_tree: Path) -> None:
+    """`8-3` names no lines; `3-oops` is not the citation `:3` with a suffix."""
+    scan = _scan(cited_tree, "# P\n\n`core/x.py:8-3`\n\n`core/x.py:3-oops`\n")
+    assert _line_rows(scan) == {(3, "core/x.py:8-3 (NOT_A_RANGE — descending)")}
+    assert ddl.extract_line_citations("`core/x.py:3-oops`") == []
+    # ...and a malformed LATER range does not leave a shorter, valid-looking citation.
+    assert ddl.extract_line_citations("`core/x.py:3, 8-oops`") == []
+    assert ddl.extract_line_citations("`core/x.py:3, 8-9`")[0].ranges == "3, 8-9"
+
+
+def test_a_direct_target_must_be_tracked(cited_tree: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """The contract is the same in every checkout: an untracked file on disk at the
+    cited path is a scratch artefact, and a citation of it is FILE_MISSING here as it
+    would be in CI. The fixture root has no git, so existence IS the tracked set —
+    a repository listing is planted to prove the direct path consults it."""
+    monkeypatch.setattr(ddl, "_repo_tracked", _repo_tracking_only_ui)
+    scan = _scan(cited_tree, "# P\n\n`core/x.py:3` and `ui/x.py:3`\n")
+    assert _line_rows(scan) == {(3, "core/x.py:3 (FILE_MISSING)")}
+
+
+def _repo_tracking_only_ui(root: Path) -> tuple[Path, frozenset[str]]:
+    return root, frozenset({"ui/x.py"})
+
+
+def test_a_tracked_file_missing_from_the_worktree_is_missing(
+    cited_tree: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """`git ls-files` still lists a file deleted but not yet staged; the citation
+    reports FILE_MISSING rather than the checker failing to read it."""
+    monkeypatch.setattr(ddl, "_repo_tracked", _repo_tracking_a_ghost)
+    scan = _scan(cited_tree, "# P\n\n`ghost.py:3`\n")
+    assert _line_rows(scan) == {(3, "ghost.py:3 (FILE_MISSING)")}
+
+
+def _repo_tracking_a_ghost(root: Path) -> tuple[Path, frozenset[str]]:
+    return root, frozenset({"core/ghost.py", "ui/x.py"})
+
+
+def test_a_suffix_citation_resolves_across_the_whole_repository() -> None:
+    """Real-tree pin: `.github/actions/file-audit-issue/action.yml` is tracked beside
+    the app and unique by its tail, so `actions/file-audit-issue/action.yml:1`
+    resolves — the suffix universe is the work tree's, as the direct path's is."""
+    target = ddl._resolve_line_citation(
+        "actions/file-audit-issue/action.yml", ddl.ROOT / "docs/x.md"
+    )
+    assert isinstance(target, Path)
+    assert (
+        target.resolve()
+        == (ddl.ROOT / ".." / ".github" / "actions" / "file-audit-issue" / "action.yml").resolve()
+    )
+
+
+def test_a_tracked_file_beside_the_app_is_a_valid_target() -> None:
+    """Real-tree pin: the repository is wider than `app/`, and a doc may cite a
+    tracked file beside it. The tracked set is the whole work tree's."""
+    assert ddl._is_tracked(ddl.ROOT / ".." / "infrastructure" / "docker-compose.yml")
+    assert not ddl._is_tracked(ddl.ROOT / "plans" / "docs-defiction-pass.md")
+    assert ddl._is_tracked(ddl.ROOT / "scripts" / "health" / "dead_doc_links.py")
+
+
+def test_line_citations_inside_fences_are_read(cited_tree: Path) -> None:
+    """A `grep -n` sample cites lines the way prose does."""
+    scan = _scan(cited_tree, "# P\n\n```text\ncore/x.py:42:    def f\n```\n")
+    assert _line_rows(scan) == {(4, "core/x.py:42 (PAST_EOF — file has 10 lines)")}
+
+
+# ============================================================================
+# ONE MARKER LEDGER — a marker over a dead ROUTE claim is used, not stale
+# ============================================================================
+
+
+def test_marker_over_a_dead_route_claim_only_is_not_stale(docs_root: Path) -> None:
+    """The link checker sees no dead link on this line — the route is not a file — so
+    on its own ledger the marker would report stale. The ledger consults the route
+    scanner, and the marker is used."""
+    body = f"# P\n\n`/journals/browse` served the archive. {HISTORICAL}\n"
+    scan = _scan(docs_root, body, name="decisions/ADR-000.md", catalog=TWO_ROUTES)
+    assert scan.dead == []
+    assert scan.stale_markers == []
+
+
+def test_marker_over_a_live_route_claim_is_stale(docs_root: Path) -> None:
+    """Neither instrument used it: no dead link, and the route is registered."""
+    body = f"# P\n\n`/journals` is the door. {HISTORICAL}\n"
+    scan = _scan(docs_root, body, name="decisions/ADR-000.md", catalog=TWO_ROUTES)
+    assert [(lineno, name) for _s, lineno, name, _r in scan.stale_markers] == [(3, "historical")]
