@@ -1,194 +1,186 @@
 # FastHTML Routing Patterns
 
-## SKUEL API Conventions (January 2026)
+Every route named here is registered in SKUEL — check a new example against the runtime
+catalog before writing it (`uv run python scripts/health/route_claims.py --file <this file> --fences`).
 
-**SKUEL uses query parameters for all API routes**, following FastHTML's "query parameters preferred" pattern:
+## SKUEL API Conventions
+
+SKUEL routes take two shapes, and both are live on API and UI routes alike:
 
 ```python
-# ✅ SKUEL Pattern - Query params for API routes
+# 1. Query-param read — CRUD reads, lists and filters. This is the CRUDRouteFactory
+#    shape (/api/{domain}/get, /update, /delete) and the page shape (/tasks/detail?uid=).
 @rt("/api/tasks/get")
-async def get_task(request, uid: str):  # uid from ?uid=...
-    return await service.get(uid)
+async def get_task(request: Request, uid: str):        # uid from ?uid=...
+    ...
 
-@rt("/api/tasks/complete", methods=["POST"])
-async def complete_task(request, uid: str):  # uid from ?uid=...
-    return await service.complete(uid)
-
-# ❌ Avoid path params in API routes
-@rt("/api/tasks/{uid}")  # Don't do this
-async def get_task(uid: str):
+# 2. Path-uid door — a per-entity action or a related-set read. This is the
+#    create_activity_field_api_routes shape (POST /api/{domain}/{uid}/status), the
+#    lateral / hierarchy families (/api/tasks/{uid}/lateral/*, /tasks/{uid}/dependencies)
+#    and reads like GET /api/path-steps/{uid}/organizers.
+@rt("/api/tasks/{uid}/status", methods=["POST"])
+async def update_status(request: Request, uid: str):   # uid from the path
     ...
 ```
 
-**Why query params for APIs:**
-- Type hints provide automatic parameter extraction
-- Cleaner route definitions (no `request.path_params["uid"]`)
-- Consistent pattern across all 130+ API routes
-- Better alignment with FastHTML's philosophy
+**Which shape to use:** a CRUD-factory read or a list is a query parameter (`/api/tasks/get?uid=`,
+`/api/user-entries/get?uid=`, `/gradebook/lines?status=&source=`); a door onto one entity —
+a write or a related-set read — is a path segment (`POST /api/tasks/{uid}/priority`,
+`POST /api/ku/{uid}/mark-studying`, `PATCH /api/goals/{uid}`, `GET /api/path-steps/{uid}/organizers`,
+`GET /api/teaching/review/{uid}`). Measured on the runtime catalog: 186 of the 598 API paths carry a
+path parameter (2026-09-20; re-measure by dumping `runtime_route_table()`). Do not add a
+CRUD read in the path-uid shape — there is no `GET /api/tasks/{uid}`.
 
-**When path params ARE appropriate:**
-- UI routes for SEO-friendly URLs: `/tasks/task_123`
-- Static file routes: `/{fname:path}.{ext:static}`
-- User-facing navigation: `/profile/{username}`
+**Why query params for reads:**
+- Type hints provide automatic parameter extraction (`uid: str` binds from `?uid=`)
+- Cleaner route definitions (no `request.path_params["uid"]`)
+- One shape for `get` / `update` / `delete` across all `CRUDRouteFactory` domains
 
 ## Route Decorator Behavior
 
 ### Basic Routing
 
+SKUEL always passes an explicit path — function-name routing (`@rt` with no argument) is
+not used, and the `@app.get(...)` spelling survives in two files only (`analytics_ui.py`,
+`exercises_ui.py`; `grep -rn '@app.get(' adapters/inbound/`).
+
 ```python
-from fasthtml.common import *
-app, rt = fast_app()
+from adapters.inbound.fasthtml_types import Request, RouteDecorator
 
-# Function name becomes route path
-@rt
-def index(): ...          # GET, POST /
+# Bare @rt(path) registers GET, HEAD and POST — fast_app()'s default
+@rt("/tasks")
+async def tasks_page(request: Request): ...
 
-@rt
-def about(): ...          # GET, POST /about
+# Method-specific — the norm for any mutation
+@rt("/tasks/create", methods=["GET"])
+async def task_create_form(request: Request): ...
 
-@rt
-def users(): ...          # GET, POST /users
-
-# Explicit path override
-@rt("/custom/path")
-def handler(): ...        # GET, POST /custom/path
+@rt("/tasks/create", methods=["POST"])
+async def task_create(request: Request): ...
 ```
+
+⚠ A bare `@rt(path)` page handler can SHADOW its CSRF-protected POST twin on the same
+path — always pass explicit `methods=` when a path serves more than one verb
+(`scripts/audit_route_security.py` guards this).
 
 ### HTTP Method Specificity
 
 ```python
-# Specific methods
-@app.get("/users")
-def list_users(): ...
+@rt("/api/path-steps/organize", methods=["POST"])
+async def organize_route(request: Request): ...
 
-@app.post("/users")
-def create_user(): ...
+@rt("/api/reports/{report_uid}/download", methods=["GET"])
+async def download_report_file(request: Request, report_uid: str): ...
 
-@app.put("/users/{id}")
-def update_user(id: int): ...
+@rt("/api/transcriptions/delete", methods=["DELETE"])
+async def delete_transcription(request: Request, uid: str): ...
 
-@app.delete("/users/{id}")
-def delete_user(id: int): ...
+@rt("/api/goals/{uid}", methods=["PATCH"])              # inline title edit (HierarchyRouteFactory)
+async def update_node(request: Request, uid: str): ...
 
-@app.patch("/users/{id}")
-def patch_user(id: int): ...
-
-# Multiple methods
-@app.route("/", methods=['get', 'post'])
-def handle_both(): ...
+@rt("/api/path-steps/tags", methods=["DELETE", "POST"])  # two verbs, one path
+async def tags_route(request: Request): ...
 ```
+
+There is no `PUT` route in SKUEL; updates are `POST /api/{domain}/update` or the field door.
 
 ### Function Name Conventions
 
-```python
-# When function name matches HTTP verb, that method is used
-@rt
-def get(): ...            # GET /get
-def post(): ...           # POST /post
-def put(): ...            # PUT /put
-def delete(): ...         # DELETE /delete
-```
+FastHTML can derive the method from a handler named `get`/`post`/`put`/`delete`. SKUEL
+does not use it — every handler has a descriptive name. The convention is `methods=` on
+every mutation and a bare `@rt(path)` (GET, HEAD and POST) only for reads; it is a
+convention, not yet an invariant — 287 registrations are bare against 216 with `methods=`,
+and 18 of the bare ones are CSRF-protected mutations (`/settings/save`, `/jupyter/save`,
+`/api/admin/users/hard-delete`, `/askesis/api/submit`, …) that ride the default GET+POST
+(`grep -rn -A1 -E '@rt\("[^"]+"\)$' adapters/inbound/*.py | grep -c csrf_protected`,
+2026-09-20). What IS enforced is the shadowing rule below.
 
 ## Path Parameters
 
 ### Type Conversion
 
+SKUEL registers **no Starlette converter** — no `{id:int}`, `{amount:float}`, `{x:uuid}`
+anywhere in `adapters/inbound/`. The only converter spelling in the tree is `fast_app()`'s
+own static catch-all (`{fname:path}.{ext:static}`), which bootstrap strips and replaces with
+one `app.mount("/static", StaticFiles(...))`. Coercion comes from the handler annotation:
+
 ```python
-# Basic types
-@app.get("/users/{user_id}")
-def get_user(user_id: int):          # Auto-converts to int
-    return f"User {user_id}"
+# Nearly every path parameter is a `str` uid
+@rt("/explore/ps/{uid}")
+async def ps_detail(request: Request, uid: str): ...
 
-@app.get("/items/{price}")
-def get_item(price: float):          # Auto-converts to float
-    return f"Price: ${price}"
+@rt("/api/tasks/{uid}/lateral/{relationship_type}/{target_uid}", methods=["DELETE"])
+async def delete_lateral_relationship(request: Request, uid: str, relationship_type: str, target_uid: str): ...
 
-# Path type (captures slashes)
-@app.get("/files/{filepath:path}")
-def get_file(filepath: str):
-    return FileResponse(filepath)
+# The calendar and journal period routes annotate ints and FastHTML coerces them
+@rt("/cal/month/{year}/{month}")
+def calendar_month(request: Request, year: int, month: int): ...
 
-# Static file pattern
-@rt("/{fname:path}.{ext:static}")
-async def static(fname: str, ext: str):
-    return FileResponse(f'{fname}.{ext}')
+@rt("/journals/monthly/{year}/{month}")
+async def journal_monthly_note(request: Request, year: int, month: int): ...
 ```
 
-### Starlette Path Converters
-
-| Converter | Description | Example |
-|-----------|-------------|---------|
-| `str` | Default, any string | `/users/{name}` |
-| `int` | Integer only | `/users/{id:int}` |
-| `float` | Float values | `/price/{amount:float}` |
-| `path` | Path with slashes | `/files/{path:path}` |
-| `uuid` | UUID format | `/items/{uuid:uuid}` |
+A non-numeric `{year}` on an `int` parameter is a **404** from parameter extraction, before
+the handler runs (FastHTML treats an uncoercible required parameter as missing; measured with
+a `TestClient` on a bare `fast_app()`) — not the 400 that `install_request_validation_guard`
+gives a rejected Pydantic body.
 
 ## Query Parameters
 
 ### Basic Usage
 
 ```python
-# Type-annotated params become query params
-@rt
-def search(q: str, limit: int = 10, offset: int = 0):
-    return f"Query: {q}, limit: {limit}, offset: {offset}"
-# GET /search?q=hello&limit=5
+# Type-annotated params bind from the query string
+@rt("/api/tasks/get")
+async def get_task(request: Request, uid: str): ...
+# GET /api/tasks/get?uid=task_abc
 
 # Optional with defaults
-@rt
-def filter(status: str = "active", sort: str = "date"):
-    return f"Status: {status}, Sort: {sort}"
-# GET /filter → uses defaults
-# GET /filter?status=pending → overrides status
+@rt("/gradebook/lines")
+async def gradebook_lines(request: Request, status: str = "all", source: str = "all"): ...
+# GET /gradebook/lines            → both defaults
+# GET /gradebook/lines?status=pending
 ```
 
-### Type Coercion
+### Type Coercion — two live mechanisms, two failure codes
+
+FastHTML coerces an annotated query parameter itself (`limit: int = 10`), and an uncoercible
+value is a **404** before the handler runs (measured with a `TestClient` on a bare
+`fast_app()`; a missing value takes the default). Thirteen handlers rely on that
+(`ai_routes.py`'s `limit: int`, the calendar fragments —
+`grep -rnE 'request: Request[^)]*: (int|float|bool)\b' adapters/inbound/`). The SKUEL shape
+for a parameter that carries validation — a range, a date format, a CSV list, a bool
+spelling — is a `route_factories/route_helpers.py` parser, which answers a **400**
+(`ErrorCategory.VALIDATION`) with the field named, never a silent default (36 call sites):
 
 ```python
-# Boolean parameters
-@rt
-def toggle(enabled: bool = True):
-    return "Enabled" if enabled else "Disabled"
-# GET /toggle?enabled=true
-# GET /toggle?enabled=false
-# GET /toggle?enabled=1
-# GET /toggle?enabled=0
+from adapters.inbound.route_factories.route_helpers import (
+    parse_bool_query_param, parse_int_query_param, parse_pagination_params,
+)
 
-# List parameters
-@rt
-def multi(tags: list[str] = None):
-    return f"Tags: {tags}"
-# GET /multi?tags=a&tags=b&tags=c
+@rt("/api/context/dashboard")
+@boundary_handler()
+async def get_context_dashboard_route(request: Request) -> Result[ContextDashboard]:
+    params = dict(request.query_params)
+    include_predictions = parse_bool_query_param(params, "include_predictions", default=True)
+    # GET /api/context/dashboard?include_predictions=false
+    ...
 
-# Date parsing
-from fasthtml.common import parsed_date
-@rt
-def by_date(d: parsed_date):
-    return f"Date: {d}"
-# GET /by_date?d=2024-01-15
+@rt("/api/path-steps/root-organizers")
+@boundary_handler()
+async def list_root_organizers_route(request: Request) -> Result[list[RootOrganizerResult]]:
+    params = dict(request.query_params)
+    limit = parse_int_query_param(params, "limit", 50, minimum=1, maximum=500)
+    # GET /api/path-steps/root-organizers?limit=20
+    ...
 ```
 
 ### Enum Constraints
 
-```python
-from fasthtml.common import str_enum
-
-# Define allowed values
-Status = str_enum('Status', 'active', 'pending', 'archived')
-Priority = str_enum('Priority', 'low', 'medium', 'high')
-
-@rt
-def tasks(status: Status, priority: Priority = None):
-    return f"Status: {status}, Priority: {priority}"
-# GET /tasks?status=active
-# GET /tasks?status=invalid → 404
-
-# Combined with path params
-@app.get("/items/{category}")
-def items(category: str_enum('Cat', 'books', 'electronics', 'clothing')):
-    return f"Category: {category}"
-```
+FastHTML ships `str_enum` for constrained query values; SKUEL does not use it. Enum-valued
+parameters are the domain `StrEnum`s resolved at the boundary with `from_string()` (aliases
+are input-only — see CLAUDE.md § Naming Conventions, Emission rule), and an unknown value is
+refused as a validation error, not a 404.
 
 ## Parameter Sources
 
@@ -201,252 +193,153 @@ FastHTML searches for parameters in order:
 6. Form data
 
 ```python
-@rt
-def handler(
-    path_id: int,          # From path if defined
-    query_param: str,      # From query string
-    cookie_val: str,       # From cookie named 'cookie_val'
-    session,               # Starlette session
-    req,                   # Starlette request
-):
+@rt("/api/tasks/{uid}/status", methods=["POST"])
+async def update_field(request: Request, uid: str):   # uid: path — request: the Starlette request
+    user_uid = require_authenticated_user(request)     # session, read through the auth helper
+    form = await request.form()                        # form data, read explicitly
     ...
 ```
+
+Handlers annotate `request: Request` from `adapters.inbound.fasthtml_types` (SKUEL020 /
+SKUEL035) and read the session through `require_authenticated_user(request)` — never a bare
+`sess` parameter.
 
 ## Route References & URL Generation
 
-### Using Routes in Attributes
+FastHTML can build a URL from a handler (`handler.to(...)`) and accept a handler as a form
+`action`. SKUEL uses neither — URLs are f-strings on registered paths, so the catalog can
+check them:
 
 ```python
-@rt
-def profile(email: str):
-    return P(f"Profile: {email}")
+# Redirect after a successful create — always a 303 to the query-param detail page
+return RedirectResponse(f"/tasks/detail?uid={result.value.uid}", status_code=303)
 
-@rt
-def users():
-    return Ul(
-        Li(A("Alice", href=profile.to(email="alice@ex.com"))),
-        Li(A("Bob", href=profile.to(email="bob@ex.com"))),
-    )
+# HTMX attributes point at registered fragment routes
+Div(hx_get=f"/learning-loop/ps/{uid}/exercises", hx_trigger="load", hx_swap="outerHTML")
+```
 
-# Forms with route references
-form = Form(
-    Input(name="email"),
-    Button("Submit"),
-    action=profile,      # Route function as action
-    method="post"
+## Modular Routes — DomainRouteConfig, not APIRouter
+
+FastHTML's `APIRouter` is not used. A domain's routes live in `adapters/inbound/{domain}_routes.py`
+and are registered by a wiring function with one canonical signature, called from bootstrap:
+
+```python
+# adapters/inbound/transcription_routes.py
+TRANSCRIPTION_CONFIG = DomainRouteConfig(
+    domain_name="transcription",
+    primary_service_attr="transcription",
+    api_factory=create_transcription_api_routes,   # registers /api/transcriptions/*
+    ui_factory=None,                               # API-only domain
+    api_related_services={},
 )
+
+
+def create_transcription_routes(
+    app: FastHTMLApp, rt: RouteDecorator, services: Services | None, _sync_service: Any = None
+) -> None:
+    register_domain_routes(app, rt, services, TRANSCRIPTION_CONFIG)
 ```
 
-### HTMX with Route References
-
-```python
-@rt
-def load_data(category: str): ...
-
-@rt
-def page():
-    return Button(
-        "Load Electronics",
-        hx_get=load_data.to(category="electronics"),
-        hx_target="#result"
-    )
-```
-
-## APIRouter (Modular Routes)
-
-### Separate Route Files
-
-```python
-# products.py
-from fasthtml.common import APIRouter
-
-ar = APIRouter()
-
-@ar
-def list_products():
-    return Ul(*[Li(p.name) for p in products])
-
-@ar
-def product_detail(id: int):
-    return Div(f"Product {id}")
-
-@ar
-def create_product():
-    return Form(...)
-```
-
-```python
-# main.py
-from fasthtml.common import *
-from products import ar
-
-app, rt = fast_app()
-ar.to_app(app)  # Attach router to app
-
-@rt
-def index():
-    return Titled("Home",
-        A("Products", href=ar.rt_funcs['list_products']))
-```
-
-### Router with Prefix
-
-```python
-# api/users.py
-ar = APIRouter(prefix="/api/users")
-
-@ar
-def list():              # GET /api/users/list
-    ...
-
-@ar
-def get(id: int):        # GET /api/users/get?id=123
-    ...
-
-@ar
-def create():            # POST /api/users/create
-    ...
-```
+See the `domain-route-config` skill for the three wiring patterns.
 
 ## Request Object Access
 
 ```python
-@rt
-def handler(req):
-    # Request properties
-    method = req.method
-    url = req.url
-    path = req.url.path
-    query = req.query_params
-
-    # Headers
-    user_agent = req.headers.get('user-agent')
-    content_type = req.headers.get('content-type')
-
-    # Client info
-    ip = req.client.host
-    port = req.client.port
-
-    # URL generation
-    url = req.url_for('profile', email='test@ex.com')
-
-    return P(f"IP: {ip}")
+@rt("/library/exercises")
+async def library_exercises(request: Request):
+    user_uid = require_authenticated_user(request)
+    method = request.method
+    path = request.url.path
+    query = request.query_params
+    is_htmx = request.headers.get("HX-Request")
+    ...
 ```
 
 ## Exception Handlers
 
+SKUEL installs two exception handlers, both on the parameter-extraction seam (a body is
+parsed BEFORE the handler and before any route guard runs):
+
 ```python
-def not_found(req, exc):
-    return Titled("404", P("Page not found"))
-
-def server_error(req, exc):
-    return Titled("500", P("Something went wrong"))
-
-exception_handlers = {
-    404: not_found,
-    500: server_error,
-}
-
-app, rt = fast_app(exception_handlers=exception_handlers)
+# adapters/inbound/boundary.py — called from bootstrap
+install_malformed_json_guard(app)          # JSONDecodeError → 400
+install_request_validation_guard(app)      # pydantic.ValidationError → 400
 ```
+
+No `exception_handlers=` is passed to `fast_app()`. After that seam the two route kinds
+have two boundaries: an API handler returns `Result[T]` and `@boundary_handler()` converts
+it to the HTTP response (a non-`Result` value passes through unchanged); a UI or HTMX
+handler returns FT nodes and `@ui_boundary_handler()` renders an unexpected exception as an
+error banner fragment, never a JSON body (both in `adapters/inbound/boundary.py`; the
+`ui-error-handling` skill has the UI side).
 
 ## Async Routes
 
-```python
-# Sync (fine for CPU-bound)
-@rt
-def sync_handler():
-    return compute_result()
-
-# Async (required for I/O)
-@rt
-async def async_handler():
-    data = await fetch_from_db()
-    file = await read_file()
-    return P(data)
-
-# File uploads require async
-@rt
-async def upload(file: UploadFile):
-    content = await file.read()
-    return P(f"Size: {len(content)}")
-```
-
-## Middleware & Beforeware
-
-### Beforeware (Pre-route Processing)
+Async for I/O, sync for computation (SKUEL029 rejects an `async def` with no `await`):
 
 ```python
-def log_request(req, sess):
-    print(f"{req.method} {req.url.path}")
-    # Return None to continue, or Response to short-circuit
+# Sync — renders from already-loaded data
+@rt("/cal/month/{year}/{month}")
+def calendar_month(request: Request, year: int, month: int): ...
 
-def require_auth(req, sess):
-    if 'user' not in sess:
-        return RedirectResponse('/login', status_code=303)
+# Async — awaits a service
+@rt("/explore/ps/{uid}")
+async def ps_detail(request: Request, uid: str):
+    result = await ps_service.get_step(uid)
+    ...
 
-beforeware = Beforeware(
-    require_auth,
-    skip=[
-        r'/login',
-        r'/register',
-        r'/static/.*',
-        r'/favicon\.ico',
-    ]
-)
-
-app, rt = fast_app(before=beforeware)
+# File uploads read the multipart form explicitly
+@rt("/api/user-entries/upload", methods=["POST"])
+async def upload_entry(request: Request):
+    form = await request.form()
+    uploaded_file = form.get("file")
+    if not isinstance(uploaded_file, UploadFile):
+        return Result.fail(Errors.validation("No file provided", field="file"))
+    file_content = await uploaded_file.read()
+    ...
 ```
 
-### Multiple Beforeware
+## Middleware — not Beforeware
 
-```python
-def first_check(req, sess): ...
-def second_check(req, sess): ...
-
-# Chain multiple
-app, rt = fast_app(before=[
-    Beforeware(first_check, skip=[r'/public/.*']),
-    Beforeware(second_check, skip=[r'/api/.*']),
-])
-```
+FastHTML's `Beforeware(before=...)` is not used. Cross-cutting request work is Starlette
+middleware appended in bootstrap (`AuthContextMiddleware` inside the session middleware,
+`RequestTimingMiddleware`, `RequestIDMiddleware`), and per-route gates are decorators:
+`require_authenticated_user(request)` inside the handler, `@require_admin(get_user_service)`
+/ `@require_teacher(...)` / `@require_role(...)` on it, `@csrf_protected` on every mutation.
+See the `security` skill and `/docs/patterns/AUTH_PATTERNS.md`.
 
 ## Common Patterns
 
 ### Redirect After POST
 
 ```python
-@app.post("/submit")
-def submit_form(data: str):
-    save_to_db(data)
-    return RedirectResponse('/success', status_code=303)
+@rt("/tasks/create", methods=["POST"])
+async def task_create(request: Request):
+    user_uid = require_authenticated_user(request)
+    ...
+    return RedirectResponse(f"/tasks/detail?uid={result.value.uid}", status_code=303)
 ```
 
-### Conditional HTMX Response
+### Shell page + content fragment (instead of sniffing HX-Request)
+
+The default page shape is a shell route that renders immediately and a sibling content
+route the shell loads over HTMX — `/tasks` + `/tasks/content`, `/explore/ps/{uid}` +
+`/explore/ps/{uid}/content` (`/docs/patterns/SHELL_FIRST_PAGE_PATTERN.md`). A handler that
+answers both a full page and a fragment from one path does exist (`/library/exercises`
+returns the fragment when `HX-Request` is set) but is the exception, not the pattern.
+
+### Factory-registered routes
+
+Routes are registered in loops by the route factories — one spec, one registration per
+domain or per field:
 
 ```python
-@rt
-def page(req):
-    content = Div(P("Page content"), id="content")
-
-    if req.headers.get("HX-Request"):
-        return content  # Fragment for HTMX
-
-    return Titled("Full Page", content)  # Full page for browser
+# adapters/inbound/route_factories/activity_field_api_factory.py
+def create_activity_field_api_routes(rt: RouteDecorator, config: ActivityFieldApiConfig[T]) -> None:
+    """Register ``POST /api/{domain}/{uid}/{field}`` routes for one domain."""
+    for spec in config.fields:
+        _register_field_route(rt, config, spec)   # → /api/tasks/{uid}/status, /api/tasks/{uid}/priority
 ```
 
-### Dynamic Route Registration
-
-```python
-app, rt = fast_app()
-
-# Routes can be added dynamically
-def make_handler(name):
-    def handler():
-        return P(f"Hello from {name}")
-    handler.__name__ = name
-    return handler
-
-for name in ['alice', 'bob', 'charlie']:
-    app.get(f"/{name}")(make_handler(name))
-```
+⚠ Never collect routes in a list and register them later — `@rt()` registers on definition
+(`/docs/patterns/FASTHTML_ROUTE_REGISTRATION.md`).

@@ -88,6 +88,9 @@ RENAMED: dict[str, str] = {
     # Old enum type names (pre entity_enums split, Feb 2026)
     "KuStatus": "EntityStatus",
     "KuType": "EntityType",
+    # ORGANIZES operations are the `organization` slot of the PathStep facade;
+    # KuService has no such slot.
+    "KuOrganizationService": "PsOrganizationService (PsService.organization)",
     # UserContext field renames (Mar 2026 — entities_rich unification)
     "active_tasks_rich": 'entities_rich["tasks"]',
     "active_goals_rich": 'entities_rich["goals"]',
@@ -332,21 +335,18 @@ _m_routecfg = (
 )
 _m_selroutes = "migration record -- sel_routes.py / create_drawer_layout name the modules being migrated/deleted"
 _m_selux = "migration record -- sel_routes verification/procedure commands from the migration"
-_ref_ll = "learning-loop service table note: 'the former JournalOutputService was deleted'"
 _skill_ll = "learning-loop historical-references index -- names retired identifiers to map them to successors"
 _sweep_q = "dead-doc-links sweep queue: dated #1224 record of the 'authored, never assigned' finding that led to the deletion"
 _three_tier = (
     "'Key enum renames' record -- naming KuType/KuStatus is the historical record of the rename"
 )
 _trouble = "verbatim ui.daisy_components ImportError strings users search for -- the retired name is the lookup key"
+_moc_intel = "MOC_INTELLIGENCE negates the retired MOC service names (L31) and records their lineage to PsOrganizationService (L47)"
 
 ALLOWED_OCCURRENCES: dict[str, dict[tuple[int, str], Allow]] = {
     ".claude/skills/learning-loop/SKILL.md": {
         (32, "ProcessorType"): Allow(_skill_ll),
         (44, "ProcessorType"): Allow(_skill_ll),
-    },
-    ".claude/skills/learning-loop/reference.md": {
-        (742, "JournalOutputService"): Allow(_ref_ll),
     },
     "docs/TROUBLESHOOTING.md": {
         (132, "daisy_components"): Allow(_trouble, hits=2),
@@ -419,6 +419,10 @@ ALLOWED_OCCURRENCES: dict[str, dict[tuple[int, str], Allow]] = {
     },
     "docs/intelligence/ASKESIS_INTELLIGENCE.md": {
         (360, "ActivityReviewService"): Allow(_askesis_intel),
+    },
+    "docs/intelligence/MOC_INTELLIGENCE.md": {
+        (31, "KuOrganizationService"): Allow(_moc_intel),
+        (47, "KuOrganizationService"): Allow(_moc_intel),
     },
     "docs/intelligence/INTELLIGENCE_SERVICES_INDEX.md": {
         # 503 → 505: the "## Quick Start" stub above it became "## Related Skills"

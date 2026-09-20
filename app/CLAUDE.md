@@ -515,7 +515,7 @@ DomainRouteConfig eliminates route wiring boilerplate. All 6 Activity Domains us
 
 ### FastHTML Best Practices
 
-- Query parameters over path parameters (`/tasks/get?uid=...`)
+- Query parameters for CRUD-factory reads (`/api/tasks/get?uid=...`); a path uid for a per-entity door, read or write (`GET /api/path-steps/{uid}/organizers`, `POST /api/tasks/{uid}/status`)
 - POST for all mutations
 - Type hints for automatic parameter extraction
 - **Critical:** Do NOT use `routes = []` / `routes.append()` with `@rt()`. The decorator registers immediately.

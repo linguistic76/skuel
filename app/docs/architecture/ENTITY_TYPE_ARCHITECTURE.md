@@ -1,6 +1,6 @@
 ---
 title: SKUEL Architecture — 25 Entity Types + 5 Cross-Cutting Systems
-updated: 2026-09-19
+updated: 2026-09-20
 status: current
 category: architecture
 version: 8.1.0
@@ -452,7 +452,7 @@ Groups mediate ALL teacher-student relationships. Teacher creates group -> adds 
 
 ### MOC (Map of Content) — Emergent Organization
 
-MOC is NOT a separate entity — it IS an Entity with `ORGANIZES` relationships. An Entity "is" a MOC when it has outgoing `ORGANIZES` relationships (emergent identity). Managed by `KuOrganizationService` (sub-service of `KuService`).
+MOC is NOT a separate entity — it IS an Entity with `ORGANIZES` relationships. An Entity "is" a MOC when it has outgoing `ORGANIZES` relationships (emergent identity). The operations are `PsService.organization` (`PsOrganizationService`) over the `_OrganizesMixin` backend — the edge-level reads (`is_organizer`, `find_organizers`, `get_organized_children`, `list_root_organizers`) answer for any entity; `get_organization_view`, `get_navigation` and the create `organize` go through `ps_core.get()` and need a PathStep; cross-entity edges are authored in the vault (`moc: true`).
 
 ```cypher
 (parent:Entity)-[:ORGANIZES {order: int}]->(child:Entity)

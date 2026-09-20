@@ -29,7 +29,7 @@ Exercise is **subordinate** to PathStep, not a peer structural pattern. `EntityT
 `(PathStep)-[:HAS_EXERCISE]->(Exercise)` — PathSteps anchor applied-knowledge instruction templates.
 `(PathStep)-[:TRAINS_KU]->(Ku)` — PathSteps declare Kus as learning objectives.
 
-**Note on Lesson (2026-04):** `Lesson` was merged into `PathStep`. The string `"lesson"` is accepted by the ingestion detector (`TYPE_MAPPING` in `detector.py`) but is NOT in `_ENTITY_TYPE_ALIASES` — `EntityType.from_string("lesson")` returns `None`. Use `"ps"` or `"pathstep"` for DSL parsing; `"lesson"` is ingestion-only.
+**Note on "lesson":** there is no `Lesson` entity — PathStep IS the curriculum content entity. The string `"lesson"` is accepted by the ingestion detector (`TYPE_MAPPING` in `detector.py`) but is NOT in `_ENTITY_TYPE_ALIASES` — `EntityType.from_string("lesson")` returns `None`. Use `"ps"` or `"pathstep"` for DSL parsing; `"lesson"` is ingestion-only.
 
 ## World Layer vs User Layer
 
@@ -105,14 +105,14 @@ UniversalNeo4jBackend[T]     <- ONE instance per domain (no wrappers)
 
 ### PathStep learning state
 ```python
-# Record user view (implicit enrollment)
-await ps_service.mastery.record_view(ps_uid, user_uid)
+# Record user view (implicit enrollment) — user first, then the step
+await ps_service.mastery.record_view(user_uid, ps_uid)
 
 # Mark in progress
-await ps_service.mastery.mark_in_progress(ps_uid, user_uid)
+await ps_service.mastery.mark_in_progress(user_uid, ps_uid)
 
 # Get learning state for a user
-state = await ps_service.mastery.get_learning_state(ps_uid, user_uid)
+state = await ps_service.mastery.get_learning_state(user_uid, ps_uid)
 ```
 
 ### Check path step readiness
@@ -125,17 +125,19 @@ result = await ps_service.intelligence.is_ready(ps_uid, completed_step_uids)
 result = await lp_service.intelligence.validate_path_prerequisites(lp_uid)
 ```
 
-### Ku organization (non-linear MOC navigation)
+### Organization (non-linear MOC navigation)
 ```python
-# Organize Kus into a non-linear map (any Ku can become an organizer)
-await ku_service.organize(parent_uid, child_uid, order=1, importance="core")
-await ku_service.get_organized_children(parent_uid, depth=1)
-await ku_service.find_organizers(ku_uid)  # Multiple parents possible
+# The facade writes PathStep → PathStep edges only (organize() verifies both uids
+# through ps_core.get(), a :PathStep match); the reads answer for any :Entity.
+# A PathStep → Ku or UserEntry-map edge is authored in the vault (`moc: true`).
+await ps_service.organize(parent_ps_uid, child_ps_uid, order=1)
+await ps_service.get_organized_children(parent_uid)
+await ps_service.find_organizers(entity_uid)  # Multiple parents possible
 ```
 
 ### Ku domain classification (on the Ku, not a node)
-A Ku's domain is an in-model property, not a separate `:KnowledgeDomain` node
-(that stack was deleted 2026-07-20). Filter/facet on `nous` (L1 topic), `nous_subtopic`
+A Ku's domain is an in-model property; there is no `:KnowledgeDomain` node.
+Filter/facet on `nous` (L1 topic), `nous_subtopic`
 (L2), and `sel_category` (SEL competency) — see `docs/patterns/NOUS_SUBTOPIC_FACET.md`.
 
 ## PS AI Sub-Service (FULL tier only)
@@ -164,17 +166,17 @@ NONE → VIEWED → IN_PROGRESS → MASTERED
 | MASTERED | After exercise completion/teacher approval | `(User)-[:MASTERED]->(PathStep)` |
 
 **Key routes:**
-- `GET /path-steps` — Browse all PathSteps with learning-state-aware enrollment buttons
-- `GET /path-steps/get?uid={uid}` — Full reading page (markdown + TOC + learning objectives + actions)
-- `POST /api/path-steps/{uid}/start` — Marks IN_PROGRESS
+- `GET /path-steps` — Browse all PathSteps; rows link to the reading page, with an "Enrolled" badge on the session user's IN_PROGRESS steps
+- `GET /explore/ps/{uid}` — Full reading page (markdown + TOC + learning objectives + actions)
+- `POST /explore/ps/{uid}/progress` — the page's progress control (`state=learning|read`); `POST /api/path-steps/{uid}/start` is the HTMX fragment action that marks IN_PROGRESS (answers the updated button, not JSON)
 
 **Contrast with Learning Paths:** LPs use **explicit enrollment** via `(User)-[:ENROLLED_IN]->(LearningPath)`.
 
 ## Note on MOC
 
-MOC (Map of Content) is NOT a separate domain or EntityType. Any Ku with outgoing `ORGANIZES` relationships IS an organizer. This emergent identity is managed via `KuOrganizationService` — a sub-service of `KuService`.
+MOC (Map of Content) is NOT a separate domain or EntityType. Any Entity with outgoing `ORGANIZES` relationships IS an organizer — a PathStep, a Ku, or a vault-authored UserEntry knowledge map (`moc: true`). The operations live on `PsService.organization` (`PsOrganizationService`) over the `_OrganizesMixin` backend — the edge-level reads (`is_organizer`, `find_organizers`, `get_organized_children`, `list_root_organizers`) answer for any entity; `get_organization_view`, `get_navigation` and the create `organize` go through `ps_core.get()` and need a PathStep; cross-entity edges come from vault ingestion. `KuService` has no organization slot.
 
-See: `core/services/ku/` and `docs/domains/moc.md`
+See: `core/services/ps/ps_organization_service.py` and `docs/domains/moc.md`
 
 ## Deep Dive Resources
 

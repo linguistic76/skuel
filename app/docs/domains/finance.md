@@ -1,15 +1,13 @@
 ---
 title: Finance Domain
 created: 2025-12-04
-updated: 2026-09-17
+updated: 2026-09-20
 status: current
 category: domains
 tags: [finance, firefly, chargekeep, billing, invoicing, admin-only, adr-052, adr-062]
 ---
 
 # Finance Domain
-
-*Last updated: 2026-05-25*
 
 **Type:** Admin-only, mid-migration. A legacy in-graph finance module is **still live**; it is being replaced by maintained external software — [Firefly III](https://www.firefly-iii.org/) for accounting and **ChargeKeep** for SaaS billing/invoicing.
 **Access:** All routes require the `ADMIN` role.
@@ -52,7 +50,7 @@ consumer. **The split is the point — do not reunify it.**
 | Concern | Target store | SKUEL's piece | Status |
 |---------|--------------|---------------|--------|
 | Expenses, budgets, categories, reporting | **Firefly III** — own MariaDB sidecar at `http://firefly:8080` | `firefly_client` (trimmed to write-only revenue sync) | ADR-052 **Accepted** — adapter built, unwired |
-| SaaS billing: checkout, subscriptions, customer portal, **invoicing** | **ChargeKeep** — SaaS | `webhook_routes.py` consumer → role map + revenue→Firefly | ADR-062 **Proposed** (spike-gated) |
+| SaaS billing: checkout, subscriptions, customer portal, **invoicing** | **ChargeKeep** — SaaS | a webhook consumer (planned — no `webhook_routes.py` exists yet) → role map + revenue→Firefly | ADR-062 **Proposed** (spike-gated) |
 | Card rails / money movement | **Stripe** (underneath ChargeKeep) | — | — |
 
 ### Revisions to ADR-052 (decided 2026-05-24 — see roadmap)
@@ -64,9 +62,11 @@ ADR-052 as originally written is partly superseded. The current plan:
   read-facade is **cancelled** (Phase 4); `finance_ui.py` is deleted, not rewired.
 - **Invoices move to ChargeKeep.** ADR-052 kept the local WeasyPrint invoice module because
   Firefly can't invoice — ChargeKeep can, so the local module is slated for deletion (Phase 5).
-- **Billing is ChargeKeep, not Stripe-direct.** ADR-052's `POST /webhooks/stripe` design is
-  superseded by `POST /webhooks/chargekeep` behind a swappable `BillingProvider` port
-  (ChargeKeep now; FastStripe-direct as the fallback if the spike rejects ChargeKeep).
+- **Billing is ChargeKeep, not Stripe-direct.** ADR-052's Stripe-direct webhook design is
+  superseded by a ChargeKeep webhook behind a swappable `BillingProvider` port (ChargeKeep
+  first; FastStripe-direct as the fallback if the spike rejects ChargeKeep). Designed, not
+  registered: there is no `/webhooks/chargekeep` handler and no `/webhooks/stripe` handler
+  in the route table.
 - **Revenue sync (planned):** ChargeKeep `payment.succeeded` →
   `firefly_client.create_transaction(book="skuel", type="deposit", external_id=<event id>)`,
   idempotent via `external_id`. This is the *only* surviving use of `firefly_client`.

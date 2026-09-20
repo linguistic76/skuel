@@ -56,14 +56,17 @@ def stat_card(*content: Any, cls: str = "") -> Any:  # boundary: fasthtml-elemen
 
 **When to use**: Any FT helper. FastHTML ships no `py.typed`, so `*c: Any, **kwargs: Any` needs the `# boundary: fasthtml-elements` comment. The explicit `cls: str = ""` parameter + merge is the SKUEL024-safe shape — hardcoding `cls=` while splatting `**kwargs` raises `TypeError: multiple values for 'cls'`.
 
-### Query params over path params (API convention)
+### Two route shapes: query-param reads, path-uid actions
 
 ```python
-@rt("/api/tasks/get")            # ?uid=task_abc — preferred for APIs
-def get_task(request: Request, uid: str): ...
+@rt("/api/tasks/get")                                 # ?uid=task_abc — CRUD reads
+async def get_task(request: Request, uid: str): ...
+
+@rt("/api/tasks/{uid}/status", methods=["POST"])      # per-entity action door
+async def update_status(request: Request, uid: str): ...
 ```
 
-**When to use**: All API routes. Path params (`/users/{uid}`) are for SEO-friendly UI routes only (`routing-patterns.md`). POST for all mutations.
+**When to use**: CRUD reads, lists and query-style filters take the uid as a query parameter (`/api/tasks/get?uid=`, `/tasks/detail?uid=`). A per-entity action or relationship door takes it as a path segment (`POST /api/tasks/{uid}/status`, `/api/tasks/{uid}/lateral/*`, `/tasks/{uid}/dependencies`) — both shapes are live, on API and UI routes alike (`routing-patterns.md`). A path parameter is usually a `str` uid; selectors (`/api/path-steps/curriculum/{category}`, the lateral `{relationship_type}`) and period components (`/journals/daily/{date_str}`; `year`/`month`/`week`/`quarter` annotated `int` on `/cal/month/{year}/{month}` and the journal period routes) are the other shapes. No Starlette converter is registered — coercion is by annotation. Mutations are `POST`, plus `DELETE` on a few (`/api/transcriptions/delete`, `/api/form-submissions/delete`, `/api/path-steps/tags`, `/api/user/pins/{entity_uid}`, the lateral `/api/tasks/{uid}/lateral/{relationship_type}/{target_uid}` family) and `PATCH /api/{domain}/{uid}` from `HierarchyRouteFactory` (inline title edit) — every one CSRF-protected; there is no `PUT` route.
 
 ---
 
@@ -103,7 +106,7 @@ found = require_found(result, "Entity", uid)                      # adapters/inb
 | Hardcoded `cls=` + `**kwargs` splat in an FT helper | `cls: str = ""` param + `cls=f"...base... {cls}".strip()` (SKUEL024) |
 | `Result[Any]` return on a handler | `Result[FT]` (fragments), `Result[Goal]` (models), or `Response` (redirects) |
 | Hand-assembled `<link>` tags / `NotStr` full documents | `BasePage`/`AuthPage` — CSS/JS load through `build_head()` |
-| Path params on API routes | Query params (`/tasks/get?uid=...`); path params are UI/SEO only |
+| A CRUD read with the uid in the path | Query params (`/api/tasks/get?uid=`) — the path-uid shape is for per-entity action doors (`POST /api/tasks/{uid}/status`), not for `get`/`update`/`delete` |
 | Forgetting `await` on `BasePage(...)` | It's `async def` — returns a coroutine, not FT |
 | Untyped `*c: Any, **kwargs: Any` without annotation | Add `# boundary: fasthtml-elements` (ASGI plumbing: `# boundary: fasthtml-app`) |
 | Quoted annotation `"Type"` / `Optional["Type"]` | Unquoted `Type \| None` — PEP 649 defers evaluation, UP037 is live. A `@rt()` handler's types must be REAL imports: FastHTML evaluates the signature at registration, so a `TYPE_CHECKING`-only name there is a bootstrap `NameError` |

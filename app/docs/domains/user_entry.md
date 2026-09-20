@@ -1,7 +1,7 @@
 ---
 title: UserEntry Domain
 created: 2026-09-01
-updated: 2026-09-19
+updated: 2026-09-20
 status: current
 category: domains
 tags: [user-entry, learning-loop, domain]
@@ -176,7 +176,7 @@ lets a `TEACHER_REVIEW` request satisfy its audience requirement with
 perfectly valid and appears in no queue. Group audience is what makes a turn-in reviewable.
 
 `AudienceResolver` is deliberately a standalone helper rather than facade-private:
-the `/upload` ingestion path reuses the same validation without going through
+the `/api/user-entries/upload` ingestion path reuses the same validation without going through
 the facade.
 
 ## Events/Publishing
@@ -218,13 +218,15 @@ model, imported by every consumer.
 
 **UI** (`adapters/inbound/user_entry_ui.py`): `/submissions`,
 `/submissions/exercise`, `/submit`, `/submissions/journal`,
-`/submissions/history` (+ `/list`, `/delete`), `/submissions/knowledge`,
-`/submit/journals/{uid}/download`, `/gradebook` (+ `/lines`, `/{uid}`), and
-`POST /api/entry-reports/respond`.
+`/submissions/history` (+ `/submissions/history/list`, `POST /submissions/history/delete`),
+`/submissions/knowledge`, `/submit/journals/{uid}/download`, `/gradebook`
+(+ `/gradebook/lines`, `/gradebook/{uid}`), and `POST /api/entry-reports/respond`.
 
-**API** (`adapters/inbound/user_entry_api.py`): `POST|GET /api/user-entries`,
-`POST /api/user-entries/upload`, `/form`, `/process`, `/delete`,
-`/grounding/remove`, and `GET /api/user-entries/get`.
+**API** (`adapters/inbound/user_entry_api.py`): `GET /api/user-entries` (list),
+`POST /api/user-entries` (create), `POST /api/user-entries/upload`,
+`POST /api/user-entries/form`, `POST /api/user-entries/process`,
+`POST /api/user-entries/delete`, `POST /api/user-entries/grounding/remove`, and
+`GET /api/user-entries/get`.
 
 ## Search
 
