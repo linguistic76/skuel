@@ -158,8 +158,10 @@ and is read on its page. What is registered:
 ### Lateral relationships (`adapters/inbound/lateral_routes.py`)
 - `/api/ku/{uid}/lateral/*` — the same lateral family every domain has (`prerequisites`, `enables`, `blocks`, `alternatives`, `complementary`, `chain`, `graph`, …)
 
-### AI (FULL tier, `adapters/inbound/ai_routes.py`)
-- `/api/knowledge/ai/explain`, `/api/knowledge/ai/related`, `/api/knowledge/ai/search`, `/api/knowledge/ai/summary`, `/api/knowledge/ai/applications`
+### AI — none for Ku
+`/api/knowledge/ai/*` carries the `knowledge` URL segment but is bound to `services.ps`
+(`AI_ROUTE_SPECS` in `adapters/inbound/ai_routes.py`, `PsAIService`) — a PathStep surface
+under a legacy prefix; a Ku uid is not found there. `KuService` has no `.ai` slot.
 
 ### Search
 Ku is a searchable domain of `SearchRouter` (visibility `PUBLIC`) — `/search`, `POST /api/search/unified`. There is no Ku-scoped search route.
