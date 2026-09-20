@@ -269,7 +269,7 @@ The pass strips the `:N` / `:N-M` / `:N–M` / `:LN` tail (and reads the prose f
 or for a basename-only or partial citation (`markdown_fences.py:1`,
 `events/_orchestration_mixin.py:71`) by **unique suffix match over `git ls-files`** —
 and then asserts every cited line number is within the file, every range of a
-discontiguous citation (`csrf.py:78-92, 195-199`) included. Tracked files only, for the
+discontiguous citation (`adapters/inbound/csrf.py:78-92, 195-199`) included. Tracked files only, for the
 direct path as for the suffix search, so a gitignored prototype in `plans/` named like
 the module it copies can never satisfy a citation and the verdict is the same in every
 checkout; the tracked set is the whole repository's, so a doc may cite a tracked file
@@ -780,13 +780,14 @@ claims — 1288 matched · **206 fiction in 48 files** (62 of them one section o
 relative-suffix · 13 negated · 2 + 1 marker-skipped; re-measure with `./dev health-claims`.
 
 **Matching is directional and verb-aware.** A wildcard is wild in one direction per
-match — the claim is an *instance* of the registration (`/api/tasks/{uid}/complete`
-serves `/api/tasks/abc/complete`) or a *family* it belongs to (`/api/{domain}/create`
-names `/api/tasks/create`), never both at once: crossed, `/api/ku/related/{uid}` would
-read as served by `/api/ku/{uid}/mark-studying`. And the runtime table carries each
-route's HTTP methods, so `PUT /api/events/{uid}/status` is not matched by a route
-registered for `POST` alone. The near-miss classes are verb-blind — printed, never
-matched, either way.
+match — the claim is an *instance* of the registration (`/api/tasks/{uid}/status`
+serves `/api/tasks/abc/status`) or a *family* it belongs to (`/api/{domain}/create`
+names `/api/tasks/create`), never both at once: crossed,
+`/api/ku/related/{uid}` does not exist yet would read as served by
+`/api/ku/{uid}/mark-studying`. And the runtime table
+carries each route's HTTP methods, so there is no `PUT /api/events/{uid}/status` — the
+route is registered for `POST` alone, and the claim is fiction. The near-miss classes are
+verb-blind — printed, never matched, either way.
 
 **Companion:** `./dev history-in-code --docs` is the same census `history_in_code.py` runs
 over comments and docstrings, turned on Markdown prose — the queue the `history` class

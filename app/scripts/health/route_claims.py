@@ -97,7 +97,10 @@ from typing import TYPE_CHECKING, NamedTuple
 # scripts/health/ is not a package — sibling imports resolve at runtime via sys.path[0]
 # but not for MyPy (the same ignore stale_names.py carries).
 import dead_doc_links as ddl  # type: ignore[import-not-found]
-from markdown_fences import iter_code_fence_blocks  # type: ignore[import-not-found]
+from markdown_fences import (  # type: ignore[import-not-found]
+    frontmatter_lines,
+    iter_code_fence_blocks,
+)
 from route_catalog import (  # type: ignore[import-not-found]
     RouteCatalog,
     normalize,
@@ -189,9 +192,9 @@ METAVAR_FIRST_SEGMENTS = frozenset(
 )
 
 # ── The negation grammar ─────────────────────────────────────────────────────
-# Span-ADJACENT, in both directions. The nine corpus lines a line-scoped grammar
-# skipped are the test cases (`test_route_claims.py`); five of them were fiction
-# that a "no" or "404" elsewhere on the line had hidden.
+# Span-ADJACENT, in both directions: only the text touching the span is read, so a
+# "no" or "404" elsewhere on the line says nothing about this span. The corpus lines
+# that separate the two grammars are `test_route_claims.py`'s `NEGATION_CORPUS`.
 BEFORE_NEG_RE = re.compile(r"\b(?:no|not|never|nor)\s*$", re.IGNORECASE)
 # Present tense only: "`/x` was deleted" narrates, and the history class owns it.
 AFTER_NEG_RE = re.compile(
@@ -298,13 +301,14 @@ class FileClaims(NamedTuple):
 def _inline_claims(content: str) -> list[tuple[int, str, str, int, int]]:
     """``(lineno, method, path, span_start, span_end)`` for every inline route claim."""
     lines = content.splitlines()
-    fenced: set[int] = set()
+    # Fences (delimiters included) and the YAML frontmatter are not the doc's voice.
+    masked: set[int] = set(frontmatter_lines(content))
     for block in iter_code_fence_blocks(content):
         first, last = block.span
-        fenced.update(range(first, last + 1))
+        masked.update(range(first, last + 1))
     out: list[tuple[int, str, str, int, int]] = []
     for lineno, spans in sorted(ddl._inline_code_spans_by_line(content).items()):
-        if lineno in fenced:
+        if lineno in masked:
             continue
         line = lines[lineno - 1]
         for start, end in spans:

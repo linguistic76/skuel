@@ -30,8 +30,8 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[3] / "scripts" / "health
 
 import route_catalog as rc  # type: ignore[import-not-found]
 
-# Known-dead: each was cited as live by at least one doc on 2026-09-19 and has no
-# handler. Known-live: factory-registered routes the static view cannot see.
+# Known-dead: route-shaped paths the docs cite and no handler serves. Known-live:
+# factory-registered routes the static view cannot see.
 KNOWN_DEAD = ("/ku", "/home", "/sel", "/reports", "/teaching", "/api/moc/organize")
 KNOWN_LIVE_FACTORY = (
     "/tasks",
@@ -130,7 +130,7 @@ def test_the_probe_writes_nothing_to_stdout(capsys: pytest.CaptureFixture[str]) 
         ("/tasks/", "/tasks"),
         ("/", "/"),
         ("/tasks?uid=abc#frag", "/tasks"),
-        ("/api/tasks/{uid}/complete", "/api/tasks/{}/complete"),
+        ("/api/tasks/{uid}/status", "/api/tasks/{}/status"),
         ("/{fname:path}.{ext:static}", "/{}"),
         ("/api/{domain}/{uid}", "/api/{}/{}"),
         ("tasks", None),
@@ -147,7 +147,7 @@ def catalog() -> rc.RouteCatalog:
         {
             "/tasks",
             "/api/tasks/create",
-            "/api/tasks/{uid}/complete",
+            "/api/tasks/{uid}/status",
             "/api/context/rich",
             "/library/ku",
             "/manifest.json",
@@ -157,7 +157,7 @@ def catalog() -> rc.RouteCatalog:
 
 @pytest.mark.parametrize(
     "claim",
-    ["/tasks", "/tasks/", "/api/tasks/create", "/api/tasks/{task_uid}/complete", "/manifest.json"],
+    ["/tasks", "/tasks/", "/api/tasks/create", "/api/tasks/{task_uid}/status", "/manifest.json"],
 )
 def test_is_registered_exact_and_registration_side_wildcard(
     catalog: rc.RouteCatalog, claim: str
@@ -231,7 +231,7 @@ def test_unregistered_paths_do_not_match(catalog: rc.RouteCatalog, claim: str) -
 
 def test_family_prefix_is_a_strict_prefix_of_a_registration(catalog: rc.RouteCatalog) -> None:
     """Wildcards apply here too: `/api/tasks/anything` is a prefix of
-    `/api/tasks/{uid}/complete`. Generous is fine for a class that is printed and never
+    `/api/tasks/{uid}/status`. Generous is fine for a class that is printed and never
     skipped — the relation is only ever consulted for a claim that already failed to
     match."""
     assert catalog.is_family_prefix("/api/context")

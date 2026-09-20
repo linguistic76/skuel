@@ -91,7 +91,10 @@ ROOT = Path(__file__).resolve().parents[1]
 # scripts/health/ is not a package — the fence walker and the docs corpus resolve at
 # runtime via sys.path but not for MyPy (the same ignore docs_relative_links.py carries).
 sys.path.insert(0, str(ROOT / "scripts" / "health"))
-from markdown_fences import iter_code_fence_blocks  # type: ignore[import-not-found]
+from markdown_fences import (  # type: ignore[import-not-found]
+    frontmatter_lines,
+    iter_code_fence_blocks,
+)
 
 # Tests and scripts/ are out: tests carry rationale legitimately, scripts are CLI prose.
 DEFAULT_SCOPE: tuple[str, ...] = ("core", "adapters", "ui", "services_bootstrap")
@@ -123,9 +126,6 @@ POINTER_LINE = re.compile(r"^\s*(?:See|Backend):", re.IGNORECASE)
 DOCSTRING_HOSTS = (ast.Module, ast.ClassDef, ast.FunctionDef, ast.AsyncFunctionDef)
 
 Kind = str  # "comment" | "docstring" | "prose"
-
-# A YAML frontmatter block: `---` on line 1, closed by the next `---` / `...` line.
-FRONTMATTER_FENCE = ("---", "...")
 
 
 @dataclass(frozen=True)
@@ -218,12 +218,7 @@ def markdown_prose_lines(text: str) -> list[tuple[int, Kind, str]]:
     not prose.
     """
     lines = text.splitlines()
-    skipped: set[int] = set()
-    if lines and lines[0].strip() == "---":
-        for lineno, line in enumerate(lines[1:], 2):
-            if line.strip() in FRONTMATTER_FENCE:
-                skipped.update(range(1, lineno + 1))
-                break
+    skipped: set[int] = set(frontmatter_lines(text))
     for block in iter_code_fence_blocks(text):
         first, last = block.span
         skipped.update(range(first, last + 1))

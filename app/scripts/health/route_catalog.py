@@ -46,8 +46,8 @@ Matching
 containing ``{`` into the wildcard ``{}`` (a Starlette converter ``{x:path}`` included).
 ``RouteCatalog.is_registered`` matches segment by segment, and a wildcard is wild in
 ONE direction per match: either the claim is an *instance* of the registration (the
-registration's parameters may cover the claim's literals — ``/api/tasks/{uid}/complete``
-serves ``/api/tasks/abc/complete``) or the claim is a *family* the registration belongs
+registration's parameters may cover the claim's literals — ``/api/tasks/{uid}/status``
+serves ``/api/tasks/abc/status``) or the claim is a *family* the registration belongs
 to (the claim's placeholders may cover the registration's literals — a doc's
 ``/api/{domain}/create`` names ``/api/tasks/create``). Never both at once: with wildcards
 crossing, ``/api/ku/related/{uid}`` would read as served by ``/api/ku/{uid}/mark-studying``

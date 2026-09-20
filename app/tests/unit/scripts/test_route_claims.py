@@ -1,8 +1,8 @@
 """Pin ``scripts/health/route_claims.py`` — the route-claim scanner.
 
-Cases first, then the code: the negation grammar and the claim-shape exclusions below
-were enumerated before the regexes that satisfy them existed, because the defect they
-guard against is the instrument's, not the corpus's. Two shapes in particular:
+The negation grammar and the claim-shape exclusions are pinned as cases, one positive
+and one negative each, because the defect they guard against is the instrument's, not
+the corpus's. Two shapes in particular:
 
 - **A line-scoped negation grammar skips nine corpus lines, and five of them are
   fiction** — a "no" or "404" elsewhere on the line reads as a statement about a span
@@ -48,7 +48,7 @@ CATALOG = rc.RouteCatalog(
     {
         "/tasks": ["GET", "HEAD", "POST"],
         "/api/tasks/create": ["POST"],
-        "/api/tasks/{uid}/complete": ["POST"],
+        "/api/tasks/{uid}/status": ["POST"],
         "/api/tasks/{uid}/lateral/blocks": ["GET", "HEAD", "POST"],
         "/api/context/rich": ["GET", "HEAD", "POST"],
         "/api/knowledge/ai/summary": ["GET", "HEAD", "POST"],
@@ -163,7 +163,7 @@ def test_a_negation_token_elsewhere_on_the_line_is_not_a_negation(line: str) -> 
         "/tasks",
         "/api/tasks/create",
         "POST /api/tasks/create",
-        "/api/tasks/{uid}/complete",
+        "/api/tasks/{uid}/status",
         "/explore/ku/{ku_uid}",
         "/tasks?uid=abc",
         "/tasks/",
@@ -220,8 +220,8 @@ def test_claim_shapes_rejected(text: str, exclusion: str) -> None:
 def test_template_marker_half_of_the_stand_in_guard_is_deliberately_not_used() -> None:
     """`{uid}` is what every parameterised route carries; `_is_documentation_stand_in`
     rejects it and would have dropped hundreds of real claims."""
-    assert ddl._is_documentation_stand_in("/api/tasks/{uid}/complete")
-    assert claims.is_url_shape("/api/tasks/{uid}/complete") is not None
+    assert ddl._is_documentation_stand_in("/api/tasks/{uid}/status")
+    assert claims.is_url_shape("/api/tasks/{uid}/status") is not None
 
 
 # ============================================================================
@@ -290,6 +290,12 @@ def test_family_prefix_is_a_class_because_it_hides_api_knowledge() -> None:
     exist — reported under its class, never dropped."""
     found = _classes("# P\n\ncreate with `POST /api/knowledge`\n")
     assert found == [(3, "POST /api/knowledge", "family-prefix")]
+
+
+def test_frontmatter_spans_are_never_claims() -> None:
+    """A backticked route in a `description:` is metadata, not the doc's voice."""
+    body = "---\ntitle: X\ndescription: the `/old-route` door\n---\n\n# X\n\n`/ku`\n"
+    assert _classes(body) == [(8, "/ku", "relative-suffix")]
 
 
 def test_fenced_spans_are_never_claims_and_fence_view_counts_nothing() -> None:
