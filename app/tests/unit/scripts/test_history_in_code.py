@@ -265,6 +265,11 @@ def test_explicit_md_path_takes_the_markdown_reader_without_the_flag(
     payload = json.loads(capsys.readouterr().out)
     assert payload["total_hits"] == 1
     assert payload["files"][0]["lines"][0]["kind"] == "prose"
+    # ...and the table names what it read.
+    assert hic.main([str(doc)]) == 0
+    out = capsys.readouterr().out
+    assert "Markdown prose outside fences" in out
+    assert "--docs --top 20 --verbose" in out
 
 
 def test_docs_flag_scans_the_md_files_under_a_directory(

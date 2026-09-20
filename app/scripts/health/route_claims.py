@@ -236,9 +236,9 @@ def looks_like_file(path: str) -> bool:
         # `/ui/analytics/view#chart` are the same claim as `/ui/analytics/view`. Five
         # `/ui/analytics/*` routes share the `/ui/` prefix with the `ui/` package and
         # carry no file signal — they stay claims. So does a citation of a directory
-        # that is no longer in the tree (`/core/models/curriculum/`): no route serves
-        # it and no other pass reads an extensionless directory citation, so it
-        # reports here as fiction — a name for something that does not exist.
+        # absent from the tree: no route serves it and no other pass reads an
+        # extensionless directory citation, so it reports here as fiction — a name
+        # for something that does not exist.
         stem = normalize(path) or path
         return (
             "…" in stem

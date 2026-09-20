@@ -1517,6 +1517,9 @@ def test_a_url_is_not_a_line_citation() -> None:
     assert ddl.extract_line_citations("see https://example.com/app.js:12 and `x.py:1:5`\n") == [
         ddl.LineCitation(1, "x.py:1", "x.py", (1,))
     ]
+    # ...in the prose forms too: a URL's tail is not a repo-rooted file.
+    assert ddl.extract_line_citations("see `https://example.com/x.py` line 3\n") == []
+    assert ddl.extract_line_citations("line 3 of https://example.com/x.py\n") == []
 
 
 def test_every_range_of_a_discontiguous_citation_is_checked(cited_tree: Path) -> None:

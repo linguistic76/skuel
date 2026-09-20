@@ -1036,7 +1036,9 @@ LINE_CITATION_RE = re.compile(
     r":(" + _RANGES + r")(?![\w])"
 )
 # The prose forms: "line 470 of `ku_ui.py`", "`ku_ui.py` line 470", "`x.py` (lines 3–9, 40)".
-_PROSE_FILE = r"`?(/?(?:[\w.-]+/)*[\w.-]+\.(?:" + _LINE_CITATION_EXTENSIONS + r"))`?"
+# The same leading lookbehind as the direct form, so a URL's tail never reads as a
+# repo-rooted file.
+_PROSE_FILE = r"(?<![\w/.-])`?(/?(?:[\w.-]+/)*[\w.-]+\.(?:" + _LINE_CITATION_EXTENSIONS + r"))`?"
 LINE_PROSE_RE = re.compile(
     r"\blines?\s+("
     + _RANGES

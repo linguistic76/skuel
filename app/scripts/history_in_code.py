@@ -454,10 +454,13 @@ def main(argv: list[str] | None = None) -> int:
     args = parser.parse_args(argv)
     paths, scope = resolve_paths(parser, args.paths, args.docs)
     reports, skipped = scan_paths(paths, docs=args.docs)
+    # The report names what was read: Markdown when the flag says so, or when every
+    # input given is a Markdown file — those take the Markdown reader regardless.
+    markdown = args.docs or (bool(paths) and all(path.suffix == ".md" for path in paths))
     if args.as_json:
         print(json.dumps(json_document(reports, skipped, scope, args.top), indent=2))
     else:
-        print_report(reports, skipped, scope, args.top, args.verbose, docs=args.docs)
+        print_report(reports, skipped, scope, args.top, args.verbose, docs=markdown)
     return 0
 
 
