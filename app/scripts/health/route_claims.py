@@ -230,15 +230,18 @@ def looks_like_file(path: str) -> bool:
     """
     if path.startswith(ddl.PROJECT_PREFIXES):
         # A repo-rooted span is a file citation — the link checker's — unless nothing
-        # about it says "file": no extension, no line number, no anchor, no template
-        # or elision marker, no trailing slash, and nothing in the tree at that path.
-        # Five `/ui/analytics/*` routes share the `/ui/` prefix with the `ui/` package
-        # and are exactly that — they stay claims.
-        stem = path.split("?")[0]
+        # about it says "file": no extension, no line number, no template or elision
+        # marker, and nothing in the tree at that path. Read as a route would be
+        # (query, anchor and trailing slash dropped) so `/ui/analytics/view/` and
+        # `/ui/analytics/view#chart` are the same claim as `/ui/analytics/view`. Five
+        # `/ui/analytics/*` routes share the `/ui/` prefix with the `ui/` package and
+        # carry no file signal — they stay claims. So does a citation of a directory
+        # that is no longer in the tree (`/core/models/curriculum/`): no route serves
+        # it and no other pass reads an extensionless directory citation, so it
+        # reports here as fiction — a name for something that does not exist.
+        stem = normalize(path) or path
         return (
-            stem.endswith("/")
-            or "#" in stem
-            or "…" in stem
+            "…" in stem
             or ddl._is_documentation_stand_in(stem)
             or ddl._looks_like_local_path(stem)
             or ddl.LINE_CITATION_RE.search(stem) is not None

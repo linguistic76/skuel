@@ -332,8 +332,9 @@ HISTORY_DIRS = (
 # measured gap). ONE catalog, two readers: `route_claims.py` matches against the same
 # object, so the two instruments can never disagree about what is registered.
 #
-# `PROJECT_PREFIXES` stays a guard in front of the catalog: a repo-rooted citation is
-# a file path by convention, whatever the route table says.
+# A file-shaped citation (`_looks_like_local_path`) never consults the catalog: it is
+# a file path by convention, whatever the route table says. The prefix alone is not a
+# refusal — the `/ui/analytics/*` routes share the `/ui/` prefix with the `ui/` package.
 
 # ── The historical-citation marker ───────────────────────────────────────────
 # ADRs mix two kinds of citation in one Accepted file: faithful narrative ("we deleted
@@ -559,11 +560,14 @@ def _marker_lines(content: str, marker: MarkerSpec) -> frozenset[int]:
 
 def _is_registered_route(raw: str, catalog: RouteCatalog) -> bool:
     """Does this link target name an application URL rather than a repo file?"""
-    if not raw.startswith("/") or raw.startswith(PROJECT_PREFIXES):
-        # A repo-rooted citation is a file path by convention, never a route. The
-        # `/ui/analytics/*` routes share the `/ui/` prefix with the `ui/` package, and
-        # none carries an extension, so no file citation this checker extracts could
-        # name one; the guard keeps a repo-rooted FILE from ever being read as a route.
+    if not raw.startswith("/"):
+        return False
+    if raw.startswith(PROJECT_PREFIXES) and _looks_like_local_path(raw):
+        # A file-shaped citation under a project directory is a file path by
+        # convention, never a route: a registration at `/docs/patterns/x.md` could not
+        # make that citation live. Neither half alone refuses — the root-served PWA
+        # assets (`/manifest.json`) are file-shaped routes, and the `/ui/analytics/*`
+        # routes share the `/ui/` prefix with the `ui/` package.
         return False
     norm = normalize(raw)
     return norm is not None and catalog.is_registered(norm)

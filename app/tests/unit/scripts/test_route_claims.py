@@ -170,6 +170,8 @@ def test_a_negation_token_elsewhere_on_the_line_is_not_a_negation(line: str) -> 
         "/ku",
         "/home",  # bare: the landing route, not the mount — `/home/<user>/…` is the mount
         "/ui/analytics/view",  # a registered route under a PROJECT_PREFIX: neither file-shaped nor in the tree
+        "/ui/analytics/view/",  # the same claim with a trailing slash
+        "/ui/analytics/view#chart",  # the same claim with an anchor
         "/api/tasks/123",  # a numeric segment among named ones is still a path
         "/api/{domain}/create",  # a metavariable NOT in first position stays a claim
     ],
@@ -199,8 +201,8 @@ def test_claim_shapes_admitted(text: str) -> None:
         ("/services_bootstrap/x", "a path under a repo top-level directory"),
         ("/scripts/health/route_catalog.py:12", "a PROJECT_PREFIX line citation"),
         ("/docs/intelligence/{DOMAIN}_INTELLIGENCE.md", "a PROJECT_PREFIX template"),
-        ("/docs/patterns/X.md#anchor", "a PROJECT_PREFIX anchor"),
-        ("/tests/unit/gone/", "a PROJECT_PREFIX directory citation, trailing slash"),
+        ("/docs/patterns/X.md#anchor", "a PROJECT_PREFIX file with an anchor"),
+        ("/core/services/", "a PROJECT_PREFIX directory citation, trailing slash"),
         ("/core/…", "a PROJECT_PREFIX elision"),
         ("/static/css/output.css", "a file-shaped PROJECT_PREFIX span — the link checker's"),
         ("/core/services/ps", "a PROJECT_PREFIX span naming an existing directory"),

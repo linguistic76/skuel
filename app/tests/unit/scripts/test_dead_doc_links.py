@@ -1374,12 +1374,24 @@ def test_factory_registered_route_is_matched_through_the_runtime_catalog(docs_ro
     assert scan.route_skips == 1
 
 
-def test_repo_rooted_targets_are_never_route_matched() -> None:
-    """A `/docs/…` or `/core/…` citation is a file path by convention. Measured: no live
-    route sits under a PROJECT_PREFIX — this blocks the class if one ever does."""
-    odd = rc.RouteCatalog({"/docs/patterns/gone.md"})
+def test_file_shaped_targets_are_never_route_matched() -> None:
+    """A `/docs/patterns/x.md` citation is a file path by convention; a registration at
+    that path cannot make it live. The prefix alone is not a refusal: `/ui/analytics/*`
+    routes share the `/ui/` prefix with the `ui/` package, and a link to one is served."""
+    odd = rc.RouteCatalog({"/docs/patterns/gone.md", "/ui/analytics/view"})
     assert odd.is_registered("/docs/patterns/gone.md")
     assert not ddl._is_registered_route("/docs/patterns/gone.md", odd)
+    assert ddl._is_registered_route("/ui/analytics/view", odd)
+
+
+def test_a_link_to_a_route_under_a_project_prefix_is_a_route_skip(docs_root: Path) -> None:
+    scan = _scan(
+        docs_root,
+        "# P\n\nSee [the view](/ui/analytics/view).\n",
+        catalog=rc.RouteCatalog({"/ui/analytics/view"}),
+    )
+    assert scan.dead == []
+    assert scan.route_skips == 1
 
 
 def test_live_route_catalog_matches_the_real_registrations() -> None:

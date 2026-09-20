@@ -61,7 +61,8 @@ def test_runtime_table_is_the_size_of_a_real_route_tree(runtime: frozenset[str])
 
 
 def test_the_root_static_catch_all_is_stripped(runtime: frozenset[str]) -> None:
-    """Pinned BY NAME: this is the route that made every single-segment claim match."""
+    """Pinned BY NAME: normalised to `/{}`, this route matches every single-segment
+    claim, so its presence would turn every dead `/x` into a match."""
     assert not any(rc.CATCH_ALL_MARKER in p for p in runtime)
     assert "/{}" not in rc.runtime_catalog().paths
 
