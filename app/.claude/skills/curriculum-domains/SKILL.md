@@ -174,7 +174,7 @@ NONE → VIEWED → IN_PROGRESS → MASTERED
 
 ## Note on MOC
 
-MOC (Map of Content) is NOT a separate domain or EntityType. Any Entity with outgoing `ORGANIZES` relationships IS an organizer — a PathStep, a Ku, or a vault-authored UserEntry knowledge map (`moc: true`). The operations live on `PsService.organization` (`PsOrganizationService`) over the `_OrganizesMixin` backend — reads for any entity, the API write for PathStep pairs, cross-entity edges from vault ingestion; `KuService` has no organization slot.
+MOC (Map of Content) is NOT a separate domain or EntityType. Any Entity with outgoing `ORGANIZES` relationships IS an organizer — a PathStep, a Ku, or a vault-authored UserEntry knowledge map (`moc: true`). The operations live on `PsService.organization` (`PsOrganizationService`) over the `_OrganizesMixin` backend — the edge-level reads (`is_organizer`, `find_organizers`, `get_organized_children`, `list_root_organizers`) answer for any entity; `get_organization_view`, `get_navigation` and the create `organize` go through `ps_core.get()` and need a PathStep; cross-entity edges come from vault ingestion. `KuService` has no organization slot.
 
 See: `core/services/ps/ps_organization_service.py` and `docs/domains/moc.md`
 
