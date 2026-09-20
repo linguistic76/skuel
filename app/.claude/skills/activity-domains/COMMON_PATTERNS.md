@@ -149,15 +149,16 @@ See [ADR-066](/docs/decisions/ADR-066-typed-update-intents.md),
 
 ## UI Pattern
 
-Activity Domains support authoring through per-domain create/edit forms and Obsidian vault sync (`/submissions/sync`). All 6 domains share a collapsible
-Activity sidebar (`render_activity_sidebar_page()` from `ui/activities/nav.py`)
-linking back to `/profile` — except the Events calendar month/week views,
-which are navbar-only full-width pages. Activity Domains content lives on the `/profile`
-Activities tab (`ACTIVITY_BLOCKS` accordion, `ui/activities/hub.py`).
+Activity Domains support authoring through per-domain create/edit forms and Obsidian vault sync (`/submissions/sync`). All 6 domains are pages of the
+**Tasks+ section**: one sidebar (`render_activity_sidebar_page()` from `ui/activities/nav.py` —
+Today, Weekly, Monthly, the six domain rows, Journal, GradeBook) on every one of them, the
+calendar month/week views and `/today` included, and the Tasks+ door (→ `/today`) lit in the
+chrome. The section has no hub page — `/today` is the cross-domain glance and the sidebar shows
+the siblings (below `lg`, as the scrolling section nav).
 
 ```
-/profile?tab=activities    # Activities tab — 6 accordion blocks, HTMX lazy-loaded previews
-/domain                    # Main page — stats, filters, list (with Activity sidebar)
+/today                     # Tasks+ landing — the cross-domain glance
+/domain                    # Main page — stats, filters, list (with the Tasks+ sidebar, its row lit)
 /domain/list-fragment      # HTMX fragment for filter updates
 /domain/detail?uid=...     # Detail page with EntityRelationshipsSection (with Activity sidebar)
 /domain/create             # FormGenerator-rendered create form (GET render, POST submit)

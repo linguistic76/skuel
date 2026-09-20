@@ -327,7 +327,6 @@ _three_tier = (
     "'Key enum renames' record -- naming KuType/KuStatus is the historical record of the rename"
 )
 _trouble = "verbatim ui.daisy_components ImportError strings users search for -- the retired name is the lookup key"
-_ui_comp = "'Evolution (2026-02-01)' note recording migration off the legacy ProfileLayout"
 
 ALLOWED_OCCURRENCES: dict[str, dict[tuple[int, str], Allow]] = {
     ".claude/skills/learning-loop/SKILL.md": {
@@ -335,7 +334,7 @@ ALLOWED_OCCURRENCES: dict[str, dict[tuple[int, str], Allow]] = {
         (44, "ProcessorType"): Allow(_skill_ll),
     },
     ".claude/skills/learning-loop/reference.md": {
-        (743, "JournalOutputService"): Allow(_ref_ll),
+        (742, "JournalOutputService"): Allow(_ref_ll),
     },
     "docs/TROUBLESHOOTING.md": {
         (132, "daisy_components"): Allow(_trouble, hits=2),
@@ -477,9 +476,6 @@ ALLOWED_OCCURRENCES: dict[str, dict[tuple[int, str], Allow]] = {
     },
     "docs/patterns/MODEL_TO_ADAPTER_DYNAMIC_ARCHITECTURE.md": {
         (186, "submissions_sharing_service"): Allow(_m2a),
-    },
-    "docs/patterns/UI_COMPONENT_PATTERNS.md": {
-        (66, "ProfileLayout"): Allow(_ui_comp),
     },
     "docs/patterns/three_tier_type_system.md": {
         # These two move whenever the prose above them changes length. Re-derive

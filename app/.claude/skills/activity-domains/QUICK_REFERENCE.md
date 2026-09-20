@@ -27,10 +27,10 @@
 ### UI
 
 All 6 Activity Domains support authoring through per-domain create/edit forms (`/{domain}/create`,
-`/{domain}/edit?uid=...`). All 6 share a collapsible Activity sidebar
-(`ui/activities/nav.py`) linking back to `/profile` — except the Events
-calendar month/week views, which are navbar-only full-width pages. Activity Domains content
-lives on the `/profile` Activities tab (`ACTIVITY_BLOCKS` accordion, `ui/activities/hub.py`).
+`/{domain}/edit?uid=...`). All 6 are pages of the Tasks+ section — one sidebar
+(`ui/activities/nav.py`: Today, Weekly, Monthly, the six domain rows, Journal, GradeBook) on every
+domain page, the calendar month/week views and `/today`, with the Tasks+ door (→ `/today`) lit in the
+chrome. There is no hub page; `/today` is the landing.
 
 | Domain | Routes | Form | Views | Events File |
 |--------|--------|------|-------|-------------|

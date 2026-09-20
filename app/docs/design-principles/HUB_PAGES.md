@@ -1,108 +1,128 @@
 ---
-title: "Design Principle: Hub Pages"
-updated: 2026-09-18
+title: "Design Principle: Sections, Chrome and Hub Pages"
+updated: 2026-09-19
 status: current
 category: design-principles
-tags: [design, principles, ui, navigation, moc, hub]
-related: [docs/domains/moc.md, docs/architecture/CURRICULUM_GROUPING_PATTERNS.md]
+tags: [design, principles, ui, navigation, moc, hub, chrome]
+related: [docs/domains/moc.md, docs/architecture/CURRICULUM_GROUPING_PATTERNS.md, docs/patterns/HUB_PAGE_PATTERN.md, docs/roadmap/done/tasks-plus-one-chrome.md]
 ---
 
-# Hub Pages
+# Sections, Chrome and Hub Pages
 
-> Pages are navigation. A well-designed page with curated content replaces persistent chrome.
+> A section is navigated by its chrome. A hub page earns its place only when it carries what the section nav cannot.
 
 ## Statement
 
-SKUEL organizes user navigation through **hub pages** — standalone pages that provide access to related sections through their content, not through sidebar menus or persistent navigation chrome. A hub page is something you read. It shows you where you are and where you can go. The page itself is the map.
+SKUEL's navigation has two levels, and one rule binds them (`ui/layouts/nav_config.py`):
 
-This principle descends from the MOC (Map of Content) concept. A MOC is any entity that organizes other entities via relationships. A hub page is the UI expression of this idea — a page that organizes access to other pages through intentional, curated links.
+- **The global chrome carries one door per SECTION**, lit for the whole section by a section key. Below `sm` the
+  doors are the bottom nav; from `sm` they are the navbar's centre links — both rendered from the same
+  `ICON_NAV_ITEMS` spec, identical for every authenticated role. Role-gated doors (Teaching, Admin) join the centre
+  links at `lg` and are rows on `/settings` below it.
+- **A section's PAGES are its sidebar's rows**, lit by slug. At `lg+` the rows are a collapsible sidebar; below `lg`
+  they are the **section nav** — a horizontally scrolling `nav/ul/li/a[aria-current]` list above the content
+  (`ui/patterns/sidebar.py`). The same `SidebarItem` list produces both.
+
+A door's href is the section's landing. The landing may or may not be a sidebar row: Tasks+ lands on `/today`, which
+IS its first row (the door lights as the section and the Today row lights as the page — two levels of one
+navigation, not a duplicate); Library and Submissions land on pages outside their sidebars (`/explore/library`, the
+`/submissions` MOC root); PathSteps has no sidebar. What the rule forbids is a URL at both levels anywhere else: a
+door's href may appear in a sidebar only as that sidebar's first row, and no other row may be a door.
+`tests/unit/ui/test_navbar.py` pins exactly that over every `*_SIDEBAR_ITEMS`.
+
+**Tasks+ IS a section.** Its sidebar (`ui/activities/nav.py`) is the one list — Today, Weekly, Monthly, the six
+Activity Domains, Journal, GradeBook — on every page under it, and the Tasks+ door (→ `/today`) is lit on all of
+them. It has no hub page: the section nav already shows the siblings, and `/today` is the cross-domain glance.
 
 ## Why This Matters
 
-Sidebar menus are generic infrastructure. They present the same list of links regardless of context. A hub page is contextual — it shows counts, status, and descriptions that help the user decide where to go next. The content *is* the navigation.
+The section nav is the smallest chrome that still shows a page's siblings and works without JavaScript. It is the
+same links at every width, so nothing has to be learned twice; below `lg` the current link is centred in the row
+before first paint (a parse-time script), and with JS off the row is a plain scrolling list. A drawer or hamburger
+would hide the siblings behind a tap; a `<select>` would navigate on input; a hub page would cost a click on the way
+to every page. SKUEL values standards-compliant, non-cutting-edge UI: a `<nav>` of `<a>` links, marked
+`aria-current="page"`, is the oldest pattern on the web.
 
-Sidebars also add persistent visual weight and responsive complexity (desktop sidebar vs. mobile tabs). Hub pages are just pages — they work the same on every screen size with standard HTML.
+The chrome is also where cost is decided. A sidebar's badge loader (`/api/sidebar/badges`, a `RichUserContext`
+build) is opt-in (`SidebarPage(badges=True)` — Tasks+ only) and fires only once the desktop sidebar is on screen
+(`hx-trigger="intersect once"`), so a phone never pays for badges it cannot see.
 
-SKUEL values standards-compliant, non-cutting-edge UI. Hub pages are the oldest pattern on the web: a page with links. No JavaScript state management for sidebar toggle. No responsive breakpoint switching between sidebar and tabs. Just HTML.
+## When a Hub Page Earns Its Place
 
-## In Practice
+A hub page is a page whose content IS the navigation — a MOC (Map of Content) in UI form. It is justified when it
+carries something the section nav cannot: a description of each destination before the user commits, a card grid
+of the section's sub-pages for a first-time visitor, live previews that decide *where to go next*, or the organised
+children of a graph entity. It is NOT justified as a second door to pages the chrome already reaches, and it never
+replaces the section nav — the nav is what shows the siblings once the user is inside.
 
-### Top-Level Navigation Structure
+| Page | Hub form | What it carries that the nav cannot |
+|------|----------|-------------------------------------|
+| `/submissions` | MOC root — sidebar-free `BasePage(STANDARD)`, five `MocCard`s | A described entry into the five Submissions doors (Sync first — the primary personal-data path) |
+| `/library` | MOC root — four `MocCard`s | A described entry into the four Library lists |
+| `/groups` | `HubDomainBlock` per group, HTMX-loaded "Recent Shares" | Peer work shared with each group the student belongs to |
+| `/teaching/students/{uid}` | Nested hub — `HubDomainBlockList` (Needs Review, Revision Requested, Completed, KU Progress) | One student's live state, four buckets from one orchestrator read (OOB swaps) |
+| `/gradebook/{uid}` | A "Map of Content" `HubSection` when the entry has `ORGANIZES` children | An entry's organised children, linked per entity type |
 
-| Page | Hub Pattern | What It Organizes |
-|------|-------------|-------------------|
-| `/submissions` | MOC root (sidebar-free card hub) | Sync, Exercise, Journal, History, Knowledge |
-| `/gradebook` | Received-feedback page (exchange lines) | Per-exercise feedback exchanges, activity reports, other feedback |
-| `/library` | MOC root (sidebar-free card hub) | Exercises, Resources, Ku, Path Steps |
-| `/teaching` | Container hub | Students, Groups, Review Queue, Forms (TEACHER role) |
-| `/profile` | Personal overview | 4 tabs: Activities (default), Curriculum, Submissions, Reports |
+The MOC roots are defined in `adapters/inbound/user_entry_ui.py` (`submissions_moc`) and
+`adapters/inbound/library_ui.py` (`library_moc`); their child pages use `SidebarPage` and link back to the root via
+the sidebar's `title_href`. `/gradebook` is not a hub: it is the one received-feedback page (per-exercise exchange
+lines, `ui/gradebook/summary.py`), a Tasks+ page with the GradeBook row lit. Teaching has no hub either —
+`/teaching/students` is its landing and the sidebar (`ui/teaching/nav.py`) carries Groups, Review Queue and Forms.
 
-### MOC Root Pages (`/submissions`, `/library`)
+**Retired without a hub replacement:** the `/profile` personal-overview hub (its four tabs live where their content
+lives — Tasks+, `/library`, `/submissions`, `/gradebook`; `/profile/shared`, the shared-with-me inbox, keeps its
+URL) and the admin home hub at `/` (`/` is a 303 to `/today` for every role). The cross-domain top-3 previews died
+with the hub; if that glance is ever missed, its home is a `/today` section, not a revived hub. The record is
+`docs/roadmap/done/tasks-plus-one-chrome.md`.
 
-Each is a sidebar-free `BasePage(STANDARD)` with a 2×2 card grid. Cards use rounded icon badges (`w-14 h-14 rounded-2xl`) + title + description and link directly to the section's sidebar sub-pages. The pattern is defined in `adapters/inbound/user_entry_ui.py` (`submissions_moc`) and `adapters/inbound/library_ui.py` (`library_moc`). `/gradebook` left this set in the arc-2 3→1 collapse — it is now a content page (per-exercise exchange lines, `ui/gradebook/summary.py`) under the Tasks+ sidebar (`ui/activities/nav.py`, GradeBook row lit), not a card hub.
+## Library Sub-Page Data Pattern
 
-Child pages use `SidebarPage` for within-section navigation. Sidebar `title_href` links back to the MOC root (e.g. `/library`, `/gradebook`, `/submissions`).
+Library sub-pages show **user-specific filtered content**, not full listings (`core/orchestrator/library_orchestrator.py`):
 
-### Teaching (no section hub)
+- **Ku** (`/library/ku`) — only the user's bookmarked (PINNED) Ku, fetched by UID from
+  `UserRelationshipService.get_pinned_entities()`.
+- **Path Steps** (`/library/path-steps`) — only enrolled (IN_PROGRESS) steps, fetched by UID from
+  `PsMasteryService.get_in_progress_step_uids()`.
+- **Exercises** (`/library/exercises`) — two sources merged by `ExerciseService.get_student_exercises_with_status()`:
+  assigned (via group) + personal (linked to IN_PROGRESS PathSteps).
+- **Resources** (`/library/resources`) — all `Resource` entities (admin-curated, shared).
 
-**Teaching** has no hub page — `/teaching/students` is the section landing, and the sidebar nav in `ui/teaching/nav.py` reaches Groups (`/teaching/groups`), Review Queue (`/teaching/queue`) and Forms (`/teaching/forms`); the former static-container hub view and the `/teaching` route were removed. Individual students have a **nested hub** at `/teaching/students/{uid}` (`ui/teaching/student_hub.py`, built on `HubDomainBlockList`) — 4 HTMX-loaded preview blocks (Needs Review, Revision Requested, Completed, KU Progress) showing actual submission/KU data inline, linking to `/teaching/students/{uid}/submissions?tab=...`. Preview endpoints: `/api/teaching/students/{uid}/submissions/preview` (the 3 submission blocks share one call, filled by OOB swap) and `/api/teaching/students/{uid}/ku/preview`.
-
-**Components:** `HubContainerGrid` and `HubContainer` in `ui/patterns/hub.py` (bigger than `HubCard`, with more padding, full description, and arrow affordance) have no consumer since the teaching hub left — a One Path Forward deletion candidate.
-
-### Inline Hub Content
-
-- **Activity Domains** — embedded directly in `/profile` as 6 HTMX lazy-loaded preview blocks. Activity sidebar (shared across `/tasks`, `/goals`, etc.) links back to `/profile`.
-
-### Library Sub-Page Data Pattern
-
-Library sub-pages show **user-specific filtered content**, not full listings:
-
-- **Ku** (`/library/ku`) — Only the user's bookmarked (PINNED) Ku, fetched via `backend.get_many()` with pinned UIDs from `UserRelationshipService.get_pinned_entities()`.
-- **Path Steps** (`/library/path-steps`) — Only enrolled (IN_PROGRESS) steps, fetched via `backend.get_many()` with enrolled UIDs from `PsMasteryService.get_in_progress_step_uids()`.
-- **Exercises** (`/library/exercises`) — Exercises from two sources merged by `ExerciseService.get_student_exercises_with_status()`: assigned (via group) + personal (linked to IN_PROGRESS PathSteps).
-- **Resources** (`/library/resources`) — All `Resource` entities (admin-curated, shared).
-
-**Key principle:** Fetch only what the user needs by UID, not all entities with arbitrary limits.
+**Key principle:** fetch only what the user needs by UID, not all entities with arbitrary limits.
 
 ## Relationship to MOC
 
-MOC (Map of Content) is an emergent graph identity — any entity with ORGANIZES relationships. Hub pages are the UI analog: any page that organizes access to other pages through its content. The two ideas reinforce each other:
+MOC (Map of Content) is an emergent graph identity — any entity with ORGANIZES relationships. A hub page is the UI
+analog: a page that organizes access to other pages through its content.
 
-- **Graph layer:** An entity with ORGANIZES relationships is a MOC
-- **UI layer:** A page with curated links to sub-sections is a hub page
+- **Graph layer:** an entity with ORGANIZES relationships is a MOC
+- **UI layer:** a page with curated links to sub-sections is a hub page
 
-Hub pages do not require ORGANIZES relationships in the graph. They can be purely UI-driven. But when a page's links are derived from graph relationships, the two patterns converge.
-
-## Coexistence with Sidebars
-
-Hub pages and sidebars serve different roles and can coexist:
-
-- **Hub page:** Entry point. Helps the user choose a direction. Used at the top of a section.
-- **Sidebar:** Within-section navigation. Helps the user move between items in a section they've already entered.
-
-The KU section demonstrates this: `/ku` uses a sidebar (bookmarks + latest in sidebar, listing in main area). The principle is not "delete all sidebars" — it is "use hub pages as entry points instead of relying on sidebars for top-level navigation."
+A hub page does not need ORGANIZES relationships behind it (`/library` is purely UI-driven); when a page's links ARE
+derived from the graph (`hub_cards_from_organizers` on `/gradebook/{uid}`), the two patterns converge.
 
 ## Maturity and Immature Code
 
-Hub pages provide a natural home for features at different maturity levels. A hub can link to a well-built section and a rough prototype equally. The link text and description communicate maturity:
-
-- "Reports — Exercise and activity reports" (mature)
-- "Nous — Coming Soon" (immature, exploratory)
-
-This allows raw, immature code to exist alongside mature code without architectural conflict. The hub page itself is just content — it doesn't need the linked sections to be complete.
+A hub page can link to a well-built section and a rough prototype equally; the card text communicates maturity
+("Reports — exercise and activity reports" vs "Coming soon"). Raw code can sit beside mature code without
+architectural conflict — the hub is content, and does not need its destinations complete.
 
 ## Enforcement
 
-- **Home is the post-login entry point** (`/home`) — users land here after login with 6 navigational cards
-- **Profile is the personal overview hub** — users navigate to `/profile` for activity domains and personal statistics
-- **New domain pages** should be rich functional hubs, not card-grid-only pages
-- **BasePage (STANDARD)** is the correct page type for hub pages — no custom layout needed
-- **Shared components** (`HubCard`, `HubSection`, `HubCardData`) in `ui/patterns/hub.py` — used by domain hubs, not Profile
+- **Landing is `/today` for every authenticated role** — login, `/`, and the PWA `start_url` all resolve there;
+  the account page is `/settings` (avatar at every width).
+- **One door per section in the chrome; pages are sidebar rows.** A new section is a new `IconNavItem` (or a
+  role-gated `NavItem`) plus a `*_SIDEBAR_ITEMS` list — never a second door to an existing page. The
+  anti-duplication test fails otherwise.
+- **A new hub page must name what it carries that the section nav cannot** (the table above); a card grid that
+  merely repeats the sidebar is deleted.
+- **`BasePage(STANDARD)`** is the page type for a hub page — no custom layout needed.
+- **Shared components** (`MocCard`, `HubCard`, `HubSection`, `HubDomainBlock`, `HubBlockData`) live in
+  `ui/patterns/hub.py`.
 
 ## See Also
 
 - `/docs/domains/moc.md` — MOC as emergent identity
 - `/docs/architecture/CURRICULUM_GROUPING_PATTERNS.md` — PS Path vs MOC Path
 - `/docs/patterns/HUB_PAGE_PATTERN.md` — implementation pattern and shared components
-- `/ui/patterns/hub.py` — shared hub card components
-- `/ui/profile/hub.py` — reference implementation (THE main hub)
+- `/docs/roadmap/done/tasks-plus-one-chrome.md` — the arc record: measurements, rulings overturned, the chrome gate
+- `/ui/layouts/nav_config.py` — the chrome's one spec; `/ui/patterns/sidebar.py` — the sidebar + section nav

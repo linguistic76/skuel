@@ -1,5 +1,5 @@
 ---
-updated: 2026-09-17
+updated: 2026-09-19
 ---
 
 # Prometheus + Grafana Observability for SKUEL
@@ -162,7 +162,7 @@ Graph Health dashboard shows 23 panels with time-series, gauges, pie charts
 | Observability Need | Tool | Rationale |
 |-------------------|------|-----------|
 | **Ops/admin view** (aggregate metrics, trends) | Prometheus + Grafana | Proven tools, rich features |
-| **User view** (personal progress, motivation) | ProfileHub (`/profile`) | Custom UX, contextual |
+| **User view** (personal progress, motivation) | Tasks+ (`/today`, the sidebar badges, `/gradebook`) | Custom UX, contextual |
 | **In-app debugging** (immediate access) | In-memory metrics | No network dependency |
 | **Test verification** | In-memory metrics | Unit tests don't need Prometheus |
 
@@ -233,13 +233,13 @@ Alerts Actually Evaluate.
 
 ---
 
-## Grafana vs ProfileHub: Two Perspectives
+## Grafana vs Tasks+: Two Perspectives
 
 **IMPORTANT**: SKUEL has TWO systems that show user activity data. This is **NOT duplication** - they serve different audiences with different purposes.
 
 ### The Distinction
 
-| Aspect | Grafana Dashboards | ProfileHub (`/profile`) |
+| Aspect | Grafana Dashboards | Tasks+ (`/today`, sidebar badges, `/gradebook`) |
 |--------|-------------------|------------------------|
 | **Audience** | Admins, ops team, product managers | Individual users |
 | **Purpose** | Operational intelligence, system health | Personal progress, motivation |
@@ -536,7 +536,7 @@ this timestamp makes that staleness alertable (`GraphHealthPollerStale`, >900s).
 - Are users engaging with features? (adoption tracking)
 - Event bus performance monitoring (operational health)
 
-**Note**: This dashboard shows **aggregate business metrics** for product decisions. For individual user progress ("How many tasks did I complete?"), users should view their **ProfileHub** (`/profile`) instead.
+**Note**: This dashboard shows **aggregate business metrics** for product decisions. For individual user progress ("How many tasks did I complete?"), users have **Tasks+** — `/today`, the sidebar's count/health badges and the GradeBook — instead.
 
 ### 3. Graph Health (Graph Perspective) ← PRIMARY FOCUS
 

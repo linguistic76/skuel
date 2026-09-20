@@ -427,7 +427,7 @@ When building a new SKUEL page or feature, verify:
 - [ ] Content works at 320px (mobile)
 - [ ] No horizontal scroll
 - [ ] Sidebar hidden on mobile
-- [ ] Below `sm` the section doors are the bottom nav, not centre links (no hamburger, no drawer)
+- [ ] Below `sm` the section doors are the bottom nav, not centre links; a new section is a new `IconNavItem` + `*_SIDEBAR_ITEMS` list, never a second door to an existing page
 
 **Accessibility:**
 - [ ] Keyboard navigation works (Tab, Enter, Escape)
@@ -451,7 +451,6 @@ When building a new SKUEL page or feature, verify:
 | `/ui/layouts/navbar.py` | ONE navbar for every role — centre links (sm+) from `ICON_NAV_ITEMS` (Tasks+, Library, PathSteps, Submissions) + `MAIN_NAV_ITEMS` (Teaching, Admin — role-gated, lg+) + right icon cluster (Askesis, Shared-inbox, bell, avatar → `/settings`, Sign out); the same `ICON_NAV_ITEMS` as the phone bottom nav (<sm); `signout_row()` + `role_nav_rows()` are the phone's `/settings` rows |
 | `/ui/layouts/nav_config.py` | `ICON_NAV_ITEMS` (section doors, `page_keys` set), `MAIN_NAV_ITEMS` (role doors) |
 | `/ui/patterns/sidebar.py` | `SidebarItem`, `SidebarNav`, `SidebarPage` |
-| `/ui/curriculum/` | Curriculum sidebar, layout, landing page |
 | `/ui/patterns/__init__.py` | `PageHeader`, `SectionHeader`, `EmptyState`, `CardGenerator`, `StatCard`, `IconStat`, `StatsGrid`, `FormGenerator`, `SettingToggle` |
 | `/ui/page_contexts.py` | Per-domain TypedDicts (`TasksPageContext`, `GoalsPageContext`, etc.) for route→UI contracts |
 | `/ui/patterns/form_generator.py` | `FormGenerator` — dynamic form generation from Pydantic models |
@@ -461,14 +460,14 @@ When building a new SKUEL page or feature, verify:
 | `ui/feedback.py`, `ui/layout.py`, `ui/data.py`, `ui/theme.py` | Pure Tailwind wrappers (ADR-071 complete). The former `buttons.py`, `cards.py` and `text.py` wrappers were deleted (PR E); the former `navigation.py` was deleted 2026-08 (zero consumers — navbar lives in `ui/layouts/navbar.py`). `ButtonLink` from `ui/primitives.py`. |
 | `ui/components/` | **SKUEL-owned Tailwind component layer (ADR-071 complete).** Import from here: `Button`/`ButtonT`, `Alert`/`AlertT`/`Loading`/`Progress`, `Icon` (Lucide), full form set (`Input`, `Label`, `LabelInput`, `LabelTextArea`, `LabelSelect`, `LabelCheckbox`, `Select`, `TextArea`, `Switch`, `Radio`, `Range` — bare `Checkbox` is exported from `ui.forms` only), `Table`/`TableFromLists`/`TableFromDicts`/`TableT`, `Divider`, `DivFullySpaced`/`DivCentered`/`Center`, `Accordion`/`AccordionItem`, `Card`/`CardBody`/`CardHeader`/`CardTitle`/`CardFooter`. |
 | `/static/js/skuel.js` | The 22 **shared** Alpine.data() components — not all of them; 3 more live in page-local bundles (`explore-reading.js`, `ku-reading.js`, `ps-detail.js`), 25 total. Inventory: `docs/architecture/ALPINE_JS_ARCHITECTURE.md` |
-| `/ui/profile/hub.py` | `ProfileHubView` — 4-tab hub (Activities / Curriculum / Submissions / Reports, default Activities); Activities/Curriculum/Reports render `HubAccordionBlockList` (native `<details>` accordions, lazy `intersect once` previews) |
+| `/ui/settings/page.py` | The `/settings` shell — the avatar's destination at every width: `signout_row()` (`sm:hidden`) + `role_nav_rows()` (`lg:hidden`) first, then the preferences editor (`/ui/settings/preferences.py`, HTMX-loaded from `/settings/content`) |
+| `/ui/profile/shared_view.py` | The shared-with-me inbox (`/profile/shared`) — the one `/profile/*` page; `GET /profile` is a 404 |
 | `/ui/activities/nav.py` | Activity sidebar config (`ACTIVITY_SIDEBAR_ITEMS`) + `render_activity_sidebar_page()` helper |
-| `/ui/workbench/hub.py` | `SubmissionsTabPanel` — Submissions tab on `/profile` (4 link buttons mirroring the sidebar) |
 | `/ui/workbench/nav.py` | Submissions sidebar config (`SUBMISSIONS_SIDEBAR_ITEMS`) + `render_submissions_sidebar_page()` helper |
 | `/adapters/inbound/user_entry_ui.py` | `submissions_moc` (MOC root), `gradebook_page` (exchange-lines GradeBook + `/gradebook/lines` fragment), submission history endpoints, knowledge-notes grounding page (`/submissions/knowledge`), journal submit/browse/download |
-| `/adapters/inbound/settings_routes.py` | Settings page (extracted from Workbench) — `/settings` + `/settings/save` |
+| `/adapters/inbound/settings_routes.py` | `/settings` (the shell), `/settings/content` (the preferences fragment), `/settings/save` |
 | `/ui/library/nav.py` | Library sidebar config (`LIBRARY_SIDEBAR_ITEMS`) + `render_library_sidebar_page()` helper |
-| `/ui/activities/hub.py` | `ACTIVITY_BLOCKS` + `render_domain_card_preview` — Activities tab on `/profile` (accordion blocks, HTMX lazy-loaded from `/api/profile/{slug}/preview`) |
+| `/ui/activities/badges.py`, `/ui/activities/domain_stats_config.py` | The Tasks+ sidebar badges — `CountBadge`/`HealthIndicator` renderers + the per-row extractor config the `/api/sidebar/badges` handler (`adapters/inbound/sidebar_badges_ui.py`) iterates |
 | `/adapters/inbound/library_routes.py` | Library hub orchestrator — wires `library_ui.py` with its 6 service dependencies (extracted from `learning_loop_routes.py`) |
 | `/adapters/inbound/library_ui.py` | `library_moc` (MOC root at `/library`) + sidebar sub-pages: `/library/exercises` (status-aware), `/library/resources`, `/library/ku` (PINNED only), `/library/path-steps` (IN_PROGRESS only). Exercise status helpers in `ui/learning_loop/exercise_status.py` |
 | `/adapters/inbound/explore_ui.py` | Reading-first `/explore` surface + `/explore/library` catalog + `/explore/read/{uid}` alias + API routes. PS/Ku detail pages and learning loop fragments are in `learning_loop_routes.py`. |
@@ -488,7 +487,6 @@ When building a new SKUEL page or feature, verify:
 | `/ui/finance/` | Finance UI rendering: `components.py`, `invoice_views.py`, `layout.py`, `section_views.py`, `types.py` — extracted from `finance_ui.py` |
 | `/ui/explore/ku_detail.py` | Ku detail page rendering — extracted from `explore_ui.py` |
 | `/ui/explore/ps_detail.py` | PathStep detail page rendering — extracted from `explore_ui.py` |
-| `/ui/profile/_shared.py` | Shared profile primitives (`DomainSummaryCard`, `DomainIntelligenceCard`, `DomainFilterControls`, `_item_list`) |
 | `/docs/patterns/UI_COMPONENT_PATTERNS.md` | Complete patterns documentation |
 | `/tests/unit/ui/test_cross_domain_consistency.py` | Cross-domain consistency tests — verifies PageHeader, EmptyState, StatsGrid, EntityRelationshipsSection used across all 6 activity domains + 4 hub pages |
 

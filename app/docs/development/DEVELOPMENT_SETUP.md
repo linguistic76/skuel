@@ -1,5 +1,5 @@
 ---
-updated: 2026-09-17
+updated: 2026-09-19
 ---
 
 # Development Setup Guide
@@ -127,7 +127,7 @@ uv run pytest tests/unit/test_event_registry_derivation.py
 
 ### "Failed to load context" errors
 
-**Symptom:** 500 error when accessing /profile
+**Symptom:** 500 error when accessing /today or a Tasks+ page
 
 **Solution:** Ensure user service is properly initialized:
 1. Check Neo4j is running

@@ -12,7 +12,7 @@ For layout primitives (`BasePage`, `SidebarPage`, `AuthPage`) and shared compone
 
 ## Admin Navigation
 
-There is no admin navbar: an admin sees the one chrome every role sees (`ui/layouts/navbar.py`). Admin (`/admin`) and Teaching (`/teaching/students`) are role-gated `MAIN_NAV_ITEMS` doors — centre links at lg+, `lg:hidden` rows on `/settings` below. `/` is a 303 to `/today` for every authenticated role; the admin home hub is retired.
+An admin sees the one chrome every role sees (`ui/layouts/navbar.py`) — there is no admin navbar and no admin home. Admin (`/admin`) and Teaching (`/teaching/students`) are role-gated `MAIN_NAV_ITEMS` doors — centre links at lg+, `lg:hidden` rows on `/settings` below. `/` is a 303 to `/today` for every authenticated role. The admin pages share one sidebar (`ui/admin/layout.py`, `ADMIN_SIDEBAR_ITEMS`).
 
 ### `/admin/prereq-suggestions` — Prerequisite-Edge Suggestion Queue
 
@@ -30,7 +30,7 @@ One navigation, one rule (`ui/layouts/nav_config.py`): the chrome carries one do
 
 ### `/groups` — Student-Facing Group-Shares Hub
 
-Tabbed layout mirroring `/home`, with one tab per group the student is a member of (capped at `MAX_STUDENT_GROUPS = 4`, enforced server-side in `GroupService.add_member()`). Each tab shows a single "Recent Shares" block HTMX-loaded from `GET /api/groups/{group_uid}/shared/preview` — peer-authored `UserEntry`s linked via `(entry)-[:SHARED_WITH_GROUP]->(group)`, with own entries excluded and membership guarded by the Cypher `MATCH` on `(user)-[:MEMBER_OF]->(group)`. Zero-group students see an `EmptyState`. UI in `ui/groups/hub.py` + `ui/groups/shared_preview.py`; routes in `adapters/inbound/groups_hub_routes.py`; backing service method `UnifiedSharingService.get_user_entries_shared_with_group()`. Distinct from `/teaching/groups` (teacher-facing group management).
+Tabbed layout with one tab per group the student is a member of (capped at `MAX_STUDENT_GROUPS = 4`, enforced server-side in `GroupService.add_member()`). Each tab shows a single "Recent Shares" block HTMX-loaded from `GET /api/groups/{group_uid}/shared/preview` — peer-authored `UserEntry`s linked via `(entry)-[:SHARED_WITH_GROUP]->(group)`, with own entries excluded and membership guarded by the Cypher `MATCH` on `(user)-[:MEMBER_OF]->(group)`. Zero-group students see an `EmptyState`. UI in `ui/groups/hub.py` + `ui/groups/shared_preview.py`; routes in `adapters/inbound/groups_hub_routes.py`; backing service method `UnifiedSharingService.get_user_entries_shared_with_group()`. Distinct from `/teaching/groups` (teacher-facing group management).
 
 ### `/explore` — Reading-First Explore Surface
 
@@ -68,33 +68,25 @@ per-dimension trends. Route in `adapters/inbound/self_checkin_routes.py`, UI in 
 (shared gap primitives in `ui/dual_track_card.py`). The per-entity counterpart (Goals/Habits/Principles)
 is a "Self-Assessment" section on each activity detail page → `POST /{domain}/dual-track/results`.
 
-### `/home` — Post-Login Landing Hub
+### Shared HTMX fragments (`home_routes.py`)
 
-Legacy hub superseded. `/submissions` and `/library` are standalone MOC root pages (sidebar-free card grids); `/gradebook` is the one received-feedback page (arc 2 C1). Route in `adapters/inbound/home_routes.py` only registers shared HTMX fragments (`/api/navbar/notification-badge`, `/api/personal-header`).
+`adapters/inbound/home_routes.py` registers no page — only two shared fragments: `GET /api/navbar/notification-badge` (the bell's count) and `GET /api/personal-header`, the Focus+Velocity header used on all 6 Activity Domain list pages without loading the full MEGA-QUERY on the critical path.
 
-Also registers `GET /api/personal-header` — HTMX fragment endpoint for the Focus+Velocity header used on all 6 Activity Domain list pages (Tasks, Goals, Habits, Events, Choices, Principles) and any future page that wants it without loading the full MEGA-QUERY on the critical path.
-
-**Two patterns for Focus+Velocity:**
+**Two patterns for Focus+Velocity** (both in `ui/patterns/personal_header.py`):
 - `personal_header(context)` — when `UserContext` is already in scope (today only the `/api/personal-header` endpoint itself)
 - `personal_header_placeholder()` — everywhere else; renders an `hx-get="/api/personal-header" hx-trigger="load"` div that fills in after page render without blocking
 
-Both live in `ui/patterns/personal_header.py`.
+### The Tasks+ section
 
-### `/profile` — Personal Overview Hub
-
-Four tabs selected by `?tab=` (default `activities`), mirroring the loop (live it / study / submit / grade): **Activities** (6 Activity Domain accordion blocks, previews from `/api/profile/{slug}/preview`; Tasks section open on load), **Curriculum** (former Library blocks), **Submissions** (4 link buttons mirroring the `/submissions` sidebar — Sync, Exercises, Journals, History), **Reports** (former GradeBook blocks). Tab view in `ui/profile/hub.py`. Activity sidebar (one list — Today / Weekly / Monthly, the six domain rows with their badges (loaded once the desktop sidebar is on screen; never on phones), Journal, GradeBook (`/gradebook`, feedback received) — shared across `/tasks`, `/goals`, `/habits`, `/events`, `/choices`, `/principles`, the periodic notes (`/journals/{entry_uid}` — the Journal row opens today's daily note via `/journals/daily`), the calendar views (`/cal`, month/week), `/today` and the GradeBook surfaces (`/gradebook`, its detail pages and the `/submit-activity-report` form — GradeBook row lit)) links back to `/profile`. Each calendar view renders its declared membership (`VIEW_SPECS`): the month shows events alone; the week adds habits, goal milestones and high-priority tasks, with the kind legend as filter.
+One sidebar (`ui/activities/nav.py`, `ACTIVITY_SIDEBAR_ITEMS` — Today / Weekly / Monthly, the six domain rows Tasks · Goals · Habits · Events · Principles · Choices, Journal, GradeBook) on every page under it: `/today`, the calendar views (`/cal`, month/week), `/tasks`, `/goals`, `/habits`, `/events`, `/principles`, `/choices`, the periodic notes (`/journals/{entry_uid}` — the Journal row opens today's daily note via `/journals/daily`) and the GradeBook surfaces (`/gradebook`, its detail pages and the `/submit-activity-report` form — GradeBook row lit). Every one of them lights the **Tasks+** door in the chrome (`render_activity_sidebar_page` passes `active_page="activity"`); the sidebar row is the per-page light. Below `lg` the same rows are the scrolling section nav. This is the ONE sidebar that opts into the badge loader: the six domain rows carry count/health badges swapped in by `GET /api/sidebar/badges` (`adapters/inbound/sidebar_badges_ui.py`) once the desktop sidebar is on screen — never on phones. Each calendar view renders its declared membership (`VIEW_SPECS`): the month shows events alone; the week adds habits, goal milestones and high-priority tasks, with the kind legend as filter. `GET /profile` is a 404 — the personal-overview hub is retired (`docs/roadmap/done/tasks-plus-one-chrome.md`); only `/profile/shared` remains under that prefix.
 
 ### `/profile/shared` — Shared With Me
 
 Type-aware reviewing inbox of entities shared with the viewer via `SHARES_WITH` — today that means ADR-040 auto-shared feedback (EntryReports, RevisedExercises) and manually shared FormSubmissions, framed as *work shared with you for your attention* (feedback-loop UX arc 2 C4). Cards show title, entity-type badge, sharer, share date, and — when the item has an exercise subject (arc 1 C4) — an "on *{exercise}* · in *{path step}*" context line linking to the exercise/PathStep detail pages; detail links resolve per-type via `entity_detail_href()`. A FilterBar (Type · Shared by, options derived from the live inbox) narrows the cards server-side through the `/profile/shared/list-fragment` HTMX fragment. Reached from the inbox icon in the top navbar (next to the bell). Group shares surface on `/groups`, not here. View in `ui/profile/shared_view.py`; route in `adapters/inbound/user_profile_ui.py`.
 
-### `/ku` — Knowledge Index
-
-Flat Ku listing with bookmarks + latest sidebar (pin button for bookmarking).
-
 ---
 
-## Hub Sub-Pages (Same Three-Tab Interface)
+## Section Landings and Sub-Pages
 
 ### `/gradebook`
 
@@ -133,7 +125,7 @@ MOC root page (no sidebar) — five cards linking to the five Submissions sub-pa
 - `/submissions/history` — exercise submissions with feedback status, view, and delete.
 - `/submissions/knowledge` — knowledge notes (`pipeline: knowledge` entries) with their grounded-Ku chips; each chip links to the Ku reading page and carries a per-chip remove (`POST /api/user-entries/grounding/remove`) — the review surface for eager grounding writes. Renderer in `ui/user_entry/knowledge_notes.py`.
 
-All four sub-pages use the Submissions sidebar (Exercise → Journal → Sync → History).
+All five sub-pages use the Submissions sidebar (Sync → Exercise → Journal → History → Knowledge).
 
 ---
 
@@ -211,7 +203,7 @@ Other curriculum sub-pages (`/learning-paths`, `/exercises`) use `BasePage(STAND
 
 ### `/settings`
 
-User preferences page (learning, scheduling, notifications, display, goals) — top-level page with `BasePage` (no sidebar). Links to `/settings/devices`. Route in `adapters/inbound/settings_routes.py`.
+The account page — the avatar's destination at every width (`page_key="settings"`). Renders first, outside any HTMX fragment or `x-cloak`, the chrome rows the top bar drops below its breakpoints: the sign-out row (`sm:hidden`) and the role-gated Admin / Teaching rows (`lg:hidden`, `role_nav_rows()`); then the preferences editor (learning, scheduling, notifications, display, goals — HTMX-loaded from `/settings/content`, saved via `/settings/save`). Links to `/settings/devices`. Shell in `ui/settings/page.py`; preferences in `ui/settings/preferences.py`; route in `adapters/inbound/settings_routes.py`.
 
 ### `/settings/devices`
 

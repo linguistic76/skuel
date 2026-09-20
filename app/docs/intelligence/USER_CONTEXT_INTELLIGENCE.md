@@ -1,7 +1,7 @@
 ---
 related_skills:
 - user-context-intelligence
-updated: 2026-09-17
+updated: 2026-09-19
 ---
 # UserContextIntelligence - Central Intelligence Hub
 ## Related Skills
@@ -1207,9 +1207,8 @@ consumed by:
 - **ZPD assessment** (`core/models/zpd/zpd_assessment.py`) — `get_optimal_next_path_steps()` is the primary ranking signal
 - **`build_rich()` capstone** (`core/services/user/unified_user_context.py`)
 
-(The former /profile overview intelligence section — partial-failure cards at
-`/api/profile/intelligence-section` — was removed 2026-07-05 as an unreachable
-surface; Askesis is the intelligence UI paradigm.)
+Askesis is the intelligence UI paradigm — there is no separate intelligence
+overview page.
 
 ---
 

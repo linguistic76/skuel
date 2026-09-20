@@ -1003,7 +1003,8 @@ ui/activities/tasks_form.py …     — create/edit form components
 ui/activities/filter_bar.py       — shared list filter bar
 ui/activities/_shared.py          — cross-domain view helpers
 ui/activities/nav.py              — Activity sidebar (render_activity_sidebar_page)
-ui/activities/hub.py              — Activities content embedded in /profile
+ui/activities/badges.py           — sidebar count/health badge renderers
+ui/activities/domain_stats_config.py — per-row extractors for /api/sidebar/badges
 ```
 
 These compose the same core components (`PageHeader`, `StatsGrid`, badges, etc.)
@@ -1024,7 +1025,7 @@ BasePage includes WCAG 2.1 Level AA features automatically:
 - **Semantic HTML** — `<nav>`, `<main>`, `<header>`, `<footer>`
 - **ARIA attributes** — Form inputs include `aria-invalid`, `aria-describedby`
 - **Focus management** — Keyboard navigation for sidebar, modals, dropdowns
-- **Mobile menu** — `aria-expanded` binding on hamburger button
+- **Section nav** — `<nav aria-label>` + `<ul role="list">` of `<a aria-current="page">` links below `lg` (a nav list, never `role="tab"`)
 
 When building new components:
 
