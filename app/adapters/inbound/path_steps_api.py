@@ -10,6 +10,8 @@ and ORGANIZES hierarchy operations.
 
 from typing import Any
 
+from fasthtml.common import Div, P
+
 from adapters.inbound.auth import make_service_getter, require_admin, require_authenticated_user
 from adapters.inbound.boundary import boundary_handler
 from adapters.inbound.csrf import csrf_protected
@@ -40,6 +42,7 @@ from core.services.ps_service import PsService
 from core.services.user_progress_service import UserProgressService
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
+from ui.feedback import Alert, AlertT
 
 logger = get_logger("skuel.routes.path_steps.api")
 
@@ -391,6 +394,60 @@ def create_path_steps_api_routes(
             return Result.fail(Errors.validation(f"Invalid SEL category: {category}"))
         return await ps_service.get_personalized_curriculum(
             user_uid=user_uid, sel_category=sel_category, limit=limit
+        )
+
+    @rt("/api/path-steps/journey-html")
+    async def get_step_journey_html(request: Request) -> Any:
+        """HTMX: Render SEL journey as HTML fragment."""
+        from fasthtml.common import P as FP
+
+        user_uid = require_authenticated_user(request)
+        result = await ps_service.get_sel_journey(user_uid)
+
+        if result.is_error:
+            return Alert(
+                FP("Unable to load your learning journey.", cls="text-center py-8"),
+                variant=AlertT.error,
+            )
+
+        from ui.patterns.curriculum_adaptive import SELJourneyOverview
+
+        return SELJourneyOverview(result.value)
+
+    @rt("/api/path-steps/curriculum-html/{category}")
+    async def get_curriculum_html(request: Request, category: str, limit: int = 10) -> Any:
+        """HTMX: Render personalized curriculum grid as HTML fragment."""
+        from core.models.enums import SELCategory
+
+        user_uid = require_authenticated_user(request)
+
+        try:
+            sel_category = SELCategory(category)
+        except ValueError:
+            return Alert(P(f"Invalid category: {category}"), variant=AlertT.error)
+
+        result = await ps_service.get_personalized_curriculum(
+            user_uid=user_uid, sel_category=sel_category, limit=limit
+        )
+
+        if result.is_error:
+            return Alert(P("Unable to load curriculum."), variant=AlertT.error)
+
+        curriculum: list[Any] = list(result.value or [])
+        if not curriculum:
+            from ui.patterns.empty_state import EmptyState
+
+            return EmptyState(
+                title="No curriculum available yet",
+                description="Complete prerequisite knowledge units to unlock content in this area.",
+                icon="📚",
+            )
+
+        from ui.patterns.curriculum_adaptive import AdaptiveKUCard
+
+        return Div(
+            *[AdaptiveKUCard(ku) for ku in curriculum],
+            cls="grid grid-cols-1 md:grid-cols-2 gap-4",
         )
 
     # ========================================================================

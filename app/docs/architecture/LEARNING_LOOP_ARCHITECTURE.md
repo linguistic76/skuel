@@ -361,9 +361,9 @@ values breadth alongside depth.
 
 The PathStep detail page (`/explore/ps/{uid}`) is the primary surface. A flat index at
 `/path-steps` lists enrolment-aware PathSteps (Start / In Progress / Mastered). Adaptive
-curriculum recommendations and the SEL journey are JSON only (`/api/path-steps/journey`,
-`/api/path-steps/curriculum/{category}`) — no page renders them; see
-`docs/domains/ps.md` § Adaptive curriculum.
+curriculum recommendations and the SEL journey are served as JSON (`/api/path-steps/journey`,
+`/api/path-steps/curriculum/{category}`) and as staged HTMX fragments no page loads yet
+(`ui/patterns/curriculum_adaptive.py`); see `docs/domains/ps.md` § Adaptive curriculum.
 
 **Routes:**
 

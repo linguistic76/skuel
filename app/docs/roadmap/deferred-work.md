@@ -155,6 +155,10 @@ renders them as a table in Obsidian, and a session derives the same table with
 
 [Label-Generic Vector Rung Has No Index for Most Domains](label-generic-vector-rung.md) — `/search`'s Semantic-boost and Learning-aware toggles silently do nothing for seven domains that have no per-label vector index; the fix is the `Entity` index plus an `entity_type` filter, not seven more indexes.
 
+## SEL Journey Fragments — staged behind a surface not yet designed
+
+[SEL Journey Fragments — staged behind a surface not yet designed](sel-journey-fragments-staged.md) — The two `/api/path-steps/*-html` fragments and `ui/patterns/curriculum_adaptive.py` have no page that loads them; PLANNED tier until a journey surface is designed or a ruling deletes them with the JSON twins kept.
+
 ## History-in-Code Sweep — the finder is built, the sweep is the queue
 
 [History-in-Code Sweep — the finder is built, the sweep is the queue](history-in-code-sweep.md) — The finder ships advisory; the queue is its `--top 20` output, worked one file or cluster per PR, the why moved to the record, never deleted.

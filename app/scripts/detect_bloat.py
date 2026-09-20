@@ -659,6 +659,17 @@ _EXERCISES_ARCHIVE = PlannedEntry(
 # the arc wired calendar actions through CalendarService + the item modal, so
 # the adapters/protocol/converters trio was superseded and deleted whole.
 
+_SEL_JOURNEY_FRAGMENT = PlannedEntry(
+    Readiness.DELAYED,
+    "HTMX fragment over PsAdaptiveService (journey / per-competency curriculum) "
+    "rendered through ui/patterns/curriculum_adaptive.py; the SEL pages that "
+    "loaded it are gone and no page loads it today, while the JSON twin "
+    "(/api/path-steps/journey, /api/path-steps/curriculum/{category}) is the live "
+    "API — wire a journey surface, or delete handler + UI module together",
+    since=date(2026, 9, 20),
+    blocked_by="SEL Journey Fragments — staged behind a surface not yet designed",
+)
+
 PLANNED_METHODS: dict[str, PlannedEntry] = {
     # --- Entity chunking: staged metadata read path ---
     "core/services/entity_chunking_service.py::get_metadata": PlannedEntry(
@@ -1006,6 +1017,12 @@ PLANNED_METHODS: dict[str, PlannedEntry] = {
         "wire into the ingestion admin dashboard or a /status route",
         since=date(2026, 6, 17),
     ),
+    # --- SEL journey: HTMX fragments with no page that loads them (ruled staged) ---
+    # Route-reachable, so no liveness tool sees them; the entry is the register of
+    # their consumer-less state. `ui/patterns/curriculum_adaptive.py` lives through
+    # these two importers.
+    "adapters/inbound/path_steps_api.py::get_step_journey_html": _SEL_JOURNEY_FRAGMENT,
+    "adapters/inbound/path_steps_api.py::get_curriculum_html": _SEL_JOURNEY_FRAGMENT,
 }
 
 # Prompt templates staged with no render site (ADR-082 D4): committed .md
