@@ -550,7 +550,7 @@ Each Curriculum Domain follows the **decomposed facade pattern** with complexity
 | **LP** | `LpService` | 5: `core`, `search`, `relationships`, `intelligence`, `progress` (+ optional `ai`) | `LpIntelligenceService` (`lp/lp_intelligence_service.py`) |
 | **PS** | `PsService` | 13: `core`, `search`, `graph`, `semantic`, `practice`, `mastery`, `relationships`, `intelligence`, `adaptive`, `application_discovery`, `context_service`, `organization`, `progress` (+ optional `ai`) | `PsIntelligenceService` (`ps/ps_intelligence_service.py`) |
 
-**MOC:** there is no MOC service. ORGANIZES operations are `PsService.organization` (`PsOrganizationService`) over the `_OrganizesMixin` backend, whose reads match `:Entity` — any Entity "is a MOC" when it has outgoing ORGANIZES relationships: emergent identity, not a separate service or EntityType. The API write (`organize()`) is PathStep → PathStep; cross-entity edges are authored in the vault (`moc: true`) and written by `IngestionWriteBackend.refresh_moc_organizes`.
+**MOC:** there is no MOC service. ORGANIZES operations are `PsService.organization` (`PsOrganizationService`) over the `_OrganizesMixin` backend, whose edge-level reads (`is_organizer`, `find_organizers`, `get_organized_children`, `list_root_organizers`) match `:Entity` — any Entity "is a MOC" when it has outgoing ORGANIZES relationships: emergent identity, not a separate service or EntityType. `get_organization_view`, `get_navigation` and the create `organize()` go through `ps_core.get()` and need a PathStep; cross-entity edges are authored in the vault (`moc: true`) and written by `IngestionWriteBackend.refresh_moc_organizes`.
 
 ### Why Different Sizes?
 
