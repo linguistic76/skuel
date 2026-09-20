@@ -134,6 +134,8 @@ def test_the_probe_writes_nothing_to_stdout(capsys: pytest.CaptureFixture[str]) 
         ("/api/tasks/{uid}/status", "/api/tasks/{}/status"),
         ("/{fname:path}.{ext:static}", "/{}"),
         ("/api/{domain}/{uid}", "/api/{}/{}"),
+        ("/api/{domain}s/remove-child", "/api/{}/remove-child"),  # doc shorthand for a family
+        ("/api/pathstep-{domain}-templates/", "/api/{}"),
         ("tasks", None),
         ("", None),
     ],
@@ -205,6 +207,22 @@ def test_claimed_method_is_held_to_the_registration() -> None:
     blind = rc.RouteCatalog({"/api/events/{uid}/status"})
     assert blind.is_registered("/api/events/{}/status", "PUT")
     assert blind.methods_for("/api/events/{}/status") is None
+
+
+def test_a_wildcard_never_covers_an_empty_segment() -> None:
+    """`/api/tasks//status` is not served by `/api/tasks/{uid}/status`: a parameter
+    takes a non-empty value."""
+    catalog = rc.RouteCatalog({"/api/tasks/{uid}/status"})
+    assert not catalog.is_registered("/api/tasks//status")
+    assert catalog.is_registered("/api/tasks/abc/status")
+
+
+def test_doc_shorthand_families_match_their_members() -> None:
+    """A brace anywhere in a segment is a family placeholder: `/api/{domain}s/x` and
+    `/api/pathstep-{domain}-templates/` are how docs name a route per domain."""
+    catalog = rc.RouteCatalog({"/api/tasks/remove-child", "/api/pathstep-task-templates"})
+    assert catalog.is_registered(rc.normalize("/api/{domain}s/remove-child") or "")
+    assert catalog.is_registered(rc.normalize("/api/pathstep-{domain}-templates/") or "")
 
 
 def test_two_registrations_of_one_shape_pool_their_verbs() -> None:

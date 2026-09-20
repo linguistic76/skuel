@@ -135,7 +135,9 @@ def marker_class(marker_name: str) -> str:
 
 ALL_CLASSES: tuple[str, ...] = (*CLASSES, *(marker_class(m.name) for m in ddl.MARKERS))
 
-METHOD_RE = re.compile(r"^(?:(GET|POST|PUT|DELETE|PATCH|HEAD)\s+)?(/\S*)$")
+# Every standard verb is admitted as a claim; the verb-aware catalog decides whether the
+# route serves it (`OPTIONS /x` on a GET-only route is fiction, not a non-claim).
+METHOD_RE = re.compile(r"^(?:(GET|POST|PUT|DELETE|PATCH|HEAD|OPTIONS|TRACE|CONNECT)\s+)?(/\S*)$")
 # A string literal inside a fence that starts with "/" — the advisory view only.
 FENCE_STR_RE = re.compile(r"""["'](/[A-Za-z0-9_\-{}./:?=&]*)["']""")
 # Regex, glob and shell characters: a span carrying one is a pattern, not a path.

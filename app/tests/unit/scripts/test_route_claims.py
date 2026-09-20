@@ -163,6 +163,7 @@ def test_a_negation_token_elsewhere_on_the_line_is_not_a_negation(line: str) -> 
         "/tasks",
         "/api/tasks/create",
         "POST /api/tasks/create",
+        "OPTIONS /api/tasks/create",  # every standard verb is a claim; the catalog judges it
         "/api/tasks/{uid}/status",
         "/explore/ku/{ku_uid}",
         "/tasks?uid=abc",
@@ -285,6 +286,7 @@ def test_a_claimed_verb_the_route_does_not_serve_is_fiction() -> None:
     ]
     # The near-miss relations are verb-blind — a printed class, not a match, either way.
     assert _classes("# P\n\n`PUT /api/tasks/create`\n")[0][2] == "family-prefix"
+    assert _classes("# P\n\n`OPTIONS /profile/shared`\n")[0][2] == "fiction"
 
 
 def test_relative_suffix_is_a_class_because_it_hides_ku() -> None:

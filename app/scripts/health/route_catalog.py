@@ -88,7 +88,11 @@ def normalize(path: str) -> str | None:
     """A claim or registration as the catalog compares it, or ``None`` if not a path.
 
     Query string and anchor are dropped, a trailing slash is dropped (``/`` itself
-    stays), and every segment containing ``{`` becomes the wildcard ``{}``.
+    stays), and every segment containing ``{`` becomes the wildcard ``{}``. Any brace,
+    not only a whole ``{name}``: a doc writes a family as ``/api/{domain}s/remove-child``
+    or ``/api/pathstep-{domain}-templates/``, and a Starlette converter is
+    ``{x:path}``. A segment like ``x{uid`` is a value a parameter serves, not a shape
+    the catalog can refuse.
     """
     path = path.split("#")[0].split("?")[0].strip()
     if not path.startswith("/"):
@@ -114,9 +118,11 @@ def _segments_match(claim: list[str], registration: list[str]) -> bool:
             continue
         if c == "{}" and r == "{}":
             continue
-        if c == "{}":
+        # A parameter takes a non-empty value: `/api/tasks//status` is not an instance
+        # of `/api/tasks/{uid}/status`.
+        if c == "{}" and r:
             instance = False
-        elif r == "{}":
+        elif r == "{}" and c:
             family = False
         else:
             return False
