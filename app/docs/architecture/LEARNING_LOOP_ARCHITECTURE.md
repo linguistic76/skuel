@@ -333,8 +333,9 @@ completes a task that references a PathStep, `PsService` handles the
 **`CurriculumProgress`** (`core/models/pathways/learning_progress.py`) — a frozen snapshot of
 a user's progress through one SEL category, tracking path-step-level completion.
 
-`determine_level()` maps completion to `LearningLevel`:
-0–24% → BEGINNER · 25–49% → INTERMEDIATE · 50–74% → ADVANCED · 75–100% → EXPERT
+`completion_percentage` and `current_level` are derived from `steps_mastered / total_steps`
+(properties, never stored): 0–24% → BEGINNER · 25–49% → INTERMEDIATE · 50–74% → ADVANCED ·
+75–100% → EXPERT
 
 `needs_attention()` returns `True` if a user started a category but hasn't touched it in
 7+ days — a signal for the UI.
