@@ -33,9 +33,12 @@ Every route factory that acts on a USER_OWNED entity by uid verifies ownership b
 acts — `CRUDRouteFactory` through `get_for_user` / `update_for_user` / `delete_for_user`,
 the lateral factory through the service's `OwnershipVerifier` callback (below), the rest
 through `verify_entity_ownership`. A manual route calls `verify_entity_ownership` (API,
-`Result[T]`) or `require_owned_entity` (UI, `Response`) itself. Those two helpers in
-`adapters/inbound/route_factories/route_helpers.py` are the only route-layer doors; the
-census is `grep -rn "verify_entity_ownership(\|require_owned_entity(" adapters/inbound`.
+`Result[T]`) or `require_owned_entity` (UI, `Response`) itself — both helpers in
+`adapters/inbound/route_factories/route_helpers.py` wrap the service's
+`verify_ownership(uid, user_uid)`, which a route calls directly when it needs the verified
+entity back (§ API Routes below). Those are the route-layer doors, and there is no
+decorator form; the census is
+`grep -rnE "verify_entity_ownership\(|require_owned_entity\(|\.verify_ownership\(" adapters/inbound`.
 
 ## Overview
 
@@ -197,7 +200,7 @@ See: `/docs/patterns/ROUTE_FACTORIES.md` for full parameter reference.
 
 ### UI Routes (require_owned_entity helper)
 
-For UI routes that return `Response` directly (not `Result[T]`), use the `require_owned_entity` helper which combines service availability + ownership verification:
+For UI routes that return `Response` directly (not `Result[T]`), use the `require_owned_entity` helper which combines service availability + ownership verification. Its `error` IS the 404 `Response` (503 when the service is unavailable) — return it:
 
 ```python
 from adapters.inbound.auth import require_authenticated_user
@@ -212,12 +215,19 @@ async def habit_choices_fragment(request: Request) -> Any:
 
     habit, error = await require_owned_entity(habits_service.core, uid, user_uid, "Habit")
     if error:
-        # An HTMX fragment swaps a banner in, not a bare 404 Response
-        return Div(render_error_banner("Habit not found"), id="habit-choices")
+        return error  # the same 404 for "no such habit" and "not yours"
 
     # Safe to proceed - habit is verified and available
     ...
 ```
+
+The live `/habits/choices-fragment` handler deviates in one respect: it is an HTMX
+fragment, and HTMX does not swap a 4xx body into the target (the global
+`htmx:responseError` handler only announces "Item not found"), so it returns a 200
+`render_error_banner("Habit not found")` in the slot instead of `error`. That keeps the
+contract's indistinguishability — missing and not-owned render the same text — at the cost
+of the status code; it is the fragment exception, not the pattern, and a page route
+returns `error`.
 
 A bare `get()` followed by an inline `entity.user_uid != user_uid` compare, standing in
 for the anchor's own verification, is the ad-hoc "is this yours?" check ADR-085 §4 forbids
