@@ -186,3 +186,26 @@ class TestSelJourneyCompletion:
         assert awareness.current_level == LearningLevel.ADVANCED
         assert journey.overall_completion == pytest.approx(10.0)
         assert journey.get_next_recommended_category() == SELCategory.SELF_MANAGEMENT
+
+    def test_derived_fields_reach_the_json_boundary_and_refuse_a_constructor_value(self) -> None:
+        """The JSON route serializes dataclass FIELDS, so the derived pair must be fields —
+        and derived, so no constructor can hand them a value the counts disagree with."""
+        from pydantic_core import to_jsonable_python
+
+        from core.models.pathways.learning_progress import CurriculumProgress
+
+        progress = CurriculumProgress(
+            user_uid="user_test",
+            sel_category=SELCategory.SELF_AWARENESS,
+            steps_mastered=3,
+            total_steps=4,
+        )
+        payload = to_jsonable_python(progress)
+        assert payload["completion_percentage"] == 75.0
+        assert payload["current_level"] == LearningLevel.EXPERT.value
+        with pytest.raises(TypeError):
+            CurriculumProgress(  # type: ignore[call-arg]
+                user_uid="user_test",
+                sel_category=SELCategory.SELF_AWARENESS,
+                completion_percentage=1.0,
+            )

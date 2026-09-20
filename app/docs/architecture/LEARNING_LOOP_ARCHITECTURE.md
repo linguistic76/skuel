@@ -334,7 +334,7 @@ completes a task that references a PathStep, `PsService` handles the
 a user's progress through one SEL category, tracking path-step-level completion.
 
 `completion_percentage` and `current_level` are derived from `steps_mastered / total_steps`
-(properties, never stored): 0–24% → BEGINNER · 25–49% → INTERMEDIATE · 50–74% → ADVANCED ·
+(computed at construction, never passed in): 0–24% → BEGINNER · 25–49% → INTERMEDIATE · 50–74% → ADVANCED ·
 75–100% → EXPERT
 
 `needs_attention()` returns `True` if a user started a category but hasn't touched it in

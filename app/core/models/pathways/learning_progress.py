@@ -40,17 +40,22 @@ class CurriculumProgress:
     last_activity: datetime = field(default_factory=datetime.now)
     estimated_completion_date: datetime | None = None
 
-    # Completion and level are DERIVED from the counts — one source of truth, so
-    # a constructor cannot leave them at a default that disagrees with the counts.
-    @property
-    def completion_percentage(self) -> float:
-        """Completion, 0-100; an empty category is 0."""
-        if self.total_steps == 0:
-            return 0.0
-        return (self.steps_mastered / self.total_steps) * 100
+    # Completion and level are DERIVED from the counts — one source of truth, so a
+    # constructor cannot leave them at a default that disagrees with the counts.
+    # They stay dataclass FIELDS (not properties) because the JSON boundary
+    # serializes fields: `/api/path-steps/journey` carries both keys.
+    completion_percentage: float = field(init=False)  # 0-100; an empty category is 0
+    current_level: LearningLevel = field(init=False)
 
-    @property
-    def current_level(self) -> LearningLevel:
+    def __post_init__(self) -> None:
+        percentage = (
+            0.0 if self.total_steps == 0 else (self.steps_mastered / self.total_steps) * 100
+        )
+        object.__setattr__(self, "completion_percentage", percentage)
+        object.__setattr__(self, "current_level", self._level_for(percentage))
+
+    @staticmethod
+    def _level_for(progress: float) -> LearningLevel:
         """
         Learning level implied by mastery.
 
@@ -60,7 +65,6 @@ class CurriculumProgress:
         - 50-74% complete → ADVANCED
         - 75-100% complete → EXPERT
         """
-        progress = self.completion_percentage
         if progress < 25:
             return LearningLevel.BEGINNER
         elif progress < 50:
