@@ -483,21 +483,31 @@ for name, html_path in rendered.items():
         # a rendered page blocks virtual time too, so only a hard kill ends it —
         # and a wedged run is a RED run, never a hang.
         try:
-            subprocess.run(
+            shot = subprocess.run(
                 [*base, f"--screenshot={png}", target.as_uri()],
                 capture_output=True,
                 timeout=WALL_TIMEOUT_S,
             )
-            dom = subprocess.run(
+            dump = subprocess.run(
                 [*base, "--dump-dom", target.as_uri()],
                 capture_output=True,
                 text=True,
                 timeout=WALL_TIMEOUT_S,
-            ).stdout
+            )
         except subprocess.TimeoutExpired:
             print(f"FAIL {name}@{w}: Chrome exceeded {WALL_TIMEOUT_S}s (page never settled)")
             failures += 1
             continue
+        # Both runs must succeed: the screenshot is part of what the gate
+        # promises, and a DOM from a Chrome that exited non-zero is not a result.
+        if shot.returncode != 0 or dump.returncode != 0 or not png.exists():
+            print(
+                f"FAIL {name}@{w}: Chrome exit screenshot={shot.returncode} dump={dump.returncode} "
+                f"png={'present' if png.exists() else 'missing'}"
+            )
+            failures += 1
+            continue
+        dom = dump.stdout
         start = dom.find('<pre id="gate-result">')
         if start < 0:
             print(f"FAIL {name}@{w}: NO GATE RESULT")
