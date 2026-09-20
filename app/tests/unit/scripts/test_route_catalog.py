@@ -70,7 +70,7 @@ def test_the_root_static_catch_all_is_stripped(runtime: frozenset[str]) -> None:
 @pytest.mark.parametrize("dead", KNOWN_DEAD)
 def test_known_dead_route_is_not_registered(dead: str) -> None:
     """A catalog that admits a dead route hides real rot — the failure direction that
-    matters, and the one the catch-all produced."""
+    matters, and the one a retained catch-all produces."""
     norm = rc.normalize(dead)
     assert norm is not None
     assert not rc.runtime_catalog().is_registered(norm), dead
