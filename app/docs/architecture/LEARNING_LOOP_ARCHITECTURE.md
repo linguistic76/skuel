@@ -335,9 +335,11 @@ a user's progress through one SEL category, tracking path-step-level completion.
 
 `completion_percentage` (`steps_mastered / total_steps`) and `current_level` are computed at
 construction, never passed in. The level is `learning_level_for(steps_mastered)` — absolute
-mastery counts (5 → INTERMEDIATE · 12 → ADVANCED · 20 → EXPERT), the same rule
-`PsAdaptiveService` filters recommendations by, so a category's reported level and its
-curriculum agree. `steps_available` counts the steps that filter would recommend.
+counts of the category's mastered PathSteps (5 → INTERMEDIATE · 12 → ADVANCED · 20 → EXPERT),
+the one rule and the one count `PsAdaptiveService` also filters recommendations by, so a
+category's reported level and its curriculum agree. `steps_available` counts the steps that
+filter would recommend; the category's prerequisites are read in one round trip
+(`PsBackend.query_prerequisite_uids`).
 
 `needs_attention()` returns `True` if a user started a category but hasn't touched it in
 7+ days — a signal for the UI.

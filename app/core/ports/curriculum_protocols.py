@@ -1127,6 +1127,10 @@ class PsOperations(
         """Query all MASTERED relationships with full metadata for a user."""
         ...
 
+    async def query_prerequisite_uids(self, ps_uids: list[str]) -> Result[dict[str, list[str]]]:
+        """REQUIRES_KNOWLEDGE targets of each given path step, one round trip; every requested uid is a key."""
+        ...
+
     async def query_active_learning_paths(self, user_uid: UserUID) -> Result[list[LearningPath]]:
         """Query user's active/in-progress learning paths as typed models."""
         ...
