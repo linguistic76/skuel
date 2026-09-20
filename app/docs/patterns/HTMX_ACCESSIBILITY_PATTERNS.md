@@ -105,10 +105,18 @@ Div(
    - Falls back to URL path auto-detection
 
 3. **`htmx:responseError` / `htmx:sendError`** — Clears `aria-busy`, announces errors
-   - 404: "Content not found"
-   - 403: "You don't have permission..."
-   - Network: "Connection problem..."
+   - 404: "Item not found"
+   - 403: "Permission denied"
+   - Network: "Network error. Please check your connection."
    - Uses `assertive` priority (immediate)
+
+4. **`htmx:beforeSwap`** — Opts a rendered ownership refusal into the swap
+   - A 404 carrying `X-SKUEL-Refusal: rendered` (minted only by `refuse_not_found`) has
+     `shouldSwap` set, so the not-found banner replaces the slot instead of leaving the
+     skeleton; `isError` stays true
+   - The banner is `role="alert"`, so it announces itself on insertion — with an
+     `outerHTML` swap the `responseError` fires on the detached node
+   - See `/docs/patterns/OWNERSHIP_VERIFICATION.md` § UI Routes
 
 ### Manual Trigger (JavaScript)
 
