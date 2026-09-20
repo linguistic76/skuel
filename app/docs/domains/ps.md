@@ -129,8 +129,10 @@ domain, page or sidebar. Three public methods, each delegated by the facade:
 | `track_curriculum_completion(user_uid, ps_uid, completion_time_minutes=30)` | `None` | Upserts the learner's `MASTERED` edge to the step |
 
 Routes (JSON, authenticated; `adapters/inbound/path_steps_api.py`): `GET /api/path-steps/journey`
-and `GET /api/path-steps/curriculum/{category}?limit=10` — an unknown category is a 400. No
-HTML fragment twins exist; the SEL page that consumed them is retired and its record is
+and `GET /api/path-steps/curriculum/{category}?limit=10` — an unknown category is a 400. Their
+HTMX twins `GET /api/path-steps/journey-html` and `GET /api/path-steps/curriculum-html/{category}`
+(rendered by `ui/patterns/curriculum_adaptive.py`) are staged: no page loads them — see
+`../roadmap/sel-journey-fragments-staged.md`; the retired SEL page's record is
 `../migrations/SEL_UX_MODERNIZATION_2026-02-03.md`.
 
 ## Cross-Domain: Practice Infrastructure

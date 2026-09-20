@@ -147,6 +147,29 @@ class _AdaptiveMixin:
             },
         )
 
+    async def query_prerequisite_uids(self, ps_uids: list[str]) -> Result[dict[str, list[str]]]:
+        """REQUIRES_KNOWLEDGE targets of each given path step, in one round trip.
+
+        Every requested uid is a key; a step with no prerequisites maps to ``[]``
+        (``collect`` over the optional match drops the null), so a reader treats
+        an absent key as "not asked", never as "none".
+        """
+        query = """
+        UNWIND $uids AS uid
+        MATCH (ps:Entity {uid: uid})
+        OPTIONAL MATCH (ps)-[:REQUIRES_KNOWLEDGE]->(prerequisite:Entity)
+        RETURN uid, collect(prerequisite.uid) AS prerequisite_uids
+        """
+        result = await self.execute_query(query, {"uids": ps_uids})
+        if result.is_error:
+            return Result.fail(result)
+        return Result.ok(
+            {
+                str(record["uid"]): [str(uid) for uid in record["prerequisite_uids"]]
+                for record in (result.value or [])
+            }
+        )
+
     async def query_user_masteries(self, user_uid: UserUID) -> Result[list[UserMasteryResult]]:
         """Query all MASTERED relationships with full metadata for a user.
 

@@ -333,8 +333,13 @@ completes a task that references a PathStep, `PsService` handles the
 **`CurriculumProgress`** (`core/models/pathways/learning_progress.py`) — a frozen snapshot of
 a user's progress through one SEL category, tracking path-step-level completion.
 
-`determine_level()` maps completion to `LearningLevel`:
-0–24% → BEGINNER · 25–49% → INTERMEDIATE · 50–74% → ADVANCED · 75–100% → EXPERT
+`completion_percentage` (`steps_mastered / total_steps`) and `current_level` are computed at
+construction, never passed in. The level is `learning_level_for(steps_mastered)` — absolute
+counts of the category's mastered PathSteps (5 → INTERMEDIATE · 12 → ADVANCED · 20 → EXPERT),
+the one rule and the one count `PsAdaptiveService` also filters recommendations by, so a
+category's reported level and its curriculum agree. `steps_available` counts the steps that
+filter would recommend; the category's prerequisites are read in one round trip
+(`PsBackend.query_prerequisite_uids`).
 
 `needs_attention()` returns `True` if a user started a category but hasn't touched it in
 7+ days — a signal for the UI.
@@ -361,9 +366,9 @@ values breadth alongside depth.
 
 The PathStep detail page (`/explore/ps/{uid}`) is the primary surface. A flat index at
 `/path-steps` lists enrolment-aware PathSteps (Start / In Progress / Mastered). Adaptive
-curriculum recommendations and the SEL journey are JSON only (`/api/path-steps/journey`,
-`/api/path-steps/curriculum/{category}`) — no page renders them; see
-`docs/domains/ps.md` § Adaptive curriculum.
+curriculum recommendations and the SEL journey are served as JSON (`/api/path-steps/journey`,
+`/api/path-steps/curriculum/{category}`) and as staged HTMX fragments no page loads yet
+(`ui/patterns/curriculum_adaptive.py`); see `docs/domains/ps.md` § Adaptive curriculum.
 
 **Routes:**
 

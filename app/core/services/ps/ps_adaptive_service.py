@@ -22,7 +22,11 @@ from typing import TYPE_CHECKING, Any
 from core.models.curriculum import Curriculum
 from core.models.enums import LearningLevel, SELCategory
 from core.models.pathways.learning_path import LearningPath
-from core.models.pathways.learning_progress import CurriculumProgress, LearningJourney
+from core.models.pathways.learning_progress import (
+    CurriculumProgress,
+    LearningJourney,
+    learning_level_for,
+)
 from core.models.pathways.mastery import (
     ContentPreference,
     LearningVelocity,
@@ -98,84 +102,74 @@ class PsAdaptiveService:
             return Result.fail(all_ps_result)
         all_ps = all_ps_result.value or []
 
-        # 3. Filter by readiness
-        ready_ps = [ps for ps in all_ps if await self._is_user_ready(user_intel, ps)]
+        # 3. Filter by readiness — one level and one prerequisite read per category
+        prerequisites = await self._prerequisites_for(all_ps)
+        ready_ps = self._ready_steps(user_intel, all_ps, prerequisites)
 
         # 4. Rank by learning value
-        ranked_ps = await self._rank_by_learning_value(user_intel, ready_ps)
+        ranked_ps = await self._rank_by_learning_value(user_intel, ready_ps, prerequisites)
 
         # 5. Return top N
         return Result.ok(ranked_ps[:limit])
 
-    async def _is_user_ready(self, user_intel: UserLearningIntelligence, ps: PathStep) -> bool:
-        """Check if user is ready for this path step (not mastered, prereqs met, level ok)."""
-        if ps.uid in user_intel.current_masteries:
-            return False
+    def _ready_steps(
+        self,
+        user_intel: UserLearningIntelligence,
+        category_steps: list[PathStep],
+        prerequisites: dict[str, list[str]],
+    ) -> list[PathStep]:
+        """The steps of one SEL category the learner is ready for.
 
-        prereqs_met = await self._check_prerequisites_met(user_intel, ps)
-        if not prereqs_met:
-            return False
-
-        if not isinstance(ps, Curriculum):
-            return True  # Non-curriculum types skip level-based filtering
-
-        if ps.sel_category is None:
-            return True  # No SEL category = no level-based filtering
-        user_level = self._determine_user_level(user_intel, ps.sel_category)
-        return ps.is_appropriate_for_level(user_level)
-
-    async def _check_prerequisites_met(
-        self, user_intel: UserLearningIntelligence, ps: PathStep
-    ) -> bool:
-        """Check if user has mastered all prerequisites for this path step."""
-        try:
-            prereq_result = await self.backend.get_related_uids(
-                ps.uid, RelationshipName.REQUIRES_KNOWLEDGE, "outgoing"
-            )
-            if prereq_result.is_error:
-                return True  # Fail open
-            prereq_uids = prereq_result.value or []
-            return all(uid in user_intel.current_masteries for uid in prereq_uids)
-        except AttributeError:
-            return True
-        except NEO4J_EXCEPTIONS as e:
-            self.logger.warning(
-                "Error checking prerequisites - failing open",
-                extra={"ps_uid": ps.uid, "error": str(e)},
-            )
-            return True
-
-    def _determine_user_level(
-        self, user_intel: UserLearningIntelligence, sel_category: SELCategory
-    ) -> LearningLevel:
-        """Determine user's current learning level in this SEL category.
-
-        Counts masteries by the mastered node's ``sel_category`` FIELD
-        (carried on Mastery from the backend query) — uid strings are
-        opaque and never encode a category (ADR-013 never-sniff), so
-        authored and generated uids both count.
+        Ready = not mastered, every prerequisite mastered, and the step's level fits
+        the learner's level in this category. The level is computed ONCE from the
+        same set the journey snapshot counts (`steps_mastered`); `prerequisites` is
+        the category's one bulk read (`_prerequisites_for`). This is the single
+        readiness predicate, so the snapshot's `steps_available` and the
+        recommendations agree by construction.
         """
-        category_masteries = 0
-        for mastery in user_intel.current_masteries.values():
-            if mastery.sel_category == sel_category.value:
-                category_masteries += 1
+        level = self._category_level(user_intel, category_steps)
+        return [
+            ps
+            for ps in category_steps
+            if ps.uid not in user_intel.current_masteries
+            and all(uid in user_intel.current_masteries for uid in prerequisites.get(ps.uid, []))
+            and ps.is_appropriate_for_level(level)
+        ]
 
-        if category_masteries >= 20:
-            return LearningLevel.EXPERT
-        elif category_masteries >= 12:
-            return LearningLevel.ADVANCED
-        elif category_masteries >= 5:
-            return LearningLevel.INTERMEDIATE
-        else:
-            return LearningLevel.BEGINNER
+    async def _prerequisites_for(self, steps: list[PathStep]) -> dict[str, list[str]]:
+        """REQUIRES_KNOWLEDGE targets per step uid; a failed read fails open (no prerequisites)."""
+        if not steps:
+            return {}
+        result = await self.backend.query_prerequisite_uids([ps.uid for ps in steps])
+        if result.is_error:
+            self.logger.warning(
+                "Prerequisite read failed - treating every step as unblocked",
+                extra={"step_count": len(steps), "error": str(result.error)},
+            )
+            return {}
+        return result.value or {}
+
+    @staticmethod
+    def _category_level(
+        user_intel: UserLearningIntelligence, category_steps: list[PathStep]
+    ) -> LearningLevel:
+        """The learner's level in one SEL category: `learning_level_for` over the
+        category's mastered steps — membership by uid in the mastery map, never by
+        anything the uid string spells (ADR-013), so authored and generated uids
+        both count."""
+        mastered = sum(ps.uid in user_intel.current_masteries for ps in category_steps)
+        return learning_level_for(mastered)
 
     async def _rank_by_learning_value(
-        self, user_intel: UserLearningIntelligence, path_steps: list[PathStep]
+        self,
+        user_intel: UserLearningIntelligence,
+        path_steps: list[PathStep],
+        prerequisites: dict[str, list[str]],
     ) -> list[PathStep]:
         """Rank path steps by learning value for this user (highest first)."""
         ps_scores = []
         for ps in path_steps:
-            score = await self._calculate_learning_value(user_intel, ps)
+            score = await self._calculate_learning_value(user_intel, ps, prerequisites)
             ps_scores.append((ps, score))
 
         from core.utils.sort_functions import get_result_score
@@ -184,7 +178,10 @@ class PsAdaptiveService:
         return [ps for ps, _score in sorted_ps_scores]
 
     async def _calculate_learning_value(
-        self, user_intel: UserLearningIntelligence, ps: PathStep
+        self,
+        user_intel: UserLearningIntelligence,
+        ps: PathStep,
+        prerequisites: dict[str, list[str]],
     ) -> float:
         """
         Calculate learning value score for a path step.
@@ -226,8 +223,7 @@ class PsAdaptiveService:
                 score += 10
 
         # Factor 4: Foundational path steps (no prerequisites)
-        prereq_count = await self._count_prerequisites(ps)
-        if prereq_count == 0:
+        if not prerequisites.get(ps.uid):
             score += 5
 
         return score
@@ -240,17 +236,6 @@ class PsAdaptiveService:
             )
             enables_uids = enables_result.value if enables_result.is_ok else []
             return len(enables_uids)
-        except (AttributeError, *NEO4J_EXCEPTIONS):
-            return 0
-
-    async def _count_prerequisites(self, ps: PathStep) -> int:
-        """Count how many prerequisites this path step has."""
-        try:
-            prereq_result = await self.backend.get_related_uids(
-                ps.uid, RelationshipName.REQUIRES_KNOWLEDGE, "outgoing"
-            )
-            prereq_uids = prereq_result.value if prereq_result.is_ok else []
-            return len(prereq_uids)
         except (AttributeError, *NEO4J_EXCEPTIONS):
             return 0
 
@@ -296,11 +281,14 @@ class PsAdaptiveService:
                 user_intel = self._create_default_intelligence(user_uid)
 
             mastered = sum(ps.uid in user_intel.current_masteries for ps in all_ps)
+            prerequisites = await self._prerequisites_for(all_ps)
+            available = len(self._ready_steps(user_intel, all_ps, prerequisites))
 
             return CurriculumProgress(
                 user_uid=user_uid,
                 sel_category=category,
                 steps_mastered=mastered,
+                steps_available=available,
                 total_steps=total,
             )
 

@@ -17,6 +17,22 @@ from core.models.enums import LearningLevel, SELCategory
 from core.models.type_hints import UserUID
 
 
+def learning_level_for(mastered_count: int) -> LearningLevel:
+    """The learning level a count of mastered steps in one SEL category implies.
+
+    One rule for the journey snapshot and for the recommendation filter, so a
+    category's reported level and the level its curriculum is filtered by agree.
+    Absolute counts, not a percentage: a two-step category is not "expert" at two.
+    """
+    if mastered_count >= 20:
+        return LearningLevel.EXPERT
+    if mastered_count >= 12:
+        return LearningLevel.ADVANCED
+    if mastered_count >= 5:
+        return LearningLevel.INTERMEDIATE
+    return LearningLevel.BEGINNER
+
+
 @dataclass(frozen=True, kw_only=True)
 class CurriculumProgress:
     """
@@ -29,54 +45,31 @@ class CurriculumProgress:
     user_uid: UserUID
     sel_category: SELCategory
 
-    # Progress Metrics
+    # Progress Metrics — `steps_available` is the count the curriculum route would
+    # recommend (not mastered, prerequisites met, level fits), so the card and the
+    # recommendations agree by construction.
     steps_mastered: int = 0
-    steps_in_progress: int = 0
     steps_available: int = 0
     total_steps: int = 0
-
-    # Computed Progress
-    completion_percentage: float = 0.0  # 0-100
-    current_level: LearningLevel = LearningLevel.BEGINNER
 
     # Journey Tracking
     started_at: datetime = field(default_factory=datetime.now)
     last_activity: datetime = field(default_factory=datetime.now)
     estimated_completion_date: datetime | None = None
 
-    def calculate_progress(self) -> float:
-        """
-        Calculate completion percentage.
+    # Completion and level are DERIVED from the counts — one source of truth, so a
+    # constructor cannot leave them at a default that disagrees with the counts.
+    # They stay dataclass FIELDS (not properties) because the JSON boundary
+    # serializes fields: `/api/path-steps/journey` carries both keys.
+    completion_percentage: float = field(init=False)  # 0-100; an empty category is 0
+    current_level: LearningLevel = field(init=False)
 
-        Returns:
-            Float between 0-100 representing progress percentage
-        """
-        if self.total_steps == 0:
-            return 0.0
-        return (self.steps_mastered / self.total_steps) * 100
-
-    def determine_level(self) -> LearningLevel:
-        """
-        Determine current learning level based on mastery.
-
-        Business rules:
-        - 0-24% complete → BEGINNER
-        - 25-49% complete → INTERMEDIATE
-        - 50-74% complete → ADVANCED
-        - 75-100% complete → EXPERT
-
-        Returns:
-            LearningLevel appropriate for current progress
-        """
-        progress = self.calculate_progress()
-        if progress < 25:
-            return LearningLevel.BEGINNER
-        elif progress < 50:
-            return LearningLevel.INTERMEDIATE
-        elif progress < 75:
-            return LearningLevel.ADVANCED
-        else:
-            return LearningLevel.EXPERT
+    def __post_init__(self) -> None:
+        percentage = (
+            0.0 if self.total_steps == 0 else (self.steps_mastered / self.total_steps) * 100
+        )
+        object.__setattr__(self, "completion_percentage", percentage)
+        object.__setattr__(self, "current_level", learning_level_for(self.steps_mastered))
 
     def is_just_starting(self) -> bool:
         """Check if user is just starting this category"""
