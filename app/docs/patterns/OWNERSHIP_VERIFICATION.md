@@ -221,13 +221,15 @@ async def habit_choices_fragment(request: Request) -> Any:
     ...
 ```
 
-The live `/habits/choices-fragment` handler deviates in one respect: it is an HTMX
-fragment, and HTMX does not swap a 4xx body into the target (the global
-`htmx:responseError` handler only announces "Item not found"), so it returns a 200
-`render_error_banner("Habit not found")` in the slot instead of `error`. That keeps the
-contract's indistinguishability — missing and not-owned render the same text — at the cost
-of the status code; it is the fragment exception, not the pattern, and a page route
-returns `error`.
+A fragment is not exempt. An ownership failure that answers 200 makes an unauthorized
+read look successful to clients, caches and monitoring, whatever the body says — the
+status code is part of the contract. The live handler behind this example
+(`adapters/inbound/habits_ui.py`) answers a 200 `render_error_banner("Habit not found")`
+in the slot instead of `error`, because HTMX does not swap a 4xx body into a target by
+default (the global `htmx:responseError` handler only announces "Item not found"); that
+is a defect against the invariant, not a shape to copy. The remedy belongs to the
+fragment layer — a 404 whose body is the banner, with the swap opted in — never to the
+status code.
 
 A bare `get()` followed by an inline `entity.user_uid != user_uid` compare, standing in
 for the anchor's own verification, is the ad-hoc "is this yours?" check ADR-085 §4 forbids
