@@ -14,18 +14,20 @@ SKUEL routes take two shapes, and both are live on API and UI routes alike:
 async def get_task(request: Request, uid: str):        # uid from ?uid=...
     ...
 
-# 2. Path-uid action door — a per-entity action or relationship. This is the
-#    create_activity_field_api_routes shape (POST /api/{domain}/{uid}/status) and
-#    the lateral / hierarchy families (/api/tasks/{uid}/lateral/*, /tasks/{uid}/dependencies).
+# 2. Path-uid door — a per-entity action or a related-set read. This is the
+#    create_activity_field_api_routes shape (POST /api/{domain}/{uid}/status), the
+#    lateral / hierarchy families (/api/tasks/{uid}/lateral/*, /tasks/{uid}/dependencies)
+#    and reads like GET /api/path-steps/{uid}/organizers.
 @rt("/api/tasks/{uid}/status", methods=["POST"])
 async def update_status(request: Request, uid: str):   # uid from the path
     ...
 ```
 
-**Which shape to use:** a read-by-uid or a list is a query parameter (`/api/tasks/get?uid=`,
-`/api/user-entries/get?uid=`, `/gradebook/lines?status=&source=`); a verb applied to one
-entity is a path segment (`POST /api/tasks/{uid}/priority`, `POST /api/ku/{uid}/mark-studying`,
-`PATCH /api/goals/{uid}`). Measured on the runtime catalog: 186 of the 598 API paths carry a
+**Which shape to use:** a CRUD-factory read or a list is a query parameter (`/api/tasks/get?uid=`,
+`/api/user-entries/get?uid=`, `/gradebook/lines?status=&source=`); a door onto one entity —
+a write or a related-set read — is a path segment (`POST /api/tasks/{uid}/priority`,
+`POST /api/ku/{uid}/mark-studying`, `PATCH /api/goals/{uid}`, `GET /api/path-steps/{uid}/organizers`,
+`GET /api/teaching/review/{uid}`). Measured on the runtime catalog: 186 of the 598 API paths carry a
 path parameter (2026-09-20; re-measure by dumping `runtime_route_table()`). Do not add a
 CRUD read in the path-uid shape — there is no `GET /api/tasks/{uid}`.
 
@@ -85,9 +87,13 @@ There is no `PUT` route in SKUEL; updates are `POST /api/{domain}/update` or the
 ### Function Name Conventions
 
 FastHTML can derive the method from a handler named `get`/`post`/`put`/`delete`. SKUEL
-does not use it — every handler has a descriptive name. `methods=` is explicit on every
-mutation; a plain read may stay a bare `@rt(path)` (GET, HEAD and POST) — 287 registrations
-do, against 216 with `methods=` (`grep -rhoE '@rt\("[^"]+"\)$' adapters/inbound/*.py`).
+does not use it — every handler has a descriptive name. The convention is `methods=` on
+every mutation and a bare `@rt(path)` (GET, HEAD and POST) only for reads; it is a
+convention, not yet an invariant — 287 registrations are bare against 216 with `methods=`,
+and 18 of the bare ones are CSRF-protected mutations (`/settings/save`, `/jupyter/save`,
+`/api/admin/users/hard-delete`, `/askesis/api/submit`, …) that ride the default GET+POST
+(`grep -rn -A1 -E '@rt\("[^"]+"\)$' adapters/inbound/*.py | grep -c csrf_protected`,
+2026-09-20). What IS enforced is the shadowing rule below.
 
 ## Path Parameters
 

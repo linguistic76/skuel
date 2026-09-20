@@ -91,7 +91,7 @@ await ku_service.get_path_steps(ku_uid)
 | Backend | `/adapters/persistence/neo4j/backends/curriculum_backends.py` (`KuBackend`) |
 | Model | `/core/models/ku/ku.py` |
 | DTO | `/core/models/ku/ku_dto.py` |
-| Routes | `/adapters/inbound/ku_routes.py` + `/adapters/inbound/ku_ui.py` (learning-state POSTs); pages in `/adapters/inbound/learning_loop_routes.py` (`/explore/ku/{uid}`) and `/adapters/inbound/library_ui.py` (`/library/ku`) |
+| Routes | `/adapters/inbound/ku_routes.py` + `/adapters/inbound/ku_ui.py` (learning-state POSTs); pages in `/adapters/inbound/learning_loop_routes.py` (`/explore/ku/{uid}`), `/adapters/inbound/explore_ui.py` (`/explore/library`, the catalog) and `/adapters/inbound/library_ui.py` (`/library/ku`, bookmarks) |
 | Relationship Config | `KU_CONFIG` in `/core/models/relationship_registry.py` |
 
 **Architectural principle:** Ku is the atom, PathStep is the molecule. Ku never depends on PsService. Learning state (Studying → Understood) and mastery are Ku-native capabilities on `KuBackend`.
@@ -152,7 +152,8 @@ and is read on its page. What is registered:
 ### Pages (`adapters/inbound/learning_loop_routes.py`, `library_ui.py`)
 - `GET /explore/ku/{uid}` — the Ku page (shell; body via `GET /explore/ku/{uid}/content`, related via `GET /explore/ku/{uid}/related`)
 - `POST /explore/ku/{uid}/mastery-checkin` — the dual-track mastery check-in (`assess_mastery_dual_track`, which reads `calculate_user_substance`)
-- `GET /library/ku` — the Ku index
+- `GET /explore/library` — the full knowledge catalog (Ku + PathStep, search + bento grid)
+- `GET /library/ku` — the signed-in user's bookmarked Kus (`PINNED`); anonymous callers get a sign-in empty state
 
 ### Lateral relationships (`adapters/inbound/lateral_routes.py`)
 - `/api/ku/{uid}/lateral/*` — the same lateral family every domain has (`prerequisites`, `enables`, `blocks`, `alternatives`, `complementary`, `chain`, `graph`, …)

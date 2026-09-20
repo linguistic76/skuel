@@ -90,7 +90,7 @@ PathStep is THE curriculum content entity — it composes atomic Kus into cohere
 - `POST /api/path-steps/content` — content updates (admin)
 
 **Ku UI Routes:**
-- `GET /library/ku` — the Ku index
+- `GET /explore/library` — the full Ku/PathStep catalog (search + bento grid); `GET /library/ku` is the signed-in user's bookmarked Kus (`PINNED`), not an index
 - `GET /explore/ku/{uid}` — Ku page (shell; body via `/explore/ku/{uid}/content`, related via `/explore/ku/{uid}/related`; `POST /explore/ku/{uid}/mastery-checkin`); there is no `/ku` route
 - `POST /api/ku/{uid}/mark-studying` — Mark Ku as studying (IN_PROGRESS)
 - `POST /api/ku/{uid}/mark-understood` — Mark Ku as understood (MASTERED)
