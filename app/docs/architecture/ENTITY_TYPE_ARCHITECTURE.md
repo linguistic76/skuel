@@ -452,7 +452,7 @@ Groups mediate ALL teacher-student relationships. Teacher creates group -> adds 
 
 ### MOC (Map of Content) — Emergent Organization
 
-MOC is NOT a separate entity — it IS an Entity with `ORGANIZES` relationships. An Entity "is" a MOC when it has outgoing `ORGANIZES` relationships (emergent identity). The operations are `PsService.organization` (`PsOrganizationService`) over the `_OrganizesMixin` backend.
+MOC is NOT a separate entity — it IS an Entity with `ORGANIZES` relationships. An Entity "is" a MOC when it has outgoing `ORGANIZES` relationships (emergent identity). The operations are `PsService.organization` (`PsOrganizationService`) over the `_OrganizesMixin` backend — reads for any entity; the API write is PathStep → PathStep, and cross-entity edges are authored in the vault (`moc: true`).
 
 ```cypher
 (parent:Entity)-[:ORGANIZES {order: int}]->(child:Entity)

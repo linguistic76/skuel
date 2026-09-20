@@ -61,7 +61,7 @@ Sequential learning                   /    |    \
 
 ## Service Architecture
 
-ORGANIZES operations are the `organization` slot of the PathStep facade — `PsService.organization` is a `PsOrganizationService` (`core/services/ps/ps_organization_service.py`), and the facade delegates every method. The backend is `_OrganizesMixin` (`adapters/persistence/neo4j/_organizes_mixin.py`), mixed into `PsBackend` and `UserEntryBackend`; it matches `:Entity` by uid, so any entity type can organize or be organized.
+ORGANIZES operations are the `organization` slot of the PathStep facade — `PsService.organization` is a `PsOrganizationService` (`core/services/ps/ps_organization_service.py`), and the facade delegates every method. The backend is `_OrganizesMixin` (`adapters/persistence/neo4j/_organizes_mixin.py`), mixed into `PsBackend` and `UserEntryBackend`; its statements match `:Entity` by uid, so the **reads** (`is_organizer`, `get_organization_view`, `find_organizers`, `get_organized_children`, `list_root_organizers`) answer for any entity. The **write** is narrower: `organize()` verifies both uids through `ps_core.get()`, which matches `:PathStep`, so the facade and the API create PathStep → PathStep edges only. Cross-entity edges — a PathStep organizing a Ku, a UserEntry knowledge map — are authored in the vault and written by ingestion on `:Entity`: `moc: true` body links through `IngestionWriteBackend.refresh_moc_organizes`, an `organizes:` frontmatter list through the relationship-registry edge writer.
 
 ```python
 ps_service = services.ps  # PsService
@@ -72,7 +72,7 @@ is_moc = await ps_service.is_organizer("ps.core.python-reference")
 # The organizer with its organized children, depth-limited
 view = await ps_service.get_organization_view("ps.core.python-reference", max_depth=3)
 
-# Write the hierarchy
+# Write the hierarchy — both uids must be PathSteps (a Ku or UserEntry uid is not found)
 await ps_service.organize("ps.core.python-reference", "ps.core.python-basics", order=1)
 await ps_service.reorder("ps.core.python-reference", "ps.core.python-basics", new_order=2)
 await ps_service.unorganize("ps.core.python-reference", "ps.core.python-basics")
@@ -94,7 +94,7 @@ nav = await ps_service.get_navigation("ps.core.python-basics")  # StepNavigation
 | Backend protocol | `PsOrganizesBackendOperations` in `/core/ports/curriculum_protocols.py` |
 | Relationship Config | `ORGANIZES` definitions in `/core/models/relationship_registry.py` (`KU_CONFIG` and the PathStep config) |
 | API Routes | `/adapters/inbound/path_steps_api.py` § ORGANIZES HIERARCHY |
-| Vault authoring | `/core/services/ingestion/moc_links.py` (`moc: true` body links → `ORGANIZES {order}` edges) |
+| Vault authoring | `/core/services/ingestion/moc_links.py` (`moc: true` body links) → `IngestionWriteBackend.refresh_moc_organizes` in `/adapters/persistence/neo4j/ingestion_write_backend.py`; `organizes:` frontmatter → the relationship-registry edge writer. Ingestion is where cross-entity `ORGANIZES` edges come from |
 
 ## ORGANIZES Relationship
 
@@ -119,6 +119,8 @@ ORDER BY r.order ASC
 ```
 
 ## Example MOC Structure
+
+A vault-authored map (the PathStep → Ku edges below come from `moc: true` body links; the API writes PathStep → PathStep only):
 
 ```
 PS: "Python Reference" (root MOC)
@@ -145,11 +147,11 @@ All in `adapters/inbound/path_steps_api.py`. The three writes are admin-only and
 | `/api/path-steps/{uid}/organizers` | GET | Parents that organize this entity |
 | `/api/path-steps/{uid}/organized-children` | GET | Direct organized children, in order |
 | `/api/path-steps/root-organizers?limit=50` | GET | Root MOCs (organize others, organized by nothing) |
-| `/api/path-steps/organize` | POST | Create an `ORGANIZES` edge (`StepOrganizeRequest`: `parent_uid`, `child_uid`, `order`) — admin |
+| `/api/path-steps/organize` | POST | Create an `ORGANIZES` edge between two PathSteps (`StepOrganizeRequest`: `parent_uid`, `child_uid`, `order`) — admin |
 | `/api/path-steps/unorganize` | POST | Remove an `ORGANIZES` edge — admin |
 | `/api/path-steps/reorder` | POST | Change a child's order (`StepReorderRequest`: `parent_uid`, `child_uid`, `new_order`) — admin |
 
-There is no MOC-specific create door: organizers and children are ordinary entities, created through vault ingestion or their own domain's API.
+There is no MOC-specific create door: organizers and children are ordinary entities, created through vault ingestion or their own domain's API. An edge whose parent or child is not a PathStep is authored in the vault, never through this API.
 
 ## Properties
 

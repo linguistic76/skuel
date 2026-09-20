@@ -127,9 +127,10 @@ result = await lp_service.intelligence.validate_path_prerequisites(lp_uid)
 
 ### Organization (non-linear MOC navigation)
 ```python
-# ORGANIZES edges are written through the PathStep facade; the backend matches
-# :Entity, so a PathStep, a Ku or a UserEntry can be the organizer or the child
-await ps_service.organize(parent_uid, child_uid, order=1)
+# The facade writes PathStep → PathStep edges only (organize() verifies both uids
+# through ps_core.get(), a :PathStep match); the reads answer for any :Entity.
+# A PathStep → Ku or UserEntry-map edge is authored in the vault (`moc: true`).
+await ps_service.organize(parent_ps_uid, child_ps_uid, order=1)
 await ps_service.get_organized_children(parent_uid)
 await ps_service.find_organizers(entity_uid)  # Multiple parents possible
 ```
@@ -167,13 +168,13 @@ NONE → VIEWED → IN_PROGRESS → MASTERED
 **Key routes:**
 - `GET /path-steps` — Browse all PathSteps; rows link to the reading page, with an "Enrolled" badge on the session user's IN_PROGRESS steps
 - `GET /explore/ps/{uid}` — Full reading page (markdown + TOC + learning objectives + actions)
-- `POST /explore/ps/{uid}/progress` — the page's progress control (`state=learning|read`); `POST /api/path-steps/{uid}/start` is the JSON door that marks IN_PROGRESS
+- `POST /explore/ps/{uid}/progress` — the page's progress control (`state=learning|read`); `POST /api/path-steps/{uid}/start` is the HTMX fragment action that marks IN_PROGRESS (answers the updated button, not JSON)
 
 **Contrast with Learning Paths:** LPs use **explicit enrollment** via `(User)-[:ENROLLED_IN]->(LearningPath)`.
 
 ## Note on MOC
 
-MOC (Map of Content) is NOT a separate domain or EntityType. Any Entity with outgoing `ORGANIZES` relationships IS an organizer — a PathStep, a Ku, or a vault-authored UserEntry knowledge map (`moc: true`). The operations live on `PsService.organization` (`PsOrganizationService`) over the `_OrganizesMixin` backend; `KuService` has no organization slot.
+MOC (Map of Content) is NOT a separate domain or EntityType. Any Entity with outgoing `ORGANIZES` relationships IS an organizer — a PathStep, a Ku, or a vault-authored UserEntry knowledge map (`moc: true`). The operations live on `PsService.organization` (`PsOrganizationService`) over the `_OrganizesMixin` backend — reads for any entity, the API write for PathStep pairs, cross-entity edges from vault ingestion; `KuService` has no organization slot.
 
 See: `core/services/ps/ps_organization_service.py` and `docs/domains/moc.md`
 
