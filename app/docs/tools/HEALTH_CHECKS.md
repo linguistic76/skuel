@@ -746,7 +746,10 @@ directions — the span-scoped grammar skips two of them and hides none.
 positive and a negative case: spaces and backticks; regex / glob / shell characters; an
 Uppercase segment (another vendor's API); filesystem prefixes and bare mounts (`/home/…`,
 `/opt/…`, `/conf`, `/swapfile`, `/etc`); repo top-level directories cited as paths
-(`/services_bootstrap`, `/scripts/x`); any span § 2's `_looks_like_local_path` accepts
+(`/services_bootstrap`, `/services_bootstrap/x`); a `PROJECT_PREFIXES` span carrying any
+file signal — an extension, a line number, an anchor, a template or elision marker, a
+trailing slash, or a path that exists in the tree (the `/ui/analytics/*` routes share the
+`/ui/` prefix with the `ui/` package and carry none, so they stay claims); any span § 2's `_looks_like_local_path` accepts
 (a leading-slash citation of a `.py` module — the backtick pass resolves it as a file, then
 as a route, then reports it; the same predicate, so a span is one reader's or the other's,
 never both); a
@@ -774,10 +777,10 @@ static-vs-runtime gap without ever asserting it equal.
 **Advisory: exit 0 always.** Promotion of the `fiction` class to `./dev health` red —
 never CI — is a separate ruling that waits on two sweep PRs each re-measuring ≥95%
 precision on a fresh draw; `family-prefix`, `relative-suffix` and `history` stay
-printed-only whatever that ruling says. Measured on `c4c0b26fb` (2026-09-19): 1613 inline
-claims — 1288 matched · **206 fiction in 48 files** (62 of them one section of
-`docs/patterns/OWNERSHIP_VERIFICATION.md`) · 11 history · 39 family-prefix · 53
-relative-suffix · 13 negated · 2 + 1 marker-skipped; re-measure with `./dev health-claims`.
+printed-only whatever that ruling says. Measured 2026-09-20 on the tree at PR #1379's
+head: 1623 inline claims — 1296 matched · **206 fiction in 48 files** (62 of them one
+section of `docs/patterns/OWNERSHIP_VERIFICATION.md`) · 11 history · 39 family-prefix · 53
+relative-suffix · 15 negated · 2 + 1 marker-skipped; re-measure with `./dev health-claims`.
 
 **Matching is directional and verb-aware.** A wildcard is wild in one direction per
 match — the claim is an *instance* of the registration (`/api/tasks/{uid}/status`

@@ -169,6 +169,7 @@ def test_a_negation_token_elsewhere_on_the_line_is_not_a_negation(line: str) -> 
         "/tasks/",
         "/ku",
         "/home",  # bare: the landing route, not the mount — `/home/<user>/…` is the mount
+        "/ui/analytics/view",  # a registered route under a PROJECT_PREFIX: neither file-shaped nor in the tree
         "/api/tasks/123",  # a numeric segment among named ones is still a path
         "/api/{domain}/create",  # a metavariable NOT in first position stays a claim
     ],
@@ -195,8 +196,14 @@ def test_claim_shapes_admitted(text: str) -> None:
         ("/swapfile", "a bare mount"),
         ("/etc", "a bare mount"),
         ("/services_bootstrap", "a repo top-level directory"),
-        ("/scripts/health/x", "a path under a repo top-level directory"),
-        ("/static/css/output.css", "a PROJECT_PREFIX — the link checker's"),
+        ("/services_bootstrap/x", "a path under a repo top-level directory"),
+        ("/scripts/health/route_catalog.py:12", "a PROJECT_PREFIX line citation"),
+        ("/docs/intelligence/{DOMAIN}_INTELLIGENCE.md", "a PROJECT_PREFIX template"),
+        ("/docs/patterns/X.md#anchor", "a PROJECT_PREFIX anchor"),
+        ("/tests/unit/gone/", "a PROJECT_PREFIX directory citation, trailing slash"),
+        ("/core/…", "a PROJECT_PREFIX elision"),
+        ("/static/css/output.css", "a file-shaped PROJECT_PREFIX span — the link checker's"),
+        ("/core/services/ps", "a PROJECT_PREFIX span naming an existing directory"),
         ("/services_bootstrap.py", "a span the link checker's path guard accepts"),
         ("/docs/patterns/foo.md", "a PROJECT_PREFIX path"),
         ("/patterns/", "a trailing-slash docs/ subdirectory"),
@@ -279,8 +286,8 @@ def test_a_claimed_verb_the_route_does_not_serve_is_fiction() -> None:
 
 
 def test_relative_suffix_is_a_class_because_it_hides_ku() -> None:
-    """`/ku` ends `/library/ku` and has no handler. If this relation were a skip, the
-    three-sites-agreeing `/ku` fiction the last arc found would be invisible again."""
+    """`/ku` ends `/library/ku` and has no handler. As a skip, this relation would hide
+    that; as a class, it is printed and a sweep reads it."""
     found = _classes("# P\n\ncurriculum access via the `/ku` hub\n")
     assert found == [(3, "/ku", "relative-suffix")]
 

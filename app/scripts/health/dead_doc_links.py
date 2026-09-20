@@ -560,10 +560,10 @@ def _marker_lines(content: str, marker: MarkerSpec) -> frozenset[int]:
 def _is_registered_route(raw: str, catalog: RouteCatalog) -> bool:
     """Does this link target name an application URL rather than a repo file?"""
     if not raw.startswith("/") or raw.startswith(PROJECT_PREFIXES):
-        # A repo-rooted citation is a file path by convention, never a route.
-        # Measured 2026-09-01: no registered route lives under a PROJECT_PREFIX, so
-        # this costs nothing today and blocks a whole class of accidental suppression
-        # if one ever does.
+        # A repo-rooted citation is a file path by convention, never a route. The
+        # `/ui/analytics/*` routes share the `/ui/` prefix with the `ui/` package, and
+        # none carries an extension, so no file citation this checker extracts could
+        # name one; the guard keeps a repo-rooted FILE from ever being read as a route.
         return False
     norm = normalize(raw)
     return norm is not None and catalog.is_registered(norm)
@@ -1157,12 +1157,17 @@ def _resolve_line_citation(file: str, source_file: Path) -> Path | str:
     machine cannot satisfy a citation. A citation that names no directory, or a
     partial path, then resolves by UNIQUE suffix over the tracked tree:
     ``markdown_fences.py:1`` finds the one module of that name; two candidates is a
-    report, never a guess.
+    report, never a guess. A repo-rooted citation (leading ``/``) never takes the
+    suffix search — its directory is the claim.
     """
     direct = resolve_path(file, source_file)
     if direct is not None and direct.is_file() and _is_tracked(direct):
         return direct
-    needle = file.lstrip("/")
+    if file.startswith("/"):
+        # Repo-rooted by convention: `/route_catalog.py` names a file at the root,
+        # and the suffix search would retarget it onto the one in `scripts/health/`.
+        return "FILE_MISSING"
+    needle = file
     # The index is what git tracks; the worktree is what can be read. A tracked file
     # deleted but not yet staged is in the first and not the second, and only a file
     # that can be read is a candidate.

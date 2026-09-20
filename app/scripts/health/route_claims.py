@@ -23,8 +23,10 @@ Not every leading-slash span is a claim. ``is_url_shape`` rejects, before matchi
 spaces and backticks; regex / glob / shell characters; an Uppercase segment anywhere
 (another vendor's API — ``/api/services/Platform/…``); filesystem prefixes and bare
 mount names (``/home/…``, ``/opt/…``, ``/conf``, ``/swapfile``, ``/etc``); repo
-top-level directories cited as paths (``/services_bootstrap``, ``/scripts/x`` —
-``/static/`` is under ``PROJECT_PREFIXES`` and stays with the link checker); any span
+top-level directories cited as paths (``/services_bootstrap``, ``/services_bootstrap/x``); a
+``PROJECT_PREFIXES`` span that is file-shaped or exists in the tree (``/static/css/x.css``,
+``/core/services/ps`` — the link checker's; ``/ui/analytics/view`` is neither and is a
+claim, because five ``/ui/analytics/*`` routes share the ``/ui/`` prefix); any span
 ``dead_doc_links._looks_like_local_path`` accepts (``/services_bootstrap.py`` — the
 backtick pass resolves it as a file, then as a route, then reports it; the same
 predicate, so a leading-slash span is one reader's or the other's, never both); a
@@ -226,9 +228,23 @@ def looks_like_file(path: str) -> bool:
     Project-prefixed paths belong to the link checker (``/static/`` included — it is a
     mount as well as a directory, and the link checker already resolves it as files).
     """
-    if path.startswith(ddl.PROJECT_PREFIXES) or path.startswith(FS_PREFIXES):
-        return True
-    if path.rstrip("/") in BARE_MOUNTS:
+    if path.startswith(ddl.PROJECT_PREFIXES):
+        # A repo-rooted span is a file citation — the link checker's — unless nothing
+        # about it says "file": no extension, no line number, no anchor, no template
+        # or elision marker, no trailing slash, and nothing in the tree at that path.
+        # Five `/ui/analytics/*` routes share the `/ui/` prefix with the `ui/` package
+        # and are exactly that — they stay claims.
+        stem = path.split("?")[0]
+        return (
+            stem.endswith("/")
+            or "#" in stem
+            or "…" in stem
+            or ddl._is_documentation_stand_in(stem)
+            or ddl._looks_like_local_path(stem)
+            or ddl.LINE_CITATION_RE.search(stem) is not None
+            or (ROOT / stem.lstrip("/")).exists()
+        )
+    if path.startswith(FS_PREFIXES) or path.rstrip("/") in BARE_MOUNTS:
         return True
     # `/patterns/`, `/guides/` — a docs/ subdirectory cited with a trailing slash.
     if path.endswith("/") and (ROOT / "docs" / path.strip("/")).is_dir():

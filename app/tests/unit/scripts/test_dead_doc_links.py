@@ -1479,6 +1479,13 @@ def test_basename_only_citation_resolves_by_unique_suffix(cited_tree: Path) -> N
     }
 
 
+def test_a_rooted_citation_never_takes_the_suffix_search(cited_tree: Path) -> None:
+    """`/only.py:2` names a file at the repository root; the one `only.py` deeper in
+    the tree is not what it says."""
+    scan = _scan(cited_tree, "# P\n\n`/only.py:2` and `only.py:2`\n")
+    assert _line_rows(scan) == {(3, "/only.py:2 (FILE_MISSING)")}
+
+
 def test_line_citation_takes_the_historical_marker_in_decisions(cited_tree: Path) -> None:
     body = f"# P\n\nThe old chokepoint at `core/x.py:42`. {HISTORICAL}\n"
     scan = _scan(cited_tree, body, name="decisions/ADR-000.md")
