@@ -154,9 +154,11 @@ class TestQueryUserMasteriesCarriesSelCategory:
 class TestSelJourneyCompletion:
     @pytest.mark.asyncio
     async def test_journey_completion_is_derived_from_mastered_over_total(self) -> None:
-        """Two of four Self-Awareness steps mastered reads 50% for the category and
-        10% overall (one of five categories); the recommendation moves past it. The
-        counts are the ONLY input — nothing sets a percentage the service could forget."""
+        """Two of four Self-Awareness steps mastered reads 50% for the category, 10%
+        overall (one of five categories), two steps available (the two unmastered ones
+        pass the same readiness predicate the curriculum route applies), and the level
+        the recommendation filter would use; the recommendation moves past the category.
+        The counts are the ONLY input — nothing sets a percentage the service could forget."""
         from core.models.pathways.path_step import PathStep
 
         steps = [PathStep(uid=f"ps.sel.s{i}", title=f"S{i}") for i in range(4)]
@@ -168,6 +170,7 @@ class TestSelJourneyCompletion:
 
         backend = Mock()
         backend.find_by = find_by
+        backend.get_related_uids = AsyncMock(return_value=Result.ok([]))  # no prerequisites
         service = PsAdaptiveService(backend=backend, user_service=Mock())
         intel = make_intelligence(
             {
@@ -182,8 +185,11 @@ class TestSelJourneyCompletion:
         journey = result.value
         awareness = journey.category_progress[SELCategory.SELF_AWARENESS]
         assert (awareness.steps_mastered, awareness.total_steps) == (2, 4)
+        assert awareness.steps_available == 2
         assert awareness.completion_percentage == 50.0
-        assert awareness.current_level == LearningLevel.ADVANCED
+        assert awareness.current_level == service._determine_user_level(
+            intel, SELCategory.SELF_AWARENESS
+        )
         assert journey.overall_completion == pytest.approx(10.0)
         assert journey.get_next_recommended_category() == SELCategory.SELF_MANAGEMENT
 
@@ -197,12 +203,12 @@ class TestSelJourneyCompletion:
         progress = CurriculumProgress(
             user_uid="user_test",
             sel_category=SELCategory.SELF_AWARENESS,
-            steps_mastered=3,
-            total_steps=4,
+            steps_mastered=12,
+            total_steps=16,
         )
         payload = to_jsonable_python(progress)
         assert payload["completion_percentage"] == 75.0
-        assert payload["current_level"] == LearningLevel.EXPERT.value
+        assert payload["current_level"] == LearningLevel.ADVANCED.value
         with pytest.raises(TypeError):
             CurriculumProgress(  # type: ignore[call-arg]
                 user_uid="user_test",

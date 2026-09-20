@@ -22,7 +22,11 @@ from typing import TYPE_CHECKING, Any
 from core.models.curriculum import Curriculum
 from core.models.enums import LearningLevel, SELCategory
 from core.models.pathways.learning_path import LearningPath
-from core.models.pathways.learning_progress import CurriculumProgress, LearningJourney
+from core.models.pathways.learning_progress import (
+    CurriculumProgress,
+    LearningJourney,
+    learning_level_for,
+)
 from core.models.pathways.mastery import (
     ContentPreference,
     LearningVelocity,
@@ -155,19 +159,11 @@ class PsAdaptiveService:
         opaque and never encode a category (ADR-013 never-sniff), so
         authored and generated uids both count.
         """
-        category_masteries = 0
-        for mastery in user_intel.current_masteries.values():
-            if mastery.sel_category == sel_category.value:
-                category_masteries += 1
-
-        if category_masteries >= 20:
-            return LearningLevel.EXPERT
-        elif category_masteries >= 12:
-            return LearningLevel.ADVANCED
-        elif category_masteries >= 5:
-            return LearningLevel.INTERMEDIATE
-        else:
-            return LearningLevel.BEGINNER
+        category_masteries = sum(
+            mastery.sel_category == sel_category.value
+            for mastery in user_intel.current_masteries.values()
+        )
+        return learning_level_for(category_masteries)
 
     async def _rank_by_learning_value(
         self, user_intel: UserLearningIntelligence, path_steps: list[PathStep]
@@ -296,11 +292,13 @@ class PsAdaptiveService:
                 user_intel = self._create_default_intelligence(user_uid)
 
             mastered = sum(ps.uid in user_intel.current_masteries for ps in all_ps)
+            available = sum([await self._is_user_ready(user_intel, ps) for ps in all_ps])
 
             return CurriculumProgress(
                 user_uid=user_uid,
                 sel_category=category,
                 steps_mastered=mastered,
+                steps_available=available,
                 total_steps=total,
             )
 

@@ -34,7 +34,6 @@ def SELCategoryCard(category: SELCategory, progress: CurriculumProgress) -> FT:
 
     metadata = [
         f"{progress.steps_mastered} mastered",
-        f"{progress.steps_in_progress} in progress",
         f"{progress.steps_available} available",
     ]
 
