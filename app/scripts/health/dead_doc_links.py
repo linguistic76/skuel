@@ -10,8 +10,22 @@ For every .md file in docs/ and .claude/skills/:
   - Extract inline paths in backtick code (e.g. `/docs/patterns/foo.md`)
   - Extract bare /absolute/paths that look like file references
   - Extract path-looking tokens inside ```fenced code blocks``` (see below)
+  - Extract line citations — `file.py:N`, `file.py:N-M`, "line N of `file.py`" — and
+    check the file exists AND has at least N lines (see below)
   - Check each exists relative to the repo root
   - Report: dead link, source file, line number
+
+Why the line-citation pass exists
+---------------------------------
+A ``file.py:N`` citation names a file the other passes cannot see — the colon fails
+the path shape test — so a ``:N`` citation of a DELETED file was invisible here, and a
+citation past the end of a live file is a claim no existence check can test. This
+pass strips the ``:N`` / ``:N-M`` / ``:LN`` tail (and reads the prose forms), resolves
+the file — by path, or by a unique suffix match over the tracked tree for a
+basename-only citation like ``ku_graph_service.py:117`` — and then asserts every
+cited line number is within the file. Reported as ``[line]`` with the reason
+(``FILE_MISSING``, ``AMBIGUOUS_BASENAME``, ``PAST_EOF (file has K lines)``). An
+in-range citation is NOT verified: the line exists; what it says is a read.
 
 Why the fenced-block pass exists
 --------------------------------
@@ -59,8 +73,9 @@ silently.
     classification, so this one is a *directory* carve-out (Mike, 2026-09-01).
   - Registered application routes — docs cite app URLs (``/journals``,
     ``/manifest.json``) with the same leading-slash spelling as a repo path. The
-    class is defined by MATCHING a live registration read from ``adapters/inbound/``,
-    never by shape and never by a hand-kept URL list.
+    class is defined by MATCHING the runtime route table (``route_catalog.py`` —
+    the real route tree wired onto a bare app, factories included), never by
+    shape and never by a hand-kept URL list.
   - ``<!-- historical -->`` markers in ``docs/decisions/`` — a per-citation opt-out
     that skips a dead target and nothing else. A marker that skipped nothing is
     itself reported (the SKUEL026 inversion), so it stays falsifiable; a blanket
@@ -71,8 +86,8 @@ Usage:
     uv run python scripts/health/dead_doc_links.py --verbose
 """
 
-import ast
 import re
+import subprocess
 import sys
 import urllib.parse
 from functools import cache
@@ -83,6 +98,11 @@ from typing import Literal, NamedTuple
 from markdown_fences import (  # type: ignore[import-not-found]
     iter_code_fence_blocks,
     iter_code_fence_lines,
+)
+from route_catalog import (  # type: ignore[import-not-found]
+    RouteCatalog,
+    normalize,
+    runtime_catalog,
 )
 
 from core.utils.terminal_colors import Colors
@@ -305,22 +325,15 @@ HISTORY_DIRS = (
 #
 # The class is defined by MATCHING a live route registration — never by shape, and
 # never by a hand-maintained URL list, which is a catalog copy that rots (Codex, PR
-# #1214). Extraction is AST-based over `adapters/inbound/`, the one tree that
-# registers routes: measured 2026-09-01, 514 `@rt("…")` calls there and none anywhere
-# else in production code. AST rather than grep because the other `@rt(` occurrences
-# in the repo are docstring examples and test fixtures, which a walk never sees.
+# #1214). The catalog is `route_catalog.runtime_catalog()`: the real route tree wired
+# onto a bare app with every service mocked, so factory-registered routes
+# (`@rt(f"/{domain}")`, every CRUD / lateral / hierarchy factory) are in it — a static
+# pass over the literals sees barely half the table (the catalog module has the
+# measured gap). ONE catalog, two readers: `route_claims.py` matches against the same
+# object, so the two instruments can never disagree about what is registered.
 #
-# `ROUTE_DECORATORS` mirrors `scripts/audit_route_security.py`'s definition of a route
-# decorator rather than inventing a second one — the same reason `TEMPLATE_MARKERS` is
-# one constant feeding two consumers.
-#
-# ⚠️ Only *string-literal* paths are extracted. The activity/domain UI factories
-# register `@rt(f"/{domain}")`, which no static pass can resolve, so `/tasks` stays
-# reported even though it is live. That is the deliberate direction: an unmatched
-# route costs one advisory line, a wrongly-matched one hides real rot. Fail toward
-# reporting.
-ROUTE_DECORATORS = frozenset({"rt", "route"})
-
+# `PROJECT_PREFIXES` stays a guard in front of the catalog: a repo-rooted citation is
+# a file path by convention, whatever the route table says.
 
 # ── The historical-citation marker ───────────────────────────────────────────
 # ADRs mix two kinds of citation in one Accepted file: faithful narrative ("we deleted
@@ -544,47 +557,7 @@ def _marker_lines(content: str, marker: MarkerSpec) -> frozenset[int]:
     )
 
 
-def _decorator_callee(func: ast.expr) -> str:
-    """Name of the thing being called — `rt` in `@rt(...)`, `route` in `@app.route(...)`."""
-    if isinstance(func, ast.Name):
-        return func.id
-    if isinstance(func, ast.Attribute):
-        return func.attr
-    return ""
-
-
-@cache
-def _route_paths_under(inbound_dir: Path) -> frozenset[str]:
-    """Literal route paths registered under a routes tree. Cached per directory."""
-    paths: set[str] = set()
-    if not inbound_dir.exists():
-        return frozenset()
-    for py_file in sorted(inbound_dir.rglob("*.py")):
-        try:
-            tree = ast.parse(py_file.read_text(encoding="utf-8"))
-        except OSError, SyntaxError:
-            continue
-        for node in ast.walk(tree):
-            if not isinstance(node, ast.Call):
-                continue
-            if _decorator_callee(node.func) not in ROUTE_DECORATORS:
-                continue
-            first = node.args[0] if node.args else None
-            if (
-                isinstance(first, ast.Constant)
-                and isinstance(first.value, str)
-                and first.value.startswith("/")
-            ):
-                paths.add(first.value)
-    return frozenset(paths)
-
-
-def registered_route_paths() -> frozenset[str]:
-    """The live route catalog, read from `adapters/inbound/` source."""
-    return _route_paths_under(ROOT / "adapters" / "inbound")
-
-
-def _is_registered_route(raw: str) -> bool:
+def _is_registered_route(raw: str, catalog: RouteCatalog) -> bool:
     """Does this link target name an application URL rather than a repo file?"""
     if not raw.startswith("/") or raw.startswith(PROJECT_PREFIXES):
         # A repo-rooted citation is a file path by convention, never a route.
@@ -592,7 +565,8 @@ def _is_registered_route(raw: str) -> bool:
         # this costs nothing today and blocks a whole class of accidental suppression
         # if one ever does.
         return False
-    return raw.split("#")[0].strip() in registered_route_paths()
+    norm = normalize(raw)
+    return norm is not None and catalog.is_registered(norm)
 
 
 def _is_external(link: str) -> bool:
@@ -1042,6 +1016,110 @@ def _looks_like_local_path(text: str) -> bool:
     return any(text.endswith(ext) for ext in LOCAL_EXTENSIONS)
 
 
+# ── Line citations: `file.py:N` ─────────────────────────────────────────────
+# The extension alternation is LOCAL_EXTENSIONS, the one vocabulary every pass reads.
+# The leading lookbehind keeps the match off the tail of a longer path and off a URL
+# (`https://host/x.py:3` — every `/`-preceded start is refused, so nothing inside the
+# URL can open a match); an optional leading `/` admits the repo-rooted spelling.
+_LINE_CITATION_EXTENSIONS = "|".join(re.escape(ext[1:]) for ext in sorted(LOCAL_EXTENSIONS))
+LINE_CITATION_RE = re.compile(
+    r"(?<![\w/.-])"
+    r"(/?(?:[\w.-]+/)*[\w.-]+\.(?:" + _LINE_CITATION_EXTENSIONS + r"))"
+    r":L?(\d{1,6})(?:[-–]L?(\d{1,6}))?(?![\w])"
+)
+# The prose forms: "line 470 of `ku_ui.py`", "`ku_ui.py` line 470", "`x.py` (lines 3–9)".
+_PROSE_FILE = r"`?(/?(?:[\w.-]+/)*[\w.-]+\.(?:" + _LINE_CITATION_EXTENSIONS + r"))`?"
+LINE_PROSE_RE = re.compile(
+    r"\blines?\s+(\d{1,6})(?:[-–](\d{1,6}))?\s+(?:of|in)\s+"
+    + _PROSE_FILE
+    + r"|"
+    + _PROSE_FILE
+    + r"\s*(?:\(|,\s*)?lines?\s+(\d{1,6})(?:[-–](\d{1,6}))?\b",
+    re.IGNORECASE,
+)
+
+
+class LineCitation(NamedTuple):
+    """One `file.py:N[-M]` claim: where it sits, how it was written, and what it names."""
+
+    lineno: int
+    raw: str
+    file: str
+    first: int
+    last: int | None
+
+
+def extract_line_citations(content: str) -> list[LineCitation]:
+    """Every line citation in the document, prose and fence alike.
+
+    Fences are read too: a `grep -n` sample or a stack trace cites lines the same
+    way prose does, and the `[code]` pass already treats a fenced path as a citation.
+    """
+    results: list[LineCitation] = []
+    for lineno, line in enumerate(content.splitlines(), 1):
+        for match in LINE_CITATION_RE.finditer(line):
+            file, first, last = match.group(1), int(match.group(2)), match.group(3)
+            results.append(
+                LineCitation(lineno, match.group(0), file, first, int(last) if last else None)
+            )
+        for match in LINE_PROSE_RE.finditer(line):
+            if match.group(3):
+                file, first, last = match.group(3), int(match.group(1)), match.group(2)
+            else:
+                file, first, last = match.group(4), int(match.group(5)), match.group(6)
+            results.append(
+                LineCitation(
+                    lineno, match.group(0).strip(), file, first, int(last) if last else None
+                )
+            )
+    return results
+
+
+@cache
+def _tracked_files(root: Path) -> tuple[str, ...]:
+    """Repo-relative POSIX paths of every tracked file under ``root``.
+
+    ``git ls-files``, so an untracked or gitignored file can never satisfy a citation
+    — the scratch tier (`plans/`) holds prototypes named like the modules they copy,
+    and a walk would resolve a basename onto one. A root outside any git work tree
+    (the test fixtures) falls back to the walk, which is then the whole truth.
+    """
+    try:
+        completed = subprocess.run(
+            ["git", "-C", str(root), "ls-files", "-z"],
+            capture_output=True,
+            check=True,
+        )
+    except OSError, subprocess.CalledProcessError:
+        return tuple(sorted(p.relative_to(root).as_posix() for p in root.rglob("*") if p.is_file()))
+    return tuple(sorted(name for name in completed.stdout.decode("utf-8").split("\0") if name))
+
+
+def _resolve_line_citation(file: str, source_file: Path) -> Path | str:
+    """The cited file, or the reason it could not be found (a string).
+
+    Direct resolution first (repo-rooted, relative to the citing doc, then
+    root-relative — the same order every other pass uses). A citation that names no
+    directory, or a partial path, then resolves by UNIQUE suffix over the tracked
+    tree: ``ku_graph_service.py:117`` finds the one module of that name; two
+    candidates is a report, never a guess.
+    """
+    direct = resolve_path(file, source_file)
+    if direct is not None and direct.is_file():
+        return direct
+    needle = file.lstrip("/")
+    hits = [t for t in _tracked_files(ROOT) if t == needle or t.endswith(f"/{needle}")]
+    if len(hits) == 1:
+        return ROOT / hits[0]
+    if hits:
+        return f"AMBIGUOUS_BASENAME ({len(hits)} tracked files end with {needle})"
+    return "FILE_MISSING"
+
+
+def _line_count(path: Path) -> int:
+    return len(path.read_text(encoding="utf-8", errors="replace").splitlines())
+
+
 class FileScan(NamedTuple):
     """One file's audit: the dead references, plus what was skipped and why.
 
@@ -1065,17 +1143,21 @@ class FileScan(NamedTuple):
     stale_markers: list[tuple[Path, int, str, str]]
 
 
-def check_file(md_file: Path, verbose: bool) -> FileScan:
+def check_file(md_file: Path, verbose: bool, catalog: RouteCatalog | None = None) -> FileScan:
     """
     Check one Markdown file for broken links.
     Returns the dead (relative_source, line_no, raw_link, kind) rows, the counts of
     targets skipped as a registered application route and as a marked historical
     citation, and any marker that skipped nothing.
+
+    ``catalog`` defaults to the runtime route table; a test hands in its own so a
+    throwaway root never has to boot the route tree.
     """
     try:
         content = md_file.read_text(encoding="utf-8", errors="ignore")
     except OSError:
         return FileScan([], 0, {m.name: 0 for m in MARKERS}, [])
+    catalog = catalog if catalog is not None else runtime_catalog()
 
     rel_source = md_file.relative_to(ROOT)
     dead: list[tuple[Path, int, str, str]] = []
@@ -1093,8 +1175,29 @@ def check_file(md_file: Path, verbose: bool) -> FileScan:
     # `/core/x.py` tail — a raw-keyed set lets that same file through twice.
     seen: set[tuple[int, str]] = set()
 
+    def settle(lineno: int, raw: str, kind: str, key: tuple[int, str]) -> None:
+        """The tail every pass shares once a reference is known to be dead."""
+        nonlocal marker_skips
+        # An author has marked this line's citations — as history, or as a file the
+        # plan intends to create. Reached only once the target has failed to resolve
+        # AND failed to match a live route, which is the contract: a marker skips a
+        # DEAD reference and nothing else, so it can never cover a live one — the
+        # property that keeps every marker falsifiable, and the planned one
+        # self-retiring.
+        seen.add(key)
+        for marker in MARKERS:
+            if honored[marker.name] and lineno in marker_lines[marker.name]:
+                marker_skips[marker.name] += 1
+                used_marker_lines[marker.name].add(lineno)
+                if verbose:
+                    print(f"  {marker.name.upper()} [{kind}] {rel_source}:{lineno} → {raw}")
+                return
+        dead.append((rel_source, lineno, raw, kind))
+        if verbose:
+            print(f"  DEAD [{kind}] {rel_source}:{lineno} → {raw}")
+
     def record(lineno: int, raw: str, kind: str) -> None:
-        nonlocal route_skips, marker_skips
+        nonlocal route_skips
         target = resolve_path(raw, md_file)
         if target is None:
             return
@@ -1105,30 +1208,36 @@ def check_file(md_file: Path, verbose: bool) -> FileScan:
             return
         # A live application URL is not a missing file. Checked only once the path has
         # failed to resolve, so a real repo file at a route-shaped path still wins.
-        if _is_registered_route(raw):
+        if _is_registered_route(raw, catalog):
             seen.add(key)
             route_skips += 1
             if verbose:
                 print(f"  ROUTE [{kind}] {rel_source}:{lineno} → {raw}")
             return
-        # An author has marked this line's citations — as history, or as a file the
-        # plan intends to create. Reached only once the target has failed to resolve
-        # AND failed to match a live route, which is the contract: a marker skips a
-        # DEAD reference and nothing else, so it can never cover a live one — the
-        # property that keeps every marker falsifiable, and the planned one
-        # self-retiring.
-        for marker in MARKERS:
-            if honored[marker.name] and lineno in marker_lines[marker.name]:
-                seen.add(key)
-                marker_skips[marker.name] += 1
-                used_marker_lines[marker.name].add(lineno)
-                if verbose:
-                    print(f"  {marker.name.upper()} [{kind}] {rel_source}:{lineno} → {raw}")
-                return
-        seen.add(key)
-        dead.append((rel_source, lineno, raw, kind))
-        if verbose:
-            print(f"  DEAD [{kind}] {rel_source}:{lineno} → {raw}")
+        settle(lineno, raw, kind, key)
+
+    def record_line_citation(citation: LineCitation) -> None:
+        target = _resolve_line_citation(citation.file, md_file)
+        if isinstance(target, str):
+            # Keyed as `record` would key the same missing file, so a backtick pass
+            # that already reported it does not report it twice.
+            missing = resolve_path(citation.file, md_file)
+            key = (citation.lineno, str(missing) if missing is not None else citation.file)
+            if key not in seen:
+                settle(citation.lineno, f"{citation.raw} ({target})", "line", key)
+            return
+        cited = max(citation.first, citation.last or 0)
+        length = _line_count(target)
+        if cited <= length:
+            return
+        key = (citation.lineno, f"{target}:{citation.first}")
+        if key not in seen:
+            settle(
+                citation.lineno,
+                f"{citation.raw} (PAST_EOF — file has {length} lines)",
+                "line",
+                key,
+            )
 
     for lineno, _text, path in extract_markdown_links(content):
         record(lineno, path, "link")
@@ -1143,6 +1252,19 @@ def check_file(md_file: Path, verbose: bool) -> FileScan:
     # than being relabelled by the newer pass (the `seen` dedup is per line+token).
     for lineno, path in extract_fenced_paths(content):
         record(lineno, path, "code")
+
+    for citation in extract_line_citations(content):
+        record_line_citation(citation)
+
+    # ONE marker ledger for both instruments: a marker whose line carries a dead ROUTE
+    # claim is used, and only this ledger decides staleness — `route_claims.py` reports
+    # its skips and points here. The import is deferred because that module imports
+    # this one; the route scan runs only for a file that carries a marker at all.
+    if any(marker_lines[m.name] for m in MARKERS):
+        from route_claims import scan_content as scan_route_claims  # type: ignore[import-not-found]
+
+        for name, lines in scan_route_claims(content, md_file, catalog).marker_used.items():
+            used_marker_lines[name] |= lines
 
     # The SKUEL026 inversion: a marker that suppressed nothing is rot in the marker.
     # Out of scope it can never suppress anything, which is a different authoring
@@ -1192,6 +1314,7 @@ def main() -> int:
 
     md_files, carved_out = get_md_files()
     print(f"Scanning {len(md_files)} Markdown files in docs/ and .claude/skills/...")
+    catalog = runtime_catalog()
 
     all_dead: list[tuple[Path, int, str, str]] = []
     all_stale_markers: list[tuple[Path, int, str, str]] = []
@@ -1200,7 +1323,7 @@ def main() -> int:
     index_md = Path("docs/INDEX.md")
 
     for md_file in md_files:
-        scan = check_file(md_file, args.verbose)
+        scan = check_file(md_file, args.verbose, catalog)
         all_dead.extend(scan.dead)
         all_stale_markers.extend(scan.stale_markers)
         route_skips += scan.route_skips
@@ -1218,7 +1341,10 @@ def main() -> int:
         f"{carved_out.history} file(s) carved out: history directories "
         f"(dated records, where a dead link is the record being faithful)"
     )
-    print(f"{route_skips} target(s) skipped: registered application routes (adapters/inbound/)")
+    print(
+        f"{route_skips} target(s) skipped: registered application routes "
+        f"({len(catalog)} paths in the runtime route table)"
+    )
     # One line per marker, never summed: they exclude for opposite reasons (was there /
     # is not there yet), so a merged number would move for two unrelated causes.
     for marker in MARKERS:
