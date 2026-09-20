@@ -670,6 +670,19 @@ _SEL_JOURNEY_FRAGMENT = PlannedEntry(
     blocked_by="SEL Journey Fragments — staged behind a surface not yet designed",
 )
 
+_EMBEDDED_FORMS_FRAGMENT = PlannedEntry(
+    Readiness.DELAYED,
+    "HTMX fragment (and its POST twin) rendering the FormTemplates a PathStep "
+    "EMBEDS_FORM through ui/learning_loop/embedded_forms.py; the reading-first "
+    "PathStep page loads /exercises and /submissions-and-feedback and dropped "
+    "the forms section, so no page loads it today while the EMBEDS_FORM edge, "
+    "FormTemplateService.get_forms_for_path_step and the teacher form pages "
+    "stay live — re-add the section to /explore/ps/{uid}, or delete handler + "
+    "UI module together",
+    since=date(2026, 9, 20),
+    blocked_by="Embedded Forms Fragment — staged behind the PathStep page that dropped it",
+)
+
 PLANNED_METHODS: dict[str, PlannedEntry] = {
     # --- Entity chunking: staged metadata read path ---
     "core/services/entity_chunking_service.py::get_metadata": PlannedEntry(
@@ -1023,6 +1036,11 @@ PLANNED_METHODS: dict[str, PlannedEntry] = {
     # these two importers.
     "adapters/inbound/path_steps_api.py::get_step_journey_html": _SEL_JOURNEY_FRAGMENT,
     "adapters/inbound/path_steps_api.py::get_curriculum_html": _SEL_JOURNEY_FRAGMENT,
+    # --- Embedded forms: the PathStep page's forms section, loaded by nothing (ruled staged) ---
+    # Same shape as the SEL fragments: route-reachable, consumer dropped in a page
+    # redesign (917946df4). `ui/learning_loop/embedded_forms.py` lives through these two.
+    "adapters/inbound/learning_loop_routes.py::get_ps_embedded_forms": _EMBEDDED_FORMS_FRAGMENT,
+    "adapters/inbound/learning_loop_routes.py::submit_embedded_form": _EMBEDDED_FORMS_FRAGMENT,
 }
 
 # Prompt templates staged with no render site (ADR-082 D4): committed .md
