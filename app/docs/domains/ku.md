@@ -122,7 +122,7 @@ What a Ku carries:
 | `USES_KU` | Incoming | PathStep (`Entity`) | `KU_CONFIG` — composition: a step uses this Ku |
 | `TRAINS_KU` | Incoming | PathStep (`Entity`) | `KU_CONFIG` — learning objective |
 | `CITES_RESOURCE` | Outgoing | Resource | `KU_CONFIG` |
-| `ORGANIZES` | Both | Ku / any Entity | `KU_CONFIG` bidirectional hierarchy (MOC — see [moc.md](moc.md)) |
+| `ORGANIZES` | Both | any Entity | Read-side only in `KU_CONFIG` (its `bidirectional_relationships` entry, Ku → Ku, is not an ingestible field — `generate_ingestion_relationship_config(EntityType.KU)` yields `resource_uids` alone). A Ku **authors** ORGANIZES through `moc: true` body links (the MOC edge pass, any `:Entity` target); `organizes:` frontmatter is a PathStep field. See [moc.md](moc.md) |
 | `IN_PROGRESS`, `MASTERED` | Incoming | User | learning state (`mark_as_studying` / `mark_as_understood`) |
 | `PINNED` | Incoming | User | bookmark (`/library/ku`) |
 | `PREREQUISITE_FOR`, `LATERAL_ENABLES`, `SIMILAR_TO`, `COMPLEMENTARY_TO`, `ALTERNATIVE_TO`, … | Both | Ku | the lateral family (`/api/ku/{uid}/lateral/*`; `_LATERAL_TYPES` in `core/models/relationship_names.py`) |
