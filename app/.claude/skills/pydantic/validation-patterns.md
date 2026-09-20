@@ -413,14 +413,15 @@ from adapters.inbound.form_helpers import parse_json_body, parse_form_body
 # JSON body → Pydantic model → Result[T]
 result = await parse_json_body(request, TaskCreateRequest)
 if result.is_error:
-    return result  # type: ignore[return-value]
+    return Result.fail(result)  # SKUEL028: propagate across the type boundary
 req = result.value
 
 # Form data → Pydantic model → Result[T] (empty strings → None)
 result = await parse_form_body(request, RequestRevisionRequest)
 
-# With extra fields merged before validation
-result = await parse_json_body(request, TrackHabitRequest, extra={"habit_uid": entity.uid})
+# An ownership-verified POST carries its owner uid as a model field (TrackHabitRequest.habit_uid):
+# parse first, then verify_entity_ownership(service, req.habit_uid, user_uid, ...) — nothing is
+# merged into the body before validation.
 ```
 
 See: `/docs/patterns/API_VALIDATION_PATTERNS.md`
