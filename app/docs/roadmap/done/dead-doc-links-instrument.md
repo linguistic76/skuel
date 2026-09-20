@@ -10,7 +10,7 @@ check: "uv run python scripts/health/dead_doc_links.py — every finding is the 
 
 # Dead-Doc-Links Instrument — Rulings + Scheduled Work
 
-*Case file for the [deferred-work.md](deferred-work.md) entry of the same name; move to `done/` when nothing in it remains open.*
+*Case file for the former [deferred-work.md](../deferred-work.md) entry of the same name.*
 
 `scripts/health/dead_doc_links.py` (in `./dev health` + the weekly janitor; not a CI gate)
 sat red at **871 findings / 531 distinct missing targets** before PR B1 (measured
