@@ -1,5 +1,5 @@
 ---
-updated: 2026-09-19
+updated: 2026-09-20
 ---
 
 # Deferred Work
@@ -154,10 +154,6 @@ renders them as a table in Obsidian, and a session derives the same table with
 ## Label-Generic Vector Rung Has No Index for Most Domains
 
 [Label-Generic Vector Rung Has No Index for Most Domains](label-generic-vector-rung.md) — `/search`'s Semantic-boost and Learning-aware toggles silently do nothing for seven domains that have no per-label vector index; the fix is the `Entity` index plus an `entity_type` filter, not seven more indexes.
-
-## Dead-Doc-Links Instrument — Rulings + Scheduled Work
-
-[Dead-Doc-Links Instrument — Rulings + Scheduled Work](dead-doc-links-instrument.md) — The rulings and the B1–B8 record of the instrument that took the check from 871 to 280; the residue is owned by the sweep-queue doc, and the duplicate ADR numbers stay noted, unscheduled.
 
 ## History-in-Code Sweep — the finder is built, the sweep is the queue
 

@@ -1005,12 +1005,15 @@ def test_run_prints_every_skip_count(
 
 
 def test_history_directories_are_carved_out_of_the_live_tree() -> None:
-    """Live-tree pin: the four dated-record directories leave the scan, 226 findings
-    with them (measured 2026-09-01). Directory membership IS the classification here —
-    unlike `design-principles/`, these hold nothing but records."""
+    """Live-tree pin: every dated-record directory leaves the scan. Directory membership
+    IS the classification here — unlike `design-principles/`, these hold nothing but
+    records. The complement is pinned beside it: a carve-out is a suppressor, so the
+    live sibling that shares `docs/design-` as a prefix must still be scanned."""
     rels = {p.relative_to(ddl.ROOT).as_posix() for p in ddl.get_md_files()[0]}
     for directory in ddl.HISTORY_DIRS:
         assert not any(rel.startswith(f"{directory}/") for rel in rels), directory
+    assert "docs/design-handoff/calendar-month/README.md" not in rels
+    assert "docs/design-principles/HUB_PAGES.md" in rels
 
 
 def test_history_carve_out_takes_only_the_dated_half_of_roadmap() -> None:

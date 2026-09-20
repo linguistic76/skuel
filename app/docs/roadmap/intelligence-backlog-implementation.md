@@ -1,5 +1,5 @@
 ---
-updated: 2026-08-21
+updated: 2026-09-20
 ---
 
 # Intelligence Backlog: Implementation Guide
@@ -165,8 +165,8 @@ verification against the tree:
 - **Its steps 4–5 prescribed metrics with no input.** The velocity figure
   (`count_completed / period_days`) and the 90-day trend baseline were specified for two methods
   that count no completion events: choices computes a `decided/total` ratio
-  (`choices_intelligence_service.py:110`) and principles counts by strength and `is_active`
-  (`_core_intelligence_mixin.py:54`). "Principles acted on per day" has no source in the method
+  (`core/services/choices/choices_intelligence_service.py:144`) and principles counts by strength and `is_active`
+  (`core/services/principles/_core_intelligence_mixin.py:87`). "Principles acted on per day" has no source in the method
   it named.
 
 Group A's remedy is `find_by_date_range` — for **both** candidate keys, not just `created_at`.

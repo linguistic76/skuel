@@ -1,5 +1,5 @@
 ---
-updated: 2026-09-19
+updated: 2026-09-20
 ---
 
 # Placeholder Parameter Index
@@ -195,7 +195,7 @@ and stopping produced a confident, backwards diagnosis — a dropped predicate o
 not silent-zero.
 
 The fix (#859) routes all three period methods through
-`_AnalyticsMixin._find_choices_in_window` (`_analytics_mixin.py:194`), which windows on `created_at`
+`_AnalyticsMixin._find_choices_in_window` (`core/services/choices/_analytics_mixin.py:217`), which windows on `created_at`
 via `find_by_date_range`. Two constraints are recorded in that helper's docstring and pinned by
 tests: `decided_at` would have silent-zeroed (its only writer, `ChoicesCoreService.make_decision`,
 has no route), and `created_at` has two storage shapes, so only the coercing

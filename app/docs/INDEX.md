@@ -1,6 +1,6 @@
 ---
 title: Documentation Index
-updated: 2026-09-19
+updated: 2026-09-20
 status: current
 category: index
 tags: [index, navigation, documentation]
@@ -53,7 +53,6 @@ related: []
 - [Guides](#guides) - Step-by-step implementation guides
 - [Tools](#tools) - Developer tooling and maintenance scripts
 - [Reference](#reference) - Templates and checklists
-- [Features](#features) - Implemented features with complete documentation
 - [Migrations](#migrations) - Database and code migration guides
 
 ## Skills Quick Reference
@@ -399,14 +398,6 @@ See [CROSS_REFERENCE_INDEX.md](CROSS_REFERENCE_INDEX.md) for skills ↔ docs map
 | [Discovery Analytics Implementation Roadmap](roadmap/DISCOVERY_ANALYTICS_ROADMAP.md) | |
 | [Canon — Book-as-Journaling-Companion](roadmap/canon-journaling-companion.md) | |
 
-## Features
-
-*Implemented features with complete documentation*
-
-| Document | Description |
-|----------|-------------|
-| **[SEL Adaptive Curriculum](features/SEL_ADAPTIVE_CURRICULUM.md)** | |
-
 ## Migrations
 
 *Database and code migration guides*
@@ -450,7 +441,7 @@ See [CROSS_REFERENCE_INDEX.md](CROSS_REFERENCE_INDEX.md) for skills ↔ docs map
 | [Habit-Completion Persistence Bundle](roadmap/habit-completion-persistence-bundle.md) | Six defects around the `HabitCompletion` node plus the node-less third door — one shared lock-derived writer is the shape; defect 3 needs Mike's one-per-day ruling first |
 | [⚠️ Vault Re-Sync Never Retracts a Share](roadmap/vault-resync-never-retracts-a-share.md) | Open privacy gap: narrowing or removing `audience:` does nothing on re-sync — read before touching sharing fan-out or planning a second user |
 | [Per-Domain Chunking Knobs + Chunk-Type-Aware Retrieval](roadmap/per-domain-chunking-knobs.md) | Chunking v2 and the eval instrument shipped; knob tuning, `chunk_type_weights` and the Askesis intent filter wait on a measured miss and a content-typing classifier |
-| [Dead-doc-links sweep queue](roadmap/dead-doc-links-sweep-queue.md) | The live-docs residue of the B1–B8 arc (871 → 280): per-directory split, the tail shape that decides the fix (most targets have no same-basename match, so the usual fix is the citing prose — but a rename looks the same, so investigate first), the four classes a finding can belong to and the different action each takes, the ride-along protocol — plus disproven claims about files that exist, which the scanner is blind to |
+| [Dead-doc-links sweep queue](roadmap/done/dead-doc-links-sweep-queue.md) | The live-docs residue of the B1–B8 arc (871 → 280): per-directory split, the tail shape that decides the fix (most targets have no same-basename match, so the usual fix is the citing prose — but a rename looks the same, so investigate first), the four classes a finding can belong to and the different action each takes, the ride-along protocol — plus disproven claims about files that exist, which the scanner is blind to |
 | [Security Hardening — Deferred](roadmap/security-hardening-deferred.md) | The security hardening backlog — see its Priority Order table for current status (most items now shipped or closed) |
 | [Teacher-Askesis Interface — Deferred](roadmap/teacher-askesis-interface-deferred.md) | Teacher view/adjust/annotate interface; requires ZPDService + Neo4j persistence first |
 | **[Askesis Tool-Selection Queries — why not text2cypher](roadmap/askesis-tool-selection-queries.md)** | **Why SKUEL does not adopt `langchain-neo4j`'s `text2cypher` (`GraphCypherQAChain`) — multi-tenancy, SKUEL001/021, determinism — plus the safe alternative (LLM picks a vetted tool + typed args; `user_uid` injected server-side). First slice SHIPPED 2026-08-31: `count_goals_achieved` + the decline path, lifting PR-2's `AGGREGATION` carve-out in the same commit. Read before proposing LLM-generated Cypher or a new catalog tool.** |

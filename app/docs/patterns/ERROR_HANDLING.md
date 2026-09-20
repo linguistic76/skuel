@@ -1,6 +1,6 @@
 ---
 title: Error Handling Architecture
-updated: 2026-09-19
+updated: 2026-09-20
 category: patterns
 related_skills:
 - result-pattern
@@ -969,8 +969,6 @@ async def today_page(request: Request) -> Any:
 - ✅ Better structured logging distinguishes error categories
 - ✅ Easier debugging (config vs computation problems)
 - ✅ Documented error handling strategy in docstring
-
-**Implementation:** `/adapters/inbound/user_profile_ui.py` (lines 633-716)
 
 **Anti-Pattern:** Don't use broad `except Exception` for configuration errors - it would catch runtime errors too.
 

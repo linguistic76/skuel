@@ -1,6 +1,6 @@
 ---
 title: The Weekly Janitor
-updated: 2026-09-17
+updated: 2026-09-20
 status: current
 category: user-guides
 tags: [janitor, health-checks, rot, github-actions, weekly, documentation]
@@ -81,11 +81,12 @@ queue held ~280 entries — and the issue had five comments nobody had opened.
 
 ## When it is red: what each section wants
 
-- **`links`** has its own protocol, because a third of what it reports is *not* rot: a
+- **`links`** has its own protocol, because not everything it reports is rot: a
   document may deliberately name a deleted file as history, a roadmap may cite a file it
-  intends to create, a citation may be pure fiction. **Classify before touching** —
-  [dead-doc-links-sweep-queue.md](../roadmap/dead-doc-links-sweep-queue.md) is the queue and
-  its cautions, and HEALTH_CHECKS.md § 2 explains the two markers (`<!-- historical -->`
+  intends to create, a citation may be pure fiction. **Classify before touching** — the
+  report itself is the queue; the sweep record
+  [dead-doc-links-sweep-queue.md](../roadmap/done/dead-doc-links-sweep-queue.md) holds
+  the cautions, and HEALTH_CHECKS.md § 2 explains the two markers (`<!-- historical -->`
   under `docs/decisions/`, `<!-- planned -->` under live `docs/roadmap/`). Reproduce with
   `./dev health-links`.
 - **`modules`**: a zero-importer module is either dead (delete it, One Path Forward) or

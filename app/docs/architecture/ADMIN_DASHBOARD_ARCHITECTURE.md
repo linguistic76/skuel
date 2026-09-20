@@ -1,6 +1,6 @@
 ---
 title: Admin Dashboard Architecture
-updated: 2026-09-19
+updated: 2026-09-20
 status: current
 category: architecture
 tags:
@@ -162,11 +162,11 @@ The user management section (`/admin/users`) provides:
 
 | Route | Method | Purpose | File |
 |-------|--------|---------|------|
-| `/api/admin/users` | GET | List users (JSON) | `admin_routes.py:59` |
-| `/api/admin/users/{uid}` | GET | Get user (JSON) | `admin_routes.py:119` |
-| `/api/admin/users/{uid}/role` | POST | Change role | `admin_routes.py:170` |
-| `/api/admin/users/{uid}/deactivate` | POST | Deactivate | `admin_routes.py:237` |
-| `/api/admin/users/{uid}/activate` | POST | Activate | `admin_routes.py:288` |
+| `/api/admin/users` | GET | List users (JSON) | `adapters/inbound/admin_api.py:74` |
+| `/api/admin/users/get?uid=…` | GET | Get user (JSON) | `adapters/inbound/admin_api.py:134` |
+| `/api/admin/users/role` | POST | Change role (`uid` form param) | `adapters/inbound/admin_api.py:181` |
+| `/api/admin/users/deactivate` | POST | Deactivate (`uid` form param) | `adapters/inbound/admin_api.py:246` |
+| `/api/admin/users/activate` | POST | Activate (`uid` form param) | `adapters/inbound/admin_api.py:298` |
 
 ---
 
@@ -502,7 +502,7 @@ async def admin_users_list(request: Request, current_user: Any = None):
 
 ## Adding New Admin Sections
 
-To add a new admin section (e.g., `/admin/logs`):
+To add a new admin section — `/admin/logs` does not exist; the example below adds it:
 
 ### 1. Add Navigation Item
 

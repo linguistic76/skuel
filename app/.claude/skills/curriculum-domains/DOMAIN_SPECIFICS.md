@@ -103,7 +103,7 @@ await ps_service.progress.record_completion(ps_uid, user_uid)
 - **Composed into PathSteps** — `(PathStep)-[:USES_KU]->(Ku)` relationship.
 - **Trained by PathSteps** — `(PathStep)-[:TRAINS_KU]->(Ku)` relationship.
 - **Aliases + NOUS topics** — `aliases` (alternative names), `nous` (NOUS topic membership — the category vocabulary), `sel_category` (SELCategory enum). The former `namespace`/`ku_category`/`source` fields were retired 2026-07-06.
-- **SEL organization** — `sel_category` (SELCategory enum) classifies Kus by SEL competency. The `/ku` page shows a flat listing with bookmarks + latest sidebar.
+- **SEL organization** — `sel_category` (SELCategory enum) classifies Kus by SEL competency. It is a search filter (`sel_category` on `/search/results`), not a page; `/library/ku` lists the learner's bookmarked Ku.
 - **Reference node** — ontology/reference, not a unit for learning.
 
 **Key Methods:**

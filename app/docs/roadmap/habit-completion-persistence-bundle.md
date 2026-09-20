@@ -1,6 +1,6 @@
 ---
 title: "Habit-Completion Persistence Bundle — Orphans, UID Collisions, Non-Atomic Day Uniqueness"
-updated: 2026-09-05
+updated: 2026-09-20
 status: "ruling needed (defect 3)"
 registered: 2026-08-28
 trigger: "lived habit-completion use, or the next touch of the completion write path"
@@ -64,7 +64,7 @@ two consideration notes. Re-verified against the code and the live graph 2026-08
    the ratified separator grammar spells generated UIDs with `_` — settle the spelling when the key
    is redesigned, not before.
 3. **Day idempotency is a read-before-write guard, not an invariant.** `record_habit_occurrence`
-   (`calendar_service.py:1219-1224`) reads that day's completions and returns the existing one; two
+   (`core/services/calendar_service.py:1188-1193`) reads that day's completions and returns the existing one; two
    concurrent requests (two tabs) both pass the read and each create a node and increment the
    stats. The habits-surface door (`/api/habits/track` → `record_completion`) has **no** day guard
    at all. The `(habit_uid, day)` invariant has to live in persistence — the same redesign as

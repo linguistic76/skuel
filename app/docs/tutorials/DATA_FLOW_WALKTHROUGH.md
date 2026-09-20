@@ -1,5 +1,5 @@
 ---
-updated: 2026-09-17
+updated: 2026-09-20
 ---
 
 # Data Flow Walkthrough: Following a Task Creation Request
@@ -394,7 +394,7 @@ async def get(self, uid: str) -> Result[TaskDTO]:
 
 ### 4.2 DTO Deserialization Helper
 
-**File**: `/core/models/task/task_dto.py:241-257`
+**File**: `/core/models/task/task_dto.py:159`
 
 ```python
 @classmethod
@@ -421,7 +421,7 @@ def from_dict(cls, data: dict) -> TaskDTO:
 
 ### 4.3 DTO → Domain Model (Tier 2 → Tier 3)
 
-**File**: `/core/models/task/task.py:650-706`
+**File**: `/core/models/task/task.py:311`
 
 ```python
 @classmethod

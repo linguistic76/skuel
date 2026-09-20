@@ -483,7 +483,7 @@ ALLOWED_OCCURRENCES: dict[str, dict[tuple[int, str], Allow]] = {
         (946, "KuType"): Allow(_three_tier),
         (947, "KuStatus"): Allow(_three_tier),
     },
-    "docs/roadmap/dead-doc-links-sweep-queue.md": {
+    "docs/roadmap/done/dead-doc-links-sweep-queue.md": {
         # 219 → 241: § "Named, still queued" above it gained the `/journals/browse`
         # lead (#1255, 2026-09-04). Anchor re-derived from the scanner's report,
         # never by adding the diff's line delta.

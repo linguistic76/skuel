@@ -1,5 +1,5 @@
 ---
-updated: 2026-09-17
+updated: 2026-09-20
 ---
 
 # Cypher Vocabulary Findings (SKUEL030 introduction sweep, 2026-07-19)
@@ -149,10 +149,9 @@ inherits its invariants — check the writers, not just the registry.)
 > the extra step the § 10 cascade note spells out. **The stack was retired
 > (deleted) on 2026-07-20; the facet now uses the live `n.domain` property.**
 
-`generate_facet_counts_query` is still production-caller-less (only the
-`QueryBuilder` facade delegation at `query_builder.py:249` and a test asserting
-that delegation), so it was repointed rather than deleted: it is a facade API
-and a registered query template, not abandoned code.
+`generate_facet_counts_query` is gone with the `query_builders/` stack; facet counts
+are computed in Python by `build_facet_counts` (`core/models/search_request.py`) over
+the returned rows.
 
 **A third `:Document` site was hiding behind the file-level baseline.**
 `neo4j_adapter.py` also created `journals_fulltext` on `(d:Document)` — and
