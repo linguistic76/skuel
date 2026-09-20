@@ -2,22 +2,23 @@
 Curriculum Adaptive Components
 ===============================
 
-Tailwind components for adaptive curriculum delivery.
-Display curriculum content organized by SEL categories.
+Tailwind components for adaptive curriculum delivery — the HTMX fragments
+served by ``/api/path-steps/journey-html`` and ``/api/path-steps/curriculum-html/{category}``.
+Staged: no page loads them yet (docs/roadmap/sel-journey-fragments-staged.md).
+A host page supplies a ``#curriculum-list`` target; a category card's button
+loads that category's curriculum fragment into it.
 
 Components:
 - SELCategoryCard: Progress card for one SEL category
-- AdaptiveKUCard: Card for one KU in personalized curriculum
+- AdaptiveKUCard: Card for one PathStep in the personalized curriculum
 - SELJourneyOverview: Complete journey across all 5 categories
 """
 
-from typing import Any
+from fasthtml.common import FT, Div, P
 
-from fasthtml.common import Div, P
-
-from core.models.entity_types import CurriculumEntity
 from core.models.enums import SELCategory
 from core.models.pathways.learning_progress import CurriculumProgress, LearningJourney
+from core.models.pathways.path_step import PathStep
 from ui.components import ButtonT
 from ui.enum_helpers import get_sel_icon
 from ui.feedback import Alert, AlertT, Badge, BadgeT, Progress
@@ -27,7 +28,7 @@ from ui.patterns.section_header import SectionHeader
 from ui.primitives import ButtonLink
 
 
-def SELCategoryCard(category: SELCategory, progress: CurriculumProgress) -> Any:
+def SELCategoryCard(category: SELCategory, progress: CurriculumProgress) -> FT:
     """Card showing progress in one SEL category."""
     category_title = f"{get_sel_icon(category.value)} {category.value.replace('_', ' ').title()}"
 
@@ -44,15 +45,19 @@ def SELCategoryCard(category: SELCategory, progress: CurriculumProgress) -> Any:
         metadata=metadata,
         actions=ButtonLink(
             "Continue Learning →",
-            href=f"/path-steps?sel={category.value}",
+            href=f"/api/path-steps/curriculum-html/{category.value}",
+            hx_get=f"/api/path-steps/curriculum-html/{category.value}",
+            hx_target="#curriculum-list",
+            hx_swap="innerHTML",
             cls=(ButtonT.primary, "w-full"),
         ),
     )
 
+    # An empty category has nothing to divide by: the bar reads 0 of 1.
     progress_section = Div(
         Progress(
             value=progress.steps_mastered,
-            max_val=progress.total_steps,
+            max_val=max(progress.total_steps, 1),
             cls="w-full",
         ),
         P(
@@ -65,37 +70,27 @@ def SELCategoryCard(category: SELCategory, progress: CurriculumProgress) -> Any:
     return Div(card, progress_section, cls="mb-4")
 
 
-def AdaptiveKUCard(ku: CurriculumEntity, prerequisites_met: bool = True) -> Any:
-    """Card for one KU in personalized curriculum."""
-    metadata = []
-
-    estimated_time = getattr(ku, "estimated_time_minutes", None)
-    if estimated_time:
-        metadata.append(f"⏱ {estimated_time} min")
-
-    difficulty = getattr(ku, "difficulty_rating", None)
-    if difficulty is not None:
-        metadata.append(f"🎯 {difficulty:.1f}/1.0 difficulty")
-
-    learning_level = getattr(ku, "learning_level", None)
-    if learning_level:
-        metadata.append(Badge(learning_level.value.title(), variant=BadgeT.neutral))
+def AdaptiveKUCard(step: PathStep, prerequisites_met: bool = True) -> FT:
+    """Card for one PathStep in the personalized curriculum."""
+    metadata: list[str | FT] = [
+        f"⏱ {step.estimated_time_minutes} min",
+        f"🎯 {step.difficulty_rating:.1f}/1.0 difficulty",
+        Badge(step.learning_level.value.title(), variant=BadgeT.neutral),
+    ]
 
     if prerequisites_met:
         metadata.append(Badge("✓ Prerequisites met", variant=BadgeT.success))
     else:
         metadata.append(Badge("Prerequisites needed", variant=BadgeT.warning))
 
-    description = ku.summary[:200] + "..." if len(ku.summary) > 200 else ku.summary
-
     return CardGenerator.from_dataclass(
-        {"title": ku.title, "description": description},
+        {"title": step.title, "description": step.get_summary()},
         display_fields=["description"],
         show_labels=False,
         metadata=metadata,
         actions=ButtonLink(
             "Start Learning →",
-            href=f"/explore/ku/{ku.uid}",
+            href=f"/explore/ps/{step.uid}",
             cls=(ButtonT.primary, "w-full"),
         ),
     )
