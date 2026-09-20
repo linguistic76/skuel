@@ -268,9 +268,12 @@ The pass strips the `:N` / `:N-M` / `:N–M` / `:LN` tail (and reads the prose f
 "line N of `f.py`", "`f.py` line N", "`f.py` (lines N–M)"), resolves the file — by path,
 or for a basename-only or partial citation (`markdown_fences.py:1`,
 `events/_orchestration_mixin.py:71`) by **unique suffix match over `git ls-files`** —
-and then asserts every cited line number is within the file. Tracked files only, so a
-gitignored prototype in `plans/` named like the module it copies can never satisfy a
-citation. Four reasons, each printed with the row: `FILE_MISSING`,
+and then asserts every cited line number is within the file, every range of a
+discontiguous citation (`csrf.py:78-92, 195-199`) included. Tracked files only, for the
+direct path as for the suffix search, so a gitignored prototype in `plans/` named like
+the module it copies can never satisfy a citation and the verdict is the same in every
+checkout; the tracked set is the whole repository's, so a doc may cite a tracked file
+beside the app (`../infrastructure/docker-compose.yml:52`). Four reasons, each printed with the row: `FILE_MISSING`,
 `AMBIGUOUS_BASENAME (K tracked files end with x.py)`, `NOT_A_LINE` (a `:0` — numbering
 starts at 1), `PAST_EOF (file has K lines)`.
 Fences are read too — a `grep -n` sample cites lines the way prose does. An in-range

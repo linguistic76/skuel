@@ -1022,31 +1022,54 @@ def _looks_like_local_path(text: str) -> bool:
 # (`https://host/x.py:3` — every `/`-preceded start is refused, so nothing inside the
 # URL can open a match); an optional leading `/` admits the repo-rooted spelling.
 _LINE_CITATION_EXTENSIONS = "|".join(re.escape(ext[1:]) for ext in sorted(LOCAL_EXTENSIONS))
+# One range: `N`, `N-M`, `N–M`, `LN`. A citation may chain several after a comma
+# (`csrf.py:78-92, 195-199`); every one is checked.
+_RANGE = r"L?\d{1,6}(?:[-–]L?\d{1,6})?"
+_RANGES = _RANGE + r"(?:,\s*" + _RANGE + r")*"
 LINE_CITATION_RE = re.compile(
     r"(?<![\w/.-])"
     r"(/?(?:[\w.-]+/)*[\w.-]+\.(?:" + _LINE_CITATION_EXTENSIONS + r"))"
-    r":L?(\d{1,6})(?:[-–]L?(\d{1,6}))?(?![\w])"
+    r":(" + _RANGES + r")(?![\w])"
 )
-# The prose forms: "line 470 of `ku_ui.py`", "`ku_ui.py` line 470", "`x.py` (lines 3–9)".
+# The prose forms: "line 470 of `ku_ui.py`", "`ku_ui.py` line 470", "`x.py` (lines 3–9, 40)".
 _PROSE_FILE = r"`?(/?(?:[\w.-]+/)*[\w.-]+\.(?:" + _LINE_CITATION_EXTENSIONS + r"))`?"
 LINE_PROSE_RE = re.compile(
-    r"\blines?\s+(\d{1,6})(?:[-–](\d{1,6}))?\s+(?:of|in)\s+"
+    r"\blines?\s+("
+    + _RANGES
+    + r")\s+(?:of|in)\s+"
     + _PROSE_FILE
     + r"|"
     + _PROSE_FILE
-    + r"\s*(?:\(|,\s*)?lines?\s+(\d{1,6})(?:[-–](\d{1,6}))?\b",
+    + r"\s*(?:\(|,\s*)?lines?\s+("
+    + _RANGES
+    + r")\b",
     re.IGNORECASE,
 )
 
 
 class LineCitation(NamedTuple):
-    """One `file.py:N[-M]` claim: where it sits, how it was written, and what it names."""
+    """One `file.py:N[-M][, N-M…]` claim: where it sits, how it was written, and what it names.
+
+    ``lines`` holds every number the citation writes, in order; the range check reads
+    its maximum, and the first number keys the finding.
+    """
 
     lineno: int
     raw: str
     file: str
-    first: int
-    last: int | None
+    lines: tuple[int, ...]
+
+    @property
+    def first(self) -> int:
+        return self.lines[0]
+
+    @property
+    def highest(self) -> int:
+        return max(self.lines)
+
+
+def _cited_lines(ranges: str) -> tuple[int, ...]:
+    return tuple(int(n) for n in re.findall(r"\d+", ranges))
 
 
 def extract_line_citations(content: str) -> list[LineCitation]:
@@ -1057,55 +1080,87 @@ def extract_line_citations(content: str) -> list[LineCitation]:
     """
     results: list[LineCitation] = []
     for lineno, line in enumerate(content.splitlines(), 1):
-        for match in LINE_CITATION_RE.finditer(line):
-            file, first, last = match.group(1), int(match.group(2)), match.group(3)
-            results.append(
-                LineCitation(lineno, match.group(0), file, first, int(last) if last else None)
-            )
+        results.extend(
+            LineCitation(lineno, match.group(0), match.group(1), _cited_lines(match.group(2)))
+            for match in LINE_CITATION_RE.finditer(line)
+        )
         for match in LINE_PROSE_RE.finditer(line):
-            if match.group(3):
-                file, first, last = match.group(3), int(match.group(1)), match.group(2)
+            if match.group(2):
+                file, ranges = match.group(2), match.group(1)
             else:
-                file, first, last = match.group(4), int(match.group(5)), match.group(6)
-            results.append(
-                LineCitation(
-                    lineno, match.group(0).strip(), file, first, int(last) if last else None
-                )
-            )
+                file, ranges = match.group(3), match.group(4)
+            results.append(LineCitation(lineno, match.group(0).strip(), file, _cited_lines(ranges)))
     return results
 
 
 @cache
-def _tracked_files(root: Path) -> tuple[str, ...]:
-    """Repo-relative POSIX paths of every tracked file under ``root``.
-
-    ``git ls-files``, so an untracked or gitignored file can never satisfy a citation
-    — the scratch tier (`plans/`) holds prototypes named like the modules they copy,
-    and a walk would resolve a basename onto one. A root outside any git work tree
-    (the test fixtures) falls back to the walk, which is then the whole truth.
+def _repo_tracked(root: Path) -> tuple[Path, frozenset[str]] | None:
+    """The git work tree ``root`` sits in: its top level and every tracked path,
+    top-level-relative — the WHOLE repository, not the ``root`` subtree, because a doc
+    may cite a tracked file beside the app (``../infrastructure/docker-compose.yml``).
+    ``None`` when ``root`` is not inside a work tree (the test fixtures).
     """
     try:
-        completed = subprocess.run(
-            ["git", "-C", str(root), "ls-files", "-z"],
+        top = subprocess.run(
+            ["git", "-C", str(root), "rev-parse", "--show-toplevel"],
+            capture_output=True,
+            check=True,
+            text=True,
+        ).stdout.strip()
+        listed = subprocess.run(
+            ["git", "-C", str(root), "ls-files", "-z", "--full-name", ":/"],
             capture_output=True,
             check=True,
         )
     except OSError, subprocess.CalledProcessError:
-        return tuple(sorted(p.relative_to(root).as_posix() for p in root.rglob("*") if p.is_file()))
-    return tuple(sorted(name for name in completed.stdout.decode("utf-8").split("\0") if name))
+        return None
+    return Path(top), frozenset(n for n in listed.stdout.decode("utf-8").split("\0") if n)
+
+
+@cache
+def _tracked_files(root: Path) -> frozenset[str]:
+    """Repo-relative POSIX paths of every tracked file under ``root`` — the suffix
+    search's universe.
+
+    Tracked, so an untracked or gitignored file can never satisfy a citation — the
+    scratch tier (`plans/`) holds prototypes named like the modules they copy, and a
+    checkout that has one would pass a citation a clean checkout fails. A root outside
+    any git work tree falls back to the walk, which is then the whole truth.
+    """
+    repo = _repo_tracked(root)
+    if repo is None:
+        return frozenset(p.relative_to(root).as_posix() for p in root.rglob("*") if p.is_file())
+    top, names = repo
+    below = root.resolve().relative_to(top).as_posix()
+    prefix = "" if below == "." else f"{below}/"
+    return frozenset(n[len(prefix) :] for n in names if n.startswith(prefix))
+
+
+def _is_tracked(path: Path) -> bool:
+    """Is this resolved file tracked anywhere in the repository?"""
+    repo = _repo_tracked(ROOT)
+    if repo is None:
+        return path.is_file()
+    top, names = repo
+    resolved = path.resolve()
+    if not resolved.is_relative_to(top):
+        return False
+    return resolved.relative_to(top).as_posix() in names
 
 
 def _resolve_line_citation(file: str, source_file: Path) -> Path | str:
     """The cited file, or the reason it could not be found (a string).
 
     Direct resolution first (repo-rooted, relative to the citing doc, then
-    root-relative — the same order every other pass uses). A citation that names no
-    directory, or a partial path, then resolves by UNIQUE suffix over the tracked
-    tree: ``ku_graph_service.py:117`` finds the one module of that name; two
-    candidates is a report, never a guess.
+    root-relative — the same order every other pass uses), accepted only if the file
+    is TRACKED: the contract is the same in every checkout, so a scratch file on one
+    machine cannot satisfy a citation. A citation that names no directory, or a
+    partial path, then resolves by UNIQUE suffix over the tracked tree:
+    ``markdown_fences.py:1`` finds the one module of that name; two candidates is a
+    report, never a guess.
     """
     direct = resolve_path(file, source_file)
-    if direct is not None and direct.is_file():
+    if direct is not None and direct.is_file() and _is_tracked(direct):
         return direct
     needle = file.lstrip("/")
     hits = [t for t in _tracked_files(ROOT) if t == needle or t.endswith(f"/{needle}")]
@@ -1231,12 +1286,11 @@ def check_file(md_file: Path, verbose: bool, catalog: RouteCatalog | None = None
             return
         # Line numbering starts at 1: a `:0` names no line, and `0 <= length` would
         # read it as in range.
-        if citation.first < 1 or (citation.last is not None and citation.last < 1):
+        if min(citation.lines) < 1:
             settle(citation.lineno, f"{citation.raw} (NOT_A_LINE)", "line", key)
             return
-        cited = max(citation.first, citation.last or 0)
         length = _line_count(target)
-        if cited <= length:
+        if citation.highest <= length:
             return
         settle(
             citation.lineno,

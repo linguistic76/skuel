@@ -1496,8 +1496,39 @@ def test_missing_file_cited_two_ways_on_one_line_reports_once(cited_tree: Path) 
 
 def test_a_url_is_not_a_line_citation() -> None:
     assert ddl.extract_line_citations("see https://example.com/app.js:12 and `x.py:1:5`\n") == [
-        ddl.LineCitation(1, "x.py:1", "x.py", 1, None)
+        ddl.LineCitation(1, "x.py:1", "x.py", (1,))
     ]
+
+
+def test_every_range_of_a_discontiguous_citation_is_checked(cited_tree: Path) -> None:
+    """`csrf.py:78-92, 195-199` cites two ranges; the highest line of ANY of them is
+    what the file must reach."""
+    scan = _scan(cited_tree, "# P\n\n`core/x.py:1-2, 40` and `core/x.py` (lines 3, 9\u201310)\n")
+    assert _line_rows(scan) == {(3, "core/x.py:1-2, 40 (PAST_EOF — file has 10 lines)")}
+    assert ddl.extract_line_citations("`a.py:78-92, 195-199`")[0].lines == (78, 92, 195, 199)
+
+
+def test_a_direct_target_must_be_tracked(cited_tree: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """The contract is the same in every checkout: an untracked file on disk at the
+    cited path is a scratch artefact, and a citation of it is FILE_MISSING here as it
+    would be in CI. The fixture root has no git, so existence IS the tracked set —
+    a repository listing is planted to prove the direct path consults it."""
+    ddl._tracked_files.cache_clear()
+    monkeypatch.setattr(ddl, "_repo_tracked", _repo_tracking_only_ui)
+    scan = _scan(cited_tree, "# P\n\n`core/x.py:3` and `ui/x.py:3`\n")
+    assert _line_rows(scan) == {(3, "core/x.py:3 (FILE_MISSING)")}
+
+
+def _repo_tracking_only_ui(root: Path) -> tuple[Path, frozenset[str]]:
+    return root, frozenset({"ui/x.py"})
+
+
+def test_a_tracked_file_beside_the_app_is_a_valid_target() -> None:
+    """Real-tree pin: the repository is wider than `app/`, and a doc may cite a
+    tracked file beside it. The tracked set is the whole work tree's."""
+    assert ddl._is_tracked(ddl.ROOT / ".." / "infrastructure" / "docker-compose.yml")
+    assert not ddl._is_tracked(ddl.ROOT / "plans" / "docs-defiction-pass.md")
+    assert ddl._is_tracked(ddl.ROOT / "scripts" / "health" / "dead_doc_links.py")
 
 
 def test_line_citations_inside_fences_are_read(cited_tree: Path) -> None:

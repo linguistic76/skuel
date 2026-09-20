@@ -1,7 +1,6 @@
 """Pin ``scripts/health/route_catalog.py`` — the one route table both docs readers consume.
 
-Two things this file exists to hold shut, each a measured defect in the instrument's
-first cut:
+Two things this file holds shut:
 
 1. **The catch-all.** ``fast_app()`` installs ``/{fname:path}.{ext:static}`` at root
    scope. Normalised it is ``/{}``, and ``/{}`` matches EVERY single-segment claim —
