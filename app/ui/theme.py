@@ -130,15 +130,6 @@ def dark_mode_script() -> Script:
     """)
 
 
-def htmx_extensions() -> tuple[Any, ...]:
-    """HTMX extensions commonly used in SKUEL."""
-    return (
-        Script(src="/static/vendor/htmx.org/ext/sse.js"),
-        Script(src="/static/vendor/htmx.org/ext/ws.js"),
-        Script(src="/static/vendor/htmx.org/ext/response-targets.js"),
-    )
-
-
 def chartjs_headers() -> tuple[Any, ...]:
     """Chart.js headers for analytics dashboards."""
     return (
@@ -153,7 +144,6 @@ __all__ = [
     "skuel_headers",
     "pwa_headers",
     "dark_mode_script",
-    "htmx_extensions",
     "chartjs_headers",
     "HTMX_VERSION",
     "ALPINE_VERSION",

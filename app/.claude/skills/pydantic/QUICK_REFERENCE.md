@@ -100,7 +100,7 @@ def to_intent(self) -> TaskUpdateIntent:
 
 ### Validation error → HTTP status
 
-`_get_status_for_error` in `adapters/inbound/boundary.py` maps error categories: **VALIDATION → 400**, BUSINESS → 422, NOT_FOUND → 404. So:
+`status_for_error` in `adapters/inbound/boundary.py` maps error categories: **VALIDATION → 400**, BUSINESS → 422, NOT_FOUND → 404. So:
 
 - **Query params (GET)** → 400 (strict `route_helpers` parsers return `Errors.validation` Results).
 - **JSON bodies via `parse_json_body`** → `Errors.validation` Result → 400 through `boundary_handler`.

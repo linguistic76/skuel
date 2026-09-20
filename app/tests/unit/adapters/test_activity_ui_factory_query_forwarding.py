@@ -80,7 +80,7 @@ def _client() -> TestClient:
     async def get_all(user_uid: str) -> Result[list[_Item]]:
         return Result.ok(list(_ITEMS))
 
-    async def get_one(uid: str) -> Result[_Item]:
+    async def get_owned(uid: str, user_uid: str) -> Result[_Item]:
         return Result.ok(_ITEMS[0])
 
     def list_component(filtered: list[_Item], connections_map: dict[str, Any]) -> Div:
@@ -98,7 +98,7 @@ def _client() -> TestClient:
         page_title="Tasks",
         filter_params=(("status", "active"), ("sort_by", "priority")),
         get_all=get_all,
-        get_one=get_one,
+        get_owned=get_owned,
         backend=backend,
         filter_fn=_filter_items,
         connection_config=MagicMock(),

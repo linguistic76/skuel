@@ -44,7 +44,7 @@ from types import SimpleNamespace
 from typing import Any
 
 import pytest
-from fasthtml.common import to_xml
+from fasthtml.common import FtResponse, to_xml
 from starlette.exceptions import HTTPException
 
 from adapters.inbound.exercises_ui import create_exercises_ui_routes
@@ -230,8 +230,16 @@ async def _read(handlers: dict[str, Any], path: str, user_uid: str | None, uid: 
 
 
 async def _read_learner(handlers: dict[str, Any], user_uid: str, uid: str) -> str:
-    """Render the student-facing detail fragment for the same exercise."""
+    """Render the student-facing detail fragment for the same exercise.
+
+    A refusal comes back as an ``FtResponse`` — the banner with the 404 the
+    refusal owes (OWNERSHIP_VERIFICATION § UI Routes); a served exercise is a
+    plain FT. Both render to markup; the refused case also pins the status.
+    """
     response = await handlers[LEARNER_PATH](request=_make_request(user_uid), uid=uid)
+    if isinstance(response, FtResponse):
+        assert response.status_code == 404, "a refused learner read must carry 404"
+        return to_xml(response.content)
     return to_xml(response)
 
 

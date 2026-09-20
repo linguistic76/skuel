@@ -88,7 +88,7 @@ Decision flow: database op? → `database` · single-field input? → `validatio
 
 ### HTTP conversion at the boundary
 
-`@boundary_handler(success_status=200)` (`adapters/inbound/boundary.py`) converts `Result[T]` → `JSONResponse`; `_get_status_for_error()` maps `ErrorCategory` to the status codes above (unknown → 500). Client bodies use `ErrorContext.to_client_dict()` — stack traces and `details` stripped, `message` = `user_message`.
+`@boundary_handler(success_status=200)` (`adapters/inbound/boundary.py`) converts `Result[T]` → `JSONResponse`; `status_for_error()` maps `ErrorCategory` to the status codes above (unknown → 500). Client bodies use `ErrorContext.to_client_dict()` — stack traces and `details` stripped, `message` = `user_message`.
 
 ```python
 @rt("/api/tasks", methods=["POST"])

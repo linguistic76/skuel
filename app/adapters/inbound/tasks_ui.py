@@ -15,6 +15,7 @@ picker collects user input that the service routes to a
 
 from __future__ import annotations
 
+from functools import partial
 from typing import TYPE_CHECKING, Any
 
 from fasthtml.common import Div
@@ -25,6 +26,7 @@ from adapters.inbound.auth import require_authenticated_user
 from adapters.inbound.csrf import csrf_protected
 from adapters.inbound.fasthtml_types import Request
 from adapters.inbound.form_helpers import parse_form_body
+from adapters.inbound.route_factories import refuse, require_owned_entity
 from core.models.task.task_request import TaskCreateRequest, TaskUpdateRequest
 from core.models.type_hints import UserUID
 from core.utils.connection_configs import TASK_CONNECTION_CONFIG
@@ -72,7 +74,7 @@ def create_tasks_ui_routes(
         page_title="Tasks",
         filter_params=(("status", "active"), ("priority", "all"), ("sort_by", "priority")),
         get_all=tasks_service.get_user_tasks,
-        get_one=tasks_service.get_task,
+        get_owned=tasks_service.verify_ownership,
         backend=connection_fetch_backend,
         filter_fn=filter_tasks,
         connection_config=TASK_CONNECTION_CONFIG,
@@ -164,15 +166,15 @@ def create_tasks_ui_routes(
                 request=request,
             )
 
-        result = await tasks_service.get_task(uid)
-        if result.is_error or result.value.user_uid != user_uid:
-            return render_activity_sidebar_error(
-                "Task not found",
-                active="tasks",
-                request=request,
+        owned = await tasks_service.verify_ownership(uid, user_uid)
+        if owned.is_error:
+            return refuse(
+                owned.expect_error(),
+                partial(render_activity_sidebar_error, active="tasks", request=request),
+                "Task",
             )
+        task = owned.value
 
-        task = result.value
         reinforced = await tasks_service.get_reinforced_habit(task.uid)
         habit_uid = reinforced.value if reinforced.is_ok else None
         goal_display, habit_display = await _resolve_picker_titles(
@@ -201,14 +203,14 @@ def create_tasks_ui_routes(
                 request=request,
             )
 
-        existing = await tasks_service.get_task(uid)
-        if existing.is_error or existing.value.user_uid != user_uid:
-            return render_activity_sidebar_error(
-                "Task not found",
-                active="tasks",
-                request=request,
+        owned = await tasks_service.verify_ownership(uid, user_uid)
+        if owned.is_error:
+            return refuse(
+                owned.expect_error(),
+                partial(render_activity_sidebar_error, active="tasks", request=request),
+                "Task",
             )
-        task = existing.value
+        task = owned.value
         reinforced = await tasks_service.get_reinforced_habit(task.uid)
         habit_uid = reinforced.value if reinforced.is_ok else None
 
@@ -268,11 +270,13 @@ def create_tasks_ui_routes(
         user_uid = require_authenticated_user(request)
         uid = request.query_params.get("uid", "")
         if not uid:
-            return SubtaskListFragment(uid, None, [])
+            return Response("Not found", status_code=404)
 
-        task_result = await tasks_service.get_task(uid)
-        if task_result.is_error or task_result.value.user_uid != user_uid:
-            return SubtaskListFragment(uid, None, [])
+        # Nested under the detail page, which already refused a foreign uid — a
+        # direct fetch answers a bare 404, as the dependencies fragment does.
+        _task, refusal = await require_owned_entity(tasks_service, uid, user_uid, "Task")
+        if refusal:
+            return refusal
 
         parent_result = await tasks_service.get_parent_task(uid)
         parent = (
@@ -302,9 +306,9 @@ def create_tasks_ui_routes(
         title = str(form.get("title", "")).strip()
         parent_uid = str(form.get("parent_uid", "")).strip()
 
-        owner_result = await tasks_service.get_task(parent_uid)
-        if owner_result.is_error or owner_result.value.user_uid != user_uid:
-            return SubtaskListFragment(parent_uid, None, [])
+        _parent, refusal = await require_owned_entity(tasks_service, parent_uid, user_uid, "Task")
+        if refusal:
+            return refusal
 
         if title:
             create_req = TaskCreateRequest(title=title, parent_uid=parent_uid)

@@ -33,12 +33,6 @@ def _capture_routes(monkeypatch, choices_ownership):
 
     monkeypatch.setattr(habits_ui, "require_authenticated_user", _fake_auth)
 
-    # Habit ownership passes (the habit IS owned); the leak is about the CHOICES.
-    async def _owns_habit(_service_core, _uid, _user_uid, _name):
-        return MagicMock(), None
-
-    monkeypatch.setattr(habits_ui, "require_owned_entity", _owns_habit)
-
     handlers: dict[str, object] = {}
 
     def _fake_rt(path: str, **_kwargs):
@@ -49,6 +43,8 @@ def _capture_routes(monkeypatch, choices_ownership):
         return _register
 
     habits_service = MagicMock()
+    # Habit ownership passes (the habit IS owned); the leak is about the CHOICES.
+    habits_service.verify_ownership = AsyncMock(return_value=Result.ok(MagicMock()))
 
     # informed_choices returns one foreign + one owned; impacting returns the foreign.
     async def _get_related(key, _uid):

@@ -112,6 +112,15 @@ def render_error_banner(
     )
 
 
+def render_slot_error(slot_id: str, message: str) -> FT:
+    """The error banner in a fragment's slot — the Div HTMX swaps ``outerHTML`` on.
+
+    ``slot_id`` first so a route can bind it once (``partial(render_slot_error,
+    "habit-insights")``) and hand the message-renderer to ``refuse``.
+    """
+    return Div(render_error_banner(message), id=slot_id)
+
+
 def render_inline_error(message: str) -> FT:
     """
     Render inline error message for form fields.
@@ -184,5 +193,6 @@ from fasthtml.common import Span  # noqa: E402
 __all__ = [
     "render_error_banner",
     "render_inline_error",
+    "render_slot_error",
     "render_empty_state_with_error",
 ]

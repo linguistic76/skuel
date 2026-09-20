@@ -16,12 +16,13 @@ Every denial serves the same rendered not-found page with a REAL 404 status
 
 from typing import TYPE_CHECKING
 
-from fasthtml.common import FT, to_xml
+from fasthtml.common import FT, FtResponse, to_xml
 from starlette.responses import HTMLResponse
 
 from adapters.inbound.auth import require_authenticated_user
 from adapters.inbound.auth.roles import UserRole
 from adapters.inbound.fasthtml_types import FastHTMLApp, Request, RouteDecorator
+from adapters.inbound.route_factories import refuse_not_found
 from core.utils.logging import get_logger
 from core.utils.result_simplified import ErrorCategory
 from ui.layouts.base_page import BasePage
@@ -45,22 +46,19 @@ def create_exchange_ui_routes(
     @rt("/exchange")
     async def exchange_thread_page(
         request: Request, exercise: str = "", student: str = ""
-    ) -> FT | HTMLResponse:
+    ) -> FT | FtResponse | HTMLResponse:
         """The exchange thread for (viewer-or-student, exercise) — read-only."""
         user_uid = require_authenticated_user(request)
 
-        def _not_found() -> HTMLResponse:
+        def _not_found() -> FtResponse:
             """The one denial shape: the rendered page with a real 404 status."""
-            return HTMLResponse(
-                to_xml(
-                    BasePage(
-                        content=render_exchange_not_found(),
-                        title="Exchange",
-                        request=request,
-                        active_page="gradebook",
-                    )
-                ),
-                status_code=404,
+            return refuse_not_found(
+                BasePage(
+                    content=render_exchange_not_found(),
+                    title="Exchange",
+                    request=request,
+                    active_page="gradebook",
+                )
             )
 
         def _unavailable() -> HTMLResponse:

@@ -23,6 +23,7 @@ See: /docs/patterns/DOMAIN_ROUTE_CONFIG_PATTERN.md
 """
 
 from datetime import datetime
+from functools import partial
 from typing import TYPE_CHECKING, Any
 
 from fasthtml.common import (
@@ -38,6 +39,7 @@ from adapters.inbound.boundary import boundary_handler, ui_boundary_handler
 from adapters.inbound.csrf import csrf_protected
 from adapters.inbound.fasthtml_types import Request, RouteDecorator
 from adapters.inbound.form_helpers import parse_form_body
+from adapters.inbound.route_factories import refuse
 from adapters.outbound.activity_report_renderer import (
     activity_report_filename,
     render_activity_report_md,
@@ -55,7 +57,7 @@ from ui.learning_loop.report import (
     render_activity_report_detail,
     render_progress_report_list,
 )
-from ui.patterns.error_banner import render_error_banner
+from ui.patterns.error_banner import render_error_banner, render_slot_error
 from ui.patterns.generate_report import (
     render_activity_report_request_card,
     render_period_report_prompt,
@@ -248,9 +250,12 @@ def create_activity_reports_ui_routes(
             )
         report_result = await orchestrator.get_activity_report(uid, user_uid)
         if report_result.is_error:
-            return Div(
-                render_error_banner("Report not found", str(report_result.error)),
-                id="activity-report-detail-content",
+            # Owner-scoped read: a foreign uid reads as missing (404); a backend
+            # failure keeps its own status.
+            return refuse(
+                report_result.expect_error(),
+                partial(render_slot_error, "activity-report-detail-content"),
+                "Report",
             )
         report = report_result.value
         metadata = getattr(report, "metadata", None) or {}

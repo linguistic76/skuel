@@ -160,6 +160,28 @@
         }
     });
 
+    // -------------------------------------------------------------------------
+    // Rendered refusals: an ownership failure answers 404 and a backend failure
+    // its own 5xx — the status is the invariant (OWNERSHIP_VERIFICATION.md) —
+    // and HTMX 1.x leaves a 4xx/5xx body unswapped by default. An error whose
+    // body is meant for the slot (the banner a top-level fragment renders)
+    // carries `X-SKUEL-Refusal: rendered`, minted only by route_helpers.refuse /
+    // refuse_not_found / refuse_unavailable; this opts that response into the
+    // swap. A plain-text error (a nested fragment, a crafted POST) still leaves
+    // the target untouched. `isError` is left true, so htmx:responseError and
+    // the aria-busy reset fire as for any error. Registered at parse time, like
+    // configRequest, to beat hx-trigger="load".
+    // -------------------------------------------------------------------------
+    document.addEventListener('htmx:beforeSwap', function(event) {
+        var xhr = event.detail.xhr;
+        if (!xhr || xhr.status < 400) {
+            return;
+        }
+        if (xhr.getResponseHeader('X-SKUEL-Refusal') === 'rendered') {
+            event.detail.shouldSwap = true;
+        }
+    });
+
     /**
      * Live Region Announcer - Task 10: HTMX + Screen Reader Integration
      * Announces dynamic content changes to screen readers via ARIA live regions.
@@ -306,7 +328,7 @@
             }
         });
 
-        // After HTMX request succeeds
+        // After HTMX swaps a response in
         body.addEventListener('htmx:afterSwap', function(event) {
             var target = event.detail.target;
             var elt = event.detail.elt;  // The element that triggered the request
@@ -314,6 +336,15 @@
             // Remove aria-busy from target element
             if (target) {
                 target.setAttribute('aria-busy', 'false');
+            }
+
+            // A swap is not a success: a rendered ownership refusal (404 with
+            // X-SKUEL-Refusal, opted in by the beforeSwap listener above) swaps
+            // its banner in and is still an error — announcing "Status updated"
+            // ahead of the banner's own alert would misreport it. htmx sets
+            // `successful` from the status before the swap.
+            if (event.detail.successful === false) {
+                return;
             }
 
             var successMessage = null;

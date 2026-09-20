@@ -29,7 +29,7 @@ from types import SimpleNamespace
 from typing import Any
 
 import pytest
-from fasthtml.common import to_xml
+from fasthtml.common import FtResponse, to_xml
 
 from adapters.inbound.exercises_api import create_exercises_api_routes
 from adapters.inbound.exercises_ui import create_exercises_ui_routes
@@ -175,8 +175,16 @@ async def seeded(clean_neo4j, neo4j_driver, exercise_service) -> dict[str, str]:
 
 
 async def _read_fragment(handlers: dict[str, Any], user_uid: str | None, uid: str) -> str:
-    """Render the detail fragment as the given user and return its markup."""
+    """Render the detail fragment as the given user and return its markup.
+
+    A refusal comes back as an ``FtResponse`` — the banner with the 404 the
+    refusal owes (OWNERSHIP_VERIFICATION § UI Routes); a served exercise is a
+    plain FT. Both render to markup; the refused case also pins the status.
+    """
     response = await handlers[FRAGMENT_PATH](request=_make_request(user_uid), uid=uid)
+    if isinstance(response, FtResponse):
+        assert response.status_code == 404, "a refused fragment read must carry 404"
+        return to_xml(response.content)
     return to_xml(response)
 
 

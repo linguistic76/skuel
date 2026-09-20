@@ -121,7 +121,7 @@ def result_to_response[T](result: Result[T], success_status: int = 200) -> Respo
 
     # Map error categories to HTTP status codes
     error = result.expect_error()
-    status_code = _get_status_for_error(error)
+    status_code = status_for_error(error)
 
     # Return client-safe error context (no stack traces or internal details)
     response = JSONResponse(content=error.to_client_dict(), status_code=status_code)
@@ -344,7 +344,7 @@ def install_request_validation_guard(app: FastHTMLApp) -> None:
     app.add_exception_handler(ValidationError, request_validation_handler)
 
 
-def _get_status_for_error(error: ErrorContext) -> int:
+def status_for_error(error: ErrorContext) -> int:
     """Get appropriate HTTP status code for an error."""
     status_map = {
         ErrorCategory.VALIDATION: 400,

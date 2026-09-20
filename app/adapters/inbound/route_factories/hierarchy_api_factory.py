@@ -36,13 +36,13 @@ from adapters.inbound.boundary import boundary_handler
 from adapters.inbound.csrf import csrf_protected
 from adapters.inbound.fasthtml_types import Request
 from adapters.inbound.form_helpers import parse_json_body
-from adapters.inbound.route_factories.route_helpers import verify_entity_ownership
+from adapters.inbound.route_factories.route_helpers import refuse, verify_entity_ownership
 from core.models.entity_requests import (
     AddHierarchyChildRequest,
     RemoveHierarchyChildRequest,
 )
 from core.models.user_owned_entity import UserOwnedEntity
-from core.utils.result_simplified import ErrorCategory, Errors, Result
+from core.utils.result_simplified import Errors, Result
 from ui.patterns.tree_view import TreeNodeList
 
 if TYPE_CHECKING:
@@ -140,6 +140,11 @@ def _register_children_json_route(
     rt(f"/api/{config.domain_name}/children", methods=["GET"])(boundary_handler()(children))
 
 
+def _tree_error_row(message: str) -> Div:
+    """A TreeNodeList row that carries an error message instead of children."""
+    return Div(Span(message, cls="text-error text-sm"), cls="px-2 py-1")
+
+
 def _register_children_fragment_route(
     rt: RouteDecorator, config: ActivityHierarchyApiConfig[T]
 ) -> None:
@@ -154,13 +159,9 @@ def _register_children_fragment_route(
         user_uid = require_authenticated_user(request)
         result = await _fetch_owned_children(config, uid, user_uid)
         if result.is_error:
-            error = result.expect_error()
-            message = (
-                "Not found or access denied"
-                if error.category is ErrorCategory.NOT_FOUND
-                else f"Error loading children: {error.display_message}"
-            )
-            return Div(Span(message, cls="text-error text-sm"), cls="px-2 py-1")
+            # The tree row's refusal, at the status it earns (404 for a foreign or
+            # missing parent; the fault's own status otherwise).
+            return refuse(result.expect_error(), _tree_error_row, config.singular.capitalize())
 
         nodes: list[dict[str, Any]] = []
         for child in result.value:

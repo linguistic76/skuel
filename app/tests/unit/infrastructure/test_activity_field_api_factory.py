@@ -314,7 +314,35 @@ async def test_ownership_failure_renders_not_found_banner() -> None:
 
     update.assert_not_awaited()
     card_fn.assert_not_called()
-    assert "Task not found" in to_xml(response)
+    # A rendered refusal: the banner the card slot will swap in, carrying the 404
+    # (never a 200 — OWNERSHIP_VERIFICATION § UI Routes) and the swap opt-in header.
+    assert response.status_code == 404
+    assert response.headers == {"X-SKUEL-Refusal": "rendered"}
+    assert "Task not found" in to_xml(response.content)
+
+
+@pytest.mark.asyncio
+async def test_backend_failure_during_ownership_check_is_not_a_404() -> None:
+    """A database failure inside verify_ownership is a fault, not an access decision:
+    it renders at the error's own status (503), never as "Task not found"."""
+    service = SimpleNamespace(
+        verify_ownership=AsyncMock(
+            return_value=Result.fail(Errors.database("verify_ownership", "connection reset"))
+        )
+    )
+    update = AsyncMock()
+    card_fn = MagicMock()
+
+    handler = _register(_status_config(service=service, update_status=update, card_fn=card_fn))
+    response = await handler(_request({"status": "completed"}), uid="task.1")
+
+    update.assert_not_awaited()
+    card_fn.assert_not_called()
+    assert response.status_code == 503
+    assert response.headers == {"X-SKUEL-Refusal": "rendered"}
+    body = to_xml(response.content)
+    assert "not found" not in body
+    assert "Could not load task" in body
 
 
 # ============================================================================
@@ -391,4 +419,5 @@ async def test_not_found_banner_capitalizes_singular() -> None:
     )
     response = await handler(_request({"status": "active"}), uid="p.1")
 
-    assert "Principle not found" in to_xml(response)
+    assert response.status_code == 404
+    assert "Principle not found" in to_xml(response.content)

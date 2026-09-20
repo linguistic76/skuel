@@ -68,7 +68,7 @@ def _client(monkeypatch: pytest.MonkeyPatch) -> tuple[TestClient, list[str]]:
     async def get_all(user_uid: str) -> Result[list[_Item]]:
         return Result.ok([])
 
-    async def get_one(uid: str) -> Result[_Item]:
+    async def get_owned(uid: str, user_uid: str) -> Result[_Item]:
         return Result.ok(_Item(uid=uid, status="active"))
 
     config = ActivityUIConfig(
@@ -77,7 +77,7 @@ def _client(monkeypatch: pytest.MonkeyPatch) -> tuple[TestClient, list[str]]:
         page_title="Events",
         filter_params=(("status", "upcoming"),),
         get_all=get_all,
-        get_one=get_one,
+        get_owned=get_owned,
         backend=backend,
         filter_fn=_keep_all,
         connection_config=MagicMock(),
