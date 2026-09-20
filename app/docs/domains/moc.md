@@ -139,7 +139,7 @@ PS: "Python Reference" (root MOC)
 
 ## API Endpoints
 
-All in `adapters/inbound/path_steps_api.py`. The three writes are admin-only and CSRF-protected; the reads are open (curriculum is shared content).
+All in `adapters/inbound/path_steps_api.py`. The three writes are admin-only and CSRF-protected. The reads carry **no authentication**, and the mixin they reach matches any `:Entity`. For a PathStep subject that is the shared-content contract. For a personal-vault UserEntry map (`moc: true`) it is a **defect, not a pattern**: `/api/path-steps/{uid}/organizers`, `/api/path-steps/{uid}/organized-children` and `/api/path-steps/root-organizers` answer a private entry's uid and title to any caller, and `organizers` on a PathStep returns the private note that links to it — a by-UID read outside both ADR-085 chokepoints. The remedy is a curriculum scope on `PsOrganizationService`'s reads (the subject through `ps_core.get()`, parents and roots filtered to curriculum `entity_type`s; the UserEntry map keeps its owner-verified read on `/gradebook/{uid}`), not a doc exception.
 
 | Endpoint | Method | Description |
 |----------|--------|-------------|

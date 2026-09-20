@@ -201,6 +201,8 @@ learning_paths = LpService(
     progress_service=user_progress,
     graph_intel=graph_intelligence,
     event_bus=event_bus,
+    progress_backend=progress_backend,
+    user_service=user_service,  # without it LearningRecommendationEngine's handler exits early
 )
 ```
 
