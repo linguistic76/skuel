@@ -731,7 +731,7 @@ looks like from the outside:
 |---|---|---|
 | `matched` | registered — exact, or wildcard-segment | — |
 | `fiction` | unmatched, not negated, no history signal on the line | the sweep queue; the only class that could ever gate |
-| `history` | unmatched, and the line carries a `history_in_code` signal (its `classify` — one vocabulary, imported, never copied) | printed; the line is `history_in_code --docs`'s to read |
+| `history` | unmatched, and the line carries a `history_in_code` signal (its `classify` — one vocabulary, imported, never copied) — whatever shape the route has | printed; the line is `history_in_code --docs`'s to read |
 | `family-prefix` | unmatched, strict prefix of ≥1 registered route (`/api/context` naming the door to `/api/context/*`) | printed, **never a skip**: `POST /api/knowledge` is a prefix of `/api/knowledge/ai/*` and does not exist |
 | `relative-suffix` | unmatched single segment that ends ≥1 deeper route (`/create` cited relative to a base named earlier) | printed, **never a skip**: `/ku` lands here through `/library/ku` and has no handler |
 | `negated` | the **span** is the object of a present-tense negation: `` no `/x` ``, `` not `/x` ``, `` `/x` → 404 ``, `` `/x` is a 404 ``, `` `/x` returns 404 ``, `` `/x` does not exist `` | skipped, printed |
@@ -783,8 +783,8 @@ never CI — is a separate ruling that waits on two sweep PRs each re-measuring 
 precision on a fresh draw; `family-prefix`, `relative-suffix` and `history` stay
 printed-only whatever that ruling says. Measured 2026-09-20 on the tree at PR #1379's
 head: 1627 inline claims — 1295 matched · **210 fiction in 51 files** (62 of them one
-section of `docs/patterns/OWNERSHIP_VERIFICATION.md`; 4 are dead directory citations) · 12
-history · 39 family-prefix · 53 relative-suffix · 15 negated · 2 + 1 marker-skipped;
+section of `docs/patterns/OWNERSHIP_VERIFICATION.md`; 4 are dead directory citations) · 17
+history · 36 family-prefix · 51 relative-suffix · 15 negated · 2 + 1 marker-skipped;
 re-measure with `./dev health-claims`.
 
 **Matching is directional and verb-aware.** A wildcard is wild in one direction per

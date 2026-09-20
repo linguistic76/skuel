@@ -45,10 +45,12 @@ silent skips — every claim lands in exactly one of:
 - ``matched``          registered — exact, or wildcard-segment in one direction (the
                        catalog module says which), and for the claimed verb if one is
                        written (``PUT /x`` is not matched by a ``POST``-only ``/x``)
-- ``fiction``          unmatched, not negated, no history signal on the line — the sweep
+- ``fiction``          unmatched, not negated, no history signal, no near-miss shape
+                       — the sweep
 - ``history``          unmatched, and the line carries a ``history_in_code`` signal
                        (its ``classify`` — ONE vocabulary, imported): the line narrates,
-                       and ``history_in_code --docs`` is the census that reads it
+                       and ``history_in_code --docs`` is the census that reads it —
+                       whatever shape the route has
 - ``family-prefix``    unmatched, strict prefix of ≥1 registered route (``/api/context``
                        naming the door to ``/api/context/*``). A CLASS, never a skip:
                        ``POST /api/knowledge`` is a prefix of ``/api/knowledge/ai/*``
@@ -419,11 +421,15 @@ def _classify(
             return marker_class(marker.name)
     if span_negated(line, start, end):
         return "negated"
+    # A line that narrates is the census's whatever shape its route has: "`/profile`
+    # was retired" is history before it is a family prefix of `/profile/shared`.
+    if history_signals(line):
+        return "history"
     if norm is not None and catalog.is_family_prefix(norm):
         return "family-prefix"
     if norm is not None and catalog.is_relative_suffix(norm):
         return "relative-suffix"
-    return "history" if history_signals(line) else "fiction"
+    return "fiction"
 
 
 def scan_file(md_file: Path, catalog: RouteCatalog) -> FileClaims | None:

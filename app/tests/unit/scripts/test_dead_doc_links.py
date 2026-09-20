@@ -1353,11 +1353,10 @@ def test_registered_route_target_is_skipped_and_counted(docs_root: Path) -> None
 
 
 def test_unregistered_route_shaped_target_stays_red(docs_root: Path) -> None:
-    """⚠️ The class is defined by MATCHING a registration, never by shape (Codex, #1214).
+    """⚠️ The class is defined by MATCHING a registration, never by shape.
 
-    `/journals/browse` is exactly the trap: route-shaped, cited three times in the voice
-    journaling guide, and registered nowhere since PR #420 deleted it. A shape rule would
-    have hidden it; matching keeps it red for the sweep queue.
+    `/journals/browse` is exactly the trap: route-shaped and registered nowhere. A
+    shape rule would hide it; matching keeps it red for the sweep queue.
     """
     scan = _scan(docs_root, "# P\n\nSee [history](/journals/browse).\n", catalog=TWO_ROUTES)
     assert {raw for _s, _l, raw, _k in scan.dead} == {"/journals/browse"}

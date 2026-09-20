@@ -299,6 +299,13 @@ def test_a_claimed_verb_the_route_does_not_serve_is_fiction() -> None:
     assert _classes("# P\n\n`OPTIONS /profile/shared`\n")[0][2] == "fiction"
 
 
+def test_history_outranks_the_near_miss_shapes() -> None:
+    """A narrating line is the census's whatever its route's shape: "`/profile` was
+    retired" is history, not the family prefix of `/profile/shared`."""
+    assert _classes("# P\n\n`/profile` was removed from the chrome\n")[0][2] == "history"
+    assert _classes("# P\n\n`/ku` was deleted in the chrome arc\n")[0][2] == "history"
+
+
 def test_relative_suffix_is_a_class_because_it_hides_ku() -> None:
     """`/ku` ends `/library/ku` and has no handler. As a skip, this relation would hide
     that; as a class, it is printed and a sweep reads it."""
