@@ -48,7 +48,7 @@ from typing import Any
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
-from fasthtml.common import to_xml
+from fasthtml.common import FtResponse, to_xml
 from starlette.responses import Response
 
 import adapters.inbound.teaching_forms_ui as tfu
@@ -354,6 +354,9 @@ def _page(result: Any) -> tuple[int, str]:
     "Submission not found" inside an HTTP 200 would pass a text-only check
     while telling every client and intermediary the request succeeded.
     """
+    if isinstance(result, FtResponse):
+        # A rendered refusal: the page with its chrome, at the status it earns.
+        return result.status_code, to_xml(result.content)
     if isinstance(result, Response):
         return result.status_code, bytes(result.body).decode()
     return 200, to_xml(result)
