@@ -111,7 +111,7 @@ def test_the_probe_writes_nothing_to_stdout(capsys: pytest.CaptureFixture[str]) 
     """The route modules log every registration at INFO; a reader's stdout is its
     report, so the wiring is captured. Cleared and rebuilt so the cache cannot hide
     a leak."""
-    rc.runtime_route_paths.cache_clear()
+    rc.runtime_route_table.cache_clear()
     rc.runtime_catalog.cache_clear()
     rc.runtime_route_paths()
     out, err = capsys.readouterr()
@@ -173,6 +173,54 @@ def test_claim_side_wildcard_matches_a_family(catalog: rc.RouteCatalog) -> None:
     belongs to — wild on the CLAIM side matches too."""
     assert catalog.is_registered("/api/{}/create")
     assert not catalog.is_registered("/api/{}/delete")
+
+
+def test_wildcards_never_cross_within_one_match() -> None:
+    """`/api/ku/related/{uid}` is NOT served by `/api/ku/{uid}/mark-studying`: that
+    reading needs the registration's parameter to eat `related` AND the claim's
+    placeholder to eat `mark-studying` — two routes, neither of which exists. Either
+    direction alone still matches (instance, family)."""
+    catalog = rc.RouteCatalog({"/api/ku/{uid}/mark-studying"})
+    assert not catalog.is_registered("/api/ku/related/{}")
+    assert catalog.is_registered("/api/ku/abc/mark-studying")  # instance
+    assert catalog.is_registered("/api/{}/{}/mark-studying")  # family
+    assert catalog.is_registered("/api/ku/{}/mark-studying")  # same shape
+    assert not catalog.is_registered("/api/ku/{}/mark-understood")
+
+
+def test_claimed_method_is_held_to_the_registration() -> None:
+    """The runtime table carries verbs; a claim that writes one must be served for
+    it. A method-blind catalog (bare paths) accepts any verb — the tests' seam."""
+    with_verbs = rc.RouteCatalog(
+        {"/api/events/{uid}/status": ["POST"], "/tasks": ["GET", "HEAD", "POST"]}
+    )
+    assert with_verbs.is_registered("/api/events/{}/status")
+    assert with_verbs.is_registered("/api/events/{}/status", "POST")
+    assert with_verbs.is_registered("/api/events/{}/status", "post")
+    assert not with_verbs.is_registered("/api/events/{}/status", "PUT")
+    assert not with_verbs.is_registered(
+        "/api/events/abc/status", "PUT"
+    )  # wildcard path, same verb rule
+    assert with_verbs.methods_for("/tasks") == frozenset({"GET", "HEAD", "POST"})
+    blind = rc.RouteCatalog({"/api/events/{uid}/status"})
+    assert blind.is_registered("/api/events/{}/status", "PUT")
+    assert blind.methods_for("/api/events/{}/status") is None
+
+
+def test_two_registrations_of_one_shape_pool_their_verbs() -> None:
+    catalog = rc.RouteCatalog({"/x/{a}": ["GET"], "/x/{b}": ["POST"]})
+    assert catalog.is_registered("/x/{}", "GET")
+    assert catalog.is_registered("/x/{}", "POST")
+    assert not catalog.is_registered("/x/{}", "DELETE")
+
+
+def test_runtime_table_carries_verbs_for_a_post_only_route(runtime: frozenset[str]) -> None:
+    """Corpus pin: `/api/events/{uid}/status` is registered for POST alone, so the
+    claim `PUT /api/events/{uid}/status` a doc makes is not matched."""
+    catalog = rc.runtime_catalog()
+    assert "/api/events/{}/status" in catalog.paths
+    assert catalog.methods_for("/api/events/{}/status") == frozenset({"POST"})
+    assert not catalog.is_registered("/api/events/{}/status", "PUT")
 
 
 @pytest.mark.parametrize("claim", ["/ku", "/home", "/api/tasks", "/api/tasks/create/extra"])

@@ -46,16 +46,16 @@ PLANNED = ddl.MARKERS_BY_NAME["planned"].spelling
 
 CATALOG = rc.RouteCatalog(
     {
-        "/tasks",
-        "/api/tasks/create",
-        "/api/tasks/{uid}/complete",
-        "/api/tasks/{uid}/lateral/blocks",
-        "/api/context/rich",
-        "/api/knowledge/ai/summary",
-        "/library/ku",
-        "/profile/shared",
-        "/explore/ku/{uid}",
-        "/manifest.json",
+        "/tasks": ["GET", "HEAD", "POST"],
+        "/api/tasks/create": ["POST"],
+        "/api/tasks/{uid}/complete": ["POST"],
+        "/api/tasks/{uid}/lateral/blocks": ["GET", "HEAD", "POST"],
+        "/api/context/rich": ["GET", "HEAD", "POST"],
+        "/api/knowledge/ai/summary": ["GET", "HEAD", "POST"],
+        "/library/ku": ["GET", "HEAD", "POST"],
+        "/profile/shared": ["GET", "HEAD", "POST"],
+        "/explore/ku/{uid}": ["GET", "HEAD", "POST"],
+        "/manifest.json": ["GET", "HEAD", "POST"],
     }
 )
 
@@ -263,6 +263,19 @@ def test_history_uses_the_finders_vocabulary_not_a_second_one() -> None:
     # its rule — so a dead route cited on one is fiction, as it should be: the
     # pointer sanctions the record, not the route.
     assert _classes("# P\n\nSee: `/home` was removed\n")[0][2] == "fiction"
+
+
+def test_a_claimed_verb_the_route_does_not_serve_is_fiction() -> None:
+    """`/api/tasks/create` is POST-only in the fixture catalog, as
+    `/api/events/{uid}/status` is in the real one — `PUT` there is a claim about a
+    route that does not exist."""
+    found = _classes("# P\n\n`PUT /profile/shared` and `POST /profile/shared`\n")
+    assert [(label, cls) for _ln, label, cls in found] == [
+        ("PUT /profile/shared", "fiction"),
+        ("POST /profile/shared", "matched"),
+    ]
+    # The near-miss relations are verb-blind — a printed class, not a match, either way.
+    assert _classes("# P\n\n`PUT /api/tasks/create`\n")[0][2] == "family-prefix"
 
 
 def test_relative_suffix_is_a_class_because_it_hides_ku() -> None:

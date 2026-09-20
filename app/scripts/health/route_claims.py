@@ -40,7 +40,9 @@ A class that prints zero for a whole run is what a rotted narrowing looks like f
 the outside; a class that is silently skipped looks like a clean scan. So there are no
 silent skips — every claim lands in exactly one of:
 
-- ``matched``          registered (exact, or wildcard-segment — ``{}`` wild either side)
+- ``matched``          registered — exact, or wildcard-segment in one direction (the
+                       catalog module says which), and for the claimed verb if one is
+                       written (``PUT /x`` is not matched by a ``POST``-only ``/x``)
 - ``fiction``          unmatched, not negated, no history signal on the line — the sweep
 - ``history``          unmatched, and the line carries a ``history_in_code`` signal
                        (its ``classify`` — ONE vocabulary, imported): the line narrates,
@@ -340,7 +342,16 @@ def scan_content(content: str, md_file: Path, catalog: RouteCatalog) -> FileClai
                 method,
                 path,
                 _classify(
-                    catalog, norm, line, start, end, lineno, marker_lines, honored, marker_used
+                    catalog,
+                    norm,
+                    method,
+                    line,
+                    start,
+                    end,
+                    lineno,
+                    marker_lines,
+                    honored,
+                    marker_used,
                 ),
                 line.strip(),
             )
@@ -351,6 +362,7 @@ def scan_content(content: str, md_file: Path, catalog: RouteCatalog) -> FileClai
 def _classify(
     catalog: RouteCatalog,
     norm: str | None,
+    method: str,
     line: str,
     start: int,
     end: int,
@@ -360,7 +372,7 @@ def _classify(
     marker_used: dict[str, set[int]],
 ) -> str:
     """The one class this claim lands in — the order IS the precedence."""
-    if norm is not None and catalog.is_registered(norm):
+    if norm is not None and catalog.is_registered(norm, method):
         return "matched"
     # A marker skips a DEAD claim and nothing else — checked only once the claim has
     # failed to match, so it can never cover a live route (the property that keeps it

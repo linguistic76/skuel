@@ -11,21 +11,23 @@ Why the catalog is read from the RUNTIME route table
 The routes tree registers most of its paths through factories and f-strings —
 ``@rt(f"/{domain}")``, ``@rt(f"{self.base_path}/create")``, every lateral / hierarchy /
 CRUD / query / intelligence factory. A static pass over ``adapters/inbound/`` sees only
-the string literals: measured 2026-09-19 on ``c4c0b26fb``, **475 literal paths against
-891 registered**, and the 416 it cannot see include ``/tasks``, ``/api/tasks/create`` and
-every ``/api/{domain}/{uid}/lateral/*``. A scanner built on the static catalog reports
-each of those as fiction.
+the string literals — barely half the table — and what it cannot see includes
+``/tasks``, ``/api/tasks/create`` and every ``/api/{domain}/{uid}/lateral/*``. A scanner
+built on the static view reports each of those as fiction.
 
-So :func:`runtime_route_paths` wires the real route tree onto a bare ``fast_app()`` with
+So :func:`runtime_route_table` wires the real route tree onto a bare ``fast_app()`` with
 every service replaced by a ``MagicMock`` and the ``SystemService`` initialisation
-stubbed — no Neo4j, no credentials, no ``.env``; measured 2.5 s. **It is the union over
-intelligence tiers**: every service attribute on the mock is truthy, so every
-``if services.x is not None`` branch registers. That is the right catalog for docs,
-which may legitimately describe a FULL-tier route from a CORE-tier checkout.
+stubbed — no Neo4j, no credentials, no ``.env``; a few seconds, once per process. **It
+is the union over intelligence tiers**: every service attribute on the mock is truthy,
+so every ``if services.x is not None`` branch registers. That is the right catalog for
+docs, which may legitimately describe a FULL-tier route from a CORE-tier checkout. Each
+path carries the HTTP methods its registrations accept, so a claim that names a verb
+(``PUT /api/events/{uid}/status``) is held to it — a route served only for ``POST`` does
+not make that claim true.
 
 The static extractor survives as :func:`ast_route_paths`, kept ONLY so
 ``tests/unit/scripts/test_route_catalog.py`` can assert it is a subset of the runtime
-table and print the size of the gap — never as a reader's source.
+table and print the size of the gap on every run — never as a reader's source.
 
 ⚠️ The root static catch-all
 ----------------------------
@@ -42,11 +44,18 @@ Matching
 --------
 :func:`normalize` strips query and anchor, a trailing slash, and turns any segment
 containing ``{`` into the wildcard ``{}`` (a Starlette converter ``{x:path}`` included).
-``RouteCatalog.is_registered`` matches exactly, then segment-by-segment with ``{}``
-wild on EITHER side — a doc's ``/api/{domain}/create`` is a family claim and matches
-``/api/tasks/create``. The two near-miss relations are exposed as their own predicates
-(``is_family_prefix``, ``is_relative_suffix``) because the claims scanner reports them
-as CLASSES rather than skipping them: each hides real fiction when treated as a match.
+``RouteCatalog.is_registered`` matches segment by segment, and a wildcard is wild in
+ONE direction per match: either the claim is an *instance* of the registration (the
+registration's parameters may cover the claim's literals — ``/api/tasks/{uid}/complete``
+serves ``/api/tasks/abc/complete``) or the claim is a *family* the registration belongs
+to (the claim's placeholders may cover the registration's literals — a doc's
+``/api/{domain}/create`` names ``/api/tasks/create``). Never both at once: with wildcards
+crossing, ``/api/ku/related/{uid}`` would read as served by ``/api/ku/{uid}/mark-studying``
+— the registration's parameter eating ``related`` while the claim's placeholder eats
+``mark-studying`` — and no such route exists. The two near-miss relations are exposed as
+their own predicates (``is_family_prefix``, ``is_relative_suffix``) because the claims
+scanner reports them as CLASSES rather than skipping them: each hides real fiction when
+treated as a match.
 """
 
 from __future__ import annotations
@@ -55,6 +64,7 @@ import ast
 import asyncio
 import contextlib
 import io
+from collections.abc import Mapping
 from functools import cache
 from pathlib import Path
 from typing import TYPE_CHECKING
@@ -88,40 +98,100 @@ def normalize(path: str) -> str | None:
     return "/".join("{}" if "{" in seg else seg for seg in path.split("/"))
 
 
-def _segments_match(a: list[str], b: list[str]) -> bool:
-    """Same length, and every position equal or wild on either side."""
-    if len(a) != len(b):
+def _segments_match(claim: list[str], registration: list[str]) -> bool:
+    """Same length, every position equal or covered by a wildcard — in ONE direction.
+
+    The claim may be an instance of the registration (registration wildcards over
+    claim literals) or a family it belongs to (claim wildcards over registration
+    literals); a match that needs both readings at once is two different routes.
+    """
+    if len(claim) != len(registration):
         return False
-    return all(x == y or x == "{}" or y == "{}" for x, y in zip(a, b, strict=True))
+    instance = True  # registration parameters cover claim literals
+    family = True  # claim placeholders cover registration literals
+    for c, r in zip(claim, registration, strict=True):
+        if c == r:
+            continue
+        if c == "{}" and r == "{}":
+            continue
+        if c == "{}":
+            instance = False
+        elif r == "{}":
+            family = False
+        else:
+            return False
+    return instance or family
+
+
+# Methods per normalised path; ``None`` means the source carried no method information
+# (a bare path set), and any verb is accepted for that path.
+_Methods = frozenset[str] | None
+
+
+def _allows(methods: _Methods, verb: str) -> bool:
+    return not verb or methods is None or verb in methods
 
 
 class RouteCatalog:
     """The normalised route table with its three relations.
 
-    Built once from raw registered paths (any source — the runtime table, or a
-    test's ``frozenset``), so every reader matches the same way.
+    Built once from registered paths — a mapping ``{path: methods}`` (the runtime
+    table) or a bare iterable of paths (a test's ``frozenset``, method-blind) — so every
+    reader matches the same way.
     """
 
-    def __init__(self, raw_paths: Iterable[str]) -> None:
-        normalised = {normalize(p) for p in raw_paths}
-        self.paths: frozenset[str] = frozenset(p for p in normalised if p is not None)
-        self._segments: list[list[str]] = [p.split("/") for p in self.paths]
+    def __init__(self, raw: Mapping[str, Iterable[str]] | Iterable[str]) -> None:
+        methods: dict[str, _Methods] = {}
+        entries: Iterable[tuple[str, _Methods]]
+        if isinstance(raw, Mapping):
+            entries = ((p, frozenset(m.upper() for m in ms)) for p, ms in raw.items())
+        else:
+            entries = ((p, None) for p in raw)
+        for path, verbs in entries:
+            norm = normalize(path)
+            if norm is None:
+                continue
+            # Two registrations can normalise to one path (`/x/{a}` and `/x/{b}`); the
+            # union of their verbs is what the path serves, and one unknown makes the
+            # whole path verb-blind.
+            known = methods.get(norm)
+            if norm in methods and (known is None or verbs is None):
+                methods[norm] = None
+            elif known is not None and verbs is not None:
+                methods[norm] = known | verbs
+            else:
+                methods[norm] = verbs
+        self._methods: dict[str, _Methods] = methods
+        self.paths: frozenset[str] = frozenset(methods)
+        self._segments: list[tuple[list[str], _Methods]] = [
+            (p.split("/"), methods[p]) for p in self.paths
+        ]
         # Last segments of routes at least two segments deep: `/api/tasks/create` →
         # `create`. A single-segment claim that names one of these is a RELATIVE
         # citation of a deeper route, not a root route.
         self._deep_last_segments: frozenset[str] = frozenset(
-            s[-1] for s in self._segments if len(s) > 2
+            s[-1] for s, _m in self._segments if len(s) > 2
         )
 
     def __len__(self) -> int:
         return len(self.paths)
 
-    def is_registered(self, norm: str) -> bool:
-        """Exact match, then wildcard-segment match against every registration."""
-        if norm in self.paths:
+    def methods_for(self, norm: str) -> _Methods:
+        """The verbs a normalised path is registered for; ``None`` when unknown."""
+        return self._methods.get(norm)
+
+    def is_registered(self, norm: str, method: str = "") -> bool:
+        """Is this path served — and, when a verb is claimed, served for that verb?
+
+        Exact match first, then the directional wildcard match against every
+        registration. A claimed method must be among the verbs of a registration that
+        matches; a method-blind catalog (built from bare paths) accepts any verb.
+        """
+        verb = method.upper()
+        if norm in self._methods and _allows(self._methods[norm], verb):
             return True
         segs = norm.split("/")
-        return any(_segments_match(segs, c) for c in self._segments)
+        return any(_segments_match(segs, c) and _allows(ms, verb) for c, ms in self._segments)
 
     def is_family_prefix(self, norm: str) -> bool:
         """Is this unmatched path a strict prefix of at least one registered route?
@@ -132,7 +202,7 @@ class RouteCatalog:
         """
         segs = norm.split("/")
         return any(
-            len(c) > len(segs) and _segments_match(segs, c[: len(segs)]) for c in self._segments
+            len(c) > len(segs) and _segments_match(segs, c[: len(segs)]) for c, _m in self._segments
         )
 
     def is_relative_suffix(self, norm: str) -> bool:
@@ -146,7 +216,7 @@ class RouteCatalog:
         return len(segs) == 2 and segs[1] in self._deep_last_segments
 
 
-async def _wire_onto_bare_app() -> frozenset[str]:
+async def _wire_onto_bare_app() -> dict[str, frozenset[str]]:
     # Imported here, not at module top: the routes tree pulls in the whole
     # composition root, and the readers that import this module must stay cheap
     # until a catalog is actually asked for.
@@ -167,14 +237,20 @@ async def _wire_onto_bare_app() -> frozenset[str]:
         contextlib.redirect_stderr(sink),
     ):
         await bootstrap._wire_all_routes(app, rt, services, MagicMock(), MagicMock())
-    return frozenset(
-        r.path for r in app.routes if getattr(r, "path", None) and CATCH_ALL_MARKER not in r.path
-    )
+    table: dict[str, frozenset[str]] = {}
+    for route in app.routes:
+        path = getattr(route, "path", None)
+        if not path or CATCH_ALL_MARKER in path:
+            continue
+        verbs = frozenset(m.upper() for m in (getattr(route, "methods", None) or ()))
+        table[path] = table.get(path, frozenset()) | verbs
+    return table
 
 
 @cache
-def runtime_route_paths() -> frozenset[str]:
-    """Every path the application registers, read by wiring the real route tree.
+def runtime_route_table() -> dict[str, frozenset[str]]:
+    """Every path the application registers, with its HTTP methods, by wiring the
+    real route tree.
 
     Union over intelligence tiers (every service is a truthy mock), root static
     catch-all stripped as bootstrap strips it, cached for the process. No database,
@@ -183,10 +259,15 @@ def runtime_route_paths() -> frozenset[str]:
     return asyncio.run(_wire_onto_bare_app())
 
 
+def runtime_route_paths() -> frozenset[str]:
+    """The registered paths alone — the subset test's view of the table."""
+    return frozenset(runtime_route_table())
+
+
 @cache
 def runtime_catalog() -> RouteCatalog:
     """The one catalog both readers consume."""
-    return RouteCatalog(runtime_route_paths())
+    return RouteCatalog(runtime_route_table())
 
 
 def _decorator_callee(func: ast.expr) -> str:
