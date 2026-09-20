@@ -25,7 +25,9 @@ consumer-less state is this file and the two `PLANNED_METHODS` entries in `scrip
 
 **What completes the entry:** a designed surface for the learner's SEL journey (the
 `/path-steps` index or the `/explore/ps/{uid}` page are the candidates — both live) that loads
-one of the fragments; wire it and delete the registry entries. **What retires it the other way:**
+one of the fragments; wire it and delete the registry entries. The host page's contract is a
+`#curriculum-list` element: a category card's "Continue Learning" button HTMX-loads that
+category's `curriculum-html` fragment into it. **What retires it the other way:**
 a ruling that the JSON twins are enough, after which the handlers, the UI module and the entries
 go together under One Path Forward.
 
