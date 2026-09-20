@@ -109,8 +109,8 @@ def render_activity_sidebar_error(
     The terminal state of every activity guard that has nothing left to render —
     a missing UID, or an entity the user does not own (deliberately reported as
     "not found", per OWNERSHIP_VERIFICATION). These routes are full page loads,
-    so the learner gets the page chrome back; the route wraps the page in
-    ``refuse_not_found`` so it carries the 404 the refusal owes.
+    so the learner gets the page chrome back; the route hands this renderer to
+    ``refuse`` so the page carries the status the refusal earns.
 
     Args:
         message: The user-facing error text.

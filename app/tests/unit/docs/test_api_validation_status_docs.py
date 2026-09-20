@@ -4,7 +4,7 @@ Why this exists
 ---------------
 A status column is a contract a client integrator branches on, so a wrong cell
 sends someone to handle a status the app never emits. The guide's claims rest
-on one fact: ``_get_status_for_error`` maps ``ErrorCategory.VALIDATION`` to 400,
+on one fact: ``status_for_error`` maps ``ErrorCategory.VALIDATION`` to 400,
 and 422 belongs to ``BUSINESS`` — a well-formed request that breaks a domain
 rule, which this guide does not cover.
 
@@ -32,7 +32,7 @@ from fasthtml.common import fast_app
 from pydantic import BaseModel, Field
 from starlette.testclient import TestClient
 
-from adapters.inbound.boundary import _get_status_for_error, result_to_response
+from adapters.inbound.boundary import result_to_response, status_for_error
 from adapters.inbound.form_helpers import parse_form_body, parse_json_body
 from adapters.inbound.route_factories import (
     parse_bool_query_param,
@@ -140,8 +140,8 @@ def _status_of[T](result: Result[T]) -> int:
 
 def test_status_map_reserves_422_for_business() -> None:
     """The premise the whole guide rests on: validation is 400, 422 is BUSINESS."""
-    assert _get_status_for_error(Errors.validation("bad input")) == 400
-    assert _get_status_for_error(Errors.business("rule", "rule violated")) == 422
+    assert status_for_error(Errors.validation("bad input")) == 400
+    assert status_for_error(Errors.business("rule", "rule violated")) == 422
 
 
 def test_every_table_row_is_driven_or_declared_undriven() -> None:

@@ -15,6 +15,7 @@ picker collects user input that the service routes to a
 
 from __future__ import annotations
 
+from functools import partial
 from typing import TYPE_CHECKING, Any
 
 from fasthtml.common import Div
@@ -25,7 +26,7 @@ from adapters.inbound.auth import require_authenticated_user
 from adapters.inbound.csrf import csrf_protected
 from adapters.inbound.fasthtml_types import Request
 from adapters.inbound.form_helpers import parse_form_body
-from adapters.inbound.route_factories import refuse_not_found, require_owned_entity
+from adapters.inbound.route_factories import refuse, require_owned_entity
 from core.models.task.task_request import TaskCreateRequest, TaskUpdateRequest
 from core.models.type_hints import UserUID
 from core.utils.connection_configs import TASK_CONNECTION_CONFIG
@@ -167,12 +168,10 @@ def create_tasks_ui_routes(
 
         owned = await tasks_service.verify_ownership(uid, user_uid)
         if owned.is_error:
-            return refuse_not_found(
-                render_activity_sidebar_error(
-                    "Task not found",
-                    active="tasks",
-                    request=request,
-                )
+            return refuse(
+                owned.expect_error(),
+                partial(render_activity_sidebar_error, active="tasks", request=request),
+                "Task",
             )
         task = owned.value
 
@@ -206,12 +205,10 @@ def create_tasks_ui_routes(
 
         owned = await tasks_service.verify_ownership(uid, user_uid)
         if owned.is_error:
-            return refuse_not_found(
-                render_activity_sidebar_error(
-                    "Task not found",
-                    active="tasks",
-                    request=request,
-                )
+            return refuse(
+                owned.expect_error(),
+                partial(render_activity_sidebar_error, active="tasks", request=request),
+                "Task",
             )
         task = owned.value
         reinforced = await tasks_service.get_reinforced_habit(task.uid)

@@ -18,6 +18,7 @@ See: /docs/patterns/DOMAIN_ROUTE_CONFIG_PATTERN.md
 from __future__ import annotations
 
 from dataclasses import dataclass
+from functools import partial
 from typing import TYPE_CHECKING, Any
 from urllib.parse import urlencode
 
@@ -26,14 +27,14 @@ from fasthtml.common import Div, HttpHeader
 from adapters.inbound.auth import require_authenticated_user
 from adapters.inbound.csrf import csrf_protected
 from adapters.inbound.fasthtml_types import Request
-from adapters.inbound.route_factories import refuse_not_found
+from adapters.inbound.route_factories import refuse, refuse_not_found
 from ui.activities._shared import CurriculumOriginField
 from ui.activities.filter_bar import ActivityFilterBar, with_user_categories
 from ui.activities.nav import render_activity_sidebar_page
 from ui.components import ButtonT
 from ui.dual_track_card import render_dual_track_result
 from ui.patterns import PageHeader
-from ui.patterns.error_banner import render_error_banner
+from ui.patterns.error_banner import render_error_banner, render_slot_error
 from ui.patterns.loading import content_loading_placeholder
 from ui.patterns.personal_header import personal_header_placeholder
 from ui.primitives import ButtonLink
@@ -117,6 +118,12 @@ class ActivityUIConfig:
 # ============================================================================
 # Route factory
 # ============================================================================
+
+
+def _bare_banner(message: str) -> Div:
+    """The dual-track result slot's refusal body — a banner with no slot id (the card
+    re-renders in place)."""
+    return Div(render_error_banner(message))
 
 
 def create_activity_ui_routes(
@@ -290,20 +297,17 @@ def create_activity_ui_routes(
         """HTMX fragment: entity detail with connections."""
         user_uid = require_authenticated_user(request)
         uid = request.query_params.get("uid", "")
-        not_found_label = f"{singular.capitalize()} not found"
+        slot = partial(render_slot_error, f"{singular}-detail-content")
 
         if not uid:
-            return refuse_not_found(
-                Div(render_error_banner(f"Missing {singular} UID"), id=f"{singular}-detail-content")
-            )
+            return refuse_not_found(slot(f"Missing {singular} UID"))
 
         # The one read on the detail page: the shell only echoes the uid into this
-        # URL. A foreign uid and a missing one answer the same rendered 404.
+        # URL. A foreign uid and a missing one answer the same rendered 404; a
+        # backend failure keeps its own status.
         owned = await config.get_owned(uid, user_uid)
         if owned.is_error:
-            return refuse_not_found(
-                Div(render_error_banner(not_found_label), id=f"{singular}-detail-content")
-            )
+            return refuse(owned.expect_error(), slot, singular.capitalize())
         entity = owned.value
 
         connections_map = await config.backend.fetch_entity_connections(
@@ -348,15 +352,14 @@ def create_activity_ui_routes(
             form = await request.form()
             level_raw = str(form.get("level", ""))
             reflection = str(form.get("reflection", ""))
-            not_found_label = f"{singular.capitalize()} not found"
 
             if not uid:
                 return refuse_not_found(Div(render_error_banner(f"Missing {singular} UID")))
 
-            # Ownership: a rendered 404 — the banner in the slot, never a 200.
+            # Ownership: the refusal renders in the slot at the status it earns.
             owned = await config.get_owned(uid, user_uid)
             if owned.is_error:
-                return refuse_not_found(Div(render_error_banner(not_found_label)))
+                return refuse(owned.expect_error(), _bare_banner, singular.capitalize())
 
             try:
                 level = level_enum(level_raw)

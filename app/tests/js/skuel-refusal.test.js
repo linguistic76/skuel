@@ -1,7 +1,8 @@
 /**
  * Rendered-refusal swap pins for static/js/skuel.js.
  *
- * Pins the client half of route_helpers.refuse_not_found: a 404 carrying
+ * Pins the client half of route_helpers.refuse / refuse_not_found /
+ * refuse_unavailable: an error response (4xx/5xx) carrying
  * `X-SKUEL-Refusal: rendered` is opted into the HTMX swap by the parse-time
  * htmx:beforeSwap listener; every other response leaves the swap decision
  * as HTMX made it, and `isError` is never touched. A swap is not a success:
@@ -45,9 +46,15 @@ describe('htmx:beforeSwap rendered-refusal opt-in', () => {
     expect(detail.isError).toBe(true);
   });
 
-  it('ignores the header on any other status', () => {
-    expect(beforeSwap(fakeXhr(403, { 'x-skuel-refusal': 'rendered' }), false).shouldSwap).toBe(false);
+  it('swaps a rendered 503 too — a backend failure keeps its status and still renders', () => {
+    const detail = beforeSwap(fakeXhr(503, { 'x-skuel-refusal': 'rendered' }), false);
+    expect(detail.shouldSwap).toBe(true);
+    expect(detail.isError).toBe(true);
+  });
+
+  it('leaves a successful response alone whatever headers it carries', () => {
     expect(beforeSwap(fakeXhr(200, { 'x-skuel-refusal': 'rendered' }), true).shouldSwap).toBe(true);
+    expect(beforeSwap(fakeXhr(204, {}), false).shouldSwap).toBe(false);
   });
 
   it('survives a missing xhr', () => {

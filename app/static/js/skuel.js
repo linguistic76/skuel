@@ -161,19 +161,20 @@
     });
 
     // -------------------------------------------------------------------------
-    // Rendered ownership refusals: an ownership failure answers 404 — the status
-    // is the invariant (OWNERSHIP_VERIFICATION.md) — and HTMX 1.x leaves a 4xx
-    // body unswapped by default. A 404 whose body is meant for the slot (the
-    // "not found" banner a top-level fragment renders) carries
-    // `X-SKUEL-Refusal: rendered`, minted only by route_helpers.refuse_not_found;
-    // this opts that response into the swap. A plain-text 404 (a nested fragment,
-    // a crafted POST) still leaves the target untouched. `isError` is left true,
-    // so htmx:responseError and the aria-busy reset fire as for any error.
-    // Registered at parse time, like configRequest, to beat hx-trigger="load".
+    // Rendered refusals: an ownership failure answers 404 and a backend failure
+    // its own 5xx — the status is the invariant (OWNERSHIP_VERIFICATION.md) —
+    // and HTMX 1.x leaves a 4xx/5xx body unswapped by default. An error whose
+    // body is meant for the slot (the banner a top-level fragment renders)
+    // carries `X-SKUEL-Refusal: rendered`, minted only by route_helpers.refuse /
+    // refuse_not_found / refuse_unavailable; this opts that response into the
+    // swap. A plain-text error (a nested fragment, a crafted POST) still leaves
+    // the target untouched. `isError` is left true, so htmx:responseError and
+    // the aria-busy reset fire as for any error. Registered at parse time, like
+    // configRequest, to beat hx-trigger="load".
     // -------------------------------------------------------------------------
     document.addEventListener('htmx:beforeSwap', function(event) {
         var xhr = event.detail.xhr;
-        if (!xhr || xhr.status !== 404) {
+        if (!xhr || xhr.status < 400) {
             return;
         }
         if (xhr.getResponseHeader('X-SKUEL-Refusal') === 'rendered') {

@@ -14,6 +14,7 @@ form has no pickers.
 
 from __future__ import annotations
 
+from functools import partial
 from typing import TYPE_CHECKING, Any
 
 from fasthtml.common import Div
@@ -24,7 +25,7 @@ from adapters.inbound.auth import require_authenticated_user
 from adapters.inbound.csrf import csrf_protected
 from adapters.inbound.fasthtml_types import Request
 from adapters.inbound.form_helpers import parse_form_body
-from adapters.inbound.route_factories import refuse_not_found
+from adapters.inbound.route_factories import refuse
 from core.models.enums.activity_enums import ProgressLevel
 from core.models.goal.goal_request import GoalCreateRequest, GoalUpdateRequest
 from core.utils.connection_configs import GOAL_CONNECTION_CONFIG
@@ -140,12 +141,10 @@ def create_goals_ui_routes(
 
         owned = await goals_service.verify_ownership(uid, user_uid)
         if owned.is_error:
-            return refuse_not_found(
-                render_activity_sidebar_error(
-                    "Goal not found",
-                    active="goals",
-                    request=request,
-                )
+            return refuse(
+                owned.expect_error(),
+                partial(render_activity_sidebar_error, active="goals", request=request),
+                "Goal",
             )
         goal = owned.value
 
@@ -171,12 +170,10 @@ def create_goals_ui_routes(
 
         owned = await goals_service.verify_ownership(uid, user_uid)
         if owned.is_error:
-            return refuse_not_found(
-                render_activity_sidebar_error(
-                    "Goal not found",
-                    active="goals",
-                    request=request,
-                )
+            return refuse(
+                owned.expect_error(),
+                partial(render_activity_sidebar_error, active="goals", request=request),
+                "Goal",
             )
         goal = owned.value
 

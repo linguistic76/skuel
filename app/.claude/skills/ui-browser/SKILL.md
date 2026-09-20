@@ -144,13 +144,16 @@ parent changes rather than waiting for the swap.
 <button hx-post="/track" hx-swap="none">Track only</button>
 ```
 
-**4xx responses are not swapped** (HTMX 1.x default) — with one SKUEL opt-in. An
-ownership refusal answers **404** whatever its body (OWNERSHIP_VERIFICATION.md); when
-that body is meant for the slot (the not-found banner a top-level fragment renders),
-the route wraps it in `refuse_not_found(...)`, which adds `X-SKUEL-Refusal: rendered`,
-and the parse-time `htmx:beforeSwap` listener in `static/js/skuel.js` sets `shouldSwap`
-for exactly that 404. A plain-text 404 (a nested fragment, a crafted POST) leaves the
-target untouched, as before. Never mint the header by hand.
+**4xx/5xx responses are not swapped** (HTMX 1.x default) — with one SKUEL opt-in. An
+ownership refusal answers **404** and a backend failure its own status, whatever the body
+(OWNERSHIP_VERIFICATION.md); when that body is meant for the slot (the banner a top-level
+fragment renders), the route builds it through `refuse(...)` (or `refuse_not_found` /
+`refuse_unavailable`), which adds `X-SKUEL-Refusal: rendered`, and the parse-time
+`htmx:beforeSwap` listener in `static/js/skuel.js` sets `shouldSwap` for an error response
+carrying that header. A plain-text error (a nested fragment, a crafted POST) leaves the
+target untouched, as before. The `htmx:afterSwap` announcer stays silent when
+`event.detail.successful` is false, so a swapped refusal never reads as "Status updated".
+Never mint the header by hand.
 
 ### 5. Target — Which Element to Update
 

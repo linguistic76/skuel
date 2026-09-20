@@ -139,6 +139,23 @@ def test_edit_page_post_refuses_before_reading_the_form(
     service.verify_ownership.assert_awaited_once_with(_FOREIGN_UID, _USER)
 
 
+def test_edit_page_backend_failure_keeps_its_status(monkeypatch: pytest.MonkeyPatch) -> None:
+    """A database failure inside verify_ownership renders the page at 503 — a fault
+    stays visible as a fault instead of reading as "Task not found"."""
+    client, service = _client_for("tasks", monkeypatch)
+    service.verify_ownership = AsyncMock(
+        return_value=Result.fail(Errors.database("verify_ownership", "connection reset"))
+    )
+
+    response = client.get(f"/tasks/edit?uid={_FOREIGN_UID}")
+
+    assert response.status_code == 503
+    assert response.headers[REFUSAL_HEADER.lower()] == REFUSAL_RENDERED
+    assert "Could not load task" in response.text
+    assert "Task not found" not in response.text
+    assert "<nav" in response.text
+
+
 # ============================================================================
 # The top-level fragment a detail shell loads — banner in the slot, at 404
 # ============================================================================
@@ -176,6 +193,19 @@ def test_detail_content_fragment_missing_uid_is_a_rendered_404(
 # ============================================================================
 # A nested fragment — bare 404, nothing rendered, no header
 # ============================================================================
+
+
+def test_subtasks_fragment_backend_failure_is_a_bare_503(monkeypatch: pytest.MonkeyPatch) -> None:
+    client, service = _client_for("tasks", monkeypatch)
+    service.verify_ownership = AsyncMock(
+        return_value=Result.fail(Errors.database("verify_ownership", "connection reset"))
+    )
+
+    response = client.get(f"/tasks/subtasks?uid={_FOREIGN_UID}")
+
+    assert response.status_code == 503
+    assert REFUSAL_HEADER.lower() not in response.headers
+    assert "not found" not in response.text.lower()
 
 
 def test_subtasks_fragment_foreign_uid_is_a_bare_404(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -222,5 +252,5 @@ def test_children_fragment_refuses_at_404(monkeypatch: pytest.MonkeyPatch) -> No
 
     assert response.status_code == 404
     assert response.headers[REFUSAL_HEADER.lower()] == REFUSAL_RENDERED
-    assert "Not found" in response.text
+    assert "Task not found" in response.text
     get_children.assert_not_awaited()

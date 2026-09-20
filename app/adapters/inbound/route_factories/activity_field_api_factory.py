@@ -29,7 +29,7 @@ from starlette.responses import HTMLResponse
 from adapters.inbound.auth import require_authenticated_user
 from adapters.inbound.csrf import csrf_protected
 from adapters.inbound.fasthtml_types import Request
-from adapters.inbound.route_factories.route_helpers import refuse_not_found, verify_entity_ownership
+from adapters.inbound.route_factories.route_helpers import refuse, verify_entity_ownership
 from core.models.enums import Priority
 from ui.patterns.error_banner import render_error_banner
 
@@ -110,7 +110,6 @@ def _register_field_route[T](
     config: ActivityFieldApiConfig[T],
     spec: FieldUpdateSpec[T],
 ) -> None:
-    not_found = f"{config.singular.capitalize()} not found"
 
     async def update_field(request: Request, uid: str) -> Any:
         user_uid = require_authenticated_user(request)
@@ -119,9 +118,12 @@ def _register_field_route[T](
             config.service, uid, user_uid, config.domain_name
         )
         if ownership_error is not None:
-            # Ownership refusal: a rendered 404 — the card slot receives the
-            # banner (swapped on the refusal header), the status stays honest.
-            return refuse_not_found(render_error_banner(not_found))
+            # The refusal renders into the card slot (swapped on the refusal
+            # header) at the status it earns: 404 for not-yours/missing, the
+            # fault's own status for a backend failure.
+            return refuse(
+                ownership_error.expect_error(), render_error_banner, config.singular.capitalize()
+            )
 
         form = await request.form()
         raw_value = form.get(spec.field)

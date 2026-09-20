@@ -36,8 +36,9 @@ through `verify_entity_ownership`. A manual route calls `verify_entity_ownership
 `Result[T]`) or `require_owned_entity` (UI, `Response`) itself — both helpers in
 `adapters/inbound/route_factories/route_helpers.py` wrap the service's
 `verify_ownership(uid, user_uid)`, which a route calls directly when it needs the verified
-entity back (§ API Routes, § UI Routes below). A UI refusal the learner sees is wrapped in
-`refuse_not_found` so the rendered body still carries the 404. Those are the route-layer
+entity back (§ API Routes, § UI Routes below). A UI refusal the learner sees goes through
+`refuse`, so the rendered body carries the status the failure earns (404 not-yours/missing,
+the fault's own otherwise). Those are the route-layer
 doors, and there is no decorator form; the census is
 `grep -rnE "verify_entity_ownership\(|require_owned_entity\(|\.verify_ownership\(" adapters/inbound`.
 
@@ -163,26 +164,34 @@ then applies the domain's typed-intent update (``update_task(uid,
 TaskUpdateIntent(status=...))``), where status-target validity and completion
 stamping are enforced at the service seam.
 
-### UI Routes (require_owned_entity + refuse_not_found)
+### UI Routes (require_owned_entity + refuse)
 
-A UI route answers a refusal with a **404 the learner can see**. Two helpers in
-`adapters/inbound/route_factories/route_helpers.py`, one status:
+A UI route answers a refusal with a **status the learner can see through**. The helpers in
+`adapters/inbound/route_factories/route_helpers.py`:
 
 - `require_owned_entity(service, uid, user_uid, entity_name)` → `(entity, refusal)`. The
-  refusal is a **bare** 404 `Response` (503 when the service is unavailable). Return it as-is
-  where nothing is rendered on refusal — a mutation only a crafted request reaches, or a
-  nested fragment whose parent page already refused (`/tasks/subtasks`,
+  refusal is a **bare** `Response`: 404 when the entity is not the caller's or does not exist
+  (indistinguishable by design), the error's own status otherwise (503 for a database
+  failure — a backend fault is not an access decision), 503 when the service is unavailable.
+  Return it as-is where nothing is rendered on refusal — a mutation only a crafted request
+  reaches, or a nested fragment whose parent already refused (`/tasks/subtasks`,
   `/tasks/{uid}/dependencies`).
-- `refuse_not_found(body)` → `FtResponse(body, status_code=404, headers={"X-SKUEL-Refusal":
-  "rendered"})`. Wrap the rendered body — a full page with its chrome, or the banner in a
-  fragment's slot — wherever the learner sees the refusal: the edit pages, the top-level
-  fragment a detail shell loads, the field-update card. FastHTML renders a page as a page and
-  a fragment as a fragment; the header is the swap opt-in `static/js/skuel.js` reads
-  (`htmx:beforeSwap` sets `shouldSwap` for a 404 that carries it — a plain-text 404 stays
-  unswapped, as HTMX 1.x defaults).
+- `refuse(error, render, entity_name)` → `FtResponse`. The one decision for a rendered
+  refusal: NOT_FOUND renders `"<Entity> not found"` at **404**; anything else renders
+  `"Could not load <entity>. Please try again."` at the error's own status. `render` builds
+  the body from the message — a page (`partial(render_activity_sidebar_error,
+  active="tasks", request=request)`) or a fragment slot (`partial(render_slot_error,
+  "task-detail-content")`). FastHTML renders a page as a page and a fragment as a fragment;
+  the `X-SKUEL-Refusal: rendered` header is the swap opt-in `static/js/skuel.js` reads
+  (`htmx:beforeSwap` sets `shouldSwap` for any 4xx/5xx that carries it — a plain-text error
+  stays unswapped, as HTMX 1.x defaults).
+- `refuse_not_found(body)` / `refuse_unavailable(body, error)` are the two primitives
+  `refuse` composes. Call `refuse_not_found` directly only when the refusal *is* the
+  not-found decision with no error to branch on (a uid the caller never supplied; an
+  audience check that answers `None`).
 
 A page that needs the entity calls the service's `verify_ownership` directly (it returns
-`Result[Task]`, so the value is typed) and wraps the refusal:
+`Result[Task]`, so the value is typed) and hands the failure to `refuse`:
 
 ```python
 @rt("/tasks/edit", methods=["GET"])
@@ -192,32 +201,35 @@ async def task_edit_page(request: Request) -> Any:
     ...
     owned = await tasks_service.verify_ownership(uid, user_uid)
     if owned.is_error:
-        return refuse_not_found(
-            render_activity_sidebar_error("Task not found", active="tasks", request=request)
+        return refuse(
+            owned.expect_error(),
+            partial(render_activity_sidebar_error, active="tasks", request=request),
+            "Task",
         )
     task = owned.value
 ```
 
-A fragment that does not need the entity uses the helper and wraps the banner:
+A fragment does the same with its slot:
 
 ```python
 @rt("/habits/choices-fragment")
 async def habit_choices_fragment(request: Request) -> Any:
     user_uid = require_authenticated_user(request)
     uid = request.query_params.get("uid", "")
+    slot = partial(render_slot_error, "habit-choices")
     if not uid:
-        return refuse_not_found(Div(render_error_banner("Missing habit UID"), id="habit-choices"))
+        return refuse_not_found(slot("Missing habit UID"))
 
-    _habit, refusal = await require_owned_entity(habits_service, uid, user_uid, "Habit")
-    if refusal:
-        return refuse_not_found(Div(render_error_banner("Habit not found"), id="habit-choices"))
+    owned = await habits_service.verify_ownership(uid, user_uid)
+    if owned.is_error:
+        return refuse(owned.expect_error(), slot, "Habit")
     ...
 ```
 
 A fragment is not exempt. An ownership failure that answers 200 makes an unauthorized
-read look successful to clients, caches and monitoring, whatever the body says — the
-status code is part of the contract; the body is what the learner sees, and the header is
-what lets HTMX show it.
+read look successful to clients, caches and monitoring, whatever the body says — and a
+backend failure that answers 404 hides a fault as "no such entity". The status code is part
+of the contract; the body is what the learner sees, and the header is what lets HTMX show it.
 
 A bare `get()` followed by an inline `entity.user_uid != user_uid` compare, standing in
 for the anchor's own verification, is the ad-hoc "is this yours?" check ADR-085 §4 forbids

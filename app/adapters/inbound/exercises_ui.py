@@ -15,12 +15,12 @@ Formerly assignments_ui.py — renamed per of Ku hierarchy refactoring.
 
 from typing import Any
 
-from fasthtml.common import Div, P
+from fasthtml.common import FT, Div, P
 
 from adapters.inbound.auth import make_service_getter, require_authenticated_user, require_teacher
 from adapters.inbound.boundary import ui_boundary_handler
 from adapters.inbound.fasthtml_types import Request
-from adapters.inbound.route_factories import refuse_not_found
+from adapters.inbound.route_factories import refuse, refuse_not_found
 from core.utils.logging import get_logger
 from ui.components import ButtonT
 from ui.exercises.cards import render_exercises_list
@@ -192,15 +192,20 @@ def create_exercises_ui_routes(
         a nonexistent uid — and carries the same 404.
         """
         user_uid = require_authenticated_user(request)
-        result = await exercises_service.get_exercise_for_user(uid, user_uid)
-        if result.is_error or not result.value:
-            return refuse_not_found(
-                Div(
-                    render_error_banner("Exercise not found"),
-                    ButtonLink("← Back to Library", href="/library", cls=ButtonT.ghost),
-                    id="exercise-detail-content",
-                )
+
+        def render_refusal(message: str) -> FT:
+            return Div(
+                render_error_banner(message),
+                ButtonLink("← Back to Library", href="/library", cls=ButtonT.ghost),
+                id="exercise-detail-content",
             )
+
+        result = await exercises_service.get_exercise_for_user(uid, user_uid)
+        if result.is_error:
+            return refuse(result.expect_error(), render_refusal, "Exercise")
+        if not result.value:
+            # The audience check answers None, not an error: the not-found decision.
+            return refuse_not_found(render_refusal("Exercise not found"))
         exercise = result.value
         return render_exercise_student_detail(exercise, from_ps=from_ps)
 

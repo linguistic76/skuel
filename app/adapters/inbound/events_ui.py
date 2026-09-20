@@ -14,6 +14,7 @@ to a ``(Event)-[:CELEBRATES_GOAL]->(Goal)`` edge (graph-native, not a property).
 
 from __future__ import annotations
 
+from functools import partial
 from typing import TYPE_CHECKING, Any
 
 from fasthtml.common import Div
@@ -24,7 +25,7 @@ from adapters.inbound.auth import require_authenticated_user
 from adapters.inbound.csrf import csrf_protected
 from adapters.inbound.fasthtml_types import Request
 from adapters.inbound.form_helpers import parse_form_body
-from adapters.inbound.route_factories import refuse_not_found
+from adapters.inbound.route_factories import refuse
 from core.models.event.event_request import EventCreateRequest, EventUpdateRequest
 from core.utils.connection_configs import EVENT_CONNECTION_CONFIG
 from core.utils.entity_filters import filter_events
@@ -147,12 +148,10 @@ def create_events_ui_routes(
 
         owned = await events_service.verify_ownership(uid, user_uid)
         if owned.is_error:
-            return refuse_not_found(
-                render_activity_sidebar_error(
-                    "Event not found",
-                    active="events",
-                    request=request,
-                )
+            return refuse(
+                owned.expect_error(),
+                partial(render_activity_sidebar_error, active="events", request=request),
+                "Event",
             )
         event = owned.value
 
@@ -190,12 +189,10 @@ def create_events_ui_routes(
 
         owned = await events_service.verify_ownership(uid, user_uid)
         if owned.is_error:
-            return refuse_not_found(
-                render_activity_sidebar_error(
-                    "Event not found",
-                    active="events",
-                    request=request,
-                )
+            return refuse(
+                owned.expect_error(),
+                partial(render_activity_sidebar_error, active="events", request=request),
+                "Event",
             )
         event = owned.value
         celebrated = await events_service.get_celebrated_goal(event.uid)

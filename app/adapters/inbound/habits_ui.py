@@ -15,6 +15,7 @@ expose no single-UID cross-domain fields, so no EntityPicker widgets are wired.
 
 from __future__ import annotations
 
+from functools import partial
 from typing import TYPE_CHECKING, Any
 
 from fasthtml.common import Div
@@ -25,14 +26,13 @@ from adapters.inbound.auth import require_authenticated_user
 from adapters.inbound.csrf import csrf_protected
 from adapters.inbound.fasthtml_types import Request
 from adapters.inbound.form_helpers import parse_form_body
-from adapters.inbound.route_factories import refuse_not_found, require_owned_entity
+from adapters.inbound.route_factories import refuse, refuse_not_found
 from core.models.enums.activity_enums import ConsistencyLevel
 from core.models.habit.habit_request import HabitCreateRequest, HabitUpdateRequest
 from core.models.type_hints import EntityUID, UserUID
 from core.utils.connection_configs import HABIT_CONNECTION_CONFIG
 from core.utils.entity_filters import filter_habits
 from core.utils.logging import get_logger
-from core.utils.result_simplified import ErrorCategory
 from ui.activities.filter_bar import FILTER_CONFIGS
 from ui.activities.habits_form import HabitCreateForm, HabitEditForm
 from ui.activities.habits_views import (
@@ -47,7 +47,7 @@ from ui.activities.nav import (
     render_activity_sidebar_page,
 )
 from ui.patterns import PageHeader
-from ui.patterns.error_banner import render_error_banner
+from ui.patterns.error_banner import render_error_banner, render_slot_error
 
 if TYPE_CHECKING:
     from adapters.inbound.fasthtml_types import FastHTMLApp, RouteDecorator
@@ -100,25 +100,19 @@ def create_habits_ui_routes(
         """HTMX fragment: Atomic Habits pattern insights for one habit.
 
         Ownership is enforced inside analyze_patterns (verify_ownership →
-        NOT_FOUND for habits the user doesn't own), answered here as a
-        rendered 404; an analysis failure is not an access decision and keeps
-        its own message.
+        NOT_FOUND for habits the user doesn't own); the refusal renders in
+        the slot at the status the failure earns — 404 for not-yours/missing,
+        the fault's own status for an analysis failure.
         """
         user_uid = require_authenticated_user(request)
         uid = request.query_params.get("uid", "")
+        slot = partial(render_slot_error, "habit-insights")
         if not uid:
-            return refuse_not_found(
-                Div(render_error_banner("Missing habit UID"), id="habit-insights")
-            )
+            return refuse_not_found(slot("Missing habit UID"))
 
         result = await habits_service.patterns.analyze_patterns(uid, user_uid)
         if result.is_error:
-            error = result.expect_error()
-            if error.category is ErrorCategory.NOT_FOUND:
-                return refuse_not_found(
-                    Div(render_error_banner("Habit not found"), id="habit-insights")
-                )
-            return Div(render_error_banner(error.display_message), id="habit-insights")
+            return refuse(result.expect_error(), slot, "Habit")
 
         return HabitInsightsSection(result.value)
 
@@ -157,15 +151,14 @@ def create_habits_ui_routes(
         """
         user_uid = require_authenticated_user(request)
         uid = request.query_params.get("uid", "")
+        slot = partial(render_slot_error, "habit-choices")
         if not uid:
-            return refuse_not_found(
-                Div(render_error_banner("Missing habit UID"), id="habit-choices")
-            )
+            return refuse_not_found(slot("Missing habit UID"))
 
-        # Ownership: a rendered 404 — the banner swaps into the slot, the status stays.
-        _habit, refusal = await require_owned_entity(habits_service, uid, user_uid, "Habit")
-        if refusal:
-            return refuse_not_found(Div(render_error_banner("Habit not found"), id="habit-choices"))
+        # Ownership: the refusal renders in the slot at the status it earns.
+        owned = await habits_service.verify_ownership(uid, user_uid)
+        if owned.is_error:
+            return refuse(owned.expect_error(), slot, "Habit")
 
         habit_uid = EntityUID(uid)
         informed = await habits_service.relationships.get_related_with_metadata(
@@ -230,12 +223,10 @@ def create_habits_ui_routes(
 
         owned = await habits_service.verify_ownership(uid, user_uid)
         if owned.is_error:
-            return refuse_not_found(
-                render_activity_sidebar_error(
-                    "Habit not found",
-                    active="habits",
-                    request=request,
-                )
+            return refuse(
+                owned.expect_error(),
+                partial(render_activity_sidebar_error, active="habits", request=request),
+                "Habit",
             )
         habit = owned.value
 
@@ -261,12 +252,10 @@ def create_habits_ui_routes(
 
         owned = await habits_service.verify_ownership(uid, user_uid)
         if owned.is_error:
-            return refuse_not_found(
-                render_activity_sidebar_error(
-                    "Habit not found",
-                    active="habits",
-                    request=request,
-                )
+            return refuse(
+                owned.expect_error(),
+                partial(render_activity_sidebar_error, active="habits", request=request),
+                "Habit",
             )
         habit = owned.value
 

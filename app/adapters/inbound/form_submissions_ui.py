@@ -11,19 +11,20 @@ Routes:
 - GET /my-forms/detail/content?uid= - Fragment: submission detail
 """
 
+from functools import partial
 from typing import Any
 
 from fasthtml.common import A, Div, P, Span
 
 from adapters.inbound.auth import require_authenticated_user
 from adapters.inbound.fasthtml_types import Request
-from adapters.inbound.route_factories import refuse_not_found
+from adapters.inbound.route_factories import refuse
 from core.utils.logging import get_logger
 from ui.components import Button, ButtonT
 from ui.layouts.base_page import BasePage
 from ui.layouts.page_types import PageType
 from ui.patterns.empty_state import EmptyState
-from ui.patterns.error_banner import render_error_banner
+from ui.patterns.error_banner import render_error_banner, render_slot_error
 from ui.patterns.loading import content_loading_placeholder
 from ui.patterns.page_header import PageHeader
 from ui.primitives import ButtonLink
@@ -129,12 +130,12 @@ def create_form_submissions_ui_routes(
 
         result = await form_submission_service.get_submission(uid, user_uid)
         if result.is_error:
-            # Owner-scoped read: a foreign uid reads as missing — rendered 404.
-            return refuse_not_found(
-                Div(
-                    render_error_banner("Form submission not found"),
-                    id="my-forms-detail-content",
-                )
+            # Owner-scoped read: a foreign uid reads as missing (404); a backend
+            # failure keeps its own status.
+            return refuse(
+                result.expect_error(),
+                partial(render_slot_error, "my-forms-detail-content"),
+                "Form submission",
             )
 
         submission = result.value
