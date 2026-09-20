@@ -1454,6 +1454,15 @@ def test_line_citation_of_a_missing_file_is_reported(cited_tree: Path) -> None:
     assert _line_rows(scan) == {(3, "core/gone.py:3 (FILE_MISSING)")}
 
 
+def test_zero_is_not_a_line(cited_tree: Path) -> None:
+    """Line numbering starts at 1; `0 <= length` must not read `:0` as in range."""
+    scan = _scan(cited_tree, "# P\n\n`core/x.py:0`\n\n`core/x.py:0-3`\n")
+    assert _line_rows(scan) == {
+        (3, "core/x.py:0 (NOT_A_LINE)"),
+        (5, "core/x.py:0-3 (NOT_A_LINE)"),
+    }
+
+
 def test_in_range_citation_is_not_reported(cited_tree: Path) -> None:
     """The line exists. Whether it says what the doc says is a read, never a rule."""
     scan = _scan(cited_tree, "# P\n\nSee `core/x.py:10` and `core/x.py:1-10`.\n")

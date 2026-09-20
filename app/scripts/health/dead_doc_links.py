@@ -17,15 +17,15 @@ For every .md file in docs/ and .claude/skills/:
 
 Why the line-citation pass exists
 ---------------------------------
-A ``file.py:N`` citation names a file the other passes cannot see — the colon fails
-the path shape test — so a ``:N`` citation of a DELETED file was invisible here, and a
-citation past the end of a live file is a claim no existence check can test. This
-pass strips the ``:N`` / ``:N-M`` / ``:LN`` tail (and reads the prose forms), resolves
-the file — by path, or by a unique suffix match over the tracked tree for a
-basename-only citation like ``ku_graph_service.py:117`` — and then asserts every
-cited line number is within the file. Reported as ``[line]`` with the reason
-(``FILE_MISSING``, ``AMBIGUOUS_BASENAME``, ``PAST_EOF (file has K lines)``). An
-in-range citation is NOT verified: the line exists; what it says is a read.
+A ``file.py:N`` citation is a claim the other three passes cannot see — the colon
+fails the path shape test — and a citation past the end of a live file is a claim no
+existence check can test. This pass strips the ``:N`` / ``:N-M`` / ``:LN`` tail (and
+reads the prose forms), resolves the file — by path, or by a unique suffix match over
+the tracked tree for a basename-only citation like ``markdown_fences.py:1`` — and
+then asserts every cited line number is within the file. Reported as ``[line]`` with
+the reason (``FILE_MISSING``, ``AMBIGUOUS_BASENAME``, ``NOT_A_LINE`` for ``:0``,
+``PAST_EOF (file has K lines)``). An in-range citation is NOT verified: the line
+exists; what it says is a read.
 
 Why the fenced-block pass exists
 --------------------------------
@@ -1226,18 +1226,24 @@ def check_file(md_file: Path, verbose: bool, catalog: RouteCatalog | None = None
             if key not in seen:
                 settle(citation.lineno, f"{citation.raw} ({target})", "line", key)
             return
+        key = (citation.lineno, f"{target}:{citation.first}")
+        if key in seen:
+            return
+        # Line numbering starts at 1: a `:0` names no line, and `0 <= length` would
+        # read it as in range.
+        if citation.first < 1 or (citation.last is not None and citation.last < 1):
+            settle(citation.lineno, f"{citation.raw} (NOT_A_LINE)", "line", key)
+            return
         cited = max(citation.first, citation.last or 0)
         length = _line_count(target)
         if cited <= length:
             return
-        key = (citation.lineno, f"{target}:{citation.first}")
-        if key not in seen:
-            settle(
-                citation.lineno,
-                f"{citation.raw} (PAST_EOF — file has {length} lines)",
-                "line",
-                key,
-            )
+        settle(
+            citation.lineno,
+            f"{citation.raw} (PAST_EOF — file has {length} lines)",
+            "line",
+            key,
+        )
 
     for lineno, _text, path in extract_markdown_links(content):
         record(lineno, path, "link")

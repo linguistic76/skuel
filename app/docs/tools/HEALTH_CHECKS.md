@@ -262,16 +262,17 @@ this page can document it at all (the same problem `stale_names.py` solves with
 #### The `[line]` pass — `file.py:N` is a claim the other passes cannot see
 
 A `file.py:N` citation fails the path shape test on its colon, so the backtick, bare
-and fence passes never extract it — a `:N` citation of a **deleted** file was invisible
-here, and a citation past the end of a live file is a claim no existence check can test.
+and fence passes never extract it — to them a `:N` citation of a **deleted** file is
+invisible, and a citation past the end of a live file is a claim no existence check can test.
 The pass strips the `:N` / `:N-M` / `:N–M` / `:LN` tail (and reads the prose forms:
 "line N of `f.py`", "`f.py` line N", "`f.py` (lines N–M)"), resolves the file — by path,
 or for a basename-only or partial citation (`markdown_fences.py:1`,
 `events/_orchestration_mixin.py:71`) by **unique suffix match over `git ls-files`** —
 and then asserts every cited line number is within the file. Tracked files only, so a
 gitignored prototype in `plans/` named like the module it copies can never satisfy a
-citation. Three reasons, each printed with the row: `FILE_MISSING`,
-`AMBIGUOUS_BASENAME (K tracked files end with x.py)`, `PAST_EOF (file has K lines)`.
+citation. Four reasons, each printed with the row: `FILE_MISSING`,
+`AMBIGUOUS_BASENAME (K tracked files end with x.py)`, `NOT_A_LINE` (a `:0` — numbering
+starts at 1), `PAST_EOF (file has K lines)`.
 Fences are read too — a `grep -n` sample cites lines the way prose does. An in-range
 citation is **not verified**: the line exists; what it says is a read.
 
