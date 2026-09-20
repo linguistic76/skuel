@@ -781,11 +781,11 @@ static-vs-runtime gap without ever asserting it equal.
 **Advisory: exit 0 always.** Promotion of the `fiction` class to `./dev health` red —
 never CI — is a separate ruling that waits on two sweep PRs each re-measuring ≥95%
 precision on a fresh draw; `family-prefix`, `relative-suffix` and `history` stay
-printed-only whatever that ruling says. Measured 2026-09-20 on the tree at PR #1379's
-head: 1627 inline claims — 1295 matched · **210 fiction in 51 files** (62 of them one
-section of `docs/patterns/OWNERSHIP_VERIFICATION.md`; 4 are dead directory citations) · 17
-history · 36 family-prefix · 51 relative-suffix · 15 negated · 2 + 1 marker-skipped;
-re-measure with `./dev health-claims`.
+printed-only whatever that ruling says. Measured 2026-09-20 on the tree at the docs
+de-fiction PR 3 head: 1544 inline claims — 1297 matched · **127 fiction in 46 files** (44
+of them in `docs/decisions/`; the largest cluster, 14, is ADR-058) · 16 history · 36
+family-prefix · 49 relative-suffix · 16 negated · 2 + 1 marker-skipped; re-measure with
+`./dev health-claims`.
 
 **Matching is directional and verb-aware.** A wildcard is wild in one direction per
 match — the claim is an *instance* of the registration (`/api/tasks/{uid}/status`

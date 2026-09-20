@@ -38,10 +38,8 @@ from adapters.inbound.auth.session import (
     optional_auth,
     require_auth,
     require_authenticated_user,
-    require_ownership_query,
     set_current_user,
     set_session_data,
-    with_ownership,
 )
 
 __all__ = [
@@ -63,10 +61,8 @@ __all__ = [
     "optional_auth",
     "require_auth",
     "require_authenticated_user",
-    "require_ownership_query",
     "set_current_user",
     "set_session_data",
-    "with_ownership",
     # Role-based access control
     "check_role_permission",
     "get_user_role",

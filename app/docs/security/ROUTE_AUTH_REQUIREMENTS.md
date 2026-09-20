@@ -1,6 +1,6 @@
 ---
 related_skills: [security]
-updated: 2026-09-19
+updated: 2026-09-20
 ---
 # Route Authentication Requirements
 
@@ -78,12 +78,9 @@ if ownership_error:
 entity, error = await require_owned_entity(service, uid, user_uid, "Entity")
 if error:
     return error  # Returns 404 Response
-
-# Decorator-based ownership check (alternative)
-@with_ownership(get_service)
-async def route(request, user_uid, entity):
-    # entity is pre-verified to belong to user_uid
 ```
+
+These two helpers are the only route-layer doors; there is no decorator form.
 
 **Key principle:** Return "not found" (not "access denied") to prevent information leakage.
 

@@ -1,6 +1,6 @@
 ---
 title: Authentication Patterns in SKUEL
-updated: '2026-09-19'
+updated: '2026-09-20'
 category: patterns
 related_skills: [security]
 related_docs: []
@@ -259,25 +259,6 @@ from adapters.inbound.route_factories import require_owned_entity
 entity, error = await require_owned_entity(service, uid, user_uid, "Goal")
 if error:
     return error  # Returns Response(404)
-```
-
-### Using the `@with_ownership` Decorator
-
-For simpler ownership verification:
-
-```python
-from adapters.inbound.auth import with_ownership
-
-def get_goals_service():
-    return goals_service
-
-
-@rt("/api/goals/{uid}/progress")
-@with_ownership(get_goals_service)
-@boundary_handler()
-async def update_goal_progress(request, user_uid, entity):
-    # entity is pre-verified to belong to user_uid
-    return await goals_service.update_progress(entity.uid, ...)
 ```
 
 ### Checking Admin for Conditional Rendering (Without Decorator)

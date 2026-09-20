@@ -33,7 +33,7 @@ A signed, opaque session cookie managed by Starlette's `SessionMiddleware`. Cont
 | `Secure` | `True` in production | Never sent over plain HTTP; TLS only |
 | `max_age` | 30 days | Forced rotation on logout, password reset, or admin invalidation |
 
-**Source:** [`adapters/inbound/auth/session.py:629-635`](../../adapters/inbound/auth/session.py)
+**Source:** [`adapters/inbound/auth/session.py:488-494`](../../adapters/inbound/auth/session.py)
 
 ### `csrf_token` — the double-submit token
 
