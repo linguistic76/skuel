@@ -188,6 +188,10 @@ DELETED: dict[str, str] = {
     "RelationshipName.HAS_SCHEDULE": "deleted — no ReportSchedule nodes",
     "PageType.HUB": "deleted — sidebar pages use PageType.CUSTOM + SidebarPage",
     "PageHead": "deleted — use build_head() from ui.layouts.base_page",
+    # The route layer has two ownership doors (OWNERSHIP_VERIFICATION.md § Where
+    # Verification Happens); a decorator form is not one of them.
+    "with_ownership": "deleted — verify_entity_ownership (API) / require_owned_entity (UI)",
+    "require_ownership_query": "deleted — verify_entity_ownership (API) / require_owned_entity (UI)",
     # Deleted enum members
     "Pipeline.JOURNAL": (
         "deleted — where a journal goes is stated in the Pipeline class docstring "

@@ -1,6 +1,6 @@
 ---
 title: API Validation Patterns
-updated: 2026-09-17
+updated: 2026-09-20
 category: patterns
 related_skills:
 - pydantic
@@ -151,7 +151,7 @@ async def update_task(request: Request, uid: str) -> Result[Task]:
     return await tasks_service.update_task(uid, result.value.to_intent())
 ```
 
-**With extra fields** (e.g., entity UID from `@require_ownership_query`):
+**With extra fields** (e.g., the verified entity UID `OwnershipRouteFactory` injects through `schema_extra_uid_field`):
 ```python
 result = await parse_json_body(request, TrackHabitRequest, extra={"habit_uid": entity.uid})
 ```
@@ -841,7 +841,7 @@ async def update_task(request: Request, uid: str) -> Result[Task]:
     return await tasks_service.update_task(uid, result.value.to_intent())
 ```
 
-**For ownership-verified routes** (entity UID comes from `@require_ownership_query`):
+**For ownership-verified routes** (the entity UID was verified by the route before parsing):
 ```python
 async def track_habit_route(request: Request, entity: Any, ...) -> Result[Any]:
     result = await parse_json_body(request, TrackHabitRequest, extra={"habit_uid": entity.uid})
