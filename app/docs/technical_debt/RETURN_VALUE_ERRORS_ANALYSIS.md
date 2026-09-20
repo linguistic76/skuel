@@ -1,6 +1,6 @@
 ---
 title: Return Value Type Errors Analysis
-updated: 2026-09-17
+updated: 2026-09-20
 status: resolved
 category: technical-debt
 tags: [analysis, errors, return, technical-debt, value]
@@ -19,10 +19,9 @@ All 111 return-value errors have been resolved through progressive fixes:
 
 1. **Phase A Quick Wins** (Result[int] → Result[bool]): Already fixed prior to analysis
 2. **Final 4 errors fixed** (December 2, 2025):
-   - `curriculum_base_service.py:397` - Fixed fallback to unwrap Result before returning
-   - `ku_service.py:225` - Fixed return type annotation to `Result[list[Any]]`
-   - `ku_service.py:288` - Fixed error propagation with `Result.fail(result)` (verbose `.expect_error()` form migrated codebase-wide 2026-03-25)
-   - `ku_service.py:661` - Fixed return type annotation to `Result[list[Any]]`
+   - `curriculum_base_service.py` (since folded into the curriculum services) - Fixed fallback to unwrap Result before returning
+   - `ku_service.py` - Fixed two return type annotations to `Result[list[Any]]`
+   - `ku_service.py` - Fixed error propagation with `Result.fail(result)` (verbose `.expect_error()` form migrated codebase-wide 2026-03-25)
 
 ---
 

@@ -1,6 +1,6 @@
 ---
 title: Cookies and CSRF in SKUEL
-updated: 2026-09-17
+updated: 2026-09-20
 category: security
 audience: learners
 related_skills: [security]
@@ -33,7 +33,7 @@ A signed, opaque session cookie managed by Starlette's `SessionMiddleware`. Cont
 | `Secure` | `True` in production | Never sent over plain HTTP; TLS only |
 | `max_age` | 30 days | Forced rotation on logout, password reset, or admin invalidation |
 
-**Source:** [`adapters/inbound/auth/session.py:718-724`](../../adapters/inbound/auth/session.py)
+**Source:** [`adapters/inbound/auth/session.py:629-635`](../../adapters/inbound/auth/session.py)
 
 ### `csrf_token` — the double-submit token
 

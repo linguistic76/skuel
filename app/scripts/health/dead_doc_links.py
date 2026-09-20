@@ -316,6 +316,8 @@ HISTORY_DIRS = (
     "docs/investigations",
     # Point-in-time review write-ups (4).
     "docs/Reviews",
+    # A design record its own header marks historical (8 route findings).
+    "docs/design-handoff",
 )
 
 # ── Registered application routes ────────────────────────────────────────────

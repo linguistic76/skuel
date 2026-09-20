@@ -1,6 +1,6 @@
 ---
 title: Hierarchy Components Guide
-updated: '2026-09-17'
+updated: '2026-09-20'
 category: patterns
 related_skills:
 - skuel-ui
@@ -580,77 +580,12 @@ Components are mobile-friendly:
 
 ## Examples
 
-### Complete Goals Hierarchy Page
-
-See `/adapters/inbound/goals_ui.py:1351` for full example:
-
-```python
-@rt("/goals/{uid}/hierarchy")
-async def goal_hierarchy_view(request, uid: str):
-    """Hierarchy tree view for a goal and its subgoals."""
-    user_uid = require_authenticated_user(request)
-
-    # Fetch root goal
-    result = await goals_service.get_for_user(uid, user_uid)
-    if result.is_error:
-        return NotFound()
-
-    goal = result.value
-
-    # Render hierarchy view
-    content = GoalsViewComponents.render_hierarchy_view(
-        root_uid=uid,
-        root_goal=goal,
-    )
-
-    return BasePage(
-        content=content,
-        title=f"{goal.title} - Hierarchy",
-        page_type=PageType.STANDARD,
-        request=request,
-    )
-```
-
-### Hierarchy View Component
-
-See `/ui/goals/views.py:609` for full example:
-
-```python
-@staticmethod
-def render_hierarchy_view(root_uid: str, root_goal: Goal) -> Div:
-    """Render goal hierarchy tree view."""
-    from ui.patterns.tree_view import TreeView
-
-    return Stack(
-        # Header with controls
-        PageHeader(
-            title=f"Hierarchy: {root_goal.title}",
-            description="Explore goal breakdown",
-            actions=Row(
-                Button("Expand All", **{"x-on:click": "expandAll()"}),
-                Button("Collapse All", **{"x-on:click": "collapseAll()"}),
-            ),
-        ),
-        # Tree view
-        TreeView(
-            root_uid=root_uid,
-            entity_type="goal",
-            children_endpoint="/api/goals/{uid}/children",
-            move_endpoint="/api/goals/{uid}/move",
-            show_checkboxes=True,
-            keyboard_nav=True,
-            draggable=True,
-        ),
-        # Bulk actions
-        Div(**{"x-show": "selected.length > 0", "x-cloak": True})(
-            Card(
-                Span(**{"x-text": "`${selected.length} selected`"}),
-                Button("Delete", **{"x-on:click": "bulkDelete()"}),
-            ),
-        ),
-        gap=6,
-    )
-```
+The live consumer is the Activity Domain hierarchy API factory
+(`/adapters/inbound/route_factories/hierarchy_api_factory.py`), Goals for instance:
+`GET /api/goals/{uid}/children` renders `TreeNodeList` for the HTMX lazy-load, and
+`GET /api/goals/hierarchy` returns the ancestors / siblings / children context as JSON.
+`HierarchyRouteFactory` (`/adapters/inbound/hierarchy_route_factory.py`) serves the same
+fragment for `lp`. No page composes the full `TreeView` today.
 
 ---
 
@@ -676,7 +611,6 @@ def render_hierarchy_view(root_uid: str, root_goal: Goal) -> Div:
 | File | Purpose |
 |------|---------|
 | `/adapters/inbound/route_factories/hierarchy_api_factory.py` | Live consumer: Activity Domain `GET /api/{domain}/{uid}/children` renders `TreeNodeList` |
-| `/adapters/inbound/goals_ui.py` | Example: Route handler |
 
 ---
 

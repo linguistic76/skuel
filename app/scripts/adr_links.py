@@ -28,7 +28,7 @@ matches it raises, naming the ref and every candidate, and the remedy is to writ
 the full filename in the metadata (three refs there do).
 
 Renumbering the duplicate ADRs is a separate, unscheduled question — see
-``docs/roadmap/deferred-work.md`` § Dead-Doc-Links Instrument.
+``docs/roadmap/done/dead-doc-links-instrument.md`` § Noted, unscheduled.
 """
 
 import re

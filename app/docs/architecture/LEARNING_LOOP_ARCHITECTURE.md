@@ -1,6 +1,6 @@
 ---
 title: Four-Phase Learning Loop
-updated: 2026-09-15
+updated: 2026-09-20
 status: current
 category: architecture
 related:
@@ -361,8 +361,9 @@ values breadth alongside depth.
 
 The PathStep detail page (`/explore/ps/{uid}`) is the primary surface. A flat index at
 `/path-steps` lists enrolment-aware PathSteps (Start / In Progress / Mastered). Adaptive
-curriculum recommendations and SEL journey views are composed through
-`ui/patterns/curriculum_adaptive.py` and the explore sidebar graph.
+curriculum recommendations and the SEL journey are JSON only (`/api/path-steps/journey`,
+`/api/path-steps/curriculum/{category}`) — no page renders them; see
+`docs/domains/ps.md` § Adaptive curriculum.
 
 **Routes:**
 
@@ -370,7 +371,6 @@ curriculum recommendations and SEL journey views are composed through
 |---|---|
 | `GET /explore/ps/{uid}` | PathStep detail page — learning loop anchor |
 | `GET /path-steps` | Flat PathStep index |
-| `GET /path-steps/get?uid=` | PathStep reading page |
 | `GET /api/path-steps/*` | PathStep API (CRUD + intelligence) |
 
 ---
@@ -660,7 +660,6 @@ status pills or submission/feedback sections.
 | Adaptive curriculum service | `core/services/ps/ps_adaptive_service.py` |
 | PathStep mastery service (MASTERED transitions) | `core/services/ps/ps_mastery_service.py` |
 | PathStep facade (wires sub-services) | `core/services/ps_service.py` |
-| Learning experience UI components | `ui/patterns/curriculum_adaptive.py` |
 | PathStep API routes | `adapters/inbound/path_steps_api.py` |
 | Ingestion pipeline | `core/services/ingestion/` |
 | Substance philosophy | `docs/architecture/knowledge_substance_philosophy.md` |

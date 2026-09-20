@@ -1,7 +1,7 @@
 ---
 title: PS (Path Step) Domain
 created: 2025-12-04
-updated: 2026-09-17
+updated: 2026-09-20
 status: current
 category: domains
 tags:
@@ -113,6 +113,25 @@ PsIntelligenceService provides:
 | `has_prerequisites(ps_uid)` | `bool` | Has REQUIRES_STEP or REQUIRES_KNOWLEDGE |
 | `has_guidance(ps_uid)` | `bool` | Has GUIDED_BY_PRINCIPLE or INFORMS_CHOICE |
 | `has_practice_opportunities(ps_uid)` | `bool` | Has habits, tasks, or events |
+
+## Adaptive curriculum
+
+`PsService.adaptive` (`PsAdaptiveService`, `/core/services/ps/ps_adaptive_service.py`) delivers
+personalized path steps. `SELCategory` is a lens over Ku and PathStep — the `sel_category`
+field on both carries one of the five CASEL competencies (`self_awareness`, `self_management`,
+`social_awareness`, `relationship_skills`, `responsible_decision_making`); there is no SEL
+domain, page or sidebar. Three public methods, each delegated by the facade:
+
+| Method | Returns | Description |
+|--------|---------|-------------|
+| `get_personalized_curriculum(user_uid, sel_category, limit=10)` | `list[PathStep]` | Steps in the category the learner is ready for (not mastered, prerequisites met, level fits), ranked by learning value |
+| `get_sel_journey(user_uid)` | `LearningJourney` | Progress across all five categories + the recommended next one |
+| `track_curriculum_completion(user_uid, ps_uid, completion_time_minutes=30)` | `None` | Upserts the learner's `MASTERED` edge to the step |
+
+Routes (JSON, authenticated; `adapters/inbound/path_steps_api.py`): `GET /api/path-steps/journey`
+and `GET /api/path-steps/curriculum/{category}?limit=10` — an unknown category is a 400. No
+HTML fragment twins exist; the SEL page that consumed them is retired and its record is
+`../migrations/SEL_UX_MODERNIZATION_2026-02-03.md`.
 
 ## Cross-Domain: Practice Infrastructure
 

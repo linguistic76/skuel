@@ -25,8 +25,8 @@ fences and inline code included, as that pass reads them.
 
 What it leaves alone, deliberately:
 
-- A DEAD ``/docs/…`` target. Those belong to
-  ``docs/roadmap/dead-doc-links-sweep-queue.md`` under its own ruling: fix the citing
+- A DEAD ``/docs/…`` target. Those belong to ``./dev health-links``'s report under the
+  sweep ruling (``docs/roadmap/done/dead-doc-links-sweep-queue.md``): fix the citing
   prose, and look for a RENAMED successor before deleting a citation. Rewriting a dead
   absolute path to a dead relative one only renames the finding and invalidates that
   queue's counts.

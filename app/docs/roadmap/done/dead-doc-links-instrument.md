@@ -1,6 +1,6 @@
 ---
 title: "Dead-Doc-Links Instrument — Rulings + Scheduled Work"
-updated: 2026-09-05
+updated: 2026-09-20
 status: "arc complete — residue queued"
 registered: 2026-09-01
 ruled: 2026-09-01

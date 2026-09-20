@@ -200,7 +200,7 @@ Services wired in: `services_bootstrap/_learning_services.py`
 ps_service.core.create_step(step)
 ps_service.search.search_steps(query)
 ps_service.intelligence.is_ready(ps_uid, completed_uids)
-ps_service.adaptive.get_recommendations(user_uid)
+ps_service.adaptive.get_sel_journey(user_uid)
 ps_service.organization.get_organized_children(parent_uid)  # Non-linear nav (MOC)
 ps_service.mastery.mark_mastered(ps_uid, user_uid)
 ps_service.progress.record_completion(ps_uid, user_uid)

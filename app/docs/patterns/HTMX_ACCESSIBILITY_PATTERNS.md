@@ -1,6 +1,6 @@
 ---
 title: HTMX Accessibility Patterns
-updated: '2026-09-15'
+updated: '2026-09-20'
 category: patterns
 related_skills:
 - accessibility-guide
@@ -82,10 +82,10 @@ Button(
 # Success announcement only (loading uses auto-detection)
 Div(
     P("Loading...", cls="text-center py-8"),
-    hx_get="/api/sel/curriculum-html/self-awareness",
+    hx_get="/path-steps/content",
     hx_trigger="load",
     hx_swap="innerHTML",
-    **{"data-announce": "Curriculum loaded"},
+    **{"data-announce": "Path steps loaded"},
 )
 ```
 
