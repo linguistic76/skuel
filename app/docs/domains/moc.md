@@ -61,7 +61,7 @@ Sequential learning                   /    |    \
 
 ## Service Architecture
 
-ORGANIZES operations are the `organization` slot of the PathStep facade — `PsService.organization` is a `PsOrganizationService` (`core/services/ps/ps_organization_service.py`), and the facade delegates every method. The backend is `_OrganizesMixin` (`adapters/persistence/neo4j/_organizes_mixin.py`), mixed into `PsBackend` and `UserEntryBackend`; its statements match `:Entity` by uid, so the edge-level **reads** (`is_organizer`, `find_organizers`, `get_organized_children`, `list_root_organizers`, `get_navigation`) answer for any entity. Two methods first fetch the root through `ps_core.get()`, which matches `:PathStep`, and answer not-found for a Ku or UserEntry root: `get_organization_view()` (the depth-limited hierarchy) and the **write** `organize()` — so the facade and the API create PathStep → PathStep edges only. Cross-entity edges — a PathStep organizing a Ku, a UserEntry knowledge map — are authored in the vault and written by ingestion on `:Entity`: `moc: true` body links through `IngestionWriteBackend.refresh_moc_organizes`, an `organizes:` frontmatter list through the relationship-registry edge writer.
+ORGANIZES operations are the `organization` slot of the PathStep facade — `PsService.organization` is a `PsOrganizationService` (`core/services/ps/ps_organization_service.py`), and the facade delegates every method. The backend is `_OrganizesMixin` (`adapters/persistence/neo4j/_organizes_mixin.py`), mixed into `PsBackend` and `UserEntryBackend`; its statements match `:Entity` by uid, so the edge-level **reads** (`is_organizer`, `find_organizers`, `get_organized_children`, `list_root_organizers`) answer for any entity. Three methods go through `ps_core.get()`, which matches `:PathStep`, and answer not-found otherwise: `get_organization_view()` (the depth-limited hierarchy — PathStep root), `get_navigation()` (siblings under the first organizer — a PathStep organizer), and the **write** `organize()` (both uids) — so the facade and the API create PathStep → PathStep edges only. Cross-entity edges — a PathStep organizing a Ku, a UserEntry knowledge map — are authored in the vault and written by ingestion on `:Entity`: `moc: true` body links through `IngestionWriteBackend.refresh_moc_organizes`, an `organizes:` frontmatter list through the relationship-registry edge writer.
 
 ```python
 ps_service = services.ps  # PsService
@@ -81,7 +81,7 @@ await ps_service.unorganize("ps.core.python-reference", "ps.core.python-basics")
 parents = await ps_service.find_organizers("ps.core.python-basics")
 children = await ps_service.get_organized_children("ps.core.python-reference")
 roots = await ps_service.list_root_organizers(limit=50)
-nav = await ps_service.get_navigation("ps.core.python-basics")  # StepNavigation
+nav = await ps_service.get_navigation("ps.core.python-basics")  # StepNavigation — first organizer must be a PathStep
 ```
 
 ## Key Files
