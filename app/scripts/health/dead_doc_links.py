@@ -1030,10 +1030,12 @@ _LINE_CITATION_EXTENSIONS = "|".join(re.escape(ext[1:]) for ext in sorted(LOCAL_
 # (`csrf.py:78-92, 195-199`); every one is checked.
 _RANGE = r"L?\d{1,6}(?:[-–]L?\d{1,6})?"
 _RANGES = _RANGE + r"(?:,\s*" + _RANGE + r")*"
+# The trailing guard also refuses a dash: `file.py:3-oops` is an incomplete range, not
+# the citation `file.py:3` with a suffix.
 LINE_CITATION_RE = re.compile(
     r"(?<![\w/.-])"
     r"(/?(?:[\w.-]+/)*[\w.-]+\.(?:" + _LINE_CITATION_EXTENSIONS + r"))"
-    r":(" + _RANGES + r")(?![\w])"
+    r":(" + _RANGES + r")(?![\w–-])"
 )
 # The prose forms: "line 470 of `ku_ui.py`", "`ku_ui.py` line 470", "`x.py` (lines 3–9, 40)".
 # The same leading lookbehind as the direct form, so a URL's tail never reads as a
@@ -1063,7 +1065,12 @@ class LineCitation(NamedTuple):
     lineno: int
     raw: str
     file: str
-    lines: tuple[int, ...]
+    ranges: str
+
+    @property
+    def lines(self) -> tuple[int, ...]:
+        """Every number the citation writes, in order."""
+        return tuple(int(n) for n in re.findall(r"\d+", self.ranges))
 
     @property
     def first(self) -> int:
@@ -1073,9 +1080,14 @@ class LineCitation(NamedTuple):
     def highest(self) -> int:
         return max(self.lines)
 
-
-def _cited_lines(ranges: str) -> tuple[int, ...]:
-    return tuple(int(n) for n in re.findall(r"\d+", ranges))
+    @property
+    def ordered(self) -> bool:
+        """Every `N-M` range ascends; `8-3` names no lines."""
+        for part in self.ranges.split(","):
+            numbers = [int(n) for n in re.findall(r"\d+", part)]
+            if len(numbers) == 2 and numbers[0] > numbers[1]:
+                return False
+        return True
 
 
 def extract_line_citations(content: str) -> list[LineCitation]:
@@ -1087,7 +1099,7 @@ def extract_line_citations(content: str) -> list[LineCitation]:
     results: list[LineCitation] = []
     for lineno, line in enumerate(content.splitlines(), 1):
         results.extend(
-            LineCitation(lineno, match.group(0), match.group(1), _cited_lines(match.group(2)))
+            LineCitation(lineno, match.group(0), match.group(1), match.group(2))
             for match in LINE_CITATION_RE.finditer(line)
         )
         for match in LINE_PROSE_RE.finditer(line):
@@ -1095,7 +1107,7 @@ def extract_line_citations(content: str) -> list[LineCitation]:
                 file, ranges = match.group(2), match.group(1)
             else:
                 file, ranges = match.group(3), match.group(4)
-            results.append(LineCitation(lineno, match.group(0).strip(), file, _cited_lines(ranges)))
+            results.append(LineCitation(lineno, match.group(0).strip(), file, ranges))
     return results
 
 
@@ -1304,6 +1316,9 @@ def check_file(md_file: Path, verbose: bool, catalog: RouteCatalog | None = None
         # read it as in range.
         if min(citation.lines) < 1:
             settle(citation.lineno, f"{citation.raw} (NOT_A_LINE)", "line", key)
+            return
+        if not citation.ordered:
+            settle(citation.lineno, f"{citation.raw} (NOT_A_RANGE — descending)", "line", key)
             return
         length = _line_count(target)
         if citation.highest <= length:

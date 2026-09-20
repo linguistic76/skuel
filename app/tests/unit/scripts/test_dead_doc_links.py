@@ -1515,7 +1515,7 @@ def test_missing_file_cited_two_ways_on_one_line_reports_once(cited_tree: Path) 
 
 def test_a_url_is_not_a_line_citation() -> None:
     assert ddl.extract_line_citations("see https://example.com/app.js:12 and `x.py:1:5`\n") == [
-        ddl.LineCitation(1, "x.py:1", "x.py", (1,))
+        ddl.LineCitation(1, "x.py:1", "x.py", "1")
     ]
     # ...in the prose forms too: a URL's tail is not a repo-rooted file.
     assert ddl.extract_line_citations("see `https://example.com/x.py` line 3\n") == []
@@ -1528,6 +1528,13 @@ def test_every_range_of_a_discontiguous_citation_is_checked(cited_tree: Path) ->
     scan = _scan(cited_tree, "# P\n\n`core/x.py:1-2, 40` and `core/x.py` (lines 3, 9\u201310)\n")
     assert _line_rows(scan) == {(3, "core/x.py:1-2, 40 (PAST_EOF — file has 10 lines)")}
     assert ddl.extract_line_citations("`a.py:78-92, 195-199`")[0].lines == (78, 92, 195, 199)
+
+
+def test_a_descending_or_incomplete_range_is_reported(cited_tree: Path) -> None:
+    """`8-3` names no lines; `3-oops` is not the citation `:3` with a suffix."""
+    scan = _scan(cited_tree, "# P\n\n`core/x.py:8-3`\n\n`core/x.py:3-oops`\n")
+    assert _line_rows(scan) == {(3, "core/x.py:8-3 (NOT_A_RANGE — descending)")}
+    assert ddl.extract_line_citations("`core/x.py:3-oops`") == []
 
 
 def test_a_direct_target_must_be_tracked(cited_tree: Path, monkeypatch: pytest.MonkeyPatch) -> None:

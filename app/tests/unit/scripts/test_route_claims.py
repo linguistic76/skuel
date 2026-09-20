@@ -429,3 +429,12 @@ def test_cli_missing_file_is_a_usage_error(stubbed_catalog: None) -> None:
     with pytest.raises(SystemExit) as exc:
         claims.main(["--file", "/nonexistent/zzz.md"])
     assert exc.value.code == 2
+
+
+def test_cli_non_markdown_file_is_a_usage_error(tmp_path: Path, stubbed_catalog: None) -> None:
+    """A source file's backticked comments are not documentation claims."""
+    source = tmp_path / "m.py"
+    source.write_text("# see `/tasks`\n", encoding="utf-8")
+    with pytest.raises(SystemExit) as exc:
+        claims.main(["--file", str(source)])
+    assert exc.value.code == 2

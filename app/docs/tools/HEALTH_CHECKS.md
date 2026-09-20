@@ -273,9 +273,10 @@ discontiguous citation (`adapters/inbound/csrf.py:78-92, 195-199`) included. Tra
 direct path as for the suffix search, so a gitignored prototype in `plans/` named like
 the module it copies can never satisfy a citation and the verdict is the same in every
 checkout; the tracked set is the whole repository's, so a doc may cite a tracked file
-beside the app (`../infrastructure/docker-compose.yml:52`). Four reasons, each printed with the row: `FILE_MISSING`,
+beside the app (`../infrastructure/docker-compose.yml:52`). Five reasons, each printed with the row: `FILE_MISSING`,
 `AMBIGUOUS_BASENAME (K tracked files end with x.py)`, `NOT_A_LINE` (a `:0` — numbering
-starts at 1), `PAST_EOF (file has K lines)`.
+starts at 1), `NOT_A_RANGE` (a descending `8-3`), `PAST_EOF (file has K lines)`. An
+incomplete range (`:3-oops`) is not a citation at all.
 Fences are read too — a `grep -n` sample cites lines the way prose does. An in-range
 citation is **not verified**: the line exists; what it says is a read.
 

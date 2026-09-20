@@ -486,6 +486,10 @@ def main(argv: list[str] | None = None) -> int:
         missing = [f for f in files if not f.is_file()]
         if missing:
             parser.error(f"no such file: {', '.join(_rel(f) for f in missing)}")
+        # The corpus is Markdown; a source file's backticked comments are not claims.
+        not_markdown = [f for f in files if f.suffix != ".md"]
+        if not_markdown:
+            parser.error(f"--file takes Markdown: {', '.join(_rel(f) for f in not_markdown)}")
         carved = ddl.ScopeSkips(0, 0)
         print(f"Scanning {len(files)} file(s) given on the command line...")
     else:

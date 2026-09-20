@@ -25,9 +25,9 @@ path carries the HTTP methods its registrations accept, so a claim that names a 
 (``PUT /api/events/{uid}/status``) is held to it — a route served only for ``POST`` does
 not make that claim true.
 
-The static extractor survives as :func:`ast_route_paths`, kept ONLY so
-``tests/unit/scripts/test_route_catalog.py`` can assert it is a subset of the runtime
-table and print the size of the gap on every run — never as a reader's source.
+:func:`ast_route_paths` is the static view — the string literals alone — and has one
+consumer: ``tests/unit/scripts/test_route_catalog.py`` asserts it is a subset of the
+runtime table and prints the size of the gap on every run. No reader matches against it.
 
 ⚠️ The root static catch-all
 ----------------------------
@@ -288,10 +288,10 @@ def _decorator_callee(func: ast.expr) -> str:
 def ast_route_paths(inbound_dir: Path | None = None) -> frozenset[str]:
     """String-literal route paths under a routes tree — the STATIC view.
 
-    Kept for one consumer: the subset assertion in ``test_route_catalog.py``. A reader
-    that consulted this would report every factory-registered route as fiction (the
-    module docstring has the measured gap). AST rather than grep because the other
-    ``@rt(`` occurrences in the repo are docstring examples and test fixtures.
+    One consumer: the subset assertion in ``test_route_catalog.py``. A reader that
+    consulted this would report every factory-registered route as fiction. AST rather
+    than grep because the other ``@rt(`` occurrences in the repo are docstring examples
+    and test fixtures.
     """
     inbound_dir = inbound_dir if inbound_dir is not None else ROOT / "adapters" / "inbound"
     paths: set[str] = set()
