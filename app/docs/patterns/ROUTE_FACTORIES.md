@@ -302,10 +302,14 @@ intelligence_factory.register_routes(app, rt)
 Routes use FastHTML function parameters with type hints for clean API design:
 
 ```python
-async def context_route(request: Request, uid: str, depth: int = 2) -> Result[Any]:
-async def analytics_route(request: Request, period_days: int = 30) -> Result[Any]:
-async def insights_route(request: Request, uid: str, min_confidence: float = 0.7) -> Result[Any]:
+async def context_route(request: Request, uid: str, depth: int = 2) -> Result[dict[str, Any]]:
+async def analytics_route(request: Request, period_days: int = 30) -> Result[dict[str, Any]]:
+async def insights_route(request: Request, uid: str, min_confidence: float = 0.7) -> Result[dict[str, Any]]:
 ```
+
+The context route answers `{"entity": ..., "context": ...}` (the `(entity, GraphContext)`
+tuple serialized); a service error propagates with `Result.fail(result)` across the type
+boundary, never as the bare tuple result.
 
 ### Security: Content Scope
 
