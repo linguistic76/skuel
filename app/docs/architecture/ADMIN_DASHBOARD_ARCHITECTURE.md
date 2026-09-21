@@ -358,7 +358,7 @@ The dashboard uses HTMX for dynamic updates without full page reloads:
       hx-target="#user-card-{uid}">
 ```
 
-**Defect, not a pattern:** the live form (`AdminUIComponents.render_role_form`,
+**Defect, not a pattern:** the live form (`AdminUIComponents.render_role_change_form`,
 `ui/admin/views.py`) posts form-encoded to a path uid — there is no `/api/admin/users/{uid}/role`;
 the handler at `/api/admin/users/role` takes `uid` as a query parameter, reads a JSON
 body, and answers a JSON `Result`, not the card fragment the form targets. Changing a role
