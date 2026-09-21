@@ -373,6 +373,25 @@ class TestAccountActionsFromTheDetailPage:
         assert response.headers["X-Toast-Type"] == "error"
         assert response.json()["category"] == "database"
 
+    def test_a_json_client_may_omit_the_optional_body(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """Zero bytes under a JSON content type is the empty field set, not malformed JSON."""
+        client, service = _make_client(monkeypatch)
+        token = mint_token()
+        client.cookies.set(CSRF_COOKIE_NAME, token)
+
+        response = client.post(
+            f"/api/admin/users/deactivate?uid={_TARGET_UID}",
+            content=b"",
+            headers={CSRF_HEADER_NAME: token, "Content-Type": "application/json"},
+        )
+
+        assert response.status_code == 200, response.text
+        service.deactivate_user.assert_awaited_once_with(
+            target_user_uid=_TARGET_UID, admin_user_uid=_ADMIN_UID, reason=""
+        )
+
     def test_json_clients_still_read_json(self, monkeypatch: pytest.MonkeyPatch) -> None:
         client, _service = _make_client(monkeypatch)
 

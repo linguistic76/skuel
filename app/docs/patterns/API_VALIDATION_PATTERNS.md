@@ -57,8 +57,9 @@ form or button posts a browser encoding — htmx url-encodes every body (multipa
 the rule FastHTML itself applies during parameter extraction: a form media type
 (`application/x-www-form-urlencoded`, `multipart/form-data`) goes through
 `parse_form_body` — empty strings → `None`, `list[T]` fields split from the textarea
-string — and anything else through `parse_json_body`; a request that declares no type
-and carries no bytes is the empty field set `{}`, which the schema accepts or refuses.
+string — and anything else through `parse_json_body`; a body with no bytes at all,
+whatever type it declares, is the empty field set `{}`, which the schema accepts or
+refuses (an optional body stays optional for a client whose default type is JSON).
 Both readers end in the same Pydantic validation, so the form's fields and the JSON
 client's reach one model and one 400.
 

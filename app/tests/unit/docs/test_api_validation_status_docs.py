@@ -97,6 +97,9 @@ class _TypedRequest(_JsonRequest, _FormRequest):
     def __init__(self, content_type: str) -> None:
         self.headers = {"content-type": content_type}
 
+    async def body(self) -> bytes:
+        return b'{"reflection": "xxxxxxxxxx"}'
+
 
 def _json_block(text: str, heading: str) -> dict[str, object]:
     """The first fenced JSON block after *heading*."""

@@ -196,10 +196,9 @@ async def parse_body[T: BaseModel](
     way, whatever ``hx-headers`` claims. The header decides which reader runs, as it
     does in FastHTML's own parameter extraction: a form media type goes through
     :func:`parse_form_body` (empty strings → ``None``, ``list[T]`` fields split from
-    the textarea string), anything else through :func:`parse_json_body`. A request
-    that declares no Content-Type and carries no bytes is the empty field set, ``{}``
-    — a bare POST with nothing to say — and the schema decides whether nothing is
-    enough.
+    the textarea string), anything else through :func:`parse_json_body`. A body with
+    no bytes at all is the empty field set, ``{}``, whatever type it declares — a
+    bare POST with nothing to say — and the schema decides whether nothing is enough.
 
     Use this at a route both kinds reach (the CRUD factory's create/update, the admin
     account actions); a JSON-only API route may keep ``parse_json_body`` and a
@@ -212,10 +211,9 @@ async def parse_body[T: BaseModel](
             return Result.fail(parsed)
         req = parsed.value
     """
-    media_type = media_type_of(request)
-    if media_type in FORM_MEDIA_TYPES:
+    if media_type_of(request) in FORM_MEDIA_TYPES:
         return await parse_form_body(request, schema)
-    if not media_type and not await request.body():
+    if not await request.body():
         return _validate_body(schema, {})
     return await parse_json_body(request, schema)
 

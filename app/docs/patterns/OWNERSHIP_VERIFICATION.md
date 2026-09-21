@@ -1,6 +1,6 @@
 ---
 title: Ownership Verification Pattern
-updated: '2026-09-20'
+updated: '2026-09-21'
 category: patterns
 related_skills:
 - activity-domains
@@ -378,8 +378,12 @@ class Task:
   no property-without-edge node is created. Both layers resolve `user_uid` →
   `owner_uid` → `:OWNS` owner (the mixin sees the model properties; the sharing
   query adds the edge fallback) so they always agree — the fallback covers any
-  door not yet enumerated. An entity with none is unowned: `verify_ownership`
-  returns a system error, sharing refuses.
+  door not yet enumerated. An entity whose ownership field holds no value (a
+  vault-authored CURRICULUM exercise, `owner_uid=None`) is owned by nobody:
+  `verify_ownership` refuses every claim on it as **not found** — the same
+  answer a foreign uid gets, so the refusal classifies nothing — and sharing
+  refuses. Only a *type* with neither field (Ku, LP) is a system error: it
+  cannot be owner-verified at all.
 
 ## Domains by Ownership Type
 
@@ -516,8 +520,8 @@ async def test_ownership_prevents_cross_user_access():
 ```
 
 The pinned version of this contract is `tests/unit/test_base_service.py`
-(`test_verify_ownership_unauthorized_returns_not_found` and the `owner_uid` fallback cases
-beside it).
+(`test_verify_ownership_unauthorized_returns_not_found`, the `owner_uid` fallback cases and
+`test_verify_ownership_ownerless_entity_is_not_found` beside it).
 
 ## See Also
 

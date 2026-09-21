@@ -445,19 +445,15 @@ class TestParseBody:
         result = await parse_body(request, _WriteSchema)
         assert result.value.name == "T"
 
-    async def test_untyped_empty_body_is_the_empty_field_set(self):
-        """A bare POST with nothing to say; the schema decides whether nothing is enough."""
-        request = _request(None, body=b"")
+    @pytest.mark.parametrize("content_type", [None, "application/json"])
+    async def test_empty_body_is_the_empty_field_set(self, content_type: str | None):
+        """A POST with nothing to say, typed or not; the schema decides whether nothing
+        is enough — an optional body is optional for a client whose default type is JSON."""
+        request = _request(content_type, body=b"")
         assert (await parse_body(request, _OptionalSchema)).value.reason == ""
         rejected = await parse_body(request, _WriteSchema)
         assert rejected.is_error and "name" in rejected.expect_error().message
-
-    async def test_a_declared_json_body_is_read_as_json_without_a_peek(self):
-        """The media type decides; only an undeclared body is inspected for emptiness."""
-        request = _request("application/json", json={"name": "T"})
-        result = await parse_body(request, _WriteSchema)
-        assert result.value.name == "T"
-        request.body.assert_not_awaited()
+        request.json.assert_not_awaited()
 
     async def test_empty_urlencoded_body_is_the_empty_form(self):
         """What a bare htmx button posts — Content-Type set, nothing in it."""
