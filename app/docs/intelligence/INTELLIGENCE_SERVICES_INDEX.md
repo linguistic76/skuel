@@ -212,9 +212,9 @@ factory = IntelligenceRouteFactory(
 **FastHTML Route Parameter Style:**
 Routes use function parameters with type hints (not `request.query_params`):
 ```python
-async def context_route(request, uid: str, depth: int = 2) -> Result[Any]:
-async def analytics_route(request, period_days: int = 30) -> Result[Any]:
-async def insights_route(request, uid: str, min_confidence: float = 0.7) -> Result[Any]:
+async def context_route(request: Request, uid: str, depth: int = 2) -> Result[dict[str, Any]]:
+async def analytics_route(request: Request, period_days: int = 30) -> Result[dict[str, Any]]:
+async def insights_route(request: Request, uid: str, min_confidence: float = 0.7) -> Result[dict[str, Any]]:
 ```
 
 **Rollout Status (current):**
