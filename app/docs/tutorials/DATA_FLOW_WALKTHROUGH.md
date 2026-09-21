@@ -1,5 +1,5 @@
 ---
-updated: 2026-09-20
+updated: 2026-09-21
 ---
 
 # Data Flow Walkthrough: Following a Task Creation Request
@@ -55,22 +55,23 @@ crud_factory = CRUDRouteFactory(
 crud_factory.register_routes(app, rt)
 ```
 
-### 1.2 Request Parsing via `parse_json_body()`
+### 1.2 Request Parsing via `parse_body()`
 
 ```python
-# parse_json_body() handles:
-# 1. Parses JSON body from request
+# parse_body() handles:
+# 1. Reads the body by its Content-Type — JSON from an API client, url-encoded or
+#    multipart from an HTMX form (the CRUD factory's doors serve both callers)
 # 2. Validates against TaskCreateRequest schema via Pydantic
 # 3. Returns Result.fail() with validation error on failure
 # 4. Returns Result.ok(model) on success
 
-from adapters.inbound.form_helpers import parse_json_body
+from adapters.inbound.form_helpers import parse_body
 
 @rt("/api/tasks/create", methods=["POST"])
 @boundary_handler(success_status=201)
 async def create_task(request: Request) -> Result[Task]:
     user_uid = require_authenticated_user(request)
-    parsed = await parse_json_body(request, TaskCreateRequest)
+    parsed = await parse_body(request, TaskCreateRequest)
     if parsed.is_error:
         return parsed  # type: ignore[return-value]
     return await tasks_service.create_task(parsed.value, user_uid)
