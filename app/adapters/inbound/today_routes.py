@@ -1,7 +1,9 @@
-"""Today surface routes — the day view + its two HTMX actions.
+"""Today surface routes — the day view, its habits fragment + its two HTMX actions.
 
 - ``GET /today`` — the live current day (TodayOrchestrator → TodayPage → sidebar page)
 - ``GET /today/{date_str}`` — the day lens for an arbitrary date (Prev/Next)
+- ``GET /today/{date_str}/habits`` — the day's habit chips, re-fetched on
+  ``calendar-refresh`` (the calendar's per-day completion door fires it)
 - ``POST /today/tasks/quick-add`` — create a task scheduled on the viewed day
   (C6): ``scheduled_date`` only, no ``due_date``; past days refused; HX-Redirect
 - ``POST /today/tasks/{uid}/defer`` — source-aware, view-date-anchored defer

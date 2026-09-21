@@ -53,6 +53,12 @@ NEVER_SCAN_DIR_PARTS = {
     # cache step restores it) — without this, site-packages floods the dead
     # list with thousands of third-party "modules" and buries every real one.
     ".venv",
+    # app/plans/ is the gitignored thinking surface (CLAUDE.md § Documentation
+    # Architecture): prototypes parked there import nothing and are imported by
+    # nothing, and a clean clone has no plans/ at all. Reading it makes the verdict
+    # machine-dependent — the same rule dead_doc_links states for citations
+    # ("tracked files only, so the verdict is the same in every checkout").
+    "plans",
 }
 
 # Directory parts excluded from SUBJECTS (won't appear in dead list)

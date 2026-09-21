@@ -1,5 +1,5 @@
 ---
-updated: 2026-09-15
+updated: 2026-09-21
 related_skills: [neo4j-cypher-patterns, vis-network]
 ---
 
@@ -376,7 +376,7 @@ async def detail_page(request: Any, uid: str) -> Any:
 8. PS (`adapters/inbound/path_steps_ui.py`)
 9. LP (`adapters/inbound/pathways_ui.py`)
 
-(The curriculum three shared one `learning_ui.py` at the time; the `/learning` → `/pathways`
+(The curriculum three shared one `learning_ui.py` at the time; the `/learning` → `/pathways` <!-- historical -->
 split gave each its own module.)
 
 **Time to integrate:** ~5 minutes per domain (import + 5 lines of code)

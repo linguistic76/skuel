@@ -1,6 +1,6 @@
 ---
 title: "ADR-002: Knowledge Coverage Calculation Query"
-updated: 2026-09-04
+updated: 2026-09-21
 status: current
 category: decisions
 tags: [002, adr, decisions, progress, query]
@@ -75,7 +75,7 @@ Use **single complex query** with:
 5. Coverage ratio computation (server-side division)
 6. Readiness threshold (coverage_ratio ≥ 0.8)
 
-**File:** `/core/services/user_progress_service.py:686-735`
+**File:** `/core/services/user_progress_service.py:686-735` <!-- historical --> (the query as decided; the live location is under Implementation Details)
 
 **Complexity Breakdown:**
 - 2 MATCH clauses (4 pts)
@@ -298,9 +298,12 @@ Transitive prerequisite: Variables, Loops (0% mastered) → User will fail
 
 ## Implementation Details
 
-**Location:** `/core/services/user_progress_service.py:686-735`
+**Location:** `/core/services/user_progress_service.py:462` (`UserProgressService.calculate_knowledge_coverage` —
+aggregates the rows and caps `topics` at 50); the Cypher lives below the hexagonal
+boundary (ADR-044) in `/adapters/persistence/neo4j/user_progress_backend.py:259`
+(`UserProgressBackend.calculate_knowledge_coverage`).
 
-**Method:** `calculate_knowledge_coverage(user_uid: str, domain: str | None = None)`
+**Method:** `calculate_knowledge_coverage(user_uid: UserUID, domain: str | None = None)`
 
 **Performance:**
 - Typical: 150-220ms (500 unlearned topics, avg 3 prerequisites each)
@@ -328,7 +331,10 @@ Transitive prerequisite: Variables, Loops (0% mastered) → User will fail
 }
 ```
 
-**Mastery Threshold:** 0.7 (70%) - defined in query WHERE clause
+**Mastery:** the `MASTERED` edge's existence, not a score threshold — the decided
+`mastery_level >= 0.7` filter was never built (the backend docstring records why: the live
+vocabulary splits the continuum across `IN_PROGRESS` and `MASTERED` edges, and mastery edges
+may carry no numeric score at all)
 
 **Readiness Threshold:** 0.8 (80% coverage) - defined in RETURN clause
 

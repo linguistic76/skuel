@@ -1,5 +1,5 @@
 ---
-updated: 2026-09-15
+updated: 2026-09-21
 related_skills: [prompt-templates]
 ---
 
@@ -23,7 +23,7 @@ For implementation guidance, see:
 - **Askesis is a study buddy** — an intelligent tutor helping the user progress **toward their LifePath and within their LearningPaths**. The LifePath↔LearningPath distinction exists in *idea* form, not operational form; the articulated LifePath and much of the curriculum are skeletons today. Askesis must meet the skeleton where it is and stimulate conversations that move the user forward.
 - **Expert in SKUEL's content.** Its authority comes from the curriculum (Resources), **the shelf** ("an important part of Askesis" — its access shape differs from the Journals founder dial), and the **nous topic + subtopic selection** ("significant and fit to establish a foundation... of knowledge to learn, understand, communicate").
 - **Citation is a CORE capability.** "Referencing to xyz from the Askesis chat is essential" — Askesis cites what its response draws on. Partly built today (canon sources + Ku-evidence citations).
-- Future grounding channel: files the user deliberately shares via their `/skuel` folder (the personal vault).
+- Future grounding channel: files the user deliberately shares via their personal vault (`VAULT_ROOT`, `/home/mike/0bsidian/skuel/` for the owner).
 - **Frugality:** build only inside the long-term vision (hosted trained **Qwen + BGE**); no architecture outside that grain.
 - **Durable sessions: explicitly deferred** — "plan this as a future discussion."
 - The four unrendered registry templates **may fit the workflow** — check for value; `askesis_ku_bridge` flagged as the likeliest ("referencing to a Ku from Askesis is an essential part of the workflow").

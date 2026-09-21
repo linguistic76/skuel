@@ -1,6 +1,6 @@
 ---
 title: "ADR-084: Compact Font-Size Tokens (Micro Type Scale)"
-updated: 2026-09-15
+updated: 2026-09-21
 status: accepted
 category: decisions
 tags: [adr, decisions, ui, tailwind, typography, tokens]
@@ -75,7 +75,7 @@ compact steps are a **named follow-up campaign** (own ADR, own screenshots), not
 | 16 | 3 | `text-base` | true no-op (LH 1.5rem = inherited) |
 | 17 / 18 | 5 | `text-lg` | +1px on 2 brand marks (askesis/chat.py:202, journals/chat_page.py:335) — flag in PR body |
 | 20 / 22 | 5 | `text-xl` | 22→20 = −2px judgment nudge, screenshots required |
-| 30 / 32ish | 3 | `text-3xl` | 30px sites carry explicit `leading-[1.12]` — safe; the 32px at calendar components.py:140 is allowlisted (hero pair) |
+| 30 / 32ish | 3 | `text-3xl` | 30px sites carry explicit `leading-[1.12]` — safe; the 32px at `ui/calendar/components.py:185` is allowlisted (hero pair) |
 | 40 / 44 / clamp()×5 | 8 | **allowlist** | permanent exceptions (ledger below) |
 
 Stock-step adoptions (`text-xs`/`text-sm`/`text-lg`/`text-xl`) accept the stock utility's

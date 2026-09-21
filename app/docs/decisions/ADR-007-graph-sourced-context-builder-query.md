@@ -1,6 +1,6 @@
 ---
 title: "ADR-007: Graph-Sourced-Context-Builder Query Architecture"
-updated: 2026-09-04
+updated: 2026-09-21
 status: current
 category: decisions
 tags: [007, adr, builder, context, decisions]
@@ -25,7 +25,7 @@ related: []
 ## Notice: Duplicate ADR
 
 This ADR stub was automatically generated for the query at:
-- **File**: `core/services/user/graph_sourced_context_builder.py:128`
+- **File**: `core/services/user/graph_sourced_context_builder.py:128` <!-- historical --> (the builder was consolidated and the query moved below the boundary — see ADR-001's Code Location)
 - **Complexity Score**: 38
 
 However, this query was already comprehensively documented in **ADR-001: Single Complex Query for Unified User Context**.
