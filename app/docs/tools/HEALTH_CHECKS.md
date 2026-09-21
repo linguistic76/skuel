@@ -86,7 +86,7 @@ Review before deleting — some may be loaded by convention.
   (example removed — skuel_query_templates.py deleted March 2026)
 ```
 
-**What it scans:** All `.py` files outside `tests/`, `scripts/`, `__pycache__`, `node_modules`.
+**What it scans:** All `.py` files outside `NEVER_SCAN_DIR_PARTS` (`tests/`, `.venv/`, `.claude/`, `examples/`, `notebooks/`, the caches — and `plans/`, the gitignored thinking surface: a prototype parked there is in no clone, so reading it would make the verdict machine-dependent).
 
 **What counts as "imported":** Three patterns are detected:
 | Pattern | Example |
