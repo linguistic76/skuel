@@ -15,6 +15,7 @@ from enum import Enum
 from typing import Any, Union, get_args, get_origin
 
 from pydantic import BaseModel, ValidationError
+from python_multipart.exceptions import MultipartParseError
 from starlette.datastructures import UploadFile
 
 from adapters.inbound.fasthtml_types import Request
@@ -279,7 +280,13 @@ async def parse_form_body[T: BaseModel](
             return result
         req = result.value
     """
-    form = await request.form()
+    try:
+        form = await request.form()
+    except MultipartParseError:
+        # FastHTML reads most multipart bodies during parameter extraction (where
+        # the app-level guard answers); a body it skipped as too short to hold a
+        # part is first read here, and its syntax is the client's error too.
+        return Result.fail(Errors.validation("Malformed multipart form data in request body"))
     list_fields = _list_field_names(schema)
     data: dict[str, Any] = {}
     for key in form:

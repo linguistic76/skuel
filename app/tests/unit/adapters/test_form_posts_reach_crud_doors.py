@@ -23,7 +23,10 @@ from starlette.testclient import TestClient
 
 import adapters.inbound.route_factories.crud_route_factory as crud_module
 import adapters.inbound.route_factories.route_helpers as helpers_module
-from adapters.inbound.boundary import install_malformed_json_guard
+from adapters.inbound.boundary import (
+    install_malformed_json_guard,
+    install_malformed_multipart_guard,
+)
 from adapters.inbound.csrf import CSRF_COOKIE_NAME, CSRF_HEADER_NAME, mint_token
 from adapters.inbound.exercises_routes import EXERCISES_CONFIG
 from adapters.inbound.groups_routes import GROUPS_CONFIG
@@ -69,7 +72,8 @@ def _make_harness(monkeypatch: pytest.MonkeyPatch, config: DomainRouteConfig) ->
 
     register_domain_routes(app, rt, services, config)
     install_malformed_json_guard(app)
-    return _Harness(client=TestClient(app), services=services)
+    install_malformed_multipart_guard(app)
+    return _Harness(client=TestClient(app, raise_server_exceptions=False), services=services)
 
 
 def _post_form(client: TestClient, path: str, fields: dict[str, str] | None = None):
@@ -157,6 +161,53 @@ class TestExerciseEditor:
         response = _post_form(harness.client, "/api/exercises/update?uid=ex_theirs", _EDITOR_FIELDS)
 
         assert response.status_code == 404
+
+    def test_a_multipart_body_the_parser_cannot_read_is_400_at_this_door(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """The body fails inside FastHTML's parameter extraction, BEFORE the handler
+        and its ``boundary_handler`` run — so the app-level multipart guard is what
+        answers, and it answers here, at a CRUD door, not only on a bare route."""
+        harness = _make_harness(monkeypatch, EXERCISES_CONFIG)
+        token = mint_token()
+        harness.client.cookies.set(CSRF_COOKIE_NAME, token)
+
+        response = harness.client.post(
+            "/api/exercises/create",
+            content=b"garbage without any boundary markers",
+            headers={
+                CSRF_HEADER_NAME: token,
+                "Content-Type": "multipart/form-data; boundary=xyz",
+            },
+        )
+
+        assert response.status_code == 400, response.text
+        assert response.json()["category"] == "validation"
+        harness.services.exercises.create.assert_not_awaited()
+
+    def test_a_multipart_body_too_short_for_the_pre_parse_is_400_too(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """FastHTML skips a multipart body shorter than its boundary could frame, so
+        this one is first read inside the handler — by ``parse_form_body``, which
+        answers the same validation 400 rather than letting the parser's error
+        reach ``boundary_handler``'s 500."""
+        harness = _make_harness(monkeypatch, EXERCISES_CONFIG)
+        token = mint_token()
+        harness.client.cookies.set(CSRF_COOKIE_NAME, token)
+
+        response = harness.client.post(
+            "/api/exercises/create",
+            content=b"garbage",
+            headers={
+                CSRF_HEADER_NAME: token,
+                "Content-Type": "multipart/form-data; boundary=xyz",
+            },
+        )
+
+        assert response.status_code == 400, response.text
+        assert response.json()["category"] == "validation"
+        harness.services.exercises.create.assert_not_awaited()
 
     def test_a_rejected_form_is_400_naming_the_field(self, monkeypatch: pytest.MonkeyPatch) -> None:
         harness = _make_harness(monkeypatch, EXERCISES_CONFIG)
