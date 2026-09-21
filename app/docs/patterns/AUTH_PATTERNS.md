@@ -263,22 +263,27 @@ if error:
 
 ### Checking Admin for Conditional Rendering (Without Decorator)
 
-`get_is_admin(request)` reads the session's admin flag with no DB call. Its one caller is
-`AuthContextMiddleware`, which mirrors it into the request-scoped auth context once per
-request; a route or a component that needs the flag reads that context, never the session:
+The session readers (`get_current_user`, `get_is_admin`, `get_is_teacher` — no DB call)
+are the **route** layer's API, and the session stays the single source of truth
+(`core/utils/auth_context.py`'s own contract). In **route code** (`adapters/inbound/`),
+read them directly — `get_current_user(request)` is how the explore pages tell an
+anonymous reader from a signed-in one (`learning_loop_routes.py`):
 
 ```python
-from adapters.inbound.auth import get_is_admin  # what the middleware reads
+from adapters.inbound.auth import get_current_user
 
-@rt("/whoami")
-async def whoami_page(request):
-    is_admin = get_is_admin(request)  # a session read — the middleware's job, not a route's
+@rt("/explore/ps/{uid}/content")
+async def explore_ps_content_fragment(request: Request, uid: str) -> Any:
+    user_uid = get_current_user(request)  # session read, no DB call; None when anonymous
     ...
 ```
 
+`get_is_admin(request)` / `get_is_teacher(request)` are the same shape for the role flags.
+
 In **UI components** (`ui/`), never import `adapters.inbound.auth` — lint rule
 SKUEL027 fails closed on any runtime ui → adapters import. Read the
-middleware-set auth context instead:
+middleware-set auth context instead (the mirror exists for the render side, which
+takes no `request`):
 
 ```python
 from core.utils.auth_context import current_auth_state

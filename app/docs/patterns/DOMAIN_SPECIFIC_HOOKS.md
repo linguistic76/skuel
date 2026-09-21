@@ -540,22 +540,23 @@ class TasksCoreService(BaseService[TasksOperations, Task]):
 | **Domain-Specific Hooks** | Service layer | Business rule enforcement | Dynamic (programmatic) |
 | **Database Constraints** | Neo4j | Data integrity | Static (declarative) |
 
-**Example**: Validating an invoice's line items (`core/models/finance/invoice.py`,
-`core/services/finance/finance_invoice_service.py`)
+**Example**: a registration email (`core/models/auth/auth_request.py`,
+`core/auth/graph_auth.py`, `Neo4jSchemaManager.sync_auth_indexes`)
 
 ```python
 # Layer 1: Pydantic (API boundary)
-class LineItemInput(BaseModel):
-    quantity: float = Field(..., gt=0)   # Type + range validation per item
+class RegistrationRequest(BaseModel):
+    email: str = Field(min_length=1, max_length=255)   # shape: present, bounded
 
-# Layer 2: Domain Hook (Service layer)
-def _validate_create(self, invoice: InvoicePure) -> Result[None]:
-    if not invoice.items:  # Business rule: an invoice needs at least one line
-        return Result.fail(Errors.validation("Invoice must have at least one line item"))
-    return Result.ok(None)
+# Layer 2: Domain rule (service layer) — GraphAuthService.sign_up
+existing_result = await self.user_backend.find_by(email=email)
+if existing_result.is_ok and existing_result.value:
+    return Result.fail(
+        Errors.validation(message="An account with this email already exists", field="email")
+    )
 
-# Layer 3: Database (Neo4j constraint, created by Neo4jSchemaManager from field metadata)
-# CREATE CONSTRAINT FOR (n:Invoice) REQUIRE n.uid IS UNIQUE
+# Layer 3: Database (Neo4j constraint the schema manager creates at bootstrap)
+# CREATE CONSTRAINT User_email_unique IF NOT EXISTS FOR (n:User) REQUIRE n.email IS UNIQUE
 ```
 
 **Each layer has its role**:
