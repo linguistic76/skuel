@@ -1,5 +1,5 @@
 ---
-updated: 2026-09-19
+updated: 2026-09-21
 ---
 
 # UI Development Guide
@@ -629,7 +629,7 @@ FormGenerator introspects Pydantic field types to choose widgets:
 - `bool` → checkbox
 - `date`, `datetime` → date input
 - `Enum` → select dropdown
-- `list` → textarea (comma-separated)
+- `list` → textarea (one item per line)
 - Explicit `json_schema_extra={"ui_widget": "textarea"}` overrides inference
 
 ---
