@@ -1,5 +1,5 @@
 ---
-updated: 2026-09-15
+updated: 2026-09-21
 related_skills: [journals, learning-loop, neo4j-cypher-patterns, prometheus-grafana, ui-error-handling]
 ---
 
@@ -50,13 +50,13 @@ plus a route-level role check. Audience is never declared by the student.
 Worse, the entity type hierarchy itself is cosmetic:
 
 - `ExerciseSubmission` adds **zero unique fields** beyond `Submission`
-  (`core/models/submissions/exercise_submission.py:29-35`).
+  (`core/models/submissions/exercise_submission.py:29-35`). <!-- historical -->
 - `Submission` adds 13 fields to `UserOwnedEntity` (4 file, 8 processing,
   `modality`, `revision_number`). But `JeInput` reimplements the same 13
   fields directly on `UserOwnedEntity` without a `Submission` base
   (`core/models/journal/je_input.py`). Two parallel code paths for the same <!-- historical -->
   concept: "user-authored content with files and optional processing."
-- Processing dispatch in `submissions_processing_service.py:321` reads
+- Processing dispatch in `submissions_processing_service.py:321` reads <!-- historical -->
   `entity_type == JE_INPUT` as a flag for "run the journal LLM" —
   the *only* place in submissions processing where the type discriminator
   drives behavior. Every other signal is `file_type` (MIME) or `instructions`

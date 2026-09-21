@@ -1,5 +1,5 @@
 ---
-updated: 2026-09-15
+updated: 2026-09-21
 related_skills: [learning-loop, prompt-templates, zpd]
 ---
 
@@ -305,7 +305,7 @@ already one hop off:
 
 **Cost weighed:** EntityType value (`exercise_report` → `entry_report`),
 NeoLabel, UID prefix, `ExerciseReportService`/DTO/request renames, routes
-(`/exercise-reports` → `/entry-reports`), UI labels, docs/skills sweep. Bounded,
+(`/exercise-reports` → `/entry-reports`), UI labels, docs/skills sweep. Bounded, <!-- historical -->
 mechanical, precedented (Feedback→Report rename). **Data migration cost: zero —
 the live graph has 0 ExerciseReport nodes.** This is the cheapest this rename
 will ever be; deferring it means paying a Cypher relabel migration later. One
@@ -363,8 +363,8 @@ a schedule, so the loop polled an eternally-empty table (0 ReportSchedule nodes;
 still 0 when the worker was retired with its producer, 2026-09-13). The admin review
 queue page is **live** (`activity_review_ui.py` → `get_pending_reviews`) but no
 route calls `request_review`, so the queue is eternally empty (0 ReviewRequest
-nodes). `get_privacy_summary`'s docstring claims `GET /api/privacy/audit` — **no
-privacy route exists anywhere in `adapters/inbound/`**.
+nodes). `get_privacy_summary`'s docstring names a privacy route — there is
+no `GET /api/privacy/audit`, nor any privacy route, anywhere in `adapters/inbound/`.
 
 | # | Finding | Ruling | Reason |
 |---|---|---|---|

@@ -13,7 +13,7 @@ related:
   - ADR-044-neo4j-committed-architectural-choice
   - ADR-049-huggingface-embeddings-migration
   - ADR-062-chargekeep-billing-layer
-updated: 2026-09-15
+updated: 2026-09-21
 related_skills: [docker]
 ---
 
@@ -29,7 +29,7 @@ For implementation guidance, see:
 Accepted — implementation in progress. **Phases 1 + 2** (Docker stack + `firefly_client` REST adapter) landed in commit `c3258630`. **Phase 4 (custom finance UI) is CANCELLED** and **Phase 5 (demolition) is expanded to the whole native finance surface** — see "Amendments" below. The billing side (originally Stripe-direct, now ChargeKeep) is owned by [ADR-062](ADR-062-chargekeep-billing-layer.md); the phased sequence + spike gate live in [`roadmap/finance-billing-migration.md`](../roadmap/finance-billing-migration.md).
 
 > **Amendments (2026-05-24).** This ADR's body has been revised so it no longer contradicts the resolution captured in ADR-062 + the roadmap. Three reversals of the original 2026-04-12 text:
-> 1. **Billing is ChargeKeep, not Stripe-direct.** The `POST /webhooks/stripe` consumer and `stripe_firefly_sync_service` are replaced by a ChargeKeep webhook consumer (ADR-062). Firefly-as-ledger is unchanged.
+> 1. **Billing is ChargeKeep, not Stripe-direct.** There is no `POST /webhooks/stripe` consumer and no `stripe_firefly_sync_service` — the original design's Stripe pair is replaced by a ChargeKeep webhook consumer (ADR-062), itself not yet built. Firefly-as-ledger is unchanged.
 > 2. **No custom SKUEL finance UI.** The "thin read-through facade" (`firefly_expense_service.py`, a rewired `finance_ui.py`) is dropped. Admins use Firefly's **native UI** (two Firefly users, two sign-ins); subscription/revenue metrics come from ChargeKeep's dashboard.
 > 3. **The local invoice module is NOT kept** — invoicing moves to ChargeKeep (Firefly can't invoice; ChargeKeep can). The WeasyPrint renderer is deleted too. Consequently Phase 5 demolishes the **entire** native finance surface, and `firefly_client` is trimmed to **write-only** (revenue-sync).
 
@@ -100,12 +100,12 @@ With no custom finance UI and invoicing moved to ChargeKeep, demolition covers t
 | `adapters/outbound/firefly_client.py` | **Done (Phase 2).** Async httpx-backed FireflyClient implementing `FireflyOperations`. |
 | `core/ports/finance_protocols.py` | **Done (Phase 2).** `FireflyOperations` protocol + TypedDicts. |
 | ~~`core/services/finance/firefly_expense_service.py`~~ | **CANCELLED (Phase 4).** No custom finance UI → no read-facade; `finance_ui.py` is deleted, not rewired. | <!-- historical -->
-| Billing webhook + revenue sync | **Owned by [ADR-062](ADR-062-chargekeep-billing-layer.md)** (`billing_protocols.py`, `chargekeep_client.py`, `webhook_routes.py`). Replaces this ADR's original `stripe_firefly_sync_service.py` + `stripe_webhook_routes.py`. |
+| Billing webhook + revenue sync | **Owned by [ADR-062](ADR-062-chargekeep-billing-layer.md) — planned, not built** (`billing_protocols.py`, `chargekeep_client.py`, `webhook_routes.py` are the roadmap's planned files; none exists yet). Replaces this ADR's original `stripe_firefly_sync_service.py` + `stripe_webhook_routes.py`, which were never built either. |
 | `docker-compose.yml` Firefly stack | **Done (Phase 1).** `firefly`, `firefly-db`, `firefly-importer` under `finance` profile. |
 
 ## Architecture
 
-**Hexagonal placement.** `firefly_client.py` is an outbound adapter (sibling of `chargekeep_client.py`, ADR-062). It is the sole Firefly-aware file — the billing webhook consumer depends on the `FireflyOperations` Protocol in `core/ports/finance_protocols.py`, not the concrete client.
+**Hexagonal placement.** `firefly_client.py` is an outbound adapter (the planned `chargekeep_client.py` of ADR-062 will be its sibling). It is the sole Firefly-aware file — the billing webhook consumer depends on the `FireflyOperations` Protocol in `core/ports/finance_protocols.py`, not the concrete client.
 
 **Two-book design.** `FireflyOperations` methods take a `book: FireflyBook` argument (`"personal"` or `"skuel"`). Firefly holds both books; SKUEL only ever writes to `"skuel"` (revenue sync), so only that PAT is configured in SKUEL.
 
@@ -123,7 +123,7 @@ docker-compose.yml  (--profile finance)
 
 **Read path.** None in SKUEL — admins read expenses/budgets/reports in **Firefly's native web UI** (two sign-ins). SKUEL renders no finance pages.
 
-**Write path (revenue sync).** ChargeKeep fires a paid-subscription event (ADR-062) → `POST /webhooks/chargekeep` → signature verification → `firefly_client.create_transaction(book="skuel", type="deposit", external_id=<event id>, …)`. Idempotent via `external_id` lookup. (This replaces the original Stripe-direct `charge.succeeded` design.)
+**Write path (revenue sync) — designed, not yet built.** ChargeKeep fires a paid-subscription event (ADR-062) → the billing webhook consumer (no `POST /webhooks/chargekeep` is registered today; the route is planned in [`roadmap/finance-billing-migration.md`](../roadmap/finance-billing-migration.md)) → signature verification → `firefly_client.create_transaction(book="skuel", type="deposit", external_id=<event id>, …)`. Idempotent via `external_id` lookup. (This replaces the original Stripe-direct `charge.succeeded` design.)
 
 **Invoice path.** ChargeKeep issues invoices/receipts (ADR-062). The local `FinanceInvoiceService` + WeasyPrint renderer are deleted in Phase 5.
 

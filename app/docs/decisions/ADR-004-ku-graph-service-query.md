@@ -1,6 +1,6 @@
 ---
 title: "ADR-004: Ready-to-Learn Knowledge Unit Query"
-updated: 2026-09-04
+updated: 2026-09-21
 status: current
 category: decisions
 tags: [004, adr, decisions, graph, query]
@@ -61,7 +61,7 @@ Use **single complex query** with:
 6. Multi-criteria ranking (readiness + unlock value)
 7. Top N recommendations with metadata
 
-**Code:** originally `ku_graph_service.py` lines 589-632 (since refactored into `/core/services/ku/`).
+**Code:** originally `ku_graph_service.py` lines 589-632 <!-- historical --> (the query as decided; the live location is under Implementation Details).
 
 **Complexity Breakdown:**
 - 2 MATCH clauses (4 pts)
@@ -294,30 +294,36 @@ ORDER BY readiness DESC, enables_count DESC
 
 ## Implementation Details
 
-**Implementation:** originally in `ku_graph_service.py` lines 589-632, since refactored into `/core/services/ku/`.
+**Implementation:** the Cypher lives below the hexagonal boundary (ADR-044) in
+`/adapters/persistence/neo4j/_knowledge_context_mixin.py:392`
+(`find_ready_to_learn(mastered_uids, domain, limit)` → `ReadyToLearnResult` rows, scoped by
+`build_knowledge_read_clause`); its one service caller is
+`/core/services/ps/ps_context_service.py:51` (`PsContextService.get_ready_to_learn_for_user`),
+which takes the mastered uids from `UserContext.knowledge_mastery` and converts each row to a
+`ContextualKnowledge` (the caller left `core/services/ku/` with the Ku → Article → Lesson →
+PathStep rename chain).
 
-**Method:** `find_ready_to_learn(user_uid: str, domain: str | None = None, limit: int = 10)`
+**Method:** `get_ready_to_learn_for_user(context: UserContext, domain: str | None = None, limit: int = 10)`
 
 **Performance:**
 - Typical: 120-180ms (500 knowledge units, avg 3 prerequisites each)
 - Worst-case: 220-280ms (2000+ knowledge units, complex prerequisite graphs)
 - **80%+ improvement** over multi-query approach (150ms vs 800ms+)
 
-**Output Structure:**
+**Output Structure** (`ReadyToLearnResult`, `core/ports/query_types.py`; the service
+wraps each row as a `ContextualKnowledge` with the row's `readiness` as its override):
 ```python
 [
     {
         "uid": str,
         "title": str,
-        "summary": str,
-        "domain": str,
-        "readiness_score": float,  # 0.0-1.0
-        "prerequisites_status": str,  # "3/4" format
-        "enables_count": int,  # Strategic value
-        "reasons": [  # Generated in Python from scores
-            "3/4 prerequisites completed",
-            "Unlocks 5 advanced topics"
-        ]
+        "domain": str | None,
+        "summary": str | None,
+        "readiness": float,          # 0.0-1.0, server-side
+        "total_prereqs": int,
+        "satisfied_prereqs": int,
+        "prereq_uids": list[str],    # only the prerequisites the caller may see
+        "dependent_count": int,      # strategic value (what this unlocks)
     }
 ]
 ```

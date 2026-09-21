@@ -1,6 +1,6 @@
 ---
 title: "ADR-070: Bidirectional VaultBridge — Obsidian ↔ SKUEL Task Sync"
-updated: 2026-09-16
+updated: 2026-09-21
 status: accepted
 category: decisions
 tags: [adr, decisions, vault, obsidian, bidirectional-sync, vault-bridge]
@@ -290,7 +290,7 @@ Fail-closed posture is unchanged: unset → doorway folders only; a newly-create
 
 **Enforcement (done in this PR):** deleted `scripts/vault_watch.py` (the continuous poll-loop) and `scripts/provision_vault_watcher.py` (the watcher's HTTP service-account provisioner — obsolete once sync is in-process); deleted `POST /api/ingest/directory` and its route-level test; added `POST /api/vault/sync/content` (admin) onto the reconciler; rewired the ingestion dashboard's directory card to a "Sync content vault" button; replaced `./dev vault-watch` with one-shot `./dev vault-sync` (→ `vault_bridge_sync.py`); updated the CLAUDE.md ingestion note. <!-- historical -->
 
-**Rejected:** (a) cron / systemd `--once` as sanctioned automation — violates per-event-human initiation; it is Alternative E by another name. (b) keeping `/api/ingest/directory` as a parallel raw ingest door — One Path Forward forbids two live paths to one outcome.
+**Rejected:** (a) cron / systemd `--once` as sanctioned automation — violates per-event-human initiation; it is Alternative E by another name. (b) keeping `/api/ingest/directory` as a parallel raw ingest door — One Path Forward forbids two live paths to one outcome. <!-- historical -->
 
 **Unchanged:** this decision governs *triggers and engine count only*. Descriptor-by-path ingest ownership (Decision 7) and the code-defined default-deny sync allowlist (Decision 8) are untouched; the fail-closed privacy wall still applies beneath every entry point above.
 

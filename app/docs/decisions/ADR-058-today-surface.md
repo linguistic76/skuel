@@ -1,6 +1,6 @@
 ---
 title: "ADR-058: Today as the Post-Login Landing Surface"
-updated: 2026-09-19
+updated: 2026-09-21
 status: current
 category: decisions
 tags: [adr, decisions, ui, landing, today, lifepath]
@@ -9,11 +9,25 @@ related: [ADR-050, ADR-055]
 
 # ADR-058: Today as the Post-Login Landing Surface
 
-**Status:** Accepted (amended 2026-09-12, 2026-09-19)
+**Status:** Accepted (amended 2026-09-12, 2026-09-19, 2026-09-21)
 
 **Date:** 2026-04-23
 
 **Decision Type:** Pattern/Practice
+
+---
+
+## Amendment (2026-09-21 — `/home` is gone)
+
+The hub this ADR demoted no longer exists: `/home` was folded into the
+`/profile` tabs on 2026-05-11 (`1cb65580d`, no redirect) and `/profile` was
+retired by the Tasks+ arc (#1377, no route, no redirect) — a request for either
+is a 404. Alternative 3 below, rejected here, happened in two later decisions.
+`adapters/inbound/home_routes.py` keeps its name and registers only the two
+shared navbar fragments (`GET /api/navbar/notification-badge`,
+`GET /api/personal-header`). The Decision's "regression guard" clause and every
+other line below that names the old hub are the record of the decision as
+made and carry the `historical` marker.
 
 ---
 
@@ -86,7 +100,7 @@ is current.
 
 ## Context
 
-Until this ADR, authenticated users landed on `/home` — a "Home Hub" that
+Until this ADR, authenticated users landed on `/home` — a "Home Hub" that <!-- historical -->
 presented Submissions, GradeBook, and Library as equal top-level cards. The
 hub answered "what can I do in SKUEL?" but not "what am I doing *today*?"
 The user's life commitments (LifePaths), their overdue work, and their
@@ -109,9 +123,10 @@ optimistic UI.
 
 ## Decision
 
-**Adopt `/today` as the post-login landing page. Demote `/home` from the
-primary entry point to a directly-addressable hub that survives only as a
-regression guard.**
+**Adopt `/today` as the post-login landing page.**
+**Demote `/home` from the primary entry point to a directly-addressable hub <!-- historical -->
+that survives only as a regression guard.** *Superseded 2026-05-11 / #1377:
+`/home` is gone — see the 2026-09-21 amendment.*
 
 Implementation:
 - Post-sign-in and post-registration redirects target `/today` for
@@ -121,8 +136,9 @@ Implementation:
   `/today` with icon `sun` and `page_key="today"`. *Superseded 2026-09-12
   (brand → `/explore`) and 2026-09-19 (the door is "Tasks+", keyed by
   section).*
-- `/home` still resolves (no 404s, no broken bookmarks) but nothing
-  routes users to it automatically.
+- `/home` still resolves (no 404s, no broken bookmarks) but nothing <!-- historical -->
+  routes users to it automatically. *Superseded 2026-05-11 / #1377: `/home`
+  is gone.*
 - Home Hub's filter axes (Submissions / GradeBook / Library) are demoted
   to sidebar options reachable from Today, not peers of it.
 
@@ -134,7 +150,7 @@ the amendment above for the surface as built today.
 
 ## Alternatives Considered
 
-### Alternative 1: Keep `/home` as landing, add Today as a sibling
+### Alternative 1: Keep `/home` as landing, add Today as a sibling <!-- historical -->
 **Why rejected:** Peer navigation implies equal weight. Today answers the
 central question (what am I doing now?) while Home Hub is a directory of
 other surfaces. Treating them as peers recreates the confusion this ADR
@@ -152,12 +168,12 @@ Ribbon is the strongest of the three (LifePath-first, direct
 manipulation) and ships as the single Today surface. Constellation and
 Command are preserved in git history only.
 
-### Alternative 3: Retire `/home` entirely in this ADR
+### Alternative 3: Retire `/home` entirely in this ADR <!-- historical -->
 **Why rejected:** Retiring a landing page is a behavioral change with
 unknown downstream impact (bookmarks, docs, screenshots, user habit).
 This ADR narrowly scopes the landing *redirect* change so it can be
 validated on its own; full retirement is a separate decision once
-usage data shows `/home` traffic has fallen off.
+usage data shows `/home` traffic has fallen off. <!-- historical -->
 
 ---
 
@@ -174,9 +190,9 @@ usage data shows `/home` traffic has fallen off.
   disabled automatically for users who opt out.
 
 ### Negative
-- Users with `/home` bookmarks keep landing there on direct navigation
+- Users with `/home` bookmarks keep landing there on direct navigation <!-- historical -->
   and will not see Today until they click the brand link. Acceptable
-  short-term cost; revisited when `/home` retirement is proposed.
+  short-term cost; revisited when `/home` retirement is proposed. <!-- historical -->
 - Today's interactivity (drag-to-defer, optimistic updates) concentrates
   more production JavaScript in `static/js/today.js` than prior pages <!-- historical -->
   carried. Kept verbatim from the handoff mock to minimize drift; an
@@ -187,7 +203,7 @@ usage data shows `/home` traffic has fallen off.
 
 | Risk | Likelihood | Impact | Mitigation |
 |------|------------|--------|------------|
-| Users disoriented by landing change | Low | Low | Brand link and icon nav both advertise `/today`; `/home` still resolves for muscle memory |
+| Users disoriented by landing change | Low | Low | Brand link and icon nav both advertise `/today`; `/home` still resolves for muscle memory | <!-- historical -->
 | Today assembly latency across 6 facade fetches | Medium | Medium | Orchestrator wraps the six independent reads (tasks / goals / principles / habits / events / LifePath designation) in a single `asyncio.gather`, so TTFB is bounded by the slowest facade, not the sum. Principle-edge fan-out is also gathered inside `_first_principle_map`. If p95 regresses once production traffic lands, the remaining optimization is folding Today's reads into `build_rich()` / MEGA-QUERY. |
 | Drag-to-defer accidentally triggered on touch | Low | Low | Handoff spec defines a 70px threshold; `prefers-reduced-motion` disables drag entirely |
 
@@ -196,9 +212,9 @@ usage data shows `/home` traffic has fallen off.
 ## Implementation Details
 
 ### Files
-- `adapters/inbound/today_routes.py` — 8 endpoints (page + dated day-lens + drawer + 5 mutations)
+- `adapters/inbound/today_routes.py` — 5 endpoints (page, dated day-lens, the day's habits fragment, quick-add, defer)
 - `adapters/inbound/auth_ui.py` — redirect targets `/today` for non-admins
-- `adapters/inbound/home_routes.py` — `/home` retained as regression guard
+- `adapters/inbound/home_routes.py` — the two shared navbar fragments (`GET /api/navbar/notification-badge`, `GET /api/personal-header`); no `/home` hub is registered
 - `ui/today/page.py` — FastHTML translation of the handoff (now the server-rendered day view — see the amendment)
 - `ui/today/drawer.py` — FastHTML translation of the handoff's detail drawer <!-- historical -->
 - `ui/today/orchestrator.py` — `TodayOrchestrator.build_context()` assembles the view shape. Lives under `ui/` (not `core/services/`) because the output is a page context, not a service-layer contract; putting it in `core/` would invert the `core → ui` import direction.
@@ -208,28 +224,26 @@ usage data shows `/home` traffic has fallen off.
 - `static/css/input.css` — strength tokens
 - `ui/page_contexts.py` — `TodayPageContext`, `TodayStats`, `LifePathRibbonView`, `TriageItemView`, `RitualView`, `KindMeta`, `TaskView`, `GoalView`, `PrincipleView` TypedDicts (page contexts are UI concerns; not in `core/ports/`)
 
-### Endpoints (see `today.md` §5 for full signatures)
-- `GET  /today` — full page via `BasePage(active_page="today")` (the live current day)
+### Endpoints (live signatures in `adapters/inbound/today_routes.py`; the adopted spec's §5 is in the archived handoff)
+- `GET  /today` — full page through `render_activity_sidebar_page(active="today")` (the live current day)
 - `GET  /today/{date_str}` — day lens for an arbitrary date (Prev/Now/Next navigation, parallel to Week/Month); unparseable dates degrade to today
-- `GET  /today/tasks/{id}/drawer` — detail drawer fragment
-- `POST /today/tasks/{id}/complete` — optimistic complete, 204
+- `GET  /today/{date_str}/habits` — the day's habit chips, re-fetched on `calendar-refresh`
+- `GET  /today/tasks/{id}/drawer` — detail drawer fragment <!-- historical -->
+- `POST /today/tasks/{id}/complete` — optimistic complete, 204 <!-- historical -->
 - `POST /today/tasks/quick-add` — create a task scheduled on the viewed day (`title` + `view_date`); `scheduled_date` only, no `due_date` (a work chip, not a deadline); past days refused 400; success replies `HX-Redirect` back to the day's lens (C6 of the calendar act-from arc; creation replaced the deleted `CalendarService.quick_create`)
-- `POST /today/tasks/{id}/defer` — accepts `span=1d|1w` + `source=ribbon|triage` + `view_date`; moves the field(s) the card spoke for to `view_date + span`, guarded by the shared lens-membership predicate (`ui/today/membership.py`, C7 of the calendar act-from arc), 204
-- `POST /today/tasks/{id}/star` — toggle priority pin, 204
-- `POST /today/lifepaths/{id}/wake` — clear dormant flag, returns ribbon fragment
+- `POST /today/tasks/{id}/defer` — accepts `span=1d|1w` + `source=day|triage` + `view_date`; moves the field(s) the card spoke for to `view_date + span`, guarded by the shared lens-membership predicate (`ui/today/membership.py`, C7 of the calendar act-from arc), 204
+- `POST /today/tasks/{id}/star` — toggle priority pin, 204 <!-- historical -->
+- `POST /today/lifepaths/{id}/wake` — clear dormant flag, returns ribbon fragment <!-- historical -->
 
-One mutation Today does NOT own: the flash toast's **Undo** reopens a
-just-completed task through the shared status chokepoint
-`POST /api/tasks/{id}/status`, posting the status the card carried before the
-complete (`TaskView.status`). Reusing the live, CSRF-protected,
-ownership-checked route keeps Undo a real reopen — the chokepoint also clears
-`completion_date` — instead of a local un-hide over a graph that stays
-completed. No Today-specific endpoint was added for it.
+Completion is not a Today route: the day's `TaskCard` posts its status
+toggle to the shared, CSRF-protected, ownership-checked chokepoint
+`POST /api/tasks/{uid}/status` — the one completion door every surface uses,
+which also clears `completion_date` on a reopen.
 
-Every task-scoped route enforces ownership via `verify_entity_ownership`
+The task-scoped route (`defer`) enforces ownership via `verify_entity_ownership`
 (the API-style helper from `route_factories.route_helpers` — returns an
-error `Result` for HTMX fragments/204s; the UI-style `require_owned_entity`
-would be wrong here since these endpoints return fragments, not full pages).
+error `Result`, answered as a 404; the UI-style `require_owned_entity`
+would be wrong here since the endpoint answers a 204, not a full page).
 
 ---
 

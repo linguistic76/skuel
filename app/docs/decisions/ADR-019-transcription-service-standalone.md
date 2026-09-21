@@ -1,6 +1,6 @@
 ---
 title: "ADR-019: Transcription Service Simplification"
-updated: 2026-09-04
+updated: 2026-09-21
 status: accepted
 category: decisions
 tags: [adr, decisions, lsp, architecture, transcription, refactoring]
@@ -60,20 +60,23 @@ Complete simplification of the Transcription domain:
 ```
 core/
 ├── models/transcription/
-│   └── transcription.py          # 208 lines - Model + requests
+│   └── transcription.py          # Model + requests
 ├── services/transcription/
 │   ├── __init__.py               # Module exports
-│   └── transcription_service.py  # 435 lines - 8 methods
+│   └── transcription_service.py  # 8 methods
 ├── events/
-│   └── transcription_events.py   # 91 lines - Events
+│   └── transcription_events.py   # Events
 
 adapters/
 ├── external/deepgram/
 │   ├── __init__.py               # Protocols + exports
-│   └── adapter.py                # 201 lines - Thin API wrapper
+│   └── adapter.py                # Thin API wrapper
 ├── inbound/
-│   └── transcription_routes_v3.py # 228 lines - 9 endpoints
+│   ├── transcription_api.py      # 9 endpoints
+│   └── transcription_routes.py   # DomainRouteConfig wiring
 ```
+
+(Line counts at the decision are in the comparison table below; `wc -l` re-measures.)
 
 ### Service Methods (8 core methods)
 
@@ -105,21 +108,24 @@ class TranscriptionService:
 
 ### Route Endpoints (9 routes)
 
+The target transcription rides as the `uid` query parameter, never a path segment
+(`adapters/inbound/transcription_api.py`):
+
 | Method | Endpoint | Service Method |
 |--------|----------|----------------|
 | POST | `/api/transcriptions` | create() |
-| GET | `/api/transcriptions/{uid}` | get() |
-| DELETE | `/api/transcriptions/{uid}` | delete() |
+| GET | `/api/transcriptions/get?uid=` | get() |
+| DELETE | `/api/transcriptions/delete?uid=` | delete() |
 | GET | `/api/transcriptions` | list() |
-| POST | `/api/transcriptions/{uid}/process` | process() |
-| POST | `/api/transcriptions/{uid}/retry` | retry() |
-| GET | `/api/transcriptions/search` | search() |
-| GET | `/api/transcriptions/status/{status}` | get_by_status() |
-| GET | `/api/transcriptions/health` | (health check) |
+| POST | `/api/transcriptions/process?uid=` | process() |
+| POST | `/api/transcriptions/retry?uid=` | retry() |
+| GET | `/api/transcriptions/search?q=` | search() |
+| GET | `/api/transcriptions/status?status=` | get_by_status() |
+| GET | `/api/transcriptions/health` | (unauthenticated liveness) |
 
 ---
 
-## Line Count Comparison
+## Line Count Comparison (at the decision, 2025-12-06)
 
 | Component | Before | After | Reduction |
 |-----------|--------|-------|-----------|
@@ -205,7 +211,7 @@ transcription_service = TranscriptionService(
 - Self-documenting architecture
 
 ### Negative
-- Old services archived (zarchives/)
+- Old services archived (a gitignored `zarchives/` — since gone; see Files Archived)
 - Routes changed (v3 endpoints)
 - Bootstrap wiring updated
 
@@ -217,11 +223,12 @@ transcription_service = TranscriptionService(
 
 ## Files Archived
 
-Moved to `/skuel/app/zarchives/`:
-- `transcription_service.py` (old 997-line service)
-- `audio_transcription_service.py` (old 846-line service)
-- `transcription_routes.py` (old route wiring)
-- `transcription_api.py` (old 18-route API)
+The four superseded files — `transcription_service.py` (997 lines),
+`audio_transcription_service.py` (846 lines), `transcription_routes.py` (the old route
+wiring) and the old 18-route `transcription_api.py` — went to a gitignored `zarchives/`
+directory that predates this repository's first commit (2026-01-25) and no longer exists
+on disk. Their pre-decision versions are in no commit; this ADR's line-count table is their
+only record.
 
 ---
 

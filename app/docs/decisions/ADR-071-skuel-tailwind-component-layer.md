@@ -1,6 +1,6 @@
 ---
 title: "ADR-071: SKUEL-Owned Tailwind Component Layer"
-updated: 2026-09-19
+updated: 2026-09-21
 status: implemented
 category: decisions
 tags: [adr, decisions, ui, tailwind, alpine, components]
@@ -225,7 +225,7 @@ is simpler than maintaining a 2.9MB dependency for color values.
 
 | Risk | Likelihood | Impact | Mitigation |
 |------|------------|--------|------------|
-| Visual regression during call-site migration | Medium | Medium | Phase 2 is per-component; component gallery (`/admin/component-gallery`) validates parity before call-site migration |
+| Visual regression during call-site migration | Medium | Medium | Phase 2 is per-component; `tests/unit/ui/test_components.py` pins each replacement component's rendered classes (the component gallery this row first proposed was never built — no `/admin/component-gallery` exists) |
 | Dynamic class strings missed by Tailwind scanner | Low | Low | Explicit safelist patterns in `tailwind.config.js` cover all known dynamic patterns; `static/js/*.js` added to Tailwind content scan (see Implementation Notes) |
 | JS-generated classes not visible to Python-based content scan | Medium | Medium | Page-local JS that builds classes at runtime (the former `today.js` built `bg-strength-strong/10`) is covered by adding `static/js/*.js` to Tailwind content paths (see Implementation Notes) |
 | Lucide icons in Alpine-reactive DOM nodes render as blank | Medium | Medium | `<uk-icon :icon=...>` inside `x-for`/`x-if` auto-upgrades via UIkit's custom element registry; Lucide's `createIcons()` only processes elements present at call time. See M9 prerequisite below |

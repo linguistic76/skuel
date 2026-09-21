@@ -1,6 +1,6 @@
 ---
 title: "ADR-014: Unified Content Ingestion Service"
-updated: 2026-09-04
+updated: 2026-09-21
 status: accepted
 category: decisions
 tags: [adr, decisions, ingestion, markdown, yaml, unified, modular]
@@ -248,7 +248,7 @@ ENTITY_CONFIGS: dict[str, EntityIngestionConfig] = {
 | Endpoint | Method | Purpose |
 |----------|--------|---------|
 | `/api/ingest/file` | POST | Single file ingestion |
-| `/api/ingest/directory` | POST | Directory batch ingestion |
+| `/api/vault/sync/content` | POST | Content-vault directory ingest (admin) — the one directory door; there is no `/api/ingest/directory` (ADR-070 Decision 9 retired it) |
 | `/api/ingest/vault` | POST | Obsidian vault sync |
 | `/api/ingest/bundle` | POST | Manifest-driven bundle |
 | `/ingest` | GET | Dashboard UI |

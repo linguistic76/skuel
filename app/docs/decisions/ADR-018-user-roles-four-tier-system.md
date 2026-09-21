@@ -1,6 +1,6 @@
 ---
 title: "ADR-018: Four-Tier User Role System"
-updated: 2026-09-17
+updated: 2026-09-21
 status: current
 category: decisions
 tags: [adr, decisions, user, roles, authorization, authentication]
@@ -65,13 +65,16 @@ Key constraints:
    - `@require_teacher(user_service_getter)`
    - `@require_member(user_service_getter)`
 
-4. **Admin API Routes** (`/adapters/inbound/admin_routes.py`):
+4. **Admin API Routes** (`/adapters/inbound/admin_api.py`, registered through the
+   `DomainRouteConfig` wrapper in `/adapters/inbound/admin_routes.py`; the target user
+   rides as the `uid` query parameter, never a path segment):
    - `GET /api/admin/users` - List users
-   - `GET /api/admin/users/{uid}` - Get user details
-   - `POST /api/admin/users/{uid}/role` - Change role
-   - `POST /api/admin/users/{uid}/deactivate` - Deactivate
-   - `POST /api/admin/users/{uid}/activate` - Activate
-   - `POST /api/admin/users/{uid}/reset-password` - Generate reset token (ADMIN only)
+   - `GET /api/admin/users/get?uid=` - Get user details
+   - `POST /api/admin/users/role?uid=` - Change role
+   - `POST /api/admin/users/deactivate?uid=` - Deactivate
+   - `POST /api/admin/users/activate?uid=` - Activate
+   - `POST /api/admin/users/reset-password?uid=` - Generate reset token
+   - `POST /api/admin/users/hard-delete?uid=` - GDPR erasure (user + `OWNS` tree)
 
 5. **Trial Limits Service** — ⚠️ **removed.** It shipped with this decision as
    infrastructure for consumption limits (all tiers unlimited, rate limiting reserved for
@@ -161,7 +164,7 @@ Key constraints:
 ### Code Location
 - **Enum:** `/core/models/enums/user_enums.py`
 - **Decorators:** `/adapters/inbound/auth/roles.py`
-- **Admin Routes:** `/adapters/inbound/admin_routes.py`
+- **Admin Routes:** `/adapters/inbound/admin_api.py` (handlers), `/adapters/inbound/admin_routes.py` (wiring)
 - **Trial Limits:** removed — see the Decision note above
 - **Migration:** `/scripts/migrations/add_user_role.py` <!-- historical --> (applied, then
   archived with 29 other one-time migration scripts)

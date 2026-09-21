@@ -1,6 +1,6 @@
 ---
 title: "ADR-064: Neo4j Per-Query Server-Side Timeout via Driver Wrapper"
-updated: 2026-09-15
+updated: 2026-09-21
 status: current
 category: decisions
 tags: [adr, decisions, architecture, neo4j, persistence, performance, hexagonal]
@@ -122,7 +122,7 @@ Have `Neo4jConnection.connect()` itself return a `TimedDriver`, so even migratio
 
 ### Migration
 
-None required for existing code. The wrapper is fully backward-compatible at the call site (the `TimedSession` / `TimedDriver` proxies are transparent). The only deletion is the unused `DatabaseConfig.query_timeout` field; a stale docstring reference at `adapters/inbound/graphql/config.py:22` was updated in the same PR.
+None required for existing code. The wrapper is fully backward-compatible at the call site (the `TimedSession` / `TimedDriver` proxies are transparent). The only deletion is the unused `DatabaseConfig.query_timeout` field; a stale docstring reference at `adapters/inbound/graphql/config.py:22` was updated in the same PR (the GraphQL adapter has since been deleted — #1000). <!-- historical -->
 
 ## References
 

@@ -1,6 +1,6 @@
 ---
 title: "ADR-017: Relationship Service Unification"
-updated: 2026-09-04
+updated: 2026-09-21
 status: current
 category: decisions
 tags: [adr, decisions, pattern, relationship-services]
@@ -184,7 +184,7 @@ knowledge_uids = await tasks_service.get_related_uids("knowledge", task_uid)
 - Primary file: `/core/services/relationships/unified_relationship_service.py`
 - Configuration: `/core/models/relationship_registry.py` (`DomainRelationshipConfig`)
 - Module exports: `/core/services/relationships/__init__.py`
-- Tests: `/tests/unit/services/relationships/`
+- Tests: `/tests/unit/test_relationship_registry.py` (the registry), `/tests/integration/relationships/` (LP edges); the service itself is exercised through each domain's edge tests (e.g. `/tests/unit/test_event_create_edges.py`)
 
 ### Migration Status (as of 2026-01-06)
 

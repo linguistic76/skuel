@@ -1,5 +1,5 @@
 ---
-updated: 2026-09-15
+updated: 2026-09-21
 related_skills: [learning-loop]
 ---
 
@@ -105,26 +105,27 @@ This prevents users from sharing failed/processing reports, ensuring portfolio q
 
 ### API Layer
 
-**6 new endpoints** (in a `reports_sharing_api.py` that no longer exists — the reports tree
-was split into submissions + feedback and then collapsed by ADR-054). **Five of the six
-survive as methods on `UnifiedSharingService`** in `/core/services/sharing/` — `share`,
-`unshare`, `set_visibility`, `get_shared_with_me`, `get_shared_with`. The sixth, browsing
-public portfolios, has **no successor at all**: `set_visibility(PUBLIC)` and `check_access`
-honour PUBLIC, but nothing lists public entities.
+The six endpoints as built, in a `reports_sharing_api.py` that no longer exists (the
+reports tree was split into submissions + feedback and then collapsed by ADR-054):
 
-Of the five, only `share` has an HTTP route today — `POST /api/form-submissions/share`,
-plus the internal share performed by `UserEntryService.create_entry`'s audience resolution.
-The other four are **service-only**: no unshare, set-visibility, shared-with-me or
-shared-users endpoint is registered anywhere in `adapters/inbound/`:
+1. `POST /api/submissions/share` - Share with user <!-- historical -->
+2. `POST /api/submissions/unshare` - Revoke access <!-- historical -->
+3. `POST /api/submissions/set-visibility` - Change visibility <!-- historical -->
+4. `GET /api/submissions/shared-with-me` - Shared content inbox <!-- historical -->
+5. `GET /api/submissions/shared-users?uid=` - List recipients <!-- historical -->
+6. `GET /api/submissions/public` - Browse public portfolios <!-- historical -->
 
-1. `POST /api/submissions/share` - Share with user
-2. `POST /api/submissions/unshare` - Revoke access
-3. `POST /api/submissions/set-visibility` - Change visibility
-4. `GET /api/submissions/shared-with-me` - Shared content inbox
-5. `GET /api/submissions/shared-users?uid=` - List recipients
-6. `GET /api/submissions/public` - Browse public portfolios
+**Five of the six survive as methods on `UnifiedSharingService`** in
+`/core/services/sharing/` — `share`, `unshare`, `set_visibility`, `get_shared_with_me`,
+`get_shared_with`. The sixth, browsing public portfolios, has **no successor at all**:
+`set_visibility(PUBLIC)` and `check_access` honour PUBLIC, but nothing lists public entities.
 
-All routes use `@boundary_handler` for Result[T] -> HTTP conversion.
+Of the five, only `share` has an HTTP route — `POST /api/form-submissions/share`
+(`@boundary_handler` for the `Result[T]` → HTTP conversion), plus the internal share
+performed by `UserEntryService.create_entry`'s audience resolution. The other four are
+**service-only**: no unshare, set-visibility, shared-with-me or shared-users endpoint is
+registered anywhere in `adapters/inbound/`. The shared-content inbox is a page, not an API:
+`GET /profile/shared` (`adapters/inbound/user_profile_ui.py`).
 
 ### Data Model Changes
 
@@ -182,10 +183,12 @@ and `/core/models/report/entry_report.py`):
 - `SHARED_WITH_GROUP` relationship type added
 - Group sharing methods on `UnifiedSharingService`
 - `check_access()` extended to traverse group membership
-- 3 new routes: `/api/share/group`, `/api/share/ungroup`, `/api/shared-with-me/groups`
-- UI components (pending)
-- "Shared With Me" profile tab (pending)
-- Tests (pending)
+- 3 new routes: `/api/share/group`, `/api/share/ungroup`, `/api/shared-with-me/groups` <!-- historical -->
+  — shelved with the submissions API (ADR-054) and gone with `_shelved/` (`6eea264bd`);
+  group sharing is reached through `UserEntryService.create_entry`'s audience resolution
+  (`share_with_groups` → `share_with_group`), not an HTTP route
+- "Shared With Me" inbox: `GET /profile/shared` (`tests/unit/ui/test_shared_with_me_view.py`)
+- Tests: `tests/unit/test_unified_sharing_service.py`, `tests/integration/test_group_sharing_unified.py`
 
 **Phase 2 (Planned):**
 - Event sharing (reuse same infrastructure)
@@ -195,7 +198,6 @@ and `/core/models/report/entry_report.py`):
 **Phase 3 (Future):**
 - User following system
 - Public portfolio pages
-- Groups/teams sharing
 - Report templates
 
 ## Alternatives Considered

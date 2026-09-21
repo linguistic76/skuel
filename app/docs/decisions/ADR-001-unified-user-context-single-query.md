@@ -1,6 +1,6 @@
 ---
 title: "ADR-001: Single Complex Query for Unified User Context"
-updated: 2026-09-04
+updated: 2026-09-21
 status: current
 category: decisions
 tags: [001, adr, context, decisions, query]
@@ -72,7 +72,7 @@ We will use a **single complex Cypher query** with multiple MATCH clauses and st
 - Collect UIDs and counts for each domain
 - Return comprehensive context object with all data
 
-**File:** `/core/services/user/user_context_queries.py:32`
+**File:** `/core/services/user/user_context_queries.py:32` <!-- historical --> (the single query as decided; today the read is `RICH_CONTEXT_STATEMENTS` — see Code Location)
 
 **Complexity Breakdown:**
 - 8 MATCH clauses (16 pts)
@@ -230,10 +230,11 @@ Development/operational complexity too high. We want to stay within Python ecosy
 
 ### Code Location
 **Where is this decision implemented?** (refreshed 2026-08-01 — the original
-`graph_sourced_context_builder.py:128-246` citation predates the builder
+`graph_sourced_context_builder.py:128-246` citation predates the builder <!-- historical -->
 consolidation and the ADR-044 boundary move)
 - Primary file: `/adapters/persistence/neo4j/user_context_queries.py`
-  (`MEGA_QUERY` + its executor — Cypher lives below the boundary per ADR-044)
+  (`RICH_CONTEXT_STATEMENTS` — six plan-cached statements, one per read family —
+  merged by `execute_mega_query`; Cypher lives below the boundary per ADR-044)
 - Related files:
   - `/core/services/user/user_context_builder.py` (orchestrates the query via
     the injected executor)

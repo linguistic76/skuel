@@ -50,7 +50,7 @@ TasksRelationshipService, GoalsRelationshipService, HabitsRelationshipService...
 UnifiedRelationshipService + TASKS_CONFIG, GOALS_CONFIG, HABITS_CONFIG...
 ```
 
-**Old services archived:** `zarchives/relationships/`
+**Old services archived:** the per-domain `*RelationshipService` files went to a gitignored `zarchives/` directory that no longer exists; the Before/After figures above are their record.
 
 ---
 

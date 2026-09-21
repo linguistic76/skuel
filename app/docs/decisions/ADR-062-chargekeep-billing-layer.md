@@ -1,6 +1,6 @@
 ---
 title: "ADR-062: ChargeKeep as the SaaS Billing Layer"
-updated: 2026-09-01
+updated: 2026-09-21
 status: proposed
 category: decisions
 tags: [adr, decisions, finance, billing, subscriptions, stripe, chargekeep, leverage-maintained-software]
@@ -28,9 +28,9 @@ once the spike checklist passes/fails.
 
 ADR-052 replaced SKUEL's home-grown expense/budget/reporting module with Firefly III and
 sketched the SaaS-payment side as **Stripe-direct**: "SaaS user payments flow through
-Stripe, which issues its own invoices/receipts," with a hand-built `POST /webhooks/stripe`
-consumer and the local WeasyPrint invoice module **kept** because "Firefly III cannot
-replace invoicing."
+Stripe, which issues its own invoices/receipts," with a hand-built Stripe webhook consumer
+(sketched only — there is no `POST /webhooks/stripe`) and the local WeasyPrint invoice
+module **kept** because "Firefly III cannot replace invoicing."
 
 Two things have changed the calculus:
 
@@ -76,7 +76,9 @@ the spike. The paths are the designed destinations, not places to look.
   **The source of billing events is abstracted**: ChargeKeep ships now; Stripe-direct stays
   swappable behind the same port if ChargeKeep is ever rejected or sunset.
 - a ChargeKeep client under `adapters/outbound` — outbound adapter implementing `BillingProvider`.
-- webhook routes under `adapters/inbound` — `POST /webhooks/chargekeep`: verify signature →
+- webhook routes under `adapters/inbound` — no `POST /webhooks/chargekeep` is registered yet
+  ([`roadmap/finance-billing-migration.md`](../roadmap/finance-billing-migration.md) plans
+  it); when built: verify signature →
   map ChargeKeep customer → SKUEL user (via metadata `user_uid`) → `update_role(MEMBER)` on
   `subscription.active`; revert to `REGISTERED` on `subscription.cancelled`. Idempotent,
   replay-safe.

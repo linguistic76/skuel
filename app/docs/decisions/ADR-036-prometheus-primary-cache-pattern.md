@@ -1,5 +1,5 @@
 ---
-updated: 2026-09-15
+updated: 2026-09-21
 related_skills: [prometheus-grafana]
 ---
 
@@ -264,7 +264,7 @@ class MetricsCache:
 - `/core/infrastructure/monitoring/prometheus_metrics.py` - Prometheus metric definitions
 - `/adapters/infrastructure/event_bus.py` - Uses MetricsCache for event instrumentation
 - `/monitoring/prometheus/prometheus.yml` - Prometheus configuration
-- `/monitoring/dashboards/` - Grafana dashboard JSON files
+- `/monitoring/grafana/dashboards/` - Grafana dashboard JSON files
 
 ---
 
