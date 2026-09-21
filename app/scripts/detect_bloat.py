@@ -1037,8 +1037,9 @@ PLANNED_METHODS: dict[str, PlannedEntry] = {
     "adapters/inbound/path_steps_api.py::get_step_journey_html": _SEL_JOURNEY_FRAGMENT,
     "adapters/inbound/path_steps_api.py::get_curriculum_html": _SEL_JOURNEY_FRAGMENT,
     # --- Embedded forms: the PathStep page's forms section, loaded by nothing (ruled staged) ---
-    # Same shape as the SEL fragments: route-reachable, consumer dropped in a page
-    # redesign (917946df4). `ui/learning_loop/embedded_forms.py` lives through these two.
+    # Same shape as the SEL fragments: route-reachable, so no liveness tool sees them.
+    # `ui/learning_loop/embedded_forms.py` lives through these two; the record is
+    # docs/roadmap/embedded-forms-fragment-staged.md.
     "adapters/inbound/learning_loop_routes.py::get_ps_embedded_forms": _EMBEDDED_FORMS_FRAGMENT,
     "adapters/inbound/learning_loop_routes.py::submit_embedded_form": _EMBEDDED_FORMS_FRAGMENT,
 }
