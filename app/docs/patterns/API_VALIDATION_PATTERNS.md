@@ -1,6 +1,6 @@
 ---
 title: API Validation Patterns
-updated: 2026-09-20
+updated: 2026-09-21
 category: patterns
 related_skills:
 - pydantic
@@ -46,7 +46,25 @@ SKUEL validates all external input at API boundaries to prevent 500 errors from 
 
 **Pattern:** Lightweight helper functions that return `Result[T]`
 
-**Query param helpers live in** `adapters/inbound/route_factories/route_helpers.py` (re-exported from `adapters.inbound.route_factories`). **Body parsing helpers** (`parse_json_body`, `parse_form_body`) live in `adapters/inbound/form_helpers.py`.
+**Query param helpers live in** `adapters/inbound/route_factories/route_helpers.py` (re-exported from `adapters.inbound.route_factories`). **Body parsing helpers** (`parse_body`, `parse_json_body`, `parse_form_body`) live in `adapters/inbound/form_helpers.py`.
+
+### Request bodies: one door, two encodings — `parse_body(request, Model)`
+
+A write door is reached by two caller kinds: an API client posts JSON, and an HTMX
+form or button posts a browser encoding — htmx url-encodes every body (multipart for a
+`Form`, whose FastHTML default enctype is `multipart/form-data`), whatever an
+`hx-headers` Content-Type claims. `parse_body` reads the body by its **Content-Type**,
+the rule FastHTML itself applies during parameter extraction: a form media type
+(`application/x-www-form-urlencoded`, `multipart/form-data`) goes through
+`parse_form_body` — empty strings → `None`, `list[T]` fields split from the textarea
+string — and anything else through `parse_json_body`; a request that declares no type
+and carries no bytes is the empty field set `{}`, which the schema accepts or refuses.
+Both readers end in the same Pydantic validation, so the form's fields and the JSON
+client's reach one model and one 400.
+
+`parse_body` is the reader at every door both kinds reach — the CRUD factory's
+`/create` and `/update?uid=`, the admin account actions. A JSON-only API route may keep
+`parse_json_body`; a form-only UI route `parse_form_body`.
 
 ### Two ways a JSON body reaches a route — and the guards behind them
 
@@ -498,8 +516,9 @@ envelope, while a UI form route re-renders with a banner at 200.
 | **Query Params (GET)** | Silent helpers (`parse_*_query_param`) | 200 (default) | Booleans, dates, CSV lists, pagination |
 | **Required Params (GET)** | Strict helpers (`parse_*_param_strict`) | 400 | Required dates, bounded integers |
 | **HTML Form Params (GET)** | `Model.from_form_params()` classmethod | 200 (banner) | Many checkbox/enum/optional string params needing coercion |
-| **JSON Bodies (POST/PUT)** | `parse_json_body(request, Model)` | 400 | Structured data, complex validation |
-| **Form Data Bodies (POST)** | `parse_form_body(request, Model)` | 400 API · 200 banner | Structured form data with validation |
+| **Bodies at a door both callers reach (POST)** | `parse_body(request, Model)` — JSON or form by Content-Type | 400 | CRUD factory create/update, admin account actions: API clients and HTMX forms |
+| **JSON Bodies (POST/PUT)** | `parse_json_body(request, Model)` | 400 | JSON-only API routes |
+| **Form Data Bodies (POST)** | `parse_form_body(request, Model)` | 400 API · 200 banner | Form-only UI routes |
 | **Path Params** | No shared helper — each route coerces or 404s | varies | Used on UI routes; query params preferred for new API routes |
 
 **Why the path-params row says "varies".** Path params are used — the day
@@ -932,8 +951,9 @@ the 400 example above from this very model.
 
 | Helper | Returns | Use Case |
 |--------|---------|----------|
+| `parse_body(request, schema)` | `Result[T]` | JSON or form by Content-Type → Pydantic model; the door both callers reach |
 | `parse_json_body(request, schema)` | `Result[T]` | JSON body → Pydantic model with Result[T] wrapping |
-| `parse_form_body(request, schema)` | `Result[T]` | Form data → Pydantic model (empty strings → None) |
+| `parse_form_body(request, schema)` | `Result[T]` | Form data → Pydantic model (empty strings → None, `list[T]` split) |
 
 ### Query Param Helpers
 

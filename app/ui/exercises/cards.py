@@ -9,9 +9,15 @@ from typing import Any
 
 from fasthtml.common import Div, P, Span
 
+from ui.activities._shared import safe_id
 from ui.components import Button, ButtonT, Card
 from ui.feedback import Badge, BadgeT
 from ui.patterns.card_generator import CardGenerator
+
+
+def exercise_card_id(uid: str) -> str:
+    """DOM id of an exercise's card — what its Delete removes."""
+    return f"exercise-{safe_id(uid)}"
 
 
 def render_exercises_list(exercises: Any) -> Any:
@@ -59,14 +65,16 @@ def render_exercise_card(exercise: Any) -> Any:
         ),
         Button(
             "Delete",
-            hx_delete=f"/api/exercises/{exercise.uid}",
+            # The CRUD delete door answers a JSON boolean; ``delete`` removes the
+            # card on success and swaps nothing else in.
+            hx_post=f"/api/exercises/delete?uid={exercise.uid}",
             hx_confirm="Are you sure you want to delete this exercise?",
-            hx_target="closest .card",
-            hx_swap="outerHTML",
+            hx_target=f"#{exercise_card_id(exercise.uid)}",
+            hx_swap="delete",
             cls=ButtonT.destructive,
             size="sm",
         ),
-        cls="flex gap-2",
+        cls="flex flex-wrap gap-2",
     )
 
     return CardGenerator.from_dataclass(
@@ -78,5 +86,5 @@ def render_exercise_card(exercise: Any) -> Any:
             "context_notes": render_context_notes,
         },
         actions=action_buttons,
-        card_attrs={"cls": "mb-4 p-4"},
+        card_attrs={"id": exercise_card_id(exercise.uid), "cls": "mb-4 p-4"},
     )

@@ -3,26 +3,47 @@ Exercise Editor Form
 =====================
 
 Pure rendering function for the exercise create/edit form.
-Imports Form/Input/Label/Textarea — the exact signal the route thinning rule flags.
 """
 
 from typing import Any
 
-from fasthtml.common import Div, Option, P
+from fasthtml.common import Div, Form, Option, P
 
+from core.models.enums.entity_enums import Domain
 from ui.components import Button, ButtonT, Card
 from ui.forms import Input, Label, Select, Textarea
 from ui.patterns.section_header import SectionHeader
+from ui.primitives import ButtonLink
+
+#: The domains the editor offers, in display order — every value a ``Domain`` member,
+#: because the request model rejects anything else.
+EDITOR_DOMAINS: tuple[tuple[str, Domain], ...] = (
+    ("Personal", Domain.PERSONAL),
+    ("Health", Domain.HEALTH),
+    ("Learning", Domain.LEARNING),
+    ("Business", Domain.BUSINESS),
+)
+
+#: After a successful save the editor leaves for the dashboard; a failed save keeps
+#: the form (the error rides the response's toast headers). ``hx_swap="none"`` because
+#: the CRUD door answers the JSON entity, not a fragment.
+_AFTER_SAVE = "if(event.detail.successful){window.location.href='/exercises'}"
 
 
 def render_exercise_editor(exercise: Any = None, mode: str = "create") -> Any:
-    """Exercise editor form - TRANSPARENCY: User sees and edits instructions."""
+    """Exercise editor form - TRANSPARENCY: User sees and edits instructions.
+
+    Posts its fields form-encoded to the CRUD factory's write doors
+    (``POST /api/exercises/create`` / ``POST /api/exercises/update?uid=``), which
+    read either encoding by Content-Type.
+    """
     is_edit = mode == "edit"
     form_title = "Edit Exercise" if is_edit else "Create New Exercise"
-    submit_url = f"/api/exercises/{exercise.uid}" if is_edit else "/api/exercises"
-    submit_method = "put" if is_edit else "post"
-
-    from fasthtml.common import Form
+    submit_url = f"/api/exercises/update?uid={exercise.uid}" if is_edit else "/api/exercises/create"
+    # ``Entity.domain`` is a ``Domain`` member (a StrEnum); a stored value the editor
+    # does not offer reads as "None" rather than as a silently blank select.
+    current_domain = str(exercise.domain) if exercise else ""
+    offered_domains = {domain.value for _label, domain in EDITOR_DOMAINS}
 
     return Div(
         SectionHeader(form_title),
@@ -119,11 +140,13 @@ def render_exercise_editor(exercise: Any = None, mode: str = "create") -> Any:
                 Div(
                     Label("Domain (Optional)"),
                     Select(
-                        Option("None", value=""),
-                        Option("Personal", value="personal"),
-                        Option("Health", value="health"),
-                        Option("Learning", value="learning"),
-                        Option("Work", value="work"),
+                        Option("None", value="", selected=current_domain not in offered_domains),
+                        *[
+                            Option(
+                                label, value=domain.value, selected=(domain.value == current_domain)
+                            )
+                            for label, domain in EDITOR_DOMAINS
+                        ],
                         name="domain",
                     ),
                     cls="mb-4",
@@ -131,19 +154,12 @@ def render_exercise_editor(exercise: Any = None, mode: str = "create") -> Any:
                 # Submit buttons
                 Div(
                     Button("Save Exercise", type="submit", cls=(ButtonT.primary, "mr-2")),
-                    Button(
-                        "Cancel",
-                        hx_get="/exercises",
-                        hx_target="#main-content",
-                        cls=ButtonT.ghost,
-                    ),
-                    cls="mb-4",
+                    ButtonLink("Cancel", href="/exercises", cls=ButtonT.ghost),
+                    cls="mb-4 flex flex-wrap gap-2",
                 ),
-                **{
-                    "hx-" + submit_method: submit_url,
-                    "hx-target": "#main-content",
-                    "hx-swap": "innerHTML",
-                },
+                hx_post=submit_url,
+                hx_swap="none",
+                **{"hx-on::after-request": _AFTER_SAVE},
             ),
             cls="p-6",
         ),

@@ -587,6 +587,12 @@ class ChangeUserRoleRequest(BaseModel):
     role: str = Field(..., min_length=1, description="New role name")
 
 
+class DeactivateUserRequest(BaseModel):
+    """Request to deactivate a user account — the body is optional, so every field is."""
+
+    reason: str = Field(default="", description="Reason recorded with the deactivation")
+
+
 class SmartDismissRequest(BaseModel):
     """Request to smart-dismiss insights matching a filter."""
 

@@ -123,15 +123,11 @@ def _queue_view_tabs(active: str) -> Div:
 
 
 def _new_group_modal() -> Any:
-    """Modal form that POSTs JSON to /api/groups/create and refreshes on success."""
-    hx_vals_js = (
-        "js:{"
-        'name: document.getElementById("new-group-name").value,'
-        'description: document.getElementById("new-group-description").value || null,'
-        'max_members: document.getElementById("new-group-max-members").value'
-        ' ? parseInt(document.getElementById("new-group-max-members").value, 10) : null'
-        "}"
-    )
+    """Modal form that posts its fields to /api/groups/create and refreshes on success.
+
+    The CRUD door reads the form encoding by Content-Type (``parse_body``): an empty
+    optional field arrives as ``None`` and ``max_members`` is coerced from its string.
+    """
     after_request = (
         "if(event.detail.successful){window.location.href='/teaching/groups'}"
         "else{document.getElementById('new-group-status').textContent="
@@ -178,8 +174,6 @@ def _new_group_modal() -> Any:
         ),
         hx_post="/api/groups/create",
         hx_swap="none",
-        hx_vals=hx_vals_js,
-        hx_headers='{"Content-Type": "application/json"}',
         **{"hx-on::after-request": after_request},
         cls="space-y-4",
     )

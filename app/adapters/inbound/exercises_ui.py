@@ -13,6 +13,7 @@ Uses SKUEL Tailwind components for clean, consistent design.
 Formerly assignments_ui.py — renamed per of Ku hierarchy refactoring.
 """
 
+from functools import partial
 from typing import Any
 
 from fasthtml.common import FT, Div, P
@@ -34,6 +35,23 @@ from ui.primitives import ButtonLink
 from ui.tokens import Container, Spacing
 
 logger = get_logger("skuel.routes.exercises.ui")
+
+
+def _authoring_shell(request: Request, content: FT, title: str) -> FT:
+    """The editor and view are fragments of the dashboard's ``#main-content`` — an HTMX
+    request gets the fragment, a navigation gets it in the dashboard's page shell."""
+    if request.headers.get("HX-Request"):
+        return content
+    return BasePage(
+        content=Div(content, id="main-content"),
+        title=title,
+        request=request,
+        active_page="curriculum",
+    )
+
+
+def _authoring_refusal(request: Request, message: str) -> FT:
+    return _authoring_shell(request, render_inline_error(message), "Exercise")
 
 
 # ============================================================================
@@ -93,7 +111,7 @@ def create_exercises_ui_routes(
     @require_teacher(get_user_service)
     def new_exercise_form(request: Request, current_user: Any = None) -> Any:
         """New exercise form — ownership comes from the session at POST time."""
-        return render_exercise_editor(mode="create")
+        return _authoring_shell(request, render_exercise_editor(mode="create"), "New Exercise")
 
     @app.get("/exercises/{uid}/edit")
     @require_teacher(get_user_service)
@@ -114,13 +132,14 @@ def create_exercises_ui_routes(
         audience renders an editable form whose Save can only fail.
         """
         result = await exercises_service.verify_ownership(uid, current_user.uid)
+        if result.is_error:
+            return refuse(result.expect_error(), partial(_authoring_refusal, request), "Exercise")
+        if not result.value:
+            return refuse_not_found(_authoring_refusal(request, "Exercise not found"))
 
-        if result.is_error or not result.value:
-            return render_inline_error("Exercise not found")
-
-        exercise = result.value
-
-        return render_exercise_editor(exercise=exercise, mode="edit")
+        return _authoring_shell(
+            request, render_exercise_editor(exercise=result.value, mode="edit"), "Edit Exercise"
+        )
 
     @app.get("/exercises/{uid}/view")
     @require_teacher(get_user_service)
@@ -135,16 +154,19 @@ def create_exercises_ui_routes(
         assigned exercise is that surface's job, not this one's.
         """
         result = await exercises_service.verify_ownership(uid, current_user.uid)
-
-        if result.is_error or not result.value:
-            return render_inline_error("Exercise not found")
-
-        exercise = result.value
+        if result.is_error:
+            return refuse(result.expect_error(), partial(_authoring_refusal, request), "Exercise")
+        if not result.value:
+            return refuse_not_found(_authoring_refusal(request, "Exercise not found"))
 
         knowledge_result = await exercises_service.get_required_knowledge(uid)
         required_knowledge = knowledge_result.value if knowledge_result.is_ok else []
 
-        return render_exercise_view(exercise, required_knowledge=required_knowledge)
+        return _authoring_shell(
+            request,
+            render_exercise_view(result.value, required_knowledge=required_knowledge),
+            "Exercise",
+        )
 
     @app.get("/exercises/get")
     @ui_boundary_handler("Error loading exercise")

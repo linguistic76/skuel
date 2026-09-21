@@ -115,7 +115,9 @@ crud_factory.register_routes(app, rt)
 | `base_path` | str | `/api/{domain}` | Custom base path |
 | `request_create_method` | str | None | Name of a request-door create primitive on the service (`(create_schema, user_uid) -> Result[T]`). When set, the create route hands the VALIDATED REQUEST to that method instead of converting to an entity and calling `service.create(entity)`. Resolved fail-fast at construction. All six Activity Domains bind this (`create_task`, `create_goal`, …) so request-only link fields become edges instead of being accepted and silently dropped. |
 
-**Create body → request door vs entity path.** With `request_create_method` set, the
+**Create body → request door vs entity path.** The body is read by Content-Type
+(`parse_body` — JSON from an API client, url-encoded or multipart from an HTMX form;
+API_VALIDATION_PATTERNS § Request bodies). With `request_create_method` set, the
 create route is a request-door caller: Pydantic validates the body, then the domain's
 primitive runs (validate → persist → admission-guarded edges → `*Created` + ADR-074
 embedding events). Without it, the route converts the schema (via `entity_converter` or
@@ -124,11 +126,13 @@ requests carry no edge-only fields, silent field loss for domains whose requests
 Guarded by `tests/unit/test_route_create_via_primitive.py`.
 
 **Update body → typed update value (ADR-066).** The update route validates the body with
-`update_schema`, then builds the service's update value generically: if the validated
-schema is `SupportsToIntent` (every Activity Domain `*UpdateRequest` is — Tasks, Goals,
-Habits, Events, Choices, Principles), the factory calls `schema.to_intent()` to produce the
-frozen `*UpdateIntent`; otherwise (curriculum, forms, groups, templates) it falls back to a
-`RawChanges` patch from `model_dump()`. Either way the value satisfies `SupportsToChanges`,
+`update_schema` (read by Content-Type as above), then builds the service's update value
+generically: if the validated schema is `SupportsToIntent` (every Activity Domain
+`*UpdateRequest` is — Tasks, Goals, Habits, Events, Choices, Principles — and
+`ExerciseUpdateRequest`, whose `to_intent()` is a `RawChanges` that writes its `name` as
+the entity's `title`), the factory calls `schema.to_intent()`; otherwise (the other
+curriculum requests, forms, groups, templates) it falls back to a `RawChanges` patch from
+`model_dump()`. Either way the value satisfies `SupportsToChanges`,
 so the shared base materializes it once at `backend.update(uid, updates.to_changes())`. No
 domain wiring is needed beyond pointing `update_schema` at the request model.
 

@@ -95,7 +95,7 @@ def to_intent(self) -> TaskUpdateIntent:
 | Shared validator factories | `core/models/validation_rules.py` | `validate_future_date`, `validate_required_string`, `validate_percentage`, `validate_recurrence_end_after_start`, `validate_list_no_duplicates`, ~20 more |
 | Update sentinels | `core/models/sentinels.py` | `UNSET` / `Unset` for partial-patch intents |
 | Intent contracts | `core/models/update_contracts.py` | `SupportsToIntent`, `SupportsToChanges`, `RawChanges` |
-| Body parsing → Result | `adapters/inbound/form_helpers.py` | `parse_json_body(request, Model)` / `parse_form_body(request, Model)` — catch `ValidationError`, return `Result.fail(Errors.validation(..., field="body"))` |
+| Body parsing → Result | `adapters/inbound/form_helpers.py` | `parse_body(request, Model)` — JSON or form by Content-Type, the door both API clients and HTMX forms reach (CRUD create/update, admin account actions); `parse_json_body` / `parse_form_body` for one caller kind — all catch `ValidationError`, return `Result.fail(Errors.validation(..., field="body"))` |
 | Query-param parsing | `adapters/inbound/route_factories/route_helpers.py` | Silent-default: `parse_bool_query_param`, `parse_date_query_param`, `parse_csv_query_param`, `parse_pagination_params`; strict Result-based: `parse_date_param_strict`, `parse_int_param_strict` |
 
 ### Validation error → HTTP status

@@ -165,10 +165,59 @@ async def parse_json_body[T: BaseModel](
     except Exception:  # safety-net: JSON parsing boundary
         return Result.fail(Errors.validation("Invalid JSON body"))
 
+    return _validate_body(schema, body)
+
+
+def _validate_body[T: BaseModel](schema: type[T], data: object) -> Result[T]:
+    """Pydantic validation as a ``Result`` — the one seam every body parser ends in."""
     try:
-        return Result.ok(schema.model_validate(body))
+        return Result.ok(schema.model_validate(data))
     except ValidationError as e:
         return Result.fail(Errors.validation(str(e), field="body"))
+
+
+#: Media types a browser form posts with. Everything else is read as JSON.
+FORM_MEDIA_TYPES = frozenset({"application/x-www-form-urlencoded", "multipart/form-data"})
+
+
+def _media_type(request: Request) -> str:
+    """The Content-Type's media type alone — ``application/json; charset=utf-8`` → ``application/json``."""
+    return request.headers.get("content-type", "").split(";")[0].strip().lower()
+
+
+async def parse_body[T: BaseModel](
+    request: Request,
+    schema: type[T],
+) -> Result[T]:
+    """Parse the request body into a Pydantic model by its ``Content-Type``.
+
+    One write door serves two caller kinds: an API client posts JSON, and an HTMX
+    form or button posts url-encoded (or multipart) — htmx encodes every body that
+    way, whatever ``hx-headers`` claims. The header decides which reader runs, as it
+    does in FastHTML's own parameter extraction: a form media type goes through
+    :func:`parse_form_body` (empty strings → ``None``, ``list[T]`` fields split from
+    the textarea string), anything else through :func:`parse_json_body`. A request
+    that declares no Content-Type and carries no bytes is the empty field set, ``{}``
+    — a bare POST with nothing to say — and the schema decides whether nothing is
+    enough.
+
+    Use this at a route both kinds reach (the CRUD factory's create/update, the admin
+    account actions); a JSON-only API route may keep ``parse_json_body`` and a
+    form-only UI route ``parse_form_body``.
+
+    Example::
+
+        parsed = await parse_body(request, ExerciseCreateRequest)
+        if parsed.is_error:
+            return Result.fail(parsed)
+        req = parsed.value
+    """
+    media_type = _media_type(request)
+    if media_type in FORM_MEDIA_TYPES:
+        return await parse_form_body(request, schema)
+    if not media_type and not await request.body():
+        return _validate_body(schema, {})
+    return await parse_json_body(request, schema)
 
 
 def _list_field_names(schema: type[BaseModel]) -> set[str]:
@@ -248,10 +297,7 @@ async def parse_form_body[T: BaseModel](
         else:
             data[key] = value
 
-    try:
-        return Result.ok(schema.model_validate(data))
-    except ValidationError as e:
-        return Result.fail(Errors.validation(str(e), field="body"))
+    return _validate_body(schema, data)
 
 
 # ============================================================================

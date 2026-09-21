@@ -12,6 +12,7 @@ Tests cover:
 - parse_task_filters() — task filter param extraction
 - PrincipleFilters — principle-specific 4-field filter subclass
 - parse_principle_filters() — principle filter param extraction
+- parse_body() — the Content-Type dispatch between the JSON and form readers
 """
 
 from datetime import date, datetime, time
@@ -28,6 +29,7 @@ from adapters.inbound.form_helpers import (
     _list_field_names,
     _split_list_input,
     parse_activity_filters,
+    parse_body,
     parse_date_safe,
     parse_datetime_safe,
     parse_enum_safe,
@@ -385,3 +387,84 @@ class TestParseFormBodyListFields:
         model = await self._post({"title": "Hello", "count": "5"})
         assert model.title == "Hello"
         assert model.count == 5
+
+
+# ============================================================================
+# parse_body — one door, both encodings
+# ============================================================================
+
+
+class _WriteSchema(BaseModel):
+    name: str
+    notes: list[str] | None = None
+    domain: str | None = None
+
+
+class _OptionalSchema(BaseModel):
+    reason: str = ""
+
+
+def _request(content_type: str | None, *, body: bytes = b"x", form=None, json=None) -> Mock:
+    """A request whose readers answer what a real one would for that Content-Type."""
+    request = Mock()
+    request.headers = {"content-type": content_type} if content_type is not None else {}
+    request.body = AsyncMock(return_value=body)
+    request.form = AsyncMock(return_value=form if form is not None else {})
+    request.json = AsyncMock(return_value=json)
+    return request
+
+
+@pytest.mark.asyncio
+class TestParseBody:
+    async def test_json_media_type_reads_json(self):
+        request = _request("application/json", json={"name": "T", "notes": ["a", "b"]})
+        result = await parse_body(request, _WriteSchema)
+        assert result.value.notes == ["a", "b"]
+        request.form.assert_not_awaited()
+
+    async def test_charset_suffix_is_still_json(self):
+        request = _request("application/json; charset=utf-8", json={"name": "T"})
+        result = await parse_body(request, _WriteSchema)
+        assert result.value.name == "T"
+
+    @pytest.mark.parametrize(
+        "content_type",
+        ["application/x-www-form-urlencoded", "multipart/form-data; boundary=xyz"],
+    )
+    async def test_form_media_types_read_the_form(self, content_type: str):
+        """The form reader's conventions come with it: textarea → list, "" → None."""
+        request = _request(content_type, form={"name": "T", "notes": "a\nb", "domain": ""})
+        result = await parse_body(request, _WriteSchema)
+        assert result.value.notes == ["a", "b"]
+        assert result.value.domain is None
+        request.json.assert_not_awaited()
+
+    async def test_no_content_type_reads_json(self):
+        """An API client that sends JSON without naming it is still a JSON client."""
+        request = _request(None, json={"name": "T"})
+        result = await parse_body(request, _WriteSchema)
+        assert result.value.name == "T"
+
+    async def test_untyped_empty_body_is_the_empty_field_set(self):
+        """A bare POST with nothing to say; the schema decides whether nothing is enough."""
+        request = _request(None, body=b"")
+        assert (await parse_body(request, _OptionalSchema)).value.reason == ""
+        rejected = await parse_body(request, _WriteSchema)
+        assert rejected.is_error and "name" in rejected.expect_error().message
+
+    async def test_a_declared_json_body_is_read_as_json_without_a_peek(self):
+        """The media type decides; only an undeclared body is inspected for emptiness."""
+        request = _request("application/json", json={"name": "T"})
+        result = await parse_body(request, _WriteSchema)
+        assert result.value.name == "T"
+        request.body.assert_not_awaited()
+
+    async def test_empty_urlencoded_body_is_the_empty_form(self):
+        """What a bare htmx button posts — Content-Type set, nothing in it."""
+        request = _request("application/x-www-form-urlencoded", body=b"", form={})
+        assert (await parse_body(request, _OptionalSchema)).value.reason == ""
+
+    async def test_form_rejection_names_the_field(self):
+        request = _request("application/x-www-form-urlencoded", form={"notes": "a"})
+        result = await parse_body(request, _WriteSchema)
+        assert result.is_error and "name" in result.expect_error().message

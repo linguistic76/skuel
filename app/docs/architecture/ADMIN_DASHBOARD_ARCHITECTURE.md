@@ -129,44 +129,53 @@ The user management section (`/admin/users`) provides:
 ```
 /home/mike/skuel/app/
 ├── ui/admin/
-│   ├── __init__.py              # Module exports
-│   └── layout.py                # ADMIN_SIDEBAR_ITEMS, create_admin_page
-│
-├── components/
-│   └── admin_components.py      # AdminUIComponents, AdminAnalyticsComponents,
-│                                # AdminSystemComponents, AdminLearningComponents
+│   ├── layout.py                # ADMIN_SIDEBAR_ITEMS, create_admin_page
+│   ├── pages.py                 # Page trees per route + the HTMX fragments (account_fragment, …)
+│   ├── views.py                 # AdminUIComponents, AdminAnalyticsComponents, AdminSystemComponents, AdminLearningComponents
+│   ├── prereq_views.py          # Prerequisite-edge suggestion queue components
+│   └── types.py                 # UserCardData (+ from_user)
 │
 ├── adapters/inbound/
-│   ├── admin_routes.py          # API routes (/api/admin/users/*)
+│   ├── admin_api.py             # API routes (/api/admin/users/*)
+│   ├── admin_routes.py          # DomainRouteConfig wiring of admin_api
 │   └── admin_dashboard_ui.py    # UI routes (/admin/*)
 │
-└── scripts/dev/
-    └── bootstrap.py             # Route registration (lines 332-336)
+└── scripts/dev/bootstrap.py     # create_admin_dashboard_routes registration
 ```
 
 ---
 
 ## Route Structure
 
-| Route | Method | Purpose | File:Line |
-|-------|--------|---------|-----------|
-| `/admin` | GET | Overview dashboard | `admin_dashboard_ui.py:61` |
-| `/admin/users` | GET | User management list | `admin_dashboard_ui.py:125` |
-| `/admin/users/{uid}` | GET | User detail view | `admin_dashboard_ui.py:232` |
-| `/admin/users/partial` | GET | HTMX filtered list | `admin_dashboard_ui.py:181` |
-| `/admin/users/{uid}/role-form` | GET | HTMX role change form | `admin_dashboard_ui.py:307` |
-| `/admin/analytics` | GET | Analytics dashboard | `admin_dashboard_ui.py:329` |
-| `/admin/system` | GET | System health | `admin_dashboard_ui.py:391` |
+| Route | Method | Purpose | File |
+|-------|--------|---------|------|
+| `/admin` | GET | Overview dashboard | `adapters/inbound/admin_dashboard_ui.py` |
+| `/admin/users` | GET | User management list | `adapters/inbound/admin_dashboard_ui.py` |
+| `/admin/users/{uid}` | GET | User detail view — details, stats, the Account card | `adapters/inbound/admin_dashboard_ui.py` |
+| `/admin/users/partial` | GET | HTMX filtered list | `adapters/inbound/admin_dashboard_ui.py` |
+| `/admin/analytics` | GET | Analytics dashboard | `adapters/inbound/admin_dashboard_ui.py` |
+| `/admin/system` | GET | System health | `adapters/inbound/admin_dashboard_ui.py` |
 
 ### Existing API Endpoints (Reused)
 
 | Route | Method | Purpose | File |
 |-------|--------|---------|------|
-| `/api/admin/users` | GET | List users (JSON) | `adapters/inbound/admin_api.py:74` |
-| `/api/admin/users/get?uid=…` | GET | Get user (JSON) | `adapters/inbound/admin_api.py:134` |
-| `/api/admin/users/role` | POST | Change role (`uid` form param) | `adapters/inbound/admin_api.py:181` |
-| `/api/admin/users/deactivate` | POST | Deactivate (`uid` form param) | `adapters/inbound/admin_api.py:246` |
-| `/api/admin/users/activate` | POST | Activate (`uid` form param) | `adapters/inbound/admin_api.py:298` |
+| `/api/admin/users` | GET | List users (JSON) | `adapters/inbound/admin_api.py` |
+| `/api/admin/users/get?uid=` | GET | Get user (JSON) | `adapters/inbound/admin_api.py` |
+| `/api/admin/users/role?uid=` | POST | Change role — body `{"role": …}`, JSON or form | `adapters/inbound/admin_api.py` |
+| `/api/admin/users/deactivate?uid=` | POST | Deactivate — body `{"reason": …}`, optional | `adapters/inbound/admin_api.py` |
+| `/api/admin/users/activate?uid=` | POST | Activate | `adapters/inbound/admin_api.py` |
+
+The three account actions answer two callers through one door each: a JSON client
+reads a JSON payload; the user detail page posts its form with `HX-Request` and reads
+back the rendered account card (`ui/admin/pages.py::account_fragment`) — the card that
+is the request's target, plus the header's role/status badges out of band
+(`hx-swap-oob`) — with the outcome in `X-Toast-Message`. A uid no user has is the
+rendered not-found refusal at 404 (`refuse`, OWNERSHIP_VERIFICATION § UI Routes); any
+other failure stays the JSON error envelope, whose toast headers the page surfaces
+while the card stays in place. The body is read by Content-Type (`parse_body`,
+API_VALIDATION_PATTERNS § Request bodies), so the form's multipart fields and a
+client's JSON reach the same Pydantic model.
 
 ---
 
@@ -201,11 +210,11 @@ User management UI components:
 |--------|---------|
 | `render_role_badge(role)` | Color-coded role badge (admin=red, teacher=orange, etc.) |
 | `render_status_badge(is_active)` | Active/Inactive status indicator |
-| `render_user_card(user)` | Full user card with actions |
-| `render_user_table(users)` | Basic tabular user list (legacy) |
+| `render_user_status_badges(user, oob=)` | Both badges in the page header's slot; `oob=True` marks them `hx-swap-oob` for an action's response |
 | `render_users_table(users)` | Dense table with activity count columns (Tasks, Goals, Habits, KUs) |
 | `render_user_activity_stats(stats, uid)` | User detail stats: activity domains + learning + sessions |
-| `render_role_change_form(user)` | HTMX role change form |
+| `render_account_card(user)` | The detail page's Account card: role form + activate/deactivate, id `account_card_id(uid)` — the target every account action swaps |
+| `render_role_change_form(user)` | Role select + Save, posts to `/api/admin/users/role?uid=` targeting the account card |
 | `render_user_stats(stats)` | Stats cards (total, by role) |
 | `render_role_filter(role)` | Role filter dropdown |
 | `render_status_filter(status)` | Status filter dropdown |
@@ -342,59 +351,48 @@ The dashboard uses HTMX for dynamic updates without full page reloads:
         hx-include="[name='status']">
 ```
 
-### Role Change Form
+### Account Card (role + status)
 
 ```html
-<!-- Load form inline -->
-<button hx-get="/admin/users/{uid}/role-form"
-        hx-target="#role-form-{uid}"
-        hx-swap="innerHTML">
-    Edit Role
-</button>
-
-<!-- The registered door: POST /api/admin/users/role?uid=…, JSON body {"role": "…"} -->
+<!-- The role form (AdminUIComponents.render_role_change_form) -->
 <form hx-post="/api/admin/users/role?uid={uid}"
       hx-swap="outerHTML"
-      hx-target="#user-card-{uid}">
+      hx-target="#account-card-{uid}">
+    <select name="role">…</select> <button type="submit">Save role</button>
+</form>
+
+<!-- The status button, in the same card -->
+<button hx-post="/api/admin/users/deactivate?uid={uid}"
+        hx-confirm="Are you sure you want to deactivate this user?"
+        hx-swap="outerHTML"
+        hx-target="#account-card-{uid}">Deactivate account</button>
 ```
 
-**Defect, not a pattern:** the live form (`AdminUIComponents.render_role_change_form`,
-`ui/admin/views.py`) posts form-encoded to a path uid — there is no `/api/admin/users/{uid}/role`;
-the handler at `/api/admin/users/role` takes `uid` as a query parameter, reads a JSON
-body, and answers a JSON `Result`, not the card fragment the form targets. Changing a role
-through the UI is broken until the two sides agree — the fix is the handler answering the
-rendered user card to an HTMX request and the form posting to the registered path.
+The response to either is the account card again (swapped over the target) followed by
+the header badges with `hx-swap-oob="true"`, so the form's selected role, the button's
+direction and the header all describe the stored user after one request.
 
 ---
 
 ## Data Flow Example: Change User Role
 
 ```
-1. Admin clicks "Edit Role" on user card
+1. Admin opens /admin/users/{uid}; the Account card renders the role form
    │
    ▼
-2. HTMX GET /admin/users/{uid}/role-form
+2. Admin selects new role, clicks Save role
    │
    ▼
-3. Server returns role change form HTML
+3. HTMX POST /api/admin/users/role?uid={uid} (multipart form, HX-Request)
    │
    ▼
-4. Form inserted into #role-form-{uid}
+4. parse_body reads the form; API validates, calls UserService.update_role()
    │
    ▼
-5. Admin selects new role, clicks Save
+5. Server returns the account card + oob header badges (X-Toast-Message)
    │
    ▼
-6. HTMX POST /api/admin/users/{uid}/role
-   │
-   ▼
-7. API validates, calls UserService.update_role()
-   │
-   ▼
-8. Server returns updated user card HTML
-   │
-   ▼
-9. HTMX replaces #user-card-{uid} with new content
+6. HTMX replaces #account-card-{uid}; the header badges swap on their own id
 ```
 
 ### Data Flow: User Detail Statistics
@@ -560,8 +558,10 @@ async def admin_logs(request: Request, current_user: Any = None):
 | File | Purpose |
 |------|---------|
 | `ui/admin/layout.py` | ADMIN_SIDEBAR_ITEMS, create_admin_page |
+| `ui/admin/pages.py` | Page trees per route, `account_fragment` |
 | `ui/admin/views.py` | User/Analytics/System/Learning UI components |
+| `ui/admin/types.py` | `UserCardData`, the view model of a `User` |
 | `adapters/inbound/admin_dashboard_ui.py` | Dashboard UI routes |
-| `adapters/inbound/admin_routes.py` | API routes (JSON) |
+| `adapters/inbound/admin_api.py` | API routes (JSON, or the rendered account card to HTMX) |
 | `adapters/inbound/auth/roles.py` | @require_admin decorator |
-| `scripts/dev/bootstrap.py:332-336` | Route registration |
+| `scripts/dev/bootstrap.py` | Route registration (`create_admin_dashboard_routes`) |
