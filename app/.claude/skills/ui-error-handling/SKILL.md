@@ -323,7 +323,7 @@ def test_validate_task_form_data_missing_title():
 - `/adapters/inbound/teaching_ui.py` - Non-activity domain, sidebar pages
 - `/adapters/inbound/learning_loop_routes.py` - HTMX fragments with `render_inline_error()` preserving target IDs
 - `/adapters/inbound/user_entry_ui.py` - HTMX fragments: journal loading, download auth, file-not-found, submission history (unified submissions + journals surface, ADR-054)
-- `/adapters/inbound/exercises_ui.py` - `render_error_banner()` for dashboard, `render_inline_error()` for edit/view
+- `/adapters/inbound/exercises_ui.py` - `render_error_banner()` for dashboard; edit/view refuse a foreign or missing uid through `refuse` (`render_inline_error()` body at 404, in the page shell for a navigation)
 - `/adapters/inbound/habits_ui.py` - `render_inline_error()` for completion, patterns, goal analytics
 - `/adapters/inbound/admin_dashboard_ui.py` - `render_error_banner()` for user-not-found, warning severity for partial failures
 - `/adapters/inbound/insights_ui.py` - Error state with load-more pagination
@@ -366,7 +366,7 @@ def test_validate_task_form_data_missing_title():
 - ✅ Teaching (`teaching_ui.py`) — 10 error sites, fixed `.is_ok` → `.is_error` bug (SKUEL003)
 - ✅ Learning Loop (`learning_loop_routes.py`) — `render_inline_error()` for HTMX fragments preserving target IDs (absorbed the former `study_ui.py` when Study was decomposed into entity-typed routes)
 - ✅ UserEntry (`user_entry_ui.py`) — `render_inline_error()` for journal loading, download auth, file-not-found, submission history (unified submissions + journals surface, ADR-054)
-- ✅ Exercises (`exercises_ui.py`) — `render_error_banner()` for dashboard; `render_inline_error()` for edit/view not-found
+- ✅ Exercises (`exercises_ui.py`) — `render_error_banner()` for dashboard; edit/view not-found is `refuse` → `render_inline_error()` at 404
 - ✅ Habits (`habits_ui.py`) — `render_inline_error()` for completion, pattern analysis, goal system/velocity/impact
 - ✅ Goals (`goals_ui.py`) — `render_error_banner()` for full-page not-found
 - ✅ KU (`ku_ui.py`) — the two learning-state POSTs return the unchanged buttons on a failed `Result` (HTMX swap keeps the page consistent)

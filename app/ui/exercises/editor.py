@@ -27,6 +27,17 @@ EDITOR_DOMAINS: tuple[tuple[str, Domain], ...] = (
     ("Business", Domain.BUSINESS),
 )
 
+#: The models the editor offers, in display order; the first is the default. A stored
+#: model outside this list is appended at render time so an edit never re-points the
+#: feedback model as a side effect.
+EDITOR_MODELS: tuple[tuple[str, str], ...] = (
+    ("Claude Sonnet 4.6 (Recommended)", "claude-sonnet-4-6"),
+    ("Claude Opus 4.6 (Most Capable)", "claude-opus-4-6"),
+    ("Claude Haiku 4.5 (Fastest)", "claude-haiku-4-5-20251001"),
+    ("GPT-4o", "gpt-4o"),
+    ("GPT-4o Mini (Cheaper)", "gpt-4o-mini"),
+)
+
 #: After a successful save the editor leaves for the dashboard; a failed save keeps
 #: the form (the error rides the response's toast headers). ``hx_swap="none"`` because
 #: the CRUD door answers the JSON entity, not a fragment.
@@ -43,12 +54,17 @@ def render_exercise_editor(exercise: Any = None, mode: str = "create") -> Any:
     is_edit = mode == "edit"
     form_title = "Edit Exercise" if is_edit else "Create New Exercise"
     submit_url = f"/api/exercises/update?uid={exercise.uid}" if is_edit else "/api/exercises/create"
-    # The stored domain is always selectable: one the list does not offer is appended
-    # as its own option, so a save that touches unrelated fields never changes it.
+    # The stored domain and model are always selectable: one the list does not offer
+    # is appended as its own option, so a save that touches unrelated fields never
+    # changes it.
     current_domain = str(exercise.domain) if exercise else Domain.KNOWLEDGE.value
     domain_options = list(EDITOR_DOMAINS)
     if current_domain not in {d.value for _label, d in EDITOR_DOMAINS}:
         domain_options.append((current_domain.replace("_", " ").title(), Domain(current_domain)))
+    current_model = exercise.model if exercise else EDITOR_MODELS[0][1]
+    model_options = list(EDITOR_MODELS)
+    if current_model not in {value for _label, value in EDITOR_MODELS}:
+        model_options.append((current_model, current_model))
 
     return Div(
         SectionHeader(form_title),
@@ -91,31 +107,10 @@ def render_exercise_editor(exercise: Any = None, mode: str = "create") -> Any:
                 Div(
                     Label("LLM Model"),
                     Select(
-                        Option(
-                            "Claude Sonnet 4.6 (Recommended)",
-                            value="claude-sonnet-4-6",
-                            selected=not exercise or exercise.model == "claude-sonnet-4-6",
-                        ),
-                        Option(
-                            "Claude Opus 4.6 (Most Capable)",
-                            value="claude-opus-4-6",
-                            selected=exercise and exercise.model == "claude-opus-4-6",
-                        ),
-                        Option(
-                            "Claude Haiku 4.5 (Fastest)",
-                            value="claude-haiku-4-5-20251001",
-                            selected=exercise and exercise.model == "claude-haiku-4-5-20251001",
-                        ),
-                        Option(
-                            "GPT-4o",
-                            value="gpt-4o",
-                            selected=exercise and exercise.model == "gpt-4o",
-                        ),
-                        Option(
-                            "GPT-4o Mini (Cheaper)",
-                            value="gpt-4o-mini",
-                            selected=exercise and exercise.model == "gpt-4o-mini",
-                        ),
+                        *[
+                            Option(label, value=value, selected=(value == current_model))
+                            for label, value in model_options
+                        ],
                         name="model",
                     ),
                     cls="mb-4",

@@ -180,7 +180,7 @@ def _validate_body[T: BaseModel](schema: type[T], data: object) -> Result[T]:
 FORM_MEDIA_TYPES = frozenset({"application/x-www-form-urlencoded", "multipart/form-data"})
 
 
-def _media_type(request: Request) -> str:
+def media_type_of(request: Request) -> str:
     """The Content-Type's media type alone — ``application/json; charset=utf-8`` → ``application/json``."""
     return request.headers.get("content-type", "").split(";")[0].strip().lower()
 
@@ -212,7 +212,7 @@ async def parse_body[T: BaseModel](
             return Result.fail(parsed)
         req = parsed.value
     """
-    media_type = _media_type(request)
+    media_type = media_type_of(request)
     if media_type in FORM_MEDIA_TYPES:
         return await parse_form_body(request, schema)
     if not media_type and not await request.body():

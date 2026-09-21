@@ -17,10 +17,10 @@ from core.models.enums import EntityType
 from core.models.enums.entity_enums import Domain
 from core.models.enums.user_entry_enums import ExerciseScope
 from core.models.exercises.exercise import Exercise
-from ui.exercises.editor import EDITOR_DOMAINS, render_exercise_editor
+from ui.exercises.editor import EDITOR_DOMAINS, EDITOR_MODELS, render_exercise_editor
 
 
-def _exercise(domain: Domain) -> Exercise:
+def _exercise(domain: Domain, model: str = "claude-sonnet-4-6") -> Exercise:
     return Exercise(
         uid="ex_abc",
         title="Daily Reflection",
@@ -29,17 +29,22 @@ def _exercise(domain: Domain) -> Exercise:
         scope=ExerciseScope.PERSONAL,
         owner_uid="user_x",
         domain=domain,
+        model=model,
     )
 
 
-def _domain_options(html: str) -> list[tuple[str, bool]]:
-    """``(value, selected)`` per option of the domain select."""
-    select = re.search(r'<select name="domain".*?</select>', html, re.DOTALL)
+def _select_options(html: str, name: str) -> list[tuple[str, bool]]:
+    """``(value, selected)`` per option of the named select."""
+    select = re.search(rf'<select name="{name}".*?</select>', html, re.DOTALL)
     assert select is not None
     return [
         (value, "selected" in attrs)
         for value, attrs in re.findall(r'<option value="([^"]*)"([^>]*)>', select.group(0))
     ]
+
+
+def _domain_options(html: str) -> list[tuple[str, bool]]:
+    return _select_options(html, "domain")
 
 
 def test_create_form_posts_to_the_create_door() -> None:
@@ -82,3 +87,17 @@ def test_a_stored_domain_the_list_does_not_offer_is_kept_and_selected() -> None:
 def test_every_offered_domain_is_a_domain_member() -> None:
     """The request model rejects anything else — the list can never offer a 400."""
     assert all(isinstance(d, Domain) for _label, d in EDITOR_DOMAINS)
+
+
+def test_a_stored_model_the_list_does_not_offer_is_kept_and_selected() -> None:
+    html = to_xml(
+        render_exercise_editor(exercise=_exercise(Domain.HEALTH, "gpt-4-turbo"), mode="edit")
+    )
+    options = _select_options(html, "model")
+    assert [v for v, selected in options if selected] == ["gpt-4-turbo"]
+    assert options[-1] == ("gpt-4-turbo", True)
+
+
+def test_the_create_form_preselects_the_first_model() -> None:
+    options = _select_options(to_xml(render_exercise_editor(mode="create")), "model")
+    assert [v for v, selected in options if selected] == [EDITOR_MODELS[0][1]]

@@ -28,6 +28,7 @@ from starlette.middleware import Middleware
 from adapters.inbound.auth.context_middleware import AuthContextMiddleware
 from adapters.inbound.boundary import (
     install_malformed_json_guard,
+    install_malformed_multipart_guard,
     install_request_validation_guard,
 )
 from adapters.inbound.csrf import CSRFMiddleware
@@ -507,10 +508,11 @@ def _create_web_app(
 
     logger.info("✅ Session support configured (FastHTML built-in)")
 
-    # Malformed application/json bodies fail inside FastHTML's parameter
-    # extraction — before any route guard runs — so without this chokepoint
-    # they surface as 500s instead of a validation 400.
+    # Malformed application/json and multipart/form-data bodies fail inside
+    # FastHTML's parameter extraction — before any route guard runs — so without
+    # these chokepoints they surface as 500s instead of a validation 400.
     install_malformed_json_guard(app)
+    install_malformed_multipart_guard(app)
 
     # Same seam, next failure along: a well-formed body that a route's Pydantic
     # body model rejects is also constructed during parameter extraction, so a

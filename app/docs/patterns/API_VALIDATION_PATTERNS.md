@@ -75,9 +75,11 @@ client's reach one model and one 400.
 
 Both end at the same 400. The auto-bound form needs an app-level guard because
 the exception escapes past every route-level guard — the same seam
-`install_malformed_json_guard` closes for a malformed (unparseable) body. Both
-are wired once in bootstrap's `_create_web_app`; without them the client is
-told **500** for ordinary bad input.
+`install_malformed_json_guard` closes for a malformed (unparseable) JSON body and
+`install_malformed_multipart_guard` for a multipart body the parser cannot read
+(FastHTML pre-parses both encodings during parameter extraction, so no
+route-level reader ever sees the failure). All three are wired once in bootstrap's
+`_create_web_app`; without them the client is told **500** for ordinary bad input.
 
 ⚠ **Do not use a `Literal` annotation on an auto-bound body field.** FastHTML
 coerces each incoming value by calling the annotation, and `Literal(...)` raises
