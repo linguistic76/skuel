@@ -76,7 +76,7 @@ ProcessingMode.from_string(form_value)  # the upload door's mode — NOT a Pipel
 ## UserContext Digest
 
 `JournalService._build_context_summary(user_uid, include_vault_notes=True)` grounds on
-`UnifiedUserContext.build()` (standard depth, never `build_rich()`/ZPD) rendered by the
+`UserContextBuilder.build()` (standard depth, never `build_rich()`/ZPD) rendered by the
 named projection `render_journal_grounding` (`grounding_projection.py`, ADR-081 D2 —
 explicit `JOURNAL_GROUNDING_FIELDS` list, test-enforced):
 

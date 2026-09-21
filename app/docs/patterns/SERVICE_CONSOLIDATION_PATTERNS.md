@@ -1,6 +1,6 @@
 ---
 title: Service Consolidation Patterns
-updated: 2026-09-17
+updated: 2026-09-21
 category: patterns
 related_skills:
 - base-analytics-service
@@ -804,7 +804,7 @@ class ChoicesService(
 - Each mixin declares `Any`-typed attributes for sub-services it touches
 - The facade's `__init__` populates those attributes — no `__init__` in mixins
 - Public API unchanged — callers don't know about the decomposition
-- **Shared `_CoreIntelligenceMixin[T]`:** `core/services/intelligence/_core_intelligence_mixin.py` owns the `get_with_context()` delegation, routing through `self.relationships.get_with_context` (mechanism B — edge vocabulary from `DomainConfig.cross_domain_relationship_types`; the `GraphContextLoader`/`self.context_loader` path was deleted in #241). Generic in the domain model so subclasses get `Result[tuple[T, GraphContext]]` for free. Tasks, Goals, Habits, PS, LP, and KU intelligence services inherit it directly; Events, Choices, and Principles keep a per-package wrapper only because they add real domain methods (performance/decision/alignment lenses). The domain-named aliases (`get_goal_with_context`, etc.) were deleted in the tasks bloat campaign — generic `get_with_context` is the one path.
+- **Shared `_CoreIntelligenceMixin[T]`:** `core/services/intelligence/_core_intelligence_mixin.py` owns the `get_with_context()` delegation, routing through `self.relationships.get_with_context` (mechanism B — edge vocabulary from `DomainRelationshipConfig.cross_domain_relationship_types`; the `GraphContextLoader`/`self.context_loader` path was deleted in #241). Generic in the domain model so subclasses get `Result[tuple[T, GraphContext]]` for free. Tasks, Goals, Habits, PS, LP, and KU intelligence services inherit it directly; Events, Choices, and Principles keep a per-package wrapper only because they add real domain methods (performance/decision/alignment lenses). The domain-named aliases (`get_goal_with_context`, etc.) were deleted in the tasks bloat campaign — generic `get_with_context` is the one path.
 
 ---
 

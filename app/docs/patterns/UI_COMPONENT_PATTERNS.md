@@ -1,6 +1,6 @@
 ---
 title: UI Component Patterns
-updated: '2026-09-20'
+updated: '2026-09-21'
 category: patterns
 related_skills:
   - accessibility-guide
@@ -94,21 +94,22 @@ return BasePage(
     active_page="tasks",
 )
 
-# Sidebar page (Activities, Learn, KU, Reports, Journals, Askesis)
+# Sidebar page — the Tasks+ section (ui/activities/nav.py); icon is a Lucide name
 from ui.patterns.sidebar import SidebarItem, SidebarPage
 
 items = [
-    SidebarItem("Tasks", "/tasks", "tasks", icon="✅"),
-    SidebarItem("Goals", "/goals", "goals", icon="🎯"),
+    SidebarItem("Tasks", "/tasks", "tasks", icon="check-square"),
+    SidebarItem("Goals", "/goals", "goals", icon="target"),
 ]
 return SidebarPage(
     content=my_content,
     items=items,
     active="tasks",
-    title="Activities",
-    storage_key="activities-sidebar",
+    title="Tasks+",
+    storage_key="activity-sidebar",
     request=request,
-    active_page="activities",
+    active_page="activity",
+    badges=True,
 )
 ```
 
@@ -402,7 +403,7 @@ Button("Large", cls=ButtonT.primary, size="lg")
 Button("Outline", cls=ButtonT.default)
 
 # With HTMX
-Button("Load More", cls=ButtonT.ghost, hx_get="/items?page=2", hx_target="#list")
+Button("Load more", cls=ButtonT.ghost, hx_get="/api/explore/search", hx_vals='{"offset": 24}', hx_target="this", hx_swap="outerHTML")
 ```
 
 > For status-colored success/warning/error UI, use **badges/alerts** (`ui.feedback`), which
@@ -628,8 +629,8 @@ AlpineModal(
         Button("Cancel", cls=ButtonT.ghost,
                **{"@click": "showConfirm = false"}),
         Button("Delete", cls=ButtonT.destructive,
-               hx_delete="/api/items/123",
-               hx_target="#item-list"),
+               hx_delete="/api/transcriptions/delete?uid=tr_123",
+               hx_target="#transcription-list"),
         cls="flex gap-2 justify-end mt-4",
     ),
     show="showConfirm",
@@ -711,7 +712,7 @@ Loading(size=Size.lg)
 # HTMX loading indicator
 Button("Save",
        cls=ButtonT.primary,
-       hx_post="/save",
+       hx_post="/settings/save",
        hx_indicator="#loading")
 
 Div(Loading(size=Size.sm), id="loading", cls="htmx-indicator")
@@ -740,9 +741,10 @@ def TaskCard(task: Task) -> Any:
             ),
             CardFooter(
                 Button("Edit", cls=ButtonT.ghost, size="sm",
-                       hx_get=f"/tasks/{task.uid}/edit", hx_target="#modal"),
+                       hx_get=f"/tasks/edit?uid={task.uid}", hx_target="#modal"),
                 Button("Complete", cls=ButtonT.primary, size="sm",
-                       hx_post=f"/api/tasks/{task.uid}/complete", hx_target="#task-list"),
+                       hx_post=f"/api/tasks/{task.uid}/status", hx_vals='{"status": "completed"}',
+                       hx_target=f"#task-{safe_id(task.uid)}", hx_swap="outerHTML"),
                 cls="justify-end gap-2",
             ),
         ),
@@ -1103,9 +1105,9 @@ async def tasks_dashboard(request) -> Any:
 
 **HTMX Fragments:**
 ```python
-@rt("/tasks/view/list")
-async def tasks_view_list(request) -> Any:
-    """HTMX fragment for list view."""
+@rt("/tasks/list-fragment")
+async def tasks_list_fragment(request) -> Any:
+    """HTMX fragment: the filtered list only."""
     user_uid = require_authenticated_user(request)
     filters = parse_filters(request)
 

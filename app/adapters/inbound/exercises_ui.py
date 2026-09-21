@@ -109,9 +109,9 @@ def create_exercises_ui_routes(
         (``EXERCISES_CONFIG.crud``: scope=USER_OWNED + require_role=TEACHER).
 
         Owner rather than the wider audience the student fragment serves,
-        because this form's Save posts to ``PUT /api/exercises/{uid}``, which is
-        owner-scoped. Any read audience wider than the write audience renders an
-        editable form whose Save can only fail.
+        because the write half is owner-scoped (``POST /api/exercises/update?uid=``
+        through ``EXERCISES_CONFIG.crud``). Any read audience wider than the write
+        audience renders an editable form whose Save can only fail.
         """
         result = await exercises_service.verify_ownership(uid, current_user.uid)
 

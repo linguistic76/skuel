@@ -1,6 +1,6 @@
 ---
 title: Graph Access Patterns Guide
-updated: 2026-06-12
+updated: 2026-09-21
 category: patterns
 related_skills:
 - pytest
@@ -16,7 +16,7 @@ related_docs: []
 > **Updated — intent is now registry-sourced (mechanism B, #241/#243).** The model-suggested
 > bridge `Entity.get_suggested_query_intent() -> QueryIntent` is **deleted**. A `QueryIntent` is no
 > longer chosen by a domain-model method; the edge vocabulary for cross-domain context comes from
-> `DomainConfig.cross_domain_relationship_types` (the registry, single source of truth). The
+> `DomainRelationshipConfig.cross_domain_relationship_types` (the registry, single source of truth). The
 > canonical reader is the inherited `_CoreIntelligenceMixin.get_with_context()` →
 > `UnifiedRelationshipService.get_with_context`; a non-registry caller passes an explicit
 > `QueryIntent` to `GraphIntelligenceService.query_with_intent` (slice from
@@ -42,7 +42,7 @@ SKUEL uses **two complementary graph access patterns** for optimal performance a
 
 **Both patterns are essential and should be used together based on the use case.**
 
-**Architectural Principle:** Models never generate Cypher strings — that knowledge lives in `adapters.persistence.neo4j.query.graph_traversal` and the persistence adapter. The *intent* (which edge types a cross-domain query traverses) is **registry-sourced** from `DomainConfig.cross_domain_relationship_types` (as of #241/#243 — it is no longer expressed by a domain-model method).
+**Architectural Principle:** Models never generate Cypher strings — that knowledge lives in `adapters.persistence.neo4j.query.graph_traversal` and the persistence adapter. The *intent* (which edge types a cross-domain query traverses) is **registry-sourced** from `DomainRelationshipConfig.cross_domain_relationship_types` (as of #241/#243 — it is no longer expressed by a domain-model method).
 
 ---
 
@@ -237,7 +237,7 @@ The **registry** supplies the edge vocabulary, infrastructure **builds queries**
 
 | Responsibility | Location | Example |
 |---------------|----------|---------|
-| Source edge vocabulary | `DomainConfig.cross_domain_relationship_types` | Registry single source of truth |
+| Source edge vocabulary | `DomainRelationshipConfig.cross_domain_relationship_types` | Registry single source of truth |
 | Build Cypher query | `semantic_queries.build_domain_context_with_paths()` | THE shared incident-edge-attributed producer (both graph readers) |
 | Execute query | `GraphIntelligenceService.query_with_intent()` | Runs against Neo4j; intent slice from `cross_domain_backend._INTENT_EDGE_SETS` for non-registry callers |
 | Orchestrate flow | `_CoreIntelligenceMixin.get_with_context()` → `UnifiedRelationshipService.get_with_context()` | Combines all steps (mechanism B) |
@@ -454,7 +454,7 @@ async def create_task_with_validation(
 ```python
 # Canonical cross-domain context: get_with_context() is inherited from
 # _CoreIntelligenceMixin[T]. The edge vocabulary is registry-sourced from
-# DomainConfig.cross_domain_relationship_types — no model method chooses an intent.
+# DomainRelationshipConfig.cross_domain_relationship_types — no model method chooses an intent.
 async def get_smart_context(self, uid: str) -> Result[tuple[Entity, GraphContext]]:
     """Registry-sourced cross-domain context (mechanism B)."""
     return await self.get_with_context(uid, depth=2)
@@ -868,7 +868,7 @@ return Result.ok(context)
 
 ### Q: Should domain models build Cypher queries?
 
-**A:** No. The *intent* (which edge types to traverse) is registry-sourced from `DomainConfig.cross_domain_relationship_types`; a non-registry caller passes a `QueryIntent` enum explicitly. Infrastructure (`graph_traversal.build_graph_context_query()`, `GraphIntelligenceService`) translates intent into Cypher. This keeps the core free of persistence technology dependencies. (The former model method `get_suggested_query_intent()` was deleted in #241.)
+**A:** No. The *intent* (which edge types to traverse) is registry-sourced from `DomainRelationshipConfig.cross_domain_relationship_types`; a non-registry caller passes a `QueryIntent` enum explicitly. Infrastructure (`graph_traversal.build_graph_context_query()`, `GraphIntelligenceService`) translates intent into Cypher. This keeps the core free of persistence technology dependencies. (The former model method `get_suggested_query_intent()` was deleted in #241.)
 
 ### Q: What if a relationship doesn't exist in the model?
 
@@ -914,7 +914,7 @@ async def test_analyze_impact(mock_graph_intelligence):
 ## Changelog
 
 ### v2.1 - June 2026 (#241/#243)
-- Intent-sourcing is now **mechanism B** (registry-sourced): the model bridge `Entity.get_suggested_query_intent()` is **deleted**; intent comes from `DomainConfig.cross_domain_relationship_types`.
+- Intent-sourcing is now **mechanism B** (registry-sourced): the model bridge `Entity.get_suggested_query_intent()` is **deleted**; intent comes from `DomainRelationshipConfig.cross_domain_relationship_types`.
 - Canonical cross-domain reader is the inherited `get_with_context()`; non-registry callers pass an explicit `QueryIntent` to `query_with_intent` (slice from `cross_domain_backend._INTENT_EDGE_SETS`).
 - Reworked Example 2 + the annotation/FAQ prose off the retired method; fixed the deleted `graph_context_loader.py` link.
 

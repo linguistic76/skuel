@@ -104,7 +104,7 @@ class _CoreIntelligenceMixin[T]:
         self, uid: str, depth: int = 2
     ) -> Result[tuple[T, GraphContext]]:
         # Mechanism B: route through the relationship service, whose edge
-        # vocabulary comes from DomainConfig.cross_domain_relationship_types.
+        # vocabulary comes from DomainRelationshipConfig.cross_domain_relationship_types.
         if self.relationships is None:
             return Result.fail(Errors.system(
                 message="relationship_service required for get_with_context",
@@ -190,7 +190,7 @@ Unified context retrieval is **mechanism B** (registry-sourced):
 2. `get_with_context()` is inherited from `_CoreIntelligenceMixin[T]` and routes
    through `self.relationships.get_with_context`.
 3. The edge vocabulary it traverses comes from the domain's
-   `DomainConfig.cross_domain_relationship_types` — the registry, the single source
+   `DomainRelationshipConfig.cross_domain_relationship_types` — the registry, the single source
    of truth (not a model-suggested query intent).
 
 ```python

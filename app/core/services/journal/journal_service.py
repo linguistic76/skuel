@@ -112,7 +112,7 @@ class JournalService:
         # second dial.
         self._canon = canon_retrieval_service
         # Optional UserContext seam (ADR-081 D2): grounds every turn on the
-        # canonical UnifiedUserContext.build() via the curated projection.
+        # canonical UserContextBuilder.build() via the curated projection.
         # None (partial wiring / tests) degrades to the plain title digest.
         self._context_builder = context_builder
 
@@ -155,7 +155,7 @@ class JournalService:
         """Return the grounding digest: the UserContext projection + vault notes.
 
         The structural half is the curated projection over
-        ``UnifiedUserContext.build()`` (ADR-081 D2) — identity, active
+        ``UserContextBuilder.build()`` (ADR-081 D2) — identity, active
         goals/tasks/habits with light relevance, and learning-journey framing,
         rendered by ``render_journal_grounding`` from its explicit field list.
         When no context is available (unwired builder or a failed build) it

@@ -1,6 +1,6 @@
 ---
 title: Codebase Health Checks
-updated: 2026-09-20
+updated: 2026-09-21
 status: current
 category: tools
 tags: [health, scripts, dead-code, documentation, maintenance, drift]
@@ -781,10 +781,10 @@ static-vs-runtime gap without ever asserting it equal.
 **Advisory: exit 0 always.** Promotion of the `fiction` class to `./dev health` red —
 never CI — is a separate ruling that waits on two sweep PRs each re-measuring ≥95%
 precision on a fresh draw; `family-prefix`, `relative-suffix` and `history` stay
-printed-only whatever that ruling says. Measured 2026-09-20 on `6f8a0eaf2` (docs
-de-fiction PR 4, #1385): 1615 inline claims — 1416 matched · **92 fiction in 34 files** (44
-of them in `docs/decisions/`; the largest cluster, 14, is ADR-058) · 16 history · 26
-family-prefix · 41 relative-suffix · 20 negated · 2 + 2 marker-skipped; re-measure with
+printed-only whatever that ruling says. Measured 2026-09-20 on `PR5HEAD` (docs
+de-fiction PR 5): 1637 inline claims — 1478 matched · **44 fiction in 14 files, every one
+in `docs/decisions/`** (the largest cluster, 14, is ADR-058; PR 6 owns them) · 15 history ·
+23 family-prefix · 39 relative-suffix · 33 negated · 2 + 3 marker-skipped; re-measure with
 `./dev health-claims`. The two precision draws the ruling waits on both came in under
 the bar — 15/30 (PR 3, seed `docs-defiction-pr3`, population 127) and 17/30 (PR 4, seed
 `docs-defiction-pr4`, population 92); the false positives are history vocabulary the

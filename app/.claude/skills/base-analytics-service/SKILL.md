@@ -515,7 +515,7 @@ async def get_domain_insights(
 `get_with_context()` is provided by the shared `_CoreIntelligenceMixin[T]`
 (`core/services/intelligence/_core_intelligence_mixin.py`), which routes through
 `self.relationships.get_with_context` — whose edge vocabulary comes from the domain's
-`DomainConfig.cross_domain_relationship_types` (the registry, the single source of
+`DomainRelationshipConfig.cross_domain_relationship_types` (the registry, the single source of
 truth). `BaseAnalyticsService.__init__` stores the injected relationship service on
 `self.relationships`; there is nothing to wire.
 

@@ -1,5 +1,5 @@
 ---
-updated: 2026-09-15
+updated: 2026-09-21
 related_skills: [journals, prompt-templates]
 ---
 
@@ -40,7 +40,7 @@ The arc named Phase 3 *"the sequencing to unify — shared instruction set + sha
 
 - **Typed discussion** (`run_discussion` / `run_follow_up`) → `discussion_system_prompt` / `follow_up_system_prompt` in `core/services/journal/instruction_loader.py`. Their base voice is **hardcoded Python strings** (`_discussion_base` / `_follow_up_base`), `JournalMode`-flavored (3 variants each: scribe / thought-partner / what-is-related). Committed → guaranteed present.
 - **File-door stages** (`stage1/2/3_system_prompt`) compose **authored files** from `data/instructions/` (`dnwf 1.md`, `Stance + Direction.md`, `roles interventions.md`, `dnwf style guide.md`, `inline_metadata_ie_short_codes.md`). **`data/instructions/` is gitignored — founder-local, not committed.** A missing file degrades to `""` (the stage "runs uninstructed").
-- **Grounding** (`_build_context_summary`, used by discussion + every follow-up): top-6 *titles* each of goals / tasks / habits + shallow vault-note snippets, or (canon P3, #615/#616) the semantic "Draw on my vault" retrieval when that dial lands. It does **not** touch `UnifiedUserContext.build()` / `build_rich()`. **JournalService has no UserContext dependency** — it hand-rolls its own shallow view, a mild break from "UserContext = the single source of truth."
+- **Grounding** (`_build_context_summary`, used by discussion + every follow-up): top-6 *titles* each of goals / tasks / habits + shallow vault-note snippets, or (canon P3, #615/#616) the semantic "Draw on my vault" retrieval when that dial lands. It does **not** touch `UserContextBuilder.build()` / `build_rich()`. **JournalService has no UserContext dependency** — it hand-rolls its own shallow view, a mild break from "UserContext = the single source of truth."
 - **Model resolution:** the Phase-2 seam (`resolve_chat_model`, `core/services/chat/`) is solid and per-conversation. **This ADR does not touch it.**
 
 ---
@@ -62,7 +62,7 @@ The tension: authored files are **founder-local (gitignored) and may be absent**
 A chat turn can't pay a heavy build every message.
 
 - **Option A — `build_rich()` per turn** (~250 fields + ZPD capstone). Richest, but a mega-query + ZPD every message is latency + cost, and ZPD is *Askesis's* gravity well, not Journals'. *Rejected for a per-turn path.*
-- **Option B — `build()` per turn, render a curated projection (RECOMMENDED).** Adopt the real `UnifiedUserContext.build()` (~150 fields — the object the rest of the app already trusts), inject `UserContextService` into `JournalService`, and render only a **high-signal projection** into the prompt (identity / life-path framing, active goals·tasks·habits with light relevance, recent grounded entries). Cheaper than rich, far richer than six titles, and it stops Journals hand-rolling a parallel view.
+- **Option B — `build()` per turn, render a curated projection (RECOMMENDED).** Adopt the real `UserContextBuilder.build()` (~150 fields — the object the rest of the app already trusts), inject `UserContextService` into `JournalService`, and render only a **high-signal projection** into the prompt (identity / life-path framing, active goals·tasks·habits with light relevance, recent grounded entries). Cheaper than rich, far richer than six titles, and it stops Journals hand-rolling a parallel view.
 - **Option C — Keep hand-rolling, just add more services.** Bolt life-path / entries onto `_build_context_summary` without adopting UserContext. *Rejected: doubles down on reinventing the single source of truth.*
 
 **Recommendation: B.** It makes "SKUEL reflects *you* back" real (identity + what you're working toward), keeps the prompt a legible, tunable projection, and realigns Journals with the canonical UserContext object. The projection — not the raw mega-object — is what renders, so cost and signal stay controlled.
@@ -110,7 +110,7 @@ Each PR: `ruff format` + `ruff check` + `mypy` (0) + `lint_skuel.py`; targeted u
   per mode is unit-enforced.
 - **PR2 — grounding projection (D2)** (2026-07-23, this PR). `JournalService` gains an
   optional `context_builder` and grounds every typed turn on the canonical
-  `UnifiedUserContext.build()`; the six-titles digest body is replaced by the **named
+  `UserContextBuilder.build()`; the six-titles digest body is replaced by the **named
   projection** `render_journal_grounding` (`core/services/journal/grounding_projection.py`),
   whose `JOURNAL_GROUNDING_FIELDS` is the explicit field list — identity, active
   goals·tasks·habits with light relevance (progress %, overdue/due-today, streaks),

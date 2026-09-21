@@ -1,6 +1,6 @@
 ---
 title: Query Architecture
-updated: 2026-09-17
+updated: 2026-09-21
 category: patterns
 related_skills:
 - skuel-search-architecture
@@ -560,7 +560,7 @@ See [Service Consolidation Patterns](SERVICE_CONSOLIDATION_PATTERNS.md#4-post-qu
 > teardown, **all 6 Activity Domains and all 3 curriculum domains (Ku/Ps/Lp) read graph context
 > through mechanism B** — the shared `_CoreIntelligenceMixin.get_with_context` →
 > `UnifiedRelationshipService.get_with_context`, with the edge vocabulary **registry-sourced** from
-> `DomainConfig.cross_domain_relationship_types`, not per-domain `{Domain}RelationshipService`
+> `DomainRelationshipConfig.cross_domain_relationship_types`, not per-domain `{Domain}RelationshipService`
 > subclasses. The model-suggested `Entity.get_suggested_query_intent()` method and the dead
 > `QueryIntent` values (`PRINCIPLE_EMBODIMENT`/`PRINCIPLE_ALIGNMENT`/`SCHEDULED_ACTION`) + the
 > never-written `CONFLICTS_WITH_GOAL` edge are **deleted**. Direction-aware bucketing (PR #243)

@@ -6,13 +6,14 @@ API routes for admin-only user management operations.
 
 All routes require ADMIN role and use the @require_admin decorator.
 
-Routes:
+Routes (the target user rides as the ``uid`` query parameter, never a path segment):
 - GET /api/admin/users - List all users (paginated, filterable)
-- GET /api/admin/users/{uid} - Get user details
-- POST /api/admin/users/{uid}/role - Change user role
-- POST /api/admin/users/{uid}/deactivate - Deactivate user account
-- POST /api/admin/users/{uid}/activate - Reactivate user account
-- POST /api/admin/users/{uid}/hard-delete - GDPR erasure (destroys user + OWNS tree)
+- GET /api/admin/users/get?uid= - Get user details
+- POST /api/admin/users/role?uid= - Change user role (JSON body ``{"role": ...}``)
+- POST /api/admin/users/deactivate?uid= - Deactivate user account
+- POST /api/admin/users/activate?uid= - Reactivate user account
+- POST /api/admin/users/hard-delete?uid= - GDPR erasure (destroys user + OWNS tree)
+- POST /api/admin/users/reset-password?uid= - Mint a password-reset token for a user
 
 Security:
 - All routes require authentication (401 if not logged in)
@@ -142,7 +143,7 @@ def create_admin_api_routes(
         """
         Get detailed user information (ADMIN only).
 
-        Path Parameters:
+        Query Parameters:
             uid: User UID to retrieve
 
         Returns:
@@ -190,7 +191,7 @@ def create_admin_api_routes(
         """
         Change a user's role (ADMIN only).
 
-        Path Parameters:
+        Query Parameters:
             uid: User UID to update
 
         Request Body (JSON):
@@ -255,7 +256,7 @@ def create_admin_api_routes(
         """
         Deactivate a user account (ADMIN only).
 
-        Path Parameters:
+        Query Parameters:
             uid: User UID to deactivate
 
         Request Body (JSON, optional):
@@ -306,7 +307,7 @@ def create_admin_api_routes(
         """
         Reactivate a user account (ADMIN only).
 
-        Path Parameters:
+        Query Parameters:
             uid: User UID to reactivate
 
         Returns:
@@ -431,7 +432,7 @@ def create_admin_api_routes(
         This is admin-initiated password reset - no email is sent.
         The admin receives the token and shares it with the user securely.
 
-        Path Parameters:
+        Query Parameters:
             uid: User UID to generate reset token for
 
         Returns:

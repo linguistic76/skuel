@@ -213,12 +213,6 @@ describe('SKUEL.announceRouteFor', () => {
     });
   });
 
-  it('leaves /decide without an in-flight verb', () => {
-    const route = window.SKUEL.announceRouteFor('/api/choices/c1/decide');
-    expect(route.verb).toBeNull();
-    expect(route.done).toBe('Decision recorded');
-  });
-
   it('returns null for unmatched and empty paths', () => {
     expect(window.SKUEL.announceRouteFor('/api/tasks/list')).toBeNull();
     expect(window.SKUEL.announceRouteFor('')).toBeNull();

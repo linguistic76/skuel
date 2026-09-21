@@ -1,12 +1,11 @@
 ---
 title: Authentication Patterns in SKUEL
-updated: '2026-09-20'
+updated: '2026-09-21'
 category: patterns
 related_skills: [security]
 related_docs: []
 ---
 # Authentication Patterns in SKUEL
-*Last updated: 2026-07-24*
 
 This document describes the authentication and authorization patterns used throughout SKUEL, including when to use each pattern and why.
 
@@ -89,7 +88,7 @@ user_uid: UserUID = require_authenticated_user(request)
 ```python
 from adapters.inbound.auth import require_authenticated_user
 
-@rt("/api/tasks")
+@rt("/api/tasks/list")
 async def list_tasks(request):
     # Raises HTTPException(401) if not authenticated
     user_uid = require_authenticated_user(request)
@@ -161,11 +160,12 @@ async def list_all_users(request: Request, current_user: Any = None):
         return await user_service.list_all()
 
 
-@rt("/api/ku", methods=["POST"])
+@rt("/api/exercises/for-curriculum", methods=["GET"])
 @require_teacher(get_user_service)
-async def create_knowledge_unit(request: Request, current_user: Any = None):
-    # Teachers and Admins can create curriculum content
-    return await ku_service.create(created_by=current_user.uid)
+async def get_exercises_for_curriculum(request: Request, current_user: Any = None):
+    # Teachers and Admins read the exercises that require a curriculum uid
+    curriculum_uid = request.query_params.get("curriculum_uid")
+    return await exercises_service.get_exercises_for_curriculum(curriculum_uid)
 ```
 
 **The one spelling is `current_user: Any = None`, next to a parameter named `request`.**
@@ -263,14 +263,16 @@ if error:
 
 ### Checking Admin for Conditional Rendering (Without Decorator)
 
-In **route code** (`adapters/inbound/`), read the session directly:
+`get_is_admin(request)` reads the session's admin flag with no DB call. Its one caller is
+`AuthContextMiddleware`, which mirrors it into the request-scoped auth context once per
+request; a route or a component that needs the flag reads that context, never the session:
 
 ```python
-from adapters.inbound.auth import get_is_admin
+from adapters.inbound.auth import get_is_admin  # what the middleware reads
 
-@rt("/some-page")
-async def some_page(request):
-    is_admin = get_is_admin(request)  # Reads from session, no DB call
+@rt("/whoami")
+async def whoami_page(request):
+    is_admin = get_is_admin(request)  # a session read — the middleware's job, not a route's
     ...
 ```
 
@@ -294,16 +296,16 @@ request — same shape as the CSRF token context. The session stays the single
 source of truth; outside a request (unit renders, WebSocket paths), the
 context degrades to unauthenticated defaults.
 
-## Navbar Authentication Pattern (January 2026)
+## Navbar Authentication Pattern
 
-The navbar displays different links based on authentication state. To ensure consistent navbar behavior across all pages, **always pass the `request` object** through to layout functions.
+The navbar is one bar for every role; which doors it shows (sign-out, the inbox, the
+role-gated Teaching and Admin doors) depends on the authentication state. To keep that
+consistent across pages, **always pass the `request` object** through to layout functions.
 
 ### The Problem
 
-Without passing the request, layouts default to unauthenticated state:
-- Shows "Login/Sign Up" instead of user dropdown
-- Admin users don't see SKUEL logo or admin-specific navbar
-- Profile Hub link may not work correctly
+Without the request, a layout renders the unauthenticated state — "Login/Sign Up"
+instead of the user's avatar, and no role doors for an admin or teacher.
 
 ### The Solution: `create_navbar_for_request()`
 
@@ -318,7 +320,8 @@ from ui.layouts.navbar import create_navbar_for_request
 # ✅ RECOMMENDED: Auto-detects auth from the request-scoped auth context
 navbar = create_navbar_for_request(request, active_page="tasks")
 
-# ❌ LEGACY: Manual parameters (still supported for backwards compatibility)
+# create_navbar() is the primitive underneath — BasePage and the request helper call
+# it; a handler calls it directly only where no request-scoped context exists
 navbar = create_navbar(
     current_user="user.mike",
     is_authenticated=True,
@@ -527,10 +530,9 @@ result = await graph_auth.reset_password_with_token(
 
 - `GET /forgot-password` - Email form for self-service reset
 - `POST /forgot-password` - Send reset email
-- `GET /reset-password?token=...` - Token + new password form
+- `GET /reset-password?token=` - Token + new password form
 - `POST /reset-password/submit` - Process password reset
-- `GET /admin/users/{uid}/reset-password` - Admin token form
-- `POST /admin/users/{uid}/reset-password` - Admin generate token
+- `POST /api/admin/users/reset-password?uid=` - Admin generates a reset token for a user (no email is sent; the admin hands the token over) — `admin_api.py`, `@require_admin`; the plain `@rt` also answers GET
 
 ## Auth Form Validation
 
@@ -594,7 +596,7 @@ Wrap at the boundary (`SecretStr(...)` on the form value), read at the point of 
 
 The graph `:User` node carries exactly the `User` dataclass field names (`core/models/user/user.py`):
 
-- **Username lives in `title`** — there is NO `username` property. `get_user_by_username` matches `{title: $username}`; login resolves username → `title` → node → `.email` → authenticate by email. (A legacy `username` property was migrated to `title` on 2026-06-12.)
+- **Username lives in `title`** — there is NO `username` property. `get_user_by_username` matches `{title: $username}`; login resolves username → `title` → node → `.email` → authenticate by email.
 - **Role lives in `role`** (NOT `user_role`), stored as the lowercase enum *value* (`"admin"`, `"member"`). Raw Cypher must compare against `.value`; model loads are alias-aware via `UserRole.from_string`.
 - **`is_premium` is an independent flag, not derived from role.** Subscription checks go through `User.is_subscriber()` → `role.is_subscriber()`; a MEMBER with `is_premium=false` is by design.
 
@@ -616,7 +618,7 @@ SKUEL enforces rate limiting at **two independent layers**:
 
 Protects a single account from credential guessing.
 
-### Per-IP Throttle (added 2026-05)
+### Per-IP Throttle
 
 - **Threshold:** `MAX_FAILED_ATTEMPTS_PER_IP = 20`
 - **Window:** 15 minutes (same as per-account)
@@ -673,7 +675,6 @@ The per-IP query reuses the existing `AuthEvent.ip_address` field — no schema 
 ---
 
 ## Route Factory Auth Matrix
-*Last updated: 2026-07-24*
 
 **Core Principle:** "Authentication patterns are explicit per factory type"
 

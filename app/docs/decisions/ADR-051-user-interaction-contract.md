@@ -12,7 +12,7 @@ tags:
 related:
   - ADR-047-entity-types-replace-domain-categories
   - ADR-043-intelligence-tier-toggle
-updated: 2026-09-15
+updated: 2026-09-21
 related_skills: [learning-loop]
 ---
 
@@ -74,11 +74,12 @@ result.
 3. **UI-driven deterministic context capture (updated 2026-04-02).** PathStep context
    flows from explicit UI navigation: PathStep detail → Exercise card → Submit form, via
    a `from_ps={ps_uid}` query parameter. The submit form embeds it as a hidden field;
-   `_get_learning_context(explicit_ps_uid=...)` in route handlers uses it directly rather
-   than falling back to the nondeterministic `next(iter(ctx.current_ps_uids))` heuristic.
-   LearningPath UID still comes from `UserContext.current_learning_path_uid`. `from_ps`
-   is absent on standalone submissions (no PathStep navigation), in which case the
-   UserContext heuristic applies as a best-effort fallback.
+   the upload handler carries it as `UserEntryCreateRequest.about_path_step_uid`, and
+   `UserEntryService._create_interaction_record(path_step_uid=...)` writes it to
+   `Interaction.context_path_step_uid` — never a guess from `UserContext`. `from_ps`
+   is absent on a standalone submission (no PathStep navigation), and the record then
+   carries no PathStep context. No writer sets `context_learning_path_uid`
+   (`INTERACTION_WITHIN` is a modelled edge with no producer).
 
 4. **YAML-ingestible (Phase 1).** Despite being auto-generated in production, Interaction
    has a full `EntityIngestionConfig` so test fixtures and content authors can create

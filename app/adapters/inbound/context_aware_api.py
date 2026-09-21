@@ -250,30 +250,3 @@ __all__ = [
     "create_context_aware_api_routes",
     "validate_time_window",
 ]
-
-
-# Migration Statistics:
-# =====================
-# Before (context_aware_api.py):     476 lines (mock data, custom response helpers)
-# After (context_aware_api_migrated): ~256 lines (boundary_handler, validation)
-# Reduction:                          ~220 lines (46% reduction)
-#
-# Note: This API is 100% domain-specific (no CRUD pattern), so CRUDRouteFactory
-# is not applicable. Migration focuses on:
-# 1. Removed custom success_response() and error_response() helpers
-# 2. All routes now use @boundary_handler for consistent response handling
-# 3. Added inline validation for key parameters (risk_threshold, difficulty, quality)
-# 4. Removed all mock data responses
-# 5. Added proper HTTP status codes (201 for POST creates)
-# 6. Prepared for service integration with task markers
-#
-# Routes Summary (9 routes):
-# 1. GET  /api/context/dashboard/{user_uid} - Context dashboard
-# 2. GET  /api/context/analysis/{user_uid} - AI context analysis
-# 3. GET  /api/context/next-action/{user_uid} - Next action recommendation
-# 5. POST /api/context/goal/{goal_uid}/tasks - Generate tasks from goal
-# 6. POST /api/context/habit/{habit_uid}/complete - Complete habit with context
-# 7. GET  /api/context/habits/at-risk/{user_uid} - At-risk habits
-# 8. GET  /api/context/learning/adaptive-path/{user_uid} - Adaptive learning path
-# 9. GET  /api/context/prediction/future-state/{user_uid} - Future state prediction
-# 10. GET /api/context/health/{user_uid} - Context system health

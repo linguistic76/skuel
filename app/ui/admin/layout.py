@@ -48,7 +48,6 @@ def create_admin_page(
     admin_username: str = "",
     title: str = "Admin Dashboard",
     request: Request | None = None,
-    system_status: str = "healthy",
 ) -> FT:
     """Create an admin dashboard page using the unified SidebarPage pattern.
 
@@ -58,7 +57,6 @@ def create_admin_page(
         admin_username: Admin's display name for sidebar heading
         title: Page title (browser tab)
         request: Starlette request for auto-detecting auth state
-        system_status: Unused — kept for call-site compatibility
     """
     active = active_section if active_section else "overview"
 

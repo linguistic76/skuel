@@ -1,6 +1,6 @@
 ---
 title: Three-Tier Type System
-updated: 2026-09-12
+updated: 2026-09-21
 category: patterns
 related_skills:
 - python
@@ -362,10 +362,9 @@ See [API_VALIDATION_PATTERNS.md](API_VALIDATION_PATTERNS.md) for comprehensive v
 
 ### Existing Request Models
 
-**Finance Domain** — gone. The native expense/budget module was demolished in ADR-052
-Phase 5; finance is a Firefly III sidecar now, and `core/models/finance/` is down to
-`invoice.py`. The request models it once carried (`ExpenseCreateRequest`,
-`BudgetCreateRequest`, …) are not a live example of this tier.
+**Finance Domain** (`core/models/finance/invoice.py`): `InvoiceCreateRequest`,
+`InvoiceUpdateRequest`, `LineItemInput` — the invoice is SKUEL's one native finance model;
+bookkeeping is a Firefly III sidecar (ADR-052).
 
 **Curriculum Domain** (`core/models/pathways/pathways_request.py`):
 - `PathStepCreateRequest`, `LearningPathCreateRequest` (used by ingestion, not CRUD routes)
@@ -648,8 +647,8 @@ goals_backend = UniversalNeo4jBackend[Goal](
 )
 
 # Non-Ku backends — single label, no base_label
-finance_backend = UniversalNeo4jBackend[ExpensePure](
-    driver, NeoLabel.EXPENSE, ExpensePure
+invoice_backend = UniversalNeo4jBackend[InvoicePure](
+    driver, NeoLabel.INVOICE, InvoicePure
 )
 
 # User - Use dedicated UserBackend (identity operations, no DTO lifecycle)

@@ -1,6 +1,6 @@
 ---
 title: Domain-Specific Hooks Pattern
-updated: 2026-09-17
+updated: 2026-09-21
 category: patterns
 related_skills: []
 related_docs: []
@@ -540,21 +540,22 @@ class TasksCoreService(BaseService[TasksOperations, Task]):
 | **Domain-Specific Hooks** | Service layer | Business rule enforcement | Dynamic (programmatic) |
 | **Database Constraints** | Neo4j | Data integrity | Static (declarative) |
 
-**Example**: Validating an expense amount
+**Example**: Validating an invoice's line items (`core/models/finance/invoice.py`,
+`core/services/finance/finance_invoice_service.py`)
 
 ```python
 # Layer 1: Pydantic (API boundary)
-class ExpenseCreateRequest(BaseModel):
-    amount: float  # Type validation: must be float
+class LineItemInput(BaseModel):
+    quantity: float = Field(..., gt=0)   # Type + range validation per item
 
 # Layer 2: Domain Hook (Service layer)
-def _validate_create(self, expense: ExpensePure) -> Result[None]:
-    if expense.amount <= 0:  # Business rule: must be positive
-        return Result.fail(Errors.validation("Amount must be positive"))
+def _validate_create(self, invoice: InvoicePure) -> Result[None]:
+    if not invoice.items:  # Business rule: an invoice needs at least one line
+        return Result.fail(Errors.validation("Invoice must have at least one line item"))
     return Result.ok(None)
 
-# Layer 3: Database (Neo4j constraint)
-# CREATE CONSTRAINT FOR (e:Expense) REQUIRE e.amount IS NOT NULL
+# Layer 3: Database (Neo4j constraint, created by Neo4jSchemaManager from field metadata)
+# CREATE CONSTRAINT FOR (n:Invoice) REQUIRE n.uid IS UNIQUE
 ```
 
 **Each layer has its role**:

@@ -18,29 +18,31 @@ Handler Contract:
     exceptions at boundaries" pattern. The @boundary_handler decorator converts
     Result[T] to HTTP responses at the boundary.
 
-Usage:
+Usage (the live consumer, path_steps_api.py):
     # Define handler functions - MUST return Result[T]
-    async def get_insights_handler(service, params) -> Result[TaskInsights]:
-        return await service.get_task_insights()
+    async def handle_summary_analytics(service, params) -> Result[dict[str, Any]]:
+        return await service.get_step_stats(params.get("period", "month"))
 
-    async def get_analytics_handler(service, params) -> Result[CompletionStats]:
-        return await service.get_completion_analytics()
+    async def handle_graph_structure(service, params) -> Result[dict[str, Any]]:
+        return await service.get_step_stats(params.get("metrics", "true"))
 
     factory = AnalyticsRouteFactory(
-        service=tasks_service,
-        domain_name="tasks",
+        service=ps_service,
+        domain_name="path-steps",
         analytics_config={
-            "insights": {
-                "path": "/api/tasks/insights",
-                "handler": get_insights_handler,
-                "description": "Get AI-powered task insights"
+            "summary": {
+                "path": "/api/path-steps/analytics/summary",
+                "handler": handle_summary_analytics,
+                "description": "Get summary analytics for all path steps",
+                "methods": ["GET"],
             },
-            "analytics": {
-                "path": "/api/tasks/analytics/completion",
-                "handler": get_analytics_handler,
-                "description": "Get task completion analytics"
-            }
-        }
+            "graph_structure": {
+                "path": "/api/path-steps/graph/structure",
+                "handler": handle_graph_structure,
+                "description": "Get path step graph structure and metrics",
+                "methods": ["GET"],
+            },
+        },
     )
     factory.register_routes(app, rt)
 """

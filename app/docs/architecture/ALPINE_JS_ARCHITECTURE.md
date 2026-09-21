@@ -1,10 +1,9 @@
 ---
 related_skills:
 - ui-browser
-updated: 2026-09-15
+updated: 2026-09-21
 ---
 # Alpine.js Architecture
-*Last updated: 2026-08-04*
 ## Related Skills
 
 For implementation guidance, see:
@@ -89,14 +88,6 @@ them — so no page *can* pin a different version. `HTMX_VERSION` and
 Pages therefore do not hand-assemble `Head()`. A page that does gets no HTMX, no
 Alpine, no `skuel.js` and no compiled CSS. See § *There is no second path* below,
 and CLAUDE.md § UI Component Pattern.
-
-> This section previously prescribed the opposite — every page returning its own
-> `Html(...)` with hand-written `<script>` tags, and HTMX pulled from
-> `unpkg.com`. Both are now wrong: nothing is LOADED from a CDN at runtime (see
-> the Version Matrix below — HTMX and Alpine are vendored under
-> `/static/vendor/`; the `curl` above downloads FROM unpkg in order to vendor a
-> new version, which is not the same thing), and hand-built heads were the very
-> failure mode the single emitter removed.
 
 ### Version Matrix
 
@@ -305,10 +296,9 @@ applies identically to Alpine: `skuel_headers()` emits the tag, `build_head()`
 delivers it, and a page that assembles its own `Head()` gets no Alpine, no
 `skuel.js` and no compiled CSS.
 
-This section previously documented a "standalone page" pattern for Timeline and
-Search that hand-inlined the vendored path. Both surfaces now go through
-`build_head()` like everything else, and the `/timelines` surface itself was
-deleted in #934.
+There is no "standalone page" shape that hand-inlines the vendored path: `/search`
+goes through `build_head()` like everything else, and no `/timelines` surface is
+registered (Gantt is staged — `docs/roadmap/gantt-visualization-surface.md`).
 
 ## Common Directives
 
@@ -374,8 +364,8 @@ Div(
     Button(
         Span("Save", **{"x-show": "!busy"}),
         Span("Saving...", **{"x-show": "busy"}),
-        hx_post="/api/save",
-        hx_target="#result",
+        hx_post="/journals/save",
+        hx_target="#journal-composer",
         **{"x-bind:disabled": "busy"},
     ),
     **{
@@ -392,35 +382,12 @@ otherwise a page-local bundle, per the rule above. A spinner with no other
 behaviour is better served by HTMX alone — `hx_indicator="#save-spinner"` plus the
 `htmx-indicator` class, no Alpine at all.
 
-## Migration History
+## Vendoring
 
-**January 15, 2026:** Self-hosted Alpine.js, removed CDN dependency.
-- Downloaded Alpine.js 3.14.8 to `/static/vendor/alpinejs/`
-- Updated 4 standalone page components to use local file
-- Rationale: Version stability, offline capability, explicit upgrades
-
-**January 2026:** Consolidated all JavaScript into centralized Alpine.js architecture.
-
-**Migrated files** — and what became of each. The middle column is a *historical*
-record: none of those three names is a live component today, so do not copy them.
-
-| Legacy file | Became (Jan 2026) | Today |
-|-------------|-------------------|-------|
-| `search_sidebar.js` (189 lines) | `searchSidebar()` | **Gone** (deleted as dead, `327f26623`). The `/search` facet bar is `searchFilters()`, a separate component that predates it and is now the sole owner — reshaped into a desktop bar + mobile drawer in #559. |
-| `calendar.js` (108 lines) | `calendarPage()` | **Renamed** `calendarLegend()` in #621, when the legend swatches became type filters. Same registration, new name — the capability is live. |
-| `timeline_viewer.js` (147 lines) | `timelineViewer()` | **Gone** (deleted as dead, `327f26623`). No successor: the `/timelines` surface was itself deleted in #934. |
-
-**Deleted files:**
-- `journals_audio_upload.js` (323 lines) - Legacy code
-
-**Result:** Single source of truth for all JavaScript behavior, no external dependencies.
-
-**March 28, 2026 (`327f26623`):** "clean up dead UI code left behind after Activity
-Domain shelving" removed 12 Alpine components in one commit — `accessibleModal`,
-`calendarModal`, `choiceOptions`, `dropdownNav`, `focusTrapModal`, `ganttVis`,
-`insightSwipeActions`, `loadingButton`, `searchSidebar`, `swipeHandler`,
-`taskEditModal`, `timelineViewer` — and updated none of the documentation. That
-drift is why the registry is now machine-checked; see *Registry drift* below.
+Alpine.js 3.14.8 is vendored under `/static/vendor/alpinejs/` — no CDN at runtime
+(version stability, offline capability, explicit upgrades). Deleting a component
+without touching its documentation is the drift the registry check exists for; see
+*Registry drift* below.
 
 ## Registry drift
 

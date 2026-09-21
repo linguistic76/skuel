@@ -5,7 +5,7 @@ Shared Core Intelligence Mixin
 Provides the `get_with_context()` protocol method for intelligence services
 via **mechanism B** (registry-sourced): it routes through
 `self.relationships.get_with_context`, whose edge vocabulary comes from the
-domain's `DomainConfig.cross_domain_relationship_types` (the registry single
+domain's `DomainRelationshipConfig.cross_domain_relationship_types` (the registry single
 source of truth).
 
 Inherited by all 6 Activity Domain intelligence services plus the curriculum

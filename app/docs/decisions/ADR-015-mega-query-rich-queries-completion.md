@@ -1,6 +1,6 @@
 ---
 title: "ADR-015: MEGA-QUERY Rich Queries Completion for All Activity Domains"
-updated: 2026-09-04
+updated: 2026-09-21
 status: current
 category: decisions
 tags: [adr, decisions, query, mega-query, user-context]
@@ -202,7 +202,7 @@ The UserContext builder was decomposed into a 4-module structure for better main
 | **user_context_builder.py** | ~331 | Orchestration - `build()` and `build_rich()` methods |
 | **user_context_queries.py** | ~1,000 | MEGA-QUERY constant (~700 lines of Cypher) |
 | **user_context_extractor.py** | ~351 | Result parsing - extracts data from Neo4j results |
-| **user_context_populator.py** | ~235 | Context population - populates UnifiedUserContext fields |
+| **user_context_populator.py** | ~235 | Context population - populates UserContext fields |
 
 **Total:** ~1,917 lines (previously in one 2,147-line file)
 
@@ -215,7 +215,7 @@ user_context_queries.py (MEGA-QUERY ~700 lines)
     ↓
 user_context_extractor.py (parse Neo4j results)
     ↓
-user_context_populator.py (populate UnifiedUserContext)
+user_context_populator.py (populate UserContext)
 ```
 
 **Key Benefit:** Separation of concerns - query definition, result parsing, and context population are now independent modules.

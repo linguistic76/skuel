@@ -197,7 +197,7 @@ All query builders support these operators:
 
 All 9 domains (6 Activity + Ku/Ps/Lp) read graph context through **mechanism B**: the shared
 `_CoreIntelligenceMixin.get_with_context` → `UnifiedRelationshipService.get_with_context`. The edge
-vocabulary is **registry-sourced** from `DomainConfig.cross_domain_relationship_types` (the single
+vocabulary is **registry-sourced** from `DomainRelationshipConfig.cross_domain_relationship_types` (the single
 source of truth) — there is no per-domain `get_suggested_query_intent()` (deleted) and no per-domain
 `{Domain}RelationshipService` subclass.
 

@@ -4,15 +4,16 @@ Transcription API Routes
 
 Clean API routes for the simplified TranscriptionService.
 
-Route Structure (8 endpoints matching 8 service methods):
-- POST   /api/transcriptions          → create()
-- GET    /api/transcriptions/{uid}    → get()
-- DELETE /api/transcriptions/{uid}    → delete()
-- GET    /api/transcriptions          → list()
-- POST   /api/transcriptions/{uid}/process  → process()
-- POST   /api/transcriptions/{uid}/retry    → retry()
-- GET    /api/transcriptions/search   → search()
-- GET    /api/transcriptions/status/{status} → get_by_status()
+Route Structure (the uid and the status ride as query parameters):
+- POST   /api/transcriptions                 → create()
+- GET    /api/transcriptions/get?uid=        → get()
+- DELETE /api/transcriptions/delete?uid=     → delete()
+- GET    /api/transcriptions                 → list()
+- POST   /api/transcriptions/process?uid=    → process()
+- POST   /api/transcriptions/retry?uid=      → retry()
+- GET    /api/transcriptions/search?q=       → search()
+- GET    /api/transcriptions/status?status=  → get_by_status()
+- GET    /api/transcriptions/health          → (unauthenticated liveness)
 
 Each route maps to exactly one service method.
 """

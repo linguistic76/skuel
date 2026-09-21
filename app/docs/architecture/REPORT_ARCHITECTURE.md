@@ -1,6 +1,6 @@
 ---
 title: Report Architecture
-updated: 2026-09-19
+updated: 2026-09-21
 status: current
 category: architecture
 version: 3.2.0
@@ -232,7 +232,7 @@ Both use atomic Cypher: create entity + `REPORT_FOR` + `SHARES_WITH` (to the sub
 | Generated on request | `ProgressReportGenerator.generate()` | `LLM` (`AUTOMATIC` when the LLM fails and the programmatic fallback writes) | `POST /api/reports/progress/generate` (the request form — where the calendar toolbar's "Report for …" pill lands), `POST /activity-reports/for` (the detail page's "Regenerate" of a calendar-period report) |
 | Admin writes feedback | `ActivityReportService.submit_report()` | `HUMAN` | Admin reviews snapshot |
 
-There is no scheduled generation: a report exists because a person asked for one. The former schedule producer (a `ReportSchedule` node, an hourly worker) was retired 2026-09-13 — it was a second period vocabulary beside the calendar periods, and nothing ever consumed an unrequested report (ADR-069 Decision 3 rows 6–8, as amended).
+There is no scheduled generation: a report exists because a person asked for one (ADR-069 Decision 3 rows 6–8, as amended, records why).
 
 **Graph pattern:**
 ```cypher
@@ -407,7 +407,6 @@ The learning loop does not end at a leaf domain — it fans back out across the 
 | `/activity-reports/detail` (+`/content`) | User | Report detail with annotation UI |
 | `/submit-activity-report` | User | On-demand report request form |
 | `/reports/progress-list` | User | HTMX fragment (recent reports on the request form) |
-| `/api/gradebook/activity-reports/preview` | Teacher | Gradebook report preview |
 | `/activity-review` → `/activity-review/queue` | Admin | Pending review queue (`get_pending_reviews`) |
 | `/activity-review/new` | Admin | Admin review form |
 | `/activity-review/snapshot-fragment` | Admin | HTMX domain snapshot fragment |
@@ -470,7 +469,7 @@ When `openai_service` is available, the generator:
 
 **Graceful fallback:** If LLM call fails, falls back to programmatic markdown with `ReportSource.AUTOMATIC` and logs `processing_error`. If no prior annotation exists, the prompt is unchanged.
 
-**Annotation feedback loop:** User annotations flow back into the next report's LLM prompt via `_fetch_previous_annotation()`. The field is also surfaced in `UserContext.latest_activity_report_user_annotation` for API consumers. (Its pre-ADR-082 keyword-triggered inclusion in Askesis's `build_llm_context()` was removed with the intent-selected dump.)
+**Annotation feedback loop:** User annotations flow back into the next report's LLM prompt via `_fetch_previous_annotation()`. The field is also surfaced in `UserContext.latest_activity_report_user_annotation` for API consumers; Askesis's `build_llm_context()` does not read it (ADR-082's intent-selected dump).
 
 **Prompt template:** `core/prompts/templates/activity_feedback.md`
 
@@ -484,10 +483,8 @@ When `openai_service` is available, the generator:
 | `/activity-reports/for` | POST (CSRF) | User | Mints one calendar period's report — the detail page's "Regenerate": `time_period` token → generate → redirect to the report; a cooldown refusal renders the period prompt with the reason |
 | `/api/activity-reports/annotate` | POST | User | Save annotation or revision to own report (fragment) |
 | `/activity-reports/md?uid=` | GET | User | Download own report as `.md` (owner-scoped; foreign uid → 404) |
-
-| `/api/activity-review/request` | POST | User | Request an activity review from admin |
-| `/api/activity-review/queue` | GET | Admin | Pending review queue |
-| `/api/activity-review/history` | GET | User/Admin | Received activity feedback history |
+| `/activity-review/queue`, `/activity-review/new`, `/activity-review/snapshot-fragment` | GET | Admin | The admin review track is HTMX pages, no JSON API (the "Activity report track" table above) |
+| `/activity-review/submit-feedback` | POST | Admin | Submit written activity feedback |
 | `/api/exercises/report` | POST | Owner or Teacher (per-user FULL tier, ADR-043) | Generate LLM `ENTRY_REPORT` (`REPORT_FOR`) for a submission |
 | `/api/teaching/review-queue` | GET | Teacher | Pending submission review queue |
 | `/api/teaching/review/{uid}/report` | POST | Teacher | Submit human report on submission |

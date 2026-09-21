@@ -1,6 +1,6 @@
 ---
 title: Error Handling Architecture
-updated: 2026-09-20
+updated: 2026-09-21
 category: patterns
 related_skills:
 - result-pattern
@@ -147,16 +147,17 @@ class ReportService:
 from adapters.inbound.form_helpers import parse_json_body
 
 # Routes use @boundary_handler to convert Results
-@rt("/api/journals")
+@rt("/api/transcriptions", methods=["POST"])
 @boundary_handler(success_status=201)
-async def create_journal_route(request):
+async def create_transcription(request):
+    user_uid = require_authenticated_user(request)
     # parse_json_body handles JSON parsing + ValidationError → Result
-    parsed = await parse_json_body(request, JournalCreateRequest)
+    parsed = await parse_json_body(request, TranscriptionCreateRequest)
     if parsed.is_error:
         return parsed  # 400 with validation details (VALIDATION category, per the table above)
 
     # Service returns Result
-    result = await journal_service.create_journal(parsed.value)
+    result = await transcription_service.create(parsed.value, user_uid)
 
     # boundary_handler automatically converts:
     # - Result.ok() → (json_body, success_status)
@@ -836,141 +837,16 @@ priority_enum = parse_enum_safe(PriorityEnum, priority_str, PriorityEnum.MEDIUM)
 
 ---
 
-## Configuration vs Runtime Error Handling
-*Added: January 25, 2026*
+## Optional Features Are Typed Absence, Not Caught Exceptions
 
-**Context:** Services with optional features (like intelligence services) need clear distinction between configuration errors (setup issues) and runtime errors (computation failures).
-
-**Problem:**
-
-```python
-# ❌ TOO NARROW - Only catches AttributeError
-try:
-    intelligence = services.context_intelligence.create(context)
-    plan_result = await intelligence.get_ready_to_work_on_today()
-    return Result.ok({"daily_plan": plan_result.value})
-except AttributeError as e:
-    # Config error → basic mode
-    return Result.ok(None)
-# TypeError, KeyError would propagate as failures instead of gracefully degrading
-```
-
-**Solution: Layered Exception Handling**
-
-```python
-async def _get_intelligence_data(
-    context: UserContext,
-) -> "Result[dict[str, Any] | None]":
-    """
-    Get intelligence data for OverviewView if available.
-
-    Error Handling Strategy:
-    - Configuration errors (AttributeError, TypeError, KeyError) → basic mode
-    - Runtime computation errors → Result.fail() (propagates to HTTP boundary)
-    - Service not available → basic mode
-
-    Returns:
-        - Result.ok(dict) - Intelligence data when fully configured
-        - Result.ok(None) - Intelligence not available (use basic mode UI)
-        - Result.fail() - Actual error during intelligence computation
-    """
-    # Check if factory is available
-    if not services.context_intelligence:
-        logger.info("Intelligence factory not configured - using basic mode")
-        return Result.ok(None)
-
-    try:
-        intelligence = services.context_intelligence.create(context)
-
-        # Methods return Result[T] - check for runtime errors
-        plan_result = await intelligence.get_ready_to_work_on_today()
-        if plan_result.is_error:
-            return Result.fail(plan_result)
-
-        alignment_result = await intelligence.calculate_life_path_alignment()
-        if alignment_result.is_error:
-            return Result.fail(alignment_result)
-
-        return Result.ok({
-            "daily_plan": plan_result.value,
-            "alignment": alignment_result.value,
-        })
-
-    except (AttributeError, TypeError, KeyError) as e:
-        # Configuration errors - intelligence services not properly configured
-        # These are setup issues, not runtime errors - degrade gracefully to basic mode
-        logger.warning(
-            "Intelligence services not properly configured - using basic mode",
-            extra={
-                "error_type": type(e).__name__,
-                "error_message": str(e),
-            },
-        )
-        return Result.ok(None)
-    except Exception as e:
-        # Unexpected error during intelligence computation
-        # This is a true runtime error - propagate as failure
-        logger.error(
-            "Unexpected error in intelligence computation",
-            extra={
-                "error_type": type(e).__name__,
-                "error_message": str(e),
-            },
-        )
-        from core.utils.result_simplified import Errors
-        return Result.fail(Errors.system(f"Intelligence computation failed: {e}"))
-```
-
-**Error Categories:**
-
-| Error Type | Meaning | Action | Example |
-|------------|---------|--------|---------|
-| Service missing | Factory not configured | Basic mode | `if not services.intelligence` |
-| `AttributeError` | Interface mismatch | Basic mode | Method doesn't exist |
-| `TypeError` | Wrong data type | Basic mode | Method returns int instead of dict |
-| `KeyError` | Missing config key | Basic mode | Config dict missing required field |
-| `Exception` | Runtime computation error | Fail (500) | Division by zero, graph query error |
-
-**Route Handling:**
-
-```python
-@rt("/today")
-async def today_page(request: Request) -> Any:
-    user_uid = require_authenticated_user(request)
-    context = await _get_user_context(user_uid)
-
-    # Get intelligence data - may return None for basic mode
-    intel_result = await _get_intelligence_data(context)
-    if intel_result.is_error:
-        # Actual error - propagate to HTTP boundary
-        return JSONResponse(
-            {"error": str(intel_result.error)},
-            status_code=500,
-        )
-
-    intel_data = intel_result.value  # May be None (basic mode) or dict (full mode)
-
-    # Create view - passes None for intelligence data in basic mode
-    if intel_data is not None:
-        content = OverviewView(
-            context,
-            daily_plan=intel_data["daily_plan"],
-            alignment=intel_data["alignment"],
-        )
-    else:
-        # Basic mode - show profile without intelligence features
-        content = OverviewView(context)
-
-    return create_profile_page(content, ...)
-```
-
-**Benefits:**
-- ✅ Clear separation: config issues → graceful degradation, runtime errors → fail fast
-- ✅ Better structured logging distinguishes error categories
-- ✅ Easier debugging (config vs computation problems)
-- ✅ Documented error handling strategy in docstring
-
-**Anti-Pattern:** Don't use broad `except Exception` for configuration errors - it would catch runtime errors too.
+An optional capability is a typed `None`, never an exception class caught broadly: every
+Activity Domain and Curriculum facade carries `.ai` as `None` in CORE tier (ADR-043), and a
+caller checks `if service.ai is None` before the call — a configuration gap is a branch, a
+computation failure is a `Result.fail()` propagated to the boundary. There is no layer that
+turns `AttributeError` / `TypeError` / `KeyError` into "basic mode": those are bugs, and
+SKUEL017 rejects the bare `except Exception` such a layer would need outside an annotated
+`# safety-net:` boundary (see § Narrowing Exception Catches). Missing REQUIRED dependencies
+fail at bootstrap (CLAUDE.md § Fail-Fast Dependency Philosophy), never at request time.
 
 ---
 

@@ -408,7 +408,7 @@ await backend.create_relationships_batch(
 ```
 
 After **any** edge-only mutation (no node property changed), publish the domain's
-`*Updated` event (e.g. `TaskUpdated`) so `UnifiedUserContext` caches invalidate — the
+`*Updated` event (e.g. `TaskUpdated`) so the `UserContext` cache invalidates — the
 same rule that applies to `applies_knowledge_uids`/`reinforces_habit_uid` edge syncs.
 
 **Reads (cross-domain)** — Queries spanning 2+ domain labels go through `CrossDomainQueryService` (`core/services/cross_domain/`):

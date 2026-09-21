@@ -1,7 +1,7 @@
 ---
 title: Finance Domain
 created: 2025-12-04
-updated: 2026-09-20
+updated: 2026-09-21
 status: current
 category: domains
 tags: [finance, firefly, chargekeep, billing, invoicing, admin-only, adr-052, adr-062]
@@ -158,9 +158,8 @@ expense sections/components of `ui/finance/`, and the `/finance` dashboard hub (
   `find_transaction_by_external_id`, `health_check`; drop the read methods that only existed
   for the now-cancelled read-through UI.
 
-The legacy [`FINANCE_CATEGORIES_GUIDE.md`](../architecture/FINANCE_CATEGORIES_GUIDE.md)
-documents the YAML category system in this deletion set — kept for archaeology only; don't
-build against it.
+The YAML category system is in this deletion set; its record is ADR-052 and
+`git log -- docs/architecture/FINANCE_CATEGORIES_GUIDE.md`.
 
 ---
 

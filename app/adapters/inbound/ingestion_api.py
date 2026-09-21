@@ -25,9 +25,9 @@ Routes:
 - POST /api/ingest/bundle - Ingest domain bundle with manifest
 - POST /api/ingest/domain/{domain_name} - Ingest a domain directory
 
-The raw arbitrary-path ``POST /api/ingest/directory`` door was retired (ADR-070
-Decision 9); directory ingestion of the content vault runs through the reconciler
-(``POST /api/vault/sync/content``).
+There is no arbitrary-path directory door here (ADR-070 Decision 9): directory
+ingestion of the content vault runs through the reconciler
+(``POST /api/vault/sync/content``, ``adapters/inbound/vault_routes.py``).
 """
 
 import os
@@ -235,11 +235,9 @@ def create_ingestion_api_routes(
                 Errors.system("File ingestion failed", exception=e, operation="ingest_file")
             )
 
-    # NOTE: the raw ``POST /api/ingest/directory`` admin door was removed
-    # (ADR-070 Decision 9). Arbitrary-path directory ingestion is unified onto the
-    # reconciler: content-vault sync now goes through ``POST /api/vault/sync/content``
-    # (see ``adapters/inbound/vault_routes.py``) or the in-process
-    # ``scripts/vault_bridge_sync.py --vault content``.
+    # No arbitrary-path directory door (ADR-070 Decision 9): content-vault sync
+    # goes through ``POST /api/vault/sync/content`` (``vault_routes.py``) or the
+    # in-process ``scripts/vault_bridge_sync.py --vault content``.
 
     @rt("/api/ingest/vault", methods=["POST"])
     @csrf_protected

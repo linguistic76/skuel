@@ -1,7 +1,7 @@
 ---
 title: Knowledge Substance Philosophy
 created: 2025-10-17
-updated: 2026-08-27
+updated: 2026-09-21
 status: active
 audience: all
 tags: [architecture, knowledge, substance, philosophy, learning, ku-activity-integration]
@@ -494,7 +494,7 @@ All 6 channels tracked:
 
 ## Life Path Alignment
 
-**Everything flows toward the life path.** UnifiedUserContext tracks alignment:
+**Everything flows toward the life path.** UserContext tracks alignment:
 
 - Your life path represents who you want to **BECOME**
 - Alignment measures how much you're **LIVING** that vision

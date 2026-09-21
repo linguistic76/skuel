@@ -84,7 +84,7 @@ class GroupService(BaseService[GroupBackendOperations, Group]):
     # ========================================================================
 
     async def verify_ownership(self, uid: str, user_uid: UserUID) -> Result[Group]:
-        """Override: Group uses owner_uid instead of Entity.user_uid."""
+        """Override: Group uses owner_uid instead of UserOwnedEntity.user_uid."""
         result = await self.get(uid)
         if result.is_error:
             return result

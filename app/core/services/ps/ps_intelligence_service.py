@@ -4,9 +4,8 @@ PathStep Intelligence Service
 
 Intelligence service for PathSteps - scoring, readiness, practice calculations.
 
-**January 2026 - Unified Architecture:**
-This service follows the Activity Domain pattern, extending BaseIntelligenceService.
-Complex scoring and aggregation methods consolidated here from the former PsRelationshipService.
+This service follows the Activity Domain pattern, extending BaseAnalyticsService;
+it owns the PathStep scoring and aggregation methods.
 
 Methods:
 - is_ready(): Check if step is ready based on prerequisite completion

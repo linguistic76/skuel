@@ -1,6 +1,6 @@
 ---
 title: "Pattern: Shell-First Page Loading"
-updated: 2026-09-17
+updated: 2026-09-21
 status: current
 category: patterns
 tags: [ui, htmx, performance, page-load]
@@ -202,7 +202,7 @@ The `GET /api/navbar/notification-badge` fragment fetches the actual unread coun
 | Case | Reason |
 |------|--------|
 | POST mutation routes | Must return synchronous confirmation |
-| Hub pages (`/home`, `/submissions`, `/gradebook`, `/library`) | Already use HTMX tab blocks |
+| Hub pages (`/submissions`, `/gradebook`, `/library`) | Already use HTMX tab blocks |
 | Fragment endpoints themselves | DB calls in fragments are expected and correct |
 | Admin pages | Lower traffic; simpler blocking approach is fine |
 

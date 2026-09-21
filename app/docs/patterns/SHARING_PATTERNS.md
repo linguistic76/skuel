@@ -1,6 +1,6 @@
 ---
 title: Content Sharing Patterns
-updated: '2026-09-05'
+updated: '2026-09-21'
 category: patterns
 related_skills:
 - pytest
@@ -8,7 +8,6 @@ related_docs: []
 ---
 # Content Sharing Patterns
 
-**Status:** All phases complete — `UnifiedSharingService` active (2026-03-01)
 **See Also:** [ADR-038: Content Sharing Model](../decisions/ADR-038-content-sharing-model.md), [ADR-042: Privacy as First-Class Citizen](../decisions/ADR-042-privacy-as-first-class-citizen.md)
 
 ---
@@ -573,13 +572,19 @@ or as part of the combined `_verify_owned_and_shareable()` for mutation operatio
 
 All read operations use `check_access()`. Both "not found" and "forbidden" return 404 — no information leakage.
 
-### Public Endpoint Visibility Enforcement
+### PUBLIC Visibility
 
-`GET /api/submissions/public` is unauthenticated. The route enforces `visibility == Visibility.PUBLIC` server-side — it never returns PRIVATE or SHARED submissions. Users must explicitly set an entity to PUBLIC before it appears in public listings.
+`PUBLIC` is a visibility value `set_visibility()` writes and `check_access()` honours; no
+route lists public entities — there is no `/api/submissions/public` (ADR-038 § API Layer
+records the retired listing and its absent successor).
 
 ### Admin Routes
 
-`/api/activity-review/snapshot` and `/api/activity-review/submit` require `@require_admin`. The `/api/activity-review/history` route is always scoped to the calling user's own UID (no `subject_uid` override).
+The admin activity-review track is HTMX pages, every one `@require_admin`:
+`/activity-review/queue`, `/activity-review/new`, `/activity-review/snapshot-fragment`
+and `POST /activity-review/submit-feedback` (`activity_review_ui.py`). The admin names the
+reviewed user through the form's `subject_uid`; `/activity-review` itself redirects to the
+queue.
 
 ---
 
