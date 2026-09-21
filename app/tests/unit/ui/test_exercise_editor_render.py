@@ -1,9 +1,10 @@
 """The exercise editor renders the stored exercise and posts to the registered doors.
 
-The Domain select is the sharp edge: a blank domain IS the default
-(``Domain.KNOWLEDGE`` on create, cleared back to it on update), so the default reads
-as "None"; any other stored domain the list does not offer must still be selectable,
-or a save that touches unrelated fields would erase it.
+The Domain select is the sharp edge: ``Entity.domain`` always holds a value, so the
+select never offers a blank (a blank would clear the stored property on save); the
+default ``Domain.KNOWLEDGE`` is an option like any other, and a stored domain the list
+does not offer is still selectable, or a save that touches unrelated fields would
+change it.
 """
 
 from __future__ import annotations
@@ -52,12 +53,15 @@ def test_edit_form_posts_to_the_update_door_with_the_uid() -> None:
     assert 'hx-post="/api/exercises/update?uid=ex_abc"' in html
 
 
-def test_the_default_domain_reads_as_none() -> None:
-    options = _domain_options(
-        to_xml(render_exercise_editor(exercise=_exercise(Domain.KNOWLEDGE), mode="edit"))
-    )
-    assert options[0] == ("", True)
-    assert [v for v, _ in options[1:]] == [d.value for _label, d in EDITOR_DOMAINS]
+def test_the_select_never_offers_a_blank() -> None:
+    for html in (
+        to_xml(render_exercise_editor(mode="create")),
+        to_xml(render_exercise_editor(exercise=_exercise(Domain.KNOWLEDGE), mode="edit")),
+    ):
+        options = _domain_options(html)
+        assert "" not in [v for v, _ in options]
+        assert [v for v, selected in options if selected] == [Domain.KNOWLEDGE.value]
+        assert [v for v, _ in options] == [d.value for _label, d in EDITOR_DOMAINS]
 
 
 def test_an_offered_domain_is_preselected() -> None:

@@ -92,7 +92,7 @@ _EDITOR_FIELDS = {
     "instructions": "Ask me one clarifying question.",
     "model": "claude-sonnet-4-6",
     "context_notes": "Be gentle\nBe curious",
-    "domain": "",
+    "domain": "knowledge",
 }
 
 
@@ -127,7 +127,7 @@ class TestExerciseEditor:
         assert patch["title"] == "Daily Reflection"
         assert "name" not in patch
         assert patch["context_notes"] == ["Be gentle", "Be curious"]
-        assert patch["domain"] is None  # "None" in the select clears the domain
+        assert patch["domain"] == "knowledge"  # the select always submits a domain
 
     def test_delete_button_posts_and_is_answered(self, monkeypatch: pytest.MonkeyPatch) -> None:
         harness = _make_harness(monkeypatch, EXERCISES_CONFIG)

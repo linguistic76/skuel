@@ -21,6 +21,7 @@ from fasthtml.common import FT, Div, P
 from adapters.inbound.auth import make_service_getter, require_authenticated_user, require_teacher
 from adapters.inbound.boundary import ui_boundary_handler
 from adapters.inbound.fasthtml_types import Request
+from adapters.inbound.result_helpers import require_found
 from adapters.inbound.route_factories import refuse, refuse_not_found
 from core.utils.logging import get_logger
 from ui.components import ButtonT
@@ -131,14 +132,14 @@ def create_exercises_ui_routes(
         through ``EXERCISES_CONFIG.crud``). Any read audience wider than the write
         audience renders an editable form whose Save can only fail.
         """
-        result = await exercises_service.verify_ownership(uid, current_user.uid)
-        if result.is_error:
-            return refuse(result.expect_error(), partial(_authoring_refusal, request), "Exercise")
-        if not result.value:
-            return refuse_not_found(_authoring_refusal(request, "Exercise not found"))
+        found = require_found(
+            await exercises_service.verify_ownership(uid, current_user.uid), "Exercise", uid
+        )
+        if found.is_error:
+            return refuse(found.expect_error(), partial(_authoring_refusal, request), "Exercise")
 
         return _authoring_shell(
-            request, render_exercise_editor(exercise=result.value, mode="edit"), "Edit Exercise"
+            request, render_exercise_editor(exercise=found.value, mode="edit"), "Edit Exercise"
         )
 
     @app.get("/exercises/{uid}/view")
@@ -153,18 +154,18 @@ def create_exercises_ui_routes(
         full SCOPE_AWARE audience; reading shared curriculum or a group's
         assigned exercise is that surface's job, not this one's.
         """
-        result = await exercises_service.verify_ownership(uid, current_user.uid)
-        if result.is_error:
-            return refuse(result.expect_error(), partial(_authoring_refusal, request), "Exercise")
-        if not result.value:
-            return refuse_not_found(_authoring_refusal(request, "Exercise not found"))
+        found = require_found(
+            await exercises_service.verify_ownership(uid, current_user.uid), "Exercise", uid
+        )
+        if found.is_error:
+            return refuse(found.expect_error(), partial(_authoring_refusal, request), "Exercise")
 
         knowledge_result = await exercises_service.get_required_knowledge(uid)
         required_knowledge = knowledge_result.value if knowledge_result.is_ok else []
 
         return _authoring_shell(
             request,
-            render_exercise_view(result.value, required_knowledge=required_knowledge),
+            render_exercise_view(found.value, required_knowledge=required_knowledge),
             "Exercise",
         )
 

@@ -16,8 +16,11 @@ from ui.patterns.section_header import SectionHeader
 from ui.primitives import ButtonLink
 
 #: The domains the editor offers, in display order — every value a ``Domain`` member,
-#: because the request model rejects anything else.
+#: because the request model rejects anything else. ``Entity.domain`` always holds a
+#: value (``Domain.KNOWLEDGE`` is its default), so the default is offered as itself and
+#: the select never submits a blank that would clear the stored property.
 EDITOR_DOMAINS: tuple[tuple[str, Domain], ...] = (
+    ("Knowledge (default)", Domain.KNOWLEDGE),
     ("Personal", Domain.PERSONAL),
     ("Health", Domain.HEALTH),
     ("Learning", Domain.LEARNING),
@@ -40,15 +43,11 @@ def render_exercise_editor(exercise: Any = None, mode: str = "create") -> Any:
     is_edit = mode == "edit"
     form_title = "Edit Exercise" if is_edit else "Create New Exercise"
     submit_url = f"/api/exercises/update?uid={exercise.uid}" if is_edit else "/api/exercises/create"
-    # "None" IS the default: a blank domain is stored as ``Domain.KNOWLEDGE`` on create
-    # and cleared back to it on update, so the default reads as "None" here. Any other
-    # stored domain the list does not offer is appended as its own option, selected —
-    # a save that touches unrelated fields must not erase it.
-    current_domain = str(exercise.domain) if exercise else ""
-    if current_domain == Domain.KNOWLEDGE.value:
-        current_domain = ""
+    # The stored domain is always selectable: one the list does not offer is appended
+    # as its own option, so a save that touches unrelated fields never changes it.
+    current_domain = str(exercise.domain) if exercise else Domain.KNOWLEDGE.value
     domain_options = list(EDITOR_DOMAINS)
-    if current_domain and current_domain not in {d.value for _label, d in EDITOR_DOMAINS}:
+    if current_domain not in {d.value for _label, d in EDITOR_DOMAINS}:
         domain_options.append((current_domain.replace("_", " ").title(), Domain(current_domain)))
 
     return Div(
@@ -142,11 +141,10 @@ def render_exercise_editor(exercise: Any = None, mode: str = "create") -> Any:
                     ),
                     cls="mb-4",
                 ),
-                # Domain (optional)
+                # Domain
                 Div(
-                    Label("Domain (Optional)"),
+                    Label("Domain"),
                     Select(
-                        Option("None", value="", selected=not current_domain),
                         *[
                             Option(
                                 label, value=domain.value, selected=(domain.value == current_domain)
