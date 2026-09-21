@@ -1,5 +1,5 @@
 ---
-updated: 2026-08-15
+updated: 2026-09-21
 ---
 
 # Core Systems Architecture
@@ -38,18 +38,16 @@ Neo4j Graph (digital)
 **Why It's Core:**
 - Without ingestion, SKUEL has no knowledge graph
 - All entity types enter the system through two ingestion paths:
-  - Admin ingestion: curriculum content via `/api/ingest/*` (admin-only)
+  - Admin ingestion: curriculum content via the admin dashboard — `POST /api/vault/sync/content` (the reconciler, the one directory door — ADR-070 Decision 9) and `POST /api/ingest/file`
   - User ingestion: personal data via `/submissions/sync` (Obsidian bidirectional sync) or `/submissions/exercise` (exercise submissions)
 - Relationships (PREREQUISITE, ENABLES, APPLIES_KNOWLEDGE, etc.) are created here
 - Enables the analog-to-digital transformation that is SKUEL's defining characteristic
 
-**Key Capabilities (2026-02-06):**
-- **Dry-Run Mode:** Preview changes without writing to Neo4j
+**Key Capabilities:**
 - **Incremental Ingestion:** Skip unchanged files (95%+ efficiency)
 - **Batch Processing:** 10-100x faster than per-file operations
 - **Ingestion History:** Full audit trail in Neo4j
-- **Real-Time Progress:** WebSocket-based progress updates
-- **Admin Integration:** Domain-specific ingestion triggers on list pages
+- **Preview:** `VaultReconciler.preview` — would-ingest / would-delete, nothing written (`./dev vault-sync --preview`)
 
 **See:** `/docs/patterns/UNIFIED_INGESTION_GUIDE.md`
 
@@ -209,11 +207,7 @@ The ingestion system has evolved from a basic file importer to a sophisticated c
 - IngestionTracker with Neo4j metadata
 
 #### Phase 3: UX Enhancement (February 2026)
-- **Dry-Run Mode:** Preview changes before execution
-- **Ingestion History:** Full audit trail in Neo4j graph
-- **Real-Time Progress:** WebSocket-based updates
-- **Formatted Results:** MonsterUI stat cards and tables
-- **Domain Integration:** Admin-only ingestion triggers on list pages
+- **Ingestion History:** Full audit trail in Neo4j graph — the one Phase 3 piece that stands. Its dry-run mode, per-domain list-page triggers, result fragments and WebSocket progress channel are gone; the reconciler's `preview` is the one dry run (ADR-070 Decision 9).
 
 ### Ingestion Modes
 
@@ -222,7 +216,6 @@ The ingestion system has evolved from a basic file importer to a sophisticated c
 | **Full** | First ingestion, small datasets | Processes all files | Creates + updates |
 | **Incremental** | Repeat ingestion, large vaults | Skips unchanged (hash) | Only changed files |
 | **Smart** | Frequent ingestion, optimization | Skips unchanged (mtime) | Fast + accurate |
-| **Dry-Run** | Preview before execution | Read-only queries | Zero risk |
 
 ### Example: Obsidian Vault Ingestion
 
@@ -254,16 +247,6 @@ Files skipped: 980 (98% unchanged + hash verified)
 Skip efficiency: 98%
 ```
 
-**Dry-Run Preview:**
-```
-Duration: 3 seconds
-Files to create: 10
-Files to update: 5
-Files to skip: 985
-Relationships to create: 15
-No database writes
-```
-
 ---
 
 ## Design Principles Embodied
@@ -273,8 +256,7 @@ No database writes
 3. **Analog-to-Digital** - Markdown → Neo4j → UX without loss of information
 4. **Protocol-Based** - Services use interfaces, not concrete types
 5. **Configuration-Driven** - Route factories + DomainRouteConfig eliminate boilerplate
-6. **Progressive Enhancement** - WebSocket progress is optional, graceful degradation
-7. **Admin-Only Security** - Ingestion operations require admin role
+6. **Admin-Only Security** - Ingestion operations require admin role
 
 ---
 

@@ -63,7 +63,7 @@ from run_tests import COVERAGE_ARGS  # type: ignore[import-not-found]  # noqa: E
 FIXTURE_FILES: dict[str, tuple[int, int]] = {
     "core/services/ku/ku_service.py": (300, 240),  # 80 %
     "adapters/inbound/tasks_routes.py": (200, 60),  # 30 % — large and low
-    "ui/patterns/ingestion_preview.py": (120, 0),  # 0 % — zero coverage
+    "ui/patterns/keyboard_hints.py": (120, 0),  # 0 % — zero coverage
 }
 
 
@@ -213,7 +213,7 @@ def test_large_low_coverage_excludes_zero_files_the_gate_and_exactly_half() -> N
 
 def test_the_fixture_lands_one_file_in_each_file_table(fixture_report: Path) -> None:
     report = load_report(fixture_report)
-    assert [f.path for f in zero_coverage(report.files)] == ["ui/patterns/ingestion_preview.py"]
+    assert [f.path for f in zero_coverage(report.files)] == ["ui/patterns/keyboard_hints.py"]
     assert [f.path for f in large_low_coverage(report.files)] == [
         "adapters/inbound/tasks_routes.py"
     ]
@@ -239,7 +239,7 @@ def test_render_is_markdown_with_a_total_and_one_heading_per_table(fixture_repor
     ]
     assert "| `adapters/inbound` | 200 | 60 | 30.0 % |" in lines
     assert "| `core/services` | 300 | 240 | 80.0 % |" in lines
-    assert "| 120 | `ui/patterns/ingestion_preview.py` |" in lines
+    assert "| 120 | `ui/patterns/keyboard_hints.py` |" in lines
     assert "| 30.0 % | 200 | 140 | `adapters/inbound/tasks_routes.py` |" in lines
     assert lines.index("| `adapters/inbound` | 200 | 60 | 30.0 % |") < lines.index(
         "| `core/services` | 300 | 240 | 80.0 % |"
@@ -284,7 +284,7 @@ def test_main_takes_an_explicit_path(
     fixture_report: Path, capsys: pytest.CaptureFixture[str]
 ) -> None:
     assert main([str(fixture_report)]) == 0
-    assert "`ui/patterns/ingestion_preview.py`" in capsys.readouterr().out
+    assert "`ui/patterns/keyboard_hints.py`" in capsys.readouterr().out
 
 
 def test_main_fails_loudly_on_a_missing_or_malformed_report(

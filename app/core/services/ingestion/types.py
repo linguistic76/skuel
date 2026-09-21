@@ -52,13 +52,6 @@ class IngestionStats:
     warnings: list[str] = field(default_factory=list)
     errors: list[dict[str, Any]] | None = None
 
-    @property
-    def files_per_second(self) -> float:
-        """Calculate files processed per second."""
-        if self.duration_seconds == 0:
-            return 0.0
-        return self.total_files / self.duration_seconds
-
 
 @dataclass
 class BundleStats:
@@ -191,13 +184,6 @@ class IncrementalStats:
     warnings: list[str] = field(default_factory=list)
     errors: list[dict[str, Any]] | None = None
 
-    @property
-    def skip_efficiency(self) -> float:
-        """Calculate efficiency (what % of files were skipped)."""
-        if self.total_files == 0:
-            return 0.0
-        return (self.files_skipped / self.total_files) * 100
-
     # Compatibility properties to match IngestionStats interface
     @property
     def successful(self) -> int:
@@ -208,13 +194,6 @@ class IncrementalStats:
     def failed(self) -> int:
         """Alias for files_failed - matches IngestionStats interface."""
         return self.files_failed
-
-    @property
-    def files_per_second(self) -> float:
-        """Calculate files processed per second."""
-        if self.duration_seconds == 0:
-            return 0.0
-        return self.total_files / self.duration_seconds
 
 
 @dataclass
@@ -327,25 +306,6 @@ class MovePlan:
 
 
 @dataclass
-class DryRunPreview:
-    """Preview of what would change during ingestion."""
-
-    total_files: int = 0
-    files_to_create: list[dict[str, Any]] = field(
-        default_factory=list
-    )  # [{uid, title, entity_type, file_path}]
-    files_to_update: list[dict[str, Any]] = field(
-        default_factory=list
-    )  # [{uid, title, changes_summary}]
-    files_to_skip: list[str] = field(default_factory=list)
-    relationships_to_create: list[dict[str, Any]] = field(
-        default_factory=list
-    )  # [{source, target, type}]
-    validation_warnings: list[str] = field(default_factory=list)
-    validation_errors: list[str] = field(default_factory=list)
-
-
-@dataclass
 class IngestionError:
     """
     Rich error context for debugging ingestion failures.
@@ -401,7 +361,6 @@ __all__ = [
     "MovePlan",
     "DeletionReconciliation",
     "DirectoryValidationResult",
-    "DryRunPreview",
     "IngestionError",
     "IngestionStats",
     "PlannedEdgeDeletion",

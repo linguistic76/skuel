@@ -21,13 +21,13 @@ Security:
 
 Routes:
 - POST /api/ingest/file - Ingest single file (MD or YAML)
-- POST /api/ingest/vault - Ingest Obsidian vault
 - POST /api/ingest/bundle - Ingest domain bundle with manifest
-- POST /api/ingest/domain/{domain_name} - Ingest a domain directory
 
-There is no arbitrary-path directory door here (ADR-070 Decision 9): directory
-ingestion of the content vault runs through the reconciler
-(``POST /api/vault/sync/content``, ``adapters/inbound/vault_routes.py``).
+There is no directory door here (ADR-070 Decision 9): directory ingestion of
+the content vault runs through the reconciler (``POST /api/vault/sync/content``,
+``adapters/inbound/vault_routes.py``), which is what reconciles deletions,
+retracts authored edges and retires 🆔 lines — a raw ``ingest_directory`` over a
+caller-chosen sub-directory does none of that.
 """
 
 import os
@@ -169,9 +169,6 @@ def create_ingestion_api_routes(
         user_service: UserService instance for admin role checks
         batch_chunking_service: Phase 2 admin tool for chunk regeneration.
             When None, the /api/chunks/regenerate route is not registered.
-
-    Returns:
-        List of created routes
     """
 
     if not unified_ingestion:
@@ -233,73 +230,6 @@ def create_ingestion_api_routes(
             logger.error(f"File ingestion failed: {e}")
             return Result.fail(
                 Errors.system("File ingestion failed", exception=e, operation="ingest_file")
-            )
-
-    # No arbitrary-path directory door (ADR-070 Decision 9): content-vault sync
-    # goes through ``POST /api/vault/sync/content`` (``vault_routes.py``) or the
-    # in-process ``scripts/vault_bridge_sync.py --vault content``.
-
-    @rt("/api/ingest/vault", methods=["POST"])
-    @csrf_protected
-    @require_admin(get_user_service)
-    @boundary_handler()
-    async def ingest_vault_route(request: Request, current_user: Any = None):
-        """
-        Ingest an Obsidian vault or specific subdirectories.
-
-        Request body:
-            vault_path: str - Root path of vault
-            subdirs: list[str] - Optional subdirectories to ingest
-
-        Returns:
-            Result with aggregated IngestionStats
-
-        Ownership: ``current_user.uid`` is an acting-user hint; each ingested file's
-        owner is resolved from the vault descriptor for its path (ADR-070).
-
-        Security: Path validated against SKUEL_INGESTION_ALLOWED_PATHS if set
-        """
-        try:
-            data = await request.json()
-            vault_path = data.get("vault_path")
-            subdirs = data.get("subdirs")
-
-            # Validate path (traversal protection)
-            path_result = _validate_ingestion_path(vault_path)
-            if path_result.is_error:
-                return path_result
-
-            path = path_result.value
-            if not path.exists() or not path.is_dir():
-                return Result.fail(Errors.not_found("Vault", str(path)))
-
-            result = await unified_ingestion.ingest_vault(
-                path, subdirs=subdirs, user_uid=current_user.uid
-            )
-
-            if result.is_ok:
-                stats = result.value
-                return Result.ok(
-                    {
-                        "success": True,
-                        "total_files": stats.total_files,
-                        "successful": stats.successful,
-                        "failed": stats.failed,
-                        "nodes_created": stats.nodes_created,
-                        "nodes_updated": stats.nodes_updated,
-                        "relationships_created": stats.relationships_created,
-                        "duration_seconds": stats.duration_seconds,
-                        "files_per_second": stats.files_per_second,
-                        "errors": stats.errors or [],
-                    }
-                )
-            else:
-                return Result.fail(result)
-
-        except Exception as e:  # safety-net: HTTP error boundary
-            logger.error(f"Vault ingestion failed: {e}")
-            return Result.fail(
-                Errors.system("Vault ingestion failed", exception=e, operation="ingest_vault")
             )
 
     @rt("/api/ingest/bundle", methods=["POST"])
@@ -366,96 +296,6 @@ def create_ingestion_api_routes(
             logger.error(f"Bundle ingestion failed: {e}")
             return Result.fail(
                 Errors.system("Bundle ingestion failed", exception=e, operation="ingest_bundle")
-            )
-
-    # Domain-specific ingestion endpoint
-    @rt("/api/ingest/domain/{domain_name}", methods=["POST"])
-    @csrf_protected
-    @require_admin(get_user_service)
-    @boundary_handler(success_status=200)
-    async def domain_ingest(request: Request, domain_name: str, current_user: Any = None):
-        """
-        Domain-specific ingestion endpoint.
-
-        Request form:
-            source_path: str - Path to directory to ingest
-            pattern: str - File pattern (default: "*.md")
-            dry_run: str - "true" for preview mode
-
-        Returns:
-            Result with DryRunPreview or IngestionStats
-        """
-        try:
-            form_data = await request.form()
-            # form_data.get() returns `UploadFile | str | None` — narrow to str.
-            # File uploads in these fields are user error (not supported).
-            source_path_raw = form_data.get("source_path")
-            pattern_raw = form_data.get("pattern", "*.md")
-            source_path_str = source_path_raw if isinstance(source_path_raw, str) else None
-            pattern = pattern_raw if isinstance(pattern_raw, str) else "*.md"
-            dry_run = form_data.get("dry_run") == "true"
-
-            # Validate path
-            path_result = _validate_ingestion_path(source_path_str)
-            if path_result.is_error:
-                return path_result
-
-            source_path = path_result.value
-            if not source_path.exists() or not source_path.is_dir():
-                return Result.fail(Errors.not_found("Directory", str(source_path)))
-
-            # Validate the domain string. This door does NOT filter files by
-            # EntityType — it ingests every file in the directory and lets each
-            # file's declared `type:` drive its persistence. The domain name is a
-            # human-facing label for the target directory, not a filter.
-            valid_domains = frozenset(
-                {
-                    "lesson",
-                    "article",
-                    "ku",
-                    "ps",
-                    "lp",
-                    "tasks",
-                    "goals",
-                    "habits",
-                    "events",
-                    "choices",
-                    "principles",
-                }
-            )
-            if domain_name not in valid_domains:
-                return Result.fail(Errors.validation(f"Unknown domain: {domain_name}"))
-
-            result = await unified_ingestion.ingest_directory(
-                source_path,
-                pattern=pattern,
-                dry_run=dry_run,
-                user_uid=current_user.uid,
-            )
-
-            if result.is_error:
-                return Result.fail(result)
-
-            # Return appropriate component based on mode
-            if dry_run:
-                from ui.patterns.ingestion_preview import DryRunPreviewComponent
-
-                preview = result.value
-                return Result.ok(DryRunPreviewComponent(preview))
-            else:
-                from ui.patterns.ingestion_results import IngestionResultsSummary
-
-                stats = result.value
-                return Result.ok(IngestionResultsSummary(stats))
-
-        except Exception as e:  # safety-net: HTTP error boundary
-            logger.error(f"Domain ingestion failed for {domain_name}: {e}")
-            return Result.fail(
-                Errors.system(
-                    f"Domain ingestion failed for {domain_name}",
-                    exception=e,
-                    operation="domain_ingest",
-                )
             )
 
     # Chunk regeneration — admin tool, only registered when service is wired.

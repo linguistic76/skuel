@@ -59,9 +59,7 @@ def _make_harness(
     ingestion.ingest_file = AsyncMock(
         return_value=Result.ok({"uid": "ku_new_1", "title": "New Ku"})
     )
-    ingestion.ingest_vault = AsyncMock(return_value=Result.ok(MagicMock()))
     ingestion.ingest_bundle = AsyncMock(return_value=Result.ok(MagicMock()))
-    ingestion.ingest_directory = AsyncMock(return_value=Result.ok(MagicMock()))
 
     user_service = MagicMock()
     user_service.get_user = AsyncMock(return_value=Result.ok(_caller(role)))
@@ -195,21 +193,3 @@ class TestIngestFile:
 
         assert response.status_code == 404
         harness.ingestion.ingest_file.assert_not_awaited()
-
-
-class TestIngestVault:
-    def test_nonexistent_vault_dir_is_404(
-        self, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
-    ) -> None:
-        vault = tmp_path / "vault"
-        vault.mkdir()
-        monkeypatch.delenv("SKUEL_INGESTION_ALLOWED_PATHS", raising=False)
-        monkeypatch.setenv("INGESTION_PATH", str(vault))
-        harness = _make_harness(monkeypatch)
-
-        response = _post_json(
-            harness.client, "/api/ingest/vault", {"vault_path": str(vault / "missing")}
-        )
-
-        assert response.status_code == 404
-        harness.ingestion.ingest_vault.assert_not_awaited()

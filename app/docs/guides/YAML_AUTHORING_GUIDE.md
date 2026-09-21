@@ -1,7 +1,7 @@
 ---
 title: YAML Authoring Guide
 created: 2026-03-21
-updated: 2026-09-06
+updated: 2026-09-21
 status: current
 category: guides
 tags: [yaml, ingestion, authoring, substance, relationships, curriculum, activity-domains]
@@ -670,10 +670,9 @@ result = await service.ingest_file(Path("yaml_templates/mindfulness_101/ku_breat
 
 # Full bundle
 result = await service.ingest_directory(Path("yaml_templates/mindfulness_101"))
-
-# Dry run (preview without writing)
-result = await service.ingest_directory(path, dry_run=True)
 ```
+
+Preview is the reconciler's: `./dev vault-sync --preview --vault content` (nothing written).
 
 **API:** `POST /api/ingest/file`; whole-vault ingestion via `POST /api/vault/sync/content` (admin, reconciler — ADR-070 Decision 9)
 

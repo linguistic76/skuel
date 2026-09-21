@@ -26,7 +26,7 @@ from adapters.persistence.neo4j.ingestion_write_backend import IngestionWriteBac
 from adapters.persistence.neo4j.neo4j_query_executor import Neo4jQueryExecutor
 from core.services.ingestion.batch import ingest_directory
 from core.services.ingestion.ingestion_history import IngestionHistoryService
-from core.services.ingestion.types import DryRunPreview, IncrementalStats
+from core.services.ingestion.types import IncrementalStats, IngestionStats
 
 # ============================================================================
 # FIXTURES
@@ -299,7 +299,6 @@ async def test_error_handling_invalid_directory(neo4j_driver):
         write_backend=IngestionWriteBackend(neo4j_driver),
         bulk_backend=Mock(),
         pattern="*.md",
-        dry_run=True,
     )
 
     assert result.is_error
@@ -307,45 +306,24 @@ async def test_error_handling_invalid_directory(neo4j_driver):
 
 
 @pytest.mark.asyncio
-async def test_error_handling_malformed_files(neo4j_driver, error_files_directory):
-    """Test that malformed files produce validation errors in dry-run preview."""
-    result = await ingest_directory(
+async def test_error_handling_malformed_files(ingestion_service, error_files_directory):
+    """Malformed files are reported per file and do not fail the batch: the
+    valid sibling is still persisted, and each broken file lands in ``errors``."""
+    result = await ingestion_service.ingest_directory(
         directory=error_files_directory,
-        write_backend=IngestionWriteBackend(neo4j_driver),
-        bulk_backend=Mock(),
         pattern="*",  # Collect all files (MD + YAML)
-        dry_run=True,
+        ingestion_mode="full",
     )
 
     assert result.is_ok
-    preview = result.value
-    assert isinstance(preview, DryRunPreview)
+    stats = result.value
+    assert isinstance(stats, IngestionStats)
 
-    # The valid MD file should be in files_to_create
-    assert len(preview.files_to_create) >= 1
-    create_uids = {f["uid"] for f in preview.files_to_create}
-    assert "ku.e2e-valid" in create_uids
-
-    # The broken YAML files should produce validation errors
-    assert len(preview.validation_errors) >= 1
-
-
-@pytest.mark.asyncio
-async def test_error_handling_driver_required_for_dry_run(tmp_path):
-    """Test that dry-run mode fails without Neo4j driver."""
-    test_dir = tmp_path / "test_vault"
-    test_dir.mkdir()
-
-    result = await ingest_directory(
-        directory=test_dir,
-        write_backend=None,
-        bulk_backend=Mock(),
-        pattern="*.md",
-        dry_run=True,
-    )
-
-    assert result.is_error
-    assert "write backend required" in result.expect_error().message.lower()
+    # The valid MD file was ingested alongside the broken ones.
+    assert stats.nodes_created >= 1
+    # The broken YAML files each produce a recorded error.
+    assert stats.errors is not None
+    assert len(stats.errors) >= 1
 
 
 # ============================================================================
@@ -385,7 +363,6 @@ async def test_incremental_ingestion_skips_unchanged_files(ingestion_service, va
     # All files should be skipped (none changed since first ingestion)
     assert stats2.files_skipped == 5
     assert stats2.files_ingested == 0
-    assert stats2.skip_efficiency > 90.0  # >90% skipped
 
 
 @pytest.mark.asyncio
@@ -596,35 +573,3 @@ async def test_renamed_file_keeps_entity_and_repoints_tracking(
         paths = (await rows.single())["paths"]
         assert len(paths) == 1
         assert paths[0].endswith("ku-03-renamed.md")
-
-
-@pytest.mark.asyncio
-async def test_dry_run_faster_than_full_ingestion(ingestion_service, valid_ku_directory):
-    """Test that dry-run is faster than full ingestion (read-only queries)."""
-    import time
-
-    # Dry-run timing
-    start_dry = time.monotonic()
-    dry_result = await ingestion_service.ingest_directory(
-        directory=valid_ku_directory,
-        pattern="*.md",
-        dry_run=True,
-    )
-    dry_duration = time.monotonic() - start_dry
-    assert dry_result.is_ok
-
-    # Full ingestion timing
-    start_full = time.monotonic()
-    full_result = await ingestion_service.ingest_directory(
-        directory=valid_ku_directory,
-        pattern="*.md",
-        ingestion_mode="full",
-    )
-    full_duration = time.monotonic() - start_full
-    assert full_result.is_ok
-
-    # Dry-run should be faster (or at least not significantly slower)
-    # We use a generous tolerance — just verifying dry-run doesn't hang or timeout
-    assert dry_duration < full_duration * 5, (
-        f"Dry-run ({dry_duration:.2f}s) was >5x slower than full ingestion ({full_duration:.2f}s)"
-    )

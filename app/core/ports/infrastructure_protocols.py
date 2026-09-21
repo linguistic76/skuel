@@ -19,7 +19,6 @@ if TYPE_CHECKING:
     from core.models.user import User
     from core.services.ingestion.types import (
         BundleStats,
-        DryRunPreview,
         IncrementalStats,
         IngestionStats,
     )
@@ -398,26 +397,15 @@ class IngestionOperations(Protocol):
         ingestion_mode: Literal["full", "incremental", "smart"] = "full",
         force: bool = False,
         validate_targets: bool = False,
-        dry_run: bool = False,
         *,
         user_uid: UserUID | None = None,
-    ) -> Result[IngestionStats | IncrementalStats | DryRunPreview]:
+    ) -> Result[IngestionStats | IncrementalStats]:
         """Ingest all supported files in a directory.
 
         ``force=True`` re-processes unchanged files while keeping tracked-mode
         semantics (wall, metadata re-stamping, deletion reconciliation) —
         force ≠ full.
         """
-        ...
-
-    async def ingest_vault(
-        self,
-        vault_path: Path,
-        subdirs: list[str] | None = None,
-        *,
-        user_uid: UserUID | None = None,
-    ) -> Result[IngestionStats]:
-        """Ingest an Obsidian vault or specific subdirectories."""
         ...
 
     async def ingest_bundle(

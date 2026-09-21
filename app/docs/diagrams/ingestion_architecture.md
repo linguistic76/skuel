@@ -1,10 +1,10 @@
 ---
-updated: 2026-08-15
+updated: 2026-09-21
 ---
 
 # Ingestion System Architecture Diagrams
 
-**Last Updated:** 2026-02-06
+**Last Updated:** 2026-09-21
 
 Visual architecture diagrams for SKUEL's MD/YAML → Neo4j ingestion system.
 
@@ -60,7 +60,6 @@ flowchart TD
     B -->|"full"| C["Process ALL Files"]
     B -->|"incremental"| D["Query IngestionMetadata<br/>from Neo4j"]
     B -->|"smart"| E["Check file mtime<br/>(filesystem)"]
-    B -->|"dry_run=True"| F["Validate Only<br/>(no writes)"]
 
     %% Full mode
     C --> G["BulkIngestionEngine<br/>Upsert all to Neo4j"]
@@ -74,25 +73,15 @@ flowchart TD
     L --> M["Update IngestionMetadata<br/>(new hash + mtime)"]
     M --> R["Reconcile Deletions<br/>(tracked file missing on disk →<br/>delete entity + content subtree,<br/>or relationship for Edge YAMLs)"]
     K --> R
-    R --> N["Return IncrementalStats<br/>(skip_efficiency, entities_deleted, edges_deleted)"]
+    R --> N["Return IncrementalStats<br/>(files_skipped, entities_deleted, edges_deleted)"]
 
     %% Smart mode
     E --> O{"mtime changed<br/>since last ingestion?"}
     O -->|"No"| K
     O -->|"Yes"| I
 
-    %% Dry-run mode
-    F --> P["Check entity existence<br/>in Neo4j"]
-    P --> Q{"Entity exists?"}
-    Q -->|"Yes"| R["Add to files_to_update"]
-    Q -->|"No"| S["Add to files_to_create"]
-    R --> T["Return DryRunPreview"]
-    S --> T
-
     style K fill:#e8f5e9,stroke:#4caf50
     style L fill:#fff3e0,stroke:#ff9800
-    style F fill:#e3f2fd,stroke:#2196f3
-    style T fill:#e3f2fd,stroke:#2196f3
 ```
 
 ### Ingestion Modes Comparison
@@ -102,12 +91,15 @@ flowchart TD
 | **Full** | Slowest | First ingestion, clean slate | `IngestionStats` | Yes |
 | **Incremental** | Fast | Regular ingestion, large vaults | `IncrementalStats` | Yes (changed only) |
 | **Smart** | Fastest | Frequent ingestion, optimization | `IncrementalStats` | Yes (changed only) |
-| **Dry-Run** | Fast | Preview before execution | `DryRunPreview` | No |
 
 **`force=True` (orthogonal flag on incremental/smart, force ≠ full):** skips the
 hash/mtime check above — every surviving file takes the "Process File" path — while
 metadata updates and deletion reconciliation still run. The sanctioned
 re-chunk/migration path; a `full`+`force` request is coerced to `smart`.
+
+**Preview** is not an `ingest_directory` mode: `VaultReconciler.preview` (`./dev
+vault-sync --preview`, the personal "Preview sync" button) reports would-ingest /
+would-delete over the same scan, nothing written.
 See `docs/patterns/UNIFIED_INGESTION_GUIDE.md § Ingestion Modes`.
 
 ---
@@ -151,50 +143,6 @@ entries = await history.get_history(limit=50, offset=0)
 # Get specific entry
 entry = await history.get_entry(operation_id)
 ```
-
----
-
-## 4. Domain-Integrated Ingestion Trigger Flow
-
-How admin users trigger ingestion from domain list pages.
-
-```mermaid
-flowchart TD
-    A["Admin visits /ku page"] --> B{"is_admin?"}
-    B -->|"No"| C["Normal list page<br/>(no ingest button)"]
-    B -->|"Yes"| D["List page with<br/>DomainIngestionTrigger button"]
-
-    D --> E["Admin clicks<br/>'Ingest KU' button"]
-    E --> F["DomainIngestionModal opens<br/>(source dir, pattern, dry-run)"]
-    F --> G["Admin submits form"]
-
-    G -->|"HTMX POST"| H["/api/ingest/domain/ku"]
-    H --> I{"dry_run?"}
-    I -->|"Yes"| J["Return DryRunPreviewComponent<br/>(creates, updates, skips)"]
-    I -->|"No"| K["Return IngestionResultsSummary<br/>(stat cards + tables)"]
-
-    J --> L["Results shown in modal"]
-    K --> L
-
-    style D fill:#e3f2fd,stroke:#2196f3
-    style F fill:#fff3e0,stroke:#ff9800
-    style J fill:#e3f2fd,stroke:#2196f3
-    style K fill:#e8f5e9,stroke:#4caf50
-```
-
-### Supported Domains
-
-| Domain | API Endpoint | Default Source |
-|--------|-------------|----------------|
-| KU | `/api/ingest/domain/ku` | `/home/mike/0bsidian/skuel/docs/ku` |
-| PS | `/api/ingest/domain/ls` | `/home/mike/0bsidian/skuel/docs/ls` |
-| LP | `/api/ingest/domain/lp` | `/home/mike/0bsidian/skuel/docs/lp` |
-| Tasks | `/api/ingest/domain/tasks` | `/home/mike/0bsidian/skuel/docs/tasks` |
-| Goals | `/api/ingest/domain/goals` | `/home/mike/0bsidian/skuel/docs/goals` |
-| Habits | `/api/ingest/domain/habits` | `/home/mike/0bsidian/skuel/docs/habits` |
-| Events | `/api/ingest/domain/events` | `/home/mike/0bsidian/skuel/docs/events` |
-| Choices | `/api/ingest/domain/choices` | `/home/mike/0bsidian/skuel/docs/choices` |
-| Principles | `/api/ingest/domain/principles` | `/home/mike/0bsidian/skuel/docs/principles` |
 
 ---
 

@@ -355,7 +355,7 @@ One-way pipeline: Markdown/YAML → Neo4j; most EntityTypes are file-ingestible.
 
 **Import:** `from core.services.ingestion import UnifiedIngestionService`
 
-**API:** `POST /api/ingest/file`, `POST /api/ingest/vault`, `POST /api/ingest/domain/{domain_name}`, `POST /api/vault/sync/content`
+**API:** `POST /api/ingest/file`, `POST /api/ingest/bundle`, `POST /api/vault/sync/content` — the only directory door is the reconciler's (ADR-070 Decision 9)
 
 **See:** `/docs/patterns/UNIFIED_INGESTION_GUIDE.md` (legacy YAML rejection, explicit `type` field rule, UID prefix validation, UserEntry `pipeline`/`audience` fields), `/docs/architecture/CORE_SYSTEMS_ARCHITECTURE.md`
 

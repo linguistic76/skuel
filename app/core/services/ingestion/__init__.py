@@ -57,7 +57,6 @@ from .reference_ingestion import ReferenceIngestionService, ReferenceIngestRepor
 from .types import (
     BundleStats,
     DirectoryValidationResult,
-    DryRunPreview,
     IncrementalStats,
     IngestionError,
     IngestionStats,
@@ -88,7 +87,6 @@ __all__ = [
     # Data types
     "BundleStats",
     "DirectoryValidationResult",
-    "DryRunPreview",
     "IncrementalStats",
     "IngestionError",
     "IngestionStats",

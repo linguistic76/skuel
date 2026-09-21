@@ -1,5 +1,5 @@
 ---
-updated: 2026-09-06
+updated: 2026-09-21
 ---
 
 # YAML to Graph — A Creator's Guide to SKUEL Content
@@ -568,17 +568,13 @@ await service.ingest_bundle(Path("yaml_templates/domains/mindfulness_101/"))
 ```
 POST /api/ingest/file          — Single file
 POST /api/vault/sync/content   — Content-vault sync (reconciler; ADR-070 Decision 9)
-POST /api/ingest/domain/{name} — Named domain bundle
+POST /api/ingest/bundle        — Manifest-listed bundle
 ```
 
-### Dry-Run Mode
+### Preview
 
-Preview what ingestion would do without writing to Neo4j:
-
-```python
-result = await service.dry_run(Path("yaml_templates/domains/mindfulness_101/"))
-# Returns: files_to_create, files_to_update, files_to_skip, relationships_to_create
-```
+`./dev vault-sync --preview --vault content` runs `VaultReconciler.preview` — would-ingest /
+would-delete, nothing written. `ingest_directory` has no preview mode of its own.
 
 ---
 

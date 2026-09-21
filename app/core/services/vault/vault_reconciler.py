@@ -53,7 +53,7 @@ from core.ports.vault_bridge_protocol import (
 from core.services.ingestion.config import collect_files
 from core.services.ingestion.detector import is_non_entity_note
 from core.services.ingestion.ingestion_tracker import IngestionDecision, IngestionTracker
-from core.services.ingestion.types import DryRunPreview, IncrementalStats, IngestionStats
+from core.services.ingestion.types import IncrementalStats, IngestionStats
 from core.services.vault.vault_descriptor import VaultDescriptor, VaultKind, VaultRegistry
 from core.utils.exception_types import FILE_IO_EXCEPTIONS
 from core.utils.logging import get_logger
@@ -1221,7 +1221,7 @@ _CONTENT_FAULT_STAGES: frozenset[str] = frozenset(
 
 def _merge_ingest_stats(
     stats: VaultSyncStats,
-    ingest: IngestionStats | IncrementalStats | DryRunPreview | None,
+    ingest: IngestionStats | IncrementalStats | None,
     vault_root: Path,
 ) -> None:
     """Carry the ingestion outcome into the sync stats — counts AND problems.
