@@ -7,7 +7,7 @@ call the orchestrator, and wrap these trees in ``create_admin_page``.
 
 from typing import TYPE_CHECKING, Any
 
-from fasthtml.common import A, Div, Li, P, Span, Ul
+from fasthtml.common import FT, A, Div, Li, P, Span, Ul
 
 from core.models.type_hints import UserUID
 from ui.admin.prereq_views import AdminPrereqComponents
@@ -240,7 +240,7 @@ def user_detail_page(
     )
 
 
-def account_fragment(user_data: UserCardData) -> tuple[Any, Any]:
+def account_fragment(user_data: UserCardData) -> tuple[FT, FT]:
     """HTMX response of an account action: the account card, plus the header badges out of band.
 
     The card is the request's target (swapped whole); the badges carry

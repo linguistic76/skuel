@@ -40,10 +40,16 @@ def render_exercise_editor(exercise: Any = None, mode: str = "create") -> Any:
     is_edit = mode == "edit"
     form_title = "Edit Exercise" if is_edit else "Create New Exercise"
     submit_url = f"/api/exercises/update?uid={exercise.uid}" if is_edit else "/api/exercises/create"
-    # ``Entity.domain`` is a ``Domain`` member (a StrEnum); a stored value the editor
-    # does not offer reads as "None" rather than as a silently blank select.
+    # "None" IS the default: a blank domain is stored as ``Domain.KNOWLEDGE`` on create
+    # and cleared back to it on update, so the default reads as "None" here. Any other
+    # stored domain the list does not offer is appended as its own option, selected —
+    # a save that touches unrelated fields must not erase it.
     current_domain = str(exercise.domain) if exercise else ""
-    offered_domains = {domain.value for _label, domain in EDITOR_DOMAINS}
+    if current_domain == Domain.KNOWLEDGE.value:
+        current_domain = ""
+    domain_options = list(EDITOR_DOMAINS)
+    if current_domain and current_domain not in {d.value for _label, d in EDITOR_DOMAINS}:
+        domain_options.append((current_domain.replace("_", " ").title(), Domain(current_domain)))
 
     return Div(
         SectionHeader(form_title),
@@ -140,12 +146,12 @@ def render_exercise_editor(exercise: Any = None, mode: str = "create") -> Any:
                 Div(
                     Label("Domain (Optional)"),
                     Select(
-                        Option("None", value="", selected=current_domain not in offered_domains),
+                        Option("None", value="", selected=not current_domain),
                         *[
                             Option(
                                 label, value=domain.value, selected=(domain.value == current_domain)
                             )
-                            for label, domain in EDITOR_DOMAINS
+                            for label, domain in domain_options
                         ],
                         name="domain",
                     ),
