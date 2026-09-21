@@ -1,6 +1,6 @@
 ---
 title: UnifiedRelationshipService - Configuration-Driven Relationships
-updated: 2026-09-17
+updated: 2026-09-21
 category: patterns
 related_skills:
 - base-analytics-service
@@ -320,8 +320,8 @@ await service.create_relationship("knowledge", "task.123", "ku.py", {"confidence
 > )
 > ```
 > This is what `TasksService.create_task_dependency` does. After any edge-only mutation,
-> publish the domain's `*Updated` event (e.g. `TaskUpdated`) so `UnifiedUserContext`
-> caches invalidate. See `/docs/patterns/KNOWLEDGE_APPLICATION_TRACKING.md`.
+> publish the domain's `*Updated` event (e.g. `TaskUpdated`) so the `UserContext` cache
+> invalidates. See `/docs/patterns/KNOWLEDGE_APPLICATION_TRACKING.md`.
 
 ### ⚠️ Phantom methods & keys — the #1 relationship trap
 

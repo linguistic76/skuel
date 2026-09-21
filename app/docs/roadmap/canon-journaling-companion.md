@@ -1,5 +1,5 @@
 ---
-updated: 2026-08-21
+updated: 2026-09-21
 ---
 
 # Canon — Book-as-Journaling-Companion
@@ -176,7 +176,8 @@ This **splits** the arc; it does not extend it.
   exposed via `canon_retrieval_service.py`, and consumed by the per-book picker on the
   journals landing (`ui/journals/chat_page.py`). **Still open**: the picker renders
   checkbox labels only — there is no surface where you can browse the shelf and *jump to*
-  a book/Resource (`/explore/resource/{uid}`, Tier-1) to interact with it. That browse
+  a book/Resource to interact with it; the page this plan would add is
+  `/explore/resource/{uid}` <!-- planned --> (Tier-1). That browse
   page is now trivial (the read exists); purely additive when picked up.
 - **Tune retrieval** — calibrate `CANON_RETRIEVAL_MIN_SCORE` (0.3) / `CANON_RETRIEVAL_LIMIT`
   (4) from real draws. `CanonRetrievalService.retrieve()` now logs each draw

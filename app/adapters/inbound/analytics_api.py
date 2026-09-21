@@ -89,12 +89,6 @@ def register_analytics_routes(app, services):
         return result
 
     # ========================================================================
-    # SPENDING PATTERNS ANALYTICS
-    # ========================================================================
-    # REMOVED (ADR-052 Phase 5): /api/analytics/spending-patterns — the native
-    # expense module was demolished, so there is no spending data to aggregate.
-
-    # ========================================================================
     # PRODUCTIVITY ANALYTICS
     # ========================================================================
 

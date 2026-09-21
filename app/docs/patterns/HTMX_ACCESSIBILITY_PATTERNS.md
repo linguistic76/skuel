@@ -1,6 +1,6 @@
 ---
 title: HTMX Accessibility Patterns
-updated: '2026-09-20'
+updated: '2026-09-21'
 category: patterns
 related_skills:
 - accessibility-guide
@@ -46,8 +46,14 @@ loads swap silently unless they carry `data-announce`.
 | `/upload` | "Uploading..." | "Uploaded successfully" |
 | `/track` | "Tracking..." | "Tracked successfully" |
 | `/enroll` | "Enrolling..." | "Enrolled successfully" |
-| `/toggle`, `/status` | "Updating status..." | "Status updated" |
-| `/decide` | — | "Decision recorded" |
+| `/status` | "Updating status..." | "Status updated" |
+
+The table mirrors `ANNOUNCE_ROUTES` in `static/js/skuel.js`; the match is a substring test
+on the request path, and every segment listed is carried by at least one registered
+mutation route (`/api/tasks/create`, `POST /api/tasks/{uid}/status`, `POST /api/habits/track`,
+`POST /api/pathways/enroll/{uid}`, `POST /api/user-entries/upload`, `POST /explore/ps/{uid}/complete`).
+A request whose path matches nothing announces the generic "Loading..." in flight and nothing
+on success unless it carries `data-announce`.
 
 ```python
 # No extra code needed — URL path triggers auto-detection
@@ -70,12 +76,12 @@ Override auto-detection with `data-announce` and `data-announce-loading` attribu
 # Custom success and loading messages
 Button(
     "Mark as Complete",
-    hx_post=f"/api/tasks/{uid}/complete",
-    hx_target="#task-detail",
-    **{"data-announce": "Great job! Task completed.",
-       "data-announce-loading": "Marking task as complete"},
+    hx_post=f"/explore/ps/{uid}/complete",
+    hx_target="#ps-detail",
+    **{"data-announce": "Great job! Path step completed.",
+       "data-announce-loading": "Marking path step as complete"},
 )
-# Screen reader hears: "Marking task as complete..." → "Great job! Task completed."
+# Screen reader hears: "Marking path step as complete..." → "Great job! Path step completed."
 ```
 
 ```python
@@ -170,9 +176,9 @@ When the auto-detected message wouldn't be user-friendly:
 ```python
 # Auto-detection would say "Updated successfully" — too generic
 Button(
-    "Save Draft",
-    hx_post=f"/api/journals/{uid}/save",
-    **{"data-announce": "Draft saved"},
+    "Save this chat",
+    hx_post="/journals/save",
+    **{"data-announce": "Chat saved"},
 )
 ```
 

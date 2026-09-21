@@ -55,7 +55,7 @@ from adapters.inbound.route_factories.route_helpers import verify_entity_ownersh
 from core.models.enums import ContentScope
 from core.models.type_hints import UserUID
 from core.utils.logging import get_logger
-from core.utils.result_simplified import Result
+from core.utils.result_simplified import Errors, Result
 from core.utils.type_converters import to_dict
 
 if TYPE_CHECKING:
@@ -289,7 +289,9 @@ class IntelligenceRouteFactory:
 
         @rt(f"{self.base_path}/analytics", methods=["GET"])
         @boundary_handler()
-        async def analytics_route(request: Request, period_days: int = 30) -> Result[Any]:
+        async def analytics_route(
+            request: Request, period_days: int = 30
+        ) -> Result[dict[str, Any]]:
             """Get performance analytics for authenticated user"""
             user_uid = require_authenticated_user(request)
 
@@ -314,7 +316,9 @@ class IntelligenceRouteFactory:
 
         @rt(f"{self.base_path}/context", methods=["GET"])
         @boundary_handler()
-        async def context_route(request: Request, uid: str, depth: int = 2) -> Result[Any]:
+        async def context_route(
+            request: Request, uid: str, depth: int = 2
+        ) -> Result[dict[str, Any]]:
             """Get entity with full graph context"""
             user_uid = require_authenticated_user(request)
 
@@ -330,25 +334,24 @@ class IntelligenceRouteFactory:
                     return ownership_error
 
             result = await service.get_with_context(uid, depth)
+            if result.is_error:
+                return Result.fail(result)
+            if not result.value:
+                return Result.fail(Errors.not_found(resource=domain, identifier=uid))
 
-            # Transform tuple result to dict for JSON serialization
-            if result.is_ok and result.value:
-                entity, graph_context = result.value
+            # Transform the (entity, GraphContext) tuple to a dict for JSON serialization
+            entity, graph_context = result.value
+            entity_data = to_dict(entity)  # protocol-based to_dict()
 
-                # Serialize entity using protocol-based to_dict()
-                entity_data = to_dict(entity)
-
-                logger.debug(
-                    f"Context retrieved for {domain}: uid={uid}, user={user_uid}, depth={depth}"
-                )
-                return Result.ok(
-                    {
-                        "entity": entity_data,
-                        "context": graph_context.get_summary() if graph_context else None,
-                    }
-                )
-
-            return result
+            logger.debug(
+                f"Context retrieved for {domain}: uid={uid}, user={user_uid}, depth={depth}"
+            )
+            return Result.ok(
+                {
+                    "entity": entity_data,
+                    "context": graph_context.get_summary() if graph_context else None,
+                }
+            )
 
     def _register_insights_route(self, rt) -> None:
         """
@@ -368,7 +371,7 @@ class IntelligenceRouteFactory:
         @boundary_handler()
         async def insights_route(
             request: Request, uid: str, min_confidence: float = 0.7
-        ) -> Result[Any]:
+        ) -> Result[dict[str, Any]]:
             """Get domain-specific insights for entity"""
             user_uid = require_authenticated_user(request)
 

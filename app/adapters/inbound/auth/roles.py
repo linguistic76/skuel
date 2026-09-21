@@ -61,7 +61,7 @@ This is more efficient when you only need the identifier (no DB fetch).
     from adapters.inbound.auth import require_authenticated_user
 
 
-    @rt("/api/tasks")
+    @rt("/api/tasks/list")
     async def list_tasks(request):
         # user_uid is just the string identifier (e.g., "user.mike")
         user_uid = require_authenticated_user(request)
@@ -97,16 +97,18 @@ Usage:
     async def list_users(request: Request, current_user: Any = None): ...
 
 
-    # Shortcut for admin-only routes
-    @rt("/api/admin/users/{uid}/role")
+    # Shortcut for admin-only routes (uid is a query parameter)
+    @rt("/api/admin/users/role")
     @require_admin(get_user_service)
     async def change_role(request: Request, uid: str, current_user: Any = None): ...
 
 
     # Shortcut for teacher-only routes
-    @rt("/api/ku")
+    @rt("/api/exercises/for-curriculum", methods=["GET"])
     @require_teacher(get_user_service)
-    async def create_ku(request: Request, current_user: Any = None): ...
+    async def get_exercises_for_curriculum(
+        request: Request, current_user: Any = None
+    ): ...
     ```
 """
 
@@ -381,6 +383,7 @@ def require_member(user_service_getter: Callable[[], Any]):
         get_user_service = make_service_getter(user_service)
 
 
+        # Illustrative — no registered route is MEMBER-gated today.
         @rt("/api/premium/feature")
         @require_member(get_user_service)
         async def premium_feature(request: Request, current_user: Any = None): ...
@@ -400,9 +403,11 @@ def require_teacher(user_service_getter: Callable[[], Any]):
         get_user_service = make_service_getter(user_service)
 
 
-        @rt("/api/ku")
+        @rt("/api/exercises/for-curriculum", methods=["GET"])
         @require_teacher(get_user_service)
-        async def create_knowledge_unit(request: Request, current_user: Any = None): ...
+        async def get_exercises_for_curriculum(
+            request: Request, current_user: Any = None
+        ): ...
         ```
     """
     return require_role(UserRole.TEACHER, user_service_getter)

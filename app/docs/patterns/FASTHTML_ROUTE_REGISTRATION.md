@@ -1,6 +1,6 @@
 ---
 title: FastHTML Route Registration Pattern
-updated: 2026-09-18
+updated: 2026-09-21
 category: patterns
 related_skills:
 - domain-route-config
@@ -11,7 +11,8 @@ related_docs:
 
 # FastHTML Route Registration Pattern
 
-**Critical pattern** - prevents real bugs that caused 404 errors in production.
+**Critical pattern** — a route factory defines and decorates its handlers and returns
+nothing; collecting the decorated handlers in a list leaves sub-routes unregistered (404).
 
 ## Quick Start
 
@@ -29,34 +30,30 @@ For hands-on implementation:
 
 ## The Problem
 
-Finance Hub sub-routes were returning 404 errors:
-
-| Route | Expected | Actual |
-|-------|----------|--------|
-| `/finance` | 401 (auth) | 401 (working) |
-| `/finance/expenses` | 401 (auth) | **404 (broken)** |
-| `/finance/budgets` | 401 (auth) | **404 (broken)** |
-
-Meanwhile, Admin routes using the same decorator pattern all worked correctly.
+A factory that collects its decorated handlers in a list registers its first route and
+loses the sub-routes: the landing answers (401 behind auth), `/domain/section`-shaped
+routes answer **404**, and nothing warns at startup. ADR-020 is the record of the incident
+that established the rule (a hub's sub-routes 404ing while admin routes written without
+the list worked) — the surface it names is gone; the rule is not.
 
 ---
 
 ## Root Cause
 
-The broken routes used a list collection pattern:
+The broken shape is a list collection around `@rt()`:
 
 ```python
 # BROKEN - causes 404 errors
-def create_finance_routes(_app, rt, service, user_service):
+def create_domain_routes(_app, rt, service, user_service):
     routes = []  # <-- This is the problem
 
-    @rt("/finance")
-    async def finance_dashboard(...): ...
-    routes.append(finance_dashboard)  # <-- And this
+    @rt("/domain")
+    async def domain_dashboard(...): ...
+    routes.append(domain_dashboard)  # <-- And this
 
-    @rt("/finance/expenses")
-    async def finance_expenses(...): ...
-    routes.append(finance_expenses)  # <-- And this
+    @rt("/domain/section")
+    async def domain_section(...): ...
+    routes.append(domain_section)  # <-- And this
 
     return routes  # <-- And this
 ```
@@ -107,7 +104,7 @@ A route factory returns `None`, whatever its layer:
 |-------|----------|
 | `create_{domain}_api_routes` / `create_{domain}_ui_routes` | `DomainRouteConfig.api_factory` / `ui_factory` are `Callable[..., None]` |
 | `register_domain_routes()` | returns `None`; a missing primary service is a warning and an early `return` |
-| `register_routes(app, rt)` on the route-factory classes (`crud`, `query`, `intelligence`, `ownership`, `analytics`, `lateral`) | returns `None` |
+| `register_routes(app, rt)` on the route-factory classes (`crud`, `query`, `intelligence`, `analytics`, `lateral`) | returns `None` |
 | a single-route helper (`_register_*_route`, `create_knowledge_patterns_api_route`) | applies `rt(path)(handler)` as a statement and returns nothing |
 | `create_{domain}_routes` in `*_routes.py` | returns `None`; bootstrap counts `app.routes` once for its summary log |
 
@@ -172,13 +169,9 @@ If you see this pattern in your code and experience:
 | `adapters/inbound/admin_routes.py` | Admin API routes |
 | `adapters/inbound/tasks_routes.py` | Task domain routes |
 
-**Fixed files (were broken, now fixed):**
-
-| File | Fix Applied |
-|------|-------------|
-| `adapters/inbound/finance_ui.py` | Removed routes list pattern |
-| `adapters/inbound/finance_api.py` | Removed routes list pattern |
-| `adapters/inbound/finance_routes.py` | Removed route counting logic |
+No factory in `adapters/inbound/` collects handlers today — `grep -rn 'routes = \[\]'
+adapters/inbound/` is the check (the one `routes.append` in the tree is Starlette's own
+router list taking the `/ws/agent` `WebSocketRoute`, not this shape).
 
 ---
 

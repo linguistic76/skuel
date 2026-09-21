@@ -110,7 +110,6 @@ def create_admin_dashboard_routes(
             active_section="overview",
             admin_username=current_user.display_name or current_user.title,
             title="Admin Dashboard",
-            system_status=system_status.get("status", "unknown"),
             request=request,
         )
 
@@ -178,7 +177,6 @@ def create_admin_dashboard_routes(
                 "registered": 0,
             }
         )
-        system_status = await orchestrator.get_system_status()
 
         return create_admin_page(
             content=pages.users_list_page(
@@ -187,7 +185,6 @@ def create_admin_dashboard_routes(
             active_section="users",
             admin_username=current_user.display_name or current_user.title,
             title="User Management",
-            system_status=system_status.get("status", "unknown"),
             request=request,
         )
 
@@ -240,8 +237,6 @@ def create_admin_dashboard_routes(
             last_login_at=user.last_login_at.isoformat() if user.last_login_at else "Never",
         )
 
-        system_status = await orchestrator.get_system_status()
-
         # Fetch user activity stats
         detail_stats_result = await orchestrator.get_user_detail_stats(user_uid)
         detail_stats_error = detail_stats_result.is_error
@@ -254,7 +249,6 @@ def create_admin_dashboard_routes(
             active_section="users",
             admin_username=current_user.display_name or current_user.title,
             title=f"User: {user_data.display_name or user_data.username}",
-            system_status=system_status.get("status", "unknown"),
             request=request,
         )
 
@@ -288,7 +282,6 @@ def create_admin_dashboard_routes(
     @require_admin(get_user_service)
     async def admin_analytics(request: Request, current_user: Any = None):
         """Analytics dashboard with user and activity stats."""
-        system_status = await orchestrator.get_system_status()
         analytics_data = await orchestrator.get_analytics_data()
 
         return create_admin_page(
@@ -296,7 +289,6 @@ def create_admin_dashboard_routes(
             active_section="analytics",
             admin_username=current_user.display_name or current_user.title,
             title="Analytics",
-            system_status=system_status.get("status", "unknown"),
             request=request,
         )
 
@@ -308,7 +300,6 @@ def create_admin_dashboard_routes(
     @require_admin(get_user_service)
     async def admin_knowledge_health(request: Request, current_user: Any = None):
         """Structural-health gauge over the knowledge subgraph (ADR-080)."""
-        system_status = await orchestrator.get_system_status()
         health_result = await orchestrator.get_knowledge_health()
 
         if health_result.is_error:
@@ -322,7 +313,6 @@ def create_admin_dashboard_routes(
             active_section="knowledge-health",
             admin_username=current_user.display_name or current_user.title,
             title="Knowledge Health",
-            system_status=system_status.get("status", "unknown"),
             request=request,
         )
 
@@ -332,16 +322,13 @@ def create_admin_dashboard_routes(
 
     @rt("/admin/prereq-suggestions")
     @require_admin(get_user_service)
-    async def admin_prereq_suggestions(request: Request, current_user: Any = None) -> Any:
+    def admin_prereq_suggestions(request: Request, current_user: Any = None) -> Any:
         """Prerequisite-edge suggestion queue — generate, review, approve to Edge YAML."""
-        system_status = await orchestrator.get_system_status()
-
         return create_admin_page(
             content=pages.prereq_suggestions_page(prereq_suggestions.judge_available),
             active_section="prereq",
             admin_username=current_user.display_name or current_user.title,
             title="Prereq Suggestions",
-            system_status=system_status.get("status", "unknown"),
             request=request,
         )
 
@@ -415,7 +402,6 @@ def create_admin_dashboard_routes(
             active_section="system",
             admin_username=current_user.display_name or current_user.title,
             title="System Health",
-            system_status=health_data.get("status", "unknown"),
             request=request,
         )
 

@@ -9,7 +9,7 @@ Routes:
 - POST /api/ku/{uid}/mark-studying   — Mark Ku as studying (IN_PROGRESS)
 - POST /api/ku/{uid}/mark-understood — Mark Ku as understood (MASTERED)
 
-The Ku detail PAGE is /explore/ku/{uid} (explore_routes.py) — there is no
+The Ku detail PAGE is /explore/ku/{uid} (learning_loop_routes.py) — there is no
 /ku/{uid} route; entity_detail_href owns the entity_type → URL mapping.
 """
 

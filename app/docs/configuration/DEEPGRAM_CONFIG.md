@@ -1,5 +1,5 @@
 ---
-updated: 2026-07-28
+updated: 2026-09-21
 ---
 
 # Deepgram Configuration Guide
@@ -161,7 +161,7 @@ result = await adapter.transcribe(
 ```
 
 `TranscriptionProcessOptions` is the same model the REST API's
-`/api/transcriptions/{uid}/process` endpoint accepts. Overrides apply **field
+`POST /api/transcriptions/process?uid=` endpoint accepts. Overrides apply **field
 by field**: the adapter dumps with `exclude_unset=True`, so the two calls above
 change only `model` and only `diarize` respectively, and everything else on
 this page still comes from `config/deepgram.toml`. (A plain dump would not —

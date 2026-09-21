@@ -1,5 +1,5 @@
 ---
-updated: 2026-09-20
+updated: 2026-09-21
 ---
 
 # Cypher Vocabulary Findings (SKUEL030 introduction sweep, 2026-07-19)
@@ -63,9 +63,9 @@ passes every rule in this repo cleanly; see the §13 audit-rule entry.
   (`ContentMetadata` and `HAS_METADATA` each appear in two files). Migration:
   `drop_stale_bootstrap_constraints_2026_07.cypher` +
   `drop_orphaned_content_metadata_2026_07.cypher`.
-  One public endpoint was removed with its dead reader —
-  `GET /api/analytics/mood-analysis` — along with two always-zero UI stat tiles
-  on the pathways analytics page. Both are called out in §7.
+  One public endpoint went with its dead reader —
+  `GET /api/analytics/mood-analysis` is gone — along with two always-zero UI stat
+  tiles on the pathways analytics page. Both are called out in §7.
 - **Tranche 4 shipped (2026-07-20):** §5 and §8 resolved — **13 baseline pairs
   closed (15 → 2)**, leaving only the two deferred §9 pairs. No migration: none
   of these names has ever had a writer, checked across the full history. Half
@@ -359,7 +359,7 @@ Two more consequences of joining that vocabulary:
 |---|---|
 | `STRUGGLING_WITH`, `NEEDS_REVIEW` | Backend methods, protocol stubs, service helpers, the two `UserKnowledgeProfile` fields + `to_dict` keys, the `lp_service` analytics keys, and the two **UI stat tiles** that had always rendered `0`. Confirmed edge-vs-property: both are lowercase `RelationshipMetadata` *values* in `metadata_enums.py:120-121`, so there was never an edge to find. |
 | `HAS_PREFERENCE` + `LearningPreference` | `_AdaptiveMixin.query_learning_preferences`, its protocol stub, and its sole caller `ps_adaptive_service._load_learning_preferences` (deleted rather than left yielding a constant `None`), plus the already-caller-less `create_learning_preference` factory. |
-| `JournalAnalytics` | `get_journal_analytics`, `get_mood_analysis`, the `JournalMoodAnalysis` dataclass, the `mood_analysis` key on `get_combined_dashboard`, and **`GET /api/analytics/mood-analysis`**. Its writer went with ADR-054; the endpoint had been serving hardcoded placeholders (`average_mood=0.65`, `mood_trend="stable"`, fixed themes) to every caller. No UI consumed it. |
+| `JournalAnalytics` | `get_journal_analytics`, `get_mood_analysis`, the `JournalMoodAnalysis` dataclass, the `mood_analysis` key on `get_combined_dashboard`, and the route — `GET /api/analytics/mood-analysis` is gone. Its writer went with ADR-054; the endpoint had been serving hardcoded placeholders (`average_mood=0.65`, `mood_trend="stable"`, fixed themes) to every caller. No UI consumed it. |
 | `HAS_METADATA` + `ContentMetadata` | Clause-only: dead `OPTIONAL MATCH` no-ops inside three otherwise-live delete queries (`ingestion_backend`, `neo4j_content_adapter`, and the `cleanup_untracked_vault_entries` script). The write side was removed in July 2026 and the read side was left behind. |
 
 **Removing a dead READ can still orphan real data.** The clauses were dead on

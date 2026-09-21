@@ -1,6 +1,6 @@
 ---
 title: Standalone Service Pattern
-updated: 2026-09-05
+updated: 2026-09-21
 category: patterns
 related_skills:
 - base-analytics-service
@@ -226,19 +226,21 @@ class ProcessingStatus(str, Enum):
 
 ## Route Endpoints
 
-Standard pattern for processing services:
+The pattern's live instance is `transcription_api.py` — the uid and the status ride as
+query parameters, and every per-entity door verifies ownership first (404 on a foreign
+uid):
 
 | Method | Endpoint | Service Method | Purpose |
 |--------|----------|----------------|---------|
-| POST | `/api/{domain}` | create() | Create new entity |
-| GET | `/api/{domain}/{uid}` | get() | Get entity |
-| DELETE | `/api/{domain}/{uid}` | delete() | Delete entity |
-| GET | `/api/{domain}` | list() | List entities |
-| POST | `/api/{domain}/{uid}/process` | process() | **Trigger processing** |
-| POST | `/api/{domain}/{uid}/retry` | retry() | Retry failed processing |
-| GET | `/api/{domain}/search` | search() | Search entities |
-| GET | `/api/{domain}/status/{status}` | get_by_status() | Filter by status |
-| GET | `/api/{domain}/health` | - | Health check |
+| POST | `POST /api/transcriptions` | create() | Create new entity |
+| GET | `GET /api/transcriptions/get?uid=` | get() | Get entity |
+| DELETE | `DELETE /api/transcriptions/delete?uid=` | delete() | Delete entity |
+| GET | `GET /api/transcriptions` | list() | List the caller's entities |
+| POST | `POST /api/transcriptions/process?uid=` | process() | **Trigger processing** |
+| POST | `POST /api/transcriptions/retry?uid=` | retry() | Retry failed processing |
+| GET | `GET /api/transcriptions/search?q=` | search() | Search the caller's entities by transcript text |
+| GET | `GET /api/transcriptions/status?status=` | get_by_status() | Filter by status (`TranscriptionStatus` value) |
+| GET | `GET /api/transcriptions/health` | - | Health check (unauthenticated) |
 
 ---
 

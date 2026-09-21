@@ -217,10 +217,9 @@
     /**
      * One route taxonomy for both announcement hooks: `verb` is announced while
      * the request is in flight (htmx:beforeRequest), `done` after the swap
-     * lands (htmx:afterSwap). First match wins, so order is significant.
-     *
-     * A null `verb` means the route has no in-flight wording — the generic
-     * "Loading..." is announced instead.
+     * lands (htmx:afterSwap). First match wins, so order is significant. Every
+     * segment here is a substring of at least one registered mutation route
+     * (docs/patterns/HTMX_ACCESSIBILITY_PATTERNS.md § Auto-Detection).
      */
     var ANNOUNCE_ROUTES = [
         { match: ['/create'], verb: 'Creating', done: 'Created successfully' },
@@ -230,8 +229,7 @@
         { match: ['/upload'], verb: 'Uploading', done: 'Uploaded successfully' },
         { match: ['/track'], verb: 'Tracking', done: 'Tracked successfully' },
         { match: ['/enroll'], verb: 'Enrolling', done: 'Enrolled successfully' },
-        { match: ['/toggle', '/status'], verb: 'Updating status', done: 'Status updated' },
-        { match: ['/decide'], verb: null, done: 'Decision recorded' }
+        { match: ['/status'], verb: 'Updating status', done: 'Status updated' }
     ];
 
     /**

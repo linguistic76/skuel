@@ -419,11 +419,11 @@ entity types have a `user_uid` node property — only `UserOwnedEntity` subtypes
 | Entity hierarchy | `user_uid` property in Neo4j | How to find owner in Cypher |
 |-----------------|----------------------------|-----------------------------|
 | `UserOwnedEntity` (Task, Goal, Habit, Event, Choice, Principle, Submission, EntryReport, RevisedExercise, ...) | ✅ Present — stored as node property | `WHERE n.user_uid = $uid` OR `(User)-[:OWNS]->(n)` |
-| `Curriculum` (Exercise, PathStep, LearningPath) | ❌ Missing — `Entity.user_uid` property returns `None` | `(User)-[:OWNS]->(n)` only |
+| `Curriculum` (Exercise, PathStep, LearningPath) | ❌ Missing — the Python model has no `user_uid` attribute | `(User)-[:OWNS]->(n)` only |
 | `Entity` base (Ku, Resource) | ❌ Missing | `(User)-[:OWNS]->(n)` only |
 
 **Key rule:** `Exercise` extends `Curriculum(Entity)`, not `UserOwnedEntity`.
-The Python `Entity.user_uid` property returns `None` for non-user-owned types.
+A bare `Entity` has no `user_uid` attribute — only `UserOwnedEntity` carries the field; gate with `isinstance(e, UserOwnedEntity)` before reading it.
 Neo4j nodes for curriculum entities carry no `user_uid` property.
 **Teacher identity for exercises is ONLY available via the OWNS relationship.**
 

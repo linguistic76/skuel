@@ -91,6 +91,18 @@ RENAMED: dict[str, str] = {
     # ORGANIZES operations are the `organization` slot of the PathStep facade;
     # KuService has no such slot.
     "KuOrganizationService": "PsOrganizationService (PsService.organization)",
+    # The one user-state object is UserContext (core/services/user/unified_user_context.py),
+    # built by UserContextBuilder.build() / build_rich(); no class carries the module's name.
+    "UnifiedUserContext": "UserContext (built by UserContextBuilder.build() / build_rich())",
+    # user_uid is a field of UserOwnedEntity; a bare Entity has no such member — gate with
+    # isinstance(e, UserOwnedEntity) (core/models/entity.py § USER OWNERSHIP).
+    "Entity.user_uid": "UserOwnedEntity.user_uid (isinstance-gate a bare Entity)",
+    # The cross-domain edge vocabulary is a property of the registry's per-domain config
+    # (core/models/relationship_registry.py, the {DOMAIN}_CONFIG instances), not of
+    # core/services/domain_config.DomainConfig.
+    "DomainConfig.cross_domain_relationship_types": (
+        "DomainRelationshipConfig.cross_domain_relationship_types (core/models/relationship_registry.py)"
+    ),
     # UserContext field renames (Mar 2026 — entities_rich unification)
     "active_tasks_rich": 'entities_rich["tasks"]',
     "active_goals_rich": 'entities_rich["goals"]',
@@ -203,6 +215,22 @@ DELETED: dict[str, str] = {
     ),
     "OwnershipRoute": "deleted — see OwnershipRouteFactory",
     "OwnershipOperations": "deleted — OwnershipVerifier in core/ports/service_protocols.py",
+    # MOC is emergent identity — any Entity with ORGANIZES edges; the ORGANIZES operations
+    # are PsOrganizationService (PsService.organization) and the /api/path-steps/* routes.
+    "MOCService": "deleted — MOC is emergent; ORGANIZES ops are PsOrganizationService (PsService.organization)",
+    "MocNavigationService": "deleted — MOC is emergent; ORGANIZES ops are PsOrganizationService (PsService.organization)",
+    # A submission's PathStep context rides the request: from_ps → UserEntryCreateRequest
+    # .about_path_step_uid → UserEntryService._create_interaction_record(path_step_uid=…)
+    # → Interaction.context_path_step_uid. No route helper resolves it.
+    "_get_learning_context": (
+        "deleted — the PathStep context is UserEntryCreateRequest.about_path_step_uid, "
+        "carried into Interaction.context_path_step_uid by UserEntryService._create_interaction_record"
+    ),
+    # Finance is a Firefly III sidecar (ADR-052); SKUEL's own finance model is the invoice
+    # (core/models/finance/invoice.py: InvoicePure / InvoiceDTO / InvoiceCreateRequest).
+    "ExpensePure": "deleted — Finance is a Firefly III sidecar (ADR-052); the native model is InvoicePure",
+    "ExpenseDTO": "deleted — Finance is a Firefly III sidecar (ADR-052); the native model is InvoiceDTO",
+    "ExpenseCreateRequest": "deleted — Finance is a Firefly III sidecar (ADR-052); the native request is InvoiceCreateRequest",
     # Deleted enum members
     "Pipeline.JOURNAL": (
         "deleted — where a journal goes is stated in the Pipeline class docstring "
@@ -321,11 +349,15 @@ _adr073 = "ADR-073 § 3 amendment (2026-09-02) recording the Pipeline.JOURNAL de
 _askesis_arch = "change-history table recording the entities_rich unification / ActivityDataReader absorption / ActivityReviewService split"
 _askesis_intel = "'the former ActivityReviewService was split' -- historical record of the split"
 _entity_arch = "'Pipeline and ReportSource (supersede ProcessorType)' explainer -- names the retired enum to document its replacement"
-_intel_index = "'KnowledgePatternAnalyzer generalized from AnalyticsEngine' -- provenance of the generalization"
 _m2a = "'Methods moved from' provenance table -- names the source file the methods migrated from"
 _m_actui = "migration record -- test snippets using KuStatus as it stood pre-EntityStatus rename"
 _m_assign = "migration record -- __all__ export snapshot naming ProcessorType"
 _m_backends = "migration record -- 'Files Modified'/'Why it stays' tables naming the pre-migration service files"
+_m_useruid = "migration record -- the Cypher property path `:Entity.user_uid` names the node property the script rewrote (the label, not the Python class)"
+_adr035 = "ADR-035's Pattern-B worked example names the decision-time finance module; no live domain is two-tier today (DOMAIN_PATTERNS_CATALOG § Current Implementations)"
+_adr051 = (
+    "ADR-051 'Modified files (key)' record -- names the route helper as it stood at decision time"
+)
 _m_domcfg = "migration record -- Before/After config blocks with KuStatus.COMPLETED.value pre-EntityStatus rename"
 _m_health = "migration record -- enum inventory/table naming KuStatus pre-EntityStatus rename"
 _m_lifepath = "migration record -- module inventory naming sel_routes.py (since deleted)"
@@ -341,7 +373,7 @@ _three_tier = (
     "'Key enum renames' record -- naming KuType/KuStatus is the historical record of the rename"
 )
 _trouble = "verbatim ui.daisy_components ImportError strings users search for -- the retired name is the lookup key"
-_moc_intel = "MOC_INTELLIGENCE negates the retired MOC service names (L31) and records their lineage to PsOrganizationService (L47)"
+_moc_intel = "MOC_INTELLIGENCE's one negation line -- names the three retired MOC service names to say none exists"
 
 ALLOWED_OCCURRENCES: dict[str, dict[tuple[int, str], Allow]] = {
     ".claude/skills/learning-loop/SKILL.md": {
@@ -365,6 +397,10 @@ ALLOWED_OCCURRENCES: dict[str, dict[tuple[int, str], Allow]] = {
     },
     "docs/decisions/ADR-028-ku-moc-unified-relationship-migration.md": {
         (140, "KuType"): Allow(_adr028),
+    },
+    "docs/decisions/ADR-035-tier-selection-guidelines.md": {
+        (432, "ExpenseCreateRequest"): Allow(_adr035),
+        (439, "ExpenseDTO"): Allow(_adr035),
     },
     "docs/decisions/ADR-040-teacher-exercise-workflow.md": {
         (27, "ProcessorType"): Allow(_adr040),
@@ -394,6 +430,9 @@ ALLOWED_OCCURRENCES: dict[str, dict[tuple[int, str], Allow]] = {
     "docs/decisions/ADR-043-intelligence-tier-toggle.md": {
         (46, "JournalOutputService"): Allow(_adr043),
     },
+    "docs/decisions/ADR-051-user-interaction-contract.md": {
+        (127, "_get_learning_context"): Allow(_adr051),
+    },
     "docs/decisions/ADR-054-user-entry-unified-submissions.md": {
         # Re-anchored -2 (PR #1045): the execution note above lost 2 net lines when
         # its citation of two vanished plans/ files was removed.
@@ -421,14 +460,9 @@ ALLOWED_OCCURRENCES: dict[str, dict[tuple[int, str], Allow]] = {
         (360, "ActivityReviewService"): Allow(_askesis_intel),
     },
     "docs/intelligence/MOC_INTELLIGENCE.md": {
-        (31, "KuOrganizationService"): Allow(_moc_intel),
-        (47, "KuOrganizationService"): Allow(_moc_intel),
-    },
-    "docs/intelligence/INTELLIGENCE_SERVICES_INDEX.md": {
-        # 503 → 505: the "## Quick Start" stub above it became "## Related Skills"
-        # in the repo's 3-line form (2026-08-25). Anchor re-derived from the
-        # scanner's own report, never by adding the diff's line delta.
-        (505, "AnalyticsEngine"): Allow(_intel_index),
+        (17, "KuOrganizationService"): Allow(_moc_intel),
+        (17, "MOCService"): Allow(_moc_intel),
+        (17, "MocNavigationService"): Allow(_moc_intel),
     },
     "docs/migrations/ACTIVITY_UI_CODE_QUALITY_IMPROVEMENTS_2026-01-24.md": {
         (283, "KuStatus"): Allow(_m_actui),
@@ -449,6 +483,7 @@ ALLOWED_OCCURRENCES: dict[str, dict[tuple[int, str], Allow]] = {
         (147, "progress_feedback_generator"): Allow(_m_backends),
         (148, "activity_review_service.py"): Allow(_m_backends),
         (159, "submissions_sharing_service"): Allow(_m_backends),
+        (196, "ExpensePure"): Allow(_m_backends),
     },
     "docs/migrations/DOMAIN_ROUTE_CONFIG_MIGRATION_2026-02-03.md": {
         (714, "create_drawer_layout"): Allow(_m_routecfg),
@@ -483,6 +518,9 @@ ALLOWED_OCCURRENCES: dict[str, dict[tuple[int, str], Allow]] = {
         (381, "sel_routes"): Allow(_m_selux, hits=2),
         (390, "sel_routes"): Allow(_m_selux),
     },
+    "docs/migrations/USER_UID_CANONICALIZATION_2026-05.md": {
+        (42, "Entity.user_uid"): Allow(_m_useruid),
+    },
     "docs/migrations/assignments-refactoring-2026-01-25.md": {
         (62, "ProcessorType"): Allow(_m_assign),
     },
@@ -496,8 +534,8 @@ ALLOWED_OCCURRENCES: dict[str, dict[tuple[int, str], Allow]] = {
     "docs/patterns/three_tier_type_system.md": {
         # These two move whenever the prose above them changes length. Re-derive
         # the anchors from the scanner's report, never by adding a diff delta.
-        (946, "KuType"): Allow(_three_tier),
-        (947, "KuStatus"): Allow(_three_tier),
+        (945, "KuType"): Allow(_three_tier),
+        (946, "KuStatus"): Allow(_three_tier),
     },
     "docs/roadmap/done/dead-doc-links-sweep-queue.md": {
         # 219 → 241: § "Named, still queued" above it gained the `/journals/browse`

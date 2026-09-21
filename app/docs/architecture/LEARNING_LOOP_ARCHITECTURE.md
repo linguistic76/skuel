@@ -1,6 +1,6 @@
 ---
 title: Four-Phase Learning Loop
-updated: 2026-09-20
+updated: 2026-09-21
 status: current
 category: architecture
 related:
@@ -439,8 +439,9 @@ transitions driven by the report pipeline via `interaction_result_handler`, ADR-
 
 **How context is captured deterministically:** Students navigate PathStep → Exercise → Submit
 via the UI. The PathStep UID flows as `from_ps={ps_uid}` through the URL chain and is
-embedded as a hidden form field. The upload handler passes it as `explicit_ps_uid` to
-`_get_learning_context()`, which uses it directly rather than guessing from UserContext.
+embedded as a hidden form field. The upload handler carries it as
+`UserEntryCreateRequest.about_path_step_uid`; `UserEntryService._create_interaction_record`
+writes it to `Interaction.context_path_step_uid` — never a guess from `UserContext`.
 This means Interaction records have reliable, auditable situated context.
 
 **Auto-created, best-effort:** Failure never blocks the submission. No UI affordance needed.

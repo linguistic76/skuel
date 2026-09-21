@@ -5,8 +5,8 @@ lifecycle data, reminders, and daily-scheduling queries.
 
 Routes
 ------
-Status (existing):
-    POST /api/habits/set-status        — HTMX status card update
+Status (create_activity_field_api_routes):
+    POST /api/habits/{uid}/status      — HTMX status card update
 
 Completion tracking:
     POST /api/habits/track             — Record a completion

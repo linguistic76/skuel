@@ -1247,7 +1247,7 @@ async def compose_services(
                 dsl_bridge=dsl_bridge,
                 canon_retrieval_service=canon_retrieval_service,
                 # ADR-081 D2: every typed turn grounds on the canonical
-                # UnifiedUserContext.build() via the curated projection.
+                # UserContextBuilder.build() via the curated projection.
                 context_builder=context_builder,
             )
             logger.info("✅ JournalService created")

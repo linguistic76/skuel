@@ -950,7 +950,7 @@ class TasksService(
     ) -> None:
         """Publish TaskUpdated for the affected owners after a DEPENDS_ON edge change.
 
-        The dependency graph feeds ``UnifiedUserContext.task_dependencies`` and the
+        The dependency graph feeds ``UserContext.task_dependencies`` and the
         inverse blockers view, so a successful edge-only mutation must invalidate the
         owners' rich-context caches — otherwise dependency context stays stale until
         the TTL expires (same reason ``_publish_edge_only_update`` exists for the

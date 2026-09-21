@@ -1,6 +1,6 @@
 ---
 title: Intelligence Services - Master Index
-updated: 2026-08-25
+updated: 2026-09-21
 category: intelligence
 status: current
 related_skills:
@@ -11,34 +11,6 @@ last_reviewed: 2026-08-08
 review_frequency: annual
 ---
 # Intelligence Services - Master Index
-
-**Last Updated:** March 21, 2026 · **Last Audited:** August 8, 2026
-
-> **Code-accuracy audit — 2026-08-08.** Every service, protocol, count, and ADR reference below
-> was re-verified against the codebase. Corrections made this pass:
-> - **MOC removed as an intelligence domain.** `MocIntelligenceService` was deleted in the
->   January-2026 KU-based MOC refactoring (see [MOC_INTELLIGENCE.md](./MOC_INTELLIGENCE.md)); no
->   `MocIntelligenceService`/`MOCService`/`MocNavigationService` class exists. MOC is emergent
->   identity — any `Entity` with outgoing `ORGANIZES` edges (CLAUDE.md; `CURRICULUM_GROUPING_PATTERNS.md`).
-> - **Counts reconciled.** The inventory now lists **16** analytics/core-side services (was internally "14" and "11" in
->   different sections). **11** extend `BaseAnalyticsService`; **9** domain services implement the
->   `IntelligenceRouteFactory` 3-method protocol (was stated as "10"), of which **8** actually have
->   routes generated — KU conforms to the protocol but `KU_CONFIG` doesn't wire the factory.
-> - **Added three services the index omitted:** `KnowledgeHealthService` (corpus-level
->   `BaseAnalyticsService`, ADR-080 H1), `LifePathIntelligenceService` (lightweight
->   recommendation logic, not a `BaseAnalyticsService`), and `CrossDomainAnalyticsService`
->   (event-driven cross-domain analytics, wired every tier). Added a scope-boundary note so the
->   count excludes infrastructure/query/facade services rather than silently omitting them.
-> - **`DomainIntelligenceOperations`/`IntelligenceOperations` are largely aspirational.** Of the
->   7 domain-protocol methods only `get_performance_analytics` is universal; 3 have no
->   implementation at all and a 4th (`get_learning_velocity`) only a non-conforming one outside the
->   per-domain classes. What the domain services uniformly satisfy is the separate 3-method
->   route-factory surface. The "all services implement protocol methods" claims were qualified.
-> - **AI tier is wired, not "future."** The `BaseAIService` layer is constructed in FULL tier
->   (`services_bootstrap/_ai_wiring.py`, 10 subclasses) — the "for future use" language was stale.
->   The **16** total is the analytics/core-side inventory; the wired AI tier is documented and
->   counted separately.
-> - Protocol method counts (Knowledge=4, Domain=7, composed=11) verified accurate.
 
 ## Overview
 
@@ -66,7 +38,7 @@ Of these, **11 extend `BaseAnalyticsService`** (6 Activity + 3 Curriculum + shar
 
 **Wired AI tier (FULL tier only, ADR-043).** A parallel layer of **10 `BaseAIService` subclasses** is constructed in `services_bootstrap/_ai_wiring.py` when `INTELLIGENCE_TIER=full` — 6 Activity (`TasksAIService` … `PrinciplesAIService`), 2 Curriculum (`PsAIService`, `LpAIService`), and 2 cross-cutting (`AskesisAIService`, `ContextAwareAIService`). These enhance the analytics services with LLM/embedding features and are `None` in CORE tier. They are **not** counted in the 16 above (which is the analytics/core-side inventory); see [@base-ai-service](../../.claude/skills/base-ai-service/SKILL.md) for the AI-tier reference.
 
-**MOC has no intelligence service.** MOC is emergent identity — any `Entity` with outgoing `ORGANIZES` edges (CLAUDE.md; `docs/architecture/CURRICULUM_GROUPING_PATTERNS.md`). The old `MocIntelligenceService` was deleted in the January-2026 KU-based refactoring; a Ku that organizes others is analyzed as a Ku via `KuIntelligenceService`. See [MOC_INTELLIGENCE.md](./MOC_INTELLIGENCE.md).
+**MOC has no intelligence service.** MOC is emergent identity — any `Entity` with outgoing `ORGANIZES` edges (CLAUDE.md; `docs/architecture/CURRICULUM_GROUPING_PATTERNS.md`). A Ku that organizes others is analyzed as a Ku via `KuIntelligenceService`. See [MOC_INTELLIGENCE.md](./MOC_INTELLIGENCE.md).
 
 **Note:** Finance is a standalone bookkeeping domain (no intelligence service).
 
@@ -164,7 +136,7 @@ All 9 domain intelligence services correctly extend `BaseAnalyticsService` (as d
 
 ---
 
-## Intelligence Protocols (January 2026, split March 2026)
+## Intelligence Protocols
 
 The intelligence protocol layer has two levels:
 
@@ -232,7 +204,7 @@ factory = IntelligenceRouteFactory(
 # Factory for shared content (Curriculum)
 factory = IntelligenceRouteFactory(
     intelligence_service=ps_service.intelligence,
-    domain_name="ps",
+    domain_name="path-steps",
     scope=ContentScope.SHARED,                # No ownership checks
 )
 ```
@@ -240,9 +212,9 @@ factory = IntelligenceRouteFactory(
 **FastHTML Route Parameter Style:**
 Routes use function parameters with type hints (not `request.query_params`):
 ```python
-async def context_route(request, uid: str, depth: int = 2) -> Result[Any]:
-async def analytics_route(request, period_days: int = 30) -> Result[Any]:
-async def insights_route(request, uid: str, min_confidence: float = 0.7) -> Result[Any]:
+async def context_route(request: Request, uid: str, depth: int = 2) -> Result[dict[str, Any]]:
+async def analytics_route(request: Request, period_days: int = 30) -> Result[dict[str, Any]]:
+async def insights_route(request: Request, uid: str, min_confidence: float = 0.7) -> Result[dict[str, Any]]:
 ```
 
 **Rollout Status (current):**
@@ -261,16 +233,6 @@ async def insights_route(request, uid: str, min_confidence: float = 0.7) -> Resu
 
 *"Protocol Methods ✅" = the class implements `get_with_context` / `get_performance_analytics` / `get_domain_insights`. "Routes wired" = an `IntelligenceRouteFactory` is registered so the generic `/api/{domain}/context|analytics|insights` routes exist — 8 of the 9 (KU conforms but is not wired; see the Route Factory Protocol section). Goals additionally has a pilot per-domain orchestrator (`create_goals_intelligence_routes`, `adapters/inbound/orchestration_routes.py`).*
 
-*(The former `MocIntelligenceService` row was removed — the service was deleted in the January-2026 KU-based MOC refactoring; MOC is emergent, see Overview.)*
-
-**Bug Fixes & Improvements (January 2026):**
-- SUCCESS_RATE UNIT INCONSISTENCY: Fixed in `GoalsIntelligenceService` (Habit.success_rate is 0.0-1.0)
-- Missing `is_on_track()`: Added to `Goal` model
-- Unguarded `self.progress` calls: Added fail-fast guard
-- Logging emoji: Removed from `IntelligenceRouteFactory`
-- **Ownership verification**: Added to context/insights routes (security fix)
-- **Parameter style consistency**: Routes use FastHTML function parameters with type hints
-
 **Placeholder Convention (`_period_days`):**
 `get_performance_analytics()` carries an unapplied `_period_days` in **3** services — Habits,
 Choices, Principles — where the underscore prefix marks "API contract defined, implementation
@@ -282,7 +244,7 @@ filtering, in Python, over its `event_date` domain field.
 Filtering"** — verified coordinates, the reason the placeholder is a user-visible wrong answer, and
 the correct fetch helper live there. Do not restate the deferral here; link to it.
 
-**Tests:** 19/19 factory tests + 108/108 intelligence tests passing
+**Tests:** `tests/unit/infrastructure/test_intelligence_route_factory.py` (the factory) and `tests/integration/intelligence/` (the services).
 
 ---
 
@@ -502,7 +464,7 @@ from core.services.intelligence import (
 | **ActivityKnowledgeIntelligenceService** | `/core/services/knowledge/` | ~310 | Knowledge suggestions, prerequisites, learning opportunities — shared across all 6 activity domains |
 | **KnowledgePatternAnalyzer** | `/core/services/knowledge/knowledge_pattern_analyzer.py` | ~350 | Generic 5-pattern learning-pattern engine (KNOWLEDGE_BUILDING, CROSS_DOMAIN_APPLICATION, LEARNING_SPIRAL, SKILL_SPECIALIZATION, KNOWLEDGE_BRIDGING) — wired into all 6 activity domain facades via `analyze_learning_patterns()` + `GET /api/{domain}/knowledge-patterns` |
 
-`ActivityKnowledgeIntelligenceService` extracted from TasksIntelligenceService (March 2026) — domain-agnostic suggestions/prerequisites via `PatternAnalyzer` on entity titles and graph traversal. `KnowledgePatternAnalyzer` generalized from `AnalyticsEngine` (June 2026, #366–#368) — generic dataclass engine typed `Generic[EntityT, RelT]`; `TaskKnowledgeAnalyzer` (`/core/services/tasks/task_knowledge_analyzer.py`) extends it with Task-specific `MASTERY_VALIDATION` pattern and `calculate_knowledge_aware_priority`. All 6 activity domains have knowledge relationships in Neo4j.
+`ActivityKnowledgeIntelligenceService` gives every Activity Domain domain-agnostic suggestions/prerequisites via `PatternAnalyzer` on entity titles and graph traversal. `KnowledgePatternAnalyzer` is a generic dataclass engine typed `Generic[EntityT, RelT]`; `TaskKnowledgeAnalyzer` (`/core/services/tasks/task_knowledge_analyzer.py`) extends it with Task-specific `MASTERY_VALIDATION` pattern and `calculate_knowledge_aware_priority`. All 6 activity domains have knowledge relationships in Neo4j.
 
 **Backend:** Uses `UniversalNeo4jBackend[Entity]` with `NeoLabel.ENTITY` — queries across ALL entity types. `find_by(user_uid=...)` matches the denormalized `user_uid` PROPERTY (not the `(User)-[:OWNS]->` edge); shared entities (PathStep, Ku, etc.) lack `user_uid` and naturally filter out. The property is kept aligned to the canonical `:OWNS` owner by the live write-paths + the 2026-06 backfill (`USER_UID_OWNS_BACKFILL_2026-06.md`). Uses `EntityStatus.COMPLETED` (not `CompletionStatus.DONE`) for completed entity queries.
 
@@ -646,51 +608,15 @@ uv run python -m pytest tests/integration/intelligence/ -k "test_predict_goal_su
 
 ---
 
-## Migration Status (January 2026)
+## Implementation Status
 
-**Migrated to BaseAnalyticsService (ADR-024, updated ADR-030):**
-- ✅ TasksIntelligenceService (2026-01-06, updated 2026-01-18)
-- ✅ GoalsIntelligenceService (2026-01-06, updated 2026-01-18)
-- ✅ HabitsIntelligenceService (2026-01-06, updated 2026-01-18)
-- ✅ EventsIntelligenceService (2026-01-06, updated 2026-01-18)
-- ✅ ChoicesIntelligenceService (2026-01-06, updated 2026-01-18)
-- ✅ PrinciplesIntelligenceService (2026-01-06, updated 2026-01-18)
-- ✅ KuIntelligenceService (2026-01-08, updated 2026-01-18)
-- ✅ PsIntelligenceService (2026-01-06, updated 2026-01-18)
-- ✅ LpIntelligenceService (2026-01-08, updated 2026-01-18)
-- ~~MocIntelligenceService (2026-01-11)~~ — **subsequently deleted** in the KU-based MOC refactoring (late January 2026); MOC is now emergent (see [MOC_INTELLIGENCE.md](./MOC_INTELLIGENCE.md)).
-
-**Architecture Update (2026-01-18):**
-- `BaseIntelligenceService` (old) → Replaced by `BaseAnalyticsService` + `BaseAIService`
-- All domain services now extend `BaseAnalyticsService` (NO AI deps) — 9 today (was 10 before MOC's service was removed)
-- `BaseAIService` introduced as the optional AI tier (since wired in FULL tier — 10 subclasses; see Overview)
-
-**IntelligenceOperations Protocol Rollout (2026-01-17):**
-- ✅ All domain services implement the **3-method route-factory surface** (`get_with_context` / `get_performance_analytics` / `get_domain_insights`) — 9 today (was 10 before MOC's service was removed). ⚠️ This does **not** mean they implement the 7-method `DomainIntelligenceOperations` / 11-method composed `IntelligenceOperations`: those are largely aspirational (only `get_performance_analytics` is universal — see the protocol note above).
-- ✅ GraphContextLoader pattern consistent across all services
-- ✅ Bug fixes applied (success_rate units, is_on_track(), progress guards)
-
-**Knowledge Intelligence Extraction + Wiring (2026-03-21):**
-- ✅ `ActivityKnowledgeIntelligenceService` created (`core/services/knowledge/`)
-- ✅ Wired into all 6 Activity Domain facades as `self.knowledge_intelligence` (shared singleton)
-- ✅ 4 delegation methods provided by `KnowledgeIntelligenceDelegationMixin` (`core/services/mixins/`) — facades inherit it (April 2026, replaced copy-pasted methods)
-- ✅ Skill vocabulary derived from Ku titles/tags in graph (replaces hardcoded programming keywords)
-- Backend: `UniversalNeo4jBackend[Entity]` with `NeoLabel.ENTITY` — queries user-owned activity entities across all domains
-- Type: `BaseAnalyticsService[BackendOperations[Entity], Entity]`
-
-**Protocol Alignment (2026-03-21):**
-- ✅ Monolithic `IntelligenceOperations` (11 methods) split into ISP protocols
-- ✅ `KnowledgeIntelligenceOperations` (4 methods) — satisfied by `ActivityKnowledgeIntelligenceService`
-- ✅ `DomainIntelligenceOperations` (7 methods) — per-domain intelligence services
-- ✅ `IntelligenceOperations` remains as composed protocol for backward compatibility
-
-**Intelligence Mixin Decomposition (2026-04-10):**
-- ✅ `TasksIntelligenceService` decomposed: shell (~265 lines) + `_core_intelligence_mixin`, `_analytics_mixin`, `_productivity_mixin`
-- ✅ `EventsIntelligenceService` decomposed: shell (~169 lines) + `_core_intelligence_mixin`, `_analytics_mixin`, `_behavioral_signals_mixin`
-- See `/docs/patterns/SERVICE_DECOMPOSITION_RULE.md` for decomposition thresholds and mixin patterns
-
-**Standalone (modular package architecture):**
-- UserContextIntelligence (ADR-021, mixin composition pattern)
+- **11 services extend `BaseAnalyticsService`** (6 Activity + KU/PS/LP + shared `ActivityKnowledgeIntelligenceService` + corpus `KnowledgeHealthService`); no service extends a `BaseIntelligenceService` — that name is not in the tree.
+- **9 domain services implement the 3-method route-factory surface** (`get_with_context` / `get_performance_analytics` / `get_domain_insights`); **8** have the routes generated (KU conforms, `KU_CONFIG` wires no factory) — § Route Factory Protocol. Conformance to the 7-method `DomainIntelligenceOperations` is partial (only `get_performance_analytics` is universal — § Core Protocols).
+- **Context retrieval is mechanism B:** `get_with_context()` is inherited from `_CoreIntelligenceMixin[T]` and routes through `self.relationships.get_with_context`, whose edge vocabulary is `DomainRelationshipConfig.cross_domain_relationship_types` (the registry). Cross-domain analysis runs on `BaseAnalyticsService._analyze_entity_with_typed_context` (+ per-domain `{Domain}CrossContext.from_categorized`). Design record: `/docs/roadmap/intent-traversal-registry-convergence.md`.
+- **`ActivityKnowledgeIntelligenceService`** is wired into all 6 Activity Domain facades as `self.knowledge_intelligence` (shared singleton); the 4 delegation methods come from `KnowledgeIntelligenceDelegationMixin` (`core/services/mixins/`). Backend `UniversalNeo4jBackend[Entity]` with `NeoLabel.ENTITY`; type `BaseAnalyticsService[BackendOperations[Entity], Entity]`.
+- **ISP protocols:** `KnowledgeIntelligenceOperations` (4, satisfied by `ActivityKnowledgeIntelligenceService`) + `DomainIntelligenceOperations` (7, per-domain); `IntelligenceOperations` is their composition.
+- **Decomposed services:** `TasksIntelligenceService` (shell + `_core_intelligence_mixin`, `_analytics_mixin`, `_productivity_mixin`) and `EventsIntelligenceService` (shell + `_core_intelligence_mixin`, `_analytics_mixin`, `_behavioral_signals_mixin`) — thresholds in `/docs/patterns/SERVICE_DECOMPOSITION_RULE.md`.
+- **Standalone:** UserContextIntelligence (ADR-021, mixin composition, modular package).
 
 ---
 
@@ -735,8 +661,7 @@ uv run python -m pytest tests/integration/intelligence/ -k "test_predict_goal_su
 - Semantic relationship analysis with confidence scoring
 - Cross-domain knowledge connections
 - Knowledge substance tracking (how knowledge is LIVED)
-- Per-user substance calculation (January 2026 - KU-Activity Integration)
-- New API: `GET /api/ku/{uid}/my-context` for personalized KU views
+- Per-user substance calculation (`calculate_user_substance`) — no Ku JSON door of its own; the PathStep analogue is `GET /api/path-steps/my-context?uid=`
 
 **PS (Path Steps):**
 - Lightweight intelligence (intentional design)
@@ -753,7 +678,7 @@ uv run python -m pytest tests/integration/intelligence/ -k "test_predict_goal_su
 - No dedicated intelligence service (emergent identity — any `Entity` with `ORGANIZES` edges).
 - ORGANIZES relationships are managed by `PsOrganizationService` (`core/services/ps/ps_organization_service.py`); MOC edges are authored via ingestion (`core/services/ingestion/moc_links.py`, `moc: true` frontmatter).
 - MOC navigation is surfaced through UserContext (`active_moc_uids`, `recently_viewed_moc_uids`); a Ku that organizes others is analyzed as a Ku via `KuIntelligenceService`.
-- The former `MocIntelligenceService` (navigation/coverage/bridge analytics) was deleted in the January-2026 KU-based refactoring. See [MOC_INTELLIGENCE.md](./MOC_INTELLIGENCE.md).
+- See [MOC_INTELLIGENCE.md](./MOC_INTELLIGENCE.md).
 
 ### Meta Intelligence
 
@@ -832,7 +757,7 @@ else:
 
 **Lines of Intelligence Code** (approximate — `tracking: conceptual`):
 - Activity Domains: ~4,434 lines
-- Curriculum Domains: KU/PS/LP facades + sub-services (the former ~790-line MOC service was deleted)
+- Curriculum Domains: KU/PS/LP facades + sub-services
 - Meta Intelligence: ~3,124 lines (modular package)
 
 **Intelligence Philosophy:**
@@ -841,16 +766,3 @@ else:
 - All services return `Result[T]` for consistent error handling
 - Fail-fast validation ensures required dependencies are available
 - Graph-native relationships eliminate N+1 queries
-
-**January 2026 Achievements:**
-- Complete intelligence architecture unification across all domains with BaseAnalyticsService pattern (ADR-024, ADR-030)
-- Comprehensive documentation for all 11 services as of January 2026 (6 Activity + 4 Curriculum + 1 Meta) — MOC's service was deleted later that month; see the Overview for today's inventory
-- Full migration including KU, LP, and MOC domains (MOC's intelligence service was subsequently removed)
-- Shared utilities consolidation (5-phase consolidation reducing ~640 lines of duplicated helper code)
-- **KU-Activity Integration Enhancement** (January 11, 2026): Per-user substance calculation via `calculate_user_substance()` and new `/api/ku/{uid}/my-context` endpoint
-- **Finance Domain Simplification** (January 17, 2026): Finance reverted to standalone bookkeeping domain (no intelligence service)
-- **IntelligenceOperations Protocol Rollout** (January 17, 2026): domain services implement the standardized route-factory protocol, enabling automatic route generation via IntelligenceRouteFactory. *(Since superseded: the `GraphContextLoader` pattern was later deleted — see the mechanism-B note at the end of this file; and route generation covers 8 of the 9 domains — KU is protocol-conformant but unwired.)*
-- **Dual-Track Assessment Pattern** (January 18, 2026 - ADR-030): All 6 Activity Domain intelligence services now support dual-track assessment comparing user self-assessment (vision) with system measurement (action) for perception gap analysis
-- **Complete Substance Data Pipeline** (March 21, 2026): All 6 activity channels (Tasks, Habits, Events, Choices, Principles) now flow real data through UserContext into `calculate_user_substance()`. Principles added as 6th channel (0.07/principle, max 0.15). Total capped at 1.0. Journals deferred (submissions, not activities).
-- **Protocol Alignment** (March 21, 2026): Monolithic `IntelligenceOperations` (11 methods) split into `KnowledgeIntelligenceOperations` (4, shared) + `DomainIntelligenceOperations` (7, per-domain). Composed `IntelligenceOperations` kept for backward compatibility.
-- **Intent-traversal ↔ registry convergence — context retrieval is mechanism B** (June 2026, #241): `GraphContextLoader`, `_init_context_loader`, and `self.context_loader` were **deleted** (supersedes the "GraphContextLoader pattern" noted in the Jan 17 entries above). `get_with_context()` is now inherited from `_CoreIntelligenceMixin[T]` and routes through `self.relationships.get_with_context`, whose edge vocabulary comes from `DomainConfig.cross_domain_relationship_types` (the registry). Cross-domain analysis runs on the canonical typed reader `BaseAnalyticsService._analyze_entity_with_typed_context` (+ per-domain `{Domain}CrossContext.from_categorized`). See `/docs/roadmap/intent-traversal-registry-convergence.md`.

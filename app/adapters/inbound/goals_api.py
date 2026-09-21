@@ -19,8 +19,7 @@ Planning (user-scoped reads, full UserContext required):
     GET  /api/goals/achievable   — Goals near completion, prioritised for finishing
 
 Scheduling-aware creation:
-    POST /api/goals/create-with-scheduling          — Create goal with capacity check
-    POST /api/goals/create-with-learning-scheduling — Create goal aligned to learning path
+    POST /api/goals/create-with-scheduling — Create goal with capacity check
 
 Cross-domain links (via create_activity_link_api_routes):
     POST /api/goals/link-knowledge — Link goal to required knowledge/skill

@@ -59,7 +59,7 @@ class _DualTrackMixin:
         "The user's vision is understood via the words they use to communicate,
         the UserContext is determined via user's actions."
 
-        Uses BaseIntelligenceService._dual_track_assessment() template (ADR-030).
+        Uses BaseAnalyticsService._dual_track_assessment() template (ADR-030).
 
         Args:
             habit_uid: Habit UID to assess

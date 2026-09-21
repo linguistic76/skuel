@@ -1,5 +1,5 @@
 ---
-updated: 2026-09-04
+updated: 2026-09-21
 ---
 
 # Gantt Visualization Surface — Staged, Not Abandoned
@@ -167,7 +167,7 @@ Each step names the live pattern to copy. Nine artifacts.
 | 5 | Register in smoke test | `scripts/smoke_test.py` `_REGISTRY_COMPONENTS` | **Mandatory** — `_assert_registry_in_sync()` fails otherwise. ⚠ The fixture never loads frappe-gantt, so `ganttVis` must not touch the `Gantt` global at `init()`. |
 | 6 | UI route | `adapters/inbound/` | `VISUALIZATION_CONFIG` currently sets `ui_factory=None`. |
 | 7 | Page/component | `ui/` | **Chart.js is the correct precedent** — opt-in per-page via `extra_scripts`. ⚠ **Not** vis-network: that is hand-committed and loaded unconditionally in `build_head()` on every page. |
-| 8 | Nav entry | navigation config | Otherwise reachable only by typing the URL — exactly how `/timelines` became orphaned. |
+| 8 | Nav entry | navigation config | Otherwise reachable only by typing the URL — how the former Gantt page became orphaned (no `/timelines` is registered today; this surface is STAGED, ruled keep — see the header). |
 | 9 | CSS | `static/css/` | `_get_gantt_class` emits classes (`completed`, `in-progress`, `blocked`, `priority-*`, `milestone-bar`) that have **zero rules** anywhere — in the repo or in frappe-gantt's own stylesheet. |
 
 **Library constraints to respect:** frappe-gantt's constructor mutates the DOM

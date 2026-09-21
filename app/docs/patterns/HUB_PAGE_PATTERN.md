@@ -1,6 +1,6 @@
 ---
 title: "Pattern: Hub Page (MOC) Implementation"
-updated: 2026-09-19
+updated: 2026-09-21
 status: current
 category: patterns
 tags: [ui, navigation, moc, hub, cards]
@@ -138,7 +138,7 @@ HTMX's rule: any element in the response that has `hx-swap-oob="true"` is pulled
 <div id="hub-panel-completed">Loading...</div>
 
 <!-- One hidden trigger fires on load, main swap is "none": -->
-<div hx-get="/api/students/{uid}/submissions/preview"
+<div hx-get="/api/teaching/students/{uid}/submissions/preview"
      hx-trigger="load"
      hx-swap="none">
 </div>
@@ -283,7 +283,7 @@ section = HubSection("Contents", cards)
 
 Live consumer: `/gradebook/{uid}` (`submission_detail` in `user_entry_ui.py`) renders an owned user entry's ORGANIZES children as a "Map of Content" `HubSection` — children span entity types, so it passes `href_for` backed by `entity_detail_href()`.
 
-**Flow:** section door in the chrome → the section's landing (a MOC root for Library and Submissions; `/today` for Tasks+) → a child page under the section's `SidebarPage`. The sidebar's `title_href` links back to the root. The retired `/profile`, `/home`, `/curriculum`, `/study` and `/activities` hubs have no redirects — the record is `docs/roadmap/done/tasks-plus-one-chrome.md`.
+**Flow:** section door in the chrome → the section's landing (a MOC root for Library and Submissions; `/today` for Tasks+) → a child page under the section's `SidebarPage`. The sidebar's `title_href` links back to the root. The former hub pages are gone with no redirects — no `/profile`, no `/home`, no `/curriculum`, no `/study`, no `/activities` (the record is `docs/roadmap/done/tasks-plus-one-chrome.md`).
 
 ## File Locations
 

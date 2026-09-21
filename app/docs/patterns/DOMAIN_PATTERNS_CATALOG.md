@@ -1,6 +1,6 @@
 ---
 title: Domain Patterns Catalog
-updated: 2026-09-17
+updated: 2026-09-21
 category: patterns
 related_skills:
 - python
@@ -543,7 +543,7 @@ def to_dto(self) -> TaskDTO:
 7. KU (Knowledge Units) ✅
 8. PS (Path Steps) ✅
 9. LP (Learning Paths) ✅
-10. Assignments ✅
+10. Exercises (Exercise + RevisedExercise) ✅
 11. User ✅
 12. LifePath ✅
 
@@ -554,7 +554,7 @@ def to_dto(self) -> TaskDTO:
 ### When to Use
 
 ✅ **Use Pattern B when**:
-- Domain is admin-only bookkeeping (Finance)
+- Domain is admin-only bookkeeping with no business rules of its own
 - Minimal or no business logic (<3 methods)
 - No immutability requirements
 - Not used by generic protocol-based services
@@ -622,172 +622,12 @@ core/models/{domain}/
 
 **Notice**: No `{domain}.py` domain model file.
 
-### Complete Example: Finance Domain
+### Worked Example
 
-#### Tier 1: Pydantic Request
-
-```python
-# illustrative only — no live file: SKUEL has no native expense module (ADR-052 Phase 5 demolished it; Finance is a Firefly III sidecar)
-
-from datetime import date
-from pydantic import Field
-
-from core.models.request_base import CreateRequestBase
-
-class ExpenseCreateRequest(CreateRequestBase):
-    """External API request for creating an expense."""
-
-    amount: float = Field(gt=0, description="Expense amount")
-    category: str = Field(min_length=1, description="Expense category")
-    description: str | None = Field(None, description="Expense description")
-    paid_at: date = Field(default_factory=date.today, description="Payment date")
-```
-
-**What it does**:
-- Validates amount > 0
-- Validates category not empty
-- Returns 400 on validation failure
-
-#### Tier 2: DTO (Used Directly - No Domain Model)
-
-```python
-# illustrative only — no live file (see the Tier 1 note above)
-
-from dataclasses import dataclass, field
-from datetime import date, datetime
-
-@dataclass
-class ExpenseDTO:
-    """
-    DTO for expenses - used directly (no separate domain model).
-
-    Simple bookkeeping domain with minimal logic.
-    """
-
-    # Identity
-    uid: str
-    user_uid: UserUID
-
-    # Finance data
-    amount: float
-    category: str
-    description: str | None = None
-    paid_at: date = field(default_factory=date.today)
-    status: str = "unpaid"
-
-    # Metadata
-    created_at: datetime = field(default_factory=datetime.now)
-    updated_at: datetime = field(default_factory=datetime.now)
-
-    @classmethod
-    def create(
-        cls,
-        user_uid: UserUID,
-        amount: float,
-        category: str,
-        description: str | None = None,
-    ) -> "ExpenseDTO":
-        """Factory method to create new ExpenseDTO with generated UID."""
-        return cls(
-            uid=f"expense.{uuid.uuid4()}",
-            user_uid=user_uid,
-            amount=amount,
-            category=category,
-            description=description,
-            paid_at=date.today(),
-            status="unpaid",
-            created_at=datetime.now(),
-            updated_at=datetime.now(),
-        )
-
-    def mark_paid(self) -> None:
-        """Simple mutation - mark expense as paid."""
-        self.status = "paid"
-        self.updated_at = datetime.now()
-
-    def to_dict(self) -> dict:
-        """Convert to dictionary for database operations."""
-        return {
-            "uid": self.uid,
-            "user_uid": self.user_uid,
-            "amount": self.amount,
-            "category": self.category,
-            "description": self.description,
-            "paid_at": self.paid_at.isoformat(),
-            "status": self.status,
-            "created_at": self.created_at.isoformat(),
-            "updated_at": self.updated_at.isoformat(),
-        }
-
-    @classmethod
-    def from_dict(cls, data: dict) -> "ExpenseDTO":
-        """Create DTO from dictionary (Neo4j record)."""
-        return cls(
-            uid=data["uid"],
-            user_uid=data["user_uid"],
-            amount=data["amount"],
-            category=data["category"],
-            description=data.get("description"),
-            paid_at=date.fromisoformat(data["paid_at"]),
-            status=data.get("status", "unpaid"),
-            created_at=datetime.fromisoformat(data["created_at"]),
-            updated_at=datetime.fromisoformat(data["updated_at"]),
-        )
-```
-
-**What it does**:
-- Provides mutability for simple operations
-- Generates UIDs and timestamps
-- Serializes to/from Neo4j
-- Simple mutations (mark_paid) directly on DTO
-- **No separate domain model** - DTO is sufficient
-
-#### Service Usage (No Domain Model Needed)
-
-```python
-# illustrative only — no live file (see the Tier 1 note above)
-
-class FinanceService:
-    """Finance service uses DTO directly."""
-
-    async def create_expense(
-        self,
-        request: ExpenseCreateRequest,
-        user_uid: UserUID,
-    ) -> Result[ExpenseDTO]:
-        """Create expense (no domain model conversion)."""
-
-        # Pydantic → DTO (no domain model)
-        expense_dto = ExpenseDTO.create(
-            user_uid=user_uid,
-            amount=request.amount,
-            category=request.category,
-            description=request.description,
-        )
-
-        # Persist DTO directly
-        result = await self.backend.create(expense_dto)
-        return result
-
-    async def mark_paid(self, uid: str) -> Result[ExpenseDTO]:
-        """Mark expense as paid (simple mutation on DTO)."""
-
-        # Get DTO
-        result = await self.backend.get(uid)
-        if result.is_error:
-            return result
-
-        expense = result.value
-
-        # Mutate DTO directly (no domain model)
-        expense.mark_paid()
-
-        # Persist changes
-        update_result = await self.backend.update(uid, expense.to_dict())
-        return update_result
-```
-
-**Key point**: No conversion to domain model. DTO used directly throughout service layer.
+No live domain uses Pattern B (see § Current Implementations), so there is no file to read
+alongside this section. The shape is the file structure above: a mutable DTO with
+`from_dict` / `to_dict` and the service calling `backend.create(dto.to_dict())` /
+`backend.update(uid, dto.to_dict())` directly — no domain-model conversion in between.
 
 ### Pros & Cons
 
@@ -805,10 +645,11 @@ class FinanceService:
 
 ### Current Implementations
 
-**Pattern B domains (1)**:
-1. Finance ✅ (admin-only bookkeeping)
-
-Journals migrated to Pattern A via ADR-054 — they are now a `pipeline=TRANSCRIBE_AND_STRUCTURE` flow on `UserEntry`, sharing the full Pattern A stack (frozen dataclass → DTO → Pydantic request) with every other user-authored content type.
+**Pattern B domains (0)**. Finance's one native model, the invoice
+(`core/models/finance/invoice.py`), carries all three tiers in one file — `InvoiceCreateRequest`
+→ `InvoiceDTO` → frozen `InvoicePure` — so it is Pattern A; bookkeeping itself is a Firefly III
+sidecar (ADR-052). Journals are a `pipeline=TRANSCRIBE_AND_STRUCTURE` flow on `UserEntry`
+(ADR-054), sharing the full Pattern A stack with every other user-authored content type.
 
 ---
 

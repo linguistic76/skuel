@@ -1,6 +1,6 @@
 ---
 title: Route Factory Pattern
-updated: '2026-09-20'
+updated: '2026-09-21'
 category: patterns
 related_skills:
 - domain-route-config
@@ -24,7 +24,7 @@ SKUEL uses **route factories** to eliminate boilerplate in API route definitions
 | Factory | Purpose | Routes Generated |
 |---------|---------|------------------|
 | **CRUDRouteFactory** | Standard CRUD operations | create, get, update, delete, list |
-| **CommonQueryRouteFactory** | Common query patterns | by-status, by-category, active, recent |
+| **CommonQueryRouteFactory** | Common query patterns | user, by-status, goal, habit |
 | **AnalyticsRouteFactory** | Analytics endpoints | domain-specific analytics |
 | **IntelligenceRouteFactory** | Intelligence endpoints | context, analytics, insights |
 | **create_activity_field_api_routes** | HTMX inline card field updates | POST /api/{domain}/{uid}/{field} (status, priority) |
@@ -97,7 +97,7 @@ crud_factory.register_routes(app, rt)
 | POST | `/api/{domain}/delete?uid=...` | Delete (with ownership check; cascades — OWNS edge means non-cascade could never succeed, G18) |
 | GET | `/api/{domain}/list` | List (filtered by user) |
 
-**Note:** SKUEL uses query parameters (`?uid=...`) instead of path parameters (`/{uid}`) for API routes, following FastHTML's "query parameters preferred" pattern.
+**Note:** the factory's reads and writes take the uid as a query parameter (`?uid=...`). A per-entity door written by hand or by the `create_activity_*` factories takes a path uid (`POST /api/tasks/{uid}/status`, `GET /api/path-steps/{uid}/organizers`) — both shapes are live; the CRUD factory is the query-param one.
 
 ### Parameters
 
@@ -109,7 +109,9 @@ crud_factory.register_routes(app, rt)
 | `update_schema` | type[BaseModel] | required | Pydantic schema for updates |
 | `uid_prefix` | str | None | Prefix for generated UIDs |
 | `scope` | ContentScope | USER_OWNED | Content ownership model (USER_OWNED or SHARED) |
-| `require_role` | UserRole | None | Required role (overrides scope when set) |
+| `require_role` | UserRole | None | Required role — orthogonal to `scope`: the role check and the ownership check both apply |
+| `role_gates_reads` | bool | True | With `require_role` set: `True` gates every route, `False` gates only create/update/delete (the Groups pattern — open reads, teacher-only mutations) |
+| `user_service_getter` | Callable | None | Returns the `UserService` the role check reads; required when `require_role` is set |
 | `base_path` | str | `/api/{domain}` | Custom base path |
 | `request_create_method` | str | None | Name of a request-door create primitive on the service (`(create_schema, user_uid) -> Result[T]`). When set, the create route hands the VALIDATED REQUEST to that method instead of converting to an entity and calling `service.create(entity)`. Resolved fail-fast at construction. All six Activity Domains bind this (`create_task`, `create_goal`, …) so request-only link fields become edges instead of being accepted and silently dropped. |
 
@@ -132,7 +134,9 @@ domain wiring is needed beyond pointing `update_schema` at the request model.
 
 ## Security: Content Scope
 
-All factories support `scope` parameter (default: `ContentScope.USER_OWNED`).
+`CRUDRouteFactory`, `CommonQueryRouteFactory` and `IntelligenceRouteFactory` take a `scope`
+parameter (default: `ContentScope.USER_OWNED`). `AnalyticsRouteFactory` takes `require_role`
+only — its endpoints are user-scoped aggregates with no per-entity uid to verify.
 
 ### ContentScope Enum
 
@@ -158,17 +162,25 @@ class ContentScope(str, Enum):
 
 ### Domain-to-Scope Mapping
 
-| Category | Domains | scope |
-|----------|---------|-------|
-| **Activity** | Tasks, Goals, Habits, Events, Choices, Principles, Finance, Journals | `ContentScope.USER_OWNED` |
-| **Curriculum** | KU, PS, LP, MOC | `ContentScope.SHARED` |
+The domains that register a `CRUDRouteFactory` (census: `crud=CRUDRouteConfig(` in
+`adapters/inbound/*_routes.py` plus the six `create_activity_domain_route_config` callers):
+
+| Domains | scope | require_role |
+|---------|-------|--------------|
+| Tasks, Goals, Habits, Events, Choices, Principles | `ContentScope.USER_OWNED` | — |
+| Exercises, RevisedExercises | `ContentScope.USER_OWNED` | `UserRole.TEACHER` |
+| Groups | `ContentScope.USER_OWNED` | `UserRole.TEACHER`, `role_gates_reads=False` |
+| FormTemplates | `ContentScope.SHARED` | `UserRole.ADMIN` |
+
+Ku, PathStep and LearningPath register no CRUD factory — they are created by vault
+ingestion. Finance is a Firefly III sidecar (ADR-052) with hand-written admin routes.
 
 ### Relationship to require_role
 
-`scope` is orthogonal to `require_role`. When `require_role` is set:
-- Role-based access controls everything
-- `scope` is ignored (role = access control)
-- Example: Finance domain uses `require_role=UserRole.ADMIN`
+`scope` and `require_role` are orthogonal — the role check gates who may call the
+route, the ownership check gates which entity the caller may reach, and both apply
+when both are set (`crud_route_factory.py`, the `CRUDRouteFactory.__init__` docstring).
+`role_gates_reads=False` narrows the role check to the three mutation routes.
 
 ## CommonQueryRouteFactory
 
@@ -188,9 +200,10 @@ query_factory.register_routes(app, rt)
 
 ### Generated Routes
 
-- `GET /api/{domain}/active` - Active entities
-- `GET /api/{domain}/by-status?status=...` - Filter by status
-- `GET /api/{domain}/recent` - Recently created/modified
+- `GET /api/{domain}/user` — the caller's entities; `?user_uid=` reads another user's (admin only)
+- `GET /api/{domain}/by-status?status=...` — filter by status
+- `GET /api/{domain}/goal?goal_uid=...` — entities related to a goal (`supports_goal_filter=True`: Tasks, Principles)
+- `GET /api/{domain}/habit?habit_uid=...` — entities related to a habit (`supports_habit_filter=True`: Tasks, Events)
 
 ## AnalyticsRouteFactory
 
@@ -221,16 +234,20 @@ analytics_factory.register_routes(app, rt)
 
 ## IntelligenceRouteFactory
 
-Generates intelligence routes for the `IntelligenceOperations` protocol (January 2026).
-
-**Rollout Complete (January 2026):** IntelligenceRouteFactory is now active across all 10 domains, generating 30 standardized endpoints.
+Generates the three routes of the route factory's own `IntelligenceOperations` protocol
+(`adapters.inbound.route_factories.IntelligenceOperations` — three methods, distinct from
+the ISP protocols in `core.ports.intelligence_protocols`). Eight domains register it —
+the six Activity Domains through `create_activity_domain_route_config`, PathSteps and
+LearningPaths through `IntelligenceRouteConfig(scope=ContentScope.SHARED)` — 24 routes
+(re-count: `./dev health-claims` prints the catalog size; `grep -n IntelligenceRouteConfig
+adapters/inbound/*_routes.py` names the two curriculum registrations).
 
 ### Clear Boundaries: Intelligence vs Analytics
 
 | Factory | Purpose | Endpoints |
 |---------|---------|-----------|
-| **IntelligenceRouteFactory** | Standard 3 intelligence primitives | `/context`, `/analytics`, `/insights` |
-| **AnalyticsRouteFactory** | Custom domain-specific analytics | `/analytics/summary`, `/analytics/trends`, etc. |
+| **IntelligenceRouteFactory** | Standard 3 intelligence primitives | `GET /api/{domain}/context`, `GET /api/{domain}/analytics`, `GET /api/{domain}/insights` |
+| **AnalyticsRouteFactory** | Custom domain-specific analytics | one path per config entry — the live consumer registers `GET /api/path-steps/analytics/summary` and `GET /api/path-steps/graph/structure` |
 
 **Use IntelligenceRouteFactory** for the canonical intelligence endpoints that every domain provides.
 **Use AnalyticsRouteFactory** for additional domain-specific analytics beyond the standard 3.
@@ -285,22 +302,30 @@ intelligence_factory.register_routes(app, rt)
 Routes use FastHTML function parameters with type hints for clean API design:
 
 ```python
-async def context_route(request, uid: str, depth: int = 2) -> Result[dict[str, Any]]:
-async def analytics_route(request, period_days: int = 30) -> Result[dict[str, Any]]:
-async def insights_route(request, uid: str, min_confidence: float = 0.7) -> Result[list[dict[str, Any]]]:
+async def context_route(request: Request, uid: str, depth: int = 2) -> Result[dict[str, Any]]:
+async def analytics_route(request: Request, period_days: int = 30) -> Result[dict[str, Any]]:
+async def insights_route(request: Request, uid: str, min_confidence: float = 0.7) -> Result[dict[str, Any]]:
 ```
 
-### Security: Content Scope (January 2026)
+The context route answers `{"entity": ..., "context": ...}` (the `(entity, GraphContext)`
+tuple serialized); a service error propagates with `Result.fail(result)` across the type
+boundary, never as the bare tuple result.
 
-When `scope=ContentScope.USER_OWNED` and `ownership_service` is provided:
+### Security: Content Scope
+
+When `scope=ContentScope.USER_OWNED`, `ownership_service` is required — the constructor
+raises without it (fail-fast: a USER_OWNED factory that cannot verify ownership would be a
+cross-user read). On the context and insights routes:
 1. `require_authenticated_user(request)` extracts user_uid (401 if not logged in)
 2. `ownership_service.verify_ownership(uid, user_uid)` confirms ownership
 3. Returns **404** (not 403) to prevent UID enumeration attacks
 4. Operation proceeds only if both checks pass
 
+The analytics route is user-scoped (no entity uid) and skips step 2.
+
 **Domain-to-Scope Mapping:**
 - **Activity Domains** (user-owned): Tasks, Goals, Habits, Events, Choices, Principles → `scope=ContentScope.USER_OWNED`
-- **Curriculum Domains** (shared): KU, PS, LP, MOC → `scope=ContentScope.SHARED`
+- **Curriculum Domains** (shared): PathSteps (`/api/path-steps/*`), LearningPaths (`/api/pathways/*`) → `scope=ContentScope.SHARED`
 
 ## When to Use Factories vs Manual Routes
 

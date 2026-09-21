@@ -329,8 +329,8 @@ def create_vault_routes(
         Admin-only. Inbound-only: ``sync`` ignores the acting user for
         ``VaultKind.CONTENT`` (the fixed content-vault owner from the descriptor
         wins) and returns after ingest, since the content vault has no task
-        round-trip. This is the one directory-ingest path (ADR-070 Decision 9) —
-        it replaces the retired ``POST /api/ingest/directory`` admin door.
+        round-trip. This is the one directory-ingest path (ADR-070 Decision 9);
+        ``ingestion_api.py`` has no directory door.
 
         Request body (JSON, optional — validated by ContentVaultSyncRequest):
             force: bool — re-process unchanged files too (re-chunk/migration

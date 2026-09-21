@@ -1,6 +1,6 @@
 ---
 title: Security Hardening — Deferred Items
-updated: 2026-09-09
+updated: 2026-09-21
 category: roadmap
 tags: [roadmap, security, hardening]
 ---
@@ -200,37 +200,15 @@ a fresh token. Revisit only if role management is exposed to non-admin users.
 vulnerabilities in transitive dependencies go undetected until a developer happens to run
 `pip audit` manually.
 
-### A. Dependency CVE scan — ✅ DONE (PR #797)
+### A. Dependency CVE scan — ✅ DONE (PR #797, consolidated onto osv-scanner 2026-08-07)
 
-> **Update 2026-08-07 — consolidated onto osv-scanner.** The job below is now `dep_audit`
-> and scans BOTH lockfiles (`uv.lock` + `package-lock.json`, all severities) with osv-scanner;
-> pip-audit and `.pip-audit-ignore` are retired. Accepted findings live in
-> `app/osv-scanner.toml`, each with a reason **and an `ignoreUntil` expiry** — the re-check
-> convention this section could only state is now enforced by the tooling. Design record:
-> `/docs/roadmap/done/dependency-scanner-consolidation.md`; policy: ADR-067 § 6e. The paragraphs
-> below describe the original pip-audit shape and stand as history.
-
-Shipped as the `pip_audit` job in `.github/workflows/ci.yml`, required (via the CI Gate) on
-every Python-file PR — `pyproject.toml` / `uv.lock` changes are what move the resolution, and
-running on ordinary Python PRs also catches CVEs published since the last dependency change.
-A dedicated `audit` path filter additionally triggers the job when the audit tooling itself
-(`/scripts/audit_dependencies.sh`, `/.pip-audit-ignore`) changes, so the check can never be
-edited without being exercised.
-One audit path for CI and local (`./dev audit-deps`): `/scripts/audit_dependencies.sh` exports
-the full locked resolution (`uv export`, all groups, with hashes) and runs
-`pip-audit --strict --disable-pip` against the OSV database — the lock is audited, not the
-live venv, and no resolver runs.
-
-Accepted findings live in `/.pip-audit-ignore`, one vulnerability ID per line, **each with a
-documented reason and an unblock condition**. Currently: the dev-only `mcp-neo4j-cypher`
-cluster (fastmcp / mcp / diskcache — upstream 0.6.0 is the latest release and pins the
-vulnerable versions; the dev group never reaches the production image, which syncs
-`--no-dev`). Delete entries the moment an upgrade path exists.
-
-The first run also surfaced 15 fixable packages; 13 were upgraded in the lock in the same PR
-(aiohttp, cryptography, jupyter-server, jupyterlab, langsmith, mistune, pillow,
-pydantic-settings, pymdown-extensions, pypdf, starlette, tornado + notebook as a follower)
-and setuptools fell out of the resolution entirely.
+One audit path for CI and local: `scripts/audit_dependencies.sh` (`./dev audit-deps`, `./dev
+quality` check 8, the required `dep_audit` CI job, and the daily
+`../.github/workflows/dependency-audit.yml`) runs osv-scanner over BOTH lockfiles (`uv.lock` +
+`package-lock.json`, all severities). Accepted findings live in `app/osv-scanner.toml`, each with
+a `reason` **and an `ignoreUntil` expiry** — the re-check convention is enforced by the tooling.
+There is no pip-audit step and no `.pip-audit-ignore` file. Design record:
+`/docs/roadmap/done/dependency-scanner-consolidation.md`; policy: ADR-067 § 6e.
 
 ### B. Secret scanning in history (runs on PR targeting main)
 

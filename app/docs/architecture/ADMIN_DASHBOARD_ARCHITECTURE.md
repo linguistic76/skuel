@@ -1,6 +1,6 @@
 ---
 title: Admin Dashboard Architecture
-updated: 2026-09-20
+updated: 2026-09-21
 status: current
 category: architecture
 tags:
@@ -28,7 +28,7 @@ For implementation guidance, see:
 
 ## Overview
 
-The Admin Dashboard provides a centralized UI for system administration at `/admin`. It follows SKUEL's established UI patterns (ProfileLayout, StatsGrid) while enforcing ADMIN-only access through role-based decorators.
+The Admin Dashboard provides a centralized UI for system administration at `/admin`. It follows SKUEL's established UI patterns (SidebarPage, StatsGrid) while enforcing ADMIN-only access through role-based decorators.
 
 The overview page displays quick-action cards (Users, Analytics, Finance, Ingestion) in a 3-column grid. The sidebar provides navigation to 6 sections: Overview, Users, Analytics, System, Finance, and Ingestion.
 
@@ -130,7 +130,7 @@ The user management section (`/admin/users`) provides:
 /home/mike/skuel/app/
 ├── ui/admin/
 │   ├── __init__.py              # Module exports
-│   └── layout.py                # AdminLayout, AdminNavItem, create_admin_page
+│   └── layout.py                # ADMIN_SIDEBAR_ITEMS, create_admin_page
 │
 ├── components/
 │   └── admin_components.py      # AdminUIComponents, AdminAnalyticsComponents,
@@ -172,27 +172,23 @@ The user management section (`/admin/users`) provides:
 
 ## Component Architecture
 
-### AdminLayout (ui/admin/layout.py)
+### Admin layout (ui/admin/layout.py)
 
-Follows the ProfileLayout pattern with admin-specific navigation:
+`create_admin_page(content, active_section, admin_username, title, request)` renders through
+the shared `SidebarPage` (`storage_key="admin-sidebar"`, `active_page="admin"`) with the admin
+section list — `SidebarItem` rows whose `icon` is a Lucide name:
 
 ```python
-@dataclass
-class AdminNavItem:
-    name: str       # "Users"
-    slug: str       # "users"
-    icon: str       # Emoji
-    href: str       # "/admin/users"
-    badge: str | None = None
-    external: bool = False  # For Finance link
-
-ADMIN_SIDEBAR_ITEMS = [
-    SidebarItem("Overview", "/admin", "overview", icon="📊"),
-    SidebarItem("Users", "/admin/users", "users", icon="👥"),
-    SidebarItem("Analytics", "/admin/analytics", "analytics", icon="📈"),
-    SidebarItem("System", "/admin/system", "system", icon="⚙️"),
-    SidebarItem("Finance", "/finance", "finance", icon="💰", badge_text="→"),
-    SidebarItem("Ingestion", "/ingest", "ingestion", icon="📥", badge_text="→"),
+ADMIN_SIDEBAR_ITEMS: list[SidebarItem] = [
+    SidebarItem("Overview", "/admin", "overview", icon="layout-dashboard"),
+    SidebarItem("Users", "/admin/users", "users", icon="users"),
+    SidebarItem("Analytics", "/admin/analytics", "analytics", icon="trending-up"),
+    SidebarItem("Knowledge Health", "/admin/knowledge-health", "knowledge-health", icon="stethoscope"),
+    SidebarItem("Prereq Edges", "/admin/prereq-suggestions", "prereq", icon="link"),
+    SidebarItem("Transcription", "/admin/batch-transcribe", "transcription", icon="mic"),
+    SidebarItem("System", "/admin/system", "system", icon="settings"),
+    SidebarItem("Finance", "/finance/invoices", "finance", icon="wallet", badge_text="→", hx_attrs={"target": "_blank"}),
+    SidebarItem("Ingestion", "/ingest", "ingestion", icon="folder-input", badge_text="→", hx_attrs={"target": "_blank"}),
 ]
 # KU progress accessible per-student at /teaching/students/{uid}/submissions?tab=ku
 ```
@@ -356,11 +352,18 @@ The dashboard uses HTMX for dynamic updates without full page reloads:
     Edit Role
 </button>
 
-<!-- Form submits via HTMX -->
-<form hx-post="/api/admin/users/{uid}/role"
+<!-- The registered door: POST /api/admin/users/role?uid=…, JSON body {"role": "…"} -->
+<form hx-post="/api/admin/users/role?uid={uid}"
       hx-swap="outerHTML"
       hx-target="#user-card-{uid}">
 ```
+
+**Defect, not a pattern:** the live form (`AdminUIComponents.render_role_change_form`,
+`ui/admin/views.py`) posts form-encoded to a path uid — there is no `/api/admin/users/{uid}/role`;
+the handler at `/api/admin/users/role` takes `uid` as a query parameter, reads a JSON
+body, and answers a JSON `Result`, not the card fragment the form targets. Changing a role
+through the UI is broken until the two sides agree — the fix is the handler answering the
+rendered user card to an HTMX request and the form posting to the registered path.
 
 ---
 
@@ -429,7 +432,7 @@ The admin user detail page uses `AdminStatsService` (cross-domain aggregation qu
 
 ## Patterns Used
 
-### 1. Layout Pattern (ProfileLayout → AdminLayout)
+### 1. Layout Pattern (SidebarPage)
 
 Sidebar + content layout with:
 - Collapsible sidebar on desktop
@@ -508,9 +511,9 @@ To add a new admin section — `/admin/logs` does not exist; the example below a
 
 ```python
 # ui/admin/layout.py
-ADMIN_NAV_ITEMS = [
+ADMIN_SIDEBAR_ITEMS = [
     ...
-    AdminNavItem("Logs", "logs", "📋", "/admin/logs"),
+    SidebarItem("Logs", "/admin/logs", "logs", icon="clipboard-list"),
 ]
 ```
 
@@ -556,7 +559,7 @@ async def admin_logs(request: Request, current_user: Any = None):
 
 | File | Purpose |
 |------|---------|
-| `ui/admin/layout.py` | AdminLayout, AdminNavItem, create_admin_page |
+| `ui/admin/layout.py` | ADMIN_SIDEBAR_ITEMS, create_admin_page |
 | `ui/admin/views.py` | User/Analytics/System/Learning UI components |
 | `adapters/inbound/admin_dashboard_ui.py` | Dashboard UI routes |
 | `adapters/inbound/admin_routes.py` | API routes (JSON) |

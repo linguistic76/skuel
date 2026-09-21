@@ -1,6 +1,6 @@
 ---
 title: Domain-Specific Hooks Pattern
-updated: 2026-09-17
+updated: 2026-09-21
 category: patterns
 related_skills: []
 related_docs: []
@@ -540,21 +540,23 @@ class TasksCoreService(BaseService[TasksOperations, Task]):
 | **Domain-Specific Hooks** | Service layer | Business rule enforcement | Dynamic (programmatic) |
 | **Database Constraints** | Neo4j | Data integrity | Static (declarative) |
 
-**Example**: Validating an expense amount
+**Example**: a registration email (`core/models/auth/auth_request.py`,
+`core/auth/graph_auth.py`, `Neo4jSchemaManager.sync_auth_indexes`)
 
 ```python
 # Layer 1: Pydantic (API boundary)
-class ExpenseCreateRequest(BaseModel):
-    amount: float  # Type validation: must be float
+class RegistrationRequest(BaseModel):
+    email: str = Field(min_length=1, max_length=255)   # shape: present, bounded
 
-# Layer 2: Domain Hook (Service layer)
-def _validate_create(self, expense: ExpensePure) -> Result[None]:
-    if expense.amount <= 0:  # Business rule: must be positive
-        return Result.fail(Errors.validation("Amount must be positive"))
-    return Result.ok(None)
+# Layer 2: Domain rule (service layer) — GraphAuthService.sign_up
+existing_result = await self.user_backend.find_by(email=email)
+if existing_result.is_ok and existing_result.value:
+    return Result.fail(
+        Errors.validation(message="An account with this email already exists", field="email")
+    )
 
-# Layer 3: Database (Neo4j constraint)
-# CREATE CONSTRAINT FOR (e:Expense) REQUIRE e.amount IS NOT NULL
+# Layer 3: Database (Neo4j constraint the schema manager creates at bootstrap)
+# CREATE CONSTRAINT User_email_unique IF NOT EXISTS FOR (n:User) REQUIRE n.email IS UNIQUE
 ```
 
 **Each layer has its role**:

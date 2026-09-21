@@ -310,7 +310,7 @@ def require_authenticated_user(request: Request) -> UserUID:
 
     Usage:
         ```python
-        @rt("/api/tasks")
+        @rt("/api/tasks/list")
         async def get_tasks(request):
             user_uid = require_authenticated_user(request)
             # Guaranteed to have real user_uid here

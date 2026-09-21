@@ -1,7 +1,7 @@
 """Journal grounding projection — the named curated rendering of UserContext (ADR-081 D2).
 
 The typed Journals companion grounds every turn on the real
-``UnifiedUserContext.build()`` object, but what reaches the prompt is THIS
+``UserContextBuilder.build()`` object, but what reaches the prompt is THIS
 projection — a legible, tunable rendering, never an open-ended dump of the
 ~150-field context. ``JOURNAL_GROUNDING_FIELDS`` is the explicit list of
 UserContext fields the projection may read; the recording test in

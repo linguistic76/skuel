@@ -1,13 +1,13 @@
 ---
 related_skills: [security]
-updated: 2026-09-20
+updated: 2026-09-21
 ---
 # Route Authentication Requirements
 
-**Date:** 2026-01-21
-**Version:** 1.0 (Security Hardening Release)
-
-This document defines the authentication requirements for all SKUEL routes.
+This document defines the authentication requirements for SKUEL routes — the level each
+route family carries and the standing hardening rules the route layer enforces. Re-derive
+a route's existence with `uv run python scripts/health/route_claims.py --file <this file>`
+(the runtime catalog) before adding a row.
 
 ## Authentication Levels
 
@@ -30,6 +30,8 @@ This document defines the authentication requirements for all SKUEL routes.
 | `/reset-password` | `auth_routes.py` | Password reset with token |
 | `/api/devices/enroll` | `device_routes.py` | Agent enrollment (ADR-075): the one-time pairing code IS the credential (hashed, 10-min TTL, single-use); IP rate-limited |
 | `WS /ws/agent` | `device_routes.py` | Vault-agent channel (ADR-075): Ed25519 challenge-signature handshake authenticates the device; pre-accept per-IP rate limit + concurrent-handshake cap |
+| `/health`, `/health/ready` | `system_api.py` | Liveness / readiness probes (the deploy gate reads `/health/ready`) |
+| `/metrics` | `metrics_routes.py` | Prometheus exposition — auth-exempt so a local scraper can read it; production Caddy answers 403 for it (`Caddyfile`), read on-droplet via `docker compose exec` |
 
 ### Authenticated Routes (User Required)
 
@@ -50,7 +52,6 @@ This document defines the authentication requirements for all SKUEL routes.
 |---------------|------|-------|
 | `/api/health` | `system_api.py` | System health check |
 | `/api/status` | `system_api.py` | System status |
-| `/api/metrics` | `system_api.py` | System metrics |
 | `/api/diagnostics` | `system_api.py` | System diagnostics |
 | `/api/services/**` | `system_api.py` | Service registration |
 | `/api/alerts/**` | `system_api.py` | Alert management |
@@ -89,7 +90,7 @@ These two helpers are the only route-layer doors; there is no decorator form.
 ```python
 get_user_service = make_service_getter(services.user)
 
-@rt("/api/admin/endpoint")
+@rt("/api/admin/users")
 @require_admin(get_user_service)
 async def admin_route(request: Request, current_user: Any = None):
     # current_user is guaranteed to be admin
@@ -115,45 +116,24 @@ https_only = True  # In production
 | `SESSION_SECRET_KEY` | Session signing key | Generated (dev), **required** in production/staging |
 | `SKUEL_ENVIRONMENT` | Environment name | `local` |
 
-## Security Decisions (January 2026)
+## Standing Hardening Rules
 
-### Removed Routes
+Each row is a rule the route layer enforces now, with the code that enforces it. The
+history of how each arrived is `git log -S` on the named symbol, not this table.
 
-| Route | Reason |
-|-------|--------|
-| `/switch-user` | User impersonation vulnerability |
-
-### Hardened Routes
-
-| Change | Rationale |
-|--------|-----------|
-| GraphQL requires auth | No development fallback |
-| Visualization IDOR fixed | No user_uid query param |
-| System API admin-only | Prevents info disclosure |
-| SameSite strict | Enhanced CSRF protection |
-| Debug endpoints admin-only | Prevents session info leakage |
-
-## Security Hardening (March 2026)
-
-| Change | Rationale |
-|--------|-----------|
-| WebSocket ingestion requires admin session | Was unauthenticated; closes with 4003 before `ws.accept()` |
-| GraphQL GET requires auth | Playground UI was accessible without login |
-| Cypher injection guards — labels + field names | `validate_label()` and `validate_identifier()` promoted to shared `_helpers.py`, applied across all 5 query builder modules (`crud_queries.py`, `domain_queries.py`, `relationship_queries.py`, `semantic_queries.py`, `intelligence_queries.py`) — 17 functions validate labels, field names, relationship types, and property keys before f-string interpolation; same guards plus `_validate_similarity()` added to all 5 DDL methods in `neo4j_schema_manager.py` |
-| IDOR fix — `GET /api/submissions/shared-users` | Ownership failure now returns 404 (not 403) — prevents UID enumeration; matches documented pattern |
-| Ownership bypass fix — `get_shared_users` | Route now fails fast with `Errors.system()` when `core_service` is absent instead of silently skipping ownership check |
-| Service name validation — `POST /api/services/register` | `service_name` validated against `^[a-zA-Z0-9_-]{1,64}$` pattern to prevent phantom service registration |
-| Submissions API session auth — all 19 routes in `submissions_api.py` | `user_uid` no longer accepted as query param or form field; all routes use `require_authenticated_user(request)` from session. Single-submission routes verify ownership via `_get_owned_submission()` returning 404 for non-owned resources. Closes IDOR where callers could submit files as or browse submissions of another user |
-
-## Security Hardening (May 2026)
-
-| Change | Rationale |
-|--------|-----------|
-| AI-route owner gating (PR #73, `760d375b`) | `ai_routes.py::_ai_route` was discarding the auth result and passing only `uid` to `facade.ai`, so any logged-in user could read another user's PRIVATE entity via the AI endpoints and burn LLM budget. Fix: `ContentScope` enum on each `AIRouteSpec` (default `USER_OWNED`); USER_OWNED routes route through `verify_entity_ownership` (404, not 403) before invoking AI. The 13 ps/lp specs are explicitly `SHARED`. Enum-not-string-set so a domain-attr rename can't silently flip a route to fail-open. |
-| WebSocket admin re-checks Neo4j role (PR #91, `07b5bae4`) | `require_websocket_admin(ws, user_service)` fetches the user and gates on `User.has_permission(UserRole.ADMIN)` — mirrors HTTP `@require_admin`. No longer trusts the session `is_admin` cookie flag, so a user demoted from ADMIN loses WS access on next connection rather than only on re-login. |
-| Allowlisted Cypher operators + sort directions (PR #92, `b4bf5e01`) | `validate_cypher_operator` + `validate_sort_direction` added to `core/utils/validation_helpers.py`. `query_optimizer._validate_request` centrally gates unsafe constraint property/operator + sort property/direction so all six plan-builders inherit the check from one point. `ModelQueryBuilder.filter(**kwargs)` validates keys with `validate_field_name` (silent-drop with warning, mirrors `order_by`). Closed a latent injection seam — not exploitable from external routes today (callers internal). **Update 2026-08-17 (PR #1081):** the `query_optimizer._validate_request` half is gone — the whole `query_builders/` stack was deleted as dead code, taking its six plan-builders with it. Nothing regressed: those builders had no production caller either. The surviving live guard is `ModelQueryBuilder.filter`/`order_by` → `validate_field_name`. `validate_cypher_operator` / `validate_sort_direction` remain in `validation_helpers.py` with tests, as the allowlist any future Cypher-fragment builder must validate against before interpolating a caller value. |
-| Ingestion path default-denied (PR #93, `d080bf4e`) | `_validate_ingestion_path` precedence: `SKUEL_INGESTION_ALLOWED_PATHS` > `INGESTION_PATH` > fail closed. Was: ANY absolute host path was reachable when the env var was unset. Admin + CSRF bounded impact, but the role gate is for ownership not filesystem reach. |
-| Per-IP login throttle + bcrypt 72-byte UX (PR #94, `cb1c9eff`) | Per-IP: `is_ip_rate_limited` (20 fails/15min, by `AuthEvent.ip_address`) ordered **before** email lookup so a throttled IP can't enumerate accounts. `"unknown"` sentinel short-circuits CLI/non-HTTP paths. Bcrypt: `validate_password` enforces `MAX_PASSWORD_BYTES = 72` (UTF-8 bytes, not chars — a 36-emoji password is 144 bytes) front-running bcrypt's hard limit, so the user gets a clean field-level error instead of a generic broad-except surface. |
+| Rule | Enforced by |
+|------|-------------|
+| No impersonation route — there is no `/switch-user` | (absent from the route table) |
+| System API is admin-only (`/api/health`, `/api/status`, `/api/diagnostics`, `/api/services/**`, `/api/alerts/**`) | `@require_admin` on every `system_api.py` handler except the two probes |
+| Debug endpoints are admin-only (`/debug-session`, `/whoami`) | `@require_admin` in `auth_api.py` |
+| Session cookie is `SameSite=strict` | `adapters/inbound/auth/session.py` |
+| AI routes gate on ownership: a `USER_OWNED` `AIRouteSpec` runs `verify_entity_ownership` (404, never 403) before invoking the facade's `.ai`; the 13 ps/lp specs are `ContentScope.SHARED` | `ai_routes.py` — `ContentScope` on each `AIRouteSpec`, an enum so a domain-attr rename cannot flip a route to fail-open |
+| Service registration validates `service_name` against `^[a-zA-Z0-9_-]{1,64}$` | `POST /api/services/register` in `system_api.py` |
+| Cypher labels, field names, relationship types and property keys are validated before any f-string interpolation | `validate_label()` / `validate_identifier()` in `query/cypher/_helpers.py`, applied by the `build_*` functions; the DDL methods in `neo4j_schema_manager.py` carry their own `_validate_label` / `_validate_identifier` / `_validate_similarity`; `ModelQueryBuilder.filter` / `order_by` (`unified_query_builder.py`) → `validate_field_name`. No live builder interpolates a caller-supplied operator or sort direction; `validate_cypher_operator` / `validate_sort_direction` (`core/utils/validation_helpers.py`) are the allowlist one would use |
+| Ingestion paths are default-denied: `SKUEL_INGESTION_ALLOWED_PATHS` > `INGESTION_PATH` > fail closed | `_validate_ingestion_path` in `ingestion_api.py` |
+| Login is throttled per IP (20 failures / 15 min, keyed on `AuthEvent.ip_address`) **before** the email lookup, so a throttled IP cannot enumerate accounts; `"unknown"` short-circuits CLI/non-HTTP paths | `is_ip_rate_limited` (`session_backend.py`) |
+| Passwords are capped at `MAX_PASSWORD_BYTES = 72` UTF-8 bytes (bcrypt's hard limit) as a field-level validation error | `validate_password` in `core/auth/password.py` |
+| Every ownership failure is a 404, never a 403 | `verify_entity_ownership` / `require_owned_entity` (OWNERSHIP_VERIFICATION.md) |
 
 ## Verification Checklist
 

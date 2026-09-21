@@ -1,11 +1,11 @@
 ---
-updated: 2026-09-17
+updated: 2026-09-21
 ---
 
 # PathStep Content Architecture
 ## How YAML Files, Neo4j Nodes, and Content Blocks Relate
 
-*Last updated: 2026-07-02 (ADR-074 — post-persist embedding events, chunk unification)*
+>>>
 
 **The embedding split (ADR-074):** the PathStep **entity** vector is built from
 frontmatter fields only (`title`, `intent`, `description`, `summary`) on every trigger
@@ -134,16 +134,14 @@ After ingestion, this YAML produces the following graph structure:
 > filters on it does a bare equality test (`chunk.chunk_type IN $chunk_types`,
 > `vector_search_backend.py`). Neo4j matches **zero rows** on a value no node
 > carries rather than erroring, so a member NAME (`"DEFINITION"`) is a silent-zero
-> bug, not a crash — this is how Askesis lost chunk retrieval for five of eight
-> query intents until 2026-07-27. Retrieval code holds `ContentChunkType` members
-> and passes `.value`; it never spells the string by hand.
+> bug, not a crash — a member name in a filter loses every chunk it names, silently.
+> Retrieval code holds `ContentChunkType` members and passes `.value`; it never spells
+> the string by hand.
 
-(No metadata node: the write-only `:ContentMetadata` node — fabricated constants,
-zero readers — was deleted 2026-07-02; deletion paths keep a cleanup MATCH for
-stragglers. The staged metadata-aware path finder that would have consumed it
-(`PsService.find_time_aware_learning_path`) was itself deleted 2026-07-06 once
-the chunk semantic layer superseded the content-metadata campaign — content
-analytics would return with a live metadata write-path first, not as scaffolding.)
+(No metadata node: `NeoLabel` has no content-metadata member and no backend writes one —
+`ContentMetadata` in `core/models/ps_content/` is a Python-side dataclass the LP
+intelligence service computes, never persisted. Content analytics would return with a
+live metadata write-path first, not as scaffolding.)
 
 Also created from the `uses_kus:` list:
 
@@ -175,7 +173,7 @@ Also created from the `uses_kus:` list:
 
 **Relationship:** `(Entity)-[:HAS_CONTENT]->(Content)` — one-to-one. Each PathStep has at most one Content node.
 
-**When it's used:** `/path-steps/{uid}/details` — the reading page. The route calls `ps_service.get_with_content(uid)` which fetches the Entity node, then reads the :Content body via `UniversalNeo4jBackend.get_content` (inline `content` field first, when present; a backend read failure propagates instead of rendering a body-less page), then renders the markdown.
+**When it's used:** `/explore/ps/{uid}` — the reading page (its body loads through the `/explore/ps/{uid}/content` fragment, `learning_loop_routes.py`). The fragment calls `ExploreOrchestrator.get_ps_with_content(uid)` → `PsService.get_with_content(uid)`, which fetches the Entity node, then reads the :Content body via `UniversalNeo4jBackend.get_content` (inline `content` field first, when present; a backend read failure propagates instead of rendering a body-less page), then renders the markdown.
 
 **Key code:** `adapters/persistence/neo4j/neo4j_content_adapter.py` — the `Neo4jContentAdapter` manages Content node creation, updating, and retrieval.
 
@@ -243,23 +241,26 @@ EmbeddingBackgroundWorker embeds entity + chunks, stores vectors + v3 metadata
 
 **Entity node is small by design.** Graph traversal in Neo4j is very fast for node properties, but large property values slow it down. Keeping body text off the Entity node means listing 200 PathSteps is as fast as listing 20.
 
-**Content node enables lazy loading.** The reading page (`/path-steps/{uid}/details`) is the only place that needs the prose text. All other pages (list, sidebar, library) need only the Entity node.
+**Content node enables lazy loading.** The reading page (`/explore/ps/{uid}`) is the only place that needs the prose text. All other pages (list, sidebar, library) need only the Entity node.
 
 **ContentChunks enable semantic search without loading full bodies.** A vector index on `ContentChunk.embedding` lets Askesis find relevant content by meaning, not keyword. The chunk-level granularity also means a specific paragraph can be retrieved without loading the entire 2,000-word PathStep.
 
-**Change detection is file-level, not body-level:** incremental/smart ingestion skips unchanged files via the `IngestionMetadata` content hash. Re-chunking is **delete-then-create** (Arc E, 2026-07-03): `store_content_with_chunks` deletes the entire outgoing chunk set and CREATEs fresh nodes — in ONE Cypher statement (single transaction), so a mid-write failure rolls the delete back and can never leave the Content node chunkless — and stale properties from earlier chunker/schema generations can never linger on a MERGE-kept node. Embedding idempotency (ADR-074 §8) is preserved by carry-over, not node reuse — a new chunk whose `context_window` matches an old chunk's `embedding_source_text` inherits that embedding, and the worker's freshness pre-check then skips it. A re-ingest never accumulates duplicates (chunk uids stay deterministic, `{parent_uid}:chunk:{index}`) and a force re-ingest of an unchanged body never destroys good chunk vectors.
+**Change detection is file-level, not body-level:** incremental/smart ingestion skips unchanged files via the `IngestionMetadata` content hash. Re-chunking is **delete-then-create**: `store_content_with_chunks` deletes the entire outgoing chunk set and CREATEs fresh nodes — in ONE Cypher statement (single transaction), so a mid-write failure rolls the delete back and can never leave the Content node chunkless — and stale properties from earlier chunker/schema generations can never linger on a MERGE-kept node. Embedding idempotency (ADR-074 §8) is preserved by carry-over, not node reuse — a new chunk whose `context_window` matches an old chunk's `embedding_source_text` inherits that embedding, and the worker's freshness pre-check then skips it. A re-ingest never accumulates duplicates (chunk uids stay deterministic, `{parent_uid}:chunk:{index}`) and a force re-ingest of an unchanged body never destroys good chunk vectors.
 
 ---
 
-## Current State (2026-07-02)
+## Two Storage Shapes in a Live Graph
 
-The live graph predates the chunk unification: the existing PathSteps were batch-ingested before ADR-074 PR 2, so they carry `content` as an entity-node property and have **no `:Content`/`:ContentChunk` subtree**. Reads tolerate both shapes (inline-prop → `:Content` fallback), so display works — but chunk retrieval has no substrate for them.
+A PathStep ingested before the chunk unification carries `content` as an entity-node
+property and has **no `:Content`/`:ContentChunk` subtree**. Reads tolerate both shapes
+(inline-prop → `:Content` fallback), so display works — but chunk retrieval has no
+substrate for such a node. Bringing a graph onto the one shape:
 
-Migration (the ADR-074 verification pass):
-
-1. Full-mode vault re-sync — every PathStep gets the `:Content` + `:ContentChunk` shape
+1. Force re-sync of the content vault (`./dev vault-sync --vault content --force`) — every PathStep gets the `:Content` + `:ContentChunk` shape
 2. `MATCH (ps:PathStep) WHERE ps.content IS NOT NULL REMOVE ps.content` — the re-sync alone cannot clear the legacy property (`n += props` never removes omitted keys)
 3. `scripts/generate_embeddings_batch.py --stale` — re-embed the drifted corpus
+
+Count the legacy shape with `MATCH (ps:PathStep) WHERE ps.content IS NOT NULL RETURN count(ps)`.
 
 ---
 

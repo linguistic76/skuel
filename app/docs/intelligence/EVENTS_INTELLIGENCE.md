@@ -1,5 +1,5 @@
 ---
-updated: 2026-09-17
+updated: 2026-09-21
 ---
 
 # EventsIntelligenceService - Cross-Domain Impact Analysis & Schedule Optimization
@@ -45,11 +45,11 @@ EventsIntelligenceService analyzes events through cross-domain impact tracking, 
 
 ## Core Methods
 
-**`get_with_context(uid, depth)` — inherited from `_CoreIntelligenceMixin`** (`core/services/intelligence/`). Implements the `IntelligenceOperations` protocol via **mechanism B**: it routes through `self.relationships.get_with_context`, whose edge vocabulary comes from `DomainConfig.cross_domain_relationship_types` (the registry). `BaseAnalyticsService.__init__` stores the injected relationship service on `self.relationships` — there is no loader to wire (`GraphContextLoader` / `_init_context_loader` / `self.context_loader` were deleted in #241). The Events `_CoreIntelligenceMixin` (in `core/services/events/`) extends this shared base and adds `analyze_event_performance`.
+**`get_with_context(uid, depth)` — inherited from `_CoreIntelligenceMixin`** (`core/services/intelligence/`). Implements the `IntelligenceOperations` protocol via **mechanism B**: it routes through `self.relationships.get_with_context`, whose edge vocabulary comes from `DomainRelationshipConfig.cross_domain_relationship_types` (the registry). `BaseAnalyticsService.__init__` stores the injected relationship service on `self.relationships` — there is no loader to wire (`GraphContextLoader` / `_init_context_loader` / `self.context_loader` were deleted in #241). The Events `_CoreIntelligenceMixin` (in `core/services/events/`) extends this shared base and adds `analyze_event_performance`.
 
 ### Method 1: get_with_context() (shared mechanism B)
 
-**Purpose:** Returns the event entity plus supporting goals, reinforcing habits, related knowledge units, learning path connections, and semantic relationships, with the traversed edge vocabulary sourced from `DomainConfig.cross_domain_relationship_types`.
+**Purpose:** Returns the event entity plus supporting goals, reinforcing habits, related knowledge units, learning path connections, and semantic relationships, with the traversed edge vocabulary sourced from `DomainRelationshipConfig.cross_domain_relationship_types`.
 
 **Signature:**
 ```python

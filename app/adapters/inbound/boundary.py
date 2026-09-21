@@ -232,9 +232,9 @@ def ui_boundary_handler(
             so an HTMX swap still targets the right element on failure.
 
     Usage:
-        @rt("/reports/list")
-        @ui_boundary_handler("Error loading feedback", fragment_id="feedback-list")
-        async def entry_reports_list(request: Request) -> Any:
+        @rt("/reports/progress-list")
+        @ui_boundary_handler("Error loading progress reports", fragment_id="progress-list")
+        async def progress_list_fragment(request: Request) -> Any:
             ...  # body needs no try/except scaffolding
 
     Works on both sync and async handlers (UI shells are often sync,

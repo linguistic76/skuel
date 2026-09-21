@@ -14,8 +14,8 @@ Philosophy:
 
 Factories:
 - CRUDRouteFactory: Standard CRUD operations (create, get, update, delete, list)
-- CommonQueryRouteFactory: Common query patterns (by user, by status, by category)
-- IntelligenceRouteFactory: AI/intelligence endpoints (analytics, recommendations)
+- CommonQueryRouteFactory: Common query patterns (by user, by status, by goal, by habit)
+- IntelligenceRouteFactory: Intelligence endpoints (context, analytics, insights)
 - create_activity_{field,hierarchy,link}_api_routes + create_knowledge_patterns_api_route:
   config-driven Activity Domain route blocks (a spec + a named ``apply`` adapter per route)
 """

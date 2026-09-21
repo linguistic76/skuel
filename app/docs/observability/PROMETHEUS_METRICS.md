@@ -1,5 +1,5 @@
 ---
-updated: 2026-09-19
+updated: 2026-09-21
 ---
 
 # Prometheus + Grafana Observability for SKUEL
@@ -926,7 +926,7 @@ Added the 6 `skuel_knowledge_*` gauges (ADR-080 Horizon 1) as a 4th query on the
 
 ### One-surface consolidation (PR #803, July 2026)
 
-Deleted the JSON `/api/monitoring/*` routes and the admin `/api/metrics` route; Caddy now
+There is no JSON `/api/monitoring/*` family and no `/api/metrics` route; Caddy
 blocks public `/metrics` in production. Prometheus text exposition is the only metrics
 surface. Alert rules grew to 13 (incl. the two AuraDB Free cap alerts).
 
