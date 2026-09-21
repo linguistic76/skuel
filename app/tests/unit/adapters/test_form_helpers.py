@@ -352,8 +352,12 @@ class TestSplitListInput:
     def test_splits_on_newlines(self):
         assert _split_list_input("a\nb\n c ") == ["a", "b", "c"]
 
-    def test_falls_back_to_commas(self):
-        assert _split_list_input("a, b ,c") == ["a", "b", "c"]
+    def test_a_single_line_with_commas_is_one_item(self):
+        """The textarea renders a stored list one item per line, so a comma inside
+        an item is content — it must round-trip through an unrelated save intact."""
+        assert _split_list_input("Use warm, supportive language") == [
+            "Use warm, supportive language"
+        ]
 
     def test_empty_returns_empty_list(self):
         assert _split_list_input("") == []
@@ -375,9 +379,9 @@ class TestParseFormBodyListFields:
         model = await self._post({"title": "T", "tags": "a\nb\nc"})
         assert model.tags == ["a", "b", "c"]
 
-    async def test_optional_list_accepts_comma_separated(self):
-        model = await self._post({"title": "T", "aliases": "x, y, z"})
-        assert model.aliases == ["x", "y", "z"]
+    async def test_optional_list_splits_on_lines_only(self):
+        model = await self._post({"title": "T", "aliases": "x, y\nz"})
+        assert model.aliases == ["x, y", "z"]
 
     async def test_empty_list_field_yields_empty_list(self):
         model = await self._post({"title": "T", "tags": ""})

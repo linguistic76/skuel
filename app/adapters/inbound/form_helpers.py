@@ -244,15 +244,15 @@ def _list_field_names(schema: type[BaseModel]) -> set[str]:
 
 
 def _split_list_input(value: str) -> list[str]:
-    """Split a textarea string into trimmed, non-empty items.
+    """Split a textarea string into trimmed, non-empty items — one per line.
 
-    Splits on newlines (FormGenerator's render format); falls back to commas
-    for inputs typed on a single line.
+    Lines are the one delimiter, because they are what the textarea renders a
+    stored list back as (FormGenerator joins on newlines): a stored item that
+    contains a comma must survive an unrelated save as one item.
     """
     if not value:
         return []
-    parts = value.splitlines() if "\n" in value else value.split(",")
-    return [p.strip() for p in parts if p.strip()]
+    return [p.strip() for p in value.splitlines() if p.strip()]
 
 
 async def parse_form_body[T: BaseModel](
