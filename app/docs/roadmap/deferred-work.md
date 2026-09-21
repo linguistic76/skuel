@@ -159,6 +159,10 @@ renders them as a table in Obsidian, and a session derives the same table with
 
 [SEL Journey Fragments — staged behind a surface not yet designed](sel-journey-fragments-staged.md) — The two `/api/path-steps/*-html` fragments and `ui/patterns/curriculum_adaptive.py` have no page that loads them; PLANNED tier until a journey surface is designed or a ruling deletes them with the JSON twins kept.
 
+## Embedded Forms Fragment — staged behind the PathStep page that dropped it
+
+[Embedded Forms Fragment — staged behind the PathStep page that dropped it](embedded-forms-fragment-staged.md) — `/learning-loop/ps/{ps_uid}/forms` (+ its POST twin) and `ui/learning_loop/embedded_forms.py` have no page that loads them since the reading-first PathStep redesign; PLANNED tier until the forms section returns to `/explore/ps/{uid}` or a ruling deletes them with the `EMBEDS_FORM` edge kept.
+
 ## History-in-Code Sweep — the finder is built, the sweep is the queue
 
 [History-in-Code Sweep — the finder is built, the sweep is the queue](history-in-code-sweep.md) — The finder ships advisory; the queue is its `--top 20` output, worked one file or cluster per PR, the why moved to the record, never deleted.
