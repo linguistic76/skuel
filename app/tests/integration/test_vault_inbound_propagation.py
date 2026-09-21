@@ -39,7 +39,7 @@ PR 3); each was applied by script, run, seen to fail here, and restored.
 
 from __future__ import annotations
 
-from datetime import date
+from datetime import date, timedelta
 
 import pytest
 
@@ -968,15 +968,21 @@ class TestReconciliation:
         the vault changed it. The SKUEL-stamped ``period:daily`` tag survives
         (it is never on the line)."""
         task_uid, vault_id, _line = await _seeded_note(rig)
-        edited = f"- [ ] Vacuum the hallway ⏫ 📅 2026-09-20 ⏳ 2026-09-18 #home 🆔 {vault_id}"
+        # The dates sit in the future relative to the run: the second sync LOWERS the
+        # priority, which the Tasks domain refuses on an overdue task — a literal date
+        # here would turn this test red the morning after it.
+        due = date.today() + timedelta(days=30)
+        scheduled = due - timedelta(days=2)
+        moved = due + timedelta(days=2)
+        edited = f"- [ ] Vacuum the hallway ⏫ 📅 {due} ⏳ {scheduled} #home 🆔 {vault_id}"
         rig.note.write_text(FRONTMATTER + edited + "\n", encoding="utf-8")
 
         synced = await rig.sync()
         assert not synced.warnings, synced.warnings
         task = await _task_of(rig, task_uid)
         assert task.title == "Vacuum the hallway"
-        assert task.due_date == date(2026, 9, 20)
-        assert task.scheduled_date == date(2026, 9, 18)
+        assert task.due_date == due
+        assert task.scheduled_date == scheduled
         assert task.priority == Priority.HIGH.value
         assert set(task.tags) == {"period:daily", "home"}, task.tags
         assert task.status == EntityStatus.DRAFT
@@ -985,12 +991,12 @@ class TestReconciliation:
 
         # And back: the vault moves the date and drops the tag; the priority
         # emoji goes — absence is medium.
-        again = f"- [ ] Vacuum the hallway 📅 2026-09-22 ⏳ 2026-09-18 🆔 {vault_id}"
+        again = f"- [ ] Vacuum the hallway 📅 {moved} ⏳ {scheduled} 🆔 {vault_id}"
         rig.note.write_text(FRONTMATTER + again + "\n", encoding="utf-8")
         synced = await rig.sync()
         assert not synced.warnings, synced.warnings
         task = await _task_of(rig, task_uid)
-        assert task.due_date == date(2026, 9, 22)
+        assert task.due_date == moved
         assert task.priority == Priority.MEDIUM.value
         assert set(task.tags) == {"period:daily"}, task.tags
 
