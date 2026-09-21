@@ -280,9 +280,11 @@ incomplete range (`:3-oops`) is not a citation at all.
 Fences are read too — a `grep -n` sample cites lines the way prose does. An in-range
 citation is **not verified**: the line exists; what it says is a read.
 
-Markers apply as to every other kind. Measured on `c4c0b26fb` (2026-09-19): 29 findings
-(15 past EOF, 11 missing files, 3 ambiguous basenames), 9 of them in `docs/decisions/`;
-re-measure with `./dev health-links`.
+Markers apply as to every other kind. Measured on `72a2d945c` (2026-09-21, docs de-fiction
+PR 6): 0 findings — the 29 measured on `c4c0b26fb` (2026-09-19; 15 past EOF, 11 missing
+files, 3 ambiguous basenames) were repointed to the live line or, where an ADR cites the
+code it studied at decision time, marked `<!-- historical -->` with the live pointer beside
+the citation; re-measure with `./dev health-links`.
 
 #### The `[code]` pass and the 807 → 908 step (PR #872)
 
@@ -781,11 +783,12 @@ static-vs-runtime gap without ever asserting it equal.
 **Advisory: exit 0 always.** Promotion of the `fiction` class to `./dev health` red —
 never CI — is a separate ruling that waits on two sweep PRs each re-measuring ≥95%
 precision on a fresh draw; `family-prefix`, `relative-suffix` and `history` stay
-printed-only whatever that ruling says. Measured 2026-09-20 on `7c24117d8` (docs
-de-fiction PR 5): 1637 inline claims — 1478 matched · **44 fiction in 14 files, every one
-in `docs/decisions/`** (the largest cluster, 14, is ADR-058; PR 6 owns them) · 15 history ·
-23 family-prefix · 39 relative-suffix · 33 negated · 2 + 3 marker-skipped; re-measure with
-`./dev health-claims`. The two precision draws the ruling waits on both came in under
+printed-only whatever that ruling says. Measured 2026-09-21 on `72a2d945c` (docs
+de-fiction PR 6): 1648 inline claims — 1493 matched · **0 fiction** (the 44 ADR sites PR 5
+left were fixed against a reproduced successor where the section states the current
+contract, or marked `<!-- historical -->` where it narrates — 28 marker-skipped, 0 stale
+markers) · 19 history · 22 family-prefix · 41 relative-suffix · 42 negated · 3 planned;
+re-measure with `./dev health-claims`. The two precision draws the ruling waits on both came in under
 the bar — 15/30 (PR 3, seed `docs-defiction-pr3`, population 127) and 17/30 (PR 4, seed
 `docs-defiction-pr4`, population 92); the false positives are history vocabulary the
 `history` class does not carry, non-adjacent negation, dead directory citations and
