@@ -1,10 +1,11 @@
-"""Malformed-JSON chokepoint guard (adapters/inbound/boundary.py).
+"""Malformed-body chokepoint guards (adapters/inbound/boundary.py).
 
-FastHTML pre-parses ``application/json`` bodies during parameter extraction,
-BEFORE any handler runs — a malformed body raises ``JSONDecodeError`` past
-every route-level guard and used to surface as a 500.
-``install_malformed_json_guard`` (wired once in bootstrap's
-``_create_web_app``) maps it to the same ``Errors.validation`` 400 shape the
+FastHTML pre-parses ``application/json`` and ``multipart/form-data`` bodies
+during parameter extraction, BEFORE any handler runs — a malformed body raises
+(``JSONDecodeError`` / ``MultipartParseError``) past every route-level guard
+and would surface as a 500. ``install_malformed_json_guard`` and
+``install_malformed_multipart_guard`` (wired once in bootstrap's
+``_create_web_app``) map each to the same ``Errors.validation`` 400 shape the
 rest of the API boundary emits. Harness mirrors
 ``test_admin_api_security.py`` — real ``fast_app`` + ``TestClient``.
 """
@@ -14,12 +15,16 @@ from __future__ import annotations
 from fasthtml.common import fast_app
 from starlette.testclient import TestClient
 
-from adapters.inbound.boundary import install_malformed_json_guard
+from adapters.inbound.boundary import (
+    install_malformed_json_guard,
+    install_malformed_multipart_guard,
+)
 
 
 def _make_client(*, raise_server_exceptions: bool = True) -> TestClient:
     app, rt = fast_app(pico=False, default_hdrs=False)
     install_malformed_json_guard(app)
+    install_malformed_multipart_guard(app)
 
     @rt("/echo", methods=["POST"])
     def echo(confirm: str = "") -> dict[str, str]:
@@ -85,5 +90,44 @@ class TestMalformedJsonGuard:
             content=b"not json",
             headers={"content-type": "application/json"},
         )
+
+        assert response.status_code == 500
+
+
+class TestMalformedMultipartGuard:
+    def test_unparseable_multipart_body_is_400_validation(self) -> None:
+        """A declared boundary the body never uses — the parser's own error, not Starlette's."""
+        client = _make_client()
+
+        response = client.post(
+            "/echo",
+            content=b"garbage without any boundary markers",
+            headers={"content-type": "multipart/form-data; boundary=xyz"},
+        )
+
+        assert response.status_code == 400
+        body = response.json()
+        assert body["category"] == "validation"
+
+    def test_well_formed_multipart_still_reaches_handler(self) -> None:
+        client = _make_client()
+
+        response = client.post("/echo", files={"confirm": (None, "erase")})
+
+        assert response.status_code == 200
+        assert response.json()["confirm"] == "erase"
+
+    def test_parse_error_on_non_multipart_request_stays_500(self) -> None:
+        from python_multipart.exceptions import MultipartParseError
+
+        app, rt = fast_app(pico=False, default_hdrs=False)
+        install_malformed_multipart_guard(app)
+
+        @rt("/boom", methods=["POST"])
+        def boom() -> dict[str, str]:
+            raise MultipartParseError("not from the body", offset=0)
+
+        client = TestClient(app, raise_server_exceptions=False)
+        response = client.post("/boom", content=b"x", headers={"content-type": "text/plain"})
 
         assert response.status_code == 500

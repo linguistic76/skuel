@@ -62,6 +62,9 @@ if TYPE_CHECKING:
 # untouched; only the six Activity Domains override ``U`` with their ``*UpdateIntent``.
 B = TypeVar("B", bound=BackendOperations)
 T = TypeVar("T", bound=DomainModelProtocol)
+
+#: ``getattr`` default that tells an absent ownership field from a ``None`` one.
+_NO_OWNER_FIELD = object()
 U = TypeVar("U", bound=SupportsToChanges, default=RawChanges)
 
 
@@ -243,21 +246,22 @@ class CrudOperationsMixin(Generic[B, T, U]):
 
         # Check ownership. User-owned domains carry ``user_uid``; owner-bound
         # curriculum (Exercise) carries ``owner_uid`` — both are the same claim.
-        entity_user_uid = getattr(entity, "user_uid", None)
-        if entity_user_uid is None:
-            entity_user_uid = getattr(entity, "owner_uid", None)
-        if entity_user_uid is None:
-            # Entity type doesn't support ownership (e.g., KU, LP)
-            # This is a programming error, not a user error
+        # A type with neither field (KU, LP) cannot be owner-verified at all — a
+        # programming error. A type with a field and no value (an ownerless
+        # CURRICULUM exercise) is owned by nobody, so nobody's claim holds.
+        user_field = getattr(entity, "user_uid", _NO_OWNER_FIELD)
+        owner_field = getattr(entity, "owner_uid", _NO_OWNER_FIELD)
+        if user_field is _NO_OWNER_FIELD and owner_field is _NO_OWNER_FIELD:
             return Result.fail(
                 Errors.system(
                     message=f"Entity type {type(entity).__name__} does not support ownership verification",
                     operation="verify_ownership",
                 )
             )
+        entity_user_uid = user_field if user_field not in (_NO_OWNER_FIELD, None) else owner_field
 
-        if entity_user_uid != user_uid:
-            # User doesn't own this entity - return "not found" to prevent info leakage
+        if entity_user_uid in (_NO_OWNER_FIELD, None) or entity_user_uid != user_uid:
+            # Foreign or ownerless — "not found" either way, to prevent info leakage
             return Result.fail(Errors.not_found(f"Entity {uid} not found"))
 
         return Result.ok(entity)

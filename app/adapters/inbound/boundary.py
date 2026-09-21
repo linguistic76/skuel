@@ -25,10 +25,12 @@ from typing import Any, ParamSpec
 from fasthtml.common import FT, Div, to_xml
 from pydantic import ValidationError
 from pydantic_core import to_jsonable_python
+from python_multipart.exceptions import MultipartParseError
 from starlette.exceptions import HTTPException
 from starlette.responses import HTMLResponse, JSONResponse, Response
 
 from adapters.inbound.fasthtml_types import FastHTMLApp, Request
+from adapters.inbound.form_helpers import media_type_of
 from core.config.settings import get_settings
 from core.utils.logging import get_logger
 from core.utils.result_simplified import ErrorCategory, ErrorContext, Errors, Result
@@ -308,6 +310,32 @@ def malformed_json_handler(request: Request, exc: Exception) -> Response:
 def install_malformed_json_guard(app: FastHTMLApp) -> None:
     """Register the malformed-JSON → 400 handler on a FastHTML/Starlette app."""
     app.add_exception_handler(JSONDecodeError, malformed_json_handler)
+
+
+def malformed_multipart_handler(request: Request, exc: Exception) -> Response:
+    """Map a body-parse ``MultipartParseError`` to a 400 validation response.
+
+    The multipart twin of :func:`malformed_json_handler`: FastHTML pre-parses a
+    ``multipart/form-data`` body during parameter extraction too, and a payload
+    the parser cannot read raises there — before any handler, so no route-level
+    reader (``parse_body``, ``parse_form_body``) ever sees it. Starlette converts
+    its own ``MultiPartException`` (a missing closing boundary) to a 400 on the
+    way; the parser's ``MultipartParseError`` (a body that is not multipart at
+    all) escapes as a 500 without this chokepoint.
+
+    Only requests that declared a multipart content type are converted; the
+    error escaping on any other request is a genuine server bug and keeps its 500.
+    """
+    if media_type_of(request) != "multipart/form-data":
+        raise exc
+    return result_to_response(
+        Result.fail(Errors.validation("Malformed multipart form data in request body"))
+    )
+
+
+def install_malformed_multipart_guard(app: FastHTMLApp) -> None:
+    """Register the malformed-multipart → 400 handler on a FastHTML/Starlette app."""
+    app.add_exception_handler(MultipartParseError, malformed_multipart_handler)
 
 
 def request_validation_handler(request: Request, exc: Exception) -> Response:

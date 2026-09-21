@@ -10,8 +10,8 @@ UI components for the admin dashboard, including:
 Usage:
     from ui.admin.views import AdminUIComponents
 
-    # Render user card
-    card = AdminUIComponents.render_user_card(user_data)
+    # Render the account card (role form + activate/deactivate)
+    card = AdminUIComponents.render_account_card(user_data)
 
     # Render user stats
     stats = AdminUIComponents.render_user_stats(stats_data)
@@ -21,6 +21,7 @@ from typing import Any, ClassVar
 
 from fasthtml.common import A, Div, Form, Option, P, Span
 
+from core.models.enums import UserRole
 from core.models.type_hints import UserUID
 from ui.admin.types import UserCardData
 from ui.components import Button, ButtonT, Card, CardBody, CardHeader, CardTitle
@@ -33,6 +34,20 @@ from ui.patterns.empty_state import EmptyState
 from ui.patterns.error_banner import render_error_banner
 from ui.patterns.stats_grid import StatItem, StatsGrid
 from ui.primitives import ButtonLink
+
+
+def _uid_css(uid: str) -> str:
+    return uid.replace(":", "-").replace(".", "-")
+
+
+def account_card_id(uid: str) -> str:
+    """DOM id of a user's account card — the target every account action swaps."""
+    return f"account-card-{_uid_css(uid)}"
+
+
+def user_status_badges_id(uid: str) -> str:
+    """DOM id of the header's role/status badges — refreshed out of band by those actions."""
+    return f"user-status-{_uid_css(uid)}"
 
 
 class AdminUIComponents:
@@ -58,180 +73,33 @@ class AdminUIComponents:
         return Badge("Inactive", variant=BadgeT.ghost)
 
     @staticmethod
-    def render_user_card(user: UserCardData, show_actions: bool = True) -> Div:
+    def render_user_status_badges(user: UserCardData, *, oob: bool = False) -> Div:
+        """The role and active/inactive badges, in the page header's actions slot.
+
+        With ``oob`` the element carries ``hx-swap-oob`` so an account action's
+        response can refresh the header alongside the account card it targets —
+        one request, both regions.
         """
-        Render a user card with role badge and actions.
-
-        Args:
-            user: Typed user card data
-            show_actions: Whether to show action buttons
-
-        Returns:
-            Div containing the user card
-        """
-        display_name = user.display_name or user.username
-        last_login = user.last_login_at
-
-        # Format last login - show date portion if it's a full datetime
-        if last_login and last_login != "Never" and "T" in str(last_login):
-            last_login = str(last_login).split("T")[0]
-
-        uid_css = user.uid.replace(":", "-")
-
-        # Action buttons
-        actions = []
-        if show_actions:
-            actions = [
-                ButtonLink(
-                    "View",
-                    href=f"/admin/users/{user.uid}",
-                    cls=ButtonT.ghost,
-                    size="sm",
-                ),
-                Button(
-                    "Edit Role",
-                    cls=ButtonT.primary,
-                    size="sm",
-                    hx_get=f"/admin/users/{user.uid}/role-form",
-                    hx_target=f"#role-form-{uid_css}",
-                    hx_swap="innerHTML",
-                ),
-            ]
-            if user.is_active:
-                actions.append(
-                    Button(
-                        "Deactivate",
-                        cls=ButtonT.destructive,
-                        size="sm",
-                        hx_post=f"/api/admin/users/{user.uid}/deactivate",
-                        hx_confirm="Are you sure you want to deactivate this user?",
-                        hx_swap="outerHTML",
-                        hx_target=f"#user-card-{uid_css}",
-                    )
-                )
-            else:
-                actions.append(
-                    Button(
-                        "Activate",
-                        cls=ButtonT.primary,
-                        size="sm",
-                        hx_post=f"/api/admin/users/{user.uid}/activate",
-                        hx_swap="outerHTML",
-                        hx_target=f"#user-card-{uid_css}",
-                    )
-                )
-
-        return Card(
-            # Header with name and badges
-            Div(
-                Div(
-                    Span(display_name, cls="text-lg font-semibold"),
-                    Span(f"@{user.username}", cls="text-sm text-muted-foreground ml-2"),
-                    cls="flex items-center gap-2",
-                ),
-                Div(
-                    AdminUIComponents.render_role_badge(user.role),
-                    AdminUIComponents.render_status_badge(user.is_active),
-                    cls="flex items-center gap-2",
-                ),
-                cls="flex items-center justify-between mb-3",
-            ),
-            # Details
-            Div(
-                P(
-                    Span("Email: ", cls="text-muted-foreground"),
-                    Span(user.email),
-                    cls="text-sm",
-                ),
-                P(
-                    Span("Last login: ", cls="text-muted-foreground"),
-                    Span(last_login),
-                    cls="text-sm",
-                ),
-                cls="space-y-1 mb-3",
-            ),
-            # Role form placeholder (for HTMX)
-            Div(id=f"role-form-{uid_css}", cls="mb-3"),
-            # Actions
-            Div(*actions, cls="flex flex-wrap gap-2") if actions else None,
-            id=f"user-card-{uid_css}",
-            cls="bg-background shadow-xs p-4 border border-border",
-        )
-
-    @staticmethod
-    def render_user_table(users: list[dict]) -> Div:
-        """
-        Render users as a table with sortable columns.
-
-        Args:
-            users: List of user data dicts
-
-        Returns:
-            Div containing the user table
-        """
-        if not users:
-            return Card(
-                EmptyState(title="No users found"),
-                cls="bg-background shadow-xs",
-            )
-
-        def _user_cell_render(k: str, v: object) -> Any:
-            styles = {
-                "Username": "font-medium",
-                "Email": "text-muted-foreground",
-                "Last Login": "text-sm text-muted-foreground",
-                "": "text-right",
-            }
-            return Td(v, cls=styles.get(k, ""))
-
-        body_data = []
-        for user in users:
-            uid = user.get("uid", "")
-            last_login = user.get("last_login_at", "Never")
-            if last_login and last_login != "Never" and "T" in str(last_login):
-                last_login = str(last_login).split("T")[0]
-
-            body_data.append(
-                {
-                    "Username": user.get("username", "Unknown"),
-                    "Email": user.get("email", ""),
-                    "Role": AdminUIComponents.render_role_badge(user.get("role", "registered")),
-                    "Status": AdminUIComponents.render_status_badge(user.get("is_active", True)),
-                    "Last Login": last_login,
-                    "": ButtonLink(
-                        "View",
-                        href=f"/admin/users/{uid}",
-                        cls=ButtonT.ghost,
-                        size="xs",
-                    ),
-                }
-            )
-
+        oob_attrs = {"hx_swap_oob": "true"} if oob else {}
         return Div(
-            TableFromDicts(
-                header_data=["Username", "Email", "Role", "Status", "Last Login", ""],
-                body_data=body_data,
-                body_cell_render=_user_cell_render,
-                cls=(TableT.striped,),
-            ),
-            cls="overflow-x-auto",
+            AdminUIComponents.render_role_badge(user.role),
+            AdminUIComponents.render_status_badge(user.is_active),
+            id=user_status_badges_id(user.uid),
+            cls="flex gap-2",
+            **oob_attrs,
         )
 
     @staticmethod
     def render_role_change_form(user: UserCardData) -> Form:
-        """
-        Render form for changing user role.
+        """The role select + Save — posts to the admin API's role door.
 
-        Args:
-            user: Typed user card data
-
-        Returns:
-            Form for role change with HTMX
+        The response is the account card (``render_account_card``), swapped over
+        this form's card; the API renders it for an HTMX request.
         """
         uid = user.uid
         current_role = user.role
 
-        roles = ["registered", "member", "teacher", "admin"]
+        roles = [role.value for role in UserRole]
 
         return Form(
             Div(
@@ -245,28 +113,65 @@ class AdminUIComponents:
                         for role in roles
                     ],
                     name="role",
-                    size=Size.sm,
                     full_width=False,
+                    **{"aria-label": "Role"},
                 ),
                 Button(
-                    "Save",
+                    "Save role",
                     type="submit",
                     cls=ButtonT.primary,
                     size="sm",
                 ),
-                Button(
-                    "Cancel",
-                    type="button",
-                    cls=ButtonT.ghost,
-                    size="sm",
-                    onclick="this.closest('form').remove()",
-                ),
-                cls="flex items-center gap-2",
+                cls="flex flex-wrap items-center gap-2",
             ),
-            hx_post=f"/api/admin/users/{uid}/role",
+            hx_post=f"/api/admin/users/role?uid={uid}",
             hx_swap="outerHTML",
-            hx_target=f"#user-card-{uid.replace(':', '-')}",
-            cls="bg-muted p-2 rounded-lg",
+            hx_target=f"#{account_card_id(uid)}",
+        )
+
+    @staticmethod
+    def render_account_card(user: UserCardData) -> Div:
+        """Role change + activate/deactivate for one user — the account actions card.
+
+        Both actions target this card by id and swap it whole, so the form's
+        selected role and the button's direction always describe the stored user.
+        """
+        uid = user.uid
+        if user.is_active:
+            status_action = Button(
+                "Deactivate account",
+                cls=ButtonT.destructive,
+                size="sm",
+                hx_post=f"/api/admin/users/deactivate?uid={uid}",
+                hx_confirm="Are you sure you want to deactivate this user?",
+                hx_swap="outerHTML",
+                hx_target=f"#{account_card_id(uid)}",
+            )
+        else:
+            status_action = Button(
+                "Activate account",
+                cls=ButtonT.primary,
+                size="sm",
+                hx_post=f"/api/admin/users/activate?uid={uid}",
+                hx_swap="outerHTML",
+                hx_target=f"#{account_card_id(uid)}",
+            )
+
+        return Card(
+            CardHeader(CardTitle("Account")),
+            CardBody(
+                Div(
+                    P("Role", cls="text-sm text-muted-foreground mb-1"),
+                    AdminUIComponents.render_role_change_form(user),
+                    cls="mb-4",
+                ),
+                Div(
+                    P("Status", cls="text-sm text-muted-foreground mb-1"),
+                    status_action,
+                ),
+            ),
+            id=account_card_id(uid),
+            cls="mb-6",
         )
 
     @staticmethod

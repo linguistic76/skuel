@@ -9,11 +9,17 @@ All routes require ADMIN role and use the @require_admin decorator.
 Routes (the target user rides as the ``uid`` query parameter, never a path segment):
 - GET /api/admin/users - List all users (paginated, filterable)
 - GET /api/admin/users/get?uid= - Get user details
-- POST /api/admin/users/role?uid= - Change user role (JSON body ``{"role": ...}``)
-- POST /api/admin/users/deactivate?uid= - Deactivate user account
+- POST /api/admin/users/role?uid= - Change user role (body ``{"role": ...}``)
+- POST /api/admin/users/deactivate?uid= - Deactivate user account (body ``{"reason": ...}``, optional)
 - POST /api/admin/users/activate?uid= - Reactivate user account
 - POST /api/admin/users/hard-delete?uid= - GDPR erasure (destroys user + OWNS tree)
 - POST /api/admin/users/reset-password?uid= - Mint a password-reset token for a user
+
+The three account actions (role / deactivate / activate) serve two callers through
+one door each: an API client posts JSON and reads a JSON payload; the admin user
+detail page posts its form (``parse_body`` reads either encoding by Content-Type)
+with ``HX-Request`` and reads back the rendered account card — see
+``_account_action_response``.
 
 Security:
 - All routes require authentication (401 if not logged in)
@@ -24,25 +30,96 @@ Version: 1.0.0
 Date: 2025-12-06
 """
 
-from typing import TYPE_CHECKING, Any
+from collections.abc import Callable
+from typing import TYPE_CHECKING, Any, TypedDict
 
-from pydantic import ValidationError
+from fasthtml.common import FtResponse
 
 from adapters.inbound.auth import make_service_getter, require_admin
 from adapters.inbound.boundary import boundary_handler
 from adapters.inbound.csrf import csrf_protected
 from adapters.inbound.fasthtml_types import Request
+from adapters.inbound.form_helpers import parse_body
 from adapters.inbound.result_helpers import require_found
-from core.models.entity_requests import ChangeUserRoleRequest
+from adapters.inbound.route_factories import is_not_found, refuse
+from core.models.entity_requests import ChangeUserRoleRequest, DeactivateUserRequest
 from core.models.enums import UserRole
 from core.models.type_hints import UserUID
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
+from ui.admin.pages import account_fragment
+from ui.admin.types import UserCardData
+from ui.patterns.error_banner import render_error_banner
 
 if TYPE_CHECKING:
+    from core.models.user.user import User
     from core.ports import GraphAuthOperations
 
 logger = get_logger("skuel.routes.admin_api")
+
+
+class AdminUserRolePayload(TypedDict):
+    """JSON shape of a role change: the user's new role."""
+
+    uid: str
+    username: str
+    role: str
+    message: str
+
+
+class AdminUserStatusPayload(TypedDict):
+    """JSON shape of an activate/deactivate: the user's new active flag."""
+
+    uid: str
+    username: str
+    is_active: bool
+    message: str
+
+
+def _account_action_response[P](
+    request: Request,
+    result: Result[User],
+    payload: Callable[[User], P],
+    toast: str,
+) -> Result[P] | FtResponse:
+    """The one answer shape of the three account actions.
+
+    An HTMX request reads back what the page swaps: the rendered account card with
+    the header badges out of band and the outcome as a toast header, or — for a uid
+    no user has — the rendered not-found refusal at 404 (``refuse``, swapped in on
+    its ``X-SKUEL-Refusal`` header). Any other failure stays a JSON ``Result``, whose
+    toast headers the page's ``htmx:afterRequest`` listener surfaces while the card
+    stays in place to retry. A non-HTMX caller reads the JSON payload either way.
+    """
+    if result.is_error:
+        if request.headers.get("HX-Request") and is_not_found(result.expect_error()):
+            return refuse(result.expect_error(), render_error_banner, "User")
+        return Result.fail(result)
+    user = result.value
+    if request.headers.get("HX-Request"):
+        return FtResponse(
+            account_fragment(UserCardData.from_user(user)),
+            headers={"X-Toast-Message": toast, "X-Toast-Type": "success"},
+        )
+    return Result.ok(payload(user))
+
+
+def _role_payload(user: User) -> AdminUserRolePayload:
+    return {
+        "uid": user.uid,
+        "username": user.title,
+        "role": user.role.value,
+        "message": f"Role updated to {user.role.value}",
+    }
+
+
+def _status_payload(user: User) -> AdminUserStatusPayload:
+    return {
+        "uid": user.uid,
+        "username": user.title,
+        "is_active": user.is_active,
+        "message": "User account activated" if user.is_active else "User account deactivated",
+    }
 
 
 def create_admin_api_routes(
@@ -187,28 +264,24 @@ def create_admin_api_routes(
         request: Request,
         uid: str,
         current_user: Any = None,
-    ):
+    ) -> Result[AdminUserRolePayload] | FtResponse:
         """
         Change a user's role (ADMIN only).
 
         Query Parameters:
             uid: User UID to update
 
-        Request Body (JSON):
+        Request Body (JSON or form, by Content-Type):
             role: New role (registered, member, teacher, admin)
 
         Returns:
-            JSON object with updated user details
+            JSON object with updated user details; the rendered account card
+            to an HTMX request.
         """
-        try:
-            body = await request.json()
-            role_req = ChangeUserRoleRequest(**body)
-        except ValidationError as e:
-            return Result.fail(Errors.validation(str(e), field="body"))
-        except Exception:  # safety-net: HTTP error boundary — JSON parse fallback
-            return Result.fail(Errors.validation(message="Invalid JSON body", field="body"))
-
-        new_role_str = role_req.role
+        parsed = await parse_body(request, ChangeUserRoleRequest)
+        if parsed.is_error:
+            return Result.fail(parsed)
+        new_role_str = parsed.value.role
 
         new_role = UserRole.from_string(new_role_str)
         if not new_role:
@@ -226,18 +299,8 @@ def create_admin_api_routes(
             new_role=new_role,
             admin_user_uid=current_user.uid,
         )
-
-        if result.is_error:
-            return result
-
-        user = result.value
-        return Result.ok(
-            {
-                "uid": user.uid,
-                "username": user.title,
-                "role": user.role.value,
-                "message": f"Role updated to {user.role.value}",
-            }
+        return _account_action_response(
+            request, result, _role_payload, f"Role updated to {new_role.value}"
         )
 
     # ========================================================================
@@ -252,44 +315,31 @@ def create_admin_api_routes(
         request: Request,
         uid: str,
         current_user: Any = None,
-    ):
+    ) -> Result[AdminUserStatusPayload] | FtResponse:
         """
         Deactivate a user account (ADMIN only).
 
         Query Parameters:
             uid: User UID to deactivate
 
-        Request Body (JSON, optional):
+        Request Body (JSON or form, optional):
             reason: Reason for deactivation
 
         Returns:
-            JSON object with updated user details
+            JSON object with updated user details; the rendered account card
+            to an HTMX request.
         """
-        reason = ""
-        try:
-            body = await request.json()
-            reason = body.get("reason", "")
-        except Exception:  # safety-net: HTTP error boundary — optional JSON body
-            # Body is optional for deactivation
-            pass
+        parsed = await parse_body(request, DeactivateUserRequest)
+        if parsed.is_error:
+            return Result.fail(parsed)
 
         result = await user_service.deactivate_user(
             target_user_uid=uid,
             admin_user_uid=current_user.uid,
-            reason=reason,
+            reason=parsed.value.reason,
         )
-
-        if result.is_error:
-            return result
-
-        user = result.value
-        return Result.ok(
-            {
-                "uid": user.uid,
-                "username": user.title,
-                "is_active": user.is_active,
-                "message": "User account deactivated",
-            }
+        return _account_action_response(
+            request, result, _status_payload, "User account deactivated"
         )
 
     # ========================================================================
@@ -297,13 +347,14 @@ def create_admin_api_routes(
     # ========================================================================
 
     @rt("/api/admin/users/activate")
+    @csrf_protected
     @require_admin(get_user_service)
     @boundary_handler()
     async def activate_user(
         request: Request,
         uid: str,
         current_user: Any = None,
-    ):
+    ) -> Result[AdminUserStatusPayload] | FtResponse:
         """
         Reactivate a user account (ADMIN only).
 
@@ -311,25 +362,14 @@ def create_admin_api_routes(
             uid: User UID to reactivate
 
         Returns:
-            JSON object with updated user details
+            JSON object with updated user details; the rendered account card
+            to an HTMX request.
         """
         result = await user_service.activate_user(
             target_user_uid=uid,
             admin_user_uid=current_user.uid,
         )
-
-        if result.is_error:
-            return result
-
-        user = result.value
-        return Result.ok(
-            {
-                "uid": user.uid,
-                "username": user.title,
-                "is_active": user.is_active,
-                "message": "User account activated",
-            }
-        )
+        return _account_action_response(request, result, _status_payload, "User account activated")
 
     # ========================================================================
     # HARD-DELETE USER (GDPR ERASURE)

@@ -132,13 +132,18 @@ def _user_service() -> Any:
 
 
 def _make_request(user_uid: str | None) -> Any:
-    """Minimal session-backed request stub for the auth guards."""
+    """Minimal session-backed request stub for the auth guards.
+
+    ``HX-Request`` because the dashboard's Edit and View buttons load these routes
+    as fragments — the markup read here is the fragment, not the page shell.
+    """
     return SimpleNamespace(
         method="GET",
         session={"user_uid": user_uid} if user_uid is not None else {},
         url=SimpleNamespace(path=EDIT_PATH),
         query_params={},
         cookies={},
+        headers={"HX-Request": "true"},
     )
 
 
@@ -224,8 +229,16 @@ async def seeded(clean_neo4j, neo4j_driver, exercise_service) -> dict[str, str]:
 
 
 async def _read(handlers: dict[str, Any], path: str, user_uid: str | None, uid: str) -> str:
-    """Render an authoring route as the given user and return its markup."""
+    """Render an authoring route as the given user and return its markup.
+
+    A refusal comes back as an ``FtResponse`` — the not-found body with the 404 the
+    refusal owes (OWNERSHIP_VERIFICATION § UI Routes); a served exercise is a plain
+    FT. Both render to markup; the refused case also pins the status.
+    """
     response = await handlers[path](request=_make_request(user_uid), uid=uid)
+    if isinstance(response, FtResponse):
+        assert response.status_code == 404, "a refused authoring read must carry 404"
+        return to_xml(response.content)
     return to_xml(response)
 
 
@@ -407,7 +420,7 @@ class TestReadMatchesWrite:
     ) -> None:
         """The edit form and its Save target must admit the same set.
 
-        The form posts to ``PUT /api/exercises/{uid}``, which routes through
+        The form posts to ``POST /api/exercises/update?uid=``, which routes through
         ``update_for_user``. Probing the real write — rather than re-asserting
         the read's own helper — is what makes this independent of the predicate
         under test. Asserting agreement, not a hand-copied matrix, means the

@@ -61,7 +61,7 @@ from pydantic import BaseModel
 
 from adapters.inbound.auth.session import require_authenticated_user
 from adapters.inbound.fasthtml_types import Request
-from adapters.inbound.form_helpers import parse_json_body
+from adapters.inbound.form_helpers import parse_body
 from adapters.inbound.route_factories.route_helpers import check_required_role
 from core.models.enums import ContentScope, UserRole
 from core.models.type_hints import UserUID
@@ -374,7 +374,8 @@ class CRUDRouteFactory[T]:
         Register create route: POST /{domain}/create
 
         Path: explicit base_path + suffix — rt(f"{base_path}/create")
-        Request body: Validated by create_schema
+        Request body: JSON or a form encoding by Content-Type (``parse_body``),
+            validated by create_schema — one door for API clients and HTMX forms
         Response: Created entity (201 status)
 
         SECURITY POLICY (January 2026):
@@ -409,7 +410,7 @@ class CRUDRouteFactory[T]:
             # Parse + validate through the shared helper: a rejected body is
             # ordinary bad input, and `boundary_handler`'s catch-all would
             # otherwise turn the raw ValidationError into a 500.
-            parsed = await parse_json_body(request, create_schema)
+            parsed = await parse_body(request, create_schema)
             if parsed.is_error:
                 return Result.fail(parsed)
             schema = parsed.value
@@ -529,7 +530,8 @@ class CRUDRouteFactory[T]:
         Register update route: POST /{domain}/update?uid=...
 
         FastHTML Convention: POST for all mutations, query params for IDs
-        Request body: Validated by update_schema
+        Request body: JSON or a form encoding by Content-Type (``parse_body``),
+            validated by update_schema
         Response: Updated entity
 
         SECURITY (December 2025): When verify_ownership=True, requires authentication
@@ -552,7 +554,7 @@ class CRUDRouteFactory[T]:
 
             # uid extracted from query params via type hint; body parsed and
             # validated through the shared helper (see the create route above).
-            parsed = await parse_json_body(request, update_schema)
+            parsed = await parse_body(request, update_schema)
             if parsed.is_error:
                 return Result.fail(parsed)
             schema = parsed.value

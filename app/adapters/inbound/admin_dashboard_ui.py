@@ -12,7 +12,6 @@ Routes:
 - GET /admin/users - User management with list/table view
 - GET /admin/users/{uid} - User detail view (account management only)
 - GET /admin/users/partial - HTMX partial for filtered user list
-- GET /admin/users/{uid}/role-form - HTMX partial for role change form
 - GET /admin/analytics - Analytics dashboard
 - GET /admin/prereq-suggestions - Prerequisite-edge suggestion queue (Discovery Analytics PR 4)
 - POST /admin/prereq-suggestions/generate - HTMX: run candidates → LLM judge, return queue fragment
@@ -28,8 +27,6 @@ Security:
 
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
-
-from fasthtml.common import Div, P
 
 from adapters.inbound.auth import make_service_getter, require_admin
 from adapters.inbound.csrf import csrf_protected
@@ -211,7 +208,7 @@ def create_admin_dashboard_routes(
     @rt("/admin/users/{uid}")
     @require_admin(get_user_service)
     async def admin_user_detail(request: Request, uid: str, current_user: Any = None):
-        """User detail view with role form and account actions."""
+        """User detail view — account details, stats, and the account card (role + status)."""
         user_uid = UserUID(uid)
         result = await orchestrator.get_user(user_uid)
 
@@ -224,18 +221,7 @@ def create_admin_dashboard_routes(
                 request=request,
             )
 
-        user = result.value
-        user_data = UserCardData(
-            uid=user.uid,
-            username=user.title,
-            email=user.email,
-            display_name=user.display_name or "",
-            role=user.role.value,
-            is_active=user.is_active,
-            is_verified=user.is_verified,
-            created_at=user.created_at.isoformat() if user.created_at else None,
-            last_login_at=user.last_login_at.isoformat() if user.last_login_at else "Never",
-        )
+        user_data = UserCardData.from_user(result.value)
 
         # Fetch user activity stats
         detail_stats_result = await orchestrator.get_user_detail_stats(user_uid)
@@ -251,28 +237,6 @@ def create_admin_dashboard_routes(
             title=f"User: {user_data.display_name or user_data.username}",
             request=request,
         )
-
-    @rt("/admin/users/{uid}/role-form")
-    @require_admin(get_user_service)
-    async def admin_user_role_form(request: Request, uid: str, current_user: Any = None):
-        """HTMX partial for role change form."""
-        result = await orchestrator.get_user(UserUID(uid))
-
-        if result.is_error or not result.value:
-            return Div(
-                P("User not found", cls="text-error"),
-            )
-
-        user = result.value
-        user_data = UserCardData(
-            uid=user.uid,
-            username=user.title,
-            email=user.email or "",
-            role=user.role.value,
-            is_active=user.is_active,
-        )
-
-        return pages.role_change_form(user_data)
 
     # ========================================================================
     # ANALYTICS

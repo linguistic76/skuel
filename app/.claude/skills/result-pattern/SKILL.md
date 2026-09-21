@@ -304,7 +304,7 @@ contract violation into a 500 instead of a 404.
 
 ### Request Body Parsing → Result[T]
 
-Use `parse_json_body()` and `parse_form_body()` to convert Pydantic `ValidationError` into `Result.fail()` at the boundary — no manual try/except needed:
+Use `parse_body()` (JSON or form by Content-Type — the door both API clients and HTMX forms reach), `parse_json_body()` and `parse_form_body()` to convert Pydantic `ValidationError` into `Result.fail()` at the boundary — no manual try/except needed:
 
 ```python
 from adapters.inbound.form_helpers import parse_json_body, parse_form_body

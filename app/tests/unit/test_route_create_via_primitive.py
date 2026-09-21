@@ -93,6 +93,9 @@ class FactoryRequest:
     async def json(self) -> dict:
         return self._body
 
+    async def body(self) -> bytes:
+        return json.dumps(self._body).encode()
+
 
 def extract_response(response: JSONResponse) -> tuple[dict, int]:
     body = json.loads(response.body)

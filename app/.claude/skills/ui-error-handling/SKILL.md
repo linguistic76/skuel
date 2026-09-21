@@ -135,6 +135,7 @@ All 6 activity domain UI files extract form parsing into module-level pure funct
 - `ActivityFilters` + `parse_activity_filters()` — shared 2-field filter dataclass for Goals, Habits, Events, Choices
 
 **Structured body helpers** (for API routes with Pydantic models):
+- `parse_body(request, schema)` → `Result[T]` — reads the body by Content-Type (JSON, or a form encoding through `parse_form_body`) into a Pydantic model; the reader at a door both API clients and HTMX forms reach (the CRUD factory's create/update, the admin account actions).
 - `parse_json_body(request, schema)` → `Result[T]` — parses JSON body into a Pydantic model. Handles both JSON parse errors and ValidationError, converting to `Result.fail()`. An ownership-verified POST verifies the owner uid wherever it travels: a model field (`TrackHabitRequest.habit_uid` — parse, then `verify_entity_ownership`) or the query string (`POST /api/principles/link?uid=` — verify, then parse; that model's `uid` is the link *target*, verified separately). Read the route: a model's uid field is not always the owner.
 - `parse_form_body(request, schema)` → `Result[T]` — parses form data into a Pydantic model. Empty strings become `None` (handles HTML form quirk). Use when form data has enough fields to warrant a Pydantic model with validators.
 
@@ -322,7 +323,7 @@ def test_validate_task_form_data_missing_title():
 - `/adapters/inbound/teaching_ui.py` - Non-activity domain, sidebar pages
 - `/adapters/inbound/learning_loop_routes.py` - HTMX fragments with `render_inline_error()` preserving target IDs
 - `/adapters/inbound/user_entry_ui.py` - HTMX fragments: journal loading, download auth, file-not-found, submission history (unified submissions + journals surface, ADR-054)
-- `/adapters/inbound/exercises_ui.py` - `render_error_banner()` for dashboard, `render_inline_error()` for edit/view
+- `/adapters/inbound/exercises_ui.py` - `render_error_banner()` for dashboard; edit/view refuse a foreign or missing uid through `refuse` (`render_inline_error()` body at 404, in the page shell for a navigation)
 - `/adapters/inbound/habits_ui.py` - `render_inline_error()` for completion, patterns, goal analytics
 - `/adapters/inbound/admin_dashboard_ui.py` - `render_error_banner()` for user-not-found, warning severity for partial failures
 - `/adapters/inbound/insights_ui.py` - Error state with load-more pagination
@@ -365,7 +366,7 @@ def test_validate_task_form_data_missing_title():
 - ✅ Teaching (`teaching_ui.py`) — 10 error sites, fixed `.is_ok` → `.is_error` bug (SKUEL003)
 - ✅ Learning Loop (`learning_loop_routes.py`) — `render_inline_error()` for HTMX fragments preserving target IDs (absorbed the former `study_ui.py` when Study was decomposed into entity-typed routes)
 - ✅ UserEntry (`user_entry_ui.py`) — `render_inline_error()` for journal loading, download auth, file-not-found, submission history (unified submissions + journals surface, ADR-054)
-- ✅ Exercises (`exercises_ui.py`) — `render_error_banner()` for dashboard; `render_inline_error()` for edit/view not-found
+- ✅ Exercises (`exercises_ui.py`) — `render_error_banner()` for dashboard; edit/view not-found is `refuse` → `render_inline_error()` at 404
 - ✅ Habits (`habits_ui.py`) — `render_inline_error()` for completion, pattern analysis, goal system/velocity/impact
 - ✅ Goals (`goals_ui.py`) — `render_error_banner()` for full-page not-found
 - ✅ KU (`ku_ui.py`) — the two learning-state POSTs return the unchanged buttons on a failed `Result` (HTMX swap keeps the page consistent)

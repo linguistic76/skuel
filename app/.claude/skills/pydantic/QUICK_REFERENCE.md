@@ -95,7 +95,7 @@ def to_intent(self) -> TaskUpdateIntent:
 | Shared validator factories | `core/models/validation_rules.py` | `validate_future_date`, `validate_required_string`, `validate_percentage`, `validate_recurrence_end_after_start`, `validate_list_no_duplicates`, ~20 more |
 | Update sentinels | `core/models/sentinels.py` | `UNSET` / `Unset` for partial-patch intents |
 | Intent contracts | `core/models/update_contracts.py` | `SupportsToIntent`, `SupportsToChanges`, `RawChanges` |
-| Body parsing → Result | `adapters/inbound/form_helpers.py` | `parse_json_body(request, Model)` / `parse_form_body(request, Model)` — catch `ValidationError`, return `Result.fail(Errors.validation(..., field="body"))` |
+| Body parsing → Result | `adapters/inbound/form_helpers.py` | `parse_body(request, Model)` — JSON or form by Content-Type, the door both API clients and HTMX forms reach (CRUD create/update, admin account actions); `parse_json_body` / `parse_form_body` for one caller kind — all catch `ValidationError`, return `Result.fail(Errors.validation(..., field="body"))` |
 | Query-param parsing | `adapters/inbound/route_factories/route_helpers.py` | Silent-default: `parse_bool_query_param`, `parse_date_query_param`, `parse_csv_query_param`, `parse_pagination_params`; strict Result-based: `parse_date_param_strict`, `parse_int_param_strict` |
 
 ### Validation error → HTTP status
@@ -104,7 +104,7 @@ def to_intent(self) -> TaskUpdateIntent:
 
 - **Query params (GET)** → 400 (strict `route_helpers` parsers return `Errors.validation` Results).
 - **JSON bodies via `parse_json_body`** → `Errors.validation` Result → 400 through `boundary_handler`.
-- **JSON bodies auto-bound by FastHTML** (`body: SomeRequest` handler param) → also **400**, via `install_request_validation_guard`. Both binding styles agree. The guard is required, not decorative: FastHTML constructs the model during parameter extraction, *before* the handler and its `@boundary_handler` wrapper run, so the `ValidationError` escapes every route-level guard and was surfacing as a **500** until an app-level handler caught it (sibling of `install_malformed_json_guard` for malformed JSON; both wired in bootstrap's `_create_web_app`).
+- **JSON bodies auto-bound by FastHTML** (`body: SomeRequest` handler param) → also **400**, via `install_request_validation_guard`. Both binding styles agree. The guard is required, not decorative: FastHTML constructs the model during parameter extraction, *before* the handler and its `@boundary_handler` wrapper run, so the `ValidationError` escapes every route-level guard and was surfacing as a **500** until an app-level handler caught it (sibling of `install_malformed_json_guard` for malformed JSON and `install_malformed_multipart_guard` for a multipart body the parser cannot read; all three wired in bootstrap's `_create_web_app`).
 
 ⚠ **Never annotate an auto-bound body field as a `Literal`.** FastHTML coerces each incoming value by *calling* the annotation, and `Literal(...)` raises `TypeError: Cannot instantiate typing.Literal` — not a `ValidationError`, so no guard converts it and the request 500s. Use an enum, a validated `str`, or bind via `parse_json_body`.
 

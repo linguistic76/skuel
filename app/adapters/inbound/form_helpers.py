@@ -15,6 +15,7 @@ from enum import Enum
 from typing import Any, Union, get_args, get_origin
 
 from pydantic import BaseModel, ValidationError
+from python_multipart.exceptions import MultipartParseError
 from starlette.datastructures import UploadFile
 
 from adapters.inbound.fasthtml_types import Request
@@ -165,10 +166,57 @@ async def parse_json_body[T: BaseModel](
     except Exception:  # safety-net: JSON parsing boundary
         return Result.fail(Errors.validation("Invalid JSON body"))
 
+    return _validate_body(schema, body)
+
+
+def _validate_body[T: BaseModel](schema: type[T], data: object) -> Result[T]:
+    """Pydantic validation as a ``Result`` — the one seam every body parser ends in."""
     try:
-        return Result.ok(schema.model_validate(body))
+        return Result.ok(schema.model_validate(data))
     except ValidationError as e:
         return Result.fail(Errors.validation(str(e), field="body"))
+
+
+#: Media types a browser form posts with. Everything else is read as JSON.
+FORM_MEDIA_TYPES = frozenset({"application/x-www-form-urlencoded", "multipart/form-data"})
+
+
+def media_type_of(request: Request) -> str:
+    """The Content-Type's media type alone — ``application/json; charset=utf-8`` → ``application/json``."""
+    return request.headers.get("content-type", "").split(";")[0].strip().lower()
+
+
+async def parse_body[T: BaseModel](
+    request: Request,
+    schema: type[T],
+) -> Result[T]:
+    """Parse the request body into a Pydantic model by its ``Content-Type``.
+
+    One write door serves two caller kinds: an API client posts JSON, and an HTMX
+    form or button posts url-encoded (or multipart) — htmx encodes every body that
+    way, whatever ``hx-headers`` claims. The header decides which reader runs, as it
+    does in FastHTML's own parameter extraction: a form media type goes through
+    :func:`parse_form_body` (empty strings → ``None``, ``list[T]`` fields split from
+    the textarea string), anything else through :func:`parse_json_body`. A body with
+    no bytes at all is the empty field set, ``{}``, whatever type it declares — a
+    bare POST with nothing to say — and the schema decides whether nothing is enough.
+
+    Use this at a route both kinds reach (the CRUD factory's create/update, the admin
+    account actions); a JSON-only API route may keep ``parse_json_body`` and a
+    form-only UI route ``parse_form_body``.
+
+    Example::
+
+        parsed = await parse_body(request, ExerciseCreateRequest)
+        if parsed.is_error:
+            return Result.fail(parsed)
+        req = parsed.value
+    """
+    if media_type_of(request) in FORM_MEDIA_TYPES:
+        return await parse_form_body(request, schema)
+    if not await request.body():
+        return _validate_body(schema, {})
+    return await parse_json_body(request, schema)
 
 
 def _list_field_names(schema: type[BaseModel]) -> set[str]:
@@ -196,15 +244,15 @@ def _list_field_names(schema: type[BaseModel]) -> set[str]:
 
 
 def _split_list_input(value: str) -> list[str]:
-    """Split a textarea string into trimmed, non-empty items.
+    """Split a textarea string into trimmed, non-empty items — one per line.
 
-    Splits on newlines (FormGenerator's render format); falls back to commas
-    for inputs typed on a single line.
+    Lines are the one delimiter, because they are what the textarea renders a
+    stored list back as (FormGenerator joins on newlines): a stored item that
+    contains a comma must survive an unrelated save as one item.
     """
     if not value:
         return []
-    parts = value.splitlines() if "\n" in value else value.split(",")
-    return [p.strip() for p in parts if p.strip()]
+    return [p.strip() for p in value.splitlines() if p.strip()]
 
 
 async def parse_form_body[T: BaseModel](
@@ -232,7 +280,13 @@ async def parse_form_body[T: BaseModel](
             return result
         req = result.value
     """
-    form = await request.form()
+    try:
+        form = await request.form()
+    except MultipartParseError:
+        # FastHTML reads most multipart bodies during parameter extraction (where
+        # the app-level guard answers); a body it skipped as too short to hold a
+        # part is first read here, and its syntax is the client's error too.
+        return Result.fail(Errors.validation("Malformed multipart form data in request body"))
     list_fields = _list_field_names(schema)
     data: dict[str, Any] = {}
     for key in form:
@@ -248,10 +302,7 @@ async def parse_form_body[T: BaseModel](
         else:
             data[key] = value
 
-    try:
-        return Result.ok(schema.model_validate(data))
-    except ValidationError as e:
-        return Result.fail(Errors.validation(str(e), field="body"))
+    return _validate_body(schema, data)
 
 
 # ============================================================================

@@ -21,6 +21,7 @@ Uses mock backends to test service logic without database dependency.
 from __future__ import annotations
 
 from dataclasses import dataclass
+from types import SimpleNamespace
 from typing import TYPE_CHECKING, Any, ClassVar
 from unittest.mock import AsyncMock, Mock
 
@@ -422,6 +423,33 @@ class TestOwnershipVerification:
 
         assert result.is_error
         assert "NOT_FOUND" in result.error.code
+
+    @pytest.mark.asyncio
+    async def test_verify_ownership_ownerless_entity_is_not_found(self, service, mock_backend):
+        """An entity whose ownership field holds no value (a vault-authored CURRICULUM
+        exercise) is owned by nobody — every claim on it is refused as not-found, the
+        same answer a foreign uid gets, never a system fault."""
+        entity = SimpleNamespace(uid="ex_curriculum", owner_uid=None)
+        mock_backend.get.return_value = Result.ok(entity)
+
+        result = await service.verify_ownership("ex_curriculum", "user_001")
+
+        assert result.is_error
+        assert "NOT_FOUND" in result.error.code
+
+    @pytest.mark.asyncio
+    async def test_verify_ownership_type_without_a_field_is_a_system_fault(
+        self, service, mock_backend
+    ):
+        """A type with neither ``user_uid`` nor ``owner_uid`` (KU, LP) cannot be
+        owner-verified — a programming error, reported as one."""
+        entity = SimpleNamespace(uid="ku_x", title="Ku")
+        mock_backend.get.return_value = Result.ok(entity)
+
+        result = await service.verify_ownership("ku_x", "user_001")
+
+        assert result.is_error
+        assert result.error.category.name == "SYSTEM"
 
     @pytest.mark.asyncio
     async def test_get_for_user_respects_ownership(self, service, mock_backend):

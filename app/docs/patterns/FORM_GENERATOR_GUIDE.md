@@ -1,5 +1,5 @@
 ---
-updated: 2026-09-06
+updated: 2026-09-21
 ---
 
 # FormGenerator User Guide
@@ -409,7 +409,7 @@ class TaskUIComponents:
                 },
                 help_texts={
                     "description": "What needs to be done?",
-                    "tags": "Comma-separated tags for categorization",
+                    "tags": "One tag per line",
                 },
                 form_attrs={
                     "hx_post": "/api/tasks",

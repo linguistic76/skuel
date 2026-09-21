@@ -751,6 +751,9 @@ class FactoryRequest:
     async def json(self):
         return self._body
 
+    async def body(self) -> bytes:
+        return json.dumps(self._body).encode()
+
 
 class EchoTaskService:
     """Protocol-accurate mock: create echoes the real entity; list returns (items, total)."""

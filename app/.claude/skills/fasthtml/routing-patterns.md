@@ -257,12 +257,13 @@ async def library_exercises(request: Request):
 
 ## Exception Handlers
 
-SKUEL installs two exception handlers, both on the parameter-extraction seam (a body is
+SKUEL installs three exception handlers, all on the parameter-extraction seam (a body is
 parsed BEFORE the handler and before any route guard runs):
 
 ```python
 # adapters/inbound/boundary.py — called from bootstrap
 install_malformed_json_guard(app)          # JSONDecodeError → 400
+install_malformed_multipart_guard(app)     # MultipartParseError → 400
 install_request_validation_guard(app)      # pydantic.ValidationError → 400
 ```
 

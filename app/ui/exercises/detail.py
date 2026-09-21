@@ -119,13 +119,8 @@ def render_exercise_view(exercise: Any, required_knowledge: list | None = None) 
                 hx_target="#main-content",
                 cls=(ButtonT.primary, "mr-2"),
             ),
-            Button(
-                "Back to Exercises",
-                hx_get="/exercises",
-                hx_target="#main-content",
-                cls=ButtonT.ghost,
-            ),
-            cls="mt-4",
+            ButtonLink("Back to Exercises", href="/exercises", cls=ButtonT.ghost),
+            cls="mt-4 flex flex-wrap gap-2",
         ),
         cls="container mx-auto p-6",
     )

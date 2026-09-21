@@ -12,6 +12,7 @@ Tests cover:
 - parse_task_filters() — task filter param extraction
 - PrincipleFilters — principle-specific 4-field filter subclass
 - parse_principle_filters() — principle filter param extraction
+- parse_body() — the Content-Type dispatch between the JSON and form readers
 """
 
 from datetime import date, datetime, time
@@ -28,6 +29,7 @@ from adapters.inbound.form_helpers import (
     _list_field_names,
     _split_list_input,
     parse_activity_filters,
+    parse_body,
     parse_date_safe,
     parse_datetime_safe,
     parse_enum_safe,
@@ -350,8 +352,12 @@ class TestSplitListInput:
     def test_splits_on_newlines(self):
         assert _split_list_input("a\nb\n c ") == ["a", "b", "c"]
 
-    def test_falls_back_to_commas(self):
-        assert _split_list_input("a, b ,c") == ["a", "b", "c"]
+    def test_a_single_line_with_commas_is_one_item(self):
+        """The textarea renders a stored list one item per line, so a comma inside
+        an item is content — it must round-trip through an unrelated save intact."""
+        assert _split_list_input("Use warm, supportive language") == [
+            "Use warm, supportive language"
+        ]
 
     def test_empty_returns_empty_list(self):
         assert _split_list_input("") == []
@@ -373,9 +379,9 @@ class TestParseFormBodyListFields:
         model = await self._post({"title": "T", "tags": "a\nb\nc"})
         assert model.tags == ["a", "b", "c"]
 
-    async def test_optional_list_accepts_comma_separated(self):
-        model = await self._post({"title": "T", "aliases": "x, y, z"})
-        assert model.aliases == ["x", "y", "z"]
+    async def test_optional_list_splits_on_lines_only(self):
+        model = await self._post({"title": "T", "aliases": "x, y\nz"})
+        assert model.aliases == ["x, y", "z"]
 
     async def test_empty_list_field_yields_empty_list(self):
         model = await self._post({"title": "T", "tags": ""})
@@ -385,3 +391,80 @@ class TestParseFormBodyListFields:
         model = await self._post({"title": "Hello", "count": "5"})
         assert model.title == "Hello"
         assert model.count == 5
+
+
+# ============================================================================
+# parse_body — one door, both encodings
+# ============================================================================
+
+
+class _WriteSchema(BaseModel):
+    name: str
+    notes: list[str] | None = None
+    domain: str | None = None
+
+
+class _OptionalSchema(BaseModel):
+    reason: str = ""
+
+
+def _request(content_type: str | None, *, body: bytes = b"x", form=None, json=None) -> Mock:
+    """A request whose readers answer what a real one would for that Content-Type."""
+    request = Mock()
+    request.headers = {"content-type": content_type} if content_type is not None else {}
+    request.body = AsyncMock(return_value=body)
+    request.form = AsyncMock(return_value=form if form is not None else {})
+    request.json = AsyncMock(return_value=json)
+    return request
+
+
+@pytest.mark.asyncio
+class TestParseBody:
+    async def test_json_media_type_reads_json(self):
+        request = _request("application/json", json={"name": "T", "notes": ["a", "b"]})
+        result = await parse_body(request, _WriteSchema)
+        assert result.value.notes == ["a", "b"]
+        request.form.assert_not_awaited()
+
+    async def test_charset_suffix_is_still_json(self):
+        request = _request("application/json; charset=utf-8", json={"name": "T"})
+        result = await parse_body(request, _WriteSchema)
+        assert result.value.name == "T"
+
+    @pytest.mark.parametrize(
+        "content_type",
+        ["application/x-www-form-urlencoded", "multipart/form-data; boundary=xyz"],
+    )
+    async def test_form_media_types_read_the_form(self, content_type: str):
+        """The form reader's conventions come with it: textarea → list, "" → None."""
+        request = _request(content_type, form={"name": "T", "notes": "a\nb", "domain": ""})
+        result = await parse_body(request, _WriteSchema)
+        assert result.value.notes == ["a", "b"]
+        assert result.value.domain is None
+        request.json.assert_not_awaited()
+
+    async def test_no_content_type_reads_json(self):
+        """An API client that sends JSON without naming it is still a JSON client."""
+        request = _request(None, json={"name": "T"})
+        result = await parse_body(request, _WriteSchema)
+        assert result.value.name == "T"
+
+    @pytest.mark.parametrize("content_type", [None, "application/json"])
+    async def test_empty_body_is_the_empty_field_set(self, content_type: str | None):
+        """A POST with nothing to say, typed or not; the schema decides whether nothing
+        is enough — an optional body is optional for a client whose default type is JSON."""
+        request = _request(content_type, body=b"")
+        assert (await parse_body(request, _OptionalSchema)).value.reason == ""
+        rejected = await parse_body(request, _WriteSchema)
+        assert rejected.is_error and "name" in rejected.expect_error().message
+        request.json.assert_not_awaited()
+
+    async def test_empty_urlencoded_body_is_the_empty_form(self):
+        """What a bare htmx button posts — Content-Type set, nothing in it."""
+        request = _request("application/x-www-form-urlencoded", body=b"", form={})
+        assert (await parse_body(request, _OptionalSchema)).value.reason == ""
+
+    async def test_form_rejection_names_the_field(self):
+        request = _request("application/x-www-form-urlencoded", form={"notes": "a"})
+        result = await parse_body(request, _WriteSchema)
+        assert result.is_error and "name" in result.expect_error().message

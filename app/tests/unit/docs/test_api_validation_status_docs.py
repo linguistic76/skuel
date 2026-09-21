@@ -33,7 +33,7 @@ from pydantic import BaseModel, Field
 from starlette.testclient import TestClient
 
 from adapters.inbound.boundary import result_to_response, status_for_error
-from adapters.inbound.form_helpers import parse_form_body, parse_json_body
+from adapters.inbound.form_helpers import parse_body, parse_form_body, parse_json_body
 from adapters.inbound.route_factories import (
     parse_bool_query_param,
     parse_date_param_strict,
@@ -89,6 +89,16 @@ class _FormRequest:
 
     async def form(self) -> dict[str, str]:
         return {"reflection": "x" * 10}
+
+
+class _TypedRequest(_JsonRequest, _FormRequest):
+    """A request that declares its Content-Type — the half ``parse_body`` dispatches on."""
+
+    def __init__(self, content_type: str) -> None:
+        self.headers = {"content-type": content_type}
+
+    async def body(self) -> bytes:
+        return b'{"reflection": "xxxxxxxxxx"}'
 
 
 def _json_block(text: str, heading: str) -> dict[str, object]:
@@ -152,6 +162,7 @@ def test_every_table_row_is_driven_or_declared_undriven() -> None:
     driven = {
         "Query Params (GET)",
         "Required Params (GET)",
+        "Bodies at a door both callers reach (POST)",
         "JSON Bodies (POST/PUT)",
         "Form Data Bodies (POST)",
         "HTML Form Params (GET)",
@@ -174,6 +185,17 @@ async def test_json_body_row_returns_the_documented_status() -> None:
     status = _status_of(await parse_json_body(_JsonRequest(), _Body))  # type: ignore[arg-type]
 
     assert str(status) == _documented_rows()["JSON Bodies (POST/PUT)"]
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "content_type", ["application/json", "application/x-www-form-urlencoded", "multipart/form-data"]
+)
+async def test_two_caller_door_row_returns_the_documented_status(content_type: str) -> None:
+    """``parse_body`` picks the reader by Content-Type and both readers reject into 400."""
+    status = _status_of(await parse_body(_TypedRequest(content_type), _Body))  # type: ignore[arg-type]
+
+    assert str(status) == _documented_rows()["Bodies at a door both callers reach (POST)"]
 
 
 @pytest.mark.asyncio

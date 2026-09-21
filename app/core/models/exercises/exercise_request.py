@@ -18,6 +18,8 @@ from pydantic import BaseModel, Field, field_validator, model_validator
 from core.models.enums.entity_enums import Domain
 from core.models.enums.learning_enums import MasteryImpact
 from core.models.enums.user_entry_enums import ExerciseScope
+from core.models.update_contracts import RawChanges
+from core.utils.type_converters import get_enum_value
 
 
 def _validate_domain_value(value: str | None) -> str | None:
@@ -247,6 +249,18 @@ class ExerciseUpdateRequest(BaseModel):
     def validate_form_schema(cls, v: list[dict[str, Any]] | None) -> list[dict[str, Any]] | None:
         """Reuse same validation as create."""
         return ExerciseCreateRequest.validate_form_schema(v)
+
+    def to_intent(self) -> RawChanges:
+        """The patch this request writes — the fields the caller set, ``name`` as ``title``.
+
+        The request speaks ``name`` (as the create request does); the entity stores
+        ``title``. Mapping it here keeps the CRUD factory's update generic: it calls
+        ``to_intent()`` and writes what comes back.
+        """
+        raw = self.model_dump(exclude_unset=True)
+        if "name" in raw:
+            raw["title"] = raw.pop("name")
+        return RawChanges({k: get_enum_value(v) for k, v in raw.items()})
 
 
 class ReportGenerateRequest(BaseModel):

@@ -97,7 +97,7 @@ class FieldWidgetMapper:
         if isinstance(annotation, type) and issubclass(annotation, Enum):
             return "select"
 
-        # List -> textarea (comma/newline separated)
+        # List -> textarea (one item per line)
         if origin is list:
             return "textarea"
 

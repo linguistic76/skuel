@@ -7,7 +7,7 @@ call the orchestrator, and wrap these trees in ``create_admin_page``.
 
 from typing import TYPE_CHECKING, Any
 
-from fasthtml.common import A, Div, Li, P, Span, Ul
+from fasthtml.common import FT, A, Div, Li, P, Span, Ul
 
 from core.models.type_hints import UserUID
 from ui.admin.prereq_views import AdminPrereqComponents
@@ -186,11 +186,7 @@ def user_detail_page(
         ),
         PageHeader(
             user_data.display_name or user_data.username,
-            actions=Div(
-                AdminUIComponents.render_role_badge(user_data.role),
-                AdminUIComponents.render_status_badge(user_data.is_active),
-                cls="flex gap-2",
-            ),
+            actions=AdminUIComponents.render_user_status_badges(user_data),
         ),
         Card(
             CardHeader(CardTitle("User Details")),
@@ -240,31 +236,21 @@ def user_detail_page(
             ),
             cls="mb-6",
         ),
-        Card(
-            CardHeader(CardTitle("Change Role")),
-            CardBody(AdminUIComponents.render_role_change_form(user_data)),
-            cls="mb-6",
-        ),
-        Card(
-            CardHeader(CardTitle("Account Actions")),
-            CardBody(
-                Div(
-                    Button(
-                        "Deactivate Account" if user_data.is_active else "Activate Account",
-                        cls=ButtonT.destructive if user_data.is_active else ButtonT.primary,
-                        hx_post=f"/api/admin/users/{uid}/{'deactivate' if user_data.is_active else 'activate'}",
-                        hx_confirm=f"Are you sure you want to {'deactivate' if user_data.is_active else 'activate'} this user?",
-                    ),
-                    cls="flex gap-4",
-                ),
-            ),
-        ),
+        AdminUIComponents.render_account_card(user_data),
     )
 
 
-def role_change_form(user_data: UserCardData) -> Any:
-    """HTMX partial: the role change form."""
-    return AdminUIComponents.render_role_change_form(user_data)
+def account_fragment(user_data: UserCardData) -> tuple[FT, FT]:
+    """HTMX response of an account action: the account card, plus the header badges out of band.
+
+    The card is the request's target (swapped whole); the badges carry
+    ``hx-swap-oob`` and land on their own id, so the header reads the same user
+    the card does.
+    """
+    return (
+        AdminUIComponents.render_account_card(user_data),
+        AdminUIComponents.render_user_status_badges(user_data, oob=True),
+    )
 
 
 def analytics_page(analytics_data: dict[str, Any]) -> Any:
