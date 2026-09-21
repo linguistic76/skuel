@@ -781,7 +781,7 @@ static-vs-runtime gap without ever asserting it equal.
 **Advisory: exit 0 always.** Promotion of the `fiction` class to `./dev health` red —
 never CI — is a separate ruling that waits on two sweep PRs each re-measuring ≥95%
 precision on a fresh draw; `family-prefix`, `relative-suffix` and `history` stay
-printed-only whatever that ruling says. Measured 2026-09-20 on `PR5HEAD` (docs
+printed-only whatever that ruling says. Measured 2026-09-20 on `7c24117d8` (docs
 de-fiction PR 5): 1637 inline claims — 1478 matched · **44 fiction in 14 files, every one
 in `docs/decisions/`** (the largest cluster, 14, is ADR-058; PR 6 owns them) · 15 history ·
 23 family-prefix · 39 relative-suffix · 33 negated · 2 + 3 marker-skipped; re-measure with
