@@ -256,7 +256,7 @@ property and has **no `:Content`/`:ContentChunk` subtree**. Reads tolerate both 
 (inline-prop → `:Content` fallback), so display works — but chunk retrieval has no
 substrate for such a node. Bringing a graph onto the one shape:
 
-1. Force re-sync of the vault (`./dev vault-sync --force`) — every PathStep gets the `:Content` + `:ContentChunk` shape
+1. Force re-sync of the content vault (`./dev vault-sync --vault content --force`) — every PathStep gets the `:Content` + `:ContentChunk` shape
 2. `MATCH (ps:PathStep) WHERE ps.content IS NOT NULL REMOVE ps.content` — the re-sync alone cannot clear the legacy property (`n += props` never removes omitted keys)
 3. `scripts/generate_embeddings_batch.py --stale` — re-embed the drifted corpus
 
