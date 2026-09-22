@@ -59,7 +59,6 @@ from .preparer import prepare_edge_data, prepare_entity_data
 from .types import (
     BundleStats,
     ChunkSource,
-    DryRunPreview,
     IncrementalStats,
     IngestionError,
     IngestionStats,
@@ -166,27 +165,6 @@ def create_error(
         field=field,
         suggestion=suggestion,
     )
-
-
-async def check_existing_entities(
-    write_backend: IngestionWriteOperations,
-    uids: list[str],
-) -> dict[str, bool]:
-    """
-    Check which UIDs already exist in Neo4j.
-
-    Args:
-        write_backend: Ingestion write backend (existence Cypher lives below the
-            boundary, ADR-044)
-        uids: List of UIDs to check
-
-    Returns:
-        Dictionary mapping uid -> exists (bool)
-    """
-    if not uids:
-        return {}
-
-    return await write_backend.check_existing_entities(uids)
 
 
 def parse_file_sync(
@@ -607,7 +585,6 @@ async def ingest_directory(
     ingestion_mode: Literal["full", "incremental", "smart"] = "full",
     force: bool = False,
     validate_targets: bool = False,
-    dry_run: bool = False,
     ingest_file_fn: Callable[[Path], Awaitable[Result[Any]]] | None = None,
     allowlist: SyncAllowlist | None = None,
     owner_is_authoritative: bool = False,
@@ -622,7 +599,7 @@ async def ingest_directory(
         Awaitable[None],
     ]
     | None = None,
-) -> Result[IngestionStats | IncrementalStats | DryRunPreview]:
+) -> Result[IngestionStats | IncrementalStats]:
     """
     Ingest all supported files in a directory.
 
@@ -632,10 +609,10 @@ async def ingest_directory(
     Args:
         directory: Directory to scan
         write_backend: Ingestion write backend — edges + existence checks (required
-            for dry-run preview and edge ingestion). Cypher lives below the
-            hexagonal boundary (ADR-044).
-        bulk_backend: Bulk upsert backend — node upsert + constraints (required for
-            non-dry-run ingestion).
+            for edge ingestion). Cypher lives below the hexagonal boundary
+            (ADR-044).
+        bulk_backend: Bulk upsert backend — node upsert + constraints (required
+            whenever the scan finds an entity to persist).
         ingestion_backend: IngestionBackend for incremental tracking (optional)
         pattern: Glob pattern for files (default: "*" for all supported)
         batch_size: Batch size for bulk operations
@@ -654,7 +631,6 @@ async def ingest_directory(
             is rejected because "re-process unchanged" only has meaning under
             tracking.
         validate_targets: If True, validate relationship targets exist before ingestion
-        dry_run: If True, validates and previews changes without writing to Neo4j
         ingest_file_fn: Optional per-file ingest callback for entity types that
             require a service pipeline (e.g. ``EntityType.USER_ENTRY``). When
             supplied, USER_ENTRY files bypass the bulk upsert engine and are
@@ -671,8 +647,8 @@ async def ingest_directory(
             pre-upsert (keyed by uid; empty for every other type) — the batch
             door's half of the shared post-persist step (ADR-074:
             ``UnifiedIngestionService._ingest_post_persist``, embedding
-            publishes + body chunking). Never called for failed batches
-            or in dry-run mode. Neither step reads graph edges, which is why
+            publishes + body chunking). Never called for failed batches.
+            Neither step reads graph edges, which is why
             this one runs inside phase 1 and ``status_transition_fn`` does not.
         moc_pass_fn: Optional MOC edge-pass callback
             (``UnifiedIngestionService._apply_moc_links``). Files with
@@ -698,10 +674,10 @@ async def ingest_directory(
             ``APPLIES_KNOWLEDGE``, which is exactly what the Task and Event
             relationship configs author — and phase 1 has written none of them
             yet, so this runs at end-of-sync, after every edge this run writes.
-            Never called for failed batches or in dry-run mode.
+            Never called for failed batches.
 
     Returns:
-        Result with IngestionStats (full mode), IncrementalStats (incremental/smart mode), or DryRunPreview (dry-run mode)
+        Result with IngestionStats (full mode) or IncrementalStats (incremental/smart mode)
     """
     start_time = datetime.now()
 
@@ -727,14 +703,6 @@ async def ingest_directory(
                 "full mode already processes every file but skips deletion "
                 "reconciliation",
                 field="force",
-            )
-        )
-
-    if dry_run and write_backend is None:
-        return Result.fail(
-            Errors.validation(
-                "Ingestion write backend required for dry-run mode (to check existing entities)",
-                field="write_backend",
             )
         )
 
@@ -769,7 +737,7 @@ async def ingest_directory(
         edges_deleted = 0
         stale_metadata_removed = 0
         mass_deletion_refused = False
-        if ingestion_backend is not None and not dry_run:
+        if ingestion_backend is not None:
             empty_tracker = IngestionTracker(ingestion_backend)
             reconcile_result = await empty_tracker.reconcile_deletions(
                 directory,
@@ -865,7 +833,7 @@ async def ingest_directory(
         mass_deletion_refused = False
         reconcile_errors: list[dict[str, Any]] = []
         reconcile_warnings: list[str] = list(collection_skips.warnings)
-        if tracker is not None and not dry_run:
+        if tracker is not None:
             reconcile_result = await tracker.reconcile_deletions(
                 directory,
                 pattern,
@@ -923,7 +891,7 @@ async def ingest_directory(
     moves_detected = 0
     applied_moves: list[str] = []
     move_warnings: list[str] = []
-    if tracker is not None and not dry_run:
+    if tracker is not None:
         move_result = await tracker.detect_and_apply_moves(
             directory,
             files_to_process,
@@ -1054,93 +1022,6 @@ async def ingest_directory(
                             )
                             logger.warning(f"[{entity_type.value}] {warning}")
                             validation_warnings.append(warning)
-
-    # DRY-RUN MODE: Preview changes without writing to Neo4j
-    if dry_run and write_backend is not None:
-        # Collect all UIDs to check existence
-        all_uids: list[str] = []
-        for entities in entities_by_type.values():
-            all_uids.extend(entity.get("uid", "") for entity in entities if entity.get("uid"))
-
-        # Check which entities already exist
-        exists_map = await check_existing_entities(write_backend, all_uids)
-
-        # Categorize files
-        files_to_create: list[dict[str, Any]] = []
-        files_to_update: list[dict[str, Any]] = []
-        relationships_to_create: list[dict[str, Any]] = []
-
-        for entity_type, entities in entities_by_type.items():
-            config = ENTITY_CONFIGS.get(entity_type)
-            if not config:
-                continue
-
-            for entity in entities:
-                uid = entity.get("uid", "")
-                title = entity.get("title") or entity.get("name", "")
-                file_path = entity.get("_file_path", "")
-
-                if exists_map.get(uid, False):
-                    # Entity exists - would be updated
-                    files_to_update.append(
-                        {
-                            "uid": uid,
-                            "title": title,
-                            "entity_type": entity_type.value,
-                            "file_path": file_path,
-                            "changes_summary": "Content would be updated",
-                        }
-                    )
-                else:
-                    # New entity - would be created
-                    files_to_create.append(
-                        {
-                            "uid": uid,
-                            "title": title,
-                            "entity_type": entity_type.value,
-                            "file_path": file_path,
-                        }
-                    )
-
-                # Track relationships that would be created
-                # rel_config maps source_field -> RelationshipConfig TypedDict
-                rel_config = config.relationship_config or {}
-                for source_field, rel_cfg in rel_config.items():
-                    rel_type_name = (
-                        rel_cfg["rel_type"] if isinstance(rel_cfg, dict) else str(rel_cfg)
-                    )
-                    target_uids = entity.get(source_field, [])
-                    if isinstance(target_uids, str):
-                        target_uids = [target_uids]
-                    for target_uid in target_uids:
-                        if target_uid:
-                            relationships_to_create.append(
-                                {
-                                    "source": uid,
-                                    "target": target_uid,
-                                    "type": rel_type_name,
-                                }
-                            )
-
-        # Build preview
-        duration = (datetime.now() - start_time).total_seconds()
-        preview = DryRunPreview(
-            total_files=len(all_files),
-            files_to_create=files_to_create,
-            files_to_update=files_to_update,
-            files_to_skip=[str(fp) for fp in all_files if str(fp) not in file_entity_map],
-            relationships_to_create=relationships_to_create,
-            validation_warnings=validation_warnings,
-            validation_errors=[str(e) for e in errors],
-        )
-
-        logger.info(
-            f"DRY-RUN: Would create {len(files_to_create)} entities, "
-            f"update {len(files_to_update)} entities, "
-            f"skip {len(preview.files_to_skip)} files"
-        )
-
-        return Result.ok(preview)
 
     total_nodes_created = 0
     total_nodes_updated = 0
@@ -1558,7 +1439,7 @@ async def ingest_directory(
     edges_deleted = 0
     stale_metadata_removed = 0
     mass_deletion_refused = False
-    if tracker is not None and ingestion_mode != "full" and not dry_run:
+    if tracker is not None and ingestion_mode != "full":
         reconcile_result = await tracker.reconcile_deletions(
             directory,
             pattern,
@@ -1669,62 +1550,6 @@ async def ingest_directory(
                 errors=errors if errors else None,
             )
         )
-
-
-async def ingest_vault(
-    vault_path: Path,
-    ingest_directory_fn: Any,  # Callable for directory ingestion
-    subdirs: list[str] | None = None,
-    user_uid: UserUID | None = None,
-) -> Result[IngestionStats]:
-    """
-    Ingest an entire Obsidian vault or specific subdirectories.
-
-    Args:
-        vault_path: Root path of Obsidian vault
-        ingest_directory_fn: Function to call for directory ingestion
-        subdirs: Optional list of subdirectories to ingest
-
-    Returns:
-        Result with aggregated IngestionStats
-    """
-    if not vault_path.exists():
-        return Result.fail(Errors.not_found(f"Vault not found: {vault_path}"))
-
-    # Determine directories to ingest
-    dirs_to_ingest = [vault_path / subdir for subdir in subdirs] if subdirs else [vault_path]
-
-    # Aggregate stats
-    aggregated = IngestionStats()
-    all_errors: list[dict[str, str]] = []
-
-    for directory in dirs_to_ingest:
-        if not directory.exists():
-            logger.warning(f"Directory does not exist: {directory}")
-            continue
-
-        result = await ingest_directory_fn(directory, user_uid=user_uid)
-        if result.is_ok:
-            stats = result.value
-            aggregated.total_files += stats.total_files
-            aggregated.successful += stats.successful
-            aggregated.failed += stats.failed
-            aggregated.nodes_created += stats.nodes_created
-            aggregated.nodes_updated += stats.nodes_updated
-            aggregated.relationships_created += stats.relationships_created
-            aggregated.duration_seconds += stats.duration_seconds
-            if stats.errors:
-                all_errors.extend(stats.errors)
-
-    aggregated.errors = all_errors if all_errors else None
-
-    logger.info(
-        f"Vault ingestion complete: {aggregated.total_files} files, "
-        f"{aggregated.nodes_created} created, "
-        f"{aggregated.nodes_updated} updated"
-    )
-
-    return Result.ok(aggregated)
 
 
 async def ingest_bundle(
@@ -1929,7 +1754,6 @@ __all__ = [
     "find_entity_file",
     "ingest_bundle",
     "ingest_directory",
-    "ingest_vault",
     "parse_file_for_batch",
     "parse_file_sync",
 ]

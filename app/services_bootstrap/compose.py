@@ -1432,7 +1432,7 @@ async def compose_services(
             personal_descriptor_factory=_build_personal_descriptor,
         )
 
-        # Residual single-file / domain ingestion doors (/api/ingest/file, etc.)
+        # Residual single-file / bundle ingestion doors (/api/ingest/file, etc.)
         # inherit the primary personal vault's wall; the reconciler passes each
         # vault's own allowlist explicitly.
         unified_ingestion.sync_allowlist = _personal_descriptor.allowlist

@@ -231,6 +231,18 @@ DELETED: dict[str, str] = {
     "ExpensePure": "deleted — Finance is a Firefly III sidecar (ADR-052); the native model is InvoicePure",
     "ExpenseDTO": "deleted — Finance is a Firefly III sidecar (ADR-052); the native model is InvoiceDTO",
     "ExpenseCreateRequest": "deleted — Finance is a Firefly III sidecar (ADR-052); the native request is InvoiceCreateRequest",
+    # The reconciler is the one directory-ingest door and VaultReconciler.preview the one
+    # dry run (ADR-070 Decision 9, amended 2026-09-21); a raw ingest_directory over a
+    # caller-chosen sub-directory reconciles nothing.
+    "/api/ingest/vault": "deleted — POST /api/vault/sync/content (the reconciler) is the one directory door",
+    "ingest_user_activities": "deleted — a per-user vault syncs through VaultReconciler (./dev vault-sync), never a raw ingest_directory script",
+    "/api/ingest/domain": "deleted — POST /api/vault/sync/content (the reconciler) is the one directory door",
+    "ingest_vault": "deleted — VaultReconciler.sync (./dev vault-sync) is the one directory ingest",
+    "DryRunPreview": "deleted — VaultReconciler.preview (./dev vault-sync --preview) is the one dry run",
+    "dry_run=True": "deleted from ingest_directory — VaultReconciler.preview is the one dry run",
+    "check_existing_entities": "deleted — served only the ingest_directory dry-run mode",
+    "IngestionResultsSummary": "deleted — the domain door's fragment; sync results render from VaultSyncStats",
+    "DryRunPreviewComponent": "deleted — the domain door's fragment; the personal Preview sync renders VaultSyncPreview",
     # Deleted enum members
     "Pipeline.JOURNAL": (
         "deleted — where a journal goes is stated in the Pipeline class docstring "
@@ -345,6 +357,7 @@ _adr043 = (
     "decision-time bootstrap gating snapshot -- all three named services have since been renamed"
 )
 _adr054 = "ADR-054 before/after record of the ProcessorType/EXERCISE_SUBMISSION/JE_* -> UserEntry collapse"
+_adr070 = "ADR-070 Decision 9 amendment (2026-09-21) + changelog row recording the two raw directory doors and the dry-run mode deleted with them -- the decision names what it retired"
 _adr073 = "ADR-073 § 3 amendment (2026-09-02) recording the Pipeline.JOURNAL deletion -- the decision names what it retired"
 _askesis_arch = "change-history table recording the entities_rich unification / ActivityDataReader absorption / ActivityReviewService split"
 _askesis_intel = "'the former ActivityReviewService was split' -- historical record of the split"
@@ -452,6 +465,18 @@ ALLOWED_OCCURRENCES: dict[str, dict[tuple[int, str], Allow]] = {
         (428, "ProcessorType"): Allow(_adr054),
         (506, "EntityType.EXERCISE_SUBMISSION"): Allow(_adr054),
         (520, "ProcessorType"): Allow(_adr054),
+    },
+    "docs/decisions/ADR-070-bidirectional-vault-bridge.md": {
+        (297, "/api/ingest/vault"): Allow(_adr070),
+        (297, "/api/ingest/domain"): Allow(_adr070),
+        (297, "ingest_vault"): Allow(_adr070),
+        (297, "dry_run=True"): Allow(_adr070),
+        (297, "DryRunPreview"): Allow(_adr070),
+        (297, "check_existing_entities"): Allow(_adr070),
+        (297, "ingest_user_activities"): Allow(_adr070),
+        (471, "/api/ingest/vault"): Allow(_adr070),
+        (471, "/api/ingest/domain"): Allow(_adr070),
+        (471, "ingest_vault"): Allow(_adr070),
     },
     "docs/decisions/ADR-073-journals-zero-persistence-vault-memory.md": {
         (125, "Pipeline.JOURNAL"): Allow(_adr073),

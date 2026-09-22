@@ -87,7 +87,6 @@ task:log-sessions    →  task.log-sessions     (legacy colon spelling, normaliz
 class UnifiedIngestionService:
     async def ingest_file(path: Path) -> Result[dict[str, Any]]
     async def ingest_directory(path: Path, pattern: str = "*") -> Result[IngestionStats]
-    async def ingest_vault(path: Path, subdirs: list[str] | None) -> Result[IngestionStats]
     async def ingest_bundle(path: Path) -> Result[BundleStats]
 ```
 
@@ -249,7 +248,6 @@ ENTITY_CONFIGS: dict[str, EntityIngestionConfig] = {
 |----------|--------|---------|
 | `/api/ingest/file` | POST | Single file ingestion |
 | `/api/vault/sync/content` | POST | Content-vault directory ingest (admin) — the one directory door; there is no `/api/ingest/directory` (ADR-070 Decision 9 retired it) |
-| `/api/ingest/vault` | POST | Obsidian vault sync |
 | `/api/ingest/bundle` | POST | Manifest-driven bundle |
 | `/ingest` | GET | Dashboard UI |
 

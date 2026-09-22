@@ -1,6 +1,6 @@
 ---
 title: Unified Ingestion Implementation Guide
-updated: 2026-09-18
+updated: 2026-09-21
 category: patterns
 related_skills: []
 related_docs:
@@ -73,9 +73,6 @@ stats = await service.ingest_directory(
 
 # Acting-user hint (owner is resolved from the vault descriptor for the path)
 result = await service.ingest_file(Path("task_example.yaml"), user_uid=UserUID("user_mike"))
-
-# Ingest an Obsidian vault
-stats = await service.ingest_vault(Path("/vault"), subdirs=["docs", "notes"])
 
 # Ingest a bundle with manifest
 stats = await service.ingest_bundle(Path("/bundles/mindfulness"))
@@ -462,31 +459,11 @@ Implementation: `core/services/ingestion/moc_links.py` (extraction),
 
 ## UX Guide: Using Ingestion Features (2026-02-06)
 
-### Dry-Run Preview
+### Preview (dry run)
 
-Preview changes before ingesting to Neo4j:
-
-```python
-# Preview without writing
-result = await service.ingest_directory(
-    Path("/docs"),
-    dry_run=True  # Preview mode
-)
-
-preview = result.value  # DryRunPreview object
-
-# Inspect what would change
-print(f"Would create: {len(preview.files_to_create)} files")
-print(f"Would update: {len(preview.files_to_update)} files")
-print(f"Would skip: {len(preview.files_to_skip)} files")
-print(f"Relationships: {len(preview.relationships_to_create)}")
-```
-
-**Use Cases:**
-- Verify file detection before large ingestion
-- Check entity type classification
-- Validate relationship targets
-- Estimate ingestion impact (nodes/edges)
+The one dry run is the reconciler's: `./dev vault-sync --preview [--vault content]`, or
+the "Preview sync" button / `POST /api/vault/preview` for a personal vault — see
+[API Endpoints](#api-endpoints). `ingest_directory` has no preview mode of its own.
 
 ### Ingestion History & Audit Trail
 
@@ -540,14 +517,12 @@ for entry in entries.value:
 })
 ```
 
-### Domain-Integrated Ingestion (Admin)
+### Content-Vault Ingestion (Admin)
 
-Trigger ingestion via the admin panel or API endpoints:
-
-```bash
-# Ingest a specific domain (admin only)
-POST /api/ingest/domain/ku
-```
+The admin dashboard's "Sync content vault" button posts to `POST /api/vault/sync/content`
+(the reconciler); the single-file card posts to `POST /api/ingest/file`. There is no
+per-domain door — a file's declared `type:` drives its persistence, not the directory it
+was posted from.
 
 **See:** `/docs/architecture/CORE_SYSTEMS_ARCHITECTURE.md` for ingestion architecture
 
@@ -614,7 +589,7 @@ stats = await service.ingest_directory(Path("/vault"), ingestion_mode="increment
 
 # Second ingestion - skips unchanged files
 stats = await service.ingest_directory(Path("/vault"), ingestion_mode="incremental")
-# IncrementalStats: total_files=1000, files_ingested=5, files_skipped=995, skip_efficiency=99.5%
+# IncrementalStats: total_files=1000, files_ingested=5, files_skipped=995
 ```
 
 **How it works:**
@@ -642,9 +617,6 @@ class IncrementalStats:
     skipped_unchanged: int    # Skipped due to mtime match
     skipped_hash_match: int   # Skipped due to hash match
     errors: list[dict]
-
-    @property
-    def skip_efficiency(self) -> float:  # Percentage of files skipped
 ```
 
 ---
@@ -723,7 +695,7 @@ owner; USER_OWNED types (the 6 activity domains, UserEntry) carry a `user_uid`.
 
 The one thing ingest must get right uniformly is **who owns a USER_OWNED entity**, and
 that is resolved from the **vault descriptor governing the file's path** — not from the
-caller. Every `user_uid=` argument on `ingest_file` / `ingest_directory` / `ingest_vault`
+caller. Every `user_uid=` argument on `ingest_file` / `ingest_directory` / `ingest_bundle`
 is only an **acting-user hint**:
 
 | File lives in… | Owner attributed | Hint |
@@ -843,23 +815,6 @@ if stats.is_ok:
     print(f"Skipped: {stats.value.files_skipped}")
     for error in stats.value.errors or []:
         print(f"  - {error['file']}: {error['error']}")
-```
-
-### ingest_vault(path, subdirs=None, *, user_uid=None)
-
-Ingest an Obsidian vault. Optionally limit to specific subdirectories.
-`user_uid` is an **acting-user hint**, not an owner override: the real owner of
-each USER_OWNED entity is resolved from the vault descriptor governing its path
-(see [Ownership](#ownership-descriptor-by-path-not-caller-identity-adr-070)). The
-API routes pass `current_user.uid`, but for content-vault paths that hint is
-ignored in favour of the content acts-as account.
-
-```python
-stats = await service.ingest_vault(
-    Path("/home/mike/0bsidian/skuel"),
-    subdirs=["docs", "curriculum"],  # Optional: limit to these folders
-    user_uid=UserUID("user_mike"),   # Optional: override default user
-)
 ```
 
 ### ingest_bundle(path)
@@ -1217,7 +1172,6 @@ tags: [health, nervous-system]
 | Endpoint | Method | Request Body | Response |
 |----------|--------|--------------|----------|
 | `/api/ingest/file` | POST | `{"file_path": "/path/to/file"}` | Entity dict |
-| `/api/ingest/vault` | POST | `{"vault_path": "/vault", "subdirs": ["docs"]}` | IngestionStats (full mode) |
 | `/api/ingest/bundle` | POST | `{"bundle_path": "/bundle"}` | BundleStats |
 | `/ingest` | GET | - | Dashboard UI |
 
@@ -1349,13 +1303,13 @@ read them there rather than trusting a copy here.
 Returned for `ingestion_mode="full"`. Carries the file tallies
 (`total_files` / `successful` / `failed`), the node and relationship write
 counts, the skip-reason bookkeeping (`files_walled` / `files_unsupported`),
-non-fatal `warnings`, `errors`, and a `files_per_second` property.
+non-fatal `warnings` and `errors`.
 
 ### IncrementalStats (Incremental Ingestion)
 
 Returned for `ingestion_mode="incremental"` and `"smart"`. Everything above,
 plus the incremental-only signals: the skip breakdown (`files_skipped`,
-`skipped_unchanged`, `skipped_hash_match`, and a `skip_efficiency` property),
+`skipped_unchanged`, `skipped_hash_match`),
 standalone-edge writes (`edges_created`, `edges_updated`), deletion propagation
 (`entities_deleted`, `edges_deleted`, `stale_metadata_removed`), and move
 detection (`moves_detected`, `moves`).

@@ -1,5 +1,5 @@
 ---
-updated: 2026-09-06
+updated: 2026-09-21
 ---
 
 # Curriculum Developer Guide
@@ -803,7 +803,7 @@ This guide covers: Kus, PathSteps, Exercises, prerequisite chains, activity wiri
 
 - **[The Learning Loop](../architecture/LEARNING_LOOP_ARCHITECTURE.md)** — the four-phase cycle (Exercise → UserEntry → EntryReport → RevisedExercise) that closes around each PathStep; how student work is collected, evaluated by AI or teacher, and used to drive targeted revision
 - **[Askesis Pedagogical Architecture](../architecture/ASKESIS_PEDAGOGICAL_ARCHITECTURE.md)** — how the AI tutor uses your curriculum graph and the learner's ZPD assessment to surface the right PathStep at the right moment
-- **[Unified Ingestion Guide](../patterns/UNIFIED_INGESTION_GUIDE.md)** — bulk ingestion, dry-run mode, incremental updates, vault management, and deletion propagation (entity file deleted → graph node deleted; edge file deleted → relationship deleted)
+- **[Unified Ingestion Guide](../patterns/UNIFIED_INGESTION_GUIDE.md)** — bulk ingestion, incremental updates, vault management, and deletion propagation (entity file deleted → graph node deleted; edge file deleted → relationship deleted)
 - **[YAML Authoring Guide](YAML_AUTHORING_GUIDE.md)** — complete field reference per entity type, the connections system, edge files, enum-governed fields, and bundle structure
 
 Start small. Pick a domain. Define 2-4 Kus. Write 3 PathSteps as `.md` files. Write one Exercise per PathStep. Wire a few activities. Build the LP structure. Write edge files. Ingest and see what the system builds.

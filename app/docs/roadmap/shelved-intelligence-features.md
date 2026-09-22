@@ -1,6 +1,6 @@
 ---
 title: "Shelved Intelligence Features — Semantic Analysis residue, Discovery Analytics Phases 2+, Real-time Intelligence"
-updated: 2026-09-05
+updated: 2026-09-21
 status: "shelved"
 trigger: "engagement edges exist (Semantic residue); 1,000+ :SearchEvent (Discovery Phases 2+); DAU ≥ 10 for 2+ weeks (Real-time)"
 check: "Ku engagement edge count > 0; MATCH (e:SearchEvent) RETURN count(e); Grafana skuel_daily_active_users"
@@ -30,7 +30,7 @@ frontmatter/graph search stands alone). See `SEARCH_ARCHITECTURE.md` § "Body-Ch
 Semantic Layer".
 
 Stale prior steps this replaced: there is no stubbed `SemanticAnalysisService` to
-enable, and no `POST /api/ingest/domain/ku` embedding trigger — embeddings are
+enable, and no ingestion-door embedding trigger — embeddings are
 post-persist events (ADR-074), not an ingestion side effect.
 
 **Remainder — ✅ ALL THREE SHIPPED 2026-07-10** (the old TextAnalysisService/readability

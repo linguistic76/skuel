@@ -145,19 +145,6 @@ class IngestionWriteBackend:
         )
         return int(records[0]["edges"]) if records else 0
 
-    async def check_existing_entities(self, uids: list[str]) -> dict[str, bool]:
-        """Map each uid → whether a node with that uid already exists."""
-        result = await self._driver.execute_query(
-            """
-            UNWIND $uids AS uid
-            OPTIONAL MATCH (n {uid: uid})
-            WHERE NOT n:Content
-            RETURN uid, n IS NOT NULL AS exists
-            """,
-            {"uids": uids},
-        )
-        return {record["uid"]: record["exists"] for record in result.records}
-
     async def find_existing_uids_for_label(self, label: NeoLabel, uids: list[str]) -> list[str]:
         """Return the subset of ``uids`` that exist as ``:label`` nodes.
 

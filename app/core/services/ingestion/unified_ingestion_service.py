@@ -79,7 +79,7 @@ from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
 
 from .authored_edges import authored_edge_fingerprint, retracted_edges
-from .batch import find_entity_file, ingest_bundle, ingest_directory, ingest_vault
+from .batch import find_entity_file, ingest_bundle, ingest_directory
 from .config import (
     DEFAULT_MAX_FILE_SIZE_BYTES,
     DEFAULT_USER_UID,
@@ -106,7 +106,6 @@ from .types import (
     BundleStats,
     ChunkSource,
     DirectoryValidationResult,
-    DryRunPreview,
     IncrementalStats,
     IngestionStats,
     ValidationResult,
@@ -147,9 +146,6 @@ class UnifiedIngestionService:
 
         # Directory
         result = await service.ingest_directory(Path("/docs"))
-
-        # Vault
-        result = await service.ingest_vault(Path("/vault"), subdirs=["docs", "notes"])
 
         # Bundle
         result = await service.ingest_bundle(Path("/bundles/mindfulness"))
@@ -1283,11 +1279,10 @@ class UnifiedIngestionService:
         ingestion_mode: Literal["full", "incremental", "smart"] = "full",
         force: bool = False,
         validate_targets: bool = False,
-        dry_run: bool = False,
         *,
         user_uid: UserUID | None = None,
         allowlist: SyncAllowlist | None = None,
-    ) -> Result[IngestionStats | IncrementalStats | DryRunPreview]:
+    ) -> Result[IngestionStats | IncrementalStats]:
         """
         Ingest all supported files in a directory.
 
@@ -1307,10 +1302,9 @@ class UnifiedIngestionService:
                 active — so it is the sanctioned re-chunk/migration path.
                 A "full"-mode request with force is coerced to "smart".
             validate_targets: If True, validate relationship targets exist before ingestion
-            dry_run: If True, validates and previews changes without writing to Neo4j
 
         Returns:
-            Result with IngestionStats (full mode), IncrementalStats (incremental/smart mode), or DryRunPreview (dry-run mode)
+            Result with IngestionStats (full mode) or IncrementalStats (incremental/smart mode)
 
         Delegates to batch.ingest_directory.
 
@@ -1322,7 +1316,7 @@ class UnifiedIngestionService:
         single chokepoint every ingestion door traverses — so a vault wall cannot
         be bypassed by any caller. ``allowlist`` selects which wall: the
         descriptor-driven reconciler passes the target vault's own allowlist; the
-        residual per-file/domain doors fall back to ``self.sync_allowlist`` (the
+        residual per-file/bundle doors and scripts fall back to ``self.sync_allowlist`` (the
         personal vault's wall). Files under the governed vault root are ingested
         only if they sit under an allowed dir.
 
@@ -1401,32 +1395,12 @@ class UnifiedIngestionService:
             ingestion_mode=effective_mode,
             force=force,
             validate_targets=validate_targets,
-            dry_run=dry_run,
             ingest_file_fn=_ingest_file_for_batch,
             allowlist=effective_allowlist,
             owner_is_authoritative=self._owner_is_authoritative,
             post_persist_fn=self._ingest_post_persist,
             moc_pass_fn=self._apply_moc_links,
             status_transition_fn=self._apply_primitive_parity,
-        )
-
-    async def ingest_vault(
-        self,
-        vault_path: Path,
-        subdirs: list[str] | None = None,
-        *,
-        user_uid: UserUID | None = None,
-    ) -> Result[IngestionStats]:
-        """
-        Ingest an entire Obsidian vault or specific subdirectories.
-
-        Delegates to batch.ingest_vault.
-        """
-        return await ingest_vault(
-            vault_path=vault_path,
-            ingest_directory_fn=self.ingest_directory,
-            subdirs=subdirs,
-            user_uid=user_uid or self.default_user_uid,
         )
 
     async def ingest_bundle(
