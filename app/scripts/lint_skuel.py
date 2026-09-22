@@ -1350,7 +1350,7 @@ from adapters.inbound.fasthtml_types import Request""",
         "title": "A Role-Gated Handler Never Authenticates Twice",
         "severity": "ERROR",
         "description": """A handler decorated with `@require_admin` / `@require_teacher` /
-`@require_member` / `@require_role(...)` has already been authenticated by the decorator,
+`@require_role(...)` has already been authenticated by the decorator,
 which also fetched the caller and injected it as `current_user`. Calling
 `require_authenticated_user(request)` inside such a handler is a second authentication of
 the same request — a redundant session read, and two spellings of "who is calling" in one
@@ -4535,7 +4535,7 @@ class SkuelLinter:
     # SKUEL036: the decorators that authenticate, fetch the caller and inject it
     # as `current_user` (adapters/inbound/auth/roles.py).
     ROLE_GATE_DECORATORS: ClassVar[frozenset[str]] = frozenset(
-        {"require_role", "require_admin", "require_teacher", "require_member", "require_registered"}
+        {"require_role", "require_admin", "require_teacher"}
     )
     SESSION_AUTH_CALL: ClassVar[str] = "require_authenticated_user"
 

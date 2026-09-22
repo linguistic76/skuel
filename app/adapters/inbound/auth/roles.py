@@ -372,26 +372,6 @@ def require_role(required_role: UserRole, user_service_getter: Callable[[], Any]
     return decorator
 
 
-def require_member(user_service_getter: Callable[[], Any]):
-    """
-    Shortcut for @require_role(UserRole.MEMBER, ...).
-
-    Requires paid subscription (Member or higher).
-
-    Usage:
-        ```python
-        get_user_service = make_service_getter(user_service)
-
-
-        # Illustrative — no registered route is MEMBER-gated today.
-        @rt("/api/premium/feature")
-        @require_member(get_user_service)
-        async def premium_feature(request: Request, current_user: Any = None): ...
-        ```
-    """
-    return require_role(UserRole.MEMBER, user_service_getter)
-
-
 def require_teacher(user_service_getter: Callable[[], Any]):
     """
     Shortcut for @require_role(UserRole.TEACHER, ...).
@@ -445,7 +425,6 @@ __all__ = [
     "is_current_user_admin",
     # Decorators
     "require_admin",
-    "require_member",
     "require_role",
     "require_teacher",
     # The binding contract the decorators publish

@@ -20,7 +20,6 @@ from adapters.inbound.auth.roles import (
     is_current_user_admin,
     make_service_getter,
     require_admin,
-    require_member,
     require_role,
     require_teacher,
 )
@@ -69,7 +68,6 @@ __all__ = [
     "is_current_user_admin",
     "make_service_getter",
     "require_admin",
-    "require_member",
     "require_role",
     "require_teacher",
 ]

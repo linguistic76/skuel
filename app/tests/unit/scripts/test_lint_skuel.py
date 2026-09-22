@@ -7881,6 +7881,23 @@ class TestSKUEL036:
         violations = lint_content(make_linter(["SKUEL036"]), content, file_path=self.ROUTE)
         assert [v.rule_id for v in violations] == ["SKUEL036"]
 
+    def test_a_member_gate_is_covered_without_a_member_shortcut(self) -> None:
+        """MEMBER is gated by `require_role`, so the rule needs no `require_member`.
+
+        `require_member` was a three-word alias for this call and never gated a
+        handler; deleting it removed a name from the decorator set, not a gate
+        from the rule. The first premium handler is spelled exactly like this.
+        """
+        content = (
+            '@rt("/api/premium/feature")\n'
+            "@require_role(UserRole.MEMBER, get_user_service)\n"
+            "async def premium_feature(request: Request, current_user: Any = None):\n"
+            "    user_uid = require_authenticated_user(request)\n"
+            "    return user_uid\n"
+        )
+        violations = lint_content(make_linter(["SKUEL036"]), content, file_path=self.ROUTE)
+        assert [(v.rule_id, v.line_number) for v in violations] == [("SKUEL036", 4)]
+
     def test_nested_handler_in_a_factory_is_walked(self) -> None:
         content = (
             "def create_routes(rt):\n"

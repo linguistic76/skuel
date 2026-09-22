@@ -1,6 +1,6 @@
 ---
 title: "ADR-018: Four-Tier User Role System"
-updated: 2026-09-21
+updated: 2026-09-22
 status: current
 category: decisions
 tags: [adr, decisions, user, roles, authorization, authentication]
@@ -63,7 +63,11 @@ Key constraints:
    - `@require_role(UserRole.ADMIN, user_service_getter)`
    - `@require_admin(user_service_getter)`
    - `@require_teacher(user_service_getter)`
-   - `@require_member(user_service_getter)`
+   - `@require_member(user_service_getter)` — ⚠️ **removed.** It shipped with this
+     decision as a three-word alias for `require_role(UserRole.MEMBER, ...)` and never
+     gated a handler, because nothing can be gated on MEMBER until billing exists
+     (ADR-062 is *Proposed*). MEMBER itself is unchanged: the first premium handler
+     writes `@require_role(UserRole.MEMBER, get_user_service)` directly.
 
 4. **Admin API Routes** (`/adapters/inbound/admin_api.py`, registered through the
    `DomainRouteConfig` wrapper in `/adapters/inbound/admin_routes.py`; the target user

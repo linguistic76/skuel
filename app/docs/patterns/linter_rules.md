@@ -1,6 +1,6 @@
 ---
 title: Code Quality Enforcement - Linter Rules
-updated: 2026-09-17
+updated: 2026-09-22
 category: patterns
 related_skills:
 - python
@@ -90,7 +90,7 @@ warnings without failing, which is the on-ramp for prototyping a new rule.
 | **SKUEL033** | A docstring in `core/services/`, `core/orchestrator/`, `core/ports/`, `core/models/` that *opens* with a Cypher clause, or *hosts* a query (≥2 clause-leading lines) | State intent and the guarantee; mechanism belongs in the backend docstring (AST rule, shares SKUEL021's head anchor; `core/utils/` excluded by the same table it enforces) |
 | **SKUEL034** | A string-literal membership test against a *singular* uid (`"tech" in knowledge_uid.lower()`) | Read the field that carries the fact — `entity_type`, the Neo4j label, `sel_category`, or the edge (AST rule, ADR-013 never-sniff; collections, `startswith`, and `split` are out of scope) |
 | **SKUEL035** | `Request` imported into `adapters/inbound/` from anywhere but `adapters.inbound.fasthtml_types` (`fasthtml.common`, `fasthtml.core`, `starlette.requests`) | `from adapters.inbound.fasthtml_types import Request` — the one boundary re-export (AST rule; the re-export module itself is exempt) |
-| **SKUEL036** | `require_authenticated_user(...)` called inside a handler that carries `@require_admin` / `@require_teacher` / `@require_member` / `@require_role` | Read the caller the decorator injected — `UserUID(current_user.uid)` — or delete the call (AST rule, AUTH_PATTERNS § Pattern 3 "do not mix"; ungated handlers are Pattern 2 and untouched) |
+| **SKUEL036** | `require_authenticated_user(...)` called inside a handler that carries `@require_admin` / `@require_teacher` / `@require_role` | Read the caller the decorator injected — `UserUID(current_user.uid)` — or delete the call (AST rule, AUTH_PATTERNS § Pattern 3 "do not mix"; ungated handlers are Pattern 2 and untouched) |
 
 ## Inline Suppression
 
@@ -858,7 +858,7 @@ The tempting generalisation — walk the whole right-hand side for any uid-ish n
 
 ## Rule: SKUEL036 - A Role-Gated Handler Never Authenticates Twice
 
-**Pattern:** a call to `require_authenticated_user(...)` inside a function whose decorator list carries `require_admin`, `require_teacher`, `require_member`, `require_registered` or `require_role(...)`. Reported at the call line; nested handlers inside a route factory are walked with their enclosing function.
+**Pattern:** a call to `require_authenticated_user(...)` inside a function whose decorator list carries `require_admin`, `require_teacher` or `require_role(...)`. Reported at the call line; nested handlers inside a route factory are walked with their enclosing function.
 
 **Why it exists:** the role decorator (`adapters/inbound/auth/roles.py`) authenticates the request, fetches the caller and injects it as `current_user`. A second `require_authenticated_user(request)` in the same handler reads the session again and leaves two spellings of "who is calling" in one function, so a reader has to check they agree. [AUTH_PATTERNS.md](AUTH_PATTERNS.md) § Pattern 3 has said "do not mix patterns" since the decorator existed, and the prose did not hold: twelve handlers across three teaching/templates modules carried both (nine assigned the second result to `user_uid`, three called it for nothing). The prose is now this rule.
 

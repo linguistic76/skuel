@@ -3,29 +3,30 @@ Hardening: field-key validation in the Cypher-fragment allowlists
 =================================================================
 
 Closes 2026-05-26 security audit item #3 ("field-key validation gaps in
-optimization/builder layers — not exploitable today"). Every value
-interpolated into a Cypher fragment (property name, comparison operator,
-sort direction) passes through an allowlist before it can reach a builder.
+optimization/builder layers — not exploitable today"). Every *property name*
+interpolated into a Cypher fragment passes through an allowlist before it can
+reach a builder.
+
+Comparison operators and sort directions are guarded a stronger way and so have
+no validator here: no builder interpolates a caller's operator or direction at
+all. Operators are chosen by structural dispatch (`build_search_query`'s
+if/elif chain, `intelligence_queries`' guarded `op_map`, `batch_cypher_builder`'s
+`_FILTER_OP_MAP`), which emits a literal and cannot emit an unknown one.
+Directions resolve to `"ASC"`/`"DESC"` from a bool, from the developer-authored
+`RelationshipSpec.order_direction`, or from a literal at the call site. A
+validator for either would check a value that never varies.
 
 Today's callers are all internal and pass trusted values. The audit's
 "not exploitable today" classification holds. These tests guard the latent
 seam — any future caller that hands user input to a fragment builder is
 rejected by the allowlist, not interpolated.
-
-The `QueryOptimizer._validate_request` half of this file went with the
-`query_builders/` package (2026-08-17). The allowlist predicates and
-`ModelQueryBuilder.filter`'s silent-drop policy below are live.
 """
 
 from __future__ import annotations
 
 from unittest.mock import MagicMock
 
-from core.utils.validation_helpers import (
-    validate_cypher_operator,
-    validate_field_name,
-    validate_sort_direction,
-)
+from core.utils.validation_helpers import validate_field_name
 
 # ----------------------------------------------------------------------------
 # Validator allowlist coverage
@@ -50,45 +51,6 @@ class TestValidateFieldName:
     def test_rejects_overlong(self):
         assert validate_field_name("a" * 65) is False
         assert validate_field_name("a" * 64) is True
-
-
-class TestValidateCypherOperator:
-    def test_accepts_known_operators(self):
-        for op in (
-            "=",
-            "<>",
-            "!=",
-            "<",
-            ">",
-            "<=",
-            ">=",
-            "CONTAINS",
-            "STARTS WITH",
-            "ENDS WITH",
-            "IN",
-        ):
-            assert validate_cypher_operator(op) is True, op
-
-    def test_rejects_lowercase_variants(self):
-        # Allowlist is case-sensitive — QueryConstraint values always upper-case.
-        assert validate_cypher_operator("contains") is False
-        assert validate_cypher_operator("in") is False
-
-    def test_rejects_injection_attempts(self):
-        assert validate_cypher_operator("= 1 OR 1") is False
-        assert validate_cypher_operator("UNION") is False
-        assert validate_cypher_operator("") is False
-
-
-class TestValidateSortDirection:
-    def test_accepts_asc_desc_any_case(self):
-        for direction in ("ASC", "DESC", "asc", "desc", "Asc"):
-            assert validate_sort_direction(direction) is True, direction
-
-    def test_rejects_injection(self):
-        assert validate_sort_direction("ASC; DROP TABLE") is False
-        assert validate_sort_direction("--") is False
-        assert validate_sort_direction("") is False
 
 
 # ----------------------------------------------------------------------------
