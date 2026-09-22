@@ -1,5 +1,5 @@
 ---
-updated: 2026-08-08
+updated: 2026-09-22
 ---
 
 # Cypher label/rel-type seam typing — hard-gate options (scoping only, NOT done)
@@ -65,8 +65,8 @@ Do **not** promote to a hard gate as a rider on the seam-typing work. Rationale:
    ~45–58 sites.
 2. **The seam is already defended in depth**, so the type is not the sole guard:
    - Runtime fail-fast: `UniversalNeo4jBackend._normalize_label` (`NeoLabel.is_valid`), the
-     `validate_label` construction guard, `neo4j_schema_manager._validate_label` /
-     `query/cypher/_helpers.validate_label` regex guards, and the `RelationshipName` registry
+     `validate_label` construction guard, the shared `query/cypher/_helpers.validate_label` /
+     `validate_identifier` regex guards, and the `RelationshipName` registry
      validation (`create_relationship`, `_build_direction_pattern`).
    - Lint: the Cypher strict-validation check + `SKUEL001` (no APOC), `SKUEL013`
      (`RelationshipName`), `SKUEL014` (`EntityType`/`NonKuDomain`), `SKUEL021` (no raw Cypher in
