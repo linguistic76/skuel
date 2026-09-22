@@ -281,8 +281,10 @@ vault-authored ORGANIZES edges with no dedicated reader above the backend:
 
 ```python
 children_result = await orchestrator.get_entry_organized_children(entry_uid)
-cards = hub_cards_from_organizers(children_result.value)
-section = HubSection("Contents", cards)
+if children_result.is_error:
+    # A failed fetch must not masquerade as "not a MOC" — surface it.
+    return render_inline_error(children_result.expect_error().message)
+section = HubSection("Contents", hub_cards_from_organizers(children_result.value))
 ```
 
 Live consumer: `/gradebook/{uid}` (`submission_detail` in `user_entry_ui.py`) renders an owned user entry's ORGANIZES children as a "Map of Content" `HubSection` — children span entity types, so it passes `href_for` backed by `entity_detail_href()`.

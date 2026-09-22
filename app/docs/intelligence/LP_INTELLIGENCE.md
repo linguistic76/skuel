@@ -187,7 +187,10 @@ async def recommend_content(
 # page (default limit=100) plus the total — paginate if the pool must be
 # exhaustive. Items are passed through `ensure_content_protocol()` internally,
 # so raw Ku objects are fine here.
-page, total = (await ku_service.core.list(limit=100)).value
+page_result = await ku_service.core.list(limit=100)
+if page_result.is_error:
+    return Result.fail(page_result)
+page, total = page_result.value
 
 result = await lp_intelligence.recommend_content(
     user_context=user_context,

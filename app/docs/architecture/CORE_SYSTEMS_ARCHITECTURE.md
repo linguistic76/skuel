@@ -122,6 +122,7 @@ Neo4j Graph (digital)
 from fasthtml.common import *
 from adapters.inbound.boundary import ui_boundary_handler
 from adapters.inbound.result_helpers import require_found
+from adapters.inbound.route_factories import refuse
 from ui.layouts.base_page import BasePage
 
 @rt("/ku/{uid}")
