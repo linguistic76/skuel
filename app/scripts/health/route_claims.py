@@ -76,14 +76,9 @@ marker is stale only when it covers neither a dead link nor a dead route claim �
 
 Advisory
 --------
-Exit 0 whatever it finds, and the ``fiction`` class stays advisory — ruled 2026-09-22.
-Promotion to ``./dev health`` red needed two sweep PRs each re-measuring >=95% fiction
-precision on a fresh 30-item draw; both came in under the bar (50% and 56.7%), so the
-number is recorded and the class gates nothing. ``family-prefix``, ``relative-suffix``
-and ``history`` were always printed-only. ``docs/tools/HEALTH_CHECKS.md`` section 9
-carries the draws and the false-positive classes — the two biggest are grammar this
-scanner deliberately does not carry: history vocabulary is ``history_in_code.classify``'s
-one vocabulary, imported rather than widened, and negation is span-adjacent by design.
+Exit 0 whatever it finds. Every class is printed-only: ``fiction`` is a sweep queue, not
+a gate, and nothing here fails ``./dev health``. The measurements behind that and the
+false-positive classes they name live in ``docs/tools/HEALTH_CHECKS.md`` section 9.
 
 Usage:
     ./dev health-claims                      # per-file fiction counts + class totals

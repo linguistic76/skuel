@@ -39,10 +39,9 @@ HEALTH_CHECKS=(
   'xref|scripts/validate_cross_references.py|health|Validating skill↔doc cross-references...|Validate skill↔doc cross-references and staleness'
   'secrets|scripts/health/secret_scan_floor.py|health|Running the secret scan over every tracked text file...|Run the commit-time secret scan over the whole tracked corpus'
   # Advisory inside the health tier: it prints its classes and exits 0 whatever it
-  # finds, so it can never fail `./dev health`. Its `fiction` class STAYS advisory —
-  # ruled 2026-09-22, after both precision draws came in under the 95% bar
-  # (docs/tools/HEALTH_CHECKS.md § 9 carries the numbers and why the two biggest
-  # false-positive classes are grammar the scanner does not carry).
+  # finds, so it can never fail `./dev health`. Its `fiction` class gates nothing —
+  # the ruling and the precision measurements behind it are in
+  # docs/tools/HEALTH_CHECKS.md § 9.
   'claims|scripts/health/route_claims.py|health|Scanning route claims in docs against the runtime route table...|Find docs and skills that name routes the app does not register (advisory, exit 0)'
   # Deliberately NOT tier "health" — one mypy run per (block, code) pair puts
   # this at ~80s, and a fast target that grows a slow tail stops being run. It

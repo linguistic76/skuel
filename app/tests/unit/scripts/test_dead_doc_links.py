@@ -26,7 +26,9 @@ cut of the guard.
 
 from __future__ import annotations
 
+import os
 import sys
+import tempfile
 from pathlib import Path
 
 import pytest
@@ -1603,13 +1605,16 @@ def test_a_real_untracked_file_inside_the_work_tree_is_not_a_target() -> None:
     """
     scratch = ddl.ROOT / "plans"
     scratch.mkdir(exist_ok=True)
-    probe = scratch / "dead-doc-links-untracked-probe.md"
-    probe.write_text("# probe\n", encoding="utf-8")
+    # A FIXED name would truncate an author's real scratch file of that name on a
+    # routine test run; mkstemp never opens a path that already exists.
+    handle, raw = tempfile.mkstemp(prefix="untracked-probe-", suffix=".md", dir=scratch)
+    os.close(handle)
+    probe = Path(raw)
     try:
         assert probe.is_file()
         assert not ddl._is_tracked(probe)
     finally:
-        probe.unlink()
+        probe.unlink(missing_ok=True)
 
 
 def test_line_citations_inside_fences_are_read(cited_tree: Path) -> None:
