@@ -376,10 +376,17 @@ Coordinates cited in any PR body are re-derived after rebase (the register-drift
 
 - **In-range `file.py:N` claims (270)** — the line exists; whether it says what the doc says is a
   read. The instrument proves absence, never truth.
-- **Symbol fiction (b)** — six confirmed (`UnifiedUserContext`, `HabitConsistencySignal`, `Expense`,
-  `Entity.user_uid`, `_get_learning_context()`, `DomainConfig.cross_domain_relationship_types`) go to
-  `stale_names.DELETED` in PR 5; the other ~1300 unresolved wait for the follow-on arc. The
-  `GraphContextLoader` ×17 sentences are (d), not (b).
+- **Symbol fiction (b)** — PR 5 entered **nine**, split across both tables, not the six this
+  section first predicted for `DELETED`: `UnifiedUserContext`, `Entity.user_uid` and
+  `DomainConfig.cross_domain_relationship_types` are RENAMED (each is a real member under a
+  namespace that never existed, so there is something to point at); `_get_learning_context`,
+  `MOCService`, `MocNavigationService`, `ExpensePure`, `ExpenseDTO` and `ExpenseCreateRequest`
+  are DELETED. Two corrections the tree made to the prediction: a bare `Expense` class never
+  existed in any commit — **key the members, not the word the brief used** — and
+  **`HabitConsistencySignal` was DECLINED**, because every mention of it says it is a proposal
+  with no code, so an entry would flag a doc for being right. The unresolved remainder waits for
+  the follow-on arc — [Symbol Claims in Docs](../symbol-claims-in-docs.md), where that decline is
+  the named false-positive class. The `GraphContextLoader` ×17 sentences are (d), not (b).
 - **Example blocks (e)** — the SKUEL-shaped snippets in `HTMX_ACCESSIBILITY_PATTERNS.md:85`,
   `FORM_GENERATOR_GUIDE.md:102/117/315`, `http_status_codes.md:76`, `HIERARCHY_COMPONENTS_GUIDE.md:588`,
   `chartjs/activity-domain-charts.md:506`, `skuel-ui/reference.md:92/572/851` name dead or drifted
