@@ -1,5 +1,5 @@
 ---
-updated: 2026-09-17
+updated: 2026-09-22
 ---
 
 # A/B Testing Infrastructure
@@ -114,8 +114,8 @@ async def search_results(request: Request, query: str) -> Any:
         )
     else:
         # Use standard search (control)
-        result = await ku_service.search(
-            query_text=query,
+        result = await ku_service.search.search(
+            query=query,
             user_uid=user_uid,
             limit=20
         )

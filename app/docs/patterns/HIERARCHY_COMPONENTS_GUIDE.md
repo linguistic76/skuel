@@ -1,6 +1,6 @@
 ---
 title: Hierarchy Components Guide
-updated: '2026-09-20'
+updated: '2026-09-22'
 category: patterns
 related_skills:
 - skuel-ui
@@ -646,7 +646,7 @@ For trees with 1000+ nodes:
 
 ## Related Documentation
 
-- `/docs/patterns/UNIVERSAL_HIERARCHICAL_PATTERN.md` - Backend hierarchical methods
+- [../architecture/CURRICULUM_GROUPING_PATTERNS.md](../architecture/CURRICULUM_GROUPING_PATTERNS.md) - ORGANIZES topology and the two paths to knowledge
 - `/ui/layouts/base_page.py` - BasePage includes hierarchy.css
 - `/static/js/skuel.js` - Alpine.js components
 

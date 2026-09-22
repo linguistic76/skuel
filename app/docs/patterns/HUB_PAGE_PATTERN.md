@@ -1,6 +1,6 @@
 ---
 title: "Pattern: Hub Page (MOC) Implementation"
-updated: 2026-09-21
+updated: 2026-09-22
 status: current
 category: patterns
 tags: [ui, navigation, moc, hub, cards]
@@ -273,12 +273,18 @@ Blocks are `HubBlockData` configs rendered by `HubDomainBlock`; each loads its c
 
 ## Usage: Graph-Driven Hub Page
 
-Any route handler can render ORGANIZES data as a card grid:
+`hub_cards_from_organizers` renders any `OrganizerResult` list as a card grid.
+The fetch is per-subject, and only two subject types have a service reader:
+PathStep (`PsService.get_organized_children`) and UserEntry (via the
+orchestrator below). Every other entity type — Ku included — can carry
+vault-authored ORGANIZES edges with no dedicated reader above the backend:
 
 ```python
-children_result = await ku_service.get_organized_children(moc_uid)
-cards = hub_cards_from_organizers(children_result.value)
-section = HubSection("Contents", cards)
+children_result = await orchestrator.get_entry_organized_children(entry_uid)
+if children_result.is_error:
+    # A failed fetch must not masquerade as "not a MOC" — surface it.
+    return render_inline_error(children_result.expect_error().message)
+section = HubSection("Contents", hub_cards_from_organizers(children_result.value))
 ```
 
 Live consumer: `/gradebook/{uid}` (`submission_detail` in `user_entry_ui.py`) renders an owned user entry's ORGANIZES children as a "Map of Content" `HubSection` — children span entity types, so it passes `href_for` backed by `entity_detail_href()`.

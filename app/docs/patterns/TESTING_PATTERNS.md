@@ -1,6 +1,6 @@
 ---
 title: Testing Patterns
-updated: 2026-08-21
+updated: 2026-09-22
 category: patterns
 related_skills:
 - pytest
@@ -119,7 +119,7 @@ Tests that use the colon spelling for retrieval will fail — the graph never st
 
 ```python
 # ❌ FAILS - Database has "ku.simple-test", not "ku:simple-test"
-result = await ku_service.get("ku:simple-test")
+result = await ku_service.get_ku("ku:simple-test")
 # Error: "Knowledge unit ku:simple-test not found"
 ```
 
@@ -129,7 +129,7 @@ Use **dot notation** (the stored format) consistently in tests:
 
 ```python
 # ✅ WORKS - Matches stored format
-result = await ku_service.get("ku.simple-test")
+result = await ku_service.get_ku("ku.simple-test")
 ```
 
 ### YAML Test Files
