@@ -354,11 +354,11 @@ class TestFrontmatterEdgeRetraction:
         await _sync(retraction_service, vault)
         assert not await _edge_exists(neo4j_driver, _LP_PATH, "HAS_STEP", _PS_X)
 
-    async def test_single_file_door_retracts_and_stamps_its_row(
+    async def test_direct_ingest_file_retracts_and_stamps_its_row(
         self, retraction_service, neo4j_driver, tmp_path: Path
     ):
-        """``ingest_file`` (POST /api/ingest/file) shares the file's one identity:
-        it stamps the tracker row and diffs against it on the next call."""
+        """A direct ``ingest_file`` call shares the file's one identity with the
+        directory walk: it stamps the tracker row and diffs against it next call."""
         vault = tmp_path / "vault"
         vault.mkdir()
         a = _ku_file(vault, "a", _KU_A)
@@ -417,7 +417,7 @@ class TestFrontmatterEdgeRetraction:
         assert [row["file_path"] for row in rows] == [str(new.resolve())]
         assert rows[0]["authored_edges"] == [f"USES_KU|outgoing|{_KU_A}"]
 
-    async def test_single_file_door_retracts_after_a_rename(
+    async def test_direct_ingest_file_retracts_after_a_rename(
         self, retraction_service, neo4j_driver, tmp_path: Path
     ):
         """``ingest_file`` has no move pre-pass at all: a renamed + edited

@@ -48,10 +48,9 @@ class UIDGenerator:
         """
         Convert text to a URL-safe slug.
 
-        THE canonical slugify — UID generation and markdown heading slugs
-        (hierarchy_parser) both use this. Markdown links are reduced to their
-        link text before slugging, so ``[Foo](https://bar)`` slugs to ``foo``
-        rather than leaking URL characters into the slug.
+        THE canonical slugify for UID generation. Markdown links are reduced to
+        their link text before slugging, so ``[Foo](https://bar)`` slugs to
+        ``foo`` rather than leaking URL characters into the slug.
 
         Args:
             text: Input text

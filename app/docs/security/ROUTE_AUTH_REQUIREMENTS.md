@@ -1,6 +1,6 @@
 ---
 related_skills: [security]
-updated: 2026-09-21
+updated: 2026-09-22
 ---
 # Route Authentication Requirements
 
@@ -55,7 +55,7 @@ a route's existence with `uv run python scripts/health/route_claims.py --file <t
 | `/api/diagnostics` | `system_api.py` | System diagnostics |
 | `/api/services/**` | `system_api.py` | Service registration |
 | `/api/alerts/**` | `system_api.py` | Alert management |
-| `/api/ingest/**` | `ingestion_routes.py` | Content ingestion |
+| `/api/chunks/regenerate` | `ingestion_api.py` | Chunk regeneration (the ingestion dashboard's one API route; ingestion itself is `vault_routes.py`) |
 | `/ingest` | `ingestion_routes.py` | Ingestion dashboard |
 | `/debug-session` | `auth_routes.py` | Session debugging |
 | `/whoami` | `auth_routes.py` | User identity debugging |
@@ -111,8 +111,7 @@ https_only = True  # In production
 | Variable | Purpose | Default |
 |----------|---------|---------|
 | `SKUEL_DEFAULT_DEV_USER` | Development fallback user | `user.mike` |
-| `SKUEL_INGESTION_ALLOWED_PATHS` | Allowed ingestion paths (colon-separated). Explicit override for multi-vault / staging setups. | None — falls back to `INGESTION_PATH` |
-| `INGESTION_PATH` | Single ingestion vault root. Also the documented default vault location. **Fallback** when `SKUEL_INGESTION_ALLOWED_PATHS` is unset. If both unset, ingestion fails closed (every path rejected). | `/home/mike/0bsidian/0vault/` |
+| `INGESTION_PATH` | The content vault root — the one directory the admin content sync walks. | `/home/mike/0bsidian/0vault/` |
 | `SESSION_SECRET_KEY` | Session signing key | Generated (dev), **required** in production/staging |
 | `SKUEL_ENVIRONMENT` | Environment name | `local` |
 
@@ -130,7 +129,7 @@ history of how each arrived is `git log -S` on the named symbol, not this table.
 | AI routes gate on ownership: a `USER_OWNED` `AIRouteSpec` runs `verify_entity_ownership` (404, never 403) before invoking the facade's `.ai`; the 13 ps/lp specs are `ContentScope.SHARED` | `ai_routes.py` — `ContentScope` on each `AIRouteSpec`, an enum so a domain-attr rename cannot flip a route to fail-open |
 | Service registration validates `service_name` against `^[a-zA-Z0-9_-]{1,64}$` | `POST /api/services/register` in `system_api.py` |
 | Cypher labels, field names, relationship types and property keys are validated before any f-string interpolation | `validate_label()` / `validate_identifier()` in `query/cypher/_helpers.py`, applied by the `build_*` functions; the DDL methods in `neo4j_schema_manager.py` carry their own `_validate_label` / `_validate_identifier` / `_validate_similarity`; `ModelQueryBuilder.filter` / `order_by` (`unified_query_builder.py`) → `validate_field_name`. No live builder interpolates a caller-supplied operator or sort direction; `validate_cypher_operator` / `validate_sort_direction` (`core/utils/validation_helpers.py`) are the allowlist one would use |
-| Ingestion paths are default-denied: `SKUEL_INGESTION_ALLOWED_PATHS` > `INGESTION_PATH` > fail closed | `_validate_ingestion_path` in `ingestion_api.py` |
+| No HTTP route takes a path to ingest — the reconciler walks vault roots fixed at composition | `VaultRegistry` (`core/services/vault/vault_descriptor.py`); `POST /api/vault/sync` / `/api/vault/sync/content` take an empty body |
 | Login is throttled per IP (20 failures / 15 min, keyed on `AuthEvent.ip_address`) **before** the email lookup, so a throttled IP cannot enumerate accounts; `"unknown"` short-circuits CLI/non-HTTP paths | `is_ip_rate_limited` (`session_backend.py`) |
 | Passwords are capped at `MAX_PASSWORD_BYTES = 72` UTF-8 bytes (bcrypt's hard limit) as a field-level validation error | `validate_password` in `core/auth/password.py` |
 | Every ownership failure is a 404, never a 403 | `verify_entity_ownership` / `require_owned_entity` (OWNERSHIP_VERIFICATION.md) |

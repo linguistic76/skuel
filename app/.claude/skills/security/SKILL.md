@@ -17,9 +17,8 @@ SKUEL has a strong security foundation built into the architecture:
 | **Error stripping** | `@boundary_handler` strips internal details from HTTP responses | Active |
 | **Session security** | SHA-256 hashing, `SameSite=strict`, `HttpOnly`, `Secure` in production | Active |
 | **CSRF protection** | `SameSite=Strict` (primary) + double-submit `csrf_token` cookie verified by `@csrf_protected` | Active |
-| **Path traversal** | `_validate_ingestion_path` (traversal guard on every ingest route) + `is_relative_to()` containment checks in the vault descriptor/reconciler; see the two rows below for the ingestion allowlist and sync wall | Active |
-| **Ingestion path allowlist** | Default-deny: `SKUEL_INGESTION_ALLOWED_PATHS` > `INGESTION_PATH` > fail closed (admin role gates ownership, not filesystem reach) | Active |
-| **Vault sync privacy wall** | One predicate (`is_ingestible_path`) at every ingestion door (`collect_files`, `ingest_file`, `reconcile_deletions`; reconciler + `/api/ingest/*` inherit): rejects **symlinks** (target may be external); applies a **`je_*` staging floor** scoped to the personal vault; enforces a **fail-closed allowlist** (`SyncAllowlist`, code-defined `_DEFAULT_SYNC_SUBDIRS` — `periodic_notes/`/`personal_notes/`/`activity_notes/`/`knowledge/`; **not** env-configurable — `SKUEL_VAULT_SYNC_ALLOWED_DIRS` was removed as it let a stale exported var shadow `.env`; dirs must be strictly under the root). Retroactive: narrowing the wall purges now-walled rows via reconciliation (full→smart auto-upgrade when governed). Content vault (outside the root) unaffected | Active (default-on) |
+| **Path traversal** | No HTTP route takes a path to ingest — the reconciler walks the vault roots fixed at composition (`VaultRegistry`); `is_relative_to()` containment checks in the vault descriptor/reconciler back the sync wall below | Active |
+| **Vault sync privacy wall** | One predicate (`is_ingestible_path`) at every ingestion chokepoint (`collect_files`, `ingest_file`, `reconcile_deletions` — the reconciler and any direct call inherit): rejects **symlinks** (target may be external); applies a **`je_*` staging floor** scoped to the personal vault; enforces a **fail-closed allowlist** (`SyncAllowlist`, code-defined `_DEFAULT_SYNC_SUBDIRS` — `periodic_notes/`/`personal_notes/`/`activity_notes/`/`knowledge/`; **not** env-configurable — `SKUEL_VAULT_SYNC_ALLOWED_DIRS` was removed as it let a stale exported var shadow `.env`; dirs must be strictly under the root). Retroactive: narrowing the wall purges now-walled rows via reconciliation (full→smart auto-upgrade when governed). Content vault (outside the root) unaffected | Active (default-on) |
 | **Login rate limiting** | **Two-axis:** per-account (5 fails/15min, by email) + per-IP (20 fails/15min, by `AuthEvent.ip_address`); IP check ordered **before** email lookup to block enumeration | Active |
 | **Password length pre-validation** | `validate_password` rejects > `MAX_PASSWORD_BYTES = 72` (UTF-8 byte count, not chars) before bcrypt — clean field error, not generic broad-except | Active |
 | **Docker production** | Non-root user, minimal image | Active |
@@ -177,25 +176,17 @@ Form(csrf_hidden_input(), ..., method="POST", action="/login/submit")
 
 ### Path Traversal Protection
 
-File access is constrained by two live mechanisms (the old advisory
+File access is constrained by one live mechanism (the old advisory
 `VaultConfig.validate_paths`/`restrict_access`/`allowed_subdirs`/`allowed_extensions`
 fields were removed — they had no readers):
-- **Ingestion routes** — `_validate_ingestion_path` resolves the request path and
-  rejects anything not contained under a configured root (see the allowlist section
-  below). The vault root itself is `INGESTION_PATH` (default: `data/vault`).
+- **No request-supplied ingestion paths** — no HTTP route takes a path to ingest.
+  The reconciler walks the vault roots fixed at composition (`VaultRegistry`: the
+  content vault at `INGESTION_PATH`, the personal vault at `VAULT_ROOT`, member
+  vaults under `SKUEL_USER_VAULTS_ROOT`), so an admin session — compromised or not —
+  cannot point ingestion at `/etc` or `/root`.
 - **Vault descriptor / reconciler** — `is_relative_to()` containment checks resolve
   both sides so `..` segments cannot escape a vault root, backing the fail-closed
   `SyncAllowlist` (see the sync privacy wall section below).
-
-### Ingestion Endpoint Allowlist (default-deny)
-
-`adapters/inbound/ingestion_api.py::_validate_ingestion_path` rejects every request path that does not resolve under at least one configured root. Precedence chain via `_resolve_allowed_ingestion_roots()`:
-
-1. `SKUEL_INGESTION_ALLOWED_PATHS` (colon-separated explicit override — multi-vault / staging setups)
-2. `INGESTION_PATH` (the single configured vault root — the documented default)
-3. **Neither set → empty list → reject every path** (fail closed)
-
-Admin + CSRF still apply on top — the role gate authorizes *ownership of the action*, not *filesystem reach*. A compromised admin session still can't ingest from `/etc` or `/root`.
 
 ---
 

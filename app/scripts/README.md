@@ -1,22 +1,17 @@
 # SKUEL Database Management Scripts
 
-Scripts for managing Neo4j database and curriculum ingestion.
+Scripts for managing the Neo4j database. Ingestion is not a script of its own:
+the reconciler is the one ingestion system (`./dev vault-sync --vault content`,
+ADR-070 Decision 9).
 
 ## Quick Start
 
-### 🚀 Fresh Start with Mindfulness 101 (Recommended)
-
-**One command to clear database and load curriculum:**
+### 🚀 Fresh Start
 
 ```bash
-uv run python scripts/fresh_start_mindfulness.py
+uv run python scripts/clear_neo4j.py          # type DELETE ALL
+./dev vault-sync --vault content              # re-ingest the content vault
 ```
-
-This will:
-1. Prompt for confirmation (type `FRESH START`)
-2. Delete all existing Neo4j data
-3. Ingest complete Mindfulness 101 bundle (19 entities)
-4. Show detailed results
 
 ### 🧹 Clear Database Only
 
@@ -36,85 +31,7 @@ uv run python scripts/clear_neo4j.py reset
 
 Prompts: Type `DELETE EVERYTHING` to confirm
 
-**Clear specific bundle only:**
-
-```bash
-uv run python scripts/clear_neo4j.py bundle mindfulness_101
-```
-
 ## Available Scripts
-
-### `fresh_start_mindfulness.py`
-
-Combined script for clean slate ingestion.
-
-**Default Usage:**
-```bash
-uv run python scripts/fresh_start_mindfulness.py
-```
-
-**Custom Bundle:**
-```bash
-uv run python scripts/fresh_start_mindfulness.py yaml_templates/domains/study_skills_101
-```
-
-**What it does:**
-1. ✅ Counts existing data
-2. 🗑️ Deletes all nodes and relationships
-3. 📦 Ingests domain bundle via manifest
-4. 📊 Reports detailed statistics
-5. ✅ Verifies final state
-
-**Output:**
-```
-======================================================================
-  FRESH START: Mindfulness 101 Domain Bundle
-======================================================================
-
-📊 Found 0 existing nodes
-🗑️  Deleting all nodes and relationships...
-✅ Deleted 0 nodes successfully
-
-📦 Ingesting bundle from: yaml_templates/domains/mindfulness_101
-✅ Knowledge unit created: ku:breath-awareness-basics
-✅ Knowledge unit created: ku:posture-basics
-...
-
-======================================================================
-RESULTS
-======================================================================
-
-📦 Bundle: mindfulness_101
-   Total attempted: 19
-   ✅ Successful: 19
-   ❌ Failed: 0
-
-✅ Entities Created:
-   • ku:breath-awareness-basics
-   • ku:posture-basics
-   • ku:mind-wandering-happens
-   • ls:mindfulness-101:step-1
-   • ls:mindfulness-101:step-2
-   • lp:mindfulness-101
-   • principle:small-steps
-   • principle:attention-over-intensity
-   • choice:2-minutes-right-now
-   • choice:2-minutes-before-bed
-   • choice:label-one-wander
-   • habit:daily-2min-breath
-   • habit:label-wander-daily
-   • task:log-first-5-sessions
-   • task:reflect-on-first-week
-   • event:practice-block-2min
-   • goal:mindfulness-beginner
-
-📊 Final database stats:
-   Total nodes: 19
-
-======================================================================
-  ✅ FRESH START COMPLETE!
-======================================================================
-```
 
 ### `clear_neo4j.py`
 
@@ -139,15 +56,6 @@ uv run python scripts/clear_neo4j.py reset
 - Deletes: All nodes, relationships, constraints, indexes
 - Use for: Completely fresh database
 - Safety: Prompts for `DELETE EVERYTHING` confirmation
-
-**Mode 3: Bundle-Specific Clear**
-```bash
-uv run python scripts/clear_neo4j.py bundle mindfulness_101
-```
-
-- Deletes: Only entities with UIDs matching bundle
-- Keeps: Everything else
-- Safer option for incremental changes
 
 **Output:**
 ```
@@ -201,44 +109,22 @@ Scripts show:
 
 ## Common Workflows
 
-### 1. Start Fresh with Mindfulness 101
+### 1. Start Fresh
 
 ```bash
-# One command!
-uv run python scripts/fresh_start_mindfulness.py
+uv run python scripts/clear_neo4j.py          # DELETE ALL (keeps constraints/indexes)
+./dev vault-sync --vault content              # re-ingest the content vault
 ```
 
-### 2. Clear and Load Different Bundle
+### 2. Complete Database Reset
 
 ```bash
-# Clear database
-uv run python scripts/clear_neo4j.py
-
-# Then use ingestion example
-uv run python examples/yaml_ingestion_example.py
+uv run python scripts/clear_neo4j.py reset    # DELETE EVERYTHING
+uv run python main.py                         # boot recreates constraints + indexes
+./dev vault-sync --vault content
 ```
 
-### 3. Replace One Bundle with Another
-
-```bash
-# Clear specific bundle
-uv run python scripts/clear_neo4j.py bundle mindfulness_101
-
-# Ingest new bundle
-uv run python examples/yaml_ingestion_example.py
-```
-
-### 4. Complete Database Reset
-
-```bash
-# Nuclear option - removes everything
-uv run python scripts/clear_neo4j.py reset
-
-# Then recreate constraints and ingest
-uv run python scripts/fresh_start_mindfulness.py
-```
-
-### 5. Verify What's in Database
+### 3. Verify What's in Database
 
 After any operation, check Neo4j:
 
@@ -283,42 +169,15 @@ Error: Invalid username or password
 2. Set password via the credential setup tool: `uv run python -m core.config`
 3. Or reset Neo4j password
 
-### Partial Ingestion
+### Ingestion problems
 
-```
-Total attempted: 19
-✅ Successful: 15
-❌ Failed: 4
-```
-
-**Solution:**
-1. Review error details in output
-2. Check YAML file syntax
-3. Verify entity relationships exist
-4. Re-run after fixing issues
-
-### Constraint Violations
-
-```
-Error: Node(123) already exists with uid 'ku:example'
-```
-
-**Solution:**
-1. Clear database first: `uv run python scripts/clear_neo4j.py`
-2. Then re-ingest bundle
-
-## Next Steps
-
-After successful ingestion:
-
-1. **Explore in Neo4j Browser**: http://localhost:7474
-2. **Run example queries**: See bundle README for Cypher examples
-3. **Create more bundles**: Use Mindfulness 101 as template
-4. **Test relationships**: Verify graph connections
+`./dev vault-sync --vault content` reports per-file errors and warnings; fix the file and
+sync again (smart mode re-processes only what changed). `--preview` shows what a sync
+would do without writing.
 
 ## Script Architecture
 
-Both scripts follow SKUEL patterns:
+The script follows SKUEL patterns:
 
 - ✅ **Result[T]** pattern for error handling
 - ✅ **Async/await** for Neo4j operations

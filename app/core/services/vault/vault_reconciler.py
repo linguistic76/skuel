@@ -76,8 +76,8 @@ _BASE36 = string.ascii_lowercase + string.digits
 # Which vault folders may be ingested is now decided by a fail-closed allowlist
 # (``SyncAllowlist``, seeded from the code-defined ``_DEFAULT_SYNC_SUBDIRS``)
 # applied inside
-# ``UnifiedIngestionService.ingest_directory`` — the single chokepoint both this
-# reconciler and the HTTP /api/ingest/* door share. Everything under the vault
+# ``UnifiedIngestionService.ingest_directory`` — the single chokepoint this
+# reconciler drives (ADR-070 Decision 9). Everything under the vault
 # root that is not explicitly allowed (the je_* journal staging folders,
 # templates, loose notes, …) is walled off by default, so this reconciler no
 # longer maintains its own je_* denylist.

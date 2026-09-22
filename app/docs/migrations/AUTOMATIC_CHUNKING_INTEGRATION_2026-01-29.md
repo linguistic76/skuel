@@ -1,5 +1,5 @@
 ---
-updated: 2026-06-17
+updated: 2026-09-22
 ---
 
 # Automatic Chunking Integration (January 2026)
@@ -208,13 +208,10 @@ uv run pytest tests/integration/test_ingestion_chunking.py::test_ingest_file_cre
 
 ### Manual Verification Steps
 
-1. **Ingest single KU file**:
+1. **Ingest a KU file** — save it in the content vault and sync:
    ```bash
-   # Via API
-   curl -X POST http://localhost:8000/api/ingest/file \
-     -F "file=@/path/to/ku.python_basics.md"
-
-   # Check response for "chunks_generated": true
+   ./dev vault-sync --vault content
+   # Chunks are generated for every ingested :Content parent
    ```
 
 2. **Check Neo4j for chunks** (if stored):

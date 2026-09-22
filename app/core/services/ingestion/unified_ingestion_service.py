@@ -79,7 +79,7 @@ from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
 
 from .authored_edges import authored_edge_fingerprint, retracted_edges
-from .batch import find_entity_file, ingest_bundle, ingest_directory
+from .batch import ingest_directory
 from .config import (
     DEFAULT_MAX_FILE_SIZE_BYTES,
     DEFAULT_USER_UID,
@@ -103,7 +103,6 @@ from .status_transitions import (
     classify_ingest_status_transitions,
 )
 from .types import (
-    BundleStats,
     ChunkSource,
     DirectoryValidationResult,
     IncrementalStats,
@@ -144,11 +143,8 @@ class UnifiedIngestionService:
         # Single file
         result = await service.ingest_file(Path("ku_machine-learning.md"))
 
-        # Directory
+        # Directory (the reconciler's walk — VaultReconciler.sync)
         result = await service.ingest_directory(Path("/docs"))
-
-        # Bundle
-        result = await service.ingest_bundle(Path("/bundles/mindfulness"))
     """
 
     def __init__(
@@ -215,14 +211,14 @@ class UnifiedIngestionService:
                           Extraction failures are isolated — the journal node
                           persists regardless. Late-bound at the composition root.
             sync_allowlist: Optional fail-closed folder allowlist (SyncAllowlist)
-                          enforced on every ingestion path — directory scans
+                          — the fallback wall for a path no vault descriptor
+                          governs, enforced on directory scans
                           (``ingest_directory`` → collect_files, driving the
-                          reconciler) AND single-file ingestion
-                          (``ingest_file`` → /api/ingest/file). When
-                          set, files under the governed vault root are ingested
-                          only if they sit under an allowed dir; ``None`` = no
-                          wall. Late-bound at the composition root once the vault
-                          root is known.
+                          reconciler) AND the per-file pipeline (``ingest_file``).
+                          When set, files under the governed vault root are
+                          ingested only if they sit under an allowed dir;
+                          ``None`` = no wall. Late-bound at the composition root
+                          once the vault root is known.
         """
         if write_backend is None or bulk_backend is None:
             raise ValueError("IngestionWriteBackend and BulkUpsertBackend are required")
@@ -928,10 +924,10 @@ class UnifiedIngestionService:
         if not file_path.exists():
             return Result.fail(Errors.not_found(f"File not found: {file_path}"))
 
-        # ingest_file is the direct entry point for /api/ingest/file (and a
-        # belt-and-suspenders for the per-file directory path), so the vault
-        # exclusions must be enforced here too — otherwise a single file could
-        # bypass the collect_files scan filters. One predicate covers symlinks,
+        # ingest_file is reachable without a collect_files scan (the vault
+        # UserEntry door, scripts, tests), so the vault exclusions are enforced
+        # here too — a belt-and-suspenders for the per-file directory path,
+        # the only guard for a direct call. One predicate covers symlinks,
         # the je_* staging floor, and the fail-closed allowlist. The wall is the
         # one governing THIS file's vault (descriptor-resolved), so a content
         # file gets the content staging floor rather than the personal wall —
@@ -1315,8 +1311,8 @@ class UnifiedIngestionService:
         The fail-closed folder allowlist is applied to every scan here — the
         single chokepoint every ingestion door traverses — so a vault wall cannot
         be bypassed by any caller. ``allowlist`` selects which wall: the
-        descriptor-driven reconciler passes the target vault's own allowlist; the
-        residual per-file/bundle doors and scripts fall back to ``self.sync_allowlist`` (the
+        descriptor-driven reconciler passes the target vault's own allowlist; a
+        direct call (a script, a test) falls back to ``self.sync_allowlist`` (the
         personal vault's wall). Files under the governed vault root are ingested
         only if they sit under an allowed dir.
 
@@ -1401,36 +1397,6 @@ class UnifiedIngestionService:
             post_persist_fn=self._ingest_post_persist,
             moc_pass_fn=self._apply_moc_links,
             status_transition_fn=self._apply_primitive_parity,
-        )
-
-    async def ingest_bundle(
-        self, bundle_path: Path, *, user_uid: UserUID | None = None
-    ) -> Result[BundleStats]:
-        """
-        Ingest a domain bundle using manifest file.
-
-        Delegates to batch.ingest_bundle.
-
-        ``user_uid`` is an acting-user hint threaded to each file's ``ingest_file``
-        (symmetry with the other ingest doors — ADR-070). The real owner of any
-        USER_OWNED entity is still resolved from the vault descriptor for its path;
-        the hint only governs the fallback when no vault registry is wired.
-        """
-
-        def _find_entity_file_with_size(bp: Path, uid: str) -> Path | None:
-            return find_entity_file(bp, uid, self.max_file_size_bytes)
-
-        def _parse_yaml(file_path: Path) -> Result[dict[str, Any]]:
-            return parse_yaml(file_path, self.max_file_size_bytes)
-
-        async def _ingest_file(file_path: Path) -> Result[dict[str, Any]]:
-            return await self.ingest_file(file_path, user_uid=user_uid)
-
-        return await ingest_bundle(
-            bundle_path=bundle_path,
-            parse_yaml_fn=_parse_yaml,
-            ingest_file_fn=_ingest_file,
-            find_entity_file_fn=_find_entity_file_with_size,
         )
 
     # ========================================================================

@@ -25,8 +25,6 @@ from datetime import datetime
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Literal
 
-import yaml
-
 from core.ingestion.ingestion_types import RelationshipConfig
 from core.models.enums.entity_enums import EntityType, NonKuDomain
 from core.models.relationship_names import RelationshipName
@@ -35,9 +33,7 @@ from core.utils.exception_types import (
     DATA_CONVERSION_EXCEPTIONS,
     FILE_IO_EXCEPTIONS,
     NEO4J_EXCEPTIONS,
-    PARSING_EXCEPTIONS,
 )
-from core.utils.frontmatter import split_frontmatter
 from core.utils.logging import get_logger
 from core.utils.result_simplified import ErrorCategory, ErrorContext, Errors, Result
 
@@ -54,10 +50,9 @@ from .config import (
 from .detector import detect_entity_type, detect_format, is_edge_type
 from .ingestion_tracker import IngestionTracker, edge_identity
 from .moc_links import frontmatter_organizes_targets
-from .parser import check_file_size, parse_markdown, parse_yaml
+from .parser import parse_markdown, parse_yaml
 from .preparer import prepare_edge_data, prepare_entity_data
 from .types import (
-    BundleStats,
     ChunkSource,
     IncrementalStats,
     IngestionError,
@@ -1552,207 +1547,9 @@ async def ingest_directory(
         )
 
 
-async def ingest_bundle(
-    bundle_path: Path,
-    parse_yaml_fn: Any,  # Function for YAML parsing
-    ingest_file_fn: Any,  # Function for single file ingestion
-    find_entity_file_fn: Any,  # Function to find entity file
-) -> Result[BundleStats]:
-    """
-    Ingest a domain bundle using manifest file.
-
-    Bundles are directories with:
-    - manifest.yaml: Import order and entity list
-    - *.yaml/*.md: Entity definition files
-
-    Args:
-        bundle_path: Path to domain bundle directory
-        parse_yaml_fn: Function for parsing YAML files
-        ingest_file_fn: Function for single file ingestion
-        find_entity_file_fn: Function to find entity file by UID
-
-    Returns:
-        Result with BundleStats
-    """
-    try:
-        logger.info(f"Ingesting domain bundle: {bundle_path}")
-
-        # Load manifest
-        manifest_path = bundle_path / "manifest.yaml"
-        if not manifest_path.exists():
-            return Result.fail(Errors.not_found(f"No manifest.yaml in bundle: {bundle_path}"))
-
-        manifest_result = parse_yaml_fn(manifest_path)
-        if manifest_result.is_error:
-            return Result.fail(manifest_result)
-
-        manifest = manifest_result.value
-        bundle_name = manifest.get("bundle_name", bundle_path.name)
-
-        stats = BundleStats(bundle_name=bundle_name)
-
-        # Process import order
-        import_order = manifest.get("import_order", {})
-
-        for phase_name, entity_uids in sorted(import_order.items()):
-            logger.info(f"Processing phase: {phase_name}")
-
-            for uid in entity_uids:
-                stats.total_attempted += 1
-
-                # Find file for this UID
-                entity_file = find_entity_file_fn(bundle_path, uid)
-                if not entity_file:
-                    stats.total_failed += 1
-                    not_found_error = IngestionError(
-                        file=f"<bundle:{uid}>",
-                        error=f"File not found for UID: {uid}",
-                        stage="file_resolution",
-                        error_type="not_found",
-                        suggestion=f"Create file named '{uid}.yaml' or '{uid}.md' in bundle directory.",
-                    )
-                    stats.errors.append(not_found_error.to_dict())
-                    continue
-
-                # Ingest file
-                result = await ingest_file_fn(entity_file)
-                if result.is_ok:
-                    stats.total_successful += 1
-                    stats.entities_created.append(uid)
-                else:
-                    stats.total_failed += 1
-                    ingest_error = IngestionError(
-                        file=str(entity_file),
-                        error=str(result.expect_error()),
-                        stage="ingestion",
-                        error_type="system",
-                        suggestion="Check the file content and Neo4j connection.",
-                    )
-                    stats.errors.append(ingest_error.to_dict())
-
-        logger.info(
-            f"Bundle ingestion complete: {stats.total_successful}/{stats.total_attempted} succeeded"
-        )
-
-        return Result.ok(stats)
-
-    except (*FILE_IO_EXCEPTIONS, *PARSING_EXCEPTIONS) as e:
-        logger.error(
-            "Failed to ingest bundle - returning error",
-            extra={
-                "bundle_path": str(bundle_path),
-                "error_type": type(e).__name__,
-                "error_message": str(e),
-            },
-            exc_info=True,
-        )
-        return Result.fail(
-            Errors.system(
-                f"Bundle ingestion failed: {e}",
-                operation="ingest_bundle",
-                details={"path": str(bundle_path)},
-            )
-        )
-    except Exception as e:  # safety-net: catch unexpected errors
-        logger.error(
-            "Failed to ingest bundle - unexpected error",
-            extra={
-                "bundle_path": str(bundle_path),
-                "error_type": type(e).__name__,
-                "error_message": str(e),
-            },
-            exc_info=True,
-        )
-        return Result.fail(
-            Errors.system(
-                f"Bundle ingestion failed: {e}",
-                operation="ingest_bundle",
-                details={"path": str(bundle_path)},
-            )
-        )
-
-
-def find_entity_file(
-    bundle_path: Path,
-    uid: str,
-    max_file_size_bytes: int = DEFAULT_MAX_FILE_SIZE_BYTES,
-) -> Path | None:
-    """
-    Find file for given UID in bundle.
-
-    Searches for:
-    1. File named after UID (e.g., ku.machine-learning.yaml)
-    2. File containing matching UID in content
-
-    Args:
-        bundle_path: Path to bundle directory
-        uid: Entity UID to find
-        max_file_size_bytes: Maximum file size to consider
-
-    Returns:
-        Path to file or None
-    """
-    # Try direct filename match (authored = stored — uid used verbatim)
-    for ext in (".yaml", ".yml", ".md"):
-        direct_path = bundle_path / f"{uid}{ext}"
-        if direct_path.exists():
-            return direct_path
-
-    # Search files for UID (skip files exceeding size limit)
-    for yaml_file in bundle_path.glob("*.yaml"):
-        if yaml_file.name == "manifest.yaml":
-            continue
-        try:
-            # Skip oversized files during search
-            if check_file_size(yaml_file, max_file_size_bytes).is_error:
-                continue
-            content = yaml_file.read_text()
-            data = yaml.safe_load(content)
-            if data and data.get("uid", "") == uid:
-                return yaml_file
-        except (*FILE_IO_EXCEPTIONS, *PARSING_EXCEPTIONS) as e:
-            # Log but continue searching - file may be malformed but others may match
-            logger.debug(
-                "Error reading YAML file during entity search",
-                extra={
-                    "file": str(yaml_file),
-                    "uid": uid,
-                    "error_type": type(e).__name__,
-                    "error_message": str(e),
-                },
-            )
-
-    for md_file in bundle_path.glob("*.md"):
-        try:
-            # Skip oversized files during search
-            if check_file_size(md_file, max_file_size_bytes).is_error:
-                continue
-            content = md_file.read_text()
-            raw_yaml, _ = split_frontmatter(content)
-            if raw_yaml is not None:
-                frontmatter = yaml.safe_load(raw_yaml)
-                if frontmatter and frontmatter.get("uid", "") == uid:
-                    return md_file
-        except (*FILE_IO_EXCEPTIONS, *PARSING_EXCEPTIONS) as e:
-            # Log but continue searching - file may be malformed but others may match
-            logger.debug(
-                "Error reading markdown file during entity search",
-                extra={
-                    "file": str(md_file),
-                    "uid": uid,
-                    "error_type": type(e).__name__,
-                    "error_message": str(e),
-                },
-            )
-
-    return None
-
-
 __all__ = [
     "collect_files",
     "create_error",
-    "find_entity_file",
-    "ingest_bundle",
     "ingest_directory",
     "parse_file_for_batch",
     "parse_file_sync",

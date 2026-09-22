@@ -1,7 +1,8 @@
 """Ingestion dashboard UI components.
 
-Renders the admin ingestion dashboard: file/directory ingestion cards
-with results display and JavaScript handlers.
+Renders the admin ingestion dashboard: the content-vault sync card (the
+reconciler — the one ingestion door, ADR-070 Decision 9), the chunk
+regeneration card, a results panel and their JavaScript handlers.
 """
 
 from typing import Any
@@ -9,23 +10,8 @@ from typing import Any
 from fasthtml.common import Div, Form, NotStr, P, Pre
 
 from ui.components import Button, ButtonT, Card, CardBody, Icon
-from ui.forms import LabelCheckbox, LabelInput, LabelTextArea
+from ui.forms import LabelCheckbox, LabelTextArea
 from ui.patterns import PageHeader, SectionHeader
-
-
-def _form_group(
-    label_text: str, input_id: str, placeholder: str, input_type: str = "text", value: str = ""
-) -> Any:
-    """Build a consistent form group."""
-    kwargs: dict[str, Any] = {
-        "type": input_type,
-        "name": input_id,
-        "id": input_id,
-        "placeholder": placeholder,
-    }
-    if value:
-        kwargs["value"] = value
-    return LabelInput(label_text, cls="space-y-2 w-full", **kwargs)
 
 
 def _ingestion_card(
@@ -58,43 +44,6 @@ _INGESTION_SCRIPT = """
 <script>
 let _ingesting = false;
 
-function showResult(result, isError) {
-    const statusEl = document.getElementById('ingest-status');
-    const detailsCard = document.getElementById('ingest-details-card');
-    const detailsEl = document.getElementById('ingest-results');
-
-    if (isError) {
-        const msg = result.error || result.message || 'Ingestion failed';
-        statusEl.innerHTML = `
-            <div class="p-4 rounded-lg bg-red-50 text-red-800 border border-red-200">
-                __ICON_X__
-                <span class="font-semibold">${msg}</span>
-            </div>`;
-    } else {
-        const title = result.title || result.uid || '';
-        const entityType = (result.entity_type || '').toUpperCase();
-        const nodes = (result.nodes_created || 0) + (result.nodes_updated || 0);
-        const rels = result.relationships_created || 0;
-        const chunks = result.chunks_generated ? ' &middot; Chunks generated' : '';
-        const summary = `${entityType}${title ? ' &middot; ' + title : ''} &middot; ${nodes} node(s), ${rels} relationship(s)${chunks}`;
-
-        statusEl.innerHTML = `
-            <div class="p-4 rounded-lg bg-green-50 text-green-800 border border-green-200">
-                __ICON_CHECK__
-                <div>
-                    <span class="font-semibold">Ingested successfully</span>
-                    <span class="text-sm opacity-80 ml-2">${summary}</span>
-                </div>
-            </div>`;
-    }
-
-    detailsEl.textContent = JSON.stringify(result, null, 2);
-    detailsEl.classList.remove('text-muted-foreground', 'text-success', 'text-error');
-    detailsEl.classList.add(isError ? 'text-error' : 'text-success');
-    detailsCard.classList.remove('hidden');
-    statusEl.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-}
-
 function showLoading(btnEl) {
     _ingesting = true;
     const statusEl = document.getElementById('ingest-status');
@@ -118,35 +67,8 @@ function doneLoading(btnEl) {
     }
 }
 
-async function ingestFile() {
-    if (_ingesting) return;
-    const btn = event.currentTarget;
-    const filePath = document.getElementById('file_path').value;
-    if (!filePath) { showResult({error: 'File path is required'}, true); return; }
-    showLoading(btn);
-    try {
-        const resp = await fetch('/api/ingest/file', {
-            method: 'POST',
-            headers: {'Content-Type': 'application/json'},
-            body: JSON.stringify({file_path: filePath})
-        });
-        const text = await resp.text();
-        try {
-            const data = JSON.parse(text);
-            showResult(data, !resp.ok);
-        } catch (_) {
-            showResult({error: 'Non-JSON response', status: resp.status, body: text.substring(0, 500)}, true);
-        }
-    } catch (e) {
-        showResult({error: e.message}, true);
-    } finally {
-        doneLoading(btn);
-    }
-}
-
-// Content-vault sync (ADR-070 Decision 9) — the single directory-ingest path.
-// Replaces the retired arbitrary-path /api/ingest/directory door; the reconciler
-// ingests the fixed content vault (INGESTION_PATH), inbound-only.
+// Content-vault sync (ADR-070 Decision 9) — the one ingestion door: the
+// reconciler ingests the fixed content vault (INGESTION_PATH), inbound-only.
 async function syncContentVault() {
     if (_ingesting) return;
     const btn = event.currentTarget;
@@ -297,8 +219,8 @@ def build_ingestion_dashboard(vault_path: str) -> Any:
     """Build the full ingestion dashboard content.
 
     Args:
-        vault_path: Default ingestion path shown in the directory form —
-            resolved by the route (UI components don't read config).
+        vault_path: The content vault the sync card names — resolved by the
+            route (UI components don't read config).
     """
 
     regen_form_groups = [
@@ -320,23 +242,9 @@ def build_ingestion_dashboard(vault_path: str) -> Any:
     return Div(
         PageHeader(
             "Content Ingestion",
-            subtitle="Ingest markdown and YAML content into Neo4j.",
+            subtitle="Sync the content vault into Neo4j and maintain its chunks.",
         ),
         Div(
-            _ingestion_card(
-                title="Ingest File",
-                description="Ingest a single .md or .yaml file.",
-                form_groups=[
-                    _form_group(
-                        "File Path",
-                        "file_path",
-                        "e.g. file.md or file.yaml",
-                        value=vault_path + "/",
-                    ),
-                ],
-                button_text="Ingest File",
-                onclick="ingestFile()",
-            ),
             _ingestion_card(
                 title="Sync content vault",
                 description=(

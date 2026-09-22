@@ -13,9 +13,8 @@ note 3–4×.
 when its ``vault_file_path`` is *also* tracked — i.e. a live ``IngestionMetadata``
 row points a DIFFERENT (current) uid at the same file. That proves the untracked
 copy is a superseded duplicate. An untracked entry whose path is NOT tracked is
-**ambiguous** — it could be a legitimate single-file-ingested entry (the
-``/api/ingest/file`` door reads but never writes the tracker) or an orphan of a
-now-deleted file — so it is REPORT-ONLY and never auto-deleted.
+**ambiguous** — an orphan of a file deleted or moved before the tracker could
+see it, or a note not yet synced — so it is REPORT-ONLY and never auto-deleted.
 
 Criterion for each candidate (untracked, has ``vault_file_path``, no
 ``FULFILLS_EXERCISE`` — frozen copies never carry ``vault_file_path``):

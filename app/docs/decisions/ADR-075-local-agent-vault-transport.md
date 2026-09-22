@@ -1,6 +1,6 @@
 ---
 title: "ADR-075: Stage-2 LocalAgentVaultAdapter — Hosted Vault Sync Transport"
-updated: 2026-09-15
+updated: 2026-09-22
 status: accepted
 category: decisions
 tags: [adr, decisions, vault, vault-bridge, local-agent, security, websocket, ed25519]
@@ -151,9 +151,8 @@ device list doubles as an audit surface.
 
 ### Decision 3 — Session + message protocol: outbound-only WebSocket, challenge-signature handshake, JSON-RPC-ish envelope
 
-**Transport: a single outbound WebSocket from agent to server** at `WS /ws/agent`, reusing
-the existing starlette WS infrastructure (`adapters/inbound/ingestion_api.py` already runs
-`WS /ws/ingest/progress/{operation_id}` on the same stack). The user's machine **never opens
+**Transport: a single outbound WebSocket from agent to server** at `WS /ws/agent`, on
+starlette's WS support (`adapters/inbound/device_routes.py`). The user's machine **never opens
 a port**; the agent dials out over 443 like any browser tab, which survives NAT, home
 routers, and corporate firewalls. Note the **role inversion**: the WS *connection* is
 agent→server (outbound-only), but once established the *RPC caller* is the server — the

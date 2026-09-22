@@ -1,7 +1,7 @@
 ---
 title: YAML Authoring Guide
 created: 2026-03-21
-updated: 2026-09-21
+updated: 2026-09-22
 status: current
 category: guides
 tags: [yaml, ingestion, authoring, substance, relationships, curriculum, activity-domains]
@@ -618,7 +618,7 @@ edges:
 
 ## Domain Bundles
 
-A bundle is a complete, curated collection of related content. The default ingestion vault is `/home/mike/0bsidian/0vault/` (configurable via `INGESTION_PATH`).
+A bundle is a complete, curated collection of related content — a naming convention for authors, not a mechanism: the sync walks the vault and ingests every typed file it finds. The default ingestion vault is `/home/mike/0bsidian/0vault/` (configurable via `INGESTION_PATH`).
 
 ### Bundle Structure
 
@@ -646,35 +646,17 @@ A domain bundle in the vault uses the format convention — `.md` for PathSteps 
   edges/edge_mindfulness-101-curriculum.yaml
 ```
 
-### Manifest
-
-```yaml
-name: Mindfulness 101
-description: Complete beginner mindfulness bundle
-version: 1.0
-
-import_order:
-  1_kus: [ku.mindfulness.breath, ku.mindfulness.attention]
-  2_path_steps: [ps.mindfulness.breath-awareness-basics, ps.mindfulness.posture-basics]
-  3_supporting: [habit.daily-2min-breath, task.log-first-5-sessions, ...]
-  4_paths: [lp.mindfulness-101]
-```
-
-**Import order matters:** Kus first (referenced by PathSteps), then PathSteps (referenced by Activities), then Activities, then LearningPaths.
+No manifest, no import order: directory ingest is two-phase (every node lands before any
+relationship), so files may reference each other in any order within one sync.
 
 ### Ingestion
 
-```python
-# Single file
-result = await service.ingest_file(Path("yaml_templates/mindfulness_101/ku_breath.yaml"))
+`./dev vault-sync --vault content` — the reconciler, smart mode (only changed files are
+re-processed; `--force` re-processes the rest). Preview: `./dev vault-sync --preview --vault
+content` (nothing written).
 
-# Full bundle
-result = await service.ingest_directory(Path("yaml_templates/mindfulness_101"))
-```
-
-Preview is the reconciler's: `./dev vault-sync --preview --vault content` (nothing written).
-
-**API:** `POST /api/ingest/file`; whole-vault ingestion via `POST /api/vault/sync/content` (admin, reconciler — ADR-070 Decision 9)
+**API:** `POST /api/vault/sync/content` (admin) — the same reconciler, from the dashboard's
+"Sync content vault" button. There is no per-file HTTP door (ADR-070 Decision 9).
 
 ---
 

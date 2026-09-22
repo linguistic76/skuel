@@ -3,7 +3,7 @@ Clear Neo4j Database
 ====================
 
 Safely removes all nodes and relationships from Neo4j.
-Use before ingesting fresh curriculum data.
+Use before re-ingesting the content vault (``./dev vault-sync --vault content``).
 
 CAUTION: This will delete ALL data in the database!
 """
@@ -251,87 +251,6 @@ async def clear_with_constraints(
         await conn.close()
 
 
-async def clear_domain_bundle_only(
-    bundle_name: str,
-    uri: str | None = None,
-    username: str | None = None,
-    password: str | None = None,
-):
-    """
-    Clear only entities from a specific domain bundle.
-
-    Safer option - only removes entities with UIDs matching the bundle.
-
-    Args:
-        bundle_name: Name of bundle to remove (e.g., "mindfulness_101")
-    """
-
-    uri = uri or os.getenv("NEO4J_URI", "bolt://localhost:7687")
-    username = username or os.getenv("NEO4J_USERNAME", "neo4j")
-
-    # Get password from credential store or prompt
-    if password is None:
-        # Try credential store first
-        try:
-            from core.config.credential_store import get_credential
-
-            password = get_credential("NEO4J_PASSWORD", fallback_to_env=True)
-        except Exception:
-            password = None
-
-        if password is None:
-            password = getpass.getpass(f"Neo4j password for {username}: ")
-
-    conn = Neo4jConnection(uri=uri, username=username, password=password)
-    driver = conn.connect()
-
-    try:
-        async with driver.session() as session:
-            logger.info(f"🗑️  Clearing bundle: {bundle_name}")
-
-            # Get bundle UIDs from manifest (would need to read manifest file)
-            # For now, use UID prefix patterns
-            uid_patterns = [
-                f"ku:{bundle_name}%",
-                f"ps:{bundle_name}%",
-                f"lp:{bundle_name}%",
-                f"principle:{bundle_name}%",
-                f"choice:{bundle_name}%",
-                f"habit:{bundle_name}%",
-                f"task:{bundle_name}%",
-                f"event:{bundle_name}%",
-                f"goal:{bundle_name}%",
-            ]
-
-            total_deleted = 0
-            for pattern in uid_patterns:
-                result = await session.run(
-                    """
-                    MATCH (n)
-                    WHERE n.uid STARTS WITH $pattern
-                    DETACH DELETE n
-                    RETURN count(n) as deleted
-                """,
-                    pattern=pattern.replace("%", ""),
-                )
-
-                record = await result.single()
-                deleted = record["deleted"]
-                if deleted > 0:
-                    total_deleted += deleted
-                    logger.info(f"   Deleted {deleted} nodes matching {pattern}")
-
-            logger.info(f"✅ Removed {total_deleted} nodes from bundle '{bundle_name}'")
-
-            return {"nodes_deleted": total_deleted}
-
-    except Exception as e:
-        logger.error(f"❌ Error: {e}", exc_info=True)
-        raise
-    finally:
-        await conn.close()
-
-
 if __name__ == "__main__":
     # Parse command line arguments
     mode = sys.argv[1] if len(sys.argv) > 1 else "clear"
@@ -346,26 +265,18 @@ if __name__ == "__main__":
         print("\n🔥 RESET MODE: Remove EVERYTHING (data + constraints + indexes)")
         asyncio.run(clear_with_constraints())
 
-    elif mode == "bundle":
-        # Clear specific bundle only
-        bundle = sys.argv[2] if len(sys.argv) > 2 else "mindfulness_101"
-        print(f"\n🎯 BUNDLE MODE: Remove only '{bundle}' entities")
-        asyncio.run(clear_domain_bundle_only(bundle))
-
     else:
         print("""
 Usage:
-    uv run python scripts/clear_neo4j.py [mode] [bundle_name]
+    uv run python scripts/clear_neo4j.py [mode]
 
 Modes:
     clear      Remove all data (keep constraints/indexes) [DEFAULT]
     reset      Remove EVERYTHING (data + constraints + indexes)
-    bundle     Remove only specific bundle entities
 
 Examples:
     uv run python scripts/clear_neo4j.py                    # Clear all data
     uv run python scripts/clear_neo4j.py reset              # Complete reset
-    uv run python scripts/clear_neo4j.py bundle mindfulness_101  # Clear bundle only
 
 Safety:
     All modes require explicit confirmation before deletion.

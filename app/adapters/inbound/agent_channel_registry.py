@@ -163,9 +163,8 @@ class AgentChannelRegistry:
         return True
 
 
-# Process-wide singleton — same lifecycle as the module-level WS connection
-# stores in ingestion_api.py. B4's compose wiring imports this instance to
-# hand the reconciler its channel-resolution dependency.
+# Process-wide singleton. B4's compose wiring imports this instance to hand
+# the reconciler its channel-resolution dependency.
 agent_channel_registry = AgentChannelRegistry()
 
 

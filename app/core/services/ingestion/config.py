@@ -675,10 +675,10 @@ class SyncAllowlist:
     to "open") when the env var is unset, so the fail-closed posture does not
     depend on configuration being present.
 
-    ``permits`` is the single predicate every ingestion path inherits — both the
-    directory scan (``collect_files`` → ``VaultReconciler.sync``) and single-file
-    ingestion (``ingest_file`` → ``/api/ingest/file``) — so no code path can
-    bypass it. ``governed_root`` and
+    ``permits`` is the single predicate every ingestion path inherits — the
+    directory scan (``collect_files`` → ``VaultReconciler.sync``) and the per-file
+    pipeline beneath it (``ingest_file``, also the vault UserEntry door) — so no
+    code path can bypass it. ``governed_root`` and
     ``allowed_dirs`` are stored already-resolved (see ``build_sync_allowlist``) so
     the ``permits`` check is purely lexical after a single ``resolve()`` of the
     candidate.

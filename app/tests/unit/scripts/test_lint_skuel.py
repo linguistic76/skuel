@@ -2564,9 +2564,9 @@ class TestSKUEL019:
         violations = lint_content(linter, '    t = os.getenv("INTELLIGENCE_TIER", "core")')
         assert len(violations) == 0
 
-    def test_ingestion_path_passes(self) -> None:
+    def test_user_vaults_root_passes(self) -> None:
         linter = make_linter(["SKUEL019"])
-        violations = lint_content(linter, '    p = os.environ.get("SKUEL_INGESTION_ALLOWED_PATHS")')
+        violations = lint_content(linter, '    p = os.environ.get("SKUEL_USER_VAULTS_ROOT")')
         assert len(violations) == 0
 
     def test_credential_backend_selector_passes(self) -> None:
