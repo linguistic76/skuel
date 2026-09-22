@@ -115,7 +115,7 @@ async def search_results(request: Request, query: str) -> Any:
     else:
         # Use standard search (control)
         result = await ku_service.search.search(
-            query_text=query,
+            query=query,
             user_uid=user_uid,
             limit=20
         )

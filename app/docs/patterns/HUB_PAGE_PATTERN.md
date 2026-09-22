@@ -274,8 +274,8 @@ Blocks are `HubBlockData` configs rendered by `HubDomainBlock`; each loads its c
 ## Usage: Graph-Driven Hub Page
 
 `hub_cards_from_organizers` renders any `OrganizerResult` list as a card grid.
-The fetch is per-subject — each domain has its own reader, and there is none for
-Ku (vault-authored MOC edges have no service door):
+The fetch is per-subject — each domain has its own reader, and Ku has none
+(its MOC edges are vault-authored and read back through the backend):
 
 ```python
 children_result = await orchestrator.get_entry_organized_children(entry_uid)

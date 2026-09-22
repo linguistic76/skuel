@@ -227,7 +227,13 @@ slots above.
 ```python
 # Via KuService facade - harmonious relationship access
 ku_service = services.ku
-enables = await ku_service.relationships.get_enables("ku_advanced-python_a1b2")
+resources = await ku_service.get_cited_resources("ku_advanced-python_a1b2")
+
+# Via sub-services - the generic edge writer (no Ku-specific method exists)
+await ku_service.relationships.add_relationship(
+    "ku_python_f7g8", RelationshipName.ORGANIZES, "ku_advanced-python_a1b2",
+    {"order": 1},
+)
 
 # Via sub-services - intelligence operations
 usage = await ku_service.intelligence.get_usage_summary("ku_python_f7g8")

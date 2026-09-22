@@ -377,10 +377,12 @@ result = await ku_service.create_ku(
 # Result: ku_meditation-basics_a1b2c3d4
 ```
 
-Placement is a separate write, and it is not a `KuService` operation: the Ku
-facade exposes no ORGANIZES method, and `PsService.organize()` requires a
-PathStep at both ends. ORGANIZES edges onto a Ku are authored in the vault via
-`moc: true` frontmatter — see
+Placement is a separate write with no Ku-specific method: the Ku facade exposes
+no `organize()`, and `PsService.organize()` requires a PathStep at both ends.
+Programmatically the edge goes through the generic writer —
+`ku_service.relationships.add_relationship(parent_uid, RelationshipName.ORGANIZES,
+child_uid, {"order": 1})`, which is unguarded by entity type. In practice Ku
+ORGANIZES edges are authored in the vault via `moc: true` frontmatter — see
 [../patterns/UNIFIED_INGESTION_GUIDE.md](../patterns/UNIFIED_INGESTION_GUIDE.md) § MOC files.
 
 **Creating a KU via Markdown (Legacy Support):**

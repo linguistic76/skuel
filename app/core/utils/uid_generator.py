@@ -97,9 +97,11 @@ class UIDGenerator:
 
         Note:
             - Hierarchy stored in (ku)-[:ORGANIZES]->(ku) relationships
-            - No service writes them: every PsService ORGANIZES method is
-              PathStep-subject only. Ku organization is authored in the
-              vault via `moc: true` frontmatter (body links become edges).
+            - No Ku-specific writer: every PsService ORGANIZES method is
+              PathStep-subject only. Write one with the generic edge writer,
+              KuService.relationships.add_relationship(parent,
+              RelationshipName.ORGANIZES, child, {"order": n}); in practice
+              they are authored in the vault via `moc: true` frontmatter.
             - See: /docs/decisions/ADR-013-ku-uid-flat-identity.md
         """
         slug = cls.slugify(title)
@@ -142,7 +144,8 @@ class UIDGenerator:
     # - (parent:Entity)-[:ORGANIZES {order}]->(child:Entity)
     # - PathStep subjects: PsService.find_organizers() / get_organized_children()
     # - UserEntry subjects: UserEntryService.get_organized_children()
-    # - Other entity types: edges come from vault MOC ingestion; no service door
+    # - Other entity types: no dedicated reader; edges are authored by vault MOC
+    #   ingestion or written with UnifiedRelationshipService.add_relationship()
     #
     # See: /docs/architecture/CURRICULUM_GROUPING_PATTERNS.md
 
