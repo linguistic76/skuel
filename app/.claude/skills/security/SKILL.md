@@ -48,8 +48,8 @@ Neo4j cannot parameterize labels, property names, or relationship types — thes
 | **Relationship types** | `validate_identifier()` + `validate_relationship_type()` | All 5 query builder modules via `_helpers.py`; `_build_direction_pattern()` in `_relationship_crud_mixin.py` (choke point for mixin Cypher); `traverse()` and `find_path()` in `_traversal_mixin.py` |
 | **Neo4j labels** | `validate_label()` | All 5 query builder modules via `_helpers.py` — checks against `NeoLabel` enum allowlist |
 | **Field/property names** | `validate_identifier()` + `validate_field_name()` | All 5 query builder modules via `_helpers.py` — regex `^[a-zA-Z_][a-zA-Z0-9_]*$`; `_search_mixin.py`, `_user_entity_mixin.py` via `validate_field_name()` (max 64 chars); **`ModelQueryBuilder.filter(**kwargs)` silently drops unsafe keys** (mirrors the `order_by` policy — operator suffixes like `__gte`/`__contains` still validate since the regex allows underscores throughout) |
-| **Comparison operators** | `validate_cypher_operator()` | `core/utils/validation_helpers.py` — case-sensitive allowlist `{=, <>, !=, <, >, <=, >=, CONTAINS, STARTS WITH, ENDS WITH, IN}`. Centrally gated in `query_optimizer._validate_request` so all six plan-builders inherit the check from one point. |
-| **Sort directions** | `validate_sort_direction()` | `core/utils/validation_helpers.py` — `{ASC, DESC}` (case-insensitive). Same central gate in `query_optimizer._validate_request` (also validates the sort *property* via `validate_field_name`). |
+| **Comparison operators** | *structural dispatch — no validator* | No builder interpolates a caller's operator. `build_search_query` (`crud_queries.py`) runs an if/elif chain that emits a literal and warns-and-skips anything unknown; `intelligence_queries.py` uses a guarded `op_map`; `batch_cypher_builder.py` looks up `_FILTER_OP_MAP` and raises on a miss. An unknown operator cannot reach Cypher at all — stronger than checking one and then interpolating it. |
+| **Sort directions** | *derived literals — no validator* | Every `ORDER BY` direction resolves to `"ASC"`/`"DESC"` before interpolation: from a bool (`"DESC" if order_desc else "ASC"`), from the developer-authored `RelationshipSpec.order_direction` (`relationship_registry.py`), or from a literal at the call site. The sort *property* beside it IS validated — `validate_field_name` or `_ALLOWED_ORDER_BY`. |
 
 ```python
 # Shared guards — used by crud_queries, domain_queries, relationship_queries,
@@ -61,7 +61,7 @@ from adapters.persistence.neo4j.query.cypher._helpers import validate_label, val
 # Query builder validators raise ValueError for unsafe labels/fields/relationship types
 ```
 
-**Validators:** `_helpers.py` (`validate_label`, `validate_identifier` — shared by all query builders), `core/utils/validation_helpers.py` (`validate_relationship_type`, `validate_field_name`, `validate_cypher_operator`, `validate_sort_direction`), `_backend_helpers.py` (`_validate_rel_name`, `_ALLOWED_ORDER_BY`).
+**Validators:** `_helpers.py` (`validate_label`, `validate_identifier` — shared by all query builders), `core/utils/validation_helpers.py` (`validate_relationship_type`, `validate_field_name`), `_backend_helpers.py` (`_validate_rel_name`, `_ALLOWED_ORDER_BY`).
 
 **See:** SKUEL013 in `/docs/patterns/linter_rules.md` for the `RelationshipName` enum that makes most interpolation type-safe at the call site.
 

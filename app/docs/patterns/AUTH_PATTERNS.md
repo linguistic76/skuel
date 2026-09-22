@@ -1,6 +1,6 @@
 ---
 title: Authentication Patterns in SKUEL
-updated: '2026-09-21'
+updated: '2026-09-22'
 category: patterns
 related_skills: [security]
 related_docs: []
@@ -213,7 +213,6 @@ async def create_item(request: Request, current_user: Any = None):
 - `@require_role(UserRole.ADMIN, getter)` - Explicit role requirement
 - `@require_admin(getter)` - Shortcut for ADMIN
 - `@require_teacher(getter)` - Shortcut for TEACHER
-- `@require_member(getter)` - Shortcut for MEMBER (paid subscription)
 
 ## Pattern Comparison
 
