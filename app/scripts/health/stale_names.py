@@ -235,6 +235,7 @@ DELETED: dict[str, str] = {
     # dry run (ADR-070 Decision 9, amended 2026-09-21); a raw ingest_directory over a
     # caller-chosen sub-directory reconciles nothing.
     "/api/ingest/vault": "deleted — POST /api/vault/sync/content (the reconciler) is the one directory door",
+    "ingest_user_activities": "deleted — a per-user vault syncs through VaultReconciler (./dev vault-sync), never a raw ingest_directory script",
     "/api/ingest/domain": "deleted — POST /api/vault/sync/content (the reconciler) is the one directory door",
     "ingest_vault": "deleted — VaultReconciler.sync (./dev vault-sync) is the one directory ingest",
     "DryRunPreview": "deleted — VaultReconciler.preview (./dev vault-sync --preview) is the one dry run",
@@ -472,6 +473,7 @@ ALLOWED_OCCURRENCES: dict[str, dict[tuple[int, str], Allow]] = {
         (297, "dry_run=True"): Allow(_adr070),
         (297, "DryRunPreview"): Allow(_adr070),
         (297, "check_existing_entities"): Allow(_adr070),
+        (297, "ingest_user_activities"): Allow(_adr070),
         (471, "/api/ingest/vault"): Allow(_adr070),
         (471, "/api/ingest/domain"): Allow(_adr070),
         (471, "ingest_vault"): Allow(_adr070),
