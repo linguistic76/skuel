@@ -107,7 +107,7 @@ class LpService:
 
     Explicit Methods (custom logic):
     - Step operations: create_step, get_step, update_step, delete_step, list_steps (ps_service guard)
-    - CRUD compatibility: create, get, update, delete, list (complex signatures)
+    - CRUD compatibility: create, get, update, delete
     """
 
     def __init__(
