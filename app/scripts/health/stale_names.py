@@ -490,8 +490,8 @@ ALLOWED_OCCURRENCES: dict[str, dict[tuple[int, str], Allow]] = {
         (284, "BundleStats"): Allow(_adr014),
     },
     "docs/decisions/ADR-070-bidirectional-vault-bridge.md": {
-        # L297: the 2026-09-21 amendment; L299: the 2026-09-22 amendment; L473/L474:
-        # their changelog rows (471 → 473 when the second amendment landed above them).
+        # Decision 9's two amendment paragraphs (L297, L299) and their changelog rows
+        # (L473, L474) — the decision names what it retired.
         (297, "/api/ingest/vault"): Allow(_adr070),
         (297, "/api/ingest/domain"): Allow(_adr070),
         (297, "ingest_vault"): Allow(_adr070),
