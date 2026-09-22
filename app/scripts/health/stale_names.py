@@ -256,10 +256,10 @@ DELETED: dict[str, str] = {
     "ingest_nous": "deleted — content is ingested by the reconciler (./dev vault-sync), never a per-folder script",
     "generate_kus_from_moc": "deleted — `moc: true` frontmatter is the ORGANIZES authoring surface (UNIFIED_INGESTION_GUIDE § MOC files)",
     "hierarchy_parser": "deleted — served only generate_kus_from_moc",
-    # The sharing door ruling (docs/roadmap/sharing-http-door.md, 2026-09-21): the
-    # shareable rule is _check_shareable, applied inside every mutation; the two live
-    # SHARED_WITH_GROUP readers (groups hub per group, the review queue) cover both
-    # consumer shapes, so no cross-group aggregate.
+    # Sharing (docs/roadmap/sharing-http-door.md): the shareable rule is
+    # _check_shareable, applied inside every mutation; the two live SHARED_WITH_GROUP
+    # readers (the groups hub per group, the review queue) cover both consumer
+    # shapes, so there is no cross-group aggregate.
     "verify_shareable": "deleted — the rule is applied inside share / set_visibility / share_with_group; no standalone pre-flight",
     "query_shareable_status": "deleted — served only verify_shareable",
     "get_shared_with_me_via_groups": "deleted — get_user_entries_shared_with_group (members, per group) / get_review_queue (owners) are the SHARED_WITH_GROUP readers",
@@ -382,7 +382,7 @@ _review_sync = "SYNC_UNIFICATION_REVIEW finding A3 (2026-07-01) names the bundle
 _adr014 = "ADR-014 changelog row recording the bundle mechanism and /api/ingest/* doors deleted for one ingestion system -- the record names what it retired"
 _adr070 = "ADR-070 Decision 9 amendments (2026-09-21, 2026-09-22) + changelog rows recording the raw ingest doors, the dry-run mode, the bundle mechanism, the HTTP path allowlist and the nous generator pair deleted with them -- the decision names what it retired"
 _adr073 = "ADR-073 § 3 amendment (2026-09-02) recording the Pipeline.JOURNAL deletion -- the decision names what it retired"
-_sharing_door = "the sharing-door ruling (2026-09-21) -- the ADR-038 amendment, the deferred-work MOC line and the case file's per-method table name the two methods (and their backend twins) the ruling deleted"
+_sharing_door = "the sharing-door record -- ADR-038's amendment, the deferred-work MOC line and the case file's per-method table name the two methods (and their backend twins) that no longer exist"
 _askesis_arch = "change-history table recording the entities_rich unification / ActivityDataReader absorption / ActivityReviewService split"
 _askesis_intel = "'the former ActivityReviewService was split' -- historical record of the split"
 _entity_arch = "'Pipeline and ReportSource (supersede ProcessorType)' explainer -- names the retired enum to document its replacement"
@@ -499,7 +499,7 @@ ALLOWED_OCCURRENCES: dict[str, dict[tuple[int, str], Allow]] = {
         (284, "BundleStats"): Allow(_adr014),
     },
     "docs/decisions/ADR-038-content-sharing-model.md": {
-        # The Service Layer amendment names what the 2026-09-21 ruling deleted.
+        # The Service Layer amendment names the two methods that no longer exist.
         (104, "get_shared_with_me_via_groups"): Allow(_sharing_door),
         (104, "verify_shareable"): Allow(_sharing_door),
     },
@@ -508,7 +508,7 @@ ALLOWED_OCCURRENCES: dict[str, dict[tuple[int, str], Allow]] = {
         (96, "get_shared_with_me_via_groups"): Allow(_sharing_door),
     },
     "docs/roadmap/sharing-http-door.md": {
-        # The per-method ruling table: the two DELETED rows and their backend twins.
+        # The per-method table's two DELETED rows and their backend twins.
         (37, "verify_shareable"): Allow(_sharing_door),
         (37, "query_shareable_status"): Allow(_sharing_door),
         (38, "get_shared_with_me_via_groups"): Allow(_sharing_door),
