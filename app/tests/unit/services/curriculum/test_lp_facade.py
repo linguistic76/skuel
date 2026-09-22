@@ -4,7 +4,6 @@ Unit tests for LpService facade orchestration methods.
 
 Tests focus on:
 - ps_service guard (create_step/get_step etc. return fail when ps_service is None)
-- list() filtering: user_uid routing, sorting, pagination
 - create() keyword assembly from entity fields
 
 NOT tested: pure delegation methods (*args/**kwargs).
@@ -117,11 +116,6 @@ class TestLpServicePsServiceGuard:
 
         assert result.is_ok
         mock_ps_service.create_step.assert_called_once_with(mock_step, mock_path_uid)
-
-
-# ---------------------------------------------------------------------------
-# TestLpServiceList
-# ---------------------------------------------------------------------------
 
 
 # ---------------------------------------------------------------------------
