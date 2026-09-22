@@ -243,6 +243,19 @@ DELETED: dict[str, str] = {
     "check_existing_entities": "deleted — served only the ingest_directory dry-run mode",
     "IngestionResultsSummary": "deleted — the domain door's fragment; sync results render from VaultSyncStats",
     "DryRunPreviewComponent": "deleted — the domain door's fragment; the personal Preview sync renders VaultSyncPreview",
+    # One ingestion system (ADR-070 Decision 9, amended 2026-09-22): the reconciler's routes
+    # are the HTTP surface; no route takes a path; no manifest, no per-file door.
+    "/api/ingest/file": "deleted — POST /api/vault/sync/content (the reconciler, smart mode) re-processes exactly the changed files",
+    "/api/ingest/bundle": "deleted — no manifest format; the reconciler's two-phase walk needs no import order",
+    "ingest_bundle": "deleted — VaultReconciler.sync (./dev vault-sync) is the one ingestion; no manifest format",
+    "BundleStats": "deleted — the reconciler reports VaultSyncStats",
+    "find_entity_file": "deleted — served only ingest_bundle",
+    "_validate_ingestion_path": "deleted — no HTTP route takes a path to ingest; the reconciler walks VaultRegistry roots",
+    "_resolve_allowed_ingestion_roots": "deleted — no HTTP route takes a path to ingest; the reconciler walks VaultRegistry roots",
+    "SKUEL_INGESTION_ALLOWED_PATHS": "deleted — no HTTP route takes a path to ingest; vault roots are INGESTION_PATH / VAULT_ROOT / SKUEL_USER_VAULTS_ROOT",
+    "ingest_nous": "deleted — content is ingested by the reconciler (./dev vault-sync), never a per-folder script",
+    "generate_kus_from_moc": "deleted — `moc: true` frontmatter is the ORGANIZES authoring surface (UNIFIED_INGESTION_GUIDE § MOC files)",
+    "hierarchy_parser": "deleted — served only generate_kus_from_moc",
     # Deleted enum members
     "Pipeline.JOURNAL": (
         "deleted — where a journal goes is stated in the Pipeline class docstring "
@@ -357,7 +370,9 @@ _adr043 = (
     "decision-time bootstrap gating snapshot -- all three named services have since been renamed"
 )
 _adr054 = "ADR-054 before/after record of the ProcessorType/EXERCISE_SUBMISSION/JE_* -> UserEntry collapse"
-_adr070 = "ADR-070 Decision 9 amendment (2026-09-21) + changelog row recording the two raw directory doors and the dry-run mode deleted with them -- the decision names what it retired"
+_review_sync = "SYNC_UNIFICATION_REVIEW finding A3 (2026-07-01) names the bundle route it reviewed -- a dated review record of commit 638d2fa, superseded by ADR-070 Decision 9's 2026-09-22 amendment"
+_adr014 = "ADR-014 changelog row recording the bundle mechanism and /api/ingest/* doors deleted for one ingestion system -- the record names what it retired"
+_adr070 = "ADR-070 Decision 9 amendments (2026-09-21, 2026-09-22) + changelog rows recording the raw ingest doors, the dry-run mode, the bundle mechanism, the HTTP path allowlist and the nous generator pair deleted with them -- the decision names what it retired"
 _adr073 = "ADR-073 § 3 amendment (2026-09-02) recording the Pipeline.JOURNAL deletion -- the decision names what it retired"
 _askesis_arch = "change-history table recording the entities_rich unification / ActivityDataReader absorption / ActivityReviewService split"
 _askesis_intel = "'the former ActivityReviewService was split' -- historical record of the split"
@@ -466,7 +481,17 @@ ALLOWED_OCCURRENCES: dict[str, dict[tuple[int, str], Allow]] = {
         (506, "EntityType.EXERCISE_SUBMISSION"): Allow(_adr054),
         (520, "ProcessorType"): Allow(_adr054),
     },
+    "docs/Reviews/SYNC_UNIFICATION_REVIEW.md": {
+        (89, "ingest_bundle"): Allow(_review_sync),
+        (90, "ingest_bundle"): Allow(_review_sync),
+    },
+    "docs/decisions/ADR-014-unified-ingestion.md": {
+        (284, "ingest_bundle"): Allow(_adr014),
+        (284, "BundleStats"): Allow(_adr014),
+    },
     "docs/decisions/ADR-070-bidirectional-vault-bridge.md": {
+        # Decision 9's two amendment paragraphs (L297, L299) and their changelog rows
+        # (L473, L474) — the decision names what it retired.
         (297, "/api/ingest/vault"): Allow(_adr070),
         (297, "/api/ingest/domain"): Allow(_adr070),
         (297, "ingest_vault"): Allow(_adr070),
@@ -474,9 +499,32 @@ ALLOWED_OCCURRENCES: dict[str, dict[tuple[int, str], Allow]] = {
         (297, "DryRunPreview"): Allow(_adr070),
         (297, "check_existing_entities"): Allow(_adr070),
         (297, "ingest_user_activities"): Allow(_adr070),
-        (471, "/api/ingest/vault"): Allow(_adr070),
-        (471, "/api/ingest/domain"): Allow(_adr070),
-        (471, "ingest_vault"): Allow(_adr070),
+        (297, "/api/ingest/file"): Allow(_adr070),
+        (297, "/api/ingest/bundle"): Allow(_adr070),
+        (299, "/api/ingest/bundle"): Allow(_adr070),
+        (299, "/api/ingest/file"): Allow(_adr070),
+        (299, "ingest_bundle"): Allow(_adr070, hits=2),
+        (299, "BundleStats"): Allow(_adr070),
+        (299, "find_entity_file"): Allow(_adr070),
+        (299, "_validate_ingestion_path"): Allow(_adr070),
+        (299, "_resolve_allowed_ingestion_roots"): Allow(_adr070),
+        (299, "SKUEL_INGESTION_ALLOWED_PATHS"): Allow(_adr070),
+        (299, "ingest_nous"): Allow(_adr070),
+        (299, "generate_kus_from_moc"): Allow(_adr070),
+        (299, "hierarchy_parser"): Allow(_adr070),
+        (473, "/api/ingest/vault"): Allow(_adr070),
+        (473, "/api/ingest/domain"): Allow(_adr070),
+        (473, "ingest_vault"): Allow(_adr070),
+        (474, "/api/ingest/file"): Allow(_adr070),
+        (474, "/api/ingest/bundle"): Allow(_adr070),
+        (474, "ingest_bundle"): Allow(_adr070),
+        (474, "BundleStats"): Allow(_adr070),
+        (474, "find_entity_file"): Allow(_adr070),
+        (474, "_validate_ingestion_path"): Allow(_adr070),
+        (474, "SKUEL_INGESTION_ALLOWED_PATHS"): Allow(_adr070),
+        (474, "ingest_nous"): Allow(_adr070),
+        (474, "generate_kus_from_moc"): Allow(_adr070),
+        (474, "hierarchy_parser"): Allow(_adr070),
     },
     "docs/decisions/ADR-073-journals-zero-persistence-vault-memory.md": {
         (125, "Pipeline.JOURNAL"): Allow(_adr073),

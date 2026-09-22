@@ -55,7 +55,6 @@ from .reference_ingestion import ReferenceIngestionService, ReferenceIngestRepor
 
 # Data types
 from .types import (
-    BundleStats,
     DirectoryValidationResult,
     IncrementalStats,
     IngestionError,
@@ -85,7 +84,6 @@ __all__ = [
     "ENTITY_CONFIGS",
     "EntityIngestionConfig",
     # Data types
-    "BundleStats",
     "DirectoryValidationResult",
     "IncrementalStats",
     "IngestionError",

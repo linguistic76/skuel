@@ -1,6 +1,6 @@
 ---
 title: Unified Ingestion Implementation Guide
-updated: 2026-09-21
+updated: 2026-09-22
 category: patterns
 related_skills: []
 related_docs:
@@ -38,15 +38,15 @@ Files that fall short are **ignored and reported with a per-file reason** on eve
 
 The default ingestion folder is `/home/mike/0bsidian/0vault/` (the Obsidian vault). This is where Ku YAMLs (`ku_*.yaml`), PathStep YAMLs (`ps_*.yaml`), Exercise YAMLs (`exercise_*.yaml`), edge YAMLs (`edges/edge_*.yaml`), and markdown content files live. Configurable via `INGESTION_PATH` env var.
 
-### Endpoint Path Allowlist (default-deny)
+### No request-supplied paths
 
-The HTTP ingestion endpoints (`/api/ingest/**`) **do not accept arbitrary host paths**, even from an authenticated admin. `adapters/inbound/ingestion_api.py::_validate_ingestion_path` resolves the request path and rejects it unless it sits under at least one root from `_resolve_allowed_ingestion_roots()`. Precedence chain:
-
-1. `SKUEL_INGESTION_ALLOWED_PATHS` — colon-separated explicit override (multi-vault / staging setups)
-2. `INGESTION_PATH` — the single configured vault root (also the documented default)
-3. Neither set → **empty list → reject every path** (fail closed)
-
-The admin role gate authorizes *ownership of the action*, not *filesystem reach* — a compromised admin session still can't ingest from `/etc` or `/root`. CLI/programmatic ingestion via `UnifiedIngestionService` bypasses this check (it's HTTP-boundary defense, not a core-service check) — keep ad-hoc paths to scripts you trust.
+No HTTP route takes a path to ingest. The reconciler resolves what it walks from the vault
+descriptors built at composition (`VaultRegistry`: the content vault at `INGESTION_PATH`,
+the personal vault at `VAULT_ROOT`, member vaults under `SKUEL_USER_VAULTS_ROOT`), so an
+admin session — compromised or not — cannot point ingestion at `/etc` or `/root`.
+Programmatic `ingest_file` / `ingest_directory` calls take a path and are governed only by
+the fail-closed sync wall (§ Vault Sync Privacy Wall) — keep ad-hoc paths to scripts you
+trust.
 
 ## Quick Start
 
@@ -73,9 +73,6 @@ stats = await service.ingest_directory(
 
 # Acting-user hint (owner is resolved from the vault descriptor for the path)
 result = await service.ingest_file(Path("task_example.yaml"), user_uid=UserUID("user_mike"))
-
-# Ingest a bundle with manifest
-stats = await service.ingest_bundle(Path("/bundles/mindfulness"))
 ```
 
 ---
@@ -520,9 +517,9 @@ for entry in entries.value:
 ### Content-Vault Ingestion (Admin)
 
 The admin dashboard's "Sync content vault" button posts to `POST /api/vault/sync/content`
-(the reconciler); the single-file card posts to `POST /api/ingest/file`. There is no
-per-domain door — a file's declared `type:` drives its persistence, not the directory it
-was posted from.
+(the reconciler) — the one door. There is no per-file, per-manifest or per-domain door: a
+file's declared `type:` drives its persistence, not the directory it was posted from, and
+smart mode re-processes exactly the files that changed.
 
 **See:** `/docs/architecture/CORE_SYSTEMS_ARCHITECTURE.md` for ingestion architecture
 
@@ -695,7 +692,7 @@ owner; USER_OWNED types (the 6 activity domains, UserEntry) carry a `user_uid`.
 
 The one thing ingest must get right uniformly is **who owns a USER_OWNED entity**, and
 that is resolved from the **vault descriptor governing the file's path** — not from the
-caller. Every `user_uid=` argument on `ingest_file` / `ingest_directory` / `ingest_bundle`
+caller. Every `user_uid=` argument on `ingest_file` / `ingest_directory`
 is only an **acting-user hint**:
 
 | File lives in… | Owner attributed | Hint |
@@ -815,21 +812,6 @@ if stats.is_ok:
     print(f"Skipped: {stats.value.files_skipped}")
     for error in stats.value.errors or []:
         print(f"  - {error['file']}: {error['error']}")
-```
-
-### ingest_bundle(path)
-
-Ingest a manifest-driven bundle.
-
-```python
-# Bundle structure:
-# /bundles/mindfulness/
-# ├── manifest.yaml          # Lists files to ingest
-# ├── ku_breath-awareness.md
-# ├── ku_body-scan.md
-# └── lp_mindfulness-basics.yaml
-
-stats = await service.ingest_bundle(Path("/bundles/mindfulness"))
 ```
 
 ---
@@ -974,7 +956,7 @@ A sync whose only findings are ignored files **is clean** ("Sync complete" + the
 
 Ignored files carry no ingestion stamp, so they **re-report on every sync**. That standing visibility is the design (the vault owner always sees what's opted out), not noise.
 
-Classification lives in `_merge_ingest_stats` / `_CONTENT_FAULT_STAGES` (`core/services/vault/vault_reconciler.py`); the raw ingestion API (`/api/ingest/**`) still returns the engine's unclassified `IngestionStats.errors`.
+Classification lives in `_merge_ingest_stats` / `_CONTENT_FAULT_STAGES` (`core/services/vault/vault_reconciler.py`); a direct `ingest_directory` call returns the engine's unclassified `IngestionStats.errors`.
 
 ### UID Format Validation
 
@@ -1171,16 +1153,17 @@ tags: [health, nervous-system]
 
 | Endpoint | Method | Request Body | Response |
 |----------|--------|--------------|----------|
-| `/api/ingest/file` | POST | `{"file_path": "/path/to/file"}` | Entity dict |
-| `/api/ingest/bundle` | POST | `{"bundle_path": "/bundle"}` | BundleStats |
+| `/api/vault/sync/content` | POST | `{}` | `VaultSyncStats` (admin) |
+| `/api/vault/sync` | POST | `{}` | `VaultSyncStats` (session user's personal vault) |
+| `/api/vault/preview` | POST | `{}` | `VaultSyncPreview` (personal, nothing written) |
+| `/api/chunks/regenerate` | POST | `{"parent_uids": [...] \| null, "force": bool}` | `RegenerationStats` (admin) |
 | `/ingest` | GET | - | Dashboard UI |
 
-All endpoints are admin-only and CSRF-protected — a scripted caller needs an authenticated
-session plus the `X-CSRF-Token` header.
-
-**Whole-vault incremental sync goes through the reconciler, not a raw ingest door** (ADR-070
-Decision 9). The arbitrary-path `/api/ingest/directory` door was removed; ingest the content
-vault via `POST /api/vault/sync/content` (admin) or the in-process
+All POSTs are CSRF-protected — a scripted caller needs an authenticated session plus the
+`X-CSRF-Token` header. No route takes a path: **the reconciler is the one ingestion system**
+(ADR-070 Decision 9, amended 2026-09-22) — the per-file, per-manifest and per-directory
+`/api/ingest/*` doors are all retired. Ingest the content vault via
+`POST /api/vault/sync/content` (admin) or the in-process
 `scripts/vault_bridge_sync.py --vault content` (both run `VaultReconciler.sync` in `smart`
 mode). Personal vaults sync via `POST /api/vault/sync`. **Dry run:** `--preview` on the script
 (either vault) and, for personal vaults, the "Preview sync" button / `POST /api/vault/preview`

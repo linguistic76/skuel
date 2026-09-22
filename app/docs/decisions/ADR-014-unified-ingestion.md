@@ -1,6 +1,6 @@
 ---
 title: "ADR-014: Unified Content Ingestion Service"
-updated: 2026-09-21
+updated: 2026-09-22
 status: accepted
 category: decisions
 tags: [adr, decisions, ingestion, markdown, yaml, unified, modular]
@@ -87,7 +87,6 @@ task:log-sessions    →  task.log-sessions     (legacy colon spelling, normaliz
 class UnifiedIngestionService:
     async def ingest_file(path: Path) -> Result[dict[str, Any]]
     async def ingest_directory(path: Path, pattern: str = "*") -> Result[IngestionStats]
-    async def ingest_bundle(path: Path) -> Result[BundleStats]
 ```
 
 ### Architecture
@@ -159,7 +158,7 @@ UnifiedIngestionService
 - Consistent dot notation UIDs
 - Full 14 entity type support
 - Batch performance for all operations
-- Unified API (`/api/ingest/*`)
+- One HTTP surface — the reconciler's (`/api/vault/sync`, `/api/vault/sync/content`; ADR-070 Decision 9)
 - Dashboard UI for content creators
 
 ### Negative Consequences
@@ -246,10 +245,10 @@ ENTITY_CONFIGS: dict[str, EntityIngestionConfig] = {
 
 | Endpoint | Method | Purpose |
 |----------|--------|---------|
-| `/api/ingest/file` | POST | Single file ingestion |
-| `/api/vault/sync/content` | POST | Content-vault directory ingest (admin) — the one directory door; there is no `/api/ingest/directory` (ADR-070 Decision 9 retired it) |
-| `/api/ingest/bundle` | POST | Manifest-driven bundle |
-| `/ingest` | GET | Dashboard UI |
+| `/api/vault/sync/content` | POST | Content-vault ingest (admin) — the reconciler, the one ingestion door (ADR-070 Decision 9; the per-file, per-manifest and per-directory `/api/ingest/*` doors are all retired) |
+| `/api/vault/sync` | POST | Personal-vault ingest (session user) — the same reconciler |
+| `/api/chunks/regenerate` | POST | Re-run the chunking stage over stored `:Content` (admin tool) |
+| `/ingest` | GET | Dashboard UI — the "Sync content vault" and "Regenerate Chunks" cards |
 
 ---
 
@@ -282,6 +281,7 @@ ENTITY_CONFIGS: dict[str, EntityIngestionConfig] = {
 | 2026-01-04 | Claude | Decomposed into modular package (ADR-016 pattern) | 2.0 |
 | 2026-02-08 | Claude | Update KU relationship types: PREREQUISITE → REQUIRES_KNOWLEDGE, ENABLES → ENABLES_KNOWLEDGE; note registry-derived config | 2.1 |
 | 2026-09-03 | Claude Code | § UID Normalization marked superseded — the colon→dot shim was deleted 2026-08-14 (ADR-013 v2.2); pointer, no restatement | 2.2 |
+| 2026-09-22 | Claude Code | Interface, consequences, endpoint table and example restated for one ingestion system: `ingest_bundle` / `BundleStats` and the `/api/ingest/*` doors are gone; the reconciler's routes are the HTTP surface (ADR-070 Decision 9, amended 2026-09-22) | 2.3 |
 
 ---
 
@@ -313,12 +313,6 @@ connections:
     - ku.meditation-basics
 ```
 
-**Ingest via API:**
-```bash
-curl -X POST http://localhost:5001/api/ingest/file \
-  -H "Content-Type: application/json" \
-  -d '{"file_path": "0vault/stories/machine-learning.md"}'
-```
-
-**Or use the dashboard:**
-Navigate to `/ingest` for the visual interface.
+**Ingest it:** save the file in the content vault and sync — `./dev vault-sync --vault content`
+(one-shot, in-process), or the "Sync content vault" button at `/ingest`. Smart mode
+re-processes only the files whose content changed.

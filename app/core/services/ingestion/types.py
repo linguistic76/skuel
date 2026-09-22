@@ -54,18 +54,6 @@ class IngestionStats:
 
 
 @dataclass
-class BundleStats:
-    """Statistics from a domain bundle ingestion."""
-
-    bundle_name: str
-    total_attempted: int = 0
-    total_successful: int = 0
-    total_failed: int = 0
-    entities_created: list[str] = field(default_factory=list)
-    errors: list[dict[str, Any]] = field(default_factory=list)
-
-
-@dataclass
 class ValidationResult:
     """
     Result from dry-run validation of a file or directory.
@@ -356,7 +344,6 @@ class IngestionError:
 
 __all__ = [
     "AppliedMove",
-    "BundleStats",
     "DeletionPlan",
     "MovePlan",
     "DeletionReconciliation",

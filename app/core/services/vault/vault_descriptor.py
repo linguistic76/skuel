@@ -193,10 +193,10 @@ class VaultRegistry:
         """Return the descriptor that governs a target file/dir ``path``.
 
         This is the by-path counterpart to :meth:`resolve` (which is by-kind).
-        Callers that only know a directory (the ``/api/ingest/*`` doors, the
-        watcher, ad-hoc scripts) use this so the *owner* attributed to what they
-        ingest is a function of the vault the file lives in — not of the caller's
-        own identity. Access rights thus become surface-independent.
+        The ingestion service uses this so the *owner* attributed to what it
+        ingests is a function of the vault the file lives in — not of the
+        caller's identity, whichever door (the reconciler, a script, a test)
+        the call came through. Access rights thus become surface-independent.
         ``acting_user_uid`` is accepted for signature symmetry but never decides
         ownership: every personal root carries its own bound owner.
 

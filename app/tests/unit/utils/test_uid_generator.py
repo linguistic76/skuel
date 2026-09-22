@@ -1,9 +1,7 @@
 """Tests for UID generation utilities (core/utils/uid_generator.py).
 
-Locks the semantics of the consolidated slugify: the former
-hierarchy_parser copy stripped markdown links before slugging and the
-UIDGenerator copy did not — the merge deliberately adopted link
-stripping (plain text is unaffected; links slug to their link text).
+Locks the semantics of the one slugify: markdown links are stripped before
+slugging (plain text is unaffected; links slug to their link text).
 """
 
 from __future__ import annotations
@@ -22,7 +20,7 @@ class TestSlugify:
         assert UIDGenerator.slugify("  a  --  b  ") == "a-b"
 
     def test_markdown_link_slugs_to_link_text(self):
-        """Adopted from hierarchy_parser: URL characters never leak into the slug."""
+        """URL characters never leak into the slug."""
         assert UIDGenerator.slugify("[Foo Bar](https://example.com/x)") == "foo-bar"
 
     def test_markdown_link_inline_with_text(self):

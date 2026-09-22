@@ -1,5 +1,5 @@
 ---
-updated: 2026-09-21
+updated: 2026-09-22
 related_skills: [journals]
 ---
 
@@ -142,7 +142,7 @@ Journals FOUNDER:   entry + UserContext digest + curriculum dev + biz dev → Sc
 
 ## 7. Vault Sync Boundary: The `je_*` Folders
 
-The personal vault (`VAULT_ROOT`, `/home/mike/0bsidian/skuel/`) contains four `je_*` pipeline folders. Three (`je_in`/`je_out`/`je_raw`) are **never ingested by vault sync**; `je_pro/` is a **conditional doorway** since the 2026-07-11 ADR-073 amendment. Enforcement layers (all in `core/services/ingestion/config.py`, applied at the shared ingestion chokepoint — `collect_files` for directory scans and `ingest_file` for single files — so the reconciler and `/api/ingest/file` all honor them):
+The personal vault (`VAULT_ROOT`, `/home/mike/0bsidian/skuel/`) contains four `je_*` pipeline folders. Three (`je_in`/`je_out`/`je_raw`) are **never ingested by vault sync**; `je_pro/` is a **conditional doorway** since the 2026-07-11 ADR-073 amendment. Enforcement layers (all in `core/services/ingestion/config.py`, applied at the shared ingestion chokepoint — `collect_files` for directory scans and `ingest_file` for the per-file pipeline beneath them — so the reconciler and any direct `ingest_file` call honor them):
 
 1. **Staging floor (always on):** `is_staging_path()` / `STAGING_EXCLUDED_DIRS` unconditionally excludes `je_in`/`je_out`/`je_raw` by name — pipeline artifacts, never vault content, in *any* configuration (including a single-vault fallback where no allowlist is built). This keeps the guarantee that `je_out` transcripts never auto-sync.
 2. **Privacy wall (fail-closed `SyncAllowlist`):** on top of the floor, only the code-defined doorway folders under the vault root are ingested (`_DEFAULT_SYNC_SUBDIRS`: `periodic_notes/`, `personal_notes/`, `activity_notes/`, `knowledge/`, `je_pro/`), so anything else — templates, loose notes — is walled off too. On by default; symlink-safe; the allowlist is code-defined (not env-configurable — `SKUEL_VAULT_SYNC_ALLOWED_DIRS` was removed to prevent env shadowing); dirs must be strictly under the vault root.

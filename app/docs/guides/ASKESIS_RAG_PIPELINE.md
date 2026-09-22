@@ -1,5 +1,5 @@
 ---
-updated: 2026-09-17
+updated: 2026-09-22
 ---
 
 # Askesis RAG Pipeline — Developer Guide
@@ -26,7 +26,7 @@ Each stage has a single responsible service. The entire pipeline is async.
 
 **Service:** `UnifiedIngestionService` (`core/services/ingestion/unified_ingestion_service.py`)
 
-**Entry point:** `ingest_file(file_path, ...)` or the API at `POST /api/ingest/file`
+**Entry point:** `VaultReconciler.sync` (`POST /api/vault/sync/content` / `./dev vault-sync --vault content`), which runs `ingest_file(file_path, ...)` per changed file
 
 **What happens:**
 

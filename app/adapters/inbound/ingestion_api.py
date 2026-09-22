@@ -1,37 +1,24 @@
 """
-Ingestion API Routes - Unified Content Ingestion API
-=====================================================
+Ingestion API Routes - the admin ingestion dashboard's API
+==========================================================
 
-API routes for the UnifiedIngestionService (ADR-014).
-Handles both MD and YAML formats for all entity types.
-
-Ownership (ADR-070):
-- Every route here passes ``user_uid=current_user.uid`` as an *acting-user hint*
-  only. The real owner of any USER_OWNED entity is resolved from the vault
-  descriptor governing the *target path*, not from the caller's identity. See the
-  canonical acts-as ownership model in core/services/vault/vault_descriptor.py
-  (VaultRegistry.resolve_by_path).
-
-Security:
-- All routes require admin role + CSRF
-- Path traversal validation via `_validate_ingestion_path`:
-  1. `SKUEL_INGESTION_ALLOWED_PATHS` (colon-separated) — explicit override.
-  2. Else `INGESTION_PATH` — the configured vault root.
-  3. Neither set — fail closed. Default-deny, not default-allow.
+The API behind ``/ingest`` (``ingestion_ui.py``). Ingestion itself has ONE
+door: the reconciler (ADR-070 Decision 9) — the dashboard's "Sync content
+vault" button posts to ``POST /api/vault/sync/content``
+(``adapters/inbound/vault_routes.py``), the personal-vault button to
+``POST /api/vault/sync``, and ``./dev vault-sync`` runs the same engine in
+process. Nothing here ingests a file: a raw per-file or per-manifest door
+skips the tracker-driven reconciliation (deletions, edge retraction, 🆔
+retirement, preview) that only the reconciler's walk performs.
 
 Routes:
-- POST /api/ingest/file - Ingest single file (MD or YAML)
-- POST /api/ingest/bundle - Ingest domain bundle with manifest
+- POST /api/chunks/regenerate - re-run ingestion's chunking stage over stored
+  :Content (admin tool; registered only when BatchChunkingService is wired)
 
-There is no directory door here (ADR-070 Decision 9): directory ingestion of
-the content vault runs through the reconciler (``POST /api/vault/sync/content``,
-``adapters/inbound/vault_routes.py``), which is what reconciles deletions,
-retracts authored edges and retires 🆔 lines — a raw ``ingest_directory`` over a
-caller-chosen sub-directory does none of that.
+Security:
+- Admin role + CSRF
 """
 
-import os
-from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
 from adapters.inbound.auth import make_service_getter, require_admin
@@ -48,110 +35,6 @@ if TYPE_CHECKING:
 logger = get_logger("skuel.routes.ingestion")
 
 
-def _resolve_allowed_ingestion_roots() -> list[Path]:
-    """Resolve the effective ingestion allowlist from env (precedence order).
-
-    1. `SKUEL_INGESTION_ALLOWED_PATHS` (colon-separated) — explicit override,
-       useful when an admin runs multi-vault setups or staging directories.
-    2. `INGESTION_PATH` — the single vault root (also the configured ingestion
-       default at `core/config/unified_config.py`).
-    3. Neither set — empty list. Callers fail closed.
-
-    Default-deny: returning [] means `_validate_ingestion_path` rejects every
-    path, including absolute ones. This closes the prior "admin can ingest
-    anywhere on the host" hole without making the env var newly required for
-    setups that have always relied on `INGESTION_PATH`.
-    """
-    explicit = os.getenv("SKUEL_INGESTION_ALLOWED_PATHS")
-    if explicit:
-        return [Path(p.strip()).resolve() for p in explicit.split(":") if p.strip()]
-
-    fallback = os.getenv("INGESTION_PATH")
-    if fallback:
-        return [Path(fallback).resolve()]
-
-    return []
-
-
-def _reject_symlink_file(path_str: str | None) -> Result[None]:
-    """Reject a symlinked file path before it is resolved.
-
-    ``_validate_ingestion_path`` resolves symlinks (for traversal protection),
-    which erases the symlink-ness the vault boundary relies on — so the service's
-    ``is_ingestible_path`` no-symlink rule can't see it on the ``/api/ingest/file``
-    door. The single-file door reads the target's content, so a symlink there
-    could ship an external file into the graph; reject it on the ORIGINAL path.
-    (Directory scans are unaffected: ``collect_files`` globs leaf symlinks without
-    resolving them, so the service check still fires per-file there.)
-    """
-    if path_str and Path(path_str).is_symlink():
-        return Result.fail(
-            Errors.validation(
-                "Symlinked files are not ingestible — the link target may be outside the vault.",
-                "file_path",
-                path_str,
-            )
-        )
-    return Result.ok(None)
-
-
-def _validate_ingestion_path(path_str: str | None) -> Result[Path]:
-    """
-    Validate a path for ingestion, checking for traversal attacks.
-
-    Default-deny: every request path must resolve under at least one root from
-    `_resolve_allowed_ingestion_roots()`. If neither env var configures a root,
-    every request is rejected (fail closed). The earlier behavior of "allow any
-    absolute path when env var unset" is gone — `INGESTION_PATH` (which already
-    has the documented default vault) is the natural fallback.
-
-    Args:
-        path_str: The path string from the request
-
-    Returns:
-        Result[Path]: Resolved Path on success, validation error on failure
-    """
-    if not path_str:
-        return Result.fail(Errors.validation("Path is required", "path", None))
-
-    try:
-        # Resolve to absolute path (handles .. and symlinks)
-        resolved = Path(path_str).resolve()
-
-        allowed_paths = _resolve_allowed_ingestion_roots()
-        if not allowed_paths:
-            logger.error(
-                "Ingestion blocked: no allowlist configured. "
-                "Set SKUEL_INGESTION_ALLOWED_PATHS or INGESTION_PATH."
-            )
-            return Result.fail(
-                Errors.validation(
-                    "Ingestion path allowlist is not configured. "
-                    "Set SKUEL_INGESTION_ALLOWED_PATHS or INGESTION_PATH.",
-                    "path",
-                    path_str,
-                )
-            )
-
-        is_allowed = any(
-            resolved == allowed or resolved.is_relative_to(allowed) for allowed in allowed_paths
-        )
-        if not is_allowed:
-            logger.warning(f"Path traversal attempt blocked: {path_str} -> {resolved}")
-            return Result.fail(
-                Errors.validation(
-                    f"Path outside allowed directories: {resolved}",
-                    "path",
-                    path_str,
-                )
-            )
-
-        return Result.ok(resolved)
-
-    except (ValueError, OSError) as e:
-        return Result.fail(Errors.validation(f"Invalid path: {e}", "path", path_str))
-
-
 def create_ingestion_api_routes(
     app,
     rt,
@@ -160,14 +43,16 @@ def create_ingestion_api_routes(
     batch_chunking_service: BatchChunkingService | None = None,
 ):
     """
-    Create unified ingestion API routes.
+    Create the ingestion dashboard's API routes.
 
     Args:
         app: FastHTML app instance
         rt: Router instance
-        unified_ingestion: The UnifiedIngestionService instance
+        unified_ingestion: The UnifiedIngestionService instance — the surface's
+            registration gate (DomainRouteConfig passes it as the primary
+            service; no route here calls it).
         user_service: UserService instance for admin role checks
-        batch_chunking_service: Phase 2 admin tool for chunk regeneration.
+        batch_chunking_service: Admin tool for chunk regeneration.
             When None, the /api/chunks/regenerate route is not registered.
     """
 
@@ -176,127 +61,6 @@ def create_ingestion_api_routes(
         return
 
     get_user_service = make_service_getter(user_service)
-
-    # ============================================================================
-    # API ROUTES
-    # ============================================================================
-
-    @rt("/api/ingest/file", methods=["POST"])
-    @csrf_protected
-    @require_admin(get_user_service)
-    @boundary_handler()
-    async def ingest_file_route(request: Request, current_user: Any = None):
-        """
-        Ingest a single file (MD or YAML) into Neo4j.
-
-        Request body:
-            file_path: str - Path to file to ingest
-
-        Returns:
-            Result with uid, title, entity_type, and statistics
-
-        Ownership: ``current_user.uid`` is passed as an acting-user hint only; the
-        owner is resolved from the vault descriptor for ``file_path`` (ADR-070).
-
-        Security: Path validated against SKUEL_INGESTION_ALLOWED_PATHS if set
-        """
-        try:
-            data = await request.json()
-            file_path = data.get("file_path")
-
-            # Reject symlinks on the ORIGINAL path — validation below resolves them
-            # away, bypassing the service's vault symlink boundary.
-            symlink_check = _reject_symlink_file(file_path)
-            if symlink_check.is_error:
-                return Result.fail(symlink_check)
-
-            # Validate path (traversal protection)
-            path_result = _validate_ingestion_path(file_path)
-            if path_result.is_error:
-                return path_result
-
-            path = path_result.value
-            if not path.exists():
-                return Result.fail(Errors.not_found("File", str(path)))
-
-            result = await unified_ingestion.ingest_file(path, user_uid=current_user.uid)
-
-            if result.is_ok:
-                return Result.ok({"success": True, **result.value})
-            else:
-                return Result.fail(result)
-
-        except Exception as e:  # safety-net: HTTP error boundary
-            logger.error(f"File ingestion failed: {e}")
-            return Result.fail(
-                Errors.system("File ingestion failed", exception=e, operation="ingest_file")
-            )
-
-    @rt("/api/ingest/bundle", methods=["POST"])
-    @csrf_protected
-    @require_admin(get_user_service)
-    @boundary_handler()
-    async def ingest_bundle_route(request: Request, current_user: Any = None):
-        """
-        Ingest a domain bundle with manifest.
-
-        Request body:
-            bundle_path: str - Path to bundle directory
-
-        Returns:
-            Result with BundleStats
-
-        Ownership: ``current_user.uid`` is an acting-user hint; each ingested file's
-        owner is resolved from the vault descriptor for its path (ADR-070).
-
-        Security: Path validated against SKUEL_INGESTION_ALLOWED_PATHS if set
-        """
-        try:
-            data = await request.json()
-            bundle_path = data.get("bundle_path")
-
-            # Validate path (traversal protection)
-            path_result = _validate_ingestion_path(bundle_path)
-            if path_result.is_error:
-                return path_result
-
-            path = path_result.value
-            if not path.exists() or not path.is_dir():
-                return Result.fail(Errors.not_found("Bundle", str(path)))
-
-            manifest_path = path / "manifest.yaml"
-            if not manifest_path.exists():
-                return Result.fail(
-                    Errors.validation(
-                        "Bundle must contain manifest.yaml",
-                        "bundle_path",
-                        bundle_path,
-                    )
-                )
-
-            result = await unified_ingestion.ingest_bundle(path, user_uid=current_user.uid)
-
-            if result.is_ok:
-                stats = result.value
-                return Result.ok(
-                    {
-                        "success": True,
-                        "bundle_name": stats.bundle_name,
-                        "total_attempted": stats.total_attempted,
-                        "total_successful": stats.total_successful,
-                        "total_failed": stats.total_failed,
-                        "entities_created": stats.entities_created or [],
-                        "errors": stats.errors or [],
-                    }
-                )
-            else:
-                return Result.fail(result)
-
-        except Exception as e:  # safety-net: HTTP error boundary
-            logger.error(f"Bundle ingestion failed: {e}")
-            return Result.fail(
-                Errors.system("Bundle ingestion failed", exception=e, operation="ingest_bundle")
-            )
 
     # Chunk regeneration — admin tool, only registered when service is wired.
     # In CORE tier the service exists but publishes no embedding events.
@@ -342,8 +106,6 @@ def create_ingestion_api_routes(
             if result.is_error:
                 return Result.fail(result)
             return Result.ok(result.value.to_dict())
-
-    # Collect all routes
 
     logger.info("Ingestion API routes registered")
 

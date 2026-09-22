@@ -293,7 +293,7 @@ def test_collect_files_staging_floor_matches_component_exactly(tmp_path: Path) -
 
 
 # ---------------------------------------------------------------------------
-# ingest_file — single-file ingestion honours the wall (the /api/ingest/file door)
+# ingest_file — the per-file pipeline honours the wall on a direct call
 # ---------------------------------------------------------------------------
 
 
@@ -311,9 +311,9 @@ def _service_with_wall(wall: SyncAllowlist | None) -> object:
 async def test_ingest_file_rejects_walled_file(tmp_path: Path) -> None:
     """A walled single file must be refused before any parsing/persistence.
 
-    /api/ingest/file calls ingest_file() directly, bypassing the collect_files
-    directory scan — so the wall has to be enforced here too, or a walled file
-    slips through. Uses a non-staging folder (templates/) to exercise the
+    A direct ingest_file() call (the vault UserEntry door, a script) bypasses
+    the collect_files directory scan — so the wall has to be enforced here too,
+    or a walled file slips through. Uses a non-staging folder (templates/) to exercise the
     allowlist branch specifically.
     """
     root = tmp_path / "vault"
@@ -333,7 +333,7 @@ async def test_ingest_file_rejects_staging_even_without_allowlist(tmp_path: Path
     """je_* staging files are refused by ingest_file even with no allowlist active.
 
     This is the Codex R3 single-vault fallback: build_sync_allowlist returns None,
-    but /api/ingest/file must still never ingest a je_out transcript.
+    but a direct ingest_file() call must still never ingest a je_out transcript.
     """
     root = tmp_path / "vault"
     staging = root / "je_out" / "transcript.md"

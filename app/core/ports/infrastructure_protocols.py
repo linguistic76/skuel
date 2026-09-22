@@ -18,7 +18,6 @@ if TYPE_CHECKING:
     from core.models.enums.neo_labels import NeoLabel
     from core.models.user import User
     from core.services.ingestion.types import (
-        BundleStats,
         IncrementalStats,
         IngestionStats,
     )
@@ -406,10 +405,4 @@ class IngestionOperations(Protocol):
         semantics (wall, metadata re-stamping, deletion reconciliation) —
         force ≠ full.
         """
-        ...
-
-    async def ingest_bundle(
-        self, bundle_path: Path, *, user_uid: UserUID | None = None
-    ) -> Result[BundleStats]:
-        """Ingest a domain bundle using manifest file."""
         ...

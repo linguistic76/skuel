@@ -1,5 +1,5 @@
 ---
-updated: 2026-09-21
+updated: 2026-09-22
 ---
 
 # YAML to Graph — A Creator's Guide to SKUEL Content
@@ -19,7 +19,7 @@ YAML file ─→ Parse ─→ Detect type ─→ Validate ─→ Prepare ─→ 
                                    checks fields         creates nodes + edges
 ```
 
-We'll use the **Mindfulness 101** bundle (21 entities across 10 types) as a running example throughout. You can find it at `yaml_templates/domains/mindfulness_101/`.
+We'll use the **Mindfulness 101** curriculum (`lp.mindfulness-101` and the Kus, PathSteps and Activities it composes) as a running example throughout. It lives in the content vault (`/home/mike/0bsidian/0vault/`, `INGESTION_PATH`).
 
 Every section follows a three-tier alignment: **YAML fields → Python model → Neo4j storage**. This is the contract. If a YAML field exists, there's a Python field that validates it and a Cypher property or edge that stores it.
 
@@ -510,66 +510,31 @@ The more fields you fill, the more discoverable your content becomes. A Ku with 
 
 ---
 
-## Bundles and Ingestion
+## Ingestion
 
-### What a Bundle Is
+### Where content lives
 
-A domain bundle is a directory containing YAML files and a `manifest.yaml`. The manifest declares every entity in the bundle, groups them by type, and specifies import order.
+Content files live in the content vault (`/home/mike/0bsidian/0vault/`, configurable via
+`INGESTION_PATH`). There is no bundle format and no manifest: every `.md` / `.yaml` file
+with a `type:` is an entity, and the sync walks the whole vault.
 
-### Import Order Matters
+### Order does not matter
 
-Dependencies must exist before the entities that reference them. The manifest's `import_order` ensures this:
-
-```yaml
-import_order:
-  1_kus:                    # Kus first — referenced by PathSteps
-    - ku.mindfulness.breath
-    - ku.mindfulness.attention
-
-  2_supporting_entities:    # Activity entities — referenced by PathSteps
-    - principle.small-steps
-    - habit.daily-2min-breath
-    - task.log-first-5-sessions
-    - event.practice-block-2min
-    - goal.mindfulness-beginner
-
-  3_path_steps:             # PathSteps — reference all of the above
-    - ps.mindfulness-101.step-1
-    - ps.mindfulness-101.step-2
-
-  4_learning_paths:         # Paths last — reference PathSteps
-    - lp.mindfulness-101
-```
-
-MERGE semantics make ingestion idempotent — re-ingesting a bundle updates existing nodes without duplication.
+Directory ingest is two-phase — every node lands before any relationship — so a file may
+reference an entity declared in another file of the same sync, in any order. MERGE semantics
+make ingestion idempotent: re-syncing updates existing nodes without duplication.
 
 ### Running Ingestion
 
-**Python API:**
-
-```python
-from core.services.ingestion import UnifiedIngestionService
-
-# Single file
-await service.ingest_file(Path("yaml_templates/domains/mindfulness_101/ku_breath.yaml"))
-
-# Full directory
-await service.ingest_directory(Path("yaml_templates/domains/mindfulness_101/"))
-
-# Incremental (only changed files)
-await service.ingest_directory(path, ingestion_mode="incremental", validate_targets=True)
-
-# Bundle with manifest
-await service.ingest_bundle(Path("yaml_templates/domains/mindfulness_101/"))
-```
-
-**REST API:**
+One system, three doors (ADR-070 Decision 9):
 
 ```
-POST /api/ingest/file          — Single file
-POST /api/vault/sync/content   — Content-vault sync (reconciler; ADR-070 Decision 9)
-POST /api/ingest/bundle        — Manifest-listed bundle
+./dev vault-sync --vault content     — one-shot, in-process (smart mode: only changed files)
+POST /api/vault/sync/content         — the same, from the admin dashboard's "Sync content vault" button
+POST /api/vault/sync                 — your personal vault
 ```
+
+Add `--force` to re-process unchanged files (a re-chunk campaign); `--preview` writes nothing.
 
 ### Preview
 
@@ -618,9 +583,7 @@ would-delete, nothing written. `ingest_directory` has no preview mode of its own
 
 ## See Also
 
-- `yaml_templates/README.md` — Template overview and ingestion instructions
-- `yaml_templates/_schemas/` — Full field reference for every entity type
-- `yaml_templates/domains/mindfulness_101/README.md` — Bundle design principles
-- `docs/patterns/UNIFIED_INGESTION_GUIDE.md` — Ingestion API reference and modes
+- `docs/guides/YAML_AUTHORING_GUIDE.md` — Full field reference for every entity type
+- `docs/patterns/UNIFIED_INGESTION_GUIDE.md` — Ingestion reference and modes
 - `docs/architecture/CURRICULUM_GROUPING_PATTERNS.md` — Ku, PS, LP topology
 - `docs/architecture/RELATIONSHIPS_ARCHITECTURE.md` — Complete relationship catalog

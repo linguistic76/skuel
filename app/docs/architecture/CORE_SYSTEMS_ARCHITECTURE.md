@@ -1,5 +1,5 @@
 ---
-updated: 2026-09-21
+updated: 2026-09-22
 ---
 
 # Core Systems Architecture
@@ -38,7 +38,7 @@ Neo4j Graph (digital)
 **Why It's Core:**
 - Without ingestion, SKUEL has no knowledge graph
 - All entity types enter the system through two ingestion paths:
-  - Admin ingestion: curriculum content via the admin dashboard — `POST /api/vault/sync/content` (the reconciler, the one directory door — ADR-070 Decision 9) and `POST /api/ingest/file`
+  - Admin ingestion: curriculum content via the admin dashboard — `POST /api/vault/sync/content` (the reconciler, the one ingestion door — ADR-070 Decision 9) or `./dev vault-sync --vault content`
   - User ingestion: personal data via `/submissions/sync` (Obsidian bidirectional sync) or `/submissions/exercise` (exercise submissions)
 - Relationships (PREREQUISITE, ENABLES, APPLIES_KNOWLEDGE, etc.) are created here
 - Enables the analog-to-digital transformation that is SKUEL's defining characteristic
