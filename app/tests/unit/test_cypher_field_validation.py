@@ -119,9 +119,8 @@ class TestUnifiedQueryBuilderFilter:
 class TestArrayBuilderFieldGuards:
     """The two array builders check what they interpolate against the model.
 
-    They are the pair that used to interpolate both ``field`` and ``order_by``
-    unchecked while three sort builders in the same module checked ``order_by``
-    against the model and warned-and-dropped a miss. One module, one policy.
+    One module, one policy: every builder in ``crud_queries`` resolves an
+    interpolated property name against ``fields(entity_class)``.
 
     The two names are guarded differently on purpose: ``field`` lands in the
     WHERE-clause pattern, so dropping it silently would change which rows match;
@@ -198,8 +197,7 @@ class TestListRouteExposesNoSortKey:
     interpolated; ordering rows by a property the response never renders then
     discloses that property one comparison at a time, and survives SKIP/LIMIT as
     a paginated oracle (measured on the pinned kernel — see
-    docs/roadmap/field-name-guarding-in-cypher.md). No client ever sent the
-    parameter, so the fix was to stop publishing it.
+    docs/roadmap/field-name-guarding-in-cypher.md).
     """
 
     def test_handler_signature_has_no_sort_parameters(self):
@@ -272,12 +270,10 @@ class TestListAlwaysCarriesASortKey:
 class TestPersistenceLayerSharesOneIdentifierGuard:
     """DDL and the read builders refuse the same strings because it is one function.
 
-    ``neo4j_schema_manager`` carried private copies of ``validate_label`` and
-    ``validate_identifier`` — byte-identical bodies and error messages to
-    ``query/cypher/_helpers``' — behind their own copies of the label frozenset
-    and the identifier regex. ``crud_queries`` then imported the shared pair
-    under the ``_``-prefixed spellings the schema manager used for its own, so
-    one name meant two functions depending on the module you were reading.
+    ``query/cypher/_helpers`` is the single home for both guards. A module that
+    re-declares either — or that imports them under a ``_``-prefixed alias, so
+    the same identifier means different functions in different modules — is what
+    these assertions refuse.
     """
 
     def test_schema_manager_uses_the_shared_guards(self):

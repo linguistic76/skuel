@@ -641,12 +641,14 @@ class CRUDRouteFactory[T]:
             - limit: Max results (default: 100)
             - offset: Pagination offset (default: 0)
 
-        The sort key is the server's, not the caller's. A request-supplied
-        ``order_by`` would be interpolated into ``ORDER BY`` (Neo4j cannot
-        parameterize a property name), and ordering rows by a property the
-        response never renders discloses that property one comparison at a
-        time — a measured oracle, not a theoretical one. No client ever sent
-        the parameter, so the window closed for free.
+        The sort key is the server's, not the caller's: the service applies
+        its own stable default and the route publishes no way to override it.
+        Neo4j cannot parameterize a property name, so a request-supplied sort
+        key is interpolated into ``ORDER BY``, and ordering rows by a property
+        the response never renders discloses that property one comparison at a
+        time. Adding a sort parameter here means choosing a guarantee for it —
+        ``/docs/roadmap/field-name-guarding-in-cypher.md`` holds the three the
+        persistence layer offers and the measurement behind this rule.
 
         Response: EntityListPayload — {items, total, limit, offset}
 
