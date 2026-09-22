@@ -1,5 +1,5 @@
 ---
-updated: 2026-09-21
+updated: 2026-09-22
 ---
 
 # Curriculum Developer Guide
@@ -824,7 +824,6 @@ The graph grows one node at a time.
 | LearningPath files | `/home/mike/0bsidian/0vault/lp_*.yaml` | YAML |
 | Activity files | `/home/mike/0bsidian/0vault/{type}_*.yaml` | YAML |
 | Edge files | `/home/mike/0bsidian/0vault/edges/edge_*.yaml` | YAML |
-| Templates and schemas | `yaml_templates/_schemas/` | YAML |
 
 ### UID Patterns
 
@@ -834,7 +833,7 @@ The graph grows one node at a time.
 | PathStep | `ps.{namespace}.{slug}` | `ps.mindfulness.breath-awareness-basics` |
 | Exercise | `ex.{namespace}.{slug}` | `ex.sel.know-yourself-check-in` |
 | LearningPath | `lp.{slug}` | `lp.mindfulness-101` |
-| Activity | `{type}:{slug}` | `habit.daily-2min-breath` |
+| Activity | `{type}.{slug}` | `habit.daily-2min-breath` |
 
 ### SEL Categories
 

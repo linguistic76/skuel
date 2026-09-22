@@ -1,10 +1,10 @@
 ---
 title: "History-in-Code Sweep — the finder is built, the sweep is the queue"
-updated: 2026-09-05
+updated: 2026-09-22
 status: "sweep queue"
 registered: 2026-09-03
 trigger: "ride-along on any PR that opens a listed file, or a dedicated small sweep when Mike schedules one"
-check: "./dev history-in-code --top 20 --verbose — re-run, never paste"
+check: "./dev history-in-code --top 20 --verbose (code) and ./dev history-in-code --docs [PATH] (prose) — re-run, never paste"
 ---
 
 # History-in-Code Sweep — the finder is built, the sweep is the queue
@@ -44,3 +44,26 @@ example dates), `ingestion_tracker.py` 12 — the queue's head.
 
 Not registered in `detect_bloat.py` — a script is outside bloat scope. `docs/tools/HEALTH_CHECKS.md`
 gains no line: the finder is not a health check and not in the janitor, by the anti-goal.
+
+## The prose half — `--docs`
+
+The same census over Markdown ([HISTORY_IN_CODE.md](../tools/HISTORY_IN_CODE.md) § `--docs`):
+`./dev history-in-code --docs [PATH]` reads prose lines outside fenced blocks, frontmatter
+skipped, through the same four categories and the same table. The rule is the same one — a live
+doc states what IS and points at the record rather than retelling it — so this is one queue with
+two readers, not a second sweep. Its scope is the link checker's corpus, so the history
+directories are out by construction, and a `date` hit inside live `docs/roadmap/` is a case file
+doing its job: reported, skipped on read, no exemption syntax. Read `docs/patterns/`,
+`docs/architecture/` and the skills first, where a `phrase` hit is a pattern doc narrating its
+past; the `--top` order over the whole corpus is dominated by roadmap case files and
+`docs/INDEX.md`'s Completed table.
+
+**The hand-off from the route-claim scanner.** `./dev health-claims`'s `history` class is this
+queue's route-shaped slice — a line that names a route the app does not register AND carries one
+of these signals is a retelling, not a claim. It is worked here, not in the fiction sweep, and
+the fiction sweep is finished
+([docs-defiction-pass.md](done/docs-defiction-pass.md), arc closed 2026-09-22). The two
+instruments share one vocabulary: `route_claims` imports `history_in_code.classify` rather than
+carrying a token list of its own.
+
+Counts move with every PR, so this file records none — run the command.

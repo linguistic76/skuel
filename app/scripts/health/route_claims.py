@@ -76,10 +76,9 @@ marker is stale only when it covers neither a dead link nor a dead route claim �
 
 Advisory
 --------
-Exit 0 whatever it finds. The ``fiction`` class is the only one that could ever gate;
-promotion to ``./dev health`` red is a separate ruling that waits on two sweep PRs each
-re-measuring ≥95% precision on a fresh draw. ``family-prefix``, ``relative-suffix`` and
-``history`` are printed-only by design.
+Exit 0 whatever it finds. Every class is printed-only: ``fiction`` is a sweep queue, not
+a gate, and nothing here fails ``./dev health``. The measurements behind that and the
+false-positive classes they name live in ``docs/tools/HEALTH_CHECKS.md`` section 9.
 
 Usage:
     ./dev health-claims                      # per-file fiction counts + class totals
@@ -541,7 +540,7 @@ def main(argv: list[str] | None = None) -> int:
     for cls in ALL_CLASSES:
         note = ""
         if cls == GATE_CANDIDATE:
-            note = "  ← the sweep queue (advisory; promotion to health-red is a separate ruling)"
+            note = "  ← the sweep queue (advisory by ruling — it gates nothing)"
         elif cls in ("family-prefix", "relative-suffix"):
             note = "  (printed, never a skip — each hides real fiction when treated as a match)"
         elif cls == "history":

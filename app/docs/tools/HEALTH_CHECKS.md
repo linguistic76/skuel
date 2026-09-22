@@ -1,6 +1,6 @@
 ---
 title: Codebase Health Checks
-updated: 2026-09-21
+updated: 2026-09-22
 status: current
 category: tools
 tags: [health, scripts, dead-code, documentation, maintenance, drift]
@@ -780,20 +780,30 @@ catch-all's absence by name and holds controls in both directions — known-dead
 must not be registered, known-live factory paths must be — and prints the size of the
 static-vs-runtime gap without ever asserting it equal.
 
-**Advisory: exit 0 always.** Promotion of the `fiction` class to `./dev health` red —
-never CI — is a separate ruling that waits on two sweep PRs each re-measuring ≥95%
-precision on a fresh draw; `family-prefix`, `relative-suffix` and `history` stay
-printed-only whatever that ruling says. Measured 2026-09-21 on `72a2d945c` (docs
-de-fiction PR 6): 1648 inline claims — 1493 matched · **0 fiction** (the 44 ADR sites PR 5
-left were fixed against a reproduced successor where the section states the current
-contract, or marked `<!-- historical -->` where it narrates — 28 marker-skipped, 0 stale
-markers) · 19 history · 22 family-prefix · 41 relative-suffix · 42 negated · 3 planned;
-re-measure with `./dev health-claims`. The two precision draws the ruling waits on both came in under
-the bar — 15/30 (PR 3, seed `docs-defiction-pr3`, population 127) and 17/30 (PR 4, seed
-`docs-defiction-pr4`, population 92); the false positives are history vocabulary the
-`history` class does not carry, non-adjacent negation, dead directory citations and
-segment-vocabulary tables, each recorded in the PR body. The class stays advisory
-unless PR 7 rules otherwise.
+**Advisory: exit 0 always — the `fiction` class stays advisory, ruled 2026-09-22.**
+Promotion to `./dev health` red (never CI) required two sweep PRs each re-measuring ≥95%
+fiction precision on a fresh 30-item draw. Both came in under the bar: **15/30 = 50%**
+(PR 3, seed `docs-defiction-pr3`, population 127) and **17/30 = 56.7%** (PR 4, seed
+`docs-defiction-pr4`, population 92), so the arc took the written alternative — record the
+number, leave the class advisory. `family-prefix`, `relative-suffix` and `history` were
+always printed-only.
+
+The false positives fall in the same classes in the same order on all three measured sets
+— draw 1: history-vocabulary 9 · negation 2 · dead-directory citation 2 ·
+planned-without-marker 1 · segment-vocabulary 1; draw 2: 5 · 2 · 3 · 2 · one two-segment
+relative citation; PR 6's 44 touched sites: 9 · 8 · 3 · one shape miss. **The two biggest
+classes are grammar this scanner deliberately does not carry.** History vocabulary is
+`history_in_code.classify`'s one vocabulary, imported rather than widened — a second,
+looser token list here is how two vocabularies drift apart. Negation is span-adjacent by
+design — a line-scoped grammar hid real fiction in the corpus lines
+`tests/unit/scripts/test_route_claims.py` pins. Widening either would move the number
+without making the scanner more right, which is the trade this arc refused three times.
+
+Measured 2026-09-21 on `72a2d945c` (docs de-fiction PR 6): 1648 inline claims — 1493
+matched · **0 fiction** (the 44 ADR sites PR 5 left were fixed against a reproduced
+successor where the section states the current contract, or marked `<!-- historical -->`
+where it narrates — 28 marker-skipped, 0 stale markers) · 19 history · 22 family-prefix ·
+41 relative-suffix · 42 negated · 3 planned; re-measure with `./dev health-claims`.
 
 **Matching is directional and verb-aware.** A wildcard is wild in one direction per
 match — the claim is an *instance* of the registration (`/api/tasks/{uid}/status`

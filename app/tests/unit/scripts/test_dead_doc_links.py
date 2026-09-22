@@ -26,7 +26,9 @@ cut of the guard.
 
 from __future__ import annotations
 
+import os
 import sys
+import tempfile
 from pathlib import Path
 
 import pytest
@@ -1589,8 +1591,30 @@ def test_a_tracked_file_beside_the_app_is_a_valid_target() -> None:
     """Real-tree pin: the repository is wider than `app/`, and a doc may cite a
     tracked file beside it. The tracked set is the whole work tree's."""
     assert ddl._is_tracked(ddl.ROOT / ".." / "infrastructure" / "docker-compose.yml")
-    assert not ddl._is_tracked(ddl.ROOT / "plans" / "docs-defiction-pass.md")
     assert ddl._is_tracked(ddl.ROOT / "scripts" / "health" / "dead_doc_links.py")
+
+
+def test_a_real_untracked_file_inside_the_work_tree_is_not_a_target() -> None:
+    """The universe is the TRACKED set, not the filesystem: a file that is really on
+    disk inside the work tree, and really not tracked, is not a citable target.
+
+    The probe is WRITTEN here rather than named. A path under the gitignored scratch
+    tier exists on the author's machine and in no clone, so naming one proves only
+    that a nonexistent file is untracked — which the `_repo_tracked is None` fallback
+    would answer the same way. Writing it makes the claim the same in every checkout.
+    """
+    scratch = ddl.ROOT / "plans"
+    scratch.mkdir(exist_ok=True)
+    # A FIXED name would truncate an author's real scratch file of that name on a
+    # routine test run; mkstemp never opens a path that already exists.
+    handle, raw = tempfile.mkstemp(prefix="untracked-probe-", suffix=".md", dir=scratch)
+    os.close(handle)
+    probe = Path(raw)
+    try:
+        assert probe.is_file()
+        assert not ddl._is_tracked(probe)
+    finally:
+        probe.unlink(missing_ok=True)
 
 
 def test_line_citations_inside_fences_are_read(cited_tree: Path) -> None:

@@ -275,7 +275,7 @@ connections:
 1. YAML author writes `connections.{field}: [uid1, uid2]`
 2. `preparer.py` flattens the `connections` dict to dotted notation (`connections.field → [uids]`)
 3. `generate_ingestion_relationship_config()` reads the `yaml_field_path` from the registry
-4. `bulk_ingestion.py` generates `MERGE (n)-[:REL_TYPE]->(target)` Cypher
+4. `bulk_upsert_backend.py` (`build_relationship_template`) generates `MERGE (n)-[:REL_TYPE]->(target)` Cypher
 5. Edge created in Neo4j
 
 ---
@@ -662,7 +662,7 @@ content` (nothing written).
 
 ## Validation
 
-Validation happens via **Pydantic Request models** in the Python code, not via YAML schemas. The `_schemas/` templates document what fields Pydantic expects.
+Validation happens via **Pydantic Request models** in the Python code, not via YAML schemas. The field tables above are what those models expect; there is no schema file to validate against.
 
 ---
 

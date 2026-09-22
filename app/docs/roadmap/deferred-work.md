@@ -169,7 +169,11 @@ renders them as a table in Obsidian, and a session derives the same table with
 
 ## History-in-Code Sweep — the finder is built, the sweep is the queue
 
-[History-in-Code Sweep — the finder is built, the sweep is the queue](history-in-code-sweep.md) — The finder ships advisory; the queue is its `--top 20` output, worked one file or cluster per PR, the why moved to the record, never deleted.
+[History-in-Code Sweep — the finder is built, the sweep is the queue](history-in-code-sweep.md) — The finder ships advisory over code AND prose (`--docs`); the queue is its output, worked one file or cluster per PR, the why moved to the record, never deleted.
+
+## Symbol Claims in Docs — the queue, and the instrument that would order it
+
+[Symbol Claims in Docs — the queue, and the instrument that would order it](symbol-claims-in-docs.md) — Backticked class / call / member claims that resolve to nothing: measured by the docs de-fiction pass and deliberately not swept — the scanner is unbuilt, the case file carries its method as the spec and the five verdicts a confirmed claim takes.
 
 ## Goals and Choices as Weekly-Calendar Chips
 

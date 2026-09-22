@@ -1,6 +1,6 @@
 ---
 title: User Architecture — User Model, Auth, Roles, and UserContext
-updated: 2026-09-17
+updated: 2026-09-22
 status: current
 category: architecture
 tags:
@@ -63,7 +63,7 @@ user.is_trial()                        # REGISTERED only
 ### Three-Tier Architecture
 
 ```
-External   user_schemas.py   Pydantic — API boundary validation
+External   user_request.py   Pydantic — API boundary validation
 Transfer   user_dto.py       Mutable DTOs for service communication
 Core       user.py           Frozen domain model — this is the User
 ```
