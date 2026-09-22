@@ -1,7 +1,7 @@
 ---
 title: "Field-Name Guarding in Cypher — Which Guarantee, and Where"
 updated: 2026-09-22
-status: "ruled 2026-09-22 — one syntactic guard in the persistence layer; no HTTP route publishes a sort key; the five backend sites stay unguarded, deliberately"
+status: "ruled 2026-09-22 — one syntactic guard in the persistence layer; no HTTP route publishes a sort key; the named allowlist retired in favour of an enum-typed sort key; the five backend sites stay unguarded, deliberately"
 registered: 2026-09-22
 ruled: 2026-09-22
 trigger: "the first caller that hands one of the five listed sites a value it did not author — a route parameter, a form field, or a **kwargs forward from a service whose caller is a route"
@@ -25,7 +25,7 @@ validators and left this priced but untouched.
 |---|---|---|
 | **Syntactic** | `validate_field_name` (`core/utils`, returns `bool`, ≤64 chars) / `validate_identifier` (`query/cypher/_helpers`, raises) | "is this string a safe identifier?" |
 | **Model-derived** | membership in `fields(entity_class)` — every `crud_queries` builder | "is this a property on *this* entity?" |
-| **Named allowlist** | `_ALLOWED_ORDER_BY` (`_backend_helpers.py`), 12 names, 2 sites | "is this a property that *ought to be sortable here*?" |
+| **Enum-typed** | the parameter's type — `NeoLabel`, `RelationshipName`, `ActivitySortKey` | "is this one of the names this call site may choose from?" |
 
 `password_hash`, `embedding` and `email` pass the first and fail the other two. **A
 consolidation that picks one mechanism for every site weakens the sites using a stronger one** —
@@ -89,6 +89,47 @@ check at all. Same file, same parameter names, two policies. Both array builders
 - `field` **raises** on a miss — it lands in the `WHERE`-clause pattern, where a silent drop
   would change *which rows match*, not only their order.
 - `order_by` **warns and drops**, matching its three siblings.
+
+### The named allowlist is retired; the sort key carries its own vocabulary
+
+`_ALLOWED_ORDER_BY` — a 12-name frozenset in `_backend_helpers.py` — guarded two sites, and a
+caller-supplied value reached neither.
+
+- `_LpStepMixin.list_all_paths_with_steps`' `order_by`/`order_desc` were **consumer-less through
+  the whole stack**. `lp_core_service.list_all_paths` forwarded them; its three callers
+  (`LpService.list_all_paths`, `learning_paths_ui.py`, `pathways_orchestrator`) pass `limit` only,
+  and the facade never declared the parameters at all. Both are gone from the backend, the
+  service and both `LpOperations` declarations; the query is fixed at `ORDER BY p.uid ASC`, which
+  is what it already emitted and what keeps successive `SKIP`/`LIMIT` pages disjoint.
+- `_KnowledgeContextMixin.find_connected_activities`' `order_by` is reached only by
+  `PsApplicationDiscoveryService`'s six in-file wrappers, which pass six literals — `start_time`,
+  `created_at`, `due_date`, `target_date`, `created_at`, `strength`. Five distinct names, and the
+  frozenset's other seven (`uid`, `updated_at`, `title`, `status`, `priority`, `completed_at`,
+  `name`) were unreachable at both sites: the check could not fail.
+
+So the mechanism was a guard over a value that does not vary — the class
+PR #1395 deleted four gates for, and the same reason this
+file already gives for operators and sort directions having no validator.
+
+The parameter is load-bearing even though the frozenset was not: the six wrappers genuinely sort
+six ways. It is now typed `ActivitySortKey` (`core/models/enums/activity_enums.py`), a five-member
+`StrEnum`, and the membership check is gone. That **strengthens** the site rather than dropping to
+the weaker syntactic guarantee: membership is now structural and mypy-checked at every call site
+instead of a runtime frozenset a new caller could miss. It also makes one function internally
+consistent — `node_label` is a `NeoLabel`, `rel_types` are `RelationshipName` values, and the sort
+key was the lone raw `str` beside them.
+
+Fixed while there: that function resolved its label as
+`node_label.value if isinstance(node_label, NeoLabelEnum) else str(node_label)`. The `else` branch
+interpolated any string verbatim into `MATCH (n:{label})`, defeating the declared `NeoLabel` type;
+it is now `node_label.value`. Pinned by `TestActivitySortKeyIsTheAllowlist` and
+`TestLearningPathCatalogueExposesNoSortKey`.
+
+**Not in scope, and recorded here so the next pass does not re-find it:** `LpService.list()`'s
+`order_by`/`order_desc` (`lp_service.py`) became consumer-less when the route stopped sending them.
+They sort in Python via `make_attribute_sort_key`, never in Cypher, so no interpolation is
+involved — and `CRUDRouteFactory`-compatibility signatures are a shape shared across services, so
+retiring one service's is a half-move.
 
 ## What stays unguarded, and why
 

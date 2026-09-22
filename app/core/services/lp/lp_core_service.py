@@ -238,21 +238,15 @@ class LpCoreService(BaseService["LpOperations", LearningPath]):
         self,
         limit: int | None = None,
         offset: int = 0,
-        order_by: str | None = None,
-        order_desc: bool = False,
     ) -> Result[list[LearningPath]]:
         """
-        List all learning paths in the system with pagination and sorting.
+        List all learning paths in the system, uid-ordered, with pagination.
 
         Args:
             limit: Maximum number of paths to return
             offset: Number of paths to skip (for pagination)
-            order_by: Field to sort by (e.g., 'uid', 'created_at', 'title')
-            order_desc: Sort in descending order if True
         """
-        query_result = await self.backend.list_all_paths_with_steps(
-            limit=limit, offset=offset, order_by=order_by, order_desc=order_desc
-        )
+        query_result = await self.backend.list_all_paths_with_steps(limit=limit, offset=offset)
 
         if query_result.is_error:
             return Result.fail(query_result)

@@ -34,6 +34,7 @@ Usage:
 # Askesis enums - pedagogical companion interaction styles
 # Activity enums - priority, confidence, calendar types, and assessment levels
 from .activity_enums import (
+    ActivitySortKey,
     ActivityType,
     Confidence,
     ConsistencyLevel,
@@ -167,6 +168,7 @@ from .user_enums import (
 )
 
 __all__ = [
+    "ActivitySortKey",
     "ActivityType",
     "AggregationPeriod",
     "AlignmentLevel",
