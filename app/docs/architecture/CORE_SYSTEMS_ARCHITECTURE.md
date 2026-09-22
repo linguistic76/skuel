@@ -120,15 +120,20 @@ Neo4j Graph (digital)
 **Example Route:**
 ```python
 from fasthtml.common import *
+from adapters.inbound.boundary import ui_boundary_handler
 from adapters.inbound.result_helpers import require_found
 from ui.layouts.base_page import BasePage
 
 @rt("/ku/{uid}")
+@ui_boundary_handler("Error loading Ku")
 async def ku_detail(request: Request, uid: str):
-    result = require_found(await ku_service.get_ku(uid), "Ku", uid)
-    if result.is_error:
-        return result
-    ku = result.value
+    found = require_found(await ku_service.get_ku(uid), "Ku", uid)
+    if found.is_error:
+        # A handler returns a Response, never a raw Result. Render the refusal
+        # at the status it earns with `refuse(error, render, entity_name)` and a
+        # module-local renderer — see /docs/patterns/ERROR_HANDLING.md.
+        return refuse(found.expect_error(), _ku_refusal, "Ku")
+    ku = found.value
 
     return BasePage(
         content=Div(

@@ -183,16 +183,15 @@ async def recommend_content(
 
 **Example:**
 ```python
-# Get all available KUs from backend
-all_kus_result = await ku_service.core.list()
-if all_kus_result.is_error:
-    return all_kus_result
-all_kus, _total = all_kus_result.value
+# The pool is whatever candidates you want ranked. `core.list()` returns ONE
+# page (default limit=100) plus the total — paginate if the pool must be
+# exhaustive. Items are passed through `ensure_content_protocol()` internally,
+# so raw Ku objects are fine here.
+page, total = (await ku_service.core.list(limit=100)).value
 
-# Get recommendations
 result = await lp_intelligence.recommend_content(
     user_context=user_context,
-    content_pool=all_kus,
+    content_pool=page,
     limit=5
 )
 
@@ -515,29 +514,13 @@ ContentMetadata(
 
 **Example:**
 ```python
-from core.ports.content_protocols import ContentAdapter
-
-
-class KuBodyAdapter(ContentAdapter):
-    """Carries the lesson body, which the analyzer duck-types on.
-
-    ContentAnalyzer reads `body` -> `description` -> `str(content)`, and
-    ContentAdapter exposes neither of the first two while its `__str__`
-    returns the title — so wrapping a bare Ku would score reading time,
-    keywords and complexity from the title alone.
-    """
-
-    def __init__(self, ku, body: str) -> None:
-        super().__init__(ku)  # inherited uid/title/tags read through to the Ku
-        self.body = body
-
-
-# Lesson bodies live on the :Content subtree, so load them explicitly.
-ku, body = (await ku_service.get_with_content("ku.python-advanced")).value
-adapter = KuBodyAdapter(ku, body or "")
-
-# Extract metadata
-result = await lp_intelligence.extract_content_metadata(adapter)
+# Contract: ContentAnalyzer resolves its text as
+#   getattr(content, "body") or getattr(content, "description") or str(content)
+# and `ContentAdapter` exposes neither of the first two, with `__str__`
+# returning the title. So pass something that carries the text itself —
+# every metric (reading time, keywords, complexity, concept density, the
+# embedding) is computed from whatever that expression resolves to.
+result = await lp_intelligence.extract_content_metadata(content)
 
 if result.is_ok:
     metadata = result.value
@@ -668,31 +651,18 @@ async def find_similar_content(
 
 **Example:**
 ```python
-# Find content similar to specific KU
-reference_ku, reference_body = (
-    await ku_service.get_with_content("ku.python-advanced")
-).value
-reference_adapter = KuBodyAdapter(reference_ku, reference_body or "")
-
-# Get all available content. find_similar_content() extracts metadata from
-# EVERY candidate, so the pool needs bodies too — one read per Ku.
-all_kus_result = await ku_service.core.list()
-all_kus, _total = all_kus_result.value
-content_pool = [
-    KuBodyAdapter(ku, (await ku_service.get_with_content(ku.uid)).value[1] or "")
-    for ku in all_kus
-]
-
-# Find similar content
+# Scoring runs extract_content_metadata() on the reference AND on every
+# candidate, so the same text contract applies to the whole pool — a pool
+# whose items carry no body/description is compared on titles.
 result = await lp_intelligence.find_similar_content(
-    content=reference_adapter,
-    content_pool=content_pool,
+    content=reference,
+    content_pool=candidates,
     limit=5
 )
 
 if result.is_ok:
     similar_content = result.value
-    print(f"Content similar to '{reference_ku.title}':\n")
+    print(f"Content similar to '{reference.title}':\n")
 
     for i, (content, similarity) in enumerate(similar_content, 1):
         print(f"{i}. {content.uid} (similarity: {similarity:.0%})")
