@@ -880,11 +880,9 @@ PLANNED_METHODS: dict[str, PlannedEntry] = {
     ),
     # --- Reports: missing producer of a live consumer ---
     "core/services/report/review_queue_service.py::request_review": _REVIEW_REQUEST_PRODUCER,
-    # --- Sharing: revoke / access-list / visibility door (ADR-038, ruled 2026-09-21) ---
-    # verify_shareable and get_shared_with_me_via_groups were DELETED in the same
-    # ruling — a pure rule behind a DB read of inputs every caller already holds,
-    # and a third listing of SHARED_WITH_GROUP whose two live siblings cover both
-    # consumer shapes (docs/roadmap/sharing-http-door.md).
+    # --- Sharing: revoke / access-list / visibility door (ADR-038) ---
+    # The five members of UnifiedSharingService with no caller; the per-method
+    # ruling is docs/roadmap/sharing-http-door.md.
     "core/services/sharing/unified_sharing_service.py::unshare": _SHARING_REVOKE_AND_ACCESS_LIST,
     "core/services/sharing/unified_sharing_service.py::unshare_from_group": (
         _SHARING_REVOKE_AND_ACCESS_LIST
