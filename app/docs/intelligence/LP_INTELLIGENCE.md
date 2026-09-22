@@ -692,7 +692,7 @@ result = await lp_intelligence.find_similar_content(
 
 if result.is_ok:
     similar_content = result.value
-    print(f"Content similar to '{reference_ku.value.title}':\n")
+    print(f"Content similar to '{reference_ku.title}':\n")
 
     for i, (content, similarity) in enumerate(similar_content, 1):
         print(f"{i}. {content.uid} (similarity: {similarity:.0%})")
