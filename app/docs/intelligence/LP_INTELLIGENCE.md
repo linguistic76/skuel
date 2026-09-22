@@ -515,13 +515,26 @@ ContentMetadata(
 
 **Example:**
 ```python
-# ContentAdapter wraps ANY object through getattr fallbacks — no subclass needed.
-# It reads uid, title, tags, difficulty and estimated_time; a Ku satisfies the
-# first three and takes the defaults for the rest.
 from core.ports.content_protocols import ContentAdapter
 
-ku_result = await ku_service.get_ku("ku.python-advanced")
-adapter = ContentAdapter(ku_result.value)
+
+class KuBodyAdapter(ContentAdapter):
+    """Carries the lesson body, which the analyzer duck-types on.
+
+    ContentAnalyzer reads `body` -> `description` -> `str(content)`, and
+    ContentAdapter exposes neither of the first two while its `__str__`
+    returns the title — so wrapping a bare Ku would score reading time,
+    keywords and complexity from the title alone.
+    """
+
+    def __init__(self, ku, body: str) -> None:
+        super().__init__(ku)  # inherited uid/title/tags read through to the Ku
+        self.body = body
+
+
+# Lesson bodies live on the :Content subtree, so load them explicitly.
+ku, body = (await ku_service.get_with_content("ku.python-advanced")).value
+adapter = KuBodyAdapter(ku, body or "")
 
 # Extract metadata
 result = await lp_intelligence.extract_content_metadata(adapter)
@@ -656,13 +669,19 @@ async def find_similar_content(
 **Example:**
 ```python
 # Find content similar to specific KU
-reference_ku = await ku_service.get_ku("ku.python-advanced")
-reference_adapter = ContentAdapter(reference_ku.value)
+reference_ku, reference_body = (
+    await ku_service.get_with_content("ku.python-advanced")
+).value
+reference_adapter = KuBodyAdapter(reference_ku, reference_body or "")
 
-# Get all available content
+# Get all available content. find_similar_content() extracts metadata from
+# EVERY candidate, so the pool needs bodies too — one read per Ku.
 all_kus_result = await ku_service.core.list()
 all_kus, _total = all_kus_result.value
-content_pool = [ContentAdapter(ku) for ku in all_kus]
+content_pool = [
+    KuBodyAdapter(ku, (await ku_service.get_with_content(ku.uid)).value[1] or "")
+    for ku in all_kus
+]
 
 # Find similar content
 result = await lp_intelligence.find_similar_content(
