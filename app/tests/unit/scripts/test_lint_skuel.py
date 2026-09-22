@@ -7881,12 +7881,11 @@ class TestSKUEL036:
         violations = lint_content(make_linter(["SKUEL036"]), content, file_path=self.ROUTE)
         assert [v.rule_id for v in violations] == ["SKUEL036"]
 
-    def test_a_member_gate_is_covered_without_a_member_shortcut(self) -> None:
-        """MEMBER is gated by `require_role`, so the rule needs no `require_member`.
+    def test_a_member_gated_handler_is_flagged(self) -> None:
+        """MEMBER is gated through `require_role`, which the rule covers.
 
-        `require_member` was a three-word alias for this call and never gated a
-        handler; deleting it removed a name from the decorator set, not a gate
-        from the rule. The first premium handler is spelled exactly like this.
+        This is how a premium handler is spelled, so the mix is caught in it
+        like any other gate (ADR-018 § Role-Checking Decorators).
         """
         content = (
             '@rt("/api/premium/feature")\n'

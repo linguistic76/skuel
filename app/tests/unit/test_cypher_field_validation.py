@@ -3,9 +3,18 @@ Hardening: field-key validation in the Cypher-fragment allowlists
 =================================================================
 
 Closes 2026-05-26 security audit item #3 ("field-key validation gaps in
-optimization/builder layers — not exploitable today"). Every *property name*
-interpolated into a Cypher fragment passes through an allowlist before it can
-reach a builder.
+optimization/builder layers — not exploitable today"). Covers the two gates
+below: `validate_field_name`, the identifier allowlist, and
+`ModelQueryBuilder.filter`, which drops an unsafe key rather than passing it on.
+
+That is a claim about these two, not about the persistence layer as a whole.
+Some backends interpolate a property name their caller hands them without a
+check — `_relationship_ordered_mixin`'s `order_by_property`,
+`PsBackend.list_steps_raw`'s `order_field` — and a third gate,
+`_ALLOWED_ORDER_BY` in `_backend_helpers.py`, guards two further sites with an
+explicit frozenset. Every one of those callers passes a literal or a registry
+constant, so the audit's classification holds; the coverage gap is real and
+ruled a separate concern.
 
 Comparison operators and sort directions are guarded a stronger way and so have
 no validator here: no builder interpolates a caller's operator or direction at
@@ -16,10 +25,8 @@ Directions resolve to `"ASC"`/`"DESC"` from a bool, from the developer-authored
 `RelationshipSpec.order_direction`, or from a literal at the call site. A
 validator for either would check a value that never varies.
 
-Today's callers are all internal and pass trusted values. The audit's
-"not exploitable today" classification holds. These tests guard the latent
-seam — any future caller that hands user input to a fragment builder is
-rejected by the allowlist, not interpolated.
+These tests guard the latent seam: a caller that hands user input to either
+gate below gets it rejected or dropped, not interpolated.
 """
 
 from __future__ import annotations
