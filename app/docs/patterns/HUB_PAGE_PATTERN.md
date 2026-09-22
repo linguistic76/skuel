@@ -274,8 +274,10 @@ Blocks are `HubBlockData` configs rendered by `HubDomainBlock`; each loads its c
 ## Usage: Graph-Driven Hub Page
 
 `hub_cards_from_organizers` renders any `OrganizerResult` list as a card grid.
-The fetch is per-subject — each domain has its own reader, and Ku has none
-(its MOC edges are vault-authored and read back through the backend):
+The fetch is per-subject, and only two subject types have a service reader:
+PathStep (`PsService.get_organized_children`) and UserEntry (via the
+orchestrator below). Every other entity type — Ku included — can carry
+vault-authored ORGANIZES edges with no dedicated reader above the backend:
 
 ```python
 children_result = await orchestrator.get_entry_organized_children(entry_uid)
