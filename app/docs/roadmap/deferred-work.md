@@ -191,6 +191,10 @@ renders them as a table in Obsidian, and a session derives the same table with
 
 [Ingest Transition Obligation Durability](ingest-transition-obligation-durability.md) — A status transition the ingest doors discover is graph state, not recorded intent, so a failure between the committed status write and the publish loses the cascade permanently — and since D.0 the app door has the same property one step later (a failed `TaskCompleted` subscriber, with no re-click replay); closing it needs an outbox, and the ordering it fights with is the one that has to win.
 
+## Field-Name Guarding in Cypher
+
+[Field-Name Guarding in Cypher — Which Guarantee, and Where](field-name-guarding-in-cypher.md) — Five backend sites interpolate a property name their caller supplies through none of the layer's three guarantees; ruled to stay that way because every caller passes a literal, a registry constant, or sits behind a PLANNED surface — the case file names the one seam that would make it live in a line (`PsService.list_steps`' `**kwargs`) and holds the measurement that `ORDER BY` on a non-returned property is a paginated disclosure oracle.
+
 ## Development Machine Capacity
 
 [Development Machine Capacity — what is memory-gated today, and what changes on a bigger machine](development-machine-capacity.md) — Every bound the 15 GB development laptop put in the tree (8 unit workers, the serial composed session, the testcontainer JVM caps, no `./dev quality` beside a test session, bounded foreground waits) with its file:line and its measurement, and per row what a ≥ 32 GB / ≥ 16 GB-VRAM machine changes — after re-measuring, never by copying a number — and what stays a code-side ceiling regardless.

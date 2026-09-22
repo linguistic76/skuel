@@ -340,6 +340,7 @@ class TestQueryBuilderComposition:
 
     def test_array_match_scopes_and_parenthesizes(self) -> None:
         cypher, params = build_array_any_match_query(
+            Task,
             label=NeoLabel.TASK,
             field="tags",
             values=["alpha"],
@@ -398,6 +399,7 @@ class TestQueryBuilderComposition:
     def test_array_contains_scopes_and_parenthesizes(self) -> None:
         """ADR-085 G5 pin — the shape sibling build_array_any_match_query has."""
         cypher, params = build_array_contains_query(
+            Task,
             label=NeoLabel.TASK,
             field="tags",
             value="alpha",
@@ -410,6 +412,7 @@ class TestQueryBuilderComposition:
     def test_array_contains_owner_only_fails_closed_without_user(self) -> None:
         """OWNER_ONLY + no user → predicate emitted, $user_uid bound to None (Codex P1 #1120)."""
         cypher, params = build_array_contains_query(
+            Task,
             label=NeoLabel.TASK,
             field="tags",
             value="alpha",
@@ -478,6 +481,7 @@ def _owner_only_no_user_query(builder_name: str) -> tuple[str, dict[str, Any]]:
         )
     if builder_name == "build_array_any_match_query":
         return build_array_any_match_query(
+            Task,
             label=NeoLabel.TASK,
             field="tags",
             values=["alpha"],
@@ -492,6 +496,7 @@ def _owner_only_no_user_query(builder_name: str) -> tuple[str, dict[str, Any]]:
         )
     if builder_name == "build_array_contains_query":
         return build_array_contains_query(
+            Task,
             label=NeoLabel.TASK,
             field="tags",
             value="alpha",

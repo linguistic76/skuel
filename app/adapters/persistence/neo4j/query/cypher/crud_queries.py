@@ -24,9 +24,7 @@ from core.models.relationship_names import RelationshipName
 from core.models.type_hints import Neo4jProperties, Neo4jValue, UserUID
 from core.utils.logging import get_logger
 
-from ._helpers import convert_value_for_neo4j
-from ._helpers import validate_identifier as _validate_identifier
-from ._helpers import validate_label as _validate_label
+from ._helpers import convert_value_for_neo4j, validate_identifier, validate_label
 from ._types import T
 
 logger = get_logger(__name__)
@@ -48,6 +46,29 @@ def _is_sequence_field(entity_class: type, field_name: str) -> bool:
     # intentional-broad: type introspection may raise arbitrary errors
     except Exception:
         return False
+
+
+def _model_field_names(entity_class: type) -> set[str]:
+    """The names this model declares — the allowlist for any interpolated property."""
+    return {f.name for f in fields(entity_class)}
+
+
+def _require_model_field(
+    entity_class: type, valid_fields: set[str], name: str, context: str
+) -> str:
+    """Return ``name`` if the model declares it, else raise.
+
+    Structural, not cosmetic: the name lands in a WHERE-clause pattern, where a
+    silent drop would change which rows match rather than only how they sort.
+    Raising matches the module's other structural guards (``validate_identifier``);
+    the sort key beside it warns and drops, matching the module's sort builders.
+    """
+    validate_identifier(name, context=context)
+    if name not in valid_fields:
+        raise ValueError(
+            f"Invalid {context} name: {name!r} is not a field on {entity_class.__name__}"
+        )
+    return name
 
 
 def build_search_query(
@@ -190,7 +211,7 @@ def build_publication_clause(entity_alias: str = "n") -> tuple[str, dict[str, st
         ``(fragment, params)`` — a parenthesized WHERE fragment plus the
         parameters it introduces.
     """
-    _validate_identifier(entity_alias, context="entity alias")
+    validate_identifier(entity_alias, context="entity alias")
     return (
         f"({entity_alias}.publication_state IS NULL"
         f" OR {entity_alias}.publication_state <> $publication_draft)",
@@ -240,7 +261,7 @@ def build_knowledge_read_clause(
         ``(fragment, params)`` — a parenthesized WHERE fragment plus the
         parameters it introduces. Merge the params in verbatim.
     """
-    _validate_identifier(entity_alias, context="entity alias")
+    validate_identifier(entity_alias, context="entity alias")
     params: Neo4jProperties = {
         "knowledge_entity_types": sorted(t.value for t in EntityType if t.is_knowledge())
     }
@@ -348,13 +369,13 @@ def build_search_visibility_clause(
     if visibility is None or visibility is SearchVisibility.PUBLIC:
         return None
 
-    _validate_identifier(entity_alias, context="entity alias")
+    validate_identifier(entity_alias, context="entity alias")
     alias = entity_alias
 
     if visibility is SearchVisibility.OWNER_ONLY:
         if not has_user:
             return None
-        _validate_identifier(ownership_property, context="ownership property")
+        validate_identifier(ownership_property, context="ownership property")
         return f"({alias}.{ownership_property} = $user_uid)", {}
 
     # SCOPE_AWARE — the scope value rides as a parameter (SKUEL021: only
@@ -744,6 +765,7 @@ def build_graph_aware_search_query(
 
 
 def build_array_contains_query(
+    entity_class: type[T],
     label: NeoLabel,
     field: str,
     value: str,
@@ -761,11 +783,14 @@ def build_array_contains_query(
     Ideal for searching tags, categories, or other array properties.
 
     Args:
+        entity_class: Domain model class — the source of truth for which names
+            ``field`` and ``order_by`` may take (both are interpolated)
         label: Neo4j node label (e.g., "Entity", "Task")
-        field: Array field name (e.g., "tags")
+        field: Array field name (e.g., "tags"); must be a field on the model
         value: Value to search for (case-insensitive)
         limit: Maximum results (default 50)
-        order_by: Field to sort by (default "created_at")
+        order_by: Field to sort by (default "created_at"); a name the model does
+            not declare is warned and dropped, as in this module's other builders
         order_desc: Sort descending (default True)
         visibility: Domain search-visibility declaration; composed into the
             WHERE clause via build_search_visibility_clause() (ADR-085 G5 —
@@ -778,6 +803,7 @@ def build_array_contains_query(
     Example:
         # Find KUs tagged with "python"
         query, params = build_array_contains_query(
+            Ku,
             label="Entity",
             field="tags",
             value="python",
@@ -786,16 +812,22 @@ def build_array_contains_query(
 
         # Find tasks with "urgent" tag
         query, params = build_array_contains_query(
+            Task,
             label="Task",
             field="tags",
             value="urgent"
         )
     """
+    valid_fields = _model_field_names(entity_class)
+    field = _require_model_field(entity_class, valid_fields, field, "array field")
+
     # Build ORDER BY clause
     order_clause = ""
-    if order_by:
+    if order_by and order_by in valid_fields:
         direction = "DESC" if order_desc else "ASC"
         order_clause = f"ORDER BY n.{order_by} {direction}"
+    elif order_by:
+        logger.warning(f"Order field '{order_by}' not in {entity_class.__name__}, ignoring")
 
     # Case-insensitive array contains using ANY(). Parenthesized so the
     # visibility clause can be ANDed safely.
@@ -832,6 +864,7 @@ def build_array_contains_query(
 
 
 def build_array_any_match_query(
+    entity_class: type[T],
     label: NeoLabel,
     field: str,
     values: list[str],
@@ -851,12 +884,15 @@ def build_array_any_match_query(
     - match_all=True: AND semantics (all values must match)
 
     Args:
+        entity_class: Domain model class — the source of truth for which names
+            ``field`` and ``order_by`` may take (both are interpolated)
         label: Neo4j node label
-        field: Array field name (e.g., "tags")
+        field: Array field name (e.g., "tags"); must be a field on the model
         values: List of values to search for
         match_all: If True, require ALL values; if False, ANY value
         limit: Maximum results (default 50)
-        order_by: Field to sort by (default "created_at")
+        order_by: Field to sort by (default "created_at"); a name the model does
+            not declare is warned and dropped, as in this module's other builders
         order_desc: Sort descending (default True)
 
     Returns:
@@ -865,6 +901,7 @@ def build_array_any_match_query(
     Example:
         # Find KUs with ANY of these tags
         query, params = build_array_any_match_query(
+            Ku,
             label="Entity",
             field="tags",
             values=["python", "ml", "data-science"],
@@ -873,17 +910,23 @@ def build_array_any_match_query(
 
         # Find KUs with ALL of these tags
         query, params = build_array_any_match_query(
+            Ku,
             label="Entity",
             field="tags",
             values=["python", "beginner"],
             match_all=True
         )
     """
+    valid_fields = _model_field_names(entity_class)
+    field = _require_model_field(entity_class, valid_fields, field, "array field")
+
     # Build ORDER BY clause
     order_clause = ""
-    if order_by:
+    if order_by and order_by in valid_fields:
         direction = "DESC" if order_desc else "ASC"
         order_clause = f"ORDER BY n.{order_by} {direction}"
+    elif order_by:
+        logger.warning(f"Order field '{order_by}' not in {entity_class.__name__}, ignoring")
 
     if match_all:
         # AND semantics: ALL values must be in the array
@@ -1122,8 +1165,8 @@ def build_distinct_values_query(
         # Get all categories globally (admin only)
         query, params = build_distinct_values_query("Task", "category")
     """
-    _validate_label(label)
-    _validate_identifier(field)
+    validate_label(label)
+    validate_identifier(field)
 
     params: dict[str, Neo4jValue] = {}
 
@@ -1212,10 +1255,10 @@ def build_hierarchy_query(
     Example:
         query, params = build_hierarchy_query("Lp", "lp:python-basics")
     """
-    _validate_label(label)
+    validate_label(label)
     rel_list = relationship_types or list(_HIERARCHY_FORWARD_EDGES)
     for rel in rel_list:
-        _validate_identifier(rel, context="relationship type")
+        validate_identifier(rel, context="relationship type")
     rel_types = "|".join(rel_list)
 
     query = f"""

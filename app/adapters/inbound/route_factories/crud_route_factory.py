@@ -640,8 +640,13 @@ class CRUDRouteFactory[T]:
         Query params:
             - limit: Max results (default: 100)
             - offset: Pagination offset (default: 0)
-            - order_by: Sort field (optional)
-            - order_desc: Sort descending (default: false)
+
+        The sort key is the server's, not the caller's. A request-supplied
+        ``order_by`` would be interpolated into ``ORDER BY`` (Neo4j cannot
+        parameterize a property name), and ordering rows by a property the
+        response never renders discloses that property one comparison at a
+        time — a measured oracle, not a theoretical one. No client ever sent
+        the parameter, so the window closed for free.
 
         Response: EntityListPayload — {items, total, limit, offset}
 
@@ -672,8 +677,6 @@ class CRUDRouteFactory[T]:
             request,
             limit: int = 100,
             offset: int = 0,
-            order_by: str | None = None,
-            order_desc: bool = False,
         ) -> Result[EntityListPayload[T]]:
             """List entities with pagination and user filtering"""
             # Role check — skipped when role_gates_reads=False
@@ -690,12 +693,11 @@ class CRUDRouteFactory[T]:
             # would return 0 for shared entities that have no owner relationship).
             user_uid = require_authenticated_user(request) if verify_ownership else None
 
-            # Call service with user filtering
+            # Call service with user filtering. No sort arguments: the
+            # service applies its own stable default.
             result = await service.list(
                 limit=limit,
                 offset=offset,
-                order_by=order_by,
-                order_desc=order_desc,
                 user_uid=user_uid,
             )
             if result.is_error:

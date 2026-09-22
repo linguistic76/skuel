@@ -41,27 +41,34 @@ await tx.run(f"MATCH (n:Entity {{uid: '{entity_uid}'}}) RETURN n")  # SKUEL001
 
 ### Cypher Interpolation Validation (Defense-in-Depth)
 
-Neo4j cannot parameterize labels, property names, or relationship types — these must be interpolated into Cypher strings. SKUEL validates all such values at the infrastructure boundary before interpolation:
+Neo4j cannot parameterize labels, property names, or relationship types — these must be interpolated into Cypher strings. Three guarantees are in use at the infrastructure boundary, and they are **not** interchangeable — a consolidation that picks one for every site weakens the sites using a stronger one:
 
 | What | Validator | Location |
 |------|-----------|----------|
 | **Relationship types** | `validate_identifier()` + `validate_relationship_type()` | All 5 query builder modules via `_helpers.py`; `_build_direction_pattern()` in `_relationship_crud_mixin.py` (choke point for mixin Cypher); `traverse()` and `find_path()` in `_traversal_mixin.py` |
 | **Neo4j labels** | `validate_label()` | All 5 query builder modules via `_helpers.py` — checks against `NeoLabel` enum allowlist |
-| **Field/property names** | `validate_identifier()` + `validate_field_name()` | All 5 query builder modules via `_helpers.py` — regex `^[a-zA-Z_][a-zA-Z0-9_]*$`; `_search_mixin.py`, `_user_entity_mixin.py` via `validate_field_name()` (max 64 chars); **`ModelQueryBuilder.filter(**kwargs)` silently drops unsafe keys** (mirrors the `order_by` policy — operator suffixes like `__gte`/`__contains` still validate since the regex allows underscores throughout) |
+| **Field/property names — syntactic** | `validate_identifier()` (raises) / `validate_field_name()` (returns bool, ≤64 chars) | One regex `^[a-zA-Z_][a-zA-Z0-9_]*$`, two contracts. All 5 query builder modules **and** `neo4j_schema_manager`'s DDL share `validate_identifier` from `_helpers.py`; `_search_mixin.py`, `_user_entity_mixin.py`, `unified_query_builder.py` use `validate_field_name()`. **`ModelQueryBuilder.filter(**kwargs)` silently drops unsafe keys** (mirrors the `order_by` policy — operator suffixes like `__gte`/`__contains` still validate since the regex allows underscores throughout) |
+| **Field/property names — model-derived** | membership in `fields(entity_class)` | Every `crud_queries` builder. A **sort key** warns and drops on a miss; an interpolated **property name in a pattern** raises, because dropping it would change which rows match rather than only their order |
+| **Field/property names — named allowlist** | `_ALLOWED_ORDER_BY` (frozenset) | `_backend_helpers.py`, at 2 sites in `_lp_step_mixin` / `_knowledge_context_mixin` |
 | **Comparison operators** | *structural dispatch — no validator* | No builder interpolates a caller's operator. `build_search_query` (`crud_queries.py`) runs an if/elif chain that emits a literal and warns-and-skips anything unknown; `intelligence_queries.py` uses a guarded `op_map`; `batch_cypher_builder.py` looks up `_FILTER_OP_MAP` and raises on a miss. An unknown operator cannot reach Cypher at all — stronger than checking one and then interpolating it. |
-| **Sort directions** | *derived literals — no validator* | Every `ORDER BY` direction resolves to `"ASC"`/`"DESC"` before interpolation: from a bool (`"DESC" if order_desc else "ASC"`), from the developer-authored `RelationshipSpec.order_direction` (`relationship_registry.py`), or from a literal at the call site. The sort *property* beside it IS validated — `validate_field_name` or `_ALLOWED_ORDER_BY`. |
+| **Sort directions** | *derived literals — no validator* | Every `ORDER BY` direction resolves to `"ASC"`/`"DESC"` before interpolation: from a bool (`"DESC" if order_desc else "ASC"`), from the developer-authored `RelationshipSpec.order_direction` (`relationship_registry.py`), or from a literal at the call site. The sort *property* beside it is a separate question — see the three field-name rows above, and the caveat below them. |
 
 ```python
 # Shared guards — used by crud_queries, domain_queries, relationship_queries,
-# semantic_queries, intelligence_queries
+# semantic_queries, intelligence_queries, and neo4j_schema_manager's DDL
 from adapters.persistence.neo4j.query.cypher._helpers import validate_label, validate_identifier
 
-# Infrastructure validates before interpolation — callers don't need to
-# _build_direction_pattern() rejects unsafe relationship types with Result.fail()
-# Query builder validators raise ValueError for unsafe labels/fields/relationship types
+# These raise ValueError for an unsafe label / field / relationship type.
+# _build_direction_pattern() rejects an unsafe relationship type with Result.fail().
+# Writing a NEW interpolation means picking a guarantee — the guards above are
+# available, not automatic.
 ```
 
-**Validators:** `_helpers.py` (`validate_label`, `validate_identifier` — shared by all query builders), `core/utils/validation_helpers.py` (`validate_relationship_type`, `validate_field_name`), `_backend_helpers.py` (`_validate_rel_name`, `_ALLOWED_ORDER_BY`).
+**Validators:** `_helpers.py` (`validate_label`, `validate_identifier` — shared by all five query builders *and* the schema manager's DDL), `core/utils/validation_helpers.py` (`validate_relationship_type`, `validate_field_name`), `_backend_helpers.py` (`_validate_rel_name`, `_ALLOWED_ORDER_BY`).
+
+**Not every interpolation reaches one.** A handful of backend methods interpolate a property name their caller supplies with no check — `_relationship_ordered_mixin`'s `order_by_property` / `sequence_property` / `get_hierarchical_children_deep`'s whole `match_pattern`, and `PsBackend.list_steps_raw`'s `order_field`. Each caller passes a literal, a registry constant, or sits behind a PLANNED surface; `/docs/roadmap/field-name-guarding-in-cypher.md` records the ruling and what would change it. Assume a guard exists only where you can name it.
+
+**No HTTP route publishes a sort key.** `ORDER BY` on a property the response never renders is a measured disclosure oracle — permitted by Neo4j, observable in the row order, and enumerable through `SKIP`/`LIMIT`. It cannot cross a `WHERE` clause, so it reaches un-rendered properties of already-authorized rows rather than another user's. Adding a `?sort=` parameter means choosing a guarantee, not just forwarding a string.
 
 **See:** SKUEL013 in `/docs/patterns/linter_rules.md` for the `RelationshipName` enum that makes most interpolation type-safe at the call site.
 

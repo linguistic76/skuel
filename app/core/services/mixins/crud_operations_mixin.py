@@ -384,11 +384,19 @@ class CrudOperationsMixin(Generic[B, T, U]):
                 Errors.validation(message="Offset cannot be negative", field="offset")
             )
 
-        # Handle aliases for CRUDRouteFactory compatibility
+        # `order_by`/`order_desc` are aliases of `sort_by`/`sort_order`; callers
+        # use whichever name their surface reads more plainly.
         if order_by:
             sort_by = order_by
         if order_desc:
             sort_order = "desc"
+
+        # Both branches fall back to the same sort key, because `limit`/`offset`
+        # here are a pagination window: over an unordered result Neo4j is free to
+        # return the rows in a different order per call, so page 2 can repeat or
+        # skip a row from page 1. An unset sort is a default to choose, not an
+        # instruction to leave the window unordered.
+        sort_by = sort_by or "created_at"
 
         # If user_uid provided, use graph relationship filtering
         if user_uid:
@@ -397,7 +405,7 @@ class CrudOperationsMixin(Generic[B, T, U]):
                 filters=filters or {},
                 limit=limit,
                 offset=offset,
-                sort_by=sort_by or "created_at",
+                sort_by=sort_by,
                 sort_order=sort_order,
             )
 

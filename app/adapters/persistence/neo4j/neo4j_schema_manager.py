@@ -14,12 +14,12 @@ Key Features:
 - Reports created/existing indexes
 """
 
-import re
 from dataclasses import fields, is_dataclass
 from typing import Any, TypeVar
 
 from neo4j import AsyncDriver
 
+from adapters.persistence.neo4j.query.cypher._helpers import validate_identifier, validate_label
 from adapters.persistence.neo4j.session_runner import Neo4jSessionRunner
 from core.constants import EmbeddingGeometry
 from core.models.enums.neo_labels import NeoLabel
@@ -33,20 +33,14 @@ logger = get_logger(__name__)
 # =============================================================================
 # DDL Injection Guards
 # =============================================================================
+#
+# The label and identifier guards are the query layer's, imported rather than
+# re-declared: DDL interpolates the same two kinds of name the read builders do,
+# so one definition keeps both halves of the persistence layer refusing the same
+# strings. Only the similarity guard is local — nothing outside index DDL takes
+# a vector similarity function.
 
-_VALID_NEO4J_LABELS: frozenset[str] = frozenset(v.value for v in NeoLabel)
-_VALID_IDENTIFIER_RE = re.compile(r"^[a-zA-Z_][a-zA-Z0-9_]*$")
 _VALID_SIMILARITY = frozenset({"cosine", "euclidean"})
-
-
-def _validate_label(label: NeoLabel) -> None:
-    if label not in _VALID_NEO4J_LABELS:
-        raise ValueError(f"Invalid Neo4j label: {label!r}")
-
-
-def _validate_identifier(name: str, context: str = "field") -> None:
-    if not _VALID_IDENTIFIER_RE.match(name):
-        raise ValueError(f"Invalid {context} name: {name!r}")
 
 
 def _validate_similarity(similarity: str) -> None:
@@ -214,8 +208,8 @@ class Neo4jSchemaManager(Neo4jSessionRunner):
         Returns:
             Result with 'created' or 'existing'
         """
-        _validate_label(label)
-        _validate_identifier(field_name)
+        validate_label(label)
+        validate_identifier(field_name)
         index_name = f"{label}_{field_name}_idx"
 
         try:
@@ -251,8 +245,8 @@ class Neo4jSchemaManager(Neo4jSessionRunner):
         Returns:
             Result with 'created' or 'existing'
         """
-        _validate_label(label)
-        _validate_identifier(field_name)
+        validate_label(label)
+        validate_identifier(field_name)
         constraint_name = f"{label}_{field_name}_unique"
 
         try:
@@ -365,8 +359,8 @@ class Neo4jSchemaManager(Neo4jSessionRunner):
             # Creates index: ku_embedding_idx or contentchunk_embedding_idx
             # For query: db.index.vector.queryNodes('ku_embedding_idx', k, embedding)
         """
-        _validate_label(label)
-        _validate_identifier(field_name)
+        validate_label(label)
+        validate_identifier(field_name)
         _validate_similarity(similarity)
         index_name = f"{label.lower()}_{field_name}_idx"
 
@@ -412,7 +406,7 @@ class Neo4jSchemaManager(Neo4jSessionRunner):
         Returns:
             Result indicating success or failure
         """
-        _validate_identifier(index_name, context="index name")
+        validate_identifier(index_name, context="index name")
         try:
             query = f"DROP INDEX {index_name} IF EXISTS"
 
@@ -447,12 +441,12 @@ class Neo4jSchemaManager(Neo4jSessionRunner):
                 Errors.validation("field_names cannot be empty", field="field_names")
             )
 
-        _validate_label(label)
+        validate_label(label)
         for f in field_names:
-            _validate_identifier(f)
+            validate_identifier(f)
         name = index_name or f"{label}_{'_'.join(field_names)}_idx"
         if index_name:
-            _validate_identifier(index_name, context="index name")
+            validate_identifier(index_name, context="index name")
         fields_str = ", ".join(f"n.{f}" for f in field_names)
 
         try:
@@ -672,10 +666,10 @@ class Neo4jSchemaManager(Neo4jSessionRunner):
         Returns:
             Result with 'created' or error
         """
-        _validate_label(label)
+        validate_label(label)
         for f in fields:
-            _validate_identifier(f)
-        _validate_identifier(index_name, context="index name")
+            validate_identifier(f)
+        validate_identifier(index_name, context="index name")
 
         fields_str = ", ".join(f"n.{f}" for f in fields)
 
@@ -778,9 +772,9 @@ class Neo4jSchemaManager(Neo4jSessionRunner):
         self, index_name: str, label: NeoLabel, field_name: str
     ) -> Result[str]:
         """Create a named index (custom name instead of auto-generated)."""
-        _validate_label(label)
-        _validate_identifier(field_name)
-        _validate_identifier(index_name, context="index name")
+        validate_label(label)
+        validate_identifier(field_name)
+        validate_identifier(index_name, context="index name")
 
         try:
             query = f"""
@@ -878,7 +872,7 @@ class Neo4jSchemaManager(Neo4jSessionRunner):
         for index_name in stale_indexes:
             try:
                 # Use raw identifier validation (these names are hardcoded, but be safe)
-                _validate_identifier(index_name, context="index name")
+                validate_identifier(index_name, context="index name")
                 query = f"DROP INDEX {index_name} IF EXISTS"
                 async with self.driver.session() as session:
                     await session.run(query)

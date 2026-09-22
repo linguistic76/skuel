@@ -253,6 +253,7 @@ class _SearchRawMixin[T: DomainModelProtocol]:
         from adapters.persistence.neo4j.query.cypher import build_array_any_match_query
 
         cypher_query, params = build_array_any_match_query(
+            self.entity_class,
             label=self.label,
             field=field,
             values=values,
@@ -302,6 +303,7 @@ class _SearchRawMixin[T: DomainModelProtocol]:
         from adapters.persistence.neo4j.query.cypher import build_array_contains_query
 
         cypher_query, params = build_array_contains_query(
+            self.entity_class,
             label=self.label,
             field=field,
             value=value,
@@ -395,11 +397,11 @@ class _SearchRawMixin[T: DomainModelProtocol]:
         Returns:
             Result[list[dict]]: Records with entity data and enrichment collections
         """
-        from adapters.persistence.neo4j.neo4j_schema_manager import _validate_identifier
         from adapters.persistence.neo4j.query.cypher import (
             build_relationship_filter_fragments,
             build_search_visibility_clause,
         )
+        from adapters.persistence.neo4j.query.cypher._helpers import validate_identifier
 
         cypher_parts: builtins.list[str] = []
         params: dict[str, Any] = {"user_uid": user_uid}
@@ -503,10 +505,10 @@ class _SearchRawMixin[T: DomainModelProtocol]:
         cypher_parts.append(f"RETURN {', '.join(return_fields)}")
 
         # 8. Ordering + pagination window. The sort field is interpolated, so
-        # both the explicit override and the config default pass the same
-        # identifier whitelist the schema manager uses — never raw user input.
+        # both the explicit override and the config default pass the query
+        # layer's identifier guard — never raw user input.
         sort_field = order_by or search_order_by
-        _validate_identifier(sort_field, context="sort field")
+        validate_identifier(sort_field, context="sort field")
         direction = "DESC" if order_desc else "ASC"
         cypher_parts.append(f"ORDER BY entity.{sort_field} {direction}")
         if offset > 0:

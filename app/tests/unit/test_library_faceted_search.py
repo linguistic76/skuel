@@ -133,7 +133,7 @@ class TestFacetedSearchRawClauses:
 
     @pytest.mark.asyncio
     async def test_malicious_sort_field_rejected_before_query(self) -> None:
-        # _validate_identifier raises; safe_backend_operation converts to a
+        # validate_identifier raises; safe_backend_operation converts to a
         # failed Result. Either way the injection must never reach the driver.
         store: CapturedQuery = {}
         result = await run_faceted(store, order_by="title DESC; MATCH (n) DETACH DELETE n //")
