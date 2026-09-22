@@ -76,10 +76,14 @@ marker is stale only when it covers neither a dead link nor a dead route claim �
 
 Advisory
 --------
-Exit 0 whatever it finds. The ``fiction`` class is the only one that could ever gate;
-promotion to ``./dev health`` red is a separate ruling that waits on two sweep PRs each
-re-measuring ≥95% precision on a fresh draw. ``family-prefix``, ``relative-suffix`` and
-``history`` are printed-only by design.
+Exit 0 whatever it finds, and the ``fiction`` class stays advisory — ruled 2026-09-22.
+Promotion to ``./dev health`` red needed two sweep PRs each re-measuring >=95% fiction
+precision on a fresh 30-item draw; both came in under the bar (50% and 56.7%), so the
+number is recorded and the class gates nothing. ``family-prefix``, ``relative-suffix``
+and ``history`` were always printed-only. ``docs/tools/HEALTH_CHECKS.md`` section 9
+carries the draws and the false-positive classes — the two biggest are grammar this
+scanner deliberately does not carry: history vocabulary is ``history_in_code.classify``'s
+one vocabulary, imported rather than widened, and negation is span-adjacent by design.
 
 Usage:
     ./dev health-claims                      # per-file fiction counts + class totals
@@ -541,7 +545,7 @@ def main(argv: list[str] | None = None) -> int:
     for cls in ALL_CLASSES:
         note = ""
         if cls == GATE_CANDIDATE:
-            note = "  ← the sweep queue (advisory; promotion to health-red is a separate ruling)"
+            note = "  ← the sweep queue (advisory by ruling — it gates nothing)"
         elif cls in ("family-prefix", "relative-suffix"):
             note = "  (printed, never a skip — each hides real fiction when treated as a match)"
         elif cls == "history":

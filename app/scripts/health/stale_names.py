@@ -382,6 +382,8 @@ _review_sync = "SYNC_UNIFICATION_REVIEW finding A3 (2026-07-01) names the bundle
 _adr014 = "ADR-014 changelog row recording the bundle mechanism and /api/ingest/* doors deleted for one ingestion system -- the record names what it retired"
 _adr070 = "ADR-070 Decision 9 amendments (2026-09-21, 2026-09-22) + changelog rows recording the raw ingest doors, the dry-run mode, the bundle mechanism, the HTTP path allowlist and the nous generator pair deleted with them -- the decision names what it retired"
 _adr073 = "ADR-073 § 3 amendment (2026-09-02) recording the Pipeline.JOURNAL deletion -- the decision names what it retired"
+_defiction = "the docs de-fiction arc's record (7 PRs, closed 2026-09-22) names every route, symbol and decorator its sweeps retired -- a finding list is unreadable without the name it found"
+_symbol_queue = "the symbol-claim queue's verdict table teaches 'fictional namespace, real members' by naming its two worked instances -- the verdict is unintelligible without them"
 _sharing_door = "the sharing-door record -- ADR-038's amendment, the deferred-work MOC line and the case file's per-method table name the two methods (and their backend twins) that no longer exist"
 _askesis_arch = "change-history table recording the entities_rich unification / ActivityDataReader absorption / ActivityReviewService split"
 _askesis_intel = "'the former ActivityReviewService was split' -- historical record of the split"
@@ -635,6 +637,41 @@ ALLOWED_OCCURRENCES: dict[str, dict[tuple[int, str], Allow]] = {
         # the anchors from the scanner's report, never by adding a diff delta.
         (945, "KuType"): Allow(_three_tier),
         (946, "KuStatus"): Allow(_three_tier),
+    },
+    # The arc's record, granted in bulk because naming the retired identifier IS the
+    # finding. Every anchor re-derived from the scanner's own report (scan_file over the
+    # file), never by adding a diff delta — the file is a closed record, so they hold.
+    "docs/roadmap/done/docs-defiction-pass.md": {
+        (62, "sel_routes"): Allow(_defiction),
+        (92, "UnifiedUserContext"): Allow(_defiction),
+        (95, "Entity.user_uid"): Allow(_defiction),
+        (95, "_get_learning_context"): Allow(_defiction),
+        (210, "UnifiedUserContext"): Allow(_defiction),
+        (211, "DomainConfig.cross_domain_relationship_types"): Allow(_defiction),
+        (211, "Entity.user_uid"): Allow(_defiction),
+        (211, "_get_learning_context"): Allow(_defiction),
+        (353, "OwnershipRouteFactory"): Allow(_defiction),
+        (353, "require_ownership_query"): Allow(_defiction),
+        (353, "with_ownership"): Allow(_defiction),
+        (354, "KuOrganizationService"): Allow(_defiction),
+        (355, "DomainConfig.cross_domain_relationship_types"): Allow(_defiction),
+        (355, "Entity.user_uid"): Allow(_defiction),
+        (355, "ExpenseCreateRequest"): Allow(_defiction),
+        (355, "ExpenseDTO"): Allow(_defiction),
+        (355, "ExpensePure"): Allow(_defiction),
+        (355, "MOCService"): Allow(_defiction),
+        (355, "MocNavigationService"): Allow(_defiction),
+        (355, "UnifiedUserContext"): Allow(_defiction),
+        (355, "_get_learning_context"): Allow(_defiction),
+        (356, "/api/ingest/domain"): Allow(_defiction),
+        (379, "UnifiedUserContext"): Allow(_defiction),
+        (380, "DomainConfig.cross_domain_relationship_types"): Allow(_defiction),
+        (380, "Entity.user_uid"): Allow(_defiction),
+        (380, "_get_learning_context"): Allow(_defiction),
+    },
+    "docs/roadmap/symbol-claims-in-docs.md": {
+        (79, "DomainConfig.cross_domain_relationship_types"): Allow(_symbol_queue),
+        (79, "UnifiedUserContext"): Allow(_symbol_queue),
     },
     "docs/roadmap/done/dead-doc-links-sweep-queue.md": {
         # 219 → 241: § "Named, still queued" above it gained the `/journals/browse`

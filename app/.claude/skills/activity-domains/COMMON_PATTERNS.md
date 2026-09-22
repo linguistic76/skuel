@@ -349,7 +349,7 @@ connections:
   grounded_in_knowledge: [l:mindfulness:mind-wandering-happens]
 ```
 
-See `yaml_templates/_schemas/` for complete field reference. See `/docs/architecture/knowledge_substance_philosophy.md` for the substance scoring model.
+See `/docs/guides/YAML_AUTHORING_GUIDE.md` for the field reference per entity type. See `/docs/architecture/knowledge_substance_philosophy.md` for the substance scoring model.
 
 ### Knowledge application is graph-native (no node field)
 

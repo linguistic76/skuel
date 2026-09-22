@@ -1,7 +1,7 @@
 ---
 title: Knowledge Substance Philosophy
 created: 2025-10-17
-updated: 2026-09-21
+updated: 2026-09-22
 status: active
 audience: all
 tags: [architecture, knowledge, substance, philosophy, learning, ku-activity-integration]
@@ -243,10 +243,10 @@ connections:
 1. YAML author writes `connections.{field}: [uid1, uid2]`
 2. `preparer.py` flattens `connections` dict to dotted notation
 3. `generate_ingestion_relationship_config()` reads `yaml_field_path` from the relationship registry
-4. `bulk_ingestion.py` generates `MERGE (n)-[:REL_TYPE]->(target)` Cypher
+4. `bulk_upsert_backend.py` (`build_relationship_template`) generates `MERGE (n)-[:REL_TYPE]->(target)` Cypher
 5. Edge created in Neo4j — substance tracking is now structural
 
-**See:** `_schemas/` for complete field reference.
+**See:** `/docs/guides/YAML_AUTHORING_GUIDE.md` § Knowledge Connections for the `connections` field reference.
 
 ---
 

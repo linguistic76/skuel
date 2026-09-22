@@ -11,14 +11,9 @@ Key principles:
 - Relationships handled by unified relationship system
 
 Three-tier position:
-- External: user_schemas.py (Pydantic validation)
+- External: user_request.py (Pydantic validation)
 - Transfer: user_dto.py (mutable DTOs)
 - Core: user.py (this file, frozen domain model)
-
--4 Integration (October 3, 2025):
-
-
-
 """
 
 __version__ = "2.1"
