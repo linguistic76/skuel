@@ -119,8 +119,9 @@ separate decision.
 
 ## Census corrections to the brief that opened this
 
-The brief (`plans/done/field-name-guard-ruling-prompt.md`) was wrong in six places, and they are
-recorded because the shape of the errors repeats:
+The brief this ruling answers was wrong in six places, recorded here because the shape of the
+errors repeats — and because it descended from one whose most confidently stated claim was off
+by a factor of 17:
 
 1. **`validate_identifier` has 31 call sites across 5 modules, not "6, all in `crud_queries`."**
    The brief's census command was `grep -rn "_validate_identifier\|def validate_identifier"`,
