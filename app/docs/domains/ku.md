@@ -1,7 +1,7 @@
 ---
 title: KU (Knowledge Unit) Domain
 created: 2025-12-04
-updated: 2026-09-20
+updated: 2026-09-22
 status: current
 category: domains
 tags:
@@ -227,7 +227,7 @@ slots above.
 ```python
 # Via KuService facade - harmonious relationship access
 ku_service = services.ku
-enables = await ku_service.get_enables("ku_advanced-python_a1b2")  # Uses UnifiedRelationshipService
+enables = await ku_service.relationships.get_enables("ku_advanced-python_a1b2")
 
 # Via sub-services - intelligence operations
 usage = await ku_service.intelligence.get_usage_summary("ku_python_f7g8")

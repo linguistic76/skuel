@@ -100,7 +100,7 @@ SKUEL measures knowledge by how it's LIVED. Substance accrues from lived activit
 
 **Ku UID is flat & opaque** — hierarchy lives in `(parent)-[:ORGANIZES {order, importance}]->(child)` edges (multiple parents allowed), not in the UID. Two sanctioned forms — authored `ku.{ns}.{slug}` (vault) and generated `ku_{slug}_{random}` (API) — are BOTH valid; **never sniff type from the prefix** (spelling is provenance, not type information; determine entity kind by label/`entity_type`/edge).
 
-**See:** `/docs/architecture/CURRICULUM_GROUPING_PATTERNS.md`, `/docs/decisions/ADR-013-ku-uid-flat-identity.md`, `/docs/patterns/UNIVERSAL_HIERARCHICAL_PATTERN.md`
+**See:** `/docs/architecture/CURRICULUM_GROUPING_PATTERNS.md`, `/docs/decisions/ADR-013-ku-uid-flat-identity.md`
 
 ### Content Origin Tiers
 

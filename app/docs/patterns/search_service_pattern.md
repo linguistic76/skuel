@@ -1,6 +1,6 @@
 ---
 title: SearchService Pattern for Activity Domains
-updated: 2026-09-17
+updated: 2026-09-22
 category: patterns
 related_skills:
 - base-analytics-service
@@ -147,7 +147,7 @@ BaseService now provides **Neo4j-native graph-aware search** that combines text 
 
 ```python
 # Graph-aware search: text + relationship in ONE query
-result = await ku_service.search_connected_to(
+result = await ku_service.search.search_connected_to(
     query="machine learning",
     related_uid="ku.python-basics",
     relationship_type=RelationshipName.ENABLES_KNOWLEDGE,
@@ -156,14 +156,14 @@ result = await ku_service.search_connected_to(
 )
 
 # Tag search with OR semantics (any tag matches)
-result = await ku_service.search_by_tags(
+result = await ku_service.search.search_by_tags(
     tags=["python", "ml"],
     match_all=False,  # OR
     limit=50
 )
 
 # Tag search with AND semantics (all tags must match)
-result = await ku_service.search_by_tags(
+result = await ku_service.search.search_by_tags(
     tags=["python", "beginner"],
     match_all=True,  # AND
     limit=50

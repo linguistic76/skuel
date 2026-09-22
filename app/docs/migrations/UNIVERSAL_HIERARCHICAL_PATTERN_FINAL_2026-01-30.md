@@ -1,5 +1,5 @@
 ---
-updated: 2026-03-30
+updated: 2026-09-22
 ---
 
 # Universal Hierarchical Pattern - Final Implementation Report
@@ -31,7 +31,7 @@ This pattern extends SKUEL's graph-first philosophy to entity identity, ensuring
 
 **2. Documentation** ✅
 - ADR-013: Updated to reflect implementation
-- UNIVERSAL_HIERARCHICAL_PATTERN.md: Comprehensive 850+ line guide
+- UNIVERSAL_HIERARCHICAL_PATTERN.md: Comprehensive 850+ line guide (deleted 2026-09-22 — its examples described the pre-rename Ku)
 - CLAUDE.md: Quick reference updated
 - Migration guides: Complete implementation documentation
 
@@ -285,7 +285,7 @@ await lesson_core.organize_lesson(parent="ku_c", child="ku_a")  # ERROR!
    - Added 2026-01-30 implementation details
    - Updated all examples
 
-2. **`/docs/patterns/UNIVERSAL_HIERARCHICAL_PATTERN.md`** ✅ (NEW)
+2. **`UNIVERSAL_HIERARCHICAL_PATTERN.md`** ✅ (NEW — deleted 2026-09-22)
    - 850+ line comprehensive guide
    - All domains covered
    - 25+ code examples
@@ -526,10 +526,10 @@ The Universal Hierarchical Pattern extends SKUEL's graph-first philosophy to ent
 
 ## Quick Reference
 
-**Pattern Guide:** `/docs/patterns/UNIVERSAL_HIERARCHICAL_PATTERN.md`
+**Pattern Guide:** `/docs/architecture/CURRICULUM_GROUPING_PATTERNS.md`
 **Decision Record:** `/docs/decisions/ADR-013-ku-uid-flat-identity.md`
 **Quick Ref:** `/CLAUDE.md` (KU UID Format section)
-**PS Methods:** `/docs/migrations/LS_KNOWLEDGE_RELATIONSHIPS_COMPLETE_2026-01-30.md`
+**PS Methods:** `PsService.organize()` / `get_organized_children()` / `find_organizers()`
 
 ---
 

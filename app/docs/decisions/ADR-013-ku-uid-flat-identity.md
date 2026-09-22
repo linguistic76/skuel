@@ -1,10 +1,10 @@
 ---
 title: "ADR-013: KU UID Flat Identity Design"
-updated: 2026-09-15
+updated: 2026-09-22
 status: implemented
 category: decisions
-tags: [adr, decisions, ku, uid, identity, curriculum, universal-hierarchical-pattern]
-related: [ENTITY_TYPE_ARCHITECTURE.md, CURRICULUM_GROUPING_PATTERNS.md, UNIVERSAL_HIERARCHICAL_PATTERN.md]
+tags: [adr, decisions, ku, uid, identity, curriculum]
+related: [ENTITY_TYPE_ARCHITECTURE.md, CURRICULUM_GROUPING_PATTERNS.md]
 related_skills: [neo4j-cypher-patterns]
 ---
 
@@ -366,19 +366,22 @@ As of ADR-014 (Unified Ingestion Service), **dot notation is the spelling of aut
 **Creating a new KU via Service (Primary):**
 
 ```python
-# Create KU with flat UID
-result = await ku_service.create(
+# The service generates the flat UID from the title — callers never supply one.
+result = await ku_service.create_ku(
     title="Meditation Basics",
-    body=content,
+    aliases=["meditation-101"],
+    description="Introduction to seated practice",
     tags=["meditation", "mindfulness"],
-    parent_uid="ku_yoga-fundamentals_abc123",  # Optional: create ORGANIZES
-    order=1,
-    importance="core"
 )
 
 # Result: ku_meditation-basics_a1b2c3d4
-# Relationship: (yoga)-[:ORGANIZES {order: 1}]->(meditation)
 ```
+
+Placement is a separate write, and it is not a `KuService` operation: the Ku
+facade exposes no ORGANIZES method, and `PsService.organize()` requires a
+PathStep at both ends. ORGANIZES edges onto a Ku are authored in the vault via
+`moc: true` frontmatter — see
+[../patterns/UNIFIED_INGESTION_GUIDE.md](../patterns/UNIFIED_INGESTION_GUIDE.md) § MOC files.
 
 **Creating a KU via Markdown (Legacy Support):**
 

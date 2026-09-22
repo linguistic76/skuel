@@ -1,5 +1,5 @@
 ---
-updated: 2026-09-17
+updated: 2026-09-22
 ---
 
 # LpIntelligenceService - Learning State & Content Intelligence
@@ -184,14 +184,15 @@ async def recommend_content(
 **Example:**
 ```python
 # Get all available KUs from backend
-all_kus_result = await ku_service.list()
+all_kus_result = await ku_service.core.list()
 if all_kus_result.is_error:
     return all_kus_result
+all_kus, _total = all_kus_result.value
 
 # Get recommendations
 result = await lp_intelligence.recommend_content(
     user_context=user_context,
-    content_pool=all_kus_result.value,
+    content_pool=all_kus,
     limit=5
 )
 
@@ -529,7 +530,7 @@ class KuContentAdapter(ContentAdapter):
     def content_text(self) -> str:
         return self.ku.content
 
-ku = await ku_service.get("ku.python-advanced")
+ku = await ku_service.get_ku("ku.python-advanced")
 adapter = KuContentAdapter(ku.value)
 
 # Extract metadata
@@ -665,12 +666,13 @@ async def find_similar_content(
 **Example:**
 ```python
 # Find content similar to specific KU
-reference_ku = await ku_service.get("ku.python-advanced")
+reference_ku = await ku_service.get_ku("ku.python-advanced")
 reference_adapter = KuContentAdapter(reference_ku.value)
 
 # Get all available content
-all_kus = await ku_service.list()
-content_pool = [KuContentAdapter(ku) for ku in all_kus.value]
+all_kus_result = await ku_service.core.list()
+all_kus, _total = all_kus_result.value
+content_pool = [KuContentAdapter(ku) for ku in all_kus]
 
 # Find similar content
 result = await lp_intelligence.find_similar_content(

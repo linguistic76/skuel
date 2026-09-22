@@ -15,8 +15,8 @@ Examples:
 - habit_daily-exercise_abc12345   (Habit - flat UID)
 - user_mike                        (User - no random suffix for named entities)
 
-See: /docs/patterns/UNIVERSAL_HIERARCHICAL_PATTERN.md
-See: /docs/migrations/UNIVERSAL_HIERARCHICAL_IMPLEMENTATION_2026-01-30.md
+See: /docs/decisions/ADR-013-ku-uid-flat-identity.md
+See: /docs/architecture/CURRICULUM_GROUPING_PATTERNS.md
 """
 
 __version__ = "1.0"
@@ -37,7 +37,7 @@ class UIDGenerator:
     - Hierarchy stored in graph relationships, NOT UIDs
     - Identity independent of location/organization
 
-    See: /docs/patterns/UNIVERSAL_HIERARCHICAL_PATTERN.md
+    See: /docs/decisions/ADR-013-ku-uid-flat-identity.md
     """
 
     # Prefixes for different entity types
@@ -97,8 +97,10 @@ class UIDGenerator:
 
         Note:
             - Hierarchy stored in (ku)-[:ORGANIZES]->(ku) relationships
-            - Use PsCoreService to create parent-child relationships
-            - See: /docs/patterns/UNIVERSAL_HIERARCHICAL_PATTERN.md
+            - No service writes them: every PsService ORGANIZES method is
+              PathStep-subject only. Ku organization is authored in the
+              vault via `moc: true` frontmatter (body links become edges).
+            - See: /docs/decisions/ADR-013-ku-uid-flat-identity.md
         """
         slug = cls.slugify(title)
         random_suffix = uuid.uuid4().hex[:8]
@@ -138,10 +140,11 @@ class UIDGenerator:
     #
     # Hierarchy is now stored in graph relationships:
     # - (parent:Entity)-[:ORGANIZES {order}]->(child:Entity)
-    # - Use PsCoreService.get_parents() to find parents
-    # - Use PsCoreService.get_hierarchy() for full hierarchy context
+    # - PathStep subjects: PsService.find_organizers() / get_organized_children()
+    # - UserEntry subjects: UserEntryService.get_organized_children()
+    # - Other entity types: edges come from vault MOC ingestion; no service door
     #
-    # See: /docs/patterns/UNIVERSAL_HIERARCHICAL_PATTERN.md
+    # See: /docs/architecture/CURRICULUM_GROUPING_PATTERNS.md
 
     @classmethod
     def generate_uid(cls, prefix: str, name: str | None = None) -> EntityUID:

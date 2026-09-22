@@ -1,6 +1,6 @@
 ---
 title: "Pattern: Hub Page (MOC) Implementation"
-updated: 2026-09-21
+updated: 2026-09-22
 status: current
 category: patterns
 tags: [ui, navigation, moc, hub, cards]
@@ -273,10 +273,12 @@ Blocks are `HubBlockData` configs rendered by `HubDomainBlock`; each loads its c
 
 ## Usage: Graph-Driven Hub Page
 
-Any route handler can render ORGANIZES data as a card grid:
+`hub_cards_from_organizers` renders any `OrganizerResult` list as a card grid.
+The fetch is per-subject — each domain has its own reader, and there is none for
+Ku (vault-authored MOC edges have no service door):
 
 ```python
-children_result = await ku_service.get_organized_children(moc_uid)
+children_result = await orchestrator.get_entry_organized_children(entry_uid)
 cards = hub_cards_from_organizers(children_result.value)
 section = HubSection("Contents", cards)
 ```
