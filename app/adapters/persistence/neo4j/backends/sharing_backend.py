@@ -129,22 +129,6 @@ class SharingBackend(UniversalNeo4jBackend[Entity]):
             return Result.fail(result)
         return Result.ok(result.value or [])
 
-    async def query_shareable_status(
-        self,
-        entity_uid: EntityUID,
-    ) -> Result[list[Neo4jProperties]]:
-        """Query status and entity_type for shareability check."""
-        result = await self.execute_query(
-            """
-            MATCH (ku:Entity {uid: $entity_uid})
-            RETURN ku.status as status, ku.entity_type as entity_type
-            """,
-            {"entity_uid": entity_uid},
-        )
-        if result.is_error:
-            return Result.fail(result)
-        return Result.ok(result.value or [])
-
     async def query_ownership_and_status(
         self,
         entity_uid: EntityUID,
@@ -447,31 +431,6 @@ class SharingBackend(UniversalNeo4jBackend[Entity]):
             ORDER BY r.shared_at DESC
             """,
             {"entity_uid": entity_uid},
-        )
-        if result.is_error:
-            return Result.fail(result)
-        return Result.ok(result.value or [])
-
-    async def query_shared_with_me_via_groups(
-        self,
-        user_uid: UserUID,
-        limit: int,
-    ) -> Result[list[Neo4jProperties]]:
-        """Get entities shared with a user through group membership."""
-        result = await self.execute_query(
-            """
-            MATCH (user:User {uid: $user_uid})-[:MEMBER_OF]->(group:Group)
-            MATCH (entity:Entity)-[r:SHARED_WITH_GROUP]->(group)
-            WHERE entity.user_uid <> $user_uid
-            RETURN entity,
-                   group.uid as group_uid,
-                   group.name as group_name,
-                   r.share_version as share_version,
-                   r.shared_at as shared_at
-            ORDER BY entity.created_at DESC
-            LIMIT $limit
-            """,
-            {"user_uid": user_uid, "limit": limit},
         )
         if result.is_error:
             return Result.fail(result)

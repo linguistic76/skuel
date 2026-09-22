@@ -17,10 +17,17 @@ Protocol Responsibilities
 Same root word, two layers: SharingBackendOperations describes what the
 SharingBackend exposes (low-level Cypher methods like create_share,
 query_access); SharingOperations describes what UnifiedSharingService exposes
-to routes (share, check_access, …). See CLAUDE.md § "Protocol-Based
+to its callers (share, check_access, …). See CLAUDE.md § "Protocol-Based
 Architecture" for the two-layer convention.
 
-ISP-compliant: captures only the methods called from each consumer.
+SharingOperations is the service's whole surface, not an ISP slice: the
+``Services.sharing`` slot (services_bootstrap/_container.py) is typed against
+it, and the callers reach it through that slot. Its live half is share,
+check_access, get_shared_with_me, share_with_group and the two
+``*_shared_with_group`` reads; the revoke / visibility / access-list half
+(unshare, unshare_from_group, set_visibility, get_shared_with,
+get_groups_shared_with) has no caller yet — it is the PLANNED sharing
+management door, ``docs/roadmap/sharing-http-door.md``.
 
 See: /docs/patterns/SHARING_PATTERNS.md
 See: /docs/decisions/ADR-042-privacy-as-first-class-citizen.md
@@ -71,11 +78,6 @@ class SharingBackendOperations(Protocol):
         user_uid: UserUID,
     ) -> Result[list[Neo4jProperties]]: ...
 
-    async def query_shareable_status(
-        self,
-        entity_uid: EntityUID,
-    ) -> Result[list[Neo4jProperties]]: ...
-
     async def query_ownership_and_status(
         self,
         entity_uid: EntityUID,
@@ -112,12 +114,6 @@ class SharingBackendOperations(Protocol):
     async def query_groups_shared_with(
         self,
         entity_uid: EntityUID,
-    ) -> Result[list[Neo4jProperties]]: ...
-
-    async def query_shared_with_me_via_groups(
-        self,
-        user_uid: UserUID,
-        limit: int,
     ) -> Result[list[Neo4jProperties]]: ...
 
     async def query_user_entries_shared_with_group(
@@ -171,7 +167,11 @@ class SharingOperations(Protocol):
     Manages SHARES_WITH relationships and visibility levels
     (PRIVATE / SHARED / PUBLIC) for any entity type.
 
-    Route consumer: submissions_sharing_api.py
+    Consumers: ``Services.sharing`` (services_bootstrap/_container.py) —
+    reached by UserEntryService's audience resolution, FormSubmissionService,
+    ExerciseService, UserEntryOrchestrator, ``/profile/shared`` and the
+    groups hub. No route posts to the revoke / visibility / access-list
+    members (see the module docstring).
     Implementation: UnifiedSharingService
     """
 
@@ -233,13 +233,6 @@ class SharingOperations(Protocol):
         """Check if a user has access to an entity. Returns Result[bool]."""
         ...
 
-    async def verify_shareable(
-        self,
-        entity_uid: EntityUID,
-    ) -> Result[bool]:
-        """Verify entity can be shared (status + type check). Returns Result[bool]."""
-        ...
-
     async def share_with_group(
         self,
         entity_uid: EntityUID,
@@ -264,14 +257,6 @@ class SharingOperations(Protocol):
         entity_uid: EntityUID,
     ) -> Result[list[dict[str, Any]]]:
         """Get groups an entity is shared with. Returns Result[list[dict]]."""
-        ...
-
-    async def get_shared_with_me_via_groups(
-        self,
-        user_uid: UserUID,
-        limit: int = 50,
-    ) -> Result[list[Any]]:
-        """Get entities shared via group membership. Returns Result[list[dict]]."""
         ...
 
     async def get_user_entries_shared_with_group(

@@ -1,6 +1,6 @@
 ---
 title: Relationships Architecture
-updated: 2026-09-17
+updated: 2026-09-22
 status: current
 category: architecture
 version: 2.0.0
@@ -184,7 +184,7 @@ Complex relationship Cypher that is domain-specific belongs on the domain backen
 | `TasksBackend` | Hierarchy via `_HierarchyMixin` (subtask ops) |
 | `GoalsBackend` | Hierarchy via `_HierarchyMixin` (subgoal ops) |
 | `KuBackend` | `organize()`, `unorganize()`, `reorder()`, `get_organized_children()`, `find_organizers()`, `list_root_organizers()`, `is_organizer()` |
-| `SharingBackend` (entity-agnostic, ADR-042) | `create_share()`, `delete_share()`, `update_visibility()`, `query_access()`, `query_shareable_status()`, `query_shared_with_users()`, `query_shared_with_me()`, `create_group_share()` |
+| `SharingBackend` (entity-agnostic, ADR-042) | `create_share()`, `delete_share()`, `update_visibility()`, `query_access()`, `query_ownership_and_status()`, `query_shared_with_users()`, `query_shared_with_me()`, `create_group_share()` |
 | `LpBackend` | `get_paths_containing_ku()`, `get_ku_mastery_progress()` |
 | `ExerciseBackend` | `link_to_curriculum()`, `unlink_from_curriculum()`, `get_required_knowledge()` |
 

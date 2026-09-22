@@ -47,7 +47,6 @@ def _make_sharing_service() -> MagicMock:
     svc = MagicMock()
     svc.share = AsyncMock(return_value=Result.ok(True))
     svc.share_with_group = AsyncMock(return_value=Result.ok(True))
-    svc.get_groups_shared_with = AsyncMock(return_value=Result.ok([]))
     backend = MagicMock()
     backend.query_exercise_groups_for_member = AsyncMock(return_value=Result.ok([]))
     # Curriculum default-group fallback (care arc): empty intersection triggers

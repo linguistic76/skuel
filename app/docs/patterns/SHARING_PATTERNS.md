@@ -1,6 +1,6 @@
 ---
 title: Content Sharing Patterns
-updated: '2026-09-21'
+updated: '2026-09-22'
 category: patterns
 related_skills:
 - pytest
@@ -42,7 +42,9 @@ PUBLIC            → Anyone can view (portfolio showcase)
 - Sharing entities still processing
 - Low-quality portfolio content
 
-Enforced at service layer via `verify_shareable()` method.
+Enforced at the service layer by `_check_shareable()` (status + entity type), applied inside
+every mutation through `_verify_owned_and_shareable()` — there is no standalone pre-flight; a
+mutation on an unshareable entity returns the validation error.
 
 ### Access Control Query Pattern
 
@@ -67,32 +69,37 @@ RETURN entity
 
 ## Usage Patterns
 
-### Pattern 1: Student-Teacher Workflow
+### Pattern 1: Student-Teacher Workflow (direct share)
 
-**Use Case:** Student submits report and shares with teacher for review.
+**Use Case:** Student submits an entry and shares it with one named person.
+
+The audience is declared **at submit time** (ADR-054) and resolved into edges by
+`AudienceResolver` — there is no separate "share" step after the entry exists, and no
+visibility change: the search visibility clause admits by edge, so `share()` alone is the
+grant.
 
 ```python
-from core.services.sharing import UnifiedSharingService
-from core.models.enums.metadata_enums import Visibility
+from core.models.user_entry.user_entry_request import UserEntryCreateRequest
 
-entity_uid = "ku_assignment_abc123"
 student_uid = "user_alice"
 teacher_uid = "user_teacher_bob"
 
-# Step 1: Student sets visibility to SHARED
-visibility_result = await sharing_service.set_visibility(
-    entity_uid=entity_uid,
-    owner_uid=student_uid,
-    visibility=Visibility.SHARED,
+# Step 1: Student submits with the recipient on the request. Every door builds a
+# UserEntryCreateRequest and lands in UserEntryService.create_entry — the one
+# convergence point. A named recipient (share_with_users) is the JSON door's
+# field (POST /api/user-entries); the /submit form and the vault door declare
+# an audience KIND instead (teachers / a group / public / private), which lands
+# in auto_share_to_exercise_groups / share_with_groups / visibility.
+request = UserEntryCreateRequest(
+    title="Assignment 3",
+    content="...",
+    share_with_users=[teacher_uid],
 )
+created = await user_entry_service.create_entry(request, user_uid=student_uid)
 
-# Step 2: Student shares with teacher
-share_result = await sharing_service.share(
-    entity_uid=entity_uid,
-    owner_uid=student_uid,
-    recipient_uid=teacher_uid,
-    role="teacher",
-)
+# Step 2 (inside create_entry): AudienceResolver.resolve_and_share calls
+#   sharing_service.share(entity_uid, owner_uid=student_uid, recipient_uid=teacher_uid)
+# for each share_with_users entry — SHARES_WITH edge, created_by stamped.
 
 # Step 3: Teacher fetches shared entities
 # Each item is a SharedWithMeItem (core/ports/query_types): entity DTO +
@@ -106,18 +113,22 @@ shared = await sharing_service.get_shared_with_me(
     limit=50,
 )
 
-# Step 4: Teacher checks access
-access = await sharing_service.check_access(
-    entity_uid=entity_uid,
-    user_uid=teacher_uid,
-)
+# The teacher's read of the entry itself goes through the edge-only search
+# visibility clause (ADR-085). check_access() is NOT this flow's gate — it
+# requires visibility=SHARED as well as the edge, which this writer does not set;
+# its one production caller is the EntryReport read (see Common Pitfalls).
 ```
 
 **UI Flow:**
-1. Student: `/submissions/{uid}` → Set visibility dropdown to "Shared"
-2. Student: Click "Share with User" → Enter teacher UID → Submit
-3. Teacher: Navigate to `/profile/shared` → See entity in inbox
-4. Teacher: Click "View" → Access entity detail page
+1. Student: `/submit` → pick the audience (Teacher / a group / Private; Portfolio is
+   disabled, "Coming soon") → submit
+2. Teacher: `/profile/shared` → see the entry in the inbox → open it
+
+Form submissions have one post-submit widening door, `POST /api/form-submissions/share`
+(`FormSubmissionService.share_submission` → `share` / `share_with_group`). UserEntries have
+none: a vault note widens its audience by re-syncing with a wider `audience:`, and nothing
+narrows one — the revoke door is PLANNED
+([`/docs/roadmap/sharing-http-door.md`](../roadmap/sharing-http-door.md)).
 
 ---
 
@@ -182,23 +193,27 @@ await teacher_review.submit_report(submission_uid, teacher_uid, "Great work!")
 **Use Case:** Student showcases best work publicly.
 
 ```python
-# Student sets entity to PUBLIC
-await sharing_service.set_visibility(
-    entity_uid="ku_best_work",
-    owner_uid="user_alice",
-    visibility=Visibility.PUBLIC,
-)
+from core.models.enums.metadata_enums import Visibility
 
-# Anyone can now view this entity
-# No SHARES_WITH relationship needed
-access_result = await sharing_service.check_access(
-    entity_uid="ku_best_work",
-    user_uid="user_anyone",
-)
-assert access_result.value is True  # ✅ Public access
+# PUBLIC is written at creation: the /submit door maps audience=public and the
+# vault door maps ``audience: public`` to Visibility.PUBLIC, both TEACHER-gated
+# (UserEntryService._require_teacher_for_public).
+request = UserEntryCreateRequest(title="Best work", content="...", visibility=Visibility.PUBLIC)
+
+# check_access honours PUBLIC with no SHARES_WITH relationship …
+access_result = await sharing_service.check_access(entity_uid="ue_best_work", user_uid="user_anyone")
+assert access_result.value is True
+
+# … but nothing LISTS public entities, and the search visibility clause is edge-only,
+# so a PUBLIC entry reaches no one who does not already hold its uid.
 ```
 
-**API surface:** visibility is set at creation via the `visibility` field on the UserEntry create routes (`adapters/inbound/user_entry_api.py` maps `public` → `Visibility.PUBLIC`). There is currently no public-listing endpoint — public access is enforced at read time by `check_access()`.
+**Where this stands:** the `/submit` form's Portfolio destination renders disabled ("Coming
+soon"); there is no public-listing route (ADR-038 § API Layer records the retired one). The
+post-hoc writer `set_visibility()` exists and has no caller — it is PLANNED together with the
+PUBLIC reader, because a visibility control without a listing writes a value nothing honours
+([`/docs/roadmap/sharing-http-door.md`](../roadmap/sharing-http-door.md) § The visibility
+ladder).
 
 ---
 
@@ -207,38 +222,31 @@ assert access_result.value is True  # ✅ Public access
 **Use Case:** Student shares work with classmates for feedback.
 
 ```python
-# Share with multiple peers
-peers = [
-    ("user_charlie", "peer"),
-    ("user_dana", "peer"),
-    ("user_eve", "peer"),
-]
-
-# Set visibility to SHARED first
-await sharing_service.set_visibility(
-    entity_uid=entity_uid,
-    owner_uid=student_uid,
-    visibility=Visibility.SHARED,
+# Peers are named on the create request (share_with_users — the JSON door's field,
+# POST /api/user-entries); AudienceResolver writes one SHARES_WITH edge per
+# recipient. No visibility change — the edge is the grant.
+request = UserEntryCreateRequest(
+    title="Draft for review",
+    content="...",
+    share_with_users=["user_charlie", "user_dana", "user_eve"],
 )
+await user_entry_service.create_entry(request, user_uid=student_uid)
 
-for peer_uid, role in peers:
-    await sharing_service.share(
-        entity_uid=entity_uid,
-        owner_uid=student_uid,
-        recipient_uid=peer_uid,
-        role=role,
-    )
-
-# List all users entity is shared with
-shared_users = await sharing_service.get_shared_with(entity_uid=entity_uid)
-# Returns: [{"user_uid": "user_charlie", "role": "peer", ...}, ...]
+# Listing who has access — get_shared_with(entity_uid) — is written and tested but
+# has no caller: it is the read half of the PLANNED revoke door.
 ```
 
 ---
 
-### Pattern 5: Access Revocation
+### Pattern 5: Access Revocation (PLANNED — no door yet)
 
 **Use Case:** Student removes teacher access after entity is graded.
+
+`unshare()` is written and tested (`tests/integration/test_sharing_workflows.py`) but nothing
+in production calls it: no route, no UI, and a vault re-sync that narrows `audience:` does not
+call it either (`deferred-work.md` § Vault Re-Sync Never Retracts a Share). The door is an
+operation on the existing edge — a revoke control beside the access list — never a second
+share form. Ruling and trigger: [`/docs/roadmap/sharing-http-door.md`](../roadmap/sharing-http-door.md).
 
 ```python
 # Unshare from teacher
@@ -298,21 +306,18 @@ result = await sharing_service.share_with_group(
 # New members added later automatically gain access — no re-share needed
 # Removed members automatically lose access
 
-# Check what's shared via group membership
-group_content = await sharing_service.get_shared_with_me_via_groups(
+# A member reads what is shared with ONE group (the groups hub —
+# /api/groups/{group_uid}/shared/preview and /groups/{group_uid}/entries/{entry_uid})
+group_content = await sharing_service.get_user_entries_shared_with_group(
     user_uid=member_uid,
-    limit=50,
-)
-
-# Get groups an entity is shared with
-groups = await sharing_service.get_groups_shared_with(entity_uid="ku_project_abc")
-
-# Revoke group-level access
-await sharing_service.unshare_from_group(
-    entity_uid="ku_project_abc",
-    owner_uid=student_uid,
     group_uid="group_class_2026",
 )
+# A group OWNER reads across all their groups through the review queue
+# (get_review_queue_by_groups) — there is no cross-group member aggregate.
+
+# PLANNED, no caller: the owner's group access list and its revoke —
+#   get_groups_shared_with(entity_uid) / unshare_from_group(entity_uid, owner_uid, group_uid)
+# (/docs/roadmap/sharing-http-door.md)
 ```
 
 **Graph Pattern:**
@@ -328,142 +333,39 @@ await sharing_service.unshare_from_group(
 
 ## API Reference
 
-### Share with User
+Sharing has **one** HTTP route of its own, and the audience-at-submit doors carry the rest of
+the writes. Every route below is registered; the six `/api/submissions/*` sharing endpoints
+and the three group-sharing endpoints ADR-038 records left with the submissions API
+(2026-04-17) and have no successors.
 
-```http
-POST /api/submissions/share
-Content-Type: application/json
+| Door | What it does | Sharing method reached |
+|------|--------------|------------------------|
+| `POST /api/user-entries/upload` (the `/submit` form) — `audience` field: `teachers` / `group:<uid>` / `public` / `private`; `POST /api/user-entries` (JSON `UserEntryCreateRequest`) — `share_with_users`, `share_with_groups`, `visibility` | Declares the audience at submit; `UserEntryService.create_entry` → `AudienceResolver.resolve_and_share` | `share`, `share_with_group` |
+| Vault door (`./dev vault-sync`, the Sync buttons) — a note's `audience:` frontmatter | Same request, built by `user_entry_ingestion.py`; re-sync re-declares (widens only) | `share`, `share_with_group` |
+| `POST /api/form-submissions/share` — `{uid, group_uid?, recipient_uids?, share_with_admin?}` | The one post-submit widening door (form submissions only) | `share`, `share_with_group` |
+| Exercise assignment (ADR-040, `ExerciseService`) | Auto-shares an ASSIGNED exercise with its group | `share_with_group` |
+| `GET /profile/shared`, `GET /profile/shared/list-fragment` | The Shared-With-Me inbox (direct shares) | `get_shared_with_me` |
+| `GET /api/groups/{group_uid}/shared/preview`, `GET /groups/{group_uid}/entries/{entry_uid}` | A member's read of one group's shared entries | `get_user_entries_shared_with_group`, `get_user_entry_shared_with_group` |
+| EntryReport reads (`UserEntryOrchestrator.get_entry_report_view`) | Owner / PUBLIC / SHARED-with-edge gate | `check_access` |
 
-{
-  "entity_uid": "ku_123",
-  "recipient_uid": "user_teacher",
-  "role": "teacher",
-  "share_version": "original"
-}
-```
-
-**Auth:** Owner only | **Quality Check:** Entity must be completed
-
----
-
-### Unshare from User
-
-```http
-POST /api/submissions/unshare
-Content-Type: application/json
-
-{
-  "entity_uid": "ku_123",
-  "recipient_uid": "user_teacher"
-}
-```
-
-**Auth:** Owner only
-
----
-
-### Share with Group
-
-```http
-POST /api/share/group
-Content-Type: application/json
-
-{
-  "entity_uid": "ku_123",
-  "group_uid": "group_class_2026",
-  "share_version": "original"
-}
-```
-
-**Auth:** Owner only
-
----
-
-### Unshare from Group
-
-```http
-POST /api/share/ungroup
-Content-Type: application/json
-
-{
-  "entity_uid": "ku_123",
-  "group_uid": "group_class_2026"
-}
-```
-
-**Auth:** Owner only
-
----
-
-### Set Visibility
-
-```http
-POST /api/submissions/set-visibility
-Content-Type: application/json
-
-{
-  "entity_uid": "ku_123",
-  "visibility": "public"
-}
-```
-
-**Values:** `private`, `shared`, `public`
-**Auth:** Owner only | **Quality Check:** SHARED/PUBLIC require completed status
-
----
-
-### Get Shared With Me (direct)
-
-```http
-GET /api/submissions/shared-with-me?limit=50
-```
-
-**Auth:** Authenticated user — returns entities directly shared via `SHARES_WITH`
-
----
-
-### Get Shared With Me (via groups)
-
-```http
-GET /api/shared-with-me/groups?limit=50
-```
-
-**Auth:** Authenticated user — returns entities shared via `SHARED_WITH_GROUP` group membership
-
----
-
-### Get Shared Users
-
-```http
-GET /api/submissions/shared-users?uid=ku_123
-```
-
-**Auth:** Owner only — returns list of users entity is shared with
-
----
-
-### Browse Public Entities
-
-```http
-GET /api/submissions/public?user_uid=user_alice&limit=10
-```
-
-**Auth:** None (public content)
+**No door:** `unshare`, `unshare_from_group`, `get_shared_with`, `get_groups_shared_with`,
+`set_visibility`, and a listing of `visibility = 'public'`. Ruled 2026-09-21 PLANNED as a door
+that operates on the edges the rows above wrote — an access list with revoke controls, and share
+reconciliation on vault re-sync — never a second share form; `set_visibility` waits on the PUBLIC
+reader. [`/docs/roadmap/sharing-http-door.md`](../roadmap/sharing-http-door.md).
 
 ---
 
 ## UI Components
 
-### Sharing Section (Entity Detail Page)
+### Audience Selector (the `/submit` form)
 
-Located at `/submissions/{uid}`, visible only to owner.
-
-**Components:**
-1. **Visibility Dropdown** - Select PRIVATE/SHARED/PUBLIC
-2. **Share with User Button** - Opens modal to share with individual
-3. **Share with Group Button** - Opens modal to share with group
-4. **Shared Users List** - Shows who has individual access
-5. **Shared Groups List** - Shows which groups have access
+`ui/user_entry/forms.py` — one destination per submission: Teacher (auto-share to the
+exercise's groups), a specific group, Private (default), or Portfolio (rendered disabled,
+"Coming soon" — `portfolio_mode="coming_soon"`, no caller passes `active`). This is the whole
+sharing UI for a UserEntry; there is no per-entity sharing panel, no visibility dropdown and no
+access list on any detail page — that surface is the PLANNED door
+([`/docs/roadmap/sharing-http-door.md`](../roadmap/sharing-http-door.md)).
 
 ---
 
@@ -499,19 +401,23 @@ class UnifiedSharingService:
 
     # Individual sharing
     async def share(entity_uid, owner_uid, recipient_uid, role, share_version) -> Result[bool]
-    async def unshare(entity_uid, owner_uid, recipient_uid) -> Result[bool]
-    async def get_shared_with(entity_uid) -> Result[list[dict]]
-    async def get_shared_with_me(user_uid, limit=50) -> Result[list[SharedWithMeItem]]  # entity DTO + share metadata + subject context
-    async def set_visibility(entity_uid, owner_uid, visibility) -> Result[bool]
+    async def unshare(entity_uid, owner_uid, recipient_uid) -> Result[bool]                       # PLANNED — no caller
+    async def get_shared_with(entity_uid) -> Result[list[dict]]                                   # PLANNED — no caller
+    async def get_shared_with_me(user_uid, limit=50, entity_type=None, sharer_uid=None) -> Result[list[SharedWithMeItem]]
+    async def set_visibility(entity_uid, owner_uid, visibility) -> Result[bool]                   # PLANNED — waits on the PUBLIC reader
     async def check_access(entity_uid, user_uid) -> Result[bool]
-    async def verify_shareable(entity_uid) -> Result[bool]
 
     # Group sharing
     async def share_with_group(entity_uid, owner_uid, group_uid, share_version) -> Result[bool]
-    async def unshare_from_group(entity_uid, owner_uid, group_uid) -> Result[bool]
-    async def get_groups_shared_with(entity_uid) -> Result[list[dict]]
-    async def get_shared_with_me_via_groups(user_uid, limit=50) -> Result[list[Any]]
+    async def unshare_from_group(entity_uid, owner_uid, group_uid) -> Result[bool]               # PLANNED — no caller
+    async def get_groups_shared_with(entity_uid) -> Result[list[dict]]                            # PLANNED — no caller
+    async def get_user_entries_shared_with_group(user_uid, group_uid, limit=20) -> Result[list[dict]]
+    async def get_user_entry_shared_with_group(user_uid, group_uid, entry_uid) -> Result[dict | None]
 ```
+
+The five `PLANNED` members are registered in `scripts/detect_bloat.py` (`PLANNED_METHODS`) and
+ruled in [`/docs/roadmap/sharing-http-door.md`](../roadmap/sharing-http-door.md). The
+shareable rule is `_check_shareable()`, a staticmethod applied inside every mutation.
 
 **Location:** `core/services/sharing/unified_sharing_service.py`
 **Backend:** `adapters/persistence/neo4j/backends/sharing_backend.py` — `SharingBackend(UniversalNeo4jBackend[Entity])`
@@ -564,9 +470,10 @@ set_visibility to PRIVATE), the method is called with `require_shareable=False`.
 
 ### Quality Control
 
-Only `COMPLETED` entities can be shared (activity entities also allow `ACTIVE`).
-Enforced at service layer — `verify_shareable()` for standalone checks,
-or as part of the combined `_verify_owned_and_shareable()` for mutation operations.
+Only `COMPLETED` entities can be shared (activity entities also allow `ACTIVE`; user entries
+and curriculum, any status but `ARCHIVED`). Enforced at the service layer inside
+`_verify_owned_and_shareable()` on every mutation — `_check_shareable()` is the rule, and there
+is no standalone pre-flight.
 
 ### Access Control
 
@@ -638,30 +545,33 @@ async def test_complete_sharing_workflow(sharing_service, test_entity):
 
 ## Common Pitfalls
 
-### Forgetting to Set Visibility
+### Assuming the `visibility` Property Is the Grant
+
+The two read gates disagree about the property, and a writer must know which one its reader
+uses. `build_search_visibility_clause()` (ADR-085 — search strategies and by-uid visible reads)
+admits by **edge only**: `:OWNS`, `:SHARES_WITH`, `MEMBER_OF ← SHARED_WITH_GROUP`. `check_access()`
+(EntryReport reads) requires `visibility = SHARED` **and** an edge, or `PUBLIC`.
 
 ```python
-# BAD: Sharing without setting visibility to SHARED
-await sharing_service.share(...)  # Creates relationship
-# But entity visibility is still PRIVATE!
-# User still can't access (access control checks visibility first)
-
-# GOOD: Set visibility first
-await sharing_service.set_visibility(..., Visibility.SHARED)
+# A share() alone is the grant for every edge-gated read — no visibility change needed.
 await sharing_service.share(...)
+
+# A node that check_access() will gate must carry the property WITH its edge, in one
+# statement — as the EntryReport writer does (visibility: 'shared' + SHARES_WITH).
+# Setting the property without the edge grants nothing; setting the edge without the
+# property grants nothing on the check_access path.
 ```
 
 ### Sharing Incomplete Entities
 
 ```python
-# BAD: Trying to share a processing entity
-# Returns error: "Only completed entities can be shared"
+# Sharing a processing entity returns a validation error from the mutation itself —
+# _verify_owned_and_shareable() applies the rule before any write.
 result = await sharing_service.share(...)
-
-# GOOD: Check via verify_shareable() first
-shareable = await sharing_service.verify_shareable(entity_uid)
-if not shareable.is_error:
-    await sharing_service.share(...)
+if result.is_error:
+    ...  # "Only completed Ku can be shared. Current status: processing"
+# There is no pre-flight to call first: a caller that already holds the entity's
+# status and type can read the answer off them; the service re-checks regardless.
 ```
 
 ### Not Handling Result[T] Errors
@@ -695,3 +605,4 @@ if result.is_error:
 - **ADR-038:** `/docs/decisions/ADR-038-content-sharing-model.md` — original sharing decision
 - **ADR-040:** `/docs/decisions/ADR-040-teacher-exercise-workflow.md` — teacher exercise workflow (OWNS-based review)
 - **ADR-042:** `/docs/decisions/ADR-042-privacy-as-first-class-citizen.md` — UnifiedSharingService + group sharing
+- **Sharing door ruling:** `/docs/roadmap/sharing-http-door.md` — the per-method PLANNED / deleted table, and why the door operates on existing edges

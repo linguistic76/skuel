@@ -1,6 +1,6 @@
 ---
 title: "Vault Re-Sync Never Retracts a Share"
-updated: 2026-09-05
+updated: 2026-09-22
 status: "open privacy gap (ruled leave registered)"
 registered: 2026-09-02
 ruled: 2026-09-02
@@ -27,5 +27,8 @@ dry-run default, reads each note's vault frontmatter so an explicit `audience:` 
 
 **Trigger:** the next sharing-fan-out touch, or the first multi-user deployment (where a stale
 share is a leak, not a founder-vault curiosity).
-**Named cost:** `audience:` is write-once-widen in practice; narrowing needs the script or a
-manual unshare.
+**Named cost:** `audience:` is write-once-widen in practice; narrowing needs the script — there
+is no manual unshare either. The fix is share reconciliation on re-sync calling
+`UnifiedSharingService.unshare` / `unshare_from_group`, the two revoke methods that today have no
+caller: [§ Sharing HTTP Door — Operations on Existing Shares](sharing-http-door.md) holds their
+PLANNED ruling and shares this item's trigger.

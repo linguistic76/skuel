@@ -1,5 +1,5 @@
 ---
-updated: 2026-09-20
+updated: 2026-09-22
 ---
 
 # Deferred Work
@@ -90,6 +90,10 @@ renders them as a table in Obsidian, and a session derives the same table with
 ## ⚠️ Vault Re-Sync Never Retracts a Share
 
 [Vault Re-Sync Never Retracts a Share](vault-resync-never-retracts-a-share.md) — Narrowing or removing `audience:` does nothing on re-sync — the one write-once-widen door, ruled leave-registered until share reconciliation is built.
+
+## Sharing HTTP Door — Operations on Existing Shares
+
+[Sharing HTTP Door — Operations on Existing Shares](sharing-http-door.md) — `UnifiedSharingService`'s revoke / access-list / visibility half (`unshare`, `unshare_from_group`, `get_shared_with`, `get_groups_shared_with`, `set_visibility`) has no caller; ruled 2026-09-21 PLANNED as a door that operates on the edges audience-at-submit wrote — never a second share form — with `set_visibility` waiting on the PUBLIC reader; `verify_shareable` and `get_shared_with_me_via_groups` deleted.
 
 ## Structured-List Items Silently Corrupt Without a Nested `uid:`
 

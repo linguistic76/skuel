@@ -1,6 +1,6 @@
 ---
 title: Protocol Reference Guide
-updated: 2026-09-19
+updated: 2026-09-22
 status: current
 category: reference
 tags: [protocol, reference]
@@ -463,7 +463,7 @@ Entity-agnostic sharing. `UnifiedSharingService` implements this protocol and wo
 
 | Protocol | Services Field | Methods | Route Consumer |
 |----------|---------------|---------|----------------|
-| `SharingOperations` | `sharing` | share, unshare, get_shared_with, get_shared_with_me, set_visibility, check_access, verify_shareable, share_with_group, unshare_from_group, get_groups_shared_with, get_shared_with_me_via_groups (11 methods) | `user_entry_routes.py` |
+| `SharingOperations` | `sharing` | share, unshare, get_shared_with, get_shared_with_me, set_visibility, check_access, share_with_group, unshare_from_group, get_groups_shared_with, get_user_entries_shared_with_group, get_user_entry_shared_with_group (11 methods; unshare / get_shared_with / set_visibility / unshare_from_group / get_groups_shared_with are PLANNED — `/docs/roadmap/sharing-http-door.md`) | `form_submissions_api.py` (share), `user_profile_ui.py` (inbox), `groups_hub_routes.py` (group reads); the rest through services |
 
 ### Report Protocols (7) — `report_protocols.py`
 

@@ -124,7 +124,7 @@ types (2+10+11+2) so they check themselves; `EntityType.<T>.content_origin()` is
 
 **Three Sharing Modes:** Manual sharing, Assignment auto-sharing (ADR-040), Group sharing (SHARED_WITH_GROUP)
 
-**Service:** `from core.services.sharing import UnifiedSharingService` — entity-agnostic, methods: `share()`, `check_access()`, `set_visibility()`, group sharing.
+**Service:** `from core.services.sharing import UnifiedSharingService` — entity-agnostic; live: `share()`, `share_with_group()`, `check_access()`, `get_shared_with_me()`, the per-group reads. The revoke / access-list / `set_visibility()` half has no door — PLANNED as operations on the edges audience-at-submit wrote, never a second share form: `/docs/roadmap/sharing-http-door.md`.
 
 **Teacher Review:** `TeacherReviewService` — `get_review_queue()`, `submit_report()`, `request_revision()`, `approve_report()`
 

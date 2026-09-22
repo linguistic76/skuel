@@ -232,27 +232,6 @@ class UnifiedSharingService:
             return Result.ok(True)
         return Result.ok(False)
 
-    async def verify_shareable(
-        self,
-        entity_uid: EntityUID,
-    ) -> Result[bool]:
-        """Verify an entity can be shared based on status and type.
-
-        Activity entities (task, goal, habit, event, choice, principle)
-        can be shared when active or completed. All other entities require
-        completed status.
-        """
-        result = await self.backend.query_shareable_status(entity_uid=entity_uid)
-        if result.is_error:
-            return Result.fail(result)
-        records = result.value or []
-        if not records:
-            return Result.fail(Errors.not_found(resource="Entity", identifier=entity_uid))
-
-        status = str(records[0]["status"] or "")
-        entity_type = str(records[0]["entity_type"] or "")
-        return self._check_shareable(status, entity_type)
-
     # =========================================================================
     # QUERY
     # =========================================================================
@@ -397,28 +376,6 @@ class UnifiedSharingService:
         if result.is_error:
             return Result.fail(result)
         return Result.ok(result.value or [])
-
-    async def get_shared_with_me_via_groups(
-        self,
-        user_uid: UserUID,
-        limit: int = 50,
-    ) -> Result[list[dict[str, Any]]]:
-        """Get entities shared with a user through group membership."""
-        result = await self.backend.query_shared_with_me_via_groups(user_uid=user_uid, limit=limit)
-        if result.is_error:
-            return Result.fail(result)
-        records = result.value or []
-        entities: list[dict[str, Any]] = [
-            {
-                "entity": dict(cast("dict[str, Any]", r["entity"])),
-                "group_uid": r["group_uid"],
-                "group_name": r["group_name"],
-                "share_version": r["share_version"],
-                "shared_at": r["shared_at"],
-            }
-            for r in records
-        ]
-        return Result.ok(entities)
 
     async def get_user_entries_shared_with_group(
         self,
