@@ -125,11 +125,30 @@ interpolated any string verbatim into `MATCH (n:{label})`, defeating the declare
 it is now `node_label.value`. Pinned by `TestActivitySortKeyIsTheAllowlist` and
 `TestLearningPathCatalogueExposesNoSortKey`.
 
-**Not in scope, and recorded here so the next pass does not re-find it:** `LpService.list()`'s
-`order_by`/`order_desc` (`lp_service.py`) became consumer-less when the route stopped sending them.
-They sort in Python via `make_attribute_sort_key`, never in Cypher, so no interpolation is
-involved — and `CRUDRouteFactory`-compatibility signatures are a shape shared across services, so
-retiring one service's is a half-move.
+### `LpService.list()` is deleted, not migrated
+
+The parameters that survived the route were a symptom: the *method* had no production caller.
+
+`CrudOperationsMixin.list` accepts `order_by`/`order_desc` as documented aliases of
+`sort_by`/`sort_order`, and they are live — `teaching_forms_ui.py` passes literals through them.
+`LpService` never inherited that: it is a plain facade with no `BaseService` in its MRO, and it
+*reimplemented* `list()` with a Python-side `sorted()` over a truncated fetch. Its docstring called
+it "CRUDRouteFactory compatible", but `PATHWAYS_CONFIG` declares no `crud=` — LP wires a manual
+`api_factory`. No route, service or UI file called it; its only callers were six tests written to
+exercise it.
+
+Behind those tests it had accrued three defects, none of them reachable: it sorted *after*
+truncating to `limit + offset`, so `order_by` returned the sorted top of an arbitrary window rather
+than the true top-N; the `user_uid` branch dropped `offset` entirely; and a bare
+`except (AttributeError, TypeError): pass` silently skipped sorting on an unknown key. The same shape as
+`OwnershipRouteFactory`, which sat registered nowhere while its eight tests passed
+([done/docs-defiction-pass.md](done/docs-defiction-pass.md), PR 3): a consumer-less mechanism
+accrues defects its own tests cannot see.
+
+Migrating it would have meant restructuring LP into a `BaseService` to serve a method nothing
+calls, so the method and its six tests are gone. The two sibling shims beside it are *not* the same
+finding and stay: `get` has a live caller (`context_retriever.py`), and `create`'s only reference is
+a `getattr`-guarded branch already commented as reaching no surface.
 
 ## What stays unguarded, and why
 

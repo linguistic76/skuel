@@ -33,7 +33,7 @@ from core.services.lp.lp_ai_service import LpAIService
 from core.utils.list_helpers import SortConfig, apply_entity_sort
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
-from core.utils.sort_functions import get_created_at_attr, get_title_lower, make_attribute_sort_key
+from core.utils.sort_functions import get_created_at_attr, get_title_lower
 
 if TYPE_CHECKING:
     from core.models.enums.entity_enums import Domain
@@ -107,7 +107,7 @@ class LpService:
 
     Explicit Methods (custom logic):
     - Step operations: create_step, get_step, update_step, delete_step, list_steps (ps_service guard)
-    - CRUD compatibility: create, get, update, delete, list (complex signatures)
+    - CRUD compatibility: create, get, update, delete
     """
 
     def __init__(
@@ -588,57 +588,6 @@ class LpService:
     async def delete(self, uid: str) -> Result[bool]:
         """Delete method for CRUDRouteFactory compatibility."""
         return await self.delete_path(uid)
-
-    async def list(
-        self,
-        limit: int = 100,
-        offset: int = 0,
-        order_by: str | None = None,
-        order_desc: bool = False,
-        user_uid: UserUID | None = None,
-    ) -> Result[list[LearningPath]]:
-        """
-        List learning paths with pagination and sorting support.
-
-        CRUDRouteFactory compatible method with full filtering/sorting.
-
-        Args:
-            limit: Maximum number of paths to return
-            offset: Number of paths to skip (for pagination)
-            order_by: Field to sort by (e.g., 'title', 'created_at')
-            order_desc: Sort in descending order if True
-            user_uid: Filter by user (if provided)
-        """
-        if user_uid:
-            return await self.list_user_paths(user_uid, limit)
-
-        # Service-layer filtering pattern: get more results to allow pagination
-        backend_limit = limit + offset if offset > 0 else limit
-        result = await self.list_all_paths(limit=backend_limit)
-
-        if result.is_error:
-            return result
-
-        paths = result.value
-
-        # Service-layer filtering: sorting
-        if order_by:
-            reverse = order_desc
-            try:
-                sort_key = make_attribute_sort_key(order_by)
-                paths = sorted(paths, key=sort_key, reverse=reverse)
-            except (AttributeError, TypeError):  # fmt: skip
-                # If order_by field doesn't exist or can't be compared, skip sorting
-                pass
-
-        # Service-layer filtering: pagination (offset)
-        if offset > 0:
-            paths = paths[offset:]
-
-        # Apply final limit
-        paths = paths[:limit]
-
-        return Result.ok(paths)
 
     # =========================================================================
     # QUERY LAYER (FilteredContextProvider)
