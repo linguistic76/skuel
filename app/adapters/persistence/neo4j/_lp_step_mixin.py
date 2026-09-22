@@ -27,7 +27,6 @@ if TYPE_CHECKING:
     import builtins
     import logging
 
-from adapters.persistence.neo4j._backend_helpers import _ALLOWED_ORDER_BY
 from adapters.persistence.neo4j.query.cypher import build_publication_clause
 
 
@@ -270,23 +269,13 @@ class _LpStepMixin:
         self,
         limit: int | None = None,
         offset: int = 0,
-        order_by: str | None = None,
-        order_desc: bool = False,
     ) -> Result[list[LearningPath]]:
         """
-        List all learning paths with pagination and safe sorting.
+        List all learning paths, ordered by uid, with steps in ``metadata["steps"]``.
 
-        Validates order_by against _ALLOWED_ORDER_BY to prevent Cypher injection.
-        Returns typed models with steps in ``metadata["steps"]``.
+        The catalogue publishes no sort key: ``limit``/``offset`` are a pagination
+        window, and a fixed order is what makes successive pages disjoint.
         """
-        validated_field = "uid"
-        if order_by:
-            if order_by not in _ALLOWED_ORDER_BY:
-                return Result.fail(Errors.validation(f"Invalid order_by field: {order_by!r}"))
-            validated_field = order_by
-
-        order_direction = "DESC" if order_desc else "ASC"
-
         # Catalogue surface (/pathways/browse) — withholds draft-marked paths.
         # Composes the shared predicate rather than spelling it out; NULL-tolerant,
         # so the pre-``publication_state`` corpus keeps listing (Codex #1006).
@@ -296,7 +285,7 @@ class _LpStepMixin:
         WHERE {published}
         OPTIONAL MATCH (p)-[r:HAS_STEP]->(s:Entity {{entity_type: 'path_step'}})
         WITH p, collect({{step: s, sequence: r.sequence}}) as steps_data
-        ORDER BY p.{validated_field} {order_direction}
+        ORDER BY p.uid ASC
         """
         if offset > 0:
             query += " SKIP $offset"

@@ -1,7 +1,7 @@
 ---
 title: LP (Learning Path) Domain
 created: 2025-12-04
-updated: 2026-09-17
+updated: 2026-09-22
 status: current
 category: domains
 tags:
@@ -95,7 +95,7 @@ All Cypher queries are encapsulated in `LpBackend` (28 methods decomposed into 3
 |--------|---------|
 | `get_path_with_steps(uid)` | Single LP + HAS_STEP steps |
 | `list_user_paths_with_steps(user_uid, limit)` | User's LPs with steps |
-| `list_all_paths_with_steps(limit, offset, order_by, order_desc)` | All LPs with `_ALLOWED_ORDER_BY` validation |
+| `list_all_paths_with_steps(limit, offset)` | All LPs, fixed `ORDER BY p.uid ASC` — the catalogue publishes no sort key |
 | `update_path_properties(set_clauses, params)` | Dynamic SET update |
 | `delete_path_cascade(uid)` | Cascade delete LP + step nodes |
 | `persist_path_with_steps(user_uid, path_params, steps_params)` | Create LP node (`:Entity:LearningPath`) + User relationship + step nodes (`:Entity:PathStep`) + PS→KU `USES_KU` edges from each step's `knowledge_uids` |

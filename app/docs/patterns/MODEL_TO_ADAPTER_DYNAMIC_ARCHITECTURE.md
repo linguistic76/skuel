@@ -1,6 +1,6 @@
 ---
 title: Model-to-Adapter Dynamic Architecture
-updated: 2026-09-17
+updated: 2026-09-22
 category: patterns
 related_skills: []
 related_docs:
@@ -912,7 +912,7 @@ Time: 30 seconds
 - `_user_entry_content_mixin.py` — pipeline processing context + exercise-instruction enrichment
 - `_organizes_mixin.py` (shared with PsBackend) — ORGANIZES reads for emergent-MOC entries; only `get_organized_children` is exposed through the protocol (`UserEntryOrganizesOperations`)
 
-Shared validation helpers (`_validate_rel_name`, `_ALLOWED_ORDER_BY`) live in `_backend_helpers.py`.
+Shared validation helper `_validate_rel_name` lives in `_backend_helpers.py`.
 
 ---
 

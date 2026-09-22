@@ -19,8 +19,11 @@ interchangeable:
   builder in ``crud_queries`` uses this for a sort key (warn and drop) and for
   an interpolated property name in a pattern (raise, because dropping it would
   change which rows match rather than only their order).
-- **Named allowlist** — ``_ALLOWED_ORDER_BY`` in ``_backend_helpers.py``, an
-  explicit frozenset, at two sites.
+- **Enum-typed** — the parameter's type is the vocabulary, so an unknown key
+  cannot reach the query and no runtime check is needed. ``NeoLabel`` and
+  ``RelationshipName`` already work this way; ``ActivitySortKey`` is the sort
+  key of ``find_connected_activities``, the layer's one remaining
+  caller-chosen ORDER BY property.
 
 Syntactic is the weakest of the three, and measurably so: ``ORDER BY n.secret``
 where ``secret`` is never projected is permitted by Neo4j, returns rows in that
@@ -28,7 +31,7 @@ hidden property's order, and survives ``SKIP``/``LIMIT`` as a paginated oracle
 (``DISTINCT`` and aggregation refuse it). It cannot cross a ``WHERE`` clause, so
 it discloses un-rendered properties of already-authorized rows, not other users'
 rows. That is why no HTTP route publishes a sort key: the list route takes
-pagination only.
+pagination only, and the LP catalogue's backend query is fixed at ``p.uid ASC``.
 
 Some backends still interpolate a property name their caller hands them without
 any of the three — ``_relationship_ordered_mixin``'s ``order_by_property``,
@@ -300,3 +303,97 @@ class TestPersistenceLayerSharesOneIdentifierGuard:
         names = vars(crud_queries)
         assert "_validate_identifier" not in names
         assert "_validate_label" not in names
+
+
+# ----------------------------------------------------------------------------
+# The sort key's type is its allowlist
+# ----------------------------------------------------------------------------
+
+
+class TestActivitySortKeyIsTheAllowlist:
+    """``find_connected_activities`` takes an ``ActivitySortKey``, not a string.
+
+    It is the layer's one ORDER BY property a caller still chooses. Typing it
+    makes the vocabulary structural and mypy-checked at every call site, which
+    is why no runtime membership check sits beside the interpolation.
+    """
+
+    def test_backend_and_port_annotate_the_sort_key_as_the_enum(self):
+        import inspect
+
+        from adapters.persistence.neo4j._knowledge_context_mixin import _KnowledgeContextMixin
+        from core.models.enums.activity_enums import ActivitySortKey
+        from core.ports.curriculum_protocols import PsOperations
+
+        for owner in (_KnowledgeContextMixin, PsOperations):
+            param = inspect.signature(owner.find_connected_activities).parameters["order_by"]
+            assert param.default is ActivitySortKey.CREATED_AT, owner.__name__
+
+    def test_backend_helpers_declares_no_named_allowlist(self):
+        # Namespace membership, not getattr: a re-declared frozenset and a
+        # re-introduced import both show up here.
+        from adapters.persistence.neo4j import _backend_helpers
+
+        assert "_ALLOWED_ORDER_BY" not in vars(_backend_helpers)
+
+    def test_every_discovery_wrapper_forwards_an_enum_member(self):
+        """A wrapper that reverts to a string literal fails here, not in review."""
+        import asyncio
+        from collections.abc import Awaitable, Callable
+        from unittest.mock import AsyncMock
+
+        from core.models.enums.activity_enums import ActivitySortKey
+        from core.services.ps.ps_application_discovery_service import (
+            PsApplicationDiscoveryService,
+        )
+        from core.utils.result_simplified import Result
+
+        repo = MagicMock()
+        repo.get = AsyncMock(return_value=Result.ok({"uid": "ps.x.y"}))
+        repo.find_connected_activities = AsyncMock(return_value=Result.ok([]))
+        service = PsApplicationDiscoveryService(repo=repo)
+
+        wrappers: list[tuple[str, Callable[..., Awaitable[Result[list[str]]]]]] = [
+            ("events", service.find_events_applying_knowledge),
+            ("habits", service.find_habits_reinforcing_knowledge),
+            ("tasks", service.find_tasks_applying_knowledge),
+            ("goals", service.find_goals_requiring_knowledge),
+            ("choices", service.find_choices_informed_by_knowledge),
+            ("principles", service.find_principles_embodying_knowledge),
+        ]
+        for domain, wrapper in wrappers:
+            asyncio.run(wrapper(ku_uid="ps.x.y", user_uid="u1"))
+            forwarded = repo.find_connected_activities.call_args.kwargs["order_by"]
+            assert isinstance(forwarded, ActivitySortKey), domain
+
+
+# ----------------------------------------------------------------------------
+# The LP catalogue publishes no sort key either
+# ----------------------------------------------------------------------------
+
+
+class TestLearningPathCatalogueExposesNoSortKey:
+    """``list_all_paths`` orders by uid in the query, at every layer.
+
+    Its sort parameters reached no caller: the facade never declared them. The
+    fixed order is also what keeps successive SKIP/LIMIT pages disjoint.
+    """
+
+    def test_no_layer_declares_sort_parameters(self):
+        import inspect
+
+        from adapters.persistence.neo4j._lp_step_mixin import _LpStepMixin
+        from core.ports.curriculum_protocols import LpOperations
+        from core.services.lp.lp_core_service import LpCoreService
+
+        owners = [
+            _LpStepMixin.list_all_paths_with_steps,
+            LpOperations.list_all_paths_with_steps,
+            LpOperations.list_all_paths,
+            LpCoreService.list_all_paths,
+        ]
+        for owner in owners:
+            params = set(inspect.signature(owner).parameters)
+            assert "order_by" not in params, owner.__qualname__
+            assert "order_desc" not in params, owner.__qualname__
+            assert {"limit", "offset"} <= params, owner.__qualname__

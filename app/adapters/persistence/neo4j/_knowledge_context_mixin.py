@@ -19,11 +19,12 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any
 
-from adapters.persistence.neo4j._backend_helpers import _ALLOWED_ORDER_BY, _validate_rel_name
+from adapters.persistence.neo4j._backend_helpers import _validate_rel_name
 from adapters.persistence.neo4j.query.cypher import (
     build_knowledge_read_clause,
     build_publication_clause,
 )
+from core.models.enums.activity_enums import ActivitySortKey
 from core.models.relationship_names import RelationshipName
 from core.models.type_hints import Neo4jProperties, UserUID
 from core.ports.query_types import (
@@ -301,25 +302,25 @@ class _KnowledgeContextMixin:
         node_label: NeoLabel,
         rel_types: list[RelationshipName | str],
         filters: dict[str, Any] | None = None,
-        order_by: str = "created_at",
+        order_by: ActivitySortKey = ActivitySortKey.CREATED_AT,
         limit: int = 10,
         reverse_direction: bool = False,
     ) -> Result[list[Neo4jProperties]]:
-        """Find activity entities connected to a KU via graph relationships."""
-        from core.models.enums.neo_labels import NeoLabel as NeoLabelEnum
+        """Find activity entities connected to a KU via graph relationships.
+
+        Every value interpolated into the query text is enum-derived: the sort
+        key and the node label are enum members, and a relationship type passed
+        as a raw string is identifier-checked.
+        """
         from core.models.relationship_names import RelationshipName as RelNameEnum
 
-        # Validate order_by against whitelist (prevents Cypher injection)
-        if order_by not in _ALLOWED_ORDER_BY:
-            return Result.fail(Errors.validation(f"Invalid order_by field: {order_by!r}"))
-
-        # Validate relationship types (enum .value or pre-validated strings)
+        # Relationship types arrive as enum members or as their .value strings
         rel_values = [r.value if isinstance(r, RelNameEnum) else r for r in rel_types]
         for rv in rel_values:
             _validate_rel_name(rv)
 
-        # NeoLabel is a StrEnum — .value is safe for interpolation
-        label = node_label.value if isinstance(node_label, NeoLabelEnum) else str(node_label)
+        # NeoLabel and ActivitySortKey are StrEnums — .value is safe to interpolate
+        label = node_label.value
 
         rel_pattern = "|".join(rel_values)
         if reverse_direction:
@@ -341,7 +342,7 @@ class _KnowledgeContextMixin:
         {match_clause}
         WHERE {where_clause}
         RETURN n.uid as entity_uid
-        ORDER BY n.{order_by} DESC
+        ORDER BY n.{order_by.value} DESC
         LIMIT $limit
         """
         return await self.execute_query(query, params)

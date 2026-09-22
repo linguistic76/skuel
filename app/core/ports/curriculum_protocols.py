@@ -98,6 +98,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any, Literal, Protocol, runtime_checkable
 
+from core.models.enums.activity_enums import ActivitySortKey
 from core.models.type_hints import Neo4jProperties, UserUID
 from core.models.update_contracts import RawChanges
 from core.ports.query_types import (
@@ -974,7 +975,7 @@ class PsOperations(
         node_label: NeoLabel,
         rel_types: list[RelationshipName | str],
         filters: dict[str, Any] | None = None,
-        order_by: str = "created_at",
+        order_by: ActivitySortKey = ActivitySortKey.CREATED_AT,
         limit: int = 10,
         reverse_direction: bool = False,
     ) -> Result[list[dict[str, Any]]]:  # boundary: returns {entity_uid}
@@ -1405,17 +1406,13 @@ class LpOperations(CurriculumOperations["LearningPath"], LpProgressBackendOperat
         self,
         limit: int | None = None,
         offset: int = 0,
-        order_by: str | None = None,
-        order_desc: bool = False,
     ) -> Result[list[LearningPath]]:
         """
-        List all learning paths in the system with pagination and sorting.
+        List all learning paths in the system, uid-ordered, with pagination.
 
         Args:
             limit: Maximum number of paths to return
             offset: Number of paths to skip (for pagination)
-            order_by: Field to sort by (e.g., 'uid', 'created_at', 'title')
-            order_desc: Sort in descending order if True
 
         Returns:
             Result[list[LearningPath]]: All learning paths
@@ -1480,10 +1477,8 @@ class LpOperations(CurriculumOperations["LearningPath"], LpProgressBackendOperat
         self,
         limit: int | None = None,
         offset: int = 0,
-        order_by: str | None = None,
-        order_desc: bool = False,
     ) -> Result[list[LearningPath]]:
-        """List all paths with pagination/sorting, steps in ``metadata["steps"]``."""
+        """List all paths uid-ordered, paginated, steps in ``metadata["steps"]``."""
         ...
 
     async def update_path_properties(

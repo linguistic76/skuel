@@ -572,3 +572,23 @@ class EngagementState(StrEnum):
     def display_label(self) -> str:
         """Human-readable label for UI display."""
         return self.value.capitalize()
+
+
+class ActivitySortKey(StrEnum):
+    """Property an activity-discovery query orders its results by.
+
+    Neo4j cannot parameterize a property name, so this value is interpolated
+    into ``ORDER BY n.{...}``. Membership in this enum IS the guarantee that the
+    interpolated text is a safe identifier: a caller picks a member, so an
+    arbitrary key cannot reach the query and no runtime allowlist is needed.
+
+    One member per activity domain's discovery wrapper.
+
+    See: /docs/roadmap/field-name-guarding-in-cypher.md
+    """
+
+    CREATED_AT = "created_at"
+    START_TIME = "start_time"
+    DUE_DATE = "due_date"
+    TARGET_DATE = "target_date"
+    STRENGTH = "strength"

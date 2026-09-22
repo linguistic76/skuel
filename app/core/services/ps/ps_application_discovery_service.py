@@ -16,6 +16,7 @@ See: /docs/architecture/ENTITY_TYPE_ARCHITECTURE.md
 
 from typing import Any
 
+from core.models.enums.activity_enums import ActivitySortKey
 from core.models.enums.neo_labels import NeoLabel
 from core.models.relationship_names import RelationshipName
 from core.models.type_hints import UserUID
@@ -66,7 +67,7 @@ class PsApplicationDiscoveryService:
         node_label: NeoLabel,
         relationship_types: list[str],
         filters: dict[str, Any] | None = None,
-        order_by: str = "created_at",
+        order_by: ActivitySortKey = ActivitySortKey.CREATED_AT,
         limit: int = 10,
         reverse_direction: bool = False,
     ) -> Result[list[str]]:
@@ -82,7 +83,7 @@ class PsApplicationDiscoveryService:
             relationship_types: Relationship types to traverse (e.g., ["APPLIES_KNOWLEDGE"])
             filters: Optional domain-specific conditions as {cypher_fragment: params_dict}
                      e.g., {"n.status = $status_filter": {"status_filter": "active"}}
-            order_by: Property to order results by (default "created_at")
+            order_by: Sort key for the results, one per activity domain
             limit: Maximum results to return (default 10)
             reverse_direction: If True, use (n)<-[:REL]-(ku) instead of (n)-[:REL]->(ku)
 
@@ -139,7 +140,7 @@ class PsApplicationDiscoveryService:
                 RelationshipName.REINFORCES_KNOWLEDGE.value,
             ],
             filters=filters,
-            order_by="start_time",
+            order_by=ActivitySortKey.START_TIME,
         )
 
     async def find_habits_reinforcing_knowledge(
@@ -155,7 +156,7 @@ class PsApplicationDiscoveryService:
             node_label=NeoLabel.HABIT,
             relationship_types=[RelationshipName.REINFORCES_KNOWLEDGE.value],
             filters=filters,
-            order_by="created_at",
+            order_by=ActivitySortKey.CREATED_AT,
         )
 
     async def find_tasks_applying_knowledge(
@@ -171,7 +172,7 @@ class PsApplicationDiscoveryService:
             node_label=NeoLabel.TASK,
             relationship_types=[RelationshipName.APPLIES_KNOWLEDGE.value],
             filters=filters,
-            order_by="due_date",
+            order_by=ActivitySortKey.DUE_DATE,
         )
 
     async def find_goals_requiring_knowledge(
@@ -187,7 +188,7 @@ class PsApplicationDiscoveryService:
             node_label=NeoLabel.GOAL,
             relationship_types=[RelationshipName.REQUIRES_KNOWLEDGE.value],
             filters=filters,
-            order_by="target_date",
+            order_by=ActivitySortKey.TARGET_DATE,
         )
 
     async def find_choices_informed_by_knowledge(
@@ -203,7 +204,7 @@ class PsApplicationDiscoveryService:
             node_label=NeoLabel.CHOICE,
             relationship_types=[RelationshipName.INFORMS_CHOICE.value],
             filters=filters,
-            order_by="created_at",
+            order_by=ActivitySortKey.CREATED_AT,
             reverse_direction=True,
         )
 
@@ -220,7 +221,7 @@ class PsApplicationDiscoveryService:
             node_label=NeoLabel.PRINCIPLE,
             relationship_types=[RelationshipName.REINFORCES_KNOWLEDGE.value],
             filters=filters,
-            order_by="strength",
+            order_by=ActivitySortKey.STRENGTH,
         )
 
     # ========================================================================
