@@ -9,7 +9,6 @@ Tests all service methods with a mocked SharingBackend:
 - check_access()
 - get_shared_with()
 - get_shared_with_me()
-- verify_shareable()
 """
 
 from unittest.mock import AsyncMock, MagicMock
@@ -561,50 +560,6 @@ async def test_check_access_entity_not_found(mock_backend, sharing_service):
 
     assert result.is_error
     assert "not found" in str(result.error)
-
-
-# ============================================================================
-# VERIFY SHAREABLE TESTS
-# ============================================================================
-
-
-@pytest.mark.asyncio
-async def test_verify_shareable_completed(mock_backend, sharing_service):
-    """Test verify_shareable succeeds for completed entities."""
-    mock_backend.query_shareable_status = AsyncMock(
-        return_value=Result.ok([{"status": "completed", "entity_type": "user_entry"}])
-    )
-
-    result = await sharing_service.verify_shareable(entity_uid="report_123")
-
-    assert not result.is_error
-    assert result.value is True
-
-
-@pytest.mark.asyncio
-async def test_verify_shareable_activity_active(mock_backend, sharing_service):
-    """Test verify_shareable succeeds for active activity entities."""
-    mock_backend.query_shareable_status = AsyncMock(
-        return_value=Result.ok([{"status": "active", "entity_type": "task"}])
-    )
-
-    result = await sharing_service.verify_shareable(entity_uid="task_123")
-
-    assert not result.is_error
-    assert result.value is True
-
-
-@pytest.mark.asyncio
-async def test_verify_shareable_not_completed(mock_backend, sharing_service):
-    """Test verify_shareable fails for non-completed non-activity entities."""
-    mock_backend.query_shareable_status = AsyncMock(
-        return_value=Result.ok([{"status": "processing", "entity_type": "entry_report"}])
-    )
-
-    result = await sharing_service.verify_shareable(entity_uid="report_123")
-
-    assert result.is_error
-    assert "Only completed Ku" in str(result.error)
 
 
 # ============================================================================

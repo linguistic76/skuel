@@ -146,9 +146,13 @@ class UserEntryUpdateRequest(UpdateRequestBase):
     """
     Update a `UserEntry`.
 
-    Content edits only. Audience changes go through
-    `UnifiedSharingService` (share/unshare endpoints), not this request —
-    the audience is an independent graph concern.
+    Content edits only. The audience is an independent graph concern, not a
+    field here: it is declared at submit time (ADR-054 — the create request's
+    `share_with_*` / `visibility` fields, or a vault note's `audience:`) and
+    resolved into edges by `AudienceResolver`. After that, a vault note widens
+    it by re-syncing with a wider `audience:`; nothing narrows it, and a
+    form-submitted entry has no post-submit door at all — see
+    `docs/roadmap/sharing-http-door.md`.
     """
 
     title: str | None = Field(default=None, min_length=1, max_length=200)

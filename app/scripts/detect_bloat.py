@@ -497,17 +497,34 @@ _REVIEW_REQUEST_PRODUCER = PlannedEntry(
     "button/route to complete the loop (ADR-069 §3)",
     since=date(2026, 6, 12),
 )
-_SHARING_MANAGEMENT = PlannedEntry(
+_SHARING_REVOKE_AND_ACCESS_LIST = PlannedEntry(
     Readiness.DELAYED,
-    "sharing-management surface staged — the unwired half of UnifiedSharingService (ADR-038): "
-    "the create/check half is LIVE and wired (share, check_access, get_shared_with_me, "
-    "share_with_group, get_user_entries_shared_with_group all have routes/UI), but the "
-    "revoke / visibility-ladder / 'who is this shared with' management half was never wired. "
-    "No superseded loser — each is the unwired inverse or owner-view twin of a live op. "
-    "Wire a sharing-management panel on entity detail pages (revoke button, "
-    "PRIVATE→SHARED→TEAM→PUBLIC visibility selector, 'shared with' list) "
-    "(Mike ruled PLANNED 2026-06-13)",
+    "the revoke + 'who has access' half of UnifiedSharingService (ADR-038): the write "
+    "half is LIVE through audience-at-submit (ADR-054 — AudienceResolver → share / "
+    "share_with_group) and POST /api/form-submissions/share, and the reads that render "
+    "what those wrote are LIVE (/profile/shared, the groups hub); nothing lets an owner "
+    "see or retract a share once written, and a vault re-sync that narrows `audience:` "
+    "cannot retract either (the same missing operation). Complete it with a door that "
+    "OPERATES ON EXISTING EDGES — an access list with a revoke control on the owner's "
+    "entity page, and share reconciliation on re-sync calling these same methods — "
+    "never a second share form (Mike ruled PLANNED 2026-06-13; re-ruled operations-on-"
+    "edges-only 2026-09-21)",
     since=date(2026, 6, 13),
+    blocked_by="Sharing HTTP Door — Operations on Existing Shares",
+)
+
+_SHARING_VISIBILITY_LADDER = PlannedEntry(
+    Readiness.DELAYED,
+    "the post-hoc `visibility` writer. Today the property is written only at creation "
+    "(create_entry's request field; the vault door's `audience: public`, refreshed on "
+    "re-sync) and read by one non-owner path (check_access, EntryReports): the search "
+    "visibility clause is edge-only, so SHARED as a property is inert and PUBLIC has no "
+    "listing — the /submit form's Portfolio destination ships disabled as 'Coming soon'. "
+    "Completes with the PUBLIC reader (a portfolio listing), which is what makes a "
+    "visibility control truthful; a selector without that reader writes a value nothing "
+    "honours (Mike ruled PLANNED 2026-06-13; trigger re-ruled 2026-09-21)",
+    since=date(2026, 6, 13),
+    blocked_by="Sharing HTTP Door — Operations on Existing Shares",
 )
 # Relationships dead-code campaign (2026-06-13): staged relationship capabilities
 # kept by deliberate decision — each reason names the wiring that completes it.
@@ -863,15 +880,23 @@ PLANNED_METHODS: dict[str, PlannedEntry] = {
     ),
     # --- Reports: missing producer of a live consumer ---
     "core/services/report/review_queue_service.py::request_review": _REVIEW_REQUEST_PRODUCER,
-    # --- Sharing: revoke / visibility-ladder / management-view surface (ADR-038) ---
-    "core/services/sharing/unified_sharing_service.py::unshare": _SHARING_MANAGEMENT,
-    "core/services/sharing/unified_sharing_service.py::set_visibility": _SHARING_MANAGEMENT,
-    "core/services/sharing/unified_sharing_service.py::verify_shareable": _SHARING_MANAGEMENT,
-    "core/services/sharing/unified_sharing_service.py::get_shared_with": _SHARING_MANAGEMENT,
-    "core/services/sharing/unified_sharing_service.py::unshare_from_group": _SHARING_MANAGEMENT,
-    "core/services/sharing/unified_sharing_service.py::get_groups_shared_with": _SHARING_MANAGEMENT,
-    "core/services/sharing/unified_sharing_service.py::get_shared_with_me_via_groups": (
-        _SHARING_MANAGEMENT
+    # --- Sharing: revoke / access-list / visibility door (ADR-038, ruled 2026-09-21) ---
+    # verify_shareable and get_shared_with_me_via_groups were DELETED in the same
+    # ruling — a pure rule behind a DB read of inputs every caller already holds,
+    # and a third listing of SHARED_WITH_GROUP whose two live siblings cover both
+    # consumer shapes (docs/roadmap/sharing-http-door.md).
+    "core/services/sharing/unified_sharing_service.py::unshare": _SHARING_REVOKE_AND_ACCESS_LIST,
+    "core/services/sharing/unified_sharing_service.py::unshare_from_group": (
+        _SHARING_REVOKE_AND_ACCESS_LIST
+    ),
+    "core/services/sharing/unified_sharing_service.py::get_shared_with": (
+        _SHARING_REVOKE_AND_ACCESS_LIST
+    ),
+    "core/services/sharing/unified_sharing_service.py::get_groups_shared_with": (
+        _SHARING_REVOKE_AND_ACCESS_LIST
+    ),
+    "core/services/sharing/unified_sharing_service.py::set_visibility": (
+        _SHARING_VISIBILITY_LADDER
     ),
     # --- Reports: privacy-transparency surface ---
     "core/services/report/activity_report_service.py::get_privacy_summary": (_REPORT_PRIVACY_AUDIT),

@@ -1,5 +1,5 @@
 ---
-updated: 2026-09-21
+updated: 2026-09-22
 related_skills: [learning-loop]
 ---
 
@@ -97,7 +97,15 @@ This prevents users from sharing failed/processing reports, ensuring portfolio q
 - `get_shared_with_me()` - Query entities shared with user
 - `share_with_group()` - Create SHARED_WITH_GROUP relationship
 - `unshare_from_group()` - Delete SHARED_WITH_GROUP relationship
-- `get_shared_with_me_via_groups()` - Query entities shared via group membership
+- `get_groups_shared_with()` - List groups an entity is shared with
+- `get_user_entries_shared_with_group()` / `get_user_entry_shared_with_group()` - A member's
+  read of what is shared with one group (the groups hub)
+
+> *Amended 2026-09-21: `get_shared_with_me_via_groups()` and `verify_shareable()` deleted —
+> the two live `SHARED_WITH_GROUP` readers (the groups hub per group, the review queue across
+> a teacher's groups) cover both consumer shapes, and the shareable rule is applied inside
+> every mutation. Ruling and per-method table:
+> [`/docs/roadmap/sharing-http-door.md`](../roadmap/sharing-http-door.md).*
 
 **SubmissionsCoreService** integration:
 - Added `get_with_access_check()` method that wraps `get_report()` with access verification
@@ -126,6 +134,15 @@ performed by `UserEntryService.create_entry`'s audience resolution. The other fo
 **service-only**: no unshare, set-visibility, shared-with-me or shared-users endpoint is
 registered anywhere in `adapters/inbound/`. The shared-content inbox is a page, not an API:
 `GET /profile/shared` (`adapters/inbound/user_profile_ui.py`).
+
+*Ruled 2026-09-21:* the service-only half is the **PLANNED sharing door** —
+[`/docs/roadmap/sharing-http-door.md`](../roadmap/sharing-http-door.md) holds the per-method
+ruling and the `PLANNED_METHODS` entries point at it. The door, when built, **operates on the
+edges audience-at-submit wrote** (an access list with revoke controls; share reconciliation on
+vault re-sync) — never a second share form, because audience-at-submit (ADR-054) is the one
+sharing write path. `set_visibility` waits on a different trigger: the PUBLIC reader (the
+portfolio listing above, which has no successor), since the search visibility clause is
+edge-only and nothing lists `visibility = 'public'`.
 
 ### Data Model Changes
 
