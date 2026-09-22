@@ -284,15 +284,19 @@ class TestPersistenceLayerSharesOneIdentifierGuard:
         assert sm.validate_label is _helpers.validate_label
 
     def test_schema_manager_declares_no_private_copy(self):
+        # Module namespace membership, not getattr: a re-declared copy and a
+        # re-introduced alias both show up here, and neither is inheritable.
         from adapters.persistence.neo4j import neo4j_schema_manager as sm
 
+        names = vars(sm)
         for gone in ("_validate_identifier", "_validate_label", "_VALID_IDENTIFIER_RE"):
-            assert not hasattr(sm, gone), f"{gone} is back — the copy re-diverged"
+            assert gone not in names, f"{gone} is back — the copy re-diverged"
 
     def test_crud_queries_does_not_shadow_the_shared_names(self):
         from adapters.persistence.neo4j.query.cypher import _helpers, crud_queries
 
         assert crud_queries.validate_identifier is _helpers.validate_identifier
         assert crud_queries.validate_label is _helpers.validate_label
-        assert not hasattr(crud_queries, "_validate_identifier")
-        assert not hasattr(crud_queries, "_validate_label")
+        names = vars(crud_queries)
+        assert "_validate_identifier" not in names
+        assert "_validate_label" not in names
