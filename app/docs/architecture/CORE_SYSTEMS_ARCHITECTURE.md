@@ -120,11 +120,15 @@ Neo4j Graph (digital)
 **Example Route:**
 ```python
 from fasthtml.common import *
+from adapters.inbound.result_helpers import require_found
 from ui.layouts.base_page import BasePage
 
 @rt("/ku/{uid}")
 async def ku_detail(request: Request, uid: str):
-    ku = await ku_service.get_ku(uid)
+    result = require_found(await ku_service.get_ku(uid), "Ku", uid)
+    if result.is_error:
+        return result
+    ku = result.value
 
     return BasePage(
         content=Div(

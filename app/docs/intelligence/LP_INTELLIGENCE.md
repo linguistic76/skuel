@@ -515,23 +515,13 @@ ContentMetadata(
 
 **Example:**
 ```python
-# Wrap content in ContentAdapter
+# ContentAdapter wraps ANY object through getattr fallbacks — no subclass needed.
+# It reads uid, title, tags, difficulty and estimated_time; a Ku satisfies the
+# first three and takes the defaults for the rest.
 from core.ports.content_protocols import ContentAdapter
 
-class KuContentAdapter(ContentAdapter):
-    def __init__(self, ku):
-        self.ku = ku
-
-    @property
-    def uid(self) -> str:
-        return self.ku.uid
-
-    @property
-    def content_text(self) -> str:
-        return self.ku.content
-
-ku = await ku_service.get_ku("ku.python-advanced")
-adapter = KuContentAdapter(ku.value)
+ku_result = await ku_service.get_ku("ku.python-advanced")
+adapter = ContentAdapter(ku_result.value)
 
 # Extract metadata
 result = await lp_intelligence.extract_content_metadata(adapter)
@@ -667,12 +657,12 @@ async def find_similar_content(
 ```python
 # Find content similar to specific KU
 reference_ku = await ku_service.get_ku("ku.python-advanced")
-reference_adapter = KuContentAdapter(reference_ku.value)
+reference_adapter = ContentAdapter(reference_ku.value)
 
 # Get all available content
 all_kus_result = await ku_service.core.list()
 all_kus, _total = all_kus_result.value
-content_pool = [KuContentAdapter(ku) for ku in all_kus]
+content_pool = [ContentAdapter(ku) for ku in all_kus]
 
 # Find similar content
 result = await lp_intelligence.find_similar_content(
