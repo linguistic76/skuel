@@ -42,7 +42,8 @@ async def auth_env(neo4j_driver):
 
     sign_in creates (:Session) nodes (via HAS_SESSION) and (:AuthEvent) audit
     nodes (linked HAD_AUTH_EVENT when a user_uid is known, standalone with
-    just the email otherwise) — teardown removes all of them by test uid/email.
+    just the email otherwise); the reset flows create (:PasswordResetToken)
+    nodes (via HAS_RESET_TOKEN) — teardown removes all of them by test uid/email.
     """
     auth = GraphAuthService(
         user_backend=UserBackend(neo4j_driver),
@@ -64,7 +65,8 @@ async def auth_env(neo4j_driver):
                 """
                 OPTIONAL MATCH (u:User {uid: $uid})
                 OPTIONAL MATCH (u)-[:HAS_SESSION]->(s:Session)
-                DETACH DELETE s, u
+                OPTIONAL MATCH (u)-[:HAS_RESET_TOKEN]->(t:PasswordResetToken)
+                DETACH DELETE s, t, u
                 """,
                 uid=user_uid,
             )
@@ -386,3 +388,174 @@ async def test_role_stored_lowercase_on_signup(neo4j_driver, auth_env):
     assert role is not None, "sign_up must persist a role property"
     assert role == role.lower(), f"role must be stored lowercase (F8), got {role!r}"
     assert role == "registered", f"new users default to REGISTERED, got {role!r}"
+
+
+# ============================================================================
+# SIGN-OUT, SESSION VALIDATION, PASSWORD CHANGE AND RESET
+# ============================================================================
+
+_NEW_PASSWORD = "roundtrip-Rotated-5678"
+
+
+async def _signed_up_and_in(auth, track, tag: str) -> tuple[str, str, str]:
+    """sign_up + sign_in a fresh user; returns (user_uid, email, session_token)."""
+    username, email = track(*_credentials(tag))
+    signup = await auth.sign_up(email=email, password=_PASSWORD, username=username)
+    assert signup.is_ok, f"sign_up failed: {signup.error}"
+    signin = await auth.sign_in(email=email, password=_PASSWORD)
+    assert signin.is_ok, f"sign_in failed: {signin.error}"
+    return f"user_{username}", email, signin.value["session_token"]
+
+
+async def _count_auth_events(neo4j_driver, user_uid: str, event_type: str) -> int:
+    async with neo4j_driver.session() as session:
+        result = await session.run(
+            """
+            MATCH (:User {uid: $uid})-[:HAD_AUTH_EVENT]->(e:AuthEvent {event_type: $type})
+            RETURN count(e) AS c
+            """,
+            uid=user_uid,
+            type=event_type,
+        )
+        record = await result.single()
+        return int(record["c"]) if record else 0
+
+
+async def test_sign_out_kills_token_and_logs_logout(neo4j_driver, auth_env):
+    """sign_out must make the token stop validating and leave a LOGOUT audit event."""
+    from core.models.auth.auth_event import AuthEventType
+
+    auth, track = auth_env
+    user_uid, _email, token = await _signed_up_and_in(auth, track, "signout")
+
+    out = await auth.sign_out(token)
+    assert out.is_ok and out.value is True, f"sign_out failed: {out.error}"
+
+    after = await auth.validate_session_uid(token)
+    assert after.is_ok, f"post-sign-out validation errored: {after.error}"
+    assert after.value is None, "a signed-out token must not validate"
+    assert await _count_auth_events(neo4j_driver, user_uid, AuthEventType.LOGOUT.value) == 1
+
+
+async def test_sign_out_only_kills_its_own_session(neo4j_driver, auth_env):
+    """Signing out on one device must leave the user's other sessions alive."""
+    auth, track = auth_env
+    user_uid, email, token_a = await _signed_up_and_in(auth, track, "signout2")
+    signin_b = await auth.sign_in(email=email, password=_PASSWORD)
+    assert signin_b.is_ok, f"second sign_in failed: {signin_b.error}"
+    token_b = signin_b.value["session_token"]
+
+    out = await auth.sign_out(token_a)
+    assert out.is_ok, f"sign_out failed: {out.error}"
+
+    still = await auth.validate_session_uid(token_b)
+    assert still.is_ok and still.value == user_uid, "the other session must survive"
+
+
+async def test_validate_session_returns_full_user(neo4j_driver, auth_env):
+    """validate_session resolves a live token to its User, and an unknown token to None."""
+    auth, track = auth_env
+    user_uid, email, token = await _signed_up_and_in(auth, track, "validate")
+
+    valid = await auth.validate_session(token)
+    assert valid.is_ok, f"validate_session failed: {valid.error}"
+    assert valid.value is not None and valid.value.uid == user_uid
+    assert valid.value.email == email
+
+    unknown = await auth.validate_session(f"no-such-token-{_RUN_ID}")
+    assert unknown.is_ok, f"unknown-token validation errored: {unknown.error}"
+    assert unknown.value is None, "an unknown token must resolve to no user"
+
+
+async def test_change_password_rotates_credentials_and_revokes_sessions(neo4j_driver, auth_env):
+    """change_password: new password works, old one doesn't, live sessions die, event logged."""
+    from core.models.auth.auth_event import AuthEventType
+
+    auth, track = auth_env
+    user_uid, email, token = await _signed_up_and_in(auth, track, "chpw")
+
+    changed = await auth.change_password(user_uid, _PASSWORD, _NEW_PASSWORD)
+    assert changed.is_ok and changed.value is True, f"change_password failed: {changed.error}"
+
+    after = await auth.validate_session_uid(token)
+    assert after.is_ok, f"post-change validation errored: {after.error}"
+    assert after.value is None, "a pre-change session must not validate after a password change"
+
+    old = await auth.sign_in(email=email, password=_PASSWORD)
+    assert old.is_error, "the old password must stop working"
+    new = await auth.sign_in(email=email, password=_NEW_PASSWORD)
+    assert new.is_ok, f"the new password must work: {new.error}"
+    assert (
+        await _count_auth_events(neo4j_driver, user_uid, AuthEventType.PASSWORD_CHANGED.value) == 1
+    )
+
+
+async def test_change_password_wrong_current_password_changes_nothing(neo4j_driver, auth_env):
+    """A wrong current password is refused and leaves the password and sessions intact."""
+    auth, track = auth_env
+    user_uid, email, token = await _signed_up_and_in(auth, track, "chpwbad")
+
+    changed = await auth.change_password(user_uid, "not-the-Current-1234", _NEW_PASSWORD)
+    assert changed.is_error, "a wrong current password must be refused"
+
+    still = await auth.validate_session_uid(token)
+    assert still.is_ok and still.value == user_uid, "a refused change must not revoke sessions"
+    new = await auth.sign_in(email=email, password=_NEW_PASSWORD)
+    assert new.is_error, "a refused change must not have set the new password"
+
+
+async def _make_admin(neo4j_driver, user_uid: str) -> None:
+    async with neo4j_driver.session() as session:
+        await session.run("MATCH (u:User {uid: $uid}) SET u.role = 'admin'", uid=user_uid)
+
+
+async def test_admin_reset_token_resets_password_once(neo4j_driver, auth_env):
+    """Admin-issued reset token: sets the new password, revokes sessions, and is single-use."""
+    from core.models.auth.auth_event import AuthEventType
+
+    auth, track = auth_env
+    admin_uid, _admin_email, _ = await _signed_up_and_in(auth, track, "admin")
+    await _make_admin(neo4j_driver, admin_uid)
+    user_uid, email, token = await _signed_up_and_in(auth, track, "resetee")
+
+    issued = await auth.admin_generate_reset_token(user_uid, admin_uid)
+    assert issued.is_ok, f"admin_generate_reset_token failed: {issued.error}"
+    reset_token = issued.value
+
+    reset = await auth.reset_password_with_token(reset_token, _NEW_PASSWORD)
+    assert reset.is_ok and reset.value is True, f"reset_password_with_token failed: {reset.error}"
+
+    after = await auth.validate_session_uid(token)
+    assert after.is_ok and after.value is None, "a reset must revoke the user's live sessions"
+    assert (await auth.sign_in(email=email, password=_PASSWORD)).is_error
+    assert (await auth.sign_in(email=email, password=_NEW_PASSWORD)).is_ok
+
+    reused = await auth.reset_password_with_token(reset_token, "roundtrip-Third-9999")
+    assert reused.is_error, "a used reset token must be refused"
+    assert (await auth.sign_in(email=email, password=_NEW_PASSWORD)).is_ok, (
+        "a refused reuse must not change the password"
+    )
+    assert (
+        await _count_auth_events(
+            neo4j_driver, user_uid, AuthEventType.PASSWORD_RESET_COMPLETED.value
+        )
+        == 1
+    )
+
+
+async def test_non_admin_cannot_issue_reset_token(neo4j_driver, auth_env):
+    """A non-admin requesting a reset token for someone else is refused and mints nothing."""
+    auth, track = auth_env
+    other_uid, _, _ = await _signed_up_and_in(auth, track, "notadmin")
+    target_uid, _, _ = await _signed_up_and_in(auth, track, "target")
+
+    issued = await auth.admin_generate_reset_token(target_uid, other_uid)
+    assert issued.is_error, "a non-admin must not be able to issue reset tokens"
+
+    async with neo4j_driver.session() as session:
+        result = await session.run(
+            "MATCH (:User {uid: $uid})-[:HAS_RESET_TOKEN]->(t) RETURN count(t) AS c",
+            uid=target_uid,
+        )
+        record = await result.single()
+    assert record is not None and record["c"] == 0, "a refused request must not create a token"
