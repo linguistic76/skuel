@@ -116,7 +116,7 @@ def _recompute_status_write(
     """The status half of a tally recompute: achieve on a rise to 100, un-achieve on a drop.
 
     Progress a recompute derives from the graph is a measurement, so the goal's status
-    follows it both ways (ruled 2026-09-23, docs/roadmap/done/goal-progress-one-way.md):
+    follows it both ways (docs/roadmap/done/goal-progress-one-way.md):
 
     - **rising to 100%** achieves the goal — :func:`_achievement_write`'s patch, merged
       only when the prior is not already COMPLETED;

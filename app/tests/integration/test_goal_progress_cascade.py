@@ -13,7 +13,7 @@ through a production door, with the event wiring the app composes at bootstrap:
 
 A task that leaves ``completed`` — through ``update_task`` or through the vault ingest
 door — publishes ``TaskReopened``, and the same recompute lowers its goal and un-achieves
-it (ruled 2026-09-23, ``docs/roadmap/done/goal-progress-one-way.md``).
+it (``docs/roadmap/done/goal-progress-one-way.md``).
 
 ``GoalsProgressService`` subscribes to all three events and reads the links back through
 ``GoalsBackend``. A reader that matches a shape no writer produces returns no goals, the

@@ -6,21 +6,28 @@
 // FULFILLS_GOAL counts toward that goal unless it opts out — and the default is
 // true, so an ordinary link keeps counting (docs/roadmap/done/goal-progress-recompute-lost-update.md).
 //
-// Every `false` stored before this change is the old default, not a choice: no
-// door ever set it to false on purpose. The goal picker and the task create and
-// update requests do not carry the field, and the one writer that set it wrote
-// true (goal_task_generator). The content vault authors it only as true.
-// The DTO persists every field, so app-created tasks and templates store an
-// explicit false that the new default cannot reach; this rewrites them.
+// The DTO persists every field, so an app-created task stores an explicit false
+// the new default cannot reach. This rewrites ONLY the falses that are provably
+// that old default, and leaves every false that could have been authored:
 //
-// Measured on the AuraDB graph 2026-09-23 (read-only): 75 tasks false, 2 tasks
-// absent, 1 task template true, 0 task templates false. None of the 75 is linked
-// to a goal yet — which is what makes this safe to run before or after deploy.
+// - rewritten: tasks created by an app door. TaskCreateRequest and
+//   TaskUpdateRequest do not carry the field, and the one service writer that set
+//   it (goal_task_generator) wrote true — so a false on such a task is the
+//   default, never a choice.
+// - left alone: task templates (TaskTemplateUpdateRequest can set false, and a
+//   vault template can author it); tasks spawned from a template
+//   (source_path_step_uid set — they copy the template's value); tasks a vault
+//   file wrote (an IngestionMetadata row — the file can author it).
+//
+// Measured on the AuraDB graph 2026-09-23 (read-only): 75 tasks false, all 75
+// app-created (none spawned, none vault-ingested); 0 task templates false. None
+// of the 75 is linked to a goal yet, so this is safe before or after deploy.
 //
 // Idempotent: a re-run matches nothing.
 
-MATCH (n:Entity)
-WHERE n.entity_type IN ['task', 'task_template']
-  AND n.completion_updates_goal = false
+MATCH (n:Entity {entity_type: 'task'})
+WHERE n.completion_updates_goal = false
+  AND n.source_path_step_uid IS NULL
+  AND NOT EXISTS { MATCH (:IngestionMetadata {entity_uid: n.uid}) }
 SET n.completion_updates_goal = true
-RETURN n.entity_type AS entity_type, count(n) AS rewritten;
+RETURN count(n) AS rewritten;

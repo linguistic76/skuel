@@ -28,7 +28,7 @@ stored goal the write sees and a *different* goal the read returns, which is exa
 what a race produces. The two tally recomputes have no pre-read left to race: they plan
 from the goal as read under the lock their write holds, so their rig (``_locked_rig``)
 hands the planner the prior itself, and their tests pin the verdict of each locked state
-— including the un-achieve ruled 2026-09-23.
+— including the un-achieve (docs/roadmap/done/goal-progress-one-way.md).
 
 The unraced behaviour of these writers (which fields, which events, which no-ops) is
 pinned in ``test_goal_achievement_transition.py`` and
@@ -346,7 +346,7 @@ def _locked_rig(
 
 
 def _assert_unachieved(recorder: StatusGuardedWriteRecorder[Goal], bus: _Bus) -> None:
-    """Ruled 2026-09-23: a completed goal recomputed below 100% is no longer achieved."""
+    """A completed goal recomputed below 100% is no longer achieved."""
     merged = _merged(recorder)
     assert merged["status"] == EntityStatus.ACTIVE.value
     assert merged["achieved_date"] is None, "a stamp must not outlive the completion"

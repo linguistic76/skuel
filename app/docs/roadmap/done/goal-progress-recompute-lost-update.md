@@ -87,6 +87,8 @@ unless its task opts out. The default flipped to `True` on `Task`, `TaskDTO`, `T
 `TaskTemplateDTO` and `TaskTemplateCreateRequest`. The generator's now-redundant `= True` is gone,
 and `ACTIVITY_TEMPLATE_AUTHORING.md` documents the opt-out. The DTO persists every field, so tasks
 created in the app store an explicit `false` that the new default cannot reach.
-`scripts/migrations/completion_updates_goal_default_true_2026_09.cypher` rewrites those. On AuraDB
-(read-only count, 2026-09-23) that is 75 tasks, none of them linked to a goal yet. No door ever set
-the flag to false on purpose.
+`scripts/migrations/completion_updates_goal_default_true_2026_09.cypher` rewrites only the falses
+that are provably that default: tasks created by an app door, which cannot carry the field. It
+leaves alone task templates, template-spawned tasks and vault-written tasks, where a false could be
+an authored opt-out (Codex, #1408). On AuraDB (read-only count, 2026-09-23) that is all 75 false
+tasks, none of them linked to a goal yet.

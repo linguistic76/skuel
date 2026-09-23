@@ -112,13 +112,16 @@ class TaskReopened(BaseEvent):
 
     Subscribers:
 
+    - ``UserService`` context invalidation — the vault door publishes no
+      ``TaskUpdated``, so this is what refreshes a cached context after an Obsidian
+      reopen.
     - ``GoalsProgressService.handle_task_reopened`` — recomputes the goals the task
       fulfills from their linked-task tally, lowering progress and un-achieving a
       goal that falls below 100%. The recompute reads graph state under the goal's
       lock, so the event is only its trigger: a missed or repeated one leaves the
       next recompute of that goal correct.
 
-    Not subscribers, by ruling (2026-08-24):
+    Not subscribers (docs/roadmap/done/reopen-vault-surface.md):
 
     - ``ProductivityAnalytics`` — ``tasks_completed`` is derived at read from the
       tasks currently in ``completed``, so a reopen lowers it with no one listening.
@@ -127,9 +130,6 @@ class TaskReopened(BaseEvent):
       outbound sync pass's STATE predicate — "not completed AND the line is still
       marked done" — because a reopen is only knowable after the graph write has
       committed, and a failed vault write driven by this event would have no retry.
-
-    Context invalidation is covered on the app door by the ``TaskUpdated`` the same
-    ``update_task`` call publishes.
     """
 
     task_uid: str

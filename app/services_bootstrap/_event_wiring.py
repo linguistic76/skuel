@@ -138,6 +138,7 @@ def _wire_event_subscribers(
         # Tasks
         TaskCreated,
         TaskCompleted,
+        TaskReopened,  # the vault door's reopen publishes no TaskUpdated
         TaskUpdated,
         TaskDeleted,
         TaskPriorityChanged,

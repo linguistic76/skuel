@@ -80,4 +80,6 @@ no `achieved_date`. On `main`, both read `(1.0, 1.0)`.
 
 `TaskReopened`'s docstring, `docs/domains/tasks.md` and ADR-070 said the event was "deliberately
 unsubscribed". That 2026-08-24 ruling was about analytics and the vault write-back, and it still
-holds for both; the docs now name goal progress as the one subscriber.
+holds for both. The docs now name the event's two subscribers: goal progress, and context
+invalidation. The vault door's reopen publishes no `TaskUpdated`, so without the second an Obsidian
+reopen would leave a cached context showing the task as completed (Codex, #1408).

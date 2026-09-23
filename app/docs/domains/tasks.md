@@ -303,11 +303,12 @@ task is deleted or reopened — which a tally maintained from completion events 
 
 **`TaskReopened` is the mirror**, published on a transition OUT of completed by both doors that
 can make one: `update_task` (Today's Undo posts the prior status through that chokepoint) and the
-vault ingest door — each from the prior status its own write returned (ADR-087). Its one
-subscriber is goal progress: `GoalsProgressService.handle_task_reopened` recomputes the goals the
-task fulfills from their linked-task tally, lowering progress and un-achieving a goal that falls
-below 100% (`docs/roadmap/done/goal-progress-one-way.md`). Productivity does not subscribe — a
-derived count falls on its own.
+vault ingest door — each from the prior status its own write returned (ADR-087). Two
+subscribers: context invalidation (the vault door publishes no `TaskUpdated`) and goal progress —
+`GoalsProgressService.handle_task_reopened` recomputes the goals the task fulfills from their
+linked-task tally, lowering progress and un-achieving a goal that falls below 100%
+(`docs/roadmap/done/goal-progress-one-way.md`). Productivity does not subscribe — a derived count
+falls on its own.
 
 ✅ **RESOLVED 2026-08-24.** Reopening in SKUEL now un-checks the Obsidian line and strips the
 `✅ date` — checkbox authority runs both directions outbound (ADR-070 Resolved Design Question 2,
