@@ -483,20 +483,21 @@ class GraphAuthService:
                     Errors.validation(message="Current password is incorrect", field="old_password")
                 )
 
-            # Hash new password and update user
+            # Swap the hash and revoke every live session in one transaction,
+            # guarded on the hash the old password was just verified against.
             new_hash = hash_password(new_password)
-
-            # Create updated user (frozen dataclass, so we need to recreate)
-            from dataclasses import replace
-
-            updated_user = replace(user, password_hash=new_hash)
-
-            update_result = await self.user_backend.update_user(updated_user)
-            if update_result.is_error:
-                return Result.fail(update_result)
-
-            # Invalidate all sessions for security
-            await self.session_backend.invalidate_all_user_sessions(user_uid)
+            swap_result = await self.session_backend.change_password_and_revoke_sessions(
+                user_uid, user.password_hash, new_hash
+            )
+            if swap_result.is_error:
+                return Result.fail(swap_result)
+            if swap_result.value is None:
+                return Result.fail(
+                    Errors.business(
+                        rule="password_changed_concurrently",
+                        message="Password was changed by another request; try again",
+                    )
+                )
 
             # Log password change
             event = create_auth_event(
@@ -626,59 +627,36 @@ class GraphAuthService:
             if password_error:
                 return Result.fail(Errors.validation(message=password_error, field="new_password"))
 
-            # Get token
-            token_result = await self.session_backend.get_reset_token(token_value)
-            if token_result.is_error:
-                return Result.fail(token_result)
+            # Claim the token, set the hash and revoke sessions in one
+            # transaction — the claim decides validity, so a concurrent
+            # redemption of the same token cannot also win.
+            claim_result = await self.session_backend.reset_password_and_revoke_sessions(
+                token_value, hash_password(new_password)
+            )
+            if claim_result.is_error:
+                return Result.fail(claim_result)
 
-            token = token_result.value
-            if not token:
+            claim = claim_result.value
+            if claim is None:
                 return Result.fail(
                     Errors.validation(message="Invalid or expired reset token", field="token")
                 )
-
-            # Check if token is valid
-            if not token.is_valid():
+            if not claim.claimed or claim.user_uid is None:
                 return Result.fail(
                     Errors.validation(message="Reset token has expired or been used", field="token")
                 )
-
-            # Get user
-            user_result = await self.user_backend.get_user_by_uid(token.user_uid)
-            if user_result.is_error:
-                return Result.fail(user_result)
-
-            user = user_result.value
-            if not user:
-                return Result.fail(Errors.not_found(resource="User", identifier=token.user_uid))
-
-            # Hash new password and update user
-            new_hash = hash_password(new_password)
-            from dataclasses import replace
-
-            updated_user = replace(user, password_hash=new_hash)
-
-            update_result = await self.user_backend.update_user(updated_user)
-            if update_result.is_error:
-                return Result.fail(update_result)
-
-            # Mark token as used
-            await self.session_backend.mark_reset_token_used(token_value)
-
-            # Invalidate all sessions for security
-            await self.session_backend.invalidate_all_user_sessions(token.user_uid)
 
             # Log password reset completion
             event = create_auth_event(
                 event_type=AuthEventType.PASSWORD_RESET_COMPLETED,
                 ip_address=ip_address,
                 user_agent=user_agent,
-                user_uid=token.user_uid,
-                email=user.email,
+                user_uid=claim.user_uid,
+                email=claim.email,
             )
             await self.session_backend.log_auth_event(event)
 
-            self.logger.info(f"Password reset completed for user: {token.user_uid}")
+            self.logger.info(f"Password reset completed for user: {claim.user_uid}")
             return Result.ok(True)
 
         except NEO4J_EXCEPTIONS as e:

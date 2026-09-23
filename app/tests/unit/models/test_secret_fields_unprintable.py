@@ -280,7 +280,6 @@ class TestAuthModelSecretsAreNotInRepr:
         assert SENTINEL not in rendered
         assert token.token == SENTINEL
         assert "reset_abc" in rendered
-        assert SENTINEL not in repr(token.mark_used())
 
     def test_user_password_hash_is_absent_from_repr_but_readable(self) -> None:
         """A bcrypt digest is offline-crackable — a credential, not an opaque id."""

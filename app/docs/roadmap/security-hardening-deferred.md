@@ -1,6 +1,6 @@
 ---
 title: Security Hardening — Deferred Items
-updated: 2026-09-21
+updated: 2026-09-23
 category: roadmap
 tags: [roadmap, security, hardening]
 ---
@@ -160,7 +160,8 @@ Sharpened by the droplet prep: admin role promotion IS the AI-access grant
    write lock serializes against `create_session`, so a concurrent sign-in lands either
    before the transaction (swept) or after it (a legitimate post-change re-login). A no-op
    role set doesn't log anyone out, and an ADMIN→ADMIN self-update can't self-logout.
-   Password change/reset keep using the plain `invalidate_all_user_sessions` sweep.
+   Password change/reset now take the same shape (`change_password_and_revoke_sessions` /
+   `reset_password_and_revoke_sessions`); the plain two-step sweep is gone.
 2. **Per-request enforcement** — the finding that reshaped the item: *nothing* validated the
    graph session per request, so server-side invalidation (including the existing password
    change/reset flows) never actually logged out a live cookie for its whole 30-day max_age.

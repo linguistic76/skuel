@@ -1,6 +1,6 @@
 ---
 title: "ADR-022: Graph-Native Authentication"
-updated: 2026-09-15
+updated: 2026-09-23
 status: current
 category: decisions
 tags: [adr, decisions, authentication, security, neo4j]
@@ -244,7 +244,7 @@ result = await graph_auth.reset_password_with_token(
 3. **Session Binding:** Sessions optionally bound to IP and user agent
 4. **Audit Logging:** All auth events stored as graph nodes
 5. **Token Expiry:** Sessions expire after configurable duration (default 30 days)
-6. **Reset Token Expiry:** Password reset tokens expire after 24 hours
+6. **Reset Tokens:** Expire after 15 minutes (`RESET_TOKEN_EXPIRY_MINUTES`) and are single-use — the redeeming write claims the token under its write-lock, sets the hash and revokes sessions in one transaction (`SessionBackend.reset_password_and_revoke_sessions`)
 
 ### Testing Strategy
 - [x] Unit tests: GraphAuthService methods

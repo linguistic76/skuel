@@ -44,7 +44,7 @@ from core.utils.result_simplified import Result
 
 if TYPE_CHECKING:
     from core.models.auth.auth_event import AuthEvent
-    from core.models.auth.password_reset_token import PasswordResetToken
+    from core.models.auth.password_reset_token import PasswordResetClaim, PasswordResetToken
     from core.models.auth.session import Session
     from core.models.enums import UserRole
     from core.models.event.calendar_models import CalendarData, CalendarItem, CalendarView
@@ -489,8 +489,15 @@ class SessionBackendOperations(Protocol):
         """Invalidate one session (sign-out)."""
         ...
 
-    async def invalidate_all_user_sessions(self, user_uid: UserUID) -> Result[int]:
-        """Invalidate every live session for a user. Returns the count revoked."""
+    async def change_password_and_revoke_sessions(
+        self, user_uid: UserUID, expected_hash: str, new_hash: str
+    ) -> Result[int | None]:
+        """Atomically swap the password hash AND revoke every live session.
+
+        Compare-and-set on ``expected_hash``: None (nothing written) when the
+        stored hash changed since the caller verified against it; otherwise
+        the count revoked.
+        """
         ...
 
     async def log_auth_event(self, event: AuthEvent) -> Result[AuthEvent]:
@@ -509,12 +516,14 @@ class SessionBackendOperations(Protocol):
         """Persist a password-reset token."""
         ...
 
-    async def get_reset_token(self, token_value: str) -> Result[PasswordResetToken | None]:
-        """Fetch a reset token by its value."""
-        ...
+    async def reset_password_and_revoke_sessions(
+        self, token_value: str, new_hash: str
+    ) -> Result[PasswordResetClaim | None]:
+        """Claim a reset token, set the new hash AND revoke sessions in one transaction.
 
-    async def mark_reset_token_used(self, token_value: str) -> Result[bool]:
-        """Mark a reset token consumed so it cannot be replayed."""
+        The write decides validity: of concurrent redemptions of one token,
+        exactly one claims it. None when no token has this value.
+        """
         ...
 
 
