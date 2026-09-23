@@ -18,10 +18,11 @@ goal the handler writes, not on the handler being called.
 """
 
 from collections.abc import AsyncIterator
-from typing import Any
+from dataclasses import dataclass
 
 import pytest
 import pytest_asyncio
+from neo4j import AsyncDriver
 
 from core.config.credential_store import get_credential
 from core.config.intelligence_tier import IntelligenceTier
@@ -32,7 +33,11 @@ from core.models.goal.goal import Goal
 from core.models.habit.habit import Habit
 from core.models.task.task import Task
 from core.models.task.task_update_intent import TaskUpdateIntent
+from core.services.goals_service import GoalsService
+from core.services.habits_service import HabitsService
+from core.services.tasks_service import TasksService
 from core.services.user.unified_user_context import UserContext
+from services_bootstrap._container import Services
 
 pytestmark = pytest.mark.skipif(
     IntelligenceTier.from_env().ai_enabled and not get_credential("OPENAI_API_KEY"),
@@ -43,14 +48,31 @@ _USER_UID = "user_goal_progress_cascade"
 _PREFIX = "gpc_"
 
 
+@dataclass(frozen=True)
+class _Composed:
+    """The composed facades these tests drive — ``Services`` fields narrowed from ``| None``."""
+
+    tasks: TasksService
+    goals: GoalsService
+    habits: HabitsService
+    neo4j_driver: AsyncDriver
+
+
 @pytest_asyncio.fixture(loop_scope="session")
-async def services(skuel_app) -> AsyncIterator[Any]:
+async def services(skuel_app) -> AsyncIterator[_Composed]:
     """The composed services, with this module's user seeded and its entities swept after.
 
     ``skuel_app``'s graph is session-scoped and shared, so every entity here carries the
     ``gpc_`` prefix and is removed on teardown.
     """
-    services = skuel_app.state.services
+    composed: Services = skuel_app.state.services
+    assert composed.tasks and composed.goals and composed.habits and composed.neo4j_driver
+    services = _Composed(
+        tasks=composed.tasks,
+        goals=composed.goals,
+        habits=composed.habits,
+        neo4j_driver=composed.neo4j_driver,
+    )
     driver = services.neo4j_driver
     async with driver.session() as session:
         await session.run(
@@ -66,7 +88,7 @@ async def services(skuel_app) -> AsyncIterator[Any]:
         )
 
 
-async def _create_goal(services: Any, slug: str, measurement: MeasurementType) -> Goal:
+async def _create_goal(services: _Composed, slug: str, measurement: MeasurementType) -> Goal:
     result = await services.goals.create(
         Goal(
             uid=f"{_PREFIX}goal_{slug}",
@@ -84,14 +106,14 @@ async def _create_goal(services: Any, slug: str, measurement: MeasurementType) -
     return result.value
 
 
-async def _stored_goal(services: Any, goal_uid: str) -> Goal:
+async def _stored_goal(services: _Composed, goal_uid: str) -> Goal:
     result = await services.goals.backend.get(goal_uid)
     assert result.is_ok and result.value is not None, result
     return result.value
 
 
 @pytest.mark.asyncio(loop_scope="session")
-async def test_completing_a_linked_task_moves_its_goal(services: Any) -> None:
+async def test_completing_a_linked_task_moves_its_goal(services: _Composed) -> None:
     """One of two linked tasks completed through ``update_task`` → the goal reads 50%."""
     goal = await _create_goal(services, "task_based", MeasurementType.TASK_BASED)
 
@@ -124,7 +146,7 @@ async def test_completing_a_linked_task_moves_its_goal(services: Any) -> None:
 
 
 @pytest.mark.asyncio(loop_scope="session")
-async def test_completing_a_linked_habit_moves_its_goal(services: Any) -> None:
+async def test_completing_a_linked_habit_moves_its_goal(services: _Composed) -> None:
     """A habit linked by ``link_goal_to_habit`` and completed once → streak 1 of 10 = 10%."""
     goal = await _create_goal(services, "habit_based", MeasurementType.HABIT_BASED)
 
@@ -155,7 +177,7 @@ async def test_completing_a_linked_habit_moves_its_goal(services: Any) -> None:
 
 
 @pytest.mark.asyncio(loop_scope="session")
-async def test_achievement_context_reads_the_written_links(services: Any) -> None:
+async def test_achievement_context_reads_the_written_links(services: _Composed) -> None:
     """``get_achievement_context`` returns the habits and Kus the goal writers linked."""
     goal = await _create_goal(services, "achieved", MeasurementType.PERCENTAGE)
 
