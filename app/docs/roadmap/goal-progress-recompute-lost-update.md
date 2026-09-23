@@ -44,3 +44,13 @@ inside the guarded statement: count the linked activities after taking the goal'
 derive progress, tally and the achievement condition from that count. The alternative is to
 serialize recomputes per goal. Race the statement, not the service: a service-level `gather` race
 hides a missing lock, because each call does enough work to stagger itself.
+
+## Also for this PR: `completion_updates_goal`
+
+`Task.completion_updates_goal` (and the task-template field) is documented as "completion updates
+goal progress", but **no code reads it**. Only `goal_task_generator` sets it (to True). Its
+default is False, and neither the goal picker nor the create door sets it. Honoring it as-is would
+drop every ordinary goal-linked task from the tally (Codex raised this on #1407, where it was
+declined for that reason). The tally statement this PR rewrites is where it would be read, so rule
+on it here. Either delete it, since the `FULFILLS_GOAL` link already says the task counts, or
+wire it with a default that matches how links are actually made.
