@@ -605,7 +605,7 @@ class GoalsBackend(_HierarchyMixin, UniversalNeo4jBackend[Goal]):
         RETURN count(task) AS total_tasks,
                count(CASE WHEN task.status = $completed THEN 1 END) AS completed_tasks
         """
-        params = {
+        params: Neo4jProperties = {
             "user_uid": user_uid,
             "task_type": EntityType.TASK.value,
             "completed": EntityStatus.COMPLETED.value,
@@ -649,7 +649,7 @@ class GoalsBackend(_HierarchyMixin, UniversalNeo4jBackend[Goal]):
         RETURN count(habit) AS total_habits,
                coalesce(avg(coalesce(habit.current_streak, 0)), 0) AS avg_streak
         """
-        params = {"user_uid": user_uid, "habit_type": EntityType.HABIT.value}
+        params: Neo4jProperties = {"user_uid": user_uid, "habit_type": EntityType.HABIT.value}
 
         def plan_from_row(goal: Goal, row: Mapping[str, Any]) -> P | None:
             return plan(

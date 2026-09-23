@@ -90,5 +90,9 @@ created in the app store an explicit `false` that the new default cannot reach.
 `scripts/migrations/completion_updates_goal_default_true_2026_09.cypher` rewrites only the falses
 that are provably that default: tasks created by an app door, which cannot carry the field. It
 leaves alone task templates, template-spawned tasks and vault-written tasks, where a false could be
-an authored opt-out (Codex, #1408). On AuraDB (read-only count, 2026-09-23) that is all 75 false
-tasks, none of them linked to a goal yet.
+an authored opt-out (Codex, #1408). The doors that cannot carry the field: `TaskCreateRequest`
+and `TaskUpdateRequest` don't declare it, and the one service writer that set it
+(`goal_task_generator`) wrote true. On AuraDB (read-only count, 2026-09-23) the migration matches
+all 75 false tasks. None was spawned from a template, none was written by the vault, and none is
+linked to a goal yet, so it is safe to run before or after deploy. There were 0 task templates
+with `false`.

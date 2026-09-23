@@ -654,7 +654,7 @@ class _CrudMixin[T: DomainModelProtocol]:
         self,
         uid: str,
         read_query: str,
-        read_params: dict[str, Any],
+        read_params: Neo4jProperties,
         # boundary: the read statement's row — each domain's own tally shape, which its
         # public wrapper narrows to a TypedDict before handing it on.
         plan: Callable[[T, Mapping[str, Any]], P | None],
@@ -706,7 +706,7 @@ class _CrudMixin[T: DomainModelProtocol]:
         SET n.`_sg_lock` = $lock_token
         RETURN n AS node
         """
-        lock_params: dict[str, Any] = {"uid": uid, "lock_token": uuid4().hex}
+        lock_params: Neo4jProperties = {"uid": uid, "lock_token": uuid4().hex}
         lock_params.update(self._default_filter_params())
 
         async with self.driver.session() as session:
