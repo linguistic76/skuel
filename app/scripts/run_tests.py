@@ -197,7 +197,7 @@ class TestRunner:
             "run",
             "pytest",
             "tests/integration/",
-            "tests/unit/test_authentication.py",
+            "tests/unit/auth/test_graph_auth_service.py",
             "tests/unit/test_auth_session.py",
             "tests/unit/test_core_errors.py",
             "tests/unit/test_error_boundary.py",
