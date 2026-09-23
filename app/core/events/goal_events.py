@@ -113,6 +113,7 @@ class GoalProgressUpdated(BaseEvent):
 
     # Context for what caused the progress update
     triggered_by_task_completion: bool = False
+    triggered_by_task_reopen: bool = False
     triggered_by_habit_completion: bool = False
     triggered_by_manual_update: bool = False
 

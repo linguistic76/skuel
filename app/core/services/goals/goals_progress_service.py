@@ -1212,7 +1212,7 @@ class GoalsProgressService(BaseService[GoalsOperations, Goal]):
         Args:
             event: TaskCompleted carrying task_uid and user_uid
         """
-        await self._recompute_goals_of_task(event.task_uid, event.user_uid, "completed")
+        await self._recompute_goals_of_task(event.task_uid, event.user_uid, reopened=False)
 
     async def handle_task_reopened(self, event: TaskReopened) -> None:
         """Recompute the goals a task fulfills after it leaves ``completed``.
@@ -1225,10 +1225,14 @@ class GoalsProgressService(BaseService[GoalsOperations, Goal]):
         Args:
             event: TaskReopened carrying task_uid and user_uid
         """
-        await self._recompute_goals_of_task(event.task_uid, event.user_uid, "reopened")
+        await self._recompute_goals_of_task(event.task_uid, event.user_uid, reopened=True)
 
-    async def _recompute_goals_of_task(self, task_uid: str, user_uid: UserUID, verb: str) -> None:
+    async def _recompute_goals_of_task(
+        self, task_uid: str, user_uid: UserUID, *, reopened: bool
+    ) -> None:
         """Recompute every goal ``task_uid`` fulfills — best-effort, per goal.
+
+        ``reopened`` is the trigger's provenance, carried onto ``GoalProgressUpdated``.
 
         Backend: GoalsBackend.find_linked_goals_for_task.
         """
@@ -1243,18 +1247,23 @@ class GoalsProgressService(BaseService[GoalsOperations, Goal]):
                 self.logger.debug(f"Task {task_uid} is not linked to any goals")
                 return
 
+            verb = "reopened" if reopened else "completed"
             self.logger.info(f"Task {task_uid} {verb} - updating {len(goal_uids)} linked goals")
             for goal_uid in goal_uids:
                 try:
-                    await self._update_goal_from_task_completion(goal_uid, user_uid)
+                    await self._update_goal_from_task_completion(
+                        goal_uid, user_uid, reopened=reopened
+                    )
                 except (*NEO4J_EXCEPTIONS, *DATA_CONVERSION_EXCEPTIONS) as e:
                     self.logger.error(f"Failed to update goal {goal_uid} progress: {e}")
                     # Continue with other goals even if one fails
 
         except (*NEO4J_EXCEPTIONS, *DATA_CONVERSION_EXCEPTIONS) as e:
-            self.logger.error(f"Error recomputing goals for {verb} task {task_uid}: {e}")
+            self.logger.error(f"Error recomputing goals for task {task_uid}: {e}")
 
-    async def _update_goal_from_task_completion(self, goal_uid: str, user_uid: UserUID) -> None:
+    async def _update_goal_from_task_completion(
+        self, goal_uid: str, user_uid: UserUID, *, reopened: bool = False
+    ) -> None:
         """Recompute one TASK_BASED goal from its linked-task tally, and publish the result.
 
         The tally, the figure and the status verdict are all decided under the goal's
@@ -1266,6 +1275,7 @@ class GoalsProgressService(BaseService[GoalsOperations, Goal]):
         Args:
             goal_uid: Goal to update
             user_uid: User who owns the goal and its tasks
+            reopened: Whether a task reopen (not a completion) triggered this
         """
         result = await self.backend.recompute_progress_from_linked_tasks(
             goal_uid, user_uid, _plan_task_progress
@@ -1283,7 +1293,7 @@ class GoalsProgressService(BaseService[GoalsOperations, Goal]):
             f"({plan.detail})"
         )
         await self._publish_recompute(
-            goal_uid, user_uid, plan, outcome.prior_status, EntityType.TASK
+            goal_uid, user_uid, plan, outcome.prior_status, EntityType.TASK, reopened=reopened
         )
 
     async def handle_habit_completed(self, event: HabitCompleted) -> None:
@@ -1367,6 +1377,8 @@ class GoalsProgressService(BaseService[GoalsOperations, Goal]):
         plan: _ProgressWrite,
         prior_status: str | None,
         source: EntityType,
+        *,
+        reopened: bool = False,
     ) -> None:
         """Announce what a recompute wrote, with verdicts from the prior the write saw.
 
@@ -1385,7 +1397,8 @@ class GoalsProgressService(BaseService[GoalsOperations, Goal]):
                     user_uid=user_uid,
                     old_progress=plan.old_progress,
                     new_progress=plan.new_progress,
-                    triggered_by_task_completion=source is EntityType.TASK,
+                    triggered_by_task_completion=source is EntityType.TASK and not reopened,
+                    triggered_by_task_reopen=source is EntityType.TASK and reopened,
                     triggered_by_habit_completion=source is EntityType.HABIT,
                     triggered_by_manual_update=False,
                 ),

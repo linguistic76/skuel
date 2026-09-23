@@ -162,6 +162,9 @@ class GuardedWritePlan(Protocol):
     """
 
     @property
+    # boundary: pre-serialization patch — NOT Neo4jProperties: a progress plan carries
+    # ``progress_history`` as a list of entry dicts, which the write serializes to JSON
+    # (``to_neo4j_node``), exactly as ``update_with_status_guard``'s ``updates`` does.
     def updates(self) -> dict[str, Any]:
         """The unconditional partial patch (pre-serialization, as ``update_with_status_guard`` takes)."""
         ...

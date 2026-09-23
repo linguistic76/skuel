@@ -45,7 +45,7 @@ from unittest.mock import AsyncMock, Mock
 import pytest
 
 from core.events.base import BaseEvent
-from core.events.goal_events import GoalAchieved
+from core.events.goal_events import GoalAchieved, GoalProgressUpdated
 from core.models.enums import EntityStatus
 from core.models.enums.goal_enums import MeasurementType
 from core.models.goal.goal import Goal
@@ -442,6 +442,24 @@ class TestUpdateGoalFromTaskCompletion:
 
         _assert_unachieved(recorder, bus)
         assert _merged(recorder)["progress_percentage"] == 0.0
+
+    async def test_the_progress_event_names_its_trigger(self) -> None:
+        """A reopen-driven drop is not a task completion — stall/trigger telemetry reads it."""
+        locked = _goal(
+            status=EntityStatus.ACTIVE,
+            measurement_type=MeasurementType.TASK_BASED,
+            progress=50.0,
+            current_value=1.0,
+            target_value=2.0,
+        )
+        for reopened, tally in ((False, self._tally(2, 2)), (True, self._tally(2, 0))):
+            service, _recorder, bus = _locked_rig(locked, method=self._METHOD, tally=tally)
+
+            await service._update_goal_from_task_completion(_GOAL, _USER, reopened=reopened)
+
+            [event] = bus.of(GoalProgressUpdated)
+            assert event.triggered_by_task_completion is not reopened
+            assert event.triggered_by_task_reopen is reopened
 
     async def test_an_open_goal_whose_tally_drops_keeps_its_status(self) -> None:
         """A goal reopened by hand at 100% has no achievement to take back: the
