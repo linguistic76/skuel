@@ -757,7 +757,7 @@ async def compose_services(neo4j_adapter, event_bus=None, config=None, ...) -> R
     3. _create_activity_services() — 6 Activity Domain facades
     4. _create_core_services() — Finance, Transcription, User passthrough
     5. _create_learning_services() — Curriculum (KU, PS, LP)
-    6. _wire_ai_services() — 12 AI services into facades (FULL tier only)
+    6. _wire_ai_services() — 8 AI services into facades (FULL tier only)
     7. _wire_event_subscribers() — 43 context invalidation + cross-domain events
     8. _create_intelligence_hub() — UserContextIntelligence, ZPD, Askesis
     9. Validate post-construction wiring (fail-fast if any missed)
