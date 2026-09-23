@@ -21,13 +21,15 @@ class _FormScan(HTMLParser):
         super().__init__()
         self.forms: list[tuple[str | None, set[str]]] = []
         self.alerts: list[str] = []
+        self._in_form = False
         self._in_alert = 0
 
     def handle_starttag(self, tag: str, attrs: list[tuple[str, str | None]]) -> None:
         attr = dict(attrs)
         if tag == "form":
             self.forms.append((attr.get("action"), set()))
-        elif tag in {"input", "select", "textarea"} and self.forms and attr.get("name"):
+            self._in_form = True
+        elif tag in {"input", "select", "textarea"} and self._in_form and attr.get("name"):
             self.forms[-1][1].add(attr["name"])
         if attr.get("role") == "alert":
             self._in_alert += 1
@@ -36,6 +38,8 @@ class _FormScan(HTMLParser):
             self._in_alert += 1
 
     def handle_endtag(self, tag: str) -> None:
+        if tag == "form":
+            self._in_form = False
         if self._in_alert and tag == "div":
             self._in_alert -= 1
 
