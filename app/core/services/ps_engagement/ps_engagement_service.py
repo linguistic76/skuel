@@ -21,6 +21,9 @@ Invariants enforced:
   ones; engagement edge transitions to ``state="completed"``.
 - T4 deletes all spawned instances (engaged or owned-by-this-engagement);
   engagement edge transitions to ``state="abandoned"`` (preserved for audit).
+- T3 and T4 reach only the instances THIS engagement spawned — the ones
+  stamped with its ``uid``. An earlier engagement of the same step, or an
+  engagement of another step sharing a template, is out of reach.
 
 Completion triggers (decision pinned 2026-05-11): two paths.
 - Student-declared via ``complete_pathstep`` with an explicit keep/discard
@@ -34,7 +37,7 @@ Completion triggers (decision pinned 2026-05-11): two paths.
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from datetime import UTC, datetime
 from typing import TYPE_CHECKING, Any, Literal
 
@@ -198,7 +201,8 @@ class PsEngagementService:
             2. Re-validate the PS (defensive — templates may have changed
                since publish).
             3. Open the engagement edge → use its ``since`` as the spawn anchor.
-            4. Spawn all instances via the 4-layer orchestrator.
+            4. Spawn all instances via the 4-layer orchestrator, each stamped
+               with the engagement's ``uid``.
             5. On spawn failure: roll back the engagement edge.
         """
         active = await self._gateway.find_active(student_uid, ps_uid)
@@ -244,6 +248,7 @@ class PsEngagementService:
             student_uid=student_uid,
             ps_uid=ps_uid,
             bundle=bundle,
+            engagement_uid=engagement.uid,
             engagement_anchor=engagement.since,
         )
         if spawn_res.is_error:
@@ -257,17 +262,8 @@ class PsEngagementService:
                 )
             return Result.fail(spawn_res)
 
-        spawn_result = spawn_res.value
         return Result.ok(
-            Engagement(
-                student_uid=engagement.student_uid,
-                ps_uid=engagement.ps_uid,
-                state=engagement.state,
-                since=engagement.since,
-                completed_at=engagement.completed_at,
-                abandoned_at=engagement.abandoned_at,
-                spawned_instance_uids=tuple(spawn_result.instance_uids),
-            )
+            replace(engagement, spawned_instance_uids=tuple(spawn_res.value.instance_uids))
         )
 
     # ========================================================================
@@ -299,9 +295,6 @@ class PsEngagementService:
                 )
             )
 
-        # Find spawned instances by querying for engaged-state instances that
-        # carry a template_uid matching one attached to this PS. See orchestrator
-        # docstring for the rationale (only one active engagement at a time).
         spawned = await self._fetch_engaged_instances(student_uid, ps_uid)
         if spawned.is_error:
             return Result.fail(spawned)
@@ -345,8 +338,8 @@ class PsEngagementService:
             )
 
         # Delete all instances belonging to this engagement — both engaged AND
-        # EngagementState.OWNED instances spawned by this engagement edge
-        # haven't yet outlived it.
+        # EngagementState.OWNED ones, since an instance this engagement spawned
+        # has not outlived it.
         spawned = await self._fetch_engaged_instances(student_uid, ps_uid)
         if spawned.is_error:
             return Result.fail(spawned)
@@ -486,15 +479,12 @@ class PsEngagementService:
         """Return all active engagements for a student, with spawned instance UIDs.
 
         For each ``state='engaged'`` edge, fetches the activity instances spawned
-        by that engagement (via ``[:SPAWNED_FROM]`` traversal to templates attached
-        to the PS) and populates ``Engagement.spawned_instance_uids``.
+        by that engagement and populates ``Engagement.spawned_instance_uids``.
 
         Called by ``UserContextBuilder.build_rich_user_context`` to populate
         ``RichUserContext.active_ps_engagements``; ``DailyPlanningMixin`` then
         reads that field to bucket the daily plan by originating PS (ADR-059).
         """
-        from dataclasses import replace
-
         listed = await self._gateway.list_engaged(student_uid)
         if listed.is_error:
             return Result.fail(listed)
@@ -517,10 +507,13 @@ class PsEngagementService:
     ) -> Result[list[tuple[str, str, str]]]:
         """Return [(template_uid, instance_uid, neo_label), ...] for this engagement.
 
-        Defining "this engagement's instances" as: instances owned by this
-        student that have a ``[:SPAWNED_FROM]`` edge to a template currently
-        attached to this PS. Safe because the at-most-one-active invariant
-        ensures the only engaged instances belong to the current engagement.
+        "This engagement" is the (student, PS) pair's active one, and its
+        instances are the ones stamped with its ``uid`` at spawn — not every
+        instance of a template attached to the PS, which would also reach an
+        earlier engagement's kept instances and another step's instances of a
+        shared template.
+
+        Backend: ``PsEngagementBackend.fetch_engaged_instances``
         """
         res = await self._backend.fetch_engaged_instances(student_uid, ps_uid)
         if res.is_error:

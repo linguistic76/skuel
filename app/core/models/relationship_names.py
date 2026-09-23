@@ -240,11 +240,12 @@ class RelationshipName(StrEnum):
     HAS_EVENT_TEMPLATE = "HAS_EVENT_TEMPLATE"
     HAS_CHOICE_TEMPLATE = "HAS_CHOICE_TEMPLATE"
     HAS_PRINCIPLE_TEMPLATE = "HAS_PRINCIPLE_TEMPLATE"
-    # (Activity instance)-[:SPAWNED_FROM {spawned_at}]->(*Template) — graph-native
-    # back-reference written atomically with the instance node at spawn time.
-    # This is THE relationship; there is no parallel `template_uid` property.
+    # (Activity instance)-[:SPAWNED_FROM {spawned_at, engagement_uid}]->(*Template)
+    # — graph-native back-reference written atomically with the instance node at
+    # spawn time. This is THE relationship; there is no parallel `template_uid`
+    # property. `engagement_uid` names the ENGAGED_WITH edge that spawned it.
     SPAWNED_FROM = "SPAWNED_FROM"
-    # (User)-[:ENGAGED_WITH {since, state, completed_at?, abandoned_at?}]->(PathStep)
+    # (User)-[:ENGAGED_WITH {uid, since, state, completed_at?, abandoned_at?}]->(PathStep)
     ENGAGED_WITH = "ENGAGED_WITH"
 
     # =========================================================================

@@ -36,9 +36,10 @@ The orchestrator:
    ``engagement_state`` = ``EngagementState.ENGAGED``, ``source_path_step_uid`` = ps_uid, all
    offsets/refs resolved, and every other authoring field copied through.
 3. Persists via the backend's ``create_with_spawned_from()`` — an atomic write
-   of the instance node AND the ``(instance)-[:SPAWNED_FROM {spawned_at}]->(template)``
-   edge. That edge is the template back-reference; there is no ``template_uid``
-   property.
+   of the instance node AND the
+   ``(instance)-[:SPAWNED_FROM {spawned_at, engagement_uid}]->(template)`` edge.
+   That edge is the template back-reference (there is no ``template_uid``
+   property) and the record of which engagement spawned the instance.
 
 Transactional semantics for V1: best-effort. If a layer-N create fails, the
 orchestrator returns a failure Result and rolls back by deleting the already-
@@ -475,6 +476,7 @@ class _SpawnOrchestrator:
         student_uid: str,
         ps_uid: str,
         bundle: TemplateBundle,
+        engagement_uid: str,
         engagement_anchor: datetime,
     ) -> Result[SpawnResult]:
         """Pre-allocate UIDs, then build + persist every instance in layer order.
@@ -503,7 +505,12 @@ class _SpawnOrchestrator:
                 )
                 cross_edges = _compute_cross_edges(tmpl, spec.cross_edges, template_to_instance)
                 res = await self._persist(
-                    backend, instance, str(tmpl.uid), created_uids, cross_edges=cross_edges
+                    backend,
+                    instance,
+                    str(tmpl.uid),
+                    engagement_uid,
+                    created_uids,
+                    cross_edges=cross_edges,
                 )
                 if res.is_error:
                     await self._rollback(created_uids)
@@ -521,6 +528,7 @@ class _SpawnOrchestrator:
         backend: Any,  # boundary: backends.create_with_spawned_from is on UniversalNeo4jBackend
         instance: Any,
         template_uid: str,
+        engagement_uid: str,
         created_uids: list[tuple[CrudOperations[Any], str]],
         cross_edges: list[tuple[RelationshipName, str]] | None = None,
     ) -> Result[Any]:
@@ -534,7 +542,9 @@ class _SpawnOrchestrator:
         the node + SPAWNED_FROM are still committed; the rollback layer above
         deletes the node and its edges via ``DETACH DELETE`` on next failure.
         """
-        result: Result[Any] = await backend.create_with_spawned_from(instance, template_uid)
+        result: Result[Any] = await backend.create_with_spawned_from(
+            instance, template_uid, engagement_uid
+        )
         if result.is_error:
             return result
         # Track for rollback BEFORE writing cross-edges so a cross-edge failure

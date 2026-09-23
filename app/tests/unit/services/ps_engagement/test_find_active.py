@@ -34,6 +34,7 @@ def _service_with_gateway(gateway_mock: AsyncMock) -> PsEngagementService:
 @pytest.mark.anyio
 async def test_find_active_returns_engagement_when_present() -> None:
     engagement = Engagement(
+        uid="engagement_test",
         student_uid="user_alice",
         ps_uid="ps_test",
         state="engaged",

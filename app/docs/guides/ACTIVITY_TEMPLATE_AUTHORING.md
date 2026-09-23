@@ -718,21 +718,17 @@ Three consequences for you as the author:
 
 - **Keep is the default.** A template the learner does not explicitly discard at the
   review is kept. Author as though what you spawn will stay in their life.
-- **Abandon is total.** It removes every instance of that engagement, finished or not —
-  and, until [the scope defect](../roadmap/shared-template-engagement-scope.md) is fixed,
-  instances of *other* engagements too. Two flows reach it: re-engaging one step (below)
-  and [sharing a template across steps](#reuse-across-pathsteps).
+- **Abandon is total — for that engagement.** It removes every instance the engagement
+  spawned, finished or not, and nothing else: each instance's `SPAWNED_FROM` edge carries
+  the uid of the engagement that spawned it, and complete and abandon reach only the
+  instances stamped with their own.
 - **One engagement at a time, per step.** A second `engage` on the same step while one is
   active is refused (`engagement_already_active`) — a learner does not accumulate
   duplicates by clicking twice. After completing or abandoning, they *may* engage the
   same step again, and that opens a fresh engagement. Engagements on *different* steps
-  run concurrently as a matter of course.
-
-  ⚠ **Re-engaging a step is not safe yet, and this one needs no template sharing.**
-  Keep an instance at the review (it becomes `owned`), engage the same step again, then
-  abandon: the instance lookup returns the kept instance too — `owned` is in its state
-  list — and abandon deletes what the learner earned in the first engagement. Case 1 in
-  [shared-template-engagement-scope.md](../roadmap/shared-template-engagement-scope.md).
+  run concurrently as a matter of course. What a learner kept from an earlier engagement
+  of the step stays theirs through every later one — abandoning the second engagement
+  does not touch it.
 
 Spawning is **best-effort, not one transaction**: if a later layer fails to persist, the
 orchestrator deletes the instances it already wrote and returns the failure. You will not
@@ -790,12 +786,8 @@ Because references are per-PathStep, a shared template's cross-references must r
 *every* step that lists it — a `fulfills_goal_template_uid` pointing at a Goal that only
 step A carries fails step B with `cross_ps`.
 
-⚠ **Sharing one template across two steps is not safe yet.** Completing or abandoning
-either step reaches the *other* step's instances as well, because the "which instances
-belong to this engagement" query scopes by template rather than by engagement. The same
-gap makes a second engagement of a single step delete what the learner kept from the
-first. Until it is fixed, give each PathStep its own template file. Tracked in
-[shared-template-engagement-scope.md](../roadmap/shared-template-engagement-scope.md).
+Completing or abandoning one of the two steps leaves the other step's instance alone:
+each instance belongs to the engagement that spawned it, not to the template.
 
 ## Sub-tasks
 
@@ -838,4 +830,4 @@ Everything you authored is copied through, except the fields spawning owns:
 - [Unified Ingestion Guide](../patterns/UNIFIED_INGESTION_GUIDE.md) — the ingest pipeline
 - [ADR-061 — spawn layer consolidation](../decisions/ADR-061-spawn-layer-consolidation.md) — the spawn registry
 - [Activity Templates get a vault door](../roadmap/done/activity-templates-vault-door.md) — why the vault is the door
-- [Engagement instance scope](../roadmap/shared-template-engagement-scope.md) — the open defect behind the reuse warning
+- [Engagement instance scope](../roadmap/done/shared-template-engagement-scope.md) — why an instance carries the uid of the engagement that spawned it

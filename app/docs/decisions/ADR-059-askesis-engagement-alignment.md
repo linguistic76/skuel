@@ -1,6 +1,6 @@
 ---
 title: "ADR-059: Engagement-Aware Daily Plan in Askesis"
-updated: 2026-09-01
+updated: 2026-09-23
 status: current
 category: decisions
 tags: [adr, decisions, askesis, engagement, daily-plan]
@@ -30,9 +30,9 @@ between May 1 and May 9, 2026. The Askesis ↔ engagement wiring at the
 
 - `PsEngagementService` (`core/services/ps_engagement/`) provides
   `publish_pathstep`, `engage_pathstep`, `complete_pathstep`, `abandon_pathstep`.
-- `Engagement` (`core/services/ps_engagement/engagement.py:17-34`) is the
+- `Engagement` (`core/services/ps_engagement/engagement.py`) is the
   frozen projection of the `(User)-[:ENGAGED_WITH {state, since, ...}]->(PS)`
-  edge: `state`, `since`, `completed_at`, `abandoned_at`, `spawned_instance_uids`.
+  edge: `uid`, `state`, `since`, `completed_at`, `abandoned_at`, `spawned_instance_uids`.
 - `PsBundle.engagement: Engagement | None`
   (`core/models/askesis/ps_bundle.py:54`) carries the lifecycle snapshot
   per Socratic turn.

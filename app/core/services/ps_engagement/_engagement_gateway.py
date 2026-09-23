@@ -3,6 +3,7 @@
 Edge schema:
 
     (User)-[:ENGAGED_WITH {
+        uid:          str,                # the engagement's identity, minted on engage
         since:        datetime,           # set on engage
         state:        "engaged" | "completed" | "abandoned",
         completed_at: datetime | null,    # set on complete
@@ -13,7 +14,8 @@ Invariants enforced here:
 - At most one edge with state="engaged" per (student, PS).
   ``find_active`` returns it; ``open_engagement`` refuses to create a second.
 - Completed and abandoned edges are preserved as audit trail; they are not
-  deleted on subsequent re-engagement.
+  deleted on subsequent re-engagement. A (student, PS) pair therefore names
+  a history of engagements, not one — ``uid`` names one.
 
 The gateway returns the raw datetime/state shape, not the ``Engagement`` value
 object — the facade composes the ``spawned_instance_uids`` field on top.
@@ -26,6 +28,7 @@ from typing import TYPE_CHECKING, Any
 
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
+from core.utils.uid_generator import UIDGenerator
 
 from .engagement import Engagement, EngagementEdgeState
 
@@ -105,7 +108,12 @@ class _EngagementGateway:
         # facade test for this case is the concurrency test in Phase 4
         # verification — in practice we accept the race for V1; a Neo4j unique
         # constraint on (User, PS, state="engaged") would harden it later.
-        result = await self._backend.create_engagement_edge(student_uid, ps_uid, now.isoformat())
+        result = await self._backend.create_engagement_edge(
+            student_uid,
+            ps_uid,
+            UIDGenerator.generate_random_uid("engagement"),
+            now.isoformat(),
+        )
         if result.is_error:
             return Result.fail(result)
         records: list[dict[str, Any]] = result.value
@@ -172,6 +180,7 @@ class _EngagementGateway:
 def _record_to_engagement(record: dict[str, Any], student_uid: str, ps_uid: str) -> Engagement:
     """Reconstruct an Engagement from a Neo4j record's edge properties."""
     return Engagement(
+        uid=record["uid"],
         student_uid=student_uid,
         ps_uid=ps_uid,
         state=record["state"],
