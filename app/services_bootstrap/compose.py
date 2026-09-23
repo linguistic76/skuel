@@ -1530,6 +1530,7 @@ async def compose_services(
             tasks_service=activity_services["tasks"],
             habits_backend=habits_backend,
             events_service=activity_services["events"],
+            habits_relationships=activity_services["habits"].relationships,
         )
         logger.info("✅ Orchestration services created")
 

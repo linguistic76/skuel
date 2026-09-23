@@ -20,6 +20,13 @@ WHAT WAS DROPPED (measured 2026-08-06, route door, before this change)
     onto the shared create primitive (``EventsCoreService._write_link_edges``), exactly as
     Tasks' #967 and Goals' #965.
 
+Habit-scheduled goals (measured 2026-09-23, entity door)
+    ``HabitEventScheduler`` stamped the first goal on a field ``EventDTO`` does not
+    have and parked the list in metadata nothing reads, so no CONTRIBUTES_TO_GOAL edge
+    was written. ``Event.contributes_to_goal_uids`` is that edge's create-only, plural
+    input — one edge per goal — carried by both doors and written in the same guarded
+    batch, before the announcement.
+
 DOOR ASYMMETRY (deliberate, asserted below)
 -------------------------------------------
 ``milestone_celebration_for_goal`` (→ CELEBRATES_GOAL) reaches no ``Event`` field, so
@@ -86,6 +93,7 @@ USER_UID = "user:event-edges"
 OTHER_USER = "user:someone-else"
 HABIT_UID = "habit:morning-pages"
 GOAL_UID = "goal:launch-milestone"
+SECOND_GOAL_UID = "goal:weekly-cadence"
 KU_UID = "ku.python.decorators"
 TASK_UID = "task:prepare-agenda"
 TOMORROW = date.today() + timedelta(days=1)
@@ -379,6 +387,124 @@ class TestEventCelebratedGoalEdge:
             "CELEBRATES_GOAL",
         }
         assert all(edge[0] == result.value.uid for edge in backend.batched)
+
+
+# ============================================================================
+# THE CONTRIBUTED-GOAL EDGES — entity-carried and plural, so BOTH doors write them
+# ============================================================================
+
+
+@pytest.mark.asyncio
+class TestEventContributedGoalEdges:
+    """``contributes_to_goal_uids`` → one CONTRIBUTES_TO_GOAL edge per goal. It rides
+    on the ``Event``, so the entity door (``HabitEventScheduler``) and the request door
+    (``POST /api/events/create``) share one write, in the batch that precedes the
+    announcement."""
+
+    async def test_entity_door_writes_one_edge_per_goal(
+        self, core: EventsCoreService, backend: StubBackend
+    ) -> None:
+        entity = Event(
+            uid="event:scheduled",
+            user_uid=USER_UID,
+            title="Read",
+            event_date=TOMORROW,
+            start_time=time(9, 0),
+            end_time=time(9, 30),
+            contributes_to_goal_uids=(GOAL_UID, SECOND_GOAL_UID),
+        )
+        result = await core.create(entity)
+
+        assert result.is_ok, f"create failed: {result.error}"
+        assert edges_of(backend, RelationshipName.CONTRIBUTES_TO_GOAL) == [
+            (result.value.uid, GOAL_UID, "CONTRIBUTES_TO_GOAL", None),
+            (result.value.uid, SECOND_GOAL_UID, "CONTRIBUTES_TO_GOAL", None),
+        ]
+
+    async def test_request_door_writes_one_edge_per_goal(
+        self, core: EventsCoreService, backend: StubBackend
+    ) -> None:
+        result = await core.create_event(
+            make_request(contributes_to_goal_uids=[GOAL_UID, SECOND_GOAL_UID]), USER_UID
+        )
+
+        assert result.is_ok, f"create_event failed: {result.error}"
+        written = edges_of(backend, RelationshipName.CONTRIBUTES_TO_GOAL)
+        assert {edge[1] for edge in written} == {GOAL_UID, SECOND_GOAL_UID}
+        assert all(edge[0] == result.value.uid for edge in written)
+
+    async def test_a_repeated_goal_is_one_edge(
+        self, core: EventsCoreService, backend: StubBackend
+    ) -> None:
+        await core.create_event(
+            make_request(contributes_to_goal_uids=[GOAL_UID, GOAL_UID]), USER_UID
+        )
+        assert len(edges_of(backend, RelationshipName.CONTRIBUTES_TO_GOAL)) == 1
+
+    async def test_the_uids_are_never_a_node_property(
+        self, core: EventsCoreService, backend: StubBackend
+    ) -> None:
+        assert "contributes_to_goal_uids" in RELATIONSHIP_SKIP_FIELDS
+        await core.create_event(make_request(contributes_to_goal_uids=[GOAL_UID]), USER_UID)
+        assert "contributes_to_goal_uids" not in backend.created[0]
+
+    async def test_another_users_goal_is_refused_and_the_own_goal_kept(
+        self, core: EventsCoreService, backend: StubBackend
+    ) -> None:
+        backend.owners[SECOND_GOAL_UID] = OTHER_USER
+
+        result = await core.create_event(
+            make_request(contributes_to_goal_uids=[GOAL_UID, SECOND_GOAL_UID]), USER_UID
+        )
+
+        assert result.is_ok
+        assert edges_of(backend, RelationshipName.CONTRIBUTES_TO_GOAL) == [
+            (result.value.uid, GOAL_UID, "CONTRIBUTES_TO_GOAL", None)
+        ], "a cross-user CONTRIBUTES_TO_GOAL edge was admitted"
+
+    async def test_a_uid_that_is_not_a_goal_is_refused(
+        self, core: EventsCoreService, backend: StubBackend
+    ) -> None:
+        backend.labels[HABIT_UID] = ["Entity", "Habit"]
+
+        result = await core.create_event(
+            make_request(contributes_to_goal_uids=[HABIT_UID, GOAL_UID]), USER_UID
+        )
+
+        assert edges_of(backend, RelationshipName.CONTRIBUTES_TO_GOAL) == [
+            (result.value.uid, GOAL_UID, "CONTRIBUTES_TO_GOAL", None)
+        ], "a Habit was linked as a goal the event contributes to"
+
+    async def test_the_edge_agrees_with_the_registry(self) -> None:
+        spec = EVENTS_CONFIG.get_relationship_by_method("goals")
+        assert spec is not None, "EVENTS_CONFIG has no 'goals' relationship"
+        assert spec.relationship == RelationshipName.CONTRIBUTES_TO_GOAL
+        assert spec.direction == "outgoing"
+
+    async def test_the_edges_precede_the_announcement(
+        self, core: EventsCoreService, backend: StubBackend, event_bus: InMemoryEventBus
+    ) -> None:
+        """The context rebuild ``CalendarEventCreated`` triggers reads
+        CONTRIBUTES_TO_GOAL back (user_context_queries.py); edges written after the
+        publish would be cached as absent for the full TTL."""
+        record_calendar_event_created(event_bus, backend)
+
+        await core.create_event(
+            make_request(reinforces_habit_uid=HABIT_UID, contributes_to_goal_uids=[GOAL_UID]),
+            USER_UID,
+        )
+
+        assert backend.trace == [
+            "node_created",
+            "link_edges_written",
+            "calendar_event_created_published",
+        ]
+        assert backend.trace.count("link_edges_written") == 1, (
+            "habit and goal links must share one all-or-nothing batch"
+        )
+        assert edges_of(backend, RelationshipName.CONTRIBUTES_TO_GOAL), (
+            "the goal edge was not in the batch that precedes the announcement"
+        )
 
 
 # ============================================================================

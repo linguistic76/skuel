@@ -11,7 +11,12 @@ Pinned here with a fake Events facade:
   so the primitive writes the edge, not the scheduler;
 - the streak-maintenance door does the same;
 - ``auto_create=False`` persists nothing;
-- a refused create is skipped, the rest still land.
+- a refused create is skipped, the rest still land;
+- both doors also carry every goal the habit supports as
+  ``contributes_to_goal_uids`` — the CONTRIBUTES_TO_GOAL edges' INPUT on create — so
+  the primitive writes one edge per goal before it announces the event. The scheduler
+  used to stamp the first goal on a field ``EventDTO`` does not have (under a
+  ``type: ignore``) and park the list in unread metadata, so no edge was ever written.
 """
 
 from __future__ import annotations
@@ -28,6 +33,7 @@ from core.utils.result_simplified import Errors, Result
 
 HABIT_UID = "habit_read_daily"
 USER = "user_sched"
+GOALS = ("goal_fluency", "goal_reading_list")
 
 
 class _FakeEventsFacade:
@@ -57,6 +63,21 @@ class _FakeHabitsBackend:
         return Result.ok(self._habit)
 
 
+class _FakeHabitRelationships:
+    """The one relationship read the scheduler makes: the goals a habit supports."""
+
+    def __init__(self, goals: tuple[str, ...] = GOALS, *, fails: bool = False) -> None:
+        self._goals = goals
+        self._fails = fails
+        self.reads: list[tuple[str, str]] = []
+
+    async def get_related_uids(self, relationship_key: str, entity_uid: str) -> Result[list[str]]:
+        self.reads.append((relationship_key, entity_uid))
+        if self._fails:
+            return Result.fail(Errors.database("get_related_uids", "refused by the fixture"))
+        return Result.ok(list(self._goals))
+
+
 def _habit() -> Habit:
     return Habit(
         uid=HABIT_UID,
@@ -68,10 +89,13 @@ def _habit() -> Habit:
     )
 
 
-def _scheduler(facade: _FakeEventsFacade) -> HabitEventScheduler:
+def _scheduler(
+    facade: _FakeEventsFacade, relationships: _FakeHabitRelationships | None = None
+) -> HabitEventScheduler:
     return HabitEventScheduler(
         habits_backend=_FakeHabitsBackend(_habit()),  # type: ignore[arg-type]  # one method of the protocol
         events_service=facade,  # type: ignore[arg-type]
+        relationship_service=relationships or _FakeHabitRelationships(),  # type: ignore[arg-type]  # one method of the protocol
         config=EventSchedulingConfig(schedule_ahead_days=3),
     )
 
@@ -125,3 +149,61 @@ async def test_a_refused_create_is_skipped_and_the_rest_land() -> None:
     assert result.is_ok
     assert len(result.value) == 1
     assert len(facade.created) == 1
+
+
+@pytest.mark.asyncio
+async def test_every_scheduled_event_carries_every_goal_the_habit_supports() -> None:
+    relationships = _FakeHabitRelationships()
+    facade = _FakeEventsFacade()
+    result = await _scheduler(facade, relationships).schedule_events_for_habit(
+        HABIT_UID, UserContext(user_uid=USER), auto_create=True
+    )
+
+    assert result.is_ok
+    assert facade.created
+    assert all(e.contributes_to_goal_uids == GOALS for e in facade.created), (
+        "a scheduled event lost a goal its habit supports"
+    )
+    assert relationships.reads == [("supported_goals", HABIT_UID)], (
+        "the habit's goals are read once per habit, not once per event"
+    )
+
+
+@pytest.mark.asyncio
+async def test_streak_maintenance_carries_every_goal_the_habit_supports() -> None:
+    facade = _FakeEventsFacade()
+    context = UserContext(user_uid=USER, habit_streaks={HABIT_UID: 3}, at_risk_habits=[HABIT_UID])
+    result = await _scheduler(facade).schedule_streak_maintenance(context, auto_create=True)
+
+    assert result.is_ok
+    assert facade.created
+    assert facade.created[0].contributes_to_goal_uids == GOALS
+
+
+@pytest.mark.asyncio
+async def test_an_unreadable_goal_list_still_schedules_the_events() -> None:
+    """The goals decorate the event; they do not gate it."""
+    facade = _FakeEventsFacade()
+    result = await _scheduler(
+        facade, _FakeHabitRelationships(fails=True)
+    ).schedule_events_for_habit(HABIT_UID, UserContext(user_uid=USER), auto_create=True)
+
+    assert result.is_ok
+    assert facade.created
+    assert all(e.contributes_to_goal_uids == () for e in facade.created)
+    assert all(e.reinforces_habit_uid == HABIT_UID for e in facade.created)
+
+
+@pytest.mark.asyncio
+async def test_templates_carry_no_goal_metadata() -> None:
+    """The goal list used to ride in ``metadata["supports_goals"]``, which nothing
+    read; the edge replaces it, so the templates no longer carry it."""
+    facade = _FakeEventsFacade()
+    result = await _scheduler(facade).schedule_events_for_habit(
+        HABIT_UID, UserContext(user_uid=USER), auto_create=False
+    )
+
+    assert result.is_ok and result.value
+    for template in result.value:
+        assert "supports_goals" not in template.metadata
+        assert "practices_knowledge_uids" not in template.metadata

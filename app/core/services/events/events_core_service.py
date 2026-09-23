@@ -364,7 +364,9 @@ class EventsCoreService(
             return result
 
         event = result.value
-        await self._write_link_edges(event, entity.reinforces_habit_uid, request)
+        await self._write_link_edges(
+            event, entity.reinforces_habit_uid, entity.contributes_to_goal_uids, request
+        )
 
         # Every edge is written — only now announce the event.
         await self._publish_created(event)
@@ -382,21 +384,29 @@ class EventsCoreService(
         return await super().create(entity)
 
     async def _write_link_edges(
-        self, event: Event, habit_uid: str | None, request: EventCreateRequest | None
+        self,
+        event: Event,
+        habit_uid: str | None,
+        goal_uids: tuple[str, ...],
+        request: EventCreateRequest | None,
     ) -> None:
         """GRAPH-NATIVE: turn the event's cross-domain links into edges, in one batch.
 
-        Two registered relationships, from two different sources:
+        Three registered relationships, from two different sources:
 
         - ``Event.reinforces_habit_uid`` → REINFORCES_HABIT — from the ENTITY, so BOTH
           doors write it. Passed in as ``habit_uid`` rather than read off ``event``,
           which cannot carry it once persisted (see ``_create_with_links``).
+        - ``Event.contributes_to_goal_uids`` → one CONTRIBUTES_TO_GOAL per goal — from
+          the ENTITY too, passed in as ``goal_uids`` for the same reason. The request
+          door sets it on the entity; ``HabitEventScheduler`` sets it to the goals the
+          scheduled event's habit supports.
         - ``request.milestone_celebration_for_goal`` → CELEBRATES_GOAL — request door
           only; the ``Event`` carries no such field, so the ENTITY door can never write
           it (a link the entity cannot carry is a link that door cannot write) —
           HTTP callers sit on the request door since the route was bound here.
 
-        ADMISSION: both UIDs are request input, so each is checked for existence, OWNER
+        ADMISSION: every UID is request input, so each is checked for existence, OWNER
         and KIND before it becomes an edge — see ``keep_permitted_link_edges``. The
         declared kinds come from the field names, because the registry cannot check
         them: Events' REINFORCES_HABIT spec declares its target label as ``Entity``, so
@@ -423,6 +433,15 @@ class EventsCoreService(
                     (event.uid, habit_uid, RelationshipName.REINFORCES_HABIT.value, None),
                     other_uid=habit_uid,
                     allowed_labels=frozenset({NeoLabel.HABIT.value}),
+                )
+            )
+        # dict.fromkeys: a repeated uid is one edge, not two candidates for one MERGE.
+        for goal_uid in dict.fromkeys(goal_uids):
+            candidates.append(
+                LinkEdge(
+                    (event.uid, goal_uid, RelationshipName.CONTRIBUTES_TO_GOAL.value, None),
+                    other_uid=goal_uid,
+                    allowed_labels=frozenset({NeoLabel.GOAL.value}),
                 )
             )
         if request is not None and request.milestone_celebration_for_goal:
@@ -465,7 +484,7 @@ class EventsCoreService(
         ``CalendarEventCreated`` is subscribed to ``invalidate_context``
         (services_bootstrap/_event_wiring.py), which debounces and then rebuilds the
         user context — and the rebuild reads ``(event)-[:REINFORCES_HABIT]->(:Habit)``
-        back out of the graph (adapters/persistence/neo4j/user_context_queries.py). The
+        and ``(event)-[:CONTRIBUTES_TO_GOAL]->(:Goal)`` back out of the graph (adapters/persistence/neo4j/user_context_queries.py). The
         old request door wrote its edges AFTER the publish, so the rebuild could observe
         an event with no links and cache that empty result for the full TTL — the same
         inversion Codex reported on #960, closed for Tasks in #967.
@@ -524,8 +543,9 @@ class EventsCoreService(
 
         Moved from the facade (which now delegates) so the door sits beside the
         primitive it feeds, as ``create_goal`` / ``create_habit`` / ``create_task`` do
-        in their domains. ``reinforces_habit_uid`` is set ON the entity so the shared
-        path writes the habit edge for this door exactly as it does for the entity door;
+        in their domains. ``reinforces_habit_uid`` and ``contributes_to_goal_uids`` are
+        set ON the entity so the shared path writes the habit and goal edges for this
+        door exactly as it does for the entity door;
         only ``milestone_celebration_for_goal`` is forwarded via ``request``, because it
         is edge-shaped and reaches no ``Event`` field.
 
@@ -563,6 +583,7 @@ class EventsCoreService(
             habit_completion_quality=request.habit_completion_quality,
             knowledge_retention_check=request.knowledge_retention_check,
             reinforces_habit_uid=request.reinforces_habit_uid,
+            contributes_to_goal_uids=tuple(request.contributes_to_goal_uids),
         )
         return await self._create_with_links(event, request=request)
 

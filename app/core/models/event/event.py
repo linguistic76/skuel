@@ -131,6 +131,14 @@ class Event(UserOwnedEntity):
     # (Event)-[:CONTRIBUTES_TO_GOAL]->(Goal); populated at fetch time via
     # enrich_events_with_goal_links for scoring. The edge is the single source of truth.
     contributes_to_goal_uid: str | None = None  # DERIVED — see note above
+    # CREATE-ONLY INPUT for the same edge — never persisted (RELATIONSHIP_SKIP_FIELDS),
+    # never populated on read. Plural because an event can contribute to several goals
+    # (a habit-scheduled event contributes to every goal its habit supports). The shared
+    # create primitive (``EventsCoreService._write_link_edges``) turns each uid into a
+    # CONTRIBUTES_TO_GOAL edge before ``CalendarEventCreated`` is published. Like
+    # ``reinforces_habit_uid`` it does not survive the round-trip, so it is read off the
+    # INPUT entity. The singular field above stays the read-side projection.
+    contributes_to_goal_uids: tuple[str, ...] = ()
 
     # =========================================================================
     # CURRICULUM / MILESTONE INTEGRATION

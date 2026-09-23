@@ -100,6 +100,10 @@ RELATIONSHIP_SKIP_FIELDS = {
     # it; this entry makes the docstring's "never persisted" enforced rather than
     # incidental.
     "contributes_to_goal_uid",
+    # The same edge's create-only INPUT on Event (plural — one edge per goal), turned
+    # into edges by EventsCoreService._write_link_edges. Skipped so the uids never
+    # land as a node property no reader consults.
+    "contributes_to_goal_uids",
     # Domain relationships
     "domain_uids",
     "used_by_uids",

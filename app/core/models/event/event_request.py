@@ -71,6 +71,10 @@ class EventCreateRequest(BaseModel):
     milestone_celebration_for_goal: str | None = Field(
         default=None, description="Goal milestone being celebrated"
     )
+    contributes_to_goal_uids: list[str] = Field(
+        default_factory=list,
+        description="Goals this event contributes to (one CONTRIBUTES_TO_GOAL edge each)",
+    )
     executes_tasks: list[str] = Field(
         default_factory=list, description="Tasks to execute during event"
     )

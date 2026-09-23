@@ -103,10 +103,6 @@ renders them as a table in Obsidian, and a session derives the same table with
 
 [A Frontmatter Edge Whose Target Does Not Exist Yet Is Silent](frontmatter-edge-target-missing-is-silent.md) — Every `*_uids:` channel drops an edge whose target node is absent and reports nothing; MOC body links already warn, the structural channels do not.
 
-## `HabitEventScheduler` Stamps a Goal on a Field `Event` Does Not Have
-
-[HabitEventScheduler Stamps a Goal on a Field Event Does Not Have](habit-event-scheduler-dead-goal-stamp.md) — A dead `fulfills_goal_uid` stamp under a `type: ignore` — the real work is the `CONTRIBUTES_TO_GOAL` edge post-persist, guarded.
-
 ## `UserLearningIntelligence` Write-Only Fields
 
 [UserLearningIntelligence Write-Only Fields](user-learning-intelligence-write-only-fields.md) — A dataclass whose sources were deleted: everything but `current_masteries` and the velocity reading is written and never read — trim it, or name a consumer.

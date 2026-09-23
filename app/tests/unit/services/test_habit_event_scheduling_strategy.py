@@ -199,7 +199,6 @@ class TestRoutineCursor:
         instance = HabitEventScheduler.__new__(HabitEventScheduler)
         instance.config = EventSchedulingConfig()
         instance.logger = get_logger("test.habit_event_scheduler")
-        instance.relationships = None
         backend = Mock()
 
         async def get_habit(uid: str) -> Result[HabitDTO]:
