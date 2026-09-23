@@ -14,9 +14,7 @@ Pinned here with a fake Events facade:
 - a refused create is skipped, the rest still land;
 - both doors also carry every goal the habit supports as
   ``contributes_to_goal_uids`` — the CONTRIBUTES_TO_GOAL edges' INPUT on create — so
-  the primitive writes one edge per goal before it announces the event. The scheduler
-  used to stamp the first goal on a field ``EventDTO`` does not have (under a
-  ``type: ignore``) and park the list in unread metadata, so no edge was ever written.
+  the primitive writes one edge per goal before it announces the event.
 """
 
 from __future__ import annotations
@@ -196,8 +194,8 @@ async def test_an_unreadable_goal_list_still_schedules_the_events() -> None:
 
 @pytest.mark.asyncio
 async def test_templates_carry_no_goal_metadata() -> None:
-    """The goal list used to ride in ``metadata["supports_goals"]``, which nothing
-    read; the edge replaces it, so the templates no longer carry it."""
+    """The goals live on the edge alone — the templates carry no goal or knowledge
+    metadata keys."""
     facade = _FakeEventsFacade()
     result = await _scheduler(facade).schedule_events_for_habit(
         HABIT_UID, UserContext(user_uid=USER), auto_create=False

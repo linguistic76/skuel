@@ -20,12 +20,12 @@ WHAT WAS DROPPED (measured 2026-08-06, route door, before this change)
     onto the shared create primitive (``EventsCoreService._write_link_edges``), exactly as
     Tasks' #967 and Goals' #965.
 
-Habit-scheduled goals (measured 2026-09-23, entity door)
-    ``HabitEventScheduler`` stamped the first goal on a field ``EventDTO`` does not
-    have and parked the list in metadata nothing reads, so no CONTRIBUTES_TO_GOAL edge
-    was written. ``Event.contributes_to_goal_uids`` is that edge's create-only, plural
-    input — one edge per goal — carried by both doors and written in the same guarded
-    batch, before the announcement.
+
+THE CONTRIBUTED GOALS (both doors)
+----------------------------------
+``Event.contributes_to_goal_uids`` is the CONTRIBUTES_TO_GOAL edge's create-only, plural
+input — one edge per goal — carried by both doors and written in the same guarded batch,
+before the announcement. ``HabitEventScheduler`` is its entity-door writer.
 
 DOOR ASYMMETRY (deliberate, asserted below)
 -------------------------------------------

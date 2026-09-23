@@ -1,15 +1,11 @@
 """Real-Neo4j: habit-scheduled events contribute to every goal their habit supports.
 
-``HabitEventScheduler`` used to stamp the habit's FIRST goal on ``event.fulfills_goal_uid``
-— a field ``EventDTO`` does not declare, hidden from mypy by a ``type: ignore`` — and park
-the full list in ``metadata["supports_goals"]``, which no reader consults. Nothing on the
-create path wrote ``(Event)-[:CONTRIBUTES_TO_GOAL]->(Goal)``, the edge every Event→Goal
-reader traverses. Worse, bootstrap built the scheduler with no relationship service, so
-the goal branch never ran in production at all.
-
-The scheduler now reads the habit's goals and sets them on the entity as
-``contributes_to_goal_uids``; the Events create primitive turns each into an edge, through
-the owner/kind/existence admission, BEFORE it publishes ``CalendarEventCreated``.
+``HabitEventScheduler`` reads the goals a habit supports (``supported_goals``, through the
+Habits relationship service) and sets them on each scheduled event as
+``contributes_to_goal_uids``. The Events create primitive turns each into an
+``(Event)-[:CONTRIBUTES_TO_GOAL]->(Goal)`` edge — admitted on existence, owner and kind —
+BEFORE it publishes ``CalendarEventCreated``. The goals are never a node property or
+metadata key.
 
 Everything here goes through production writers: the goals and the habit's
 ``SUPPORTS_GOAL`` edges are created by ``GoalsCoreService.create_goal`` /
@@ -17,6 +13,8 @@ Everything here goes through production writers: the goals and the habit's
 ``UnifiedRelationshipService``, and the events persist through the real ``EventsService``.
 Ordering is asserted by querying the graph from INSIDE a ``CalendarEventCreated``
 subscriber — the moment the context rebuild would read it.
+
+Record of the defect this closes: docs/roadmap/done/habit-event-scheduler-dead-goal-stamp.md
 """
 
 from datetime import date, time, timedelta
