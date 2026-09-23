@@ -11,8 +11,6 @@ email-reset flow's always-ok contract.
 
 from __future__ import annotations
 
-from dataclasses import replace
-from datetime import UTC, datetime, timedelta
 from unittest.mock import AsyncMock
 
 import pytest
@@ -21,7 +19,7 @@ from neo4j.exceptions import ServiceUnavailable
 from core.auth.graph_auth import GraphAuthService
 from core.auth.password import hash_password
 from core.models.auth.auth_event import AuthEventType
-from core.models.auth.password_reset_token import create_password_reset_token
+from core.models.auth.password_reset_token import PasswordResetClaim
 from core.models.user import create_user
 from core.utils.result_simplified import ErrorCategory, Errors, Result
 
@@ -261,20 +259,54 @@ async def test_change_password_for_unknown_user_is_not_found():
 
     assert result.is_error
     assert result.expect_error().category == ErrorCategory.NOT_FOUND
-    session_backend.invalidate_all_user_sessions.assert_not_awaited()
+    session_backend.change_password_and_revoke_sessions.assert_not_awaited()
 
 
-async def test_change_password_keeps_sessions_when_update_fails():
+async def test_change_password_swaps_against_the_verified_hash():
+    """The write is guarded on the hash the old password was checked against."""
     service, user_backend, session_backend = _service()
     user_backend.get_user_by_uid.return_value = Result.ok(_user())
-    user_backend.update_user.return_value = Result.fail(
-        Errors.database(operation="update_user", message="down")
+    session_backend.change_password_and_revoke_sessions.return_value = Result.ok(2)
+
+    result = await service.change_password("user_alice", _PASSWORD, _NEW_PASSWORD)
+
+    assert result.is_ok and result.value is True
+    uid, expected_hash, new_hash = (
+        session_backend.change_password_and_revoke_sessions.await_args.args
+    )
+    assert uid == "user_alice"
+    assert expected_hash == _PASSWORD_HASH
+    assert new_hash != _PASSWORD_HASH and _NEW_PASSWORD not in new_hash
+    assert [e.event_type for e in _logged_events(session_backend)] == [
+        AuthEventType.PASSWORD_CHANGED
+    ]
+
+
+async def test_change_password_reports_failure_when_swap_and_revoke_fails():
+    """A failed hash-swap+revocation must not be reported as a changed password."""
+    service, user_backend, session_backend = _service()
+    user_backend.get_user_by_uid.return_value = Result.ok(_user())
+    session_backend.change_password_and_revoke_sessions.return_value = Result.fail(
+        Errors.database(operation="change_password_and_revoke_sessions", message="down")
     )
 
     result = await service.change_password("user_alice", _PASSWORD, _NEW_PASSWORD)
 
     assert result.is_error
-    session_backend.invalidate_all_user_sessions.assert_not_awaited()
+    assert _logged_events(session_backend) == []
+
+
+async def test_change_password_refused_when_hash_changed_underneath():
+    """A reset (or another change) landing after the old-password check wins; this one fails."""
+    service, user_backend, session_backend = _service()
+    user_backend.get_user_by_uid.return_value = Result.ok(_user())
+    session_backend.change_password_and_revoke_sessions.return_value = Result.ok(None)
+
+    result = await service.change_password("user_alice", _PASSWORD, _NEW_PASSWORD)
+
+    assert result.is_error
+    assert result.expect_error().category == ErrorCategory.BUSINESS
+    assert _logged_events(session_backend) == []
 
 
 # ============================================================================
@@ -294,27 +326,62 @@ async def test_admin_reset_token_for_unknown_user_is_not_found():
 
 
 async def test_reset_with_unknown_token_is_refused():
-    service, user_backend, session_backend = _service()
-    session_backend.get_reset_token.return_value = Result.ok(None)
+    service, _, session_backend = _service()
+    session_backend.reset_password_and_revoke_sessions.return_value = Result.ok(None)
 
     result = await service.reset_password_with_token("bogus", _NEW_PASSWORD)
 
     assert result.is_error
-    user_backend.update_user.assert_not_awaited()
+    assert result.expect_error().category == ErrorCategory.VALIDATION
+    assert _logged_events(session_backend) == []
 
 
-async def test_reset_with_expired_token_is_refused():
-    service, user_backend, session_backend = _service()
-    token = create_password_reset_token(user_uid="user_alice")
-    expired = replace(token, expires_at=datetime.now(UTC) - timedelta(minutes=1))
-    session_backend.get_reset_token.return_value = Result.ok(expired)
+async def test_reset_with_unclaimable_token_is_refused():
+    """A used/expired token comes back unclaimed — the backend wrote nothing, so no success."""
+    service, _, session_backend = _service()
+    session_backend.reset_password_and_revoke_sessions.return_value = Result.ok(
+        PasswordResetClaim(
+            claimed=False, user_uid="user_alice", email="alice@example.com", revoked_count=0
+        )
+    )
 
-    result = await service.reset_password_with_token(expired.token, _NEW_PASSWORD)
+    result = await service.reset_password_with_token("spent-token", _NEW_PASSWORD)
 
     assert result.is_error
     assert result.expect_error().category == ErrorCategory.VALIDATION
-    user_backend.update_user.assert_not_awaited()
-    session_backend.mark_reset_token_used.assert_not_awaited()
+    assert _logged_events(session_backend) == []
+
+
+async def test_reset_reports_failure_when_claim_and_revoke_fails():
+    """A failed claim+revocation must not be reported as a completed reset."""
+    service, _, session_backend = _service()
+    session_backend.reset_password_and_revoke_sessions.return_value = Result.fail(
+        Errors.database(operation="reset_password_and_revoke_sessions", message="down")
+    )
+
+    result = await service.reset_password_with_token("live-token", _NEW_PASSWORD)
+
+    assert result.is_error
+    assert _logged_events(session_backend) == []
+
+
+async def test_reset_hashes_the_new_password_and_logs_completion():
+    service, _, session_backend = _service()
+    session_backend.reset_password_and_revoke_sessions.return_value = Result.ok(
+        PasswordResetClaim(
+            claimed=True, user_uid="user_alice", email="alice@example.com", revoked_count=1
+        )
+    )
+
+    result = await service.reset_password_with_token("live-token", _NEW_PASSWORD)
+
+    assert result.is_ok and result.value is True
+    token_value, new_hash = session_backend.reset_password_and_revoke_sessions.await_args.args
+    assert token_value == "live-token"
+    assert _NEW_PASSWORD not in new_hash
+    events = _logged_events(session_backend)
+    assert [e.event_type for e in events] == [AuthEventType.PASSWORD_RESET_COMPLETED]
+    assert events[0].user_uid == "user_alice"
 
 
 async def test_reset_rejects_weak_password_before_consuming_token():
@@ -323,7 +390,7 @@ async def test_reset_rejects_weak_password_before_consuming_token():
     result = await service.reset_password_with_token("any-token", "short")
 
     assert result.is_error
-    session_backend.get_reset_token.assert_not_awaited()
+    session_backend.reset_password_and_revoke_sessions.assert_not_awaited()
 
 
 # ============================================================================

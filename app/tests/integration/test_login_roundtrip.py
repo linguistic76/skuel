@@ -14,6 +14,7 @@ the real UserBackend + SessionBackend against the testcontainer driver
 
 from __future__ import annotations
 
+import asyncio
 import uuid
 
 import pytest
@@ -162,37 +163,6 @@ async def test_wrong_password_rejected_and_no_session(neo4j_driver, auth_env):
     assert await _count_sessions(neo4j_driver, f"user_{username}") == 0, (
         "A failed login must not create a Session node"
     )
-
-
-async def test_revocation_invalidates_live_session(neo4j_driver, auth_env):
-    """Server-side revocation must flip a live token to invalid.
-
-    invalidate_all_user_sessions is the sweep used by password change/reset;
-    AuthContextMiddleware clears any cookie whose token no longer validates
-    (middleware half pinned in tests/unit/adapters/test_auth_context.py).
-    Privilege changes use the atomic variants pinned below.
-    """
-    auth, track = auth_env
-    username, email = track(*_credentials("revoke"))
-    user_uid = f"user_{username}"
-
-    signup = await auth.sign_up(email=email, password=_PASSWORD, username=username)
-    assert signup.is_ok, f"sign_up failed: {signup.error}"
-
-    signin = await auth.sign_in(email=email, password=_PASSWORD)
-    assert signin.is_ok, f"sign_in failed: {signin.error}"
-    token = signin.value["session_token"]
-
-    valid = await auth.validate_session_uid(token)
-    assert valid.is_ok and valid.value == user_uid, "live session must validate before revocation"
-
-    revoked = await auth.session_backend.invalidate_all_user_sessions(user_uid)
-    assert revoked.is_ok, f"revocation failed: {revoked.error}"
-    assert revoked.value == 1, "exactly the one live session should be revoked"
-
-    after = await auth.validate_session_uid(token)
-    assert after.is_ok, f"post-revocation validation errored: {after.error}"
-    assert after.value is None, "revoked session must not validate"
 
 
 async def test_role_change_atomically_revokes_live_sessions(neo4j_driver, auth_env):
@@ -559,3 +529,104 @@ async def test_non_admin_cannot_issue_reset_token(neo4j_driver, auth_env):
         )
         record = await result.single()
     assert record is not None and record["c"] == 0, "a refused request must not create a token"
+
+
+async def _issue_reset_token(auth, user_uid: str, *, expiry_minutes: int = 15) -> str:
+    from core.models.auth.password_reset_token import create_password_reset_token
+
+    token = create_password_reset_token(user_uid, expiry_minutes=expiry_minutes)
+    created = await auth.session_backend.create_reset_token(token)
+    assert created.is_ok, f"create_reset_token failed: {created.error}"
+    return token.token
+
+
+async def test_concurrent_resets_with_one_token_exactly_one_wins(neo4j_driver, auth_env):
+    """Two simultaneous redemptions of one token: exactly one sets its password."""
+    from core.models.auth.auth_event import AuthEventType
+
+    auth, track = auth_env
+    user_uid, email, _ = await _signed_up_and_in(auth, track, "racereset")
+    reset_token = await _issue_reset_token(auth, user_uid)
+    passwords = ("roundtrip-RaceA-1111", "roundtrip-RaceB-2222")
+
+    results = await asyncio.gather(
+        *(auth.reset_password_with_token(reset_token, pw) for pw in passwords)
+    )
+
+    winners = [pw for pw, r in zip(passwords, results, strict=True) if r.is_ok]
+    assert len(winners) == 1, f"exactly one redemption may win, got {results}"
+    (loser,) = set(passwords) - set(winners)
+    assert (await auth.sign_in(email=email, password=winners[0])).is_ok
+    assert (await auth.sign_in(email=email, password=loser)).is_error
+    assert (
+        await _count_auth_events(
+            neo4j_driver, user_uid, AuthEventType.PASSWORD_RESET_COMPLETED.value
+        )
+        == 1
+    )
+
+
+async def test_concurrent_backend_claims_are_decided_by_the_write(neo4j_driver, auth_env):
+    """Many claims racing on one token, hashes precomputed so they truly overlap.
+
+    The service-level race above hashes with bcrypt on the event loop, which
+    staggers the statements; this drives the claim statement itself. Without
+    the write-lock taken before the read, concurrent statements all see
+    ``is_used = false`` and all "claim".
+    """
+    from core.auth.password import hash_password
+
+    auth, track = auth_env
+    user_uid, _email, _ = await _signed_up_and_in(auth, track, "raceclaim")
+    new_hash = hash_password("roundtrip-Claimed-3333")
+
+    for _trial in range(5):
+        reset_token = await _issue_reset_token(auth, user_uid)
+        claims = await asyncio.gather(
+            *(
+                auth.session_backend.reset_password_and_revoke_sessions(reset_token, new_hash)
+                for _ in range(6)
+            )
+        )
+        assert all(c.is_ok for c in claims), claims
+        assert sum(1 for c in claims if c.value is not None and c.value.claimed) == 1
+
+
+async def test_expired_reset_token_is_refused_by_the_write(neo4j_driver, auth_env):
+    """Expiry is checked in the claiming statement: nothing changes, sessions live."""
+    auth, track = auth_env
+    user_uid, email, token = await _signed_up_and_in(auth, track, "expired")
+    reset_token = await _issue_reset_token(auth, user_uid, expiry_minutes=-1)
+
+    reset = await auth.reset_password_with_token(reset_token, _NEW_PASSWORD)
+
+    assert reset.is_error, "an expired token must be refused"
+    assert (await auth.sign_in(email=email, password=_PASSWORD)).is_ok
+    still = await auth.validate_session_uid(token)
+    assert still.is_ok and still.value == user_uid, "a refused reset must not revoke sessions"
+
+
+async def test_change_password_refused_when_hash_changed_underneath(neo4j_driver, auth_env):
+    """A change verified against a stale hash must not overwrite a newer password.
+
+    Models change_password reading the user, then a reset committing before
+    its write: the compare-and-set sees a different hash and writes nothing.
+    """
+    from core.auth.password import hash_password
+
+    auth, track = auth_env
+    user_uid, email, _ = await _signed_up_and_in(auth, track, "casswap")
+    stale = await auth.user_backend.get_user_by_uid(user_uid)
+    assert stale.is_ok and stale.value is not None
+
+    reset = await auth.reset_password_with_token(
+        await _issue_reset_token(auth, user_uid), _NEW_PASSWORD
+    )
+    assert reset.is_ok, f"reset failed: {reset.error}"
+
+    swap = await auth.session_backend.change_password_and_revoke_sessions(
+        user_uid, stale.value.password_hash, hash_password("roundtrip-Stale-4444")
+    )
+
+    assert swap.is_ok and swap.value is None, "a stale compare must write nothing"
+    assert (await auth.sign_in(email=email, password=_NEW_PASSWORD)).is_ok

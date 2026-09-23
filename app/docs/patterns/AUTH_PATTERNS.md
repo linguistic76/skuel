@@ -1,6 +1,6 @@
 ---
 title: Authentication Patterns in SKUEL
-updated: '2026-09-22'
+updated: '2026-09-23'
 category: patterns
 related_skills: [security]
 related_docs: []
@@ -391,9 +391,14 @@ One navbar for every role (`ui/layouts/navbar.py`); what changes by auth state i
 6. clear_current_user() removes cookie, Session node invalidated
 ```
 
-Server-side revocation — `invalidate_all_user_sessions(user_uid)` on password change,
-password reset, admin role change, and deactivation — takes effect on the target's very
-next request because of step 4. See `/adapters/inbound/auth/context_middleware.py` for
+Server-side revocation takes effect on the target's very next request because of step 4.
+Every revoking operation commits its credential/privilege write AND the session sweep in
+ONE Cypher transaction on `SessionBackend`: `change_password_and_revoke_sessions`
+(compare-and-set on the hash the old password was verified against),
+`reset_password_and_revoke_sessions` (claims the reset token under its write-lock — of
+concurrent redemptions exactly one wins), `update_role_and_revoke_sessions`, and
+`deactivate_user_and_revoke_sessions`. A failed sweep fails the whole write, so the caller
+is never told "done" while old sessions still validate. See `/adapters/inbound/auth/context_middleware.py` for
 the enforcement semantics (exempt paths, 503-without-clearing on validation errors).
 
 ## Security Principles

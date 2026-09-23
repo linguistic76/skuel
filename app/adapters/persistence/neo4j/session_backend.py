@@ -17,13 +17,14 @@ See Also:
 """
 
 from typing import Any
+from uuid import uuid4
 
 from neo4j import AsyncDriver
 
 from adapters.persistence.neo4j.neo4j_mapper import from_neo4j_node
 from adapters.persistence.neo4j.session_runner import Neo4jSessionRunner
 from core.models.auth.auth_event import AuthEvent
-from core.models.auth.password_reset_token import PasswordResetToken
+from core.models.auth.password_reset_token import PasswordResetClaim, PasswordResetToken
 from core.models.auth.session import Session, hash_session_token
 from core.models.enums import UserRole
 from core.models.type_hints import UserUID
@@ -268,30 +269,71 @@ class SessionBackend(Neo4jSessionRunner):
 
         return Result.ok(record is not None)
 
-    @safe_backend_operation("invalidate_all_user_sessions")
-    async def invalidate_all_user_sessions(self, user_uid: UserUID) -> Result[int]:
-        """
-        Invalidate all sessions for a user.
+    @safe_backend_operation("change_password_and_revoke_sessions")
+    async def change_password_and_revoke_sessions(
+        self, user_uid: UserUID, expected_hash: str, new_hash: str
+    ) -> Result[int | None]:
+        """Atomically swap the password hash AND revoke every live session.
 
-        Used for security events like password change.
+        Same one-transaction shape as update_role_and_revoke_sessions: a
+        separate revoke step that fails after the hash landed would leave the
+        caller told "changed" while the old sessions keep validating, and a
+        retry would be refused by the old-password check.
+
+        The swap is a compare-and-set on ``expected_hash`` — the hash the
+        caller verified the current password against. The first SET takes
+        the User node's write-lock before the compare (MATCH alone takes
+        none, so two writers could both see the same hash — ADR-087
+        § Mechanics); a reset or another change that committed after the
+        caller's read makes the compare fail, and this write refuses rather
+        than overwriting a password it never verified.
 
         Args:
-            user_uid: User whose sessions to invalidate
+            user_uid: User whose password changes
+            expected_hash: Stored hash the caller verified the old password against
+            new_hash: Hash of the new password
 
         Returns:
-            Result[int]: Number of sessions invalidated
+            Result[int | None]: live sessions revoked; None when the stored
+            hash no longer matches (nothing written); not-found error when
+            the user does not exist
         """
         query = """
-        MATCH (u:User {uid: $user_uid})-[:HAS_SESSION]->(s:Session)
-        WHERE s.is_valid = true
+        MATCH (u:User {uid: $user_uid})
+        SET u.`_pw_lock` = $lock_token
+        WITH u, u.password_hash = $expected_hash AS matches
+        REMOVE u.`_pw_lock`
+        FOREACH (_ IN CASE WHEN matches THEN [1] ELSE [] END |
+            SET u.password_hash = $new_hash, u.updated_at = datetime()
+        )
+        WITH u, matches
+        OPTIONAL MATCH (u)-[:HAS_SESSION]->(s:Session)
+        WHERE matches AND s.is_valid = true
         SET s.is_valid = false
-        RETURN count(s) as invalidated_count
+        RETURN matches, count(s) AS revoked_count
         """
 
-        record = await self._run_single(query, {"user_uid": user_uid})
+        record = await self._run_single(
+            query,
+            {
+                "user_uid": user_uid,
+                "expected_hash": expected_hash,
+                "new_hash": new_hash,
+                "lock_token": uuid4().hex,
+            },
+        )
 
-        count = record["invalidated_count"] if record else 0
-        self.logger.info(f"Invalidated {count} sessions for user: {user_uid}")
+        if not record:
+            return Result.fail(Errors.not_found(resource="User", identifier=user_uid))
+
+        if not record["matches"]:
+            self.logger.warning(f"Password change for {user_uid} refused: hash changed underneath")
+            return Result.ok(None)
+
+        count = record["revoked_count"]
+        self.logger.info(
+            f"Changed password for {user_uid} and revoked {count} live session(s) atomically"
+        )
         return Result.ok(count)
 
     @safe_backend_operation("update_role_and_revoke_sessions")
@@ -679,49 +721,70 @@ class SessionBackend(Neo4jSessionRunner):
         self.logger.info(f"Created reset token for user: {token.user_uid}")
         return Result.ok(token)
 
-    @safe_backend_operation("get_reset_token")
-    async def get_reset_token(self, token_value: str) -> Result[PasswordResetToken | None]:
-        """
-        Get password reset token by token value.
+    @safe_backend_operation("reset_password_and_revoke_sessions")
+    async def reset_password_and_revoke_sessions(
+        self, token_value: str, new_hash: str
+    ) -> Result[PasswordResetClaim | None]:
+        """Claim a reset token, set the new hash AND revoke sessions — one transaction.
+
+        The claim is decided BY the write (ADR-087): the first SET takes the
+        token node's write-lock before ``is_used`` / ``expires_at`` are read,
+        so of two concurrent requests with one token exactly one sees it
+        unused — the other waits on the lock, then reads the committed
+        ``is_used = true`` and writes nothing. Token consumption, the
+        password hash and the session sweep commit together or not at all:
+        no state where the password changed but the token stays replayable,
+        or where the caller is told "reset" while old sessions validate.
+
+        A token whose user no longer exists is not claimable (hard delete
+        leaves the token node behind).
 
         Args:
-            token_value: The token string
+            token_value: The reset token string
+            new_hash: Hash of the new password
 
         Returns:
-            Result[PasswordResetToken | None]: Token if found and valid
+            Result[PasswordResetClaim | None]: None when no token has this
+            value; otherwise the claim — ``claimed=False`` (nothing written)
+            when the token is used, expired, or orphaned
         """
         query = """
         MATCH (t:PasswordResetToken {token: $token})
-        RETURN t
+        SET t.`_claim_lock` = $lock_token
+        WITH t, coalesce(t.is_used, false) AS was_used, t.expires_at AS expires_at
+        REMOVE t.`_claim_lock`
+        WITH t, was_used, expires_at
+        OPTIONAL MATCH (u:User)-[:HAS_RESET_TOKEN]->(t)
+        WITH t, u, (NOT was_used AND expires_at > datetime() AND u IS NOT NULL) AS claimed
+        FOREACH (_ IN CASE WHEN claimed THEN [1] ELSE [] END |
+            SET t.is_used = true, u.password_hash = $new_hash, u.updated_at = datetime()
+        )
+        WITH u, claimed
+        OPTIONAL MATCH (u)-[:HAS_SESSION]->(s:Session)
+        WHERE claimed AND s.is_valid = true
+        SET s.is_valid = false
+        RETURN claimed, u.uid AS user_uid, u.email AS email, count(s) AS revoked_count
         """
 
-        record = await self._run_single(query, {"token": token_value})
+        record = await self._run_single(
+            query, {"token": token_value, "new_hash": new_hash, "lock_token": uuid4().hex}
+        )
 
         if not record:
             return Result.ok(None)
 
-        return Result.ok(from_neo4j_node(dict(record["t"]), PasswordResetToken))
-
-    @safe_backend_operation("mark_reset_token_used")
-    async def mark_reset_token_used(self, token_value: str) -> Result[bool]:
-        """
-        Mark a reset token as used.
-
-        Args:
-            token_value: The token string
-
-        Returns:
-            Result[bool]: True if marked, False if not found
-        """
-        query = """
-        MATCH (t:PasswordResetToken {token: $token})
-        SET t.is_used = true
-        RETURN t
-        """
-
-        record = await self._run_single(query, {"token": token_value})
-
-        return Result.ok(record is not None)
+        claim = PasswordResetClaim(
+            claimed=bool(record["claimed"]),
+            user_uid=UserUID(record["user_uid"]) if record["user_uid"] else None,
+            email=record["email"],
+            revoked_count=int(record["revoked_count"]),
+        )
+        if claim.claimed:
+            self.logger.info(
+                f"Reset password for {claim.user_uid} and revoked "
+                f"{claim.revoked_count} live session(s) atomically"
+            )
+        return Result.ok(claim)
 
     @safe_backend_operation("cleanup_expired_tokens")
     async def cleanup_expired_tokens(self) -> Result[int]:
