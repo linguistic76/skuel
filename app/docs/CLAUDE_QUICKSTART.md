@@ -1,7 +1,7 @@
 ---
 title: Claude Quick Start Guide
 created: 2025-12-04
-updated: 2026-09-17
+updated: 2026-09-23
 status: current
 category: guides
 tags: [claude, quickstart, onboarding, ai-assistant]
@@ -117,7 +117,7 @@ if result.is_error:
 | Writing queries | `docs/patterns/query_architecture.md` |
 | Understanding UserContext | `docs/architecture/UNIFIED_USER_ARCHITECTURE.md` |
 | Working with DSL | `docs/dsl/DSL_SPECIFICATION.md` |
-| Creating services | `docs/reference/templates/service_creation.md` |
+| Creating services | `docs/guides/BASESERVICE_QUICK_START.md` |
 
 ### Reference (Look Up As Needed)
 

@@ -3,7 +3,7 @@ Unit tests for KuIntelligenceService.
 
 Tests graph analytics for atomic Knowledge Units:
 - Protocol methods (get_with_context, get_performance_analytics, get_domain_insights)
-- Domain-specific methods (get_usage_summary, is_trained, is_organized, get_organization_depth)
+- Domain-specific methods (get_usage_summary, get_organization_depth)
 """
 
 from unittest.mock import AsyncMock, MagicMock
@@ -180,58 +180,6 @@ class TestKuIntelligenceUsageSummary:
             "path_steps_training": 0,
             "organized_children": 0,
         }
-
-
-class TestKuIntelligenceIsTrained:
-    """Test is_trained domain method."""
-
-    @pytest.mark.asyncio
-    async def test_true_when_trained(self):
-        backend = _make_backend()
-        backend.is_trained.return_value = Result.ok([{"trained": True}])
-        service = KuIntelligenceService(backend=backend)
-
-        result = await service.is_trained("ku_test_abc123")
-
-        assert result.is_ok
-        assert result.value is True
-
-    @pytest.mark.asyncio
-    async def test_false_when_not_trained(self):
-        backend = _make_backend()
-        backend.is_trained.return_value = Result.ok([{"trained": False}])
-        service = KuIntelligenceService(backend=backend)
-
-        result = await service.is_trained("ku_test_abc123")
-
-        assert result.is_ok
-        assert result.value is False
-
-
-class TestKuIntelligenceIsOrganized:
-    """Test is_organized domain method."""
-
-    @pytest.mark.asyncio
-    async def test_true_when_has_children(self):
-        backend = _make_backend()
-        backend.is_organized.return_value = Result.ok([{"organized": True}])
-        service = KuIntelligenceService(backend=backend)
-
-        result = await service.is_organized("ku_test_abc123")
-
-        assert result.is_ok
-        assert result.value is True
-
-    @pytest.mark.asyncio
-    async def test_false_when_no_children(self):
-        backend = _make_backend()
-        backend.is_organized.return_value = Result.ok([{"organized": False}])
-        service = KuIntelligenceService(backend=backend)
-
-        result = await service.is_organized("ku_test_abc123")
-
-        assert result.is_ok
-        assert result.value is False
 
 
 class TestKuIntelligenceOrganizationDepth:

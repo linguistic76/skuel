@@ -58,7 +58,6 @@ class KuIntelligenceService(
     Provides:
     - Usage analysis: how many path steps reference this Ku (USES_KU, TRAINS_KU)
     - Organization analysis: ORGANIZES tree depth and child count
-    - Existence checks: is_trained, is_organized
     """
 
     _service_name = "ku.intelligence"
@@ -169,26 +168,6 @@ class KuIntelligenceService(
                 "organized_children": row.get("organized_children", 0),
             }
         )
-
-    @with_error_handling("is_trained", error_type="database", uid_param="ku_uid")
-    async def is_trained(self, ku_uid: str) -> Result[bool]:
-        """Check if any Learning Step trains this Ku via TRAINS_KU."""
-        result = await self.backend.is_trained(ku_uid)  # type: ignore[attr-defined]
-        if result.is_error:
-            return Result.fail(result)
-
-        records = result.value or []
-        return Result.ok(records[0].get("trained", False) if records else False)
-
-    @with_error_handling("is_organized", error_type="database", uid_param="ku_uid")
-    async def is_organized(self, ku_uid: str) -> Result[bool]:
-        """Check if this Ku has ORGANIZES children (acts as MOC)."""
-        result = await self.backend.is_organized(ku_uid)  # type: ignore[attr-defined]
-        if result.is_error:
-            return Result.fail(result)
-
-        records = result.value or []
-        return Result.ok(records[0].get("organized", False) if records else False)
 
     async def calculate_user_substance(
         self, ku_uid: str, user_context: UserContext

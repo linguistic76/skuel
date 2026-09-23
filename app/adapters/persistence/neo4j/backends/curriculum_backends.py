@@ -143,22 +143,6 @@ class KuBackend(UniversalNeo4jBackend[Ku]):
         """
         return await self.execute_query(query, {"ku_uid": ku_uid})
 
-    async def is_trained(self, ku_uid: str) -> Result[list[Neo4jProperties]]:
-        """Check if any PathStep trains this Ku via TRAINS_KU."""
-        query = """
-        MATCH (ps:Entity)-[:TRAINS_KU]->(ku:Entity:Ku {uid: $ku_uid})
-        RETURN count(ps) > 0 as trained
-        """
-        return await self.execute_query(query, {"ku_uid": ku_uid})
-
-    async def is_organized(self, ku_uid: str) -> Result[list[Neo4jProperties]]:
-        """Check if this Ku has ORGANIZES children (acts as MOC)."""
-        query = """
-        MATCH (ku:Entity:Ku {uid: $ku_uid})-[:ORGANIZES]->(child:Entity)
-        RETURN count(child) > 0 as organized
-        """
-        return await self.execute_query(query, {"ku_uid": ku_uid})
-
     async def get_organization_depth(self, ku_uid: str) -> Result[list[Neo4jProperties]]:
         """Get depth of the ORGANIZES tree below this Ku."""
         query = """
