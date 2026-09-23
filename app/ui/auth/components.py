@@ -13,7 +13,7 @@ app's normal layout.
 
 from typing import Any
 
-from fasthtml.common import H1, H3, A, Div, Form, Li, P, Span, Strong, Ul
+from fasthtml.common import H1, A, Div, Form, P, Span, Strong
 
 from ui.components import Button, ButtonT, Card, CardBody
 from ui.forms.components import Checkbox, Input, LabelInput
@@ -268,36 +268,6 @@ class AuthComponents:
         )
 
     @staticmethod
-    def render_registration_success(username: str) -> Any:
-        """Render registration success page (fragment within app layout)."""
-        return _auth_card(
-            Div(
-                H1(
-                    "Welcome to SKUEL!",
-                    cls="text-3xl font-bold mb-2",
-                ),
-                P(
-                    f"Your account '{username}' has been created successfully!",
-                    cls="text-lg text-muted-foreground mb-6",
-                ),
-                Div(
-                    H3("What's Next?", cls="text-xl font-semibold mb-4"),
-                    Ul(
-                        Li("Explore learning paths", cls="flex items-center gap-2"),
-                        Li("Create your first task", cls="flex items-center gap-2"),
-                        Li("Set your goals", cls="flex items-center gap-2"),
-                        Li("Customize your preferences", cls="flex items-center gap-2"),
-                        cls="space-y-2 text-foreground/80",
-                    ),
-                    cls="text-left mb-6",
-                ),
-                ButtonLink("Get Started", href="/", cls=(ButtonT.primary, "w-full")),
-                cls="text-center",
-            ),
-            max_width="max-w-lg",
-        )
-
-    @staticmethod
     def render_login_error(error_message: str) -> Any:
         """Render login error page (fragment within app layout)."""
         return _auth_card(
@@ -430,28 +400,6 @@ class AuthComponents:
         )
 
     @staticmethod
-    def render_email_verification_sent(email: str) -> Any:
-        """Render email verification sent page (fragment within app layout)."""
-        return _auth_card(
-            Div(
-                H1("Check Your Email", cls="text-3xl font-bold mb-2"),
-                P(
-                    "We've sent a verification email to ",
-                    Strong(email),
-                    ".",
-                    cls="text-lg text-muted-foreground mb-4",
-                ),
-                P(
-                    "Please click the link in the email to verify your account before logging in.",
-                    cls="text-foreground/80 mb-6",
-                ),
-                ButtonLink("Go to Login", href="/login", cls=(ButtonT.primary, "w-full")),
-                cls="text-center",
-            ),
-            max_width="max-w-lg",
-        )
-
-    @staticmethod
     def render_password_reset_sent(email: str) -> Any:
         """Render password reset email sent page (fragment within app layout)."""
         return _auth_card(
@@ -466,22 +414,6 @@ class AuthComponents:
                 ButtonLink("Back to Login", href="/login", cls=(ButtonT.primary, "w-full")),
                 cls="text-center",
             ),
-        )
-
-    @staticmethod
-    def render_email_verified() -> Any:
-        """Render email verified callback page (fragment within app layout)."""
-        return _auth_card(
-            Div(
-                H1("Email Verified!", cls="text-3xl font-bold mb-2"),
-                P(
-                    "Your email has been verified successfully.",
-                    cls="text-lg text-muted-foreground mb-4",
-                ),
-                P("Redirecting you to login...", cls="text-foreground/80 mb-6"),
-                cls="text-center",
-            ),
-            max_width="max-w-lg",
         )
 
 

@@ -1,323 +1,232 @@
 """
-Integration Tests for Authentication Routes.
+Route tests for the authentication UI handlers (``adapters/inbound/auth_ui.py``).
 
-Tests cover:
-1. Registration page and form submission
-2. Login page and form submission
-3. Logout functionality
-4. Password reset flow (admin-initiated)
-5. User switching (dev mode)
-6. Session management
-7. Redirect behavior for authenticated users
-
-All tests use mocked services to avoid dependencies on Neo4j.
-Authentication is handled by GraphAuthService (graph-native).
+Every test calls the real handler through a collector ``rt`` harness —
+``create_auth_ui_routes`` registers into a dict and the test invokes the
+function with a request stub — so what is asserted is what the handler does:
+which service calls it makes, what it renders, what it writes to the session.
+``GraphAuthService`` and ``UserService`` are mocks; their own behaviour is
+pinned in ``tests/unit/auth/test_graph_auth_service.py`` and, against a real
+graph, ``tests/integration/test_login_roundtrip.py``.
 """
 
-from datetime import datetime
+import os
+from types import SimpleNamespace
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
+from fasthtml.common import to_xml
+from starlette.datastructures import FormData
 
 from core.utils.result_simplified import Errors, Result
 from tests.fixtures.csrf import attach_csrf
 
+_PASSWORD = "password123"
 
-class MockServices:
-    """Mock services container for auth route testing."""
-
-    def __init__(self):
-        self.user = MagicMock()
-        self.graph_auth = MagicMock()
-
-
-class MockUser:
-    """Mock User model."""
-
-    def __init__(self, uid: str = "user_test", email: str = "test@example.com"):
-        self.uid = uid
-        self.email = email
-        self.username = "testuser"
-        self.display_name = "Test User"
+_REGISTRATION_FORM = {
+    "username": "newuser",
+    "email": "new@example.com",
+    "display_name": "New User",
+    "password": _PASSWORD,
+    "confirm_password": _PASSWORD,
+    "accept_terms": "1",
+}
 
 
-@pytest.fixture
-def mock_services():
-    """Create mock services container."""
-    return MockServices()
+def _handlers(graph_auth: MagicMock | None = None, user_service: MagicMock | None = None) -> dict:
+    """The auth UI handlers, keyed by path."""
+    from adapters.inbound.auth_ui import create_auth_ui_routes
+
+    registered: dict = {}
+
+    def rt_collector(path: str, *_a, **_kw):
+        def decorator(fn):
+            registered[path] = fn
+            return fn
+
+        return decorator
+
+    create_auth_ui_routes(MagicMock(), rt_collector, graph_auth or MagicMock(), user_service)
+    return registered
 
 
-@pytest.fixture
-def mock_graph_auth():
-    """Mock GraphAuthService for authentication.
+def _post(path: str, fields: dict[str, str], session: dict | None = None):
+    """A CSRF-valid POST request stub carrying ``fields`` as its form body."""
+    form_data = FormData(list(fields.items()))
 
-    Uses MagicMock for synchronous testing of mock behavior.
-    For actual async route tests, use a separate integration test setup.
-    """
-    return MagicMock()
+    async def _form() -> FormData:
+        return form_data
+
+    return attach_csrf(
+        SimpleNamespace(
+            method="POST",
+            session={} if session is None else session,
+            form=_form,
+            client=SimpleNamespace(host="10.0.0.9"),
+            headers={"user-agent": "pytest"},
+            cookies={},
+            url=SimpleNamespace(path=path),
+        )
+    )
 
 
-class TestRegistrationSubmit:
-    """Tests for POST /register/submit."""
+def _signed_in(user_uid: str = "user_alice") -> Result:
+    """What ``sign_in`` returns on success."""
+    user = MagicMock()
+    user.can_manage_users.return_value = False
+    user.can_create_curriculum.return_value = False
+    return Result.ok({"user_uid": user_uid, "session_token": "tok-new", "user": user})
 
-    def test_registration_validation_requires_all_fields(self):
-        """Test that registration requires all fields."""
-        # Verify form validation expects username, email, display_name, password
-        required_fields = ["username", "email", "display_name", "password", "confirm_password"]
-        assert len(required_fields) == 5
 
-    def test_registration_password_must_match(self):
-        """Test that passwords must match."""
-        # Verification that password matching is enforced
-        password = "secure123"
-        confirm_password = "different123"
-        assert password != confirm_password
+def _graph_auth() -> MagicMock:
+    graph_auth = MagicMock()
+    graph_auth.sign_up = AsyncMock(
+        return_value=Result.ok({"user_uid": "user_new", "email": "new@example.com"})
+    )
+    # Auto-login fails → register_submit redirects to /login?registered=true,
+    # a clean success signal without exercising session mechanics.
+    graph_auth.sign_in = AsyncMock(
+        return_value=Result.fail(Errors.system("no session in tests", operation="sign_in"))
+    )
+    return graph_auth
 
-    def test_registration_password_minimum_length(self):
-        """Test that password has minimum length requirement."""
-        # Graph-native auth requires minimum 8 characters
-        min_length = 8
-        short_password = "1234567"
-        valid_password = "12345678"
-        assert len(short_password) < min_length
-        assert len(valid_password) >= min_length
 
-    def test_registration_requires_terms_acceptance(self):
-        """Test that terms of service must be accepted."""
-        # Terms acceptance is a required field
-        accept_terms = None
-        assert not accept_terms
+@pytest.fixture(autouse=True)
+def _route_test_env(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.delenv("SIGNUP_INVITE_CODE", raising=False)
 
-    def test_registration_calls_graph_auth_signup(self, mock_graph_auth):
-        """Test that registration uses GraphAuthService for signup."""
-        mock_graph_auth.sign_up.return_value = Result.ok(
-            {
-                "user_uid": "user_testuser",
-                "email": "test@example.com",
-            }
+    # Pin the credential funnel to the process env: the route resolves the
+    # invite code via get_credential(), which would otherwise read the dev
+    # machine's real keyring — and auto-migrate monkeypatched test values
+    # INTO it. Env-only keeps these tests hermetic.
+    import adapters.inbound.auth_ui as auth_ui_module
+
+    def _env_only_credential(key: str, fallback_to_env: bool = True) -> str | None:
+        return os.getenv(key)
+
+    monkeypatch.setattr(auth_ui_module, "get_credential", _env_only_credential)
+
+    from adapters.inbound.rate_limit import reset_buckets_for_testing
+
+    reset_buckets_for_testing()
+
+
+class TestRegistrationRefusals:
+    """A form the request model rejects never reaches ``sign_up``; the page
+    comes back carrying the model's message."""
+
+    @pytest.mark.parametrize(
+        ("override", "message"),
+        [
+            ({"confirm_password": "different123"}, "Passwords do not match"),
+            ({"accept_terms": "0"}, "You must accept the Terms of Service"),
+            ({"email": ""}, "Email is required"),
+            ({"password": "", "confirm_password": ""}, "Password is required"),
+        ],
+    )
+    async def test_invalid_form_is_refused_before_sign_up(
+        self, override: dict[str, str], message: str
+    ) -> None:
+        graph_auth = _graph_auth()
+
+        response = await _handlers(graph_auth)["/register/submit"](
+            request=_post("/register/submit", {**_REGISTRATION_FORM, **override})
         )
 
-        # Simulate the sign_up call
-        result = mock_graph_auth.sign_up(
-            email="test@example.com",
-            password="password123",
-            username="testuser",
-            display_name="Test User",
-        )
+        graph_auth.sign_up.assert_not_awaited()
+        assert message in to_xml(response)
 
-        assert result.is_ok
-        assert result.value["user_uid"] == "user_testuser"
-
-    def test_registration_creates_neo4j_user(self, mock_services):
-        """Test that registration creates user in Neo4j."""
-        mock_services.user.create_user = AsyncMock(return_value=Result.ok(MockUser()))
-
-        # Verify the method signature
-        assert hasattr(mock_services.user, "create_user")
-
-    def test_registration_handles_auth_error(self, mock_graph_auth):
-        """Test that registration handles auth errors gracefully."""
-        mock_graph_auth.sign_up.return_value = Result.fail(
+    async def test_sign_up_refusal_is_shown_and_no_session_is_made(self) -> None:
+        graph_auth = _graph_auth()
+        graph_auth.sign_up.return_value = Result.fail(
             Errors.validation(message="An account with this email already exists", field="email")
         )
+        request = _post("/register/submit", _REGISTRATION_FORM)
 
-        result = mock_graph_auth.sign_up(
-            email="existing@example.com",
-            password="password123",
-            username="existinguser",
-            display_name="Existing User",
-        )
+        response = await _handlers(graph_auth)["/register/submit"](request=request)
 
-        assert result.is_error
-        assert "already exists" in result.error.message
+        assert "An account with this email already exists" in to_xml(response)
+        graph_auth.sign_in.assert_not_awaited()
+        assert request.session == {}
 
 
 class TestLoginSubmit:
-    """Tests for POST /login/submit."""
+    """POST /login/submit: email or username in, a fresh session out."""
 
-    def test_login_requires_email_and_password(self):
-        """Test that login requires email and password."""
-        # Both fields required for validation
-        email = ""
-        password = ""
-        assert not email or not password
-
-    def test_login_accepts_email_format(self):
-        """Test that login accepts email format."""
-        email = "test@example.com"
-        assert "@" in email
-
-    def test_login_accepts_username_format(self):
-        """Test that login accepts username (non-email) format."""
-        username = "testuser"
-        assert "@" not in username
-
-    def test_login_calls_graph_auth_signin(self, mock_graph_auth):
-        """Test that login uses GraphAuthService for authentication."""
-        mock_graph_auth.sign_in.return_value = Result.ok(
-            {
-                "user_uid": "user_testuser",
-                "session_token": "token-abc-123",
-            }
+    async def test_email_login_replaces_the_session_and_lands_on_today(self) -> None:
+        graph_auth = _graph_auth()
+        graph_auth.sign_in.return_value = _signed_in("user_alice")
+        user_service = MagicMock()
+        user_service.get_user_by_username = AsyncMock()
+        request = _post(
+            "/login/submit",
+            {"username": "alice@example.com", "password": _PASSWORD},
+            session={"user_uid": "user_previous", "stale": "x"},
         )
 
-        result = mock_graph_auth.sign_in(
-            email="test@example.com",
-            password="password123",
-            ip_address="127.0.0.1",
-            user_agent="test-agent",
+        response = await _handlers(graph_auth, user_service)["/login/submit"](request=request)
+
+        assert response.status_code == 303
+        assert response.headers["location"] == "/today"
+        assert graph_auth.sign_in.await_args.kwargs["email"] == "alice@example.com"
+        assert graph_auth.sign_in.await_args.kwargs["password"] == _PASSWORD
+        user_service.get_user_by_username.assert_not_awaited()
+        assert request.session["user_uid"] == "user_alice"
+        assert request.session["session_token"] == "tok-new"
+        assert "stale" not in request.session
+
+    async def test_username_login_signs_in_with_the_resolved_email(self) -> None:
+        graph_auth = _graph_auth()
+        graph_auth.sign_in.return_value = _signed_in("user_alice")
+        user_service = MagicMock()
+        user_service.get_user_by_username = AsyncMock(
+            return_value=Result.ok(SimpleNamespace(email="alice@example.com"))
         )
+        request = _post("/login/submit", {"username": "alice", "password": _PASSWORD})
 
-        assert result.is_ok
-        assert result.value["session_token"] == "token-abc-123"
+        response = await _handlers(graph_auth, user_service)["/login/submit"](request=request)
 
-    def test_login_looks_up_user_by_username(self, mock_services):
-        """Test that login can look up user by username."""
-        mock_services.user.get_user_by_username = AsyncMock(
-            return_value=Result.ok(MockUser(email="test@example.com"))
-        )
+        user_service.get_user_by_username.assert_awaited_once_with("alice")
+        assert graph_auth.sign_in.await_args.kwargs["email"] == "alice@example.com"
+        assert response.headers["location"] == "/today"
 
-        # Verify the lookup method exists
-        assert hasattr(mock_services.user, "get_user_by_username")
+    async def test_unknown_username_is_refused_without_sign_in(self) -> None:
+        graph_auth = _graph_auth()
+        user_service = MagicMock()
+        user_service.get_user_by_username = AsyncMock(return_value=Result.ok(None))
+        request = _post("/login/submit", {"username": "ghost", "password": _PASSWORD})
 
-    def test_login_retrieves_user_from_neo4j(self, mock_services):
-        """Test that login retrieves user from Neo4j."""
-        mock_services.user.get_user_by_email = AsyncMock(
-            return_value=Result.ok(MockUser(uid="user_test123"))
-        )
+        response = await _handlers(graph_auth, user_service)["/login/submit"](request=request)
 
-        assert hasattr(mock_services.user, "get_user_by_email")
+        graph_auth.sign_in.assert_not_awaited()
+        assert "Invalid username or password" in to_xml(response)
+        assert request.session == {}
 
-    def test_login_sets_session_data(self):
-        """Test that login sets session data."""
-        session = {}
-        user_uid = "user_test"
-        session_token = "token-abc-123"
-        logged_in_at = datetime.now().isoformat()
-
-        session["user_uid"] = user_uid
-        session["session_token"] = session_token
-        session["logged_in_at"] = logged_in_at
-
-        assert session["user_uid"] == user_uid
-        assert session["session_token"] == session_token
-        assert "logged_in_at" in session
-
-    def test_login_handles_invalid_credentials(self, mock_graph_auth):
-        """Test that login handles invalid credentials."""
-        mock_graph_auth.sign_in.return_value = Result.fail(
+    async def test_refused_sign_in_leaves_the_session_untouched(self) -> None:
+        graph_auth = _graph_auth()
+        graph_auth.sign_in.return_value = Result.fail(
             Errors.business("auth", "Invalid email or password")
         )
-
-        result = mock_graph_auth.sign_in(
-            email="test@example.com",
-            password="wrong_password",
-            ip_address="127.0.0.1",
-            user_agent="test-agent",
+        request = _post(
+            "/login/submit",
+            {"username": "alice@example.com", "password": "wrong"},
+            session={"user_uid": "user_previous"},
         )
 
-        assert result.is_error
-        assert "Invalid" in result.error.message
+        response = await _handlers(graph_auth)["/login/submit"](request=request)
 
+        assert "Invalid email or password" in to_xml(response)
+        assert request.session == {"user_uid": "user_previous"}
 
-class TestLogout:
-    """Tests for GET /logout."""
+    async def test_blank_password_is_refused_before_sign_in(self) -> None:
+        graph_auth = _graph_auth()
 
-    def test_logout_clears_session(self):
-        """Test that logout clears session data."""
-        session = {
-            "user_uid": "user_test",
-            "session_token": "token",
-            "logged_in_at": "2024-01-01T00:00:00",
-        }
-        session.clear()
-        assert session == {}
-
-    def test_logout_redirects_to_login(self):
-        """Test that logout redirects to login page."""
-        # Verify redirect behavior
-        redirect_path = "/login"
-        assert redirect_path == "/login"
-
-
-class TestPasswordReset:
-    """Tests for password reset with admin-generated token."""
-
-    def test_reset_password_with_valid_token(self, mock_graph_auth):
-        """Test password reset with valid token."""
-        mock_graph_auth.reset_password_with_token.return_value = Result.ok(True)
-
-        result = mock_graph_auth.reset_password_with_token(
-            token_value="valid-reset-token",
-            new_password="newpassword123",
-            ip_address="127.0.0.1",
-            user_agent="test-agent",
+        response = await _handlers(graph_auth)["/login/submit"](
+            request=_post("/login/submit", {"username": "alice@example.com", "password": ""})
         )
 
-        assert result.is_ok
-        assert result.value is True
-
-    def test_reset_password_with_expired_token(self, mock_graph_auth):
-        """Test password reset with expired token."""
-        mock_graph_auth.reset_password_with_token.return_value = Result.fail(
-            Errors.business("auth", "Reset token has expired")
-        )
-
-        result = mock_graph_auth.reset_password_with_token(
-            token_value="expired-token",
-            new_password="newpassword123",
-            ip_address="127.0.0.1",
-            user_agent="test-agent",
-        )
-
-        assert result.is_error
-        assert "expired" in result.error.message
-
-    def test_admin_generates_reset_token(self, mock_graph_auth):
-        """Test admin can generate reset token for user."""
-        mock_graph_auth.admin_generate_reset_token.return_value = Result.ok("reset-token-abc123")
-
-        result = mock_graph_auth.admin_generate_reset_token(
-            user_uid="user_testuser",
-            admin_uid="user_admin",
-            ip_address="127.0.0.1",
-            user_agent="admin-browser",
-        )
-
-        assert result.is_ok
-        assert result.value == "reset-token-abc123"
-
-
-class TestUserSwitching:
-    """Tests for GET/POST /switch-user (development mode)."""
-
-    def test_switch_user_shows_current_user(self):
-        """Test that switch user page shows current user."""
-        current_user = "user_mike"
-        assert current_user is not None
-
-    def test_switch_user_lists_available_users(self):
-        """Test that switch user page lists development users."""
-        dev_users = ["user_mike", "user_test", "user_admin", "user_demo"]
-        assert len(dev_users) == 4
-
-    def test_switch_user_updates_session(self):
-        """Test that switch user updates session."""
-        session = {"user_uid": "user_mike"}
-        new_user = "user_test"
-        session["user_uid"] = new_user
-        assert session["user_uid"] == new_user
-
-
-class TestWhoami:
-    """Tests for GET /whoami (debugging endpoint)."""
-
-    def test_whoami_shows_user_info(self):
-        """Test that whoami shows current user information."""
-        user_uid = "user_test"
-        is_authenticated = True
-        assert user_uid is not None
-        assert isinstance(is_authenticated, bool)
+        graph_auth.sign_in.assert_not_awaited()
+        assert "Password is required" in to_xml(response)
 
 
 class TestSessionManagement:
@@ -394,28 +303,10 @@ class TestSessionManagement:
 class TestRedirectBehavior:
     """An already-authenticated visitor to an auth page is sent to the one
     landing — ``/today`` for every role (ADR-058, amended) — through the real
-    handlers (collector ``rt`` harness), never a restated constant."""
-
-    @staticmethod
-    def _handlers() -> dict:
-        from adapters.inbound.auth_ui import create_auth_ui_routes
-
-        registered: dict = {}
-
-        def rt_collector(path: str, *_a, **_kw):
-            def decorator(fn):
-                registered[path] = fn
-                return fn
-
-            return decorator
-
-        create_auth_ui_routes(MagicMock(), rt_collector, MagicMock())
-        return registered
+    handlers, never a restated constant."""
 
     @staticmethod
     def _authenticated_request(is_admin: bool):
-        from types import SimpleNamespace
-
         return SimpleNamespace(
             session={"user_uid": "user_x", "session_token": "tok", "is_admin": is_admin}
         )
@@ -425,15 +316,13 @@ class TestRedirectBehavior:
     def test_auth_pages_send_an_authenticated_visitor_to_today(
         self, path: str, is_admin: bool
     ) -> None:
-        response = self._handlers()[path](request=self._authenticated_request(is_admin))
+        response = _handlers()[path](request=self._authenticated_request(is_admin))
         assert response.status_code == 303
         assert response.headers["location"] == "/today"
 
     async def test_logout_redirects_to_login(self) -> None:
-        from types import SimpleNamespace
-
         request = SimpleNamespace(session={}, client=None, headers={})
-        response = await self._handlers()["/logout"](request=request)
+        response = await _handlers()["/logout"](request=request)
         assert response.status_code == 303
         assert response.headers["location"] == "/login"
 
@@ -450,122 +339,24 @@ class TestFormValidation:
         assert safe_form_string(None) == ""
         assert safe_form_string("") == ""
 
-    def test_email_detection(self):
-        """Test email vs username detection."""
-        email = "user@example.com"
-        username = "testuser"
-
-        assert "@" in email
-        assert "@" not in username
-
-    def test_password_length_validation(self):
-        """Test password length validation."""
-        min_length = 8  # Graph-native auth uses 8 character minimum
-
-        short_passwords = ["", "a", "1234567"]
-        valid_passwords = ["12345678", "securepassword", "a" * 100]
-
-        for pwd in short_passwords:
-            assert len(pwd) < min_length
-
-        for pwd in valid_passwords:
-            assert len(pwd) >= min_length
-
 
 class TestInviteCodeGate:
     """SIGNUP_INVITE_CODE gates /register/submit (public-facing hardening).
 
-    Real-handler tests (collector ``rt`` harness, mirroring
-    ``test_journals_routes.py``): the gate runs BEFORE ``sign_up`` so a bad
-    code never creates an account; unset env = open signup (passthrough).
+    The gate runs BEFORE ``sign_up`` so a bad code never creates an account;
+    unset env = open signup (passthrough).
     """
 
     @staticmethod
-    def _handlers(graph_auth: MagicMock) -> dict:
-        from adapters.inbound.auth_ui import create_auth_ui_routes
-
-        registered: dict = {}
-
-        def rt_collector(path: str, *_a, **_kw):
-            def decorator(fn):
-                registered[path] = fn
-                return fn
-
-            return decorator
-
-        create_auth_ui_routes(MagicMock(), rt_collector, graph_auth)
-        return registered
-
-    @staticmethod
-    def _graph_auth() -> MagicMock:
-        graph_auth = MagicMock()
-        graph_auth.sign_up = AsyncMock(
-            return_value=Result.ok({"user_uid": "user_new", "email": "new@example.com"})
-        )
-        # Auto-login fails → the route redirects to /login?registered=true,
-        # a clean success signal without exercising session mechanics here.
-        graph_auth.sign_in = AsyncMock(
-            return_value=Result.fail(Errors.system("no session in tests", operation="sign_in"))
-        )
-        return graph_auth
-
-    @staticmethod
     def _submit_request(invite_code: str | None = None):
-        from types import SimpleNamespace
-
-        from starlette.datastructures import FormData
-
-        fields = [
-            ("username", "newuser"),
-            ("email", "new@example.com"),
-            ("display_name", "New User"),
-            ("password", "password123"),
-            ("confirm_password", "password123"),
-            ("accept_terms", "1"),
-        ]
+        fields = dict(_REGISTRATION_FORM)
         if invite_code is not None:
-            fields.append(("invite_code", invite_code))
-        form_data = FormData(fields)
-
-        async def _form() -> FormData:
-            return form_data
-
-        return attach_csrf(
-            SimpleNamespace(
-                method="POST",
-                session={},
-                form=_form,
-                client=SimpleNamespace(host="10.0.0.9"),
-                headers={},
-                cookies={},
-                url=SimpleNamespace(path="/register/submit"),
-            )
-        )
-
-    @pytest.fixture(autouse=True)
-    def _route_test_env(self, monkeypatch: pytest.MonkeyPatch) -> None:
-        monkeypatch.delenv("SIGNUP_INVITE_CODE", raising=False)
-
-        # Pin the credential funnel to the process env: the route resolves the
-        # invite code via get_credential(), which would otherwise read the dev
-        # machine's real keyring — and auto-migrate monkeypatched test values
-        # INTO it. Env-only keeps these tests hermetic.
-        import os
-
-        import adapters.inbound.auth_ui as auth_ui_module
-
-        def _env_only_credential(key: str, fallback_to_env: bool = True) -> str | None:
-            return os.getenv(key)
-
-        monkeypatch.setattr(auth_ui_module, "get_credential", _env_only_credential)
-
-        from adapters.inbound.rate_limit import reset_buckets_for_testing
-
-        reset_buckets_for_testing()
+            fields["invite_code"] = invite_code
+        return _post("/register/submit", fields)
 
     async def test_unset_env_is_open_signup(self) -> None:
-        graph_auth = self._graph_auth()
-        handlers = self._handlers(graph_auth)
+        graph_auth = _graph_auth()
+        handlers = _handlers(graph_auth)
 
         response = await handlers["/register/submit"](request=self._submit_request())
 
@@ -573,11 +364,9 @@ class TestInviteCodeGate:
         assert response.status_code == 303  # → /login?registered=true
 
     async def test_wrong_code_rejected_before_signup(self, monkeypatch: pytest.MonkeyPatch) -> None:
-        from fasthtml.common import to_xml
-
         monkeypatch.setenv("SIGNUP_INVITE_CODE", "sekrit")
-        graph_auth = self._graph_auth()
-        handlers = self._handlers(graph_auth)
+        graph_auth = _graph_auth()
+        handlers = _handlers(graph_auth)
 
         response = await handlers["/register/submit"](
             request=self._submit_request(invite_code="wrong")
@@ -589,11 +378,9 @@ class TestInviteCodeGate:
     async def test_absent_code_rejected_before_signup(
         self, monkeypatch: pytest.MonkeyPatch
     ) -> None:
-        from fasthtml.common import to_xml
-
         monkeypatch.setenv("SIGNUP_INVITE_CODE", "sekrit")
-        graph_auth = self._graph_auth()
-        handlers = self._handlers(graph_auth)
+        graph_auth = _graph_auth()
+        handlers = _handlers(graph_auth)
 
         response = await handlers["/register/submit"](request=self._submit_request())
 
@@ -602,8 +389,8 @@ class TestInviteCodeGate:
 
     async def test_correct_code_registers(self, monkeypatch: pytest.MonkeyPatch) -> None:
         monkeypatch.setenv("SIGNUP_INVITE_CODE", "sekrit")
-        graph_auth = self._graph_auth()
-        handlers = self._handlers(graph_auth)
+        graph_auth = _graph_auth()
+        handlers = _handlers(graph_auth)
 
         response = await handlers["/register/submit"](
             request=self._submit_request(invite_code="sekrit")
@@ -615,11 +402,7 @@ class TestInviteCodeGate:
     def test_register_page_shows_invite_input_only_when_gated(
         self, monkeypatch: pytest.MonkeyPatch
     ) -> None:
-        from types import SimpleNamespace
-
-        from fasthtml.common import to_xml
-
-        handlers = self._handlers(self._graph_auth())
+        handlers = _handlers(_graph_auth())
         request = SimpleNamespace(method="GET", session={}, headers={}, cookies={})
 
         assert 'name="invite_code"' not in to_xml(handlers["/register"](request=request))
