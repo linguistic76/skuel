@@ -8,7 +8,7 @@ Verifies that completing a task moves the goal it fulfills:
 2. Goal progress is calculated from the goal's linked tasks
 3. ``GoalProgressUpdated`` is published when progress changes
 4. ``GoalAchieved`` is published once when the goal reaches 100%
-5. Only task-based and mixed goals move
+5. Only task-based goals move — a MIXED goal is not recomputed from one component
 
 Every link is written by the production writer — ``TasksCoreService.create`` with
 ``fulfills_goal_uid``, which dual-writes the stamp and ``(Task)-[:FULFILLS_GOAL]->(Goal)``
@@ -202,19 +202,25 @@ class TestTaskGoalEventFlow:
         stored = (await goals_backend.get(goal.uid)).value
         assert stored.progress_percentage == 0.0
 
-    async def test_mixed_goal_updated_with_task_contribution(
-        self, goals_progress_service, goals_backend, tasks_service
+    async def test_mixed_goal_not_moved_by_task_completions(
+        self, event_bus, goals_progress_service, goals_backend, tasks_service
     ):
-        """Mixed goals weight task completion at 30%: 1 of 2 → 15%."""
+        """A MIXED goal is not blended from its task tally — completions leave it alone.
+
+        The former blend, ``old * 0.7 + share * 30``, fed each result into the next: two
+        completions of two tasks read 15% then 40.5%.
+        """
         goal = await self._create_goal(goals_backend, "goal.mixed", MeasurementType.MIXED)
         tasks = [
             await self._create_task(tasks_service, f"task.mixed_{i}", goal.uid) for i in (1, 2)
         ]
 
-        await self._complete(tasks_service, tasks[0].uid)
+        for task in tasks:
+            await self._complete(tasks_service, task.uid)
 
         stored = (await goals_backend.get(goal.uid)).value
-        assert stored.progress_percentage == pytest.approx(15.0)
+        assert stored.progress_percentage == 0.0
+        assert self._events(event_bus, GoalProgressUpdated) == []
 
     # ========================================================================
     # EDGE CASES

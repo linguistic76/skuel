@@ -104,6 +104,13 @@ against. Two task tests seeded one task fulfilling two goals, which no writer pr
 link is `single`. They were deleted, and a habit→two-goals test now covers the handler's per-goal
 loop.
 
+**MIXED goals are no longer recomputed by completions.** With the readers fixed, each handler's
+MIXED branch would have run for the first time. That branch blended one component into the
+stored figure (`old × 0.7 + share × 30`), so every completion fed the previous result into the
+next (Codex, #1407). Both branches were deleted. This changes no live behavior, since no MIXED goal
+had ever moved. A real recompute is registered as
+[mixed-goal-event-progress.md](../mixed-goal-event-progress.md).
+
 **End to end:** `tests/integration/test_goal_progress_cascade.py` runs on the composed app
 (`skuel_app`), so the handler is subscribed by the real event wiring. It checks three things, and
 each assertion failed on the old readers:

@@ -389,7 +389,7 @@ class TestHabitGoalEventFlow:
         progress_events = [e for e in history if isinstance(e, GoalProgressUpdated)]
         assert len(progress_events) == 0
 
-    async def test_mixed_goal_updated_with_habit_contribution(
+    async def test_mixed_goal_not_moved_by_habit_completion(
         self,
         event_bus,
         goals_progress_service,
@@ -399,51 +399,38 @@ class TestHabitGoalEventFlow:
         mixed_goal,
         test_user_uid,
     ):
-        """Test that mixed goals receive 30% contribution from habit streaks."""
+        """A MIXED goal is not blended from its habit streaks — completions leave it alone."""
         event_bus.subscribe(HabitCompleted, goals_progress_service.handle_habit_completed)
 
-        # Set initial progress (e.g., from tasks)
         result = await goals_backend.update(mixed_goal.uid, {"progress_percentage": 20.0})
         assert result.is_ok, "Setup failed: Could not update goal"
 
-        # Create habit and link to mixed goal
         habit = Habit(
             uid="habit.healthy_eating",
             user_uid=test_user_uid,
             entity_type=EntityType.HABIT,
             title="Healthy Eating",
-            description="Track meals",
-            current_streak=50,  # 50% of target (100 days)
+            current_streak=50,
             best_streak=50,
         )
         result = await habits_backend.create(habit)
         assert result.is_ok, "Setup failed: Could not create habit"
-
-        # Link habit to mixed goal
         await _link_habit_to_goal(neo4j_driver, mixed_goal.uid, habit.uid)
 
-        # Publish HabitCompleted event
-        event = HabitCompleted(
-            habit_uid=habit.uid,
-            user_uid=test_user_uid,
-            current_streak=50,
-            occurred_at=datetime.now(),
-        )
-        await event_bus.publish_async(event)
+        for _ in range(2):
+            await event_bus.publish_async(
+                HabitCompleted(
+                    habit_uid=habit.uid,
+                    user_uid=test_user_uid,
+                    current_streak=50,
+                    occurred_at=datetime.now(),
+                )
+            )
 
-        import asyncio
-
-        await asyncio.sleep(0.1)
-
-        # Verify mixed goal progress updated correctly
-        # Old progress: 20%
-        # Habit contribution: (50 / 100) * 30% = 15%
-        # New progress: (20 * 0.7) + 15 = 14 + 15 = 29%
-        goal_result = await goals_backend.get(mixed_goal.uid)
-        assert goal_result.is_ok
-        updated_goal = goal_result.value
-        expected_progress = (20.0 * 0.7) + ((50.0 / 100.0) * 30)
-        assert updated_goal.progress_percentage == pytest.approx(expected_progress, abs=0.1)
+        stored = (await goals_backend.get(mixed_goal.uid)).value
+        assert stored.progress_percentage == pytest.approx(20.0)
+        history = event_bus.get_event_history()
+        assert not [e for e in history if isinstance(e, GoalProgressUpdated)]
 
     async def test_one_habit_completion_updates_every_goal_it_supports(
         self,
@@ -453,11 +440,24 @@ class TestHabitGoalEventFlow:
         habits_backend,
         neo4j_driver,
         habit_based_goal,
-        mixed_goal,
         test_user_uid,
     ):
         """A habit supporting two goals moves both — the handler's per-goal loop."""
         event_bus.subscribe(HabitCompleted, goals_progress_service.handle_habit_completed)
+
+        second = Goal(
+            uid="goal.focus",
+            user_uid=test_user_uid,
+            title="Focus",
+            domain=Domain.PERSONAL,
+            measurement_type=MeasurementType.HABIT_BASED,
+            progress_percentage=0.0,
+            current_value=0.0,
+            target_value=60.0,
+            status=EntityStatus.ACTIVE,
+        )
+        created = await goals_backend.create(second)
+        assert created.is_ok, created
 
         habit = Habit(
             uid="habit.shared_practice",
@@ -470,7 +470,7 @@ class TestHabitGoalEventFlow:
         result = await habits_backend.create(habit)
         assert result.is_ok, "Setup failed: Could not create habit"
         await _link_habit_to_goal(neo4j_driver, habit_based_goal.uid, habit.uid)
-        await _link_habit_to_goal(neo4j_driver, mixed_goal.uid, habit.uid)
+        await _link_habit_to_goal(neo4j_driver, second.uid, habit.uid)
 
         await event_bus.publish_async(
             HabitCompleted(
@@ -483,4 +483,4 @@ class TestHabitGoalEventFlow:
 
         history = event_bus.get_event_history()
         updated = {e.goal_uid for e in history if isinstance(e, GoalProgressUpdated)}
-        assert updated == {habit_based_goal.uid, mixed_goal.uid}
+        assert updated == {habit_based_goal.uid, second.uid}
