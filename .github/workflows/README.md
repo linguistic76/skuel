@@ -16,7 +16,7 @@ This directory holds SKUEL's CI. It also documents the **two AI reviewers**
 | **Validate Documentation** | Job in `ci.yml` | This repo | ✅ status check + PR comment | When `app/docs/**`, `app/.claude/skills/**`, or the docs scripts change |
 | **JS Tests** | Job in `ci.yml` | This repo | ✅ status check | When `app/static/js/**`, `app/tests/js/**`, `package*.json`, or `vitest.config.mjs` change — vitest (jsdom) over `static/js/`, same as `./dev test-js` locally |
 | **Generate Metrics** | Job in `ci.yml` | This repo | ✅ status check (skipped on PRs) | Push to `main` only |
-| **Kody** (`kody-ai[bot]`) | Kodus AI code review | **`kodus-config.yml`** (repo root) + app.kodus.io | ✅ "Code Review Skipped" check when not summoned; "Code Review Completed" check (conclusion `success`) **+ a PR review only on findings** (CHANGES_REQUESTED) when summoned — a clean run posts NO review object; the check-run success is its verdict signal | **On-demand only** — `@kody start-review` (auto-review toggle OFF, 2026-05-25). The dashboard toggle is the real switch; repo `automatedReviewActive: false` alone neither enables nor stops it. |
+| **Kody** (`kody-ai[bot]`) | Kodus AI code review | **`kodus-config.yml`** (repo root) + app.kodus.io | ✅ "Code Review Skipped" check when not summoned; "Code Review Completed" check (conclusion `success`) **+ a PR review only on findings** (CHANGES_REQUESTED) when summoned — a clean run posts NO review object; the check-run success is its verdict signal | **On-demand only** — `@kody start-review`, first review and follow-ups (auto-review toggle OFF, 2026-05-25). The file is ignored unless the repo's `kodusConfigFileOverridesWebPreferences` is ON in app.kodus.io — see the dashboard steps below. |
 | **Codex Auto-Review** | Job in `codex-review.yml` | This repo | Posts the `@codex review` comment (no status check) | ⏸️ **DISABLED** — comment-bot trigger off (cosmetic-only: a bot-posted `@codex review` draws only the "create a Codex account" prompt; see below) |
 | **Codex** (`chatgpt-codex-connector[bot]`) | OpenAI Codex AI review | **`AGENTS.md`** (repo root) + dashboard | ⚠️ **PR reviews only — NOT a status check** | **On-demand only** — manual `@codex review` from a human account (auto-review OFF, 2026-05-25: dashboard "Personal auto review preferences" off + repo "Follow personal preferences") |
 | **Codex Review Gate** | `codex-gate.yml` (commit status) | This repo | ✅ status check (**required**) | **Two-tier:** (1) **Python files changed** → RED until `codex-considered` label applied, regardless of whether `@codex review` was posted; (2) **docs/tooling only** → RED only when a human posted `@codex review` and it isn't yet considered. Cleared on new commits. See below. |
@@ -397,14 +397,23 @@ gh api -X PUT repos/linguistic76/skuel/branches/main/protection \
   `@codex review` is cosmetic-only. To turn auto-review back on, enable the personal
   toggle or set the repo's "Auto code review" to "Review my PRs". (It was briefly
   auto-ON on a paid plan earlier on 2026-05-25.)
-- **Kodus:** two dashboard steps at `app.kodus.io`:
+- **Kodus:** four dashboard steps at `app.kodus.io`:
   1. ensure a **BYOK** LLM key is configured (Kody can't review without it);
   2. **auto-review is OFF** (2026-05-25) via the **"enable automatic code review"**
      toggle in the Code Review settings (Mike-controlled — flip it back on to restore
-     auto-review; off = **on-demand only**, `@kody start-review`). ⚠️ The dashboard
-     toggle is the real switch: the repo `kodus-config.yml`'s `automatedReviewActive:
-     false` did **not** stop auto-review on its own (verified 2026-05-24) —
-     dashboard-only, exactly like Codex. When OFF, pushes show a "Code Review Skipped"
-     check.
-  `kodus-config.yml` still governs the rest (review lenses, severity, summary,
-  request-changes mode).
+     auto-review; off = **on-demand only**, `@kody start-review`). When OFF, pushes
+     show a "Code Review Skipped" check. On 2026-05-24, with
+     `automatedReviewActive: false` committed, Kody still auto-reviewed until this
+     toggle went off. Kodus documents a cause that fits: the file is ignored until
+     step 3 is on, and whether step 3 was on then is not recorded — so that
+     observation does not show the file flag is unhonoured. Keep the toggle and the
+     file in agreement;
+  3. **`kodusConfigFileOverridesWebPreferences` ON** for `linguistic76/skuel`
+     (Settings → Code Review → the repository → General). Kodus reads this switch
+     from the web config only — it cannot be set from the file. While it is OFF,
+     every key in `kodus-config.yml` is ignored; while it is ON, the file (read from
+     `main`) is merged over the web settings and governs the review categories
+     (v2: bug / security / performance / business logic), the `high` severity
+     floor, the manual follow-up cadence, draft skipping, the status check,
+     request-changes mode, the disabled PR summary and memory approval;
+  4. **Kody Rules** are dashboard-only — they never live in the repo file.

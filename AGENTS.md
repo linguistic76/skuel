@@ -98,7 +98,10 @@ invariants — keep comments focused on real, high-priority risks.
 - **Kody** (`kody-ai`): auto-review is **OFF** (app.kodus.io "enable automatic code
   review" toggle off). It reviews only on **`@kody start-review`**; when a PR opens it
   posts a "Code Review Skipped" check. When summoned it runs in request-changes mode, so
-  a Kody `CHANGES_REQUESTED` holds the merge.
+  a Kody `CHANGES_REQUESTED` holds the merge. Its scope is **semantic risk CI cannot
+  prove** — the four v2 categories (bug, security, performance, business logic) at
+  `high` severity and above, plus the dashboard Kody Rules; it adds no generated PR
+  summary.
 - **Waiting on Codex from an agent harness:** the wait lives in
   `app/scripts/request_codex_review.sh` (portable bash, no harness scheduler). On the
   development laptop the harness's low-memory guard stops *background* commands on
@@ -123,7 +126,9 @@ invariants — keep comments focused on real, high-priority risks.
   route-audit) **and Codex Review Gate**. `main` keeps admin-bypass.
 - To change a reviewer's auto-behavior, flip its **dashboard** toggle (Codex: the
   settings URL above — "Personal auto review preferences" / the per-repo "Auto code
-  review"; Kody: app.kodus.io "enable automatic code review"). The committed
-  `kodus-config.yml` `automatedReviewActive` mirrors intent but does NOT control the
-  trigger on its own (dashboard is the switch). See `.github/workflows/README.md` for
-  the full reviewer map.
+  review"; Kody: app.kodus.io "enable automatic code review"). Kodus ignores the
+  committed `kodus-config.yml` entirely unless the repository setting
+  `kodusConfigFileOverridesWebPreferences` is ON in app.kodus.io; only then is the
+  file (read from `main`) merged over the dashboard values. Keep the dashboard toggle
+  and the file's `automatedReviewActive: false` in agreement. See
+  `.github/workflows/README.md` for the full reviewer map.

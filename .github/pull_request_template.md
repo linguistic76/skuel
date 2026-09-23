@@ -1,9 +1,9 @@
 <!--
 No AI reviewer runs automatically — comment `@kody start-review` (gating review) or
-`@codex review` (advisory) to summon one. When Kody runs it appends its summary
-BELOW this description rather than replacing it, so a real human description here
-survives. See app/docs/development/PR_WORKFLOW.md for who reviews this PR and which
-checks gate the merge.
+`@codex review` (advisory) to summon one. Kody generates no PR summary, so this
+description is the PR's only account of the change — write a real one. See
+app/docs/development/PR_WORKFLOW.md for who reviews this PR and which checks gate
+the merge.
 -->
 
 ## What & why
