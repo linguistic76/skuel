@@ -19,7 +19,7 @@ from core.models.event.event import Event
 from core.models.event.event_dto import EventDTO
 from core.models.habit.habit import Habit as Habit
 from core.models.habit.habit_dto import HabitDTO
-from core.models.type_hints import UserUID
+from core.models.type_hints import EntityUID, UserUID
 
 # Import protocol interfaces
 from core.utils.dto_converters import to_domain_model
@@ -28,6 +28,7 @@ from core.utils.result_simplified import Result
 
 if TYPE_CHECKING:
     from core.ports import HabitsOperations
+    from core.ports.domain_protocols import BaseRelationshipOperations
     from core.services.events_service import EventsService
     from core.services.user import UserContext
 
@@ -76,8 +77,8 @@ class HabitEventScheduler:
         self,
         habits_backend: HabitsOperations,
         events_service: EventsService,
+        relationship_service: BaseRelationshipOperations,
         config: EventSchedulingConfig | None = None,
-        relationship_service=None,
     ) -> None:
         """
         Initialize event scheduler.
@@ -90,8 +91,9 @@ class HabitEventScheduler:
                 REINFORCES_HABIT edge, ``CalendarEventCreated`` and the embedding
                 request all happen there and nowhere else. A backend handle would
                 skip every one of them.
-            config: Scheduling configuration,
-            relationship_service: Service for fetching habit relationships
+            relationship_service: The Habits relationship service — reads the goals a
+                habit supports, which every event scheduled for it contributes to,
+            config: Scheduling configuration
 
         Note:
             Context invalidation happens via the ``CalendarEventCreated`` event the
@@ -101,6 +103,8 @@ class HabitEventScheduler:
             raise ValueError("Habits backend is required")
         if not events_service:
             raise ValueError("Events service is required")
+        if not relationship_service:
+            raise ValueError("Habits relationship service is required")
 
         self.habits_backend = habits_backend
         self.events_service = events_service
@@ -180,9 +184,7 @@ class HabitEventScheduler:
             return Result.ok([])
 
         # Generate events based on frequency
-        scheduled_events = await self._generate_events_for_frequency(
-            habit, user_context, days_ahead
-        )
+        scheduled_events = self._generate_events_for_frequency(habit, user_context, days_ahead)
 
         # Apply scheduling strategy
         scheduled_events = self._apply_scheduling_strategy(scheduled_events, habit, user_context)
@@ -191,13 +193,19 @@ class HabitEventScheduler:
         scheduled_events = self._avoid_conflicts(scheduled_events, user_context)
 
         # Create events if requested — through the Events entity door, the one
-        # create path. Every event here reinforces this habit: the link rides on
-        # the entity (``reinforces_habit_uid`` is the edge's INPUT on create), so
-        # the primitive writes the REINFORCES_HABIT edge.
+        # create path. Every event here reinforces this habit and contributes to
+        # every goal it supports: both links ride on the entity as the edges' INPUT
+        # on create, so the primitive writes REINFORCES_HABIT and CONTRIBUTES_TO_GOAL
+        # before it announces the event.
         created_events = []
         if auto_create:
+            goal_uids = await self._supported_goal_uids(habit_uid)
             for event_template in scheduled_events:
-                event = replace(Event.from_dto(event_template), reinforces_habit_uid=habit_uid)
+                event = replace(
+                    Event.from_dto(event_template),
+                    reinforces_habit_uid=habit_uid,
+                    contributes_to_goal_uids=goal_uids,
+                )
                 create_result = await self.events_service.create(event)
                 if create_result.is_ok:
                     created_events.append(create_result.value.to_dto())
@@ -279,6 +287,7 @@ class HabitEventScheduler:
         """
         maintenance_events = []
         maintenance_habit_links: dict[str, str] = {}  # event_uid → habit_uid (for edges)
+        habit_goal_links: dict[str, tuple[str, ...]] = {}  # habit_uid → supported goals
 
         # at_risk_habits is rich-context only; no maintenance to schedule at standard depth
         at_risk = user_context.at_risk_habits_or_empty()
@@ -318,14 +327,18 @@ class HabitEventScheduler:
             maintenance_events.append(event)
             maintenance_habit_links[event.uid] = habit_uid
 
-        # Create events if requested — through the Events entity door; the habit
-        # link rides on the entity and the primitive writes the edge.
+        # Create events if requested — through the Events entity door; the habit and
+        # goal links ride on the entity and the primitive writes the edges.
         if auto_create and maintenance_events:
+            for linked_habit in dict.fromkeys(maintenance_habit_links.values()):
+                habit_goal_links[linked_habit] = await self._supported_goal_uids(linked_habit)
             created = []
             for event_dto in maintenance_events:
+                maintained_habit = maintenance_habit_links[event_dto.uid]
                 entity = replace(
                     Event.from_dto(event_dto),
-                    reinforces_habit_uid=maintenance_habit_links.get(event_dto.uid),
+                    reinforces_habit_uid=maintained_habit,
+                    contributes_to_goal_uids=habit_goal_links[maintained_habit],
                 )
                 create_result = await self.events_service.create(entity)
                 if create_result.is_ok:
@@ -437,19 +450,10 @@ class HabitEventScheduler:
     # PRIVATE SCHEDULING METHODS
     # ========================================================================
 
-    async def _generate_events_for_frequency(
+    def _generate_events_for_frequency(
         self, habit: Habit, user_context: UserContext, days_ahead: int
     ) -> list[EventDTO]:
         """Generate events based on habit frequency."""
-        # Fetch habit relationships from graph
-        from core.services.habits.habit_relationships import HabitRelationships
-
-        rels = (
-            await HabitRelationships.fetch(habit.uid, self.relationships)
-            if self.relationships
-            else HabitRelationships()
-        )
-
         events = []
         start_date = date.today()
 
@@ -480,26 +484,10 @@ class HabitEventScheduler:
                     end_time=end_time,
                 )
 
-                # Add habit integration. Habit reinforcement is a graph edge
-                # written by schedule_events_for_habit after persistence (all events
-                # here reinforce `habit`), not a DTO property.
+                # Habit reinforcement and goal contribution are graph edges, set on
+                # the entity at create (schedule_events_for_habit), not DTO fields.
                 event.recurrence_maintains_habit = True
                 event.skip_breaks_habit_streak = True
-
-                # Add knowledge reinforcement if applicable
-                # Store in metadata - service layer creates APPLIES_KNOWLEDGE graph relationships
-                if rels.knowledge_reinforcement_uids:
-                    event.metadata["practices_knowledge_uids"] = list(
-                        rels.knowledge_reinforcement_uids
-                    )
-                    event.metadata["contributes_to_mastery"] = True
-
-                # Add goal support if applicable
-                if rels.linked_goal_uids:
-                    # Use fulfills_goal_uid for the first goal (singular field exists)
-                    event.fulfills_goal_uid = next(iter(rels.linked_goal_uids))  # type: ignore[attr-defined]
-                    # Store all goals in metadata
-                    event.metadata["supports_goals"] = list(rels.linked_goal_uids)
 
                 # Set priority based on habit importance (at_risk_habits is rich-context only)
                 at_risk_habits = user_context.at_risk_habits_or_empty()
@@ -511,6 +499,23 @@ class HabitEventScheduler:
                 events.append(event)
 
         return events
+
+    async def _supported_goal_uids(self, habit_uid: str) -> tuple[str, ...]:
+        """The goals ``habit_uid`` supports — every event scheduled for it contributes
+        to each of them.
+
+        An unreadable read schedules the events without goal links rather than not at
+        all: the goals decorate the event, they do not gate it.
+        """
+        result = await self.relationships.get_related_uids("supported_goals", EntityUID(habit_uid))
+        if result.is_error:
+            self.logger.warning(
+                "Scheduling events for habit %s without goal links: %s",
+                habit_uid,
+                result.error,
+            )
+            return ()
+        return tuple(result.value)
 
     def _should_schedule_on_date(self, habit: Habit, check_date: date) -> bool:
         """Determine if habit should be scheduled on a specific date."""

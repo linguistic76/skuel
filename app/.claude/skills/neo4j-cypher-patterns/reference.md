@@ -87,7 +87,7 @@ Exercise → UserEntry → EntryReport → RevisedExercise.
 | `DEPENDS_ON` | Task | Task | Task dependency (blocking) |
 | `BLOCKS` / `BLOCKED_BY` | Task | Task | Blocking pair |
 | `HAS_SUBTASK` / `SUBTASK_OF` | Task | Task | Hierarchy pair |
-| `CONTRIBUTES_TO_GOAL` | Task | Goal | Task contributes to goal progress |
+| `CONTRIBUTES_TO_GOAL` | Task, Event | Goal | Contributes to a goal (not counted in goal progress — that tallies `FULFILLS_GOAL` / `SUPPORTS_GOAL`) |
 | `FULFILLS_GOAL` | Task | Goal | Task directly fulfills goal |
 | `IMPLEMENTS_CHOICE` | Task | Choice | Task implements a decision |
 | `ASSIGNED_TO` | Task | User | Task assigned to user |
