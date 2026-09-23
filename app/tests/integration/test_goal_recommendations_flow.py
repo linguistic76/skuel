@@ -20,28 +20,36 @@ Goal achieved → GoalAchieved event → GoalEventHandlerService.handle_goal_ach
 """
 
 from datetime import date, datetime
+from typing import Any
 
 import pytest
 import pytest_asyncio
 
 from adapters.infrastructure.event_bus import InMemoryEventBus
-from adapters.persistence.neo4j.backends.activity_backends import GoalsBackend
+from adapters.persistence.neo4j.backends.activity_backends import (
+    GoalsBackend,
+    HabitsBackend,
+    PrinciplesBackend,
+)
+from adapters.persistence.neo4j.backends.curriculum_backends import KuBackend
 from adapters.persistence.neo4j.universal_backend import UniversalNeo4jBackend
 from core.events.goal_events import GoalAchieved, GoalRecommendationsGenerated
-from core.models.curriculum import Curriculum
 from core.models.enums import (
     Domain,
     NeoLabel,
-    SELCategory,
 )
 from core.models.enums.entity_enums import EntityStatus
 from core.models.enums.entity_enums import EntityStatus as HabitStatus
 from core.models.enums.goal_enums import GoalType, MeasurementType
 from core.models.enums.principle_enums import PrincipleCategory
 from core.models.goal.goal import Goal
+from core.models.goal.goal_dto import GoalDTO
 from core.models.habit.habit import Habit
+from core.models.ku.ku import Ku
 from core.models.principle.principle import Principle
+from core.models.relationship_registry import GOALS_CONFIG
 from core.services.goals.goal_event_handler_service import GoalEventHandlerService
+from core.services.relationships.unified_relationship_service import UnifiedRelationshipService
 
 
 @pytest.mark.asyncio
@@ -61,20 +69,18 @@ class TestGoalRecommendationsFlow:
     @pytest_asyncio.fixture
     async def ku_backend(self, neo4j_driver, clean_neo4j):
         """Create KU backend with clean database."""
-        return UniversalNeo4jBackend[Curriculum](neo4j_driver, "Entity", Curriculum)
+        return KuBackend(neo4j_driver, NeoLabel.KU, Ku, base_label=NeoLabel.ENTITY)
 
     @pytest_asyncio.fixture
     async def habit_backend(self, neo4j_driver, clean_neo4j):
         """Create Habit backend with clean database."""
-        return UniversalNeo4jBackend[Habit](
-            neo4j_driver, "Entity", Habit, default_filters={"entity_type": "habit"}
-        )
+        return HabitsBackend(neo4j_driver, NeoLabel.HABIT, Habit, base_label=NeoLabel.ENTITY)
 
     @pytest_asyncio.fixture
     async def principle_backend(self, neo4j_driver, clean_neo4j):
         """Create Principle backend with clean database."""
-        return UniversalNeo4jBackend[Principle](
-            neo4j_driver, "Entity", Principle, default_filters={"entity_type": "principle"}
+        return PrinciplesBackend(
+            neo4j_driver, NeoLabel.PRINCIPLE, Principle, base_label=NeoLabel.ENTITY
         )
 
     @pytest_asyncio.fixture
@@ -120,12 +126,7 @@ class TestGoalRecommendationsFlow:
         # Create 2 related knowledge units
         kus = []
         for i, title in enumerate(["Python Basics", "Web Development Fundamentals"], start=1):
-            ku = Curriculum(
-                uid=f"ku.tech_{i}",
-                title=title,
-                domain=Domain.TECH,
-                sel_category=SELCategory.SELF_AWARENESS,
-            )
+            ku = Ku(uid=f"ku.tech_{i}", title=title)
             result = await ku_backend.create(ku)
             assert result.is_ok
             kus.append(result.value)
@@ -178,51 +179,21 @@ class TestGoalRecommendationsFlow:
         assert result.is_ok
         created_goal = result.value
 
-        # Set entity_type='knowledge_unit' on Entity nodes so production query matches
-        # (production _get_goal_context uses WHERE ku.entity_type = 'knowledge_unit')
-        async with neo4j_driver.session() as session:
-            for ku in kus:
-                await session.run(
-                    "MATCH (ku:Entity {uid: $uid}) SET ku.entity_type = 'knowledge_unit'",
-                    uid=ku.uid,
-                )
-
-        # Create graph relationships
-        async with neo4j_driver.session() as session:
-            # Link goal to knowledge units
-            for ku in kus:
-                await session.run(
-                    """
-                    MATCH (goal:Entity {uid: $goal_uid})
-                    MATCH (ku:Entity {uid: $ku_uid})
-                    MERGE (goal)-[:REQUIRES_KNOWLEDGE]->(ku)
-                    """,
-                    goal_uid=goal.uid,
-                    ku_uid=ku.uid,
-                )
-
-            # Link goal to habits
-            for habit in habits:
-                await session.run(
-                    """
-                    MATCH (goal:Entity {uid: $goal_uid})
-                    MATCH (habit:Entity {uid: $habit_uid})
-                    MERGE (goal)-[:SUPPORTS_GOAL]->(habit)
-                    """,
-                    goal_uid=goal.uid,
-                    habit_uid=habit.uid,
-                )
-
-            # Link goal to principle
-            await session.run(
-                """
-                MATCH (goal:Entity {uid: $goal_uid})
-                MATCH (principle:Entity {uid: $principle_uid})
-                MERGE (goal)-[:GUIDED_BY_PRINCIPLE]->(principle)
-                """,
-                goal_uid=goal.uid,
-                principle_uid=principle.uid,
-            )
+        # Link through the writer each GoalsService.link_goal_to_* method delegates to,
+        # so every edge has the direction GOALS_CONFIG declares.
+        relationships = UnifiedRelationshipService[Any, Any, Any](
+            backend=UniversalNeo4jBackend[GoalDTO](neo4j_driver, "Entity", GoalDTO),
+            config=GOALS_CONFIG,
+            graph_intel=None,
+        )
+        links = [
+            *(("knowledge", ku.uid, {"proficiency_required": "intermediate"}) for ku in kus),
+            *(("supporting_habits", h.uid, {"essentiality": "supporting"}) for h in habits),
+            ("principles", principle.uid, {"alignment_strength": 1.0}),
+        ]
+        for key, other_uid, properties in links:
+            linked = await relationships.create_relationship(key, goal.uid, other_uid, properties)
+            assert linked.is_ok, linked
 
         return created_goal, kus, habits, [principle]
 

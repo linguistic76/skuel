@@ -13,6 +13,14 @@ This test suite verifies that:
 6. Multiple goals can be updated from a single habit completion
 7. Different goal measurement types are handled correctly
 
+Every Habit→Goal link is written through the production writer —
+``UnifiedRelationshipService.create_relationship("supporting_habits", ...)`` over
+GOALS_CONFIG, exactly what ``GoalsService.link_goal_to_habit`` delegates to — so the
+edge is ``(Habit)-[:SUPPORTS_GOAL]->(Goal)`` as the registry declares it. The
+completion itself is published directly: these tests pin the handler's streak
+arithmetic at streaks the completion door cannot reach in one call.
+``test_goal_progress_cascade.py`` drives the door.
+
 Event Flow:
 -----------
 Habit completed → HabitCompleted event → GoalsProgressService.handle_habit_completed()
@@ -21,12 +29,13 @@ Habit completed → HabitCompleted event → GoalsProgressService.handle_habit_c
 """
 
 from datetime import date, datetime
+from typing import Any
 
 import pytest
 import pytest_asyncio
 
 from adapters.infrastructure.event_bus import InMemoryEventBus
-from adapters.persistence.neo4j.backends.activity_backends import GoalsBackend
+from adapters.persistence.neo4j.backends.activity_backends import GoalsBackend, HabitsBackend
 from adapters.persistence.neo4j.universal_backend import UniversalNeo4jBackend
 from core.events import GoalAchieved, GoalProgressUpdated
 from core.events.habit_events import HabitCompleted
@@ -35,8 +44,24 @@ from core.models.enums.entity_enums import EntityType
 from core.models.enums.goal_enums import MeasurementType
 from core.models.enums.neo_labels import NeoLabel
 from core.models.goal.goal import Goal
+from core.models.goal.goal_dto import GoalDTO
 from core.models.habit.habit import Habit as Habit
+from core.models.relationship_registry import GOALS_CONFIG
 from core.services.goals.goals_progress_service import GoalsProgressService
+from core.services.relationships.unified_relationship_service import UnifiedRelationshipService
+
+
+async def _link_habit_to_goal(neo4j_driver: Any, goal_uid: str, habit_uid: str) -> None:
+    """Write the link the way ``GoalsService.link_goal_to_habit`` does."""
+    relationships = UnifiedRelationshipService[Any, Any, Any](
+        backend=UniversalNeo4jBackend[GoalDTO](neo4j_driver, "Entity", GoalDTO),
+        config=GOALS_CONFIG,
+        graph_intel=None,
+    )
+    result = await relationships.create_relationship(
+        "supporting_habits", goal_uid, habit_uid, {"weight": 1.0, "essentiality": "supporting"}
+    )
+    assert result.is_ok, result
 
 
 @pytest.mark.asyncio
@@ -51,9 +76,7 @@ class TestHabitGoalEventFlow:
     @pytest_asyncio.fixture
     async def habits_backend(self, neo4j_driver, clean_neo4j):
         """Create habits backend with clean database."""
-        return UniversalNeo4jBackend[Habit](
-            neo4j_driver, "Entity", Habit, default_filters={"entity_type": "habit"}
-        )
+        return HabitsBackend(neo4j_driver, NeoLabel.HABIT, Habit, base_label=NeoLabel.ENTITY)
 
     @pytest_asyncio.fixture
     async def goals_backend(self, neo4j_driver, clean_neo4j):
@@ -150,18 +173,7 @@ class TestHabitGoalEventFlow:
         assert result.is_ok
         created_habit = result.value
 
-        # Create graph relationship: (Goal)-[:SUPPORTS_GOAL]->(Habit)
-        async with neo4j_driver.session() as session:
-            await session.run(
-                """
-                MATCH (goal:Entity {uid: $goal_uid})
-                MATCH (habit:Entity {uid: $habit_uid})
-                MERGE (goal)-[:SUPPORTS_GOAL]->(habit)
-                RETURN goal.uid as goal_uid, habit.uid as habit_uid
-                """,
-                goal_uid=habit_based_goal.uid,
-                habit_uid=habit.uid,
-            )
+        await _link_habit_to_goal(neo4j_driver, habit_based_goal.uid, habit.uid)
 
         return created_habit
 
@@ -357,16 +369,7 @@ class TestHabitGoalEventFlow:
         assert result.is_ok, "Setup failed: Could not create habit"
 
         # Link habit to task-based goal
-        async with neo4j_driver.session() as session:
-            await session.run(
-                """
-                MATCH (goal:Entity {uid: $goal_uid})
-                MATCH (habit:Entity {uid: $habit_uid})
-                MERGE (goal)-[:SUPPORTS_GOAL]->(habit)
-                """,
-                goal_uid=task_based_goal.uid,
-                habit_uid=habit.uid,
-            )
+        await _link_habit_to_goal(neo4j_driver, task_based_goal.uid, habit.uid)
 
         # Publish HabitCompleted event
         event = HabitCompleted(
@@ -417,16 +420,7 @@ class TestHabitGoalEventFlow:
         assert result.is_ok, "Setup failed: Could not create habit"
 
         # Link habit to mixed goal
-        async with neo4j_driver.session() as session:
-            await session.run(
-                """
-                MATCH (goal:Entity {uid: $goal_uid})
-                MATCH (habit:Entity {uid: $habit_uid})
-                MERGE (goal)-[:SUPPORTS_GOAL]->(habit)
-                """,
-                goal_uid=mixed_goal.uid,
-                habit_uid=habit.uid,
-            )
+        await _link_habit_to_goal(neo4j_driver, mixed_goal.uid, habit.uid)
 
         # Publish HabitCompleted event
         event = HabitCompleted(
@@ -450,3 +444,43 @@ class TestHabitGoalEventFlow:
         updated_goal = goal_result.value
         expected_progress = (20.0 * 0.7) + ((50.0 / 100.0) * 30)
         assert updated_goal.progress_percentage == pytest.approx(expected_progress, abs=0.1)
+
+    async def test_one_habit_completion_updates_every_goal_it_supports(
+        self,
+        event_bus,
+        goals_progress_service,
+        goals_backend,
+        habits_backend,
+        neo4j_driver,
+        habit_based_goal,
+        mixed_goal,
+        test_user_uid,
+    ):
+        """A habit supporting two goals moves both — the handler's per-goal loop."""
+        event_bus.subscribe(HabitCompleted, goals_progress_service.handle_habit_completed)
+
+        habit = Habit(
+            uid="habit.shared_practice",
+            user_uid=test_user_uid,
+            entity_type=EntityType.HABIT,
+            title="Shared Practice",
+            current_streak=15,
+            best_streak=15,
+        )
+        result = await habits_backend.create(habit)
+        assert result.is_ok, "Setup failed: Could not create habit"
+        await _link_habit_to_goal(neo4j_driver, habit_based_goal.uid, habit.uid)
+        await _link_habit_to_goal(neo4j_driver, mixed_goal.uid, habit.uid)
+
+        await event_bus.publish_async(
+            HabitCompleted(
+                habit_uid=habit.uid,
+                user_uid=test_user_uid,
+                current_streak=15,
+                occurred_at=datetime.now(),
+            )
+        )
+
+        history = event_bus.get_event_history()
+        updated = {e.goal_uid for e in history if isinstance(e, GoalProgressUpdated)}
+        assert updated == {habit_based_goal.uid, mixed_goal.uid}

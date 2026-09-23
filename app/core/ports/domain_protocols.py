@@ -717,7 +717,7 @@ class GoalsOperations(
     async def find_linked_goals_for_task(
         self, task_uid: str, user_uid: UserUID
     ) -> Result[list[str]]:
-        """Find goal UIDs linked to a task via SUPPORTS_GOAL."""
+        """Find the UIDs of the goals a task fulfills (FULFILLS_GOAL)."""
         ...
 
     async def count_linked_tasks(self, goal_uid: str, user_uid: UserUID) -> Result[dict[str, int]]:
@@ -727,7 +727,7 @@ class GoalsOperations(
     async def find_linked_goals_for_habit(
         self, habit_uid: str, user_uid: UserUID
     ) -> Result[list[str]]:
-        """Find goal UIDs linked to a habit via SUPPORTS_GOAL."""
+        """Find the UIDs of the goals a habit supports (SUPPORTS_GOAL)."""
         ...
 
     async def count_linked_habits_avg_streak(

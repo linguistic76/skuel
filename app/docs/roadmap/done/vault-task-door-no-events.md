@@ -1,6 +1,6 @@
 ---
 title: "The Completion Cascade Does Not Reach Every Door"
-updated: 2026-09-06
+updated: 2026-09-23
 status: done
 registered: 2026-08-24
 ruled: 2026-09-06
@@ -27,7 +27,7 @@ code did, what it does now, and why.
 | 2a/2b — the vault door skips the completion event and the reopen-clear | #1290 | `core/services/ingestion/status_transitions.py` + `UnifiedIngestionService._apply_status_transitions` |
 
 Two obligations were found while building it and are **still open**, each with its own case file:
-[the goal-progress edge nothing writes](../goal-progress-reads-an-unwritten-edge.md) and
+[the goal-progress edge nothing writes](goal-progress-reads-an-unwritten-edge.md) and
 [ingest transition-obligation durability](../ingest-transition-obligation-durability.md) — the vault
 door's post-persist announcement has no outbox, so a read-back failure loses the announcement
 rather than the ingest.

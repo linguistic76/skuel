@@ -1042,8 +1042,7 @@ class GoalsProgressService(BaseService[GoalsOperations, Goal]):
             to prevent task completion from failing if goal update fails.
         """
         try:
-            # Query Neo4j to find goals linked to this task
-            # Pattern: (Goal)-[:SUPPORTS_GOAL]->(Task)
+            # Goals this task fulfills (Backend: GoalsBackend.find_linked_goals_for_task)
             self.logger.debug(
                 f"Querying for goals linked to task {event.task_uid}, user {event.user_uid}"
             )
@@ -1233,7 +1232,7 @@ class GoalsProgressService(BaseService[GoalsOperations, Goal]):
         eliminating direct dependency between HabitsService and GoalsService.
 
         When a habit is completed:
-        1. Find all goals linked to this habit via SUPPORTS_GOAL relationship
+        1. Find all goals this habit supports (its SUPPORTS_GOAL edges)
         2. For habit-based or mixed goals, recalculate progress based on streak
         3. Update goal progress in database
         4. Publish GoalProgressUpdated event if progress changed
@@ -1246,8 +1245,7 @@ class GoalsProgressService(BaseService[GoalsOperations, Goal]):
             to prevent habit completion from failing if goal update fails.
         """
         try:
-            # Query Neo4j to find goals linked to this habit
-            # Pattern: (Goal)-[:SUPPORTS_GOAL]->(Habit)
+            # Goals this habit supports (Backend: GoalsBackend.find_linked_goals_for_habit)
             self.logger.debug(
                 f"Querying for goals linked to habit {event.habit_uid}, user {event.user_uid}"
             )
