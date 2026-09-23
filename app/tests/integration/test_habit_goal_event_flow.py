@@ -29,10 +29,10 @@ Habit completed → HabitCompleted event → GoalsProgressService.handle_habit_c
 """
 
 from datetime import date, datetime
-from typing import Any
 
 import pytest
 import pytest_asyncio
+from neo4j import AsyncDriver
 
 from adapters.infrastructure.event_bus import InMemoryEventBus
 from adapters.persistence.neo4j.backends.activity_backends import GoalsBackend, HabitsBackend
@@ -51,9 +51,9 @@ from core.services.goals.goals_progress_service import GoalsProgressService
 from core.services.relationships.unified_relationship_service import UnifiedRelationshipService
 
 
-async def _link_habit_to_goal(neo4j_driver: Any, goal_uid: str, habit_uid: str) -> None:
+async def _link_habit_to_goal(neo4j_driver: AsyncDriver, goal_uid: str, habit_uid: str) -> None:
     """Write the link the way ``GoalsService.link_goal_to_habit`` does."""
-    relationships = UnifiedRelationshipService[Any, Any, Any](
+    relationships = UnifiedRelationshipService[UniversalNeo4jBackend[GoalDTO], Goal, GoalDTO](
         backend=UniversalNeo4jBackend[GoalDTO](neo4j_driver, "Entity", GoalDTO),
         config=GOALS_CONFIG,
         graph_intel=None,

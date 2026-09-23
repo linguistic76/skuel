@@ -20,7 +20,6 @@ Goal achieved → GoalAchieved event → GoalEventHandlerService.handle_goal_ach
 """
 
 from datetime import date, datetime
-from typing import Any
 
 import pytest
 import pytest_asyncio
@@ -181,7 +180,7 @@ class TestGoalRecommendationsFlow:
 
         # Link through the writer each GoalsService.link_goal_to_* method delegates to,
         # so every edge has the direction GOALS_CONFIG declares.
-        relationships = UnifiedRelationshipService[Any, Any, Any](
+        relationships = UnifiedRelationshipService[UniversalNeo4jBackend[GoalDTO], Goal, GoalDTO](
             backend=UniversalNeo4jBackend[GoalDTO](neo4j_driver, "Entity", GoalDTO),
             config=GOALS_CONFIG,
             graph_intel=None,

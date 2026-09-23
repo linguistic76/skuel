@@ -556,7 +556,7 @@ class GoalsBackend(_HierarchyMixin, UniversalNeo4jBackend[Goal]):
         a uid/type mismatch correctly yields no goals.
         """
         query = f"""
-        MATCH (target:Entity {{uid: $target_uid, entity_type: $target_type}})-[:{relationship.value}]->(goal:Entity {{entity_type: 'goal'}})
+        MATCH (target:Entity {{uid: $target_uid, entity_type: $target_type}})-[:{relationship.value}]->(goal:Entity {{entity_type: $goal_type}})
         WHERE goal.user_uid = $user_uid
         RETURN goal.uid as goal_uid
         """
@@ -566,6 +566,7 @@ class GoalsBackend(_HierarchyMixin, UniversalNeo4jBackend[Goal]):
                 "target_uid": target_uid,
                 "user_uid": user_uid,
                 "target_type": target_type.value,
+                "goal_type": EntityType.GOAL.value,
             },
         )
         if result.is_error:
@@ -583,12 +584,21 @@ class GoalsBackend(_HierarchyMixin, UniversalNeo4jBackend[Goal]):
     async def count_linked_tasks(self, goal_uid: str, user_uid: UserUID) -> Result[dict[str, int]]:
         """Count total and completed tasks that fulfill a goal — ``(Task)-[:FULFILLS_GOAL]->(Goal)``."""
         query = f"""
-        MATCH (task:Entity {{entity_type: 'task'}})-[:{RelationshipName.FULFILLS_GOAL.value}]->(goal:Entity {{uid: $goal_uid, entity_type: 'goal'}})
+        MATCH (task:Entity {{entity_type: $task_type}})-[:{RelationshipName.FULFILLS_GOAL.value}]->(goal:Entity {{uid: $goal_uid, entity_type: $goal_type}})
         WHERE task.user_uid = $user_uid
         RETURN count(task) as total_tasks,
-               count(CASE WHEN task.status = '{EntityStatus.COMPLETED.value}' THEN 1 END) as completed_tasks
+               count(CASE WHEN task.status = $completed THEN 1 END) as completed_tasks
         """
-        result = await self.execute_query(query, {"goal_uid": goal_uid, "user_uid": user_uid})
+        result = await self.execute_query(
+            query,
+            {
+                "goal_uid": goal_uid,
+                "user_uid": user_uid,
+                "task_type": EntityType.TASK.value,
+                "goal_type": EntityType.GOAL.value,
+                "completed": EntityStatus.COMPLETED.value,
+            },
+        )
         if result.is_error:
             return Result.fail(result)
         record = result.value[0] if result.value else {}
@@ -612,11 +622,19 @@ class GoalsBackend(_HierarchyMixin, UniversalNeo4jBackend[Goal]):
     ) -> Result[dict[str, Any]]:
         """Count the habits supporting a goal and their average streak — ``(Habit)-[:SUPPORTS_GOAL]->(Goal)``."""
         query = f"""
-        MATCH (habit:Entity {{entity_type: 'habit'}})-[:{RelationshipName.SUPPORTS_GOAL.value}]->(goal:Entity {{uid: $goal_uid, entity_type: 'goal'}})
+        MATCH (habit:Entity {{entity_type: $habit_type}})-[:{RelationshipName.SUPPORTS_GOAL.value}]->(goal:Entity {{uid: $goal_uid, entity_type: $goal_type}})
         WHERE habit.user_uid = $user_uid
         RETURN count(habit) as total_habits, COALESCE(avg(COALESCE(habit.current_streak, 0)), 0) as avg_streak
         """
-        result = await self.execute_query(query, {"goal_uid": goal_uid, "user_uid": user_uid})
+        result = await self.execute_query(
+            query,
+            {
+                "goal_uid": goal_uid,
+                "user_uid": user_uid,
+                "habit_type": EntityType.HABIT.value,
+                "goal_type": EntityType.GOAL.value,
+            },
+        )
         if result.is_error:
             return Result.fail(result)
         record = result.value[0] if result.value else {}
@@ -644,15 +662,15 @@ class GoalsBackend(_HierarchyMixin, UniversalNeo4jBackend[Goal]):
             Result containing a list with one record (or empty list if not found)
         """
         query = f"""
-        MATCH (goal:Entity {{uid: $goal_uid, user_uid: $user_uid, entity_type: 'goal'}})
+        MATCH (goal:Entity {{uid: $goal_uid, user_uid: $user_uid, entity_type: $goal_type}})
 
-        OPTIONAL MATCH (goal)-[:{RelationshipName.REQUIRES_KNOWLEDGE.value}]->(ku:Entity {{entity_type: 'ku'}})
+        OPTIONAL MATCH (goal)-[:{RelationshipName.REQUIRES_KNOWLEDGE.value}]->(ku:Entity {{entity_type: $ku_type}})
         WITH goal, collect(DISTINCT {{uid: ku.uid, title: ku.title}}) as knowledge_units
 
-        OPTIONAL MATCH (habit:Entity {{entity_type: 'habit'}})-[:{RelationshipName.SUPPORTS_GOAL.value}]->(goal)
+        OPTIONAL MATCH (habit:Entity {{entity_type: $habit_type}})-[:{RelationshipName.SUPPORTS_GOAL.value}]->(goal)
         WITH goal, knowledge_units, collect(DISTINCT {{uid: habit.uid, title: habit.title}}) as habits
 
-        OPTIONAL MATCH (goal)-[:{RelationshipName.GUIDED_BY_PRINCIPLE.value}]->(principle:Entity {{entity_type: 'principle'}})
+        OPTIONAL MATCH (goal)-[:{RelationshipName.GUIDED_BY_PRINCIPLE.value}]->(principle:Entity {{entity_type: $principle_type}})
         WITH goal, knowledge_units, habits, collect(DISTINCT {{uid: principle.uid, title: principle.title}}) as principles
 
         RETURN goal.uid as uid,
@@ -664,7 +682,17 @@ class GoalsBackend(_HierarchyMixin, UniversalNeo4jBackend[Goal]):
                habits,
                principles
         """
-        return await self.execute_query(query, {"goal_uid": goal_uid, "user_uid": user_uid})
+        return await self.execute_query(
+            query,
+            {
+                "goal_uid": goal_uid,
+                "user_uid": user_uid,
+                "goal_type": EntityType.GOAL.value,
+                "ku_type": EntityType.KU.value,
+                "habit_type": EntityType.HABIT.value,
+                "principle_type": EntityType.PRINCIPLE.value,
+            },
+        )
 
 
 class TasksBackend(_HierarchyMixin, UniversalNeo4jBackend[Task]):
