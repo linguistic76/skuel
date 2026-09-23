@@ -850,13 +850,11 @@ async def compose_services(
         # This eliminates post-construction wiring (January 2026 architecture evolution)
 
         # Wire AI services into domain facades (ADR-030: Two-Tier Intelligence)
-        askesis_ai, context_aware_ai = _wire_ai_services(
+        _wire_ai_services(
             llm_service=llm_service,
             embeddings_service=embeddings_service,
             _activity_services=activity_services,
             learning_services=learning_services,
-            user_service=user_service,
-            graph_intelligence=graph_intelligence,
         )
 
         # Create calendar service
@@ -1857,9 +1855,6 @@ async def compose_services(
             # Advanced
             jupyter_sync=advanced["jupyter_sync"],
             performance_optimization=advanced["performance_optimization"],
-            # Cross-cutting AI services (require LLM/embeddings)
-            askesis_ai=askesis_ai,
-            context_aware_ai=context_aware_ai,
             # Journal domain — DNWF three-stage workflow (FULL tier only)
             journal=journal_service,
             journal_batch=journal_batch_service,

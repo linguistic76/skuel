@@ -1,6 +1,6 @@
 ---
 title: "ADR-080: AuraDB Three-Horizon Strategy & GDS Deferral"
-updated: 2026-09-15
+updated: 2026-09-23
 status: accepted
 category: decisions
 tags: [adr, decisions, neo4j, auradb, graph-data-science, infrastructure]
@@ -238,9 +238,10 @@ exists — *not* 124 call-site edits.
 ### Deferred within Horizon 1: prerequisite-DAG cycle guard
 
 The Horizon-1 gauge measures the prerequisite DAG's depth and coverage but *assumes* it is acyclic —
-which it is today by authoring luck, not by enforcement. ORGANIZES and the generic hierarchy already
-reject cycles at write time (`_organizes_mixin.check_organizes_cycle`,
-`_hierarchy_mixin.would_create_cycle`); `PREREQUISITE_FOR` has no equivalent guard, so one bad ingest
+which it is today by authoring luck, not by enforcement. The generic hierarchy rejects cycles at
+write time (`_hierarchy_mixin.would_create_cycle`). ORGANIZES does not: its probe
+(`_organizes_mixin.check_organizes_cycle`) is registered PLANNED with no caller, and neither
+ORGANIZES writer consults it. `PREREQUISITE_FOR` has no guard at all, so one bad ingest
 could introduce a cycle that corrupts ZPD readiness/blocking logic **today** and would break GDS
 topological-sort / DAG-longest-path **later**. Closing it is no-regret hygiene, not GDS-specific work.
 

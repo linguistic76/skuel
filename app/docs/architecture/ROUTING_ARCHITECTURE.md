@@ -1,6 +1,6 @@
 ---
 title: "SKUEL Routing Architecture: Routes, Services, and Persistence"
-updated: 2026-09-12
+updated: 2026-09-23
 status: current
 category: architecture
 tags: [architecture, routing, security]
@@ -778,7 +778,7 @@ async def compose_services(neo4j_adapter, event_bus=None, config=None, ...) -> R
     core_services = _create_core_services(finance_backend=..., ...)  # Finance + Transcription
     learning_services = _create_learning_services(driver=..., ...)  # KU, PS, LP
 
-    # 6. Wire AI (FULL tier: 12 services — 6 Activity + 3 Curriculum + 2 cross-cutting + Askesis AI)
+    # 6. Wire AI (FULL tier: 8 services — 6 Activity + 2 Curriculum, each onto its facade's .ai)
     _wire_ai_services(llm_service=..., activity_services=activity_services, ...)
 
     # 7. Event-driven architecture (data-driven subscription loops)

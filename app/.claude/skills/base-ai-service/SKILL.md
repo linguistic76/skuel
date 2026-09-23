@@ -58,8 +58,6 @@ BaseAIService[B, T]
     ├── PrinciplesAIService   (implemented)
     ├── PsAIService           (implemented — Curriculum)
     ├── LpAIService           (implemented — Curriculum)
-    ├── AskesisAIService      (implemented — cross-cutting)
-    ├── ContextAwareAIService (implemented — cross-cutting)
     ├── KuAIService           (planned)
     └── ... (domain AI services as needed)
 ```

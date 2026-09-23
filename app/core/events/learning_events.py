@@ -92,9 +92,8 @@ class KnowledgeCreated(BaseEvent):
     Published when a new knowledge unit is created.
 
     Subscribers:
-    - LearningIntelligenceService (analyze prerequisites)
-    - SearchService (index for discovery)
-    - RecommendationEngine (suggest to relevant users)
+    - UserService context-cache invalidation (``services_bootstrap/_event_wiring.py``)
+    - MetricsEventHandler (Prometheus counters)
     """
 
     ku_uid: str
