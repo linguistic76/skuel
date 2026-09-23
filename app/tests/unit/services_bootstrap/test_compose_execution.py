@@ -242,8 +242,6 @@ NONE_OK_CORE_TIER = NONE_OK_BOTH_TIERS | frozenset(
         "vector_search_service",
         "embedding_worker",
         "askesis",
-        "askesis_ai",
-        "context_aware_ai",
         "journal",
         "transcription",
         "batch_transcription",

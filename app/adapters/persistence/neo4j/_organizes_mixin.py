@@ -268,28 +268,6 @@ class _OrganizesMixin:
         ]
         return Result.ok(roots)
 
-    async def get_organized_children_deep(
-        self, parent_uid: str, depth: int
-    ) -> Result[list[Neo4jProperties]]:
-        """Get children organized under parent at specified depth."""
-        query = f"""
-        MATCH (parent:Entity {{uid: $parent_uid}})-[r:ORGANIZES*1..{depth}]->(child:Entity)
-        RETURN child, r
-        ORDER BY r[0].order ASC
-        """
-        return await self.execute_query(query, {"parent_uid": parent_uid})
-
-    async def get_parent_organizers_raw(
-        self, entity_uid: EntityUID
-    ) -> Result[list[Neo4jProperties]]:
-        """Find all parents that organize a given entity."""
-        query = """
-        MATCH (parent:Entity)-[:ORGANIZES]->(child:Entity {uid: $entity_uid})
-        RETURN parent
-        ORDER BY parent.title
-        """
-        return await self.execute_query(query, {"entity_uid": entity_uid})
-
     async def get_hierarchy_raw(self, entity_uid: EntityUID) -> Result[HierarchyContextRaw]:
         """Get full hierarchy context: ancestors, children, siblings."""
         ancestors_query = """
@@ -335,40 +313,5 @@ class _OrganizesMixin:
         MATCH path = (child:Entity {uid: $child_uid})-[:ORGANIZES*]->(parent:Entity {uid: $parent_uid})
         RETURN length(path) as cycle_length
         LIMIT 1
-        """
-        return await self.execute_query(query, {"parent_uid": parent_uid, "child_uid": child_uid})
-
-    async def create_organizes(
-        self, parent_uid: str, child_uid: str, order: int, importance: str
-    ) -> Result[list[Neo4jProperties]]:
-        """Create ORGANIZES relationship with order and importance."""
-        query = """
-        MATCH (parent:Entity {uid: $parent_uid})
-        MATCH (child:Entity {uid: $child_uid})
-        MERGE (parent)-[r:ORGANIZES]->(child)
-        SET r.order = $order,
-            r.importance = $importance,
-            r.created_at = COALESCE(r.created_at, datetime()),
-            r.updated_at = datetime()
-        RETURN r
-        """
-        return await self.execute_query(
-            query,
-            {
-                "parent_uid": parent_uid,
-                "child_uid": child_uid,
-                "order": order,
-                "importance": importance,
-            },
-        )
-
-    async def delete_organizes(
-        self, parent_uid: str, child_uid: str
-    ) -> Result[list[Neo4jProperties]]:
-        """Remove ORGANIZES relationship."""
-        query = """
-        MATCH (parent:Entity {uid: $parent_uid})-[r:ORGANIZES]->(child:Entity {uid: $child_uid})
-        DELETE r
-        RETURN count(r) as deleted
         """
         return await self.execute_query(query, {"parent_uid": parent_uid, "child_uid": child_uid})

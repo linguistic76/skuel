@@ -27,14 +27,12 @@ if TYPE_CHECKING:
     from core.ports.service_protocols import LateralRelationshipOperations
     from core.services.admin_stats_service import AdminStatsService
     from core.services.analytics_service import AnalyticsService
-    from core.services.askesis_ai_service import AskesisAIService
     from core.services.background.embedding_worker import EmbeddingBackgroundWorker
 
     # Facade services — concrete class IS the contract (no parallel protocol needed)
     from core.services.choices_service import ChoicesService
     from core.services.chunks.batch_chunking_service import BatchChunkingService
     from core.services.content_enrichment_service import ContentEnrichmentService
-    from core.services.context_aware_ai_service import ContextAwareAIService
     from core.services.embeddings_service import EmbeddingsService
     from core.services.entry_grounding_service import EntryGroundingService
     from core.services.events_service import EventsService
@@ -322,10 +320,6 @@ class Services:
     # Advanced services
     jupyter_sync: JupyterNeo4jSync | None = None
     performance_optimization: PerformanceOptimizationService | None = None
-
-    # Cross-cutting AI services (require LLM/embeddings - ADR-030: Two-Tier Intelligence Design)
-    askesis_ai: AskesisAIService | None = None
-    context_aware_ai: ContextAwareAIService | None = None
 
     # Infrastructure - Neo4j driver and query executor
     neo4j_driver: AsyncDriver | None = None

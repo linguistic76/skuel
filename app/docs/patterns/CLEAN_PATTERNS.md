@@ -6,11 +6,10 @@ related_skills: []
 related_docs: []
 ---
 # Clean Patterns Reference
-*Last updated: 2026-01-19*
 
-This document contains established patterns for SKUEL service development, moved from CLAUDE.md during consolidation.
+Established patterns for SKUEL service development, each shown on real code. Every section points at the doc that holds the full treatment.
 
-## The Standard Pattern
+## Enum Value Extraction
 
 ```python
 from core.utils.type_converters import EnumLike, get_enum_value
@@ -28,95 +27,115 @@ if isinstance(obj, EnumLike):
 
 ## Composition Root Pattern
 
+`compose_services()` (`services_bootstrap/compose.py`) is the single place service wiring happens — explicit constructor injection, no reflection:
+
 ```python
-# Single point of service wiring in services_bootstrap/compose.py
-async def compose_services(neo4j_adapter, event_bus=None) -> Result[Services]:
-    # All service creation happens here - no factory pattern
-    tasks_service = TasksService(tasks_backend)
-    events_service = EventsService(events_backend)
-    return Result.ok(Services(tasks=tasks_service, events=events_service, ...))
+async def compose_services(
+    neo4j_adapter: Any,
+    event_bus: EventBusOperations | None = None,
+    config: Any = None,
+    prometheus_metrics: PrometheusMetrics | None = None,
+    metrics_cache: Any = None,
+) -> Result[Services]:
 ```
+
+It builds backends, then facades, then orchestrators, and returns them in one `Services` dataclass (`services_bootstrap/_container.py`).
 
 ## Protocol-Based Dependency Injection
 
-```python
-# Services depend on protocols, not implementations
-class KnowledgeService:
-    def __init__(self, backend: KnowledgeOperations):  # Protocol interface
-        self.backend = backend
+Services type their backend against a `core/ports` protocol; the adapter is injected at the composition root (SKUEL022/SKUEL023):
 
-# Backends implement protocols
-class KnowledgeUniversalBackend(UniversalNeo4jBackend, KnowledgeOperations):
-    async def get_knowledge_unit(self, uid: str) -> Result[Optional[KnowledgeUnit]]:
-        # Implementation details
+```python
+# core/services/tasks_service.py
+class TasksService(...):
+    def __init__(
+        self,
+        backend: TasksOperations,  # core/ports/domain_protocols.py
+        cross_domain_query: CrossDomainQueryService,
+        graph_intel: GraphIntelligenceService,
+        ...
+    ) -> None:
 ```
+
+**See:** `/docs/patterns/protocol_architecture.md`
 
 ## Universal Backend Pattern
 
+One generic backend, `UniversalNeo4jBackend[T]`, serves every entity type; a domain backend subclasses it and adds its domain-specific Cypher:
+
 ```python
-# Consistent pattern across ALL domains
-learning_backend = LearningUniversalBackend(driver)
-learning_intelligence = LearningIntelligenceService(
-    backend=learning_backend,  # Direct injection
-    progress_backend=None,
+# adapters/persistence/neo4j/backends/activity_backends.py
+class TasksBackend(_HierarchyMixin, UniversalNeo4jBackend[Task]): ...
+
+# services_bootstrap/_backends.py
+tasks_backend = TasksBackend(
+    driver,
+    NeoLabel.TASK,
+    Task,
+    prometheus_metrics=prometheus_metrics,
+    base_label=NeoLabel.ENTITY,  # multi-label CREATE: (n:Entity:Task)
 )
 ```
 
+**See:** `/docs/patterns/MODEL_TO_ADAPTER_DYNAMIC_ARCHITECTURE.md`
+
 ## Result[T] Error Handling
 
-```python
-# Services return Result[T] internally
-async def get_knowledge_unit(self, uid: str) -> Result[KnowledgeUnit]:
-    # require_found handles error check + None check + type narrowing
-    return require_found(await self.backend.get(uid), "KnowledgeUnit", uid)
+Services return `Result[T]`; routes convert to HTTP at the boundary. `require_found` (`adapters/inbound/result_helpers.py`) is the route-side fetch + not-found guard:
 
-# Routes use @boundary_handler for HTTP conversion
-@rt("/api/ku/get")
+```python
+# adapters/inbound/admin_api.py
+@rt("/api/admin/users/get")
+@require_admin(get_user_service)
 @boundary_handler()
-async def get_knowledge_route(request, uid: str):
-    return await service.get_knowledge_unit(uid)  # Auto-converts Result[T] to HTTP
+async def get_user_details(request: Request, uid: str, current_user: Any = None):
+    found = require_found(await user_service.get_user(uid), "User", uid)
+    if found.is_error:
+        return found
+    user = found.value
+    ...
 ```
+
+**See:** `/docs/patterns/ERROR_HANDLING.md`
 
 ## Three-Tier Type System
 
-```python
-# Clean separation: External -> Transfer -> Core
+External → Transfer → Core, shown on Task:
 
-# Tier 1: Pydantic (External validation)
-class KnowledgeCreateRequest(BaseModel):
-    title: str
-    content: str
+| Tier | Class | Location |
+|------|-------|----------|
+| 1. Pydantic (external validation) | `TaskCreateRequest` | `core/models/task/task_request.py` |
+| 2. DTO (mutable transfer) | `TaskDTO` (`@dataclass`) | `core/models/task/task_dto.py` |
+| 3. Domain model (immutable) | `Task` (`@dataclass(frozen=True, kw_only=True)`) | `core/models/task/task.py` |
 
-# Tier 2: DTO (Mutable transfer)
-@dataclass
-class KnowledgeDTO:
-    uid: str
-    title: str
-    content: str
-
-# Tier 3: Domain Model (Immutable business logic)
-@dataclass(frozen=True)
-class KnowledgeUnit:
-    uid: str
-    title: str
-    content: str
-
-    def calculate_complexity(self) -> float:
-        """Business logic in domain model"""
-        return len(self.content.split()) / 100.0
-```
+**See:** `/docs/patterns/three_tier_type_system.md`
 
 ## Fail-Fast Architecture
 
-```python
-# No graceful degradation - require components to work
-if not backend:
-    raise ValueError("Knowledge backend is required")  # Fail immediately
+A required dependency is checked at construction and refused loudly:
 
-# No alternative paths
-zpd = services.zpd_service  # One way only
-if not zpd:
-    return Result.fail(Errors.unavailable("zpd_service", "ZPD assessment not available"))
+```python
+# core/services/ku_service.py — KuService.__init__
+if not backend:
+    raise ValueError(
+        "KuService backend is REQUIRED. "
+        "SKUEL follows fail-fast architecture — all required dependencies "
+        "must be provided at initialization."
+    )
+```
+
+An *optional* Digital-layer dependency (ADR-043) is the one exception: it is checked at use and reported as `Errors.unavailable`, never silently skipped:
+
+```python
+# core/services/base_ai_service.py
+if not self.llm:
+    return Result.fail(
+        Errors.unavailable(
+            feature="ai_insights",
+            reason="LLM service not configured",
+            operation="generate_insight",
+        )
+    )
 ```
 
 ## Related Documentation

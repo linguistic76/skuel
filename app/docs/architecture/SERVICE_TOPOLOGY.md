@@ -1,5 +1,5 @@
 ---
-updated: 2026-09-19
+updated: 2026-09-23
 ---
 
 # Service Architecture: File Organization & Topology
@@ -97,10 +97,10 @@ Standalone services without subfolders.
 | Category | Services |
 |----------|----------|
 | **Base Classes** | `base_service.py`, `base_analytics_service.py`, `base_ai_service.py`, `base_planning_service.py` |
-| **AI/LLM** | `llm_caller.py` (UnifiedLLMCaller), `llm_service.py`, `embeddings_service.py` (EmbeddingsService), `neo4j_vector_search_service.py`, `context_aware_ai_service.py` — all port-based; the vendor SDK clients live below the boundary in `adapters/external/llm/{openai,anthropic}_adapter.py` + `adapters/external/embeddings/{openai,huggingface}_adapter.py` behind the `create_chat_client()` + `create_embedding_client()` chokepoints (W1 / ADR-063, ADR-068) |
+| **AI/LLM** | `llm_caller.py` (UnifiedLLMCaller), `llm_service.py`, `embeddings_service.py` (EmbeddingsService), `neo4j_vector_search_service.py` — all port-based; the vendor SDK clients live below the boundary in `adapters/external/llm/{openai,anthropic}_adapter.py` + `adapters/external/embeddings/{openai,huggingface}_adapter.py` behind the `create_chat_client()` + `create_embedding_client()` chokepoints (W1 / ADR-063, ADR-068) |
 | **Analytics** | `analytics_service.py`, `cross_domain_analytics_service.py` |
 | **Knowledge Analytics** | `knowledge/knowledge_pattern_analyzer.py` (generic 5-pattern engine), `tasks/task_knowledge_analyzer.py` (Task-specific, composes generic) |
-| **Askesis Secondary** | `askesis_ai_service.py`, `askesis_citation_service.py` |
+| **Askesis Secondary** | `askesis_citation_service.py` |
 | **KU Generation Pipeline** | `entity_chunking_service.py`, `insight/insight_generation_service.py` (shell + 3 mixins, July 2026 decomposition), `entity_inference_service.py`, `ku_intelligence_service.py` |
 | **Calendar** | `calendar_service.py`, `calendar_optimization_service.py` (shell + `calendar_optimization_strategies.py` mixin, July 2026 decomposition; models in `core/models/calendar_optimization.py`) |
 | **Content** | `conversion_service.py`, `content_enrichment_service.py` |

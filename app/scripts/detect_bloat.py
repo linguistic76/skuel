@@ -1065,6 +1065,19 @@ PLANNED_METHODS: dict[str, PlannedEntry] = {
     # docs/roadmap/embedded-forms-fragment-staged.md.
     "adapters/inbound/learning_loop_routes.py::get_ps_embedded_forms": _EMBEDDED_FORMS_FRAGMENT,
     "adapters/inbound/learning_loop_routes.py::submit_embedded_form": _EMBEDDED_FORMS_FRAGMENT,
+    # --- ORGANIZES cycle guard: written, never called (ruled staged) ---
+    # Neither ORGANIZES writer consults it — `organize()` (HTTP: POST
+    # /api/path-steps/organize) and the MOC body-link ingest MERGE unguarded, so
+    # the graph can cycle today.
+    "adapters/persistence/neo4j/_organizes_mixin.py::check_organizes_cycle": PlannedEntry(
+        Readiness.DELAYED,
+        "cycle probe for a would-be parent→child ORGANIZES edge; its Cypher is "
+        "correct for paths of length >= 1 but misses a self-loop (parent == child) "
+        "— wire it into organize() once two things are ruled: what a refused edge "
+        "returns (a business failure vs. a skipped write), and whether the MOC "
+        "ingest door (ingestion_write_backend, a batch UNWIND) shares the guard",
+        since=date(2026, 9, 22),
+    ),
 }
 
 # Prompt templates staged with no render site (ADR-082 D4): committed .md

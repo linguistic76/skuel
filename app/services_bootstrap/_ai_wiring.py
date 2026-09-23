@@ -1,11 +1,8 @@
 """AI service wiring — conditional on INTELLIGENCE_TIER=FULL."""
 
-from typing import TYPE_CHECKING, Any
+from typing import Any
 
 from core.utils.logging import get_logger
-
-if TYPE_CHECKING:
-    from core.services.user_service import UserService
 
 logger = get_logger("skuel.bootstrap")
 
@@ -15,20 +12,16 @@ def _wire_ai_services(
     embeddings_service: Any,
     _activity_services: dict[str, Any],
     learning_services: dict[str, Any],
-    user_service: UserService,
-    graph_intelligence: Any,
-) -> tuple[Any, Any]:
+) -> None:
     """Create and wire AI services into domain facades (ADR-030: Two-Tier Intelligence).
 
-    Returns (askesis_ai, context_aware_ai). Both None if LLM/embeddings unavailable.
+    Every facade's ``.ai`` stays None if LLM/embeddings are unavailable.
     """
     if not (llm_service and embeddings_service):
         logger.info("⚠️ AI services skipped (LLM or embeddings not available)")
-        return None, None
+        return
 
-    from core.services.askesis_ai_service import AskesisAIService
     from core.services.choices.choices_ai_service import ChoicesAIService
-    from core.services.context_aware_ai_service import ContextAwareAIService
     from core.services.events.events_ai_service import EventsAIService
     from core.services.goals.goals_ai_service import GoalsAIService
     from core.services.habits.habits_ai_service import HabitsAIService
@@ -69,21 +62,4 @@ def _wire_ai_services(
     learning_services["ps"].ai = ps_ai
     learning_services["learning_paths"].ai = lp_ai
 
-    # Create cross-cutting AI services (2)
-    askesis_ai = AskesisAIService(
-        backend=user_service,  # Uses UserService for user state
-        llm_service=llm_service,
-        embeddings_service=embeddings_service,
-        graph_intel=graph_intelligence,
-    )
-    context_aware_ai = ContextAwareAIService(
-        backend=user_service,  # Uses UserContextOperations
-        llm_service=llm_service,
-        embeddings_service=embeddings_service,
-        graph_intel=graph_intelligence,
-    )
-
-    logger.info(
-        "✅ AI services created and wired (10 services: 6 Activity + 2 Curriculum + 2 cross-cutting)"
-    )
-    return askesis_ai, context_aware_ai
+    logger.info("✅ AI services created and wired (8 services: 6 Activity + 2 Curriculum)")
