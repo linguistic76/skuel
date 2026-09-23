@@ -1,6 +1,6 @@
 ---
 title: Model-to-Adapter Dynamic Architecture
-updated: 2026-09-22
+updated: 2026-09-23
 category: patterns
 related_skills: []
 related_docs:
@@ -217,7 +217,7 @@ Four new domain backends added under `adapters/persistence/neo4j/backends/`:
 |---------|-------------|
 | `PsBackend` | 4 CONTAINS_KNOWLEDGE methods + 5 CRUD methods: `create_step_node`, `get_step_with_knowledge`, `update_step_fields`, `delete_step_node`, `list_steps_raw` |
 | `LpBackend` | 5 HAS_STEP methods: `get_steps_raw`, `get_parent_path_raw`, `add_step_to_path`, `remove_step_from_path`, `reorder_steps` |
-| `GoalsBackend` | 4 progress-helper methods: `find_linked_goals_for_task`, `count_linked_tasks`, `find_linked_goals_for_habit`, `count_linked_habits_avg_streak` |
+| `GoalsBackend` | 4 progress-helper methods: `find_linked_goals_for_task`, `recompute_progress_from_linked_tasks`, `find_linked_goals_for_habit`, `recompute_progress_from_linked_habits` (the two recomputes lock, tally, plan and write in one transaction — `_CrudMixin._recompute_with_status_guard`) |
 | `KuBackend` | 2 substance methods: `batch_increment_substance`, `increment_substance` |
 
 **Protocols updated:** `EventsOperations`, `ChoicesOperations`, `PrinciplesOperations` now extend `HierarchyOperations`. `PsOperations`, `LpOperations`, `GoalsOperations` gained method signatures for the new backend methods.

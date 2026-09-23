@@ -13,6 +13,8 @@ Provides:
     update: Partial update with updated_at timestamp
     update_with_status_guard: Partial update whose conditions are evaluated at write
         time against the node's prior status, under its write-lock (ADR-087)
+    _recompute_with_status_guard: The same guarded write, for a patch derived from
+        state read under the node's lock in the same transaction (domain wrappers only)
     delete: Delete with optional cascade (DETACH DELETE)
     list: List entities with filters, pagination, sorting
 
@@ -25,6 +27,7 @@ Requires on concrete class:
 from __future__ import annotations
 
 import time
+from collections.abc import Callable, Mapping
 from datetime import datetime
 from typing import TYPE_CHECKING, Any
 from uuid import uuid4
@@ -33,7 +36,12 @@ from adapters.persistence.neo4j.neo4j_mapper import from_neo4j_node, to_neo4j_no
 from core.models.protocols import DomainModelProtocol
 from core.models.relationship_names import RelationshipName
 from core.models.type_hints import FilterParams, Neo4jProperties, UserUID
-from core.models.update_contracts import StatusGuardedOutcome, StatusWriteGuard
+from core.models.update_contracts import (
+    GuardedRecompute,
+    GuardedWritePlan,
+    StatusGuardedOutcome,
+    StatusWriteGuard,
+)
 from core.utils.error_boundary import safe_backend_operation
 from core.utils.exception_types import NEO4J_EXCEPTIONS
 from core.utils.result_simplified import Errors, Result
@@ -629,6 +637,134 @@ class _CrudMixin[T: DomainModelProtocol]:
                 Errors.validation("No updates or conditional patches provided", field="updates")
             )
 
+        query, params = self._status_guard_statement(uid, updates, guard)
+        record = await self._run_single(query, params)
+
+        if not record:
+            self._track_db_metrics(
+                "update_with_status_guard", time.time() - start_time, is_error=True
+            )
+            return Result.fail(Errors.not_found("resource", f"{self.label} {uid} not found"))
+
+        self._track_db_metrics("update_with_status_guard", time.time() - start_time, is_error=False)
+        return Result.ok(self._status_guard_outcome(record))
+
+    @safe_backend_operation("recompute_with_status_guard")
+    async def _recompute_with_status_guard[P: GuardedWritePlan](
+        self,
+        uid: str,
+        read_query: str,
+        read_params: dict[str, Any],
+        # boundary: the read statement's row — each domain's own tally shape, which its
+        # public wrapper narrows to a TypedDict before handing it on.
+        plan: Callable[[T, Mapping[str, Any]], P | None],
+    ) -> Result[GuardedRecompute[T, P] | None]:
+        """A status-guarded write whose patch is a function of graph state (ADR-087).
+
+        ``update_with_status_guard`` writes a patch its caller decided on. A recompute
+        cannot decide its patch before the write: the figure it writes is derived from
+        state around the node (a linked-activity tally), and a tally read before the node
+        is locked goes stale while the write waits for the lock — two recomputes racing
+        the same node each write the figure they counted, and the one counted first can
+        land last. So all three steps run in ONE explicit transaction that holds the
+        node's write-lock from before the read through the write:
+
+        1. lock the node (the same ``_sg_lock`` sentinel ``update_with_status_guard``
+           uses) and read it;
+        2. run ``read_query`` — the domain's state read — under that lock;
+        3. hand both to ``plan``, and write what it returns with the SAME guarded
+           statement ``update_with_status_guard`` runs, which also removes the sentinel.
+
+        A concurrent recompute of the same node blocks at step 1 until this one commits,
+        then reads the state this one wrote over. ``plan`` returning ``None`` (nothing to
+        write) rolls the transaction back, so the sentinel never lands.
+
+        Explicit transaction, not a managed ``execute_write``: at-most-once, like
+        ``update_with_status_guard``'s auto-commit statement — a transient failure
+        surfaces as ``Result.fail`` rather than a silent re-run whose returned prior
+        misreports the verdict.
+
+        Args:
+            uid: UID of the entity to recompute.
+            read_query: The state read. Receives ``$uid`` beside ``read_params`` and must
+                return at most one row.
+            read_params: Parameters for ``read_query`` (``uid`` is added).
+            plan: Pure: the entity as locked, and the read's row (``{}`` when it returned
+                none) → the write, or ``None`` for no write.
+
+        Returns:
+            ``Result.fail(not_found)`` when no node matched; ``Result.ok(None)`` when
+            ``plan`` declined; otherwise the plan beside its write's outcome.
+        """
+        start_time = time.time()
+
+        df_clause = self._default_filter_clause()
+        where_line = f"WHERE {df_clause}" if df_clause else ""
+        lock_query = f"""
+        MATCH (n:{self.label} {{uid: $uid}})
+        {where_line}
+        SET n.`_sg_lock` = $lock_token
+        RETURN n AS node
+        """
+        lock_params: dict[str, Any] = {"uid": uid, "lock_token": uuid4().hex}
+        lock_params.update(self._default_filter_params())
+
+        async with self.driver.session() as session:
+            tx = await session.begin_transaction()
+            try:
+                locked = await (await tx.run(lock_query, lock_params)).single()
+                if locked is None:
+                    await tx.rollback()
+                    self._track_db_metrics(
+                        "recompute_with_status_guard", time.time() - start_time, is_error=True
+                    )
+                    return Result.fail(
+                        Errors.not_found("resource", f"{self.label} {uid} not found")
+                    )
+                entity = from_neo4j_node(dict(locked["node"]), self.entity_class)
+
+                read = await (await tx.run(read_query, {**read_params, "uid": uid})).single()
+                decided = plan(entity, dict(read) if read is not None else {})
+                if decided is None or (not decided.updates and not decided.guard.has_patches()):
+                    await tx.rollback()
+                    self._track_db_metrics(
+                        "recompute_with_status_guard", time.time() - start_time, is_error=False
+                    )
+                    return Result.ok(None)
+
+                query, params = self._status_guard_statement(uid, decided.updates, decided.guard)
+                record = await (await tx.run(query, params)).single()
+                if record is None:
+                    # The node was locked above, so it cannot have gone — but a write that
+                    # returned no row proves nothing was written, and must not commit a
+                    # sentinel either.
+                    await tx.rollback()
+                    return Result.fail(
+                        Errors.not_found("resource", f"{self.label} {uid} not found")
+                    )
+                await tx.commit()
+            except NEO4J_EXCEPTIONS:
+                await tx.rollback()
+                raise
+
+        self._track_db_metrics(
+            "recompute_with_status_guard", time.time() - start_time, is_error=False
+        )
+        return Result.ok(GuardedRecompute(plan=decided, outcome=self._status_guard_outcome(record)))
+
+    def _status_guard_statement(
+        self,
+        uid: str,
+        # boundary: pre-serialization patch — see ``update_with_status_guard``.
+        updates: dict[str, Any],
+        guard: StatusWriteGuard,
+    ) -> tuple[str, dict[str, Any]]:
+        """The one guarded write statement and its parameters (ADR-087).
+
+        Shared by ``update_with_status_guard`` (auto-commit) and
+        ``_recompute_with_status_guard`` (inside its locked transaction), so the two
+        cannot drift on how a guard is evaluated or a patch is stored.
+        """
         updates = dict(updates)
         updates["updated_at"] = datetime.now().isoformat()
 
@@ -647,7 +783,6 @@ class _CrudMixin[T: DomainModelProtocol]:
 
         df_clause = self._default_filter_clause()
         where_line = f"WHERE {df_clause}" if df_clause else ""
-
         # Lock BEFORE the read. MATCH takes no write-lock, so a plain read — or a
         # `WHERE n.status = $x` compare-and-set — lets two concurrent writers observe
         # the same prior. This first SET acquires the node's exclusive write-lock
@@ -698,28 +833,20 @@ class _CrudMixin[T: DomainModelProtocol]:
         }
         params.update(self._default_filter_params())
 
-        record = await self._run_single(query, params)
+        return query, params
 
-        if not record:
-            self._track_db_metrics(
-                "update_with_status_guard", time.time() - start_time, is_error=True
-            )
-            return Result.fail(Errors.not_found("resource", f"{self.label} {uid} not found"))
-
+    def _status_guard_outcome(self, record: Record) -> StatusGuardedOutcome[T]:
+        """Read the guarded statement's row into its outcome."""
         # Status is written as a string everywhere (the mapper emits `EntityStatus.value`);
         # anything else is treated as absent, which is what `_coerce_status` would do with
         # it at the service anyway.
         raw_prior = record["prior"]
         entity = from_neo4j_node(dict(record["node"]), self.entity_class)
 
-        self._track_db_metrics("update_with_status_guard", time.time() - start_time, is_error=False)
-
-        return Result.ok(
-            StatusGuardedOutcome(
-                applied=bool(record["applied"]),
-                prior_status=raw_prior if isinstance(raw_prior, str) else None,
-                entity=entity,
-            )
+        return StatusGuardedOutcome(
+            applied=bool(record["applied"]),
+            prior_status=raw_prior if isinstance(raw_prior, str) else None,
+            entity=entity,
         )
 
     @staticmethod

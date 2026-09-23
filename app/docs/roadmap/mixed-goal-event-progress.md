@@ -44,7 +44,7 @@ knowledge 0.2 and milestone 0.2, and computes every component from scratch. It i
 
 A handler that uses it must supply all four components from graph state:
 
-- **Task share:** `count_linked_tasks` already provides it.
+- **Task share:** the linked-task tally (`LinkedTaskTally`, read under the goal's lock by `recompute_progress_from_linked_tasks`) already provides it.
 - **Habit component:** `calculate_habit_contribution` takes per-habit streaks
   (`habit_streaks: dict[str, int]`). The handler has an average, and treats it as streak ÷
   `target_value`, where `target_value` is a desired streak length. These are different

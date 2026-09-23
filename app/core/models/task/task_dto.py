@@ -89,7 +89,7 @@ class TaskDTO(UserOwnedDTO):
     goal_progress_contribution: float = 0.0
     knowledge_mastery_check: bool = False
     habit_streak_maintainer: bool = False
-    completion_updates_goal: bool = False
+    completion_updates_goal: bool = True
     curriculum_practice_type: str | None = None
 
     # =========================================================================

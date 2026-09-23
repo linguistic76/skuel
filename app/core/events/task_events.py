@@ -92,59 +92,44 @@ class TaskReopened(BaseEvent):
     """
     Published when a task moves back OUT of ``completed``.
 
-    The mirror of :class:`TaskCompleted`. Published from the single update
-    chokepoint (``TasksCoreService.update_task``) on a genuine transition —
-    re-posting a non-completed status on an already-open task publishes
-    nothing, exactly as the completion side is transition-gated.
+    The mirror of :class:`TaskCompleted`, published from both places a task can
+    leave ``completed``, each on a genuine transition only — re-posting a
+    non-completed status on an already-open task publishes nothing, exactly as the
+    completion side is transition-gated:
+
+    - the update chokepoint, ``TasksCoreService.update_task``, from the prior status
+      ``update_with_status_guard`` returned (ADR-087);
+    - the vault ingest door, ``UnifiedIngestionService._apply_status_transitions``,
+      from the prior status its bulk upsert returned — the same door that removes
+      the reopened task's ``completion_date``.
+
+    A new door that can move a task out of ``completed`` must publish it too, or its
+    reopens are the half every subscriber never hears.
 
     A reopen is **not** a completion, so a subscriber must not treat it as one:
     it records no completion moment and must leave completion timestamps where
     they are.
 
-    ⚠ **The chokepoint is not the only place a task leaves ``completed``.** The
-    vault door detects the same transition from the prior status its bulk upsert
-    returns and performs the reopen's *effect* — removing ``completion_date``
-    (``UnifiedIngestionService._apply_status_transitions``) — without publishing
-    this event, because it has no subscriber to serve. Anyone who ever gives it
-    one must wire that door too, or a reopen made in Obsidian will be the half
-    the subscriber never hears.
+    Subscribers:
 
-    Subscribers: **none, by ruling** (2026-08-24 — see below, not an accident
-    of nobody having gotten to it). It was introduced so ``ProductivityAnalytics``
-    could hold ``tasks_completed`` as a recomputed number that can fall; that
-    count is now derived at read from the tasks currently in ``completed``, so a
-    reopen lowers it without anyone having to hear about it. The event stays
-    published as the chokepoint's exact statement of the transition — ADR-087
-    derives that verdict from the status the write itself returned.
+    - ``GoalsProgressService.handle_task_reopened`` — recomputes the goals the task
+      fulfills from their linked-task tally, lowering progress and un-achieving a
+      goal that falls below 100%. The recompute reads graph state under the goal's
+      lock, so the event is only its trigger: a missed or repeated one leaves the
+      next recompute of that goal correct.
 
-    Context invalidation is already covered: the same ``update_task`` call
-    publishes ``TaskUpdated``, which is subscribed for exactly that.
+    Not subscribers, by ruling (2026-08-24):
 
-    ⚠ **Kept by decision, not by oversight — do not delete it in a bloat sweep.**
-    Three coupled choices were open here; all three were RULED 2026-08-24 and the
-    case file is closed:
+    - ``ProductivityAnalytics`` — ``tasks_completed`` is derived at read from the
+      tasks currently in ``completed``, so a reopen lowers it with no one listening.
+    - The vault write-back (un-checking the Obsidian line and stripping its ``✅``
+      date, ADR-070 Resolved Design Question 2, amended). Its trigger is the
+      outbound sync pass's STATE predicate — "not completed AND the line is still
+      marked done" — because a reopen is only knowable after the graph write has
+      committed, and a failed vault write driven by this event would have no retry.
 
-    1. A reopen DOES un-check its Obsidian line and strip the ``✅`` date
-       (ADR-070 Resolved Design Question 2, amended).
-    2. This event is **not** the trigger. The outbound sync pass's STATE
-       predicate is — "not completed AND the line is still marked done". A
-       reopen is only knowable *after* ``update_with_status_guard`` returns the
-       prior (ADR-087), so the graph write has already committed and a failed
-       vault write would have no retry: re-issuing writes nothing, because the
-       prior is no longer ``completed``. A one-shot transition needs a state
-       predicate, not an event. And once state is the authority the event has no
-       verb left — a completion also only reaches the vault on the next
-       human-initiated sync, so a subscriber would buy nothing but an asymmetric
-       eagerness and a second live path to one outcome. (The vault door also
-       detects a reopen, but it learns of one while ingesting the file that made
-       it — there is nothing to write back.)
-    3. Kept published, deliberately **unsubscribed**.
-
-    ``./dev bloat`` reporting this as INFO (published, never subscribed) is the
-    RULED END STATE, not a regression — INFO is not a ``--check`` failure. And
-    ``PLANNED_EVENTS`` is NOT the way to silence it: ``analyze_events`` branches
-    on ``publish_live`` first, so a published class listed there earns a SECOND
-    INFO telling you to remove the entry.
+    Context invalidation is covered on the app door by the ``TaskUpdated`` the same
+    ``update_task`` call publishes.
     """
 
     task_uid: str

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from collections.abc import Callable, Mapping
 from datetime import datetime
 from typing import TYPE_CHECKING, Any, cast
 
@@ -18,12 +19,15 @@ from core.models.principle.principle_dto import PrincipleDTO
 from core.models.relationship_names import RelationshipName
 from core.models.task.task import Task
 from core.models.type_hints import Neo4jProperties, UserUID
+from core.models.update_contracts import GuardedRecompute, GuardedWritePlan
 from core.ports.query_types import (
     ChoiceStats,
     EventStats,
     GoalsAchievedCount,
     GoalStats,
     HabitStats,
+    LinkedHabitTally,
+    LinkedTaskTally,
     ParentProgressResult,
     PrincipleStats,
     TaskStats,
@@ -581,33 +585,42 @@ class GoalsBackend(_HierarchyMixin, UniversalNeo4jBackend[Goal]):
             task_uid, user_uid, EntityType.TASK, RelationshipName.FULFILLS_GOAL
         )
 
-    async def count_linked_tasks(self, goal_uid: str, user_uid: UserUID) -> Result[dict[str, int]]:
-        """Count total and completed tasks that fulfill a goal — ``(Task)-[:FULFILLS_GOAL]->(Goal)``."""
-        query = f"""
-        MATCH (task:Entity {{entity_type: $task_type}})-[:{RelationshipName.FULFILLS_GOAL.value}]->(goal:Entity {{uid: $goal_uid, entity_type: $goal_type}})
-        WHERE task.user_uid = $user_uid
-        RETURN count(task) as total_tasks,
-               count(CASE WHEN task.status = $completed THEN 1 END) as completed_tasks
+    async def recompute_progress_from_linked_tasks[P: GuardedWritePlan](
+        self,
+        goal_uid: str,
+        user_uid: UserUID,
+        plan: Callable[[Goal, LinkedTaskTally], P | None],
+    ) -> Result[GuardedRecompute[Goal, P] | None]:
+        """Recompute a goal from the tasks that fulfill it, tallied under the goal's lock.
+
+        The tally is ``(Task)-[:FULFILLS_GOAL]->(Goal)`` over the user's tasks that count
+        toward the goal — ``completion_updates_goal``, absent read as True. Lock, tally,
+        plan and write are one transaction (``_recompute_with_status_guard``), so a
+        second recompute of this goal counts after this one commits.
         """
-        result = await self.execute_query(
-            query,
-            {
-                "goal_uid": goal_uid,
-                "user_uid": user_uid,
-                "task_type": EntityType.TASK.value,
-                "goal_type": EntityType.GOAL.value,
-                "completed": EntityStatus.COMPLETED.value,
-            },
-        )
-        if result.is_error:
-            return Result.fail(result)
-        record = result.value[0] if result.value else {}
-        return Result.ok(
-            {
-                "total_tasks": record.get("total_tasks", 0),
-                "completed_tasks": record.get("completed_tasks", 0),
-            }
-        )
+        query = f"""
+        MATCH (goal:Entity {{uid: $uid}})
+        OPTIONAL MATCH (task:Entity {{entity_type: $task_type}})-[:{RelationshipName.FULFILLS_GOAL.value}]->(goal)
+        WHERE task.user_uid = $user_uid AND coalesce(task.completion_updates_goal, true)
+        RETURN count(task) AS total_tasks,
+               count(CASE WHEN task.status = $completed THEN 1 END) AS completed_tasks
+        """
+        params = {
+            "user_uid": user_uid,
+            "task_type": EntityType.TASK.value,
+            "completed": EntityStatus.COMPLETED.value,
+        }
+
+        def plan_from_row(goal: Goal, row: Mapping[str, Any]) -> P | None:
+            return plan(
+                goal,
+                LinkedTaskTally(
+                    total_tasks=int(row.get("total_tasks") or 0),
+                    completed_tasks=int(row.get("completed_tasks") or 0),
+                ),
+            )
+
+        return await self._recompute_with_status_guard(goal_uid, query, params, plan_from_row)
 
     async def find_linked_goals_for_habit(
         self, habit_uid: str, user_uid: UserUID
@@ -617,33 +630,37 @@ class GoalsBackend(_HierarchyMixin, UniversalNeo4jBackend[Goal]):
             habit_uid, user_uid, EntityType.HABIT, RelationshipName.SUPPORTS_GOAL
         )
 
-    async def count_linked_habits_avg_streak(
-        self, goal_uid: str, user_uid: UserUID
-    ) -> Result[dict[str, Any]]:
-        """Count the habits supporting a goal and their average streak — ``(Habit)-[:SUPPORTS_GOAL]->(Goal)``."""
-        query = f"""
-        MATCH (habit:Entity {{entity_type: $habit_type}})-[:{RelationshipName.SUPPORTS_GOAL.value}]->(goal:Entity {{uid: $goal_uid, entity_type: $goal_type}})
-        WHERE habit.user_uid = $user_uid
-        RETURN count(habit) as total_habits, COALESCE(avg(COALESCE(habit.current_streak, 0)), 0) as avg_streak
+    async def recompute_progress_from_linked_habits[P: GuardedWritePlan](
+        self,
+        goal_uid: str,
+        user_uid: UserUID,
+        plan: Callable[[Goal, LinkedHabitTally], P | None],
+    ) -> Result[GuardedRecompute[Goal, P] | None]:
+        """Recompute a goal from the habits that support it, read under the goal's lock.
+
+        The tally is ``(Habit)-[:SUPPORTS_GOAL]->(Goal)`` over the user's habits, with
+        their average ``current_streak`` (absent read as 0). The habit sibling of
+        :meth:`recompute_progress_from_linked_tasks`.
         """
-        result = await self.execute_query(
-            query,
-            {
-                "goal_uid": goal_uid,
-                "user_uid": user_uid,
-                "habit_type": EntityType.HABIT.value,
-                "goal_type": EntityType.GOAL.value,
-            },
-        )
-        if result.is_error:
-            return Result.fail(result)
-        record = result.value[0] if result.value else {}
-        return Result.ok(
-            {
-                "total_habits": record.get("total_habits", 0),
-                "avg_streak": record.get("avg_streak", 0),
-            }
-        )
+        query = f"""
+        MATCH (goal:Entity {{uid: $uid}})
+        OPTIONAL MATCH (habit:Entity {{entity_type: $habit_type}})-[:{RelationshipName.SUPPORTS_GOAL.value}]->(goal)
+        WHERE habit.user_uid = $user_uid
+        RETURN count(habit) AS total_habits,
+               coalesce(avg(coalesce(habit.current_streak, 0)), 0) AS avg_streak
+        """
+        params = {"user_uid": user_uid, "habit_type": EntityType.HABIT.value}
+
+        def plan_from_row(goal: Goal, row: Mapping[str, Any]) -> P | None:
+            return plan(
+                goal,
+                LinkedHabitTally(
+                    total_habits=int(row.get("total_habits") or 0),
+                    avg_streak=float(row.get("avg_streak") or 0.0),
+                ),
+            )
+
+        return await self._recompute_with_status_guard(goal_uid, query, params, plan_from_row)
 
     async def get_achievement_context(
         self, goal_uid: str, user_uid: UserUID

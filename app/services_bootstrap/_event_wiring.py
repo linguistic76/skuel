@@ -74,6 +74,7 @@ def _wire_event_subscribers(
         TaskCreated,
         TaskDeleted,
         TaskPriorityChanged,
+        TaskReopened,
         TasksBulkCompleted,
         TaskUpdated,
     )
@@ -325,6 +326,11 @@ def _wire_event_subscribers(
     event_bus.subscribe(TaskCompleted, goals_service.progress.handle_task_completed)
     logger.info("✅ GoalsProgressService subscribed to TaskCompleted (automatic progress updates)")
 
+    # Task reopen → the same recompute, which lowers the tally (and un-achieves a goal
+    # it drops below 100%). Published by update_task and by the vault ingest door.
+    event_bus.subscribe(TaskReopened, goals_service.progress.handle_task_reopened)
+    logger.info("✅ GoalsProgressService subscribed to TaskReopened (progress follows reopens)")
+
     # Habit completion → Goal progress update
     event_bus.subscribe(HabitCompleted, goals_service.progress.handle_habit_completed)
     logger.info("✅ GoalsProgressService subscribed to HabitCompleted (automatic progress updates)")
@@ -416,9 +422,7 @@ def _wire_event_subscribers(
     cross_domain_analytics_service = advanced["cross_domain_analytics"]
     # Stamps the completion moment only. ProductivityAnalytics holds no count —
     # tasks_completed is derived at read — so there is nothing for it to hear
-    # about on a reopen; TaskReopened is published (a transition fact the
-    # conditional-write arc derives from the prior status) and has no
-    # analytics subscriber.
+    # about on a reopen, and TaskReopened has no analytics subscriber.
     event_bus.subscribe(TaskCompleted, cross_domain_analytics_service.handle_task_completed)
     event_bus.subscribe(HabitCompleted, cross_domain_analytics_service.handle_habit_completed)
     event_bus.subscribe(

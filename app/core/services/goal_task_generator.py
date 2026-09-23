@@ -292,7 +292,6 @@ class GoalTaskGenerator:
             # Add learning integration
             task.fulfills_goal_uid = goal.uid
             task.goal_progress_contribution = 100.0 / len(goal.milestones)
-            task.completion_updates_goal = True
             # Store milestone index in metadata instead
             task.metadata["milestone_index"] = i
             task.metadata["milestone_uid"] = milestone.uid

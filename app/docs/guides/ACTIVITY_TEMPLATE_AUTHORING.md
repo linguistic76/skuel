@@ -1,7 +1,7 @@
 ---
 title: Activity Template Authoring
 created: 2026-09-06
-updated: 2026-09-14
+updated: 2026-09-23
 status: current
 category: guides
 tags: [yaml, ingestion, authoring, curriculum, activity-templates, pathstep, engagement]
@@ -475,7 +475,7 @@ fulfills_goal_template_uid: gt.mindfulness.beginner-consistency
 | `goal_progress_contribution` | float 0.0–1.0 | How much completion advances the goal |
 | `knowledge_mastery_check` | bool | Completion marks a mastery checkpoint |
 | `habit_streak_maintainer` | bool | Completion maintains a habit streak |
-| `completion_updates_goal` | bool | Completion triggers a goal progress update |
+| `completion_updates_goal` | bool (default `true`) | Counts toward the spawned Goal's task tally; `false` keeps a goal-linked task out of that goal's progress |
 
 ### GoalTemplate — `type: goal_template`
 

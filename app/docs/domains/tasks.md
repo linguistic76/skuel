@@ -1,7 +1,7 @@
 ---
 title: Tasks Domain
 created: 2025-12-04
-updated: 2026-09-17
+updated: 2026-09-23
 status: current
 category: domains
 tags:
@@ -301,19 +301,20 @@ so the window is a subset of the total by construction and the total *falls* whe
 task is deleted or reopened — which a tally maintained from completion events cannot do. The
 `ProductivityAnalytics` node holds only `first_completion_at` / `last_completion_at`.
 
-**`TaskReopened` is the mirror**, published from `update_task` alone on a transition OUT of
-completed (Today's Undo posts the prior status through that chokepoint). It has no subscriber:
-it existed so a stored count could fall, and a derived count falls on its own. It stays published
-as the chokepoint's statement of the transition — one ADR-087 now detects exactly, from the status
-the write itself returned rather than from a lock-free read beforehand.
+**`TaskReopened` is the mirror**, published on a transition OUT of completed by both doors that
+can make one: `update_task` (Today's Undo posts the prior status through that chokepoint) and the
+vault ingest door — each from the prior status its own write returned (ADR-087). Its one
+subscriber is goal progress: `GoalsProgressService.handle_task_reopened` recomputes the goals the
+task fulfills from their linked-task tally, lowering progress and un-achieving a goal that falls
+below 100% (`docs/roadmap/done/goal-progress-one-way.md`). Productivity does not subscribe — a
+derived count falls on its own.
 
 ✅ **RESOLVED 2026-08-24.** Reopening in SKUEL now un-checks the Obsidian line and strips the
 `✅ date` — checkbox authority runs both directions outbound (ADR-070 Resolved Design Question 2,
 amended). ⚠ The trigger is **not** this event: it is the outbound sync pass's STATE predicate
 ("not completed AND the line is still marked done"), because a reopen is only knowable after the
-guarded write returns the prior, so it is a one-shot fact with no retry. The event is kept
-published and deliberately **unsubscribed** — do not delete it in a bloat sweep, and do not give
-it a subscriber. Case file (resolved): `docs/roadmap/done/reopen-vault-surface.md` § "`TaskReopened` Has
+guarded write returns the prior, so it is a one-shot fact with no retry. Do not make this event
+the vault write-back's trigger. Case file (resolved): `docs/roadmap/done/reopen-vault-surface.md` § "`TaskReopened` Has
 Zero Subscribers, and a Reopen Has No Vault Surface".
 
 **Neither a reopen nor a repeat complete is a completion moment.** Both leave

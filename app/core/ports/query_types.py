@@ -3168,6 +3168,28 @@ class GoalsAchievedCount(TypedDict):
     until: str | None
 
 
+class LinkedTaskTally(TypedDict):
+    """A goal's linked-task tally, read under the goal's lock.
+
+    Shape handed to the planner of ``GoalsBackend.recompute_progress_from_linked_tasks``.
+    Counts the user's tasks that fulfill the goal and count toward it
+    (``completion_updates_goal``, absent read as True).
+    """
+
+    total_tasks: int
+    completed_tasks: int
+
+
+class LinkedHabitTally(TypedDict):
+    """A goal's supporting-habit tally, read under the goal's lock.
+
+    Shape handed to the planner of ``GoalsBackend.recompute_progress_from_linked_habits``.
+    """
+
+    total_habits: int
+    avg_streak: float
+
+
 class HabitStats(TypedDict, total=False):
     """Return shape for HabitsBackend.get_stats_for_user()."""
 
