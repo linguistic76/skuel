@@ -1,6 +1,6 @@
 ---
 title: HTTP Status Codes - REST Best Practices
-updated: 2026-09-17
+updated: 2026-09-23
 category: patterns
 related_skills: []
 related_docs: []
@@ -157,7 +157,6 @@ async def create_route(request):
 ## Related Documentation
 
 - [Error Handling Standard](ERROR_HANDLING.md)
-- [Service Creation Template](../reference/templates/service_creation.md)
 
 ---
 

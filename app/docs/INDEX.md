@@ -1,6 +1,6 @@
 ---
 title: Documentation Index
-updated: 2026-09-22
+updated: 2026-09-23
 status: current
 category: index
 tags: [index, navigation, documentation]
@@ -381,11 +381,9 @@ See [CROSS_REFERENCE_INDEX.md](CROSS_REFERENCE_INDEX.md) for skills ↔ docs map
 |----------|-------------|
 | [Code Review Checklist - Phase 7.3](reference/CODE_REVIEW_CHECKLIST.md) | |
 | [Placeholder Parameter Index](reference/PLACEHOLDER_INDEX.md) | |
-| [Protocol Definition Template](reference/templates/protocol_definition.md) | |
 | [Protocol Reference Guide](reference/PROTOCOL_REFERENCE.md) | |
 | [Search Models Reference](reference/models/SEARCH_MODELS.md) | |
 | [Search Service Methods Reference](reference/SEARCH_SERVICE_METHODS.md) | |
-| [Service Creation Template](reference/templates/service_creation.md) | |
 
 ## Intelligence
 

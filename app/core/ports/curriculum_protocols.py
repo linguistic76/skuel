@@ -402,14 +402,6 @@ class KuOperations(BackendOperations["Ku"], Protocol):
         """Count path steps using, training, and organized children."""
         ...
 
-    async def is_trained(self, ku_uid: str) -> Result[list[Neo4jProperties]]:
-        """Check if any PathStep trains this Ku via TRAINS_KU."""
-        ...
-
-    async def is_organized(self, ku_uid: str) -> Result[list[Neo4jProperties]]:
-        """Check if this Ku has ORGANIZES children (acts as MOC)."""
-        ...
-
     async def get_organization_depth(self, ku_uid: str) -> Result[list[Neo4jProperties]]:
         """Get depth of the ORGANIZES tree below this Ku."""
         ...

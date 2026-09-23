@@ -43,13 +43,13 @@ TASK_MAP = {
     "add domain": [
         "/docs/architecture/ENTITY_TYPE_ARCHITECTURE.md",
         "/docs/patterns/SERVICE_CONSOLIDATION_PATTERNS.md",
-        "/docs/reference/templates/service_creation.md",
+        "/docs/guides/BASESERVICE_QUICK_START.md",
         "/.claude/skills/activity-domains/SKILL.md",
     ],
     "add domain service": [
         "/docs/architecture/ENTITY_TYPE_ARCHITECTURE.md",
         "/docs/patterns/SERVICE_CONSOLIDATION_PATTERNS.md",
-        "/docs/reference/templates/service_creation.md",
+        "/docs/guides/BASESERVICE_QUICK_START.md",
     ],
     "write cypher": [
         "/docs/patterns/query_architecture.md",

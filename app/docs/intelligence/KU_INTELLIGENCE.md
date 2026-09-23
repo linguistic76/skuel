@@ -42,10 +42,6 @@ Counts `path_steps_using` (`USES_KU`), `path_steps_training` (`TRAINS_KU`) and `
 
 Depth of the `ORGANIZES` tree below the Ku; 0 when it organizes nothing. Backend: `KuBackend.get_organization_depth`.
 
-### is_trained(ku_uid) / is_organized(ku_uid) → `Result[bool]`
-
-Existence checks: does any PathStep train this Ku; does it have `ORGANIZES` children (i.e. act as a MOC).
-
 ### calculate_user_substance(ku_uid, user_context) → `Result[KuUserSubstanceResult]`
 
 How much this learner has applied the Ku in their life. **Requires a rich context** (`UserContextBuilder.build_rich`) — the standard build leaves the channel maps empty, and an empty map scores a confident 0.0, indistinguishable from a learner who applied nothing.

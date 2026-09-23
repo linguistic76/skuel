@@ -1,7 +1,7 @@
 ---
 title: SKUEL Documentation Hub
 created: 2025-10-17
-updated: 2026-09-17
+updated: 2026-09-23
 status: active
 audience: all
 tags: [documentation, index, hub, architecture, patterns]
@@ -162,7 +162,7 @@ doc (the cross-reference validator reads that one). A document carrying only
 | Add relationships | [UNIFIED_RELATIONSHIP_SERVICE.md](patterns/UNIFIED_RELATIONSHIP_SERVICE.md) |
 | Write Cypher queries | [query_architecture.md](patterns/query_architecture.md) |
 | Handle errors | [ERROR_HANDLING.md](patterns/ERROR_HANDLING.md) |
-| Create service | [service_creation.md](reference/templates/service_creation.md) |
+| Create service | [BASESERVICE_QUICK_START.md](guides/BASESERVICE_QUICK_START.md) |
 | Understand UserContext | [UNIFIED_USER_ARCHITECTURE.md](architecture/UNIFIED_USER_ARCHITECTURE.md) |
 
 ### By Component

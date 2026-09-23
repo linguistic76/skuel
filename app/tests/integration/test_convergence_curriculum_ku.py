@@ -18,7 +18,7 @@ returning every neighbour. Two things must hold:
 2. **Registry-sourced traversal (live Neo4j).** A Ku's registry edges
    (``USES_KU`` / ``TRAINS_KU``) surface through ``get_with_context``; an edge outside
    the registry (and ``ORGANIZES``, which is intentionally NOT in ``KU_CONFIG`` — Ku
-   hierarchy is served by ``get_organization_depth`` / ``is_organized``) is filtered
+   hierarchy is served by ``get_usage_summary`` / ``get_organization_depth``) is filtered
    out. The negative control proves the bare EXPLORATORY clause does NOT filter, so the
    registry set is what excludes the non-registry edges.
 
