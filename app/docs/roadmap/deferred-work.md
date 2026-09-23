@@ -179,6 +179,10 @@ renders them as a table in Obsidian, and a session derives the same table with
 
 [Goals and Choices as Weekly-Calendar Chips](weekly-goals-choices-chips.md) — Founder wish recorded 2026-09-11 while ruling the calendar priority-lens arc; deferred because it contradicts M4, R2 and S1 outright — re-elicit after living with the priority-lens week view, amending those rulings by letter.
 
+## Goal Tally Membership Changes Don't Recompute
+
+[Goal Tally Membership Changes Don't Recompute](goal-tally-membership-changes.md) — A goal's task tally is recomputed only when a linked task changes status. Linking, unlinking or deleting a task, or editing its `completion_updates_goal`, leaves the stored figure stale until the next completion or reopen.
+
 ## Mixed Goals Get No Event-Driven Progress
 
 [Mixed Goals Get No Event-Driven Progress](mixed-goal-event-progress.md) — Neither completion handler recomputes a `MIXED` goal. The blend they had fed each result into the next, and it was deleted unshipped in #1407. A real recompute through `ProgressCalculator` waits on one ruling: what a mixed goal's habit half measures.
