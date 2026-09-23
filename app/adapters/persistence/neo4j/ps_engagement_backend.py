@@ -20,6 +20,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any
 
+from core.models.enums.activity_enums import EngagementState
 from core.models.relationship_names import RelationshipName
 from core.utils.result_simplified import Result
 
@@ -28,9 +29,15 @@ if TYPE_CHECKING:
 
 _ENGAGED_WITH = RelationshipName.ENGAGED_WITH.value
 _OWNS = RelationshipName.OWNS.value
+# An instance's engagement_state — the spawn orchestrator writes it through
+# EngagementState, so every read and write here binds it from the enum too.
+_INSTANCE_STATE_PARAMS = {
+    "engaged_state": EngagementState.ENGAGED.value,
+    "owned_state": EngagementState.OWNED.value,
+}
 
 # The instances the (student, PS) pair's ACTIVE engagement spawned, bound as
-# ``n`` with their template as ``t``. 'owned' is kept in the state list for a
+# ``n`` with their template as ``t``. Owned is kept in the state list for a
 # completion that failed part-way, leaving the engagement active with some of
 # its instances already owned; an earlier engagement's owned instances carry
 # that engagement's uid and are out of reach.
@@ -39,7 +46,7 @@ _ACTIVE_ENGAGEMENT_INSTANCES = f"""
         WHERE e.state = 'engaged'
         MATCH (u)-[:{_OWNS}]->(n)-[sf:SPAWNED_FROM]->(t)
         WHERE sf.engagement_uid = e.uid
-          AND n.engagement_state IN ['engaged', 'owned']"""
+          AND n.engagement_state IN [$engaged_state, $owned_state]"""
 
 
 class PsEngagementBackend:
@@ -204,11 +211,15 @@ class PsEngagementBackend:
         return await self._executor.execute_write(
             query="""
             MATCH (n:Entity {uid: $uid})
-            SET n.engagement_state = 'owned',
+            SET n.engagement_state = $owned_state,
                 n.updated_at = $updated_at
             RETURN n.uid AS uid
             """,
-            params={"uid": instance_uid, "updated_at": updated_at},
+            params={
+                "uid": instance_uid,
+                "updated_at": updated_at,
+                "owned_state": EngagementState.OWNED.value,
+            },
             operation="own_instance",
         )
 
@@ -226,12 +237,12 @@ class PsEngagementBackend:
     ) -> Result[list[dict[str, Any]]]:
         query = f"""
         MATCH (n {{uid: $instance_uid, user_uid: $student_uid}})-[sf:SPAWNED_FROM]->()
-        WHERE n.engagement_state = 'engaged'
+        WHERE n.engagement_state = $engaged_state
         MATCH (u:User {{uid: $student_uid}})-[e:{_ENGAGED_WITH}]->(ps)
         WHERE e.state = 'engaged' AND e.uid = sf.engagement_uid
         MATCH (u)-[:{_OWNS}]->(other_n)-[other_sf:SPAWNED_FROM]->()
         WHERE other_sf.engagement_uid = e.uid
-          AND other_n.engagement_state = 'engaged'
+          AND other_n.engagement_state = $engaged_state
         RETURN ps.uid AS ps_uid,
                collect({{
                  entity_type: other_n.entity_type,
@@ -240,7 +251,11 @@ class PsEngagementBackend:
         """
         return await self._executor.execute(
             query=query,
-            params={"student_uid": student_uid, "instance_uid": instance_uid},
+            params={
+                "student_uid": student_uid,
+                "instance_uid": instance_uid,
+                "engaged_state": EngagementState.ENGAGED.value,
+            },
             operation="check_auto_complete",
         )
 
@@ -256,7 +271,7 @@ class PsEngagementBackend:
         """
         return await self._executor.execute(
             query=query,
-            params={"student_uid": student_uid, "ps_uid": ps_uid},
+            params={"student_uid": student_uid, "ps_uid": ps_uid, **_INSTANCE_STATE_PARAMS},
             operation="list_review_items",
         )
 
@@ -269,6 +284,6 @@ class PsEngagementBackend:
         """
         return await self._executor.execute(
             query=query,
-            params={"student_uid": student_uid, "ps_uid": ps_uid},
+            params={"student_uid": student_uid, "ps_uid": ps_uid, **_INSTANCE_STATE_PARAMS},
             operation="fetch_engaged_instances",
         )
