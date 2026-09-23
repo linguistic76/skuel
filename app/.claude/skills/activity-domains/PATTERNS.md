@@ -259,14 +259,14 @@ PathStep.engage(student_uid)
               source_path_step_uid=ps_uid,
               ...all authoring fields from template...
           )
-        → backend.create_with_spawned_from(instance, template_uid)
-              # atomic: writes node + (instance)-[:SPAWNED_FROM]->(template) edge
+        → backend.create_with_spawned_from(instance, template_uid, engagement_uid)
+              # atomic: writes node + (instance)-[:SPAWNED_FROM {engagement_uid}]->(template) edge
 ```
 
 - `engagement_state = EngagementState.ENGAGED` marks the instance as freshly spawned.
 - `source_path_step_uid` = the PathStep UID — persisted property (primary read path).
-- `(instance)-[:SPAWNED_FROM]->(ActivityTemplate)` edge — graph back-reference (traverse only when you need the template itself).
-- Student can promote to `EngagementState.OWNED` (they've personalised it enough to break the template relationship).
+- `(instance)-[:SPAWNED_FROM {engagement_uid}]->(ActivityTemplate)` edge — graph back-reference to the template, stamped with the uid of the `ENGAGED_WITH` edge that spawned it. Complete and abandon reach an engagement's instances by that stamp, never by template.
+- Kept at the completion review → `EngagementState.OWNED`: the instance outlives the engagement, and a later engagement of the same step cannot reach it.
 
 **2. Standalone creation** — `service.create_task(request, user_uid)`:
 

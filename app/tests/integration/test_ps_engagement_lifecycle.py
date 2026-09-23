@@ -13,6 +13,8 @@ Plus the cross-transition invariants the unit tests can't reach:
 
 - At-most-one-active engagement per (student, PS).
 - Concurrent-engage exclusion.
+- Engagement scope: a re-engagement, or a template shared by two steps,
+  never lets one engagement's transition reach another's instances.
 - Validation report on broken cross-template refs.
 - Empty-PS rejection.
 - Partial-spawn rollback (covered indirectly by the validator gate before
@@ -697,6 +699,127 @@ class TestAbandonPathStep:
         assert edge_count.is_ok
         states = sorted(r["state"] for r in edge_count.value)
         assert states == ["abandoned", "engaged"]
+
+
+# ============================================================================
+# Engagement scope — an engagement reaches only the instances IT spawned
+# ============================================================================
+
+
+async def _engagement_states(executor: Neo4jQueryExecutor, uids: set[str]) -> dict[str, str]:
+    """``{instance_uid: engagement_state}`` for the given instances that still exist."""
+    res = await executor.execute(
+        query=(
+            "MATCH (n:Entity) WHERE n.uid IN $uids RETURN n.uid AS uid, n.engagement_state AS state"
+        ),
+        params={"uids": sorted(uids)},
+        operation="instance_states",
+    )
+    assert res.is_ok
+    return {r["uid"]: r["state"] for r in res.value}
+
+
+@pytest.mark.asyncio
+class TestEngagementInstanceScope:
+    """The at-most-one-active invariant is per (student, PathStep), not per
+    student — so neither a second engagement of the same step nor a template
+    shared by two steps may let one engagement's transition reach another's
+    instances."""
+
+    async def test_re_engagement_leaves_the_earlier_kept_instances_alone(
+        self, engagement_service, ps_backend, template_backends, executor, test_user
+    ):
+        await _seed_full_bundle(ps_backend, template_backends, executor)
+        first = await engagement_service.engage_pathstep(test_user, PS_UID)
+        assert first.is_ok
+        kept = set(first.value.spawned_instance_uids)
+        assert (await engagement_service.complete_pathstep(test_user, PS_UID, {})).is_ok
+
+        second = await engagement_service.engage_pathstep(test_user, PS_UID)
+        assert second.is_ok
+        current = set(second.value.spawned_instance_uids)
+        assert len(current) == 6
+        assert not current & kept
+
+        review = await engagement_service.list_review_items(test_user, PS_UID)
+        assert review.is_ok
+        assert {item.instance_uid for item in review.value} == current
+
+        listed = await engagement_service.list_engaged(test_user)
+        assert listed.is_ok
+        assert set(listed.value[0].spawned_instance_uids) == current
+
+        abandoned = await engagement_service.abandon_pathstep(test_user, PS_UID)
+        assert abandoned.is_ok
+
+        # The first engagement's kept instances outlive the second's abandon.
+        assert await _engagement_states(executor, kept) == dict.fromkeys(kept, "owned")
+        assert await _engagement_states(executor, current) == {}
+
+    async def test_re_engagement_discard_leaves_the_earlier_kept_instances_alone(
+        self, engagement_service, ps_backend, template_backends, executor, test_user
+    ):
+        uids = await _seed_full_bundle(ps_backend, template_backends, executor)
+        first = await engagement_service.engage_pathstep(test_user, PS_UID)
+        kept = set(first.value.spawned_instance_uids)
+        assert (await engagement_service.complete_pathstep(test_user, PS_UID, {})).is_ok
+
+        second = await engagement_service.engage_pathstep(test_user, PS_UID)
+        assert second.is_ok
+        discard_all = {
+            uids[key]: "discard"
+            for key in ("task", "goal", "habit", "event", "choice", "principle")
+        }
+        completed = await engagement_service.complete_pathstep(test_user, PS_UID, discard_all)
+        assert completed.is_ok
+
+        assert await _engagement_states(executor, kept) == dict.fromkeys(kept, "owned")
+        assert await _engagement_states(executor, set(second.value.spawned_instance_uids)) == {}
+
+    async def test_a_template_shared_by_two_steps_keeps_their_engagements_apart(
+        self,
+        engagement_service,
+        ps_backend,
+        template_backends,
+        executor,
+        test_user,
+    ):
+        uids = await _seed_full_bundle(ps_backend, template_backends, executor)
+        other_ps = "ps_test_engagement_shared"
+        assert (await ps_backend.create(PathStep(uid=other_ps, title="Sharing step"))).is_ok
+        await _attach_template(executor, other_ps, uids["habit"], "HAS_HABIT_TEMPLATE")
+
+        on_a = await engagement_service.engage_pathstep(test_user, PS_UID)
+        on_b = await engagement_service.engage_pathstep(test_user, other_ps)
+        assert on_a.is_ok
+        assert on_b.is_ok
+        a_uids = set(on_a.value.spawned_instance_uids)
+        (b_habit,) = on_b.value.spawned_instance_uids
+
+        listed = await engagement_service.list_engaged(test_user)
+        assert listed.is_ok
+        by_ps = {eng.ps_uid: set(eng.spawned_instance_uids) for eng in listed.value}
+        assert by_ps == {PS_UID: a_uids, other_ps: {b_habit}}
+
+        review = await engagement_service.list_review_items(test_user, other_ps)
+        assert review.is_ok
+        assert [item.instance_uid for item in review.value] == [b_habit]
+
+        # The sibling read anchors on B's instance and must stay inside B.
+        siblings = await PsEngagementBackend(executor).fetch_auto_complete_siblings(
+            test_user, b_habit
+        )
+        assert siblings.is_ok
+        assert [(row["ps_uid"], len(row["siblings"])) for row in siblings.value] == [(other_ps, 1)]
+
+        abandoned = await engagement_service.abandon_pathstep(test_user, PS_UID)
+        assert abandoned.is_ok
+        assert await _engagement_states(executor, {b_habit}) == {b_habit: "engaged"}
+        assert await _engagement_states(executor, a_uids) == {}
+
+        completed = await engagement_service.complete_pathstep(test_user, other_ps, {})
+        assert completed.is_ok
+        assert await _engagement_states(executor, {b_habit}) == {b_habit: "owned"}
 
 
 # ============================================================================

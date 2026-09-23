@@ -64,6 +64,7 @@ def _service_with_stubs(
 
 def _completed_engagement(ps_uid: str = "ps_x") -> Engagement:
     return Engagement(
+        uid="engagement_test",
         student_uid="user_alice",
         ps_uid=ps_uid,
         state="completed",

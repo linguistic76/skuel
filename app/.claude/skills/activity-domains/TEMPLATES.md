@@ -264,9 +264,11 @@ For each spec (sorted by `layer`), for each template in the bundle:
    ```
 2. `_compute_cross_edges(template, spec.cross_edges, template_to_instance)`
    — resolves edge targets using the pre-allocated UID map.
-3. `backend.create_with_spawned_from(instance, template_uid)` — atomic write:
-   creates the node and the `(instance)-[:SPAWNED_FROM]->(template)` edge in
-   one transaction.
+3. `backend.create_with_spawned_from(instance, template_uid, engagement_uid)` —
+   atomic write: creates the node and the
+   `(instance)-[:SPAWNED_FROM {spawned_at, engagement_uid}]->(template)` edge in
+   one transaction. `engagement_uid` is the `ENGAGED_WITH` edge's `uid`; it is
+   what scopes complete/abandon to this engagement's instances.
 4. Writes cross-edges via `backend.create_relationship(from_uid, to_uid, edge)`.
 
 **Phase 3 — Rollback on partial failure:**

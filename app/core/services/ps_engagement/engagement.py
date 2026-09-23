@@ -1,7 +1,7 @@
 """Engagement value object — frozen state of a (User, PathStep) engagement edge.
 
-The engagement itself is a Neo4j edge ``(User)-[:ENGAGED_WITH {since, state,
-completed_at?, abandoned_at?}]->(PathStep)``, NOT a standalone Entity. This
+The engagement itself is a Neo4j edge ``(User)-[:ENGAGED_WITH {uid, since,
+state, completed_at?, abandoned_at?}]->(PathStep)``, NOT a standalone Entity. This
 dataclass is the in-memory projection returned by the facade's lifecycle
 methods so callers don't have to decode raw Cypher records.
 """
@@ -21,10 +21,17 @@ EngagementEdgeState = Literal["engaged", "completed", "abandoned"]
 class Engagement:
     """Snapshot of one (student, PS) engagement edge.
 
+    ``uid`` is the engagement's identity. A student may engage one PathStep
+    many times over (one edge each), so (student, PS) does not name an
+    engagement; every instance the engagement spawns carries this uid on its
+    ``SPAWNED_FROM`` edge, and that stamp is what scopes the engagement's
+    reads and transitions to its own instances.
+
     ``spawned_instance_uids`` is populated only on engage_pathstep results —
     other transitions return an empty tuple. Tuple, not list, for hash/freeze.
     """
 
+    uid: str
     student_uid: str
     ps_uid: str
     state: EngagementEdgeState

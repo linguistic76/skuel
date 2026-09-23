@@ -174,7 +174,9 @@ async def test_create_with_spawned_from_holds_the_same_invariant(
 
     ok_uid = f"task_{MARKER}_spawned_ok"
     ok = await tasks_backend.create_with_spawned_from(
-        _task(ok_uid, OWNER, f"{MARKER} spawned ok"), f"tt_{MARKER}_template"
+        _task(ok_uid, OWNER, f"{MARKER} spawned ok"),
+        f"tt_{MARKER}_template",
+        f"engagement_{MARKER}",
     )
     assert ok.is_ok, ok.expect_error()
     state = await _node_state(neo4j_driver, ok_uid)
@@ -182,7 +184,9 @@ async def test_create_with_spawned_from_holds_the_same_invariant(
 
     ghost_uid = f"task_{MARKER}_spawned_ghost"
     ghost = await tasks_backend.create_with_spawned_from(
-        _task(ghost_uid, GHOST, f"{MARKER} spawned ghost"), f"tt_{MARKER}_template"
+        _task(ghost_uid, GHOST, f"{MARKER} spawned ghost"),
+        f"tt_{MARKER}_template",
+        f"engagement_{MARKER}",
     )
     assert ghost.is_error
     assert await _node_state(neo4j_driver, ghost_uid) is None

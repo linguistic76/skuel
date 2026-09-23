@@ -40,6 +40,7 @@ _WRAPPER_ID = 'id="ps-engagement-actions"'
 
 def _engaged() -> Engagement:
     return Engagement(
+        uid="engagement_test",
         student_uid="user_alice",
         ps_uid=_PS_UID,
         state="engaged",

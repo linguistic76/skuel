@@ -225,14 +225,18 @@ class _CrudMixin[T: DomainModelProtocol]:
         return await self._create_node(entity, "create")
 
     @safe_backend_operation("create_with_spawned_from")
-    async def create_with_spawned_from(self, entity: T, template_uid: str) -> Result[T]:
+    async def create_with_spawned_from(
+        self, entity: T, template_uid: str, engagement_uid: str
+    ) -> Result[T]:
         """Create entity node + atomic ``(entity)-[:SPAWNED_FROM]->(template)`` edge.
 
         Used by the PsEngagement spawn orchestrator to write the graph-native
         back-reference from a spawned activity to the template that produced it
         — node and edge succeed or fail together in one Cypher transaction.
         There is no parallel ``template_uid`` property on the node; the edge
-        is THE relationship.
+        is THE relationship. The edge carries ``engagement_uid`` — the
+        ``ENGAGED_WITH`` edge whose engagement spawned the instance — because
+        the template alone names neither the step nor the engagement.
 
         Like ``create()``, writes ``(User)-[:OWNS]->(entity)`` in the same
         statement when the entity carries a ``user_uid`` — so node, template
@@ -242,8 +246,11 @@ class _CrudMixin[T: DomainModelProtocol]:
             entity,
             "create_with_spawned_from",
             match_clause="MATCH (t {uid: $template_uid})",
-            extra_cypher="CREATE (n)-[r:SPAWNED_FROM]->(t)\n        SET r.spawned_at = datetime()",
-            params={"template_uid": template_uid},
+            extra_cypher=(
+                "CREATE (n)-[r:SPAWNED_FROM]->(t)\n"
+                "        SET r.spawned_at = datetime(), r.engagement_uid = $engagement_uid"
+            ),
+            params={"template_uid": template_uid, "engagement_uid": engagement_uid},
             failure_message=f"Failed to create {self.label} or locate template {template_uid}",
         )
 

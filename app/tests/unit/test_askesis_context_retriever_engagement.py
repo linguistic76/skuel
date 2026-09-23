@@ -47,6 +47,7 @@ def _user_context(items: list[dict[str, Any]]) -> MagicMock:
 
 def _engagement(ps_uid: str, state: str = "engaged") -> Engagement:
     return Engagement(
+        uid="engagement_test",
         student_uid="user_1",
         ps_uid=ps_uid,
         state=state,  # type: ignore[arg-type]

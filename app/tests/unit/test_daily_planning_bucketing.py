@@ -47,6 +47,7 @@ def _engagement(
     state: str = "engaged",
 ) -> Engagement:
     return Engagement(
+        uid="engagement_test",
         student_uid="user_1",
         ps_uid=ps_uid,
         state=state,  # type: ignore[arg-type]
