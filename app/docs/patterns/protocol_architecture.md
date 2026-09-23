@@ -1,6 +1,6 @@
 ---
 title: Protocol-Based Architecture
-updated: 2026-09-19
+updated: 2026-09-23
 category: patterns
 related_skills:
 - python
@@ -88,7 +88,7 @@ core/ports/
 ├── graph_protocols.py                 # Graph entity protocols
 ├── group_protocols.py                 # Group & teaching (2 protocols)
 ├── infrastructure_protocols.py        # EventBus, User (3 ISP + 1 composed), Schema, Ingestion, Closeable (11 protocols)
-├── intelligence_protocols.py          # Intelligence operations (3 protocols: Knowledge, Domain, Composed)
+├── intelligence_protocols.py          # KnowledgeIntelligenceOperations (1 protocol)
 ├── query_types.py                     # 220 TypedDicts for type-safe inputs + outputs
 ├── search_protocols.py                # Search operations (15 protocols)
 ├── service_protocols.py               # Route-facing services + 2 auth backend slices (14 protocols)
@@ -99,7 +99,7 @@ core/ports/
 
 ### Protocol Hierarchies
 
-Three key protocol hierarchies organize the contracts at their respective layers. Each is ISP-compliant — consumers depend on the narrowest slice they actually use.
+Two key protocol hierarchies organize the contracts at their respective layers. Each is ISP-compliant — consumers depend on the narrowest slice they actually use.
 
 **BackendOperations** (the backend-level contract; `UniversalNeo4jBackend` implements this):
 ```
@@ -120,12 +120,7 @@ UserOperations  <- composed protocol (UserBackend implements this)
     └── UserActivityOperations (3)       <- UserActivityService
 ```
 
-**IntelligenceOperations** (shared knowledge + per-domain intelligence):
-```
-IntelligenceOperations  <- composed protocol
-    ├── KnowledgeIntelligenceOperations (4)  <- ActivityKnowledgeIntelligenceService (shared across all 6 Activity Domains)
-    └── DomainIntelligenceOperations (7)     <- Per-domain intelligence services
-```
+**KnowledgeIntelligenceOperations** (4) is a single flat protocol, satisfied by `ActivityKnowledgeIntelligenceService` (shared across all 6 Activity Domains). Per-domain intelligence services share no core protocol; their route-facing slice is `IntelligenceRouteFactory`'s own 3-method `IntelligenceOperations`.
 
 Note: `*Operations` protocols in `domain_protocols.py` are **backend-level** — they type `self.backend` inside `BaseService[Op, T]`, NOT service-level contracts. Facade services use concrete class types in routes (see "Facade Services — Explicit Delegation" below).
 
@@ -142,7 +137,7 @@ Re-measure rather than increment.
 | **Curriculum** | `curriculum_protocols.py` | KU, PS, LP, Exercise + their backend slices | 15 |
 | **Search** | `search_protocols.py` | Search and query operations | 15 |
 | **Infrastructure** | `infrastructure_protocols.py` | EventBus, User (3 ISP + 1 composed), Ingestion | 11 |
-| **Intelligence** | `intelligence_protocols.py` | Knowledge (shared) + Domain (per-service) + Composed | 3 |
+| **Intelligence** | `intelligence_protocols.py` | Knowledge (shared across Activity Domains) | 1 |
 | **Askesis** | `askesis_protocols.py` | Cross-cutting intelligence + CRUD | 6 |
 | **UserEntry** | `user_entry_protocols.py` | CRUD, lifecycle, assessment, content, organizes (ADR-054 — replaced `submission_protocols.py`) | 9 |
 | **Report** | `report_protocols.py` | Human + AI reports, progress reports, scheduling | 15 |
@@ -360,7 +355,6 @@ class Services:
     # After: Protocol types (January 2026) / concrete types (February 2026 for facades)
     learning: "LpService | None" = None  # February 2026: concrete class (was LpFacadeProtocol)
     path_steps: PsOperations | None = None
-    learning_intelligence: IntelligenceOperations | None = None
     context_service: UserContextOperations | None = None
     askesis: AskesisOperations | None = None
     moc: KuOperations | None = None

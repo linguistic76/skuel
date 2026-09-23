@@ -1678,30 +1678,6 @@ class LearningOpportunitiesResult(TypedDict, total=False):
 
 
 # ============================================================================
-# DOMAIN INTELLIGENCE RESULT TYPES
-# ============================================================================
-
-
-class BehavioralInsightsResult(TypedDict, total=False):
-    """Return shape for get_behavioral_insights()."""
-
-    behavior_patterns: list[dict[str, Any]]
-    success_factors: list[str]
-    recommendations: list[str]
-    metadata: dict[str, Any]
-
-
-class PerformanceAnalyticsResult(TypedDict, total=False):
-    """Return shape for get_performance_analytics()."""
-
-    metrics: dict[str, Any]
-    trends: dict[str, Any]
-    optimization_opportunities: list[dict[str, Any]]
-    learning_state: dict[str, Any]
-    metadata: dict[str, Any]
-
-
-# ============================================================================
 # LIFE PATH RESULT TYPES
 # ============================================================================
 
@@ -2696,33 +2672,6 @@ class KnowledgePrerequisitesResult(TypedDict, total=False):
     required_knowledge: list[KnowledgePrerequisiteItem]
     learning_path: list[dict[str, Any]]
     estimated_prep_time: str
-
-
-class CrossDomainConnectionItem(TypedDict, total=False):
-    """Single connection in CrossDomainOpportunitiesResult."""
-
-    from_uid: str
-    to_uid: str
-    relationship: str
-    strength: float
-
-
-class CrossDomainOpportunitiesResult(TypedDict, total=False):
-    """Return shape for get_cross_domain_opportunities()."""
-
-    connections: list[CrossDomainConnectionItem]
-    opportunities: list[str]
-    synergies: list[str]
-    metadata: dict[str, Any]
-
-
-class AIInsightsResult(TypedDict, total=False):
-    """Return shape for get_ai_insights(). Minimal — not yet implemented."""
-
-    insights: list[dict[str, Any]]
-    recommendations: list[str]
-    confidence: float
-    metadata: dict[str, Any]
 
 
 # ============================================================================
@@ -4096,9 +4045,6 @@ __all__ = [
     "KnowledgeSuggestionsResult",
     "KnowledgeGenerationResult",
     "LearningOpportunitiesResult",
-    # Domain Intelligence Result Types
-    "BehavioralInsightsResult",
-    "PerformanceAnalyticsResult",
     # Life Path Result Types
     "LpMatchResult",
     "LifePathRecommendationItem",
@@ -4128,9 +4074,6 @@ __all__ = [
     # Intelligence Protocol Result Types
     "KnowledgePrerequisiteItem",
     "KnowledgePrerequisitesResult",
-    "CrossDomainConnectionItem",
-    "CrossDomainOpportunitiesResult",
-    "AIInsightsResult",
     # Visualization Result Types
     "ChartJsDataset",
     "ChartJsData",

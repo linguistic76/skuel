@@ -1,6 +1,6 @@
 ---
 title: Intelligence Services - Master Index
-updated: 2026-09-21
+updated: 2026-09-23
 category: intelligence
 status: current
 related_skills:
@@ -142,15 +142,11 @@ The intelligence protocol layer has two levels:
 
 ### Core Protocols (`core/ports/intelligence_protocols.py`)
 
-Split into focused ISP protocols (March 2026):
-
 | Protocol | Methods | Implementor |
 |----------|---------|-------------|
 | `KnowledgeIntelligenceOperations` | 4 — `get_knowledge_suggestions`, `generate_knowledge_from_entities`, `get_knowledge_prerequisites`, `get_learning_opportunities` | `ActivityKnowledgeIntelligenceService` (shared singleton) |
-| `DomainIntelligenceOperations` | 7 — `find_similar_content`, `search_by_features`, `get_learning_velocity`, `get_behavioral_insights`, `get_performance_analytics`, `get_cross_domain_opportunities`, `get_ai_insights` | Per-domain intelligence services (**largely aspirational — see note**) |
-| `IntelligenceOperations` | 11 (composed) | Backward-compatible union of both (**not fully implemented by any service**) |
 
-> **⚠️ `DomainIntelligenceOperations` (and therefore the composed `IntelligenceOperations`) is largely aspirational.** Of its 7 methods only `get_performance_analytics` is implemented across all domains. `find_similar_content` exists on LP only and `get_behavioral_insights` on Tasks only. Three — `search_by_features`, `get_cross_domain_opportunities`, and `get_ai_insights` — have **no implementation anywhere**. `get_learning_velocity` has no *conforming per-domain* implementation, but a live variant exists on `CrossDomainAnalyticsService` (`core/services/cross_domain_analytics_service.py`, signature `days_back=30` — not a per-domain intelligence class). The protocol is exported from `core/ports/` but never used as a runtime type. The contract the domain services *actually* satisfy is the 3-method route-factory surface below — which the code deliberately keeps as its **own separate** protocol (see the `IntelligenceOperations` docstring in `core/ports/intelligence_protocols.py`).
+The per-domain intelligence services share no core protocol — the contract they satisfy is the 3-method route-factory surface below.
 
 ### Route Factory Protocol (`adapters/inbound/route_factories/intelligence_route_factory.py`)
 
@@ -611,10 +607,10 @@ uv run python -m pytest tests/integration/intelligence/ -k "test_predict_goal_su
 ## Implementation Status
 
 - **11 services extend `BaseAnalyticsService`** (6 Activity + KU/PS/LP + shared `ActivityKnowledgeIntelligenceService` + corpus `KnowledgeHealthService`); no service extends a `BaseIntelligenceService` — that name is not in the tree.
-- **9 domain services implement the 3-method route-factory surface** (`get_with_context` / `get_performance_analytics` / `get_domain_insights`); **8** have the routes generated (KU conforms, `KU_CONFIG` wires no factory) — § Route Factory Protocol. Conformance to the 7-method `DomainIntelligenceOperations` is partial (only `get_performance_analytics` is universal — § Core Protocols).
+- **9 domain services implement the 3-method route-factory surface** (`get_with_context` / `get_performance_analytics` / `get_domain_insights`); **8** have the routes generated (KU conforms, `KU_CONFIG` wires no factory) — § Route Factory Protocol. There is no per-domain core protocol.
 - **Context retrieval is mechanism B:** `get_with_context()` is inherited from `_CoreIntelligenceMixin[T]` and routes through `self.relationships.get_with_context`, whose edge vocabulary is `DomainRelationshipConfig.cross_domain_relationship_types` (the registry). Cross-domain analysis runs on `BaseAnalyticsService._analyze_entity_with_typed_context` (+ per-domain `{Domain}CrossContext.from_categorized`). Design record: `/docs/roadmap/intent-traversal-registry-convergence.md`.
 - **`ActivityKnowledgeIntelligenceService`** is wired into all 6 Activity Domain facades as `self.knowledge_intelligence` (shared singleton); the 4 delegation methods come from `KnowledgeIntelligenceDelegationMixin` (`core/services/mixins/`). Backend `UniversalNeo4jBackend[Entity]` with `NeoLabel.ENTITY`; type `BaseAnalyticsService[BackendOperations[Entity], Entity]`.
-- **ISP protocols:** `KnowledgeIntelligenceOperations` (4, satisfied by `ActivityKnowledgeIntelligenceService`) + `DomainIntelligenceOperations` (7, per-domain); `IntelligenceOperations` is their composition.
+- **Core protocol:** `KnowledgeIntelligenceOperations` (4, satisfied by `ActivityKnowledgeIntelligenceService`).
 - **Decomposed services:** `TasksIntelligenceService` (shell + `_core_intelligence_mixin`, `_analytics_mixin`, `_productivity_mixin`) and `EventsIntelligenceService` (shell + `_core_intelligence_mixin`, `_analytics_mixin`, `_behavioral_signals_mixin`) — thresholds in `/docs/patterns/SERVICE_DECOMPOSITION_RULE.md`.
 - **Standalone:** UserContextIntelligence (ADR-021, mixin composition, modular package).
 

@@ -1,5 +1,5 @@
 ---
-updated: 2026-09-17
+updated: 2026-09-23
 ---
 
 # Any Usage Policy
@@ -127,8 +127,6 @@ validator: Validator[Habit]  # = Callable[[Habit], list[str]]
 | `ReviewRequestResult`, `PendingReviewItem` | `ReviewQueueOperations` | `request_review`, `get_pending_reviews` |
 | `KnowledgeSuggestionsResult`, `KnowledgeGenerationResult`, `LearningOpportunitiesResult` | `KnowledgeIntelligenceOperations` | `get_knowledge_suggestions`, `generate_knowledge_from_entities`, `get_learning_opportunities` |
 | `KnowledgePrerequisitesResult`, `KnowledgePrerequisiteItem` | `KnowledgeIntelligenceOperations` | `get_knowledge_prerequisites` |
-| `BehavioralInsightsResult`, `PerformanceAnalyticsResult` | `DomainIntelligenceOperations` | `get_behavioral_insights`, `get_performance_analytics` |
-| `CrossDomainOpportunitiesResult`, `CrossDomainConnectionItem`, `AIInsightsResult` | `DomainIntelligenceOperations` | `get_cross_domain_opportunities`, `get_ai_insights` |
 | `LifePathStatus`, `LifePathRecommendation`, `LifePathDesignation`, `LifePathAlignmentResult` | `LifePathOperations`, `LifePathAlignmentOperations` | `get_full_status`, `capture_and_recommend`, `designate_and_calculate`, `get_alignment`, `calculate_alignment` |
 | `LateralRelationshipItem`, `BlockingChainResult`, `RelationshipGraphData` | `LateralRelationshipOperations` | `get_lateral_relationships`, `get_blocking_chain`, `get_relationship_graph` |
 | `AnnotationResult`, `AnnotationState`, `PrivacySummary` | `ActivityReportOperations` | `annotate`, `get_annotation`, `get_privacy_summary` |

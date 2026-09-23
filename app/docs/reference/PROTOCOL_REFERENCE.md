@@ -1,6 +1,6 @@
 ---
 title: Protocol Reference Guide
-updated: 2026-09-22
+updated: 2026-09-23
 status: current
 category: reference
 tags: [protocol, reference]
@@ -42,7 +42,7 @@ related: [ADR-025, ADR-027]
 | **Service Protocols** | `/core/ports/service_protocols.py` | Calendar, Viz, System, LifePath, Auth, Orchestration |
 | **Search Protocols** | `/core/ports/search_protocols.py` | Search operations |
 | **Infrastructure Protocols** | `/core/ports/infrastructure_protocols.py` | EventBus, Schema, User (3 ISP sub-protocols + 1 composed), Ingestion, Closeable |
-| **Intelligence Protocols** | `/core/ports/intelligence_protocols.py` | Knowledge (shared) + Domain (per-service) + Composed |
+| **Intelligence Protocols** | `/core/ports/intelligence_protocols.py` | `KnowledgeIntelligenceOperations` (shared across Activity Domains) |
 | **Facade Services** | `/core/services/{domain}_service.py` | Concrete classes with explicit delegation methods |
 
 ---
@@ -613,10 +613,10 @@ class Services:
 
 ---
 
-## Intelligence Protocols (ISP Split — March 2026)
+## Intelligence Protocols
 
 **Location:** `/core/ports/intelligence_protocols.py`
-**Purpose:** Separate shared knowledge intelligence from domain-specific behavioral intelligence.
+**Purpose:** The knowledge-intelligence contract shared by all 6 Activity Domains.
 
 ### KnowledgeIntelligenceOperations (4 methods — shared)
 
@@ -631,30 +631,9 @@ class KnowledgeIntelligenceOperations(Protocol):
 
 **Implementor:** `ActivityKnowledgeIntelligenceService` (one shared singleton for all 6 Activity Domains)
 
-### DomainIntelligenceOperations (7 methods — per-domain)
-
-```python
-@runtime_checkable
-class DomainIntelligenceOperations(Protocol):
-    async def find_similar_content(self, uid: str, limit: int = 5) -> Result[list[str]]: ...
-    async def search_by_features(self, features: dict[str, Any], limit: int = 25) -> Result[list[str]]: ...
-    async def get_learning_velocity(self, user_uid: UserUID, period_days: int = 90) -> Result[LearningVelocityMetrics]: ...
-    async def get_behavioral_insights(self, user_uid: UserUID, period_days: int = 90) -> Result[BehavioralInsightsResult]: ...
-    async def get_performance_analytics(self, user_uid: UserUID, period_days: int = 30) -> Result[PerformanceAnalyticsResult]: ...
-    async def get_cross_domain_opportunities(self, user_uid: UserUID, entity_uid: EntityUID | None = None) -> Result[CrossDomainOpportunitiesResult]: ...
-    async def get_ai_insights(self, user_uid: UserUID, entity_uid: EntityUID | None = None, query: str | None = None) -> Result[AIInsightsResult]: ...
-```
-
-**Implementors:** 6 per-domain intelligence services (TasksIntelligenceService, GoalsIntelligenceService, etc.)
-
-### IntelligenceOperations (composed — backward compatibility)
-
-```python
-@runtime_checkable
-class IntelligenceOperations(KnowledgeIntelligenceOperations, DomainIntelligenceOperations, Protocol): ...
-```
-
-**Usage:** Route factories use the composed protocol. Services that only need knowledge intelligence depend on `KnowledgeIntelligenceOperations`.
+The per-domain intelligence services share no core protocol. The route-facing slice they satisfy
+is `IntelligenceRouteFactory`'s own 3-method `IntelligenceOperations`
+(`adapters/inbound/route_factories/intelligence_route_factory.py`) — see `/docs/patterns/ROUTE_FACTORIES.md`.
 
 ---
 
