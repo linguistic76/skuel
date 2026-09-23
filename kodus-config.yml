@@ -1,66 +1,75 @@
-# Kodus (Kody) code-review configuration — config-as-code.
-# Committed at the repo root, this file OVERRIDES the app.kodus.io dashboard.
-# Docs: https://docs.kodus.io/how_to_use/en/code_review/configs/general
-# Note: custom "Kody Rules" are dashboard-only; everything else lives here.
+# Kodus (Kody) code-review configuration — config-as-code, schema v2.
+#
+# Kody reviews the semantic risks SKUEL's mechanical CI cannot prove: incorrect
+# behaviour, security boundaries, consequential performance defects, business-logic
+# mistakes, and the dashboard-managed Kody Rules. CI stays authoritative for every
+# deterministic check (format, lint, types, tests, doc validation, generated-artifact
+# freshness, dependency audit) — Kody does not duplicate them.
+#
+# ⚠️ This file is IGNORED unless the repository-level setting
+# `kodusConfigFileOverridesWebPreferences` is ON in app.kodus.io (Settings → Code
+# Review → linguistic76/skuel → General). Kodus reads that switch from the web config
+# only — declaring it here has no effect, so it is not declared. When ON, Kodus reads
+# this file from the default branch (`main`) and merges it over the web settings; keys
+# not declared here keep their web value. Top-level keys outside the current schema are
+# silently dropped.
+#
+# Kody Rules are dashboard-only.
+# Schema: https://docs.kodus.io/how_to_use/en/code_review/configs/general
+# Canonical defaults: https://github.com/kodustech/kodus-ai/blob/main/default-kodus-config.yml
 
-version: '1.2'
+version: 2.0
+codeReviewVersion: 'v2'
 
-summary:
-  generatePRSummary: true
-  # Append Kody's summary to a human-written PR description rather than replace it.
-  behaviourForExistingDescription: concatenate
+# On demand only: Kody reviews when a human comments `@kody start-review`, for the
+# first review and for every follow-up — mirroring Codex's `@codex review`. The
+# mechanical CI Gate is the only automatic gate.
+automatedReviewActive: false
+reviewCadence:
+  type: manual
 
-# Review PRs targeting these branches.
-baseBranches: [main]
+# Keep Kody's check-run: `./dev pre-merge` reads its conclusion as the verdict signal
+# of a clean run, which posts no review object.
+showStatusFeedback: true
 
-# Skip generated / vendored / secret files. Docs and skills markdown stay
-# reviewable on purpose (kept reviewable per maintainer decision 2026-05-21).
+# No bot approvals (false confidence on a solo repo), but a real CHANGES_REQUESTED on
+# critical findings, so a summoned Kody holds the merge.
+pullRequestApprovalActive: false
+isRequestChangesActive: true
+runOnDraft: false
+
+baseBranches:
+  - main
+
+# Generated, vendored, secret, or mechanically drift-checked artifacts. Ordinary
+# Markdown and Claude skills stay reviewable on purpose.
 ignorePaths:
   - '**/*.lock'
-  - uv.lock
-  - .env
-  - app/static/vendor/**
+  - 'app/package-lock.json'
+  - '**/.env'
+  - 'app/static/vendor/**'
   - '**/*.min.js'
+  - 'app/static/css/output.css'
+  - 'app/docs/reference/GRAPH_CONTRACT.yaml'
+  - 'app/docs/reference/BASESERVICE_METHOD_INDEX.md'
 
-# All review lenses on, including business-logic.
+# The four v2 analysis categories. Kody Rules are not a category — they always run.
 reviewOptions:
+  bug: true
   security: true
-  code_style: true
-  kody_rules: true
-  refactoring: true
-  error_handling: true
-  maintainability: true
-  potential_issues: true
-  documentation_and_comments: true
-  performance_and_optimization: true
+  performance: true
   business_logic: true
 
+# General findings below `high` are dropped; explicit Kody Rules are exempt.
 suggestionControl:
-  groupingMode: full
-  limitationType: pr
-  maxSuggestions: 9
-  # Drop low-severity noise; surface medium and above.
-  severityLevelFilter: medium
+  severityLevelFilter: high
+  applyFiltersToKodyRules: false
 
-ignoredTitleKeywords: []
+# PR descriptions are written deliberately; Kody adds no generated summary.
+summary:
+  generatePRSummary: false
 
-# On-demand only (2026-05-25): Kody reviews only when a human comments
-# `@kody start-review` — no auto-review on PR open or per commit — exactly mirroring
-# Codex's `@codex review` (Codex auto-review is also off). So no AI reviewer runs
-# automatically; the mechanical "CI Gate" check is the only automatic gate.
-#
-# ⚠️ This flag is NOT the switch. Empirically (2026-05-24): with
-# `automatedReviewActive: false` committed on `main`, Kody STILL auto-reviewed every
-# push — it only stopped once the **"enable automatic code review"** toggle was
-# turned OFF in the app.kodus.io Code Review settings (verified: pushes then showed a
-# "Code Review Skipped" check). The dashboard toggle is the AUTHORITATIVE control,
-# not this file — same as Codex (dashboard-only auto-review, no repo-code hard-off).
-# This flag is kept to mirror intent / in case config-as-code is honored later; to
-# actually turn Kody auto-review back on, flip the dashboard toggle.
-automatedReviewActive: false
-# Kody does not auto-APPROVE PRs (a bot approval gives false confidence solo)...
-pullRequestApprovalActive: false
-# ...but it DOES post a real CHANGES_REQUESTED review state on findings, so when it
-# IS summoned it acts as a genuine review gate alongside branch protection.
-isRequestChangesActive: true
-llmGeneratedMemoriesRequireApproval: false
+# Memories Kody learns from review interactions wait for approval before they
+# become persistent guidance.
+kodyKnowledgeApproval:
+  enabled: true
