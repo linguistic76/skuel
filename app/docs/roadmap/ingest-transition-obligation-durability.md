@@ -1,6 +1,6 @@
 ---
 title: "Ingest Transition Obligation Durability"
-updated: 2026-09-14
+updated: 2026-09-23
 status: "open — design needed"
 trigger: "a report of a vault-completed entity whose cascade did not run, OR a task completed in the app whose TRIGGERS_ON_COMPLETION dependents were never scheduled, OR a second writer of ingest-time status transitions"
 check: "no instrumentation today; the loss is silent by construction — count ERROR logs from `_publish_completions` / the reopen-clear / `TaskEventHandlerService.handle_dependent_scheduling`, or add a counter, before deciding it is worth an outbox"
@@ -40,6 +40,11 @@ one that exists (`coalesce`, deliberate: the handler's value is the real moment,
 day-grained reconstruction). So a user who already had both stamps and then lost an announcement
 keeps a stale `last_completion_at`, and nothing today fixes it. A user left without a stamp at all
 is the one case the script does repair.
+
+The reopen event is the mirror obligation (`_publish_reopens`, `TaskReopened` for a task the file
+takes out of `completed`) and shares the window, but not the permanence: its one subscriber,
+goal progress, recomputes from the linked-task tally under the goal's lock, so a lost reopen
+leaves the goal over-counted only until the next completion or reopen of any task linked to it.
 
 ## The creation rule is the one obligation in this pass that IS recoverable
 

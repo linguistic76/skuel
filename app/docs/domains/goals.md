@@ -1,7 +1,7 @@
 ---
 title: Goals Domain
 created: 2025-12-04
-updated: 2026-09-17
+updated: 2026-09-23
 status: current
 category: domains
 tags:
@@ -307,6 +307,18 @@ Where that gate lives differs by door, and the split is the point:
   is a statement about the NEW state. Only the *"…and it was not already achieved"* half rides the
   guard, as a `patch_if_prior_not_in` carrying the status/stamp **pair**. So an already-completed
   goal is written no `status` key either — the recompute still lands, the completion pair does not.
+- The **two tally recomputes** (`_update_goal_from_task_completion`,
+  `_update_goal_from_habit_completion`) go further: they read the goal AND its linked-activity
+  tally under the goal's write-lock, in the same transaction as the write
+  (`GoalsBackend.recompute_progress_from_linked_tasks` / `…_habits`, over
+  `_CrudMixin._recompute_with_status_guard`). Two completions of one goal's tasks therefore
+  serialize, and the later recompute counts what the earlier one wrote over — a count taken before
+  the lock could land after a completion it never saw. Their progress is a measurement, so status
+  follows it **both ways** (ruled 2026-09-23): a drop from 100% to below it on a COMPLETED goal
+  un-achieves it — status back to `active`, `achieved_date` removed — via a `patch_if_prior_in`, the
+  mirror of the achievement pair. The task recompute runs on `TaskCompleted` and on `TaskReopened`,
+  which both reopen doors publish (`update_task` and the vault ingest door). It counts the tasks
+  that `FULFILLS_GOAL` the goal with `completion_updates_goal` true (the default).
 
 ⚠ The milestone writer's "already achieved" input is the goal's **status**, not "every milestone
 is flagged done": reopening clears `achieved_date` and resets progress but leaves the milestone

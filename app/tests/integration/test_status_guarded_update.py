@@ -343,3 +343,108 @@ class TestStatusGuardedUpdate:
             priors = {r.value.prior_status for r in results}
             assert priors <= {EntityStatus.ACTIVE.value, EntityStatus.COMPLETED.value}
             assert EntityStatus.ACTIVE.value in priors
+
+
+class _Plan:
+    """A ``GuardedWritePlan`` — the shape ``_recompute_with_status_guard`` writes."""
+
+    def __init__(self, updates: dict, guard: StatusWriteGuard | None = None) -> None:
+        self.updates = updates
+        self.guard = guard or StatusWriteGuard()
+
+
+@pytest.mark.asyncio
+class TestRecomputeWithStatusGuard:
+    """``_recompute_with_status_guard`` — lock, read, plan and write in one transaction.
+
+    The goal tally race it closes is pinned end to end in
+    ``test_task_goal_event_flow.py``; these pin the primitive's own contract.
+    """
+
+    @pytest_asyncio.fixture
+    async def backend(self, neo4j_driver, clean_neo4j):
+        return UniversalNeo4jBackend[Task](
+            neo4j_driver, "Entity", Task, default_filters={"entity_type": "task"}
+        )
+
+    async def _seed(self, backend, uid: str, status: EntityStatus = EntityStatus.ACTIVE) -> str:
+        result = await backend.create(
+            Task(uid=uid, user_uid=USER, title="recompute", status=status)
+        )
+        assert result.is_ok
+        return uid
+
+    async def _props(self, neo4j_driver, uid: str) -> dict:
+        async with neo4j_driver.session() as session:
+            result = await session.run("MATCH (n:Entity {uid: $uid}) RETURN n", uid=uid)
+            record = await result.single()
+            return dict(record["n"]) if record else {}
+
+    _READ = "MATCH (n:Entity {uid: $uid}) RETURN n.title AS title, $extra AS extra"
+
+    async def test_the_planner_sees_the_entity_and_the_read(self, backend):
+        uid = await self._seed(backend, "task.recompute_sees")
+        seen: list = []
+
+        def plan(entity, row):
+            seen.append((entity.uid, dict(row)))
+            return _Plan({"title": f"{row['title']}+{row['extra']}"})
+
+        result = await backend._recompute_with_status_guard(uid, self._READ, {"extra": 7}, plan)
+
+        assert result.is_ok, result
+        assert seen == [(uid, {"title": "recompute", "extra": 7})]
+        assert result.value.outcome.entity.title == "recompute+7"
+        assert result.value.outcome.prior_status == EntityStatus.ACTIVE.value
+
+    async def test_a_declined_plan_rolls_back_and_leaves_no_sentinel(self, backend, neo4j_driver):
+        uid = await self._seed(backend, "task.recompute_declined")
+        before = await self._props(neo4j_driver, uid)
+
+        result = await backend._recompute_with_status_guard(
+            uid,
+            self._READ,
+            {"extra": 0},
+            lambda entity, row: None,  # noqa: ARG005
+        )
+
+        assert result.is_ok and result.value is None
+        assert await self._props(neo4j_driver, uid) == before
+
+    async def test_a_written_plan_leaves_no_sentinel(self, backend, neo4j_driver):
+        uid = await self._seed(backend, "task.recompute_written")
+
+        result = await backend._recompute_with_status_guard(
+            uid,
+            self._READ,
+            {"extra": 1},
+            lambda entity, row: _Plan({"title": "x"}),  # noqa: ARG005
+        )
+
+        assert result.is_ok
+        assert "_sg_lock" not in await self._props(neo4j_driver, uid)
+
+    async def test_the_plan_guard_is_evaluated_against_the_locked_prior(self, backend):
+        uid = await self._seed(backend, "task.recompute_guard", EntityStatus.COMPLETED)
+        guard = StatusWriteGuard(patch_if_prior_in=(_COMPLETED, {"status": "active"}))
+
+        result = await backend._recompute_with_status_guard(
+            uid,
+            self._READ,
+            {"extra": 1},
+            lambda entity, row: _Plan({"title": "y"}, guard),  # noqa: ARG005
+        )
+
+        assert result.is_ok
+        assert result.value.outcome.prior_status == EntityStatus.COMPLETED.value
+        assert result.value.outcome.entity.status == EntityStatus.ACTIVE
+
+    async def test_a_missing_node_is_not_found(self, backend):
+        result = await backend._recompute_with_status_guard(
+            "task.recompute_absent",
+            self._READ,
+            {"extra": 1},
+            lambda entity, row: _Plan({}),  # noqa: ARG005
+        )
+
+        assert result.is_error

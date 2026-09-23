@@ -382,6 +382,8 @@ class GoalEventHandlerService:
             trigger = "manual"
             if event.triggered_by_task_completion:
                 trigger = "task_completion"
+            elif event.triggered_by_task_reopen:
+                trigger = "task_reopen"
             elif event.triggered_by_habit_completion:
                 trigger = "habit_completion"
 

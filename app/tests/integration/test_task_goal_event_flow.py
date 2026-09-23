@@ -20,10 +20,12 @@ habit sibling covers a completion fanning out to several goals.
 Event Flow:
 -----------
 update_task(status=completed) → TaskCompleted → GoalsProgressService.handle_task_completed()
-    → GoalsBackend.find_linked_goals_for_task → count_linked_tasks → update goal
+    → GoalsBackend.find_linked_goals_for_task → recompute_progress_from_linked_tasks
+      (lock the goal, tally its tasks, plan, guarded write — one transaction)
     → GoalProgressUpdated → (at 100%) GoalAchieved
 """
 
+import asyncio
 from datetime import date
 
 import pytest
@@ -261,3 +263,70 @@ class TestTaskGoalEventFlow:
         progress = [e.new_progress for e in self._events(event_bus, GoalProgressUpdated)]
         assert progress == pytest.approx([25.0, 50.0, 75.0, 100.0])
         assert [e.goal_uid for e in self._events(event_bus, GoalAchieved)] == [goal.uid]
+
+
+@pytest.mark.asyncio
+class TestTaskGoalRecomputeUnderTheGoalLock:
+    """The tally is counted under the goal's write-lock, not before it.
+
+    The race: two tasks of one goal complete together, and each completion's handler
+    recomputes the goal. If a handler counts before it takes the goal's lock, it can
+    count 1/2, wait for the lock while the other handler writes 2/2 and 100%, and then
+    land its stale 1/2 and 50% on top.
+
+    Racing two handlers with ``gather`` does not reproduce this reliably, because each
+    call does enough work to stagger itself. So the test holds the goal's write-lock in
+    a raw transaction that also completes the second task, and runs the first task's
+    handler against it. A handler that counts before the lock reads the committed
+    1-of-2 and writes it after the holder commits. A handler that counts under the
+    lock waits, and then reads both.
+    """
+
+    async def test_a_count_cannot_land_after_a_completion_it_did_not_see(
+        self, neo4j_driver, clean_neo4j
+    ):
+        bus = InMemoryEventBus(capture_history=True)
+        goals_backend = GoalsBackend(neo4j_driver, NeoLabel.GOAL, Goal, base_label=NeoLabel.ENTITY)
+        tasks_service = TasksCoreService(
+            backend=TasksBackend(neo4j_driver, NeoLabel.TASK, Task, base_label=NeoLabel.ENTITY),
+            event_bus=bus,
+        )
+        # Not subscribed: this test fires the handler itself, at the moment it chooses.
+        progress = GoalsProgressService(backend=goals_backend, event_bus=bus)
+
+        flow = TestTaskGoalEventFlow()
+        goal = await flow._create_goal(goals_backend, "goal.race", MeasurementType.TASK_BASED)
+        first = await flow._create_task(tasks_service, "task.race_1", goal.uid)
+        second = await flow._create_task(tasks_service, "task.race_2", goal.uid)
+        await flow._complete(tasks_service, first.uid)
+
+        async with neo4j_driver.session() as session:
+            holder = await session.begin_transaction()
+            # A real property write takes the goal's write-lock until commit.
+            await holder.run(
+                "MATCH (g:Entity {uid: $g}) SET g.race_probe = 1 REMOVE g.race_probe",
+                g=goal.uid,
+            )
+            await holder.run(
+                "MATCH (t:Entity {uid: $t}) SET t.status = $completed",
+                t=second.uid,
+                completed=EntityStatus.COMPLETED.value,
+            )
+
+            handler = asyncio.create_task(
+                progress.handle_task_completed(
+                    TaskCompleted(task_uid=first.uid, user_uid=_USER_UID)
+                )
+            )
+            # Long enough for a handler that counts before the lock to have counted.
+            await asyncio.sleep(1.0)
+            assert not handler.done(), "the handler wrote without waiting for the goal's lock"
+            await holder.commit()
+
+        await asyncio.wait_for(handler, timeout=30)
+
+        stored = (await goals_backend.get(goal.uid)).value
+        assert stored is not None
+        assert (stored.current_value, stored.target_value) == (2.0, 2.0)
+        assert stored.progress_percentage == pytest.approx(100.0)
+        assert stored.status == EntityStatus.COMPLETED

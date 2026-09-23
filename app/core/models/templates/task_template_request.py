@@ -55,7 +55,7 @@ class TaskTemplateCreateRequest(TemplateCreateRequest):
     goal_progress_contribution: float = Field(default=0.0, ge=0.0, le=1.0)
     knowledge_mastery_check: bool = False
     habit_streak_maintainer: bool = False
-    completion_updates_goal: bool = False
+    completion_updates_goal: bool = True
 
 
 class TaskTemplateUpdateRequest(UpdateRequestBase):

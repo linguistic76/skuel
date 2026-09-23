@@ -1,6 +1,6 @@
 ---
 title: "ADR-087: Status-Guarded Conditional Writes"
-updated: 2026-09-15
+updated: 2026-09-23
 status: accepted
 category: decisions
 tags: [adr, decisions, concurrency, status, completion-stamp, neo4j, write-path]
@@ -145,6 +145,18 @@ and a guarded-out write leaves the node byte-identical. All three payloads pass 
 ISO strings — **the writer decides the storage type**, and computing a stamp in Cypher would
 quietly change it) and a `None` survives to `SET n += {field: null}`, which REMOVES the
 property. That null-merge *is* the reopen clear.
+
+**A patch derived from state around the node is the same statement, one transaction
+later.** `update_with_status_guard` writes a patch its caller already decided. A goal's
+tally recompute cannot decide its patch before the write: the figure is a count of linked
+tasks or habits, and a count taken before the goal is locked goes stale while the write
+waits for the lock. So `_CrudMixin._recompute_with_status_guard` runs three steps in one
+explicit transaction: the lock-first `SET` of the same `_sg_lock` sentinel, the domain's
+state read, and then, after a pure Python planner turns both into `(updates, guard)`, the
+statement above, which removes the sentinel. A planner that declines rolls the transaction
+back. The only callers are `GoalsBackend.recompute_progress_from_linked_tasks` and
+`…_habits`, and the guard is evaluated exactly as above. Only the moment the patch is
+decided moves, to under the lock (goal-link arc PR 1b).
 
 **Why the lock is load-bearing, measured.** 40 trials × 4 concurrent completes on one node,
 Neo4j 2026.06.0: with the lock-first `SET`, exactly one writer saw a non-completed prior in

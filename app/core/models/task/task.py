@@ -125,7 +125,7 @@ class Task(UserOwnedEntity):
     goal_progress_contribution: float = 0.0  # Contribution to GOAL (0.0-1.0)
     knowledge_mastery_check: bool = False  # Verify knowledge mastery on completion
     habit_streak_maintainer: bool = False  # Maintains habit streak
-    completion_updates_goal: bool = False  # Completion updates GOAL progress
+    completion_updates_goal: bool = True  # Counts toward the FULFILLS_GOAL goal's progress tally
     curriculum_practice_type: str | None = None  # Curriculum connection type
 
     # =========================================================================

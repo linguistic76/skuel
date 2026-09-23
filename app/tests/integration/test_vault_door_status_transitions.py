@@ -21,7 +21,8 @@ Pinned:
   files — publishes ZERO. Without prior-status honesty the feature would be
   worse than the gap it closes;
 - a file edited ``completed`` → ``in_progress`` has its completion stamp
-  removed and publishes nothing;
+  removed and publishes one ``TaskReopened`` (goal progress recomputes on it) and
+  no completion — and re-ingesting the now-open file publishes nothing;
 - a file authored open BESIDE a stamp loses that stamp on its FIRST ingest,
   where no prior status exists and no transition can be read — and a completed
   file in the same sync keeps its own;
@@ -39,7 +40,7 @@ from typing import Any
 
 import pytest
 
-from core.events import CalendarEventCompleted, GoalAchieved, TaskCompleted
+from core.events import CalendarEventCompleted, GoalAchieved, TaskCompleted, TaskReopened
 
 OWNER_UID = "user_test_integration"  # seeded by the ensure_test_users fixture
 
@@ -161,6 +162,12 @@ async def test_editing_a_file_out_of_completed_clears_the_stamp(
 
     assert await _prop(neo4j_driver, "task.vault-status-reopen", "completion_date") is None
     assert len(bus.completions(TaskCompleted)) == 1, "a reopen publishes no completion"
+    (reopened,) = bus.completions(TaskReopened)
+    assert (reopened.task_uid, reopened.user_uid) == ("task.vault-status-reopen", OWNER_UID)
+
+    # The prior is now open, so the same open file is no transition.
+    assert (await door.ingest_file(path)).is_ok
+    assert len(bus.completions(TaskReopened)) == 1, "a repeat is not a reopen"
 
 
 @pytest.mark.asyncio

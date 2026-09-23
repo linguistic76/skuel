@@ -13,17 +13,17 @@ component of a four-part weighting (docs/roadmap/mixed-goal-event-progress.md).
 from __future__ import annotations
 
 from typing import Any
-from unittest.mock import AsyncMock, Mock
+from unittest.mock import Mock
 
 import pytest
 
 from core.models.enums.goal_enums import MeasurementType
 from core.models.goal.goal import Goal
 from core.services.goals.goals_progress_service import GoalsProgressService
-from core.utils.result_simplified import Result
 from tests.helpers.status_guarded_backend import (
     StatusGuardedWriteRecorder,
     guarded_backend,
+    wire_locked_recompute,
 )
 
 _USER = "user_task_measurement"
@@ -64,8 +64,12 @@ def _service(
     the achievement pair is the only conditional part, and these are measurement tests.
     """
     backend, recorder = guarded_backend(goal, goal)
-    backend.count_linked_tasks = AsyncMock(
-        return_value=Result.ok({"total_tasks": total_tasks, "completed_tasks": completed_tasks})
+    wire_locked_recompute(
+        backend,
+        recorder,
+        goal,
+        method="recompute_progress_from_linked_tasks",
+        tally={"total_tasks": total_tasks, "completed_tasks": completed_tasks},
     )
 
     service = GoalsProgressService.__new__(GoalsProgressService)
@@ -210,8 +214,12 @@ def _habit_service(
 ) -> tuple[GoalsProgressService, StatusGuardedWriteRecorder[Goal]]:
     """The habit sibling of ``_service`` — same writer shape, different tally source."""
     backend, recorder = guarded_backend(goal, goal)
-    backend.count_linked_habits_avg_streak = AsyncMock(
-        return_value=Result.ok({"total_habits": total_habits, "avg_streak": avg_streak})
+    wire_locked_recompute(
+        backend,
+        recorder,
+        goal,
+        method="recompute_progress_from_linked_habits",
+        tally={"total_habits": total_habits, "avg_streak": avg_streak},
     )
 
     service = GoalsProgressService.__new__(GoalsProgressService)

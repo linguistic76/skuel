@@ -24,6 +24,12 @@ Two further value types parameterize *how a status-bearing update is written* (A
 - ``StatusGuardedOutcome`` — what that write returns: whether it applied, the prior status
   read under the lock, and the resulting entity.
 
+And two for a write whose patch is itself a function of graph state (a recompute):
+
+- ``GuardedWritePlan`` — the patch and guard a planner derived from state it read under
+  the node's lock.
+- ``GuardedRecompute`` — that plan beside the outcome of writing it.
+
 See: ADR-066 (Typed Update Intents); ``docs/roadmap/done/update-intents.md`` (Phase 7a);
 ADR-087 (Status-Guarded Conditional Writes).
 """
@@ -146,7 +152,46 @@ class StatusGuardedOutcome[T]:
     entity: T
 
 
+class GuardedWritePlan(Protocol):
+    """A status-guarded write a recompute derived from state read under the node's lock.
+
+    The planner behind ``_CrudMixin._recompute_with_status_guard`` returns one of these, or
+    ``None`` when the state it read needs no write. The concrete plan is the caller's own
+    type, so it can carry whatever the caller derived beside the write (old and new
+    figures, the verdict inputs) and get it back on :class:`GuardedRecompute`.
+    """
+
+    @property
+    # boundary: pre-serialization patch — NOT Neo4jProperties: a progress plan carries
+    # ``progress_history`` as a list of entry dicts, which the write serializes to JSON
+    # (``to_neo4j_node``), exactly as ``update_with_status_guard``'s ``updates`` does.
+    def updates(self) -> dict[str, Any]:
+        """The unconditional partial patch (pre-serialization, as ``update_with_status_guard`` takes)."""
+        ...
+
+    @property
+    def guard(self) -> StatusWriteGuard:
+        """The prior-status conditions the write evaluates."""
+        ...
+
+
+@dataclass(frozen=True)
+class GuardedRecompute[T, P]:
+    """A recompute's plan and the outcome of writing it, both decided under one lock.
+
+    Attributes:
+        plan: What the planner derived from the entity and the state it read.
+        outcome: The status-guarded write of ``plan`` — ``prior_status`` is the status the
+            planner saw, because the lock was held from the read through the write.
+    """
+
+    plan: P
+    outcome: StatusGuardedOutcome[T]
+
+
 __all__ = [
+    "GuardedRecompute",
+    "GuardedWritePlan",
     "RawChanges",
     "StatusGuardedOutcome",
     "StatusWriteGuard",

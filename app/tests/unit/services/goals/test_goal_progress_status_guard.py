@@ -22,9 +22,13 @@ event cannot disagree, whatever the pre-read saw.
 
 **Why every rig below drives the prior away from the read.** A fake that answers the
 guard from whatever ``backend.get`` returned can only ever confirm the coupling this arc
-removed — it would pass just as well against the old code. So each test seeds a stored
-goal the write sees and a *different* goal the read returns, which is exactly what a race
-produces.
+removed — it would pass just as well against the old code. So each test of the two
+pre-read writers (``complete_milestone``, ``update_goal_from_habit_progress``) seeds a
+stored goal the write sees and a *different* goal the read returns, which is exactly
+what a race produces. The two tally recomputes have no pre-read left to race: they plan
+from the goal as read under the lock their write holds, so their rig (``_locked_rig``)
+hands the planner the prior itself, and their tests pin the verdict of each locked state
+— including the un-achieve (docs/roadmap/done/goal-progress-one-way.md).
 
 The unraced behaviour of these writers (which fields, which events, which no-ops) is
 pinned in ``test_goal_achievement_transition.py`` and
@@ -41,7 +45,7 @@ from unittest.mock import AsyncMock, Mock
 import pytest
 
 from core.events.base import BaseEvent
-from core.events.goal_events import GoalAchieved
+from core.events.goal_events import GoalAchieved, GoalProgressUpdated
 from core.models.enums import EntityStatus
 from core.models.enums.goal_enums import MeasurementType
 from core.models.goal.goal import Goal
@@ -51,6 +55,7 @@ from core.utils.result_simplified import Result
 from tests.helpers.status_guarded_backend import (
     StatusGuardedWriteRecorder,
     guarded_backend,
+    wire_locked_recompute,
 )
 
 _USER = "user_progress_guard"
@@ -318,25 +323,49 @@ class TestUpdateGoalFromHabitProgress:
         assert bus.of(GoalAchieved) == []
 
 
+def _locked_rig(
+    locked: Goal, *, method: str, tally: dict[str, Any]
+) -> tuple[GoalsProgressService, StatusGuardedWriteRecorder[Goal], _Bus]:
+    """A progress service whose tally recompute runs under the goal's lock.
+
+    No read/stored split here, unlike ``_rig``: the two tally writers now read the goal
+    and its tally INSIDE the locked transaction their write runs in
+    (``GoalsBackend.recompute_progress_from_linked_*``), so the goal they plan from IS
+    the prior the guard resolves against. The race a split rig models is closed by
+    construction; what these tests pin is the verdict each locked state produces.
+    """
+    backend, recorder = guarded_backend(locked, locked)
+    wire_locked_recompute(backend, recorder, locked, method=method, tally=tally)
+    bus = _Bus()
+    service = GoalsProgressService.__new__(GoalsProgressService)
+    service.backend = backend
+    service.logger = Mock()
+    service.event_bus = bus
+    service.relationships = None
+    return service, recorder, bus
+
+
+def _assert_unachieved(recorder: StatusGuardedWriteRecorder[Goal], bus: _Bus) -> None:
+    """A completed goal recomputed below 100% is no longer achieved."""
+    merged = _merged(recorder)
+    assert merged["status"] == EntityStatus.ACTIVE.value
+    assert merged["achieved_date"] is None, "a stamp must not outlive the completion"
+    assert bus.of(GoalAchieved) == []
+
+
 @pytest.mark.asyncio
 class TestUpdateGoalFromTaskCompletion:
-    """``_update_goal_from_task_completion`` — the ``TaskCompleted`` propagation."""
+    """``_update_goal_from_task_completion`` — the task-tally recompute."""
 
-    @staticmethod
-    # boundary: ``count_linked_tasks``'s own row shape — a mixed int/float count map the
-    # backend returns untyped; this mirrors it rather than narrowing past the real contract.
-    def _tally(total: int, completed: int) -> Result[dict[str, Any]]:
-        return Result.ok({"total_tasks": total, "completed_tasks": completed})
+    _METHOD = "recompute_progress_from_linked_tasks"
 
-    async def test_a_goal_completed_by_another_writer_is_not_re_stamped(self) -> None:
-        read = _goal(
-            status=EntityStatus.ACTIVE,
-            measurement_type=MeasurementType.TASK_BASED,
-            progress=50.0,
-            current_value=1.0,
-            target_value=2.0,
-        )
-        stored = _goal(
+    def _tally(self, total: int, completed: int) -> dict[str, Any]:
+        return {"total_tasks": total, "completed_tasks": completed}
+
+    async def test_an_already_achieved_goal_at_its_tally_writes_nothing(self) -> None:
+        """What a racing second completion now finds under the lock: the first one's
+        write — 2/2, 100%, COMPLETED — so there is nothing left to write or announce."""
+        locked = _goal(
             status=EntityStatus.COMPLETED,
             measurement_type=MeasurementType.TASK_BASED,
             progress=100.0,
@@ -344,16 +373,17 @@ class TestUpdateGoalFromTaskCompletion:
             current_value=2.0,
             target_value=2.0,
         )
-        service, recorder, bus = _rig(
-            read=read, stored=stored, count_linked_tasks=self._tally(2, 2)
-        )
+        service, recorder, bus = _locked_rig(locked, method=self._METHOD, tally=self._tally(2, 2))
 
         await service._update_goal_from_task_completion(_GOAL, _USER)
 
-        _assert_suppressed(recorder, bus)
+        assert recorder.calls == []
+        assert bus.of(GoalAchieved) == []
 
-    async def test_a_goal_reopened_by_another_writer_is_achieved_again(self) -> None:
-        read = _goal(
+    async def test_a_completed_goal_reaching_100_again_is_not_re_stamped(self) -> None:
+        """Completed by hand at 50%, then its tally reaches 2/2: the figure rises to 100,
+        but the guard's prior is COMPLETED, so ``achieved_date`` keeps its day."""
+        locked = _goal(
             status=EntityStatus.COMPLETED,
             measurement_type=MeasurementType.TASK_BASED,
             progress=50.0,
@@ -361,88 +391,151 @@ class TestUpdateGoalFromTaskCompletion:
             current_value=1.0,
             target_value=2.0,
         )
-        stored = _goal(
+        service, recorder, bus = _locked_rig(locked, method=self._METHOD, tally=self._tally(2, 2))
+
+        await service._update_goal_from_task_completion(_GOAL, _USER)
+
+        _assert_suppressed(recorder, bus)
+
+    async def test_an_open_goal_reaching_100_is_achieved(self) -> None:
+        locked = _goal(
             status=EntityStatus.ACTIVE,
             measurement_type=MeasurementType.TASK_BASED,
             progress=50.0,
             current_value=1.0,
             target_value=2.0,
         )
-        service, recorder, bus = _rig(
-            read=read, stored=stored, count_linked_tasks=self._tally(2, 2)
-        )
+        service, recorder, bus = _locked_rig(locked, method=self._METHOD, tally=self._tally(2, 2))
 
         await service._update_goal_from_task_completion(_GOAL, _USER)
 
         _assert_achieved(recorder, bus)
 
     async def test_a_partial_tally_carries_no_completion_patch_at_all(self) -> None:
-        read = _goal(
+        locked = _goal(
             status=EntityStatus.ACTIVE,
             measurement_type=MeasurementType.TASK_BASED,
             progress=0.0,
             current_value=0.0,
             target_value=4.0,
         )
-        service, recorder, bus = _rig(read=read, stored=read, count_linked_tasks=self._tally(4, 1))
+        service, recorder, bus = _locked_rig(locked, method=self._METHOD, tally=self._tally(4, 1))
 
         await service._update_goal_from_task_completion(_GOAL, _USER)
 
         assert recorder.last_guard.has_patches() is False
         assert bus.of(GoalAchieved) == []
 
+    async def test_a_completed_goal_whose_tally_drops_is_unachieved(self) -> None:
+        """Its only task reopened: 1/1 → 0/1. Status back to ACTIVE, stamp removed."""
+        locked = _goal(
+            status=EntityStatus.COMPLETED,
+            measurement_type=MeasurementType.TASK_BASED,
+            progress=100.0,
+            achieved_date=_ORIGINAL_ACHIEVED,
+            current_value=1.0,
+            target_value=1.0,
+        )
+        service, recorder, bus = _locked_rig(locked, method=self._METHOD, tally=self._tally(1, 0))
+
+        await service._update_goal_from_task_completion(_GOAL, _USER)
+
+        _assert_unachieved(recorder, bus)
+        assert _merged(recorder)["progress_percentage"] == 0.0
+
+    async def test_the_progress_event_names_its_trigger(self) -> None:
+        """A reopen-driven drop is not a task completion — stall/trigger telemetry reads it."""
+        locked = _goal(
+            status=EntityStatus.ACTIVE,
+            measurement_type=MeasurementType.TASK_BASED,
+            progress=50.0,
+            current_value=1.0,
+            target_value=2.0,
+        )
+        for reopened, tally in ((False, self._tally(2, 2)), (True, self._tally(2, 0))):
+            service, _recorder, bus = _locked_rig(locked, method=self._METHOD, tally=tally)
+
+            await service._update_goal_from_task_completion(_GOAL, _USER, reopened=reopened)
+
+            [event] = bus.of(GoalProgressUpdated)
+            assert event.triggered_by_task_completion is not reopened
+            assert event.triggered_by_task_reopen is reopened
+
+    async def test_an_open_goal_whose_tally_drops_keeps_its_status(self) -> None:
+        """A goal reopened by hand at 100% has no achievement to take back: the
+        un-achieve patch is conditioned on a COMPLETED prior, and this one is ACTIVE."""
+        locked = _goal(
+            status=EntityStatus.ACTIVE,
+            measurement_type=MeasurementType.TASK_BASED,
+            progress=100.0,
+            current_value=2.0,
+            target_value=2.0,
+        )
+        service, recorder, _bus = _locked_rig(locked, method=self._METHOD, tally=self._tally(2, 1))
+
+        await service._update_goal_from_task_completion(_GOAL, _USER)
+
+        merged = _merged(recorder)
+        assert "status" not in merged
+        assert "achieved_date" not in merged
+        assert merged["progress_percentage"] == pytest.approx(50.0)
+
+    async def test_a_completed_goal_moving_below_100_is_not_a_drop(self) -> None:
+        """Completed by hand at 40% (2/5); a third task completes → 60%. The figure
+        never crossed 100 downward, so the completion the user recorded stands."""
+        locked = _goal(
+            status=EntityStatus.COMPLETED,
+            measurement_type=MeasurementType.TASK_BASED,
+            progress=40.0,
+            achieved_date=_ORIGINAL_ACHIEVED,
+            current_value=2.0,
+            target_value=5.0,
+        )
+        service, recorder, _bus = _locked_rig(locked, method=self._METHOD, tally=self._tally(5, 3))
+
+        await service._update_goal_from_task_completion(_GOAL, _USER)
+
+        merged = _merged(recorder)
+        assert "status" not in merged
+        assert "achieved_date" not in merged
+
 
 @pytest.mark.asyncio
 class TestUpdateGoalFromHabitCompletion:
-    """``_update_goal_from_habit_completion`` — the ``HabitCompleted`` propagation."""
+    """``_update_goal_from_habit_completion`` — the average-streak recompute."""
 
-    @staticmethod
-    # boundary: ``count_linked_habits_avg_streak``'s own row shape — see the sibling above.
-    def _tally(total: int, avg_streak: float) -> Result[dict[str, Any]]:
-        return Result.ok({"total_habits": total, "avg_streak": avg_streak})
+    _METHOD = "recompute_progress_from_linked_habits"
 
-    async def test_a_goal_completed_by_another_writer_is_not_re_stamped(self) -> None:
-        read = _goal(
-            status=EntityStatus.ACTIVE,
+    def _tally(self, total: int, avg_streak: float) -> dict[str, Any]:
+        return {"total_habits": total, "avg_streak": avg_streak}
+
+    async def test_a_completed_goal_reaching_100_again_is_not_re_stamped(self) -> None:
+        locked = _goal(
+            status=EntityStatus.COMPLETED,
             measurement_type=MeasurementType.HABIT_BASED,
             progress=50.0,
+            achieved_date=_ORIGINAL_ACHIEVED,
             current_value=15.0,
             target_value=30.0,
         )
-        stored = _goal(
-            status=EntityStatus.COMPLETED,
-            measurement_type=MeasurementType.HABIT_BASED,
-            progress=100.0,
-            achieved_date=_ORIGINAL_ACHIEVED,
-            current_value=30.0,
-            target_value=30.0,
-        )
-        service, recorder, bus = _rig(
-            read=read, stored=stored, count_linked_habits_avg_streak=self._tally(1, 30.0)
+        service, recorder, bus = _locked_rig(
+            locked, method=self._METHOD, tally=self._tally(1, 30.0)
         )
 
         await service._update_goal_from_habit_completion(_GOAL, _USER, 30)
 
         _assert_suppressed(recorder, bus)
 
-    async def test_a_goal_reopened_by_another_writer_is_achieved_again(self) -> None:
-        read = _goal(
-            status=EntityStatus.COMPLETED,
-            measurement_type=MeasurementType.HABIT_BASED,
-            progress=50.0,
-            achieved_date=_ORIGINAL_ACHIEVED,
-            current_value=15.0,
-            target_value=30.0,
-        )
-        stored = _goal(
+    async def test_an_open_goal_reaching_100_is_achieved(self) -> None:
+        locked = _goal(
             status=EntityStatus.ACTIVE,
             measurement_type=MeasurementType.HABIT_BASED,
             progress=50.0,
             current_value=15.0,
             target_value=30.0,
         )
-        service, recorder, bus = _rig(
-            read=read, stored=stored, count_linked_habits_avg_streak=self._tally(1, 30.0)
+        service, recorder, bus = _locked_rig(
+            locked, method=self._METHOD, tally=self._tally(1, 30.0)
         )
 
         await service._update_goal_from_habit_completion(_GOAL, _USER, 30)
@@ -450,18 +543,34 @@ class TestUpdateGoalFromHabitCompletion:
         _assert_achieved(recorder, bus)
 
     async def test_a_short_streak_carries_no_completion_patch_at_all(self) -> None:
-        read = _goal(
+        locked = _goal(
             status=EntityStatus.ACTIVE,
             measurement_type=MeasurementType.HABIT_BASED,
             progress=0.0,
             current_value=0.0,
             target_value=30.0,
         )
-        service, recorder, bus = _rig(
-            read=read, stored=read, count_linked_habits_avg_streak=self._tally(1, 15.0)
+        service, recorder, bus = _locked_rig(
+            locked, method=self._METHOD, tally=self._tally(1, 15.0)
         )
 
         await service._update_goal_from_habit_completion(_GOAL, _USER, 15)
 
         assert recorder.last_guard.has_patches() is False
         assert bus.of(GoalAchieved) == []
+
+    async def test_a_completed_goal_whose_streak_falls_is_unachieved(self) -> None:
+        """A 30-day streak broke and restarted: the average falls to 1 of 30 days."""
+        locked = _goal(
+            status=EntityStatus.COMPLETED,
+            measurement_type=MeasurementType.HABIT_BASED,
+            progress=100.0,
+            achieved_date=_ORIGINAL_ACHIEVED,
+            current_value=30.0,
+            target_value=30.0,
+        )
+        service, recorder, bus = _locked_rig(locked, method=self._METHOD, tally=self._tally(1, 1.0))
+
+        await service._update_goal_from_habit_completion(_GOAL, _USER, 1)
+
+        _assert_unachieved(recorder, bus)

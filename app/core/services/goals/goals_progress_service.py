@@ -12,11 +12,13 @@ Responsibilities:
 - Risk analysis and acceleration opportunities
 """
 
+import dataclasses
+from dataclasses import dataclass
 from datetime import date, datetime, timedelta
 from typing import TYPE_CHECKING, Any, Final
 
 from core.events import GoalAchieved, GoalMilestoneReached, GoalProgressUpdated, publish_event
-from core.events.task_events import TaskCompleted
+from core.events.task_events import TaskCompleted, TaskReopened
 from core.models.enums import Domain, EntityStatus
 from core.models.enums.entity_enums import EntityType
 from core.models.enums.goal_enums import MeasurementType
@@ -26,8 +28,13 @@ from core.models.graph_context import GraphContext
 from core.models.type_hints import Neo4jProperties, UserUID
 from core.models.update_contracts import StatusWriteGuard
 from core.ports.domain_protocols import GoalsOperations
+from core.ports.query_types import LinkedHabitTally, LinkedTaskTally
 from core.services.base_service import BaseService
-from core.services.completion_stamp import COMPLETION_FIELDS, is_completion_transition
+from core.services.completion_stamp import (
+    COMPLETION_FIELDS,
+    is_completion_transition,
+    is_reopen_transition,
+)
 from core.services.domain_config import create_activity_domain_config
 from core.services.goals.goal_relationships import GoalRelationships
 from core.services.goals.progress_history import with_progress_entry
@@ -96,6 +103,181 @@ def _achievement_write(target_achieved: bool) -> tuple[StatusWriteGuard, Neo4jPr
         _ACHIEVED_FIELD: date.today(),
     }
     return StatusWriteGuard(patch_if_prior_not_in=(_COMPLETED_ONLY, patch)), patch
+
+
+#: The status a goal returns to when a recompute un-achieves it — the working status a
+#: goal is created in and counted under (``get_stats_for_user``'s ``active``).
+_UNACHIEVED_STATUS: Final = EntityStatus.ACTIVE.value
+
+
+def _recompute_status_write(
+    old_progress: float, new_progress: float
+) -> tuple[StatusWriteGuard, Neo4jProperties, Neo4jProperties]:
+    """The status half of a tally recompute: achieve on a rise to 100, un-achieve on a drop.
+
+    Progress a recompute derives from the graph is a measurement, so the goal's status
+    follows it both ways (docs/roadmap/done/goal-progress-one-way.md):
+
+    - **rising to 100%** achieves the goal — :func:`_achievement_write`'s patch, merged
+      only when the prior is not already COMPLETED;
+    - **falling below 100%** un-achieves it — status back to ACTIVE and ``achieved_date``
+      removed, merged only when the prior IS COMPLETED. The mirror patch, on the mirror
+      condition, so a goal that was never completed is not touched and one that was
+      cannot keep a stamp while not completed.
+
+    Both targets are transitions of the figure (old vs new, read under the lock), so a
+    goal completed by hand at a lower figure is not un-achieved by a recompute that
+    merely moves within the band below 100.
+
+    Returns:
+        ``(guard, achievement, unachievement)`` — the guard to write with, and the two
+        patches it may merge, for the caller's transition verdicts.
+    """
+    guard, achievement = _achievement_write(new_progress >= 100 and old_progress < 100)
+    if not (new_progress < 100 <= old_progress):
+        return guard, achievement, {}
+    unachievement: Neo4jProperties = {"status": _UNACHIEVED_STATUS, _ACHIEVED_FIELD: None}
+    return (
+        dataclasses.replace(guard, patch_if_prior_in=(_COMPLETED_ONLY, unachievement)),
+        achievement,
+        unachievement,
+    )
+
+
+@dataclass(frozen=True)
+class _ProgressWrite:
+    """A tally recompute's write, plus what its handler reports from it.
+
+    Satisfies ``GuardedWritePlan`` (``updates`` + ``guard``); the rest travels back on
+    ``GuardedRecompute.plan`` so the handler publishes from the figures the write used.
+    """
+
+    # boundary: pre-serialization patch — ``progress_history`` is a list of entry dicts,
+    # JSON-serialized at the write, as every progress writer's patch is.
+    updates: dict[str, Any]
+    guard: StatusWriteGuard
+    achievement: Neo4jProperties
+    unachievement: Neo4jProperties
+    old_progress: float
+    new_progress: float
+    progress_changed: bool
+    detail: str
+
+
+def _plan_task_progress(goal: Goal, tally: LinkedTaskTally) -> _ProgressWrite | None:
+    """Plan a TASK_BASED goal's write from its linked-task tally; ``None`` for no write.
+
+    Runs under the goal's lock (``GoalsBackend.recompute_progress_from_linked_tasks``),
+    so ``goal`` and ``tally`` are the state the write lands on.
+    """
+    # Only TASK_BASED goals are recomputed here. A MIXED goal weights tasks, habits,
+    # knowledge and milestones together, and this handler sees only the task tally;
+    # blending that into the stored figure feeds each result back into the next.
+    # See docs/roadmap/mixed-goal-event-progress.md.
+    if goal.measurement_type != MeasurementType.TASK_BASED:
+        return None
+
+    total_tasks = tally["total_tasks"]
+    completed_tasks = tally["completed_tasks"]
+    if total_tasks == 0:
+        return None
+
+    new_progress = completed_tasks / total_tasks * 100
+    old_progress = goal.progress_percentage or 0.0
+
+    # Only write if something changed. The stored tally is part of "something":
+    # 1-of-5 and 2-of-10 are both 20%, so a percentage-only guard would leave the
+    # detail page rendering "1/5 tasks" after five more were linked and one completed.
+    # `!=` rather than a narrowed comparison on purpose — it never raises across types,
+    # and a legacy string current_value reads as stale and gets repaired by the write.
+    tally_stale = goal.current_value != completed_tasks or goal.target_value != total_tasks
+    progress_changed = abs(new_progress - old_progress) >= 0.1
+    if not progress_changed and not tally_stale:
+        return None
+
+    # raw-write: system progress propagation from the task tally. Bypasses the
+    # validated/event-firing service contract (GoalUpdateIntent → update_goal) on
+    # purpose — the handler publishes its own GoalProgressUpdated with the task
+    # provenance the generic update_goal cannot express.
+    # The stamp records a CHANGE of the figure; a tally repair alone is not one.
+    updates: dict[str, Any] = {"progress_percentage": new_progress}
+    if progress_changed:
+        now = datetime.now()
+        updates["last_progress_update"] = now
+        updates["progress_history"] = with_progress_entry(goal, new_progress, now)
+
+    # The measurement IS the linked-task tally, so this writer owns both ends of it.
+    # Writing only completed_tasks would pair it with a target_value nothing relates to
+    # it — a user-typed 5 against 20 linked tasks renders "4/5 tasks" beside a 20% bar.
+    # total_tasks is the denominator new_progress was computed from, so all three
+    # fields agree by construction. Nothing else computes on a TASK_BASED goal's
+    # target_value — calculate_combined_progress returns task_contribution * 100 and
+    # discards milestone_completion — which is what makes it this writer's to own.
+    updates["current_value"] = float(completed_tasks)
+    updates["target_value"] = float(total_tasks)
+
+    guard, achievement, unachievement = _recompute_status_write(old_progress, new_progress)
+    return _ProgressWrite(
+        updates=updates,
+        guard=guard,
+        achievement=achievement,
+        unachievement=unachievement,
+        old_progress=old_progress,
+        new_progress=new_progress,
+        progress_changed=progress_changed,
+        detail=f"{completed_tasks}/{total_tasks} tasks",
+    )
+
+
+def _plan_habit_progress(goal: Goal, tally: LinkedHabitTally) -> _ProgressWrite | None:
+    """Plan a HABIT_BASED goal's write from its habits' average streak; ``None`` for none.
+
+    Runs under the goal's lock (``GoalsBackend.recompute_progress_from_linked_habits``).
+    """
+    # Only HABIT_BASED goals — MIXED for the reason given in _plan_task_progress.
+    if goal.measurement_type != MeasurementType.HABIT_BASED:
+        return None
+
+    total_habits = tally["total_habits"]
+    avg_streak = tally["avg_streak"]
+    if total_habits == 0:
+        return None
+
+    old_progress = goal.progress_percentage or 0.0
+    # target_value is the desired streak length
+    target_value = goal.target_value or 100.0
+    habit_contribution = (avg_streak / target_value) if target_value > 0 else 0
+    new_progress = min(habit_contribution * 100, 100.0)
+
+    # Skip only if nothing changed. `new_progress` is capped at 100, so once a streak
+    # reaches its target the percentage stops moving while avg_streak keeps climbing —
+    # the measurement would freeze at "30/30 days" on a 31-day streak.
+    measurement_stale = goal.current_value != avg_streak
+    progress_changed = abs(new_progress - old_progress) >= 0.01
+    if not progress_changed and not measurement_stale:
+        return None
+
+    # raw-write: system progress propagation from the habit streaks — same reasoning as
+    # _plan_task_progress, with the habit provenance.
+    updates: dict[str, Any] = {"progress_percentage": new_progress}
+    if progress_changed:
+        now = datetime.now()
+        updates["last_progress_update"] = now
+        updates["progress_history"] = with_progress_entry(goal, new_progress, now)
+    # avg_streak is a genuine measurement in target_value's unit (days).
+    updates["current_value"] = float(avg_streak)
+
+    guard, achievement, unachievement = _recompute_status_write(old_progress, new_progress)
+    return _ProgressWrite(
+        updates=updates,
+        guard=guard,
+        achievement=achievement,
+        unachievement=unachievement,
+        old_progress=old_progress,
+        new_progress=new_progress,
+        progress_changed=progress_changed,
+        detail=f"avg_streak={avg_streak:.1f}, {total_habits} habits",
+    )
 
 
 if TYPE_CHECKING:
@@ -1022,220 +1204,109 @@ class GoalsProgressService(BaseService[GoalsOperations, Goal]):
     # ========================================================================
 
     async def handle_task_completed(self, event: TaskCompleted) -> None:
-        """
-        Update goal progress when a task is completed.
+        """Recompute the goals a task fulfills after it is completed.
 
-        This handler implements event-driven goal progress updates,
-        eliminating direct dependency between TasksService and GoalsService.
-
-        When a task is completed:
-        1. Find all goals linked to this task
-        2. For task-based goals, recalculate progress
-        3. Update goal progress in database
-        4. Publish GoalProgressUpdated event if progress changed
+        Event-driven, so TasksService holds no dependency on GoalsService. Best-effort:
+        a failure is logged, never raised, so a goal update cannot fail the completion.
 
         Args:
-            event: TaskCompleted event containing task_uid and user_uid
+            event: TaskCompleted carrying task_uid and user_uid
+        """
+        await self._recompute_goals_of_task(event.task_uid, event.user_uid, reopened=False)
 
-        Note:
-            Errors are logged but not raised - progress updates are best-effort
-            to prevent task completion from failing if goal update fails.
+    async def handle_task_reopened(self, event: TaskReopened) -> None:
+        """Recompute the goals a task fulfills after it leaves ``completed``.
+
+        The mirror of :meth:`handle_task_completed`: the recompute counts graph state,
+        so the same recompute lowers the tally — and un-achieves a goal it drops below
+        100% (``_recompute_status_write``). Published by both doors that can reopen a
+        task: ``update_task`` and the vault ingest door.
+
+        Args:
+            event: TaskReopened carrying task_uid and user_uid
+        """
+        await self._recompute_goals_of_task(event.task_uid, event.user_uid, reopened=True)
+
+    async def _recompute_goals_of_task(
+        self, task_uid: str, user_uid: UserUID, *, reopened: bool
+    ) -> None:
+        """Recompute every goal ``task_uid`` fulfills — best-effort, per goal.
+
+        ``reopened`` is the trigger's provenance, carried onto ``GoalProgressUpdated``.
+
+        Backend: GoalsBackend.find_linked_goals_for_task.
         """
         try:
-            # Goals this task fulfills (Backend: GoalsBackend.find_linked_goals_for_task)
-            self.logger.debug(
-                f"Querying for goals linked to task {event.task_uid}, user {event.user_uid}"
-            )
-
-            result = await self.backend.find_linked_goals_for_task(event.task_uid, event.user_uid)
+            result = await self.backend.find_linked_goals_for_task(task_uid, user_uid)
             if result.is_error:
-                self.logger.error(
-                    f"Failed to query goals for task {event.task_uid}: {result.error}"
-                )
+                self.logger.error(f"Failed to query goals for task {task_uid}: {result.error}")
                 return
 
             goal_uids = result.value or []
-            self.logger.debug(f"Found {len(goal_uids)} linked goals: {goal_uids}")
-
             if not goal_uids:
-                self.logger.debug(f"Task {event.task_uid} is not linked to any goals")
+                self.logger.debug(f"Task {task_uid} is not linked to any goals")
                 return
 
-            self.logger.info(
-                f"Task {event.task_uid} completed - updating {len(goal_uids)} linked goals"
-            )
-
-            # Update progress for each linked goal
+            verb = "reopened" if reopened else "completed"
+            self.logger.info(f"Task {task_uid} {verb} - updating {len(goal_uids)} linked goals")
             for goal_uid in goal_uids:
                 try:
-                    await self._update_goal_from_task_completion(goal_uid, event.user_uid)
+                    await self._update_goal_from_task_completion(
+                        goal_uid, user_uid, reopened=reopened
+                    )
                 except (*NEO4J_EXCEPTIONS, *DATA_CONVERSION_EXCEPTIONS) as e:
                     self.logger.error(f"Failed to update goal {goal_uid} progress: {e}")
                     # Continue with other goals even if one fails
 
         except (*NEO4J_EXCEPTIONS, *DATA_CONVERSION_EXCEPTIONS) as e:
-            self.logger.error(f"Error handling task_completed event for task {event.task_uid}: {e}")
+            self.logger.error(f"Error recomputing goals for task {task_uid}: {e}")
 
-    async def _update_goal_from_task_completion(self, goal_uid: str, user_uid: UserUID) -> None:
-        """
-        Internal helper to update a single goal's progress from task completion.
+    async def _update_goal_from_task_completion(
+        self, goal_uid: str, user_uid: UserUID, *, reopened: bool = False
+    ) -> None:
+        """Recompute one TASK_BASED goal from its linked-task tally, and publish the result.
+
+        The tally, the figure and the status verdict are all decided under the goal's
+        write-lock (``GoalsBackend.recompute_progress_from_linked_tasks``), so two
+        recomputes of one goal serialize: the later one counts every task the earlier
+        one's trigger had completed, and a count taken before a concurrent completion
+        can never land after it.
 
         Args:
             goal_uid: Goal to update
-            user_uid: User who completed the task
+            user_uid: User who owns the goal and its tasks
+            reopened: Whether a task reopen (not a completion) triggered this
         """
-        # Get goal
-        goal_result = await self.backend.get(goal_uid)
-        if goal_result.is_error:
-            self.logger.error(f"Failed to get goal {goal_uid}: {goal_result.error}")
-            return
-
-        if not goal_result.value:
-            self.logger.error(f"Goal {goal_uid} not found")
-            return
-
-        goal = goal_result.value  # Already a Goal domain model from UniversalNeo4jBackend
-
-        # Only TASK_BASED goals are recomputed here. A MIXED goal weights tasks, habits,
-        # knowledge and milestones together, and this handler sees only the task tally;
-        # blending that into the stored figure feeds each result back into the next.
-        # See docs/roadmap/mixed-goal-event-progress.md.
-        if goal.measurement_type != MeasurementType.TASK_BASED:
-            self.logger.debug(
-                f"Goal {goal_uid} is {goal.measurement_type}, skipping task-based progress update"
-            )
-            return
-
-        # Query all tasks linked to this goal and count completed
-        result = await self.backend.count_linked_tasks(goal_uid, user_uid)
+        result = await self.backend.recompute_progress_from_linked_tasks(
+            goal_uid, user_uid, _plan_task_progress
+        )
         if result.is_error:
-            self.logger.error(f"Failed to query tasks for goal {goal_uid}: {result.error}")
+            self.logger.error(f"Failed to recompute goal {goal_uid}: {result.error}")
+            return
+        if result.value is None:
+            self.logger.debug(f"Goal {goal_uid}: no task-based progress change")
             return
 
-        total_tasks = result.value.get("total_tasks", 0)
-        completed_tasks = result.value.get("completed_tasks", 0)
-
-        if total_tasks == 0:
-            self.logger.debug(f"Goal {goal_uid} has no linked tasks")
-            return
-
-        # Progress is the completed share of the linked tasks
-        new_progress = completed_tasks / total_tasks * 100
-        old_progress = goal.progress_percentage or 0.0
-
-        # Only update if something changed. The stored tally is part of "something":
-        # 1-of-5 and 2-of-10 are both 20%, so a percentage-only
-        # guard would leave the detail page rendering "1/5 tasks" after five more were
-        # linked and one completed. `!=` rather than a narrowed comparison on purpose —
-        # it never raises across types, and a legacy string current_value reads as stale
-        # and gets repaired by the write below.
-        tally_stale = goal.current_value != completed_tasks or goal.target_value != total_tasks
-        progress_changed = abs(new_progress - old_progress) >= 0.1
-        if not progress_changed and not tally_stale:
-            self.logger.debug(f"Goal {goal_uid} progress unchanged ({new_progress:.1f}%)")
-            return
-
-        # raw-write: system progress propagation from task completion. Bypasses the
-        # validated/event-firing service contract (GoalUpdateIntent → update_goal) on
-        # purpose — this path publishes its own GoalProgressUpdated below with the
-        # task-completion provenance (triggered_by_task_completion) that the generic
-        # update_goal cannot express. A plain dict literal is the honest type here.
-        # The stamp records a CHANGE of the figure; a tally repair alone is not one.
-        updates: dict[str, Any] = {"progress_percentage": new_progress}
-        if progress_changed:
-            now = datetime.now()
-            updates["last_progress_update"] = now
-            updates["progress_history"] = with_progress_entry(goal, new_progress, now)
-
-        # The measurement IS the linked-task tally, so this writer owns both ends of
-        # it. Writing only completed_tasks would pair it with a target_value nothing
-        # relates to it — a user-typed 5 against 20 linked tasks renders "4/5 tasks"
-        # beside a 20% bar — and writing neither leaves the detail page rendering
-        # "0/5 tasks" for a goal that is one task in. total_tasks is the denominator
-        # new_progress was just computed from, so all three fields agree by
-        # construction. Nothing else computes on a TASK_BASED goal's target_value —
-        # calculate_combined_progress returns task_contribution * 100 and discards
-        # milestone_completion — which is what makes it this writer's to own.
-        updates["current_value"] = float(completed_tasks)
-        updates["target_value"] = float(total_tasks)
-
-        # Check if goal is achieved — on the TRANSITION, matching the GoalAchieved gate
-        # below. `>= 100` alone re-stamps achieved_date on every write once a goal is
-        # complete, which the percentage-only guard used to make unreachable; a
-        # tally-only write (5/5 -> 10/10, both 100%) now reaches it and would move the
-        # recorded achievement to today. The percentage crossing is this recompute's
-        # TARGET derivation and stays here; whether the goal was ALREADY completed is the
-        # write's to decide, under the node's lock (ADR-087).
-        target_achieved = new_progress >= 100 and old_progress < 100
-        guard, achievement = _achievement_write(target_achieved)
-
-        update_result = await self.backend.update_with_status_guard(goal_uid, updates, guard)
-        if update_result.is_error:
-            self.logger.error(f"Failed to update goal {goal_uid}: {update_result.error}")
-            return
-
-        # This guard refuses nothing, so the write always applied.
-        goal_achieved_now = is_completion_transition(update_result.value.prior_status, achievement)
-
+        plan, outcome = result.value.plan, result.value.outcome
         self.logger.info(
-            f"Updated goal {goal_uid}: {old_progress:.1f}% → {new_progress:.1f}% "
-            f"({completed_tasks}/{total_tasks} tasks)"
+            f"Updated goal {goal_uid}: {plan.old_progress:.1f}% → {plan.new_progress:.1f}% "
+            f"({plan.detail})"
+        )
+        await self._publish_recompute(
+            goal_uid, user_uid, plan, outcome.prior_status, EntityType.TASK, reopened=reopened
         )
 
-        # Publish GoalProgressUpdated only when the percentage actually moved.
-        # GoalEventHandlerService.handle_goal_progress_updated reads a near-zero delta
-        # on a positive goal as a STALL and persists an IMBALANCE_DETECTED insight, so
-        # announcing a tally-only repair would tell a user who just completed a task
-        # that their goal has stalled. Nothing is lost by staying quiet: the context
-        # invalidation this event drives is already done by the TaskCompleted that
-        # triggered this handler — debounced_invalidator's own docstring calls the
-        # second one redundant.
-        if progress_changed:
-            progress_event = GoalProgressUpdated(
-                goal_uid=goal_uid,
-                user_uid=user_uid,
-                old_progress=old_progress,
-                new_progress=new_progress,
-                triggered_by_manual_update=False,  # Triggered by task completion
-            )
-            await publish_event(self.event_bus, progress_event, self.logger)
-
-        # If goal was achieved, publish GoalAchieved event — decided from the status the
-        # write saw, so a goal another writer completed first is not announced twice.
-        if goal_achieved_now:
-            achieved_event = GoalAchieved(
-                goal_uid=goal_uid,
-                user_uid=user_uid,
-            )
-            await publish_event(self.event_bus, achieved_event, self.logger)
-            self.logger.info(f"🎉 Goal {goal_uid} achieved!")
-
     async def handle_habit_completed(self, event: HabitCompleted) -> None:
-        """
-        Update goal progress when a habit is completed.
+        """Recompute the goals a habit supports after one of its completions.
 
-        This handler implements event-driven goal progress updates from habit completions,
-        eliminating direct dependency between HabitsService and GoalsService.
-
-        When a habit is completed:
-        1. Find all goals this habit supports (its SUPPORTS_GOAL edges)
-        2. For habit-based goals, recalculate progress based on streak
-        3. Update goal progress in database
-        4. Publish GoalProgressUpdated event if progress changed
+        Event-driven, so HabitsService holds no dependency on GoalsService. Best-effort:
+        a failure is logged, never raised, so a goal update cannot fail the completion.
 
         Args:
-            event: HabitCompleted event containing habit_uid, user_uid, and current_streak
-
-        Note:
-            Errors are logged but not raised - progress updates are best-effort
-            to prevent habit completion from failing if goal update fails.
+            event: HabitCompleted carrying habit_uid, user_uid and current_streak
         """
         try:
             # Goals this habit supports (Backend: GoalsBackend.find_linked_goals_for_habit)
-            self.logger.debug(
-                f"Querying for goals linked to habit {event.habit_uid}, user {event.user_uid}"
-            )
-
             result = await self.backend.find_linked_goals_for_habit(event.habit_uid, event.user_uid)
             if result.is_error:
                 self.logger.error(
@@ -1244,13 +1315,10 @@ class GoalsProgressService(BaseService[GoalsOperations, Goal]):
                 return
 
             goal_uids = result.value or []
-            self.logger.debug(f"Found {len(goal_uids)} linked goals: {goal_uids}")
-
             if not goal_uids:
                 self.logger.debug(f"No goals linked to habit {event.habit_uid}")
                 return
 
-            # Update each linked goal
             for goal_uid in goal_uids:
                 try:
                     await self._update_goal_from_habit_completion(
@@ -1272,127 +1340,75 @@ class GoalsProgressService(BaseService[GoalsOperations, Goal]):
     async def _update_goal_from_habit_completion(
         self, goal_uid: str, user_uid: UserUID, current_streak: int
     ) -> None:
-        """
-        Internal helper to update a single goal's progress from habit completion.
+        """Recompute one HABIT_BASED goal from its supporting habits' average streak.
 
-        For habit-based goals, progress is (average_streak / target_value) * 100.
+        Progress is ``avg_streak / target_value * 100``, capped at 100 — target_value is
+        the desired streak length. Decided under the goal's write-lock, like the
+        task-based sibling (``GoalsBackend.recompute_progress_from_linked_habits``).
 
         Args:
             goal_uid: Goal to update
             user_uid: User owning the goal
             current_streak: Current streak length of the completed habit
         """
-        # Get goal
-        goal_result = await self.backend.get(goal_uid)
-        if goal_result.is_error or not goal_result.value:
-            self.logger.debug(f"Goal {goal_uid} not found, skipping update")
-            return
-
-        goal = goal_result.value
-
-        # Only HABIT_BASED goals are recomputed here — MIXED for the reason given in
-        # _update_goal_from_task_completion.
-        if goal.measurement_type != MeasurementType.HABIT_BASED:
-            self.logger.debug(
-                f"Goal {goal_uid} is {goal.measurement_type.value if goal.measurement_type else 'unknown'}, not habit-based - skipping"
-            )
-            return
-
-        # Query all habits linked to this goal and their average streak
-        result = await self.backend.count_linked_habits_avg_streak(goal_uid, user_uid)
+        result = await self.backend.recompute_progress_from_linked_habits(
+            goal_uid, user_uid, _plan_habit_progress
+        )
         if result.is_error:
-            self.logger.error(f"Failed to query habits for goal {goal_uid}: {result.error}")
+            self.logger.error(f"Failed to recompute goal {goal_uid}: {result.error}")
+            return
+        if result.value is None:
+            self.logger.debug(f"Goal {goal_uid}: no habit-based progress change")
             return
 
-        total_habits = result.value.get("total_habits", 0)
-        avg_streak = result.value.get("avg_streak", 0)
-
-        if total_habits == 0:
-            self.logger.debug(f"No habits found for goal {goal_uid}")
-            return
-
-        # Calculate progress based on goal type
-        old_progress = goal.progress_percentage or 0.0
-        target_value = goal.target_value or 100.0
-
-        # Progress = (avg_streak / target_value) * 100; target_value is the desired
-        # streak length
-        habit_contribution = (avg_streak / target_value) if target_value > 0 else 0
-        new_progress = min(habit_contribution * 100, 100.0)
-
-        # Skip update only if nothing changed. `new_progress` is capped at 100, so once
-        # a streak reaches its target the percentage stops moving while avg_streak keeps
-        # climbing — the measurement would freeze at "30/30 days" on a 31-day streak.
-        # Decreases already propagate (a broken streak moves the percentage), so without
-        # this the field would track downwards but not upwards. Same shape as the
-        # task-based guard above.
-        measurement_stale = goal.current_value != avg_streak
-        progress_changed = abs(new_progress - old_progress) >= 0.01
-        if not progress_changed and not measurement_stale:
-            self.logger.debug(
-                f"Goal {goal_uid} progress unchanged ({old_progress:.1f}%), skipping update"
-            )
-            return
-
-        # raw-write: system progress propagation from habit completion. Bypasses the
-        # validated/event-firing service contract (GoalUpdateIntent → update_goal) on
-        # purpose — this path publishes its own GoalProgressUpdated below with the
-        # habit-completion provenance (triggered_by_habit_completion) that the generic
-        # update_goal cannot express. A plain dict literal is the honest type here.
-        # The stamp records a CHANGE of the figure; a measurement repair alone is not one.
-        updates: dict[str, Any] = {"progress_percentage": new_progress}
-        if progress_changed:
-            now = datetime.now()
-            updates["last_progress_update"] = now
-            updates["progress_history"] = with_progress_entry(goal, new_progress, now)
-
-        # target_value is the desired streak length (see the division above), so
-        # avg_streak is a genuine measurement in its unit — the one domain-unit value
-        # this file computes.
-        updates["current_value"] = float(avg_streak)
-
-        # Check if goal is achieved — on the TRANSITION, matching the GoalAchieved gate
-        # below. `>= 100` alone re-stamps achieved_date on every later write, which a
-        # measurement-only write (streak 30 -> 31, both 100%) now reaches. The percentage
-        # crossing is this recompute's TARGET derivation and stays here; whether the goal
-        # was ALREADY completed is the write's to decide, under the node's lock
-        # (ADR-087).
-        target_achieved = new_progress >= 100 and old_progress < 100
-        guard, achievement = _achievement_write(target_achieved)
-
-        update_result = await self.backend.update_with_status_guard(goal_uid, updates, guard)
-        if update_result.is_error:
-            self.logger.error(f"Failed to update goal {goal_uid}: {update_result.error}")
-            return
-
-        # This guard refuses nothing, so the write always applied.
-        goal_achieved_now = is_completion_transition(update_result.value.prior_status, achievement)
-
+        plan, outcome = result.value.plan, result.value.outcome
         self.logger.info(
-            f"Updated goal {goal_uid}: {old_progress:.1f}% → {new_progress:.1f}% "
-            f"(avg_streak={avg_streak:.1f}, {total_habits} habits)"
+            f"Updated goal {goal_uid}: {plan.old_progress:.1f}% → {plan.new_progress:.1f}% "
+            f"({plan.detail})"
+        )
+        await self._publish_recompute(
+            goal_uid, user_uid, plan, outcome.prior_status, EntityType.HABIT
         )
 
-        # Publish only when the percentage actually moved — a zero-delta publish on a
-        # positive goal is read as a STALL by GoalEventHandlerService and persists an
-        # IMBALANCE_DETECTED insight. Same reasoning as the task-based path.
-        if progress_changed:
-            progress_event = GoalProgressUpdated(
-                goal_uid=goal_uid,
-                user_uid=user_uid,
-                old_progress=old_progress,
-                new_progress=new_progress,
-                triggered_by_habit_completion=True,  # Triggered by habit completion
-                triggered_by_manual_update=False,
-            )
-            await publish_event(self.event_bus, progress_event, self.logger)
+    async def _publish_recompute(
+        self,
+        goal_uid: str,
+        user_uid: UserUID,
+        plan: _ProgressWrite,
+        prior_status: str | None,
+        source: EntityType,
+        *,
+        reopened: bool = False,
+    ) -> None:
+        """Announce what a recompute wrote, with verdicts from the prior the write saw.
 
-        # If goal was achieved, publish GoalAchieved event — decided from the status the
-        # write saw, so a goal another writer completed first is not announced twice.
-        if goal_achieved_now:
-            achieved_event = GoalAchieved(
-                goal_uid=goal_uid,
-                user_uid=user_uid,
+        ``GoalProgressUpdated`` only when the percentage moved:
+        ``GoalEventHandlerService.handle_goal_progress_updated`` reads a near-zero delta
+        on a positive goal as a STALL and persists an IMBALANCE_DETECTED insight, so a
+        tally-only repair stays quiet. ``GoalAchieved`` only on the transition INTO
+        completed, decided from the prior the write captured, so a goal another writer
+        completed first is not announced twice.
+        """
+        if plan.progress_changed:
+            await publish_event(
+                self.event_bus,
+                GoalProgressUpdated(
+                    goal_uid=goal_uid,
+                    user_uid=user_uid,
+                    old_progress=plan.old_progress,
+                    new_progress=plan.new_progress,
+                    triggered_by_task_completion=source is EntityType.TASK and not reopened,
+                    triggered_by_task_reopen=source is EntityType.TASK and reopened,
+                    triggered_by_habit_completion=source is EntityType.HABIT,
+                    triggered_by_manual_update=False,
+                ),
+                self.logger,
             )
-            await publish_event(self.event_bus, achieved_event, self.logger)
+
+        if is_completion_transition(prior_status, plan.achievement):
+            await publish_event(
+                self.event_bus, GoalAchieved(goal_uid=goal_uid, user_uid=user_uid), self.logger
+            )
             self.logger.info(f"🎉 Goal {goal_uid} achieved!")
+        elif is_reopen_transition(prior_status, plan.unachievement):
+            self.logger.info(f"Goal {goal_uid} un-achieved: progress fell below 100%")

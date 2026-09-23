@@ -11,7 +11,11 @@ through a production door, with the event wiring the app composes at bootstrap:
   ``(Habit)-[:SUPPORTS_GOAL]->(Goal)``; ``HabitsService.complete_habit_with_quality``
   publishes ``HabitCompleted``.
 
-``GoalsProgressService`` subscribes to both events and reads the links back through
+A task that leaves ``completed`` — through ``update_task`` or through the vault ingest
+door — publishes ``TaskReopened``, and the same recompute lowers its goal and un-achieves
+it (``docs/roadmap/done/goal-progress-one-way.md``).
+
+``GoalsProgressService`` subscribes to all three events and reads the links back through
 ``GoalsBackend``. A reader that matches a shape no writer produces returns no goals, the
 handler logs at DEBUG and returns, and the goal never moves — so these tests assert on the
 goal the handler writes, not on the handler being called.
@@ -19,11 +23,13 @@ goal the handler writes, not on the handler being called.
 
 from collections.abc import AsyncIterator
 from dataclasses import dataclass
+from pathlib import Path
 
 import pytest
 import pytest_asyncio
 from neo4j import AsyncDriver
 
+from adapters.persistence.neo4j.ingestion_service_factory import make_unified_ingestion_service
 from core.config.credential_store import get_credential
 from core.config.intelligence_tier import IntelligenceTier
 from core.models.enums import Domain, EntityStatus, Priority
@@ -33,6 +39,7 @@ from core.models.goal.goal import Goal
 from core.models.habit.habit import Habit
 from core.models.task.task import Task
 from core.models.task.task_update_intent import TaskUpdateIntent
+from core.ports import EventBusOperations
 from core.services.goals_service import GoalsService
 from core.services.habits_service import HabitsService
 from core.services.tasks_service import TasksService
@@ -46,6 +53,8 @@ pytestmark = pytest.mark.skipif(
 
 _USER_UID = "user_goal_progress_cascade"
 _PREFIX = "gpc_"
+#: Vault-authored uids carry their type prefix (``task.``), so they get their own sweep.
+_VAULT_TASK_PREFIX = "task.gpc-"
 
 
 @dataclass(frozen=True)
@@ -55,6 +64,7 @@ class _Composed:
     tasks: TasksService
     goals: GoalsService
     habits: HabitsService
+    event_bus: EventBusOperations
     neo4j_driver: AsyncDriver
 
 
@@ -67,10 +77,12 @@ async def services(skuel_app) -> AsyncIterator[_Composed]:
     """
     composed: Services = skuel_app.state.services
     assert composed.tasks and composed.goals and composed.habits and composed.neo4j_driver
+    assert composed.event_bus
     services = _Composed(
         tasks=composed.tasks,
         goals=composed.goals,
         habits=composed.habits,
+        event_bus=composed.event_bus,
         neo4j_driver=composed.neo4j_driver,
     )
     driver = services.neo4j_driver
@@ -85,6 +97,14 @@ async def services(skuel_app) -> AsyncIterator[_Composed]:
         await session.run(
             "MATCH (n:Entity) WHERE n.uid STARTS WITH $prefix DETACH DELETE n",
             prefix=_PREFIX,
+        )
+        await session.run(
+            "MATCH (n:Entity) WHERE n.uid STARTS WITH $prefix DETACH DELETE n",
+            prefix=_VAULT_TASK_PREFIX,
+        )
+        await session.run(
+            "MATCH (m:IngestionMetadata) WHERE m.entity_uid STARTS WITH $prefix DELETE m",
+            prefix=_VAULT_TASK_PREFIX,
         )
 
 
@@ -205,3 +225,88 @@ async def test_achievement_context_reads_the_written_links(services: _Composed) 
     [row] = result.value
     assert [h["uid"] for h in row["habits"]] == [habit.value.uid]
     assert [k["uid"] for k in row["knowledge_units"]] == [f"{_PREFIX}ku"]
+
+
+async def _assert_unachieved(services: _Composed, goal_uid: str) -> None:
+    """0 of 1, 0%, no longer COMPLETED, and no achievement date left behind."""
+    stored = await _stored_goal(services, goal_uid)
+    assert (stored.current_value, stored.target_value) == (0, 1)
+    assert stored.progress_percentage == pytest.approx(0.0)
+    assert stored.status == EntityStatus.ACTIVE
+    assert stored.achieved_date is None
+
+
+@pytest.mark.asyncio(loop_scope="session")
+async def test_reopening_the_only_task_through_update_task_unachieves_its_goal(
+    services: _Composed,
+) -> None:
+    """Complete a goal's only task (100%, COMPLETED), then reopen it through ``update_task``."""
+    goal = await _create_goal(services, "reopen_app", MeasurementType.TASK_BASED)
+    created = await services.tasks.create(
+        Task(
+            uid=f"{_PREFIX}task_reopen_app",
+            user_uid=_USER_UID,
+            title="Only task",
+            priority=Priority.MEDIUM,
+            status=EntityStatus.SCHEDULED,
+            fulfills_goal_uid=goal.uid,
+        )
+    )
+    assert created.is_ok, created
+    task_uid = created.value.uid
+
+    done = await services.tasks.update_task(
+        task_uid, TaskUpdateIntent(status=EntityStatus.COMPLETED.value)
+    )
+    assert done.is_ok, done
+    achieved = await _stored_goal(services, goal.uid)
+    assert achieved.status == EntityStatus.COMPLETED
+    assert achieved.progress_percentage == pytest.approx(100.0)
+
+    reopened = await services.tasks.update_task(
+        task_uid, TaskUpdateIntent(status=EntityStatus.SCHEDULED.value)
+    )
+    assert reopened.is_ok, reopened
+
+    await _assert_unachieved(services, goal.uid)
+
+
+def _vault_task_file(directory: Path, goal_uid: str, status_lines: str) -> Path:
+    path = directory / "gpc-vault-reopen.md"
+    path.write_text(
+        f"---\ntype: task\nuid: {_VAULT_TASK_PREFIX}vault-reopen\ntitle: Vault task\n"
+        f"user_uid: {_USER_UID}\n{status_lines}"
+        f"connections:\n  fulfills_goal:\n    - {goal_uid}\n---\n\nBody.\n"
+    )
+    return path
+
+
+@pytest.mark.asyncio(loop_scope="session")
+async def test_reopening_the_only_task_in_the_vault_unachieves_its_goal(
+    services: _Composed, tmp_path: Path
+) -> None:
+    """A task file completed, then edited back open, through the vault ingest door.
+
+    The door classifies the reopen from the prior status its upsert returned, and
+    publishes ``TaskReopened`` so goal progress hears the vault's reopens as it hears
+    the app's. Built over the COMPOSED event bus, so the subscriber is the one the app
+    wires; built here rather than taken from the composition because the composed door
+    resolves a file's owner from the vault it sits in, and a temp directory is in none.
+    """
+    goal = await _create_goal(services, "reopen_vault", MeasurementType.TASK_BASED)
+    door = make_unified_ingestion_service(
+        services.neo4j_driver, event_bus=services.event_bus, default_user_uid=_USER_UID
+    )
+
+    completed_file = _vault_task_file(
+        tmp_path, goal.uid, "status: completed\ncompletion_date: 2026-09-01\n"
+    )
+    assert (await door.ingest_file(completed_file)).is_ok
+    achieved = await _stored_goal(services, goal.uid)
+    assert achieved.status == EntityStatus.COMPLETED
+    assert achieved.progress_percentage == pytest.approx(100.0)
+
+    reopened_file = _vault_task_file(tmp_path, goal.uid, "status: in_progress\n")
+    assert (await door.ingest_file(reopened_file)).is_ok
+
+    await _assert_unachieved(services, goal.uid)

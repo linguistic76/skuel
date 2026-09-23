@@ -94,6 +94,7 @@ def _expected_handler_counts(full_tier: bool) -> dict[type, int]:
         TaskCreated,
         TaskDeleted,
         TaskPriorityChanged,
+        TaskReopened,
         TasksBulkCompleted,
         TaskUpdated,
     )
@@ -131,6 +132,7 @@ def _expected_handler_counts(full_tier: bool) -> dict[type, int]:
         # Tasks
         TaskCreated: 1,
         TaskCompleted: 6,  # invalidate + goal progress + PS auto-complete + x-domain + dependents + intelligence
+        TaskReopened: 2,  # invalidate + goal progress recompute
         TaskUpdated: 1,
         TaskDeleted: 1,
         TaskPriorityChanged: 2,

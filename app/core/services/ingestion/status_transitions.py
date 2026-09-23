@@ -11,7 +11,8 @@ reassembled here from the prior status the bulk upsert now returns
 (``IngestionResult.prior_status_by_uid``):
 
 1. **the completion event** on a genuine transition — prior not ``completed``,
-   new status ``completed``;
+   new status ``completed`` — and **the reopen event** on the mirror transition
+   (prior ``completed``, resulting status not), for the domains that have one;
 2. **the stamp-clear** on any entity the write leaves NOT completed while a
    completion stamp sits on it. That is the mirror transition (prior
    ``completed``, new status not) *and* the file authored open-beside-a-stamp,
@@ -26,7 +27,9 @@ and only three of them have an entity-completion event: ``HabitCompleted`` is a
 logged daily *occurrence* and ``ChoiceMade`` is the DRAFT→ACTIVE *decide*
 moment, neither of which is the entity retiring. Habit and Choice therefore get
 the stamp-clear and no event — inventing one with no subscribers would be
-staged bloat, not a fix.
+staged bloat, not a fix. Of the reopen events only ``TaskReopened`` exists, and it
+has a subscriber: goal progress recomputes on it, so a task reopened in Obsidian
+lowers its goal exactly as one reopened in the app does.
 
 Every value here arrives as parsed YAML, so dates may be native ``date``
 objects, ISO strings, or absent; the coercions are deliberately total (an
@@ -45,15 +48,17 @@ from datetime import UTC, date, datetime
 from types import MappingProxyType
 from typing import Any
 
-from core.events import BaseEvent, CalendarEventCompleted, GoalAchieved, TaskCompleted
+from core.events import BaseEvent, CalendarEventCompleted, GoalAchieved, TaskCompleted, TaskReopened
 from core.models.enums.entity_enums import EntityStatus, EntityType
 from core.models.type_hints import UserUID
 from core.services.completion_stamp import COMPLETION_FIELDS, completion_moment
 
 __all__ = [
     "EVENT_SOURCE_FIELDS",
+    "REOPEN_EVENT_SOURCE_FIELDS",
     "IngestStatusTransitions",
     "build_completion_events",
+    "build_reopen_events",
     "classify_ingest_status_transitions",
 ]
 
@@ -67,9 +72,12 @@ class IngestStatusTransitions:
     ``stamp_clear_uids`` are the entities left holding a completion stamp while
     NOT completed — the invariant is "non-null exactly when the entity is
     completed", so the stamp has to go. ``completed_uids`` are the ones that
-    transitioned INTO completed and owe a domain event. Both are empty for a
-    batch that changed no entity's completion state — the ordinary case, and the
-    one a ``--force`` re-ingest must produce.
+    transitioned INTO completed and owe a domain event; ``reopened_uids`` the ones
+    that transitioned OUT of it (prior ``completed``, resulting status not) and owe
+    the reopen event where the domain has one — always a subset of
+    ``stamp_clear_uids``. All are empty for a batch that changed no entity's
+    completion state — the ordinary case, and the one a ``--force`` re-ingest must
+    produce.
 
     The events are built separately (:func:`build_completion_events`) because
     they describe the entity as PERSISTED, which needs a read the classification
@@ -78,6 +86,7 @@ class IngestStatusTransitions:
 
     stamp_clear_uids: tuple[str, ...] = ()
     completed_uids: tuple[str, ...] = ()
+    reopened_uids: tuple[str, ...] = ()
 
 
 def classify_ingest_status_transitions(
@@ -120,6 +129,7 @@ def classify_ingest_status_transitions(
     stamp_field = COMPLETION_FIELDS[entity_type]
     stamp_clear: list[str] = []
     completed: list[str] = []
+    reopened: list[str] = []
     for entity in entities:
         uid = entity.get("uid")
         if not uid:
@@ -150,8 +160,10 @@ def classify_ingest_status_transitions(
             prior_status == _COMPLETED or entity.get(stamp_field) is not None
         ):
             stamp_clear.append(uid)
+            if prior_status == _COMPLETED:
+                reopened.append(uid)
 
-    return IngestStatusTransitions(tuple(stamp_clear), tuple(completed))
+    return IngestStatusTransitions(tuple(stamp_clear), tuple(completed), tuple(reopened))
 
 
 #: The node properties each domain's completion event reads, beyond the status
@@ -167,6 +179,38 @@ EVENT_SOURCE_FIELDS: Mapping[EntityType, tuple[str, ...]] = MappingProxyType(
         EntityType.EVENT: ("user_uid", "completed_at", "event_date"),
     }
 )
+
+
+#: The node properties each domain's reopen event reads — only Task has one.
+REOPEN_EVENT_SOURCE_FIELDS: Mapping[EntityType, tuple[str, ...]] = MappingProxyType(
+    {EntityType.TASK: ("user_uid",)}
+)
+
+
+def build_reopen_events(
+    entity_type: EntityType,
+    reopened_uids: tuple[str, ...],
+    # boundary: node properties read back from Neo4j (see ``build_completion_events``).
+    persisted_by_uid: Mapping[str, Mapping[str, Any]],
+) -> tuple[BaseEvent, ...]:
+    """Build the reopen events a classified batch owes, from PERSISTED state.
+
+    Mirrors ``TasksCoreService.update_task``'s ``TaskReopened`` publish, so a task
+    reopened in Obsidian reaches the same subscribers as one reopened in the app. A
+    reopen records no moment, so the event carries none of the file's dates. A uid
+    with no persisted row is skipped, as in :func:`build_completion_events`.
+    """
+    if entity_type is not EntityType.TASK:
+        return ()
+    events: list[BaseEvent] = []
+    for uid in reopened_uids:
+        persisted = persisted_by_uid.get(uid)
+        if persisted is None:
+            continue
+        events.append(
+            TaskReopened(task_uid=uid, user_uid=UserUID(str(persisted.get("user_uid") or "")))
+        )
+    return tuple(events)
 
 
 def build_completion_events(

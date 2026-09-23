@@ -179,13 +179,9 @@ renders them as a table in Obsidian, and a session derives the same table with
 
 [Goals and Choices as Weekly-Calendar Chips](weekly-goals-choices-chips.md) — Founder wish recorded 2026-09-11 while ruling the calendar priority-lens arc; deferred because it contradicts M4, R2 and S1 outright — re-elicit after living with the priority-lens week view, amending those rulings by letter.
 
-## Goal Progress Recompute — Lost Update Under Concurrent Completions
+## Goal Tally Membership Changes Don't Recompute
 
-[Goal Progress Recompute — Lost Update Under Concurrent Completions](goal-progress-recompute-lost-update.md) — Both completion handlers count linked activities before the guarded write takes the goal's lock. Two concurrent completions can leave a goal COMPLETED at a stale 50%. Scheduled as the goal-link arc's PR 1b.
-
-## Goal Progress Is One-Way — Reopens Never Recompute
-
-[Goal Progress Is One-Way — Reopens Never Recompute](goal-progress-one-way.md) — `TaskReopened` has no subscriber and the vault door publishes no reopen, so a goal completed through its only task stays at 100% and COMPLETED after that task reopens. Scheduled with the lost update as PR 1b; whether a goal un-achieves needs a ruling.
+[Goal Tally Membership Changes Don't Recompute](goal-tally-membership-changes.md) — A goal's task tally is recomputed only when a linked task changes status. Linking, unlinking or deleting a task, or editing its `completion_updates_goal`, leaves the stored figure stale until the next completion or reopen.
 
 ## Mixed Goals Get No Event-Driven Progress
 

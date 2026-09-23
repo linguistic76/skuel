@@ -26,7 +26,11 @@ from collections.abc import Mapping
 from typing import Any
 from unittest.mock import AsyncMock, Mock
 
-from core.models.update_contracts import StatusGuardedOutcome, StatusWriteGuard
+from core.models.update_contracts import (
+    GuardedRecompute,
+    StatusGuardedOutcome,
+    StatusWriteGuard,
+)
 from core.utils.result_simplified import Errors, Result
 
 
@@ -258,3 +262,38 @@ def guarded_rows_backend[T](rows: Mapping[str, T | None]) -> tuple[Mock, Guarded
     backend.get = AsyncMock(side_effect=_get)
     backend.update_with_status_guard = AsyncMock(side_effect=store)
     return backend, store
+
+
+def wire_locked_recompute[T](
+    backend: Mock,
+    recorder: StatusGuardedWriteRecorder[T],
+    locked: T,
+    *,
+    method: str,
+    # boundary: the tally TypedDict the method under test hands its planner
+    tally: Mapping[str, Any],
+) -> None:
+    """Stand in for a ``_recompute_with_status_guard`` wrapper (``GoalsBackend``'s
+    ``recompute_progress_from_linked_*``).
+
+    The real method locks the node, reads the tally, calls the planner with both and
+    writes its plan with the guarded statement — so the entity the planner sees IS the
+    prior the write resolves against. This fake keeps that identity: the planner gets
+    ``locked``, and the plan's write goes through ``recorder`` (whose prior must be the
+    same ``locked``), so ``recorder.calls`` / ``merged_patch()`` read as for a plain
+    guarded write. A declining planner writes nothing and answers ``None``.
+    """
+
+    def _call(
+        uid: str,
+        user_uid: str,
+        # boundary: the service's planner — any GuardedWritePlan-returning callable
+        plan: Any,
+    ) -> Result[GuardedRecompute[T, Any] | None]:
+        decided = plan(locked, dict(tally))
+        if decided is None:
+            return Result.ok(None)
+        written = recorder(uid, decided.updates, decided.guard)
+        return Result.ok(GuardedRecompute(plan=decided, outcome=written.value))
+
+    setattr(backend, method, AsyncMock(side_effect=_call))

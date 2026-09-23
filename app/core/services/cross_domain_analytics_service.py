@@ -225,8 +225,8 @@ class CrossDomainAnalyticsService:
         The whole handler accumulates (a stamp), so it relies on the publisher
         side: ``TaskCompleted`` is transition-gated at every door, so the moment
         it carries is always one at which something completed. A reopen never
-        reaches this service at all (``TaskReopened`` has no analytics subscriber
-        now that no count is stored) and would have nothing to write if it did:
+        reaches this service at all (``TaskReopened`` has no analytics subscriber,
+        since no count is stored) and would have nothing to write if it did:
         it is the opposite of a completion.
 
         See :class:`TaskCompleted` for the contract.

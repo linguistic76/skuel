@@ -92,6 +92,8 @@ from core.ports.query_types import (
     GoalStats,
     GraphContextResult,
     HabitStats,
+    LinkedHabitTally,
+    LinkedTaskTally,
     NextActionResult,
     ParentProgressResult,
     PrincipleStats,
@@ -100,6 +102,7 @@ from core.ports.query_types import (
 
 if TYPE_CHECKING:
     import builtins
+    from collections.abc import Callable
     from datetime import date
 
     from core.models.choice.choice import Choice
@@ -112,6 +115,7 @@ if TYPE_CHECKING:
     from core.models.task.task import Task
     from core.models.task.task_update_intent import TaskUpdateIntent
     from core.models.type_hints import EntityUID, FilterParams, Metadata, Neo4jProperties
+    from core.models.update_contracts import GuardedRecompute, GuardedWritePlan
     from core.utils.result_simplified import Result
 
 
@@ -720,8 +724,18 @@ class GoalsOperations(
         """Find the UIDs of the goals a task fulfills (FULFILLS_GOAL)."""
         ...
 
-    async def count_linked_tasks(self, goal_uid: str, user_uid: UserUID) -> Result[dict[str, int]]:
-        """Count total and completed tasks linked to a goal."""
+    async def recompute_progress_from_linked_tasks[P: GuardedWritePlan](
+        self,
+        goal_uid: str,
+        user_uid: UserUID,
+        plan: Callable[[Goal, LinkedTaskTally], P | None],
+    ) -> Result[GuardedRecompute[Goal, P] | None]:
+        """Recompute a goal from its linked-task tally, counted under the goal's lock.
+
+        Lock, tally, plan and guarded write in one transaction, so two recomputes of
+        one goal serialize and the later one counts what the earlier one wrote over.
+        ``Result.ok(None)`` when ``plan`` declines to write.
+        """
         ...
 
     async def find_linked_goals_for_habit(
@@ -730,10 +744,14 @@ class GoalsOperations(
         """Find the UIDs of the goals a habit supports (SUPPORTS_GOAL)."""
         ...
 
-    async def count_linked_habits_avg_streak(
-        self, goal_uid: str, user_uid: UserUID
-    ) -> Result[dict[str, Any]]:
-        """Count habits linked to a goal and compute their average streak."""
+    async def recompute_progress_from_linked_habits[P: GuardedWritePlan](
+        self,
+        goal_uid: str,
+        user_uid: UserUID,
+        plan: Callable[[Goal, LinkedHabitTally], P | None],
+    ) -> Result[GuardedRecompute[Goal, P] | None]:
+        """Recompute a goal from its supporting habits' average streak, read under the
+        goal's lock — the habit sibling of ``recompute_progress_from_linked_tasks``."""
         ...
 
     async def get_achievement_context(

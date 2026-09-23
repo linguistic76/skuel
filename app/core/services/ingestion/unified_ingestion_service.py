@@ -99,7 +99,9 @@ from .preparer import (
 )
 from .status_transitions import (
     EVENT_SOURCE_FIELDS,
+    REOPEN_EVENT_SOURCE_FIELDS,
     build_completion_events,
+    build_reopen_events,
     classify_ingest_status_transitions,
 )
 from .types import (
@@ -671,6 +673,9 @@ class UnifiedIngestionService:
           domain's completion event, so goal progress, PS engagement
           auto-complete, productivity analytics and context invalidation see the
           vault's completions exactly as they see the app's;
+        - a file that takes an entity OUT of ``completed`` publishes the domain's
+          reopen event (``TaskReopened``), so goal progress falls with a vault reopen
+          as it does with an app one;
         - an entity the write leaves NOT completed loses its completion stamp, so
           the invariant "the stamp is non-null exactly when the entity is
           completed" survives both an edit made in Obsidian and a file authored
@@ -698,21 +703,58 @@ class UnifiedIngestionService:
         if transitions.completed_uids and self.event_bus is not None:
             await self._publish_completions(entity_type, transitions.completed_uids)
         if transitions.stamp_clear_uids:
-            field_name = COMPLETION_FIELDS[entity_type]
-            try:
-                cleared = await self._write_backend.clear_completion_stamps(
-                    field_name, list(transitions.stamp_clear_uids)
-                )
-                self.logger.info(
-                    f"Stamp-clear: removed {field_name} from {cleared} "
-                    f"{entity_type.value} entit(ies) the vault left not completed"
-                )
-            except NEO4J_EXCEPTIONS as e:
-                self.logger.error(
-                    f"Failed to clear {field_name} for {len(transitions.stamp_clear_uids)} "
-                    f"{entity_type.value} entit(ies) — the stamp is stranded on a "
-                    f"non-completed entity until the file changes again: {e}"
-                )
+            await self._clear_stamps(entity_type, transitions.stamp_clear_uids)
+        if transitions.reopened_uids and self.event_bus is not None:
+            await self._publish_reopens(entity_type, transitions.reopened_uids)
+
+    async def _clear_stamps(self, entity_type: EntityType, uids: tuple[str, ...]) -> None:
+        """Remove the completion stamp from entities the vault left not completed.
+
+        Backend: IngestionWriteBackend.clear_completion_stamps.
+        """
+        field_name = COMPLETION_FIELDS[entity_type]
+        try:
+            cleared = await self._write_backend.clear_completion_stamps(field_name, list(uids))
+            self.logger.info(
+                f"Stamp-clear: removed {field_name} from {cleared} "
+                f"{entity_type.value} entit(ies) the vault left not completed"
+            )
+        except NEO4J_EXCEPTIONS as e:
+            self.logger.error(
+                f"Failed to clear {field_name} for {len(uids)} "
+                f"{entity_type.value} entit(ies) — the stamp is stranded on a "
+                f"non-completed entity until the file changes again: {e}"
+            )
+
+    async def _publish_reopens(
+        self, entity_type: EntityType, reopened_uids: tuple[str, ...]
+    ) -> None:
+        """Announce entities this ingest moved OUT of completed, as the graph now holds them.
+
+        The mirror of :meth:`_publish_completions`, for the domains with a reopen
+        event (``REOPEN_EVENT_SOURCE_FIELDS`` — Task). Goal progress recomputes on
+        ``TaskReopened``, so without this a task reopened in Obsidian would leave its
+        goal counting it as done. A read failure loses the announcement, logged at
+        ERROR, as a completion's does.
+
+        Backend: IngestionWriteBackend.read_entity_fields.
+        """
+        fields = REOPEN_EVENT_SOURCE_FIELDS.get(entity_type)
+        if not fields:
+            return
+        try:
+            persisted = await self._write_backend.read_entity_fields(
+                list(reopened_uids), list(fields)
+            )
+        except NEO4J_EXCEPTIONS as e:
+            self.logger.error(
+                f"Failed to read back {len(reopened_uids)} reopened {entity_type.value} "
+                f"entit(ies); their reopen events are not published and nothing retries "
+                f"them: {e}"
+            )
+            return
+        for event in build_reopen_events(entity_type, reopened_uids, persisted):
+            await publish_event(self.event_bus, event, self.logger)
 
     async def _publish_completions(
         self, entity_type: EntityType, completed_uids: tuple[str, ...]

@@ -17,7 +17,8 @@ Pinned here:
 
 - a file that arrives ``completed`` over a node that was not is a transition; a
   repeat (prior already ``completed``) is not — the ``--force`` guarantee;
-- the mirror: prior ``completed``, new status not, clears the stamp — including a
+- the mirror: prior ``completed``, new status not, clears the stamp and is a
+  reopen (``TaskReopened`` for a task) — including a
   present-but-null status, which ERASES the stored one, and excluding an absent
   status key, which writes nothing;
 - the clear is decided from the status the entity ENDS UP holding, so a file
@@ -38,12 +39,13 @@ from __future__ import annotations
 from datetime import date, datetime
 from typing import Any
 
-from core.events import CalendarEventCompleted, GoalAchieved, TaskCompleted
+from core.events import CalendarEventCompleted, GoalAchieved, TaskCompleted, TaskReopened
 from core.models.enums.entity_enums import EntityType
 from core.services.completion_stamp import COMPLETION_FIELDS
 from core.services.ingestion.status_transitions import (
     EVENT_SOURCE_FIELDS,
     build_completion_events,
+    build_reopen_events,
     classify_ingest_status_transitions,
 )
 
@@ -117,6 +119,30 @@ def test_reopen_yields_a_clear_and_no_completion() -> None:
 
     assert transitions.stamp_clear_uids == ("task.reopened",)
     assert transitions.completed_uids == ()
+    assert transitions.reopened_uids == ("task.reopened",)
+
+
+def test_a_reopen_builds_task_reopened_from_the_persisted_owner() -> None:
+    """Goal progress recomputes on ``TaskReopened`` — the vault door must announce it."""
+    (event,) = build_reopen_events(
+        EntityType.TASK, ("task.reopened",), {"task.reopened": {"user_uid": OWNER}}
+    )
+
+    assert isinstance(event, TaskReopened)
+    assert event.task_uid == "task.reopened"
+    assert event.user_uid == OWNER
+
+
+def test_a_stamp_clear_without_a_completed_prior_is_no_reopen() -> None:
+    """Born open beside a stamp: the stamp goes, but nothing left ``completed``."""
+    transitions = classify_ingest_status_transitions(
+        EntityType.TASK,
+        [_task("task.born-open-stamp", "in_progress", completion_date="2026-03-04")],
+        {},
+    )
+
+    assert transitions.stamp_clear_uids == ("task.born-open-stamp",)
+    assert transitions.reopened_uids == ()
 
 
 def test_missing_status_key_is_not_a_reopen() -> None:
@@ -147,6 +173,7 @@ def test_a_present_but_null_status_is_a_reopen() -> None:
 
     assert transitions.stamp_clear_uids == ("task.erased",)
     assert transitions.completed_uids == ()
+    assert transitions.reopened_uids == ("task.erased",)
 
 
 def test_a_null_status_over_an_open_prior_changes_nothing() -> None:
@@ -430,6 +457,7 @@ def test_habit_and_choice_clear_but_never_announce() -> None:
         assert build_completion_events(entity_type, (uid,), {uid: {}}) == (), entity_type
         assert reopened.stamp_clear_uids == (uid,), entity_type
         assert reopened.completed_uids == (), entity_type
+        assert build_reopen_events(entity_type, (uid,), {uid: {}}) == (), entity_type
 
 
 def test_domains_without_a_completion_field_derive_nothing() -> None:
