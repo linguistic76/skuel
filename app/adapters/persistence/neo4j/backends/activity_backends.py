@@ -8,7 +8,7 @@ from typing import TYPE_CHECKING, Any, cast
 from adapters.persistence.neo4j._hierarchy_mixin import HierarchyConfig, _HierarchyMixin
 from adapters.persistence.neo4j.universal_backend import UniversalNeo4jBackend
 from core.models.choice.choice import Choice
-from core.models.enums.entity_enums import EntityType
+from core.models.enums.entity_enums import EntityStatus, EntityType
 from core.models.enums.neo_labels import NeoLabel
 from core.models.event.event import Event
 from core.models.goal.goal import Goal
@@ -586,7 +586,7 @@ class GoalsBackend(_HierarchyMixin, UniversalNeo4jBackend[Goal]):
         MATCH (task:Entity {{entity_type: 'task'}})-[:{RelationshipName.FULFILLS_GOAL.value}]->(goal:Entity {{uid: $goal_uid, entity_type: 'goal'}})
         WHERE task.user_uid = $user_uid
         RETURN count(task) as total_tasks,
-               count(CASE WHEN task.status = 'completed' THEN 1 END) as completed_tasks
+               count(CASE WHEN task.status = '{EntityStatus.COMPLETED.value}' THEN 1 END) as completed_tasks
         """
         result = await self.execute_query(query, {"goal_uid": goal_uid, "user_uid": user_uid})
         if result.is_error:

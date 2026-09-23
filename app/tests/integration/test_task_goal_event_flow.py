@@ -205,11 +205,7 @@ class TestTaskGoalEventFlow:
     async def test_mixed_goal_not_moved_by_task_completions(
         self, event_bus, goals_progress_service, goals_backend, tasks_service
     ):
-        """A MIXED goal is not blended from its task tally — completions leave it alone.
-
-        The former blend, ``old * 0.7 + share * 30``, fed each result into the next: two
-        completions of two tasks read 15% then 40.5%.
-        """
+        """A MIXED goal is not recomputed from its task tally — completions leave it alone."""
         goal = await self._create_goal(goals_backend, "goal.mixed", MeasurementType.MIXED)
         tasks = [
             await self._create_task(tasks_service, f"task.mixed_{i}", goal.uid) for i in (1, 2)

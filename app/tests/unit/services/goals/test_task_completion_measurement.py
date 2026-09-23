@@ -6,9 +6,8 @@ alone — and it is bounded by a fact the tests below pin: ``target_value`` has 
 computational consumer for TASK_BASED (``calculate_combined_progress`` returns
 ``task_contribution * 100`` and discards ``milestone_completion``).
 
-MIXED goals are not recomputed by either completion handler at all: each handler sees
-one component of a four-part weighting, and blending it into the stored figure fed
-every result into the next (docs/roadmap/mixed-goal-event-progress.md).
+MIXED goals are not recomputed by either completion handler: each handler sees one
+component of a four-part weighting (docs/roadmap/mixed-goal-event-progress.md).
 """
 
 from __future__ import annotations
