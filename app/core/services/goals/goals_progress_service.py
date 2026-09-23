@@ -1030,7 +1030,7 @@ class GoalsProgressService(BaseService[GoalsOperations, Goal]):
 
         When a task is completed:
         1. Find all goals linked to this task
-        2. For task-based or mixed goals, recalculate progress
+        2. For task-based goals, recalculate progress
         3. Update goal progress in database
         4. Publish GoalProgressUpdated event if progress changed
 
@@ -1042,8 +1042,7 @@ class GoalsProgressService(BaseService[GoalsOperations, Goal]):
             to prevent task completion from failing if goal update fails.
         """
         try:
-            # Query Neo4j to find goals linked to this task
-            # Pattern: (Goal)-[:SUPPORTS_GOAL]->(Task)
+            # Goals this task fulfills (Backend: GoalsBackend.find_linked_goals_for_task)
             self.logger.debug(
                 f"Querying for goals linked to task {event.task_uid}, user {event.user_uid}"
             )
@@ -1097,8 +1096,11 @@ class GoalsProgressService(BaseService[GoalsOperations, Goal]):
 
         goal = goal_result.value  # Already a Goal domain model from UniversalNeo4jBackend
 
-        # Only update task-based or mixed goals
-        if goal.measurement_type not in [MeasurementType.TASK_BASED, MeasurementType.MIXED]:
+        # Only TASK_BASED goals are recomputed here. A MIXED goal weights tasks, habits,
+        # knowledge and milestones together, and this handler sees only the task tally;
+        # blending that into the stored figure feeds each result back into the next.
+        # See docs/roadmap/mixed-goal-event-progress.md.
+        if goal.measurement_type != MeasurementType.TASK_BASED:
             self.logger.debug(
                 f"Goal {goal_uid} is {goal.measurement_type}, skipping task-based progress update"
             )
@@ -1117,28 +1119,17 @@ class GoalsProgressService(BaseService[GoalsOperations, Goal]):
             self.logger.debug(f"Goal {goal_uid} has no linked tasks")
             return
 
-        # Calculate new progress percentage
-        task_contribution = completed_tasks / total_tasks
+        # Progress is the completed share of the linked tasks
+        new_progress = completed_tasks / total_tasks * 100
         old_progress = goal.progress_percentage or 0.0
 
-        # For task-based goals, progress is 100% task contribution
-        # For mixed goals, task contribution is 30% of total progress
-        if goal.measurement_type == MeasurementType.TASK_BASED:
-            new_progress = task_contribution * 100
-        else:  # mixed
-            # Preserve non-task contributions and update task portion
-            # This is simplified - ideally we'd recalculate all factors
-            new_progress = (old_progress * 0.7) + (task_contribution * 30)
-
-        # Only update if something changed. For TASK_BASED goals the stored tally is
-        # part of "something": 1-of-5 and 2-of-10 are both 20%, so a percentage-only
+        # Only update if something changed. The stored tally is part of "something":
+        # 1-of-5 and 2-of-10 are both 20%, so a percentage-only
         # guard would leave the detail page rendering "1/5 tasks" after five more were
         # linked and one completed. `!=` rather than a narrowed comparison on purpose —
         # it never raises across types, and a legacy string current_value reads as stale
         # and gets repaired by the write below.
-        tally_stale = goal.measurement_type == MeasurementType.TASK_BASED and (
-            goal.current_value != completed_tasks or goal.target_value != total_tasks
-        )
+        tally_stale = goal.current_value != completed_tasks or goal.target_value != total_tasks
         progress_changed = abs(new_progress - old_progress) >= 0.1
         if not progress_changed and not tally_stale:
             self.logger.debug(f"Goal {goal_uid} progress unchanged ({new_progress:.1f}%)")
@@ -1156,23 +1147,17 @@ class GoalsProgressService(BaseService[GoalsOperations, Goal]):
             updates["last_progress_update"] = now
             updates["progress_history"] = with_progress_entry(goal, new_progress, now)
 
-        if goal.measurement_type == MeasurementType.TASK_BASED:
-            # The measurement IS the linked-task tally, so this writer owns both ends of
-            # it. Writing only completed_tasks would pair it with a target_value nothing
-            # relates to it — a user-typed 5 against 20 linked tasks renders "4/5 tasks"
-            # beside a 20% bar — and writing neither leaves the detail page rendering
-            # "0/5 tasks" for a goal that is one task in. total_tasks is the denominator
-            # new_progress was just computed from, so all three fields agree by
-            # construction.
-            #
-            # TASK_BASED only, never MIXED: _update_goal_from_habit_completion divides
-            # avg_streak by target_value for MIXED goals (a desired streak length), so
-            # overwriting it there would corrupt the habit half of a mixed goal. For
-            # TASK_BASED nothing computes on target_value — calculate_combined_progress
-            # returns task_contribution * 100 and discards milestone_completion — which
-            # is what makes it this writer's to own.
-            updates["current_value"] = float(completed_tasks)
-            updates["target_value"] = float(total_tasks)
+        # The measurement IS the linked-task tally, so this writer owns both ends of
+        # it. Writing only completed_tasks would pair it with a target_value nothing
+        # relates to it — a user-typed 5 against 20 linked tasks renders "4/5 tasks"
+        # beside a 20% bar — and writing neither leaves the detail page rendering
+        # "0/5 tasks" for a goal that is one task in. total_tasks is the denominator
+        # new_progress was just computed from, so all three fields agree by
+        # construction. Nothing else computes on a TASK_BASED goal's target_value —
+        # calculate_combined_progress returns task_contribution * 100 and discards
+        # milestone_completion — which is what makes it this writer's to own.
+        updates["current_value"] = float(completed_tasks)
+        updates["target_value"] = float(total_tasks)
 
         # Check if goal is achieved — on the TRANSITION, matching the GoalAchieved gate
         # below. `>= 100` alone re-stamps achieved_date on every write once a goal is
@@ -1233,8 +1218,8 @@ class GoalsProgressService(BaseService[GoalsOperations, Goal]):
         eliminating direct dependency between HabitsService and GoalsService.
 
         When a habit is completed:
-        1. Find all goals linked to this habit via SUPPORTS_GOAL relationship
-        2. For habit-based or mixed goals, recalculate progress based on streak
+        1. Find all goals this habit supports (its SUPPORTS_GOAL edges)
+        2. For habit-based goals, recalculate progress based on streak
         3. Update goal progress in database
         4. Publish GoalProgressUpdated event if progress changed
 
@@ -1246,8 +1231,7 @@ class GoalsProgressService(BaseService[GoalsOperations, Goal]):
             to prevent habit completion from failing if goal update fails.
         """
         try:
-            # Query Neo4j to find goals linked to this habit
-            # Pattern: (Goal)-[:SUPPORTS_GOAL]->(Habit)
+            # Goals this habit supports (Backend: GoalsBackend.find_linked_goals_for_habit)
             self.logger.debug(
                 f"Querying for goals linked to habit {event.habit_uid}, user {event.user_uid}"
             )
@@ -1291,9 +1275,7 @@ class GoalsProgressService(BaseService[GoalsOperations, Goal]):
         """
         Internal helper to update a single goal's progress from habit completion.
 
-        For habit-based goals, progress is calculated as:
-        - Habit-based: (average_streak / target_value) * 100
-        - Mixed: 30% habit contribution + 70% preserved existing progress
+        For habit-based goals, progress is (average_streak / target_value) * 100.
 
         Args:
             goal_uid: Goal to update
@@ -1308,10 +1290,11 @@ class GoalsProgressService(BaseService[GoalsOperations, Goal]):
 
         goal = goal_result.value
 
-        # Only update habit-based or mixed goals
-        if goal.measurement_type not in [MeasurementType.HABIT_BASED, MeasurementType.MIXED]:
+        # Only HABIT_BASED goals are recomputed here — MIXED for the reason given in
+        # _update_goal_from_task_completion.
+        if goal.measurement_type != MeasurementType.HABIT_BASED:
             self.logger.debug(
-                f"Goal {goal_uid} is {goal.measurement_type.value if goal.measurement_type else 'unknown'}, not habit-based/mixed - skipping"
+                f"Goal {goal_uid} is {goal.measurement_type.value if goal.measurement_type else 'unknown'}, not habit-based - skipping"
             )
             return
 
@@ -1332,16 +1315,10 @@ class GoalsProgressService(BaseService[GoalsOperations, Goal]):
         old_progress = goal.progress_percentage or 0.0
         target_value = goal.target_value or 100.0
 
-        if goal.measurement_type == MeasurementType.HABIT_BASED:
-            # For habit-based goals, progress = (avg_streak / target_value) * 100
-            # Target value represents desired streak length
-            habit_contribution = (avg_streak / target_value) if target_value > 0 else 0
-            new_progress = min(habit_contribution * 100, 100.0)
-        else:  # MeasurementType.MIXED
-            # For mixed goals, habits contribute 30% to total progress
-            habit_contribution = (avg_streak / target_value) if target_value > 0 else 0
-            new_progress = (old_progress * 0.7) + (habit_contribution * 30)
-            new_progress = min(new_progress, 100.0)
+        # Progress = (avg_streak / target_value) * 100; target_value is the desired
+        # streak length
+        habit_contribution = (avg_streak / target_value) if target_value > 0 else 0
+        new_progress = min(habit_contribution * 100, 100.0)
 
         # Skip update only if nothing changed. `new_progress` is capped at 100, so once
         # a streak reaches its target the percentage stops moving while avg_streak keeps
@@ -1349,10 +1326,7 @@ class GoalsProgressService(BaseService[GoalsOperations, Goal]):
         # Decreases already propagate (a broken streak moves the percentage), so without
         # this the field would track downwards but not upwards. Same shape as the
         # task-based guard above.
-        measurement_stale = (
-            goal.measurement_type == MeasurementType.HABIT_BASED
-            and goal.current_value != avg_streak
-        )
+        measurement_stale = goal.current_value != avg_streak
         progress_changed = abs(new_progress - old_progress) >= 0.01
         if not progress_changed and not measurement_stale:
             self.logger.debug(
@@ -1372,12 +1346,10 @@ class GoalsProgressService(BaseService[GoalsOperations, Goal]):
             updates["last_progress_update"] = now
             updates["progress_history"] = with_progress_entry(goal, new_progress, now)
 
-        if goal.measurement_type == MeasurementType.HABIT_BASED:
-            # target_value is the desired streak length (see the division above), so
-            # avg_streak is a genuine measurement in its unit — the one domain-unit
-            # value this file computes. MIXED blends habits with other factors, so
-            # target_value does not describe avg_streak there and current_value stays.
-            updates["current_value"] = float(avg_streak)
+        # target_value is the desired streak length (see the division above), so
+        # avg_streak is a genuine measurement in its unit — the one domain-unit value
+        # this file computes.
+        updates["current_value"] = float(avg_streak)
 
         # Check if goal is achieved — on the TRANSITION, matching the GoalAchieved gate
         # below. `>= 100` alone re-stamps achieved_date on every later write, which a

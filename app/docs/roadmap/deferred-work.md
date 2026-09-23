@@ -1,5 +1,5 @@
 ---
-updated: 2026-09-22
+updated: 2026-09-23
 ---
 
 # Deferred Work
@@ -179,9 +179,17 @@ renders them as a table in Obsidian, and a session derives the same table with
 
 [Goals and Choices as Weekly-Calendar Chips](weekly-goals-choices-chips.md) — Founder wish recorded 2026-09-11 while ruling the calendar priority-lens arc; deferred because it contradicts M4, R2 and S1 outright — re-elicit after living with the priority-lens week view, amending those rulings by letter.
 
-## Goal Progress Reads an Edge Nothing Writes
+## Goal Progress Recompute — Lost Update Under Concurrent Completions
 
-[Goal Progress Reads an Edge Nothing Writes](goal-progress-reads-an-unwritten-edge.md) — A live defect, not a deferral: four readers in `activity_backends.py` match `(Goal)-[:SUPPORTS_GOAL]->(activity)`, which no writer produces, so event-driven goal progress never updates from a task or habit completion on any door; scheduled for immediately after the vault-door completion-cascade arc.
+[Goal Progress Recompute — Lost Update Under Concurrent Completions](goal-progress-recompute-lost-update.md) — Both completion handlers count linked activities before the guarded write takes the goal's lock. Two concurrent completions can leave a goal COMPLETED at a stale 50%. Scheduled as the goal-link arc's PR 1b.
+
+## Goal Progress Is One-Way — Reopens Never Recompute
+
+[Goal Progress Is One-Way — Reopens Never Recompute](goal-progress-one-way.md) — `TaskReopened` has no subscriber and the vault door publishes no reopen, so a goal completed through its only task stays at 100% and COMPLETED after that task reopens. Scheduled with the lost update as PR 1b; whether a goal un-achieves needs a ruling.
+
+## Mixed Goals Get No Event-Driven Progress
+
+[Mixed Goals Get No Event-Driven Progress](mixed-goal-event-progress.md) — Neither completion handler recomputes a `MIXED` goal. The blend they had fed each result into the next, and it was deleted unshipped in #1407. A real recompute through `ProgressCalculator` waits on one ruling: what a mixed goal's habit half measures.
 
 ## Tasks+ / One-Chrome Follow-ons
 

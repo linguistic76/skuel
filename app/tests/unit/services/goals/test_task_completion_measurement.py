@@ -4,9 +4,10 @@ For a TASK_BASED goal the measurement *is* the linked-task tally, so this writer
 both ends of it. That is unusual — every other progress writer leaves ``target_value``
 alone — and it is bounded by a fact the tests below pin: ``target_value`` has no
 computational consumer for TASK_BASED (``calculate_combined_progress`` returns
-``task_contribution * 100`` and discards ``milestone_completion``), whereas for MIXED it
-is the denominator ``_update_goal_from_habit_completion`` divides ``avg_streak`` by.
-Overwrite it for MIXED and the habit half of a mixed goal is corrupted.
+``task_contribution * 100`` and discards ``milestone_completion``).
+
+MIXED goals are not recomputed by either completion handler: each handler sees one
+component of a four-part weighting (docs/roadmap/mixed-goal-event-progress.md).
 """
 
 from __future__ import annotations
@@ -286,18 +287,21 @@ class TestHabitGoalMeasurementKeepsUpdatingPastTarget:
         assert recorder.calls == []
 
 
-class TestMixedGoalMeasurementIsNotTouched:
-    """MIXED shares this writer but not the ownership — its target_value is a streak."""
+class TestMixedGoalsAreNotRecomputedByCompletions:
+    """Neither completion handler writes a MIXED goal — no compounding blend."""
 
-    async def test_neither_measurement_field_is_written(self):
-        updates = await _written(
-            _goal(MeasurementType.MIXED, target_value=30.0),
-            total_tasks=5,
-            completed_tasks=1,
-        )
+    async def test_a_task_completion_writes_nothing(self):
+        goal = _goal(MeasurementType.MIXED, target_value=30.0, progress_percentage=15.0)
+        service, recorder = _service(goal, total_tasks=2, completed_tasks=2)
 
-        assert "current_value" not in updates
-        assert "target_value" not in updates, (
-            "MIXED divides avg_streak by target_value — overwriting it corrupts the habit half"
-        )
-        assert "progress_percentage" in updates
+        await service._update_goal_from_task_completion(goal.uid, _USER)
+
+        assert recorder.calls == []
+
+    async def test_a_habit_completion_writes_nothing(self):
+        goal = _goal(MeasurementType.MIXED, target_value=30.0, progress_percentage=15.0)
+        service, recorder = _habit_service(goal, total_habits=1, avg_streak=30.0)
+
+        await service._update_goal_from_habit_completion(goal.uid, _USER, 30)
+
+        assert recorder.calls == []

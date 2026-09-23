@@ -1,15 +1,14 @@
 ---
 title: "Goal Progress Reads an Edge Nothing Writes"
-updated: 2026-09-06
-status: "open — live bug, fix scoped"
-trigger: "none — this is a defect, not a deferral; scheduled for immediately after the vault-door completion-cascade arc"
-check: "`git grep -n 'SUPPORTS_GOAL' adapters/persistence/neo4j/backends/activity_backends.py` — four reader queries put the Goal on the LEFT of the arrow; every production writer puts it on the right, and for Tasks uses FULFILLS_GOAL instead"
+updated: 2026-09-23
+status: done
 registered: "2026-09-06 (found while checking a Codex example on #1290)"
 ---
 
 # Goal Progress Reads an Edge Nothing Writes
 
-*Case file for the [deferred-work.md](deferred-work.md) entry of the same name; move to `done/` when nothing in it remains open.*
+*Fixed 2026-09-23. Registered 2026-09-06 as a [deferred-work.md](../deferred-work.md) entry;
+the defect as found is kept below, followed by [what shipped](#what-shipped).*
 
 ## What is wrong
 
@@ -76,3 +75,50 @@ that mirrors the reader proves the reader runs, never that anything produces wha
 
 ⚠ Do **not** "fix" this by making the writers match the readers. The registry declaration and every
 writer already agree with each other; only the four queries disagree.
+
+## What shipped
+
+**The readers now match the registry.** Every `GoalsBackend` reader of an activity→goal link
+puts the activity on the left: `(Task)-[:FULFILLS_GOAL]->(Goal)` for `find_linked_goals_for_task`
+and `count_linked_tasks`, and `(Habit)-[:SUPPORTS_GOAL]->(Goal)` for `find_linked_goals_for_habit`
+and `count_linked_habits_avg_streak`. `_find_linked_goals` takes the relationship as a parameter
+now, so the two domains can no longer share the habit's edge type.
+
+**There was a fifth reader.** `get_achievement_context`, which feeds the `GoalAchieved`
+recommendations, matched `(goal)-[:SUPPORTS_GOAL]->(habit)`. It also filtered its knowledge
+branch on `entity_type = 'knowledge_unit'`, a value no node carries (`EntityType.KU` is `'ku'`).
+So two of the four recommendation strategies, habit reinforcement and knowledge expansion, had
+never fired. Both are fixed.
+
+**There was a third hand-seeded fixture.** `test_goal_recommendations_flow.py` seeded the
+reversed habit edge, and it also overwrote its Kus' `entity_type` to `'knowledge_unit'` so the
+broken filter would match. All three files now link through production writers:
+
+- Task→Goal: `TasksCoreService.create` with `fulfills_goal_uid`.
+- The other links: `UnifiedRelationshipService.create_relationship` over `GOALS_CONFIG`, which is
+  the call `GoalsService.link_goal_to_habit`, `link_goal_to_knowledge` and
+  `link_goal_to_principle` delegate to.
+
+Nodes come from the domain backends, so they carry the domain labels the registry validates
+against. Two task tests seeded one task fulfilling two goals, which no writer produces because the
+link is `single`. They were deleted, and a habit→two-goals test now covers the handler's per-goal
+loop.
+
+**MIXED goals are no longer recomputed by completions.** With the readers fixed, each handler's
+MIXED branch would have run for the first time. That branch blended one component into the
+stored figure (`old × 0.7 + share × 30`), so every completion fed the previous result into the
+next (Codex, #1407). Both branches were deleted. This changes no live behavior, since no MIXED goal
+had ever moved. A real recompute is registered as
+[mixed-goal-event-progress.md](../mixed-goal-event-progress.md).
+
+**End to end:** `tests/integration/test_goal_progress_cascade.py` runs on the composed app
+(`skuel_app`), so the handler is subscribed by the real event wiring. It checks three things, and
+each assertion failed on the old readers:
+
+- A task completed through `update_task` moves its goal.
+- A habit completed through `complete_habit_with_quality` moves its goal.
+- `get_achievement_context` returns the linked habits and Kus.
+
+**Migration: none needed.** A read-only count on AuraDB (2026-09-23) found 0 edges in the reader
+shape. The graph held 2 `(habit)-[:SUPPORTS_GOAL]->(goal)` and 2 `(task)-[:FULFILLS_GOAL]->(goal)`
+edges, and both tasks' `fulfills_goal_uid` agreed with their edge.

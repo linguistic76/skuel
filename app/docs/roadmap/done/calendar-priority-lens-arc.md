@@ -1,6 +1,6 @@
 ---
 title: "Calendar Priority-Lens Arc — Rulings & Contract"
-updated: 2026-09-14
+updated: 2026-09-23
 status: "done"
 registered: 2026-09-11
 ruled: 2026-09-11
@@ -54,7 +54,7 @@ shipped; this paragraph is what changed after.
 [ADR-069](../../decisions/ADR-069-extract-activities-pipeline-and-entry-report.md) Decision 3,
 [ADR-087](../../decisions/ADR-087-status-guarded-conditional-writes.md),
 [`weekly-goals-choices-chips.md`](../weekly-goals-choices-chips.md) (the deferred half of ruling 3),
-[`goal-progress-reads-an-unwritten-edge.md`](../goal-progress-reads-an-unwritten-edge.md) (compounding
+[`goal-progress-reads-an-unwritten-edge.md`](goal-progress-reads-an-unwritten-edge.md) (compounding
 defect, separate case file).
 
 ---
