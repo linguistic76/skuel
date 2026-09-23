@@ -1,6 +1,6 @@
 ---
 name: base-analytics-service
-description: Expert guide for creating and modifying domain analytics services using BaseAnalyticsService. Use when adding analytics methods, implementing KnowledgeIntelligenceOperations/DomainIntelligenceOperations/IntelligenceOperations protocols, cross-domain context retrieval (mechanism B / get_with_context), or working with the 9 domain intelligence services.
+description: Expert guide for creating and modifying domain analytics services using BaseAnalyticsService. Use when adding analytics methods, implementing KnowledgeIntelligenceOperations or the route factory's IntelligenceOperations protocol, cross-domain context retrieval (mechanism B / get_with_context), or working with the 9 domain intelligence services.
 allowed-tools: Read, Grep, Glob
 ---
 
@@ -473,17 +473,15 @@ The intelligence protocol layer has two levels:
 
 ### Core Protocols (`core/ports/intelligence_protocols.py`)
 
-Split into focused ISP protocols (March 2026):
-
 | Protocol | Methods | Implementor |
 |----------|---------|-------------|
 | `KnowledgeIntelligenceOperations` | 4 — `get_knowledge_suggestions`, `generate_knowledge_from_entities`, `get_knowledge_prerequisites`, `get_learning_opportunities` | `ActivityKnowledgeIntelligenceService` (shared singleton) |
-| `DomainIntelligenceOperations` | 7 — `find_similar_content`, `search_by_features`, `get_learning_velocity`, `get_behavioral_insights`, `get_performance_analytics`, `get_cross_domain_opportunities`, `get_ai_insights` | Per-domain intelligence services |
-| `IntelligenceOperations` | 11 (composed) | Backward-compatible union of both |
+
+Per-domain intelligence services share no core protocol.
 
 ### Route Factory Protocol (3 methods for auto route generation)
 
-All 10 domain services satisfy this separate protocol from `intelligence_route_factory.py`. `get_with_context()` is inherited from `_CoreIntelligenceMixin[T]` — never implemented per-service:
+All 9 domain intelligence services (6 Activity + KU/PS/LP) satisfy this separate protocol from `intelligence_route_factory.py`. `get_with_context()` is inherited from `_CoreIntelligenceMixin[T]` — never implemented per-service:
 
 ```python
 # Inherited — do not reimplement:
@@ -697,7 +695,7 @@ Create `/docs/intelligence/NEW_DOMAIN_INTELLIGENCE.md` following existing format
 |------|---------|
 | `/core/services/base_analytics_service.py` | Base class definition |
 | `/core/services/base_ai_service.py` | AI features (separate - see base-ai-service skill) |
-| `/core/ports/intelligence_protocols.py` | KnowledgeIntelligenceOperations + DomainIntelligenceOperations + composed IntelligenceOperations |
+| `/core/ports/intelligence_protocols.py` | KnowledgeIntelligenceOperations |
 | `/core/services/intelligence/_core_intelligence_mixin.py` | `_CoreIntelligenceMixin[T]` — shared `get_with_context()` (mechanism B) |
 | `/core/services/{domain}/{domain}_intelligence_service.py` | Domain implementations |
 | `/docs/intelligence/INTELLIGENCE_SERVICES_INDEX.md` | Master documentation |
@@ -730,4 +728,4 @@ Create `/docs/intelligence/NEW_DOMAIN_INTELLIGENCE.md` following existing format
 
 - [QUICK_REFERENCE.md](QUICK_REFERENCE.md) - File locations, imports, signatures
 - [PATTERNS.md](PATTERNS.md) - Implementation patterns with code examples
-- [PROTOCOL_INTEGRATION.md](PROTOCOL_INTEGRATION.md) - IntelligenceOperations + cross-domain context (mechanism B)
+- [PROTOCOL_INTEGRATION.md](PROTOCOL_INTEGRATION.md) - KnowledgeIntelligenceOperations, the route factory's IntelligenceOperations + cross-domain context (mechanism B)

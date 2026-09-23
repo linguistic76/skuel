@@ -8,7 +8,7 @@
 |------|---------|
 | `/core/services/base_analytics_service.py` | Base class (~608 lines) |
 | `/core/services/base_ai_service.py` | AI base class (separate skill) |
-| `/core/ports/intelligence_protocols.py` | KnowledgeIntelligenceOperations + DomainIntelligenceOperations + composed IntelligenceOperations |
+| `/core/ports/intelligence_protocols.py` | KnowledgeIntelligenceOperations |
 | `/core/services/intelligence/_core_intelligence_mixin.py` | `_CoreIntelligenceMixin[T]` — shared `get_with_context()` (mechanism B) |
 | `/core/services/intelligence/recommendation_engine.py` | RecommendationEngine utility |
 | `/core/services/intelligence/metrics_calculator.py` | MetricsCalculator utility |
@@ -51,8 +51,9 @@ from core.services.base_analytics_service import BaseAnalyticsService
 ```python
 from core.ports.intelligence_protocols import (
     KnowledgeIntelligenceOperations,   # 4 methods — shared (ActivityKnowledgeIntelligenceService)
-    DomainIntelligenceOperations,      # 7 methods — per-domain services
-    IntelligenceOperations,            # Composed (both combined)
+)
+from adapters.inbound.route_factories import (
+    IntelligenceOperations,            # 3 methods — per-domain services (route generation)
 )
 ```
 

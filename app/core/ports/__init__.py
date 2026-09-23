@@ -181,8 +181,6 @@ from .infrastructure_protocols import (
 
 # Intelligence operation protocols
 from .intelligence_protocols import (
-    DomainIntelligenceOperations,
-    IntelligenceOperations,
     KnowledgeIntelligenceOperations,
 )
 from .ps_engagement_protocols import PsEngagementOperations
@@ -371,8 +369,6 @@ __all__ = [
     "HasUpdatedAt",
     "HasUsage",
     # ========== INTELLIGENCE PROTOCOLS (3) ==========
-    "DomainIntelligenceOperations",
-    "IntelligenceOperations",
     "KnowledgeIntelligenceOperations",
     # ========== MOCK/STUB ENDPOINT PROTOCOLS (2) ==========
     "IsMockEndpoint",

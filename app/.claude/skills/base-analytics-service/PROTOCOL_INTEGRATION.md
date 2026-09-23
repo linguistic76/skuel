@@ -6,15 +6,13 @@ All 9 domain intelligence services retrieve unified context via **mechanism B** 
 
 ---
 
-## Intelligence Protocols (ISP Split — March 2026)
+## Intelligence Protocols
 
 ### Location
 
 ```python
 from core.ports.intelligence_protocols import (
     KnowledgeIntelligenceOperations,   # 4 methods — shared across all activity domains
-    DomainIntelligenceOperations,      # 7 methods — per-domain services
-    IntelligenceOperations,            # Composed (both combined)
 )
 ```
 
@@ -42,55 +40,13 @@ class KnowledgeIntelligenceOperations(Protocol):
     ) -> Result[LearningOpportunitiesResult]: ...
 ```
 
-### DomainIntelligenceOperations (per-domain)
-
-Implemented by per-domain intelligence services (TasksIntelligenceService, GoalsIntelligenceService, etc.).
-
-```python
-@runtime_checkable
-class DomainIntelligenceOperations(Protocol):
-    async def find_similar_content(
-        self, uid: str, limit: int = 5
-    ) -> Result[list[str]]: ...
-
-    async def search_by_features(
-        self, features: dict[str, Any], limit: int = 25
-    ) -> Result[list[str]]: ...
-
-    async def get_learning_velocity(
-        self, user_uid: UserUID, period_days: int = 90
-    ) -> Result[LearningVelocityMetrics]: ...
-
-    async def get_behavioral_insights(
-        self, user_uid: UserUID, period_days: int = 90
-    ) -> Result[BehavioralInsightsResult]: ...
-
-    async def get_performance_analytics(
-        self, user_uid: UserUID, period_days: int = 30
-    ) -> Result[PerformanceAnalyticsResult]: ...
-
-    async def get_cross_domain_opportunities(
-        self, user_uid: UserUID, entity_uid: EntityUID | None = None
-    ) -> Result[CrossDomainOpportunitiesResult]: ...
-
-    async def get_ai_insights(
-        self, user_uid: UserUID, entity_uid: EntityUID | None = None, query: str | None = None
-    ) -> Result[AIInsightsResult]: ...
-```
-
-### IntelligenceOperations (composed)
-
-```python
-class IntelligenceOperations(KnowledgeIntelligenceOperations, DomainIntelligenceOperations, Protocol):
-    """Full intelligence operations — backward-compatible union of both."""
-    ...
-```
+Per-domain intelligence services share no core protocol — their contract is the route factory's, below.
 
 ---
 
 ## Route Factory Protocol (3 Standardized Methods)
 
-Separate from the core protocols, all 10 services implement this local protocol from `intelligence_route_factory.py` for automatic route generation:
+Separate from `KnowledgeIntelligenceOperations`, all 9 domain intelligence services satisfy this local protocol from `intelligence_route_factory.py` for automatic route generation:
 
 ### 1. `get_with_context(uid, depth=2)`
 
@@ -304,7 +260,7 @@ Full example showing protocol, orchestrator, and routes:
 ```python
 # core/services/tasks/tasks_intelligence_service.py
 from core.services.base_analytics_service import BaseAnalyticsService
-from core.ports import TasksOperations, IntelligenceOperations
+from core.ports import TasksOperations
 from core.models.task import Task, TaskDTO
 from core.models.enums import Domain
 
@@ -312,8 +268,7 @@ from core.models.enums import Domain
 class TasksIntelligenceService(
     _CoreIntelligenceMixin[Task],  # inherits typed get_with_context()
     BaseAnalyticsService[TasksOperations, Task],
-    IntelligenceOperations  # Implements protocol
-):
+):  # satisfies the route factory's IntelligenceOperations structurally — no explicit base
     _service_name = "tasks.analytics"
 
     def __init__(
@@ -428,15 +383,6 @@ All 9 domain intelligence services implement the protocol and inherit
 
 ```python
 import pytest
-from core.ports import IntelligenceOperations
-
-
-def test_service_implements_protocol():
-    """Verify service implements IntelligenceOperations."""
-    service = TasksIntelligenceService(backend=mock_backend)
-
-    # Protocol is runtime checkable
-    assert isinstance(service, IntelligenceOperations)
 
 
 async def test_get_with_context():

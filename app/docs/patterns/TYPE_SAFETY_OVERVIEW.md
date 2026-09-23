@@ -1,5 +1,5 @@
 ---
-updated: 2026-09-05
+updated: 2026-09-23
 ---
 
 # Type Safety Architecture Overview
@@ -154,11 +154,10 @@ to specific types (0 `Result[Any]` remain in protocols, 1 intentional in `base_s
 - Domain model returns: `Result[UserEntry]`, `Result[Askesis]`, `Result[CalendarData]`, etc.
 - Existing TypedDicts: `Result[ContextDashboard]`, `Result[ContextSummary]`
 - Existing dataclasses: `Result[LearningVelocityMetrics]`, `Result[SpendingPatternAnalysis]`
-- 48 output TypedDicts for structured dict returns: auth results (`SignUpResult`, `SignInResult`),
+- Output TypedDicts for structured dict returns: auth results (`SignUpResult`, `SignInResult`),
   teacher review (`ReviewQueueItem`, `TeacherDashboardStats`, `GroupMemberProgress`),
   review queue (`ReviewRequestResult`, `PendingReviewItem`), intelligence results
-  (`KnowledgeSuggestionsResult`, `PerformanceAnalyticsResult`, `KnowledgePrerequisitesResult`,
-  `CrossDomainOpportunitiesResult`, `AIInsightsResult`), life path (`LifePathStatus`,
+  (`KnowledgeSuggestionsResult`, `KnowledgePrerequisitesResult`), life path (`LifePathStatus`,
   `LifePathAlignmentResult`), lateral relationships (`BlockingChainResult`, `RelationshipGraphData`),
   activity reports (`AnnotationResult`, `PrivacySummary`), UserContext field shapes
   (`RichEntityItem`, `RichKnowledgeUnitItem`, `CrossDomainInsightsData`, etc.)

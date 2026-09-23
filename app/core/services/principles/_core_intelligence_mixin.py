@@ -49,7 +49,7 @@ class _CoreIntelligenceMixin(_SharedCoreMixin):
     logger: Any
 
     # ========================================================================
-    # INTELLIGENCEOPERATIONS PROTOCOL METHODS (January 2026)
+    # INTELLIGENCEOPERATIONS PROTOCOL METHODS
     # ========================================================================
 
     async def get_performance_analytics(

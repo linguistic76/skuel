@@ -1,8 +1,8 @@
 ---
-updated: 2026-09-17
+updated: 2026-09-23
 ---
 
-# PsIntelligenceService - Semantic Knowledge & Cross-Domain Discovery
+# PsIntelligenceService - Semantic Knowledge & Substance
 
 ## Overview
 
@@ -19,163 +19,13 @@ updated: 2026-09-17
 
 ## Purpose
 
-PsIntelligenceService provides semantic knowledge intelligence by analyzing knowledge graph relationships, identifying cross-domain connections, and tracking knowledge substance. It generates context-aware knowledge recommendations, discovers application opportunities across domains, and measures how knowledge is lived (not just learned) through the Knowledge Substance Philosophy.
+PsIntelligenceService provides semantic knowledge intelligence by analyzing knowledge graph relationships and tracking knowledge substance. It measures how knowledge is lived (not just learned) through the Knowledge Substance Philosophy.
 
 ---
 
 ## Core Methods
 
-### Method 1: get_knowledge_suggestions()
-
-**Purpose:** Generate semantic knowledge suggestions based on graph relationships and entity context, identifying related concepts, learning paths, and knowledge gaps.
-
-**Signature:**
-```python
-async def get_knowledge_suggestions(
-    self,
-    user_uid: UserUID,
-    entity_uid: EntityUID | None = None
-) -> Result[dict[str, Any]]:
-```
-
-**Parameters:**
-- `user_uid` (str) - User identifier
-- `entity_uid` (str, optional) - Specific KU UID to analyze (if None, provides general recommendations)
-
-**Returns:**
-```python
-{
-    "related_concepts": [
-        {
-            "uid": "ku.python-advanced",
-            "title": "Advanced Python Patterns",
-            "relevance": 0.85
-        }
-    ],
-    "learning_paths": [],  # Future: LP suggestions
-    "knowledge_gaps": [],  # Future: Gap analysis
-    "metadata": {
-        "generated_at": "2026-01-08T10:00:00",
-        "user_uid": "user.mike",
-        "source_concept": "ku.python-basics"
-    }
-}
-```
-
-**Example:**
-```python
-# Get suggestions based on specific KU
-result = await ku_service.intelligence.get_knowledge_suggestions(
-    user_uid="user.mike",
-    entity_uid="ku.python-basics"
-)
-
-if result.is_ok:
-    data = result.value
-    for concept in data["related_concepts"]:
-        print(f"Related: {concept['title']} (relevance: {concept['relevance']})")
-
-# Get general suggestions
-result = await ku_service.intelligence.get_knowledge_suggestions(
-    user_uid="user.mike"
-)
-```
-
-**Dependencies:**
-- GraphIntelligenceService (REQUIRED)
-- EmbeddingsService (optional - enhanced semantic analysis if available)
-
-**Graph Intelligence Usage:**
-Uses `graph_intel.get_entity_context()` to retrieve semantic neighborhood:
-- **GraphDepth.NEIGHBORHOOD** - Returns up to 10 most relevant related concepts
-- Analyzes node properties for title extraction
-- Calculates relevance scores based on relationship strength
-
----
-
-### Method 2: get_cross_domain_opportunities()
-
-**Purpose:** Identify cross-domain knowledge connections by analyzing how knowledge units relate across different domains, revealing opportunities for knowledge transfer and integrated application.
-
-**Signature:**
-```python
-async def get_cross_domain_opportunities(
-    self,
-    user_uid: UserUID,
-    entity_uid: EntityUID | None = None
-) -> Result[dict[str, Any]]:
-```
-
-**Parameters:**
-- `user_uid` (str) - User identifier
-- `entity_uid` (str, optional) - Specific KU UID to analyze
-
-**Returns:**
-```python
-{
-    "connections": [
-        {
-            "from_uid": "ku.python-basics",
-            "to_uid": "ku.machine-learning",
-            "relationship": "ENABLES_KNOWLEDGE",
-            "strength": 0.8
-        }
-    ],
-    "opportunities": [
-        "Apply concepts across domains",
-        "Transfer learning patterns"
-    ],
-    "synergies": [
-        "Cross-domain pattern recognition",
-        "Integrated knowledge application"
-    ],
-    "metadata": {
-        "generated_at": "2026-01-08T10:00:00",
-        "user_uid": "user.mike",
-        "entity_uid": "ku.python-basics"
-    }
-}
-```
-
-**Example:**
-```python
-result = await ku_service.intelligence.get_cross_domain_opportunities(
-    user_uid="user.mike",
-    entity_uid="ku.python-basics"
-)
-
-if result.is_ok:
-    data = result.value
-    print(f"Cross-domain connections: {len(data['connections'])}")
-
-    for conn in data["connections"]:
-        print(f"{conn['from_uid']} --{conn['relationship']}--> {conn['to_uid']}")
-        print(f"  Strength: {conn['strength']}")
-
-    print("\nOpportunities:")
-    for opp in data["opportunities"]:
-        print(f"  - {opp}")
-```
-
-**Dependencies:**
-- GraphIntelligenceService (REQUIRED)
-
-**Graph Intelligence Usage:**
-Uses `graph_intel.get_entity_context()` with `GraphDepth.DEFAULT`:
-- Retrieves up to 20 cross-domain relationships
-- Extracts relationship metadata (type, strength properties)
-- Identifies knowledge transfer patterns
-
-**Cross-Domain Analysis:**
-The method identifies:
-- **Direct connections** - Explicit ENABLES, REQUIRES_KNOWLEDGE relationships
-- **Pattern transfer** - Similar knowledge structures in different domains
-- **Synergy opportunities** - Where combined knowledge creates emergent value
-- **Application contexts** - Where theoretical knowledge can be practiced
-
----
-
-### Method 3: get_performance_analytics()
+### Method 1: get_performance_analytics()
 
 **Purpose:** Analyze knowledge substance and application metrics over a specified period, measuring how knowledge is LIVED through the Knowledge Substance Philosophy.
 
@@ -276,7 +126,7 @@ The method implements SKUEL's Knowledge Substance Philosophy:
 
 ---
 
-### Method 4: calculate_user_substance() (January 2026)
+### Method 2: calculate_user_substance() (January 2026)
 
 **Purpose:** Calculate per-user substance score for a specific Knowledge Unit. This enables the personalized "How am I using this knowledge?" view by analyzing the user's actual activity data.
 
@@ -453,9 +303,9 @@ ku_service = KuService(
 )
 
 # Access via .intelligence attribute
-result = await ku_service.intelligence.get_cross_domain_opportunities(
+result = await ku_service.intelligence.get_performance_analytics(
     user_uid="user.mike",
-    entity_uid="ku.python-basics"
+    period_days=30
 )
 ```
 
@@ -490,21 +340,6 @@ KuIntelligenceService uses **graph intelligence** to analyze semantic knowledge 
 - **0.7-0.9** - Inferred from KU metadata
 - **0.5-0.7** - Suggested based on patterns
 - **<0.5** - Low confidence, needs verification
-
-### Cross-Domain Knowledge Connections
-
-Unique among intelligence services, KuIntelligenceService specializes in **cross-domain pattern recognition**:
-
-**Knowledge Transfer Patterns:**
-- Identify similar concepts in different domains
-- Discover application contexts for theoretical knowledge
-- Reveal integrated learning opportunities
-
-**Domain Bridging:**
-MOC (Maps of Content) uses this intelligence to:
-- Connect related content across domains (Python → ML → Data Science)
-- Build non-linear navigation structures
-- Create knowledge transfer pathways
 
 ### Knowledge Substance Philosophy
 
@@ -560,41 +395,6 @@ service = KuIntelligenceService(
 assert service._service_name == "ku.intelligence"
 assert service.backend == backend
 assert service.graph_intel == graph_intel
-```
-
-### Testing Cross-Domain Analysis
-```python
-from core.models.graph_context import GraphContext, GraphNode, GraphRelationship
-
-# Mock graph context
-mock_context = GraphContext(
-    nodes=[
-        GraphNode(uid="ku.python-basics", label="Ku", properties={"title": "Python Basics"}),
-        GraphNode(uid="ku.machine-learning", label="Ku", properties={"title": "Machine Learning"}),
-    ],
-    relationships=[
-        GraphRelationship(
-            start_uid="ku.python-basics",
-            end_uid="ku.machine-learning",
-            rel_type="ENABLES_KNOWLEDGE",
-            properties={"strength": 0.8}
-        )
-    ]
-)
-
-# Mock graph_intel.get_entity_context to return mock_context
-graph_intel.get_entity_context.return_value = Result.ok(mock_context)
-
-# Test cross-domain analysis
-result = await service.get_cross_domain_opportunities(
-    user_uid="user.mike",
-    entity_uid="ku.python-basics"
-)
-
-assert result.is_ok
-data = result.value
-assert len(data["connections"]) == 1
-assert data["connections"][0]["relationship"] == "ENABLES_KNOWLEDGE"
 ```
 
 ---

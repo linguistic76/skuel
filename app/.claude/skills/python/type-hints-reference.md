@@ -266,7 +266,6 @@ from core.ports.query_types import (
     # Other output types (protocol return shapes)
     SignInResult, ReviewQueueItem, TeacherDashboardStats,
     KnowledgeSuggestionsResult, KnowledgePrerequisitesResult,
-    PerformanceAnalyticsResult, CrossDomainOpportunitiesResult, AIInsightsResult,
     LifePathStatus, LifePathAlignmentResult,
     LateralRelationshipItem, BlockingChainResult,
     AnnotationResult, PrivacySummary,

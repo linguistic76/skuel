@@ -174,7 +174,7 @@ class LpIntelligenceService(
         )
 
     # ========================================================================
-    # INTELLIGENCEOPERATIONS PROTOCOL METHODS (January 2026)
+    # INTELLIGENCEOPERATIONS PROTOCOL METHODS
     # These methods implement the IntelligenceOperations protocol for use
     # with IntelligenceRouteFactory. `get_with_context()` is inherited from
     # `_CoreIntelligenceMixin[LearningPath]` — typed return, one delegation.

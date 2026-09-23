@@ -1,6 +1,6 @@
 ---
 title: Clean Patterns Reference
-updated: '2026-08-16'
+updated: '2026-09-23'
 category: patterns
 related_skills: []
 related_docs: []
@@ -114,9 +114,9 @@ if not backend:
     raise ValueError("Knowledge backend is required")  # Fail immediately
 
 # No alternative paths
-knowledge_service = services.learning_intelligence  # One way only
-if not knowledge_service:
-    return Result.fail(Errors.unavailable("knowledge_intelligence", "Knowledge intelligence not available"))
+zpd = services.zpd_service  # One way only
+if not zpd:
+    return Result.fail(Errors.unavailable("zpd_service", "ZPD assessment not available"))
 ```
 
 ## Related Documentation

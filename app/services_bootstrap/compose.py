@@ -1819,7 +1819,6 @@ async def compose_services(
             event_templates=template_services["event_templates"],
             choice_templates=template_services["choice_templates"],
             principle_templates=template_services["principle_templates"],
-            learning_intelligence=learning_services["learning_intelligence"],
             askesis=None,  # Created in PHASE 4 after intelligence_factory (January 2026)
             askesis_core=askesis_core_service,  # Priority 1.1: CRUD operations for Askesis AI
             # Infrastructure

@@ -102,7 +102,6 @@ from core.ports import (
     GroupOperations,
     HabitEventSchedulerOperations,
     IngestionOperations,
-    IntelligenceOperations,
     LifePathOperations,
     QueryExecutor,
     RevisedExerciseOperations,
@@ -248,9 +247,6 @@ class Services:
     event_templates: EventTemplateService | None = None
     choice_templates: ChoiceTemplateService | None = None
     principle_templates: PrincipleTemplateService | None = None
-    learning_intelligence: IntelligenceOperations | None = (
-        None  # LpIntelligenceService - analysis and recommendations
-    )
     # ZPD service — Zone of Proximal Development (March 2026)
     # Created when INTELLIGENCE_TIER=FULL. None when CORE or curriculum graph < 3 KUs.
     # See: core/services/zpd/zpd_service.py, docs/roadmap/done/zpd-service-architecture.md

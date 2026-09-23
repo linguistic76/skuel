@@ -141,7 +141,7 @@ class GoalsIntelligenceService(
         self._knowledge_analyzer = KnowledgePatternAnalyzer(graph_intel=self.graph_intel)
 
     # ========================================================================
-    # INTELLIGENCEOPERATIONS PROTOCOL METHODS (January 2026)
+    # INTELLIGENCEOPERATIONS PROTOCOL METHODS
     # These methods implement the IntelligenceOperations protocol for use
     # with IntelligenceRouteFactory.
     #

@@ -1,5 +1,5 @@
 ---
-updated: 2026-09-12
+updated: 2026-09-23
 ---
 
 # Sub-Service Responsibility Catalog
@@ -109,7 +109,7 @@ tasks_result = await search.get_tasks_for_goal(goal_uid)
 
 **File:** `{domain}_intelligence_service.py`
 **Extends:** `BaseAnalyticsService[{Domain}Operations, {Domain}]`
-**Protocol:** `{Domain}IntelligenceOperations`
+**Protocol:** none per domain — the route-facing slice is `IntelligenceRouteFactory`'s 3-method `IntelligenceOperations`
 
 **Responsibility:** Pure Cypher analytics (NO AI/LLM dependencies)
 
