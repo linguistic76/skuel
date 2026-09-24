@@ -72,5 +72,6 @@ site to `find_by`, or the order to `n.f DESC` or `toString(n.f) DESC`, fails it.
 `test_find_by_date_range_pages_under_a_total_order`.
 
 **Not built here.** The habit-completion persistence bundle's defect 5 (a DISTINCT-day read for
-the streak backfill) reuses this predicate but has its own trigger, duplicate volume, which has
-not fired. See [habit-completion-persistence-bundle.md](../habit-completion-persistence-bundle.md).
+the streak backfill) would have reused this predicate. Mike ruled on 2026-09-23 that a habit is
+completed at most once a day (defect 3), which makes it moot once that invariant lands with its
+historical dedupe. See [habit-completion-persistence-bundle.md](../habit-completion-persistence-bundle.md).
