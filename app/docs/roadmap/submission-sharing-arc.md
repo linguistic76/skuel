@@ -891,13 +891,15 @@ it first removes both.
     `submitted_from_uid` (changed at PR 0 review from the plan's dual read: a fallback would be a
     second provenance authority that hides an incomplete migration).
   - Dedup = the newest copy from the same note, compared over the **whole submitted snapshot** —
-    content **and** the authored `audience:` list (settled at PR 0 review). Today's
-    `_file_submission_copy` compares content only; a note that stays `status: submitted` while its
-    `audience:` changes (say `teachers` → `user:bob`) must file a new copy, because drafts never
+    every authored field that decides what the copy is: its content, the `audience:` list **and the
+    exercise target** (`fulfills_exercise_uid`) (settled at PR 0 review). Today's
+    `_file_submission_copy` compares content only, inside a lookup scoped by exercise uid; keyed on
+    provenance instead, a note that stays `status: submitted` must file a new copy when its
+    `audience:` changes (say `teachers` → `user:bob`) or its exercise changes, because drafts never
     share and a filed copy is frozen.
   - **The comparison reads a fingerprint, never the copy's live links.** The copy is stamped at filing
-    with a fingerprint of what was authored (content + audience list) — a record of provenance, not a
-    second audience record (ADR-088 §3: the links alone grant access). Comparing against the live
+    with a fingerprint of what was authored (content + audience list + exercise target) — a record
+    of provenance, not a second audience record (ADR-088 §3: the links alone grant access). Comparing against the live
     links would read a Stop sharing (PR 6b) as an audience edit and re-file the copy, re-granting the
     recipient; against the fingerprint, a revocation stays durable while the note is unchanged.
   - The queue, the dashboard twin and `get_students_summary` supersede older pending same-note copies.
