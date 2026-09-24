@@ -4,7 +4,7 @@ updated: 2026-09-24
 status: "ruled — build waits on the trigger"
 registered: 2026-08-28
 trigger: "lived habit-completion use, or the next touch of the completion write path"
-ruled: "2026-09-23 (Mike): one completion per habit per day is the contract (defect 3, option a); defect 5 closes as moot"
+ruled: "2026-09-23 (Mike): one completion per habit per day is the contract (defect 3, option a); defect 5 is moot once that invariant lands with its historical dedupe"
 check: "MATCH (hc:HabitCompletion) RETURN count(hc) AND the Habit tally (sum total_completions, max last_completed); SHOW CONSTRAINTS lists none on the label"
 ---
 
@@ -106,9 +106,12 @@ two consideration notes. Re-verified against the code and the live graph 2026-08
    tally alone (the direction `cross_domain_backend.py`'s consistency window took because the bulk
    door's nodes are invisible to the tally) heals one field of five and leaves the rest of this
    defect open.
-5. **Closed as moot by defect 3's ruling (2026-09-23).** With one completion per habit per day,
-   the window holds at most one row per day, and `limit=max(1000, days*2)` can never starve it.
-   Nothing is built for it. The analysis below is kept because it applies again if the contract
+5. **Moot once defect 3's invariant lands (ruled 2026-09-23).** With one completion per habit
+   per day enforced, the window holds at most one row per day, and `limit=max(1000, days*2)` can
+   never starve it. Nothing is built for it separately. That holds only if the landing
+   **re-keys and dedupes the existing rows to `(habit_uid, day)`** as well as keying new writes.
+   The constraint's preflight has to collapse historical same-day duplicates, not merely count
+   them. Until then, today's doors can still write duplicates. The analysis below is kept because it applies again if the contract
    ever changes. `_completed_days_window` fetches raw rows (`limit=max(1000, days*2)`), newest
    first, and dedupes to days in Python. The cap drops the OLDEST rows, so it starves only when
    the window holds more than `max(1000, 2 × window days)` rows, which means averaging over two a
@@ -224,7 +227,8 @@ above the node count is that door's signature (`get_habit_analytics` already cou
 so the check reads both. Or
 the next touch of the completion write path (`record_completion` / `_record_completion_no_event` /
 `record_habit_occurrence` / `untrack_habit` / `complete_habit_with_quality`). Defect 3's ruling
-is taken (one completion per habit per day), so defect 5 has no trigger left.
+is taken (one completion per habit per day), so defect 5 has no trigger of its own left. It
+closes when defect 3 lands with its historical dedupe.
 **Named cost:** orphaned completion rows after a habit delete (invisible to habit reads, counted
 by user aggregates); a same-second double-tap on either door — or one bulk request naming a
 habit twice — mints nodes sharing one uid; a two-tab double-complete double-counts stats; a transient stats-write failure
