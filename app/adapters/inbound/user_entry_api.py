@@ -179,6 +179,7 @@ def create_user_entry_api_routes(
             )
 
         audience_raw = str(form.get("audience") or "private").strip().lower()
+        submit_to_groups: list[str] = []
         share_with_groups: list[str] = []
         auto_share_to_exercise_groups = False
         visibility: Visibility | None = None
@@ -187,7 +188,14 @@ def create_user_entry_api_routes(
         elif audience_raw.startswith("group:"):
             group_uid = audience_raw.split(":", 1)[1].strip()
             if group_uid:
-                share_with_groups = [group_uid]
+                # On TEACHER_REVIEW the form's one group is the per-teacher
+                # route — a feedback request with that group's teacher, not a
+                # share with its members (ADR-088 §2; PR 6a names it
+                # ``teacher:<group_uid>``). On every other pipeline it is a share.
+                if pipeline == Pipeline.TEACHER_REVIEW:
+                    submit_to_groups = [group_uid]
+                else:
+                    share_with_groups = [group_uid]
         elif audience_raw == "public":
             visibility = Visibility.PUBLIC
         elif audience_raw not in {"private", ""}:
@@ -215,6 +223,7 @@ def create_user_entry_api_routes(
                 if form.get("about_path_step_uid")
                 else None
             ),
+            submit_to_groups=submit_to_groups,
             share_with_groups=share_with_groups,
             auto_share_to_exercise_groups=auto_share_to_exercise_groups,
             visibility=visibility,

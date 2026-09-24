@@ -731,10 +731,10 @@ class TestGetReviewQueue:
         """SECURITY: Teacher with no group sharing the entry sees empty queue.
 
         Backend ``get_review_queue_by_groups`` returns [] when the teacher
-        does not own a group that has been ``SHARED_WITH_GROUP`` by any
+        does not own a group that has been ``SUBMITTED_TO_GROUP`` by any
         ``teacher_review`` UserEntry — modeling the cross-classroom case
         where the Cypher anchor ``(teacher)-[:OWNS]->(g:Group)
-        <-[:SHARED_WITH_GROUP]-(entry)`` doesn't match.
+        <-[:SUBMITTED_TO_GROUP]-(entry)`` doesn't match.
         """
         backend = _make_user_entry_backend()
         backend.get_review_queue_by_groups.return_value = Result.ok([])
@@ -816,7 +816,7 @@ class TestGetSubmissionDetail:
         """SECURITY: Teacher outside the entry's group → 404 (no content leak).
 
         Backend ``get_entry_detail_for_teacher`` returns [] when the entry
-        isn't SHARED_WITH_GROUP an active group the teacher owns. Service
+        isn't SUBMITTED_TO_GROUP an active group the teacher owns. Service
         maps empty → ``Errors.not_found`` — indistinguishable from
         "submission does not exist", so cross-classroom probing can't
         confirm the entry's existence.
@@ -883,7 +883,7 @@ class TestGetDashboardStats:
 
     @pytest.mark.asyncio
     async def test_cross_teacher_sees_zero_pending_and_students(self):
-        """SECURITY: Teacher with no SHARED_WITH_GROUP entries → zero counts.
+        """SECURITY: Teacher with no SUBMITTED_TO_GROUP entries → zero counts.
 
         Backend Cypher returns a single record with all counts at 0 when the
         teacher owns no groups and/or no entries are shared with them — the

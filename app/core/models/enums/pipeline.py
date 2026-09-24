@@ -32,7 +32,9 @@ class Pipeline(StrEnum):
                                     goals, habits, ...) with EXTRACTED_FROM
                                     provenance (ADR-069)
         TEACHER_REVIEW            — no processing; entry waits in teacher queue
-                                    via SHARED_WITH_GROUP
+                                    via SUBMITTED_TO_GROUP (the feedback
+                                    request, ADR-088 §2 — the only pipeline
+                                    that writes one)
         REFERENCE                 — RESERVED for the planned per-user stored
                                     journal-exemplar layer (private, no
                                     processing, excluded from UserContext /

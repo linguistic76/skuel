@@ -71,16 +71,18 @@ class _UserEntryAssessmentMixin:
         status_filter: list[str] | None = None,
         student_uid: str | None = None,
     ) -> Result[list[Neo4jProperties]]:
-        """Teacher's pending review queue via ``SHARED_WITH_GROUP``.
+        """Teacher's pending review queue via ``SUBMITTED_TO_GROUP``.
 
-        Returns entries shared with the teacher's ACTIVE groups whose pipeline
+        Returns entries submitted to the teacher's ACTIVE groups whose pipeline
         is ``teacher_review`` — the same visibility the detail read
         (``get_entry_detail_for_teacher``) and the review writes
         (``verify_teacher_has_group_access``) enforce, so the queue never
         lists work the teacher cannot open or act on. Empty when the teacher
         owns no groups, or when no ``UserEntry`` has been
-        ``SHARED_WITH_GROUP`` an owned group — so we do not leak the
-        existence of unrelated students' submissions.
+        ``SUBMITTED_TO_GROUP`` an owned group — so we do not leak the
+        existence of unrelated students' submissions. A share
+        (``SHARED_WITH_GROUP``) never queues: it lets members see the work
+        and asks nobody for feedback (ADR-088 §2).
 
         ``student_uid`` narrows the queue to entries that student owns. This
         is THE needs-review rule for per-student surfaces too: the student
@@ -95,13 +97,13 @@ class _UserEntryAssessmentMixin:
         ``get_latest_entry_for_exercise`` / ``_next_revision`` — is superseded
         work and never queues, regardless of the newer copy's status (a
         reviewed rev 2 retires a still-pending rev 1). Only a copy THIS
-        teacher can see supersedes — a ``teacher_review`` entry shared with
+        teacher can see supersedes — a ``teacher_review`` entry submitted to
         one of the querying teacher's ACTIVE owned groups. Three lineage
         siblings deliberately do not supersede: a newer PRIVATE
         ``llm_summary`` entry (the upload form keeps
         ``fulfills_exercise_uid`` on every destination, so AI entries share
         the lineage), a revision a multi-class student directed only to
-        another teacher's group (``share_with_groups``), and a copy locked
+        another teacher's group (``submit_to_groups``), and a copy locked
         in a group this teacher has deactivated. Collapsing behind any of
         them would remove work with no teacher-visible successor. Entries
         with no exercise anchor have no lineage and always pass through.
@@ -109,7 +111,7 @@ class _UserEntryAssessmentMixin:
         statuses = status_filter or ["submitted", "active"]
         query = f"""
         MATCH (teacher:User {{uid: $teacher_uid}})-[:{RelationshipName.OWNS.value}]->(g:Group)
-        MATCH (entry:Entity:UserEntry)-[:{RelationshipName.SHARED_WITH_GROUP.value}]->(g)
+        MATCH (entry:Entity:UserEntry)-[:{RelationshipName.SUBMITTED_TO_GROUP.value}]->(g)
         WHERE g.is_active = true
           AND entry.pipeline = $pipeline
           AND entry.status IN $statuses
@@ -123,7 +125,7 @@ class _UserEntryAssessmentMixin:
             MATCH (student)-[:{RelationshipName.OWNS.value}]->(newer:Entity:UserEntry)
                   -[nr:{RelationshipName.FULFILLS_EXERCISE.value}]->(ex)
             WHERE newer.pipeline = $pipeline
-              AND (newer)-[:{RelationshipName.SHARED_WITH_GROUP.value}]->(:Group {{is_active: true}})
+              AND (newer)-[:{RelationshipName.SUBMITTED_TO_GROUP.value}]->(:Group {{is_active: true}})
                   <-[:{RelationshipName.OWNS.value}]-(teacher)
               AND (coalesce(nr.revision, 0) > coalesce(r.revision, 0)
                    OR (coalesce(nr.revision, 0) = coalesce(r.revision, 0)
@@ -162,8 +164,9 @@ class _UserEntryAssessmentMixin:
 
         Anchors on the report, walks ``REPORT_FOR`` to the reviewed submission
         and its owning student, and requires the teacher to share an active
-        group with that student — the same predicate that gates writing the
-        feedback (``verify_teacher_has_group_access``). Returns ``None`` both
+        group with that student (a student-level authority; the review write
+        gate, ``verify_teacher_has_group_access``, is narrower — the entry's
+        own feedback request). Returns ``None`` both
         when no such report exists and when the teacher is outside the student's
         classroom, so a denied download is indistinguishable from a missing one
         and cannot enumerate other classrooms' reports.
@@ -224,16 +227,17 @@ class _UserEntryAssessmentMixin:
     async def get_entries_for_exercise_review(
         self, exercise_uid: str, teacher_uid: str
     ) -> Result[list[Neo4jProperties]]:
-        """Entries against an exercise that are shared with the requesting teacher's groups.
+        """Entries against an exercise that are submitted to the requesting teacher's groups.
 
-        Scoped to teacher-review turn-ins ``SHARED_WITH_GROUP`` an active or
-        inactive group the teacher owns — a teacher supplying another teacher's
-        exercise UID gets an empty result rather than that classroom's work.
+        Scoped to teacher-review turn-ins ``SUBMITTED_TO_GROUP`` an active
+        group the teacher owns — a teacher supplying another teacher's
+        exercise UID gets an empty result rather than that classroom's work,
+        and a deactivated group's work no longer lists (ADR-088 §3).
         """
         query = f"""
         MATCH (s:Entity:UserEntry)-[:{RelationshipName.FULFILLS_EXERCISE.value}]->(e:Entity:Exercise {{uid: $exercise_uid}})
         WHERE s.pipeline = $pipeline
-          AND EXISTS {{ (s)-[:{RelationshipName.SHARED_WITH_GROUP.value}]->(:Group)<-[:{RelationshipName.OWNS.value}]-(:User {{uid: $teacher_uid}}) }}
+          AND EXISTS {{ (s)-[:{RelationshipName.SUBMITTED_TO_GROUP.value}]->(:Group {{is_active: true}})<-[:{RelationshipName.OWNS.value}]-(:User {{uid: $teacher_uid}}) }}
         OPTIONAL MATCH (student:User)-[:{RelationshipName.OWNS.value}]->(s)
         OPTIONAL MATCH (fb:Entity {{entity_type: 'entry_report'}})-[:{RelationshipName.REPORT_FOR.value}]->(s)
         WITH s, student, count(fb) AS feedback_count
@@ -253,12 +257,12 @@ class _UserEntryAssessmentMixin:
         )
 
     async def get_students_summary(self, teacher_uid: str) -> Result[list[Neo4jProperties]]:
-        """Get students who have submitted work, with entry counts."""
+        """Get students who have submitted work to an active group the teacher owns, with entry counts."""
         query = f"""
         MATCH (student:User)-[:{RelationshipName.OWNS.value}]->(ku:Entity:UserEntry)
         WHERE student.uid <> $teacher_uid
           AND ku.pipeline = $pipeline
-          AND EXISTS {{ (ku)-[:{RelationshipName.SHARED_WITH_GROUP.value}]->(:Group)<-[:{RelationshipName.OWNS.value}]-(:User {{uid: $teacher_uid}}) }}
+          AND EXISTS {{ (ku)-[:{RelationshipName.SUBMITTED_TO_GROUP.value}]->(:Group {{is_active: true}})<-[:{RelationshipName.OWNS.value}]-(:User {{uid: $teacher_uid}}) }}
         WITH student,
              count(DISTINCT ku) AS submission_count,
              count(DISTINCT CASE WHEN ku.status = 'completed' THEN ku.uid END) AS reviewed_count
@@ -276,24 +280,24 @@ class _UserEntryAssessmentMixin:
     async def get_student_entries_for_teacher(
         self, teacher_uid: str, student_uid: str
     ) -> Result[list[Neo4jProperties]]:
-        """A student's teacher-review entries that are shared with the teacher's groups.
+        """A student's teacher-review entries that are submitted to the teacher's groups.
 
-        Gate: each entry must itself be ``SHARED_WITH_GROUP`` an active group the
+        Gate: each entry must itself be ``SUBMITTED_TO_GROUP`` an active group the
         requesting teacher owns — not merely prove that teacher and student share
         *some* group. This stops a teacher who shares one group with a multi-class
-        student from reading entries the student only shared with another teacher's
-        group. Empty result when nothing the student owns is shared with this
+        student from reading entries the student only sent to another teacher's
+        group. Empty result when nothing the student owns is submitted to this
         teacher's groups — indistinguishable from a genuinely empty history, so the
         existence of other classrooms' submissions is not leaked. (Mirrors the
         entry-level gate used by ``get_entry_detail_for_teacher``; ``EXISTS`` avoids
-        inflating ``feedback_count`` when an entry is shared with several of the
+        inflating ``feedback_count`` when an entry is submitted to several of the
         teacher's groups.)
         """
         query = f"""
         MATCH (student:User {{uid: $student_uid}})-[:{RelationshipName.OWNS.value}]->(ku:Entity:UserEntry)
         WHERE ku.pipeline = $pipeline
           AND EXISTS {{
-            (ku)-[:{RelationshipName.SHARED_WITH_GROUP.value}]->(g:Group {{is_active: true}})
+            (ku)-[:{RelationshipName.SUBMITTED_TO_GROUP.value}]->(g:Group {{is_active: true}})
                 <-[:{RelationshipName.OWNS.value}]-(:User {{uid: $teacher_uid}})
           }}
         OPTIONAL MATCH (fb:Entity {{entity_type: 'entry_report'}})-[:{RelationshipName.REPORT_FOR.value}]->(ku)
@@ -328,11 +332,11 @@ class _UserEntryAssessmentMixin:
     async def get_entry_detail_for_teacher(
         self, entry_uid: str, teacher_uid: str
     ) -> Result[list[Neo4jProperties]]:
-        """Full entry detail for teacher review, gated by SHARED_WITH_GROUP.
+        """Full entry detail for teacher review, gated by SUBMITTED_TO_GROUP.
 
-        Model B gate: the entry must be ``SHARED_WITH_GROUP`` an active group
-        the teacher owns. Empty result when the teacher has no shared group
-        with the entry — service-layer callers (``get_submission_detail``)
+        Model B gate: the entry must be ``SUBMITTED_TO_GROUP`` an active group
+        the teacher owns. Empty result when the entry asks none of the
+        teacher's groups for feedback — service-layer callers (``get_submission_detail``)
         map empty to ``Errors.not_found`` (404) so a teacher outside the
         student's group cannot distinguish "entry does not exist" from
         "entry exists but belongs to another teacher's student".
@@ -341,7 +345,7 @@ class _UserEntryAssessmentMixin:
         MATCH (teacher:User {{uid: $teacher_uid}})-[:{RelationshipName.OWNS.value}]->(g:Group)
         WHERE g.is_active = true
         MATCH (s:Entity:UserEntry {{uid: $entry_uid}})
-              -[:{RelationshipName.SHARED_WITH_GROUP.value}]->(g)
+              -[:{RelationshipName.SUBMITTED_TO_GROUP.value}]->(g)
         WHERE s.pipeline = $pipeline
         OPTIONAL MATCH (student:User)-[:{RelationshipName.OWNS.value}]->(s)
         OPTIONAL MATCH (s)-[:{RelationshipName.FULFILLS_EXERCISE.value}]->(ex:Entity:Exercise)
@@ -373,7 +377,7 @@ class _UserEntryAssessmentMixin:
         """At-a-glance stats for the teacher dashboard, scoped to the teacher's classroom.
 
         ``pending_count`` + ``total_students`` are Model-B-scoped: counted only
-        across entries ``SHARED_WITH_GROUP`` an active group the teacher owns.
+        across entries ``SUBMITTED_TO_GROUP`` an active group the teacher owns.
         ``total_exercises`` + ``total_groups`` are scoped via direct ``OWNS``
         from the teacher (already correct pre-fix).
 
@@ -387,8 +391,8 @@ class _UserEntryAssessmentMixin:
         MATCH (teacher:User {{uid: $teacher_uid}})
         OPTIONAL MATCH (teacher)-[:{RelationshipName.OWNS.value}]->(g:Group)
         OPTIONAL MATCH (sub:Entity:UserEntry)
-                      -[:{RelationshipName.SHARED_WITH_GROUP.value}]->(g)
-          WHERE sub.pipeline = $pipeline
+                      -[:{RelationshipName.SUBMITTED_TO_GROUP.value}]->(g)
+          WHERE sub.pipeline = $pipeline AND g.is_active = true
         OPTIONAL MATCH (student:User)-[:{RelationshipName.OWNS.value}]->(sub)
         WHERE student.uid <> $teacher_uid
         OPTIONAL MATCH (teacher)-[:{RelationshipName.OWNS.value}]->(ex:Entity:Exercise)
@@ -396,7 +400,7 @@ class _UserEntryAssessmentMixin:
           count(DISTINCT CASE
               WHEN sub.status IN ['submitted', 'active']
                AND EXISTS {{
-                  (sub)-[:{RelationshipName.SHARED_WITH_GROUP.value}]->(:Group {{is_active: true}})
+                  (sub)-[:{RelationshipName.SUBMITTED_TO_GROUP.value}]->(:Group {{is_active: true}})
                        <-[:{RelationshipName.OWNS.value}]-(teacher)
                }}
                AND NOT EXISTS {{
@@ -404,7 +408,7 @@ class _UserEntryAssessmentMixin:
                         <-[nr:{RelationshipName.FULFILLS_EXERCISE.value}]-(newer:Entity:UserEntry)
                   WHERE (student)-[:{RelationshipName.OWNS.value}]->(newer)
                     AND newer.pipeline = $pipeline
-                    AND (newer)-[:{RelationshipName.SHARED_WITH_GROUP.value}]->(:Group {{is_active: true}})
+                    AND (newer)-[:{RelationshipName.SUBMITTED_TO_GROUP.value}]->(:Group {{is_active: true}})
                         <-[:{RelationshipName.OWNS.value}]-(teacher)
                     AND (coalesce(nr.revision, 0) > coalesce(sr.revision, 0)
                          OR (coalesce(nr.revision, 0) = coalesce(sr.revision, 0)
@@ -422,19 +426,23 @@ class _UserEntryAssessmentMixin:
     async def verify_teacher_has_group_access(
         self, submission_uid: str, teacher_uid: str
     ) -> Result[list[Neo4jProperties]]:
-        """Verify teacher and the entry's owner share an active group.
+        """Verify the entry asks this teacher for feedback — the review-write gate.
 
-        Anchors on the submission to resolve the student, then requires
-        ``(teacher)-[:OWNS]->(g:Group {is_active:true})<-[:MEMBER_OF]-(student)``.
-        Returns empty when the teacher has no shared active group with the
-        submission's owner — callers map empty to 404 (not found) so we do
-        not leak the existence of unrelated students' submissions.
+        The same authority the queue and the detail read carry (ADR-088 §2):
+        the entry itself must be ``SUBMITTED_TO_GROUP`` an active group the
+        teacher ``OWNS``. Sharing a classroom with the *owner* is deliberately
+        not enough — a multi-class student who sent the entry to one teacher's
+        group has not put it in another teacher's hands, so that other teacher
+        can neither open it nor write on it. A teacher never reviews their own
+        entry. Returns empty when the entry asks none of the teacher's active
+        groups — callers map empty to 404 (not found) so we do not leak the
+        existence of unrelated students' submissions.
         """
         query = f"""
         MATCH (submission:Entity {{uid: $submission_uid}})
         MATCH (student:User)-[:{RelationshipName.OWNS.value}]->(submission)
         MATCH (teacher:User {{uid: $teacher_uid}})-[:{RelationshipName.OWNS.value}]->(g:Group)
-              <-[:{RelationshipName.MEMBER_OF.value}]-(student)
+              <-[:{RelationshipName.SUBMITTED_TO_GROUP.value}]-(submission)
         WHERE g.is_active = true
           AND student.uid <> $teacher_uid
         RETURN true AS has_access LIMIT 1

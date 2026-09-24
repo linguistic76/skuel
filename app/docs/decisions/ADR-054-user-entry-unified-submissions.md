@@ -1,5 +1,5 @@
 ---
-updated: 2026-09-21
+updated: 2026-09-24
 related_skills: [journals, learning-loop, neo4j-cypher-patterns, prometheus-grafana, ui-error-handling]
 ---
 
@@ -167,6 +167,14 @@ of on `entity_type` + `file_type`.
 
 ### 3. Audience — declared at submit time as first-class edges
 
+> **2026-09-24 — Amended by [ADR-088](ADR-088-submit-and-share.md) (Submit & Share arc, PR 1).** Two verbs: **Teacher** is a
+feedback request — `SUBMITTED_TO_GROUP`, written only on `pipeline=TEACHER_REVIEW` and read only
+by the group's owning teachers; `teachers` on any other pipeline writes no link. **Group** stays a
+share (`SHARED_WITH_GROUP`, every member) — except that until the arc's PR 6a names
+`teacher:<group_uid>`, `group:<uid>` at the web form and the vault door files the feedback request
+on a TEACHER_REVIEW note (the per-teacher route); the JSON body's `share_with_groups` stays a share. A **Peer** share is never a feedback target. The web form, the JSON API and
+the vault will speak one vocabulary from PR 6a.
+
 `UserEntry` is shared via `UnifiedSharingService` at creation time. The
 submit form offers four audience options, any combination:
 
@@ -224,7 +232,8 @@ What an entry "is for" is encoded as optional outgoing relationships:
 
 No entry is required to have any of these. An entry with no context edges
 and `visibility=PRIVATE` is just a personal note. An entry with
-`FULFILLS_EXERCISE` + `SHARED_WITH_GROUP` is an exercise turn-in. An entry
+`FULFILLS_EXERCISE` + `SHARED_WITH_GROUP` is an exercise turn-in (amended by ADR-088, PR 1:
+the turn-in's link is `SUBMITTED_TO_GROUP`, the feedback request). An entry
 with `TRANSFORMS` pointing at another entry is a processed output. Same type,
 different meanings, encoded in the graph.
 
@@ -263,6 +272,10 @@ Two `UserEntry` nodes, one `TRANSFORMS` edge. Same shape as today, half the
 type surface.
 
 ### 6. Review queue and teacher authority, simplified
+
+> **2026-09-24 — Amended by [ADR-088](ADR-088-submit-and-share.md) (Submit & Share arc, PR 1).** The queue's edge is
+`SUBMITTED_TO_GROUP` (the feedback request), and every arm requires `g.is_active = true`. The
+pattern below is the ADR's original text.
 
 `SubmissionsBackend.get_review_queue()` becomes a single graph pattern
 symmetric with ADR-053:

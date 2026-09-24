@@ -303,7 +303,7 @@ that never closes the loop.
 | `TeacherReviewService` | `tests/unit/services/test_teacher_review_service.py` | 60 | 76% (157/207 lines) |
 | `UserEntryService` | `tests/unit/services/test_user_entry_service.py` | 41 | 69% (146/211 lines) |
 
-**TeacherReviewService tests cover:** access control (`_verify_teacher_has_group_access` — requires teacher and student share an active group), review queue filtering, report submission + event publishing, revision requests, approval with mastery updates, dashboard stats, group management, exercise/student views.
+**TeacherReviewService tests cover:** access control (`_verify_teacher_has_group_access` — the entry must be `SUBMITTED_TO_GROUP` an active group the teacher owns, ADR-088 §2), review queue filtering, report submission + event publishing, revision requests, approval with mastery updates, dashboard stats, group management, exercise/student views.
 
 **UserEntryService tests cover:** the consolidated `UserEntry` write path (ADR-054) — `create_entry`, exercise linking, pipeline dispatch, and ownership/access checks across the file-upload and structured-form entry modes.
 

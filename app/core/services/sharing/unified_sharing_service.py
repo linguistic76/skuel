@@ -337,6 +337,59 @@ class UnifiedSharingService:
         logger.info(f"Entity {entity_uid} shared with group {group_uid}")
         return Result.ok(True)
 
+    async def submit_to_group(
+        self,
+        entity_uid: EntityUID,
+        owner_uid: str,
+        group_uid: str,
+    ) -> Result[bool]:
+        """File a feedback request with the teachers who own a group.
+
+        Writes ``SUBMITTED_TO_GROUP`` (ADR-088 §2): the group's owners see the
+        entity in their review surfaces; its members see nothing. The
+        submitter must own or belong to the group, and the group must be
+        active — the backend statement enforces both, and an empty result is
+        the forbidden refusal (a missing entity or group, or no qualifying
+        membership), never a not-found, so callers can name the reason.
+
+        The returned bool is ``created``: True when this call wrote the link,
+        False when the request already stood. Both are successes — a re-sync
+        that re-files the same request is idempotent — and only the created
+        subset rings a teacher's bell.
+
+        Backend: SharingBackend.create_group_submission
+        """
+        check = await self._verify_owned_and_shareable(entity_uid, owner_uid)
+        if check.is_error:
+            return check
+
+        result = await self.backend.create_group_submission(
+            entity_uid=entity_uid,
+            owner_uid=UserUID(owner_uid),
+            group_uid=group_uid,
+            submitted_at=datetime.now().isoformat(),
+        )
+        if result.is_error:
+            return Result.fail(result)
+        records = result.value or []
+        if not records:
+            return Result.fail(
+                Errors.forbidden(
+                    action="submit to group",
+                    reason=(
+                        f"Cannot submit {entity_uid} to group {group_uid}: "
+                        "you must own or be a member of the group, "
+                        "or the group does not exist or is inactive."
+                    ),
+                )
+            )
+        created = bool(records[0].get("created"))
+        logger.info(
+            f"Entity {entity_uid} submitted to group {group_uid} "
+            f"({'new request' if created else 'request already filed'})"
+        )
+        return Result.ok(created)
+
     async def unshare_from_group(
         self,
         entity_uid: EntityUID,

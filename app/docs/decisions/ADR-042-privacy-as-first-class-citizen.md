@@ -1,6 +1,6 @@
 ---
 title: "ADR-042: Privacy as First-Class Citizen"
-updated: 2026-09-01
+updated: 2026-09-24
 status: accepted
 category: decisions
 tags: [privacy, security, sharing, access-control, activity-report]
@@ -86,6 +86,11 @@ User content is NOT readable by:
     - Teachers, unless the above conditions are met
     - The system (except for AI processing the user explicitly triggered)
 ```
+
+> **2026-09-24 — Amended by [ADR-088](ADR-088-submit-and-share.md) (Submit & Share arc, PR 1).** Group-level access is
+two link kinds: a feedback request (`SUBMITTED_TO_GROUP`) grants the group's *members* nothing —
+only the teachers who own the group read it, in their review surfaces — while a share
+(`SHARED_WITH_GROUP`) reaches every member and owner of an active group.
 
 ### 4. Misuse detection without content access
 

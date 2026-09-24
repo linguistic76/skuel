@@ -2,11 +2,11 @@
 Review-queue isolation by group — ADR-054 Commit 3
 ===================================================
 
-The post-migration review queue pattern uses ``SHARED_WITH_GROUP`` as the
-single source of truth for teacher access (no role-gated Cypher). This
-test wires up two unrelated classrooms and asserts that each teacher's
-queue sees only the entries shared to groups *they* own, and that
-non-``teacher_review`` pipelines never surface regardless of sharing.
+The review queue pattern uses ``SUBMITTED_TO_GROUP`` — the feedback request,
+ADR-088 §2 — as the single source of truth for teacher access (no role-gated
+Cypher). This test wires up two unrelated classrooms and asserts that each
+teacher's queue sees only the entries submitted to groups *they* own, and
+that non-``teacher_review`` pipelines never surface regardless of audience.
 """
 
 from __future__ import annotations

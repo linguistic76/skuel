@@ -1,6 +1,6 @@
 ---
 title: "Sharing HTTP Door — Operations on Existing Shares"
-updated: 2026-09-22
+updated: 2026-09-24
 status: "staged — ruled 2026-09-21: PLANNED tier for five methods, two deleted, never a second share form"
 registered: 2026-09-21
 ruled: 2026-09-21
@@ -35,7 +35,7 @@ the six endpoints that once existed; they left with the submissions API on 2026-
 | `get_groups_shared_with` | 0 — its one caller left on 2026-04-18 (`7dc89f3fd` replaced it with the auto-share intersection query); two test fixtures still mocked it, removed with this ruling | **PLANNED** — same entry | Group twin of the access list. |
 | `set_visibility` | 0 (9 test sites) | **PLANNED** — `_SHARING_VISIBILITY_LADDER` | Its trigger is the PUBLIC reader, not the access list — see [The visibility ladder](#the-visibility-ladder-waits-on-a-reader-not-a-panel). |
 | `verify_shareable` | 0 (3 test sites) | **DELETED** | A pure rule (`_check_shareable`, a staticmethod of status + entity type) behind a DB round-trip for inputs every caller already holds. Every mutation applies the rule inside `_verify_owned_and_shareable`; none of the six historical endpoints exposed a standalone check. Its backend twin `query_shareable_status` went with it. |
-| `get_shared_with_me_via_groups` | 0 (0 test sites) | **DELETED** | A third listing of `SHARED_WITH_GROUP`. Members read per group (`get_user_entries_shared_with_group` — the groups hub); owners read across groups (`get_review_queue_by_groups` — the review queue). Its shape would not serve the one consumer it could have had, a group half of `/profile/shared`: no subject-context join, no sharer attribution, ordered by `entity.created_at` rather than the edge, owner excluded by property (`entity.user_uid <>`) rather than the `:OWNS` edge. That half, if ever wanted, is a new query modelled on `query_shared_with_me`. Backend twin `query_shared_with_me_via_groups` went with it. |
+| `get_shared_with_me_via_groups` | 0 (0 test sites) | **DELETED** | A third group listing. Members read shares per group (`get_user_entries_shared_with_group` — the groups hub, `SHARED_WITH_GROUP`); owners read feedback requests across groups (`get_review_queue_by_groups` — the review queue, `SUBMITTED_TO_GROUP` since ADR-088 / PR 1). Its shape would not serve the one consumer it could have had, a group half of `/profile/shared`: no subject-context join, no sharer attribution, ordered by `entity.created_at` rather than the edge, owner excluded by property (`entity.user_uid <>`) rather than the `:OWNS` edge. That half, if ever wanted, is a new query modelled on `query_shared_with_me`. Backend twin `query_shared_with_me_via_groups` went with it. |
 | public-portfolio listing | never existed | **the reader `set_visibility` waits on** | Nothing lists `visibility = 'public'` — not a route, not a search clause. Named here so the trigger has a name. |
 
 Rulings are registered as `PLANNED_METHODS` entries in `scripts/detect_bloat.py` (`blocked_by`
@@ -44,7 +44,8 @@ Rulings are registered as `PLANNED_METHODS` entries in `scripts/detect_bloat.py`
 ## What the door is — and what it must not be
 
 **Audience-at-submit is THE sharing write path** (ADR-054). The audience is declared when the
-entry is created and resolved into `SHARES_WITH` / `SHARED_WITH_GROUP` edges by
+entry is created and resolved into `SHARES_WITH` / `SHARED_WITH_GROUP` share edges — and, on
+`pipeline=TEACHER_REVIEW`, `SUBMITTED_TO_GROUP` feedback requests (ADR-088 §2) — by
 `AudienceResolver`; a vault note re-declares it on every re-sync. The door this file stages is
 **an operation on those existing edges, never a second way to create them**:
 

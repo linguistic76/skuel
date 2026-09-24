@@ -519,12 +519,17 @@ class ExerciseBackend(UniversalNeo4jBackend[Exercise]):
     async def get_exercises_with_submission_counts(
         self, teacher_uid: str
     ) -> Result[list[Neo4jProperties]]:
-        """Get teacher's exercises with submission and reviewed counts."""
+        """Get teacher's exercises with submission and reviewed counts.
+
+        A turn-in counts only when it is ``SUBMITTED_TO_GROUP`` an active group
+        the teacher owns (ADR-088 §2-§3) — a deactivated group's work is not
+        pending anywhere.
+        """
         query = f"""
         MATCH (user:User {{uid: $teacher_uid}})-[:{RelationshipName.OWNS.value}]->(exercise:Entity:Exercise)
         OPTIONAL MATCH (s:Entity:UserEntry)-[:{RelationshipName.FULFILLS_EXERCISE.value}]->(exercise)
           WHERE s.pipeline = $pipeline
-            AND EXISTS {{ (s)-[:{RelationshipName.SHARED_WITH_GROUP.value}]->(:Group)<-[:{RelationshipName.OWNS.value}]-(user) }}
+            AND EXISTS {{ (s)-[:{RelationshipName.SUBMITTED_TO_GROUP.value}]->(:Group {{is_active: true}})<-[:{RelationshipName.OWNS.value}]-(user) }}
         WITH exercise, count(DISTINCT s) AS total_count,
              count(DISTINCT CASE WHEN s.status = 'completed' THEN s.uid END) AS reviewed_count
         RETURN exercise.uid AS uid, exercise.title AS title,
@@ -748,9 +753,11 @@ class RevisedExerciseBackend(UniversalNeo4jBackend["RevisedExercise"]):
         Get an exercise's revised exercises for the teacher's own classrooms.
 
         Scoped in Cypher to revisions whose target student is a MEMBER_OF an
-        active Group the teacher OWNS — the same audience the revision write
-        uses (verify_teacher_has_group_access). An out-of-classroom teacher
-        gets an empty chain, indistinguishable from a nonexistent exercise.
+        active Group the teacher OWNS — the teacher's own classrooms. (The
+        revision *write* is gated narrower, on the entry's own feedback
+        request — verify_teacher_has_group_access.) An out-of-classroom
+        teacher gets an empty chain, indistinguishable from a nonexistent
+        exercise.
 
         Returns revisions ordered by student, then revision_number ascending.
         """

@@ -288,6 +288,56 @@ class SharingBackend(UniversalNeo4jBackend[Entity]):
             return Result.fail(result)
         return Result.ok(result.value or [])
 
+    async def create_group_submission(
+        self,
+        entity_uid: EntityUID,
+        owner_uid: UserUID,
+        group_uid: str,
+        submitted_at: str,
+    ) -> Result[list[Neo4jProperties]]:
+        """File a feedback request: an idempotent ``SUBMITTED_TO_GROUP`` MERGE to an owned or joined active group.
+
+        The same membership guard as ``create_group_share`` — the submitter
+        must be ``MEMBER_OF`` or ``OWNS`` the group, and the group must be
+        active (strict ``is_active = true``: a deactivated group grants
+        nothing, ADR-088 §3). Without a qualifying edge the ``OPTIONAL MATCH``
+        collapses and no row comes back — that empty result is the forbidden
+        failure.
+
+        A row is the success, and it carries ``created``: ``true`` when this
+        call wrote the edge, ``false`` when the request already stood (the
+        MERGE matched). Both are successes to the caller; ``created`` is what
+        rings the teacher's bell once per new request, never on a re-sync.
+        ``submitted_at`` is stamped only on create, so the stamp records the
+        first filing.
+        """
+        result = await self.execute_query(
+            f"""
+            MATCH (entity:Entity {{uid: $entity_uid}})
+            MATCH (group:Group {{uid: $group_uid}})
+            WHERE group.is_active = true
+            OPTIONAL MATCH (owner:User {{uid: $owner_uid}})-[:{RelationshipName.MEMBER_OF.value}]->(group)
+              WHERE coalesce(owner.is_active, true) = true
+            OPTIONAL MATCH (owner2:User {{uid: $owner_uid}})-[:{RelationshipName.OWNS.value}]->(group)
+              WHERE coalesce(owner2.is_active, true) = true
+            WITH entity, group, owner, owner2
+            WHERE owner IS NOT NULL OR owner2 IS NOT NULL
+            MERGE (entity)-[r:{RelationshipName.SUBMITTED_TO_GROUP.value}]->(group)
+            WITH r, r.submitted_at IS NULL AS created
+            SET r.submitted_at = coalesce(r.submitted_at, datetime($submitted_at))
+            RETURN created
+            """,
+            {
+                "entity_uid": entity_uid,
+                "owner_uid": owner_uid,
+                "group_uid": group_uid,
+                "submitted_at": submitted_at,
+            },
+        )
+        if result.is_error:
+            return Result.fail(result)
+        return Result.ok(result.value or [])
+
     async def query_exercise_groups_for_member(
         self,
         exercise_uid: EntityUID,

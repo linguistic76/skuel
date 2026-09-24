@@ -206,13 +206,15 @@ class FormSubmissionService(BaseService[FormSubmissionBackendOperations, FormSub
             return
 
         if group_uid:
-            result = await self.sharing_service.share_with_group(
+            # Every FormSubmission group target is a feedback request to the
+            # group's teachers (ADR-088 §2) — never a share with its members.
+            result = await self.sharing_service.submit_to_group(
                 entity_uid=EntityUID(submission_uid),
                 owner_uid=user_uid,
                 group_uid=group_uid,
             )
             if result.is_error:
-                self.logger.warning(f"Failed to share with group {group_uid}: {result.error}")
+                self.logger.warning(f"Failed to submit to group {group_uid}: {result.error}")
 
         if recipient_uids:
             for recipient_uid in recipient_uids:
@@ -321,11 +323,13 @@ class FormSubmissionService(BaseService[FormSubmissionBackendOperations, FormSub
     async def verify_teacher_access(self, uid: str, teacher_uid: str) -> Result[bool]:
         """Verify a teacher may read one submission (Model B gate).
 
-        Authority is carried by the submission's own share edges: it must be
-        shared with an active group the teacher owns. Sharing a classroom with
-        the *submitter* is deliberately not enough — a student may belong to
-        several groups, and a submission shared with one teacher's group is
-        not thereby readable by another's.
+        Authority is carried by the submission's own feedback request: it must
+        be ``SUBMITTED_TO_GROUP`` an active group the teacher owns (ADR-088
+        §2). Sharing a classroom with the *submitter* is deliberately not
+        enough — a student may belong to several groups, and a submission
+        sent to one teacher's group is not thereby readable by another's. A
+        person share (``SHARES_WITH``) is a share, never a review grant: a
+        teacher named as a recipient gets nothing here (R3, R5).
 
         Returns a ``forbidden`` error on refusal so callers can tell a denial
         apart from an infrastructure fault. Mirrors
@@ -342,7 +346,7 @@ class FormSubmissionService(BaseService[FormSubmissionBackendOperations, FormSub
                 Errors.forbidden(
                     action="read form submission",
                     reason=(
-                        f"Submission {uid} is not shared with any active group "
+                        f"Submission {uid} is not submitted to any active group "
                         f"owned by teacher {teacher_uid}"
                     ),
                 )

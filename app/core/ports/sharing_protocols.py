@@ -23,7 +23,8 @@ Architecture" for the two-layer convention.
 SharingOperations is the service's whole surface, not an ISP slice: the
 ``Services.sharing`` slot (services_bootstrap/_container.py) is typed against
 it, and the callers reach it through that slot. Its live half is share,
-check_access, get_shared_with_me, share_with_group and the two
+check_access, get_shared_with_me, share_with_group, submit_to_group (the
+feedback request — ``SUBMITTED_TO_GROUP``, ADR-088 §2) and the two
 ``*_shared_with_group`` reads; the revoke / visibility / access-list half
 (unshare, unshare_from_group, set_visibility, get_shared_with,
 get_groups_shared_with) has no caller yet — it is the PLANNED sharing
@@ -103,6 +104,14 @@ class SharingBackendOperations(Protocol):
         group_uid: str,
         share_version: str,
         shared_at: str,
+    ) -> Result[list[Neo4jProperties]]: ...
+
+    async def create_group_submission(
+        self,
+        entity_uid: EntityUID,
+        owner_uid: UserUID,
+        group_uid: str,
+        submitted_at: str,
     ) -> Result[list[Neo4jProperties]]: ...
 
     async def delete_group_share(
@@ -241,6 +250,19 @@ class SharingOperations(Protocol):
         share_version: str = "original",
     ) -> Result[bool]:
         """Share an entity with all members of a group. Returns Result[bool]."""
+        ...
+
+    async def submit_to_group(
+        self,
+        entity_uid: EntityUID,
+        owner_uid: str,
+        group_uid: str,
+    ) -> Result[bool]:
+        """File a feedback request with the teachers who own a group
+        (``SUBMITTED_TO_GROUP``, ADR-088 §2). The bool is ``created``:
+        True when this call wrote the link, False when it already stood —
+        both are successes; a forbidden group is the error.
+        """
         ...
 
     async def unshare_from_group(

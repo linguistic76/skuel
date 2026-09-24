@@ -5,6 +5,7 @@ from pathlib import Path
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
+from structlog.testing import capture_logs
 
 from core.models.enums.entity_enums import EntityStatus
 from core.models.enums.metadata_enums import Visibility
@@ -128,7 +129,9 @@ class TestBuildUserEntryRequest:
         assert result.is_ok
         req = result.value
         assert req.pipeline == Pipeline.TEACHER_REVIEW
-        assert req.share_with_groups == ["g_a", "g_b"]
+        # ``teachers`` on TEACHER_REVIEW is a feedback request, not a share.
+        assert req.submit_to_groups == ["g_a", "g_b"]
+        assert req.share_with_groups == []
         resolver.resolve_default_teachers.assert_awaited_once_with("user_1")  # type: ignore[attr-defined]
 
     @pytest.mark.asyncio
@@ -144,6 +147,7 @@ class TestBuildUserEntryRequest:
         assert result.is_ok
         req = result.value
         assert req.share_with_groups == []
+        assert req.submit_to_groups == []
         assert req.visibility is None
         resolver.resolve_default_teachers.assert_not_awaited()  # type: ignore[attr-defined]
 
@@ -159,23 +163,65 @@ class TestBuildUserEntryRequest:
         )
         assert result.is_ok
         assert result.value.share_with_groups == []
+        assert result.value.submit_to_groups == []
         assert result.value.visibility is None
         resolver.resolve_default_teachers.assert_not_awaited()  # type: ignore[attr-defined]
 
     @pytest.mark.asyncio
-    async def test_knowledge_explicit_teachers_audience_still_expands(self):
+    @pytest.mark.parametrize("pipeline", ["none", "llm_summary", "knowledge"])
+    async def test_explicit_teachers_on_a_pipeline_without_a_reviewer_writes_no_link(
+        self, pipeline: str
+    ):
+        """A feedback request requires TEACHER_REVIEW (ADR-088 §2): an explicit
+        ``audience: teachers`` on any other pipeline files nothing and shares
+        nothing — and is warned about, never silently dropped."""
         resolver = _resolver(teachers=["g_a"])
-        result = await build_user_entry_request(
-            data={"pipeline": "knowledge", "title": "Shared note", "audience": "teachers"},
-            file_path=Path("note.md"),
-            user_uid="user_1",
-            audience_resolver=resolver,
-        )
+        with capture_logs() as logs:
+            result = await build_user_entry_request(
+                data={"pipeline": pipeline, "title": "Shared note", "audience": "teachers"},
+                file_path=Path("note.md"),
+                user_uid="user_1",
+                audience_resolver=resolver,
+            )
         assert result.is_ok
-        assert result.value.share_with_groups == ["g_a"]
+        assert result.value.submit_to_groups == []
+        assert result.value.share_with_groups == []
+        resolver.resolve_default_teachers.assert_not_awaited()  # type: ignore[attr-defined]
+        warned = [
+            log
+            for log in logs
+            if log.get("log_level") == "warning"
+            and "no group link written" in str(log.get("event"))
+        ]
+        assert warned, logs
+        assert "audience: teachers" in str(warned[0]["event"])
 
     @pytest.mark.asyncio
-    async def test_explicit_group_audience(self):
+    @pytest.mark.parametrize("pipeline", ["none", "llm_summary"])
+    async def test_absent_audience_on_a_pipeline_without_a_reviewer_writes_no_link(
+        self, pipeline: str
+    ):
+        """The absent-audience default is ``teachers`` on these pipelines, and
+        it too writes no group link — silently, since nothing was authored."""
+        resolver = _resolver(teachers=["g_a"])
+        with capture_logs() as logs:
+            result = await build_user_entry_request(
+                data={"pipeline": pipeline, "title": "Plain note"},
+                file_path=Path("note.md"),
+                user_uid="user_1",
+                audience_resolver=resolver,
+            )
+        assert result.is_ok
+        assert result.value.submit_to_groups == []
+        assert result.value.share_with_groups == []
+        resolver.resolve_default_teachers.assert_not_awaited()  # type: ignore[attr-defined]
+        assert not any("no group link written" in str(log.get("event")) for log in logs)
+
+    @pytest.mark.asyncio
+    async def test_explicit_group_audience_on_teacher_review_is_a_feedback_request(self):
+        """``group:<uid>`` on TEACHER_REVIEW keeps the per-teacher route: the
+        vault door fills ``submit_to_groups`` (until PR 6a names
+        ``teacher:<group_uid>``)."""
         result = await build_user_entry_request(
             data={"pipeline": "teacher_review", "audience": "group:g_class"},
             file_path=Path("x.yaml"),
@@ -183,7 +229,20 @@ class TestBuildUserEntryRequest:
             audience_resolver=_resolver(),
         )
         assert result.is_ok
+        assert result.value.submit_to_groups == ["g_class"]
+        assert result.value.share_with_groups == []
+
+    @pytest.mark.asyncio
+    async def test_explicit_group_audience_on_none_is_a_share(self):
+        result = await build_user_entry_request(
+            data={"pipeline": "none", "audience": "group:g_class"},
+            file_path=Path("x.yaml"),
+            user_uid="user_1",
+            audience_resolver=_resolver(),
+        )
+        assert result.is_ok
         assert result.value.share_with_groups == ["g_class"]
+        assert result.value.submit_to_groups == []
 
     @pytest.mark.asyncio
     async def test_audience_group_without_uid_rejected(self):
@@ -515,7 +574,7 @@ class TestIngestUserEntry:
             user_uid="user_1",
             pipeline=Pipeline.TEACHER_REVIEW,
         )
-        outcome = ShareOutcome(shared_groups=("g_a",))
+        outcome = ShareOutcome(submitted_groups=("g_a",), newly_submitted_groups=("g_a",))
 
         service = MagicMock()
         service.audience_resolver = _resolver(teachers=["g_a"])
@@ -533,8 +592,9 @@ class TestIngestUserEntry:
         assert payload["uid"] == "ue_1"
         assert payload["entity_type"] == "user_entry"
         assert payload["success"] is True
-        assert payload["relationships_created"] == 1  # one shared group, no exercise
-        assert payload["share_outcome"]["shared_groups"] == ["g_a"]
+        assert payload["relationships_created"] == 1  # one new feedback request, no exercise
+        assert payload["share_outcome"]["submitted_groups"] == ["g_a"]
+        assert payload["share_outcome"]["shared_groups"] == []
         # The ingest_file USER_ENTRY branch keys the chunk substrate on these
         # two flags (canon P3) — they must ride the result dict.
         assert payload["pipeline"] == "teacher_review"
@@ -655,7 +715,7 @@ class TestVaultExerciseChannel:
         service = self._service(
             [
                 Result.ok((_living_entry(), ShareOutcome())),
-                Result.ok((_copy_entry(), ShareOutcome(shared_groups=("g_teacher",)))),
+                Result.ok((_copy_entry(), ShareOutcome(submitted_groups=("g_teacher",)))),
             ],
             latest=None,  # first submission — no prior copy
         )
@@ -708,7 +768,7 @@ class TestVaultExerciseChannel:
         service = self._service(
             [
                 Result.ok((_living_entry(), ShareOutcome())),
-                Result.ok((_copy_entry("ue_copy_2"), ShareOutcome(shared_groups=("g_t",)))),
+                Result.ok((_copy_entry("ue_copy_2"), ShareOutcome(submitted_groups=("g_t",)))),
             ],
             latest={"uid": "ue_copy_1", "content": "- OLD content", "revision": 1},
         )
@@ -723,13 +783,22 @@ class TestVaultExerciseChannel:
         assert result.value["submitted_copy_uid"] == "ue_copy_2"
 
     @pytest.mark.asyncio
-    async def test_unreachable_teacher_compensates_and_fails(self):
-        """A copy with zero successful shares is deleted and surfaced as a
+    @pytest.mark.parametrize(
+        "copy_outcome",
+        [
+            ShareOutcome(),  # nothing landed
+            # A share landed but no feedback request did — reach is judged by
+            # the link kind a TEACHER_REVIEW copy needs, and a share queues nowhere.
+            ShareOutcome(shared_groups=("g_class",)),
+        ],
+    )
+    async def test_unreachable_teacher_compensates_and_fails(self, copy_outcome: ShareOutcome):
+        """A copy with no feedback request filed is deleted and surfaced as a
         sync error — never a silent unreviewable turn-in (Mike's invariant)."""
         service = self._service(
             [
                 Result.ok((_living_entry(), ShareOutcome())),
-                Result.ok((_copy_entry(), ShareOutcome())),  # no shares landed
+                Result.ok((_copy_entry(), copy_outcome)),
             ],
             latest=None,
         )
@@ -767,7 +836,7 @@ class TestVaultExerciseChannel:
     async def test_submitted_without_uid_is_not_the_channel(self):
         """No deterministic uid → plain turn-in door; no coercion, no copy."""
         entry = _copy_entry()
-        service = self._service([Result.ok((entry, ShareOutcome(shared_groups=("g_t",))))])
+        service = self._service([Result.ok((entry, ShareOutcome(submitted_groups=("g_t",))))])
         data = _living_file_data("submitted")
         del data["uid"]
         data["pipeline"] = "teacher_review"

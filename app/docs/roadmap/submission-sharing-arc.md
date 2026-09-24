@@ -371,7 +371,7 @@ carry — folded in as contract; the ones that change the plan say "settled at P
   census is complete — every other UserEntry/FormSubmission `SHARED_WITH_GROUP` reader is a
   curriculum reader, a membership gate, the caller-less query_groups_shared_with, or the
   retract_defaulted_vault_note_shares script (which targets KNOWLEDGE and EXTRACT_ACTIVITIES only).
-- **Migration** `scripts/migrations/split_submissions_from_shares_2026_09.py`, dry-run census by default: <!-- planned -->
+- **Migration** `scripts/migrations/split_submissions_from_shares_2026_09.py`, dry-run census by default:
   - Reports UserEntry `SHARED_WITH_GROUP` counts by pipeline, and **fails loudly on
     non-teacher_review rows** — a census stop-and-look: an explicit `group:` share on another
     pipeline is legitimate, and a row made before PR 1 cannot be traced to its source (the vault
@@ -409,6 +409,38 @@ carry — folded in as contract; the ones that change the plan say "settled at P
 - **Docstrings:** `pipeline.py:35`, `user_entry_request.py:124,133`, `user_entry_protocols.py:16,253,352,424`
   (keep the lint anchor at `test_lint_skuel.py:6946`), `teacher_review_service.py:108,735`,
   `user_entry_orchestrator.py:215`, and the stale_names reason at `stale_names.py:265`.
+- **Ruled (PR 1 session, 2026-09-24 — engineering choices the census found unsettled; none touches
+  a ruling):**
+  - The interim per-teacher route lives at the two legacy doors, not on the request model: the web
+    `audience=group:<uid>` parser and the vault `audience: group:<uid>` parser fill
+    `submit_to_groups` on TEACHER_REVIEW and `share_with_groups` otherwise. The JSON body speaks
+    the two fields literally — `share_with_groups` on a TEACHER_REVIEW request stays a share, and
+    without a feedback target it is refused by `validate()` (never silently re-typed; Codex P2 on
+    #1414 — a model-level mapping swallowed an explicit share sent beside `submit_to_groups`).
+    PR 6a retires the door mapping with `teacher:<group_uid>`.
+  - `SUBMITTED_TO_GROUP` carries `submitted_at` only (stamped on create; a re-file keeps it).
+    The migration maps the old edge's `shared_at` onto it and does **not** carry `share_version`
+    — a share concept, `original` on every live row; a feedback request has no versions.
+  - The new writer's group guard is strict (`is_active = true`), the ADR-088 §3 rule, not the
+    sibling's `coalesce` — nothing is lost (both group writers set it on create).
+  - Step 5b (the `SHARED_WITH_TEACHER` Interaction) reads `submitted_groups`, like 5a: reach is
+    the link kind the entry needs, so a person share alone records no teacher transition.
+  - The vault door resolves `teachers` only on TEACHER_REVIEW and skips the group lookup on other
+    pipelines (same behaviour as "fill then gate", one query fewer); the explicit-value warning is
+    a `logger.warning` on the ingest, keyed on `data["audience"]` being present.
+  - The migration's stop-and-look has a door: a person's "keep it as a share" ruling on an
+    off-pipeline row is passed as `--keep-share <entry_uid> <group_uid>` (repeatable); the row is
+    left untouched and excluded from the stop, and a ruling naming no live row is itself a stop
+    (Codex P2 on #1414 — without it a kept share blocked the re-type forever).
+  - **The review-write gate is the entry's own feedback request** (Codex P1 on #1414). "These
+    stay as they are: the membership gates" above named `verify_teacher_has_group_access`, which
+    gated `submit_report` / `request_revision` / `approve_report` / the teacher delete on the
+    teacher sharing *some* active group with the owner — wider than the queue and detail reads it
+    claimed to match, so a second teacher of a multi-class student could write on a submission
+    sent only to the first. It now requires `(submission)-[:SUBMITTED_TO_GROUP]->(g:Group
+    {is_active: true})<-[:OWNS]-(teacher)`: a teacher writes on exactly what they can open. The
+    student-level authority (`verify_teacher_authority`, `get_report_file_path`, the revision-chain
+    read) is untouched — it gates reads of the teacher's own artifacts, which PR 2b / PR 5 revisit.
 
 ### PR 2b — Feedback is identified by its outcome; the EntryReport access check retires
 
@@ -1082,7 +1114,7 @@ requires PR 1, PR 3, PR 5 and PR 6a. PR 6c requires PR 4a, PR 5 and PR 6b. PR 7 
 | PR | Scope | Acceptance (live case) | Status |
 |----|-------|------------------------|--------|
 | 0 | This document + ADR-088 + the form-recipient-read case file and MOC entry + INDEX rows (docs only; summon Codex explicitly) | This document and ADR-088 are merged; `./dev docs-links` is clean and the INDEX rows resolve | merged #1413, 2026-09-24 |
-| 1 | `SUBMITTED_TO_GROUP`: writer, request side (gated on TEACHER_REVIEW; `teachers` writes no link on other pipelines), forms, teacher readers, migration | Census: 2 edges re-typed, and a count of classmate-visible turn-ins (a `MEMBER_OF` member reaching a `teacher_review` entry it does not own through `SHARED_WITH_GROUP`) reads 0. `/teaching/queue` still lists the Gentle Return turn-in. A `pipeline: none` vault note with no `audience:` writes no group link. (`/groups` as linguistic76 shows no turn-ins before PR 1 too — linguistic76 owns both.) | open |
+| 1 | `SUBMITTED_TO_GROUP`: writer, request side (gated on TEACHER_REVIEW; `teachers` writes no link on other pipelines), forms, teacher readers, migration | Census: 2 edges re-typed, and a count of classmate-visible turn-ins (a `MEMBER_OF` member reaching a `teacher_review` entry it does not own through `SHARED_WITH_GROUP`) reads 0. `/teaching/queue` still lists the Gentle Return turn-in. A `pipeline: none` vault note with no `audience:` writes no group link. (`/groups` as linguistic76 shows no turn-ins before PR 1 too — linguistic76 owns both.) | merged #1414, 2026-09-24 |
 | 2b | The outcome discriminator; the EntryReport access check retired; report detail is an owner read | The GradeBook shows the same 2 exchanges as before. `/entry-reports/detail` gives the owner 200 and others 404 | open |
 | 2a | `visibility` = {private, public}: enum, writers, Events field, spawn fix, migration first; `set_visibility` PUBLIC-only; the duplicate ingestion gate and the unused request/response classes deleted | The census shows 0 `shared`/`team` values. The Events form has no Visibility field. Spawned instances are private | open |
 | 3 | `NotificationType`; card links; admin activity reports owned by the student + their bell; subject validation; generated-report reads exclude admin (human) reports, both user-context statements included | An admin writes an activity report → the student's bell → the detail page opens. The old feedback bells open their reports | open |

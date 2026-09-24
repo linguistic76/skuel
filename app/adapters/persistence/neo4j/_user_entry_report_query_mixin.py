@@ -166,7 +166,7 @@ class _UserEntryReportQueryMixin:
         appears.
 
         ``viewer_uid`` is the teacher-mode scope (NULL = the student reading
-        their own exchange): each entry must itself be ``SHARED_WITH_GROUP``
+        their own exchange): each entry must itself be ``SUBMITTED_TO_GROUP``
         an active group the viewer owns — the Model B entry-level gate
         (``get_entry_detail_for_teacher``). Merely sharing *some* group with
         a multi-class student must not expose work the student directed only
@@ -185,7 +185,7 @@ class _UserEntryReportQueryMixin:
         exercise), ``entries``, ``reports``, ``revisions``.
         """
         viewer_gate = f"""($viewer_uid IS NULL OR EXISTS {{
-            MATCH (%s)-[:{RelationshipName.SHARED_WITH_GROUP.value}]->(:Group {{is_active: true}})
+            MATCH (%s)-[:{RelationshipName.SUBMITTED_TO_GROUP.value}]->(:Group {{is_active: true}})
                   <-[:{RelationshipName.OWNS.value}]-(:User {{uid: $viewer_uid}})
         }})"""
         query = f"""

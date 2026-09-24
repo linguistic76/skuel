@@ -1,5 +1,5 @@
 ---
-updated: 2026-09-15
+updated: 2026-09-24
 related_skills: [learning-loop]
 ---
 
@@ -8,6 +8,8 @@ related_skills: [learning-loop]
 > **2026-04-14 — Partially superseded by [ADR-053](ADR-053-groups-first-class-and-unified-sharing.md).** The `FOR_GROUP` edge described in this ADR has been retired. Curriculum (Exercise, PathStep, LearningPath) is now shared to groups via `SHARED_WITH_GROUP` through `UnifiedSharingService`. The rest of the workflow — teacher review, submissions, OWNS-based review queue — remains current.
 >
 > **2026-04-14 — Partially superseded by [ADR-054](ADR-054-user-entry-unified-submissions.md).** `ExerciseSubmission` has been collapsed into `UserEntry`. The OWNS-based review queue is replaced by a symmetric `SHARED_WITH_GROUP` + `pipeline='teacher_review'` graph pattern. The learning loop (Exercise → Submission → Report → RevisedExercise) is preserved as emergent relationships rather than a type hierarchy.
+>
+> **2026-09-24 — Amended by [ADR-088](ADR-088-submit-and-share.md) (Submit & Share arc, PR 1).** The queue reads `SUBMITTED_TO_GROUP` — the feedback request, a link kind of its own — under the teacher's `OWNS` of an active group; `SHARED_WITH_GROUP` on a turn-in is a share with the class and never queues.
 
 **Status:** Accepted
 **Date:** 2026-02-06

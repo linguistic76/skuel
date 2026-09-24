@@ -6,12 +6,14 @@ Pydantic request models for the unified user-entry API. Replaces
 `SubmissionCreateRequest` and the implicit per-service request shapes
 used by the journal and exercise submission flows.
 
-Audience is first-class on create: when a student submits for teacher
-review, the audience is declared on the request (or defaulted to the
-exercise's assigned groups when `pipeline=TEACHER_REVIEW` + exercise
-link). There is no implicit role-based audience inference.
+Audience is first-class on create, in two verbs (ADR-088 §1): a feedback
+request (`submit_to_groups` — `SUBMITTED_TO_GROUP`, TEACHER_REVIEW only;
+defaulted to the exercise's groups when `pipeline=TEACHER_REVIEW` + exercise
+link) and a share (`share_with_groups` / `share_with_users`). There is no
+implicit role-based audience inference.
 
 See: /docs/decisions/ADR-054-user-entry-unified-submissions.md
+See: /docs/decisions/ADR-088-submit-and-share.md
 """
 
 from typing import Any
@@ -102,8 +104,9 @@ class UserEntryCreateRequest(CreateRequestBase):
         default=None,
         description=(
             "Exercise this entry fulfills. When set with "
-            "pipeline=TEACHER_REVIEW and no explicit audience, the service "
-            "auto-shares to the exercise's assigned groups."
+            "pipeline=TEACHER_REVIEW and no explicit feedback target, the "
+            "service files the feedback request with the exercise's assigned "
+            "groups (SUBMITTED_TO_GROUP)."
         ),
     )
     about_path_step_uid: EntityUID | None = Field(
@@ -119,9 +122,26 @@ class UserEntryCreateRequest(CreateRequestBase):
 
     # -------------------------------------------------------------------------
     # Audience — declared at submit time, consumed by UnifiedSharingService
+    # (two verbs, ADR-088 §1: Submit files a feedback request, Share lets
+    # groups or people see the work)
     # -------------------------------------------------------------------------
+    submit_to_groups: list[str] = Field(
+        default_factory=list,
+        description=(
+            "Group UIDs to file a feedback request with (SUBMITTED_TO_GROUP — "
+            "read by the groups' owning teachers only). Applied only when "
+            "pipeline=TEACHER_REVIEW: a feedback request and its pipeline "
+            "always agree, so on any other pipeline these write no link. "
+            "Independent of share_with_groups: a request may both ask one "
+            "group's teacher for feedback and share with another group."
+        ),
+    )
     share_with_groups: list[str] = Field(
-        default_factory=list, description="Group UIDs to share with (SHARED_WITH_GROUP)"
+        default_factory=list,
+        description=(
+            "Group UIDs to share with (SHARED_WITH_GROUP — every member and "
+            "owner of the group may open the entry)"
+        ),
     )
     share_with_users: list[str] = Field(
         default_factory=list, description="User UIDs to share with (SHARES_WITH)"
@@ -130,8 +150,9 @@ class UserEntryCreateRequest(CreateRequestBase):
         default=False,
         description=(
             "When True, resolve the exercise's assigned groups server-side "
-            "and SHARED_WITH_GROUP this entry to each. Requires "
-            "``fulfills_exercise_uid``; silently noop without it."
+            "and file the feedback request with each (SUBMITTED_TO_GROUP). "
+            "Requires ``fulfills_exercise_uid`` and pipeline=TEACHER_REVIEW; "
+            "on any other pipeline, or without an exercise, it writes no link."
         ),
     )
     visibility: Visibility | None = Field(

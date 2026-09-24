@@ -338,8 +338,14 @@ class RelationshipName(StrEnum):
     # FULFILLS_EXERCISE always anchors to the root Exercise; FULFILLS_REVISED_EXERCISE
     # captures which specific revision instructions the student addressed.
     FULFILLS_REVISED_EXERCISE = "FULFILLS_REVISED_EXERCISE"
-    # (Entity)-[:SHARED_WITH_GROUP {shared_at, share_version}]->(Group) - Group-level sharing
+    # (Entity)-[:SHARED_WITH_GROUP {shared_at, share_version}]->(Group) - Group-level sharing:
+    # every member and owner of an active group may open the entity (ADR-088 §2, §3).
     SHARED_WITH_GROUP = "SHARED_WITH_GROUP"
+    # (UserEntry|FormSubmission)-[:SUBMITTED_TO_GROUP {submitted_at}]->(Group) - A feedback
+    # request to the teachers who OWN the group; grants members nothing. Read only by the
+    # teacher-side readers under (teacher)-[:OWNS]->(group), never by the audience
+    # fragment (ADR-088 §2 — two link kinds, never crossed).
+    SUBMITTED_TO_GROUP = "SUBMITTED_TO_GROUP"
     # Revision cycle (four-phase learning loop)
     # (RevisedExercise)-[:RESPONDS_TO_REPORT]->(EntryReport)
     RESPONDS_TO_REPORT = "RESPONDS_TO_REPORT"

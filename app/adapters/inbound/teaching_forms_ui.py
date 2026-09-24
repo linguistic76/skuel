@@ -384,7 +384,7 @@ def create_teaching_forms_ui_routes(
                     )
                     return render_unavailable("Could not verify access. Please try again.")
                 logger.warning(
-                    "Teacher %s denied access to submission %s: not shared with a group they own",
+                    "Teacher %s denied access to submission %s: not submitted to a group they own",
                     current_user.uid,
                     uid,
                 )

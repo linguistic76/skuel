@@ -257,12 +257,13 @@ DELETED: dict[str, str] = {
     "generate_kus_from_moc": "deleted — `moc: true` frontmatter is the ORGANIZES authoring surface (UNIFIED_INGESTION_GUIDE § MOC files)",
     "hierarchy_parser": "deleted — served only generate_kus_from_moc",
     # Sharing (docs/roadmap/sharing-http-door.md): the shareable rule is
-    # _check_shareable, applied inside every mutation; the two live SHARED_WITH_GROUP
-    # readers (the groups hub per group, the review queue) cover both consumer
-    # shapes, so there is no cross-group aggregate.
+    # _check_shareable, applied inside every mutation; the two live group readers
+    # (the groups hub per group on SHARED_WITH_GROUP, the review queue on
+    # SUBMITTED_TO_GROUP — ADR-088 §2) cover both consumer shapes, so there is no
+    # cross-group aggregate.
     "verify_shareable": "deleted — the rule is applied inside share / set_visibility / share_with_group; no standalone pre-flight",
     "query_shareable_status": "deleted — served only verify_shareable",
-    "get_shared_with_me_via_groups": "deleted — get_user_entries_shared_with_group (members, per group) / get_review_queue (owners) are the SHARED_WITH_GROUP readers",
+    "get_shared_with_me_via_groups": "deleted — get_user_entries_shared_with_group (members, per group, SHARED_WITH_GROUP) / get_review_queue (owners, SUBMITTED_TO_GROUP) are the two group readers",
     "query_shared_with_me_via_groups": "deleted — served only get_shared_with_me_via_groups",
     # Deleted enum members
     "Pipeline.JOURNAL": (
@@ -441,11 +442,14 @@ ALLOWED_OCCURRENCES: dict[str, dict[tuple[int, str], Allow]] = {
         (432, "ExpenseCreateRequest"): Allow(_adr035),
         (439, "ExpenseDTO"): Allow(_adr035),
     },
+    # The three ADRs below carry "amended by ADR-088" notes above these lines;
+    # anchors follow the file's current line numbers, re-derived from the
+    # scanner's report whenever a note is added above them.
     "docs/decisions/ADR-040-teacher-exercise-workflow.md": {
-        (27, "ProcessorType"): Allow(_adr040),
-        (30, "SubmissionsSharingService"): Allow(_adr040),
-        (57, "ProcessorType"): Allow(_adr040),
-        (62, "ProcessorType"): Allow(_adr040),
+        (29, "ProcessorType"): Allow(_adr040),
+        (32, "SubmissionsSharingService"): Allow(_adr040),
+        (59, "ProcessorType"): Allow(_adr040),
+        (64, "ProcessorType"): Allow(_adr040),
     },
     "docs/decisions/ADR-041-unified-ku-model.md": {
         (22, "KuStatus"): Allow(_adr041),
@@ -462,9 +466,9 @@ ALLOWED_OCCURRENCES: dict[str, dict[tuple[int, str], Allow]] = {
         (82, "KuType"): Allow(_adr041),
     },
     "docs/decisions/ADR-042-privacy-as-first-class-citizen.md": {
-        (168, "SubmissionsSharingService"): Allow(_adr042),
-        (248, "SubmissionsSharingService"): Allow(_adr042),
-        (271, "submissions_sharing_service"): Allow(_adr042),
+        (173, "SubmissionsSharingService"): Allow(_adr042),
+        (253, "SubmissionsSharingService"): Allow(_adr042),
+        (276, "submissions_sharing_service"): Allow(_adr042),
     },
     "docs/decisions/ADR-043-intelligence-tier-toggle.md": {
         (46, "JournalOutputService"): Allow(_adr043),
@@ -486,11 +490,11 @@ ALLOWED_OCCURRENCES: dict[str, dict[tuple[int, str], Allow]] = {
         # vault-notes-default-private amendment note; → +1 more the same day when
         # the note grew to name extract_activities. Anchors re-derived from the
         # scanner's report, never by adding the diff's line delta.
-        (321, "ProcessorType"): Allow(_adr054),
-        (377, "ProcessorType"): Allow(_adr054),
-        (428, "ProcessorType"): Allow(_adr054),
-        (506, "EntityType.EXERCISE_SUBMISSION"): Allow(_adr054),
-        (520, "ProcessorType"): Allow(_adr054),
+        (334, "ProcessorType"): Allow(_adr054),
+        (390, "ProcessorType"): Allow(_adr054),
+        (441, "ProcessorType"): Allow(_adr054),
+        (519, "EntityType.EXERCISE_SUBMISSION"): Allow(_adr054),
+        (533, "ProcessorType"): Allow(_adr054),
     },
     "docs/Reviews/SYNC_UNIFICATION_REVIEW.md": {
         (89, "ingest_bundle"): Allow(_review_sync),

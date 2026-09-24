@@ -22,12 +22,15 @@ Create flow
 3. Auto-create ``Interaction`` audit record (turn-ins only, when
    ``interaction_service`` is wired)
 4. Wire optional ``TRANSFORMS`` edge for multi-stage pipelines
-5. Resolve audience + call ``UnifiedSharingService``:
-     - ``pipeline=TEACHER_REVIEW`` + exercise link + no explicit audience
-       → auto-share to exercise's assigned groups
-     - ``pipeline=TEACHER_REVIEW`` + no audience + no exercise → validation
-       error (ADR §3: no silent no-audience turn-ins)
-     - otherwise → honor explicit ``share_with_groups`` / ``share_with_users``
+5. Resolve audience + call ``UnifiedSharingService`` (two verbs, ADR-088):
+     - ``pipeline=TEACHER_REVIEW`` → a feedback request, ``SUBMITTED_TO_GROUP``:
+       explicit ``submit_to_groups``, else the exercise's assigned groups
+       (curriculum exercise: the submitter's default group)
+     - ``pipeline=TEACHER_REVIEW`` + no feedback target + no exercise →
+       validation error (ADR-054 §3: no silent no-audience turn-ins)
+     - every pipeline → honor explicit ``share_with_groups`` /
+       ``share_with_users`` as shares; a feedback target on a pipeline
+       other than TEACHER_REVIEW writes no link
 """
 
 from __future__ import annotations
@@ -350,12 +353,15 @@ class UserEntryService(BaseService[UserEntryOperations, UserEntry]):
             return Result.fail(share_result)
         outcome: ShareOutcome = share_result.value
 
-        # 5a. Compensation: a TEACHER_REVIEW entry with zero successful shares
-        # and at least one failure would be an orphaned, invisible turn-in —
-        # delete the entry and surface the failure (ADR §3 post-persist).
+        # 5a. Compensation: a TEACHER_REVIEW entry whose feedback request
+        # reached no group, with at least one failed target, would be an
+        # orphaned, invisible turn-in — delete the entry and surface the
+        # failure (ADR-054 §3 post-persist). Reach is judged by the link kind
+        # the entry needs: a person or group share that landed puts the entry
+        # in no queue, so ``submitted_groups`` decides here, not ``any_success``.
         if (
             request.pipeline == Pipeline.TEACHER_REVIEW
-            and not outcome.any_success
+            and not outcome.submitted_groups
             and outcome.any_failure
         ):
             failure_summary = ", ".join(f"{target}: {reason}" for target, reason in outcome.failed)
@@ -369,8 +375,8 @@ class UserEntryService(BaseService[UserEntryOperations, UserEntry]):
                 )
             return Result.fail(
                 Errors.validation(
-                    "Submission could not be shared with any recipient; "
-                    f"no audience was reached ({failure_summary})",
+                    "Submission reached no teacher; "
+                    f"no feedback request could be filed ({failure_summary})",
                     field="audience",
                 )
             )
@@ -382,7 +388,7 @@ class UserEntryService(BaseService[UserEntryOperations, UserEntry]):
         if (
             turn_in_exercise_uid
             and request.pipeline == Pipeline.TEACHER_REVIEW
-            and outcome.any_success
+            and outcome.submitted_groups
             and self.interaction_service is not None
         ):
             shared_result = await self.interaction_service.record_result(
@@ -880,9 +886,10 @@ class UserEntryService(BaseService[UserEntryOperations, UserEntry]):
 
     @with_error_handling("delete_user_entry_as_teacher")
     async def delete_entry_as_teacher(self, uid: str, teacher_uid: UserUID) -> Result[bool]:
-        """Cascade delete by a teacher who shares an active group with the entry's owner.
+        """Cascade delete by a teacher the entry asks for feedback.
 
-        Mirrors ``TeacherReviewService._verify_teacher_has_group_access``:
+        The entry must be ``SUBMITTED_TO_GROUP`` an active group the teacher
+        owns (ADR-088 §2). Mirrors ``TeacherReviewService._verify_teacher_has_group_access``:
         empty access → ``not_found`` (404) so teachers outside the student's
         group cannot distinguish between "entry does not exist" and "entry
         belongs to another teacher's student."

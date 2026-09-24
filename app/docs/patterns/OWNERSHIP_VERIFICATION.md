@@ -1,6 +1,6 @@
 ---
 title: Ownership Verification Pattern
-updated: '2026-09-21'
+updated: '2026-09-24'
 category: patterns
 related_skills:
 - activity-domains
@@ -413,16 +413,18 @@ no MapOfContent entity type.
 ### Teacher-Readable Domains (the Model B gate)
 
 A teacher reading a student's work is neither "owner only" nor "shared with
-everyone". Access is carried by the **entity's own share edges**: the entity
-must be `SHARED_WITH_GROUP` an active group the requesting teacher `OWNS`, or
-`SHARES_WITH` the teacher directly.
+everyone". Access is carried by the **entity's own feedback request**: the entity
+must be `SUBMITTED_TO_GROUP` an active group the requesting teacher `OWNS`
+(ADR-088 §2). A `SHARES_WITH` from the teacher is a share, never a review grant:
+the two readers — the teacher gate and the audience fragment — are never
+crossed (ADR-088 §3).
 
-**Honour every edge kind the write path can produce.** `_share_on_submit` writes
-`SHARED_WITH_GROUP` for `group_uid` and `SHARES_WITH` for `recipient_uids`; a
-gate checking only the group edge refuses the very teacher a student explicitly
-picked. Whenever a read gate is defined in terms of edges, enumerate the writers
-first — a gate narrower than its writers is a silent functional bug, and one
-wider than them is the vulnerability.
+**Know which link kind each writer produces.** `_share_on_submit` writes
+`SUBMITTED_TO_GROUP` for `group_uid` (a feedback request) and `SHARES_WITH` for
+`recipient_uids` (a share); the gate reads the first and deliberately not the
+second. Whenever a read gate is defined in terms of edges, enumerate the writers
+first and name the kind each one means — a gate narrower than its writers is a
+silent functional bug, and one wider than them is the vulnerability.
 
 | Domain | Entity | Gate |
 |--------|--------|------|

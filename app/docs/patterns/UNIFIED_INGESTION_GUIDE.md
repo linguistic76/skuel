@@ -1,6 +1,6 @@
 ---
 title: Unified Ingestion Implementation Guide
-updated: 2026-09-22
+updated: 2026-09-24
 category: patterns
 related_skills: []
 related_docs:
@@ -119,10 +119,10 @@ and `extract_activities` — a vault note shares only by explicit audience
 
 | Value | Meaning |
 |-------|---------|
-| `teachers` (default for submission pipelines) | Expand to every group the uploader is a student-member of (via `AudienceResolver.resolve_default_teachers`). Zero student-role groups → no shares (no silent broadcast). |
-| `group:<group_uid>` | Share with exactly one group. |
+| `teachers` (default for submission pipelines) | A **feedback request** (`SUBMITTED_TO_GROUP`, ADR-088 §2) with every group the uploader is a student-member of (via `AudienceResolver.resolve_default_teachers`) — read by those groups' teachers, never their members. Applies only on `pipeline: teacher_review`, the one pipeline with a reviewer: on any other pipeline it writes **no group link** (an explicit value logs a sync warning; the default is silent). Zero student-role groups → no links (no silent broadcast). |
+| `group:<group_uid>` | A **share** (`SHARED_WITH_GROUP`) with exactly one group — every member may open it. On `pipeline: teacher_review` it is instead the per-teacher feedback request with that group's teacher (until the arc's PR 6a names `teacher:<group_uid>`). |
 | `public` | Set `visibility=PUBLIC` (portfolio). |
-| `private` | No shares, no visibility change. |
+| `private` | No links, no visibility change. |
 
 Legacy aliases `je_input` / `je_output` / `exercise_submission` are
 **rejected** with an ADR-054 error (no compat shim — One Path Forward).
@@ -403,10 +403,13 @@ tags: [reading, stoicism]
 `AudienceResolver` (`core/services/user_entry/audience_resolver.py`) is
 the single implementation of:
 
-1. Pipeline/audience validation (ADR §3 + §5 guardrails — `teacher_review`
-   needs a real audience; `transcribe_and_structure` is private by policy).
-2. Share fan-out via `UnifiedSharingService` (explicit groups/users +
-   auto-share to exercise groups).
+1. Pipeline/audience validation (ADR-054 §3 + §5 guardrails — `teacher_review`
+   needs a feedback target, `submit_to_groups` or an exercise; a share is not
+   one; `transcribe_and_structure` is private by policy).
+2. Link writes via `UnifiedSharingService` — shares (explicit groups/users)
+   on every pipeline, and on `teacher_review` the feedback request
+   (`submit_to_group`: explicit `submit_to_groups`, else the exercise's
+   groups). ADR-088 §2: two verbs, two link kinds.
 3. `resolve_default_teachers(user_uid)` — used by the YAML preparer to
    expand `audience: teachers` into explicit group UIDs.
 

@@ -92,12 +92,13 @@ CREATE (f4)-[:RESPONDS_TO_FORM]->(ft)
 // The audience each submission carries — what a teacher's reach is decided by.
 // Membership alone grants nothing: the scope asks whether *this submission* was
 // shared into a classroom the teacher owns, so each answer is shared with its
-// author's groups exactly as submit-time resolution would have done. f4 has no
+// author's groups exactly as submit-time resolution would have done — every
+// form group target is a feedback request (SUBMITTED_TO_GROUP, ADR-088 §2). f4 has no
 // owner and so no audience.
-CREATE (f1)-[:SHARED_WITH_GROUP]->(g1)
-CREATE (f1)-[:SHARED_WITH_GROUP]->(g2)
-CREATE (f2)-[:SHARED_WITH_GROUP]->(g4)
-CREATE (f3)-[:SHARED_WITH_GROUP]->(g3)
+CREATE (f1)-[:SUBMITTED_TO_GROUP]->(g1)
+CREATE (f1)-[:SUBMITTED_TO_GROUP]->(g2)
+CREATE (f2)-[:SUBMITTED_TO_GROUP]->(g4)
+CREATE (f3)-[:SUBMITTED_TO_GROUP]->(g3)
 """
 
 _SEED_PARAMS = {
@@ -251,7 +252,7 @@ class TestPredicateShape:
     ) -> None:
         """A teacher who is a MEMBER_OF a group does not thereby own it.
 
-        Pins the predicate's direction: the grant runs SHARED_WITH_GROUP from
+        Pins the predicate's direction: the grant runs SUBMITTED_TO_GROUP from
         the submission to a group the teacher OWNS. A predicate that accepted
         any edge to the group would let Teacher B — made a member of Teacher A's
         group here — read Student 1's answers.

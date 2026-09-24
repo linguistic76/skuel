@@ -105,10 +105,11 @@ class TeacherReviewService:
         """
         Get teacher's pending review queue.
 
-        Returns entries shared with the teacher's groups via SHARED_WITH_GROUP
-        whose pipeline is ``teacher_review``. Empty when the teacher owns no
-        groups or no entries have been shared — does not leak the existence
-        of unrelated students' submissions.
+        Returns entries submitted to the teacher's groups via SUBMITTED_TO_GROUP
+        (the feedback request, ADR-088 §2) whose pipeline is ``teacher_review``.
+        Empty when the teacher owns no groups or no entries have been submitted
+        — does not leak the existence of unrelated students' submissions. A
+        share with the group never queues.
 
         This is THE needs-review rule: the per-student page's Needs Review
         section calls this same method with ``student_uid`` set, so the queue
@@ -732,8 +733,8 @@ class TeacherReviewService:
         """
         Get full detail of a submission for teacher review.
 
-        Gated by ``SHARED_WITH_GROUP`` at the backend layer: empty when the
-        submission is not shared with any active group the teacher owns.
+        Gated by ``SUBMITTED_TO_GROUP`` at the backend layer: empty when the
+        submission is not submitted to any active group the teacher owns.
         Empty maps to ``Errors.not_found`` (404) so a teacher outside the
         student's group cannot distinguish "submission does not exist" from
         "exists but belongs to another teacher's student".
@@ -916,12 +917,16 @@ class TeacherReviewService:
         report_uid: str,
         teacher_uid: str,
     ) -> Result[bool]:
-        """Verify teacher shares an active group with the submission's owner.
+        """Verify the submission asks this teacher for feedback (the review-write gate).
 
-        Maps empty backend results to ``Errors.not_found(...)`` (404) so a
-        teacher outside the student's group cannot distinguish between
-        "submission does not exist" and "submission exists but belongs to
-        another teacher's student."
+        The entry must be ``SUBMITTED_TO_GROUP`` an active group the teacher
+        owns — the authority the queue and the detail read carry (ADR-088 §2),
+        so a teacher can write on exactly what they can open. Maps empty
+        backend results to ``Errors.not_found(...)`` (404) so a teacher outside
+        that audience cannot distinguish between "submission does not exist"
+        and "submission exists but was sent to another teacher."
+
+        Backend: UserEntryBackend.verify_teacher_has_group_access
         """
         result = await self.user_entry_backend.verify_teacher_has_group_access(
             report_uid, teacher_uid

@@ -13,13 +13,19 @@ So these run the real queries over a seeded multi-classroom graph:
     Teacher B owns group Y   ─┼─ Student 1 is a member of BOTH X and Y
     Teacher C owns group Z   ─┘   (permitted — MAX_STUDENT_GROUPS is 4)
 
-    fs_shared_x   SHARED_WITH_GROUP → X only
+    fs_shared_x   SUBMITTED_TO_GROUP → X only   (the feedback request, ADR-088 §2)
     fs_unshared   no audience at all
 
 Teacher B is the case that matters: they genuinely teach Student 1, so a
 student-granularity predicate admits them, and only an entity-level one does
 not. Each assertion is paired with a positive control — a query that returns
 nothing for everybody proves nothing.
+
+A direct ``SHARES_WITH`` from a teacher (``recipient_uids``) is a share, never
+a review grant (R3, R5 — the two readers are never crossed): the gate, the
+list and the count all refuse it. Until the form recipient read exists
+(``docs/roadmap/form-submission-recipient-read.md``) a teacher named by
+person has no door to the form at all.
 """
 
 from __future__ import annotations
@@ -74,8 +80,8 @@ CREATE (s1)-[:OWNS]->(fs1), (s1)-[:OWNS]->(fs2), (s1)-[:OWNS]->(fs3)
 CREATE (fs1)-[:RESPONDS_TO_FORM]->(ft),
        (fs2)-[:RESPONDS_TO_FORM]->(ft),
        (fs3)-[:RESPONDS_TO_FORM]->(ft)
-CREATE (fs1)-[:SHARED_WITH_GROUP]->(gx)
-CREATE (fs3)-[:SHARED_WITH_GROUP]->(gi)
+CREATE (fs1)-[:SUBMITTED_TO_GROUP]->(gx)
+CREATE (fs3)-[:SUBMITTED_TO_GROUP]->(gi)
 // The template is embedded in a PathStep, so its audience-less submissions are
 // backfill candidates — the embedded route is the one that could not declare
 // an audience. `_STANDALONE` below is the same template minus that edge.
@@ -208,33 +214,34 @@ class TestVerifyTeacherSubmissionAccess:
             assert result.is_ok, result.error
             assert result.value == [], f"{submission_uid}/{teacher} returned {result.value!r}"
 
-    async def test_direct_recipient_share_grants_without_any_group(self, gate_backend: Any) -> None:
-        """``recipient_uids`` writes only ``SHARES_WITH``. A gate honouring the
-        group edge alone would refuse the exact teacher the student picked.
+    async def test_direct_recipient_share_is_not_a_review_grant(self, gate_backend: Any) -> None:
+        """``recipient_uids`` writes only ``SHARES_WITH`` — a share, which lets
+        the recipient see the work and asks nobody for feedback (R5). The gate
+        reads the feedback request alone, so the teacher the student named as
+        a *recipient* is refused here exactly like any other teacher.
 
-        Teacher C is used precisely because they share no classroom with the
-        submitter — the direct edge is the only thing that can grant this.
+        Teacher C shares no classroom with the submitter, so the direct edge
+        is the only thing that could have admitted them; asserted as a raw
+        empty result (the refusal shape), with the positive control below.
         """
-        assert await _granting_groups(gate_backend, FS_UNSHARED, TEACHER_C) == []
-
         await gate_backend.execute_query(_DIRECT_SHARE, {"teacher": TEACHER_C, "fs": FS_UNSHARED})
 
         result = await gate_backend.verify_teacher_submission_access(FS_UNSHARED, TEACHER_C)
         assert result.is_ok, result.error
-        rows = result.value or []
-        assert len(rows) == 1
-        # Granted, with no classroom to name.
-        assert rows[0]["group_uid"] is None
+        assert result.value == []
+        # Positive control: the same teacher IS admitted by a feedback request.
+        await _submit(gate_backend, FS_UNSHARED, GROUP_Z)
+        assert await _granting_groups(gate_backend, FS_UNSHARED, TEACHER_C) == [GROUP_Z]
 
     async def test_a_direct_share_to_someone_else_does_not_grant(self, gate_backend: Any) -> None:
-        """The edge is per-recipient — sharing with Teacher C must not admit
-        Teacher B, or the gate would be 'is this shared with anyone at all'."""
+        """The share kind never reaches the gate for anyone — not the recipient,
+        not a third teacher."""
         await gate_backend.execute_query(_DIRECT_SHARE, {"teacher": TEACHER_C, "fs": FS_UNSHARED})
         assert await _granting_groups(gate_backend, FS_UNSHARED, TEACHER_B) == []
 
-    async def test_group_grant_still_names_its_classroom(self, gate_backend: Any) -> None:
-        """Adding the direct-share branch must not cost the group branch its
-        logging column."""
+    async def test_a_direct_share_does_not_disturb_the_group_grant(self, gate_backend: Any) -> None:
+        """A share on a submission that also asks Teacher A's group for
+        feedback leaves that grant, and its logging column, untouched."""
         await gate_backend.execute_query(_DIRECT_SHARE, {"teacher": TEACHER_C, "fs": FS_SHARED_X})
         assert await _granting_groups(gate_backend, FS_SHARED_X, TEACHER_A) == [GROUP_X]
 
@@ -279,30 +286,24 @@ class TestTeacherScopedTemplateList:
         await gate_backend.execute_query(
             "MATCH (g:Group {uid: $g}) SET g.is_active = true", {"g": GROUP_INACTIVE}
         )
-        await gate_backend.execute_query(
-            """
-            MATCH (fs:Entity {uid: $fs}), (g:Group {uid: $g})
-            CREATE (fs)-[:SHARED_WITH_GROUP]->(g)
-            """,
-            {"fs": FS_SHARED_X, "g": GROUP_INACTIVE},
-        )
+        await _submit(gate_backend, FS_SHARED_X, GROUP_INACTIVE)
 
         visible = await _visible_uids(gate_backend, TEACHER_A)
         # Both of Teacher A's groups now grant this one submission.
         assert visible.count(FS_SHARED_X) == 1
 
-    async def test_direct_recipient_sees_the_row(self, gate_backend: Any) -> None:
-        """The list and the detail gate must admit the same set. If only the
-        detail page honoured direct shares, a chosen teacher could open a
-        submission they can never find."""
+    async def test_direct_recipient_does_not_see_the_row(self, gate_backend: Any) -> None:
+        """The list and the detail gate must admit the same set — and neither
+        reads the share kind, so a teacher named as a recipient finds nothing
+        here just as they can open nothing."""
         assert await _visible_uids(gate_backend, TEACHER_C) == []
 
         await gate_backend.execute_query(_DIRECT_SHARE, {"teacher": TEACHER_C, "fs": FS_UNSHARED})
 
-        assert await _visible_uids(gate_backend, TEACHER_C) == [FS_UNSHARED]
+        assert await _visible_uids(gate_backend, TEACHER_C) == []
 
-    async def test_a_row_granted_both_ways_appears_once(self, gate_backend: Any) -> None:
-        """Two audience kinds on one submission is still one row."""
+    async def test_a_row_with_both_link_kinds_appears_once(self, gate_backend: Any) -> None:
+        """A share beside the feedback request is still one row."""
         await gate_backend.execute_query(_DIRECT_SHARE, {"teacher": TEACHER_A, "fs": FS_SHARED_X})
         assert (await _visible_uids(gate_backend, TEACHER_A)).count(FS_SHARED_X) == 1
 
@@ -350,11 +351,13 @@ class TestTeacherScopedSubmissionCount:
                 await _visible_uids(gate_backend, teacher)
             )
 
-    async def test_a_direct_share_is_counted(
+    async def test_a_direct_share_is_not_counted(
         self, gate_backend: Any, template_backend: Any
     ) -> None:
+        """The count reads the same predicate as the list and the gate: a
+        share is not a review grant, so it counts for nobody."""
         await gate_backend.execute_query(_DIRECT_SHARE, {"teacher": TEACHER_C, "fs": FS_UNSHARED})
-        assert await self._count(template_backend, TEACHER_C) == 1
+        assert await self._count(template_backend, TEACHER_C) == 0
 
     async def test_the_unscoped_count_still_sees_everything(self, template_backend: Any) -> None:
         """The admin total is unchanged — and this is the control proving the
@@ -364,7 +367,19 @@ class TestTeacherScopedSubmissionCount:
         assert result.value == 3
 
 
+async def _submit(backend: Any, submission_uid: str, group_uid: str) -> None:
+    """Seed a feedback request the way every form group target is written."""
+    await backend.execute_query(
+        """
+        MATCH (fs:Entity {uid: $fs}), (g:Group {uid: $g})
+        CREATE (fs)-[:SUBMITTED_TO_GROUP]->(g)
+        """,
+        {"fs": submission_uid, "g": group_uid},
+    )
+
+
 async def _share(backend: Any, submission_uid: str, group_uid: str) -> None:
+    """Seed a *share* with a group — the other link kind, which the guards must also see."""
     await backend.execute_query(
         """
         MATCH (fs:Entity {uid: $fs}), (g:Group {uid: $g})
@@ -450,9 +465,10 @@ class TestShareWithDefaultAudience:
     """
 
     async def _shared_groups(self, backend: Any, submission_uid: str) -> list[str]:
+        """The groups whose feedback request the submission carries (SUBMITTED_TO_GROUP)."""
         result = await backend.execute_query(
             """
-            MATCH (fs:Entity {uid: $fs})-[:SHARED_WITH_GROUP]->(g:Group)
+            MATCH (fs:Entity {uid: $fs})-[:SUBMITTED_TO_GROUP]->(g:Group)
             RETURN g.uid AS group_uid
             """,
             {"fs": submission_uid},
@@ -483,17 +499,17 @@ class TestShareWithDefaultAudience:
         await gate_backend.share_with_default_audience(FS_UNSHARED)
         assert await self._shared_groups(gate_backend, FS_UNSHARED) == first
 
-    async def test_a_group_share_landing_first_blocks_the_write(self, gate_backend: Any) -> None:
+    async def test_a_group_request_landing_first_blocks_the_write(self, gate_backend: Any) -> None:
         """The time-of-check gap. The backfill selects an audience-less row,
-        then the owner explicitly shares before the write runs. Re-checking
+        then the owner explicitly submits before the write runs. Re-checking
         inside the statement makes it a no-op instead of piling every classroom
         on top of the audience the owner just chose.
 
-        Simulated by writing the explicit share *after* the caller would have
+        Simulated by writing the explicit request *after* the caller would have
         selected the row and before the audience write — which is exactly the
         interleaving, since the two are separate transactions.
         """
-        await _share(gate_backend, FS_UNSHARED, GROUP_X)
+        await _submit(gate_backend, FS_UNSHARED, GROUP_X)
 
         result = await gate_backend.share_with_default_audience(FS_UNSHARED)
 
@@ -502,9 +518,21 @@ class TestShareWithDefaultAudience:
         # Group Y must NOT have been added on top of the owner's choice.
         assert await self._shared_groups(gate_backend, FS_UNSHARED) == [GROUP_X]
 
+    async def test_a_group_share_landing_first_blocks_the_write(self, gate_backend: Any) -> None:
+        """The other link kind is an audience too: a SHARED_WITH_GROUP share
+        is a deliberate choice the default must not widen, so both guards
+        check both kinds."""
+        await _share(gate_backend, FS_UNSHARED, GROUP_X)
+
+        result = await gate_backend.share_with_default_audience(FS_UNSHARED)
+
+        assert result.is_ok, result.error
+        assert result.value == []
+        assert await self._shared_groups(gate_backend, FS_UNSHARED) == []
+
     async def test_a_direct_share_landing_first_blocks_the_write(self, gate_backend: Any) -> None:
         """The same race via ``recipient_uids``, which writes no group edge at
-        all — so a guard checking only SHARED_WITH_GROUP would miss it."""
+        all — so a guard checking only the group kinds would miss it."""
         await gate_backend.execute_query(_DIRECT_SHARE, {"teacher": TEACHER_C, "fs": FS_UNSHARED})
 
         result = await gate_backend.share_with_default_audience(FS_UNSHARED)

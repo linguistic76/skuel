@@ -10,7 +10,7 @@ The living/submit channel end-to-end against a real Neo4j container:
     flip to status: submitted + sync
         → exactly one frozen copy through the existing turn-in machinery
           (fresh node, FULFILLS_EXERCISE {revision}, Interaction,
-          SHARED_WITH_GROUP routing to the teacher's group)
+          SUBMITTED_TO_GROUP routing to the teacher's group)
     idle re-sync while submitted → no second copy (content unchanged)
     edit while submitted + sync  → revision-2 copy; prior copy intact
 
@@ -250,7 +250,7 @@ async def test_submit_flip_files_one_frozen_copy(
             await session.run(
                 """
                 MATCH (copy:Entity:UserEntry {uid: $copy_uid})
-                      -[:SHARED_WITH_GROUP]->(g:Group {uid: $group_uid})
+                      -[:SUBMITTED_TO_GROUP]->(g:Group {uid: $group_uid})
                 RETURN count(g) AS n
                 """,
                 copy_uid=copy_uid,
@@ -326,7 +326,7 @@ async def test_unreachable_teacher_surfaces_error_and_compensates(
     student = await seed_user("user_ue_loner", name="Loner")
     exercise_uid = await seed_exercise("exercise.ue_personal", group_uid=None)
     async with neo4j_driver.session() as session:
-        # Owner passes the use-guard; no SHARED_WITH_GROUP → no reviewer
+        # Owner passes the use-guard; no group to submit to → no reviewer
         await session.run(
             "MATCH (ex:Entity {uid: $uid}) SET ex.user_uid = $owner",
             uid=exercise_uid,
