@@ -26,8 +26,12 @@ What is re-typed, and why only that:
   An explicit ``group:`` share on ``none`` / ``llm_summary`` is a legitimate
   share, and a row made before PR 1 cannot be traced to its source (the
   vault ``teachers`` default of the time, or an explicit ``group:``), so a
-  non-zero count is a stop-and-look: a person rules on those rows, then
-  re-runs. Live 2026-09-24: 0 such rows.
+  non-zero count is a stop-and-look: a person rules on each such row —
+  delete it in the graph, or keep it as a share by naming it with
+  ``--keep-share <entry_uid> <group_uid>`` (repeatable) — then re-runs. A
+  kept row is excluded from the stop and left untouched; a ``--keep-share``
+  that matches no off-pipeline row is an error, so a stale ruling cannot
+  pass silently. Live 2026-09-24: 0 such rows.
 
 Re-typing is the no-APOC MERGE + copy + DELETE pattern
 (``migrate_supports_habit_to_reinforces_habit_2026_08.cypher``): the new edge
@@ -49,6 +53,8 @@ through ``SHARED_WITH_GROUP`` — which reads 0 once the re-type has run.
 Usage:
     uv run scripts/migrations/split_submissions_from_shares_2026_09.py            # census
     uv run scripts/migrations/split_submissions_from_shares_2026_09.py --confirm  # re-type
+    uv run scripts/migrations/split_submissions_from_shares_2026_09.py \
+        --keep-share ue_abc group_xyz --confirm   # a ruled-legitimate share stays
 """
 
 from __future__ import annotations
@@ -155,8 +161,14 @@ def _print_rows(heading: str, rows: list[Row]) -> None:
         )
 
 
-async def _census(driver: AsyncDriver) -> tuple[list[Row], list[Row], int]:
-    """Print the census; return (user-entry rows, form rows, off-pipeline count)."""
+async def _census(
+    driver: AsyncDriver, kept: set[tuple[str, str]]
+) -> tuple[list[Row], list[Row], list[Row]]:
+    """Print the census; return (user-entry rows, form rows, unruled off-pipeline rows).
+
+    ``kept`` holds the ``(entry_uid, group_uid)`` pairs a person ruled to be
+    legitimate shares; they print as kept and are not counted as unruled.
+    """
     params = {
         "form_submission": EntityType.FORM_SUBMISSION.value,
         "teacher_review": Pipeline.TEACHER_REVIEW.value,
@@ -167,12 +179,15 @@ async def _census(driver: AsyncDriver) -> tuple[list[Row], list[Row], int]:
         print("  (none)")
     for row in by_pipeline:
         print(f"  {row['pipeline'] or '<none>'}: {row['edges']}")
-    off_pipeline = sum(
-        int(row["edges"]) for row in by_pipeline if row["pipeline"] != Pipeline.TEACHER_REVIEW.value
-    )
-
     ue_rows = await _fetch(driver, _USER_ENTRY_OLD_ROWS, params)
     _print_rows(f"UserEntry rows carrying {_OLD} (teacher_review rows are RE-TYPED)", ue_rows)
+    off_pipeline = [r for r in ue_rows if r["pipeline"] != Pipeline.TEACHER_REVIEW.value]
+    kept_rows = [r for r in off_pipeline if (str(r["uid"]), str(r["group_uid"])) in kept]
+    unruled = [r for r in off_pipeline if (str(r["uid"]), str(r["group_uid"])) not in kept]
+    if kept_rows:
+        print(f"\nKept as shares (--keep-share, untouched): {len(kept_rows)}")
+        for row in kept_rows:
+            print(f"  {row['uid']}  [{row['pipeline']}]  → {row['group_uid']}")
     form_rows = await _fetch(driver, _FORM_OLD_ROWS, params)
     _print_rows(f"FormSubmission rows carrying {_OLD} (ALL are RE-TYPED)", form_rows)
 
@@ -190,7 +205,7 @@ async def _census(driver: AsyncDriver) -> tuple[list[Row], list[Row], int]:
         f"\nClassmate-visible turn-ins (a MEMBER_OF member reaching a teacher_review "
         f"entry it does not own through {_OLD}): {turn_ins} entries, {viewers} viewers"
     )
-    return ue_rows, form_rows, off_pipeline
+    return ue_rows, form_rows, unruled
 
 
 async def main() -> int:
@@ -202,22 +217,46 @@ async def main() -> int:
         action="store_true",
         help="Write the re-type (default is a census: print every row, change nothing)",
     )
+    parser.add_argument(
+        "--keep-share",
+        nargs=2,
+        action="append",
+        default=[],
+        metavar=("ENTRY_UID", "GROUP_UID"),
+        help=(
+            "An off-pipeline UserEntry edge a person ruled to be a legitimate share: "
+            "excluded from the stop and left untouched (repeatable)"
+        ),
+    )
     args = parser.parse_args()
+    kept: set[tuple[str, str]] = {(str(e), str(g)) for e, g in args.keep_share}
 
     from adapters.persistence.neo4j.neo4j_connection import Neo4jConnection
 
     driver = Neo4jConnection().connect()
     try:
         print("=== BEFORE ===")
-        ue_rows, form_rows, off_pipeline = await _census(driver)
+        ue_rows, form_rows, unruled = await _census(driver, kept)
 
-        if off_pipeline:
+        present = {(str(r["uid"]), str(r["group_uid"])) for r in ue_rows}
+        stale_keeps = sorted(kept - present)
+        if stale_keeps:
             print(
-                f"\nSTOP: {off_pipeline} UserEntry {_OLD} edge(s) sit on a pipeline other "
-                "than teacher_review. Those may be legitimate shares (an explicit "
-                "'group:' on none / llm_summary) or the old vault 'teachers' default — "
-                "the row cannot say which. A person rules on each row above (keep it "
-                "as a share, or delete it), then re-runs. Nothing was written."
+                f"\nSTOP: --keep-share names {len(stale_keeps)} row(s) that carry no {_OLD} edge:"
+            )
+            for entry_uid, group_uid in stale_keeps:
+                print(f"  {entry_uid} → {group_uid}")
+            print("A ruling must name a live row. Nothing was written.")
+            return 2
+
+        if unruled:
+            print(
+                f"\nSTOP: {len(unruled)} UserEntry {_OLD} edge(s) sit on a pipeline other "
+                "than teacher_review and carry no ruling. Those may be legitimate shares "
+                "(an explicit 'group:' on none / llm_summary) or the old vault 'teachers' "
+                "default — the row cannot say which. A person rules on each such row above: "
+                "delete it in the graph, or keep it with --keep-share <entry_uid> <group_uid>; "
+                "then re-run. Nothing was written."
             )
             return 2
 
@@ -244,7 +283,7 @@ async def main() -> int:
         print(f"\nRe-typed {ue_count} UserEntry edge(s) and {form_count} FormSubmission edge(s).")
 
         print("\n=== AFTER ===")
-        ue_after, form_after, _ = await _census(driver)
+        ue_after, form_after, _ = await _census(driver, kept)
         remaining = [r for r in ue_after if r["pipeline"] == Pipeline.TEACHER_REVIEW.value]
         if remaining or form_after:
             print(
