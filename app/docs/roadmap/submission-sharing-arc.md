@@ -690,6 +690,13 @@ it first removes both.
     a non-TEACHER_REVIEW entry.
 - **R8 co-membership** is enforced where person links are written: the resolver's user step, plus
   `form_submission_service` `recipient_uids` (`share_with_admin` stays exempt).
+  - **Every door validates every audience target before its first write** (settled at PR 0
+    review). For a UserEntry that is `AudienceResolver.validate` / `validate_references`, which
+    `create_entry` already runs before it persists (`user_entry_service.py:153-162`): it resolves and checks each `user:` (exists, co-member) and each
+    `group:` / `teacher:` target (exists, active, the owner is a member or owner) — today the entry
+    is written (`user_entry_service.py:289-314`) before the resolver applies the audience
+    (`:343-350`), so a refusal found there would error over a committed entry, leave a mixed list
+    half-shared, and duplicate on retry. The post-persist step then writes only validated targets.
   - **Every audience target is validated before anything is written** (settled at PR 0 review):
     `submit_form` persists the submission and its relationships (`form_submission_service.py:143-149`)
     before `_share_on_submit` runs (`:158-159`), so a refusal found afterwards would report failure
