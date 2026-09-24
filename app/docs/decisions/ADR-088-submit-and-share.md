@@ -217,9 +217,11 @@ One parser and applier, used by the web form, the JSON API and the vault:
 | `group:<uid>` | `SHARED_WITH_GROUP` |
 | `user:<username>` | `SHARES_WITH`, only with a co-member (§7) |
 | `public` | `visibility = public` (TEACHER-gated) |
-| `private` | no links |
+| `private` | no links — exclusive: it combines with no other value |
 
-Lists are accepted; case is preserved (usernames match exactly).
+Lists are accepted; case is preserved (usernames match exactly). `private` is exclusive: a list that
+combines it with any other value (say `[private, user:bob]`) is a parse error, never a silent
+choice of which wins.
 
 ---
 

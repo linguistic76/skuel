@@ -123,7 +123,7 @@ entry.visibility ∈ {private, public}                      public = portfolio (
 | `group:<uid>` | SHARED_WITH_GROUP |
 | `user:<username>` | SHARES_WITH, only with a co-member |
 | `public` | Visibility public (TEACHER-gated) |
-| `private` | No links |
+| `private` | No links — exclusive: combined with any other value it is a parse error |
 
 - A feedback request requires pipeline TEACHER_REVIEW, so the edge and the pipeline always agree.
 - **One audience predicate fragment** checks `(viewer)-[:MEMBER_OF|OWNS]->(g:Group)<-[:SHARED_WITH_GROUP]-(n)`
@@ -529,8 +529,13 @@ it first removes both.
   - Verified at PR 0: the field name collides with a local in `user_entry_service.py:229` that means
     the submitted-against uid — rename one.
 - **Backfill** (census/`--confirm`): root = coalesce(the direct FULFILLS_EXERCISE target,
-  FULFILLS_REVISED_EXERCISE→REVISES_EXERCISE, RE.original_exercise_uid). Count unrecoverable orphans
-  (live 2026-09-24: 4 turn-ins, all with a direct edge to a live Exercise — all recoverable).
+  FULFILLS_REVISED_EXERCISE→REVISES_EXERCISE, RE.original_exercise_uid, **the entry's retained
+  `fulfills_exercise_uid` property** — resolved through a RevisedExercise's `original_exercise_uid`
+  when it names one). The property is the only trace of an exchange whose exercise was deleted
+  before this PR (`DETACH DELETE` removes the edge, not the property), so it is the fallback that lets
+  those exchanges satisfy R12 too; with no live exercise the title is the "exercise removed"
+  placeholder (settled at PR 0 review). Count what stays unrecoverable (live 2026-09-24: 4 turn-ins,
+  all with a direct edge to a live Exercise — all recoverable).
   It runs before the new code serves (§ Standing conventions → Migrations): un-backfilled turn-ins
   would drop out of their exchanges into Other feedback — the defect this PR fixes.
 - **The snapshot becomes the exchange key.** `get_student_exchange_summaries_raw` and
@@ -682,7 +687,8 @@ it first removes both.
   audience" sentence, and refusing `entry.private` is a **new rule** that reverses the documented
   `private` ⊥ sharing contract (`user_entry.py:108-113`, `user_entry_request.py:73-80` — update both
   docstrings). ADR-088 records it as its amendment of ADR-054 §5.
-- **Tests:** the parser matrix; co-membership; uniform errors; the JSON door; forms recipients.
+- **Tests:** the parser matrix (including `private` combined with another value → a parse error);
+  co-membership; uniform errors; the JSON door; forms recipients.
 - **Docs:** the "amended by ADR-088" notes on ADR-054 §3 (the audience options and the YAML
   `audience:` rows — `teacher:<group_uid>`, `user:<username>`, lists), §4 (the turn-in edge), §5
   (the lifetime gate and the `private: true` refusal) and its Consequences ("post to a group feed");
