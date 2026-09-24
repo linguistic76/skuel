@@ -411,10 +411,13 @@ carry — folded in as contract; the ones that change the plan say "settled at P
   `user_entry_orchestrator.py:215`, and the stale_names reason at `stale_names.py:265`.
 - **Ruled (PR 1 session, 2026-09-24 — engineering choices the census found unsettled; none touches
   a ruling):**
-  - The interim `share_with_groups` → `submit_to_groups` mapping on a TEACHER_REVIEW request lives
-    in `UserEntryCreateRequest` (an `after` model validator) — the one convergence point every door
-    builds, so the JSON body, the web `group:` form and the vault `group:` all take it without a
-    route edit. PR 6a retires it there.
+  - The interim per-teacher route lives at the two legacy doors, not on the request model: the web
+    `audience=group:<uid>` parser and the vault `audience: group:<uid>` parser fill
+    `submit_to_groups` on TEACHER_REVIEW and `share_with_groups` otherwise. The JSON body speaks
+    the two fields literally — `share_with_groups` on a TEACHER_REVIEW request stays a share, and
+    without a feedback target it is refused by `validate()` (never silently re-typed; Codex P2 on
+    #1414 — a model-level mapping swallowed an explicit share sent beside `submit_to_groups`).
+    PR 6a retires the door mapping with `teacher:<group_uid>`.
   - `SUBMITTED_TO_GROUP` carries `submitted_at` only (stamped on create; a re-file keeps it).
     The migration maps the old edge's `shared_at` onto it and does **not** carry `share_version`
     — a share concept, `original` on every live row; a feedback request has no versions.

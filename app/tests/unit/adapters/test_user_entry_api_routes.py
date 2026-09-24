@@ -175,6 +175,43 @@ class TestUploadGuards:
         assert response.status_code == 400
         harness.entries.create_entry.assert_not_awaited()
 
+    def test_group_audience_on_teacher_review_is_a_feedback_request(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """The form's ``group:<uid>`` on TEACHER_REVIEW is the per-teacher
+        route (ADR-088 §2): a feedback request with that group's teacher,
+        never a share with its members."""
+        harness = _make_harness(monkeypatch)
+
+        response = harness.client.post(
+            "/api/user-entries/upload",
+            data={"pipeline": "teacher_review", "audience": "group:g_one_teacher"},
+            files={"file": ("entry.md", b"# Notes", "text/markdown")},
+            headers=_csrf(harness.client),
+        )
+
+        assert response.status_code == 201
+        req = harness.entries.create_entry.await_args.kwargs["request"]
+        assert req.submit_to_groups == ["g_one_teacher"]
+        assert req.share_with_groups == []
+
+    def test_group_audience_on_another_pipeline_is_a_share(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        harness = _make_harness(monkeypatch)
+
+        response = harness.client.post(
+            "/api/user-entries/upload",
+            data={"pipeline": "none", "audience": "group:g_class"},
+            files={"file": ("entry.md", b"# Notes", "text/markdown")},
+            headers=_csrf(harness.client),
+        )
+
+        assert response.status_code == 201
+        req = harness.entries.create_entry.await_args.kwargs["request"]
+        assert req.share_with_groups == ["g_class"]
+        assert req.submit_to_groups == []
+
     def test_text_upload_carries_content_onto_entry(self, monkeypatch: pytest.MonkeyPatch) -> None:
         # Worksheet turn-ins whose text is dropped can never receive feedback —
         # texty uploads must land on entry.content.

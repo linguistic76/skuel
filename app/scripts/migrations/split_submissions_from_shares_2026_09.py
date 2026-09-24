@@ -56,12 +56,19 @@ from __future__ import annotations
 import argparse
 import asyncio
 import sys
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from core.models.enums.entity_enums import EntityType
 from core.models.enums.neo_labels import NeoLabel
 from core.models.enums.pipeline import Pipeline
 from core.models.relationship_names import RelationshipName
+
+if TYPE_CHECKING:
+    from neo4j import AsyncDriver
+
+# One driver record, keyed by RETURN alias. Values are heterogeneous Neo4j
+# scalars (strings, ints, temporal), so the value type is a boundary.
+type Row = dict[str, Any]  # boundary: raw neo4j-driver record
 
 _OLD = RelationshipName.SHARED_WITH_GROUP.value
 _NEW = RelationshipName.SUBMITTED_TO_GROUP.value
@@ -131,12 +138,12 @@ RETURN count(stale) AS edges_migrated
 """
 
 
-async def _fetch(driver: Any, query: str, params: dict[str, Any]) -> list[dict[str, Any]]:
+async def _fetch(driver: AsyncDriver, query: str, params: dict[str, str]) -> list[Row]:
     result = await driver.execute_query(query, params)
     return [dict(record) for record in result.records]
 
 
-def _print_rows(heading: str, rows: list[dict[str, Any]]) -> None:
+def _print_rows(heading: str, rows: list[Row]) -> None:
     print(f"\n{heading}: {len(rows)}")
     for row in rows:
         pipeline = f"  [{row['pipeline']}]" if "pipeline" in row else ""
@@ -148,7 +155,7 @@ def _print_rows(heading: str, rows: list[dict[str, Any]]) -> None:
         )
 
 
-async def _census(driver: Any) -> tuple[list[dict[str, Any]], list[dict[str, Any]], int]:
+async def _census(driver: AsyncDriver) -> tuple[list[Row], list[Row], int]:
     """Print the census; return (user-entry rows, form rows, off-pipeline count)."""
     params = {
         "form_submission": EntityType.FORM_SUBMISSION.value,

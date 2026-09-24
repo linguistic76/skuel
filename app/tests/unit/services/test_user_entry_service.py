@@ -124,10 +124,24 @@ class TestValidateAudience:
         request = UserEntryCreateRequest(
             title="Group turn-in",
             pipeline=Pipeline.TEACHER_REVIEW,
-            share_with_groups=["group_1"],
+            submit_to_groups=["group_1"],
         )
         result = await service.create_entry(request, user_uid="user_1")
         assert result.is_ok
+
+    @pytest.mark.asyncio
+    async def test_teacher_review_with_only_a_group_share_is_refused(self):
+        """A share is not a feedback target (R5); the JSON door's
+        ``share_with_groups`` is never silently re-typed into a request."""
+        service = _make_service(sharing_service=_make_sharing_service())
+        request = UserEntryCreateRequest(
+            title="Shared, not submitted",
+            pipeline=Pipeline.TEACHER_REVIEW,
+            share_with_groups=["group_1"],
+        )
+        result = await service.create_entry(request, user_uid="user_1")
+        assert result.is_error
+        assert "feedback target" in str(result.expect_error()).lower()
 
     @pytest.mark.asyncio
     async def test_pipeline_none_with_no_audience_passes(self):
@@ -625,20 +639,17 @@ class TestAudienceResolution:
 
     @pytest.mark.asyncio
     async def test_explicit_feedback_target_skips_exercise_groups(self):
-        """An explicit group on TEACHER_REVIEW is the per-teacher route: it
-        files the request with that group alone and bypasses the exercise's
-        groups (the interim ``share_with_groups`` → ``submit_to_groups``
-        mapping until PR 6a names ``teacher:<group_uid>``)."""
+        """An explicit ``submit_to_groups`` on TEACHER_REVIEW is the per-teacher
+        route: it files the request with that group alone and bypasses the
+        exercise's groups."""
         sharing = _make_sharing_service()
         service = _make_service(sharing_service=sharing)
         request = UserEntryCreateRequest(
             title="Turn-in",
             pipeline=Pipeline.TEACHER_REVIEW,
             fulfills_exercise_uid="ex_1",
-            share_with_groups=["explicit_group"],
+            submit_to_groups=["explicit_group"],
         )
-        assert request.submit_to_groups == ["explicit_group"]
-        assert request.share_with_groups == []
         await service.create_entry(request, user_uid="user_1")
         sharing.backend.query_exercise_groups_for_member.assert_not_called()
         sharing.submit_to_group.assert_awaited_once()
@@ -924,7 +935,7 @@ class TestShareOutcome:
         request = UserEntryCreateRequest(
             title="Naked to bad group",
             pipeline=Pipeline.TEACHER_REVIEW,
-            share_with_groups=["g1"],
+            submit_to_groups=["g1"],
         )
         result = await service.create_entry(request, user_uid="user_1")
         assert result.is_error
@@ -950,7 +961,7 @@ class TestShareOutcome:
         request = UserEntryCreateRequest(
             title="Mixed success",
             pipeline=Pipeline.TEACHER_REVIEW,
-            share_with_groups=["g1", "g_missing"],
+            submit_to_groups=["g1", "g_missing"],
         )
         result = await service.create_entry(request, user_uid="user_1")
         assert result.is_ok

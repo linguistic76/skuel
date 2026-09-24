@@ -334,9 +334,14 @@ async def build_user_entry_request(
             )
     elif audience.kind == "group":  # skuel-lint: disable=SKUEL014 -- audience kind, not domain
         assert audience.group_uid is not None  # parser guarantees this
-        # A share. On TEACHER_REVIEW the request model routes it to
-        # ``submit_to_groups`` — the per-teacher route until PR 6a names it.
-        share_with_groups = [audience.group_uid]
+        # On TEACHER_REVIEW the note's one group is the per-teacher route — a
+        # feedback request with that group's teacher, not a share with its
+        # members (ADR-088 §2; PR 6a names it ``teacher:<group_uid>``). On
+        # every other pipeline it is a share.
+        if pipeline == Pipeline.TEACHER_REVIEW:
+            submit_to_groups = [audience.group_uid]
+        else:
+            share_with_groups = [audience.group_uid]
     elif audience.kind == "public":
         role_check = await _require_teacher_for_public(user_uid, user_service)
         if role_check.is_error:

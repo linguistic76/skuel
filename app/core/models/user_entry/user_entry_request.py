@@ -18,7 +18,7 @@ See: /docs/decisions/ADR-088-submit-and-share.md
 
 from typing import Any
 
-from pydantic import Field, model_validator
+from pydantic import Field
 
 from core.models.enums import Domain
 from core.models.enums.entity_enums import EntityStatus
@@ -131,7 +131,9 @@ class UserEntryCreateRequest(CreateRequestBase):
             "Group UIDs to file a feedback request with (SUBMITTED_TO_GROUP — "
             "read by the groups' owning teachers only). Applied only when "
             "pipeline=TEACHER_REVIEW: a feedback request and its pipeline "
-            "always agree, so on any other pipeline these write no link."
+            "always agree, so on any other pipeline these write no link. "
+            "Independent of share_with_groups: a request may both ask one "
+            "group's teacher for feedback and share with another group."
         ),
     )
     share_with_groups: list[str] = Field(
@@ -159,26 +161,6 @@ class UserEntryCreateRequest(CreateRequestBase):
             "Visibility override. Defaults to PRIVATE; set PUBLIC for portfolio publication."
         ),
     )
-
-    @model_validator(mode="after")
-    def _route_teacher_review_groups_to_submit(self) -> UserEntryCreateRequest:
-        """On TEACHER_REVIEW, an explicit group target is a feedback request.
-
-        Until the one audience vocabulary names the per-teacher route
-        (``teacher:<group_uid>``, Submit & Share arc PR 6a), ``group:<uid>``
-        on a TEACHER_REVIEW request keeps its meaning of "send this to that
-        teacher's group": the groups move from ``share_with_groups`` to
-        ``submit_to_groups`` here, at the one convergence point every door
-        builds, so the web ``audience=group:`` form, the JSON body and the
-        vault ``audience: group:`` all file a request instead of a share.
-        Every other pipeline keeps ``share_with_groups`` as a share.
-        """
-        if self.pipeline == Pipeline.TEACHER_REVIEW and self.share_with_groups:
-            merged = list(self.submit_to_groups)
-            merged.extend(g for g in self.share_with_groups if g not in merged)
-            self.submit_to_groups = merged
-            self.share_with_groups = []
-        return self
 
 
 class UserEntryUpdateRequest(UpdateRequestBase):

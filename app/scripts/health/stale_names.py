@@ -442,9 +442,10 @@ ALLOWED_OCCURRENCES: dict[str, dict[tuple[int, str], Allow]] = {
         (432, "ExpenseCreateRequest"): Allow(_adr035),
         (439, "ExpenseDTO"): Allow(_adr035),
     },
+    # The three ADRs below carry "amended by ADR-088" notes above these lines;
+    # anchors follow the file's current line numbers, re-derived from the
+    # scanner's report whenever a note is added above them.
     "docs/decisions/ADR-040-teacher-exercise-workflow.md": {
-        # +2 (2026-09-24, Submit & Share arc PR 1): the header gained its
-        # "amended by ADR-088" note. Re-derived from the scanner's report.
         (29, "ProcessorType"): Allow(_adr040),
         (32, "SubmissionsSharingService"): Allow(_adr040),
         (59, "ProcessorType"): Allow(_adr040),
@@ -465,8 +466,6 @@ ALLOWED_OCCURRENCES: dict[str, dict[tuple[int, str], Allow]] = {
         (82, "KuType"): Allow(_adr041),
     },
     "docs/decisions/ADR-042-privacy-as-first-class-citizen.md": {
-        # +5 (2026-09-24, Submit & Share arc PR 1): §7 gained its "amended by
-        # ADR-088" note. Re-derived from the scanner's report.
         (173, "SubmissionsSharingService"): Allow(_adr042),
         (253, "SubmissionsSharingService"): Allow(_adr042),
         (276, "submissions_sharing_service"): Allow(_adr042),
@@ -491,8 +490,6 @@ ALLOWED_OCCURRENCES: dict[str, dict[tuple[int, str], Allow]] = {
         # vault-notes-default-private amendment note; → +1 more the same day when
         # the note grew to name extract_activities. Anchors re-derived from the
         # scanner's report, never by adding the diff's line delta.
-        # → +13 (2026-09-24, Submit & Share arc PR 1): §3, §4 and §6 gained
-        # their "amended by ADR-088" notes. Re-derived from the scanner's report.
         (334, "ProcessorType"): Allow(_adr054),
         (390, "ProcessorType"): Allow(_adr054),
         (441, "ProcessorType"): Allow(_adr054),

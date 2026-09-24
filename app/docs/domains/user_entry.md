@@ -173,9 +173,10 @@ role check.
 `SUBMITTED_TO_GROUP` edges (ADR-088 §2). `AudienceResolver.validate()` therefore accepts only a
 feedback target — `submit_to_groups` or `fulfills_exercise_uid` — for a `TEACHER_REVIEW`
 request; `share_with_users` / `share_with_groups` let people see the work and put it in no
-queue. Until PR 6a names `teacher:<group_uid>`, an explicit `share_with_groups` on a
-TEACHER_REVIEW request is routed to `submit_to_groups` by the request model (the per-teacher
-route). On any other pipeline a feedback target writes no link at all.
+queue. Until PR 6a names `teacher:<group_uid>`, the web `audience=group:<uid>` form and the vault
+`audience: group:<uid>` fill `submit_to_groups` on TEACHER_REVIEW (the per-teacher route); the
+JSON body's two fields are taken literally. On any other pipeline a feedback target writes no
+link at all.
 
 `AudienceResolver` is deliberately a standalone helper rather than facade-private:
 the `/api/user-entries/upload` ingestion path reuses the same validation without going through

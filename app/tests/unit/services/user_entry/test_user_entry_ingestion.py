@@ -220,7 +220,7 @@ class TestBuildUserEntryRequest:
     @pytest.mark.asyncio
     async def test_explicit_group_audience_on_teacher_review_is_a_feedback_request(self):
         """``group:<uid>`` on TEACHER_REVIEW keeps the per-teacher route: the
-        request model routes it to ``submit_to_groups`` (until PR 6a names
+        vault door fills ``submit_to_groups`` (until PR 6a names
         ``teacher:<group_uid>``)."""
         result = await build_user_entry_request(
             data={"pipeline": "teacher_review", "audience": "group:g_class"},

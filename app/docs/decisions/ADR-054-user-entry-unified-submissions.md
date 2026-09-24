@@ -171,8 +171,8 @@ of on `entity_type` + `file_type`.
 feedback request — `SUBMITTED_TO_GROUP`, written only on `pipeline=TEACHER_REVIEW` and read only
 by the group's owning teachers; `teachers` on any other pipeline writes no link. **Group** stays a
 share (`SHARED_WITH_GROUP`, every member) — except that until the arc's PR 6a names
-`teacher:<group_uid>`, `group:<uid>` on a TEACHER_REVIEW request is routed to the feedback request
-(the per-teacher route). A **Peer** share is never a feedback target. The web form, the JSON API and
+`teacher:<group_uid>`, `group:<uid>` at the web form and the vault door files the feedback request
+on a TEACHER_REVIEW note (the per-teacher route); the JSON body's `share_with_groups` stays a share. A **Peer** share is never a feedback target. The web form, the JSON API and
 the vault will speak one vocabulary from PR 6a.
 
 `UserEntry` is shared via `UnifiedSharingService` at creation time. The

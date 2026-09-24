@@ -63,17 +63,22 @@ class TestValidate:
         )
         assert resolver.validate(req).is_ok
 
-    def test_teacher_review_with_groups_passes(self):
-        """An explicit group on TEACHER_REVIEW is routed to ``submit_to_groups``
-        by the request model — a feedback target, so the validator passes."""
+    def test_teacher_review_with_only_a_group_share_fails(self):
+        """The two fields are independent verbs: ``share_with_groups`` on a
+        TEACHER_REVIEW request stays a share, and a share is not a feedback
+        target — so with no exercise and no ``submit_to_groups`` it is refused,
+        never silently re-typed into a request."""
         resolver = AudienceResolver(sharing_service=None, group_service=None)
         req = UserEntryCreateRequest(
             title="x",
             pipeline=Pipeline.TEACHER_REVIEW,
             share_with_groups=["g1"],
         )
-        assert req.submit_to_groups == ["g1"]
-        assert resolver.validate(req).is_ok
+        assert req.share_with_groups == ["g1"]
+        assert req.submit_to_groups == []
+        result = resolver.validate(req)
+        assert result.is_error
+        assert "feedback target" in str(result.expect_error()).lower()
 
     def test_teacher_review_with_submit_to_groups_passes(self):
         resolver = AudienceResolver(sharing_service=None, group_service=None)
@@ -179,14 +184,14 @@ class TestResolveAndShare:
 
     @pytest.mark.asyncio
     async def test_explicit_groups_on_teacher_review_file_feedback_requests(self):
-        """An explicit group on TEACHER_REVIEW is a feedback request
+        """``submit_to_groups`` on TEACHER_REVIEW files feedback requests
         (SUBMITTED_TO_GROUP): never a share, so classmates see nothing."""
         sharing = _make_sharing_service()
         resolver = AudienceResolver(sharing_service=sharing, group_service=None)
         req = UserEntryCreateRequest(
             title="x",
             pipeline=Pipeline.TEACHER_REVIEW,
-            share_with_groups=["g1", "g2"],
+            submit_to_groups=["g1", "g2"],
         )
 
         result = await resolver.resolve_and_share("ue_1", "user_1", req)
@@ -218,6 +223,28 @@ class TestResolveAndShare:
         assert result.value.submitted_groups == ()
         sharing.share_with_group.assert_awaited_once()
         sharing.submit_to_group.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_a_request_and_a_share_on_one_entry_keep_both_verbs(self):
+        """Submit to one group's teacher AND share with another group: the
+        request is filed with the first, the share with the second, neither
+        re-typed into the other."""
+        sharing = _make_sharing_service()
+        resolver = AudienceResolver(sharing_service=sharing, group_service=None)
+        req = UserEntryCreateRequest(
+            title="x",
+            pipeline=Pipeline.TEACHER_REVIEW,
+            submit_to_groups=["g_teacher"],
+            share_with_groups=["g_class"],
+        )
+
+        result = await resolver.resolve_and_share("ue_1", "user_1", req)
+
+        assert result.is_ok
+        assert result.value.submitted_groups == ("g_teacher",)
+        assert result.value.shared_groups == ("g_class",)
+        assert sharing.submit_to_group.await_args.kwargs["group_uid"] == "g_teacher"
+        assert sharing.share_with_group.await_args.kwargs["group_uid"] == "g_class"
 
     @pytest.mark.asyncio
     async def test_a_matched_request_is_a_success_and_only_a_created_one_is_new(self):
