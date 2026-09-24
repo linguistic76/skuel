@@ -59,7 +59,8 @@ entry ──SHARED_WITH_GROUP {shared_at, share_version}──▶ Group ◀─ME
   a review grant.
 - Migration: `scripts/migrations/split_submissions_from_shares_2026_09.py` (census by default,
   `--confirm` to re-type; it refuses to run while a non-`teacher_review` UserEntry still carries
-  the old kind — a person rules on those rows first).
+  the old kind — a person rules on those rows first, deleting the edge or keeping it as a share
+  with `--keep-share <entry_uid> <group_uid>`).
 
 ### Quality Control
 

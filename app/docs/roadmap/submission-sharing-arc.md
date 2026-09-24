@@ -428,6 +428,10 @@ carry — folded in as contract; the ones that change the plan say "settled at P
   - The vault door resolves `teachers` only on TEACHER_REVIEW and skips the group lookup on other
     pipelines (same behaviour as "fill then gate", one query fewer); the explicit-value warning is
     a `logger.warning` on the ingest, keyed on `data["audience"]` being present.
+  - The migration's stop-and-look has a door: a person's "keep it as a share" ruling on an
+    off-pipeline row is passed as `--keep-share <entry_uid> <group_uid>` (repeatable); the row is
+    left untouched and excluded from the stop, and a ruling naming no live row is itself a stop
+    (Codex P2 on #1414 — without it a kept share blocked the re-type forever).
 
 ### PR 2b — Feedback is identified by its outcome; the EntryReport access check retires
 
