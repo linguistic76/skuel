@@ -379,6 +379,11 @@ carry — folded in as contract; the ones that change the plan say "settled at P
     `--confirm`.
   - `--confirm` re-types teacher_review UserEntry edges and **all** FormSubmission edges, using the
     no-APOC MERGE + copy + DELETE pattern (`migrate_supports_habit_to_reinforces_habit_2026_08.cypher`).
+  - **The teacher_review rows are listed too, for a person to confirm** (settled at PR 0 review): the
+    old edge meant both "for my teacher" and "for my class" and records no intent. The migration reads
+    a teacher_review edge as a feedback request — Refinement 2: `group:` on TEACHER_REVIEW *was* the
+    per-teacher route — which only narrows access; an owner who meant a class share re-shares through
+    PR 6b's door. Live 2026-09-24: 2 rows, both curriculum-fallback turn-ins to the default group.
   - It only narrows access. Live census 2026-09-24: 2 UserEntry edges (both teacher_review), 0
     FormSubmission edges. Deploy order: § Standing conventions → Migrations (the new queue reads
     `SUBMITTED_TO_GROUP` while the old code writes `SHARED_WITH_GROUP`).
@@ -697,6 +702,13 @@ it first removes both.
     is written (`user_entry_service.py:289-314`) before the resolver applies the audience
     (`:343-350`), so a refusal found there would error over a committed entry, leave a mixed list
     half-shared, and duplicate on retry. The post-persist step then writes only validated targets.
+  - **The writes stay guarded, and a late refusal compensates** (settled at PR 0 review): validation
+    and the writes are separate operations, so a membership removal or a group deactivation can land
+    between them. Each audience write re-checks its own authorization in its statement — the group
+    MERGE's membership/active guard (PR 1), and a co-membership guard added to the person
+    `SHARES_WITH` MERGE — and when a guarded write refuses after validation passed, step 5a
+    compensates everything this call wrote (the entry it created and every edge it wrote), for
+    forms as for UserEntries. No authorization-less edge is ever written.
   - **Every audience target is validated before anything is written** (settled at PR 0 review):
     `submit_form` persists the submission and its relationships (`form_submission_service.py:143-149`)
     before `_share_on_submit` runs (`:158-159`), so a refusal found afterwards would report failure
