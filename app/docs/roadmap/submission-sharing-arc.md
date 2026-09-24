@@ -263,14 +263,14 @@ PR whose code makes the change true.
 — PR 2b / PR 6b; ADR-054 §4 ("`FULFILLS_EXERCISE` + `SHARED_WITH_GROUP` is an exercise turn-in"),
 its Consequences ("post to a group feed") and its Postscript (the queue on `SHARED_WITH_GROUP`) —
 PR 1 / PR 6a; ADR-038 §4 ("Only Completed Reports Shareable") — for a UserEntry the share gate
-(`_check_shareable`, `unified_sharing_service.py:476`) refuses only `archived`; PR 6b decides whether
-R2 lifts that.
+(`_check_shareable`, `unified_sharing_service.py:476`) refuses only `archived` — R2 ("any time")
+lifts that in PR 6b (settled at PR 0 review).
 
 ## Choices — per PR
 
 Every file:line below was checked on `d65f624fd` at PR 0 and is a **hint**: re-verify by grepping
 the symbol, never trust the number. **Verified at PR 0** bullets are findings the plan did not
-carry; each is either folded in or named as a choice the PR must make before it writes code.
+carry — folded in as contract; the ones that change the plan say "settled at PR 0 review".
 
 ### PR 0 — Arc record (docs only)
 
@@ -312,26 +312,26 @@ carry; each is either folded in or named as a choice the PR must make before it 
     success); `newly_submitted_groups` = the `created` subset, which feeds PR 7's bell — mirroring
     PR 6b's `newly_shared_users`. A created-only `submitted_groups` would make every idle re-sync of a
     living `teacher_review` note read as zero reach once PR 7 moves the compensation.
-  - **Verified at PR 0 — the pipeline gap; rule it before code.** Neither path is TEACHER_REVIEW-only
-    today: the vault's absent-`audience:` default is `teachers` on NONE, LLM_SUMMARY and
+  - **Verified at PR 0 — the pipeline gap (contract, settled at PR 0 review).** Neither path is
+    TEACHER_REVIEW-only today: the vault's absent-`audience:` default is `teachers` on NONE, LLM_SUMMARY and
     TEACHER_REVIEW (Pipeline.shares_by_default, `user_entry_ingestion.py:298-319`; TRANSCRIBE is
     rejected at the door), and web
     `audience=teachers` sets `auto_share_to_exercise_groups` on any pipeline
     (`user_entry_api.py:185-186`), after which the resolver auto-shares to the exercise's groups
     whatever the pipeline (`audience_resolver.py:283-286`; the auto-share block writes edges
     directly, it does not fill a request field). The Architecture's rule — a feedback request
-    requires TEACHER_REVIEW — means `submit_to_groups` is gated on TEACHER_REVIEW. What `teachers`
-    does on the other pipelines is PR 1's choice. **Recommended: on any pipeline other than
-    TEACHER_REVIEW, `teachers` writes no group link** — the vault value (defaulted or explicit) and
-    the web auto-share, curriculum fallback included. It only narrows access, the live census has
-    0 such edges, and it matches R5, R9 and ADR-054 §3's 2026-09-02 amendment (the `teachers` default
-    is submission semantics). An explicit vault `teachers` on such a note logs an ingest warning
+    requires TEACHER_REVIEW — means `submit_to_groups` is gated on TEACHER_REVIEW, and so **on any
+    pipeline other than TEACHER_REVIEW, `teachers` writes no group link** — the vault value
+    (defaulted or explicit) and the web auto-share, curriculum fallback included. This is what the
+    plan's "the vault `teachers` expansion fills `submit_to_groups`" produces once that field is
+    gated; it only narrows access, and it matches R5, R9 and ADR-054 §3's 2026-09-02 amendment (the
+    `teachers` default is submission semantics). The live census (0 such edges) cannot protect
+    against new writes, so it is an acceptance case, not a choice. An explicit vault `teachers` on such a note logs an ingest warning
     (never a silent drop) pointing at `group:<uid>` for a share or `pipeline: teacher_review` for
     feedback; update `test_user_entry_ingestion.py:166` and add a none/llm_summary absent-audience
     case asserting no group link. The rejected alternative — leave it a `SHARED_WITH_GROUP` share —
-    keeps defect 1's second path open to classmates until PR 8. The migration's handling of
-    non-teacher_review rows follows this choice. **Record the ruling in the PR description and as a
-    one-line `Ruled:` under this bullet in the PR's final commit** — PR 6a, PR 7 and PR 8 build on it.
+    would keep defect 1's second path open to classmates until PR 8 beside the new submission
+    semantics.
 - **Forms:** every FormSubmission group target is a feedback request.
   - These writers switch: `share_with_default_audience` (`forms_backends.py:404`) and the group
     branch of `_share_on_submit` (`form_submission_service.py:206`). `/api/form-submissions/share`
@@ -640,30 +640,33 @@ it first removes both.
     lowercases, `user_entry_ingestion.py:84`).
   - It replaces the web parser (`user_entry_api.py:181`) and the vault parser with its private spec
     (`user_entry_ingestion.py:60-107`).
-  - The JSON door's raw `share_with_*` fields are routed through it. **Verified at PR 0 — rule
-    before code:** the JSON `share_with_users` carries user **UIDs** (`user_entry_request.py:126-128`)
-    while the vocabulary's person form is `user:<username>`. Recommended: the JSON door speaks
-    `user:<username>` through `AudienceSpec` and the raw uid field leaves the contract (ADR-088's one
-    vocabulary covers the JSON API; One Path Forward); the resolver maps username → uid internally.
-  - It retires PR 1's interim TEACHER_REVIEW mapping. **Verified at PR 0 — rule before code:** once
-    retired, a TEACHER_REVIEW request whose audience has no feedback target (`teachers` /
-    `teacher:<group_uid>`) is **rejected with guidance** ("to ask this group's teacher for feedback,
-    use `teacher:<group_uid>`") — with or without an exercise, at both doors, on a non-content field
-    (`batch.py:84-86`). Never turn `group:<uid>` into a silent share there: an explicit group share
+  - The JSON door's raw `share_with_*` fields are routed through it. **Verified at PR 0 (contract,
+    settled at PR 0 review):** the JSON `share_with_users` carries user **UIDs**
+    (`user_entry_request.py:126-128`) while the vocabulary's person form is `user:<username>`. The
+    JSON door speaks `user:<username>` through `AudienceSpec` and the raw uid field leaves the
+    contract (ADR-088's one vocabulary covers the JSON API; One Path Forward); the resolver maps
+    username → uid internally.
+  - It retires PR 1's interim TEACHER_REVIEW mapping. **Verified at PR 0 (contract, settled at PR 0
+    review — R5, ADR-088 §8):** once retired, a TEACHER_REVIEW request whose explicit audience names
+    no feedback target (`teachers` / `teacher:<group_uid>`) is **rejected with guidance** ("to ask
+    this group's teacher for feedback, use `teacher:<group_uid>`") — with or without an exercise, at
+    both doors, on a non-content field (`batch.py:84-86`). An absent audience still means `teachers`,
+    and `[teachers, group:<uid>]` (submit and share) is valid. Never turn `group:<uid>` into a silent share there: an explicit group share
     suppresses the exercise auto-share (`audience_resolver.py:282-285`) and counts toward
     `any_success`, so nothing would reach the queue. Reword the `test_review_queue_copy_collapse.py`
     docstrings (`:100`, `:326`) to `teacher:<group_uid>`.
   - `teachers` keeps the member intersection and the curriculum default-group fallback
     (`audience_resolver.py:282-317`, `sharing_backend.py:316-345`); test that a curriculum turn-in
-    still reaches the default group's owner. On a non-TEACHER_REVIEW pipeline it follows PR 1's
-    recorded ruling (see PR 1's pipeline-gap bullet).
-  - **Verified at PR 0 — the vault window until PR 8; rule before code.** `create_entry` step 5 runs
+    still reaches the default group's owner. On a non-TEACHER_REVIEW pipeline it writes no link
+    (PR 1's pipeline-gap contract).
+  - **Verified at PR 0 — the vault window until PR 8 (contract, settled at PR 0 review — R9).**
+    `create_entry` step 5 runs
     `resolve_and_share` on the living-note upsert too (`user_entry_service.py:343-348`), and
     `_file_submission_copy` does not carry the audience, so a vault `user:` / `teacher:` applied here
-    would share a mutable draft (against R9) — and be data PR 8 must retract. Recommended: on an
-    absolute-path vault note, parse and validate `user:` / `teacher:` but do not apply them; warn
-    "applies when `status: submitted` files a copy (PR 8)". Never write `SUBMITTED_TO_GROUP` on a
-    non-TEACHER_REVIEW entry.
+    would share a mutable draft (against R9) — and be data PR 8 must retract. So on an
+    absolute-path vault note, `user:` / `teacher:` are parsed and validated but not applied; the sync
+    warns "applies when `status: submitted` files a copy (PR 8)". Never write `SUBMITTED_TO_GROUP` on
+    a non-TEACHER_REVIEW entry.
 - **R8 co-membership** is enforced where person links are written: the resolver's user step, plus
   `form_submission_service` `recipient_uids` (`share_with_admin` stays exempt).
   - The helper is `shares_group_with(owner, recipient)`, which excludes default-group co-membership.
@@ -696,8 +699,10 @@ it first removes both.
   - Only `group:` / `user:` are accepted.
   - Unshare calls `unshare` / `unshare_from_group`, which can't touch SUBMITTED_TO_GROUP.
   - A Share button sits on the `/gradebook/{uid}` owner view and on each version in the exchange thread.
-  - Verified at PR 0: the share gate (`_check_shareable`) refuses an `archived` UserEntry — decide
-    whether R2 ("any time") lifts that.
+  - Verified at PR 0: the share gate (`_check_shareable`) refuses an `archived` UserEntry. **R2
+    ("anything, any time") lifts it** (settled at PR 0 review): the UserEntry branch accepts every
+    status, and the privacy refusals (a non-sharing pipeline, `private: true`) are the only ones.
+    The activity and curriculum branches are unchanged. Test that an archived entry shares.
 - **Candidates:** `get_share_candidates` returns my student groups + the groups I OWN, and person
   candidates from R8 co-membership. They are server-rendered checkboxes. Verified at PR 0: a new
   method composing existing reads. The student-groups half exists (`group_service.py:194`
@@ -764,7 +769,7 @@ it first removes both.
   (verified at PR 0: there is no tooltip — the `sr-only` "Shared with me" label and the
   `_shared_inbox_button` docstring, `navbar.py:180-190`), HUB_PAGES, the skuel-ui skill; the
   "amended by ADR-088" notes on ADR-038 (the door, Your wall replaces the access list, the
-  person-share bell, and the `archived`-gate decision) and ADR-042 §8 (the access-list method); the
+  person-share bell, and §4's archived refusal lifted) and ADR-042 §8 (the access-list method); the
   stale_names reason at `stale_names.py:265` that names the live group reader.
 
 ### PR 6c — Badge and nudge (R2)
@@ -956,9 +961,10 @@ needs from this document (and ADR-088).
   every PR. Re-verify by grepping symbols; never trust a line number.
 - **Census before edits.** Run a site census (a subagent/workflow for the broad sweeps in PRs 1,
   2a, 6b and 8) before editing. The census is the site list, not this document's snapshot.
-- **Rule the named choices first.** A "Verified at PR 0 — rule before code" bullet is decided before
-  the first edit, recorded in the PR description **and** in this document — a one-line `Ruled:`
-  under the bullet in the PR's final commit — because a later session reads only this document.
+- **Rule new choices first.** A choice the PR's census finds that this document does not settle is
+  decided before the first edit (Mike's, if it touches a ruling), recorded in the PR description
+  **and** in this document — a one-line `Ruled:` in that PR's section, in its final commit — because
+  a later session reads only this document.
 - **Split if it won't fit.** If the PR won't fit one context, split it before coding (e.g. PR 1 →
   1a UserEntry, 1b forms) and record the split in the PR table.
 - **Get Mike's OK for live writes.** Any `--confirm` against AuraDB, and any AuraDB write that sets
@@ -979,7 +985,7 @@ requires PR 1, PR 3, PR 5 and PR 6a. PR 6c requires PR 4a, PR 5 and PR 6b. PR 7 
 | PR | Scope | Acceptance (live case) | Status |
 |----|-------|------------------------|--------|
 | 0 | This document + ADR-088 + the form-recipient-read case file and MOC entry + INDEX rows (docs only; summon Codex explicitly) | This document and ADR-088 are merged; `./dev docs-links` is clean and the INDEX rows resolve | merged #1413, 2026-09-24 |
-| 1 | `SUBMITTED_TO_GROUP`: writer, request side (gated on TEACHER_REVIEW; the pipeline-gap ruling), forms, teacher readers, migration | Census: 2 edges re-typed, and a count of classmate-visible turn-ins (a `MEMBER_OF` member reaching a `teacher_review` entry it does not own through `SHARED_WITH_GROUP`) reads 0. `/teaching/queue` still lists the Gentle Return turn-in. (`/groups` as linguistic76 shows no turn-ins before PR 1 too — linguistic76 owns both.) | open |
+| 1 | `SUBMITTED_TO_GROUP`: writer, request side (gated on TEACHER_REVIEW; `teachers` writes no link on other pipelines), forms, teacher readers, migration | Census: 2 edges re-typed, and a count of classmate-visible turn-ins (a `MEMBER_OF` member reaching a `teacher_review` entry it does not own through `SHARED_WITH_GROUP`) reads 0. `/teaching/queue` still lists the Gentle Return turn-in. A `pipeline: none` vault note with no `audience:` writes no group link. (`/groups` as linguistic76 shows no turn-ins before PR 1 too — linguistic76 owns both.) | open |
 | 2b | The outcome discriminator; the EntryReport access check retired; report detail is an owner read | The GradeBook shows the same 2 exchanges as before. `/entry-reports/detail` gives the owner 200 and others 404 | open |
 | 2a | `visibility` = {private, public}: enum, writers, Events field, spawn fix, migration first; `set_visibility` PUBLIC-only; the duplicate ingestion gate and the unused request/response classes deleted | The census shows 0 `shared`/`team` values. The Events form has no Visibility field. Spawned instances are private | open |
 | 3 | `NotificationType`; card links; admin activity reports owned by the student + their bell; subject validation; generated-report reads exclude admin (human) reports, both user-context statements included | An admin writes an activity report → the student's bell → the detail page opens. The old feedback bells open their reports | open |

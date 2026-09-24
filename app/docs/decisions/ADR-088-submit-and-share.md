@@ -91,9 +91,10 @@ founder signed off with it.
   time; no gate requires review first. The only refusals are privacy, not review: an entry whose
   pipeline does not allow sharing (`TRANSCRIBE_AND_STRUCTURE`, `REFERENCE`) or that is marked
   `private: true` cannot be shared, at submit or later. This amends ADR-054 §5 and reverses the
-  documented rule that `private` is orthogonal to sharing (it lands in PR 6a). Whether an
-  `archived` entry stays refused is PR 6b's call. The encouraged route — submit → feedback →
-  revise → share — is promoted by a nudge and a derived "reviewed" badge, never enforced.
+  documented rule that `private` is orthogonal to sharing (it lands in PR 6a). An `archived` entry
+  is shareable too — the share gate's archive refusal for a UserEntry is lifted (PR 6b). The
+  encouraged route — submit → feedback → revise → share — is promoted by a nudge and a derived
+  "reviewed" badge, never enforced.
 - **There is no third verb.** No "post": work shared with a group is a share.
 - **Feedback on your own work is not a share.** Reports, revision requests and activity reports
   live in the GradeBook only; they never appear on the Shared page.
@@ -348,7 +349,7 @@ gets its note with the PR that falsifies it:
 - ADR-054 §4 ("`FULFILLS_EXERCISE` + `SHARED_WITH_GROUP` is an exercise turn-in"), its Consequences
   ("post to a group feed") and its Postscript (the queue on `SHARED_WITH_GROUP`) — PR 1, PR 6a.
 - ADR-038 §4 ("Only Completed Reports Shareable"): for a UserEntry the share gate refuses only
-  `archived`; PR 6b decides whether R2 lifts that.
+  `archived`, and R2 lifts that (§1) — PR 6b.
 
 ---
 
