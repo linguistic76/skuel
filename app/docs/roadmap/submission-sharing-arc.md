@@ -970,7 +970,7 @@ requires PR 1, PR 3, PR 5 and PR 6a. PR 6c requires PR 4a, PR 5 and PR 6b. PR 7 
 
 | PR | Scope | Acceptance (live case) | Status |
 |----|-------|------------------------|--------|
-| 0 | This document + ADR-088 + the form-recipient-read case file and MOC entry + INDEX rows (docs only; summon Codex explicitly) | This document and ADR-088 are merged; `./dev docs-links` is clean and the INDEX rows resolve | in progress |
+| 0 | This document + ADR-088 + the form-recipient-read case file and MOC entry + INDEX rows (docs only; summon Codex explicitly) | This document and ADR-088 are merged; `./dev docs-links` is clean and the INDEX rows resolve | merged #1413, 2026-09-24 |
 | 1 | `SUBMITTED_TO_GROUP`: writer, request side (gated on TEACHER_REVIEW; the pipeline-gap ruling), forms, teacher readers, migration | Census: 2 edges re-typed, and a count of classmate-visible turn-ins (a `MEMBER_OF` member reaching a `teacher_review` entry it does not own through `SHARED_WITH_GROUP`) reads 0. `/teaching/queue` still lists the Gentle Return turn-in. (`/groups` as linguistic76 shows no turn-ins before PR 1 too — linguistic76 owns both.) | open |
 | 2b | The outcome discriminator; the EntryReport access check retired; report detail is an owner read | The GradeBook shows the same 2 exchanges as before. `/entry-reports/detail` gives the owner 200 and others 404 | open |
 | 2a | `visibility` = {private, public}: enum, writers, Events field, spawn fix, migration first; `set_visibility` PUBLIC-only; the duplicate ingestion gate and the unused request/response classes deleted | The census shows 0 `shared`/`team` values. The Events form has no Visibility field. Spawned instances are private | open |
