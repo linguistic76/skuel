@@ -95,6 +95,10 @@ renders them as a table in Obsidian, and a session derives the same table with
 
 [Sharing HTTP Door — Operations on Existing Shares](sharing-http-door.md) — `UnifiedSharingService`'s revoke / access-list / visibility half (`unshare`, `unshare_from_group`, `get_shared_with`, `get_groups_shared_with`, `set_visibility`) has no caller; ruled 2026-09-21 PLANNED as a door that operates on the edges audience-at-submit wrote — never a second share form — with `set_visibility` waiting on the PUBLIC reader; `verify_shareable` and `get_shared_with_me_via_groups` deleted.
 
+## Form-Submission Recipient Read — a Form Shared With You Still 404s
+
+[Form-Submission Recipient Read — a Form Shared With You Still 404s](form-submission-recipient-read.md) — A FormSubmission shared with a person is listed on their Shared page and opens as not-found (`get_submission` is owner-only); a non-goal of the Submit & Share arc, whose PR 5 builds the audience read this reuses.
+
 ## Structured-List Items Silently Corrupt Without a Nested `uid:`
 
 [Structured-List Items Silently Corrupt Without a Nested uid](structured-list-items-need-a-nested-uid.md) — `milestones` and `options` authored without the `uid` their element dataclass requires read back as the raw JSON string; the fix is a shared ingest gate, not six template configs.

@@ -383,6 +383,7 @@ skills:
       - ADR-075  # Local-agent vault transport (device auth, pairing codes)
       - ADR-085  # Ownership read-enforcement contract
       - ADR-086  # Universal :OWNS edge + ATTENDS attendance
+      - ADR-088  # Submit and share (links are the only audience record; R8 co-membership)
     patterns:
       - /docs/patterns/ERROR_HANDLING.md
       - /docs/security/COOKIES_AND_CSRF.md
@@ -521,6 +522,7 @@ skills:
       - /docs/reference/SEARCH_SERVICE_METHODS.md
     related_adrs:
       - ADR-085  # Ownership read-enforcement contract (build_search_visibility_clause)
+      - ADR-088  # Submit and share (read_visibility beside search_visibility)
       - ADR-023  # Unified BaseService Architecture
     patterns:
       - /docs/patterns/search_service_pattern.md
@@ -564,6 +566,7 @@ skills:
       - ADR-051  # User Interaction Contract
       - ADR-054  # UserEntry — unified user-authored content
       - ADR-069  # EXTRACT_ACTIVITIES Pipeline + EntryReport Convergence
+      - ADR-088  # Submit and share (two verbs, SUBMITTED_TO_GROUP vs SHARED_WITH_GROUP)
     patterns:
       - /docs/architecture/REPORT_ARCHITECTURE.md
       - /docs/patterns/KNOWLEDGE_APPLICATION_TRACKING.md

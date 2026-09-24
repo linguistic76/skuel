@@ -197,6 +197,7 @@ For each skill, this section shows all related documentation (architecture docs,
 - [ADR-051](decisions/ADR-051-user-interaction-contract.md)
 - [ADR-054](decisions/ADR-054-user-entry-unified-submissions.md)
 - [ADR-069](decisions/ADR-069-extract-activities-pipeline-and-entry-report.md)
+- [ADR-088](decisions/ADR-088-submit-and-share.md)
 
 ### @neo4j-cypher-patterns
 
@@ -352,6 +353,7 @@ For each skill, this section shows all related documentation (architecture docs,
 - [ADR-075](decisions/ADR-075-local-agent-vault-transport.md)
 - [ADR-085](decisions/ADR-085-ownership-read-enforcement-contract.md)
 - [ADR-086](decisions/ADR-086-universal-owns-and-attends-attendance.md)
+- [ADR-088](decisions/ADR-088-submit-and-share.md)
 
 ### @skuel-search-architecture
 
@@ -371,6 +373,7 @@ For each skill, this section shows all related documentation (architecture docs,
 
 **ADRs:**
 - [ADR-085](decisions/ADR-085-ownership-read-enforcement-contract.md)
+- [ADR-088](decisions/ADR-088-submit-and-share.md)
 - [ADR-023](decisions/ADR-023-curriculum-baseservice-migration.md)
 
 ### @skuel-ui
@@ -602,6 +605,7 @@ For each documentation category, this section shows which skills are relevant.
 - [ADR-085](decisions/ADR-085-ownership-read-enforcement-contract.md) → @security, @skuel-search-architecture
 - [ADR-086](decisions/ADR-086-universal-owns-and-attends-attendance.md) → @activity-domains, @neo4j-cypher-patterns, @security
 - [ADR-087](decisions/ADR-087-status-guarded-conditional-writes.md) → @activity-domains, @neo4j-cypher-patterns, @pytest
+- [ADR-088](decisions/ADR-088-submit-and-share.md) → @learning-loop, @security, @skuel-search-architecture
 
 ---
 
@@ -611,7 +615,7 @@ For each documentation category, this section shows which skills are relevant.
 - **Architecture docs:** 10 docs linked to skills
 - **Intelligence docs:** 2 docs linked to skills
 - **Pattern docs:** 41 docs linked to skills
-- **ADRs:** 43 ADRs linked to skills
+- **ADRs:** 44 ADRs linked to skills
 
 ---
 
