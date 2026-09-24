@@ -102,13 +102,20 @@ class TestHabitCompletionTemporalSplit:
         )
 
     async def test_the_unbounded_paged_fetch_returns_both(self, seeded):
-        """The shape the adherence path uses: no temporal predicate, sorted by uid.
+        """The shape the adherence path uses: no temporal predicate, a total order.
 
-        ``uid`` is a plain string on every row whatever ``completed_at`` holds, so
-        the ordering that makes paging deterministic cannot itself be skewed by
-        the storage split.
+        ``find_by_date_range`` with neither bound orders by the normalised
+        ``completed_at`` and then ``uid``, a plain string on every row whatever
+        ``completed_at`` holds, so the ordering that makes paging deterministic
+        cannot itself be skewed by the storage split.
         """
-        result = await seeded.find_by(habit_uid=HABIT, limit=1000, sort_by="uid")
+        result = await seeded.find_by_date_range(
+            start_date=None,
+            end_date=None,
+            date_field="completed_at",
+            additional_filters={"habit_uid": HABIT},
+            limit=1000,
+        )
 
         assert result.is_ok
         assert {c.uid for c in result.value} == {"hc.split_string", "hc.split_temporal"}

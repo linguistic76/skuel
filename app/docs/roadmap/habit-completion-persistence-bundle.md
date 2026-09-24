@@ -1,6 +1,6 @@
 ---
 title: "Habit-Completion Persistence Bundle — Orphans, UID Collisions, Non-Atomic Day Uniqueness"
-updated: 2026-09-20
+updated: 2026-09-24
 status: "ruling needed (defect 3)"
 registered: 2026-08-28
 trigger: "lived habit-completion use, or the next touch of the completion write path"
@@ -110,12 +110,12 @@ two consideration notes. Re-verified against the code and the live graph 2026-08
    *cached* value — a backfill that extends the current run at its oldest end under the same
    starvation reads N instead of N+1. Both directions are conservative (never over-report); the
    repair's test must cover both. Fix: a backend operation
-   returning **distinct `date(completed_at)`** in a range, for the streak reads only. It is NOT the
-   `find_by` row's replacement — those three reads (`get_completions_for_habit`,
-   `get_today_completions`, `export_completion_history`) need whole `HabitCompletion` records and
-   deliberately keep same-day duplicates. What the two share is the **normalized range
-   predicate** (`date(left(toString(x), 10))` on both sides): two operations, one predicate, one
-   PR.
+   returning **distinct `date(completed_at)`** in a range, for the streak reads only. It does not
+   replace the three whole-record reads (`get_completions_for_habit`, `get_today_completions`,
+   `export_completion_history`), which need whole `HabitCompletion` records, deliberately keep
+   same-day duplicates, and go through `find_by_date_range`
+   ([done](done/find-by-datetime-string-binding.md)). It reuses that read's **normalized range
+   predicate** (`date(left(toString(x), 10))` on both sides).
 6. **Untrack cannot delete, says it did, and would not recompute if it could.** `untrack_habit`
    (`_completion_mixin.py:88`, `POST /api/habits/untrack`) deletes each of the day's completions
    with `completions_backend.delete(uid)` — default `cascade=False`, the plain `DELETE` the mixin
@@ -203,11 +203,11 @@ semantics, taken once.
 
 **Not covered by the three Habit rows above, deliberately:** *Habit Streak Counters* is the HABIT
 node's counters (read-then-write; what `current_streak` means); *Unwired `HabitCompletion` Model
-Methods* is dormant model code; *`find_by` Datetime String-Binding* is the read-side range
-predicate. This bundle is the completion node's **identity and lifecycle** and the atomicity
+Methods* is dormant model code; the read-side range predicate is `find_by_date_range`
+([done](done/find-by-datetime-string-binding.md)). This bundle is the completion node's **identity and lifecycle** and the atomicity
 between the two backends. The overlaps are fix-sharing, not scope-sharing: a single-statement
 lock-derived create+patch (4) closes the streak lost-update too; the DISTINCT-day operation (5)
-rides the same normalized range predicate as the `find_by` row's fix.
+rides `find_by_date_range`'s normalized range predicate.
 
 **Trigger:** lived habit-completion use — live graph 2026-08-28: **0 `HabitCompletion` nodes**
 across 5 habits, and the node-less door's footprint is zero too (`sum(h.total_completions)` 0, no
@@ -216,11 +216,10 @@ swept acceptance run. ⚠ The node count alone cannot see the `/api/context` doo
 above the node count is that door's signature (`get_habit_analytics` already counts nodes only),
 so the check reads both. Or
 the next touch of the completion write path (`record_completion` / `_record_completion_no_event` /
-`record_habit_occurrence` / `untrack_habit` / `complete_habit_with_quality`). Defect 5 is built in
-the `find_by` row's PR (same predicate, distinct operations) but has its own trigger: duplicate
-volume — ≥3 same-day rows sustained across a >1000-row window — which defect 3's `(habit_uid, day)`
-invariant makes impossible once it lands; one natively-typed row fires the `find_by` row and says
-nothing about this one. Defect 3's ruling is
+`record_habit_occurrence` / `untrack_habit` / `complete_habit_with_quality`). Defect 5 reuses
+`find_by_date_range`'s predicate and has its own trigger: duplicate volume — ≥3 same-day rows
+sustained across a >1000-row window — which defect 3's `(habit_uid, day)` invariant makes
+impossible once it lands. Defect 3's ruling is
 Mike's, taken at build time, not in passing.
 **Named cost:** orphaned completion rows after a habit delete (invisible to habit reads, counted
 by user aggregates); a same-second double-tap on either door — or one bulk request naming a

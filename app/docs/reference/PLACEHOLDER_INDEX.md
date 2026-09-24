@@ -1,5 +1,5 @@
 ---
-updated: 2026-09-23
+updated: 2026-09-24
 ---
 
 # Placeholder Parameter Index
@@ -98,7 +98,7 @@ currently author none. That remedy would not lint.
 
 The in-architecture move is `find_by_date_range`, which coerces the stored value
 (`date(left(toString(n.field), 10))`) before comparing — declared on `EntitySearchOperations`
-(`base_protocols.py:583`).
+(`base_protocols.py:589`).
 
 ```python
 cutoff = date.today() - timedelta(days=period_days)   # a date: the coercion is day-granular

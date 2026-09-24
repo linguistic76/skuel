@@ -593,8 +593,9 @@ class EntitySearchOperations[T: "DomainModelProtocol"](Protocol):
         date_field: str = "occurred_at",
         additional_filters: FilterParams | None = None,
         limit: int = 100,
+        offset: int = 0,
     ) -> ResultType[builtins.list[T]]:
-        """Find entities whose ``date_field`` falls in [start_date, end_date].
+        """Find entities whose ``date_field`` falls in [start_date, end_date], newest first.
 
         Distinct from ``find_by(field__gte=...)``, and not interchangeable with it:
         the stored value is coerced (``date(left(toString(n.field), 10))``) before
@@ -602,6 +603,12 @@ class EntitySearchOperations[T: "DomainModelProtocol"](Protocol):
         string, or a native temporal alike. A bare ``>=`` against a string bound
         evaluates to null on temporally-stored rows and silently drops them.
         Prefer this for any window over a mixed-representation field.
+
+        Rows are ordered by the instant the field parses to, then ``uid``: one
+        chronological sequence across storage shapes and UTC offsets (a value with
+        no zone reads in the server's default zone), and a total order, so
+        consecutive ``offset`` pages neither overlap nor skip. ``limit`` caps
+        silently — a caller that needs the whole window walks the pages.
         """
         ...
 

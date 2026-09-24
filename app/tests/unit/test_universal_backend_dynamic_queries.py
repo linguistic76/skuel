@@ -587,6 +587,31 @@ async def test_find_by_date_range_backend():
     assert "date(left(toString(n.due_date), 10)) <= date($end_date)" in cypher
 
 
+@pytest.mark.asyncio
+async def test_find_by_date_range_pages_under_a_total_order():
+    """``offset`` pages are walkable only under a total order.
+
+    Neo4j guarantees no row order across separate statements, so SKIP/LIMIT
+    pages without a unique tiebreak can overlap AND omit rows while still
+    walking every offset. The parsed instant orders across storage shapes and
+    UTC offsets; ``uid`` makes the order total.
+    """
+    backend, mock_session = create_mock_backend()
+
+    await setup_mock_query_response(mock_session, [])
+
+    result = await backend.find_by_date_range(
+        start_date=None, end_date=None, date_field="completed_at", limit=50, offset=100
+    )
+
+    assert result.is_ok
+    cypher, params = mock_session.run.call_args[0][0], mock_session.run.call_args[0][1]
+    assert "ORDER BY datetime(toString(n.completed_at)) DESC, n.uid" in cypher
+    assert "SKIP $offset" in cypher
+    assert params["offset"] == 100
+    assert params["limit"] == 50
+
+
 # ============================================================================
 # TEST: Type conversions
 # ============================================================================
