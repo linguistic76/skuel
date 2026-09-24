@@ -111,11 +111,13 @@ two consideration notes. Re-verified against the code and the live graph 2026-08
    never starve it. Nothing is built for it separately. That holds only if the landing
    **re-keys and dedupes the existing rows to `(habit_uid, day)`** as well as keying new writes.
    The constraint's preflight has to collapse historical same-day duplicates, not merely count
-   them. It also has to subtract each removed row from the cached counters every writer
-   incremented for it (`total_completions`, and `identity_votes_cast` for identity habits),
-   because later writes build on those values. It must not recompute the counters from nodes,
-   because the node-less `/api/context` door's contribution lives only in the counters (see the
-   historical baseline below). Until then, today's doors can still write duplicates. The analysis below is kept because it applies again if the contract
+   them. It also has to leave the cached counters (`total_completions`, `identity_votes_cast`)
+   consistent with the deduplicated history, because later writes build on them. No single
+   mechanical rule does that. Subtracting once per removed row undercounts wherever defect 4's
+   lost update or stranded node already dropped the increment. Recomputing from nodes erases the
+   node-less `/api/context` door's contribution. So the reconciliation is decided together with
+   the historical baseline below, at build time. Until then, today's doors can still write
+   duplicates. The analysis below is kept because it applies again if the contract
    ever changes. `_completed_days_window` fetches raw rows (`limit=max(1000, days*2)`), newest
    first, and dedupes to days in Python. The cap drops the OLDEST rows, so it starves only when
    the window holds more than `max(1000, 2 × window days)` rows, which means averaging over two a
