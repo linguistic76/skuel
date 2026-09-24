@@ -312,6 +312,12 @@ carry — folded in as contract; the ones that change the plan say "settled at P
     success); `newly_submitted_groups` = the `created` subset, which feeds PR 7's bell — mirroring
     PR 6b's `newly_shared_users`. A created-only `submitted_groups` would make every idle re-sync of a
     living `teacher_review` note read as zero reach once PR 7 moves the compensation.
+  - **Reach is judged by the link kind the entry needs** (settled at PR 0 review): for a
+    TEACHER_REVIEW entry, step 5a's zero-reach check reads `submitted_groups` specifically — a person
+    or group share that succeeds while every `SUBMITTED_TO_GROUP` write fails (a membership change, a
+    deactivated group) does not make the request reach a queue, so the entry is compensated as today.
+    `any_success` stays the aggregate for every other caller. PR 7 moves this rule, unchanged, into
+    `create_entry`.
   - **Verified at PR 0 — the pipeline gap (contract, settled at PR 0 review).** Neither path is
     TEACHER_REVIEW-only today: the vault's absent-`audience:` default is `teachers` on NONE, LLM_SUMMARY and
     TEACHER_REVIEW (Pipeline.shares_by_default, `user_entry_ingestion.py:298-319`; TRANSCRIBE is
