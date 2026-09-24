@@ -21,7 +21,7 @@ out-of-window one through ``record_completions_bulk`` — the two production doo
 from __future__ import annotations
 
 import json
-from datetime import date, datetime, time, timedelta
+from datetime import UTC, date, datetime, time, timedelta, timezone
 
 import pytest
 import pytest_asyncio
@@ -152,3 +152,35 @@ class TestHabitCompletionRangeReads:
             string_uid,
             NATIVE_UID,
         ]
+
+    async def test_offset_bearing_strings_order_by_instant_not_wall_clock(
+        self, seeded, neo4j_driver
+    ):
+        """An ISO string with a UTC offset orders by the instant it names.
+
+        ``track_habit`` passes the request's ISO text through ``fromisoformat``,
+        so an offset reaches the stored string. String order is wall-clock order:
+        ``10:00+02:00`` (08:00 UTC) sorts after ``09:00+00:00`` (09:00 UTC),
+        although it is an hour earlier. Both rows go through the production
+        writers, on a habit of their own.
+        """
+        service, _, _ = seeded
+        habit_uid = "habit.completion_range_offsets"
+        created = await service.habits_backend.create(
+            Habit(uid=habit_uid, user_uid=USER, entity_type=EntityType.HABIT, title="Offsets")
+        )
+        assert created.is_ok, created
+        earlier = datetime.combine(TODAY, time(hour=10), tzinfo=timezone(timedelta(hours=2)))
+        later = datetime.combine(TODAY, time(hour=9), tzinfo=UTC)
+
+        first = await service.record_completion(habit_uid, USER, completed_at=earlier)
+        second = await service.record_completions_bulk([habit_uid], USER, completed_at=later)
+        assert first.is_ok, first
+        assert second.is_ok and len(second.value) == 1, second
+
+        result = await service.get_completions_for_habit(
+            habit_uid, start_date=TODAY, end_date=TODAY
+        )
+
+        assert result.is_ok, result
+        assert [c.uid for c in result.value] == [second.value[0].uid, first.value.uid]

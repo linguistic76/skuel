@@ -593,8 +593,8 @@ async def test_find_by_date_range_pages_under_a_total_order():
 
     Neo4j guarantees no row order across separate statements, so SKIP/LIMIT
     pages without a unique tiebreak can overlap AND omit rows while still
-    walking every offset. The normalised field orders across storage shapes;
-    ``uid`` makes the order total.
+    walking every offset. The parsed instant orders across storage shapes and
+    UTC offsets; ``uid`` makes the order total.
     """
     backend, mock_session = create_mock_backend()
 
@@ -606,7 +606,7 @@ async def test_find_by_date_range_pages_under_a_total_order():
 
     assert result.is_ok
     cypher, params = mock_session.run.call_args[0][0], mock_session.run.call_args[0][1]
-    assert "ORDER BY toString(n.completed_at) DESC, n.uid" in cypher
+    assert "ORDER BY datetime(toString(n.completed_at)) DESC, n.uid" in cypher
     assert "SKIP $offset" in cypher
     assert params["offset"] == 100
     assert params["limit"] == 50

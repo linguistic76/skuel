@@ -141,10 +141,12 @@ class _SearchMixin[T: DomainModelProtocol]:
     ) -> Result[builtins.list[T]]:
         """Find any entity within a date range, newest first.
 
-        The stored value is compared by its calendar day and ordered by its string
-        form, so an ISO string and a native temporal land in one chronological
-        sequence rather than two type bands; ``uid`` breaks ties, which makes the
-        order total and ``offset`` pages walkable.
+        The stored value is compared by its calendar day and ordered by the instant
+        it parses to (``datetime(toString(...))``), so ISO strings (with or without
+        an offset) and native temporals land in one chronological sequence rather
+        than type bands or wall-clock string order. A value with no zone is read in
+        the server's default zone. ``uid`` breaks ties, which makes the order total
+        and ``offset`` pages walkable.
         """
         # Validate date_field to prevent Cypher injection
         if not validate_field_name(date_field):
@@ -191,7 +193,7 @@ class _SearchMixin[T: DomainModelProtocol]:
         MATCH (n:{self.label})
         {where_clause}
         RETURN n
-        ORDER BY toString(n.{date_field}) DESC, n.uid
+        ORDER BY datetime(toString(n.{date_field})) DESC, n.uid
         SKIP $offset
         LIMIT $limit
         """

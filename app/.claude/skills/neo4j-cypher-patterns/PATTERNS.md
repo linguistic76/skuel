@@ -531,7 +531,7 @@ temporal are dropped — silently, from a call that reads like it filters in Pyt
 | Situation | Do this |
 |---|---|
 | The column is string-only **by writer enumeration** | Keep the kwargs filter; name the writer in a comment, because the *next* writer is what breaks it |
-| The column is or may be mixed, and the window is day-granular | **`find_by_date_range`** (every backend has it): it compares `date(left(toString(x), 10))` on both sides, orders by `toString(x) DESC, uid` (chronological across both shapes, and total), and takes `offset`. For a whole window, walk its pages — `HabitsCompletionService._all_completions` is the walk |
+| The column is or may be mixed, and the window is day-granular | **`find_by_date_range`** (every backend has it): it compares `date(left(toString(x), 10))` on both sides, orders by `datetime(toString(x)) DESC, uid` (the parsed instant: chronological across shapes and UTC offsets, where string order is only wall-clock; and total), and takes `offset`. For a whole window, walk its pages — `HabitsCompletionService._all_completions` is the walk |
 | The column is or may be mixed, and the window is finer than a day | Fetch **without** a temporal predicate and filter in Python — the mapper has already normalised both forms to `datetime`, so the comparison is type-tolerant by construction |
 
 Dropping the predicate means dropping the row cap with it: page (`sort_by="uid"` — a plain

@@ -34,9 +34,12 @@ the `BackendOperations[HabitCompletion]` the service holds. It compares
 `date(left(toString(n.f), 10))` on both sides. It gained two things:
 
 - `offset`, so a whole window can be walked in pages;
-- `ORDER BY toString(n.f) DESC, n.uid` in place of `ORDER BY n.f DESC`. The raw field sorted by
-  TYPE before value under a mixed column (a cap truncated a type band, not the oldest rows), and
-  had no tiebreak, so `SKIP`/`LIMIT` pages could overlap and omit rows.
+- `ORDER BY datetime(toString(n.f)) DESC, n.uid` in place of `ORDER BY n.f DESC`. The raw field
+  sorted by TYPE before value under a mixed column (a cap truncated a type band, not the oldest
+  rows), and had no tiebreak, so `SKIP`/`LIMIT` pages could overlap and omit rows. The key is the
+  parsed instant, not `toString` alone: `track_habit` stores offset-bearing ISO strings, and
+  string order is wall-clock (`…T10:00+02:00` sorts after `…T09:00+00:00`, an hour later). A
+  value with no zone parses in the server's default zone (Codex P2 on #1411).
 
 **The three sites.** All go through it, and none keeps a `completed_at__gte/__lte` `find_by`.
 `get_completions_for_habit` is one capped read, newest first. `_all_completions(scope, start,
@@ -65,7 +68,7 @@ Cypher, since no production writer makes that shape), one string row through `re
 and one out-of-window row through `record_completions_bulk`. It asserts that all four reads
 return exactly the in-window rows, in chronological order across the split. It failed on `main`
 (3 reads dropped the native row; the unwindowed read raised `TypeError`), and reverting any one
-site to `find_by`, or the order to `n.f DESC`, fails it. Backend query shape:
+site to `find_by`, or the order to `n.f DESC` or `toString(n.f) DESC`, fails it. Backend query shape:
 `test_find_by_date_range_pages_under_a_total_order`.
 
 **Not built here.** The habit-completion persistence bundle's defect 5 (a DISTINCT-day read for

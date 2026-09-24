@@ -604,8 +604,9 @@ class EntitySearchOperations[T: "DomainModelProtocol"](Protocol):
         evaluates to null on temporally-stored rows and silently drops them.
         Prefer this for any window over a mixed-representation field.
 
-        Rows are ordered by the field's string form, then ``uid``: one
-        chronological sequence across both storage shapes, and a total order, so
+        Rows are ordered by the instant the field parses to, then ``uid``: one
+        chronological sequence across storage shapes and UTC offsets (a value with
+        no zone reads in the server's default zone), and a total order, so
         consecutive ``offset`` pages neither overlap nor skip. ``limit`` caps
         silently — a caller that needs the whole window walks the pages.
         """
