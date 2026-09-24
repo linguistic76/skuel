@@ -14,7 +14,8 @@ The universal ownership edge and the sharing model (ADR-038).
 |--------------|------|-----|---------|
 | `OWNS` | User | Entity | **Universal ownership — THE edge backends write and query** |
 | `SHARES_WITH` | User | Entity | Manual sharing (`shared_at`, `role`, `share_version` props) |
-| `SHARED_WITH_GROUP` | Entity | Group | Group-scoped sharing |
+| `SHARED_WITH_GROUP` | Entity | Group | Group-scoped sharing — every member and owner of an active group |
+| `SUBMITTED_TO_GROUP` | UserEntry / FormSubmission | Group | A feedback request (`submitted_at`) — read only under `(teacher)-[:OWNS]->(g {is_active: true})`, never by members (ADR-088 §2) |
 | `MEMBER_OF` | User | Group | Group membership |
 | `ENROLLED_IN` | User | LearningPath | LP enrollment (`enrolled_at`, `status` — `'completed'` marks completion) |
 | `PURSUING_GOAL` | User | Goal | Active goal pursuit (enum member; no current writer — search filters use OWNS + goal status) |

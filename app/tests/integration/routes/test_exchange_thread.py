@@ -11,7 +11,7 @@ Pins the C5 contract (feedback-loop UX arc):
 - Scoping is per-student: another student's entries, reports, and revisions
   against the SAME exercise never leak into the thread.
 - Teacher mode applies the Model B entry-level gate: only entries
-  ``SHARED_WITH_GROUP`` an active group the viewer owns are in the chain, so
+  ``SUBMITTED_TO_GROUP`` an active group the viewer owns are in the chain, so
   a multi-class student's work directed to another teacher's classroom stays
   invisible even though both teachers pass the shared-group authority check.
 - Not-found covers a missing exercise AND a student with no entries — an
@@ -190,11 +190,11 @@ async def seeded(clean_neo4j, neo4j_driver) -> None:
             MERGE (e2)-[:FULFILLS_EXERCISE {revision: 2}]->(ex)
             MERGE (esc)-[:FULFILLS_EXERCISE {revision: 3}]->(ex)
             MERGE (oe)-[:FULFILLS_EXERCISE {revision: 1}]->(ex)
-            MERGE (e1)-[:SHARED_WITH_GROUP]->(g)
-            MERGE (e2)-[:SHARED_WITH_GROUP]->(g)
-            MERGE (e3)-[:SHARED_WITH_GROUP]->(g)
-            MERGE (esc)-[:SHARED_WITH_GROUP]->(sg)
-            MERGE (oe)-[:SHARED_WITH_GROUP]->(g2)
+            MERGE (e1)-[:SUBMITTED_TO_GROUP]->(g)
+            MERGE (e2)-[:SUBMITTED_TO_GROUP]->(g)
+            MERGE (e3)-[:SUBMITTED_TO_GROUP]->(g)
+            MERGE (esc)-[:SUBMITTED_TO_GROUP]->(sg)
+            MERGE (oe)-[:SUBMITTED_TO_GROUP]->(g2)
             MERGE (r1)-[:REPORT_FOR]->(e2)
             MERGE (rp)-[:REPORT_FOR]->(e2)
             MERGE (orep)-[:REPORT_FOR]->(oe)

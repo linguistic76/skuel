@@ -183,13 +183,18 @@ class GroupBackend(UniversalNeo4jBackend["Group"]):
     async def get_teacher_groups_with_stats(
         self, teacher_uid: str
     ) -> Result[list[Neo4jProperties]]:
-        """Get teacher's groups with member, exercise, and pending submission counts."""
+        """Get teacher's groups with member, exercise, and pending feedback-request counts.
+
+        ``pending_count`` reads ``SUBMITTED_TO_GROUP`` on an active group only
+        (ADR-088 §2-§3): a deactivated group still lists, with nothing pending.
+        """
         query = f"""
         MATCH (teacher:User {{uid: $teacher_uid}})-[:{RelationshipName.OWNS.value}]->(g:Group)
         OPTIONAL MATCH (member:User)-[:{RelationshipName.MEMBER_OF.value}]->(g)
         OPTIONAL MATCH (ex:Entity:Exercise)-[:{RelationshipName.SHARED_WITH_GROUP.value}]->(g)
-        OPTIONAL MATCH (sub:Entity:UserEntry)-[:{RelationshipName.SHARED_WITH_GROUP.value}]->(g)
+        OPTIONAL MATCH (sub:Entity:UserEntry)-[:{RelationshipName.SUBMITTED_TO_GROUP.value}]->(g)
           WHERE sub.pipeline = $pipeline
+            AND g.is_active = true
             AND NOT sub.status IN ['completed', 'archived']
         RETURN g.uid AS uid,
                g.name AS name,
@@ -208,13 +213,17 @@ class GroupBackend(UniversalNeo4jBackend["Group"]):
     async def get_group_detail(
         self, group_uid: str, teacher_uid: str
     ) -> Result[list[Neo4jProperties]]:
-        """Get members of a teacher's group with their submission progress."""
+        """Get members of a teacher's group with their feedback-request progress.
+
+        Counts ``SUBMITTED_TO_GROUP`` to this group only while it is active
+        (ADR-088 §3); a deactivated group's members still list, with zero counts.
+        """
         query = f"""
         MATCH (teacher:User {{uid: $teacher_uid}})-[:{RelationshipName.OWNS.value}]->(g:Group {{uid: $group_uid}})
         MATCH (member:User)-[r:{RelationshipName.MEMBER_OF.value}]->(g)
         OPTIONAL MATCH (member)-[:{RelationshipName.OWNS.value}]->(sub:Entity:UserEntry)
-                      -[:{RelationshipName.SHARED_WITH_GROUP.value}]->(g)
-          WHERE sub.pipeline = $pipeline
+                      -[:{RelationshipName.SUBMITTED_TO_GROUP.value}]->(g)
+          WHERE sub.pipeline = $pipeline AND g.is_active = true
         RETURN member.uid AS user_uid,
                member.name AS user_name,
                r.role AS role,

@@ -59,27 +59,26 @@ def _default_audience_match(owner_var: str, submission_var: str, *, only_prior: 
 
 
 def _teacher_audience_predicate(submission_var: str) -> str:
-    """Cypher for "this submission's audience includes ``$teacher_uid``".
+    """Cypher for "this submission asks ``$teacher_uid`` for feedback".
 
     One spelling shared by the three teacher-facing reads (detail gate, list,
     card count). They have to admit exactly the same set: a count that
     disagrees with the list leaks how much cross-classroom activity exists,
     and a list that disagrees with the detail gate indexes what it refuses.
 
-    Both audience kinds ``_share_on_submit`` writes count — a
-    ``SHARED_WITH_GROUP`` edge to an active group the teacher owns, or a direct
-    ``SHARES_WITH`` from the teacher (``recipient_uids`` on the submit API).
-    ``EXISTS`` rather than a ``MATCH`` so a submission reachable several ways
-    is still one row.
+    The one link kind that grants a review is the feedback request — a
+    ``SUBMITTED_TO_GROUP`` edge to an active group the teacher owns (ADR-088
+    §2). A direct ``SHARES_WITH`` from the teacher (``recipient_uids`` on the
+    submit API) is a share, never a review grant, so it is not an arm here:
+    the two readers are never crossed (ADR-088 §3). ``EXISTS`` rather than a
+    ``MATCH`` so a submission sent to several of the teacher's groups is
+    still one row.
     """
     return f"""
         EXISTS {{
-            ({submission_var})-[:{RelationshipName.SHARED_WITH_GROUP}]->
+            ({submission_var})-[:{RelationshipName.SUBMITTED_TO_GROUP}]->
                 (g:Group {{is_active: true}})
                 <-[:{RelationshipName.OWNS}]-(:User {{uid: $teacher_uid}})
-        }}
-        OR EXISTS {{
-            (:User {{uid: $teacher_uid}})-[:{RelationshipName.SHARES_WITH}]->({submission_var})
         }}
     """
 
@@ -304,8 +303,9 @@ class FormSubmissionBackend(UniversalNeo4jBackend["FormSubmission"]):
         """Submissions carrying no audience at all, with their owner.
 
         The migration surface for the Model B gate: a submission created before
-        submit-time audience resolution existed has neither ``SHARES_WITH`` nor
-        ``SHARED_WITH_GROUP``, so the gate hides it from every teacher.
+        submit-time audience resolution existed has no ``SHARES_WITH``, no
+        ``SHARED_WITH_GROUP`` and no ``SUBMITTED_TO_GROUP``, so the gate hides
+        it from every teacher.
 
         **"No audience at all" is the point, not a limitation.** A submission
         that already names an audience was scoped deliberately — by
@@ -339,7 +339,9 @@ class FormSubmissionBackend(UniversalNeo4jBackend["FormSubmission"]):
             f"""
             MATCH (u:User)-[:{RelationshipName.OWNS}]->(fs:Entity {{entity_type: $entity_type}})
             WHERE fs.uid > $after_uid
-              AND NOT EXISTS {{ (fs)-[:{RelationshipName.SHARED_WITH_GROUP}]->(:Group) }}
+              AND NOT EXISTS {{
+                  (fs)-[:{RelationshipName.SUBMITTED_TO_GROUP}|{RelationshipName.SHARED_WITH_GROUP}]->(:Group)
+              }}
               AND NOT EXISTS {{ (:User)-[:{RelationshipName.SHARES_WITH}]->(fs) }}
               AND EXISTS {{
                   (fs)-[:{RelationshipName.RESPONDS_TO_FORM}]->
@@ -466,20 +468,20 @@ class FormSubmissionBackend(UniversalNeo4jBackend["FormSubmission"]):
             // scope: APOC is restricted to apoc.meta.*).
             SET fs.uid = fs.uid
             WITH u, fs
-            WHERE NOT EXISTS {{ (fs)-[:{RelationshipName.SHARED_WITH_GROUP}]->(:Group) }}
+            WHERE NOT EXISTS {{
+                  (fs)-[:{RelationshipName.SUBMITTED_TO_GROUP}|{RelationshipName.SHARED_WITH_GROUP}]->(:Group)
+              }}
               AND NOT EXISTS {{ (:User)-[:{RelationshipName.SHARES_WITH}]->(fs) }}
               {"AND fs.created_at IS NOT NULL" if only_prior_memberships else ""}
             {_default_audience_match("u", "fs", only_prior=only_prior_memberships)}
-            MERGE (fs)-[r:{RelationshipName.SHARED_WITH_GROUP}]->(g)
-              ON CREATE SET r.shared_at = datetime($shared_at),
-                            r.share_version = $share_version
+            MERGE (fs)-[r:{RelationshipName.SUBMITTED_TO_GROUP}]->(g)
+              ON CREATE SET r.submitted_at = datetime($submitted_at)
             RETURN g.uid AS group_uid
             """,
             {
                 "submission_uid": submission_uid,
                 "student_role": GroupMemberRole.STUDENT.value,
-                "shared_at": datetime.now().isoformat(),
-                "share_version": "original",
+                "submitted_at": datetime.now().isoformat(),
                 "entity_type": EntityType.FORM_SUBMISSION.value,
             },
         )
@@ -502,18 +504,17 @@ class FormSubmissionBackend(UniversalNeo4jBackend["FormSubmission"]):
         exactly the same set or the list becomes an index of what the detail
         page refuses.
 
-        Granted by either audience kind ``_share_on_submit`` writes: a
-        ``SHARED_WITH_GROUP`` edge to an active group the teacher owns, or a
-        direct ``SHARES_WITH`` from the teacher (``recipient_uids`` on the
-        submit API). ``group_uid`` names the classroom that granted the read
-        and is null when a direct share did; an empty *result* is the refusal,
-        which callers map to not-found.
+        Granted by the feedback request alone: a ``SUBMITTED_TO_GROUP`` edge to
+        an active group the teacher owns (ADR-088 §2). A direct ``SHARES_WITH``
+        from the teacher (``recipient_uids`` on the submit API) is a share and
+        grants no review. ``group_uid`` names the classroom that granted the
+        read; an empty *result* is the refusal, which callers map to not-found.
         """
         result = await self.execute_query(
             f"""
             MATCH (fs:Entity {{uid: $submission_uid, entity_type: $entity_type}})
             WHERE {_teacher_audience_predicate("fs")}
-            OPTIONAL MATCH (fs)-[:{RelationshipName.SHARED_WITH_GROUP}]->
+            OPTIONAL MATCH (fs)-[:{RelationshipName.SUBMITTED_TO_GROUP}]->
                            (granting:Group {{is_active: true}})
                            <-[:{RelationshipName.OWNS}]-(:User {{uid: $teacher_uid}})
             // Aggregate keyed on `fs`, never bare. An unkeyed `collect` emits

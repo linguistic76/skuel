@@ -122,8 +122,8 @@ async def seed() -> None:
             MATCH (gy:Group {uid: $group_y})
             MERGE (s1)-[:OWNS]->(sub1)
             MERGE (s2)-[:OWNS]->(sub2)
-            MERGE (sub1)-[:SHARED_WITH_GROUP]->(gx)
-            MERGE (sub2)-[:SHARED_WITH_GROUP]->(gy)
+            MERGE (sub1)-[:SUBMITTED_TO_GROUP]->(gx)
+            MERGE (sub2)-[:SUBMITTED_TO_GROUP]->(gy)
             """,
             sub1=SUBMISSION_1,
             sub2=SUBMISSION_2,

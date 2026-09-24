@@ -4,10 +4,10 @@
 A ONE-SHOT migration — no background loop, so the CORE "no background workers"
 guarantee holds.
 
-Teacher access to a form submission is gated on the submission's own audience
-(the Model B gate: a ``SHARED_WITH_GROUP`` edge to an active group the teacher
-owns, or a direct ``SHARES_WITH``). Submissions created before submit-time
-audience resolution existed carry no share edges at all — the PathStep-embedded
+Teacher access to a form submission is gated on the submission's own feedback
+request (the Model B gate: a ``SUBMITTED_TO_GROUP`` edge to an active group the
+teacher owns — ADR-088 §2). Submissions created before submit-time
+audience resolution existed carry no audience edges at all — the PathStep-embedded
 form path passed no ``group_uid`` and no ``recipient_uids``, and every branch of
 the sharing step was conditional. Under the gate those submissions are readable
 by nobody but their owner and admins.

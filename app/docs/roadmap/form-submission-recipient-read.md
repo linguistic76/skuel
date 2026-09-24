@@ -59,9 +59,14 @@ FormSubmission declares `read_visibility = OWNER_OR_AUDIENCE`; the detail read g
 the R6 basic card — title, description, from, date and a link to the work — never the review.
 Three questions to answer first:
 
-1. **Is there a group half?** After the arc's PR 1, every FormSubmission group target is a
+1. **Is there a group half?** Since the arc's PR 1, every FormSubmission group target is a
    `SUBMITTED_TO_GROUP` feedback request, which grants group members nothing. If forms never get a
    `SHARED_WITH_GROUP` share, the recipient read is person-only.
+   - **A cost that PR 1 opened (2026-09-24):** the teacher gate
+     (`_teacher_audience_predicate`, `forms_backends.py`) reads the feedback request alone — a
+     `SHARES_WITH` from a teacher named in `recipient_uids` is a share, never a review grant
+     (R3, R5). Until this recipient read exists, a teacher named by person has **no door** to
+     the form: not the gate, not the list, not the count.
 2. **What is `share_with_admin`?** It writes a person share to the admin, and the arc's PR 6a keeps
    it exempt from co-membership. The admin can already read the submission through the teaching
    pages; the open question is whether that share belongs on the admin's Shared page at all, or —

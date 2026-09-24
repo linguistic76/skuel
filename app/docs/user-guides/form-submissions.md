@@ -1,5 +1,5 @@
 ---
-updated: 2026-08-14
+updated: 2026-09-24
 ---
 
 # Form Templates & Submissions — Admin/Builder Guide
@@ -128,7 +128,7 @@ When submitting, users can share their response immediately:
 
 | Target | How |
 |--------|-----|
-| **Group** | Select a group — submission gets `SHARED_WITH_GROUP` relationship |
+| **Group** | Select a group — a feedback request to the group's teachers (`SUBMITTED_TO_GROUP`); classmates see nothing |
 | **Specific users** | Provide user UIDs — `SHARES_WITH` relationships created |
 | **Admin** | Check "send to admin" — shared with admin user |
 
@@ -225,7 +225,7 @@ Users can delete their own submissions from the detail page. The delete is owner
 (PathStep)-[:EMBEDS_FORM]->(FormTemplate)    # PathStep embeds a form
 (FormSubmission)-[:RESPONDS_TO_FORM]->(FormTemplate)  # Submission links to template
 (User)-[:OWNS]->(FormSubmission)             # User owns their submission
-(FormSubmission)-[:SHARED_WITH_GROUP]->(Group)  # Shared with a group
+(FormSubmission)-[:SUBMITTED_TO_GROUP]->(Group) # Feedback request to the group's teachers
 (User)-[:SHARES_WITH]->(FormSubmission)      # Shared with specific user
 ```
 

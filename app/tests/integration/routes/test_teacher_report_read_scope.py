@@ -21,12 +21,12 @@ The three surfaces, and what each leaked:
 
 The audience pinned here is the one the *write* already uses: a teacher who
 owns an active group the student belongs to (download) / that the submission is
-``SHARED_WITH_GROUP`` (the review surfaces). Every actor is a TEACHER, so
+``SUBMITTED_TO_GROUP`` (the review surfaces). Every actor is a TEACHER, so
 ``@require_teacher`` passes for all of them and the audience is the only
 variable — a refusal below can never be the role gate in disguise.
 
 Run against a real Neo4j container: the scoping resolves against persisted
-``:OWNS`` / ``:MEMBER_OF`` / ``:SHARED_WITH_GROUP`` edges, which a mocked
+``:OWNS`` / ``:MEMBER_OF`` / ``:SUBMITTED_TO_GROUP`` edges, which a mocked
 backend would only assert were queried, not that they gate. Refusals are
 404-equivalent (OWNERSHIP_VERIFICATION.md): the download yields a real 404, the
 HTMX fragments yield the byte-identical markup a nonexistent UID yields, so a
@@ -210,7 +210,7 @@ async def seeded(clean_neo4j, neo4j_driver, report_file) -> str:
                 pipeline: 'teacher_review', created_at: datetime(), updated_at: datetime()
             })
             MERGE (student)-[:OWNS]->(sub)
-            MERGE (sub)-[:SHARED_WITH_GROUP]->(g)
+            MERGE (sub)-[:SUBMITTED_TO_GROUP]->(g)
             CREATE (rep:Entity:EntryReport {
                 uid: $report, entity_type: 'entry_report', title: 'Teacher feedback',
                 description: '', status: 'completed', processed_content: $secret,

@@ -1,6 +1,6 @@
 ---
 title: Content Sharing Patterns
-updated: '2026-09-22'
+updated: '2026-09-24'
 category: patterns
 related_skills:
 - pytest
@@ -34,6 +34,32 @@ PRIVATE (default) → Owner only
 SHARED            → Owner + users with SHARES_WITH or SHARED_WITH_GROUP relationship
 PUBLIC            → Anyone can view (portfolio showcase)
 ```
+
+### Two Verbs, Two Group-Link Kinds (ADR-088)
+
+Sharing and asking for feedback are different acts on different edges, read by different
+readers that are never crossed:
+
+```
+entry ──SUBMITTED_TO_GROUP {submitted_at}──▶ Group ◀─OWNS── teacher   feedback request → review queue only
+entry ──SHARED_WITH_GROUP {shared_at, share_version}──▶ Group ◀─MEMBER_OF|OWNS─   share → every member
+```
+
+- `submit_to_group()` files a feedback request. Only a `pipeline=TEACHER_REVIEW` entry writes
+  one (`AudienceResolver` gates it), so the link and the pipeline always agree; on any other
+  pipeline a feedback target (`teachers`, the exercise auto-target) writes **no link**. Every
+  FormSubmission group target is a feedback request. The returned bool is `created` — a
+  re-filed request is a success, not zero reach; only the created subset rings a teacher.
+- `share_with_group()` shares with every member and owner of an active group. It never puts an
+  entry in a queue.
+- A teacher-side reader (the review queue and its detail, the dashboard counts, the teaching
+  group pages, the exchange in teacher mode, the forms gate) reads `SUBMITTED_TO_GROUP` under
+  `(teacher)-[:OWNS]->(g:Group {is_active: true})`. A member reader (`/groups`) reads
+  `SHARED_WITH_GROUP` under `MEMBER_OF`. A direct `SHARES_WITH` from a teacher is a share, never
+  a review grant.
+- Migration: `scripts/migrations/split_submissions_from_shares_2026_09.py` (census by default,
+  `--confirm` to re-type; it refuses to run while a non-`teacher_review` UserEntry still carries
+  the old kind — a person rules on those rows first).
 
 ### Quality Control
 
@@ -152,9 +178,9 @@ narrows one — the revoke door is PLANNED
 #   submitter's default group(s) (query_default_groups_for_curriculum_submission,
 #   scope-gated in Cypher so personal exercises can never leak)
 
-# Step 3: Teacher views review queue (SHARED_WITH_GROUP over groups the teacher OWNS)
+# Step 3: Teacher views review queue (SUBMITTED_TO_GROUP over ACTIVE groups the teacher OWNS)
 queue_result = await teacher_review.get_review_queue(teacher_uid)
-# → get_review_queue_by_groups: entries SHARED_WITH_GROUP an owned group,
+# → get_review_queue_by_groups: entries SUBMITTED_TO_GROUP an owned active group,
 #   filtered pipeline='teacher_review'
 
 # Step 4: Teacher provides feedback
@@ -168,16 +194,17 @@ await teacher_review.submit_report(submission_uid, teacher_uid, "Great work!")
 (student:User)-[:MEMBER_OF]->(group:Group)
 (exercise:Exercise {scope: "assigned"})-[:SHARED_WITH_GROUP]->(group:Group)
 
-// On student submission (auto-created by AudienceResolver)
+// On student submission (the feedback request, filed by AudienceResolver — ADR-088 §2)
 (submission:Entity)-[:FULFILLS_EXERCISE]->(exercise:Exercise)
-(submission:Entity)-[:SHARED_WITH_GROUP]->(group:Group)
+(submission:Entity)-[:SUBMITTED_TO_GROUP {submitted_at}]->(group:Group)
 ```
 
 **Key Differences from Manual Sharing:**
-- No user-level `share()` / `SHARES_WITH` call — `AudienceResolver` writes
-  `SHARED_WITH_GROUP` edges at submit time; the teacher discovers submissions via
-  `get_review_queue()` (`SHARED_WITH_GROUP` over groups the teacher `OWNS`,
-  filtered `pipeline='teacher_review'`)
+- No user-level `share()` / `SHARES_WITH` call — `AudienceResolver` files
+  `SUBMITTED_TO_GROUP` feedback requests at submit time (never a share: classmates see
+  nothing); the teacher discovers submissions via `get_review_queue()`
+  (`SUBMITTED_TO_GROUP` over active groups the teacher `OWNS`, filtered
+  `pipeline='teacher_review'`)
 - Visibility is NOT changed — teacher access is group-relationship-gated
 - Entity ownership stays with the student
 - `verify_teacher_has_group_access()` requires teacher and student to share an active `Group` (`(teacher)-[:OWNS]->(g:Group {is_active:true})<-[:MEMBER_OF]-(student)`); cross-group teachers get 404
@@ -453,6 +480,9 @@ shareable rule is `_check_shareable()`, a staticmethod applied inside every muta
 **SHARED_WITH_GROUP properties:**
 - `shared_at`: Timestamp when shared
 - `share_version`: Content version shared (same values as above)
+
+**SUBMITTED_TO_GROUP properties** (the feedback request, ADR-088 §2 — `(entry)-[:SUBMITTED_TO_GROUP]->(group)`):
+- `submitted_at`: Timestamp of the first filing (a re-filed request keeps it; the MERGE returns `created = false`)
 
 ---
 

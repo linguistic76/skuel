@@ -334,13 +334,14 @@ class TestDeleteSubmission:
 
 class TestShareSubmission:
     @pytest.mark.asyncio
-    async def test_share_with_group(self):
+    async def test_submit_to_group(self):
+        """A form group target is a feedback request (SUBMITTED_TO_GROUP), never a share."""
         submission = _make_submission()
         backend = MagicMock()
         backend.get = AsyncMock(return_value=Result.ok(submission))
 
         sharing_service = MagicMock()
-        sharing_service.share_with_group = AsyncMock(return_value=Result.ok(True))
+        sharing_service.submit_to_group = AsyncMock(return_value=Result.ok(True))
 
         service = _make_service(backend=backend, sharing_service=sharing_service)
 
@@ -351,7 +352,7 @@ class TestShareSubmission:
         )
 
         assert result.is_ok
-        sharing_service.share_with_group.assert_awaited_once()
+        sharing_service.submit_to_group.assert_awaited_once()
 
     @pytest.mark.asyncio
     async def test_share_with_recipients(self):
@@ -416,7 +417,7 @@ class TestDefaultAudienceOnSubmit:
             return_value=Result.ok([{"group_uid": "group_x"}, {"group_uid": "group_y"}])
         )
         sharing_service = MagicMock()
-        sharing_service.share_with_group = AsyncMock(return_value=Result.ok(True))
+        sharing_service.submit_to_group = AsyncMock(return_value=Result.ok(True))
         sharing_service.share = AsyncMock(return_value=Result.ok(True))
         return template_service, backend, sharing_service
 
@@ -462,7 +463,7 @@ class TestDefaultAudienceOnSubmit:
 
         assert result.is_ok
         backend.share_with_default_audience.assert_not_awaited()
-        sharing_service.share_with_group.assert_not_awaited()
+        sharing_service.submit_to_group.assert_not_awaited()
         sharing_service.share.assert_not_awaited()
 
     @pytest.mark.asyncio
@@ -485,7 +486,7 @@ class TestDefaultAudienceOnSubmit:
         )
 
         assert backend.share_with_default_audience.await_count == 1
-        sharing_service.share_with_group.assert_not_awaited()
+        sharing_service.submit_to_group.assert_not_awaited()
 
     @pytest.mark.asyncio
     async def test_explicit_audience_is_not_widened_by_the_default(self):
@@ -513,7 +514,7 @@ class TestDefaultAudienceOnSubmit:
 
         assert result.is_ok
         shared_groups = {
-            call.kwargs["group_uid"] for call in sharing_service.share_with_group.await_args_list
+            call.kwargs["group_uid"] for call in sharing_service.submit_to_group.await_args_list
         }
         assert shared_groups == {"group_x"}
         backend.share_with_default_audience.assert_not_awaited()

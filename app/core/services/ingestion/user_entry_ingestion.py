@@ -310,15 +310,32 @@ async def build_user_entry_request(
     if not pipeline.allows_sharing():
         audience = _AudienceSpec(kind="private")
 
+    submit_to_groups: list[str] = []
     share_with_groups: list[str] = []
     visibility: Visibility | None = None
 
     if audience.kind == "teachers":
-        # Expand to the user's group memberships. Empty list means the user
-        # has no groups; entry persists privately with no shares.
-        share_with_groups = await audience_resolver.resolve_default_teachers(user_uid)
+        # A feedback request (SUBMITTED_TO_GROUP) with every group the user
+        # is a student of — only on TEACHER_REVIEW, the one pipeline with a
+        # reviewer (ADR-088 §2). An empty list means the user has no groups;
+        # the entry persists privately with no links. On any other pipeline
+        # ``teachers`` names a reviewer the pipeline never has, so it writes
+        # no link: an explicit value is warned about (never a silent drop),
+        # the absent-audience default is not.
+        if pipeline == Pipeline.TEACHER_REVIEW:
+            submit_to_groups = await audience_resolver.resolve_default_teachers(user_uid)
+        elif data.get("audience") is not None:
+            logger.warning(
+                f"{file_path.name}: 'audience: teachers' on pipeline={pipeline.value} "
+                "asks for feedback a pipeline without a reviewer cannot give — no "
+                "group link written. Use 'audience: group:<uid>' to share the note "
+                "with a group, or 'pipeline: teacher_review' to ask its teacher for "
+                "feedback."
+            )
     elif audience.kind == "group":  # skuel-lint: disable=SKUEL014 -- audience kind, not domain
         assert audience.group_uid is not None  # parser guarantees this
+        # A share. On TEACHER_REVIEW the request model routes it to
+        # ``submit_to_groups`` — the per-teacher route until PR 6a names it.
         share_with_groups = [audience.group_uid]
     elif audience.kind == "public":
         role_check = await _require_teacher_for_public(user_uid, user_service)
@@ -481,6 +498,7 @@ async def build_user_entry_request(
         instructions=data.get("instructions"),
         fulfills_exercise_uid=fulfills_exercise_uid,
         transforms_of_uid=transforms_of_uid,
+        submit_to_groups=submit_to_groups,
         share_with_groups=share_with_groups,
         share_with_users=[],
         visibility=visibility,
@@ -620,6 +638,7 @@ async def ingest_user_entry(
         submitted_copy_uid = copy_result.value
     logger.info(
         f"Ingested user_entry: {entry.uid} (pipeline={entry.pipeline.value}, "
+        f"submitted_groups={len(outcome.submitted_groups)}, "
         f"shared_groups={len(outcome.shared_groups)})"
     )
 
@@ -666,7 +685,8 @@ async def ingest_user_entry(
             "nodes_created": 2 if submitted_copy_uid else 1,
             "nodes_updated": 0,
             "relationships_created": (
-                len(outcome.shared_groups)
+                len(outcome.newly_submitted_groups)
+                + len(outcome.shared_groups)
                 + len(outcome.shared_users)
                 + (1 if (is_turn_in or submitted_copy_uid) else 0)
             ),
@@ -741,11 +761,13 @@ async def _file_submission_copy(
         return Result.fail(copy_result)
     copy, copy_outcome = copy_result.value
 
-    if not copy_outcome.any_success:
-        # Zero successful shares AND zero failures slips past the service's
-        # compensation (which requires an attempted-but-failed target). For
-        # the vault channel that silence is an error state: nobody will ever
-        # review the copy. Compensate and surface.
+    if not copy_outcome.submitted_groups:
+        # A feedback request that reached no group AND had no failed target
+        # slips past the service's compensation (which requires an
+        # attempted-but-failed target). For the vault channel that silence is
+        # an error state: nobody will ever review the copy. Reach is the link
+        # kind a TEACHER_REVIEW copy needs — a share, had one been requested,
+        # puts it in no queue. Compensate and surface.
         delete_result = await user_entry_service.delete_entry(copy.uid, user_uid)
         if delete_result.is_error:
             logger.error(
@@ -764,7 +786,7 @@ async def _file_submission_copy(
 
     logger.info(
         f"Filed frozen submission copy {copy.uid} for living entry {living_uid} "
-        f"(exercise={exercise_uid}, groups={list(copy_outcome.shared_groups)})"
+        f"(exercise={exercise_uid}, groups={list(copy_outcome.submitted_groups)})"
     )
     return Result.ok(copy.uid)
 

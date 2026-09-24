@@ -1,6 +1,6 @@
 ---
 title: The 3-Layer Lens — A Cross-Cutting View of SKUEL
-updated: 2026-09-02
+updated: 2026-09-24
 status: current
 category: architecture
 tags:
@@ -59,7 +59,7 @@ Members: `Task`, `Goal`, `Habit`, `Event`, `Choice`, `Principle`, `UserEntry`, `
 - `Pipeline.TRANSCRIBE_AND_STRUCTURE` — audio → transcribed entry → LLM-structured entry (journal)
 - `Pipeline.LLM_SUMMARY` — text/file → LLM summary
 - `Pipeline.EXTRACT_ACTIVITIES` — DSL parse → real entities with `EXTRACTED_FROM` provenance (ADR-069)
-- `Pipeline.TEACHER_REVIEW` — no processing; waits in a teacher review queue via `SHARED_WITH_GROUP`
+- `Pipeline.TEACHER_REVIEW` — no processing; waits in a teacher review queue via `SUBMITTED_TO_GROUP` (the feedback request, ADR-088 §2)
 - `Pipeline.REFERENCE` — RESERVED (no producer): the planned per-user *stored* journal-exemplar layer; je_raw/je_pro exemplars stay disk-only (ADR-073 §4), and a frontmatter-consented je_pro file ingests as KNOWLEDGE, not REFERENCE
 
 New user-authored flows arrive as new pipeline variants, not as new EntityTypes (ADR-054).

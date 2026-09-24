@@ -371,7 +371,7 @@ carry — folded in as contract; the ones that change the plan say "settled at P
   census is complete — every other UserEntry/FormSubmission `SHARED_WITH_GROUP` reader is a
   curriculum reader, a membership gate, the caller-less query_groups_shared_with, or the
   retract_defaulted_vault_note_shares script (which targets KNOWLEDGE and EXTRACT_ACTIVITIES only).
-- **Migration** `scripts/migrations/split_submissions_from_shares_2026_09.py`, dry-run census by default: <!-- planned -->
+- **Migration** `scripts/migrations/split_submissions_from_shares_2026_09.py`, dry-run census by default:
   - Reports UserEntry `SHARED_WITH_GROUP` counts by pipeline, and **fails loudly on
     non-teacher_review rows** — a census stop-and-look: an explicit `group:` share on another
     pipeline is legitimate, and a row made before PR 1 cannot be traced to its source (the vault
@@ -409,6 +409,22 @@ carry — folded in as contract; the ones that change the plan say "settled at P
 - **Docstrings:** `pipeline.py:35`, `user_entry_request.py:124,133`, `user_entry_protocols.py:16,253,352,424`
   (keep the lint anchor at `test_lint_skuel.py:6946`), `teacher_review_service.py:108,735`,
   `user_entry_orchestrator.py:215`, and the stale_names reason at `stale_names.py:265`.
+- **Ruled (PR 1 session, 2026-09-24 — engineering choices the census found unsettled; none touches
+  a ruling):**
+  - The interim `share_with_groups` → `submit_to_groups` mapping on a TEACHER_REVIEW request lives
+    in `UserEntryCreateRequest` (an `after` model validator) — the one convergence point every door
+    builds, so the JSON body, the web `group:` form and the vault `group:` all take it without a
+    route edit. PR 6a retires it there.
+  - `SUBMITTED_TO_GROUP` carries `submitted_at` only (stamped on create; a re-file keeps it).
+    The migration maps the old edge's `shared_at` onto it and does **not** carry `share_version`
+    — a share concept, `original` on every live row; a feedback request has no versions.
+  - The new writer's group guard is strict (`is_active = true`), the ADR-088 §3 rule, not the
+    sibling's `coalesce` — nothing is lost (both group writers set it on create).
+  - Step 5b (the `SHARED_WITH_TEACHER` Interaction) reads `submitted_groups`, like 5a: reach is
+    the link kind the entry needs, so a person share alone records no teacher transition.
+  - The vault door resolves `teachers` only on TEACHER_REVIEW and skips the group lookup on other
+    pipelines (same behaviour as "fill then gate", one query fewer); the explicit-value warning is
+    a `logger.warning` on the ingest, keyed on `data["audience"]` being present.
 
 ### PR 2b — Feedback is identified by its outcome; the EntryReport access check retires
 

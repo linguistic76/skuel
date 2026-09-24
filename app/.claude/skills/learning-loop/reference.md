@@ -165,7 +165,7 @@ here; the pre-filled frontmatter is for the student's reference.
 > **Critical (ADR-054):** The teacher review queue is assembled by group membership, not by
 > exercise ownership: `TeacherReviewService.get_review_queue()` →
 > `UserEntryBackend.get_review_queue_by_groups()` matches
-> `(teacher)-[:OWNS]->(:Group)<-[:SHARED_WITH_GROUP]-(entry:UserEntry)` where
+> `(teacher)-[:OWNS]->(:Group {is_active: true})<-[:SUBMITTED_TO_GROUP]-(entry:UserEntry)` where
 > `entry.pipeline = 'teacher_review'`. (A `(teacher)-[:OWNS]->(exercise)` traversal is NOT
 > the queue path — it hides valid group-shared entries.)
 > This query is THE needs-review rule: scoped by `student_uid` it also feeds the per-student
@@ -253,7 +253,7 @@ They are orthogonal — a form submission can still be part of a pipeline.
 | `TRANSCRIBE` | Audio upload | Audio → text (Deepgram) |
 | `TRANSCRIBE_AND_STRUCTURE` | Journal flow | Audio → transcribed entry → LLM-structured second entry |
 | `LLM_SUMMARY` | Text/file to summarize | LLM summary |
-| `TEACHER_REVIEW` | Exercise turn-in | None — routed to a teacher review queue via `SHARED_WITH_GROUP` |
+| `TEACHER_REVIEW` | Exercise turn-in | None — routed to a teacher review queue via `SUBMITTED_TO_GROUP` (the feedback request, ADR-088 §2 — the only pipeline that writes one) |
 
 **One create method (`UserEntryService.create_entry()`):**
 (`/journals/upload` is zero-persistence — it processes to `je_out/` without creating a
@@ -722,7 +722,8 @@ RelationshipName.FULFILLS_EXERCISE          # Submission → root Exercise (alwa
 RelationshipName.FULFILLS_REVISED_EXERCISE  # Submission → RevisedExercise (revision-cycle only)
 RelationshipName.REPORT_FOR              # EntryReport → Submission
 RelationshipName.SHARES_WITH             # User → RevisedExercise (auto-share to student)
-RelationshipName.SHARED_WITH_GROUP       # Submission → Group (group sharing)
+RelationshipName.SUBMITTED_TO_GROUP      # Submission → Group (the feedback request — teachers who OWN the group, ADR-088 §2)
+RelationshipName.SHARED_WITH_GROUP       # Submission → Group (a share — every member; never queues)
 RelationshipName.RESPONDS_TO_REPORT     # RevisedExercise → EntryReport
 RelationshipName.REVISES_EXERCISE        # RevisedExercise → Exercise
 ```

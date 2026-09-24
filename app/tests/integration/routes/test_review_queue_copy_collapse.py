@@ -97,7 +97,7 @@ async def seeded(clean_neo4j, neo4j_driver) -> None:
     - STUDENT_2 x EX_1: rev 1 pending, shared with TEACHER's group → queues
       (S1's rev 2 on the same exercise is a different lineage and must not
       swallow it). A rev 2 exists but the multi-class student directed it
-      ONLY to OTHER_TEACHER's group (share_with_groups supports this) — a
+      ONLY to OTHER_TEACHER's group (submit_to_groups supports this) — a
       copy this teacher cannot see must not retire their pending work.
     - STUDENT_2 x EX_2: rev 1 pending, rev 2 already completed → rev 1 is
       superseded by the reviewed copy and must not queue.
@@ -229,18 +229,18 @@ async def seeded(clean_neo4j, neo4j_driver) -> None:
             MERGE (w1)-[:FULFILLS_EXERCISE {revision: 1}]->(ex3)
             MERGE (w2)-[:FULFILLS_EXERCISE {revision: 1}]->(ex3)
             MERGE (w3)-[:FULFILLS_EXERCISE {revision: 2}]->(ex3)
-            MERGE (a1)-[:SHARED_WITH_GROUP]->(g)
-            MERGE (a2)-[:SHARED_WITH_GROUP]->(g)
-            MERGE (lone)-[:SHARED_WITH_GROUP]->(g)
-            MERGE (b1)-[:SHARED_WITH_GROUP]->(g)
-            MERGE (b2)-[:SHARED_WITH_GROUP]->(g2)
-            MERGE (c1)-[:SHARED_WITH_GROUP]->(g)
-            MERGE (c2)-[:SHARED_WITH_GROUP]->(g)
-            MERGE (d1)-[:SHARED_WITH_GROUP]->(g)
-            MERGE (d2)-[:SHARED_WITH_GROUP]->(g3)
-            MERGE (w1)-[:SHARED_WITH_GROUP]->(g)
-            MERGE (w2)-[:SHARED_WITH_GROUP]->(g)
-            MERGE (w3)-[:SHARED_WITH_GROUP]->(g)
+            MERGE (a1)-[:SUBMITTED_TO_GROUP]->(g)
+            MERGE (a2)-[:SUBMITTED_TO_GROUP]->(g)
+            MERGE (lone)-[:SUBMITTED_TO_GROUP]->(g)
+            MERGE (b1)-[:SUBMITTED_TO_GROUP]->(g)
+            MERGE (b2)-[:SUBMITTED_TO_GROUP]->(g2)
+            MERGE (c1)-[:SUBMITTED_TO_GROUP]->(g)
+            MERGE (c2)-[:SUBMITTED_TO_GROUP]->(g)
+            MERGE (d1)-[:SUBMITTED_TO_GROUP]->(g)
+            MERGE (d2)-[:SUBMITTED_TO_GROUP]->(g3)
+            MERGE (w1)-[:SUBMITTED_TO_GROUP]->(g)
+            MERGE (w2)-[:SUBMITTED_TO_GROUP]->(g)
+            MERGE (w3)-[:SUBMITTED_TO_GROUP]->(g)
             """,
             teacher=TEACHER,
             other_teacher=OTHER_TEACHER,

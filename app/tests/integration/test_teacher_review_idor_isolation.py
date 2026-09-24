@@ -11,10 +11,10 @@ but never filtered on it — observation #3 from the PR #98 review.
 Seed layout (two unrelated classrooms):
     Teacher A --OWNS--> Group X (active) <--MEMBER_OF-- Student 1
                           ^
-                          |--SHARED_WITH_GROUP-- submission_1 (Student 1)
+                          |--SUBMITTED_TO_GROUP-- submission_1 (Student 1)
     Teacher B --OWNS--> Group Y (active) <--MEMBER_OF-- Student 2
                           ^
-                          |--SHARED_WITH_GROUP-- submission_2 (Student 2)
+                          |--SUBMITTED_TO_GROUP-- submission_2 (Student 2)
 
 Each method asserted against:
 - Teacher A reading their own classroom → sees data.
@@ -80,8 +80,8 @@ async def two_classroom_fixture(neo4j_driver):
         MERGE (s1)-[:OWNS]->(sub1)
         MERGE (s2)-[:OWNS]->(sub2)
 
-        MERGE (sub1)-[:SHARED_WITH_GROUP]->(gx)
-        MERGE (sub2)-[:SHARED_WITH_GROUP]->(gy)
+        MERGE (sub1)-[:SUBMITTED_TO_GROUP]->(gx)
+        MERGE (sub2)-[:SUBMITTED_TO_GROUP]->(gy)
         """,
         teacher_a=teacher_a,
         teacher_b=teacher_b,
@@ -149,7 +149,7 @@ class TestStudentEntriesIsolation:
 @pytest.mark.asyncio
 @pytest.mark.integration
 class TestEntryDetailIsolation:
-    """``get_entry_detail_for_teacher`` — Model B (SHARED_WITH_GROUP)."""
+    """``get_entry_detail_for_teacher`` — Model B (SUBMITTED_TO_GROUP)."""
 
     async def test_own_classroom_returns_detail(self, backend, two_classroom_fixture):
         result = await backend.get_entry_detail_for_teacher(
@@ -160,7 +160,7 @@ class TestEntryDetailIsolation:
         assert result.value[0]["uid"] == two_classroom_fixture["submission_1"]
 
     async def test_cross_classroom_returns_empty(self, backend, two_classroom_fixture):
-        """Teacher B owns no group that submission_1 is SHARED_WITH_GROUP → empty.
+        """Teacher B owns no group that submission_1 is SUBMITTED_TO_GROUP → empty.
 
         Service layer maps empty → 404 (Errors.not_found), so probing across
         classrooms cannot confirm the entry's existence.
@@ -175,7 +175,7 @@ class TestEntryDetailIsolation:
         self, backend, two_classroom_fixture, neo4j_driver
     ):
         """An inactive group cannot satisfy the gate, even if Teacher B owns it
-        and submission_1 is SHARED_WITH_GROUP to it."""
+        and submission_1 is SUBMITTED_TO_GROUP to it."""
         teacher_b = two_classroom_fixture["teacher_b"]
         inactive_group = "test_idor_group_z_inactive"
         try:
@@ -185,7 +185,7 @@ class TestEntryDetailIsolation:
                 WITH gz
                 MATCH (tb:User {uid: $tb}) MERGE (tb)-[:OWNS]->(gz)
                 WITH gz
-                MATCH (sub:Entity {uid: $sub}) MERGE (sub)-[:SHARED_WITH_GROUP]->(gz)
+                MATCH (sub:Entity {uid: $sub}) MERGE (sub)-[:SUBMITTED_TO_GROUP]->(gz)
                 """,
                 g=inactive_group,
                 tb=teacher_b,

@@ -1,7 +1,7 @@
 ---
 title: UserEntry Domain
 created: 2026-09-01
-updated: 2026-09-20
+updated: 2026-09-24
 status: current
 category: domains
 tags: [user-entry, learning-loop, domain]
@@ -37,7 +37,7 @@ decides what (if anything) happens after creation.
 | `TRANSCRIBE_AND_STRUCTURE` | Audio → transcribed entry → LLM-structured second entry. The enum calls it legacy, but the path is **live**, not read-only: a client can select it on `POST /api/user-entries` or as a `/api/user-entries/process` override, and `_run_transcribe_and_structure` still dispatches it (FULL tier) |
 | `LLM_SUMMARY` | Text/file → LLM summary |
 | `EXTRACT_ACTIVITIES` | Text → DSL parse → real entities with `EXTRACTED_FROM` provenance (ADR-069) |
-| `TEACHER_REVIEW` | No processing; the entry waits in the teacher queue — but **only via `SHARED_WITH_GROUP`**, see the trap below |
+| `TEACHER_REVIEW` | No processing; the entry waits in the teacher queue — but **only via `SUBMITTED_TO_GROUP`** (the feedback request, ADR-088 §2 — the one pipeline that writes it), see the trap below |
 | `KNOWLEDGE` | Grounded knowledge entry — the `je_pro` channel |
 | `REFERENCE` | Reserved; no producer today (ADR-073 §4) |
 
@@ -168,12 +168,14 @@ Audience is always **declared at submit time**. There is no implicit
 student→teacher sharing inferred from a `FULFILLS_EXERCISE` traversal plus a
 role check.
 
-⚠️ **The queue reads groups, the validator accepts users.** `AudienceResolver.validate()`
-lets a `TEACHER_REVIEW` request satisfy its audience requirement with
-`share_with_users` alone, but the review queue in
+⚠️ **A share is not a feedback request.** The review queue in
 `adapters/persistence/neo4j/_user_entry_assessment_mixin.py` matches **only**
-`SHARED_WITH_GROUP` edges. A turn-in shared with a teacher as an individual is therefore
-perfectly valid and appears in no queue. Group audience is what makes a turn-in reviewable.
+`SUBMITTED_TO_GROUP` edges (ADR-088 §2). `AudienceResolver.validate()` therefore accepts only a
+feedback target — `submit_to_groups` or `fulfills_exercise_uid` — for a `TEACHER_REVIEW`
+request; `share_with_users` / `share_with_groups` let people see the work and put it in no
+queue. Until PR 6a names `teacher:<group_uid>`, an explicit `share_with_groups` on a
+TEACHER_REVIEW request is routed to `submit_to_groups` by the request model (the per-teacher
+route). On any other pipeline a feedback target writes no link at all.
 
 `AudienceResolver` is deliberately a standalone helper rather than facade-private:
 the `/api/user-entries/upload` ingestion path reuses the same validation without going through

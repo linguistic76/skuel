@@ -212,7 +212,7 @@ class UserEntryOrchestrator:
         ``student_uid`` requires the viewer to share an active owned group
         with that student — the same gate that guards the report-file
         download — and the chain read is then additionally scoped to entries
-        ``SHARED_WITH_GROUP`` an active group the viewer owns, so a
+        ``SUBMITTED_TO_GROUP`` an active group the viewer owns, so a
         multi-class student's work directed to another teacher's classroom
         stays invisible. Every denial (no authority, missing exercise,
         student never submitted, nothing shared with this viewer) collapses

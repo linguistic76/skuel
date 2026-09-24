@@ -1,6 +1,6 @@
 ---
 title: Report Architecture
-updated: 2026-09-21
+updated: 2026-09-24
 status: current
 category: architecture
 version: 3.2.0
@@ -118,8 +118,8 @@ Exercise (scope=ASSIGNED)
        |   No QUEUED/PROCESSING status is persisted; process() emits a
        |   UserEntryProcessingStarted event only.
        v
-5. Auto-sharing (teacher_review + exercise link): FULFILLS_EXERCISE {revision}
-       |   + SHARED_WITH_GROUP to the exercise's assigned groups (UnifiedSharingService)
+5. The feedback request (teacher_review + exercise link): FULFILLS_EXERCISE {revision}
+       |   + SUBMITTED_TO_GROUP to the exercise's assigned groups (UnifiedSharingService.submit_to_group)
        v
 6. Teacher reviews via the group-based queue → writes ENTRY_REPORT
        |   submit_report:    SUBMITTED/ACTIVE   → COMPLETED          (Cypher guard)
@@ -146,9 +146,9 @@ Each status guard is enforced atomically in Cypher via `WHERE status IN $allowed
 (student)-[:OWNS]->(submission:Entity:UserEntry {entity_type: "user_entry", pipeline: "teacher_review"})
 (submission)-[:FULFILLS_EXERCISE]->(exercise)
 
-// Teacher discovers entries via the group-based review queue (ADR-040):
-// the entry is SHARED_WITH_GROUP to a Group the teacher OWNS, pipeline = 'teacher_review'
-(submission)-[:SHARED_WITH_GROUP]->(group)
+// Teacher discovers entries via the group-based review queue (ADR-040, ADR-088 §2):
+// the entry is SUBMITTED_TO_GROUP to an active Group the teacher OWNS, pipeline = 'teacher_review'
+(submission)-[:SUBMITTED_TO_GROUP]->(group)
 
 // Teacher report — student owns the report (access ownership); teacher is recorded via author_uid
 (student)-[:OWNS]->(report:Entity {entity_type: "entry_report", author_uid: "teacher_uid"})
@@ -304,7 +304,7 @@ Only `COMPLETED` entities can be shared (prevents sharing incomplete/failed work
 |---------|----------|---------------|
 | `UserEntryService` | concrete facade (backend port `UserEntryOperations`) | UserEntry creation (`create_entry`), exercise linking, audience resolution |
 | `UserEntryProcessingService` | `UserEntryProcessingOperations` | Pipeline dispatcher: reads `entry.pipeline`, routes to transcription / LLM processors |
-| `UnifiedSharingService` | `SharingOperations` | Visibility control, SHARES_WITH + SHARED_WITH_GROUP management |
+| `UnifiedSharingService` | `SharingOperations` | Visibility control, SHARES_WITH + SHARED_WITH_GROUP shares, SUBMITTED_TO_GROUP feedback requests |
 | `TeacherReviewService` | `TeacherReviewOperations` | Review queue, human feedback, revision requests, approval (delegates to `UserEntryBackend`, `EntryReportBackend`, `ExerciseBackend`, `GroupBackend`). Status transitions enforced atomically via Cypher `WHERE status IN $allowed_from_statuses` guards — race-safe, no pre-fetch needed. `request_revision_with_exercise()` creates EntryReport + RevisedExercise in a single Neo4j transaction (all-or-nothing). |
 
 **Report producers:**

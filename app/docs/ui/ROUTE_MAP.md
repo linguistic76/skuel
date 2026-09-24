@@ -1,5 +1,5 @@
 ---
-updated: 2026-09-19
+updated: 2026-09-24
 ---
 
 # Route Map
@@ -30,7 +30,7 @@ One navigation, one rule (`ui/layouts/nav_config.py`): the chrome carries one do
 
 ### `/groups` — Student-Facing Group-Shares Hub
 
-Tabbed layout with one tab per group the student is a member of (capped at `MAX_STUDENT_GROUPS = 4`, enforced server-side in `GroupService.add_member()`). Each tab shows a single "Recent Shares" block HTMX-loaded from `GET /api/groups/{group_uid}/shared/preview` — peer-authored `UserEntry`s linked via `(entry)-[:SHARED_WITH_GROUP]->(group)`, with own entries excluded and membership guarded by the Cypher `MATCH` on `(user)-[:MEMBER_OF]->(group)`. Zero-group students see an `EmptyState`. UI in `ui/groups/hub.py` + `ui/groups/shared_preview.py`; routes in `adapters/inbound/groups_hub_routes.py`; backing service method `UnifiedSharingService.get_user_entries_shared_with_group()`. Distinct from `/teaching/groups` (teacher-facing group management).
+Tabbed layout with one tab per group the student is a member of (capped at `MAX_STUDENT_GROUPS = 4`, enforced server-side in `GroupService.add_member()`). Each tab shows a single "Recent Shares" block HTMX-loaded from `GET /api/groups/{group_uid}/shared/preview` — peer-authored `UserEntry`s linked via `(entry)-[:SHARED_WITH_GROUP]->(group)` (a share — a turn-in sent to the teacher is `SUBMITTED_TO_GROUP` and never appears here, ADR-088 §2), with own entries excluded and membership guarded by the Cypher `MATCH` on `(user)-[:MEMBER_OF]->(group)`. Zero-group students see an `EmptyState`. UI in `ui/groups/hub.py` + `ui/groups/shared_preview.py`; routes in `adapters/inbound/groups_hub_routes.py`; backing service method `UnifiedSharingService.get_user_entries_shared_with_group()`. Distinct from `/teaching/groups` (teacher-facing group management).
 
 ### `/explore` — Reading-First Explore Surface
 
@@ -103,7 +103,7 @@ The `/gradebook/{uid}` route renders submission detail for a specific `UserEntry
 
 ### `/exchange?exercise={uid}[&student={uid}]`
 
-Read-only exchange thread (feedback-loop UX arc C5) — one (student, root exercise) exchange rendered chronologically: submissions (all revisions, including entries against a `RevisedExercise`), feedback reports, and revision requests, each linking to its existing detail/action surface per viewer (student → `/gradebook/{uid}` / `/entry-reports/detail`; teacher → `/teaching/review/{uid}`). The viewer reads their own exchange; `student=` requires both report-download gates — the live TEACHER role plus a shared ACTIVE owned group — and the teacher-mode chain shows only entries `SHARED_WITH_GROUP` an active group the viewer owns (a multi-class student's other classroom stays invisible). Every denial serves the same rendered not-found page with a real HTTP 404 (404-not-403). Entry points: the Shared-With-Me card's exercise subject link, `/gradebook/{uid}`, the `/teaching/review/{uid}` fragment, and the learning-loop PS submissions rows. Route: `adapters/inbound/exchange_ui.py`; renderer: `ui/learning_loop/exchange_thread.py`.
+Read-only exchange thread (feedback-loop UX arc C5) — one (student, root exercise) exchange rendered chronologically: submissions (all revisions, including entries against a `RevisedExercise`), feedback reports, and revision requests, each linking to its existing detail/action surface per viewer (student → `/gradebook/{uid}` / `/entry-reports/detail`; teacher → `/teaching/review/{uid}`). The viewer reads their own exchange; `student=` requires both report-download gates — the live TEACHER role plus a shared ACTIVE owned group — and the teacher-mode chain shows only entries `SUBMITTED_TO_GROUP` an active group the viewer owns (a multi-class student's other classroom stays invisible). Every denial serves the same rendered not-found page with a real HTTP 404 (404-not-403). Entry points: the Shared-With-Me card's exercise subject link, `/gradebook/{uid}`, the `/teaching/review/{uid}` fragment, and the learning-loop PS submissions rows. Route: `adapters/inbound/exchange_ui.py`; renderer: `ui/learning_loop/exchange_thread.py`.
 
 ### `/library`
 
@@ -135,7 +135,7 @@ Teaching child pages (Students, Groups, Review Queue, Forms) use `SidebarPage` w
 
 ### `/teaching/queue` — Review Queue
 
-Two link-tab views over the SAME student-scoped queue query (`get_review_queue_by_groups` — one collapse rule, per-entry `SHARED_WITH_GROUP` gate): **Needs review** (default; statuses submitted/active) and **Waiting for resubmit** (`?view=waiting`; status `revision_requested` — feedback-loop UX arc 2, C3). A resubmit supersedes the revision-requested copy in its lineage, automatically moving the exercise from Waiting back to Needs review. The per-student page's Needs Review / Revision Requested buckets read the same two scoped queues, so the surfaces never disagree. Routes in `adapters/inbound/teaching_ui.py`.
+Two link-tab views over the SAME student-scoped queue query (`get_review_queue_by_groups` — one collapse rule, per-entry `SUBMITTED_TO_GROUP` gate): **Needs review** (default; statuses submitted/active) and **Waiting for resubmit** (`?view=waiting`; status `revision_requested` — feedback-loop UX arc 2, C3). A resubmit supersedes the revision-requested copy in its lineage, automatically moving the exercise from Waiting back to Needs review. The per-student page's Needs Review / Revision Requested buckets read the same two scoped queues, so the surfaces never disagree. Routes in `adapters/inbound/teaching_ui.py`.
 
 ### `/teaching/forms`
 

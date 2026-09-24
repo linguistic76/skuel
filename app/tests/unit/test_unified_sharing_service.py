@@ -9,6 +9,7 @@ Tests all service methods with a mocked SharingBackend:
 - check_access()
 - get_shared_with()
 - get_shared_with_me()
+- submit_to_group()
 """
 
 from unittest.mock import AsyncMock, MagicMock
@@ -864,3 +865,85 @@ async def test_share_with_group_success_passes_owner_uid(mock_backend, sharing_s
     assert result.is_ok
     _, kwargs = mock_backend.create_group_share.await_args
     assert kwargs["owner_uid"] == "user_owner"
+
+
+# ============================================================================
+# SUBMIT TO GROUP — THE FEEDBACK REQUEST (ADR-088 §2)
+# ============================================================================
+
+
+def _owned_user_entry(mock_backend) -> None:
+    mock_backend.query_ownership_and_status = AsyncMock(
+        return_value=Result.ok(
+            [{"actual_owner": "user_owner", "status": "submitted", "entity_type": "user_entry"}]
+        )
+    )
+
+
+@pytest.mark.asyncio
+async def test_submit_to_group_rejects_non_member(mock_backend, sharing_service):
+    """No row = the guard refused (not a member or owner, or the group is
+    missing or inactive) — ``forbidden``, never ``not_found``."""
+    _owned_user_entry(mock_backend)
+    mock_backend.create_group_submission = AsyncMock(return_value=Result.ok([]))
+
+    result = await sharing_service.submit_to_group(
+        entity_uid="ue_1", owner_uid="user_owner", group_uid="group_someone_elses_class"
+    )
+
+    assert result.is_error
+    err = result.expect_error()
+    assert err.category.value == "forbidden"
+    assert "member" in str(err).lower()
+    _, kwargs = mock_backend.create_group_submission.await_args
+    assert kwargs["owner_uid"] == "user_owner"
+    assert kwargs["group_uid"] == "group_someone_elses_class"
+
+
+@pytest.mark.asyncio
+async def test_submit_to_group_created_is_true_for_a_new_request(mock_backend, sharing_service):
+    _owned_user_entry(mock_backend)
+    mock_backend.create_group_submission = AsyncMock(return_value=Result.ok([{"created": True}]))
+
+    result = await sharing_service.submit_to_group(
+        entity_uid="ue_1", owner_uid="user_owner", group_uid="group_my_class"
+    )
+
+    assert result.is_ok
+    assert result.value is True
+
+
+@pytest.mark.asyncio
+async def test_submit_to_group_matched_request_is_a_success_not_created(
+    mock_backend, sharing_service
+):
+    """The MERGE matched an existing request: success (the request stands),
+    ``created`` False — never copy ``share_with_group``'s empty-value refusal
+    onto this bool."""
+    _owned_user_entry(mock_backend)
+    mock_backend.create_group_submission = AsyncMock(return_value=Result.ok([{"created": False}]))
+
+    result = await sharing_service.submit_to_group(
+        entity_uid="ue_1", owner_uid="user_owner", group_uid="group_my_class"
+    )
+
+    assert result.is_ok
+    assert result.value is False
+
+
+@pytest.mark.asyncio
+async def test_submit_to_group_requires_ownership(mock_backend, sharing_service):
+    mock_backend.query_ownership_and_status = AsyncMock(
+        return_value=Result.ok(
+            [{"actual_owner": "user_other", "status": "submitted", "entity_type": "user_entry"}]
+        )
+    )
+    mock_backend.create_group_submission = AsyncMock()
+
+    result = await sharing_service.submit_to_group(
+        entity_uid="ue_1", owner_uid="user_owner", group_uid="group_my_class"
+    )
+
+    assert result.is_error
+    assert result.expect_error().category.value == "not_found"
+    mock_backend.create_group_submission.assert_not_called()

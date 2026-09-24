@@ -7,7 +7,7 @@ Exercises the full teacher-review submission path on ``UserEntry``:
     student → UserEntryService.create_entry(TEACHER_REVIEW, fulfills_exercise_uid)
               → (:UserEntry) node
               → [:FULFILLS_EXERCISE {revision: 1}] → (:Exercise)
-              → [:SHARED_WITH_GROUP] → (:Group)   (auto-share path)
+              → [:SUBMITTED_TO_GROUP] → (:Group)  (the feedback request, ADR-088 §2)
               → entry visible via get_review_queue_by_groups(teacher_uid)
 
 No HTTP layer — the route just forwards into this same service call.
@@ -80,18 +80,18 @@ async def test_teacher_review_submission_lands_in_review_queue(
         assert fe is not None and fe["cnt"] == 1
         assert fe["revision"] == 1
 
-        # Auto-share fired: SHARED_WITH_GROUP to the exercise's assigned group
+        # The feedback request was filed: SUBMITTED_TO_GROUP to the exercise's assigned group
         sg = await (
             await session.run(
                 """
-                MATCH (u:UserEntry {uid: $uid})-[:SHARED_WITH_GROUP]->(g:Group {uid: $g})
+                MATCH (u:UserEntry {uid: $uid})-[:SUBMITTED_TO_GROUP]->(g:Group {uid: $g})
                 RETURN count(*) AS cnt
                 """,
                 uid=entry.uid,
                 g=ctx["group_uid"],
             )
         ).single()
-        assert sg is not None and sg["cnt"] == 1, "auto-share to group did not fire"
+        assert sg is not None and sg["cnt"] == 1, "feedback request to the group was not filed"
 
     # Teacher review queue picks the entry up
     queue_result = await user_entry_service.get_review_queue(
