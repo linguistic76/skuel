@@ -824,7 +824,10 @@ it first removes both.
   compensating delete applies only to a node **this call created**: the create branch always, and
   the upsert branch (`request.uid` set) only when the upsert reports it created the node (a
   deterministic uid can be new) — so have the upsert return that flag. A pre-existing living node is
-  never deleted: zero reach is returned as an error. The upsert branch stops carrying TEACHER_REVIEW
+  never deleted: zero reach is returned as an error. The Interaction audit node `create_entry` writes
+  at step 3 must not outlive a compensated entry (a `DETACH DELETE` of the entry leaves it orphaned,
+  falsely recording a submission): move its creation after the zero-reach check (preferred) or
+  compensate it too (settled at PR 0 review). The upsert branch stops carrying TEACHER_REVIEW
   vault notes at PR 8.
 - **Teacher bell:**
   - `UserEntryCreated` gains `submitted_group_uids`, filled from newly created SUBMITTED_TO_GROUP
@@ -888,10 +891,15 @@ it first removes both.
     `submitted_from_uid` (changed at PR 0 review from the plan's dual read: a fallback would be a
     second provenance authority that hides an incomplete migration).
   - Dedup = the newest copy from the same note, compared over the **whole submitted snapshot** —
-    content **and** audience (settled at PR 0 review). Today's `_file_submission_copy` compares
-    content only; a note that stays `status: submitted` while its `audience:` changes (say
-    `teachers` → `user:bob`) must file a new copy, because drafts never share and a filed copy is
-    frozen.
+    content **and** the authored `audience:` list (settled at PR 0 review). Today's
+    `_file_submission_copy` compares content only; a note that stays `status: submitted` while its
+    `audience:` changes (say `teachers` → `user:bob`) must file a new copy, because drafts never
+    share and a filed copy is frozen.
+  - **The comparison reads a fingerprint, never the copy's live links.** The copy is stamped at filing
+    with a fingerprint of what was authored (content + audience list) — a record of provenance, not a
+    second audience record (ADR-088 §3: the links alone grant access). Comparing against the live
+    links would read a Stop sharing (PR 6b) as an audience edit and re-file the copy, re-granting the
+    recipient; against the fingerprint, a revocation stays durable while the note is unchanged.
   - The queue, the dashboard twin and `get_students_summary` supersede older pending same-note copies.
   - `cleanup_untracked_vault_entries.py` excludes `submitted_from_uid IS NOT NULL`.
 - **Migration/census:**
