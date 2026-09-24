@@ -540,7 +540,7 @@ it first removes both.
     with root = `coalesce(original.uid, exercise.original_exercise_uid, exercise.uid)`.
   - The values are RETURNed, and the created model is updated from them.
   - Verified at PR 0: the field name collides with a local in `user_entry_service.py:229` that means
-    the submitted-against uid — rename one.
+    the submitted-against uid — rename the local, so the model field owns the name.
 - **Backfill** (census/`--confirm`): root = coalesce(the direct FULFILLS_EXERCISE target,
   FULFILLS_REVISED_EXERCISE→REVISES_EXERCISE, RE.original_exercise_uid, **the entry's retained
   `fulfills_exercise_uid` property** — resolved through a RevisedExercise's `original_exercise_uid`
@@ -575,7 +575,9 @@ it first removes both.
   - The UI label "Revised Exercise" becomes "Revision request" (label only; the entity stays).
     Verified at PR 0: the string is EntityType's core display name (`entity_enums.py:284`, read by
     `get_display_name()`), and some UI sites already say "Revision Request" (`report_item.py:28`,
-    `exchange_thread.py:160`) — decide between the enum name and a render-site override.
+    `exchange_thread.py:160`). **The enum is the one source** (settled at PR 0 review): change the
+    display name in `entity_enums.py`, and make the hand-written UI strings read it — no render-site
+    override.
 - **Tests:**
   - orphan fixtures in `test_gradebook_summaries.py`;
   - the E3 fixture gets the real root edge + a length assert (`test_exchange_thread.py:205`);
@@ -593,8 +595,9 @@ it first removes both.
   has no `REVISES_EXERCISE` edge (`_user_entry_lifecycle_mixin.py:130-134`); that edge is written only
   when an original exists (`exercise_backends.py:1115-1117`) and PR 4a's scenario (an exercise
   `DETACH DELETE`) removes it. A swap would regress that case: match
-  `-[:FULFILLS_EXERCISE|FULFILLS_REVISED_EXERCISE]->(re)`. Check whether the enrichment-pattern tuple
-  takes a relationship union before choosing between a union and two patterns.
+  `-[:FULFILLS_EXERCISE|FULFILLS_REVISED_EXERCISE]->(re)`. In the enrichment entry, both edges are
+  matched either way — as one union if the pattern tuple accepts one, else as two patterns (an
+  implementation detail with one behaviour).
 - Add a negative case in `test_user_context_lifted_statements.py:66` and run the plan-cache test.
 - Live acceptance setup (Mike's OK — it writes to AuraDB): resubmit against the live RevisedExercise
   (re_c4e92951), which writes the graph's first `FULFILLS_REVISED_EXERCISE` edge.
@@ -687,6 +690,12 @@ it first removes both.
     a non-TEACHER_REVIEW entry.
 - **R8 co-membership** is enforced where person links are written: the resolver's user step, plus
   `form_submission_service` `recipient_uids` (`share_with_admin` stays exempt).
+  - **Recipients are validated before anything is written** (settled at PR 0 review): `submit_form`
+    persists the submission and its relationships (`form_submission_service.py:143-149`) before
+    `_share_on_submit` runs (`:158-159`), so a refusal found afterwards would report failure over
+    committed work, leave a mixed list half-shared, and duplicate the response on retry. Resolve and
+    co-membership-check every recipient first; a refusal fails the submit with nothing written. The
+    post-submit share door does the same over its whole list before its first edge.
   - The helper is `shares_group_with(owner, recipient)`, which excludes default-group co-membership.
   - One uniform not-found error covers both unknown and non-co-member usernames.
   - Verified at PR 0: forms' `_share_on_submit` swallows share failures (it logs a warning and
@@ -731,9 +740,10 @@ it first removes both.
   `get_user_groups(role="student")`), and so does the owned-groups half — twice:
   `get_teacher_groups_with_stats` (`collab_backends.py:183`, `OWNS`→Group with no `is_active` filter;
   its `pending_count` is a PR 1 teacher reader; live on `/teaching/groups`) and
-  `UserContext.teacher_groups` (`user_context_queries.py:1468`). Reuse one, or extract its `OWNS`
-  match; never write a third owned-groups reader (if candidates need strict `is_active`, say why in
-  the PR).
+  `UserContext.teacher_groups` (`user_context_queries.py:1468`). Extract the `OWNS` match and reuse
+  it — never a third owned-groups reader — and **filter candidates to active groups**
+  (`is_active = true`; settled at PR 0 review): `create_group_share` refuses an inactive group and the
+  audience fragment never exposes one, so the Share panel never offers it.
 - **Shared page** (`/profile/shared`):
   - **Shared with you** is one UNION query, deduped by entity uid, collecting the via-list:
     - direct `SHARES_WITH` of `user_entry` + `form_submission` (forms kept as today);
@@ -747,8 +757,9 @@ it first removes both.
   - `get_privacy_summary.shares_granted` reads the same query. Verified at PR 0: today it reads
     ActivityReportBackend.get_shares_granted (`misc_backends.py:152`; PLANNED, no route) — the
     rewire adds a sharing-backend dependency to `ActivityReportService` and orphans
-    get_shares_granted (protocol `report_protocols.py:369`, mock `test_activity_report_service.py:26`):
-    delete it or keep it deliberately.
+    get_shares_granted (protocol `report_protocols.py:369`, mock `test_activity_report_service.py:26`).
+    **Delete it** with its protocol member, mock and doc references (settled at PR 0 review — a
+    consumer-less second access-list query would drift from the wall's).
   - Rebuild the `/groups` tab list on the audience fragment and delete
     query_user_entries_shared_with_group (the single-entry peer read is PR 5's).
 - **R3 cleanup:**
@@ -847,8 +858,9 @@ it first removes both.
   deterministic uid can be new) — so have the upsert return that flag. A pre-existing living node is
   never deleted: zero reach is returned as an error. The Interaction audit node `create_entry` writes
   at step 3 must not outlive a compensated entry (a `DETACH DELETE` of the entry leaves it orphaned,
-  falsely recording a submission): move its creation after the zero-reach check (preferred) or
-  compensate it too (settled at PR 0 review). The upsert branch stops carrying TEACHER_REVIEW
+  falsely recording a submission). The contract is the invariant — no Interaction outlives a
+  compensated entry; create it after the zero-reach check (preferred) or compensate it with the entry
+  (settled at PR 0 review). The upsert branch stops carrying TEACHER_REVIEW
   vault notes at PR 8.
 - **Teacher bell:**
   - `UserEntryCreated` gains `submitted_group_uids`, filled from newly created SUBMITTED_TO_GROUP
