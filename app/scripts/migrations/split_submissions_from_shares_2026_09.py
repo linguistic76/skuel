@@ -3,57 +3,57 @@
 Split feedback requests from shares — SHARED_WITH_GROUP → SUBMITTED_TO_GROUP
 =============================================================================
 
-Submit & Share arc PR 1 (ADR-088 §2). Until this PR one edge,
-``SHARED_WITH_GROUP``, meant both "for my teacher" (the review queue read it
-under the teacher's ``OWNS``) and "for my class" (the groups hub read it under
-a member's ``MEMBER_OF``), so every turn-in sent to a teacher was listed to
-the whole group. The new code writes a feedback request as its own kind,
-``SUBMITTED_TO_GROUP``, and every teacher-side reader now reads that kind —
-so the rows the old code wrote must be re-typed, or the queue goes empty.
+Re-types the group edges that are feedback requests onto their own kind,
+``SUBMITTED_TO_GROUP`` (ADR-088 §2). A feedback request is read by the
+teachers who own the group, under ``(teacher)-[:OWNS]->(group)``; a share,
+``SHARED_WITH_GROUP``, is read by every member. Every teacher-side reader
+reads the request kind, so a row still carrying the share kind is in no
+queue until it is re-typed. Why the two kinds exist, and the leak the split
+closes, is ADR-088's record and the Submit & Share arc's
+(``docs/roadmap/submission-sharing-arc.md``, PR 1) — not repeated here.
 
 What is re-typed, and why only that:
 
 - **UserEntry edges on ``pipeline = 'teacher_review'``** — read as feedback
-  requests (Refinement 2: ``group:<uid>`` on TEACHER_REVIEW *was* the
-  per-teacher route). The old edge records no intent, so this only narrows
-  access: an owner who meant a class share re-shares through the share door
-  (PR 6b). Every such row is listed for a person to confirm before
-  ``--confirm``.
+  requests: ``group:<uid>`` on a TEACHER_REVIEW entry is the per-teacher
+  route (ADR-088 §8). The share kind records no intent, so this only narrows
+  access; an owner who meant a class share re-shares through the share door.
+  Every such row is listed for a person to confirm before ``--confirm``.
 - **Every FormSubmission edge** — every form group target is a feedback
   request (ADR-088 §2).
-- **UserEntry edges on any other pipeline are NOT touched, and their
-  presence FAILS the run** (exit 2, before and regardless of ``--confirm``).
-  An explicit ``group:`` share on ``none`` / ``llm_summary`` is a legitimate
-  share, and a row made before PR 1 cannot be traced to its source (the
-  vault ``teachers`` default of the time, or an explicit ``group:``), so a
-  non-zero count is a stop-and-look: a person rules on each such row —
-  delete it in the graph, or keep it as a share by naming it with
-  ``--keep-share <entry_uid> <group_uid>`` (repeatable) — then re-runs. A
-  kept row is excluded from the stop and left untouched; a ``--keep-share``
-  that matches no off-pipeline row is an error, so a stale ruling cannot
-  pass silently. Live 2026-09-24: 0 such rows.
+- **UserEntry edges on any other pipeline are NOT touched, and an unruled
+  one STOPS the run** (exit 2, before and regardless of ``--confirm``). An
+  explicit ``group:`` share on ``none`` / ``llm_summary`` is a legitimate
+  share, and the edge cannot say whether it was authored as one, so a person
+  rules on each such row — delete it in the graph, or keep it as a share by
+  naming it with ``--keep-share <entry_uid> <group_uid>`` (repeatable) —
+  then re-runs. A kept row is excluded from the stop and left untouched. A
+  ``--keep-share`` that names no unruled off-pipeline row is itself a stop
+  (a stale ruling, or one aimed at a ``teacher_review`` row, which is always
+  re-typed), so no ruling passes silently.
 
 Re-typing is the no-APOC MERGE + copy + DELETE pattern
-(``migrate_supports_habit_to_reinforces_habit_2026_08.cypher``): the new edge
-is MERGEd (idempotent — a re-run after a partial failure is safe), the old
-edge's ``shared_at`` becomes the request's ``submitted_at`` (the first filing;
-an existing ``submitted_at`` wins), and the old edge is deleted.
+(``migrate_supports_habit_to_reinforces_habit_2026_08.cypher``): the request
+kind is MERGEd (idempotent — a re-run after a partial failure is safe), the
+share kind's ``shared_at`` becomes the request's ``submitted_at`` (the first
+filing; an existing ``submitted_at`` wins), and the share kind is deleted.
 ``share_version`` is not carried: it is a share concept, ``'original'`` on
-every live row, and a feedback request has no versions.
+every row, and a feedback request has no versions.
 
 Deploy order (the arc's Migrations convention): stop the running app →
 census (this script, no flag) → ``--confirm`` with Mike's OK → start on the
-new code → census again, which must report 0 old-kind rows on both labels
-(the second census catches rows the old code wrote in between).
+new code → census again, which must report 0 share-kind rows on
+``teacher_review`` UserEntries and on FormSubmissions (the second census
+catches rows the old code wrote in between).
 
 The census also reports the acceptance count — classmate-visible turn-ins:
 a ``MEMBER_OF`` member reaching a ``teacher_review`` entry it does not own
-through ``SHARED_WITH_GROUP`` — which reads 0 once the re-type has run.
+through the share kind — which reads 0 once the re-type has run.
 
 Usage:
     uv run scripts/migrations/split_submissions_from_shares_2026_09.py            # census
     uv run scripts/migrations/split_submissions_from_shares_2026_09.py --confirm  # re-type
-    uv run scripts/migrations/split_submissions_from_shares_2026_09.py \
+    uv run scripts/migrations/split_submissions_from_shares_2026_09.py \\
         --keep-share ue_abc group_xyz --confirm   # a ruled-legitimate share stays
 """
 
@@ -238,15 +238,23 @@ async def main() -> int:
         print("=== BEFORE ===")
         ue_rows, form_rows, unruled = await _census(driver, kept)
 
-        present = {(str(r["uid"]), str(r["group_uid"])) for r in ue_rows}
-        stale_keeps = sorted(kept - present)
+        # A keep ruling applies to an off-pipeline row only: a teacher_review
+        # row is always re-typed, so a ruling aimed at one — or at a row that
+        # carries no share-kind edge — must stop here, never pass into --confirm.
+        off_pipeline_present = {
+            (str(r["uid"]), str(r["group_uid"]))
+            for r in ue_rows
+            if r["pipeline"] != Pipeline.TEACHER_REVIEW.value
+        }
+        stale_keeps = sorted(kept - off_pipeline_present)
         if stale_keeps:
             print(
-                f"\nSTOP: --keep-share names {len(stale_keeps)} row(s) that carry no {_OLD} edge:"
+                f"\nSTOP: --keep-share names {len(stale_keeps)} row(s) that are not an "
+                f"off-pipeline {_OLD} edge (a teacher_review row is always re-typed):"
             )
             for entry_uid, group_uid in stale_keeps:
                 print(f"  {entry_uid} → {group_uid}")
-            print("A ruling must name a live row. Nothing was written.")
+            print("A ruling must name a live off-pipeline row. Nothing was written.")
             return 2
 
         if unruled:
