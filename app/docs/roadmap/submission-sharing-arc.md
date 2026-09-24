@@ -690,12 +690,14 @@ it first removes both.
     a non-TEACHER_REVIEW entry.
 - **R8 co-membership** is enforced where person links are written: the resolver's user step, plus
   `form_submission_service` `recipient_uids` (`share_with_admin` stays exempt).
-  - **Recipients are validated before anything is written** (settled at PR 0 review): `submit_form`
-    persists the submission and its relationships (`form_submission_service.py:143-149`) before
-    `_share_on_submit` runs (`:158-159`), so a refusal found afterwards would report failure over
-    committed work, leave a mixed list half-shared, and duplicate the response on retry. Resolve and
-    co-membership-check every recipient first; a refusal fails the submit with nothing written. The
-    post-submit share door does the same over its whole list before its first edge.
+  - **Every audience target is validated before anything is written** (settled at PR 0 review):
+    `submit_form` persists the submission and its relationships (`form_submission_service.py:143-149`)
+    before `_share_on_submit` runs (`:158-159`), so a refusal found afterwards would report failure
+    over committed work, leave a mixed list half-shared, and duplicate the response on retry. Resolve
+    and check every target first — each person recipient (exists, co-member) **and** the group
+    (exists, active, the submitter is a member or owner, as PR 1's guard requires); a refusal fails
+    the submit with nothing written. The post-submit share door does the same over its whole target
+    list before its first edge.
   - The helper is `shares_group_with(owner, recipient)`, which excludes default-group co-membership.
   - One uniform not-found error covers both unknown and non-co-member usernames.
   - Verified at PR 0: forms' `_share_on_submit` swallows share failures (it logs a warning and
@@ -707,7 +709,10 @@ it first removes both.
     mechanism in the PR (SKUEL034 excludes `startswith` by ruling; ADR-013 still applies to the
     owner, who is read from the `:OWNS` edge).
 - **Journal privacy:** the resolver refuses to share entries where `not pipeline.allows_sharing()` or
-  `entry.private`. Verified at PR 0: the pipeline half already exists at create
+  `entry.private`. "Share" is R1's verb — a `group:` / `user:` / `public` target; a feedback request
+  (`teachers` / `teacher:`) is Submit, so a `private: true` entry may still ask a teacher for
+  feedback (settled at PR 0 review; `private` is the companion-retrieval opt-out, and nothing in the
+  rulings stops a student asking for feedback on such a note). Verified at PR 0: the pipeline half already exists at create
   (`audience_resolver.py:104`); applying it to post-create shares amends ADR-054 §5's "lifetime
   audience" sentence, and refusing `entry.private` is a **new rule** that reverses the documented
   `private` ⊥ sharing contract (`user_entry.py:108-113`, `user_entry_request.py:73-80` — update both
@@ -905,6 +910,10 @@ it first removes both.
   - `status: submitted` + `audience: private` is an error ("nothing to submit to") — on a non-content
     field (`batch.py:84-86`, see PR 7).
   - The copy metadata carries no `vault_file_path`.
+  - **The copy carries the note's `private` flag** (settled at PR 0 review): today's helper does not
+    copy it, so `UserEntryCreateRequest.private` would default the frozen copy to `false` and slip
+    past PR 6a's refusal to share a `private: true` entry. The flag is part of the snapshot and of its
+    fingerprint.
   - **The copy's status is set explicitly:** a frozen copy of a `status: submitted` note is stamped
     `submitted` whatever its pipeline — `create_entry` defaults NONE to `active`, and the helper
     receives the living request after its authored status has been reset (settled at PR 0 review).
@@ -927,9 +936,10 @@ it first removes both.
     `submitted_from_uid` (changed at PR 0 review from the plan's dual read: a fallback would be a
     second provenance authority that hides an incomplete migration).
   - Dedup = the newest copy from the same note, compared over the **whole submitted snapshot** —
-    every authored field the copy carries, canonically serialized: its content, title, description
-    and tags (`_file_submission_copy` copies them, `user_entry_ingestion.py:728-733`), the `audience:`
-    list **and the exercise target** (`fulfills_exercise_uid`) (settled at PR 0 review). Today's
+    every authored field the copy carries, canonically serialized: its content, title, description,
+    tags and `private` flag (`_file_submission_copy` copies the first four,
+    `user_entry_ingestion.py:728-733`), the `audience:` list **and the exercise target**
+    (`fulfills_exercise_uid`) (settled at PR 0 review). Today's
     `_file_submission_copy` compares content only, inside a lookup scoped by exercise uid; keyed on
     provenance instead, a note that stays `status: submitted` must file a new copy when its
     `audience:` changes (say `teachers` → `user:bob`) or its exercise changes, because drafts never

@@ -91,7 +91,8 @@ founder signed off with it.
   time; no gate requires review first. The only refusals are privacy, not review: an entry whose
   pipeline does not allow sharing (`TRANSCRIBE_AND_STRUCTURE`, `REFERENCE`) or that is marked
   `private: true` cannot be shared, at submit or later. This amends ADR-054 §5 and reverses the
-  documented rule that `private` is orthogonal to sharing (it lands in PR 6a). An `archived` entry
+  documented rule that `private` is orthogonal to sharing (it lands in PR 6a). A feedback request is
+  Submit, not Share: a `private: true` entry may still ask a teacher for feedback. An `archived` entry
   is shareable too — the share gate's archive refusal for a UserEntry is lifted (PR 6b). The
   encouraged route — submit → feedback → revise → share — is promoted by a nudge and a derived
   "reviewed" badge, never enforced.
