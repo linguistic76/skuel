@@ -848,7 +848,10 @@ it first removes both.
     links (PR 1's `newly_submitted_groups`, the `created` subset), so re-syncs never ring;
   - the handler notifies the group owners (`get_owner_uids_batch`, `_relationship_crud_mixin.py:423-460`
     — it unions the `OWNS` edge with the `user_uid`/`owner_uid` spellings), excluding the submitter,
-    as `submission_for_review`;
+    as `submission_for_review`. Verified at PR 0: the helper does not deduplicate (a group created
+    through `GroupService.create` carries both `owner_uid` and an `OWNS` edge, and one teacher may own
+    several targeted groups), so the handler builds one unique recipient set across all submitted
+    groups first — one submission rings each teacher once;
   - bump the golden count (`test_compose_execution.py:178`).
 - **Rename:**
   - "Submit" becomes the header, the sidebar row (`ui/workbench/nav.py:20`) and the MOC card.
