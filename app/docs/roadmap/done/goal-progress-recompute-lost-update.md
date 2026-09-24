@@ -1,9 +1,9 @@
 ---
 title: "Goal Progress Recompute — Lost Update Under Concurrent Completions"
-updated: 2026-09-23
+updated: 2026-09-24
 status: done
 registered: "2026-09-23 (Codex P1 on #1407)"
-ruled: "2026-09-23 (Mike): completion_updates_goal is WIRED, default true — not deleted"
+ruled: "2026-09-23 (Mike): completion_updates_goal is WIRED, default true — not deleted; the default-true migration RUNS on AuraDB (applied 2026-09-23)"
 ---
 
 # Goal Progress Recompute — Lost Update Under Concurrent Completions
@@ -96,3 +96,6 @@ and `TaskUpdateRequest` don't declare it, and the one service writer that set it
 all 75 false tasks. None was spawned from a template, none was written by the vault, and none is
 linked to a goal yet, so it is safe to run before or after deploy. There were 0 task templates
 with `false`.
+Applied against AuraDB on 2026-09-23 (authorised by Mike). The dry run beforehand still read 75,
+and 0 `false` tasks fell outside its match. It rewrote 75. Afterwards the dry run reads 0 and
+tasks read 75 `true` and 2 unset.

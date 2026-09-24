@@ -117,7 +117,7 @@ renders them as a table in Obsidian, and a session derives the same table with
 
 ## Habit-Completion Persistence Bundle — Orphans, UID Collisions, Non-Atomic Day Uniqueness
 
-[Habit-Completion Persistence Bundle — Orphans, UID Collisions, Non-Atomic Day Uniqueness](habit-completion-persistence-bundle.md) — Six persistence defects around the `HabitCompletion` node — orphans, uid collisions, non-atomic day uniqueness, stranded stats, a DISTINCT-day read, a refused untrack — plus the node-less third door; one shared lock-derived writer is the shape.
+[Habit-Completion Persistence Bundle — Orphans, UID Collisions, Non-Atomic Day Uniqueness](habit-completion-persistence-bundle.md) — Six persistence defects around the `HabitCompletion` node — orphans, uid collisions, non-atomic day uniqueness, stranded stats, a DISTINCT-day read (moot under the one-per-day ruling), a refused untrack — plus the node-less third door; one shared lock-derived writer is the shape.
 
 ## "Vault Has Un-Synced Changes" Signal
 

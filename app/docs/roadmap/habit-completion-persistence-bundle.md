@@ -1,9 +1,10 @@
 ---
 title: "Habit-Completion Persistence Bundle — Orphans, UID Collisions, Non-Atomic Day Uniqueness"
 updated: 2026-09-24
-status: "ruling needed (defect 3)"
+status: "ruled — build waits on the trigger"
 registered: 2026-08-28
 trigger: "lived habit-completion use, or the next touch of the completion write path"
+ruled: "2026-09-23 (Mike): one completion per habit per day is the contract (defect 3, option a); defect 5 closes as moot"
 check: "MATCH (hc:HabitCompletion) RETURN count(hc) AND the Habit tally (sum total_completions, max last_completed); SHOW CONSTRAINTS lists none on the label"
 ---
 
@@ -73,12 +74,14 @@ two consideration notes. Re-verified against the code and the live graph 2026-08
    completion side effect must sit on the `ON CREATE` path, and the match path returns the
    already-recorded completion without incrementing or publishing anything; a `MERGE` that no-ops
    the node and still patches the counters double-counts the exact double-tap this exists to
-   stop). ⚠ **Ruling needed first:** is one completion per habit-day the contract?
-   Only the calendar door enforces it today; `record_completion` never said; and the streak readers
-   are NOT evidence either way — `_completed_days_window` deliberately collapses rows to a set of
-   days, so several completions on one day stay valid records that contribute one streak day.
-   The ruling is a product decision, not an inference from the code. A multi-per-day habit would
-   want a different key.
+   stop). **Ruled (Mike, 2026-09-23): one completion per habit per day is the contract.**
+   Every frequency the model can express is counted in days (`RecurrencePattern` stops at
+   `DAILY`; the only count field is `target_days_per_week`), and so are the denominators the
+   row-counting readers divide by (`success_rate`, `get_completion_stats`, the completed-today
+   count). Those readers are correct once the invariant holds. Today a same-day duplicate
+   inflates them. So the build is the day-keyed uid, the uniqueness constraint behind its
+   preflight, and create-if-absent described above. Defect 2's uid and defect 4's single
+   statement are the same statement.
 4. **A transient stats-write failure strands the node behind a later "success".** Write order is
    compute → `completions_backend.create` → `habits_backend.update` (`:162`). If the update fails
    after the create landed, the node exists with `total_completions` / streaks / `last_completed`
@@ -103,9 +106,13 @@ two consideration notes. Re-verified against the code and the live graph 2026-08
    tally alone (the direction `cross_domain_backend.py`'s consistency window took because the bulk
    door's nodes are invisible to the tally) heals one field of five and leaves the rest of this
    defect open.
-5. **The streak backfill wants a DISTINCT-day query.** `_completed_days_window` (`:372-390`)
-   fetches raw rows (`limit=max(1000, days*2)`) and dedupes to days in Python; ≥3 same-day
-   duplicates sustained across a >1000-row window starve it and `best_streak` under-reports;
+5. **Closed as moot by defect 3's ruling (2026-09-23).** With one completion per habit per day,
+   the window holds at most one row per day, and `limit=max(1000, days*2)` can never starve it.
+   Nothing is built for it. The analysis below is kept because it applies again if the contract
+   ever changes. `_completed_days_window` fetches raw rows (`limit=max(1000, days*2)`), newest
+   first, and dedupes to days in Python. The cap drops the OLDEST rows, so it starves only when
+   the window holds more than `max(1000, 2 × window days)` rows, which means averaging over two a
+   day across a window of at least a year. Then `best_streak` under-reports;
    `current_streak` is protected by the `max(run, habit.current_streak)` guard only down to the
    *cached* value — a backfill that extends the current run at its oldest end under the same
    starvation reads N instead of N+1. Both directions are conservative (never over-report); the
@@ -216,11 +223,8 @@ swept acceptance run. ⚠ The node count alone cannot see the `/api/context` doo
 above the node count is that door's signature (`get_habit_analytics` already counts nodes only),
 so the check reads both. Or
 the next touch of the completion write path (`record_completion` / `_record_completion_no_event` /
-`record_habit_occurrence` / `untrack_habit` / `complete_habit_with_quality`). Defect 5 reuses
-`find_by_date_range`'s predicate and has its own trigger: duplicate volume — ≥3 same-day rows
-sustained across a >1000-row window — which defect 3's `(habit_uid, day)` invariant makes
-impossible once it lands. Defect 3's ruling is
-Mike's, taken at build time, not in passing.
+`record_habit_occurrence` / `untrack_habit` / `complete_habit_with_quality`). Defect 3's ruling
+is taken (one completion per habit per day), so defect 5 has no trigger left.
 **Named cost:** orphaned completion rows after a habit delete (invisible to habit reads, counted
 by user aggregates); a same-second double-tap on either door — or one bulk request naming a
 habit twice — mints nodes sharing one uid; a two-tab double-complete double-counts stats; a transient stats-write failure
