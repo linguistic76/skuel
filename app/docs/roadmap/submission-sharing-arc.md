@@ -359,6 +359,13 @@ carry — folded in as contract; the ones that change the plan say "settled at P
   - `_user_entry_report_query_mixin.py:188`;
   - `collab_backends.py:191,216`;
   - `exercise_backends.py:527`.
+  - **Every switched arm also requires an active group** (`g.is_active = true` — ADR-088 §3's
+    teacher gate is an *active* owned group; settled at PR 0 review). Verified at PR 0: the queue and
+    detail already check it, but `_user_entry_assessment_mixin.py:236,261`, `collab_backends.py:191,216`
+    and `exercise_backends.py:527` do not, so today the exercise list, the students summary and the
+    teaching group/dashboard counts still count a deactivated group's work. Put the predicate on the
+    `SUBMITTED_TO_GROUP` arm, so an inactive group still lists (with nothing pending) where a page
+    lists groups.
 - **These stay as they are:** the membership gates; the curriculum readers; the member readers
   (`sharing_backend.py:458,495`), which are now correct by construction. Verified at PR 0: the reader
   census is complete — every other UserEntry/FormSubmission `SHARED_WITH_GROUP` reader is a
