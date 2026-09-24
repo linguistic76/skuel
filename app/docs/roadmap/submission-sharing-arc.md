@@ -707,6 +707,10 @@ it first removes both.
     list before its first edge.
   - The helper is `shares_group_with(owner, recipient)`, which excludes default-group co-membership.
   - One uniform not-found error covers both unknown and non-co-member usernames.
+  - **The owner is never a person recipient** (settled at PR 0 review): `user:<own username>` is
+    refused at validation — co-membership would otherwise accept the same user on both sides and
+    write a self-`SHARES_WITH`, putting the entry under both *Shared with you* and *Your wall* and
+    ringing the owner for their own work.
   - Verified at PR 0: forms' `_share_on_submit` swallows share failures (it logs a warning and
     returns `None`, and `share_submission` then returns `Result.ok(True)`). The helper returns a `Result` (or
     an explicit outcome) propagated through both the submit and the post-submit
@@ -747,7 +751,7 @@ it first removes both.
     status, and the privacy refusals (a non-sharing pipeline, `private: true`) are the only ones.
     The activity and curriculum branches are unchanged. Test that an archived entry shares.
 - **Candidates:** `get_share_candidates` returns my student groups + the groups I OWN, and person
-  candidates from R8 co-membership. They are server-rendered checkboxes. Verified at PR 0: a new
+  candidates from R8 co-membership, never the owner. They are server-rendered checkboxes. Verified at PR 0: a new
   method composing existing reads. The student-groups half exists (`group_service.py:194`
   `get_user_groups(role="student")`), and so does the owned-groups half — twice:
   `get_teacher_groups_with_stats` (`collab_backends.py:183`, `OWNS`→Group with no `is_active` filter;
@@ -758,7 +762,8 @@ it first removes both.
   audience fragment never exposes one, so the Share panel never offers it.
 - **Shared page** (`/profile/shared`):
   - **Shared with you** is one UNION query, deduped by entity uid, collecting the via-list:
-    - direct `SHARES_WITH` of `user_entry` + `form_submission` (forms kept as today);
+    - direct `SHARES_WITH` of `user_entry` + `form_submission` (forms kept as today), excluding my
+      own entries (the self-share guard's second half — PR 6a refuses the write);
     - SHARED_WITH_GROUP UserEntries through the audience fragment, excluding my own;
     - the sharer is the owner; `shared_at` goes through `toString`;
     - no subject/exchange line for peer entries;
