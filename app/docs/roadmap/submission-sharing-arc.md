@@ -815,9 +815,11 @@ it first removes both.
   Verified at PR 0: `batch.py:84-86` classifies `audience` (and status, pipeline, uid, metadata,
   private, je_use) as content fields — ignored-with-reason, not an error — so the field must be none
   of those. The moved rule reads `submitted_groups` (matched), never the created subset, and the
-  compensating delete applies only to a node this call created (the `backend.create` branch): on the
-  living-note upsert branch (`request.uid` set) zero reach is returned as an error without deleting
-  the pre-existing node — that branch stops carrying TEACHER_REVIEW vault notes at PR 8.
+  compensating delete applies only to a node **this call created**: the create branch always, and
+  the upsert branch (`request.uid` set) only when the upsert reports it created the node (a
+  deterministic uid can be new) — so have the upsert return that flag. A pre-existing living node is
+  never deleted: zero reach is returned as an error. The upsert branch stops carrying TEACHER_REVIEW
+  vault notes at PR 8.
 - **Teacher bell:**
   - `UserEntryCreated` gains `submitted_group_uids`, filled from newly created SUBMITTED_TO_GROUP
     links (PR 1's `newly_submitted_groups`, the `created` subset), so re-syncs never ring;
@@ -858,6 +860,10 @@ it first removes both.
   - `status: submitted` + `audience: private` is an error ("nothing to submit to") — on a non-content
     field (`batch.py:84-86`, see PR 7).
   - The copy metadata carries no `vault_file_path`.
+  - **The copy's status is set explicitly:** a frozen copy of a `status: submitted` note is stamped
+    `submitted` whatever its pipeline — `create_entry` defaults NONE to `active`, and the helper
+    receives the living request after its authored status has been reset (settled at PR 0 review).
+    Make `create_entry` accept `submitted` on NONE for this door.
 - **Drafts are never shared:** the living upsert skips `resolve_and_share`, and
   `Pipeline` loses its shares-by-default method (with `test_user_entry_service.py:208`).
 - **Rejection:** `pipeline: teacher_review` on a **vault** note (gated on `file_path.is_absolute()`,
@@ -875,7 +881,11 @@ it first removes both.
     Migrations), and the post-restart census of the old key must read 0 — dedup reads only
     `submitted_from_uid` (changed at PR 0 review from the plan's dual read: a fallback would be a
     second provenance authority that hides an incomplete migration).
-  - Dedup = the newest copy from the same note.
+  - Dedup = the newest copy from the same note, compared over the **whole submitted snapshot** —
+    content **and** audience (settled at PR 0 review). Today's `_file_submission_copy` compares
+    content only; a note that stays `status: submitted` while its `audience:` changes (say
+    `teachers` → `user:bob`) must file a new copy, because drafts never share and a filed copy is
+    frozen.
   - The queue, the dashboard twin and `get_students_summary` supersede older pending same-note copies.
   - `cleanup_untracked_vault_entries.py` excludes `submitted_from_uid IS NOT NULL`.
 - **Migration/census:**
