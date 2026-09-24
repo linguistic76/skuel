@@ -208,7 +208,7 @@ await teacher_review.submit_report(submission_uid, teacher_uid, "Great work!")
   `pipeline='teacher_review'`)
 - Visibility is NOT changed — teacher access is group-relationship-gated
 - Entity ownership stays with the student
-- `verify_teacher_has_group_access()` requires teacher and student to share an active `Group` (`(teacher)-[:OWNS]->(g:Group {is_active:true})<-[:MEMBER_OF]-(student)`); cross-group teachers get 404
+- `verify_teacher_has_group_access()` — the review-write gate — requires the entry's own feedback request: `(teacher)-[:OWNS]->(g:Group {is_active:true})<-[:SUBMITTED_TO_GROUP]-(submission)` (ADR-088 §2). Sharing a classroom with the *student* is not enough; a teacher writes on exactly what the queue and the detail read let them open. Others get 404
 
 **CLI alternative:** Teachers can bypass the web UI entirely. `scripts/export_submissions.py --teacher-uid <uid>` exports the review queue to `~/skuel-reviews/pending/<uid>.md`; after writing reports to `done/`, `scripts/import_reports.py` posts them back via the same service methods. See ADR-040.
 

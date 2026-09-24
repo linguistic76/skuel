@@ -364,7 +364,11 @@ class UserEntryAssessmentOperations(Protocol):
     async def verify_teacher_has_group_access(
         self, entry_uid: str, teacher_uid: str
     ) -> Result[list[Neo4jProperties]]:
-        """Verify teacher and the entry's owner share an active group."""
+        """Verify the entry is ``SUBMITTED_TO_GROUP`` an active group the teacher owns.
+
+        The review-write gate (ADR-088 §2): the same authority the queue and
+        the detail read carry, never a student-level "share some group" check.
+        """
         ...
 
 

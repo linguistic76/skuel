@@ -753,9 +753,11 @@ class RevisedExerciseBackend(UniversalNeo4jBackend["RevisedExercise"]):
         Get an exercise's revised exercises for the teacher's own classrooms.
 
         Scoped in Cypher to revisions whose target student is a MEMBER_OF an
-        active Group the teacher OWNS — the same audience the revision write
-        uses (verify_teacher_has_group_access). An out-of-classroom teacher
-        gets an empty chain, indistinguishable from a nonexistent exercise.
+        active Group the teacher OWNS — the teacher's own classrooms. (The
+        revision *write* is gated narrower, on the entry's own feedback
+        request — verify_teacher_has_group_access.) An out-of-classroom
+        teacher gets an empty chain, indistinguishable from a nonexistent
+        exercise.
 
         Returns revisions ordered by student, then revision_number ascending.
         """

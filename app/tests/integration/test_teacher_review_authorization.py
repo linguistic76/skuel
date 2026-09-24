@@ -3,21 +3,29 @@ Teacher Review Authorization Integration Tests
 ==============================================
 
 End-to-end: verify that `UserEntryBackend.verify_teacher_has_group_access`
-only returns a match when the teacher and the submission's owner share an
-active Group. Commit E of the deferred-security follow-up — closes the
-Finding 8 hole where any teacher with a submission UID could submit
-reports, request revisions, or approve other teachers' students' work.
+— the gate every review write runs (submit_report, request_revision,
+approve_report, the teacher delete) — only returns a match when the
+submission itself is ``SUBMITTED_TO_GROUP`` an active Group the teacher
+OWNS (ADR-088 §2). It is the authority the queue and the detail read carry,
+so a teacher can write on exactly what they can open. Sharing a classroom
+with the submission's *owner* is deliberately not enough: a multi-class
+student who sent the entry to one teacher's group has not put it in another
+teacher's hands.
 
 Seed layout:
-    Teacher A  --OWNS--> Group X  <--MEMBER_OF-- Student 1 (submission_1)
-    Teacher B  --OWNS--> Group Y  <--MEMBER_OF-- Student 2 (submission_2)
+    Teacher A  --OWNS--> Group X  <--MEMBER_OF-- Student 1
+    Teacher B  --OWNS--> Group Y  <--MEMBER_OF-- Student 2, Student 1
     Teacher B  --OWNS--> Group Z  (is_active=false)  <--MEMBER_OF-- Student 1
+    submission_1 (Student 1) --SUBMITTED_TO_GROUP--> Group X
+    submission_2 (Student 2) --SUBMITTED_TO_GROUP--> Group Y
 
 Expectations:
-- Teacher A over submission_1 → match (same active group).
-- Teacher B over submission_1 → no match (different group; the
-  inactive Group Z must not satisfy the `g.is_active = true` predicate).
+- Teacher A over submission_1 → match (submitted to their active group).
+- Teacher B over submission_1 → no match: B teaches Student 1 in Group Y,
+  but the entry was sent to Group X only (the multi-class case), and the
+  inactive Group Z must not satisfy the `g.is_active = true` predicate.
 - Teacher B over submission_2 → match.
+- A request to a deactivated group grants nothing.
 - Teacher over their own submission UID → no match (``student.uid <> teacher.uid``).
 """
 
@@ -58,6 +66,7 @@ async def teacher_review_fixture(neo4j_driver):
         MERGE (tb)-[:OWNS]->(gz)
         MERGE (s1)-[:MEMBER_OF {role: 'student'}]->(gx)
         MERGE (s2)-[:MEMBER_OF {role: 'student'}]->(gy)
+        MERGE (s1)-[:MEMBER_OF {role: 'student'}]->(gy)
         MERGE (s1)-[:MEMBER_OF {role: 'student'}]->(gz)
 
         MERGE (sub1:Entity:UserEntry {uid: $submission_1})
@@ -75,6 +84,8 @@ async def teacher_review_fixture(neo4j_driver):
 
         MERGE (s1)-[:OWNS]->(sub1)
         MERGE (s2)-[:OWNS]->(sub2)
+        MERGE (sub1)-[:SUBMITTED_TO_GROUP]->(gx)
+        MERGE (sub2)-[:SUBMITTED_TO_GROUP]->(gy)
         """,
         teacher_a=teacher_a,
         teacher_b=teacher_b,
@@ -130,7 +141,7 @@ class TestVerifyTeacherHasGroupAccess:
     async def test_teacher_with_shared_active_group_passes(
         self, user_entry_backend, teacher_review_fixture
     ):
-        """Teacher A and Student 1 share active Group X → access granted."""
+        """submission_1 is SUBMITTED_TO_GROUP Teacher A's active Group X → access granted."""
         result = await user_entry_backend.verify_teacher_has_group_access(
             teacher_review_fixture["submission_1"], teacher_review_fixture["teacher_a"]
         )
@@ -138,11 +149,50 @@ class TestVerifyTeacherHasGroupAccess:
         assert len(result.value) == 1
         assert result.value[0]["has_access"] is True
 
-    async def test_teacher_without_shared_group_blocked(
+    async def test_teacher_of_the_same_student_but_not_of_the_entry_is_blocked(
         self, user_entry_backend, teacher_review_fixture
     ):
-        """Teacher B has no active shared group with Student 1 → empty result
-        (inactive Group Z must not satisfy the is_active predicate)."""
+        """Teacher B teaches Student 1 in active Group Y, yet submission_1 was
+        sent to Group X only → empty result. The gate is the entry's own
+        feedback request, never "share some group with the owner" (and the
+        inactive Group Z must not satisfy the is_active predicate either)."""
+        result = await user_entry_backend.verify_teacher_has_group_access(
+            teacher_review_fixture["submission_1"], teacher_review_fixture["teacher_b"]
+        )
+        assert not result.is_error
+        assert result.value == []
+
+    async def test_a_request_to_a_deactivated_group_grants_nothing(
+        self, user_entry_backend, teacher_review_fixture, neo4j_driver
+    ):
+        """Submitting to Teacher B's inactive Group Z does not open the write."""
+        await neo4j_driver.execute_query(
+            """
+            MATCH (sub:Entity {uid: $sub}), (gz:Group {uid: $gz})
+            MERGE (sub)-[:SUBMITTED_TO_GROUP]->(gz)
+            """,
+            sub=teacher_review_fixture["submission_1"],
+            gz=teacher_review_fixture["group_z_inactive"],
+        )
+        result = await user_entry_backend.verify_teacher_has_group_access(
+            teacher_review_fixture["submission_1"], teacher_review_fixture["teacher_b"]
+        )
+        assert not result.is_error
+        assert result.value == []
+
+    async def test_a_share_with_the_teachers_group_grants_no_write(
+        self, user_entry_backend, teacher_review_fixture, neo4j_driver
+    ):
+        """SHARED_WITH_GROUP to Teacher B's active Group Y lets its members
+        see the work; it asks nobody for feedback, so B still cannot write."""
+        await neo4j_driver.execute_query(
+            """
+            MATCH (sub:Entity {uid: $sub}), (gy:Group {uid: $gy})
+            MERGE (sub)-[:SHARED_WITH_GROUP]->(gy)
+            """,
+            sub=teacher_review_fixture["submission_1"],
+            gy=teacher_review_fixture["group_y"],
+        )
         result = await user_entry_backend.verify_teacher_has_group_access(
             teacher_review_fixture["submission_1"], teacher_review_fixture["teacher_b"]
         )
@@ -160,13 +210,16 @@ class TestVerifyTeacherHasGroupAccess:
         await neo4j_driver.execute_query(
             """
             MERGE (ta:User {uid: $teacher_a})
+            MATCH (gx:Group {uid: $group_x})
             MERGE (self:Entity:UserEntry {uid: $self_owned})
               SET self.entity_type = 'user_entry',
                   self.pipeline = 'teacher_review',
                   self.status = 'submitted'
             MERGE (ta)-[:OWNS]->(self)
+            MERGE (self)-[:SUBMITTED_TO_GROUP]->(gx)
             """,
             teacher_a=teacher_a,
+            group_x=teacher_review_fixture["group_x"],
             self_owned=self_owned,
         )
         try:

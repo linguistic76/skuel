@@ -917,12 +917,16 @@ class TeacherReviewService:
         report_uid: str,
         teacher_uid: str,
     ) -> Result[bool]:
-        """Verify teacher shares an active group with the submission's owner.
+        """Verify the submission asks this teacher for feedback (the review-write gate).
 
-        Maps empty backend results to ``Errors.not_found(...)`` (404) so a
-        teacher outside the student's group cannot distinguish between
-        "submission does not exist" and "submission exists but belongs to
-        another teacher's student."
+        The entry must be ``SUBMITTED_TO_GROUP`` an active group the teacher
+        owns — the authority the queue and the detail read carry (ADR-088 §2),
+        so a teacher can write on exactly what they can open. Maps empty
+        backend results to ``Errors.not_found(...)`` (404) so a teacher outside
+        that audience cannot distinguish between "submission does not exist"
+        and "submission exists but was sent to another teacher."
+
+        Backend: UserEntryBackend.verify_teacher_has_group_access
         """
         result = await self.user_entry_backend.verify_teacher_has_group_access(
             report_uid, teacher_uid

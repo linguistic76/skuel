@@ -164,8 +164,9 @@ class _UserEntryAssessmentMixin:
 
         Anchors on the report, walks ``REPORT_FOR`` to the reviewed submission
         and its owning student, and requires the teacher to share an active
-        group with that student — the same predicate that gates writing the
-        feedback (``verify_teacher_has_group_access``). Returns ``None`` both
+        group with that student (a student-level authority; the review write
+        gate, ``verify_teacher_has_group_access``, is narrower — the entry's
+        own feedback request). Returns ``None`` both
         when no such report exists and when the teacher is outside the student's
         classroom, so a denied download is indistinguishable from a missing one
         and cannot enumerate other classrooms' reports.
@@ -425,19 +426,23 @@ class _UserEntryAssessmentMixin:
     async def verify_teacher_has_group_access(
         self, submission_uid: str, teacher_uid: str
     ) -> Result[list[Neo4jProperties]]:
-        """Verify teacher and the entry's owner share an active group.
+        """Verify the entry asks this teacher for feedback — the review-write gate.
 
-        Anchors on the submission to resolve the student, then requires
-        ``(teacher)-[:OWNS]->(g:Group {is_active:true})<-[:MEMBER_OF]-(student)``.
-        Returns empty when the teacher has no shared active group with the
-        submission's owner — callers map empty to 404 (not found) so we do
-        not leak the existence of unrelated students' submissions.
+        The same authority the queue and the detail read carry (ADR-088 §2):
+        the entry itself must be ``SUBMITTED_TO_GROUP`` an active group the
+        teacher ``OWNS``. Sharing a classroom with the *owner* is deliberately
+        not enough — a multi-class student who sent the entry to one teacher's
+        group has not put it in another teacher's hands, so that other teacher
+        can neither open it nor write on it. A teacher never reviews their own
+        entry. Returns empty when the entry asks none of the teacher's active
+        groups — callers map empty to 404 (not found) so we do not leak the
+        existence of unrelated students' submissions.
         """
         query = f"""
         MATCH (submission:Entity {{uid: $submission_uid}})
         MATCH (student:User)-[:{RelationshipName.OWNS.value}]->(submission)
         MATCH (teacher:User {{uid: $teacher_uid}})-[:{RelationshipName.OWNS.value}]->(g:Group)
-              <-[:{RelationshipName.MEMBER_OF.value}]-(student)
+              <-[:{RelationshipName.SUBMITTED_TO_GROUP.value}]-(submission)
         WHERE g.is_active = true
           AND student.uid <> $teacher_uid
         RETURN true AS has_access LIMIT 1

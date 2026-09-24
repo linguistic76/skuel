@@ -432,6 +432,15 @@ carry — folded in as contract; the ones that change the plan say "settled at P
     off-pipeline row is passed as `--keep-share <entry_uid> <group_uid>` (repeatable); the row is
     left untouched and excluded from the stop, and a ruling naming no live row is itself a stop
     (Codex P2 on #1414 — without it a kept share blocked the re-type forever).
+  - **The review-write gate is the entry's own feedback request** (Codex P1 on #1414). "These
+    stay as they are: the membership gates" above named `verify_teacher_has_group_access`, which
+    gated `submit_report` / `request_revision` / `approve_report` / the teacher delete on the
+    teacher sharing *some* active group with the owner — wider than the queue and detail reads it
+    claimed to match, so a second teacher of a multi-class student could write on a submission
+    sent only to the first. It now requires `(submission)-[:SUBMITTED_TO_GROUP]->(g:Group
+    {is_active: true})<-[:OWNS]-(teacher)`: a teacher writes on exactly what they can open. The
+    student-level authority (`verify_teacher_authority`, `get_report_file_path`, the revision-chain
+    read) is untouched — it gates reads of the teacher's own artifacts, which PR 2b / PR 5 revisit.
 
 ### PR 2b — Feedback is identified by its outcome; the EntryReport access check retires
 
