@@ -20,7 +20,7 @@ from core.events import publish_event
 from core.models.habit.completion import HabitCompletion
 from core.models.habit.completion_dto import HabitCompletionDTO
 from core.models.habit.habit import Habit
-from core.models.type_hints import Neo4jValue, UserUID
+from core.models.type_hints import FilterParams, UserUID
 from core.ports.base_protocols import BackendOperations
 from core.ports.domain_protocols import HabitsOperations
 from core.ports.infrastructure_protocols import EventBusOperations
@@ -28,7 +28,6 @@ from core.utils.completion_exporter import export_completions_csv, export_comple
 from core.utils.logging import get_logger
 from core.utils.neo4j_props import neo4j_str
 from core.utils.result_simplified import Errors, Result
-from core.utils.sort_functions import get_completed_at
 
 
 class HabitsCompletionService:
@@ -489,77 +488,50 @@ class HabitsCompletionService:
     ) -> Result[list[HabitCompletion]]:
         """A habit's completions within the date range, most recent first.
 
-        ``limit`` caps the result and says nothing about having done so, so the
-        query orders **in the database**: without an ``ORDER BY`` Neo4j
-        guarantees no row order, and the cap would truncate an arbitrary set —
-        a habit with more completions than the cap could return a page missing
-        the very rows the caller asked about, which reads as a confident wrong
-        answer rather than a failure. Ordering server-side makes the truncation
-        deterministic and keeps the most recent rows, the end every caller here
-        cares about. Callers that need completeness rather than recency should
-        bound the range (the cap then only truncates rows that were going to
-        count) or page, as :meth:`_all_completions` does.
+        ``limit`` caps the result and says nothing about having done so. The read
+        orders in the database, chronologically across both ``completed_at``
+        storage shapes, so the cap drops the OLDEST rows: the end every caller
+        here cares about. Callers that need completeness rather than recency bound
+        the range (the cap then only truncates rows that were going to count) or
+        read :meth:`get_all_completions_for_habit`.
 
-        The Python re-sort survives that because it decides the FINAL order
-        across the native/string ``completed_at`` split, which a single Cypher
-        ``ORDER BY`` cannot: mixed temporal types sort by type before value — so
-        under a split the truncation is deterministic but type-banded rather
-        than chronological. That is not worse than the arbitrary set it replaces,
-        and it is exactly right for the single-writer ISO strings the graph
-        actually holds; a caller that cannot tolerate either reads
-        :meth:`get_all_completions_for_habit`, which carries no temporal
-        predicate at all.
-
-        ⚠️ ``start_date`` / ``end_date`` bind as ISO **strings**
-        (``convert_value_for_neo4j``), so a natively-typed ``completed_at`` falls
-        outside any range given here. Same caveat on
-        :meth:`get_today_completions` and the export path.
+        Backend: UniversalNeo4jBackend.find_by_date_range
         """
         self.logger.debug(f"Getting completions for habit {habit_uid}")
-
-        # Build filters
-        filters: dict[str, str | datetime] = {"habit_uid": habit_uid}
-        if start_date:
-            filters["completed_at__gte"] = datetime.combine(start_date, datetime.min.time())
-        if end_date:
-            filters["completed_at__lte"] = datetime.combine(end_date, datetime.max.time())
-
-        # Query completions — ordered server-side so the limit truncates the
-        # oldest rows rather than an arbitrary set.
-        result = await self.completions_backend.find_by(
-            **filters, limit=limit, sort_by="completed_at", sort_order="desc"
+        return await self.completions_backend.find_by_date_range(
+            start_date=start_date,
+            end_date=end_date,
+            date_field="completed_at",
+            additional_filters={"habit_uid": habit_uid},
+            limit=limit,
         )
-        if result.is_error:
-            return Result.fail(result)
 
-        # Sort by completion date (most recent first)
-        completions = sorted(result.value, key=get_completed_at, reverse=True)
+    async def _all_completions(
+        self,
+        scope: FilterParams,
+        start_date: date | None = None,
+        end_date: date | None = None,
+    ) -> Result[list[HabitCompletion]]:
+        """Every completion in ``scope`` within the date range, most recent first.
 
-        return Result.ok(completions)
+        A single read caps at its limit and says nothing about it, so a scope past
+        that cap would silently get a partial answer: a wrong number that does not
+        look like a failure. This walks the pages instead. The read's order is
+        total (``completed_at`` normalised across its storage shapes, then
+        ``uid``), so consecutive pages neither overlap nor skip, and the pages
+        concatenate into one chronological sequence.
 
-    async def _all_completions(self, **filters: Neo4jValue) -> Result[list[HabitCompletion]]:
-        """Every completion matching the filters, walked page by page.
-
-        Two things this exists to get right, both learned the hard way:
-
-        A single ``find_by`` caps at its limit and says nothing about it, so a
-        scope past that cap silently gets a partial answer — a wrong number that
-        does not look like a failure.
-
-        Paging needs a DETERMINISTIC order. ``find_by`` emits no ``ORDER BY``
-        unless ``sort_by`` is given, and Neo4j guarantees no row order across
-        separate statements, so ``SKIP``/``LIMIT`` pages could overlap and omit
-        rows while still walking every offset. Sorted by ``uid`` — stable,
-        unique, and a plain string on every row whatever the temporal properties
-        are stored as. Callers re-sort by whatever they actually display.
+        Backend: UniversalNeo4jBackend.find_by_date_range
         """
         out: list[HabitCompletion] = []
         offset = 0
         while True:
-            page = await self.completions_backend.find_by(
-                **filters,
+            page = await self.completions_backend.find_by_date_range(
+                start_date=start_date,
+                end_date=end_date,
+                date_field="completed_at",
+                additional_filters=scope,
                 limit=QueryLimit.BULK,
-                sort_by="uid",
                 offset=offset,
             )
             if page.is_error:
@@ -573,24 +545,13 @@ class HabitsCompletionService:
     async def get_all_completions_for_habit(self, habit_uid: str) -> Result[list[HabitCompletion]]:
         """One habit's COMPLETE completion history, most recent first.
 
-        No date predicate reaches the query, deliberately, and that is the whole
-        point of it existing beside :meth:`get_completions_for_habit`.
-        ``find_by`` binds a ``datetime`` bound as an ISO **string**
-        (``convert_value_for_neo4j``), so a ``completed_at`` stored as a native
-        Neo4j temporal satisfies neither end of a range — Neo4j orders across
-        types before it compares values — and the row silently vanishes from a
-        query that looks correct. Callers that need a window apply it in Python,
-        where the mapper has already normalised both storage forms to
-        ``datetime``, and are therefore type-tolerant by construction.
-
-        Paged rather than capped for the reason :meth:`_all_completions` gives.
-        Costs a single query for any habit under ``QueryLimit.BULK`` completions
-        — nearly three years of daily practice — and stays correct past it.
+        Uncapped and unwindowed. Callers that need a window over the whole
+        history apply it in Python, where the mapper has already turned both
+        ``completed_at`` storage shapes into ``datetime``. Costs a single query
+        for any habit under ``QueryLimit.BULK`` completions (nearly three years of
+        daily practice) and stays correct past it.
         """
-        paged = await self._all_completions(habit_uid=habit_uid)
-        if paged.is_error:
-            return Result.fail(paged)
-        return Result.ok(sorted(paged.value, key=get_completed_at, reverse=True))
+        return await self._all_completions({"habit_uid": habit_uid})
 
     async def get_today_completions(self, user_uid: UserUID) -> Result[list[dict[str, Any]]]:
         """
@@ -602,18 +563,14 @@ class HabitsCompletionService:
         Returns list of dicts with habit details + completion info.
         """
         today = date.today()
-        start_of_day = datetime.combine(today, datetime.min.time())
-        end_of_day = datetime.combine(today, datetime.max.time())
-
         completions_result = await self._all_completions(
-            user_uid=user_uid,
-            completed_at__gte=start_of_day,
-            completed_at__lte=end_of_day,
+            {"user_uid": user_uid}, start_date=today, end_date=today
         )
         if completions_result.is_error:
             return Result.fail(completions_result)
 
-        # Group by habit — one habit can be completed several times a day
+        # Group by habit (one habit can be completed several times a day). The
+        # read is newest first, so each group is too.
         by_habit: dict[str, list[HabitCompletion]] = {}
         for completion in completions_result.value:
             by_habit.setdefault(completion.habit_uid, []).append(completion)
@@ -624,13 +581,12 @@ class HabitsCompletionService:
             if habit_result.is_error:
                 return Result.fail(habit_result)
 
-            completions = sorted(group, key=get_completed_at, reverse=True)
             result.append(
                 {
                     "habit": habit_result.value,
-                    "completions_today": len(completions),
-                    "latest_completion": completions[0],  # Most recent
-                    "total_quality_today": sum(c.quality or 0 for c in completions),
+                    "completions_today": len(group),
+                    "latest_completion": group[0],
+                    "total_quality_today": sum(c.quality or 0 for c in group),
                     "completed": True,
                 }
             )
@@ -802,17 +758,14 @@ class HabitsCompletionService:
                 )
             )
 
-        date_filters: dict[str, datetime] = {}
-        if start_date:
-            date_filters["completed_at__gte"] = datetime.combine(start_date, datetime.min.time())
-        if end_date:
-            date_filters["completed_at__lte"] = datetime.combine(end_date, datetime.max.time())
-
-        paged = await self._all_completions(user_uid=user_uid, **date_filters)
+        paged = await self._all_completions(
+            {"user_uid": user_uid}, start_date=start_date, end_date=end_date
+        )
         if paged.is_error:
             return Result.fail(paged)
 
-        completions = sorted(paged.value, key=get_completed_at)
+        # The read is newest first; an export reads oldest first.
+        completions = paged.value[::-1]
 
         if format == "csv":
             return self._export_csv(completions)

@@ -46,7 +46,7 @@ def mock_completions_backend() -> AsyncMock:
     backend = AsyncMock()
     # ✅ Provide default return values to avoid unawaited coroutine warnings
     backend.create = AsyncMock(return_value=Result.ok({}))
-    backend.find_by = AsyncMock(return_value=Result.ok([]))
+    backend.find_by_date_range = AsyncMock(return_value=Result.ok([]))
     return backend
 
 
@@ -263,7 +263,7 @@ class TestRecordCompletion:
         habit = Habit(**{**sample_habit.__dict__, "last_completed": datetime.now()})
         mock_habits_backend.get.return_value = Result.ok(habit)
         # The backfill history read (completions find_by) fails.
-        mock_completions_backend.find_by.return_value = Result.fail(
+        mock_completions_backend.find_by_date_range.return_value = Result.fail(
             {"code": "DATABASE", "message": "boom"}
         )
 
@@ -285,7 +285,7 @@ class TestRecordCompletion:
         stats compute before any write."""
         habit = Habit(**{**sample_habit.__dict__, "last_completed": datetime.now()})
         mock_habits_backend.get.return_value = Result.ok(habit)
-        mock_completions_backend.find_by.return_value = Result.fail(
+        mock_completions_backend.find_by_date_range.return_value = Result.fail(
             {"code": "DATABASE", "message": "boom"}
         )
 
@@ -336,7 +336,7 @@ class TestCompletionQueries:
     ):
         """Test getting completions for a habit."""
         # Setup mock
-        mock_completions_backend.find_by.return_value = Result.ok([sample_completion])
+        mock_completions_backend.find_by_date_range.return_value = Result.ok([sample_completion])
 
         # Query completions
         result = await completion_service.get_completions_for_habit(
@@ -363,7 +363,7 @@ class TestCompletionQueries:
         # Setup mocks — completions are user-scoped in ONE query, then each
         # distinct habit_uid is resolved for the response.
         mock_habits_backend.get.return_value = Result.ok(Habit.from_dto(sample_habit_dto))
-        mock_completions_backend.find_by.return_value = Result.ok([sample_completion])
+        mock_completions_backend.find_by_date_range.return_value = Result.ok([sample_completion])
 
         # Query today's completions
         result = await completion_service.get_today_completions(user_uid="user_mike")
@@ -387,7 +387,7 @@ class TestCompletionQueries:
         # Setup mocks — completions are user-scoped in ONE query, then each
         # distinct habit_uid is resolved for the response.
         mock_habits_backend.get.return_value = Result.ok(Habit.from_dto(sample_habit_dto))
-        mock_completions_backend.find_by.return_value = Result.ok([sample_completion])
+        mock_completions_backend.find_by_date_range.return_value = Result.ok([sample_completion])
 
         # Calculate count
         result = await completion_service.calculate_completed_today_count(user_uid="user_mike")
@@ -422,16 +422,16 @@ class TestCompletionScoping:
         """
         mock_habits_backend.find_by.return_value = Result.ok([Habit.from_dto(sample_habit_dto)])
         mock_habits_backend.get.return_value = Result.ok(Habit.from_dto(sample_habit_dto))
-        mock_completions_backend.find_by.return_value = Result.ok([])
+        mock_completions_backend.find_by_date_range.return_value = Result.ok([])
 
         result = await getattr(completion_service, method)(user_uid="user_mike")
         assert result.is_ok
 
-        assert mock_completions_backend.find_by.await_count > 0, (
+        assert mock_completions_backend.find_by_date_range.await_count > 0, (
             f"{method} never queried the completions backend"
         )
-        for call in mock_completions_backend.find_by.await_args_list:
-            assert call.kwargs.get("user_uid") == "user_mike", (
+        for call in mock_completions_backend.find_by_date_range.await_args_list:
+            assert call.kwargs["additional_filters"] == {"user_uid": "user_mike"}, (
                 f"{method} must scope :HabitCompletion by user_uid"
             )
 
@@ -454,7 +454,7 @@ class TestCompletionScoping:
         full_page = [sample_completion] * QueryLimit.BULK
         remainder = [sample_completion] * 7
         mock_habits_backend.find_by.return_value = Result.ok([Habit.from_dto(sample_habit_dto)])
-        mock_completions_backend.find_by.side_effect = [
+        mock_completions_backend.find_by_date_range.side_effect = [
             Result.ok(full_page),
             Result.ok(remainder),
         ]
@@ -464,18 +464,14 @@ class TestCompletionScoping:
         )
 
         assert result.is_ok
-        assert mock_completions_backend.find_by.await_count == 2, "export stopped after one page"
-        offsets = [c.kwargs.get("offset") for c in mock_completions_backend.find_by.await_args_list]
+        assert mock_completions_backend.find_by_date_range.await_count == 2, (
+            "export stopped after one page"
+        )
+        offsets = [
+            c.kwargs.get("offset")
+            for c in mock_completions_backend.find_by_date_range.await_args_list
+        ]
         assert offsets == [0, QueryLimit.BULK], f"unexpected paging offsets: {offsets}"
-
-        # Every page must carry a deterministic order. find_by emits no ORDER BY
-        # without sort_by, and Neo4j guarantees no row order across separate
-        # statements — unordered SKIP/LIMIT pages can overlap AND omit rows while
-        # still walking every offset, so the walk alone is not enough.
-        for call in mock_completions_backend.find_by.await_args_list:
-            assert call.kwargs.get("sort_by"), (
-                "paged read has no sort_by — pages may overlap or omit rows"
-            )
 
     @pytest.mark.asyncio
     async def test_today_completions_pages_past_the_first_limit(
@@ -494,7 +490,7 @@ class TestCompletionScoping:
         and `/api/habits/completed-today-count` would underreport.
         """
         mock_habits_backend.get.return_value = Result.ok(Habit.from_dto(sample_habit_dto))
-        mock_completions_backend.find_by.side_effect = [
+        mock_completions_backend.find_by_date_range.side_effect = [
             Result.ok([sample_completion] * QueryLimit.BULK),
             Result.ok([sample_completion] * 3),
         ]
@@ -502,7 +498,7 @@ class TestCompletionScoping:
         result = await completion_service.get_today_completions(user_uid="user_mike")
 
         assert result.is_ok
-        assert mock_completions_backend.find_by.await_count == 2, (
+        assert mock_completions_backend.find_by_date_range.await_count == 2, (
             "today's completions stopped after one page"
         )
 
@@ -525,7 +521,7 @@ class TestCompletionScoping:
         mock_habits_backend.get_user_badge_stats.return_value = Result.ok(
             {"high_quality_completions": 250}
         )
-        mock_completions_backend.find_by.return_value = Result.ok([])
+        mock_completions_backend.find_by_date_range.return_value = Result.ok([])
 
         result = await completion_service.get_badge_progress(user_uid="user_mike")
 
@@ -550,7 +546,7 @@ class TestCompletionScoping:
         by no owner-scoped read and by no GDPR cascade.
         """
         mock_habits_backend.get.return_value = Result.ok(sample_habit)
-        mock_completions_backend.find_by.return_value = Result.ok([])
+        mock_completions_backend.find_by_date_range.return_value = Result.ok([])
         mock_completions_backend.create.side_effect = lambda entity: Result.ok(entity)
         mock_habits_backend.update.return_value = Result.ok(sample_habit)
 
@@ -586,7 +582,7 @@ class TestCompletionScoping:
         """
         mock_habits_backend.find_by.return_value = Result.ok([Habit.from_dto(sample_habit_dto)])
         mock_habits_backend.get.return_value = Result.ok(Habit.from_dto(sample_habit_dto))
-        mock_completions_backend.find_by.return_value = Result.fail(
+        mock_completions_backend.find_by_date_range.return_value = Result.fail(
             Errors.database("find_by", "transient Neo4j failure")
         )
 
@@ -617,7 +613,7 @@ class TestAnalytics:
             )
             completions.append(comp)
 
-        mock_completions_backend.find_by.return_value = Result.ok(completions)
+        mock_completions_backend.find_by_date_range.return_value = Result.ok(completions)
 
         # Get stats
         result = await completion_service.get_completion_stats(habit_uid="habit.test.1", days=30)
@@ -668,7 +664,7 @@ class TestAnalytics:
             )
             completions.append(HabitCompletion.from_dto(comp_dto))
 
-        mock_completions_backend.find_by.return_value = Result.ok(completions)
+        mock_completions_backend.find_by_date_range.return_value = Result.ok(completions)
         # High-quality count is a Cypher aggregate now, not a row fetch — a row
         # limit cannot count past itself and the badge threshold is 100.
         mock_habits_backend.get_user_badge_stats.return_value = Result.ok(
@@ -720,7 +716,7 @@ class TestExport:
         mock_habits_backend.find_by.return_value = Result.ok(
             [_habit(f"habit.{i}") for i in range(3)]
         )
-        mock_completions_backend.find_by.return_value = Result.ok(completions)
+        mock_completions_backend.find_by_date_range.return_value = Result.ok(completions)
 
         # Export as CSV
         result = await completion_service.export_completion_history(
@@ -758,7 +754,7 @@ class TestExport:
         mock_habits_backend.find_by.return_value = Result.ok(
             [_habit(f"habit.{i}") for i in range(3)]
         )
-        mock_completions_backend.find_by.return_value = Result.ok(completions)
+        mock_completions_backend.find_by_date_range.return_value = Result.ok(completions)
 
         # Export as JSON
         result = await completion_service.export_completion_history(
@@ -774,7 +770,7 @@ class TestExport:
     @pytest.mark.asyncio
     async def test_export_invalid_format(self, completion_service, mock_completions_backend):
         """Test export with invalid format."""
-        mock_completions_backend.find_by.return_value = Result.ok([])
+        mock_completions_backend.find_by_date_range.return_value = Result.ok([])
 
         # Export with invalid format
         result = await completion_service.export_completion_history(

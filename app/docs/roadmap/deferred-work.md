@@ -1,5 +1,5 @@
 ---
-updated: 2026-09-23
+updated: 2026-09-24
 ---
 
 # Deferred Work
@@ -114,10 +114,6 @@ renders them as a table in Obsidian, and a session derives the same table with
 ## Unwired `HabitCompletion` Model Methods — Wrong the Day They're Wired
 
 [Unwired HabitCompletion Model Methods — Wrong the Day They're Wired](unwired-habit-completion-model-methods.md) — Four zero-consumer model methods, each wrong for a future completion the day anyone wires it — audit against the ruling first, or delete.
-
-## `find_by` Datetime String-Binding — Three Habit Sites
-
-[find_by Datetime String-Binding — Three Habit Sites](find-by-datetime-string-binding.md) — Three `find_by(completed_at__gte/__lte=)` reads whose bound is stringified — a natively-typed row silently vanishes; fix all three as ONE PR.
 
 ## Habit-Completion Persistence Bundle — Orphans, UID Collisions, Non-Atomic Day Uniqueness
 

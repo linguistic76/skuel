@@ -137,8 +137,15 @@ class _SearchMixin[T: DomainModelProtocol]:
         date_field: str = "occurred_at",
         additional_filters: FilterParams | None = None,
         limit: int = 100,
+        offset: int = 0,
     ) -> Result[builtins.list[T]]:
-        """Find any entity within a date range."""
+        """Find any entity within a date range, newest first.
+
+        The stored value is compared by its calendar day and ordered by its string
+        form, so an ISO string and a native temporal land in one chronological
+        sequence rather than two type bands; ``uid`` breaks ties, which makes the
+        order total and ``offset`` pages walkable.
+        """
         # Validate date_field to prevent Cypher injection
         if not validate_field_name(date_field):
             self.logger.warning(
@@ -146,7 +153,7 @@ class _SearchMixin[T: DomainModelProtocol]:
             )
             date_field = "occurred_at"
 
-        params: dict[str, Any] = {"limit": limit}
+        params: dict[str, Any] = {"limit": limit, "offset": offset}
         where_clauses: builtins.list[str] = []
 
         # Inject default_filters for Ku-type discrimination
@@ -184,7 +191,8 @@ class _SearchMixin[T: DomainModelProtocol]:
         MATCH (n:{self.label})
         {where_clause}
         RETURN n
-        ORDER BY n.{date_field} DESC
+        ORDER BY toString(n.{date_field}) DESC, n.uid
+        SKIP $offset
         LIMIT $limit
         """
 

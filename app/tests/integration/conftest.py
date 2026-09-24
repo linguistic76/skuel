@@ -241,6 +241,8 @@ async def ensure_test_users(neo4j_driver):
         # The HabitCompletion native/string completed_at split — seeded rows hang
         # off a real owner via :OWNS, like every other completion.
         "user_temporal_split",
+        # The windowed completion reads seed both completed_at shapes off this owner.
+        "user_completion_range",
         # The vault ✅ write-back round trip: the real sync ingests a temp
         # vault as this owner and the extracted Tasks hang off it via :OWNS.
         "user_vault_done_hash",
