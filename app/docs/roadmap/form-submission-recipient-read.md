@@ -4,7 +4,7 @@ updated: 2026-09-24
 status: "deferred — a non-goal of the Submit & Share arc, registered by its PR 0"
 registered: 2026-09-24
 ruled: 2026-09-24
-trigger: "the Submit & Share arc's PR 5 has merged (the audience fragment and read_visibility exist to reuse) AND (a form is shared with a non-teacher person in real use OR the first multi-user deployment)"
+trigger: "the Submit & Share arc's PR 5 has merged (the audience fragment and read_visibility exist to reuse) AND (a form is shared with a person in real use OR the first multi-user deployment)"
 check: "behavioural: a MEMBER recipient holding a SHARES_WITH edge gets the not-found slot from /my-forms/detail/content?uid=<fs> (200 + the R6 card once built); declaration: grep -n 'read_visibility=SearchVisibility.OWNER_OR_AUDIENCE' core/services/forms/form_submission_service.py; real use: MATCH (:User)-[s:SHARES_WITH]->(:FormSubmission) RETURN count(s) (0 on 2026-09-24)"
 ---
 
@@ -28,17 +28,20 @@ them. Verified on `d65f624fd`:
   recipient gets the not-found slot. The JSON read, `/api/form-submissions/get`, refuses the same way.
 - **Every person-recipient's Shared-page card opens as not-found,** including the admin reached
   through `share_with_admin`.
-- **A REGISTERED or MEMBER recipient has no door at all.** A TEACHER recipient can open the form at
-  the TEACHER-gated `/teaching/forms/submission` (and sees it on `/teaching/forms/detail`):
+- **A REGISTERED or MEMBER recipient has no door at all.** Today a TEACHER recipient can open the
+  form at the TEACHER-gated `/teaching/forms/submission` (and sees it on `/teaching/forms/detail`):
   `_teacher_audience_predicate` (`forms_backends.py:61`) admits a direct `SHARES_WITH` from the
-  teacher as well as a group share to an active group the teacher owns. Any ADMIN skips that gate
+  teacher as well as a group share to an active group the teacher owns. **The arc's PR 1 removes that
+  `SHARES_WITH` arm** (a person share is never a review grant — R3, ADR-088 §3), so from PR 1 on a
+  teacher named by person has no door either. Any ADMIN skips that gate
   (`teaching_forms_ui.py:371`), which covers the `share_with_admin` recipient. The
   `verify_teacher_access` docstring and refusal wording (`form_submission_service.py:321-346`,
   `teaching_forms_ui.py:385`) describe a group-only gate and are stale against that predicate.
 - FormSubmission's DomainConfig declares no `search_visibility` (derived OWNER_ONLY).
 
 **Live, 2026-09-24:** 1 FormSubmission, with 0 person edges and 0 group edges — the defect is latent.
-The whole gap is the owner-only `/my-forms/detail` read, which is the only door a non-teacher has.
+The whole gap is the owner-only `/my-forms/detail` read, which is the only door any person-recipient
+has once PR 1 lands (an ADMIN keeps the teaching pages through the role bypass).
 
 ## Why it is deferred
 
@@ -69,7 +72,7 @@ Three questions to answer first:
 
 ## Named cost
 
-Until this is built, sharing a form with a non-teacher person gives them a card they cannot open
-and no other door; a teacher or admin recipient gets a dead card but can still reach the submission
-through the teaching pages. With one student in the live graph it is latent; with a second user it
+Until this is built, sharing a form with a person gives them a card they cannot open and — from the
+arc's PR 1 on, teachers included — no other door; only an admin recipient can still reach the
+submission, through the teaching pages. With one student in the live graph it is latent; with a second user it
 is a broken promise on a page the arc makes more prominent.

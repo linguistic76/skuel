@@ -340,10 +340,14 @@ carry; each is either folded in or named as a choice the PR must make before it 
   - The no-audience guards (`forms_backends.py:342,469`) check both kinds.
   - The granting OPTIONAL MATCH (`forms_backends.py:516`) switches.
   - `_teacher_audience_predicate` (`forms_backends.py:61`): its `SHARED_WITH_GROUP<-OWNS` arm switches
-    to `SUBMITTED_TO_GROUP<-OWNS`. Verified at PR 0: its direct `SHARES_WITH` arm (a teacher named in
-    `recipient_uids`) **stays** — pinned by `test_form_submission_access_gate.py:211,294`. The
+    to `SUBMITTED_TO_GROUP<-OWNS`, and its direct `SHARES_WITH` arm (a teacher named in
+    `recipient_uids`) **leaves the gate**: a person share is a share, never a review grant (R3, R5,
+    ADR-088 §3 — the two readers are never crossed). Verified at PR 0: that arm is pinned by
+    `test_form_submission_access_gate.py:211,294`, which flip to not-found. Cost: until the form
+    recipient read ([`form-submission-recipient-read.md`](form-submission-recipient-read.md)) is
+    built, a teacher named by person has no door to the form — note it in that case file. The
     `verify_teacher_access` docstring and refusal wording (`form_submission_service.py:321-346`,
-    `teaching_forms_ui.py:385`) describe a group-only gate — correct them while there.
+    `teaching_forms_ui.py:385`) then match the gate; reword them to name `SUBMITTED_TO_GROUP`.
 - **Teacher readers switch to `SUBMITTED_TO_GROUP<-OWNS`:**
   - `_user_entry_assessment_mixin.py` (lines 112, 126, 236, 261, 296, 344, 390, 399, 407);
   - `_user_entry_report_query_mixin.py:188`;
@@ -818,8 +822,10 @@ it first removes both.
   - bump the golden count (`test_compose_execution.py:178`).
 - **Rename:**
   - "Submit" becomes the header, the sidebar row (`ui/workbench/nav.py:20`) and the MOC card.
-  - The canonical route is `/submissions/submit`; `/submissions/exercise` and `/submit` 302-redirect <!-- planned -->
-    to it, keeping the query string.
+  - The one route is `/submissions/submit`; `/submissions/exercise` and today's legacy `/submit` <!-- planned -->
+    302 are **deleted, not redirected** (One Path Forward — changed at PR 0 review from the plan's
+    redirects: nothing outside the app links to them — no download, service-worker or manifest
+    reference). Every caller is updated in this PR.
   - Update every `/submissions/exercise` reference. Verified at PR 0: `git grep` finds 24 lines — 1
     false match (ADR-054:53, a model path) and 2 `done/` archives, so ≈21 live sites: user_entry.md:205,220,
     REPORT_ARCHITECTURE:393, CORE_SYSTEMS:42, UNIFIED_INGESTION_GUIDE:530, ROUTE_MAP:122 (missing from
@@ -860,8 +866,10 @@ it first removes both.
   the live `/journals/upload` and `/api/user-entries/upload`; rewrite them to say vault ingest.
 - **Provenance and dedup:**
   - A first-class `submitted_from_uid` replaces the `metadata` provenance key (submitted_from_entry).
-  - The migration runs **before the first sync on the new code**; dedup also reads the old key until
-    the census is 0.
+  - The migration runs **before the first sync on the new code** (§ Standing conventions →
+    Migrations), and the post-restart census of the old key must read 0 — dedup reads only
+    `submitted_from_uid` (changed at PR 0 review from the plan's dual read: a fallback would be a
+    second provenance authority that hides an incomplete migration).
   - Dedup = the newest copy from the same note.
   - The queue, the dashboard twin and `get_students_summary` supersede older pending same-note copies.
   - `cleanup_untracked_vault_entries.py` excludes `submitted_from_uid IS NOT NULL`.
