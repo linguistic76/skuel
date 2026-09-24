@@ -1,6 +1,6 @@
 ---
 title: "Field-Name Guarding in Cypher — Which Guarantee, and Where"
-updated: 2026-09-22
+updated: 2026-09-24
 status: "ruled 2026-09-22 — one syntactic guard in the persistence layer; no HTTP route publishes a sort key; the named allowlist retired in favour of an enum-typed sort key; the five backend sites stay unguarded, deliberately"
 registered: 2026-09-22
 ruled: 2026-09-22
@@ -141,7 +141,7 @@ Behind those tests it had accrued three defects, none of them reachable: it sort
 truncating to `limit + offset`, so `order_by` returned the sorted top of an arbitrary window rather
 than the true top-N; the `user_uid` branch dropped `offset` entirely; and a bare
 `except (AttributeError, TypeError): pass` silently skipped sorting on an unknown key. The same shape as
-`OwnershipRouteFactory`, which sat registered nowhere while its eight tests passed
+OwnershipRouteFactory, which sat registered nowhere while its eight tests passed
 ([done/docs-defiction-pass.md](done/docs-defiction-pass.md), PR 3): a consumer-less mechanism
 accrues defects its own tests cannot see.
 
