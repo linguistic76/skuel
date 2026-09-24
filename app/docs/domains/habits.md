@@ -1,7 +1,7 @@
 ---
 title: Habits Domain
 created: 2025-12-04
-updated: 2026-09-17
+updated: 2026-09-24
 status: current
 category: domains
 tags:
@@ -400,7 +400,11 @@ result = await habits_service.completions.record_completion(
 property is written AND `_create_node` writes the
 `(User)-[:OWNS]->(:HabitCompletion)` edge with it — the property==`:OWNS`
 invariant every other user-owned entity holds. User-scoped reads therefore filter
-`completions_backend.find_by(user_uid=...)` directly, in one query.
+on `user_uid` directly (`additional_filters={"user_uid": ...}` on
+`completions_backend.find_by_date_range`, walked page by page), with no walk over
+the user's habits. `find_by_date_range` also tolerates both `completed_at` storage
+shapes (ISO string and native temporal); a `find_by(completed_at__gte=...)` does not
+(neo4j-cypher-patterns Pattern 10b).
 
 ⚠️ **History, so the old shape is not reintroduced.** Until 2026-08-20 the field
 did not exist, so neither ownership mechanism did: `find_by(user_uid=...)`
