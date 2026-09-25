@@ -537,7 +537,7 @@ it first removes both.
   `create_entry` already gates every door.
 - **Tests:** `test_events_core_operations.py:359`, `test_event_update_intent_pipeline.py:181`,
   `test_activity_forms_render.py:276,286`, `tests/integration/user_entry/conftest.py:154`,
-  `test_entry_report_ai_path.py:319`, the model default pins. Verified at PR 0, also whatever of
+  `test_entry_report_ai_path.py:318`, the model default pins. Verified at PR 0, also whatever of
   these survives PR 2b — re-derived after it: `test_sharing_workflows.py:134,309,426`
   (visibility=Visibility.SHARED; the three surviving sites — the complete-workflow, unshare-owner
   and shared-with-list tests) and its `:202` fixture (the `test_unified_sharing_service.py`
