@@ -89,7 +89,6 @@ class UserEntryExerciseLinker:
             return Result.ok(ProcessingOutcome.NOT_EXERCISE)
 
         exercise_entity_type = records[0]["exercise_entity_type"]
-        exercise_title = neo4j_str(records[0], "exercise_title", "")
         _original_value = records[0].get("original_exercise_uid")
         original_exercise_uid: str | None = (
             str(_original_value) if _original_value is not None else None
@@ -131,34 +130,40 @@ class UserEntryExerciseLinker:
                 if student_records and not student_records[0]["member_of_group"]:
                     return Result.ok(ProcessingOutcome.NOT_IN_GROUP)
 
-        if exercise_title:
-            student_uid_result = await self.backend.get_entry_owner(entry_uid)
-            if not student_uid_result.is_error:
-                student_uid_records = student_uid_result.value or []
-                if student_uid_records:
-                    submitter_uid = neo4j_user_uid(student_uid_records[0], "student_uid")
+        # The retitle names the ROOT exercise — the entry's turn-in snapshot
+        # (`turn_in_exercise_title`, stamped by the writer), never the target's
+        # own title: a revision target is titled "Revision N", and the count
+        # below is taken on the root, so the two must name the same node.
+        owner_result = await self.backend.get_entry_owner(entry_uid)
+        if not owner_result.is_error:
+            owner_records = owner_result.value or []
+            snapshot_title = (
+                neo4j_str(owner_records[0], "turn_in_exercise_title", "") if owner_records else ""
+            )
+            if snapshot_title:
+                submitter_uid = neo4j_user_uid(owner_records[0], "student_uid")
 
-                    # The FULFILLS_EXERCISE edge already exists (see docstring),
-                    # so this count INCLUDES the just-created entry — it IS this
-                    # entry's revision number directly (== the value
-                    # ``_next_revision`` computed pre-create as count+1). Adding 1
-                    # again would over-count the title/revision by one.
-                    count_result = await self.backend.count_entries_for_exercise(
-                        submitter_uid, count_exercise_uid
-                    )
-                    revision = 1
-                    if not count_result.is_error and count_result.value:
-                        revision = count_result.value
+                # The FULFILLS_EXERCISE edge already exists (see docstring),
+                # so this count INCLUDES the just-created entry — it IS this
+                # entry's revision number directly (== the value
+                # ``_next_revision`` computed pre-create as count+1). Adding 1
+                # again would over-count the title/revision by one.
+                count_result = await self.backend.count_entries_for_exercise(
+                    submitter_uid, count_exercise_uid
+                )
+                revision = 1
+                if not count_result.is_error and count_result.value:
+                    revision = count_result.value
 
-                    new_title = _generate_exercise_title(
-                        exercise_title=exercise_title,
-                        revision=revision,
-                    )
-                    await self.backend.update(
-                        entry_uid,
-                        {"title": new_title, "revision_number": revision},
-                    )
-                    self.logger.info(f"Updated user entry title to: {new_title}")
+                new_title = _generate_exercise_title(
+                    exercise_title=snapshot_title,
+                    revision=revision,
+                )
+                await self.backend.update(
+                    entry_uid,
+                    {"title": new_title, "revision_number": revision},
+                )
+                self.logger.info(f"Updated user entry title to: {new_title}")
 
         return Result.ok(ProcessingOutcome.PROCESSED)
 

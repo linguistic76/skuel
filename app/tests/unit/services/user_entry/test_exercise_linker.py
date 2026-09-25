@@ -49,7 +49,9 @@ class TestProcessExerciseSubmission:
         backend.verify_student_group_membership.return_value = Result.ok(
             [{"student_uid": "user_1", "member_of_group": "grp_1"}]
         )
-        backend.get_entry_owner.return_value = Result.ok([{"student_uid": "user_1"}])
+        backend.get_entry_owner.return_value = Result.ok(
+            [{"student_uid": "user_1", "turn_in_exercise_title": "Write Essay"}]
+        )
         backend.count_entries_for_exercise.return_value = Result.ok(0)
         linker = _make_linker(backend)
 
@@ -80,7 +82,9 @@ class TestProcessExerciseSubmission:
         backend.verify_student_group_membership.return_value = Result.ok(
             [{"student_uid": "user_1", "member_of_group": "grp_1"}]
         )
-        backend.get_entry_owner.return_value = Result.ok([{"student_uid": "user_1"}])
+        backend.get_entry_owner.return_value = Result.ok(
+            [{"student_uid": "user_1", "turn_in_exercise_title": "Write Essay"}]
+        )
         # First submission: it is already linked, so the count is 1 (this entry).
         backend.count_entries_for_exercise.return_value = Result.ok(1)
         linker = _make_linker(backend)
@@ -153,7 +157,9 @@ class TestProcessExerciseSubmission:
                 }
             ]
         )
-        backend.get_entry_owner.return_value = Result.ok([{"student_uid": "user_1"}])
+        backend.get_entry_owner.return_value = Result.ok(
+            [{"student_uid": "user_1", "turn_in_exercise_title": "Write Essay"}]
+        )
         backend.count_entries_for_exercise.return_value = Result.ok(1)
         linker = _make_linker(backend)
 
@@ -179,7 +185,9 @@ class TestProcessExerciseSubmission:
                 }
             ]
         )
-        backend.get_entry_owner.return_value = Result.ok([{"student_uid": "user_1"}])
+        backend.get_entry_owner.return_value = Result.ok(
+            [{"student_uid": "user_1", "turn_in_exercise_title": "Write Essay"}]
+        )
         linker = _make_linker(backend)
 
         result = await linker.process_exercise_submission("sub_1", "re_1")
@@ -227,7 +235,9 @@ class TestProcessExerciseSubmission:
                 }
             ]
         )
-        backend.get_entry_owner.return_value = Result.ok([{"student_uid": "user_1"}])
+        backend.get_entry_owner.return_value = Result.ok(
+            [{"student_uid": "user_1", "turn_in_exercise_title": "Write Essay"}]
+        )
         backend.count_entries_for_exercise.return_value = Result.ok(0)
         linker = _make_linker(backend)
 
@@ -242,7 +252,42 @@ class TestProcessExerciseSubmission:
         assert call_args.args[1]["revision_number"] == 1
 
     @pytest.mark.asyncio
-    async def test_no_title_update_when_exercise_title_empty(self):
+    async def test_revision_target_is_retitled_from_the_root_snapshot(self):
+        """A revision target is titled "Revision N"; the retitle names the root
+        exercise the snapshot holds, and the count is taken on that root."""
+        backend = _make_backend()
+        backend.get_exercise_context.return_value = Result.ok(
+            [
+                {
+                    "exercise_entity_type": "revised_exercise",
+                    "scope": None,
+                    "teacher_uid": "teacher_1",
+                    "student_uid": "user_1",
+                    "exercise_title": "Revision 1",
+                    "original_exercise_uid": "ex_1",
+                    "group_uid": None,
+                }
+            ]
+        )
+        backend.get_entry_owner.return_value = Result.ok(
+            [{"student_uid": "user_1", "turn_in_exercise_title": "Write Essay"}]
+        )
+        backend.count_entries_for_exercise.return_value = Result.ok(3)
+        linker = _make_linker(backend)
+
+        result = await linker.process_exercise_submission("sub_3", "re_1")
+
+        assert result.is_ok
+        assert result.value == ProcessingOutcome.PROCESSED
+        backend.count_entries_for_exercise.assert_awaited_once_with("user_1", "ex_1")
+        _uid, updates = backend.update.await_args.args
+        assert updates["title"] == "Write Essay v3"
+        assert updates["revision_number"] == 3
+
+    @pytest.mark.asyncio
+    async def test_no_title_update_when_the_snapshot_title_is_empty(self):
+        """An entry with no turn-in snapshot title is left titled as the
+        student titled it."""
         backend = _make_backend()
         backend.get_exercise_context.return_value = Result.ok(
             [
@@ -251,10 +296,13 @@ class TestProcessExerciseSubmission:
                     "scope": "assigned",
                     "teacher_uid": "teacher_1",
                     "student_uid": None,
-                    "exercise_title": "",
+                    "exercise_title": "Write Essay",
                     "group_uid": None,
                 }
             ]
+        )
+        backend.get_entry_owner.return_value = Result.ok(
+            [{"student_uid": "user_1", "turn_in_exercise_title": None}]
         )
         linker = _make_linker(backend)
 

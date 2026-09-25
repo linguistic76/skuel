@@ -75,10 +75,16 @@ class _UserEntryLifecycleMixin:
     # ========================================================================
 
     async def get_entry_owner(self, entry_uid: str) -> Result[list[Neo4jProperties]]:
-        """Student UID who owns an entry."""
+        """Student UID who owns an entry, with the entry's turn-in snapshot title.
+
+        ``turn_in_exercise_title`` is the root exercise's title as stamped at
+        submission (null on an entry that is not a turn-in) — the one title
+        every exchange reader keys on, so the linker's retitle reads it too.
+        """
         query = """
         MATCH (student:User)-[:OWNS]->(entry:Entity {uid: $entry_uid})
-        RETURN student.uid as student_uid
+        RETURN student.uid as student_uid,
+               entry.turn_in_exercise_title AS turn_in_exercise_title
         """
         return await self.execute_query(query, {"entry_uid": entry_uid})
 

@@ -216,7 +216,10 @@ class UserEntryLifecycleOperations(Protocol):
         ...
 
     async def get_entry_owner(self, entry_uid: str) -> Result[list[Neo4jProperties]]:
-        """Student UID who owns an entry."""
+        """Student UID who owns an entry, with its turn-in snapshot title.
+
+        Backend: UserEntryBackend.get_entry_owner
+        """
         ...
 
     async def verify_student_group_membership(
