@@ -6,6 +6,8 @@ from typing import TYPE_CHECKING
 
 from adapters.persistence.neo4j.universal_backend import UniversalNeo4jBackend
 from core.models.entity import Entity
+from core.models.enums.entity_enums import EntityType
+from core.models.enums.user_entry_enums import ExerciseScope
 from core.models.relationship_names import RelationshipName
 from core.models.type_hints import EntityUID, Neo4jProperties, UserUID
 from core.utils.result_simplified import Result
@@ -329,17 +331,21 @@ class SharingBackend(UniversalNeo4jBackend[Entity]):
         so a turn-in against it reaches the root exercise's reviewers.
         """
         result = await self.execute_query(
-            """
-            MATCH (target:Entity {uid: $exercise_uid})
-            OPTIONAL MATCH (target)-[:REVISES_EXERCISE]->(orig:Entity {entity_type: 'exercise'})
+            f"""
+            MATCH (target:Entity {{uid: $exercise_uid}})
+            OPTIONAL MATCH (target)-[:{RelationshipName.REVISES_EXERCISE.value}]->(orig:Entity {{entity_type: $exercise_type}})
             WITH coalesce(orig, target) AS ex
-            MATCH (ex)-[:SHARED_WITH_GROUP]->(g:Group)
+            MATCH (ex)-[:{RelationshipName.SHARED_WITH_GROUP.value}]->(g:Group)
             WHERE coalesce(g.is_active, true) = true
-            MATCH (u:User {uid: $user_uid})-[:MEMBER_OF]->(g)
+            MATCH (u:User {{uid: $user_uid}})-[:{RelationshipName.MEMBER_OF.value}]->(g)
             WHERE coalesce(u.is_active, true) = true
             RETURN g.uid AS group_uid
             """,
-            {"exercise_uid": exercise_uid, "user_uid": user_uid},
+            {
+                "exercise_uid": exercise_uid,
+                "user_uid": user_uid,
+                "exercise_type": EntityType.EXERCISE.value,
+            },
         )
         if result.is_error:
             return Result.fail(result)
@@ -365,17 +371,22 @@ class SharingBackend(UniversalNeo4jBackend[Entity]):
         nothing.
         """
         result = await self.execute_query(
-            """
-            MATCH (target:Entity {uid: $exercise_uid})
-            OPTIONAL MATCH (target)-[:REVISES_EXERCISE]->(orig:Entity {entity_type: 'exercise'})
+            f"""
+            MATCH (target:Entity {{uid: $exercise_uid}})
+            OPTIONAL MATCH (target)-[:{RelationshipName.REVISES_EXERCISE.value}]->(orig:Entity {{entity_type: $exercise_type}})
             WITH coalesce(orig, target) AS ex
-            WHERE ex.entity_type = 'exercise' AND ex.scope = 'curriculum'
-            MATCH (u:User {uid: $user_uid})-[:MEMBER_OF]->(g:Group)
+            WHERE ex.entity_type = $exercise_type AND ex.scope = $curriculum_scope
+            MATCH (u:User {{uid: $user_uid}})-[:{RelationshipName.MEMBER_OF.value}]->(g:Group)
             WHERE g.uid STARTS WITH 'group_default_'
               AND coalesce(g.is_active, true) = true
             RETURN g.uid AS group_uid
             """,
-            {"exercise_uid": exercise_uid, "user_uid": user_uid},
+            {
+                "exercise_uid": exercise_uid,
+                "user_uid": user_uid,
+                "exercise_type": EntityType.EXERCISE.value,
+                "curriculum_scope": ExerciseScope.CURRICULUM.value,
+            },
         )
         if result.is_error:
             return Result.fail(result)
@@ -399,17 +410,21 @@ class SharingBackend(UniversalNeo4jBackend[Entity]):
         for exercises the uploader has no legitimate tie to.
         """
         result = await self.execute_query(
-            """
-            MATCH (ex:Entity {uid: $exercise_uid})
-            OPTIONAL MATCH (ex)-[:SHARED_WITH_GROUP]->(g:Group)<-[:MEMBER_OF]-(:User {uid: $user_uid})
-            OPTIONAL MATCH (:User {uid: $user_uid})-[:IN_PROGRESS]->(ps:Entity)-[:HAS_EXERCISE]->(ex)
+            f"""
+            MATCH (ex:Entity {{uid: $exercise_uid}})
+            OPTIONAL MATCH (ex)-[:{RelationshipName.SHARED_WITH_GROUP.value}]->(g:Group)<-[:{RelationshipName.MEMBER_OF.value}]-(:User {{uid: $user_uid}})
+            OPTIONAL MATCH (:User {{uid: $user_uid}})-[:{RelationshipName.IN_PROGRESS.value}]->(ps:Entity)-[:{RelationshipName.HAS_EXERCISE.value}]->(ex)
             WITH ex.user_uid = $user_uid AS is_owner,
                  count(g) > 0 AS via_group,
                  count(ps) > 0 AS via_progress,
-                 (ex.entity_type = 'revised_exercise' AND ex.student_uid = $user_uid) AS is_revision_target
+                 (ex.entity_type = $revised_exercise_type AND ex.student_uid = $user_uid) AS is_revision_target
             RETURN (is_owner OR via_group OR via_progress OR is_revision_target) AS allowed
             """,
-            {"exercise_uid": exercise_uid, "user_uid": user_uid},
+            {
+                "exercise_uid": exercise_uid,
+                "user_uid": user_uid,
+                "revised_exercise_type": EntityType.REVISED_EXERCISE.value,
+            },
         )
         if result.is_error:
             return Result.fail(result)
