@@ -324,11 +324,16 @@ class SharingBackend(UniversalNeo4jBackend[Entity]):
 
         Used for auto-share scoping: when a submission fulfills an exercise
         that was assigned to multiple groups, only fan out to the ones the
-        submitter is actually in.
+        submitter is actually in. A RevisedExercise target resolves to the
+        exercise it revises — a revision is never assigned to a group itself,
+        so a turn-in against it reaches the root exercise's reviewers.
         """
         result = await self.execute_query(
             """
-            MATCH (ex:Entity {uid: $exercise_uid})-[:SHARED_WITH_GROUP]->(g:Group)
+            MATCH (target:Entity {uid: $exercise_uid})
+            OPTIONAL MATCH (target)-[:REVISES_EXERCISE]->(orig:Entity {entity_type: 'exercise'})
+            WITH coalesce(orig, target) AS ex
+            MATCH (ex)-[:SHARED_WITH_GROUP]->(g:Group)
             WHERE coalesce(g.is_active, true) = true
             MATCH (u:User {uid: $user_uid})-[:MEMBER_OF]->(g)
             WHERE coalesce(u.is_active, true) = true
@@ -354,11 +359,16 @@ class SharingBackend(UniversalNeo4jBackend[Entity]):
         ``group_default_{admin_uid}`` group every enrolled student auto-joins,
         owned by the default teacher). Scope-gated in Cypher: a non-curriculum
         exercise returns zero rows, so PERSONAL submissions can never leak to
-        the default group through this path.
+        the default group through this path. A RevisedExercise target resolves
+        to the exercise it revises, so a revision of a curriculum exercise
+        takes the same route; a revision whose original is gone resolves to
+        nothing.
         """
         result = await self.execute_query(
             """
-            MATCH (ex:Entity {uid: $exercise_uid})
+            MATCH (target:Entity {uid: $exercise_uid})
+            OPTIONAL MATCH (target)-[:REVISES_EXERCISE]->(orig:Entity {entity_type: 'exercise'})
+            WITH coalesce(orig, target) AS ex
             WHERE ex.entity_type = 'exercise' AND ex.scope = 'curriculum'
             MATCH (u:User {uid: $user_uid})-[:MEMBER_OF]->(g:Group)
             WHERE g.uid STARTS WITH 'group_default_'

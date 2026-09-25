@@ -181,6 +181,8 @@ narrows one — the revoke door is PLANNED
 #   CURRICULUM-scope (vault-authored, never group-ASSIGNED), share to the
 #   submitter's default group(s) (query_default_groups_for_curriculum_submission,
 #   scope-gated in Cypher so personal exercises can never leak)
+# - A RevisedExercise target resolves to the exercise it revises in both lookups,
+#   so a turn-in against a revision reaches the root exercise's reviewers
 
 # Step 3: Teacher views review queue (SUBMITTED_TO_GROUP over ACTIVE groups the teacher OWNS)
 queue_result = await teacher_review.get_review_queue(teacher_uid)
