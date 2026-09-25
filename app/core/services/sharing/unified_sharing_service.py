@@ -27,6 +27,7 @@ from typing import Any, cast
 from core.models.entity_dto import EntityDTO
 from core.models.enums.entity_enums import EntityType
 from core.models.enums.metadata_enums import Visibility
+from core.models.enums.pipeline import Pipeline
 from core.models.type_hints import EntityUID, UserUID
 from core.ports.query_types import SharedWithMeItem
 from core.ports.sharing_protocols import SharingBackendOperations
@@ -59,7 +60,8 @@ _CURRICULUM_ENTITY_TYPES = frozenset(
     }
 )
 
-# User-authored content — shareable in any status except archived.
+# User-authored content — shareable in any status except archived, and never
+# when private or on a private pipeline (ADR-088 §1, for the entry's lifetime).
 _USER_ENTRY_TYPES = frozenset({EntityType.USER_ENTRY.value})
 
 
@@ -385,7 +387,9 @@ class UnifiedSharingService:
 
         Backend: SharingBackend.create_group_submission
         """
-        check = await self._verify_owned_and_shareable(entity_uid, owner_uid)
+        # A feedback request is Submit, not Share (ADR-088 §1): a private
+        # entry may still ask its teacher — only the archived gate applies.
+        check = await self._verify_owned_and_shareable(entity_uid, owner_uid, privacy_gated=False)
         if check.is_error:
             return check
 
@@ -491,11 +495,15 @@ class UnifiedSharingService:
         owner_uid: str,
         *,
         require_shareable: bool = True,
+        privacy_gated: bool = True,
     ) -> Result[bool]:
         """Verify ownership and optionally shareable status in a single query.
 
         Returns not_found for both missing entities and ownership mismatches
-        to prevent UID enumeration.
+        to prevent UID enumeration. ``privacy_gated`` is the Share verb's
+        rule — a ``private: true`` UserEntry, or one on a private pipeline,
+        cannot be shared at any time (ADR-088 §1); a feedback request passes
+        ``False`` and keeps only the archived gate.
         """
         result = await self.backend.query_ownership_and_status(entity_uid=entity_uid)
         if result.is_error:
@@ -514,16 +522,43 @@ class UnifiedSharingService:
         if not require_shareable:
             return Result.ok(True)
 
-        return self._check_shareable(str(record["status"] or ""), str(record["entity_type"] or ""))
+        return self._check_shareable(
+            str(record["status"] or ""),
+            str(record["entity_type"] or ""),
+            private=bool(record.get("private")),
+            pipeline=neo4j_opt_str(record, "pipeline"),
+            privacy_gated=privacy_gated,
+        )
 
     @staticmethod
-    def _check_shareable(status: str, entity_type: str) -> Result[bool]:
-        """Evaluate whether an entity with given status/entity_type can be shared."""
+    def _check_shareable(
+        status: str,
+        entity_type: str,
+        *,
+        private: bool = False,
+        pipeline: str | None = None,
+        privacy_gated: bool = True,
+    ) -> Result[bool]:
+        """Evaluate whether an entity with the given status / type / privacy can be shared."""
         if entity_type in _USER_ENTRY_TYPES:
             if status == "archived":
                 return Result.fail(
                     Errors.validation(
                         f"Archived user entries cannot be shared. Current status: {status}"
+                    )
+                )
+            if privacy_gated and private:
+                return Result.fail(
+                    Errors.validation(
+                        "A private entry (private: true) cannot be shared; a feedback "
+                        "request is still allowed"
+                    )
+                )
+            if privacy_gated and pipeline is not None and not Pipeline(pipeline).allows_sharing():
+                return Result.fail(
+                    Errors.validation(
+                        f"pipeline={pipeline} is private (journals are not shareable); a "
+                        "feedback request is still allowed"
                     )
                 )
             return Result.ok(True)

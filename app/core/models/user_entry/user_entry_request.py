@@ -141,7 +141,7 @@ class UserEntryCreateRequest(CreateRequestBase):
 
     @field_validator("audience", mode="before")
     @classmethod
-    def _parse_audience(cls, raw: Any) -> AudienceSpec:
+    def _parse_audience(cls, raw: object) -> AudienceSpec:
         """One parser for every door: a value, a list, or an already-parsed spec."""
         parsed = AudienceSpec.parse(raw)
         if parsed.is_error:

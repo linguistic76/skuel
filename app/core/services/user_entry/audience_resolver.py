@@ -220,8 +220,10 @@ class AudienceResolver:
             exercise, the exercise's groups the owner belongs to, falling
             back to the owner's default group for a curriculum exercise
             (ruled 2026-07-04); without one, every group the owner is a
-            student of. Resolved only on TEACHER_REVIEW — elsewhere it names
-            a reviewer the pipeline never has and writes nothing.
+            student of. Expanded only on TEACHER_REVIEW — elsewhere it names
+            a reviewer the pipeline never has and writes nothing. Explicit
+            ``teacher:`` targets are validated on every pipeline: a living
+            note keeps them for its frozen copy (R9).
           - A TEACHER_REVIEW request whose feedback targets resolve to no
             group at all is refused here, pre-persist: an entry no teacher
             can open is never written.
@@ -304,14 +306,6 @@ class AudienceResolver:
                         field=FEEDBACK_TARGET_FIELD,
                     )
                 )
-        elif spec.names_feedback_target and request.pipeline != Pipeline.TEACHER_REVIEW:
-            self.logger.warning(
-                f"audience {', '.join(spec.values())} on pipeline={request.pipeline.value} "
-                "asks for feedback a pipeline without a reviewer cannot give — no "
-                "feedback request written. Use group:<uid> to share with a group, or "
-                "pipeline: teacher_review to ask its teacher for feedback."
-            )
-            teacher_groups = ()
 
         return Result.ok(
             ResolvedAudience(
@@ -444,9 +438,9 @@ class AudienceResolver:
         group MERGEs' membership guard, the person MERGE's co-membership
         guard), so a change between validation and here is a collected
         failure, never an unauthorised edge. On any pipeline other than
-        TEACHER_REVIEW ``submit_groups`` is empty by construction
-        (``validate_references``), so no ``SUBMITTED_TO_GROUP`` is ever
-        written off-pipeline.
+        TEACHER_REVIEW a feedback target writes no link — it names a
+        reviewer the pipeline never has — and is logged, never silently
+        dropped; no ``SUBMITTED_TO_GROUP`` is ever written off-pipeline.
 
         ``living`` is the vault's living-note channel (a caller-supplied uid,
         upserted in place): a draft (R9). Its ``user:`` and explicit
@@ -499,6 +493,19 @@ class AudienceResolver:
             else:
                 shared_users.append(recipient_uid)
 
+        if living:
+            # A draft (R9): the explicit teacher: targets wait for the frozen
+            # copy, whatever the pipeline.
+            withheld.extend(f"{TEACHER_PREFIX}{g}" for g in resolved.teacher_groups)
+        elif pipeline != Pipeline.TEACHER_REVIEW and resolved.submit_groups:
+            self.logger.warning(
+                f"UserEntry {entry_uid}: feedback target "
+                f"{', '.join(TEACHER_PREFIX + g for g in resolved.submit_groups)} on "
+                f"pipeline={pipeline.value} asks for feedback a pipeline without a reviewer "
+                "cannot give — no feedback request written. Use group:<uid> to share with "
+                "a group, or pipeline: teacher_review to ask its teacher for feedback."
+            )
+
         if pipeline != Pipeline.TEACHER_REVIEW or not resolved.submit_groups:
             return Result.ok(
                 ShareOutcome(
@@ -511,7 +518,6 @@ class AudienceResolver:
 
         for group_uid in resolved.submit_groups:
             if living and group_uid in resolved.teacher_groups:
-                withheld.append(f"{TEACHER_PREFIX}{group_uid}")
                 continue
             submit_result = await sharing.submit_to_group(
                 entity_uid=EntityUID(entry_uid),

@@ -1001,9 +1001,11 @@ it first removes both.
     zero-reach rule" item is done here.
   - **The living channel is `request.uid`** — the predicate `create_entry`'s upsert branch
     already uses — not the door: on it the `user:` and explicit `teacher:` targets are withheld
-    (`ShareOutcome.withheld`, a sync warning through the result dict's `warnings` key, which also
-    carries the extraction warnings), while `group:` and the `teachers` expansion apply as they
-    did before this PR. A JSON caller who supplies a uid is on the same channel.
+    on every pipeline (`ShareOutcome.withheld`, a sync warning through the result dict's
+    `warnings` key, which also carries the extraction warnings — Codex P2 on #1422: an explicit
+    `teacher:` on a knowledge draft is kept for its frozen copy, never dropped at validation),
+    while `group:` and the `teachers` expansion apply as they did before this PR. A JSON caller
+    who supplies a uid is on the same channel.
   - **R8 through a default group counts iff one of the pair owns it** — the literal reading of
     "excluding the roster, keeping its owner", symmetric (the admin may share with their
     student). The predicate is one Cypher fragment, `build_co_membership_fragment` in the sharing
@@ -1024,7 +1026,15 @@ it first removes both.
     Stop-sharing door on a feedback request). `_share_with_admin` propagates its result.
   - The journal refusal is one rule at the resolver for every door: a `group:` / `user:` /
     `public` on a private pipeline or a `private: true` entry is a validation error on
-    `audience`; the vault door no longer coerces such a note to private silently.
+    `audience`; the vault door no longer coerces such a note to private silently. **And the
+    rule holds for the entry's lifetime on the sharing service itself** (Codex P2 on #1422):
+    `query_ownership_and_status` returns `private` and `pipeline`, and the shareability check
+    behind `share` / `share_with_group` / `set_visibility(PUBLIC)` refuses them; `submit_to_group`
+    passes `privacy_gated=False` (Submit is not Share) and keeps only the archived gate — so PR
+    6b's door inherits the rule without a second check.
+  - The person-share statement never shares an entity with its owner, exemption or not, and the
+    forms' `share_with_admin` is a no-op when the submitter is the admin (Codex P2 on #1422 — the
+    exemption would otherwise have written a self-`SHARES_WITH`).
 
 ### PR 6b — Share, Stop sharing, and the two-sided Shared page (R2, R3, R6–R8, R10)
 

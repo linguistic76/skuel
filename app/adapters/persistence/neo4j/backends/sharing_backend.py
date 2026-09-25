@@ -68,12 +68,12 @@ class SharingBackend(UniversalNeo4jBackend[Entity]):
     ) -> Result[list[Neo4jProperties]]:
         """Grant a person share: an idempotent ``SHARES_WITH`` MERGE from recipient to entity.
 
-        With ``require_co_membership`` the statement re-checks R8 in the
-        write itself (``build_co_membership_fragment``) and refuses a
-        recipient who is the owner: a membership change between validation
-        and this write refuses here, never after. Without it (the forms'
-        ``share_with_admin``, ADR-088 §7's one exemption) the MERGE is
-        unguarded. A row is the success and carries ``created`` — ``true``
+        The statement never shares an entity with its owner. With
+        ``require_co_membership`` it also re-checks R8 in the write itself
+        (``build_co_membership_fragment``): a membership change between
+        validation and this write refuses here, never after. Without it (the
+        forms' ``share_with_admin``, ADR-088 §7's one exemption) only the
+        owner rule stands. A row is the success and carries ``created`` — ``true``
         when this call wrote the edge, ``false`` when the share already
         stood; no row is the refusal.
         """
@@ -83,8 +83,8 @@ class SharingBackend(UniversalNeo4jBackend[Entity]):
             MATCH (owner:User {{uid: $owner_uid}})
             MATCH (recipient:User {{uid: $recipient_uid}})
             MATCH (entity:Entity {{uid: $entity_uid}})
-            WHERE NOT $require_co_membership
-               OR (recipient.uid <> owner.uid AND {co_member})
+            WHERE recipient.uid <> owner.uid
+              AND (NOT $require_co_membership OR {co_member})
             MERGE (recipient)-[r:{RelationshipName.SHARES_WITH.value}]->(entity)
             WITH r, r.shared_at IS NULL AS created
             SET r.shared_at = coalesce(r.shared_at, datetime($shared_at)),
@@ -215,7 +215,10 @@ class SharingBackend(UniversalNeo4jBackend[Entity]):
         self,
         entity_uid: EntityUID,
     ) -> Result[list[Neo4jProperties]]:
-        """Query ownership and status for combined ownership + shareable check.
+        """Query ownership, status and the two privacy fields for the combined ownership + shareable check.
+
+        ``private`` and ``pipeline`` are the UserEntry fields the lifetime
+        share rule reads (ADR-088 §1); null on every other label.
 
         Ownership lives in two shapes: user-owned domains stamp a ``user_uid``
         property; curriculum entities (e.g. Exercise) stamp ``owner_uid`` and
@@ -231,7 +234,9 @@ class SharingBackend(UniversalNeo4jBackend[Entity]):
             OPTIONAL MATCH (owner:User)-[:OWNS]->(entity)
             RETURN coalesce(entity.user_uid, entity.owner_uid, owner.uid) as actual_owner,
                    entity.status as status,
-                   entity.entity_type as entity_type
+                   entity.entity_type as entity_type,
+                   entity.private as private,
+                   entity.pipeline as pipeline
             """,
             {"entity_uid": entity_uid},
         )

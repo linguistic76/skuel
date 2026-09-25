@@ -353,6 +353,11 @@ class FormSubmissionService(BaseService[FormSubmissionBackendOperations, FormSub
         admin_uid = admin_result.value
         if not admin_uid:
             return Result.fail(Errors.not_found(resource="User", identifier="admin"))
+        if admin_uid == user_uid:
+            # The admin's own response: there is no one to send it to, and an
+            # entry is never shared with its owner.
+            self.logger.info(f"share_with_admin on {submission_uid}: the submitter is the admin")
+            return Result.ok(None)
         result = await self.sharing_service.share(
             entity_uid=EntityUID(submission_uid),
             owner_uid=user_uid,

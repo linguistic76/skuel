@@ -48,6 +48,7 @@ DEFAULT_GROUP = default_group_uid(ADMIN)
 CLASS = f"{PREFIX}_class"
 OLD_CLASS = f"{PREFIX}_old_class"
 ENTRY = f"{PREFIX}_ue_alice"
+PRIVATE_ENTRY = f"{PREFIX}_ue_alice_private"
 
 _SEED = """
 CREATE (admin:User {uid: $admin, title: $admin_name, is_active: true}),
@@ -69,6 +70,12 @@ CREATE (e:Entity:UserEntry {
     pipeline: 'none', user_uid: $alice, created_at: datetime(), updated_at: datetime()
 })
 CREATE (alice)-[:OWNS]->(e)
+CREATE (p:Entity:UserEntry {
+    uid: $private_entry, entity_type: 'user_entry', title: 'Secret', status: 'active',
+    pipeline: 'knowledge', private: true, user_uid: $alice,
+    created_at: datetime(), updated_at: datetime()
+})
+CREATE (alice)-[:OWNS]->(p)
 """
 
 _CLEANUP = (
@@ -94,6 +101,7 @@ _PARAMS = {
     "class": CLASS,
     "old_class": OLD_CLASS,
     "entry": ENTRY,
+    "private_entry": PRIVATE_ENTRY,
 }
 
 
@@ -209,6 +217,24 @@ class TestTheGuardedWrite:
         result = await sharing.share(EntityUID(ENTRY), ALICE, ERIN, require_co_membership=False)
         assert result.is_ok, result.error
         assert await _shares_with_count(backend) == 1
+
+    async def test_the_admin_exemption_never_writes_a_self_share(self, graph: Any) -> None:
+        sharing, backend = graph
+        result = await sharing.share(EntityUID(ENTRY), ALICE, ALICE, require_co_membership=False)
+        assert result.is_error
+        assert await _shares_with_count(backend) == 0
+
+    async def test_a_private_entry_is_unshareable_for_its_lifetime(self, graph: Any) -> None:
+        """ADR-088 §1: the rule holds after create, on the sharing service itself."""
+        sharing, backend = graph
+        result = await sharing.share(EntityUID(PRIVATE_ENTRY), ALICE, CAROL)
+        assert result.is_error
+        assert result.expect_error().category.value == "validation"
+        count = await backend.execute_query(
+            "MATCH (:User)-[r:SHARES_WITH]->(e:Entity {uid: $uid}) RETURN count(r) AS c",
+            {"uid": PRIVATE_ENTRY},
+        )
+        assert count.value and count.value[0]["c"] == 0
 
     async def test_the_guard_uses_the_owner_not_the_caller_label(self, graph: Any) -> None:
         """Ownership is checked first: a non-owner cannot use the guard to

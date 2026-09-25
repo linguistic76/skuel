@@ -331,9 +331,11 @@ class TestValidateReferencesTeachers:
         groups.get_user_groups.assert_not_called()
 
     @pytest.mark.asyncio
-    async def test_teachers_off_pipeline_resolves_nothing(self):
-        """On any pipeline but TEACHER_REVIEW a feedback target writes no link
-        (PR 1's pipeline-gap contract); explicit teacher: groups are dropped too."""
+    async def test_teachers_off_pipeline_is_not_expanded_but_explicit_targets_survive(self):
+        """On any pipeline but TEACHER_REVIEW ``teachers`` is not expanded (it
+        would write no link — PR 1's pipeline-gap contract); an explicit
+        ``teacher:`` target is still validated and kept, so a living note can
+        hold it for its frozen copy."""
         sharing = _make_sharing_service()
         groups = _make_group_service([_group("g_math")])
         resolver = AudienceResolver(sharing_service=sharing, group_service=groups)
@@ -343,7 +345,8 @@ class TestValidateReferencesTeachers:
         )
 
         assert result.is_ok
-        assert result.value.submit_groups == ()
+        assert result.value.teachers_groups == ()
+        assert result.value.teacher_groups == ("g_one",)
         groups.get_user_groups.assert_not_called()
 
     @pytest.mark.asyncio
@@ -509,6 +512,27 @@ class TestResolveAndShare:
         )
 
         assert result.value.submitted_groups == ()
+        assert result.value.withheld == ()
+        sharing.submit_to_group.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_a_living_note_withholds_teacher_targets_on_any_pipeline(self):
+        """A knowledge draft naming ``teacher:g1`` keeps it for the frozen copy
+        (R9): reported as withheld, never written, never silently lost."""
+        sharing = _make_sharing_service()
+        resolver = AudienceResolver(sharing_service=sharing, group_service=None)
+
+        result = await resolver.resolve_and_share(
+            "ue_living",
+            USER,
+            Pipeline.KNOWLEDGE,
+            ResolvedAudience(teacher_groups=("g1",), share_groups=("g_class",)),
+            living=True,
+        )
+
+        outcome = result.value
+        assert outcome.withheld == ("teacher:g1",)
+        assert outcome.shared_groups == ("g_class",)
         sharing.submit_to_group.assert_not_called()
 
     @pytest.mark.asyncio

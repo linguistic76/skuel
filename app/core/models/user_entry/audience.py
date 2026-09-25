@@ -25,7 +25,6 @@ See: /docs/decisions/ADR-088-submit-and-share.md § The one audience vocabulary
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Any
 
 from core.utils.result_simplified import Errors, Result
 
@@ -111,7 +110,7 @@ class AudienceSpec:
     # ------------------------------------------------------------------
 
     @classmethod
-    def parse(cls, raw: Any) -> Result[AudienceSpec]:
+    def parse(cls, raw: object) -> Result[AudienceSpec]:
         """Parse a declaration: ``None``, one value, or a list of values.
 
         Every failure is a validation error on the ``audience`` field. The
@@ -123,7 +122,7 @@ class AudienceSpec:
         if isinstance(raw, AudienceSpec):
             return Result.ok(raw)
         if isinstance(raw, str):
-            items: list[Any] = [raw]
+            items: list[object] = [raw]
         elif isinstance(raw, (list, tuple)):
             items = list(raw)
         else:

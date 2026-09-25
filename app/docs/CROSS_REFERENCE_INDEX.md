@@ -178,6 +178,7 @@ For each skill, this section shows all related documentation (architecture docs,
 - [ADR-077](decisions/ADR-077-askesis-canon-scoped-retrieval.md)
 - [ADR-078](decisions/ADR-078-discussion-sessions-stored-not-understood.md)
 - [ADR-081](decisions/ADR-081-journals-companion-authored-instructions-and-grounding.md)
+- [ADR-088](decisions/ADR-088-submit-and-share.md)
 
 ### @learning-loop
 
@@ -605,7 +606,7 @@ For each documentation category, this section shows which skills are relevant.
 - [ADR-085](decisions/ADR-085-ownership-read-enforcement-contract.md) → @security, @skuel-search-architecture
 - [ADR-086](decisions/ADR-086-universal-owns-and-attends-attendance.md) → @activity-domains, @neo4j-cypher-patterns, @security
 - [ADR-087](decisions/ADR-087-status-guarded-conditional-writes.md) → @activity-domains, @neo4j-cypher-patterns, @pytest
-- [ADR-088](decisions/ADR-088-submit-and-share.md) → @learning-loop, @security, @skuel-search-architecture
+- [ADR-088](decisions/ADR-088-submit-and-share.md) → @journals, @learning-loop, @security, @skuel-search-architecture
 
 ---
 

@@ -478,6 +478,24 @@ class TestShareSubmission:
         sharing_service.shares_group_with.assert_not_awaited()
 
     @pytest.mark.asyncio
+    async def test_share_with_admin_by_the_admin_writes_nothing(self):
+        """An entry is never shared with its owner: the admin's own response
+        has no one to go to, and the exemption must not become a self-share."""
+        submission = _make_submission(user_uid="admin_user")
+        backend = MagicMock()
+        backend.get = AsyncMock(return_value=Result.ok(submission))
+        backend.find_admin_user_uid = AsyncMock(return_value=Result.ok("admin_user"))
+        sharing_service = _make_sharing_service()
+        service = _make_service(backend=backend, sharing_service=sharing_service)
+
+        result = await service.share_submission(
+            uid="fs_test_123", user_uid="admin_user", share_with_admin=True
+        )
+
+        assert result.is_ok
+        sharing_service.share.assert_not_awaited()
+
+    @pytest.mark.asyncio
     async def test_share_with_admin_with_no_admin_is_an_error(self):
         submission = _make_submission()
         backend = MagicMock()

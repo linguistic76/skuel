@@ -132,6 +132,71 @@ async def test_share_without_co_membership_is_the_admin_exemption(mock_backend, 
 
 
 # ============================================================================
+# THE LIFETIME PRIVACY RULE (ADR-088 §1)
+# ============================================================================
+
+
+def _private_entry_rows(*, private: bool = False, pipeline: str = "none") -> Result:
+    return Result.ok(
+        [
+            {
+                "actual_owner": "user_owner",
+                "status": "active",
+                "entity_type": "user_entry",
+                "private": private,
+                "pipeline": pipeline,
+            }
+        ]
+    )
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "rows",
+    [_private_entry_rows(private=True), _private_entry_rows(pipeline="transcribe_and_structure")],
+    ids=["private-flag", "private-pipeline"],
+)
+async def test_a_private_entry_cannot_be_shared_after_create(mock_backend, sharing_service, rows):
+    mock_backend.query_ownership_and_status = AsyncMock(return_value=rows)
+    mock_backend.create_share = AsyncMock()
+    mock_backend.create_group_share = AsyncMock()
+    mock_backend.update_visibility = AsyncMock()
+
+    person = await sharing_service.share("ue_1", "user_owner", "user_peer")
+    group = await sharing_service.share_with_group("ue_1", "user_owner", "g_1")
+    public = await sharing_service.set_visibility("ue_1", "user_owner", Visibility.PUBLIC)
+
+    for result in (person, group, public):
+        assert result.is_error
+        assert result.error.category.value == "validation"
+    mock_backend.create_share.assert_not_awaited()
+    mock_backend.create_group_share.assert_not_awaited()
+    mock_backend.update_visibility.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_a_private_entry_may_still_ask_for_feedback(mock_backend, sharing_service):
+    """Submit is not Share: only the archived gate applies to a feedback request."""
+    mock_backend.query_ownership_and_status = AsyncMock(
+        return_value=_private_entry_rows(private=True, pipeline="teacher_review")
+    )
+    mock_backend.create_group_submission = AsyncMock(return_value=Result.ok([{"created": True}]))
+
+    result = await sharing_service.submit_to_group("ue_1", "user_owner", "g_1")
+
+    assert not result.is_error
+    mock_backend.create_group_submission.assert_awaited_once()
+
+
+@pytest.mark.asyncio
+async def test_a_shareable_entry_passes_the_privacy_rule(mock_backend, sharing_service):
+    mock_backend.query_ownership_and_status = AsyncMock(return_value=_private_entry_rows())
+    mock_backend.create_share = AsyncMock(return_value=Result.ok([{"created": True}]))
+    result = await sharing_service.share("ue_1", "user_owner", "user_peer")
+    assert not result.is_error
+
+
+# ============================================================================
 # R8 CO-MEMBERSHIP READS
 # ============================================================================
 
