@@ -1154,11 +1154,11 @@ async def ingest_directory(
                 # re-warning, until the line and the task agree.
                 if result_data.get("reconciliation_refusals"):
                     file_entity_map.pop(str(ue_path), None)
-                # Per-line extraction problems (parse/creation/link
-                # errors) that did not fail the file: surface as
-                # warnings (G10) — the entry persisted and stays
-                # tracked, but the user must see what was dropped.
-                for warning in result_data.get("extraction_warnings") or []:
+                # Problems that did not fail the file — per-line extraction
+                # errors (G10), an audience withheld on a living note (R9):
+                # surface as warnings; the entry persisted and stays
+                # tracked, but the user must see what was not done.
+                for warning in result_data.get("warnings") or []:
                     validation_warnings.append(f"{ue_path.name}: {warning}")
 
         for group_entity in group_entities:

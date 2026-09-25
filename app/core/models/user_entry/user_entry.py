@@ -115,9 +115,11 @@ class UserEntry(UserOwnedEntity):
     pipeline: Pipeline = Pipeline.NONE  # Dispatch discriminator
     # ``private: true`` frontmatter — the note never grows a vector: no entity
     # embedding, no :ContentChunk subtree, plus a hard WHERE exclusion in every
-    # companion-retrieval Cypher (canon P3). Gates companion retrieval ONLY —
-    # orthogonal to ``visibility`` (sharing) and ``je_use`` (ingestion consent);
-    # the owner's own surfaces (/gradebook, search) still show private notes.
+    # companion-retrieval Cypher (canon P3) — and it cannot be shared: a
+    # ``group:`` / ``user:`` / ``public`` audience on it is refused at every
+    # door, while a feedback request (``teachers`` / ``teacher:``) is still
+    # allowed (ADR-088 §1). Orthogonal to ``je_use`` (ingestion consent); the
+    # owner's own surfaces (/gradebook, search) still show private notes.
     private: bool = False
     processing_started_at: datetime | None = None
     processing_completed_at: datetime | None = None

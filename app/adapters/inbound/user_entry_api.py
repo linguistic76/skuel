@@ -36,10 +36,10 @@ from adapters.inbound.form_helpers import parse_json_body
 from adapters.inbound.result_helpers import require_found
 from core.models.entity_converters import entity_to_response
 from core.models.enums.entity_enums import EntityStatus
-from core.models.enums.metadata_enums import Visibility
 from core.models.enums.pipeline import Pipeline
 from core.models.forms.form_submission_request import FormSubmitRequest
 from core.models.type_hints import EntityUID, UserUID
+from core.models.user_entry.audience import AudienceSpec
 from core.models.user_entry.user_entry import UserEntry
 from core.models.user_entry.user_entry_request import (
     UserEntryCreateRequest,
@@ -135,12 +135,13 @@ def create_user_entry_api_routes(
             fulfills_exercise_uid  — optional exercise link
             about_path_step_uid    — optional PathStep link
             instructions           — pipeline-specific instructions
-            audience               — single-choice audience selector emitted
-                                     by the ``/submit`` form. One of:
-                                     ``teachers``       (auto-share to exercise groups)
-                                     ``group:<uid>``    (share with a specific group)
-                                     ``public``         (visibility=PUBLIC)
-                                     ``private`` / ``"" (default — owner only)
+            audience               — one or more values in the one audience
+                                     vocabulary (ADR-088; ``AudienceSpec``):
+                                     ``teachers`` / ``teacher:<group_uid>``
+                                     (a feedback request), ``group:<uid>`` /
+                                     ``user:<username>`` (a share), ``public``,
+                                     ``private``. Absent on teacher_review
+                                     means ``teachers``.
         """
         user_uid = require_authenticated_user(request)
 
@@ -178,30 +179,9 @@ def create_user_entry_api_routes(
                 Errors.validation(f"Invalid pipeline: {pipeline_str}", field="pipeline")
             )
 
-        audience_raw = str(form.get("audience") or "private").strip().lower()
-        submit_to_groups: list[str] = []
-        share_with_groups: list[str] = []
-        auto_share_to_exercise_groups = False
-        visibility: Visibility | None = None
-        if audience_raw == "teachers":
-            auto_share_to_exercise_groups = True
-        elif audience_raw.startswith("group:"):
-            group_uid = audience_raw.split(":", 1)[1].strip()
-            if group_uid:
-                # On TEACHER_REVIEW the form's one group is the per-teacher
-                # route — a feedback request with that group's teacher, not a
-                # share with its members (ADR-088 §2; PR 6a names it
-                # ``teacher:<group_uid>``). On every other pipeline it is a share.
-                if pipeline == Pipeline.TEACHER_REVIEW:
-                    submit_to_groups = [group_uid]
-                else:
-                    share_with_groups = [group_uid]
-        elif audience_raw == "public":
-            visibility = Visibility.PUBLIC
-        elif audience_raw not in {"private", ""}:
-            return Result.fail(
-                Errors.validation(f"Unknown audience: {audience_raw}", field="audience")
-            )
+        audience_parsed = AudienceSpec.parse([str(v) for v in form.getlist("audience")])
+        if audience_parsed.is_error:
+            return Result.fail(audience_parsed)
 
         title_val = form.get("title") or uploaded_file.filename or "Untitled"
 
@@ -223,10 +203,7 @@ def create_user_entry_api_routes(
                 if form.get("about_path_step_uid")
                 else None
             ),
-            submit_to_groups=submit_to_groups,
-            share_with_groups=share_with_groups,
-            auto_share_to_exercise_groups=auto_share_to_exercise_groups,
-            visibility=visibility,
+            audience=audience_parsed.value,
         )
 
         result = await user_entry_service.create_entry(request=req, user_uid=user_uid)

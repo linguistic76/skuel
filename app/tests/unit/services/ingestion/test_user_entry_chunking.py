@@ -45,11 +45,6 @@ def _user_entry_service(entry: UserEntry) -> MagicMock:
     from core.utils.result_simplified import Result
 
     service = MagicMock()
-    resolver = MagicMock()
-    resolver.resolve_default_teachers = AsyncMock(return_value=[])
-    resolver.validate_references = AsyncMock(return_value=Result.ok(None))
-    resolver.validate = MagicMock(return_value=Result.ok(None))
-    service.audience_resolver = resolver
     service.create_entry = AsyncMock(return_value=Result.ok((entry, ShareOutcome())))
     return service
 

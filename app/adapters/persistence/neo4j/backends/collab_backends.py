@@ -8,7 +8,7 @@ from adapters.persistence.neo4j.neo4j_mapper import from_neo4j_node
 from adapters.persistence.neo4j.universal_backend import UniversalNeo4jBackend
 from core.models.enums import SearchVisibility
 from core.models.enums.pipeline import Pipeline
-from core.models.group.group import Group
+from core.models.group.group import Group, default_group_uid
 from core.models.relationship_names import RelationshipName
 from core.models.type_hints import EntityUID, Neo4jProperties, UserUID
 from core.utils.result_simplified import Result
@@ -251,14 +251,17 @@ class GroupBackend(UniversalNeo4jBackend["Group"]):
         """
         query = f"""
         MATCH (teacher:User {{uid: $teacher_uid}})
-        MERGE (teacher)-[:{RelationshipName.OWNS.value}]->(g:Group {{uid: 'group_default_' + $teacher_uid}})
+        MERGE (teacher)-[:{RelationshipName.OWNS.value}]->(g:Group {{uid: $group_uid}})
         ON CREATE SET g.name = 'Default Group',
                       g.description = 'Auto-created default group',
                       g.is_active = true,
                       g.created_at = datetime($now)
         RETURN g.uid AS group_uid
         """
-        return await self.execute_query(query, {"teacher_uid": teacher_uid, "now": now})
+        return await self.execute_query(
+            query,
+            {"teacher_uid": teacher_uid, "group_uid": default_group_uid(teacher_uid), "now": now},
+        )
 
     async def ensure_group_member(
         self, user_uid: UserUID, group_uid: str, now: str

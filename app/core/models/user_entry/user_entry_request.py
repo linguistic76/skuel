@@ -6,10 +6,11 @@ Pydantic request models for the unified user-entry API. Replaces
 `SubmissionCreateRequest` and the implicit per-service request shapes
 used by the journal and exercise submission flows.
 
-Audience is first-class on create, in two verbs (ADR-088 §1): a feedback
-request (`submit_to_groups` — `SUBMITTED_TO_GROUP`, TEACHER_REVIEW only;
-defaulted to the exercise's groups when `pipeline=TEACHER_REVIEW` + exercise
-link) and a share (`share_with_groups` / `share_with_users`). There is no
+Audience is first-class on create, in one vocabulary (ADR-088): `audience`
+is an `AudienceSpec` — `teachers` / `teacher:<group_uid>` file a feedback
+request (`SUBMITTED_TO_GROUP`, TEACHER_REVIEW only), `group:<uid>` /
+`user:<username>` share, `public` publishes, `private` names no one. An
+absent audience on `pipeline=TEACHER_REVIEW` means `teachers`. There is no
 implicit role-based audience inference.
 
 See: /docs/decisions/ADR-054-user-entry-unified-submissions.md
@@ -18,15 +19,15 @@ See: /docs/decisions/ADR-088-submit-and-share.md
 
 from typing import Any
 
-from pydantic import Field
+from pydantic import Field, field_validator
 
 from core.models.enums import Domain
 from core.models.enums.entity_enums import EntityStatus
-from core.models.enums.metadata_enums import Visibility
 from core.models.enums.pipeline import Pipeline
 from core.models.enums.user_entry_enums import SubmissionModality
 from core.models.request_base import CreateRequestBase, UpdateRequestBase
 from core.models.type_hints import EntityUID
+from core.models.user_entry.audience import AudienceSpec
 
 
 class UserEntryCreateRequest(CreateRequestBase):
@@ -77,8 +78,10 @@ class UserEntryCreateRequest(CreateRequestBase):
         description=(
             "Companion-retrieval opt-out (``private: true`` frontmatter). The "
             "note is never embedded or chunked and is hard-excluded from every "
-            "companion-retrieval query. Orthogonal to `visibility` (sharing) "
-            "and `je_use` (ingestion consent)."
+            "companion-retrieval query, and it cannot be shared: a `group:`, "
+            "`user:` or `public` audience on it is refused (ADR-088 §1). A "
+            "feedback request (`teachers` / `teacher:`) is still allowed. "
+            "Orthogonal to `je_use` (ingestion consent)."
         ),
     )
     modality: SubmissionModality | None = Field(
@@ -103,10 +106,10 @@ class UserEntryCreateRequest(CreateRequestBase):
     fulfills_exercise_uid: EntityUID | None = Field(
         default=None,
         description=(
-            "Exercise this entry fulfills. When set with "
-            "pipeline=TEACHER_REVIEW and no explicit feedback target, the "
-            "service files the feedback request with the exercise's assigned "
-            "groups (SUBMITTED_TO_GROUP)."
+            "Exercise this entry fulfills. With pipeline=TEACHER_REVIEW, "
+            "`teachers` (the default) files the feedback request with the "
+            "exercise's assigned groups the submitter belongs to "
+            "(SUBMITTED_TO_GROUP)."
         ),
     )
     about_path_step_uid: EntityUID | None = Field(
@@ -121,46 +124,29 @@ class UserEntryCreateRequest(CreateRequestBase):
     )
 
     # -------------------------------------------------------------------------
-    # Audience — declared at submit time, consumed by UnifiedSharingService
-    # (two verbs, ADR-088 §1: Submit files a feedback request, Share lets
-    # groups or people see the work)
+    # Audience — declared at submit time in the one vocabulary (ADR-088),
+    # resolved into links by AudienceResolver after the entry persists
     # -------------------------------------------------------------------------
-    submit_to_groups: list[str] = Field(
-        default_factory=list,
+    audience: AudienceSpec = Field(
+        default_factory=AudienceSpec,
         description=(
-            "Group UIDs to file a feedback request with (SUBMITTED_TO_GROUP — "
-            "read by the groups' owning teachers only). Applied only when "
-            "pipeline=TEACHER_REVIEW: a feedback request and its pipeline "
-            "always agree, so on any other pipeline these write no link. "
-            "Independent of share_with_groups: a request may both ask one "
-            "group's teacher for feedback and share with another group."
+            "Who the entry is for, in the one audience vocabulary: `teachers`, "
+            "`teacher:<group_uid>` (a feedback request — pipeline=TEACHER_REVIEW "
+            "only), `group:<uid>`, `user:<username>` (a share — the user must "
+            "share a group with you), `public` (TEACHER-gated), `private` "
+            "(exclusive). One value or a list. Absent on TEACHER_REVIEW means "
+            "`teachers`; absent elsewhere means no links."
         ),
     )
-    share_with_groups: list[str] = Field(
-        default_factory=list,
-        description=(
-            "Group UIDs to share with (SHARED_WITH_GROUP — every member and "
-            "owner of the group may open the entry)"
-        ),
-    )
-    share_with_users: list[str] = Field(
-        default_factory=list, description="User UIDs to share with (SHARES_WITH)"
-    )
-    auto_share_to_exercise_groups: bool = Field(
-        default=False,
-        description=(
-            "When True, resolve the exercise's assigned groups server-side "
-            "and file the feedback request with each (SUBMITTED_TO_GROUP). "
-            "Requires ``fulfills_exercise_uid`` and pipeline=TEACHER_REVIEW; "
-            "on any other pipeline, or without an exercise, it writes no link."
-        ),
-    )
-    visibility: Visibility | None = Field(
-        default=None,
-        description=(
-            "Visibility override. Defaults to PRIVATE; set PUBLIC for portfolio publication."
-        ),
-    )
+
+    @field_validator("audience", mode="before")
+    @classmethod
+    def _parse_audience(cls, raw: object) -> AudienceSpec:
+        """One parser for every door: a value, a list, or an already-parsed spec."""
+        parsed = AudienceSpec.parse(raw)
+        if parsed.is_error:
+            raise ValueError(parsed.expect_error().message)
+        return parsed.value
 
 
 class UserEntryUpdateRequest(UpdateRequestBase):
@@ -168,12 +154,11 @@ class UserEntryUpdateRequest(UpdateRequestBase):
     Update a `UserEntry`.
 
     Content edits only. The audience is an independent graph concern, not a
-    field here: it is declared at submit time (ADR-054 — the create request's
-    `share_with_*` / `visibility` fields, or a vault note's `audience:`) and
-    resolved into edges by `AudienceResolver`. After that, a vault note widens
-    it by re-syncing with a wider `audience:`; nothing narrows it, and a
-    form-submitted entry has no post-submit door at all — see
-    `docs/roadmap/sharing-http-door.md`.
+    field here: it is declared at submit time (ADR-088 — the create request's
+    `audience`, or a vault note's `audience:`) and resolved into edges by
+    `AudienceResolver`. After that, a vault note widens it by re-syncing with
+    a wider `audience:`; nothing narrows it, and a form-submitted entry has no
+    post-submit door yet — see `docs/roadmap/sharing-http-door.md`.
     """
 
     title: str | None = Field(default=None, min_length=1, max_length=200)

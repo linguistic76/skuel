@@ -40,7 +40,6 @@ from core.events.user_entry_events import (
     UserEntryProcessingStarted,
 )
 from core.models.enums.entity_enums import EntityStatus
-from core.models.enums.metadata_enums import Visibility
 from core.models.enums.pipeline import Pipeline
 from core.models.enums.user_entry_enums import EnrichmentMode
 from core.models.relationship_names import RelationshipName
@@ -349,19 +348,17 @@ class UserEntryProcessingService:
 
         # Phase 3 — persist the structured output as a second UserEntry.
         #
-        # The child is PRIVATE and inherits no audience from the source
+        # The child names no audience and inherits none from the source
         # (ADR-054 §5: journal is private by policy; see
         # Pipeline.allows_sharing). The source itself is already on
-        # pipeline=TRANSCRIBE_AND_STRUCTURE, so AudienceResolver.validate blocked
-        # any explicit audience at submit time — the child is anchored to
-        # the same norm rather than drifting to the default visibility.
+        # pipeline=TRANSCRIBE_AND_STRUCTURE, so AudienceResolver.validate
+        # refused any share at submit time — the child stays on the same norm.
         child_request = UserEntryCreateRequest(
             title=f"{entry.title} — structured",
             content=structured.value,
             pipeline=Pipeline.NONE,
             modality=entry.modality,
             transforms_of_uid=entry.uid,
-            visibility=Visibility.PRIVATE,
             tags=list(entry.tags) if entry.tags else [],
         )
         child_result = await self.entry_service.create_entry(

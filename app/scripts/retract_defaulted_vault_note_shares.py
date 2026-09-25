@@ -8,13 +8,13 @@ Until 2026-09-02 the vault/YAML door defaulted an absent ``audience:`` to
 a ``knowledge`` developed-files note or an ``extract_activities`` periodic
 note — was shared with every group its owner is a student-member of. Mike
 ruled that a vault note is private unless its frontmatter says otherwise
-(``Pipeline.shares_by_default()``), and a vault re-sync never retracts a share
+(an absent ``audience:`` names nobody), and a vault re-sync never retracts a share
 (deferred-work § Vault Re-Sync Never Retracts a Share) — so the shares the old
 default already wrote stay until this script removes them.
 
-The pipelines it covers are derived, not listed: every ``Pipeline`` that
-``allows_sharing()`` but does not ``shares_by_default()`` — the set whose
-default flipped. Re-runnable; a clean graph reports zero.
+The pipelines it covers are the two vault-note pipelines whose default the
+2026-09-02 ruling flipped — ``KNOWLEDGE`` and ``EXTRACT_ACTIVITIES``
+(``_FLIPPED_PIPELINES``). Re-runnable; a clean graph reports zero.
 
 The script proves its premise per row rather than trusting the graph: a
 ``SHARED_WITH_GROUP`` edge on such a UserEntry is retracted ONLY when the
@@ -47,6 +47,10 @@ from core.models.enums.pipeline import Pipeline
 from core.models.relationship_names import RelationshipName
 
 _FRONTMATTER_AUDIENCE = re.compile(r"^audience\s*:", re.MULTILINE)
+
+# The two vault-note pipelines whose absent-``audience:`` default flipped from
+# "my teachers" to nobody on 2026-09-02 — the rows the old default wrote.
+_FLIPPED_PIPELINES = (Pipeline.KNOWLEDGE, Pipeline.EXTRACT_ACTIVITIES)
 
 _SELECT_QUERY = f"""
 MATCH (u:{NeoLabel.USER.value})-[:{RelationshipName.OWNS.value}]->(e:{NeoLabel.USER_ENTRY.value})
@@ -112,7 +116,7 @@ async def main() -> int:
 
     driver = Neo4jConnection().connect()
     try:
-        flipped = [p.value for p in Pipeline if p.allows_sharing() and not p.shares_by_default()]
+        flipped = [p.value for p in _FLIPPED_PIPELINES]
         rows = await _fetch(driver, _SELECT_QUERY, {"pipelines": flipped})
         targets: list[dict[str, Any]] = []
         skipped: list[tuple[dict[str, Any], str]] = []

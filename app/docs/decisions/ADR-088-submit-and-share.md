@@ -383,3 +383,4 @@ gets its note with the PR that falsifies it:
 | Date | Author | Change | Version |
 |------|--------|--------|---------|
 | 2026-09-24 | MCF | Accepted with the Submit & Share arc plan (rulings R1–R14, refinements 1–4) | 1.0 |
+| 2026-09-25 | MCF | PR 6a landed the one vocabulary (§7, §8, § The one audience vocabulary): `AudienceSpec` + `AudienceResolver`, R8 co-membership at every person-share writer, the `private: true` refusal (the ADR-054 §5 amendment) | 1.1 |

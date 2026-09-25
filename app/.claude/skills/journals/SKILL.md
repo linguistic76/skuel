@@ -86,8 +86,10 @@ without interactive review, producing a single markdown document with all three 
 5. **Privacy-first** — a discussion persists nothing by default (ADR-073) and a saved chat
    is owner-private with no sharing surface (ADR-078). No audience picker, no sharing, no
    teacher visibility. The private pipelines (`Pipeline.REFERENCE`, `TRANSCRIBE_AND_STRUCTURE`)
-   refuse an audience in `AudienceResolver.validate` and are coerced to `audience=private` at
-   the ingestion door (`build_user_entry_request()`).
+   refuse every share (`group:` / `user:` / `public`) in `AudienceResolver.validate`, at every
+   door — the vault door passes the authored `audience:` through unchanged, so a share on such
+   a note is a sync error, never a silent coercion (ADR-088; a feedback request is Submit, not
+   Share, and stays allowed).
 
 6. **FULL tier only** — all AI journal endpoints require `INTELLIGENCE_TIER=full`. Routes
    check this; under CORE they return an error fragment.

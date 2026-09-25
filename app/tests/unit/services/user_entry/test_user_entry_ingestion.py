@@ -5,34 +5,26 @@ from pathlib import Path
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
-from structlog.testing import capture_logs
 
 from core.models.enums.entity_enums import EntityStatus
-from core.models.enums.metadata_enums import Visibility
 from core.models.enums.pipeline import Pipeline
+from core.models.user_entry.audience import AudienceSpec
 from core.models.user_entry.user_entry import UserEntry
 from core.services.ingestion.user_entry_ingestion import (
     build_user_entry_request,
     ingest_user_entry,
 )
-from core.services.user_entry.audience_resolver import AudienceResolver, ShareOutcome
+from core.services.user_entry.audience_resolver import ShareOutcome
 from core.utils.result_simplified import Result
-
-
-def _resolver(teachers=None) -> AudienceResolver:
-    resolver = AudienceResolver(sharing_service=None, group_service=None)
-    resolver.resolve_default_teachers = AsyncMock(return_value=teachers or [])  # type: ignore[method-assign]
-    return resolver
 
 
 class TestBuildUserEntryRequest:
     @pytest.mark.asyncio
     async def test_missing_pipeline_rejected(self):
-        result = await build_user_entry_request(
+        result = build_user_entry_request(
             data={"title": "x"},
             file_path=Path("reflection.yaml"),
             user_uid="user_1",
-            audience_resolver=_resolver(),
         )
         assert result.is_error
         assert "pipeline" in str(result.expect_error()).lower()
@@ -41,43 +33,39 @@ class TestBuildUserEntryRequest:
     async def test_garbled_je_use_rejected(self):
         # A typo'd je_use is an authored scoping intent we can't honor — fail
         # loudly (mirrors the collection-level gate's fail-closed posture).
-        result = await build_user_entry_request(
+        result = build_user_entry_request(
             data={"pipeline": "knowledge", "je_use": "exmplar"},
             file_path=Path("thought.md"),
             user_uid="user_1",
-            audience_resolver=_resolver(),
         )
         assert result.is_error
         assert "je_use" in str(result.expect_error()).lower()
 
     @pytest.mark.asyncio
     async def test_valid_je_use_accepted(self):
-        result = await build_user_entry_request(
+        result = build_user_entry_request(
             data={"pipeline": "knowledge", "je_use": "understanding", "title": "Me"},
             file_path=Path("thought.md"),
             user_uid="user_1",
-            audience_resolver=_resolver(),
         )
         assert result.is_ok
 
     @pytest.mark.asyncio
     async def test_private_true_flows_to_request(self):
-        result = await build_user_entry_request(
+        result = build_user_entry_request(
             data={"pipeline": "knowledge", "private": True, "title": "Secret"},
             file_path=Path("secret.md"),
             user_uid="user_1",
-            audience_resolver=_resolver(),
         )
         assert result.is_ok
         assert result.value.private is True
 
     @pytest.mark.asyncio
     async def test_private_absent_defaults_retrievable(self):
-        result = await build_user_entry_request(
+        result = build_user_entry_request(
             data={"pipeline": "knowledge", "title": "Open"},
             file_path=Path("open.md"),
             user_uid="user_1",
-            audience_resolver=_resolver(),
         )
         assert result.is_ok
         assert result.value.private is False
@@ -86,222 +74,149 @@ class TestBuildUserEntryRequest:
     async def test_garbled_private_rejected(self):
         # A quoted "true" is a string, not a boolean — silently ignoring an
         # authored privacy intent is the one unacceptable failure mode here.
-        result = await build_user_entry_request(
+        result = build_user_entry_request(
             data={"pipeline": "knowledge", "private": "true", "title": "Secret"},
             file_path=Path("secret.md"),
             user_uid="user_1",
-            audience_resolver=_resolver(),
         )
         assert result.is_error
         assert "private" in str(result.expect_error()).lower()
 
     @pytest.mark.asyncio
     async def test_audio_pipeline_rejected(self):
-        result = await build_user_entry_request(
+        result = build_user_entry_request(
             data={"pipeline": "transcribe_and_structure"},
             file_path=Path("x.yaml"),
             user_uid="user_1",
-            audience_resolver=_resolver(),
         )
         assert result.is_error
         assert "audio" in str(result.expect_error()).lower()
 
-    @pytest.mark.asyncio
-    async def test_default_audience_expands_to_user_groups(self):
-        resolver = _resolver(teachers=["g_a", "g_b"])
-        result = await build_user_entry_request(
-            data={"pipeline": "teacher_review", "title": "Essay"},
-            file_path=Path("essay.yaml"),
-            user_uid="user_1",
-            audience_resolver=resolver,
-        )
-        assert result.is_ok
-        req = result.value
-        assert req.pipeline == Pipeline.TEACHER_REVIEW
-        # ``teachers`` on TEACHER_REVIEW is a feedback request, not a share.
-        assert req.submit_to_groups == ["g_a", "g_b"]
-        assert req.share_with_groups == []
-        resolver.resolve_default_teachers.assert_awaited_once_with("user_1")  # type: ignore[attr-defined]
-
-    @pytest.mark.asyncio
-    async def test_knowledge_absent_audience_is_private(self):
-        """Ruling 2026-09-02: a knowledge note shares only by explicit audience."""
-        resolver = _resolver(teachers=["g_a", "g_b"])
-        result = await build_user_entry_request(
-            data={"pipeline": "knowledge", "title": "Developed note"},
-            file_path=Path("note.md"),
-            user_uid="user_1",
-            audience_resolver=resolver,
-        )
-        assert result.is_ok
-        req = result.value
-        assert req.share_with_groups == []
-        assert req.submit_to_groups == []
-        assert req.visibility is None
-        resolver.resolve_default_teachers.assert_not_awaited()  # type: ignore[attr-defined]
-
-    @pytest.mark.asyncio
-    async def test_periodic_note_absent_audience_is_private(self):
-        """Ruling 2026-09-02: an extract_activities vault note is private unless it names an audience."""
-        resolver = _resolver(teachers=["g_a"])
-        result = await build_user_entry_request(
-            data={"pipeline": "extract_activities", "title": "2026-09-02"},
-            file_path=Path("2026-09-02.md"),
-            user_uid="user_1",
-            audience_resolver=resolver,
-        )
-        assert result.is_ok
-        assert result.value.share_with_groups == []
-        assert result.value.submit_to_groups == []
-        assert result.value.visibility is None
-        resolver.resolve_default_teachers.assert_not_awaited()  # type: ignore[attr-defined]
-
-    @pytest.mark.asyncio
-    @pytest.mark.parametrize("pipeline", ["none", "llm_summary", "knowledge"])
-    async def test_explicit_teachers_on_a_pipeline_without_a_reviewer_writes_no_link(
-        self, pipeline: str
-    ):
-        """A feedback request requires TEACHER_REVIEW (ADR-088 §2): an explicit
-        ``audience: teachers`` on any other pipeline files nothing and shares
-        nothing — and is warned about, never silently dropped."""
-        resolver = _resolver(teachers=["g_a"])
-        with capture_logs() as logs:
-            result = await build_user_entry_request(
-                data={"pipeline": pipeline, "title": "Shared note", "audience": "teachers"},
-                file_path=Path("note.md"),
+    def test_absent_audience_is_the_empty_spec(self):
+        """Absent means nobody was named: on ``teacher_review`` ``create_entry``
+        reads that as ``teachers``; on every other pipeline as no links.
+        Nothing is expanded here — the builder is pure."""
+        for pipeline in ("teacher_review", "none", "knowledge", "extract_activities"):
+            result = build_user_entry_request(
+                data={"pipeline": pipeline, "title": "Essay"},
+                file_path=Path("essay.yaml"),
                 user_uid="user_1",
-                audience_resolver=resolver,
             )
-        assert result.is_ok
-        assert result.value.submit_to_groups == []
-        assert result.value.share_with_groups == []
-        resolver.resolve_default_teachers.assert_not_awaited()  # type: ignore[attr-defined]
-        warned = [
-            log
-            for log in logs
-            if log.get("log_level") == "warning"
-            and "no group link written" in str(log.get("event"))
-        ]
-        assert warned, logs
-        assert "audience: teachers" in str(warned[0]["event"])
+            assert result.is_ok, pipeline
+            assert result.value.audience == AudienceSpec(), pipeline
 
-    @pytest.mark.asyncio
-    @pytest.mark.parametrize("pipeline", ["none", "llm_summary"])
-    async def test_absent_audience_on_a_pipeline_without_a_reviewer_writes_no_link(
-        self, pipeline: str
-    ):
-        """The absent-audience default is ``teachers`` on these pipelines, and
-        it too writes no group link — silently, since nothing was authored."""
-        resolver = _resolver(teachers=["g_a"])
-        with capture_logs() as logs:
-            result = await build_user_entry_request(
-                data={"pipeline": pipeline, "title": "Plain note"},
-                file_path=Path("note.md"),
-                user_uid="user_1",
-                audience_resolver=resolver,
-            )
-        assert result.is_ok
-        assert result.value.submit_to_groups == []
-        assert result.value.share_with_groups == []
-        resolver.resolve_default_teachers.assert_not_awaited()  # type: ignore[attr-defined]
-        assert not any("no group link written" in str(log.get("event")) for log in logs)
-
-    @pytest.mark.asyncio
-    async def test_explicit_group_audience_on_teacher_review_is_a_feedback_request(self):
-        """``group:<uid>`` on TEACHER_REVIEW keeps the per-teacher route: the
-        vault door fills ``submit_to_groups`` (until PR 6a names
-        ``teacher:<group_uid>``)."""
-        result = await build_user_entry_request(
-            data={"pipeline": "teacher_review", "audience": "group:g_class"},
+    def test_the_vocabulary_parses_as_a_list_preserving_case(self):
+        result = build_user_entry_request(
+            data={
+                "pipeline": "teacher_review",
+                "audience": ["teachers", "teacher:G_math", "group:g_class", "user:Alice"],
+            },
             file_path=Path("x.yaml"),
             user_uid="user_1",
-            audience_resolver=_resolver(),
         )
         assert result.is_ok
-        assert result.value.submit_to_groups == ["g_class"]
-        assert result.value.share_with_groups == []
+        assert result.value.audience == AudienceSpec(
+            teachers=True,
+            teacher_groups=("G_math",),
+            share_groups=("g_class",),
+            share_users=("Alice",),
+        )
 
-    @pytest.mark.asyncio
-    async def test_explicit_group_audience_on_none_is_a_share(self):
-        result = await build_user_entry_request(
+    def test_a_single_value_parses_too(self):
+        result = build_user_entry_request(
             data={"pipeline": "none", "audience": "group:g_class"},
             file_path=Path("x.yaml"),
             user_uid="user_1",
-            audience_resolver=_resolver(),
         )
         assert result.is_ok
-        assert result.value.share_with_groups == ["g_class"]
-        assert result.value.submit_to_groups == []
+        assert result.value.audience == AudienceSpec(share_groups=("g_class",))
 
-    @pytest.mark.asyncio
-    async def test_audience_group_without_uid_rejected(self):
-        result = await build_user_entry_request(
+    def test_group_on_teacher_review_stays_a_share_here(self):
+        """``group:`` is always a share (ADR-088 §8); whether a teacher_review
+        note may carry only a share is ``create_entry``'s refusal, with
+        guidance naming ``teacher:<group_uid>``."""
+        result = build_user_entry_request(
+            data={"pipeline": "teacher_review", "audience": "group:g_class"},
+            file_path=Path("x.yaml"),
+            user_uid="user_1",
+        )
+        assert result.is_ok
+        assert result.value.audience == AudienceSpec(share_groups=("g_class",))
+
+    def test_audience_group_without_uid_rejected(self):
+        result = build_user_entry_request(
             data={"pipeline": "none", "audience": "group:"},
             file_path=Path("x.yaml"),
             user_uid="user_1",
-            audience_resolver=_resolver(),
         )
         assert result.is_error
-        assert "group" in str(result.expect_error()).lower()
+        assert result.expect_error().details["field"] == "audience"
 
-    @pytest.mark.asyncio
-    async def test_public_audience_becomes_visibility_public(self):
-        """``audience: public`` is a request field; its TEACHER gate is
+    def test_unknown_audience_rejected_on_the_audience_field(self):
+        result = build_user_entry_request(
+            data={"pipeline": "none", "audience": "everyone"},
+            file_path=Path("x.yaml"),
+            user_uid="user_1",
+        )
+        assert result.is_error
+        assert result.expect_error().details["field"] == "audience"
+
+    def test_private_combined_with_another_value_rejected(self):
+        result = build_user_entry_request(
+            data={"pipeline": "none", "audience": ["private", "user:bob"]},
+            file_path=Path("x.yaml"),
+            user_uid="user_1",
+        )
+        assert result.is_error
+        assert "combines with no other value" in result.expect_error().message
+
+    def test_public_audience_rides_on_the_spec(self):
+        """``audience: public`` is a request value; its TEACHER gate is
         ``create_entry``'s (one gate for every door), not the builder's."""
-        result = await build_user_entry_request(
+        result = build_user_entry_request(
             data={"pipeline": "none", "audience": "public"},
             file_path=Path("x.yaml"),
             user_uid="user_1",
-            audience_resolver=_resolver(),
         )
         assert result.is_ok
-        assert result.value.visibility == Visibility.PUBLIC
-        assert result.value.share_with_groups == []
+        assert result.value.audience == AudienceSpec(public=True)
 
-    @pytest.mark.asyncio
-    async def test_private_audience_no_shares_no_visibility(self):
-        result = await build_user_entry_request(
+    def test_private_audience_is_explicit(self):
+        result = build_user_entry_request(
             data={"pipeline": "none", "audience": "private"},
             file_path=Path("x.yaml"),
             user_uid="user_1",
-            audience_resolver=_resolver(),
         )
         assert result.is_ok
-        req = result.value
-        assert req.share_with_groups == []
-        assert req.visibility is None
+        assert result.value.audience == AudienceSpec(private=True)
 
-    @pytest.mark.asyncio
-    async def test_teacher_review_with_zero_groups_is_rejected_by_validator(self):
-        """Student in no groups + TEACHER_REVIEW + no explicit audience →
-        validator fails (ADR §3 — no silent no-audience turn-ins)."""
-        result = await build_user_entry_request(
-            data={"pipeline": "teacher_review"},
+    def test_a_share_on_a_private_pipeline_is_not_coerced_here(self):
+        """The refusal is ``AudienceResolver.validate``'s, at ``create_entry``
+        — the builder carries the authored value through unchanged."""
+        result = build_user_entry_request(
+            data={"pipeline": "reference", "audience": "group:g1"},
             file_path=Path("x.yaml"),
             user_uid="user_1",
-            audience_resolver=_resolver(teachers=[]),
         )
-        assert result.is_error
-        assert "audience" in str(result.expect_error()).lower()
+        assert result.is_ok
+        assert result.value.audience == AudienceSpec(share_groups=("g1",))
 
     @pytest.mark.asyncio
     async def test_title_defaults_from_filename(self):
-        result = await build_user_entry_request(
+        result = build_user_entry_request(
             data={"pipeline": "none"},
             file_path=Path("my-deep-reflection.yaml"),
             user_uid="user_1",
-            audience_resolver=_resolver(),
         )
         assert result.is_ok
         assert result.value.title == "My Deep Reflection"
 
     @pytest.mark.asyncio
     async def test_unknown_pipeline_rejected(self):
-        result = await build_user_entry_request(
+        result = build_user_entry_request(
             data={"pipeline": "does_not_exist"},
             file_path=Path("x.yaml"),
             user_uid="user_1",
-            audience_resolver=_resolver(),
         )
         assert result.is_error
         assert "pipeline" in str(result.expect_error()).lower()
@@ -316,11 +231,10 @@ class TestPriorUidReuse:
     async def test_uidless_knowledge_note_reuses_prior_uid(self):
         """A uid-less knowledge note on an absolute (vault) path adopts the
         prior uid → routes to the MERGE-on-uid living-entry channel."""
-        result = await build_user_entry_request(
+        result = build_user_entry_request(
             data={"pipeline": "knowledge", "title": "Nous"},
             file_path=Path("/vault/knowledge/nous.md"),
             user_uid="user_1",
-            audience_resolver=_resolver(),
             prior_uid="ue_prior_abc",
         )
         assert result.is_ok
@@ -329,11 +243,10 @@ class TestPriorUidReuse:
     @pytest.mark.asyncio
     async def test_no_prior_uid_mints_random(self):
         """First sync (no tracker row) → uid None so the service mints fresh."""
-        result = await build_user_entry_request(
+        result = build_user_entry_request(
             data={"pipeline": "knowledge", "title": "Nous"},
             file_path=Path("/vault/knowledge/nous.md"),
             user_uid="user_1",
-            audience_resolver=_resolver(),
             prior_uid=None,
         )
         assert result.is_ok
@@ -342,11 +255,10 @@ class TestPriorUidReuse:
     @pytest.mark.asyncio
     async def test_authored_uid_wins_over_prior_uid(self):
         """An authored ``uid:`` is identity — never overridden by the tracker."""
-        result = await build_user_entry_request(
+        result = build_user_entry_request(
             data={"pipeline": "knowledge", "title": "Nous", "uid": "ku.mine.nous"},
             file_path=Path("/vault/knowledge/nous.md"),
             user_uid="user_1",
-            audience_resolver=_resolver(),
             prior_uid="ue_prior_abc",
         )
         assert result.is_ok
@@ -359,11 +271,10 @@ class TestPriorUidReuse:
         ``moc:worldview`` verbatim would split identity against a note
         previously stored as ``moc.worldview`` (Codex P1 #1054). Derived
         periodic ``ue:…`` uids are unaffected — they are built, not authored."""
-        result = await build_user_entry_request(
+        result = build_user_entry_request(
             data={"pipeline": "knowledge", "title": "Worldview", "uid": "moc:worldview"},
             file_path=Path("/vault/knowledge/worldview.md"),
             user_uid="user_1",
-            audience_resolver=_resolver(),
         )
         assert result.is_error
         error = result.expect_error()
@@ -374,7 +285,7 @@ class TestPriorUidReuse:
     async def test_fulfills_exercise_blocks_reuse(self):
         """CRITICAL gate: a turn-in file must NOT receive a uid — injecting one
         silently kills the turn-in channel (frozen copy, edge, revision)."""
-        result = await build_user_entry_request(
+        result = build_user_entry_request(
             data={
                 "pipeline": "knowledge",
                 "title": "Turn-in",
@@ -382,7 +293,6 @@ class TestPriorUidReuse:
             },
             file_path=Path("/vault/knowledge/turnin.md"),
             user_uid="user_1",
-            audience_resolver=_channel_resolver(),
             prior_uid="ue_prior_abc",
         )
         assert result.is_ok
@@ -392,11 +302,10 @@ class TestPriorUidReuse:
     async def test_non_absolute_path_blocks_reuse(self):
         """Uploads pass a temp/relative path — they must keep minting fresh
         uids, never adopt a vault tracker row."""
-        result = await build_user_entry_request(
+        result = build_user_entry_request(
             data={"pipeline": "knowledge", "title": "Upload"},
             file_path=Path("upload.md"),
             user_uid="user_1",
-            audience_resolver=_resolver(),
             prior_uid="ue_prior_abc",
         )
         assert result.is_ok
@@ -408,11 +317,10 @@ class TestAuthoredStatusDescriptionOwnership:
 
     @pytest.mark.asyncio
     async def test_authored_status_flows(self):
-        result = await build_user_entry_request(
+        result = build_user_entry_request(
             data={"pipeline": "none", "status": "draft"},
             file_path=Path("x.yaml"),
             user_uid="user_1",
-            audience_resolver=_resolver(),
         )
         assert result.is_ok
         assert result.value.status == EntityStatus.DRAFT
@@ -420,22 +328,20 @@ class TestAuthoredStatusDescriptionOwnership:
     @pytest.mark.asyncio
     async def test_status_alias_in_process_maps_to_active(self):
         """The live fixture's authored spelling — 'in process' → ACTIVE."""
-        result = await build_user_entry_request(
+        result = build_user_entry_request(
             data={"pipeline": "knowledge", "status": "in process"},
             file_path=Path("nous topics.md"),
             user_uid="user_1",
-            audience_resolver=_resolver(),
         )
         assert result.is_ok
         assert result.value.status == EntityStatus.ACTIVE
 
     @pytest.mark.asyncio
     async def test_unrecognized_status_fails_loudly(self):
-        result = await build_user_entry_request(
+        result = build_user_entry_request(
             data={"pipeline": "none", "status": "vibing"},
             file_path=Path("x.yaml"),
             user_uid="user_1",
-            audience_resolver=_resolver(),
         )
         assert result.is_error
         err = str(result.expect_error())
@@ -447,22 +353,20 @@ class TestAuthoredStatusDescriptionOwnership:
         """None → the service applies its pipeline default; bare `status:`
         parses as YAML None and must behave the same as absent."""
         for data in ({"pipeline": "none"}, {"pipeline": "none", "status": None}):
-            result = await build_user_entry_request(
+            result = build_user_entry_request(
                 data=data,
                 file_path=Path("x.yaml"),
                 user_uid="user_1",
-                audience_resolver=_resolver(),
             )
             assert result.is_ok
             assert result.value.status is None
 
     @pytest.mark.asyncio
     async def test_description_flows(self):
-        result = await build_user_entry_request(
+        result = build_user_entry_request(
             data={"pipeline": "none", "description": "Topics taxonomy"},
             file_path=Path("x.yaml"),
             user_uid="user_1",
-            audience_resolver=_resolver(),
         )
         assert result.is_ok
         assert result.value.description == "Topics taxonomy"
@@ -472,43 +376,39 @@ class TestAuthoredStatusDescriptionOwnership:
         """YAML `description: 0` / `description: false` are authored values —
         only a truly absent field maps to None."""
         for raw, expected in ((0, "0"), (False, "False")):
-            result = await build_user_entry_request(
+            result = build_user_entry_request(
                 data={"pipeline": "none", "description": raw},
                 file_path=Path("x.yaml"),
                 user_uid="user_1",
-                audience_resolver=_resolver(),
             )
             assert result.is_ok
             assert result.value.description == expected
 
     @pytest.mark.asyncio
     async def test_missing_description_is_none(self):
-        result = await build_user_entry_request(
+        result = build_user_entry_request(
             data={"pipeline": "none"},
             file_path=Path("x.yaml"),
             user_uid="user_1",
-            audience_resolver=_resolver(),
         )
         assert result.is_ok
         assert result.value.description is None
 
     @pytest.mark.asyncio
     async def test_ownership_short_form_matches(self):
-        result = await build_user_entry_request(
+        result = build_user_entry_request(
             data={"pipeline": "none", "ownership": "linguistic76"},
             file_path=Path("x.yaml"),
             user_uid="user_linguistic76",
-            audience_resolver=_resolver(),
         )
         assert result.is_ok
 
     @pytest.mark.asyncio
     async def test_ownership_canonical_form_matches(self):
-        result = await build_user_entry_request(
+        result = build_user_entry_request(
             data={"pipeline": "none", "user_uid": "user_linguistic76"},
             file_path=Path("x.yaml"),
             user_uid="user_linguistic76",
-            audience_resolver=_resolver(),
         )
         assert result.is_ok
 
@@ -516,11 +416,10 @@ class TestAuthoredStatusDescriptionOwnership:
     async def test_ownership_mismatch_rejected(self):
         """A file declaring another owner must fail, never be silently
         claimed by the syncing user."""
-        result = await build_user_entry_request(
+        result = build_user_entry_request(
             data={"pipeline": "none", "ownership": "someone_else"},
             file_path=Path("x.yaml"),
             user_uid="user_linguistic76",
-            audience_resolver=_resolver(),
         )
         assert result.is_error
         err = str(result.expect_error())
@@ -540,7 +439,6 @@ class TestIngestUserEntry:
         outcome = ShareOutcome(submitted_groups=("g_a",), newly_submitted_groups=("g_a",))
 
         service = MagicMock()
-        service.audience_resolver = _resolver(teachers=["g_a"])
         service.create_entry = AsyncMock(return_value=Result.ok((entry, outcome)))
 
         result = await ingest_user_entry(
@@ -573,7 +471,6 @@ class TestIngestUserEntry:
             private=True,
         )
         service = MagicMock()
-        service.audience_resolver = _resolver()
         service.create_entry = AsyncMock(return_value=Result.ok((entry, ShareOutcome())))
 
         result = await ingest_user_entry(
@@ -590,7 +487,6 @@ class TestIngestUserEntry:
     @pytest.mark.asyncio
     async def test_validation_error_short_circuits(self):
         service = MagicMock()
-        service.audience_resolver = _resolver()
         service.create_entry = AsyncMock()
 
         result = await ingest_user_entry(
@@ -602,13 +498,6 @@ class TestIngestUserEntry:
 
         assert result.is_error
         service.create_entry.assert_not_awaited()
-
-
-def _channel_resolver() -> AudienceResolver:
-    """Resolver whose reference guard passes (living channel declarations)."""
-    resolver = _resolver()
-    resolver.validate_references = AsyncMock(return_value=Result.ok(None))  # type: ignore[method-assign]
-    return resolver
 
 
 def _living_entry(uid: str = "ue.vault.tasks-list") -> UserEntry:
@@ -648,7 +537,6 @@ class TestVaultExerciseChannel:
 
     def _service(self, create_side_effects, latest=None) -> MagicMock:
         service = MagicMock()
-        service.audience_resolver = _channel_resolver()
         service.create_entry = AsyncMock(side_effect=create_side_effects)
         service.get_latest_entry_for_exercise = AsyncMock(return_value=Result.ok(latest))
         service.delete_entry = AsyncMock(return_value=Result.ok(True))
@@ -746,22 +634,19 @@ class TestVaultExerciseChannel:
         assert result.value["submitted_copy_uid"] == "ue_copy_2"
 
     @pytest.mark.asyncio
-    @pytest.mark.parametrize(
-        "copy_outcome",
-        [
-            ShareOutcome(),  # nothing landed
-            # A share landed but no feedback request did — reach is judged by
-            # the link kind a TEACHER_REVIEW copy needs, and a share queues nowhere.
-            ShareOutcome(shared_groups=("g_class",)),
-        ],
-    )
-    async def test_unreachable_teacher_compensates_and_fails(self, copy_outcome: ShareOutcome):
-        """A copy with no feedback request filed is deleted and surfaced as a
-        sync error — never a silent unreviewable turn-in (Mike's invariant)."""
+    async def test_the_filer_never_compensates_a_copy_itself(self):
+        """The zero-reach rule is ``create_entry``'s: a copy that would reach
+        no teacher is refused before it is written, and one whose request
+        write is refused is compensated there. The filer only propagates —
+        it holds no second copy of the rule."""
+        from core.utils.result_simplified import Errors
+
         service = self._service(
             [
                 Result.ok((_living_entry(), ShareOutcome())),
-                Result.ok((_copy_entry(), copy_outcome)),
+                Result.fail(
+                    Errors.validation("Submission reached no teacher", field="feedback_target")
+                ),
             ],
             latest=None,
         )
@@ -772,9 +657,8 @@ class TestVaultExerciseChannel:
             user_entry_service=service,
         )
         assert result.is_error
-        err = str(result.expect_error())
-        assert "no teacher" in err.lower() or "reached no" in err.lower()
-        service.delete_entry.assert_awaited_once_with("ue_copy_1", "user_1")
+        assert "reached no teacher" in str(result.expect_error()).lower()
+        service.delete_entry.assert_not_awaited()
 
     @pytest.mark.asyncio
     async def test_copy_create_failure_propagates(self):
@@ -827,11 +711,10 @@ class TestPeriodicUidDerivation:
 
     @staticmethod
     async def _uid(data: dict[str, object], kind: str) -> str | None:
-        result = await build_user_entry_request(
+        result = build_user_entry_request(
             data={"pipeline": "extract_activities", "metadata": {"entry_kind": kind}, **data},
             file_path=Path(f"/vault/periodic_notes/{kind}.md"),
             user_uid="user_1",
-            audience_resolver=_resolver(),
         )
         assert result.is_ok
         return result.value.uid

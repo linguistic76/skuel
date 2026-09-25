@@ -171,6 +171,16 @@ RENAMED: dict[str, str] = {
 # ── Deleted identifiers ──────────────────────────────────────────────────────
 # "deleted_identifier": "explanation / what replaced it"
 DELETED: dict[str, str] = {
+    # The one audience vocabulary (ADR-088, Submit & Share arc PR 6a): the
+    # create request carries ``audience`` (an ``AudienceSpec``); the raw
+    # per-verb fields, the vault door's private parser and the pipeline's
+    # absent-audience flag are gone.
+    "share_with_users": "deleted — the create request's `audience` names a person as user:<username> (AudienceSpec, ADR-088)",
+    "share_with_groups": "deleted — the create request's `audience` names a group as group:<uid> (AudienceSpec, ADR-088)",
+    "submit_to_groups": "deleted — the create request's `audience` names a feedback target as teacher:<group_uid> / teachers (AudienceSpec, ADR-088)",
+    "auto_share_to_exercise_groups": "deleted — `teachers` in the create request's `audience` is the exercise-groups feedback request (AudienceSpec, ADR-088)",
+    "resolve_default_teachers": "deleted — the teachers expansion runs inside AudienceResolver.validate_references, before the first write",
+    "shares_by_default": "deleted — an absent audience names nobody on every pipeline but teacher_review; there is no per-pipeline default flag",
     # Deleted modules
     "htmx_a11y": "module deleted — accessibility patterns moved inline",
     "sel_routes": "module deleted — SEL domain removed",
@@ -411,6 +421,7 @@ _defiction = "the docs de-fiction arc's record names every route, symbol and dec
 _symbol_queue = "the symbol-claim queue's verdict table teaches 'fictional namespace, real members' by naming its two worked instances -- the verdict is unintelligible without them"
 _adr088_2b = "the retired EntryReport access check named where it stood -- ADR-038/042/054 sketches and the position-2 migration record are frozen decision text; ADR-088 §3 is the record that retired it"
 _adr088_2a = "the retired visibility ladder named where it stood -- ADR-038's Data Model record and ADR-040's Context inventory are frozen decision text; ADR-088 §4 is the record that collapsed the enum"
+_adr088_6a = "the retired create-request audience fields named where they stood -- ADR-054 §5's submit-time gate is frozen decision text; the PR 6a note above it names the one vocabulary that replaced them"
 _sharing_door = "the sharing-door record -- ADR-038's amendment, the deferred-work MOC line and the case file's per-method table name the two methods (and their backend twins) that no longer exist"
 _askesis_arch = "change-history table recording the entities_rich unification / ActivityDataReader absorption / ActivityReviewService split"
 _askesis_intel = "'the former ActivityReviewService was split' -- historical record of the split"
@@ -519,13 +530,17 @@ ALLOWED_OCCURRENCES: dict[str, dict[tuple[int, str], Allow]] = {
         # vault-notes-default-private amendment note; → +1 more the same day when
         # the note grew to name extract_activities. Anchors re-derived from the
         # scanner's report, never by adding the diff's line delta.
+        # The §3 and §5 "amended by ADR-088" notes (PR 6a) sit above these lines.
+        (290, "share_with_groups"): Allow(_adr088_6a),
+        (291, "auto_share_to_exercise_groups"): Allow(_adr088_6a),
+        (291, "share_with_users"): Allow(_adr088_6a),
         # The §6 "amended by ADR-088" note sits above these lines.
-        (291, "check_access"): Allow(_adr088_2b),
-        (341, "ProcessorType"): Allow(_adr054),
-        (397, "ProcessorType"): Allow(_adr054),
-        (448, "ProcessorType"): Allow(_adr054),
-        (526, "EntityType.EXERCISE_SUBMISSION"): Allow(_adr054),
-        (540, "ProcessorType"): Allow(_adr054),
+        (324, "check_access"): Allow(_adr088_2b),
+        (377, "ProcessorType"): Allow(_adr054),
+        (433, "ProcessorType"): Allow(_adr054),
+        (484, "ProcessorType"): Allow(_adr054),
+        (562, "EntityType.EXERCISE_SUBMISSION"): Allow(_adr054),
+        (576, "ProcessorType"): Allow(_adr054),
     },
     "docs/Reviews/SYNC_UNIFICATION_REVIEW.md": {
         (89, "ingest_bundle"): Allow(_review_sync),

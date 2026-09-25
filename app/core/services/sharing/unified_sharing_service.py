@@ -27,12 +27,13 @@ from typing import Any, cast
 from core.models.entity_dto import EntityDTO
 from core.models.enums.entity_enums import EntityType
 from core.models.enums.metadata_enums import Visibility
+from core.models.enums.pipeline import Pipeline
 from core.models.type_hints import EntityUID, UserUID
 from core.ports.query_types import SharedWithMeItem
 from core.ports.sharing_protocols import SharingBackendOperations
 from core.utils.logging import get_logger
 from core.utils.neo4j_props import neo4j_opt_str
-from core.utils.result_simplified import Errors, Result
+from core.utils.result_simplified import ErrorContext, Errors, Result
 
 logger = get_logger("skuel.services.sharing")
 
@@ -59,8 +60,14 @@ _CURRICULUM_ENTITY_TYPES = frozenset(
     }
 )
 
-# User-authored content — shareable in any status except archived.
+# User-authored content — shareable in any status except archived, and never
+# when private or on a private pipeline (ADR-088 §1, for the entry's lifetime).
 _USER_ENTRY_TYPES = frozenset({EntityType.USER_ENTRY.value})
+
+
+def _person_not_found(identifier: str) -> ErrorContext:
+    """The one error for an unknown person and a non-co-member alike (ADR-088 §7)."""
+    return Errors.not_found(resource="User", identifier=identifier)
 
 
 class UnifiedSharingService:
@@ -86,12 +93,22 @@ class UnifiedSharingService:
         recipient_uid: str,
         role: str = "viewer",
         share_version: str = "original",
+        *,
+        require_co_membership: bool = True,
     ) -> Result[bool]:
-        """Share an entity with a specific user.
+        """Share an owned, shareable entity with one person (``SHARES_WITH``).
 
-        Creates a SHARES_WITH relationship from recipient to entity.
-        Only the owner can share their entity.
-        Only active or completed entities can be shared.
+        R8 (ADR-088 §7): the recipient must share a group with the owner,
+        and the write re-checks that in its own statement, so a membership
+        change after the caller's validation refuses here rather than
+        landing an unauthorised edge. Only the forms' ``share_with_admin``
+        passes ``require_co_membership=False``. The bool is ``created`` —
+        True when this call wrote the link, False when it already stood —
+        both successes. A recipient the guard refuses, or one that does not
+        exist, is one not-found (the door discloses nothing about who
+        exists).
+
+        Backend: SharingBackend.create_share
         """
         check = await self._verify_owned_and_shareable(entity_uid, owner_uid)
         if check.is_error:
@@ -99,19 +116,75 @@ class UnifiedSharingService:
 
         result = await self.backend.create_share(
             entity_uid=entity_uid,
+            owner_uid=UserUID(owner_uid),
             recipient_uid=recipient_uid,
             role=role,
             share_version=share_version,
             shared_at=datetime.now().isoformat(),
+            require_co_membership=require_co_membership,
         )
         if result.is_error:
             return Result.fail(result)
-        if not result.value:
-            return Result.fail(
-                Errors.not_found(f"User {recipient_uid} or Entity {entity_uid} not found")
+        rows = result.value or []
+        if not rows:
+            return Result.fail(_person_not_found(recipient_uid))
+        created = bool(rows[0].get("created"))
+        logger.info(
+            f"Entity {entity_uid} shared with {recipient_uid} as {role} (created={created})"
+        )
+        return Result.ok(created)
+
+    async def resolve_co_member(self, owner_uid: str, username: str) -> Result[str | None]:
+        """The uid of the user named ``username`` when they share a group with the owner (R8).
+
+        ``None`` for an unknown username and for a non-co-member alike — the
+        one uniform answer ADR-088 §7 requires. The owner's own username
+        resolves to the owner's uid; the caller refuses that.
+
+        Backend: SharingBackend.query_co_member_uid
+        """
+        result = await self.backend.query_co_member_uid(UserUID(owner_uid), username=username)
+        if result.is_error:
+            return Result.fail(result)
+        rows = result.value or []
+        return Result.ok(neo4j_opt_str(rows[0], "uid") if rows else None)
+
+    async def shares_group_with(self, owner_uid: str, recipient_uid: str) -> Result[bool]:
+        """Whether ``recipient_uid`` exists and shares a group with the owner (R8, ADR-088 §7).
+
+        Co-membership through a default group counts only when one of the two
+        owns it; a user's own uid is never a co-member here.
+
+        Backend: SharingBackend.query_co_member_uid
+        """
+        if recipient_uid == owner_uid:
+            return Result.ok(False)
+        result = await self.backend.query_co_member_uid(
+            UserUID(owner_uid), recipient_uid=recipient_uid
+        )
+        if result.is_error:
+            return Result.fail(result)
+        return Result.ok(bool(result.value))
+
+    async def reachable_groups(
+        self, user_uid: str, group_uids: list[str]
+    ) -> Result[frozenset[str]]:
+        """The subset of ``group_uids`` the user may share with or submit to: existing, active, joined or owned.
+
+        Backend: SharingBackend.query_reachable_groups
+        """
+        if not group_uids:
+            return Result.ok(frozenset())
+        result = await self.backend.query_reachable_groups(UserUID(user_uid), list(group_uids))
+        if result.is_error:
+            return Result.fail(result)
+        return Result.ok(
+            frozenset(
+                uid
+                for row in (result.value or [])
+                if (uid := neo4j_opt_str(row, "group_uid")) is not None
             )
-        logger.info(f"Entity {entity_uid} shared with {recipient_uid} as {role}")
-        return Result.ok(True)
+        )
 
     async def unshare(
         self,
@@ -314,7 +387,9 @@ class UnifiedSharingService:
 
         Backend: SharingBackend.create_group_submission
         """
-        check = await self._verify_owned_and_shareable(entity_uid, owner_uid)
+        # A feedback request is Submit, not Share (ADR-088 §1): a private
+        # entry may still ask its teacher — only the archived gate applies.
+        check = await self._verify_owned_and_shareable(entity_uid, owner_uid, privacy_gated=False)
         if check.is_error:
             return check
 
@@ -420,11 +495,15 @@ class UnifiedSharingService:
         owner_uid: str,
         *,
         require_shareable: bool = True,
+        privacy_gated: bool = True,
     ) -> Result[bool]:
         """Verify ownership and optionally shareable status in a single query.
 
         Returns not_found for both missing entities and ownership mismatches
-        to prevent UID enumeration.
+        to prevent UID enumeration. ``privacy_gated`` is the Share verb's
+        rule — a ``private: true`` UserEntry, or one on a private pipeline,
+        cannot be shared at any time (ADR-088 §1); a feedback request passes
+        ``False`` and keeps only the archived gate.
         """
         result = await self.backend.query_ownership_and_status(entity_uid=entity_uid)
         if result.is_error:
@@ -443,16 +522,43 @@ class UnifiedSharingService:
         if not require_shareable:
             return Result.ok(True)
 
-        return self._check_shareable(str(record["status"] or ""), str(record["entity_type"] or ""))
+        return self._check_shareable(
+            str(record["status"] or ""),
+            str(record["entity_type"] or ""),
+            private=bool(record.get("private")),
+            pipeline=neo4j_opt_str(record, "pipeline"),
+            privacy_gated=privacy_gated,
+        )
 
     @staticmethod
-    def _check_shareable(status: str, entity_type: str) -> Result[bool]:
-        """Evaluate whether an entity with given status/entity_type can be shared."""
+    def _check_shareable(
+        status: str,
+        entity_type: str,
+        *,
+        private: bool = False,
+        pipeline: str | None = None,
+        privacy_gated: bool = True,
+    ) -> Result[bool]:
+        """Evaluate whether an entity with the given status / type / privacy can be shared."""
         if entity_type in _USER_ENTRY_TYPES:
             if status == "archived":
                 return Result.fail(
                     Errors.validation(
                         f"Archived user entries cannot be shared. Current status: {status}"
+                    )
+                )
+            if privacy_gated and private:
+                return Result.fail(
+                    Errors.validation(
+                        "A private entry (private: true) cannot be shared; a feedback "
+                        "request is still allowed"
+                    )
+                )
+            if privacy_gated and pipeline is not None and not Pipeline(pipeline).allows_sharing():
+                return Result.fail(
+                    Errors.validation(
+                        f"pipeline={pipeline} is private (journals are not shareable); a "
+                        "feedback request is still allowed"
                     )
                 )
             return Result.ok(True)

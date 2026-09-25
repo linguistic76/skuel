@@ -445,7 +445,7 @@ Two consequences worth stating, because getting either wrong is silent:
    absent one means.** Because reads are decided by edges, an entity persisted
    without any is readable by nobody but its owner and admins. So a surface
    with no audience controls must resolve a default at write time
-   (`AudienceResolver.resolve_default_teachers` for UserEntry,
+   (the `teachers` expansion in `AudienceResolver.validate_references` for UserEntry,
    `FormSubmissionService._share_with_default_audience` for FormSubmission —
    both expand "my teachers" into the submitter's actual student-role groups,
    neither has an implicit "share with everyone" fallback).

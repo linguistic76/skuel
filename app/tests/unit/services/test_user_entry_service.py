@@ -50,15 +50,32 @@ def _make_sharing_service() -> MagicMock:
     # The feedback request (SUBMITTED_TO_GROUP); the bool is ``created``.
     svc.submit_to_group = AsyncMock(return_value=Result.ok(True))
     backend = MagicMock()
-    backend.query_exercise_groups_for_member = AsyncMock(return_value=Result.ok([]))
-    # Curriculum default-group fallback (care arc): empty intersection triggers
-    # this second lookup; default = no default group, so behavior is unchanged.
+    # An exercise turn-in reaches one class by default: ``teachers`` must
+    # resolve to a group or the request is refused before the write. Tests
+    # about the empty intersection narrow this themselves.
+    backend.query_exercise_groups_for_member = AsyncMock(
+        return_value=Result.ok([{"group_uid": "g_class"}])
+    )
+    # Curriculum default-group fallback: the empty intersection triggers this
+    # second lookup; default = no default group.
     backend.query_default_groups_for_curriculum_submission = AsyncMock(return_value=Result.ok([]))
     backend.query_user_can_use_exercise = AsyncMock(return_value=Result.ok(True))
     # Default: referenced predecessor entry is owned by the canonical test user
     # (user_1), so validate_references' TRANSFORMS ownership check passes.
     backend.query_entity_owner = AsyncMock(return_value=Result.ok("user_1"))
     svc.backend = backend
+
+    # R8 lookups: every ``user:<name>`` names the co-member ``user_<name>``,
+    # and every group named is reachable — tests narrow these where the
+    # refusal is the point.
+    async def _resolve(owner_uid: str, username: str) -> Result[str | None]:
+        return Result.ok(f"user_{username}")
+
+    async def _reachable(user_uid: str, group_uids: list[str]) -> Result[frozenset[str]]:
+        return Result.ok(frozenset(group_uids))
+
+    svc.resolve_co_member = AsyncMock(side_effect=_resolve)
+    svc.reachable_groups = AsyncMock(side_effect=_reachable)
     return svc
 
 
@@ -96,20 +113,27 @@ class TestValidateAudience:
     """Guardrail: TEACHER_REVIEW must resolve to a real audience (ADR §3)."""
 
     @pytest.mark.asyncio
-    async def test_teacher_review_with_no_audience_and_no_exercise_fails(self):
-        service = _make_service()
+    async def test_teacher_review_reaching_no_teacher_fails_before_the_write(self):
+        """An absent audience means ``teachers``; a student in no group has
+        none, and the refusal lands before anything persists."""
+        backend = _make_backend()
+        service = _make_service(backend=backend, sharing_service=_make_sharing_service())
         request = UserEntryCreateRequest(
             title="Naked turn-in",
             pipeline=Pipeline.TEACHER_REVIEW,
         )
         result = await service.create_entry(request, user_uid="user_1")
         assert result.is_error
-        err = result.expect_error()
-        assert "audience" in str(err).lower()
+        assert "reached no teacher" in str(result.expect_error()).lower()
+        backend.create.assert_not_called()
 
     @pytest.mark.asyncio
     async def test_teacher_review_with_exercise_uid_passes(self):
-        service = _make_service(sharing_service=_make_sharing_service())
+        sharing = _make_sharing_service()
+        sharing.backend.query_exercise_groups_for_member = AsyncMock(
+            return_value=Result.ok([{"group_uid": "g_class"}])
+        )
+        service = _make_service(sharing_service=sharing)
         request = UserEntryCreateRequest(
             title="Exercise turn-in",
             pipeline=Pipeline.TEACHER_REVIEW,
@@ -124,24 +148,24 @@ class TestValidateAudience:
         request = UserEntryCreateRequest(
             title="Group turn-in",
             pipeline=Pipeline.TEACHER_REVIEW,
-            submit_to_groups=["group_1"],
+            audience="teacher:group_1",
         )
         result = await service.create_entry(request, user_uid="user_1")
         assert result.is_ok
 
     @pytest.mark.asyncio
     async def test_teacher_review_with_only_a_group_share_is_refused(self):
-        """A share is not a feedback target (R5); the JSON door's
-        ``share_with_groups`` is never silently re-typed into a request."""
+        """A share is not a feedback target (R5); ``group:`` is never silently
+        re-typed into a request — the refusal points at ``teacher:<group_uid>``."""
         service = _make_service(sharing_service=_make_sharing_service())
         request = UserEntryCreateRequest(
             title="Shared, not submitted",
             pipeline=Pipeline.TEACHER_REVIEW,
-            share_with_groups=["group_1"],
+            audience="group:group_1",
         )
         result = await service.create_entry(request, user_uid="user_1")
         assert result.is_error
-        assert "feedback target" in str(result.expect_error()).lower()
+        assert "teacher:<group_uid>" in str(result.expect_error())
 
     @pytest.mark.asyncio
     async def test_pipeline_none_with_no_audience_passes(self):
@@ -167,49 +191,54 @@ class TestJournalSharingPolicy:
         assert result.is_ok
 
     @pytest.mark.asyncio
-    async def test_journal_with_share_with_groups_rejected(self):
+    async def test_journal_with_a_group_share_rejected(self):
         service = _make_service(sharing_service=_make_sharing_service())
         request = UserEntryCreateRequest(
             title="Reflection",
             pipeline=Pipeline.TRANSCRIBE_AND_STRUCTURE,
-            share_with_groups=["g1"],
+            audience="group:g1",
         )
         result = await service.create_entry(request, user_uid="user_1")
         assert result.is_error
         assert "private" in str(result.expect_error()).lower()
 
     @pytest.mark.asyncio
-    async def test_journal_with_share_with_users_rejected(self):
+    async def test_journal_with_a_person_share_rejected(self):
         service = _make_service(sharing_service=_make_sharing_service())
         request = UserEntryCreateRequest(
             title="Reflection",
             pipeline=Pipeline.TRANSCRIBE_AND_STRUCTURE,
-            share_with_users=["user_peer"],
+            audience="user:peer",
         )
         result = await service.create_entry(request, user_uid="user_1")
         assert result.is_error
 
     @pytest.mark.asyncio
-    async def test_journal_with_public_visibility_rejected(self):
+    async def test_journal_with_public_rejected(self):
         service = _make_service(sharing_service=_make_sharing_service())
         request = UserEntryCreateRequest(
             title="Reflection",
             pipeline=Pipeline.TRANSCRIBE_AND_STRUCTURE,
-            visibility=Visibility.PUBLIC,
+            audience="public",
         )
         result = await service.create_entry(request, user_uid="user_1")
         assert result.is_error
 
     @pytest.mark.asyncio
-    async def test_journal_with_auto_share_flag_rejected(self):
-        service = _make_service(sharing_service=_make_sharing_service())
+    async def test_journal_with_a_feedback_target_is_not_a_share(self):
+        """Submit is not Share (ADR-088 §1): ``teachers`` on a private pipeline
+        is allowed and, off TEACHER_REVIEW, writes no link."""
+        sharing = _make_sharing_service()
+        service = _make_service(sharing_service=sharing)
         request = UserEntryCreateRequest(
             title="Reflection",
             pipeline=Pipeline.TRANSCRIBE_AND_STRUCTURE,
-            auto_share_to_exercise_groups=True,
+            audience="teachers",
         )
         result = await service.create_entry(request, user_uid="user_1")
-        assert result.is_error
+        assert result.is_ok
+        sharing.submit_to_group.assert_not_called()
+        sharing.share_with_group.assert_not_called()
 
     def test_pipeline_allows_sharing_matrix(self):
         """The policy: TRANSCRIBE_AND_STRUCTURE and REFERENCE are private; every other member shares.
@@ -220,17 +249,6 @@ class TestJournalSharingPolicy:
         private = {Pipeline.TRANSCRIBE_AND_STRUCTURE, Pipeline.REFERENCE}
         for pipeline in Pipeline:
             assert pipeline.allows_sharing() is (pipeline not in private), pipeline
-
-    def test_pipeline_shares_by_default_matrix(self):
-        """An absent audience: means teachers for submission pipelines only (rulings 2026-09-02)."""
-        opt_in = {
-            Pipeline.KNOWLEDGE,
-            Pipeline.EXTRACT_ACTIVITIES,
-            Pipeline.TRANSCRIBE_AND_STRUCTURE,
-            Pipeline.REFERENCE,
-        }
-        for pipeline in Pipeline:
-            assert pipeline.shares_by_default() is (pipeline not in opt_in), pipeline
 
 
 class TestCreateEntryRouting:
@@ -551,11 +569,14 @@ class TestSharedWithTeacherTransition:
         )
 
     @pytest.mark.asyncio
-    async def test_no_transition_when_nothing_was_shared(self):
-        """TEACHER_REVIEW resolving to zero shares (no failures either) stays PENDING."""
+    async def test_no_transition_when_the_request_reaches_nobody(self):
+        """TEACHER_REVIEW resolving to zero groups is refused before the write,
+        so no Interaction exists to transition."""
         interaction_svc = _make_interaction_service()
+        sharing = _make_sharing_service()
+        sharing.backend.query_exercise_groups_for_member = AsyncMock(return_value=Result.ok([]))
         service = _make_service(
-            sharing_service=_make_sharing_service(),  # no groups resolve
+            sharing_service=sharing,
             interaction_service=interaction_svc,
         )
         request = UserEntryCreateRequest(
@@ -564,7 +585,8 @@ class TestSharedWithTeacherTransition:
             fulfills_exercise_uid="ex_1",
         )
         result = await service.create_entry(request, user_uid="user_1")
-        assert result.is_ok
+        assert result.is_error
+        interaction_svc.create_interaction.assert_not_called()
         interaction_svc.record_result.assert_not_called()
 
     @pytest.mark.asyncio
@@ -579,7 +601,7 @@ class TestSharedWithTeacherTransition:
             title="Personal turn-in",
             pipeline=Pipeline.NONE,
             fulfills_exercise_uid="ex_1",
-            share_with_users=["user_peer"],
+            audience="user:peer",
         )
         result = await service.create_entry(request, user_uid="user_1")
         assert result.is_ok
@@ -596,7 +618,7 @@ class TestAudienceResolution:
         request = UserEntryCreateRequest(
             title="Share",
             pipeline=Pipeline.NONE,
-            share_with_groups=["g1", "g2"],
+            audience=["group:g1", "group:g2"],
         )
         await service.create_entry(request, user_uid="user_1")
         assert sharing.share_with_group.await_count == 2
@@ -608,10 +630,11 @@ class TestAudienceResolution:
         request = UserEntryCreateRequest(
             title="Share",
             pipeline=Pipeline.NONE,
-            share_with_users=["user_peer"],
+            audience="user:peer",
         )
         await service.create_entry(request, user_uid="user_1")
         sharing.share.assert_awaited_once()
+        assert sharing.share.await_args.kwargs["recipient_uid"] == "user_peer"
 
     @pytest.mark.asyncio
     async def test_teacher_review_submits_to_exercise_groups(self):
@@ -639,8 +662,8 @@ class TestAudienceResolution:
 
     @pytest.mark.asyncio
     async def test_explicit_feedback_target_skips_exercise_groups(self):
-        """An explicit ``submit_to_groups`` on TEACHER_REVIEW is the per-teacher
-        route: it files the request with that group alone and bypasses the
+        """``teacher:<group_uid>`` on TEACHER_REVIEW is the per-teacher route:
+        it files the request with that group alone and bypasses the
         exercise's groups."""
         sharing = _make_sharing_service()
         service = _make_service(sharing_service=sharing)
@@ -648,7 +671,7 @@ class TestAudienceResolution:
             title="Turn-in",
             pipeline=Pipeline.TEACHER_REVIEW,
             fulfills_exercise_uid="ex_1",
-            submit_to_groups=["explicit_group"],
+            audience="teacher:explicit_group",
         )
         await service.create_entry(request, user_uid="user_1")
         sharing.backend.query_exercise_groups_for_member.assert_not_called()
@@ -657,9 +680,9 @@ class TestAudienceResolution:
 
     @pytest.mark.asyncio
     async def test_teachers_on_non_review_pipeline_writes_no_link(self):
-        """``audience=teachers`` on a pipeline without a reviewer (the web
-        form's flag) files nothing: a feedback request requires
-        TEACHER_REVIEW, so neither a request nor a share is written."""
+        """``teachers`` on a pipeline without a reviewer files nothing: a
+        feedback request requires TEACHER_REVIEW, so neither a request nor a
+        share is written."""
         sharing = _make_sharing_service()
         sharing.backend.query_exercise_groups_for_member = AsyncMock(
             return_value=Result.ok([{"group_uid": "teacher_group_1"}])
@@ -669,7 +692,7 @@ class TestAudienceResolution:
             title="AI run",
             pipeline=Pipeline.LLM_SUMMARY,
             fulfills_exercise_uid="ex_1",
-            auto_share_to_exercise_groups=True,
+            audience="teachers",
         )
         result = await service.create_entry(request, user_uid="user_1")
         assert result.is_ok
@@ -681,8 +704,8 @@ class TestAudienceResolution:
 
 
 class TestPublicVisibilityGate:
-    """``visibility=PUBLIC`` must be TEACHER-gated at the service layer so
-    every caller (YAML upload, form API, programmatic) hits the same check."""
+    """``public`` must be TEACHER-gated at the service layer so every door
+    (the vault, the form API, programmatic) hits the same check."""
 
     @pytest.mark.asyncio
     async def test_public_rejected_for_registered_user(self):
@@ -696,7 +719,7 @@ class TestPublicVisibilityGate:
         request = UserEntryCreateRequest(
             title="Brag post",
             pipeline=Pipeline.NONE,
-            visibility=Visibility.PUBLIC,
+            audience="public",
         )
         result = await service.create_entry(request, user_uid="user_registered")
         assert result.is_error
@@ -709,17 +732,21 @@ class TestPublicVisibilityGate:
         from core.models.enums.user_enums import UserRole
 
         user_service = _make_user_service_for_role(UserRole.TEACHER)
+        backend = _make_backend()
         service = _make_service(
+            backend=backend,
             sharing_service=_make_sharing_service(),
             user_service=user_service,
         )
         request = UserEntryCreateRequest(
             title="Published exemplar",
             pipeline=Pipeline.NONE,
-            visibility=Visibility.PUBLIC,
+            audience="public",
         )
         result = await service.create_entry(request, user_uid="user_teacher")
         assert result.is_ok
+        entry_passed = backend.create.await_args.args[0]
+        assert entry_passed.visibility == Visibility.PUBLIC
 
     @pytest.mark.asyncio
     async def test_public_fail_closed_without_user_service(self):
@@ -730,7 +757,7 @@ class TestPublicVisibilityGate:
         request = UserEntryCreateRequest(
             title="Anything",
             pipeline=Pipeline.NONE,
-            visibility=Visibility.PUBLIC,
+            audience="public",
         )
         result = await service.create_entry(request, user_uid="user_unknown")
         assert result.is_error
@@ -891,7 +918,7 @@ class TestShareOutcome:
         request = UserEntryCreateRequest(
             title="Share",
             pipeline=Pipeline.NONE,
-            share_with_groups=["g1"],
+            audience="group:g1",
         )
         result = await service.create_entry(request, user_uid="user_1")
         assert result.is_ok
@@ -901,31 +928,32 @@ class TestShareOutcome:
         assert outcome.failed == ()
 
     @pytest.mark.asyncio
-    async def test_partial_failure_on_non_teacher_pipeline_is_surfaced_not_fatal(self):
-        """NONE pipeline with mixed success/failure returns ok + failed list."""
+    async def test_a_refused_share_after_validation_compensates_the_entry(self):
+        """Every target passed validation, so a refused write is a change
+        that landed in between: the node this call created goes, with every
+        edge, and the caller is told — never an entry half-shared."""
+        backend = _make_backend()
         sharing = _make_sharing_service()
         sharing.share_with_group = AsyncMock(
             side_effect=[
                 Result.ok(True),
-                Result.fail(Errors.not_found("Group", "g_missing")),
+                Result.fail(Errors.not_found("Group", "g_gone")),
             ]
         )
-        service = _make_service(sharing_service=sharing)
+        service = _make_service(backend=backend, sharing_service=sharing)
         request = UserEntryCreateRequest(
             title="Share",
             pipeline=Pipeline.NONE,
-            share_with_groups=["g1", "g_missing"],
+            audience=["group:g1", "group:g_gone"],
         )
         result = await service.create_entry(request, user_uid="user_1")
-        assert result.is_ok
-        _entry, outcome = result.value
-        assert outcome.shared_groups == ("g1",)
-        assert len(outcome.failed) == 1
-        assert outcome.failed[0][0] == "g_missing"
+        assert result.is_error
+        assert "g_gone" in str(result.expect_error())
+        backend.delete.assert_awaited_once()
+        assert backend.delete.await_args.kwargs.get("cascade") is True
 
     @pytest.mark.asyncio
-    async def test_teacher_review_total_share_failure_compensates(self):
-        """TEACHER_REVIEW + every feedback request fails → entry deleted + validation error."""
+    async def test_a_refused_feedback_request_compensates_the_entry(self):
         backend = _make_backend()
         sharing = _make_sharing_service()
         sharing.submit_to_group = AsyncMock(
@@ -935,47 +963,15 @@ class TestShareOutcome:
         request = UserEntryCreateRequest(
             title="Naked to bad group",
             pipeline=Pipeline.TEACHER_REVIEW,
-            submit_to_groups=["g1"],
+            audience="teacher:g1",
         )
         result = await service.create_entry(request, user_uid="user_1")
         assert result.is_error
-        err = str(result.expect_error())
-        assert "reached no teacher" in err.lower()
-        # The just-persisted node must have been rolled back
+        assert "could not be written" in str(result.expect_error()).lower()
         backend.delete.assert_awaited_once()
-        delete_kwargs = backend.delete.await_args.kwargs
-        assert delete_kwargs.get("cascade") is True
 
     @pytest.mark.asyncio
-    async def test_teacher_review_partial_success_does_not_compensate(self):
-        """At least one feedback request landed → keep the entry, surface partial warning."""
-        backend = _make_backend()
-        sharing = _make_sharing_service()
-        sharing.submit_to_group = AsyncMock(
-            side_effect=[
-                Result.ok(True),
-                Result.fail(Errors.not_found("Group", "g_missing")),
-            ]
-        )
-        service = _make_service(backend=backend, sharing_service=sharing)
-        request = UserEntryCreateRequest(
-            title="Mixed success",
-            pipeline=Pipeline.TEACHER_REVIEW,
-            submit_to_groups=["g1", "g_missing"],
-        )
-        result = await service.create_entry(request, user_uid="user_1")
-        assert result.is_ok
-        _entry, outcome = result.value
-        backend.delete.assert_not_called()
-        assert outcome.submitted_groups == ("g1",)
-        assert outcome.shared_groups == ()
-        assert len(outcome.failed) == 1
-
-    @pytest.mark.asyncio
-    async def test_a_landed_share_does_not_count_as_reach_for_a_feedback_request(self):
-        """Reach is judged by the link kind the entry needs: a person share
-        that lands while every SUBMITTED_TO_GROUP write fails puts the entry
-        in no queue, so the request is compensated as if nothing landed."""
+    async def test_a_landed_share_beside_a_refused_request_still_compensates(self):
         backend = _make_backend()
         sharing = _make_sharing_service()
         sharing.backend.query_exercise_groups_for_member = AsyncMock(
@@ -989,7 +985,7 @@ class TestShareOutcome:
             title="Shared but unreviewable",
             pipeline=Pipeline.TEACHER_REVIEW,
             fulfills_exercise_uid="ex_1",
-            share_with_users=["user_peer"],
+            audience=["teachers", "user:peer"],
         )
         result = await service.create_entry(request, user_uid="user_1")
         assert result.is_error
@@ -997,8 +993,9 @@ class TestShareOutcome:
         backend.delete.assert_awaited_once()
 
     @pytest.mark.asyncio
-    async def test_teacher_review_auto_share_failure_compensates(self):
-        """TEACHER_REVIEW + exercise resolves to zero groups failure → compensate."""
+    async def test_a_failed_teachers_lookup_refuses_before_the_write(self):
+        """The expansion runs in validation: a failed lookup persists nothing,
+        so there is nothing to compensate."""
         backend = _make_backend()
         sharing = _make_sharing_service()
         sharing.backend.query_exercise_groups_for_member = AsyncMock(
@@ -1012,7 +1009,46 @@ class TestShareOutcome:
         )
         result = await service.create_entry(request, user_uid="user_1")
         assert result.is_error
-        backend.delete.assert_awaited_once()
+        backend.create_with_exercise_link.assert_not_called()
+        backend.delete.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_a_refused_write_on_a_living_upsert_is_returned_not_deleted(self):
+        """A living note is not this call's node: the failure is returned and
+        the sync retries the file."""
+        backend = _make_backend()
+        sharing = _make_sharing_service()
+        sharing.share_with_group = AsyncMock(
+            return_value=Result.fail(Errors.not_found("Group", "g_gone"))
+        )
+        service = _make_service(backend=backend, sharing_service=sharing)
+        request = UserEntryCreateRequest(
+            uid="ue:vault:note",
+            title="Living note",
+            pipeline=Pipeline.KNOWLEDGE,
+            audience="group:g_gone",
+        )
+        result = await service.create_entry(request, user_uid="user_1")
+        assert result.is_error
+        backend.upsert.assert_awaited_once()
+        backend.delete.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_a_living_note_withholds_person_and_teacher_targets(self):
+        sharing = _make_sharing_service()
+        service = _make_service(sharing_service=sharing)
+        request = UserEntryCreateRequest(
+            uid="ue:vault:note",
+            title="Living note",
+            pipeline=Pipeline.KNOWLEDGE,
+            audience=["user:peer", "group:g1"],
+        )
+        result = await service.create_entry(request, user_uid="user_1")
+        assert result.is_ok
+        _entry, outcome = result.value
+        assert outcome.withheld == ("user:peer",)
+        assert outcome.shared_groups == ("g1",)
+        sharing.share.assert_not_called()
 
     @pytest.mark.asyncio
     async def test_empty_outcome_when_no_sharing_service(self):

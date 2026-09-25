@@ -604,6 +604,7 @@ skills:
       - ADR-077  # Companion Grounding via a Shared Corpus-Scope Seam
       - ADR-078  # Discussion Sessions Are Stored but Never Understood
       - ADR-081  # Journals companion — authored instruction home + grounding
+      - ADR-088  # Submit and Share — a private pipeline refuses every share at every door
     patterns: []
     keywords: [journals, journal, DNWF, Scribe, Thought Partner, What Is Related, JournalMode, JournalService, instruction_loader, run_stage1, run_stage2, run_stage3]
 

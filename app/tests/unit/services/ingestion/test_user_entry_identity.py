@@ -39,11 +39,6 @@ def _entry(uid: str, pipeline: Pipeline = Pipeline.KNOWLEDGE, private: bool = Fa
 
 def _user_entry_service(entry: UserEntry) -> MagicMock:
     service = MagicMock()
-    resolver = MagicMock()
-    resolver.resolve_default_teachers = AsyncMock(return_value=[])
-    resolver.validate_references = AsyncMock(return_value=Result.ok(None))
-    resolver.validate = MagicMock(return_value=Result.ok(None))
-    service.audience_resolver = resolver
     service.create_entry = AsyncMock(return_value=Result.ok((entry, ShareOutcome())))
     # Default: the tracked prior uid names this very UserEntry (label+ownership
     # guard passes → reuse proceeds). Foreign-uid tests override this.

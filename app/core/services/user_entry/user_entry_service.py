@@ -22,15 +22,19 @@ Create flow
 3. Auto-create ``Interaction`` audit record (turn-ins only, when
    ``interaction_service`` is wired)
 4. Wire optional ``TRANSFORMS`` edge for multi-stage pipelines
-5. Resolve audience + call ``UnifiedSharingService`` (two verbs, ADR-088):
+5. Apply the audience through ``UnifiedSharingService`` (one vocabulary,
+   two verbs — ADR-088; ``AudienceResolver`` validated every target before
+   step 2 wrote anything):
      - ``pipeline=TEACHER_REVIEW`` → a feedback request, ``SUBMITTED_TO_GROUP``:
-       explicit ``submit_to_groups``, else the exercise's assigned groups
-       (curriculum exercise: the submitter's default group)
-     - ``pipeline=TEACHER_REVIEW`` + no feedback target + no exercise →
-       validation error (ADR-054 §3: no silent no-audience turn-ins)
-     - every pipeline → honor explicit ``share_with_groups`` /
-       ``share_with_users`` as shares; a feedback target on a pipeline
-       other than TEACHER_REVIEW writes no link
+       ``teacher:<group_uid>`` targets, and ``teachers`` (the default) as
+       the exercise's assigned groups the submitter belongs to (curriculum
+       exercise: the submitter's default group; no exercise: every group
+       they study in). A request that would reach no teacher is refused
+       before the write (ADR-054 §3: no silent no-audience turn-ins).
+     - every pipeline → ``group:`` / ``user:`` are shares; a feedback
+       target on a pipeline other than TEACHER_REVIEW writes no link
+     - a refused write after validation compensates the node this call
+       created (5a)
 """
 
 from __future__ import annotations
@@ -59,7 +63,11 @@ from core.ports.user_entry_protocols import UserEntryOperations
 from core.services.base_service import BaseService
 from core.services.domain_config import DomainConfig
 from core.services.relationship_builder import relate
-from core.services.user_entry.audience_resolver import AudienceResolver, ShareOutcome
+from core.services.user_entry.audience_resolver import (
+    AudienceResolver,
+    ResolvedAudience,
+    ShareOutcome,
+)
 from core.utils.decorators import with_error_handling
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
@@ -146,33 +154,21 @@ class UserEntryService(BaseService[UserEntryOperations, UserEntry]):
         """Create a ``UserEntry`` from a create request.
 
         Returns ``(entry, share_outcome)`` on success. The share outcome is
-        empty when the pipeline does not require sharing; when sharing was
-        attempted it carries the targets that landed and any that failed.
+        empty when the audience named nobody; otherwise it carries the targets
+        that landed (and, for a living vault note, the ones withheld until a
+        frozen copy files).
 
-        For ``pipeline=TEACHER_REVIEW`` a total-share-failure (every requested
-        target failed and none succeeded) is treated as compensation: the
-        just-persisted entry is deleted and a validation error is returned,
-        so ADR-054 §3's "no silent no-audience turn-ins" guarantee holds
-        post-persist as well as pre-persist.
+        Every audience target is validated before the node is written, and a
+        write refused afterwards compensates a node this call created, so no
+        entry ever stands with a half-applied audience (ADR-088; ADR-054 §3's
+        "no silent no-audience turn-ins" holds post-persist as well as
+        pre-persist).
 
         See module docstring for the full create flow.
         """
         audience_check = self.audience_resolver.validate(request)
         if audience_check.is_error:
             return Result.fail(audience_check)
-
-        # Verify the requester actually has a claim to any referenced entities —
-        # otherwise a caller could attach this entry to another user's exercise
-        # (cross-tenant leak via the auto-share fan-out) or masquerade a
-        # TRANSFORMS chain over someone else's entry. The /upload ingestion path
-        # already does this; create_entry must too (it's the shared write path).
-        refs_check = await self.audience_resolver.validate_references(
-            user_uid=user_uid,
-            fulfills_exercise_uid=request.fulfills_exercise_uid,
-            transforms_of_uid=request.transforms_of_uid,
-        )
-        if refs_check.is_error:
-            return Result.fail(refs_check)
 
         # TEACHER_REVIEW status is service-owned: the review workflow
         # (queue → approve/request-revision) is the only writer after create,
@@ -215,11 +211,26 @@ class UserEntryService(BaseService[UserEntryOperations, UserEntry]):
                 )
             )
 
-        # PUBLIC visibility is portfolio-publication and gated on TEACHER
-        # role. This covers every entry point (YAML /upload, /submit form,
-        # programmatic callers) so no path can set visibility=PUBLIC on a
-        # REGISTERED user's entry.
-        if request.visibility == Visibility.PUBLIC:
+        # Every claim and every audience target is verified BEFORE the first
+        # write (ADR-088): the exercise / predecessor references (a caller
+        # could otherwise attach this entry to another user's exercise or
+        # masquerade a TRANSFORMS chain), each user: (a co-member), each
+        # group: / teacher: (reachable), and teachers expanded to the groups
+        # it means. A refusal here leaves nothing written; the post-persist
+        # step writes only what passed. This is the one write path, so this
+        # is the one place it runs.
+        refs_check = await self.audience_resolver.validate_references(
+            user_uid=user_uid,
+            request=request,
+        )
+        if refs_check.is_error:
+            return Result.fail(refs_check)
+        resolved: ResolvedAudience = refs_check.value
+
+        # ``public`` is portfolio publication and gated on TEACHER role. This
+        # covers every entry point (the vault door, the /submit form, the JSON
+        # API) so no path can publish a REGISTERED user's entry.
+        if resolved.public:
             public_check = await self._require_teacher_for_public(user_uid)
             if public_check.is_error:
                 return Result.fail(public_check)
@@ -266,7 +277,7 @@ class UserEntryService(BaseService[UserEntryOperations, UserEntry]):
             user_uid=user_uid,
             # Sharer attribution: the Shared-With-Me inbox resolves who shared
             # an item from created_by — every SHARES_WITH writer must stamp it
-            # (direct shares via share_with_users ride on this entity).
+            # (a ``user:`` share rides on this entity).
             created_by=user_uid,
             content=request.content,
             description=request.description,
@@ -287,7 +298,7 @@ class UserEntryService(BaseService[UserEntryOperations, UserEntry]):
             file_path=request.file_path,
             file_size=request.file_size,
             file_type=request.file_type,
-            visibility=request.visibility or Visibility.PRIVATE,
+            visibility=Visibility.PUBLIC if resolved.public else Visibility.PRIVATE,
             fulfills_exercise_uid=request.fulfills_exercise_uid,
             created_at=now,
             updated_at=now,
@@ -347,40 +358,49 @@ class UserEntryService(BaseService[UserEntryOperations, UserEntry]):
                     f"{request.transforms_of_uid}: {transforms_result.expect_error()}"
                 )
 
-        # 5. Resolve audience + share
+        # 5. Apply the validated audience. A living upsert (caller-supplied
+        # uid — the vault's draft channel, R9) withholds its user: / teacher:
+        # targets until a frozen copy files; the outcome reports them.
         share_result = await self.audience_resolver.resolve_and_share(
             entry_uid=created.uid,
             user_uid=user_uid,
-            request=request,
+            pipeline=request.pipeline,
+            resolved=resolved,
+            living=bool(request.uid),
         )
         if share_result.is_error:
             return Result.fail(share_result)
         outcome: ShareOutcome = share_result.value
 
-        # 5a. Compensation: a TEACHER_REVIEW entry whose feedback request
-        # reached no group, with at least one failed target, would be an
-        # orphaned, invisible turn-in — delete the entry and surface the
-        # failure (ADR-054 §3 post-persist). Reach is judged by the link kind
-        # the entry needs: a person or group share that landed puts the entry
-        # in no queue, so ``submitted_groups`` decides here, not ``any_success``.
-        if (
-            request.pipeline == Pipeline.TEACHER_REVIEW
-            and not outcome.submitted_groups
-            and outcome.any_failure
-        ):
+        # 5a. Compensation. Every target was validated before the node was
+        # written, so a refused write here is a change that landed in between
+        # (a membership removed, a group deactivated) — and each write
+        # re-checks its own authorisation, so no unauthorised edge exists.
+        # Everything this call wrote is taken back: the node it created, with
+        # every edge on it. A living upsert is not this call's node — its
+        # failure is returned and the sync retries the file. A TEACHER_REVIEW
+        # entry with a refused target and no standing request is the same
+        # case with the same remedy (ADR-054 §3 post-persist).
+        if outcome.any_failure:
             failure_summary = ", ".join(f"{target}: {reason}" for target, reason in outcome.failed)
-            self.logger.warning(
-                f"Compensating orphaned TEACHER_REVIEW UserEntry {created.uid}: {failure_summary}"
-            )
-            cleanup = await self.backend.delete(created.uid, cascade=True)
-            if cleanup.is_error:
-                self.logger.error(
-                    f"Compensation delete of {created.uid} failed: {cleanup.expect_error()}"
+            if request.uid:
+                self.logger.warning(
+                    f"Audience write refused on living UserEntry {created.uid}: {failure_summary}"
                 )
+            else:
+                self.logger.warning(
+                    f"Compensating UserEntry {created.uid} after a refused audience write: "
+                    f"{failure_summary}"
+                )
+                cleanup = await self.backend.delete(created.uid, cascade=True)
+                if cleanup.is_error:
+                    self.logger.error(
+                        f"Compensation delete of {created.uid} failed: {cleanup.expect_error()}"
+                    )
             return Result.fail(
                 Errors.validation(
-                    "Submission reached no teacher; "
-                    f"no feedback request could be filed ({failure_summary})",
+                    "The audience could not be written as validated "
+                    f"({failure_summary}); nothing was kept — check the target and retry",
                     field="audience",
                 )
             )

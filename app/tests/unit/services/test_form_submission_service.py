@@ -37,6 +37,32 @@ def _make_submission(**kwargs):
     return FormSubmission(**defaults)
 
 
+def _make_sharing_service(*, reachable=None, co_members=None) -> MagicMock:
+    """A sharing service whose pre-write checks answer from two small tables.
+
+    ``reachable`` = the group uids the submitter may submit to (``None`` =
+    every group named); ``co_members`` = the recipient uids that share a
+    group with the submitter (``None`` = every recipient named).
+    """
+    svc = MagicMock()
+    svc.submit_to_group = AsyncMock(return_value=Result.ok(True))
+    svc.share = AsyncMock(return_value=Result.ok(True))
+
+    async def _reachable(user_uid, group_uids):
+        if reachable is None:
+            return Result.ok(frozenset(group_uids))
+        return Result.ok(frozenset(g for g in group_uids if g in reachable))
+
+    async def _co_member(owner_uid, recipient_uid):
+        if co_members is None:
+            return Result.ok(recipient_uid != owner_uid)
+        return Result.ok(recipient_uid in co_members)
+
+    svc.reachable_groups = AsyncMock(side_effect=_reachable)
+    svc.shares_group_with = AsyncMock(side_effect=_co_member)
+    return svc
+
+
 def _make_service(backend=None, event_bus=None, sharing_service=None, template_service=None):
     backend = backend or MagicMock()
     template_service = template_service or MagicMock()
@@ -340,8 +366,7 @@ class TestShareSubmission:
         backend = MagicMock()
         backend.get = AsyncMock(return_value=Result.ok(submission))
 
-        sharing_service = MagicMock()
-        sharing_service.submit_to_group = AsyncMock(return_value=Result.ok(True))
+        sharing_service = _make_sharing_service()
 
         service = _make_service(backend=backend, sharing_service=sharing_service)
 
@@ -353,6 +378,23 @@ class TestShareSubmission:
 
         assert result.is_ok
         sharing_service.submit_to_group.assert_awaited_once()
+        sharing_service.reachable_groups.assert_awaited_once_with("user_1", ["group_1"])
+
+    @pytest.mark.asyncio
+    async def test_an_unreachable_group_is_not_found_and_nothing_is_written(self):
+        submission = _make_submission()
+        backend = MagicMock()
+        backend.get = AsyncMock(return_value=Result.ok(submission))
+        sharing_service = _make_sharing_service(reachable=set())
+        service = _make_service(backend=backend, sharing_service=sharing_service)
+
+        result = await service.share_submission(
+            uid="fs_test_123", user_uid="user_1", group_uid="group_far"
+        )
+
+        assert result.is_error
+        assert result.expect_error().category.value == "not_found"
+        sharing_service.submit_to_group.assert_not_awaited()
 
     @pytest.mark.asyncio
     async def test_share_with_recipients(self):
@@ -360,8 +402,7 @@ class TestShareSubmission:
         backend = MagicMock()
         backend.get = AsyncMock(return_value=Result.ok(submission))
 
-        sharing_service = MagicMock()
-        sharing_service.share = AsyncMock(return_value=Result.ok(True))
+        sharing_service = _make_sharing_service()
 
         service = _make_service(backend=backend, sharing_service=sharing_service)
 
@@ -373,6 +414,45 @@ class TestShareSubmission:
 
         assert result.is_ok
         assert sharing_service.share.await_count == 2
+        assert sharing_service.shares_group_with.await_count == 2
+
+    @pytest.mark.asyncio
+    async def test_a_non_co_member_recipient_is_not_found_before_any_write(self):
+        """R8 (ADR-088 §7): a mixed list refuses as a whole, and the door
+        says the same for an unknown uid and a stranger."""
+        submission = _make_submission()
+        backend = MagicMock()
+        backend.get = AsyncMock(return_value=Result.ok(submission))
+        sharing_service = _make_sharing_service(co_members={"user_2"})
+        service = _make_service(backend=backend, sharing_service=sharing_service)
+
+        result = await service.share_submission(
+            uid="fs_test_123",
+            user_uid="user_1",
+            recipient_uids=["user_2", "user_stranger"],
+        )
+
+        assert result.is_error
+        assert result.expect_error().category.value == "not_found"
+        assert "user_stranger" in str(result.expect_error())
+        sharing_service.share.assert_not_awaited()
+
+    @pytest.mark.asyncio
+    async def test_a_refused_write_after_validation_is_an_error_not_a_confirmation(self):
+        submission = _make_submission()
+        backend = MagicMock()
+        backend.get = AsyncMock(return_value=Result.ok(submission))
+        sharing_service = _make_sharing_service()
+        sharing_service.share = AsyncMock(
+            return_value=Result.fail(Errors.not_found("User", "user_2"))
+        )
+        service = _make_service(backend=backend, sharing_service=sharing_service)
+
+        result = await service.share_submission(
+            uid="fs_test_123", user_uid="user_1", recipient_uids=["user_2"]
+        )
+
+        assert result.is_error
 
     @pytest.mark.asyncio
     async def test_share_with_admin(self):
@@ -381,8 +461,7 @@ class TestShareSubmission:
         backend.get = AsyncMock(return_value=Result.ok(submission))
         backend.find_admin_user_uid = AsyncMock(return_value=Result.ok("admin_user"))
 
-        sharing_service = MagicMock()
-        sharing_service.share = AsyncMock(return_value=Result.ok(True))
+        sharing_service = _make_sharing_service()
 
         service = _make_service(backend=backend, sharing_service=sharing_service)
 
@@ -394,6 +473,41 @@ class TestShareSubmission:
 
         assert result.is_ok
         sharing_service.share.assert_awaited_once()
+        # The one exemption from R8 co-membership (ADR-088 §7).
+        assert sharing_service.share.await_args.kwargs["require_co_membership"] is False
+        sharing_service.shares_group_with.assert_not_awaited()
+
+    @pytest.mark.asyncio
+    async def test_share_with_admin_by_the_admin_writes_nothing(self):
+        """An entry is never shared with its owner: the admin's own response
+        has no one to go to, and the exemption must not become a self-share."""
+        submission = _make_submission(user_uid="admin_user")
+        backend = MagicMock()
+        backend.get = AsyncMock(return_value=Result.ok(submission))
+        backend.find_admin_user_uid = AsyncMock(return_value=Result.ok("admin_user"))
+        sharing_service = _make_sharing_service()
+        service = _make_service(backend=backend, sharing_service=sharing_service)
+
+        result = await service.share_submission(
+            uid="fs_test_123", user_uid="admin_user", share_with_admin=True
+        )
+
+        assert result.is_ok
+        sharing_service.share.assert_not_awaited()
+
+    @pytest.mark.asyncio
+    async def test_share_with_admin_with_no_admin_is_an_error(self):
+        submission = _make_submission()
+        backend = MagicMock()
+        backend.get = AsyncMock(return_value=Result.ok(submission))
+        backend.find_admin_user_uid = AsyncMock(return_value=Result.ok(None))
+        service = _make_service(backend=backend, sharing_service=_make_sharing_service())
+
+        result = await service.share_submission(
+            uid="fs_test_123", user_uid="user_1", share_with_admin=True
+        )
+
+        assert result.is_error
 
 
 class TestDefaultAudienceOnSubmit:
@@ -416,10 +530,57 @@ class TestDefaultAudienceOnSubmit:
         backend.share_with_default_audience = AsyncMock(
             return_value=Result.ok([{"group_uid": "group_x"}, {"group_uid": "group_y"}])
         )
-        sharing_service = MagicMock()
-        sharing_service.submit_to_group = AsyncMock(return_value=Result.ok(True))
-        sharing_service.share = AsyncMock(return_value=Result.ok(True))
+        sharing_service = _make_sharing_service()
         return template_service, backend, sharing_service
+
+    @pytest.mark.asyncio
+    async def test_a_submit_refuses_a_bad_target_before_anything_is_written(self):
+        """Every target is checked before the node is created (ADR-088): a
+        refusal leaves nothing persisted and nothing to retry twice."""
+        template_service, backend, _ = self._submit_deps()
+        sharing_service = _make_sharing_service(reachable=set())
+        service = _make_service(
+            backend=backend, template_service=template_service, sharing_service=sharing_service
+        )
+
+        result = await service.submit_form(
+            user_uid="user_1",
+            form_template_uid="ft_test_123",
+            form_data={"q1": "answer", "q2": "a"},
+            group_uid="group_far",
+        )
+
+        assert result.is_error
+        backend.create_with_relationships.assert_not_awaited()
+        sharing_service.submit_to_group.assert_not_awaited()
+
+    @pytest.mark.asyncio
+    async def test_a_refused_write_after_validation_compensates_the_submission(self):
+        template_service, backend, sharing_service = self._submit_deps()
+        backend.delete = AsyncMock(return_value=Result.ok(True))
+        sharing_service.submit_to_group = AsyncMock(
+            return_value=Result.fail(Errors.not_found("Group", "group_x"))
+        )
+        event_bus = MagicMock()
+        event_bus.publish = AsyncMock()
+        service = _make_service(
+            backend=backend,
+            template_service=template_service,
+            sharing_service=sharing_service,
+            event_bus=event_bus,
+        )
+
+        result = await service.submit_form(
+            user_uid="user_1",
+            form_template_uid="ft_test_123",
+            form_data={"q1": "answer", "q2": "a"},
+            group_uid="group_x",
+        )
+
+        assert result.is_error
+        backend.delete.assert_awaited_once()
+        assert backend.delete.await_args.kwargs.get("cascade") is True
+        event_bus.publish.assert_not_awaited()
 
     @pytest.mark.asyncio
     async def test_the_embedded_form_gets_the_default_audience(self):
@@ -618,7 +779,8 @@ class TestVerifyTeacherAccess:
         assert result.expect_error().category is not ErrorCategory.FORBIDDEN
 
     @pytest.mark.asyncio
-    async def test_share_without_service_warns(self):
+    async def test_share_without_service_is_an_error(self):
+        """A share nobody can write is never a false confirmation."""
         submission = _make_submission()
         backend = MagicMock()
         backend.get = AsyncMock(return_value=Result.ok(submission))
@@ -630,5 +792,4 @@ class TestVerifyTeacherAccess:
             group_uid="group_1",
         )
 
-        # Should still succeed but log warning
-        assert result.is_ok
+        assert result.is_error

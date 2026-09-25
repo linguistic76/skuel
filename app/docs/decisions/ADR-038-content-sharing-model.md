@@ -224,7 +224,7 @@ and `/core/models/report/entry_report.py`):
 - 3 new routes: `/api/share/group`, `/api/share/ungroup`, `/api/shared-with-me/groups` <!-- historical -->
   — shelved with the submissions API (ADR-054) and gone with `_shelved/` (`6eea264bd`);
   group sharing is reached through `UserEntryService.create_entry`'s audience resolution
-  (`share_with_groups` → `share_with_group`), not an HTTP route
+  (a `group:<uid>` audience → `share_with_group`), not an HTTP route
 - "Shared With Me" inbox: `GET /profile/shared` (`tests/unit/ui/test_shared_with_me_view.py`)
 - Tests: `tests/unit/test_unified_sharing_service.py`, `tests/integration/test_group_sharing_unified.py`
 

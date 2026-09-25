@@ -117,20 +117,22 @@ teacher_uid = "user_teacher_bob"
 
 # Step 1: Student submits with the recipient on the request. Every door builds a
 # UserEntryCreateRequest and lands in UserEntryService.create_entry — the one
-# convergence point. A named recipient (share_with_users) is the JSON door's
-# field (POST /api/user-entries); the /submit form and the vault door declare
-# an audience KIND instead (teachers / a group / public / private), which lands
-# in auto_share_to_exercise_groups / share_with_groups / visibility.
+# convergence point. The audience is one vocabulary (AudienceSpec, ADR-088)
+# on every door — the JSON body's `audience`, the /submit form's `audience`
+# field, the vault's `audience:` — and a person is named `user:<username>`.
 request = UserEntryCreateRequest(
     title="Assignment 3",
     content="...",
-    share_with_users=[teacher_uid],
+    audience=["user:teacher_bob"],
 )
 created = await user_entry_service.create_entry(request, user_uid=student_uid)
 
-# Step 2 (inside create_entry): AudienceResolver.resolve_and_share calls
+# Step 2 (inside create_entry): AudienceResolver.validate_references resolves
+# the username to a uid and checks R8 co-membership BEFORE the entry is
+# written; then resolve_and_share calls
 #   sharing_service.share(entity_uid, owner_uid=student_uid, recipient_uid=teacher_uid)
-# for each share_with_users entry — SHARES_WITH edge, created_by stamped.
+# for each user: target — a SHARES_WITH edge whose MERGE re-checks
+# co-membership in the statement; created_by stamped.
 
 # Step 3: Teacher fetches shared entities
 # Each item is a SharedWithMeItem (core/ports/query_types): entity DTO +
@@ -172,8 +174,9 @@ narrows one — the revoke door is PLANNED
 
 # Step 2: Student submits against assigned Exercise
 # UserEntryService.create_entry() → AudienceResolver auto-shares at submit time:
-# - Explicit share_with_groups / share_with_users on the request WIN (no auto-share)
-# - Otherwise, pipeline=teacher_review + fulfills_exercise_uid auto-shares to the
+# - An explicit teacher:<group_uid> names the one group the request goes to
+# - Otherwise (teachers, or nothing named), pipeline=teacher_review +
+#   fulfills_exercise_uid files the request with the
 #   INTERSECTION of the exercise's assigned groups and the submitter's memberships
 #   (query_exercise_groups_for_member — prevents leaking a submission to a group
 #   the submitter has no relationship with)
@@ -251,13 +254,15 @@ ladder).
 **Use Case:** Student shares work with classmates for feedback.
 
 ```python
-# Peers are named on the create request (share_with_users — the JSON door's field,
-# POST /api/user-entries); AudienceResolver writes one SHARES_WITH edge per
-# recipient. No visibility change — the edge is the grant.
+# Peers are named on the create request as user:<username> (the one vocabulary,
+# every door); each must share a group with the student (R8, ADR-088 §7 —
+# the default group's roster does not count, its owner does). AudienceResolver
+# resolves and checks every name before the entry is written, then writes one
+# SHARES_WITH edge per recipient. No visibility change — the edge is the grant.
 request = UserEntryCreateRequest(
     title="Draft for review",
     content="...",
-    share_with_users=["user_charlie", "user_dana", "user_eve"],
+    audience=["user:charlie", "user:dana", "user:eve"],
 )
 await user_entry_service.create_entry(request, user_uid=student_uid)
 
@@ -373,7 +378,7 @@ and the three group-sharing endpoints ADR-038 records left with the submissions 
 
 | Door | What it does | Sharing method reached |
 |------|--------------|------------------------|
-| `POST /api/user-entries/upload` (the `/submit` form) — `audience` field: `teachers` / `group:<uid>` / `public` / `private`; `POST /api/user-entries` (JSON `UserEntryCreateRequest`) — `share_with_users`, `share_with_groups`, `visibility` | Declares the audience at submit; `UserEntryService.create_entry` → `AudienceResolver.resolve_and_share` | `share`, `share_with_group` |
+| `POST /api/user-entries/upload` (the `/submit` form) and `POST /api/user-entries` (JSON `UserEntryCreateRequest`) — one `audience` in the one vocabulary: `teachers` / `teacher:<group_uid>` / `group:<uid>` / `user:<username>` / `public` / `private` (ADR-088) | Declares the audience at submit; `UserEntryService.create_entry` → `AudienceResolver.validate_references` (every target checked first) → `resolve_and_share` | `share`, `share_with_group`, `submit_to_group` |
 | Vault door (`./dev vault-sync`, the Sync buttons) — a note's `audience:` frontmatter | Same request, built by `user_entry_ingestion.py`; re-sync re-declares (widens only) | `share`, `share_with_group` |
 | `POST /api/form-submissions/share` — `{uid, group_uid?, recipient_uids?, share_with_admin?}` | The one post-submit widening door (form submissions only) | `share`, `share_with_group` |
 | Exercise assignment (ADR-040, `ExerciseService`) | Auto-shares an ASSIGNED exercise with its group | `share_with_group` |
@@ -629,7 +634,8 @@ if result.is_error:
 - **Backend:** `adapters/persistence/neo4j/backends/sharing_backend.py` — `SharingBackend`
 - **Service:** `core/services/sharing/unified_sharing_service.py`
 - **Protocol:** `core/ports/sharing_protocols.py`
-- **Sharing at creation:** `adapters/inbound/user_entry_api.py` — entries are shared via the `share_with_groups` field on create (no standalone sharing-management routes)
+- **Sharing at creation:** `adapters/inbound/user_entry_api.py` — entries are shared via the `audience` declared on create (`core/models/user_entry/audience.py`, the one vocabulary; no standalone sharing-management routes yet)
+- **R8 co-membership:** `SharingBackend.build_co_membership_fragment` — the one predicate, composed by the co-member reads and the guarded person-share MERGE; the default group is named by `DEFAULT_GROUP_UID_PREFIX` (`core/models/group/group.py`)
 - **Group sharing routes:** `adapters/inbound/groups_hub_routes.py` (`/api/groups/{group_uid}/shared/preview`, `/groups/{group_uid}`)
 - **Audience fragment:** `adapters/persistence/neo4j/query/cypher/crud_queries.py` — `build_audience_fragment`, composed by `build_search_visibility_clause` for `OWNER_OR_AUDIENCE`
 - **UI Routes:** `adapters/inbound/user_entry_ui.py` (`/gradebook/{uid}` viewer-aware, `/gradebook/{uid}/download`); the recipient card in `ui/gradebook/recipient_card.py`

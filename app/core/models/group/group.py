@@ -15,6 +15,19 @@ from dataclasses import dataclass, field
 from datetime import datetime
 from typing import Any
 
+# The default group: one per teacher (the enrollment handler MERGEs the oldest
+# admin's), joined by every student who marks a PathStep in progress. A Group
+# carries no flag for it — the uid prefix is the one mechanism that recognises
+# it, and these two names are the one spelling of that prefix (ADR-088 §7).
+# Its OWNER is read from the ``:OWNS`` edge, never from the uid (ADR-013).
+DEFAULT_GROUP_UID_PREFIX = "group_default_"
+
+
+def default_group_uid(teacher_uid: str) -> str:
+    """The uid of ``teacher_uid``'s default group."""
+    return f"{DEFAULT_GROUP_UID_PREFIX}{teacher_uid}"
+
+
 # ============================================================================
 # TIER 2 - DTO (Transfer Layer)
 # ============================================================================

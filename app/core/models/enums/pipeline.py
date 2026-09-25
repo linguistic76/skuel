@@ -81,33 +81,15 @@ class Pipeline(StrEnum):
         legacy audio → structured-entry chain — raw audio and its LLM output
         are personal reflection, the historical `JeInput`/`JeOutput` norm) and
         `REFERENCE` (the reserved per-user exemplar layer, ADR-073 §4). Enforced
-        pre-persist in `AudienceResolver.validate` and coerced to
-        `audience=private` at the vault/YAML door (`build_user_entry_request`);
-        the `/submit` form hides the audience picker when this returns `False`.
+        pre-persist in `AudienceResolver.validate` at every door (a `group:`,
+        `user:` or `public` audience on such an entry is refused); the
+        `/submit` form hides the audience picker when this returns `False`.
 
         See: ADR-054 §5 (Journal input → output, preserved).
         """
         return self not in (
             Pipeline.TRANSCRIBE_AND_STRUCTURE,
             Pipeline.REFERENCE,
-        )
-
-    def shares_by_default(self) -> bool:
-        """Whether an absent ``audience:`` at the vault/YAML door means "my teachers".
-
-        Submission-shaped pipelines keep ADR-054's default — the student is
-        handing something in, so it goes to every group they are a student of
-        (``AudienceResolver.resolve_default_teachers``). The two vault-note
-        pipelines do not: a ``KNOWLEDGE`` developed-files note and an
-        ``EXTRACT_ACTIVITIES`` periodic note are the user's own vault, theirs
-        unless they say otherwise (rulings 2026-09-02), so an absent audience
-        means private and only an explicit ``audience:`` shares one. The
-        never-shareable pair is ``False`` here too; ``allows_sharing`` coerces
-        them regardless.
-        """
-        return self.allows_sharing() and self not in (
-            Pipeline.KNOWLEDGE,
-            Pipeline.EXTRACT_ACTIVITIES,
         )
 
 

@@ -92,9 +92,10 @@ def render_upload_form(
         default_destination: Initial dropdown selection ("teacher" or "ai").
         portfolio_mode: "coming_soon" (disabled) or "active" (selectable).
     """
-    # Teacher is only valid when an exercise is linked (validator requires
-    # fulfills_exercise_uid / share_with_groups / share_with_users for
-    # TEACHER_REVIEW; auto_share_to_exercise_groups alone is not counted).
+    # Teacher is offered only when an exercise is linked: without one,
+    # ``teachers`` files the request with every group the student studies in,
+    # and this form has no way yet to say which (the two-question Submit
+    # form, Submit & Share arc PR 7, adds it).
     has_teacher_context = bool(selected_exercise_uid)
     if selected_exercise_uid:
         default_destination = "teacher"
