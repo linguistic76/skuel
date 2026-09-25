@@ -1051,6 +1051,21 @@ it first removes both.
     "coming soon" row.
 - **Teacher** works without an exercise (`teachers` → all my teachers; the form lists
   `teacher:<group>` when I'm in several groups).
+- **Ruling for Mike (added after PR 4b): does a turn-in keep the title the student typed?** The
+  `UserEntryCreated` linker (`core/services/user_entry/exercise_linker.py`) overwrites every
+  turn-in's title with the root exercise's snapshot title plus a revision suffix ("The Gentle
+  Return v3") and stores `revision_number` on the node — the form's own title field is discarded.
+  Every exchange reader keys on `turn_in_exercise_uid` / `turn_in_exercise_title` (PR 4a), so
+  the entry title identifies nothing; the revision number lives on the `FULFILLS_EXERCISE` edge
+  and the `revision_number` property. Decide before the form is rebuilt:
+  (a) keep the retitle (the form's title field is then cosmetic — drop it or label it as ignored),
+  or (b) drop the retitle and keep the student's words, keeping the `revision_number` write.
+  Census for (b) — the surfaces that print `entry.title` for a turn-in and would show an untitled
+  upload's filename: `/submissions/history` (`_user_entry_content_mixin.py`, `get_history`), the
+  queue rows and their dashboard twin (`_user_entry_assessment_mixin.py`, `entry.title AS
+  title`), the student hub (`get_student_submissions`), the review page header, the GradeBook
+  detail `/gradebook/{uid}`, and the `/exchange` thread entries. Either way the `.md` download
+  name and the vault copy's filename are unaffected (they derive from the uid).
 - **AI** is offered only with an exercise: it's graded against the exercise. After submitting, the
   entry page shows the existing gated "Request AI feedback" button (stated honestly on the form).
   Why two steps (kept at PR 0 review, where Codex proposed that submit summon the reviewer): the
