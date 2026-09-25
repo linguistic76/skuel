@@ -295,9 +295,9 @@ async def test_ai_report_is_discoverable_via_typed_read(
     assert record is not None
     assert record["status"] == "active"
 
-    # Typed single-fetch: get hydrates subject_uid + all report fields.
+    # The owner read hydrates subject_uid + all report fields (ADR-088 §3).
     report_uid = reports[0].uid
-    fetched = await service.get(report_uid)
+    fetched = await service.get_for_user(report_uid, STUDENT_UID)
     assert not fetched.is_error, fetched.error if fetched.is_error else None
     report = fetched.value
     assert isinstance(report, EntryReport)
@@ -306,9 +306,8 @@ async def test_ai_report_is_discoverable_via_typed_read(
     assert report.assessment_outcome == AssessmentOutcome.AI_EVALUATED
     assert report.processed_content == "Typed read check."
 
-    # Reports created via create_report_node must land with visibility='shared'
-    # so UnifiedSharingService.check_access grants access to students who
-    # follow the SHARES_WITH edge.
+    # Reports created via create_report_node land with visibility='shared' —
+    # a property no read honours (a report is an owner read, ADR-088 §3).
     async with neo4j_driver.session() as session:
         cursor = await session.run(
             "MATCH (r:EntryReport {uid: $uid}) RETURN r.visibility AS visibility",
@@ -318,6 +317,6 @@ async def test_ai_report_is_discoverable_via_typed_read(
     assert record is not None
     assert record["visibility"] == "shared"
 
-    # get on a missing UID narrows to a not-found error.
-    missing = await service.get("sr_does_not_exist")
+    # A missing UID narrows to the same not-found as a foreign one.
+    missing = await service.get_for_user("sr_does_not_exist", STUDENT_UID)
     assert missing.is_error

@@ -1,6 +1,6 @@
 ---
 title: "Sharing HTTP Door — Operations on Existing Shares"
-updated: 2026-09-24
+updated: 2026-09-25
 status: "staged — ruled 2026-09-21: PLANNED tier for five methods, two deleted, never a second share form"
 registered: 2026-09-21
 ruled: 2026-09-21
@@ -19,8 +19,9 @@ form's audience selector, the `/upload` YAML door and a vault note's `audience:`
 post-submit `POST /api/form-submissions/share`, and the ADR-040 auto-shares
 (`ExerciseService` → `share_with_group`). The **reads that render what those wrote are live**:
 `/profile/shared` (`get_shared_with_me`), the groups hub (`get_user_entries_shared_with_group`,
-`get_user_entry_shared_with_group`), the teacher review queue (`get_review_queue_by_groups`)
-and `check_access` on EntryReports. The other half — *see* who has access, *retract* a share,
+`get_user_entry_shared_with_group`) and the teacher review queue (`get_review_queue_by_groups`);
+an EntryReport is an owner read (ADR-088 §3 — the access check that once admitted a
+non-owner on `SHARED` + a link is retired). The other half — *see* who has access, *retract* a share,
 *change* visibility after the fact — has service methods, unit and integration tests, and no
 door of any kind. [ADR-038 § API Layer](../decisions/ADR-038-content-sharing-model.md) records
 the six endpoints that once existed; they left with the submissions API on 2026-04-17.
@@ -73,10 +74,10 @@ What the graph actually does with the property, verified on `6193a1bb1`:
   refreshes every property (the living-entry `upsert`), so a note that narrows
   `audience: public` → `private` **does** return to `PRIVATE` on the property — while its
   edges stay (the gap above).
-- **Read by one non-owner path.** `check_access` honours `PUBLIC`, and `SHARED` only together
-  with an edge; its one production caller is `UserEntryOrchestrator` on EntryReports, whose
-  writer sets `'shared'` in the same statement as the edge. The report-history queries exclude
-  `'private'`. That is the whole reader set.
+- **Read by no non-owner path.** The EntryReport access check — the one reader that honoured
+  `PUBLIC`, and `SHARED` together with an edge — is retired (ADR-088 §3; the report detail is
+  an owner read), and the report-history queries identify received feedback by
+  `assessment_outcome`, not by `visibility`. The property has no reader at all.
 - **The search visibility clause is edge-only.** `build_search_visibility_clause`
   ([ADR-085](../decisions/ADR-085-ownership-read-enforcement-contract.md)'s chokepoint) admits
   by `:OWNS`, `:SHARES_WITH` and `MEMBER_OF ← SHARED_WITH_GROUP`; it never tests the property.

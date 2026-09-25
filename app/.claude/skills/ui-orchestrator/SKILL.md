@@ -101,17 +101,15 @@ class {Name}Orchestrator:
     async def get_foo_bar_view(self, foo_uid: str, user_uid: str) -> Result[FooBarView]:
         """Fetch foo + its optional bar in one call.
 
-        Collapses the route's fetch → access-check → enrichment dance so the
-        route handler becomes a single orchestrator call + one error branch.
+        Collapses the route's owner-read → enrichment dance so the route
+        handler becomes a single orchestrator call + one error branch. The
+        read is owner-scoped at the service (``get_for_user`` — absent and
+        not-owned are one not-found), never a bare ``get`` plus a check.
         """
-        foo_result = await self._foo.get(foo_uid)
+        foo_result = await self._foo.get_for_user(foo_uid, user_uid)
         if foo_result.is_error:
             return Result.fail(foo_result)
         foo = foo_result.value
-
-        access = await self._foo.check_access(foo.uid, user_uid)
-        if access.is_error or not access.value:
-            return Result.fail(Errors.not_found("Foo", foo_uid))
 
         bar: Bar | None = None
         bar_result = await self._bar.get_by_foo(foo.uid)

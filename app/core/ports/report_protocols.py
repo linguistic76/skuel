@@ -163,10 +163,12 @@ class EntryReportBackendOperations(Protocol):
     ``EntryReportBackend(UniversalNeo4jBackend[EntryReport])``.
     """
 
-    async def get(self, uid: str) -> Result[EntryReport | None]:
-        """Typed single-fetch for EntryReport by UID.
+    async def get_for_owner(self, uid: str, user_uid: UserUID) -> Result[EntryReport | None]:
+        """Typed single-fetch for EntryReport by UID, only for its owner.
 
-        Returns ``Result.ok(None)`` when no matching node exists.
+        The OWNER_ONLY audience predicate (ADR-085) on the same projection as
+        ``get``. Returns ``Result.ok(None)`` when the node is absent OR owned
+        by someone else — the two are deliberately one outcome.
         """
         ...
 

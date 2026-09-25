@@ -110,21 +110,28 @@ class EntryReportService:
 
         logger.info(f"EntryReportService initialized with: {', '.join(available)}")
 
-    async def get(self, uid: str) -> Result[EntryReport]:
-        """Typed single-fetch for EntryReport by UID.
+    async def get_for_user(self, uid: str, user_uid: UserUID) -> Result[EntryReport]:
+        """The owner's read of one report — THE EntryReport read above the backend.
 
-        Delegates to ``EntryReportBackend.get`` and narrows a missing
-        row to a not-found error so routes can use the standard
-        ``require_found`` pattern.
+        A report is an owner read (ADR-088 §3): it belongs to the student it
+        was written for (``user_uid``; the author owns an authorless report),
+        and no share edge or ``visibility`` value admits anyone else. The
+        audience predicate is composed by the backend from the one
+        ownership/visibility chokepoint (ADR-085), so absent and not-owned
+        converge on the same not-found error — the 404-equivalent refusal of
+        OWNERSHIP_VERIFICATION.md.
+
+        Backend: ``EntryReportBackend.get_for_owner``
         """
+        if not uid:
+            return Result.fail(Errors.validation(message="UID is required", field="uid"))
+        if not user_uid:
+            return Result.fail(Errors.validation(message="user_uid is required", field="user_uid"))
         if not self.backend:
             return Result.fail(
-                Errors.system(
-                    "EntryReportBackend not configured",
-                    operation="get",
-                )
+                Errors.system("EntryReportBackend not configured", operation="get_for_user")
             )
-        result = await self.backend.get(uid)
+        result = await self.backend.get_for_owner(uid, user_uid)
         if result.is_error:
             return Result.fail(result)
         if result.value is None:

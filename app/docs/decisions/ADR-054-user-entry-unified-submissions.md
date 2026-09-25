@@ -1,5 +1,5 @@
 ---
-updated: 2026-09-24
+updated: 2026-09-25
 related_skills: [journals, learning-loop, neo4j-cypher-patterns, prometheus-grafana, ui-error-handling]
 ---
 
@@ -289,6 +289,13 @@ RETURN entry, g
 ```
 
 `verify_teacher_authority()` collapses into `sharing_service.check_access()`.
+
+> **2026-09-24 — Amended by [ADR-088](ADR-088-submit-and-share.md) (Submit & Share arc, PR 2b).**
+> It never collapsed: `verify_teacher_authority` is the teacher's student-level gate on their own
+> artifacts, and the EntryReport access check is retired — the report detail is an owner read
+> (`EntryReportService.get_for_user`; the student the report was written for), and a teacher reads
+> their own reports on the teaching surfaces.
+
 Role gates remain on *write* operations (only teachers can create
 `ExerciseReport` nodes) but not on visibility — visibility is
 `SHARED_WITH_GROUP`.

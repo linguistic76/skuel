@@ -265,6 +265,11 @@ DELETED: dict[str, str] = {
     "query_shareable_status": "deleted — served only verify_shareable",
     "get_shared_with_me_via_groups": "deleted — get_user_entries_shared_with_group (members, per group, SHARED_WITH_GROUP) / get_review_queue (owners, SUBMITTED_TO_GROUP) are the two group readers",
     "query_shared_with_me_via_groups": "deleted — served only get_shared_with_me_via_groups",
+    # The EntryReport access check (ADR-088 §3): a link grants what its reader reads,
+    # and a report is an owner read — no standalone check.
+    "check_access": "deleted — no standalone access check; an EntryReport is an owner read (EntryReportService.get_for_user, the OWNER_ONLY clause of ADR-085's chokepoint), every other read composes its audience from build_search_visibility_clause",
+    "query_access": "deleted — served only check_access",
+    "check_report_access": "deleted — the orchestrator's caller-less wrapper over check_access; get_entry_report_view is the owner read",
     # Deleted enum members
     "Pipeline.JOURNAL": (
         "deleted — where a journal goes is stated in the Pipeline class docstring "
@@ -385,6 +390,7 @@ _adr070 = "ADR-070 Decision 9 amendments (2026-09-21, 2026-09-22) + changelog ro
 _adr073 = "ADR-073 § 3 amendment (2026-09-02) recording the Pipeline.JOURNAL deletion -- the decision names what it retired"
 _defiction = "the docs de-fiction arc's record names every route, symbol and decorator its sweeps retired -- a finding list is unreadable without the name it found"
 _symbol_queue = "the symbol-claim queue's verdict table teaches 'fictional namespace, real members' by naming its two worked instances -- the verdict is unintelligible without them"
+_adr088_2b = "the retired EntryReport access check named where it stood -- ADR-038/042/054 sketches and the position-2 migration record are frozen decision text; ADR-088 §3 is the record that retired it"
 _sharing_door = "the sharing-door record -- ADR-038's amendment, the deferred-work MOC line and the case file's per-method table name the two methods (and their backend twins) that no longer exist"
 _askesis_arch = "change-history table recording the entities_rich unification / ActivityDataReader absorption / ActivityReviewService split"
 _askesis_intel = "'the former ActivityReviewService was split' -- historical record of the split"
@@ -466,9 +472,11 @@ ALLOWED_OCCURRENCES: dict[str, dict[tuple[int, str], Allow]] = {
         (82, "KuType"): Allow(_adr041),
     },
     "docs/decisions/ADR-042-privacy-as-first-class-citizen.md": {
-        (173, "SubmissionsSharingService"): Allow(_adr042),
-        (253, "SubmissionsSharingService"): Allow(_adr042),
-        (276, "submissions_sharing_service"): Allow(_adr042),
+        # The §3 and §8 "amended by ADR-088" notes sit above these lines.
+        (178, "SubmissionsSharingService"): Allow(_adr042),
+        (185, "check_access"): Allow(_adr088_2b),
+        (263, "SubmissionsSharingService"): Allow(_adr042),
+        (286, "submissions_sharing_service"): Allow(_adr042),
     },
     "docs/decisions/ADR-043-intelligence-tier-toggle.md": {
         (46, "JournalOutputService"): Allow(_adr043),
@@ -490,11 +498,13 @@ ALLOWED_OCCURRENCES: dict[str, dict[tuple[int, str], Allow]] = {
         # vault-notes-default-private amendment note; → +1 more the same day when
         # the note grew to name extract_activities. Anchors re-derived from the
         # scanner's report, never by adding the diff's line delta.
-        (334, "ProcessorType"): Allow(_adr054),
-        (390, "ProcessorType"): Allow(_adr054),
-        (441, "ProcessorType"): Allow(_adr054),
-        (519, "EntityType.EXERCISE_SUBMISSION"): Allow(_adr054),
-        (533, "ProcessorType"): Allow(_adr054),
+        # The §6 "amended by ADR-088" note sits above these lines.
+        (291, "check_access"): Allow(_adr088_2b),
+        (341, "ProcessorType"): Allow(_adr054),
+        (397, "ProcessorType"): Allow(_adr054),
+        (448, "ProcessorType"): Allow(_adr054),
+        (526, "EntityType.EXERCISE_SUBMISSION"): Allow(_adr054),
+        (540, "ProcessorType"): Allow(_adr054),
     },
     "docs/Reviews/SYNC_UNIFICATION_REVIEW.md": {
         (89, "ingest_bundle"): Allow(_review_sync),
@@ -508,6 +518,11 @@ ALLOWED_OCCURRENCES: dict[str, dict[tuple[int, str], Allow]] = {
         # The Service Layer amendment names the two methods that no longer exist.
         (104, "get_shared_with_me_via_groups"): Allow(_sharing_door),
         (104, "verify_shareable"): Allow(_sharing_door),
+        # The Service Layer list, the API Layer's "no successor" line and the Phase 4
+        # record name the retired check; the Service Layer's ADR-088 note sits above the last two.
+        (95, "check_access"): Allow(_adr088_2b),
+        (136, "check_access"): Allow(_adr088_2b),
+        (209, "check_access"): Allow(_adr088_2b),
     },
     "docs/roadmap/deferred-work.md": {
         (96, "verify_shareable"): Allow(_sharing_door),
@@ -515,10 +530,10 @@ ALLOWED_OCCURRENCES: dict[str, dict[tuple[int, str], Allow]] = {
     },
     "docs/roadmap/sharing-http-door.md": {
         # The per-method table's two DELETED rows and their backend twins.
-        (37, "verify_shareable"): Allow(_sharing_door),
-        (37, "query_shareable_status"): Allow(_sharing_door),
-        (38, "get_shared_with_me_via_groups"): Allow(_sharing_door),
-        (38, "query_shared_with_me_via_groups"): Allow(_sharing_door),
+        (38, "verify_shareable"): Allow(_sharing_door),
+        (38, "query_shareable_status"): Allow(_sharing_door),
+        (39, "get_shared_with_me_via_groups"): Allow(_sharing_door),
+        (39, "query_shared_with_me_via_groups"): Allow(_sharing_door),
     },
     "docs/decisions/ADR-070-bidirectional-vault-bridge.md": {
         # Decision 9's two amendment paragraphs (L297, L299) and their changelog rows
@@ -584,6 +599,7 @@ ALLOWED_OCCURRENCES: dict[str, dict[tuple[int, str], Allow]] = {
     "docs/migrations/DOMAIN_BACKENDS_POSITION_2_COMPLETE_2026-03-01.md": {
         (34, "submissions_sharing_service"): Allow(_m_backends),
         (58, "submissions_sharing_service"): Allow(_m_backends),
+        (69, "check_access"): Allow(_adr088_2b),
         (70, "verify_shareable"): Allow(_m_backends),
         (147, "progress_feedback_generator"): Allow(_m_backends),
         (148, "activity_review_service.py"): Allow(_m_backends),

@@ -1,6 +1,6 @@
 ---
 title: Report Architecture
-updated: 2026-09-24
+updated: 2026-09-25
 status: current
 category: architecture
 version: 3.2.0
@@ -312,7 +312,7 @@ Only `COMPLETED` entities can be shared (prevents sharing incomplete/failed work
 | Service | Protocol | Produces | Notes |
 |---------|----------|---------|-------|
 | `TeacherReviewService` | `TeacherReviewOperations` | `EntryReport` (HUMAN) | Teacher feedback on a submission (`submit_report`, `request_revision_with_exercise`); `REPORT_FOR`-anchored; verifies group membership. |
-| `EntryReportService` | `EntryReportOperations` (service) + `EntryReportBackendOperations` (backend) | `EntryReport` (LLM) | AI evaluation via Exercise instructions (`UnifiedLLMCaller`). Also owns typed report reads: `list_for_submission` → `list[EntryReport]` (delegates to `EntryReportBackend`, which returns typed entities via `from_neo4j_node` — no TypedDict projection). Writes produce `:Entity:EntryReport` dual-labeled nodes; reads discriminate AI vs teacher via `EntryReport.processor_type` on the typed model |
+| `EntryReportService` | `EntryReportOperations` (service) + `EntryReportBackendOperations` (backend) | `EntryReport` (LLM) | AI evaluation via Exercise instructions (`UnifiedLLMCaller`). Also owns typed report reads: `get_for_user` (the owner read, ADR-088 §3) and `list_for_submission` → `list[EntryReport]` (delegates to `EntryReportBackend`, which returns typed entities via `from_neo4j_node` — no TypedDict projection). Writes produce `:Entity:EntryReport` dual-labeled nodes; reads discriminate AI vs teacher via `EntryReport.processor_type` on the typed model |
 | `ProgressReportGenerator` | `ProgressReportOperations` | `ACTIVITY_REPORT` (AUTOMATIC or LLM) | Activity summary; LLM adds qualitative insights |
 | `ActivityReportService` | `ActivityReportOperations` | `ACTIVITY_REPORT` (HUMAN or via persist()) | Processor-neutral CRUD; all write paths converge here |
 | `ReviewQueueService` | `ReviewQueueOperations` | `ReviewRequest` nodes | User-initiated review queue management |
@@ -502,7 +502,7 @@ When `openai_service` is available, the generator:
     uid, entity_type: 'entry_report',
     user_uid,             // always the student (access ownership — who the report belongs to)
     author_uid,           // teacher UID for HUMAN reports; null for LLM/AI reports
-    visibility: 'shared', // set at create so SHARES_WITH grants access via UnifiedSharingService
+    visibility: 'shared', // stamped by the writer; no read honours it — a report is an owner read (ADR-088 §3)
     processor_type,       // 'human' or 'llm'
     assessment_outcome,   // 'approved', 'needs_revision', or 'ai_evaluated'
     assessment_score,     // 0.0-1.0 for ASSESSMENT-scope exercises

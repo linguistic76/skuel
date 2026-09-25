@@ -1,6 +1,6 @@
 ---
 title: "Submit & Share Arc — Rulings & Contract"
-updated: 2026-09-24
+updated: 2026-09-25
 status: "active"
 registered: 2026-09-24
 ruled: 2026-09-24
@@ -486,6 +486,30 @@ it first removes both.
   and `DOMAIN_BACKENDS_POSITION_2_COMPLETE_2026-03-01.md:69` (stale_names has no directory exclusion).
   The "amended by ADR-088" notes this PR lands: ADR-038 (the access check retired), ADR-042 §3 and §8
   (the check), ADR-054 §6 (authority never collapsed into the check; report detail is an owner read).
+- **Ruled (PR 2b session, 2026-09-24 — engineering choices the census found unsettled; none touches
+  a ruling):**
+  - The owner read is `EntryReportService.get_for_user` → `EntryReportBackend.get_for_owner`: the
+    typed report fetch (it keeps `get`'s `subject_uid` projection, which the generic
+    `get_visible_to_user` would drop) behind the OWNER_ONLY clause that
+    `build_search_visibility_clause` composes — ADR-085's first chokepoint, not a Python owner
+    compare after a bare `get`. Absent and not-owned are one `Result.ok(None)` → one not-found.
+  - `/entry-reports/detail` refuses through `refuse(...)`, so a non-owner gets the rendered
+    not-found page at a real HTTP 404 (it was a 200 with a "Report not found" banner); the
+    "service unavailable" branch is unchanged.
+  - The fixtures pin the discriminator, not the writer's visibility value: in
+    `test_gradebook_summaries.py` and `test_exchange_thread.py` one feedback report carries
+    `visibility: 'private'` with an outcome (counted — PR 2a's post-migration shape) and the
+    reflection carries `visibility: 'shared'` with no outcome (excluded), so a reader that
+    still consulted the property fails in both directions.
+  - The complete-workflow integration test replaces its two check steps with a Cypher count of
+    the `SHARES_WITH` edge (1 after `share`, 0 after `unshare`) — the edge is the one record
+    (ADR-088 §3); the four visibility/nonexistent access tests are deleted with the check.
+  - The learning-loop skill's EntryReport graph sketch said `(teacher)-[:OWNS]->(report)`; the
+    writer makes the student the owner (`COALESCE(student, author)`), so the sketch now says so.
+  - No unscoped sibling survives beside the owner read (Codex P2 on #1415): the orchestrator's
+    caller-less get_entry_report wrapper and the service's bare get (its only caller) are deleted
+    with the backend protocol's get member; `EntryReportBackend.get` stays as the typed override of
+    the universal by-UID member (its `subject_uid` projection serves the generic mixin paths).
 
 ### PR 2a — `visibility` means public-or-not
 
@@ -517,10 +541,11 @@ it first removes both.
   `create_entry` already gates every door.
 - **Tests:** `test_events_core_operations.py:359`, `test_event_update_intent_pipeline.py:181`,
   `test_activity_forms_render.py:276,286`, `tests/integration/user_entry/conftest.py:154`,
-  `test_entry_report_ai_path.py:319`, the model default pins. Verified at PR 0, also whatever of
-  these survives PR 2b: `test_sharing_workflows.py:134,328,398,515` (visibility=Visibility.SHARED
-  — `:398` and `:515` are not access-check tests), its `:197` fixture, and the
-  `test_unified_sharing_service.py:507` mock.
+  `test_entry_report_ai_path.py:318`, the model default pins. Verified at PR 0, also whatever of
+  these survives PR 2b — re-derived after it: `test_sharing_workflows.py:134,309,426`
+  (visibility=Visibility.SHARED; the three surviving sites — the complete-workflow, unshare-owner
+  and shared-with-list tests) and its `:202` fixture (the `test_unified_sharing_service.py`
+  `visibility: "shared"` mock went with the access-check tests in PR 2b).
 - **Docs:** CLAUDE.md § Content Sharing, SHARING_PATTERNS, REPORT_ARCHITECTURE, ENUM_ARCHITECTURE,
   the ADR-038 and ADR-040 (TEAM) notes, the learning-loop skill, `how-your-content-is-used.md`,
   PLACEHOLDER_INDEX:452, and `sharing-http-door.md` (its visibility-ladder section and the false
@@ -1115,7 +1140,7 @@ requires PR 1, PR 3, PR 5 and PR 6a. PR 6c requires PR 4a, PR 5 and PR 6b. PR 7 
 |----|-------|------------------------|--------|
 | 0 | This document + ADR-088 + the form-recipient-read case file and MOC entry + INDEX rows (docs only; summon Codex explicitly) | This document and ADR-088 are merged; `./dev docs-links` is clean and the INDEX rows resolve | merged #1413, 2026-09-24 |
 | 1 | `SUBMITTED_TO_GROUP`: writer, request side (gated on TEACHER_REVIEW; `teachers` writes no link on other pipelines), forms, teacher readers, migration | Census: 2 edges re-typed, and a count of classmate-visible turn-ins (a `MEMBER_OF` member reaching a `teacher_review` entry it does not own through `SHARED_WITH_GROUP`) reads 0. `/teaching/queue` still lists the Gentle Return turn-in. A `pipeline: none` vault note with no `audience:` writes no group link. (`/groups` as linguistic76 shows no turn-ins before PR 1 too — linguistic76 owns both.) | merged #1414, 2026-09-24 |
-| 2b | The outcome discriminator; the EntryReport access check retired; report detail is an owner read | The GradeBook shows the same 2 exchanges as before. `/entry-reports/detail` gives the owner 200 and others 404 | open |
+| 2b | The outcome discriminator; the EntryReport access check retired; report detail is an owner read | The GradeBook shows the same exchanges as before (3 live on 2026-09-24, on old and new code — the PR 0 census counted 2). `/entry-reports/detail` gives the owner 200 and others 404 | merged #1415, 2026-09-24 |
 | 2a | `visibility` = {private, public}: enum, writers, Events field, spawn fix, migration first; `set_visibility` PUBLIC-only; the duplicate ingestion gate and the unused request/response classes deleted | The census shows 0 `shared`/`team` values. The Events form has no Visibility field. Spawned instances are private | open |
 | 3 | `NotificationType`; card links; admin activity reports owned by the student + their bell; subject validation; generated-report reads exclude admin (human) reports, both user-context statements included | An admin writes an activity report → the student's bell → the detail page opens. The old feedback bells open their reports | open |
 | 4a | Snapshot-keyed exchanges; "Exercise removed"; R13 subtitle | After deleting a test exercise with turn-ins, the GradeBook shows an "Exercise removed" line and `/exchange` opens | open |

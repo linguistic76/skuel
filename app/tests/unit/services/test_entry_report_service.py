@@ -407,62 +407,75 @@ class TestGenerateReportErrorPropagation:
 def _make_entry_report_backend() -> MagicMock:
     backend = MagicMock()
     backend.list_for_submission = AsyncMock(return_value=Result.ok([]))
-    backend.get = AsyncMock(return_value=Result.ok(None))
+    backend.get_for_owner = AsyncMock(return_value=Result.ok(None))
     return backend
 
 
-class TestGet:
-    """`get` narrows a typed single-fetch through the backend."""
+class TestGetForUser:
+    """`get_for_user` is the owner read (ADR-088 §3): the backend's OWNER_ONLY
+    fetch, with absent and not-owned narrowed to ONE not-found error."""
 
     @pytest.mark.asyncio
-    async def test_delegates_to_backend_and_returns_report(self):
+    async def test_owner_gets_the_report(self):
         report = EntryReport(
             uid="sr_teacher_042",
             entity_type=EntityType.ENTRY_REPORT,
             title="Teacher Feedback",
-            user_uid=TEACHER_UID,
+            user_uid=STUDENT_UID,
+            author_uid=TEACHER_UID,
             status=EntityStatus.COMPLETED,
             processor_type=ReportSource.HUMAN,
             content="Solid work.",
             subject_uid=SUBMISSION_UID,
         )
         backend = _make_entry_report_backend()
-        backend.get.return_value = Result.ok(report)
+        backend.get_for_owner.return_value = Result.ok(report)
         service = EntryReportService(llm_caller=_make_llm_caller(), backend=backend)
 
-        result = await service.get("sr_teacher_042")
+        result = await service.get_for_user("sr_teacher_042", STUDENT_UID)
 
         assert not result.is_error
         assert result.value is report
-        backend.get.assert_awaited_once_with("sr_teacher_042")
+        backend.get_for_owner.assert_awaited_once_with("sr_teacher_042", STUDENT_UID)
 
     @pytest.mark.asyncio
-    async def test_missing_report_narrows_to_not_found(self):
+    async def test_not_owned_or_missing_is_one_not_found(self):
         backend = _make_entry_report_backend()
-        backend.get.return_value = Result.ok(None)
+        backend.get_for_owner.return_value = Result.ok(None)
         service = EntryReportService(llm_caller=_make_llm_caller(), backend=backend)
 
-        result = await service.get("sr_missing")
+        result = await service.get_for_user("sr_teacher_042", TEACHER_UID)
 
         assert result.is_error
+        assert result.expect_error().category.value == "not_found"
+
+    @pytest.mark.asyncio
+    async def test_blank_arguments_are_validation_errors(self):
+        backend = _make_entry_report_backend()
+        service = EntryReportService(llm_caller=_make_llm_caller(), backend=backend)
+
+        assert (await service.get_for_user("", STUDENT_UID)).is_error
+        assert (await service.get_for_user("sr_any", "")).is_error
+        backend.get_for_owner.assert_not_awaited()
 
     @pytest.mark.asyncio
     async def test_no_backend_fails_fast(self):
         service = EntryReportService(llm_caller=_make_llm_caller(), backend=None)
 
-        result = await service.get("sr_any")
-
-        assert result.is_error
+        assert (await service.get_for_user("sr_any", STUDENT_UID)).is_error
 
     @pytest.mark.asyncio
     async def test_backend_error_propagates(self):
         backend = _make_entry_report_backend()
-        backend.get.return_value = Result.fail(Errors.database("get", "query failed"))
+        backend.get_for_owner.return_value = Result.fail(
+            Errors.database("get_for_owner", "query failed")
+        )
         service = EntryReportService(llm_caller=_make_llm_caller(), backend=backend)
 
-        result = await service.get("sr_any")
+        result = await service.get_for_user("sr_any", STUDENT_UID)
 
         assert result.is_error
+        assert result.expect_error().category.value == "database"
 
 
 class TestListForSubmission:

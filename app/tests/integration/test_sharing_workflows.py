@@ -111,7 +111,7 @@ async def test_report(neo4j_driver):
 
 @pytest.mark.asyncio
 @pytest.mark.integration
-async def test_complete_sharing_workflow(sharing_service, test_report):
+async def test_complete_sharing_workflow(sharing_service, test_report, neo4j_driver):
     """
     Test complete sharing workflow: create → share → view → unshare → verify revoked.
 
@@ -119,9 +119,9 @@ async def test_complete_sharing_workflow(sharing_service, test_report):
     1. Create entity (completed by fixture)
     2. Share with recipient
     3. Recipient fetches shared entity
-    4. Recipient has access
+    4. The SHARES_WITH edge exists
     5. Owner unshares
-    6. Recipient no longer has access
+    6. The SHARES_WITH edge is gone
     """
     report_uid = test_report["uid"]
     owner_uid = test_report["owner_uid"]
@@ -154,13 +154,16 @@ async def test_complete_sharing_workflow(sharing_service, test_report):
     # Note: This may return empty if User nodes don't exist - that's expected
     # The relationship was created successfully even if the query returns empty
 
-    # Step 4: Recipient has access
-    access_result = await sharing_service.check_access(
-        entity_uid=report_uid,
-        user_uid=recipient_uid,
-    )
-    assert not access_result.is_error
-    assert access_result.value is True
+    # Step 4: The share is recorded on the graph — the SHARES_WITH edge is the
+    # one record of who was given the entity (ADR-088 §3).
+    async with neo4j_driver.session() as session:
+        cursor = await session.run(
+            "MATCH (:User {uid: $viewer})-[r:SHARES_WITH]->(:Entity {uid: $uid}) RETURN count(r) AS n",
+            viewer=recipient_uid,
+            uid=report_uid,
+        )
+        record = await cursor.single()
+    assert record is not None and record["n"] == 1
 
     # Step 5: Owner unshares
     unshare_result = await sharing_service.unshare(
@@ -171,13 +174,15 @@ async def test_complete_sharing_workflow(sharing_service, test_report):
     assert not unshare_result.is_error
     assert unshare_result.value is True
 
-    # Step 6: Recipient no longer has access
-    access_after_unshare = await sharing_service.check_access(
-        entity_uid=report_uid,
-        user_uid=recipient_uid,
-    )
-    assert not access_after_unshare.is_error
-    assert access_after_unshare.value is False
+    # Step 6: The edge is gone — nothing records the share any more
+    async with neo4j_driver.session() as session:
+        cursor = await session.run(
+            "MATCH (:User {uid: $viewer})-[r:SHARES_WITH]->(:Entity {uid: $uid}) RETURN count(r) AS n",
+            viewer=recipient_uid,
+            uid=report_uid,
+        )
+        record = await cursor.single()
+    assert record is not None and record["n"] == 0
 
 
 @pytest.mark.asyncio
@@ -259,100 +264,6 @@ async def test_shared_with_me_resolves_subject_context(sharing_service, neo4j_dr
 # ============================================================================
 # VISIBILITY LEVEL TESTS
 # ============================================================================
-
-
-@pytest.mark.asyncio
-@pytest.mark.integration
-async def test_private_visibility_restricts_access(sharing_service, test_report):
-    """Test PRIVATE entity only accessible to owner."""
-    report_uid = test_report["uid"]
-    owner_uid = test_report["owner_uid"]
-    other_user = "test_user_other"
-
-    # Entity defaults to PRIVATE
-    # Owner can access
-    owner_access = await sharing_service.check_access(
-        entity_uid=report_uid,
-        user_uid=owner_uid,
-    )
-    assert not owner_access.is_error
-    assert owner_access.value is True
-
-    # Other user cannot access
-    other_access = await sharing_service.check_access(
-        entity_uid=report_uid,
-        user_uid=other_user,
-    )
-    assert not other_access.is_error
-    assert other_access.value is False
-
-
-@pytest.mark.asyncio
-@pytest.mark.integration
-async def test_public_visibility_allows_all_access(sharing_service, test_report):
-    """Test PUBLIC entity accessible to anyone."""
-    report_uid = test_report["uid"]
-    owner_uid = test_report["owner_uid"]
-    anyone = "test_user_random"
-
-    # Set visibility to PUBLIC
-    visibility_result = await sharing_service.set_visibility(
-        entity_uid=report_uid,
-        owner_uid=owner_uid,
-        visibility=Visibility.PUBLIC,
-    )
-    assert not visibility_result.is_error
-
-    # Anyone can access
-    public_access = await sharing_service.check_access(
-        entity_uid=report_uid,
-        user_uid=anyone,
-    )
-    assert not public_access.is_error
-    assert public_access.value is True
-
-
-@pytest.mark.asyncio
-@pytest.mark.integration
-async def test_shared_visibility_requires_relationship(sharing_service, test_report):
-    """Test SHARED entity requires SHARES_WITH relationship."""
-    report_uid = test_report["uid"]
-    owner_uid = test_report["owner_uid"]
-    authorized_user = "test_user_authorized"
-    unauthorized_user = "test_user_unauthorized"
-
-    # Set visibility to SHARED
-    visibility_result = await sharing_service.set_visibility(
-        entity_uid=report_uid,
-        owner_uid=owner_uid,
-        visibility=Visibility.SHARED,
-    )
-    assert not visibility_result.is_error
-
-    # Share with authorized user
-    share_result = await sharing_service.share(
-        entity_uid=report_uid,
-        owner_uid=owner_uid,
-        recipient_uid=authorized_user,
-        role="peer",
-    )
-    assert not share_result.is_error
-
-    # Authorized user can access
-    authorized_access = await sharing_service.check_access(
-        entity_uid=report_uid,
-        user_uid=authorized_user,
-    )
-    assert not authorized_access.is_error
-    assert authorized_access.value is True
-
-    # Unauthorized user cannot access
-    unauthorized_access = await sharing_service.check_access(
-        entity_uid=report_uid,
-        user_uid=unauthorized_user,
-    )
-    assert not unauthorized_access.is_error
-    assert unauthorized_access.value is False
 
 
 # ============================================================================
@@ -569,16 +480,3 @@ async def test_unshare_nonshared_report(sharing_service, test_report):
 
     assert unshare_result.is_error
     assert "No sharing relationship found" in str(unshare_result.error)
-
-
-@pytest.mark.asyncio
-@pytest.mark.integration
-async def test_check_access_nonexistent_report(sharing_service):
-    """Test checking access for nonexistent entity."""
-    access_result = await sharing_service.check_access(
-        entity_uid="nonexistent_report",
-        user_uid="test_user",
-    )
-
-    assert access_result.is_error
-    assert "not found" in str(access_result.error).lower()

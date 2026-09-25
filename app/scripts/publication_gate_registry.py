@@ -314,6 +314,16 @@ SURFACES: tuple[Surface, ...] = (
         "The PathStep catalogue.",
     ),
     Surface(
+        "adapters.persistence.neo4j.backends.exercise_backends",
+        "EntryReportBackend.get_for_owner",
+        Disposition.ANCHORED,
+        "The EntryReport owner read (ADR-088 §3) — the typed by-UID fetch behind "
+        "the OWNER_ONLY clause, the same carve-out as _CrudMixin.get_visible_to_user "
+        "with EntryReportBackend.get's subject_uid projection kept. The caller "
+        "named the report; an EntryReport is never draft curriculum, so the gate "
+        "has nothing to withhold here either way.",
+    ),
+    Surface(
         "adapters.persistence.neo4j.cross_domain_backend",
         "CrossDomainBackend.find_knowledge_hubs",
         Disposition.GATED,

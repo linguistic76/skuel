@@ -1549,7 +1549,6 @@ async def compose_services(
             activity_report_service=activity_report_service,
             revised_exercise_service=revised_exercise_service,
             entry_report_service=entry_report_service,
-            sharing_service=unified_sharing_service,
             report_relationship_service=report_relationship_service,
         )
         logger.info("✅ UserEntry Orchestrator created (ADR-054)")

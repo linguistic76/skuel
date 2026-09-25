@@ -361,8 +361,9 @@ def test_scan_tree_names_the_unparseable_file(
 def test_no_gated_surface_disables_its_own_gate() -> None:
     """The end-to-end form of the check, against the shipped tree.
 
-    The two sanctioned opt-outs carry carve-out dispositions: the by-UID read is
-    ANCHORED, the hub-score writer is WRITER. A third would have to say which.
+    The sanctioned opt-outs carry carve-out dispositions: the by-UID reads (the
+    generic one and the EntryReport owner read) are ANCHORED, the hub-score writer
+    is WRITER. Another would have to say which.
     """
     from audit_publication_gate import scan_tree  # type: ignore[import-not-found]
     from publication_gate_registry import (  # type: ignore[import-not-found]

@@ -1,6 +1,6 @@
 ---
 title: Protocol Reference Guide
-updated: 2026-09-23
+updated: 2026-09-25
 status: current
 category: reference
 tags: [protocol, reference]
@@ -463,7 +463,7 @@ Entity-agnostic sharing. `UnifiedSharingService` implements this protocol and wo
 
 | Protocol | Services Field | Methods | Route Consumer |
 |----------|---------------|---------|----------------|
-| `SharingOperations` | `sharing` | share, unshare, get_shared_with, get_shared_with_me, set_visibility, check_access, share_with_group, unshare_from_group, get_groups_shared_with, get_user_entries_shared_with_group, get_user_entry_shared_with_group (11 methods; unshare / get_shared_with / set_visibility / unshare_from_group / get_groups_shared_with are PLANNED — `/docs/roadmap/sharing-http-door.md`) | `form_submissions_api.py` (share), `user_profile_ui.py` (inbox), `groups_hub_routes.py` (group reads); the rest through services |
+| `SharingOperations` | `sharing` | share, unshare, get_shared_with, get_shared_with_me, set_visibility, share_with_group, submit_to_group, unshare_from_group, get_groups_shared_with, get_user_entries_shared_with_group, get_user_entry_shared_with_group (11 methods; unshare / get_shared_with / set_visibility / unshare_from_group / get_groups_shared_with are PLANNED — `/docs/roadmap/sharing-http-door.md`) | `form_submissions_api.py` (share), `user_profile_ui.py` (inbox), `groups_hub_routes.py` (group reads); the rest through services |
 
 ### Report Protocols (7) — `report_protocols.py`
 
@@ -474,7 +474,7 @@ ENTRY_REPORT entities are produced two ways, behind **separate route-facing prot
 | Protocol | Services Field | Methods | Route Consumer |
 |----------|---------------|---------|----------------|
 | `EntryReportOperations` (service) | `entry_report` | generate_report(`UserEntry`, `Exercise`) → `EntryReport` `LLM`, list_for_submission → `list[EntryReport]` (both HUMAN + LLM, discriminated by `processor_type`) | `exercises_api.py`, `teaching_api.py`, `teaching_ui.py`, `user_entry_ui.py` |
-| `EntryReportBackendOperations` (backend) | `EntryReportService.backend` (typed `self.backend`) | list_for_submission, get_reports_for_student_exercise, get_reports_by_teacher (all → `list[EntryReport]` via `from_neo4j_node`), get_linked_ku_and_student (mastery-loop scalar projection) | — (backend-only) |
+| `EntryReportBackendOperations` (backend) | `EntryReportService.backend` (typed `self.backend`) | get_for_owner (the owner read — OWNER_ONLY clause on the typed fetch, ADR-088 §3), list_for_submission, get_reports_for_student_exercise, get_reports_by_teacher (all → `list[EntryReport]` via `from_neo4j_node`), get_linked_ku_and_student (mastery-loop scalar projection) | — (backend-only) |
 | `ProgressReportOperations` | `progress_report_generator` | 1 (generate → `ACTIVITY_REPORT` entity, `LLM` or `AUTOMATIC`) | `progress_report_api.py` |
 | `ActivityReportOperations` | `activity_report` | 8 (create_snapshot, submit_report → `ACTIVITY_REPORT` `HUMAN`, get_history, latest_for_period, find_by_period (the period's reusable report — the generator's previous-period comparison), annotate → `AnnotationResult`, get_annotation → `AnnotationState`, get_privacy_summary → `PrivacySummary`) | `progress_report_api.py` |
 | `ReviewQueueOperations` | `review_queue` | 2 (request_review → `ReviewRequestResult`, get_pending_reviews → `list[PendingReviewItem]`) | `progress_report_api.py` |
@@ -588,7 +588,7 @@ def create_user_entry_sharing_routes(
     sharing_service: "SharingOperations",
     core_service: "UserEntryOperations | None" = None,
 ) -> list[Any]:
-    # MyPy verifies .share(), .check_access() etc. exist
+    # MyPy verifies .share(), .share_with_group() etc. exist
     ...
 ```
 

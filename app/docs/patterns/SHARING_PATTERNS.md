@@ -1,6 +1,6 @@
 ---
 title: Content Sharing Patterns
-updated: '2026-09-24'
+updated: '2026-09-25'
 category: patterns
 related_skills:
 - pytest
@@ -73,24 +73,21 @@ Enforced at the service layer by `_check_shareable()` (status + entity type), ap
 every mutation through `_verify_owned_and_shareable()` — there is no standalone pre-flight; a
 mutation on an unshareable entity returns the validation error.
 
-### Access Control Query Pattern
+### Access Control — the link is the grant
 
-```cypher
-MATCH (entity:Entity {uid: $uid})
-OPTIONAL MATCH (viewer:User {uid: $viewer_uid})-[:SHARES_WITH]->(entity)
-OPTIONAL MATCH (viewer2:User {uid: $viewer_uid})-[:MEMBER_OF]->(g:Group)<-[:SHARED_WITH_GROUP]-(entity)
-WHERE entity.user_uid = $viewer_uid
-   OR entity.visibility = 'public'
-   OR (entity.visibility = 'shared' AND
-       (count(viewer) > 0 OR count(viewer2) > 0))
-RETURN entity
-```
+There is no standalone access check. Every read composes its audience from the one
+ownership/visibility chokepoint, `build_search_visibility_clause()` (ADR-085): search
+strategies and by-uid visible reads admit by **edge** — `:OWNS`, `:SHARES_WITH`,
+`MEMBER_OF ← SHARED_WITH_GROUP` — and the `visibility` property is never a grant. An
+EntryReport is an **owner read** (ADR-088 §3): `EntryReportService.get_for_user` →
+`EntryReportBackend.get_for_owner`, the OWNER_ONLY clause on the report's `user_uid` (the
+student it was written for; teachers read their own artifacts on the teaching surfaces).
 
 **Key Features:**
 - Owner always has access
-- PUBLIC visible to everyone
-- SHARED requires explicit `SHARES_WITH` relationship OR group membership via `SHARED_WITH_GROUP`
-- Returns 404 for both "not found" and "forbidden" (no information leakage)
+- A share edge grants exactly what its reader reads (a feedback request grants members
+  nothing — ADR-088 §2)
+- Returns 404 for both "not found" and "not yours" (no information leakage)
 
 ---
 
@@ -141,9 +138,8 @@ shared = await sharing_service.get_shared_with_me(
 )
 
 # The teacher's read of the entry itself goes through the edge-only search
-# visibility clause (ADR-085). check_access() is NOT this flow's gate — it
-# requires visibility=SHARED as well as the edge, which this writer does not set;
-# its one production caller is the EntryReport read (see Common Pitfalls).
+# visibility clause (ADR-085); the report the teacher then writes is the
+# STUDENT's to open (an owner read — see Access Control).
 ```
 
 **UI Flow:**
@@ -228,12 +224,8 @@ from core.models.enums.metadata_enums import Visibility
 # (UserEntryService._require_teacher_for_public).
 request = UserEntryCreateRequest(title="Best work", content="...", visibility=Visibility.PUBLIC)
 
-# check_access honours PUBLIC with no SHARES_WITH relationship …
-access_result = await sharing_service.check_access(entity_uid="ue_best_work", user_uid="user_anyone")
-assert access_result.value is True
-
-# … but nothing LISTS public entities, and the search visibility clause is edge-only,
-# so a PUBLIC entry reaches no one who does not already hold its uid.
+# … but nothing LISTS public entities, and the search visibility clause is edge-only
+# (no read honours the property), so a PUBLIC entry reaches no one.
 ```
 
 **Where this stands:** the `/submit` form's Portfolio destination renders disabled ("Coming
@@ -284,12 +276,8 @@ unshare_result = await sharing_service.unshare(
     recipient_uid=teacher_uid,
 )
 
-# Teacher immediately loses access
-access_result = await sharing_service.check_access(
-    entity_uid=entity_uid,
-    user_uid=teacher_uid,
-)
-assert access_result.value is False  # ✅ Access revoked
+# The SHARES_WITH edge is gone — and the edge is the grant, so every
+# edge-gated read refuses the teacher from here on.
 ```
 
 ---
@@ -374,7 +362,6 @@ and the three group-sharing endpoints ADR-038 records left with the submissions 
 | Exercise assignment (ADR-040, `ExerciseService`) | Auto-shares an ASSIGNED exercise with its group | `share_with_group` |
 | `GET /profile/shared`, `GET /profile/shared/list-fragment` | The Shared-With-Me inbox (direct shares) | `get_shared_with_me` |
 | `GET /api/groups/{group_uid}/shared/preview`, `GET /groups/{group_uid}/entries/{entry_uid}` | A member's read of one group's shared entries | `get_user_entries_shared_with_group`, `get_user_entry_shared_with_group` |
-| EntryReport reads (`UserEntryOrchestrator.get_entry_report_view`) | Owner / PUBLIC / SHARED-with-edge gate | `check_access` |
 
 **No door:** `unshare`, `unshare_from_group`, `get_shared_with`, `get_groups_shared_with`,
 `set_visibility`, and a listing of `visibility = 'public'`. Ruled 2026-09-21 PLANNED as a door
@@ -433,7 +420,6 @@ class UnifiedSharingService:
     async def get_shared_with(entity_uid) -> Result[list[dict]]                                   # PLANNED — no caller
     async def get_shared_with_me(user_uid, limit=50, entity_type=None, sharer_uid=None) -> Result[list[SharedWithMeItem]]
     async def set_visibility(entity_uid, owner_uid, visibility) -> Result[bool]                   # PLANNED — waits on the PUBLIC reader
-    async def check_access(entity_uid, user_uid) -> Result[bool]
 
     # Group sharing
     async def share_with_group(entity_uid, owner_uid, group_uid, share_version) -> Result[bool]
@@ -508,11 +494,14 @@ is no standalone pre-flight.
 
 ### Access Control
 
-All read operations use `check_access()`. Both "not found" and "forbidden" return 404 — no information leakage.
+There is no standalone access check: every read composes its audience from
+`build_search_visibility_clause()` (ADR-085), and an EntryReport is an owner read
+(`EntryReportService.get_for_user`). Both "not found" and "not yours" return 404 — no
+information leakage.
 
 ### PUBLIC Visibility
 
-`PUBLIC` is a visibility value `set_visibility()` writes and `check_access()` honours; no
+`PUBLIC` is a visibility value `set_visibility()` writes and no read honours yet; no
 route lists public entities — there is no `/api/submissions/public` (ADR-038 § API Layer
 records the retired listing and its absent successor).
 
@@ -556,18 +545,15 @@ async def test_share_success(mock_backend, sharing_service):
 
 ```python
 @pytest.mark.integration
-async def test_complete_sharing_workflow(sharing_service, test_entity):
-    # Set visibility → Share → Check access → Unshare → Verify revoked
+async def test_complete_sharing_workflow(sharing_service, test_entity, neo4j_driver):
+    # Set visibility → Share → the edge exists → Unshare → the edge is gone
     await sharing_service.set_visibility(...)
     await sharing_service.share(...)
 
-    access = await sharing_service.check_access(...)
-    assert access.value is True  # ✅ Has access
-
+    # The SHARES_WITH edge is the one record of the share (ADR-088 §3):
+    # count it with Cypher — 1 after share() …
     await sharing_service.unshare(...)
-
-    access = await sharing_service.check_access(...)
-    assert access.value is False  # ✅ Access revoked
+    # … and 0 after unshare(). Nothing else records who was given the entity.
 ```
 
 **See:** `tests/unit/test_unified_sharing_service.py`
@@ -578,19 +564,18 @@ async def test_complete_sharing_workflow(sharing_service, test_entity):
 
 ### Assuming the `visibility` Property Is the Grant
 
-The two read gates disagree about the property, and a writer must know which one its reader
-uses. `build_search_visibility_clause()` (ADR-085 — search strategies and by-uid visible reads)
-admits by **edge only**: `:OWNS`, `:SHARES_WITH`, `MEMBER_OF ← SHARED_WITH_GROUP`. `check_access()`
-(EntryReport reads) requires `visibility = SHARED` **and** an edge, or `PUBLIC`.
+No read honours the property. `build_search_visibility_clause()` (ADR-085 — search
+strategies and by-uid visible reads) admits by **edge only**: `:OWNS`, `:SHARES_WITH`,
+`MEMBER_OF ← SHARED_WITH_GROUP`; an EntryReport is an owner read (ADR-088 §3). Setting
+`visibility` grants nothing to anyone — `SHARED` is inert, and `PUBLIC` waits on its first
+reader (a portfolio listing; `/docs/roadmap/sharing-http-door.md`).
 
 ```python
 # A share() alone is the grant for every edge-gated read — no visibility change needed.
 await sharing_service.share(...)
 
-# A node that check_access() will gate must carry the property WITH its edge, in one
-# statement — as the EntryReport writer does (visibility: 'shared' + SHARES_WITH).
-# Setting the property without the edge grants nothing; setting the edge without the
-# property grants nothing on the check_access path.
+# The EntryReport writer still stamps visibility: 'shared' beside the student's own
+# SHARES_WITH; neither is what admits the student — ownership (user_uid) is.
 ```
 
 ### Sharing Incomplete Entities

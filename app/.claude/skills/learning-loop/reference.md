@@ -329,8 +329,8 @@ await backend.get_exercise_context(...)                                 # OWNS/C
 
 > **Sharing is entity-agnostic (ADR-042).** `UserEntry` carries no SHARES_WITH Cypher of its
 > own. All sharing goes through `UnifiedSharingService` → the entity-agnostic `SharingBackend`
-> (`create_share`, `delete_share`, `update_visibility`, `query_access`,
-> `query_shared_with_users`, `create_group_share`).
+> (`create_share`, `delete_share`, `update_visibility`, `query_shared_with_users`,
+> `create_group_share`, `create_group_submission`).
 
 **Access:** `ContentScope.USER_OWNED`. Default `PRIVATE`. Sharing via
 `UnifiedSharingService` — three-level model: `PRIVATE → SHARED → PUBLIC`.
@@ -452,14 +452,14 @@ self-describing — the report records what decision was made, not just feedback
 
 **Graph pattern:**
 ```cypher
-(teacher:User)-[:OWNS]->(report:Entity:EntryReport {
+(student:User)-[:OWNS]->(report:Entity:EntryReport {   // the writer makes the STUDENT the owner (user_uid); author_uid is the teacher
     processor_type: 'human',            // or 'llm'
     assessment_outcome: 'approved',     // or 'needs_revision' or 'ai_evaluated'
-    visibility: 'shared',               // set at create so SHARES_WITH is honored by UnifiedSharingService
+    visibility: 'shared',               // stamped by the writer; no read honours it (a report is an owner read, ADR-088 §3)
     processed_content: 'Your analysis shows...'  // LLM/teacher-generated feedback body
 })
 (report)-[:REPORT_FOR]->(submission:Entity:UserEntry)  // subject_uid is projected from this edge on read
-(report)-[:SHARES_WITH]->(submitter:User)                       // grants read access via UnifiedSharingService
+(submitter:User)-[:SHARES_WITH]->(report)                       // the student's own share, written by the report writer; the student reads the report as its OWNER (user_uid)
 ```
 
 **Structural position:** Leaf domain. One submission in, one report node out.
@@ -739,7 +739,7 @@ RelationshipName.REVISES_EXERCISE        # RevisedExercise → Exercise
 | **RevisedExercise** | `RevisedExerciseService` | `RevisedExerciseOperations` | `RevisedExerciseBackend` | CRUD (CRUDRouteFactory), `list_for_student`, `get_revision_chain` |
 | **UserEntry** | `UserEntryService` (concrete facade — routes inject the class, no route-facing protocol) | backend port `UserEntryOperations` | `UserEntryBackend` | `create_entry`, `get_entry`, `list_for_user`, `get_review_queue`, `update_processed_content`, `delete_entry` (sharing via `UnifiedSharingService`, not the backend) |
 | **UserEntry processing** | `UserEntryProcessingService` | `UserEntryProcessingOperations` | — (dispatches; updates via `UserEntryService`) | `process(entry)` — pipeline dispatch by `Pipeline` (TRANSCRIBE / LLM_SUMMARY / TRANSCRIBE_AND_STRUCTURE) |
-| **Submission report** | `EntryReportService` (AI) + `TeacherReviewService` (HUMAN writes) | `EntryReportOperations` (service, AI + reads) + `EntryReportBackendOperations` (backend); `TeacherReviewOperations` (teacher writes) — three protocols, NOT a single-class union | `EntryReportBackend` (typed reads + report-node creation via `create_report_node` — student `OWNS` is the visibility anchor, written atomically with the report node) + `UserEntryBackend` (authority check) | `EntryReportService`: `generate_report` (via `UnifiedLLMCaller`), `list_for_submission` → typed `list[EntryReport]` (both sources). `TeacherReviewService`: `submit_report` (HUMAN feedback, `REPORT_FOR`-anchored). Writes land as `:Entity:EntryReport` dual-label; reads discriminate AI vs teacher via `processor_type` on the typed model — no TypedDict projection |
+| **Submission report** | `EntryReportService` (AI) + `TeacherReviewService` (HUMAN writes) | `EntryReportOperations` (service, AI + reads) + `EntryReportBackendOperations` (backend); `TeacherReviewOperations` (teacher writes) — three protocols, NOT a single-class union | `EntryReportBackend` (typed reads + report-node creation via `create_report_node` — student `OWNS` is the visibility anchor, written atomically with the report node) + `UserEntryBackend` (authority check) | `EntryReportService`: `generate_report` (via `UnifiedLLMCaller`), `get_for_user` (the owner read behind `/entry-reports/detail`, ADR-088 §3), `list_for_submission` → typed `list[EntryReport]` (both sources). `TeacherReviewService`: `submit_report` (HUMAN feedback, `REPORT_FOR`-anchored). Writes land as `:Entity:EntryReport` dual-label; reads discriminate AI vs teacher via `processor_type` on the typed model — no TypedDict projection |
 | **Journal processing** | *(no standalone service — ADR-054)* | — | — | Journals are a `UserEntry` pipeline (`Pipeline.TRANSCRIBE_AND_STRUCTURE`) handled by `UserEntryProcessingService` |
 | **Learning Loop Intelligence (write)** | `LearningLoopEventHandlerService` | — | `UserEntryBackend` (port `UserEntryOperations`) | `handle_submission_created` (iteration tracking), `handle_report_submitted` (feedback turnaround EMA), `handle_submission_approved` (mastery velocity) |
 | **Learning Loop Intelligence (read)** | `LearningLoopQueryService` | — | `UserEntryBackend` (port `UserEntryOperations`) | `get_submissions_for_path_step(user_uid, ps_uid, limit=QueryLimit.COMPREHENSIVE)` — Interaction traversal + report-status enrichment, bounded by `limit` (default 100), entity_type filter parameterized via `EntityType.USER_ENTRY.value`. New learning-loop reads land here, not on a separate search service |

@@ -1,5 +1,5 @@
 ---
-updated: 2026-09-22
+updated: 2026-09-25
 related_skills: [learning-loop]
 ---
 
@@ -106,6 +106,13 @@ This prevents users from sharing failed/processing reports, ensuring portfolio q
 > a teacher's groups) cover both consumer shapes, and the shareable rule is applied inside
 > every mutation. Ruling and per-method table:
 > [`/docs/roadmap/sharing-http-door.md`](../roadmap/sharing-http-door.md).*
+
+> **2026-09-24 — Amended by [ADR-088](ADR-088-submit-and-share.md) (Submit & Share arc, PR 2b).**
+> The access check above (owner, or `PUBLIC`, or `SHARED` **and** a link) is retired, with its
+> backend query: no read honours the `visibility` property, a link grants what its reader reads,
+> and an EntryReport is an owner read — `EntryReportService.get_for_user`, the OWNER_ONLY clause
+> of ADR-085's chokepoint on the report's `user_uid` (the student it was written for). The
+> received-feedback reads identify feedback by `assessment_outcome`, not by `visibility`.
 
 **SubmissionsCoreService** integration:
 - Added `get_with_access_check()` method that wraps `get_report()` with access verification
