@@ -173,6 +173,13 @@ MATCH (viewer:User)-[:MEMBER_OF]->(group)<-[:SHARED_WITH_GROUP]-(entity)
 
 This handles group membership changes naturally: new members can see shared content; removed members lose access. No cleanup of individual `SHARES_WITH` relationships required.
 
+> **2026-09-25 — Amended by [ADR-088](ADR-088-submit-and-share.md) (Submit & Share arc, PR 5).**
+> A share reaches the members **and the owners** of an **active** group (`g.is_active = true`,
+> strict — a deactivated group grants nothing): the read-time check is the audience fragment,
+> `(viewer)-[:MEMBER_OF|OWNS]->(g:Group)<-[:SHARED_WITH_GROUP]-(entity)`, one function composed
+> by every audience read (ADR-088 §3). A feedback request (`SUBMITTED_TO_GROUP`) grants members
+> nothing.
+
 ### 8. UnifiedSharingService — sharing as cross-cutting concern
 
 `SHARES_WITH` and `SHARED_WITH_GROUP` management is extracted from `SubmissionsSharingService` into a `UnifiedSharingService` that any domain can call. Sharing is not owned by the submissions domain.

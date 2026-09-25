@@ -332,7 +332,7 @@ result = await sharing_service.share_with_group(
 # Removed members automatically lose access
 
 # A member reads what is shared with ONE group (the groups hub —
-# /api/groups/{group_uid}/shared/preview and /groups/{group_uid}/entries/{entry_uid})
+# /api/groups/{group_uid}/shared/preview; a listed entry opens at /gradebook/{uid})
 group_content = await sharing_service.get_user_entries_shared_with_group(
     user_uid=member_uid,
     group_uid="group_class_2026",
@@ -354,6 +354,14 @@ group_content = await sharing_service.get_user_entries_shared_with_group(
 
 **Key advantage:** Membership changes propagate automatically — no per-user re-sharing required when the group roster changes.
 
+**Opening what was shared (ADR-088 §3, §5):** a UserEntry opens at `/gradebook/{uid}` for
+its owner or a recipient through the one by-UID read, `get_visible_to_user`, under the
+domain's `read_visibility` of `OWNER_OR_AUDIENCE` — the owner arm OR the **audience
+fragment** (`build_audience_fragment`): a direct `SHARES_WITH`, or `MEMBER_OF` / `OWNS` of
+an **active** group the entry is `SHARED_WITH_GROUP` to. A feedback request
+(`SUBMITTED_TO_GROUP`) admits nobody through it. A recipient sees the R6 card and the `.md`
+download, never the status, the processed body, feedback or the exchange.
+
 ---
 
 ## API Reference
@@ -370,7 +378,8 @@ and the three group-sharing endpoints ADR-038 records left with the submissions 
 | `POST /api/form-submissions/share` — `{uid, group_uid?, recipient_uids?, share_with_admin?}` | The one post-submit widening door (form submissions only) | `share`, `share_with_group` |
 | Exercise assignment (ADR-040, `ExerciseService`) | Auto-shares an ASSIGNED exercise with its group | `share_with_group` |
 | `GET /profile/shared`, `GET /profile/shared/list-fragment` | The Shared-With-Me inbox (direct shares) | `get_shared_with_me` |
-| `GET /api/groups/{group_uid}/shared/preview`, `GET /groups/{group_uid}/entries/{entry_uid}` | A member's read of one group's shared entries | `get_user_entries_shared_with_group`, `get_user_entry_shared_with_group` |
+| `GET /api/groups/{group_uid}/shared/preview`, `GET /groups/{group_uid}` | A member's read of one group's shared entries | `get_user_entries_shared_with_group` |
+| `GET /gradebook/{uid}`, `GET /gradebook/{uid}/download` | The owner's page, or a recipient's card / `.md` file | none — `UserEntryService.get_visible_to_user` composes the audience fragment (ADR-088 §5) |
 
 **No door:** `unshare`, `unshare_from_group`, `get_shared_with`, `get_groups_shared_with`,
 `set_visibility`, and a listing of `visibility = 'public'`. Ruled 2026-09-21 PLANNED as a door
@@ -435,7 +444,6 @@ class UnifiedSharingService:
     async def unshare_from_group(entity_uid, owner_uid, group_uid) -> Result[bool]               # PLANNED — no caller
     async def get_groups_shared_with(entity_uid) -> Result[list[dict]]                            # PLANNED — no caller
     async def get_user_entries_shared_with_group(user_uid, group_uid, limit=20) -> Result[list[dict]]
-    async def get_user_entry_shared_with_group(user_uid, group_uid, entry_uid) -> Result[dict | None]
 ```
 
 The five `PLANNED` members are registered in `scripts/detect_bloat.py` (`PLANNED_METHODS`) and
@@ -622,8 +630,9 @@ if result.is_error:
 - **Service:** `core/services/sharing/unified_sharing_service.py`
 - **Protocol:** `core/ports/sharing_protocols.py`
 - **Sharing at creation:** `adapters/inbound/user_entry_api.py` — entries are shared via the `share_with_groups` field on create (no standalone sharing-management routes)
-- **Group sharing routes:** `adapters/inbound/groups_hub_routes.py` (`/api/groups/{group_uid}/shared/preview`, `/groups/{group_uid}/entries/{entry_uid}`)
-- **UI Routes:** `adapters/inbound/user_entry_ui.py`
+- **Group sharing routes:** `adapters/inbound/groups_hub_routes.py` (`/api/groups/{group_uid}/shared/preview`, `/groups/{group_uid}`)
+- **Audience fragment:** `adapters/persistence/neo4j/query/cypher/crud_queries.py` — `build_audience_fragment`, composed by `build_search_visibility_clause` for `OWNER_OR_AUDIENCE`
+- **UI Routes:** `adapters/inbound/user_entry_ui.py` (`/gradebook/{uid}` viewer-aware, `/gradebook/{uid}/download`); the recipient card in `ui/gradebook/recipient_card.py`
 - **UI Components:** `ui/user_entry/forms.py` (the audience selector on the submit form)
 - **Profile Tab:** `adapters/inbound/user_profile_ui.py`
 

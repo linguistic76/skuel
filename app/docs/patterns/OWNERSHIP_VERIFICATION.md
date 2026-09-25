@@ -63,7 +63,9 @@ Reads on behalf of a user pass exactly one of two enforcement chokepoints
    `UniversalNeo4jBackend.get_visible_to_user(uid, user_uid, visibility)` — THE canonical
    service-to-service by-UID read. Not-found and not-visible are both `Result.ok(None)`,
    preserving this document's 404 semantics below the route layer. Service callers use
-   `BaseService.get_visible_to_user(uid, user_uid)`: it passes the domain's OWN declaration
+   `BaseService.get_visible_to_user(uid, user_uid)`: it passes the domain's OWN
+   `read_visibility` declaration (the search declaration unless declared apart — UserEntry
+   opens for its audience, `OWNER_OR_AUDIENCE`, while searching owner-only; ADR-088 §5)
    to the backend and converts the None into the service-layer NotFound, so a caller can
    never pick a visibility literal at the call site.
 2. **`verify_ownership`** — route-mediated access: the route verifies, then acts (the

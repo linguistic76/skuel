@@ -18,8 +18,9 @@ The **write half is live**: audience-at-submit ([ADR-054](../decisions/ADR-054-u
 form's audience selector, the `/upload` YAML door and a vault note's `audience:`), the
 post-submit `POST /api/form-submissions/share`, and the ADR-040 auto-shares
 (`ExerciseService` → `share_with_group`). The **reads that render what those wrote are live**:
-`/profile/shared` (`get_shared_with_me`), the groups hub (`get_user_entries_shared_with_group`,
-`get_user_entry_shared_with_group`) and the teacher review queue (`get_review_queue_by_groups`);
+`/profile/shared` (`get_shared_with_me`), the groups hub (`get_user_entries_shared_with_group`;
+a listed entry opens at `/gradebook/{uid}` through `UserEntryService.get_visible_to_user` under
+`read_visibility` OWNER_OR_AUDIENCE — ADR-088 §5) and the teacher review queue (`get_review_queue_by_groups`);
 an EntryReport is an owner read (ADR-088 §3 — the access check that once admitted a
 non-owner on `SHARED` + a link is retired). The other half — *see* who has access, *retract* a share,
 *change* visibility after the fact — has service methods, unit and integration tests, and no

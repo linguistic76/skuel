@@ -351,8 +351,9 @@ class ExerciseService(BaseService[ExerciseBackendOperations, Exercise]):
     async def get_exercise_for_user(self, uid: str, user_uid: UserUID) -> Result[Exercise]:
         """Get an Exercise by UID only if this user is in its audience.
 
-        Applies the SCOPE_AWARE policy this service already declares for
-        search (see ``_config.search_visibility``) to a single-entity read:
+        Applies the SCOPE_AWARE policy this service declares (its
+        ``read_visibility`` is the search declaration, ADR-088 §5) to a
+        single-entity read:
         CURRICULUM is everyone's; PERSONAL/ASSIGNED/ASSESSMENT need OWNS,
         SHARES_WITH, or group membership. Without this, a direct read by UID
         answered questions the same entity's search surface refuses.
@@ -363,7 +364,7 @@ class ExerciseService(BaseService[ExerciseBackendOperations, Exercise]):
         Backend: UniversalNeo4jBackend.get_visible_to_user
         """
         result = await self.backend.get_visible_to_user(
-            uid, user_uid, self._config.search_visibility
+            uid, user_uid, self._config.get_read_visibility()
         )
         if result.is_error:
             return Result.fail(result)

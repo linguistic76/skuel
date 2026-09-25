@@ -1,6 +1,6 @@
 ---
 related_skills: [security]
-updated: 2026-09-22
+updated: 2026-09-25
 ---
 # Route Authentication Requirements
 
@@ -40,6 +40,8 @@ a route's existence with `uv run python scripts/health/route_claims.py --file <t
 | `/search/**` | `search_routes.py` | User-scoped search |
 | `/api/visualizations/**` | `visualization_routes.py` | User data visualization |
 | `/profile/shared`, `/profile/shared/list-fragment` | `user_profile_ui.py` | Shared-with-me inbox (the only `/profile/*` routes; `GET /profile` is a 404) |
+| `/gradebook/{uid}`, `/gradebook/{uid}/download` | `user_entry_ui.py` | An audience read: the owner's page, or the recipient card / `.md` file for whoever the share links name (ADR-088 §3); anyone else 404 |
+| `/groups`, `/groups/{group_uid}`, `/api/groups/{group_uid}/shared/preview` | `groups_hub_routes.py` | A member's list of what is shared with one group (`MEMBER_OF` is the Cypher guard); a listed entry opens at `/gradebook/{uid}` |
 | `/api/sidebar/badges` | `sidebar_badges_ui.py` | Tasks+ sidebar badges (OOB fragments, `UserContext` build) |
 | `/settings`, `/settings/content`, `/settings/save` | `settings_routes.py` | Account page + preferences |
 | `/settings/vault/sync`, `/settings/vault/preview`, `/settings/vault/preview/consent`, `/settings/vault/consent` | `vault_routes.py` | Personal-vault sync, dry-run preview and the first-run consent gate (all POST, CSRF-protected) |
@@ -133,6 +135,7 @@ history of how each arrived is `git log -S` on the named symbol, not this table.
 | Login is throttled per IP (20 failures / 15 min, keyed on `AuthEvent.ip_address`) **before** the email lookup, so a throttled IP cannot enumerate accounts; `"unknown"` short-circuits CLI/non-HTTP paths | `is_ip_rate_limited` (`session_backend.py`) |
 | Passwords are capped at `MAX_PASSWORD_BYTES = 72` UTF-8 bytes (bcrypt's hard limit) as a field-level validation error | `validate_password` in `core/auth/password.py` |
 | Every ownership failure is a 404, never a 403 | `verify_entity_ownership` / `require_owned_entity` (OWNERSHIP_VERIFICATION.md) |
+| An audience read admits only the owner and the share links' recipients, and a recipient's response never carries the status, the processed body, feedback or the exchange (R6) | `get_visible_to_user` under the domain's `read_visibility` (UserEntry: `OWNER_OR_AUDIENCE` — the owner arm OR `build_audience_fragment`; ADR-088 §3, §5); the owner-versus-recipient branch in `user_entry_ui.py` and what `render_user_entry_md` omits; pinned by `tests/integration/routes/test_gradebook_audience_read.py` |
 
 ## Verification Checklist
 

@@ -46,6 +46,7 @@ from .context_query_generator import (
 from .crud_queries import (
     build_array_any_match_query,
     build_array_contains_query,
+    build_audience_fragment,
     build_count_query,
     build_distinct_values_query,
     build_get_by_field_query,
@@ -144,6 +145,7 @@ __all__ = [
     "build_active_query",
     "build_array_any_match_query",
     "build_array_contains_query",
+    "build_audience_fragment",
     "build_batch_get_related_with_filters",
     "build_batch_relationship_count",
     "build_batch_relationship_exists",

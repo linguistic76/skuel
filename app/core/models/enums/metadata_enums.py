@@ -279,14 +279,16 @@ class Visibility(StrEnum):
 
 class SearchVisibility(StrEnum):
     """
-    Who a domain's entities are visible to in search results.
+    Who a domain's entities are visible to — in search results and by UID.
 
-    THE single scoping declaration for every search strategy (text, tags,
-    graph traversal, faceted) — declared per domain on ``DomainConfig`` and
-    composed into Cypher by the persistence layer. Distinct from
-    ``Visibility`` (per-entity publication, public or not): SearchVisibility is the
-    type-level rule; instance-level scope/sharing edges are what
-    SCOPE_AWARE evaluates.
+    THE single scoping declaration, composed into Cypher by the persistence
+    layer. A domain declares it twice on ``DomainConfig``: ``search_visibility``
+    scopes every search strategy (text, tags, graph traversal, faceted) and
+    ``read_visibility`` (default: the search declaration) scopes the by-UID
+    audience read, ``get_visible_to_user`` (ADR-085 §2, ADR-088 §5). Distinct
+    from ``Visibility`` (per-entity publication, public or not): SearchVisibility
+    is the type-level rule; instance-level scope/sharing edges are what
+    SCOPE_AWARE and OWNER_OR_AUDIENCE evaluate.
 
     PUBLIC: Shared content (PS, LP, Ku) — no ownership filter.
     OWNER_ONLY: User-owned content (Activities, UserEntry) — property-scoped
@@ -296,6 +298,13 @@ class SearchVisibility(StrEnum):
         visible to everyone; owned scopes (PERSONAL/ASSIGNED/ASSESSMENT)
         visible via :OWNS, :SHARES_WITH, or group membership
         (:MEMBER_OF + :SHARED_WITH_GROUP). ADR-038/040 semantics.
+    OWNER_OR_AUDIENCE: The owner, or a recipient the share links name — a
+        direct :SHARES_WITH, or :MEMBER_OF / :OWNS of an active group the
+        entity is :SHARED_WITH_GROUP to (the audience fragment, ADR-088 §3).
+        A ``read_visibility`` only: UserEntry opens for its audience while its
+        search stays OWNER_ONLY, because a search row carries ``status`` and
+        ``processed_content`` — what a recipient must never see (R6).
+        ``DomainConfig`` refuses it as a ``search_visibility``.
 
     See: /docs/architecture/SEARCH_ARCHITECTURE.md § Ownership scoping
     """
@@ -303,6 +312,7 @@ class SearchVisibility(StrEnum):
     PUBLIC = "public"
     OWNER_ONLY = "owner_only"
     SCOPE_AWARE = "scope_aware"
+    OWNER_OR_AUDIENCE = "owner_or_audience"
 
 
 # ============================================================================

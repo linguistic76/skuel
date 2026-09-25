@@ -282,6 +282,42 @@ def build_knowledge_read_clause(
     return f"({' AND '.join(predicates)})", params
 
 
+def build_audience_fragment(entity_alias: str = "n") -> str:
+    """
+    Build the ONE audience predicate: is ``$user_uid`` a recipient of the entity?
+
+    True when the share links name the user (ADR-088 §3) — a direct
+    ``SHARES_WITH`` from the user, or the user reaches an **active** group
+    (``g.is_active = true``, strict: a deactivated group grants nothing) that
+    the entity is ``SHARED_WITH_GROUP`` to, through ``MEMBER_OF`` or ``OWNS``.
+    A feedback request (``SUBMITTED_TO_GROUP``) is not a share and never
+    admits through this fragment — the teacher gate is the other reader, and
+    the two are never crossed.
+
+    The fragment holds NO owner arm: ``build_search_visibility_clause`` ORs it
+    with the owner arm for ``OWNER_OR_AUDIENCE``, and the list readers that
+    return other people's entries compose it alone, so whatever is listed can
+    be opened. It is one function, never a copy — audit its composers as
+    ADR-085 audits the clause's.
+
+    References ``$user_uid``; the caller binds it. Introduces no parameter
+    of its own.
+    """
+    validate_identifier(entity_alias, context="entity alias")
+    shares = RelationshipName.SHARES_WITH.value
+    member_of = RelationshipName.MEMBER_OF.value
+    owns = RelationshipName.OWNS.value
+    shared_with_group = RelationshipName.SHARED_WITH_GROUP.value
+    user_label = NeoLabel.USER.value
+    group_label = NeoLabel.GROUP.value
+    return (
+        f"(EXISTS {{ MATCH (:{user_label} {{uid: $user_uid}})-[:{shares}]->({entity_alias}) }}"
+        f" OR EXISTS {{ MATCH (:{user_label} {{uid: $user_uid}})-[:{member_of}|{owns}]->"
+        f"(g:{group_label})<-[:{shared_with_group}]-({entity_alias})"
+        f" WHERE g.is_active = true }})"
+    )
+
+
 def build_search_visibility_clause(
     visibility: SearchVisibility | None,
     *,
@@ -291,7 +327,7 @@ def build_search_visibility_clause(
     ownership_property: str = "user_uid",
 ) -> tuple[str, dict[str, str]] | None:
     """
-    Build the WHERE fragment that scopes search results to their audience.
+    Build the WHERE fragment that scopes a read to its audience.
 
     ``apply_publication_gate`` (default True) additionally withholds
     draft-marked curriculum. It defaults ON so a NEW discovery surface is
@@ -302,8 +338,10 @@ def build_search_visibility_clause(
     forbidden and its author can still open it.
 
     THE single ownership/visibility mechanism for every search strategy
-    (text, tags, graph traversal, faceted) — one composition point so no
-    strategy grows its own ad-hoc filter. The fragment references
+    (text, tags, graph traversal, faceted) and for the by-UID audience read
+    (``get_visible_to_user``, which passes the domain's ``read_visibility``)
+    — one composition point so no strategy grows its own ad-hoc filter. The
+    fragment references
     ``$user_uid`` when ``has_user`` is True; callers must add it to params
     (they own the value). Constants the clause itself references (the
     curriculum scope literal) come back in the returned params dict —
@@ -346,6 +384,17 @@ def build_search_visibility_clause(
             owner. Reading either half keeps the owner's claim whole; both
             halves are written only by paths that already own the entity, so
             this widens the audience by nothing else.
+        OWNER_OR_AUDIENCE: the owner arm (``ownership_property``) OR the
+            audience fragment (``build_audience_fragment``: a direct
+            :SHARES_WITH, or :MEMBER_OF / :OWNS of an active group the entity
+            is :SHARED_WITH_GROUP to — ADR-088 §3). A ``read_visibility``
+            only (UserEntry): without a user there is no audience, so like
+            OWNER_ONLY it applies NO clause and the caller's fail-closed rule
+            holds. Not curriculum — never publication-gated.
+
+    Any other member raises: a new SearchVisibility value is a new audience
+    rule and must be composed here deliberately, never silently treated as
+    one of the existing ones.
 
     Returns:
         ``(fragment, params)`` — a parenthesized WHERE fragment plus the
@@ -377,6 +426,16 @@ def build_search_visibility_clause(
             return None
         validate_identifier(ownership_property, context="ownership property")
         return f"({alias}.{ownership_property} = $user_uid)", {}
+
+    if visibility is SearchVisibility.OWNER_OR_AUDIENCE:
+        if not has_user:
+            return None
+        validate_identifier(ownership_property, context="ownership property")
+        audience = build_audience_fragment(alias)
+        return f"({alias}.{ownership_property} = $user_uid OR {audience})", {}
+
+    if visibility is not SearchVisibility.SCOPE_AWARE:
+        raise ValueError(f"build_search_visibility_clause: no audience rule for {visibility!r}")
 
     # SCOPE_AWARE — the scope value rides as a parameter (SKUEL021: only
     # identifiers that Cypher cannot parameterize, like relationship types

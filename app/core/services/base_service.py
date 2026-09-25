@@ -507,11 +507,31 @@ class BaseService(
         return config.get_search_visibility()
 
     @cached_property
+    def read_visibility(self) -> SearchVisibility:
+        """
+        Get the by-UID read-visibility declaration from DomainConfig.
+
+        THE scoping input for ``get_visible_to_user`` (ADR-085 §2, ADR-088
+        §5). Derivation lives on DomainConfig — an explicit ``read_visibility``
+        wins, otherwise the search declaration, so a direct read and a search
+        agree by construction unless the domain declares that they differ
+        (UserEntry: OWNER_OR_AUDIENCE for the read, OWNER_ONLY for search).
+
+        Returns:
+            SearchVisibility (OWNER_ONLY when no DomainConfig exists —
+            fail-closed default, matching ``search_visibility``).
+        """
+        config = self._get_config_cls()
+        if config is None:
+            return SearchVisibility.OWNER_ONLY
+        return config.get_read_visibility()
+
+    @cached_property
     def ownership_property(self) -> str:
         """
-        Get the node property the OWNER_ONLY visibility clause filters on.
+        Get the node property the owner arm of the visibility clause filters on.
 
-        Rides with ``search_visibility`` into every clause composition
+        Rides with ``search_visibility`` / ``read_visibility`` into every clause composition
         (``DomainConfig.ownership_property``, default ``"user_uid"``) so the
         emitted predicate names the property the domain actually writes —
         Group declares ``"owner_uid"`` (ADR-086).
@@ -639,11 +659,14 @@ class BaseService(
         Get an entity by UID only if this user is in its audience.
 
         THE audience-aware service-to-service by-UID read (ADR-085 §2): the
-        domain's own ``search_visibility`` declaration decides the scoping, so
-        a direct read and a search of the same domain agree by construction.
-        A PUBLIC domain (curriculum) composes no predicate and this read is
-        deliberately as open as ``get()``; an OWNER_ONLY domain returns only
-        the requesting user's own entity.
+        domain's own ``read_visibility`` declaration decides the scoping. It
+        defaults to the search declaration, so a direct read and a search of
+        the same domain agree by construction unless the domain declares that
+        they differ (ADR-088 §5 — UserEntry opens for its audience, searches
+        owner-only). A PUBLIC domain (curriculum) composes no predicate and
+        this read is deliberately as open as ``get()``; an OWNER_ONLY domain
+        returns only the requesting user's own entity; an OWNER_OR_AUDIENCE
+        domain also returns an entity the share links grant the user.
 
         Not-found and not-visible are the SAME outcome (a NotFound error) —
         the 404-equivalent refusal of OWNERSHIP_VERIFICATION.md, preserved
@@ -665,7 +688,7 @@ class BaseService(
             return Result.fail(Errors.validation(message="user_uid is required", field="user_uid"))
 
         result = await self.backend.get_visible_to_user(
-            uid, user_uid, self.search_visibility, self.ownership_property
+            uid, user_uid, self.read_visibility, self.ownership_property
         )
 
         # Not-found and not-visible converge on the same NotFound (backend

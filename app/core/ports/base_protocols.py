@@ -507,9 +507,10 @@ class CrudOperations[T: "DomainModelProtocol"](Protocol):
 
         Not-found and not-visible are deliberately the SAME outcome
         (``Result.ok(None)``) — see OWNERSHIP_VERIFICATION.md. Pass the domain's
-        own ``search_visibility`` declaration, never a literal chosen at the call
-        site; a ``PUBLIC`` domain yields no predicate and this read is as open as
-        ``get()``.
+        own ``read_visibility`` declaration (``DomainConfig.get_read_visibility``,
+        the search declaration unless declared apart — ADR-088 §5), never a
+        literal chosen at the call site; a ``PUBLIC`` domain yields no predicate
+        and this read is as open as ``get()``.
 
         Backend: ``_CrudMixin.get_visible_to_user`` — carried by every
         ``UniversalNeo4jBackend``.

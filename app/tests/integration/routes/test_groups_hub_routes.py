@@ -45,7 +45,6 @@ def mock_services() -> Any:
     services.groups.get_user_groups = AsyncMock(return_value=Result.ok([]))
     services.sharing = MagicMock()
     services.sharing.get_user_entries_shared_with_group = AsyncMock(return_value=Result.ok([]))
-    services.sharing.get_user_entry_shared_with_group = AsyncMock(return_value=Result.ok(None))
     return services
 
 

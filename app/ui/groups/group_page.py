@@ -6,8 +6,8 @@ by the Cypher `MEMBER_OF` match in
 pure presentation.
 
 Distinct from ``ui/groups/shared_preview.py`` (the HTMX preview fragment
-embedded in the hub tab) and ``ui/groups/peer_entry.py`` (read-only detail
-view for a single entry).
+embedded in the hub tab). A single entry opens at ``/gradebook/{entry_uid}``,
+which renders the recipient card for a viewer who is not the owner.
 """
 
 from __future__ import annotations
@@ -34,12 +34,11 @@ def GroupSharesPage(
         group_name: Display name for the header subtitle.
         records: Payloads from
             ``UnifiedSharingService.get_user_entries_shared_with_group``.
-        group_uid: UID of the group — threaded into each tile's href so
-            clicks route to ``/groups/{group_uid}/entries/{entry_uid}``.
+        group_uid: UID of the group — the "Back to Groups" link reopens its tab.
     """
     body: Div
     if records:
-        body = GroupSharedPreviewList(records, group_uid=group_uid)
+        body = GroupSharedPreviewList(records)
     else:
         body = Div(
             P(

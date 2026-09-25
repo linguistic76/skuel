@@ -1,6 +1,6 @@
 ---
 title: "ADR-088: Submit and Share"
-updated: 2026-09-24
+updated: 2026-09-25
 status: accepted
 category: decisions
 tags: [adr, decisions, sharing, submissions, user-entry, groups, visibility, access-control, gradebook]
@@ -319,9 +319,11 @@ the vault door (PR 8).
 ### Testing Strategy
 - [ ] Integration: `/groups` hides turn-ins and still shows shares; the review queue still lists
   them (PR 1).
-- [ ] Integration: an access matrix — ex-member, deactivated group, revoked share and
-  SUBMITTED-only teacher all get not-found; a recipient response carries no report content (PR 5).
-- [ ] Unit: the visibility clause parametrized over every SearchVisibility member (PR 5).
+- [x] Integration: an access matrix — ex-member, deactivated group, revoked share and
+  SUBMITTED-only teacher all get not-found; a recipient response carries no report content (PR 5 —
+  `tests/integration/routes/test_gradebook_audience_read.py`).
+- [x] Unit: the visibility clause parametrized over every SearchVisibility member (PR 5 —
+  `tests/unit/test_search_visibility_scoping.py`).
 - [ ] Unit: the audience parser matrix, co-membership and the uniform error (PR 6a).
 - [ ] Manual: the arc-close walk-through as a student and a second account (arc doc § Verification).
 

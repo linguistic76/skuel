@@ -104,6 +104,8 @@ class DomainConfig:
         user_ownership_relationship: Relationship type for ownership (None for shared)
         ownership_property: Node property the OWNER_ONLY clause filters on
             (default "user_uid"; Group declares "owner_uid")
+        read_visibility: Audience of the by-UID read ``get_visible_to_user``
+            (default: the search declaration; UserEntry declares OWNER_OR_AUDIENCE)
         prerequisite_relationships: RelationshipName enums for prerequisite traversal
         supports_user_progress: Whether domain supports mastery tracking
 
@@ -170,7 +172,15 @@ class DomainConfig:
     # only when the derivation is wrong (Exercise: SCOPE_AWARE).
     search_visibility: SearchVisibility | None = None
 
-    # The node property the OWNER_ONLY visibility clause filters on
+    # By-UID read visibility (the audience of ``get_visible_to_user``, ADR-085
+    # §2 / ADR-088 §5). None means "the search declaration" — a direct read
+    # and a search then agree by construction. Declared only where the two
+    # differ deliberately: UserEntry opens for its audience (OWNER_OR_AUDIENCE)
+    # while its search stays owner-only, because a search row carries the
+    # teacher's verdict and the processed body (R6).
+    read_visibility: SearchVisibility | None = None
+
+    # The node property the OWNER_ONLY / OWNER_OR_AUDIENCE owner arm filters on
     # (``n.{ownership_property} = $user_uid`` — ADR-086 / ownership bundle).
     # Nearly every user-owned domain denormalizes ownership as ``user_uid``;
     # Group is the one domain that stores it as ``owner_uid``. Declared here so
@@ -216,6 +226,16 @@ class DomainConfig:
             raise ValueError(
                 f"DomainConfig for {self.get_entity_label()}: ownership_property "
                 f"{self.ownership_property!r} is not a valid identifier."
+            )
+
+        # Validate: OWNER_OR_AUDIENCE is a READ declaration. A search row carries
+        # every search field (UserEntry: processed_content) plus status — the
+        # teacher's verdict — which a recipient must never see (ADR-088 §5, R6).
+        # Shared items are discovered on the Shared page, not by search.
+        if self.search_visibility is SearchVisibility.OWNER_OR_AUDIENCE:
+            raise ValueError(
+                f"DomainConfig for {self.get_entity_label()}: OWNER_OR_AUDIENCE is a "
+                "read_visibility, never a search_visibility (ADR-088 §5)."
             )
 
         # Validate: "all" is reserved in status_filters (always means no constraint)
@@ -271,6 +291,18 @@ class DomainConfig:
         if self.user_ownership_relationship is not None:
             return SearchVisibility.OWNER_ONLY
         return SearchVisibility.PUBLIC
+
+    def get_read_visibility(self) -> SearchVisibility:
+        """
+        Resolve who may open one of this domain's entities by UID.
+
+        Explicit ``read_visibility`` wins; otherwise the search declaration
+        (``get_search_visibility``), so a direct read and a search agree by
+        construction unless a domain declares that they differ (ADR-088 §5).
+        """
+        if self.read_visibility is not None:
+            return self.read_visibility
+        return self.get_search_visibility()
 
     def get_entity_label(self) -> str:
         """
