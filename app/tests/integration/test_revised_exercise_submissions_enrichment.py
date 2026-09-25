@@ -29,11 +29,15 @@ _ORPHAN_ANSWER_UID = "ue.lineage.orphan-answer"
 
 @pytest.fixture
 async def answered_revision(neo4j_driver: AsyncDriver, clean_neo4j) -> None:
-    """A teacher-owned revision answered once by each edge kind."""
+    """A teacher-owned revision answered once by each edge kind.
+
+    The owner is MERGEd, not matched: sibling files wipe ``:User`` nodes, and
+    a matched-but-absent owner would seed nothing and read as an empty search.
+    """
     async with neo4j_driver.session() as session:
-        await session.run(
+        result = await session.run(
             """
-            MATCH (teacher:User {uid: $teacher_uid})
+            MERGE (teacher:User {uid: $teacher_uid})
             CREATE (root:Entity:Exercise {uid: $root_uid, entity_type: 'exercise', title: 'Root'})
             CREATE (re:Entity:RevisedExercise {uid: $revision_uid, entity_type: 'revised_exercise',
                                                title: 'Lineage revision', user_uid: $teacher_uid,
@@ -47,6 +51,7 @@ async def answered_revision(neo4j_driver: AsyncDriver, clean_neo4j) -> None:
             CREATE (orphan:Entity:UserEntry {uid: $orphan_answer_uid, entity_type: 'user_entry',
                                              title: 'Orphan answer', user_uid: $student_uid})
             CREATE (orphan)-[:FULFILLS_EXERCISE {revision: 3}]->(re)
+            RETURN count(re) AS seeded
             """,
             teacher_uid=_TEACHER_UID,
             student_uid=_STUDENT_UID,
@@ -55,6 +60,8 @@ async def answered_revision(neo4j_driver: AsyncDriver, clean_neo4j) -> None:
             answer_uid=_ANSWER_UID,
             orphan_answer_uid=_ORPHAN_ANSWER_UID,
         )
+        seeded = await result.single()
+        assert seeded is not None and seeded["seeded"] == 1, "the revision fixture did not land"
 
 
 @pytest.fixture
