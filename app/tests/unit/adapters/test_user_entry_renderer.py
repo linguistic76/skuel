@@ -43,3 +43,12 @@ def test_a_non_latin_title_falls_back_to_the_uid() -> None:
     assert name.isascii()
     mixed = entry_download_filename(_entry(title="Дыхание week one"))
     assert mixed == "entry-week-one.md"
+
+
+def test_a_non_latin_uid_falls_back_to_the_constant_name() -> None:
+    """The uid is caller-supplied on the JSON door — it is slugged, never trusted."""
+    name = entry_download_filename(_entry(uid="ue_呼吸", title="呼吸"))
+    assert name == "entry-ue.md"
+    bare = entry_download_filename(_entry(uid="呼吸", title="呼吸"))
+    assert bare == "entry.md"
+    assert bare.isascii()

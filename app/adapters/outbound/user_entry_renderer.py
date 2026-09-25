@@ -38,18 +38,23 @@ def render_user_entry_md(entry: UserEntry) -> str:
     return "\n".join(lines).rstrip("\n") + "\n"
 
 
-def entry_download_filename(entry: UserEntry) -> str:
-    """The ``.md`` filename for an entry — its title slugged to ASCII, the uid when nothing is left.
-
-    A response header is Latin-1 on the wire, so every character outside ASCII
-    letters and digits becomes ``-`` (a CJK or Cyrillic title collapses to the
-    uid rather than raising when the header is encoded).
-    """
-    safe_title = "".join(
-        c if (c.isascii() and c.isalnum()) or c in "-_" else "-"
-        for c in (entry.title or entry.uid).lower()
+def _ascii_slug(text: str) -> str:
+    """ASCII letters, digits, ``-`` and ``_`` only; everything else becomes ``-``."""
+    return "".join(
+        c if (c.isascii() and c.isalnum()) or c in "-_" else "-" for c in text.lower()
     ).strip("-")
-    return f"entry-{safe_title or entry.uid}.md"
+
+
+def entry_download_filename(entry: UserEntry) -> str:
+    """The ``.md`` filename for an entry — the title slugged to ASCII, then the uid, then a constant.
+
+    A response header is Latin-1 on the wire, so nothing outside ASCII may
+    reach it: a title or a uid with no ASCII letters or digits left falls
+    through to the next fallback rather than raising when the header is
+    encoded (the uid is caller-supplied on the JSON door, so it is slugged too).
+    """
+    slug = _ascii_slug(entry.title or "") or _ascii_slug(entry.uid)
+    return f"entry-{slug}.md" if slug else "entry.md"
 
 
 __all__ = ["entry_download_filename", "render_user_entry_md"]
