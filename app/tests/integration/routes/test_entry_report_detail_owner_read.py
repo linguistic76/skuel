@@ -20,13 +20,14 @@ owner) guards against a predicate that refuses everyone.
 
 from __future__ import annotations
 
+from collections.abc import Awaitable, Callable
 from types import SimpleNamespace
-from typing import Any
 
 import pytest
-from fasthtml.common import FtResponse, to_xml
+from fasthtml.common import FT, FtResponse, to_xml
 
 from adapters.inbound.entry_reports_ui import create_entry_reports_ui_routes
+from adapters.inbound.fasthtml_types import RouteDecorator
 from adapters.persistence.neo4j.backends.exercise_backends import (
     EntryReportBackend,
     RevisedExerciseBackend,
@@ -47,8 +48,11 @@ FEEDBACK_TEXT = "Your thesis is clear; tighten the second paragraph."
 
 DETAIL_PATH = "/entry-reports/detail"
 
+Handler = Callable[..., Awaitable[FT | FtResponse]]
+"""The registered page handler: a served page (FT) or a rendered refusal."""
 
-def _make_request(user_uid: str, uid: str) -> Any:
+
+def _make_request(user_uid: str, uid: str) -> SimpleNamespace:
     """Session-backed request stub for ``require_authenticated_user`` + ``query_params``."""
     return SimpleNamespace(
         method="GET",
@@ -60,12 +64,12 @@ def _make_request(user_uid: str, uid: str) -> Any:
     )
 
 
-def _collector() -> tuple[Any, dict[str, Any]]:
+def _collector() -> tuple[tuple[SimpleNamespace, RouteDecorator], dict[str, Handler]]:
     """A stand-in app/rt pair that records path → handler."""
-    registered: dict[str, Any] = {}
+    registered: dict[str, Handler] = {}
 
-    def rt(path: str, *_a: Any, **_kw: Any) -> Any:
-        def decorator(fn: Any) -> Any:
+    def rt(path: str, methods: list[str] | None = None) -> Callable[[Handler], Handler]:
+        def decorator(fn: Handler) -> Handler:
             registered[path] = fn
             return fn
 
@@ -103,7 +107,7 @@ def orchestrator(neo4j_driver) -> UserEntryOrchestrator:
 
 
 @pytest.fixture
-def handler(orchestrator: UserEntryOrchestrator) -> Any:
+def handler(orchestrator: UserEntryOrchestrator) -> Handler:
     (app, rt), registered = _collector()
     create_entry_reports_ui_routes(app, rt, orchestrator)
     return registered[DETAIL_PATH]
@@ -151,7 +155,7 @@ async def seeded(clean_neo4j, neo4j_driver) -> None:
         )
 
 
-async def _open(handler: Any, user_uid: str, uid: str = REPORT) -> tuple[int, str]:
+async def _open(handler: Handler, user_uid: str, uid: str = REPORT) -> tuple[int, str]:
     """Render the detail page as the given user → (status, markup)."""
     response = await handler(request=_make_request(user_uid, uid))
     if isinstance(response, FtResponse):

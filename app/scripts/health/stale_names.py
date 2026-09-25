@@ -472,7 +472,7 @@ ALLOWED_OCCURRENCES: dict[str, dict[tuple[int, str], Allow]] = {
         (82, "KuType"): Allow(_adr041),
     },
     "docs/decisions/ADR-042-privacy-as-first-class-citizen.md": {
-        # +5 / +10 (2026-09-24): the §3 and §8 "amended by ADR-088" notes above them.
+        # The §3 and §8 "amended by ADR-088" notes sit above these lines.
         (178, "SubmissionsSharingService"): Allow(_adr042),
         (185, "check_access"): Allow(_adr088_2b),
         (263, "SubmissionsSharingService"): Allow(_adr042),
@@ -498,7 +498,7 @@ ALLOWED_OCCURRENCES: dict[str, dict[tuple[int, str], Allow]] = {
         # vault-notes-default-private amendment note; → +1 more the same day when
         # the note grew to name extract_activities. Anchors re-derived from the
         # scanner's report, never by adding the diff's line delta.
-        # → +7 (2026-09-24): the §6 "amended by ADR-088" note (PR 2b) sits above them.
+        # The §6 "amended by ADR-088" note sits above these lines.
         (291, "check_access"): Allow(_adr088_2b),
         (341, "ProcessorType"): Allow(_adr054),
         (397, "ProcessorType"): Allow(_adr054),
@@ -519,7 +519,7 @@ ALLOWED_OCCURRENCES: dict[str, dict[tuple[int, str], Allow]] = {
         (104, "get_shared_with_me_via_groups"): Allow(_sharing_door),
         (104, "verify_shareable"): Allow(_sharing_door),
         # The Service Layer list, the API Layer's "no successor" line and the Phase 4
-        # record name the retired check; 136/209 sit +7 below the PR 2b note.
+        # record name the retired check; the Service Layer's ADR-088 note sits above the last two.
         (95, "check_access"): Allow(_adr088_2b),
         (136, "check_access"): Allow(_adr088_2b),
         (209, "check_access"): Allow(_adr088_2b),
@@ -529,8 +529,7 @@ ALLOWED_OCCURRENCES: dict[str, dict[tuple[int, str], Allow]] = {
         (96, "get_shared_with_me_via_groups"): Allow(_sharing_door),
     },
     "docs/roadmap/sharing-http-door.md": {
-        # The per-method table's two DELETED rows and their backend twins
-        # (+1, 2026-09-24: the intro paragraph above grew a line).
+        # The per-method table's two DELETED rows and their backend twins.
         (38, "verify_shareable"): Allow(_sharing_door),
         (38, "query_shareable_status"): Allow(_sharing_door),
         (39, "get_shared_with_me_via_groups"): Allow(_sharing_door),
