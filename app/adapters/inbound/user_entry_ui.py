@@ -673,7 +673,7 @@ def create_user_entry_ui_routes(
         return owner.value.display_name or owner.value.title
 
     @rt("/gradebook/{uid}/download")
-    async def submission_download(request: Request, uid: str) -> Any:
+    async def submission_download(request: Request, uid: str) -> Response:
         """The entry as a Markdown file — the owner's or a recipient's read.
 
         Behind the same audience read as the page (ADR-088 §3): whoever can
