@@ -281,7 +281,7 @@ _ENTITY_TYPE_DISPLAY_NAMES: dict[EntityType, str] = {
     EntityType.CHOICE: "Choice",
     EntityType.PRINCIPLE: "Principle",
     EntityType.EXERCISE: "Exercise",
-    EntityType.REVISED_EXERCISE: "Revised Exercise",
+    EntityType.REVISED_EXERCISE: "Revision request",
     EntityType.FORM_TEMPLATE: "Form Template",
     EntityType.FORM_SUBMISSION: "Form Submission",
     EntityType.INTERACTION: "Interaction",

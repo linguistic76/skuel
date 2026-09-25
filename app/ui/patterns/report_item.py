@@ -9,6 +9,7 @@ from typing import Any
 
 from fasthtml.common import A, Div, P, Span
 
+from core.models.enums.entity_enums import EntityType
 from core.models.enums.pipeline import ReportSource
 from core.models.report.entry_report import EntryReport
 
@@ -25,7 +26,7 @@ def render_report_item(report: EntryReport) -> Div:
     is_ai = report.processor_type == ReportSource.LLM
     border_cls = "border-l-warning" if is_revision else "border-l-info"
     if is_revision:
-        type_label = "Revision Request"
+        type_label = EntityType.REVISED_EXERCISE.get_display_name()
     elif is_ai:
         type_label = "AI Feedback"
     else:

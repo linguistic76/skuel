@@ -939,14 +939,16 @@ class EntryReportBackend(UniversalNeo4jBackend[EntryReport]):
            OR submission.status IN $allowed_from_statuses
         OPTIONAL MATCH (student:User)-[:{RelationshipName.OWNS.value}]->(submission)
 
-        // Subject for the composed title: fulfilled exercise's title when the
-        // edge exists, else the submission's own title (pattern comprehension —
+        // Subject for the composed title: the fulfilled exercise's live title
+        // when the edge exists, else the turn-in snapshot's (the exercise may
+        // be deleted), else the submission's own title (pattern comprehension —
         // never multiplies rows even if edges were ever duplicated).
         WITH submission, student,
              coalesce(
                  head([(submission)-[:{RelationshipName.FULFILLS_EXERCISE.value}]->(subject_ex:Entity)
                        WHERE subject_ex.title IS NOT NULL AND subject_ex.title <> ''
                        | subject_ex.title]),
+                 submission.turn_in_exercise_title,
                  submission.title
              ) AS subject_title
 
@@ -1038,13 +1040,15 @@ class EntryReportBackend(UniversalNeo4jBackend[EntryReport]):
         WHERE submission.status IN $allowed_from_statuses
         OPTIONAL MATCH (student:User)-[:{RelationshipName.OWNS.value}]->(submission)
 
-        // Title subject: fulfilled exercise's title, else the submission's own
-        // title (same composition rule as create_report_node — C3).
+        // Title subject: fulfilled exercise's title, else the turn-in
+        // snapshot's, else the submission's own title (same composition rule
+        // as create_report_node — C3).
         WITH submission, student,
              coalesce(
                  head([(submission)-[:{RelationshipName.FULFILLS_EXERCISE.value}]->(subject_ex:Entity)
                        WHERE subject_ex.title IS NOT NULL AND subject_ex.title <> ''
                        | subject_ex.title]),
+                 submission.turn_in_exercise_title,
                  submission.title
              ) AS subject_title
 

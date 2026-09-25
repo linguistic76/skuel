@@ -15,6 +15,8 @@ from fasthtml.common import to_xml
 from core.models.enums.pipeline import ExchangeStatus
 from core.ports.query_types import GradebookOtherReport, StudentExchangeSummary
 from ui.gradebook.summary import (
+    EXERCISE_REMOVED_LABEL,
+    OTHER_FEEDBACK_SUBTITLE,
     filter_exchange_lines,
     normalize_exchange_filters,
     render_activity_reports_group,
@@ -27,6 +29,7 @@ def _row(**overrides) -> StudentExchangeSummary:
     row: StudentExchangeSummary = {
         "exercise_uid": "ex.test.one",
         "exercise_title": "Test Exercise",
+        "exercise_removed": False,
         "latest_entry_uid": "ue_1",
         "latest_entry_status": "submitted",
         "latest_entry_created_at": "2026-08-01T10:00:00",
@@ -140,6 +143,19 @@ class TestExchangeSection:
         assert "Waiting One" in html
         assert "Feedback One" not in html
 
+    def test_removed_exercise_keeps_its_line_with_a_badge(self) -> None:
+        """An exchange outlives its exercise (Submit & Share arc R12): the
+        line stays, titled from the turn-in snapshot, badged, and still
+        opens its thread; a live exercise's line carries no badge."""
+        rows = [
+            _row(exercise_uid="ex.gone", exercise_title="Snapshot Title", exercise_removed=True),
+            _row(exercise_uid="ex.live", exercise_title="Live Title"),
+        ]
+        html = to_xml(render_exchange_section(rows, "all", "all"))
+        assert "Snapshot Title" in html
+        assert "/exchange?exercise=ex.gone" in html
+        assert html.count(EXERCISE_REMOVED_LABEL) == 1
+
     def test_no_match_and_no_rows_render_distinct_empty_states(self) -> None:
         no_match = to_xml(
             render_exchange_section(_ROWS[:1], ExchangeStatus.REVISION_REQUESTED.value, "all")
@@ -168,3 +184,17 @@ class TestConditionalGroups:
         assert "Other feedback" in html
         assert "Standalone feedback" in html
         assert "/entry-reports/detail?uid=er_solo" in html
+
+    def test_other_feedback_subtitle_is_the_r13_sentence(self) -> None:
+        """Submit & Share arc R13: the group is feedback on work that isn't
+        tied to an exercise — an exchange whose exercise was deleted is not
+        "outside an exchange", it keeps its line above."""
+        assert OTHER_FEEDBACK_SUBTITLE == "Feedback on work that isn't tied to an exercise."
+        rows: list[GradebookOtherReport] = [
+            {"uid": "er_solo", "title": "Standalone", "source": "human", "created_at": None}
+        ]
+        html = to_xml(render_other_feedback_group(rows))
+        assert (
+            OTHER_FEEDBACK_SUBTITLE.replace("'", "&#x27;") in html
+            or OTHER_FEEDBACK_SUBTITLE in html
+        )

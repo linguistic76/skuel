@@ -12,6 +12,7 @@ from __future__ import annotations
 from fasthtml.common import to_xml
 
 from core.models.entity_dto import EntityDTO
+from core.models.enums.entity_enums import EntityType
 from core.ports.query_types import SharedWithMeItem
 from ui.profile.shared_view import (
     SHARED_LIST_ID,
@@ -164,7 +165,7 @@ def test_view_renders_filter_bar_with_derived_options() -> None:
     assert 'value="entry_report"' in html
     assert 'value="revised_exercise"' in html
     assert "Entry Report" in html
-    assert "Revised Exercise" in html
+    assert EntityType.REVISED_EXERCISE.get_display_name() in html
     # Sharer keyed by uid, labeled by display name.
     assert 'value="user_admin"' in html
     assert "Admin" in html

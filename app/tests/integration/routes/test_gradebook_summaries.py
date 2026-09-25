@@ -2,11 +2,11 @@
 
 Pins the ``get_student_exchange_summaries`` contract:
 
-- One summary row per root exercise the student has lineage entries against —
-  direct ``FULFILLS_EXERCISE`` turn-ins + resubmits via
-  ``FULFILLS_REVISED_EXERCISE`` → ``REVISES_EXERCISE`` (the exchange-thread
-  lineage lens). A resubmit carrying ONLY the revised edge still rolls up to
-  its root exercise.
+- One summary row per root exercise the student has turn-ins against, keyed
+  by the turn-in snapshot (``turn_in_exercise_uid`` — every turn-in carries
+  it, a resubmit against a revision included). A deleted exercise keeps its
+  line: ``exercise_removed`` and the snapshot title (Submit & Share arc R12);
+  a live exercise's current title outranks a stale snapshot.
 - Latest-entry pick is by ``created_at`` — a later resubmit (no edge revision)
   outranks an earlier numbered direct turn-in.
 - Status derivation: ``revision_requested`` on the latest entry wins even
@@ -17,7 +17,8 @@ Pins the ``get_student_exchange_summaries`` contract:
   the ``visibility`` property decides nothing (ADR-088).
 - Another student's entries/reports on the SAME exercise never leak.
 - ``other_feedback`` carries received reports outside any exchange (report on
-  an entry with no lineage, or on no entry at all), newest first.
+  an entry with no snapshot, or on no entry at all), newest first — never a
+  report on a turn-in whose exercise was deleted (R13).
 - Lines come back newest-activity-first (entry vs report stamps, naive=UTC).
 
 Run against a real Neo4j: entry ``created_at`` is seeded as ISO STRINGS (the
@@ -40,6 +41,7 @@ EX_A = "ex_sum_a"  # one waiting turn-in
 EX_B = "ex_sum_b"  # feedback received (+ excluded outcome-less reflection)
 EX_C = "ex_sum_c"  # revision requested (report exists but revision wins)
 EX_D = "ex_sum_d"  # resubmit via revised edge only → waiting again
+EX_GONE = "ex_sum_gone"  # deleted exercise: snapshot only, no node
 
 
 @pytest.fixture
@@ -55,7 +57,10 @@ async def seeded(clean_neo4j, neo4j_driver) -> None:
     Entry ``created_at`` values are ISO strings (mapper storage form);
     report/revision stamps are native datetimes at fixed instants so the
     newest-activity ordering is deterministic: C (05:30Z) > A (04:00) >
-    D (03:00) > B (02:00Z).
+    D (03:00) > B (02:00Z) > GONE (07-31 01:00Z). Every turn-in carries the
+    snapshot the writer stamps; B's snapshot title is deliberately stale
+    (the live title wins while the node exists); GONE has no Exercise node
+    at all — the exchange whose exercise was deleted.
     """
     async with neo4j_driver.session() as session:
         await session.run(
@@ -74,6 +79,7 @@ async def seeded(clean_neo4j, neo4j_driver) -> None:
             // A: one waiting turn-in
             CREATE (a1:Entity:UserEntry {uid: 'ue_sum_a1', entity_type: 'user_entry',
                 title: 'A turn-in', status: 'submitted',
+                turn_in_exercise_uid: $ex_a, turn_in_exercise_title: 'Alpha',
                 created_at: '2026-08-01T04:00:00.000000'})
             MERGE (s)-[:OWNS]->(a1)
             MERGE (a1)-[:FULFILLS_EXERCISE {revision: 1}]->(exa)
@@ -83,6 +89,7 @@ async def seeded(clean_neo4j, neo4j_driver) -> None:
             // the OUTCOME decides, the property never does (ADR-088).
             CREATE (b1:Entity:UserEntry {uid: 'ue_sum_b1', entity_type: 'user_entry',
                 title: 'B turn-in', status: 'completed',
+                turn_in_exercise_uid: $ex_b, turn_in_exercise_title: 'Bravo (as submitted)',
                 created_at: '2026-08-01T01:00:00.000000'})
             CREATE (rb:Entity:EntryReport {uid: 'er_sum_rb', entity_type: 'entry_report',
                 title: 'B feedback', status: 'completed', visibility: 'private',
@@ -102,6 +109,7 @@ async def seeded(clean_neo4j, neo4j_driver) -> None:
             // C: revision requested on the latest entry — wins over its report
             CREATE (c1:Entity:UserEntry {uid: 'ue_sum_c1', entity_type: 'user_entry',
                 title: 'C turn-in', status: 'revision_requested',
+                turn_in_exercise_uid: $ex_c, turn_in_exercise_title: 'Charlie',
                 created_at: '2026-08-01T05:00:00.000000'})
             CREATE (rc:Entity:EntryReport {uid: 'er_sum_rc', entity_type: 'entry_report',
                 title: 'C revision request', status: 'completed', visibility: 'private',
@@ -115,6 +123,7 @@ async def seeded(clean_neo4j, neo4j_driver) -> None:
             // D: resubmit via the revised edge ONLY — waiting again
             CREATE (d1:Entity:UserEntry {uid: 'ue_sum_d1', entity_type: 'user_entry',
                 title: 'D turn-in', status: 'revision_requested',
+                turn_in_exercise_uid: $ex_d, turn_in_exercise_title: 'Delta',
                 created_at: '2026-08-01T00:00:00.000000'})
             CREATE (rd:Entity:EntryReport {uid: 'er_sum_rd', entity_type: 'entry_report',
                 title: 'D revision request', status: 'completed', visibility: 'private',
@@ -125,6 +134,7 @@ async def seeded(clean_neo4j, neo4j_driver) -> None:
                 revision_number: 2, created_at: datetime('2026-08-01T00:45:00Z')})
             CREATE (d2:Entity:UserEntry {uid: 'ue_sum_d2', entity_type: 'user_entry',
                 title: 'D resubmit', status: 'submitted',
+                turn_in_exercise_uid: $ex_d, turn_in_exercise_title: 'Delta',
                 created_at: '2026-08-01T03:00:00.000000'})
             MERGE (s)-[:OWNS]->(d1)
             MERGE (s)-[:OWNS]->(rd)
@@ -134,6 +144,21 @@ async def seeded(clean_neo4j, neo4j_driver) -> None:
             MERGE (red)-[:RESPONDS_TO_REPORT]->(rd)
             MERGE (red)-[:REVISES_EXERCISE]->(exd)
             MERGE (d2)-[:FULFILLS_REVISED_EXERCISE]->(red)
+
+            // GONE: the exercise was deleted — snapshot only, no Exercise node,
+            // no edge. The exchange survives: one line, the report counted
+            // there and NOT in other_feedback (R12, R13).
+            CREATE (g1:Entity:UserEntry {uid: 'ue_sum_g1', entity_type: 'user_entry',
+                title: 'Gone turn-in', status: 'completed',
+                turn_in_exercise_uid: $ex_gone, turn_in_exercise_title: 'Golf',
+                created_at: '2026-07-31T00:00:00.000000'})
+            CREATE (rg:Entity:EntryReport {uid: 'er_sum_rg', entity_type: 'entry_report',
+                title: 'Gone feedback', status: 'completed', visibility: 'private',
+                processor_type: 'human', assessment_outcome: 'approved',
+                created_at: datetime('2026-07-31T01:00:00Z')})
+            MERGE (s)-[:OWNS]->(g1)
+            MERGE (s)-[:OWNS]->(rg)
+            MERGE (rg)-[:REPORT_FOR]->(g1)
 
             // Received feedback OUTSIDE any exchange
             CREATE (pe:Entity:UserEntry {uid: 'ue_sum_plain', entity_type: 'user_entry',
@@ -161,6 +186,7 @@ async def seeded(clean_neo4j, neo4j_driver) -> None:
             // Parallel student on the same exercise — must never leak
             CREATE (o1:Entity:UserEntry {uid: 'ue_sum_o1', entity_type: 'user_entry',
                 title: 'Other turn-in', status: 'completed',
+                turn_in_exercise_uid: $ex_a, turn_in_exercise_title: 'Alpha',
                 created_at: '2026-08-01T06:00:00.000000'})
             CREATE (ro:Entity:EntryReport {uid: 'er_sum_ro', entity_type: 'entry_report',
                 title: 'Other feedback', status: 'completed', visibility: 'private',
@@ -177,6 +203,7 @@ async def seeded(clean_neo4j, neo4j_driver) -> None:
             ex_b=EX_B,
             ex_c=EX_C,
             ex_d=EX_D,
+            ex_gone=EX_GONE,
         )
 
 
@@ -185,9 +212,28 @@ class TestExchangeSummaries:
         result = await service.get_student_exchange_summaries(STUDENT)
         assert result.is_ok, f"summary read failed: {result}"
         rows = result.value["exercises"]
-        assert [r["exercise_uid"] for r in rows] == [EX_C, EX_A, EX_D, EX_B], (
+        assert [r["exercise_uid"] for r in rows] == [EX_C, EX_A, EX_D, EX_B, EX_GONE], (
             "lines must order by latest activity (entry vs report stamps, naive=UTC)"
         )
+        assert all(not r["exercise_removed"] for r in rows if r["exercise_uid"] != EX_GONE)
+
+    async def test_deleted_exercise_keeps_its_line_from_the_snapshot(self, service, seeded) -> None:
+        """R12: the exchange key is the snapshot, so a deleted exercise's
+        exchange stays a line — flagged, titled from the snapshot, its
+        report counted here (never in Other feedback)."""
+        summaries = (await service.get_student_exchange_summaries(STUDENT)).value
+        gone = next(r for r in summaries["exercises"] if r["exercise_uid"] == EX_GONE)
+        assert gone["exercise_removed"] is True
+        assert gone["exercise_title"] == "Golf"
+        assert gone["exchange_status"] == ExchangeStatus.FEEDBACK_RECEIVED.value
+        assert gone["latest_report_uid"] == "er_sum_rg"
+        assert "er_sum_rg" not in {r["uid"] for r in summaries["other_feedback"]}
+
+    async def test_live_title_outranks_a_stale_snapshot(self, service, seeded) -> None:
+        rows = (await service.get_student_exchange_summaries(STUDENT)).value["exercises"]
+        b = next(r for r in rows if r["exercise_uid"] == EX_B)
+        assert b["exercise_title"] == "Bravo"
+        assert b["exercise_removed"] is False
 
     async def test_status_derivation_covers_all_three_states(self, service, seeded) -> None:
         rows = (await service.get_student_exchange_summaries(STUDENT)).value["exercises"]

@@ -39,6 +39,8 @@ class UserEntryDTO(UserOwnedDTO):
     - Processing (9): pipeline, private, timestamps, error, content, file,
                       instructions, max_retention
     - Modality (1): modality
+    - Declared exercise intent (1): fulfills_exercise_uid
+    - Turn-in snapshot (2): turn_in_exercise_uid, turn_in_exercise_title
     """
 
     # Honest leaf default (base EntityDTO requires entity_type — G6).
@@ -75,6 +77,12 @@ class UserEntryDTO(UserOwnedDTO):
     # DECLARED EXERCISE INTENT (vault living channel — see UserEntry docstring)
     # =========================================================================
     fulfills_exercise_uid: str | None = None
+
+    # =========================================================================
+    # TURN-IN SNAPSHOT (the exchange key — see UserEntry docstring)
+    # =========================================================================
+    turn_in_exercise_uid: str | None = None
+    turn_in_exercise_title: str | None = None
 
     # =========================================================================
     # SERIALIZATION

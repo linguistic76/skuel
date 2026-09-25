@@ -273,6 +273,11 @@ POST /api/user-entries/upload               POST /api/user-entries/form
      set + no caller uid — the /submit form and /upload paths):
      → FULFILLS_EXERCISE {revision} → root Exercise (always)
      → FULFILLS_REVISED_EXERCISE {revision} → RevisedExercise (revision cycles only)
+     → stamps the turn-in snapshot on the entry: turn_in_exercise_uid (the root's
+       uid) + turn_in_exercise_title — THE exchange key (GradeBook lines, /exchange,
+       the queue's copy collapse, report titles all group on it), so an exchange
+       outlives its exercise's DETACH DELETE and shows "Exercise removed"
+       (Submit & Share arc R12)
      (a caller-supplied deterministic uid + fulfills is the VAULT LIVING ENTRY
       instead: idempotent upsert, intent stored as the fulfills_exercise_uid node
       property, NO edge/revision/Interaction — the vault exercise channel files
@@ -661,8 +666,10 @@ enables student notification and learning loop progression tracking.
 
 Revisions surface on the GradeBook exchange lines (`/gradebook` — a
 `revision_requested` latest entry renders the line's "Revision requested"
-status) and inside the `/exchange` thread; there is no `/revised-exercises`
-list page. The surfaces:
+status) and inside the `/exchange` thread, where a revision request item is
+labelled with `EntityType.REVISED_EXERCISE.get_display_name()` ("Revision
+request" — the enum is the one source of that label; the entity name stays
+`RevisedExercise`); there is no `/revised-exercises` list page. The surfaces:
 - `GET /revised-exercises/detail?uid=` — detail page with `render_revised_exercise_detail()` (feedback points, instructions, submit link)
 
 Routes in `adapters/inbound/revised_exercises_ui.py`. Renderer in `ui/learning_loop/revised_exercise.py`.

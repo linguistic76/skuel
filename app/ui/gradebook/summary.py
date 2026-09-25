@@ -21,7 +21,7 @@ from fasthtml.common import H2, A, Div, Form, Input, Option, P, Span
 from fasthtml.common import Button as HtmlButton
 
 from core.models.enums.pipeline import ExchangeStatus, ReportSource
-from ui.feedback import Badge
+from ui.feedback import Badge, BadgeT
 from ui.forms import Select
 from ui.layout import Size
 from ui.patterns.empty_state import EmptyState
@@ -135,9 +135,22 @@ def _filter_bar(status: str, source: str) -> FT:
     )
 
 
+EXERCISE_REMOVED_LABEL = "Exercise removed"
+
+
 def _exchange_line(row: StudentExchangeSummary) -> FT:
-    """One exercise line — the whole row opens the exchange thread."""
+    """One exercise line — the whole row opens the exchange thread.
+
+    An exchange whose exercise has been deleted keeps its line, titled from
+    the turn-in snapshot and badged "Exercise removed" (Submit & Share arc
+    R12) — the thread still opens.
+    """
     status = ExchangeStatus(row["exchange_status"])
+    removed_badge: FT | str = (
+        Badge(EXERCISE_REMOVED_LABEL, variant=BadgeT.outline, size=Size.sm)
+        if row["exercise_removed"]
+        else ""
+    )
     when = format_date(row["latest_activity_at"])
     source_label = _source_label(row["latest_report_source"])
     entry_count = row["entry_count"]
@@ -154,6 +167,7 @@ def _exchange_line(row: StudentExchangeSummary) -> FT:
                 P(" · ".join(meta_parts), cls="text-xs text-muted-foreground mb-0"),
                 cls="flex-1 min-w-0",
             ),
+            removed_badge,
             Badge(
                 status.get_display_name(),
                 variant=None,
@@ -212,6 +226,12 @@ def _other_feedback_card(row: GradebookOtherReport) -> FT:
     )
 
 
+# R13 (Submit & Share arc): the group holds feedback on entries that are not
+# turn-ins — an exchange whose exercise was deleted is NOT here, it keeps its
+# line above.
+OTHER_FEEDBACK_SUBTITLE = "Feedback on work that isn't tied to an exercise."
+
+
 def render_other_feedback_group(rows: list[GradebookOtherReport]) -> FT | None:
     """Conditional "Other feedback" group — ``None`` (hidden) when empty."""
     if not rows:
@@ -219,7 +239,7 @@ def render_other_feedback_group(rows: list[GradebookOtherReport]) -> FT | None:
     return Div(
         H2("Other feedback", cls="text-lg font-semibold mb-1"),
         P(
-            "Feedback you received outside an exercise exchange.",
+            OTHER_FEEDBACK_SUBTITLE,
             cls="text-sm text-muted-foreground mb-3",
         ),
         *[_other_feedback_card(row) for row in rows],

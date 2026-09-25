@@ -55,6 +55,11 @@ from core.models.enums.user_entry_enums import SubmissionModality
 from core.models.type_hints import UserUID
 from core.models.user_owned_entity import UserOwnedEntity
 
+# The title an exchange shows for a turn-in whose exercise is gone and whose
+# snapshot carries no title (a pre-snapshot turn-in the backfill could not
+# resolve to a live node). Every live turn-in snapshots the real title.
+EXERCISE_REMOVED_TITLE = "Exercise removed"
+
 # The five stored periodic-note kinds (ADR-073: journal *sessions* are never
 # stored; periodic notes are the one deliberate stored journal feature). THE
 # membership vocabulary — every consumer (UserEntryService.ensure_periodic_note,
@@ -140,6 +145,20 @@ class UserEntry(UserOwnedEntity):
     # the property on the next sync (intent withdrawn). Mirrors the
     # ``Exercise.path_step_uid`` membership-property precedent.
     fulfills_exercise_uid: str | None = None
+
+    # =========================================================================
+    # TURN-IN SNAPSHOT — the exchange key (Submit & Share arc R12)
+    # =========================================================================
+    # Stamped by the turn-in writer (``create_with_exercise_link``) and never
+    # by the author: the root exercise's uid and its title as they were at
+    # submission. An entry that carries them IS a turn-in; the GradeBook and
+    # the exchange thread group on the uid and fall back to the title when
+    # the exercise has since been deleted (``DETACH DELETE`` removes the
+    # ``FULFILLS_EXERCISE`` edge, never a property), so an exchange survives
+    # its exercise and renders as "Exercise removed" instead of dropping into
+    # Other feedback. A living vault entry carries neither.
+    turn_in_exercise_uid: str | None = None
+    turn_in_exercise_title: str | None = None
 
     # =========================================================================
     # TITLE GENERATION — ports Submission.generate_exercise_title unchanged;

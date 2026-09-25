@@ -229,7 +229,7 @@ class UserEntryService(BaseService[UserEntryOperations, UserEntry]):
         # declared exercise. The deterministic-uid + fulfills combination is
         # the vault living channel: the declaration is stored as intent on the
         # node, never as an edge (the frozen copies carry the edges).
-        turn_in_exercise_uid = None if request.uid else request.fulfills_exercise_uid
+        submitted_against_uid = None if request.uid else request.fulfills_exercise_uid
         if request.uid:
             uid = EntityUID(request.uid)
         else:
@@ -290,11 +290,11 @@ class UserEntryService(BaseService[UserEntryOperations, UserEntry]):
         )
 
         # 2. Persist node (turn-in / living upsert / plain create)
-        if turn_in_exercise_uid:
-            revision = await self._next_revision(user_uid, turn_in_exercise_uid)
+        if submitted_against_uid:
+            revision = await self._next_revision(user_uid, submitted_against_uid)
             create_result = await self.backend.create_with_exercise_link(
                 entry=entry,
-                exercise_uid=turn_in_exercise_uid,
+                exercise_uid=submitted_against_uid,
                 revision=revision,
             )
         elif request.uid:
@@ -321,11 +321,11 @@ class UserEntryService(BaseService[UserEntryOperations, UserEntry]):
         # mints when the frozen copy files. The PathStep context is what
         # the PS submissions-and-feedback query anchors on (INTERACTION_DURING),
         # so about_path_step_uid must ride onto the record.
-        if turn_in_exercise_uid and self.interaction_service is not None:
+        if submitted_against_uid and self.interaction_service is not None:
             await self._create_interaction_record(
                 entry_uid=created.uid,
                 user_uid=user_uid,
-                exercise_uid=turn_in_exercise_uid,
+                exercise_uid=submitted_against_uid,
                 path_step_uid=request.about_path_step_uid,
             )
 
@@ -386,7 +386,7 @@ class UserEntryService(BaseService[UserEntryOperations, UserEntry]):
         # knows the share outcome. Later transitions (REPORT_GENERATED,
         # COMPLETED, FAILED) are event-driven via interaction_result_handler.
         if (
-            turn_in_exercise_uid
+            submitted_against_uid
             and request.pipeline == Pipeline.TEACHER_REVIEW
             and outcome.submitted_groups
             and self.interaction_service is not None
@@ -430,7 +430,7 @@ class UserEntryService(BaseService[UserEntryOperations, UserEntry]):
                 user_uid=user_uid,
                 pipeline=request.pipeline.value,
                 modality=request.modality.value if request.modality else None,
-                fulfills_exercise_uid=turn_in_exercise_uid,
+                fulfills_exercise_uid=submitted_against_uid,
                 transforms_of_uid=request.transforms_of_uid,
                 file_type=request.file_type,
             ),

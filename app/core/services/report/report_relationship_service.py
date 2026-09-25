@@ -23,6 +23,7 @@ from typing import TYPE_CHECKING, Any, cast
 
 from core.models.enums.pipeline import ExchangeStatus
 from core.models.type_hints import UserUID
+from core.models.user_entry.user_entry import EXERCISE_REMOVED_TITLE
 from core.ports.query_types import (
     ExchangeThread,
     ExchangeThreadEntry,
@@ -231,12 +232,15 @@ class ReportRelationshipService:
         the exercise, the reports on them, the revision requests responding to
         those reports) for the /exchange thread page (feedback-loop UX arc C5).
 
-        Not-found covers BOTH a missing exercise and an exercise this student
-        has never submitted against: an empty thread and a nonexistent one are
-        deliberately indistinguishable, so the page cannot be used to probe
-        which exercise UIDs exist. In teacher mode that includes an exchange
-        whose entries the student directed only to another teacher's classroom
-        — scoped out entirely, it reads as not-found too.
+        Not-found is "this student has no turn-in against this exercise":
+        the exchange is keyed by the entries' turn-in snapshot, so it survives
+        the exercise's deletion (``exercise_removed``, the title from the
+        snapshot — Submit & Share arc R12) and an exercise uid nobody
+        submitted against reads the same whether or not it exists, so the
+        page cannot be used to probe which exercise UIDs exist. In teacher
+        mode that includes an exchange whose entries the student directed
+        only to another teacher's classroom — scoped out entirely, it reads
+        as not-found too.
 
         Args:
             exercise_uid: UID of the root exercise.
@@ -258,17 +262,19 @@ class ReportRelationshipService:
 
         records = result.value or []
         record = cast("dict[str, Any]", records[0]) if records else {}
-        exercise = record.get("exercise")
+        exercise = dict(record.get("exercise") or {})
         entries = [dict(e) for e in (record.get("entries") or []) if e.get("uid")]
-        if exercise is None or not entries:
+        if not entries:
             return Result.fail(Errors.not_found(resource="Exchange", identifier=exercise_uid))
 
         reports = [dict(r) for r in (record.get("reports") or []) if r.get("uid")]
         revisions = [dict(r) for r in (record.get("revisions") or []) if r.get("uid")]
+        title = exercise.get("title") or record.get("snapshot_title") or EXERCISE_REMOVED_TITLE
         return Result.ok(
             ExchangeThread(
-                exercise_uid=str(exercise.get("uid") or exercise_uid),
-                exercise_title=str(exercise.get("title") or "") or exercise_uid,
+                exercise_uid=exercise_uid,
+                exercise_title=str(title),
+                exercise_removed=bool(record.get("exercise_removed")),
                 student_uid=student_uid,
                 entries=cast("list[ExchangeThreadEntry]", entries),
                 reports=cast("list[ExchangeThreadReport]", reports),
@@ -283,13 +289,15 @@ class ReportRelationshipService:
         Every exchange the student is in, one summary line each — the
         GradeBook page's single read (feedback-loop UX arc 2 C1).
 
-        Per root exercise with lineage entries (direct turn-ins + resubmits
-        via a revision): the latest entry, the latest report on it, lineage
-        counts, the derived ``ExchangeStatus``, and ``latest_activity_at``
-        (the newer of the two stamps, naive = UTC). Lines come back newest
-        activity first. ``other_feedback`` carries received reports outside
-        any exchange (report on an entry with no exercise lineage, or on no
-        entry) — the page's conditional third group.
+        Per root exercise the student has turn-ins against (keyed by the
+        turn-in snapshot, so a deleted exercise keeps its line —
+        ``exercise_removed``, titled from the snapshot): the latest entry,
+        the latest report on it, lineage counts, the derived
+        ``ExchangeStatus``, and ``latest_activity_at`` (the newer of the two
+        stamps, naive = UTC). Lines come back newest activity first.
+        ``other_feedback`` carries received reports outside any exchange
+        (a report on an entry that is not a turn-in, or on no entry) — the
+        page's conditional third group.
 
         A student with no exchanges gets empty lists, not an error — an
         empty GradeBook is a state, not a failure.
@@ -331,7 +339,8 @@ class ReportRelationshipService:
             exercises.append(
                 StudentExchangeSummary(
                     exercise_uid=str(row["exercise_uid"]),
-                    exercise_title=str(row.get("exercise_title") or "") or str(row["exercise_uid"]),
+                    exercise_title=str(row.get("exercise_title") or EXERCISE_REMOVED_TITLE),
+                    exercise_removed=bool(row.get("exercise_removed")),
                     latest_entry_uid=str(row["latest_entry_uid"]),
                     latest_entry_status=row.get("latest_entry_status"),
                     latest_entry_created_at=entry_stamp,

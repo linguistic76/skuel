@@ -2,10 +2,15 @@
 
 Pins the C5 contract (feedback-loop UX arc):
 
-- The chain read returns the student's WHOLE exchange in one query: direct
-  ``FULFILLS_EXERCISE`` turn-ins (with the edge revision), entries submitted
-  against a revision (``FULFILLS_REVISED_EXERCISE``), the reports on those
-  entries, and the revision requests responding to those reports.
+- The chain read returns the student's WHOLE exchange in one query, keyed by
+  the turn-in snapshot (``turn_in_exercise_uid``): direct ``FULFILLS_EXERCISE``
+  turn-ins (with the edge revision), entries submitted against a revision
+  (``FULFILLS_REVISED_EXERCISE`` beside the root edge the writer always
+  anchors — one row each, never two), the reports on those entries, and the
+  revision requests responding to those reports.
+- The exchange outlives its exercise (Submit & Share arc R12): after a
+  ``DETACH DELETE`` the thread still reads, ``exercise_removed``, titled from
+  the snapshot, with every viewer's scope exactly as before.
 - Received feedback is identified by its outcome: a report with no
   ``assessment_outcome`` (a self-owned journal reflection) is not part of the
   teacher↔student exchange, and the ``visibility`` property decides nothing
@@ -99,8 +104,10 @@ async def seeded(clean_neo4j, neo4j_driver) -> None:
 
     STUDENT's chain: rev-1 and rev-2 turn-ins, a teacher report (an outcome;
     visibility 'private') and an outcome-less reflection (visibility 'public')
-    on rev 2, a revision request responding to the teacher report, and a follow-up entry against that revision — all shared with
-    TEACHER's group. STUDENT is multi-class: a fourth entry on the same
+    on rev 2, a revision request responding to the teacher report, and a
+    follow-up entry against that revision (both edges, as the writer anchors
+    them: the root ``FULFILLS_EXERCISE`` beside ``FULFILLS_REVISED_EXERCISE``)
+    — all shared with TEACHER's group. Every turn-in carries the snapshot. STUDENT is multi-class: a fourth entry on the same
     exercise is shared ONLY with SECOND_TEACHER's group. OTHER_STUDENT has
     their own entry/report/revision on the SAME exercise — none of it may
     appear in STUDENT's thread. OTHER_TEACHER shares no group with STUDENT.
@@ -129,11 +136,13 @@ async def seeded(clean_neo4j, neo4j_driver) -> None:
             CREATE (e1:Entity:UserEntry {
                 uid: $e1, entity_type: 'user_entry', title: 'Turn-in rev 1',
                 status: 'submitted', pipeline: 'teacher_review',
+                turn_in_exercise_uid: $ex, turn_in_exercise_title: 'Root exercise',
                 created_at: datetime() - duration('PT4H'), updated_at: datetime()
             })
             CREATE (e2:Entity:UserEntry {
                 uid: $e2, entity_type: 'user_entry', title: 'Turn-in rev 2',
                 status: 'completed', pipeline: 'teacher_review',
+                turn_in_exercise_uid: $ex, turn_in_exercise_title: 'Root exercise',
                 created_at: datetime() - duration('PT3H'), updated_at: datetime()
             })
             CREATE (r1:Entity:EntryReport {
@@ -156,16 +165,19 @@ async def seeded(clean_neo4j, neo4j_driver) -> None:
             CREATE (e3:Entity:UserEntry {
                 uid: $e3, entity_type: 'user_entry', title: 'Turn-in after revision',
                 status: 'submitted', pipeline: 'teacher_review',
+                turn_in_exercise_uid: $ex, turn_in_exercise_title: 'Root exercise',
                 created_at: datetime() - duration('PT30M'), updated_at: datetime()
             })
             CREATE (esc:Entity:UserEntry {
                 uid: $e_second, entity_type: 'user_entry', title: 'Second-class turn-in',
                 status: 'submitted', pipeline: 'teacher_review',
+                turn_in_exercise_uid: $ex, turn_in_exercise_title: 'Root exercise',
                 created_at: datetime() - duration('PT20M'), updated_at: datetime()
             })
             CREATE (oe:Entity:UserEntry {
                 uid: $o_entry, entity_type: 'user_entry', title: 'Other student turn-in',
                 status: 'submitted', pipeline: 'teacher_review',
+                turn_in_exercise_uid: $ex, turn_in_exercise_title: 'Root exercise',
                 created_at: datetime() - duration('PT4H'), updated_at: datetime()
             })
             CREATE (orep:Entity:EntryReport {
@@ -189,7 +201,8 @@ async def seeded(clean_neo4j, neo4j_driver) -> None:
             MERGE (os)-[:OWNS]->(orep)
             MERGE (e1)-[:FULFILLS_EXERCISE {revision: 1}]->(ex)
             MERGE (e2)-[:FULFILLS_EXERCISE {revision: 2}]->(ex)
-            MERGE (esc)-[:FULFILLS_EXERCISE {revision: 3}]->(ex)
+            MERGE (e3)-[:FULFILLS_EXERCISE {revision: 3}]->(ex)
+            MERGE (esc)-[:FULFILLS_EXERCISE {revision: 4}]->(ex)
             MERGE (oe)-[:FULFILLS_EXERCISE {revision: 1}]->(ex)
             MERGE (e1)-[:SUBMITTED_TO_GROUP]->(g)
             MERGE (e2)-[:SUBMITTED_TO_GROUP]->(g)
@@ -239,8 +252,12 @@ class TestExchangeChainRead:
 
         assert thread["exercise_uid"] == EX
         assert thread["exercise_title"] == "Root exercise"
+        assert thread["exercise_removed"] is False
         assert {e["uid"] for e in thread["entries"]} == {E1, E2, E3, E_SECOND}, (
             "the self view spans ALL the student's classes"
+        )
+        assert len(thread["entries"]) == 4, (
+            "one row per entry — a revision response carries both edges and must not double"
         )
         assert {r["uid"] for r in thread["reports"]} == {R_SHARED}
         assert {r["uid"] for r in thread["revisions"]} == {REVISED}
@@ -251,8 +268,9 @@ class TestExchangeChainRead:
         by_uid = {e["uid"]: e for e in thread["entries"]}
         assert by_uid[E1]["revision"] == 1
         assert by_uid[E2]["revision"] == 2
-        assert by_uid[E3]["revision"] is None
+        assert by_uid[E3]["revision"] == 3
         assert by_uid[E3]["via_revised_uid"] == REVISED
+        assert by_uid[E2]["via_revised_uid"] is None
         # Every created_at is an ISO string (toString emission) — mixed native
         # datetimes vs mapper strings must never reach the renderer.
         for item in [*thread["entries"], *thread["reports"], *thread["revisions"]]:
@@ -283,6 +301,58 @@ class TestExchangeChainRead:
         assert never_submitted.is_error, (
             "an exercise the student never submitted against reads as not-found"
         )
+
+
+@pytest.fixture
+async def exercise_deleted(seeded, neo4j_driver) -> None:
+    """The exercise is gone the way the CRUD delete removes it: DETACH DELETE
+    strips every FULFILLS_EXERCISE and REVISES_EXERCISE edge with the node."""
+    async with neo4j_driver.session() as session:
+        await session.run("MATCH (ex:Entity:Exercise {uid: $ex}) DETACH DELETE ex", ex=EX)
+
+
+class TestExchangeSurvivesExerciseDeletion:
+    """R12: the snapshot is the key, so the thread outlives its exercise."""
+
+    async def test_student_still_reads_the_whole_thread(
+        self, relationship_service, exercise_deleted
+    ) -> None:
+        result = await relationship_service.get_exchange_thread(EX, STUDENT)
+        assert result.is_ok, f"a deleted exercise must not lose the exchange: {result}"
+        thread = result.value
+        assert thread["exercise_removed"] is True
+        assert thread["exercise_title"] == "Root exercise", "the title comes from the snapshot"
+        assert {e["uid"] for e in thread["entries"]} == {E1, E2, E3, E_SECOND}
+        assert {r["uid"] for r in thread["reports"]} == {R_SHARED}
+        assert {r["uid"] for r in thread["revisions"]} == {REVISED}
+        assert all(e["revision"] is None for e in thread["entries"]), (
+            "the edge revision died with the exercise; the row survives"
+        )
+
+    async def test_every_viewer_scope_is_unchanged_by_the_deletion(
+        self, orchestrator, exercise_deleted
+    ) -> None:
+        """The per-entry gate keys on the entry, not the exercise: each teacher
+        keeps exactly their classroom's entries, and a teacher with no shared
+        group stays not-found — a removed exercise widens nobody's scope."""
+        first = await orchestrator.get_exchange_thread(
+            viewer_uid=TEACHER, exercise_uid=EX, student_uid=STUDENT
+        )
+        assert first.is_ok
+        assert {e["uid"] for e in first.value["entries"]} == {E1, E2, E3}
+        second = await orchestrator.get_exchange_thread(
+            viewer_uid=SECOND_TEACHER, exercise_uid=EX, student_uid=STUDENT
+        )
+        assert second.is_ok
+        assert {e["uid"] for e in second.value["entries"]} == {E_SECOND}
+        unrelated = await orchestrator.get_exchange_thread(
+            viewer_uid=OTHER_TEACHER, exercise_uid=EX, student_uid=STUDENT
+        )
+        assert unrelated.is_error
+        never_submitted = await orchestrator.get_exchange_thread(
+            viewer_uid=TEACHER, exercise_uid=EX
+        )
+        assert never_submitted.is_error, "no turn-in against it → not-found, deleted or not"
 
 
 class TestExchangeAccessGate:

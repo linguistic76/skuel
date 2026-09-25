@@ -20,6 +20,7 @@ from typing import TYPE_CHECKING
 
 from fasthtml.common import H3, A, Div, P, Span
 
+from core.models.enums.entity_enums import EntityType
 from core.models.enums.pipeline import ReportSource
 from core.utils.timestamp_helpers import parse_iso_utc
 
@@ -34,7 +35,8 @@ if TYPE_CHECKING:
     )
 
 from ui.enum_helpers import get_status_badge_class
-from ui.feedback import Badge
+from ui.feedback import Badge, BadgeT
+from ui.gradebook.summary import EXERCISE_REMOVED_LABEL
 from ui.layout import Size
 from ui.patterns.empty_state import EmptyState
 from ui.patterns.page_header import PageHeader
@@ -157,7 +159,8 @@ def _report_item(report: ExchangeThreadReport, viewer_is_teacher: bool) -> Div:
 def _revision_item(revision: ExchangeThreadRevision) -> Div:
     """A revision request in the thread — same detail surface for both viewers."""
     number = revision.get("revision_number")
-    kind = f"Revision Request (rev {number})" if number else "Revision Request"
+    label = EntityType.REVISED_EXERCISE.get_display_name()
+    kind = f"{label} (rev {number})" if number else label
     return _item_card(
         kind_label=kind,
         border_cls="border-l-warning",
@@ -190,13 +193,27 @@ def render_exchange_thread(thread: ExchangeThread, viewer_uid: str) -> Div:
             cls="text-sm text-muted-foreground",
         )
 
-    context_line = P(
-        "on ",
-        A(
+    # The exercise link exists only while the exercise does: a removed
+    # exercise keeps the thread (keyed by the turn-in snapshot) and shows its
+    # snapshotted title with a badge instead of a dead link (R12).
+    exercise_ref: FT = (
+        Span(thread["exercise_title"])
+        if thread["exercise_removed"]
+        else A(
             thread["exercise_title"],
             href=f"/exercises/get?uid={thread['exercise_uid']}",
             cls="underline decoration-dotted hover:text-foreground",
-        ),
+        )
+    )
+    removed_badge: FT | str = (
+        Badge(EXERCISE_REMOVED_LABEL, variant=BadgeT.outline, size=Size.sm, cls="ml-2")
+        if thread["exercise_removed"]
+        else ""
+    )
+    context_line = P(
+        "on ",
+        exercise_ref,
+        removed_badge,
         " ",
         student_note,
         cls="text-sm text-muted-foreground mb-6",

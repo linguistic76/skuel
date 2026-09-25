@@ -706,6 +706,40 @@ it first removes both.
   - the `test_gradebook_summary.py` row default.
 - **Docs:** ROUTE_MAP /gradebook and /exchange; `docs/domains/user_entry.md:118-125` (the snapshot
   marks a turn-in); the learning-loop skill.
+- **Ruled (PR 4a session, 2026-09-25 — engineering choices the census found unsettled; none touches
+  a ruling):**
+  - The snapshot title is the root's title at submission: `coalesce(original.title, exercise.title)`
+    — a revision whose original is already gone snapshots the revision's own title, since that
+    is the best title left. Readers prefer the live exercise's current title while the node
+    exists and fall back to the snapshot (a stale snapshot never outranks a live title).
+  - The exchange thread's not-found is "no turn-in against this uid", not "no exercise": the
+    service no longer refuses on a NULL exercise projection — that refusal was the defect. A
+    revision response carries BOTH edges (the writer's shape), so `revision` and
+    `via_revised_uid` are no longer exclusive on `ExchangeThreadEntry`; the snapshot key yields
+    one row per entry, which is what deletes the duplicate-resubmit rows.
+  - The queue's rank keeps the edge revision where the edge still exists (a pattern
+    comprehension inside the `NOT EXISTS`, so a deleted exercise's copies rank on `created_at`
+    alone — the writer mints revision and created_at in the same order, so the collapse is
+    unchanged). The lineage guard is `turn_in_exercise_uid IS NULL` (not a turn-in → passes
+    through), replacing `ex IS NULL`.
+  - The three teacher projections that named the exercise (`get_review_queue_by_groups`,
+    `get_entry_detail_for_teacher`, `get_student_submissions`) coalesce the snapshot, so the
+    review page's "View exchange thread" and the student hub's exercise title survive the
+    deletion too; the `/gradebook/{uid}` chain projection returns the snapshot with
+    `removed: true` and the page hides "Request AI feedback" on a removed exercise (the reviewer
+    reads the exercise's instructions).
+  - The backfill's turn-in trace for an edge-less entry is the `Interaction` `RECORDS` edge
+    (minted only when a frozen copy files); a property-only entry with no trace is a living vault
+    note — listed as "left untouched", never stamped. Live census 2026-09-25: 4 candidates, all
+    via a direct edge to a live exercise, 0 placeholder titles, 0 intent-only rows.
+  - The section's "SECOND_TEACHER gets not_found on a removed exercise" is pinned as the gate
+    being unchanged by the deletion: each teacher keeps exactly their classroom's entries
+    (SECOND_TEACHER sees only the second-class turn-in), the unrelated teacher and a student
+    with no turn-in stay not-found — a removed exercise widens nobody's scope.
+  - `EXERCISE_REMOVED_TITLE` ("Exercise removed", `core/models/user_entry/user_entry.py`) is the
+    placeholder title the backfill stamps with no live node and the last fallback of both
+    reads; the UI badge label `EXERCISE_REMOVED_LABEL` (`ui/gradebook/summary.py`) is the same
+    words on the line, the thread header and the detail badge.
 
 ### PR 4b — Two lineage predicates that never match
 
@@ -1202,7 +1236,7 @@ requires PR 1, PR 3, PR 5 and PR 6a. PR 6c requires PR 4a, PR 5 and PR 6b. PR 7 
 | 2b | The outcome discriminator; the EntryReport access check retired; report detail is an owner read | The GradeBook shows the same exchanges as before (3 live on 2026-09-24, on old and new code — the PR 0 census counted 2). `/entry-reports/detail` gives the owner 200 and others 404 | merged #1415, 2026-09-24 |
 | 2a | `visibility` = {private, public}: enum, writers, Events field, spawn fix, migration first; `set_visibility` PUBLIC-only; the duplicate ingestion gate and the unused request/response classes deleted | The census shows 0 `shared`/`team` values. The Events form has no Visibility field. Spawned instances are private | merged #1416, 2026-09-24 |
 | 3 | `NotificationType`; card links; admin activity reports owned by the student + their bell; subject validation; generated-report reads exclude admin (human) reports, both user-context statements included | An admin writes an activity report → the student's bell → the detail page opens. The old feedback bells open their reports | merged #1417, 2026-09-25 |
-| 4a | Snapshot-keyed exchanges; "Exercise removed"; R13 subtitle | After deleting a test exercise with turn-ins, the GradeBook shows an "Exercise removed" line and `/exchange` opens | open |
+| 4a | Snapshot-keyed exchanges; "Exercise removed"; R13 subtitle | After deleting a test exercise with turn-ins, the GradeBook shows an "Exercise removed" line and `/exchange` opens | merged #1418, 2026-09-25 |
 | 4b | The two lineage predicates accept `FULFILLS_EXERCISE\|FULFILLS_REVISED_EXERCISE` | A resubmitted revision no longer shows as pending in UserContext | open |
 | 5 | `OWNER_OR_AUDIENCE` + `read_visibility`; the audience fragment; viewer-aware `/gradebook/{uid}` + download; the peer route retired | A person-shared entry opens for its recipient with no status or feedback. A non-recipient gets 404 | open |
 | 6a | `AudienceSpec` + resolver; R8 co-membership; journal privacy; `group:` never files a feedback request; vault `user:` / `teacher:` parsed but applied only from PR 8 | The vault parser accepts `audience: [teachers, user:<name>]` (unit matrix). A JSON-door `user:` share to a co-member (user_admin, or a member of a non-default group) succeeds; a Default-Group-only member gets the uniform error | open |
