@@ -1,6 +1,6 @@
 ---
 title: Four-Phase Learning Loop
-updated: 2026-09-21
+updated: 2026-09-25
 status: current
 category: architecture
 related:
@@ -482,8 +482,11 @@ protocols in `core/ports/report_protocols.py`).
 ### 3b. ACTIVITY_REPORT — Response to Activity Patterns
 
 **What:** Response to a user's aggregate activity over a time window. Not tied to a
-specific artifact — it responds to *patterns*. Three sources: scheduled system (`AUTOMATIC`),
-on-demand AI (`LLM`), or admin-written (`HUMAN`).
+specific artifact — it responds to *patterns*. Three sources: the programmatic fallback
+(`AUTOMATIC`), on-demand AI (`LLM`), or admin-written (`HUMAN`). Whoever wrote it, the
+subject owns it (Submit & Share arc R11): an admin's report lands in the student's
+GradeBook, opens on their detail page ("From <admin>"), and rings their bell
+(`ActivityReportWritten` → `activity_report_received`).
 
 **EntityType:** `EntityType.ACTIVITY_REPORT`
 **Structural position:** Cross-domain aggregator — sits above the domain backends by design.
