@@ -1,16 +1,15 @@
-"""``GET /entry-reports/detail`` is an owner read (ADR-088 §3, Submit & Share arc PR 2b).
+"""``GET /entry-reports/detail`` is an owner read (ADR-088 §3).
 
 An EntryReport belongs to the student it was written for (``user_uid``); the
 teacher who wrote it is its ``author_uid`` and reads their own artifacts on
-the teaching surfaces. The route no longer consults a share edge or the
-``visibility`` property — the retired EntryReport access check admitted a
-non-owner on ``visibility = 'shared'`` plus a link — so:
+the teaching surfaces. Ownership is the only grant — a share edge and the
+``visibility`` property admit nobody — so:
 
 - the owner gets the page (a plain FT, status 200);
 - the authoring teacher gets the rendered "Report not found" page at a real
-  404 — with a ``SHARES_WITH`` edge and ``visibility: 'shared'`` on the node,
-  the shape the report writer still produces, so the test proves neither is a
-  grant any more;
+  404, with a ``SHARES_WITH`` edge and ``visibility: 'shared'`` on the node
+  (the shape the report writer produces), so the test proves neither is a
+  grant;
 - a stranger gets the same 404, and neither body carries the feedback text.
 
 Run against a real Neo4j container: the owner predicate is a Cypher clause
