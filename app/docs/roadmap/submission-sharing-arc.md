@@ -1035,6 +1035,17 @@ it first removes both.
   - The person-share statement never shares an entity with its owner, exemption or not, and the
     forms' `share_with_admin` is a no-op when the submitter is the admin (Codex P2 on #1422 — the
     exemption would otherwise have written a self-`SHARES_WITH`).
+  - Live acceptance 2026-09-25 (branch app on :8001, Mike's OK; read-only census first: 3539
+    nodes / 3031 edges, the R8 fragment on live data reading linguistic76 ↔ user_admin only):
+    user_uxsmoke joined the Default Group (+1 `MEMBER_OF`, kept for the arc-close verification's
+    second account); the JSON door as linguistic76 with `audience: [user:mfan0110]` wrote one
+    placeholder entry (`ue_6d734579`, +1 node, +2 edges — `OWNS`, `SHARES_WITH`, outcome
+    `shared_users: [user_admin]`); the same door with `[user:uxsmoke]` — a Default-Group-only
+    member — got the uniform `NOT_FOUND_USER` at 404 and wrote nothing (census deltas exact:
+    +5 nodes / +7 edges including two logins' `Session` + `AuthEvent`). The admin (`mfan0110`)
+    opened `/gradebook/ue_6d734579` as the recipient card ("Shared with you", no AI-feedback
+    control) and the `.md` download; the owner's page was unchanged. Deleted afterwards by uid
+    (+its two edges; `SHARES_WITH` on UserEntries back to 0).
 
 ### PR 6b — Share, Stop sharing, and the two-sided Shared page (R2, R3, R6–R8, R10)
 
