@@ -37,6 +37,7 @@ from fasthtml.common import (
 
 from adapters.inbound.auth import require_authenticated_user
 from adapters.inbound.fasthtml_types import Request, RouteDecorator
+from adapters.inbound.result_helpers import require_found
 from adapters.inbound.route_factories import refuse
 from core.utils.logging import get_logger
 from ui.activities.nav import render_activity_sidebar_error, render_activity_sidebar_page
@@ -90,7 +91,9 @@ def create_entry_reports_ui_routes(
                 title=GRADEBOOK_TITLE,
             )
 
-        view_result = await orchestrator.get_entry_report_view(uid, user_uid)
+        view_result = require_found(
+            await orchestrator.get_entry_report_view(uid, user_uid), "Report", uid
+        )
         if view_result.is_error:
             # An owner read (ADR-088 §3): absent and not-owned are one
             # not-found, rendered at a real 404 through the one refusal door.
