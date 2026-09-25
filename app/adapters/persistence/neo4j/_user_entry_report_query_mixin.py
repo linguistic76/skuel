@@ -18,7 +18,6 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, Any
 
 from core.models.enums.entity_enums import EntityType
-from core.models.enums.metadata_enums import Visibility
 from core.models.relationship_names import RelationshipName
 from core.models.type_hints import Neo4jProperties, UserUID
 from core.utils.result_simplified import Result
@@ -173,8 +172,12 @@ class _UserEntryReportQueryMixin:
         to another teacher's classroom; reports and revisions hang off the
         entries, so gating the entries gates the whole chain.
 
-        PRIVATE reports are excluded — a self-owned journal reflection is the
-        student's own artifact, not part of the teacher↔student exchange.
+        Received feedback is identified by its outcome: a report is part of
+        the exchange only when ``assessment_outcome`` is set (every teacher or
+        AI feedback writer sets one). A journal reflection carries none — it
+        is the student's own artifact, not part of the teacher↔student
+        exchange — and the ``visibility`` property decides nothing here
+        (ADR-088).
 
         Every ``created_at`` is emitted through ``toString()`` so the caller
         always receives ISO-8601 strings — entry timestamps are stored as ISO
@@ -208,7 +211,7 @@ class _UserEntryReportQueryMixin:
         WITH ex, direct_rows + revised_rows AS entry_rows, direct_nodes + revised_nodes AS entry_nodes
         OPTIONAL MATCH (report:Entity {{entity_type: 'entry_report'}})-[:{RelationshipName.REPORT_FOR.value}]->(entry)
         WHERE entry IN entry_nodes
-          AND coalesce(report.visibility, 'shared') <> $private_visibility
+          AND report.assessment_outcome IS NOT NULL
         WITH ex, entry_rows,
              collect(DISTINCT report {{.uid, .title, .content, .processed_content, .processor_type,
                                        .report_file_path, created_at: toString(report.created_at),
@@ -229,7 +232,6 @@ class _UserEntryReportQueryMixin:
                 "exercise_uid": exercise_uid,
                 "student_uid": student_uid,
                 "viewer_uid": viewer_uid,
-                "private_visibility": Visibility.PRIVATE.value,
             },
         )
 
@@ -253,11 +255,14 @@ class _UserEntryReportQueryMixin:
         no ``FULFILLS_EXERCISE`` edge revision, so revision-first ordering
         would rank any numbered direct turn-in above a later resubmit.
 
-        PRIVATE reports are excluded everywhere (a self-owned journal
-        reflection is not received feedback), and every ``created_at`` is
-        emitted through ``toString()`` — entry stamps are ISO strings, report
-        stamps native datetimes; emission normalizes so the service can treat
-        naive values as UTC (the exchange-thread convention).
+        Received feedback is identified by its outcome everywhere in this
+        read: only reports with ``assessment_outcome`` set count (a journal
+        reflection carries none and is not received feedback; the
+        ``visibility`` property decides nothing — ADR-088). Every
+        ``created_at`` is emitted through ``toString()`` — entry stamps are
+        ISO strings, report stamps native datetimes; emission normalizes so
+        the service can treat naive values as UTC (the exchange-thread
+        convention).
 
         Returns a single row: ``exercise_summaries`` (unordered — the
         service sorts by latest activity), ``other_feedback`` (newest first).
@@ -276,7 +281,7 @@ class _UserEntryReportQueryMixin:
                 RETURN e, ex
             }}
             OPTIONAL MATCH (r:Entity {{entity_type: $report_type}})-[:{RelationshipName.REPORT_FOR.value}]->(e)
-                WHERE coalesce(r.visibility, 'shared') <> $private_visibility
+                WHERE r.assessment_outcome IS NOT NULL
             WITH e, ex, r ORDER BY r.created_at DESC
             WITH e, ex, collect(r {{.uid, .processor_type, created_at: toString(r.created_at)}}) AS entry_reports
             WITH ex, e, entry_reports, size(entry_reports) AS n_reports
@@ -299,7 +304,7 @@ class _UserEntryReportQueryMixin:
         }}
         CALL (student) {{
             MATCH (student)-[:{RelationshipName.OWNS.value}]->(r:Entity {{entity_type: $report_type}})
-            WHERE coalesce(r.visibility, 'shared') <> $private_visibility
+            WHERE r.assessment_outcome IS NOT NULL
             OPTIONAL MATCH (r)-[:{RelationshipName.REPORT_FOR.value}]->(e:Entity:UserEntry)
             WITH r, e
             WHERE e IS NULL OR NOT (
@@ -317,7 +322,6 @@ class _UserEntryReportQueryMixin:
             {
                 "student_uid": student_uid,
                 "report_type": EntityType.ENTRY_REPORT.value,
-                "private_visibility": Visibility.PRIVATE.value,
             },
         )
 

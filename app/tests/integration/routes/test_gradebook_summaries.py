@@ -12,7 +12,9 @@ Pins the ``get_student_exchange_summaries`` contract:
 - Status derivation: ``revision_requested`` on the latest entry wins even
   when that entry has a report; otherwise report-on-latest-entry →
   feedback_received; otherwise waiting.
-- PRIVATE reports never count anywhere (received-feedback class rule).
+- Received feedback is identified by its outcome: a report with no
+  ``assessment_outcome`` (a journal reflection) never counts anywhere, and
+  the ``visibility`` property decides nothing (ADR-088).
 - Another student's entries/reports on the SAME exercise never leak.
 - ``other_feedback`` carries received reports outside any exchange (report on
   an entry with no lineage, or on no entry at all), newest first.
@@ -35,7 +37,7 @@ STUDENT = "user_sum_student"
 OTHER = "user_sum_other"
 
 EX_A = "ex_sum_a"  # one waiting turn-in
-EX_B = "ex_sum_b"  # feedback received (+ excluded private report)
+EX_B = "ex_sum_b"  # feedback received (+ excluded outcome-less reflection)
 EX_C = "ex_sum_c"  # revision requested (report exists but revision wins)
 EX_D = "ex_sum_d"  # resubmit via revised edge only → waiting again
 
@@ -76,16 +78,18 @@ async def seeded(clean_neo4j, neo4j_driver) -> None:
             MERGE (s)-[:OWNS]->(a1)
             MERGE (a1)-[:FULFILLS_EXERCISE {revision: 1}]->(exa)
 
-            // B: feedback received; the private reflection must count nowhere
+            // B: feedback received; the outcome-less reflection must count nowhere.
+            // The feedback carries visibility 'private' and the reflection 'shared':
+            // the OUTCOME decides, the property never does (ADR-088).
             CREATE (b1:Entity:UserEntry {uid: 'ue_sum_b1', entity_type: 'user_entry',
                 title: 'B turn-in', status: 'completed',
                 created_at: '2026-08-01T01:00:00.000000'})
             CREATE (rb:Entity:EntryReport {uid: 'er_sum_rb', entity_type: 'entry_report',
-                title: 'B feedback', status: 'completed', visibility: 'shared',
-                processor_type: 'human',
+                title: 'B feedback', status: 'completed', visibility: 'private',
+                processor_type: 'human', assessment_outcome: 'approved',
                 created_at: datetime('2026-08-01T02:00:00Z')})
             CREATE (rbp:Entity:EntryReport {uid: 'er_sum_rbp', entity_type: 'entry_report',
-                title: 'B private reflection', status: 'completed', visibility: 'private',
+                title: 'B private reflection', status: 'completed', visibility: 'shared',
                 processor_type: 'llm',
                 created_at: datetime('2026-08-01T02:30:00Z')})
             MERGE (s)-[:OWNS]->(b1)
@@ -101,7 +105,7 @@ async def seeded(clean_neo4j, neo4j_driver) -> None:
                 created_at: '2026-08-01T05:00:00.000000'})
             CREATE (rc:Entity:EntryReport {uid: 'er_sum_rc', entity_type: 'entry_report',
                 title: 'C revision request', status: 'completed', visibility: 'shared',
-                processor_type: 'human',
+                processor_type: 'human', assessment_outcome: 'needs_revision',
                 created_at: datetime('2026-08-01T05:30:00Z')})
             MERGE (s)-[:OWNS]->(c1)
             MERGE (s)-[:OWNS]->(rc)
@@ -114,7 +118,7 @@ async def seeded(clean_neo4j, neo4j_driver) -> None:
                 created_at: '2026-08-01T00:00:00.000000'})
             CREATE (rd:Entity:EntryReport {uid: 'er_sum_rd', entity_type: 'entry_report',
                 title: 'D revision request', status: 'completed', visibility: 'shared',
-                processor_type: 'human',
+                processor_type: 'human', assessment_outcome: 'needs_revision',
                 created_at: datetime('2026-08-01T00:30:00Z')})
             CREATE (red:Entity:RevisedExercise {uid: 're_sum_red',
                 entity_type: 'revised_exercise', title: 'D try again', status: 'active',
@@ -137,7 +141,7 @@ async def seeded(clean_neo4j, neo4j_driver) -> None:
                 created_at: '2026-07-30T10:00:00.000000'})
             CREATE (rp:Entity:EntryReport {uid: 'er_sum_plain', entity_type: 'entry_report',
                 title: 'Journal response', status: 'completed', visibility: 'shared',
-                processor_type: 'human',
+                processor_type: 'human', assessment_outcome: 'approved',
                 created_at: datetime('2026-07-30T12:00:00Z')})
             CREATE (rpp:Entity:EntryReport {uid: 'er_sum_plain_priv',
                 entity_type: 'entry_report', title: 'Private journal note',
@@ -145,7 +149,7 @@ async def seeded(clean_neo4j, neo4j_driver) -> None:
                 created_at: datetime('2026-07-30T13:00:00Z')})
             CREATE (rfree:Entity:EntryReport {uid: 'er_sum_free', entity_type: 'entry_report',
                 title: 'Detached report', status: 'completed', visibility: 'shared',
-                processor_type: 'llm',
+                processor_type: 'llm', assessment_outcome: 'ai_evaluated',
                 created_at: datetime('2026-07-31T12:00:00Z')})
             MERGE (s)-[:OWNS]->(pe)
             MERGE (s)-[:OWNS]->(rp)
@@ -160,7 +164,7 @@ async def seeded(clean_neo4j, neo4j_driver) -> None:
                 created_at: '2026-08-01T06:00:00.000000'})
             CREATE (ro:Entity:EntryReport {uid: 'er_sum_ro', entity_type: 'entry_report',
                 title: 'Other feedback', status: 'completed', visibility: 'shared',
-                processor_type: 'human',
+                processor_type: 'human', assessment_outcome: 'approved',
                 created_at: datetime('2026-08-01T06:30:00Z')})
             MERGE (o)-[:OWNS]->(o1)
             MERGE (o)-[:OWNS]->(ro)
@@ -208,7 +212,9 @@ class TestExchangeSummaries:
             "the report sits on the superseded entry, not the latest one"
         )
 
-    async def test_private_reports_count_nowhere(self, service, seeded) -> None:
+    async def test_outcome_less_reports_count_nowhere(self, service, seeded) -> None:
+        """The outcome is the discriminator: a 'private' report with an outcome counts,
+        a 'shared' report without one does not."""
         rows = (await service.get_student_exchange_summaries(STUDENT)).value["exercises"]
         b = next(r for r in rows if r["exercise_uid"] == EX_B)
         assert b["report_count"] == 1
@@ -225,7 +231,7 @@ class TestExchangeSummaries:
     async def test_other_feedback_carries_non_lineage_reports_only(self, service, seeded) -> None:
         other = (await service.get_student_exchange_summaries(STUDENT)).value["other_feedback"]
         assert [r["uid"] for r in other] == ["er_sum_free", "er_sum_plain"], (
-            "newest first; exchange reports and private reports excluded"
+            "newest first; exchange reports and outcome-less reports excluded"
         )
 
     async def test_empty_student_gets_empty_lists_not_an_error(self, service, seeded) -> None:

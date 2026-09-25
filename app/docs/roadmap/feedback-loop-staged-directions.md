@@ -1,5 +1,5 @@
 ---
-updated: 2026-08-29
+updated: 2026-09-25
 ---
 
 # Feedback-Loop Staged Directions — Peer Feedback, Reply Artifact, Read-State
@@ -62,17 +62,18 @@ re-litigate them outside the item's own future elicitation.
   designed inside that rule, not around it — which grant a peer gets is elicitation
   question 3.
 
-**Known gap the peer work must close (verified 2026-08-01):** the direct `SHARES_WITH`
-edge is *not* an end-to-end content grant for UserEntries today. `share_with_users` →
-`AudienceResolver.resolve_and_share` → `UnifiedSharingService.share` writes only the
-edge; entries default `PRIVATE`, and `check_access` honors a direct share only at
-`SHARED` visibility. The Shared-With-Me card still appears (the inbox query has no
+**Known gap the peer work must close (verified 2026-08-01; re-stated 2026-09-24):** the
+direct `SHARES_WITH` edge is *not* an end-to-end content grant for UserEntries today.
+`share_with_users` → `AudienceResolver.resolve_and_share` → `UnifiedSharingService.share`
+writes only the edge. The Shared-With-Me card still appears (the inbox query has no
 entity-visibility predicate) but its UserEntry link targets `/gradebook/{uid}`, whose
-fetch is **ownership-only** — the recipient gets a 404 behind a visible card. Peer
-feedback therefore needs (a) the visibility transition (or an explicit share-implies-
-shared rule) decided at share time, and (b) a non-owner entry read surface that honors
-`check_access` — the teacher-mode `/exchange` chain read is the pattern, not
-`/gradebook/{uid}`.
+fetch is **ownership-only** — the recipient gets a 404 behind a visible card. The
+Submit & Share arc closes this in its PR 5 ([`submission-sharing-arc.md`](submission-sharing-arc.md)):
+UserEntry declares `OWNER_OR_AUDIENCE` for by-uid reads, so a link alone opens the entry
+(ADR-088 §3 — there is no separate access check to honour; the EntryReport access check
+that once required `SHARED` visibility beside a link is retired). Peer feedback builds on
+that recipient read; the teacher-mode `/exchange` chain read stays the pattern for a
+gated non-owner chain, not `/gradebook/{uid}`.
 
 **Un-staging gate:** a real second user working in a shared group — the elicitation needs
 an actual peer workflow to verify (`verify-workflow-before-arc-scoping`), not a

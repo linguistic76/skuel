@@ -1,6 +1,6 @@
 ---
 title: "ADR-042: Privacy as First-Class Citizen"
-updated: 2026-09-24
+updated: 2026-09-25
 status: accepted
 category: decisions
 tags: [privacy, security, sharing, access-control, activity-report]
@@ -92,6 +92,11 @@ two link kinds: a feedback request (`SUBMITTED_TO_GROUP`) grants the group's *me
 only the teachers who own the group read it, in their review surfaces — while a share
 (`SHARED_WITH_GROUP`) reaches every member and owner of an active group.
 
+> **2026-09-24 — Amended by [ADR-088](ADR-088-submit-and-share.md) (Submit & Share arc, PR 2b).** A
+> link is the gate for what its reader reads; there is no standalone access check. An EntryReport
+> is read by its owner only — the student it was written for — so the "any user with an active
+> SHARES_WITH" line above does not apply to feedback (ADR-088 §3).
+
 ### 4. Misuse detection without content access
 
 Admin can be informed that something requires attention without reading the content that triggered the flag. Mechanisms:
@@ -182,6 +187,11 @@ UnifiedSharingService
 ```
 
 Any entity type — `SUBMISSION`, `ACTIVITY_REPORT`, or future types — calls this service. No domain reimplements sharing logic.
+
+> **2026-09-24 — Amended by [ADR-088](ADR-088-submit-and-share.md) (Submit & Share arc, PR 2b).** The
+> service has no access check: the sketch's check_access member is retired (an EntryReport is an
+> owner read, and every other read composes its audience from ADR-085's clause). The access-list
+> member (`get_shared_with`) is the PLANNED half ADR-088 §6 replaces with Your wall.
 
 ---
 

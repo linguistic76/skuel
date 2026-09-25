@@ -306,9 +306,9 @@ async def test_ai_report_is_discoverable_via_typed_read(
     assert report.assessment_outcome == AssessmentOutcome.AI_EVALUATED
     assert report.processed_content == "Typed read check."
 
-    # Reports created via create_report_node must land with visibility='shared'
-    # so UnifiedSharingService.check_access grants access to students who
-    # follow the SHARES_WITH edge.
+    # Reports created via create_report_node still land with visibility='shared'
+    # — a property no read honours (a report is an owner read, ADR-088 §3); the
+    # writer keeps stamping it until the visibility enum shrinks.
     async with neo4j_driver.session() as session:
         cursor = await session.run(
             "MATCH (r:EntryReport {uid: $uid}) RETURN r.visibility AS visibility",

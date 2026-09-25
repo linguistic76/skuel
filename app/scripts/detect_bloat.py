@@ -517,9 +517,10 @@ _SHARING_VISIBILITY_LADDER = PlannedEntry(
     Readiness.DELAYED,
     "the post-hoc `visibility` writer. Today the property is written only at creation "
     "(create_entry's request field; the vault door's `audience: public`, refreshed on "
-    "re-sync) and read by one non-owner path (check_access, EntryReports): the search "
-    "visibility clause is edge-only, so SHARED as a property is inert and PUBLIC has no "
-    "listing — the /submit form's Portfolio destination ships disabled as 'Coming soon'. "
+    "re-sync) and read by no non-owner path: the search visibility clause is edge-only "
+    "and an EntryReport is an owner read (ADR-088 §3), so SHARED as a property is inert "
+    "and PUBLIC has no listing — the /submit form's Portfolio destination ships disabled "
+    "as 'Coming soon'. "
     "Completes with the PUBLIC reader (a portfolio listing), which is what makes a "
     "visibility control truthful; a selector without that reader writes a value nothing "
     "honours (Mike ruled PLANNED 2026-06-13; trigger re-ruled 2026-09-21)",

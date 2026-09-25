@@ -16,7 +16,7 @@ from typing import TYPE_CHECKING, Any, TypedDict
 
 from core.models.enums.entity_enums import EntityStatus
 from core.models.enums.pipeline import Pipeline
-from core.models.type_hints import EntityUID, UserUID
+from core.models.type_hints import UserUID
 from core.utils.result_simplified import ErrorCategory, Errors, Result
 
 if TYPE_CHECKING:
@@ -39,7 +39,6 @@ if TYPE_CHECKING:
     from core.services.report.report_relationship_service import ReportRelationshipService
     from core.services.report.teacher_review_service import TeacherReviewService
     from core.services.revised_exercises import RevisedExerciseService
-    from core.services.sharing import UnifiedSharingService
     from core.services.user_entry.user_entry_service import UserEntryService
     from core.services.user_service import UserService
 
@@ -73,7 +72,6 @@ class UserEntryOrchestrator:
         activity_report_service: ActivityReportService,
         revised_exercise_service: RevisedExerciseService,
         entry_report_service: EntryReportService,
-        sharing_service: UnifiedSharingService,
         report_relationship_service: ReportRelationshipService,
     ) -> None:
         self._entries = user_entry_service
@@ -83,7 +81,6 @@ class UserEntryOrchestrator:
         self._activity_report = activity_report_service
         self._revised_exercise = revised_exercise_service
         self._entry_report = entry_report_service
-        self._sharing = sharing_service
         self._report_relationship = report_relationship_service
 
     @property
@@ -277,26 +274,20 @@ class UserEntryOrchestrator:
             pipelines=[Pipeline.EXTRACT_ACTIVITIES, Pipeline.TRANSCRIBE_AND_STRUCTURE],
         )
 
-    async def check_report_access(self, report_uid: EntityUID, user_uid: UserUID) -> Result[bool]:
-        """Canonical access check for a report — owner, PUBLIC, or shared."""
-        return await self._sharing.check_access(report_uid, user_uid)
-
     async def get_entry_report_view(
         self, report_uid: str, user_uid: UserUID
     ) -> Result[EntryReportView]:
-        """Fetch a report with access check + optional linked revision.
+        """The owner's view of a report + its optional linked revision.
 
-        Access denial surfaces as a not-found error so the route can render
-        the standard "Report not found" banner without leaking existence.
+        A report is an owner read (ADR-088 §3): only the student it was
+        written for opens it. Absent and not-owned are one not-found error, so
+        the route renders the standard "Report not found" refusal without
+        leaking existence.
         """
-        report_result = await self._entry_report.get(report_uid)
+        report_result = await self._entry_report.get_for_user(report_uid, user_uid)
         if report_result.is_error:
             return Result.fail(report_result)
         report = report_result.value
-
-        access_result = await self._sharing.check_access(report.uid, user_uid)
-        if access_result.is_error or not access_result.value:
-            return Result.fail(Errors.not_found("EntryReport", report_uid))
 
         revision: RevisedExercise | None = None
         revision_result = await self._revised_exercise.get_by_report_uid(report.uid)

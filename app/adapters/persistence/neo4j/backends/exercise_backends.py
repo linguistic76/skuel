@@ -14,6 +14,7 @@ from typing import Any, cast
 from adapters.persistence.neo4j.neo4j_mapper import from_neo4j_node, to_neo4j_node
 from adapters.persistence.neo4j.universal_backend import UniversalNeo4jBackend
 from core.models.enums.entity_enums import EntityType
+from core.models.enums.metadata_enums import SearchVisibility
 from core.models.enums.pipeline import Pipeline
 from core.models.exercises.exercise import Exercise
 from core.models.exercises.revised_exercise import RevisedExercise
@@ -1164,6 +1165,49 @@ class EntryReportBackend(UniversalNeo4jBackend[EntryReport]):
             return Result.ok(entity)
         except Exception as e:  # safety-net: neo4j + mapping errors
             return Result.fail(Errors.database("get", f"Failed to fetch EntryReport: {e!s}"))
+
+    async def get_for_owner(self, uid: str, user_uid: UserUID) -> Result[EntryReport | None]:
+        """Typed single-fetch for EntryReport by UID, only for its owner.
+
+        The owner-scoped twin of ``get``: the same projection (``subject_uid``
+        from the REPORT_FOR edge) behind the OWNER_ONLY audience predicate
+        that ``build_search_visibility_clause`` composes for every read
+        (ADR-085) — ``n.user_uid = $user_uid``, the student the report was
+        written for (the author owns an authorless report). A report is an
+        owner read (ADR-088 §3): no share edge and no ``visibility`` value
+        admits anyone else.
+
+        Not-found and not-owned are the SAME outcome (``Result.ok(None)``), so
+        a caller cannot tell "no such UID" from "not yours" — the
+        404-equivalent refusal of OWNERSHIP_VERIFICATION.md.
+        """
+        from adapters.persistence.neo4j.query.cypher import build_search_visibility_clause
+
+        visibility_scope = build_search_visibility_clause(
+            SearchVisibility.OWNER_ONLY,
+            entity_alias="n",
+            has_user=True,
+            apply_publication_gate=False,
+        )
+        owner_where, scope_params = visibility_scope or ("true", {})
+        cypher = f"""
+            MATCH (n:EntryReport {{uid: $uid}})
+            WHERE {owner_where}
+            OPTIONAL MATCH (n)-[:{RelationshipName.REPORT_FOR.value}]->(sub:Entity)
+            RETURN n{{.*, subject_uid: sub.uid}} AS n
+        """
+        try:
+            records = await self._run_records(
+                cypher, {"uid": uid, "user_uid": user_uid, **scope_params}
+            )
+            if not records:
+                return Result.ok(None)
+            entity = from_neo4j_node(records[0]["n"], self.entity_class)
+            return Result.ok(entity)
+        except Exception as e:  # safety-net: neo4j + mapping errors
+            return Result.fail(
+                Errors.database("get_for_owner", f"Failed to fetch EntryReport: {e!s}")
+            )
 
     async def list_for_submission(self, submission_uid: str) -> Result[list[EntryReport]]:
         """Return all reports attached to a submission, as typed EntryReport

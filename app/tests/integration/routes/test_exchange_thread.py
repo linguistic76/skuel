@@ -6,8 +6,10 @@ Pins the C5 contract (feedback-loop UX arc):
   ``FULFILLS_EXERCISE`` turn-ins (with the edge revision), entries submitted
   against a revision (``FULFILLS_REVISED_EXERCISE``), the reports on those
   entries, and the revision requests responding to those reports.
-- PRIVATE reports are excluded — a self-owned journal reflection is not part
-  of the teacher↔student exchange (the C1 class rule).
+- Received feedback is identified by its outcome: a report with no
+  ``assessment_outcome`` (a self-owned journal reflection) is not part of the
+  teacher↔student exchange, and the ``visibility`` property decides nothing
+  (the C1 class rule as ADR-088 states it).
 - Scoping is per-student: another student's entries, reports, and revisions
   against the SAME exercise never leak into the thread.
 - Teacher mode applies the Model B entry-level gate: only entries
@@ -49,7 +51,7 @@ E2 = "ue_ext_rev2"  # direct turn-in, revision 2 — carries the reports
 E3 = "ue_ext_via_revised"  # entry against the revision request
 E_SECOND = "ue_ext_second_class"  # shared ONLY with SECOND_TEACHER's group
 R_SHARED = "er_ext_shared"  # teacher feedback on E2 — in the thread
-R_PRIVATE = "er_ext_private"  # self-owned journal reflection — excluded
+R_PRIVATE = "er_ext_private"  # self-owned journal reflection (no outcome) — excluded
 REVISED = "re_ext_revision"  # revision request responding to R_SHARED
 O_ENTRY = "ue_ext_other_student"  # other student, same exercise — excluded
 O_REPORT = "er_ext_other_student"
@@ -87,7 +89,6 @@ def orchestrator(neo4j_driver, relationship_service) -> UserEntryOrchestrator:
         activity_report_service=None,  # type: ignore[arg-type]
         revised_exercise_service=None,  # type: ignore[arg-type]
         entry_report_service=None,  # type: ignore[arg-type]
-        sharing_service=None,  # type: ignore[arg-type]
         report_relationship_service=relationship_service,
     )
 
@@ -96,9 +97,9 @@ def orchestrator(neo4j_driver, relationship_service) -> UserEntryOrchestrator:
 async def seeded(clean_neo4j, neo4j_driver) -> None:
     """One exchange for STUDENT plus a parallel one for OTHER_STUDENT.
 
-    STUDENT's chain: rev-1 and rev-2 turn-ins, a shared teacher report and a
-    PRIVATE reflection on rev 2, a revision request responding to the shared
-    report, and a follow-up entry against that revision — all shared with
+    STUDENT's chain: rev-1 and rev-2 turn-ins, a teacher report (an outcome;
+    visibility 'private') and an outcome-less reflection (visibility 'shared')
+    on rev 2, a revision request responding to the teacher report, and a follow-up entry against that revision — all shared with
     TEACHER's group. STUDENT is multi-class: a fourth entry on the same
     exercise is shared ONLY with SECOND_TEACHER's group. OTHER_STUDENT has
     their own entry/report/revision on the SAME exercise — none of it may
@@ -137,13 +138,13 @@ async def seeded(clean_neo4j, neo4j_driver) -> None:
             })
             CREATE (r1:Entity:EntryReport {
                 uid: $r_shared, entity_type: 'entry_report', title: 'Feedback',
-                status: 'completed', visibility: 'shared',
+                status: 'completed', visibility: 'private', assessment_outcome: 'needs_revision',
                 processed_content: 'Good work',
                 created_at: datetime() - duration('PT2H'), updated_at: datetime()
             })
             CREATE (rp:Entity:EntryReport {
                 uid: $r_private, entity_type: 'entry_report', title: 'Reflection',
-                status: 'completed', visibility: 'private',
+                status: 'completed', visibility: 'shared',
                 content: 'My own notes',
                 created_at: datetime() - duration('PT2H'), updated_at: datetime()
             })
@@ -169,7 +170,7 @@ async def seeded(clean_neo4j, neo4j_driver) -> None:
             })
             CREATE (orep:Entity:EntryReport {
                 uid: $o_report, entity_type: 'entry_report', title: 'Other feedback',
-                status: 'completed', visibility: 'shared',
+                status: 'completed', visibility: 'shared', assessment_outcome: 'approved',
                 processed_content: 'Different classroom',
                 created_at: datetime() - duration('PT2H'), updated_at: datetime()
             })
@@ -257,10 +258,13 @@ class TestExchangeChainRead:
         for item in [*thread["entries"], *thread["reports"], *thread["revisions"]]:
             assert isinstance(item["created_at"], str) and item["created_at"]
 
-    async def test_private_report_is_excluded(self, relationship_service, seeded) -> None:
-        """A PRIVATE self-owned reflection is not part of the exchange (C1 rule)."""
+    async def test_outcome_less_report_is_excluded(self, relationship_service, seeded) -> None:
+        """A reflection with no outcome is not part of the exchange (C1 rule);
+        the teacher report is, whatever its visibility property says."""
         thread = (await relationship_service.get_exchange_thread(EX, STUDENT)).value
-        assert R_PRIVATE not in {r["uid"] for r in thread["reports"]}
+        report_uids = {r["uid"] for r in thread["reports"]}
+        assert R_PRIVATE not in report_uids
+        assert R_SHARED in report_uids
 
     async def test_other_students_chain_never_leaks(self, relationship_service, seeded) -> None:
         thread = (await relationship_service.get_exchange_thread(EX, STUDENT)).value

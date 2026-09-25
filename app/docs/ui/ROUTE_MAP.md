@@ -1,5 +1,5 @@
 ---
-updated: 2026-09-24
+updated: 2026-09-25
 ---
 
 # Route Map
@@ -94,7 +94,7 @@ THE received-feedback page (3→1 collapse, feedback-loop UX arc 2 C1+C2) — on
 
 The former list pages `/entry-reports`, `/activity-reports`, `/revised-exercises` are deleted (One Path Forward); their detail routes remain and render under the Tasks+ sidebar with the GradeBook row lit:
 
-- `/entry-reports/detail?uid=` — full report content with outcome badge + revision link.
+- `/entry-reports/detail?uid=` — full report content with outcome badge + revision link. An owner read (ADR-088 §3): the student the report was written for; anyone else — the authoring teacher included — gets the rendered not-found page at a real 404.
 - `/activity-reports/detail?uid=` — activity report detail (HTMX-loaded body); a calendar-period report shows its period, whether it is partial, and a "Regenerate" form (POST `/activity-reports/for`).
 - `POST /activity-reports/for` (CSRF, `time_period` token) — mints one calendar period's report: the detail page's "Regenerate"; a refusal (the per-period cooldown) renders the period prompt with the reason. The month/week toolbar's "Report for September" / "Report for W37" pill opens the request form, `/submit-activity-report`.
 - `/revised-exercises/detail?uid=` — revision instructions with feedback points + submit link.

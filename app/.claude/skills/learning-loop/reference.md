@@ -329,8 +329,8 @@ await backend.get_exercise_context(...)                                 # OWNS/C
 
 > **Sharing is entity-agnostic (ADR-042).** `UserEntry` carries no SHARES_WITH Cypher of its
 > own. All sharing goes through `UnifiedSharingService` → the entity-agnostic `SharingBackend`
-> (`create_share`, `delete_share`, `update_visibility`, `query_access`,
-> `query_shared_with_users`, `create_group_share`).
+> (`create_share`, `delete_share`, `update_visibility`, `query_shared_with_users`,
+> `create_group_share`, `create_group_submission`).
 
 **Access:** `ContentScope.USER_OWNED`. Default `PRIVATE`. Sharing via
 `UnifiedSharingService` — three-level model: `PRIVATE → SHARED → PUBLIC`.
@@ -452,14 +452,14 @@ self-describing — the report records what decision was made, not just feedback
 
 **Graph pattern:**
 ```cypher
-(teacher:User)-[:OWNS]->(report:Entity:EntryReport {
+(student:User)-[:OWNS]->(report:Entity:EntryReport {   // the writer makes the STUDENT the owner (user_uid); author_uid is the teacher
     processor_type: 'human',            // or 'llm'
     assessment_outcome: 'approved',     // or 'needs_revision' or 'ai_evaluated'
-    visibility: 'shared',               // set at create so SHARES_WITH is honored by UnifiedSharingService
+    visibility: 'shared',               // stamped by the writer; no read honours it (a report is an owner read, ADR-088 §3)
     processed_content: 'Your analysis shows...'  // LLM/teacher-generated feedback body
 })
 (report)-[:REPORT_FOR]->(submission:Entity:UserEntry)  // subject_uid is projected from this edge on read
-(report)-[:SHARES_WITH]->(submitter:User)                       // grants read access via UnifiedSharingService
+(submitter:User)-[:SHARES_WITH]->(report)                       // the student's own share, written by the report writer; the student reads the report as its OWNER (user_uid)
 ```
 
 **Structural position:** Leaf domain. One submission in, one report node out.

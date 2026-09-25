@@ -186,53 +186,6 @@ class UnifiedSharingService:
         return Result.ok(True)
 
     # =========================================================================
-    # ACCESS CHECKING
-    # =========================================================================
-
-    async def check_access(
-        self,
-        entity_uid: EntityUID,
-        user_uid: UserUID,
-    ) -> Result[bool]:
-        """Check if a user can access an entity.
-
-        Access granted if:
-        - User is the owner
-        - Entity is PUBLIC
-        - Entity is SHARED and user has SHARES_WITH relationship
-        - Entity is SHARED and user is a member of a group with SHARED_WITH_GROUP
-        - Entity is KU type (curriculum — always accessible)
-        """
-        result = await self.backend.query_access(
-            entity_uid=entity_uid,
-            user_uid=user_uid,
-        )
-        if result.is_error:
-            return Result.fail(result)
-        records = result.value or []
-        if not records:
-            return Result.fail(Errors.not_found(resource="Entity", identifier=entity_uid))
-
-        record = records[0]
-        owner_uid_val = record["owner_uid"]
-        visibility = (
-            Visibility(str(record["visibility"])) if record["visibility"] else Visibility.PRIVATE
-        )
-        entity_type = record["entity_type"]
-        has_share = record["has_direct_share"] or record["has_group_share"]
-
-        # Curriculum entities are always accessible (shared curriculum content)
-        if entity_type in (EntityType.PATH_STEP.value, EntityType.KU.value):
-            return Result.ok(True)
-        if user_uid == owner_uid_val:
-            return Result.ok(True)
-        if visibility == Visibility.PUBLIC:
-            return Result.ok(True)
-        if visibility == Visibility.SHARED and has_share:
-            return Result.ok(True)
-        return Result.ok(False)
-
-    # =========================================================================
     # QUERY
     # =========================================================================
 

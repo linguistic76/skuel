@@ -124,7 +124,7 @@ types (2+10+11+2) so they check themselves; `EntityType.<T>.content_origin()` is
 
 **Two verbs (ADR-088):** **Submit** = a feedback request — `SUBMITTED_TO_GROUP`, read only by the group's owning teachers (the review queue and every teacher-side reader), written only on `pipeline=TEACHER_REVIEW`; **Share** = manual sharing (`SHARES_WITH`) and group sharing (`SHARED_WITH_GROUP`, every member and owner). The two readers are never crossed. Every FormSubmission group target is a feedback request.
 
-**Service:** `from core.services.sharing import UnifiedSharingService` — entity-agnostic; live: `share()`, `share_with_group()`, `submit_to_group()` (returns `created`), `check_access()`, `get_shared_with_me()`, the per-group reads. The revoke / access-list / `set_visibility()` half has no door — PLANNED as operations on the edges audience-at-submit wrote, never a second share form: `/docs/roadmap/sharing-http-door.md`.
+**Service:** `from core.services.sharing import UnifiedSharingService` — entity-agnostic; live: `share()`, `share_with_group()`, `submit_to_group()` (returns `created`), `get_shared_with_me()`, the per-group reads. There is no access check: a link grants what its reader reads, and an EntryReport is an owner read (`EntryReportService.get_for_user`, ADR-088 §3). The revoke / access-list / `set_visibility()` half has no door — PLANNED as operations on the edges audience-at-submit wrote, never a second share form: `/docs/roadmap/sharing-http-door.md`.
 
 **Teacher Review:** `TeacherReviewService` — `get_review_queue()`, `submit_report()`, `request_revision()`, `approve_report()`
 

@@ -17,7 +17,10 @@ The list surface is the GradeBook exchange lines (/gradebook, arc 2 C1) —
 this file keeps only the detail page.
 
 Routes:
-- GET /entry-reports/detail?uid=  — Report detail with outcome badge + revision link
+- GET /entry-reports/detail?uid=  — Report detail with outcome badge + revision link.
+  An owner read (ADR-088 §3): the student the report was written for sees it;
+  anyone else — the authoring teacher included — gets the rendered not-found
+  page at a real 404 (teachers read their own artifacts on /teaching/*).
 
 Renderers: ui/learning_loop/report.py
 Services: EntryReportService (AI), TeacherReviewService (teacher)
@@ -25,6 +28,7 @@ See: /docs/architecture/REPORT_ARCHITECTURE.md
 See: /docs/patterns/DOMAIN_ROUTE_CONFIG_PATTERN.md
 """
 
+from functools import partial
 from typing import Any
 
 from fasthtml.common import (
@@ -33,6 +37,7 @@ from fasthtml.common import (
 
 from adapters.inbound.auth import require_authenticated_user
 from adapters.inbound.fasthtml_types import Request, RouteDecorator
+from adapters.inbound.route_factories import refuse
 from core.utils.logging import get_logger
 from ui.activities.nav import render_activity_sidebar_error, render_activity_sidebar_page
 from ui.gradebook.summary import GRADEBOOK_TITLE
@@ -87,12 +92,18 @@ def create_entry_reports_ui_routes(
 
         view_result = await orchestrator.get_entry_report_view(uid, user_uid)
         if view_result.is_error:
-            logger.warning(f"Exercise report not found or inaccessible: {uid}")
-            return render_activity_sidebar_error(
-                "Report not found",
-                active="gradebook",
-                request=request,
-                title=GRADEBOOK_TITLE,
+            # An owner read (ADR-088 §3): absent and not-owned are one
+            # not-found, rendered at a real 404 through the one refusal door.
+            logger.warning(f"Exercise report not found or not owned: {uid}")
+            return refuse(
+                view_result.expect_error(),
+                partial(
+                    render_activity_sidebar_error,
+                    active="gradebook",
+                    request=request,
+                    title=GRADEBOOK_TITLE,
+                ),
+                "Report",
             )
 
         view = view_result.value

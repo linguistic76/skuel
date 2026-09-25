@@ -106,29 +106,6 @@ class SharingBackend(UniversalNeo4jBackend[Entity]):
             return Result.fail(result)
         return Result.ok(result.value or [])
 
-    async def query_access(
-        self,
-        entity_uid: EntityUID,
-        user_uid: UserUID,
-    ) -> Result[list[Neo4jProperties]]:
-        """Query ownership, visibility, and share relationships for access check."""
-        result = await self.execute_query(
-            """
-            MATCH (ku:Entity {uid: $entity_uid})
-            OPTIONAL MATCH (viewer:User {uid: $user_uid})-[:SHARES_WITH]->(ku)
-            OPTIONAL MATCH (viewer2:User {uid: $user_uid})-[:MEMBER_OF]->(g:Group)<-[:SHARED_WITH_GROUP]-(ku)
-            RETURN ku.user_uid as owner_uid,
-                   ku.visibility as visibility,
-                   ku.entity_type as entity_type,
-                   count(viewer) > 0 as has_direct_share,
-                   count(viewer2) > 0 as has_group_share
-            """,
-            {"entity_uid": entity_uid, "user_uid": user_uid},
-        )
-        if result.is_error:
-            return Result.fail(result)
-        return Result.ok(result.value or [])
-
     async def query_ownership_and_status(
         self,
         entity_uid: EntityUID,

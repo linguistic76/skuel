@@ -131,6 +131,34 @@ class EntryReportService:
             return Result.fail(Errors.not_found(resource="EntryReport", identifier=uid))
         return Result.ok(result.value)
 
+    async def get_for_user(self, uid: str, user_uid: UserUID) -> Result[EntryReport]:
+        """The owner's read of one report — THE non-system EntryReport read.
+
+        A report is an owner read (ADR-088 §3): it belongs to the student it
+        was written for (``user_uid``; the author owns an authorless report),
+        and no share edge or ``visibility`` value admits anyone else. The
+        audience predicate is composed by the backend from the one
+        ownership/visibility chokepoint (ADR-085), so absent and not-owned
+        converge on the same not-found error — the 404-equivalent refusal of
+        OWNERSHIP_VERIFICATION.md.
+
+        Backend: ``EntryReportBackend.get_for_owner``
+        """
+        if not uid:
+            return Result.fail(Errors.validation(message="UID is required", field="uid"))
+        if not user_uid:
+            return Result.fail(Errors.validation(message="user_uid is required", field="user_uid"))
+        if not self.backend:
+            return Result.fail(
+                Errors.system("EntryReportBackend not configured", operation="get_for_user")
+            )
+        result = await self.backend.get_for_owner(uid, user_uid)
+        if result.is_error:
+            return Result.fail(result)
+        if result.value is None:
+            return Result.fail(Errors.not_found(resource="EntryReport", identifier=uid))
+        return Result.ok(result.value)
+
     async def list_for_submission(self, submission_uid: str) -> Result[list[EntryReport]]:
         """List all reports attached to a submission (ASC by created_at).
 

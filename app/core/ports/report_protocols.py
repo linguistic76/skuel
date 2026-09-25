@@ -170,6 +170,15 @@ class EntryReportBackendOperations(Protocol):
         """
         ...
 
+    async def get_for_owner(self, uid: str, user_uid: UserUID) -> Result[EntryReport | None]:
+        """Typed single-fetch for EntryReport by UID, only for its owner.
+
+        The OWNER_ONLY audience predicate (ADR-085) on the same projection as
+        ``get``. Returns ``Result.ok(None)`` when the node is absent OR owned
+        by someone else — the two are deliberately one outcome.
+        """
+        ...
+
     async def list_for_submission(self, submission_uid: str) -> Result[list[EntryReport]]:
         """All reports attached to a submission, ASC by created_at."""
         ...

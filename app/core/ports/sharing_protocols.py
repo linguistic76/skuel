@@ -16,16 +16,17 @@ Protocol Responsibilities
 
 Same root word, two layers: SharingBackendOperations describes what the
 SharingBackend exposes (low-level Cypher methods like create_share,
-query_access); SharingOperations describes what UnifiedSharingService exposes
-to its callers (share, check_access, …). See CLAUDE.md § "Protocol-Based
-Architecture" for the two-layer convention.
+create_group_share); SharingOperations describes what UnifiedSharingService
+exposes to its callers (share, share_with_group, …). See CLAUDE.md §
+"Protocol-Based Architecture" for the two-layer convention.
 
 SharingOperations is the service's whole surface, not an ISP slice: the
 ``Services.sharing`` slot (services_bootstrap/_container.py) is typed against
 it, and the callers reach it through that slot. Its live half is share,
-check_access, get_shared_with_me, share_with_group, submit_to_group (the
-feedback request — ``SUBMITTED_TO_GROUP``, ADR-088 §2) and the two
-``*_shared_with_group`` reads; the revoke / visibility / access-list half
+get_shared_with_me, share_with_group, submit_to_group (the feedback request —
+``SUBMITTED_TO_GROUP``, ADR-088 §2) and the two ``*_shared_with_group`` reads;
+there is no access check — a link grants what its reader reads, and an
+EntryReport is an owner read (ADR-088 §3); the revoke / visibility / access-list half
 (unshare, unshare_from_group, set_visibility, get_shared_with,
 get_groups_shared_with) has no caller yet — it is the PLANNED sharing
 management door, ``docs/roadmap/sharing-http-door.md``.
@@ -71,12 +72,6 @@ class SharingBackendOperations(Protocol):
         entity_uid: EntityUID,
         owner_uid: str,
         visibility: str,
-    ) -> Result[list[Neo4jProperties]]: ...
-
-    async def query_access(
-        self,
-        entity_uid: EntityUID,
-        user_uid: UserUID,
     ) -> Result[list[Neo4jProperties]]: ...
 
     async def query_ownership_and_status(
@@ -232,14 +227,6 @@ class SharingOperations(Protocol):
         visibility: Visibility,
     ) -> Result[bool]:
         """Set entity visibility level. Returns Result[bool]."""
-        ...
-
-    async def check_access(
-        self,
-        entity_uid: EntityUID,
-        user_uid: UserUID,
-    ) -> Result[bool]:
-        """Check if a user has access to an entity. Returns Result[bool]."""
         ...
 
     async def share_with_group(

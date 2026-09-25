@@ -1,6 +1,6 @@
 ---
 title: Report Architecture
-updated: 2026-09-24
+updated: 2026-09-25
 status: current
 category: architecture
 version: 3.2.0
@@ -502,7 +502,7 @@ When `openai_service` is available, the generator:
     uid, entity_type: 'entry_report',
     user_uid,             // always the student (access ownership — who the report belongs to)
     author_uid,           // teacher UID for HUMAN reports; null for LLM/AI reports
-    visibility: 'shared', // set at create so SHARES_WITH grants access via UnifiedSharingService
+    visibility: 'shared', // stamped by the writer; no read honours it — a report is an owner read (ADR-088 §3)
     processor_type,       // 'human' or 'llm'
     assessment_outcome,   // 'approved', 'needs_revision', or 'ai_evaluated'
     assessment_score,     // 0.0-1.0 for ASSESSMENT-scope exercises
