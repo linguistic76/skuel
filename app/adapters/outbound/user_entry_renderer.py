@@ -39,9 +39,15 @@ def render_user_entry_md(entry: UserEntry) -> str:
 
 
 def entry_download_filename(entry: UserEntry) -> str:
-    """The ``.md`` filename for an entry — its title slugged, the uid when there is none."""
+    """The ``.md`` filename for an entry — its title slugged to ASCII, the uid when nothing is left.
+
+    A response header is Latin-1 on the wire, so every character outside ASCII
+    letters and digits becomes ``-`` (a CJK or Cyrillic title collapses to the
+    uid rather than raising when the header is encoded).
+    """
     safe_title = "".join(
-        c if c.isalnum() or c in "-_" else "-" for c in (entry.title or entry.uid).lower()
+        c if (c.isascii() and c.isalnum()) or c in "-_" else "-"
+        for c in (entry.title or entry.uid).lower()
     ).strip("-")
     return f"entry-{safe_title or entry.uid}.md"
 
