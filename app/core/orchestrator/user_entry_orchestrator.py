@@ -164,10 +164,6 @@ class UserEntryOrchestrator:
     # Reports & Reviews
     # ------------------------------------------------------------------
 
-    async def get_entry_report(self, uid: str) -> Result[EntryReport]:
-        """Fetch an EntryReport by UID."""
-        return await self._entry_report.get(uid)
-
     async def generate_entry_response(
         self, entry_uid: str, user_uid: UserUID
     ) -> Result[EntryReport]:

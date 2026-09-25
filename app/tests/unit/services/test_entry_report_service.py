@@ -407,7 +407,6 @@ class TestGenerateReportErrorPropagation:
 def _make_entry_report_backend() -> MagicMock:
     backend = MagicMock()
     backend.list_for_submission = AsyncMock(return_value=Result.ok([]))
-    backend.get = AsyncMock(return_value=Result.ok(None))
     backend.get_for_owner = AsyncMock(return_value=Result.ok(None))
     return backend
 
@@ -438,7 +437,6 @@ class TestGetForUser:
         assert not result.is_error
         assert result.value is report
         backend.get_for_owner.assert_awaited_once_with("sr_teacher_042", STUDENT_UID)
-        backend.get.assert_not_awaited()
 
     @pytest.mark.asyncio
     async def test_not_owned_or_missing_is_one_not_found(self):
@@ -478,60 +476,6 @@ class TestGetForUser:
 
         assert result.is_error
         assert result.expect_error().category.value == "database"
-
-
-class TestGet:
-    """`get` narrows a typed single-fetch through the backend."""
-
-    @pytest.mark.asyncio
-    async def test_delegates_to_backend_and_returns_report(self):
-        report = EntryReport(
-            uid="sr_teacher_042",
-            entity_type=EntityType.ENTRY_REPORT,
-            title="Teacher Feedback",
-            user_uid=TEACHER_UID,
-            status=EntityStatus.COMPLETED,
-            processor_type=ReportSource.HUMAN,
-            content="Solid work.",
-            subject_uid=SUBMISSION_UID,
-        )
-        backend = _make_entry_report_backend()
-        backend.get.return_value = Result.ok(report)
-        service = EntryReportService(llm_caller=_make_llm_caller(), backend=backend)
-
-        result = await service.get("sr_teacher_042")
-
-        assert not result.is_error
-        assert result.value is report
-        backend.get.assert_awaited_once_with("sr_teacher_042")
-
-    @pytest.mark.asyncio
-    async def test_missing_report_narrows_to_not_found(self):
-        backend = _make_entry_report_backend()
-        backend.get.return_value = Result.ok(None)
-        service = EntryReportService(llm_caller=_make_llm_caller(), backend=backend)
-
-        result = await service.get("sr_missing")
-
-        assert result.is_error
-
-    @pytest.mark.asyncio
-    async def test_no_backend_fails_fast(self):
-        service = EntryReportService(llm_caller=_make_llm_caller(), backend=None)
-
-        result = await service.get("sr_any")
-
-        assert result.is_error
-
-    @pytest.mark.asyncio
-    async def test_backend_error_propagates(self):
-        backend = _make_entry_report_backend()
-        backend.get.return_value = Result.fail(Errors.database("get", "query failed"))
-        service = EntryReportService(llm_caller=_make_llm_caller(), backend=backend)
-
-        result = await service.get("sr_any")
-
-        assert result.is_error
 
 
 class TestListForSubmission:

@@ -506,6 +506,10 @@ it first removes both.
     (ADR-088 §3); the four visibility/nonexistent access tests are deleted with the check.
   - The learning-loop skill's EntryReport graph sketch said `(teacher)-[:OWNS]->(report)`; the
     writer makes the student the owner (`COALESCE(student, author)`), so the sketch now says so.
+  - No unscoped sibling survives beside the owner read (Codex P2 on #1415): the orchestrator's
+    caller-less get_entry_report wrapper and the service's bare get (its only caller) are deleted
+    with the backend protocol's get member; `EntryReportBackend.get` stays as the typed override of
+    the universal by-UID member (its `subject_uid` projection serves the generic mixin paths).
 
 ### PR 2a — `visibility` means public-or-not
 

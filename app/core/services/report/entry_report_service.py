@@ -110,29 +110,8 @@ class EntryReportService:
 
         logger.info(f"EntryReportService initialized with: {', '.join(available)}")
 
-    async def get(self, uid: str) -> Result[EntryReport]:
-        """Typed single-fetch for EntryReport by UID.
-
-        Delegates to ``EntryReportBackend.get`` and narrows a missing
-        row to a not-found error so routes can use the standard
-        ``require_found`` pattern.
-        """
-        if not self.backend:
-            return Result.fail(
-                Errors.system(
-                    "EntryReportBackend not configured",
-                    operation="get",
-                )
-            )
-        result = await self.backend.get(uid)
-        if result.is_error:
-            return Result.fail(result)
-        if result.value is None:
-            return Result.fail(Errors.not_found(resource="EntryReport", identifier=uid))
-        return Result.ok(result.value)
-
     async def get_for_user(self, uid: str, user_uid: UserUID) -> Result[EntryReport]:
-        """The owner's read of one report — THE non-system EntryReport read.
+        """The owner's read of one report — THE EntryReport read above the backend.
 
         A report is an owner read (ADR-088 §3): it belongs to the student it
         was written for (``user_uid``; the author owns an authorless report),
