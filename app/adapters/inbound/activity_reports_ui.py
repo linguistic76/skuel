@@ -69,6 +69,7 @@ from ui.patterns.page_header import PageHeader
 from ui.primitives import ButtonLink
 
 if TYPE_CHECKING:
+    from core.models.report.activity_report import ActivityReport
     from core.orchestrator.user_entry_orchestrator import UserEntryOrchestrator
     from core.ports.report_protocols import ProgressReportOperations
 
@@ -103,15 +104,17 @@ def _progress_list_refresh() -> Div:
 # ============================================================================
 
 
-async def _author_display_name(orchestrator: UserEntryOrchestrator, report: Any) -> str | None:
+async def _author_display_name(
+    orchestrator: UserEntryOrchestrator, report: ActivityReport
+) -> str | None:
     """The display name of a report's author when it is someone other than
     the owner — an admin's report is the subject's own (Submit & Share arc R11), and the
     page says who wrote it. ``None`` for the owner's own generation, or when
     the author cannot be resolved (the report still renders)."""
-    author_uid = getattr(report, "created_by", None)
-    if not author_uid or author_uid == getattr(report, "user_uid", None):
+    author_uid = report.created_by
+    if not author_uid or author_uid == report.user_uid:
         return None
-    author = await orchestrator.user_service.get_user(UserUID(str(author_uid)))
+    author = await orchestrator.user_service.get_user(UserUID(author_uid))
     if author.is_error or author.value is None:
         return None
     return author.value.display_name or author.value.title

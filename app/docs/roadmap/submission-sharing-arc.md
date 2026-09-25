@@ -639,8 +639,10 @@ it first removes both.
   - The comparison's history exclusion is a `generated_only` flag on `get_history` (backend,
     protocol, service), so the GradeBook list keeps the admin's report and the comparison drops it
     at the query — not a Python filter over a `LIMIT 5` the admin's row could fill.
-  - The human predicate is parameterised (`$human` = `ReportSource.HUMAN.value`) in the backends
-    and a literal `'human'` in the two user-context statements (whose params are the registry's).
+  - The human predicate is parameterised everywhere: `$human` (`ReportSource.HUMAN.value`) in
+    the backends, and `$human_report_source` in the two user-context statements through the
+    shared `STATUS_PARAMS` both statement families spread (Codex P2 on #1417 — the enum stays the
+    one source of the value).
   - `ActivityReportWritten` carries `report_uid`, `subject_uid`, `author_uid`, `time_period`
     (`event_type = "activity.report_written"`); the handler's message names the period token.
   - The detail page resolves "From <display name>" in the route (the orchestrator's user service,

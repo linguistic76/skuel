@@ -40,6 +40,7 @@ from typing import TYPE_CHECKING, Any
 
 from adapters.persistence.neo4j.query.cypher import CURRICULUM_COMPOSITION_EDGES
 from core.models.enums.entity_enums import EntityStatus
+from core.models.enums.pipeline import ReportSource
 from core.models.type_hints import UserUID
 from core.ports.query_types import CurrentPathStepItem, EntryKnowledgeAppliedRow, GroupSummary
 from core.utils.decorators import with_error_handling
@@ -87,6 +88,10 @@ STATUS_PARAMS: dict[str, Any] = {
     "open_ps_statuses": [EntityStatus.DRAFT.value, EntityStatus.ACTIVE.value],
     "status_active": EntityStatus.ACTIVE.value,
     "status_completed": EntityStatus.COMPLETED.value,
+    # The processor_type of an admin-written ActivityReport — the latest-report
+    # read in both statements excludes it (Submit & Share arc R11); bound here
+    # so the enum stays the one source of the value.
+    "human_report_source": ReportSource.HUMAN.value,
 }
 
 
@@ -813,7 +818,7 @@ WITH user,
 // review, not the user's own generation, so it never stands in as the
 // latest report. Null-safe: rows written before processor_type carry none.
 OPTIONAL MATCH (user)-[:OWNS]->(ar:ActivityReport)
-WHERE coalesce(ar.processor_type, '') <> 'human'
+WHERE coalesce(ar.processor_type, '') <> $human_report_source
 WITH user, life_path_uid, life_path_designated_at, life_path_alignment_score,
      ar
 ORDER BY ar.period_end DESC
@@ -1116,7 +1121,7 @@ WITH user, active_task_uids, completed_task_uids, overdue_task_uids, today_task_
 // ACTIVITY REPORT - Latest report for standard context (an admin's report
 // the user owns is a review, not their generation — same rule as LEARNER_STATE)
 OPTIONAL MATCH (user)-[:OWNS]->(ar:ActivityReport)
-WHERE coalesce(ar.processor_type, '') <> 'human'
+WHERE coalesce(ar.processor_type, '') <> $human_report_source
 WITH active_task_uids, completed_task_uids, overdue_task_uids, today_task_uids,
      active_habit_uids, habit_data,
      active_goal_uids, completed_goal_uids, goal_data,
