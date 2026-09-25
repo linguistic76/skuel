@@ -14,23 +14,23 @@ gone is ADR-088's record and the Submit & Share arc's
 What is rewritten, and why only that:
 
 - **Every ``:Entity`` node with ``visibility IN ['shared', 'team']``**, label
-  by label — the value is retired everywhere, so the rewrite is
-  label-agnostic. ``shared`` was stamped by the report writers and the
-  revised-exercise grant beside the edge that actually granted access, and
-  ``team`` by the Events form; neither ever widened an audience, so setting
-  both to ``private`` loses nothing.
-- **A spawned, user-owned node carrying ``public``** — a PathStep engagement
-  copied its template's curriculum ``public`` onto the student's own task /
-  goal / habit / event / choice / principle. The spawn now leaves the
-  instance at the user-owned default (``private``); this resets the rows the
-  old spawn wrote. Identified by the ``SPAWNED_FROM`` edge and a ``user_uid``,
-  so a TEACHER's deliberate ``public`` on an authored entity is never touched.
+  by label — the value is outside the enum everywhere, so the rewrite is
+  label-agnostic. Neither value grants anything: every read admits by edge
+  (``build_search_visibility_clause``, ADR-085) or by ownership, so setting
+  both to ``private`` changes what no reader sees.
+- **A spawned, user-owned node carrying ``public``** — a student's task /
+  goal / habit / event / choice / principle spawned from a PathStep template.
+  The instance is the student's own and takes the user-owned default
+  (``private``); a curriculum template's ``public`` is not its to carry.
+  Identified by the ``SPAWNED_FROM`` edge and a ``user_uid``, so a TEACHER's
+  deliberate ``public`` on an authored entity is never touched.
 
 Deploy order (the arc's Migrations convention): stop the running app →
 census (this script, no flag) → ``--confirm`` with Mike's OK → start on the
-new code → census again, which must report 0 rows of either kind (the
-second census catches rows the old code wrote in between — the post-2b
-report writers still stamped ``shared``).
+new code → census again, which must report 0 rows of either kind. The
+second census is the invariant check: no writer on the new code produces a
+retired value, so a non-zero count means a write landed between the rewrite
+and the restart.
 
 Usage:
     uv run scripts/migrations/collapse_visibility_to_public_or_not_2026_09.py            # census
