@@ -71,11 +71,10 @@ def RecipientEntryCard(entry: UserEntry, from_name: str | None) -> FT:
                         href=f"/gradebook/{entry.uid}/download",
                         cls=ButtonT.primary,
                     ),
-                    ButtonLink(
-                        "← Back to Shared with you",
-                        href="/profile/shared",
-                        cls=ButtonT.ghost,
-                    ),
+                    # Two ways back: a person share is listed on the Shared page, a
+                    # group share on the Groups hub (its tab is where the tile was).
+                    ButtonLink("← Shared with you", href="/profile/shared", cls=ButtonT.ghost),
+                    ButtonLink("← Groups", href="/groups", cls=ButtonT.ghost),
                     cls="mt-4 flex flex-wrap gap-2",
                 ),
             ),
