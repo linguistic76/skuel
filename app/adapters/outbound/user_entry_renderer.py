@@ -42,7 +42,7 @@ def _ascii_slug(text: str) -> str:
     """ASCII letters, digits, ``-`` and ``_`` only; everything else becomes ``-``."""
     return "".join(
         c if (c.isascii() and c.isalnum()) or c in "-_" else "-" for c in text.lower()
-    ).strip("-")
+    ).strip("-_")
 
 
 def entry_download_filename(entry: UserEntry) -> str:
