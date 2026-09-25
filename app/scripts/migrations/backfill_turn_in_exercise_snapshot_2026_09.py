@@ -8,8 +8,9 @@ its uid and its title as they read at submission. The GradeBook, the
 exchange thread, the review queue's copy collapse and the report titles all
 key on it, so an exchange outlives the deletion of its exercise (Submit &
 Share arc R12 — ``docs/roadmap/submission-sharing-arc.md``, PR 4a). The
-writer stamps it on every new turn-in; this script stamps it on the turn-ins
-that predate it.
+writer stamps it on every turn-in it creates; this script stamps every
+snapshot-less turn-in — an entry that is a turn-in by edge or by trace and
+carries no ``turn_in_exercise_uid``.
 
 What is stamped, and from where (first hit wins):
 
@@ -204,7 +205,7 @@ async def backfill(driver: AsyncDriver) -> int:
 
 async def main() -> int:
     parser = argparse.ArgumentParser(
-        description="Stamp the turn-in snapshot on every turn-in that predates it"
+        description="Stamp the turn-in snapshot on every snapshot-less turn-in"
     )
     parser.add_argument(
         "--confirm",
