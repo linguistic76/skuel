@@ -19,6 +19,7 @@ from datetime import datetime
 from typing import TYPE_CHECKING
 
 from core.models.enums.entity_enums import EntityType
+from core.models.enums.notification_enums import NotificationType
 from core.models.notification import Notification
 from core.models.type_hints import UserUID
 from core.utils.logging import get_logger
@@ -43,7 +44,7 @@ class NotificationService:
     async def create_notification(
         self,
         user_uid: UserUID,
-        notification_type: str,
+        notification_type: NotificationType,
         title: str,
         message: str,
         source_uid: str,
@@ -54,7 +55,7 @@ class NotificationService:
 
         Args:
             user_uid: Recipient user UID
-            notification_type: Type key (e.g., "feedback_received")
+            notification_type: What the notification is about
             title: Short display title
             message: Longer description
             source_uid: The entity UID that triggered this
@@ -70,7 +71,7 @@ class NotificationService:
             {
                 "user_uid": user_uid,
                 "uid": uid,
-                "notification_type": notification_type,
+                "notification_type": notification_type.value,
                 "title": title,
                 "message": message,
                 "source_uid": source_uid,
@@ -84,7 +85,7 @@ class NotificationService:
         if not result.value:
             return Result.fail(Errors.not_found(f"User {user_uid} not found"))
 
-        logger.debug(f"Created notification {uid} for user {user_uid}: {notification_type}")
+        logger.debug(f"Created notification {uid} for user {user_uid}: {notification_type.value}")
         return Result.ok(uid)
 
     async def get_unread_count(self, user_uid: UserUID) -> Result[int]:
@@ -147,6 +148,10 @@ class NotificationService:
         data — fail at the read boundary instead of guessing (the page degrades to
         an empty list, which is visible without being fatal).
 
+        ``notification_type`` is looser: a kind this build does not know (one a
+        later build wrote) resolves to ``None`` and the card shows a generic
+        bell — the source still opens, so the row is worth listing.
+
         ``created_at`` arrives as a Neo4j temporal from the graph and as an ISO
         string from any caller that round-tripped the row through JSON; both are
         normalised here so the model always carries a Python datetime.
@@ -165,7 +170,7 @@ class NotificationService:
             Notification(
                 uid=row["uid"],
                 user_uid=user_uid,
-                notification_type=row["notification_type"],
+                notification_type=NotificationType.from_string(str(row["notification_type"])),
                 title=row["title"],
                 message=row["message"],
                 source_uid=row["source_uid"],

@@ -79,13 +79,25 @@ class TestCreatedAtWindowCoercion:
                 """,
                 c=recent_iso,
             )
+            # Recent and the right period, but an admin's report on the user
+            # (theirs to own — Submit & Share arc R11): a review, not a generation, so it
+            # never puts them in cooldown.
+            await session.run(
+                """
+                MATCH (u:User {uid: 'user_cooldown'})
+                CREATE (u)-[:OWNS]->(:Entity {uid: 'ar_admin',
+                    entity_type: 'activity_report', time_period: '7d',
+                    processor_type: 'human', created_at: $c})
+                """,
+                c=recent_iso,
+            )
         backend = ActivityReportGeneratorBackend(Neo4jQueryExecutor(neo4j_driver))
         result = await backend.check_cooldown(
             "user_cooldown", cooldown_minutes=60, time_period="7d"
         )
         assert result.is_ok, f"check_cooldown failed: {result}"
-        # str + datetime are both in-window; the old string one is excluded.
-        # Pre-fix only the datetime one counted (string >= datetime → null) → 1.
+        # str + datetime are both in-window; the old string one and the
+        # admin's report are excluded.
         assert result.value[0]["recent_count"] == 2
 
 
@@ -120,10 +132,15 @@ class TestNewestFirstCoercion:
             older_created = "datetime() - duration({days: 2})"
             newer_created = "$newer"
         async with neo4j_driver.session() as session:
+            # ar_admin is the newest of all and the user's own (Submit & Share arc R11),
+            # but an admin's review: the period read skips it, the GradeBook
+            # history lists it, the comparison history (generated_only) does not.
             await session.run(
                 f"""
                 CREATE (:Entity {{uid: 'ar_older', {common}, created_at: {older_created}}})
                 CREATE (:Entity {{uid: 'ar_newer', {common}, created_at: {newer_created}}})
+                CREATE (:Entity {{uid: 'ar_admin', {common}, processor_type: 'human',
+                                  created_at: datetime()}})
                 """,
                 older=older_iso,
                 newer=newer_iso,
@@ -134,10 +151,12 @@ class TestNewestFirstCoercion:
 
         found = await backend.find_by_period("user_order", "user_order", "2026-09")
         history = await backend.get_history("user_order")
+        generated = await backend.get_history("user_order", generated_only=True)
 
-        assert found.is_ok and history.is_ok
+        assert found.is_ok and history.is_ok and generated.is_ok
         assert _uid(found.value[0]) == "ar_newer"
-        assert [_uid(row) for row in history.value] == ["ar_newer", "ar_older"]
+        assert [_uid(row) for row in history.value] == ["ar_admin", "ar_newer", "ar_older"]
+        assert [_uid(row) for row in generated.value] == ["ar_newer", "ar_older"]
 
 
 def _uid(row: Mapping[str, object]) -> str:

@@ -230,15 +230,20 @@ Both use atomic Cypher: create entity + `REPORT_FOR` + `SHARES_WITH` (to the sub
 | Source | Service | ReportSource | Trigger |
 |--------|---------|---------------|---------|
 | Generated on request | `ProgressReportGenerator.generate()` | `LLM` (`AUTOMATIC` when the LLM fails and the programmatic fallback writes) | `POST /api/reports/progress/generate` (the request form — where the calendar toolbar's "Report for …" pill lands), `POST /activity-reports/for` (the detail page's "Regenerate" of a calendar-period report) |
-| Admin writes feedback | `ActivityReportService.submit_report()` | `HUMAN` | Admin reviews snapshot |
+| Admin writes feedback | `ActivityReportService.submit_report()` | `HUMAN` | Admin reviews snapshot (`POST /activity-review/submit-feedback`) |
 
 There is no scheduled generation: a report exists because a person asked for one (ADR-069 Decision 3 rows 6–8, as amended, records why).
 
+**The subject owns every report about them** (Submit & Share arc R11): a generated report because they asked for it, an admin-written one because it is feedback on their activity — it lists in their GradeBook and opens on their detail page, and the admin who wrote it is `created_by` (the page shows "From <name>"). An admin-written report writes no share link (ADR-088 §1) and rings the subject's bell through `ActivityReportWritten` (arc R10); the admin has no read-back of it (ADR-042) — the confirmation echoes what was sent and to whom.
+
+Every read that means "the user's own generation" — the cooldown, the period's reusable report, the annotation carry-forward, the period-over-period comparison history, and the latest report the user context reasons over (both statements) — excludes `processor_type = 'human'` (null-safe: `coalesce(processor_type, '') <> 'human'`), so an admin's review never stands in for one. The GradeBook history (`get_history`) keeps both.
+
 **Graph pattern:**
 ```cypher
-(owner:User)-[:OWNS]->(feedback:Entity:ActivityReport {
+(subject:User)-[:OWNS]->(feedback:Entity:ActivityReport {
     entity_type: 'activity_report',
-    subject_uid: 'user_student_uid',
+    subject_uid: 'user_student_uid',   // = the owner's uid
+    created_by: 'user_admin_uid',      // the admin, on a HUMAN report
     time_period: '7d',
     processor_type: 'human'  // or 'llm' or 'automatic'
 })
@@ -249,7 +254,8 @@ There is no scheduled generation: a report exists because a person asked for one
 @dataclass(frozen=True)
 class ActivityReport(UserOwnedEntity):
     processor_type: ReportSource | None = None
-    subject_uid: str | None = None        # user whose activity was reviewed
+    subject_uid: str | None = None        # user whose activity was reviewed — the owner
+    created_by: str | None = None         # (Entity) the admin behind a HUMAN report
     time_period: str | None = None        # trailing "7d"…"90d" | calendar "2026-W37" / "2026-09"
     period_start: datetime | None = None
     period_end: datetime | None = None    # fixed for a calendar period, whether or not it has arrived
@@ -425,18 +431,20 @@ queue's missing input) and the privacy-transparency audit surface
 ### Admin-Initiated
 
 ```
-Admin selects user + time window
+Admin selects user + time window (GET /activity-review/new)
         ↓
-GET /api/activity-review/snapshot → ActivityReportService.create_snapshot(admin_uid=...)
+GET /activity-review/snapshot-fragment → ActivityReportService.create_snapshot(...)
         ↓  (calls context_builder.build_rich(user_uid, window=...) — the MEGA-QUERY with activity window)
         ↓  emits ActivitySnapshotAccessed event → audit trail
 Admin reads Tasks, Goals, Habits, Events, Choices, Principles summary
         ↓
 Admin writes qualitative assessment
         ↓
-POST /api/activity-review/submit → ActivityReportService.submit_report()
-        ↓  (calls ActivityReportService.persist() — all writes converge here)
-ActivityReport(ReportSource.HUMAN) created in Neo4j
+POST /activity-review/submit-feedback → ActivityReviewOrchestrator.submit_report()
+        ↓  (the subject must be a user — else a validation error on subject_uid)
+        ↓  → ActivityReportService.submit_report() → persist() — all writes converge here
+ActivityReport(ReportSource.HUMAN) created in Neo4j, owned by the subject, created_by = admin
+        ↓  emits ActivityReportWritten → the subject's bell (activity_report_received)
 ```
 
 ### User-Initiated
@@ -444,11 +452,11 @@ ActivityReport(ReportSource.HUMAN) created in Neo4j
 ```
 User wants a review
         ↓
-POST /api/activity-review/request → ReviewQueueService.request_review()
+ReviewQueueService.request_review()  (no HTTP door yet — see the route table below)
         ↓
 ReviewRequest node created → appears in admin queue
         ↓
-Admin views queue: GET /api/activity-review/queue → ReviewQueueService.get_pending_reviews()
+Admin views queue: GET /activity-review/queue → ReviewQueueService.get_pending_reviews()
         ↓
 Admin follows admin-initiated path above
 ```
@@ -520,8 +528,9 @@ When `openai_service` is available, the generator:
 // ACTIVITY_REPORT — tied to a user's activity patterns
 (:Entity:ActivityReport {
     uid, entity_type: 'activity_report',
-    user_uid,        // owner (admin or system)
+    user_uid,        // owner — always the subject (Submit & Share arc R11)
     subject_uid,     // user whose activity was reviewed
+    created_by,      // the admin, on a 'human' report; null otherwise
     processor_type,  // 'human', 'llm', or 'automatic'
     time_period,     // '7d', '14d', '30d', '90d'
     period_start, period_end,

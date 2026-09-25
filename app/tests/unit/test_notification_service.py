@@ -11,6 +11,7 @@ from unittest.mock import AsyncMock, MagicMock
 import pytest
 
 from core.models.enums.entity_enums import EntityType
+from core.models.enums.notification_enums import NotificationType
 from core.services.notifications.notification_service import NotificationService
 from core.utils.result_simplified import Result
 
@@ -45,7 +46,7 @@ async def test_create_notification_success(service, mock_backend):
 
     result = await service.create_notification(
         user_uid="user_student",
-        notification_type="feedback_received",
+        notification_type=NotificationType.FEEDBACK_RECEIVED,
         title="New feedback",
         message="Your teacher provided feedback.",
         source_uid="ku_feedback_xyz",
@@ -71,7 +72,7 @@ async def test_create_notification_user_not_found(service, mock_backend):
 
     result = await service.create_notification(
         user_uid="nonexistent_user",
-        notification_type="test",
+        notification_type=NotificationType.FEEDBACK_RECEIVED,
         title="Test",
         message="Test",
         source_uid="ku_test",
@@ -151,7 +152,7 @@ async def test_get_notifications(service, mock_backend):
     first, second = result.value
     assert first.uid == "notif_1"
     assert first.read is False
-    assert first.notification_type == "feedback_received"
+    assert first.notification_type is NotificationType.FEEDBACK_RECEIVED
     assert first.title == "New feedback"
     assert first.message == "Your teacher reviewed your work."
     assert first.source_uid == "ku_fb_1"
@@ -253,3 +254,30 @@ async def test_mark_all_read(service, mock_backend):
 
     assert not result.is_error
     assert result.value == 3
+
+
+@pytest.mark.asyncio
+async def test_get_notifications_unknown_kind_reads_as_none(service, mock_backend):
+    """A kind this build does not know (written by another build) must not
+    lose the row: it reads as ``None`` and the card renders a generic bell."""
+    mock_backend.get_notifications.return_value = Result.ok(
+        [
+            {
+                "uid": "notif_future",
+                "notification_type": "kind_from_a_later_build",
+                "title": "Something new",
+                "message": "…",
+                "source_uid": "ue_1",
+                "source_type": "user_entry",
+                "read": False,
+                "created_at": "2026-02-15T10:00:00",
+            }
+        ]
+    )
+
+    result = await service.get_notifications("user_student", limit=20)
+
+    assert not result.is_error
+    (only,) = result.value
+    assert only.notification_type is None
+    assert only.source_type is EntityType.USER_ENTRY

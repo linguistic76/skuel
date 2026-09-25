@@ -15,6 +15,7 @@ from dataclasses import dataclass, field
 from datetime import datetime
 
 from core.models.enums.entity_enums import EntityType
+from core.models.enums.notification_enums import NotificationType
 from core.models.type_hints import UserUID
 
 
@@ -28,7 +29,9 @@ class Notification:
 
     uid: str
     user_uid: UserUID  # Recipient
-    notification_type: str  # e.g., "feedback_received", "revision_requested"
+    # ``None`` = a stored value this build does not know (written by another
+    # build); the card renders it as a generic bell and still opens the source.
+    notification_type: NotificationType | None
     title: str  # Short display title
     message: str  # Longer description
     source_uid: str  # The entity UID that triggered this notification

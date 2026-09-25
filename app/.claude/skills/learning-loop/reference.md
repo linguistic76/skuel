@@ -491,9 +491,13 @@ no gap between read and write.
 Each feedback round creates a new `EntryReport` entity via `REPORT_FOR` —
 revision cycles are traceable as first-class graph entities. The loop publishes
 `ReportSubmitted`, `UserEntryRevisionRequested`, and `UserEntryApproved` events.
-Student notification delivery is **planned** — see the Messaging system in
-`CLAUDE.md`. Students currently need to poll `/gradebook` or the
-activity feed to discover new reports.
+Each rings the student's bell: the handlers in
+`core/events/handlers/report_notification_handler.py` write a `:Notification`
+node (kind = `NotificationType`) naming the entity it is about
+(`source_type` + `source_uid`), and the card on `/notifications` links to that
+entity's detail page — a feedback or revision bell opens its EntryReport, an
+approval the entry, revision instructions the RevisedExercise, and an admin's
+activity report (`ActivityReportWritten`) the report itself.
 
 ---
 

@@ -21,6 +21,7 @@ Module Organization:
 - scheduling_enums: RecurrencePattern, TimeOfDay, EnergyLevel
 - learning_enums: MasteryImpact, LearningLevel, EducationalLevel, MasteryStatus, KnowledgeStatus, etc.
 - metadata_enums: RelationshipType, Intent, Visibility, SystemConstants, etc.
+- notification_enums: NotificationType
 - askesis_enums: QueryComplexity, IntegrationSuccess, AggregationPeriod
 - transcription_enums: TranscriptionStatus
 - interaction_enums: InteractionType, InteractionResult
@@ -118,6 +119,9 @@ from .metadata_enums import (
 
 # Neo4j labels - single source of truth for node labels
 from .neo_labels import NeoLabel
+
+# Notification kinds — what a bell rings about (Submit & Share arc R10)
+from .notification_enums import NotificationType
 
 # Pipeline + ReportSource (ADR-054) — replaces ProcessorType; JeUse scopes je_pro files;
 # ProcessingMode drives the journals upload doors (ADR-073); ExchangeStatus is the
@@ -228,6 +232,7 @@ __all__ = [
     "MeasurementType",
     "MessageRole",
     "NeoLabel",
+    "NotificationType",
     "NonKuDomain",
     "Personality",
     "Pipeline",

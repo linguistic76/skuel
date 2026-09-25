@@ -809,7 +809,11 @@ WITH user,
 // ====================================================================
 // ACTIVITY REPORT - Latest report for intelligence reasoning
 // ====================================================================
+// The user owns an admin's report about them too (Submit & Share arc R11); it is a
+// review, not the user's own generation, so it never stands in as the
+// latest report. Null-safe: rows written before processor_type carry none.
 OPTIONAL MATCH (user)-[:OWNS]->(ar:ActivityReport)
+WHERE coalesce(ar.processor_type, '') <> 'human'
 WITH user, life_path_uid, life_path_designated_at, life_path_alignment_score,
      ar
 ORDER BY ar.period_end DESC
@@ -1109,8 +1113,10 @@ WITH user, active_task_uids, completed_task_uids, overdue_task_uids, today_task_
      core_principle_uids,
      collect(choice.uid) as pending_choice_uids
 
-// ACTIVITY REPORT - Latest report for standard context
+// ACTIVITY REPORT - Latest report for standard context (an admin's report
+// the user owns is a review, not their generation — same rule as LEARNER_STATE)
 OPTIONAL MATCH (user)-[:OWNS]->(ar:ActivityReport)
+WHERE coalesce(ar.processor_type, '') <> 'human'
 WITH active_task_uids, completed_task_uids, overdue_task_uids, today_task_uids,
      active_habit_uids, habit_data,
      active_goal_uids, completed_goal_uids, goal_data,

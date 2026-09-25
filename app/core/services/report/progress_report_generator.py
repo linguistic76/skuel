@@ -467,7 +467,7 @@ class ProgressReportGenerator:
             candidates = [previous.value]
         else:
             history_result = await self.activity_report_service.get_history(
-                subject_uid=user_uid, limit=5
+                subject_uid=user_uid, limit=5, generated_only=True
             )
             if history_result.is_error or not history_result.value:
                 return None

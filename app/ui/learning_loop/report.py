@@ -423,6 +423,7 @@ def render_activity_report_detail(
     snapshot: dict[str, Any] | None = None,
     intelligence: dict[str, Any] | None = None,
     comparison: dict[str, Any] | None = None,
+    author_name: str | None = None,
 ) -> Any:
     """Render the full detail view for a single ActivityReport.
 
@@ -431,6 +432,8 @@ def render_activity_report_detail(
         snapshot: Report snapshot metadata (entity counts per domain)
         intelligence: Intelligence metadata (trends, patterns, recommendations, life path)
         comparison: Period-over-period comparison data (previous report deltas)
+        author_name: Who wrote the report when it was not the owner — the admin
+            behind a HUMAN report (rendered as a "From …" line)
     """
     uid = getattr(report, "uid", "") or ""
     title = getattr(report, "title", "") or "Activity Report"
@@ -568,6 +571,7 @@ def render_activity_report_detail(
         Div(
             P(title, cls="text-xl font-bold mb-1"),
             P(date_str, cls="text-sm text-muted-foreground") if date_str else None,
+            P(f"From {author_name}", cls="text-sm text-muted-foreground") if author_name else None,
             Div(*badges, cls="flex flex-wrap gap-1 mt-2") if badges else None,
             Div(*domain_badges, cls="flex flex-wrap gap-1 mt-1") if domain_badges else None,
             period_section,

@@ -81,6 +81,7 @@ def _wire_event_subscribers(
     from core.events.curriculum_events import PathStepEnrolled
     from core.events.handlers.exercise_handler import handle_exercise_submission
     from core.events.handlers.report_notification_handler import (
+        handle_activity_report_written,
         handle_report_submitted,
         handle_revised_exercise_created,
         handle_revision_requested,
@@ -97,6 +98,7 @@ def _wire_event_subscribers(
         KnowledgeReflectedInEntry,
     )
     from core.events.learning_loop_events import (
+        ActivityReportWritten,
         EntryReportGenerated,
         ReportSubmitted,
         RevisedExerciseCreated,
@@ -228,14 +230,19 @@ def _wire_event_subscribers(
         handle_revised_exercise_created,
         notification_service=notification_service,
     )
+    activity_report_written_handler = functools.partial(
+        handle_activity_report_written,
+        notification_service=notification_service,
+    )
     event_bus.subscribe(ReportSubmitted, report_submitted_handler)
     event_bus.subscribe(UserEntryApproved, submission_approved_handler)
     event_bus.subscribe(UserEntryRevisionRequested, revision_requested_handler)
     event_bus.subscribe(RevisedExerciseCreated, revised_exercise_handler)
+    event_bus.subscribe(ActivityReportWritten, activity_report_written_handler)
     logger.info(
         "✅ Learning loop notification handlers subscribed to ReportSubmitted + "
-        "UserEntryApproved + UserEntryRevisionRequested + RevisedExerciseCreated "
-        "(student notifications)"
+        "UserEntryApproved + UserEntryRevisionRequested + RevisedExerciseCreated + "
+        "ActivityReportWritten (student notifications)"
     )
 
     # Learning loop intelligence handlers — iteration tracking, feedback turnaround, mastery velocity

@@ -23,6 +23,7 @@ from core.utils.result_simplified import Result
 
 if TYPE_CHECKING:
     from core.models.enums.entity_enums import EntityType
+    from core.models.enums.notification_enums import NotificationType
     from core.models.type_hints import Neo4jProperties, UserUID
     from core.ports.query_types import NotificationRow
 
@@ -82,13 +83,13 @@ class NotificationOperations(Protocol):
     """Service-facing slice: raising an in-app notification.
 
     Implementation: NotificationService
-    Consumers: the four handlers in core/events/handlers/report_notification_handler.py
+    Consumers: the handlers in core/events/handlers/report_notification_handler.py
     """
 
     async def create_notification(
         self,
         user_uid: UserUID,
-        notification_type: str,
+        notification_type: NotificationType,
         title: str,
         message: str,
         source_uid: str,
