@@ -4,9 +4,9 @@ The reads that run beside the MEGA-QUERY return what the rich context is built f
 ``SUBMISSION_STATS_QUERY`` and ``ENTRY_KNOWLEDGE_APPLIED_QUERY`` are statements of
 their own (see ``user_context_queries.py``); this seeds the learning-loop
 graph they read — entries, feedback, group-assigned exercises, a pending
-revision, APPLIES_KNOWLEDGE edges at and below the confidence floor, a
-PathStep→Ku rollup — and asserts each figure through the executor and then
-through ``build_rich_user_context``, the path the app takes.
+revision beside two answered ones, APPLIES_KNOWLEDGE edges at and below the
+confidence floor, a PathStep→Ku rollup — and asserts each figure through the
+executor and then through ``build_rich_user_context``, the path the app takes.
 """
 
 from datetime import datetime, timedelta
@@ -38,6 +38,10 @@ async def learning_loop_graph(neo4j_driver: AsyncDriver, clean_neo4j) -> dict[st
         "exercise_open": "ex.lifted.open",
         "fulfilment": "ue.lifted.fulfilment",
         "revision": "rex.lifted.pending",
+        "revision_answered": "rex.lifted.answered",
+        "revision_orphan_answered": "rex.lifted.orphan-answered",
+        "answer": "ue.lifted.answer",
+        "orphan_answer": "ue.lifted.orphan-answer",
         "ku_confident": "ku.lifted.confident",
         "ku_doubtful": "ku.lifted.doubtful",
         "ps": "ps.lifted.step",
@@ -65,6 +69,22 @@ async def learning_loop_graph(neo4j_driver: AsyncDriver, clean_neo4j) -> dict[st
                                        pipeline: 'je_pro', created_at: $recent})-[:FULFILLS_EXERCISE]->(done)
             CREATE (:RevisedExercise {uid: $revision, student_uid: $user_uid, title: 'Try again',
                                       revision_number: 2, created_at: $recent})
+            // Answered, the writer's shape: FULFILLS_EXERCISE anchors on the root
+            // exercise and FULFILLS_REVISED_EXERCISE names the revision.
+            CREATE (answered:RevisedExercise {uid: $revision_answered, student_uid: $user_uid,
+                                              title: 'Answered', revision_number: 2, created_at: $recent})
+            CREATE (answered)-[:REVISES_EXERCISE]->(done)
+            CREATE (answer:Entity:UserEntry {uid: $answer, entity_type: 'user_entry', user_uid: $user_uid,
+                                             pipeline: 'je_pro', created_at: $recent})
+            CREATE (answer)-[:FULFILLS_EXERCISE {revision: 2}]->(done)
+            CREATE (answer)-[:FULFILLS_REVISED_EXERCISE {revision: 2}]->(answered)
+            // Answered with no original left: the writer puts only
+            // FULFILLS_EXERCISE on a revision with no REVISES_EXERCISE edge.
+            CREATE (orphan:RevisedExercise {uid: $revision_orphan_answered, student_uid: $user_uid,
+                                            title: 'Orphan answered', revision_number: 2, created_at: $recent})
+            CREATE (:Entity:UserEntry {uid: $orphan_answer, entity_type: 'user_entry', user_uid: $user_uid,
+                                       pipeline: 'je_pro', created_at: $recent})
+                  -[:FULFILLS_EXERCISE {revision: 2}]->(orphan)
             CREATE (kc:Entity:Ku {uid: $ku_confident, entity_type: 'ku', title: 'Confident'})
             CREATE (kd:Entity:Ku {uid: $ku_doubtful, entity_type: 'ku', title: 'Doubtful'})
             CREATE (recent)-[:APPLIES_KNOWLEDGE {confidence: 0.9}]->(kc)
@@ -103,6 +123,8 @@ async def test_submission_stats_statement_counts_the_learning_loop(
     assert [ex["uid"] for ex in stats["unsubmitted_exercises"]] == [
         learning_loop_graph["exercise_open"]
     ]
+    # A revision answered by either edge kind is not pending; only the
+    # unanswered one is.
     assert [rev["uid"] for rev in stats["pending_revised_exercises"]] == [
         learning_loop_graph["revision"]
     ]

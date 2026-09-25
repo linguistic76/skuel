@@ -946,9 +946,12 @@ WITH user,
 
 // REVISED EXERCISES — Pending teacher-created revisions targeting this student
 // A RevisedExercise is "pending" when the student hasn't submitted against it yet.
+// A turn-in against a revision carries FULFILLS_REVISED_EXERCISE to the revision
+// (its FULFILLS_EXERCISE anchors on the root exercise); one whose original is gone
+// carries FULFILLS_EXERCISE to the revision itself. Either edge answers it.
 OPTIONAL MATCH (re:RevisedExercise {student_uid: user.uid})
 WHERE NOT EXISTS {
-    MATCH (:Entity {user_uid: user.uid})-[:FULFILLS_EXERCISE]->(re)
+    MATCH (:Entity {user_uid: user.uid})-[:FULFILLS_EXERCISE|FULFILLS_REVISED_EXERCISE]->(re)
 }
 WITH user,
      total_submission_count, submissions_in_window,

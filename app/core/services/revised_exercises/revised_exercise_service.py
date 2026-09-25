@@ -79,8 +79,12 @@ class RevisedExerciseService(BaseService[RevisedExerciseBackendOperations, Revis
             "responds_to_feedback",
         ),
         (RelationshipName.REVISES_EXERCISE.value, NeoLabel.ENTITY.value, "revises_exercise"),
+        # A turn-in against a revision reaches it by FULFILLS_REVISED_EXERCISE
+        # (its FULFILLS_EXERCISE anchors on the root exercise); one whose
+        # original is gone reaches it by FULFILLS_EXERCISE. One union pattern
+        # collects both.
         (
-            RelationshipName.FULFILLS_EXERCISE.value,
+            f"{RelationshipName.FULFILLS_EXERCISE.value}|{RelationshipName.FULFILLS_REVISED_EXERCISE.value}",
             NeoLabel.ENTITY.value,
             "submissions",
             "incoming",

@@ -206,7 +206,8 @@ class AudienceResolver:
                         action="submit for exercise",
                         reason=(
                             f"Exercise {fulfills_exercise_uid} is not assigned to "
-                            "any of your groups and you are not its owner."
+                            "any of your groups, you are not its owner, and it is "
+                            "not a revision addressed to you."
                         ),
                     )
                 )
@@ -250,7 +251,8 @@ class AudienceResolver:
              an exercise and either ``auto_share_to_exercise_groups`` or no
              explicit feedback target, the exercise's assigned groups the
              submitter belongs to, falling back to the submitter's default
-             group for a curriculum exercise (ruled 2026-07-04).
+             group for a curriculum exercise (ruled 2026-07-04). A revision
+             target resolves to the exercise it revises in both lookups.
           3. On any other pipeline a feedback target writes no link: the
              web ``audience=teachers`` and the vault ``teachers`` value name a
              reviewer that pipeline never has.
