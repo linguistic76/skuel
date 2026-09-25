@@ -682,7 +682,9 @@ def create_user_entry_ui_routes(
         recipient's download withholds exactly what the recipient card does.
         """
         user_uid = require_authenticated_user(request)
-        entry_result = await orchestrator.get_entry_for_viewer(uid, user_uid)
+        entry_result = require_found(
+            await orchestrator.get_entry_for_viewer(uid, user_uid), "Submission", uid
+        )
         if entry_result.is_error:
             error = entry_result.expect_error()
             if is_not_found(error):
@@ -717,7 +719,9 @@ def create_user_entry_ui_routes(
         """
         user_uid = require_authenticated_user(request)
 
-        entry_result = await orchestrator.get_entry_for_viewer(uid, user_uid)
+        entry_result = require_found(
+            await orchestrator.get_entry_for_viewer(uid, user_uid), "Submission", uid
+        )
         if entry_result.is_error:
             return refuse(
                 entry_result.expect_error(),
