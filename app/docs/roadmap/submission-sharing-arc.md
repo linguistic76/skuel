@@ -756,6 +756,38 @@ it first removes both.
 - Add a negative case in `test_user_context_lifted_statements.py:66` and run the plan-cache test.
 - Live acceptance setup (Mike's OK — it writes to AuraDB): resubmit against the live RevisedExercise
   (re_c4e92951), which writes the graph's first `FULFILLS_REVISED_EXERCISE` edge.
+- **Ruled (PR 4b session, 2026-09-25 — engineering choices the census found unsettled; the first
+  two are Mike's, on the resubmission route; none touches a ruling):**
+  - **A turn-in against a revision reaches the root exercise's reviewers.** The census found the
+    resubmission itself broken, not just the two readers: both `teachers` group lookups
+    (`query_exercise_groups_for_member`, `query_default_groups_for_curriculum_submission`) matched
+    the target uid — a revision is never `SHARED_WITH_GROUP` and has no `scope` — so a Teacher
+    resubmission of a revision filed no `SUBMITTED_TO_GROUP`, and with no failed target the
+    compensation never fired: an entry no teacher could open. Both lookups resolve a RevisedExercise
+    to the exercise it revises (the `REVISES_EXERCISE` coalesce the writer and
+    `count_entries_for_exercise` already use); a revision whose original is gone resolves to
+    nothing. Ruled by Mike: fix here, not at PR 7 (whose zero-reach rule would refuse loudly but
+    reach no one).
+  - **A revision is usable by the student it names.** The exercise-use check
+    (`query_user_can_use_exercise`) accepted an owner, a group member or an IN_PROGRESS PathStep, so
+    the door refused the named student with 403 before anything persisted — the revision detail
+    page's own submit link led there. The revision's `student_uid` is a claim; the refusal message
+    names it.
+  - The enrichment entry is one union pattern (`FULFILLS_EXERCISE|FULFILLS_REVISED_EXERCISE`,
+    incoming, `submissions`): the renderer interpolates the tuple's relationship string verbatim,
+    so a union is one `OPTIONAL MATCH` and one `submissions_list`, never two context fields.
+  - The negative case seeds both answered shapes beside the pending one — the writer's
+    (`FULFILLS_EXERCISE` on the root + `FULFILLS_REVISED_EXERCISE` on the revision) and the
+    orphan's (`FULFILLS_EXERCISE` on the revision alone) — so a swap fails as surely as the old
+    predicate did; the enrichment is driven through `graph_aware_faceted_search` on a real backend.
+  - Live acceptance 2026-09-25 (branch app on :8001, the upload door as linguistic76): the
+    resubmission wrote 3 nodes (UserEntry `ue_d8d8a7bf`, its `RECORDS` Interaction, an
+    iteration Insight) and 8 edges, including the graph's first `FULFILLS_REVISED_EXERCISE` and the
+    `SUBMITTED_TO_GROUP` to the default group; the old predicate still listed `re_c4e92951` as
+    pending and the new one listed nothing; the GradeBook line read Waiting, `/today` dropped the
+    pending revision, the admin queue collapsed the revision-requested copy and listed the new one,
+    and its review fragment opened. Deleted afterwards by uid (3 nodes, 8 edges; the Interaction and
+    Insight do not cascade) — the content was a scripted placeholder, not Mike's response.
 
 ### PR 5 — Recipients can open what's shared with them (R4, R6)
 
