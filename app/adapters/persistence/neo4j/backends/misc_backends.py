@@ -6,6 +6,7 @@ from typing import TYPE_CHECKING
 
 from adapters.persistence.neo4j.universal_backend import UniversalNeo4jBackend
 from core.models.enums.entity_enums import EntityType
+from core.models.enums.pipeline import ReportSource
 from core.models.relationship_names import RelationshipName
 from core.models.report.activity_report import ActivityReport
 from core.models.type_hints import Neo4jProperties, UserUID
@@ -24,6 +25,13 @@ if TYPE_CHECKING:
 #: The ActivityReport discriminator, bound as a parameter — never a raw literal,
 #: so an enum-value change cannot leave a report query silently matching nothing.
 _ACTIVITY_REPORT = EntityType.ACTIVITY_REPORT.value
+#: The processor_type of an admin-written report. A generated-report read
+#: (cooldown, period reuse, annotation carry-forward, the comparison history)
+#: excludes it: the subject owns it (Submit & Share arc R11), so the owner scope alone
+#: would let an admin's review stand in for the user's own generation. The
+#: predicate is null-safe — generated rows written before processor_type was
+#: stamped carry none.
+_HUMAN = ReportSource.HUMAN.value
 
 
 class ActivityReportBackend(UniversalNeo4jBackend[ActivityReport]):
@@ -53,18 +61,19 @@ class ActivityReportBackend(UniversalNeo4jBackend[ActivityReport]):
     async def find_by_period(
         self, user_uid: UserUID, subject_uid: str, time_period: str
     ) -> Result[list[Neo4jProperties]]:
-        """The newest ActivityReport the user OWNS about ``subject_uid`` for one
-        ``time_period`` token, at most one row — partial or final alike.
+        """The newest GENERATED ActivityReport the user OWNS about ``subject_uid``
+        for one ``time_period`` token, at most one row — partial or final alike.
 
-        Owner-scoped like ``get_for_user``: an admin-authored HUMAN report can
-        share the subject and the token, and the owner-scoped detail read would
-        refuse it. Whether the row is reusable (a closed period's partial report
-        is not) is the service's verdict.
+        An admin-written (HUMAN) report of the same period is the subject's
+        too, but it is a review, not a generation: it never stands in for the
+        period's report, so it is excluded here. Whether the row is reusable
+        (a closed period's partial report is not) is the service's verdict.
         """
         return await self.execute_query(
             """
             MATCH (n:Entity {entity_type: $entity_type, user_uid: $user_uid,
                              subject_uid: $subject_uid, time_period: $time_period})
+            WHERE coalesce(n.processor_type, '') <> $human
             RETURN n
             ORDER BY datetime(n.created_at) DESC
             LIMIT 1
@@ -74,19 +83,31 @@ class ActivityReportBackend(UniversalNeo4jBackend[ActivityReport]):
                 "user_uid": user_uid,
                 "subject_uid": subject_uid,
                 "time_period": time_period,
+                "human": _HUMAN,
             },
         )
 
-    async def get_history(self, subject_uid: str, limit: int = 20) -> Result[list[Neo4jProperties]]:
-        """The subject's ActivityReports, newest first."""
+    async def get_history(
+        self, subject_uid: str, limit: int = 20, generated_only: bool = False
+    ) -> Result[list[Neo4jProperties]]:
+        """The subject's ActivityReports, newest first — admin-written ones
+        included unless ``generated_only`` (the comparison read wants the
+        subject's own generations only)."""
         return await self.execute_query(
             """
             MATCH (n:Entity {entity_type: $entity_type, subject_uid: $subject_uid})
+            WHERE NOT $generated_only OR coalesce(n.processor_type, '') <> $human
             RETURN n
             ORDER BY datetime(n.created_at) DESC
             LIMIT $limit
             """,
-            {"entity_type": _ACTIVITY_REPORT, "subject_uid": subject_uid, "limit": limit},
+            {
+                "entity_type": _ACTIVITY_REPORT,
+                "subject_uid": subject_uid,
+                "limit": limit,
+                "generated_only": generated_only,
+                "human": _HUMAN,
+            },
         )
 
     async def annotate(
@@ -135,18 +156,26 @@ class ActivityReportBackend(UniversalNeo4jBackend[ActivityReport]):
     async def get_admin_snapshots(
         self, user_uid: UserUID, limit: int = 50
     ) -> Result[list[Neo4jProperties]]:
-        """Get admin-written ActivityReports received by this user (privacy audit)."""
+        """Get admin-written ActivityReports received by this user (privacy audit).
+
+        The user owns every report about them; the admin is ``created_by``.
+        """
         return await self.execute_query(
             """
             MATCH (n:Entity {entity_type: $entity_type, subject_uid: $user_uid})
-            WHERE n.processor_type = 'human'
+            WHERE n.processor_type = $human
             RETURN n.created_at AS accessed_at,
-                   n.user_uid AS admin_uid,
+                   n.created_by AS admin_uid,
                    n.time_period AS time_period
             ORDER BY datetime(n.created_at) DESC
             LIMIT $limit
             """,
-            {"entity_type": _ACTIVITY_REPORT, "user_uid": user_uid, "limit": limit},
+            {
+                "entity_type": _ACTIVITY_REPORT,
+                "user_uid": user_uid,
+                "limit": limit,
+                "human": _HUMAN,
+            },
         )
 
     async def get_shares_granted(
@@ -260,13 +289,16 @@ class ActivityReportGeneratorBackend:
     async def check_cooldown(
         self, user_uid: str, cooldown_minutes: int, time_period: str
     ) -> Result[list[Neo4jProperties]]:
-        """Count the user's ActivityReports for ``time_period`` written within
-        ``cooldown_minutes`` — the cooldown is keyed per (user, period)."""
+        """Count the user's GENERATED ActivityReports for ``time_period`` written
+        within ``cooldown_minutes`` — the cooldown is keyed per (user, period).
+        An admin's report on the user is theirs but not a generation: it never
+        puts them in cooldown."""
         return await self.executor.execute_query(
             """
             MATCH (user:User {uid: $user_uid})-[:OWNS]->(ar:Entity)
             WHERE ar.entity_type = $entity_type
               AND ar.time_period = $time_period
+              AND coalesce(ar.processor_type, '') <> $human
               AND datetime(ar.created_at) >= datetime() - duration({minutes: $cooldown_minutes})
             RETURN count(ar) AS recent_count
             """,
@@ -275,6 +307,7 @@ class ActivityReportGeneratorBackend:
                 "user_uid": user_uid,
                 "cooldown_minutes": cooldown_minutes,
                 "time_period": time_period,
+                "human": _HUMAN,
             },
         )
 
@@ -298,16 +331,23 @@ class ActivityReportGeneratorBackend:
     async def get_previous_annotation(
         self, user_uid: str, period_start: str
     ) -> Result[list[Neo4jProperties]]:
-        """Get the most recent user_annotation from a prior ActivityReport."""
+        """Get the most recent user_annotation from a prior GENERATED
+        ActivityReport (an admin's report is not the user's own reflection)."""
         return await self.executor.execute_query(
             """
             MATCH (user:User {uid: $user_uid})-[:OWNS]->(ar:Entity)
             WHERE ar.entity_type = $entity_type
+              AND coalesce(ar.processor_type, '') <> $human
               AND (ar.user_annotation IS NOT NULL OR ar.user_revision IS NOT NULL)
               AND datetime(ar.period_end) < datetime($period_start)
             RETURN COALESCE(ar.user_annotation, ar.user_revision) AS annotation
             ORDER BY ar.period_end DESC
             LIMIT 1
             """,
-            {"entity_type": _ACTIVITY_REPORT, "user_uid": user_uid, "period_start": period_start},
+            {
+                "entity_type": _ACTIVITY_REPORT,
+                "user_uid": user_uid,
+                "period_start": period_start,
+                "human": _HUMAN,
+            },
         )

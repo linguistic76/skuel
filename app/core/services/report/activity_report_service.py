@@ -30,7 +30,7 @@ if TYPE_CHECKING:
     from core.services.user.user_context_builder import UserContextBuilder
 
 from core.events import publish_event
-from core.events.learning_loop_events import ActivitySnapshotAccessed
+from core.events.learning_loop_events import ActivityReportWritten, ActivitySnapshotAccessed
 from core.models.enums import EntityStatus
 from core.models.enums.pipeline import ReportSource
 from core.models.report.activity_report import ActivityReport
@@ -360,8 +360,13 @@ class ActivityReportService:
         """
         Create an ActivityReport entity from admin-written activity assessment.
 
-        Stores as EntityType.ACTIVITY_REPORT with ReportSource.HUMAN.
-        The admin_uid becomes owner (user_uid), subject_uid tracks who was reviewed.
+        Stores as EntityType.ACTIVITY_REPORT with ReportSource.HUMAN. The
+        subject owns the report (``user_uid``, the ``OWNS`` edge) so it reads
+        in their GradeBook and detail page like any report of theirs; the
+        admin is recorded as ``created_by`` (Submit & Share arc R11). No share link is
+        written — feedback is never on the Shared page (ADR-088 §1) — and the subject
+        is rung through ``ActivityReportWritten`` (arc R10). The admin has no
+        read-back of the report (ADR-042).
 
         IMPORTANT: This method writes to another user's activity record.
         It MUST only be called from routes gated by @require_admin.
@@ -396,7 +401,6 @@ class ActivityReportService:
 
         try:
             metadata: dict[str, Any] = {
-                "reviewed_by": admin_uid,
                 "time_period": time_period,
                 "period_kind": period.kind.value,
                 "period_end": end_date.isoformat(),
@@ -408,8 +412,9 @@ class ActivityReportService:
                 metadata["snapshot"] = snapshot_context
 
             feedback = ActivityReport.create(
-                user_uid=TypeConverter.to_user_uid(admin_uid),
+                user_uid=TypeConverter.to_user_uid(subject_uid),
                 subject_uid=subject_uid,
+                created_by=admin_uid,
                 content=feedback_text,
                 processor_type=ReportSource.HUMAN,
                 period_start=start_date,
@@ -425,6 +430,16 @@ class ActivityReportService:
                 return Result.fail(create_result)
 
             logger.info(f"Activity review created: {feedback.uid} by {admin_uid} for {subject_uid}")
+            await publish_event(
+                self.event_bus,
+                ActivityReportWritten(
+                    report_uid=feedback.uid,
+                    subject_uid=subject_uid,
+                    author_uid=admin_uid,
+                    time_period=time_period,
+                ),
+                logger,
+            )
             return Result.ok(feedback)
 
         except NEO4J_EXCEPTIONS as e:
@@ -510,21 +525,25 @@ class ActivityReportService:
         self,
         subject_uid: str,
         limit: int = 20,
+        generated_only: bool = False,
     ) -> Result[list[ActivityReport]]:
         """
         Get all ActivityReport entities where subject_uid matches the user.
 
         Returns both LLM-generated (AUTOMATIC/LLM) and human-written (HUMAN)
-        feedback for the given user, newest first.
+        feedback for the given user, newest first — the GradeBook list. With
+        ``generated_only`` the admin-written ones are left out: the
+        period-over-period comparison reads the subject's own generations.
 
         Args:
             subject_uid: User to retrieve reports for
             limit: Maximum number of results
+            generated_only: Exclude admin-written (HUMAN) reports
 
         Returns:
             Result[list[ActivityReport]]
         """
-        query_result = await self.backend.get_history(subject_uid, limit)
+        query_result = await self.backend.get_history(subject_uid, limit, generated_only)
         if query_result.is_error:
             return Result.fail(query_result)
 
@@ -646,7 +665,8 @@ class ActivityReportService:
 
         Two data points:
             admin_snapshots  — ActivityReports written by admins about this user
-                               (processor_type=human, subject_uid=user_uid)
+                               (processor_type=human, subject_uid=user_uid; the
+                               admin is the row's ``created_by``)
             shares_granted   — Users who currently have SHARES_WITH access to
                                the user's entities
 

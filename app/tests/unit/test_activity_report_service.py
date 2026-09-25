@@ -10,6 +10,7 @@ from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
+from core.models.enums.pipeline import ReportSource
 from core.services.report.activity_report_service import ActivityReportService
 from core.services.user.unified_user_context import UserContext
 from core.utils.result_simplified import Result
@@ -578,3 +579,77 @@ class TestRowConversion:
 
         assert result.is_ok
         assert [r.time_period for r in result.value] == ["2026-01", "7d"]
+
+
+class TestSubmitReportOwnership:
+    """An admin-written report is the subject's own (Submit & Share arc R11): the subject
+    owns it, the admin is ``created_by``, no share link is written, and the
+    subject is rung through ``ActivityReportWritten`` (arc R10)."""
+
+    @pytest.mark.asyncio
+    async def test_the_subject_owns_the_report_and_the_admin_is_its_author(
+        self, service, mock_backend
+    ):
+        mock_backend.create.return_value = Result.ok(MagicMock())
+
+        result = await service.submit_report("user_admin", "user_alice", "Good week.")
+
+        assert result.is_ok, result.error
+        report = mock_backend.create.call_args[0][0]
+        assert report.user_uid == "user_alice"
+        assert report.subject_uid == "user_alice"
+        assert report.created_by == "user_admin"
+        assert "reviewed_by" not in report.metadata
+        assert report.processor_type is ReportSource.HUMAN
+
+    @pytest.mark.asyncio
+    async def test_the_subject_is_rung_once_the_report_is_persisted(
+        self, service, mock_backend, mock_event_bus
+    ):
+        from core.events.learning_loop_events import ActivityReportWritten
+
+        mock_backend.create.return_value = Result.ok(MagicMock())
+
+        result = await service.submit_report(
+            "user_admin", "user_alice", "Good week.", time_period="7d"
+        )
+
+        assert result.is_ok, result.error
+        published = [
+            call.args[0]
+            for call in mock_event_bus.publish_async.call_args_list
+            if isinstance(call.args[0], ActivityReportWritten)
+        ]
+        assert len(published) == 1
+        event = published[0]
+        assert event.report_uid == result.value.uid
+        assert event.subject_uid == "user_alice"
+        assert event.author_uid == "user_admin"
+        assert event.time_period == "7d"
+
+    @pytest.mark.asyncio
+    async def test_a_failed_persist_rings_nobody(self, service, mock_backend, mock_event_bus):
+        from core.events.learning_loop_events import ActivityReportWritten
+        from core.utils.result_simplified import Errors
+
+        mock_backend.create.return_value = Result.fail(Errors.database("create", "down"))
+
+        result = await service.submit_report("user_admin", "user_alice", "Good week.")
+
+        assert result.is_error
+        assert not any(
+            isinstance(call.args[0], ActivityReportWritten)
+            for call in mock_event_bus.publish_async.call_args_list
+        )
+
+    @pytest.mark.asyncio
+    async def test_the_comparison_history_asks_for_generated_reports_only(
+        self, service, mock_backend
+    ):
+        await service.get_history("user_alice", limit=5, generated_only=True)
+        mock_backend.get_history.assert_awaited_once_with("user_alice", 5, True)
+
+    @pytest.mark.asyncio
+    async def test_the_gradebook_history_keeps_admin_reports(self, service, mock_backend):
+        await service.get_history("user_alice")
+        mock_backend.get_history.assert_awaited_once_with("user_alice", 20, False)

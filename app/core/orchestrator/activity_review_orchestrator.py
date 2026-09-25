@@ -95,7 +95,22 @@ class ActivityReviewOrchestrator:
         time_period: str = "7d",
         domains: list[str] | None = None,
     ) -> Result[ActivityReport]:
-        """Create ActivityReport from admin-written assessment."""
+        """Create ActivityReport from admin-written assessment.
+
+        The subject must be a user: the report is written as theirs (owner and
+        bell — Submit & Share arc R10/R11), so a mistyped uid would file a report nobody
+        can open. An unknown subject is a validation error on ``subject_uid``.
+        """
+        subject = await self._user_service.get_user(subject_uid)
+        if subject.is_error:
+            return Result.fail(subject)
+        if subject.value is None:
+            return Result.fail(
+                Errors.validation(
+                    message=f"No user with uid {subject_uid!r}",
+                    field="subject_uid",
+                )
+            )
         return await self._activity_report.submit_report(
             admin_uid=admin_uid,
             subject_uid=subject_uid,

@@ -110,6 +110,7 @@ def _expected_handler_counts(full_tier: bool) -> dict[type, int]:
         KnowledgeReflectedInEntry,
     )
     from core.events.learning_loop_events import (
+        ActivityReportWritten,
         EntryReportGenerated,
         ReportSubmitted,
         RevisedExerciseCreated,
@@ -184,6 +185,7 @@ def _expected_handler_counts(full_tier: bool) -> dict[type, int]:
         ReportSubmitted: 3,  # student notification + learning-loop tracking + interaction COMPLETED
         RevisedExerciseCreated: 1,
         EntryReportGenerated: 1,  # interaction REPORT_GENERATED (AI report path, ADR-051)
+        ActivityReportWritten: 1,  # the subject's bell (Submit & Share arc R10)
         # Curriculum / learning
         KnowledgeCreated: 1,
         KnowledgeMastered: 6,  # invalidate + LP/PS-mastery/PS-progress chains + recs + x-domain

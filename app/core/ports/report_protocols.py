@@ -291,8 +291,10 @@ class ActivityReportOperations(Protocol):
         self,
         subject_uid: str,
         limit: int = 20,
+        generated_only: bool = False,
     ) -> Result[list[ActivityReport]]:
-        """The subject's ActivityReports, newest first (LLM + human). Returns Result[list[ActivityReport]]."""
+        """The subject's ActivityReports, newest first — LLM + human, or the
+        subject's own generations only. Returns Result[list[ActivityReport]]."""
         ...
 
     async def latest_for_period(
@@ -347,7 +349,7 @@ class ActivityReportBackendOperations(BackendOperations["ActivityReport"], Proto
     ) -> Result[list[Neo4jProperties]]: ...
 
     async def get_history(
-        self, subject_uid: str, limit: int = 20
+        self, subject_uid: str, limit: int = 20, generated_only: bool = False
     ) -> Result[list[Neo4jProperties]]: ...
 
     async def annotate(
@@ -389,9 +391,10 @@ class ActivityReportGeneratorBackendOperations(Protocol):
     async def check_cooldown(
         self, user_uid: str, cooldown_minutes: int, time_period: str
     ) -> Result[list[Neo4jProperties]]:
-        """Return a single-row ``recent_count`` for the user's ActivityReports
-        for ``time_period`` written within the cooldown window — the cooldown
-        is keyed per (user, period).
+        """Return a single-row ``recent_count`` for the user's GENERATED
+        ActivityReports for ``time_period`` written within the cooldown window
+        — the cooldown is keyed per (user, period); an admin-written report
+        the user owns does not count.
 
         Used to suppress duplicate AI report generation when one was just
         produced. Row shape: ``[{"recent_count": <int>}]``.
@@ -412,8 +415,8 @@ class ActivityReportGeneratorBackendOperations(Protocol):
         self, user_uid: str, period_start: str
     ) -> Result[list[Neo4jProperties]]:
         """Return the most recent ``user_annotation`` (or ``user_revision``
-        fallback) from any prior ActivityReport whose ``period_end`` is before
-        ``period_start``.
+        fallback) from any prior GENERATED ActivityReport whose ``period_end``
+        is before ``period_start``.
 
         Used to carry forward the user's last self-annotation into the new
         report's prompt. Row shape: ``[{"annotation": <str>}]`` or ``[]``.

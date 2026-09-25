@@ -582,7 +582,7 @@ it first removes both.
 
 ### PR 3 — Bells that work + activity reports reach the student (B)
 
-- **`NotificationType` StrEnum** (`core/models/enums/notification_enums.py`): <!-- planned -->
+- **`NotificationType` StrEnum** (`core/models/enums/notification_enums.py`):
   - values, icon, a badge-variant string and a label;
   - the 4 existing members + `activity_report_received`, `submission_for_review`, `shared_with_you`;
   - typed through the model, protocol and service; an unknown stored value falls back to a generic bell.
@@ -623,6 +623,36 @@ it first removes both.
 - **Docs:** REPORT_ARCHITECTURE:223-245,522 (+ fictional routes in touched sections); the
   learning-loop skill's `.claude/skills/learning-loop/reference.md:493` ("planned" → live — already stale: four handlers exist);
   docstrings `misc_backends.py:56`, `activity_report_service.py:364`.
+- **Ruled (PR 3 session, 2026-09-24 — engineering choices the census found unsettled; none touches
+  a ruling):**
+  - The model carries `notification_type: NotificationType | None` — `None` is a stored value this
+    build does not know (`NotificationType.from_string`), and the card renders it as a generic bell
+    that still opens its source. The stored column stays the string value; only the writer's
+    parameter and the read model are typed. `source_type` keeps its strict read (an unknown one is
+    schema drift — only the service writes it).
+  - The card's link is `notification_href` (`ui/notifications/cards.py`): `entity_detail_href`
+    over the source, the `submission_for_review` override, and **no View link** when the source
+    type has no detail page — never a `#` href.
+  - The `revision_requested` handler refuses (logs an error, writes nothing) when the event carries
+    no `metadata["report_uid"]` — both publishers always set it, so the deleted fallback (the entry
+    uid under an ENTRY_REPORT source) was a bell that opened nothing.
+  - The comparison's history exclusion is a `generated_only` flag on `get_history` (backend,
+    protocol, service), so the GradeBook list keeps the admin's report and the comparison drops it
+    at the query — not a Python filter over a `LIMIT 5` the admin's row could fill.
+  - The human predicate is parameterised everywhere: `$human` (`ReportSource.HUMAN.value`) in
+    the backends, and `$human_report_source` in the two user-context statements through the
+    shared `STATUS_PARAMS` both statement families spread (Codex P2 on #1417 — the enum stays the
+    one source of the value).
+  - `ActivityReportWritten` carries `report_uid`, `subject_uid`, `author_uid`, `time_period`
+    (`event_type = "activity.report_written"`); the handler's message names the period token.
+  - The detail page resolves "From <display name>" in the route (the orchestrator's user service,
+    `created_by` ≠ `user_uid`), falling back to the username; an unresolvable author renders no
+    line rather than an error. The admin confirmation fragment echoes the subject uid, the period
+    and the full text sent.
+  - **Both fallbacks stand** (Codex P2 ×2 on #1417, rejected): the unknown-kind `None` because the
+    notification list read is all-or-nothing — one unknown row would blank the page — and the
+    null-safe human predicate because `ActivityReport.processor_type` is `ReportSource | None`,
+    so a positive `IN [...]` would drop a legal row; it tightens when the model does.
 
 ### PR 4a — Exchanges survive exercise deletion (R12, R13)
 
@@ -1171,7 +1201,7 @@ requires PR 1, PR 3, PR 5 and PR 6a. PR 6c requires PR 4a, PR 5 and PR 6b. PR 7 
 | 1 | `SUBMITTED_TO_GROUP`: writer, request side (gated on TEACHER_REVIEW; `teachers` writes no link on other pipelines), forms, teacher readers, migration | Census: 2 edges re-typed, and a count of classmate-visible turn-ins (a `MEMBER_OF` member reaching a `teacher_review` entry it does not own through `SHARED_WITH_GROUP`) reads 0. `/teaching/queue` still lists the Gentle Return turn-in. A `pipeline: none` vault note with no `audience:` writes no group link. (`/groups` as linguistic76 shows no turn-ins before PR 1 too — linguistic76 owns both.) | merged #1414, 2026-09-24 |
 | 2b | The outcome discriminator; the EntryReport access check retired; report detail is an owner read | The GradeBook shows the same exchanges as before (3 live on 2026-09-24, on old and new code — the PR 0 census counted 2). `/entry-reports/detail` gives the owner 200 and others 404 | merged #1415, 2026-09-24 |
 | 2a | `visibility` = {private, public}: enum, writers, Events field, spawn fix, migration first; `set_visibility` PUBLIC-only; the duplicate ingestion gate and the unused request/response classes deleted | The census shows 0 `shared`/`team` values. The Events form has no Visibility field. Spawned instances are private | merged #1416, 2026-09-24 |
-| 3 | `NotificationType`; card links; admin activity reports owned by the student + their bell; subject validation; generated-report reads exclude admin (human) reports, both user-context statements included | An admin writes an activity report → the student's bell → the detail page opens. The old feedback bells open their reports | open |
+| 3 | `NotificationType`; card links; admin activity reports owned by the student + their bell; subject validation; generated-report reads exclude admin (human) reports, both user-context statements included | An admin writes an activity report → the student's bell → the detail page opens. The old feedback bells open their reports | merged #1417, 2026-09-25 |
 | 4a | Snapshot-keyed exchanges; "Exercise removed"; R13 subtitle | After deleting a test exercise with turn-ins, the GradeBook shows an "Exercise removed" line and `/exchange` opens | open |
 | 4b | The two lineage predicates accept `FULFILLS_EXERCISE\|FULFILLS_REVISED_EXERCISE` | A resubmitted revision no longer shows as pending in UserContext | open |
 | 5 | `OWNER_OR_AUDIENCE` + `read_visibility`; the audience fragment; viewer-aware `/gradebook/{uid}` + download; the peer route retired | A person-shared entry opens for its recipient with no status or feedback. A non-recipient gets 404 | open |

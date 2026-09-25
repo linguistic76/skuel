@@ -235,6 +235,9 @@ def create_activity_review_ui_routes(
                 ),
             )
 
+        # The report is the subject's now (Submit & Share arc R11) and the admin has no
+        # read-back of it (ADR-042), so the confirmation echoes what was sent
+        # and to whom — the one place the admin sees it again.
         feedback_entity = result.value
         uid_val = getattr(feedback_entity, "uid", None) if feedback_entity else None
         uid_display = f" (uid: {uid_val})" if uid_val else ""
@@ -242,13 +245,15 @@ def create_activity_review_ui_routes(
         return Div(
             Alert(
                 P(
-                    f"Feedback submitted successfully{uid_display}.",
+                    f"Report sent to {subject_uid}{uid_display}.",
                     cls="mb-0 font-semibold",
                 ),
                 P(
-                    f"Activity feedback for {subject_uid} saved with ReportSource.HUMAN.",
+                    f"Period {time_period}. They own it, and their bell will tell them; "
+                    "you have no read-back of it.",
                     cls="mb-0 text-sm",
                 ),
+                P(feedback_text, cls="mb-0 mt-2 text-sm whitespace-pre-wrap"),
                 variant=AlertT.success,
             ),
         )

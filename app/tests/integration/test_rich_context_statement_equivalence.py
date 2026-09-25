@@ -159,7 +159,13 @@ CREATE (ar_old:Entity:ActivityReport {uid: 'ar.eq.old', entity_type: 'activity_r
 CREATE (ar_new:Entity:ActivityReport {uid: 'ar.eq.new', entity_type: 'activity_report', time_period: '2026-W36',
                                       period_end: '2026-09-07', processed_content: 'Latest',
                                       user_annotation: 'note'})
-CREATE (u)-[:OWNS]->(ar_old) CREATE (u)-[:OWNS]->(ar_new)
+// An admin's report about the user is the user's own (Submit & Share arc R11) and the
+// newest by period — and never the latest report for intelligence: it is a
+// review, not the user's generation.
+CREATE (ar_admin:Entity:ActivityReport {uid: 'ar.eq.admin', entity_type: 'activity_report', time_period: '2026-W38',
+                                        period_end: '2026-09-21', processed_content: 'Admin review',
+                                        processor_type: 'human', created_by: 'user_admin'})
+CREATE (u)-[:OWNS]->(ar_old) CREATE (u)-[:OWNS]->(ar_new) CREATE (u)-[:OWNS]->(ar_admin)
 CREATE (i_live:Insight {uid: 'ins.eq.active', insight_type: 'cross_domain', title: 'Live insight', impact: 'high',
                         confidence: 0.9, dismissed: false, actioned: false})
 CREATE (i_gone:Insight {uid: 'ins.eq.dismissed', insight_type: 'cross_domain', title: 'Dismissed insight',
@@ -591,7 +597,7 @@ async def test_the_rich_context_carries_every_section(
     # learner state
     assert context.life_path_uid == "lp.eq.life"
     assert context.life_path_alignment_score == 0.7
-    assert context.latest_activity_report_uid == "ar.eq.new"
+    assert context.latest_activity_report_uid == "ar.eq.new"  # not the admin's ar.eq.admin
     assert context.latest_activity_report_period == "2026-W36"
     assert context.latest_activity_report_content == "Latest"
     assert context.cross_domain_insights == {
@@ -606,6 +612,21 @@ async def test_the_rich_context_carries_every_section(
             }
         ],
     }
+
+
+@pytest.mark.asyncio
+async def test_the_standard_context_skips_the_admin_report_too(
+    neo4j_driver: AsyncDriver, every_section_seeded: None
+) -> None:
+    """The standard build reads the latest report through its own statement
+    (CONSOLIDATED_QUERY); it applies the same rule as the rich one."""
+    builder = UserContextBuilder(UserContextQueryExecutor(Neo4jQueryExecutor(neo4j_driver)))
+    user = User(uid=_USER_UID, title="eq", email="eq@test.com")
+
+    result = await builder.build_user_context(_USER_UID, user)
+
+    assert result.is_ok, result.error
+    assert result.value.latest_activity_report_uid == "ar.eq.new"
 
 
 @pytest.mark.asyncio

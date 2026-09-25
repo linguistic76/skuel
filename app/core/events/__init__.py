@@ -179,6 +179,7 @@ from core.events.learning_events import (
 
 # Learning loop events (ADR-054 — relocated from submission_events.py)
 from core.events.learning_loop_events import (
+    ActivityReportWritten,
     ActivitySnapshotAccessed,
     EntryReportGenerated,
     ReportSubmitted,
@@ -242,6 +243,7 @@ from core.events.user_events import (
 # tests/unit/test_event_registry_derivation.py fails if an event is missing here.
 __all__ = [
     "AchievementEarned",
+    "ActivityReportWritten",
     "ActivitySnapshotAccessed",
     "BaseEvent",
     "CalendarEventCompleted",

@@ -45,6 +45,7 @@ from adapters.outbound.activity_report_renderer import (
     render_activity_report_md,
 )
 from core.models.entity_requests import AnnotationFormRequest, ProgressReportGenerateRequest
+from core.models.type_hints import UserUID
 from core.utils.logging import get_logger
 from core.utils.report_periods import (
     UnknownReportPeriodError,
@@ -68,6 +69,8 @@ from ui.patterns.page_header import PageHeader
 from ui.primitives import ButtonLink
 
 if TYPE_CHECKING:
+    from core.models.report.activity_report import ActivityReport
+    from core.orchestrator.user_entry_orchestrator import UserEntryOrchestrator
     from core.ports.report_protocols import ProgressReportOperations
 
 logger = get_logger("skuel.routes.activity_reports")
@@ -99,6 +102,22 @@ def _progress_list_refresh() -> Div:
 # ============================================================================
 # ROUTE CREATION
 # ============================================================================
+
+
+async def _author_display_name(
+    orchestrator: UserEntryOrchestrator, report: ActivityReport
+) -> str | None:
+    """The display name of a report's author when it is someone other than
+    the owner — an admin's report is the subject's own (Submit & Share arc R11), and the
+    page says who wrote it. ``None`` for the owner's own generation, or when
+    the author cannot be resolved (the report still renders)."""
+    author_uid = report.created_by
+    if not author_uid or author_uid == report.user_uid:
+        return None
+    author = await orchestrator.user_service.get_user(UserUID(author_uid))
+    if author.is_error or author.value is None:
+        return None
+    return author.value.display_name or author.value.title
 
 
 def create_activity_reports_ui_routes(
@@ -262,9 +281,14 @@ def create_activity_reports_ui_routes(
         snapshot = metadata.get("snapshot") if isinstance(metadata, dict) else None
         intelligence = metadata.get("intelligence") if isinstance(metadata, dict) else None
         comparison = metadata.get("comparison") if isinstance(metadata, dict) else None
+        author_name = await _author_display_name(orchestrator, report)
         return Div(
             render_activity_report_detail(
-                report, snapshot=snapshot, intelligence=intelligence, comparison=comparison
+                report,
+                snapshot=snapshot,
+                intelligence=intelligence,
+                comparison=comparison,
+                author_name=author_name,
             ),
             id="activity-report-detail-content",
         )

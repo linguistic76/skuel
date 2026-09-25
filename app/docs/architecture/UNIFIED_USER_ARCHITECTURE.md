@@ -1,6 +1,6 @@
 ---
 title: User Architecture — User Model, Auth, Roles, and UserContext
-updated: 2026-09-22
+updated: 2026-09-25
 status: current
 category: architecture
 tags:
@@ -347,14 +347,14 @@ collect(DISTINCT CASE WHEN x IS NOT NULL THEN {uid: x.uid, title: x.title} END) 
 
 ### ActivityReport Fields — Both Paths
 
-Both CONSOLIDATED_QUERY (standard) and MEGA-QUERY (rich) fetch the latest `ActivityReport` and populate the same fields:
+Both CONSOLIDATED_QUERY (standard) and MEGA-QUERY (rich) fetch the latest `ActivityReport` the user owns **that is their own generation** — an admin-written (`processor_type = 'human'`) report is the user's too (Submit & Share arc R11) but a review, not a generation, so both statements exclude it, null-safe — and populate the same fields:
 
 | UserContext Field | What |
 |-----------------|------|
-| `latest_activity_report_uid` | UID of the most recent report |
+| `latest_activity_report_uid` | UID of the most recent generated report |
 | `latest_activity_report_period` | `"7d"` / `"14d"` / `"30d"` / `"90d"` |
 | `latest_activity_report_generated_at` | When it was generated |
-| `latest_activity_report_content` | The AI synthesis or human text |
+| `latest_activity_report_content` | The AI synthesis (never an admin's text) |
 | `latest_activity_report_user_annotation` | User's own annotation (feeds next LLM prompt) |
 
 `latest_activity_report_user_annotation` feeds the next report's LLM prompt via `_fetch_previous_annotation()`. (Its pre-ADR-082 keyword-triggered inclusion in Askesis's `build_llm_context()` was removed with the intent-selected dump — the Askesis prompt now grounds through the `ASKESIS_GROUNDING_FIELDS` projection.)

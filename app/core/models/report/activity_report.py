@@ -140,12 +140,15 @@ class ActivityReport(UserOwnedEntity):
         insights_referenced: tuple[str, ...] = (),
         metadata: dict[str, Any] | None = None,
         data_cutoff: datetime | None = None,
+        created_by: str | None = None,
     ) -> ActivityReport:
         """
         Factory method — generates uid, formats title, constructs ActivityReport.
 
         Called by both ProgressReportGenerator (LLM/AUTOMATIC) and
         ActivityReportService (HUMAN). The processor_type discriminates the source.
+        ``created_by`` names the author when it is not the owner — the admin who
+        wrote a HUMAN report, which its subject owns (Submit & Share arc R11).
         """
         from core.utils.uid_generator import UIDGenerator
 
@@ -180,6 +183,7 @@ class ActivityReport(UserOwnedEntity):
             processing_error=processing_error,
             insights_referenced=insights_referenced,
             metadata=metadata or {},
+            created_by=created_by,
         )
 
     @classmethod
