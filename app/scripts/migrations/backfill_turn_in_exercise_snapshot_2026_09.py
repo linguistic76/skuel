@@ -153,7 +153,7 @@ WHERE e.turn_in_exercise_uid IS NOT NULL
 RETURN count(e) AS stamped
 """
 
-_PARAMS: dict[str, Any] = {
+_PARAMS: dict[str, str | list[str]] = {
     "exercise_types": [EntityType.EXERCISE.value, EntityType.REVISED_EXERCISE.value],
     "exercise": EntityType.EXERCISE.value,
     "placeholder": EXERCISE_REMOVED_TITLE,
