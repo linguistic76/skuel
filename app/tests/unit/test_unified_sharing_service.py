@@ -52,7 +52,7 @@ async def test_share_success(mock_backend, sharing_service):
             ]
         )
     )
-    mock_backend.create_share = AsyncMock(return_value=Result.ok([{"success": True}]))
+    mock_backend.create_share = AsyncMock(return_value=Result.ok([{"created": True}]))
 
     result = await sharing_service.share(
         entity_uid="report_123",
@@ -63,6 +63,124 @@ async def test_share_success(mock_backend, sharing_service):
 
     assert not result.is_error
     assert result.value is True
+    # R8 rides into the statement by default (ADR-088 §7).
+    assert mock_backend.create_share.await_args.kwargs["require_co_membership"] is True
+    assert mock_backend.create_share.await_args.kwargs["owner_uid"] == "user_owner"
+
+
+@pytest.mark.asyncio
+async def test_share_that_already_stood_is_a_success_not_created(mock_backend, sharing_service):
+    mock_backend.query_ownership_and_status = AsyncMock(
+        return_value=Result.ok(
+            [{"actual_owner": "user_owner", "status": "active", "entity_type": "user_entry"}]
+        )
+    )
+    mock_backend.create_share = AsyncMock(return_value=Result.ok([{"created": False}]))
+
+    result = await sharing_service.share(
+        entity_uid="ue_1", owner_uid="user_owner", recipient_uid="user_peer"
+    )
+
+    assert not result.is_error
+    assert result.value is False
+
+
+@pytest.mark.asyncio
+async def test_share_refused_by_the_guard_is_one_not_found(mock_backend, sharing_service):
+    """No row = the recipient does not exist or is not a co-member; the
+    service says the same in both cases."""
+    mock_backend.query_ownership_and_status = AsyncMock(
+        return_value=Result.ok(
+            [{"actual_owner": "user_owner", "status": "active", "entity_type": "user_entry"}]
+        )
+    )
+    mock_backend.create_share = AsyncMock(return_value=Result.ok([]))
+
+    result = await sharing_service.share(
+        entity_uid="ue_1", owner_uid="user_owner", recipient_uid="user_stranger"
+    )
+
+    assert result.is_error
+    assert result.error.category.value == "not_found"
+    assert "user_stranger" in str(result.error)
+
+
+@pytest.mark.asyncio
+async def test_share_without_co_membership_is_the_admin_exemption(mock_backend, sharing_service):
+    mock_backend.query_ownership_and_status = AsyncMock(
+        return_value=Result.ok(
+            [
+                {
+                    "actual_owner": "user_owner",
+                    "status": "completed",
+                    "entity_type": "form_submission",
+                }
+            ]
+        )
+    )
+    mock_backend.create_share = AsyncMock(return_value=Result.ok([{"created": True}]))
+
+    result = await sharing_service.share(
+        entity_uid="fs_1",
+        owner_uid="user_owner",
+        recipient_uid="user_admin",
+        require_co_membership=False,
+    )
+
+    assert not result.is_error
+    assert mock_backend.create_share.await_args.kwargs["require_co_membership"] is False
+
+
+# ============================================================================
+# R8 CO-MEMBERSHIP READS
+# ============================================================================
+
+
+@pytest.mark.asyncio
+async def test_resolve_co_member_returns_the_uid(mock_backend, sharing_service):
+    mock_backend.query_co_member_uid = AsyncMock(return_value=Result.ok([{"uid": "user_alice"}]))
+    result = await sharing_service.resolve_co_member("user_owner", "Alice")
+    assert result.value == "user_alice"
+    mock_backend.query_co_member_uid.assert_awaited_once_with("user_owner", username="Alice")
+
+
+@pytest.mark.asyncio
+async def test_resolve_co_member_is_none_for_unknown_and_stranger_alike(
+    mock_backend, sharing_service
+):
+    mock_backend.query_co_member_uid = AsyncMock(return_value=Result.ok([]))
+    assert (await sharing_service.resolve_co_member("user_owner", "nobody")).value is None
+
+
+@pytest.mark.asyncio
+async def test_shares_group_with_by_uid(mock_backend, sharing_service):
+    mock_backend.query_co_member_uid = AsyncMock(return_value=Result.ok([{"uid": "user_peer"}]))
+    assert (await sharing_service.shares_group_with("user_owner", "user_peer")).value is True
+    mock_backend.query_co_member_uid.assert_awaited_once_with(
+        "user_owner", recipient_uid="user_peer"
+    )
+
+
+@pytest.mark.asyncio
+async def test_shares_group_with_is_never_true_for_oneself(mock_backend, sharing_service):
+    mock_backend.query_co_member_uid = AsyncMock(return_value=Result.ok([{"uid": "user_owner"}]))
+    assert (await sharing_service.shares_group_with("user_owner", "user_owner")).value is False
+    mock_backend.query_co_member_uid.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_reachable_groups_is_the_subset_the_backend_returns(mock_backend, sharing_service):
+    mock_backend.query_reachable_groups = AsyncMock(return_value=Result.ok([{"group_uid": "g_a"}]))
+    result = await sharing_service.reachable_groups("user_owner", ["g_a", "g_b"])
+    assert result.value == frozenset({"g_a"})
+
+
+@pytest.mark.asyncio
+async def test_reachable_groups_with_nothing_named_reads_nothing(mock_backend, sharing_service):
+    mock_backend.query_reachable_groups = AsyncMock()
+    result = await sharing_service.reachable_groups("user_owner", [])
+    assert result.value == frozenset()
+    mock_backend.query_reachable_groups.assert_not_awaited()
 
 
 @pytest.mark.asyncio

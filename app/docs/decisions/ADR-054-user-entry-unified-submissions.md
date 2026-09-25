@@ -172,8 +172,24 @@ feedback request — `SUBMITTED_TO_GROUP`, written only on `pipeline=TEACHER_REV
 by the group's owning teachers; `teachers` on any other pipeline writes no link. **Group** stays a
 share (`SHARED_WITH_GROUP`, every member) — except that until the arc's PR 6a names
 `teacher:<group_uid>`, `group:<uid>` at the web form and the vault door files the feedback request
-on a TEACHER_REVIEW note (the per-teacher route); the JSON body's `share_with_groups` stays a share. A **Peer** share is never a feedback target. The web form, the JSON API and
+on a TEACHER_REVIEW note (the per-teacher route); the JSON body's share_with_groups stays a share. A **Peer** share is never a feedback target. The web form, the JSON API and
 the vault will speak one vocabulary from PR 6a.
+
+> **2026-09-25 — Amended by [ADR-088](ADR-088-submit-and-share.md) (Submit & Share arc, PR 6a).**
+> The three doors speak **one vocabulary** (`AudienceSpec`, `core/models/user_entry/audience.py`;
+> the one applier is `AudienceResolver`): `teachers` and `teacher:<group_uid>` file a feedback
+> request (`SUBMITTED_TO_GROUP`, TEACHER_REVIEW only), `group:<uid>` and `user:<username>` share,
+> `public` publishes, `private` names no one and combines with nothing. Lists are accepted; case is
+> preserved after the colon (a username matches `User.title` exactly). `group:<uid>` is always a
+> share — a TEACHER_REVIEW request whose explicit audience names no teacher is refused with
+> guidance naming `teacher:<group_uid>`. An absent audience on TEACHER_REVIEW means `teachers`;
+> on every other pipeline it names nobody, so the 2026-09-02 vault-note default below is now the
+> rule for every pipeline and the per-pipeline flag it named is gone. A person share requires
+> co-membership (R8 — default-group co-membership counts only through its owner; an unknown and a
+> non-co-member username get one not-found). Every target is validated before the first write.
+> The create request carries `audience`; its four raw fields (submit_to_groups, share_with_groups,
+> share_with_users, auto_share_to_exercise_groups) and its `visibility` field left the contract.
+> The YAML `audience:` table below reads with these rows in place of its own.
 
 `UserEntry` is shared via `UnifiedSharingService` at creation time. The
 submit form offers four audience options, any combination:
@@ -199,15 +215,22 @@ required `pipeline:` field and an optional `audience:` field:
 
 | YAML `audience:` | Effect |
 |------------------|--------|
-| `teachers` (default) | Expand to the uploader's student-role group memberships via `AudienceResolver.resolve_default_teachers()`. Zero groups → no shares (no silent broadcast). |
+| `teachers` (default) | Expand to the uploader's student-role group memberships via the resolver's default-teacher expansion. Zero groups → no shares (no silent broadcast). |
 | `group:<uid>` | `SHARED_WITH_GROUP` with one specific group. |
 | `public` | `visibility=PUBLIC`. |
 | `private` | No shares, no visibility change. |
 
+*Amended 2026-09-25 (ADR-088, PR 6a): the live rows are `teachers` (a feedback request to the
+exercise's groups I belong to — a curriculum exercise: my default group; no exercise: every group I
+study in), `teacher:<group_uid>` (a feedback request to one group), `group:<uid>` (a share),
+`user:<username>` (a share with a co-member), `public`, `private` (exclusive); one value or a list.
+Absent = `teachers` on `teacher_review`, nobody elsewhere.*
+
 *Amended 2026-09-02: the two vault-note pipelines — `knowledge` (ADR-073's developed-files
 doorway) and `extract_activities` (periodic notes) — default to `private` when `audience:` is
-omitted — `Pipeline.shares_by_default()`. The `teachers` default is submission semantics and
-stays for the submission-shaped pipelines.*
+omitted — a per-pipeline flag on `Pipeline`. The `teachers` default is submission semantics and
+stays for the submission-shaped pipelines.* *(Superseded 2026-09-25, PR 6a: absent means nobody on
+every pipeline but `teacher_review`; the flag is gone.)*
 
 `AudienceResolver` (`core/services/user_entry/audience_resolver.py`) is
 the shared home for audience validation, share fan-out, and default-
@@ -238,6 +261,16 @@ with `TRANSFORMS` pointing at another entry is a processed output. Same type,
 different meanings, encoded in the graph.
 
 ### 5. Journal input → output, preserved
+
+> **2026-09-25 — Amended by [ADR-088](ADR-088-submit-and-share.md) (Submit & Share arc, PR 6a).**
+> The pipeline gate below is applied for the entry's lifetime, not only at submit: a
+> `TRANSCRIBE_AND_STRUCTURE` or `REFERENCE` entry cannot be shared through any door, and
+> "share" is R1's verb — a `group:` / `user:` / `public` target. A feedback request (`teachers` /
+> `teacher:<group_uid>`) is Submit, not Share, and stays allowed. And **`private: true` refuses
+> sharing too** — reversing the rule that `private` is orthogonal to sharing: the
+> companion-retrieval opt-out now also means the note is never shared, while a feedback request
+> on it is still allowed. The request-field names in the paragraph below are the retired raw
+> fields; the live rule reads `AudienceSpec.names_share`.
 
 The current `JeInput` → `TRANSFORMS` → `JeOutput` pattern survives the
 collapse. Audio submission:
@@ -331,7 +364,10 @@ type-agnostic).
   `instructions` dict flags.
 - **Audience becomes a first-class choice.** Students can submit a work
   product to a teacher, share a reflection with a peer, and post to a group
-  feed — all through the same mechanism, all at submit time.
+  feed — all through the same mechanism, all at submit time. *(Amended by
+  ADR-088, PR 6a: there is no "post" — a group target is a share, and the
+  mechanism is one vocabulary shared by the web form, the JSON API and the
+  vault.)*
 - **Peer review, class posts, and public portfolios are free.** The edges
   and the `UnifiedSharingService` API already exist; they just weren't
   wired to submissions.

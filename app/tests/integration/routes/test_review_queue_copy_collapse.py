@@ -97,7 +97,7 @@ async def seeded(clean_neo4j, neo4j_driver) -> None:
     - STUDENT_2 x EX_1: rev 1 pending, shared with TEACHER's group → queues
       (S1's rev 2 on the same exercise is a different lineage and must not
       swallow it). A rev 2 exists but the multi-class student directed it
-      ONLY to OTHER_TEACHER's group (submit_to_groups supports this) — a
+      ONLY to OTHER_TEACHER's group (``teacher:<group_uid>`` names it) — a
       copy this teacher cannot see must not retire their pending work.
     - STUDENT_2 x EX_2: rev 1 pending, rev 2 already completed → rev 1 is
       superseded by the reviewed copy and must not queue.
@@ -339,7 +339,7 @@ class TestQueueCopyCollapse:
         self, review_service, seeded
     ) -> None:
         """A multi-class student can direct a revision to another teacher's
-        group only (share_with_groups); a copy this teacher cannot see must
+        group only (``group:<uid>``); a copy this teacher cannot see must
         not supersede the pending copy they can."""
         uids = await _queue_uids(review_service)
         assert S2_EX1 in uids, (

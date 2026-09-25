@@ -8,6 +8,7 @@ from adapters.persistence.neo4j.universal_backend import UniversalNeo4jBackend
 from core.models.entity import Entity
 from core.models.enums.entity_enums import EntityType
 from core.models.enums.user_entry_enums import ExerciseScope
+from core.models.group.group import DEFAULT_GROUP_UID_PREFIX
 from core.models.relationship_names import RelationshipName
 from core.models.type_hints import EntityUID, Neo4jProperties, UserUID
 from core.utils.result_simplified import Result
@@ -18,6 +19,27 @@ if TYPE_CHECKING:
     from core.models.group.group import Group  # noqa: F401
     from core.models.interaction.interaction import Interaction  # noqa: F401
     from core.models.resource.resource import Resource  # noqa: F401
+
+
+def build_co_membership_fragment(owner_alias: str, recipient_alias: str) -> str:
+    """The one R8 co-membership predicate (ADR-088 §7), as a Cypher boolean.
+
+    Two users share a group when both reach one **active** group through
+    ``MEMBER_OF`` or ``OWNS`` — except through a default group, where only a
+    pair that includes the group's owner counts: its roster is the whole
+    enrolled platform, its owner is the student's teacher. The default group
+    is recognised by its uid prefix, bound as ``$default_group_prefix``
+    (``DEFAULT_GROUP_UID_PREFIX``); the owner by the ``OWNS`` edge. Every
+    caller binds that parameter; ``SharingBackend`` composes this fragment in
+    the co-member reads and in the guarded person-share MERGE.
+    """
+    reach = f"[:{RelationshipName.MEMBER_OF.value}|{RelationshipName.OWNS.value}]"
+    owns = f"[:{RelationshipName.OWNS.value}]"
+    return (
+        f"EXISTS {{ MATCH ({owner_alias})-{reach}->(cg:Group)<-{reach}-({recipient_alias}) "
+        f"WHERE cg.is_active = true AND (NOT cg.uid STARTS WITH $default_group_prefix "
+        f"OR ({owner_alias})-{owns}->(cg) OR ({recipient_alias})-{owns}->(cg)) }}"
+    )
 
 
 class SharingBackend(UniversalNeo4jBackend[Entity]):
@@ -37,29 +59,110 @@ class SharingBackend(UniversalNeo4jBackend[Entity]):
     async def create_share(
         self,
         entity_uid: EntityUID,
+        owner_uid: UserUID,
         recipient_uid: str,
         role: str,
         share_version: str,
         shared_at: str,
+        require_co_membership: bool,
     ) -> Result[list[Neo4jProperties]]:
-        """Create SHARES_WITH relationship from recipient to entity."""
+        """Grant a person share: an idempotent ``SHARES_WITH`` MERGE from recipient to entity.
+
+        With ``require_co_membership`` the statement re-checks R8 in the
+        write itself (``build_co_membership_fragment``) and refuses a
+        recipient who is the owner: a membership change between validation
+        and this write refuses here, never after. Without it (the forms'
+        ``share_with_admin``, ADR-088 §7's one exemption) the MERGE is
+        unguarded. A row is the success and carries ``created`` — ``true``
+        when this call wrote the edge, ``false`` when the share already
+        stood; no row is the refusal.
+        """
+        co_member = build_co_membership_fragment("owner", "recipient")
         result = await self.execute_query(
-            """
-            MATCH (recipient:User {uid: $recipient_uid})
-            MATCH (ku:Entity {uid: $entity_uid})
-            MERGE (recipient)-[r:SHARES_WITH]->(ku)
-            SET r.shared_at = datetime($shared_at),
+            f"""
+            MATCH (owner:User {{uid: $owner_uid}})
+            MATCH (recipient:User {{uid: $recipient_uid}})
+            MATCH (entity:Entity {{uid: $entity_uid}})
+            WHERE NOT $require_co_membership
+               OR (recipient.uid <> owner.uid AND {co_member})
+            MERGE (recipient)-[r:{RelationshipName.SHARES_WITH.value}]->(entity)
+            WITH r, r.shared_at IS NULL AS created
+            SET r.shared_at = coalesce(r.shared_at, datetime($shared_at)),
                 r.role = $role,
                 r.share_version = $share_version
-            RETURN true as success
+            RETURN created
             """,
             {
+                "owner_uid": owner_uid,
                 "recipient_uid": recipient_uid,
                 "entity_uid": entity_uid,
                 "shared_at": shared_at,
                 "role": role,
                 "share_version": share_version,
+                "require_co_membership": require_co_membership,
+                "default_group_prefix": DEFAULT_GROUP_UID_PREFIX,
             },
+        )
+        if result.is_error:
+            return Result.fail(result)
+        return Result.ok(result.value or [])
+
+    async def query_co_member_uid(
+        self,
+        owner_uid: UserUID,
+        username: str | None = None,
+        recipient_uid: str | None = None,
+    ) -> Result[list[Neo4jProperties]]:
+        """The uid of one user, by exact ``username`` (``User.title``) or by uid, iff they share a group with ``owner_uid`` (R8).
+
+        One row ``{uid}`` when the user exists and is a co-member under
+        ``build_co_membership_fragment``; no row when they do not exist or
+        are not — one answer for both, so a caller discloses nothing about
+        who exists. The owner is their own co-member here (a group is shared
+        with oneself trivially); the caller refuses that case.
+        """
+        if (username is None) == (recipient_uid is None):
+            raise ValueError("query_co_member_uid takes exactly one of username / recipient_uid")
+        key = "title" if username is not None else "uid"
+        co_member = build_co_membership_fragment("owner", "recipient")
+        result = await self.execute_query(
+            f"""
+            MATCH (owner:User {{uid: $owner_uid}})
+            MATCH (recipient:User {{{key}: $recipient_key}})
+            WHERE recipient.uid = owner.uid OR {co_member}
+            RETURN recipient.uid AS uid
+            LIMIT 1
+            """,
+            {
+                "owner_uid": owner_uid,
+                "recipient_key": username if username is not None else recipient_uid,
+                "default_group_prefix": DEFAULT_GROUP_UID_PREFIX,
+            },
+        )
+        if result.is_error:
+            return Result.fail(result)
+        return Result.ok(result.value or [])
+
+    async def query_reachable_groups(
+        self,
+        user_uid: UserUID,
+        group_uids: list[str],
+    ) -> Result[list[Neo4jProperties]]:
+        """The subset of ``group_uids`` that exist, are active (strict) and the user is ``MEMBER_OF`` or ``OWNS``.
+
+        The pre-write check for every ``group:`` / ``teacher:`` target: the
+        group writers' own guards (``create_group_share``,
+        ``create_group_submission``) apply the same condition in the write,
+        so a target listed here is one they will accept unless membership
+        changes in between. Rows ``{group_uid}``.
+        """
+        result = await self.execute_query(
+            f"""
+            MATCH (u:User {{uid: $user_uid}})-[:{RelationshipName.MEMBER_OF.value}|{RelationshipName.OWNS.value}]->(g:Group)
+            WHERE g.uid IN $group_uids AND g.is_active = true
+            RETURN DISTINCT g.uid AS group_uid
+            """,
+            {"user_uid": user_uid, "group_uids": list(group_uids)},
         )
         if result.is_error:
             return Result.fail(result)
@@ -361,9 +464,9 @@ class SharingBackend(UniversalNeo4jBackend[Entity]):
         Curriculum exercises are vault-authored and never ASSIGNED to a group,
         so the assignment-intersection auto-share resolves to nothing and a
         teacher_review submission would dissolve unseen. Ruled 2026-07-04:
-        such submissions share with the submitter's default group (the
-        ``group_default_{admin_uid}`` group every enrolled student auto-joins,
-        owned by the default teacher). Scope-gated in Cypher: a non-curriculum
+        such submissions share with the submitter's default group (the group
+        every enrolled student auto-joins, recognised by
+        ``DEFAULT_GROUP_UID_PREFIX`` and owned by the default teacher). Scope-gated in Cypher: a non-curriculum
         exercise returns zero rows, so PERSONAL submissions can never leak to
         the default group through this path. A RevisedExercise target resolves
         to the exercise it revises, so a revision of a curriculum exercise
@@ -377,7 +480,7 @@ class SharingBackend(UniversalNeo4jBackend[Entity]):
             WITH coalesce(orig, target) AS ex
             WHERE ex.entity_type = $exercise_type AND ex.scope = $curriculum_scope
             MATCH (u:User {{uid: $user_uid}})-[:{RelationshipName.MEMBER_OF.value}]->(g:Group)
-            WHERE g.uid STARTS WITH 'group_default_'
+            WHERE g.uid STARTS WITH $default_group_prefix
               AND coalesce(g.is_active, true) = true
             RETURN g.uid AS group_uid
             """,
@@ -386,6 +489,7 @@ class SharingBackend(UniversalNeo4jBackend[Entity]):
                 "user_uid": user_uid,
                 "exercise_type": EntityType.EXERCISE.value,
                 "curriculum_scope": ExerciseScope.CURRICULUM.value,
+                "default_group_prefix": DEFAULT_GROUP_UID_PREFIX,
             },
         )
         if result.is_error:

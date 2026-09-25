@@ -1,28 +1,28 @@
 """
 UserEntry ingestion helper — bridges YAML files into ``UserEntryService``.
 
-`/upload` and `/submit` are the two front-ends on the same UserEntry creation
-pipeline. This module is the bridge for the YAML-driven side: it validates
-the per-file frontmatter (pipeline + audience), expands the
-``audience: teachers`` default into explicit group UIDs via the
-``AudienceResolver``, builds a ``UserEntryCreateRequest``, and delegates to
-``UserEntryService.create_entry()`` so every downstream step (Interaction
-audit, TRANSFORMS edges, sharing fan-out, compensation delete) is identical
-to the form path.
+The vault and ``/submit`` are two doors on the same UserEntry creation
+pipeline. This module is the vault's: it parses the per-file frontmatter
+(pipeline, status, privacy, and ``audience:`` in the one vocabulary —
+``AudienceSpec``), builds a ``UserEntryCreateRequest``, and delegates to
+``UserEntryService.create_entry()`` so every downstream step (audience
+validation and writes, Interaction audit, TRANSFORMS edges, compensation)
+is identical to the form path. ``build_user_entry_request`` is pure: no
+lookup happens before ``create_entry`` runs them all, once.
 
 See: /docs/decisions/ADR-054-user-entry-unified-submissions.md
+See: /docs/decisions/ADR-088-submit-and-share.md
 """
 
 from __future__ import annotations
 
-from dataclasses import dataclass
 from datetime import date, datetime
 from typing import TYPE_CHECKING, Any
 
 from core.models.enums.entity_enums import EntityStatus
-from core.models.enums.metadata_enums import Visibility
 from core.models.enums.pipeline import JeUse, Pipeline
 from core.models.type_hints import UserUID
+from core.models.user_entry.audience import AudienceSpec
 from core.models.user_entry.user_entry_request import UserEntryCreateRequest
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
@@ -31,7 +31,6 @@ if TYPE_CHECKING:
     from pathlib import Path
 
     from core.models.user_entry.user_entry import UserEntry
-    from core.services.user_entry.audience_resolver import AudienceResolver
     from core.services.user_entry.user_entry_processing_service import (
         UserEntryProcessingService,
     )
@@ -53,56 +52,6 @@ def _yaml_pipeline_values() -> str:
     values while the parser admitted seven).
     """
     return ", ".join(p.value for p in Pipeline if p not in _AUDIO_PIPELINES)
-
-
-@dataclass(frozen=True)
-class _AudienceSpec:
-    """Parsed `audience:` field. Internal to this module."""
-
-    kind: str  # "teachers" | "group" | "public" | "private"
-    group_uid: str | None = None
-
-
-def _parse_audience(raw: Any, *, default_kind: str) -> Result[_AudienceSpec]:
-    """Parse the YAML ``audience:`` field.
-
-    ``default_kind`` is what an absent field means — ``"teachers"`` for
-    submission-shaped pipelines, ``"private"`` for the vault-note pipelines
-    (``knowledge``, ``extract_activities``) — decided by
-    ``Pipeline.shares_by_default`` at the call site, never here.
-    """
-    if raw is None:
-        return Result.ok(_AudienceSpec(kind=default_kind))
-    if not isinstance(raw, str):
-        return Result.fail(
-            Errors.validation(
-                f"audience must be a string, got {type(raw).__name__}",
-                field="audience",
-            )
-        )
-    value = raw.strip().lower()
-    if value == "teachers":
-        return Result.ok(_AudienceSpec(kind="teachers"))
-    if value == "private":
-        return Result.ok(_AudienceSpec(kind="private"))
-    if value == "public":
-        return Result.ok(_AudienceSpec(kind="public"))
-    if value.startswith("group:"):
-        group_uid = value[len("group:") :].strip()
-        if not group_uid:
-            return Result.fail(
-                Errors.validation(
-                    "audience 'group:' must include a group UID (e.g., group:group_abc)",
-                    field="audience",
-                )
-            )
-        return Result.ok(_AudienceSpec(kind="group", group_uid=group_uid))
-    return Result.fail(
-        Errors.validation(
-            f"Unknown audience '{raw}'. Expected one of: teachers, group:<uid>, public, private.",
-            field="audience",
-        )
-    )
 
 
 def _parse_pipeline(raw: Any, file_name: str) -> Result[Pipeline]:
@@ -238,27 +187,24 @@ def _verify_declared_ownership(data: dict[str, Any], user_uid: UserUID) -> Resul
     return Result.ok(None)
 
 
-async def build_user_entry_request(
+def build_user_entry_request(
     data: dict[str, Any],
     file_path: Path,
     user_uid: UserUID,
-    audience_resolver: AudienceResolver,
     body: str | None = None,
     prior_uid: str | None = None,
 ) -> Result[UserEntryCreateRequest]:
-    """Validate YAML + build a ``UserEntryCreateRequest`` ready for the service.
+    """Parse the frontmatter + build a ``UserEntryCreateRequest`` ready for the service.
 
-    Expands ``audience: teachers`` (the default for submission-shaped
-    pipelines — a ``knowledge`` or ``extract_activities`` vault note with no
-    ``audience:`` is private, ``Pipeline.shares_by_default``) into explicit
-    group UIDs by looking up the
-    user's group memberships through the resolver. A user who
-    is in no groups gets an empty share list — the entry is persisted but
-    private (no compensation delete in that branch, since the absence of
-    teachers is a state-of-the-world fact, not a sharing failure).
-
-    ``audience: public`` becomes ``visibility=PUBLIC`` on the request; the
-    TEACHER gate on it is ``create_entry``'s, applied to every door.
+    ``audience:`` is parsed by ``AudienceSpec.parse`` — one value or a list,
+    in the one vocabulary (``teachers``, ``teacher:<group_uid>``,
+    ``group:<uid>``, ``user:<username>``, ``public``, ``private``); case is
+    preserved after the colon (a username matches ``User.title`` exactly).
+    An absent ``audience:`` is an empty spec: on ``pipeline: teacher_review``
+    it means ``teachers``, on every other pipeline nobody. Nothing is looked
+    up here — ``create_entry`` validates every target (co-membership, group
+    reach, the ``teachers`` expansion, the TEACHER gate on ``public``) before
+    it writes.
 
     ``prior_uid`` is path-keyed identity for uid-less vault entries: the
     tracker's prior ``path → uid`` row (resolved by the caller). A knowledge
@@ -291,68 +237,16 @@ async def build_user_entry_request(
         return Result.fail(private_result)
     private = private_result.value
 
-    audience_result = _parse_audience(
-        data.get("audience"),
-        default_kind="teachers" if pipeline.shares_by_default() else "private",
-    )
+    audience_result = AudienceSpec.parse(data.get("audience"))
     if audience_result.is_error:
         return Result.fail(audience_result)
     audience = audience_result.value
 
-    # Pipelines that don't allow sharing (REFERENCE, TRANSCRIBE_AND_STRUCTURE)
-    # are always private — coerce any explicit or defaulted audience to private so
-    # reference-archive files don't need `audience: private` in every frontmatter block.
-    if not pipeline.allows_sharing():
-        audience = _AudienceSpec(kind="private")
-
-    submit_to_groups: list[str] = []
-    share_with_groups: list[str] = []
-    visibility: Visibility | None = None
-
-    if audience.kind == "teachers":
-        # A feedback request (SUBMITTED_TO_GROUP) with every group the user
-        # is a student of — only on TEACHER_REVIEW, the one pipeline with a
-        # reviewer (ADR-088 §2). An empty list means the user has no groups;
-        # the entry persists privately with no links. On any other pipeline
-        # ``teachers`` names a reviewer the pipeline never has, so it writes
-        # no link: an explicit value is warned about (never a silent drop),
-        # the absent-audience default is not.
-        if pipeline == Pipeline.TEACHER_REVIEW:
-            submit_to_groups = await audience_resolver.resolve_default_teachers(user_uid)
-        elif data.get("audience") is not None:
-            logger.warning(
-                f"{file_path.name}: 'audience: teachers' on pipeline={pipeline.value} "
-                "asks for feedback a pipeline without a reviewer cannot give — no "
-                "group link written. Use 'audience: group:<uid>' to share the note "
-                "with a group, or 'pipeline: teacher_review' to ask its teacher for "
-                "feedback."
-            )
-    elif audience.kind == "group":  # skuel-lint: disable=SKUEL014 -- audience kind, not domain
-        assert audience.group_uid is not None  # parser guarantees this
-        # On TEACHER_REVIEW the note's one group is the per-teacher route — a
-        # feedback request with that group's teacher, not a share with its
-        # members (ADR-088 §2; PR 6a names it ``teacher:<group_uid>``). On
-        # every other pipeline it is a share.
-        if pipeline == Pipeline.TEACHER_REVIEW:
-            submit_to_groups = [audience.group_uid]
-        else:
-            share_with_groups = [audience.group_uid]
-    elif audience.kind == "public":
-        visibility = Visibility.PUBLIC
-    # "private" → no shares, default visibility
-
-    # Authorization guard on raw UID references before the request is built.
-    # Prevents YAML from smuggling arbitrary exercise / predecessor UIDs that
-    # the uploader has no legitimate relationship to.
+    # Raw uid references ride onto the request as authored; ``create_entry``
+    # verifies the uploader's claim to each (an exercise they may use, a
+    # predecessor they own) before anything is written.
     fulfills_exercise_uid = data.get("fulfills_exercise_uid")
     transforms_of_uid = data.get("transforms_of_uid")
-    refs_check = await audience_resolver.validate_references(
-        user_uid=user_uid,
-        fulfills_exercise_uid=fulfills_exercise_uid,
-        transforms_of_uid=transforms_of_uid,
-    )
-    if refs_check.is_error:
-        return Result.fail(refs_check)
 
     title = data.get("title") or data.get("name") or file_path.stem.replace("-", " ").title()
     raw_description = data.get("description")
@@ -495,19 +389,8 @@ async def build_user_entry_request(
         instructions=data.get("instructions"),
         fulfills_exercise_uid=fulfills_exercise_uid,
         transforms_of_uid=transforms_of_uid,
-        submit_to_groups=submit_to_groups,
-        share_with_groups=share_with_groups,
-        share_with_users=[],
-        visibility=visibility,
+        audience=audience,
     )
-
-    # Pre-validate the assembled request so we surface audience-policy
-    # failures (e.g. teacher_review with no resolvable audience for a
-    # student in zero groups) before the service runs.
-    validate_result = audience_resolver.validate(request)
-    if validate_result.is_error:
-        return Result.fail(validate_result)
-
     return Result.ok(request)
 
 
@@ -557,11 +440,10 @@ async def ingest_user_entry(
     Returns the standard ingestion result dict (uid, title, entity_type, ...)
     so callers don't need to reach into ``ShareOutcome`` to format a response.
     """
-    request_result = await build_user_entry_request(
+    request_result = build_user_entry_request(
         data=data,
         file_path=file_path,
         user_uid=user_uid,
-        audience_resolver=user_entry_service.audience_resolver,
         body=body,
         prior_uid=prior_uid,
     )
@@ -588,6 +470,17 @@ async def ingest_user_entry(
 
     entry, outcome = create_result.value
 
+    # The living-note window (R9): a ``user:`` / ``teacher:`` target on a
+    # draft is validated but not applied — it applies to the frozen copy a
+    # ``status: submitted`` files. Surfaced as a sync warning, never a silent
+    # drop.
+    warnings: list[str] = []
+    if outcome.withheld:
+        warnings.append(
+            f"audience {', '.join(outcome.withheld)} not applied to the living note "
+            "— it applies when 'status: submitted' files a frozen copy"
+        )
+
     submitted_copy_uid: str | None = None
     if submit_signal:
         copy_result = await _file_submission_copy(request, entry.uid, user_uid, user_entry_service)
@@ -608,7 +501,6 @@ async def ingest_user_entry(
     # Failure-isolated: an extraction error never fails the journal node that is
     # already committed — log it and surface it, let a re-sync retry.
     extraction_error: str | None = None
-    extraction_warnings: list[str] = []
     reconciliation_refusals = 0
     if user_entry_processor is not None and entry.pipeline == Pipeline.EXTRACT_ACTIVITIES:
         try:
@@ -627,7 +519,7 @@ async def ingest_user_entry(
                 # metadata, invisible to every sync surface (G10). Surface
                 # them as warnings — the entry persisted, but the user must
                 # see which lines were dropped and why.
-                extraction_warnings = _extraction_warnings_from_entry(process_result.value)
+                warnings.extend(_extraction_warnings_from_entry(process_result.value))
                 reconciliation_refusals = _reconciliation_refusals_of(process_result.value)
         except Exception as exc:  # safety-net: extraction must not unwind persistence
             extraction_error = str(exc)
@@ -660,7 +552,7 @@ async def ingest_user_entry(
             "share_outcome": outcome.to_payload(),
             "submitted_copy_uid": submitted_copy_uid,
             "extraction_error": extraction_error,
-            "extraction_warnings": extraction_warnings,
+            "warnings": warnings,
             # A refused vault edit re-warns every sync until the line and the
             # task agree: the batch door leaves the file un-stamped while this
             # is nonzero, so smart mode re-ingests it next sync (ADR-070
@@ -687,9 +579,11 @@ async def _file_submission_copy(
     fresh node, edge + revision, Interaction, and teacher-group routing.
 
     Returns the copy's uid, or ``None`` when content is unchanged since the
-    last copy. A copy that reaches no teacher/group is compensated (deleted)
-    and returned as an error — Mike's invariant: every exercise has a
-    reachable teacher; an unreviewable turn-in is never a silent success.
+    last copy. A copy that would reach no teacher is refused by
+    ``create_entry`` before it is written (its ``teachers`` expansion runs in
+    validation), and one whose request write is refused is compensated there
+    — Mike's invariant: every exercise has a reachable teacher; an
+    unreviewable turn-in is never a silent success.
     """
     exercise_uid = request.fulfills_exercise_uid
     assert exercise_uid is not None  # caller gates on submit_signal
@@ -721,29 +615,6 @@ async def _file_submission_copy(
     if copy_result.is_error:
         return Result.fail(copy_result)
     copy, copy_outcome = copy_result.value
-
-    if not copy_outcome.submitted_groups:
-        # A feedback request that reached no group AND had no failed target
-        # slips past the service's compensation (which requires an
-        # attempted-but-failed target). For the vault channel that silence is
-        # an error state: nobody will ever review the copy. Reach is the link
-        # kind a TEACHER_REVIEW copy needs — a share, had one been requested,
-        # puts it in no queue. Compensate and surface.
-        delete_result = await user_entry_service.delete_entry(copy.uid, user_uid)
-        if delete_result.is_error:
-            logger.error(
-                f"Compensation delete of unreachable submission copy {copy.uid} "
-                f"failed: {delete_result.expect_error()}"
-            )
-        return Result.fail(
-            Errors.validation(
-                f"Submission for exercise {exercise_uid} reached no teacher or "
-                "group — the exercise has no reviewer reachable from your "
-                "memberships. Fix the exercise's group assignment (or your "
-                "enrollment) and re-sync; the living entry itself is saved.",
-                field="fulfills_exercise_uid",
-            )
-        )
 
     logger.info(
         f"Filed frozen submission copy {copy.uid} for living entry {living_uid} "

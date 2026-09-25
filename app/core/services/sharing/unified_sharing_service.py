@@ -32,7 +32,7 @@ from core.ports.query_types import SharedWithMeItem
 from core.ports.sharing_protocols import SharingBackendOperations
 from core.utils.logging import get_logger
 from core.utils.neo4j_props import neo4j_opt_str
-from core.utils.result_simplified import Errors, Result
+from core.utils.result_simplified import ErrorContext, Errors, Result
 
 logger = get_logger("skuel.services.sharing")
 
@@ -63,6 +63,11 @@ _CURRICULUM_ENTITY_TYPES = frozenset(
 _USER_ENTRY_TYPES = frozenset({EntityType.USER_ENTRY.value})
 
 
+def _person_not_found(identifier: str) -> ErrorContext:
+    """The one error for an unknown person and a non-co-member alike (ADR-088 §7)."""
+    return Errors.not_found(resource="User", identifier=identifier)
+
+
 class UnifiedSharingService:
     """Entity-agnostic sharing and access control service.
 
@@ -86,12 +91,22 @@ class UnifiedSharingService:
         recipient_uid: str,
         role: str = "viewer",
         share_version: str = "original",
+        *,
+        require_co_membership: bool = True,
     ) -> Result[bool]:
-        """Share an entity with a specific user.
+        """Share an owned, shareable entity with one person (``SHARES_WITH``).
 
-        Creates a SHARES_WITH relationship from recipient to entity.
-        Only the owner can share their entity.
-        Only active or completed entities can be shared.
+        R8 (ADR-088 §7): the recipient must share a group with the owner,
+        and the write re-checks that in its own statement, so a membership
+        change after the caller's validation refuses here rather than
+        landing an unauthorised edge. Only the forms' ``share_with_admin``
+        passes ``require_co_membership=False``. The bool is ``created`` —
+        True when this call wrote the link, False when it already stood —
+        both successes. A recipient the guard refuses, or one that does not
+        exist, is one not-found (the door discloses nothing about who
+        exists).
+
+        Backend: SharingBackend.create_share
         """
         check = await self._verify_owned_and_shareable(entity_uid, owner_uid)
         if check.is_error:
@@ -99,19 +114,75 @@ class UnifiedSharingService:
 
         result = await self.backend.create_share(
             entity_uid=entity_uid,
+            owner_uid=UserUID(owner_uid),
             recipient_uid=recipient_uid,
             role=role,
             share_version=share_version,
             shared_at=datetime.now().isoformat(),
+            require_co_membership=require_co_membership,
         )
         if result.is_error:
             return Result.fail(result)
-        if not result.value:
-            return Result.fail(
-                Errors.not_found(f"User {recipient_uid} or Entity {entity_uid} not found")
+        rows = result.value or []
+        if not rows:
+            return Result.fail(_person_not_found(recipient_uid))
+        created = bool(rows[0].get("created"))
+        logger.info(
+            f"Entity {entity_uid} shared with {recipient_uid} as {role} (created={created})"
+        )
+        return Result.ok(created)
+
+    async def resolve_co_member(self, owner_uid: str, username: str) -> Result[str | None]:
+        """The uid of the user named ``username`` when they share a group with the owner (R8).
+
+        ``None`` for an unknown username and for a non-co-member alike — the
+        one uniform answer ADR-088 §7 requires. The owner's own username
+        resolves to the owner's uid; the caller refuses that.
+
+        Backend: SharingBackend.query_co_member_uid
+        """
+        result = await self.backend.query_co_member_uid(UserUID(owner_uid), username=username)
+        if result.is_error:
+            return Result.fail(result)
+        rows = result.value or []
+        return Result.ok(neo4j_opt_str(rows[0], "uid") if rows else None)
+
+    async def shares_group_with(self, owner_uid: str, recipient_uid: str) -> Result[bool]:
+        """Whether ``recipient_uid`` exists and shares a group with the owner (R8, ADR-088 §7).
+
+        Co-membership through a default group counts only when one of the two
+        owns it; a user's own uid is never a co-member here.
+
+        Backend: SharingBackend.query_co_member_uid
+        """
+        if recipient_uid == owner_uid:
+            return Result.ok(False)
+        result = await self.backend.query_co_member_uid(
+            UserUID(owner_uid), recipient_uid=recipient_uid
+        )
+        if result.is_error:
+            return Result.fail(result)
+        return Result.ok(bool(result.value))
+
+    async def reachable_groups(
+        self, user_uid: str, group_uids: list[str]
+    ) -> Result[frozenset[str]]:
+        """The subset of ``group_uids`` the user may share with or submit to: existing, active, joined or owned.
+
+        Backend: SharingBackend.query_reachable_groups
+        """
+        if not group_uids:
+            return Result.ok(frozenset())
+        result = await self.backend.query_reachable_groups(UserUID(user_uid), list(group_uids))
+        if result.is_error:
+            return Result.fail(result)
+        return Result.ok(
+            frozenset(
+                uid
+                for row in (result.value or [])
+                if (uid := neo4j_opt_str(row, "group_uid")) is not None
             )
-        logger.info(f"Entity {entity_uid} shared with {recipient_uid} as {role}")
-        return Result.ok(True)
+        )
 
     async def unshare(
         self,

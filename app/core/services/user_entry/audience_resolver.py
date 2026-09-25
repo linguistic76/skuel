@@ -1,21 +1,30 @@
-# skuel-lint: disable-file=SKUEL005 -- fail-soft resolver by design: empty list is the documented safe fallback at every layer
 """
-AudienceResolver — shared audience helper for UserEntry creation paths.
+AudienceResolver — the one audience applier (ADR-088).
 
-Both `UserEntryService.create_entry()` (the `/submit` form path) and
-the vault ingestion path need to validate audience declarations on a
-`UserEntryCreateRequest` and resolve them into the two link kinds
-(ADR-088 §1-§2): a feedback request (SUBMITTED_TO_GROUP — TEACHER_REVIEW
-only, read by the group's owning teachers) and a share (SHARES_WITH /
-SHARED_WITH_GROUP — openable by its recipients). This module is the single
-home for that logic so the front-ends cannot drift.
+Every door that creates a ``UserEntry`` — ``UserEntryService.create_entry()``
+for the ``/submit`` form and the JSON API, and the vault door through it —
+hands the request's ``AudienceSpec`` (``core/models/user_entry/audience.py``,
+the one parser) to this resolver, which turns the vocabulary into the two link
+kinds (ADR-088 §1-§2): a feedback request (``SUBMITTED_TO_GROUP`` —
+TEACHER_REVIEW only, read by the group's owning teachers) and a share
+(``SHARES_WITH`` / ``SHARED_WITH_GROUP`` — openable by its recipients).
+
+Three steps, in the order ``create_entry`` runs them:
+    1. ``validate``            — the pure rules (pipeline, privacy, feedback target)
+    2. ``validate_references`` — every target resolved and authorised BEFORE the
+                                 first write: exercise / predecessor claims,
+                                 ``user:`` co-membership (R8), ``group:`` /
+                                 ``teacher:`` reachability, and ``teachers``
+                                 expanded to concrete groups
+    3. ``resolve_and_share``   — the post-persist writes, of validated targets only
 
 Public surface:
-    - ``ShareOutcome``           — frozen result dataclass
-    - ``AudienceResolver``       — validate + resolve_and_share + resolve_default_teachers
+    - ``ResolvedAudience``  — what step 2 hands step 3
+    - ``ShareOutcome``      — what step 3 hands the caller
+    - ``AudienceResolver``
 
-See: /docs/decisions/ADR-054-user-entry-unified-submissions.md
 See: /docs/decisions/ADR-088-submit-and-share.md
+See: /docs/decisions/ADR-054-user-entry-unified-submissions.md
 """
 
 from __future__ import annotations
@@ -24,9 +33,9 @@ from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any
 
 from core.models.enums import GroupMemberRole
-from core.models.enums.metadata_enums import Visibility
 from core.models.enums.pipeline import Pipeline
 from core.models.type_hints import EntityUID, UserUID
+from core.models.user_entry.audience import TEACHER_PREFIX, USER_PREFIX
 from core.models.user_entry.user_entry_request import UserEntryCreateRequest
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
@@ -37,19 +46,51 @@ if TYPE_CHECKING:
 
 logger = get_logger("skuel.services.user_entry.audience_resolver")
 
+# A refused feedback request is a state-of-the-world fault, not a content
+# fault: the vault sync reports it as an error to fix, never as a note
+# ignored for its frontmatter (``batch.classify_user_entry_failure``).
+FEEDBACK_TARGET_FIELD = "feedback_target"
+
+
+@dataclass(frozen=True)
+class ResolvedAudience:
+    """The validated, concrete targets a spec resolved to — what the writes consume.
+
+    ``teacher_groups`` are the explicit ``teacher:<group_uid>`` targets and
+    ``teachers_groups`` the ``teachers`` expansion — together
+    ``submit_groups``, where a feedback request goes; ``share_groups`` the
+    ``group:`` targets; ``share_users`` the ``user:`` targets as
+    ``(username, uid)`` pairs, each a verified co-member. ``public`` is the
+    portfolio flag. Every uid here passed its authorisation check.
+    """
+
+    teacher_groups: tuple[str, ...] = ()
+    teachers_groups: tuple[str, ...] = ()
+    share_groups: tuple[str, ...] = ()
+    share_users: tuple[tuple[str, str], ...] = ()
+    public: bool = False
+
+    @property
+    def submit_groups(self) -> tuple[str, ...]:
+        """Every group the feedback request goes to, explicit targets first, no repeats."""
+        return self.teacher_groups + tuple(
+            g for g in self.teachers_groups if g not in self.teacher_groups
+        )
+
 
 @dataclass(frozen=True)
 class ShareOutcome:
-    """Result of a post-persist audience resolution pass.
+    """Result of a post-persist audience pass.
 
     ``submitted_groups`` are the groups whose feedback request stands after
     this pass — every ``SUBMITTED_TO_GROUP`` MERGE that matched, created or
     not (a re-filed request is a success, not zero reach);
     ``newly_submitted_groups`` is the created subset, the only thing that
     rings a teacher's bell. ``shared_groups`` / ``shared_users`` are the
-    share targets that succeeded. ``failed`` pairs each failed target with
-    its error message so callers can surface partial-success warnings
-    without re-fetching.
+    share targets that landed. ``failed`` pairs each refused target with its
+    error message. ``withheld`` are the vocabulary values a living vault note
+    declared that this pass deliberately did not apply (R9 — they apply when
+    ``status: submitted`` files a frozen copy).
     """
 
     submitted_groups: tuple[str, ...] = field(default_factory=tuple)
@@ -57,6 +98,7 @@ class ShareOutcome:
     shared_groups: tuple[str, ...] = field(default_factory=tuple)
     shared_users: tuple[str, ...] = field(default_factory=tuple)
     failed: tuple[tuple[str, str], ...] = field(default_factory=tuple)
+    withheld: tuple[str, ...] = field(default_factory=tuple)
 
     @property
     def any_success(self) -> bool:
@@ -74,17 +116,17 @@ class ShareOutcome:
             "shared_groups": list(self.shared_groups),
             "shared_users": list(self.shared_users),
             "failed": [{"target": t, "reason": r} for t, r in self.failed],
+            "withheld": list(self.withheld),
         }
 
 
 class AudienceResolver:
-    """Validate + resolve audience declarations on a UserEntryCreateRequest.
+    """Validate, resolve and apply the audience of a ``UserEntryCreateRequest``.
 
-    The resolver is deliberately stateless — callers pass the request and
-    the freshly-persisted entry's UID into ``resolve_and_share``. Failures
-    are collected into ``ShareOutcome`` rather than raised; the caller
-    decides whether to compensate (delete the orphan entry) or surface
-    partial-success warnings.
+    Stateless — callers pass the request, the owner and (for the writes) the
+    freshly-persisted entry's uid. Write failures are collected into
+    ``ShareOutcome`` rather than raised; the caller decides whether to
+    compensate (delete what it created) or surface them.
     """
 
     def __init__(
@@ -97,101 +139,200 @@ class AudienceResolver:
         self.logger = logger
 
     # =========================================================================
-    # VALIDATE
+    # 1. VALIDATE — the pure rules
     # =========================================================================
 
     def validate(self, request: UserEntryCreateRequest) -> Result[None]:
-        """ADR-054 §3 + §5 guardrails on audience for this pipeline.
+        """The audience rules that need no lookup (ADR-088 §1, §8).
 
-        §3 (TEACHER_REVIEW must resolve to a feedback target — ADR-088 §2):
-          - Explicit ``submit_to_groups`` OR ``fulfills_exercise_uid`` (the
-            request is filed with the exercise's groups).
-          - Rejected: ``pipeline=TEACHER_REVIEW`` with neither. A share
-            (``share_with_users``, ``share_with_groups``) is not a feedback
-            target: it lets people see the work and puts it in no queue (R5).
-
-        §5 (journal is PRIVATE):
-          - ``Pipeline.allows_sharing()`` returns ``False`` for the private
-            pipelines (``TRANSCRIBE_AND_STRUCTURE``, ``REFERENCE``). Any explicit
-            audience on such a request is rejected — the journal norm is
-            preserved from the legacy ``JeInput``/``JeOutput`` split.
+        - A private pipeline (``not Pipeline.allows_sharing()``) or a
+          ``private: true`` entry cannot be *shared*: a ``group:``, ``user:``
+          or ``public`` value is refused. A feedback request (``teachers`` /
+          ``teacher:``) is Submit, not Share, and stays allowed.
+        - ``pipeline=TEACHER_REVIEW`` with an explicit audience that names no
+          feedback target is refused with guidance: a ``group:`` is a share
+          and puts the entry in no queue (R5) — ``teacher:<group_uid>`` asks
+          that group's teacher. An absent audience means ``teachers``.
         """
-        if not request.pipeline.allows_sharing():
-            has_explicit_audience = bool(
-                request.submit_to_groups
-                or request.share_with_groups
-                or request.share_with_users
-                or request.auto_share_to_exercise_groups
-                or (request.visibility is not None and request.visibility != Visibility.PRIVATE)
-            )
-            if has_explicit_audience:
-                return Result.fail(
-                    Errors.validation(
-                        f"pipeline={request.pipeline.value} is private "
-                        "(journals are not shareable at submit time)",
-                        field="audience",
-                    )
-                )
-            return Result.ok(None)
-
-        if request.pipeline != Pipeline.TEACHER_REVIEW:
-            return Result.ok(None)
-        has_feedback_target = bool(request.submit_to_groups or request.fulfills_exercise_uid)
-        if not has_feedback_target:
+        spec = request.audience
+        if spec.names_share and not request.pipeline.allows_sharing():
             return Result.fail(
                 Errors.validation(
-                    "pipeline=TEACHER_REVIEW requires a feedback target: set "
-                    "fulfills_exercise_uid or submit_to_groups (a share with "
-                    "users or groups asks nobody for feedback)",
+                    f"pipeline={request.pipeline.value} is private (journals are not "
+                    "shareable); a feedback request (teachers / teacher:<group_uid>) "
+                    "is still allowed",
                     field="audience",
+                )
+            )
+        if spec.names_share and request.private:
+            return Result.fail(
+                Errors.validation(
+                    "a private entry (private: true) cannot be shared — remove the "
+                    "group: / user: / public audience, or the private flag; a feedback "
+                    "request (teachers / teacher:<group_uid>) is still allowed",
+                    field="audience",
+                )
+            )
+        if (
+            request.pipeline == Pipeline.TEACHER_REVIEW
+            and not spec.is_empty
+            and not spec.names_feedback_target
+        ):
+            return Result.fail(
+                Errors.validation(
+                    "pipeline=teacher_review asks a teacher for feedback, but the "
+                    f"audience ({', '.join(spec.values())}) names no teacher: a group: "
+                    "share lets its members see the work and puts it in no queue. To "
+                    "ask this group's teacher for feedback, use teacher:<group_uid> "
+                    "(or teachers for all your teachers); a share may stand beside it",
+                    field=FEEDBACK_TARGET_FIELD,
                 )
             )
         return Result.ok(None)
 
     # =========================================================================
-    # REFERENCE VALIDATION (authorization guard)
+    # 2. VALIDATE REFERENCES — every target authorised before the first write
     # =========================================================================
 
     async def validate_references(
         self,
         user_uid: UserUID,
-        fulfills_exercise_uid: str | None,
-        transforms_of_uid: str | None,
-    ) -> Result[None]:
-        """Verify the uploader has a legitimate claim to referenced entities.
+        request: UserEntryCreateRequest,
+    ) -> Result[ResolvedAudience]:
+        """Verify every claim the request makes, and resolve its audience to uids.
 
-        YAML uploads can name any UID in ``fulfills_exercise_uid`` /
-        ``transforms_of_uid``. Without validation, a user could submit a
-        UserEntry that silently attaches to an exercise or predecessor
-        entry they have no relationship to — enabling cross-tenant leakage
-        via the exercise auto-share fan-out, or masquerading a transforms
-        chain over someone else's entry.
+        Reference claims (any door can name any uid):
+          - ``fulfills_exercise_uid``: the user must own the exercise, belong
+            to a group it is shared with, be in progress on a PathStep it is
+            linked to, or be the student a revision names — otherwise
+            ``forbidden``.
+          - ``transforms_of_uid``: the predecessor must be the user's own
+            (``forbidden``), and must exist (``not_found``).
 
-        Policy:
-          - ``fulfills_exercise_uid``: user must be the exercise's owner, a
-            member of a group the exercise is shared with, or currently in
-            progress on a PathStep the exercise is linked to.
-          - ``transforms_of_uid``: predecessor entry must belong to the
-            uploader (TRANSFORMS chains are per-user).
+        Audience targets (ADR-088 §7-§8; "every door validates every target
+        before its first write"):
+          - ``user:<username>``: exists and shares a group with the owner
+            (R8, default-group roster excluded) — unknown and non-co-member
+            get one uniform not-found; the owner's own username is refused.
+          - ``group:`` / ``teacher:``: exists, active, and the owner is a
+            member or owner — one uniform not-found otherwise.
+          - ``teachers`` (explicit, or the TEACHER_REVIEW default): with an
+            exercise, the exercise's groups the owner belongs to, falling
+            back to the owner's default group for a curriculum exercise
+            (ruled 2026-07-04); without one, every group the owner is a
+            student of. Resolved only on TEACHER_REVIEW — elsewhere it names
+            a reviewer the pipeline never has and writes nothing.
+          - A TEACHER_REVIEW request whose feedback targets resolve to no
+            group at all is refused here, pre-persist: an entry no teacher
+            can open is never written.
 
-        Returns a ``forbidden`` error on miss; ``not_found`` when the
-        referenced entity doesn't exist; ``Result.ok(None)`` otherwise.
+        Without a sharing service the reference checks fail closed and any
+        audience that needs a lookup is refused.
         """
-        if self.sharing_service is None:
-            # No backend to verify against — fail closed.
-            if fulfills_exercise_uid or transforms_of_uid:
+        sharing = self.sharing_service
+        spec = request.audience
+
+        if sharing is None:
+            needs_lookup = bool(
+                request.fulfills_exercise_uid
+                or request.transforms_of_uid
+                or spec.share_users
+                or spec.group_targets
+                or (request.pipeline == Pipeline.TEACHER_REVIEW and not spec.private)
+            )
+            if needs_lookup:
                 return Result.fail(
                     Errors.forbidden(
-                        action="reference external entity",
+                        action="resolve references",
                         reason=(
-                            "Cannot verify relationship to referenced entity — "
+                            "Cannot verify referenced entities or audience targets — "
                             "sharing service unavailable."
                         ),
                     )
                 )
-            return Result.ok(None)
+            return Result.ok(ResolvedAudience(public=spec.public))
 
+        refs = await self._validate_reference_claims(user_uid, request)
+        if refs.is_error:
+            return Result.fail(refs)
+
+        share_users: list[tuple[str, str]] = []
+        for username in spec.share_users:
+            resolved = await sharing.resolve_co_member(user_uid, username)
+            if resolved.is_error:
+                return Result.fail(resolved)
+            recipient_uid = resolved.value
+            if recipient_uid is None:
+                return Result.fail(
+                    Errors.not_found(resource="User", identifier=f"{USER_PREFIX}{username}")
+                )
+            if recipient_uid == user_uid:
+                return Result.fail(
+                    Errors.validation(
+                        f"{USER_PREFIX}{username} is you — an entry is not shared with its owner",
+                        field="audience",
+                    )
+                )
+            share_users.append((username, recipient_uid))
+
+        group_targets = spec.group_targets
+        if group_targets:
+            reachable = await sharing.reachable_groups(user_uid, list(group_targets))
+            if reachable.is_error:
+                return Result.fail(reachable)
+            for group_uid in group_targets:
+                if group_uid not in reachable.value:
+                    return Result.fail(Errors.not_found(resource="Group", identifier=group_uid))
+
+        teacher_groups: tuple[str, ...] = spec.teacher_groups
+        teachers_groups: tuple[str, ...] = ()
+        if request.pipeline == Pipeline.TEACHER_REVIEW and (spec.teachers or spec.is_empty):
+            expanded = await self._expand_teachers(user_uid, request.fulfills_exercise_uid)
+            if expanded.is_error:
+                return Result.fail(expanded)
+            teachers_groups = tuple(expanded.value)
+            if not teacher_groups and not teachers_groups:
+                return Result.fail(
+                    Errors.validation(
+                        "Submission reached no teacher: "
+                        + (
+                            "you belong to none of the groups this exercise is assigned to"
+                            if request.fulfills_exercise_uid
+                            else "you are a student in no group"
+                        )
+                        + " — no feedback request could be filed",
+                        field=FEEDBACK_TARGET_FIELD,
+                    )
+                )
+        elif spec.names_feedback_target and request.pipeline != Pipeline.TEACHER_REVIEW:
+            self.logger.warning(
+                f"audience {', '.join(spec.values())} on pipeline={request.pipeline.value} "
+                "asks for feedback a pipeline without a reviewer cannot give — no "
+                "feedback request written. Use group:<uid> to share with a group, or "
+                "pipeline: teacher_review to ask its teacher for feedback."
+            )
+            teacher_groups = ()
+
+        return Result.ok(
+            ResolvedAudience(
+                teacher_groups=teacher_groups,
+                teachers_groups=teachers_groups,
+                share_groups=tuple(spec.share_groups),
+                share_users=tuple(share_users),
+                public=spec.public,
+            )
+        )
+
+    async def _validate_reference_claims(
+        self,
+        user_uid: UserUID,
+        request: UserEntryCreateRequest,
+    ) -> Result[None]:
+        """The exercise / predecessor claims — see ``validate_references``."""
+        assert self.sharing_service is not None  # caller gates
         backend = self.sharing_service.backend
+        fulfills_exercise_uid = request.fulfills_exercise_uid
+        transforms_of_uid = request.transforms_of_uid
 
         if fulfills_exercise_uid:
             allowed = await backend.query_user_can_use_exercise(
@@ -230,37 +371,89 @@ class AudienceResolver:
 
         return Result.ok(None)
 
+    async def _expand_teachers(
+        self,
+        user_uid: UserUID,
+        exercise_uid: str | None,
+    ) -> Result[list[str]]:
+        """``teachers`` as concrete group uids — see ``validate_references``.
+
+        Backend: SharingBackend.query_exercise_groups_for_member,
+        SharingBackend.query_default_groups_for_curriculum_submission;
+        GroupService.get_user_groups (student role) without an exercise.
+        """
+        assert self.sharing_service is not None  # caller gates
+        backend = self.sharing_service.backend
+        if exercise_uid is None:
+            if self.group_service is None:
+                return Result.ok([])
+            groups = await self.group_service.get_user_groups(
+                user_uid, role=GroupMemberRole.STUDENT.value
+            )
+            if groups.is_error:
+                return Result.fail(groups)
+            return Result.ok([g.uid for g in (groups.value or [])])
+
+        # Scoped to the intersection of the exercise's assigned groups and the
+        # owner's memberships: an exercise assigned to groups A and B never
+        # files a request from a member of A with B's teacher.
+        groups_result = await backend.query_exercise_groups_for_member(
+            exercise_uid=EntityUID(exercise_uid),
+            user_uid=user_uid,
+        )
+        if groups_result.is_error:
+            return Result.fail(groups_result)
+        records = list(groups_result.value or [])
+        if not records:
+            # Curriculum fallback (ruled 2026-07-04): vault-authored exercises
+            # are never assigned to a group, so the intersection is empty and
+            # the request would dissolve with no reviewer. It goes to the
+            # owner's default group — under SUBMITTED_TO_GROUP it reaches only
+            # that group's owner. The backend read is scope-gated: zero rows
+            # for a non-curriculum exercise.
+            fallback = await backend.query_default_groups_for_curriculum_submission(
+                exercise_uid=EntityUID(exercise_uid),
+                user_uid=user_uid,
+            )
+            if fallback.is_error:
+                return Result.fail(fallback)
+            records = list(fallback.value or [])
+        out: list[str] = []
+        for record in records:
+            raw = record.get("group_uid") if isinstance(record, dict) else None
+            if raw and str(raw) not in out:
+                out.append(str(raw))
+        return Result.ok(out)
+
     # =========================================================================
-    # RESOLVE & SHARE
+    # 3. RESOLVE & SHARE — the post-persist writes
     # =========================================================================
 
     async def resolve_and_share(
         self,
         entry_uid: str,
         user_uid: UserUID,
-        request: UserEntryCreateRequest,
+        pipeline: Pipeline,
+        resolved: ResolvedAudience,
+        *,
+        living: bool = False,
     ) -> Result[ShareOutcome]:
-        """Audience resolution + link writes. Returns which targets landed.
+        """Write the links for a validated audience. Returns which targets landed.
 
-        Policy (ADR-088 §1-§2 — two verbs, two link kinds):
-          1. Explicit ``share_with_groups`` / ``share_with_users`` — share
-             (``SHARED_WITH_GROUP`` / ``SHARES_WITH``) via ``UnifiedSharingService``.
-          2. Feedback requests — ``SUBMITTED_TO_GROUP`` via ``submit_to_group``,
-             **only when ``pipeline=TEACHER_REVIEW``** (the link and the
-             pipeline always agree): explicit ``submit_to_groups``; then, with
-             an exercise and either ``auto_share_to_exercise_groups`` or no
-             explicit feedback target, the exercise's assigned groups the
-             submitter belongs to, falling back to the submitter's default
-             group for a curriculum exercise (ruled 2026-07-04). A revision
-             target resolves to the exercise it revises in both lookups.
-          3. On any other pipeline a feedback target writes no link: the
-             web ``audience=teachers`` and the vault ``teachers`` value name a
-             reviewer that pipeline never has.
-          4. Otherwise — no links (default visibility=PRIVATE).
+        Each write re-checks its own authorisation in its statement (the
+        group MERGEs' membership guard, the person MERGE's co-membership
+        guard), so a change between validation and here is a collected
+        failure, never an unauthorised edge. On any pipeline other than
+        TEACHER_REVIEW ``submit_groups`` is empty by construction
+        (``validate_references``), so no ``SUBMITTED_TO_GROUP`` is ever
+        written off-pipeline.
 
-        Failures are collected into the returned ``ShareOutcome`` rather than
-        propagated — the caller decides whether to compensate (delete the
-        just-persisted entry) or surface partial-success warnings.
+        ``living`` is the vault's living-note channel (a caller-supplied uid,
+        upserted in place): a draft (R9). Its ``user:`` and explicit
+        ``teacher:`` targets are withheld — reported in
+        ``ShareOutcome.withheld``, applied when ``status: submitted`` files a
+        frozen copy — while ``group:`` and the ``teachers`` expansion apply
+        as they did before this vocabulary.
         """
         sharing = self.sharing_service
         if sharing is None:
@@ -271,8 +464,9 @@ class AudienceResolver:
         shared_groups: list[str] = []
         shared_users: list[str] = []
         failed: list[tuple[str, str]] = []
+        withheld: list[str] = []
 
-        for group_uid in request.share_with_groups:
+        for group_uid in resolved.share_groups:
             result = await sharing.share_with_group(
                 entity_uid=EntityUID(entry_uid),
                 owner_uid=user_uid,
@@ -287,7 +481,10 @@ class AudienceResolver:
             else:
                 shared_groups.append(group_uid)
 
-        for recipient_uid in request.share_with_users:
+        for username, recipient_uid in resolved.share_users:
+            if living:
+                withheld.append(f"{USER_PREFIX}{username}")
+                continue
             result = await sharing.share(
                 entity_uid=EntityUID(entry_uid),
                 owner_uid=user_uid,
@@ -298,26 +495,24 @@ class AudienceResolver:
                 self.logger.warning(
                     f"Failed to share UserEntry {entry_uid} with user {recipient_uid}: {reason}"
                 )
-                failed.append((recipient_uid, reason))
+                failed.append((f"{USER_PREFIX}{username}", reason))
             else:
                 shared_users.append(recipient_uid)
 
-        if request.pipeline != Pipeline.TEACHER_REVIEW:
-            if request.submit_to_groups or request.auto_share_to_exercise_groups:
-                self.logger.info(
-                    f"UserEntry {entry_uid}: feedback target ignored on "
-                    f"pipeline={request.pipeline.value} — a feedback request "
-                    "requires pipeline=teacher_review; no SUBMITTED_TO_GROUP written"
-                )
+        if pipeline != Pipeline.TEACHER_REVIEW or not resolved.submit_groups:
             return Result.ok(
                 ShareOutcome(
                     shared_groups=tuple(shared_groups),
                     shared_users=tuple(shared_users),
                     failed=tuple(failed),
+                    withheld=tuple(withheld),
                 )
             )
 
-        async def _submit(group_uid: str) -> None:
+        for group_uid in resolved.submit_groups:
+            if living and group_uid in resolved.teacher_groups:
+                withheld.append(f"{TEACHER_PREFIX}{group_uid}")
+                continue
             submit_result = await sharing.submit_to_group(
                 entity_uid=EntityUID(entry_uid),
                 owner_uid=user_uid,
@@ -329,62 +524,10 @@ class AudienceResolver:
                     f"Failed to submit UserEntry {entry_uid} to group {group_uid}: {reason}"
                 )
                 failed.append((group_uid, reason))
-                return
+                continue
             submitted_groups.append(group_uid)
             if submit_result.value:
                 newly_submitted_groups.append(group_uid)
-
-        for group_uid in request.submit_to_groups:
-            await _submit(group_uid)
-
-        # The exercise's groups: the explicit flag wins; otherwise only when no
-        # explicit feedback target was named, so a multi-class student who
-        # directed the request at one teacher's group is not also filed with
-        # every other group the exercise is assigned to.
-        should_auto_submit = request.auto_share_to_exercise_groups or not request.submit_to_groups
-        if should_auto_submit and request.fulfills_exercise_uid:
-            # Scoped to the intersection of the exercise's assigned groups and
-            # the uploader's memberships. Without this intersection, an
-            # exercise assigned to groups A and B would file a request from a
-            # member of A with group B's teacher even though that uploader has
-            # no relationship to B.
-            groups_result = await sharing.backend.query_exercise_groups_for_member(
-                exercise_uid=request.fulfills_exercise_uid,
-                user_uid=user_uid,
-            )
-            if groups_result.is_error:
-                reason = str(groups_result.expect_error())
-                self.logger.warning(f"Could not resolve exercise groups for submission: {reason}")
-                failed.append((request.fulfills_exercise_uid, reason))
-            else:
-                records = list(groups_result.value or [])
-                if not records:
-                    # Curriculum fallback (ruled 2026-07-04): vault-authored
-                    # exercises are never ASSIGNED to a group, so the
-                    # intersection is empty and a teacher_review submission
-                    # would dissolve with no reviewer. Route it to the
-                    # submitter's default group (owned by the default
-                    # teacher) — under SUBMITTED_TO_GROUP it reaches only that
-                    # owner, never the group's members. The backend query is
-                    # scope-gated: zero rows for non-curriculum exercises.
-                    fallback = await sharing.backend.query_default_groups_for_curriculum_submission(
-                        exercise_uid=request.fulfills_exercise_uid,
-                        user_uid=user_uid,
-                    )
-                    if fallback.is_error:
-                        reason = str(fallback.expect_error())
-                        self.logger.warning(f"Curriculum default-group fallback failed: {reason}")
-                        failed.append((request.fulfills_exercise_uid, reason))
-                    else:
-                        records = list(fallback.value or [])
-                for record in records:
-                    raw = record.get("group_uid") if isinstance(record, dict) else None
-                    if not raw:
-                        continue
-                    group_uid_str = str(raw)
-                    if group_uid_str in submitted_groups:
-                        continue
-                    await _submit(group_uid_str)
 
         return Result.ok(
             ShareOutcome(
@@ -393,37 +536,9 @@ class AudienceResolver:
                 shared_groups=tuple(shared_groups),
                 shared_users=tuple(shared_users),
                 failed=tuple(failed),
+                withheld=tuple(withheld),
             )
         )
 
-    # =========================================================================
-    # DEFAULT-AUDIENCE EXPANSION (ingestion only)
-    # =========================================================================
 
-    async def resolve_default_teachers(self, user_uid: UserUID) -> list[str]:
-        """Expand ``audience: teachers`` (the YAML-ingestion default) to
-        the explicit list of group UIDs the user is a student-member of.
-
-        The student is sharing with "their teachers" by sharing the entry
-        with each group they're enrolled in as a student — teachers of those
-        groups then see the entry via group membership.
-
-        Returns ``[]`` when the user is in no groups, when the group service
-        is unavailable, or when the underlying lookup fails. Callers treat
-        an empty list as "save privately, no shares" — there is no implicit
-        "share with everyone" fallback.
-        """
-        if self.group_service is None:
-            return []
-        result = await self.group_service.get_user_groups(
-            user_uid, role=GroupMemberRole.STUDENT.value
-        )
-        if result.is_error:
-            self.logger.warning(
-                f"Could not resolve default-teacher groups for {user_uid}: {result.expect_error()}"
-            )
-            return []
-        return [g.uid for g in (result.value or [])]
-
-
-__all__ = ["AudienceResolver", "ShareOutcome"]
+__all__ = ["FEEDBACK_TARGET_FIELD", "AudienceResolver", "ResolvedAudience", "ShareOutcome"]

@@ -62,9 +62,10 @@ re-litigate them outside the item's own future elicitation.
   designed inside that rule, not around it — which grant a peer gets is elicitation
   question 3.
 
-**Known gap the peer work must close (verified 2026-08-01; re-stated 2026-09-24):** the
-direct `SHARES_WITH` edge is *not* an end-to-end content grant for UserEntries today.
-`share_with_users` → `AudienceResolver.resolve_and_share` → `UnifiedSharingService.share`
+**Known gap the peer work must close (verified 2026-08-01; re-stated 2026-09-24; the read half
+closed by the Submit & Share arc's PR 5, the write half narrowed to co-members by PR 6a):** the
+direct `SHARES_WITH` edge was *not* an end-to-end content grant for UserEntries then.
+A `user:<username>` audience → `AudienceResolver.resolve_and_share` → `UnifiedSharingService.share`
 writes only the edge. The Shared-With-Me card still appears (the inbox query has no
 entity-visibility predicate) but its UserEntry link targets `/gradebook/{uid}`, whose
 fetch is **ownership-only** — the recipient gets a 404 behind a visible card. The

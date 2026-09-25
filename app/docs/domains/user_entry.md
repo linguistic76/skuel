@@ -174,29 +174,38 @@ Creation then auto-records an `Interaction` audit row (turn-ins only), wires an
 optional `TRANSFORMS` edge for multi-stage pipelines, and resolves audience
 through `UnifiedSharingService`:
 
-- `pipeline=TEACHER_REVIEW` + exercise link + no explicit audience → auto-share
-  to the exercise's assigned groups
-- `pipeline=TEACHER_REVIEW` + no audience + no exercise → **validation error**
-  (ADR-054 §3: no silent no-audience turn-ins)
-- otherwise → honour explicit `share_with_groups` / `share_with_users`
+- `pipeline=TEACHER_REVIEW` → a feedback request (`SUBMITTED_TO_GROUP`): `teacher:<group_uid>`
+  targets, and `teachers` (the default when nothing is named) as the exercise's assigned groups
+  the submitter belongs to (a curriculum exercise: the default group; no exercise: every group
+  they study in). A request that would reach no teacher is **refused before the write**
+  (ADR-054 §3: no silent no-audience turn-ins).
+- every pipeline → `group:<uid>` / `user:<username>` are shares (`SHARED_WITH_GROUP` /
+  `SHARES_WITH`); a feedback target on any other pipeline writes no link.
 
-Audience is always **declared at submit time**. There is no implicit
-student→teacher sharing inferred from a `FULFILLS_EXERCISE` traversal plus a
-role check.
+Audience is always **declared at submit time**, in the one vocabulary (`AudienceSpec`,
+`core/models/user_entry/audience.py` — ADR-088): the `/submit` form's `audience` field, the JSON
+body's `audience`, and the vault's `audience:` all parse through it. There is no implicit
+student→teacher sharing inferred from a `FULFILLS_EXERCISE` traversal plus a role check.
 
 ⚠️ **A share is not a feedback request.** The review queue in
 `adapters/persistence/neo4j/_user_entry_assessment_mixin.py` matches **only**
-`SUBMITTED_TO_GROUP` edges (ADR-088 §2). `AudienceResolver.validate()` therefore accepts only a
-feedback target — `submit_to_groups` or `fulfills_exercise_uid` — for a `TEACHER_REVIEW`
-request; `share_with_users` / `share_with_groups` let people see the work and put it in no
-queue. Until PR 6a names `teacher:<group_uid>`, the web `audience=group:<uid>` form and the vault
-`audience: group:<uid>` fill `submit_to_groups` on TEACHER_REVIEW (the per-teacher route); the
-JSON body's two fields are taken literally. On any other pipeline a feedback target writes no
-link at all.
+`SUBMITTED_TO_GROUP` edges (ADR-088 §2). `AudienceResolver.validate()` therefore refuses a
+`TEACHER_REVIEW` request whose explicit audience names no teacher (`group:` alone, `user:`
+alone, `public`, `private`) with guidance naming `teacher:<group_uid>`; `[teachers, group:<uid>]`
+— submit and share — is valid. `group:<uid>` is always a share.
 
-`AudienceResolver` is deliberately a standalone helper rather than facade-private:
-the `/api/user-entries/upload` ingestion path reuses the same validation without going through
-the facade.
+**Every target is validated before the first write** (`AudienceResolver.validate_references`):
+a `user:` must be a co-member (R8 — an unknown and a non-co-member username get one not-found;
+the owner's own username is refused), a `group:` / `teacher:` must exist, be active and be one
+the owner belongs to or owns, and `teachers` is expanded there. The post-persist writes
+(`resolve_and_share`) re-check their own authorisation in the statement; a write refused after
+validation compensates the node this call created. A living vault note (a caller-supplied uid)
+withholds its `user:` / `teacher:` targets until `status: submitted` files a frozen copy
+(R9) — the sync warns.
+
+`AudienceResolver` is deliberately a standalone helper rather than facade-private; the vault
+door's request builder is pure (it parses, `create_entry` validates), so there is one place the
+lookups run.
 
 ## Events/Publishing
 

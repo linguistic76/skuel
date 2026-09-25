@@ -40,6 +40,7 @@ async def test_report(neo4j_driver):
     # Create Entity nodes and owner User node in Neo4j
     report_uid = "test_report_integration_001"
     user_uid = "test_user_owner"
+    group_uid = "test_group_shared_class"
 
     # Create owner User + Entity nodes
     query = """
@@ -87,7 +88,25 @@ async def test_report(neo4j_driver):
             uid=ruid,
         )
 
+    # A person share requires co-membership (R8, ADR-088 §7): these tests are
+    # about ownership and status, so every user shares one active class.
+    await neo4j_driver.execute_query(
+        """
+        MERGE (g:Group {uid: $group_uid}) SET g.name = 'Shared class', g.is_active = true
+        WITH g
+        UNWIND $members AS member_uid
+        MATCH (u:User {uid: member_uid})
+        MERGE (u)-[:MEMBER_OF {role: 'student'}]->(g)
+        """,
+        group_uid=group_uid,
+        members=[user_uid, *recipient_uids],
+    )
+
     yield {"uid": report_uid, "owner_uid": user_uid}
+
+    await neo4j_driver.execute_query(
+        "MATCH (g:Group {uid: $group_uid}) DETACH DELETE g", group_uid=group_uid
+    )
 
     # Cleanup
     cleanup_query = """
@@ -99,7 +118,7 @@ async def test_report(neo4j_driver):
     # Cleanup test users
     for ruid in [user_uid, *recipient_uids]:
         await neo4j_driver.execute_query(
-            "MATCH (u:User {uid: $uid}) WHERE u.uid STARTS WITH 'test_' DELETE u",
+            "MATCH (u:User {uid: $uid}) WHERE u.uid STARTS WITH 'test_' DETACH DELETE u",
             uid=ruid,
         )
 

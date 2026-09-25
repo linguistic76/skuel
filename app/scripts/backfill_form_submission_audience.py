@@ -15,8 +15,8 @@ by nobody but their owner and admins.
 This backfills exactly the audience a fresh submit would now resolve: each
 submission is shared with every active group its submitter is a *student*
 member of. Nothing wider — there is no implicit "share with everyone"
-fallback, matching ``AudienceResolver.resolve_default_teachers``, which this
-mirrors. A submitter in no group is left private, deliberately: there is no
+fallback, matching the ``teachers`` expansion ``AudienceResolver`` applies to
+an exercise-less feedback request, which this mirrors. A submitter in no group is left private, deliberately: there is no
 audience to infer, and inventing one would expose their answers to a classroom
 they are not in.
 

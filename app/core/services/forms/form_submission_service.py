@@ -114,6 +114,13 @@ class FormSubmissionService(BaseService[FormSubmissionBackendOperations, FormSub
                 )
             )
 
+        # Every audience target is checked before anything is written (ADR-088):
+        # a refusal fails the submit with nothing persisted, never a committed
+        # submission half-shared and duplicated on retry.
+        audience_check = await self._validate_audience(user_uid, group_uid, recipient_uids)
+        if audience_check.is_error:
+            return Result.fail(audience_check)
+
         display_title = title or f"Form Response ({datetime.now().strftime('%Y-%m-%d %H:%M')})"
         uid = UIDGenerator.generate_uid("fs", display_title)
 
@@ -156,7 +163,24 @@ class FormSubmissionService(BaseService[FormSubmissionBackendOperations, FormSub
         # whose submitter *chose* to leave the audience empty would publish it
         # to their whole classroom.
         if group_uid or recipient_uids or share_with_admin:
-            await self._share_on_submit(uid, user_uid, group_uid, recipient_uids, share_with_admin)
+            shared = await self._share_on_submit(
+                uid, user_uid, group_uid, recipient_uids, share_with_admin
+            )
+            if shared.is_error:
+                # Validated before the write, so a refusal here is a change
+                # that landed in between; the guarded writes left no
+                # unauthorised edge. Take back everything this call wrote —
+                # the submission and every edge on it — and say so.
+                self.logger.warning(
+                    f"Compensating form submission {uid} after a refused audience write: "
+                    f"{shared.expect_error()}"
+                )
+                cleanup = await self.backend.delete(uid, cascade=True)
+                if cleanup.is_error:
+                    self.logger.error(
+                        f"Compensation delete of {uid} failed: {cleanup.expect_error()}"
+                    )
+                return Result.fail(shared)
         elif use_default_audience:
             audience = await self._share_with_default_audience(uid)
             if audience.is_error:
@@ -191,6 +215,45 @@ class FormSubmissionService(BaseService[FormSubmissionBackendOperations, FormSub
             return Result.fail(Errors.not_found("FormTemplate", form_template_uid))
         return Result.ok(result.value)
 
+    async def _validate_audience(
+        self,
+        user_uid: UserUID,
+        group_uid: str | None,
+        recipient_uids: list[str] | None,
+    ) -> Result[None]:
+        """Check every explicit target before the first write (ADR-088 §7).
+
+        The group must exist, be active and be one the submitter is a member
+        or owner of (the same condition the feedback-request writer guards
+        on); each recipient must share a group with the submitter — R8
+        co-membership, through the default group only via its owner — and
+        may not be the submitter. Unknown and non-co-member recipients get
+        one not-found. ``share_with_admin`` is exempt (ADR-088 §7) and is not
+        checked here.
+        """
+        if not group_uid and not recipient_uids:
+            return Result.ok(None)
+        if not self.sharing_service:
+            return Result.fail(
+                Errors.forbidden(
+                    action="share form submission",
+                    reason="Cannot verify the audience — sharing service unavailable.",
+                )
+            )
+        if group_uid:
+            reachable = await self.sharing_service.reachable_groups(user_uid, [group_uid])
+            if reachable.is_error:
+                return Result.fail(reachable)
+            if group_uid not in reachable.value:
+                return Result.fail(Errors.not_found(resource="Group", identifier=group_uid))
+        for recipient_uid in recipient_uids or []:
+            co_member = await self.sharing_service.shares_group_with(user_uid, recipient_uid)
+            if co_member.is_error:
+                return Result.fail(co_member)
+            if not co_member.value:
+                return Result.fail(Errors.not_found(resource="User", identifier=recipient_uid))
+        return Result.ok(None)
+
     async def _share_on_submit(
         self,
         submission_uid: str,
@@ -198,12 +261,22 @@ class FormSubmissionService(BaseService[FormSubmissionBackendOperations, FormSub
         group_uid: str | None,
         recipient_uids: list[str] | None,
         share_with_admin: bool,
-    ) -> None:
-        """Handle optional sharing at submit time via UnifiedSharingService."""
+    ) -> Result[None]:
+        """Write the audience via ``UnifiedSharingService``; the first refusal is the error.
+
+        Each write re-checks its own authorisation in its statement, so a
+        refusal here is never a false confirmation: it is returned, naming
+        the target, and the caller decides what to take back.
+        """
         if not self.sharing_service:
             if group_uid or recipient_uids or share_with_admin:
-                self.logger.warning("Sharing requested but no sharing_service configured")
-            return
+                return Result.fail(
+                    Errors.forbidden(
+                        action="share form submission",
+                        reason="Sharing requested but no sharing service is configured.",
+                    )
+                )
+            return Result.ok(None)
 
         if group_uid:
             # Every FormSubmission group target is a feedback request to the
@@ -215,19 +288,23 @@ class FormSubmissionService(BaseService[FormSubmissionBackendOperations, FormSub
             )
             if result.is_error:
                 self.logger.warning(f"Failed to submit to group {group_uid}: {result.error}")
+                return Result.fail(result)
 
-        if recipient_uids:
-            for recipient_uid in recipient_uids:
-                result = await self.sharing_service.share(
-                    entity_uid=EntityUID(submission_uid),
-                    owner_uid=user_uid,
-                    recipient_uid=recipient_uid,
-                )
-                if result.is_error:
-                    self.logger.warning(f"Failed to share with {recipient_uid}: {result.error}")
+        for recipient_uid in recipient_uids or []:
+            result = await self.sharing_service.share(
+                entity_uid=EntityUID(submission_uid),
+                owner_uid=user_uid,
+                recipient_uid=recipient_uid,
+            )
+            if result.is_error:
+                self.logger.warning(f"Failed to share with {recipient_uid}: {result.error}")
+                return Result.fail(result)
 
         if share_with_admin:
-            await self._share_with_admin(submission_uid, user_uid)
+            admin_shared = await self._share_with_admin(submission_uid, user_uid)
+            if admin_shared.is_error:
+                return Result.fail(admin_shared)
+        return Result.ok(None)
 
     async def _share_with_default_audience(self, submission_uid: str) -> Result[None]:
         """Share a submission with every group the submitter studies in.
@@ -260,24 +337,32 @@ class FormSubmissionService(BaseService[FormSubmissionBackendOperations, FormSub
             return Result.fail(result)
         return Result.ok(None)
 
-    async def _share_with_admin(self, submission_uid: str, user_uid: UserUID) -> None:
-        """Share a submission with the admin user (using UserRole enum)."""
+    async def _share_with_admin(self, submission_uid: str, user_uid: UserUID) -> Result[None]:
+        """Share a submission with the admin user — exempt from R8 co-membership (ADR-088 §7)."""
         if not self.sharing_service:
-            self.logger.warning("share_with_admin called but no sharing_service configured")
-            return
+            return Result.fail(
+                Errors.forbidden(
+                    action="share form submission with admin",
+                    reason="Sharing requested but no sharing service is configured.",
+                )
+            )
 
         admin_result = await self.backend.find_admin_user_uid(UserRole.ADMIN)
-        if admin_result.is_ok and admin_result.value:
-            admin_uid = admin_result.value
-            result = await self.sharing_service.share(
-                entity_uid=EntityUID(submission_uid),
-                owner_uid=user_uid,
-                recipient_uid=admin_uid,
-            )
-            if result.is_error:
-                self.logger.warning(f"Failed to share with admin: {result.error}")
-        else:
-            self.logger.warning("share_with_admin requested but no admin user found")
+        if admin_result.is_error:
+            return Result.fail(admin_result)
+        admin_uid = admin_result.value
+        if not admin_uid:
+            return Result.fail(Errors.not_found(resource="User", identifier="admin"))
+        result = await self.sharing_service.share(
+            entity_uid=EntityUID(submission_uid),
+            owner_uid=user_uid,
+            recipient_uid=admin_uid,
+            require_co_membership=False,
+        )
+        if result.is_error:
+            self.logger.warning(f"Failed to share with admin: {result.error}")
+            return Result.fail(result)
+        return Result.ok(None)
 
     # ========================================================================
     # READ
@@ -403,11 +488,24 @@ class FormSubmissionService(BaseService[FormSubmissionBackendOperations, FormSub
         recipient_uids: list[str] | None = None,
         share_with_admin: bool = False,
     ) -> Result[bool]:
-        """Share an existing submission (post-submit)."""
+        """Share an existing submission (post-submit).
+
+        Every target is validated before the first edge (ADR-088 §7); a
+        refused write afterwards is returned as the error. The writes are
+        idempotent MERGEs, so a retry after a refusal duplicates nothing.
+        """
         # Verify ownership
         get_result = await self.get_submission(uid, user_uid)
         if get_result.is_error:
             return Result.fail(get_result)
 
-        await self._share_on_submit(uid, user_uid, group_uid, recipient_uids, share_with_admin)
+        audience_check = await self._validate_audience(user_uid, group_uid, recipient_uids)
+        if audience_check.is_error:
+            return Result.fail(audience_check)
+
+        shared = await self._share_on_submit(
+            uid, user_uid, group_uid, recipient_uids, share_with_admin
+        )
+        if shared.is_error:
+            return Result.fail(shared)
         return Result.ok(True)

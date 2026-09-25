@@ -1,6 +1,6 @@
 ---
 title: "Vault Re-Sync Never Retracts a Share"
-updated: 2026-09-22
+updated: 2026-09-25
 status: "open privacy gap (ruled leave registered)"
 registered: 2026-09-02
 ruled: 2026-09-02
@@ -20,8 +20,8 @@ this is the remaining asymmetry, and it is a leak class the moment a second user
 `AudienceResolver.resolve_and_share` only adds `SHARED_WITH_GROUP` / `SHARES_WITH` edges, and the
 living-entry upsert a vault re-sync lands on carries no share reconciliation. So a note whose
 frontmatter drops or narrows its `audience:` keeps every share it already has. The 2026-09-02
-flips of the vault-note defaults to private (`knowledge`, then `extract_activities` —
-`Pipeline.shares_by_default()`) exposed it: the notes synced under the old `teachers` default
+flips of the vault-note defaults to private (`knowledge`, then `extract_activities`; since
+PR 6a an absent `audience:` names nobody on every pipeline but `teacher_review`) exposed it: the notes synced under the old `teachers` default
 stayed shared until `scripts/retract_defaulted_vault_note_shares.py` retracted them (one-shot,
 dry-run default, reads each note's vault frontmatter so an explicit `audience:` is never touched).
 

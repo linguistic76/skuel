@@ -112,17 +112,26 @@ valid in YAML-ingested UserEntry files.
 
 ### Optional field: `audience`
 
-`audience:` declares who sees the entry. When omitted it defaults to `teachers` for
-submission-shaped pipelines and to `private` for the two vault-note pipelines, `knowledge`
-and `extract_activities` — a vault note shares only by explicit audience
-(`Pipeline.shares_by_default()`, rulings 2026-09-02). Accepted values:
+`audience:` declares who sees the entry, in the one vocabulary every door speaks
+(`AudienceSpec`, `core/models/user_entry/audience.py` — ADR-088): one value or a list. When
+omitted it names nobody — which on `pipeline: teacher_review` means `teachers`, and on every
+other pipeline no links (a vault note shares only by explicit audience, rulings 2026-09-02).
+Keywords are case-insensitive; the part after the colon is kept verbatim (a username matches
+`User.title` exactly). Accepted values:
 
 | Value | Meaning |
 |-------|---------|
-| `teachers` (default for submission pipelines) | A **feedback request** (`SUBMITTED_TO_GROUP`, ADR-088 §2) with every group the uploader is a student-member of (via `AudienceResolver.resolve_default_teachers`) — read by those groups' teachers, never their members. Applies only on `pipeline: teacher_review`, the one pipeline with a reviewer: on any other pipeline it writes **no group link** (an explicit value logs a sync warning; the default is silent). Zero student-role groups → no links (no silent broadcast). |
-| `group:<group_uid>` | A **share** (`SHARED_WITH_GROUP`) with exactly one group — every member may open it. On `pipeline: teacher_review` it is instead the per-teacher feedback request with that group's teacher (until the arc's PR 6a names `teacher:<group_uid>`). |
-| `public` | Set `visibility=PUBLIC` (portfolio). |
-| `private` | No links, no visibility change. |
+| `teachers` | A **feedback request** (`SUBMITTED_TO_GROUP`, ADR-088 §2) — with an exercise, to the exercise's groups the uploader belongs to (a curriculum exercise: the uploader's default group); without one, to every group they are a student of — read by those groups' teachers, never their members. Applies only on `pipeline: teacher_review`, the one pipeline with a reviewer: on any other pipeline it writes **no group link** (an explicit value logs a warning). A request that would reach no teacher is refused before the write. |
+| `teacher:<group_uid>` | A feedback request to that one group's teachers (the per-teacher route). |
+| `group:<group_uid>` | A **share** (`SHARED_WITH_GROUP`) with exactly one group — every member and owner may open it. Always a share: on `teacher_review` it must stand beside a feedback target, or the note is refused with guidance. |
+| `user:<username>` | A **share** (`SHARES_WITH`) with one person who shares a group with you (R8 — co-membership through the default group counts only via its owner). An unknown and a non-co-member username get one not-found. |
+| `public` | Set `visibility=PUBLIC` (portfolio, TEACHER-gated). |
+| `private` | No links — exclusive: combined with any other value it is a parse error. |
+
+A `private: true` note cannot be shared (`group:` / `user:` / `public` are refused); it may still
+ask for feedback. **Living notes are drafts (R9):** on a vault-tracked note the `user:` and
+`teacher:` targets are parsed and validated but not applied — the sync warns that they apply
+when `status: submitted` files a frozen copy (the arc's PR 8 lands the rest).
 
 Legacy aliases `je_input` / `je_output` / `exercise_submission` are
 **rejected** with an ADR-054 error (no compat shim — One Path Forward).
@@ -404,18 +413,21 @@ tags: [reading, stoicism]
 `AudienceResolver` (`core/services/user_entry/audience_resolver.py`) is
 the single implementation of:
 
-1. Pipeline/audience validation (ADR-054 §3 + §5 guardrails — `teacher_review`
-   needs a feedback target, `submit_to_groups` or an exercise; a share is not
-   one; `transcribe_and_structure` is private by policy).
-2. Link writes via `UnifiedSharingService` — shares (explicit groups/users)
-   on every pipeline, and on `teacher_review` the feedback request
-   (`submit_to_group`: explicit `submit_to_groups`, else the exercise's
-   groups). ADR-088 §2: two verbs, two link kinds.
-3. `resolve_default_teachers(user_uid)` — used by the YAML preparer to
-   expand `audience: teachers` into explicit group UIDs.
+1. `validate` — the pure rules (ADR-088 §1, §8): a `teacher_review` request
+   whose explicit audience names no teacher is refused with guidance; a
+   private pipeline (`transcribe_and_structure`, `reference`) or a
+   `private: true` note refuses every share.
+2. `validate_references` — every target authorised before the first write:
+   the exercise / predecessor claims, each `user:` (a co-member, R8), each
+   `group:` / `teacher:` (reachable), and `teachers` expanded to concrete
+   groups; a request reaching no teacher is refused here.
+3. `resolve_and_share` — the link writes via `UnifiedSharingService`, of
+   validated targets only. ADR-088 §2: two verbs, two link kinds.
 
-`UserEntryService` and the ingestion bridge both hold the same resolver
-instance; there is no second code path.
+The vault door's request builder (`build_user_entry_request`) is pure — it
+parses `audience:` through `AudienceSpec` and builds the request;
+`UserEntryService.create_entry` runs the three steps for every door, so there
+is one place the lookups happen and no second code path.
 
 ---
 

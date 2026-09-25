@@ -188,7 +188,7 @@ pass confirmed or corrected.
    `visibility = shared` **and** a share link (direct or group), so a link alone never grants access; its one live caller is the EntryReport
    detail (`user_entry_orchestrator.py:297`). The UserEntry detail read (`/gradebook/{uid}` →
    `user_entry_service.py:441-451`) ignores both and admits only the owner, so an entry shared with
-   a person (JSON `share_with_users`) appears on the recipient's Shared page and opens as a
+   a person (JSON share_with_users) appears on the recipient's Shared page and opens as a
    rendered "Submission Not Found" page (not an HTTP 404 status). The `/groups` peer reads are a
    third rule. `share()` and `share_with_group()` never write `visibility`. `TEAM` is written by the
    Events form (`events_form.py:44,75` via `EventCreateRequest`) and read nowhere; the
@@ -212,7 +212,7 @@ pass confirmed or corrected.
    the request model calls it "silently noop"). Vault `teachers` = every group I am a student of,
    exercise or not. (The HTTP API can already reach the queue
    without an exercise: `/api/user-entries/upload` with `audience=group:<uid>` and
-   `pipeline=teacher_review`, or JSON `share_with_groups`.)
+   `pipeline=teacher_review`, or JSON share_with_groups.)
 6. **An exercise-less `teacher_review` vault note is one mutable node.** No frozen copy is filed
    without an exercise — the gate is `submit_signal` (`user_entry_ingestion.py:597-599`), with the
    prior-uid reuse gate at `:463-469`. The note takes the upsert branch, which refreshes every
@@ -300,12 +300,12 @@ carry — folded in as contract; the ones that change the plan say "settled at P
     `created = false` (an existing edge) is a success — never copy `share_with_group`'s
     `if not result.value` check onto the `created` bool. PR 7's teacher bell depends on `created`.
 - **The request side:**
-  - `UserEntryCreateRequest.submit_to_groups` (new).
+  - UserEntryCreateRequest.submit_to_groups (new; retired by PR 6a).
   - The vault `teachers` expansion and the exercise auto-share / curriculum fallback fill it
     (`user_entry_ingestion.py:316-322`, `audience_resolver.py:282-337`).
-  - For TEACHER_REVIEW requests, explicit `share_with_groups` go to `submit_to_groups`. This keeps
+  - For TEACHER_REVIEW requests, explicit share_with_groups go to submit_to_groups. This keeps
     today's per-teacher targeting until PR 6a names it.
-  - `validate()` counts only exercise / `submit_to_groups` as a TEACHER_REVIEW audience.
+  - `validate()` counts only exercise / submit_to_groups as a TEACHER_REVIEW audience.
   - `ShareOutcome` gains `submitted_groups`, counted in `any_success` and `to_payload`. Without that,
     vault copies are compensated away and the SHARED_WITH_TEACHER Interaction is skipped.
     Verified at PR 0: `submitted_groups` = every group the MERGE matched, created or not (it is
@@ -322,14 +322,14 @@ carry — folded in as contract; the ones that change the plan say "settled at P
     TEACHER_REVIEW-only today: the vault's absent-`audience:` default is `teachers` on NONE, LLM_SUMMARY and
     TEACHER_REVIEW (Pipeline.shares_by_default, `user_entry_ingestion.py:298-319`; TRANSCRIBE is
     rejected at the door), and web
-    `audience=teachers` sets `auto_share_to_exercise_groups` on any pipeline
+    `audience=teachers` sets auto_share_to_exercise_groups on any pipeline
     (`user_entry_api.py:185-186`), after which the resolver auto-shares to the exercise's groups
     whatever the pipeline (`audience_resolver.py:283-286`; the auto-share block writes edges
     directly, it does not fill a request field). The Architecture's rule — a feedback request
-    requires TEACHER_REVIEW — means `submit_to_groups` is gated on TEACHER_REVIEW, and so **on any
+    requires TEACHER_REVIEW — means submit_to_groups is gated on TEACHER_REVIEW, and so **on any
     pipeline other than TEACHER_REVIEW, `teachers` writes no group link** — the vault value
     (defaulted or explicit) and the web auto-share, curriculum fallback included. This is what the
-    plan's "the vault `teachers` expansion fills `submit_to_groups`" produces once that field is
+    plan's "the vault `teachers` expansion fills submit_to_groups" produces once that field is
     gated; it only narrows access, and it matches R5, R9 and ADR-054 §3's 2026-09-02 amendment (the
     `teachers` default is submission semantics). The live census (0 such edges) cannot protect
     against new writes, so it is an acceptance case, not a choice. An explicit vault `teachers` on such a note logs an ingest warning
@@ -413,10 +413,10 @@ carry — folded in as contract; the ones that change the plan say "settled at P
   a ruling):**
   - The interim per-teacher route lives at the two legacy doors, not on the request model: the web
     `audience=group:<uid>` parser and the vault `audience: group:<uid>` parser fill
-    `submit_to_groups` on TEACHER_REVIEW and `share_with_groups` otherwise. The JSON body speaks
-    the two fields literally — `share_with_groups` on a TEACHER_REVIEW request stays a share, and
+    submit_to_groups on TEACHER_REVIEW and share_with_groups otherwise. The JSON body speaks
+    the two fields literally — share_with_groups on a TEACHER_REVIEW request stays a share, and
     without a feedback target it is refused by `validate()` (never silently re-typed; Codex P2 on
-    #1414 — a model-level mapping swallowed an explicit share sent beside `submit_to_groups`).
+    #1414 — a model-level mapping swallowed an explicit share sent beside submit_to_groups).
     PR 6a retires the door mapping with `teacher:<group_uid>`.
   - `SUBMITTED_TO_GROUP` carries `submitted_at` only (stamped on create; a re-file keeps it).
     The migration maps the old edge's `shared_at` onto it and does **not** carry `share_version`
@@ -834,10 +834,10 @@ it first removes both.
   owners of an active group) and ADR-038 (a link alone grants access). SEARCH_ARCHITECTURE lists the
   audience fragment as a composition point.
 - **An accepted window (verified at PR 0):** until PR 6a, a person share is not co-membership-checked
-  (the JSON `share_with_users`, forms `recipient_uids`), and this PR makes it openable. Live
+  (the JSON share_with_users, forms `recipient_uids`), and this PR makes it openable. Live
   person shares on UserEntries: 0.
 - **Live acceptance setup (Mike's OK):** before PR 6a/6b the only person-share writer is the JSON
-  `share_with_users` on `POST /api/user-entries`. Share with a recipient Mike can log in as
+  share_with_users on `POST /api/user-entries`. Share with a recipient Mike can log in as
   (user_admin, or the second account once it exists); the non-recipient is a third account.
 - **Ruled (PR 5 session, 2026-09-25 — engineering choices the census found unsettled; none touches
   a ruling):**
@@ -873,7 +873,7 @@ it first removes both.
   - `GroupSharedPreviewList` lost its `group_uid` parameter with the tile href; `GroupSharesPage`
     keeps its own for the "Back to Groups" link.
   - Live acceptance 2026-09-25 (branch app on :8001, Mike's OK): the JSON door as linguistic76 wrote
-    one placeholder entry (`ue_e2459701`) with `share_with_users: [user_admin]` — +1 node and +2
+    one placeholder entry (`ue_e2459701`) with share_with_users: [user_admin] (the JSON field PR 6a retired) — +1 node and +2
     edges (`OWNS`, `SHARES_WITH`) beside the two scripted logins' `Session` + `AuthEvent` (3525→3530
     nodes, 3017→3023 edges). The admin (`mfan0110`) opened `/gradebook/ue_e2459701` as the recipient
     card (From linguistic76, "Shared with you", no status, no owner card, no exchange, no feedback
@@ -883,14 +883,14 @@ it first removes both.
 
 ### PR 6a — One audience vocabulary
 
-- **`AudienceSpec`** (`core/models/user_entry/audience.py`) + `AudienceResolver` are the one parser <!-- planned -->
+- **`AudienceSpec`** (`core/models/user_entry/audience.py`) + `AudienceResolver` are the one parser
   and applier. The vocabulary table is above.
   - It accepts lists and preserves case (usernames match `User.title` exactly; today's vault parser
     lowercases, `user_entry_ingestion.py:84`).
   - It replaces the web parser (`user_entry_api.py:181`) and the vault parser with its private spec
     (`user_entry_ingestion.py:60-107`).
   - The JSON door's raw `share_with_*` fields are routed through it. **Verified at PR 0 (contract,
-    settled at PR 0 review):** the JSON `share_with_users` carries user **UIDs**
+    settled at PR 0 review):** the JSON share_with_users carries user **UIDs**
     (`user_entry_request.py:126-128`) while the vocabulary's person form is `user:<username>`. The
     JSON door speaks `user:<username>` through `AudienceSpec` and the raw uid field leaves the
     contract (ADR-088's one vocabulary covers the JSON API; One Path Forward); the resolver maps
@@ -973,6 +973,58 @@ it first removes both.
   owner — or a member of a non-default group) succeeds; a Default-Group-only member gets the uniform
   error (this also tests the exclusion); the vault `[teachers, user:<name>]` parse is a unit case —
   applying it is PR 8's and the arc-close verification's.
+- **Ruled (PR 6a session, 2026-09-25 — engineering choices the census found unsettled; none touches
+  a ruling):**
+  - The create request carries one field, `audience: AudienceSpec`, parsed by a Pydantic
+    before-validator from a value or a list (a bad value is a 400 at the JSON door); the four raw
+    per-verb fields and the `visibility` field left the contract with it (`public` is the
+    vocabulary's word). The upload door reads every posted `audience` field (`form.getlist`), so a
+    multi-value form works without a second parser.
+  - **An absent audience is the empty spec**, not `private`: on TEACHER_REVIEW the resolver reads
+    it as `teachers`, on every other pipeline as nobody. That is what the vault's per-pipeline
+    default already produced once PR 1 gated the link on the pipeline, so the flag on `Pipeline`
+    is deleted (the retraction script names its two pipelines as the 2026-09-02 fact they are).
+  - **Every lookup runs once, in `create_entry`:** the vault door's request builder is pure and
+    sync (it parses; it no longer resolves `teachers` or checks references), and
+    `validate_references` returns a `ResolvedAudience` — usernames resolved to uids, group targets
+    checked reachable (exists, active — strict — and joined or owned, one read for both verbs),
+    `teachers` expanded (exercise groups ∩ memberships, the curriculum fallback, or every student
+    group without an exercise). A TEACHER_REVIEW request whose feedback targets resolve to no
+    group is refused there, before the write, on `feedback_target` (non-content) — the web door's
+    exercise turn-in with an empty intersection was a silent unreviewable entry before this.
+  - **Compensation widens to every fresh node:** with every target validated first, a write
+    refused afterwards is a change that landed in between, so 5a takes back the node this call
+    created — on every pipeline, not TEACHER_REVIEW only — and returns the refusal. A living
+    upsert is not this call's node: its refusal is returned and the sync retries the file. The
+    copy filer's own zero-reach duplicate is deleted (it was unreachable: the copy is a fresh
+    TEACHER_REVIEW node, so `create_entry` refuses or compensates first) — PR 7's "move the
+    zero-reach rule" item is done here.
+  - **The living channel is `request.uid`** — the predicate `create_entry`'s upsert branch
+    already uses — not the door: on it the `user:` and explicit `teacher:` targets are withheld
+    (`ShareOutcome.withheld`, a sync warning through the result dict's `warnings` key, which also
+    carries the extraction warnings), while `group:` and the `teachers` expansion apply as they
+    did before this PR. A JSON caller who supplies a uid is on the same channel.
+  - **R8 through a default group counts iff one of the pair owns it** — the literal reading of
+    "excluding the roster, keeping its owner", symmetric (the admin may share with their
+    student). The predicate is one Cypher fragment, `build_co_membership_fragment` in the sharing
+    backend, composed by the two co-member reads (by exact `User.title`, or by uid for forms) and
+    by the person-share MERGE (`create_share` takes the owner and `require_co_membership`; the
+    statement also refuses the owner as recipient). The default group is recognised by
+    `DEFAULT_GROUP_UID_PREFIX` / `default_group_uid()` on the Group model — the one spelling, bound
+    as a parameter at both Cypher sites (the enrollment MERGE and the curriculum fallback).
+  - `share()` returns `created` (like `submit_to_group`); the forms' `share_with_admin` passes
+    `require_co_membership=False` (ADR-088 §7's exemption). An unknown and a non-co-member recipient
+    are one `not_found` on `User`; the owner's own username is a validation refusal.
+  - **Forms:** `submit_form` validates the group (reachable) and every recipient (co-member, not
+    self) before `create_with_relationships`, and a write refused afterwards deletes the
+    submission (cascade) and fails the submit; `share_submission` validates the same way before
+    its first edge and returns a late refusal as the error without unwriting what landed (the
+    writes are idempotent MERGEs, so a retry duplicates nothing — there is no
+    `SUBMITTED_TO_GROUP` delete writer to compensate with, and adding one for this would be a
+    Stop-sharing door on a feedback request). `_share_with_admin` propagates its result.
+  - The journal refusal is one rule at the resolver for every door: a `group:` / `user:` /
+    `public` on a private pipeline or a `private: true` entry is a validation error on
+    `audience`; the vault door no longer coerces such a note to private silently.
 
 ### PR 6b — Share, Stop sharing, and the two-sided Shared page (R2, R3, R6–R8, R10)
 
@@ -1116,7 +1168,10 @@ it first removes both.
   Mike, not a PR 7 edit.
 - **The zero-reach rule moves into `create_entry` 5a:** a TEACHER_REVIEW entry with no successful
   submission is compensated, with an error on a non-content field, so the vault reports it as an error.
-  Delete the vault duplicate (`user_entry_ingestion.py:744-760`) and update `test_user_entry_service.py:538`.
+  **Done at PR 6a:** the ``teachers`` expansion runs in `AudienceResolver.validate_references`,
+  so a request reaching no teacher is refused before the write, a refused write compensates in
+  5a, and the vault duplicate in `_file_submission_copy` was deleted with it (nothing left for
+  PR 7 here but to confirm the field stays non-content).
   Verified at PR 0: `batch.py:84-86` classifies `audience` (and status, pipeline, uid, metadata,
   private, je_use) as content fields — ignored-with-reason, not an error — so the field must be none
   of those. The moved rule reads `submitted_groups` (matched), never the created subset, and the
@@ -1165,7 +1220,7 @@ it first removes both.
     `fulfills_exercise_uid` as a turn-in (`user_entry_service.py:229`: fresh node,
     `FULFILLS_EXERCISE`, revision, Interaction), and the next sync upserts that frozen turn-in in
     place. PR 8 must also stop a vault file from ever entering the turn-in branch.
-- **The copy:** the generalised `_file_submission_copy` (`user_entry_ingestion.py:693`) files a frozen
+- **The copy:** the generalised `_file_submission_copy` (`user_entry_ingestion.py:566`) files a frozen
   copy via `create_entry` with the note's `audience:` list.
   - Default `teachers`, whatever the living pipeline; the pipeline is TEACHER_REVIEW when a feedback
     target is present, else NONE. AI is never sync-triggered (ruling 2026-07-04).
@@ -1200,7 +1255,7 @@ it first removes both.
   - Dedup = the newest copy from the same note, compared over the **whole submitted snapshot** —
     every authored field the copy carries, canonically serialized: its content, title, description,
     tags and `private` flag (`_file_submission_copy` copies the first four,
-    `user_entry_ingestion.py:728-733`), the `audience:` list **and the exercise target**
+    `user_entry_ingestion.py:604-607`), the `audience:` list **and the exercise target**
     (`fulfills_exercise_uid`) (settled at PR 0 review). Today's
     `_file_submission_copy` compares content only, inside a lookup scoped by exercise uid; keyed on
     provenance instead, a note that stays `status: submitted` must file a new copy when its

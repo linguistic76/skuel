@@ -34,7 +34,6 @@ from core.services.ingestion.moc_links import (
 from core.services.ingestion.preparer import prepare_entity_data
 from core.services.ingestion.user_entry_ingestion import build_user_entry_request
 from core.services.ingestion.validator import validate_uid_format
-from core.utils.result_simplified import Result
 
 # ============================================================================
 # 1. Link extraction (moc_links.py)
@@ -212,27 +211,13 @@ class TestUserEntryUidAcceptance:
         assert not ok.is_error
 
 
-class _FakeAudienceResolver:
-    """Minimal resolver for build_user_entry_request paths under test."""
-
-    async def resolve_default_teachers(self, user_uid: Any) -> list[str]:
-        return []
-
-    async def validate_references(self, **kwargs: Any) -> Result[None]:
-        return Result.ok(None)
-
-    def validate(self, request: Any) -> Result[None]:
-        return Result.ok(None)
-
-
 @pytest.mark.asyncio
 class TestUserEntryDoorUidHandling:
     async def _build(self, data: dict[str, Any], file_path: Path):
-        return await build_user_entry_request(
+        return build_user_entry_request(
             data=data,
             file_path=file_path,
             user_uid="user_test",  # type: ignore[arg-type]
-            audience_resolver=_FakeAudienceResolver(),  # type: ignore[arg-type]
             body="body text",
         )
 

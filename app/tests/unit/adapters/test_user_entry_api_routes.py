@@ -20,6 +20,7 @@ from starlette.testclient import TestClient
 
 from adapters.inbound.csrf import CSRF_COOKIE_NAME, CSRF_HEADER_NAME, mint_token
 from adapters.inbound.user_entry_api import create_user_entry_api_routes
+from core.models.user_entry.audience import AudienceSpec
 from core.models.user_entry.user_entry import UserEntry
 from core.utils.result_simplified import Result
 
@@ -175,29 +176,29 @@ class TestUploadGuards:
         assert response.status_code == 400
         harness.entries.create_entry.assert_not_awaited()
 
-    def test_group_audience_on_teacher_review_is_a_feedback_request(
+    def test_the_audience_reaches_the_request_as_a_parsed_spec(
         self, monkeypatch: pytest.MonkeyPatch
     ) -> None:
-        """The form's ``group:<uid>`` on TEACHER_REVIEW is the per-teacher
-        route (ADR-088 §2): a feedback request with that group's teacher,
-        never a share with its members."""
+        """The upload door speaks the one vocabulary: every value the form
+        posts is parsed by ``AudienceSpec`` and rides on ``request.audience``."""
         harness = _make_harness(monkeypatch)
 
         response = harness.client.post(
             "/api/user-entries/upload",
-            data={"pipeline": "teacher_review", "audience": "group:g_one_teacher"},
+            data={"pipeline": "teacher_review", "audience": "teacher:g_one_teacher"},
             files={"file": ("entry.md", b"# Notes", "text/markdown")},
             headers=_csrf(harness.client),
         )
 
         assert response.status_code == 201
         req = harness.entries.create_entry.await_args.kwargs["request"]
-        assert req.submit_to_groups == ["g_one_teacher"]
-        assert req.share_with_groups == []
+        assert req.audience == AudienceSpec(teacher_groups=("g_one_teacher",))
 
-    def test_group_audience_on_another_pipeline_is_a_share(
+    def test_group_audience_is_a_share_on_every_pipeline(
         self, monkeypatch: pytest.MonkeyPatch
     ) -> None:
+        """``group:`` never files a feedback request (ADR-088 §8); on
+        teacher_review the service refuses it with guidance."""
         harness = _make_harness(monkeypatch)
 
         response = harness.client.post(
@@ -209,8 +210,36 @@ class TestUploadGuards:
 
         assert response.status_code == 201
         req = harness.entries.create_entry.await_args.kwargs["request"]
-        assert req.share_with_groups == ["g_class"]
-        assert req.submit_to_groups == []
+        assert req.audience == AudienceSpec(share_groups=("g_class",))
+
+    def test_repeated_audience_fields_combine(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        harness = _make_harness(monkeypatch)
+
+        response = harness.client.post(
+            "/api/user-entries/upload",
+            data={"pipeline": "teacher_review", "audience": ["teachers", "user:Alice"]},
+            files={"file": ("entry.md", b"# Notes", "text/markdown")},
+            headers=_csrf(harness.client),
+        )
+
+        assert response.status_code == 201
+        req = harness.entries.create_entry.await_args.kwargs["request"]
+        assert req.audience == AudienceSpec(teachers=True, share_users=("Alice",))
+
+    def test_private_beside_another_value_refuses_before_service(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        harness = _make_harness(monkeypatch)
+
+        response = harness.client.post(
+            "/api/user-entries/upload",
+            data={"audience": ["private", "teachers"]},
+            files={"file": ("entry.md", b"# Notes", "text/markdown")},
+            headers=_csrf(harness.client),
+        )
+
+        assert response.status_code == 400
+        harness.entries.create_entry.assert_not_awaited()
 
     def test_text_upload_carries_content_onto_entry(self, monkeypatch: pytest.MonkeyPatch) -> None:
         # Worksheet turn-ins whose text is dropped can never receive feedback —

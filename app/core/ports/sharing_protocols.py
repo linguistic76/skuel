@@ -55,10 +55,25 @@ class SharingBackendOperations(Protocol):
     async def create_share(
         self,
         entity_uid: EntityUID,
+        owner_uid: UserUID,
         recipient_uid: str,
         role: str,
         share_version: str,
         shared_at: str,
+        require_co_membership: bool,
+    ) -> Result[list[Neo4jProperties]]: ...
+
+    async def query_co_member_uid(
+        self,
+        owner_uid: UserUID,
+        username: str | None = None,
+        recipient_uid: str | None = None,
+    ) -> Result[list[Neo4jProperties]]: ...
+
+    async def query_reachable_groups(
+        self,
+        user_uid: UserUID,
+        group_uids: list[str],
     ) -> Result[list[Neo4jProperties]]: ...
 
     async def delete_share(
@@ -179,8 +194,35 @@ class SharingOperations(Protocol):
         recipient_uid: str,
         role: str = "viewer",
         share_version: str = "original",
+        *,
+        require_co_membership: bool = True,
     ) -> Result[bool]:
-        """Share an entity with a user. Returns Result[bool]."""
+        """Share an entity with one person (``SHARES_WITH``). The recipient
+        must share a group with the owner (R8, ADR-088 §7) unless the caller
+        is the forms' ``share_with_admin``. The bool is ``created``: True when
+        this call wrote the link, False when it already stood — both are
+        successes; an unknown or non-co-member recipient is one not-found.
+        """
+        ...
+
+    async def resolve_co_member(self, owner_uid: str, username: str) -> Result[str | None]:
+        """The uid behind a ``user:<username>`` target when that user shares a
+        group with the owner; ``None`` for unknown and non-co-member alike.
+        """
+        ...
+
+    async def shares_group_with(self, owner_uid: str, recipient_uid: str) -> Result[bool]:
+        """R8 co-membership by uid (default-group co-membership counts only
+        through its owner); never True for the owner's own uid.
+        """
+        ...
+
+    async def reachable_groups(
+        self, user_uid: str, group_uids: list[str]
+    ) -> Result[frozenset[str]]:
+        """The subset of ``group_uids`` that exist, are active and the user
+        is a member or owner of — the pre-write check for group targets.
+        """
         ...
 
     async def unshare(
