@@ -265,8 +265,8 @@ DELETED: dict[str, str] = {
     "query_shareable_status": "deleted — served only verify_shareable",
     "get_shared_with_me_via_groups": "deleted — get_user_entries_shared_with_group (members, per group, SHARED_WITH_GROUP) / get_review_queue (owners, SUBMITTED_TO_GROUP) are the two group readers",
     "query_shared_with_me_via_groups": "deleted — served only get_shared_with_me_via_groups",
-    # The EntryReport access check (ADR-088 §3, Submit & Share arc PR 2b): a link grants
-    # what its reader reads, and a report is an owner read — no standalone check.
+    # The EntryReport access check (ADR-088 §3): a link grants what its reader reads,
+    # and a report is an owner read — no standalone check.
     "check_access": "deleted — no standalone access check; an EntryReport is an owner read (EntryReportService.get_for_user, the OWNER_ONLY clause of ADR-085's chokepoint), every other read composes its audience from build_search_visibility_clause",
     "query_access": "deleted — served only check_access",
     "check_report_access": "deleted — the orchestrator's caller-less wrapper over check_access; get_entry_report_view is the owner read",
@@ -390,7 +390,7 @@ _adr070 = "ADR-070 Decision 9 amendments (2026-09-21, 2026-09-22) + changelog ro
 _adr073 = "ADR-073 § 3 amendment (2026-09-02) recording the Pipeline.JOURNAL deletion -- the decision names what it retired"
 _defiction = "the docs de-fiction arc's record names every route, symbol and decorator its sweeps retired -- a finding list is unreadable without the name it found"
 _symbol_queue = "the symbol-claim queue's verdict table teaches 'fictional namespace, real members' by naming its two worked instances -- the verdict is unintelligible without them"
-_adr088_2b = "the retired EntryReport access check named where it stood -- ADR-038/042/054 sketches and the position-2 migration record are frozen decision text; ADR-088 (Submit & Share arc, PR 2b) retired it"
+_adr088_2b = "the retired EntryReport access check named where it stood -- ADR-038/042/054 sketches and the position-2 migration record are frozen decision text; ADR-088 §3 is the record that retired it"
 _sharing_door = "the sharing-door record -- ADR-038's amendment, the deferred-work MOC line and the case file's per-method table name the two methods (and their backend twins) that no longer exist"
 _askesis_arch = "change-history table recording the entities_rich unification / ActivityDataReader absorption / ActivityReviewService split"
 _askesis_intel = "'the former ActivityReviewService was split' -- historical record of the split"
