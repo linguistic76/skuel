@@ -1248,8 +1248,10 @@ class TestCalendarPeriods:
         )
 
         assert comparison is not None and comparison["previous_report_uid"] == "ar_last_week"
+        # The comparison reads the user's own generations only — an admin's
+        # report on them is theirs but not a generation.
         generator.activity_report_service.get_history.assert_awaited_once_with(
-            subject_uid="user_alice", limit=5
+            subject_uid="user_alice", limit=5, generated_only=True
         )
 
     def test_report_content_names_a_partial_period(self, generator):
