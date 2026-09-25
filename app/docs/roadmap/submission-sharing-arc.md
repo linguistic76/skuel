@@ -872,6 +872,14 @@ it first removes both.
     "From" line rather than a uid.
   - `GroupSharedPreviewList` lost its `group_uid` parameter with the tile href; `GroupSharesPage`
     keeps its own for the "Back to Groups" link.
+  - Live acceptance 2026-09-25 (branch app on :8001, Mike's OK): the JSON door as linguistic76 wrote
+    one placeholder entry (`ue_e2459701`) with `share_with_users: [user_admin]` — +1 node and +2
+    edges (`OWNS`, `SHARES_WITH`) beside the two scripted logins' `Session` + `AuthEvent` (3525→3530
+    nodes, 3017→3023 edges). The admin (`mfan0110`) opened `/gradebook/ue_e2459701` as the recipient
+    card (From linguistic76, "Shared with you", no status, no owner card, no exchange, no feedback
+    section) and downloaded the `.md`; the admin opening an unshared entry (`ue_bd5ce4a1`) and its
+    download got a real 404, as did a missing uid; the owner's page and download were unchanged.
+    Screenshots at 375px and desktop. Deleted afterwards by uid (the entry and its two edges).
 
 ### PR 6a — One audience vocabulary
 
@@ -1318,7 +1326,7 @@ requires PR 1, PR 3, PR 5 and PR 6a. PR 6c requires PR 4a, PR 5 and PR 6b. PR 7 
 | 3 | `NotificationType`; card links; admin activity reports owned by the student + their bell; subject validation; generated-report reads exclude admin (human) reports, both user-context statements included | An admin writes an activity report → the student's bell → the detail page opens. The old feedback bells open their reports | merged #1417, 2026-09-25 |
 | 4a | Snapshot-keyed exchanges; "Exercise removed"; R13 subtitle | After deleting a test exercise with turn-ins, the GradeBook shows an "Exercise removed" line and `/exchange` opens | merged #1418, 2026-09-25 |
 | 4b | The two lineage predicates accept `FULFILLS_EXERCISE\|FULFILLS_REVISED_EXERCISE`; the two `teachers` lookups and the exercise-use check resolve a revision (ruled in-session) | A resubmitted revision no longer shows as pending in UserContext | merged #1419, 2026-09-25 |
-| 5 | `OWNER_OR_AUDIENCE` + `read_visibility`; the audience fragment; viewer-aware `/gradebook/{uid}` + download; the peer route retired | A person-shared entry opens for its recipient with no status or feedback. A non-recipient gets 404 | open |
+| 5 | `OWNER_OR_AUDIENCE` + `read_visibility`; the audience fragment; viewer-aware `/gradebook/{uid}` + download; the peer route retired | A person-shared entry opens for its recipient with no status or feedback. A non-recipient gets 404 | merged #1421, 2026-09-25 |
 | 6a | `AudienceSpec` + resolver; R8 co-membership; journal privacy; `group:` never files a feedback request; vault `user:` / `teacher:` parsed but applied only from PR 8 | The vault parser accepts `audience: [teachers, user:<name>]` (unit matrix). A JSON-door `user:` share to a co-member (user_admin, or a member of a non-default group) succeeds; a Default-Group-only member gets the uniform error | open |
 | 6b | Share / Stop sharing routes; candidates; the two-sided Shared page; R3 cleanup; person-share bell; the two access-list methods deleted (DELETED rows added); `shares_granted` rewired | Share with a co-member (as in 6a) → the recipient's *Shared with you* + bell. Your wall lists it, and Stop sharing removes it. Feedback is gone from the Shared page | open |
 | 6c | Derived "reviewed" badges; the GradeBook nudge | A revised shared entry carries "Revised after feedback". The GradeBook nudge appears on it | open |

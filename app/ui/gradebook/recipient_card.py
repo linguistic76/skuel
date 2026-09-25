@@ -55,8 +55,11 @@ def RecipientEntryCard(entry: UserEntry, from_name: str | None) -> FT:
         PageHeader(entry.title or "Shared entry", subtitle=_attribution(entry, from_name)),
         Card(
             CardHeader(
-                CardTitle("Shared entry"),
-                Badge(SHARED_WITH_YOU_LABEL, variant=BadgeT.outline, size=Size.sm),
+                Div(
+                    CardTitle("Shared entry"),
+                    Badge(SHARED_WITH_YOU_LABEL, variant=BadgeT.outline, size=Size.sm),
+                    cls="flex items-center justify-between gap-2",
+                ),
             ),
             CardBody(
                 P(description, cls="text-sm whitespace-pre-wrap")
