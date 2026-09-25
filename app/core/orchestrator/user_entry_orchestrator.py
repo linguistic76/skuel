@@ -96,6 +96,18 @@ class UserEntryOrchestrator:
         """Ownership-verified fetch of a single UserEntry."""
         return await self._entries.get_entry(uid, user_uid)
 
+    async def get_entry_for_viewer(self, uid: str, user_uid: UserUID) -> Result[UserEntry]:
+        """Audience-aware fetch of a single UserEntry — the owner or a recipient.
+
+        The by-UID chokepoint (ADR-085 §2) under UserEntry's ``read_visibility``
+        of OWNER_OR_AUDIENCE (ADR-088 §5): the owner opens it, and so does a
+        recipient the share links name. Absent and out-of-audience are one
+        NotFound. The caller decides what the viewer sees by comparing
+        ``entry.user_uid`` with the viewer — a recipient never sees status,
+        the processed body, feedback or the exchange (R6).
+        """
+        return await self._entries.get_visible_to_user(uid, user_uid)
+
     async def list_for_user(
         self,
         user_uid: UserUID,

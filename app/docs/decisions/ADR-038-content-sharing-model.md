@@ -73,6 +73,13 @@ WHERE report.user_uid = $current_user
 RETURN report
 ```
 
+> **2026-09-25 — Amended by [ADR-088](ADR-088-submit-and-share.md) (Submit & Share arc, PR 5).**
+> A link alone grants access: no property has to agree with it. A UserEntry opens for its owner
+> or for whoever the share links name — a direct `SHARES_WITH`, or `MEMBER_OF` / `OWNS` of an
+> active group it is `SHARED_WITH_GROUP` to — through the one by-UID read under the domain's
+> `read_visibility` of `OWNER_OR_AUDIENCE` (ADR-088 §3, §5). The recipient sees the basic card,
+> never the status, the processed body or the feedback.
+
 ### 4. Quality Control: Only Completed Reports Shareable
 
 ```python
@@ -98,8 +105,8 @@ This prevents users from sharing failed/processing reports, ensuring portfolio q
 - `share_with_group()` - Create SHARED_WITH_GROUP relationship
 - `unshare_from_group()` - Delete SHARED_WITH_GROUP relationship
 - `get_groups_shared_with()` - List groups an entity is shared with
-- `get_user_entries_shared_with_group()` / `get_user_entry_shared_with_group()` - A member's
-  read of what is shared with one group (the groups hub)
+- `get_user_entries_shared_with_group()` - A member's read of what is shared with one group (the
+  groups hub); a listed entry opens at `/gradebook/{uid}` through the UserEntry audience read
 
 > *Amended 2026-09-21: `get_shared_with_me_via_groups()` and `verify_shareable()` deleted —
 > the two live `SHARED_WITH_GROUP` readers (the groups hub per group, the review queue across

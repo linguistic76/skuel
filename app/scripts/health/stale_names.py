@@ -265,6 +265,14 @@ DELETED: dict[str, str] = {
     "query_shareable_status": "deleted — served only verify_shareable",
     "get_shared_with_me_via_groups": "deleted — get_user_entries_shared_with_group (members, per group, SHARED_WITH_GROUP) / get_review_queue (owners, SUBMITTED_TO_GROUP) are the two group readers",
     "query_shared_with_me_via_groups": "deleted — served only get_shared_with_me_via_groups",
+    # The recipient read (ADR-088 §3, §5): a UserEntry opens at /gradebook/{uid} for
+    # whoever the share links name — one audience read, one detail page, never a
+    # second per-group read or a peer page beside it.
+    "get_user_entry_shared_with_group": "deleted — /gradebook/{uid} opens for the owner or a recipient through get_visible_to_user (read_visibility OWNER_OR_AUDIENCE, ADR-088 §5); no per-group peer read",
+    "query_user_entry_shared_with_group": "deleted — served only get_user_entry_shared_with_group; the audience predicate is build_audience_fragment, composed by build_search_visibility_clause",
+    "/groups/{group_uid}/entries/{entry_uid}": "deleted — a listed entry opens at /gradebook/{entry_uid}, which renders the recipient card for a viewer who is not the owner (R6)",
+    "PeerEntryView": "deleted — ui/gradebook/recipient_card.py RecipientEntryCard is the one recipient view (title, description, from, date, badge, file link — never status or the processed body)",
+    "PeerEntryNotFound": "deleted — /gradebook/{uid} refuses a non-recipient through refuse() at a real 404",
     # The EntryReport access check (ADR-088 §3): a link grants what its reader reads,
     # and a report is an owner read — no standalone check.
     "check_access": "deleted — no standalone access check; an EntryReport is an owner read (EntryReportService.get_for_user, the OWNER_ONLY clause of ADR-085's chokepoint), every other read composes its audience from build_search_visibility_clause",
@@ -485,11 +493,11 @@ ALLOWED_OCCURRENCES: dict[str, dict[tuple[int, str], Allow]] = {
         (82, "KuType"): Allow(_adr041),
     },
     "docs/decisions/ADR-042-privacy-as-first-class-citizen.md": {
-        # The §3 and §8 "amended by ADR-088" notes sit above these lines.
-        (178, "SubmissionsSharingService"): Allow(_adr042),
-        (185, "check_access"): Allow(_adr088_2b),
-        (263, "SubmissionsSharingService"): Allow(_adr042),
-        (286, "submissions_sharing_service"): Allow(_adr042),
+        # The §3, §7 and §8 "amended by ADR-088" notes sit above these lines.
+        (185, "SubmissionsSharingService"): Allow(_adr042),
+        (192, "check_access"): Allow(_adr088_2b),
+        (270, "SubmissionsSharingService"): Allow(_adr042),
+        (293, "submissions_sharing_service"): Allow(_adr042),
     },
     "docs/decisions/ADR-043-intelligence-tier-toggle.md": {
         (46, "JournalOutputService"): Allow(_adr043),
@@ -528,17 +536,18 @@ ALLOWED_OCCURRENCES: dict[str, dict[tuple[int, str], Allow]] = {
         (284, "BundleStats"): Allow(_adr014),
     },
     "docs/decisions/ADR-038-content-sharing-model.md": {
-        # The Service Layer amendment names the two methods that no longer exist.
-        (104, "get_shared_with_me_via_groups"): Allow(_sharing_door),
-        (104, "verify_shareable"): Allow(_sharing_door),
+        # The Service Layer amendment names the two methods that no longer exist
+        # (the §3 ADR-088 recipient-read note sits above every anchor in this file).
+        (111, "get_shared_with_me_via_groups"): Allow(_sharing_door),
+        (111, "verify_shareable"): Allow(_sharing_door),
         # The Service Layer list, the API Layer's "no successor" line and the Phase 4
         # record name the retired check; the Service Layer's ADR-088 note sits above the last two.
-        (95, "check_access"): Allow(_adr088_2b),
-        (143, "check_access"): Allow(_adr088_2b),
-        (216, "check_access"): Allow(_adr088_2b),
+        (102, "check_access"): Allow(_adr088_2b),
+        (150, "check_access"): Allow(_adr088_2b),
+        (223, "check_access"): Allow(_adr088_2b),
         # The Data Model Changes record lists the method the decision added; the
         # Service Layer's ADR-088 PR 2a note (above it) records its deletion.
-        (167, "can_view"): Allow(_adr088_2a),
+        (174, "can_view"): Allow(_adr088_2a),
     },
     "docs/roadmap/deferred-work.md": {
         (96, "verify_shareable"): Allow(_sharing_door),
@@ -546,10 +555,10 @@ ALLOWED_OCCURRENCES: dict[str, dict[tuple[int, str], Allow]] = {
     },
     "docs/roadmap/sharing-http-door.md": {
         # The per-method table's two DELETED rows and their backend twins.
-        (38, "verify_shareable"): Allow(_sharing_door),
-        (38, "query_shareable_status"): Allow(_sharing_door),
-        (39, "get_shared_with_me_via_groups"): Allow(_sharing_door),
-        (39, "query_shared_with_me_via_groups"): Allow(_sharing_door),
+        (39, "verify_shareable"): Allow(_sharing_door),
+        (39, "query_shareable_status"): Allow(_sharing_door),
+        (40, "get_shared_with_me_via_groups"): Allow(_sharing_door),
+        (40, "query_shared_with_me_via_groups"): Allow(_sharing_door),
     },
     "docs/decisions/ADR-070-bidirectional-vault-bridge.md": {
         # Decision 9's two amendment paragraphs (L297, L299) and their changelog rows

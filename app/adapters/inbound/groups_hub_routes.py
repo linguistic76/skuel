@@ -3,19 +3,19 @@
 Routes:
 - GET /groups                                       — tabbed hub (one tab per group)
 - GET /groups/{group_uid}                           — full list for one group
-- GET /groups/{group_uid}/entries/{entry_uid}       — peer UserEntry detail
 - GET /api/groups/{group_uid}/shared/preview        — HTMX fragment of peer UserEntries
 
-All four endpoints use the viewer's MEMBER_OF edge as the Cypher-level
+All three endpoints use the viewer's MEMBER_OF edge as the Cypher-level
 access guard — non-members get an empty/404 response, never an error that
-leaks existence.
+leaks existence. A listed entry opens at ``/gradebook/{entry_uid}``, whose
+read composes the audience fragment (ADR-088 §3) and renders the recipient
+card for a viewer who is not the owner.
 """
 
 from typing import TYPE_CHECKING, Any
 
 from adapters.inbound.auth import require_authenticated_user
 from adapters.inbound.fasthtml_types import Request
-from core.models.type_hints import EntityUID
 from core.services.groups.group_service import MAX_STUDENT_GROUPS
 
 if TYPE_CHECKING:
@@ -75,7 +75,7 @@ def create_groups_hub_routes(
         records = [] if result.is_error else (result.value or [])
         if not records:
             return HubPreviewEmpty("shared entries")
-        return GroupSharedPreviewList(records, group_uid=group_uid)
+        return GroupSharedPreviewList(records)
 
     @rt("/groups/{group_uid}")
     async def group_shares_page(request: Request, group_uid: str) -> Any:
@@ -109,35 +109,6 @@ def create_groups_hub_routes(
         return BasePage(
             content=GroupSharesPage(group_name=group_name, records=records, group_uid=group_uid),
             title=group_name,
-            request=request,
-            active_page="groups",
-        )
-
-    @rt("/groups/{group_uid}/entries/{entry_uid}")
-    async def peer_entry_detail(request: Request, group_uid: str, entry_uid: str) -> Any:
-        """Read-only detail page for a peer UserEntry shared with a group."""
-        user_uid = require_authenticated_user(request)
-        from ui.groups.peer_entry import PeerEntryNotFound, PeerEntryView
-        from ui.layouts.base_page import BasePage
-
-        payload: dict[str, Any] | None = None
-        if services.sharing is not None:
-            result = await services.sharing.get_user_entry_shared_with_group(
-                user_uid=user_uid, group_uid=group_uid, entry_uid=EntityUID(entry_uid)
-            )
-            if not result.is_error:
-                payload = result.value
-
-        if payload is None:
-            title = "Entry not available"
-            content = PeerEntryNotFound()
-        else:
-            title = (payload.get("entity") or {}).get("title") or "Shared entry"
-            content = PeerEntryView(payload, group_uid=group_uid)
-
-        return BasePage(
-            content=content,
-            title=title,
             request=request,
             active_page="groups",
         )

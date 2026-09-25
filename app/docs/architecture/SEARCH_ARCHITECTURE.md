@@ -1,6 +1,6 @@
 ---
 title: Search Architecture - Unified Search System
-updated: 2026-09-17
+updated: 2026-09-25
 status: current
 category: architecture
 tags:
@@ -124,8 +124,9 @@ its visibility, the persistence layer composes the Cypher."
 This mechanism is chokepoint A of the ownership read-enforcement contract
 ([ADR-085](../decisions/ADR-085-ownership-read-enforcement-contract.md), ratified
 2026-08-21): every read on behalf of a user passes either this clause (search
-strategies + `get_visible_to_user` by-UID reads) or route-mediated
-`verify_ownership` — and nothing may add a third enforcement mechanism. The
+strategies under `search_visibility`; `get_visible_to_user` by-UID reads under
+`read_visibility`) or route-mediated `verify_ownership` — and nothing may add a
+third enforcement mechanism. The
 write-side invariant the property predicate rests on (`user_uid` property ==
 `:OWNS` owner at every write door) is ratified in
 [ADR-086](../decisions/ADR-086-universal-owns-and-attends-attendance.md), which
@@ -143,6 +144,25 @@ genuinely instance-scoped domains declare it explicitly.
 | `PUBLIC` | PS, LP, KU | No filter — shared curriculum content |
 | `OWNER_ONLY` | Activities, UserEntry, RevisedExercise | Property scope `n.{ownership_property} = $user_uid` on the domain's declared `DomainConfig.ownership_property` (default `user_uid`; Group declares `owner_uid` — ADR-086) — **every** strategy, faceted included (see the convergence note below) |
 | `SCOPE_AWARE` | Exercise | `scope = 'curriculum'` always visible; owned scopes (PERSONAL/ASSIGNED/ASSESSMENT) visible via `:OWNS`, `:SHARES_WITH`, or group membership (`:MEMBER_OF` + `:SHARED_WITH_GROUP`) — ADR-038/040 semantics. A student finds their group's assigned exercise by search; a stranger never sees someone's PERSONAL template |
+| `OWNER_OR_AUDIENCE` | UserEntry — as its `read_visibility` only | The owner arm OR the **audience fragment** (`build_audience_fragment`, ADR-088 §3): a direct `:SHARES_WITH`, or `:MEMBER_OF` / `:OWNS` of an **active** group the entry is `:SHARED_WITH_GROUP` to (strict `is_active = true`). A feedback request (`:SUBMITTED_TO_GROUP`) admits nobody here. Never a search declaration — `DomainConfig` refuses it |
+
+### Opening by UID follows `read_visibility` (ADR-088 §5)
+
+`DomainConfig.read_visibility` is the audience of the by-UID read,
+`get_visible_to_user`; it defaults to the search declaration, so a direct read and a
+search agree by construction for every domain that declares nothing. UserEntry declares
+`OWNER_OR_AUDIENCE`: an entry **opens** for whoever the share links name while its
+**search** stays owner-only, because a search row carries `status` (the teacher's
+verdict) and `processed_content` — what a recipient must never see (R6). Shared items
+are discovered on the Shared page and the `/groups` hub, never by search. This is not a
+third mechanism: the same clause builder, one more declared member, composed through the
+same by-UID chokepoint.
+
+**The audience fragment is a composition point of its own.** `build_audience_fragment()`
+(`crud_queries.py`, beside the clause) holds no owner arm; the clause's `OWNER_OR_AUDIENCE`
+branch ORs it with the owner arm, and the list readers that return other people's entries
+(the Shared-with-you group half and the `/groups` list, from Submit & Share PR 6b) compose it
+alone, so whatever is listed can be opened. Audit its composers as ADR-085 audits the clause's.
 
 ### Body-chunk (RAG) reads compose the same clause, decided per parent
 

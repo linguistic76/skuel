@@ -227,6 +227,76 @@ class TestVisibilityClause:
             "publication_draft": "draft",
         }
 
+    def test_audience_fragment_is_the_share_links_and_nothing_else(self) -> None:
+        """ADR-088 §3: a direct SHARES_WITH, or MEMBER_OF / OWNS of an ACTIVE group
+        the entity is SHARED_WITH_GROUP to. No owner arm, no feedback-request edge,
+        strict ``is_active`` (a deactivated group grants nothing)."""
+        from adapters.persistence.neo4j.query.cypher import build_audience_fragment
+
+        fragment = build_audience_fragment()
+        assert fragment == (
+            "(EXISTS { MATCH (:User {uid: $user_uid})-[:SHARES_WITH]->(n) }"
+            " OR EXISTS { MATCH (:User {uid: $user_uid})-[:MEMBER_OF|OWNS]->"
+            "(g:Group)<-[:SHARED_WITH_GROUP]-(n) WHERE g.is_active = true })"
+        )
+        assert "SUBMITTED_TO_GROUP" not in fragment
+        assert "user_uid = $user_uid" not in fragment  # no owner arm
+        assert "coalesce" not in fragment  # strict, never lenient
+        assert build_audience_fragment("target").count("(target)") == 2
+        with pytest.raises(ValueError):
+            build_audience_fragment("n) MATCH (m")
+
+    def test_owner_or_audience_is_the_owner_arm_or_the_fragment(self) -> None:
+        """The read clause for UserEntry (ADR-088 §5): the owner arm on the declared
+        ownership property, OR the audience fragment — composed, never re-typed."""
+        from adapters.persistence.neo4j.query.cypher import build_audience_fragment
+
+        scope = build_search_visibility_clause(SearchVisibility.OWNER_OR_AUDIENCE, has_user=True)
+        assert scope is not None
+        clause, params = scope
+        assert clause == f"(n.user_uid = $user_uid OR {build_audience_fragment()})"
+        assert params == {}
+        # Not curriculum: never publication-gated, with or without the opt-out.
+        assert "publication_state" not in clause
+        gated_off = build_search_visibility_clause(
+            SearchVisibility.OWNER_OR_AUDIENCE, has_user=True, apply_publication_gate=False
+        )
+        assert gated_off == scope
+        # The declared ownership property drives the owner arm, as for OWNER_ONLY.
+        renamed, _ = build_search_visibility_clause(
+            SearchVisibility.OWNER_OR_AUDIENCE, has_user=True, ownership_property="owner_uid"
+        )
+        assert renamed.startswith("(n.owner_uid = $user_uid OR ")
+
+    def test_owner_or_audience_without_user_applies_no_clause(self) -> None:
+        """No user, no audience — the same fail-closed contract as OWNER_ONLY."""
+        assert (
+            build_search_visibility_clause(SearchVisibility.OWNER_OR_AUDIENCE, has_user=False)
+            is None
+        )
+
+    @pytest.mark.parametrize("member", list(SearchVisibility))
+    @pytest.mark.parametrize("has_user", [True, False])
+    def test_every_member_has_an_audience_rule(
+        self, member: SearchVisibility, has_user: bool
+    ) -> None:
+        """Every declared member composes without raising; the shape is pinned per member."""
+        scope = build_search_visibility_clause(member, has_user=has_user)
+        if member is SearchVisibility.PUBLIC:
+            assert scope is not None and "user_uid" not in scope[0]
+        elif member is SearchVisibility.SCOPE_AWARE:
+            assert scope is not None and ("$user_uid" in scope[0]) is has_user
+        elif has_user:
+            assert scope is not None and "$user_uid" in scope[0]
+        else:
+            assert scope is None
+
+    def test_an_unknown_member_raises_instead_of_falling_through(self) -> None:
+        """A new SearchVisibility value is a new audience rule — never silently SCOPE_AWARE."""
+        unknown = MagicMock(spec=SearchVisibility)
+        with pytest.raises(ValueError, match="no audience rule"):
+            build_search_visibility_clause(unknown, has_user=True)
+
     def test_none_with_user_defaults_to_owner_only(self) -> None:
         # Scoping-by-default: a caller passing a user gets a scoped query
         # unless the domain explicitly declares PUBLIC.
@@ -729,6 +799,39 @@ class TestDomainConfigDerivation:
         assert PsSearchService._config.get_search_visibility() is SearchVisibility.PUBLIC
         assert TasksSearchService._config.get_search_visibility() is SearchVisibility.OWNER_ONLY
         assert UserEntryService._config.get_search_visibility() is SearchVisibility.OWNER_ONLY
+
+    def test_read_visibility_defaults_to_the_search_declaration(self) -> None:
+        """ADR-088 §5: a direct read and a search agree by construction unless declared apart."""
+        config = DomainConfig(dto_class=_FakeDTO, model_class=Task)
+        assert config.get_read_visibility() is SearchVisibility.OWNER_ONLY
+        explicit = DomainConfig(
+            dto_class=_FakeDTO,
+            model_class=Task,
+            search_visibility=SearchVisibility.SCOPE_AWARE,
+        )
+        assert explicit.get_read_visibility() is SearchVisibility.SCOPE_AWARE
+        declared = DomainConfig(
+            dto_class=_FakeDTO,
+            model_class=Task,
+            read_visibility=SearchVisibility.OWNER_OR_AUDIENCE,
+        )
+        assert declared.get_search_visibility() is SearchVisibility.OWNER_ONLY
+        assert declared.get_read_visibility() is SearchVisibility.OWNER_OR_AUDIENCE
+
+    def test_owner_or_audience_is_refused_as_a_search_declaration(self) -> None:
+        """A search row carries status and the processed body — never a recipient's (R6)."""
+        with pytest.raises(ValueError, match="read_visibility, never a search_visibility"):
+            DomainConfig(
+                dto_class=_FakeDTO,
+                model_class=Task,
+                search_visibility=SearchVisibility.OWNER_OR_AUDIENCE,
+            )
+
+    def test_user_entry_opens_for_its_audience_and_searches_owner_only(self) -> None:
+        from core.services.user_entry.user_entry_service import UserEntryService
+
+        assert UserEntryService._config.get_search_visibility() is SearchVisibility.OWNER_ONLY
+        assert UserEntryService._config.get_read_visibility() is SearchVisibility.OWNER_OR_AUDIENCE
 
     def test_ownership_property_defaults_to_user_uid(self) -> None:
         config = DomainConfig(dto_class=_FakeDTO, model_class=Task)

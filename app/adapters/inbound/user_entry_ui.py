@@ -13,7 +13,8 @@ Routes:
 - GET  /submit/journals/{uid}/download   — Ownership-verified download
 - GET  /gradebook                        — GradeBook: per-exercise exchange lines + conditional report groups
 - GET  /gradebook/lines                  — HTMX fragment: filtered exchange lines (status/source)
-- GET  /gradebook/{uid}                  — Submission detail page
+- GET  /gradebook/{uid}/download         — The entry as a .md file, behind the same audience read
+- GET  /gradebook/{uid}                  — Submission detail: the owner's page, or the recipient card
 - GET  /submissions/history              — Submission history (4th sidebar slot)
 - GET  /submissions/history/list         — HTMX fragment refresh
 - POST /submissions/history/delete       — HTMX row delete
@@ -30,25 +31,29 @@ from __future__ import annotations
 
 import json
 import mimetypes
+from functools import partial
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
 from fasthtml.common import H4, A, Div, P, Span
-from starlette.responses import FileResponse, RedirectResponse
+from starlette.responses import FileResponse, RedirectResponse, Response
 
 from adapters.inbound.auth import require_authenticated_user
-from adapters.inbound.boundary import ui_boundary_handler
+from adapters.inbound.boundary import status_for_error, ui_boundary_handler
 from adapters.inbound.csrf import csrf_protected
 from adapters.inbound.fasthtml_types import Request, RouteDecorator
 from adapters.inbound.result_helpers import require_found
-from adapters.inbound.route_factories import refuse
+from adapters.inbound.route_factories import is_not_found, refuse
+from adapters.outbound.user_entry_renderer import entry_download_filename, render_user_entry_md
 from core.models.enums.entity_enums import EntityStatus
+from core.models.type_hints import UserUID
 from core.models.user_entry.user_entry import EXERCISE_REMOVED_TITLE, UserEntry
 from core.services.intelligence_tier_service import get_user_intelligence_tier
 from core.utils.logging import get_logger
-from ui.activities.nav import render_activity_sidebar_page
+from ui.activities.nav import render_activity_sidebar_error, render_activity_sidebar_page
 from ui.components import Button, ButtonT, Card, CardBody, CardHeader, CardTitle, Icon
 from ui.feedback import Badge, BadgeT
+from ui.gradebook.recipient_card import RecipientEntryCard
 from ui.gradebook.summary import (
     EXCHANGE_SECTION_ID,
     EXERCISE_REMOVED_LABEL,
@@ -659,29 +664,81 @@ def create_user_entry_ui_routes(
             )
         return render_exchange_section(result.value["exercises"], status, source)
 
+    async def _owner_display_name(entry: UserEntry) -> str | None:
+        """The owner's display name for a recipient's "From" line, or ``None``
+        when it cannot be resolved (the card then carries no line, never a uid)."""
+        owner = await orchestrator.user_service.get_user(UserUID(entry.user_uid))
+        if owner.is_error or owner.value is None:
+            return None
+        return owner.value.display_name or owner.value.title
+
+    @rt("/gradebook/{uid}/download")
+    async def submission_download(request: Request, uid: str) -> Any:
+        """The entry as a Markdown file — the owner's or a recipient's read.
+
+        Behind the same audience read as the page (ADR-088 §3): whoever can
+        open the entry can save it. The file carries the title, description
+        and body only — never status, the processed body or feedback — so a
+        recipient's download withholds exactly what the recipient card does.
+        """
+        user_uid = require_authenticated_user(request)
+        entry_result = await orchestrator.get_entry_for_viewer(uid, user_uid)
+        if entry_result.is_error:
+            error = entry_result.expect_error()
+            if is_not_found(error):
+                return Response("Submission not found", status_code=404, media_type="text/plain")
+            return Response(
+                "Submission unavailable",
+                status_code=status_for_error(error),
+                media_type="text/plain",
+            )
+        entry = entry_result.value
+        return Response(
+            content=render_user_entry_md(entry),
+            media_type="text/markdown",
+            headers={
+                "Content-Disposition": f'attachment; filename="{entry_download_filename(entry)}"'
+            },
+        )
+
     # =========================================================================
     # GRADEBOOK DETAIL — MUST BE LAST (catch-all pattern)
     # =========================================================================
 
     @rt("/gradebook/{uid}")
     async def submission_detail(request: Request, uid: str) -> Any:
-        """Submission detail page rendered from a ``UserEntry``."""
+        """Submission detail — the owner's page, or the recipient card.
+
+        One audience read (``read_visibility`` OWNER_OR_AUDIENCE, ADR-088 §5)
+        admits the owner and anyone the share links name; everyone else gets
+        the rendered not-found at a real 404. The owner-versus-recipient
+        branch then decides what is shown: a recipient sees the R6 card and
+        never the status, the processed body, feedback or the exchange.
+        """
         user_uid = require_authenticated_user(request)
 
-        entry_result = require_found(await orchestrator.get_entry(uid, user_uid), "UserEntry", uid)
+        entry_result = await orchestrator.get_entry_for_viewer(uid, user_uid)
         if entry_result.is_error:
-            content = Div(
-                PageHeader("Submission Not Found", subtitle=f"UID: {uid}"),
-                render_inline_error("Submission not found"),
-            )
-            return render_activity_sidebar_page(
-                content=content,
-                active="gradebook",
-                request=request,
-                title=GRADEBOOK_TITLE,
+            return refuse(
+                entry_result.expect_error(),
+                partial(
+                    render_activity_sidebar_error,
+                    active="gradebook",
+                    request=request,
+                    title=GRADEBOOK_TITLE,
+                ),
+                "Submission",
             )
 
         entry = entry_result.value
+        if entry.user_uid != user_uid:
+            return BasePage(
+                content=RecipientEntryCard(entry, await _owner_display_name(entry)),
+                title=entry.title or "Shared entry",
+                request=request,
+                active_page="shared",
+            )
+
         body_text = entry.processed_content or entry.content or ""
 
         # Submission chain: exercise (the turn-in snapshot — the live node

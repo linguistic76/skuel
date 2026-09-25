@@ -321,13 +321,42 @@ class TestCRUDOperations:
 # ============================================================================
 
 
+class AudienceReadService(BaseService["BackendOperations[MockModel]", MockModel]):
+    """A domain that opens for its audience but searches owner-only (ADR-088 §5)."""
+
+    _config = DomainConfig(
+        dto_class=MockDTO,
+        model_class=MockModel,
+        read_visibility=SearchVisibility.OWNER_OR_AUDIENCE,
+    )
+    _dto_class = MockDTO
+    _model_class = MockModel
+
+
 class TestGetVisibleToUser:
     """ADR-085 §2 pin — THE audience-aware service-to-service by-UID read.
 
     BaseService.get_visible_to_user delegates to the backend chokepoint with
-    the domain's OWN search_visibility declaration — never a literal chosen at
-    the call site — and converges absent and out-of-audience on NotFound.
+    the domain's OWN read_visibility declaration (the search declaration unless
+    declared apart, ADR-088 §5) — never a literal chosen at the call site — and
+    converges absent and out-of-audience on NotFound.
     """
+
+    @pytest.mark.asyncio
+    async def test_forwards_the_read_declaration_not_the_search_one(self, mock_backend):
+        """UserEntry's shape: the read is OWNER_OR_AUDIENCE while search stays OWNER_ONLY,
+        and it is the READ declaration that reaches the backend."""
+        mock_backend.get_visible_to_user = AsyncMock(return_value=Result.ok(Mock()))
+        service = AudienceReadService(backend=mock_backend)
+
+        result = await service.get_visible_to_user("test_001", "user_001")
+
+        assert result.is_ok
+        assert service.search_visibility is SearchVisibility.OWNER_ONLY
+        assert service.read_visibility is SearchVisibility.OWNER_OR_AUDIENCE
+        mock_backend.get_visible_to_user.assert_awaited_once_with(
+            "test_001", "user_001", SearchVisibility.OWNER_OR_AUDIENCE, "user_uid"
+        )
 
     @pytest.mark.asyncio
     async def test_forwards_domain_declaration_to_backend(self, service, mock_backend):
@@ -339,8 +368,9 @@ class TestGetVisibleToUser:
         assert result.is_ok
         # No DomainConfig on ConcreteTestService → fail-closed OWNER_ONLY on
         # the default "user_uid" property, and THOSE declarations are what
-        # reach the backend.
+        # reach the backend (read_visibility defaults to the search one).
         assert service.search_visibility is SearchVisibility.OWNER_ONLY
+        assert service.read_visibility is SearchVisibility.OWNER_ONLY
         assert service.ownership_property == "user_uid"
         mock_backend.get_visible_to_user.assert_awaited_once_with(
             "test_001", "user_001", SearchVisibility.OWNER_ONLY, "user_uid"

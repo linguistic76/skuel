@@ -340,7 +340,8 @@ class _CrudMixin[T: DomainModelProtocol]:
         The single-entity twin of search's ownership scoping: both compose the
         audience predicate from ``build_search_visibility_clause()``, so a
         direct read and a search of the same domain agree by construction
-        instead of by two hand-maintained policies.
+        instead of by two hand-maintained policies — unless the domain
+        declares a ``read_visibility`` of its own (ADR-088 §5).
 
         Not-found and not-visible are deliberately the SAME outcome
         (``Result.ok(None)``) — a caller cannot distinguish "no such UID" from
@@ -349,8 +350,9 @@ class _CrudMixin[T: DomainModelProtocol]:
 
         Note the declaration decides the scoping: a domain declaring
         ``PUBLIC`` yields no predicate and this read is deliberately as open
-        as ``get()``. Pass the domain's own ``search_visibility``, never a
-        literal chosen at the call site.
+        as ``get()``. Pass the domain's own ``read_visibility`` (the search
+        declaration unless declared apart), never a literal chosen at the
+        call site.
 
         The publication gate is deliberately NOT applied here
         (``apply_publication_gate=False``): it belongs to DISCOVERY — search
@@ -364,7 +366,7 @@ class _CrudMixin[T: DomainModelProtocol]:
         Args:
             uid: Entity UID to read.
             user_uid: The requesting user, referenced by the predicate.
-            visibility: The domain's SearchVisibility declaration.
+            visibility: The domain's ``read_visibility`` declaration.
             ownership_property: The domain's declared ownership property
                 (DomainConfig.ownership_property) for the OWNER_ONLY clause.
 

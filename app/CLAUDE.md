@@ -459,7 +459,7 @@ Auth: `require_authenticated_user(request) -> UserUID` (from `adapters.inbound.a
 - `verify_entity_ownership(service, uid, user_uid, domain)` — API routes. Returns error `Result` or `None`.
 - `require_owned_entity(service, uid, user_uid, entity_name)` — UI routes. Returns `(entity, None)` or `(None, Response)`.
 
-**Read enforcement (ADR-085):** two chokepoints only — `build_search_visibility_clause()` (search strategies + `get_visible_to_user` by-UID reads) or route-mediated `verify_ownership`; bare `get()` is internal mechanics only (post-verification / system reads / PUBLIC domains); never add a third mechanism. The ownership edge is universal `:OWNS` with the `user_uid == :OWNS` owner invariant; Events attendance = staged `ATTENDS` design (ADR-086).
+**Read enforcement (ADR-085):** two chokepoints only — `build_search_visibility_clause()` (search strategies under `search_visibility`; `get_visible_to_user` by-UID reads under the domain's `read_visibility`, default the search declaration — UserEntry opens for its share links' recipients, `OWNER_OR_AUDIENCE`, and searches owner-only, ADR-088 §5) or route-mediated `verify_ownership`; bare `get()` is internal mechanics only (post-verification / system reads / PUBLIC domains); never add a third mechanism. The ownership edge is universal `:OWNS` with the `user_uid == :OWNS` owner invariant; Events attendance = staged `ATTENDS` design (ADR-086).
 
 **See:** `/docs/patterns/OWNERSHIP_VERIFICATION.md`, `/docs/decisions/ADR-085-ownership-read-enforcement-contract.md`, `/docs/decisions/ADR-086-universal-owns-and-attends-attendance.md`
 

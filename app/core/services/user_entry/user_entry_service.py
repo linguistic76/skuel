@@ -43,7 +43,7 @@ from core.events.embedding_publisher import publish_embedding_requested
 from core.events.user_entry_events import UserEntryCreated
 from core.models.enums.entity_enums import EntityStatus, EntityType
 from core.models.enums.interaction_enums import InteractionResult, InteractionType
-from core.models.enums.metadata_enums import Visibility
+from core.models.enums.metadata_enums import SearchVisibility, Visibility
 from core.models.enums.pipeline import Pipeline
 from core.models.enums.user_enums import UserRole
 from core.models.interaction.interaction import Interaction
@@ -101,6 +101,10 @@ class UserEntryService(BaseService[UserEntryOperations, UserEntry]):
         search_order_by="created_at",
         category_field="pipeline",
         user_ownership_relationship=RelationshipName.OWNS,
+        # Search stays OWNER_ONLY (derived): a search row carries ``status``
+        # (the teacher's verdict) and ``processed_content``, which a recipient
+        # must never see. Opening by UID follows the share links (ADR-088 §5).
+        read_visibility=SearchVisibility.OWNER_OR_AUDIENCE,
     )
 
     def __init__(

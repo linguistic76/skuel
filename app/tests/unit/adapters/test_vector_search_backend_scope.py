@@ -93,6 +93,25 @@ async def test_viewer_scope_adds_the_owned_half() -> None:
 
 
 @pytest.mark.asyncio
+async def test_viewer_scope_never_follows_the_share_links() -> None:
+    # A UserEntry OPENS for its audience (read_visibility OWNER_OR_AUDIENCE,
+    # ADR-088 §5) but its body is grounded for its owner alone: chunk
+    # retrieval composes OWNER_ONLY, so a note shared with the viewer never
+    # reaches an Askesis answer (ADR-088 §5).
+    executor = _FakeExecutor(rows=5)
+    backend = VectorSearchBackend(executor)
+    await backend.semantic_search_chunks(
+        query_embedding=[0.1], limit=5, threshold=0.6, viewer_uid="user_1"
+    )
+
+    cypher, _ = executor.queries[-1]
+    assert _OWNED_HALF in cypher
+    assert "SHARES_WITH" not in cypher
+    assert "SHARED_WITH_GROUP" not in cypher
+    assert "MEMBER_OF" not in cypher
+
+
+@pytest.mark.asyncio
 async def test_user_owned_types_are_read_off_the_entity_type_authority() -> None:
     # The split between the two halves is derived from EntityType.is_user_owned(),
     # never a hand-kept list — so a newly chunked user-owned type is scoped by

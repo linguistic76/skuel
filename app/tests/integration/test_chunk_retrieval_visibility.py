@@ -195,6 +195,36 @@ async def test_viewer_reads_curriculum_plus_their_own_notes_only(neo4j_driver, s
 
 @pytest.mark.integration
 @pytest.mark.asyncio
+async def test_a_note_shared_with_the_viewer_is_still_not_grounded(neo4j_driver, seeded_audiences):
+    """Askesis stays OWNER_ONLY (ADR-088 §5: the audience is for opening, not grounding).
+
+    A UserEntry shared with Bob OPENS for Bob (``read_visibility``
+    OWNER_OR_AUDIENCE — the by-UID read), but its body is grounded for Alice
+    alone: chunk retrieval composes the OWNER_ONLY predicate, so a direct
+    ``SHARES_WITH`` from Bob to Alice's note surfaces nothing for Bob.
+    """
+    async with neo4j_driver.session() as session:
+        await session.run(
+            """
+            MERGE (bob:User {uid: $bob})
+            WITH bob
+            MATCH (note:Entity {uid: $note})
+            MERGE (bob)-[:SHARES_WITH {shared_at: datetime(), role: 'viewer'}]->(note)
+            """,
+            {"bob": _BOB, "note": _ALICE_NOTE},
+        )
+    try:
+        assert await _visible_parents(neo4j_driver, viewer_uid=_BOB) == {_PUBLISHED_PS, _BOB_NOTE}
+    finally:
+        async with neo4j_driver.session() as session:
+            await session.run(
+                "MATCH (:User {uid: $bob})-[r:SHARES_WITH]->(:Entity {uid: $note}) DELETE r",
+                {"bob": _BOB, "note": _ALICE_NOTE},
+            )
+
+
+@pytest.mark.integration
+@pytest.mark.asyncio
 async def test_draft_curriculum_and_private_notes_never_surface(neo4j_driver, seeded_audiences):
     """The publication gate and the private gate hold for every audience."""
     for viewer in (None, _ALICE, _BOB):

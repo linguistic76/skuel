@@ -208,12 +208,6 @@ class TestTheTwoReadersNeverCross:
         uids = [item["entity"]["uid"] for item in result.value]
         assert uids == [ENTRY_SHARED]
 
-        peek = await sharing.get_user_entry_shared_with_group(
-            user_uid=UserUID(STUDENT_2), group_uid=GROUP, entry_uid=EntityUID(ENTRY_SUBMITTED)
-        )
-        assert peek.is_ok, peek.error
-        assert peek.value is None  # the single-entry peer read hides it too
-
     async def test_the_teacher_queue_lists_the_request_and_not_the_share(self, linked: Any) -> None:
         _, _, user_entry_backend = linked
         result = await user_entry_backend.get_review_queue_by_groups(TEACHER)

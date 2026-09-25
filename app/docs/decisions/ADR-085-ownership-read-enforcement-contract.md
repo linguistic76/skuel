@@ -1,6 +1,6 @@
 ---
 title: "ADR-085: Ownership Read-Enforcement Contract"
-updated: 2026-09-15
+updated: 2026-09-25
 status: accepted
 category: decisions
 tags: [adr, decisions, ownership, multi-tenancy, security, search, reads]
@@ -71,9 +71,9 @@ question: self-anchored reads of the requesting user's own subgraph — defined 
 ### 2. `get_visible_to_user` is THE audience-aware by-UID read
 
 `UniversalNeo4jBackend.get_visible_to_user(uid, user_uid, visibility)`
-(`adapters/persistence/neo4j/_crud_mixin.py:309-359`, declared on `CrudOperations[T]` in
-`core/ports/base_protocols.py:495`) is promoted from a single-caller convenience
-(`ExerciseService`, `core/services/exercises/exercise_service.py:356`) to the canonical
+(`adapters/persistence/neo4j/_crud_mixin.py:330`, declared on `CrudOperations[T]` in
+`core/ports/base_protocols.py:499`) is promoted from a single-caller convenience
+(`ExerciseService`, `core/services/exercises/exercise_service.py:351`) to the canonical
 service-to-service by-UID read. Its contract:
 
 - Composes the same `build_search_visibility_clause()` the search strategies use, so a direct
@@ -86,6 +86,15 @@ service-to-service by-UID read. Its contract:
   `search_visibility`, never a literal chosen at the call site.
 - The publication gate is deliberately NOT applied (`apply_publication_gate=False`) — drafts
   are *unlisted* (a discovery concern), not forbidden by UID.
+
+> **2026-09-25 — Amended by [ADR-088](ADR-088-submit-and-share.md) (Submit & Share arc, PR 5).**
+> Callers pass the domain's `read_visibility` (`DomainConfig.get_read_visibility()`, default:
+> the search declaration), not `search_visibility`. A direct read and a search still agree by
+> construction for every domain that declares no `read_visibility`; UserEntry diverges by
+> declaration — it opens for its audience (`OWNER_OR_AUDIENCE`: the owner arm OR the audience
+> fragment of ADR-088 §3) and searches owner-only, because a search row carries the teacher's
+> verdict and the processed body. Same clause builder, one more declared member, the same
+> chokepoint: not a third mechanism (§4).
 
 ### 3. Legality rules for bare `get()`
 

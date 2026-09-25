@@ -127,13 +127,6 @@ class SharingBackendOperations(Protocol):
         limit: int,
     ) -> Result[list[Neo4jProperties]]: ...
 
-    async def query_user_entry_shared_with_group(
-        self,
-        user_uid: UserUID,
-        group_uid: str,
-        entry_uid: EntityUID,
-    ) -> Result[list[Neo4jProperties]]: ...
-
     # ------------------------------------------------------------------
     # Cross-service backend reads (consumed by AudienceResolver via
     # ``sharing_service.backend.*`` — the SharingBackend is the natural
@@ -275,16 +268,4 @@ class SharingOperations(Protocol):
         limit: int = 20,
     ) -> Result[list[dict[str, Any]]]:
         """Get UserEntries shared with one specific group the user belongs to."""
-        ...
-
-    async def get_user_entry_shared_with_group(
-        self,
-        user_uid: UserUID,
-        group_uid: str,
-        entry_uid: EntityUID,
-    ) -> Result[dict[str, Any] | None]:
-        """Read-only peer fetch for one UserEntry, gated by group membership.
-
-        Returns Result.ok(None) when not visible to the viewer via this group.
-        """
         ...

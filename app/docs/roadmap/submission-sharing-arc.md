@@ -811,15 +811,15 @@ it first removes both.
     `orchestrator.get_entry` → `UserEntryService.get_entry`, a bare `get()` plus a Python owner check
     (`user_entry_service.py:441-451`). Rewire that read, then branch owner vs audience on
     `entry.user_uid`.
-- **Download:** a new `/gradebook/{uid}/download` returns text/markdown from content behind the same <!-- planned -->
+- **Download:** a new `/gradebook/{uid}/download` returns text/markdown from content behind the same
   read (pattern `exercises_api.py:330`). The journal file route is not widened.
-- **Retire** the peer route `/groups/{g}/entries/{e}`, query_user_entry_shared_with_group,
+- **Retire** the peer route /groups/{g}/entries/{e}, query_user_entry_shared_with_group,
   get_user_entry_shared_with_group, and the groups peer-entry card module (peer_entry.py; reuse its
   chrome and attribution). Add stale_names rows; `/groups` tiles link to `/gradebook/{uid}`.
   - Verified at PR 0: the card body renders `processed_content` (an R6 violation) — do **not** carry
     the body over. Also delete the `ui/groups/__init__.py:5` re-export and the `group_page.py`
     docstring references, and update `test_groups_hub_routes.py:48` and
-    `test_unified_sharing_service.py:709-799`. The tile href that becomes `/gradebook/{entry_uid}` is
+    the four get_user_entry_shared_with_group unit tests in `test_unified_sharing_service.py`. The tile href that becomes `/gradebook/{entry_uid}` is
     built in `ui/groups/shared_preview.py:38`, whose docstrings (`:4`, `:55`) cite the retired route.
 - **Tests:**
   - an access matrix: ex-member, deactivated group, revoked share, and SUBMITTED-only teacher all get 404;
@@ -839,6 +839,39 @@ it first removes both.
 - **Live acceptance setup (Mike's OK):** before PR 6a/6b the only person-share writer is the JSON
   `share_with_users` on `POST /api/user-entries`. Share with a recipient Mike can log in as
   (user_admin, or the second account once it exists); the non-recipient is a third account.
+- **Ruled (PR 5 session, 2026-09-25 — engineering choices the census found unsettled; none touches
+  a ruling):**
+  - The fragment is `build_audience_fragment(entity_alias)` beside the clause builder in
+    `crud_queries.py`: it references `$user_uid` and introduces no parameter, and the clause's
+    `OWNER_OR_AUDIENCE` branch is `(n.{ownership_property} = $user_uid OR <fragment>)`. Without a
+    user it applies no clause, the OWNER_ONLY contract (no audience exists for nobody).
+  - `DomainConfig` refuses `search_visibility=OWNER_OR_AUDIENCE` at construction: it is a read
+    declaration by definition (Refinement 4), so the enum member cannot widen a search by a typo.
+    `get_read_visibility()` is the derivation; `BaseService.read_visibility` rides beside
+    `search_visibility`, and both `get_visible_to_user` call sites pass it.
+  - SCOPE_AWARE keeps its own group arm (`MEMBER_OF` only, no `is_active`): it is Exercise's
+    ADR-038/040 audience, and re-basing it on the fragment (owners admitted, strict `is_active`) is
+    an Exercise-domain change this arc does not make. The fall-through is now an explicit
+    `is SCOPE_AWARE`; any other member raises.
+  - `UserEntryService.get_entry` (the owner read behind updates, deletes, journals and the API
+    get) is untouched — an owner read, not an unscoped sibling. The page and the download read
+    through `UserEntryOrchestrator.get_entry_for_viewer` → `BaseService.get_visible_to_user`; the
+    owner-versus-recipient branch compares `entry.user_uid` with the viewer. The Askesis bundle
+    fetch (`_fetch_entities_by_uid`) also composes `read_visibility`, but it serves the activity
+    domains only, so no UserEntry widens there; chunk retrieval stays OWNER_ONLY (pinned on a real
+    index: a `SHARES_WITH` to the viewer grounds nothing).
+  - The recipient card (`ui/gradebook/recipient_card.py`) renders inside `BasePage` with the
+    Shared page's chrome (`active_page="shared"`), the owner's page keeps the GradeBook sidebar,
+    and the refusal is the GradeBook sidebar page at 404 (`refuse` + `render_activity_sidebar_error`
+    — a stranger and a missing uid are one body). The card's badge is the fixed "Shared with you";
+    the derived "Revised after feedback" badge is PR 6c's.
+  - The `.md` download (`adapters/outbound/user_entry_renderer.py`) carries the title, description
+    and `content` — the same body for the owner and a recipient — and never `status`,
+    `processed_content` or feedback; the recipient contract is enforced by what the renderer
+    omits, not by who calls it. A recipient who cannot be resolved to a display name gets no
+    "From" line rather than a uid.
+  - `GroupSharedPreviewList` lost its `group_uid` parameter with the tile href; `GroupSharesPage`
+    keeps its own for the "Back to Groups" link.
 
 ### PR 6a — One audience vocabulary
 
