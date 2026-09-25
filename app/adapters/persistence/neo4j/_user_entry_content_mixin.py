@@ -146,17 +146,21 @@ class _UserEntryContentMixin:
         user_uid: UserUID,
         limit: int,
     ) -> Result[list[Neo4jProperties]]:
-        """A user's exercise submissions — defined by the FULFILLS_EXERCISE edge.
+        """A user's exercise submissions — every turn-in, its exercise live or not.
 
-        Pipeline-agnostic: an AI-destined turn-in is as much an exercise
-        submission as a teacher-review one (systems review, 2026-07-03; the
-        old pipeline=TEACHER_REVIEW filter hid solo-learner submissions from
-        their own history). TEACHER_REVIEW entries without an edge are kept
-        for pre-edge legacy rows.
+        A turn-in is an entry carrying the turn-in snapshot
+        (``turn_in_exercise_uid``) or a ``FULFILLS_EXERCISE`` edge; the
+        snapshot keeps a turn-in in its author's history after the exercise
+        is deleted (Submit & Share arc R12). Pipeline-agnostic: an
+        AI-destined turn-in is as much an exercise submission as a
+        teacher-review one. TEACHER_REVIEW entries with neither are kept for
+        pre-edge legacy rows.
         """
         query = f"""
         MATCH (user:User {{uid: $user_uid}})-[:{RelationshipName.OWNS.value}]->(e:Entity {{entity_type: $entry_type}})
-        WHERE EXISTS((e)-[:{RelationshipName.FULFILLS_EXERCISE.value}]->()) OR e.pipeline = 'teacher_review'
+        WHERE e.turn_in_exercise_uid IS NOT NULL
+           OR EXISTS((e)-[:{RelationshipName.FULFILLS_EXERCISE.value}]->())
+           OR e.pipeline = 'teacher_review'
         RETURN e
         ORDER BY e.created_at DESC
         LIMIT $limit
@@ -214,16 +218,22 @@ class _UserEntryContentMixin:
         ps_uid: str,
         limit: int,
     ) -> Result[list[Neo4jProperties]]:
-        """Entries for a path step via ``Interaction`` edges."""
+        """Entries for a path step via ``Interaction`` edges.
+
+        ``exercise_uid`` / ``exercise_title`` come from the turn-in snapshot
+        (the exchange key, so the "Exchange" link works after the exercise
+        is deleted), the title preferring the live exercise's.
+        """
         query = f"""
         MATCH (user:User {{uid: $user_uid}})-[:{RelationshipName.OWNS.value}]->(sub:Entity {{entity_type: $entry_type}})
         MATCH (i:Entity:Interaction)-[:{RelationshipName.RECORDS.value}]->(sub)
         MATCH (i)-[:{RelationshipName.INTERACTION_DURING.value}]->(ps:Entity {{uid: $ps_uid}})
-        OPTIONAL MATCH (sub)-[:{RelationshipName.FULFILLS_EXERCISE.value}]->(ex:Entity)
+        OPTIONAL MATCH (ex:Entity:Exercise {{uid: sub.turn_in_exercise_uid}})
         OPTIONAL MATCH (report:Entity)-[:{RelationshipName.REPORT_FOR.value}]->(sub)
         RETURN sub.uid AS uid, sub.title AS title, sub.status AS status,
                sub.created_at AS created_at,
-               ex.uid AS exercise_uid, ex.title AS exercise_title,
+               coalesce(ex.uid, sub.turn_in_exercise_uid) AS exercise_uid,
+               coalesce(ex.title, sub.turn_in_exercise_title) AS exercise_title,
                report.uid AS report_uid,
                report.assessment_outcome AS report_outcome
         ORDER BY sub.created_at DESC

@@ -92,21 +92,24 @@ class _UserEntryAssessmentMixin:
 
         Copy revisions collapse to the lineage's newest: the vault exercise
         channel freezes a copy per turn-in, and a pending copy with a newer
-        sibling in its (student, root exercise) lineage — newer by the
-        ``FULFILLS_EXERCISE`` edge revision, the same root-lineage lens as
-        ``get_latest_entry_for_exercise`` / ``_next_revision`` — is superseded
-        work and never queues, regardless of the newer copy's status (a
-        reviewed rev 2 retires a still-pending rev 1). Only a copy THIS
-        teacher can see supersedes — a ``teacher_review`` entry submitted to
-        one of the querying teacher's ACTIVE owned groups. Three lineage
-        siblings deliberately do not supersede: a newer PRIVATE
-        ``llm_summary`` entry (the upload form keeps
+        sibling in its (student, root exercise) lineage — the lineage is the
+        turn-in snapshot ``turn_in_exercise_uid`` (the key that outlives the
+        exercise, Submit & Share arc R12), newer by the ``FULFILLS_EXERCISE``
+        edge revision where the edge still exists, else by ``created_at`` —
+        is superseded work and never queues, regardless of the newer copy's
+        status (a reviewed rev 2 retires a still-pending rev 1). Only a copy
+        THIS teacher can see supersedes — a ``teacher_review`` entry
+        submitted to one of the querying teacher's ACTIVE owned groups.
+        Three lineage siblings deliberately do not supersede: a newer
+        PRIVATE ``llm_summary`` entry (the upload form keeps
         ``fulfills_exercise_uid`` on every destination, so AI entries share
         the lineage), a revision a multi-class student directed only to
         another teacher's group (``submit_to_groups``), and a copy locked
         in a group this teacher has deactivated. Collapsing behind any of
         them would remove work with no teacher-visible successor. Entries
-        with no exercise anchor have no lineage and always pass through.
+        with no snapshot are not turn-ins, have no lineage and always pass
+        through. ``exercise_uid`` / ``exercise_title`` read the live
+        exercise, falling back to the snapshot once it is deleted.
         """
         statuses = status_filter or ["submitted", "active"]
         query = f"""
@@ -118,17 +121,21 @@ class _UserEntryAssessmentMixin:
           AND ($student_uid IS NULL OR EXISTS {{
               MATCH (:User {{uid: $student_uid}})-[:{RelationshipName.OWNS.value}]->(entry)
           }})
-        OPTIONAL MATCH (entry)-[r:{RelationshipName.FULFILLS_EXERCISE.value}]->(ex:Entity:Exercise)
+        OPTIONAL MATCH (entry)-[r:{RelationshipName.FULFILLS_EXERCISE.value}]->(:Entity:Exercise)
+        OPTIONAL MATCH (ex:Entity:Exercise {{uid: entry.turn_in_exercise_uid}})
         OPTIONAL MATCH (student:User)-[:{RelationshipName.OWNS.value}]->(entry)
         WITH teacher, entry, r, ex, student, g
-        WHERE ex IS NULL OR NOT EXISTS {{
+        WHERE entry.turn_in_exercise_uid IS NULL OR NOT EXISTS {{
             MATCH (student)-[:{RelationshipName.OWNS.value}]->(newer:Entity:UserEntry)
-                  -[nr:{RelationshipName.FULFILLS_EXERCISE.value}]->(ex)
-            WHERE newer.pipeline = $pipeline
+            WHERE newer.turn_in_exercise_uid = entry.turn_in_exercise_uid
+              AND newer.uid <> entry.uid
+              AND newer.pipeline = $pipeline
               AND (newer)-[:{RelationshipName.SUBMITTED_TO_GROUP.value}]->(:Group {{is_active: true}})
                   <-[:{RelationshipName.OWNS.value}]-(teacher)
-              AND (coalesce(nr.revision, 0) > coalesce(r.revision, 0)
-                   OR (coalesce(nr.revision, 0) = coalesce(r.revision, 0)
+              AND (coalesce(head([(newer)-[nr:{RelationshipName.FULFILLS_EXERCISE.value}]->(:Entity:Exercise) | nr.revision]), 0)
+                     > coalesce(r.revision, 0)
+                   OR (coalesce(head([(newer)-[nr:{RelationshipName.FULFILLS_EXERCISE.value}]->(:Entity:Exercise) | nr.revision]), 0)
+                         = coalesce(r.revision, 0)
                        AND newer.created_at > entry.created_at))
         }}
         OPTIONAL MATCH (report:Entity {{entity_type: 'entry_report'}})-[:{RelationshipName.REPORT_FOR.value}]->(entry)
@@ -141,8 +148,8 @@ class _UserEntryAssessmentMixin:
                entry.created_at AS submitted_at,
                student.uid AS student_uid,
                student.name AS student_name,
-               ex.uid AS exercise_uid,
-               ex.title AS exercise_title,
+               coalesce(ex.uid, entry.turn_in_exercise_uid) AS exercise_uid,
+               coalesce(ex.title, entry.turn_in_exercise_title) AS exercise_title,
                ex.due_date AS due_date,
                r.revision AS revision,
                g.uid AS group_uid,
@@ -301,12 +308,14 @@ class _UserEntryAssessmentMixin:
                 <-[:{RelationshipName.OWNS.value}]-(:User {{uid: $teacher_uid}})
           }}
         OPTIONAL MATCH (fb:Entity {{entity_type: 'entry_report'}})-[:{RelationshipName.REPORT_FOR.value}]->(ku)
-        OPTIONAL MATCH (ku)-[:{RelationshipName.FULFILLS_EXERCISE.value}]->(ex:Entity:Exercise)
+        OPTIONAL MATCH (ex:Entity:Exercise {{uid: ku.turn_in_exercise_uid}})
         WITH ku, count(fb) AS feedback_count, ex
         RETURN ku.uid AS uid, ku.title AS title,
                ku.original_filename AS original_filename, ku.status AS status,
                ku.created_at AS created_at,
-               feedback_count, ex.uid AS exercise_uid, ex.title AS exercise_title
+               feedback_count,
+               coalesce(ex.uid, ku.turn_in_exercise_uid) AS exercise_uid,
+               coalesce(ex.title, ku.turn_in_exercise_title) AS exercise_title
         ORDER BY ku.created_at DESC
         """
         return await self.execute_query(
@@ -348,7 +357,7 @@ class _UserEntryAssessmentMixin:
               -[:{RelationshipName.SUBMITTED_TO_GROUP.value}]->(g)
         WHERE s.pipeline = $pipeline
         OPTIONAL MATCH (student:User)-[:{RelationshipName.OWNS.value}]->(s)
-        OPTIONAL MATCH (s)-[:{RelationshipName.FULFILLS_EXERCISE.value}]->(ex:Entity:Exercise)
+        OPTIONAL MATCH (ex:Entity:Exercise {{uid: s.turn_in_exercise_uid}})
         RETURN s.uid AS uid,
                s.title AS title,
                s.content AS content,
@@ -360,8 +369,8 @@ class _UserEntryAssessmentMixin:
                s.created_at AS created_at,
                student.uid AS student_uid,
                student.name AS student_name,
-               ex.uid AS exercise_uid,
-               ex.title AS exercise_title,
+               coalesce(ex.uid, s.turn_in_exercise_uid) AS exercise_uid,
+               coalesce(ex.title, s.turn_in_exercise_title) AS exercise_title,
                ex.instructions AS exercise_instructions
         """
         return await self.execute_query(
@@ -384,8 +393,9 @@ class _UserEntryAssessmentMixin:
         ``pending_count`` is the review queue's badge twin and applies the
         queue's copy-revision collapse (see ``get_review_queue_by_groups``):
         a pending copy superseded by a newer sibling in its (student, root
-        exercise) lineage is not pending work, so the badge and the queue
-        length agree.
+        exercise) lineage — keyed on the turn-in snapshot, so the rule holds
+        after the exercise is deleted — is not pending work, so the badge
+        and the queue length agree.
         """
         query = f"""
         MATCH (teacher:User {{uid: $teacher_uid}})
@@ -404,14 +414,17 @@ class _UserEntryAssessmentMixin:
                        <-[:{RelationshipName.OWNS.value}]-(teacher)
                }}
                AND NOT EXISTS {{
-                  MATCH (sub)-[sr:{RelationshipName.FULFILLS_EXERCISE.value}]->(:Entity:Exercise)
-                        <-[nr:{RelationshipName.FULFILLS_EXERCISE.value}]-(newer:Entity:UserEntry)
-                  WHERE (student)-[:{RelationshipName.OWNS.value}]->(newer)
+                  MATCH (student)-[:{RelationshipName.OWNS.value}]->(newer:Entity:UserEntry)
+                  WHERE sub.turn_in_exercise_uid IS NOT NULL
+                    AND newer.turn_in_exercise_uid = sub.turn_in_exercise_uid
+                    AND newer.uid <> sub.uid
                     AND newer.pipeline = $pipeline
                     AND (newer)-[:{RelationshipName.SUBMITTED_TO_GROUP.value}]->(:Group {{is_active: true}})
                         <-[:{RelationshipName.OWNS.value}]-(teacher)
-                    AND (coalesce(nr.revision, 0) > coalesce(sr.revision, 0)
-                         OR (coalesce(nr.revision, 0) = coalesce(sr.revision, 0)
+                    AND (coalesce(head([(newer)-[nr:{RelationshipName.FULFILLS_EXERCISE.value}]->(:Entity:Exercise) | nr.revision]), 0)
+                           > coalesce(head([(sub)-[sr:{RelationshipName.FULFILLS_EXERCISE.value}]->(:Entity:Exercise) | sr.revision]), 0)
+                         OR (coalesce(head([(newer)-[nr:{RelationshipName.FULFILLS_EXERCISE.value}]->(:Entity:Exercise) | nr.revision]), 0)
+                               = coalesce(head([(sub)-[sr:{RelationshipName.FULFILLS_EXERCISE.value}]->(:Entity:Exercise) | sr.revision]), 0)
                              AND newer.created_at > sub.created_at))
               }}
               THEN sub.uid END) AS pending_count,

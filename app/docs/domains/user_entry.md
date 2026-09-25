@@ -1,7 +1,7 @@
 ---
 title: UserEntry Domain
 created: 2026-09-01
-updated: 2026-09-24
+updated: 2026-09-25
 status: current
 category: domains
 tags: [user-entry, learning-loop, domain]
@@ -108,6 +108,8 @@ Inherits identity, content, status, sharing, meta and embedding fields from
 | `journal_mode` | `str?` | `JournalMode` value captured at upload time |
 | `max_retention` | `int?` | FIFO cleanup limit (`None` = permanent) |
 | `fulfills_exercise_uid` | `str?` | Declared exercise **intent** — see below |
+| `turn_in_exercise_uid` | `str?` | The **turn-in snapshot**: the root exercise's uid, stamped by the writer — see below |
+| `turn_in_exercise_title` | `str?` | The root exercise's title as it read at submission |
 
 ### `revision_number` is not a field
 
@@ -124,6 +126,20 @@ request). It is **intent, not the turn-in**: the turn-in truth stays on the
 vault entry has the property and never the edge; removing the frontmatter line
 removes the property on the next sync. This mirrors the
 `Exercise.path_step_uid` membership-property precedent.
+
+### The turn-in snapshot marks a turn-in
+
+`turn_in_exercise_uid` / `turn_in_exercise_title` are stamped by the turn-in
+writer (`create_with_exercise_link`) in the same statement that writes the
+edge — never by the author. The uid is the **root** exercise's (a revision
+resolves through `REVISES_EXERCISE`, then `original_exercise_uid`); the title
+is the root's at submission. An entry that carries them **is** a turn-in, and
+the snapshot is the exchange key: the GradeBook lines, the `/exchange` thread,
+the review queue's copy collapse and the report titles group on it. Because a
+`DETACH DELETE` of the exercise removes the `FULFILLS_EXERCISE` edge but never
+a property, an exchange outlives its exercise — it renders as
+**Exercise removed** with the snapshotted title instead of falling into Other
+feedback (Submit & Share arc R12). A living vault entry carries neither.
 
 ## Relationships
 

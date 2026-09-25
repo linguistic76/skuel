@@ -15,7 +15,8 @@ nodes on the same rule.
 For every EntryReport whose title still carries a legacy machine prefix, the
 subject is re-derived exactly the way the writers now derive it:
 ``(report)-[:REPORT_FOR]->(entry)`` then the entry's fulfilled exercise's
-title when the ``FULFILLS_EXERCISE`` edge exists, else the entry's own title.
+title when the ``FULFILLS_EXERCISE`` edge exists, else the entry's turn-in
+snapshot title (the exercise may be deleted), else the entry's own title.
 
 **Surface, don't force:** a legacy-titled report whose subject cannot be
 derived (no ``REPORT_FOR`` edge, or the chain yields no usable title) is left
@@ -58,6 +59,7 @@ WITH r, head([p IN keys($prefix_map) WHERE r.title STARTS WITH p]) AS legacy_pre
      coalesce(
          head([(s)-[:{RelationshipName.FULFILLS_EXERCISE.value}]->(ex:Entity)
                WHERE ex.title IS NOT NULL AND ex.title <> '' | ex.title]),
+         s.turn_in_exercise_title,
          s.title
      ) AS subject_title
 RETURN legacy_prefix,
@@ -74,6 +76,7 @@ WITH r, head([p IN keys($prefix_map) WHERE r.title STARTS WITH p]) AS legacy_pre
      coalesce(
          head([(s)-[:{RelationshipName.FULFILLS_EXERCISE.value}]->(ex:Entity)
                WHERE ex.title IS NOT NULL AND ex.title <> '' | ex.title]),
+         s.turn_in_exercise_title,
          s.title
      ) AS subject_title
 WHERE subject_title IS NOT NULL AND subject_title <> ''

@@ -1,5 +1,5 @@
 ---
-updated: 2026-09-18
+updated: 2026-09-25
 ---
 
 # The Learning Loop
@@ -82,11 +82,11 @@ When your teacher reviews your work, they choose one of three outcomes:
 
 You can annotate your Activity Reports with your own reflections, and those annotations feed into the next report — creating a feedback loop about the feedback itself.
 
-### Phase 4: Revised Exercise — The Refinement
+### Phase 4: Revision request — The Refinement
 
-If your feedback identifies specific gaps, your teacher can create a Revised Exercise — a new set of instructions that targets exactly what you need to work on.
+If your feedback identifies specific gaps, your teacher can create a revision request — a new set of instructions that targets exactly what you need to work on.
 
-Revised Exercises:
+Revision requests:
 - Reference the specific feedback they're addressing
 - Contain categorized feedback points (accuracy, completeness, depth, clarity, application, methodology) with specific detail
 - Contain tailored instructions for your next attempt
@@ -97,7 +97,9 @@ Revised Exercises:
 
 Each report in an exchange thread opens a detail page showing the full report with outcome badge, processor badge, and assessment score. When a revision exists for a report, a "View Revision" link appears.
 
-You submit against the Revised Exercise just like the original, and the cycle continues: submission → feedback → revision → submission → ... until mastery.
+You submit against the revision request just like the original, and the cycle continues: submission → feedback → revision → submission → ... until mastery.
+
+If a teacher deletes an exercise you have submitted against, your exchange stays in the GradeBook: the line keeps the exercise's title as it was when you submitted, marked **Exercise removed**, and still opens its thread.
 
 ---
 
@@ -164,7 +166,7 @@ Here's what the loop looks like in practice:
 
 4. **Get feedback** — Your teacher writes feedback, or the AI evaluates your work against the Exercise instructions. You read the feedback and reflect.
 
-5. **Refine** — If revision is needed, your teacher creates a Revised Exercise targeting your specific gaps. You submit again with focused improvements.
+5. **Refine** — If revision is needed, your teacher creates a revision request targeting your specific gaps. You submit again with focused improvements.
 
 6. **Repeat** — The cycle continues. Each iteration builds on the last. Meanwhile, your daily activity across all domains feeds into periodic Activity Reports that show your broader growth patterns.
 
@@ -222,7 +224,7 @@ Teachers drive the loop from the other side:
    - Request revision (student resubmits)
    - Approve (loop closes)
 
-4. **Create revisions** — When feedback reveals specific gaps, create a Revised Exercise with targeted instructions. It's automatically shared with the student.
+4. **Create revisions** — When feedback reveals specific gaps, create a revision request with targeted instructions. It's automatically shared with the student.
 
 5. **Track progress** — Monitor submission rates, revision chains, and mastery progression across your class.
 

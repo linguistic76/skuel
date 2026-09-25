@@ -43,7 +43,7 @@ from adapters.inbound.fasthtml_types import Request, RouteDecorator
 from adapters.inbound.result_helpers import require_found
 from adapters.inbound.route_factories import refuse
 from core.models.enums.entity_enums import EntityStatus
-from core.models.user_entry.user_entry import UserEntry
+from core.models.user_entry.user_entry import EXERCISE_REMOVED_TITLE, UserEntry
 from core.services.intelligence_tier_service import get_user_intelligence_tier
 from core.utils.logging import get_logger
 from ui.activities.nav import render_activity_sidebar_page
@@ -51,6 +51,7 @@ from ui.components import Button, ButtonT, Card, CardBody, CardHeader, CardTitle
 from ui.feedback import Badge, BadgeT
 from ui.gradebook.summary import (
     EXCHANGE_SECTION_ID,
+    EXERCISE_REMOVED_LABEL,
     GRADEBOOK_TITLE,
     normalize_exchange_filters,
     render_activity_reports_group,
@@ -683,11 +684,11 @@ def create_user_entry_ui_routes(
         entry = entry_result.value
         body_text = entry.processed_content or entry.content or ""
 
-        # Submission chain: exercise (FULFILLS_EXERCISE edge — the writer's
-        # single source of truth), feedback reports, revisions. The old
-        # metadata read never rendered: the writer stores the edge, not a
-        # metadata key. A failed chain query must not masquerade as "no
-        # feedback" (Kody #505) — surface it instead of rendering {}.
+        # Submission chain: exercise (the turn-in snapshot — the live node
+        # while it exists, the snapshot with ``removed`` once it is deleted,
+        # Submit & Share arc R12), feedback reports, revisions. A failed
+        # chain query must not masquerade as "no feedback" (Kody #505) —
+        # surface it instead of rendering {}.
         chain_result = await orchestrator.get_entry_chain(uid)
         chain_error: str | None = None
         chain: dict[str, Any] = {}
@@ -696,16 +697,24 @@ def create_user_entry_ui_routes(
         else:
             chain = dict(chain_result.value or {})
         fulfilled_exercise = chain.get("exercise") or None
+        exercise_removed = bool(fulfilled_exercise and fulfilled_exercise.get("removed"))
 
         exercise_link: Any = None
         if fulfilled_exercise:
             exercise_link = Div(
                 Span("Fulfills exercise: ", cls="font-medium text-sm text-muted-foreground"),
                 Badge(
-                    str(fulfilled_exercise.get("title") or fulfilled_exercise.get("uid")),
+                    str(
+                        fulfilled_exercise.get("title")
+                        or EXERCISE_REMOVED_TITLE
+                        or fulfilled_exercise.get("uid")
+                    ),
                     variant=BadgeT.outline,
                     size=Size.sm,
                 ),
+                Badge(EXERCISE_REMOVED_LABEL, variant=BadgeT.outline, size=Size.sm, cls="ml-2")
+                if exercise_removed
+                else None,
                 A(
                     "View exchange thread →",
                     href=f"/exchange?exercise={fulfilled_exercise.get('uid')}",
@@ -764,10 +773,11 @@ def create_user_entry_ui_routes(
 
         # "Request AI feedback" (R1): the owner may summon the LLM reviewer
         # for an exercise-fulfilling entry. Render only when the entry
-        # fulfills an exercise AND the caller's effective tier allows AI
+        # fulfills an exercise that still exists (the reviewer reads its
+        # instructions) AND the caller's effective tier allows AI
         # (ADR-043) — the POST re-enforces both server-side.
         ai_feedback_button: Any = None
-        if fulfilled_exercise and await _caller_ai_enabled(user_uid):
+        if fulfilled_exercise and not exercise_removed and await _caller_ai_enabled(user_uid):
             ai_feedback_button = _render_ai_feedback_button(uid, str(fulfilled_exercise.get("uid")))
 
         responses_section: Any = (

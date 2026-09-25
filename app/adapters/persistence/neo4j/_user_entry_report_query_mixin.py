@@ -156,13 +156,19 @@ class _UserEntryReportQueryMixin:
         """One (student, root exercise) exchange — the whole chain in one read.
 
         Collects every artifact of the exchange thread (feedback-loop UX arc
-        C5): the student's entries against the root exercise (both the direct
-        ``FULFILLS_EXERCISE`` turn-ins, carrying the edge's ``revision``, and
-        entries fulfilling a revision of it via ``FULFILLS_REVISED_EXERCISE``),
-        the reports written on those entries, and the revision requests that
-        respond to those reports. Revisions are scoped through the chain's own
-        reports, so another student's revision of the same exercise never
-        appears.
+        C5): the student's entries whose turn-in snapshot names the root
+        exercise (``turn_in_exercise_uid`` — the key every turn-in carries,
+        whether it was filed against the exercise or against a revision of
+        it), each with its ``FULFILLS_EXERCISE`` edge revision and, for a
+        revision response, the RevisedExercise it answers; the reports
+        written on those entries; and the revision requests that respond to
+        those reports. Revisions are scoped through the chain's own reports,
+        so another student's revision of the same exercise never appears.
+
+        The exercise node is optional: an exchange outlives its exercise
+        (Submit & Share arc R12). ``exercise`` is NULL once it is deleted,
+        ``exercise_removed`` says so, and ``snapshot_title`` carries the
+        title the newest entry snapshotted at submission.
 
         ``viewer_uid`` is the teacher-mode scope (NULL = the student reading
         their own exchange): each entry must itself be ``SUBMITTED_TO_GROUP``
@@ -184,35 +190,31 @@ class _UserEntryReportQueryMixin:
         strings by the mapper while report timestamps are native datetimes,
         and a mixed-type emission would push the sort problem to every reader.
 
-        Returns a single row: ``exercise`` (NULL when the UID matches no
-        exercise), ``entries``, ``reports``, ``revisions``.
+        Returns a single row: ``exercise`` (NULL when no live Exercise
+        carries the uid), ``exercise_removed``, ``snapshot_title``,
+        ``entries``, ``reports``, ``revisions``.
         """
-        viewer_gate = f"""($viewer_uid IS NULL OR EXISTS {{
-            MATCH (%s)-[:{RelationshipName.SUBMITTED_TO_GROUP.value}]->(:Group {{is_active: true}})
-                  <-[:{RelationshipName.OWNS.value}]-(:User {{uid: $viewer_uid}})
-        }})"""
         query = f"""
         OPTIONAL MATCH (ex:Entity:Exercise {{uid: $exercise_uid}})
-        OPTIONAL MATCH (student:User {{uid: $student_uid}})-[:{RelationshipName.OWNS.value}]->(direct:Entity:UserEntry)
-                       -[f:{RelationshipName.FULFILLS_EXERCISE.value}]->(ex)
-        WHERE {viewer_gate % "direct"}
+        OPTIONAL MATCH (:User {{uid: $student_uid}})-[:{RelationshipName.OWNS.value}]->(e:Entity:UserEntry)
+        WHERE e.turn_in_exercise_uid = $exercise_uid
+          AND ($viewer_uid IS NULL OR EXISTS {{
+            MATCH (e)-[:{RelationshipName.SUBMITTED_TO_GROUP.value}]->(:Group {{is_active: true}})
+                  <-[:{RelationshipName.OWNS.value}]-(:User {{uid: $viewer_uid}})
+          }})
+        OPTIONAL MATCH (e)-[f:{RelationshipName.FULFILLS_EXERCISE.value}]->(:Entity:Exercise)
+        OPTIONAL MATCH (e)-[:{RelationshipName.FULFILLS_REVISED_EXERCISE.value}]->(rex:Entity:RevisedExercise)
+        WITH ex, e, f, rex
+        ORDER BY toString(e.created_at) DESC, e.uid
         WITH ex,
-             collect(DISTINCT direct {{.uid, .title, .status, created_at: toString(direct.created_at),
-                                       revision: f.revision, via_revised_uid: NULL}}) AS direct_rows,
-             collect(DISTINCT direct) AS direct_nodes
-        OPTIONAL MATCH (:User {{uid: $student_uid}})-[:{RelationshipName.OWNS.value}]->(rentry:Entity:UserEntry)
-                       -[:{RelationshipName.FULFILLS_REVISED_EXERCISE.value}]->(rex:Entity:RevisedExercise)
-                       -[:{RelationshipName.REVISES_EXERCISE.value}]->(ex)
-        WHERE {viewer_gate % "rentry"}
-        WITH ex, direct_rows, direct_nodes,
-             collect(DISTINCT rentry {{.uid, .title, .status, created_at: toString(rentry.created_at),
-                                       revision: NULL, via_revised_uid: rex.uid}}) AS revised_rows,
-             collect(DISTINCT rentry) AS revised_nodes
-        WITH ex, direct_rows + revised_rows AS entry_rows, direct_nodes + revised_nodes AS entry_nodes
+             collect(DISTINCT e {{.uid, .title, .status, created_at: toString(e.created_at),
+                                  revision: f.revision, via_revised_uid: rex.uid}}) AS entry_rows,
+             collect(DISTINCT e) AS entry_nodes,
+             head([t IN collect(e.turn_in_exercise_title) WHERE t IS NOT NULL]) AS snapshot_title
         OPTIONAL MATCH (report:Entity {{entity_type: 'entry_report'}})-[:{RelationshipName.REPORT_FOR.value}]->(entry)
         WHERE entry IN entry_nodes
           AND report.assessment_outcome IS NOT NULL
-        WITH ex, entry_rows,
+        WITH ex, entry_rows, snapshot_title,
              collect(DISTINCT report {{.uid, .title, .content, .processed_content, .processor_type,
                                        .report_file_path, created_at: toString(report.created_at),
                                        entry_uid: entry.uid}}) AS report_rows,
@@ -220,6 +222,8 @@ class _UserEntryReportQueryMixin:
         OPTIONAL MATCH (rev:Entity:RevisedExercise)-[:{RelationshipName.RESPONDS_TO_REPORT.value}]->(rep)
         WHERE rep IN report_nodes
         RETURN ex {{.uid, .title, .status, .entity_type}} AS exercise,
+               ex IS NULL AS exercise_removed,
+               snapshot_title,
                entry_rows AS entries,
                report_rows AS reports,
                collect(DISTINCT rev {{.uid, .title, .instructions, .revision_number,
@@ -241,19 +245,22 @@ class _UserEntryReportQueryMixin:
         """Every exchange the student is in, one summary row each — one read.
 
         The GradeBook page's single query (feedback-loop UX arc 2 C1): per
-        root exercise the student has lineage entries against (direct
-        ``FULFILLS_EXERCISE`` turn-ins + resubmits via
-        ``FULFILLS_REVISED_EXERCISE`` → ``REVISES_EXERCISE`` — the
-        ``get_exchange_thread_raw`` lineage lens), the latest entry, the
-        latest report on that entry, and lineage counts. A second column
-        carries the received reports OUTSIDE any exchange (report on an
-        entry with no exercise lineage, or on no entry at all) so the page's
-        "Other feedback" group needs no second query.
+        root exercise the student has turn-ins against — grouped on the
+        turn-in snapshot ``turn_in_exercise_uid``, the key every turn-in
+        carries whether it was filed against the exercise or against a
+        revision of it — the latest entry, the latest report on that entry,
+        and lineage counts. The exercise node is optional: an exchange
+        outlives its exercise (Submit & Share arc R12) — ``exercise_removed``
+        is true once it is deleted and ``exercise_title`` then reads the
+        newest entry's snapshot. A second column carries the received
+        reports OUTSIDE any exchange (a report on an entry with no snapshot,
+        or on no entry at all) so the page's "Other feedback" group needs no
+        second query.
 
         Latest-entry pick is ``created_at`` (tie: uid) rather than the review
-        queue's revision-first collapse — the union lineage's resubmits carry
-        no ``FULFILLS_EXERCISE`` edge revision, so revision-first ordering
-        would rank any numbered direct turn-in above a later resubmit.
+        queue's revision-first collapse — the edge revision dies with the
+        exercise, and the snapshot key must rank a deleted exercise's
+        entries the same way as a live one's.
 
         Received feedback is identified by its outcome everywhere in this
         read: only reports with ``assessment_outcome`` set count (a journal
@@ -270,30 +277,25 @@ class _UserEntryReportQueryMixin:
         query = f"""
         MATCH (student:User {{uid: $student_uid}})
         CALL (student) {{
-            CALL (student) {{
-                MATCH (student)-[:{RelationshipName.OWNS.value}]->(e:Entity:UserEntry)
-                      -[:{RelationshipName.FULFILLS_EXERCISE.value}]->(ex:Entity:Exercise)
-                RETURN e, ex
-                UNION
-                MATCH (student)-[:{RelationshipName.OWNS.value}]->(e:Entity:UserEntry)
-                      -[:{RelationshipName.FULFILLS_REVISED_EXERCISE.value}]->(:Entity:RevisedExercise)
-                      -[:{RelationshipName.REVISES_EXERCISE.value}]->(ex:Entity:Exercise)
-                RETURN e, ex
-            }}
+            MATCH (student)-[:{RelationshipName.OWNS.value}]->(e:Entity:UserEntry)
+            WHERE e.turn_in_exercise_uid IS NOT NULL
             OPTIONAL MATCH (r:Entity {{entity_type: $report_type}})-[:{RelationshipName.REPORT_FOR.value}]->(e)
                 WHERE r.assessment_outcome IS NOT NULL
-            WITH e, ex, r ORDER BY r.created_at DESC
-            WITH e, ex, collect(r {{.uid, .processor_type, created_at: toString(r.created_at)}}) AS entry_reports
-            WITH ex, e, entry_reports, size(entry_reports) AS n_reports
+            WITH e, r ORDER BY r.created_at DESC
+            WITH e, collect(r {{.uid, .processor_type, created_at: toString(r.created_at)}}) AS entry_reports
+            WITH e, entry_reports, size(entry_reports) AS n_reports
             ORDER BY toString(e.created_at) DESC, e.uid
-            WITH ex,
+            WITH e.turn_in_exercise_uid AS exercise_uid,
                  count(e) AS entry_count,
                  sum(n_reports) AS report_count,
                  collect({{uid: e.uid, status: e.status, created_at: toString(e.created_at),
+                          snapshot_title: e.turn_in_exercise_title,
                           reports: entry_reports}})[0] AS latest
+            OPTIONAL MATCH (ex:Entity:Exercise {{uid: exercise_uid}})
             RETURN collect({{
-                exercise_uid: ex.uid,
-                exercise_title: ex.title,
+                exercise_uid: exercise_uid,
+                exercise_title: coalesce(ex.title, latest.snapshot_title),
+                exercise_removed: ex IS NULL,
                 latest_entry_uid: latest.uid,
                 latest_entry_status: latest.status,
                 latest_entry_created_at: latest.created_at,
@@ -307,11 +309,7 @@ class _UserEntryReportQueryMixin:
             WHERE r.assessment_outcome IS NOT NULL
             OPTIONAL MATCH (r)-[:{RelationshipName.REPORT_FOR.value}]->(e:Entity:UserEntry)
             WITH r, e
-            WHERE e IS NULL OR NOT (
-                EXISTS {{ MATCH (e)-[:{RelationshipName.FULFILLS_EXERCISE.value}]->(:Entity:Exercise) }}
-                OR EXISTS {{ MATCH (e)-[:{RelationshipName.FULFILLS_REVISED_EXERCISE.value}]->(:Entity:RevisedExercise)
-                                   -[:{RelationshipName.REVISES_EXERCISE.value}]->(:Entity:Exercise) }}
-            )
+            WHERE e IS NULL OR e.turn_in_exercise_uid IS NULL
             WITH r ORDER BY r.created_at DESC
             RETURN collect(r {{.uid, .title, .processor_type, created_at: toString(r.created_at)}}) AS other_feedback
         }}
@@ -326,21 +324,36 @@ class _UserEntryReportQueryMixin:
         )
 
     async def get_submission_chain_raw(self, submission_uid: str) -> Result[list[Neo4jProperties]]:
-        """Traverse learning loop chain from a specific entry."""
+        """Traverse learning loop chain from a specific entry.
+
+        The ``exercise`` projection is keyed by the entry's turn-in snapshot:
+        the live Exercise node when one still carries the snapshotted uid,
+        else the snapshot itself with ``removed: true`` (the exchange
+        outlives its exercise — Submit & Share arc R12); NULL for an entry
+        that is not a turn-in.
+        """
         query = f"""
         MATCH (sub:Entity:UserEntry {{uid: $submission_uid}})
-        OPTIONAL MATCH (sub)-[:{RelationshipName.FULFILLS_EXERCISE.value}]->(ex:Entity)
-          WHERE ex.entity_type IN ['exercise', 'revised_exercise']
+        OPTIONAL MATCH (ex:Entity:Exercise {{uid: sub.turn_in_exercise_uid}})
         OPTIONAL MATCH (fb:Entity)-[:{RelationshipName.REPORT_FOR.value}]->(sub)
           WHERE fb.entity_type = 'entry_report'
         OPTIONAL MATCH (re:Entity)-[:{RelationshipName.RESPONDS_TO_REPORT.value}]->(fb)
           WHERE re.entity_type = 'revised_exercise'
         RETURN sub {{.uid, .title, .status, .created_at, .user_uid}} AS submission,
-               ex {{.uid, .title, .entity_type, .status}} AS exercise,
+               CASE
+                 WHEN ex IS NOT NULL THEN ex {{.uid, .title, .entity_type, .status, removed: false}}
+                 WHEN sub.turn_in_exercise_uid IS NOT NULL THEN {{
+                   uid: sub.turn_in_exercise_uid, title: sub.turn_in_exercise_title,
+                   entity_type: $exercise_type, status: NULL, removed: true}}
+                 ELSE NULL
+               END AS exercise,
                collect(DISTINCT fb {{.uid, .title, .processor_type, .created_at}}) AS feedback,
                collect(DISTINCT re {{.uid, .title, .revision_number, .student_uid, .created_at}}) AS revised_exercises
         """
-        return await self.execute_query(query, {"submission_uid": submission_uid})
+        return await self.execute_query(
+            query,
+            {"submission_uid": submission_uid, "exercise_type": EntityType.EXERCISE.value},
+        )
 
     async def get_entry_chain_raw(self, entry_uid: str) -> Result[list[Neo4jProperties]]:
         """Loop chain rooted at a specific entry."""

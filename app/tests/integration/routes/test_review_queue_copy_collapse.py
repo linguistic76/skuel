@@ -110,6 +110,10 @@ async def seeded(clean_neo4j, neo4j_driver) -> None:
     - STUDENT_2 x EX_3: rev 1 revision_requested, rev 2 resubmitted
       (submitted) — the same collapse moves the lineage from Waiting back to
       Needs review: rev 2 queues, rev 1 is history in BOTH views.
+
+    Every exercise-anchored copy carries the turn-in snapshot the writer
+    stamps — the lineage key (Submit & Share arc R12); the edges carry the
+    revision the rank reads while the exercise exists.
     """
     async with neo4j_driver.session() as session:
         await session.run(
@@ -142,16 +146,19 @@ async def seeded(clean_neo4j, neo4j_driver) -> None:
             CREATE (a1:Entity:UserEntry {
                 uid: $s1_rev1, entity_type: 'user_entry', title: 'S1 turn-in',
                 status: 'submitted', pipeline: 'teacher_review',
+                turn_in_exercise_uid: $ex_1, turn_in_exercise_title: 'Exercise one',
                 created_at: datetime() - duration('PT2H'), updated_at: datetime()
             })
             CREATE (a2:Entity:UserEntry {
                 uid: $s1_rev2, entity_type: 'user_entry', title: 'S1 turn-in',
                 status: 'submitted', pipeline: 'teacher_review',
+                turn_in_exercise_uid: $ex_1, turn_in_exercise_title: 'Exercise one',
                 created_at: datetime() - duration('PT1H'), updated_at: datetime()
             })
             CREATE (ai:Entity:UserEntry {
                 uid: $s1_ai, entity_type: 'user_entry', title: 'S1 AI feedback run',
                 status: 'active', pipeline: 'llm_summary',
+                turn_in_exercise_uid: $ex_1, turn_in_exercise_title: 'Exercise one',
                 created_at: datetime(), updated_at: datetime()
             })
             CREATE (lone:Entity:UserEntry {
@@ -162,46 +169,55 @@ async def seeded(clean_neo4j, neo4j_driver) -> None:
             CREATE (b1:Entity:UserEntry {
                 uid: $s2_ex1, entity_type: 'user_entry', title: 'S2 turn-in',
                 status: 'submitted', pipeline: 'teacher_review',
+                turn_in_exercise_uid: $ex_1, turn_in_exercise_title: 'Exercise one',
                 created_at: datetime() - duration('PT2H'), updated_at: datetime()
             })
             CREATE (b2:Entity:UserEntry {
                 uid: $s2_ex1_other, entity_type: 'user_entry', title: 'S2 turn-in',
                 status: 'submitted', pipeline: 'teacher_review',
+                turn_in_exercise_uid: $ex_1, turn_in_exercise_title: 'Exercise one',
                 created_at: datetime() - duration('PT1H'), updated_at: datetime()
             })
             CREATE (c1:Entity:UserEntry {
                 uid: $s2_ex2_rev1, entity_type: 'user_entry', title: 'S2 second exercise',
                 status: 'submitted', pipeline: 'teacher_review',
+                turn_in_exercise_uid: $ex_2, turn_in_exercise_title: 'Exercise two',
                 created_at: datetime() - duration('PT2H'), updated_at: datetime()
             })
             CREATE (c2:Entity:UserEntry {
                 uid: $s2_ex2_rev2, entity_type: 'user_entry', title: 'S2 second exercise',
                 status: 'completed', pipeline: 'teacher_review',
+                turn_in_exercise_uid: $ex_2, turn_in_exercise_title: 'Exercise two',
                 created_at: datetime() - duration('PT1H'), updated_at: datetime()
             })
             CREATE (d1:Entity:UserEntry {
                 uid: $s1_ex2_rev1, entity_type: 'user_entry', title: 'S1 second exercise',
                 status: 'submitted', pipeline: 'teacher_review',
+                turn_in_exercise_uid: $ex_2, turn_in_exercise_title: 'Exercise two',
                 created_at: datetime() - duration('PT2H'), updated_at: datetime()
             })
             CREATE (d2:Entity:UserEntry {
                 uid: $s1_ex2_rev2, entity_type: 'user_entry', title: 'S1 second exercise',
                 status: 'submitted', pipeline: 'teacher_review',
+                turn_in_exercise_uid: $ex_2, turn_in_exercise_title: 'Exercise two',
                 created_at: datetime() - duration('PT1H'), updated_at: datetime()
             })
             CREATE (w1:Entity:UserEntry {
                 uid: $s1_ex3_wait, entity_type: 'user_entry', title: 'S1 third exercise',
                 status: 'revision_requested', pipeline: 'teacher_review',
+                turn_in_exercise_uid: $ex_3, turn_in_exercise_title: 'Exercise three',
                 created_at: datetime() - duration('PT2H'), updated_at: datetime()
             })
             CREATE (w2:Entity:UserEntry {
                 uid: $s2_ex3_rev1, entity_type: 'user_entry', title: 'S2 third exercise',
                 status: 'revision_requested', pipeline: 'teacher_review',
+                turn_in_exercise_uid: $ex_3, turn_in_exercise_title: 'Exercise three',
                 created_at: datetime() - duration('PT2H'), updated_at: datetime()
             })
             CREATE (w3:Entity:UserEntry {
                 uid: $s2_ex3_rev2, entity_type: 'user_entry', title: 'S2 third exercise',
                 status: 'submitted', pipeline: 'teacher_review',
+                turn_in_exercise_uid: $ex_3, turn_in_exercise_title: 'Exercise three',
                 created_at: datetime() - duration('PT1H'), updated_at: datetime()
             })
             MERGE (s1)-[:OWNS]->(a1)
@@ -409,6 +425,43 @@ class TestDashboardPendingCountAgrees:
     """The dashboard badge counts what the queue shows — not superseded copies."""
 
     async def test_pending_count_matches_collapsed_queue(self, review_service, seeded) -> None:
+        stats = await review_service.get_dashboard_stats(TEACHER)
+        assert stats.is_ok, f"dashboard read failed: {stats}"
+        assert stats.value["pending_count"] == 5
+
+
+@pytest.fixture
+async def exercise_one_deleted(seeded, neo4j_driver) -> None:
+    """EX_1 is gone the way the CRUD delete removes it — with every edge."""
+    async with neo4j_driver.session() as session:
+        await session.run("MATCH (ex:Entity:Exercise {uid: $ex}) DETACH DELETE ex", ex=EX_1)
+
+
+class TestCollapseSurvivesExerciseDeletion:
+    """The lineage is the snapshot, not the edge (Submit & Share arc R12):
+    deleting the exercise removes every FULFILLS_EXERCISE edge and the
+    revision numbers on them, and the collapse must not change."""
+
+    async def test_queue_is_unchanged_by_the_deletion(
+        self, review_service, exercise_one_deleted
+    ) -> None:
+        assert await _queue_uids(review_service) == {
+            S1_REV2,
+            S1_LONE,
+            S2_EX1,
+            S1_EX2_REV1,
+            S2_EX3_REV2,
+        }, "rev 1 stays superseded by rev 2 on created_at once the edge revisions are gone"
+
+    async def test_queue_rows_read_the_snapshot(self, review_service, exercise_one_deleted) -> None:
+        result = await review_service.get_review_queue(TEACHER)
+        assert result.is_ok, f"queue read failed: {result}"
+        by_uid = {item["submission_uid"]: item for item in result.value}
+        assert by_uid[S1_REV2]["exercise_uid"] == EX_1
+        assert by_uid[S1_REV2]["exercise_name"] == "Exercise one"
+        assert by_uid[S1_EX2_REV1]["exercise_name"] == "Exercise two", "a live exercise reads live"
+
+    async def test_pending_count_still_agrees(self, review_service, exercise_one_deleted) -> None:
         stats = await review_service.get_dashboard_stats(TEACHER)
         assert stats.is_ok, f"dashboard read failed: {stats}"
         assert stats.value["pending_count"] == 5

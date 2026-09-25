@@ -419,11 +419,13 @@ class UserEntryReportQueryOperations(Protocol):
     ) -> Result[list[Neo4jProperties]]:
         """One (student, root exercise) exchange chain in a single read.
 
-        The student's entries against the exercise (direct turn-ins and
-        entries fulfilling a revision of it), the reports on those entries
-        (PRIVATE journal reflections excluded — not part of the exchange),
-        and the revision requests responding to those reports. All
-        ``created_at`` values arrive as ISO-8601 strings.
+        The student's entries whose turn-in snapshot names the exercise
+        (direct turn-ins and entries fulfilling a revision of it), the
+        reports on those entries (outcome-less journal reflections excluded
+        — not part of the exchange), and the revision requests responding
+        to those reports. The exercise node is optional — the exchange
+        outlives its deletion (``exercise_removed``, ``snapshot_title``).
+        All ``created_at`` values arrive as ISO-8601 strings.
 
         ``viewer_uid`` is the teacher-mode scope (``None`` = self view):
         each entry must be ``SUBMITTED_TO_GROUP`` an active group the viewer
@@ -439,11 +441,13 @@ class UserEntryReportQueryOperations(Protocol):
     ) -> Result[list[Neo4jProperties]]:
         """Every exchange the student is in, one summary row each — one read.
 
-        Per root exercise with lineage entries (direct turn-ins + resubmits
-        via a revision): latest entry, latest report on it, lineage counts.
-        A second column carries received reports outside any exchange (the
-        GradeBook "Other feedback" group). PRIVATE reports excluded; all
-        ``created_at`` values arrive as ISO-8601 strings.
+        Per turn-in snapshot uid (direct turn-ins + resubmits via a
+        revision; the exercise node optional — ``exercise_removed`` once it
+        is deleted): latest entry, latest report on it, lineage counts. A
+        second column carries received reports outside any exchange (the
+        GradeBook "Other feedback" group — reports on entries with no
+        snapshot). Outcome-less reports excluded; all ``created_at`` values
+        arrive as ISO-8601 strings.
 
         Backend: _UserEntryReportQueryMixin.get_student_exchange_summaries_raw
         """

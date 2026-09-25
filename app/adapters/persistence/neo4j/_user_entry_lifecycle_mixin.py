@@ -14,6 +14,7 @@ Requires on concrete class:
 
 from __future__ import annotations
 
+from dataclasses import replace
 from typing import TYPE_CHECKING, Any
 
 from core.models.enums.entity_enums import EntityType
@@ -108,6 +109,14 @@ class _UserEntryLifecycleMixin:
         For a ``RevisedExercise`` target, additionally writes
         ``FULFILLS_REVISED_EXERCISE`` to the revision node while anchoring
         ``FULFILLS_EXERCISE`` on the root ``Exercise``.
+
+        The same statement stamps the turn-in snapshot on the entry —
+        ``turn_in_exercise_uid`` = the root's uid (the ``REVISES_EXERCISE``
+        original, else the revision's ``original_exercise_uid``, else the
+        target itself) and ``turn_in_exercise_title`` = that root's title
+        as it reads now. The snapshot is the exchange key every GradeBook
+        and thread read groups on; it outlives the exercise and its edges
+        (Submit & Share arc R12). The returned model carries both values.
         """
         create_result = await self.create(entry)
         if create_result.is_error:
@@ -120,6 +129,8 @@ class _UserEntryLifecycleMixin:
         WHERE exercise.entity_type IN ['exercise', 'revised_exercise']
         OPTIONAL MATCH (exercise)-[:{RelationshipName.REVISES_EXERCISE.value}]->(original:Entity {{entity_type: 'exercise'}})
         WITH entry, exercise, original
+        SET entry.turn_in_exercise_uid = coalesce(original.uid, exercise.original_exercise_uid, exercise.uid),
+            entry.turn_in_exercise_title = coalesce(original.title, exercise.title)
         FOREACH (_ IN CASE WHEN original IS NOT NULL THEN [1] ELSE [] END |
           MERGE (entry)-[r1:{RelationshipName.FULFILLS_EXERCISE.value}]->(original)
             ON CREATE SET r1.revision = $revision
@@ -133,7 +144,8 @@ class _UserEntryLifecycleMixin:
             ON CREATE SET r3.revision = $revision
             ON MATCH SET r3.revision = $revision
         )
-        RETURN true AS success
+        RETURN entry.turn_in_exercise_uid AS turn_in_exercise_uid,
+               entry.turn_in_exercise_title AS turn_in_exercise_title
         """
         link_result = await self.execute_query(
             link_query,
@@ -153,4 +165,11 @@ class _UserEntryLifecycleMixin:
                     identifier=exercise_uid,
                 )
             )
-        return Result.ok(created)
+        stamped = link_result.value[0]
+        return Result.ok(
+            replace(
+                created,
+                turn_in_exercise_uid=stamped.get("turn_in_exercise_uid"),
+                turn_in_exercise_title=stamped.get("turn_in_exercise_title"),
+            )
+        )

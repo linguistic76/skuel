@@ -2934,9 +2934,9 @@ class SubmissionChain(TypedDict, total=False):
 class ExchangeThreadEntry(TypedDict):
     """One submission in an exchange thread (C5, feedback-loop UX arc).
 
-    ``revision`` carries the ``FULFILLS_EXERCISE`` edge revision for direct
-    turn-ins; ``via_revised_uid`` names the RevisedExercise for entries
-    submitted against a revision (the two are mutually exclusive).
+    ``revision`` carries the ``FULFILLS_EXERCISE`` edge revision (``None``
+    once the exercise, and with it the edge, is deleted); ``via_revised_uid``
+    names the RevisedExercise for an entry submitted against a revision.
     """
 
     uid: str
@@ -2981,10 +2981,16 @@ class ExchangeThread(TypedDict):
     One (student, root exercise) exchange: every entry, report, and revision
     request in the chain, each ``created_at`` an ISO-8601 string. The UI
     interleaves the three lists chronologically into the thread view.
+
+    The exchange is keyed by the entries' turn-in snapshot, so it outlives
+    its exercise: ``exercise_removed`` is True when no Exercise node carries
+    ``exercise_uid`` any more, and ``exercise_title`` then comes from the
+    snapshot (Submit & Share arc R12).
     """
 
     exercise_uid: str
     exercise_title: str
+    exercise_removed: bool
     student_uid: str
     entries: list[ExchangeThreadEntry]
     reports: list[ExchangeThreadReport]
@@ -2999,11 +3005,14 @@ class StudentExchangeSummary(TypedDict):
     line state. ``exchange_status`` is an ``ExchangeStatus`` value;
     ``latest_report_source`` a ``ReportSource`` value (the Source filter's
     substrate). ``latest_activity_at`` is the newer of the two timestamps —
-    the page's newest-first sort key.
+    the page's newest-first sort key. ``exercise_removed`` is True when the
+    exercise has been deleted — the line stays, titled from the turn-in
+    snapshot (Submit & Share arc R12).
     """
 
     exercise_uid: str
     exercise_title: str
+    exercise_removed: bool
     latest_entry_uid: str
     latest_entry_status: str | None
     latest_entry_created_at: str | None
@@ -3019,8 +3028,9 @@ class StudentExchangeSummary(TypedDict):
 class GradebookOtherReport(TypedDict):
     """One received report outside any exchange (GradeBook "Other feedback").
 
-    A report on an entry with no exercise lineage, or on no entry at all —
-    the Arc-1 visibility-convergence guard surfaced as its own group.
+    A report on an entry that is not a turn-in (no turn-in snapshot), or on
+    no entry at all — feedback on work that isn't tied to an exercise
+    (Submit & Share arc R13).
     """
 
     uid: str
