@@ -284,15 +284,16 @@ class ActivityReport(UserOwnedEntity):
 
 ## Visibility Model
 
-Three-level visibility on every entity:
+`visibility` is public-or-not (ADR-088 §4); who else may open a report is the share links'
+record, never the property's:
 
-| Level | Who Can See | Use Case |
-|-------|-------------|----------|
-| `PRIVATE` (default) | Owner only | Work in progress |
-| `SHARED` | Owner + SHARES_WITH recipients | Teacher review, peer feedback |
-| `PUBLIC` | Anyone | Portfolio showcase |
+| Value | Meaning | Reader |
+|-------|---------|--------|
+| `PRIVATE` (default) | Not published — the owner reads it (`EntryReportService.get_for_user`) | The owner read |
+| `PUBLIC` | Published (portfolio showcase; TEACHER-gated) | None yet |
 
-Only `COMPLETED` entities can be shared (prevents sharing incomplete/failed work).
+Every report writer stamps `private`. Only `COMPLETED` entities can be shared (prevents
+sharing incomplete/failed work).
 
 ---
 

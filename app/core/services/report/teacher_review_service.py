@@ -205,7 +205,6 @@ class TeacherReviewService:
                 "processor_type": ReportSource.HUMAN.value,
                 "assessment_outcome": AssessmentOutcome.APPROVED.value,
                 "allowed_from_statuses": allowed_from,
-                "visibility": "shared",
                 "create_student_share": True,
                 "now": now,
             }
@@ -293,7 +292,6 @@ class TeacherReviewService:
                 "processor_type": ReportSource.HUMAN.value,
                 "assessment_outcome": AssessmentOutcome.NEEDS_REVISION.value,
                 "allowed_from_statuses": allowed_from,
-                "visibility": "shared",
                 "create_student_share": True,
                 "now": now,
             }

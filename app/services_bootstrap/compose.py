@@ -689,7 +689,6 @@ async def compose_services(
             content_adapter=content_adapter,  # Persist :ContentChunk nodes for RAG retrieval
             event_bus=event_bus,
             embeddings_enabled=tier.ai_enabled,
-            user_service=user_service,  # Role lookup for audience:public gate (Finding 2)
         )
 
         # Batch chunk regeneration (Phase 2, May 2026) — admin tool used when

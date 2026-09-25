@@ -655,7 +655,6 @@ class RevisedExerciseBackend(UniversalNeo4jBackend["RevisedExercise"]):
             MATCH (re:Entity {{uid: $re_uid}})
             MERGE (student)-[r:{RelationshipName.SHARES_WITH.value}]->(re)
             ON CREATE SET r.shared_at = $shared_at, r.role = 'student'
-            SET re.visibility = 'shared'
             RETURN true as success
             """,
             {
@@ -927,9 +926,6 @@ class EntryReportBackend(UniversalNeo4jBackend[EntryReport]):
                 None to leave submission.status unchanged (AI reports pass None)
             allowed_from_statuses: list of current-status values permitted for
                 the transition, or None to skip the guard (AI reports pass None)
-            visibility: report node visibility — ``'shared'`` for teacher/AI
-                reports (student gets a SHARES_WITH grant), ``'private'`` for
-                self-owned journal responses (no separate grant; owner reads it).
             create_student_share: when True (teacher/AI), create the
                 ``(student)-[:SHARES_WITH]->(report)`` grant; when False
                 (journal responses), skip it — the owner already owns the node.
@@ -974,7 +970,7 @@ class EntryReportBackend(UniversalNeo4jBackend[EntryReport]):
             user_uid: CASE WHEN student IS NOT NULL THEN student.uid ELSE $author_uid END,
             author_uid: $author_uid,
             status: $completed_status,
-            visibility: $visibility,
+            visibility: 'private',
             processor_type: $processor_type,
             assessment_outcome: $assessment_outcome,
             processed_content: $feedback,
@@ -1065,7 +1061,7 @@ class EntryReportBackend(UniversalNeo4jBackend[EntryReport]):
             user_uid: CASE WHEN student IS NOT NULL THEN student.uid ELSE $author_uid END,
             author_uid: $author_uid,
             status: $completed_status,
-            visibility: 'shared',
+            visibility: 'private',
             processor_type: $processor_type,
             assessment_outcome: $assessment_outcome,
             processed_content: $feedback,

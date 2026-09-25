@@ -361,6 +361,10 @@ def _build(
     authored; a copied authoring stamp would make a creation-day default (the
     Task creation rule) date the instance in the template's past. The anchor is
     taken in the models' clock (``_model_clock``) for stamps and offsets alike.
+    ``visibility`` is managed too: a template is curriculum and PUBLIC by its
+    class default, while the instance is the student's own and takes the
+    user-owned default, PRIVATE — a copied ``public`` would publish a student's
+    task (ADR-088 §4).
     """
     anchor = _model_clock(anchor)
     managed = {
@@ -369,6 +373,7 @@ def _build(
         "engagement_state",
         "entity_type",
         "source_path_step_uid",
+        "visibility",
         "created_at",
         "updated_at",
         *(dst for _src, dst, _kind in spec.offset_rewrites),

@@ -34,7 +34,7 @@ the six endpoints that once existed; they left with the submissions API on 2026-
 | `unshare_from_group` | 0 (1 test site) | **PLANNED** — same entry | Group twin. `scripts/retract_defaulted_vault_note_shares.py` hand-rolls its own `DELETE` because it sweeps every owner's edges at once; the service's owner check is right for the door and wrong for the sweep. |
 | `get_shared_with` | 0 (3 test sites) | **PLANNED** — same entry | The owner's "who has access" list — the read half of revoke; you cannot retract what you cannot see. |
 | `get_groups_shared_with` | 0 — its one caller left on 2026-04-18 (`7dc89f3fd` replaced it with the auto-share intersection query); two test fixtures still mocked it, removed with this ruling | **PLANNED** — same entry | Group twin of the access list. |
-| `set_visibility` | 0 (9 test sites) | **PLANNED** — `_SHARING_VISIBILITY_LADDER` | Its trigger is the PUBLIC reader, not the access list — see [The visibility ladder](#the-visibility-ladder-waits-on-a-reader-not-a-panel). |
+| `set_visibility` | 0 (5 test sites) | **PLANNED** — `_SHARING_VISIBILITY_LADDER` | PUBLIC-only since ADR-088 §4 (publish / unpublish; it still lacks the TEACHER gate the creation doors apply). Its trigger is the PUBLIC reader, not the access list — see [The visibility ladder](#the-visibility-ladder-waits-on-a-reader-not-a-panel). |
 | `verify_shareable` | 0 (3 test sites) | **DELETED** | A pure rule (`_check_shareable`, a staticmethod of status + entity type) behind a DB round-trip for inputs every caller already holds. Every mutation applies the rule inside `_verify_owned_and_shareable`; none of the six historical endpoints exposed a standalone check. Its backend twin `query_shareable_status` went with it. |
 | `get_shared_with_me_via_groups` | 0 (0 test sites) | **DELETED** | A third group listing. Members read shares per group (`get_user_entries_shared_with_group` — the groups hub, `SHARED_WITH_GROUP`); owners read feedback requests across groups (`get_review_queue_by_groups` — the review queue, `SUBMITTED_TO_GROUP` since ADR-088 / PR 1). Its shape would not serve the one consumer it could have had, a group half of `/profile/shared`: no subject-context join, no sharer attribution, ordered by `entity.created_at` rather than the edge, owner excluded by property (`entity.user_uid <>`) rather than the `:OWNS` edge. That half, if ever wanted, is a new query modelled on `query_shared_with_me`. Backend twin `query_shared_with_me_via_groups` went with it. |
 | public-portfolio listing | never existed | **the reader `set_visibility` waits on** | Nothing lists `visibility = 'public'` — not a route, not a search clause. Named here so the trigger has a name. |
@@ -65,8 +65,10 @@ surface: if a post-hoc *widening* is ever wanted, it is the same audience declar
 
 ## The visibility ladder waits on a reader, not a panel
 
-`Visibility` (`core/models/enums/metadata_enums.py`) is `PRIVATE → SHARED → TEAM → PUBLIC`.
-What the graph actually does with the property, verified on `6193a1bb1`:
+`Visibility` (`core/models/enums/metadata_enums.py`) is `{PRIVATE, PUBLIC}` — public-or-not
+(ADR-088 §4; the `shared` and `team` values are deleted from the enum and rewritten to
+`private` in the graph by `scripts/migrations/collapse_visibility_to_public_or_not_2026_09.py`).
+What the graph does with the property:
 
 - **Written at creation only.** `UserEntryService.create_entry` stores
   `request.visibility or PRIVATE`; the `/submit` form's `audience=public` and the vault door's
@@ -74,15 +76,13 @@ What the graph actually does with the property, verified on `6193a1bb1`:
   refreshes every property (the living-entry `upsert`), so a note that narrows
   `audience: public` → `private` **does** return to `PRIVATE` on the property — while its
   edges stay (the gap above).
-- **Read by no non-owner path.** The EntryReport access check — the one reader that honoured
-  `PUBLIC`, and `SHARED` together with an edge — is retired (ADR-088 §3; the report detail is
+- **Read by no non-owner path.** There is no access check (ADR-088 §3; the report detail is
   an owner read), and the report-history queries identify received feedback by
   `assessment_outcome`, not by `visibility`. The property has no reader at all.
 - **The search visibility clause is edge-only.** `build_search_visibility_clause`
   ([ADR-085](../decisions/ADR-085-ownership-read-enforcement-contract.md)'s chokepoint) admits
   by `:OWNS`, `:SHARES_WITH` and `MEMBER_OF ← SHARED_WITH_GROUP`; it never tests the property.
-  So `SHARED` as a property is inert (the edge decides), `PUBLIC` reaches no listing and no
-  search, and `TEAM` has no writer and no reader anywhere (ADR-040 records it as reserved).
+  So the edge decides every share, and `PUBLIC` reaches no listing and no search.
 - **The UI already stages the public rung as "Coming soon".** The `/submit` form's Portfolio
   destination renders disabled (`portfolio_mode="coming_soon"`; no caller passes `active`), so
   `audience=public` at the API is reachable only by a hand-built POST or the vault door.
@@ -90,9 +90,10 @@ What the graph actually does with the property, verified on `6193a1bb1`:
 Therefore a visibility selector today would write a value that nothing honours for anyone but
 the owner — a control that names a state the system does not have. `set_visibility` completes
 **with the PUBLIC reader**: a portfolio listing (the successor to the public-browse endpoint
-ADR-038 § API Layer records as retired), which is also what turns the Portfolio destination on. `SHARED`
-never needs the selector (audience-at-submit writes the edge); `PRIVATE`-from-`PUBLIC` is the
-unpublish, and is the one transition that is the selector's own.
+ADR-038 § API Layer records as retired), which is also what turns the Portfolio destination on. A
+share never needs the selector (audience-at-submit writes the edge); `PRIVATE`-from-`PUBLIC` is the
+unpublish, and is the one transition that is the selector's own. The method is PUBLIC-only today
+and carries no TEACHER gate — the door must add the one the creation doors apply.
 
 ## Named cost
 

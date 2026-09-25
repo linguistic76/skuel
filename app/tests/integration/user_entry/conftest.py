@@ -151,7 +151,7 @@ async def seed_exercise(neo4j_driver) -> Callable[..., Awaitable[str]]:
                 ON CREATE SET ex.title = $title,
                               ex.entity_type = 'exercise',
                               ex.status = 'active',
-                              ex.visibility = 'shared',
+                              ex.visibility = 'private',
                               ex.created_at = datetime($now),
                               ex.updated_at = datetime($now)
                 """,

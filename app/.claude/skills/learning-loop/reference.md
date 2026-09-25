@@ -333,7 +333,8 @@ await backend.get_exercise_context(...)                                 # OWNS/C
 > `create_group_share`, `create_group_submission`).
 
 **Access:** `ContentScope.USER_OWNED`. Default `PRIVATE`. Sharing via
-`UnifiedSharingService` — three-level model: `PRIVATE → SHARED → PUBLIC`.
+`UnifiedSharingService` — the share links are the grant; `visibility` is public-or-not
+(ADR-088 §4).
 
 **Loop role:** Submission is the *evidence* — the student's demonstration of engagement
 with the Ku. The `processed_content` field is what AI and teachers actually evaluate.

@@ -515,15 +515,16 @@ _SHARING_REVOKE_AND_ACCESS_LIST = PlannedEntry(
 
 _SHARING_VISIBILITY_LADDER = PlannedEntry(
     Readiness.DELAYED,
-    "the post-hoc `visibility` writer. Today the property is written only at creation "
-    "(create_entry's request field; the vault door's `audience: public`, refreshed on "
-    "re-sync) and read by no non-owner path: the search visibility clause is edge-only "
-    "and an EntryReport is an owner read (ADR-088 §3), so SHARED as a property is inert "
-    "and PUBLIC has no listing — the /submit form's Portfolio destination ships disabled "
-    "as 'Coming soon'. "
-    "Completes with the PUBLIC reader (a portfolio listing), which is what makes a "
-    "visibility control truthful; a selector without that reader writes a value nothing "
-    "honours (Mike ruled PLANNED 2026-06-13; trigger re-ruled 2026-09-21)",
+    "the publish / unpublish writer. `visibility` is public-or-not (ADR-088 §4): the "
+    "share links are the one record of who else may open an entity, and the property "
+    "is written only at creation (create_entry's request field; the vault door's "
+    "`audience: public`, refreshed on re-sync), TEACHER-gated there. This method has "
+    "no TEACHER gate of its own — it must gain one before a door reaches it — and "
+    "PUBLIC has no reader: the search visibility clause is edge-only and nothing lists "
+    "`visibility = 'public'`, so the /submit form's Portfolio destination ships disabled "
+    "as 'Coming soon'. Completes with the PUBLIC reader (a portfolio listing), which is "
+    "what makes a publish control truthful; a selector without that reader writes a "
+    "value nothing honours (Mike ruled PLANNED 2026-06-13; trigger re-ruled 2026-09-21)",
     since=date(2026, 6, 13),
     blocked_by="Sharing HTTP Door — Operations on Existing Shares",
 )

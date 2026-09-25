@@ -98,7 +98,7 @@ async def seeded(clean_neo4j, neo4j_driver) -> None:
     """One exchange for STUDENT plus a parallel one for OTHER_STUDENT.
 
     STUDENT's chain: rev-1 and rev-2 turn-ins, a teacher report (an outcome;
-    visibility 'private') and an outcome-less reflection (visibility 'shared')
+    visibility 'private') and an outcome-less reflection (visibility 'public')
     on rev 2, a revision request responding to the teacher report, and a follow-up entry against that revision — all shared with
     TEACHER's group. STUDENT is multi-class: a fourth entry on the same
     exercise is shared ONLY with SECOND_TEACHER's group. OTHER_STUDENT has
@@ -144,7 +144,7 @@ async def seeded(clean_neo4j, neo4j_driver) -> None:
             })
             CREATE (rp:Entity:EntryReport {
                 uid: $r_private, entity_type: 'entry_report', title: 'Reflection',
-                status: 'completed', visibility: 'shared',
+                status: 'completed', visibility: 'public',
                 content: 'My own notes',
                 created_at: datetime() - duration('PT2H'), updated_at: datetime()
             })
@@ -170,7 +170,7 @@ async def seeded(clean_neo4j, neo4j_driver) -> None:
             })
             CREATE (orep:Entity:EntryReport {
                 uid: $o_report, entity_type: 'entry_report', title: 'Other feedback',
-                status: 'completed', visibility: 'shared', assessment_outcome: 'approved',
+                status: 'completed', visibility: 'private', assessment_outcome: 'approved',
                 processed_content: 'Different classroom',
                 created_at: datetime() - duration('PT2H'), updated_at: datetime()
             })

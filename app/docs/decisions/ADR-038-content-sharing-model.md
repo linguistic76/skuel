@@ -107,6 +107,13 @@ This prevents users from sharing failed/processing reports, ensuring portfolio q
 > every mutation. Ruling and per-method table:
 > [`/docs/roadmap/sharing-http-door.md`](../roadmap/sharing-http-door.md).*
 
+> **2026-09-24 — Amended by [ADR-088](ADR-088-submit-and-share.md) (Submit & Share arc, PR 2a).**
+> The three-level model is two levels: `Visibility` is `{PRIVATE, PUBLIC}` — public or not. The
+> `SHARED` and `TEAM` members are deleted (every graph row rewritten to `private`), the share
+> links are the one record of who else may open an entity, `set_visibility` is PUBLIC-only
+> (publish / unpublish; still PLANNED, still without its TEACHER gate), and the in-memory
+> can_view check below is deleted with them — every read composes its audience in Cypher.
+
 > **2026-09-24 — Amended by [ADR-088](ADR-088-submit-and-share.md) (Submit & Share arc, PR 2b).**
 > The access check above (owner, or `PUBLIC`, or `SHARED` **and** a link) is retired, with its
 > backend query: no read honours the `visibility` property, a link grants what its reader reads,

@@ -569,7 +569,6 @@ class EventsCoreService(
             start_time=request.start_time,
             end_time=request.end_time,
             event_type=request.event_type,
-            visibility=request.visibility,
             location=request.location,
             is_online=request.is_online,
             meeting_url=request.meeting_url,

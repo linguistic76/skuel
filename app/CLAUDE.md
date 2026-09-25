@@ -118,9 +118,9 @@ types (2+10+11+2) so they check themselves; `EntityType.<T>.content_origin()` is
 
 ### Content Sharing
 
-**Core Principle:** "Three-level visibility with relationship-based access control"
+**Core Principle:** "The share links are the one record of who sees what"
 
-**Visibility:** PRIVATE (default) → SHARED (SHARES_WITH relationship) → TEAM (group-scoped) → PUBLIC (portfolio)
+**Visibility (ADR-088 §4):** `Visibility` is `{PRIVATE, PUBLIC}` — published or not. Who else may open an entity is recorded only by its links (`SHARES_WITH`, `SHARED_WITH_GROUP`); no read consults the property, and PUBLIC (portfolio, TEACHER-gated at every door) has no reader yet. A spawned PS-engagement instance is PRIVATE whatever its template says.
 
 **Two verbs (ADR-088):** **Submit** = a feedback request — `SUBMITTED_TO_GROUP`, read only by the group's owning teachers (the review queue and every teacher-side reader), written only on `pipeline=TEACHER_REVIEW`; **Share** = manual sharing (`SHARES_WITH`) and group sharing (`SHARED_WITH_GROUP`, every member and owner). The two readers are never crossed. Every FormSubmission group target is a feedback request.
 

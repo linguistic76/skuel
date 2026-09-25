@@ -22,7 +22,6 @@ from typing import TYPE_CHECKING, Any
 from core.models.enums.entity_enums import EntityStatus
 from core.models.enums.metadata_enums import Visibility
 from core.models.enums.pipeline import JeUse, Pipeline
-from core.models.enums.user_enums import UserRole
 from core.models.type_hints import UserUID
 from core.models.user_entry.user_entry_request import UserEntryCreateRequest
 from core.utils.logging import get_logger
@@ -37,7 +36,6 @@ if TYPE_CHECKING:
         UserEntryProcessingService,
     )
     from core.services.user_entry.user_entry_service import UserEntryService
-    from core.services.user_service import UserService
 
 logger = get_logger("skuel.services.ingestion.user_entry")
 
@@ -245,7 +243,6 @@ async def build_user_entry_request(
     file_path: Path,
     user_uid: UserUID,
     audience_resolver: AudienceResolver,
-    user_service: UserService | None = None,
     body: str | None = None,
     prior_uid: str | None = None,
 ) -> Result[UserEntryCreateRequest]:
@@ -260,10 +257,8 @@ async def build_user_entry_request(
     private (no compensation delete in that branch, since the absence of
     teachers is a state-of-the-world fact, not a sharing failure).
 
-    ``audience: public`` is gated on ``UserRole.TEACHER`` — a REGISTERED user
-    cannot publish portfolio-visible content through YAML upload. The role is
-    resolved via ``user_service``; when unavailable the public audience is
-    rejected (fail-closed).
+    ``audience: public`` becomes ``visibility=PUBLIC`` on the request; the
+    TEACHER gate on it is ``create_entry``'s, applied to every door.
 
     ``prior_uid`` is path-keyed identity for uid-less vault entries: the
     tracker's prior ``path → uid`` row (resolved by the caller). A knowledge
@@ -343,9 +338,6 @@ async def build_user_entry_request(
         else:
             share_with_groups = [audience.group_uid]
     elif audience.kind == "public":
-        role_check = await _require_teacher_for_public(user_uid, user_service)
-        if role_check.is_error:
-            return Result.fail(role_check)
         visibility = Visibility.PUBLIC
     # "private" → no shares, default visibility
 
@@ -519,46 +511,11 @@ async def build_user_entry_request(
     return Result.ok(request)
 
 
-async def _require_teacher_for_public(
-    user_uid: UserUID,
-    user_service: UserService | None,
-) -> Result[None]:
-    """Reject ``audience: public`` unless the caller is TEACHER or higher."""
-    if user_service is None:
-        return Result.fail(
-            Errors.forbidden(
-                action="publish public UserEntry",
-                reason=(
-                    "'audience: public' requires TEACHER role but role cannot be "
-                    "resolved (user_service unavailable)."
-                ),
-                required_role=UserRole.TEACHER.value,
-            )
-        )
-    user_result = await user_service.get_user(user_uid)
-    if user_result.is_error:
-        return Result.fail(user_result)
-    user = user_result.value
-    if user is None or not user.has_permission(UserRole.TEACHER):
-        return Result.fail(
-            Errors.forbidden(
-                action="publish public UserEntry",
-                reason=(
-                    "'audience: public' requires TEACHER role; this user does not "
-                    "have permission to publish."
-                ),
-                required_role=UserRole.TEACHER.value,
-            )
-        )
-    return Result.ok(None)
-
-
 async def ingest_user_entry(
     data: dict[str, Any],
     file_path: Path,
     user_uid: UserUID,
     user_entry_service: UserEntryService,
-    user_service: UserService | None = None,
     body: str | None = None,
     user_entry_processor: UserEntryProcessingService | None = None,
     prior_uid: str | None = None,
@@ -605,7 +562,6 @@ async def ingest_user_entry(
         file_path=file_path,
         user_uid=user_uid,
         audience_resolver=user_entry_service.audience_resolver,
-        user_service=user_service,
         body=body,
         prior_uid=prior_uid,
     )

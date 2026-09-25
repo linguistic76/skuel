@@ -157,12 +157,14 @@ class UnifiedSharingService:
         owner_uid: str,
         visibility: Visibility,
     ) -> Result[bool]:
-        """Set entity visibility level.
+        """Publish (PUBLIC) or unpublish (PRIVATE) an owned entity.
 
-        Only the owner can change visibility.
-        Only active or completed entities can be made SHARED or PUBLIC.
+        Only the owner can change it. Publishing requires a shareable entity
+        (the same rule every share applies); unpublishing never does. The
+        property is publication only — who else may open the entity is the
+        share links' record (ADR-088 §4), so this never widens an audience.
         """
-        if visibility in (Visibility.SHARED, Visibility.PUBLIC):
+        if visibility is Visibility.PUBLIC:
             check = await self._verify_owned_and_shareable(entity_uid, owner_uid)
         else:
             check = await self._verify_owned_and_shareable(

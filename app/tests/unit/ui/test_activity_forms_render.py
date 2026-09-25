@@ -273,7 +273,7 @@ _EXPECTED_SECTIONS: dict[tuple[str, str], list[str]] = {
     ("events", "create"): [
         "Basics",
         "Scheduling",
-        "Type & Visibility",
+        "Type & Priority",
         "Location",
         "Attendees",
         "Reminder",
@@ -283,7 +283,7 @@ _EXPECTED_SECTIONS: dict[tuple[str, str], list[str]] = {
     ("events", "edit"): [
         "Basics",
         "Scheduling",
-        "Type & Visibility",
+        "Type & Priority",
         "Location",
         "Reminder",
         "Connections",

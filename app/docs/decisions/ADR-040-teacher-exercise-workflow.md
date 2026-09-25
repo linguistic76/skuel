@@ -1,5 +1,5 @@
 ---
-updated: 2026-09-24
+updated: 2026-09-25
 related_skills: [learning-loop]
 ---
 
@@ -10,6 +10,8 @@ related_skills: [learning-loop]
 > **2026-04-14 — Partially superseded by [ADR-054](ADR-054-user-entry-unified-submissions.md).** `ExerciseSubmission` has been collapsed into `UserEntry`. The OWNS-based review queue is replaced by a symmetric `SHARED_WITH_GROUP` + `pipeline='teacher_review'` graph pattern. The learning loop (Exercise → Submission → Report → RevisedExercise) is preserved as emergent relationships rather than a type hierarchy.
 >
 > **2026-09-24 — Amended by [ADR-088](ADR-088-submit-and-share.md) (Submit & Share arc, PR 1).** The queue reads `SUBMITTED_TO_GROUP` — the feedback request, a link kind of its own — under the teacher's `OWNS` of an active group; `SHARED_WITH_GROUP` on a turn-in is a share with the class and never queues.
+>
+> **2026-09-24 — Amended by [ADR-088](ADR-088-submit-and-share.md) (Submit & Share arc, PR 2a).** The `TEAM` visibility value this ADR reserved for a future phase is deleted: `Visibility` is `{PRIVATE, PUBLIC}`, and group audience is the `SHARED_WITH_GROUP` edge, never a property value.
 
 **Status:** Accepted
 **Date:** 2026-02-06

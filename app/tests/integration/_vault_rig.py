@@ -214,7 +214,6 @@ async def rig(neo4j_driver, clean_neo4j, tasks_service, tmp_path: Path) -> Rig:
         default_user_uid=OWNER,
         ingestion_backend=IngestionBackend(executor=executor),
         user_entry_service=user_entry_service,
-        user_service=user_service,
         user_entry_processor=processor,
     )
     allowlist = build_sync_allowlist(vault, content_root=content_root)

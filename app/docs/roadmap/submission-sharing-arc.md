@@ -192,7 +192,7 @@ pass confirmed or corrected.
    rendered "Submission Not Found" page (not an HTTP 404 status). The `/groups` peer reads are a
    third rule. `share()` and `share_with_group()` never write `visibility`. `TEAM` is written by the
    Events form (`events_form.py:44,75` via `EventCreateRequest`) and read nowhere; the
-   `UserOwnedEntity` visibility check (`user_owned_entity.py:72-86`) has zero callers.
+   `UserOwnedEntity` visibility check (can_view in `user_owned_entity.py`) has zero callers.
 3. **Admin-written activity reports can't be opened by their student.** `submit_report`
    (`activity_report_service.py:351`) makes the admin the owner (`:411`) and the student the
    subject; the list reads by subject (`misc_backends.py:84`), while the detail, the download and
@@ -521,7 +521,7 @@ it first removes both.
   - Live 2026-09-24: 2 nodes carry `shared` (both EntryReports — safe once PR 2b's discriminator
     is live); 0 carry `team`. Census all labels.
 - **The enum:** `Visibility` → `{PRIVATE, PUBLIC}`. Delete is_restricted, both can_view
-  (`entity.py:176`, `user_owned_entity.py:72` — zero callers), and the unused EntityUpdateRequest /
+  (`entity.py`, `user_owned_entity.py` — zero callers), and the unused EntityUpdateRequest /
   EntityResponse / EntityListResponse / EventResponse / EventListResponse (plus the
   `core/models/event/__init__.py` exports). Add stale_names DELETED rows.
 - **Writers stop writing `'shared'`:** `exercise_backends.py:652` (a RevisedExercise, in
@@ -550,6 +550,35 @@ it first removes both.
   the ADR-038 and ADR-040 (TEAM) notes, the learning-loop skill, `how-your-content-is-used.md`,
   PLACEHOLDER_INDEX:452, and `sharing-http-door.md` (its visibility-ladder section and the false
   "TEAM has no writer" line). Re-derive the stale_names anchors.
+- **Ruled (PR 2a session, 2026-09-24 — engineering choices the census found unsettled; none touches
+  a ruling):**
+  - `create_report_node` takes no `visibility` parameter: every report writer stamps `private`
+    (the one value a report can have — PUBLIC is a portfolio act the owner takes, never the
+    writer's), so a parameter with one value at every call site is deleted rather than kept.
+    The RevisedExercise grant (`auto_share_with_student`) writes its `SHARES_WITH` edge and
+    no property.
+  - `set_visibility` keeps its `Visibility` parameter and is PUBLIC-only by the enum: publishing
+    requires a shareable entity, unpublishing (PRIVATE) never does. It still has no TEACHER
+    gate of its own; the creation doors' gate (`create_entry`) is the only one, stated in the
+    `_SHARING_VISIBILITY_LADDER` reason, `sharing-http-door.md` and ADR-038's note, so the door
+    that reaches it adds one.
+  - The ingestion `user_service` is deleted end to end — `build_user_entry_request`,
+    `ingest_user_entry`, `UnifiedIngestionService.__init__` and the composition root — with
+    the duplicate gate: it served nothing else, and a parameter that serves nothing reads as a
+    second gate.
+  - The migration is `collapse_visibility_to_public_or_not_2026_09.py`: label-agnostic on
+    `shared` / `team`, and its spawned-`public` reset is scoped by the `SPAWNED_FROM` edge plus
+    a `user_uid`, so a TEACHER's deliberate `public` on an authored entry is never touched.
+  - The route fixtures keep pinning the discriminator in both directions with the two values
+    that remain: the counted feedback carries `private` + an outcome, the excluded reflection
+    `public` + none; the owner-read refusal seeds `public` (the writer's is `private`) so it
+    proves the property is no grant either way.
+  - The Events form section is "Type & Priority" (create) / the same name with `status` (edit);
+    no form field, request field, intent field or service kwarg carries `visibility` for an
+    Event — the model keeps the user-owned default.
+  - `UpdateRequestBase` / `ResponseBase` / `ListResponseBase` stay: the deleted entity-wide
+    classes were not their only inheritors (`TaskUpdateRequest`, `TaskResponse`, the template
+    update requests).
 
 ### PR 3 — Bells that work + activity reports reach the student (B)
 
