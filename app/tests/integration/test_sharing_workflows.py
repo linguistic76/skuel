@@ -127,16 +127,8 @@ async def test_complete_sharing_workflow(sharing_service, test_report, neo4j_dri
     owner_uid = test_report["owner_uid"]
     recipient_uid = "test_user_teacher"
 
-    # Step 1: Set visibility to SHARED
-    visibility_result = await sharing_service.set_visibility(
-        entity_uid=report_uid,
-        owner_uid=owner_uid,
-        visibility=Visibility.SHARED,
-    )
-    assert not visibility_result.is_error
-    assert visibility_result.value is True
-
-    # Step 2: Share with recipient
+    # Step 2: Share with recipient — the edge is the whole grant; the
+    # visibility property is publication only and stays private.
     share_result = await sharing_service.share(
         entity_uid=report_uid,
         owner_uid=owner_uid,
@@ -199,7 +191,7 @@ async def test_shared_with_me_resolves_subject_context(sharing_service, neo4j_dr
     CREATE (report:Entity:EntryReport {
         uid: 'test_er_ctx', entity_type: 'entry_report', status: 'completed',
         title: "Feedback on 'Essay Exercise'", created_by: 'test_user_ctx_teacher',
-        visibility: 'shared', created_at: datetime(), updated_at: datetime()
+        visibility: 'private', created_at: datetime(), updated_at: datetime()
     })
     CREATE (entry:Entity:UserEntry {
         uid: 'test_ue_ctx', entity_type: 'user_entry', status: 'completed',
@@ -303,11 +295,6 @@ async def test_only_owner_can_unshare(sharing_service, test_report):
     not_owner = "test_user_imposter"
 
     # Owner shares first
-    await sharing_service.set_visibility(
-        entity_uid=report_uid,
-        owner_uid=owner_uid,
-        visibility=Visibility.SHARED,
-    )
     await sharing_service.share(
         entity_uid=report_uid,
         owner_uid=owner_uid,
@@ -419,12 +406,6 @@ async def test_get_shared_with_list(sharing_service, test_report):
         ("test_user_peer1", "peer"),
         ("test_user_peer2", "peer"),
     ]
-
-    await sharing_service.set_visibility(
-        entity_uid=report_uid,
-        owner_uid=owner_uid,
-        visibility=Visibility.SHARED,
-    )
 
     for recipient_uid, role in users:
         await sharing_service.share(

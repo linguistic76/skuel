@@ -38,10 +38,10 @@ _CREATE_SECTIONS: dict[str, dict[str, Any]] = {
             "recurrence_end_date",
         ],
     },
-    "Type & Visibility": {
+    "Type & Priority": {
         "icon": "tag",
         "accent": "violet",
-        "fields": ["event_type", "visibility", "priority"],
+        "fields": ["event_type", "priority"],
     },
     "Location": {
         "icon": "map-pin",
@@ -69,10 +69,10 @@ _EDIT_SECTIONS: dict[str, dict[str, Any]] = {
         "accent": "amber",
         "fields": ["event_date", "start_time", "end_time"],
     },
-    "Type & Visibility": {
+    "Type & Priority": {
         "icon": "tag",
         "accent": "violet",
-        "fields": ["event_type", "visibility", "status", "priority"],
+        "fields": ["event_type", "status", "priority"],
     },
     "Location": {
         "icon": "map-pin",
@@ -101,7 +101,6 @@ _FIELD_LABELS: dict[str, str] = {
     "recurrence_pattern": "Recurrence",
     "recurrence_end_date": "Recurrence end date",
     "event_type": "Event type",
-    "visibility": "Visibility",
     "status": "Status",
     "priority": "Priority",
     "location": "Location",

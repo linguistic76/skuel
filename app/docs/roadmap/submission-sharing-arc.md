@@ -192,7 +192,7 @@ pass confirmed or corrected.
    rendered "Submission Not Found" page (not an HTTP 404 status). The `/groups` peer reads are a
    third rule. `share()` and `share_with_group()` never write `visibility`. `TEAM` is written by the
    Events form (`events_form.py:44,75` via `EventCreateRequest`) and read nowhere; the
-   `UserOwnedEntity` visibility check (`user_owned_entity.py:72-86`) has zero callers.
+   `UserOwnedEntity` visibility check (can_view in `user_owned_entity.py`) has zero callers.
 3. **Admin-written activity reports can't be opened by their student.** `submit_report`
    (`activity_report_service.py:351`) makes the admin the owner (`:411`) and the student the
    subject; the list reads by subject (`misc_backends.py:84`), while the detail, the download and
@@ -521,7 +521,7 @@ it first removes both.
   - Live 2026-09-24: 2 nodes carry `shared` (both EntryReports — safe once PR 2b's discriminator
     is live); 0 carry `team`. Census all labels.
 - **The enum:** `Visibility` → `{PRIVATE, PUBLIC}`. Delete is_restricted, both can_view
-  (`entity.py:176`, `user_owned_entity.py:72` — zero callers), and the unused EntityUpdateRequest /
+  (`entity.py`, `user_owned_entity.py` — zero callers), and the unused EntityUpdateRequest /
   EntityResponse / EntityListResponse / EventResponse / EventListResponse (plus the
   `core/models/event/__init__.py` exports). Add stale_names DELETED rows.
 - **Writers stop writing `'shared'`:** `exercise_backends.py:652` (a RevisedExercise, in
@@ -550,6 +550,35 @@ it first removes both.
   the ADR-038 and ADR-040 (TEAM) notes, the learning-loop skill, `how-your-content-is-used.md`,
   PLACEHOLDER_INDEX:452, and `sharing-http-door.md` (its visibility-ladder section and the false
   "TEAM has no writer" line). Re-derive the stale_names anchors.
+- **Ruled (PR 2a session, 2026-09-24 — engineering choices the census found unsettled; none touches
+  a ruling):**
+  - `create_report_node` takes no `visibility` parameter: every report writer stamps `private`
+    (the one value a report can have — PUBLIC is a portfolio act the owner takes, never the
+    writer's), so a parameter with one value at every call site is deleted rather than kept.
+    The RevisedExercise grant (`auto_share_with_student`) writes its `SHARES_WITH` edge and
+    no property.
+  - `set_visibility` keeps its `Visibility` parameter and is PUBLIC-only by the enum: publishing
+    requires a shareable entity, unpublishing (PRIVATE) never does. It still has no TEACHER
+    gate of its own; the creation doors' gate (`create_entry`) is the only one, stated in the
+    `_SHARING_VISIBILITY_LADDER` reason, `sharing-http-door.md` and ADR-038's note, so the door
+    that reaches it adds one.
+  - The ingestion `user_service` is deleted end to end — `build_user_entry_request`,
+    `ingest_user_entry`, `UnifiedIngestionService.__init__` and the composition root — with
+    the duplicate gate: it served nothing else, and a parameter that serves nothing reads as a
+    second gate.
+  - The migration is `collapse_visibility_to_public_or_not_2026_09.py`: label-agnostic on
+    `shared` / `team`, and its spawned-`public` reset is scoped by the `SPAWNED_FROM` edge plus
+    a `user_uid`, so a TEACHER's deliberate `public` on an authored entry is never touched.
+  - The route fixtures keep pinning the discriminator in both directions with the two values
+    that remain: the counted feedback carries `private` + an outcome, the excluded reflection
+    `public` + none; the owner-read refusal seeds `public` (the writer's is `private`) so it
+    proves the property is no grant either way.
+  - The Events form section is "Type & Priority" (create) / the same name with `status` (edit);
+    no form field, request field, intent field or service kwarg carries `visibility` for an
+    Event — the model keeps the user-owned default.
+  - `UpdateRequestBase` / `ResponseBase` / `ListResponseBase` stay: the deleted entity-wide
+    classes were not their only inheritors (`TaskUpdateRequest`, `TaskResponse`, the template
+    update requests).
 
 ### PR 3 — Bells that work + activity reports reach the student (B)
 
@@ -1141,7 +1170,7 @@ requires PR 1, PR 3, PR 5 and PR 6a. PR 6c requires PR 4a, PR 5 and PR 6b. PR 7 
 | 0 | This document + ADR-088 + the form-recipient-read case file and MOC entry + INDEX rows (docs only; summon Codex explicitly) | This document and ADR-088 are merged; `./dev docs-links` is clean and the INDEX rows resolve | merged #1413, 2026-09-24 |
 | 1 | `SUBMITTED_TO_GROUP`: writer, request side (gated on TEACHER_REVIEW; `teachers` writes no link on other pipelines), forms, teacher readers, migration | Census: 2 edges re-typed, and a count of classmate-visible turn-ins (a `MEMBER_OF` member reaching a `teacher_review` entry it does not own through `SHARED_WITH_GROUP`) reads 0. `/teaching/queue` still lists the Gentle Return turn-in. A `pipeline: none` vault note with no `audience:` writes no group link. (`/groups` as linguistic76 shows no turn-ins before PR 1 too — linguistic76 owns both.) | merged #1414, 2026-09-24 |
 | 2b | The outcome discriminator; the EntryReport access check retired; report detail is an owner read | The GradeBook shows the same exchanges as before (3 live on 2026-09-24, on old and new code — the PR 0 census counted 2). `/entry-reports/detail` gives the owner 200 and others 404 | merged #1415, 2026-09-24 |
-| 2a | `visibility` = {private, public}: enum, writers, Events field, spawn fix, migration first; `set_visibility` PUBLIC-only; the duplicate ingestion gate and the unused request/response classes deleted | The census shows 0 `shared`/`team` values. The Events form has no Visibility field. Spawned instances are private | open |
+| 2a | `visibility` = {private, public}: enum, writers, Events field, spawn fix, migration first; `set_visibility` PUBLIC-only; the duplicate ingestion gate and the unused request/response classes deleted | The census shows 0 `shared`/`team` values. The Events form has no Visibility field. Spawned instances are private | merged #1416, 2026-09-24 |
 | 3 | `NotificationType`; card links; admin activity reports owned by the student + their bell; subject validation; generated-report reads exclude admin (human) reports, both user-context statements included | An admin writes an activity report → the student's bell → the detail page opens. The old feedback bells open their reports | open |
 | 4a | Snapshot-keyed exchanges; "Exercise removed"; R13 subtitle | After deleting a test exercise with turn-ins, the GradeBook shows an "Exercise removed" line and `/exchange` opens | open |
 | 4b | The two lineage predicates accept `FULFILLS_EXERCISE\|FULFILLS_REVISED_EXERCISE` | A resubmitted revision no longer shows as pending in UserContext | open |

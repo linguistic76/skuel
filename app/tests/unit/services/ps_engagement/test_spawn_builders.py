@@ -27,6 +27,7 @@ from datetime import UTC, date, datetime, timedelta
 import pytest
 
 from core.models.enums.activity_enums import EngagementState
+from core.models.enums.metadata_enums import Visibility
 from core.models.task.task import Task
 from core.models.templates.choice_template import ChoiceTemplate
 from core.models.templates.event_template import EventTemplate
@@ -160,6 +161,16 @@ class TestTaskBuilder:
             instance = _build(spec, template, STUDENT, PS, ANCHOR, {template.uid: "inst_uid"})
             assert instance.created_at == ANCHOR, spec.instance_cls.__name__
             assert instance.updated_at == ANCHOR, spec.instance_cls.__name__
+
+    def test_a_spawned_instance_is_private_whatever_its_template_says(self) -> None:
+        """``visibility`` is managed, never copied: a template is curriculum
+        (PUBLIC by class default) and the instance is the student's own
+        (PRIVATE by the user-owned default). A copied ``public`` would publish
+        a student's task (ADR-088 §4)."""
+        tt = TaskTemplate(uid="ttpl_pub", title="Practice")
+        assert tt.visibility is Visibility.PUBLIC
+        task = _build(TASK_SPEC, tt, STUDENT, PS, ANCHOR, {"ttpl_pub": "task_pub_xyz"})
+        assert task.visibility is Visibility.PRIVATE
 
     def test_a_set_offset_is_not_overridden_by_the_creation_rule(self) -> None:
         tt = TaskTemplate(uid="ttpl_sched", title="t", scheduled_offset=RelativeOffset(days=3))

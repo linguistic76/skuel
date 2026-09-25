@@ -1,5 +1,5 @@
 ---
-updated: 2026-09-17
+updated: 2026-09-25
 ---
 
 # Enum Architecture
@@ -366,7 +366,7 @@ AlignmentLevel has `to_score()` / `from_score()` methods for the dual-track asse
 **Metadata** (`metadata_enums.py`) — System-wide configuration:
 - `RelationshipType` (59 values — all entity relationship types)
 - `Intent` (23 values — user intent classification)
-- `Visibility` (PRIVATE, SHARED, TEAM, PUBLIC)
+- `Visibility` (PRIVATE, PUBLIC — public-or-not, ADR-088 §4)
 - `SystemConstants` (class with thresholds: MASTERY_THRESHOLD=0.8, etc.)
 - Plus: ResponseTone, Personality, GuidanceMode, MessageRole, ConversationState, CacheStrategy, TrendDirection, HealthStatus, SeverityLevel, ErrorSeverity
 

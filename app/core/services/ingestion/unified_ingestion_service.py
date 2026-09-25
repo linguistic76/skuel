@@ -62,7 +62,6 @@ if TYPE_CHECKING:
         UserEntryProcessingService,
     )
     from core.services.user_entry.user_entry_service import UserEntryService
-    from core.services.user_service import UserService
     from core.services.vault.vault_descriptor import VaultRegistry
 
 from core.events import publish_event
@@ -161,7 +160,6 @@ class UnifiedIngestionService:
         embeddings_enabled: bool = True,
         ingestion_backend: IngestionBackendOperations | None = None,
         user_entry_service: UserEntryService | None = None,
-        user_service: UserService | None = None,
         user_entry_processor: UserEntryProcessingService | None = None,
         sync_allowlist: SyncAllowlist | None = None,
     ) -> None:
@@ -202,10 +200,6 @@ class UnifiedIngestionService:
             user_entry_service: UserEntryService for routing UserEntry YAMLs through
                                 the same create_entry() pipeline as /submit. Required
                                 when ingesting ``type: user_entry`` files.
-            user_service: UserService for role lookup during UserEntry ingestion
-                          (gates ``audience: public`` on TEACHER role). When not
-                          wired, ``audience: public`` uploads are rejected as
-                          forbidden.
             user_entry_processor: UserEntryProcessingService that runs the
                           entry's ``pipeline`` after persistence. When wired, a
                           ``pipeline: extract_activities`` periodic note has its
@@ -244,7 +238,6 @@ class UnifiedIngestionService:
         # and ride the same bus in both tiers (see the ``event_bus`` arg note).
         self.embeddings_enabled = embeddings_enabled
         self.user_entry_service = user_entry_service
-        self.user_service = user_service
         # Late-bound at the composition root (UserEntryProcessingService is built
         # after this service); runs entry.pipeline after persistence.
         self.user_entry_processor = user_entry_processor
@@ -1053,7 +1046,6 @@ class UnifiedIngestionService:
                 file_path=file_path,
                 user_uid=effective_user_uid,
                 user_entry_service=self.user_entry_service,
-                user_service=self.user_service,
                 body=body,
                 user_entry_processor=self.user_entry_processor,
                 prior_uid=prior_uid,

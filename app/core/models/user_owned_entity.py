@@ -68,20 +68,3 @@ class UserOwnedEntity(Entity):
     def is_user_owned(self) -> bool:
         """Check if this entity has an owner."""
         return self.user_uid is not None
-
-    def can_view(self, viewer_uid: str, shared_user_uids: set[str] | None = None) -> bool:
-        """
-        Check if a user can view this entity.
-
-        Access granted if:
-        - Entity is PUBLIC
-        - Viewer is the owner
-        - Entity is SHARED and viewer is in shared_user_uids
-        """
-        if self.visibility == Visibility.PUBLIC:
-            return True
-        if self.user_uid and viewer_uid == self.user_uid:
-            return True
-        if self.visibility == Visibility.SHARED and shared_user_uids:
-            return viewer_uid in shared_user_uids
-        return False

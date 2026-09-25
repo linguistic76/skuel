@@ -18,7 +18,7 @@ For implementation guidance, see:
 
 ## Overview
 
-SKUEL's content sharing system enables users to share entities with specific users (teachers, peers, mentors) or with entire groups. Built on a three-level visibility model with Neo4j relationship-based access control.
+SKUEL's content sharing system enables users to share entities with specific users (teachers, peers, mentors) or with entire groups. The share links are the one record of who sees what (ADR-088 §4); `visibility` says only whether an entity is published.
 
 **Service:** `UnifiedSharingService` — entity-agnostic, works across all EntityTypes.
 **Protocol:** `SharingOperations` — `core/ports/sharing_protocols.py`
@@ -27,13 +27,20 @@ SKUEL's content sharing system enables users to share entities with specific use
 
 ## Core Concepts
 
-### Three-Level Visibility Model
+### Visibility Is Public-or-Not (ADR-088 §4)
 
 ```
-PRIVATE (default) → Owner only
-SHARED            → Owner + users with SHARES_WITH or SHARED_WITH_GROUP relationship
-PUBLIC            → Anyone can view (portfolio showcase)
+PRIVATE (default) → Not published — the owner opens it, and whoever a share link names
+PUBLIC            → Published (portfolio showcase; TEACHER-gated; no reader yet)
 ```
+
+`Visibility` has exactly these two members. A share never writes the property: the
+`SHARES_WITH` / `SHARED_WITH_GROUP` edge is the whole grant, and every read composes its
+audience from those edges (`build_search_visibility_clause`, ADR-085). A spawned PS-engagement
+instance is PRIVATE whatever its template's `visibility` says (`_spawn_orchestrator.py`
+manages the field), and the migration
+`scripts/migrations/collapse_visibility_to_public_or_not_2026_09.py` (census by default,
+`--confirm` to write) rewrote the retired `shared` / `team` rows to `private`.
 
 ### Two Verbs, Two Group-Link Kinds (ADR-088)
 
@@ -483,7 +490,7 @@ This mirrors the logic in `CrudOperationsMixin.verify_ownership` — returns `no
 for both missing entities and ownership mismatches to prevent UID enumeration.
 
 For operations that don't need a shareable check (unshare, unshare_from_group,
-set_visibility to PRIVATE), the method is called with `require_shareable=False`.
+set_visibility to PRIVATE — the unpublish), the method is called with `require_shareable=False`.
 
 ### Quality Control
 
@@ -501,9 +508,11 @@ information leakage.
 
 ### PUBLIC Visibility
 
-`PUBLIC` is a visibility value `set_visibility()` writes and no read honours yet; no
-route lists public entities — there is no `/api/submissions/public` (ADR-038 § API Layer
-records the retired listing and its absent successor).
+`PUBLIC` is the one published state — written at creation (TEACHER-gated at every door) or
+by `set_visibility()`, which is PUBLIC-only (publish / unpublish) and has no door and no
+TEACHER gate of its own yet. No read honours it: no route lists public entities — there is
+no `/api/submissions/public` (ADR-038 § API Layer records the retired listing and its absent
+successor).
 
 ### Admin Routes
 
@@ -546,8 +555,7 @@ async def test_share_success(mock_backend, sharing_service):
 ```python
 @pytest.mark.integration
 async def test_complete_sharing_workflow(sharing_service, test_entity, neo4j_driver):
-    # Set visibility → Share → the edge exists → Unshare → the edge is gone
-    await sharing_service.set_visibility(...)
+    # Share → the edge exists → Unshare → the edge is gone (no visibility step: the edge is the grant)
     await sharing_service.share(...)
 
     # The SHARES_WITH edge is the one record of the share (ADR-088 §3):
@@ -567,14 +575,14 @@ async def test_complete_sharing_workflow(sharing_service, test_entity, neo4j_dri
 No read honours the property. `build_search_visibility_clause()` (ADR-085 — search
 strategies and by-uid visible reads) admits by **edge only**: `:OWNS`, `:SHARES_WITH`,
 `MEMBER_OF ← SHARED_WITH_GROUP`; an EntryReport is an owner read (ADR-088 §3). Setting
-`visibility` grants nothing to anyone — `SHARED` is inert, and `PUBLIC` waits on its first
-reader (a portfolio listing; `/docs/roadmap/sharing-http-door.md`).
+`visibility` grants nothing to anyone — the property is public-or-not, and `PUBLIC` waits
+on its first reader (a portfolio listing; `/docs/roadmap/sharing-http-door.md`).
 
 ```python
 # A share() alone is the grant for every edge-gated read — no visibility change needed.
 await sharing_service.share(...)
 
-# The EntryReport writer still stamps visibility: 'shared' beside the student's own
+# The EntryReport writer stamps visibility: 'private' beside the student's own
 # SHARES_WITH; neither is what admits the student — ownership (user_uid) is.
 ```
 
@@ -614,7 +622,7 @@ if result.is_error:
 - **Sharing at creation:** `adapters/inbound/user_entry_api.py` — entries are shared via the `share_with_groups` field on create (no standalone sharing-management routes)
 - **Group sharing routes:** `adapters/inbound/groups_hub_routes.py` (`/api/groups/{group_uid}/shared/preview`, `/groups/{group_uid}/entries/{entry_uid}`)
 - **UI Routes:** `adapters/inbound/user_entry_ui.py`
-- **UI Components:** `ui/user_entry/forms.py` (share-with-group / visibility fields on the submit form)
+- **UI Components:** `ui/user_entry/forms.py` (the audience selector on the submit form)
 - **Profile Tab:** `adapters/inbound/user_profile_ui.py`
 
 ### Documentation

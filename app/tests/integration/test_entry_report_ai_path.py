@@ -306,8 +306,8 @@ async def test_ai_report_is_discoverable_via_typed_read(
     assert report.assessment_outcome == AssessmentOutcome.AI_EVALUATED
     assert report.processed_content == "Typed read check."
 
-    # Reports created via create_report_node land with visibility='shared' —
-    # a property no read honours (a report is an owner read, ADR-088 §3).
+    # Reports created via create_report_node land private: the property is
+    # publication only (ADR-088 §4), and a report is an owner read (§3).
     async with neo4j_driver.session() as session:
         cursor = await session.run(
             "MATCH (r:EntryReport {uid: $uid}) RETURN r.visibility AS visibility",
@@ -315,7 +315,7 @@ async def test_ai_report_is_discoverable_via_typed_read(
         )
         record = await cursor.single()
     assert record is not None
-    assert record["visibility"] == "shared"
+    assert record["visibility"] == "private"
 
     # A missing UID narrows to the same not-found as a foreign one.
     missing = await service.get_for_user("sr_does_not_exist", STUDENT_UID)

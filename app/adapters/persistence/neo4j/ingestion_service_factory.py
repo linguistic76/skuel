@@ -37,7 +37,7 @@ def make_unified_ingestion_service(driver: AsyncDriver, **kwargs: Any) -> Unifie
             backends; the service never touches the driver directly.
         **kwargs: Forwarded verbatim to ``UnifiedIngestionService`` (e.g.
             ``default_user_uid``, ``chunking_service``, ``content_adapter``,
-            ``event_bus``, ``ingestion_backend``, ``user_service``).
+            ``event_bus``, ``ingestion_backend``).
 
     Returns:
         A fully-wired UnifiedIngestionService.

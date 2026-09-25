@@ -35,7 +35,7 @@ from core.events.calendar_event_events import (
     CalendarEventRescheduled,
     CalendarEventUpdated,
 )
-from core.models.enums import EntityStatus, Priority, Visibility
+from core.models.enums import EntityStatus, Priority
 from core.models.enums.neo_labels import NeoLabel
 from core.models.event.event import Event
 from core.models.event.event_request import EventUpdateRequest
@@ -177,18 +177,14 @@ class TestEventUpdateIntentPipeline:
         assert intent.to_changes() == {"title": "Just the title"}
 
         # Enum fields are lowered to their string value on the intent.
-        request2 = EventUpdateRequest(
-            priority=Priority.HIGH, status=EntityStatus.ACTIVE, visibility=Visibility.PUBLIC
-        )
+        request2 = EventUpdateRequest(priority=Priority.HIGH, status=EntityStatus.ACTIVE)
         intent2 = request2.to_intent()
         assert intent2.priority == Priority.HIGH.value
         assert intent2.status == EntityStatus.ACTIVE.value
-        assert intent2.visibility == Visibility.PUBLIC.value
         assert intent2.title is UNSET
         assert intent2.to_changes() == {
             "priority": Priority.HIGH.value,
             "status": EntityStatus.ACTIVE.value,
-            "visibility": Visibility.PUBLIC.value,
         }
 
     async def test_to_intent_drops_non_column_learning_fields(self) -> None:

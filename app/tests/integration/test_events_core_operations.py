@@ -353,11 +353,7 @@ class TestEventsCoreOperations:
         """Test creating events with different visibility levels."""
         # Arrange & Act - Create events with each visibility
         today = date.today()
-        visibility_levels = [
-            Visibility.PUBLIC,
-            Visibility.PRIVATE,
-            Visibility.SHARED,
-        ]
+        visibility_levels = [Visibility.PUBLIC, Visibility.PRIVATE]
 
         for visibility in visibility_levels:
             event = Event(

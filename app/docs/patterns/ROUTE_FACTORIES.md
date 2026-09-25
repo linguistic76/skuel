@@ -1,6 +1,6 @@
 ---
 title: Route Factory Pattern
-updated: '2026-09-21'
+updated: '2026-09-25'
 category: patterns
 related_skills:
 - domain-route-config
@@ -79,7 +79,7 @@ crud_factory = CRUDRouteFactory(
     service=form_template_service,
     domain_name="form-templates",
     create_schema=FormTemplateCreateRequest,
-    update_schema=EntityUpdateRequest,
+    update_schema=FormTemplateUpdateRequest,
     uid_prefix="ft",
     scope=ContentScope.SHARED,  # Shared content, admin-only mutations
     require_role=UserRole.ADMIN,

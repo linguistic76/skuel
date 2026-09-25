@@ -261,20 +261,20 @@ class CacheStrategy(StrEnum):
 
 
 class Visibility(StrEnum):
-    """Visibility settings for any entity."""
+    """Whether an entity is published (ADR-088 §4): public or not.
 
-    PRIVATE = "private"  # Only visible to owner
-    SHARED = "shared"  # Visible to specific users
-    TEAM = "team"  # Visible to team members
-    PUBLIC = "public"  # Visible to everyone
+    Who else may open an entity is recorded only by its share links
+    (``SHARES_WITH``, ``SHARED_WITH_GROUP``); this property never widens
+    access. PUBLIC is portfolio publication, TEACHER-gated at every door,
+    and has no reader yet (``docs/roadmap/sharing-http-door.md``).
+    """
+
+    PRIVATE = "private"  # Not published — the owner and the share links decide
+    PUBLIC = "public"  # Published to everyone (portfolio)
 
     def is_public(self) -> bool:
         """Check if publicly visible"""
         return self == Visibility.PUBLIC
-
-    def is_restricted(self) -> bool:
-        """Check if access is restricted"""
-        return self in {Visibility.PRIVATE, Visibility.SHARED, Visibility.TEAM}
 
 
 class SearchVisibility(StrEnum):
@@ -284,7 +284,7 @@ class SearchVisibility(StrEnum):
     THE single scoping declaration for every search strategy (text, tags,
     graph traversal, faceted) — declared per domain on ``DomainConfig`` and
     composed into Cypher by the persistence layer. Distinct from
-    ``Visibility`` (per-entity sharing state): SearchVisibility is the
+    ``Visibility`` (per-entity publication, public or not): SearchVisibility is the
     type-level rule; instance-level scope/sharing edges are what
     SCOPE_AWARE evaluates.
 

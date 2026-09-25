@@ -11,7 +11,7 @@ from datetime import date, datetime, time
 
 from pydantic import BaseModel, ConfigDict, Field
 
-from core.models.enums import EntityStatus, EventType, Priority, RecurrencePattern, Visibility
+from core.models.enums import EntityStatus, EventType, Priority, RecurrencePattern
 from core.models.event.event_update_intent import EventUpdateIntent
 from core.models.sentinels import UNSET, Unset
 from core.models.type_hints import UserUID
@@ -33,9 +33,8 @@ class EventCreateRequest(BaseModel):
     start_time: time = Field(description="Start time")
     end_time: time = Field(description="End time")
 
-    # Type and visibility
+    # Type
     event_type: EventType = Field(default=EventType.PERSONAL, description="Type of event")
-    visibility: Visibility = Field(default=Visibility.PRIVATE, description="Event visibility")
 
     # Location
     location: str | None = Field(default=None, description="Event location")
@@ -106,7 +105,6 @@ class EventUpdateRequest(BaseModel):
     start_time: time | None = None
     end_time: time | None = None
     event_type: EventType | None = None
-    visibility: Visibility | None = None
     location: str | None = None
     is_online: bool | None = None
     meeting_url: str | None = None
@@ -136,8 +134,8 @@ class EventUpdateRequest(BaseModel):
 
         Only fields the caller actually provided (``model_fields_set``) become non-``UNSET``,
         so the intent carries a true partial patch: an absent field is left untouched, a
-        field explicitly set to ``None`` is an explicit clear. Enum fields (visibility,
-        priority, status) are lowered to their string value to match the persistence
+        field explicitly set to ``None`` is an explicit clear. Enum fields (priority,
+        status) are lowered to their string value to match the persistence
         boundary.
 
         The two cross-domain edge UIDs (``milestone_celebration_for_goal`` /
@@ -180,9 +178,6 @@ class EventUpdateRequest(BaseModel):
                 "knowledge_retention_check", self.knowledge_retention_check
             ),
             status=when_set("status", self.status.value if self.status is not None else None),
-            visibility=when_set(
-                "visibility", self.visibility.value if self.visibility is not None else None
-            ),
             priority=when_set(
                 "priority", self.priority.value if self.priority is not None else None
             ),
@@ -192,80 +187,6 @@ class EventUpdateRequest(BaseModel):
             ),
             reinforces_habit_uid=when_set("reinforces_habit_uid", self.reinforces_habit_uid),
         )
-
-
-class EventResponse(BaseModel):
-    """External API response for an event."""
-
-    uid: str
-    title: str
-    description: str | None
-
-    # Timing
-    event_date: date
-    start_time: time
-    end_time: time
-    duration_minutes: int
-
-    # Type and status
-    event_type: str
-    status: EntityStatus
-    visibility: Visibility
-    priority: Priority
-
-    # Location
-    location: str | None
-    is_online: bool
-    meeting_url: str | None
-
-    # Organization
-    tags: list[str]
-
-    # Attendees
-    attendee_count: int
-    max_attendees: int | None
-    is_full: bool
-
-    # Recurrence
-    recurrence_pattern: RecurrencePattern | None
-    recurrence_end_date: date | None
-    is_recurring: bool
-    recurrence_parent_uid: str | None
-
-    # Reminders
-    reminder_minutes: int | None
-    reminder_sent: bool
-
-    # Metadata
-    created_at: datetime
-    updated_at: datetime
-
-    # Learning Integration
-    reinforces_habit_uid: str | None
-    practices_knowledge_uids: list[str]
-    milestone_celebration_for_goal: str | None
-    executes_tasks: list[str]
-    habit_completion_quality: int | None
-    knowledge_retention_check: bool
-    recurrence_maintains_habit: bool
-    skip_breaks_habit_streak: bool
-
-    # Computed fields
-    is_past: bool
-    is_today: bool
-    is_upcoming: bool
-    is_habit_event: bool
-    is_learning_event: bool
-    is_milestone_event: bool
-    has_tasks: bool
-    days_until: int
-    conflicts_with: list[str]
-    learning_impact_score: float
-    completion_value: float
-
-    model_config = ConfigDict(
-        # Pydantic V2 serializes enums, dates, times, and datetimes automatically
-    )
 
 
 class EventFilterRequest(BaseModel):
@@ -356,17 +277,3 @@ class EventsInRangeRequest(BaseModel):
 # =============================================================================
 # RESPONSE TYPES
 # =============================================================================
-
-
-class EventListResponse(BaseModel):
-    """Response for listing multiple events."""
-
-    items: list[EventResponse]
-    total: int
-    page: int = 1
-    page_size: int = 20
-
-    # Summary
-    total_today: int
-    total_this_week: int
-    total_this_month: int

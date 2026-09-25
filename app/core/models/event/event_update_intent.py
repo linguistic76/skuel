@@ -49,7 +49,7 @@ if TYPE_CHECKING:
 class EventUpdateIntent:
     """The fields an event update may change (ADR-066). ``UNSET`` = not in this update.
 
-    Enum fields (event_type, visibility, priority, status) carry their lowered string
+    Enum fields (event_type, priority, status) carry their lowered string
     value, matching what the persistence boundary stores.
     """
 
@@ -79,9 +79,8 @@ class EventUpdateIntent:
     habit_completion_quality: int | Unset | None = UNSET
     knowledge_retention_check: bool | Unset | None = UNSET
 
-    # --- Status / visibility / priority / tags / metadata --------------------
+    # --- Status / priority / tags / metadata ---------------------------------
     status: str | Unset | None = UNSET
-    visibility: str | Unset | None = UNSET
     priority: str | Unset | None = UNSET
     tags: list[str] | Unset | None = UNSET
     metadata: dict[str, Any] | Unset | None = UNSET

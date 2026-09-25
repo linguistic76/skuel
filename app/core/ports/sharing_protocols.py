@@ -226,7 +226,7 @@ class SharingOperations(Protocol):
         owner_uid: str,
         visibility: Visibility,
     ) -> Result[bool]:
-        """Set entity visibility level. Returns Result[bool]."""
+        """Publish (PUBLIC) or unpublish (PRIVATE) an owned entity. Returns Result[bool]."""
         ...
 
     async def share_with_group(

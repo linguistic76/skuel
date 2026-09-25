@@ -1,6 +1,6 @@
 ---
 title: Ownership Verification Pattern
-updated: '2026-09-24'
+updated: '2026-09-25'
 category: patterns
 related_skills:
 - activity-domains
@@ -151,7 +151,7 @@ crud_factory = CRUDRouteFactory(
     service=form_template_service,
     domain_name="form-templates",
     create_schema=FormTemplateCreateRequest,
-    update_schema=EntityUpdateRequest,
+    update_schema=FormTemplateUpdateRequest,
     scope=ContentScope.SHARED,  # Shared content, not user-owned
 )
 ```

@@ -270,6 +270,17 @@ DELETED: dict[str, str] = {
     "check_access": "deleted — no standalone access check; an EntryReport is an owner read (EntryReportService.get_for_user, the OWNER_ONLY clause of ADR-085's chokepoint), every other read composes its audience from build_search_visibility_clause",
     "query_access": "deleted — served only check_access",
     "check_report_access": "deleted — the orchestrator's caller-less wrapper over check_access; get_entry_report_view is the owner read",
+    # visibility is public-or-not (ADR-088 §4): the share links are the one record of
+    # who else may open an entity, and no in-memory check reads the property.
+    "Visibility.SHARED": "deleted — the share links (SHARES_WITH, SHARED_WITH_GROUP) are the one record of a share; the property is public-or-not",
+    "Visibility.TEAM": "deleted — a reserved value nothing read; group audience is the SHARED_WITH_GROUP edge",
+    "is_restricted": "deleted — served only the three-level ladder; PUBLIC is the one published state (Visibility.is_public)",
+    "can_view": "deleted — Entity / UserOwnedEntity in-memory access check with zero callers; every read composes its audience in Cypher through build_search_visibility_clause (ADR-085)",
+    "EntityUpdateRequest": "deleted — never wired; every domain has its own *UpdateRequest (TaskUpdateRequest, FormTemplateUpdateRequest, …)",
+    "EntityResponse": "deleted — never wired; routes render FT or return the domain's own response shape",
+    "EntityListResponse": "deleted — served only EntityResponse",
+    "EventResponse": "deleted — never wired; the Events API renders through the CRUD factory, not a response model",
+    "EventListResponse": "deleted — served only EventResponse",
     # Deleted enum members
     "Pipeline.JOURNAL": (
         "deleted — where a journal goes is stated in the Pipeline class docstring "
@@ -391,6 +402,7 @@ _adr073 = "ADR-073 § 3 amendment (2026-09-02) recording the Pipeline.JOURNAL de
 _defiction = "the docs de-fiction arc's record names every route, symbol and decorator its sweeps retired -- a finding list is unreadable without the name it found"
 _symbol_queue = "the symbol-claim queue's verdict table teaches 'fictional namespace, real members' by naming its two worked instances -- the verdict is unintelligible without them"
 _adr088_2b = "the retired EntryReport access check named where it stood -- ADR-038/042/054 sketches and the position-2 migration record are frozen decision text; ADR-088 §3 is the record that retired it"
+_adr088_2a = "the retired visibility ladder named where it stood -- ADR-038's Data Model record and ADR-040's Context inventory are frozen decision text; ADR-088 §4 is the record that collapsed the enum"
 _sharing_door = "the sharing-door record -- ADR-038's amendment, the deferred-work MOC line and the case file's per-method table name the two methods (and their backend twins) that no longer exist"
 _askesis_arch = "change-history table recording the entities_rich unification / ActivityDataReader absorption / ActivityReviewService split"
 _askesis_intel = "'the former ActivityReviewService was split' -- historical record of the split"
@@ -452,10 +464,11 @@ ALLOWED_OCCURRENCES: dict[str, dict[tuple[int, str], Allow]] = {
     # anchors follow the file's current line numbers, re-derived from the
     # scanner's report whenever a note is added above them.
     "docs/decisions/ADR-040-teacher-exercise-workflow.md": {
-        (29, "ProcessorType"): Allow(_adr040),
-        (32, "SubmissionsSharingService"): Allow(_adr040),
-        (59, "ProcessorType"): Allow(_adr040),
-        (64, "ProcessorType"): Allow(_adr040),
+        (31, "ProcessorType"): Allow(_adr040),
+        (33, "Visibility.TEAM"): Allow(_adr088_2a),
+        (34, "SubmissionsSharingService"): Allow(_adr040),
+        (61, "ProcessorType"): Allow(_adr040),
+        (66, "ProcessorType"): Allow(_adr040),
     },
     "docs/decisions/ADR-041-unified-ku-model.md": {
         (22, "KuStatus"): Allow(_adr041),
@@ -521,8 +534,11 @@ ALLOWED_OCCURRENCES: dict[str, dict[tuple[int, str], Allow]] = {
         # The Service Layer list, the API Layer's "no successor" line and the Phase 4
         # record name the retired check; the Service Layer's ADR-088 note sits above the last two.
         (95, "check_access"): Allow(_adr088_2b),
-        (136, "check_access"): Allow(_adr088_2b),
-        (209, "check_access"): Allow(_adr088_2b),
+        (143, "check_access"): Allow(_adr088_2b),
+        (216, "check_access"): Allow(_adr088_2b),
+        # The Data Model Changes record lists the method the decision added; the
+        # Service Layer's ADR-088 PR 2a note (above it) records its deletion.
+        (167, "can_view"): Allow(_adr088_2a),
     },
     "docs/roadmap/deferred-work.md": {
         (96, "verify_shareable"): Allow(_sharing_door),

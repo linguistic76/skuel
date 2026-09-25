@@ -290,7 +290,7 @@ class EntryReportService:
     ) -> Result[EntryReport]:
         """Persist a journal response as a PRIVATE, self-owned ENTRY_REPORT.
 
-        Delegates to ``create_report_node`` with ``visibility='private'``,
+        Delegates to ``create_report_node`` with
         ``create_student_share=False``, ``author_uid=None`` (no human author),
         and ``submission_status=None`` (no status transition).
         """
@@ -320,7 +320,6 @@ class EntryReportService:
                     "processor_type": ReportSource.LLM.value,
                     "assessment_outcome": None,
                     "allowed_from_statuses": None,
-                    "visibility": "private",
                     "create_student_share": False,
                     "now": now,
                 },
@@ -496,7 +495,6 @@ class EntryReportService:
                     "processor_type": ReportSource.LLM.value,
                     "assessment_outcome": AssessmentOutcome.AI_EVALUATED.value,
                     "allowed_from_statuses": None,
-                    "visibility": "shared",
                     "create_student_share": True,
                     "now": now,
                 },

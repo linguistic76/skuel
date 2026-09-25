@@ -79,7 +79,7 @@ async def seeded(clean_neo4j, neo4j_driver) -> None:
             MERGE (a1)-[:FULFILLS_EXERCISE {revision: 1}]->(exa)
 
             // B: feedback received; the outcome-less reflection must count nowhere.
-            // The feedback carries visibility 'private' and the reflection 'shared':
+            // The feedback carries visibility 'private' and the reflection 'public':
             // the OUTCOME decides, the property never does (ADR-088).
             CREATE (b1:Entity:UserEntry {uid: 'ue_sum_b1', entity_type: 'user_entry',
                 title: 'B turn-in', status: 'completed',
@@ -89,7 +89,7 @@ async def seeded(clean_neo4j, neo4j_driver) -> None:
                 processor_type: 'human', assessment_outcome: 'approved',
                 created_at: datetime('2026-08-01T02:00:00Z')})
             CREATE (rbp:Entity:EntryReport {uid: 'er_sum_rbp', entity_type: 'entry_report',
-                title: 'B private reflection', status: 'completed', visibility: 'shared',
+                title: 'B private reflection', status: 'completed', visibility: 'public',
                 processor_type: 'llm',
                 created_at: datetime('2026-08-01T02:30:00Z')})
             MERGE (s)-[:OWNS]->(b1)
@@ -104,7 +104,7 @@ async def seeded(clean_neo4j, neo4j_driver) -> None:
                 title: 'C turn-in', status: 'revision_requested',
                 created_at: '2026-08-01T05:00:00.000000'})
             CREATE (rc:Entity:EntryReport {uid: 'er_sum_rc', entity_type: 'entry_report',
-                title: 'C revision request', status: 'completed', visibility: 'shared',
+                title: 'C revision request', status: 'completed', visibility: 'private',
                 processor_type: 'human', assessment_outcome: 'needs_revision',
                 created_at: datetime('2026-08-01T05:30:00Z')})
             MERGE (s)-[:OWNS]->(c1)
@@ -117,7 +117,7 @@ async def seeded(clean_neo4j, neo4j_driver) -> None:
                 title: 'D turn-in', status: 'revision_requested',
                 created_at: '2026-08-01T00:00:00.000000'})
             CREATE (rd:Entity:EntryReport {uid: 'er_sum_rd', entity_type: 'entry_report',
-                title: 'D revision request', status: 'completed', visibility: 'shared',
+                title: 'D revision request', status: 'completed', visibility: 'private',
                 processor_type: 'human', assessment_outcome: 'needs_revision',
                 created_at: datetime('2026-08-01T00:30:00Z')})
             CREATE (red:Entity:RevisedExercise {uid: 're_sum_red',
@@ -140,7 +140,7 @@ async def seeded(clean_neo4j, neo4j_driver) -> None:
                 title: 'Plain journal entry', status: 'completed',
                 created_at: '2026-07-30T10:00:00.000000'})
             CREATE (rp:Entity:EntryReport {uid: 'er_sum_plain', entity_type: 'entry_report',
-                title: 'Journal response', status: 'completed', visibility: 'shared',
+                title: 'Journal response', status: 'completed', visibility: 'private',
                 processor_type: 'human', assessment_outcome: 'approved',
                 created_at: datetime('2026-07-30T12:00:00Z')})
             CREATE (rpp:Entity:EntryReport {uid: 'er_sum_plain_priv',
@@ -148,7 +148,7 @@ async def seeded(clean_neo4j, neo4j_driver) -> None:
                 status: 'completed', visibility: 'private', processor_type: 'llm',
                 created_at: datetime('2026-07-30T13:00:00Z')})
             CREATE (rfree:Entity:EntryReport {uid: 'er_sum_free', entity_type: 'entry_report',
-                title: 'Detached report', status: 'completed', visibility: 'shared',
+                title: 'Detached report', status: 'completed', visibility: 'private',
                 processor_type: 'llm', assessment_outcome: 'ai_evaluated',
                 created_at: datetime('2026-07-31T12:00:00Z')})
             MERGE (s)-[:OWNS]->(pe)
@@ -163,7 +163,7 @@ async def seeded(clean_neo4j, neo4j_driver) -> None:
                 title: 'Other turn-in', status: 'completed',
                 created_at: '2026-08-01T06:00:00.000000'})
             CREATE (ro:Entity:EntryReport {uid: 'er_sum_ro', entity_type: 'entry_report',
-                title: 'Other feedback', status: 'completed', visibility: 'shared',
+                title: 'Other feedback', status: 'completed', visibility: 'private',
                 processor_type: 'human', assessment_outcome: 'approved',
                 created_at: datetime('2026-08-01T06:30:00Z')})
             MERGE (o)-[:OWNS]->(o1)

@@ -173,16 +173,6 @@ class Entity:
         """Only completed entities can be shared (quality control)."""
         return self.status == EntityStatus.COMPLETED
 
-    def can_view(self, _viewer_uid: str, _shared_user_uids: set[str] | None = None) -> bool:
-        """
-        Check if a user can view this entity.
-
-        Base implementation checks visibility only (no user ownership).
-        UserOwnedEntity overrides with full ownership + sharing logic.
-        Shared types (Curriculum, Resource) are always PUBLIC.
-        """
-        return self.visibility == Visibility.PUBLIC
-
     # =========================================================================
     # KNOWLEDGE CARRIER PROTOCOL
     # =========================================================================
