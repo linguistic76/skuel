@@ -206,7 +206,8 @@ class AudienceResolver:
                         action="submit for exercise",
                         reason=(
                             f"Exercise {fulfills_exercise_uid} is not assigned to "
-                            "any of your groups and you are not its owner."
+                            "any of your groups, you are not its owner, and it is "
+                            "not a revision addressed to you."
                         ),
                     )
                 )

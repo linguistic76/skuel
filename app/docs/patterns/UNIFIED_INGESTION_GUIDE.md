@@ -1,6 +1,6 @@
 ---
 title: Unified Ingestion Implementation Guide
-updated: 2026-09-24
+updated: 2026-09-25
 category: patterns
 related_skills: []
 related_docs:
@@ -308,8 +308,9 @@ defined by **deterministic `uid:` + `fulfills_exercise_uid:`** on one file
   ("exercise in progress"), never a `FULFILLS_EXERCISE` edge, no revision,
   no Interaction. Removing the frontmatter line withdraws the intent (the
   property clears on the next sync). Authorization is validated at first
-  sync (`query_user_can_use_exercise` — owner, group member, or
-  IN_PROGRESS on an anchored PathStep) and fails the file loudly.
+  sync (`query_user_can_use_exercise` — owner, group member, IN_PROGRESS
+  on an anchored PathStep, or the student a revision names) and fails the
+  file loudly.
 - **`status: submitted` + sync = the turn-in signal.** Sync files a
   **frozen copy** through the existing turn-in machinery: fresh random-uid
   node, `FULFILLS_EXERCISE {revision}` edge, Interaction audit record,

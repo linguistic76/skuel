@@ -392,6 +392,8 @@ class SharingBackend(UniversalNeo4jBackend[Entity]):
           - user owns the exercise (teacher previewing their own)
           - exercise is SHARED_WITH_GROUP with a group the user is a member of
           - exercise is linked to a PathStep the user is currently in progress on
+          - the target is a RevisedExercise addressed to the user (its
+            ``student_uid``) — a revision is answered by the student it names
 
         Prevents YAML uploads from smuggling ``fulfills_exercise_uid`` values
         for exercises the uploader has no legitimate tie to.
@@ -403,8 +405,9 @@ class SharingBackend(UniversalNeo4jBackend[Entity]):
             OPTIONAL MATCH (:User {uid: $user_uid})-[:IN_PROGRESS]->(ps:Entity)-[:HAS_EXERCISE]->(ex)
             WITH ex.user_uid = $user_uid AS is_owner,
                  count(g) > 0 AS via_group,
-                 count(ps) > 0 AS via_progress
-            RETURN (is_owner OR via_group OR via_progress) AS allowed
+                 count(ps) > 0 AS via_progress,
+                 (ex.entity_type = 'revised_exercise' AND ex.student_uid = $user_uid) AS is_revision_target
+            RETURN (is_owner OR via_group OR via_progress OR is_revision_target) AS allowed
             """,
             {"exercise_uid": exercise_uid, "user_uid": user_uid},
         )

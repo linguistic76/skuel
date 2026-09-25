@@ -146,7 +146,7 @@ async def default_group_graph(neo4j_driver):
                 assigned.scope = 'assigned'
             MERGE (assigned)-[:SHARED_WITH_GROUP]->(g)
             MERGE (rc:Entity:RevisedExercise {uid: $curriculum_revision_uid})
-            SET rc.entity_type = 'revised_exercise'
+            SET rc.entity_type = 'revised_exercise', rc.student_uid = $student_uid
             MERGE (rc)-[:REVISES_EXERCISE]->(curriculum)
             MERGE (ra:Entity:RevisedExercise {uid: $assigned_revision_uid})
             SET ra.entity_type = 'revised_exercise'
@@ -156,6 +156,7 @@ async def default_group_graph(neo4j_driver):
             """,
             curriculum_uid=_CURRICULUM_EX_UID,
             group_uid=_DEFAULT_GROUP_UID,
+            student_uid=_STUDENT_UID,
             assigned_uid=_ASSIGNED_EX_UID,
             curriculum_revision_uid=_CURRICULUM_REVISION_UID,
             assigned_revision_uid=_ASSIGNED_REVISION_UID,
@@ -380,6 +381,30 @@ async def test_revision_of_an_assigned_exercise_reaches_its_groups(
     assert [row["group_uid"] for row in direct.value or []] == [default_group_graph["group"]]
     assert [row["group_uid"] for row in via_revision.value or []] == [default_group_graph["group"]]
     assert (loner.value or []) == []
+
+
+async def test_a_revision_is_usable_by_the_student_it_names(neo4j_driver, default_group_graph):
+    """The exercise-use check: a revision is never group-assigned or owned by
+    its student, so the claim is the revision's own ``student_uid``."""
+    backend = _sharing_backend(neo4j_driver)
+
+    named = await backend.query_user_can_use_exercise(
+        exercise_uid=default_group_graph["curriculum_revision"],
+        user_uid=default_group_graph["student"],
+    )
+    other = await backend.query_user_can_use_exercise(
+        exercise_uid=default_group_graph["curriculum_revision"],
+        user_uid=default_group_graph["loner"],
+    )
+    unaddressed = await backend.query_user_can_use_exercise(
+        exercise_uid=default_group_graph["orphan_revision"],
+        user_uid=default_group_graph["student"],
+    )
+
+    assert named.is_ok and other.is_ok and unaddressed.is_ok
+    assert named.value is True
+    assert other.value is False
+    assert unaddressed.value is False
 
 
 # ============================================================================
