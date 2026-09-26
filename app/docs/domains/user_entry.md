@@ -216,8 +216,11 @@ the owner's own username is refused), a `group:` / `teacher:` must exist, be act
 the owner belongs to or owns, and `teachers` is expanded there. The post-persist writes
 (`resolve_and_share`) re-check their own authorisation in the statement; a write refused after
 validation compensates the node this call created. A living vault note (a caller-supplied uid)
-withholds its `user:` / `teacher:` targets until `status: submitted` files a frozen copy
-(R9) — the sync warns.
+is a draft and is never submitted or shared (R9): an audience naming anyone on a caller uid is
+refused, and a `teacher_review` pipeline with one is too. The vault door hands a note's
+`audience:` to the frozen copy `status: submitted` files — a fresh node stamped with
+`submitted_from_uid` and a `submission_fingerprint` (`create_entry(..., copy_of=...)`), filed
+once per authored snapshot.
 
 `AudienceResolver` is deliberately a standalone helper rather than facade-private; the vault
 door's request builder is pure (it parses, `create_entry` validates), so there is one place the

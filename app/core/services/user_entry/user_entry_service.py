@@ -17,14 +17,18 @@ Create flow
        without ``fulfills_exercise_uid``): idempotent ``backend.upsert``.
        A declared ``fulfills_exercise_uid`` is stored as a node property
        (intent — "exercise in progress"), NEVER as an edge; re-syncing an
-       edited vault file updates the same node in place.
+       edited vault file updates the same node in place. A living entry is
+       a draft (R9): never TEACHER_REVIEW, never submitted or shared.
      - **Plain create** (no uid, no exercise): ``backend.create``.
+   A frozen copy of a vault note (``copy_of``) takes the turn-in or plain
+   path and records its provenance (``submitted_from_uid``) and its
+   authored snapshot's fingerprint.
 3. Auto-create ``Interaction`` audit record (turn-ins only, when
    ``interaction_service`` is wired)
 4. Wire optional ``TRANSFORMS`` edge for multi-stage pipelines
 5. Apply the audience through ``UnifiedSharingService`` (one vocabulary,
    two verbs — ADR-088; ``AudienceResolver`` validated every target before
-   step 2 wrote anything):
+   step 2 wrote anything) — skipped for a living entry, which names none:
      - ``pipeline=TEACHER_REVIEW`` → a feedback request, ``SUBMITTED_TO_GROUP``:
        ``teacher:<group_uid>`` targets, and ``teachers`` (the default) as
        the exercise's assigned groups the submitter belongs to (curriculum
@@ -53,6 +57,7 @@ from core.models.enums.user_enums import UserRole
 from core.models.interaction.interaction import Interaction
 from core.models.relationship_names import RelationshipName
 from core.models.type_hints import EntityUID, UserUID
+from core.models.user_entry.submitted_copy import SubmittedCopy
 from core.models.user_entry.user_entry import PERIODIC_NOTE_KINDS, UserEntry
 from core.models.user_entry.user_entry_dto import UserEntryDTO
 from core.models.user_entry.user_entry_request import (
@@ -89,8 +94,8 @@ if TYPE_CHECKING:
     from core.services.sharing.unified_sharing_service import UnifiedSharingService
     from core.services.user_service import UserService
 
-# Re-exported for callers that import ``ShareOutcome`` from this module
-# (the dataclass moved to ``audience_resolver`` during the /upload integration).
+# ``ShareOutcome`` lives in ``audience_resolver``; re-exported for callers
+# that import it from this module.
 __all__ = ["ShareOutcome", "UserEntryService"]
 
 
@@ -134,9 +139,9 @@ class UserEntryService(BaseService[UserEntryOperations, UserEntry]):
         self.user_service = user_service
         self.exercise_service = exercise_service
         self.logger = get_logger("skuel.services.user_entry")  # type: ignore[assignment]
-        # AudienceResolver owns audience validation + sharing fan-out so the
-        # /upload ingestion path can reuse the same logic without going
-        # through this facade. Construct one if a caller hasn't provided it.
+        # AudienceResolver owns audience validation + sharing fan-out; the
+        # share door (EntrySharingService) reuses it without going through
+        # this facade. Construct one if a caller hasn't provided it.
         self.audience_resolver = audience_resolver or AudienceResolver(
             sharing_service=sharing_service,
             group_service=group_service,
@@ -151,13 +156,19 @@ class UserEntryService(BaseService[UserEntryOperations, UserEntry]):
         self,
         request: UserEntryCreateRequest,
         user_uid: UserUID,
+        *,
+        copy_of: SubmittedCopy | None = None,
     ) -> Result[tuple[UserEntry, ShareOutcome]]:
         """Create a ``UserEntry`` from a create request.
 
         Returns ``(entry, share_outcome)`` on success. The share outcome is
-        empty when the audience named nobody; otherwise it carries the targets
-        that landed (and, for a living vault note, the ones withheld until a
-        frozen copy files).
+        empty when the audience named nobody (and always for a living entry,
+        which is never shared); otherwise it carries the targets that landed.
+
+        ``copy_of`` marks the entry as the frozen copy of a vault note (R9):
+        it is stamped with the note's uid and the fingerprint of what was
+        authored. Only the vault door passes it — it is never part of the
+        request a JSON caller sends. A copy is always a fresh node.
 
         Every audience target is validated before the node is written, and a
         write refused afterwards compensates a node this call created, so no
@@ -170,6 +181,13 @@ class UserEntryService(BaseService[UserEntryOperations, UserEntry]):
         audience_check = self.audience_resolver.validate(request)
         if audience_check.is_error:
             return Result.fail(audience_check)
+        if copy_of is not None and request.uid:
+            return Result.fail(
+                Errors.validation(
+                    "a frozen copy is always a fresh node — it carries no uid",
+                    field="uid",
+                )
+            )
 
         # TEACHER_REVIEW status is service-owned: the review workflow
         # (queue → approve/request-revision) is the only writer after create,
@@ -192,22 +210,18 @@ class UserEntryService(BaseService[UserEntryOperations, UserEntry]):
                 )
             )
 
-        # TEACHER_REVIEW turn-ins are frozen artifacts — always a fresh node,
-        # never an upsert. A deterministic uid would make the "pages handed to
-        # the teacher" mutable after submission. The vault living channel
-        # authors a non-review pipeline (e.g. knowledge) and flips
-        # ``status: submitted`` to file a frozen copy through the no-uid path.
-        if (
-            request.uid
-            and request.pipeline == Pipeline.TEACHER_REVIEW
-            and request.fulfills_exercise_uid
-        ):
+        # A feedback request is a frozen artifact — always a fresh node,
+        # never an upsert, with or without an exercise. A deterministic uid
+        # would make the "pages handed to the teacher" mutable after
+        # submission and let every edit reset the teacher's verdict. A vault
+        # note is a draft on its own pipeline; ``status: submitted`` files a
+        # frozen copy through the no-uid path (R9).
+        if request.uid and request.pipeline == Pipeline.TEACHER_REVIEW:
             return Result.fail(
                 Errors.validation(
-                    "pipeline=teacher_review with fulfills_exercise_uid always "
-                    "creates a fresh turn-in — remove the uid field. For a vault "
-                    "living entry, use a non-review pipeline and flip "
-                    "'status: submitted' to file a frozen copy.",
+                    "pipeline=teacher_review always creates a fresh submission — "
+                    "remove the uid field. For a vault note, keep its own pipeline "
+                    "and set 'status: submitted' to file a frozen copy.",
                     field="uid",
                 )
             )
@@ -237,14 +251,13 @@ class UserEntryService(BaseService[UserEntryOperations, UserEntry]):
                 return Result.fail(public_check)
 
         # A turn-in is an exercise link WITHOUT a caller uid: it must always
-        # create fresh (frozen copy, FULFILLS_EXERCISE edge, revision mint), so
-        # it gets a random uid — the /submissions/submit form and /upload YAML paths.
-        # A caller-supplied deterministic uid (vault-note ids like
-        # ``ue:daily:2026-06-16``) routes to the idempotent upsert below so
-        # re-syncing an edited note updates in place — WITH or without a
-        # declared exercise. The deterministic-uid + fulfills combination is
-        # the vault living channel: the declaration is stored as intent on the
-        # node, never as an edge (the frozen copies carry the edges).
+        # create fresh (FULFILLS_EXERCISE edge, revision mint), so it gets a
+        # random uid — the Submit page, and a vault note's frozen copy.
+        # A caller-supplied uid (every vault note carries one, from its first
+        # sync) routes to the idempotent upsert below so re-syncing an edited
+        # note updates in place — WITH or without a declared exercise, which
+        # is stored as intent on the node, never as an edge (the frozen
+        # copies carry the edges).
         submitted_against_uid = None if request.uid else request.fulfills_exercise_uid
         if request.uid:
             uid = EntityUID(request.uid)
@@ -308,6 +321,8 @@ class UserEntryService(BaseService[UserEntryOperations, UserEntry]):
             file_type=request.file_type,
             visibility=Visibility.PUBLIC if resolved.public else Visibility.PRIVATE,
             fulfills_exercise_uid=request.fulfills_exercise_uid,
+            submitted_from_uid=copy_of.submitted_from_uid if copy_of else None,
+            submission_fingerprint=copy_of.fingerprint if copy_of else None,
             created_at=now,
             updated_at=now,
         )
@@ -367,18 +382,20 @@ class UserEntryService(BaseService[UserEntryOperations, UserEntry]):
                 )
 
         # 5. Apply the validated audience. A living upsert (caller-supplied
-        # uid — the vault's draft channel, R9) withholds its user: / teacher:
-        # targets until a frozen copy files; the outcome reports them.
-        share_result = await self.audience_resolver.resolve_and_share(
-            entry_uid=created.uid,
-            user_uid=user_uid,
-            pipeline=request.pipeline,
-            resolved=resolved,
-            living=bool(request.uid),
-        )
-        if share_result.is_error:
-            return Result.fail(share_result)
-        outcome: ShareOutcome = share_result.value
+        # uid) is a draft and is never shared (R9) — validation refused any
+        # audience naming someone, so there is nothing to write.
+        if request.uid:
+            outcome = ShareOutcome()
+        else:
+            share_result = await self.audience_resolver.resolve_and_share(
+                entry_uid=created.uid,
+                user_uid=user_uid,
+                pipeline=request.pipeline,
+                resolved=resolved,
+            )
+            if share_result.is_error:
+                return Result.fail(share_result)
+            outcome = share_result.value
 
         # 5a. Compensation. Every target was validated before the node was
         # written, so a refused write here is a change that landed in between
@@ -456,9 +473,9 @@ class UserEntryService(BaseService[UserEntryOperations, UserEntry]):
         await publish_entry_shared(self.event_bus, created, outcome, self.logger)
 
         # Event-side ``fulfills_exercise_uid`` means "a turn-in was filed" —
-        # the exercise_handler subscriber runs the linker (scope validation +
-        # revision title-stamp) off it. A living entry's declared intent must
-        # NOT trigger that machinery, so the field rides only for turn-ins.
+        # the exercise_handler subscriber runs the linker (scope and
+        # membership validation) off it. A living entry's declared intent
+        # must NOT trigger that machinery, so the field rides only for turn-ins.
         # ``submitted_group_uids`` is the CREATED subset of the feedback
         # requests, so the teacher's bell never rings for a re-filed one.
         await publish_event(
@@ -616,21 +633,21 @@ class UserEntryService(BaseService[UserEntryOperations, UserEntry]):
             return Result.fail(result)
         return Result.ok(result.value or [])
 
-    @with_error_handling("get_latest_entry_for_exercise")
-    async def get_latest_entry_for_exercise(
+    @with_error_handling("get_latest_copy_of_note")
+    async def get_latest_copy_of_note(
         self,
         user_uid: UserUID,
-        exercise_uid: str,
+        note_uid: str,
     ) -> Result[dict[str, Any] | None]:
-        """The user's newest turn-in (uid, content, revision) for an exercise.
+        """The newest frozen copy filed from a vault note (uid, submission_fingerprint).
 
-        The vault exercise channel's dedup source: a frozen copy is filed only
-        when the living file's content differs from this row's ``content``.
-        Returns ``None`` when the user has never turned the exercise in.
+        The vault door's dedup source: a copy is filed only when the note's
+        fingerprint differs from this row's. Returns ``None`` when the note
+        was never submitted.
 
-        Backend: _UserEntryCrudMixin.get_latest_entry_for_exercise.
+        Backend: _UserEntryCrudMixin.get_latest_copy_of_note.
         """
-        return await self.backend.get_latest_entry_for_exercise(user_uid, exercise_uid)
+        return await self.backend.get_latest_copy_of_note(user_uid, note_uid)
 
     @with_error_handling("get_organized_children")
     async def get_organized_children(self, uid: str) -> Result[list[OrganizerResult]]:

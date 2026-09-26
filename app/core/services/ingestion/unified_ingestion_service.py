@@ -895,10 +895,11 @@ class UnifiedIngestionService:
         edge id.
 
         Returns None when no tracker/service is wired (minimal composes / tests),
-        the file is new, or the tracked uid is not this user's UserEntry — all
-        fall back to minting a fresh uid. The gating that protects turn-in files
-        and uploads lives in ``build_user_entry_request``; this method only
-        supplies a validated candidate.
+        the file is new, the tracked uid is not this user's UserEntry, or it
+        names a frozen submission — all fall back to minting a fresh uid. The
+        rest of the gating (an authored or periodic uid wins) lives in
+        ``build_user_entry_request``; this method only supplies a validated
+        candidate.
         """
         if self.ingestion_backend is None or self.user_entry_service is None:
             return None
@@ -915,6 +916,16 @@ class UnifiedIngestionService:
         # backend (MATCH on :UserEntry), so a foreign uid / edge identity → None.
         existing = await self.user_entry_service.get_entry(prior_uid, user_uid)
         if existing.is_error or existing.value is None:
+            return None
+        # A frozen submission is never a note's living identity (R9): a row
+        # the retired turn-in path left pointing at a turn-in, or at a
+        # teacher_review node, would upsert the note's edits onto what the
+        # teacher was handed. The note mints a fresh living node instead.
+        if (
+            existing.value.turn_in_exercise_uid is not None
+            or existing.value.pipeline == Pipeline.TEACHER_REVIEW
+            or existing.value.submitted_from_uid is not None
+        ):
             return None
         return prior_uid
 
@@ -1025,7 +1036,7 @@ class UnifiedIngestionService:
         # UserEntry has its own creation pipeline (audience resolution,
         # Interaction audit, TRANSFORMS edges, compensation delete) that the
         # bulk engine cannot replicate. Route through UserEntryService so
-        # /upload and /submissions/submit share every downstream step.
+        # vault ingest and /submissions/submit share every downstream step.
         if entity_type == EntityType.USER_ENTRY:
             if self.user_entry_service is None:
                 return Result.fail(
@@ -1038,8 +1049,8 @@ class UnifiedIngestionService:
             effective_user_uid = self._resolve_owner(file_path, user_uid)
             # Path-keyed identity for uid-less vault notes: reuse the tracker's
             # prior uid so re-syncs upsert in place instead of orphaning the old
-            # node. Hard-gated inside build_user_entry_request (authored uid
-            # wins; turn-ins and uploads never honor it).
+            # node. Gated inside build_user_entry_request (an authored or
+            # periodic uid wins; a relative path from a script never honors it).
             prior_uid = await self._resolve_prior_user_entry_uid(file_path, effective_user_uid)
             ue_result = await ingest_user_entry(
                 data=data,

@@ -1,5 +1,5 @@
 ---
-updated: 2026-09-24
+updated: 2026-09-26
 ---
 
 # Deferred Work
@@ -9,8 +9,8 @@ updated: 2026-09-24
 **Related**: `/docs/roadmap/security-hardening-deferred.md` — the security hardening backlog
 (see its Priority Order table for current status).
 
-**⚠️ Open privacy gap, deliberately unbuilt:** § *Vault Re-Sync Never Retracts a Share* — a vault note's
-`audience:` is write-once-widen until share reconciliation is built. Read it before touching sharing fan-out or planning a second user.
+**Closed privacy gap:** § *Vault Re-Sync Never Retracts a Share* closed 2026-09-26 — a vault note is a
+draft and is never shared (R9), so a re-sync has no share to retract.
 
 **How to read this file — it is a MOC (map of content):** one `##` per item. The heading is the
 anchor — `blocked_by` pointers in `scripts/detect_bloat.py` and `§` citations in code resolve
@@ -89,7 +89,7 @@ renders them as a table in Obsidian, and a session derives the same table with
 
 ## ⚠️ Vault Re-Sync Never Retracts a Share
 
-[Vault Re-Sync Never Retracts a Share](vault-resync-never-retracts-a-share.md) — Narrowing or removing `audience:` does nothing on re-sync — the one write-once-widen door, ruled leave-registered until share reconciliation is built.
+[Vault Re-Sync Never Retracts a Share](done/vault-resync-never-retracts-a-share.md) — CLOSED 2026-09-26 (Submit & Share arc PR 8): a vault note is a draft, never shared; its `audience:` applies only to the frozen copy `status: submitted` files, so a re-sync has nothing to retract.
 
 ## Sharing HTTP Door — Operations on Existing Shares
 

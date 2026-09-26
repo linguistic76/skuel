@@ -23,7 +23,7 @@ not, `read_visibility`, the derived wall, R8 co-membership, `teacher:<group_uid>
 [ADR-054](../decisions/ADR-054-user-entry-unified-submissions.md) §3/§5/§6,
 [ADR-085](../decisions/ADR-085-ownership-read-enforcement-contract.md) §2 (the records ADR-088
 amends), [`sharing-http-door.md`](sharing-http-door.md) (the 2026-09-21 ruling ADR-088 amends),
-[`vault-resync-never-retracts-a-share.md`](vault-resync-never-retracts-a-share.md) (closed by PR 8),
+[`done/vault-resync-never-retracts-a-share.md`](done/vault-resync-never-retracts-a-share.md) (closed by PR 8),
 [`feedback-loop-staged-directions.md`](feedback-loop-staged-directions.md) §1 (peer feedback — the
 next arc, R14), [`form-submission-recipient-read.md`](form-submission-recipient-read.md) (deferred
 by this arc), [`done/calendar-priority-lens-arc.md`](done/calendar-priority-lens-arc.md) (this
@@ -1001,7 +1001,7 @@ it first removes both.
     zero-reach rule" item is done here.
   - **The living channel is `request.uid`** — the predicate `create_entry`'s upsert branch
     already uses — not the door: on it the `user:` and explicit `teacher:` targets are withheld
-    on every pipeline (`ShareOutcome.withheld`, a sync warning through the result dict's
+    on every pipeline (ShareOutcome.withheld, a sync warning through the result dict's
     `warnings` key, which also carries the extraction warnings — Codex P2 on #1422: an explicit
     `teacher:` on a knowledge draft is kept for its frozen copy, never dropped at validation),
     while `group:` and the `teachers` expansion apply as they did before this PR. A JSON caller
@@ -1519,7 +1519,7 @@ it first removes both.
   - share edges on living notes, retracted with `--confirm` (live 2026-09-24: 0 — re-census: syncs
     between PR 1 and this PR may have written explicit `group:` shares);
   - retire the retract_defaulted_vault_note_shares script.
-- **Closes** [`vault-resync-never-retracts-a-share.md`](vault-resync-never-retracts-a-share.md) → `done/`.
+- **Closes** [`vault-resync-never-retracts-a-share.md`](done/vault-resync-never-retracts-a-share.md) → `done/`.
   Repoint every inbound link: `INDEX.md`, the `deferred-work.md` MOC entry's link (heading kept) and
   its banner (`deferred-work.md:12`, reworded), `sharing-http-door.md` (the script cite in its
   `unshare_from_group` row, and items 54-57 reworded — the gap closes by never sharing drafts, not by
@@ -1533,6 +1533,57 @@ it first removes both.
     `how-your-content-is-used.md:14,89`, SHARING_PATTERNS:129,344.
   - Flag the two personal-vault user guides for Mike: they live outside the repo, in the personal
     vault's userguides folder (/home/mike/0bsidian/skuel/userguides/), and are not tracked here.
+- **Ruled (PR 8 session, 2026-09-26 — engineering choices the census found unsettled; none touches
+  a ruling):**
+  - **Every vault note is living from its first sync.** The door mints `ue_<random>` for an
+    absolute path with no authored, periodic or prior uid (a bare or empty `uid:` is none), so
+    `create_entry` upserts it and a vault file never reaches the turn-in branch; the prior-uid
+    gate and the tracker's move mirror both lost the `fulfills_exercise_uid` clause. The prior-uid
+    resolver refuses a tracked uid that names a frozen submission (a turn-in snapshot,
+    `teacher_review`, a `submitted_from_uid`), so a row the retired first-sync path left can never
+    upsert a note's edits onto a teacher's copy.
+  - **The living channel names no audience, at every door.** `AudienceResolver.validate` refuses
+    a caller uid with an audience naming anyone (`private` stands), `create_entry` refuses
+    `teacher_review` with a caller uid with or without an exercise (defect 6 closed at every door,
+    not only the vault's), and the living upsert skips `resolve_and_share`. PR 6a's withholding
+    went with it — the resolver's living flag and ShareOutcome.withheld are deleted (DELETED
+    rows). The vault door keeps the note's audience for the copy only, and a draft that declares
+    one syncs with a warning.
+  - **Provenance rides beside the request, never in it:** `create_entry(..., copy_of=SubmittedCopy)`,
+    keyword-only — the JSON door parses `UserEntryCreateRequest` straight from the body, so a
+    request field would let a caller claim another note's provenance. `UserEntry` gains
+    `submitted_from_uid` + `submission_fingerprint`; a `copy_of` with a uid is refused.
+  - **The fingerprint** (`core/models/user_entry/submitted_copy.py`) is a SHA-256 of canonical
+    JSON over the copy request itself — title, content, description, tags (authored order),
+    `private`, the audience's vocabulary values sorted (a set), the exercise — so "every field the
+    copy carries" is structural. The dedup read is `get_latest_copy_of_note` (the owner's newest
+    copy by `created_at`); get_latest_entry_for_exercise lost its one caller and is deleted.
+  - **The copy's audience is explicit:** a note naming none files `[teachers]`, so writing the
+    default out never re-files; the pipeline is `teacher_review` iff that audience names a
+    feedback target, else `none`; `status` is `submitted` explicitly (`create_entry` already
+    honoured an explicit status on NONE — nothing to change there); the metadata is empty.
+  - **The note's pipeline privacy travels to its copy:** a share on the copy of a `reference`
+    note is refused at the door (the copy's own pipeline would allow it) — the pipeline analogue
+    of carrying `private`.
+  - **Every refusal of a copy is reported on the non-content `submission` field**
+    (`SUBMISSION_FIELD`: a validation error re-fielded; other categories pass through): the note
+    synced before its copy was attempted, so "ignored for its frontmatter" would be false.
+    `status: submitted` + `audience: private` is one such refusal.
+  - **One supersede rule, `_SUPERSEDED_COPY`** (the assessment mixin): a fragment over names the
+    caller binds in a WITH, read by the queue, its dashboard badge and `get_students_summary` —
+    two lineages (the exercise snapshot, and `submitted_from_uid` per student), teacher-visible
+    siblings only. The students summary's `pending_count` is "not completed and not superseded";
+    it had applied no collapse at all.
+  - **The migration** is `scripts/migrations/vault_notes_are_drafts_2026_09.py` (census /
+    `--confirm`): the old metadata key moves onto `submitted_from_uid` (guarded on the metadata
+    read at census time), `SHARED_WITH_GROUP` / `SHARES_WITH` on living notes are retracted, and
+    `--confirm` refuses while a living note holds a `SUBMITTED_TO_GROUP` (a person rules) or the
+    old key disagrees with the property; living `teacher_review` notes and turn-ins carrying a
+    `vault_file_path` are reported only. The one-shot retraction script is deleted.
+  - Relative paths (scripts, tests) keep the direct door: `teacher_review` parses, no uid is
+    minted, and the entry itself is the submission — no copy.
+  - Verified, nothing to remove: the per-pipeline shares-by-default flag and its test left at
+    PR 6a — only its stale_names DELETED row names it now.
 
 ## Non-goals (this arc)
 

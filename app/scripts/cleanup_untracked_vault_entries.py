@@ -17,7 +17,8 @@ copy is a superseded duplicate. An untracked entry whose path is NOT tracked is
 see it, or a note not yet synced — so it is REPORT-ONLY and never auto-deleted.
 
 Criterion for each candidate (untracked, has ``vault_file_path``, no
-``FULFILLS_EXERCISE`` — frozen copies never carry ``vault_file_path``):
+``FULFILLS_EXERCISE``, not a frozen copy — ``submitted_from_uid`` is set on
+every copy of a vault note, and copies never carry ``vault_file_path``):
   - **DELETE**  → its ``vault_file_path`` ∈ tracked file paths (superseded).
   - **REVIEW**  → its ``vault_file_path`` ∉ tracked file paths (ambiguous).
 
@@ -60,7 +61,10 @@ def select_orphans(
       - its ``metadata`` JSON parses to a mapping carrying a ``vault_file_path``
         key (structured parse, not a substring match);
       - its uid is NOT in ``tracked_uids`` (no live ``IngestionMetadata`` row);
-      - it has no outgoing ``FULFILLS_EXERCISE`` edge (``has_fulfills`` False).
+      - it has no outgoing ``FULFILLS_EXERCISE`` edge (``has_fulfills`` False);
+      - it is not a frozen copy of a vault note (``is_copy`` False —
+        ``submitted_from_uid IS NOT NULL``): a copy is a submission, never
+        a superseded duplicate of its note.
 
     A candidate is **deletable** only with the positive orphan signal (Codex
     #616 P1): its ``vault_file_path`` ∈ ``live_ue_paths`` — the file is tracked
@@ -74,13 +78,13 @@ def select_orphans(
     separately for report-only review — never auto-deleted.
 
     Each input row must carry ``uid``, ``metadata`` (JSON string or None),
-    ``pipeline``, and ``has_fulfills`` (bool). Returns ``(deletable, ambiguous)``
+    ``pipeline``, ``has_fulfills`` (bool) and ``is_copy`` (bool). Returns ``(deletable, ambiguous)``
     with the resolved ``vault_file_path`` attached to each row.
     """
     deletable: list[dict[str, Any]] = []
     ambiguous: list[dict[str, Any]] = []
     for row in user_entry_rows:
-        if row.get("has_fulfills"):
+        if row.get("has_fulfills") or row.get("is_copy"):
             continue
         if str(row["uid"]) in tracked_uids:
             continue
@@ -135,14 +139,15 @@ async def _fetch_tracked(driver: Any) -> tuple[set[str], set[str]]:
 
 async def _fetch_user_entry_rows(driver: Any) -> list[dict[str, Any]]:
     # Deliberately does NOT return `content` — the metadata JSON, uid, pipeline,
-    # and the turn-in flag are all the filter needs.
+    # and the turn-in and copy flags are all the filter needs.
     result = await driver.execute_query(
         """
         MATCH (u:UserEntry)
         RETURN u.uid AS uid,
                u.metadata AS metadata,
                u.pipeline AS pipeline,
-               EXISTS { (u)-[:FULFILLS_EXERCISE]->() } AS has_fulfills
+               EXISTS { (u)-[:FULFILLS_EXERCISE]->() } AS has_fulfills,
+               u.submitted_from_uid IS NOT NULL AS is_copy
         """
     )
     return [dict(r) for r in result.records]

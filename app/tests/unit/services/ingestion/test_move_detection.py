@@ -829,18 +829,18 @@ class TestDetectAndApplyMoves:
         assert result.value.applied[0].entity_uid == "ue_aa11bb22"
 
     @pytest.mark.asyncio
-    async def test_empty_string_uid_never_a_destination(self, tmp_path) -> None:
-        # `uid: ""` is NOT None — it fails build_user_entry_request's
-        # `uid_override is None` gate and mints a fresh uid, so bridging a
-        # row toward it would orphan the gone node.
-        result, backend = await self._similarity_case(
+    async def test_empty_string_uid_still_a_destination(self, tmp_path) -> None:
+        # `uid: ""` names nothing: build_user_entry_request honors the prior
+        # (rewritten) uid exactly as for a bare `uid:`, so the file is safe
+        # to bridge.
+        result, _backend = await self._similarity_case(
             tmp_path,
             "empty-uid-note.md",
             f'---\ntype: user_entry\nuid: ""\n---\n{_LONG_BODY} Small addition.',
         )
         assert result.is_ok
-        assert result.value.applied == ()
-        backend.update_ingestion_metadata.assert_not_called()
+        assert len(result.value.applied) == 1
+        assert result.value.applied[0].entity_uid == "ue_aa11bb22"
 
     @pytest.mark.asyncio
     @pytest.mark.parametrize(
@@ -872,18 +872,18 @@ class TestDetectAndApplyMoves:
         backend.update_ingestion_metadata.assert_not_called()
 
     @pytest.mark.asyncio
-    async def test_turn_in_file_never_a_destination(self, tmp_path) -> None:
-        # A turn-in file must keep minting fresh nodes — injecting a uid
-        # would silently kill the turn-in channel (#616 hard gate).
-        result, backend = await self._similarity_case(
+    async def test_exercise_note_is_a_destination(self, tmp_path) -> None:
+        # A vault note declaring an exercise is a living draft like any other
+        # (R9) — it honors the prior uid, so a moved one keeps its node.
+        result, _backend = await self._similarity_case(
             tmp_path,
-            "turn-in.md",
+            "exercise-note.md",
             "---\ntype: user_entry\nfulfills_exercise_uid: ex_12345678\n---\n"
             f"{_LONG_BODY} Small addition.",
         )
         assert result.is_ok
-        assert result.value.applied == ()
-        backend.update_ingestion_metadata.assert_not_called()
+        assert len(result.value.applied) == 1
+        assert result.value.applied[0].entity_uid == "ue_aa11bb22"
 
     @pytest.mark.asyncio
     async def test_non_user_entry_type_never_a_destination(self, tmp_path) -> None:

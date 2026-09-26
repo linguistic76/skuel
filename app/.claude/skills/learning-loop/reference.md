@@ -272,7 +272,7 @@ POST /api/user-entries/upload               POST /api/user-entries/form
      any other authored status rejected; else authored request.status wins when set
      — e.g. vault frontmatter — falling back to ACTIVE)
    persists node — create_with_exercise_link() for TURN-INS (fulfills_exercise_uid
-     set + no caller uid — the /submit form and /upload paths):
+     set + no caller uid — the Submit page, and a vault note's frozen copy):
      → FULFILLS_EXERCISE {revision} → root Exercise (always)
      → FULFILLS_REVISED_EXERCISE {revision} → RevisedExercise (revision cycles only)
      → stamps the turn-in snapshot on the entry: turn_in_exercise_uid (the root's
@@ -280,13 +280,14 @@ POST /api/user-entries/upload               POST /api/user-entries/form
        the queue's copy collapse, report titles all group on it), so an exchange
        outlives its exercise's DETACH DELETE and shows "Exercise removed"
        (Submit & Share arc R12)
-     (a caller-supplied deterministic uid + fulfills is the VAULT LIVING ENTRY
-      instead: idempotent upsert, intent stored as the fulfills_exercise_uid node
-      property, NO edge/revision/Interaction — the vault exercise channel files
-      frozen copies through the turn-in path on `status: submitted`; see
-      docs/patterns/UNIFIED_INGESTION_GUIDE.md § Vault exercise channel)
+     (a caller-supplied uid — every vault note has one from its first sync — is
+      the VAULT LIVING ENTRY instead: a draft, idempotent upsert, intent stored as
+      the fulfills_exercise_uid node property, NO edge/revision/Interaction, never
+      a link (R9) — `status: submitted` files a frozen copy through the turn-in
+      path, stamped submitted_from_uid + submission_fingerprint; see
+      docs/patterns/UNIFIED_INGESTION_GUIDE.md § Vault notes are drafts)
    creates Interaction audit record (turn-ins only)
-   resolves audience + shares (UnifiedSharingService)
+   resolves audience + shares (UnifiedSharingService) — skipped for a living entry
    publishes UserEntryCreated event
 ```
 

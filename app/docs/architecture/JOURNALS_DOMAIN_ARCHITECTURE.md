@@ -1,5 +1,5 @@
 ---
-updated: 2026-09-25
+updated: 2026-09-26
 related_skills: [journals]
 ---
 
@@ -170,9 +170,9 @@ The `je_out/` exclusion is the load-bearing one: without it, output files would 
 ## 8. Privacy Contract
 
 - ⚠️ **There is no journal pipeline.** The `journal` value was deleted 2026-09-02 (ADR-073 § 3 amendment) after every role it had carried found a successor. The notes that surround journaling carry other pipelines by design — `ensure_periodic_note()` writes in-app periodic stubs as `Pipeline.NONE` (deliberately; see its docstring), a vault periodic note is authored `extract_activities`, a vault context note is `knowledge`, and a consented `je_pro/` file stores **whatever pipeline its frontmatter authors** — `je_pro_skip_reason()` gates on a pipeline being *present*, not on which one, and the guidance message recommends `knowledge` without anything coercing it. Read the pipeline off the entry; never infer it from the domain or the folder.
-- `Pipeline.allows_sharing()` returns `False` for `REFERENCE` and `TRANSCRIBE_AND_STRUCTURE`. No audience picker is offered in the journals UI, and a saved chat is owner-private with no sharing surface at all (ADR-078). ⚠️ The pipeline guarantee rides on the **pipeline**, so it does not extend to a note stored under a shareable one — `extract_activities` and `knowledge` permit sharing. An absent `audience:` names nobody on every pipeline but `teacher_review` (ADR-088's one vocabulary); a vault note — `knowledge` or `extract_activities` — with no `audience:` is **private** and shares only by explicit audience (rulings 2026-09-02), and a `private: true` note cannot be shared at all. ⚠️ A re-sync never retracts an existing share — notes synced under the old default keep theirs until retracted (`scripts/retract_defaulted_vault_note_shares.py`, one-shot).
-- A saved chat is user-owned only: no teacher visibility, no group sharing, no admin read access through normal domain APIs. A synced vault note shares only by explicit `audience:`.
-- The ingestion audience coercion in `build_user_entry_request()` enforces `audience=private` for all non-shareable pipelines, so a vault-ingested `reference` entry cannot carry a non-private audience even if the YAML frontmatter requests one.
+- `Pipeline.allows_sharing()` returns `False` for `REFERENCE` and `TRANSCRIBE_AND_STRUCTURE`. No audience picker is offered in the journals UI, and a saved chat is owner-private with no sharing surface at all (ADR-078). A vault note — `knowledge`, `extract_activities` or any other — is a **draft** and is never shared, whatever its `audience:` (ADR-088 R9): the audience applies only to the frozen copy `status: submitted` files, a `private: true` note's copy can still ask a teacher for feedback but is never shared, and neither is a `reference` note's. Nothing on a living note is ever shared, so there is nothing for a re-sync to retract (the one-shot `scripts/migrations/vault_notes_are_drafts_2026_09.py` retracted what the old code had written).
+- A saved chat is user-owned only: no teacher visibility, no group sharing, no admin read access through normal domain APIs. A synced vault note is never shared; only its frozen copy reaches an audience.
+- A share on a non-shareable pipeline is refused, never coerced: `AudienceResolver.validate` refuses it at every door, and the vault door refuses a share on a `reference` note's frozen copy (the copy's own pipeline would otherwise allow it) — a sync error naming the rule.
 
 Full policy: `docs/user-guides/journal-privacy.md`
 

@@ -7,13 +7,14 @@ a teacher saw rev 1 AND rev 2 of the same student's work as two pieces of
 work to do, though reviewing a superseded copy is never useful.
 
 These tests pin the queue (and its dashboard ``pending_count`` twin — the
-badge must agree with the queue's length) to *lineage-newest*: a pending
-copy is superseded by ANY newer copy in the same (student, root exercise)
-lineage — newer by the edge revision, the same root-lineage lens
-``get_latest_entry_for_exercise`` / ``_next_revision`` use — regardless of
-the newer copy's status (a reviewed rev 2 still retires the pending rev 1).
-Collapse is per-lineage: another student's copy of the same exercise, and
-entries with no exercise anchor at all, must never be swallowed.
+badge must agree with the queue's length — and the students summary) to
+*lineage-newest*: a pending copy is superseded by ANY newer copy in the same
+(student, root exercise) lineage — newer by the edge revision, the same
+root-lineage lens ``_next_revision`` uses — or, for frozen copies of a vault
+note, in the same (student, note) lineage, regardless of the newer copy's
+status (a reviewed rev 2 still retires the pending rev 1). Collapse is
+per-lineage: another student's copy of the same exercise, and entries in no
+lineage at all, must never be swallowed.
 
 The queue query is also THE needs-review rule for the per-student page
 (feedback-loop UX arc C2): scoped by ``student_uid`` it feeds the student
@@ -530,3 +531,122 @@ class TestStudentPageAgreesWithQueue:
             "retired copies are history: the reviewed rev 1, its reviewer, AND the "
             "resubmitted revision-requested copy"
         )
+
+
+# =============================================================================
+# The note lineage (Submit & Share arc R9): frozen copies of one vault note
+# =============================================================================
+
+NOTE_A = "ue.vault.qcc-note-a"
+NOTE_B = "ue.vault.qcc-note-b"
+S1_NOTE_A_V1 = "ue_qcc_s1_note_a_v1"  # superseded by S1_NOTE_A_V2 — must NOT queue
+S1_NOTE_A_V2 = "ue_qcc_s1_note_a_v2"  # the note's newest request — must queue
+S1_NOTE_A_SHARE = "ue_qcc_s1_note_a_share"  # a newer share-only copy — supersedes nothing
+S1_NOTE_B = "ue_qcc_s1_note_b"  # another note — its own lineage, must queue
+S2_NOTE_A = "ue_qcc_s2_note_a"  # another student, same provenance string — must queue
+
+
+@pytest.fixture
+async def seeded_notes(seeded, neo4j_driver) -> None:
+    """Exercise-less frozen copies filed from vault notes, beside the lineages above."""
+    async with neo4j_driver.session() as session:
+        await session.run(
+            """
+            MATCH (s1:User {uid: $student_1}), (s2:User {uid: $student_2})
+            MATCH (g:Group {uid: $group})
+            CREATE (a1:Entity:UserEntry {
+                uid: $s1_a_v1, entity_type: 'user_entry', title: 'Note A',
+                status: 'submitted', pipeline: 'teacher_review', submitted_from_uid: $note_a,
+                created_at: datetime() - duration('PT3H'), updated_at: datetime()
+            })
+            CREATE (a2:Entity:UserEntry {
+                uid: $s1_a_v2, entity_type: 'user_entry', title: 'Note A',
+                status: 'submitted', pipeline: 'teacher_review', submitted_from_uid: $note_a,
+                created_at: datetime() - duration('PT2H'), updated_at: datetime()
+            })
+            CREATE (a3:Entity:UserEntry {
+                uid: $s1_a_share, entity_type: 'user_entry', title: 'Note A',
+                status: 'submitted', pipeline: 'none', submitted_from_uid: $note_a,
+                created_at: datetime() - duration('PT1H'), updated_at: datetime()
+            })
+            CREATE (b1:Entity:UserEntry {
+                uid: $s1_b, entity_type: 'user_entry', title: 'Note B',
+                status: 'submitted', pipeline: 'teacher_review', submitted_from_uid: $note_b,
+                created_at: datetime() - duration('PT4H'), updated_at: datetime()
+            })
+            CREATE (c1:Entity:UserEntry {
+                uid: $s2_a, entity_type: 'user_entry', title: 'Note A',
+                status: 'submitted', pipeline: 'teacher_review', submitted_from_uid: $note_a,
+                created_at: datetime() - duration('PT5H'), updated_at: datetime()
+            })
+            MERGE (s1)-[:OWNS]->(a1)
+            MERGE (s1)-[:OWNS]->(a2)
+            MERGE (s1)-[:OWNS]->(a3)
+            MERGE (s1)-[:OWNS]->(b1)
+            MERGE (s2)-[:OWNS]->(c1)
+            MERGE (a1)-[:SUBMITTED_TO_GROUP]->(g)
+            MERGE (a2)-[:SUBMITTED_TO_GROUP]->(g)
+            MERGE (a3)-[:SHARED_WITH_GROUP]->(g)
+            MERGE (b1)-[:SUBMITTED_TO_GROUP]->(g)
+            MERGE (c1)-[:SUBMITTED_TO_GROUP]->(g)
+            """,
+            student_1=STUDENT_1,
+            student_2=STUDENT_2,
+            group=GROUP_UID,
+            note_a=NOTE_A,
+            note_b=NOTE_B,
+            s1_a_v1=S1_NOTE_A_V1,
+            s1_a_v2=S1_NOTE_A_V2,
+            s1_a_share=S1_NOTE_A_SHARE,
+            s1_b=S1_NOTE_B,
+            s2_a=S2_NOTE_A,
+        )
+
+
+class TestNoteLineageCollapse:
+    """A newer copy of the same vault note supersedes an older pending one —
+    in the queue, its dashboard badge and the students summary alike."""
+
+    async def test_queue_holds_each_notes_newest_request(
+        self, review_service, seeded_notes
+    ) -> None:
+        uids = await _queue_uids(review_service)
+        assert S1_NOTE_A_V2 in uids, "the note's newest feedback request must queue"
+        assert S1_NOTE_A_V1 not in uids, "an older copy of the same note is superseded"
+        assert S1_NOTE_A_SHARE not in uids, "a share-only copy is no feedback request"
+        assert S1_NOTE_B in uids, "another note is its own lineage"
+        assert S2_NOTE_A in uids, "the lineage is per student — provenance never crosses owners"
+        assert uids == {
+            S1_REV2,
+            S1_LONE,
+            S2_EX1,
+            S1_EX2_REV1,
+            S2_EX3_REV2,
+            S1_NOTE_A_V2,
+            S1_NOTE_B,
+            S2_NOTE_A,
+        }
+
+    async def test_pending_count_agrees(self, review_service, seeded_notes) -> None:
+        stats = await review_service.get_dashboard_stats(TEACHER)
+        assert stats.is_ok, f"dashboard read failed: {stats}"
+        assert stats.value["pending_count"] == 8
+
+    async def test_students_summary_reads_the_same_rule(self, review_service, seeded_notes) -> None:
+        """Pending there is every not-completed submission the rule leaves
+        current: a superseded copy — by exercise or by note — is history."""
+        result = await review_service.get_students_summary(TEACHER)
+        assert result.is_ok, f"students summary failed: {result}"
+        by_student = {row["student_uid"]: row for row in result.value}
+        s1 = by_student[STUDENT_1]
+        # S1: rev1+rev2, lone, ex2 rev1, ex3 wait, note A v1+v2, note B (ex2 rev2
+        # is locked in a deactivated group and never counted).
+        assert s1["submission_count"] == 8
+        assert s1["reviewed_count"] == 0
+        assert s1["pending_count"] == 6  # minus rev1 and note A v1, both superseded
+        s2 = by_student[STUDENT_2]
+        # S2: ex1, ex2 rev1+rev2, ex3 rev1+rev2, note A (the other-class copy is
+        # another teacher's).
+        assert s2["submission_count"] == 6
+        assert s2["reviewed_count"] == 1
+        assert s2["pending_count"] == 3  # ex1, ex3 rev2, note A

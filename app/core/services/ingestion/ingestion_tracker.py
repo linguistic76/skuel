@@ -107,8 +107,7 @@ def _similarity_candidate_content(file_path: Path) -> str | None:
     rewritten row's uid, i.e. when it routes through the user-entry pipeline
     and passes ``build_user_entry_request``'s prior-uid hard gates (Codex
     #618). A file that would ignore the prior uid (authored ``uid:``,
-    derived periodic uid, turn-in ``fulfills_exercise_uid:``, non-user_entry
-    ``type:``) must not be matched: ingestion would re-stamp the row with
+    derived periodic uid, non-user_entry ``type:``) must not be matched: ingestion would re-stamp the row with
     its own uid — or fuse the note into the gone node's identity — while
     deletion reconciliation no longer sees the old path, orphaning the gone
     node. Exclusion falls back to delete+create, the safe failure.
@@ -150,12 +149,11 @@ def _similarity_candidate_content(file_path: Path) -> str | None:
         return None
     if detected is not EntityType.USER_ENTRY:
         return None
-    # Mirror the prior-uid gate's None checks exactly (not key presence): a
-    # bare ``uid:`` parses to YAML null and build_user_entry_request treats
-    # it as no override — that file still honors the rewritten uid and is
-    # safe to bridge. ``uid: ""`` is NOT None, fails the gate there, and
-    # mints fresh — so it stays excluded here too.
-    if frontmatter.get("uid") is not None or frontmatter.get("fulfills_exercise_uid") is not None:
+    # Mirror the prior-uid gate exactly: build_user_entry_request honors the
+    # tracker's uid for every vault note without an authored uid (a bare or
+    # empty ``uid:`` is none) — a declared exercise included, since a vault
+    # note is always a living draft (R9) — so such a file is safe to bridge.
+    if frontmatter.get("uid"):
         return None
     metadata = frontmatter.get("metadata")
     if isinstance(metadata, dict) and metadata.get("entry_kind") in PERIODIC_NOTE_KINDS:

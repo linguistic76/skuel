@@ -19,10 +19,16 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[3] / "scripts"))
 from cleanup_untracked_vault_entries import select_orphans  # type: ignore[import-not-found]
 
 
-def _row(uid, *, path=None, vault=True, has_fulfills=False, pipeline="knowledge"):
+def _row(uid, *, path=None, vault=True, has_fulfills=False, is_copy=False, pipeline="knowledge"):
     vfp = path if path is not None else f"/vault/{uid}.md"
     meta = json.dumps({"vault_file_path": vfp}) if vault else json.dumps({})
-    return {"uid": uid, "metadata": meta, "pipeline": pipeline, "has_fulfills": has_fulfills}
+    return {
+        "uid": uid,
+        "metadata": meta,
+        "pipeline": pipeline,
+        "has_fulfills": has_fulfills,
+        "is_copy": is_copy,
+    }
 
 
 def test_tracked_path_is_deletable():
@@ -58,6 +64,17 @@ def test_turn_in_copy_is_kept():
     """Belt-and-braces: a FULFILLS_EXERCISE-bearing entry is never a candidate."""
     rows = [_row("ue_turnin", path="/vault/t.md", has_fulfills=True)]
     deletable, ambiguous = select_orphans(rows, tracked_uids=set(), live_ue_paths={"/vault/t.md"})
+    assert deletable == []
+    assert ambiguous == []
+
+
+def test_frozen_copy_of_a_note_is_kept():
+    """A frozen copy (``submitted_from_uid`` set) is a submission, never a
+    superseded duplicate — even one with no exercise edge and a tracked path."""
+    rows = [_row("ue_copy", path="/vault/note.md", is_copy=True)]
+    deletable, ambiguous = select_orphans(
+        rows, tracked_uids=set(), live_ue_paths={"/vault/note.md"}
+    )
     assert deletable == []
     assert ambiguous == []
 

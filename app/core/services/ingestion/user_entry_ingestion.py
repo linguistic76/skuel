@@ -1,5 +1,5 @@
 """
-UserEntry ingestion helper — bridges YAML files into ``UserEntryService``.
+UserEntry ingestion helper — bridges vault notes into ``UserEntryService``.
 
 The vault and ``/submissions/submit`` are two doors on the same UserEntry creation
 pipeline. This module is the vault's: it parses the per-file frontmatter
@@ -9,6 +9,11 @@ pipeline. This module is the vault's: it parses the per-file frontmatter
 validation and writes, Interaction audit, TRANSFORMS edges, compensation)
 is identical to the form path. ``build_user_entry_request`` is pure: no
 lookup happens before ``create_entry`` runs them all, once.
+
+Every vault note is a draft (Submit & Share arc R9): one living node,
+upserted in place every sync, never submitted or shared. Its ``audience:``
+does nothing until ``status: submitted`` files a frozen copy — and the copy,
+a fresh node, is what reaches a teacher or a reader.
 
 See: /docs/decisions/ADR-054-user-entry-unified-submissions.md
 See: /docs/decisions/ADR-088-submit-and-share.md
@@ -23,14 +28,17 @@ from core.models.enums.entity_enums import EntityStatus
 from core.models.enums.pipeline import JeUse, Pipeline
 from core.models.type_hints import UserUID
 from core.models.user_entry.audience import AudienceSpec
+from core.models.user_entry.submitted_copy import SubmittedCopy, submission_fingerprint
 from core.models.user_entry.user_entry_request import UserEntryCreateRequest
 from core.utils.logging import get_logger
-from core.utils.result_simplified import Errors, Result
+from core.utils.result_simplified import ErrorCategory, Errors, Result
+from core.utils.uid_generator import UIDGenerator
 
 if TYPE_CHECKING:
     from pathlib import Path
 
     from core.models.user_entry.user_entry import UserEntry
+    from core.services.user_entry.audience_resolver import ShareOutcome
     from core.services.user_entry.user_entry_processing_service import (
         UserEntryProcessingService,
     )
@@ -38,29 +46,41 @@ if TYPE_CHECKING:
 
 logger = get_logger("skuel.services.ingestion.user_entry")
 
-# /upload is YAML-only — audio pipelines need actual audio bytes, not YAML.
+# Vault ingest is text-only — audio pipelines need actual audio bytes.
 _AUDIO_PIPELINES: frozenset[Pipeline] = frozenset(
     {Pipeline.TRANSCRIBE, Pipeline.TRANSCRIBE_AND_STRUCTURE}
 )
+# A vault note is a draft (R9) — the feedback request is its frozen copy.
+_VAULT_EXCLUDED: frozenset[Pipeline] = frozenset({Pipeline.TEACHER_REVIEW})
 
 
-def _yaml_pipeline_values() -> str:
-    """The ``pipeline:`` values a YAML-ingested UserEntry may declare.
+def _yaml_pipeline_values(vault: bool) -> str:
+    """The ``pipeline:`` values an ingested UserEntry may declare.
 
-    Every ``Pipeline`` member except the audio two — derived, so the error
-    messages below can never drift from the enum (they once named three
-    values while the parser admitted seven).
+    Every ``Pipeline`` member except the audio two — and, for a vault note,
+    except ``teacher_review`` (a vault note is a draft; its frozen copy is
+    the submission). Derived, so the error messages below can never drift
+    from the enum (they once named three values while the parser admitted
+    seven).
     """
-    return ", ".join(p.value for p in Pipeline if p not in _AUDIO_PIPELINES)
+    excluded = _AUDIO_PIPELINES | (_VAULT_EXCLUDED if vault else frozenset())
+    return ", ".join(p.value for p in Pipeline if p not in excluded)
 
 
-def _parse_pipeline(raw: Any, file_name: str) -> Result[Pipeline]:
-    """Parse and validate the ``pipeline:`` field for a UserEntry YAML."""
+def _parse_pipeline(raw: Any, file_path: Path) -> Result[Pipeline]:
+    """Parse and validate the ``pipeline:`` field for an ingested UserEntry.
+
+    A vault note (an absolute path) may not declare ``teacher_review``: a
+    feedback request is always a frozen copy, and a vault note is the draft
+    the copy is filed from (R9). Relative paths come only from scripts and
+    tests, which file a submission directly.
+    """
+    vault = file_path.is_absolute()
     if raw is None or (isinstance(raw, str) and not raw.strip()):
         return Result.fail(
             Errors.validation(
-                f"UserEntry YAML {file_name} is missing required 'pipeline:' field. "
-                f"Set one of: {_yaml_pipeline_values()}.",
+                f"UserEntry {file_path.name} is missing required 'pipeline:' field. "
+                f"Set one of: {_yaml_pipeline_values(vault)}.",
                 field="pipeline",
             )
         )
@@ -77,7 +97,7 @@ def _parse_pipeline(raw: Any, file_name: str) -> Result[Pipeline]:
     except ValueError:
         return Result.fail(
             Errors.validation(
-                f"Unknown pipeline '{raw}'. Expected one of: {_yaml_pipeline_values()}.",
+                f"Unknown pipeline '{raw}'. Expected one of: {_yaml_pipeline_values(vault)}.",
                 field="pipeline",
             )
         )
@@ -85,7 +105,17 @@ def _parse_pipeline(raw: Any, file_name: str) -> Result[Pipeline]:
         return Result.fail(
             Errors.validation(
                 f"pipeline='{pipeline.value}' is an audio pipeline and requires "
-                "the audio-upload flow, not /upload (which is YAML-only).",
+                "the audio-upload flow, not vault ingest (which reads text notes).",
+                field="pipeline",
+            )
+        )
+    if vault and pipeline == Pipeline.TEACHER_REVIEW:
+        return Result.fail(
+            Errors.validation(
+                "pipeline: teacher_review is not a vault pipeline — a vault note is a "
+                "draft. Keep the note on its own pipeline (none, knowledge, …) and set "
+                "'status: submitted' to file a frozen copy for your teachers "
+                "(audience: teachers, the default).",
                 field="pipeline",
             )
         )
@@ -200,21 +230,21 @@ def build_user_entry_request(
     in the one vocabulary (``teachers``, ``teacher:<group_uid>``,
     ``group:<uid>``, ``user:<username>``, ``public``, ``private``); case is
     preserved after the colon (a username matches ``User.title`` exactly).
-    An absent ``audience:`` is an empty spec: on ``pipeline: teacher_review``
-    it means ``teachers``, on every other pipeline nobody. Nothing is looked
-    up here — ``create_entry`` validates every target (co-membership, group
-    reach, the ``teachers`` expansion, the TEACHER gate on ``public``) before
-    it writes.
+    On a vault note it is the audience of the frozen copy
+    ``status: submitted`` files — ``ingest_user_entry`` never applies it to
+    the note itself (R9). Nothing is looked up here — ``create_entry``
+    validates every target (co-membership, group reach, the ``teachers``
+    expansion, the TEACHER gate on ``public``) before it writes.
 
-    ``prior_uid`` is path-keyed identity for uid-less vault entries: the
-    tracker's prior ``path → uid`` row (resolved by the caller). A knowledge
-    note with no authored ``uid:`` mints a random uid on first sync; reusing
-    that uid on every later sync routes the note through the MERGE-on-uid
-    living-entry channel instead of orphaning the old node. Hard-gated (see
-    below) — an authored/periodic uid, a turn-in file, or an upload never
-    honors it. See: docs/roadmap/done/uidless-vault-entry-identity-upsert.md
+    Every vault note (an absolute path) carries a uid, so it always takes
+    the living channel (``create_entry`` upserts on a caller uid) and never
+    the turn-in branch — the frozen copy does. An authored or derived
+    periodic uid wins; otherwise ``prior_uid`` — the tracker's prior
+    ``path → uid`` row, resolved by the caller — keeps the note on the node
+    its earlier syncs wrote; a note synced for the first time mints one.
+    See: docs/roadmap/done/uidless-vault-entry-identity-upsert.md
     """
-    pipeline_result = _parse_pipeline(data.get("pipeline"), file_path.name)
+    pipeline_result = _parse_pipeline(data.get("pipeline"), file_path)
     if pipeline_result.is_error:
         return Result.fail(pipeline_result)
     pipeline = pipeline_result.value
@@ -353,28 +383,17 @@ def build_user_entry_request(
                 )
                 uid_override = f"ue:yearly:{user_uid}:{year_str}"
 
-    # Path-keyed identity for uid-less vault entries (contract:
-    # docs/roadmap/done/uidless-vault-entry-identity-upsert.md). When the file carries no
-    # authored/periodic uid, reuse the tracker's prior uid for this path so the
-    # note upserts in place instead of minting a fresh random uid every sync
-    # (which orphans the old node — 276 stale copies measured 2026-07-12). Path
-    # is already the deletion-propagation identity; updates now honor the same
-    # contract. Three hard gates:
-    #   - ``uid_override is None`` — an authored ``uid:`` or a derived periodic
-    #     uid always wins (never overridden).
-    #   - ``fulfills_exercise_uid is None`` — CRITICAL: injecting a uid into a
-    #     turn-in request silently kills the turn-in channel
-    #     (``user_entry_service.py`` ``turn_in_exercise_uid = None if request.uid
-    #     else …``): no frozen copy, no edge, no revision, no teacher routing.
-    #   - ``file_path.is_absolute()`` — vault-tracked files only; ``/upload``
-    #     callers pass a temp path and must keep minting fresh uids.
-    if (
-        uid_override is None
-        and prior_uid is not None
-        and fulfills_exercise_uid is None
-        and file_path.is_absolute()
-    ):
-        uid_override = prior_uid
+    # Path-keyed identity for uid-less vault notes (contract:
+    # docs/roadmap/done/uidless-vault-entry-identity-upsert.md). When the file
+    # carries no authored/periodic uid, reuse the tracker's prior uid for this
+    # path so the note upserts in place instead of orphaning the old node, and
+    # mint one on the note's first sync so it is a living draft from sync one
+    # — with or without a declared exercise: a vault file never enters the
+    # turn-in branch, its frozen copy does (R9). An authored or derived
+    # periodic uid always wins. Relative paths come only from scripts and
+    # tests and keep minting in the service.
+    if not uid_override and file_path.is_absolute():
+        uid_override = prior_uid or UIDGenerator.generate_random_uid("ue")
 
     request = UserEntryCreateRequest(
         uid=uid_override,
@@ -394,6 +413,13 @@ def build_user_entry_request(
     return Result.ok(request)
 
 
+# The non-content field a refused frozen copy is reported on
+# (``batch.classify_user_entry_failure``): the note itself has synced by the
+# time its copy is filed, so a refusal is a sync error to fix, never a note
+# "ignored" for its frontmatter.
+SUBMISSION_FIELD = "submission"
+
+
 async def ingest_user_entry(
     data: dict[str, Any],
     file_path: Path,
@@ -409,19 +435,20 @@ async def ingest_user_entry(
     entry ``content`` when no explicit ``content:`` field is present, so a
     periodic note's checkbox lines survive ingestion.
 
-    **Vault exercise channel** (deterministic ``uid:`` + ``fulfills_exercise_uid:``):
-    the file is a LIVING entry — one node, upserted in place every sync, the
-    exercise declaration stored as intent (never a ``FULFILLS_EXERCISE`` edge).
-    Authoring ``status: submitted`` is the deliberate turn-in signal: sync files
-    a frozen copy through the existing turn-in machinery (fresh node, edge +
-    revision, Interaction, teacher-group routing) — but only when the content
-    changed since the last copy, so idle re-syncs while still marked
-    ``submitted`` are no-ops and editing while submitted is a re-submission.
-    The living entry itself stays ``active`` while the file says ``submitted``
-    — it is not in a review queue; the copy carries the truthful ``submitted``
-    (the #507 service chokepoint stamps it). Sync never writes into the user's
-    file. A submitted copy that reaches no teacher/group is compensated
-    (deleted) and surfaced as a sync error — never a silent drop.
+    **A vault note is a draft** (Submit & Share arc R9): one living node,
+    upserted in place every sync, never submitted or shared — with or
+    without a declared exercise, which it stores as intent (never a
+    ``FULFILLS_EXERCISE`` edge). Its ``audience:`` applies only to the frozen
+    copy ``status: submitted`` files: after the note syncs, the copy — a
+    fresh node through ``create_entry``, with the turn-in edge, revision and
+    Interaction when the note declares an exercise — goes to the note's
+    audience, ``teachers`` when it names none. A copy is filed only when what
+    was authored differs from the note's newest copy (the fingerprint), so an
+    idle re-sync while the file still says ``submitted`` files nothing and
+    rings no one, and editing while submitted is a re-submission. The note
+    itself stays ``active`` while the file says ``submitted``. Sync never
+    writes into the user's file. A copy that cannot be filed is a sync error
+    on the ``submission`` field and is retried by the next sync.
 
     ``user_entry_processor``, when supplied, runs the entry's pipeline after
     persistence. For ``Pipeline.EXTRACT_ACTIVITIES`` this turns the captured
@@ -434,11 +461,13 @@ async def ingest_user_entry(
     ``prior_uid`` (the tracker's prior ``path → uid`` for this file, resolved by
     the caller) gives uid-less vault notes a stable identity: it is reused as
     ``request.uid`` so the note upserts in place rather than orphaning the old
-    node each sync. Hard-gated in ``build_user_entry_request`` (authored/periodic
-    uid wins; turn-in files and uploads never honor it).
+    node each sync (an authored or periodic uid wins; see
+    ``build_user_entry_request``).
 
     Returns the standard ingestion result dict (uid, title, entity_type, ...)
     so callers don't need to reach into ``ShareOutcome`` to format a response.
+    ``share_outcome`` is where this sync's audience went — the frozen copy's
+    links when one was filed.
     """
     request_result = build_user_entry_request(
         data=data,
@@ -451,15 +480,20 @@ async def ingest_user_entry(
         return Result.fail(request_result)
     request = request_result.value
 
-    # Submit signal: a living-channel file (deterministic uid + declared
-    # exercise) authored `status: submitted`. The living upsert proceeds with
-    # status ACTIVE — the submitted state belongs to the frozen copy filed
-    # below, not to the notebook the user keeps editing.
-    submit_signal = bool(
-        request.uid and request.fulfills_exercise_uid and request.status == EntityStatus.SUBMITTED
-    )
-    if submit_signal:
-        request = request.model_copy(update={"status": EntityStatus.ACTIVE})
+    # A caller uid is the living channel — every vault note carries one. It
+    # is a draft: its audience rides on the frozen copy alone, and its submit
+    # signal is `status: submitted` alone. The note proceeds as ACTIVE — the
+    # submitted state belongs to the copy filed below.
+    audience = request.audience
+    living = bool(request.uid)
+    submit_signal = living and request.status == EntityStatus.SUBMITTED
+    if living:
+        request = request.model_copy(
+            update={
+                "audience": AudienceSpec(),
+                "status": EntityStatus.ACTIVE if submit_signal else request.status,
+            }
+        )
 
     create_result = await user_entry_service.create_entry(
         request=request,
@@ -470,28 +504,28 @@ async def ingest_user_entry(
 
     entry, outcome = create_result.value
 
-    # The living-note window (R9): a ``user:`` / ``teacher:`` target on a
-    # draft is validated but not applied — it applies to the frozen copy a
-    # ``status: submitted`` files. Surfaced as a sync warning, never a silent
-    # drop.
     warnings: list[str] = []
-    if outcome.withheld:
+    if living and not submit_signal and (audience.names_feedback_target or audience.names_share):
         warnings.append(
-            f"audience {', '.join(outcome.withheld)} not applied to the living note "
-            "— it applies when 'status: submitted' files a frozen copy"
+            f"audience {', '.join(audience.values())} does nothing on a draft — it "
+            "applies when 'status: submitted' files a frozen copy"
         )
 
-    submitted_copy_uid: str | None = None
+    copy: UserEntry | None = None
     if submit_signal:
-        copy_result = await _file_submission_copy(request, entry.uid, user_uid, user_entry_service)
+        copy_result = await _file_submission_copy(
+            request, audience, entry.uid, user_uid, user_entry_service
+        )
         if copy_result.is_error:
-            # Living entry persisted (idempotent); failing the file keeps it
-            # out of the tracker's success set so the next sync retries the
-            # copy — the honest alternative to a silently unshared turn-in.
+            # The note persisted (idempotent); failing the file keeps it out
+            # of the tracker's success set so the next sync retries the copy
+            # — the honest alternative to a silently unfiled submission.
             return Result.fail(copy_result)
-        submitted_copy_uid = copy_result.value
+        if copy_result.value is not None:
+            copy, outcome = copy_result.value
     logger.info(
         f"Ingested user_entry: {entry.uid} (pipeline={entry.pipeline.value}, "
+        f"copy={copy.uid if copy else '-'}, "
         f"submitted_groups={len(outcome.submitted_groups)}, "
         f"shared_groups={len(outcome.shared_groups)})"
     )
@@ -525,9 +559,10 @@ async def ingest_user_entry(
             extraction_error = str(exc)
             logger.exception(f"EXTRACT_ACTIVITIES raised for {entry.uid} (journal persisted)")
 
-    # The FULFILLS_EXERCISE edge only exists when a frozen copy was filed —
-    # a living entry's declared exercise is a node property, not an edge.
-    is_turn_in = bool(request.fulfills_exercise_uid) and not request.uid
+    # A FULFILLS_EXERCISE edge exists only on a node filed through the
+    # turn-in branch: the frozen copy of a note that declares an exercise, or
+    # a script's direct turn-in (no uid). A living note's exercise is intent.
+    has_turn_in_edge = bool(request.fulfills_exercise_uid) and (copy is not None or not living)
     return Result.ok(
         {
             "uid": entry.uid,
@@ -535,13 +570,13 @@ async def ingest_user_entry(
             "entity_type": "user_entry",
             "format": "yaml",
             "success": True,
-            "nodes_created": 2 if submitted_copy_uid else 1,
+            "nodes_created": 2 if copy else 1,
             "nodes_updated": 0,
             "relationships_created": (
                 len(outcome.newly_submitted_groups)
                 + len(outcome.shared_groups)
                 + len(outcome.shared_users)
-                + (1 if (is_turn_in or submitted_copy_uid) else 0)
+                + (1 if has_turn_in_edge else 0)
             ),
             # The ingest_file USER_ENTRY branch runs the shared chunk step off
             # these two flags (canon P3 substrate) and overwrites
@@ -550,7 +585,7 @@ async def ingest_user_entry(
             "private": entry.private,
             "chunks_generated": False,
             "share_outcome": outcome.to_payload(),
-            "submitted_copy_uid": submitted_copy_uid,
+            "submitted_copy_uid": copy.uid if copy else None,
             "extraction_error": extraction_error,
             "warnings": warnings,
             # A refused vault edit re-warns every sync until the line and the
@@ -564,63 +599,102 @@ async def ingest_user_entry(
 
 
 async def _file_submission_copy(
-    request: UserEntryCreateRequest,
-    living_uid: str,
+    note: UserEntryCreateRequest,
+    audience: AudienceSpec,
+    note_uid: str,
     user_uid: UserUID,
     user_entry_service: UserEntryService,
-) -> Result[str | None]:
-    """File a frozen submission copy for a living entry marked ``submitted``.
+) -> Result[tuple[UserEntry, ShareOutcome] | None]:
+    """File a frozen copy of a vault note marked ``status: submitted`` (R9).
 
-    The dedup state is the copies themselves: a new copy is filed only when
-    the living content differs from the newest ``FULFILLS_EXERCISE``-bearing
-    turn-in's content (no hash bookkeeping to drift; idle re-syncs while the
-    file stays ``submitted`` are no-ops). The copy goes through
-    ``create_entry`` with no uid — the existing turn-in machinery mints the
-    fresh node, edge + revision, Interaction, and teacher-group routing.
+    The copy is the note's authored snapshot — title, content, description,
+    tags, the ``private`` flag and the exercise it answers — sent to the
+    note's ``audience:``, ``teachers`` when it names none: on
+    ``teacher_review`` when that audience names a teacher (a feedback
+    request), otherwise on ``none`` (a share). AI feedback is never
+    sync-triggered. The copy is stamped ``submitted`` whatever its pipeline,
+    and carries no ``vault_file_path`` — a frozen artifact, invisible to
+    write-back.
 
-    Returns the copy's uid, or ``None`` when content is unchanged since the
-    last copy. A copy that would reach no teacher is refused by
-    ``create_entry`` before it is written (its ``teachers`` expansion runs in
-    validation), and one whose request write is refused is compensated there
-    — Mike's invariant: every exercise has a reachable teacher; an
-    unreviewable turn-in is never a silent success.
+    Dedup: the copy's fingerprint is compared with the fingerprint stamped
+    on the note's newest copy when it was filed — never with that copy's
+    live links, so a Stop sharing is not read as an audience edit and does
+    not re-file the copy. Equal → ``None``, nothing filed.
+
+    A refused copy is returned on the ``submission`` field when the refusal
+    is a validation error (the note has synced — see ``SUBMISSION_FIELD``);
+    ``create_entry`` refuses a copy that would reach no teacher before it
+    writes, and compensates one whose audience write is refused after.
     """
-    exercise_uid = request.fulfills_exercise_uid
-    assert exercise_uid is not None  # caller gates on submit_signal
-
-    latest = await user_entry_service.get_latest_entry_for_exercise(user_uid, exercise_uid)
-    if latest.is_error:
-        return Result.fail(latest)
-    if latest.value is not None:
-        last_content = str(latest.value.get("content") or "")
-        if (request.content or "") == last_content:
-            logger.info(
-                f"Submit signal on {living_uid}: content unchanged since last "
-                f"copy ({latest.value.get('uid')}) — no new submission filed"
-            )
-            return Result.ok(None)
+    if audience.private:
+        return _refused(
+            "the note says 'status: submitted' but 'audience: private' — nothing to "
+            "submit to. Name an audience (teachers is the default), or change the status"
+        )
+    effective = AudienceSpec(teachers=True) if audience.is_empty else audience
+    # The note's pipeline privacy travels with its words: the copy is a
+    # plain submission, so the rule `create_entry` enforces on the pipeline
+    # is applied here, on the note's.
+    if effective.names_share and not note.pipeline.allows_sharing():
+        return _refused(
+            f"pipeline={note.pipeline.value} is private (journals are not shareable), so "
+            "its copy cannot be shared; a feedback request (teachers / "
+            "teacher:<group_uid>) is still allowed"
+        )
 
     copy_request = UserEntryCreateRequest(
-        title=request.title,
-        content=request.content,
-        description=request.description,
-        tags=list(request.tags),
-        # Provenance only — deliberately NOT vault_file_path: the copy is a
-        # frozen artifact, invisible to VaultReconciler write-back.
-        metadata={"submitted_from_entry": living_uid},
-        pipeline=Pipeline.TEACHER_REVIEW,
-        fulfills_exercise_uid=exercise_uid,
+        title=note.title,
+        content=note.content,
+        description=note.description,
+        tags=list(note.tags),
+        private=note.private,
+        status=EntityStatus.SUBMITTED,
+        pipeline=(Pipeline.TEACHER_REVIEW if effective.names_feedback_target else Pipeline.NONE),
+        fulfills_exercise_uid=note.fulfills_exercise_uid,
+        audience=effective,
     )
-    copy_result = await user_entry_service.create_entry(copy_request, user_uid)
+    fingerprint = submission_fingerprint(copy_request)
+
+    latest = await user_entry_service.get_latest_copy_of_note(user_uid, note_uid)
+    if latest.is_error:
+        return Result.fail(latest)
+    if latest.value is not None and latest.value.get("submission_fingerprint") == fingerprint:
+        logger.info(
+            f"Submit signal on {note_uid}: unchanged since its copy "
+            f"{latest.value.get('uid')} — no new copy filed"
+        )
+        return Result.ok(None)
+
+    copy_result = await user_entry_service.create_entry(
+        copy_request,
+        user_uid,
+        copy_of=SubmittedCopy(submitted_from_uid=note_uid, fingerprint=fingerprint),
+    )
     if copy_result.is_error:
+        error = copy_result.expect_error()
+        if error.category == ErrorCategory.VALIDATION:
+            return _refused(error.message)
         return Result.fail(copy_result)
     copy, copy_outcome = copy_result.value
 
     logger.info(
-        f"Filed frozen submission copy {copy.uid} for living entry {living_uid} "
-        f"(exercise={exercise_uid}, groups={list(copy_outcome.submitted_groups)})"
+        f"Filed frozen copy {copy.uid} of vault note {note_uid} "
+        f"(pipeline={copy.pipeline.value}, exercise={note.fulfills_exercise_uid or '-'}, "
+        f"submitted_groups={list(copy_outcome.submitted_groups)}, "
+        f"shared_groups={list(copy_outcome.shared_groups)}, "
+        f"shared_users={list(copy_outcome.shared_users)})"
     )
-    return Result.ok(copy.uid)
+    return Result.ok((copy, copy_outcome))
+
+
+def _refused(reason: str) -> Result[tuple[UserEntry, ShareOutcome] | None]:
+    """A frozen copy that was not filed, on the non-content ``submission`` field."""
+    return Result.fail(
+        Errors.validation(
+            f"'status: submitted' filed no copy — {reason}",
+            field=SUBMISSION_FIELD,
+        )
+    )
 
 
 def _reconciliation_refusals_of(entry: UserEntry | None) -> int:
@@ -669,4 +743,4 @@ def _extraction_warnings_from_entry(entry: UserEntry | None) -> list[str]:
     return warnings
 
 
-__all__ = ["build_user_entry_request", "ingest_user_entry"]
+__all__ = ["SUBMISSION_FIELD", "build_user_entry_request", "ingest_user_entry"]

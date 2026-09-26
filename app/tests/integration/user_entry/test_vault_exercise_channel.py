@@ -1,24 +1,28 @@
 """
-Vault Exercise Channel Integration Tests — PR 1 (channel mechanics)
-====================================================================
+Vault Notes Are Drafts — Integration Tests (Submit & Share arc R9)
+===================================================================
 
 The living/submit channel end-to-end against a real Neo4j container:
 
-    living file (deterministic uid + fulfills_exercise_uid + status: in process)
-        → ONE UserEntry node, upserted in place across edited syncs,
-          intent stored as a node property, NEVER a FULFILLS_EXERCISE edge
+    vault note (with or without fulfills_exercise_uid, status: in process)
+        → ONE UserEntry node, upserted in place across edited syncs, from
+          its FIRST sync (the door mints a uid), intent stored as a node
+          property, NEVER a FULFILLS_EXERCISE edge, never a link
     flip to status: submitted + sync
-        → exactly one frozen copy through the existing turn-in machinery
-          (fresh node, FULFILLS_EXERCISE {revision}, Interaction,
-          SUBMITTED_TO_GROUP routing to the teacher's group)
-    idle re-sync while submitted → no second copy (content unchanged)
-    edit while submitted + sync  → revision-2 copy; prior copy intact
+        → exactly one frozen copy to the note's audience (teachers by
+          default): with an exercise, through the turn-in machinery (fresh
+          node, FULFILLS_EXERCISE {revision}, Interaction); a feedback
+          request routes SUBMITTED_TO_GROUP to the teacher's group; the copy
+          records its note (submitted_from_uid) and a fingerprint
+    idle re-sync while submitted → no second copy (the fingerprint matches)
+    edit while submitted + sync  → a new copy; prior copy intact
+    Stop sharing a copy + idle re-sync → nothing re-filed, nothing re-shared
 
 Everything drives through ``ingest_user_entry`` — the same door the vault
 sync uses — so the request-building, coercion, and copy-filing behavior
 under test is the shipped path, not a test-local reconstruction.
 
-See: docs/roadmap/done/moc-knowledge-channel-design-notes.md § Phase 0 rulings (R2, R3).
+See: docs/roadmap/submission-sharing-arc.md § PR 8; ADR-088.
 """
 
 from __future__ import annotations
@@ -29,11 +33,14 @@ from typing import TYPE_CHECKING, Any
 import pytest
 import pytest_asyncio
 
+from adapters.persistence.neo4j.backends.collab_backends import GroupBackend
 from adapters.persistence.neo4j.backends.exercise_backends import ExerciseBackend
 from adapters.persistence.neo4j.backends.misc_backends import InteractionBackend
 from core.models.enums.neo_labels import NeoLabel
 from core.models.exercises.exercise import Exercise
+from core.models.group.group import Group
 from core.models.interaction.interaction import Interaction
+from core.services.groups.group_service import GroupService
 from core.services.ingestion.user_entry_ingestion import ingest_user_entry
 from core.services.interaction import InteractionService
 from core.services.user_entry.user_entry_service import UserEntryService
@@ -49,34 +56,39 @@ async def channel_service(
     user_entry_backend, sharing_service, neo4j_driver
 ) -> AsyncIterator[UserEntryService]:
     """UserEntryService wired like production for the channel: real backend,
-    real sharing (auto-share fan-out), real InteractionService (audit record)."""
+    real sharing (the audience writes), real groups (``teachers`` without an
+    exercise), real InteractionService (audit record)."""
     interaction_backend = InteractionBackend(
         driver=neo4j_driver,
         label=NeoLabel.INTERACTION,
         entity_class=Interaction,
         base_label=NeoLabel.ENTITY,
     )
+    group_backend = GroupBackend(driver=neo4j_driver, label=NeoLabel.GROUP, entity_class=Group)
     yield UserEntryService(
         backend=user_entry_backend,  # type: ignore[arg-type]
         sharing_service=sharing_service,
         interaction_service=InteractionService(backend=interaction_backend),
+        group_service=GroupService(backend=group_backend),
     )
 
 
 def _living_file_data(
-    exercise_uid: str,
+    exercise_uid: str | None,
     status: str = "in process",
     content: str = "- task one",
+    audience: object = None,
 ) -> dict[str, Any]:
-    return {
+    data: dict[str, Any] = {
         "pipeline": "knowledge",
         "title": "My task list",
         "uid": "ue.vault.tasks-list",  # authored = stored, verbatim (colon alias deleted 2026-08-14)
         "fulfills_exercise_uid": exercise_uid,
         "status": status,
         "content": content,
-        "audience": "private",
+        "audience": audience,
     }
+    return {k: v for k, v in data.items() if v is not None}
 
 
 async def _sync(service: UserEntryService, user_uid: str, data: dict[str, Any]):
@@ -344,6 +356,178 @@ async def test_unreachable_teacher_surfaces_error_and_compensates(
     snap = await _graph_counts(neo4j_driver, student, exercise_uid)
     assert snap["living_status"] == "active"  # living entry persisted
     assert snap["copies"] == 0  # compensated — no unreviewable orphan
+
+
+async def _copies_of(neo4j_driver, note_uid: str) -> list[dict[str, Any]]:
+    """Every frozen copy filed from a note, oldest first, with its links."""
+    async with neo4j_driver.session() as session:
+        result = await session.run(
+            """
+            MATCH (copy:Entity:UserEntry {submitted_from_uid: $note_uid})
+            OPTIONAL MATCH (copy)-[:SUBMITTED_TO_GROUP]->(sg:Group)
+            OPTIONAL MATCH (reader:User)-[:SHARES_WITH]->(copy)
+            RETURN copy.uid AS uid, copy.pipeline AS pipeline, copy.status AS status,
+                   copy.submission_fingerprint AS fingerprint,
+                   copy.metadata AS metadata, copy.created_at AS created_at,
+                   collect(DISTINCT sg.uid) AS submitted_to,
+                   collect(DISTINCT reader.uid) AS shared_with
+            ORDER BY created_at
+            """,
+            note_uid=note_uid,
+        )
+        return [dict(record) async for record in result]
+
+
+async def _study_in(neo4j_driver, student_uid: str, group_uid: str) -> None:
+    """Mark the membership a student one — ``teachers`` without an exercise
+    expands to the groups the owner studies in (``MEMBER_OF {role: student}``)."""
+    async with neo4j_driver.session() as session:
+        await session.run(
+            """
+            MATCH (:User {uid: $student})-[m:MEMBER_OF]->(:Group {uid: $group})
+            SET m.role = 'student'
+            """,
+            student=student_uid,
+            group=group_uid,
+        )
+
+
+async def _links_on(neo4j_driver, entry_uid: str) -> int:
+    async with neo4j_driver.session() as session:
+        row = await (
+            await session.run(
+                """
+                MATCH (e:Entity:UserEntry {uid: $uid})
+                RETURN COUNT { (e)-[:SUBMITTED_TO_GROUP|SHARED_WITH_GROUP]->() }
+                     + COUNT { ()-[:SHARES_WITH]->(e) } AS n
+                """,
+                uid=entry_uid,
+            )
+        ).single()
+        assert row is not None
+        return int(row["n"])
+
+
+@pytest.mark.asyncio
+async def test_an_exercise_note_without_a_uid_is_living_from_its_first_sync(
+    clean_neo4j, channel_service, neo4j_driver, seed_classroom
+) -> None:
+    """The first sync is the case the tracker's prior uid never covered: the
+    door mints the uid, so the note is a draft — never filed as a turn-in."""
+    ctx = await seed_classroom()
+    data = _living_file_data(ctx["exercise_uid"])
+    del data["uid"]
+
+    result = await _sync(channel_service, ctx["student_uid"], data)
+    assert result.is_ok, result.expect_error()
+    note_uid = result.value["uid"]
+
+    async with neo4j_driver.session() as session:
+        row = await (
+            await session.run(
+                """
+                MATCH (n:Entity:UserEntry {uid: $uid})
+                RETURN n.status AS status, n.fulfills_exercise_uid AS intent,
+                       n.turn_in_exercise_uid AS snapshot,
+                       COUNT { (n)-[:FULFILLS_EXERCISE]->() } AS edges,
+                       COUNT { (:Entity:Interaction {user_uid: $student}) } AS interactions
+                """,
+                uid=note_uid,
+                student=ctx["student_uid"],
+            )
+        ).single()
+    assert row is not None
+    assert row["status"] == "active"
+    assert row["intent"] == ctx["exercise_uid"]
+    assert row["snapshot"] is None
+    assert row["edges"] == 0
+    assert row["interactions"] == 0
+    assert await _links_on(neo4j_driver, note_uid) == 0
+
+
+@pytest.mark.asyncio
+async def test_a_note_without_an_exercise_files_one_copy_to_its_teachers(
+    clean_neo4j, channel_service, neo4j_driver, seed_classroom
+) -> None:
+    """R9 with no exercise: ``status: submitted`` files one frozen copy to
+    ``teachers`` (every group the student studies in); an idle re-sync files
+    nothing; the note itself carries no link."""
+    ctx = await seed_classroom()
+    await _study_in(neo4j_driver, ctx["student_uid"], ctx["group_uid"])
+    submitted = _living_file_data(None, status="submitted")
+
+    result = await _sync(channel_service, ctx["student_uid"], submitted)
+    assert result.is_ok, result.expect_error()
+    copy_uid = result.value["submitted_copy_uid"]
+    assert copy_uid
+
+    for _ in range(2):
+        result = await _sync(channel_service, ctx["student_uid"], submitted)
+        assert result.is_ok, result.expect_error()
+        assert result.value["submitted_copy_uid"] is None
+
+    copies = await _copies_of(neo4j_driver, LIVING_UID)
+    assert [c["uid"] for c in copies] == [copy_uid]
+    copy = copies[0]
+    assert copy["pipeline"] == "teacher_review"
+    assert copy["status"] == "submitted"
+    assert copy["submitted_to"] == [ctx["group_uid"]]
+    assert copy["fingerprint"]
+    assert "vault_file_path" not in (copy["metadata"] or "")
+    assert await _links_on(neo4j_driver, LIVING_UID) == 0
+
+
+@pytest.mark.asyncio
+async def test_stop_sharing_a_copy_stays_durable_until_the_note_changes(
+    clean_neo4j, channel_service, neo4j_driver, seed_classroom, seed_user, seed_membership
+) -> None:
+    """A share-only copy (``user:`` — pipeline none) reaches its reader; a
+    Stop sharing is not read as an audience edit, so an idle re-sync neither
+    re-files nor re-shares. A real edit of the audience files a new copy."""
+    ctx = await seed_classroom()
+    await _study_in(neo4j_driver, ctx["student_uid"], ctx["group_uid"])
+    reader = await seed_user("user_ue_reader", name="Reader")
+    await seed_membership(reader, ctx["group_uid"])
+    async with neo4j_driver.session() as session:
+        await session.run("MATCH (u:User {uid: $uid}) SET u.title = 'ue_reader'", uid=reader)
+    shared = _living_file_data(None, status="submitted", audience=["user:ue_reader"])
+
+    result = await _sync(channel_service, ctx["student_uid"], shared)
+    assert result.is_ok, result.expect_error()
+    first = result.value["submitted_copy_uid"]
+    copies = await _copies_of(neo4j_driver, LIVING_UID)
+    assert copies[0]["pipeline"] == "none"
+    assert copies[0]["status"] == "submitted"
+    assert copies[0]["shared_with"] == [reader]
+    assert copies[0]["submitted_to"] == []
+
+    # Stop sharing (the owner's door deletes the person link)
+    async with neo4j_driver.session() as session:
+        await session.run(
+            "MATCH (:User {uid: $reader})-[s:SHARES_WITH]->(:Entity {uid: $copy}) DELETE s",
+            reader=reader,
+            copy=first,
+        )
+
+    result = await _sync(channel_service, ctx["student_uid"], shared)
+    assert result.is_ok, result.expect_error()
+    assert result.value["submitted_copy_uid"] is None
+    copies = await _copies_of(neo4j_driver, LIVING_UID)
+    assert [c["uid"] for c in copies] == [first]
+    assert copies[0]["shared_with"] == []  # the revocation held
+
+    result = await _sync(
+        channel_service,
+        ctx["student_uid"],
+        _living_file_data(None, status="submitted", audience=["teachers", "user:ue_reader"]),
+    )
+    assert result.is_ok, result.expect_error()
+    second = result.value["submitted_copy_uid"]
+    assert second and second != first
+    copies = await _copies_of(neo4j_driver, LIVING_UID)
+    assert copies[1]["pipeline"] == "teacher_review"
+    assert copies[1]["submitted_to"] == [ctx["group_uid"]]
+    assert copies[1]["shared_with"] == [reader]
 
 
 # ============================================================================

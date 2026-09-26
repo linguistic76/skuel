@@ -41,6 +41,7 @@ class UserEntryDTO(UserOwnedDTO):
     - Modality (1): modality
     - Declared exercise intent (1): fulfills_exercise_uid
     - Turn-in snapshot (3): turn_in_exercise_uid, turn_in_exercise_title, turn_in_revision
+    - Vault copy provenance (2): submitted_from_uid, submission_fingerprint
     """
 
     # Honest leaf default (base EntityDTO requires entity_type — G6).
@@ -84,6 +85,12 @@ class UserEntryDTO(UserOwnedDTO):
     turn_in_exercise_uid: str | None = None
     turn_in_exercise_title: str | None = None
     turn_in_revision: int | None = None
+
+    # =========================================================================
+    # VAULT COPY PROVENANCE (a frozen copy of a vault note — see UserEntry docstring)
+    # =========================================================================
+    submitted_from_uid: str | None = None
+    submission_fingerprint: str | None = None
 
     # =========================================================================
     # SERIALIZATION

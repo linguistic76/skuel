@@ -107,13 +107,13 @@ class UserEntryCrudOperations(Protocol):
         """Exercise UID linked via ``FULFILLS_EXERCISE``, if any."""
         ...
 
-    async def get_latest_entry_for_exercise(
-        self, user_uid: UserUID, exercise_uid: str
+    async def get_latest_copy_of_note(
+        self, user_uid: UserUID, note_uid: str
     ) -> Result[Neo4jProperties | None]:
-        """Newest turn-in's uid + content + revision for a user+exercise pair.
+        """The newest frozen copy filed from a vault note: its uid + fingerprint.
 
-        The vault submit-signal branch diffs the living file against this
-        row — the copies are the last-submitted state.
+        The vault door files a new copy only when the note's fingerprint
+        differs from this row's (R9).
         """
         ...
 
