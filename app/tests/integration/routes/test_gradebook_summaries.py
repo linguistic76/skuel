@@ -42,6 +42,8 @@ EX_B = "ex_sum_b"  # feedback received (+ excluded outcome-less reflection)
 EX_C = "ex_sum_c"  # revision requested (report exists but revision wins)
 EX_D = "ex_sum_d"  # resubmit via revised edge only → waiting again
 EX_GONE = "ex_sum_gone"  # deleted exercise: snapshot only, no node
+EX_E = "ex_sum_e"  # post-feedback revision, already shared → no nudge
+EX_F = "ex_sum_f"  # the stamp trap: the prior's report is NEWER than the latest entry
 
 
 @pytest.fixture
@@ -122,7 +124,7 @@ async def seeded(clean_neo4j, neo4j_driver) -> None:
 
             // D: resubmit via the revised edge ONLY — waiting again
             CREATE (d1:Entity:UserEntry {uid: 'ue_sum_d1', entity_type: 'user_entry',
-                title: 'D turn-in', status: 'revision_requested',
+                title: 'D turn-in', status: 'revision_requested', user_uid: $student,
                 turn_in_exercise_uid: $ex_d, turn_in_exercise_title: 'Delta',
                 created_at: '2026-08-01T00:00:00.000000'})
             CREATE (rd:Entity:EntryReport {uid: 'er_sum_rd', entity_type: 'entry_report',
@@ -133,7 +135,7 @@ async def seeded(clean_neo4j, neo4j_driver) -> None:
                 entity_type: 'revised_exercise', title: 'D try again', status: 'active',
                 revision_number: 2, created_at: datetime('2026-08-01T00:45:00Z')})
             CREATE (d2:Entity:UserEntry {uid: 'ue_sum_d2', entity_type: 'user_entry',
-                title: 'D resubmit', status: 'submitted',
+                title: 'D resubmit', status: 'submitted', user_uid: $student,
                 turn_in_exercise_uid: $ex_d, turn_in_exercise_title: 'Delta',
                 created_at: '2026-08-01T03:00:00.000000'})
             MERGE (s)-[:OWNS]->(d1)
@@ -183,6 +185,48 @@ async def seeded(clean_neo4j, neo4j_driver) -> None:
             MERGE (rp)-[:REPORT_FOR]->(pe)
             MERGE (rpp)-[:REPORT_FOR]->(pe)
 
+            // E: a post-feedback revision that is ALREADY shared (a group link)
+            CREATE (exe:Entity:Exercise {uid: $ex_e, entity_type: 'exercise',
+                title: 'Echo', status: 'active', created_at: datetime()})
+            CREATE (ge:Group {uid: 'group_sum_e', name: 'Echo class', is_active: true})
+            CREATE (e1:Entity:UserEntry {uid: 'ue_sum_e1', entity_type: 'user_entry',
+                title: 'E turn-in', status: 'revision_requested', user_uid: $student,
+                turn_in_exercise_uid: $ex_e, turn_in_exercise_title: 'Echo',
+                created_at: '2026-07-29T00:00:00.000000'})
+            CREATE (re1:Entity:EntryReport {uid: 'er_sum_re', entity_type: 'entry_report',
+                title: 'E revision request', status: 'completed', visibility: 'private',
+                processor_type: 'human', assessment_outcome: 'needs_revision',
+                created_at: datetime('2026-07-29T01:00:00Z')})
+            CREATE (e2:Entity:UserEntry {uid: 'ue_sum_e2', entity_type: 'user_entry',
+                title: 'E resubmit', status: 'submitted', user_uid: $student,
+                turn_in_exercise_uid: $ex_e, turn_in_exercise_title: 'Echo',
+                created_at: '2026-07-29T02:00:00.000000'})
+            MERGE (s)-[:OWNS]->(e1) MERGE (s)-[:OWNS]->(re1) MERGE (s)-[:OWNS]->(e2)
+            MERGE (e1)-[:FULFILLS_EXERCISE {revision: 1}]->(exe)
+            MERGE (e2)-[:FULFILLS_EXERCISE {revision: 2}]->(exe)
+            MERGE (re1)-[:REPORT_FOR]->(e1)
+            MERGE (e2)-[:SHARED_WITH_GROUP {shared_at: datetime()}]->(ge)
+
+            // F: the trap — the prior's report is dated AFTER the latest entry
+            CREATE (exf:Entity:Exercise {uid: $ex_f, entity_type: 'exercise',
+                title: 'Foxtrot', status: 'active', created_at: datetime()})
+            CREATE (f1:Entity:UserEntry {uid: 'ue_sum_f1', entity_type: 'user_entry',
+                title: 'F turn-in', status: 'completed', user_uid: $student,
+                turn_in_exercise_uid: $ex_f, turn_in_exercise_title: 'Foxtrot',
+                created_at: '2026-07-28T00:00:00.000000'})
+            CREATE (f2:Entity:UserEntry {uid: 'ue_sum_f2', entity_type: 'user_entry',
+                title: 'F second', status: 'submitted', user_uid: $student,
+                turn_in_exercise_uid: $ex_f, turn_in_exercise_title: 'Foxtrot',
+                created_at: '2026-07-28T01:00:00.000000'})
+            CREATE (rf:Entity:EntryReport {uid: 'er_sum_rf', entity_type: 'entry_report',
+                title: 'F late report', status: 'completed', visibility: 'private',
+                processor_type: 'human', assessment_outcome: 'approved',
+                created_at: datetime('2026-07-28T02:00:00Z')})
+            MERGE (s)-[:OWNS]->(f1) MERGE (s)-[:OWNS]->(f2) MERGE (s)-[:OWNS]->(rf)
+            MERGE (f1)-[:FULFILLS_EXERCISE {revision: 1}]->(exf)
+            MERGE (f2)-[:FULFILLS_EXERCISE {revision: 2}]->(exf)
+            MERGE (rf)-[:REPORT_FOR]->(f1)
+
             // Parallel student on the same exercise — must never leak
             CREATE (o1:Entity:UserEntry {uid: 'ue_sum_o1', entity_type: 'user_entry',
                 title: 'Other turn-in', status: 'completed',
@@ -204,6 +248,8 @@ async def seeded(clean_neo4j, neo4j_driver) -> None:
             ex_c=EX_C,
             ex_d=EX_D,
             ex_gone=EX_GONE,
+            ex_e=EX_E,
+            ex_f=EX_F,
         )
 
 
@@ -212,9 +258,15 @@ class TestExchangeSummaries:
         result = await service.get_student_exchange_summaries(STUDENT)
         assert result.is_ok, f"summary read failed: {result}"
         rows = result.value["exercises"]
-        assert [r["exercise_uid"] for r in rows] == [EX_C, EX_A, EX_D, EX_B, EX_GONE], (
-            "lines must order by latest activity (entry vs report stamps, naive=UTC)"
-        )
+        assert [r["exercise_uid"] for r in rows] == [
+            EX_C,
+            EX_A,
+            EX_D,
+            EX_B,
+            EX_GONE,
+            EX_E,
+            EX_F,
+        ], "lines must order by latest activity (entry vs report stamps, naive=UTC)"
         assert all(not r["exercise_removed"] for r in rows if r["exercise_uid"] != EX_GONE)
 
     async def test_deleted_exercise_keeps_its_line_from_the_snapshot(self, service, seeded) -> None:
@@ -256,6 +308,27 @@ class TestExchangeSummaries:
         assert d["report_count"] == 1
         assert d["latest_report_uid"] is None, (
             "the report sits on the superseded entry, not the latest one"
+        )
+
+    async def test_the_nudge_facts_ride_on_the_latest_entry(self, service, seeded) -> None:
+        """PR 6c (R2): ``latest_entry_revised_after_feedback`` is derived on the
+        latest entry through the one review-standing subquery — its prior's
+        report older than it (string entry stamp against native report
+        stamp) — and ``latest_entry_shared`` whether it carries a share link.
+        D: revised, unshared → the nudge. E: revised but shared → no nudge.
+        F: the report on the prior is NEWER than the latest entry → not a
+        revision. C: a single reviewed entry is not a revision."""
+        rows = (await service.get_student_exchange_summaries(STUDENT)).value["exercises"]
+        by_ex = {r["exercise_uid"]: r for r in rows}
+        assert by_ex[EX_D]["latest_entry_revised_after_feedback"] is True
+        assert by_ex[EX_D]["latest_entry_shared"] is False
+        assert by_ex[EX_E]["latest_entry_revised_after_feedback"] is True
+        assert by_ex[EX_E]["latest_entry_shared"] is True
+        assert by_ex[EX_F]["latest_entry_revised_after_feedback"] is False
+        assert by_ex[EX_F]["latest_entry_shared"] is False
+        assert all(
+            by_ex[ex]["latest_entry_revised_after_feedback"] is False
+            for ex in (EX_A, EX_B, EX_C, EX_GONE)
         )
 
     async def test_outcome_less_reports_count_nowhere(self, service, seeded) -> None:

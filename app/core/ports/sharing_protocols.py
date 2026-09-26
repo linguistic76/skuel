@@ -109,6 +109,10 @@ class SharingBackendOperations(Protocol):
 
     async def query_co_members(self, owner_uid: UserUID) -> Result[list[Neo4jProperties]]: ...
 
+    async def query_feedback_request_groups(
+        self, entity_uid: EntityUID
+    ) -> Result[list[Neo4jProperties]]: ...
+
     async def create_group_share(
         self,
         entity_uid: EntityUID,
@@ -256,6 +260,10 @@ class SharingOperations(Protocol):
         self, owner_uid: UserUID
     ) -> Result[list[ShareCandidatePerson]]:
         """Every R8 co-member the owner may share with (never the owner)."""
+        ...
+
+    async def get_feedback_request_group_uids(self, entity_uid: EntityUID) -> Result[list[str]]:
+        """The groups an entry was submitted to for feedback — the Share panel's preselection."""
         ...
 
     async def set_visibility(

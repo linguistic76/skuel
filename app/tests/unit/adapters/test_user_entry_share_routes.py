@@ -29,6 +29,7 @@ _CANDIDATES = {
     "people": [{"uid": "user_a", "username": "alice", "display_name": "Alice"}],
     "shared_group_uids": [],
     "shared_user_uids": [],
+    "reviewer_group_uids": [],
 }
 
 
@@ -192,6 +193,7 @@ class TestUnshare:
                     "users": [],
                     "groups": [{"uid": "g_1", "name": "Physics 101", "shared_at": None}],
                     "last_shared_at": None,
+                    "review": {"reviewed_by": None, "revised_after_feedback": False},
                 }
             )
         )

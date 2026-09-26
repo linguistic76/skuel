@@ -1,6 +1,6 @@
 ---
 title: "ADR-088: Submit and Share"
-updated: 2026-09-25
+updated: 2026-09-26
 status: accepted
 category: decisions
 tags: [adr, decisions, sharing, submissions, user-entry, groups, visibility, access-control, gradebook]
@@ -313,8 +313,8 @@ Planned, per PR — the arc doc's per-PR sections hold the file-level scope and 
 each PR's own census. In outline: the relationship enum and the sharing backend/service (PR 1),
 the visibility enum and its writers (PR 2a), the report and notification services (PR 2b, PR 3),
 the exchange reads (PR 4a/4b), the visibility clause and DomainConfig (PR 5), the audience
-resolver (PR 6a), the share routes and the Shared page (PR 6b/6c), the submit form (PR 7) and
-the vault door (PR 8).
+resolver (PR 6a), the share routes and the Shared page (PR 6b), the derived badges and the
+GradeBook nudge (PR 6c), the submit form (PR 7) and the vault door (PR 8).
 
 ### Testing Strategy
 - [ ] Integration: `/groups` hides turn-ins and still shows shares; the review queue still lists

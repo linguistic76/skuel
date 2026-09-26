@@ -1,6 +1,6 @@
 ---
 title: Content Sharing Patterns
-updated: '2026-09-25'
+updated: '2026-09-26'
 category: patterns
 related_skills:
 - pytest
@@ -384,7 +384,7 @@ records left with the submissions API (2026-04-17) and have no successors.
 | `POST /api/user-entries/upload` (the `/submit` form) and `POST /api/user-entries` (JSON `UserEntryCreateRequest`) — one `audience` in the one vocabulary: `teachers` / `teacher:<group_uid>` / `group:<uid>` / `user:<username>` / `public` / `private` (ADR-088) | Declares the audience at submit; `UserEntryService.create_entry` → `AudienceResolver.validate_references` (every target checked first) → `resolve_and_share` | `share`, `share_with_group`, `submit_to_group` |
 | `POST /api/user-entries/{uid}/share` — `audience` = `group:<uid>` / `user:<username>` values (form, JSON or query) | The owner shares an entry they already have (R2 — any status); the Share panel on `/gradebook/{uid}` and the exchange thread's per-version Share link post here; `EntrySharingService.share` runs the create path's target checks, then the same guarded writes; a new person share publishes `EntryShared` (the recipient's bell) | `share`, `share_with_group` |
 | `POST /api/user-entries/{uid}/unshare` — one `audience` value | Stop sharing (R7): × on a *Your wall* chip; never a feedback request | `unshare`, `unshare_from_group` |
-| `GET /gradebook/{uid}/share-panel` | The Share panel's body: candidate groups (joined as a student or owned, active) and people (R8 co-members), the entry's current audience marked | `get_share_candidate_people`, `get_shared_by_me(entity_uid=…)` |
+| `GET /gradebook/{uid}/share-panel` | The Share panel's body: candidate groups (joined as a student or owned, active) and people (R8 co-members), the entry's current audience marked; `?preselect=reviewers` (the GradeBook nudge) checks the offered groups the entry was submitted to for feedback | `get_share_candidate_people`, `get_shared_by_me(entity_uid=…)` |
 | Vault door (`./dev vault-sync`, the Sync buttons) — a note's `audience:` frontmatter | Same request, built by `user_entry_ingestion.py`; re-sync re-declares (widens only) | `share`, `share_with_group` |
 | `POST /api/form-submissions/share` — `{uid, group_uid?, recipient_uids?, share_with_admin?}` | The forms' post-submit widening door | `share`, `share_with_group` |
 | Exercise assignment (ADR-040, `ExerciseService`) | Auto-shares an ASSIGNED exercise with its group | `share_with_group` |
@@ -422,13 +422,37 @@ There is no visibility dropdown — publication waits on the PUBLIC reader.
 Route: `/profile/shared` (`ui/profile/shared_view.py`) — two sides (R7):
 
 - **Shared with you** — the R6 card per item (title, description, from, date, the "Shared with
-  you" badge, via chips, an Open link); a FilterBar (Type · Shared by · Via, options derived
+  you" badge, the derived review badges, via chips, an Open link); a FilterBar (Type · Shared by · Via, options derived
   from the live list) filters server-side through the `/profile/shared/list-fragment` HTMX
   fragment (`get_shared_with_me(entity_type=..., sharer_uid=..., via=...)` — additive,
   parameterized WHERE filters). Feedback never appears here (R3).
-- **Your wall** — one row per shared entry with an audience chip per person and group, each
-  with × Stop sharing (the chip posts `/api/user-entries/{uid}/unshare` and swaps the row).
-  Visible to its owner only.
+- **Your wall** — one row per shared entry with its review badges and an audience chip per
+  person and group, each with × Stop sharing (the chip posts `/api/user-entries/{uid}/unshare`
+  and swaps the row). Visible to its owner only.
+
+### Derived review badges and the nudge (R2)
+
+The encouraged route — submit → feedback → revise → share — is promoted, never enforced
+(ADR-088 §1). Two derived facts, never stored, authored once as
+`build_review_standing_subquery` (`adapters/persistence/neo4j/query/cypher/learning_loop_fragments.py`)
+and composed by every reader that badges an entry — the two Shared-page list statements, the
+GradeBook summaries statement (on the exchange's latest entry) and the recipient card's
+one-entry read (`ReportRelationshipService.get_entry_review_standing`):
+
+- **Reviewed · Teacher / AI** — an outcome-bearing report stands on the entry (`reviewed_by` =
+  the newest one's `ReportSource`).
+- **Revised after feedback** — an earlier entry of the same owner in the same exchange
+  (`turn_in_exercise_uid`) carries such a report older than this entry. The entry stamp is an
+  ISO string and the report stamp a native datetime, so the predicate parses the entry side
+  (`prior_report.created_at < datetime(entry.created_at)`) — a raw `<` is NULL.
+
+`ui/gradebook/review_badges.py` renders them on the Shared-with-you card, the wall row and the
+recipient card. The **nudge** is the GradeBook exchange line's "Share your revised work" link,
+shown while the latest entry is a post-feedback revision with no share link yet
+(`latest_entry_revised_after_feedback` / `latest_entry_shared`); it opens
+`/gradebook/{uid}?share=1&preselect=reviewers` — the Share panel with the groups the entry was
+submitted to for feedback (`ShareCandidates.reviewer_group_uids`,
+`get_feedback_request_group_uids`) checked among the offered groups.
 
 ---
 
@@ -659,7 +683,7 @@ if result.is_error:
 - **R8 co-membership:** `SharingBackend.build_co_membership_fragment` — the one predicate, composed by the co-member reads and the guarded person-share MERGE; the default group is named by `DEFAULT_GROUP_UID_PREFIX` (`core/models/group/group.py`)
 - **Group sharing routes:** `adapters/inbound/groups_hub_routes.py` (`/api/groups/{group_uid}/shared/preview`, `/groups/{group_uid}`)
 - **Audience fragment:** `adapters/persistence/neo4j/query/cypher/crud_queries.py` — `build_audience_fragment`, composed by `build_search_visibility_clause` for `OWNER_OR_AUDIENCE`
-- **UI Routes:** `adapters/inbound/user_entry_ui.py` (`/gradebook/{uid}` viewer-aware with the Share button, `/gradebook/{uid}/share-panel`, `/gradebook/{uid}/download`); the recipient card in `ui/gradebook/recipient_card.py`, the Share panel in `ui/gradebook/share_panel.py`
+- **UI Routes:** `adapters/inbound/user_entry_ui.py` (`/gradebook/{uid}` viewer-aware with the Share button, `/gradebook/{uid}/share-panel`, `/gradebook/{uid}/download`); the recipient card in `ui/gradebook/recipient_card.py`, the Share panel in `ui/gradebook/share_panel.py`, the derived badges in `ui/gradebook/review_badges.py` and the GradeBook nudge in `ui/gradebook/summary.py`
 - **UI Components:** `ui/user_entry/forms.py` (the audience selector on the submit form)
 - **The Shared page:** `adapters/inbound/user_profile_ui.py`, `ui/profile/shared_view.py`
 - **The recipient's bell:** `core/events/handlers/share_notification_handler.py` (`EntryShared` → `shared_with_you`)

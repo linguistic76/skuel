@@ -16,13 +16,16 @@ Data shape: ``StudentExchangeSummaries`` rows from
 from __future__ import annotations
 
 from typing import TYPE_CHECKING
+from urllib.parse import urlencode
 
 from fasthtml.common import H2, A, Div, Form, Input, Option, P, Span
 from fasthtml.common import Button as HtmlButton
 
 from core.models.enums.pipeline import ExchangeStatus, ReportSource
+from ui.components import Icon
 from ui.feedback import Badge, BadgeT
 from ui.forms import Select
+from ui.gradebook.share_panel import PRESELECT_PARAM, PRESELECT_REVIEWERS
 from ui.layout import Size
 from ui.patterns.empty_state import EmptyState
 from ui.patterns.format_date import format_date
@@ -136,6 +139,27 @@ def _filter_bar(status: str, source: str) -> FT:
 
 
 EXERCISE_REMOVED_LABEL = "Exercise removed"
+SHARE_REVISED_NUDGE_LABEL = "Share your revised work"
+"""The nudge (ADR-088 §1, R2): the encouraged route submit → feedback → revise → share, offered, never enforced."""
+
+
+def share_revised_nudge_href(entry_uid: str) -> str:
+    """The nudge's target: the entry's page with the Share panel open and the reviewers' groups preselected."""
+    query = urlencode({"share": "1", PRESELECT_PARAM: PRESELECT_REVIEWERS})
+    return f"/gradebook/{entry_uid}?{query}"
+
+
+def _share_revised_nudge(row: StudentExchangeSummary) -> FT | str:
+    """The "Share your revised work" line under an exchange whose latest entry is an unshared post-feedback revision."""
+    if not row["latest_entry_revised_after_feedback"] or row["latest_entry_shared"]:
+        return ""
+    return A(
+        Icon("share-2", cls="size-3.5", aria_hidden="true"),
+        Span(SHARE_REVISED_NUDGE_LABEL, cls="ml-1"),
+        Span(" →", aria_hidden="true"),
+        href=share_revised_nudge_href(row["latest_entry_uid"]),
+        cls="inline-flex items-center min-h-[36px] px-3 -mt-1 mb-2 text-xs text-primary no-underline hover:underline",
+    )
 
 
 def _exchange_line(row: StudentExchangeSummary) -> FT:
@@ -143,7 +167,9 @@ def _exchange_line(row: StudentExchangeSummary) -> FT:
 
     An exchange whose exercise has been deleted keeps its line, titled from
     the turn-in snapshot and badged "Exercise removed" (Submit & Share arc
-    R12) — the thread still opens.
+    R12) — the thread still opens. A line whose latest entry is a
+    post-feedback revision not yet shared carries the "Share your revised
+    work" nudge beneath it (R2) — a sibling link, never nested in the row's.
     """
     status = ExchangeStatus(row["exchange_status"])
     removed_badge: FT | str = (
@@ -160,7 +186,7 @@ def _exchange_line(row: StudentExchangeSummary) -> FT:
         f" · {report_count} report{'s' if report_count != 1 else ''}"
     )
     meta_parts = [part for part in (when, source_label and f"from {source_label}", counts) if part]
-    return A(
+    line = A(
         Div(
             Div(
                 P(row["exercise_title"], cls="font-semibold mb-0 text-sm"),
@@ -179,6 +205,7 @@ def _exchange_line(row: StudentExchangeSummary) -> FT:
         href=f"/exchange?exercise={row['exercise_uid']}",
         cls="block no-underline text-foreground mb-2",
     )
+    return Div(line, _share_revised_nudge(row))
 
 
 def render_exchange_section(rows: list[StudentExchangeSummary], status: str, source: str) -> FT:
@@ -270,9 +297,11 @@ __all__ = [
     "EXCHANGE_SECTION_ID",
     "GRADEBOOK_TITLE",
     "LINES_FRAGMENT_URL",
+    "SHARE_REVISED_NUDGE_LABEL",
     "filter_exchange_lines",
     "normalize_exchange_filters",
     "render_activity_reports_group",
     "render_exchange_section",
     "render_other_feedback_group",
+    "share_revised_nudge_href",
 ]

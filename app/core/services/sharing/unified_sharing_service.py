@@ -42,6 +42,7 @@ from core.ports.query_types import (
     WallRecipient,
 )
 from core.ports.sharing_protocols import SharingBackendOperations
+from core.services.report.review_standing import review_standing_from_row
 from core.utils.logging import get_logger
 from core.utils.neo4j_props import neo4j_opt_str
 from core.utils.result_simplified import ErrorContext, Errors, Result
@@ -293,7 +294,8 @@ class UnifiedSharingService:
 
         Each item carries the entity DTO, who shared it (its owner), when,
         and the via-list — ``via_direct`` (a person share to the viewer) and
-        ``via_groups`` (the active groups it reached the viewer through).
+        ``via_groups`` (the active groups it reached the viewer through) —
+        and its derived review standing (``review``, the badges).
         Feedback types never appear (R3); the viewer's own entries never
         appear. ``entity_type`` / ``sharer_uid`` / ``via`` narrow the list
         (``None`` = no filter): ``via`` is ``direct`` or a group uid, which
@@ -323,6 +325,7 @@ class UnifiedSharingService:
                     {"uid": str(g["uid"]), "name": neo4j_opt_str(g, "name")}
                     for g in cast("list[dict[str, Any]]", record.get("via_groups") or [])
                 ],
+                "review": review_standing_from_row(record),
             }
             for record in (result.value or [])
         ]
@@ -338,7 +341,7 @@ class UnifiedSharingService:
 
         The owner's access list (ADR-088 §6): one item per entry with every
         person (``users``) and group (``groups``) it is shared with, newest
-        share first. A feedback request is not a share and is not listed.
+        share first, and the entry's derived review standing (``review``). A feedback request is not a share and is not listed.
         With ``entity_uid`` the read narrows to one entry — the Share panel's
         "already shared with" state reads this, never a second query.
 
@@ -374,9 +377,24 @@ class UnifiedSharingService:
                     "users": users,
                     "groups": groups,
                     "last_shared_at": neo4j_opt_str(record, "last_shared_at"),
+                    "review": review_standing_from_row(record),
                 }
             )
         return Result.ok(items)
+
+    async def get_feedback_request_group_uids(self, entity_uid: EntityUID) -> Result[list[str]]:
+        """The groups an entry was submitted to for feedback (``SUBMITTED_TO_GROUP``).
+
+        What the GradeBook's "Share your revised work" nudge preselects in
+        the Share panel — the class that reviewed the work. The panel applies
+        it to the groups it offers anyway; this read grants nothing.
+
+        Backend: SharingBackend.query_feedback_request_groups
+        """
+        result = await self.backend.query_feedback_request_groups(entity_uid)
+        if result.is_error:
+            return Result.fail(result)
+        return Result.ok([str(row["uid"]) for row in (result.value or []) if row.get("uid")])
 
     async def get_share_candidate_people(
         self, owner_uid: UserUID

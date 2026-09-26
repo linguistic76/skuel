@@ -450,9 +450,20 @@ class UserEntryReportQueryOperations(Protocol):
         second column carries received reports outside any exchange (the
         GradeBook "Other feedback" group — reports on entries with no
         snapshot). Outcome-less reports excluded; all ``created_at`` values
-        arrive as ISO-8601 strings.
+        arrive as ISO-8601 strings. Each row also carries the latest entry's
+        ``latest_entry_revised_after_feedback`` / ``latest_entry_shared``
+        (the GradeBook nudge's two facts).
 
         Backend: _UserEntryReportQueryMixin.get_student_exchange_summaries_raw
+        """
+        ...
+
+    async def get_entry_review_standing_raw(self, entry_uid: str) -> Result[list[Neo4jProperties]]:
+        """One entry's derived review standing (``reviewed_by``,
+        ``revised_after_feedback``) — the recipient card's badges; no owner
+        arm, the caller's audience read comes first.
+
+        Backend: _UserEntryReportQueryMixin.get_entry_review_standing_raw
         """
         ...
 

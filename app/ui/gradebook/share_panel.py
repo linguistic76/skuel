@@ -6,17 +6,24 @@ Two pieces, both server-rendered:
   target of the exchange thread's per-version "Share" link, which opens it
   through ``?share=1``). It is an Alpine-controlled modal whose body is
   HTMX-loaded from ``GET /gradebook/{uid}/share-panel`` the first time it is
-  shown, so the page render pays nothing for it.
+  shown, so the page render pays nothing for it. A ``preselect`` token rides
+  through to that load: the GradeBook's "Share your revised work" nudge opens
+  the page with ``?share=1&preselect=reviewers``.
 - ``SharePanelForm`` is that body: one checkbox per candidate group and
   person (the vocabulary values ``group:<uid>`` / ``user:<username>``), the
   ones the entry already reaches checked and disabled, posting to
-  ``POST /api/user-entries/{uid}/share``. The response re-renders the form
-  with the outcome line above it. Stop sharing lives on Your wall, not here.
+  ``POST /api/user-entries/{uid}/share``. With ``preselect=reviewers`` the
+  groups the entry was submitted to for feedback (``reviewer_group_uids``)
+  render checked — among the offered groups only, and never one already
+  shared; any other token preselects nothing. The response re-renders the
+  form with the outcome line above it. Stop sharing lives on Your wall, not
+  here.
 """
 
 from __future__ import annotations
 
 from typing import TYPE_CHECKING
+from urllib.parse import urlencode
 
 from fasthtml.common import H3, A, Button, Div, Form, Input, Label, P, Span
 
@@ -34,24 +41,35 @@ if TYPE_CHECKING:
 
 SHARE_PANEL_BODY_ID = "share-panel-body"
 WALL_URL = "/profile/shared#your-wall"
+PRESELECT_PARAM = "preselect"
+PRESELECT_REVIEWERS = "reviewers"
+"""The one ``preselect`` token: check the groups the entry was submitted to for feedback."""
 
 _NOBODY_TO_SHARE_WITH = (
     "No groups or classmates to share with yet — join a group, or ask a teacher to add you."
 )
 
 
-def ShareButton(entry_uid: str, *, open: bool = False) -> Div:
+def ShareButton(entry_uid: str, *, open: bool = False, preselect: str | None = None) -> Div:
     """The "Share" button and its modal, for the entry's owner.
 
     Args:
         entry_uid: The owned entry.
         open: Render the modal open (``?share=1`` — the exchange thread's
-            per-version Share link lands here).
+            per-version Share link and the GradeBook nudge land here).
+        preselect: The ``preselect`` token forwarded to the panel load
+            (``reviewers`` from the nudge); ``None`` preselects nothing.
     """
     body = Div(
         P("Loading…", cls="text-sm text-muted-foreground"),
         id=SHARE_PANEL_BODY_ID,
-        hx_get=f"/gradebook/{entry_uid}/share-panel",
+        # The token is percent-encoded into the query; the path stays a literal
+        # the hx-target scan can read.
+        hx_get=(
+            f"/gradebook/{entry_uid}/share-panel?{urlencode({PRESELECT_PARAM: preselect})}"
+            if preselect
+            else f"/gradebook/{entry_uid}/share-panel"
+        ),
         hx_trigger="intersect once",
         hx_swap="innerHTML",
     )
@@ -87,8 +105,10 @@ def ShareButton(entry_uid: str, *, open: bool = False) -> Div:
     )
 
 
-def _candidate_row(value: str, label: str, *, shared: bool, hint: str | None = None) -> Div:
-    """One checkbox row; an already-shared target is checked and disabled."""
+def _candidate_row(
+    value: str, label: str, *, shared: bool, preselected: bool = False, hint: str | None = None
+) -> Div:
+    """One checkbox row; an already-shared target is checked and disabled, a preselected one checked."""
     checkbox_id = f"share-{value.replace(':', '-')}"
     attrs: dict[str, object] = {
         "type": "checkbox",
@@ -100,6 +120,8 @@ def _candidate_row(value: str, label: str, *, shared: bool, hint: str | None = N
     if shared:
         attrs["checked"] = True
         attrs["disabled"] = True
+    elif preselected:
+        attrs["checked"] = True
     return Div(
         Input(**attrs),
         Label(
@@ -146,12 +168,26 @@ def SharePanelForm(
     *,
     outcome: ShareOutcome | None = None,
     error: str | None = None,
+    preselect: str | None = None,
 ) -> Div:
-    """The modal body: candidates as checkboxes, posting the chosen vocabulary values."""
+    """The modal body: candidates as checkboxes, posting the chosen vocabulary values.
+
+    ``preselect=reviewers`` checks the offered groups the entry was submitted
+    to for feedback (the class that reviewed it) that are not shared yet;
+    nothing outside ``candidates["groups"]`` is ever checked.
+    """
     shared_groups = set(candidates["shared_group_uids"])
     shared_users = set(candidates["shared_user_uids"])
+    preselected_groups = (
+        set(candidates["reviewer_group_uids"]) if preselect == PRESELECT_REVIEWERS else set()
+    )
     group_rows = [
-        _candidate_row(f"{GROUP_PREFIX}{g['uid']}", g["name"], shared=g["uid"] in shared_groups)
+        _candidate_row(
+            f"{GROUP_PREFIX}{g['uid']}",
+            g["name"],
+            shared=g["uid"] in shared_groups,
+            preselected=g["uid"] in preselected_groups,
+        )
         for g in candidates["groups"]
     ]
     people_rows = [
@@ -191,6 +227,8 @@ def SharePanelForm(
 
 
 __all__ = [
+    "PRESELECT_PARAM",
+    "PRESELECT_REVIEWERS",
     "SHARE_PANEL_BODY_ID",
     "WALL_URL",
     "ShareButton",

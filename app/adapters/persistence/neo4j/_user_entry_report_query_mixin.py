@@ -17,6 +17,9 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any
 
+from adapters.persistence.neo4j.query.cypher.learning_loop_fragments import (
+    build_review_standing_subquery,
+)
 from core.models.enums.entity_enums import EntityType
 from core.models.relationship_names import RelationshipName
 from core.models.type_hints import Neo4jProperties, UserUID
@@ -260,7 +263,11 @@ class _UserEntryReportQueryMixin:
         Latest-entry pick is ``created_at`` (tie: uid) rather than the review
         queue's revision-first collapse — the edge revision dies with the
         exercise, and the snapshot key must rank a deleted exercise's
-        entries the same way as a live one's.
+        entries the same way as a live one's. The latest entry's derived
+        review standing (``build_review_standing_subquery`` — the badges' one
+        derivation) and whether it carries any share link yet ride on the
+        row as ``latest_entry_revised_after_feedback`` /
+        ``latest_entry_shared``: the "Share your revised work" nudge (R2).
 
         Received feedback is identified by its outcome everywhere in this
         read: only reports with ``assessment_outcome`` set count (a journal
@@ -274,6 +281,7 @@ class _UserEntryReportQueryMixin:
         Returns a single row: ``exercise_summaries`` (unordered — the
         service sorts by latest activity), ``other_feedback`` (newest first).
         """
+        review_standing = build_review_standing_subquery("latest_entry")
         query = f"""
         MATCH (student:User {{uid: $student_uid}})
         CALL (student) {{
@@ -291,6 +299,12 @@ class _UserEntryReportQueryMixin:
                  collect({{uid: e.uid, status: e.status, created_at: toString(e.created_at),
                           snapshot_title: e.turn_in_exercise_title,
                           reports: entry_reports}})[0] AS latest
+            MATCH (latest_entry:Entity:UserEntry {{uid: latest.uid}})
+            {review_standing}
+            WITH exercise_uid, entry_count, report_count, latest, revised_after_feedback,
+                 (EXISTS {{ (latest_entry)<-[:{RelationshipName.SHARES_WITH.value}]-(:User) }}
+                  OR EXISTS {{ (latest_entry)-[:{RelationshipName.SHARED_WITH_GROUP.value}]->(:Group) }}
+                 ) AS latest_entry_shared
             OPTIONAL MATCH (ex:Entity:Exercise {{uid: exercise_uid}})
             RETURN collect({{
                 exercise_uid: exercise_uid,
@@ -301,7 +315,9 @@ class _UserEntryReportQueryMixin:
                 latest_entry_created_at: latest.created_at,
                 latest_report: head(latest.reports),
                 entry_count: entry_count,
-                report_count: report_count
+                report_count: report_count,
+                latest_entry_revised_after_feedback: revised_after_feedback,
+                latest_entry_shared: latest_entry_shared
             }}) AS exercise_summaries
         }}
         CALL (student) {{
@@ -322,6 +338,23 @@ class _UserEntryReportQueryMixin:
                 "report_type": EntityType.ENTRY_REPORT.value,
             },
         )
+
+    async def get_entry_review_standing_raw(self, entry_uid: str) -> Result[list[Neo4jProperties]]:
+        """One entry's derived review standing — the recipient card's badges (R2).
+
+        The badges' one derivation (``build_review_standing_subquery``) over
+        the entry alone: ``reviewed_by`` and ``revised_after_feedback``. No
+        owner arm — the caller's audience read decided who may see the
+        entry; this read only says what standing it has. No row for a uid
+        that names no UserEntry.
+        """
+        review_standing = build_review_standing_subquery("entry")
+        query = f"""
+        MATCH (entry:Entity:UserEntry {{uid: $entry_uid}})
+        {review_standing}
+        RETURN reviewed_by, revised_after_feedback
+        """
+        return await self.execute_query(query, {"entry_uid": entry_uid})
 
     async def get_submission_chain_raw(self, submission_uid: str) -> Result[list[Neo4jProperties]]:
         """Traverse learning loop chain from a specific entry.

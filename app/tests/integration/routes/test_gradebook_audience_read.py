@@ -198,6 +198,12 @@ async def handlers(neo4j_driver: Any) -> Any:
     orchestrator.get_entry_organized_children = AsyncMock(  # type: ignore[method-assign]
         return_value=Result.ok([])
     )
+    # The recipient card's derived badges (PR 6c) — read after the audience
+    # read admitted the viewer; the derivation itself is pinned on a real
+    # graph in test_review_standing_read.py.
+    orchestrator.get_entry_review_standing = AsyncMock(  # type: ignore[method-assign]
+        return_value=Result.ok({"reviewed_by": "human", "revised_after_feedback": True})
+    )
     orchestrator.is_entry_response_eligible = AsyncMock(  # type: ignore[method-assign]
         return_value=Result.ok(False)
     )
@@ -231,6 +237,7 @@ def _assert_recipient_card(html: str) -> None:
     assert DESCRIPTION in html
     assert f"From {OWNER_NAME}" in html
     assert "Shared with you" in html
+    assert "Revised after feedback" in html and "Reviewed · Teacher" in html
     assert f"/gradebook/{ENTRY_SHARED}/download" in html
     # R6: never the status, the processed body, feedback or the exchange.
     assert "Status:" not in html

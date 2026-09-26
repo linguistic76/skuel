@@ -1,6 +1,6 @@
 ---
 title: "Submit & Share Arc — Rulings & Contract"
-updated: 2026-09-25
+updated: 2026-09-26
 status: "active"
 registered: 2026-09-24
 ruled: 2026-09-24
@@ -864,7 +864,7 @@ it first removes both.
     Shared page's chrome (`active_page="shared"`), the owner's page keeps the GradeBook sidebar,
     and the refusal is the GradeBook sidebar page at 404 (`refuse` + `render_activity_sidebar_error`
     — a stranger and a missing uid are one body). The card's badge is the fixed "Shared with you";
-    the derived "Revised after feedback" badge is PR 6c's.
+    the derived "Revised after feedback" badge came with PR 6c.
   - The `.md` download (`adapters/outbound/user_entry_renderer.py`) carries the title, description
     and `content` — the same body for the owner and a recipient — and never `status`,
     `processed_content` or feedback; the recipient contract is enforced by what the renderer
@@ -1238,6 +1238,74 @@ it first removes both.
 - Tests for both.
 - Live acceptance setup (Mike's OK): a second turn-in in one exercise exchange, made after its
   report — the Gentle Return exchange (ue_bd5ce4a1, `revision_requested`) is the natural candidate.
+- **Ruled (PR 6c session, 2026-09-25 — engineering choices the census found unsettled; none touches
+  a ruling):**
+  - **One derivation, composed four times.** `build_review_standing_subquery(alias)`
+    (`adapters/persistence/neo4j/query/cypher/learning_loop_fragments.py`) is a `CALL (alias) {…}`
+    block returning `reviewed_by` (the newest outcome-bearing report's `processor_type`, NULL when
+    none) and `revised_after_feedback` (an earlier entry of the same owner in the same
+    `turn_in_exercise_uid` exchange carries such a report with `prior_report.created_at <
+    datetime(alias.created_at)`). It is composed by `query_shared_with_me` and `query_shared_by_me`
+    (derived columns on the two list statements, never a second query beside them), by the
+    summaries statement on the exchange's latest entry, and by the recipient card's one-entry read.
+    A restated predicate is a second derivation that drifts.
+  - **The recipient card's read lives on the user-entry report-query mixin**
+    (`get_entry_review_standing_raw`, beside the exchange reads) behind
+    `ReportRelationshipService.get_entry_review_standing` → the orchestrator → the route's
+    recipient branch. It has no owner arm by design: the audience read admitted the viewer first
+    (ADR-085's post-verification read); a failed derivation renders the card without badges.
+  - **Timestamp trap, measured:** both writers stamp naive local time — the entry's
+    `datetime.now().isoformat()` string and the report's `datetime($now)` from the same call —
+    so the parsed entry side and the native report side read the same clock. Probed read-only on
+    AuraDB: `datetime()` accepts a native DateTime as well as the string (the test seeds use
+    both), and a raw `<` between the two shapes is NULL.
+  - **"Preselected" = the reviewers' groups.** The nudge links to
+    `/gradebook/{uid}?share=1&preselect=reviewers`; the page forwards the token to the panel load
+    (`GET /gradebook/{uid}/share-panel?preselect=reviewers`, percent-encoded); `candidates` carries
+    `reviewer_group_uids` — the entry's `SUBMITTED_TO_GROUP` targets, one small sharing-backend
+    read (`query_feedback_request_groups`) — and the panel renders those of its *offered* groups
+    not yet shared as checked, enabled checkboxes. Any other token preselects nothing; nothing
+    outside the candidates is ever checked, so the token grants no reach. A revision reviewed by
+    AI alone has no reviewer group and the panel just opens.
+  - **The nudge shows while the revised latest entry is unshared:** the summaries row carries
+    `latest_entry_revised_after_feedback` and `latest_entry_shared` (any `SHARES_WITH` /
+    `SHARED_WITH_GROUP` link on the latest entry); an offer that stays after the share is noise.
+    The nudge is a sibling link under the exchange line, never an anchor inside the line's anchor.
+  - **Labels:** "Revised after feedback"; "Reviewed · Teacher" / "Reviewed · AI" from
+    `ReportSource.get_short_label()`, plain "Reviewed" for a source this build does not know.
+    Both may show on one entry. `ui/gradebook/review_badges.py` is the one renderer for the
+    Shared-with-you card, the wall row and the recipient card; the `/groups` preview tile stays as
+    it was (the arc names three surfaces, and the tile opens the recipient card).
+  - `SharedWithMeItem` / `SharedByMeItem` carry `review: ReviewStanding`; `ShareCandidates`
+    carries `reviewer_group_uids`. The panel-load target is an `IfExp` of two literal f-strings
+    so the hx-target scan (`test_hx_targets_registered.py`) reads it rather than pinning an opaque
+    one.
+  - Live acceptance 2026-09-25 (branch app on :8001, Mike's OK; read-only census first: 3581
+    nodes / 3072 edges, `SHARES_WITH` on UserEntries 0, `SHARED_WITH_GROUP` 0; the Gentle Return
+    exchange was ue_f95db474 (never reviewed) → ue_bd5ce4a1 (`revision_requested`, report
+    er_0495255e), so the live GradeBook showed no nudge — the earlier entry had no review). One
+    write per script, none re-run: the upload door as linguistic76 filed a placeholder turn-in
+    against re_c4e92951 (`ue_b48471c0`: +3 nodes — the entry, its `RECORDS` Interaction, an
+    iteration Insight — and +8 edges, incl. `FULFILLS_EXERCISE` on the root,
+    `FULFILLS_REVISED_EXERCISE`, `SUBMITTED_TO_GROUP` to the Default Group; derived standing
+    `reviewed_by: null, revised_after_feedback: true` on a string entry stamp against the native
+    report stamp). The GradeBook's Gentle Return line ("3 submissions · 1 report", Waiting) then
+    carried "Share your revised work →" to `/gradebook/ue_b48471c0?share=1&preselect=reviewers`;
+    that page rendered the panel open, its body loaded with `?preselect=reviewers`, the Default
+    Group checked and enabled, `user:mfan0110` unchecked. Posting the panel's value wrote +1
+    `SHARED_WITH_GROUP`, rang no bell (a group share rings no one), removed the nudge, and the
+    owner's wall row read "Revised after feedback · Default Group". As the Default Group's owner
+    (`mfan0110`), *Shared with you* listed the card with "Revised after feedback" + "Shared with
+    you" via "Default Group", the `/groups` preview and the via-group list-fragment listed it,
+    `/gradebook/ue_b48471c0` was the recipient card with the badge and no status, feedback or
+    exchange, and the `.md` download served. Headless Chrome at 375px and 1280px on the live
+    pages: no horizontal overflow (a first 375px shot showed the pre-fix squeezed card title —
+    the :8001 process predated the stacking fix; restarted on the committed code, correct).
+    Deleted afterwards by uid (the entry, Interaction and Insight: 3 nodes, 9 edges incl. the
+    share; `SHARED_WITH_GROUP` back to 0, leftovers 0); the nine scripted logins left their
+    `Session` + `AuthEvent` pairs (3599 nodes / 3090 edges after). Residual unchanged from 6b: the
+    wall's relative time read "7h ago" for a share made minutes earlier (the naive-local
+    `shared_at` stamp read as UTC).
 
 ### PR 7 — The Submit page asks two questions (C)
 
@@ -1487,7 +1555,7 @@ requires PR 1, PR 3, PR 5 and PR 6a. PR 6c requires PR 4a, PR 5 and PR 6b. PR 7 
 | 5 | `OWNER_OR_AUDIENCE` + `read_visibility`; the audience fragment; viewer-aware `/gradebook/{uid}` + download; the peer route retired | A person-shared entry opens for its recipient with no status or feedback. A non-recipient gets 404 | merged #1421, 2026-09-25 |
 | 6a | `AudienceSpec` + resolver; R8 co-membership; journal privacy; `group:` never files a feedback request; vault `user:` / `teacher:` parsed but applied only from PR 8 | The vault parser accepts `audience: [teachers, user:<name>]` (unit matrix). A JSON-door `user:` share to a co-member (user_admin, or a member of a non-default group) succeeds; a Default-Group-only member gets the uniform error | merged #1422, 2026-09-25 |
 | 6b | Share / Stop sharing routes; candidates; the two-sided Shared page; R3 cleanup; person-share bell; the two access-list methods deleted (DELETED rows added); `shares_granted` rewired | Share with a co-member (as in 6a) → the recipient's *Shared with you* + bell. Your wall lists it, and Stop sharing removes it. Feedback is gone from the Shared page | merged #1423, 2026-09-25 |
-| 6c | Derived "reviewed" badges; the GradeBook nudge | A revised shared entry carries "Revised after feedback". The GradeBook nudge appears on it | open |
+| 6c | Derived "reviewed" badges; the GradeBook nudge | A revised shared entry carries "Revised after feedback". The GradeBook nudge appears on it | merged #1424, 2026-09-25 |
 | 7 | The two-question Submit form; teacher without an exercise; teacher bell; the zero-reach rule moves into `create_entry`; the "Submit" rename | The web Teacher option works without an exercise. The teacher's bell links to `/teaching/review/{uid}` | open |
 | 8 | Vault notes are drafts; one frozen copy per `status: submitted`; provenance + dedup; closes the re-sync case file | A vault note with `status: submitted` files one copy; an idle re-sync files nothing | open |
 

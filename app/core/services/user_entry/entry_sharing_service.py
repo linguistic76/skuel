@@ -236,7 +236,9 @@ class EntrySharingService:
         Groups: the active groups the owner is a student of or owns (one
         reader, ``GroupOperations.get_user_groups``). People: the R8
         co-members (the default group's roster excluded, its owner kept).
-        The current audience is the wall's read for this one entry.
+        The current audience is the wall's read for this one entry; the
+        reviewer groups (its ``SUBMITTED_TO_GROUP`` targets) are what the
+        GradeBook nudge preselects, among the offered groups only.
         """
         owned = await self._owned_entry(entry_uid, owner_uid)
         if owned.is_error:
@@ -256,6 +258,9 @@ class EntrySharingService:
         if current.is_error:
             return Result.fail(current)
         row = current.value[0] if current.value else None
+        reviewers = await self.sharing.get_feedback_request_group_uids(EntityUID(entry_uid))
+        if reviewers.is_error:
+            return Result.fail(reviewers)
 
         return Result.ok(
             {
@@ -263,6 +268,7 @@ class EntrySharingService:
                 "people": list(people.value),
                 "shared_group_uids": [g["uid"] for g in row["groups"]] if row else [],
                 "shared_user_uids": [u["uid"] for u in row["users"]] if row else [],
+                "reviewer_group_uids": reviewers.value,
             }
         )
 

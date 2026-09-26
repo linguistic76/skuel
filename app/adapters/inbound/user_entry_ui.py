@@ -710,12 +710,16 @@ def create_user_entry_ui_routes(
         )
 
     @rt("/gradebook/{uid}/share-panel")
-    async def share_panel_fragment(request: Request, uid: str) -> FT | FtResponse:
+    async def share_panel_fragment(
+        request: Request, uid: str, preselect: str = ""
+    ) -> FT | FtResponse:
         """HTMX fragment: the Share panel's body for the entry's owner.
 
         Candidates are the owner's active student and owned groups and their
-        R8 co-members, with the entry's current audience marked. Any other
-        entity, and anyone but the owner, gets the rendered not-found at 404.
+        R8 co-members, with the entry's current audience marked; ``preselect=
+        reviewers`` (the GradeBook nudge) checks the offered groups the entry
+        was submitted to for feedback. Any other entity, and anyone but the
+        owner, gets the rendered not-found at 404.
         """
         user_uid = require_authenticated_user(request)
         if entry_sharing is None:
@@ -723,23 +727,27 @@ def create_user_entry_ui_routes(
         candidates = await entry_sharing.candidates(uid, user_uid)
         if candidates.is_error:
             return refuse(candidates.expect_error(), render_inline_error, "UserEntry")
-        return SharePanelForm(uid, candidates.value)
+        return SharePanelForm(uid, candidates.value, preselect=preselect or None)
 
     # =========================================================================
     # GRADEBOOK DETAIL — MUST BE LAST (catch-all pattern)
     # =========================================================================
 
     @rt("/gradebook/{uid}")
-    async def submission_detail(request: Request, uid: str, share: str = "") -> Any:
+    async def submission_detail(
+        request: Request, uid: str, share: str = "", preselect: str = ""
+    ) -> FT | FtResponse:
         """Submission detail — the owner's page, or the recipient card.
 
         One audience read (``read_visibility`` OWNER_OR_AUDIENCE, ADR-088 §5)
         admits the owner and anyone the share links name; everyone else gets
         the rendered not-found at a real 404. The owner-versus-recipient
-        branch then decides what is shown: a recipient sees the R6 card and
-        never the status, the processed body, feedback or the exchange. The
-        owner's page carries the Share button (``?share=1`` opens its panel —
-        the exchange thread's per-version Share link, R2).
+        branch then decides what is shown: a recipient sees the R6 card —
+        with the entry's derived "reviewed" badges — and never the status,
+        the processed body, feedback or the exchange. The owner's page
+        carries the Share button (``?share=1`` opens its panel — the exchange
+        thread's per-version Share link and the GradeBook nudge, R2; the
+        nudge adds ``preselect=reviewers``, forwarded to the panel load).
         """
         user_uid = require_authenticated_user(request)
 
@@ -760,8 +768,17 @@ def create_user_entry_ui_routes(
 
         entry = entry_result.value
         if entry.user_uid != user_uid:
+            standing = await orchestrator.get_entry_review_standing(uid)
+            if standing.is_error:
+                # The badges are decoration on a page the audience read already
+                # admitted; a failed derivation renders the card without them.
+                logger.error(f"Failed to derive review standing for {uid}: {standing.error}")
             return BasePage(
-                content=RecipientEntryCard(entry, await _owner_display_name(entry)),
+                content=RecipientEntryCard(
+                    entry,
+                    await _owner_display_name(entry),
+                    None if standing.is_error else standing.value,
+                ),
                 title=entry.title or "Shared entry",
                 request=request,
                 active_page="shared",
@@ -902,7 +919,9 @@ def create_user_entry_ui_routes(
             )
 
         share_button: Div | None = (
-            ShareButton(uid, open=bool(share)) if entry_sharing is not None else None
+            ShareButton(uid, open=bool(share), preselect=preselect or None)
+            if entry_sharing is not None
+            else None
         )
 
         content = Div(

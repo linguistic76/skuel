@@ -1631,6 +1631,21 @@ class SharedWithMeGroupRef(TypedDict):
     name: str | None
 
 
+class ReviewStanding(TypedDict):
+    """An entry's derived review standing — the "reviewed" badges (ADR-088 §1, R2).
+
+    Derived by the graph read through ``build_review_standing_subquery``,
+    never stored. ``reviewed_by`` is the ``ReportSource`` value of the newest
+    outcome-bearing report on the entry (``None`` when it was never
+    reviewed); ``revised_after_feedback`` is true when an earlier entry of
+    the same owner in the same exchange (``turn_in_exercise_uid``) was
+    reviewed before this entry was written.
+    """
+
+    reviewed_by: str | None
+    revised_after_feedback: bool
+
+
 class SharedWithMeItem(TypedDict):
     """One *Shared with you* item: the shared entity, who shared it and how.
 
@@ -1640,6 +1655,7 @@ class SharedWithMeItem(TypedDict):
     shared with that the viewer belongs to or owns. ``shared_at`` is the
     newest of those shares. The recipient card is R6: title, description,
     from, date, badge, file link — no feedback and no exchange context.
+    ``review`` is the derived standing behind the card's "reviewed" badges.
     """
 
     entity: EntityDTO
@@ -1648,6 +1664,7 @@ class SharedWithMeItem(TypedDict):
     sharer_uid: str | None
     via_direct: bool
     via_groups: list[SharedWithMeGroupRef]
+    review: ReviewStanding
 
 
 class WallRecipient(TypedDict):
@@ -1672,13 +1689,14 @@ class SharedByMeItem(TypedDict):
 
     ``users`` and ``groups`` are the audience the share links record — the
     owner's access list, each chip a Stop-sharing target. ``last_shared_at``
-    orders the wall.
+    orders the wall; ``review`` is the entry's derived standing (its badges).
     """
 
     entity: EntityDTO
     users: list[WallRecipient]
     groups: list[WallGroup]
     last_shared_at: str | None
+    review: ReviewStanding
 
 
 class ShareCandidatePerson(TypedDict):
@@ -1701,13 +1719,17 @@ class ShareCandidates(TypedDict):
 
     ``groups`` and ``people`` are the offerable targets; ``shared_group_uids``
     / ``shared_user_uids`` are the entry's current audience (the wall's read
-    for this one entry), so the panel can mark them.
+    for this one entry), so the panel can mark them. ``reviewer_group_uids``
+    are the groups the entry was submitted to for feedback
+    (``SUBMITTED_TO_GROUP``) — what the GradeBook nudge preselects, among
+    the candidates only.
     """
 
     groups: list[ShareCandidateGroup]
     people: list[ShareCandidatePerson]
     shared_group_uids: list[str]
     shared_user_uids: list[str]
+    reviewer_group_uids: list[str]
 
 
 # ============================================================================
@@ -3077,7 +3099,11 @@ class StudentExchangeSummary(TypedDict):
     substrate). ``latest_activity_at`` is the newer of the two timestamps —
     the page's newest-first sort key. ``exercise_removed`` is True when the
     exercise has been deleted — the line stays, titled from the turn-in
-    snapshot (Submit & Share arc R12).
+    snapshot (Submit & Share arc R12). ``latest_entry_revised_after_feedback``
+    is the latest entry's derived standing (an earlier entry in the exchange
+    was reviewed before it was written) and ``latest_entry_shared`` whether
+    it carries a share link yet — together they decide the "Share your
+    revised work" nudge (R2).
     """
 
     exercise_uid: str
@@ -3093,6 +3119,8 @@ class StudentExchangeSummary(TypedDict):
     report_count: int
     exchange_status: str
     latest_activity_at: str | None
+    latest_entry_revised_after_feedback: bool
+    latest_entry_shared: bool
 
 
 class GradebookOtherReport(TypedDict):
@@ -4140,6 +4168,7 @@ __all__ = [
     # Teacher Review Result Types
     "ReviewQueueItem",
     # Sharing Result Types
+    "ReviewStanding",
     "SharedWithMeItem",
     "SubmissionDetailResult",
     "TeacherDashboardStats",
