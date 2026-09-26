@@ -15,16 +15,19 @@ an audience. The code reads two invariants this script establishes:
    no ``submission_fingerprint``, so a note that still says
    ``status: submitted`` files one fresh copy on its next sync.
 2. **A living vault note holds no audience link.** Input: a UserEntry whose
-   ``metadata`` carries ``vault_file_path`` (a living note) with a
-   ``SHARED_WITH_GROUP`` or an incoming ``SHARES_WITH``. ``--confirm``
-   deletes those links. A ``SUBMITTED_TO_GROUP`` on a living note is a
-   feedback request a teacher may be reviewing: it is reported and blocks
-   ``--confirm`` until a person rules on it — this script never deletes it.
+   ``metadata`` carries ``vault_file_path`` and that is not a frozen
+   submission (a living note), with a ``SHARED_WITH_GROUP`` or an incoming
+   ``SHARES_WITH``. ``--confirm`` deletes those links. A
+   ``SUBMITTED_TO_GROUP`` on a living note is a feedback request a teacher
+   may be reviewing: it is reported and blocks ``--confirm`` until a person
+   rules on it — this script never deletes it.
 
-Reported, never written: living ``teacher_review`` notes (the vault door
-refuses the pipeline — the author edits the note) and turn-ins that carry a
-``vault_file_path`` (never a note's living identity; the note's next sync
-mints a fresh living node).
+Reported, never written: frozen submissions that carry a ``vault_file_path``
+— a turn-in (its snapshot or its ``FULFILLS_EXERCISE`` edge), a filed copy,
+a ``teacher_review`` node. None is a note's living identity (the note's next
+sync mints a fresh living node, and the vault door refuses a
+``teacher_review`` note), and their links are the audience they were handed
+to, so they are listed with their link count and left alone.
 
 Deploy order (the arc's Migrations convention): stop the running app →
 census (this script, no flag) → ``--confirm`` with Mike's OK → start on the
@@ -77,9 +80,16 @@ RETURN e.uid AS uid, e.title AS title, e.metadata AS metadata,
 ORDER BY uid
 """
 
+# A frozen submission — a turn-in (its snapshot or its edge), a filed copy, a
+# feedback request (UserEntry.is_frozen_submission, plus the edge an unstamped
+# turn-in carries). One carrying a vault_file_path is never a living note: its
+# links are the audience it was handed to, and this script never touches them.
+_FROZEN = f"""(e.turn_in_exercise_uid IS NOT NULL OR e.submitted_from_uid IS NOT NULL
+   OR e.pipeline = $teacher_review OR EXISTS {{ (e)-[:{_FULFILLS}]->() }})"""
+
 _LIVING_LINKS = f"""
 MATCH (e:{_ENTITY}:{_USER_ENTRY})
-WHERE e.metadata CONTAINS $vault_key
+WHERE e.metadata CONTAINS $vault_key AND NOT {_FROZEN}
 CALL (e) {{
   MATCH (e)-[:{_SHARED_WITH_GROUP}]->(g:{_GROUP})
   RETURN $group_share AS kind, g.uid AS target
@@ -95,17 +105,13 @@ RETURN e.uid AS uid, e.title AS title, e.pipeline AS pipeline, e.metadata AS met
 ORDER BY kind, uid, target
 """
 
-_LIVING_TEACHER_REVIEW = f"""
+_FROZEN_VAULT_ENTRIES = f"""
 MATCH (e:{_ENTITY}:{_USER_ENTRY})
-WHERE e.metadata CONTAINS $vault_key AND e.pipeline = $teacher_review
-RETURN e.uid AS uid, e.title AS title, e.status AS status, e.metadata AS metadata
-ORDER BY uid
-"""
-
-_VAULT_TURN_INS = f"""
-MATCH (e:{_ENTITY}:{_USER_ENTRY})-[:{_FULFILLS}]->()
-WHERE e.metadata CONTAINS $vault_key
-RETURN DISTINCT e.uid AS uid, e.title AS title, e.metadata AS metadata
+WHERE e.metadata CONTAINS $vault_key AND {_FROZEN}
+RETURN e.uid AS uid, e.title AS title, e.pipeline AS pipeline, e.status AS status,
+       e.metadata AS metadata,
+       COUNT {{ (e)-[:{_SHARED_WITH_GROUP}|{_SUBMITTED_TO_GROUP}]->() }}
+         + COUNT {{ ()-[:{_SHARES_WITH}]->(e) }} AS links
 ORDER BY uid
 """
 
@@ -163,15 +169,13 @@ class Census:
         conflicts: list[Row],
         share_links: list[Row],
         feedback_requests: list[Row],
-        living_teacher_review: list[Row],
-        vault_turn_ins: list[Row],
+        frozen_vault_entries: list[Row],
     ) -> None:
         self.old_keys = old_keys
         self.conflicts = conflicts
         self.share_links = share_links
         self.feedback_requests = feedback_requests
-        self.living_teacher_review = living_teacher_review
-        self.vault_turn_ins = vault_turn_ins
+        self.frozen_vault_entries = frozen_vault_entries
 
     @property
     def clean(self) -> bool:
@@ -207,6 +211,7 @@ async def _census(driver: AsyncDriver) -> Census:
             _LIVING_LINKS,
             {
                 "vault_key": _VAULT_KEY,
+                "teacher_review": Pipeline.TEACHER_REVIEW.value,
                 "group_share": _SHARED_WITH_GROUP,
                 "person_share": _SHARES_WITH,
                 "feedback_request": _SUBMITTED_TO_GROUP,
@@ -228,33 +233,26 @@ async def _census(driver: AsyncDriver) -> Census:
     for row in feedback_requests:
         print(f"  {row['uid']} → {row['target']}  [{row['pipeline']}]  title={row['title']!r}")
 
-    living_tr = [
+    frozen = [
         row
         for row in await _fetch(
             driver,
-            _LIVING_TEACHER_REVIEW,
+            _FROZEN_VAULT_ENTRIES,
             {"vault_key": _VAULT_KEY, "teacher_review": Pipeline.TEACHER_REVIEW.value},
         )
         if _is_living(row)
     ]
     print(
-        f"\nLiving teacher_review notes (report only — the door now refuses them): {len(living_tr)}"
+        "\nFrozen submissions carrying a vault_file_path (report only — never a living "
+        f"identity; their links are left alone): {len(frozen)}"
     )
-    for row in living_tr:
-        print(f"  {row['uid']}  status={row['status']}  title={row['title']!r}")
+    for row in frozen:
+        print(
+            f"  {row['uid']}  [{row['pipeline']}]  status={row['status']}  "
+            f"links={row['links']}  title={row['title']!r}"
+        )
 
-    turn_ins = [
-        row
-        for row in await _fetch(driver, _VAULT_TURN_INS, {"vault_key": _VAULT_KEY})
-        if _is_living(row)
-    ]
-    print(
-        f"\nTurn-ins carrying a vault_file_path (report only — never a living identity): {len(turn_ins)}"
-    )
-    for row in turn_ins:
-        print(f"  {row['uid']}  title={row['title']!r}")
-
-    return Census(old_keys, conflicts, share_links, feedback_requests, living_tr, turn_ins)
+    return Census(old_keys, conflicts, share_links, feedback_requests, frozen)
 
 
 async def _move_keys(driver: AsyncDriver, rows: list[Row]) -> list[str]:

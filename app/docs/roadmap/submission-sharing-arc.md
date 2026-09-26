@@ -1592,8 +1592,11 @@ it first removes both.
     `--confirm`): the old metadata key moves onto `submitted_from_uid` (guarded on the metadata
     read at census time), `SHARED_WITH_GROUP` / `SHARES_WITH` on living notes are retracted, and
     `--confirm` refuses while a living note holds a `SUBMITTED_TO_GROUP` (a person rules) or the
-    old key disagrees with the property; living `teacher_review` notes and turn-ins carrying a
-    `vault_file_path` are reported only. The one-shot retraction script is deleted.
+    old key disagrees with the property. A living note is a `vault_file_path` that is not a
+    frozen submission: every frozen one carrying the key (a turn-in by snapshot or edge, a filed
+    copy, `teacher_review`) is reported with its link count and never touched — its links are
+    the audience it was handed to (Codex P1 on #1426; pinned against a container by
+    `test_vault_notes_are_drafts_migration.py`). The one-shot retraction script is deleted.
   - Relative paths (scripts, tests) keep the direct door: `teacher_review` parses, no uid is
     minted, and the entry itself is the submission — no copy.
   - Verified, nothing to remove: the per-pipeline shares-by-default flag and its test left at
