@@ -92,7 +92,7 @@ class TestUserEntryUpsertCaller:
         async def _run_single(query: str, params: dict[str, Any] | None = None) -> dict[str, Any]:
             captured["query"] = query
             captured["params"] = params or {}
-            return {"n": dict(captured["params"]["props"]), "owned": True}
+            return {"n": dict(captured["params"]["props"]), "owned": True, "frozen": False}
 
         backend._run_single = _run_single  # type: ignore[method-assign]
 

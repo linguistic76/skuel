@@ -206,7 +206,7 @@ non-archived status. For ASSIGNED exercise flows, the submission pipeline
 defaults `pipeline=TEACHER_REVIEW` and audience to the Exercise's groups;
 the student can widen the audience but not silently submit to nobody.
 
-**YAML ingestion (`/upload`) uses the same pipeline.** When
+**Vault ingest uses the same pipeline.** When
 `ingest_file()` detects `type: user_entry`, it delegates to
 `core/services/ingestion/user_entry_ingestion.py`, which builds a
 `UserEntryCreateRequest` and calls `UserEntryService.create_entry()` —
@@ -232,13 +232,21 @@ omitted — a per-pipeline flag on `Pipeline`. The `teachers` default is submiss
 stays for the submission-shaped pipelines.* *(Superseded 2026-09-25, PR 6a: absent means nobody on
 every pipeline but `teacher_review`; the flag is gone.)*
 
+*Amended 2026-09-26 (ADR-088, PR 8 — R9): a vault note is a draft — one living node, never
+submitted or shared, with or without an exercise — so the table above is the audience of the
+frozen copy `status: submitted` files, never of the note. The copy goes to `teachers` when the
+note names no audience; it is a feedback request on `teacher_review` when its audience names a
+teacher, otherwise a share on `none`; `audience: private` with `status: submitted` is a sync
+error. A vault note may not declare `pipeline: teacher_review`. A copy is filed only when the
+note's authored snapshot differs from its newest copy's (a fingerprint stamped at filing).*
+
 `AudienceResolver` (`core/services/user_entry/audience_resolver.py`) is
 the shared home for audience validation, share fan-out, and default-
 teacher expansion. Both the form and the ingestion bridge hold the same
 resolver instance — there is no second code path. Audio pipelines
-(`TRANSCRIBE`, `TRANSCRIBE_AND_STRUCTURE`) are rejected by `/upload`
-because the path is YAML-only; audio uploads keep the dedicated audio-
-upload flow. Legacy type strings `exercise_submission` / `je_input` /
+(`TRANSCRIBE`, `TRANSCRIBE_AND_STRUCTURE`) are rejected by vault ingest,
+which reads text notes; audio uploads keep the dedicated audio-upload
+flow. Legacy type strings `exercise_submission` / `je_input` /
 `je_output` are rejected in `detector.py` with an ADR-054 error — no
 compat shim (One Path Forward).
 

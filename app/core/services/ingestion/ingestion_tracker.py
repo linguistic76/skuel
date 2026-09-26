@@ -25,7 +25,7 @@ Usage:
 
 import hashlib
 import re
-from collections.abc import Mapping
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, field
 from datetime import datetime
 from fnmatch import fnmatch
@@ -88,6 +88,11 @@ def parse_edge_identity(identity: str) -> tuple[str, str, str] | None:
     return parts[0], parts[1], parts[2]
 
 
+# The file_mtime of a pending tracker row — one whose file must be re-ingested on
+# its next sync (``IngestionTracker.record_pending``, a move rewrite). No real
+# file carries the epoch as its mtime.
+PENDING_MTIME = 0.0
+
 # A minted uid-less UserEntry uid: UIDGenerator.generate_random_uid("ue") =
 # "ue_" + uuid4().hex[:8]. Similarity move SOURCES are restricted to this
 # shape — an authored or periodic uid (ue:daily:…, moc.worldview) is stable
@@ -107,8 +112,7 @@ def _similarity_candidate_content(file_path: Path) -> str | None:
     rewritten row's uid, i.e. when it routes through the user-entry pipeline
     and passes ``build_user_entry_request``'s prior-uid hard gates (Codex
     #618). A file that would ignore the prior uid (authored ``uid:``,
-    derived periodic uid, turn-in ``fulfills_exercise_uid:``, non-user_entry
-    ``type:``) must not be matched: ingestion would re-stamp the row with
+    derived periodic uid, non-user_entry ``type:``) must not be matched: ingestion would re-stamp the row with
     its own uid — or fuse the note into the gone node's identity — while
     deletion reconciliation no longer sees the old path, orphaning the gone
     node. Exclusion falls back to delete+create, the safe failure.
@@ -117,7 +121,7 @@ def _similarity_candidate_content(file_path: Path) -> str | None:
     uid a *successful* ingest honors — not ingestion's full validation
     (pipeline/status/audience/ownership, some DB-dependent). A gated-in
     file that then FAILS ingest is a designed-for state, not a hole: the
-    rewritten row's pending markers force a retry (and the file's error is
+    rewritten row's pending mark forces a retry (and the file's error is
     re-reported) every sync; fixing the file ingests with the preserved
     identity, and deleting it leaves the uid unclaimed so reconciliation
     deletes the gone node normally (Codex #618 round 6, considered).
@@ -150,12 +154,11 @@ def _similarity_candidate_content(file_path: Path) -> str | None:
         return None
     if detected is not EntityType.USER_ENTRY:
         return None
-    # Mirror the prior-uid gate's None checks exactly (not key presence): a
-    # bare ``uid:`` parses to YAML null and build_user_entry_request treats
-    # it as no override — that file still honors the rewritten uid and is
-    # safe to bridge. ``uid: ""`` is NOT None, fails the gate there, and
-    # mints fresh — so it stays excluded here too.
-    if frontmatter.get("uid") is not None or frontmatter.get("fulfills_exercise_uid") is not None:
+    # Mirror the prior-uid gate exactly: build_user_entry_request honors the
+    # tracker's uid for every vault note without an authored uid (a bare or
+    # empty ``uid:`` is none) — a declared exercise included, since a vault
+    # note is always a living draft (R9) — so such a file is safe to bridge.
+    if frontmatter.get("uid"):
         return None
     metadata = frontmatter.get("metadata")
     if isinstance(metadata, dict) and metadata.get("entry_kind") in PERIODIC_NOTE_KINDS:
@@ -202,7 +205,7 @@ class IngestionDecision:
 
     file_path: Path
     needs_ingestion: bool
-    reason: str  # "new", "modified", "hash_changed", "unchanged"
+    reason: str  # "new", "pending", "modified", "hash_changed", "unchanged"
     existing_metadata: FileIngestionMetadata | None = None
 
 
@@ -255,6 +258,50 @@ class IngestionTracker:
         boundary keeps storage, lookup, and reconciliation in one form.
         """
         return str(file_path.resolve())
+
+    @staticmethod
+    def _pending_row(
+        canonical_path: str,
+        entity_uid: str,
+        content_hash: str,
+        authored_edges: Sequence[str] | None,
+    ) -> dict[str, str | float | list[str] | None]:
+        """A tracker row marked pending — ``file_mtime`` is ``PENDING_MTIME``.
+
+        ``needs_ingestion`` always re-ingests a pending row, so the file is
+        re-processed on its next sync — under the row's uid, which prior-uid
+        resolution reads. The row keeps the file's real content hash, so move
+        detection still recognises the file if it is renamed before then.
+        ``authored_edges=None`` keeps the fingerprint the row already has.
+        """
+        return {
+            "file_path": canonical_path,
+            "content_hash": content_hash,
+            "file_mtime": PENDING_MTIME,
+            "entity_uid": entity_uid,
+            "authored_edges": None if authored_edges is None else list(authored_edges),
+        }
+
+    async def record_pending(self, file_path: Path, entity_uid: str) -> Result[None]:
+        """Keep a file's identity while forcing its next sync to re-ingest it.
+
+        For a file whose entity persisted this run but whose ingest must be
+        retried — a vault note whose frozen copy was not filed, whose
+        extraction failed, or whose vault edit was refused: stamping it
+        normally would skip the retry, and stamping nothing would lose the
+        uid a first sync minted, so every retry would mint another node. The
+        row's edge fingerprint is kept: the file's edge pass did not run.
+
+        Backend: IngestionBackend.update_ingestion_metadata.
+        """
+        result = await self.backend.update_ingestion_metadata(
+            self._pending_row(
+                self._canonical(file_path), entity_uid, self.compute_file_hash(file_path), None
+            )
+        )
+        if result.is_error:
+            return Result.fail(result)
+        return Result.ok(None)
 
     async def ensure_constraints(self) -> Result[None]:
         """
@@ -870,7 +917,7 @@ class IngestionTracker:
         them) but pass through harmlessly: rewriting to the same authored uid
         is what ingestion would stamp anyway.
 
-        The rewritten row carries pending markers (empty hash, mtime 0): the
+        The rewritten row is marked pending (``PENDING_MTIME``): the
         current run's ingest re-stamps it on success, and if that ingest
         fails the next sync re-processes the file instead of hash-skipping a
         node whose path metadata never updated.
@@ -1063,20 +1110,16 @@ class IngestionTracker:
         Upserts the new-path row FIRST, then drops the old one — a crash
         between the two leaves both rows claiming one uid, which the
         uid-based moved/stale split resolves as a stale row, never a node
-        deletion. The new row carries pending markers (empty hash, mtime 0)
+        deletion. The new row is marked pending (``PENDING_MTIME``, its real hash kept)
         so a failed ingest this run still retries next sync, and the old row's
         edge fingerprint, so the ingest at the new path still retracts what
         the file dropped. ``similarity`` is the Jaccard score for a similarity
         match (logged distinctly), ``None`` for an exact-hash match.
         """
         upsert_result = await self.backend.update_ingestion_metadata(
-            {
-                "file_path": new_file.file_path,
-                "content_hash": "",  # pending marker — see docstring
-                "file_mtime": 0.0,
-                "entity_uid": row.entity_uid,
-                "authored_edges": list(row.authored_edges),
-            }
+            self._pending_row(
+                new_file.file_path, row.entity_uid, new_file.content_hash, row.authored_edges
+            )
         )
         if upsert_result.is_error:
             return Result.fail(upsert_result)
@@ -1255,6 +1298,16 @@ class IngestionTracker:
                 file_path=file_path,
                 needs_ingestion=True,
                 reason="new",
+            )
+
+        # Pending row: the last ingest persisted but must be retried
+        # (record_pending, a move rewrite) — never skipped, whatever the hash.
+        if metadata.file_mtime == PENDING_MTIME:
+            return IngestionDecision(
+                file_path=file_path,
+                needs_ingestion=True,
+                reason="pending",
+                existing_metadata=metadata,
             )
 
         try:

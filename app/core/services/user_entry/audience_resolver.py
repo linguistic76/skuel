@@ -88,7 +88,6 @@ class ShareOutcomePayload(TypedDict):
     shared_users: list[str]
     newly_shared_users: list[str]
     failed: list[ShareFailurePayload]
-    withheld: list[str]
 
 
 class ShareFailurePayload(TypedDict):
@@ -111,9 +110,7 @@ class ShareOutcome:
     ``SHARES_WITH`` this pass created — the only thing that rings a
     recipient's bell (R10: a re-share rings nobody twice, a group share
     rings no one). ``failed`` pairs each refused target with its
-    error message. ``withheld`` are the vocabulary values a living vault note
-    declared that this pass deliberately did not apply (R9 — they apply when
-    ``status: submitted`` files a frozen copy).
+    error message.
     """
 
     submitted_groups: tuple[str, ...] = field(default_factory=tuple)
@@ -122,7 +119,6 @@ class ShareOutcome:
     shared_users: tuple[str, ...] = field(default_factory=tuple)
     newly_shared_users: tuple[str, ...] = field(default_factory=tuple)
     failed: tuple[tuple[str, str], ...] = field(default_factory=tuple)
-    withheld: tuple[str, ...] = field(default_factory=tuple)
 
     @property
     def any_success(self) -> bool:
@@ -141,7 +137,6 @@ class ShareOutcome:
             "shared_users": list(self.shared_users),
             "newly_shared_users": list(self.newly_shared_users),
             "failed": [{"target": t, "reason": r} for t, r in self.failed],
-            "withheld": list(self.withheld),
         }
 
 
@@ -178,8 +173,22 @@ class AudienceResolver:
           feedback target is refused with guidance: a ``group:`` is a share
           and puts the entry in no queue (R5) — ``teacher:<group_uid>`` asks
           that group's teacher. An absent audience means ``teachers``.
+        - A caller-supplied uid is the living channel — a draft, upserted in
+          place (R9) — and a draft is never submitted or shared: an audience
+          naming anyone is refused (``private`` names no one and stands). A
+          vault note's audience rides on the frozen copy ``status: submitted``
+          files, never on the note.
         """
         spec = request.audience
+        if request.uid and (spec.names_feedback_target or spec.names_share):
+            return Result.fail(
+                Errors.validation(
+                    "an entry with a caller-supplied uid is a living draft and is never "
+                    f"submitted or shared (audience: {', '.join(spec.values())}) — remove "
+                    "the uid to create a submission, or share the entry after it exists",
+                    field="audience",
+                )
+            )
         if spec.names_share and not request.pipeline.allows_sharing():
             return Result.fail(
                 Errors.validation(
@@ -247,8 +256,7 @@ class AudienceResolver:
             (ruled 2026-07-04); without one, every group the owner is a
             student of. Expanded only on TEACHER_REVIEW — elsewhere it names
             a reviewer the pipeline never has and writes nothing. Explicit
-            ``teacher:`` targets are validated on every pipeline: a living
-            note keeps them for its frozen copy (R9).
+            ``teacher:`` targets are validated on every pipeline.
           - A TEACHER_REVIEW request whose feedback targets resolve to no
             group at all is refused here, pre-persist: an entry no teacher
             can open is never written.
@@ -500,8 +508,6 @@ class AudienceResolver:
         user_uid: UserUID,
         pipeline: Pipeline,
         resolved: ResolvedAudience,
-        *,
-        living: bool = False,
     ) -> Result[ShareOutcome]:
         """Write the links for a validated audience. Returns which targets landed.
 
@@ -512,13 +518,6 @@ class AudienceResolver:
         TEACHER_REVIEW a feedback target writes no link — it names a
         reviewer the pipeline never has — and is logged, never silently
         dropped; no ``SUBMITTED_TO_GROUP`` is ever written off-pipeline.
-
-        ``living`` is the vault's living-note channel (a caller-supplied uid,
-        upserted in place): a draft (R9). Its ``user:`` and explicit
-        ``teacher:`` targets are withheld — reported in
-        ``ShareOutcome.withheld``, applied when ``status: submitted`` files a
-        frozen copy — while ``group:`` and the ``teachers`` expansion apply
-        as they did before this vocabulary.
         """
         sharing = self.sharing_service
         if sharing is None:
@@ -530,7 +529,6 @@ class AudienceResolver:
         shared_users: list[str] = []
         newly_shared_users: list[str] = []
         failed: list[tuple[str, str]] = []
-        withheld: list[str] = []
 
         for group_uid in resolved.share_groups:
             result = await sharing.share_with_group(
@@ -548,9 +546,6 @@ class AudienceResolver:
                 shared_groups.append(group_uid)
 
         for username, recipient_uid in resolved.share_users:
-            if living:
-                withheld.append(f"{USER_PREFIX}{username}")
-                continue
             result = await sharing.share(
                 entity_uid=EntityUID(entry_uid),
                 owner_uid=user_uid,
@@ -567,11 +562,7 @@ class AudienceResolver:
                 if result.value:
                     newly_shared_users.append(recipient_uid)
 
-        if living:
-            # A draft (R9): the explicit teacher: targets wait for the frozen
-            # copy, whatever the pipeline.
-            withheld.extend(f"{TEACHER_PREFIX}{g}" for g in resolved.teacher_groups)
-        elif pipeline != Pipeline.TEACHER_REVIEW and resolved.submit_groups:
+        if pipeline != Pipeline.TEACHER_REVIEW and resolved.submit_groups:
             self.logger.warning(
                 f"UserEntry {entry_uid}: feedback target "
                 f"{', '.join(TEACHER_PREFIX + g for g in resolved.submit_groups)} on "
@@ -587,13 +578,10 @@ class AudienceResolver:
                     shared_users=tuple(shared_users),
                     newly_shared_users=tuple(newly_shared_users),
                     failed=tuple(failed),
-                    withheld=tuple(withheld),
                 )
             )
 
         for group_uid in resolved.submit_groups:
-            if living and group_uid in resolved.teacher_groups:
-                continue
             submit_result = await sharing.submit_to_group(
                 entity_uid=EntityUID(entry_uid),
                 owner_uid=user_uid,
@@ -618,7 +606,6 @@ class AudienceResolver:
                 shared_users=tuple(shared_users),
                 newly_shared_users=tuple(newly_shared_users),
                 failed=tuple(failed),
-                withheld=tuple(withheld),
             )
         )
 

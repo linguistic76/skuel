@@ -87,9 +87,10 @@ without interactive review, producing a single markdown document with all three 
    is owner-private with no sharing surface (ADR-078). No audience picker, no sharing, no
    teacher visibility. The private pipelines (`Pipeline.REFERENCE`, `TRANSCRIBE_AND_STRUCTURE`)
    refuse every share (`group:` / `user:` / `public`) in `AudienceResolver.validate`, at every
-   door — the vault door passes the authored `audience:` through unchanged, so a share on such
-   a note is a sync error, never a silent coercion (ADR-088; a feedback request is Submit, not
-   Share, and stays allowed).
+   door. A vault note is a draft and is never shared at all (R9); its authored `audience:` goes
+   to the frozen copy `status: submitted` files, and a share on a private-pipeline note's copy
+   is a sync error, never a silent coercion (ADR-088; a feedback request is Submit, not Share,
+   and stays allowed).
 
 6. **FULL tier only** — all AI journal endpoints require `INTELLIGENCE_TIER=full`. Routes
    check this; under CORE they return an error fragment.

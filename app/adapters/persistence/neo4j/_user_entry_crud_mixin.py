@@ -23,6 +23,7 @@ from adapters.persistence.neo4j.neo4j_mapper import (
     without_embedding_props,
 )
 from core.models.enums.entity_enums import EntityType
+from core.models.enums.pipeline import Pipeline
 from core.models.relationship_names import RelationshipName
 from core.models.type_hints import Neo4jProperties, UserUID
 from core.ports.query_types import ExtractionTwinRow, VaultIdTaskRow, VaultRetiredTaskRow
@@ -91,6 +92,14 @@ class _UserEntryCrudMixin:
         MERGEs on the same uid, so the loser observes the winner's node and the
         ownership gate rejects it (Codex P2 on #317).
 
+        **A frozen submission is never overwritten** — the same gate, in the
+        same statement: an owned node that is a turn-in, a frozen copy of a
+        vault note or a feedback request (``UserEntry.is_frozen_submission``)
+        takes no write, and the upsert returns a validation error on ``uid``.
+        A caller-supplied uid (an authored vault ``uid:``, a JSON caller)
+        naming one of the owner's own submissions would otherwise edit what a
+        teacher or a reader was handed (R9).
+
         ``created_at`` is preserved across re-syncs (set only ``ON CREATE``);
         every other property — including ``updated_at`` and the note body in
         ``content`` — is refreshed from ``entry``, EXCEPT the embedding triple:
@@ -147,14 +156,22 @@ class _UserEntryCrudMixin:
             owns_params = {"owns_timestamp": datetime.now().isoformat()}
 
         # ON CREATE stamps the owner from $props; ON MATCH only writes when the
-        # existing owner matches $owner, else it is a no-op and `owned` is false.
+        # existing owner matches $owner AND the node is not a frozen
+        # submission (UserEntry.is_frozen_submission — the same three tests),
+        # else it is a no-op. A living entry's props never make a node frozen,
+        # so `frozen` read after the write is the node's state before it.
+        frozen = (
+            "(n.turn_in_exercise_uid IS NOT NULL OR n.submitted_from_uid IS NOT NULL"
+            " OR n.pipeline = $frozen_pipeline)"
+        )
         query = f"""
         {owner_match}
         MERGE (n:{self._create_labels} {{uid: $uid}})
           ON CREATE SET n = $props
-          ON MATCH SET n += (CASE WHEN n.user_uid = $owner THEN $on_match_props ELSE {{}} END)
+          ON MATCH SET n += (CASE WHEN n.user_uid = $owner AND NOT {frozen}
+                                  THEN $on_match_props ELSE {{}} END)
         {owns_clause}
-        RETURN n, coalesce(n.user_uid = $owner, false) AS owned
+        RETURN n, coalesce(n.user_uid = $owner, false) AS owned, {frozen} AS frozen
         """
 
         record = await self._run_single(
@@ -164,6 +181,7 @@ class _UserEntryCrudMixin:
                 "props": node_data,
                 "on_match_props": on_match_props,
                 "owner": user_uid,
+                "frozen_pipeline": Pipeline.TEACHER_REVIEW.value,
                 **owns_params,
             },
         )
@@ -174,6 +192,17 @@ class _UserEntryCrudMixin:
             # and without leaking that it exists (404-not-403).
             return Result.fail(
                 Errors.not_found(resource=str(self.label), identifier=str(node_data["uid"]))
+            )
+        if record["frozen"]:
+            # The owner's own submission: never edited in place (R9) — nothing
+            # was written.
+            return Result.fail(
+                Errors.validation(
+                    f"uid {node_data['uid']} names a submission — a turn-in, a filed copy "
+                    "or a feedback request is never edited in place. Give the entry its "
+                    "own uid, or none.",
+                    field="uid",
+                )
             )
         upserted = from_neo4j_node(dict(record["n"]), self.entity_class)
         return Result.ok(upserted)
@@ -304,41 +333,27 @@ class _UserEntryCrudMixin:
             return Result.ok(None)
         return Result.ok(result.value[0])
 
-    async def get_latest_entry_for_exercise(
-        self, user_uid: UserUID, exercise_uid: str
+    async def get_latest_copy_of_note(
+        self, user_uid: UserUID, note_uid: str
     ) -> Result[Neo4jProperties | None]:
-        """Newest turn-in's uid + content for a user+exercise pair.
+        """The newest frozen copy filed from a vault note: its uid + fingerprint.
 
-        The vault submit-signal branch compares the living file's content
-        against this row to decide whether a new frozen copy is due — the
-        copies themselves ARE the last-submitted state, so no separate
-        hash bookkeeping exists to drift. Ordered by the edge's revision
-        (the copy sequence), newest first.
-
-        Deliberately the same root-lineage lens as ``_next_revision`` /
-        ``count_entries_for_exercise``: a RevisedExercise target collapses
-        to its root, and revision-cycle copies are visible here because
-        ``create_with_exercise_link`` always anchors ``FULFILLS_EXERCISE``
-        on the root. Dedup and revision numbering therefore agree on what
-        "the last copy" means across a whole exercise lineage.
+        The vault door files a new copy of a ``status: submitted`` note only
+        when the note's fingerprint differs from this row's — keyed on the
+        copy's provenance (``submitted_from_uid``), never on an exercise
+        lineage or the copy's live links (Submit & Share arc R9). Scoped to
+        the owner's own copies. ``None`` when the note was never submitted.
         """
-        query = """
-        MATCH (target:Entity {uid: $exercise_uid})
-        OPTIONAL MATCH (target)-[:REVISES_EXERCISE]->(orig:Entity {entity_type: 'exercise'})
-        WITH COALESCE(orig, target) AS exercise
-        MATCH (u:User {uid: $user_uid})-[:OWNS]->(s:Entity)-[r:FULFILLS_EXERCISE]->(exercise)
-        WHERE s.entity_type = $entry_type
-        RETURN s.uid AS uid, s.content AS content, r.revision AS revision
-        ORDER BY r.revision DESC, s.created_at DESC
+        query = f"""
+        MATCH (:User {{uid: $user_uid}})-[:{RelationshipName.OWNS.value}]->(copy:Entity)
+        WHERE copy.entity_type = $entry_type AND copy.submitted_from_uid = $note_uid
+        RETURN copy.uid AS uid, copy.submission_fingerprint AS submission_fingerprint
+        ORDER BY copy.created_at DESC
         LIMIT 1
         """
         result = await self.execute_query(
             query,
-            {
-                "user_uid": user_uid,
-                "exercise_uid": exercise_uid,
-                "entry_type": _USER_ENTRY,
-            },
+            {"user_uid": user_uid, "note_uid": note_uid, "entry_type": _USER_ENTRY},
         )
         if result.is_error:
             return Result.fail(result)

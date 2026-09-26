@@ -17,6 +17,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any
 
+from core.models.enums.entity_enums import EntityStatus
 from core.models.enums.pipeline import Pipeline
 from core.models.relationship_names import RelationshipName
 from core.models.type_hints import Neo4jProperties
@@ -26,6 +27,55 @@ if TYPE_CHECKING:
     from neo4j import AsyncDriver
 
     from core.models.enums.neo_labels import NeoLabel
+
+
+# A feedback request awaiting review — the queue's default and its badge twin.
+_PENDING_STATUSES = [EntityStatus.SUBMITTED.value, EntityStatus.ACTIVE.value]
+
+_OWNS = RelationshipName.OWNS.value
+_SUBMITTED_TO_GROUP = RelationshipName.SUBMITTED_TO_GROUP.value
+_FULFILLS_EXERCISE = RelationshipName.FULFILLS_EXERCISE.value
+
+# THE supersede rule for pending feedback requests — one predicate, read by the
+# review queue, its dashboard badge twin and the students summary, so the three
+# can never disagree on what awaits review.
+#
+# A copy is superseded by a newer sibling the SAME teacher can see (a
+# ``teacher_review`` entry of the same student, submitted to one of this
+# teacher's ACTIVE owned groups), in either of two lineages:
+#
+#   * the exercise lineage — the same turn-in snapshot ``turn_in_exercise_uid``
+#     (the key that outlives the exercise, Submit & Share arc R12), newer by the
+#     ``FULFILLS_EXERCISE`` edge revision where the edge still exists, else by
+#     ``created_at``;
+#   * the note lineage — frozen copies filed from the same vault note
+#     (``submitted_from_uid``, R9), newer by ``created_at``.
+#
+# Whatever the newer copy's status (a reviewed rev 2 retires a pending rev 1).
+# Siblings the teacher cannot see never supersede: a PRIVATE ``llm_summary``
+# entry, a copy sent only to another teacher's group, one locked in a group this
+# teacher deactivated. An entry in neither lineage always passes through.
+#
+# The caller binds, in a WITH before the predicate: ``teacher``, ``student``
+# (the entry's owner), ``copy_uid``, ``copy_lineage`` (the entry's
+# ``turn_in_exercise_uid``), ``copy_note`` (its ``submitted_from_uid``),
+# ``copy_revision`` (its edge revision, 0 without one) and ``copy_created_at``.
+_SUPERSEDED_COPY = f"""EXISTS {{
+    MATCH (student)-[:{_OWNS}]->(newer:Entity:UserEntry)
+    WHERE newer.uid <> copy_uid
+      AND newer.pipeline = $pipeline
+      AND (newer)-[:{_SUBMITTED_TO_GROUP}]->(:Group {{is_active: true}})<-[:{_OWNS}]-(teacher)
+      AND ((copy_lineage IS NOT NULL
+            AND newer.turn_in_exercise_uid = copy_lineage
+            AND (coalesce(head([(newer)-[nr:{_FULFILLS_EXERCISE}]->(:Entity:Exercise) | nr.revision]), 0)
+                   > copy_revision
+                 OR (coalesce(head([(newer)-[nr:{_FULFILLS_EXERCISE}]->(:Entity:Exercise) | nr.revision]), 0)
+                       = copy_revision
+                     AND newer.created_at > copy_created_at)))
+           OR (copy_note IS NOT NULL
+               AND newer.submitted_from_uid = copy_note
+               AND newer.created_at > copy_created_at))
+}}"""
 
 
 class _UserEntryAssessmentMixin:
@@ -90,28 +140,15 @@ class _UserEntryAssessmentMixin:
         queue and the student page can never disagree on what awaits review
         (one collapse rule, two surfaces — feedback-loop UX arc C2).
 
-        Copy revisions collapse to the lineage's newest: the vault exercise
-        channel freezes a copy per turn-in, and a pending copy with a newer
-        sibling in its (student, root exercise) lineage — the lineage is the
-        turn-in snapshot ``turn_in_exercise_uid`` (the key that outlives the
-        exercise, Submit & Share arc R12), newer by the ``FULFILLS_EXERCISE``
-        edge revision where the edge still exists, else by ``created_at`` —
-        is superseded work and never queues, regardless of the newer copy's
-        status (a reviewed rev 2 retires a still-pending rev 1). Only a copy
-        THIS teacher can see supersedes — a ``teacher_review`` entry
-        submitted to one of the querying teacher's ACTIVE owned groups.
-        Three lineage siblings deliberately do not supersede: a newer
-        PRIVATE ``llm_summary`` entry (the upload form keeps
-        ``fulfills_exercise_uid`` on every destination, so AI entries share
-        the lineage), a revision a multi-class student directed only to
-        another teacher's group (``submit_to_groups``), and a copy locked
-        in a group this teacher has deactivated. Collapsing behind any of
-        them would remove work with no teacher-visible successor. Entries
-        with no snapshot are not turn-ins, have no lineage and always pass
-        through. ``exercise_uid`` / ``exercise_title`` read the live
-        exercise, falling back to the snapshot once it is deleted.
+        Superseded copies never queue: a pending entry with a newer sibling
+        this teacher can see — in its exercise lineage (the turn-in snapshot)
+        or its note lineage (frozen copies of one vault note) — is history,
+        whatever the newer copy's status. The rule is ``_SUPERSEDED_COPY``,
+        shared with the dashboard badge and the students summary.
+        ``exercise_uid`` / ``exercise_title`` read the live exercise, falling
+        back to the snapshot once it is deleted.
         """
-        statuses = status_filter or ["submitted", "active"]
+        statuses = status_filter or _PENDING_STATUSES
         query = f"""
         MATCH (teacher:User {{uid: $teacher_uid}})-[:{RelationshipName.OWNS.value}]->(g:Group)
         MATCH (entry:Entity:UserEntry)-[:{RelationshipName.SUBMITTED_TO_GROUP.value}]->(g)
@@ -124,20 +161,13 @@ class _UserEntryAssessmentMixin:
         OPTIONAL MATCH (entry)-[r:{RelationshipName.FULFILLS_EXERCISE.value}]->(:Entity:Exercise)
         OPTIONAL MATCH (ex:Entity:Exercise {{uid: entry.turn_in_exercise_uid}})
         OPTIONAL MATCH (student:User)-[:{RelationshipName.OWNS.value}]->(entry)
-        WITH teacher, entry, r, ex, student, g
-        WHERE entry.turn_in_exercise_uid IS NULL OR NOT EXISTS {{
-            MATCH (student)-[:{RelationshipName.OWNS.value}]->(newer:Entity:UserEntry)
-            WHERE newer.turn_in_exercise_uid = entry.turn_in_exercise_uid
-              AND newer.uid <> entry.uid
-              AND newer.pipeline = $pipeline
-              AND (newer)-[:{RelationshipName.SUBMITTED_TO_GROUP.value}]->(:Group {{is_active: true}})
-                  <-[:{RelationshipName.OWNS.value}]-(teacher)
-              AND (coalesce(head([(newer)-[nr:{RelationshipName.FULFILLS_EXERCISE.value}]->(:Entity:Exercise) | nr.revision]), 0)
-                     > coalesce(r.revision, 0)
-                   OR (coalesce(head([(newer)-[nr:{RelationshipName.FULFILLS_EXERCISE.value}]->(:Entity:Exercise) | nr.revision]), 0)
-                         = coalesce(r.revision, 0)
-                       AND newer.created_at > entry.created_at))
-        }}
+        WITH teacher, entry, r, ex, student, g,
+             entry.uid AS copy_uid,
+             entry.turn_in_exercise_uid AS copy_lineage,
+             entry.submitted_from_uid AS copy_note,
+             coalesce(r.revision, 0) AS copy_revision,
+             entry.created_at AS copy_created_at
+        WHERE NOT {_SUPERSEDED_COPY}
         OPTIONAL MATCH (report:Entity {{entity_type: 'entry_report'}})-[:{RelationshipName.REPORT_FOR.value}]->(entry)
         WITH entry, r, ex, student, g, count(DISTINCT report) AS feedback_count
         RETURN entry.uid AS entry_uid,
@@ -265,24 +295,48 @@ class _UserEntryAssessmentMixin:
         )
 
     async def get_students_summary(self, teacher_uid: str) -> Result[list[Neo4jProperties]]:
-        """Get students who have submitted work to an active group the teacher owns, with entry counts."""
+        """Students who have submitted work to an active group the teacher owns, with entry counts.
+
+        ``submission_count`` is every submission, ``reviewed_count`` the
+        completed ones, and ``pending_count`` the rest that are not superseded
+        — the queue's one supersede rule (``_SUPERSEDED_COPY``), so a copy
+        replaced by a newer one from the same exercise or the same vault note
+        is history, not work awaiting review.
+        """
         query = f"""
+        MATCH (teacher:User {{uid: $teacher_uid}})
         MATCH (student:User)-[:{RelationshipName.OWNS.value}]->(ku:Entity:UserEntry)
         WHERE student.uid <> $teacher_uid
           AND ku.pipeline = $pipeline
-          AND EXISTS {{ (ku)-[:{RelationshipName.SUBMITTED_TO_GROUP.value}]->(:Group {{is_active: true}})<-[:{RelationshipName.OWNS.value}]-(:User {{uid: $teacher_uid}}) }}
+          AND EXISTS {{ (ku)-[:{RelationshipName.SUBMITTED_TO_GROUP.value}]->(:Group {{is_active: true}})<-[:{RelationshipName.OWNS.value}]-(teacher) }}
+        OPTIONAL MATCH (ku)-[r:{RelationshipName.FULFILLS_EXERCISE.value}]->(:Entity:Exercise)
+        WITH teacher, student, ku,
+             ku.uid AS copy_uid,
+             ku.turn_in_exercise_uid AS copy_lineage,
+             ku.submitted_from_uid AS copy_note,
+             coalesce(max(r.revision), 0) AS copy_revision,
+             ku.created_at AS copy_created_at
+        WITH student, ku,
+             ku.status = $completed AS reviewed,
+             {_SUPERSEDED_COPY} AS superseded
         WITH student,
              count(DISTINCT ku) AS submission_count,
-             count(DISTINCT CASE WHEN ku.status = 'completed' THEN ku.uid END) AS reviewed_count
+             count(DISTINCT CASE WHEN reviewed THEN ku.uid END) AS reviewed_count,
+             count(DISTINCT CASE WHEN NOT reviewed AND NOT superseded THEN ku.uid END) AS pending_count
         RETURN student.uid AS student_uid,
                student.name AS student_name,
                submission_count,
                reviewed_count,
-               submission_count - reviewed_count AS pending_count
+               pending_count
         ORDER BY pending_count DESC, submission_count DESC
         """
         return await self.execute_query(
-            query, {"teacher_uid": teacher_uid, "pipeline": Pipeline.TEACHER_REVIEW.value}
+            query,
+            {
+                "teacher_uid": teacher_uid,
+                "pipeline": Pipeline.TEACHER_REVIEW.value,
+                "completed": EntityStatus.COMPLETED.value,
+            },
         )
 
     async def get_student_entries_for_teacher(
@@ -393,12 +447,10 @@ class _UserEntryAssessmentMixin:
         ``total_exercises`` + ``total_groups`` are scoped via direct ``OWNS``
         from the teacher (already correct pre-fix).
 
-        ``pending_count`` is the review queue's badge twin and applies the
-        queue's copy-revision collapse (see ``get_review_queue_by_groups``):
-        a pending copy superseded by a newer sibling in its (student, root
-        exercise) lineage — keyed on the turn-in snapshot, so the rule holds
-        after the exercise is deleted — is not pending work, so the badge
-        and the queue length agree.
+        ``pending_count`` is the review queue's badge twin and reads the
+        queue's one supersede rule (``_SUPERSEDED_COPY``): a pending copy
+        superseded by a newer one from the same exercise or the same vault
+        note is not pending work, so the badge and the queue length agree.
         """
         query = f"""
         MATCH (teacher:User {{uid: $teacher_uid}})
@@ -409,34 +461,32 @@ class _UserEntryAssessmentMixin:
         OPTIONAL MATCH (student:User)-[:{RelationshipName.OWNS.value}]->(sub)
         WHERE student.uid <> $teacher_uid
         OPTIONAL MATCH (teacher)-[:{RelationshipName.OWNS.value}]->(ex:Entity:Exercise)
+        WITH teacher, g, sub, student, ex,
+             sub.uid AS copy_uid,
+             sub.turn_in_exercise_uid AS copy_lineage,
+             sub.submitted_from_uid AS copy_note,
+             coalesce(head([(sub)-[sr:{RelationshipName.FULFILLS_EXERCISE.value}]->(:Entity:Exercise) | sr.revision]), 0) AS copy_revision,
+             sub.created_at AS copy_created_at
         RETURN
           count(DISTINCT CASE
-              WHEN sub.status IN ['submitted', 'active']
+              WHEN sub.status IN $pending_statuses
                AND EXISTS {{
                   (sub)-[:{RelationshipName.SUBMITTED_TO_GROUP.value}]->(:Group {{is_active: true}})
                        <-[:{RelationshipName.OWNS.value}]-(teacher)
                }}
-               AND NOT EXISTS {{
-                  MATCH (student)-[:{RelationshipName.OWNS.value}]->(newer:Entity:UserEntry)
-                  WHERE sub.turn_in_exercise_uid IS NOT NULL
-                    AND newer.turn_in_exercise_uid = sub.turn_in_exercise_uid
-                    AND newer.uid <> sub.uid
-                    AND newer.pipeline = $pipeline
-                    AND (newer)-[:{RelationshipName.SUBMITTED_TO_GROUP.value}]->(:Group {{is_active: true}})
-                        <-[:{RelationshipName.OWNS.value}]-(teacher)
-                    AND (coalesce(head([(newer)-[nr:{RelationshipName.FULFILLS_EXERCISE.value}]->(:Entity:Exercise) | nr.revision]), 0)
-                           > coalesce(head([(sub)-[sr:{RelationshipName.FULFILLS_EXERCISE.value}]->(:Entity:Exercise) | sr.revision]), 0)
-                         OR (coalesce(head([(newer)-[nr:{RelationshipName.FULFILLS_EXERCISE.value}]->(:Entity:Exercise) | nr.revision]), 0)
-                               = coalesce(head([(sub)-[sr:{RelationshipName.FULFILLS_EXERCISE.value}]->(:Entity:Exercise) | sr.revision]), 0)
-                             AND newer.created_at > sub.created_at))
-              }}
+               AND NOT {_SUPERSEDED_COPY}
               THEN sub.uid END) AS pending_count,
           count(DISTINCT student) AS total_students,
           count(DISTINCT ex) AS total_exercises,
           count(DISTINCT g) AS total_groups
         """
         return await self.execute_query(
-            query, {"teacher_uid": teacher_uid, "pipeline": Pipeline.TEACHER_REVIEW.value}
+            query,
+            {
+                "teacher_uid": teacher_uid,
+                "pipeline": Pipeline.TEACHER_REVIEW.value,
+                "pending_statuses": _PENDING_STATUSES,
+            },
         )
 
     async def verify_teacher_has_group_access(

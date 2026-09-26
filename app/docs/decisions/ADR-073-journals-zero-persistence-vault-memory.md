@@ -1,5 +1,5 @@
 ---
-updated: 2026-09-25
+updated: 2026-09-26
 related_skills: [journals, prompt-templates]
 ---
 
@@ -127,7 +127,9 @@ Everything else in the vault is **walled off by default** (fail-closed `SyncAllo
   one path for a context note; the count it fed, `total_journal_count`, went with it. A
   `knowledge` note with no `audience:` is **private**, and so is an `extract_activities`
   periodic note — an absent `audience:` names nobody on every pipeline but
-  `teacher_review` (ADR-088, one vocabulary); follow-ups to #1227.)*
+  `teacher_review` (ADR-088, one vocabulary); follow-ups to #1227.)* *(Amended 2026-09-26,
+  ADR-088 R9: every doorway note is a draft — never submitted or shared, whatever its
+  `audience:`; that audience applies only to the frozen copy `status: submitted` files.)*
 - **je_pro entries** *(amended 2026-07-11)*: a frontmatter-consented je_pro file ingests as a
   stored `UserEntry` exactly like a `knowledge/` doorway note. Withdrawing consent in the file
   (dropping `pipeline:` or flipping to `je_use: exemplar`) deletes the stored node on the next

@@ -586,7 +586,7 @@ def create_teaching_ui_routes(
             groups_content = EmptyState(
                 "No groups yet",
                 description="Click “New Group” above to create your first group, "
-                "or upload a group YAML at /upload.",
+                "or add a group file to your vault and sync it.",
             )
         else:
             groups_content = Div(

@@ -19,10 +19,10 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[3] / "scripts"))
 from cleanup_untracked_vault_entries import select_orphans  # type: ignore[import-not-found]
 
 
-def _row(uid, *, path=None, vault=True, has_fulfills=False, pipeline="knowledge"):
+def _row(uid, *, path=None, vault=True, is_frozen=False, pipeline="knowledge"):
     vfp = path if path is not None else f"/vault/{uid}.md"
     meta = json.dumps({"vault_file_path": vfp}) if vault else json.dumps({})
-    return {"uid": uid, "metadata": meta, "pipeline": pipeline, "has_fulfills": has_fulfills}
+    return {"uid": uid, "metadata": meta, "pipeline": pipeline, "is_frozen": is_frozen}
 
 
 def test_tracked_path_is_deletable():
@@ -55,9 +55,21 @@ def test_tracked_entry_is_kept_entirely():
 
 
 def test_turn_in_copy_is_kept():
-    """Belt-and-braces: a FULFILLS_EXERCISE-bearing entry is never a candidate."""
-    rows = [_row("ue_turnin", path="/vault/t.md", has_fulfills=True)]
+    """Belt-and-braces: a frozen submission (turn-in, copy, feedback request) is
+    never a candidate — the query folds every marker into ``is_frozen``."""
+    rows = [_row("ue_turnin", path="/vault/t.md", is_frozen=True)]
     deletable, ambiguous = select_orphans(rows, tracked_uids=set(), live_ue_paths={"/vault/t.md"})
+    assert deletable == []
+    assert ambiguous == []
+
+
+def test_frozen_copy_of_a_note_is_kept():
+    """A frozen submission replaced in the tracker by a fresh living node is
+    still what a teacher was handed, never a superseded duplicate."""
+    rows = [_row("ue_copy", path="/vault/note.md", is_frozen=True)]
+    deletable, ambiguous = select_orphans(
+        rows, tracked_uids=set(), live_ue_paths={"/vault/note.md"}
+    )
     assert deletable == []
     assert ambiguous == []
 
@@ -72,8 +84,8 @@ def test_entry_without_vault_path_is_kept():
 
 def test_null_or_malformed_metadata_is_kept():
     rows = [
-        {"uid": "ue_none", "metadata": None, "pipeline": "knowledge", "has_fulfills": False},
-        {"uid": "ue_bad", "metadata": "{not json", "pipeline": "knowledge", "has_fulfills": False},
+        {"uid": "ue_none", "metadata": None, "pipeline": "knowledge", "is_frozen": False},
+        {"uid": "ue_bad", "metadata": "{not json", "pipeline": "knowledge", "is_frozen": False},
     ]
     deletable, ambiguous = select_orphans(rows, tracked_uids=set(), live_ue_paths=set())
     assert deletable == []
@@ -88,7 +100,7 @@ def test_substring_only_match_is_not_a_hit():
             "uid": "ue_decoy",
             "metadata": json.dumps({"note": "see vault_file_path docs"}),
             "pipeline": "knowledge",
-            "has_fulfills": False,
+            "is_frozen": False,
         }
     ]
     deletable, ambiguous = select_orphans(rows, tracked_uids=set(), live_ue_paths=set())

@@ -147,8 +147,8 @@ class UserEntry(UserOwnedEntity):
     # DECLARED EXERCISE INTENT — vault living channel
     # =========================================================================
     # The exercise this entry is being worked against, as declared by the
-    # author (``fulfills_exercise_uid:`` frontmatter on a deterministic-uid
-    # vault file, or the create request). This is INTENT, not the turn-in:
+    # author (``fulfills_exercise_uid:`` frontmatter on a vault note, or the
+    # create request). This is INTENT, not the turn-in:
     # the turn-in truth stays on the ``FULFILLS_EXERCISE {revision}`` edge,
     # which only frozen submission copies carry. A living vault entry has
     # the property and never the edge; removing the frontmatter line removes
@@ -172,6 +172,21 @@ class UserEntry(UserOwnedEntity):
     turn_in_revision: int | None = None
 
     # =========================================================================
+    # VAULT COPY PROVENANCE — a frozen copy of a vault note (R9)
+    # =========================================================================
+    # A vault note is a draft; ``status: submitted`` files a frozen copy of it,
+    # and only the copy is submitted or shared. The copy records the living
+    # note it was filed from (``submitted_from_uid``) and a fingerprint of
+    # what was authored at filing — every field the copy carries, its
+    # audience and its exercise target (``submission_fingerprint``). The
+    # vault door files a new copy only when the note's fingerprint differs
+    # from its newest copy's; the fingerprint, never the copy's live links,
+    # is the comparison, so a Stop sharing stays durable. Neither is ever
+    # authored, and a living note carries neither.
+    submitted_from_uid: str | None = None
+    submission_fingerprint: str | None = None
+
+    # =========================================================================
     # HELPERS
     # =========================================================================
 
@@ -186,6 +201,22 @@ class UserEntry(UserOwnedEntity):
         checkbox lines + explicit ``@context()`` markers, never inferred.
         """
         return self.metadata.get("entry_kind") in PERIODIC_NOTE_KINDS
+
+    def is_frozen_submission(self) -> bool:
+        """True when this entry is what a teacher or a reader was handed — never edited in place.
+
+        A turn-in (it carries the snapshot), a frozen copy of a vault note (it
+        records its provenance) or a feedback request (``teacher_review``). A
+        caller-supplied uid naming one is refused at the upsert
+        (``_UserEntryCrudMixin.upsert`` applies the same three tests in its
+        MERGE), and a tracked vault uid naming one is never a note's living
+        identity (R9).
+        """
+        return (
+            self.turn_in_exercise_uid is not None
+            or self.submitted_from_uid is not None
+            or self.pipeline == Pipeline.TEACHER_REVIEW
+        )
 
     def is_vault_note(self) -> bool:
         """True when this entry was ingested from a vault file it can be written back to.

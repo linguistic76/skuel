@@ -4,7 +4,7 @@ updated: 2026-09-26
 status: "staged — the revoke half shipped 2026-09-25 (Submit & Share arc PR 6b: Share + Stop sharing on a UserEntry, Your wall as the access list); set_visibility alone stays PLANNED, waiting on the PUBLIC reader"
 registered: 2026-09-21
 ruled: 2026-09-21
-trigger: "set_visibility waits on the PUBLIC reader (a portfolio listing); the re-sync half dissolves with R9's drafts (Submit & Share arc PR 8)"
+trigger: "set_visibility waits on the PUBLIC reader (a portfolio listing); the re-sync half closed with R9's drafts (Submit & Share arc PR 8, 2026-09-26)"
 check: "grep -rn 'set_visibility' adapters/inbound ui core/services --include='*.py' — a production caller outside core/services/sharing/ retires its PLANNED entry in scripts/detect_bloat.py"
 ---
 
@@ -26,7 +26,7 @@ check: "grep -rn 'set_visibility' adapters/inbound ui core/services --include='*
 `UnifiedSharingService` (`core/services/sharing/unified_sharing_service.py`) has two halves.
 The **write half is live**: audience-at-submit ([ADR-054](../decisions/ADR-054-user-entry-unified-submissions.md)
 — `AudienceResolver.resolve_and_share` → `share` / `share_with_group`, fed by the Submit page's
-(`/submissions/submit`) audience selector, the JSON door and a vault note's `audience:`), the Share door
+(`/submissions/submit`) audience selector, the JSON door and the frozen copy of a vault note marked `status: submitted`), the Share door
 (`EntrySharingService.share`, the same checks and writers on an entry the owner already has),
 the post-submit `POST /api/form-submissions/share`, and the ADR-040 auto-shares
 (`ExerciseService` → `share_with_group`). The **reads that render what those wrote are live**:
@@ -44,8 +44,8 @@ the six endpoints that once existed; they left with the submissions API on 2026-
 
 | Method | Production callers | Ruling | Why |
 |---|---|---|---|
-| `unshare` | **LIVE** since PR 6b — `POST /api/user-entries/{uid}/unshare` (a *Your wall* chip's ×) | shipped | The revoke half of the access list. Takes the recipient by username (the vocabulary's `user:<username>`), no co-membership needed. Re-sync reconciliation never needed it — R9's drafts (PR 8) dissolve that case. |
-| `unshare_from_group` | **LIVE** since PR 6b — the same door with a `group:<uid>` value | shipped | Group twin. Touches `SHARED_WITH_GROUP` only; a feedback request to the same group stands (ADR-088 §2). `scripts/retract_defaulted_vault_note_shares.py` still hand-rolls its own `DELETE` because it sweeps every owner's edges at once. |
+| `unshare` | **LIVE** since PR 6b — `POST /api/user-entries/{uid}/unshare` (a *Your wall* chip's ×) | shipped | The revoke half of the access list. Takes the recipient by username (the vocabulary's `user:<username>`), no co-membership needed. Re-sync reconciliation never needed it: PR 8 closed that case by never sharing a draft (R9). |
+| `unshare_from_group` | **LIVE** since PR 6b — the same door with a `group:<uid>` value | shipped | Group twin. Touches `SHARED_WITH_GROUP` only; a feedback request to the same group stands (ADR-088 §2). The one-shot migrations that sweep every owner's edges at once (`scripts/migrations/vault_notes_are_drafts_2026_09.py`) hand-roll their own `DELETE`. |
 | get_shared_with | 0 | **DELETED** (PR 6b) | The owner's "who has access" list is *Your wall* — `get_shared_by_me` returns every owned entry with its people and groups, and narrows to one entry for the Share panel. A per-entity access-list query beside it would drift from the wall's. Backend twin query_shared_with_users went with it. |
 | get_groups_shared_with | 0 — its one caller left on 2026-04-18 (`7dc89f3fd` replaced it with the auto-share intersection query) | **DELETED** (PR 6b) | Group twin of the access list, replaced by the wall's `groups` column. Backend twin query_groups_shared_with went with it. |
 | `set_visibility` | 0 (5 test sites) | **PLANNED** — `_SHARING_VISIBILITY_LADDER` | PUBLIC-only since ADR-088 §4 (publish / unpublish; it still lacks the TEACHER gate the creation doors apply). Its trigger is the PUBLIC reader, not the access list — see [The visibility ladder](#the-visibility-ladder-waits-on-a-reader-not-a-panel). |
@@ -67,10 +67,12 @@ share values only (`group:<uid>` / `user:<username>`); a feedback request stays 
 1. **The access list with revoke controls** is *Your wall* on `/profile/shared`:
    `get_shared_by_me` renders every owned entry with its people and groups; each chip's × posts
    `POST /api/user-entries/{uid}/unshare` → `unshare` / `unshare_from_group`.
-2. **Share reconciliation on vault re-sync** is dissolved rather than built: with R9's drafts
-   (PR 8) a vault note's `audience:` applies only to the frozen copy `status: submitted` files,
-   so a narrowed `audience:` has nothing to retract —
-   [§ Vault Re-Sync Never Retracts a Share](vault-resync-never-retracts-a-share.md) closes there.
+2. **Share reconciliation on vault re-sync** was never built — the gap closed by never
+   sharing drafts, not by reconciliation (PR 8, R9): a vault note is never shared, its
+   `audience:` applies only to the frozen copy `status: submitted` files, and a re-sync files
+   nothing new for an unchanged note, so it has no share to retract; a filed copy is taken back
+   with Stop sharing, which the next sync never undoes —
+   [§ Vault Re-Sync Never Retracts a Share](done/vault-resync-never-retracts-a-share.md), closed.
 
 ## The visibility ladder waits on a reader, not a panel
 
