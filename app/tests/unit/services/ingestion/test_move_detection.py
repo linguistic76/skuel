@@ -21,7 +21,7 @@ from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
-from core.services.ingestion.ingestion_tracker import IngestionTracker
+from core.services.ingestion.ingestion_tracker import PENDING_MTIME, IngestionTracker
 from core.services.ingestion.move_detection import (
     SIMILARITY_MOVE_THRESHOLD,
     MoveCandidate,
@@ -352,13 +352,14 @@ class TestDetectAndApplyMoves:
         assert move.entity_uid == "ue_moved1"
         assert move.old_path == str(old_path)
         assert move.new_path == str(new_path.resolve())
-        # Row rewritten: new path claims the uid with pending markers (empty
-        # hash / mtime 0) so a failed ingest this run still retries next sync.
+        # Row rewritten: new path claims the uid marked pending (mtime
+        # PENDING_MTIME) so a failed ingest this run still retries next sync,
+        # with the file's real hash so a second rename is still recognised.
         upsert = backend.update_ingestion_metadata.await_args.args[0]
         assert upsert == {
             "file_path": str(new_path.resolve()),
-            "content_hash": "",
-            "file_mtime": 0.0,
+            "content_hash": _file_hash(new_path),
+            "file_mtime": PENDING_MTIME,
             "entity_uid": "ue_moved1",
             "authored_edges": [],
         }
@@ -589,13 +590,13 @@ class TestDetectAndApplyMoves:
         assert move.new_path == str(new_path.resolve())
         assert move.similarity is not None
         assert SIMILARITY_MOVE_THRESHOLD <= move.similarity < 1.0
-        # Same rewrite rails as exact moves: pending markers so a failed
+        # Same rewrite rails as exact moves: marked pending so a failed
         # ingest this run still retries next sync.
         upsert = backend.update_ingestion_metadata.await_args.args[0]
         assert upsert == {
             "file_path": str(new_path.resolve()),
-            "content_hash": "",
-            "file_mtime": 0.0,
+            "content_hash": _file_hash(new_path),
+            "file_mtime": PENDING_MTIME,
             "entity_uid": "ue_ab12cd34",
             "authored_edges": [],
         }
@@ -969,3 +970,58 @@ class TestDetectAndApplyMoves:
         assert result.is_ok
         assert result.value.applied == ()
         backend.update_ingestion_metadata.assert_not_called()
+
+
+class TestPendingRows:
+    """A pending row (``PENDING_MTIME``) is re-ingested on its next sync, whatever its hash."""
+
+    def test_a_pending_row_is_never_skipped_even_when_its_hash_matches(self, tmp_path) -> None:
+        from datetime import datetime
+
+        from core.services.ingestion.ingestion_tracker import FileIngestionMetadata
+
+        note = tmp_path / "note.md"
+        note.write_text("a note that persisted but must retry", encoding="utf-8")
+        tracker = IngestionTracker(MagicMock())
+        row = FileIngestionMetadata(
+            file_path=str(note.resolve()),
+            content_hash=_file_hash(note),  # the real hash — kept for move detection
+            file_mtime=PENDING_MTIME,
+            last_ingested_at=datetime.now(),
+            entity_uid="ue_pending1",
+        )
+        decision = tracker.needs_ingestion(note, row)
+        assert decision.needs_ingestion
+        assert decision.reason == "pending"
+
+    def test_a_stamped_row_with_the_same_hash_is_skipped(self, tmp_path) -> None:
+        from datetime import datetime
+
+        from core.services.ingestion.ingestion_tracker import FileIngestionMetadata
+
+        note = tmp_path / "note.md"
+        note.write_text("an unchanged note", encoding="utf-8")
+        row = FileIngestionMetadata(
+            file_path=str(note.resolve()),
+            content_hash=_file_hash(note),
+            file_mtime=note.stat().st_mtime,
+            last_ingested_at=datetime.now(),
+            entity_uid="ue_stamped1",
+        )
+        assert not IngestionTracker(MagicMock()).needs_ingestion(note, row).needs_ingestion
+
+    @pytest.mark.asyncio
+    async def test_record_pending_keeps_the_real_hash_and_the_fingerprint(self, tmp_path) -> None:
+        note = tmp_path / "note.md"
+        note.write_text("a note that persisted but must retry", encoding="utf-8")
+        backend = MagicMock()
+        backend.update_ingestion_metadata = AsyncMock(return_value=Result.ok([]))
+        result = await IngestionTracker(backend).record_pending(note, "ue_pending1")
+        assert result.is_ok
+        assert backend.update_ingestion_metadata.await_args.args[0] == {
+            "file_path": str(note.resolve()),
+            "content_hash": _file_hash(note),
+            "file_mtime": PENDING_MTIME,
+            "entity_uid": "ue_pending1",
+            "authored_edges": None,  # the row's fingerprint is kept
+        }

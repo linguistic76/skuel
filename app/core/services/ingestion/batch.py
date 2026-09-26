@@ -1455,7 +1455,22 @@ async def ingest_directory(
         for file_str, uid in retry_uids.items():
             pending = await tracker.record_pending(Path(file_str), uid)
             if pending.is_error:
-                logger.error(f"Pending tracker row for {file_str} failed: {pending.expect_error()}")
+                # The note persisted but its identity and its retry did not:
+                # an existing row keeps its old stamp (the next sync may skip
+                # the file), and a first sync's minted uid is not recorded.
+                errors.append(
+                    IngestionError(
+                        file=file_str,
+                        error=(
+                            f"Could not record {uid} for a retry ({pending.expect_error()}) — "
+                            "the next sync may skip this note or give it a new uid; "
+                            "re-sync, or sync with --force"
+                        ),
+                        stage="tracking",
+                        error_type="database",
+                        entity_type=EntityType.USER_ENTRY.value,
+                    ).to_dict()
+                )
 
     # Deletion propagation: vault file deleted -> graph entity/edge deleted.
     # Runs after the metadata updates above so moved/renamed files (already

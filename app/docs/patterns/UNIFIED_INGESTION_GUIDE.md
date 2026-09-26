@@ -274,10 +274,12 @@ rather than upsert its edits onto what the teacher was handed.
 
 A note that persisted but must be retried — its frozen copy was not filed,
 its extraction failed, or a vault edit of a 🆔 line was refused — is recorded
-in a **pending** tracker row (`IngestionTracker.record_pending`: its uid, an
-empty hash, mtime 0). Smart mode never skips a pending row, so the next sync
-re-ingests the file, and it does so on the uid the row holds — a first sync's
-minted uid is never lost to a retry.
+in a **pending** tracker row (`IngestionTracker.record_pending`: its uid and
+its real hash, with `file_mtime` set to `PENDING_MTIME`, 0). Smart mode never
+skips a pending row, so the next sync re-ingests the file, and it does so on
+the uid the row holds — a first sync's minted uid is never lost to a retry.
+The real hash keeps a rename before the retry recognisable as a move. A
+pending row that cannot be written is itself a sync error (stage `tracking`).
 
 **Renames preserve identity too (content-based move detection).** A
 rename/move of a uid-less note is recognized by the move-detection pre-pass

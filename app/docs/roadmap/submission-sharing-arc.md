@@ -1576,13 +1576,18 @@ it first removes both.
     was attempted, so `ingest_user_entry` returns it with `submission_error` and the batch door
     reports a `submission`-stage sync error. A failed file would have left no tracker row, so a
     first sync's minted uid was lost and every retry wrote another living node. The door
-    records the note in a **pending** tracker row instead (`IngestionTracker.record_pending`:
-    its uid, an empty hash, mtime 0 — the move pass's marker, now one spelling), keeping the
-    row's edge fingerprint, so the next sync re-ingests it on the same uid. The same hole had
-    two siblings, closed the same way: an `extraction_error` and a refused vault edit
-    (`reconciliation_refusals`) also left a first-sync note untracked. The single-row metadata
-    upsert keeps an existing fingerprint when handed none. `status: submitted` +
+    records the note in a **pending** tracker row instead (`IngestionTracker.record_pending`),
+    keeping the row's edge fingerprint, so the next sync re-ingests it on the same uid. The
+    same hole had two siblings, closed the same way: an `extraction_error` and a refused vault
+    edit (`reconciliation_refusals`) also left a first-sync note untracked. The single-row
+    metadata upsert keeps an existing fingerprint when handed none. `status: submitted` +
     `audience: private` is one such refusal.
+  - **Pending is `file_mtime = PENDING_MTIME` (0), and the row keeps the file's real hash**
+    (Codex round 6 on #1426): `needs_ingestion` re-ingests a pending row whatever its hash, and
+    move detection (which reads only hashed rows) still matches a pending note renamed before
+    its retry. The move pass's rewritten row takes the same mark — one `_pending_row` spelling,
+    typed (no `Any`). A pending row that cannot be written is a `tracking`-stage sync error,
+    never only a log line.
   - **One supersede rule, `_SUPERSEDED_COPY`** (the assessment mixin): a fragment over names the
     caller binds in a WITH, read by the queue, its dashboard badge and `get_students_summary` —
     two lineages (the exercise snapshot, and `submitted_from_uid` per student), teacher-visible

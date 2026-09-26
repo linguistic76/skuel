@@ -6,7 +6,8 @@ When the copy is refused, the note has still persisted: the sync reports the
 refusal as an error, and the batch door records the note's uid in a *pending*
 tracker row (empty hash, mtime 0), so the next sync re-ingests the file on the
 same uid. Stamping nothing would lose the minted uid, and every retry would
-write another living node for the same file.
+write another living node for the same file. The pending row keeps the file's
+real hash, so a rename before the retry is still recognised as a move.
 
 Drives the production loop over a temp vault (``_vault_rig``): the reconciler,
 smart-mode ``ingest_directory``, the per-file user-entry door, the tracker.
@@ -18,12 +19,14 @@ from typing import Any
 
 import pytest
 
+from core.services.ingestion.ingestion_tracker import PENDING_MTIME
 from core.services.vault.vault_descriptor import VaultKind
 from tests.integration._vault_rig import OWNER, Rig
 
 TEACHER = "user_vault_retry_teacher"
 GROUP = "group_vault_retry"
 NOTE = "knowledge/retry-probe.md"
+RENAMED = "knowledge/retry-probe-renamed.md"
 
 
 def _note(audience: str) -> str:
@@ -55,13 +58,13 @@ async def _seed_class(rig: Rig) -> None:
         )
 
 
-async def _state(rig: Rig) -> dict[str, Any]:
+async def _state(rig: Rig, note: str = NOTE) -> dict[str, Any]:
     async with rig.driver.session() as session:
         record = await (
             await session.run(
                 """
                 OPTIONAL MATCH (:User {uid: $owner})-[:OWNS]->(living:Entity:UserEntry)
-                WHERE living.metadata CONTAINS 'retry-probe.md'
+                WHERE living.metadata CONTAINS 'retry-probe'
                 WITH collect(living.uid) AS living_uids
                 OPTIONAL MATCH (copy:Entity:UserEntry)
                 WHERE copy.submitted_from_uid IN living_uids
@@ -72,7 +75,7 @@ async def _state(rig: Rig) -> dict[str, Any]:
                        row.content_hash AS row_hash, row.file_mtime AS row_mtime
                 """,
                 owner=OWNER,
-                note=NOTE,
+                note=note,
             )
         ).single()
     assert record is not None
@@ -96,21 +99,32 @@ async def test_a_refused_copy_keeps_the_notes_uid_and_retries_on_it(rig: Rig) ->
     assert state["copy_uids"] == []
     # The minted uid is kept, pending: the next sync must re-ingest the file.
     assert state["row_uid"] == living_uid
-    assert state["row_hash"] == ""
-    assert state["row_mtime"] == 0.0
+    assert state["row_mtime"] == PENDING_MTIME
+    assert state["row_hash"], "the real hash is kept for move detection"
 
-    # 2. Fixed: the retry lands on the SAME note and files one copy.
-    note.write_text(_note(f"teacher:{GROUP}"), encoding="utf-8")
-    second = await rig.sync()
-    assert second.errors == []
-    state = await _state(rig)
+    # 2. Renamed before the retry, still refused: the move keeps the uid.
+    renamed = rig.note_at(RENAMED)
+    note.rename(renamed)
+    second = await rig.reconciler.sync(VaultKind.PERSONAL, OWNER)
+    assert second.is_ok, second
+    assert any("nothing to submit to" in e for e in second.value.errors), second.value.errors
+    state = await _state(rig, RENAMED)
+    assert state["living_uids"] == [living_uid], "the renamed note is the same note"
+    assert state["row_uid"] == living_uid
+    assert state["row_mtime"] == PENDING_MTIME
+
+    # 3. Fixed: the retry lands on the SAME note and files one copy.
+    renamed.write_text(_note(f"teacher:{GROUP}"), encoding="utf-8")
+    third = await rig.sync()
+    assert third.errors == []
+    state = await _state(rig, RENAMED)
     assert state["living_uids"] == [living_uid], "a retry never mints a second living node"
     assert len(state["copy_uids"]) == 1
     assert state["row_uid"] == living_uid
-    assert state["row_hash"] != "", "a filed copy stamps the row normally"
+    assert state["row_mtime"] != PENDING_MTIME, "a filed copy stamps the row normally"
 
-    # 3. Idle: nothing new.
+    # 4. Idle: nothing new.
     await rig.sync()
-    state = await _state(rig)
+    state = await _state(rig, RENAMED)
     assert state["living_uids"] == [living_uid]
     assert len(state["copy_uids"]) == 1
