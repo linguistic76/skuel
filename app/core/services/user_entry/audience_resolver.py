@@ -30,7 +30,7 @@ See: /docs/decisions/ADR-054-user-entry-unified-submissions.md
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, TypedDict
 
 from core.models.enums import GroupMemberRole
 from core.models.enums.pipeline import Pipeline
@@ -78,6 +78,26 @@ class ResolvedAudience:
         )
 
 
+class ShareOutcomePayload(TypedDict):
+    """``ShareOutcome`` as a JSON response body — every tuple as a list, ``failed`` as
+    ``{target, reason}`` rows; the shape the create and share doors return."""
+
+    submitted_groups: list[str]
+    newly_submitted_groups: list[str]
+    shared_groups: list[str]
+    shared_users: list[str]
+    newly_shared_users: list[str]
+    failed: list[ShareFailurePayload]
+    withheld: list[str]
+
+
+class ShareFailurePayload(TypedDict):
+    """One refused audience target and the reason it was refused."""
+
+    target: str
+    reason: str
+
+
 @dataclass(frozen=True)
 class ShareOutcome:
     """Result of a post-persist audience pass.
@@ -113,7 +133,7 @@ class ShareOutcome:
     def any_failure(self) -> bool:
         return bool(self.failed)
 
-    def to_payload(self) -> dict[str, Any]:
+    def to_payload(self) -> ShareOutcomePayload:
         return {
             "submitted_groups": list(self.submitted_groups),
             "newly_submitted_groups": list(self.newly_submitted_groups),
@@ -603,4 +623,11 @@ class AudienceResolver:
         )
 
 
-__all__ = ["FEEDBACK_TARGET_FIELD", "AudienceResolver", "ResolvedAudience", "ShareOutcome"]
+__all__ = [
+    "FEEDBACK_TARGET_FIELD",
+    "AudienceResolver",
+    "ResolvedAudience",
+    "ShareFailurePayload",
+    "ShareOutcome",
+    "ShareOutcomePayload",
+]

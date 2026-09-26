@@ -47,7 +47,7 @@ from core.models.user_entry.user_entry_request import (
     UserEntryCreateRequest,
     UserEntryProcessRequest,
 )
-from core.services.user_entry.audience_resolver import ShareOutcome
+from core.services.user_entry.audience_resolver import ShareOutcome, ShareOutcomePayload
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
 from ui.gradebook.share_panel import SharePanelForm
@@ -69,7 +69,7 @@ class ShareRoutePayload(TypedDict):
     """``POST /api/user-entries/{uid}/share`` — the entry and what landed (``ShareOutcome.to_payload``)."""
 
     uid: str
-    share_outcome: dict[str, Any]
+    share_outcome: ShareOutcomePayload
 
 
 class UnshareRoutePayload(TypedDict):

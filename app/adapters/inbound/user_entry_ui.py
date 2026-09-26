@@ -35,7 +35,7 @@ from functools import partial
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
-from fasthtml.common import H4, A, Div, P, Span
+from fasthtml.common import FT, H4, A, Div, FtResponse, P, Span
 from starlette.responses import FileResponse, RedirectResponse, Response
 
 from adapters.inbound.auth import require_authenticated_user
@@ -710,7 +710,7 @@ def create_user_entry_ui_routes(
         )
 
     @rt("/gradebook/{uid}/share-panel")
-    async def share_panel_fragment(request: Request, uid: str) -> Any:
+    async def share_panel_fragment(request: Request, uid: str) -> FT | FtResponse:
         """HTMX fragment: the Share panel's body for the entry's owner.
 
         Candidates are the owner's active student and owned groups and their
