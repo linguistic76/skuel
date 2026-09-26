@@ -591,10 +591,12 @@ ALLOWED_OCCURRENCES: dict[str, dict[tuple[int, str], Allow]] = {
         # record name the retired check; the Service Layer's ADR-088 note sits above the last two.
         (108, "check_access"): Allow(_adr088_2b),
         (156, "check_access"): Allow(_adr088_2b),
-        (237, "check_access"): Allow(_adr088_2b),
+        # 242 / 193: +5 below the API Layer's ADR-088 PR 8 note (re-derived from the
+        # scanner's report).
+        (242, "check_access"): Allow(_adr088_2b),
         # The Data Model Changes record lists the method the decision added; the
         # Service Layer's ADR-088 PR 2a note (above it) records its deletion.
-        (188, "can_view"): Allow(_adr088_2a),
+        (193, "can_view"): Allow(_adr088_2a),
         # The Service Layer list names the access-list methods the decision added; the
         # API Layer's ADR-088 PR 6b note (below the list) records their deletion.
         (109, "get_shared_with("): Allow(_adr088_6b),
