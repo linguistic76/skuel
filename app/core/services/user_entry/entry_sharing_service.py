@@ -32,6 +32,7 @@ from typing import TYPE_CHECKING
 
 from core.events import publish_event
 from core.events.user_entry_events import EntryShared
+from core.models.enums import GroupMemberRole
 from core.models.type_hints import EntityUID, UserUID
 from core.models.user_entry.audience import GROUP_PREFIX, USER_PREFIX, AudienceSpec
 from core.services.user_entry.audience_resolver import ResolvedAudience, ShareOutcome
@@ -241,7 +242,9 @@ class EntrySharingService:
         if owned.is_error:
             return Result.fail(owned)
 
-        groups = await self.groups.get_user_groups(owner_uid, role="student", include_owned=True)
+        groups = await self.groups.get_user_groups(
+            owner_uid, role=GroupMemberRole.STUDENT.value, include_owned=True
+        )
         if groups.is_error:
             return Result.fail(groups)
         people = await self.sharing.get_share_candidate_people(owner_uid)

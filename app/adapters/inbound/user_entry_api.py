@@ -24,8 +24,9 @@ invisible.
 from __future__ import annotations
 
 from dataclasses import replace
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, TypedDict
 
+from fasthtml.common import FtResponse
 from starlette.datastructures import UploadFile
 
 from adapters.inbound.auth import require_authenticated_user
@@ -46,6 +47,7 @@ from core.models.user_entry.user_entry_request import (
     UserEntryCreateRequest,
     UserEntryProcessRequest,
 )
+from core.services.user_entry.audience_resolver import ShareOutcome
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
 from ui.gradebook.share_panel import SharePanelForm
@@ -61,6 +63,20 @@ if TYPE_CHECKING:
     from core.services.user_entry.user_entry_service import UserEntryService
 
 logger = get_logger("skuel.routes.user_entry.api")
+
+
+class ShareRoutePayload(TypedDict):
+    """``POST /api/user-entries/{uid}/share`` — the entry and what landed (``ShareOutcome.to_payload``)."""
+
+    uid: str
+    share_outcome: dict[str, Any]
+
+
+class UnshareRoutePayload(TypedDict):
+    """``POST /api/user-entries/{uid}/unshare`` — the entry and the vocabulary value removed."""
+
+    uid: str
+    removed: str
 
 
 def create_user_entry_api_routes(
@@ -423,7 +439,7 @@ def create_user_entry_api_routes(
     # SHARE / STOP SHARING — the post-create Share door (ADR-088 §6)
     # =========================================================================
 
-    def _sharing_unavailable(operation: str) -> Result[Any]:
+    def _sharing_unavailable[P](operation: str) -> Result[P]:
         return Result.fail(
             Errors.unavailable(
                 feature="entry_sharing",
@@ -451,7 +467,9 @@ def create_user_entry_api_routes(
     @rt("/api/user-entries/{uid}/share", methods=["POST"])
     @csrf_protected
     @boundary_handler()
-    async def share_user_entry_route(request: Request, uid: str) -> Any:
+    async def share_user_entry_route(
+        request: Request, uid: str
+    ) -> Result[ShareRoutePayload] | FtResponse:
         """Share an owned UserEntry with groups and people (R2, R7, R8).
 
         ``audience`` is the one vocabulary, ``group:<uid>`` / ``user:<username>``
@@ -467,7 +485,7 @@ def create_user_entry_api_routes(
         is_htmx = bool(request.headers.get("HX-Request"))
 
         parsed = AudienceSpec.parse(await _posted_audience(request))
-        result: Result[Any] = (
+        result: Result[ShareOutcome] = (
             Result.fail(parsed)
             if parsed.is_error
             else await entry_sharing.share(uid, user_uid, parsed.value)
@@ -480,26 +498,28 @@ def create_user_entry_api_routes(
                 candidates = await entry_sharing.candidates(uid, user_uid)
                 if candidates.is_error:
                     return Result.fail(candidates)
-                return SharePanelForm(uid, candidates.value, error=error.message)
+                return FtResponse(SharePanelForm(uid, candidates.value, error=error.message))
             return Result.fail(result)
         outcome = result.value
         if is_htmx:
             candidates = await entry_sharing.candidates(uid, user_uid)
             if candidates.is_error:
                 return Result.fail(candidates)
-            return SharePanelForm(uid, candidates.value, outcome=outcome)
+            return FtResponse(SharePanelForm(uid, candidates.value, outcome=outcome))
         return Result.ok({"uid": uid, "share_outcome": outcome.to_payload()})
 
     @rt("/api/user-entries/{uid}/unshare", methods=["POST"])
     @csrf_protected
     @boundary_handler()
-    async def unshare_user_entry_route(request: Request, uid: str) -> Any:
+    async def unshare_user_entry_route(
+        request: Request, uid: str
+    ) -> Result[UnshareRoutePayload] | FtResponse:
         """Stop sharing an owned UserEntry with one group or person (R7).
 
         ``audience`` names exactly one ``group:<uid>`` / ``user:<username>``;
         the delete never touches a feedback request. An HTMX request reads
-        back the entry's wall row (empty once nothing is shared); any other
-        caller the removed value.
+        back the entry's wall row (an empty response once nothing is shared —
+        the row is swapped away); any other caller the removed value.
         """
         user_uid = require_authenticated_user(request)
         if entry_sharing is None:
@@ -521,7 +541,7 @@ def create_user_entry_api_routes(
             row = await entry_sharing.wall_row(uid, user_uid)
             if row.is_error:
                 return Result.fail(row)
-            return WallRow(row.value) if row.value is not None else ""
+            return FtResponse(WallRow(row.value) if row.value is not None else "")
         return Result.ok({"uid": uid, "removed": result.value})
 
     # =========================================================================
