@@ -1427,6 +1427,23 @@ it first removes both.
     `get_owner_uids_batch`'s undeduplicated owners across every submitted group, drops the
     submitter, keeps first-seen order; a failed owner read or a failed write is logged, never
     raised, and the other teacher is still rung.
+  - Live 2026-09-26 (Mike's OK; branch app on :8001; read-only census first: 3615 nodes / 3106
+    edges, `SUBMITTED_TO_GROUP` 2, `SHARES_WITH` on UserEntries 0, `SHARED_WITH_GROUP` 0, four
+    turn-ins without `turn_in_revision`, no stray `revision_number`). The backfill's `--confirm`
+    stamped the 4 (v2, v1, v2, v1 — all from their live edge; after-census 0 unstamped, 0 stray).
+    Then one write, never re-run: the web upload door as linguistic76 with the form's own field
+    shape — `pipeline=teacher_review`, `audience=teachers`, a title, one `.md`, **no exercise** —
+    wrote `ue_6f8ef02d` (+1 node, its `OWNS`, its `SUBMITTED_TO_GROUP` to the Default Group;
+    outcome `newly_submitted_groups: [group_default_user_admin]`; no snapshot, no Interaction)
+    and rang exactly one `submission_for_review` bell, for the group's owner `user_admin`
+    ("'PR 7 placeholder — teacher without an exercise' was submitted for your feedback."). As
+    mfan0110, `/notifications` carried the bell linking to `/teaching/review/ue_6f8ef02d`, and
+    that page (and its content fragment) answered 200 naming the entry, with no exercise label.
+    Headless Chrome at 375px and 1280px on `/submissions/submit` (with and without an exercise)
+    and `/submissions/history`: no horizontal overflow; the standing smoke passed over 7 pages
+    (`/teaching/queue` left out — linguistic76 is not a teacher). Deleted afterwards by uid (the
+    entry and its bell: 2 nodes, 3 edges; no Interaction or Insight named it); the two scripted
+    logins left their `Session` + `AuthEvent` pairs (3619 nodes / 3110 edges after).
 
 ### PR 8 — Every vault note submits the same way (R9)
 
