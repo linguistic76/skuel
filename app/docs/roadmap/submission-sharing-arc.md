@@ -12,7 +12,8 @@ ruled: 2026-09-24
 plan). Thirteen PRs, **one per fresh context**. From PR 0 on, this document is the single source of
 truth for the arc: nothing depends on the planning conversation. The **Status** column of the
 [PR contract table](#pr-plan-contract) is the progress ledger — a session resumes at the first row
-that is not `merged`.
+that is not `merged`. **Every PR row is merged (PR 8, 2026-09-26); the arc-close walk-through
+([§ Verification](#verification-arc-close)) is the one step left, in its own session.**
 **Decision record:** [ADR-088 — Submit and Share](../decisions/ADR-088-submit-and-share.md) (the
 two verbs, the two group-link kinds, links as the only audience record, `visibility` = public or
 not, `read_visibility`, the derived wall, R8 co-membership, `teacher:<group_uid>`).
@@ -1584,6 +1585,28 @@ it first removes both.
     minted, and the entry itself is the submission — no copy.
   - Verified, nothing to remove: the per-pipeline shares-by-default flag and its test left at
     PR 6a — only its stale_names DELETED row names it now.
+  - Live 2026-09-26 (Mike's OK; his :8000 app was not running; read-only census first: 3619
+    nodes / 3110 edges, 0 old provenance keys, 0 links / feedback requests on the 36 living notes,
+    0 living `teacher_review` notes, 0 vault turn-ins). The migration's `--confirm` wrote nothing;
+    the branch app started on :8001 and the census read 0 again. Then, one write per step and
+    none re-run: a test note (`knowledge/PR 8 placeholder.md` — `pipeline: knowledge`,
+    `private: true`, `status: submitted`, no `audience:`) went through the real personal sync as
+    linguistic76. It filed one living note (`ue_2ec4997a`: active, private, no link) and one
+    frozen copy (`ue_cfb9a2cc`: `teacher_review`, `submitted`, private carried,
+    `submitted_from_uid` = the note, a fingerprint, no `vault_file_path`, one
+    `SUBMITTED_TO_GROUP` to the Default Group) and rang one `submission_for_review` bell for
+    user_admin. The same sync ingested two pending notes of Mike's (a new daily note, an edited
+    knowledge note) and its outbound pass checked 9 SKUEL-completed tasks in three periodic
+    notes — ordinary sync work the preview does not list. An idle re-sync wrote nothing (smart
+    mode skipped the unchanged note); a frontmatter comment then forced a re-ingest with an
+    identical snapshot — "unchanged since its copy — no new copy filed", graph unchanged. On
+    :8001 the admin's `/notifications` linked the bell to `/teaching/review/ue_cfb9a2cc`, the
+    queue listed the copy and not the draft, the copy's review fragment rendered it and the
+    draft's read "Submission not found"; the standing smoke passed over 9 pages as linguistic76.
+    The test file was removed and the four placeholder nodes deleted by uid (the note, the copy,
+    the bell, the tracker row; no Interaction or Insight named them): 3627 nodes / 3117 edges
+    after — Mike's daily note and its tracker row, plus the three scripted logins' `Session` +
+    `AuthEvent` pairs.
 
 ## Non-goals (this arc)
 
@@ -1683,7 +1706,7 @@ requires PR 1, PR 3, PR 5 and PR 6a. PR 6c requires PR 4a, PR 5 and PR 6b. PR 7 
 | 6b | Share / Stop sharing routes; candidates; the two-sided Shared page; R3 cleanup; person-share bell; the two access-list methods deleted (DELETED rows added); `shares_granted` rewired | Share with a co-member (as in 6a) → the recipient's *Shared with you* + bell. Your wall lists it, and Stop sharing removes it. Feedback is gone from the Shared page | merged #1423, 2026-09-25 |
 | 6c | Derived "reviewed" badges; the GradeBook nudge | A revised shared entry carries "Revised after feedback". The GradeBook nudge appears on it | merged #1424, 2026-09-25 |
 | 7 | The two-question Submit form; teacher without an exercise; teacher bell; the zero-reach rule moves into `create_entry`; the "Submit" rename; the title ruling (the title is the student's, the version is the edge's) | The web Teacher option works without an exercise. The teacher's bell links to `/teaching/review/{uid}` | merged #1425, 2026-09-26 |
-| 8 | Vault notes are drafts; one frozen copy per `status: submitted`; provenance + dedup; closes the re-sync case file | A vault note with `status: submitted` files one copy; an idle re-sync files nothing | open |
+| 8 | Vault notes are drafts; one frozen copy per `status: submitted`; provenance + dedup; closes the re-sync case file | A vault note with `status: submitted` files one copy; an idle re-sync files nothing | merged #1426, 2026-09-26 |
 
 ## Verification (arc close)
 
