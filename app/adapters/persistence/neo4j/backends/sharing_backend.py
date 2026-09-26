@@ -5,6 +5,9 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 from adapters.persistence.neo4j.query.cypher.crud_queries import build_audience_fragment
+from adapters.persistence.neo4j.query.cypher.learning_loop_fragments import (
+    build_review_standing_subquery,
+)
 from adapters.persistence.neo4j.universal_backend import UniversalNeo4jBackend
 from core.models.entity import Entity
 from core.models.enums.entity_enums import EntityType
@@ -283,7 +286,10 @@ class SharingBackend(UniversalNeo4jBackend[Entity]):
         Columns: ``entity``, ``shared_by`` (the owner's display name),
         ``sharer_uid`` (the owner), ``shared_at`` (the newest share, as an
         ISO string), ``via_direct`` and ``via_groups`` (``[{uid, name}]``) —
-        the via-list. ``entity_type`` / ``sharer_uid`` / ``via`` narrow the
+        the via-list — and the derived review standing, ``reviewed_by`` /
+        ``revised_after_feedback`` (``build_review_standing_subquery``, the
+        badges' one derivation; a FormSubmission has no reports and reads
+        unreviewed). ``entity_type`` / ``sharer_uid`` / ``via`` narrow the
         rows (``None`` = no filter); ``via`` is ``direct`` or a group uid, so
         the ``/groups`` list is this reader narrowed to one group.
         """
@@ -292,6 +298,7 @@ class SharingBackend(UniversalNeo4jBackend[Entity]):
         reach = f"{RelationshipName.MEMBER_OF.value}|{RelationshipName.OWNS.value}"
         owns = RelationshipName.OWNS.value
         audience = build_audience_fragment("entity")
+        review_standing = build_review_standing_subquery("entity")
         result = await self.execute_query(
             f"""
             MATCH (viewer:User {{uid: $user_uid}})
@@ -318,13 +325,16 @@ class SharingBackend(UniversalNeo4jBackend[Entity]):
             WHERE $via IS NULL
                OR ($via = $direct_token AND via_direct)
                OR $via IN [x IN via_groups | x.uid]
+            {review_standing}
             OPTIONAL MATCH (owner:User {{uid: entity.user_uid}})
             RETURN entity,
                    toString(shared_at) AS shared_at,
                    coalesce(owner.display_name, owner.title, entity.user_uid) AS shared_by,
                    entity.user_uid AS sharer_uid,
                    via_direct,
-                   via_groups
+                   via_groups,
+                   reviewed_by,
+                   revised_after_feedback
             ORDER BY shared_at DESC
             LIMIT $limit
             """,
@@ -353,7 +363,9 @@ class SharingBackend(UniversalNeo4jBackend[Entity]):
         One row per entry: ``entity``, ``users`` (``[{uid, username,
         display_name, shared_at}]`` — every ``SHARES_WITH`` recipient),
         ``groups`` (``[{uid, name, shared_at}]`` — every ``SHARED_WITH_GROUP``
-        target), ``last_shared_at`` (the newest of them, ISO). A feedback
+        target), ``last_shared_at`` (the newest of them, ISO), and the derived
+        review standing ``reviewed_by`` / ``revised_after_feedback`` (the
+        badges' one derivation, ``build_review_standing_subquery``). A feedback
         request is not a share and is not listed. With ``entity_uid`` the
         read narrows to one entry — the Share panel's "already shared with"
         state and the owner's access list are this one query, never a second.
@@ -361,6 +373,7 @@ class SharingBackend(UniversalNeo4jBackend[Entity]):
         shares = RelationshipName.SHARES_WITH.value
         shared_with_group = RelationshipName.SHARED_WITH_GROUP.value
         owns = RelationshipName.OWNS.value
+        review_standing = build_review_standing_subquery("entity")
         result = await self.execute_query(
             f"""
             MATCH (owner:User {{uid: $user_uid}})-[:{owns}]->(entity:Entity {{entity_type: $user_entry}})
@@ -376,7 +389,8 @@ class SharingBackend(UniversalNeo4jBackend[Entity]):
             WITH entity, users, groups,
                  reduce(latest = null, s IN [x IN users | x.shared_at] + [x IN groups | x.shared_at] |
                         CASE WHEN latest IS NULL OR s > latest THEN s ELSE latest END) AS last_shared_at
-            RETURN entity, users, groups, last_shared_at
+            {review_standing}
+            RETURN entity, users, groups, last_shared_at, reviewed_by, revised_after_feedback
             ORDER BY last_shared_at DESC
             LIMIT $limit
             """,
@@ -386,6 +400,26 @@ class SharingBackend(UniversalNeo4jBackend[Entity]):
                 "entity_uid": entity_uid,
                 "user_entry": EntityType.USER_ENTRY.value,
             },
+        )
+        if result.is_error:
+            return Result.fail(result)
+        return Result.ok(result.value or [])
+
+    async def query_feedback_request_groups(
+        self, entity_uid: EntityUID
+    ) -> Result[list[Neo4jProperties]]:
+        """The groups an entry was submitted to for feedback (``SUBMITTED_TO_GROUP``), one ``{uid}`` row each.
+
+        What the GradeBook nudge preselects in the Share panel — read for
+        the panel only, and applied only to groups the panel already offers.
+        """
+        submitted = RelationshipName.SUBMITTED_TO_GROUP.value
+        result = await self.execute_query(
+            f"""
+            MATCH (:Entity {{uid: $entity_uid}})-[:{submitted}]->(g:Group)
+            RETURN g.uid AS uid
+            """,
+            {"entity_uid": entity_uid},
         )
         if result.is_error:
             return Result.fail(result)

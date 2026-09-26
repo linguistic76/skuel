@@ -10,7 +10,7 @@ from __future__ import annotations
 from fasthtml.common import to_xml
 
 from core.models.entity_dto import EntityDTO
-from core.ports.query_types import VIA_DIRECT, SharedByMeItem, SharedWithMeItem
+from core.ports.query_types import VIA_DIRECT, ReviewStanding, SharedByMeItem, SharedWithMeItem
 from ui.profile.shared_view import (
     SHARED_LIST_ID,
     WALL_ID,
@@ -22,6 +22,9 @@ from ui.profile.shared_view import (
     wall_content,
 )
 
+_UNREVIEWED: ReviewStanding = {"reviewed_by": None, "revised_after_feedback": False}
+_REVISED_AND_REVIEWED: ReviewStanding = {"reviewed_by": "human", "revised_after_feedback": True}
+
 
 def _item(entity_props: dict, **edge) -> SharedWithMeItem:
     return {
@@ -31,6 +34,7 @@ def _item(entity_props: dict, **edge) -> SharedWithMeItem:
         "sharer_uid": edge.get("sharer_uid", "user_peer"),
         "via_direct": edge.get("via_direct", True),
         "via_groups": edge.get("via_groups", []),
+        "review": edge.get("review", _UNREVIEWED),
     }
 
 
@@ -52,6 +56,7 @@ def _wall_item(**overrides) -> SharedByMeItem:
         ],
         "groups": [{"uid": "g_1", "name": "Physics 101", "shared_at": None}],
         "last_shared_at": "2026-09-25T12:42:38.288833Z",
+        "review": _UNREVIEWED,
     }
     item.update(overrides)  # type: ignore[typeddict-item]
     return item
@@ -191,3 +196,31 @@ def test_page_empty_inbox_renders_no_filter_bar() -> None:
     html = to_xml(SharedPage([], []))
     assert 'name="via"' not in html
     assert "Nothing shared with you yet" in html
+
+
+# ---------------------------------------------------------------- review badges (PR 6c)
+
+
+def test_card_carries_the_derived_review_badges_beside_shared_with_you() -> None:
+    """R2: the badge says the work went through review, never the verdict."""
+    html = to_xml(SharedItemCard(_item(_ENTRY_PROPS, review=_REVISED_AND_REVIEWED)))
+    assert "Revised after feedback" in html
+    assert "Reviewed · Teacher" in html
+    assert "Shared with you" in html
+    assert "approved" not in html and "needs_revision" not in html
+
+
+def test_an_unreviewed_card_has_only_the_fixed_badge() -> None:
+    html = to_xml(SharedItemCard(_item(_ENTRY_PROPS)))
+    assert "Shared with you" in html
+    assert "Reviewed" not in html
+    assert "Revised after feedback" not in html
+
+
+def test_wall_row_carries_the_review_badges() -> None:
+    html = to_xml(
+        WallRow(_wall_item(review={"reviewed_by": "llm", "revised_after_feedback": True}))
+    )
+    assert "Revised after feedback" in html
+    assert "Reviewed · AI" in html
+    assert "Reviewed" not in to_xml(WallRow(_wall_item()))

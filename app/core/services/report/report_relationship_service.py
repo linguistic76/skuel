@@ -32,10 +32,12 @@ from core.ports.query_types import (
     GradebookOtherReport,
     LearningLoopChain,
     ReportSummary,
+    ReviewStanding,
     StudentExchangeSummaries,
     StudentExchangeSummary,
     SubmissionChain,
 )
+from core.services.report.review_standing import review_standing_from_row
 from core.utils.logging import get_logger
 from core.utils.neo4j_props import coerce_int
 from core.utils.result_simplified import Errors, Result
@@ -351,6 +353,10 @@ class ReportRelationshipService:
                     report_count=coerce_int(row.get("report_count")),
                     exchange_status=status.value,
                     latest_activity_at=latest_activity,
+                    latest_entry_revised_after_feedback=bool(
+                        row.get("latest_entry_revised_after_feedback")
+                    ),
+                    latest_entry_shared=bool(row.get("latest_entry_shared")),
                 )
             )
         exercises.sort(key=_latest_activity_key, reverse=True)
@@ -368,6 +374,23 @@ class ReportRelationshipService:
         return Result.ok(
             StudentExchangeSummaries(exercises=exercises, other_feedback=other_feedback)
         )
+
+    async def get_entry_review_standing(self, entry_uid: str) -> Result[ReviewStanding | None]:
+        """One entry's derived review standing — the "reviewed" badges the recipient card carries (R2).
+
+        ``None`` when the uid names no UserEntry. Owner-agnostic by design:
+        the caller's audience read decides who may open the entry (ADR-088
+        §5); this read only derives its standing, never stored.
+
+        Backend: _UserEntryReportQueryMixin.get_entry_review_standing_raw
+        """
+        result = await self.backend.get_entry_review_standing_raw(entry_uid)
+        if result.is_error:
+            return Result.fail(result)
+        rows = result.value or []
+        if not rows:
+            return Result.ok(None)
+        return Result.ok(review_standing_from_row(rows[0]))
 
     async def get_submission_chain(self, submission_uid: str) -> Result[SubmissionChain]:
         """

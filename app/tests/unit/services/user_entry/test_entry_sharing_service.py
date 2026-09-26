@@ -51,6 +51,7 @@ def _sharing(*, co_members: dict[str, str] | None = None, reachable=None) -> Mag
         return_value=Result.ok([{"uid": "user_a", "username": "alice", "display_name": "Alice"}])
     )
     sharing.get_shared_by_me = AsyncMock(return_value=Result.ok([]))
+    sharing.get_feedback_request_group_uids = AsyncMock(return_value=Result.ok(["g_1", "g_gone"]))
     return sharing
 
 
@@ -263,6 +264,10 @@ class TestCandidates:
         ]
         assert result.value["shared_user_uids"] == ["user_a"]
         assert result.value["shared_group_uids"] == []
+        # the reviewer groups are reported as read — the panel intersects them
+        # with the offered groups, so an unoffered one here is harmless
+        assert result.value["reviewer_group_uids"] == ["g_1", "g_gone"]
+        sharing.get_feedback_request_group_uids.assert_awaited_once_with(ENTRY)
         cast("AsyncMock", service.groups.get_user_groups).assert_awaited_once_with(
             OWNER, role="student", include_owned=True
         )

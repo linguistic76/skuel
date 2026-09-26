@@ -454,6 +454,8 @@ async def test_get_shared_with_me_success(mock_backend, sharing_service):
                     "sharer_uid": "user_peer",
                     "via_direct": True,
                     "via_groups": [{"uid": "g_1", "name": "Physics 101"}],
+                    "reviewed_by": "llm",
+                    "revised_after_feedback": True,
                 }
             ]
         )
@@ -471,6 +473,7 @@ async def test_get_shared_with_me_success(mock_backend, sharing_service):
     assert item["shared_at"] == "2026-02-02T12:00:00"
     assert item["via_direct"] is True
     assert item["via_groups"] == [{"uid": "g_1", "name": "Physics 101"}]
+    assert item["review"] == {"reviewed_by": "llm", "revised_after_feedback": True}
     # No filters requested → the backend must see explicit None (no filter),
     # not stale or omitted arguments.
     mock_backend.query_shared_with_me.assert_awaited_once_with(
@@ -537,6 +540,8 @@ async def test_get_shared_by_me_returns_each_entry_with_its_audience(mock_backen
                         {"uid": "g_1", "name": "Physics", "shared_at": "2026-09-24T10:00:00Z"}
                     ],
                     "last_shared_at": "2026-09-25T10:00:00Z",
+                    "reviewed_by": "human",
+                    "revised_after_feedback": False,
                 }
             ]
         )
@@ -550,9 +555,24 @@ async def test_get_shared_by_me_returns_each_entry_with_its_audience(mock_backen
     assert row["users"][0]["username"] == "alice"
     assert row["groups"][0]["name"] == "Physics"
     assert row["last_shared_at"] == "2026-09-25T10:00:00Z"
+    assert row["review"] == {"reviewed_by": "human", "revised_after_feedback": False}
     mock_backend.query_shared_by_me.assert_awaited_once_with(
         user_uid="user_owner", limit=100, entity_uid=None
     )
+
+
+@pytest.mark.asyncio
+async def test_get_feedback_request_group_uids_reads_the_submitted_groups(
+    mock_backend, sharing_service
+):
+    """The nudge's preselection: the entry's SUBMITTED_TO_GROUP targets, uids only."""
+    mock_backend.query_feedback_request_groups = AsyncMock(
+        return_value=Result.ok([{"uid": "g_1"}, {"uid": "g_2"}, {"uid": None}])
+    )
+    result = await sharing_service.get_feedback_request_group_uids("ue_1")
+    assert result.is_ok
+    assert result.value == ["g_1", "g_2"]
+    mock_backend.query_feedback_request_groups.assert_awaited_once_with("ue_1")
 
 
 @pytest.mark.asyncio

@@ -28,6 +28,7 @@ def test_tile_links_to_the_gradebook_detail_page() -> None:
                     "sharer_uid": "user_alex",
                     "via_direct": False,
                     "via_groups": [{"uid": "g_1", "name": "Physics"}],
+                    "review": {"reviewed_by": None, "revised_after_feedback": False},
                 }
             ]
         )

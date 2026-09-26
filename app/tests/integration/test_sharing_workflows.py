@@ -252,6 +252,12 @@ async def test_shared_with_me_lists_shares_not_feedback_with_their_via(
     CREATE (peer)-[:OWNS]->(direct), (peer)-[:OWNS]->(both), (peer)-[:OWNS]->(groupish),
            (peer)-[:OWNS]->(deadshare), (peer)-[:OWNS]->(request)
     CREATE (viewer)-[:OWNS]->(mine), (viewer)-[:OWNS]->(report)
+    CREATE (direct_review:Entity:EntryReport {
+        uid: 'test_er_swy_direct', entity_type: 'entry_report', status: 'completed',
+        title: 'Reviewed', user_uid: 'test_user_swy_peer', processor_type: 'llm',
+        assessment_outcome: 'ai_evaluated', created_at: datetime(), updated_at: datetime()
+    })
+    CREATE (direct_review)-[:REPORT_FOR]->(direct)
     CREATE (viewer)-[:SHARES_WITH {shared_at: datetime('2026-09-01T10:00:00Z'), role: 'viewer'}]->(direct)
     CREATE (viewer)-[:SHARES_WITH {shared_at: datetime('2026-09-02T10:00:00Z'), role: 'viewer'}]->(both)
     CREATE (both)-[:SHARED_WITH_GROUP {shared_at: datetime('2026-09-03T10:00:00Z')}]->(g)
@@ -281,6 +287,15 @@ async def test_shared_with_me_lists_shares_not_feedback_with_their_via(
         assert both["shared_at"].startswith("2026-09-03")
         assert by_uid["test_ue_swy_direct"]["via_groups"] == []
         assert by_uid["test_ue_swy_group"]["via_direct"] is False
+        # the derived review standing rides on the same statement (PR 6c)
+        assert by_uid["test_ue_swy_direct"]["review"] == {
+            "reviewed_by": "llm",
+            "revised_after_feedback": False,
+        }
+        assert by_uid["test_ue_swy_group"]["review"] == {
+            "reviewed_by": None,
+            "revised_after_feedback": False,
+        }
 
         # the /groups list: the same reader narrowed to one group
         via_group = await sharing_service.get_shared_with_me(
@@ -335,6 +350,12 @@ async def test_your_wall_lists_each_shared_entry_with_its_audience(sharing_servi
         title: 'Feedback request', user_uid: $owner, created_at: datetime(), updated_at: datetime()
     })
     CREATE (owner)-[:OWNS]->(shared), (owner)-[:OWNS]->(quiet), (owner)-[:OWNS]->(request)
+    CREATE (wall_review:Entity:EntryReport {
+        uid: 'test_er_wall_review', entity_type: 'entry_report', status: 'completed',
+        title: 'Reviewed', user_uid: $owner, processor_type: 'human',
+        assessment_outcome: 'approved', created_at: datetime(), updated_at: datetime()
+    })
+    CREATE (wall_review)-[:REPORT_FOR]->(shared)
     CREATE (alice)-[:SHARES_WITH {shared_at: datetime('2026-09-05T10:00:00Z'), role: 'viewer'}]->(shared)
     CREATE (shared)-[:SHARED_WITH_GROUP {shared_at: datetime('2026-09-06T10:00:00Z')}]->(g)
     CREATE (request)-[:SUBMITTED_TO_GROUP {submitted_at: datetime()}]->(g)
@@ -356,6 +377,7 @@ async def test_your_wall_lists_each_shared_entry_with_its_audience(sharing_servi
         assert row["users"][0]["shared_at"].startswith("2026-09-05")
         assert [g["uid"] for g in row["groups"]] == ["test_group_wall"]
         assert row["last_shared_at"].startswith("2026-09-06")
+        assert row["review"] == {"reviewed_by": "human", "revised_after_feedback": False}
 
         one = await sharing_service.get_shared_by_me(
             user_uid=owner, limit=1, entity_uid="test_ue_wall_quiet"
@@ -385,6 +407,7 @@ async def test_your_wall_lists_each_shared_entry_with_its_audience(sharing_servi
         await neo4j_driver.execute_query(
             """
             MATCH (n) WHERE n.uid STARTS WITH 'test_ue_wall' OR n.uid STARTS WITH 'test_group_wall'
+               OR n.uid STARTS WITH 'test_er_wall'
                OR n.uid STARTS WITH 'test_user_wall'
             DETACH DELETE n
             """

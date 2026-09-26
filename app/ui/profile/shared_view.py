@@ -39,6 +39,7 @@ from ui.activities.filter_bar import ActivityFilterBar, FilterBarConfig, FilterS
 from ui.components import ButtonT, Card, CardBody, Icon
 from ui.feedback import Badge, BadgeT
 from ui.gradebook.recipient_card import SHARED_WITH_YOU_LABEL
+from ui.gradebook.review_badges import review_badges
 from ui.layout import Size
 from ui.patterns.empty_state import EmptyState
 from ui.patterns.entity_links import entity_detail_href
@@ -89,7 +90,13 @@ def _via_chips(item: SharedWithMeItem) -> FT | str:
 
 
 def SharedItemCard(item: SharedWithMeItem) -> Any:
-    """One shared entity as the R6 card — title, description, from, date, badge, link."""
+    """One shared entity as the R6 card — title, description, from, date, badges, link.
+
+    The badges are the fixed "Shared with you" and the entry's derived
+    review standing (``review_badges``: "Revised after feedback",
+    "Reviewed · Teacher/AI") — what review the work went through, never the
+    verdict.
+    """
     entity = item["entity"]
     title = entity.title or entity.uid
     href = entity_detail_href(entity.entity_type.value, entity.uid)
@@ -106,10 +113,13 @@ def SharedItemCard(item: SharedWithMeItem) -> Any:
 
     return Card(
         CardBody(
+            H4(title, cls="text-sm font-medium line-clamp-2"),
+            # Badges on their own row under the title: beside it they squeeze a
+            # phone-width card's title to nothing.
             Div(
-                H4(title, cls="text-sm font-medium line-clamp-2"),
+                *review_badges(item["review"]),
                 Badge(SHARED_WITH_YOU_LABEL, variant=BadgeT.outline, size=Size.sm),
-                cls="flex items-start justify-between gap-2",
+                cls="flex flex-wrap items-center gap-1 mt-1",
             ),
             P(description, cls="text-xs text-muted-foreground mt-2 mb-0 line-clamp-3")
             if description
@@ -254,11 +264,12 @@ def _stop_sharing_chip(entry_uid: str, value: str, label: str) -> Span:
 
 
 def WallRow(item: SharedByMeItem) -> Div:
-    """One of the viewer's shared entries with its audience chips."""
+    """One of the viewer's shared entries with its review badges and audience chips."""
     entity = item["entity"]
     uid = entity.uid
     title = entity.title or uid
     when = format_relative_time(item.get("last_shared_at"))
+    badges = review_badges(item["review"])
     chips: list[Span] = [
         _stop_sharing_chip(uid, f"{GROUP_PREFIX}{g['uid']}", g["name"] or g["uid"])
         for g in item["groups"]
@@ -278,6 +289,7 @@ def WallRow(item: SharedByMeItem) -> Div:
             Span(when, cls="text-xs text-muted-foreground") if when else "",
             cls="flex items-baseline justify-between gap-2",
         ),
+        Div(*badges, cls="flex flex-wrap gap-1 mt-1") if badges else "",
         Div(*chips, cls="flex flex-wrap gap-1.5 mt-2") if chips else "",
         cls="py-3 border-b border-border last:border-b-0",
         **{WALL_ROW_ATTR: uid},

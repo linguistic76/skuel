@@ -17,11 +17,13 @@ from core.ports.query_types import GradebookOtherReport, StudentExchangeSummary
 from ui.gradebook.summary import (
     EXERCISE_REMOVED_LABEL,
     OTHER_FEEDBACK_SUBTITLE,
+    SHARE_REVISED_NUDGE_LABEL,
     filter_exchange_lines,
     normalize_exchange_filters,
     render_activity_reports_group,
     render_exchange_section,
     render_other_feedback_group,
+    share_revised_nudge_href,
 )
 
 
@@ -40,6 +42,8 @@ def _row(**overrides) -> StudentExchangeSummary:
         "report_count": 0,
         "exchange_status": ExchangeStatus.WAITING.value,
         "latest_activity_at": "2026-08-01T10:00:00",
+        "latest_entry_revised_after_feedback": False,
+        "latest_entry_shared": False,
     }
     row.update(overrides)  # type: ignore[typeddict-item]
     return row
@@ -198,3 +202,38 @@ class TestConditionalGroups:
             OTHER_FEEDBACK_SUBTITLE.replace("'", "&#x27;") in html
             or OTHER_FEEDBACK_SUBTITLE in html
         )
+
+
+class TestShareRevisedNudge:
+    """Submit & Share arc R2: an exchange whose latest entry is an unshared
+    post-feedback revision offers "Share your revised work" — the entry's
+    page with the Share panel open and the reviewers' groups preselected."""
+
+    def test_the_nudge_opens_the_share_panel_preselected(self) -> None:
+        rows = [
+            _row(
+                exercise_uid="ex.rev",
+                latest_entry_uid="ue_rev",
+                latest_entry_revised_after_feedback=True,
+                latest_entry_shared=False,
+            )
+        ]
+        html = to_xml(render_exchange_section(rows, "all", "all"))
+        assert SHARE_REVISED_NUDGE_LABEL in html
+        assert share_revised_nudge_href("ue_rev") == "/gradebook/ue_rev?share=1&preselect=reviewers"
+        assert 'href="/gradebook/ue_rev?share=1&amp;preselect=reviewers"' in html
+        # a sibling of the line's own link, never an anchor inside an anchor
+        line = re.search(r'<a[^>]*href="/exchange\?exercise=ex\.rev"[^>]*>.*?</a>', html, re.DOTALL)
+        assert line is not None
+        assert SHARE_REVISED_NUDGE_LABEL not in line.group(0)
+        nudge = re.search(r"<a[^>]*/gradebook/ue_rev[^>]*>", html)
+        assert nudge is not None and "min-h-[36px]" in nudge.group(0)
+
+    def test_no_nudge_once_the_revision_is_shared(self) -> None:
+        rows = [_row(latest_entry_revised_after_feedback=True, latest_entry_shared=True)]
+        assert SHARE_REVISED_NUDGE_LABEL not in to_xml(render_exchange_section(rows, "all", "all"))
+
+    def test_no_nudge_on_a_line_whose_latest_entry_is_not_a_revision(self) -> None:
+        html = to_xml(render_exchange_section(_ROWS, "all", "all"))
+        assert SHARE_REVISED_NUDGE_LABEL not in html
+        assert "preselect" not in html

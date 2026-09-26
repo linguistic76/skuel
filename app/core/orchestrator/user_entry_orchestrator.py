@@ -30,6 +30,7 @@ if TYPE_CHECKING:
         ExchangeThread,
         KnowledgeEntryGroundingRow,
         OrganizerResult,
+        ReviewStanding,
         StudentExchangeSummaries,
         SubmissionChain,
     )
@@ -257,6 +258,15 @@ class UserEntryOrchestrator:
         Backend: ReportRelationshipService.get_student_exchange_summaries.
         """
         return await self._report_relationship.get_student_exchange_summaries(student_uid)
+
+    async def get_entry_review_standing(self, entry_uid: str) -> Result[ReviewStanding | None]:
+        """One entry's derived review standing — the recipient card's
+        "reviewed" badges (R2). Read after the audience read admitted the
+        viewer; it grants nothing itself.
+
+        Backend: ReportRelationshipService.get_entry_review_standing.
+        """
+        return await self._report_relationship.get_entry_review_standing(entry_uid)
 
     async def get_entry_responses(self, entry_uid: str) -> Result[list[dict[str, Any]]]:
         """List the EntryReports attached to an entry (the "Responses" section).
