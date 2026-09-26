@@ -134,7 +134,7 @@ RETURN count(s) AS removed
 """
 
 
-def _metadata(raw: Any) -> dict[str, Any] | None:
+def _metadata(raw: object) -> dict[str, Any] | None:
     """The persisted ``metadata`` JSON string as a mapping, or None when it is not one."""
     if not isinstance(raw, str):
         return None
@@ -150,7 +150,9 @@ def _is_living(row: Row) -> bool:
     return parsed is not None and bool(parsed.get(_VAULT_KEY))
 
 
-async def _fetch(driver: AsyncDriver, query: str, params: dict[str, Any] | None = None) -> list[Row]:
+async def _fetch(
+    driver: AsyncDriver, query: str, params: dict[str, object] | None = None
+) -> list[Row]:
     result = await driver.execute_query(query, params or {})
     return [dict(record) for record in result.records]
 
@@ -223,7 +225,9 @@ async def _census(driver: AsyncDriver) -> Census:
             f"  {row['kind']}  {row['uid']} ↔ {row['target']}  "
             f"[{row['pipeline']}]  title={row['title']!r}"
         )
-    print(f"\nFeedback requests on living vault notes (STOP — a person rules): {len(feedback_requests)}")
+    print(
+        f"\nFeedback requests on living vault notes (STOP — a person rules): {len(feedback_requests)}"
+    )
     for row in feedback_requests:
         print(f"  {row['uid']} → {row['target']}  [{row['pipeline']}]  title={row['title']!r}")
 
@@ -236,7 +240,9 @@ async def _census(driver: AsyncDriver) -> Census:
         )
         if _is_living(row)
     ]
-    print(f"\nLiving teacher_review notes (report only — the door now refuses them): {len(living_tr)}")
+    print(
+        f"\nLiving teacher_review notes (report only — the door now refuses them): {len(living_tr)}"
+    )
     for row in living_tr:
         print(f"  {row['uid']}  status={row['status']}  title={row['title']!r}")
 
@@ -245,7 +251,9 @@ async def _census(driver: AsyncDriver) -> Census:
         for row in await _fetch(driver, _VAULT_TURN_INS, {"vault_key": _VAULT_KEY})
         if _is_living(row)
     ]
-    print(f"\nTurn-ins carrying a vault_file_path (report only — never a living identity): {len(turn_ins)}")
+    print(
+        f"\nTurn-ins carrying a vault_file_path (report only — never a living identity): {len(turn_ins)}"
+    )
     for row in turn_ins:
         print(f"  {row['uid']}  title={row['title']!r}")
 

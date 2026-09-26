@@ -17,6 +17,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any
 
+from core.models.enums.entity_enums import EntityStatus
 from core.models.enums.pipeline import Pipeline
 from core.models.relationship_names import RelationshipName
 from core.models.type_hints import Neo4jProperties
@@ -27,6 +28,9 @@ if TYPE_CHECKING:
 
     from core.models.enums.neo_labels import NeoLabel
 
+
+# A feedback request awaiting review — the queue's default and its badge twin.
+_PENDING_STATUSES = [EntityStatus.SUBMITTED.value, EntityStatus.ACTIVE.value]
 
 _OWNS = RelationshipName.OWNS.value
 _SUBMITTED_TO_GROUP = RelationshipName.SUBMITTED_TO_GROUP.value
@@ -144,7 +148,7 @@ class _UserEntryAssessmentMixin:
         ``exercise_uid`` / ``exercise_title`` read the live exercise, falling
         back to the snapshot once it is deleted.
         """
-        statuses = status_filter or ["submitted", "active"]
+        statuses = status_filter or _PENDING_STATUSES
         query = f"""
         MATCH (teacher:User {{uid: $teacher_uid}})-[:{RelationshipName.OWNS.value}]->(g:Group)
         MATCH (entry:Entity:UserEntry)-[:{RelationshipName.SUBMITTED_TO_GROUP.value}]->(g)
@@ -313,7 +317,7 @@ class _UserEntryAssessmentMixin:
              coalesce(max(r.revision), 0) AS copy_revision,
              ku.created_at AS copy_created_at
         WITH student, ku,
-             ku.status = 'completed' AS reviewed,
+             ku.status = $completed AS reviewed,
              {_SUPERSEDED_COPY} AS superseded
         WITH student,
              count(DISTINCT ku) AS submission_count,
@@ -327,7 +331,12 @@ class _UserEntryAssessmentMixin:
         ORDER BY pending_count DESC, submission_count DESC
         """
         return await self.execute_query(
-            query, {"teacher_uid": teacher_uid, "pipeline": Pipeline.TEACHER_REVIEW.value}
+            query,
+            {
+                "teacher_uid": teacher_uid,
+                "pipeline": Pipeline.TEACHER_REVIEW.value,
+                "completed": EntityStatus.COMPLETED.value,
+            },
         )
 
     async def get_student_entries_for_teacher(
@@ -460,7 +469,7 @@ class _UserEntryAssessmentMixin:
              sub.created_at AS copy_created_at
         RETURN
           count(DISTINCT CASE
-              WHEN sub.status IN ['submitted', 'active']
+              WHEN sub.status IN $pending_statuses
                AND EXISTS {{
                   (sub)-[:{RelationshipName.SUBMITTED_TO_GROUP.value}]->(:Group {{is_active: true}})
                        <-[:{RelationshipName.OWNS.value}]-(teacher)
@@ -472,7 +481,12 @@ class _UserEntryAssessmentMixin:
           count(DISTINCT g) AS total_groups
         """
         return await self.execute_query(
-            query, {"teacher_uid": teacher_uid, "pipeline": Pipeline.TEACHER_REVIEW.value}
+            query,
+            {
+                "teacher_uid": teacher_uid,
+                "pipeline": Pipeline.TEACHER_REVIEW.value,
+                "pending_statuses": _PENDING_STATUSES,
+            },
         )
 
     async def verify_teacher_has_group_access(
