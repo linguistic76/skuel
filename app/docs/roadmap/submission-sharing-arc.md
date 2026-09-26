@@ -1280,6 +1280,32 @@ it first removes both.
     carries `reviewer_group_uids`. The panel-load target is an `IfExp` of two literal f-strings
     so the hx-target scan (`test_hx_targets_registered.py`) reads it rather than pinning an opaque
     one.
+  - Live acceptance 2026-09-25 (branch app on :8001, Mike's OK; read-only census first: 3581
+    nodes / 3072 edges, `SHARES_WITH` on UserEntries 0, `SHARED_WITH_GROUP` 0; the Gentle Return
+    exchange was ue_f95db474 (never reviewed) → ue_bd5ce4a1 (`revision_requested`, report
+    er_0495255e), so the live GradeBook showed no nudge — the earlier entry had no review). One
+    write per script, none re-run: the upload door as linguistic76 filed a placeholder turn-in
+    against re_c4e92951 (`ue_b48471c0`: +3 nodes — the entry, its `RECORDS` Interaction, an
+    iteration Insight — and +8 edges, incl. `FULFILLS_EXERCISE` on the root,
+    `FULFILLS_REVISED_EXERCISE`, `SUBMITTED_TO_GROUP` to the Default Group; derived standing
+    `reviewed_by: null, revised_after_feedback: true` on a string entry stamp against the native
+    report stamp). The GradeBook's Gentle Return line ("3 submissions · 1 report", Waiting) then
+    carried "Share your revised work →" to `/gradebook/ue_b48471c0?share=1&preselect=reviewers`;
+    that page rendered the panel open, its body loaded with `?preselect=reviewers`, the Default
+    Group checked and enabled, `user:mfan0110` unchecked. Posting the panel's value wrote +1
+    `SHARED_WITH_GROUP`, rang no bell (a group share rings no one), removed the nudge, and the
+    owner's wall row read "Revised after feedback · Default Group". As the Default Group's owner
+    (`mfan0110`), *Shared with you* listed the card with "Revised after feedback" + "Shared with
+    you" via "Default Group", the `/groups` preview and the via-group list-fragment listed it,
+    `/gradebook/ue_b48471c0` was the recipient card with the badge and no status, feedback or
+    exchange, and the `.md` download served. Headless Chrome at 375px and 1280px on the live
+    pages: no horizontal overflow (a first 375px shot showed the pre-fix squeezed card title —
+    the :8001 process predated the stacking fix; restarted on the committed code, correct).
+    Deleted afterwards by uid (the entry, Interaction and Insight: 3 nodes, 9 edges incl. the
+    share; `SHARED_WITH_GROUP` back to 0, leftovers 0); the nine scripted logins left their
+    `Session` + `AuthEvent` pairs (3599 nodes / 3090 edges after). Residual unchanged from 6b: the
+    wall's relative time read "7h ago" for a share made minutes earlier (the naive-local
+    `shared_at` stamp read as UTC).
 
 ### PR 7 — The Submit page asks two questions (C)
 
@@ -1529,7 +1555,7 @@ requires PR 1, PR 3, PR 5 and PR 6a. PR 6c requires PR 4a, PR 5 and PR 6b. PR 7 
 | 5 | `OWNER_OR_AUDIENCE` + `read_visibility`; the audience fragment; viewer-aware `/gradebook/{uid}` + download; the peer route retired | A person-shared entry opens for its recipient with no status or feedback. A non-recipient gets 404 | merged #1421, 2026-09-25 |
 | 6a | `AudienceSpec` + resolver; R8 co-membership; journal privacy; `group:` never files a feedback request; vault `user:` / `teacher:` parsed but applied only from PR 8 | The vault parser accepts `audience: [teachers, user:<name>]` (unit matrix). A JSON-door `user:` share to a co-member (user_admin, or a member of a non-default group) succeeds; a Default-Group-only member gets the uniform error | merged #1422, 2026-09-25 |
 | 6b | Share / Stop sharing routes; candidates; the two-sided Shared page; R3 cleanup; person-share bell; the two access-list methods deleted (DELETED rows added); `shares_granted` rewired | Share with a co-member (as in 6a) → the recipient's *Shared with you* + bell. Your wall lists it, and Stop sharing removes it. Feedback is gone from the Shared page | merged #1423, 2026-09-25 |
-| 6c | Derived "reviewed" badges; the GradeBook nudge | A revised shared entry carries "Revised after feedback". The GradeBook nudge appears on it | open |
+| 6c | Derived "reviewed" badges; the GradeBook nudge | A revised shared entry carries "Revised after feedback". The GradeBook nudge appears on it | merged #1424, 2026-09-25 |
 | 7 | The two-question Submit form; teacher without an exercise; teacher bell; the zero-reach rule moves into `create_entry`; the "Submit" rename | The web Teacher option works without an exercise. The teacher's bell links to `/teaching/review/{uid}` | open |
 | 8 | Vault notes are drafts; one frozen copy per `status: submitted`; provenance + dedup; closes the re-sync case file | A vault note with `status: submitted` files one copy; an idle re-sync files nothing | open |
 
