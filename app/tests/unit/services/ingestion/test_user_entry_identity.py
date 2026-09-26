@@ -107,7 +107,8 @@ async def test_prior_uid_flows_into_create_entry_request(tmp_path: Path) -> None
 
 @pytest.mark.asyncio
 async def test_first_sync_without_tracker_row_mints_fresh(tmp_path: Path) -> None:
-    """No prior row → request.uid None so the service mints a fresh random uid."""
+    """No prior row → the door mints a fresh uid, so the note is a living
+    draft from its first sync (R9) and the tracker records that uid."""
     svc, service = _ingestion_service(_entry("ue_new"), prior_uid=None)
     note = _note(tmp_path, "pipeline: knowledge\ntitle: Probe")
 
@@ -115,7 +116,7 @@ async def test_first_sync_without_tracker_row_mints_fresh(tmp_path: Path) -> Non
 
     assert result.is_ok, result.expect_error()
     request = service.create_entry.await_args.kwargs["request"]
-    assert request.uid is None
+    assert request.uid is not None and request.uid.startswith("ue_")
 
 
 @pytest.mark.asyncio
@@ -132,7 +133,37 @@ async def test_foreign_prior_uid_is_not_reused(tmp_path: Path) -> None:
 
     assert result.is_ok, result.expect_error()
     request = service.create_entry.await_args.kwargs["request"]
-    assert request.uid is None
+    assert request.uid is not None and request.uid.startswith("ue_")
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "submission",
+    [
+        UserEntry(uid="ue_turned_in", title="T", user_uid="user_1", turn_in_exercise_uid="ex_1"),
+        UserEntry(
+            uid="ue_turned_in", title="T", user_uid="user_1", pipeline=Pipeline.TEACHER_REVIEW
+        ),
+        UserEntry(
+            uid="ue_turned_in", title="T", user_uid="user_1", submitted_from_uid="ue.vault.note"
+        ),
+    ],
+)
+async def test_a_frozen_submission_is_never_a_living_identity(
+    tmp_path: Path, submission: UserEntry
+) -> None:
+    """A tracker row pointing at a turn-in, a teacher_review node or a frozen
+    copy (the retired first-sync turn-in path) must not be reused: the note's
+    edits would be upserted onto what the teacher was handed (R9)."""
+    svc, service = _ingestion_service(_entry("ue_new"), prior_uid="ue_turned_in")
+    service.get_entry = AsyncMock(return_value=Result.ok(submission))
+    note = _note(tmp_path, "pipeline: knowledge\ntitle: Probe")
+
+    result = await svc.ingest_file(note, user_uid="user_1")
+
+    assert result.is_ok, result.expect_error()
+    request = service.create_entry.await_args.kwargs["request"]
+    assert request.uid not in (None, "ue_turned_in")
 
 
 @pytest.mark.asyncio
@@ -159,7 +190,7 @@ async def test_private_flip_reuses_uid_and_clears_chunks(tmp_path: Path) -> None
 @pytest.mark.asyncio
 async def test_no_ingestion_backend_falls_back_to_mint(tmp_path: Path) -> None:
     """Minimal composes / tests without a tracker still work — no prior uid,
-    fresh mint (request.uid None)."""
+    a freshly minted one."""
     service = _user_entry_service(_entry("ue_new"))
     svc = UnifiedIngestionService(
         write_backend=MagicMock(),
@@ -174,4 +205,4 @@ async def test_no_ingestion_backend_falls_back_to_mint(tmp_path: Path) -> None:
 
     assert result.is_ok, result.expect_error()
     request = service.create_entry.await_args.kwargs["request"]
-    assert request.uid is None
+    assert request.uid is not None and request.uid.startswith("ue_")

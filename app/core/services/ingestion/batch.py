@@ -77,10 +77,10 @@ logger = get_logger("skuel.services.ingestion.batch")
 # USER_ENTRY frontmatter fields whose validation failures are the FILE'S OWN
 # CONTENT — the ``user_entry_ingestion`` parsers tag each with the field they
 # validated. Validation failures on anything else are pipeline/state faults
-# the owner must see as sync errors, NOT ignorable content: the
-# unreachable-reviewer compensation (field=fulfills_exercise_uid) means a
-# turn-in was dropped and must be retried, and a TEACHER_REVIEW request with
-# no resolvable audience is a state-of-the-world failure (Codex #788).
+# the owner must see as sync errors, NOT ignorable content: a feedback
+# request that reaches no teacher (``feedback_target``) is a state-of-the-world
+# failure (Codex #788), and a frozen copy that ``status: submitted`` could not
+# file (``submission``) failed after the note itself synced — both are retried.
 _USER_ENTRY_CONTENT_FIELDS: frozenset[str] = frozenset(
     {"pipeline", "status", "je_use", "private", "audience", "metadata", "uid"}
 )

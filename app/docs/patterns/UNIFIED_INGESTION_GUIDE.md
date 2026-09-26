@@ -92,17 +92,18 @@ delete.
 Every UserEntry YAML must declare a pipeline. One of:
 
 - `none` — persisted as-is, no downstream processing.
-- `teacher_review` — queued for teacher feedback.
+- `teacher_review` — a submission for teacher feedback. **Not a vault pipeline:**
+  a vault note is a draft (§ Vault notes are drafts), so a vault file declaring it
+  is refused with guidance — set `status: submitted` instead, and the frozen copy
+  is the feedback request. Only a script's relative path files one directly.
 - `llm_summary` — sent to the LLM for a structured summary.
 - `extract_activities` — DSL-parsed into real activities (the `/submissions/sync`
-  daily-note path, ADR-069). Used by `periodic_notes/`. Private unless `audience:`
-  says otherwise.
+  daily-note path, ADR-069). Used by `periodic_notes/`.
 - `knowledge` — "developed files": the user's own vault notes in the
   `knowledge/` doorway (or a frontmatter-consented `je_pro/` file — ADR-073
   amendment), shared to teach SKUEL about them. Persisted as-is (no
   processing) and, unlike `reference`, surfaced in the personal-notes context
   digest that informs UserContext. Not counted as a learning-loop submission.
-  Private unless `audience:` says otherwise.
 - `reference` — RESERVED for the planned per-user *stored* journal-exemplar
   layer; no producer today. `je_raw/`/`je_pro/` exemplars are read off disk,
   never ingested as REFERENCE (ADR-073 §4).
@@ -112,26 +113,26 @@ valid in YAML-ingested UserEntry files.
 
 ### Optional field: `audience`
 
-`audience:` declares who sees the entry, in the one vocabulary every door speaks
-(`AudienceSpec`, `core/models/user_entry/audience.py` — ADR-088): one value or a list. When
-omitted it names nobody — which on `pipeline: teacher_review` means `teachers`, and on every
-other pipeline no links (a vault note shares only by explicit audience, rulings 2026-09-02).
+`audience:` declares who a submission is for, in the one vocabulary every door speaks
+(`AudienceSpec`, `core/models/user_entry/audience.py` — ADR-088): one value or a list.
+**On a vault note it does nothing until `status: submitted`** — the note is a draft, never
+submitted or shared, and the audience is the frozen copy's (§ Vault notes are drafts; a draft
+that declares one syncs with a warning saying so). When omitted, the copy goes to `teachers`.
 Keywords are case-insensitive; the part after the colon is kept verbatim (a username matches
 `User.title` exactly). Accepted values:
 
 | Value | Meaning |
 |-------|---------|
-| `teachers` | A **feedback request** (`SUBMITTED_TO_GROUP`, ADR-088 §2) — with an exercise, to the exercise's groups the uploader belongs to (a curriculum exercise: the uploader's default group); without one, to every group they are a student of — read by those groups' teachers, never their members. Applies only on `pipeline: teacher_review`, the one pipeline with a reviewer: on any other pipeline it writes **no group link** (an explicit value logs a warning). A request that would reach no teacher is refused before the write. |
+| `teachers` | A **feedback request** (`SUBMITTED_TO_GROUP`, ADR-088 §2) — with an exercise, to the exercise's groups the uploader belongs to (a curriculum exercise: the uploader's default group); without one, to every group they are a student of — read by those groups' teachers, never their members. A vault note's copy is filed on `teacher_review` when its audience names a teacher (`teachers` / `teacher:`), otherwise on `none`. A request that would reach no teacher is refused before the write. |
 | `teacher:<group_uid>` | A feedback request to that one group's teachers (the per-teacher route). |
-| `group:<group_uid>` | A **share** (`SHARED_WITH_GROUP`) with exactly one group — every member and owner may open it. Always a share: on `teacher_review` it must stand beside a feedback target, or the note is refused with guidance. |
+| `group:<group_uid>` | A **share** (`SHARED_WITH_GROUP`) with exactly one group — every member and owner may open it. Always a share, never a feedback request. |
 | `user:<username>` | A **share** (`SHARES_WITH`) with one person who shares a group with you (R8 — co-membership through the default group counts only via its owner). An unknown and a non-co-member username get one not-found. |
 | `public` | Set `visibility=PUBLIC` (portfolio, TEACHER-gated). |
-| `private` | No links — exclusive: combined with any other value it is a parse error. |
+| `private` | No links — exclusive: combined with any other value it is a parse error. With `status: submitted` it is a sync error — nothing to submit to. |
 
 A `private: true` note cannot be shared (`group:` / `user:` / `public` are refused); it may still
-ask for feedback. **Living notes are drafts (R9):** on a vault-tracked note the `user:` and
-`teacher:` targets are parsed and validated but not applied — the sync warns that they apply
-when `status: submitted` files a frozen copy (the arc's PR 8 lands the rest).
+ask for feedback — its copy carries the flag. A note on a private pipeline (`reference`) likewise
+may ask for feedback but its copy is never shared.
 
 Legacy aliases `je_input` / `je_output` / `exercise_submission` are
 **rejected** with an ADR-054 error (no compat shim — One Path Forward).
@@ -146,10 +147,13 @@ The door does not silently drop authored frontmatter it understands:
   list — never silently replaced. Omitted/empty → the pipeline default
   (`submitted` for `teacher_review`, `active` otherwise). Re-syncing an
   edited `status:` updates the node in place (deterministic-uid upsert).
-  **`teacher_review` exception:** status is service-owned there (the review
-  workflow is the only writer after create) — any authored value other than
-  a truthful `submitted` fails the file, so a submission can't be created
-  pre-`completed`/`archived` to fake or dodge review.
+  **On a vault note, `status: submitted` is the submit signal** — it files a
+  frozen copy, and the note itself stays `active` (§ Vault notes are drafts).
+  **`teacher_review` exception** (a script's direct submission): status is
+  service-owned there (the review workflow is the only writer after create)
+  — any authored value other than a truthful `submitted` fails the file, so
+  a submission can't be created pre-`completed`/`archived` to fake or dodge
+  review.
 - **`description:`** — flows onto the node's `description` field.
 - **`ownership:`** (alias: `user_uid:`) — a *consistency check*, not a
   transfer: ownership is always stamped from the syncing user. The declared
@@ -193,16 +197,16 @@ clear path for private ones); the in-process drain embeds the new chunks.
 
 ### Optional field: `uid` (deterministic upsert)
 
-By default a UserEntry is minted a random `ue_<...>` UID and **created**
-fresh on every ingest. When a deterministic UID is known, the service
-switches to **MERGE-on-uid upsert** instead: re-ingesting an edited file
-updates the existing node in place rather than duplicating it.
-`created_at` is preserved across re-syncs; `updated_at` and content are
-refreshed; the embedding triple is the embeddings writer's and is left
-alone (a re-sync never blanks a note's vector — ADR-074 §8). An exercise-linked file **without** a `uid:` is the turn-in
-path (`fulfills_exercise_uid` mints a random UID, fresh node every time);
-**with** a deterministic `uid:` it becomes the vault exercise channel's
-living entry — see the next section.
+Every vault note carries a uid, so the service **MERGE-on-uid upserts** it:
+re-ingesting an edited file updates the existing node in place rather than
+duplicating it. The uid is the authored `uid:`, else the derived periodic uid
+below, else the note's path-keyed identity (§ Path-keyed identity — minted on
+its first sync). `created_at` is preserved across re-syncs; `updated_at` and
+content are refreshed; the embedding triple is the embeddings writer's and is
+left alone (a re-sync never blanks a note's vector — ADR-074 §8). A declared
+`fulfills_exercise_uid:` does not change this: the note stays a living draft
+and its frozen copy is the turn-in (§ Vault notes are drafts). Only a
+script's relative path, with no `uid:`, is created fresh.
 
 **Periodic notes** (`entry_kind: daily | weekly | monthly | quarterly | yearly`) get a
 deterministic UID automatically — no explicit `uid:` needed:
@@ -242,25 +246,28 @@ authored; a periodic note needs no `uid:` line at all.
 
 ### Path-keyed identity for uid-less vault entries
 
-A vault knowledge note with **no** authored `uid:` and no periodic
-`entry_kind:` still gets a stable identity — from its **file path**. On first
-sync it mints a random `ue_<...>` uid; the ingestion tracker records the
-`path → uid` row (the same row that drives deletion propagation). Every later
-sync of that path resolves the prior uid and reuses it, routing the note
-through the **MERGE-on-uid upsert channel** so an edit updates the node in
-place instead of orphaning it. Path *is* identity — the deletion contract and
-the update contract now agree.
+A vault note with **no** authored `uid:` and no periodic `entry_kind:` still
+gets a stable identity — from its **file path**. On first sync the door mints a
+random `ue_<...>` uid; the ingestion tracker records the `path → uid` row (the
+same row that drives deletion propagation). Every later sync of that path
+resolves the prior uid and reuses it, routing the note through the
+**MERGE-on-uid upsert channel** so an edit updates the node in place instead of
+orphaning it. Path *is* identity — the deletion contract and the update
+contract now agree.
 
 Resolved once at `UnifiedIngestionService.ingest_file`'s USER_ENTRY branch
 (both ingest doors converge there, so the reconciler sync path is covered) and
-passed to `build_user_entry_request`, which honors it only when **all** hold:
+passed to `build_user_entry_request`, which honors it when:
 
-- no authored/periodic `uid:` (an explicit identity always wins);
-- no `fulfills_exercise_uid:` — a turn-in file must keep minting fresh nodes;
-  injecting a uid would silently kill the turn-in channel (frozen copy, edge,
-  revision, teacher routing);
-- an absolute file path — `/upload` callers pass a temp/relative path and must
-  keep minting fresh uids.
+- there is no authored/periodic `uid:` (an explicit identity always wins; a
+  bare or empty `uid:` is none) — with or without `fulfills_exercise_uid:`,
+  since a vault note is always a living draft and its copy is the turn-in;
+- the path is absolute — scripts and tests pass a relative path, and the
+  service mints a fresh uid for each of their entries.
+
+A tracked uid that names a frozen submission (a turn-in, a `teacher_review`
+node or a filed copy) is never reused: the note mints a fresh living node
+rather than upsert its edits onto what the teacher was handed.
 
 **Renames preserve identity too (content-based move detection).** A
 rename/move of a uid-less note is recognized by the move-detection pre-pass
@@ -278,9 +285,9 @@ Jaccard; only a MUTUAL best match at or above `SIMILARITY_MOVE_THRESHOLD`
 moves, and the sync annotates it with its score. Similarity candidacy is gated
 to the uid-less UserEntry world on both sides: sources must carry a minted
 `ue_<8hex>` uid, destinations must be `type: user_entry` markdown files with
-no authored `uid:`, no periodic `entry_kind`, and no `fulfills_exercise_uid:`
-— a file that would not honor the rewritten uid must never be bridged (it
-would fuse identities or orphan the gone node).
+no authored `uid:` and no periodic `entry_kind` — a file that would not honor
+the rewritten uid must never be bridged (it would fuse identities or orphan
+the gone node).
 
 **Threshold rationale (`SIMILARITY_MOVE_THRESHOLD = 0.8`).** Measured
 2026-07-12 by scoring all 81 real vault notes (≥10 tokens) pairwise:
@@ -304,50 +311,54 @@ failure, a wrong merge is not. Contracts:
 [`docs/roadmap/done/uidless-vault-entry-identity-upsert.md`](../roadmap/done/uidless-vault-entry-identity-upsert.md) (#616),
 [`docs/roadmap/done/hash-assisted-move-detection.md`](../roadmap/done/hash-assisted-move-detection.md) (#617 + Phase 2).
 
-### Vault exercise channel: `uid` + `fulfills_exercise_uid` + `status`
+### Vault notes are drafts: `status: submitted` files a frozen copy
 
-Any exercise, any file: work an exercise in your own vault, sync freely
-while in progress, flip one frontmatter line to submit. The channel is
-defined by **deterministic `uid:` + `fulfills_exercise_uid:`** on one file
-(see [`docs/roadmap/done/moc-knowledge-channel-design-notes.md`](../roadmap/done/moc-knowledge-channel-design-notes.md) § Phase 0 rulings):
+A vault note is a **draft** (Submit & Share arc R9, ADR-088): one node,
+upserted in place every sync, never submitted and never shared — with or
+without an exercise. Write, sync freely, and flip one frontmatter line to
+submit:
 
-- **Living entry** (`status: in process` or any non-submitted status):
-  ONE node, upserted in place every sync. The exercise declaration is
-  stored as the `fulfills_exercise_uid` **node property — declared intent**
-  ("exercise in progress"), never a `FULFILLS_EXERCISE` edge, no revision,
-  no Interaction. Removing the frontmatter line withdraws the intent (the
-  property clears on the next sync). Authorization is validated at first
-  sync (`query_user_can_use_exercise` — owner, group member, IN_PROGRESS
-  on an anchored PathStep, or the student a revision names) and fails the
-  file loudly.
-- **`status: submitted` + sync = the turn-in signal.** Sync files a
-  **frozen copy** through the existing turn-in machinery: fresh random-uid
-  node, `FULFILLS_EXERCISE {revision}` edge, Interaction audit record,
-  `pipeline: teacher_review` with truthful service-stamped `submitted`,
-  audience auto-routing to the exercise's groups. A copy is filed **only
-  when content changed since the last copy** — the newest copy IS the
-  dedup state (no hash bookkeeping), so idle re-syncs while still marked
-  `submitted` are no-ops, and editing while submitted files the next
-  revision. The teacher review queue (and its dashboard pending badge)
-  collapses each (student, exercise) lineage to the newest turn-in copy
-  *visible to that teacher* — a pending copy superseded by a later
-  `teacher_review` revision shared with one of the teacher's active
-  groups never surfaces as work to do. Lineage siblings the teacher
-  cannot see (a private AI entry; a revision a multi-class student
-  directed only to another teacher's group; a copy in a deactivated
-  group) never retire their pending work, and every copy stays visible
-  in the per-student and per-exercise history views. Flip back to `in process` to revise in peace. Sync never
-  writes into the user's file.
-- **The living entry's own status stays `active`** while the file says
-  `submitted` — it is not itself in a review queue; the submitted state
-  belongs to the frozen copy (#507: TEACHER_REVIEW status is
-  service-owned). Consequently `pipeline: teacher_review` + `uid:` +
-  `fulfills_exercise_uid:` is rejected: turn-ins are frozen, living files
-  author a non-review pipeline (typically `knowledge`).
-- **A submitted copy that reaches no teacher/group is an ERROR** in the
-  sync results (the copy is compensated/deleted, the living entry stays;
-  the file is retried next sync). Every exercise should have a reachable
-  reviewer — an unreviewable turn-in is never a silent success.
+- **The draft** (any status but `submitted`): ONE living node. A declared
+  `fulfills_exercise_uid:` is stored as the **node property — declared
+  intent** ("exercise in progress"), never a `FULFILLS_EXERCISE` edge, no
+  revision, no Interaction; removing the line withdraws it. Authorization
+  is validated every sync (`query_user_can_use_exercise` — owner, group
+  member, IN_PROGRESS on an anchored PathStep, or the student a revision
+  names) and fails the file loudly. `audience:` does nothing here (a sync
+  warning says so).
+- **`status: submitted` + sync = the submit signal.** After the note syncs,
+  sync files a **frozen copy** through `create_entry` — a fresh node with the
+  note's title, content, description, tags, `private` flag and exercise —
+  to the note's `audience:` (`teachers` when it names none). When the
+  audience names a teacher the copy is a feedback request on
+  `teacher_review`; otherwise it is a share on `none` (AI feedback is never
+  sync-triggered). Either way the copy says `submitted`. With an exercise it
+  goes through the turn-in machinery (`FULFILLS_EXERCISE {revision}`,
+  Interaction, the turn-in snapshot). The copy carries no
+  `vault_file_path` — sync never writes back to it — and records its note
+  (`submitted_from_uid`) and a **fingerprint** of what was authored.
+- **One copy per submission.** A copy is filed only when the note's
+  fingerprint — every copied field, the audience and the exercise — differs
+  from its newest copy's. An idle re-sync while the file still says
+  `submitted` files nothing and rings no one; editing the note, its audience
+  or its exercise while submitted files a new copy (a filed copy is frozen).
+  The comparison reads the fingerprint stamped at filing, never the copy's
+  live links, so a **Stop sharing** on a copy stays durable.
+- **The note's own status stays `active`** while the file says
+  `submitted` — the submitted state belongs to the copy. Flip back to
+  `in process` to revise in peace. Sync never writes into the user's file.
+- **A copy that cannot be filed is a sync ERROR** on the `submission` field
+  — never an ignored note: `audience: private` (nothing to submit to), a
+  share on a `private: true` note or a `reference` note, an audience target
+  that is unknown or unreachable, a feedback request that reaches no teacher.
+  The note itself synced; the next sync retries the copy.
+- **The review queue** (and its dashboard badge, and the students summary)
+  collapses a student's copies to the newest one *visible to that teacher*,
+  in two lineages: the same exercise (the turn-in snapshot) and the same
+  note (`submitted_from_uid`). Siblings the teacher cannot see (a private
+  AI entry; a copy directed only to another teacher's group; one in a
+  deactivated group; a share-only copy) never retire pending work, and
+  every copy stays in the per-student history.
 - **Visibility:** the declared intent surfaces as an **"In Progress"**
   status pill on the exercise lists (`/library/exercises`, profile
   Exercises tab, PathStep detail) with a "View Entry →" link to the living
@@ -360,9 +371,10 @@ defined by **deterministic `uid:` + `fulfills_exercise_uid:`** on one file
 ---
 type: user_entry
 pipeline: knowledge
-uid: ue:vault:my-tasks-list        # deterministic — the living entry
-fulfills_exercise_uid: ex_list_tasks_abc123
-status: in process                 # flip to `submitted` to turn in
+uid: ue.vault.my-tasks-list        # optional — the path is identity without it
+fulfills_exercise_uid: ex_list_tasks_abc123   # optional
+audience: teachers                 # optional — the copy's audience; this is the default
+status: in process                 # flip to `submitted` to file a frozen copy
 ---
 - Ship the garden bed
 - Call the notary
@@ -397,14 +409,15 @@ identically. The authoritative statement lives in the DSL usage guide:
 version: 1.0
 type: user_entry
 title: Reflection on Meditations chapter 3
-pipeline: teacher_review
-audience: teachers          # optional; this is the default
+pipeline: none
+status: submitted           # files one frozen copy
+audience: [teachers, user:marcus_reader]   # the copy's audience; teachers is the default
 
 content: |
   My takeaways from Marcus Aurelius on impermanence…
 tags: [reading, stoicism]
 
-# Optional — link to an exercise this entry fulfills
+# Optional — the exercise this entry answers (the copy is then a turn-in)
 # fulfills_exercise_uid: ex_marcus-aurelius_abc123
 ```
 
@@ -416,7 +429,8 @@ the single implementation of:
 1. `validate` — the pure rules (ADR-088 §1, §8): a `teacher_review` request
    whose explicit audience names no teacher is refused with guidance; a
    private pipeline (`transcribe_and_structure`, `reference`) or a
-   `private: true` note refuses every share.
+   `private: true` note refuses every share; a living draft (a caller uid)
+   naming anyone is refused — drafts are never shared (R9).
 2. `validate_references` — every target authorised before the first write:
    the exercise / predecessor claims, each `user:` (a co-member, R8), each
    `group:` / `teacher:` (reachable), and `teachers` expanded to concrete
@@ -425,9 +439,10 @@ the single implementation of:
    validated targets only. ADR-088 §2: two verbs, two link kinds.
 
 The vault door's request builder (`build_user_entry_request`) is pure — it
-parses `audience:` through `AudienceSpec` and builds the request;
-`UserEntryService.create_entry` runs the three steps for every door, so there
-is one place the lookups happen and no second code path.
+parses `audience:` through `AudienceSpec` and builds the request; the door
+hands the audience to the frozen copy only. `UserEntryService.create_entry`
+runs the three steps for every door, so there is one place the lookups happen
+and no second code path.
 
 ---
 

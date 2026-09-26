@@ -182,13 +182,13 @@ Ownership is the universal `(User)-[:OWNS]->(UserEntry)` edge, with the
 
 | Path | Condition | Backend call |
 |------|-----------|--------------|
-| **Turn-in** | `fulfills_exercise_uid` and no caller-supplied uid | `create_with_exercise_link` — writes the `FULFILLS_EXERCISE {revision}` edge atomically |
-| **Living entry** | Caller-supplied deterministic uid | `upsert` — idempotent; re-syncing an edited vault file updates the same node in place |
+| **Turn-in** | `fulfills_exercise_uid` and no caller-supplied uid (the Submit page; a vault note's frozen copy) | `create_with_exercise_link` — writes the `FULFILLS_EXERCISE {revision}` edge atomically |
+| **Living entry** | Caller-supplied deterministic uid (every vault note, from its first sync) | `upsert` — idempotent; re-syncing an edited vault file updates the same node in place. A draft: never `teacher_review`, never submitted or shared (R9) |
 | **Plain create** | Neither | `create` |
 
 Creation then auto-records an `Interaction` audit row (turn-ins only), wires an
-optional `TRANSFORMS` edge for multi-stage pipelines, and resolves audience
-through `UnifiedSharingService`:
+optional `TRANSFORMS` edge for multi-stage pipelines, and — for every path but the
+living entry — resolves audience through `UnifiedSharingService`:
 
 - `pipeline=TEACHER_REVIEW` → a feedback request (`SUBMITTED_TO_GROUP`): `teacher:<group_uid>`
   targets, and `teachers` (the default when nothing is named) as the exercise's assigned groups
@@ -216,8 +216,11 @@ the owner's own username is refused), a `group:` / `teacher:` must exist, be act
 the owner belongs to or owns, and `teachers` is expanded there. The post-persist writes
 (`resolve_and_share`) re-check their own authorisation in the statement; a write refused after
 validation compensates the node this call created. A living vault note (a caller-supplied uid)
-withholds its `user:` / `teacher:` targets until `status: submitted` files a frozen copy
-(R9) — the sync warns.
+is a draft and is never submitted or shared (R9): an audience naming anyone on a caller uid is
+refused, and a `teacher_review` pipeline with one is too. The vault door hands a note's
+`audience:` to the frozen copy `status: submitted` files — a fresh node stamped with
+`submitted_from_uid` and a `submission_fingerprint` (`create_entry(..., copy_of=...)`), filed
+once per authored snapshot.
 
 `AudienceResolver` is deliberately a standalone helper rather than facade-private; the vault
 door's request builder is pure (it parses, `create_entry` validates), so there is one place the

@@ -119,7 +119,8 @@ teacher_uid = "user_teacher_bob"
 # UserEntryCreateRequest and lands in UserEntryService.create_entry — the one
 # convergence point. The audience is one vocabulary (AudienceSpec, ADR-088)
 # on every door — the JSON body's `audience`, the /submit form's `audience`
-# field, the vault's `audience:` — and a person is named `user:<username>`.
+# field, a vault note's `audience:` (on the frozen copy `status: submitted`
+# files — the note itself is a draft, R9) — and a person is `user:<username>`.
 request = UserEntryCreateRequest(
     title="Assignment 3",
     content="...",
@@ -160,9 +161,11 @@ shared = await sharing_service.get_shared_with_me(
 3. Owner: `/profile/shared` → *Your wall* → × Stop sharing (`POST /api/user-entries/{uid}/unshare`)
 
 Form submissions have their own post-submit door, `POST /api/form-submissions/share`
-(`FormSubmissionService.share_submission` → `share` / `share_with_group`). A vault note's
-`audience:` re-declares on re-sync (it widens; it never narrows — Stop sharing is the one
-retraction, and R9's drafts dissolve the re-sync case in PR 8).
+(`FormSubmissionService.share_submission` → `share` / `share_with_group`). A vault note is a
+draft and is never shared (R9): its `audience:` applies to the frozen copy `status: submitted`
+files, and an idle re-sync files nothing — so nothing needs retracting on a re-sync, and a
+Stop sharing on a copy stays durable (the vault door compares the fingerprint stamped at filing,
+never the copy's live links).
 
 ---
 
@@ -231,12 +234,12 @@ await teacher_review.submit_report(submission_uid, teacher_uid, "Great work!")
 **Use Case:** Student showcases best work publicly.
 
 ```python
-from core.models.enums.metadata_enums import Visibility
+from core.models.user_entry.user_entry_request import UserEntryCreateRequest
 
-# PUBLIC is written at creation: the /submit door maps audience=public and the
-# vault door maps ``audience: public`` to Visibility.PUBLIC, both TEACHER-gated
+# PUBLIC is written at creation: the Submit page's audience=public, the JSON
+# body's, and a vault note's copy all map to Visibility.PUBLIC, TEACHER-gated
 # (UserEntryService._require_teacher_for_public).
-request = UserEntryCreateRequest(title="Best work", content="...", visibility=Visibility.PUBLIC)
+request = UserEntryCreateRequest(title="Best work", content="...", audience="public")
 
 # … but nothing LISTS public entities, and the search visibility clause is edge-only
 # (no read honours the property), so a PUBLIC entry reaches no one.
@@ -385,7 +388,7 @@ records left with the submissions API (2026-04-17) and have no successors.
 | `POST /api/user-entries/{uid}/share` — `audience` = `group:<uid>` / `user:<username>` values (form, JSON or query) | The owner shares an entry they already have (R2 — any status); the Share panel on `/gradebook/{uid}` and the exchange thread's per-version Share link post here; `EntrySharingService.share` runs the create path's target checks, then the same guarded writes; a new person share publishes `EntryShared` (the recipient's bell) | `share`, `share_with_group` |
 | `POST /api/user-entries/{uid}/unshare` — one `audience` value | Stop sharing (R7): × on a *Your wall* chip; never a feedback request | `unshare`, `unshare_from_group` |
 | `GET /gradebook/{uid}/share-panel` | The Share panel's body: candidate groups (joined as a student or owned, active) and people (R8 co-members), the entry's current audience marked; `?preselect=reviewers` (the GradeBook nudge) checks the offered groups the entry was submitted to for feedback | `get_share_candidate_people`, `get_shared_by_me(entity_uid=…)` |
-| Vault door (`./dev vault-sync`, the Sync buttons) — a note's `audience:` frontmatter | Same request, built by `user_entry_ingestion.py`; re-sync re-declares (widens only) | `share`, `share_with_group` |
+| Vault door (`./dev vault-sync`, the Sync buttons) — a note's `audience:` frontmatter + `status: submitted` | The note is a draft, never shared (R9); `status: submitted` files a frozen copy through the same request, built by `user_entry_ingestion.py`, to that audience — once per authored snapshot (the fingerprint) | `share`, `share_with_group`, `submit_to_group` |
 | `POST /api/form-submissions/share` — `{uid, group_uid?, recipient_uids?, share_with_admin?}` | The forms' post-submit widening door | `share`, `share_with_group` |
 | Exercise assignment (ADR-040, `ExerciseService`) | Auto-shares an ASSIGNED exercise with its group | `share_with_group` |
 | `GET /profile/shared`, `GET /profile/shared/list-fragment` | The Shared page — *Shared with you* (Type · Shared by · Via filters) and *Your wall* | `get_shared_with_me`, `get_shared_by_me` |

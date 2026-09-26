@@ -134,6 +134,22 @@ class TestValidate:
             _req(Pipeline.TEACHER_REVIEW, ["teacher:g_teacher", "group:g_class", "user:bob"])
         ).is_ok
 
+    @pytest.mark.parametrize(
+        "audience", ["teachers", "teacher:g1", "group:g1", "user:bob", "public"]
+    )
+    def test_a_living_draft_names_no_audience(self, audience):
+        """A caller uid is the living channel — a draft (R9), never submitted
+        or shared: an audience naming anyone is refused, never silently dropped."""
+        result = self.resolver.validate(_req(Pipeline.KNOWLEDGE, audience, uid="ue.vault.note"))
+        assert result.is_error
+        error = result.expect_error()
+        assert error.details["field"] == "audience"
+        assert "living draft" in error.message
+
+    @pytest.mark.parametrize("audience", [None, "private"])
+    def test_a_living_draft_may_name_no_one(self, audience):
+        assert self.resolver.validate(_req(Pipeline.KNOWLEDGE, audience, uid="ue.vault.note")).is_ok
+
 
 # =============================================================================
 # 2. validate_references — every target authorised before the first write
@@ -531,27 +547,6 @@ class TestResolveAndShare:
         )
 
         assert result.value.submitted_groups == ()
-        assert result.value.withheld == ()
-        sharing.submit_to_group.assert_not_called()
-
-    @pytest.mark.asyncio
-    async def test_a_living_note_withholds_teacher_targets_on_any_pipeline(self):
-        """A knowledge draft naming ``teacher:g1`` keeps it for the frozen copy
-        (R9): reported as withheld, never written, never silently lost."""
-        sharing = _make_sharing_service()
-        resolver = AudienceResolver(sharing_service=sharing, group_service=None)
-
-        result = await resolver.resolve_and_share(
-            "ue_living",
-            USER,
-            Pipeline.KNOWLEDGE,
-            ResolvedAudience(teacher_groups=("g1",), share_groups=("g_class",)),
-            living=True,
-        )
-
-        outcome = result.value
-        assert outcome.withheld == ("teacher:g1",)
-        assert outcome.shared_groups == ("g_class",)
         sharing.submit_to_group.assert_not_called()
 
     @pytest.mark.asyncio
@@ -569,35 +564,6 @@ class TestResolveAndShare:
         assert outcome.any_failure
         assert outcome.failed[0][0] == "user:x"
 
-    @pytest.mark.asyncio
-    async def test_a_living_note_withholds_user_and_explicit_teacher_targets(self):
-        """R9's window until PR 8: a draft's user: / teacher: targets are
-        reported, not applied; group: and the teachers expansion still apply."""
-        sharing = _make_sharing_service()
-        resolver = AudienceResolver(sharing_service=sharing, group_service=None)
-
-        result = await resolver.resolve_and_share(
-            "ue_living",
-            USER,
-            Pipeline.TEACHER_REVIEW,
-            ResolvedAudience(
-                teacher_groups=("g_named",),
-                teachers_groups=("g_expanded",),
-                share_groups=("g_class",),
-                share_users=(("Alice", "user_alice"),),
-            ),
-            living=True,
-        )
-
-        outcome = result.value
-        assert outcome.withheld == ("user:Alice", "teacher:g_named")
-        assert outcome.shared_users == ()
-        assert outcome.submitted_groups == ("g_expanded",)
-        assert outcome.shared_groups == ("g_class",)
-        assert not outcome.any_failure
-        sharing.share.assert_not_called()
-        assert sharing.submit_to_group.await_args.kwargs["group_uid"] == "g_expanded"
-
 
 class TestShareOutcome:
     def test_to_payload_shape(self):
@@ -607,7 +573,6 @@ class TestShareOutcome:
             shared_groups=("g2",),
             shared_users=("u1",),
             failed=(("g3", "boom"),),
-            withheld=("user:bob",),
         )
         assert outcome.to_payload() == {
             "submitted_groups": ["g1"],
@@ -616,22 +581,15 @@ class TestShareOutcome:
             "shared_users": ["u1"],
             "newly_shared_users": [],
             "failed": [{"target": "g3", "reason": "boom"}],
-            "withheld": ["user:bob"],
         }
 
     def test_default_outcome_is_empty(self):
         outcome = ShareOutcome()
         assert not outcome.any_success
         assert not outcome.any_failure
-        assert outcome.withheld == ()
 
     def test_a_feedback_request_alone_is_a_success(self):
         assert ShareOutcome(submitted_groups=("g1",)).any_success
-
-    def test_a_withheld_target_is_neither_success_nor_failure(self):
-        outcome = ShareOutcome(withheld=("teacher:g1",))
-        assert not outcome.any_success
-        assert not outcome.any_failure
 
 
 class TestResolvedAudience:

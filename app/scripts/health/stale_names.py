@@ -304,6 +304,12 @@ DELETED: dict[str, str] = {
     # historical model path core/models/submissions/exercise_submission.py.
     "submissions_exercise_page": "deleted — submissions_submit_page serves /submissions/submit",
     "submit_redirect": "deleted — /submit is gone, not redirected (One Path Forward); every link points at /submissions/submit",
+    # Vault notes are drafts (Submit & Share arc PR 8, R9): a note is never shared, its
+    # frozen copy records its provenance first-class and is deduplicated on a fingerprint.
+    "get_latest_entry_for_exercise": "deleted — a vault note's copies are deduplicated by provenance: get_latest_copy_of_note (the newest copy's submission_fingerprint), never an exercise lineage",
+    "submitted_from_entry": "deleted — a frozen copy's provenance is the first-class submitted_from_uid property, never a metadata key",
+    "ShareOutcome.withheld": "deleted — a living vault note is a draft and names no audience at all (create_entry refuses one on a caller uid); nothing is withheld",
+    "retract_defaulted_vault_note_shares": "deleted — a vault note is never shared (R9); scripts/migrations/vault_notes_are_drafts_2026_09.py retracts what the old code left",
     # The EntryReport access check (ADR-088 §3): a link grants what its reader reads,
     # and a report is an owner read — no standalone check.
     "check_access": "deleted — no standalone access check; an EntryReport is an owner read (EntryReportService.get_for_user, the OWNER_ONLY clause of ADR-085's chokepoint), every other read composes its audience from build_search_visibility_clause",
@@ -555,17 +561,18 @@ ALLOWED_OCCURRENCES: dict[str, dict[tuple[int, str], Allow]] = {
         # vault-notes-default-private amendment note; → +1 more the same day when
         # the note grew to name extract_activities. Anchors re-derived from the
         # scanner's report, never by adding the diff's line delta.
-        # The §3 and §5 "amended by ADR-088" notes (PR 6a) sit above these lines.
-        (290, "share_with_groups"): Allow(_adr088_6a),
-        (291, "auto_share_to_exercise_groups"): Allow(_adr088_6a),
-        (291, "share_with_users"): Allow(_adr088_6a),
+        # The §3 and §5 "amended by ADR-088" notes (PR 6a) sit above these lines,
+        # and the YAML table's PR 8 note (+8, re-derived from the scanner's report).
+        (298, "share_with_groups"): Allow(_adr088_6a),
+        (299, "auto_share_to_exercise_groups"): Allow(_adr088_6a),
+        (299, "share_with_users"): Allow(_adr088_6a),
         # The §6 "amended by ADR-088" note sits above these lines.
-        (324, "check_access"): Allow(_adr088_2b),
-        (377, "ProcessorType"): Allow(_adr054),
-        (433, "ProcessorType"): Allow(_adr054),
-        (484, "ProcessorType"): Allow(_adr054),
-        (562, "EntityType.EXERCISE_SUBMISSION"): Allow(_adr054),
-        (576, "ProcessorType"): Allow(_adr054),
+        (332, "check_access"): Allow(_adr088_2b),
+        (385, "ProcessorType"): Allow(_adr054),
+        (441, "ProcessorType"): Allow(_adr054),
+        (492, "ProcessorType"): Allow(_adr054),
+        (570, "EntityType.EXERCISE_SUBMISSION"): Allow(_adr054),
+        (584, "ProcessorType"): Allow(_adr054),
     },
     "docs/Reviews/SYNC_UNIFICATION_REVIEW.md": {
         (89, "ingest_bundle"): Allow(_review_sync),
@@ -584,10 +591,12 @@ ALLOWED_OCCURRENCES: dict[str, dict[tuple[int, str], Allow]] = {
         # record name the retired check; the Service Layer's ADR-088 note sits above the last two.
         (108, "check_access"): Allow(_adr088_2b),
         (156, "check_access"): Allow(_adr088_2b),
-        (237, "check_access"): Allow(_adr088_2b),
+        # 242 / 193: +5 below the API Layer's ADR-088 PR 8 note (re-derived from the
+        # scanner's report).
+        (242, "check_access"): Allow(_adr088_2b),
         # The Data Model Changes record lists the method the decision added; the
         # Service Layer's ADR-088 PR 2a note (above it) records its deletion.
-        (188, "can_view"): Allow(_adr088_2a),
+        (193, "can_view"): Allow(_adr088_2a),
         # The Service Layer list names the access-list methods the decision added; the
         # API Layer's ADR-088 PR 6b note (below the list) records their deletion.
         (109, "get_shared_with("): Allow(_adr088_6b),

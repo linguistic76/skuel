@@ -8,6 +8,7 @@ from core.models.enums.entity_enums import EntityStatus
 from core.models.enums.interaction_enums import InteractionResult
 from core.models.enums.metadata_enums import Visibility
 from core.models.enums.pipeline import Pipeline
+from core.models.user_entry.submitted_copy import SubmittedCopy
 from core.models.user_entry.user_entry import UserEntry
 from core.models.user_entry.user_entry_request import (
     UserEntryCreateRequest,
@@ -471,21 +472,57 @@ class TestLivingEntryChannel:
         assert entry_passed.fulfills_exercise_uid == "ex_1"
 
     @pytest.mark.asyncio
-    async def test_teacher_review_with_uid_and_fulfills_rejected(self):
-        """Turn-ins are frozen — a deterministic uid would make them mutable."""
+    @pytest.mark.parametrize("exercise", ["ex_1", None])
+    async def test_teacher_review_with_a_uid_is_rejected(self, exercise):
+        """A feedback request is frozen — with or without an exercise, a
+        deterministic uid would make it mutable and let every edit reset the
+        teacher's verdict."""
         backend = _make_backend()
         service = _make_service(backend=backend, sharing_service=_make_sharing_service())
         request = UserEntryCreateRequest(
             uid="ue:vault:tasks-list",
             title="Confused",
             pipeline=Pipeline.TEACHER_REVIEW,
-            fulfills_exercise_uid="ex_1",
+            fulfills_exercise_uid=exercise,
         )
         result = await service.create_entry(request, user_uid="user_1")
         assert result.is_error
-        assert "fresh turn-in" in str(result.expect_error())
+        assert "fresh submission" in str(result.expect_error())
         backend.upsert.assert_not_called()
         backend.create_with_exercise_link.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_a_frozen_copy_is_stamped_with_its_provenance(self):
+        """``copy_of`` (the vault door's alone) stamps the note's uid and the
+        fingerprint on the copy; an explicit ``submitted`` stands on NONE."""
+        backend = _make_backend()
+        service = _make_service(backend=backend, sharing_service=_make_sharing_service())
+        request = UserEntryCreateRequest(
+            title="Shared note", pipeline=Pipeline.NONE, status=EntityStatus.SUBMITTED
+        )
+        result = await service.create_entry(
+            request,
+            user_uid="user_1",
+            copy_of=SubmittedCopy(submitted_from_uid="ue.vault.note", fingerprint="fp1"),
+        )
+        assert result.is_ok, result.expect_error()
+        entry_passed = backend.create.await_args.args[0]
+        assert entry_passed.submitted_from_uid == "ue.vault.note"
+        assert entry_passed.submission_fingerprint == "fp1"
+        assert entry_passed.status == EntityStatus.SUBMITTED
+
+    @pytest.mark.asyncio
+    async def test_a_frozen_copy_is_never_an_upsert(self):
+        backend = _make_backend()
+        service = _make_service(backend=backend, sharing_service=_make_sharing_service())
+        request = UserEntryCreateRequest(uid="ue_x", title="Copy", pipeline=Pipeline.NONE)
+        result = await service.create_entry(
+            request,
+            user_uid="user_1",
+            copy_of=SubmittedCopy(submitted_from_uid="ue.vault.note", fingerprint="fp1"),
+        )
+        assert result.is_error
+        backend.upsert.assert_not_called()
 
     @pytest.mark.asyncio
     async def test_living_entry_resolves_exercise_enrichment_mode(self):
@@ -1062,30 +1099,12 @@ class TestShareOutcome:
         backend.delete.assert_not_called()
 
     @pytest.mark.asyncio
-    async def test_a_refused_write_on_a_living_upsert_is_returned_not_deleted(self):
-        """A living note is not this call's node: the failure is returned and
-        the sync retries the file."""
+    async def test_a_living_draft_with_an_audience_is_refused_before_the_write(self):
+        """A caller uid is a draft (R9): an audience naming anyone is refused
+        before anything is written — never applied, never silently dropped."""
         backend = _make_backend()
         sharing = _make_sharing_service()
-        sharing.share_with_group = AsyncMock(
-            return_value=Result.fail(Errors.not_found("Group", "g_gone"))
-        )
         service = _make_service(backend=backend, sharing_service=sharing)
-        request = UserEntryCreateRequest(
-            uid="ue:vault:note",
-            title="Living note",
-            pipeline=Pipeline.KNOWLEDGE,
-            audience="group:g_gone",
-        )
-        result = await service.create_entry(request, user_uid="user_1")
-        assert result.is_error
-        backend.upsert.assert_awaited_once()
-        backend.delete.assert_not_called()
-
-    @pytest.mark.asyncio
-    async def test_a_living_note_withholds_person_and_teacher_targets(self):
-        sharing = _make_sharing_service()
-        service = _make_service(sharing_service=sharing)
         request = UserEntryCreateRequest(
             uid="ue:vault:note",
             title="Living note",
@@ -1093,11 +1112,26 @@ class TestShareOutcome:
             audience=["user:peer", "group:g1"],
         )
         result = await service.create_entry(request, user_uid="user_1")
-        assert result.is_ok
-        _entry, outcome = result.value
-        assert outcome.withheld == ("user:peer",)
-        assert outcome.shared_groups == ("g1",)
+        assert result.is_error
+        assert result.expect_error().details["field"] == "audience"
+        backend.upsert.assert_not_called()
         sharing.share.assert_not_called()
+        sharing.share_with_group.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_a_living_draft_is_never_shared(self):
+        sharing = _make_sharing_service()
+        service = _make_service(sharing_service=sharing)
+        request = UserEntryCreateRequest(
+            uid="ue:vault:note", title="Living note", pipeline=Pipeline.KNOWLEDGE
+        )
+        result = await service.create_entry(request, user_uid="user_1")
+        assert result.is_ok, result.expect_error()
+        _entry, outcome = result.value
+        assert outcome == ShareOutcome()
+        sharing.share.assert_not_called()
+        sharing.share_with_group.assert_not_called()
+        sharing.submit_to_group.assert_not_called()
 
     @pytest.mark.asyncio
     async def test_empty_outcome_when_no_sharing_service(self):

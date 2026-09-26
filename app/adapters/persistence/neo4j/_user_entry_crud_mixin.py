@@ -304,41 +304,27 @@ class _UserEntryCrudMixin:
             return Result.ok(None)
         return Result.ok(result.value[0])
 
-    async def get_latest_entry_for_exercise(
-        self, user_uid: UserUID, exercise_uid: str
+    async def get_latest_copy_of_note(
+        self, user_uid: UserUID, note_uid: str
     ) -> Result[Neo4jProperties | None]:
-        """Newest turn-in's uid + content for a user+exercise pair.
+        """The newest frozen copy filed from a vault note: its uid + fingerprint.
 
-        The vault submit-signal branch compares the living file's content
-        against this row to decide whether a new frozen copy is due — the
-        copies themselves ARE the last-submitted state, so no separate
-        hash bookkeeping exists to drift. Ordered by the edge's revision
-        (the copy sequence), newest first.
-
-        Deliberately the same root-lineage lens as ``_next_revision`` /
-        ``count_entries_for_exercise``: a RevisedExercise target collapses
-        to its root, and revision-cycle copies are visible here because
-        ``create_with_exercise_link`` always anchors ``FULFILLS_EXERCISE``
-        on the root. Dedup and revision numbering therefore agree on what
-        "the last copy" means across a whole exercise lineage.
+        The vault door files a new copy of a ``status: submitted`` note only
+        when the note's fingerprint differs from this row's — keyed on the
+        copy's provenance (``submitted_from_uid``), never on an exercise
+        lineage or the copy's live links (Submit & Share arc R9). Scoped to
+        the owner's own copies. ``None`` when the note was never submitted.
         """
-        query = """
-        MATCH (target:Entity {uid: $exercise_uid})
-        OPTIONAL MATCH (target)-[:REVISES_EXERCISE]->(orig:Entity {entity_type: 'exercise'})
-        WITH COALESCE(orig, target) AS exercise
-        MATCH (u:User {uid: $user_uid})-[:OWNS]->(s:Entity)-[r:FULFILLS_EXERCISE]->(exercise)
-        WHERE s.entity_type = $entry_type
-        RETURN s.uid AS uid, s.content AS content, r.revision AS revision
-        ORDER BY r.revision DESC, s.created_at DESC
+        query = f"""
+        MATCH (:User {{uid: $user_uid}})-[:{RelationshipName.OWNS.value}]->(copy:Entity)
+        WHERE copy.entity_type = $entry_type AND copy.submitted_from_uid = $note_uid
+        RETURN copy.uid AS uid, copy.submission_fingerprint AS submission_fingerprint
+        ORDER BY copy.created_at DESC
         LIMIT 1
         """
         result = await self.execute_query(
             query,
-            {
-                "user_uid": user_uid,
-                "exercise_uid": exercise_uid,
-                "entry_type": _USER_ENTRY,
-            },
+            {"user_uid": user_uid, "note_uid": note_uid, "entry_type": _USER_ENTRY},
         )
         if result.is_error:
             return Result.fail(result)
