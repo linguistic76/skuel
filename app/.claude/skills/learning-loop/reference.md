@@ -334,8 +334,9 @@ await backend.get_exercise_context(...)                                 # OWNS/C
 
 > **Sharing is entity-agnostic (ADR-042).** `UserEntry` carries no SHARES_WITH Cypher of its
 > own. All sharing goes through `UnifiedSharingService` → the entity-agnostic `SharingBackend`
-> (`create_share`, `delete_share`, `update_visibility`, `query_shared_with_users`,
-> `create_group_share`, `create_group_submission`).
+> (`create_share`, `delete_share`, `update_visibility`, `query_shared_with_me`,
+> `query_shared_by_me`, `create_group_share`, `delete_group_share`, `create_group_submission`);
+> the post-create Share / Stop-sharing door is `EntrySharingService` (ADR-088 §6).
 
 **Access:** `ContentScope.USER_OWNED`. Default `PRIVATE`. Sharing via
 `UnifiedSharingService` — the share links are the grant; `visibility` is public-or-not
@@ -465,7 +466,7 @@ self-describing — the report records what decision was made, not just feedback
     processed_content: 'Your analysis shows...'  // LLM/teacher-generated feedback body
 })
 (report)-[:REPORT_FOR]->(submission:Entity:UserEntry)  // subject_uid is projected from this edge on read
-(submitter:User)-[:SHARES_WITH]->(report)                       // the student's own share, written by the report writer; the student reads the report as its OWNER (user_uid)
+// no share link: the student reads the report as its OWNER (user_uid + OWNS) — feedback lives in the GradeBook, never on the Shared page (Submit & Share arc R3)
 ```
 
 **Structural position:** Leaf domain. One submission in, one report node out.
@@ -655,8 +656,10 @@ enables student notification and learning loop progression tracking.
 - **List for student (teacher route):** `list_for_student(student_uid, teacher_uid=)` scopes
   results to revisions owned by the requesting teacher, preventing cross-teacher leakage.
 - **Student access:** On creation, a `SHARES_WITH {role: 'student'}` relationship is auto-created
-  from the student to the RevisedExercise. Students discover revisions through:
-  - "Shared With Me" inbox (SHARES_WITH relationship)
+  from the student to the RevisedExercise (the one SHARES_WITH the learning loop writes — the
+  revision is teacher-owned). Students discover revisions through:
+  - the GradeBook exchange line and its bell (`revised_exercise_created`); the Shared page lists
+    user entries and form submissions only (Submit & Share arc R3)
   - `GET /api/revised-exercises/my-revisions` (student_uid match)
   - `GET /api/revised-exercises/view?uid=` (student_uid or owner match)
   - Daily planning: `get_ready_to_work_on_today()` surfaces them at Priority 2.3 via
@@ -776,7 +779,8 @@ RelationshipName.REVISES_EXERCISE        # RevisedExercise → Exercise
 | **Submission (turn-in API)** | `/api/user-entries/upload` | POST | Student — the exercise turn-in door; `create_entry()` is the one convergence point (ADR-054) |
 | **Submission (API)** | `/api/user-entries` (list GET / create POST), `/api/user-entries/get?uid=`, `/api/user-entries/form`, `/api/user-entries/process`, `/api/user-entries/delete` | GET/POST | Student (owner) |
 | **Submission detail** | `/gradebook/{uid}` | GET | Student (owner) — exercise + reports render on the page |
-| **Shared with me** | `/profile/shared` (+ `/profile/shared/list-fragment`) | GET | Any user — the `SHARES_WITH` inbox |
+| **Shared** | `/profile/shared` (+ `/profile/shared/list-fragment`) | GET | Any user — *Shared with you* (what the share links name the viewer for) + *Your wall* (what they shared, with Stop sharing) |
+| **Share / Stop sharing** | `/api/user-entries/{uid}/share`, `/api/user-entries/{uid}/unshare`, `/gradebook/{uid}/share-panel` | POST / POST / GET | Owner — the Share panel (`group:` / `user:` values) and the wall's × |
 | **GradeBook** | `/gradebook` | GET | Student |
 | **GradeBook lines (HTMX)** | `/gradebook/lines?status=&source=` | GET | Student |
 | **Teacher review** | `/api/teaching/review-queue` | GET | Teacher |

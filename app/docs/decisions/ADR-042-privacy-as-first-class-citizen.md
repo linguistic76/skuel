@@ -198,7 +198,12 @@ Any entity type — `SUBMISSION`, `ACTIVITY_REPORT`, or future types — calls t
 > **2026-09-24 — Amended by [ADR-088](ADR-088-submit-and-share.md) (Submit & Share arc, PR 2b).** The
 > service has no access check: the sketch's check_access member is retired (an EntryReport is an
 > owner read, and every other read composes its audience from ADR-085's clause). The access-list
-> member (`get_shared_with`) is the PLANNED half ADR-088 §6 replaces with Your wall.
+> member (get_shared_with) is the PLANNED half ADR-088 §6 replaces with Your wall.
+
+> **2026-09-25 — Amended by [ADR-088](ADR-088-submit-and-share.md) (Submit & Share arc, PR 6b).**
+> Replaced: the access-list method and its group twin are deleted; the owner's access list is
+> *Your wall* (`get_shared_by_me` — every owned entry with its people and groups, × Stop sharing
+> on each), and `unshare` / `unshare_from_group` are live behind `POST /api/user-entries/{uid}/unshare`.
 
 ---
 

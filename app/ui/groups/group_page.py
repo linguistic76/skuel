@@ -1,9 +1,8 @@
 """Per-group full list page — all peer UserEntries shared with one group.
 
 Rendered by ``GET /groups/{group_uid}``. Access is already gated server-side
-by the Cypher `MEMBER_OF` match in
-``UnifiedSharingService.get_user_entries_shared_with_group``; this module is
-pure presentation.
+by the audience fragment inside ``UnifiedSharingService.get_shared_with_me``
+(narrowed to this group with ``via``); this module is pure presentation.
 
 Distinct from ``ui/groups/shared_preview.py`` (the HTMX preview fragment
 embedded in the hub tab). A single entry opens at ``/gradebook/{entry_uid}``,
@@ -12,7 +11,7 @@ which renders the recipient card for a viewer who is not the owner.
 
 from __future__ import annotations
 
-from typing import Any
+from typing import TYPE_CHECKING
 
 from fasthtml.common import Div, P
 
@@ -22,18 +21,23 @@ from ui.patterns.error_banner import render_inline_error
 from ui.patterns.page_header import PageHeader
 from ui.primitives import ButtonLink
 
+if TYPE_CHECKING:
+    from collections.abc import Sequence
+
+    from core.ports.query_types import SharedWithMeItem
+
 
 def GroupSharesPage(
     group_name: str,
-    records: list[dict[str, Any]],
+    records: Sequence[SharedWithMeItem],
     group_uid: str,
 ) -> Div:
     """Full list of peer shares for one group.
 
     Args:
         group_name: Display name for the header subtitle.
-        records: Payloads from
-            ``UnifiedSharingService.get_user_entries_shared_with_group``.
+        records: ``SharedWithMeItem`` rows from
+            ``UnifiedSharingService.get_shared_with_me(via=group_uid)``.
         group_uid: UID of the group — the "Back to Groups" link reopens its tab.
     """
     body: Div

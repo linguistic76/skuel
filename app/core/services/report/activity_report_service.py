@@ -23,6 +23,7 @@ from typing import TYPE_CHECKING, Any, cast
 from core.models.type_hints import Neo4jProperties, TypeConverter, UserUID
 from core.ports.query_types import AnnotationResult, AnnotationState, PrivacySummary
 from core.ports.report_protocols import ActivityReportBackendOperations
+from core.ports.sharing_protocols import SharingOperations
 
 if TYPE_CHECKING:
     from core.ports.infrastructure_protocols import EventBusOperations
@@ -85,10 +86,14 @@ class ActivityReportService:
         backend: ActivityReportBackendOperations,
         context_builder: UserContextBuilder,
         event_bus: EventBusOperations,
+        sharing_service: SharingOperations,
     ) -> None:
         self.backend = backend
         self.context_builder = context_builder
         self.event_bus = event_bus
+        # The privacy summary's "shares granted" is the wall's own read
+        # (ADR-088 §6) — one access list, never a second query.
+        self.sharing_service = sharing_service
 
     async def persist(self, report: ActivityReport) -> Result[ActivityReport]:
         """
@@ -667,8 +672,10 @@ class ActivityReportService:
             admin_snapshots  — ActivityReports written by admins about this user
                                (processor_type=human, subject_uid=user_uid; the
                                admin is the row's ``created_by``)
-            shares_granted   — Users who currently have SHARES_WITH access to
-                               the user's entities
+            shares_granted   — the user's own entries the share links name
+                               someone else for: one row per (entry, person)
+                               and per (entry, group) — the wall's read
+                               (``get_shared_by_me``, ADR-088 §6)
 
         Staged (PLANNED tier, ADR-069 §3): no route consumes this yet — wire a
         /privacy route + UI. User-facing — always scoped to the requesting
@@ -696,22 +703,31 @@ class ActivityReportService:
                     }
                 )
 
-        # 2. Users with active SHARES_WITH access to this user's entities
-        shares_result = await self.backend.get_shares_granted(user_uid)
+        # 2. Who the user's own entries are shared with — the wall, flattened
+        shares_result = await self.sharing_service.get_shared_by_me(user_uid)
         shares_granted: list[dict[str, Any]] = []
         if shares_result.is_ok:
-            for record in shares_result.value or []:
-                shares_granted.append(
-                    {
-                        "accessor_uid": record.get("accessor_uid", ""),
-                        "entity_uid": record.get("entity_uid", ""),
-                        "entity_title": record.get("entity_title", ""),
-                        "role": record.get("role", ""),
-                        "shared_at": (
-                            str(record.get("shared_at")) if record.get("shared_at") else None
-                        ),
-                    }
-                )
+            for item in shares_result.value or []:
+                entity_uid = item["entity"].uid
+                entity_title = item["entity"].title or ""
+                for recipient in item["users"]:
+                    shares_granted.append(
+                        {
+                            "accessor_uid": recipient["uid"],
+                            "entity_uid": entity_uid,
+                            "entity_title": entity_title,
+                            "shared_at": recipient["shared_at"],
+                        }
+                    )
+                for group in item["groups"]:
+                    shares_granted.append(
+                        {
+                            "group_uid": group["uid"],
+                            "entity_uid": entity_uid,
+                            "entity_title": entity_title,
+                            "shared_at": group["shared_at"],
+                        }
+                    )
 
         summary: PrivacySummary = {
             "user_uid": user_uid,

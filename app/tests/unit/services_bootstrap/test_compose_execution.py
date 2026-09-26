@@ -123,6 +123,7 @@ def _expected_handler_counts(full_tier: bool) -> dict[type, int]:
     )
     from core.events.search_events import SearchExecuted
     from core.events.user_entry_events import (
+        EntryShared,
         UserEntryCreated,
         UserEntryProcessingCompleted,
         UserEntryProcessingFailed,
@@ -186,6 +187,7 @@ def _expected_handler_counts(full_tier: bool) -> dict[type, int]:
         RevisedExerciseCreated: 1,
         EntryReportGenerated: 1,  # interaction REPORT_GENERATED (AI report path, ADR-051)
         ActivityReportWritten: 1,  # the subject's bell (Submit & Share arc R10)
+        EntryShared: 1,  # the recipient's bell — a new person share (Submit & Share arc R10)
         # Curriculum / learning
         KnowledgeCreated: 1,
         KnowledgeMastered: 6,  # invalidate + LP/PS-mastery/PS-progress chains + recs + x-domain

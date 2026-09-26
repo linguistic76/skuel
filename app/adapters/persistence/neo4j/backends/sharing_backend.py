@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
+from adapters.persistence.neo4j.query.cypher.crud_queries import build_audience_fragment
 from adapters.persistence.neo4j.universal_backend import UniversalNeo4jBackend
 from core.models.entity import Entity
 from core.models.enums.entity_enums import EntityType
@@ -11,6 +12,7 @@ from core.models.enums.user_entry_enums import ExerciseScope
 from core.models.group.group import DEFAULT_GROUP_UID_PREFIX
 from core.models.relationship_names import RelationshipName
 from core.models.type_hints import EntityUID, Neo4jProperties, UserUID
+from core.ports.query_types import VIA_DIRECT
 from core.utils.result_simplified import Result
 
 if TYPE_CHECKING:
@@ -40,6 +42,15 @@ def build_co_membership_fragment(owner_alias: str, recipient_alias: str) -> str:
         f"WHERE cg.is_active = true AND (NOT cg.uid STARTS WITH $default_group_prefix "
         f"OR ({owner_alias})-{owns}->(cg) OR ({recipient_alias})-{owns}->(cg)) }}"
     )
+
+
+#: What the Shared page lists (R3): user-authored work only. Feedback types
+#: (EntryReport, RevisedExercise) are GradeBook reads; a form submission is
+#: kept as today.
+SHARED_PAGE_ENTITY_TYPES: tuple[str, ...] = (
+    EntityType.USER_ENTRY.value,
+    EntityType.FORM_SUBMISSION.value,
+)
 
 
 class SharingBackend(UniversalNeo4jBackend[Entity]):
@@ -171,16 +182,21 @@ class SharingBackend(UniversalNeo4jBackend[Entity]):
     async def delete_share(
         self,
         entity_uid: EntityUID,
-        recipient_uid: str,
+        recipient_username: str,
     ) -> Result[list[Neo4jProperties]]:
-        """Delete SHARES_WITH relationship between recipient and entity."""
+        """Retract one person share: delete the ``SHARES_WITH`` edge from the user named ``recipient_username`` (exact ``User.title``) to the entity.
+
+        No co-membership check: an owner may always take back what they gave,
+        even after the recipient left every shared group. ``deleted_count``
+        is 0 when no such edge stood.
+        """
         result = await self.execute_query(
-            """
-            MATCH (recipient:User {uid: $recipient_uid})-[r:SHARES_WITH]->(ku:Entity {uid: $entity_uid})
+            f"""
+            MATCH (recipient:User {{title: $username}})-[r:{RelationshipName.SHARES_WITH.value}]->(entity:Entity {{uid: $entity_uid}})
             DELETE r
             RETURN count(r) as deleted_count
             """,
-            {"recipient_uid": recipient_uid, "entity_uid": entity_uid},
+            {"username": recipient_username, "entity_uid": entity_uid},
         )
         if result.is_error:
             return Result.fail(result)
@@ -244,79 +260,72 @@ class SharingBackend(UniversalNeo4jBackend[Entity]):
             return Result.fail(result)
         return Result.ok(result.value or [])
 
-    async def query_shared_with_users(
-        self,
-        entity_uid: EntityUID,
-    ) -> Result[list[Neo4jProperties]]:
-        """Get users an entity is shared with."""
-        result = await self.execute_query(
-            """
-            MATCH (user:User)-[r:SHARES_WITH]->(ku:Entity {uid: $entity_uid})
-            RETURN user.uid as user_uid,
-                   user.name as user_name,
-                   r.role as role,
-                   r.share_version as share_version,
-                   r.shared_at as shared_at
-            ORDER BY r.shared_at DESC
-            """,
-            {"entity_uid": entity_uid},
-        )
-        if result.is_error:
-            return Result.fail(result)
-        return Result.ok(result.value or [])
-
     async def query_shared_with_me(
         self,
         user_uid: UserUID,
         limit: int,
         entity_type: str | None = None,
         sharer_uid: UserUID | None = None,
+        via: str | None = None,
     ) -> Result[list[Neo4jProperties]]:
-        """Get entities shared with a user via direct SHARES_WITH, with subject context.
+        """The *Shared with you* read: every UserEntry or FormSubmission the share links name the viewer for, one row per entity.
 
-        ``shared_by`` resolves the entity creator's display name — the sharer
-        is not recorded on the edge, but every current writer (ADR-040
-        auto-share, form-submission share) shares the entity its creator made.
-        ``sharer_uid`` (the raw ``created_by``) rides along so the inbox can
-        build a Shared-by filter keyed on uid, and the optional
-        ``entity_type`` / ``sharer_uid`` arguments narrow by those same two
-        columns (``None`` = no filter — the null-guarded predicates are
-        additive, arc 2 C4). ``toString`` normalizes ``shared_at`` (temporal
-        on all writers) to an ISO string.
+        Candidates are enumerated from the viewer's two reach patterns — a
+        direct ``SHARES_WITH``, and ``MEMBER_OF`` / ``OWNS`` of an active
+        group the entity is ``SHARED_WITH_GROUP`` to — and every row is then
+        gated by ``build_audience_fragment`` (ADR-088 §5): whatever this
+        lists, ``/gradebook/{uid}`` opens. The viewer's own entries are
+        excluded through their ``:OWNS`` edge (the self-share guard's read
+        half). A feedback request (``SUBMITTED_TO_GROUP``) is never a share
+        and never appears; feedback types (EntryReport, RevisedExercise) live
+        in the GradeBook, never here (R3).
 
-        The ``subject_*`` columns resolve what the shared item is about (C4,
-        feedback-loop UX arc): an EntryReport's subject exercise via its
-        submission (``REPORT_FOR`` → ``FULFILLS_EXERCISE``), a
-        RevisedExercise's original via ``REVISES_EXERCISE``, and the PathStep
-        anchoring that exercise via ``HAS_EXERCISE``. Pattern comprehensions —
-        an item with no subject yields ``null`` columns, never a dropped or
-        duplicated row.
+        Columns: ``entity``, ``shared_by`` (the owner's display name),
+        ``sharer_uid`` (the owner), ``shared_at`` (the newest share, as an
+        ISO string), ``via_direct`` and ``via_groups`` (``[{uid, name}]``) —
+        the via-list. ``entity_type`` / ``sharer_uid`` / ``via`` narrow the
+        rows (``None`` = no filter); ``via`` is ``direct`` or a group uid, so
+        the ``/groups`` list is this reader narrowed to one group.
         """
+        shares = RelationshipName.SHARES_WITH.value
+        shared_with_group = RelationshipName.SHARED_WITH_GROUP.value
+        reach = f"{RelationshipName.MEMBER_OF.value}|{RelationshipName.OWNS.value}"
+        owns = RelationshipName.OWNS.value
+        audience = build_audience_fragment("entity")
         result = await self.execute_query(
             f"""
-            MATCH (user:User {{uid: $user_uid}})-[r:{RelationshipName.SHARES_WITH.value}]->(entity:Entity)
-            WHERE ($entity_type IS NULL OR entity.entity_type = $entity_type)
-              AND ($sharer_uid IS NULL OR entity.created_by = $sharer_uid)
-            OPTIONAL MATCH (sharer:User {{uid: entity.created_by}})
-            WITH entity, r, sharer,
-                 coalesce(
-                     head([(entity)-[:{RelationshipName.REPORT_FOR.value}]->(:Entity)
-                           -[:{RelationshipName.FULFILLS_EXERCISE.value}]->(ex:Entity) | ex]),
-                     head([(entity)-[:{RelationshipName.REVISES_EXERCISE.value}]->(ex:Entity) | ex])
-                 ) AS subject_ex
-            WITH entity, r, sharer, subject_ex,
-                 head([(ps:Entity)-[:{RelationshipName.HAS_EXERCISE.value}]->(subject_ex) | ps]) AS subject_ps
+            MATCH (viewer:User {{uid: $user_uid}})
+            CALL (viewer) {{
+                MATCH (viewer)-[r:{shares}]->(entity:Entity)
+                RETURN entity, true AS direct, null AS group, r.shared_at AS at
+                UNION
+                MATCH (viewer)-[:{reach}]->(g:Group)<-[r:{shared_with_group}]-(entity:Entity)
+                WHERE g.is_active = true
+                RETURN entity, false AS direct, g AS group, r.shared_at AS at
+            }}
+            WITH viewer, entity,
+                 max(CASE WHEN direct THEN 1 ELSE 0 END) = 1 AS via_direct,
+                 collect(DISTINCT CASE WHEN group IS NULL THEN null
+                                       ELSE {{uid: group.uid, name: group.name}} END) AS via_groups_raw,
+                 max(at) AS shared_at
+            WHERE entity.entity_type IN $entity_types
+              AND NOT (viewer)-[:{owns}]->(entity)
+              AND {audience}
+              AND ($entity_type IS NULL OR entity.entity_type = $entity_type)
+              AND ($sharer_uid IS NULL OR entity.user_uid = $sharer_uid)
+            WITH entity, via_direct, shared_at,
+                 [x IN via_groups_raw WHERE x IS NOT NULL] AS via_groups
+            WHERE $via IS NULL
+               OR ($via = $direct_token AND via_direct)
+               OR $via IN [x IN via_groups | x.uid]
+            OPTIONAL MATCH (owner:User {{uid: entity.user_uid}})
             RETURN entity,
-                   r.role as role,
-                   toString(r.shared_at) as shared_at,
-                   r.share_version as share_version,
-                   coalesce(sharer.display_name, sharer.title, entity.created_by) as shared_by,
-                   entity.created_by as sharer_uid,
-                   subject_ex.uid as subject_exercise_uid,
-                   subject_ex.title as subject_exercise_title,
-                   subject_ps.uid as subject_ps_uid,
-                   subject_ps.title as subject_ps_title
-            ORDER BY r.shared_at DESC
+                   toString(shared_at) AS shared_at,
+                   coalesce(owner.display_name, owner.title, entity.user_uid) AS shared_by,
+                   entity.user_uid AS sharer_uid,
+                   via_direct,
+                   via_groups
+            ORDER BY shared_at DESC
             LIMIT $limit
             """,
             {
@@ -324,7 +333,83 @@ class SharingBackend(UniversalNeo4jBackend[Entity]):
                 "limit": limit,
                 "entity_type": entity_type,
                 "sharer_uid": sharer_uid,
+                "via": via,
+                "direct_token": VIA_DIRECT,
+                "entity_types": list(SHARED_PAGE_ENTITY_TYPES),
             },
+        )
+        if result.is_error:
+            return Result.fail(result)
+        return Result.ok(result.value or [])
+
+    async def query_shared_by_me(
+        self,
+        user_uid: UserUID,
+        limit: int,
+        entity_uid: EntityUID | None = None,
+    ) -> Result[list[Neo4jProperties]]:
+        """*Your wall*: the viewer's own UserEntries that carry at least one share link, with their audience.
+
+        One row per entry: ``entity``, ``users`` (``[{uid, username,
+        display_name, shared_at}]`` — every ``SHARES_WITH`` recipient),
+        ``groups`` (``[{uid, name, shared_at}]`` — every ``SHARED_WITH_GROUP``
+        target), ``last_shared_at`` (the newest of them, ISO). A feedback
+        request is not a share and is not listed. With ``entity_uid`` the
+        read narrows to one entry — the Share panel's "already shared with"
+        state and the owner's access list are this one query, never a second.
+        """
+        shares = RelationshipName.SHARES_WITH.value
+        shared_with_group = RelationshipName.SHARED_WITH_GROUP.value
+        owns = RelationshipName.OWNS.value
+        result = await self.execute_query(
+            f"""
+            MATCH (owner:User {{uid: $user_uid}})-[:{owns}]->(entity:Entity {{entity_type: $user_entry}})
+            WHERE $entity_uid IS NULL OR entity.uid = $entity_uid
+            WITH entity,
+                 [(recipient:User)-[r:{shares}]->(entity) |
+                    {{uid: recipient.uid, username: recipient.title,
+                      display_name: coalesce(recipient.display_name, recipient.title),
+                      shared_at: toString(r.shared_at)}}] AS users,
+                 [(entity)-[r:{shared_with_group}]->(g:Group) |
+                    {{uid: g.uid, name: g.name, shared_at: toString(r.shared_at)}}] AS groups
+            WHERE size(users) > 0 OR size(groups) > 0
+            WITH entity, users, groups,
+                 reduce(latest = null, s IN [x IN users | x.shared_at] + [x IN groups | x.shared_at] |
+                        CASE WHEN latest IS NULL OR s > latest THEN s ELSE latest END) AS last_shared_at
+            RETURN entity, users, groups, last_shared_at
+            ORDER BY last_shared_at DESC
+            LIMIT $limit
+            """,
+            {
+                "user_uid": user_uid,
+                "limit": limit,
+                "entity_uid": entity_uid,
+                "user_entry": EntityType.USER_ENTRY.value,
+            },
+        )
+        if result.is_error:
+            return Result.fail(result)
+        return Result.ok(result.value or [])
+
+    async def query_co_members(self, owner_uid: UserUID) -> Result[list[Neo4jProperties]]:
+        """Every user the owner may share with (R8, ADR-088 §7): the people under ``build_co_membership_fragment``.
+
+        The default group's roster is excluded and its owner kept, exactly as
+        the person-share MERGE decides. Rows ``{uid, username, display_name}``,
+        ordered by display name; never the owner.
+        """
+        co_member = build_co_membership_fragment("owner", "recipient")
+        result = await self.execute_query(
+            f"""
+            MATCH (owner:User {{uid: $owner_uid}})
+            MATCH (recipient:User)
+            WHERE recipient.uid <> owner.uid AND {co_member}
+            RETURN recipient.uid AS uid,
+                   recipient.title AS username,
+                   coalesce(recipient.display_name, recipient.title) AS display_name
+            ORDER BY toLower(display_name)
+            """,
+            {"owner_uid": owner_uid, "default_group_prefix": DEFAULT_GROUP_UID_PREFIX},
         )
         if result.is_error:
             return Result.fail(result)
@@ -567,69 +652,19 @@ class SharingBackend(UniversalNeo4jBackend[Entity]):
         entity_uid: EntityUID,
         group_uid: str,
     ) -> Result[list[Neo4jProperties]]:
-        """Delete SHARED_WITH_GROUP relationship."""
+        """Retract one group share: delete the ``SHARED_WITH_GROUP`` edge between the entity and the group.
+
+        Touches ``SHARED_WITH_GROUP`` only — a feedback request
+        (``SUBMITTED_TO_GROUP``) is a different kind and cannot be cancelled
+        here (ADR-088 §2). ``deleted_count`` is 0 when no share stood.
+        """
         result = await self.execute_query(
-            """
-            MATCH (entity:Entity {uid: $entity_uid})-[r:SHARED_WITH_GROUP]->(group:Group {uid: $group_uid})
+            f"""
+            MATCH (entity:Entity {{uid: $entity_uid}})-[r:{RelationshipName.SHARED_WITH_GROUP.value}]->(group:Group {{uid: $group_uid}})
             DELETE r
             RETURN count(r) as deleted_count
             """,
             {"entity_uid": entity_uid, "group_uid": group_uid},
-        )
-        if result.is_error:
-            return Result.fail(result)
-        return Result.ok(result.value or [])
-
-    async def query_groups_shared_with(
-        self,
-        entity_uid: EntityUID,
-    ) -> Result[list[Neo4jProperties]]:
-        """Get groups an entity is shared with."""
-        result = await self.execute_query(
-            """
-            MATCH (entity:Entity {uid: $entity_uid})-[r:SHARED_WITH_GROUP]->(group:Group)
-            RETURN group.uid as group_uid,
-                   group.name as group_name,
-                   r.share_version as share_version,
-                   r.shared_at as shared_at
-            ORDER BY r.shared_at DESC
-            """,
-            {"entity_uid": entity_uid},
-        )
-        if result.is_error:
-            return Result.fail(result)
-        return Result.ok(result.value or [])
-
-    async def query_user_entries_shared_with_group(
-        self,
-        user_uid: UserUID,
-        group_uid: str,
-        limit: int,
-    ) -> Result[list[Neo4jProperties]]:
-        """Get UserEntries shared with a specific group the user belongs to.
-
-        The first MATCH is also the membership guard — if the user is not in
-        the group, no rows are returned (empty result, not an error). Own
-        entries are excluded so students see peer work, not their own. The
-        `group.is_active = true` predicate keeps deactivated groups from
-        leaking peer content to a still-MEMBER_OF viewer who URL-types the
-        old group UID.
-        """
-        result = await self.execute_query(
-            """
-            MATCH (user:User {uid: $user_uid})-[:MEMBER_OF]->(group:Group {uid: $group_uid})
-            WHERE group.is_active = true
-            MATCH (entry:UserEntry)-[r:SHARED_WITH_GROUP]->(group)
-            WHERE entry.user_uid <> $user_uid
-            OPTIONAL MATCH (author:User {uid: entry.user_uid})
-            RETURN entry,
-                   coalesce(author.display_name, author.title) AS author_name,
-                   r.share_version as share_version,
-                   r.shared_at as shared_at
-            ORDER BY r.shared_at DESC
-            LIMIT $limit
-            """,
-            {"user_uid": user_uid, "group_uid": group_uid, "limit": limit},
         )
         if result.is_error:
             return Result.fail(result)

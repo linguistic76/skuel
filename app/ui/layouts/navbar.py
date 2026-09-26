@@ -178,11 +178,11 @@ def _avatar_circle(current_user: str, fallback: str = "U") -> Div:
 
 
 def _shared_inbox_button(active_page: str) -> A:
-    """Inbox icon linking to /profile/shared — content shared directly with you."""
+    """Inbox icon linking to /profile/shared — the Shared page: shared with you, and your wall."""
     is_active = active_page == "shared"
     color_cls = "text-foreground" if is_active else "text-muted-foreground hover:text-foreground"
     return A(
-        Span("Shared with me", cls="sr-only"),
+        Span("Shared", cls="sr-only"),
         Icon("inbox", cls="size-6", aria_hidden="true"),
         href="/profile/shared",
         cls=f"inline-flex items-center justify-center size-11 rounded-full hover:bg-accent {color_cls}",

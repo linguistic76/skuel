@@ -903,7 +903,7 @@ class EntryReportBackend(UniversalNeo4jBackend[EntryReport]):
     """
 
     async def create_report_node(self, params: dict[str, Any]) -> Result[list[Neo4jProperties]]:
-        """Create EntryReport node, link via REPORT_FOR, share with student, update submission.
+        """Create EntryReport node owned by the student, link via REPORT_FOR, update submission.
 
         Canonical report-creation path for both teacher (HUMAN) and AI (LLM) reports.
 
@@ -926,9 +926,10 @@ class EntryReportBackend(UniversalNeo4jBackend[EntryReport]):
                 None to leave submission.status unchanged (AI reports pass None)
             allowed_from_statuses: list of current-status values permitted for
                 the transition, or None to skip the guard (AI reports pass None)
-            create_student_share: when True (teacher/AI), create the
-                ``(student)-[:SHARES_WITH]->(report)`` grant; when False
-                (journal responses), skip it — the owner already owns the node.
+
+        The student owns the report (``OWNS`` + ``user_uid``) and reads it as
+        its owner; no share link is written for them (Submit & Share arc R3 —
+        feedback lives in the GradeBook, never on the Shared page).
 
         Returns empty results when the guard is present and rejects the
         transition (caller already verified existence).
@@ -991,11 +992,6 @@ class EntryReportBackend(UniversalNeo4jBackend[EntryReport]):
         WHERE owner IS NOT NULL
         CREATE (owner)-[:{RelationshipName.OWNS.value}]->(fb)
         CREATE (fb)-[:{RelationshipName.REPORT_FOR.value}]->(submission)
-
-        WITH submission, student, fb
-        FOREACH (_ IN CASE WHEN student IS NOT NULL AND $create_student_share THEN [1] ELSE [] END |
-            CREATE (student)-[:{RelationshipName.SHARES_WITH.value} {{shared_at: datetime($now), role: 'student'}}]->(fb)
-        )
 
         RETURN submission.uid as uid,
                submission.status as status,
@@ -1082,14 +1078,6 @@ class EntryReportBackend(UniversalNeo4jBackend[EntryReport]):
         CREATE (owner)-[:{RelationshipName.OWNS.value}]->(fb)
         CREATE (fb)-[:{RelationshipName.REPORT_FOR.value}]->(submission)
 
-        // Share report with student
-        WITH submission, student, fb, author
-        FOREACH (_ IN CASE WHEN student IS NOT NULL THEN [1] ELSE [] END |
-            CREATE (student)-[:{RelationshipName.SHARES_WITH.value} {{
-                shared_at: datetime($now), role: 'student'
-            }}]->(fb)
-        )
-
         // Phase 2: Next per-(exercise, student) ordinal — max+1, so deleted or
         // legacy gap-numbered revisions can never mint a duplicate ordinal
         WITH submission, student, fb, author
@@ -1124,10 +1112,11 @@ class EntryReportBackend(UniversalNeo4jBackend[EntryReport]):
             MERGE (re)-[:{RelationshipName.REVISES_EXERCISE.value}]->(orig_exercise)
         )
 
-        // Auto-share RevisedExercise with student.
+        // Auto-share RevisedExercise with student — the one SHARES_WITH the
+        // learning loop writes (the student is not its owner; the teacher is).
         // re is freshly CREATEd in this tx, so no prior share can exist — CREATE
-        // with inline props puts shared_at on the relationship (matching the report
-        // share above); ON CREATE SET inside FOREACH can't bind the rel var.
+        // with inline props puts shared_at on the relationship; ON CREATE SET
+        // inside FOREACH can't bind the rel var.
         WITH submission, student, fb, re, revision_number
         FOREACH (_ IN CASE WHEN student IS NOT NULL THEN [1] ELSE [] END |
             CREATE (student)-[:{RelationshipName.SHARES_WITH.value} {{

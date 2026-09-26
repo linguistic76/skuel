@@ -6,6 +6,7 @@ Facade + processing dispatcher over ``UserEntryBackend``. Replaced the
 legacy ``core/services/submissions/`` and ``core/services/journal/`` packages.
 """
 
+from core.services.user_entry.entry_sharing_service import EntrySharingService
 from core.services.user_entry.exercise_linker import (
     ProcessingOutcome,
     UserEntryExerciseLinker,
@@ -16,6 +17,7 @@ from core.services.user_entry.user_entry_processing_service import (
 from core.services.user_entry.user_entry_service import UserEntryService
 
 __all__ = [
+    "EntrySharingService",
     "ProcessingOutcome",
     "UserEntryExerciseLinker",
     "UserEntryProcessingService",

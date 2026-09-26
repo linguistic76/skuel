@@ -22,25 +22,22 @@ exposes to its callers (share, share_with_group, …). See CLAUDE.md §
 
 SharingOperations is the service's whole surface, not an ISP slice: the
 ``Services.sharing`` slot (services_bootstrap/_container.py) is typed against
-it, and the callers reach it through that slot. Its live half is share,
-get_shared_with_me, share_with_group, submit_to_group (the feedback request —
-``SUBMITTED_TO_GROUP``, ADR-088 §2) and the two ``*_shared_with_group`` reads;
-there is no access check — a link grants what its reader reads, and an
-EntryReport is an owner read (ADR-088 §3); the revoke / visibility / access-list half
-(unshare, unshare_from_group, set_visibility, get_shared_with,
-get_groups_shared_with) has no caller yet — it is the PLANNED sharing
-management door, ``docs/roadmap/sharing-http-door.md``.
+it, and the callers reach it through that slot. Every member has a caller
+except ``set_visibility`` — the publish / unpublish writer that waits on the
+PUBLIC reader (PLANNED, ``docs/roadmap/sharing-http-door.md``). There is no
+access check — a link grants what its reader reads, and an EntryReport is an
+owner read (ADR-088 §3).
 
 See: /docs/patterns/SHARING_PATTERNS.md
 See: /docs/decisions/ADR-042-privacy-as-first-class-citizen.md
 """
 
-from typing import Any, Protocol, runtime_checkable
+from typing import Protocol, runtime_checkable
 
 from core.models.enums.entity_enums import EntityType
 from core.models.enums.metadata_enums import Visibility
 from core.models.type_hints import EntityUID, Neo4jProperties, UserUID
-from core.ports.query_types import SharedWithMeItem
+from core.ports.query_types import ShareCandidatePerson, SharedByMeItem, SharedWithMeItem
 from core.utils.result_simplified import Result
 
 
@@ -79,7 +76,7 @@ class SharingBackendOperations(Protocol):
     async def delete_share(
         self,
         entity_uid: EntityUID,
-        recipient_uid: str,
+        recipient_username: str,
     ) -> Result[list[Neo4jProperties]]: ...
 
     async def update_visibility(
@@ -94,18 +91,23 @@ class SharingBackendOperations(Protocol):
         entity_uid: EntityUID,
     ) -> Result[list[Neo4jProperties]]: ...
 
-    async def query_shared_with_users(
-        self,
-        entity_uid: EntityUID,
-    ) -> Result[list[Neo4jProperties]]: ...
-
     async def query_shared_with_me(
         self,
         user_uid: UserUID,
         limit: int,
         entity_type: str | None = None,
         sharer_uid: UserUID | None = None,
+        via: str | None = None,
     ) -> Result[list[Neo4jProperties]]: ...
+
+    async def query_shared_by_me(
+        self,
+        user_uid: UserUID,
+        limit: int,
+        entity_uid: EntityUID | None = None,
+    ) -> Result[list[Neo4jProperties]]: ...
+
+    async def query_co_members(self, owner_uid: UserUID) -> Result[list[Neo4jProperties]]: ...
 
     async def create_group_share(
         self,
@@ -128,18 +130,6 @@ class SharingBackendOperations(Protocol):
         self,
         entity_uid: EntityUID,
         group_uid: str,
-    ) -> Result[list[Neo4jProperties]]: ...
-
-    async def query_groups_shared_with(
-        self,
-        entity_uid: EntityUID,
-    ) -> Result[list[Neo4jProperties]]: ...
-
-    async def query_user_entries_shared_with_group(
-        self,
-        user_uid: UserUID,
-        group_uid: str,
-        limit: int,
     ) -> Result[list[Neo4jProperties]]: ...
 
     # ------------------------------------------------------------------
@@ -174,16 +164,17 @@ class SharingBackendOperations(Protocol):
 
 @runtime_checkable
 class SharingOperations(Protocol):
-    """Entity-agnostic sharing and visibility control.
+    """Entity-agnostic sharing and publication control.
 
-    Manages SHARES_WITH relationships and visibility levels
-    (PRIVATE / SHARED / PUBLIC) for any entity type.
+    Manages the share links (``SHARES_WITH``, ``SHARED_WITH_GROUP``), the
+    feedback request (``SUBMITTED_TO_GROUP``) and the public-or-not flag for
+    any entity type.
 
     Consumers: ``Services.sharing`` (services_bootstrap/_container.py) —
-    reached by UserEntryService's audience resolution, FormSubmissionService,
-    ExerciseService, UserEntryOrchestrator, ``/profile/shared`` and the
-    groups hub. No route posts to the revoke / visibility / access-list
-    members (see the module docstring).
+    reached by UserEntryService's audience resolution and its share door
+    (``EntrySharingService``), FormSubmissionService, ExerciseService,
+    ActivityReportService (the privacy summary), ``/profile/shared`` and the
+    groups hub.
     Implementation: UnifiedSharingService
     """
 
@@ -229,16 +220,11 @@ class SharingOperations(Protocol):
         self,
         entity_uid: EntityUID,
         owner_uid: str,
-        recipient_uid: str,
+        recipient_username: str,
     ) -> Result[bool]:
-        """Revoke sharing access. Returns Result[bool]."""
-        ...
-
-    async def get_shared_with(
-        self,
-        entity_uid: EntityUID,
-    ) -> Result[list[dict[str, Any]]]:
-        """Get users an entity is shared with. Returns Result[list[dict]]."""
+        """Stop sharing with one person (delete their ``SHARES_WITH``); owner
+        only, recipient by exact username, no co-membership required.
+        """
         ...
 
     async def get_shared_with_me(
@@ -247,12 +233,29 @@ class SharingOperations(Protocol):
         limit: int = 50,
         entity_type: EntityType | None = None,
         sharer_uid: UserUID | None = None,
+        via: str | None = None,
     ) -> Result[list[SharedWithMeItem]]:
-        """Get entities shared with a user, with share-edge metadata and the
-        resolved subject context (which exercise/PathStep the item is about).
-        Optional ``entity_type`` / ``sharer_uid`` narrow the inbox (arc 2 C4);
-        ``None`` means no filter.
+        """*Shared with you*: what the share links name the viewer for, one
+        item per entity with its via-list; ``entity_type`` / ``sharer_uid`` /
+        ``via`` (``direct`` or a group uid) narrow it, ``None`` = no filter.
         """
+        ...
+
+    async def get_shared_by_me(
+        self,
+        user_uid: UserUID,
+        limit: int = 100,
+        entity_uid: EntityUID | None = None,
+    ) -> Result[list[SharedByMeItem]]:
+        """*Your wall*: the viewer's own shared entries with their audience —
+        the owner's access list; ``entity_uid`` narrows it to one entry.
+        """
+        ...
+
+    async def get_share_candidate_people(
+        self, owner_uid: UserUID
+    ) -> Result[list[ShareCandidatePerson]]:
+        """Every R8 co-member the owner may share with (never the owner)."""
         ...
 
     async def set_visibility(
@@ -293,21 +296,7 @@ class SharingOperations(Protocol):
         owner_uid: str,
         group_uid: str,
     ) -> Result[bool]:
-        """Revoke group-level access to an entity. Returns Result[bool]."""
-        ...
-
-    async def get_groups_shared_with(
-        self,
-        entity_uid: EntityUID,
-    ) -> Result[list[dict[str, Any]]]:
-        """Get groups an entity is shared with. Returns Result[list[dict]]."""
-        ...
-
-    async def get_user_entries_shared_with_group(
-        self,
-        user_uid: UserUID,
-        group_uid: str,
-        limit: int = 20,
-    ) -> Result[list[dict[str, Any]]]:
-        """Get UserEntries shared with one specific group the user belongs to."""
+        """Stop sharing with a group (delete its ``SHARED_WITH_GROUP``); a
+        feedback request to the same group stands.
+        """
         ...

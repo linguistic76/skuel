@@ -68,6 +68,7 @@ from core.services.user_entry.audience_resolver import (
     ResolvedAudience,
     ShareOutcome,
 )
+from core.services.user_entry.entry_sharing_service import publish_entry_shared
 from core.utils.decorators import with_error_handling
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
@@ -442,6 +443,10 @@ class UserEntryService(BaseService[UserEntryOperations, UserEntry]):
             await publish_embedding_requested(
                 self.event_bus, EntityType.USER_ENTRY, created, self.logger
             )
+
+        # A new person share rings its recipient (R10) — the one publisher,
+        # shared with the post-create share door.
+        await publish_entry_shared(self.event_bus, created, outcome, self.logger)
 
         # Event-side ``fulfills_exercise_uid`` means "a turn-in was filed" —
         # the exercise_handler subscriber runs the linker (scope validation +

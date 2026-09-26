@@ -5,7 +5,7 @@ status: accepted
 category: decisions
 tags: [adr, decisions, sharing, submissions, user-entry, groups, visibility, access-control, gradebook]
 related: [ADR-038, ADR-040, ADR-042, ADR-053, ADR-054, ADR-085, ADR-086]
-related_skills: [learning-loop, security, skuel-search-architecture]
+related_skills: [journals, learning-loop, security, skuel-search-architecture]
 ---
 
 # ADR-088: Submit and Share

@@ -40,7 +40,7 @@ class ActivityReportBackend(UniversalNeo4jBackend[ActivityReport]):
 
     Moves inline Cypher from ActivityReportService into named backend methods.
     Methods: get_for_user, find_by_period, get_history, annotate, get_annotation,
-    get_admin_snapshots, get_shares_granted.
+    get_admin_snapshots.
 
     ``created_at`` is a mixed column (ISO strings, a minority of zoned
     datetimes), and Neo4j orders values of different types by TYPE before
@@ -176,24 +176,6 @@ class ActivityReportBackend(UniversalNeo4jBackend[ActivityReport]):
                 "limit": limit,
                 "human": _HUMAN,
             },
-        )
-
-    async def get_shares_granted(
-        self, user_uid: UserUID, limit: int = 100
-    ) -> Result[list[Neo4jProperties]]:
-        """Get users with active SHARES_WITH access to this user's entities."""
-        return await self.execute_query(
-            f"""
-            MATCH (accessor:User)-[sw:{RelationshipName.SHARES_WITH.value}]->(e:Entity {{user_uid: $user_uid}})
-            RETURN accessor.uid AS accessor_uid,
-                   e.uid AS entity_uid,
-                   e.title AS entity_title,
-                   sw.role AS role,
-                   sw.shared_at AS shared_at
-            ORDER BY sw.shared_at DESC
-            LIMIT $limit
-            """,
-            {"user_uid": user_uid, "limit": limit},
         )
 
 

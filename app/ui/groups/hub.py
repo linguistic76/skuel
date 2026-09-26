@@ -3,7 +3,8 @@
 A same-page tab widget (Alpine-driven x-show panels, HTMX-loaded block
 content) with dynamic tabs: one per group the student belongs to,
 capped at MAX_STUDENT_GROUPS. Each tab surfaces a single "Recent Shares"
-block of UserEntry content peers shared via SHARED_WITH_GROUP.
+block of UserEntry content peers shared with the group (the *Shared with
+you* reader narrowed to that group).
 """
 
 from fasthtml.common import Button, Div

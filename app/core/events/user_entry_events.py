@@ -74,3 +74,22 @@ class UserEntryProcessingFailed(BaseEvent):
     failed_phase: str | None = None
 
     event_type: ClassVar[str] = "user_entry.processing_failed"
+
+
+@dataclass(frozen=True)
+class EntryShared(BaseEvent):
+    """Published once per NEW person share of a UserEntry (Submit & Share arc R10).
+
+    ``recipient_uid`` is who gets the bell — the ``SHARES_WITH`` this event
+    reports was created by the share that published it (a share that already
+    stood publishes nothing; a group share rings no one). ``owner_uid`` is
+    the sharer (always the entry's owner, ADR-088 §3) and ``title`` the
+    entry's title for the bell's message.
+    """
+
+    entity_uid: str
+    owner_uid: UserUID
+    recipient_uid: UserUID
+    title: str | None = None
+
+    event_type: ClassVar[str] = "user_entry.shared"

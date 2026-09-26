@@ -24,8 +24,9 @@ invisible.
 from __future__ import annotations
 
 from dataclasses import replace
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, TypedDict
 
+from fasthtml.common import FtResponse
 from starlette.datastructures import UploadFile
 
 from adapters.inbound.auth import require_authenticated_user
@@ -34,6 +35,7 @@ from adapters.inbound.csrf import csrf_protected
 from adapters.inbound.fasthtml_types import Request
 from adapters.inbound.form_helpers import parse_json_body
 from adapters.inbound.result_helpers import require_found
+from adapters.inbound.route_factories import is_not_found, refuse
 from core.models.entity_converters import entity_to_response
 from core.models.enums.entity_enums import EntityStatus
 from core.models.enums.pipeline import Pipeline
@@ -45,11 +47,16 @@ from core.models.user_entry.user_entry_request import (
     UserEntryCreateRequest,
     UserEntryProcessRequest,
 )
+from core.services.user_entry.audience_resolver import ShareOutcome, ShareOutcomePayload
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
+from ui.gradebook.share_panel import SharePanelForm
+from ui.patterns.error_banner import render_error_banner
+from ui.profile.shared_view import WallRow
 
 if TYPE_CHECKING:
     from core.services.entry_grounding_service import EntryGroundingService
+    from core.services.user_entry.entry_sharing_service import EntrySharingService
     from core.services.user_entry.user_entry_processing_service import (
         UserEntryProcessingService,
     )
@@ -58,12 +65,27 @@ if TYPE_CHECKING:
 logger = get_logger("skuel.routes.user_entry.api")
 
 
+class ShareRoutePayload(TypedDict):
+    """``POST /api/user-entries/{uid}/share`` — the entry and what landed (``ShareOutcome.to_payload``)."""
+
+    uid: str
+    share_outcome: ShareOutcomePayload
+
+
+class UnshareRoutePayload(TypedDict):
+    """``POST /api/user-entries/{uid}/unshare`` — the entry and the vocabulary value removed."""
+
+    uid: str
+    removed: str
+
+
 def create_user_entry_api_routes(
     _app: Any,
     rt: Any,
     user_entry_service: UserEntryService,
     processing_service: UserEntryProcessingService | None = None,
     grounding_service: EntryGroundingService | None = None,
+    entry_sharing: EntrySharingService | None = None,
 ) -> None:
     """Register UserEntry REST API routes.
 
@@ -75,6 +97,8 @@ def create_user_entry_api_routes(
             POST /process returns a clear error when missing)
         grounding_service: EntryGroundingService (optional — the grounding
             remove route returns a clear error when missing)
+        entry_sharing: EntrySharingService — the Share / Stop-sharing door
+            (optional — both routes return a clear error when missing)
     """
     if not user_entry_service:
         raise ValueError("user_entry_service is required for user_entry API routes")
@@ -410,6 +434,115 @@ def create_user_entry_api_routes(
         if result.is_error:
             return Result.fail(result)
         return Result.ok({"uid": uid, "deleted": bool(result.value)})
+
+    # =========================================================================
+    # SHARE / STOP SHARING — the post-create Share door (ADR-088 §6)
+    # =========================================================================
+
+    def _sharing_unavailable[P](operation: str) -> Result[P]:
+        return Result.fail(
+            Errors.unavailable(
+                feature="entry_sharing",
+                reason="Entry sharing service is not wired.",
+                operation=operation,
+            )
+        )
+
+    async def _posted_audience(request: Request) -> list[str]:
+        """Every ``audience`` value the request carries — a form's repeated field, a
+        JSON body's ``audience`` (value or list), or the query string."""
+        content_type = request.headers.get("content-type", "")
+        if "application/json" in content_type:
+            body = await request.json()
+            raw = body.get("audience") if isinstance(body, dict) else None
+            if isinstance(raw, str):
+                return [raw]
+            return [str(v) for v in raw] if isinstance(raw, list) else []
+        values = [str(v) for v in request.query_params.getlist("audience")]
+        if request.method == "POST" and "form" in content_type:
+            form = await request.form()
+            values.extend(str(v) for v in form.getlist("audience"))
+        return values
+
+    @rt("/api/user-entries/{uid}/share", methods=["POST"])
+    @csrf_protected
+    @boundary_handler()
+    async def share_user_entry_route(
+        request: Request, uid: str
+    ) -> Result[ShareRoutePayload] | FtResponse:
+        """Share an owned UserEntry with groups and people (R2, R7, R8).
+
+        ``audience`` is the one vocabulary, ``group:<uid>`` / ``user:<username>``
+        only — a feedback request is Submit, and a private entry or pipeline
+        refuses (the sharing service's lifetime rule). Any other entity, and
+        anyone but the owner, gets 404. An HTMX request reads back the Share
+        panel with the outcome; any other caller the outcome payload. A new
+        person share rings its recipient.
+        """
+        user_uid = require_authenticated_user(request)
+        if entry_sharing is None:
+            return _sharing_unavailable("share_user_entry")
+        is_htmx = bool(request.headers.get("HX-Request"))
+
+        parsed = AudienceSpec.parse(await _posted_audience(request))
+        result: Result[ShareOutcome] = (
+            Result.fail(parsed)
+            if parsed.is_error
+            else await entry_sharing.share(uid, user_uid, parsed.value)
+        )
+        if result.is_error:
+            error = result.expect_error()
+            if is_htmx and is_not_found(error):
+                return refuse(error, render_error_banner, "UserEntry")
+            if is_htmx:
+                candidates = await entry_sharing.candidates(uid, user_uid)
+                if candidates.is_error:
+                    return Result.fail(candidates)
+                return FtResponse(SharePanelForm(uid, candidates.value, error=error.message))
+            return Result.fail(result)
+        outcome = result.value
+        if is_htmx:
+            candidates = await entry_sharing.candidates(uid, user_uid)
+            if candidates.is_error:
+                return Result.fail(candidates)
+            return FtResponse(SharePanelForm(uid, candidates.value, outcome=outcome))
+        return Result.ok({"uid": uid, "share_outcome": outcome.to_payload()})
+
+    @rt("/api/user-entries/{uid}/unshare", methods=["POST"])
+    @csrf_protected
+    @boundary_handler()
+    async def unshare_user_entry_route(
+        request: Request, uid: str
+    ) -> Result[UnshareRoutePayload] | FtResponse:
+        """Stop sharing an owned UserEntry with one group or person (R7).
+
+        ``audience`` names exactly one ``group:<uid>`` / ``user:<username>``;
+        the delete never touches a feedback request. An HTMX request reads
+        back the entry's wall row (an empty response once nothing is shared —
+        the row is swapped away); any other caller the removed value.
+        """
+        user_uid = require_authenticated_user(request)
+        if entry_sharing is None:
+            return _sharing_unavailable("unshare_user_entry")
+        is_htmx = bool(request.headers.get("HX-Request"))
+
+        values = await _posted_audience(request)
+        if len(values) != 1:
+            return Result.fail(
+                Errors.validation("Stop sharing takes exactly one audience value", field="audience")
+            )
+        result = await entry_sharing.unshare(uid, user_uid, values[0])
+        if result.is_error:
+            error = result.expect_error()
+            if is_htmx and is_not_found(error):
+                return refuse(error, render_error_banner, "UserEntry")
+            return Result.fail(result)
+        if is_htmx:
+            row = await entry_sharing.wall_row(uid, user_uid)
+            if row.is_error:
+                return Result.fail(row)
+            return FtResponse(WallRow(row.value) if row.value is not None else "")
+        return Result.ok({"uid": uid, "removed": result.value})
 
     # =========================================================================
     # GROUNDING — remove one APPLIES_KNOWLEDGE edge (Entry-Enrichment PR 3)

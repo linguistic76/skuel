@@ -243,8 +243,7 @@ Two more services migrated to domain backends — zero inline Cypher remains in 
 | `get_history` | Query ActivityReports by subject_uid |
 | `annotate` | Save annotation/revision on owned ActivityReport |
 | `get_annotation` | Get annotation state for owned ActivityReport |
-| `get_admin_snapshots` | Privacy audit: admin-written reports received by user |
-| `get_shares_granted` | Privacy audit: SHARES_WITH access to user's entities |
+| `get_admin_snapshots` | Privacy audit: admin-written reports received by user (the summary's shares-granted half is the sharing backend's wall read, `query_shared_by_me`) |
 
 **Existing backends extended:**
 | Backend | Methods Added |

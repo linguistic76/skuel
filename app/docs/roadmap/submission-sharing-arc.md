@@ -1049,7 +1049,7 @@ it first removes both.
 
 ### PR 6b — Share, Stop sharing, and the two-sided Shared page (R2, R3, R6–R8, R10)
 
-- **Routes:** `POST /api/user-entries/{uid}/share` and `/unshare` (owner, CSRF). <!-- planned -->
+- **Routes:** `POST /api/user-entries/{uid}/share` and `/unshare` (owner, CSRF).
   - UserEntry only: any other entity gets a 404.
   - Only `group:` / `user:` are accepted.
   - Unshare calls `unshare` / `unshare_from_group`, which can't touch SUBMITTED_TO_GROUP.
@@ -1129,6 +1129,88 @@ it first removes both.
   "amended by ADR-088" notes on ADR-038 (the door, Your wall replaces the access list, the
   person-share bell, and §4's archived refusal lifted) and ADR-042 §8 (the access-list method); the
   stale_names reason at `stale_names.py:265` that names the live group reader.
+- **Ruled (PR 6b session, 2026-09-25 — engineering choices the census found unsettled; none touches
+  a ruling):**
+  - **The Shared-with-you read is one statement, and the `/groups` list is that reader narrowed.**
+    `SharingBackend.query_shared_with_me` enumerates candidates from the viewer's two reach
+    patterns (a direct `SHARES_WITH`; `MEMBER_OF|OWNS` of an active group the entity is
+    `SHARED_WITH_GROUP` to — the enumeration mirrors the fragment's strictness so the via-list
+    never names a dead group) and then gates every row with `build_audience_fragment` — the
+    admission predicate is the fragment, never a copy of it, so whatever is listed opens. Own
+    entries are excluded by the `:OWNS` edge; the rows are `user_entry` + `form_submission` only
+    (R3), one per entity with `via_direct` / `via_groups` and the newest `shared_at`; the
+    `subject_*` columns left with the feedback types. `via` (`direct` or a group uid) is the
+    third filter, and the groups hub's tab and page read `get_shared_with_me(via=group_uid)` —
+    the per-group reader (get_user_entries_shared_with_group, backend twin
+    query_user_entries_shared_with_group) is deleted rather than rebuilt. The service method keeps
+    its live name, `get_shared_with_me`; the deleted group-inbox name is not reused.
+  - **Your wall is one query that also serves the Share panel.** `query_shared_by_me` returns each
+    owned entry with its `users` (`SHARES_WITH` recipients, by uid + username + display name) and
+    `groups`, newest share first, and takes an optional `entity_uid` — the panel's "already shared
+    with" state and `shares_granted` read it, never a per-entity access list beside it. The
+    privacy summary's rows carry `accessor_uid` (a person) or `group_uid` (a group) with the
+    entry and the stamp; `ActivityReportService` takes the sharing service as a constructor
+    dependency for that read.
+  - **Group candidates are the membership reader widened, not a third owned-groups reader:**
+    `GroupBackend.get_user_groups(…, include_owned=True)` matches `MEMBER_OF|OWNS` of an active
+    group (the audience fragment's own reach), with the role filter applying to memberships only;
+    the stats reader stays for `/teaching/groups`. Person candidates are
+    `SharingBackend.query_co_members` on the one R8 fragment (roster excluded, owner kept).
+  - **The door is `EntrySharingService`** (`core/services/user_entry/entry_sharing_service.py`),
+    a sub-service beside the 1000-line facade: `share` / `unshare` / `candidates` / `wall_row`.
+    It starts with the owner read (`UserEntryService.get_entry`, by the `:UserEntry` label, so any
+    other entity is one not-found), accepts `group:` / `user:` only, checks every target through
+    the resolver's extracted `resolve_people` / `check_groups_reachable` (the create path calls the
+    same two), and writes through `resolve_and_share`; the lifetime privacy rule is the sharing
+    service's own — a pass in which nothing landed returns its first refusal as the error. The
+    facade composes it in `services_bootstrap` (`Services.entry_sharing`); both user-entry route
+    factories receive it.
+  - **One publisher rings the bell:** `publish_entry_shared` publishes `EntryShared`
+    (`user_entry.shared` — entity, owner, recipient, title) once per `newly_shared_users` entry,
+    from `create_entry` and from the share door alike; `handle_entry_shared`
+    (`core/events/handlers/share_notification_handler.py`) writes the `shared_with_you`
+    notification against the `USER_ENTRY` source, so the bell opens `/gradebook/{uid}`.
+  - **Stop sharing names the recipient by username** (`user:<username>`, the vocabulary) and
+    needs no co-membership — an owner may always take back what they gave, even after the
+    recipient left every shared group; `delete_share` matches `User.title` exactly. A group
+    value deletes `SHARED_WITH_GROUP` only; the door refuses `teachers` / `teacher:` / `public` /
+    `private` and more than one value.
+  - **The routes content-negotiate on `HX-Request`:** the Share panel's form and the wall's chips
+    read back fragments (the re-rendered panel with its outcome line; the entry's wall row, or
+    nothing once it is unshared), a JSON caller the outcome payload / the removed value; a
+    not-found on HTMX is `refuse()` at a real 404. The panel body is HTMX-loaded on first open
+    from `GET /gradebook/{uid}/share-panel` (the owner's page pays nothing for it), and the
+    exchange thread's per-version "Share →" link opens the page with the panel open (`?share=1`).
+    Already-shared targets render checked and disabled; Stop sharing lives on the wall only.
+  - The migration is `drop_student_self_shares_on_reports_2026_09.py` (census / `--confirm`):
+    every `SHARES_WITH` from a user to an EntryReport they own; a non-owner's `SHARES_WITH` on a
+    report is reported and never touched (there are none). `create_report_node` loses its
+    create_student_share parameter — every writer stamps the owner only.
+  - The stale_names row for the deleted access-list method is keyed with its call paren — the
+    scanner's underscore-adjacent boundary would otherwise flag the live `get_shared_with_me`.
+  - Live 2026-09-25 (Mike's OK, his :8000 app stopped, the branch app on :8001; read-only
+    census first: 3551 nodes / 3044 edges): the migration deleted the 2 self-shares
+    (`er_e7ca22a9`, `er_0495255e`; after-census 0; the RevisedExercise grant untouched). Then,
+    one write per script and none re-run, as linguistic76: a placeholder entry (`ue_eabe7df1`)
+    was shared with `user:mfan0110` + `group:group_default_user_admin` (outcome
+    `newly_shared_users: [user_admin]`, +1 `SHARES_WITH`, +1 `SHARED_WITH_GROUP`, one
+    `shared_with_you` bell). The owner's wall listed it with both chips and the panel marked
+    both targets shared; the admin's *Shared with you* carried the card with the "directly" and
+    "Default Group" via chips, the bell linked to `/gradebook/ue_eabe7df1`, and that page was
+    the recipient card. Stop sharing the person (the HTMX chip) re-rendered the row with the
+    group chip only — the admin still reached it as the Default Group's owner, "directly" gone;
+    stop sharing the group returned an empty row, the item left both Shared pages and the
+    admin got a real 404. The placeholder and its bell were deleted by uid afterwards
+    (`SHARES_WITH` on UserEntries back to 0, `SHARED_WITH_GROUP` 0); the ten scripted logins
+    left their `Session` + `AuthEvent` pairs. Residual seen: a share's relative time reads
+    hours off — every sharing writer stamps `datetime.now().isoformat()` (local, naive) into
+    `datetime($shared_at)` (read as UTC); pre-existing across `create_share` /
+    `create_group_share` / `create_group_submission`, not this PR's, left for a follow-on.
+    Also left open (Codex P2 on #1423, rejected for this PR): the wall reads at most 100 shared
+    entries with no continuation — an access list past that cap would hide older grants from
+    Stop sharing; a pager is a follow-on once any wall approaches it (the founder vault's is
+    single digits). The `/groups` feed narrows the reader to UserEntries (Codex P2, accepted):
+    a form's group target is a feedback request, never a share, and its detail is an owner read.
 
 ### PR 6c — Badge and nudge (R2)
 
@@ -1404,7 +1486,7 @@ requires PR 1, PR 3, PR 5 and PR 6a. PR 6c requires PR 4a, PR 5 and PR 6b. PR 7 
 | 4b | The two lineage predicates accept `FULFILLS_EXERCISE\|FULFILLS_REVISED_EXERCISE`; the two `teachers` lookups and the exercise-use check resolve a revision (ruled in-session) | A resubmitted revision no longer shows as pending in UserContext | merged #1419, 2026-09-25 |
 | 5 | `OWNER_OR_AUDIENCE` + `read_visibility`; the audience fragment; viewer-aware `/gradebook/{uid}` + download; the peer route retired | A person-shared entry opens for its recipient with no status or feedback. A non-recipient gets 404 | merged #1421, 2026-09-25 |
 | 6a | `AudienceSpec` + resolver; R8 co-membership; journal privacy; `group:` never files a feedback request; vault `user:` / `teacher:` parsed but applied only from PR 8 | The vault parser accepts `audience: [teachers, user:<name>]` (unit matrix). A JSON-door `user:` share to a co-member (user_admin, or a member of a non-default group) succeeds; a Default-Group-only member gets the uniform error | merged #1422, 2026-09-25 |
-| 6b | Share / Stop sharing routes; candidates; the two-sided Shared page; R3 cleanup; person-share bell; the two access-list methods deleted (DELETED rows added); `shares_granted` rewired | Share with a co-member (as in 6a) → the recipient's *Shared with you* + bell. Your wall lists it, and Stop sharing removes it. Feedback is gone from the Shared page | open |
+| 6b | Share / Stop sharing routes; candidates; the two-sided Shared page; R3 cleanup; person-share bell; the two access-list methods deleted (DELETED rows added); `shares_granted` rewired | Share with a co-member (as in 6a) → the recipient's *Shared with you* + bell. Your wall lists it, and Stop sharing removes it. Feedback is gone from the Shared page | merged #1423, 2026-09-25 |
 | 6c | Derived "reviewed" badges; the GradeBook nudge | A revised shared entry carries "Revised after feedback". The GradeBook nudge appears on it | open |
 | 7 | The two-question Submit form; teacher without an exercise; teacher bell; the zero-reach rule moves into `create_entry`; the "Submit" rename | The web Teacher option works without an exercise. The teacher's bell links to `/teaching/review/{uid}` | open |
 | 8 | Vault notes are drafts; one frozen copy per `status: submitted`; provenance + dedup; closes the re-sync case file | A vault note with `status: submitted` files one copy; an idle re-sync files nothing | open |

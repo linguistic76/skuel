@@ -3,12 +3,10 @@ Unit Tests for UnifiedSharingService
 ======================================
 
 Tests all service methods with a mocked SharingBackend:
-- share()
-- unshare()
+- share() / unshare() — a person share, taken back by username
+- share_with_group() / submit_to_group() — the two group verbs
 - set_visibility()
-- get_shared_with()
-- get_shared_with_me()
-- submit_to_group()
+- get_shared_with_me() / get_shared_by_me() / get_share_candidate_people()
 """
 
 from unittest.mock import AsyncMock, MagicMock
@@ -172,6 +170,31 @@ async def test_a_private_entry_cannot_be_shared_after_create(mock_backend, shari
     mock_backend.create_share.assert_not_awaited()
     mock_backend.create_group_share.assert_not_awaited()
     mock_backend.update_visibility.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_an_archived_entry_shares_in_any_status(mock_backend, sharing_service):
+    """R2: anyone may share anything, any time — only the privacy rules refuse a UserEntry."""
+    mock_backend.query_ownership_and_status = AsyncMock(
+        return_value=Result.ok(
+            [
+                {
+                    "actual_owner": "user_owner",
+                    "status": "archived",
+                    "entity_type": "user_entry",
+                    "private": False,
+                    "pipeline": "none",
+                }
+            ]
+        )
+    )
+    mock_backend.create_share = AsyncMock(return_value=Result.ok([{"created": True}]))
+
+    result = await sharing_service.share("ue_1", "user_owner", "user_peer")
+
+    assert result.is_ok
+    assert result.value is True
+    mock_backend.create_share.assert_awaited_once()
 
 
 @pytest.mark.asyncio
@@ -343,11 +366,14 @@ async def test_unshare_success(mock_backend, sharing_service):
     result = await sharing_service.unshare(
         entity_uid="report_123",
         owner_uid="user_owner",
-        recipient_uid="user_teacher",
+        recipient_username="teacher",
     )
 
     assert not result.is_error
     assert result.value is True
+    mock_backend.delete_share.assert_awaited_once_with(
+        entity_uid="report_123", recipient_username="teacher"
+    )
 
 
 @pytest.mark.asyncio
@@ -368,7 +394,7 @@ async def test_unshare_not_owner(mock_backend, sharing_service):
     result = await sharing_service.unshare(
         entity_uid="report_123",
         owner_uid="user_not_owner",
-        recipient_uid="user_teacher",
+        recipient_username="teacher",
     )
 
     assert result.is_error
@@ -395,60 +421,11 @@ async def test_unshare_no_relationship(mock_backend, sharing_service):
     result = await sharing_service.unshare(
         entity_uid="report_123",
         owner_uid="user_owner",
-        recipient_uid="user_teacher",
+        recipient_username="teacher",
     )
 
     assert result.is_error
     assert "No sharing relationship found" in str(result.error)
-
-
-# ============================================================================
-# GET SHARED WITH TESTS
-# ============================================================================
-
-
-@pytest.mark.asyncio
-async def test_get_shared_with_success(mock_backend, sharing_service):
-    """Test getting list of users an entity is shared with."""
-    mock_backend.query_shared_with_users = AsyncMock(
-        return_value=Result.ok(
-            [
-                {
-                    "user_uid": "user_teacher",
-                    "user_name": "Teacher Mike",
-                    "role": "teacher",
-                    "share_version": "original",
-                    "shared_at": "2026-02-02T12:00:00",
-                },
-                {
-                    "user_uid": "user_peer",
-                    "user_name": "Peer Sarah",
-                    "role": "peer",
-                    "share_version": "original",
-                    "shared_at": "2026-02-01T10:00:00",
-                },
-            ]
-        )
-    )
-
-    result = await sharing_service.get_shared_with(entity_uid="report_123")
-
-    assert not result.is_error
-    assert len(result.value) == 2
-    assert result.value[0]["user_uid"] == "user_teacher"
-    assert result.value[0]["role"] == "teacher"
-    assert result.value[1]["user_uid"] == "user_peer"
-
-
-@pytest.mark.asyncio
-async def test_get_shared_with_empty(mock_backend, sharing_service):
-    """Test getting shared users when none exist."""
-    mock_backend.query_shared_with_users = AsyncMock(return_value=Result.ok([]))
-
-    result = await sharing_service.get_shared_with(entity_uid="report_123")
-
-    assert not result.is_error
-    assert len(result.value) == 0
 
 
 # ============================================================================
@@ -458,30 +435,25 @@ async def test_get_shared_with_empty(mock_backend, sharing_service):
 
 @pytest.mark.asyncio
 async def test_get_shared_with_me_success(mock_backend, sharing_service):
-    """Test getting entities shared with a user, with share-edge metadata."""
+    """A *Shared with you* row: the entity, its owner as the sharer, and the via-list."""
     entity_data = {
-        "uid": "er_abc123",
-        "user_uid": "user_student",
-        "entity_type": "entry_report",
-        "status": "completed",
-        "title": "Feedback: ue_xyz",
-        "created_by": "user_teacher",
+        "uid": "ue_abc123",
+        "user_uid": "user_peer",
+        "entity_type": "user_entry",
+        "status": "active",
+        "title": "My reflection",
+        "description": "Two paragraphs.",
     }
     mock_backend.query_shared_with_me = AsyncMock(
         return_value=Result.ok(
             [
                 {
                     "entity": entity_data,
-                    "role": "student",
                     "shared_at": "2026-02-02T12:00:00",
-                    "shared_by": "Teacher Name",
-                    "sharer_uid": "user_teacher",
-                    "share_version": None,
-                    # Subject context resolved by the backend join (C4).
-                    "subject_exercise_uid": "ex_essay",
-                    "subject_exercise_title": "Essay Exercise",
-                    "subject_ps_uid": "ps.test.essays",
-                    "subject_ps_title": "Writing Essays",
+                    "shared_by": "Peer Name",
+                    "sharer_uid": "user_peer",
+                    "via_direct": True,
+                    "via_groups": [{"uid": "g_1", "name": "Physics 101"}],
                 }
             ]
         )
@@ -492,42 +464,41 @@ async def test_get_shared_with_me_success(mock_backend, sharing_service):
     assert not result.is_error
     assert len(result.value) == 1
     item = result.value[0]
-    assert item["entity"].uid == "er_abc123"
-    assert item["entity"].title == "Feedback: ue_xyz"
-    assert item["shared_by"] == "Teacher Name"
-    assert item["sharer_uid"] == "user_teacher"
+    assert item["entity"].uid == "ue_abc123"
+    assert item["entity"].title == "My reflection"
+    assert item["shared_by"] == "Peer Name"
+    assert item["sharer_uid"] == "user_peer"
     assert item["shared_at"] == "2026-02-02T12:00:00"
-    assert item["role"] == "student"
-    assert item["subject_exercise_uid"] == "ex_essay"
-    assert item["subject_exercise_title"] == "Essay Exercise"
-    assert item["subject_ps_uid"] == "ps.test.essays"
-    assert item["subject_ps_title"] == "Writing Essays"
+    assert item["via_direct"] is True
+    assert item["via_groups"] == [{"uid": "g_1", "name": "Physics 101"}]
     # No filters requested → the backend must see explicit None (no filter),
     # not stale or omitted arguments.
     mock_backend.query_shared_with_me.assert_awaited_once_with(
-        user_uid="user_student", limit=50, entity_type=None, sharer_uid=None
+        user_uid="user_student", limit=50, entity_type=None, sharer_uid=None, via=None
     )
 
 
 @pytest.mark.asyncio
 async def test_get_shared_with_me_passes_filters_as_canonical_values(mock_backend, sharing_service):
-    """Arc 2 C4: the EntityType filter crosses to the backend as its canonical
-    enum value and the sharer filter as the raw uid — both driver parameters."""
+    """The EntityType filter crosses to the backend as its canonical enum value,
+    the sharer filter as the raw uid and ``via`` as its token — all driver parameters."""
     mock_backend.query_shared_with_me = AsyncMock(return_value=Result.ok([]))
 
     result = await sharing_service.get_shared_with_me(
         user_uid="user_student",
         limit=50,
-        entity_type=EntityType.ENTRY_REPORT,
-        sharer_uid="user_teacher",
+        entity_type=EntityType.FORM_SUBMISSION,
+        sharer_uid="user_peer",
+        via="g_1",
     )
 
     assert not result.is_error
     mock_backend.query_shared_with_me.assert_awaited_once_with(
         user_uid="user_student",
         limit=50,
-        entity_type="entry_report",
-        sharer_uid="user_teacher",
+        entity_type="form_submission",
+        sharer_uid="user_peer",
+        via="g_1",
     )
 
 
@@ -540,6 +511,73 @@ async def test_get_shared_with_me_empty(mock_backend, sharing_service):
 
     assert not result.is_error
     assert len(result.value) == 0
+
+
+# ============================================================================
+# YOUR WALL + CANDIDATES (ADR-088 §6, R7, R8)
+# ============================================================================
+
+
+@pytest.mark.asyncio
+async def test_get_shared_by_me_returns_each_entry_with_its_audience(mock_backend, sharing_service):
+    mock_backend.query_shared_by_me = AsyncMock(
+        return_value=Result.ok(
+            [
+                {
+                    "entity": {"uid": "ue_1", "entity_type": "user_entry", "title": "Mine"},
+                    "users": [
+                        {
+                            "uid": "user_a",
+                            "username": "alice",
+                            "display_name": "Alice",
+                            "shared_at": "2026-09-25T10:00:00Z",
+                        }
+                    ],
+                    "groups": [
+                        {"uid": "g_1", "name": "Physics", "shared_at": "2026-09-24T10:00:00Z"}
+                    ],
+                    "last_shared_at": "2026-09-25T10:00:00Z",
+                }
+            ]
+        )
+    )
+
+    result = await sharing_service.get_shared_by_me(user_uid="user_owner")
+
+    assert result.is_ok
+    row = result.value[0]
+    assert row["entity"].uid == "ue_1"
+    assert row["users"][0]["username"] == "alice"
+    assert row["groups"][0]["name"] == "Physics"
+    assert row["last_shared_at"] == "2026-09-25T10:00:00Z"
+    mock_backend.query_shared_by_me.assert_awaited_once_with(
+        user_uid="user_owner", limit=100, entity_uid=None
+    )
+
+
+@pytest.mark.asyncio
+async def test_get_shared_by_me_narrows_to_one_entry(mock_backend, sharing_service):
+    """The Share panel's "already shared with" state is the wall narrowed to one uid."""
+    mock_backend.query_shared_by_me = AsyncMock(return_value=Result.ok([]))
+
+    await sharing_service.get_shared_by_me(user_uid="user_owner", limit=1, entity_uid="ue_1")
+
+    mock_backend.query_shared_by_me.assert_awaited_once_with(
+        user_uid="user_owner", limit=1, entity_uid="ue_1"
+    )
+
+
+@pytest.mark.asyncio
+async def test_get_share_candidate_people_maps_the_rows(mock_backend, sharing_service):
+    mock_backend.query_co_members = AsyncMock(
+        return_value=Result.ok([{"uid": "user_a", "username": "alice", "display_name": "Alice"}])
+    )
+
+    result = await sharing_service.get_share_candidate_people("user_owner")
+
+    assert result.is_ok
+    assert result.value == [{"uid": "user_a", "username": "alice", "display_name": "Alice"}]
+    mock_backend.query_co_members.assert_awaited_once_with("user_owner")
 
 
 # ============================================================================
@@ -647,97 +685,6 @@ async def test_share_database_error(mock_backend, sharing_service):
 
     assert result.is_error
     assert "Database connection failed" in str(result.error)
-
-
-# ============================================================================
-# GET USER ENTRIES SHARED WITH GROUP TESTS
-# ============================================================================
-
-
-@pytest.mark.asyncio
-async def test_get_user_entries_shared_with_group_success(mock_backend, sharing_service):
-    """Returns list of dicts with entity/author_name/share_version/shared_at keys."""
-    mock_backend.query_user_entries_shared_with_group = AsyncMock(
-        return_value=Result.ok(
-            [
-                {
-                    "entry": {"uid": "ue_1", "title": "Reflection 1"},
-                    "author_name": "Alex Rivera",
-                    "share_version": "original",
-                    "shared_at": "2026-04-10T12:00:00",
-                },
-                {
-                    "entry": {"uid": "ue_2", "title": "Reflection 2"},
-                    "author_name": None,
-                    "share_version": "original",
-                    "shared_at": "2026-04-11T12:00:00",
-                },
-            ]
-        )
-    )
-
-    result = await sharing_service.get_user_entries_shared_with_group(
-        user_uid="user_stud_01",
-        group_uid="group_physics",
-    )
-
-    assert result.is_ok
-    assert len(result.value) == 2
-    assert result.value[0]["entity"] == {"uid": "ue_1", "title": "Reflection 1"}
-    assert result.value[0]["author_name"] == "Alex Rivera"
-    assert result.value[0]["share_version"] == "original"
-    assert result.value[0]["shared_at"] == "2026-04-10T12:00:00"
-    assert result.value[1]["author_name"] is None
-
-
-@pytest.mark.asyncio
-async def test_get_user_entries_shared_with_group_empty(mock_backend, sharing_service):
-    """Empty backend result (e.g., non-member) yields Result.ok([])."""
-    mock_backend.query_user_entries_shared_with_group = AsyncMock(return_value=Result.ok([]))
-
-    result = await sharing_service.get_user_entries_shared_with_group(
-        user_uid="user_stud_01",
-        group_uid="group_physics",
-    )
-
-    assert result.is_ok
-    assert result.value == []
-
-
-@pytest.mark.asyncio
-async def test_get_user_entries_shared_with_group_backend_error(mock_backend, sharing_service):
-    """Backend errors propagate via Result.fail."""
-    from core.utils.result_simplified import Errors
-
-    mock_backend.query_user_entries_shared_with_group = AsyncMock(
-        return_value=Result.fail(Errors.database(operation="execute_query", message="boom"))
-    )
-
-    result = await sharing_service.get_user_entries_shared_with_group(
-        user_uid="user_stud_01",
-        group_uid="group_physics",
-    )
-
-    assert result.is_error
-    assert "boom" in str(result.error)
-
-
-@pytest.mark.asyncio
-async def test_get_user_entries_shared_with_group_forwards_limit(mock_backend, sharing_service):
-    """Custom limit is forwarded to the backend query."""
-    mock_backend.query_user_entries_shared_with_group = AsyncMock(return_value=Result.ok([]))
-
-    await sharing_service.get_user_entries_shared_with_group(
-        user_uid="user_stud_01",
-        group_uid="group_physics",
-        limit=5,
-    )
-
-    mock_backend.query_user_entries_shared_with_group.assert_awaited_once_with(
-        user_uid="user_stud_01",
-        group_uid="group_physics",
-        limit=5,
-    )
 
 
 # ============================================================================

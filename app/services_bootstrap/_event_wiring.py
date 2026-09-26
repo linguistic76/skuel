@@ -110,6 +110,7 @@ def _wire_event_subscribers(
         PrincipleReflectionRecorded,
     )
     from core.events.user_entry_events import (
+        EntryShared,
         UserEntryCreated,
         UserEntryProcessingCompleted,
         UserEntryProcessingFailed,
@@ -244,6 +245,16 @@ def _wire_event_subscribers(
         "UserEntryApproved + UserEntryRevisionRequested + RevisedExerciseCreated + "
         "ActivityReportWritten (student notifications)"
     )
+
+    # A person share rings its recipient (Submit & Share arc R10)
+    from core.events.handlers.share_notification_handler import handle_entry_shared
+
+    entry_shared_handler = functools.partial(
+        handle_entry_shared,
+        notification_service=notification_service,
+    )
+    event_bus.subscribe(EntryShared, entry_shared_handler)
+    logger.info("✅ Share notification handler subscribed to EntryShared (recipient bell)")
 
     # Learning loop intelligence handlers — iteration tracking, feedback turnaround, mastery velocity
     from core.services.user_entry.learning_loop_handler import LearningLoopEventHandlerService

@@ -497,22 +497,6 @@ _REVIEW_REQUEST_PRODUCER = PlannedEntry(
     "button/route to complete the loop (ADR-069 §3)",
     since=date(2026, 6, 12),
 )
-_SHARING_REVOKE_AND_ACCESS_LIST = PlannedEntry(
-    Readiness.DELAYED,
-    "the revoke + 'who has access' half of UnifiedSharingService (ADR-038): the write "
-    "half is LIVE through audience-at-submit (ADR-054 — AudienceResolver → share / "
-    "share_with_group) and POST /api/form-submissions/share, and the reads that render "
-    "what those wrote are LIVE (/profile/shared, the groups hub); nothing lets an owner "
-    "see or retract a share once written, and a vault re-sync that narrows `audience:` "
-    "cannot retract either (the same missing operation). Complete it with a door that "
-    "OPERATES ON EXISTING EDGES — an access list with a revoke control on the owner's "
-    "entity page, and share reconciliation on re-sync calling these same methods — "
-    "never a second share form (Mike ruled PLANNED 2026-06-13; re-ruled operations-on-"
-    "edges-only 2026-09-21)",
-    since=date(2026, 6, 13),
-    blocked_by="Sharing HTTP Door — Operations on Existing Shares",
-)
-
 _SHARING_VISIBILITY_LADDER = PlannedEntry(
     Readiness.DELAYED,
     "the publish / unpublish writer. `visibility` is public-or-not (ADR-088 §4): the "
@@ -882,19 +866,9 @@ PLANNED_METHODS: dict[str, PlannedEntry] = {
     ),
     # --- Reports: missing producer of a live consumer ---
     "core/services/report/review_queue_service.py::request_review": _REVIEW_REQUEST_PRODUCER,
-    # --- Sharing: revoke / access-list / visibility door (ADR-038) ---
-    # The five members of UnifiedSharingService with no caller; the per-method
-    # ruling is docs/roadmap/sharing-http-door.md.
-    "core/services/sharing/unified_sharing_service.py::unshare": _SHARING_REVOKE_AND_ACCESS_LIST,
-    "core/services/sharing/unified_sharing_service.py::unshare_from_group": (
-        _SHARING_REVOKE_AND_ACCESS_LIST
-    ),
-    "core/services/sharing/unified_sharing_service.py::get_shared_with": (
-        _SHARING_REVOKE_AND_ACCESS_LIST
-    ),
-    "core/services/sharing/unified_sharing_service.py::get_groups_shared_with": (
-        _SHARING_REVOKE_AND_ACCESS_LIST
-    ),
+    # --- Sharing: the publish / unpublish writer (ADR-088 §4) ---
+    # The one member of UnifiedSharingService with no caller; the ruling is
+    # docs/roadmap/sharing-http-door.md.
     "core/services/sharing/unified_sharing_service.py::set_visibility": (
         _SHARING_VISIBILITY_LADDER
     ),

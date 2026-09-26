@@ -4,9 +4,9 @@ Teacher Review Service
 
 Manages the teacher review workflow for assigned submissions.
 
-Reuses SHARES_WITH infrastructure. When a student submits an entity against
-an ASSIGNED Exercise, the entity is auto-shared with the teacher.
-The teacher's review queue = submissions shared with them via role="teacher".
+A student's turn-in reaches the teacher as a feedback request
+(``SUBMITTED_TO_GROUP`` to a group the teacher owns, ADR-088 §2); the review
+queue reads that link under the teacher's ``OWNS``.
 
 When providing a report or requesting revision, an ENTRY_REPORT Entity node
 is created and linked to the submission via REPORT_FOR. This makes every
@@ -205,7 +205,6 @@ class TeacherReviewService:
                 "processor_type": ReportSource.HUMAN.value,
                 "assessment_outcome": AssessmentOutcome.APPROVED.value,
                 "allowed_from_statuses": allowed_from,
-                "create_student_share": True,
                 "now": now,
             }
         )
@@ -292,7 +291,6 @@ class TeacherReviewService:
                 "processor_type": ReportSource.HUMAN.value,
                 "assessment_outcome": AssessmentOutcome.NEEDS_REVISION.value,
                 "allowed_from_statuses": allowed_from,
-                "create_student_share": True,
                 "now": now,
             }
         )

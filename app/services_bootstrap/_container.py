@@ -72,6 +72,7 @@ if TYPE_CHECKING:
     from core.services.user.intelligence.factory import (
         UserContextIntelligenceFactory,
     )
+    from core.services.user_entry.entry_sharing_service import EntrySharingService
     from core.services.user_entry.user_entry_processing_service import (
         UserEntryProcessingService,
     )
@@ -192,6 +193,7 @@ class Services:
     # Replaces the legacy submission + journal services.
     user_entry: UserEntryService | None = None
     user_entry_processor: UserEntryProcessingService | None = None
+    entry_sharing: EntrySharingService | None = None  # Share / Stop sharing door (ADR-088)
 
     # ========================================================================
     # GROUP & TEACHING (ADR-040) - Teacher exercise workflow
