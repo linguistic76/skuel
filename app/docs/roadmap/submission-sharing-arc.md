@@ -1387,6 +1387,46 @@ it first removes both.
     CLAUDE.md's door line.
   - Update the Alpine registry docs + the `scripts/smoke_test.py:131` constructor fixture.
 - New form tests (none exist).
+- **Ruled (PR 7 session, 2026-09-26 — engineering choices the census found unsettled; the title
+  ruling above is Mike's; none touches a ruling):**
+  - **The version is a snapshot on the node, `turn_in_revision`,** stamped by the turn-in writer in
+    the statement that stamps the exercise snapshot — the edge revision's copy, so it outlives the
+    exercise (R12) and every surface (the history list reads models, not edges) prints it from the
+    node; the edge readers `coalesce(r.revision, e.turn_in_revision)`. The linker's
+    `revision_number` node write is deleted rather than kept: nothing read it, and ADR-054's
+    migration had moved that property onto the edge (`test_collapse_to_user_entry.py` asserts it
+    is off the node). The dead `UserEntry.generate_exercise_title` went with it.
+  - **One title rule, in `create_entry`:** the request's `title` is optional; a turn-in with none
+    goes to the writer empty (the writer titles it from the snapshot), anything else takes the
+    upload's filename, then "Untitled". The upload door and the JSON form door send the student's
+    words or nothing — neither defaults a title itself.
+  - **The label is one renderer** (`ui/learning_loop/turn_in_label.py`: `turn_in_label`,
+    `TurnInNote`, `TurnInBadge` — "<exercise> · v<N>", the exercise alone when the row predates
+    the stamp). The queue card's "for …", the review header's "Exercise: …", the inline student
+    rows, the history row (which led with the filename and now leads with the title), the
+    `/gradebook/{uid}` "Fulfills exercise" badge, the PathStep list's note and the recipient
+    card's badge all print it; the `/exchange` thread keeps its "Submission (rev N)" kind.
+  - **The Share panel's candidates read is split, not copied:** `EntrySharingService.targets(owner)`
+    is the entry-independent half (active student + owned groups, R8 co-members); `candidates`
+    composes it and adds the entry's current audience and reviewer groups. The Submit page's
+    "Share with" reads `targets` and renders the panel's own `AudienceCheckbox` rows.
+  - **The form's data flow:** the `submit` Alpine component (`submit(feedback, aiDisabled)`)
+    derives `pipeline` (teacher → `teacher_review`, AI → `llm_summary`, No → `none`) and the
+    feedback value (`teachers`, or `teacher:<group_uid>` from the "Which class?" select, offered
+    only without an exercise and with more than one class) into bound hidden fields — the audience
+    field is disabled when no teacher is asked, so it is absent, never empty; the share checkboxes
+    post their own `audience` values; `private` is never emitted (exclusive). The destination
+    dropdown, its document listeners and the `portfolio` argument are gone; Portfolio is a
+    server-rendered disabled checkbox.
+  - **Every "Submit →" link is `submit_page_href()`** (`ui/user_entry/forms.py`, percent-encoded)
+    — the one spelling of the route; `SUBMIT_PAGE_PATH` for a bare link.
+  - **The route strings have no stale_names row** (the two deleted handler names do): `/submit`
+    prefixes five live routes and `/submissions/exercise` sits inside ADR-054's historical model
+    path, so both over-match as keys; route_claims reports a bare claim on either as fiction.
+  - **The teacher bell's recipients are one set:** `unique_recipients` folds
+    `get_owner_uids_batch`'s undeduplicated owners across every submitted group, drops the
+    submitter, keeps first-seen order; a failed owner read or a failed write is logged, never
+    raised, and the other teacher is still rung.
 
 ### PR 8 — Every vault note submits the same way (R9)
 
