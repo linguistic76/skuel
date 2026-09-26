@@ -24,6 +24,7 @@ from core.ports.query_types import PathStepSubmissionRow
 from ui.feedback import Badge, BadgeT, StatusBadge
 from ui.layout import Size
 from ui.learning_loop.feedback_section import render_ps_feedback
+from ui.learning_loop.turn_in_label import TurnInNote
 from ui.patterns.empty_state import EmptyState
 
 # Submission statuses that are valid EntityStatus values
@@ -54,14 +55,7 @@ def _status_badge(status: str | None) -> Any:
 def _submission_row(sub: PathStepSubmissionRow) -> Div:
     """Single submission row with status badge and action links."""
     title = sub["title"] or sub["uid"]
-    exercise_note = (
-        Span(
-            f"for {sub['exercise_title']}",
-            cls="text-xs text-muted-foreground",
-        )
-        if sub.get("exercise_title")
-        else None
-    )
+    exercise_note = TurnInNote(sub.get("exercise_title"), sub.get("revision")) or None
 
     action = A(
         "View Submission →",

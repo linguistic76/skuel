@@ -296,6 +296,14 @@ DELETED: dict[str, str] = {
     "/groups/{group_uid}/entries/{entry_uid}": "deleted — a listed entry opens at /gradebook/{entry_uid}, which renders the recipient card for a viewer who is not the owner (R6)",
     "PeerEntryView": "deleted — ui/gradebook/recipient_card.py RecipientEntryCard is the one recipient view (title, description, from, date, badge, file link — never status or the processed body)",
     "PeerEntryNotFound": "deleted — /gradebook/{uid} refuses a non-recipient through refuse() at a real 404",
+    # The Submit page (Submit & Share arc PR 7): one route, /submissions/submit. The two
+    # deleted routes (/submissions/exercise, the legacy /submit 302) have no row here — a
+    # route string is route_claims' to report (a bare claim on either is fiction now that
+    # no handler serves it), and as keys both over-match: /submit prefixes five live routes
+    # (/submit/journals/…, /login/submit, …) and /submissions/exercise sits inside the
+    # historical model path core/models/submissions/exercise_submission.py.
+    "submissions_exercise_page": "deleted — submissions_submit_page serves /submissions/submit",
+    "submit_redirect": "deleted — /submit is gone, not redirected (One Path Forward); every link points at /submissions/submit",
     # The EntryReport access check (ADR-088 §3): a link grants what its reader reads,
     # and a report is an owner read — no standalone check.
     "check_access": "deleted — no standalone access check; an EntryReport is an owner read (EntryReportService.get_for_user, the OWNER_ONLY clause of ADR-085's chokepoint), every other read composes its audience from build_search_visibility_clause",

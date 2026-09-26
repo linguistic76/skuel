@@ -15,6 +15,7 @@ from ui.patterns.page_header import PageHeader
 from ui.patterns.section_header import SectionHeader
 from ui.primitives import ButtonLink
 from ui.tokens import Container, Spacing
+from ui.user_entry.forms import submit_page_href
 
 
 def render_exercise_view(exercise: Any, required_knowledge: list | None = None) -> Any:
@@ -202,7 +203,7 @@ def render_exercise_student_detail(exercise: Any, from_ps: str = "") -> Any:
         )
 
     # ── Actions ───────────────────────────────────────────────────────
-    submit_href = f"/submit?exercise_uid={exercise.uid}"
+    submit_href = submit_page_href(exercise.uid)
     if from_ps:
         submit_href += f"&from_ps={from_ps}"
     actions = Div(

@@ -152,7 +152,7 @@ shared = await sharing_service.get_shared_with_me(
 ```
 
 **UI Flow:**
-1. Student: `/submit` → pick the audience (Teacher / a group / Private; Portfolio is
+1. Student: `/submissions/submit` → pick the audience (Teacher / a group / Private; Portfolio is
    disabled, "Coming soon") → submit — or, any time later, the **Share** button on the
    entry's `/gradebook/{uid}` page (and on each version in the exchange thread), which posts
    the same vocabulary to `POST /api/user-entries/{uid}/share` (R2: anything, any time)
@@ -242,7 +242,7 @@ request = UserEntryCreateRequest(title="Best work", content="...", visibility=Vi
 # (no read honours the property), so a PUBLIC entry reaches no one.
 ```
 
-**Where this stands:** the `/submit` form's Portfolio destination renders disabled ("Coming
+**Where this stands:** the Submit page's (`/submissions/submit`) Portfolio destination renders disabled ("Coming
 soon"); there is no public-listing route (ADR-038 § API Layer records the retired one). The
 post-hoc writer `set_visibility()` exists and has no caller — it is PLANNED together with the
 PUBLIC reader, because a visibility control without a listing writes a value nothing honours
@@ -381,7 +381,7 @@ records left with the submissions API (2026-04-17) and have no successors.
 
 | Door | What it does | Sharing method reached |
 |------|--------------|------------------------|
-| `POST /api/user-entries/upload` (the `/submit` form) and `POST /api/user-entries` (JSON `UserEntryCreateRequest`) — one `audience` in the one vocabulary: `teachers` / `teacher:<group_uid>` / `group:<uid>` / `user:<username>` / `public` / `private` (ADR-088) | Declares the audience at submit; `UserEntryService.create_entry` → `AudienceResolver.validate_references` (every target checked first) → `resolve_and_share` | `share`, `share_with_group`, `submit_to_group` |
+| `POST /api/user-entries/upload` (the Submit page, `/submissions/submit`) and `POST /api/user-entries` (JSON `UserEntryCreateRequest`) — one `audience` in the one vocabulary: `teachers` / `teacher:<group_uid>` / `group:<uid>` / `user:<username>` / `public` / `private` (ADR-088) | Declares the audience at submit; `UserEntryService.create_entry` → `AudienceResolver.validate_references` (every target checked first) → `resolve_and_share` | `share`, `share_with_group`, `submit_to_group` |
 | `POST /api/user-entries/{uid}/share` — `audience` = `group:<uid>` / `user:<username>` values (form, JSON or query) | The owner shares an entry they already have (R2 — any status); the Share panel on `/gradebook/{uid}` and the exchange thread's per-version Share link post here; `EntrySharingService.share` runs the create path's target checks, then the same guarded writes; a new person share publishes `EntryShared` (the recipient's bell) | `share`, `share_with_group` |
 | `POST /api/user-entries/{uid}/unshare` — one `audience` value | Stop sharing (R7): × on a *Your wall* chip; never a feedback request | `unshare`, `unshare_from_group` |
 | `GET /gradebook/{uid}/share-panel` | The Share panel's body: candidate groups (joined as a student or owned, active) and people (R8 co-members), the entry's current audience marked; `?preselect=reviewers` (the GradeBook nudge) checks the offered groups the entry was submitted to for feedback | `get_share_candidate_people`, `get_shared_by_me(entity_uid=…)` |
@@ -400,11 +400,19 @@ unpublish writer waits on the PUBLIC reader
 
 ## UI Components
 
-### Audience Selector (the `/submit` form)
+### The Submit page (`/submissions/submit`)
 
-`ui/user_entry/forms.py` — one destination per submission: Teacher (auto-share to the
-exercise's groups), a specific group, Private (default), or Portfolio (rendered disabled,
-"Coming soon" — `portfolio_mode="coming_soon"`, no caller passes `active`).
+`ui/user_entry/forms.py` asks two questions (Submit & Share arc PR 7). **Ask for feedback?**
+Teacher — the default, with or without an exercise (`teachers`, or `teacher:<group_uid>` from the
+"Which class?" select a student in several classes gets when no exercise names its own) / AI —
+only with an exercise, and the form says the next step is the entry page's "Request AI feedback"
+button (submit never summons the reviewer) / No. **Share with** (optional, collapsed) — the
+student's groups and R8 co-members as `group:<uid>` / `user:<username>` checkboxes (the Share
+panel's own rows, `AudienceCheckbox`, from the same read, `EntrySharingService.targets`) plus
+Portfolio (rendered disabled, "Coming soon" — `portfolio_mode="coming_soon"`, no caller passes
+`active`). The pipeline and the feedback value ride as Alpine-bound hidden fields; every value
+lands in the one repeated `audience` field the upload door parses. The Title field is optional:
+the title is the student's, and an untitled turn-in is titled "<exercise> v<N>" by the writer.
 
 ### The Share Panel (`/gradebook/{uid}`)
 
@@ -684,9 +692,10 @@ if result.is_error:
 - **Group sharing routes:** `adapters/inbound/groups_hub_routes.py` (`/api/groups/{group_uid}/shared/preview`, `/groups/{group_uid}`)
 - **Audience fragment:** `adapters/persistence/neo4j/query/cypher/crud_queries.py` — `build_audience_fragment`, composed by `build_search_visibility_clause` for `OWNER_OR_AUDIENCE`
 - **UI Routes:** `adapters/inbound/user_entry_ui.py` (`/gradebook/{uid}` viewer-aware with the Share button, `/gradebook/{uid}/share-panel`, `/gradebook/{uid}/download`); the recipient card in `ui/gradebook/recipient_card.py`, the Share panel in `ui/gradebook/share_panel.py`, the derived badges in `ui/gradebook/review_badges.py` and the GradeBook nudge in `ui/gradebook/summary.py`
-- **UI Components:** `ui/user_entry/forms.py` (the audience selector on the submit form)
+- **UI Components:** `ui/user_entry/forms.py` (the Submit page's form — `submit_page_href()` is the one spelling of its URL)
 - **The Shared page:** `adapters/inbound/user_profile_ui.py`, `ui/profile/shared_view.py`
 - **The recipient's bell:** `core/events/handlers/share_notification_handler.py` (`EntryShared` → `shared_with_you`)
+- **The teacher's bell:** `core/events/handlers/submission_notification_handler.py` (`UserEntryCreated.submitted_group_uids` — the created `SUBMITTED_TO_GROUP` subset — → `submission_for_review` for every owning teacher of those groups, once each, the submitter excluded; the card opens `/teaching/review/{uid}`)
 
 ### Documentation
 - **ADR-038:** `/docs/decisions/ADR-038-content-sharing-model.md` — original sharing decision

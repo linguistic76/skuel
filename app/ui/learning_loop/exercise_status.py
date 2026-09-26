@@ -30,6 +30,7 @@ from ui.feedback import Badge, BadgeT
 from ui.layout import Size
 from ui.patterns.empty_state import EmptyState
 from ui.primitives import ButtonLink
+from ui.user_entry.forms import submit_page_href
 
 _EXERCISE_STATUS_MAP: dict[str, tuple[str, BadgeT | None, str]] = {
     "not_submitted": ("Not Submitted", BadgeT.neutral, ""),
@@ -74,7 +75,7 @@ def exercise_action_link(row: ExerciseStatusRow, from_ps: str | None = None) -> 
     status = exercise_status_key(row)
     uid = row["uid"]
     if status == "not_submitted":
-        submit_href = f"/submit?exercise_uid={uid}"
+        submit_href = submit_page_href(uid)
         if from_ps:
             submit_href += f"&from_ps={from_ps}"
         return ButtonLink(

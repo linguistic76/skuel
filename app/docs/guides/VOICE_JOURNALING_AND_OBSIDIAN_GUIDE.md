@@ -1,6 +1,6 @@
 ---
 title: Voice Journaling and Obsidian Guide
-updated: 2026-09-18
+updated: 2026-09-26
 status: current
 category: guides
 tags: [obsidian, journaling, voice, vaultbridge, activity-domains, daily-workflow, user-guide]
@@ -619,7 +619,7 @@ When you're setting a new goal for the quarter, or want to define a principle th
 | Upload a voice memo or text journal | [/journals](/journals) |
 | Talk an entry through (ephemeral until **Save this chat**) or revisit a saved discussion | [/journals](/journals) |
 | Sync Obsidian vault with SKUEL (primary data path) | [/submissions/sync](/submissions/sync) |
-| Submit a completed exercise worksheet | [/submit](/submit) |
+| Submit work for feedback (an exercise worksheet, or any file) | [/submissions/submit](/submissions/submit) |
 
 | Template | Cadence | Primary purpose |
 |----------|---------|----------------|

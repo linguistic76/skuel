@@ -1,5 +1,5 @@
 ---
-updated: 2026-09-25
+updated: 2026-09-26
 related_skills: [journals, learning-loop, neo4j-cypher-patterns, prometheus-grafana, ui-error-handling]
 ---
 
@@ -210,7 +210,7 @@ the student can widen the audience but not silently submit to nobody.
 `ingest_file()` detects `type: user_entry`, it delegates to
 `core/services/ingestion/user_entry_ingestion.py`, which builds a
 `UserEntryCreateRequest` and calls `UserEntryService.create_entry()` —
-the same entry point the `/submit` form uses. YAML files declare a
+the same entry point the Submit page (`/submissions/submit`) uses. YAML files declare a
 required `pipeline:` field and an optional `audience:` field:
 
 | YAML `audience:` | Effect |
@@ -289,7 +289,7 @@ is not shareable at submit time. `Pipeline.allows_sharing()` encodes this:
 it returns `False` only for `TRANSCRIBE_AND_STRUCTURE`. `_validate_audience`
 rejects the create request if it carries `share_with_groups`,
 `share_with_users`, `auto_share_to_exercise_groups=True`, or any
-non-`PRIVATE` visibility. The `/submit` form hides the audience picker
+non-`PRIVATE` visibility. The Submit page (`/submissions/submit`) hides the audience picker
 client-side when the student selects the journal pipeline; the dedicated
 `/journals/submit` form never offered one. The child `UserEntry` persisted
 in phase 3 is explicitly `visibility=PRIVATE` and inherits nothing from

@@ -31,11 +31,13 @@ from core.utils.report_periods import UnknownReportPeriodError, as_naive_utc, re
 from ui.components import Button, ButtonT, Card, CardBody
 from ui.feedback import Badge, BadgeT, Progress, ProgressT
 from ui.layout import Size
+from ui.learning_loop.turn_in_label import TurnInNote
 from ui.patterns.csrf import csrf_hidden_input
 from ui.patterns.empty_state import EmptyState
 from ui.patterns.error_banner import render_error_banner
 from ui.patterns.format_date import format_date
 from ui.primitives import ButtonLink
+from ui.user_entry.forms import submit_page_href
 
 # ============================================================================
 # SHARED HELPERS
@@ -94,7 +96,7 @@ def render_review_status_badge(status: str, feedback_count: int) -> Any:
 def render_submission_history_row(item: dict) -> Any:
     """Render a single submission row with review status for the history list."""
 
-    filename = item.get("original_filename") or item.get("title") or "Untitled"
+    title = item.get("title") or item.get("original_filename") or "Untitled"
     status = item.get("status") or "submitted"
     feedback_count = item.get("feedback_count") or 0
     uid = item.get("uid", "")
@@ -121,9 +123,10 @@ def render_submission_history_row(item: dict) -> Any:
     return Card(
         Div(
             Div(
-                P(filename, cls="font-semibold mb-0"),
+                P(title, cls="font-semibold mb-0"),
+                TurnInNote(item.get("exercise_title"), item.get("revision"), cls="block"),
                 P(created_str, cls="text-xs text-muted-foreground mb-0"),
-                cls="flex-1",
+                cls="basis-full sm:basis-auto sm:flex-1 min-w-0",
             ),
             Div(
                 render_review_status_badge(status, feedback_count),
@@ -133,11 +136,12 @@ def render_submission_history_row(item: dict) -> Any:
             ButtonLink(
                 "View",
                 href=f"/gradebook/{uid}",
-                cls=(ButtonT.primary, "ml-3"),
+                cls=(ButtonT.primary, "ml-auto sm:ml-3"),
                 size="sm",
             ),
             delete_button,
-            cls="flex items-center gap-4",
+            # Phone: the title block takes the row, the badges and buttons wrap under it.
+            cls="flex flex-wrap items-center gap-3 sm:gap-4",
         ),
         cls="bg-background shadow-xs mb-2",
         id=f"submission-row-{uid}",
@@ -266,7 +270,7 @@ def render_entry_report_detail(report: Any, revised_exercise: Any = None) -> Any
                 ),
                 ButtonLink(
                     "Submit Revision",
-                    href=f"/submit?exercise_uid={re_uid}",
+                    href=submit_page_href(re_uid),
                     cls=ButtonT.ghost,
                     size="sm",
                 ),

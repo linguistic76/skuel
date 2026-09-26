@@ -151,7 +151,7 @@ class _UserEntryAssessmentMixin:
                coalesce(ex.uid, entry.turn_in_exercise_uid) AS exercise_uid,
                coalesce(ex.title, entry.turn_in_exercise_title) AS exercise_title,
                ex.due_date AS due_date,
-               r.revision AS revision,
+               coalesce(r.revision, entry.turn_in_revision) AS revision,
                g.uid AS group_uid,
                feedback_count
         ORDER BY entry.created_at DESC
@@ -251,7 +251,8 @@ class _UserEntryAssessmentMixin:
         RETURN s.uid AS uid, s.title AS title,
                s.original_filename AS original_filename, s.status AS status,
                s.created_at AS created_at, student.uid AS student_uid,
-               student.name AS student_name, feedback_count
+               student.name AS student_name, feedback_count,
+               s.turn_in_revision AS revision
         ORDER BY s.created_at DESC
         """
         return await self.execute_query(
@@ -315,7 +316,8 @@ class _UserEntryAssessmentMixin:
                ku.created_at AS created_at,
                feedback_count,
                coalesce(ex.uid, ku.turn_in_exercise_uid) AS exercise_uid,
-               coalesce(ex.title, ku.turn_in_exercise_title) AS exercise_title
+               coalesce(ex.title, ku.turn_in_exercise_title) AS exercise_title,
+               ku.turn_in_revision AS revision
         ORDER BY ku.created_at DESC
         """
         return await self.execute_query(
@@ -371,6 +373,7 @@ class _UserEntryAssessmentMixin:
                student.name AS student_name,
                coalesce(ex.uid, s.turn_in_exercise_uid) AS exercise_uid,
                coalesce(ex.title, s.turn_in_exercise_title) AS exercise_title,
+               s.turn_in_revision AS revision,
                ex.instructions AS exercise_instructions
         """
         return await self.execute_query(

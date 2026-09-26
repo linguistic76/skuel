@@ -128,7 +128,7 @@ _REGISTRY_COMPONENTS = (
     "revisionForm",
     "batchTranscribe",
     "userFolderTranscribe",
-    "submit('dest', false, false)",
+    "submit('teacher', false)",
 )
 
 # Run before Alpine starts: neutralise component init() network side effects so

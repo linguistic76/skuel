@@ -31,6 +31,7 @@ class QueueItem:
     status: str = "unknown"
     entity_type: str | None = None
     exercise_name: str | None = None
+    revision: int | None = None  # the turn-in's version, printed beside the title
     submission_uid: str = ""
     feedback_count: int = 0
     original_filename: str | None = None
@@ -70,6 +71,7 @@ class SubmissionDetail:
     student_name: str = "Unknown"
     student_uid: str = ""
     exercise_title: str | None = None
+    revision: int | None = None
     exercise_instructions: str | None = None
     processed_content: str | None = None
     content: str | None = None
@@ -88,6 +90,7 @@ class SubmissionRow:
     status: str = "unknown"
     feedback_count: int = 0
     exercise_title: str | None = None
+    revision: int | None = None
     original_filename: str | None = None
 
 
@@ -117,6 +120,7 @@ def queue_item_from_dict(d: dict[str, Any]) -> QueueItem:
         status=d.get("status") or "unknown",
         entity_type=d.get("entity_type"),
         exercise_name=d.get("exercise_name"),
+        revision=d.get("revision"),
         submission_uid=d.get("submission_uid", ""),
         feedback_count=d.get("feedback_count", 0),
         original_filename=d.get("original_filename"),
@@ -133,5 +137,6 @@ def submission_row_from_dict(d: dict[str, Any]) -> SubmissionRow:
         status=d.get("status") or "unknown",
         feedback_count=d.get("feedback_count", 0),
         exercise_title=d.get("exercise_title"),
+        revision=d.get("revision"),
         original_filename=d.get("original_filename"),
     )

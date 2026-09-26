@@ -151,7 +151,7 @@ revision: 1                    ← student increments for resubmissions
 ```
 
 The student fills in responses and submits the file at `POST /api/user-entries/upload`.
-The exercise link is carried by the `fulfills_exercise_uid` form field (set by the `/submissions/exercise`
+The exercise link is carried by the `fulfills_exercise_uid` form field (set by the `/submissions/submit`
 form via the exercise selector or the `?exercise_uid=` deep-link hidden field); the revision
 is computed server-side by `UserEntryService._next_revision()`. The current upload endpoint
 does **not** parse the worksheet's YAML frontmatter — that auto-detection is not implemented
@@ -233,13 +233,15 @@ modality: SubmissionModality | None  # FILE_UPLOAD | STRUCTURED_FORM (None for t
 > `count_entries_for_exercise(...) + 1` and passes it to
 > `UserEntryBackend.create_with_exercise_link()`, which stamps it onto the edge. A second
 > attempt against the same exercise creates a new `UserEntry` whose edge carries `revision=2`.
-> **Post-create**, `UserEntryExerciseLinker.process_exercise_submission()` (fired via the
-> `UserEntryCreated` event → `exercise_handler`) reads that edge revision and — **only for
-> `ASSIGNED`-scope exercises and valid `RevisedExercise` resubmissions** — writes a revision-aware
-> title (`"{exercise_title} v{revision}"`) and a denormalized `revision_number` property back onto
-> the node for cheap reads. It returns early (`NOT_ASSIGNED`) for `PERSONAL` / `ASSESSMENT`
-> exercises, which therefore keep only the `FULFILLS_EXERCISE {revision}` edge and no node mirror.
-> The frozen model class never declares the field either way.
+> The same statement stamps the snapshot `turn_in_revision` onto the node beside the exercise
+> snapshot, so the version outlives the exercise (Submit & Share arc R12), and titles an untitled
+> turn-in `"{root exercise title} v{revision}"` — a title the student typed is kept (the PR 7
+> ruling: the title is the student's; every surface prints "`<exercise> · v<N>`" beside it from the
+> snapshot, `ui/learning_loop/turn_in_label.py`). **Post-create**,
+> `UserEntryExerciseLinker.process_exercise_submission()` (fired via the `UserEntryCreated` event
+> → `exercise_handler`) only validates scope and group membership and writes nothing; it returns
+> early (`NOT_ASSIGNED`) for `PERSONAL` / `ASSESSMENT` / `CURRICULUM` exercises. There is no
+> `revision_number` node property on a UserEntry.
 
 **SubmissionModality vs Pipeline:** `SubmissionModality` records *how* the submission was
 created (file upload vs structured form). `Pipeline` records *what* happens to it.
@@ -676,7 +678,7 @@ request" — the enum is the one source of that label; the entity name stays
 - `GET /revised-exercises/detail?uid=` — detail page with `render_revised_exercise_detail()` (feedback points, instructions, submit link)
 
 Routes in `adapters/inbound/revised_exercises_ui.py`. Renderer in `ui/learning_loop/revised_exercise.py`.
-The detail page links to `/submissions/exercise?exercise_uid={re_uid}` — triggering the two-path Cypher for
+The detail page links to `/submissions/submit?exercise_uid={re_uid}` — triggering the two-path Cypher for
 `FULFILLS_REVISED_EXERCISE`. The EntryReport detail at `/entry-reports/detail?uid=` shows
 a "View Revision" link when a `RevisedExercise` exists for that report (via `get_by_report_uid()`).
 
@@ -775,7 +777,7 @@ RelationshipName.REVISES_EXERCISE        # RevisedExercise → Exercise
 | **PS embedded forms (HTMX)** | `/learning-loop/ps/{ps_uid}/forms` | GET | Student |
 | **PS embedded form submit (HTMX)** | `/learning-loop/ps/{ps_uid}/forms/{template_uid}/submit` | POST | Student |
 | **Student assignments** | `/exercises` | GET | Student |
-| **Submission (turn-in form)** | `/submissions/exercise`, `/submit` | GET | Student |
+| **Submission (the Submit page)** | `/submissions/submit` | GET | Student |
 | **Submission (turn-in API)** | `/api/user-entries/upload` | POST | Student — the exercise turn-in door; `create_entry()` is the one convergence point (ADR-054) |
 | **Submission (API)** | `/api/user-entries` (list GET / create POST), `/api/user-entries/get?uid=`, `/api/user-entries/form`, `/api/user-entries/process`, `/api/user-entries/delete` | GET/POST | Student (owner) |
 | **Submission detail** | `/gradebook/{uid}` | GET | Student (owner) — exercise + reports render on the page |
@@ -840,9 +842,11 @@ RelationshipName.REVISES_EXERCISE        # RevisedExercise → Exercise
        ↓
 4. FULFILLS_EXERCISE relationship created (always → root Exercise)
    FULFILLS_REVISED_EXERCISE also created when submitting against a RevisedExercise
-   revision stamped on the FULFILLS_EXERCISE edge; UserEntryExerciseLinker
-   (UserEntryCreated → exercise_handler) then mirrors revision_number + a
-   revision-aware title onto the node — ASSIGNED / RevisedExercise submissions only
+   revision stamped on the FULFILLS_EXERCISE edge and, as the snapshot
+   turn_in_revision, on the node; an untitled turn-in is titled
+   "<root title> v<N>" in the same statement, a typed title is kept.
+   UserEntryExerciseLinker (UserEntryCreated → exercise_handler) then only
+   validates scope / group membership — it writes nothing
        ↓
 5. TeacherReviewService.get_review_queue()          → core/services/report/teacher_review_service.py
    Teacher sees pending user entries (their students' submitted+active

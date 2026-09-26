@@ -1,6 +1,6 @@
 ---
 title: UI Component Patterns
-updated: '2026-09-21'
+updated: '2026-09-26'
 category: patterns
 related_skills:
   - accessibility-guide
@@ -130,7 +130,7 @@ Every sidebar section (Tasks+, Library, Submissions, Teaching, Explore, Admin, F
 from ui.patterns.sidebar import SidebarItem, SidebarPage
 
 items = [
-    SidebarItem("Submit", "/submit", "submit", icon="upload"),
+    SidebarItem("Submit", "/submissions/submit", "submit", icon="send"),
     SidebarItem("History", "/submissions/history", "history", icon="clock"),
     SidebarItem("GradeBook", "/gradebook", "gradebook", icon="clipboard-check"),
 ]
@@ -843,10 +843,10 @@ Action links (Submit, View Report, Download, View all) must use `ButtonLink()` �
 
 ```python
 # BAD: Ad-hoc styled text link for a CTA
-A("Submit →", href="/submit", cls="text-xs text-primary hover:underline")
+A("Submit →", href="/submissions/submit", cls="text-xs text-primary hover:underline")
 
 # GOOD: ButtonLink with semantic style (cls=) + geometry (size=)
-ButtonLink("Submit →", href="/submit", cls=ButtonT.primary, size="sm")
+ButtonLink("Submit →", href="/submissions/submit", cls=ButtonT.primary, size="sm")
 ```
 
 **ButtonLink style/size convention:**

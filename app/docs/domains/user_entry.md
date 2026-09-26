@@ -1,7 +1,7 @@
 ---
 title: UserEntry Domain
 created: 2026-09-01
-updated: 2026-09-25
+updated: 2026-09-26
 status: current
 category: domains
 tags: [user-entry, learning-loop, domain]
@@ -110,12 +110,28 @@ Inherits identity, content, status, sharing, meta and embedding fields from
 | `fulfills_exercise_uid` | `str?` | Declared exercise **intent** — see below |
 | `turn_in_exercise_uid` | `str?` | The **turn-in snapshot**: the root exercise's uid, stamped by the writer — see below |
 | `turn_in_exercise_title` | `str?` | The root exercise's title as it read at submission |
+| `turn_in_revision` | `int?` | The attempt number, stamped with the snapshot — the edge revision's copy that outlives the exercise |
 
 ### `revision_number` is not a field
 
-Revision lives on the `FULFILLS_EXERCISE {revision}` **edge**, not the node. A
-second attempt against the same exercise creates a new `UserEntry` with a new
-edge carrying `revision=2`.
+The live revision is the `FULFILLS_EXERCISE {revision}` **edge**: a second
+attempt against the same exercise creates a new `UserEntry` with a new edge
+carrying `revision=2`. The writer copies the number onto the node as
+`turn_in_revision`, beside the exercise snapshot, so the version survives the
+exercise's deletion exactly as the title does; nothing writes `revision_number`
+on a UserEntry.
+
+### The title is the student's
+
+A turn-in's `title` is whatever the student typed (Submit & Share arc PR 7
+ruling). Handed in with none, the writer titles it `"<root exercise title>
+v<N>"` in the statement that stamps the snapshot; a non-turn-in with no title
+takes its upload's filename. Which exercise and which attempt a turn-in is
+comes from the snapshot, never from the title: every surface that lists or
+opens a turn-in prints "`<exercise> · v<N>`" beside the title through
+`ui/learning_loop/turn_in_label.py` (the queue, the review page, the student's
+history, `/gradebook/{uid}`, the PathStep page's list, the recipient card, the
+`/exchange` thread's "rev N").
 
 ### Intent vs. turn-in
 
@@ -183,7 +199,7 @@ through `UnifiedSharingService`:
   `SHARES_WITH`); a feedback target on any other pipeline writes no link.
 
 Audience is always **declared at submit time**, in the one vocabulary (`AudienceSpec`,
-`core/models/user_entry/audience.py` — ADR-088): the `/submit` form's `audience` field, the JSON
+`core/models/user_entry/audience.py` — ADR-088): the Submit page's (`/submissions/submit`) `audience` field, the JSON
 body's `audience`, and the vault's `audience:` all parse through it. There is no implicit
 student→teacher sharing inferred from a `FULFILLS_EXERCISE` traversal plus a role check.
 
@@ -215,7 +231,7 @@ opt-in dataclass, not a `BaseEvent` member, and none of these four carry one.)
 
 | Event | Trigger |
 |-------|---------|
-| `UserEntryCreated` | Entry persisted |
+| `UserEntryCreated` | Entry persisted; `submitted_group_uids` (the created `SUBMITTED_TO_GROUP` subset) rings the owning teachers' `submission_for_review` bell — a re-filed request rings nobody |
 | `UserEntryProcessingStarted` | Pipeline dispatch begins |
 | `UserEntryProcessingCompleted` | Pipeline finished |
 | `UserEntryProcessingFailed` | Pipeline raised |
@@ -230,7 +246,7 @@ The vault is the source of truth for user data. Two doors reach
 
 | Door | Path |
 |------|------|
-| The exercise upload form | `/submissions/exercise` is the canonical page (`/submit` is a legacy 302 onto it, preserving query params). Its form HTMX-posts multipart to `POST /api/user-entries/upload`; the handler in `adapters/inbound/user_entry_api.py` builds the request and calls `create_entry()` **directly** |
+| The Submit page | `/submissions/submit` (the one route; `?exercise_uid=` names the exercise the turn-in answers). Its two-question form (feedback? / share with) HTMX-posts multipart to `POST /api/user-entries/upload`; the handler in `adapters/inbound/user_entry_api.py` builds the request and calls `create_entry()` **directly** |
 | Vault / YAML sync | `UnifiedIngestionService` → `ingest_user_entry()` in `core/services/ingestion/user_entry_ingestion.py` (ADR-054) → `create_entry()` |
 
 Neither uses the directory-ingest door that serves content-vault curriculum.
@@ -245,7 +261,7 @@ model, imported by every consumer.
 ## Routes
 
 **UI** (`adapters/inbound/user_entry_ui.py`): `/submissions`,
-`/submissions/exercise`, `/submit`, `/submissions/journal`,
+`/submissions/submit`, `/submissions/journal`,
 `/submissions/history` (+ `/submissions/history/list`, `POST /submissions/history/delete`),
 `/submissions/knowledge`, `/submit/journals/{uid}/download`, `/gradebook`
 (+ `/gradebook/lines`, `/gradebook/{uid}`), and `POST /api/entry-reports/respond`.

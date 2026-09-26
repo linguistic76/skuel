@@ -279,3 +279,19 @@ class TestCandidates:
         result = await _service(sharing, entry=None).candidates(ENTRY, "user_other")
         assert result.is_error
         assert result.expect_error().category.value == "not_found"
+
+    @pytest.mark.asyncio
+    async def test_targets_is_the_entry_independent_half_the_submit_page_reads(self):
+        sharing = _sharing()
+        service = _service(sharing, entry=None)  # no entry read — no owner check
+
+        result = await service.targets(OWNER)
+
+        assert result.is_ok, result.error
+        assert result.value == {
+            "groups": [{"uid": "g_1", "name": "Physics"}],
+            "people": [{"uid": "user_a", "username": "alice", "display_name": "Alice"}],
+        }
+        cast("AsyncMock", service.entries.get_entry).assert_not_awaited()
+        sharing.get_shared_by_me.assert_not_awaited()
+        sharing.get_feedback_request_group_uids.assert_not_awaited()

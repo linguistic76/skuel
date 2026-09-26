@@ -343,7 +343,7 @@ that never closes the loop.
 | `core/ports/group_protocols.py` | support | `GroupOperations` only (group CRUD + membership) |
 | `core/services/sharing/unified_sharing_service.py` | 3 | Entity-agnostic sharing |
 | `adapters/persistence/neo4j/backends/` | all | Domain-specific Cypher (9 cluster files) |
-| `adapters/inbound/user_entry_ui.py` | 2+3+4 | Student submit form (`/submissions/exercise`), gradebook detail (`/gradebook/{uid}`), feedback display |
+| `adapters/inbound/user_entry_ui.py` | 2+3+4 | The Submit page (`/submissions/submit`), gradebook detail (`/gradebook/{uid}`), feedback display |
 | `adapters/inbound/user_entry_api.py` | 2+3 | UserEntry API (`POST /api/user-entries/upload` file-upload door) |
 | `adapters/inbound/teaching_ui.py` | 4 | Students (default page), review queue (`/teaching/queue`), student detail with KU tab, groups |
 | `adapters/inbound/teaching_forms_ui.py` | — | Forms visibility: template list, per-template submissions, submission detail (teacher role) |

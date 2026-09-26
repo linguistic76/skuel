@@ -1,7 +1,7 @@
 """
 UserEntry ingestion helper — bridges YAML files into ``UserEntryService``.
 
-The vault and ``/submit`` are two doors on the same UserEntry creation
+The vault and ``/submissions/submit`` are two doors on the same UserEntry creation
 pipeline. This module is the vault's: it parses the per-file frontmatter
 (pipeline, status, privacy, and ``audience:`` in the one vocabulary —
 ``AudienceSpec``), builds a ``UserEntryCreateRequest``, and delegates to

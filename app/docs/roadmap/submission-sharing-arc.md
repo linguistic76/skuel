@@ -204,7 +204,7 @@ pass confirmed or corrected.
    uid (all three wrong). `entity_detail_href` (`entity_links.py:24-43`) already maps all three
    source types to the right pages.
 5. **The web can't send to a teacher without an exercise, and `teachers` means different things
-   on the two doors.** The `/submit` form disables Teacher without an exercise
+   on the two doors.** The /submit form (now `/submissions/submit`, PR 7) disables Teacher without an exercise
    (`ui/user_entry/forms.py:98,162`) and never emits `group:`. Web `teachers` = the exercise's
    groups ∩ my memberships, plus the curriculum default-group fallback (`user_entry_api.py:185-186`).
    Without an exercise it fails validation on `teacher_review` (`audience_resolver.py:121-133`) and
@@ -1315,21 +1315,30 @@ it first removes both.
     "coming soon" row.
 - **Teacher** works without an exercise (`teachers` → all my teachers; the form lists
   `teacher:<group>` when I'm in several groups).
-- **Ruling for Mike (added after PR 4b): does a turn-in keep the title the student typed?** The
-  `UserEntryCreated` linker (`core/services/user_entry/exercise_linker.py`) overwrites every
-  turn-in's title with the root exercise's snapshot title plus a revision suffix ("The Gentle
-  Return v3") and stores `revision_number` on the node — the form's own title field is discarded.
-  Every exchange reader keys on `turn_in_exercise_uid` / `turn_in_exercise_title` (PR 4a), so
-  the entry title identifies nothing; the revision number lives on the `FULFILLS_EXERCISE` edge
-  and the `revision_number` property. Decide before the form is rebuilt:
-  (a) keep the retitle (the form's title field is then cosmetic — drop it or label it as ignored),
-  or (b) drop the retitle and keep the student's words, keeping the `revision_number` write.
-  Census for (b) — the surfaces that print `entry.title` for a turn-in and would show an untitled
-  upload's filename: `/submissions/history` (`_user_entry_content_mixin.py`, `get_history`), the
-  queue rows and their dashboard twin (`_user_entry_assessment_mixin.py`, `entry.title AS
-  title`), the student hub (`get_student_submissions`), the review page header, the GradeBook
-  detail `/gradebook/{uid}`, and the `/exchange` thread entries. Either way the `.md` download
-  name and the vault copy's filename are unaffected (they derive from the uid).
+- **Ruled by Mike (PR 7 session, 2026-09-26): the title is the student's; the version is the
+  edge's.** The question was "does a turn-in keep the title the student typed?" — (a) keep the
+  linker's retitle ("The Gentle Return v3") or (b) keep the student's words. The census changed it:
+  the web form had no title field, the upload door defaulted the title to the filename, and the
+  linker retitled only ASSIGNED-exercise and revision turn-ins — a curriculum turn-in kept its
+  filename (the two live Gentle Return entries read "small_steps_design.md" /
+  "gentle_return_response.md" beside the revision's "The Gentle Return v3"). Mike's reading: the
+  student names the work, and the teacher's strict version and direct line to the original exercise
+  are the `FULFILLS_EXERCISE {revision}` edge and the turn-in snapshot — which every exchange reader
+  already keys on — not the title. So: the form gains a Title field; the writer
+  (`create_with_exercise_link`) stamps the snapshot `turn_in_revision` beside the exercise snapshot
+  (the version outlives the exercise, R12) and titles an **untitled** turn-in "<root title> v<N>"
+  in the same statement — a typed title is kept verbatim; the linker keeps its scope + membership
+  validation and writes nothing (its retitle and its `revision_number` node write are deleted — the
+  ADR-054 migration had moved that property onto the edge, `test_collapse_to_user_entry.py`; the
+  dead `UserEntry.generate_exercise_title` went with it); every surface that prints a turn-in
+  prints "`<exercise> · v<N>`" beside the title from the snapshot through one renderer
+  (`ui/learning_loop/turn_in_label.py`): the queue rows and the student hub rows, the review
+  page header, `/submissions/history` (which printed the filename first), `/gradebook/{uid}`, the
+  PathStep page's list, the recipient card; the `/exchange` thread already carried "rev N". The
+  `.md` download name and the vault copy's filename derive from the uid, unaffected. Existing
+  turn-ins get `turn_in_revision` by backfill (`backfill_turn_in_revision_2026_09.py`, census /
+  `--confirm`: the edge revision, else the stray node property, else the attempt's ordinal by
+  `created_at` within its exchange; the stray `revision_number` is removed in the same write).
 - **AI** is offered only with an exercise: it's graded against the exercise. After submitting, the
   entry page shows the existing gated "Request AI feedback" button (stated honestly on the form).
   Why two steps (kept at PR 0 review, where Codex proposed that submit summon the reviewer): the
@@ -1367,17 +1376,83 @@ it first removes both.
   - bump the golden count (`test_compose_execution.py:178`).
 - **Rename:**
   - "Submit" becomes the header, the sidebar row (`ui/workbench/nav.py:20`) and the MOC card.
-  - The one route is `/submissions/submit`; `/submissions/exercise` and today's legacy `/submit` <!-- planned -->
+  - The one route is `/submissions/submit`; /submissions/exercise and today's legacy /submit
     302 are **deleted, not redirected** (One Path Forward — changed at PR 0 review from the plan's
     redirects: nothing outside the app links to them — no download, service-worker or manifest
     reference). Every caller is updated in this PR.
-  - Update every `/submissions/exercise` reference. Verified at PR 0: `git grep` finds 24 lines — 1
+  - Update every /submissions/exercise reference. Verified at PR 0: `git grep` finds 24 lines — 1
     false match (ADR-054:53, a model path) and 2 `done/` archives, so ≈21 live sites: user_entry.md:205,220,
     REPORT_ARCHITECTURE:393, CORE_SYSTEMS:42, UNIFIED_INGESTION_GUIDE:530, ROUTE_MAP:122 (missing from
     the plan's list), the learning-loop and skuel-ui skills, `exchange_thread.py:7`, `user_entry_ui.py`,
     CLAUDE.md's door line.
   - Update the Alpine registry docs + the `scripts/smoke_test.py:131` constructor fixture.
 - New form tests (none exist).
+- **Ruled (PR 7 session, 2026-09-26 — engineering choices the census found unsettled; the title
+  ruling above is Mike's; none touches a ruling):**
+  - **The version is a snapshot on the node, `turn_in_revision`,** stamped by the turn-in writer in
+    the statement that stamps the exercise snapshot — the edge revision's copy, so it outlives the
+    exercise (R12) and every surface (the history list reads models, not edges) prints it from the
+    node; the edge readers `coalesce(r.revision, e.turn_in_revision)`. The linker's
+    `revision_number` node write is deleted rather than kept: nothing read it, and ADR-054's
+    migration had moved that property onto the edge (`test_collapse_to_user_entry.py` asserts it
+    is off the node). The dead `UserEntry.generate_exercise_title` went with it.
+  - **One title rule, in `create_entry`:** the request's `title` is optional; a turn-in with none
+    goes to the writer empty (the writer titles it from the snapshot), anything else takes the
+    upload's filename, then "Untitled". The upload door and the JSON form door send the student's
+    words or nothing — neither defaults a title itself.
+  - **The label is one renderer** (`ui/learning_loop/turn_in_label.py`: `turn_in_label`,
+    `TurnInNote`, `TurnInBadge` — "<exercise> · v<N>", the exercise alone when the row predates
+    the stamp). The queue card's "for …", the review header's "Exercise: …", the inline student
+    rows, the history row (which led with the filename and now leads with the title), the
+    `/gradebook/{uid}` "Fulfills exercise" badge, the PathStep list's note and the recipient
+    card's badge all print it; the `/exchange` thread keeps its "Submission (rev N)" kind.
+  - **The Share panel's candidates read is split, not copied:** `EntrySharingService.targets(owner)`
+    is the entry-independent half (active student + owned groups, R8 co-members); `candidates`
+    composes it and adds the entry's current audience and reviewer groups. The Submit page's
+    "Share with" reads `targets` and renders the panel's own `AudienceCheckbox` rows.
+  - **The form's data flow:** the `submit` Alpine component (`submit(feedback, aiDisabled)`)
+    derives `pipeline` (teacher → `teacher_review`, AI → `llm_summary`, No → `none`) and the
+    feedback value (`teachers`, or `teacher:<group_uid>` from the "Which class?" select, offered
+    only without an exercise and with more than one class) into bound hidden fields — the audience
+    field is disabled when no teacher is asked, so it is absent, never empty; the share checkboxes
+    post their own `audience` values; `private` is never emitted (exclusive). The destination
+    dropdown, its document listeners and the `portfolio` argument are gone; Portfolio is a
+    server-rendered disabled checkbox.
+  - **The Submit page's exercise read is audience-scoped** (Codex P1 ×2 on #1425):
+    `?exercise_uid=` resolves through `UserEntryOrchestrator.get_submit_target` — the Exercise's
+    SCOPE_AWARE read (ADR-085), else the RevisedExercise for the student it names or its owner
+    (the "Submit Revision" links carry a revision uid), named by its root exercise's title (the
+    writer's default title; the revision's own once the root is gone) — so a stranger's PERSONAL
+    exercise or revision is the rendered not-found at 404 before its title reaches the page or
+    the Title field's hint; the upload door's own refusal stays the write-side gate.
+  - **A whitespace-only title is no title** (Codex P2 on #1425): `create_entry` strips before the
+    default, so every door behaves like the upload door.
+  - **Every "Submit →" link is `submit_page_href()`** (`ui/user_entry/forms.py`, percent-encoded)
+    — the one spelling of the route; `SUBMIT_PAGE_PATH` for a bare link.
+  - **The route strings have no stale_names row** (the two deleted handler names do): `/submit`
+    prefixes five live routes and `/submissions/exercise` sits inside ADR-054's historical model
+    path, so both over-match as keys; route_claims reports a bare claim on either as fiction.
+  - **The teacher bell's recipients are one set:** `unique_recipients` folds
+    `get_owner_uids_batch`'s undeduplicated owners across every submitted group, drops the
+    submitter, keeps first-seen order; a failed owner read or a failed write is logged, never
+    raised, and the other teacher is still rung.
+  - Live 2026-09-26 (Mike's OK; branch app on :8001; read-only census first: 3615 nodes / 3106
+    edges, `SUBMITTED_TO_GROUP` 2, `SHARES_WITH` on UserEntries 0, `SHARED_WITH_GROUP` 0, four
+    turn-ins without `turn_in_revision`, no stray `revision_number`). The backfill's `--confirm`
+    stamped the 4 (v2, v1, v2, v1 — all from their live edge; after-census 0 unstamped, 0 stray).
+    Then one write, never re-run: the web upload door as linguistic76 with the form's own field
+    shape — `pipeline=teacher_review`, `audience=teachers`, a title, one `.md`, **no exercise** —
+    wrote `ue_6f8ef02d` (+1 node, its `OWNS`, its `SUBMITTED_TO_GROUP` to the Default Group;
+    outcome `newly_submitted_groups: [group_default_user_admin]`; no snapshot, no Interaction)
+    and rang exactly one `submission_for_review` bell, for the group's owner `user_admin`
+    ("'PR 7 placeholder — teacher without an exercise' was submitted for your feedback."). As
+    mfan0110, `/notifications` carried the bell linking to `/teaching/review/ue_6f8ef02d`, and
+    that page (and its content fragment) answered 200 naming the entry, with no exercise label.
+    Headless Chrome at 375px and 1280px on `/submissions/submit` (with and without an exercise)
+    and `/submissions/history`: no horizontal overflow; the standing smoke passed over 7 pages
+    (`/teaching/queue` left out — linguistic76 is not a teacher). Deleted afterwards by uid (the
+    entry and its bell: 2 nodes, 3 edges; no Interaction or Insight named it); the two scripted
+    logins left their `Session` + `AuthEvent` pairs (3619 nodes / 3110 edges after).
 
 ### PR 8 — Every vault note submits the same way (R9)
 
@@ -1475,7 +1550,7 @@ it first removes both.
 - **Branch and checks:** a fresh branch from the updated `main` (`git pull --ff-only` first). Run
   `./dev format` + `./dev quality` (0 mypy errors) + targeted unit tests + real-Neo4j integration tests.
 - **Smoke:** `scripts/authed_smoke.py` over `/gradebook`, `/profile/shared`, `/groups`,
-  `/notifications`, `/submissions/submit` (from PR 7 on), `/teaching/queue`, `/exchange`. <!-- planned -->
+  `/notifications`, `/submissions/submit` (from PR 7 on), `/teaching/queue`, `/exchange`.
 - **UI PRs:** rebuild Tailwind, then headless Chrome at 375px and at desktop width.
 - **Migrations:** census by default, `--confirm` to write, before/after counts, never widen. One
   order for every migrating PR — **stop the running app → census, then `--confirm` with Mike's OK →
@@ -1556,7 +1631,7 @@ requires PR 1, PR 3, PR 5 and PR 6a. PR 6c requires PR 4a, PR 5 and PR 6b. PR 7 
 | 6a | `AudienceSpec` + resolver; R8 co-membership; journal privacy; `group:` never files a feedback request; vault `user:` / `teacher:` parsed but applied only from PR 8 | The vault parser accepts `audience: [teachers, user:<name>]` (unit matrix). A JSON-door `user:` share to a co-member (user_admin, or a member of a non-default group) succeeds; a Default-Group-only member gets the uniform error | merged #1422, 2026-09-25 |
 | 6b | Share / Stop sharing routes; candidates; the two-sided Shared page; R3 cleanup; person-share bell; the two access-list methods deleted (DELETED rows added); `shares_granted` rewired | Share with a co-member (as in 6a) → the recipient's *Shared with you* + bell. Your wall lists it, and Stop sharing removes it. Feedback is gone from the Shared page | merged #1423, 2026-09-25 |
 | 6c | Derived "reviewed" badges; the GradeBook nudge | A revised shared entry carries "Revised after feedback". The GradeBook nudge appears on it | merged #1424, 2026-09-25 |
-| 7 | The two-question Submit form; teacher without an exercise; teacher bell; the zero-reach rule moves into `create_entry`; the "Submit" rename | The web Teacher option works without an exercise. The teacher's bell links to `/teaching/review/{uid}` | open |
+| 7 | The two-question Submit form; teacher without an exercise; teacher bell; the zero-reach rule moves into `create_entry`; the "Submit" rename; the title ruling (the title is the student's, the version is the edge's) | The web Teacher option works without an exercise. The teacher's bell links to `/teaching/review/{uid}` | merged #1425, 2026-09-26 |
 | 8 | Vault notes are drafts; one frozen copy per `status: submitted`; provenance + dedup; closes the re-sync case file | A vault note with `status: submitted` files one copy; an idle re-sync files nothing | open |
 
 ## Verification (arc close)

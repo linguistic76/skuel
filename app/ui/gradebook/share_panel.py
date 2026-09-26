@@ -105,10 +105,13 @@ def ShareButton(entry_uid: str, *, open: bool = False, preselect: str | None = N
     )
 
 
-def _candidate_row(
+def AudienceCheckbox(
     value: str, label: str, *, shared: bool, preselected: bool = False, hint: str | None = None
 ) -> Div:
-    """One checkbox row; an already-shared target is checked and disabled, a preselected one checked."""
+    """One ``audience`` checkbox row in the vocabulary — the Share panel's and the Submit page's.
+
+    An already-shared target is checked and disabled; a preselected one checked.
+    """
     checkbox_id = f"share-{value.replace(':', '-')}"
     attrs: dict[str, object] = {
         "type": "checkbox",
@@ -182,7 +185,7 @@ def SharePanelForm(
         set(candidates["reviewer_group_uids"]) if preselect == PRESELECT_REVIEWERS else set()
     )
     group_rows = [
-        _candidate_row(
+        AudienceCheckbox(
             f"{GROUP_PREFIX}{g['uid']}",
             g["name"],
             shared=g["uid"] in shared_groups,
@@ -191,7 +194,7 @@ def SharePanelForm(
         for g in candidates["groups"]
     ]
     people_rows = [
-        _candidate_row(
+        AudienceCheckbox(
             f"{USER_PREFIX}{p['username']}",
             p["display_name"] or p["username"] or p["uid"],
             shared=p["uid"] in shared_users,
@@ -231,6 +234,7 @@ __all__ = [
     "PRESELECT_REVIEWERS",
     "SHARE_PANEL_BODY_ID",
     "WALL_URL",
+    "AudienceCheckbox",
     "ShareButton",
     "SharePanelForm",
     "SharePanelOutcome",

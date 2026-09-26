@@ -2,7 +2,7 @@
 AudienceResolver — the one audience applier (ADR-088).
 
 Every door that creates a ``UserEntry`` — ``UserEntryService.create_entry()``
-for the ``/submit`` form and the JSON API, and the vault door through it —
+for the ``/submissions/submit`` form and the JSON API, and the vault door through it —
 hands the request's ``AudienceSpec`` (``core/models/user_entry/audience.py``,
 the one parser) to this resolver, which turns the vocabulary into the two link
 kinds (ADR-088 §1-§2): a feedback request (``SUBMITTED_TO_GROUP`` —

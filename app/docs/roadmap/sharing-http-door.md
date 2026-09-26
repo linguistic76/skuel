@@ -1,6 +1,6 @@
 ---
 title: "Sharing HTTP Door — Operations on Existing Shares"
-updated: 2026-09-25
+updated: 2026-09-26
 status: "staged — the revoke half shipped 2026-09-25 (Submit & Share arc PR 6b: Share + Stop sharing on a UserEntry, Your wall as the access list); set_visibility alone stays PLANNED, waiting on the PUBLIC reader"
 registered: 2026-09-21
 ruled: 2026-09-21
@@ -25,8 +25,8 @@ check: "grep -rn 'set_visibility' adapters/inbound ui core/services --include='*
 
 `UnifiedSharingService` (`core/services/sharing/unified_sharing_service.py`) has two halves.
 The **write half is live**: audience-at-submit ([ADR-054](../decisions/ADR-054-user-entry-unified-submissions.md)
-— `AudienceResolver.resolve_and_share` → `share` / `share_with_group`, fed by the `/submit`
-form's audience selector, the JSON door and a vault note's `audience:`), the Share door
+— `AudienceResolver.resolve_and_share` → `share` / `share_with_group`, fed by the Submit page's
+(`/submissions/submit`) audience selector, the JSON door and a vault note's `audience:`), the Share door
 (`EntrySharingService.share`, the same checks and writers on an entry the owner already has),
 the post-submit `POST /api/form-submissions/share`, and the ADR-040 auto-shares
 (`ExerciseService` → `share_with_group`). The **reads that render what those wrote are live**:
@@ -80,7 +80,7 @@ share values only (`group:<uid>` / `user:<username>`); a feedback request stays 
 What the graph does with the property:
 
 - **Written at creation only.** `UserEntryService.create_entry` stores
-  `request.visibility or PRIVATE`; the `/submit` form's `audience=public` and the vault door's
+  `request.visibility or PRIVATE`; the Submit page's (`/submissions/submit`) `audience=public` and the vault door's
   `audience: public` both map to `PUBLIC`, TEACHER-gated at both doors. A vault re-sync
   refreshes every property (the living-entry `upsert`), so a note that narrows
   `audience: public` → `private` **does** return to `PRIVATE` on the property — while its
@@ -92,7 +92,7 @@ What the graph does with the property:
   ([ADR-085](../decisions/ADR-085-ownership-read-enforcement-contract.md)'s chokepoint) admits
   by `:OWNS`, `:SHARES_WITH` and `MEMBER_OF ← SHARED_WITH_GROUP`; it never tests the property.
   So the edge decides every share, and `PUBLIC` reaches no listing and no search.
-- **The UI already stages the public rung as "Coming soon".** The `/submit` form's Portfolio
+- **The UI already stages the public rung as "Coming soon".** The Submit page's (`/submissions/submit`) Portfolio
   destination renders disabled (`portfolio_mode="coming_soon"`; no caller passes `active`), so
   `audience=public` at the API is reachable only by a hand-built POST or the vault door.
 
@@ -107,5 +107,5 @@ and carries no TEACHER gate — the door must add the one the creation doors app
 ## Named cost
 
 Until the PUBLIC reader exists, `visibility = 'public'` is a value nothing honours: an owner can
-share and stop sharing (PR 6b), but cannot publish a portfolio, and the `/submit` form's
-Portfolio destination stays "Coming soon".
+share and stop sharing (PR 6b), but cannot publish a portfolio, and the Submit page's
+(`/submissions/submit`) Portfolio destination stays "Coming soon".

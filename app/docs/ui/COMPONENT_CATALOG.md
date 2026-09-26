@@ -1,5 +1,5 @@
 ---
-updated: 2026-09-19
+updated: 2026-09-26
 ---
 
 # SKUEL UI Component Catalog
@@ -152,7 +152,7 @@ from ui.components import ButtonT
 from ui.primitives import ButtonLink
 
 # Primary action CTA
-ButtonLink("Submit →", href="/submit?exercise_uid=123", cls=ButtonT.primary, size="sm")
+ButtonLink("Submit →", href="/submissions/submit?exercise_uid=123", cls=ButtonT.primary, size="sm")
 
 # View/navigate action
 ButtonLink("View Report →", href="/reports/456", cls=ButtonT.ghost, size="sm")

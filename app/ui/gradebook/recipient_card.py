@@ -23,6 +23,7 @@ from ui.components import ButtonT, Card, CardBody, CardHeader, CardTitle
 from ui.feedback import Badge, BadgeT
 from ui.gradebook.review_badges import review_badges
 from ui.layout import Size
+from ui.learning_loop.turn_in_label import TurnInBadge
 from ui.patterns.page_header import PageHeader
 from ui.patterns.relative_time import format_relative_time
 from ui.primitives import ButtonLink
@@ -67,6 +68,7 @@ def RecipientEntryCard(
                 Div(
                     CardTitle("Shared entry"),
                     Div(
+                        TurnInBadge(entry.turn_in_exercise_title, entry.turn_in_revision),
                         *review_badges(standing),
                         Badge(SHARED_WITH_YOU_LABEL, variant=BadgeT.outline, size=Size.sm),
                         cls="flex flex-wrap items-center justify-end gap-1",

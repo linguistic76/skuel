@@ -15,7 +15,14 @@ from core.models.type_hints import UserUID
 
 @dataclass(frozen=True)
 class UserEntryCreated(BaseEvent):
-    """Published when a new UserEntry is persisted."""
+    """Published when a new UserEntry is persisted.
+
+    ``submitted_group_uids`` are the groups whose ``SUBMITTED_TO_GROUP`` this
+    creation wrote (the created subset, never a re-filed request) — the
+    teacher's bell rings once per owning teacher of those groups (Submit &
+    Share arc R10), so a re-sync that finds the request standing rings
+    nobody. ``title`` is the entry's title for the bell's message.
+    """
 
     entity_uid: str
     user_uid: UserUID
@@ -24,6 +31,8 @@ class UserEntryCreated(BaseEvent):
     fulfills_exercise_uid: str | None = None
     transforms_of_uid: str | None = None
     file_type: str | None = None
+    title: str | None = None
+    submitted_group_uids: tuple[str, ...] = ()
 
     event_type: ClassVar[str] = "user_entry.created"
 

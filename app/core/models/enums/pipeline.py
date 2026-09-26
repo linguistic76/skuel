@@ -83,7 +83,7 @@ class Pipeline(StrEnum):
         `REFERENCE` (the reserved per-user exemplar layer, ADR-073 §4). Enforced
         pre-persist in `AudienceResolver.validate` at every door (a `group:`,
         `user:` or `public` audience on such an entry is refused); the
-        `/submit` form hides the audience picker when this returns `False`.
+        Submit page (`/submissions/submit`) offers no share target when this returns `False`.
 
         See: ADR-054 §5 (Journal input → output, preserved).
         """

@@ -12,6 +12,7 @@ All dependencies are required — bootstrap raises if any are missing
 
 from __future__ import annotations
 
+from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any, TypedDict
 
 from core.models.enums.entity_enums import EntityStatus
@@ -54,6 +55,15 @@ class EntryReportView(TypedDict):
 
     report: EntryReport
     revised_exercise: RevisedExercise | None
+
+
+@dataclass(frozen=True)
+class SubmitTarget:
+    """What the Submit page names: the exercise (or revision) a turn-in will answer."""
+
+    uid: str
+    title: str
+    is_revision: bool
 
 
 class UserEntryOrchestrator:
@@ -156,8 +166,37 @@ class UserEntryOrchestrator:
     # ------------------------------------------------------------------
 
     async def get_student_exercises(self, user_uid: UserUID) -> Result[list[Exercise]]:
-        """Get assigned exercises for dropdowns in the submit form."""
+        """The exercises assigned to a student."""
         return await self._exercises.get_student_exercises(user_uid)
+
+    async def get_submit_target(self, uid: str, user_uid: UserUID) -> Result[SubmitTarget]:
+        """What the Submit page names for ``?exercise_uid=``: the exercise, or the revision, the caller may answer.
+
+        An Exercise resolves through its audience-scoped read (ADR-085); a
+        RevisedExercise is admitted for the student it names and for its owner,
+        and is named by its ROOT exercise's title — the title the turn-in writer
+        defaults to — falling back to the revision's own once the root is gone.
+        Anything else, and anything the caller may not use, is one not-found, so
+        a stranger's PERSONAL exercise or revision discloses nothing by its uid.
+        """
+        exercise = await self._exercises.get_exercise_for_user(uid, user_uid)
+        if exercise.is_ok:
+            return Result.ok(SubmitTarget(uid=uid, title=exercise.value.title, is_revision=False))
+        if exercise.expect_error().category is not ErrorCategory.NOT_FOUND:
+            return Result.fail(exercise)
+
+        revision = await self._revised_exercise.get(uid)
+        if revision.is_error:
+            return Result.fail(revision)
+        rev = revision.value
+        if rev is None or user_uid not in (rev.student_uid, rev.user_uid):
+            return Result.fail(Errors.not_found(resource="Exercise", identifier=uid))
+        title = rev.title
+        if rev.original_exercise_uid:
+            root = await self._exercises.get_exercise_for_user(rev.original_exercise_uid, user_uid)
+            if root.is_ok:
+                title = root.value.title
+        return Result.ok(SubmitTarget(uid=uid, title=title, is_revision=True))
 
     async def list_user_exercises(self, user_uid: UserUID) -> Result[list[Exercise]]:
         """List saved instruction-template exercises owned by the user."""

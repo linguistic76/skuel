@@ -29,6 +29,7 @@ from ui.gradebook.share_panel import PRESELECT_PARAM, PRESELECT_REVIEWERS
 from ui.layout import Size
 from ui.patterns.empty_state import EmptyState
 from ui.patterns.format_date import format_date
+from ui.user_entry.forms import SUBMIT_PAGE_PATH
 
 if TYPE_CHECKING:
     from fasthtml.common import FT
@@ -221,7 +222,7 @@ def render_exchange_section(rows: list[StudentExchangeSummary], status: str, sou
             title="No exercise exchanges yet",
             description="Submit an exercise and the feedback exchange will appear here.",
             action_text="Submit work",
-            action_href="/submit",
+            action_href=SUBMIT_PAGE_PATH,
         )
     elif not visible:
         body = P(

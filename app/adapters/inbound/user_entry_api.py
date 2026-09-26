@@ -154,7 +154,9 @@ def create_user_entry_api_routes(
 
         Form fields:
             file                   — upload (required)
-            title                  — entry title (defaults to filename)
+            title                  — entry title, the student's words (a turn-in with
+                                     none is titled '<exercise> v<N>' by the writer;
+                                     anything else defaults to the filename)
             pipeline               — Pipeline enum value (default: NONE)
             fulfills_exercise_uid  — optional exercise link
             about_path_step_uid    — optional PathStep link
@@ -207,10 +209,10 @@ def create_user_entry_api_routes(
         if audience_parsed.is_error:
             return Result.fail(audience_parsed)
 
-        title_val = form.get("title") or uploaded_file.filename or "Untitled"
+        title_val = str(form.get("title") or "").strip() or None
 
         req = UserEntryCreateRequest(
-            title=str(title_val),
+            title=title_val,
             content=content_text,
             pipeline=pipeline,
             instructions=(str(form.get("instructions")) if form.get("instructions") else None),
@@ -281,7 +283,7 @@ def create_user_entry_api_routes(
             metadata["from_ps"] = req.from_ps
 
         create_req = UserEntryCreateRequest(
-            title=req.title or "Form Submission",
+            title=req.title,
             pipeline=Pipeline.TEACHER_REVIEW,
             fulfills_exercise_uid=EntityUID(req.exercise_uid),
             # PathStep context rides onto the Interaction record

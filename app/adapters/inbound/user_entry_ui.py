@@ -7,8 +7,7 @@ The single UI route file for the unified UserEntry hub. Replaced the legacy
 
 Routes:
 - GET  /submissions                      — MOC root: links to all 5 sub-pages (no sidebar)
-- GET  /submissions/exercise             — Exercise worksheet upload form (canonical)
-- GET  /submit                           — 302 redirect → /submissions/exercise (legacy)
+- GET  /submissions/submit               — The Submit page (the upload form)
 - GET  /submissions/journal              — Journal file-upload UX (alternative to /journals)
 - GET  /submit/journals/{uid}/download   — Ownership-verified download
 - GET  /gradebook                        — GradeBook: per-exercise exchange lines + conditional report groups
@@ -36,7 +35,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
 from fasthtml.common import FT, H4, A, Div, FtResponse, P, Span
-from starlette.responses import FileResponse, RedirectResponse, Response
+from starlette.responses import FileResponse, Response
 
 from adapters.inbound.auth import require_authenticated_user
 from adapters.inbound.boundary import status_for_error, ui_boundary_handler
@@ -45,6 +44,7 @@ from adapters.inbound.fasthtml_types import Request, RouteDecorator
 from adapters.inbound.result_helpers import require_found
 from adapters.inbound.route_factories import is_not_found, refuse
 from adapters.outbound.user_entry_renderer import entry_download_filename, render_user_entry_md
+from core.models.enums import GroupMemberRole
 from core.models.enums.entity_enums import EntityStatus
 from core.models.type_hints import UserUID
 from core.models.user_entry.user_entry import EXERCISE_REMOVED_TITLE, UserEntry
@@ -67,6 +67,7 @@ from ui.gradebook.summary import (
 from ui.layout import Size
 from ui.layouts.base_page import BasePage
 from ui.learning_loop.report import render_activity_report_list, render_yours_list
+from ui.learning_loop.turn_in_label import turn_in_label
 from ui.patterns.empty_state import EmptyState
 from ui.patterns.entity_links import entity_detail_href
 from ui.patterns.error_banner import render_error_banner, render_inline_error
@@ -79,7 +80,7 @@ from ui.workbench.nav import render_submissions_sidebar_page
 
 if TYPE_CHECKING:
     from core.orchestrator.user_entry_orchestrator import UserEntryOrchestrator
-    from core.ports.query_types import OrganizerResult
+    from core.ports.query_types import OrganizerResult, ShareTargets
     from core.services.groups.group_service import GroupService
     from core.services.report.entry_report_service import EntryReportService
     from core.services.user_entry.entry_sharing_service import EntrySharingService
@@ -178,6 +179,8 @@ def _to_history_dict(entry: UserEntry) -> dict[str, Any]:
         "uid": entry.uid,
         "title": entry.title,
         "original_filename": entry.original_filename,
+        "exercise_title": entry.turn_in_exercise_title,
+        "revision": entry.turn_in_revision,
         "status": _status_value(entry),
         "feedback_count": 0,
         "created_at": entry.created_at,
@@ -206,11 +209,12 @@ def create_user_entry_ui_routes(
         user_entry_service: Primary ``UserEntryService`` (writes)
         orchestrator: ``UserEntryOrchestrator`` (reads across related services)
         entry_report_service: Used to guard delete when feedback exists
-        groups_service: ``GroupService`` used by ``/submit`` to enumerate the
-            student's own groups for the audience radio selector.
-        entry_sharing: ``EntrySharingService`` — the Share panel's candidates
+        groups_service: ``GroupService`` — the classes the student studies in,
+            for the Submit page's "Which class?" select.
+        entry_sharing: ``EntrySharingService`` — the share targets (the Submit
+            page's "Share with") and the Share panel's candidates
             (``/gradebook/{uid}/share-panel``); without it the owner's page
-            renders no Share button.
+            renders no Share button and the Submit page offers nobody.
         batch_transcription_service: Retained for API compatibility (journal upload
             routes now live in journals_routes.py).
         processing_service: Retained for API compatibility (journal upload
@@ -261,9 +265,9 @@ def create_user_entry_ui_routes(
                     "bg-emerald-50",
                 ),
                 MocCard(
-                    "Exercise",
-                    "Upload a completed exercise worksheet for teacher or AI feedback.",
-                    "/submissions/exercise",
+                    "Submit",
+                    "Send your work to a teacher or AI for feedback.",
+                    "/submissions/submit",
                     "send",
                     "bg-blue-50",
                 ),
@@ -300,62 +304,76 @@ def create_user_entry_ui_routes(
         )
 
     # =========================================================================
-    # SUBMIT — EXERCISE (canonical: /submissions/exercise; legacy: /submit)
+    # SUBMIT — the one Submit page (/submissions/submit)
     # =========================================================================
 
-    async def _exercise_page(request: Request) -> Any:
-        """Inner handler for the exercise upload form (shared by two routes)."""
+    def _submit_page_error(message: str, *, request: Request) -> FT:
+        """The Submit page with only an error banner — the rendered refusal's body."""
+        return render_submissions_sidebar_page(
+            content=render_error_banner(message), active="submit", request=request
+        )
+
+    @rt("/submissions/submit")
+    async def submissions_submit_page(request: Request) -> Any:
+        """The Submit page: the upload form, preselecting ``?exercise_uid=`` when carried.
+
+        The PS learning-loop and exercise "Submit →" links arrive here with
+        ``exercise_uid`` (+ ``from_ps``); without one the form is the
+        exercise-less turn-in.
+        """
         user_uid = require_authenticated_user(request)
-
-        assigned_exercises: list[Any] = []
-        exercises_result = await orchestrator.get_student_exercises(user_uid)
-        if not exercises_result.is_error and exercises_result.value:
-            assigned_exercises = exercises_result.value
-
-        user_groups: list[Any] = []
-        if groups_service is not None:
-            groups_result = await groups_service.get_user_groups(user_uid)
-            if not groups_result.is_error and groups_result.value:
-                user_groups = groups_result.value
-
-        selected_exercise_uid = request.query_params.get("exercise_uid")
+        selected_exercise_uid = request.query_params.get("exercise_uid") or None
         from_ps = request.query_params.get("from_ps") or None
 
+        # The audience-scoped read (ADR-085): an exercise or revision the caller
+        # may not use is not-found here, at 404, before its title reaches the page.
+        exercise_title: str | None = None
+        if selected_exercise_uid:
+            target_result = require_found(
+                await orchestrator.get_submit_target(selected_exercise_uid, user_uid),
+                "Exercise",
+                selected_exercise_uid,
+            )
+            if target_result.is_error:
+                return refuse(
+                    target_result.expect_error(),
+                    partial(_submit_page_error, request=request),
+                    "Exercise",
+                )
+            exercise_title = target_result.value.title
+
+        # The classes the student studies in — "Which class?" when more than one
+        # and no exercise names its own.
+        teacher_groups: list[tuple[str, str]] = []
+        if groups_service is not None:
+            groups_result = await groups_service.get_user_groups(
+                user_uid, role=GroupMemberRole.STUDENT.value
+            )
+            if groups_result.is_ok and groups_result.value:
+                teacher_groups = [(g.uid, g.name) for g in groups_result.value]
+
+        # Whom the student may share with — the Share panel's read, reused.
+        targets: ShareTargets | None = None
+        if entry_sharing is not None:
+            targets_result = await entry_sharing.targets(user_uid)
+            if targets_result.is_ok:
+                targets = targets_result.value
+
         content = Div(
-            PageHeader("Submit Exercise", subtitle="Upload your completed exercise worksheet"),
+            PageHeader("Submit", subtitle="Send your work for feedback, and share it if you like"),
             render_upload_form(
-                assigned_exercises,
                 selected_exercise_uid=selected_exercise_uid,
+                exercise_title=exercise_title,
                 from_ps=from_ps,
-                user_groups=user_groups,
+                teacher_groups=teacher_groups,
+                targets=targets,
             ),
         )
         return render_submissions_sidebar_page(
             content=content,
-            active="exercise",
+            active="submit",
             request=request,
         )
-
-    @rt("/submissions/exercise")
-    async def submissions_exercise_page(request: Request) -> Any:
-        """Exercise worksheet upload form (canonical URL)."""
-        return await _exercise_page(request)
-
-    @rt("/submit")
-    def submit_redirect(
-        request: Request,
-    ) -> Any:
-        """Legacy URL — redirect to canonical /submissions/exercise.
-
-        Query params must survive: the PS learning-loop "Submit →" links carry
-        ``exercise_uid`` + ``from_ps`` through this URL, and dropping them
-        strips the exercise preselection off the form.
-        """
-        url = "/submissions/exercise"
-        query = request.url.query
-        if query:
-            url = f"{url}?{query}"
-        return RedirectResponse(url=url, status_code=302)
 
     # =========================================================================
     # SUBMIT — JOURNAL UPLOAD UX (/submissions/journal)
@@ -806,11 +824,15 @@ def create_user_entry_ui_routes(
             exercise_link = Div(
                 Span("Fulfills exercise: ", cls="font-medium text-sm text-muted-foreground"),
                 Badge(
-                    str(
-                        fulfilled_exercise.get("title")
-                        or EXERCISE_REMOVED_TITLE
-                        or fulfilled_exercise.get("uid")
-                    ),
+                    turn_in_label(
+                        str(
+                            fulfilled_exercise.get("title")
+                            or EXERCISE_REMOVED_TITLE
+                            or fulfilled_exercise.get("uid")
+                        ),
+                        entry.turn_in_revision,
+                    )
+                    or "",
                     variant=BadgeT.outline,
                     size=Size.sm,
                 ),

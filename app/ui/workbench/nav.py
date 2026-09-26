@@ -1,7 +1,7 @@
 """Submissions sidebar navigation.
 
 Renders a collapsible sidebar for Submissions pages:
-Sync, Exercise, Journal, History, Knowledge.
+Sync, Submit, Journal, History, Knowledge.
 """
 
 from typing import TYPE_CHECKING, Any
@@ -17,7 +17,7 @@ SUBMISSIONS_STORAGE_KEY = "submissions-sidebar"
 
 SUBMISSIONS_SIDEBAR_ITEMS: list[SidebarItem] = [
     SidebarItem("Sync", "/submissions/sync", "sync", icon="refresh-cw"),
-    SidebarItem("Exercise", "/submissions/exercise", "exercise", icon="send"),
+    SidebarItem("Submit", "/submissions/submit", "submit", icon="send"),
     SidebarItem("Journal", "/submissions/journal", "journal", icon="book-open"),
     SidebarItem("History", "/submissions/history", "history", icon="clock"),
     SidebarItem("Knowledge", "/submissions/knowledge", "knowledge", icon="brain"),
@@ -33,7 +33,7 @@ def render_submissions_sidebar_page(
 
     Args:
         content: The page content to render in the main area.
-        active: The active sidebar item slug (e.g. "exercise", "journal",
+        active: The active sidebar item slug (e.g. "submit", "journal",
             "sync", "history", "knowledge").
         request: The request object for auth detection.
     """

@@ -28,7 +28,7 @@ Button("Full-width", cls=(ButtonT.primary, "w-full mt-4"))
 
 # ButtonLink — for ALL action CTAs (not raw A() with ad-hoc Tailwind)
 # primary CTA → ButtonT.primary, size="sm" | view/navigate → ButtonT.ghost, size="sm" | "view all" → ButtonT.ghost, size="xs"
-ButtonLink("Submit →", href="/submit", cls=ButtonT.primary, size="sm")
+ButtonLink("Submit →", href="/submissions/submit", cls=ButtonT.primary, size="sm")
 ButtonLink("View Details", href="/tasks/123", cls=ButtonT.ghost, size="sm")
 ButtonLink("View all →", href="/tasks", cls=ButtonT.ghost, size="xs")
 ```

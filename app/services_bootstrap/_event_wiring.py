@@ -197,7 +197,7 @@ def _wire_event_subscribers(
     event_bus.subscribe(UserEntryCreated, exercise_handler)
     logger.info(
         "✅ Exercise handler subscribed to UserEntryCreated "
-        "(automatic FULFILLS_EXERCISE + SHARES_WITH creation)"
+        "(exercise scope + group-membership validation)"
     )
 
     # Subscribe to PathStepEnrolled for auto default-group enrolment (ADR-040)
@@ -255,6 +255,19 @@ def _wire_event_subscribers(
     )
     event_bus.subscribe(EntryShared, entry_shared_handler)
     logger.info("✅ Share notification handler subscribed to EntryShared (recipient bell)")
+
+    # A student's feedback request rings the owning teachers (Submit & Share arc R10)
+    from core.events.handlers.submission_notification_handler import (
+        handle_submission_for_review,
+    )
+
+    submission_for_review_handler = functools.partial(
+        handle_submission_for_review,
+        notification_service=notification_service,
+        backend=user_entry_backend,
+    )
+    event_bus.subscribe(UserEntryCreated, submission_for_review_handler)
+    logger.info("✅ Submission notification handler subscribed to UserEntryCreated (teacher bell)")
 
     # Learning loop intelligence handlers — iteration tracking, feedback turnaround, mastery velocity
     from core.services.user_entry.learning_loop_handler import LearningLoopEventHandlerService

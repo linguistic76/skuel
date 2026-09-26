@@ -12,6 +12,7 @@ from fasthtml.common import A, Div, P
 from ui.components import ButtonT
 from ui.feedback import Badge, BadgeT, StatusBadge
 from ui.layout import Size
+from ui.learning_loop.turn_in_label import turn_in_label
 from ui.patterns.card_generator import CardGenerator
 from ui.primitives import ButtonLink
 from ui.teaching.badges import entity_type_badge
@@ -33,8 +34,9 @@ def render_queue_item(item: QueueItem) -> Div:
     student_name = item.student_name or item.student_uid or "Unknown"
 
     subtitle_parts = [f"by {student_name}"]
-    if item.exercise_name:
-        subtitle_parts.append(f"for {item.exercise_name}")
+    label = turn_in_label(item.exercise_name, item.revision)
+    if label:
+        subtitle_parts.append(f"for {label}")
 
     feedback_badge: Any = None
     if item.feedback_count > 0:

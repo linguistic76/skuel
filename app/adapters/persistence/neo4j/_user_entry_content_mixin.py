@@ -231,7 +231,7 @@ class _UserEntryContentMixin:
         OPTIONAL MATCH (ex:Entity:Exercise {{uid: sub.turn_in_exercise_uid}})
         OPTIONAL MATCH (report:Entity)-[:{RelationshipName.REPORT_FOR.value}]->(sub)
         RETURN sub.uid AS uid, sub.title AS title, sub.status AS status,
-               sub.created_at AS created_at,
+               sub.created_at AS created_at, sub.turn_in_revision AS revision,
                coalesce(ex.uid, sub.turn_in_exercise_uid) AS exercise_uid,
                coalesce(ex.title, sub.turn_in_exercise_title) AS exercise_title,
                report.uid AS report_uid,

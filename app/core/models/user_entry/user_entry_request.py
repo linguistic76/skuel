@@ -52,7 +52,14 @@ class UserEntryCreateRequest(CreateRequestBase):
             "is created fresh."
         ),
     )
-    title: str = Field(min_length=1, max_length=200, description="Entry title")
+    title: str | None = Field(
+        default=None,
+        max_length=200,
+        description=(
+            "Entry title — the author's words. Absent (or blank) on a turn-in, the writer "
+            "titles it '<root exercise title> v<N>'; absent elsewhere, the upload's filename."
+        ),
+    )
     content: str | None = Field(default=None, description="Text content (if any)")
     description: str | None = Field(default=None, description="Short entry description")
     status: EntityStatus | None = Field(

@@ -1,6 +1,6 @@
 ---
 title: Unified Ingestion Implementation Guide
-updated: 2026-09-25
+updated: 2026-09-26
 category: patterns
 related_skills: []
 related_docs:
@@ -83,7 +83,7 @@ result = await service.ingest_file(Path("task_example.yaml"), user_uid=UserUID("
 `type: user_entry` and delegates to
 `core/services/ingestion/user_entry_ingestion.py`, which builds a
 `UserEntryCreateRequest` and calls `UserEntryService.create_entry()` —
-the same method the `/submit` form uses. Both front-ends share the
+the same method the Submit page (`/submissions/submit`) uses. Both front-ends share the
 Interaction audit, TRANSFORMS edge, sharing fan-out, and compensation
 delete.
 
@@ -543,7 +543,7 @@ smart mode re-processes exactly the files that changed.
 
 Personal data enters SKUEL via:
 - **`/submissions/sync`** — bidirectional Obsidian sync (primary path); daily notes with `pipeline: extract_activities` become Activity entities; task completions round-trip back to the vault. (HTMX POST endpoints remain at `/settings/vault/sync` and `/settings/vault/consent`.)
-- **`/submissions/exercise`** — exercise worksheet submission (single file, exercise-linked). (`/submit` → 302 redirect here.)
+- **`/submissions/submit`** — the Submit page (single file; linked to an exercise when `?exercise_uid=` is carried).
 
 ---
 
@@ -753,7 +753,7 @@ ownership of an exercise materializes on their engagement chain (their `OWNS`ed
 UserEntry `-[:FULFILLS_EXERCISE]->` the shared exercise, plus its report/revision
 nodes), never as an `:OWNS` edge on the template. One authoritative template per
 exercise keeps content-vault edits propagating to every learner; a user who wants a
-template of their own creates a fresh PERSONAL exercise via the `/submit`
+template of their own creates a fresh PERSONAL exercise via the Submit page's
 save-template flow.
 
 **Authored enum values are canonicalized at the preparer.** `canonicalize_enum_values()`

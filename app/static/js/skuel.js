@@ -2601,35 +2601,39 @@
         });
 
         // ---------------------------------------------------------------------
-        // /submit page — destination dropdown + file uploader
+        // /submissions/submit page — the two questions + file uploader
+        //   feedback: 'teacher' | 'ai' | 'none'  (Ask for feedback?)
+        //   teacherGroup: '' = all my teachers, else one group uid
+        //   shareOpen: the collapsed "Share with" section
+        // The pipeline and the feedback half of the audience are derived here
+        // into hidden fields; the share checkboxes post their own values.
         // ---------------------------------------------------------------------
-        Alpine.data('submit', function(defaultDest, portfolioMode, teacherDisabled) {
+        Alpine.data('submit', function(defaultFeedback, aiDisabled) {
             return {
-                dest: defaultDest || 'teacher',
-                menuOpen: false,
+                feedback: defaultFeedback || 'teacher',
+                teacherGroup: '',
+                shareOpen: false,
                 file: null,
                 sent: false,
                 dragOver: false,
                 _st: null,
-                _onDoc: null,
-                _onKey: null,
 
                 get sendLabel() {
-                    if (this.dest === 'ai') return 'Get AI feedback';
-                    if (this.dest === 'portfolio') return 'Add to portfolio';
-                    return 'Send to teacher';
+                    if (this.feedback === 'ai') return 'Submit for AI feedback';
+                    if (this.feedback === 'teacher') return 'Send to teacher';
+                    return 'Submit';
                 },
                 get canSend() { return !!this.file && !this.sent; },
                 get pipeline() {
-                    if (this.dest === 'ai') return 'llm_summary';
-                    if (this.dest === 'teacher' && !teacherDisabled) return 'teacher_review';
+                    if (this.feedback === 'ai') return 'llm_summary';
+                    if (this.feedback === 'teacher') return 'teacher_review';
                     return 'none';
                 },
-                get audience() {
-                    if (this.dest === 'ai') return 'private';
-                    if (this.dest === 'portfolio') return 'public';
-                    if (this.dest === 'teacher' && !teacherDisabled) return 'teachers';
-                    return 'private';
+                // 'teachers' (every class I study in) or 'teacher:<group_uid>'; empty
+                // when no teacher is asked, which disables the hidden field.
+                get feedbackAudience() {
+                    if (this.feedback !== 'teacher') return '';
+                    return this.teacherGroup ? 'teacher:' + this.teacherGroup : 'teachers';
                 },
 
                 fmtSize: function(b) {
@@ -2638,11 +2642,9 @@
                     return (b / 1048576).toFixed(1) + ' MB';
                 },
 
-                selectDest: function(d) {
-                    if (d === 'portfolio' && portfolioMode !== 'active') return;
-                    if (d === 'teacher' && teacherDisabled) return;
-                    this.dest = d;
-                    this.menuOpen = false;
+                selectFeedback: function(f) {
+                    if (f === 'ai' && aiDisabled) return;
+                    this.feedback = f;
                 },
 
                 browse: function() {
@@ -2688,17 +2690,6 @@
 
                 init: function() {
                     var self = this;
-                    this._onDoc = function(e) {
-                        if (self.menuOpen && self.$refs.dropdown && !self.$refs.dropdown.contains(e.target)) {
-                            self.menuOpen = false;
-                        }
-                    };
-                    this._onKey = function(e) {
-                        if (e.key === 'Escape' && self.menuOpen) self.menuOpen = false;
-                    };
-                    document.addEventListener('mousedown', this._onDoc);
-                    document.addEventListener('keydown', this._onKey);
-
                     this.$el.addEventListener('htmx:afterRequest', function(e) {
                         if (e.detail.successful) {
                             self.sent = true;
@@ -2711,8 +2702,6 @@
                 },
 
                 destroy: function() {
-                    document.removeEventListener('mousedown', this._onDoc);
-                    document.removeEventListener('keydown', this._onKey);
                     clearTimeout(this._st);
                 }
             };

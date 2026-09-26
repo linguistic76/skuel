@@ -255,7 +255,9 @@ class TestUploadGuards:
         assert response.status_code == 201
         req = harness.entries.create_entry.await_args.kwargs["request"]
         assert req.content == "# Notes"
-        assert req.title == "entry.md"
+        # the title is the student's; the door sends none and create_entry falls back
+        assert req.title is None
+        assert req.original_filename == "entry.md"
 
 
 class TestOptionalServiceSeams:
