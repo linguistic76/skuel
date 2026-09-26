@@ -20,6 +20,7 @@ from unittest.mock import AsyncMock, MagicMock
 import pytest
 from starlette.exceptions import HTTPException
 
+from core.models.enums.entity_enums import EntityType
 from core.models.group.group import create_group
 from core.utils.result_simplified import Errors, Result
 
@@ -211,7 +212,7 @@ class TestGroupsSharedPreview:
         assert response is not None
         # The one reader, narrowed to this group (ADR-088 §5).
         mock_services.sharing.get_shared_with_me.assert_awaited_once_with(
-            user_uid="user_stud_01", limit=12, via="group_a"
+            user_uid="user_stud_01", limit=12, entity_type=EntityType.USER_ENTRY, via="group_a"
         )
 
     async def test_service_error_yields_empty_fragment(

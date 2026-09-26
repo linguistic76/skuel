@@ -1206,6 +1206,11 @@ it first removes both.
     hours off — every sharing writer stamps `datetime.now().isoformat()` (local, naive) into
     `datetime($shared_at)` (read as UTC); pre-existing across `create_share` /
     `create_group_share` / `create_group_submission`, not this PR's, left for a follow-on.
+    Also left open (Codex P2 on #1423, rejected for this PR): the wall reads at most 100 shared
+    entries with no continuation — an access list past that cap would hide older grants from
+    Stop sharing; a pager is a follow-on once any wall approaches it (the founder vault's is
+    single digits). The `/groups` feed narrows the reader to UserEntries (Codex P2, accepted):
+    a form's group target is a feedback request, never a share, and its detail is an owner read.
 
 ### PR 6c — Badge and nudge (R2)
 

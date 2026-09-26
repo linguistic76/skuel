@@ -5,17 +5,21 @@ Routes:
 - GET /groups/{group_uid}                           — full list for one group
 - GET /api/groups/{group_uid}/shared/preview        — HTMX fragment of peer UserEntries
 
-The lists are the *Shared with you* read narrowed to one group
-(``get_shared_with_me(via=group_uid)``): the same reader the Shared page
-uses, gated by the one audience fragment (ADR-088 §5), so a non-member gets
-an empty list, never an error that leaks existence — and a listed entry opens
-at ``/gradebook/{entry_uid}`` for the same viewer (the recipient card).
+The lists are the *Shared with you* read narrowed to one group and to
+UserEntries (``get_shared_with_me(entity_type=USER_ENTRY, via=group_uid)``):
+the same reader the Shared page uses, gated by the one audience fragment
+(ADR-088 §5), so a non-member gets an empty list, never an error that leaks
+existence — and every listed entry opens at ``/gradebook/{entry_uid}`` for
+the same viewer (the recipient card). A form submission's group target is a
+feedback request, never a share (ADR-088 §2), and its detail page is an owner
+read, so the feed lists no forms.
 """
 
 from typing import TYPE_CHECKING, Any
 
 from adapters.inbound.auth import require_authenticated_user
 from adapters.inbound.fasthtml_types import Request
+from core.models.enums.entity_enums import EntityType
 from core.services.groups.group_service import MAX_STUDENT_GROUPS
 
 if TYPE_CHECKING:
@@ -70,7 +74,7 @@ def create_groups_hub_routes(
             return HubPreviewEmpty("shared entries")
 
         result = await services.sharing.get_shared_with_me(
-            user_uid=user_uid, limit=12, via=group_uid
+            user_uid=user_uid, limit=12, entity_type=EntityType.USER_ENTRY, via=group_uid
         )
         records = [] if result.is_error else (result.value or [])
         if not records:
@@ -102,7 +106,7 @@ def create_groups_hub_routes(
             )
 
         result = await services.sharing.get_shared_with_me(
-            user_uid=user_uid, limit=100, via=group_uid
+            user_uid=user_uid, limit=100, entity_type=EntityType.USER_ENTRY, via=group_uid
         )
         records = [] if result.is_error else (result.value or [])
 
