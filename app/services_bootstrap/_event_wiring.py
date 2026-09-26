@@ -197,7 +197,7 @@ def _wire_event_subscribers(
     event_bus.subscribe(UserEntryCreated, exercise_handler)
     logger.info(
         "✅ Exercise handler subscribed to UserEntryCreated "
-        "(automatic FULFILLS_EXERCISE + SHARES_WITH creation)"
+        "(exercise scope + group-membership validation)"
     )
 
     # Subscribe to PathStepEnrolled for auto default-group enrolment (ADR-040)

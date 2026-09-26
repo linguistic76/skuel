@@ -233,13 +233,15 @@ modality: SubmissionModality | None  # FILE_UPLOAD | STRUCTURED_FORM (None for t
 > `count_entries_for_exercise(...) + 1` and passes it to
 > `UserEntryBackend.create_with_exercise_link()`, which stamps it onto the edge. A second
 > attempt against the same exercise creates a new `UserEntry` whose edge carries `revision=2`.
-> **Post-create**, `UserEntryExerciseLinker.process_exercise_submission()` (fired via the
-> `UserEntryCreated` event → `exercise_handler`) reads that edge revision and — **only for
-> `ASSIGNED`-scope exercises and valid `RevisedExercise` resubmissions** — writes a revision-aware
-> title (`"{exercise_title} v{revision}"`) and a denormalized `revision_number` property back onto
-> the node for cheap reads. It returns early (`NOT_ASSIGNED`) for `PERSONAL` / `ASSESSMENT`
-> exercises, which therefore keep only the `FULFILLS_EXERCISE {revision}` edge and no node mirror.
-> The frozen model class never declares the field either way.
+> The same statement stamps the snapshot `turn_in_revision` onto the node beside the exercise
+> snapshot, so the version outlives the exercise (Submit & Share arc R12), and titles an untitled
+> turn-in `"{root exercise title} v{revision}"` — a title the student typed is kept (the PR 7
+> ruling: the title is the student's; every surface prints "`<exercise> · v<N>`" beside it from the
+> snapshot, `ui/learning_loop/turn_in_label.py`). **Post-create**,
+> `UserEntryExerciseLinker.process_exercise_submission()` (fired via the `UserEntryCreated` event
+> → `exercise_handler`) only validates scope and group membership and writes nothing; it returns
+> early (`NOT_ASSIGNED`) for `PERSONAL` / `ASSESSMENT` / `CURRICULUM` exercises. There is no
+> `revision_number` node property on a UserEntry.
 
 **SubmissionModality vs Pipeline:** `SubmissionModality` records *how* the submission was
 created (file upload vs structured form). `Pipeline` records *what* happens to it.
@@ -840,9 +842,11 @@ RelationshipName.REVISES_EXERCISE        # RevisedExercise → Exercise
        ↓
 4. FULFILLS_EXERCISE relationship created (always → root Exercise)
    FULFILLS_REVISED_EXERCISE also created when submitting against a RevisedExercise
-   revision stamped on the FULFILLS_EXERCISE edge; UserEntryExerciseLinker
-   (UserEntryCreated → exercise_handler) then mirrors revision_number + a
-   revision-aware title onto the node — ASSIGNED / RevisedExercise submissions only
+   revision stamped on the FULFILLS_EXERCISE edge and, as the snapshot
+   turn_in_revision, on the node; an untitled turn-in is titled
+   "<root title> v<N>" in the same statement, a typed title is kept.
+   UserEntryExerciseLinker (UserEntryCreated → exercise_handler) then only
+   validates scope / group membership — it writes nothing
        ↓
 5. TeacherReviewService.get_review_queue()          → core/services/report/teacher_review_service.py
    Teacher sees pending user entries (their students' submitted+active

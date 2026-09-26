@@ -1,8 +1,8 @@
-"""Tests for UserEntryExerciseLinker (ADR-054 Commit 6a).
+"""Tests for UserEntryExerciseLinker (ADR-054).
 
-Retargeted from the former
-``tests/unit/services/test_submissions_core_service.py::TestProcessExerciseSubmission``
-onto the new ``core/services/user_entry/exercise_linker.py`` module.
+The linker validates exercise scope + group membership after creation and
+writes nothing: the title is the student's and the version is stamped by the
+writer (Submit & Share arc PR 7 ruling).
 """
 
 from unittest.mock import AsyncMock, MagicMock
@@ -32,7 +32,7 @@ def _make_linker(backend: MagicMock) -> UserEntryExerciseLinker:
 
 class TestProcessExerciseSubmission:
     @pytest.mark.asyncio
-    async def test_standard_linking_and_title_update(self):
+    async def test_standard_linking_validates_and_writes_nothing(self):
         backend = _make_backend()
         backend.get_exercise_context.return_value = Result.ok(
             [
@@ -59,43 +59,8 @@ class TestProcessExerciseSubmission:
 
         assert result.is_ok
         assert result.value == ProcessingOutcome.PROCESSED
-
-    @pytest.mark.asyncio
-    async def test_revision_uses_count_directly_not_plus_one(self):
-        """The FULFILLS_EXERCISE edge already exists when the linker runs, so the
-        count INCLUDES this entry — it is the revision number. Regression: the
-        old code added 1, over-counting the title/revision (count=1 -> "v2").
-        """
-        backend = _make_backend()
-        backend.get_exercise_context.return_value = Result.ok(
-            [
-                {
-                    "exercise_entity_type": "exercise",
-                    "scope": "assigned",
-                    "teacher_uid": "teacher_1",
-                    "student_uid": None,
-                    "exercise_title": "Write Essay",
-                    "group_uid": "grp_1",
-                }
-            ]
-        )
-        backend.verify_student_group_membership.return_value = Result.ok(
-            [{"student_uid": "user_1", "member_of_group": "grp_1"}]
-        )
-        backend.get_entry_owner.return_value = Result.ok(
-            [{"student_uid": "user_1", "turn_in_exercise_title": "Write Essay"}]
-        )
-        # First submission: it is already linked, so the count is 1 (this entry).
-        backend.count_entries_for_exercise.return_value = Result.ok(1)
-        linker = _make_linker(backend)
-
-        result = await linker.process_exercise_submission("sub_1", "ex_1")
-
-        assert result.is_ok
-        backend.update.assert_awaited_once()
-        _uid, updates = backend.update.await_args.args
-        assert updates["revision_number"] == 1  # not 2
-        assert updates["title"] == "Write Essay v1"
+        backend.update.assert_not_awaited()
+        backend.count_entries_for_exercise.assert_not_awaited()
 
     @pytest.mark.asyncio
     async def test_not_assigned_scope(self):
@@ -142,7 +107,7 @@ class TestProcessExerciseSubmission:
         assert result.value == ProcessingOutcome.NOT_EXERCISE
 
     @pytest.mark.asyncio
-    async def test_revised_exercise_counts_against_original(self):
+    async def test_revised_exercise_named_student_is_processed(self):
         backend = _make_backend()
         backend.get_exercise_context.return_value = Result.ok(
             [
@@ -160,14 +125,13 @@ class TestProcessExerciseSubmission:
         backend.get_entry_owner.return_value = Result.ok(
             [{"student_uid": "user_1", "turn_in_exercise_title": "Write Essay"}]
         )
-        backend.count_entries_for_exercise.return_value = Result.ok(1)
         linker = _make_linker(backend)
 
         result = await linker.process_exercise_submission("sub_1", "re_1")
 
         assert result.is_ok
         assert result.value == ProcessingOutcome.PROCESSED
-        backend.count_entries_for_exercise.assert_awaited_once_with("user_1", "ex_original_1")
+        backend.update.assert_not_awaited()
 
     @pytest.mark.asyncio
     async def test_wrong_student_for_revised_exercise(self):
@@ -221,7 +185,8 @@ class TestProcessExerciseSubmission:
         assert result.value == ProcessingOutcome.NOT_IN_GROUP
 
     @pytest.mark.asyncio
-    async def test_title_update_called_when_exercise_has_title(self):
+    async def test_the_student_title_is_never_overwritten(self):
+        """The writer titles a turn-in; the linker only validates (PR 7 ruling)."""
         backend = _make_backend()
         backend.get_exercise_context.return_value = Result.ok(
             [
@@ -231,83 +196,16 @@ class TestProcessExerciseSubmission:
                     "teacher_uid": "teacher_1",
                     "student_uid": None,
                     "exercise_title": "Write Essay",
-                    "group_uid": None,
+                    "group_uid": "grp_1",
                 }
             ]
         )
-        backend.get_entry_owner.return_value = Result.ok(
-            [{"student_uid": "user_1", "turn_in_exercise_title": "Write Essay"}]
-        )
-        backend.count_entries_for_exercise.return_value = Result.ok(0)
-        linker = _make_linker(backend)
-
-        result = await linker.process_exercise_submission("sub_1", "ex_1")
-
-        assert result.is_ok
-        assert result.value == ProcessingOutcome.PROCESSED
-        backend.update.assert_awaited_once()
-        call_args = backend.update.await_args
-        assert call_args.args[0] == "sub_1"
-        assert call_args.args[1]["title"] == "Write Essay v1"
-        assert call_args.args[1]["revision_number"] == 1
-
-    @pytest.mark.asyncio
-    async def test_revision_target_is_retitled_from_the_root_snapshot(self):
-        """A revision target is titled "Revision N"; the retitle names the root
-        exercise the snapshot holds, and the count is taken on that root."""
-        backend = _make_backend()
-        backend.get_exercise_context.return_value = Result.ok(
-            [
-                {
-                    "exercise_entity_type": "revised_exercise",
-                    "scope": None,
-                    "teacher_uid": "teacher_1",
-                    "student_uid": "user_1",
-                    "exercise_title": "Revision 1",
-                    "original_exercise_uid": "ex_1",
-                    "group_uid": None,
-                }
-            ]
-        )
-        backend.get_entry_owner.return_value = Result.ok(
-            [{"student_uid": "user_1", "turn_in_exercise_title": "Write Essay"}]
-        )
-        backend.count_entries_for_exercise.return_value = Result.ok(3)
-        linker = _make_linker(backend)
-
-        result = await linker.process_exercise_submission("sub_3", "re_1")
-
-        assert result.is_ok
-        assert result.value == ProcessingOutcome.PROCESSED
-        backend.count_entries_for_exercise.assert_awaited_once_with("user_1", "ex_1")
-        _uid, updates = backend.update.await_args.args
-        assert updates["title"] == "Write Essay v3"
-        assert updates["revision_number"] == 3
-
-    @pytest.mark.asyncio
-    async def test_no_title_update_when_the_snapshot_title_is_empty(self):
-        """An entry with no turn-in snapshot title is left titled as the
-        student titled it."""
-        backend = _make_backend()
-        backend.get_exercise_context.return_value = Result.ok(
-            [
-                {
-                    "exercise_entity_type": "exercise",
-                    "scope": "assigned",
-                    "teacher_uid": "teacher_1",
-                    "student_uid": None,
-                    "exercise_title": "Write Essay",
-                    "group_uid": None,
-                }
-            ]
-        )
-        backend.get_entry_owner.return_value = Result.ok(
-            [{"student_uid": "user_1", "turn_in_exercise_title": None}]
+        backend.verify_student_group_membership.return_value = Result.ok(
+            [{"student_uid": "user_1", "member_of_group": "grp_1"}]
         )
         linker = _make_linker(backend)
 
         result = await linker.process_exercise_submission("sub_1", "ex_1")
 
-        assert result.is_ok
         assert result.value == ProcessingOutcome.PROCESSED
         backend.update.assert_not_awaited()

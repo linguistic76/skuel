@@ -211,7 +211,8 @@ class _UserEntryReportQueryMixin:
         ORDER BY toString(e.created_at) DESC, e.uid
         WITH ex,
              collect(DISTINCT e {{.uid, .title, .status, created_at: toString(e.created_at),
-                                  revision: f.revision, via_revised_uid: rex.uid}}) AS entry_rows,
+                                  revision: coalesce(f.revision, e.turn_in_revision),
+                                  via_revised_uid: rex.uid}}) AS entry_rows,
              collect(DISTINCT e) AS entry_nodes,
              head([t IN collect(e.turn_in_exercise_title) WHERE t IS NOT NULL]) AS snapshot_title
         OPTIONAL MATCH (report:Entity {{entity_type: 'entry_report'}})-[:{RelationshipName.REPORT_FOR.value}]->(entry)
@@ -372,7 +373,7 @@ class _UserEntryReportQueryMixin:
           WHERE fb.entity_type = 'entry_report'
         OPTIONAL MATCH (re:Entity)-[:{RelationshipName.RESPONDS_TO_REPORT.value}]->(fb)
           WHERE re.entity_type = 'revised_exercise'
-        RETURN sub {{.uid, .title, .status, .created_at, .user_uid}} AS submission,
+        RETURN sub {{.uid, .title, .status, .created_at, .user_uid, .turn_in_revision}} AS submission,
                CASE
                  WHEN ex IS NOT NULL THEN ex {{.uid, .title, .entity_type, .status, removed: false}}
                  WHEN sub.turn_in_exercise_uid IS NOT NULL THEN {{

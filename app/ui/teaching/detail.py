@@ -14,6 +14,7 @@ from ui.components import Button, ButtonT, Card, CardBody
 from ui.feedback import Badge, BadgeT, StatusBadge
 from ui.forms import Textarea
 from ui.layout import Size
+from ui.learning_loop.turn_in_label import turn_in_label
 from ui.patterns.card_generator import CardGenerator
 from ui.patterns.sidebar import SidebarItem
 from ui.patterns.skeleton import SkeletonLines
@@ -40,8 +41,9 @@ def render_submission_content(detail: SubmissionDetail) -> Div:
     display_content = detail.file_path or detail.original_filename or "(No file path available)"
 
     meta_parts = [f"by {student_name}"]
-    if detail.exercise_title:
-        meta_parts.append(f"Exercise: {detail.exercise_title}")
+    label = turn_in_label(detail.exercise_title, detail.revision)
+    if label:
+        meta_parts.append(f"Exercise: {label}")
 
     exercise_section: Any = ""
     if detail.exercise_instructions:
@@ -120,6 +122,7 @@ def render_review_panel_inline(uid: str, detail: dict[str, Any], history: list[E
             student_name=detail.get("student_name") or detail.get("student_uid") or "Unknown",
             student_uid=detail.get("student_uid", ""),
             exercise_title=detail.get("exercise_title"),
+            revision=detail.get("revision"),
             exercise_instructions=detail.get("exercise_instructions"),
             processed_content=detail.get("processed_content"),
             content=detail.get("content"),
@@ -316,9 +319,10 @@ def render_student_submission_inline_row(item: SubmissionRow) -> Div:
     badges.append(StatusBadge(item.status))
 
     exercise_label: Any = ""
-    if item.exercise_title:
+    label = turn_in_label(item.exercise_title, item.revision)
+    if label:
         exercise_label = Span(
-            f" · {item.exercise_title}",
+            f" · {label}",
             cls="text-sm text-muted-foreground font-normal",
         )
 

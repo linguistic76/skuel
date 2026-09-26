@@ -1580,6 +1580,7 @@ class ReviewQueueItem(TypedDict, total=False):
     student_name: str
     exercise_uid: str
     exercise_name: str
+    revision: int | None  # the turn-in's version (the edge revision, else the snapshot)
     due_date: str | None
     original_filename: str | None
     feedback_count: int
@@ -1600,6 +1601,7 @@ class SubmissionDetailResult(TypedDict, total=False):
     student_name: str
     exercise_uid: str
     exercise_title: str
+    revision: int | None  # the turn-in snapshot's version
     exercise_instructions: str
     file_path: str | None
 
@@ -2903,6 +2905,7 @@ class SubmissionForExercise(TypedDict, total=False):
     student_uid: str
     student_name: str
     feedback_count: int
+    revision: int | None
 
 
 class StudentSummaryItem(TypedDict, total=False):
@@ -2926,6 +2929,7 @@ class StudentSubmissionItem(TypedDict, total=False):
     feedback_count: int
     exercise_uid: str
     exercise_title: str
+    revision: int | None
 
 
 class TeacherGroupStats(TypedDict, total=False):
@@ -3654,6 +3658,7 @@ class PathStepSubmissionRow(TypedDict):
     title: str | None
     status: str | None
     created_at: str | None
+    revision: int | None
     exercise_uid: str | None
     exercise_title: str | None
     report_uid: str | None

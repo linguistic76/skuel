@@ -66,6 +66,7 @@ from ui.gradebook.summary import (
 from ui.layout import Size
 from ui.layouts.base_page import BasePage
 from ui.learning_loop.report import render_activity_report_list, render_yours_list
+from ui.learning_loop.turn_in_label import turn_in_label
 from ui.patterns.empty_state import EmptyState
 from ui.patterns.entity_links import entity_detail_href
 from ui.patterns.error_banner import render_error_banner, render_inline_error
@@ -177,6 +178,8 @@ def _to_history_dict(entry: UserEntry) -> dict[str, Any]:
         "uid": entry.uid,
         "title": entry.title,
         "original_filename": entry.original_filename,
+        "exercise_title": entry.turn_in_exercise_title,
+        "revision": entry.turn_in_revision,
         "status": _status_value(entry),
         "feedback_count": 0,
         "created_at": entry.created_at,
@@ -790,11 +793,15 @@ def create_user_entry_ui_routes(
             exercise_link = Div(
                 Span("Fulfills exercise: ", cls="font-medium text-sm text-muted-foreground"),
                 Badge(
-                    str(
-                        fulfilled_exercise.get("title")
-                        or EXERCISE_REMOVED_TITLE
-                        or fulfilled_exercise.get("uid")
-                    ),
+                    turn_in_label(
+                        str(
+                            fulfilled_exercise.get("title")
+                            or EXERCISE_REMOVED_TITLE
+                            or fulfilled_exercise.get("uid")
+                        ),
+                        entry.turn_in_revision,
+                    )
+                    or "",
                     variant=BadgeT.outline,
                     size=Size.sm,
                 ),

@@ -3,16 +3,14 @@ UserEntry Exercise Linker — ADR-054
 ===================================
 
 Validates exercise-scope + group membership for a freshly created
-``UserEntry`` and updates the entry's canonical title. The
-``FULFILLS_EXERCISE`` edge is already written atomically by
-``UserEntryBackend.create_with_exercise_link`` at creation time; this
-linker runs post-hoc from the ``UserEntryCreated`` subscriber
-(``core/events/handlers/exercise_handler.py``) to surface configuration
-problems and stamp the revision-aware title.
-
-Ported from ``submissions_core_service.process_exercise_submission`` with
-one simplification: the legacy ``Submission.generate_exercise_title``
-helper is replaced with ``f"{exercise_title} v{revision}"``.
+``UserEntry``. The ``FULFILLS_EXERCISE`` edge, the turn-in snapshot
+(``turn_in_exercise_uid`` / ``turn_in_exercise_title`` / ``turn_in_revision``)
+and the title default are all written atomically by
+``UserEntryBackend.create_with_exercise_link`` at creation time; this linker
+runs post-hoc from the ``UserEntryCreated`` subscriber
+(``core/events/handlers/exercise_handler.py``) only to surface configuration
+problems. It never writes: the title is the student's (Submit & Share arc
+PR 7 ruling) and the version lives on the edge and the snapshot.
 """
 
 from __future__ import annotations
@@ -21,7 +19,7 @@ from core.models.enums.entity_enums import EntityType
 from core.models.enums.user_entry_enums import ExerciseScope
 from core.ports.user_entry_protocols import UserEntryOperations
 from core.utils.logging import get_logger
-from core.utils.neo4j_props import neo4j_str, neo4j_user_uid
+from core.utils.neo4j_props import neo4j_str
 from core.utils.result_simplified import Result
 
 
@@ -37,7 +35,7 @@ class ProcessingOutcome(str):
         WRONG_STUDENT — RevisedExercise targets a different student
 
     Success:
-        PROCESSED — validation passed, title updated
+        PROCESSED — validation passed
     """
 
     NOT_EXERCISE: str = "not_exercise"
@@ -47,20 +45,14 @@ class ProcessingOutcome(str):
     PROCESSED: str = "processed"
 
 
-def _generate_exercise_title(exercise_title: str, revision: int) -> str:
-    """Canonical title for an exercise submission (revision-aware)."""
-    return f"{exercise_title} v{revision}"
-
-
 class UserEntryExerciseLinker:
-    """Validates + retitles a ``UserEntry`` after exercise-link creation.
+    """Validates a ``UserEntry``'s exercise link after creation (scope + membership).
 
     Called by the ``UserEntryCreated`` subscriber. The backend is the
     ``UserEntryOperations`` protocol consumed by ``UserEntryService`` —
-    ``get_exercise_context``, ``get_entry_owner``,
-    ``verify_student_group_membership``, and ``count_entries_for_exercise``
-    come from the ``UserEntryLifecycleOperations`` + ``UserEntryCrudOperations``
-    parents.
+    ``get_exercise_context``, ``get_entry_owner`` and
+    ``verify_student_group_membership`` come from the
+    ``UserEntryLifecycleOperations`` + ``UserEntryCrudOperations`` parents.
     """
 
     def __init__(self, backend: UserEntryOperations) -> None:
@@ -72,12 +64,11 @@ class UserEntryExerciseLinker:
         entry_uid: str,
         exercise_uid: str,
     ) -> Result[str]:
-        """Validate scope/membership + update title post-link-creation.
+        """Validate scope/membership post-link-creation; write nothing.
 
-        The ``FULFILLS_EXERCISE`` edge is already written by
-        ``create_with_exercise_link``. This method only performs the
-        validation + title-update steps that the legacy submissions flow
-        deferred to the event handler.
+        The ``FULFILLS_EXERCISE`` edge, the snapshot and the title are
+        already written by ``create_with_exercise_link``. This method only
+        surfaces the configuration problems ``ProcessingOutcome`` names.
         """
         exercise_result = await self.backend.get_exercise_context(exercise_uid)
         if exercise_result.is_error:
@@ -89,11 +80,6 @@ class UserEntryExerciseLinker:
             return Result.ok(ProcessingOutcome.NOT_EXERCISE)
 
         exercise_entity_type = records[0]["exercise_entity_type"]
-        _original_value = records[0].get("original_exercise_uid")
-        original_exercise_uid: str | None = (
-            str(_original_value) if _original_value is not None else None
-        )
-        count_exercise_uid = original_exercise_uid or exercise_uid
 
         if exercise_entity_type == EntityType.REVISED_EXERCISE.value:
             re_student_uid = records[0]["student_uid"]
@@ -129,41 +115,6 @@ class UserEntryExerciseLinker:
                 student_records = student_result.value or []
                 if student_records and not student_records[0]["member_of_group"]:
                     return Result.ok(ProcessingOutcome.NOT_IN_GROUP)
-
-        # The retitle names the ROOT exercise — the entry's turn-in snapshot
-        # (`turn_in_exercise_title`, stamped by the writer), never the target's
-        # own title: a revision target is titled "Revision N", and the count
-        # below is taken on the root, so the two must name the same node.
-        owner_result = await self.backend.get_entry_owner(entry_uid)
-        if not owner_result.is_error:
-            owner_records = owner_result.value or []
-            snapshot_title = (
-                neo4j_str(owner_records[0], "turn_in_exercise_title", "") if owner_records else ""
-            )
-            if snapshot_title:
-                submitter_uid = neo4j_user_uid(owner_records[0], "student_uid")
-
-                # The FULFILLS_EXERCISE edge already exists (see docstring),
-                # so this count INCLUDES the just-created entry — it IS this
-                # entry's revision number directly (== the value
-                # ``_next_revision`` computed pre-create as count+1). Adding 1
-                # again would over-count the title/revision by one.
-                count_result = await self.backend.count_entries_for_exercise(
-                    submitter_uid, count_exercise_uid
-                )
-                revision = 1
-                if not count_result.is_error and count_result.value:
-                    revision = count_result.value
-
-                new_title = _generate_exercise_title(
-                    exercise_title=snapshot_title,
-                    revision=revision,
-                )
-                await self.backend.update(
-                    entry_uid,
-                    {"title": new_title, "revision_number": revision},
-                )
-                self.logger.info(f"Updated user entry title to: {new_title}")
 
         return Result.ok(ProcessingOutcome.PROCESSED)
 

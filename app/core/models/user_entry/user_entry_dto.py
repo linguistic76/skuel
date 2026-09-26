@@ -40,7 +40,7 @@ class UserEntryDTO(UserOwnedDTO):
                       instructions, max_retention
     - Modality (1): modality
     - Declared exercise intent (1): fulfills_exercise_uid
-    - Turn-in snapshot (2): turn_in_exercise_uid, turn_in_exercise_title
+    - Turn-in snapshot (3): turn_in_exercise_uid, turn_in_exercise_title, turn_in_revision
     """
 
     # Honest leaf default (base EntityDTO requires entity_type — G6).
@@ -83,6 +83,7 @@ class UserEntryDTO(UserOwnedDTO):
     # =========================================================================
     turn_in_exercise_uid: str | None = None
     turn_in_exercise_title: str | None = None
+    turn_in_revision: int | None = None
 
     # =========================================================================
     # SERIALIZATION

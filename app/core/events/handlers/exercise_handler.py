@@ -4,9 +4,10 @@ Exercise Submission Handler
 
 Listens for ``UserEntryCreated`` events with a ``fulfills_exercise_uid``.
 When present, calls ``UserEntryExerciseLinker.process_exercise_submission()``
-to validate scope/group membership and stamp the revision-aware title. The
-``FULFILLS_EXERCISE`` edge itself is already written atomically by
-``UserEntryBackend.create_with_exercise_link`` at creation time.
+to validate scope/group membership. The ``FULFILLS_EXERCISE`` edge, the
+turn-in snapshot and the title are already written atomically by
+``UserEntryBackend.create_with_exercise_link`` at creation time; the handler
+writes nothing.
 
 See: /docs/decisions/ADR-040-teacher-exercise-workflow.md
 See: /docs/decisions/ADR-054-user-entry-unified-hub.md

@@ -130,25 +130,6 @@ class TestUserEntryHelpers:
         )
         assert entry.get_summary() == "raw content"
 
-    def test_generate_exercise_title_no_revision(self):
-        title = UserEntry.generate_exercise_title(
-            exercise_title="Chapter 1 Quiz",
-            user_uid="user_alice",
-        )
-        assert title == "Chapter 1 Quiz \u2014 alice"
-
-    def test_generate_exercise_title_with_revision(self):
-        from datetime import date
-
-        title = UserEntry.generate_exercise_title(
-            exercise_title="Chapter 1 Quiz",
-            user_uid="user_alice",
-            revision_number=2,
-            revision_date=date(2026, 4, 14),
-        )
-        assert "#2" in title
-        assert "Apr 14" in title
-
 
 class TestUserEntryDTORoundtrip:
     """DTO <-> domain model round-trip."""

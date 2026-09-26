@@ -110,12 +110,28 @@ Inherits identity, content, status, sharing, meta and embedding fields from
 | `fulfills_exercise_uid` | `str?` | Declared exercise **intent** — see below |
 | `turn_in_exercise_uid` | `str?` | The **turn-in snapshot**: the root exercise's uid, stamped by the writer — see below |
 | `turn_in_exercise_title` | `str?` | The root exercise's title as it read at submission |
+| `turn_in_revision` | `int?` | The attempt number, stamped with the snapshot — the edge revision's copy that outlives the exercise |
 
 ### `revision_number` is not a field
 
-Revision lives on the `FULFILLS_EXERCISE {revision}` **edge**, not the node. A
-second attempt against the same exercise creates a new `UserEntry` with a new
-edge carrying `revision=2`.
+The live revision is the `FULFILLS_EXERCISE {revision}` **edge**: a second
+attempt against the same exercise creates a new `UserEntry` with a new edge
+carrying `revision=2`. The writer copies the number onto the node as
+`turn_in_revision`, beside the exercise snapshot, so the version survives the
+exercise's deletion exactly as the title does; nothing writes `revision_number`
+on a UserEntry.
+
+### The title is the student's
+
+A turn-in's `title` is whatever the student typed (Submit & Share arc PR 7
+ruling). Handed in with none, the writer titles it `"<root exercise title>
+v<N>"` in the statement that stamps the snapshot; a non-turn-in with no title
+takes its upload's filename. Which exercise and which attempt a turn-in is
+comes from the snapshot, never from the title: every surface that lists or
+opens a turn-in prints "`<exercise> · v<N>`" beside the title through
+`ui/learning_loop/turn_in_label.py` (the queue, the review page, the student's
+history, `/gradebook/{uid}`, the PathStep page's list, the recipient card, the
+`/exchange` thread's "rev N").
 
 ### Intent vs. turn-in
 

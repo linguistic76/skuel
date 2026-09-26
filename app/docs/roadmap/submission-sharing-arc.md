@@ -1315,21 +1315,30 @@ it first removes both.
     "coming soon" row.
 - **Teacher** works without an exercise (`teachers` → all my teachers; the form lists
   `teacher:<group>` when I'm in several groups).
-- **Ruling for Mike (added after PR 4b): does a turn-in keep the title the student typed?** The
-  `UserEntryCreated` linker (`core/services/user_entry/exercise_linker.py`) overwrites every
-  turn-in's title with the root exercise's snapshot title plus a revision suffix ("The Gentle
-  Return v3") and stores `revision_number` on the node — the form's own title field is discarded.
-  Every exchange reader keys on `turn_in_exercise_uid` / `turn_in_exercise_title` (PR 4a), so
-  the entry title identifies nothing; the revision number lives on the `FULFILLS_EXERCISE` edge
-  and the `revision_number` property. Decide before the form is rebuilt:
-  (a) keep the retitle (the form's title field is then cosmetic — drop it or label it as ignored),
-  or (b) drop the retitle and keep the student's words, keeping the `revision_number` write.
-  Census for (b) — the surfaces that print `entry.title` for a turn-in and would show an untitled
-  upload's filename: `/submissions/history` (`_user_entry_content_mixin.py`, `get_history`), the
-  queue rows and their dashboard twin (`_user_entry_assessment_mixin.py`, `entry.title AS
-  title`), the student hub (`get_student_submissions`), the review page header, the GradeBook
-  detail `/gradebook/{uid}`, and the `/exchange` thread entries. Either way the `.md` download
-  name and the vault copy's filename are unaffected (they derive from the uid).
+- **Ruled by Mike (PR 7 session, 2026-09-26): the title is the student's; the version is the
+  edge's.** The question was "does a turn-in keep the title the student typed?" — (a) keep the
+  linker's retitle ("The Gentle Return v3") or (b) keep the student's words. The census changed it:
+  the web form had no title field, the upload door defaulted the title to the filename, and the
+  linker retitled only ASSIGNED-exercise and revision turn-ins — a curriculum turn-in kept its
+  filename (the two live Gentle Return entries read "small_steps_design.md" /
+  "gentle_return_response.md" beside the revision's "The Gentle Return v3"). Mike's reading: the
+  student names the work, and the teacher's strict version and direct line to the original exercise
+  are the `FULFILLS_EXERCISE {revision}` edge and the turn-in snapshot — which every exchange reader
+  already keys on — not the title. So: the form gains a Title field; the writer
+  (`create_with_exercise_link`) stamps the snapshot `turn_in_revision` beside the exercise snapshot
+  (the version outlives the exercise, R12) and titles an **untitled** turn-in "<root title> v<N>"
+  in the same statement — a typed title is kept verbatim; the linker keeps its scope + membership
+  validation and writes nothing (its retitle and its `revision_number` node write are deleted — the
+  ADR-054 migration had moved that property onto the edge, `test_collapse_to_user_entry.py`; the
+  dead `UserEntry.generate_exercise_title` went with it); every surface that prints a turn-in
+  prints "`<exercise> · v<N>`" beside the title from the snapshot through one renderer
+  (`ui/learning_loop/turn_in_label.py`): the queue rows and the student hub rows, the review
+  page header, `/submissions/history` (which printed the filename first), `/gradebook/{uid}`, the
+  PathStep page's list, the recipient card; the `/exchange` thread already carried "rev N". The
+  `.md` download name and the vault copy's filename derive from the uid, unaffected. Existing
+  turn-ins get `turn_in_revision` by backfill (`backfill_turn_in_revision_2026_09.py`, census /
+  `--confirm`: the edge revision, else the stray node property, else the attempt's ordinal by
+  `created_at` within its exchange; the stray `revision_number` is removed in the same write).
 - **AI** is offered only with an exercise: it's graded against the exercise. After submitting, the
   entry page shows the existing gated "Request AI feedback" button (stated honestly on the form).
   Why two steps (kept at PR 0 review, where Codex proposed that submit summon the reviewer): the

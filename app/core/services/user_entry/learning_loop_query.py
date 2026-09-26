@@ -21,6 +21,7 @@ from core.ports.query_types import PathStepSubmissionRow
 from core.ports.user_entry_protocols import UserEntryOperations
 from core.utils.decorators import with_error_handling
 from core.utils.logging import get_logger
+from core.utils.neo4j_props import coerce_int
 from core.utils.result_simplified import Result
 
 logger = get_logger("skuel.services.user_entry.learning_loop_query")
@@ -62,6 +63,11 @@ class LearningLoopQueryService:
                     title=_opt_str(record.get("title")),
                     status=_opt_str(record.get("status")),
                     created_at=_opt_str(record.get("created_at")),
+                    revision=(
+                        coerce_int(record["revision"])
+                        if record.get("revision") is not None
+                        else None
+                    ),
                     exercise_uid=_opt_str(record.get("exercise_uid")),
                     exercise_title=_opt_str(record.get("exercise_title")),
                     report_uid=_opt_str(record.get("report_uid")),

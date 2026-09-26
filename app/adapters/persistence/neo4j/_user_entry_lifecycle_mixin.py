@@ -79,7 +79,7 @@ class _UserEntryLifecycleMixin:
 
         ``turn_in_exercise_title`` is the root exercise's title as stamped at
         submission (null on an entry that is not a turn-in) — the one title
-        every exchange reader keys on, so the linker's retitle reads it too.
+        every exchange reader keys on.
         """
         query = """
         MATCH (student:User)-[:OWNS]->(entry:Entity {uid: $entry_uid})
@@ -119,10 +119,13 @@ class _UserEntryLifecycleMixin:
         The same statement stamps the turn-in snapshot on the entry —
         ``turn_in_exercise_uid`` = the root's uid (the ``REVISES_EXERCISE``
         original, else the revision's ``original_exercise_uid``, else the
-        target itself) and ``turn_in_exercise_title`` = that root's title
-        as it reads now. The snapshot is the exchange key every GradeBook
-        and thread read groups on; it outlives the exercise and its edges
-        (Submit & Share arc R12). The returned model carries both values.
+        target itself), ``turn_in_exercise_title`` = that root's title as
+        it reads now, and ``turn_in_revision`` = ``revision``. The snapshot
+        is the exchange key every GradeBook and thread read groups on; it
+        outlives the exercise and its edges (Submit & Share arc R12). An
+        entry handed in with an empty title is titled from the snapshot,
+        "<root title> v<revision>"; a title the student typed is kept (the
+        PR 7 ruling). The returned model carries the stamped values.
         """
         create_result = await self.create(entry)
         if create_result.is_error:
@@ -136,7 +139,13 @@ class _UserEntryLifecycleMixin:
         OPTIONAL MATCH (exercise)-[:{RelationshipName.REVISES_EXERCISE.value}]->(original:Entity {{entity_type: 'exercise'}})
         WITH entry, exercise, original
         SET entry.turn_in_exercise_uid = coalesce(original.uid, exercise.original_exercise_uid, exercise.uid),
-            entry.turn_in_exercise_title = coalesce(original.title, exercise.title)
+            entry.turn_in_exercise_title = coalesce(original.title, exercise.title),
+            entry.turn_in_revision = $revision,
+            entry.title = CASE
+              WHEN coalesce(entry.title, '') = ''
+              THEN coalesce(original.title, exercise.title, '') + ' v' + toString($revision)
+              ELSE entry.title
+            END
         FOREACH (_ IN CASE WHEN original IS NOT NULL THEN [1] ELSE [] END |
           MERGE (entry)-[r1:{RelationshipName.FULFILLS_EXERCISE.value}]->(original)
             ON CREATE SET r1.revision = $revision
@@ -150,8 +159,10 @@ class _UserEntryLifecycleMixin:
             ON CREATE SET r3.revision = $revision
             ON MATCH SET r3.revision = $revision
         )
-        RETURN entry.turn_in_exercise_uid AS turn_in_exercise_uid,
-               entry.turn_in_exercise_title AS turn_in_exercise_title
+        RETURN entry.title AS title,
+               entry.turn_in_exercise_uid AS turn_in_exercise_uid,
+               entry.turn_in_exercise_title AS turn_in_exercise_title,
+               entry.turn_in_revision AS turn_in_revision
         """
         link_result = await self.execute_query(
             link_query,
@@ -175,7 +186,9 @@ class _UserEntryLifecycleMixin:
         return Result.ok(
             replace(
                 created,
+                title=str(stamped.get("title") or created.title),
                 turn_in_exercise_uid=stamped.get("turn_in_exercise_uid"),
                 turn_in_exercise_title=stamped.get("turn_in_exercise_title"),
+                turn_in_revision=revision,
             )
         )

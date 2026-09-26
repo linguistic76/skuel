@@ -317,6 +317,55 @@ class TestCreateEntryRouting:
         assert kwargs["revision"] == 3
 
 
+class TestTitleRule:
+    """The title is the student's (Submit & Share arc PR 7 ruling).
+
+    A turn-in with none goes to the writer empty, which titles it from the
+    snapshot; a non-turn-in with none takes its upload's filename.
+    """
+
+    @pytest.mark.asyncio
+    async def test_a_typed_title_is_kept_on_a_turn_in(self):
+        backend = _make_backend()
+        service = _make_service(backend=backend, sharing_service=_make_sharing_service())
+        request = UserEntryCreateRequest(
+            title="My own words",
+            pipeline=Pipeline.TEACHER_REVIEW,
+            fulfills_exercise_uid="ex_1",
+            original_filename="draft.md",
+        )
+        await service.create_entry(request, user_uid="user_1")
+        assert backend.create_with_exercise_link.await_args.kwargs["entry"].title == "My own words"
+
+    @pytest.mark.asyncio
+    async def test_an_untitled_turn_in_goes_to_the_writer_empty(self):
+        backend = _make_backend()
+        service = _make_service(backend=backend, sharing_service=_make_sharing_service())
+        request = UserEntryCreateRequest(
+            pipeline=Pipeline.TEACHER_REVIEW,
+            fulfills_exercise_uid="ex_1",
+            original_filename="draft.md",
+        )
+        await service.create_entry(request, user_uid="user_1")
+        assert backend.create_with_exercise_link.await_args.kwargs["entry"].title == ""
+
+    @pytest.mark.asyncio
+    async def test_an_untitled_upload_without_an_exercise_takes_its_filename(self):
+        backend = _make_backend()
+        service = _make_service(backend=backend)
+        request = UserEntryCreateRequest(pipeline=Pipeline.NONE, original_filename="draft.md")
+        await service.create_entry(request, user_uid="user_1")
+        assert backend.create.call_args[0][0].title == "draft.md"
+
+    @pytest.mark.asyncio
+    async def test_nothing_at_all_is_untitled(self):
+        backend = _make_backend()
+        service = _make_service(backend=backend)
+        request = UserEntryCreateRequest(pipeline=Pipeline.NONE)
+        await service.create_entry(request, user_uid="user_1")
+        assert backend.create.call_args[0][0].title == "Untitled"
+
+
 class TestLivingEntryChannel:
     """Vault living channel: deterministic uid + declared exercise (R2).
 

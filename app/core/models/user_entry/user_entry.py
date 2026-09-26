@@ -33,16 +33,25 @@ explicitly submits to teacher groups.
 
 Revision tracking
 -----------------
-`revision_number` is NOT a node field. It lives on the
-`FULFILLS_EXERCISE {revision}` edge. A second attempt against the same
-exercise creates a new `UserEntry` with a new `FULFILLS_EXERCISE` edge
-carrying `revision=2`.
+The live revision is the `FULFILLS_EXERCISE {revision}` edge: a second
+attempt against the same exercise creates a new `UserEntry` with a new edge
+carrying `revision=2`. The turn-in writer stamps the same number onto the
+node as `turn_in_revision`, beside the exercise snapshot, so the version
+survives the exercise's deletion exactly as the title does (Submit & Share
+arc R12). There is no `revision_number` node property.
+
+Title
+-----
+The title is the student's (Submit & Share arc PR 7 ruling). A turn-in
+handed in with no title is titled "<root exercise title> v<N>" by the
+writer; every surface prints the exercise-and-version label beside the
+title from the snapshot, never from the title.
 
 See: /docs/decisions/ADR-054-user-entry-unified-submissions.md
 """
 
 from dataclasses import dataclass, field
-from datetime import date, datetime, timedelta
+from datetime import datetime, timedelta
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
@@ -52,7 +61,6 @@ if TYPE_CHECKING:
 from core.models.enums.entity_enums import EntityType
 from core.models.enums.pipeline import Pipeline
 from core.models.enums.user_entry_enums import SubmissionModality
-from core.models.type_hints import UserUID
 from core.models.user_owned_entity import UserOwnedEntity
 
 # The title an exchange shows for a turn-in whose exercise is gone and whose
@@ -161,32 +169,7 @@ class UserEntry(UserOwnedEntity):
     # Other feedback. A living vault entry carries neither.
     turn_in_exercise_uid: str | None = None
     turn_in_exercise_title: str | None = None
-
-    # =========================================================================
-    # TITLE GENERATION — ports Submission.generate_exercise_title unchanged;
-    # revision is passed explicitly by the caller (it lives on the edge, not
-    # the node).
-    # =========================================================================
-
-    @classmethod
-    def generate_exercise_title(
-        cls,
-        exercise_title: str,
-        user_uid: UserUID,
-        revision_number: int = 1,
-        revision_date: date | None = None,
-    ) -> str:
-        """Auto-generate the canonical exercise turn-in title.
-
-        Format: {Exercise Title} — {user_id}
-        Revision: {Exercise Title} — {user_id} #{revision_number}, {Mar 02}
-        """
-        user_id = user_uid.removeprefix("user_")
-        base = f"{exercise_title} \u2014 {user_id}"
-        if revision_number > 1:
-            date_str = (revision_date or date.today()).strftime("%b %d")
-            return f"{base} #{revision_number}, {date_str}"
-        return base
+    turn_in_revision: int | None = None
 
     # =========================================================================
     # HELPERS

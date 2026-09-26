@@ -271,9 +271,15 @@ class UserEntryService(BaseService[UserEntryOperations, UserEntry]):
                 if ex_em is not None:
                     metadata["enrichment_mode"] = ex_em.value
 
+        # The title is the student's (PR 7 ruling). A turn-in with none is
+        # titled by the writer from its snapshot ("<root title> v<N>"), so it
+        # goes down empty; anything else falls back to the upload's filename.
+        title = request.title or (
+            "" if submitted_against_uid else (request.original_filename or "Untitled")
+        )
         entry = UserEntry(
             uid=uid,
-            title=request.title,
+            title=title,
             entity_type=EntityType.USER_ENTRY,
             user_uid=user_uid,
             # Sharer attribution: the Shared-With-Me inbox resolves who shared
