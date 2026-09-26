@@ -206,7 +206,10 @@ content are refreshed; the embedding triple is the embeddings writer's and is
 left alone (a re-sync never blanks a note's vector — ADR-074 §8). A declared
 `fulfills_exercise_uid:` does not change this: the note stays a living draft
 and its frozen copy is the turn-in (§ Vault notes are drafts). Only a
-script's relative path, with no `uid:`, is created fresh.
+script's relative path, with no `uid:`, is created fresh. An authored `uid:`
+naming one of your own submissions — a turn-in, a filed copy, a feedback
+request — is refused (ignored-with-reason on `uid`): a submission is never
+edited in place, and the upsert's own statement enforces it.
 
 **Periodic notes** (`entry_kind: daily | weekly | monthly | quarterly | yearly`) get a
 deterministic UID automatically — no explicit `uid:` needed:

@@ -182,3 +182,29 @@ class TestUserEntryDTORoundtrip:
         assert entry.pipeline == Pipeline.LLM_SUMMARY
         assert entry.instructions == "summarize in 3 bullets"
         assert entry.entity_type == EntityType.USER_ENTRY
+
+
+class TestFrozenSubmission:
+    """What a teacher or a reader was handed is never edited in place (R9)."""
+
+    @pytest.mark.parametrize(
+        "entry",
+        [
+            UserEntry(uid="ue_t", title="T", user_uid="u", turn_in_exercise_uid="ex_1"),
+            UserEntry(uid="ue_c", title="C", user_uid="u", submitted_from_uid="ue.vault.n"),
+            UserEntry(uid="ue_r", title="R", user_uid="u", pipeline=Pipeline.TEACHER_REVIEW),
+        ],
+    )
+    def test_a_turn_in_a_copy_and_a_feedback_request_are_frozen(self, entry):
+        assert entry.is_frozen_submission()
+
+    @pytest.mark.parametrize("pipeline", [Pipeline.NONE, Pipeline.KNOWLEDGE, Pipeline.LLM_SUMMARY])
+    def test_a_living_note_is_not(self, pipeline):
+        entry = UserEntry(
+            uid="ue.vault.n",
+            title="N",
+            user_uid="u",
+            pipeline=pipeline,
+            fulfills_exercise_uid="ex_1",
+        )
+        assert not entry.is_frozen_submission()

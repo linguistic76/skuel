@@ -921,11 +921,7 @@ class UnifiedIngestionService:
         # tracked uid that resolves to a turn-in, a teacher_review node or a
         # filed copy is not reused — upserting the note onto it would change
         # what the teacher was handed. The note mints a fresh living node.
-        if (
-            existing.value.turn_in_exercise_uid is not None
-            or existing.value.pipeline == Pipeline.TEACHER_REVIEW
-            or existing.value.submitted_from_uid is not None
-        ):
+        if existing.value.is_frozen_submission():
             return None
         return prior_uid
 

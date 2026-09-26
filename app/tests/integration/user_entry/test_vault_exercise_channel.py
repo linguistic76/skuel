@@ -358,6 +358,86 @@ async def test_unreachable_teacher_surfaces_error_and_compensates(
     assert snap["copies"] == 0  # compensated — no unreviewable orphan
 
 
+@pytest.mark.asyncio
+async def test_an_authored_uid_never_edits_a_submission(
+    clean_neo4j, channel_service, neo4j_driver, seed_classroom
+) -> None:
+    """A vault note authoring the uid of the owner's own frozen copy — or of a
+    feedback request — is refused at the upsert: nothing is written over what
+    the teacher was handed (R9)."""
+    ctx = await seed_classroom()
+    result = await _sync(
+        channel_service,
+        ctx["student_uid"],
+        _living_file_data(ctx["exercise_uid"], status="submitted", content="- handed in"),
+    )
+    assert result.is_ok, result.expect_error()
+    copy_uid = result.value["submitted_copy_uid"]
+
+    other_note = {
+        "pipeline": "knowledge",
+        "title": "Squatter",
+        "uid": copy_uid,
+        "content": "- overwritten",
+    }
+    squat = await ingest_user_entry(
+        data=other_note,
+        file_path=Path("/vault/knowledge/squatter.md"),
+        user_uid=ctx["student_uid"],
+        user_entry_service=channel_service,
+    )
+    assert squat.is_error
+    assert squat.expect_error().details["field"] == "uid"
+
+    async with neo4j_driver.session() as session:
+        row = await (
+            await session.run(
+                """
+                MATCH (c:Entity:UserEntry {uid: $uid})
+                RETURN c.content AS content, c.status AS status, c.pipeline AS pipeline,
+                       c.submitted_from_uid AS from_uid, c.title AS title
+                """,
+                uid=copy_uid,
+            )
+        ).single()
+    assert row is not None
+    assert row["content"] == "- handed in"
+    assert row["status"] == "submitted"
+    assert row["pipeline"] == "teacher_review"
+    assert row["from_uid"] == LIVING_UID
+    assert row["title"] == "My task list"
+
+    # A turn-in on a pipeline without a reviewer is frozen by its snapshot alone.
+    async with neo4j_driver.session() as session:
+        await session.run(
+            """
+            MATCH (u:User {uid: $student})
+            CREATE (t:Entity:UserEntry {
+                uid: 'ue_ai_turn_in', entity_type: 'user_entry', title: 'AI turn-in',
+                user_uid: $student, pipeline: 'llm_summary', status: 'active',
+                content: '- asked the AI', turn_in_exercise_uid: $exercise,
+                created_at: datetime(), updated_at: datetime()
+            })
+            MERGE (u)-[:OWNS]->(t)
+            """,
+            student=ctx["student_uid"],
+            exercise=ctx["exercise_uid"],
+        )
+    squat_ai = await ingest_user_entry(
+        data={**other_note, "uid": "ue_ai_turn_in"},
+        file_path=Path("/vault/knowledge/squatter.md"),
+        user_uid=ctx["student_uid"],
+        user_entry_service=channel_service,
+    )
+    assert squat_ai.is_error
+    assert squat_ai.expect_error().details["field"] == "uid"
+    async with neo4j_driver.session() as session:
+        ai = await (
+            await session.run("MATCH (t:Entity {uid: 'ue_ai_turn_in'}) RETURN t.content AS content")
+        ).single()
+    assert ai is not None and ai["content"] == "- asked the AI"
+
+
 async def _copies_of(neo4j_driver, note_uid: str) -> list[dict[str, Any]]:
     """Every frozen copy filed from a note, oldest first, with its links."""
     async with neo4j_driver.session() as session:

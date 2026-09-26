@@ -202,6 +202,22 @@ class UserEntry(UserOwnedEntity):
         """
         return self.metadata.get("entry_kind") in PERIODIC_NOTE_KINDS
 
+    def is_frozen_submission(self) -> bool:
+        """True when this entry is what a teacher or a reader was handed — never edited in place.
+
+        A turn-in (it carries the snapshot), a frozen copy of a vault note (it
+        records its provenance) or a feedback request (``teacher_review``). A
+        caller-supplied uid naming one is refused at the upsert
+        (``_UserEntryCrudMixin.upsert`` applies the same three tests in its
+        MERGE), and a tracked vault uid naming one is never a note's living
+        identity (R9).
+        """
+        return (
+            self.turn_in_exercise_uid is not None
+            or self.submitted_from_uid is not None
+            or self.pipeline == Pipeline.TEACHER_REVIEW
+        )
+
     def is_vault_note(self) -> bool:
         """True when this entry was ingested from a vault file it can be written back to.
 

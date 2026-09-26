@@ -344,8 +344,10 @@ class UserEntryService(BaseService[UserEntryOperations, UserEntry]):
             #
             # Ownership is enforced atomically inside `backend.upsert` (the MERGE
             # gates its write on the existing owner and returns not-found on a
-            # mismatch). A separate preflight read here would reintroduce the
-            # TOCTOU race the constraint-backed MERGE exists to close.
+            # mismatch), and so is immutability: a uid naming one of the
+            # owner's own frozen submissions takes no write (R9). A separate
+            # preflight read here would reintroduce the TOCTOU race the
+            # constraint-backed MERGE exists to close.
             create_result = await self.backend.upsert(entry)
         else:
             create_result = await self.backend.create(entry)

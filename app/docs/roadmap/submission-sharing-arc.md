@@ -1550,6 +1550,12 @@ it first removes both.
     went with it — the resolver's living flag and ShareOutcome.withheld are deleted (DELETED
     rows). The vault door keeps the note's audience for the copy only, and a draft that declares
     one syncs with a warning.
+  - **A caller uid never edits a submission** (Codex P1 on #1426): the upsert's MERGE gates its
+    write on the owner AND on the node not being a frozen submission — a turn-in snapshot, a
+    `submitted_from_uid`, `teacher_review` (`UserEntry.is_frozen_submission`, the same three
+    tests) — and returns a validation error on `uid`. The tracker guard covered only a
+    *recovered* uid; an authored vault `uid:` or a JSON caller naming the owner's own copy would
+    have rewritten what the teacher was handed.
   - **Provenance rides beside the request, never in it:** `create_entry(..., copy_of=SubmittedCopy)`,
     keyword-only — the JSON door parses `UserEntryCreateRequest` straight from the body, so a
     request field would let a caller claim another note's provenance. `UserEntry` gains
