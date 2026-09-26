@@ -1418,10 +1418,15 @@ it first removes both.
     post their own `audience` values; `private` is never emitted (exclusive). The destination
     dropdown, its document listeners and the `portfolio` argument are gone; Portfolio is a
     server-rendered disabled checkbox.
-  - **The Submit page's exercise read is audience-scoped** (Codex P1 on #1425): `?exercise_uid=`
-    resolves through `get_exercise_for_user` (ADR-085's SCOPE_AWARE read), so a stranger's PERSONAL
-    exercise is the rendered not-found at 404 before its title reaches the page or the Title
-    field's hint; the upload door's own refusal stays the write-side gate.
+  - **The Submit page's exercise read is audience-scoped** (Codex P1 ×2 on #1425):
+    `?exercise_uid=` resolves through `UserEntryOrchestrator.get_submit_target` — the Exercise's
+    SCOPE_AWARE read (ADR-085), else the RevisedExercise for the student it names or its owner
+    (the "Submit Revision" links carry a revision uid), named by its root exercise's title (the
+    writer's default title; the revision's own once the root is gone) — so a stranger's PERSONAL
+    exercise or revision is the rendered not-found at 404 before its title reaches the page or
+    the Title field's hint; the upload door's own refusal stays the write-side gate.
+  - **A whitespace-only title is no title** (Codex P2 on #1425): `create_entry` strips before the
+    default, so every door behaves like the upload door.
   - **Every "Submit →" link is `submit_page_href()`** (`ui/user_entry/forms.py`, percent-encoded)
     — the one spelling of the route; `SUBMIT_PAGE_PATH` for a bare link.
   - **The route strings have no stale_names row** (the two deleted handler names do): `/submit`

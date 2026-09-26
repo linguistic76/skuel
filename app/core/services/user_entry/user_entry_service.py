@@ -274,7 +274,8 @@ class UserEntryService(BaseService[UserEntryOperations, UserEntry]):
         # The title is the student's (PR 7 ruling). A turn-in with none is
         # titled by the writer from its snapshot ("<root title> v<N>"), so it
         # goes down empty; anything else falls back to the upload's filename.
-        title = request.title or (
+        # Whitespace is nothing, whichever door sent it.
+        title = (request.title or "").strip() or (
             "" if submitted_against_uid else (request.original_filename or "Untitled")
         )
         entry = UserEntry(

@@ -52,7 +52,7 @@ def _request(query: dict[str, str] | None = None) -> SimpleNamespace:
 def _handler(*, groups: list[SimpleNamespace] | None = None, targets=None, exercise=None):
     registry = _RouteRegistry()
     orchestrator = SimpleNamespace(
-        get_exercise_for_user=AsyncMock(
+        get_submit_target=AsyncMock(
             return_value=(
                 Result.ok(exercise)
                 if exercise is not None
@@ -86,7 +86,7 @@ async def test_the_page_names_the_exercise_and_offers_the_share_targets() -> Non
 
     html = to_xml(await handler(_request({"exercise_uid": "ex_1", "from_ps": "ps.a.b"})))
 
-    orchestrator.get_exercise_for_user.assert_awaited_once_with("ex_1", "user_student")
+    orchestrator.get_submit_target.assert_awaited_once_with("ex_1", "user_student")
     groups_service.get_user_groups.assert_awaited_once_with("user_student", role="student")
     sharing.targets.assert_awaited_once_with("user_student")
     assert "Answering: " in html and "The Gentle Return" in html
@@ -104,7 +104,7 @@ async def test_without_an_exercise_teacher_still_works_and_several_classes_get_a
 
     html = to_xml(await handler(_request()))
 
-    orchestrator.get_exercise_for_user.assert_not_awaited()
+    orchestrator.get_submit_target.assert_not_awaited()
     assert "x-data=\"submit('teacher', true)\"" in html
     assert 'name="teacher_group"' in html
     assert '<option value="g_b">Chem</option>' in html

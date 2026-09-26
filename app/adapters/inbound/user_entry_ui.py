@@ -325,22 +325,22 @@ def create_user_entry_ui_routes(
         selected_exercise_uid = request.query_params.get("exercise_uid") or None
         from_ps = request.query_params.get("from_ps") or None
 
-        # The audience-scoped read (ADR-085): an exercise the caller may not use
-        # is not-found here, at 404, before its title reaches the page.
+        # The audience-scoped read (ADR-085): an exercise or revision the caller
+        # may not use is not-found here, at 404, before its title reaches the page.
         exercise_title: str | None = None
         if selected_exercise_uid:
-            exercise_result = require_found(
-                await orchestrator.get_exercise_for_user(selected_exercise_uid, user_uid),
+            target_result = require_found(
+                await orchestrator.get_submit_target(selected_exercise_uid, user_uid),
                 "Exercise",
                 selected_exercise_uid,
             )
-            if exercise_result.is_error:
+            if target_result.is_error:
                 return refuse(
-                    exercise_result.expect_error(),
+                    target_result.expect_error(),
                     partial(_submit_page_error, request=request),
                     "Exercise",
                 )
-            exercise_title = exercise_result.value.title
+            exercise_title = target_result.value.title
 
         # The classes the student studies in — "Which class?" when more than one
         # and no exercise names its own.
