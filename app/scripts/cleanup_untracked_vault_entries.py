@@ -16,9 +16,10 @@ copy is a superseded duplicate. An untracked entry whose path is NOT tracked is
 **ambiguous** — an orphan of a file deleted or moved before the tracker could
 see it, or a note not yet synced — so it is REPORT-ONLY and never auto-deleted.
 
-Criterion for each candidate (untracked, has ``vault_file_path``, no
-``FULFILLS_EXERCISE``, not a frozen copy — ``submitted_from_uid`` is set on
-every copy of a vault note, and copies never carry ``vault_file_path``):
+Criterion for each candidate (untracked, has ``vault_file_path``, not a
+frozen submission — a turn-in by snapshot or ``FULFILLS_EXERCISE`` edge, a
+filed copy's ``submitted_from_uid``, a ``teacher_review`` node, the markers
+``UserEntry.is_frozen_submission`` reads):
   - **DELETE**  → its ``vault_file_path`` ∈ tracked file paths (superseded).
   - **REVIEW**  → its ``vault_file_path`` ∉ tracked file paths (ambiguous).
 
@@ -49,6 +50,8 @@ from typing import Any
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
+from core.models.enums.pipeline import Pipeline
+
 
 def select_orphans(
     user_entry_rows: list[dict[str, Any]],
@@ -61,10 +64,9 @@ def select_orphans(
       - its ``metadata`` JSON parses to a mapping carrying a ``vault_file_path``
         key (structured parse, not a substring match);
       - its uid is NOT in ``tracked_uids`` (no live ``IngestionMetadata`` row);
-      - it has no outgoing ``FULFILLS_EXERCISE`` edge (``has_fulfills`` False);
-      - it is not a frozen copy of a vault note (``is_copy`` False —
-        ``submitted_from_uid IS NOT NULL``): a copy is a submission, never
-        a superseded duplicate of its note.
+      - it is not a frozen submission (``is_frozen`` False): what a teacher
+        or a reader was handed is never a superseded duplicate of a note,
+        even when a fresh living node replaced it in the tracker.
 
     A candidate is **deletable** only with the positive orphan signal (Codex
     #616 P1): its ``vault_file_path`` ∈ ``live_ue_paths`` — the file is tracked
@@ -78,13 +80,13 @@ def select_orphans(
     separately for report-only review — never auto-deleted.
 
     Each input row must carry ``uid``, ``metadata`` (JSON string or None),
-    ``pipeline``, ``has_fulfills`` (bool) and ``is_copy`` (bool). Returns ``(deletable, ambiguous)``
+    ``pipeline`` and ``is_frozen`` (bool). Returns ``(deletable, ambiguous)``
     with the resolved ``vault_file_path`` attached to each row.
     """
     deletable: list[dict[str, Any]] = []
     ambiguous: list[dict[str, Any]] = []
     for row in user_entry_rows:
-        if row.get("has_fulfills") or row.get("is_copy"):
+        if row.get("is_frozen"):
             continue
         if str(row["uid"]) in tracked_uids:
             continue
@@ -139,16 +141,19 @@ async def _fetch_tracked(driver: Any) -> tuple[set[str], set[str]]:
 
 async def _fetch_user_entry_rows(driver: Any) -> list[dict[str, Any]]:
     # Deliberately does NOT return `content` — the metadata JSON, uid, pipeline,
-    # and the turn-in and copy flags are all the filter needs.
+    # and the frozen-submission flag are all the filter needs.
     result = await driver.execute_query(
         """
         MATCH (u:UserEntry)
         RETURN u.uid AS uid,
                u.metadata AS metadata,
                u.pipeline AS pipeline,
-               EXISTS { (u)-[:FULFILLS_EXERCISE]->() } AS has_fulfills,
-               u.submitted_from_uid IS NOT NULL AS is_copy
-        """
+               (u.turn_in_exercise_uid IS NOT NULL
+                OR u.submitted_from_uid IS NOT NULL
+                OR u.pipeline = $teacher_review
+                OR EXISTS { (u)-[:FULFILLS_EXERCISE]->() }) AS is_frozen
+        """,
+        {"teacher_review": Pipeline.TEACHER_REVIEW.value},
     )
     return [dict(r) for r in result.records]
 

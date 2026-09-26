@@ -1597,6 +1597,9 @@ it first removes both.
     copy, `teacher_review`) is reported with its link count and never touched — its links are
     the audience it was handed to (Codex P1 on #1426; pinned against a container by
     `test_vault_notes_are_drafts_migration.py`). The one-shot retraction script is deleted.
+    `cleanup_untracked_vault_entries.py` spares the same whole set (Codex P1 on #1426) — not only
+    `submitted_from_uid` as § PR 8 above says: a frozen submission a fresh living node replaced
+    in the tracker is still what a teacher was handed, never a superseded duplicate.
   - Relative paths (scripts, tests) keep the direct door: `teacher_review` parses, no uid is
     minted, and the entry itself is the submission — no copy.
   - Verified, nothing to remove: the per-pipeline shares-by-default flag and its test left at
