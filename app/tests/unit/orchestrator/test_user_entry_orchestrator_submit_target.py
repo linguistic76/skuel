@@ -34,11 +34,7 @@ def _orchestrator(*, exercises: dict[str, str], revision=None, revision_error=No
     exercise_service.get_exercise_for_user = AsyncMock(side_effect=scoped)
     revised = MagicMock()
     revised.get = AsyncMock(
-        return_value=(
-            revision_error
-            if revision_error is not None
-            else Result.ok(revision)
-        )
+        return_value=(revision_error if revision_error is not None else Result.ok(revision))
     )
     return UserEntryOrchestrator(
         user_entry_service=MagicMock(),
