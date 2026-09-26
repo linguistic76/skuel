@@ -134,8 +134,8 @@ def test_wall_row_has_a_stop_sharing_chip_per_audience_member() -> None:
     assert 'data-wall-row="ue_65688cb7"' in html
     assert 'href="/gradebook/ue_65688cb7"' in html
     assert "Alice" in html and "Physics 101" in html
-    assert 'hx-post="/api/user-entries/ue_65688cb7/unshare?audience=user:alice"' in html
-    assert 'hx-post="/api/user-entries/ue_65688cb7/unshare?audience=group:g_1"' in html
+    assert 'hx-post="/api/user-entries/ue_65688cb7/unshare?audience=user%3Aalice"' in html
+    assert 'hx-post="/api/user-entries/ue_65688cb7/unshare?audience=group%3Ag_1"' in html
     assert 'hx-target="closest [data-wall-row]"' in html
     assert 'hx-swap="outerHTML"' in html
 

@@ -21,6 +21,7 @@ Data shapes: ``SharedWithMeItem`` rows from
 from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any
+from urllib.parse import quote
 
 from fasthtml.common import H2, H4, A, Button, Div, P, Span
 
@@ -228,7 +229,13 @@ def _stop_sharing_chip(entry_uid: str, value: str, label: str) -> Span:
         Button(
             Icon("x", size=12),
             type="button",
-            hx_post=f"/api/user-entries/{entry_uid}/unshare?audience={value}",
+            # Both dynamic parts percent-encoded: a username may carry URL
+            # syntax (`&`, `+`, `#`), which would otherwise rewrite the query
+            # and unshare nothing.
+            hx_post=(
+                f"/api/user-entries/{quote(entry_uid, safe='')}/unshare"
+                f"?audience={quote(value, safe='')}"
+            ),
             hx_target=f"closest [{WALL_ROW_ATTR}]",
             hx_swap="outerHTML",
             hx_disabled_elt="this",
