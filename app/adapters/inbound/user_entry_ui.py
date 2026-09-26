@@ -307,6 +307,12 @@ def create_user_entry_ui_routes(
     # SUBMIT — the one Submit page (/submissions/submit)
     # =========================================================================
 
+    def _submit_page_error(message: str, *, request: Request) -> FT:
+        """The Submit page with only an error banner — the rendered refusal's body."""
+        return render_submissions_sidebar_page(
+            content=render_error_banner(message), active="submit", request=request
+        )
+
     @rt("/submissions/submit")
     async def submissions_submit_page(request: Request) -> Any:
         """The Submit page: the upload form, preselecting ``?exercise_uid=`` when carried.
@@ -319,11 +325,22 @@ def create_user_entry_ui_routes(
         selected_exercise_uid = request.query_params.get("exercise_uid") or None
         from_ps = request.query_params.get("from_ps") or None
 
+        # The audience-scoped read (ADR-085): an exercise the caller may not use
+        # is not-found here, at 404, before its title reaches the page.
         exercise_title: str | None = None
         if selected_exercise_uid:
-            exercise_result = await orchestrator.get_exercise(selected_exercise_uid)
-            if exercise_result.is_ok and exercise_result.value is not None:
-                exercise_title = exercise_result.value.title
+            exercise_result = require_found(
+                await orchestrator.get_exercise_for_user(selected_exercise_uid, user_uid),
+                "Exercise",
+                selected_exercise_uid,
+            )
+            if exercise_result.is_error:
+                return refuse(
+                    exercise_result.expect_error(),
+                    partial(_submit_page_error, request=request),
+                    "Exercise",
+                )
+            exercise_title = exercise_result.value.title
 
         # The classes the student studies in — "Which class?" when more than one
         # and no exercise names its own.

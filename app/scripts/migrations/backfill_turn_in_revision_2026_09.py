@@ -3,19 +3,17 @@
 Backfill the turn-in snapshot's version, ``turn_in_revision``
 =============================================================
 
-Since Submit & Share arc PR 7 the turn-in writer stamps ``turn_in_revision``
-onto every UserEntry beside its exercise snapshot — the attempt number the
-``FULFILLS_EXERCISE {revision}`` edge carries, copied so the version survives
-the exercise's deletion exactly as the title does (R12). Every surface prints
-"<exercise> · v<N>" from it. Turn-ins written before the stamp have no value
-and would print the exercise alone; this script stamps them once.
+The turn-in writer stamps ``turn_in_revision`` onto every UserEntry beside its
+exercise snapshot — the attempt number the ``FULFILLS_EXERCISE {revision}`` edge
+carries, copied so the version survives the exercise's deletion exactly as the
+title does (Submit & Share arc R12); every surface prints "<exercise> · v<N>"
+from it. This script stamps the turn-ins that carry no value, once.
 
 How each candidate's version is resolved (in order, one source per row):
 
 1. **The edge** — ``FULFILLS_EXERCISE.revision`` where the exercise still lives.
-2. **The stray node property** — ``revision_number``, which the retired linker
-   wrote on ASSIGNED / revision turn-ins (the ADR-054 migration had moved that
-   property onto the edge; the linker's write is deleted with PR 7).
+2. **The stray node property** — ``revision_number``, which nothing writes on a
+   UserEntry any more (ADR-054 moved it onto the edge).
 3. **The attempt's ordinal** — for an entry whose exercise is gone and that
    carries neither: its position by ``created_at`` among the same owner's
    turn-ins on the same snapshot uid (the order the writer minted them in).

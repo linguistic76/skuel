@@ -159,9 +159,13 @@ class UserEntryOrchestrator:
         """The exercises assigned to a student."""
         return await self._exercises.get_student_exercises(user_uid)
 
-    async def get_exercise(self, uid: str) -> Result[Exercise]:
-        """One exercise by uid — the Submit page names the exercise a turn-in answers."""
-        return await self._exercises.get_exercise(uid)
+    async def get_exercise_for_user(self, uid: str, user_uid: UserUID) -> Result[Exercise]:
+        """One exercise by uid, only if the caller is in its audience (out-of-audience is not-found).
+
+        The Submit page names the exercise a turn-in answers with this read, so a
+        PERSONAL exercise's title is never disclosed to a stranger by its uid.
+        """
+        return await self._exercises.get_exercise_for_user(uid, user_uid)
 
     async def list_user_exercises(self, user_uid: UserUID) -> Result[list[Exercise]]:
         """List saved instruction-template exercises owned by the user."""

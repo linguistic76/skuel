@@ -1418,6 +1418,10 @@ it first removes both.
     post their own `audience` values; `private` is never emitted (exclusive). The destination
     dropdown, its document listeners and the `portfolio` argument are gone; Portfolio is a
     server-rendered disabled checkbox.
+  - **The Submit page's exercise read is audience-scoped** (Codex P1 on #1425): `?exercise_uid=`
+    resolves through `get_exercise_for_user` (ADR-085's SCOPE_AWARE read), so a stranger's PERSONAL
+    exercise is the rendered not-found at 404 before its title reaches the page or the Title
+    field's hint; the upload door's own refusal stays the write-side gate.
   - **Every "Submit →" link is `submit_page_href()`** (`ui/user_entry/forms.py`, percent-encoded)
     — the one spelling of the route; `SUBMIT_PAGE_PATH` for a bare link.
   - **The route strings have no stale_names row** (the two deleted handler names do): `/submit`

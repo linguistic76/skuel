@@ -52,7 +52,7 @@ def _request(query: dict[str, str] | None = None) -> SimpleNamespace:
 def _handler(*, groups: list[SimpleNamespace] | None = None, targets=None, exercise=None):
     registry = _RouteRegistry()
     orchestrator = SimpleNamespace(
-        get_exercise=AsyncMock(
+        get_exercise_for_user=AsyncMock(
             return_value=(
                 Result.ok(exercise)
                 if exercise is not None
@@ -86,7 +86,7 @@ async def test_the_page_names_the_exercise_and_offers_the_share_targets() -> Non
 
     html = to_xml(await handler(_request({"exercise_uid": "ex_1", "from_ps": "ps.a.b"})))
 
-    orchestrator.get_exercise.assert_awaited_once_with("ex_1")
+    orchestrator.get_exercise_for_user.assert_awaited_once_with("ex_1", "user_student")
     groups_service.get_user_groups.assert_awaited_once_with("user_student", role="student")
     sharing.targets.assert_awaited_once_with("user_student")
     assert "Answering: " in html and "The Gentle Return" in html
@@ -104,7 +104,7 @@ async def test_without_an_exercise_teacher_still_works_and_several_classes_get_a
 
     html = to_xml(await handler(_request()))
 
-    orchestrator.get_exercise.assert_not_awaited()
+    orchestrator.get_exercise_for_user.assert_not_awaited()
     assert "x-data=\"submit('teacher', true)\"" in html
     assert 'name="teacher_group"' in html
     assert '<option value="g_b">Chem</option>' in html
@@ -112,10 +112,13 @@ async def test_without_an_exercise_teacher_still_works_and_several_classes_get_a
 
 
 @pytest.mark.asyncio
-async def test_a_missing_exercise_still_renders_the_form_with_the_link() -> None:
+async def test_an_exercise_outside_the_callers_audience_is_a_404_not_a_title() -> None:
+    """A stranger's PERSONAL exercise uid discloses nothing (ADR-085): the page is not found."""
     handler, _o, _g, _s = _handler()
 
-    html = to_xml(await handler(_request({"exercise_uid": "ex_missing"})))
+    response = await handler(_request({"exercise_uid": "ex_missing"}))
 
-    assert 'name="fulfills_exercise_uid" value="ex_missing"' in html
-    assert "Answering: " in html and "ex_missing" in html
+    assert response.status_code == 404
+    html = to_xml(response.content)
+    assert "Exercise not found" in html
+    assert "fulfills_exercise_uid" not in html
