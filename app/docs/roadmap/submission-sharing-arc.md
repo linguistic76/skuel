@@ -1188,6 +1188,24 @@ it first removes both.
     create_student_share parameter — every writer stamps the owner only.
   - The stale_names row for the deleted access-list method is keyed with its call paren — the
     scanner's underscore-adjacent boundary would otherwise flag the live `get_shared_with_me`.
+  - Live 2026-09-25 (Mike's OK, his :8000 app stopped, the branch app on :8001; read-only
+    census first: 3551 nodes / 3044 edges): the migration deleted the 2 self-shares
+    (`er_e7ca22a9`, `er_0495255e`; after-census 0; the RevisedExercise grant untouched). Then,
+    one write per script and none re-run, as linguistic76: a placeholder entry (`ue_eabe7df1`)
+    was shared with `user:mfan0110` + `group:group_default_user_admin` (outcome
+    `newly_shared_users: [user_admin]`, +1 `SHARES_WITH`, +1 `SHARED_WITH_GROUP`, one
+    `shared_with_you` bell). The owner's wall listed it with both chips and the panel marked
+    both targets shared; the admin's *Shared with you* carried the card with the "directly" and
+    "Default Group" via chips, the bell linked to `/gradebook/ue_eabe7df1`, and that page was
+    the recipient card. Stop sharing the person (the HTMX chip) re-rendered the row with the
+    group chip only — the admin still reached it as the Default Group's owner, "directly" gone;
+    stop sharing the group returned an empty row, the item left both Shared pages and the
+    admin got a real 404. The placeholder and its bell were deleted by uid afterwards
+    (`SHARES_WITH` on UserEntries back to 0, `SHARED_WITH_GROUP` 0); the ten scripted logins
+    left their `Session` + `AuthEvent` pairs. Residual seen: a share's relative time reads
+    hours off — every sharing writer stamps `datetime.now().isoformat()` (local, naive) into
+    `datetime($shared_at)` (read as UTC); pre-existing across `create_share` /
+    `create_group_share` / `create_group_submission`, not this PR's, left for a follow-on.
 
 ### PR 6c — Badge and nudge (R2)
 
@@ -1463,7 +1481,7 @@ requires PR 1, PR 3, PR 5 and PR 6a. PR 6c requires PR 4a, PR 5 and PR 6b. PR 7 
 | 4b | The two lineage predicates accept `FULFILLS_EXERCISE\|FULFILLS_REVISED_EXERCISE`; the two `teachers` lookups and the exercise-use check resolve a revision (ruled in-session) | A resubmitted revision no longer shows as pending in UserContext | merged #1419, 2026-09-25 |
 | 5 | `OWNER_OR_AUDIENCE` + `read_visibility`; the audience fragment; viewer-aware `/gradebook/{uid}` + download; the peer route retired | A person-shared entry opens for its recipient with no status or feedback. A non-recipient gets 404 | merged #1421, 2026-09-25 |
 | 6a | `AudienceSpec` + resolver; R8 co-membership; journal privacy; `group:` never files a feedback request; vault `user:` / `teacher:` parsed but applied only from PR 8 | The vault parser accepts `audience: [teachers, user:<name>]` (unit matrix). A JSON-door `user:` share to a co-member (user_admin, or a member of a non-default group) succeeds; a Default-Group-only member gets the uniform error | merged #1422, 2026-09-25 |
-| 6b | Share / Stop sharing routes; candidates; the two-sided Shared page; R3 cleanup; person-share bell; the two access-list methods deleted (DELETED rows added); `shares_granted` rewired | Share with a co-member (as in 6a) → the recipient's *Shared with you* + bell. Your wall lists it, and Stop sharing removes it. Feedback is gone from the Shared page | open |
+| 6b | Share / Stop sharing routes; candidates; the two-sided Shared page; R3 cleanup; person-share bell; the two access-list methods deleted (DELETED rows added); `shares_granted` rewired | Share with a co-member (as in 6a) → the recipient's *Shared with you* + bell. Your wall lists it, and Stop sharing removes it. Feedback is gone from the Shared page | merged #1423, 2026-09-25 |
 | 6c | Derived "reviewed" badges; the GradeBook nudge | A revised shared entry carries "Revised after feedback". The GradeBook nudge appears on it | open |
 | 7 | The two-question Submit form; teacher without an exercise; teacher bell; the zero-reach rule moves into `create_entry`; the "Submit" rename | The web Teacher option works without an exercise. The teacher's bell links to `/teaching/review/{uid}` | open |
 | 8 | Vault notes are drafts; one frozen copy per `status: submitted`; provenance + dedup; closes the re-sync case file | A vault note with `status: submitted` files one copy; an idle re-sync files nothing | open |
