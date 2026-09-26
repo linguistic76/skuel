@@ -1,16 +1,16 @@
 """Integration test: AI report generation wires through UserEntryBackend.
 
 Verifies the canonical report-creation path end-to-end against a real Neo4j
-instance. AI reports must get a SHARES_WITH edge from the entry owner
-(student) to the report node, so they appear in the same student-visible
-read path as teacher reports.
+instance. The student OWNS the AI report — the same owner read path as
+teacher reports — and no share link is written for them (Submit & Share arc
+R3: feedback lives in the GradeBook, never on the Shared page).
 
 Cypher-level equivalent of that guarantee:
 
     MATCH (s:Entity {uid: $sub})<-[:REPORT_FOR]-(r:EntryReport)
-    OPTIONAL MATCH (student:User)-[:SHARES_WITH]->(r)
-    RETURN r.processor_type, r.assessment_outcome,
-           student.uid IS NOT NULL AS shared
+    OPTIONAL MATCH (owner:User)-[:OWNS]->(r)
+    OPTIONAL MATCH (:User)-[share:SHARES_WITH]->(r)
+    RETURN r.processor_type, r.assessment_outcome, owner.uid, count(share) = 0
 
 LLM is mocked — no API keys, no network. The Cypher + backend are real.
 """
@@ -47,8 +47,8 @@ async def seeded_submission(neo4j_driver, clean_neo4j):
       (submission:Entity:UserEntry {uid, status, pipeline})
       (student)-[:OWNS]->(submission)
 
-    The OWNS edge is what create_report_node uses to discover the student
-    and attach SHARES_WITH.
+    The OWNS edge is what create_report_node uses to discover the student,
+    who then owns the report.
     """
     async with neo4j_driver.session() as session:
         await (
@@ -133,12 +133,14 @@ def _make_submission() -> UserEntry:
 
 
 @pytest.mark.asyncio
-async def test_ai_report_creates_shares_with_edge_to_student(
+async def test_ai_report_is_owned_by_the_student_with_no_self_share(
     neo4j_driver,
     seeded_submission,
     entry_report_backend,
 ):
-    """End-to-end: AI report is visible to the student via SHARES_WITH."""
+    """End-to-end: the student OWNS the AI report and reads it as its owner; no
+    SHARES_WITH is written for them (Submit & Share arc R3 — feedback lives in
+    the GradeBook, never on the Shared page)."""
     service = EntryReportService(
         llm_caller=_make_llm_caller("Detailed feedback body."),
         backend=entry_report_backend,
@@ -157,7 +159,7 @@ async def test_ai_report_creates_shares_with_edge_to_student(
         cursor = await session.run(
             """
             MATCH (s:Entity {uid: $sub})<-[:REPORT_FOR]-(r:Entity {uid: $rep})
-            OPTIONAL MATCH (student:User)-[share:SHARES_WITH]->(r)
+            OPTIONAL MATCH (sharer:User)-[share:SHARES_WITH]->(r)
             OPTIONAL MATCH (owner:User)-[:OWNS]->(r)
             RETURN labels(r)           AS labels,
                    r.entity_type       AS entity_type,
@@ -166,8 +168,7 @@ async def test_ai_report_creates_shares_with_edge_to_student(
                    r.assessment_outcome AS assessment_outcome,
                    r.processed_content AS content,
                    r.author_uid        AS author_uid,
-                   student.uid         AS student_uid,
-                   share.role          AS share_role,
+                   count(share)        AS share_edges,
                    owner.uid           AS owner_uid
             """,
             sub=SUBMISSION_UID,
@@ -190,11 +191,8 @@ async def test_ai_report_creates_shares_with_edge_to_student(
     # subject falls back to the submission's own title — never a raw UID.
     assert record["title"] == "AI feedback on 'Integration Submission'"
 
-    # The behavioral fix: AI reports MUST be shared with the submission owner.
-    assert record["student_uid"] == STUDENT_UID, (
-        "AI report is not SHARES_WITH the student — students will not see it."
-    )
-    assert record["share_role"] == "student"
+    # R3: the student reads the report as its OWNER; no share link is written.
+    assert record["share_edges"] == 0, "a self-share on the student's own report was written"
 
     # LLM-authored reports carry no human author (EntryReport contract) — the
     # triggerer is not the author. The OWNS edge, by contrast, always points at

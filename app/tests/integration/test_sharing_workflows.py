@@ -6,10 +6,9 @@ End-to-end tests for the complete sharing system with real Neo4j interactions.
 
 Test Scenarios:
 - Complete sharing workflow (create → share → view → unshare)
-- All 3 visibility levels (PRIVATE, SHARED, PUBLIC)
-- Access control enforcement
+- Publication (PRIVATE / PUBLIC)
 - Ownership verification
-- Access revocation
+- Access revocation (by username — the vocabulary's ``user:<username>``)
 
 These tests use the actual service implementation with real Neo4j driver.
 """
@@ -83,8 +82,9 @@ async def test_report(neo4j_driver):
         "test_user_never_shared",
     ]
     for ruid in recipient_uids:
+        # ``title`` is the username — what a Stop-sharing target names.
         await neo4j_driver.execute_query(
-            "MERGE (u:User {uid: $uid}) SET u.name = $uid",
+            "MERGE (u:User {uid: $uid}) SET u.name = $uid, u.title = $uid",
             uid=ruid,
         )
 
@@ -180,7 +180,7 @@ async def test_complete_sharing_workflow(sharing_service, test_report, neo4j_dri
     unshare_result = await sharing_service.unshare(
         entity_uid=report_uid,
         owner_uid=owner_uid,
-        recipient_uid=recipient_uid,
+        recipient_username=recipient_uid,
     )
     assert not unshare_result.is_error
     assert unshare_result.value is True
@@ -198,88 +198,230 @@ async def test_complete_sharing_workflow(sharing_service, test_report, neo4j_dri
 
 @pytest.mark.asyncio
 @pytest.mark.integration
-async def test_shared_with_me_resolves_subject_context(sharing_service, neo4j_driver):
-    """C4 (feedback-loop UX arc): inbox rows resolve which exercise a shared
-    item is about — EntryReport via REPORT_FOR → FULFILLS_EXERCISE,
-    RevisedExercise via REVISES_EXERCISE — plus the PathStep anchoring that
-    exercise (HAS_EXERCISE). Items without an exercise subject still appear,
-    with null context columns."""
-    student_uid = "test_user_ctx_student"
+async def test_shared_with_me_lists_shares_not_feedback_with_their_via(
+    sharing_service, neo4j_driver
+):
+    """*Shared with you* (R3, R6, R7): a person share and an active-group share of
+    another user's entry are listed once each with their via-list; the viewer's
+    own entry, a feedback type, an inactive group's share and a feedback request
+    are not; ``via`` narrows to one route."""
+    viewer = "test_user_swy_viewer"
     seed = """
-    MERGE (student:User {uid: $student_uid})
+    MERGE (viewer:User {uid: $viewer}) SET viewer.title = 'viewer'
+    MERGE (peer:User {uid: 'test_user_swy_peer'}) SET peer.title = 'peer', peer.display_name = 'Peer P'
+    CREATE (g:Group {uid: 'test_group_swy', name: 'Swy class', is_active: true})
+    CREATE (dead:Group {uid: 'test_group_swy_dead', name: 'Dead class', is_active: false})
+    CREATE (viewer)-[:MEMBER_OF {role: 'student'}]->(g)
+    CREATE (viewer)-[:MEMBER_OF {role: 'student'}]->(dead)
+    CREATE (peer)-[:MEMBER_OF {role: 'student'}]->(g)
+    CREATE (direct:Entity:UserEntry {
+        uid: 'test_ue_swy_direct', entity_type: 'user_entry', status: 'active',
+        title: 'Direct share', user_uid: 'test_user_swy_peer',
+        created_at: datetime(), updated_at: datetime()
+    })
+    CREATE (both:Entity:UserEntry {
+        uid: 'test_ue_swy_both', entity_type: 'user_entry', status: 'archived',
+        title: 'Direct and group', user_uid: 'test_user_swy_peer',
+        created_at: datetime(), updated_at: datetime()
+    })
+    CREATE (groupish:Entity:UserEntry {
+        uid: 'test_ue_swy_group', entity_type: 'user_entry', status: 'active',
+        title: 'Group share', user_uid: 'test_user_swy_peer',
+        created_at: datetime(), updated_at: datetime()
+    })
+    CREATE (mine:Entity:UserEntry {
+        uid: 'test_ue_swy_mine', entity_type: 'user_entry', status: 'active',
+        title: 'My own', user_uid: $viewer,
+        created_at: datetime(), updated_at: datetime()
+    })
     CREATE (report:Entity:EntryReport {
-        uid: 'test_er_ctx', entity_type: 'entry_report', status: 'completed',
-        title: "Feedback on 'Essay Exercise'", created_by: 'test_user_ctx_teacher',
-        visibility: 'private', created_at: datetime(), updated_at: datetime()
+        uid: 'test_er_swy', entity_type: 'entry_report', status: 'completed',
+        title: 'Feedback', user_uid: $viewer,
+        created_at: datetime(), updated_at: datetime()
     })
-    CREATE (entry:Entity:UserEntry {
-        uid: 'test_ue_ctx', entity_type: 'user_entry', status: 'completed',
-        title: 'My essay', created_at: datetime(), updated_at: datetime()
+    CREATE (deadshare:Entity:UserEntry {
+        uid: 'test_ue_swy_dead', entity_type: 'user_entry', status: 'active',
+        title: 'Dead group share', user_uid: 'test_user_swy_peer',
+        created_at: datetime(), updated_at: datetime()
     })
-    CREATE (ex:Entity:Exercise {
-        uid: 'test_ex_ctx', entity_type: 'exercise', title: 'Essay Exercise',
-        status: 'active', created_at: datetime(), updated_at: datetime()
+    CREATE (request:Entity:UserEntry {
+        uid: 'test_ue_swy_request', entity_type: 'user_entry', status: 'submitted',
+        title: 'For the teacher', user_uid: 'test_user_swy_peer', pipeline: 'teacher_review',
+        created_at: datetime(), updated_at: datetime()
     })
-    CREATE (ps:Entity:PathStep {
-        uid: 'ps.test.ctx', entity_type: 'path_step', title: 'Writing',
-        status: 'active', created_at: datetime(), updated_at: datetime()
-    })
-    CREATE (re:Entity:RevisedExercise {
-        uid: 'test_re_ctx', entity_type: 'revised_exercise', status: 'active',
-        title: 'Revision 1', created_at: datetime(), updated_at: datetime()
-    })
-    CREATE (plain:Entity {
-        uid: 'test_fs_ctx', entity_type: 'form_submission', status: 'completed',
-        title: 'Weekly form', created_at: datetime(), updated_at: datetime()
-    })
-    CREATE (student)-[:SHARES_WITH {shared_at: datetime(), role: 'student'}]->(report)
-    CREATE (student)-[:SHARES_WITH {shared_at: datetime(), role: 'student'}]->(re)
-    CREATE (student)-[:SHARES_WITH {shared_at: datetime(), role: 'student'}]->(plain)
-    CREATE (report)-[:REPORT_FOR]->(entry)
-    CREATE (entry)-[:FULFILLS_EXERCISE]->(ex)
-    CREATE (re)-[:REVISES_EXERCISE]->(ex)
-    CREATE (ps)-[:HAS_EXERCISE]->(ex)
+    CREATE (peer)-[:OWNS]->(direct), (peer)-[:OWNS]->(both), (peer)-[:OWNS]->(groupish),
+           (peer)-[:OWNS]->(deadshare), (peer)-[:OWNS]->(request)
+    CREATE (viewer)-[:OWNS]->(mine), (viewer)-[:OWNS]->(report)
+    CREATE (viewer)-[:SHARES_WITH {shared_at: datetime('2026-09-01T10:00:00Z'), role: 'viewer'}]->(direct)
+    CREATE (viewer)-[:SHARES_WITH {shared_at: datetime('2026-09-02T10:00:00Z'), role: 'viewer'}]->(both)
+    CREATE (both)-[:SHARED_WITH_GROUP {shared_at: datetime('2026-09-03T10:00:00Z')}]->(g)
+    CREATE (groupish)-[:SHARED_WITH_GROUP {shared_at: datetime('2026-09-04T10:00:00Z')}]->(g)
+    CREATE (mine)-[:SHARED_WITH_GROUP {shared_at: datetime()}]->(g)
+    CREATE (viewer)-[:SHARES_WITH {shared_at: datetime(), role: 'student'}]->(report)
+    CREATE (deadshare)-[:SHARED_WITH_GROUP {shared_at: datetime()}]->(dead)
+    CREATE (request)-[:SUBMITTED_TO_GROUP {submitted_at: datetime()}]->(g)
     """
-    await neo4j_driver.execute_query(seed, student_uid=student_uid)
+    await neo4j_driver.execute_query(seed, viewer=viewer)
     try:
-        result = await sharing_service.get_shared_with_me(user_uid=student_uid, limit=10)
-        assert not result.is_error
+        result = await sharing_service.get_shared_with_me(user_uid=viewer, limit=10)
+        assert not result.is_error, result.error
         by_uid = {item["entity"].uid: item for item in result.value}
-        assert set(by_uid) == {"test_er_ctx", "test_re_ctx", "test_fs_ctx"}
+        assert set(by_uid) == {"test_ue_swy_direct", "test_ue_swy_both", "test_ue_swy_group"}
+        # newest share first, one row per entity even when two links reach the viewer
+        assert [item["entity"].uid for item in result.value] == [
+            "test_ue_swy_group",
+            "test_ue_swy_both",
+            "test_ue_swy_direct",
+        ]
+        both = by_uid["test_ue_swy_both"]
+        assert both["via_direct"] is True
+        assert both["via_groups"] == [{"uid": "test_group_swy", "name": "Swy class"}]
+        assert both["shared_by"] == "Peer P"
+        assert both["sharer_uid"] == "test_user_swy_peer"
+        assert both["shared_at"].startswith("2026-09-03")
+        assert by_uid["test_ue_swy_direct"]["via_groups"] == []
+        assert by_uid["test_ue_swy_group"]["via_direct"] is False
 
-        for uid in ("test_er_ctx", "test_re_ctx"):
-            assert by_uid[uid]["subject_exercise_uid"] == "test_ex_ctx", uid
-            assert by_uid[uid]["subject_exercise_title"] == "Essay Exercise", uid
-            assert by_uid[uid]["subject_ps_uid"] == "ps.test.ctx", uid
-            assert by_uid[uid]["subject_ps_title"] == "Writing", uid
-
-        plain_item = by_uid["test_fs_ctx"]
-        assert plain_item["subject_exercise_uid"] is None
-        assert plain_item["subject_exercise_title"] is None
-        assert plain_item["subject_ps_uid"] is None
-        assert plain_item["subject_ps_title"] is None
+        # the /groups list: the same reader narrowed to one group
+        via_group = await sharing_service.get_shared_with_me(
+            user_uid=viewer, limit=10, via="test_group_swy"
+        )
+        assert [i["entity"].uid for i in via_group.value] == [
+            "test_ue_swy_group",
+            "test_ue_swy_both",
+        ]
+        via_direct = await sharing_service.get_shared_with_me(
+            user_uid=viewer, limit=10, via="direct"
+        )
+        assert {i["entity"].uid for i in via_direct.value} == {
+            "test_ue_swy_both",
+            "test_ue_swy_direct",
+        }
+        by_sharer = await sharing_service.get_shared_with_me(
+            user_uid=viewer, limit=10, sharer_uid="nobody"
+        )
+        assert by_sharer.value == []
     finally:
         await neo4j_driver.execute_query(
             """
-            MATCH (n:Entity)
-            WHERE n.uid IN ['test_er_ctx', 'test_ue_ctx', 'test_ex_ctx',
-                            'ps.test.ctx', 'test_re_ctx', 'test_fs_ctx']
+            MATCH (n) WHERE n.uid STARTS WITH 'test_ue_swy' OR n.uid STARTS WITH 'test_er_swy'
+               OR n.uid STARTS WITH 'test_group_swy' OR n.uid STARTS WITH 'test_user_swy'
             DETACH DELETE n
             """
         )
+
+
+@pytest.mark.asyncio
+@pytest.mark.integration
+async def test_your_wall_lists_each_shared_entry_with_its_audience(sharing_service, neo4j_driver):
+    """*Your wall* (R7): one row per owned entry that carries a share link, with every
+    person and group it reaches; an unshared entry and a feedback request are not rows;
+    ``entity_uid`` narrows to one entry."""
+    owner = "test_user_wall_owner"
+    seed = """
+    MERGE (owner:User {uid: $owner}) SET owner.title = 'owner'
+    MERGE (alice:User {uid: 'test_user_wall_alice'}) SET alice.title = 'alice', alice.display_name = 'Alice'
+    CREATE (g:Group {uid: 'test_group_wall', name: 'Wall class', is_active: true})
+    CREATE (shared:Entity:UserEntry {
+        uid: 'test_ue_wall_shared', entity_type: 'user_entry', status: 'active',
+        title: 'Shared one', user_uid: $owner, created_at: datetime(), updated_at: datetime()
+    })
+    CREATE (quiet:Entity:UserEntry {
+        uid: 'test_ue_wall_quiet', entity_type: 'user_entry', status: 'active',
+        title: 'Unshared', user_uid: $owner, created_at: datetime(), updated_at: datetime()
+    })
+    CREATE (request:Entity:UserEntry {
+        uid: 'test_ue_wall_request', entity_type: 'user_entry', status: 'submitted',
+        title: 'Feedback request', user_uid: $owner, created_at: datetime(), updated_at: datetime()
+    })
+    CREATE (owner)-[:OWNS]->(shared), (owner)-[:OWNS]->(quiet), (owner)-[:OWNS]->(request)
+    CREATE (alice)-[:SHARES_WITH {shared_at: datetime('2026-09-05T10:00:00Z'), role: 'viewer'}]->(shared)
+    CREATE (shared)-[:SHARED_WITH_GROUP {shared_at: datetime('2026-09-06T10:00:00Z')}]->(g)
+    CREATE (request)-[:SUBMITTED_TO_GROUP {submitted_at: datetime()}]->(g)
+    """
+    await neo4j_driver.execute_query(seed, owner=owner)
+    try:
+        wall = await sharing_service.get_shared_by_me(user_uid=owner)
+        assert not wall.is_error, wall.error
+        assert [row["entity"].uid for row in wall.value] == ["test_ue_wall_shared"]
+        row = wall.value[0]
+        assert row["users"] == [
+            {
+                "uid": "test_user_wall_alice",
+                "username": "alice",
+                "display_name": "Alice",
+                "shared_at": row["users"][0]["shared_at"],
+            }
+        ]
+        assert row["users"][0]["shared_at"].startswith("2026-09-05")
+        assert [g["uid"] for g in row["groups"]] == ["test_group_wall"]
+        assert row["last_shared_at"].startswith("2026-09-06")
+
+        one = await sharing_service.get_shared_by_me(
+            user_uid=owner, limit=1, entity_uid="test_ue_wall_quiet"
+        )
+        assert one.value == []
+
+        # Stop sharing by username; the wall follows
+        gone = await sharing_service.unshare(
+            entity_uid="test_ue_wall_shared", owner_uid=owner, recipient_username="alice"
+        )
+        assert gone.is_ok, gone.error
+        after = await sharing_service.get_shared_by_me(
+            user_uid=owner, limit=1, entity_uid="test_ue_wall_shared"
+        )
+        assert after.value[0]["users"] == []
+        assert [g["uid"] for g in after.value[0]["groups"]] == ["test_group_wall"]
+        # the feedback request survives a group unshare of the same group
+        gone_group = await sharing_service.unshare_from_group(
+            entity_uid="test_ue_wall_shared", owner_uid=owner, group_uid="test_group_wall"
+        )
+        assert gone_group.is_ok
+        kinds = await neo4j_driver.execute_query(
+            "MATCH (:Entity {uid: 'test_ue_wall_request'})-[r]->(:Group) RETURN type(r) AS kind"
+        )
+        assert [rec["kind"] for rec in kinds.records] == ["SUBMITTED_TO_GROUP"]
+    finally:
         await neo4j_driver.execute_query(
-            "MATCH (u:User {uid: $uid}) DETACH DELETE u", uid=student_uid
+            """
+            MATCH (n) WHERE n.uid STARTS WITH 'test_ue_wall' OR n.uid STARTS WITH 'test_group_wall'
+               OR n.uid STARTS WITH 'test_user_wall'
+            DETACH DELETE n
+            """
         )
 
 
-# ============================================================================
-# VISIBILITY LEVEL TESTS
-# ============================================================================
-
-
-# ============================================================================
-# OWNERSHIP VERIFICATION TESTS
-# ============================================================================
+@pytest.mark.asyncio
+@pytest.mark.integration
+async def test_share_candidate_people_are_the_r8_co_members(sharing_service, neo4j_driver):
+    """The Share panel's people: co-members of a real group, and the default group's
+    owner — never its roster, never the owner."""
+    owner = "test_user_cand_owner"
+    seed = """
+    MERGE (owner:User {uid: $owner}) SET owner.title = 'owner'
+    MERGE (mate:User {uid: 'test_user_cand_mate'}) SET mate.title = 'mate', mate.display_name = 'Mate'
+    MERGE (roster:User {uid: 'test_user_cand_roster'}) SET roster.title = 'roster'
+    MERGE (admin:User {uid: 'test_user_cand_admin'}) SET admin.title = 'admin'
+    CREATE (g:Group {uid: 'test_group_cand', name: 'Real class', is_active: true})
+    CREATE (dg:Group {uid: 'group_default_test_user_cand_admin', name: 'Default', is_active: true})
+    CREATE (owner)-[:MEMBER_OF {role: 'student'}]->(g), (mate)-[:MEMBER_OF {role: 'student'}]->(g)
+    CREATE (owner)-[:MEMBER_OF {role: 'student'}]->(dg), (roster)-[:MEMBER_OF {role: 'student'}]->(dg)
+    CREATE (admin)-[:OWNS]->(dg)
+    """
+    await neo4j_driver.execute_query(seed, owner=owner)
+    try:
+        result = await sharing_service.get_share_candidate_people(owner)
+        assert not result.is_error, result.error
+        assert {p["uid"] for p in result.value} == {"test_user_cand_mate", "test_user_cand_admin"}
+        assert result.value[0]["display_name"] in {"Mate", "admin"}
+    finally:
+        await neo4j_driver.execute_query(
+            """
+            MATCH (n) WHERE n.uid STARTS WITH 'test_user_cand' OR n.uid STARTS WITH 'test_group_cand'
+               OR n.uid = 'group_default_test_user_cand_admin'
+            DETACH DELETE n
+            """
+        )
 
 
 @pytest.mark.asyncio
@@ -325,7 +467,7 @@ async def test_only_owner_can_unshare(sharing_service, test_report):
     unshare_result = await sharing_service.unshare(
         entity_uid=report_uid,
         owner_uid=not_owner,  # Not the actual owner
-        recipient_uid=recipient,
+        recipient_username=recipient,
     )
 
     assert unshare_result.is_error
@@ -408,43 +550,6 @@ async def test_only_completed_reports_can_be_shared(neo4j_driver, sharing_servic
 
 
 # ============================================================================
-# SHARED USERS LIST TESTS
-# ============================================================================
-
-
-@pytest.mark.asyncio
-@pytest.mark.integration
-async def test_get_shared_with_list(sharing_service, test_report):
-    """Test fetching list of users entity is shared with."""
-    report_uid = test_report["uid"]
-    owner_uid = test_report["owner_uid"]
-
-    # Share with multiple users
-    users = [
-        ("test_user_teacher", "teacher"),
-        ("test_user_peer1", "peer"),
-        ("test_user_peer2", "peer"),
-    ]
-
-    for recipient_uid, role in users:
-        await sharing_service.share(
-            entity_uid=report_uid,
-            owner_uid=owner_uid,
-            recipient_uid=recipient_uid,
-            role=role,
-        )
-
-    # Get shared users list
-    shared_users_result = await sharing_service.get_shared_with(
-        entity_uid=report_uid,
-    )
-
-    # Note: This may return empty if User nodes don't exist
-    # The test verifies the service method works, not that User nodes exist
-    assert not shared_users_result.is_error
-
-
-# ============================================================================
 # ERROR HANDLING TESTS
 # ============================================================================
 
@@ -475,7 +580,7 @@ async def test_unshare_nonshared_report(sharing_service, test_report):
     unshare_result = await sharing_service.unshare(
         entity_uid=report_uid,
         owner_uid=owner_uid,
-        recipient_uid=never_shared_with,
+        recipient_username=never_shared_with,
     )
 
     assert unshare_result.is_error

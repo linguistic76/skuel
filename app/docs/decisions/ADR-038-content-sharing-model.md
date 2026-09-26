@@ -89,6 +89,12 @@ def is_shareable(self) -> bool:
 
 This prevents users from sharing failed/processing reports, ensuring portfolio quality.
 
+> **2026-09-25 — Amended by [ADR-088](ADR-088-submit-and-share.md) (Submit & Share arc, PR 6b).**
+> For a UserEntry there is no status gate at all: R2 ("anyone may share anything, any time")
+> lifts the share gate's one remaining refusal for the type, `archived`. The encouraged route —
+> submit → feedback → revise → share — is promoted by a derived badge and a nudge, never
+> enforced. The privacy rules (a `private: true` entry, a private pipeline) are the only refusals.
+
 ## Architecture
 
 ### Service Layer
@@ -155,6 +161,14 @@ performed by `UserEntryService.create_entry`'s audience resolution. The other fo
 **service-only**: no unshare, set-visibility, shared-with-me or shared-users endpoint is
 registered anywhere in `adapters/inbound/`. The shared-content inbox is a page, not an API:
 `GET /profile/shared` (`adapters/inbound/user_profile_ui.py`).
+
+> **2026-09-25 — Amended by [ADR-088](ADR-088-submit-and-share.md) (Submit & Share arc, PR 6b).**
+> The door is built, as ADR-088 §6: `POST /api/user-entries/{uid}/share` and `/unshare`
+> (`EntrySharingService`), the Share panel on the owner's `/gradebook/{uid}` page, and *Your
+> wall* on `/profile/shared` — the access list is the wall, not a per-entity listing (the two
+> access-list methods are deleted; `get_shared_by_me` replaces them). A new person share rings
+> its recipient (`EntryShared` → the `shared_with_you` bell), so the "no notifications" premise
+> below no longer holds. `set_visibility` remains the one member without a door.
 
 *Ruled 2026-09-21:* the service-only half is the **PLANNED sharing door** —
 [`/docs/roadmap/sharing-http-door.md`](../roadmap/sharing-http-door.md) holds the per-method

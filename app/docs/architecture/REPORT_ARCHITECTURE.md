@@ -378,7 +378,7 @@ ACTIVITY_REPORT node
 
 `ProgressReportGenerator` accepts a `UserContextBuilder` (primary data source). The primary data comes from `context_builder.build_rich(user_uid, window=...)` — the MEGA-QUERY with the activity window applied to its six activity sections. Per SKUEL's architecture rule: **domain-specific Cypher belongs on the domain backend; cross-domain aggregation stays in services.** `ProgressReportGenerator` is the cross-domain aggregation service — it sits above the domain backends by design.
 
-`ActivityReportBackend` owns the ActivityReport entity's persistence and privacy audit queries (get_history, annotate, get_annotation, get_admin_snapshots, get_shares_granted). `ProgressReportGenerator` is the cross-domain *aggregation* layer that builds report *content* — the backend handles *storage*. The `build_rich()` result (`context.entities_rich`, `context.knowledge_units_rich`, `context.enrolled_paths_rich`, `context.active_path_steps_rich`) gives the full cross-domain picture in a single Neo4j round-trip.
+`ActivityReportBackend` owns the ActivityReport entity's persistence and privacy audit queries (get_history, annotate, get_annotation, get_admin_snapshots; the privacy summary's shares-granted half is the sharing service's wall read, `get_shared_by_me`). `ProgressReportGenerator` is the cross-domain *aggregation* layer that builds report *content* — the backend handles *storage*. The `build_rich()` result (`context.entities_rich`, `context.knowledge_units_rich`, `context.enrolled_paths_rich`, `context.active_path_steps_rich`) gives the full cross-domain picture in a single Neo4j round-trip.
 
 ### Summary
 
@@ -401,7 +401,7 @@ The learning loop does not end at a leaf domain — it fans back out across the 
 | `/submissions/journal` | Student | Journal file-upload UX (Processing → Source → Browse → Process) |
 | `/submissions/{uid}` | Owner | View submission, sharing controls |
 | `/journals` | Any user | Chat-style journal entry point; `/submissions/journal` is the file-upload alternative |
-| `/profile/shared` | Any user | "Shared With Me" inbox |
+| `/profile/shared` | Any user | The Shared page — *Shared with you* + *Your wall* (user entries and form submissions; feedback stays in the GradeBook) |
 | `/api/teaching/review-queue` | Teacher | Pending submission review queue |
 | `/api/teaching/review/{uid}/report` | Teacher | Submit human report on submission |
 | `/api/teaching/review/{uid}/approve` | Teacher | Approve submission |

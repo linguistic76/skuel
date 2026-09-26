@@ -70,8 +70,9 @@ def _item_card(
     link_label: str,
     body: FT | str = "",
     badge: FT | str = "",
+    trailing: FT | str = "",
 ) -> Div:
-    """One thread item: kind + timestamp header, title, optional body + link."""
+    """One thread item: kind + timestamp header, title, optional body + link (+ a trailing action)."""
     when = _when(created_at)
     link: FT | str = ""
     if href:
@@ -90,6 +91,7 @@ def _item_card(
         P(title, cls="text-sm font-medium mb-0"),
         body,
         link,
+        trailing,
         cls=f"border-l-4 {border_cls} bg-muted/50 rounded-r p-3 mb-3",
     )
 
@@ -120,6 +122,17 @@ def _entry_item(entry: ExchangeThreadEntry, viewer_is_teacher: bool) -> Div:
         else ""
     )
     href = f"/teaching/review/{entry['uid']}" if viewer_is_teacher else f"/gradebook/{entry['uid']}"
+    # The owner may share any version (R2): the link opens the entry's page
+    # with the Share panel open.
+    share_link: FT | str = (
+        ""
+        if viewer_is_teacher
+        else A(
+            "Share →",
+            href=f"/gradebook/{entry['uid']}?share=1",
+            cls="text-xs text-primary hover:underline mt-2 inline-block ml-3",
+        )
+    )
     return _item_card(
         kind_label=kind,
         border_cls="border-l-primary",
@@ -128,6 +141,7 @@ def _entry_item(entry: ExchangeThreadEntry, viewer_is_teacher: bool) -> Div:
         href=href,
         link_label="Open review" if viewer_is_teacher else "Open submission",
         badge=badge,
+        trailing=share_link,
     )
 
 

@@ -24,7 +24,6 @@ def mock_backend():
     backend.annotate = AsyncMock(return_value=Result.ok([]))
     backend.get_annotation = AsyncMock(return_value=Result.ok([]))
     backend.get_admin_snapshots = AsyncMock(return_value=Result.ok([]))
-    backend.get_shares_granted = AsyncMock(return_value=Result.ok([]))
     return backend
 
 
@@ -51,10 +50,13 @@ def mock_context_builder():
 
 @pytest.fixture
 def service(mock_backend, mock_context_builder, mock_event_bus):
+    sharing = MagicMock()
+    sharing.get_shared_by_me = AsyncMock(return_value=Result.ok([]))
     return ActivityReportService(
         backend=mock_backend,
         context_builder=mock_context_builder,
         event_bus=mock_event_bus,
+        sharing_service=sharing,
     )
 
 

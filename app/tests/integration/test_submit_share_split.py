@@ -201,11 +201,9 @@ class TestTheTwoReadersNeverCross:
         """The member reader (``/groups``) lists what was shared with the
         class; a turn-in sent to the teacher is not on it."""
         sharing, _, _ = linked
-        result = await sharing.get_user_entries_shared_with_group(
-            user_uid=UserUID(STUDENT_2), group_uid=GROUP
-        )
+        result = await sharing.get_shared_with_me(user_uid=UserUID(STUDENT_2), via=GROUP)
         assert result.is_ok, result.error
-        uids = [item["entity"]["uid"] for item in result.value]
+        uids = [item["entity"].uid for item in result.value]
         assert uids == [ENTRY_SHARED]
 
     async def test_the_teacher_queue_lists_the_request_and_not_the_share(self, linked: Any) -> None:

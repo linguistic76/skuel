@@ -54,6 +54,7 @@ from ui.activities.nav import render_activity_sidebar_error, render_activity_sid
 from ui.components import Button, ButtonT, Card, CardBody, CardHeader, CardTitle, Icon
 from ui.feedback import Badge, BadgeT
 from ui.gradebook.recipient_card import RecipientEntryCard
+from ui.gradebook.share_panel import ShareButton, SharePanelForm
 from ui.gradebook.summary import (
     EXCHANGE_SECTION_ID,
     EXERCISE_REMOVED_LABEL,
@@ -81,6 +82,7 @@ if TYPE_CHECKING:
     from core.ports.query_types import OrganizerResult
     from core.services.groups.group_service import GroupService
     from core.services.report.entry_report_service import EntryReportService
+    from core.services.user_entry.entry_sharing_service import EntrySharingService
     from core.services.user_entry.user_entry_service import UserEntryService
 
 logger = get_logger("skuel.routes.user_entry.ui")
@@ -190,6 +192,7 @@ def create_user_entry_ui_routes(
     orchestrator: UserEntryOrchestrator | None = None,
     entry_report_service: EntryReportService | None = None,
     groups_service: GroupService | None = None,
+    entry_sharing: EntrySharingService | None = None,
     batch_transcription_service: Any | None = None,
     processing_service: Any | None = None,
     user_service: Any | None = None,
@@ -205,6 +208,9 @@ def create_user_entry_ui_routes(
         entry_report_service: Used to guard delete when feedback exists
         groups_service: ``GroupService`` used by ``/submit`` to enumerate the
             student's own groups for the audience radio selector.
+        entry_sharing: ``EntrySharingService`` — the Share panel's candidates
+            (``/gradebook/{uid}/share-panel``); without it the owner's page
+            renders no Share button.
         batch_transcription_service: Retained for API compatibility (journal upload
             routes now live in journals_routes.py).
         processing_service: Retained for API compatibility (journal upload
@@ -703,19 +709,37 @@ def create_user_entry_ui_routes(
             },
         )
 
+    @rt("/gradebook/{uid}/share-panel")
+    async def share_panel_fragment(request: Request, uid: str) -> Any:
+        """HTMX fragment: the Share panel's body for the entry's owner.
+
+        Candidates are the owner's active student and owned groups and their
+        R8 co-members, with the entry's current audience marked. Any other
+        entity, and anyone but the owner, gets the rendered not-found at 404.
+        """
+        user_uid = require_authenticated_user(request)
+        if entry_sharing is None:
+            return render_inline_error("Sharing is not available.")
+        candidates = await entry_sharing.candidates(uid, user_uid)
+        if candidates.is_error:
+            return refuse(candidates.expect_error(), render_inline_error, "UserEntry")
+        return SharePanelForm(uid, candidates.value)
+
     # =========================================================================
     # GRADEBOOK DETAIL — MUST BE LAST (catch-all pattern)
     # =========================================================================
 
     @rt("/gradebook/{uid}")
-    async def submission_detail(request: Request, uid: str) -> Any:
+    async def submission_detail(request: Request, uid: str, share: str = "") -> Any:
         """Submission detail — the owner's page, or the recipient card.
 
         One audience read (``read_visibility`` OWNER_OR_AUDIENCE, ADR-088 §5)
         admits the owner and anyone the share links name; everyone else gets
         the rendered not-found at a real 404. The owner-versus-recipient
         branch then decides what is shown: a recipient sees the R6 card and
-        never the status, the processed body, feedback or the exchange.
+        never the status, the processed body, feedback or the exchange. The
+        owner's page carries the Share button (``?share=1`` opens its panel —
+        the exchange thread's per-version Share link, R2).
         """
         user_uid = require_authenticated_user(request)
 
@@ -877,8 +901,13 @@ def create_user_entry_ui_routes(
                 cls="mt-6",
             )
 
+        share_button: Any = (
+            ShareButton(uid, open=bool(share)) if entry_sharing is not None else None
+        )
+
         content = Div(
             PageHeader(entry.title or "Submission Details", subtitle=f"UID: {uid}"),
+            share_button,
             detail_card,
             map_section,
             respond_button,

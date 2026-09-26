@@ -1618,31 +1618,96 @@ class TeacherDashboardStats(TypedDict, total=False):
 # ============================================================================
 
 
+#: The ``via`` filter value for "shared with me directly" (a ``SHARES_WITH``
+#: from the viewer) on the *Shared with you* read; every other ``via`` value
+#: is a group uid.
+VIA_DIRECT = "direct"
+
+
+class SharedWithMeGroupRef(TypedDict):
+    """One group a shared item reached the viewer through (the via-list)."""
+
+    uid: str
+    name: str | None
+
+
 class SharedWithMeItem(TypedDict):
-    """One Shared-With-Me inbox item: the shared entity, share-edge metadata,
-    and its resolved subject context (C4, feedback-loop UX arc).
+    """One *Shared with you* item: the shared entity, who shared it and how.
 
-    The subject fields answer "what is this feedback about": the exercise an
-    EntryReport's submission fulfills (``REPORT_FOR`` → ``FULFILLS_EXERCISE``)
-    or a RevisedExercise's original (``REVISES_EXERCISE``), plus the PathStep
-    anchoring that exercise when one exists (``HAS_EXERCISE``). All four are
-    ``None`` for entity types with no exercise subject (e.g. FormSubmission).
-
-    ``shared_by`` is the sharer's resolved display name; ``sharer_uid`` is the
-    raw ``created_by`` uid backing it — the value the inbox Shared-by filter
-    keys on (arc 2 C4).
+    ``shared_by`` is the owner's display name and ``sharer_uid`` the owner —
+    the sharer is always the owner (ADR-088 §3). ``via_direct`` is a person
+    share to the viewer; ``via_groups`` the active groups the item is
+    shared with that the viewer belongs to or owns. ``shared_at`` is the
+    newest of those shares. The recipient card is R6: title, description,
+    from, date, badge, file link — no feedback and no exchange context.
     """
 
     entity: EntityDTO
-    role: str | None
     shared_at: str | None
     shared_by: str | None
     sharer_uid: str | None
-    share_version: str | None
-    subject_exercise_uid: str | None
-    subject_exercise_title: str | None
-    subject_ps_uid: str | None
-    subject_ps_title: str | None
+    via_direct: bool
+    via_groups: list[SharedWithMeGroupRef]
+
+
+class WallRecipient(TypedDict):
+    """One person an entry on *Your wall* is shared with."""
+
+    uid: str
+    username: str | None
+    display_name: str | None
+    shared_at: str | None
+
+
+class WallGroup(TypedDict):
+    """One group an entry on *Your wall* is shared with."""
+
+    uid: str
+    name: str | None
+    shared_at: str | None
+
+
+class SharedByMeItem(TypedDict):
+    """One *Your wall* row: an owned entry and everyone it is shared with (ADR-088 §6).
+
+    ``users`` and ``groups`` are the audience the share links record — the
+    owner's access list, each chip a Stop-sharing target. ``last_shared_at``
+    orders the wall.
+    """
+
+    entity: EntityDTO
+    users: list[WallRecipient]
+    groups: list[WallGroup]
+    last_shared_at: str | None
+
+
+class ShareCandidatePerson(TypedDict):
+    """One person the Share panel may offer: an R8 co-member of the owner."""
+
+    uid: str
+    username: str | None
+    display_name: str | None
+
+
+class ShareCandidateGroup(TypedDict):
+    """One group the Share panel may offer: active, joined as a student or owned."""
+
+    uid: str
+    name: str
+
+
+class ShareCandidates(TypedDict):
+    """What the Share panel offers an owner, and what the entry already reaches.
+
+    ``groups`` and ``people`` are the offerable targets; ``shared_group_uids``
+    / ``shared_user_uids`` are the entry's current audience (the wall's read
+    for this one entry), so the panel can mark them.
+    """
+
+    groups: list[ShareCandidateGroup]
+    people: list[ShareCandidatePerson]
+    shared_group_uids: list[str]
+    shared_user_uids: list[str]
 
 
 # ============================================================================
@@ -2537,7 +2602,12 @@ class AnnotationState(TypedDict, total=False):
 
 
 class PrivacySummary(TypedDict, total=False):
-    """Return shape for activity report get_privacy_summary()."""
+    """Return shape for activity report get_privacy_summary().
+
+    ``shares_granted`` is the wall's read (``UnifiedSharingService.get_shared_by_me``)
+    flattened to one row per (entry, recipient) — a person row carries
+    ``accessor_uid``, a group row ``group_uid``.
+    """
 
     user_uid: UserUID
     admin_snapshots: list[dict[str, Any]]

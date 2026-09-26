@@ -218,7 +218,9 @@ class TestGetUserGroupsRoleFilter:
 
         await service.get_user_groups("user_stud_01")
 
-        backend.get_user_groups.assert_awaited_once_with("user_stud_01", role=None)
+        backend.get_user_groups.assert_awaited_once_with(
+            "user_stud_01", role=None, include_owned=False
+        )
 
     @pytest.mark.anyio
     async def test_forwards_student_role_filter(self):
@@ -227,7 +229,9 @@ class TestGetUserGroupsRoleFilter:
 
         await service.get_user_groups("user_stud_01", role="student")
 
-        backend.get_user_groups.assert_awaited_once_with("user_stud_01", role="student")
+        backend.get_user_groups.assert_awaited_once_with(
+            "user_stud_01", role="student", include_owned=False
+        )
 
 
 class TestStudentGroupCap:
@@ -247,7 +251,9 @@ class TestStudentGroupCap:
         result = await service.add_member(group.uid, "user_stud_01", role="student")
 
         assert result.is_ok
-        backend.get_user_groups.assert_awaited_once_with("user_stud_01", role="student")
+        backend.get_user_groups.assert_awaited_once_with(
+            "user_stud_01", role="student", include_owned=False
+        )
 
     @pytest.mark.anyio
     async def test_add_member_cap_rejects_5th_group_for_student(self):

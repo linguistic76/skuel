@@ -222,6 +222,7 @@ from core.events.transcription_events import (
 
 # UserEntry events (ADR-054)
 from core.events.user_entry_events import (
+    EntryShared,
     UserEntryCreated,
     UserEntryProcessingCompleted,
     UserEntryProcessingFailed,
@@ -343,6 +344,7 @@ __all__ = [
     "UserActivityRecorded",
     "UserDeleted",
     "UserEntryApproved",
+    "EntryShared",
     "UserEntryCreated",
     "UserEntryEmbeddingRequested",
     "UserEntryProcessingCompleted",

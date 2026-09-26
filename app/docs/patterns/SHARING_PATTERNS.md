@@ -134,13 +134,13 @@ created = await user_entry_service.create_entry(request, user_uid=student_uid)
 # for each user: target — a SHARES_WITH edge whose MERGE re-checks
 # co-membership in the statement; created_by stamped.
 
-# Step 3: Teacher fetches shared entities
-# Each item is a SharedWithMeItem (core/ports/query_types): entity DTO +
-# share-edge metadata (shared_by/sharer_uid/shared_at/role/share_version) +
-# resolved subject context (subject_exercise_uid/title, subject_ps_uid/title —
-# which exercise the feedback is about, and its PathStep when linked). The
-# /profile/shared inbox renders type-aware cards from this shape. Optional
-# entity_type (EntityType) / sharer_uid narrow the inbox (arc 2 C4 filters).
+# Step 3: The recipient's Shared page lists it
+# Each item is a SharedWithMeItem (core/ports/query_types): the entity DTO,
+# who shared it (its owner — shared_by / sharer_uid), when, and the via-list
+# (via_direct, via_groups). /profile/shared renders the R6 card from this
+# shape: title, description, from, date, badge, link — never feedback.
+# Optional entity_type (EntityType) / sharer_uid / via ("direct" or a group
+# uid) narrow the list; the /groups hub is this reader with via=<group_uid>.
 shared = await sharing_service.get_shared_with_me(
     user_uid=teacher_uid,
     limit=50,
@@ -153,14 +153,16 @@ shared = await sharing_service.get_shared_with_me(
 
 **UI Flow:**
 1. Student: `/submit` → pick the audience (Teacher / a group / Private; Portfolio is
-   disabled, "Coming soon") → submit
-2. Teacher: `/profile/shared` → see the entry in the inbox → open it
+   disabled, "Coming soon") → submit — or, any time later, the **Share** button on the
+   entry's `/gradebook/{uid}` page (and on each version in the exchange thread), which posts
+   the same vocabulary to `POST /api/user-entries/{uid}/share` (R2: anything, any time)
+2. Recipient: `/profile/shared` → *Shared with you* → open it (the R6 card)
+3. Owner: `/profile/shared` → *Your wall* → × Stop sharing (`POST /api/user-entries/{uid}/unshare`)
 
-Form submissions have one post-submit widening door, `POST /api/form-submissions/share`
-(`FormSubmissionService.share_submission` → `share` / `share_with_group`). UserEntries have
-none: a vault note widens its audience by re-syncing with a wider `audience:`, and nothing
-narrows one — the revoke door is PLANNED
-([`/docs/roadmap/sharing-http-door.md`](../roadmap/sharing-http-door.md)).
+Form submissions have their own post-submit door, `POST /api/form-submissions/share`
+(`FormSubmissionService.share_submission` → `share` / `share_with_group`). A vault note's
+`audience:` re-declares on re-sync (it widens; it never narrows — Stop sharing is the one
+retraction, and R9's drafts dissolve the re-sync case in PR 8).
 
 ---
 
@@ -266,32 +268,32 @@ request = UserEntryCreateRequest(
 )
 await user_entry_service.create_entry(request, user_uid=student_uid)
 
-# Listing who has access — get_shared_with(entity_uid) — is written and tested but
-# has no caller: it is the read half of the PLANNED revoke door.
+# Who has access is Your wall — get_shared_by_me(owner_uid) lists every owned
+# entry with its audience (users + groups); entity_uid narrows it to one entry.
 ```
 
 ---
 
-### Pattern 5: Access Revocation (PLANNED — no door yet)
+### Pattern 5: Stop Sharing (R7)
 
-**Use Case:** Student removes teacher access after entity is graded.
+**Use Case:** The owner takes a share back — a person's or a group's.
 
-`unshare()` is written and tested (`tests/integration/test_sharing_workflows.py`) but nothing
-in production calls it: no route, no UI, and a vault re-sync that narrows `audience:` does not
-call it either (`deferred-work.md` § Vault Re-Sync Never Retracts a Share). The door is an
-operation on the existing edge — a revoke control beside the access list — never a second
-share form. Ruling and trigger: [`/docs/roadmap/sharing-http-door.md`](../roadmap/sharing-http-door.md).
+The door is the × on an audience chip on *Your wall* (`/profile/shared`), posting
+`POST /api/user-entries/{uid}/unshare` with one vocabulary value (`user:<username>` or
+`group:<uid>`) → `EntrySharingService.unshare` → `unshare` / `unshare_from_group`. The delete
+never touches a feedback request (`SUBMITTED_TO_GROUP` is a different link kind, ADR-088 §2).
 
 ```python
-# Unshare from teacher
+# Stop sharing with one person — by username, no co-membership needed (an owner
+# may always take back what they gave)
 unshare_result = await sharing_service.unshare(
     entity_uid=entity_uid,
     owner_uid=student_uid,
-    recipient_uid=teacher_uid,
+    recipient_username="teacher_bob",
 )
 
 # The SHARES_WITH edge is gone — and the edge is the grant, so every
-# edge-gated read refuses the teacher from here on.
+# edge-gated read refuses the recipient from here on.
 ```
 
 ---
@@ -336,18 +338,19 @@ result = await sharing_service.share_with_group(
 # New members added later automatically gain access — no re-share needed
 # Removed members automatically lose access
 
-# A member reads what is shared with ONE group (the groups hub —
-# /api/groups/{group_uid}/shared/preview; a listed entry opens at /gradebook/{uid})
-group_content = await sharing_service.get_user_entries_shared_with_group(
+# A member reads what is shared with ONE group: the /groups hub is the
+# Shared-with-you reader narrowed to that group (a listed entry opens at
+# /gradebook/{uid})
+group_content = await sharing_service.get_shared_with_me(
     user_uid=member_uid,
-    group_uid="group_class_2026",
+    via="group_class_2026",
 )
-# A group OWNER reads across all their groups through the review queue
-# (get_review_queue_by_groups) — there is no cross-group member aggregate.
+# A group OWNER reads feedback requests across all their groups through the
+# review queue (get_review_queue_by_groups) — there is no cross-group member
+# aggregate beyond the Shared page itself.
 
-# PLANNED, no caller: the owner's group access list and its revoke —
-#   get_groups_shared_with(entity_uid) / unshare_from_group(entity_uid, owner_uid, group_uid)
-# (/docs/roadmap/sharing-http-door.md)
+# The owner's access list is Your wall; Stop sharing with the group:
+await sharing_service.unshare_from_group(entity_uid, owner_uid, "group_class_2026")
 ```
 
 **Graph Pattern:**
@@ -371,26 +374,27 @@ download, never the status, the processed body, feedback or the exchange.
 
 ## API Reference
 
-Sharing has **one** HTTP route of its own, and the audience-at-submit doors carry the rest of
-the writes. Every route below is registered; the six `/api/submissions/*` sharing endpoints
-and the three group-sharing endpoints ADR-038 records left with the submissions API
-(2026-04-17) and have no successors.
+Sharing has two doors of its own on a UserEntry — Share and Stop sharing — beside the
+audience-at-submit doors that carry the rest of the writes. Every route below is registered;
+the six `/api/submissions/*` sharing endpoints and the three group-sharing endpoints ADR-038
+records left with the submissions API (2026-04-17) and have no successors.
 
 | Door | What it does | Sharing method reached |
 |------|--------------|------------------------|
 | `POST /api/user-entries/upload` (the `/submit` form) and `POST /api/user-entries` (JSON `UserEntryCreateRequest`) — one `audience` in the one vocabulary: `teachers` / `teacher:<group_uid>` / `group:<uid>` / `user:<username>` / `public` / `private` (ADR-088) | Declares the audience at submit; `UserEntryService.create_entry` → `AudienceResolver.validate_references` (every target checked first) → `resolve_and_share` | `share`, `share_with_group`, `submit_to_group` |
+| `POST /api/user-entries/{uid}/share` — `audience` = `group:<uid>` / `user:<username>` values (form, JSON or query) | The owner shares an entry they already have (R2 — any status); the Share panel on `/gradebook/{uid}` and the exchange thread's per-version Share link post here; `EntrySharingService.share` runs the create path's target checks, then the same guarded writes; a new person share publishes `EntryShared` (the recipient's bell) | `share`, `share_with_group` |
+| `POST /api/user-entries/{uid}/unshare` — one `audience` value | Stop sharing (R7): × on a *Your wall* chip; never a feedback request | `unshare`, `unshare_from_group` |
+| `GET /gradebook/{uid}/share-panel` | The Share panel's body: candidate groups (joined as a student or owned, active) and people (R8 co-members), the entry's current audience marked | `get_share_candidate_people`, `get_shared_by_me(entity_uid=…)` |
 | Vault door (`./dev vault-sync`, the Sync buttons) — a note's `audience:` frontmatter | Same request, built by `user_entry_ingestion.py`; re-sync re-declares (widens only) | `share`, `share_with_group` |
-| `POST /api/form-submissions/share` — `{uid, group_uid?, recipient_uids?, share_with_admin?}` | The one post-submit widening door (form submissions only) | `share`, `share_with_group` |
+| `POST /api/form-submissions/share` — `{uid, group_uid?, recipient_uids?, share_with_admin?}` | The forms' post-submit widening door | `share`, `share_with_group` |
 | Exercise assignment (ADR-040, `ExerciseService`) | Auto-shares an ASSIGNED exercise with its group | `share_with_group` |
-| `GET /profile/shared`, `GET /profile/shared/list-fragment` | The Shared-With-Me inbox (direct shares) | `get_shared_with_me` |
-| `GET /api/groups/{group_uid}/shared/preview`, `GET /groups/{group_uid}` | A member's read of one group's shared entries | `get_user_entries_shared_with_group` |
-| `GET /gradebook/{uid}`, `GET /gradebook/{uid}/download` | The owner's page, or a recipient's card / `.md` file | none — `UserEntryService.get_visible_to_user` composes the audience fragment (ADR-088 §5) |
+| `GET /profile/shared`, `GET /profile/shared/list-fragment` | The Shared page — *Shared with you* (Type · Shared by · Via filters) and *Your wall* | `get_shared_with_me`, `get_shared_by_me` |
+| `GET /api/groups/{group_uid}/shared/preview`, `GET /groups/{group_uid}` | A member's read of one group's shared entries — the same reader narrowed by `via` | `get_shared_with_me(via=group_uid)` |
+| `GET /gradebook/{uid}`, `GET /gradebook/{uid}/download` | The owner's page (with the Share button), or a recipient's card / `.md` file | none — `UserEntryService.get_visible_to_user` composes the audience fragment (ADR-088 §5) |
 
-**No door:** `unshare`, `unshare_from_group`, `get_shared_with`, `get_groups_shared_with`,
-`set_visibility`, and a listing of `visibility = 'public'`. Ruled 2026-09-21 PLANNED as a door
-that operates on the edges the rows above wrote — an access list with revoke controls, and share
-reconciliation on vault re-sync — never a second share form; `set_visibility` waits on the PUBLIC
-reader. [`/docs/roadmap/sharing-http-door.md`](../roadmap/sharing-http-door.md).
+**No door:** `set_visibility` and a listing of `visibility = 'public'` — the publish /
+unpublish writer waits on the PUBLIC reader
+([`/docs/roadmap/sharing-http-door.md`](../roadmap/sharing-http-door.md)).
 
 ---
 
@@ -400,26 +404,31 @@ reader. [`/docs/roadmap/sharing-http-door.md`](../roadmap/sharing-http-door.md).
 
 `ui/user_entry/forms.py` — one destination per submission: Teacher (auto-share to the
 exercise's groups), a specific group, Private (default), or Portfolio (rendered disabled,
-"Coming soon" — `portfolio_mode="coming_soon"`, no caller passes `active`). This is the whole
-sharing UI for a UserEntry; there is no per-entity sharing panel, no visibility dropdown and no
-access list on any detail page — that surface is the PLANNED door
-([`/docs/roadmap/sharing-http-door.md`](../roadmap/sharing-http-door.md)).
+"Coming soon" — `portfolio_mode="coming_soon"`, no caller passes `active`).
+
+### The Share Panel (`/gradebook/{uid}`)
+
+`ui/gradebook/share_panel.py` — the owner's **Share** button opens an Alpine modal whose body
+is HTMX-loaded from `GET /gradebook/{uid}/share-panel`: server-rendered checkboxes, one per
+candidate group and person (`group:<uid>` / `user:<username>` values), the ones the entry
+already reaches checked and disabled, posting to `POST /api/user-entries/{uid}/share`. The
+exchange thread's per-version "Share →" link opens the page with the panel open (`?share=1`).
+There is no visibility dropdown — publication waits on the PUBLIC reader.
 
 ---
 
-### "Shared With Me" Inbox
+### The Shared Page
 
-Route: `/profile/shared`
+Route: `/profile/shared` (`ui/profile/shared_view.py`) — two sides (R7):
 
-**Features:**
-- Card grid of shared entities (direct shares), framed as a reviewing inbox
-  ("shared with you for your attention" — feedback-loop UX arc 2 C4)
-- FilterBar (Type · Shared by) with options derived from the live inbox,
-  filtering server-side via the `/profile/shared/list-fragment` HTMX fragment
-  (`get_shared_with_me(entity_type=..., sharer_uid=...)` — additive,
-  parameterized WHERE filters)
-- Empty state message ("no match" line when a filter empties a non-empty inbox)
-- Sharer info and metadata
+- **Shared with you** — the R6 card per item (title, description, from, date, the "Shared with
+  you" badge, via chips, an Open link); a FilterBar (Type · Shared by · Via, options derived
+  from the live list) filters server-side through the `/profile/shared/list-fragment` HTMX
+  fragment (`get_shared_with_me(entity_type=..., sharer_uid=..., via=...)` — additive,
+  parameterized WHERE filters). Feedback never appears here (R3).
+- **Your wall** — one row per shared entry with an audience chip per person and group, each
+  with × Stop sharing (the chip posts `/api/user-entries/{uid}/unshare` and swaps the row).
+  Visible to its owner only.
 
 ---
 
@@ -438,22 +447,30 @@ class UnifiedSharingService:
     """
 
     # Individual sharing
-    async def share(entity_uid, owner_uid, recipient_uid, role, share_version) -> Result[bool]
-    async def unshare(entity_uid, owner_uid, recipient_uid) -> Result[bool]                       # PLANNED — no caller
-    async def get_shared_with(entity_uid) -> Result[list[dict]]                                   # PLANNED — no caller
-    async def get_shared_with_me(user_uid, limit=50, entity_type=None, sharer_uid=None) -> Result[list[SharedWithMeItem]]
+    async def share(entity_uid, owner_uid, recipient_uid, role, share_version, *, require_co_membership=True) -> Result[bool]  # created
+    async def unshare(entity_uid, owner_uid, recipient_username) -> Result[bool]
+    async def resolve_co_member(owner_uid, username) -> Result[str | None]
+    async def shares_group_with(owner_uid, recipient_uid) -> Result[bool]
+    async def reachable_groups(user_uid, group_uids) -> Result[frozenset[str]]
     async def set_visibility(entity_uid, owner_uid, visibility) -> Result[bool]                   # PLANNED — waits on the PUBLIC reader
 
-    # Group sharing
+    # Group sharing / the feedback request
     async def share_with_group(entity_uid, owner_uid, group_uid, share_version) -> Result[bool]
-    async def unshare_from_group(entity_uid, owner_uid, group_uid) -> Result[bool]               # PLANNED — no caller
-    async def get_groups_shared_with(entity_uid) -> Result[list[dict]]                            # PLANNED — no caller
-    async def get_user_entries_shared_with_group(user_uid, group_uid, limit=20) -> Result[list[dict]]
+    async def unshare_from_group(entity_uid, owner_uid, group_uid) -> Result[bool]
+    async def submit_to_group(entity_uid, owner_uid, group_uid) -> Result[bool]                   # created
+
+    # The share links as the record (ADR-088 §3, §6)
+    async def get_shared_with_me(user_uid, limit=50, entity_type=None, sharer_uid=None, via=None) -> Result[list[SharedWithMeItem]]
+    async def get_shared_by_me(user_uid, limit=100, entity_uid=None) -> Result[list[SharedByMeItem]]
+    async def get_share_candidate_people(owner_uid) -> Result[list[ShareCandidatePerson]]
 ```
 
-The five `PLANNED` members are registered in `scripts/detect_bloat.py` (`PLANNED_METHODS`) and
-ruled in [`/docs/roadmap/sharing-http-door.md`](../roadmap/sharing-http-door.md). The
-shareable rule is `_check_shareable()`, a staticmethod applied inside every mutation.
+`set_visibility` is the one `PLANNED` member (`scripts/detect_bloat.py` `PLANNED_METHODS`), ruled
+in [`/docs/roadmap/sharing-http-door.md`](../roadmap/sharing-http-door.md). The shareable rule
+is `_check_shareable()`, a staticmethod applied inside every mutation: a UserEntry shares in
+**any** status (R2) and refuses only on `private: true` or a private pipeline.
+`EntrySharingService` (`core/services/user_entry/entry_sharing_service.py`) is the Share /
+Stop-sharing door over this service for a UserEntry.
 
 **Location:** `core/services/sharing/unified_sharing_service.py`
 **Backend:** `adapters/persistence/neo4j/backends/sharing_backend.py` — `SharingBackend(UniversalNeo4jBackend[Entity])`
@@ -509,8 +526,10 @@ set_visibility to PRIVATE — the unpublish), the method is called with `require
 
 ### Quality Control
 
-Only `COMPLETED` entities can be shared (activity entities also allow `ACTIVE`; user entries
-and curriculum, any status but `ARCHIVED`). Enforced at the service layer inside
+A UserEntry shares in **any** status (R2 — anyone may share anything, any time; the encouraged
+route is promoted by a badge and a nudge, never enforced) and refuses only the privacy rules.
+Activity entities share when `ACTIVE` or `COMPLETED`, curriculum in any status but `ARCHIVED`,
+everything else when `COMPLETED`. Enforced at the service layer inside
 `_verify_owned_and_shareable()` on every mutation — `_check_shareable()` is the rule, and there
 is no standalone pre-flight.
 
@@ -579,7 +598,9 @@ async def test_complete_sharing_workflow(sharing_service, test_entity, neo4j_dri
     # … and 0 after unshare(). Nothing else records who was given the entity.
 ```
 
-**See:** `tests/unit/test_unified_sharing_service.py`
+**See:** `tests/unit/test_unified_sharing_service.py`,
+`tests/unit/services/user_entry/test_entry_sharing_service.py`,
+`tests/integration/test_sharing_workflows.py` (the Shared-with-you union, the wall, the candidates)
 
 ---
 
@@ -634,13 +655,14 @@ if result.is_error:
 - **Backend:** `adapters/persistence/neo4j/backends/sharing_backend.py` — `SharingBackend`
 - **Service:** `core/services/sharing/unified_sharing_service.py`
 - **Protocol:** `core/ports/sharing_protocols.py`
-- **Sharing at creation:** `adapters/inbound/user_entry_api.py` — entries are shared via the `audience` declared on create (`core/models/user_entry/audience.py`, the one vocabulary; no standalone sharing-management routes yet)
+- **Sharing at creation and after:** `adapters/inbound/user_entry_api.py` — entries are shared via the `audience` declared on create (`core/models/user_entry/audience.py`, the one vocabulary) and by `POST /api/user-entries/{uid}/share` / `/unshare` (`core/services/user_entry/entry_sharing_service.py`)
 - **R8 co-membership:** `SharingBackend.build_co_membership_fragment` — the one predicate, composed by the co-member reads and the guarded person-share MERGE; the default group is named by `DEFAULT_GROUP_UID_PREFIX` (`core/models/group/group.py`)
 - **Group sharing routes:** `adapters/inbound/groups_hub_routes.py` (`/api/groups/{group_uid}/shared/preview`, `/groups/{group_uid}`)
 - **Audience fragment:** `adapters/persistence/neo4j/query/cypher/crud_queries.py` — `build_audience_fragment`, composed by `build_search_visibility_clause` for `OWNER_OR_AUDIENCE`
-- **UI Routes:** `adapters/inbound/user_entry_ui.py` (`/gradebook/{uid}` viewer-aware, `/gradebook/{uid}/download`); the recipient card in `ui/gradebook/recipient_card.py`
+- **UI Routes:** `adapters/inbound/user_entry_ui.py` (`/gradebook/{uid}` viewer-aware with the Share button, `/gradebook/{uid}/share-panel`, `/gradebook/{uid}/download`); the recipient card in `ui/gradebook/recipient_card.py`, the Share panel in `ui/gradebook/share_panel.py`
 - **UI Components:** `ui/user_entry/forms.py` (the audience selector on the submit form)
-- **Profile Tab:** `adapters/inbound/user_profile_ui.py`
+- **The Shared page:** `adapters/inbound/user_profile_ui.py`, `ui/profile/shared_view.py`
+- **The recipient's bell:** `core/events/handlers/share_notification_handler.py` (`EntryShared` → `shared_with_you`)
 
 ### Documentation
 - **ADR-038:** `/docs/decisions/ADR-038-content-sharing-model.md` — original sharing decision

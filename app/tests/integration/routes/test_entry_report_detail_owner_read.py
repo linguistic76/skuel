@@ -7,9 +7,9 @@ the teaching surfaces. Ownership is the only grant — a share edge and the
 
 - the owner gets the page (a plain FT, status 200);
 - the authoring teacher gets the rendered "Report not found" page at a real
-  404, with a ``SHARES_WITH`` edge and ``visibility: 'public'`` on the node,
-  so the test proves neither is a grant (the writer stamps ``'private'``;
-  ``'public'`` is the one other value, and it has no reader either);
+  404, with ``visibility: 'public'`` on the node, so the test proves the
+  property is no grant (the writer stamps ``'private'``; ``'public'`` is the
+  one other value, and it has no reader either);
 - a stranger gets the same 404, and neither body carries the feedback text.
 
 Run against a real Neo4j container: the owner predicate is a Cypher clause
@@ -118,9 +118,9 @@ async def seeded(clean_neo4j, neo4j_driver) -> None:
     """One teacher report on the student's turn-in, in the shape the writer produces.
 
     ``create_report_node`` stamps ``user_uid`` = the student, ``author_uid`` =
-    the teacher, an ``OWNS`` edge from the student, ``REPORT_FOR`` to the
-    entry, and the student's own ``SHARES_WITH`` on the report. The teacher
-    holds NO edge to it — as in production. The seed stamps ``visibility:
+    the teacher, an ``OWNS`` edge from the student and ``REPORT_FOR`` to the
+    entry — and no share link (R3). The teacher holds NO edge to it — as in
+    production. The seed stamps ``visibility:
     'public'`` instead of the writer's ``'private'`` so the refusal below
     also proves the property is no grant.
     """
@@ -146,7 +146,6 @@ async def seeded(clean_neo4j, neo4j_driver) -> None:
             MERGE (s)-[:OWNS]->(e)
             MERGE (s)-[:OWNS]->(r)
             MERGE (r)-[:REPORT_FOR]->(e)
-            MERGE (s)-[:SHARES_WITH {shared_at: datetime(), role: 'student'}]->(r)
             """,
             student=STUDENT,
             teacher=TEACHER,

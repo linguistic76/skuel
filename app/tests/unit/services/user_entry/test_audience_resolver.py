@@ -487,6 +487,25 @@ class TestResolveAndShare:
         assert sharing.share.await_args.kwargs["recipient_uid"] == "user_alice"
 
     @pytest.mark.asyncio
+    async def test_only_a_created_person_share_is_newly_shared(self):
+        """R10: the bell rings once per new link — a share that already stood is a success, not new."""
+        sharing = _make_sharing_service()
+        sharing.share = AsyncMock(side_effect=[Result.ok(False), Result.ok(True)])
+        resolver = AudienceResolver(sharing_service=sharing, group_service=None)
+
+        result = await resolver.resolve_and_share(
+            "ue_1",
+            USER,
+            Pipeline.NONE,
+            ResolvedAudience(share_users=(("Alice", "user_alice"), ("Bob", "user_bob"))),
+        )
+
+        outcome = result.value
+        assert outcome.shared_users == ("user_alice", "user_bob")
+        assert outcome.newly_shared_users == ("user_bob",)
+        assert outcome.to_payload()["newly_shared_users"] == ["user_bob"]
+
+    @pytest.mark.asyncio
     async def test_a_matched_request_is_a_success_and_only_a_created_one_is_new(self):
         sharing = _make_sharing_service()
         sharing.submit_to_group = AsyncMock(side_effect=[Result.ok(False), Result.ok(True)])
@@ -595,6 +614,7 @@ class TestShareOutcome:
             "newly_submitted_groups": ["g1"],
             "shared_groups": ["g2"],
             "shared_users": ["u1"],
+            "newly_shared_users": [],
             "failed": [{"target": "g3", "reason": "boom"}],
             "withheld": ["user:bob"],
         }

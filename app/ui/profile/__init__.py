@@ -1,5 +1,5 @@
-"""Shared With Me — the reviewing inbox at ``/profile/shared``.
+"""The Shared page at ``/profile/shared`` — *Shared with you* and *Your wall*.
 
-``ui/profile/shared_view.py`` renders the SHARES_WITH inbox for
+``ui/profile/shared_view.py`` renders both sides for
 ``adapters/inbound/user_profile_ui.py``.
 """

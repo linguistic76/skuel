@@ -1049,7 +1049,7 @@ it first removes both.
 
 ### PR 6b — Share, Stop sharing, and the two-sided Shared page (R2, R3, R6–R8, R10)
 
-- **Routes:** `POST /api/user-entries/{uid}/share` and `/unshare` (owner, CSRF). <!-- planned -->
+- **Routes:** `POST /api/user-entries/{uid}/share` and `/unshare` (owner, CSRF).
   - UserEntry only: any other entity gets a 404.
   - Only `group:` / `user:` are accepted.
   - Unshare calls `unshare` / `unshare_from_group`, which can't touch SUBMITTED_TO_GROUP.
@@ -1129,6 +1129,65 @@ it first removes both.
   "amended by ADR-088" notes on ADR-038 (the door, Your wall replaces the access list, the
   person-share bell, and §4's archived refusal lifted) and ADR-042 §8 (the access-list method); the
   stale_names reason at `stale_names.py:265` that names the live group reader.
+- **Ruled (PR 6b session, 2026-09-25 — engineering choices the census found unsettled; none touches
+  a ruling):**
+  - **The Shared-with-you read is one statement, and the `/groups` list is that reader narrowed.**
+    `SharingBackend.query_shared_with_me` enumerates candidates from the viewer's two reach
+    patterns (a direct `SHARES_WITH`; `MEMBER_OF|OWNS` of an active group the entity is
+    `SHARED_WITH_GROUP` to — the enumeration mirrors the fragment's strictness so the via-list
+    never names a dead group) and then gates every row with `build_audience_fragment` — the
+    admission predicate is the fragment, never a copy of it, so whatever is listed opens. Own
+    entries are excluded by the `:OWNS` edge; the rows are `user_entry` + `form_submission` only
+    (R3), one per entity with `via_direct` / `via_groups` and the newest `shared_at`; the
+    `subject_*` columns left with the feedback types. `via` (`direct` or a group uid) is the
+    third filter, and the groups hub's tab and page read `get_shared_with_me(via=group_uid)` —
+    the per-group reader (get_user_entries_shared_with_group, backend twin
+    query_user_entries_shared_with_group) is deleted rather than rebuilt. The service method keeps
+    its live name, `get_shared_with_me`; the deleted group-inbox name is not reused.
+  - **Your wall is one query that also serves the Share panel.** `query_shared_by_me` returns each
+    owned entry with its `users` (`SHARES_WITH` recipients, by uid + username + display name) and
+    `groups`, newest share first, and takes an optional `entity_uid` — the panel's "already shared
+    with" state and `shares_granted` read it, never a per-entity access list beside it. The
+    privacy summary's rows carry `accessor_uid` (a person) or `group_uid` (a group) with the
+    entry and the stamp; `ActivityReportService` takes the sharing service as a constructor
+    dependency for that read.
+  - **Group candidates are the membership reader widened, not a third owned-groups reader:**
+    `GroupBackend.get_user_groups(…, include_owned=True)` matches `MEMBER_OF|OWNS` of an active
+    group (the audience fragment's own reach), with the role filter applying to memberships only;
+    the stats reader stays for `/teaching/groups`. Person candidates are
+    `SharingBackend.query_co_members` on the one R8 fragment (roster excluded, owner kept).
+  - **The door is `EntrySharingService`** (`core/services/user_entry/entry_sharing_service.py`),
+    a sub-service beside the 1000-line facade: `share` / `unshare` / `candidates` / `wall_row`.
+    It starts with the owner read (`UserEntryService.get_entry`, by the `:UserEntry` label, so any
+    other entity is one not-found), accepts `group:` / `user:` only, checks every target through
+    the resolver's extracted `resolve_people` / `check_groups_reachable` (the create path calls the
+    same two), and writes through `resolve_and_share`; the lifetime privacy rule is the sharing
+    service's own — a pass in which nothing landed returns its first refusal as the error. The
+    facade composes it in `services_bootstrap` (`Services.entry_sharing`); both user-entry route
+    factories receive it.
+  - **One publisher rings the bell:** `publish_entry_shared` publishes `EntryShared`
+    (`user_entry.shared` — entity, owner, recipient, title) once per `newly_shared_users` entry,
+    from `create_entry` and from the share door alike; `handle_entry_shared`
+    (`core/events/handlers/share_notification_handler.py`) writes the `shared_with_you`
+    notification against the `USER_ENTRY` source, so the bell opens `/gradebook/{uid}`.
+  - **Stop sharing names the recipient by username** (`user:<username>`, the vocabulary) and
+    needs no co-membership — an owner may always take back what they gave, even after the
+    recipient left every shared group; `delete_share` matches `User.title` exactly. A group
+    value deletes `SHARED_WITH_GROUP` only; the door refuses `teachers` / `teacher:` / `public` /
+    `private` and more than one value.
+  - **The routes content-negotiate on `HX-Request`:** the Share panel's form and the wall's chips
+    read back fragments (the re-rendered panel with its outcome line; the entry's wall row, or
+    nothing once it is unshared), a JSON caller the outcome payload / the removed value; a
+    not-found on HTMX is `refuse()` at a real 404. The panel body is HTMX-loaded on first open
+    from `GET /gradebook/{uid}/share-panel` (the owner's page pays nothing for it), and the
+    exchange thread's per-version "Share →" link opens the page with the panel open (`?share=1`).
+    Already-shared targets render checked and disabled; Stop sharing lives on the wall only.
+  - The migration is `drop_student_self_shares_on_reports_2026_09.py` (census / `--confirm`):
+    every `SHARES_WITH` from a user to an EntryReport they own; a non-owner's `SHARES_WITH` on a
+    report is reported and never touched (there are none). `create_report_node` loses its
+    create_student_share parameter — every writer stamps the owner only.
+  - The stale_names row for the deleted access-list method is keyed with its call paren — the
+    scanner's underscore-adjacent boundary would otherwise flag the live `get_shared_with_me`.
 
 ### PR 6c — Badge and nudge (R2)
 

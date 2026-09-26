@@ -1167,6 +1167,17 @@ async def compose_services(
             user_service=user_service,  # Role gate for visibility=PUBLIC (Finding 2)
         )
 
+        # The post-create Share / Stop-sharing door (ADR-088 §6): the create
+        # path's checks and writers, on an entry the owner already has.
+        from core.services.user_entry import EntrySharingService
+
+        entry_sharing_service = EntrySharingService(
+            entries=user_entry_service,
+            sharing=unified_sharing_service,
+            groups=group_service,
+            event_bus=event_bus,
+        )
+
         # Wire UserEntryService into the ingestion service so YAML uploads of
         # ``type: user_entry`` route through the same create_entry() pipeline
         # as the /submit form (ADR-054 — one path forward).
@@ -1472,6 +1483,7 @@ async def compose_services(
             backend=activity_report_backend,
             context_builder=context_builder,
             event_bus=event_bus,
+            sharing_service=unified_sharing_service,  # shares_granted = the wall's read
         )
         from adapters.persistence.neo4j.backends.collab_backends import ReviewQueueBackend
 
@@ -1783,6 +1795,7 @@ async def compose_services(
             # UserEntry (ADR-054) — unified user-authored content
             user_entry=user_entry_service,
             user_entry_processor=user_entry_processor,
+            entry_sharing=entry_sharing_service,
             vault_reconciler=vault_reconciler,
             # Progress report
             progress_report_generator=progress_generator,

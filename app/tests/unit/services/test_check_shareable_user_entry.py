@@ -1,4 +1,8 @@
-"""Tests for UnifiedSharingService._check_shareable USER_ENTRY branch (ADR-054)."""
+"""Tests for UnifiedSharingService._check_shareable USER_ENTRY branch (ADR-054, ADR-088 §1).
+
+A UserEntry shares in ANY status (Submit & Share arc R2 — anyone may share
+anything, any time); only the privacy rules refuse.
+"""
 
 import pytest
 
@@ -7,7 +11,7 @@ from core.services.sharing.unified_sharing_service import UnifiedSharingService
 
 
 class TestCheckShareableUserEntry:
-    """USER_ENTRY can be shared at any non-archived status."""
+    """USER_ENTRY can be shared at any status, archived included (R2)."""
 
     @pytest.mark.parametrize(
         "status",
@@ -16,21 +20,13 @@ class TestCheckShareableUserEntry:
             EntityStatus.ACTIVE.value,
             EntityStatus.SUBMITTED.value,
             EntityStatus.COMPLETED.value,
+            EntityStatus.ARCHIVED.value,
         ],
     )
-    def test_non_archived_user_entry_is_shareable(self, status: str):
+    def test_any_status_user_entry_is_shareable(self, status: str):
         result = UnifiedSharingService._check_shareable(status, EntityType.USER_ENTRY.value)
         assert result.is_ok
         assert result.value is True
-
-    def test_archived_user_entry_is_not_shareable(self):
-        result = UnifiedSharingService._check_shareable(
-            EntityStatus.ARCHIVED.value, EntityType.USER_ENTRY.value
-        )
-        assert result.is_error
-        err = str(result.expect_error())
-        assert "archived" in err.lower()
-        assert "user entries" in err.lower() or "user_entry" in err.lower()
 
     def test_a_private_flag_refuses_a_share_but_not_a_feedback_request(self):
         shared = UnifiedSharingService._check_shareable(
@@ -60,15 +56,15 @@ class TestCheckShareableUserEntry:
             EntityStatus.ACTIVE.value, EntityType.USER_ENTRY.value, pipeline=pipeline
         ).is_ok
 
-    def test_archived_is_refused_before_privacy_even_for_a_feedback_request(self):
+    def test_an_archived_private_entry_may_still_ask_for_feedback(self):
+        """Archived is no gate at all; a feedback request also skips the privacy rule."""
         result = UnifiedSharingService._check_shareable(
             EntityStatus.ARCHIVED.value,
             EntityType.USER_ENTRY.value,
             private=True,
             privacy_gated=False,
         )
-        assert result.is_error
-        assert "archived" in str(result.expect_error()).lower()
+        assert result.is_ok
 
     def test_user_entry_branch_precedes_default_completed_gate(self):
         """USER_ENTRY should pass in DRAFT — the default 'only completed' rule must not apply."""

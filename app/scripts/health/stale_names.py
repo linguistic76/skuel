@@ -273,8 +273,21 @@ DELETED: dict[str, str] = {
     # cross-group aggregate.
     "verify_shareable": "deleted — the rule is applied inside share / set_visibility / share_with_group; no standalone pre-flight",
     "query_shareable_status": "deleted — served only verify_shareable",
-    "get_shared_with_me_via_groups": "deleted — get_user_entries_shared_with_group (members, per group, SHARED_WITH_GROUP) / get_review_queue (owners, SUBMITTED_TO_GROUP) are the two group readers",
+    "get_shared_with_me_via_groups": "deleted — get_shared_with_me (the Shared-with-you union, gated by build_audience_fragment; narrowed by via for the groups hub) / get_review_queue (owners, SUBMITTED_TO_GROUP) are the two group readers",
     "query_shared_with_me_via_groups": "deleted — served only get_shared_with_me_via_groups",
+    # The access list is Your wall (ADR-088 §6, Submit & Share arc PR 6b): one query,
+    # get_shared_by_me, lists every owned entry with its people and groups and narrows
+    # to one entry for the Share panel — never a per-entity access-list query beside it.
+    # Keyed with the call paren: underscore adjacency would otherwise match the live
+    # get_shared_with_me / the wall's get_shared_by_me.
+    "get_shared_with(": "deleted — the owner's access list is get_shared_by_me (Your wall); no per-entity listing",
+    "query_shared_with_users": "deleted — served only get_shared_with; query_shared_by_me is the wall's read",
+    "get_groups_shared_with": "deleted — the wall's groups column (get_shared_by_me) is the group access list",
+    "query_groups_shared_with": "deleted — served only get_groups_shared_with",
+    "get_user_entries_shared_with_group": "deleted — the groups hub reads get_shared_with_me(via=group_uid), the one Shared-with-you reader gated by build_audience_fragment",
+    "query_user_entries_shared_with_group": "deleted — served only get_user_entries_shared_with_group",
+    "get_shares_granted": "deleted — the privacy summary's shares_granted is the wall's read (get_shared_by_me), never a second access list",
+    "create_student_share": "deleted — no report writer creates a student self-share (R3: feedback lives in the GradeBook); the student reads the report as its owner",
     # The recipient read (ADR-088 §3, §5): a UserEntry opens at /gradebook/{uid} for
     # whoever the share links name — one audience read, one detail page, never a
     # second per-group read or a peer page beside it.
@@ -422,6 +435,7 @@ _symbol_queue = "the symbol-claim queue's verdict table teaches 'fictional names
 _adr088_2b = "the retired EntryReport access check named where it stood -- ADR-038/042/054 sketches and the position-2 migration record are frozen decision text; ADR-088 §3 is the record that retired it"
 _adr088_2a = "the retired visibility ladder named where it stood -- ADR-038's Data Model record and ADR-040's Context inventory are frozen decision text; ADR-088 §4 is the record that collapsed the enum"
 _adr088_6a = "the retired create-request audience fields named where they stood -- ADR-054 §5's submit-time gate is frozen decision text; the PR 6a note above it names the one vocabulary that replaced them"
+_adr088_6b = "ADR-088 PR 6b -- the access list is Your wall (get_shared_by_me); the per-entity listings and the per-group reader are deleted, and the record names what it added"
 _sharing_door = "the sharing-door record -- ADR-038's amendment, the deferred-work MOC line and the case file's per-method table name the two methods (and their backend twins) that no longer exist"
 _askesis_arch = "change-history table recording the entities_rich unification / ActivityDataReader absorption / ActivityReviewService split"
 _askesis_intel = "'the former ActivityReviewService was split' -- historical record of the split"
@@ -507,8 +521,11 @@ ALLOWED_OCCURRENCES: dict[str, dict[tuple[int, str], Allow]] = {
         # The §3, §7 and §8 "amended by ADR-088" notes sit above these lines.
         (185, "SubmissionsSharingService"): Allow(_adr042),
         (192, "check_access"): Allow(_adr088_2b),
-        (270, "SubmissionsSharingService"): Allow(_adr042),
-        (293, "submissions_sharing_service"): Allow(_adr042),
+        (275, "SubmissionsSharingService"): Allow(_adr042),
+        (298, "submissions_sharing_service"): Allow(_adr042),
+        # §8's sketch lists the access-list member the decision added; the ADR-088 PR 6b
+        # note below it records its deletion (Your wall replaces it).
+        (193, "get_shared_with("): Allow(_adr088_6b),
     },
     "docs/decisions/ADR-043-intelligence-tier-toggle.md": {
         (46, "JournalOutputService"): Allow(_adr043),
@@ -552,28 +569,29 @@ ALLOWED_OCCURRENCES: dict[str, dict[tuple[int, str], Allow]] = {
     },
     "docs/decisions/ADR-038-content-sharing-model.md": {
         # The Service Layer amendment names the two methods that no longer exist
-        # (the §3 ADR-088 recipient-read note sits above every anchor in this file).
-        (111, "get_shared_with_me_via_groups"): Allow(_sharing_door),
-        (111, "verify_shareable"): Allow(_sharing_door),
+        # (the §3 and §4 ADR-088 notes sit above every anchor in this file).
+        (117, "get_shared_with_me_via_groups"): Allow(_sharing_door),
+        (117, "verify_shareable"): Allow(_sharing_door),
         # The Service Layer list, the API Layer's "no successor" line and the Phase 4
         # record name the retired check; the Service Layer's ADR-088 note sits above the last two.
-        (102, "check_access"): Allow(_adr088_2b),
-        (150, "check_access"): Allow(_adr088_2b),
-        (223, "check_access"): Allow(_adr088_2b),
+        (108, "check_access"): Allow(_adr088_2b),
+        (156, "check_access"): Allow(_adr088_2b),
+        (237, "check_access"): Allow(_adr088_2b),
         # The Data Model Changes record lists the method the decision added; the
         # Service Layer's ADR-088 PR 2a note (above it) records its deletion.
-        (174, "can_view"): Allow(_adr088_2a),
-    },
-    "docs/roadmap/deferred-work.md": {
-        (96, "verify_shareable"): Allow(_sharing_door),
-        (96, "get_shared_with_me_via_groups"): Allow(_sharing_door),
+        (188, "can_view"): Allow(_adr088_2a),
+        # The Service Layer list names the access-list methods the decision added; the
+        # API Layer's ADR-088 PR 6b note (below the list) records their deletion.
+        (109, "get_shared_with("): Allow(_adr088_6b),
+        (113, "get_groups_shared_with"): Allow(_adr088_6b),
+        (114, "get_user_entries_shared_with_group"): Allow(_adr088_6b),
     },
     "docs/roadmap/sharing-http-door.md": {
         # The per-method table's two DELETED rows and their backend twins.
-        (39, "verify_shareable"): Allow(_sharing_door),
-        (39, "query_shareable_status"): Allow(_sharing_door),
-        (40, "get_shared_with_me_via_groups"): Allow(_sharing_door),
-        (40, "query_shared_with_me_via_groups"): Allow(_sharing_door),
+        (52, "verify_shareable"): Allow(_sharing_door),
+        (52, "query_shareable_status"): Allow(_sharing_door),
+        (53, "get_shared_with_me_via_groups"): Allow(_sharing_door),
+        (53, "query_shared_with_me_via_groups"): Allow(_sharing_door),
     },
     "docs/decisions/ADR-070-bidirectional-vault-bridge.md": {
         # Decision 9's two amendment paragraphs (L297, L299) and their changelog rows

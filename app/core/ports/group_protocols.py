@@ -41,7 +41,7 @@ class GroupBackendOperations(BackendOperations["Group"], Protocol):
     async def create_owns_relationship(self, teacher_uid: str, group_uid: str) -> Result[bool]: ...
 
     async def get_user_groups(
-        self, user_uid: UserUID, role: str | None = None
+        self, user_uid: UserUID, role: str | None = None, *, include_owned: bool = False
     ) -> Result[builtins.list[Group]]: ...
 
     async def add_member(
@@ -117,12 +117,12 @@ class GroupOperations(Protocol):
 
     # Domain-specific (manual routes)
     async def get_user_groups(
-        self, user_uid: UserUID, role: str | None = None
+        self, user_uid: UserUID, role: str | None = None, *, include_owned: bool = False
     ) -> Result[builtins.list[Group]]:
-        """List groups the user is a member of, optionally filtered by MEMBER_OF role.
-
-        Pass role="student" to count only student-role memberships.
-        Returns Result[list[Group]].
+        """List the active groups the user is a member of, optionally filtered
+        by MEMBER_OF role; ``include_owned`` adds the groups they own (the
+        Share panel's candidates). Pass role="student" to count only
+        student-role memberships. Returns Result[list[Group]].
         """
         ...
 

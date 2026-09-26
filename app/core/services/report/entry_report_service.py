@@ -14,7 +14,7 @@ The core educational loop:
 Following SKUEL principles:
 - Transparent: User sees exact prompt sent to LLM
 - Symmetric: AI report = same entity type as teacher report, processor_type differs
-- Atomic: Entity creation + REPORT_FOR + SHARES_WITH in one transaction
+- Atomic: Entity creation + OWNS + REPORT_FOR in one transaction
 """
 
 from datetime import datetime
@@ -290,9 +290,8 @@ class EntryReportService:
     ) -> Result[EntryReport]:
         """Persist a journal response as a PRIVATE, self-owned ENTRY_REPORT.
 
-        Delegates to ``create_report_node`` with
-        ``create_student_share=False``, ``author_uid=None`` (no human author),
-        and ``submission_status=None`` (no status transition).
+        Delegates to ``create_report_node`` with ``author_uid=None`` (no
+        human author) and ``submission_status=None`` (no status transition).
         """
         if not self.backend:
             return Result.fail(
@@ -320,7 +319,6 @@ class EntryReportService:
                     "processor_type": ReportSource.LLM.value,
                     "assessment_outcome": None,
                     "allowed_from_statuses": None,
-                    "create_student_share": False,
                     "now": now,
                 },
             )
@@ -456,9 +454,9 @@ class EntryReportService:
         Persist AI report as an ENTRY_REPORT entity in Neo4j.
 
         Delegates to ``UserEntryBackend.create_report_node`` — the canonical
-        report-creation path shared with teacher reports. Creates the entity,
-        OWNS + REPORT_FOR relationships, and SHARES_WITH the student — all in
-        one transaction.
+        report-creation path shared with teacher reports. Creates the entity
+        and its OWNS + REPORT_FOR relationships in one transaction; the
+        student reads the report as its owner (no share link, R3).
 
         AI reports pass ``submission_status=None`` and
         ``allowed_from_statuses=None`` so the submission's status is not
@@ -495,7 +493,6 @@ class EntryReportService:
                     "processor_type": ReportSource.LLM.value,
                     "assessment_outcome": AssessmentOutcome.AI_EVALUATED.value,
                     "allowed_from_statuses": None,
-                    "create_student_share": True,
                     "now": now,
                 },
             )

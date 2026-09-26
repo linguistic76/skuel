@@ -28,7 +28,7 @@ Sections are navigated by the chrome — one door per section in the navbar/bott
 |-------|----------|-----------|
 | `/submissions` | MOC root — sidebar-free `BasePage(STANDARD)`, five `MocCard`s (Sync, Exercise, Journal, History, Knowledge) | `adapters/inbound/user_entry_ui.py` (`submissions_moc`) |
 | `/library` | MOC root — four `MocCard`s (Exercises, Resources, Ku, Path Steps) | `adapters/inbound/library_ui.py` (`library_moc`) |
-| `/groups` | one `HubDomainBlock` per group, each HTMX-loading a "Recent Shares" preview | `ui/groups/hub.py`, `adapters/inbound/groups_hub_routes.py` |
+| `/groups` | one `HubDomainBlock` per group, each HTMX-loading a "Recent Shares" preview (the Shared page's reader, `get_shared_with_me(via=group_uid)`) | `ui/groups/hub.py`, `adapters/inbound/groups_hub_routes.py` |
 | `/teaching/students/{uid}` | nested student hub — `HubDomainBlockList`, three OOB-populated buckets + one self-loading block | `ui/teaching/student_hub.py`, `adapters/inbound/teaching_ui.py` |
 
 Plus one graph-driven section: `/gradebook/{uid}` renders an entry's `ORGANIZES` children as a "Map of Content" `HubSection`.

@@ -2,23 +2,28 @@
 Unified Sharing Service
 =======================
 
-Entity-agnostic sharing service. Any domain can share entities — SHARES_WITH
-relationships and visibility levels work identically regardless of EntityType.
+Entity-agnostic sharing service. Any domain can share entities — the share
+links (``SHARES_WITH``, ``SHARED_WITH_GROUP``) and the publication flag work
+identically regardless of EntityType.
 
 Composes with SharingBackend (persistence layer) for all Cypher queries.
 The service handles validation logic (ownership, shareable status); the
 backend handles Neo4j interactions.
 
-Access Control Rules
----------------------
-1. Owner always has access
-2. PUBLIC entities visible to all users
-3. SHARED entities visible to owner + users with SHARES_WITH relationship
-4. KU entities (curriculum) always accessible (shared content)
-5. Only active or completed entities can be shared
+Two verbs (ADR-088 §1-§2)
+-------------------------
+1. **Share** — ``share`` (a person, R8 co-membership) and ``share_with_group``
+   (every member and owner of an active group). Both are taken back by
+   ``unshare`` / ``unshare_from_group``, which never touch a feedback request.
+2. **Submit** — ``submit_to_group`` files a feedback request
+   (``SUBMITTED_TO_GROUP``), read only by the group's owning teachers.
+
+The links are the one record of who sees what (ADR-088 §3): ``get_shared_with_me``
+lists what the links name the viewer for, ``get_shared_by_me`` lists the
+viewer's own shares with their audience (Your wall — the owner's access list).
 
 See: /docs/patterns/SHARING_PATTERNS.md
-See: /docs/decisions/ADR-042-privacy-as-first-class-citizen.md
+See: /docs/decisions/ADR-088-submit-and-share.md
 """
 
 from datetime import datetime
@@ -29,7 +34,13 @@ from core.models.enums.entity_enums import EntityType
 from core.models.enums.metadata_enums import Visibility
 from core.models.enums.pipeline import Pipeline
 from core.models.type_hints import EntityUID, UserUID
-from core.ports.query_types import SharedWithMeItem
+from core.ports.query_types import (
+    ShareCandidatePerson,
+    SharedByMeItem,
+    SharedWithMeItem,
+    WallGroup,
+    WallRecipient,
+)
 from core.ports.sharing_protocols import SharingBackendOperations
 from core.utils.logging import get_logger
 from core.utils.neo4j_props import neo4j_opt_str
@@ -60,8 +71,9 @@ _CURRICULUM_ENTITY_TYPES = frozenset(
     }
 )
 
-# User-authored content — shareable in any status except archived, and never
-# when private or on a private pipeline (ADR-088 §1, for the entry's lifetime).
+# User-authored content — shareable in ANY status (R2: anyone may share
+# anything, any time), and never when private or on a private pipeline
+# (ADR-088 §1, for the entry's lifetime).
 _USER_ENTRY_TYPES = frozenset({EntityType.USER_ENTRY.value})
 
 
@@ -190,12 +202,17 @@ class UnifiedSharingService:
         self,
         entity_uid: EntityUID,
         owner_uid: str,
-        recipient_uid: str,
+        recipient_username: str,
     ) -> Result[bool]:
-        """Revoke a user's access to a shared entity.
+        """Stop sharing an owned entity with one person: delete their ``SHARES_WITH``.
 
-        Deletes the SHARES_WITH relationship.
-        Only the owner can revoke access.
+        Only the owner can revoke (a non-owner gets the same not-found as a
+        missing entity). The recipient is named by exact username, as the
+        vocabulary names them (``user:<username>``), and needs no
+        co-membership — an owner may always take back what they gave. A
+        share that does not stand is a not-found.
+
+        Backend: SharingBackend.delete_share
         """
         check = await self._verify_owned_and_shareable(
             entity_uid, owner_uid, require_shareable=False
@@ -205,7 +222,7 @@ class UnifiedSharingService:
 
         result = await self.backend.delete_share(
             entity_uid=entity_uid,
-            recipient_uid=recipient_uid,
+            recipient_username=recipient_username,
         )
         if result.is_error:
             return Result.fail(result)
@@ -214,10 +231,10 @@ class UnifiedSharingService:
         if deleted_count == 0:
             return Result.fail(
                 Errors.not_found(
-                    f"No sharing relationship found between {recipient_uid} and {entity_uid}"
+                    f"No sharing relationship found between {recipient_username} and {entity_uid}"
                 )
             )
-        logger.info(f"Entity {entity_uid} unshared from {recipient_uid}")
+        logger.info(f"Entity {entity_uid} unshared from {recipient_username}")
         return Result.ok(True)
 
     # =========================================================================
@@ -264,32 +281,25 @@ class UnifiedSharingService:
     # QUERY
     # =========================================================================
 
-    async def get_shared_with(
-        self,
-        entity_uid: EntityUID,
-    ) -> Result[list[dict[str, Any]]]:
-        """Get list of users an entity is shared with."""
-        result = await self.backend.query_shared_with_users(entity_uid=entity_uid)
-        if result.is_error:
-            return Result.fail(result)
-        return Result.ok(result.value or [])
-
     async def get_shared_with_me(
         self,
         user_uid: UserUID,
         limit: int = 50,
         entity_type: EntityType | None = None,
         sharer_uid: UserUID | None = None,
+        via: str | None = None,
     ) -> Result[list[SharedWithMeItem]]:
-        """Get entities shared with a specific user, with share-edge metadata.
+        """*Shared with you*: every entry the share links name the viewer for, one item per entity.
 
-        Each item carries the entity DTO, who shared it and when, plus the
-        resolved subject context (which exercise the feedback is about, and
-        its PathStep when linked) — the Shared With Me page renders type-aware
-        cards from this shape. ``entity_type`` / ``sharer_uid`` optionally
-        narrow the inbox (arc 2 C4); ``None`` means no filter. The enum
-        crosses to the backend as its canonical value — a driver parameter,
-        never interpolated.
+        Each item carries the entity DTO, who shared it (its owner), when,
+        and the via-list — ``via_direct`` (a person share to the viewer) and
+        ``via_groups`` (the active groups it reached the viewer through).
+        Feedback types never appear (R3); the viewer's own entries never
+        appear. ``entity_type`` / ``sharer_uid`` / ``via`` narrow the list
+        (``None`` = no filter): ``via`` is ``direct`` or a group uid, which
+        is how the ``/groups`` list reads one group's shares. The enum crosses
+        to the backend as its canonical value — a driver parameter, never
+        interpolated.
 
         Backend: SharingBackend.query_shared_with_me
         """
@@ -298,25 +308,100 @@ class UnifiedSharingService:
             limit=limit,
             entity_type=entity_type.value if entity_type is not None else None,
             sharer_uid=sharer_uid,
+            via=via,
         )
         if result.is_error:
             return Result.fail(result)
         items: list[SharedWithMeItem] = [
             {
                 "entity": EntityDTO.from_dict(dict(cast("dict[str, Any]", record["entity"]))),
-                "role": neo4j_opt_str(record, "role"),
                 "shared_at": neo4j_opt_str(record, "shared_at"),
                 "shared_by": neo4j_opt_str(record, "shared_by"),
                 "sharer_uid": neo4j_opt_str(record, "sharer_uid"),
-                "share_version": neo4j_opt_str(record, "share_version"),
-                "subject_exercise_uid": neo4j_opt_str(record, "subject_exercise_uid"),
-                "subject_exercise_title": neo4j_opt_str(record, "subject_exercise_title"),
-                "subject_ps_uid": neo4j_opt_str(record, "subject_ps_uid"),
-                "subject_ps_title": neo4j_opt_str(record, "subject_ps_title"),
+                "via_direct": bool(record.get("via_direct")),
+                "via_groups": [
+                    {"uid": str(g["uid"]), "name": neo4j_opt_str(g, "name")}
+                    for g in cast("list[dict[str, Any]]", record.get("via_groups") or [])
+                ],
             }
             for record in (result.value or [])
         ]
         return Result.ok(items)
+
+    async def get_shared_by_me(
+        self,
+        user_uid: UserUID,
+        limit: int = 100,
+        entity_uid: EntityUID | None = None,
+    ) -> Result[list[SharedByMeItem]]:
+        """*Your wall*: the viewer's own UserEntries that carry a share link, each with its audience.
+
+        The owner's access list (ADR-088 §6): one item per entry with every
+        person (``users``) and group (``groups``) it is shared with, newest
+        share first. A feedback request is not a share and is not listed.
+        With ``entity_uid`` the read narrows to one entry — the Share panel's
+        "already shared with" state reads this, never a second query.
+
+        Backend: SharingBackend.query_shared_by_me
+        """
+        result = await self.backend.query_shared_by_me(
+            user_uid=user_uid, limit=limit, entity_uid=entity_uid
+        )
+        if result.is_error:
+            return Result.fail(result)
+        items: list[SharedByMeItem] = []
+        for record in result.value or []:
+            users: list[WallRecipient] = [
+                {
+                    "uid": str(u["uid"]),
+                    "username": neo4j_opt_str(u, "username"),
+                    "display_name": neo4j_opt_str(u, "display_name"),
+                    "shared_at": neo4j_opt_str(u, "shared_at"),
+                }
+                for u in cast("list[dict[str, Any]]", record.get("users") or [])
+            ]
+            groups: list[WallGroup] = [
+                {
+                    "uid": str(g["uid"]),
+                    "name": neo4j_opt_str(g, "name"),
+                    "shared_at": neo4j_opt_str(g, "shared_at"),
+                }
+                for g in cast("list[dict[str, Any]]", record.get("groups") or [])
+            ]
+            items.append(
+                {
+                    "entity": EntityDTO.from_dict(dict(cast("dict[str, Any]", record["entity"]))),
+                    "users": users,
+                    "groups": groups,
+                    "last_shared_at": neo4j_opt_str(record, "last_shared_at"),
+                }
+            )
+        return Result.ok(items)
+
+    async def get_share_candidate_people(
+        self, owner_uid: UserUID
+    ) -> Result[list[ShareCandidatePerson]]:
+        """The people the owner may share with: every R8 co-member (ADR-088 §7), never the owner.
+
+        The default group's roster is excluded and its owner kept — the same
+        predicate the person-share write applies, so every candidate offered
+        is one the write accepts.
+
+        Backend: SharingBackend.query_co_members
+        """
+        result = await self.backend.query_co_members(owner_uid)
+        if result.is_error:
+            return Result.fail(result)
+        return Result.ok(
+            [
+                {
+                    "uid": str(row["uid"]),
+                    "username": neo4j_opt_str(row, "username"),
+                    "display_name": neo4j_opt_str(row, "display_name"),
+                }
+                for row in (result.value or [])
+            ]
+        )
 
     # =========================================================================
     # GROUP SHARING
@@ -426,7 +511,15 @@ class UnifiedSharingService:
         owner_uid: str,
         group_uid: str,
     ) -> Result[bool]:
-        """Revoke group-level access to an entity."""
+        """Stop sharing an owned entity with a group: delete its ``SHARED_WITH_GROUP``.
+
+        Only the owner can revoke. The delete touches the share kind only — a
+        feedback request (``SUBMITTED_TO_GROUP``) to the same group is a
+        different link and stands (ADR-088 §2). A share that does not stand
+        is a not-found.
+
+        Backend: SharingBackend.delete_group_share
+        """
         check = await self._verify_owned_and_shareable(
             entity_uid, owner_uid, require_shareable=False
         )
@@ -449,45 +542,6 @@ class UnifiedSharingService:
             )
         logger.info(f"Entity {entity_uid} unshared from group {group_uid}")
         return Result.ok(True)
-
-    async def get_groups_shared_with(
-        self,
-        entity_uid: EntityUID,
-    ) -> Result[list[dict[str, Any]]]:
-        """Get groups an entity is shared with."""
-        result = await self.backend.query_groups_shared_with(entity_uid=entity_uid)
-        if result.is_error:
-            return Result.fail(result)
-        return Result.ok(result.value or [])
-
-    async def get_user_entries_shared_with_group(
-        self,
-        user_uid: UserUID,
-        group_uid: str,
-        limit: int = 20,
-    ) -> Result[list[dict[str, Any]]]:
-        """Get UserEntries shared with a specific group the user belongs to.
-
-        Empty list if the user is not a member of the group (query guards on
-        MEMBER_OF). Own entries are excluded.
-        """
-        result = await self.backend.query_user_entries_shared_with_group(
-            user_uid=user_uid, group_uid=group_uid, limit=limit
-        )
-        if result.is_error:
-            return Result.fail(result)
-        records = result.value or []
-        return Result.ok(
-            [
-                {
-                    "entity": dict(cast("dict[str, Any]", r["entry"])),
-                    "author_name": r["author_name"],
-                    "share_version": r["share_version"],
-                    "shared_at": r["shared_at"],
-                }
-                for r in records
-            ]
-        )
 
     async def _verify_owned_and_shareable(
         self,
@@ -539,14 +593,14 @@ class UnifiedSharingService:
         pipeline: str | None = None,
         privacy_gated: bool = True,
     ) -> Result[bool]:
-        """Evaluate whether an entity with the given status / type / privacy can be shared."""
+        """Evaluate whether an entity with the given status / type / privacy can be shared.
+
+        A UserEntry shares in any status (R2 — the encouraged route is
+        promoted, never enforced); activities when active or completed;
+        curriculum unless archived; everything else when completed.
+        """
         if entity_type in _USER_ENTRY_TYPES:
-            if status == "archived":
-                return Result.fail(
-                    Errors.validation(
-                        f"Archived user entries cannot be shared. Current status: {status}"
-                    )
-                )
+            # Any status shares (R2) — only the privacy rules refuse.
             if privacy_gated and private:
                 return Result.fail(
                     Errors.validation(

@@ -192,10 +192,10 @@ class GroupService(BaseService[GroupBackendOperations, Group]):
 
     @with_error_handling("get_user_groups", error_type="database")
     async def get_user_groups(
-        self, user_uid: UserUID, role: str | None = None
+        self, user_uid: UserUID, role: str | None = None, *, include_owned: bool = False
     ) -> Result[list[Group]]:
         """
-        Get all groups a user is a member of (via MEMBER_OF relationship).
+        Get the active groups a user is a member of (via MEMBER_OF relationship).
 
         Args:
             user_uid: UID of the student/member
@@ -203,11 +203,14 @@ class GroupService(BaseService[GroupBackendOperations, Group]):
                 only student-role memberships (for the per-student cap and
                 the student-facing /groups hub), leave as None to get every
                 group the user is a member of regardless of role.
+            include_owned: Also list the groups the user OWNS — the Share
+                panel offers the joined and the owned groups alike (the
+                reach the audience fragment admits through).
 
         Returns:
             Result containing list of groups
         """
-        return await self.backend.get_user_groups(user_uid, role=role)
+        return await self.backend.get_user_groups(user_uid, role=role, include_owned=include_owned)
 
     # ========================================================================
     # DOMAIN-SPECIFIC: MEMBERSHIP

@@ -28,12 +28,14 @@ USER_ENTRY_CONFIG = DomainRouteConfig(
     api_related_services={
         "processing_service": "user_entry_processor",
         "grounding_service": "entry_grounding",
+        "entry_sharing": "entry_sharing",
     },
     ui_factory=create_user_entry_ui_routes,
     ui_related_services={
         "orchestrator": "user_entry_orchestrator",
         "entry_report_service": "entry_report",
         "groups_service": "groups",
+        "entry_sharing": "entry_sharing",
         "batch_transcription_service": "batch_transcription",
         "processing_service": "user_entry_processor",
         "user_service": "user",

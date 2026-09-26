@@ -370,10 +370,6 @@ class ActivityReportBackendOperations(BackendOperations["ActivityReport"], Proto
         self, user_uid: UserUID, limit: int = 50
     ) -> Result[list[Neo4jProperties]]: ...
 
-    async def get_shares_granted(
-        self, user_uid: UserUID, limit: int = 100
-    ) -> Result[list[Neo4jProperties]]: ...
-
 
 @runtime_checkable
 class ActivityReportGeneratorBackendOperations(Protocol):

@@ -87,7 +87,10 @@ class ShareOutcome:
     not (a re-filed request is a success, not zero reach);
     ``newly_submitted_groups`` is the created subset, the only thing that
     rings a teacher's bell. ``shared_groups`` / ``shared_users`` are the
-    share targets that landed. ``failed`` pairs each refused target with its
+    share targets that landed; ``newly_shared_users`` is the subset whose
+    ``SHARES_WITH`` this pass created — the only thing that rings a
+    recipient's bell (R10: a re-share rings nobody twice, a group share
+    rings no one). ``failed`` pairs each refused target with its
     error message. ``withheld`` are the vocabulary values a living vault note
     declared that this pass deliberately did not apply (R9 — they apply when
     ``status: submitted`` files a frozen copy).
@@ -97,6 +100,7 @@ class ShareOutcome:
     newly_submitted_groups: tuple[str, ...] = field(default_factory=tuple)
     shared_groups: tuple[str, ...] = field(default_factory=tuple)
     shared_users: tuple[str, ...] = field(default_factory=tuple)
+    newly_shared_users: tuple[str, ...] = field(default_factory=tuple)
     failed: tuple[tuple[str, str], ...] = field(default_factory=tuple)
     withheld: tuple[str, ...] = field(default_factory=tuple)
 
@@ -115,6 +119,7 @@ class ShareOutcome:
             "newly_submitted_groups": list(self.newly_submitted_groups),
             "shared_groups": list(self.shared_groups),
             "shared_users": list(self.shared_users),
+            "newly_shared_users": list(self.newly_shared_users),
             "failed": [{"target": t, "reason": r} for t, r in self.failed],
             "withheld": list(self.withheld),
         }
@@ -258,33 +263,14 @@ class AudienceResolver:
         if refs.is_error:
             return Result.fail(refs)
 
-        share_users: list[tuple[str, str]] = []
-        for username in spec.share_users:
-            resolved = await sharing.resolve_co_member(user_uid, username)
-            if resolved.is_error:
-                return Result.fail(resolved)
-            recipient_uid = resolved.value
-            if recipient_uid is None:
-                return Result.fail(
-                    Errors.not_found(resource="User", identifier=f"{USER_PREFIX}{username}")
-                )
-            if recipient_uid == user_uid:
-                return Result.fail(
-                    Errors.validation(
-                        f"{USER_PREFIX}{username} is you — an entry is not shared with its owner",
-                        field="audience",
-                    )
-                )
-            share_users.append((username, recipient_uid))
+        people = await self.resolve_people(user_uid, spec.share_users)
+        if people.is_error:
+            return Result.fail(people)
+        share_users = list(people.value)
 
-        group_targets = spec.group_targets
-        if group_targets:
-            reachable = await sharing.reachable_groups(user_uid, list(group_targets))
-            if reachable.is_error:
-                return Result.fail(reachable)
-            for group_uid in group_targets:
-                if group_uid not in reachable.value:
-                    return Result.fail(Errors.not_found(resource="Group", identifier=group_uid))
+        groups_check = await self.check_groups_reachable(user_uid, spec.group_targets)
+        if groups_check.is_error:
+            return Result.fail(groups_check)
 
         teacher_groups: tuple[str, ...] = spec.teacher_groups
         teachers_groups: tuple[str, ...] = ()
@@ -316,6 +302,71 @@ class AudienceResolver:
                 public=spec.public,
             )
         )
+
+    async def resolve_people(
+        self, user_uid: UserUID, usernames: tuple[str, ...]
+    ) -> Result[tuple[tuple[str, str], ...]]:
+        """Resolve every ``user:<username>`` target to ``(username, uid)`` — each a verified co-member (R8).
+
+        Unknown and non-co-member get one uniform not-found; the owner's own
+        username is refused. Shared by the create path and the share door
+        (``EntrySharingService``): one check, two doors.
+        """
+        sharing = self.sharing_service
+        if sharing is None:
+            if not usernames:
+                return Result.ok(())
+            return Result.fail(
+                Errors.forbidden(
+                    action="resolve recipients",
+                    reason="Cannot verify recipients — sharing service unavailable.",
+                )
+            )
+        share_users: list[tuple[str, str]] = []
+        for username in usernames:
+            resolved = await sharing.resolve_co_member(user_uid, username)
+            if resolved.is_error:
+                return Result.fail(resolved)
+            recipient_uid = resolved.value
+            if recipient_uid is None:
+                return Result.fail(
+                    Errors.not_found(resource="User", identifier=f"{USER_PREFIX}{username}")
+                )
+            if recipient_uid == user_uid:
+                return Result.fail(
+                    Errors.validation(
+                        f"{USER_PREFIX}{username} is you — an entry is not shared with its owner",
+                        field="audience",
+                    )
+                )
+            share_users.append((username, recipient_uid))
+        return Result.ok(tuple(share_users))
+
+    async def check_groups_reachable(
+        self, user_uid: UserUID, group_uids: tuple[str, ...]
+    ) -> Result[None]:
+        """Refuse any group target that does not exist, is inactive, or the user neither joined nor owns — one not-found for all three.
+
+        One read for every target, whichever verb names it. Shared by the
+        create path and the share door.
+        """
+        if not group_uids:
+            return Result.ok(None)
+        sharing = self.sharing_service
+        if sharing is None:
+            return Result.fail(
+                Errors.forbidden(
+                    action="resolve groups",
+                    reason="Cannot verify group targets — sharing service unavailable.",
+                )
+            )
+        reachable = await sharing.reachable_groups(user_uid, list(group_uids))
+        if reachable.is_error:
+            return Result.fail(reachable)
+        for group_uid in group_uids:
+            if group_uid not in reachable.value:
+                return Result.fail(Errors.not_found(resource="Group", identifier=group_uid))
+        return Result.ok(None)
 
     async def _validate_reference_claims(
         self,
@@ -457,6 +508,7 @@ class AudienceResolver:
         newly_submitted_groups: list[str] = []
         shared_groups: list[str] = []
         shared_users: list[str] = []
+        newly_shared_users: list[str] = []
         failed: list[tuple[str, str]] = []
         withheld: list[str] = []
 
@@ -492,6 +544,8 @@ class AudienceResolver:
                 failed.append((f"{USER_PREFIX}{username}", reason))
             else:
                 shared_users.append(recipient_uid)
+                if result.value:
+                    newly_shared_users.append(recipient_uid)
 
         if living:
             # A draft (R9): the explicit teacher: targets wait for the frozen
@@ -511,6 +565,7 @@ class AudienceResolver:
                 ShareOutcome(
                     shared_groups=tuple(shared_groups),
                     shared_users=tuple(shared_users),
+                    newly_shared_users=tuple(newly_shared_users),
                     failed=tuple(failed),
                     withheld=tuple(withheld),
                 )
@@ -541,6 +596,7 @@ class AudienceResolver:
                 newly_submitted_groups=tuple(newly_submitted_groups),
                 shared_groups=tuple(shared_groups),
                 shared_users=tuple(shared_users),
+                newly_shared_users=tuple(newly_shared_users),
                 failed=tuple(failed),
                 withheld=tuple(withheld),
             )

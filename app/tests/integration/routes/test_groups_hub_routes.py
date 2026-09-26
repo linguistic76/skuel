@@ -44,7 +44,7 @@ def mock_services() -> Any:
     services.groups = MagicMock()
     services.groups.get_user_groups = AsyncMock(return_value=Result.ok([]))
     services.sharing = MagicMock()
-    services.sharing.get_user_entries_shared_with_group = AsyncMock(return_value=Result.ok([]))
+    services.sharing.get_shared_with_me = AsyncMock(return_value=Result.ok([]))
     return services
 
 
@@ -102,7 +102,7 @@ class TestGroupsHub:
         assert response["title"] == "Groups"
         assert response["active_page"] == "groups"
         mock_services.groups.get_user_groups.assert_awaited_once()
-        mock_services.sharing.get_user_entries_shared_with_group.assert_not_called()
+        mock_services.sharing.get_shared_with_me.assert_not_called()
 
     async def test_filters_by_student_role(
         self, handlers: dict[str, Any], mock_services: Any
@@ -171,13 +171,11 @@ class TestGroupsSharedPreview:
     async def test_non_member_gets_empty_fragment_not_403(
         self, handlers: dict[str, Any], mock_services: Any
     ) -> None:
-        """The Cypher MEMBER_OF MATCH is the access guard — non-members get
-        an empty result, not an authorization error. The route must render
-        the HubPreviewEmpty fragment, never raise 403.
+        """The audience fragment inside the one reader is the access guard —
+        non-members get an empty result, not an authorization error. The route
+        must render the HubPreviewEmpty fragment, never raise 403.
         """
-        mock_services.sharing.get_user_entries_shared_with_group = AsyncMock(
-            return_value=Result.ok([])
-        )
+        mock_services.sharing.get_shared_with_me = AsyncMock(return_value=Result.ok([]))
 
         request = _make_request()
         response = await handlers["/api/groups/{group_uid}/shared/preview"](
@@ -189,17 +187,21 @@ class TestGroupsSharedPreview:
     async def test_member_with_entries_returns_list_fragment(
         self, handlers: dict[str, Any], mock_services: Any
     ) -> None:
+        from core.models.entity_dto import EntityDTO
+
         records = [
             {
-                "entity": {"uid": "ue_1", "title": "Reflection 1", "created_at": "2026-04-10"},
-                "author_name": "Alex Rivera",
-                "share_version": "original",
+                "entity": EntityDTO.from_dict(
+                    {"uid": "ue_1", "entity_type": "user_entry", "title": "Reflection 1"}
+                ),
                 "shared_at": "2026-04-10T12:00:00",
+                "shared_by": "Alex Rivera",
+                "sharer_uid": "user_alex",
+                "via_direct": False,
+                "via_groups": [{"uid": "group_a", "name": "Physics 101"}],
             }
         ]
-        mock_services.sharing.get_user_entries_shared_with_group = AsyncMock(
-            return_value=Result.ok(records)
-        )
+        mock_services.sharing.get_shared_with_me = AsyncMock(return_value=Result.ok(records))
 
         request = _make_request()
         response = await handlers["/api/groups/{group_uid}/shared/preview"](
@@ -207,14 +209,15 @@ class TestGroupsSharedPreview:
         )
 
         assert response is not None
-        mock_services.sharing.get_user_entries_shared_with_group.assert_awaited_once_with(
-            user_uid="user_stud_01", group_uid="group_a", limit=12
+        # The one reader, narrowed to this group (ADR-088 §5).
+        mock_services.sharing.get_shared_with_me.assert_awaited_once_with(
+            user_uid="user_stud_01", limit=12, via="group_a"
         )
 
     async def test_service_error_yields_empty_fragment(
         self, handlers: dict[str, Any], mock_services: Any
     ) -> None:
-        mock_services.sharing.get_user_entries_shared_with_group = AsyncMock(
+        mock_services.sharing.get_shared_with_me = AsyncMock(
             return_value=Result.fail(Errors.database(operation="query", message="boom"))
         )
 

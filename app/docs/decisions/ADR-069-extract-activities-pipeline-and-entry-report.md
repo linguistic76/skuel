@@ -334,9 +334,11 @@ it is.
 
 `create_report_node` hardcodes `visibility: 'shared'` + a
 `SHARES_WITH {role:'student'}` edge. Journal responses are owner-only (Ruling 2):
-parameterize the backend method (`visibility`, `create_student_share: bool`);
+parameterize the backend method (`visibility`, create_student_share);
 the journal-response path passes `PRIVATE` / no share edge. The owner reads their
-own report; nothing else can (404-not-403 posture unchanged).
+own report; nothing else can (404-not-403 posture unchanged). *Amendment 2026-09-25
+(Submit & Share arc PR 6b):* both parameters are gone — every report is `private`
+and no report writer creates a self-share any more (R3).
 
 ### 2.5 The journal-response trigger
 

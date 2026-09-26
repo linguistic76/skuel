@@ -58,25 +58,36 @@ class GroupBackend(UniversalNeo4jBackend["Group"]):
         return Result.ok(True)
 
     async def get_user_groups(
-        self, user_uid: UserUID, role: str | None = None
+        self, user_uid: UserUID, role: str | None = None, *, include_owned: bool = False
     ) -> Result[list[Group]]:
-        """Get all groups a user is a member of (via MEMBER_OF relationship).
+        """Get the active groups a user belongs to (``MEMBER_OF``), and with ``include_owned`` the ones they ``OWNS`` too.
 
         Args:
             user_uid: UID of the member.
             role: Optional MEMBER_OF role filter (e.g. "student", "teacher").
-                None returns memberships in all roles.
+                None returns memberships in all roles. An ``OWNS`` edge has
+                no role and is never filtered by it.
+            include_owned: Also list the groups the user owns — the Share
+                panel's group candidates are the joined AND owned groups,
+                the same reach the audience fragment admits through
+                (``MEMBER_OF|OWNS`` of an active group).
         """
         params: dict[str, Any] = {"user_uid": user_uid}
         role_clause = ""
         if role is not None:
             role_clause = "AND r.role = $role"
             params["role"] = role
+        if include_owned:
+            reach = f"{RelationshipName.MEMBER_OF.value}|{RelationshipName.OWNS.value}"
+            if role_clause:
+                role_clause = f"AND (type(r) = '{RelationshipName.OWNS.value}' OR r.role = $role)"
+        else:
+            reach = RelationshipName.MEMBER_OF.value
         result = await self.execute_query(
             f"""
-            MATCH (user:User {{uid: $user_uid}})-[r:{RelationshipName.MEMBER_OF}]->(group:Group)
+            MATCH (user:User {{uid: $user_uid}})-[r:{reach}]->(group:Group)
             WHERE group.is_active = true {role_clause}
-            RETURN group
+            RETURN DISTINCT group
             ORDER BY group.created_at DESC
             """,
             params,
