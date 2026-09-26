@@ -31,7 +31,7 @@ from core.models.user_entry.audience import AudienceSpec
 from core.models.user_entry.submitted_copy import SubmittedCopy, submission_fingerprint
 from core.models.user_entry.user_entry_request import UserEntryCreateRequest
 from core.utils.logging import get_logger
-from core.utils.result_simplified import ErrorCategory, Errors, Result
+from core.utils.result_simplified import Errors, Result
 from core.utils.uid_generator import UIDGenerator
 
 if TYPE_CHECKING:
@@ -413,13 +413,6 @@ def build_user_entry_request(
     return Result.ok(request)
 
 
-# The non-content field a refused frozen copy is reported on
-# (``batch.classify_user_entry_failure``): the note itself has synced by the
-# time its copy is filed, so a refusal is a sync error to fix, never a note
-# "ignored" for its frontmatter.
-SUBMISSION_FIELD = "submission"
-
-
 async def ingest_user_entry(
     data: dict[str, Any],
     file_path: Path,
@@ -447,8 +440,10 @@ async def ingest_user_entry(
     idle re-sync while the file still says ``submitted`` files nothing and
     rings no one, and editing while submitted is a re-submission. The note
     itself stays ``active`` while the file says ``submitted``. Sync never
-    writes into the user's file. A copy that cannot be filed is a sync error
-    on the ``submission`` field and is retried by the next sync.
+    writes into the user's file. A copy that cannot be filed does not fail the
+    file — the note has synced — and is reported in ``submission_error``: the
+    batch door raises it as a sync error and records the note's uid in a
+    pending tracker row, so the next sync retries the copy on the same note.
 
     ``user_entry_processor``, when supplied, runs the entry's pipeline after
     persistence. For ``Pipeline.EXTRACT_ACTIVITIES`` this turns the captured
@@ -512,16 +507,20 @@ async def ingest_user_entry(
         )
 
     copy: UserEntry | None = None
+    submission_error: str | None = None
     if submit_signal:
         copy_result = await _file_submission_copy(
             request, audience, entry.uid, user_uid, user_entry_service
         )
         if copy_result.is_error:
-            # The note persisted (idempotent); failing the file keeps it out
-            # of the tracker's success set so the next sync retries the copy
-            # — the honest alternative to a silently unfiled submission.
-            return Result.fail(copy_result)
-        if copy_result.value is not None:
+            # The note persisted; its submission did not. Reported, never
+            # silent — and never a failed file, which would lose the uid a
+            # first sync just minted.
+            submission_error = (
+                f"'status: submitted' filed no copy — {copy_result.expect_error().message}"
+            )
+            logger.warning(f"Vault note {entry.uid}: {submission_error}")
+        elif copy_result.value is not None:
             copy, outcome = copy_result.value
     logger.info(
         f"Ingested user_entry: {entry.uid} (pipeline={entry.pipeline.value}, "
@@ -586,6 +585,7 @@ async def ingest_user_entry(
             "chunks_generated": False,
             "share_outcome": outcome.to_payload(),
             "submitted_copy_uid": copy.uid if copy else None,
+            "submission_error": submission_error,
             "extraction_error": extraction_error,
             "warnings": warnings,
             # A refused vault edit re-warns every sync until the line and the
@@ -621,10 +621,9 @@ async def _file_submission_copy(
     live links, so a Stop sharing is not read as an audience edit and does
     not re-file the copy. Equal → ``None``, nothing filed.
 
-    A refused copy is returned on the ``submission`` field when the refusal
-    is a validation error (the note has synced — see ``SUBMISSION_FIELD``);
-    ``create_entry`` refuses a copy that would reach no teacher before it
-    writes, and compensates one whose audience write is refused after.
+    A refusal is returned as the error; ``create_entry`` refuses a copy that
+    would reach no teacher before it writes, and compensates one whose
+    audience write is refused after.
     """
     if audience.private:
         return _refused(
@@ -671,9 +670,6 @@ async def _file_submission_copy(
         copy_of=SubmittedCopy(submitted_from_uid=note_uid, fingerprint=fingerprint),
     )
     if copy_result.is_error:
-        error = copy_result.expect_error()
-        if error.category == ErrorCategory.VALIDATION:
-            return _refused(error.message)
         return Result.fail(copy_result)
     copy, copy_outcome = copy_result.value
 
@@ -688,13 +684,8 @@ async def _file_submission_copy(
 
 
 def _refused(reason: str) -> Result[tuple[UserEntry, ShareOutcome] | None]:
-    """A frozen copy that was not filed, on the non-content ``submission`` field."""
-    return Result.fail(
-        Errors.validation(
-            f"'status: submitted' filed no copy — {reason}",
-            field=SUBMISSION_FIELD,
-        )
-    )
+    """A copy the vault door itself refuses — an audience it cannot be filed to."""
+    return Result.fail(Errors.validation(reason, field="audience"))
 
 
 def _reconciliation_refusals_of(entry: UserEntry | None) -> int:
@@ -743,4 +734,4 @@ def _extraction_warnings_from_entry(entry: UserEntry | None) -> list[str]:
     return warnings
 
 
-__all__ = ["SUBMISSION_FIELD", "build_user_entry_request", "ingest_user_entry"]
+__all__ = ["build_user_entry_request", "ingest_user_entry"]

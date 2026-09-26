@@ -191,7 +191,11 @@ class IngestionBackend:
     async def update_ingestion_metadata(
         self, params: dict[str, Any]
     ) -> Result[list[dict[str, Any]]]:
-        """Upsert ingestion metadata for a single file, fingerprint included."""
+        """Upsert ingestion metadata for a single file, fingerprint included.
+
+        A null ``authored_edges`` keeps the fingerprint the row already has
+        (a pending row written for a file whose edge pass did not run).
+        """
         return await self._executor.execute_query(
             """
             MERGE (s:IngestionMetadata {file_path: $file_path})
@@ -199,7 +203,7 @@ class IngestionBackend:
                 s.file_mtime = $file_mtime,
                 s.last_ingested_at = datetime(),
                 s.entity_uid = $entity_uid,
-                s.authored_edges = coalesce($authored_edges, [])
+                s.authored_edges = coalesce($authored_edges, s.authored_edges, [])
             """,
             params,
         )

@@ -332,8 +332,8 @@ async def test_edit_while_submitted_is_a_resubmission(
 async def test_unreachable_teacher_surfaces_error_and_compensates(
     clean_neo4j, channel_service, neo4j_driver, seed_user, seed_exercise
 ) -> None:
-    """A submitted copy that reaches no teacher/group is deleted and the file
-    fails — the living entry stays. (Owner-passes-guard shape: a PERSONAL
+    """A submitted copy that reaches no teacher/group is never written and is
+    reported — the living entry stays. (Owner-passes-guard shape: a PERSONAL
     exercise with no group share.)"""
     student = await seed_user("user_ue_loner", name="Loner")
     exercise_uid = await seed_exercise("exercise.ue_personal", group_uid=None)
@@ -350,8 +350,8 @@ async def test_unreachable_teacher_surfaces_error_and_compensates(
         student,
         _living_file_data(exercise_uid, status="submitted"),
     )
-    assert result.is_error
-    assert "no teacher" in str(result.expect_error()).lower()
+    assert result.is_ok, result.expect_error()
+    assert "no teacher" in result.value["submission_error"].lower()
 
     snap = await _graph_counts(neo4j_driver, student, exercise_uid)
     assert snap["living_status"] == "active"  # living entry persisted

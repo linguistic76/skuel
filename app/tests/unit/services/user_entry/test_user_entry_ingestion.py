@@ -13,7 +13,6 @@ from core.models.user_entry.submitted_copy import SubmittedCopy, submission_fing
 from core.models.user_entry.user_entry import UserEntry
 from core.models.user_entry.user_entry_request import UserEntryCreateRequest
 from core.services.ingestion.user_entry_ingestion import (
-    SUBMISSION_FIELD,
     build_user_entry_request,
     ingest_user_entry,
 )
@@ -811,14 +810,14 @@ class TestVaultNotesAreDrafts:
 
     @pytest.mark.asyncio
     async def test_submitted_with_audience_private_has_nothing_to_submit_to(self):
-        """An error on the non-content ``submission`` field: the note synced,
-        the copy did not — the sync reports it and retries."""
+        """The note synced, the submission did not: never a failed file (a
+        first sync's minted uid would be lost with it), always reported."""
         service = self._service([Result.ok((_living_entry(), ShareOutcome()))])
         result = await self._ingest(service, _note("submitted", audience="private"))
-        assert result.is_error
-        error = result.expect_error()
-        assert error.details["field"] == SUBMISSION_FIELD
-        assert "nothing to" in error.message
+        assert result.is_ok, result.expect_error()
+        assert "nothing to submit to" in result.value["submission_error"]
+        assert result.value["uid"] == NOTE_UID  # the batch door keeps this identity
+        assert result.value["submitted_copy_uid"] is None
         assert service.create_entry.await_count == 1  # the note still synced
         service.get_latest_copy_of_note.assert_not_called()
 
@@ -832,44 +831,42 @@ class TestVaultNotesAreDrafts:
         result = await self._ingest(
             service, _note("submitted", pipeline="reference", audience=["group:g1"])
         )
-        assert result.is_error
-        assert result.expect_error().details["field"] == SUBMISSION_FIELD
+        assert result.is_ok, result.expect_error()
+        assert "is private" in result.value["submission_error"]
         assert service.create_entry.await_count == 1
 
     @pytest.mark.asyncio
-    async def test_a_refused_copy_is_reported_on_the_submission_field(self):
-        """``create_entry``'s own validation refusals (zero reach, a share on a
-        private entry) are re-fielded: never classified as an ignored note."""
+    async def test_a_refused_copy_is_reported_not_raised(self):
+        """``create_entry``'s own refusals (zero reach, a share on a private
+        entry, a forbidden exercise) ride ``submission_error``; compensation
+        stays ``create_entry``'s, and the filer holds no second copy of it."""
         from core.utils.result_simplified import Errors
 
-        service = self._service(
-            [
-                Result.ok((_living_entry(), ShareOutcome())),
-                Result.fail(
-                    Errors.validation("Submission reached no teacher", field="feedback_target")
-                ),
-            ]
-        )
-        result = await self._ingest(service, _note("submitted"))
-        assert result.is_error
-        error = result.expect_error()
-        assert error.details["field"] == SUBMISSION_FIELD
-        assert "reached no teacher" in error.message
-        service.delete_entry.assert_not_awaited()  # compensation is create_entry's
+        for refusal in (
+            Errors.validation("Submission reached no teacher", field="feedback_target"),
+            Errors.forbidden(action="submit for exercise", reason="not yours"),
+        ):
+            service = self._service(
+                [Result.ok((_living_entry(), ShareOutcome())), Result.fail(refusal)]
+            )
+            result = await self._ingest(service, _note("submitted"))
+            assert result.is_ok, result.expect_error()
+            assert result.value["submission_error"].startswith("'status: submitted' filed no copy")
+            assert refusal.message in result.value["submission_error"]
+            assert result.value["nodes_created"] == 1
+            service.delete_entry.assert_not_awaited()
 
     @pytest.mark.asyncio
-    async def test_a_non_validation_copy_failure_passes_through(self):
-        from core.utils.result_simplified import ErrorCategory, Errors
-
+    async def test_a_filed_copy_reports_no_submission_error(self):
         service = self._service(
             [
                 Result.ok((_living_entry(), ShareOutcome())),
-                Result.fail(Errors.forbidden(action="submit for exercise", reason="not yours")),
+                Result.ok((_copy_entry(), ShareOutcome(submitted_groups=("g_t",)))),
             ]
         )
         result = await self._ingest(service, _note("submitted"))
-        assert result.is_error
-        assert result.expect_error().category == ErrorCategory.FORBIDDEN
+        assert result.is_ok, result.expect_error()
+        assert result.value["submission_error"] is None
 
     @pytest.mark.asyncio
     async def test_a_vault_note_with_an_exercise_never_enters_the_turn_in_branch(self):

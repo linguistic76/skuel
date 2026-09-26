@@ -25,7 +25,7 @@ Usage:
 
 import hashlib
 import re
-from collections.abc import Mapping
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, field
 from datetime import datetime
 from fnmatch import fnmatch
@@ -253,6 +253,44 @@ class IngestionTracker:
         boundary keeps storage, lookup, and reconciliation in one form.
         """
         return str(file_path.resolve())
+
+    @staticmethod
+    def _pending_row(
+        canonical_path: str, entity_uid: str, authored_edges: Sequence[str] | None
+    ) -> dict[str, Any]:
+        """A tracker row carrying pending markers — an empty hash and mtime 0.
+
+        ``needs_ingestion`` never skips such a row (no real mtime or hash can
+        match it), so the file is re-processed on its next sync — under the
+        row's uid, which prior-uid resolution reads whatever the markers say.
+        ``authored_edges=None`` keeps the fingerprint the row already has.
+        """
+        return {
+            "file_path": canonical_path,
+            "content_hash": "",
+            "file_mtime": 0.0,
+            "entity_uid": entity_uid,
+            "authored_edges": None if authored_edges is None else list(authored_edges),
+        }
+
+    async def record_pending(self, file_path: Path, entity_uid: str) -> Result[None]:
+        """Keep a file's identity while forcing its next sync to re-ingest it.
+
+        For a file whose entity persisted this run but whose ingest must be
+        retried — a vault note whose frozen copy was not filed, whose
+        extraction failed, or whose vault edit was refused: stamping it
+        normally would skip the retry, and stamping nothing would lose the
+        uid a first sync minted, so every retry would mint another node. The
+        row's edge fingerprint is kept: the file's edge pass did not run.
+
+        Backend: IngestionBackend.update_ingestion_metadata.
+        """
+        result = await self.backend.update_ingestion_metadata(
+            self._pending_row(self._canonical(file_path), entity_uid, None)
+        )
+        if result.is_error:
+            return Result.fail(result)
+        return Result.ok(None)
 
     async def ensure_constraints(self) -> Result[None]:
         """
@@ -1068,13 +1106,7 @@ class IngestionTracker:
         match (logged distinctly), ``None`` for an exact-hash match.
         """
         upsert_result = await self.backend.update_ingestion_metadata(
-            {
-                "file_path": new_file.file_path,
-                "content_hash": "",  # pending marker — see docstring
-                "file_mtime": 0.0,
-                "entity_uid": row.entity_uid,
-                "authored_edges": list(row.authored_edges),
-            }
+            self._pending_row(new_file.file_path, row.entity_uid, row.authored_edges)
         )
         if upsert_result.is_error:
             return Result.fail(upsert_result)

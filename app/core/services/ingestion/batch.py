@@ -79,8 +79,7 @@ logger = get_logger("skuel.services.ingestion.batch")
 # validated. Validation failures on anything else are pipeline/state faults
 # the owner must see as sync errors, NOT ignorable content: a feedback
 # request that reaches no teacher (``feedback_target``) is a state-of-the-world
-# failure (Codex #788), and a frozen copy that ``status: submitted`` could not
-# file (``submission``) failed after the note itself synced — both are retried.
+# failure (Codex #788).
 _USER_ENTRY_CONTENT_FIELDS: frozenset[str] = frozenset(
     {"pipeline", "status", "je_use", "private", "audience", "metadata", "uid"}
 )
@@ -936,6 +935,9 @@ async def ingest_directory(
     file_entity_map: dict[
         str, tuple[EntityType | NonKuDomain, str]
     ] = {}  # file_path -> (entity_type, uid)
+    # file_path -> uid of a UserEntry that persisted but whose file must be
+    # re-ingested next sync — stamped as a pending tracker row.
+    retry_uids: dict[str, str] = {}
     errors: list[dict[str, str]] = []
 
     for i, (entity_type, entity_data, error) in enumerate(parse_results):
@@ -1102,10 +1104,11 @@ async def ingest_directory(
             )
             if result_data is None:
                 continue
+            ue_uid = str(result_data.get("uid") or "")
             if result_data.get("extraction_error"):
                 # Persistence succeeded but post-persist extraction failed.
-                # Surface as an error and exclude from smart-mode tracking so
-                # the next incremental sync retries extraction.
+                # Surface as an error; the note is stamped pending (below), so
+                # the next incremental sync retries extraction on the same uid.
                 errors.append(
                     IngestionError(
                         file=str(ue_path),
@@ -1116,6 +1119,8 @@ async def ingest_directory(
                     ).to_dict()
                 )
                 file_entity_map.pop(str(ue_path), None)
+                if ue_uid:
+                    retry_uids[str(ue_path)] = ue_uid
             else:
                 # Count the per-file write as one node created/updated
                 if result_data.get("nodes_created", 0):
@@ -1144,20 +1149,37 @@ async def ingest_directory(
                                 frontmatter_organizes_targets(ue_entity),
                             )
                         )
+                # A vault note marked `status: submitted` whose frozen copy
+                # was not filed (R9): the note synced, the submission did not
+                # — an error to fix, retried next sync.
+                if result_data.get("submission_error"):
+                    errors.append(
+                        IngestionError(
+                            file=str(ue_path),
+                            error=result_data["submission_error"],
+                            stage="submission",
+                            error_type="service",
+                            entity_type=EntityType.USER_ENTRY.value,
+                        ).to_dict()
+                    )
                 # A refused vault edit of a 🆔 line (R4 C1: the task's domain
                 # door said no — a task keeps a day, an overdue priority is
                 # not lowered) is a WARNING, not a failure: the run completed
                 # and the entry persisted. But the edge held its base for a
-                # retry, and the retry is the note's next ingest — so the
-                # file is left un-stamped (its existing tracker row keeps the
-                # previous hash) and smart mode re-ingests it every sync,
-                # re-warning, until the line and the task agree.
-                if result_data.get("reconciliation_refusals"):
+                # retry, and the retry is the note's next ingest. Both cases
+                # are stamped pending (below), so smart mode re-ingests the
+                # note every sync — re-warning, re-trying the copy — on the
+                # uid it already has, until it lands.
+                if result_data.get("reconciliation_refusals") or result_data.get(
+                    "submission_error"
+                ):
                     file_entity_map.pop(str(ue_path), None)
+                    if ue_uid:
+                        retry_uids[str(ue_path)] = ue_uid
                 # Problems that did not fail the file — per-line extraction
-                # errors (G10), an audience withheld on a living note (R9):
-                # surface as warnings; the entry persisted and stays
-                # tracked, but the user must see what was not done.
+                # errors (G10), an audience declared on a draft (R9): surface
+                # as warnings; the entry persisted and stays tracked, but the
+                # user must see what was not done.
                 for warning in result_data.get("warnings") or []:
                     validation_warnings.append(f"{ue_path.name}: {warning}")
 
@@ -1426,6 +1448,14 @@ async def ingest_directory(
         if ingestion_updates:
             await tracker.update_ingestion_metadata_batch(ingestion_updates)
             logger.info(f"Updated ingestion metadata for {len(ingestion_updates)} files")
+
+        # A note that persisted but must be retried keeps its identity in a
+        # pending row, so its next sync re-ingests it on the same uid — a
+        # first-sync note's minted uid is never lost to a retry.
+        for file_str, uid in retry_uids.items():
+            pending = await tracker.record_pending(Path(file_str), uid)
+            if pending.is_error:
+                logger.error(f"Pending tracker row for {file_str} failed: {pending.expect_error()}")
 
     # Deletion propagation: vault file deleted -> graph entity/edge deleted.
     # Runs after the metadata updates above so moved/renamed files (already

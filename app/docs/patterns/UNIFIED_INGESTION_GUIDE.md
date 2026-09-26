@@ -269,6 +269,13 @@ A tracked uid that names a frozen submission (a turn-in, a `teacher_review`
 node or a filed copy) is never reused: the note mints a fresh living node
 rather than upsert its edits onto what the teacher was handed.
 
+A note that persisted but must be retried — its frozen copy was not filed,
+its extraction failed, or a vault edit of a 🆔 line was refused — is recorded
+in a **pending** tracker row (`IngestionTracker.record_pending`: its uid, an
+empty hash, mtime 0). Smart mode never skips a pending row, so the next sync
+re-ingests the file, and it does so on the uid the row holds — a first sync's
+minted uid is never lost to a retry.
+
 **Renames preserve identity too (content-based move detection).** A
 rename/move of a uid-less note is recognized by the move-detection pre-pass
 (`IngestionTracker.detect_and_apply_moves`, run at the start of every tracked
@@ -347,11 +354,12 @@ submit:
 - **The note's own status stays `active`** while the file says
   `submitted` — the submitted state belongs to the copy. Flip back to
   `in process` to revise in peace. Sync never writes into the user's file.
-- **A copy that cannot be filed is a sync ERROR** on the `submission` field
-  — never an ignored note: `audience: private` (nothing to submit to), a
+- **A copy that cannot be filed is a sync ERROR** (stage `submission`) —
+  never an ignored note: `audience: private` (nothing to submit to), a
   share on a `private: true` note or a `reference` note, an audience target
   that is unknown or unreachable, a feedback request that reaches no teacher.
-  The note itself synced; the next sync retries the copy.
+  The note itself synced and keeps its uid (a pending tracker row, below);
+  the next sync retries the copy on the same note.
 - **The review queue** (and its dashboard badge, and the students summary)
   collapses a student's copies to the newest one *visible to that teacher*,
   in two lineages: the same exercise (the turn-in snapshot) and the same

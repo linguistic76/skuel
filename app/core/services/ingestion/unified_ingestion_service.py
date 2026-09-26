@@ -917,10 +917,10 @@ class UnifiedIngestionService:
         existing = await self.user_entry_service.get_entry(prior_uid, user_uid)
         if existing.is_error or existing.value is None:
             return None
-        # A frozen submission is never a note's living identity (R9): a row
-        # the retired turn-in path left pointing at a turn-in, or at a
-        # teacher_review node, would upsert the note's edits onto what the
-        # teacher was handed. The note mints a fresh living node instead.
+        # A frozen submission is never a note's living identity (R9): a
+        # tracked uid that resolves to a turn-in, a teacher_review node or a
+        # filed copy is not reused — upserting the note onto it would change
+        # what the teacher was handed. The note mints a fresh living node.
         if (
             existing.value.turn_in_exercise_uid is not None
             or existing.value.pipeline == Pipeline.TEACHER_REVIEW
