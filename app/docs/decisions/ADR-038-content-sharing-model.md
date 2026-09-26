@@ -1,5 +1,5 @@
 ---
-updated: 2026-09-25
+updated: 2026-09-26
 related_skills: [learning-loop]
 ---
 
@@ -169,6 +169,11 @@ registered anywhere in `adapters/inbound/`. The shared-content inbox is a page, 
 > access-list methods are deleted; `get_shared_by_me` replaces them). A new person share rings
 > its recipient (`EntryShared` → the `shared_with_you` bell), so the "no notifications" premise
 > below no longer holds. `set_visibility` remains the one member without a door.
+>
+> **2026-09-26 — Amended by ADR-088 (PR 8, R9).** The ruling's "share reconciliation on vault
+> re-sync" was never built and is no longer needed: a vault note is a draft and is never shared,
+> and its `audience:` applies only to the frozen copy `status: submitted` files — so a re-sync
+> has no share to retract.
 
 *Ruled 2026-09-21:* the service-only half is the **PLANNED sharing door** —
 [`/docs/roadmap/sharing-http-door.md`](../roadmap/sharing-http-door.md) holds the per-method

@@ -26,7 +26,7 @@ check: "grep -rn 'set_visibility' adapters/inbound ui core/services --include='*
 `UnifiedSharingService` (`core/services/sharing/unified_sharing_service.py`) has two halves.
 The **write half is live**: audience-at-submit ([ADR-054](../decisions/ADR-054-user-entry-unified-submissions.md)
 — `AudienceResolver.resolve_and_share` → `share` / `share_with_group`, fed by the Submit page's
-(`/submissions/submit`) audience selector, the JSON door and a vault note's `audience:`), the Share door
+(`/submissions/submit`) audience selector, the JSON door and the frozen copy of a vault note marked `status: submitted`), the Share door
 (`EntrySharingService.share`, the same checks and writers on an entry the owner already has),
 the post-submit `POST /api/form-submissions/share`, and the ADR-040 auto-shares
 (`ExerciseService` → `share_with_group`). The **reads that render what those wrote are live**:

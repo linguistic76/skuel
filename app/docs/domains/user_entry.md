@@ -182,13 +182,13 @@ Ownership is the universal `(User)-[:OWNS]->(UserEntry)` edge, with the
 
 | Path | Condition | Backend call |
 |------|-----------|--------------|
-| **Turn-in** | `fulfills_exercise_uid` and no caller-supplied uid | `create_with_exercise_link` — writes the `FULFILLS_EXERCISE {revision}` edge atomically |
-| **Living entry** | Caller-supplied deterministic uid | `upsert` — idempotent; re-syncing an edited vault file updates the same node in place |
+| **Turn-in** | `fulfills_exercise_uid` and no caller-supplied uid (the Submit page; a vault note's frozen copy) | `create_with_exercise_link` — writes the `FULFILLS_EXERCISE {revision}` edge atomically |
+| **Living entry** | Caller-supplied deterministic uid (every vault note, from its first sync) | `upsert` — idempotent; re-syncing an edited vault file updates the same node in place. A draft: never `teacher_review`, never submitted or shared (R9) |
 | **Plain create** | Neither | `create` |
 
 Creation then auto-records an `Interaction` audit row (turn-ins only), wires an
-optional `TRANSFORMS` edge for multi-stage pipelines, and resolves audience
-through `UnifiedSharingService`:
+optional `TRANSFORMS` edge for multi-stage pipelines, and — for every path but the
+living entry — resolves audience through `UnifiedSharingService`:
 
 - `pipeline=TEACHER_REVIEW` → a feedback request (`SUBMITTED_TO_GROUP`): `teacher:<group_uid>`
   targets, and `teachers` (the default when nothing is named) as the exercise's assigned groups
