@@ -150,7 +150,25 @@ def test_wall_row_never_targets_by_uid_selector() -> None:
     html = to_xml(WallRow(item))
     assert 'data-wall-row="ue:daily:user_me:2026-09-26"' in html
     assert 'hx-target="#' not in html
-    assert "/api/user-entries/ue:daily:user_me:2026-09-26/unshare?audience=" in html
+    assert "/api/user-entries/ue%3Adaily%3Auser_me%3A2026-09-26/unshare?audience=" in html
+
+
+def test_wall_chip_percent_encodes_a_username_with_url_syntax() -> None:
+    """``user:alice&admin=true`` must reach the door as one value, not two query fields."""
+    item = _wall_item(
+        users=[
+            {
+                "uid": "user_a",
+                "username": "alice&admin=true",
+                "display_name": None,
+                "shared_at": None,
+            }
+        ],
+        groups=[],
+    )
+    html = to_xml(WallRow(item))
+    assert "audience=user%3Aalice%26admin%3Dtrue" in html
+    assert "audience=user:alice&" not in html
 
 
 def test_wall_empty_state() -> None:
