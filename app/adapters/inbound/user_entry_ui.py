@@ -901,7 +901,7 @@ def create_user_entry_ui_routes(
                 cls="mt-6",
             )
 
-        share_button: Any = (
+        share_button: Div | None = (
             ShareButton(uid, open=bool(share)) if entry_sharing is not None else None
         )
 
