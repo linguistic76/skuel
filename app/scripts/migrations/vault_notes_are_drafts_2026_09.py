@@ -5,34 +5,31 @@ Vault notes are drafts — copy provenance first-class, no links on a living not
 
 Submit & Share arc PR 8 (R9): a vault note is a draft, never submitted or
 shared; ``status: submitted`` files a frozen copy, and only the copy carries
-an audience. Two things the old code left in the graph change meaning:
+an audience. The code reads two invariants this script establishes:
 
-1. **Copy provenance.** A frozen copy recorded the living note it came from
-   inside its ``metadata`` JSON (the ``submitted_from_entry`` key). The new
-   code reads only the first-class ``submitted_from_uid`` property — the
-   vault door's dedup and the review queue's supersede rule key on it, with
-   no fallback to the old key (a fallback would be a second provenance
-   authority hiding an incomplete migration). ``--confirm`` moves every key
-   onto the property and removes it from ``metadata``. A copy migrated here
-   carries no ``submission_fingerprint``: if its note still says
-   ``status: submitted``, the next sync files one fresh copy.
-2. **Links on living notes.** A living vault note (``metadata`` carries
-   ``vault_file_path``) holds no audience link on the new code — drafts are
-   never shared, and a re-sync never retracts one. ``--confirm`` deletes
-   every ``SHARED_WITH_GROUP`` from, and every ``SHARES_WITH`` to, a living
-   note. A ``SUBMITTED_TO_GROUP`` on a living note is a feedback request a
-   teacher may be reviewing: it is reported and blocks ``--confirm`` until a
-   person rules on it — never deleted here.
+1. **Copy provenance is the ``submitted_from_uid`` property.** The vault
+   door's dedup and the review queue's supersede rule key on it and read no
+   other spelling. Input: a UserEntry whose ``metadata`` JSON carries the
+   ``submitted_from_entry`` key. ``--confirm`` sets ``submitted_from_uid`` to
+   the key's value and removes the key from ``metadata``. Such a copy carries
+   no ``submission_fingerprint``, so a note that still says
+   ``status: submitted`` files one fresh copy on its next sync.
+2. **A living vault note holds no audience link.** Input: a UserEntry whose
+   ``metadata`` carries ``vault_file_path`` (a living note) with a
+   ``SHARED_WITH_GROUP`` or an incoming ``SHARES_WITH``. ``--confirm``
+   deletes those links. A ``SUBMITTED_TO_GROUP`` on a living note is a
+   feedback request a teacher may be reviewing: it is reported and blocks
+   ``--confirm`` until a person rules on it — this script never deletes it.
 
-Reported, never written: living ``teacher_review`` notes (the new vault door
-refuses the pipeline — the author edits the note), and turn-ins that carry a
-``vault_file_path`` (the retired first-sync path; the note's next sync mints
-a fresh living node instead of reusing one).
+Reported, never written: living ``teacher_review`` notes (the vault door
+refuses the pipeline — the author edits the note) and turn-ins that carry a
+``vault_file_path`` (never a note's living identity; the note's next sync
+mints a fresh living node).
 
 Deploy order (the arc's Migrations convention): stop the running app →
 census (this script, no flag) → ``--confirm`` with Mike's OK → start on the
 new code → census again, which must read 0 old keys and 0 links on living
-notes. The second census catches rows the old code wrote in between.
+notes. The second census catches rows written in between.
 
 Usage:
     uv run scripts/migrations/vault_notes_are_drafts_2026_09.py            # census

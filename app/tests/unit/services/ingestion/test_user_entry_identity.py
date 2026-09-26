@@ -153,8 +153,8 @@ async def test_a_frozen_submission_is_never_a_living_identity(
     tmp_path: Path, submission: UserEntry
 ) -> None:
     """A tracker row pointing at a turn-in, a teacher_review node or a frozen
-    copy (the retired first-sync turn-in path) must not be reused: the note's
-    edits would be upserted onto what the teacher was handed (R9)."""
+    copy is never a note's living identity: the note's edits would be
+    upserted onto what the teacher was handed (R9)."""
     svc, service = _ingestion_service(_entry("ue_new"), prior_uid="ue_turned_in")
     service.get_entry = AsyncMock(return_value=Result.ok(submission))
     note = _note(tmp_path, "pipeline: knowledge\ntitle: Probe")

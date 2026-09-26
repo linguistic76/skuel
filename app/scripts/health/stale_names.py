@@ -309,7 +309,7 @@ DELETED: dict[str, str] = {
     "get_latest_entry_for_exercise": "deleted — a vault note's copies are deduplicated by provenance: get_latest_copy_of_note (the newest copy's submission_fingerprint), never an exercise lineage",
     "submitted_from_entry": "deleted — a frozen copy's provenance is the first-class submitted_from_uid property, never a metadata key",
     "ShareOutcome.withheld": "deleted — a living vault note is a draft and names no audience at all (create_entry refuses one on a caller uid); nothing is withheld",
-    "retract_defaulted_vault_note_shares": "deleted — a vault note is never shared (R9); scripts/migrations/vault_notes_are_drafts_2026_09.py retracts what the old code left",
+    "retract_defaulted_vault_note_shares": "deleted — a vault note is never shared (R9); scripts/migrations/vault_notes_are_drafts_2026_09.py retracts any share link a living note holds",
     # The EntryReport access check (ADR-088 §3): a link grants what its reader reads,
     # and a report is an owner read — no standalone check.
     "check_access": "deleted — no standalone access check; an EntryReport is an owner read (EntryReportService.get_for_user, the OWNER_ONLY clause of ADR-085's chokepoint), every other read composes its audience from build_search_visibility_clause",

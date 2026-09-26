@@ -60,8 +60,7 @@ def _yaml_pipeline_values(vault: bool) -> str:
     Every ``Pipeline`` member except the audio two — and, for a vault note,
     except ``teacher_review`` (a vault note is a draft; its frozen copy is
     the submission). Derived, so the error messages below can never drift
-    from the enum (they once named three values while the parser admitted
-    seven).
+    from the enum.
     """
     excluded = _AUDIO_PIPELINES | (_VAULT_EXCLUDED if vault else frozenset())
     return ", ".join(p.value for p in Pipeline if p not in excluded)
