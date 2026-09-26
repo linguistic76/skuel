@@ -246,7 +246,7 @@ The vault is the source of truth for user data. Two doors reach
 
 | Door | Path |
 |------|------|
-| The Submit page | `/submissions/submit` (the one route; `?exercise_uid=` preselects an exercise). Its form HTMX-posts multipart to `POST /api/user-entries/upload`; the handler in `adapters/inbound/user_entry_api.py` builds the request and calls `create_entry()` **directly** |
+| The Submit page | `/submissions/submit` (the one route; `?exercise_uid=` names the exercise the turn-in answers). Its two-question form (feedback? / share with) HTMX-posts multipart to `POST /api/user-entries/upload`; the handler in `adapters/inbound/user_entry_api.py` builds the request and calls `create_entry()` **directly** |
 | Vault / YAML sync | `UnifiedIngestionService` → `ingest_user_entry()` in `core/services/ingestion/user_entry_ingestion.py` (ADR-054) → `create_entry()` |
 
 Neither uses the directory-ingest door that serves content-vault curriculum.

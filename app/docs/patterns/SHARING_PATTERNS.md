@@ -400,11 +400,19 @@ unpublish writer waits on the PUBLIC reader
 
 ## UI Components
 
-### Audience Selector (the Submit page, `/submissions/submit`)
+### The Submit page (`/submissions/submit`)
 
-`ui/user_entry/forms.py` — one destination per submission: Teacher (auto-share to the
-exercise's groups), a specific group, Private (default), or Portfolio (rendered disabled,
-"Coming soon" — `portfolio_mode="coming_soon"`, no caller passes `active`).
+`ui/user_entry/forms.py` asks two questions (Submit & Share arc PR 7). **Ask for feedback?**
+Teacher — the default, with or without an exercise (`teachers`, or `teacher:<group_uid>` from the
+"Which class?" select a student in several classes gets when no exercise names its own) / AI —
+only with an exercise, and the form says the next step is the entry page's "Request AI feedback"
+button (submit never summons the reviewer) / No. **Share with** (optional, collapsed) — the
+student's groups and R8 co-members as `group:<uid>` / `user:<username>` checkboxes (the Share
+panel's own rows, `AudienceCheckbox`, from the same read, `EntrySharingService.targets`) plus
+Portfolio (rendered disabled, "Coming soon" — `portfolio_mode="coming_soon"`, no caller passes
+`active`). The pipeline and the feedback value ride as Alpine-bound hidden fields; every value
+lands in the one repeated `audience` field the upload door parses. The Title field is optional:
+the title is the student's, and an untitled turn-in is titled "<exercise> v<N>" by the writer.
 
 ### The Share Panel (`/gradebook/{uid}`)
 

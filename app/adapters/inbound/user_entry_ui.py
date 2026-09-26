@@ -44,6 +44,7 @@ from adapters.inbound.fasthtml_types import Request, RouteDecorator
 from adapters.inbound.result_helpers import require_found
 from adapters.inbound.route_factories import is_not_found, refuse
 from adapters.outbound.user_entry_renderer import entry_download_filename, render_user_entry_md
+from core.models.enums import GroupMemberRole
 from core.models.enums.entity_enums import EntityStatus
 from core.models.type_hints import UserUID
 from core.models.user_entry.user_entry import EXERCISE_REMOVED_TITLE, UserEntry
@@ -79,7 +80,7 @@ from ui.workbench.nav import render_submissions_sidebar_page
 
 if TYPE_CHECKING:
     from core.orchestrator.user_entry_orchestrator import UserEntryOrchestrator
-    from core.ports.query_types import OrganizerResult
+    from core.ports.query_types import OrganizerResult, ShareTargets
     from core.services.groups.group_service import GroupService
     from core.services.report.entry_report_service import EntryReportService
     from core.services.user_entry.entry_sharing_service import EntrySharingService
@@ -208,11 +209,12 @@ def create_user_entry_ui_routes(
         user_entry_service: Primary ``UserEntryService`` (writes)
         orchestrator: ``UserEntryOrchestrator`` (reads across related services)
         entry_report_service: Used to guard delete when feedback exists
-        groups_service: ``GroupService`` used by ``/submissions/submit`` to
-            enumerate the student's own groups for the form.
-        entry_sharing: ``EntrySharingService`` — the Share panel's candidates
+        groups_service: ``GroupService`` — the classes the student studies in,
+            for the Submit page's "Which class?" select.
+        entry_sharing: ``EntrySharingService`` — the share targets (the Submit
+            page's "Share with") and the Share panel's candidates
             (``/gradebook/{uid}/share-panel``); without it the owner's page
-            renders no Share button.
+            renders no Share button and the Submit page offers nobody.
         batch_transcription_service: Retained for API compatibility (journal upload
             routes now live in journals_routes.py).
         processing_service: Retained for API compatibility (journal upload
@@ -314,28 +316,40 @@ def create_user_entry_ui_routes(
         exercise-less turn-in.
         """
         user_uid = require_authenticated_user(request)
-
-        assigned_exercises: list[Any] = []
-        exercises_result = await orchestrator.get_student_exercises(user_uid)
-        if not exercises_result.is_error and exercises_result.value:
-            assigned_exercises = exercises_result.value
-
-        user_groups: list[Any] = []
-        if groups_service is not None:
-            groups_result = await groups_service.get_user_groups(user_uid)
-            if not groups_result.is_error and groups_result.value:
-                user_groups = groups_result.value
-
-        selected_exercise_uid = request.query_params.get("exercise_uid")
+        selected_exercise_uid = request.query_params.get("exercise_uid") or None
         from_ps = request.query_params.get("from_ps") or None
 
+        exercise_title: str | None = None
+        if selected_exercise_uid:
+            exercise_result = await orchestrator.get_exercise(selected_exercise_uid)
+            if exercise_result.is_ok and exercise_result.value is not None:
+                exercise_title = exercise_result.value.title
+
+        # The classes the student studies in — "Which class?" when more than one
+        # and no exercise names its own.
+        teacher_groups: list[tuple[str, str]] = []
+        if groups_service is not None:
+            groups_result = await groups_service.get_user_groups(
+                user_uid, role=GroupMemberRole.STUDENT.value
+            )
+            if groups_result.is_ok and groups_result.value:
+                teacher_groups = [(g.uid, g.name) for g in groups_result.value]
+
+        # Whom the student may share with — the Share panel's read, reused.
+        targets: ShareTargets | None = None
+        if entry_sharing is not None:
+            targets_result = await entry_sharing.targets(user_uid)
+            if targets_result.is_ok:
+                targets = targets_result.value
+
         content = Div(
-            PageHeader("Submit", subtitle="Send your work for feedback"),
+            PageHeader("Submit", subtitle="Send your work for feedback, and share it if you like"),
             render_upload_form(
-                assigned_exercises,
                 selected_exercise_uid=selected_exercise_uid,
+                exercise_title=exercise_title,
                 from_ps=from_ps,
-                user_groups=user_groups,
+                teacher_groups=teacher_groups,
+                targets=targets,
             ),
         )
         return render_submissions_sidebar_page(

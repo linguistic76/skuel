@@ -1716,6 +1716,17 @@ class ShareCandidateGroup(TypedDict):
     name: str
 
 
+class ShareTargets(TypedDict):
+    """Whom an owner may share with: their active student and owned groups, and their R8 co-members.
+
+    Entry-independent — the Submit page's "Share with" section and the Share
+    panel's candidates are one read of it.
+    """
+
+    groups: list[ShareCandidateGroup]
+    people: list[ShareCandidatePerson]
+
+
 class ShareCandidates(TypedDict):
     """What the Share panel offers an owner, and what the entry already reaches.
 

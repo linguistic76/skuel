@@ -156,8 +156,12 @@ class UserEntryOrchestrator:
     # ------------------------------------------------------------------
 
     async def get_student_exercises(self, user_uid: UserUID) -> Result[list[Exercise]]:
-        """Get assigned exercises for dropdowns in the submit form."""
+        """The exercises assigned to a student."""
         return await self._exercises.get_student_exercises(user_uid)
+
+    async def get_exercise(self, uid: str) -> Result[Exercise]:
+        """One exercise by uid — the Submit page names the exercise a turn-in answers."""
+        return await self._exercises.get_exercise(uid)
 
     async def list_user_exercises(self, user_uid: UserUID) -> Result[list[Exercise]]:
         """List saved instruction-template exercises owned by the user."""

@@ -261,7 +261,7 @@ Named Alpine components live in a `/static/js/` bundle, never inline in a templa
 | `revisionForm` | Revision feedback-point form | `points`, `categories` |
 | `batchTranscribe` | Admin batch transcription console | job/progress state |
 | `userFolderTranscribe` | User vault `je_in`→`je_out` transcription | job/progress state |
-| `submit(dest, portfolio, teacherDisabled)` | Submit page destination + uploader | `dest`, `file`, `sent` |
+| `submit(feedback, aiDisabled)` | Submit page: the feedback answer, the class select, the collapsed Share with, the uploader | `feedback`, `teacherGroup`, `shareOpen`, `file`, `sent` |
 
 <!-- alpine-registry:end -->
 

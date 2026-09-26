@@ -47,7 +47,7 @@ if TYPE_CHECKING:
     from core.models.user_entry.user_entry import UserEntry
     from core.ports.group_protocols import GroupOperations
     from core.ports.infrastructure_protocols import EventBusOperations
-    from core.ports.query_types import ShareCandidates, SharedByMeItem
+    from core.ports.query_types import ShareCandidates, SharedByMeItem, ShareTargets
     from core.ports.sharing_protocols import SharingOperations
     from core.services.user_entry.user_entry_service import UserEntryService
 
@@ -80,7 +80,7 @@ async def publish_entry_shared(  # skuel-lint: disable=SKUEL005 -- an event publ
 
 
 class EntrySharingService:
-    """Share, Stop sharing and the Share panel's candidates, for an owned UserEntry."""
+    """Share, Stop sharing, the share targets and the Share panel's candidates, for an owned UserEntry."""
 
     def __init__(
         self,
@@ -230,20 +230,13 @@ class EntrySharingService:
     # Candidates — what the Share panel offers
     # ------------------------------------------------------------------
 
-    async def candidates(self, entry_uid: str, owner_uid: UserUID) -> Result[ShareCandidates]:
-        """The groups and people the owner may share ``entry_uid`` with, and whom it already reaches.
+    async def targets(self, owner_uid: UserUID) -> Result[ShareTargets]:
+        """Whom ``owner_uid`` may share with — the one read behind the Submit page and the Share panel.
 
         Groups: the active groups the owner is a student of or owns (one
         reader, ``GroupOperations.get_user_groups``). People: the R8
         co-members (the default group's roster excluded, its owner kept).
-        The current audience is the wall's read for this one entry; the
-        reviewer groups (its ``SUBMITTED_TO_GROUP`` targets) are what the
-        GradeBook nudge preselects, among the offered groups only.
         """
-        owned = await self._owned_entry(entry_uid, owner_uid)
-        if owned.is_error:
-            return Result.fail(owned)
-
         groups = await self.groups.get_user_groups(
             owner_uid, role=GroupMemberRole.STUDENT.value, include_owned=True
         )
@@ -252,6 +245,28 @@ class EntrySharingService:
         people = await self.sharing.get_share_candidate_people(owner_uid)
         if people.is_error:
             return Result.fail(people)
+        return Result.ok(
+            {
+                "groups": [{"uid": g.uid, "name": g.name} for g in groups.value],
+                "people": list(people.value),
+            }
+        )
+
+    async def candidates(self, entry_uid: str, owner_uid: UserUID) -> Result[ShareCandidates]:
+        """The targets the owner may share ``entry_uid`` with, and whom it already reaches.
+
+        The offerable targets are ``targets``; the current audience is the
+        wall's read for this one entry; the reviewer groups (its
+        ``SUBMITTED_TO_GROUP`` targets) are what the GradeBook nudge
+        preselects, among the offered groups only.
+        """
+        owned = await self._owned_entry(entry_uid, owner_uid)
+        if owned.is_error:
+            return Result.fail(owned)
+
+        offered = await self.targets(owner_uid)
+        if offered.is_error:
+            return Result.fail(offered)
         current = await self.sharing.get_shared_by_me(
             owner_uid, limit=1, entity_uid=EntityUID(entry_uid)
         )
@@ -264,8 +279,8 @@ class EntrySharingService:
 
         return Result.ok(
             {
-                "groups": [{"uid": g.uid, "name": g.name} for g in groups.value],
-                "people": list(people.value),
+                "groups": offered.value["groups"],
+                "people": offered.value["people"],
                 "shared_group_uids": [g["uid"] for g in row["groups"]] if row else [],
                 "shared_user_uids": [u["uid"] for u in row["users"]] if row else [],
                 "reviewer_group_uids": reviewers.value,
