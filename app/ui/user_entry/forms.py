@@ -33,7 +33,7 @@ See: /docs/decisions/ADR-054-user-entry-unified-submissions.md
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING
 from urllib.parse import urlencode
 
 from fasthtml.common import Button, Div, Form, Input, Option, P, Select, Span
@@ -50,6 +50,8 @@ from ui.primitives import (
 
 if TYPE_CHECKING:
     from collections.abc import Sequence
+
+    from fasthtml.common import FT
 
     from core.ports.query_types import ShareTargets
 
@@ -88,7 +90,7 @@ def _feedback_option(
     title: str,
     desc: str,
     disabled: bool = False,
-) -> Any:
+) -> FT:
     """One answer to "Ask for feedback?" as a selectable row bound to ``feedback``."""
     return SelectableOptionRow(
         icon=icon,
@@ -113,7 +115,7 @@ def _feedback_option(
     )
 
 
-def _feedback_question(*, has_exercise: bool, teacher_groups: Sequence[tuple[str, str]]) -> Any:
+def _feedback_question(*, has_exercise: bool, teacher_groups: Sequence[tuple[str, str]]) -> FT:
     """ "Ask for feedback?" — Teacher / AI / No, plus the class select when it is a choice."""
     options = Div(
         _feedback_option(
@@ -151,7 +153,7 @@ def _feedback_question(*, has_exercise: bool, teacher_groups: Sequence[tuple[str
 
     # Which class? Only a choice without an exercise (an exercise names its
     # own classes) and only when the student studies in more than one.
-    class_select: Any = None
+    class_select: FT | None = None
     if not has_exercise and len(teacher_groups) > 1:
         class_select = Div(
             Span("Which class?", cls="block text-xs font-medium text-muted-foreground mb-1"),
@@ -177,7 +179,7 @@ def _feedback_question(*, has_exercise: bool, teacher_groups: Sequence[tuple[str
     )
 
 
-def _share_group(title: str, rows: list[Any]) -> Any:
+def _share_group(title: str, rows: list[FT]) -> FT:
     return Div(
         P(title, cls="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-1"),
         *rows,
@@ -185,9 +187,9 @@ def _share_group(title: str, rows: list[Any]) -> Any:
     )
 
 
-def _share_question(targets: ShareTargets | None, *, portfolio_mode: str) -> Any:
+def _share_question(targets: ShareTargets | None, *, portfolio_mode: str) -> FT:
     """ "Share with" — collapsed; the student's groups and co-members, plus Portfolio."""
-    rows: list[Any] = []
+    rows: list[FT] = []
     if targets:
         group_rows = [
             AudienceCheckbox(f"{GROUP_PREFIX}{g['uid']}", g["name"], shared=False)
@@ -269,7 +271,7 @@ def render_upload_form(
     teacher_groups: Sequence[tuple[str, str]] = (),
     targets: ShareTargets | None = None,
     portfolio_mode: str = "coming_soon",
-) -> Any:
+) -> FT:
     """Render the Submit form: Title, the two questions, the file, the send button.
 
     Args:
@@ -286,7 +288,7 @@ def render_upload_form(
     """
     has_exercise = bool(selected_exercise_uid)
 
-    hidden_fields: list[Any] = []
+    hidden_fields: list[FT] = []
     if selected_exercise_uid:
         # The exercise link persists on EVERY answer (ruled 2026-07-03,
         # systems review R1): a submission fulfills its exercise regardless of
@@ -298,7 +300,7 @@ def render_upload_form(
     if from_ps:
         hidden_fields.append(Input(type="hidden", name="about_path_step_uid", value=from_ps))
 
-    exercise_note: Any = None
+    exercise_note: FT | None = None
     if has_exercise:
         exercise_note = P(
             Span("Answering: ", cls="text-muted-foreground"),
