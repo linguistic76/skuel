@@ -25,6 +25,7 @@ from ui.feedback import Badge, BadgeT
 from ui.layout import Size
 from ui.patterns.error_banner import render_error_banner
 from ui.primitives import ButtonLink
+from ui.user_entry.forms import submit_page_href
 
 # ============================================================================
 # HELPERS
@@ -148,7 +149,7 @@ def render_revised_exercise_detail(entity: Any) -> Any:
         links.append(
             ButtonLink(
                 "Submit Revision",
-                href=f"/submit?exercise_uid={uid}",
+                href=submit_page_href(uid),
                 cls=ButtonT.primary,
                 size="sm",
             )

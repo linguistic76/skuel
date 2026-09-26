@@ -176,7 +176,7 @@ class UserEntryService(BaseService[UserEntryOperations, UserEntry]):
         # and create always stamps SUBMITTED. An authored/caller status could
         # otherwise fake the lifecycle (`completed` reads as teacher-approved,
         # `archived` dodges the queue) — reject anything but a truthful
-        # `submitted` on every entry point (JSON API, YAML door, /submit form).
+        # `submitted` on every entry point (JSON API, YAML door, /submissions/submit form).
         if (
             request.status is not None
             and request.pipeline == Pipeline.TEACHER_REVIEW
@@ -229,7 +229,7 @@ class UserEntryService(BaseService[UserEntryOperations, UserEntry]):
         resolved: ResolvedAudience = refs_check.value
 
         # ``public`` is portfolio publication and gated on TEACHER role. This
-        # covers every entry point (the vault door, the /submit form, the JSON
+        # covers every entry point (the vault door, the /submissions/submit form, the JSON
         # API) so no path can publish a REGISTERED user's entry.
         if resolved.public:
             public_check = await self._require_teacher_for_public(user_uid)
@@ -238,7 +238,7 @@ class UserEntryService(BaseService[UserEntryOperations, UserEntry]):
 
         # A turn-in is an exercise link WITHOUT a caller uid: it must always
         # create fresh (frozen copy, FULFILLS_EXERCISE edge, revision mint), so
-        # it gets a random uid — the /submit form and /upload YAML paths.
+        # it gets a random uid — the /submissions/submit form and /upload YAML paths.
         # A caller-supplied deterministic uid (vault-note ids like
         # ``ue:daily:2026-06-16``) routes to the idempotent upsert below so
         # re-syncing an edited note updates in place — WITH or without a
@@ -452,6 +452,8 @@ class UserEntryService(BaseService[UserEntryOperations, UserEntry]):
         # the exercise_handler subscriber runs the linker (scope validation +
         # revision title-stamp) off it. A living entry's declared intent must
         # NOT trigger that machinery, so the field rides only for turn-ins.
+        # ``submitted_group_uids`` is the CREATED subset of the feedback
+        # requests, so the teacher's bell never rings for a re-filed one.
         await publish_event(
             self.event_bus,
             UserEntryCreated(
@@ -462,6 +464,8 @@ class UserEntryService(BaseService[UserEntryOperations, UserEntry]):
                 fulfills_exercise_uid=submitted_against_uid,
                 transforms_of_uid=request.transforms_of_uid,
                 file_type=request.file_type,
+                title=created.title,
+                submitted_group_uids=outcome.newly_submitted_groups,
             ),
             self.logger,
         )

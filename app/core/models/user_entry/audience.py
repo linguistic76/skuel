@@ -1,7 +1,7 @@
 """
 AudienceSpec — the one audience vocabulary (ADR-088).
 
-Every door that creates a ``UserEntry`` — the ``/submit`` form, the JSON API
+Every door that creates a ``UserEntry`` — the Submit page (``/submissions/submit``), the JSON API
 and the vault's ``audience:`` frontmatter — speaks this vocabulary and
 nothing else. ``AudienceSpec.parse`` is the one parser; ``AudienceResolver``
 (``core/services/user_entry/audience_resolver.py``) is the one applier.

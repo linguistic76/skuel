@@ -36,6 +36,7 @@ from ui.patterns.empty_state import EmptyState
 from ui.patterns.error_banner import render_error_banner
 from ui.patterns.format_date import format_date
 from ui.primitives import ButtonLink
+from ui.user_entry.forms import submit_page_href
 
 # ============================================================================
 # SHARED HELPERS
@@ -266,7 +267,7 @@ def render_entry_report_detail(report: Any, revised_exercise: Any = None) -> Any
                 ),
                 ButtonLink(
                     "Submit Revision",
-                    href=f"/submit?exercise_uid={re_uid}",
+                    href=submit_page_href(re_uid),
                     cls=ButtonT.ghost,
                     size="sm",
                 ),

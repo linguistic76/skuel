@@ -1,7 +1,7 @@
 ---
 title: UserEntry Domain
 created: 2026-09-01
-updated: 2026-09-25
+updated: 2026-09-26
 status: current
 category: domains
 tags: [user-entry, learning-loop, domain]
@@ -183,7 +183,7 @@ through `UnifiedSharingService`:
   `SHARES_WITH`); a feedback target on any other pipeline writes no link.
 
 Audience is always **declared at submit time**, in the one vocabulary (`AudienceSpec`,
-`core/models/user_entry/audience.py` — ADR-088): the `/submit` form's `audience` field, the JSON
+`core/models/user_entry/audience.py` — ADR-088): the Submit page's (`/submissions/submit`) `audience` field, the JSON
 body's `audience`, and the vault's `audience:` all parse through it. There is no implicit
 student→teacher sharing inferred from a `FULFILLS_EXERCISE` traversal plus a role check.
 
@@ -215,7 +215,7 @@ opt-in dataclass, not a `BaseEvent` member, and none of these four carry one.)
 
 | Event | Trigger |
 |-------|---------|
-| `UserEntryCreated` | Entry persisted |
+| `UserEntryCreated` | Entry persisted; `submitted_group_uids` (the created `SUBMITTED_TO_GROUP` subset) rings the owning teachers' `submission_for_review` bell — a re-filed request rings nobody |
 | `UserEntryProcessingStarted` | Pipeline dispatch begins |
 | `UserEntryProcessingCompleted` | Pipeline finished |
 | `UserEntryProcessingFailed` | Pipeline raised |
@@ -230,7 +230,7 @@ The vault is the source of truth for user data. Two doors reach
 
 | Door | Path |
 |------|------|
-| The exercise upload form | `/submissions/exercise` is the canonical page (`/submit` is a legacy 302 onto it, preserving query params). Its form HTMX-posts multipart to `POST /api/user-entries/upload`; the handler in `adapters/inbound/user_entry_api.py` builds the request and calls `create_entry()` **directly** |
+| The Submit page | `/submissions/submit` (the one route; `?exercise_uid=` preselects an exercise). Its form HTMX-posts multipart to `POST /api/user-entries/upload`; the handler in `adapters/inbound/user_entry_api.py` builds the request and calls `create_entry()` **directly** |
 | Vault / YAML sync | `UnifiedIngestionService` → `ingest_user_entry()` in `core/services/ingestion/user_entry_ingestion.py` (ADR-054) → `create_entry()` |
 
 Neither uses the directory-ingest door that serves content-vault curriculum.
@@ -245,7 +245,7 @@ model, imported by every consumer.
 ## Routes
 
 **UI** (`adapters/inbound/user_entry_ui.py`): `/submissions`,
-`/submissions/exercise`, `/submit`, `/submissions/journal`,
+`/submissions/submit`, `/submissions/journal`,
 `/submissions/history` (+ `/submissions/history/list`, `POST /submissions/history/delete`),
 `/submissions/knowledge`, `/submit/journals/{uid}/download`, `/gradebook`
 (+ `/gradebook/lines`, `/gradebook/{uid}`), and `POST /api/entry-reports/respond`.

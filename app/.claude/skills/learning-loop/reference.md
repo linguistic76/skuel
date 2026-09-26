@@ -151,7 +151,7 @@ revision: 1                    ← student increments for resubmissions
 ```
 
 The student fills in responses and submits the file at `POST /api/user-entries/upload`.
-The exercise link is carried by the `fulfills_exercise_uid` form field (set by the `/submissions/exercise`
+The exercise link is carried by the `fulfills_exercise_uid` form field (set by the `/submissions/submit`
 form via the exercise selector or the `?exercise_uid=` deep-link hidden field); the revision
 is computed server-side by `UserEntryService._next_revision()`. The current upload endpoint
 does **not** parse the worksheet's YAML frontmatter — that auto-detection is not implemented
@@ -676,7 +676,7 @@ request" — the enum is the one source of that label; the entity name stays
 - `GET /revised-exercises/detail?uid=` — detail page with `render_revised_exercise_detail()` (feedback points, instructions, submit link)
 
 Routes in `adapters/inbound/revised_exercises_ui.py`. Renderer in `ui/learning_loop/revised_exercise.py`.
-The detail page links to `/submissions/exercise?exercise_uid={re_uid}` — triggering the two-path Cypher for
+The detail page links to `/submissions/submit?exercise_uid={re_uid}` — triggering the two-path Cypher for
 `FULFILLS_REVISED_EXERCISE`. The EntryReport detail at `/entry-reports/detail?uid=` shows
 a "View Revision" link when a `RevisedExercise` exists for that report (via `get_by_report_uid()`).
 
@@ -775,7 +775,7 @@ RelationshipName.REVISES_EXERCISE        # RevisedExercise → Exercise
 | **PS embedded forms (HTMX)** | `/learning-loop/ps/{ps_uid}/forms` | GET | Student |
 | **PS embedded form submit (HTMX)** | `/learning-loop/ps/{ps_uid}/forms/{template_uid}/submit` | POST | Student |
 | **Student assignments** | `/exercises` | GET | Student |
-| **Submission (turn-in form)** | `/submissions/exercise`, `/submit` | GET | Student |
+| **Submission (the Submit page)** | `/submissions/submit` | GET | Student |
 | **Submission (turn-in API)** | `/api/user-entries/upload` | POST | Student — the exercise turn-in door; `create_entry()` is the one convergence point (ADR-054) |
 | **Submission (API)** | `/api/user-entries` (list GET / create POST), `/api/user-entries/get?uid=`, `/api/user-entries/form`, `/api/user-entries/process`, `/api/user-entries/delete` | GET/POST | Student (owner) |
 | **Submission detail** | `/gradebook/{uid}` | GET | Student (owner) — exercise + reports render on the page |

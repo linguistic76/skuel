@@ -88,4 +88,4 @@ class TestInProgressRendering:
 
     def test_not_submitted_action_link_unchanged(self) -> None:
         html = to_xml(exercise_action_link(_row()))
-        assert "/submit?exercise_uid=exercise.demo" in html
+        assert "/submissions/submit?exercise_uid=exercise.demo" in html

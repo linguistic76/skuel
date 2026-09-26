@@ -177,7 +177,7 @@ def _expected_handler_counts(full_tier: bool) -> dict[type, int]:
         CalendarEventDeleted: 1,
         CalendarEventRescheduled: 2,
         # UserEntry lifecycle + learning loop
-        UserEntryCreated: 2,  # exercise linker + learning-loop iteration tracking
+        UserEntryCreated: 3,  # exercise linker + learning-loop iteration tracking + the teacher's bell (Submit & Share arc R10)
         UserEntryProcessingStarted: 1,
         UserEntryProcessingCompleted: 1,
         UserEntryProcessingFailed: 2,  # invalidate + interaction FAILED transition

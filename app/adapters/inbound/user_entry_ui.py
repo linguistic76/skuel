@@ -7,8 +7,7 @@ The single UI route file for the unified UserEntry hub. Replaced the legacy
 
 Routes:
 - GET  /submissions                      — MOC root: links to all 5 sub-pages (no sidebar)
-- GET  /submissions/exercise             — Exercise worksheet upload form (canonical)
-- GET  /submit                           — 302 redirect → /submissions/exercise (legacy)
+- GET  /submissions/submit               — The Submit page (the upload form)
 - GET  /submissions/journal              — Journal file-upload UX (alternative to /journals)
 - GET  /submit/journals/{uid}/download   — Ownership-verified download
 - GET  /gradebook                        — GradeBook: per-exercise exchange lines + conditional report groups
@@ -36,7 +35,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
 from fasthtml.common import FT, H4, A, Div, FtResponse, P, Span
-from starlette.responses import FileResponse, RedirectResponse, Response
+from starlette.responses import FileResponse, Response
 
 from adapters.inbound.auth import require_authenticated_user
 from adapters.inbound.boundary import status_for_error, ui_boundary_handler
@@ -206,8 +205,8 @@ def create_user_entry_ui_routes(
         user_entry_service: Primary ``UserEntryService`` (writes)
         orchestrator: ``UserEntryOrchestrator`` (reads across related services)
         entry_report_service: Used to guard delete when feedback exists
-        groups_service: ``GroupService`` used by ``/submit`` to enumerate the
-            student's own groups for the audience radio selector.
+        groups_service: ``GroupService`` used by ``/submissions/submit`` to
+            enumerate the student's own groups for the form.
         entry_sharing: ``EntrySharingService`` — the Share panel's candidates
             (``/gradebook/{uid}/share-panel``); without it the owner's page
             renders no Share button.
@@ -261,9 +260,9 @@ def create_user_entry_ui_routes(
                     "bg-emerald-50",
                 ),
                 MocCard(
-                    "Exercise",
-                    "Upload a completed exercise worksheet for teacher or AI feedback.",
-                    "/submissions/exercise",
+                    "Submit",
+                    "Send your work to a teacher or AI for feedback.",
+                    "/submissions/submit",
                     "send",
                     "bg-blue-50",
                 ),
@@ -300,11 +299,17 @@ def create_user_entry_ui_routes(
         )
 
     # =========================================================================
-    # SUBMIT — EXERCISE (canonical: /submissions/exercise; legacy: /submit)
+    # SUBMIT — the one Submit page (/submissions/submit)
     # =========================================================================
 
-    async def _exercise_page(request: Request) -> Any:
-        """Inner handler for the exercise upload form (shared by two routes)."""
+    @rt("/submissions/submit")
+    async def submissions_submit_page(request: Request) -> Any:
+        """The Submit page: the upload form, preselecting ``?exercise_uid=`` when carried.
+
+        The PS learning-loop and exercise "Submit →" links arrive here with
+        ``exercise_uid`` (+ ``from_ps``); without one the form is the
+        exercise-less turn-in.
+        """
         user_uid = require_authenticated_user(request)
 
         assigned_exercises: list[Any] = []
@@ -322,7 +327,7 @@ def create_user_entry_ui_routes(
         from_ps = request.query_params.get("from_ps") or None
 
         content = Div(
-            PageHeader("Submit Exercise", subtitle="Upload your completed exercise worksheet"),
+            PageHeader("Submit", subtitle="Send your work for feedback"),
             render_upload_form(
                 assigned_exercises,
                 selected_exercise_uid=selected_exercise_uid,
@@ -332,30 +337,9 @@ def create_user_entry_ui_routes(
         )
         return render_submissions_sidebar_page(
             content=content,
-            active="exercise",
+            active="submit",
             request=request,
         )
-
-    @rt("/submissions/exercise")
-    async def submissions_exercise_page(request: Request) -> Any:
-        """Exercise worksheet upload form (canonical URL)."""
-        return await _exercise_page(request)
-
-    @rt("/submit")
-    def submit_redirect(
-        request: Request,
-    ) -> Any:
-        """Legacy URL — redirect to canonical /submissions/exercise.
-
-        Query params must survive: the PS learning-loop "Submit →" links carry
-        ``exercise_uid`` + ``from_ps`` through this URL, and dropping them
-        strips the exercise preselection off the form.
-        """
-        url = "/submissions/exercise"
-        query = request.url.query
-        if query:
-            url = f"{url}?{query}"
-        return RedirectResponse(url=url, status_code=302)
 
     # =========================================================================
     # SUBMIT — JOURNAL UPLOAD UX (/submissions/journal)

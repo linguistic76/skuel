@@ -4,7 +4,7 @@ Renders the teacher↔student exchange chronologically: submissions (all
 revisions, including entries against a RevisedExercise), feedback reports,
 and revision requests, interleaved by timestamp (feedback-loop UX arc C5).
 Read-only by design — each item links to its existing detail/action surface
-(submitting stays at /submissions/exercise, teacher actions at
+(submitting stays at /submissions/submit, teacher actions at
 /teaching/review/{uid}); the thread adds no mutations.
 
 Data shape: ``ExchangeThread`` rows from

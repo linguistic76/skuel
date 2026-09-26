@@ -2601,7 +2601,7 @@
         });
 
         // ---------------------------------------------------------------------
-        // /submit page — destination dropdown + file uploader
+        // /submissions/submit page — destination dropdown + file uploader
         // ---------------------------------------------------------------------
         Alpine.data('submit', function(defaultDest, portfolioMode, teacherDisabled) {
             return {

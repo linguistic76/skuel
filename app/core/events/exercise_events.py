@@ -8,7 +8,7 @@ Lifecycle event for teacher exercise operations.
 the teacher-assignment notification + calendar integration it triggers is not yet
 wired (no publisher, no subscriber). Its sibling ``ExerciseSubmitted`` was deleted
 (campaign 17) — the student-submission moment is now published live as
-``UserEntryCreated`` after the ADR-054 UserEntry collapse routed ``/submit`` through
+``UserEntryCreated`` after the ADR-054 UserEntry collapse routed ``/submissions/submit`` through
 ``UserEntryService.create_entry()``.
 
 Formerly assignment_events.py — renamed per of Ku hierarchy refactoring.

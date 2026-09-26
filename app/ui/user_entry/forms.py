@@ -2,7 +2,7 @@
 UserEntry Submit Form (ADR-054)
 ================================
 
-Destination-driven upload form for ``/submit``. The student picks where they
+Destination-driven upload form for ``/submissions/submit``. The student picks where they
 want to send their work (Teacher, AI Feedback, or Portfolio) and attaches a
 single file. Pipeline and audience are derived server-side from the destination.
 
@@ -22,6 +22,7 @@ See: /docs/decisions/ADR-054-user-entry-unified-submissions.md
 from __future__ import annotations
 
 from typing import Any
+from urllib.parse import urlencode
 
 from fasthtml.common import Button, Div, Form, Input, Span
 
@@ -35,6 +36,19 @@ from ui.primitives import (
     icon_tile,
     section_label,
 )
+
+SUBMIT_PAGE_PATH = "/submissions/submit"
+"""The one Submit page — every "Submit →" link in the app points here."""
+
+
+def submit_page_href(exercise_uid: str | None = None, *, from_ps: str | None = None) -> str:
+    """The Submit page URL, preselecting ``exercise_uid`` (and carrying ``from_ps``) when given."""
+    params: dict[str, str] = {}
+    if exercise_uid:
+        params["exercise_uid"] = exercise_uid
+    if from_ps:
+        params["from_ps"] = from_ps
+    return f"{SUBMIT_PAGE_PATH}?{urlencode(params)}" if params else SUBMIT_PAGE_PATH
 
 
 def _dest_trigger(dest_configs: dict[str, dict[str, str]]) -> Any:

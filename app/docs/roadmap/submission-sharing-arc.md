@@ -204,7 +204,7 @@ pass confirmed or corrected.
    uid (all three wrong). `entity_detail_href` (`entity_links.py:24-43`) already maps all three
    source types to the right pages.
 5. **The web can't send to a teacher without an exercise, and `teachers` means different things
-   on the two doors.** The `/submit` form disables Teacher without an exercise
+   on the two doors.** The /submit form (now `/submissions/submit`, PR 7) disables Teacher without an exercise
    (`ui/user_entry/forms.py:98,162`) and never emits `group:`. Web `teachers` = the exercise's
    groups ∩ my memberships, plus the curriculum default-group fallback (`user_entry_api.py:185-186`).
    Without an exercise it fails validation on `teacher_review` (`audience_resolver.py:121-133`) and
@@ -1367,11 +1367,11 @@ it first removes both.
   - bump the golden count (`test_compose_execution.py:178`).
 - **Rename:**
   - "Submit" becomes the header, the sidebar row (`ui/workbench/nav.py:20`) and the MOC card.
-  - The one route is `/submissions/submit`; `/submissions/exercise` and today's legacy `/submit` <!-- planned -->
+  - The one route is `/submissions/submit`; /submissions/exercise and today's legacy /submit
     302 are **deleted, not redirected** (One Path Forward — changed at PR 0 review from the plan's
     redirects: nothing outside the app links to them — no download, service-worker or manifest
     reference). Every caller is updated in this PR.
-  - Update every `/submissions/exercise` reference. Verified at PR 0: `git grep` finds 24 lines — 1
+  - Update every /submissions/exercise reference. Verified at PR 0: `git grep` finds 24 lines — 1
     false match (ADR-054:53, a model path) and 2 `done/` archives, so ≈21 live sites: user_entry.md:205,220,
     REPORT_ARCHITECTURE:393, CORE_SYSTEMS:42, UNIFIED_INGESTION_GUIDE:530, ROUTE_MAP:122 (missing from
     the plan's list), the learning-loop and skuel-ui skills, `exchange_thread.py:7`, `user_entry_ui.py`,
@@ -1475,7 +1475,7 @@ it first removes both.
 - **Branch and checks:** a fresh branch from the updated `main` (`git pull --ff-only` first). Run
   `./dev format` + `./dev quality` (0 mypy errors) + targeted unit tests + real-Neo4j integration tests.
 - **Smoke:** `scripts/authed_smoke.py` over `/gradebook`, `/profile/shared`, `/groups`,
-  `/notifications`, `/submissions/submit` (from PR 7 on), `/teaching/queue`, `/exchange`. <!-- planned -->
+  `/notifications`, `/submissions/submit` (from PR 7 on), `/teaching/queue`, `/exchange`.
 - **UI PRs:** rebuild Tailwind, then headless Chrome at 375px and at desktop width.
 - **Migrations:** census by default, `--confirm` to write, before/after counts, never widen. One
   order for every migrating PR — **stop the running app → census, then `--confirm` with Mike's OK →

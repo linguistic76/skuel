@@ -1,6 +1,6 @@
 ---
 title: Report Architecture
-updated: 2026-09-25
+updated: 2026-09-26
 status: current
 category: architecture
 version: 3.2.0
@@ -65,7 +65,7 @@ There is **no** `EXERCISE_SUBMISSION` EntityType — ADR-054 collapsed it (with 
 - "Assignment" is what a **teacher gives** — that's an `Exercise` with `scope=ASSIGNED`
 - "Submission" is what a **student uploads** — file content going through a processing pipeline
 - Backed by the unified content service `UserEntryService` (ADR-054 consolidation; backend port `UserEntryOperations`) — a turned-in `UserEntry` *is* the submission
-- Matches route language: `/submit` (UI), `/api/submissions/*` (HTMX preview endpoints)
+- Matches route language: `/submissions/submit` (UI), `/api/submissions/*` (HTMX preview endpoints)
 
 ---
 
@@ -397,7 +397,7 @@ The learning loop does not end at a leaf domain — it fans back out across the 
 
 | Route | Who | What |
 |-------|-----|------|
-| `/submissions/exercise` | Student | Upload files for processing (`/submit` → 302 here) |
+| `/submissions/submit` | Student | The Submit page — upload work for feedback |
 | `/submissions/journal` | Student | Journal file-upload UX (Processing → Source → Browse → Process) |
 | `/submissions/{uid}` | Owner | View submission, sharing controls |
 | `/journals` | Any user | Chat-style journal entry point; `/submissions/journal` is the file-upload alternative |

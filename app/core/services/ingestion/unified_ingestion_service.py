@@ -198,7 +198,7 @@ class UnifiedIngestionService:
                        lets the bus be wired in both tiers.
             ingestion_backend: Backend for ingestion tracking (optional).
             user_entry_service: UserEntryService for routing UserEntry YAMLs through
-                                the same create_entry() pipeline as /submit. Required
+                                the same create_entry() pipeline as /submissions/submit. Required
                                 when ingesting ``type: user_entry`` files.
             user_entry_processor: UserEntryProcessingService that runs the
                           entry's ``pipeline`` after persistence. When wired, a
@@ -1025,7 +1025,7 @@ class UnifiedIngestionService:
         # UserEntry has its own creation pipeline (audience resolution,
         # Interaction audit, TRANSFORMS edges, compensation delete) that the
         # bulk engine cannot replicate. Route through UserEntryService so
-        # /upload and /submit share every downstream step.
+        # /upload and /submissions/submit share every downstream step.
         if entity_type == EntityType.USER_ENTRY:
             if self.user_entry_service is None:
                 return Result.fail(

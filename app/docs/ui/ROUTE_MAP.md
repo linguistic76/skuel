@@ -119,7 +119,7 @@ MOC root page (no sidebar) — four cards linking to the four Library sub-pages.
 
 MOC root page (no sidebar) — five cards linking to the five Submissions sub-pages. Defined in `adapters/inbound/user_entry_ui.py` (`submissions_moc`). Child pages use `SidebarPage` with Submissions sidebar; nav defined in `ui/workbench/nav.py`.
 
-- `/submissions/exercise` — destination-driven exercise upload form (Teacher / AI Feedback / Portfolio coming-soon). Legacy `/submit` 302-redirects here.
+- `/submissions/submit` — the Submit page: the upload form (Teacher / AI Feedback / Portfolio coming-soon), preselecting an exercise when `?exercise_uid=` is carried. The one Submit route.
 - `/submissions/journal` — journal file-upload UX (Processing → Source → Browse → Process); alternative entry point to `/journals`.
 - `/submissions/sync` — Obsidian bidirectional sync (primary personal-data ingestion path). Shows the privacy wall ("What SKUEL can see"): the exact vault folders a sync may read, from the live allowlist via `VaultReconciler.describe()`; users without a personal vault get a "no vault configured" note instead of the sync button. A secondary "Preview sync" button (`/settings/vault/preview`) reports what a sync WOULD do — ingest/delete counts with vault-relative examples — without writing anything (dry run; shares the sync consent gate). HTMX POST targets remain at `/settings/vault/sync`, `/settings/vault/preview`, and `/settings/vault/consent`.
 - `/submissions/history` — exercise submissions with feedback status, view, and delete.
