@@ -126,7 +126,7 @@ def render_submission_history_row(item: dict) -> Any:
                 P(title, cls="font-semibold mb-0"),
                 TurnInNote(item.get("exercise_title"), item.get("revision"), cls="block"),
                 P(created_str, cls="text-xs text-muted-foreground mb-0"),
-                cls="flex-1 min-w-0",
+                cls="basis-full sm:basis-auto sm:flex-1 min-w-0",
             ),
             Div(
                 render_review_status_badge(status, feedback_count),
@@ -136,11 +136,12 @@ def render_submission_history_row(item: dict) -> Any:
             ButtonLink(
                 "View",
                 href=f"/gradebook/{uid}",
-                cls=(ButtonT.primary, "ml-3"),
+                cls=(ButtonT.primary, "ml-auto sm:ml-3"),
                 size="sm",
             ),
             delete_button,
-            cls="flex items-center gap-4",
+            # Phone: the title block takes the row, the badges and buttons wrap under it.
+            cls="flex flex-wrap items-center gap-3 sm:gap-4",
         ),
         cls="bg-background shadow-xs mb-2",
         id=f"submission-row-{uid}",

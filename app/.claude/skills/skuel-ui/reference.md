@@ -784,11 +784,12 @@ card_row(
 )
 
 # Selectable option row: icon tile + title + subtitle + checkmark (active/hover state lives here)
-# Used in dropdowns where one option is selected at a time (journal mode, submit dest, etc.)
+# Used in dropdowns and option lists where one option is selected at a time (journal
+# mode, the Submit page's "Ask for feedback?", etc.)
 SelectableOptionRow(
     icon="sparkles", tile_bg="bg-violet-50", icon_cls="text-violet-700",
-    title="AI Feedback", subtitle="An AI reads and responds to your entry",
-    selected_expr="dest === 'ai'", click_handler="selectDest('ai')",
+    title="AI", subtitle="Graded against the exercise.",
+    selected_expr="feedback === 'ai'", click_handler="selectFeedback('ai')",
 )
 # disabled=True → opacity-70, no checkmark; title_extra → badge alongside title
 # subtitle_cls → override for monospace filenames (default: muted description text)
