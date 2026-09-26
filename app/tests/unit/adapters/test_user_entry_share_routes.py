@@ -200,7 +200,7 @@ class TestUnshare:
             headers={**_csrf(h.client), "HX-Request": "true"},
         )
         assert row.status_code == 200
-        assert f'id="wall-{_ENTRY_UID}"' in row.text
+        assert f'data-wall-row="{_ENTRY_UID}"' in row.text
         assert "Physics 101" in row.text
 
     def test_two_values_are_400(self, monkeypatch: pytest.MonkeyPatch) -> None:

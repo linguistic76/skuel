@@ -131,13 +131,26 @@ def test_fragment_content_filtered_empty_vs_unfiltered_empty() -> None:
 
 def test_wall_row_has_a_stop_sharing_chip_per_audience_member() -> None:
     html = to_xml(WallRow(_wall_item()))
-    assert 'id="wall-ue_65688cb7"' in html
+    assert 'data-wall-row="ue_65688cb7"' in html
     assert 'href="/gradebook/ue_65688cb7"' in html
     assert "Alice" in html and "Physics 101" in html
     assert 'hx-post="/api/user-entries/ue_65688cb7/unshare?audience=user:alice"' in html
     assert 'hx-post="/api/user-entries/ue_65688cb7/unshare?audience=group:g_1"' in html
-    assert 'hx-target="#wall-ue_65688cb7"' in html
+    assert 'hx-target="closest [data-wall-row]"' in html
     assert 'hx-swap="outerHTML"' in html
+
+
+def test_wall_row_never_targets_by_uid_selector() -> None:
+    """A periodic uid carries ``:`` — an id selector would read it as a pseudo-class."""
+    item = _wall_item(
+        entity=EntityDTO.from_dict(
+            {**_ENTRY_PROPS, "uid": "ue:daily:user_me:2026-09-26", "user_uid": "user_me"}
+        )
+    )
+    html = to_xml(WallRow(item))
+    assert 'data-wall-row="ue:daily:user_me:2026-09-26"' in html
+    assert 'hx-target="#' not in html
+    assert "/api/user-entries/ue:daily:user_me:2026-09-26/unshare?audience=" in html
 
 
 def test_wall_empty_state() -> None:

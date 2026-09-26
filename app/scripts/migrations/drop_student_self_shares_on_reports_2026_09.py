@@ -4,14 +4,13 @@ Drop the student's self-share on their own EntryReports
 =======================================================
 
 An EntryReport is owned by the student it is about (``user_uid`` + ``OWNS``)
-and is read as an owner read (ADR-088 §3). The report writers once also
-wrote ``(student)-[:SHARES_WITH]->(report)`` — a share link from the owner
-to their own node — which put the student's own feedback on the Shared page
-beside other people's work. Feedback lives in the GradeBook, never on the
-Shared page (Submit & Share arc R3), and the writers no longer create the
-edge; this script deletes the ones that stand. Why is ADR-088's record and
-the arc's (``docs/roadmap/submission-sharing-arc.md``, PR 6b) — not
-repeated here.
+and is read as an owner read (ADR-088 §3); no report writer creates a share
+link from the owner to their own node, and the Shared page lists user
+entries and form submissions only — feedback lives in the GradeBook (Submit
+& Share arc R3). The invariant this script restores: no user holds a
+``SHARES_WITH`` on an EntryReport they own. Why the edge used to be written,
+and why it is gone, is ADR-088's record and the arc's
+(``docs/roadmap/submission-sharing-arc.md``, PR 6b) — not repeated here.
 
 What is deleted, and why only that:
 
@@ -28,8 +27,8 @@ What is deleted, and why only that:
 Deploy order (the arc's Migrations convention): stop the running app →
 census (this script, no flag) → ``--confirm`` with Mike's OK → start on the
 new code → census again, which must report 0. The second census is the
-invariant check: the old code wrote the self-share unconditionally, so a
-non-zero count means a report was written between the delete and the restart.
+invariant check: a non-zero count means a report writer that still creates
+the edge ran between the delete and the restart.
 
 Usage:
     uv run scripts/migrations/drop_student_self_shares_on_reports_2026_09.py            # census
@@ -98,7 +97,9 @@ async def _census(driver: AsyncDriver) -> list[Row]:
             f"shared_at={row['shared_at']}"
         )
     other_rows = await _fetch(driver, _OTHER_SHARE_ROWS)
-    print(f"\nSHARES_WITH from a non-owner to an EntryReport (reported, NEVER touched): {len(other_rows)}")
+    print(
+        f"\nSHARES_WITH from a non-owner to an EntryReport (reported, NEVER touched): {len(other_rows)}"
+    )
     for row in other_rows:
         print(
             f"  {row['report_uid']}  recipient={row['recipient']}  owner={row['owner']}  "

@@ -56,8 +56,12 @@ _ALL = "all"
 _DIRECT_LABEL = "Shared with me directly"
 
 
-def wall_row_id(entry_uid: str) -> str:
-    return f"wall-{entry_uid}"
+#: The wall row's marker. Stop-sharing chips target ``closest [data-wall-row]``
+#: — never an id selector: a periodic uid (``ue:daily:…``) or an authored one
+#: (``ku.ns.slug``) carries ``:`` / ``.``, which a CSS selector reads as a
+#: pseudo-class / class, so ``#wall-<uid>`` would find nothing and the request
+#: would never be sent.
+WALL_ROW_ATTR = "data-wall-row"
 
 
 # ============================================================================
@@ -225,7 +229,7 @@ def _stop_sharing_chip(entry_uid: str, value: str, label: str) -> Span:
             Icon("x", size=12),
             type="button",
             hx_post=f"/api/user-entries/{entry_uid}/unshare?audience={value}",
-            hx_target=f"#{wall_row_id(entry_uid)}",
+            hx_target=f"closest [{WALL_ROW_ATTR}]",
             hx_swap="outerHTML",
             hx_disabled_elt="this",
             cls=(
@@ -268,8 +272,8 @@ def WallRow(item: SharedByMeItem) -> Div:
             cls="flex items-baseline justify-between gap-2",
         ),
         Div(*chips, cls="flex flex-wrap gap-1.5 mt-2") if chips else "",
-        id=wall_row_id(uid),
         cls="py-3 border-b border-border last:border-b-0",
+        **{WALL_ROW_ATTR: uid},
     )
 
 
@@ -312,11 +316,11 @@ __all__ = [
     "SHARED_WITH_YOU_SUBTITLE",
     "VIA_DIRECT",
     "WALL_ID",
+    "WALL_ROW_ATTR",
     "SharedItemCard",
     "SharedPage",
     "WallRow",
     "shared_filter_bar",
     "shared_items_content",
     "wall_content",
-    "wall_row_id",
 ]
