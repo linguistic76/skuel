@@ -23,7 +23,6 @@ from __future__ import annotations
 
 import json
 import re
-from datetime import date
 from pathlib import Path
 from unittest.mock import AsyncMock, MagicMock
 
@@ -45,6 +44,8 @@ from core.models.enums.entity_enums import EntityType
 from core.models.search_request import SearchRequest
 from core.models.task.task_request import TaskUpdateRequest
 from core.utils.result_simplified import Errors, Result
+from core.utils.timestamp_helpers import today_in
+from core.utils.zone_context import current_zone
 from tests.fixtures.csrf import CSRF_COOKIE_NAME, CSRF_HEADER_NAME, mint_token
 
 _DOC = Path(__file__).resolve().parents[3] / "docs" / "patterns" / "API_VALIDATION_PATTERNS.md"
@@ -357,7 +358,7 @@ def test_path_params_row_reports_the_disagreement_it_documents(
     # Coercion, not rejection: the garbage date reaches the orchestrator as today.
     client.get("/today/not-a-date")
     assert build_context.await_args is not None, "the route never reached the orchestrator"
-    assert date.today() in build_context.await_args.args, (
+    assert today_in(current_zone()) in build_context.await_args.args, (
         "an unparseable date no longer degrades to today"
     )
 
@@ -368,7 +369,7 @@ def test_path_params_row_reports_the_disagreement_it_documents(
     client.cookies.set(CSRF_COOKIE_NAME, token)
     response = client.post(
         "/today/tasks/task_someone_else/defer",
-        data={"span": "1d", "source": "day", "view_date": date.today().isoformat()},
+        data={"span": "1d", "source": "day", "view_date": today_in(current_zone()).isoformat()},
         headers={CSRF_HEADER_NAME: token},
     )
     assert response.status_code == 404

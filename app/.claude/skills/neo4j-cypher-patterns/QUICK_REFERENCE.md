@@ -35,12 +35,13 @@ WHERE datetime(n.created_at) >= datetime($window_start)
 
 // date field (due_date, event_date, ...): SKUEL's standard guard takes the
 // YYYY-MM-DD prefix so a *mis-stored* datetime string ("2026-06-17T09:00")
-// doesn't make date() ERROR and blank the whole range (#766)
-WHERE date(left(toString(n.due_date), 10)) < date()
+// doesn't make date() ERROR and blank the whole range (#766). "Today" is the
+// $today parameter — today in the user's zone, never the server's UTC date()
+WHERE date(left(toString(n.due_date), 10)) < date($today)
 
 // genuinely-datetime field compared against a date: parse-then-extract
 // (date() ERRORS on a datetime string; date(datetime(...)) or left(...,10) both fix it)
-WHERE date(datetime(h.last_completed)) < date()
+WHERE date(datetime(h.last_completed)) < date($today)
 ```
 
 **When to use**: Whenever the writer was a DTO (`.isoformat()`). `string >= datetime()` evaluates to `null` — rows silently drop.

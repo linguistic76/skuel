@@ -18,7 +18,7 @@ Coverage:
 - Cross-domain relationships
 """
 
-from datetime import date, datetime, timedelta
+from datetime import datetime, timedelta
 
 import pytest
 
@@ -31,6 +31,8 @@ from core.models.enums import (
     ResponseTone,
 )
 from core.services.user.unified_user_context import RichUserContext, UserContext
+from core.utils.timestamp_helpers import today_in
+from core.utils.zone_context import current_zone
 
 
 class TestUnifiedUserContextBasics:
@@ -580,8 +582,8 @@ class TestUserContextBuilder:
                 user_uid=test_user_uid,
                 status="active",
                 priority=Priority.HIGH.value,
-                due_date=(date.today() + timedelta(days=5)).isoformat(),
-                today=date.today().isoformat(),
+                due_date=(today_in(current_zone()) + timedelta(days=5)).isoformat(),
+                today=today_in(current_zone()).isoformat(),
             )
 
             # Habit
@@ -629,7 +631,7 @@ class TestUserContextBuilder:
                 user_uid=test_user_uid,
                 status=EntityStatus.ACTIVE.value,
                 progress_percentage=60.0,
-                target_date=(date.today() + timedelta(days=30)).isoformat(),
+                target_date=(today_in(current_zone()) + timedelta(days=30)).isoformat(),
             )
 
             # Event
@@ -652,7 +654,7 @@ class TestUserContextBuilder:
                 uid="event:builder_1",
                 user_uid=test_user_uid,
                 status=EntityStatus.SCHEDULED.value,
-                event_date=(date.today() + timedelta(days=2)).isoformat(),
+                event_date=(today_in(current_zone()) + timedelta(days=2)).isoformat(),
                 start_time=time(14, 0).isoformat(),
                 end_time=time(15, 0).isoformat(),
             )
@@ -808,7 +810,7 @@ class TestEntitiesRichField:
     @pytest.mark.asyncio
     async def test_build_rich_with_window_populates_entities_rich(self, user_service, clean_neo4j):
         """build_rich_user_context(window='7d') → entities_rich has correct structure."""
-        from datetime import date, timedelta
+        from datetime import timedelta
 
         from core.models.user.user import User
 
@@ -836,7 +838,7 @@ class TestEntitiesRichField:
                 """,
                 uid=user_uid,
                 task_uid="task:ar_recent_1",
-                due_date=(date.today() + timedelta(days=1)).isoformat(),
+                due_date=(today_in(current_zone()) + timedelta(days=1)).isoformat(),
             )
 
         test_user = User(uid=user_uid, title="AR With Period", email="ar_with_period@test.com")

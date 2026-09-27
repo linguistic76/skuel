@@ -594,6 +594,53 @@ files: too large for one context, so two sub-rows, each on its own branch
 - **Not a zone defect, left to whoever wires it:** the staged `get_behavioral_insights`
   (`tasks/_analytics_mixin.py`, PLANNED) reads `task.completed_at`, which `Task` does not have.
 
+**Left by PR 2b2 for the rows after it:**
+
+- **No Cypher computes "today" with `date()`.** The task stats' overdue
+  (`TasksBackend.get_stats_for_user`), the streak-at-risk sort
+  (`HabitsBackend.get_active_habits_prioritized`) and the snapshot day
+  (`LifePathBackend.record_alignment_snapshot`) read `date($today)`. Every `$today` in `adapters/`
+  — those three, the events "today" stat, `domain_queries`' due-soon and overdue builders, the
+  MEGA-QUERY's and the standard context query's — is `today_in(current_zone())`, computed where
+  the parameters are built: the request's zone, the context user's in a context build (it runs
+  under `zone_scope`), `SKUEL_TIMEZONE` outside both.
+- **The guards cover all three trees:** `DTZ011` (`"!{core,adapters,ui}/**"` under per-file-ignores;
+  `tests/` and `scripts/` stay outside) and the uncalled-`date.today` AST check
+  (`tests/unit/test_uncalled_clock_references.py`) read 0 over `core/`, `adapters/` and `ui/`.
+- **The census (main `c22a807aa`):** the 31 `DTZ011` and the Today orchestrator's
+  `datetime.now().date()` moved; no uncalled `date.today` was there. The 24 `DTZ005` left in
+  `adapters/` and `ui/` are instants, for PRs 5–8: the report-period anchors (`activity_reports_ui`
+  ×4, `ui/learning_loop/report.py`), `generated_at` / health `timestamp` stamps (`analytics_api` ×3,
+  `transcription_api`), the `OWNS` / `updated_at` / `last_accessed` / `last_active_at` /
+  `target_completion` / `submitted_at` / attendance writers (`_crud_mixin` ×3,
+  `_user_entity_mixin`, `_user_entry_crud_mixin`, `bulk_upsert_backend`, `user_backend` ×2,
+  `forms_backends`, `activity_backends`' `ATTENDS` upsert), the prerequisite chain's default
+  `as_of_date`, the MEGA-QUERY window's default end, and the schema cache timer
+  (`schema_service` ×3). Of the four `.days`, the Today heading's `(view_date - today).days` is a
+  difference of two days, the insight snooze's is a request field, and the two Cypher
+  `duration.between(...).days` measure elapsed time between instants; the one `datetime.combine`
+  (the calendar's reschedule door) is a day and a LOCAL TIME the service splits back apart — none
+  changed.
+- **Left for PR 3, beside the moved "today":** `get_active_habits_prioritized`'s
+  `date(datetime(h.last_completed))` and the Today orchestrator's `moment_is_on_day` (a Choice's
+  `decision_deadline` / `decided_at`) read the stored digits' day. `test_habit_consistency_window`'s
+  real-writer test keeps `laptop_zone` for PR 3; `test_event_calendar_day_reads` no longer needs it.
+  The probe findings 2b1 left for 2b2 are gone: the quick-add route and
+  `test_date_range_string_coercion`'s overdue stat read the zone's day on both sides. Two remain,
+  on `main` as here: a Bangkok host fails
+  `test_insight_native_stamps::…::test_an_expiry_is_stored_as_a_native_and_honoured` (a naive
+  expiry stored as a native reads its local digits as UTC — the stored clock, PR 4), and a Bangkok
+  zone on a Vancouver host fails
+  `test_report_counters_from_writers::test_principle_reflection_door_counts_as_reviewed` (PR 3).
+- **Test craft:** `tests/integration/test_calendar_today_in_zone.py` freezes the zone helpers'
+  clock at an hour of the testcontainer's own UTC date (`RETURN date()`), so a query still reading
+  the database's `date()` is red whatever hour the suite runs; a named user's read runs under
+  `zone_scope(await users.get_user_zone(uid))`. A test of an `adapters/` or `ui/` "today" compares
+  with `today_in(current_zone())`. The unit suite passes under `faketime` at 03:00Z (the host's day
+  ahead) and at 20:00Z with `SKUEL_TIMEZONE=Asia/Bangkok` (the zone's ahead), and the integration
+  suite on the real clock both ways (`TZ=Asia/Bangkok`; `TZ=America/Vancouver
+  SKUEL_TIMEZONE=Asia/Bangkok`).
+
 ### PR 3 — The edges read the stored clock through one constant (neutral)
 
 Scope: `STORED_INSTANT_CLOCK` in `timestamp_helpers` names how an offset-less stored stamp is read —

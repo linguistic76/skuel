@@ -28,6 +28,8 @@ from core.ports.query_types import (
     LifePathStepRow,
 )
 from core.utils.result_simplified import Result
+from core.utils.timestamp_helpers import today_in
+from core.utils.zone_context import current_zone
 
 if TYPE_CHECKING:
     from adapters.persistence.neo4j.neo4j_query_executor import Neo4jQueryExecutor
@@ -435,16 +437,25 @@ class LifePathBackend:
     async def record_alignment_snapshot(
         self, user_uid: str, score: float
     ) -> Result[list[dict[str, Any]]]:
-        """Record today's alignment score as a daily snapshot (idempotent per day)."""
+        """Record today's alignment score as a daily snapshot (idempotent per day).
+
+        The snapshot's ``date`` is ``$today`` — today in the current zone (the
+        user's own, in their request) — so an evening's snapshot is filed under
+        the user's day, not the database server's UTC ``date()``.
+        """
         return await self._executor.execute_query(
             """
             MATCH (u:User {uid: $user_uid})-[:ULTIMATE_PATH]->(lp:Entity)
-            MERGE (u)-[r:ALIGNMENT_SNAPSHOT {date: date()}]->(lp)
+            MERGE (u)-[r:ALIGNMENT_SNAPSHOT {date: date($today)}]->(lp)
             ON CREATE SET r.score = $score, r.recorded_at = datetime()
             ON MATCH SET r.score = $score, r.recorded_at = datetime()
             RETURN r.score AS score, toString(r.date) AS date_str
             """,
-            {"user_uid": user_uid, "score": score},
+            {
+                "user_uid": user_uid,
+                "score": score,
+                "today": today_in(current_zone()).isoformat(),
+            },
         )
 
     async def get_alignment_snapshots(

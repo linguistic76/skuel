@@ -30,15 +30,7 @@ from core.services.ps.ps_application_discovery_service import PsApplicationDisco
 from core.utils.timestamp_helpers import today_in
 from core.utils.zone_context import current_zone
 
-# The events "today" stat still reads the host's day (its ``$today`` is computed in
-# EventsBackend — UTC arc PR 2b2 moves it to the zone, and lifts this fixture); the
-# upcoming read asks the zone. The laptop's case, where the two agree, keeps them
-# on one day.
-pytestmark = [
-    pytest.mark.asyncio(loop_scope="session"),
-    pytest.mark.integration,
-    pytest.mark.usefixtures("laptop_zone"),
-]
+pytestmark = [pytest.mark.asyncio(loop_scope="session"), pytest.mark.integration]
 
 USER = "user_event_calendar_days"
 PATH_STEP = "ps.utc-arc.event-days"

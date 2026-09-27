@@ -260,7 +260,7 @@ class _SearchMixin[T: DomainModelProtocol]:
             tasks = await backend.find_by(priority='high', status='in_progress')
 
             # Comparison operators
-            tasks = await backend.find_by(due_date__gte=date.today())
+            tasks = await backend.find_by(due_date__gte=today_in(current_zone()))
             tasks = await backend.find_by(estimated_hours__lt=5.0)
 
             # String matching

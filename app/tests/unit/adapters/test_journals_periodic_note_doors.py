@@ -13,7 +13,6 @@ Harness mirrors ``test_journals_periodic_note_page.py``.
 
 from __future__ import annotations
 
-from datetime import date
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
@@ -22,6 +21,8 @@ from starlette.testclient import TestClient
 
 from adapters.inbound.journals_routes import create_journals_routes
 from core.utils.result_simplified import Result
+from core.utils.timestamp_helpers import today_in
+from core.utils.zone_context import current_zone
 
 _USER_UID = "user_test"
 
@@ -87,7 +88,7 @@ def test_out_of_range_quarter_degrades_to_the_current_one(quarter: int) -> None:
     """Never a 500, and never a key no parser accepts (``2026-Q5`` would make
     the note panel-less forever). Mirrors the daily door's bad-date fallback."""
     args, _location = _door(f"/journals/quarterly/2026/{quarter}")
-    assert args[2] == f"2026-Q{(date.today().month - 1) // 3 + 1}"
+    assert args[2] == f"2026-Q{(today_in(current_zone()).month - 1) // 3 + 1}"
 
 
 @pytest.mark.parametrize("year", [0, 99, 12345])
@@ -95,13 +96,13 @@ def test_out_of_width_year_degrades_to_the_current_one(year: int) -> None:
     """``yearly_period_start`` demands exactly four digits — a 3- or 5-digit
     year would mint a note its own panel could never parse."""
     args, _location = _door(f"/journals/yearly/{year}")
-    assert args[2] == str(date.today().year)
+    assert args[2] == str(today_in(current_zone()).year)
 
 
 def test_the_dateless_daily_door_opens_today() -> None:
     """The Tasks+ sidebar's Journal row is a constant href — "today" is resolved
     when the door is opened, never when the sidebar module was imported."""
-    today = date.today().isoformat()
+    today = today_in(current_zone()).isoformat()
 
     args, location = _door("/journals/daily")
 

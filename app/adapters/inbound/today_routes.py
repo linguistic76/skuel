@@ -41,6 +41,8 @@ from core.models.task.task_update_intent import TaskUpdateIntent
 from core.utils.logging import get_logger
 from core.utils.neo4j_temporal import convert_neo4j_date
 from core.utils.result_simplified import Result
+from core.utils.timestamp_helpers import today_in
+from core.utils.zone_context import current_zone
 from ui.today.membership import (
     DUE_FIELD,
     SCHEDULED_FIELD,
@@ -126,7 +128,7 @@ def create_today_routes(
         try:
             view_date = date.fromisoformat(date_str)
         except ValueError:
-            view_date = date.today()
+            view_date = today_in(current_zone())
         ctx_result = await orchestrator.build_context(user_uid, view_date)
         return _render_today(request, ctx_result)
 
@@ -187,7 +189,7 @@ def create_today_routes(
             view_date = date.fromisoformat(view_date_raw)
         except ValueError:
             return Response(f"Invalid view_date '{view_date_raw}'", status_code=400)
-        if view_date < date.today():
+        if view_date < today_in(current_zone()):
             return Response(
                 "Cannot add a task to a past day — open today or a future day",
                 status_code=400,
@@ -272,7 +274,7 @@ def create_today_routes(
             return Response("Task not found", status_code=404)
         task = task_result.value
 
-        today = date.today()
+        today = today_in(current_zone())
         if source == "triage":
             # Triage speaks deadline language and only exists on the live
             # current day — a stale tab or forged POST must not anchor a

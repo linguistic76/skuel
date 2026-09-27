@@ -48,7 +48,7 @@ def TodayPage(ctx: TodayPageContext) -> FT:
 
     The Prev/Now/Next cluster and every date-anchored form field derive from
     ``ctx["today_iso"]`` — the day the orchestrator built the context for — so a
-    second ``date.today()`` here cannot disagree across a midnight boundary.
+    second read of today here cannot disagree across a midnight boundary.
     """
     view_date = date.fromisoformat(ctx["today_iso"])
     has_anything = any(ctx[key] for key in _SECTION_KEYS)  # type: ignore[literal-required]

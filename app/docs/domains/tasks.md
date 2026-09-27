@@ -1,7 +1,7 @@
 ---
 title: Tasks Domain
 created: 2025-12-04
-updated: 2026-09-23
+updated: 2026-09-27
 status: current
 category: domains
 tags:
@@ -386,13 +386,15 @@ Tasks has an active read-focused UI at `/tasks` with HTMX status toggle, priorit
 ```python
 from core.models.task.task_request import TaskCreateRequest
 from core.models.enums import Priority
+from core.utils.timestamp_helpers import today_in
+from core.utils.zone_context import current_zone
 
 result = await tasks_service.create_task(
     TaskCreateRequest(
         title="Review PR #123",
         description="Review and approve the authentication PR",
         priority=Priority.HIGH,
-        due_date=date.today() + timedelta(days=1),
+        due_date=today_in(current_zone()) + timedelta(days=1),
         project="skuel-auth",
     ),
     user_uid=user_uid,

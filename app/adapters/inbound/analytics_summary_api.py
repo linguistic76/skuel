@@ -23,7 +23,7 @@ Routes:
 - GET /api/analytics/cross-domain-patterns
 """
 
-from datetime import date, timedelta
+from datetime import timedelta
 from typing import TYPE_CHECKING, Any
 
 from adapters.inbound.auth import require_authenticated_user
@@ -31,6 +31,8 @@ from adapters.inbound.boundary import boundary_handler
 from adapters.inbound.fasthtml_types import FastHTMLApp, Request, RouteDecorator
 from adapters.inbound.route_factories import parse_date_param_strict, parse_int_param_strict
 from core.utils.result_simplified import Errors, Result
+from core.utils.timestamp_helpers import today_in
+from core.utils.zone_context import current_zone
 
 if TYPE_CHECKING:
     from core.services.analytics_service import AnalyticsService
@@ -105,7 +107,7 @@ def create_analytics_summary_api_routes(
                 return Result.fail(result)
             start_date = result.value
         else:
-            today = date.today()
+            today = today_in(current_zone())
             start_date = today - timedelta(days=today.weekday())
 
         return await analytics_service.generate_weekly_life_summary(user_uid, week_start=start_date)

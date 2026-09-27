@@ -17,6 +17,8 @@ from typing import TYPE_CHECKING
 from adapters.persistence.neo4j._backend_helpers import direction_clause
 from core.models.enums.neo_labels import NeoLabel
 from core.models.type_hints import Neo4jValue, UserUID
+from core.utils.timestamp_helpers import today_in
+from core.utils.zone_context import current_zone
 
 from ._helpers import validate_identifier, validate_label
 
@@ -1083,7 +1085,7 @@ def build_due_soon_query(
     secondary_sort_field: str | None = None,
 ) -> tuple[str, dict[str, Neo4jValue]]:
     """
-    Build query for entities due within N days.
+    Build query for entities due within N days of today — today in the current zone.
 
     Used by TimeQueryMixin.get_upcoming() for all Activity Domains.
 
@@ -1108,14 +1110,14 @@ def build_due_soon_query(
         ...     user_uid="user.mike",
         ... )
     """
-    from datetime import date, timedelta
+    from datetime import timedelta
 
     validate_label(node_label)
     validate_identifier(date_field, "date field")
     if secondary_sort_field:
         validate_identifier(secondary_sort_field, "sort field")
 
-    today = date.today()
+    today = today_in(current_zone())
     end_date = today + timedelta(days=days_ahead)
 
     # date(left(toString(...), 10)) coerces ISO date/datetime strings — see build_user_activity_query
@@ -1168,7 +1170,7 @@ def build_overdue_query(
     secondary_sort_field: str | None = None,
 ) -> tuple[str, dict[str, Neo4jValue]]:
     """
-    Build query for entities past their due date.
+    Build query for entities past their due date — due before today in the current zone.
 
     Used by BaseService.get_overdue() for all Activity Domains.
 
@@ -1192,14 +1194,12 @@ def build_overdue_query(
         ...     limit=50,
         ... )
     """
-    from datetime import date
-
     validate_label(node_label)
     validate_identifier(date_field, "date field")
     if secondary_sort_field:
         validate_identifier(secondary_sort_field, "sort field")
 
-    today = date.today()
+    today = today_in(current_zone())
 
     # date(left(toString(...), 10)) coerces ISO date/datetime strings — see build_user_activity_query
     where_clauses = [

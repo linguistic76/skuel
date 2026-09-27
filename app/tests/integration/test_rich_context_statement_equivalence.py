@@ -29,7 +29,7 @@ string on the node, which no Cypher projection iterates).
 """
 
 import json
-from datetime import date, datetime, timedelta
+from datetime import datetime, timedelta
 from typing import Any
 
 import pytest
@@ -40,6 +40,8 @@ from adapters.persistence.neo4j.user_context_queries import UserContextQueryExec
 from core.models.type_hints import UserUID
 from core.models.user.user import User
 from core.services.user.user_context_builder import UserContextBuilder
+from core.utils.timestamp_helpers import today_in
+from core.utils.zone_context import current_zone
 
 _USER_UID = UserUID("user_test")
 _SEEDED_AT = datetime(2026, 9, 13, 12, 0, 0)
@@ -175,7 +177,8 @@ CREATE (u)-[:HAS_INSIGHT]->(i_live) CREATE (u)-[:HAS_INSIGHT]->(i_gone)
 
 
 def _seed_params(user_uid: UserUID) -> dict[str, Any]:
-    today = date.today()
+    # The statements' $today is today in the current zone (build_mega_query_params).
+    today = today_in(current_zone())
     return {
         "user_uid": user_uid,
         "iso": _SEEDED_AT.isoformat(),

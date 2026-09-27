@@ -1,6 +1,6 @@
 ---
 title: SKUEL Query Design - Pure Cypher Patterns for Curriculum Navigation
-updated: 2026-07-20
+updated: 2026-09-27
 status: current
 category: general
 tags: [design, query, skuel]
@@ -289,7 +289,7 @@ WHERE goal.status <> 'completed'
 
 // Events practicing this knowledge
 OPTIONAL MATCH (ku)<-[:PRACTICES]-(event:Event {user_uid: $user_uid})
-WHERE event.event_date >= date()
+WHERE event.event_date >= date($today)  // $today: today in the user's zone
 
 // Journal reflections on this knowledge
 OPTIONAL MATCH (ku)<-[:REFLECTS_ON]-(journal:Journal {user_uid: $user_uid})

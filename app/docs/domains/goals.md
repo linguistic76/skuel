@@ -1,7 +1,7 @@
 ---
 title: Goals Domain
 created: 2025-12-04
-updated: 2026-09-23
+updated: 2026-09-27
 status: current
 category: domains
 tags:
@@ -351,6 +351,8 @@ Goals has an active read-focused UI at `/goals` with filtering and progress disp
 from core.models.goal.goal_request import GoalCreateRequest
 from core.models.goal.goal import GoalType, GoalTimeframe
 from core.models.enums import Priority
+from core.utils.timestamp_helpers import today_in
+from core.utils.zone_context import current_zone
 
 result = await goals_service.create_goal(
     GoalCreateRequest(
@@ -359,7 +361,7 @@ result = await goals_service.create_goal(
         goal_type=GoalType.MASTERY,
         timeframe=GoalTimeframe.QUARTERLY,
         priority=Priority.HIGH,
-        target_date=date.today() + timedelta(days=90),
+        target_date=today_in(current_zone()) + timedelta(days=90),
     ),
     user_uid=user_uid,
 )

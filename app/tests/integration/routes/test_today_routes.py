@@ -29,7 +29,14 @@ from core.models.enums import EntityStatus
 from core.models.event.calendar_models import CalendarItem, CalendarItemType
 from core.models.task.task_update_intent import TaskUpdateIntent
 from core.utils.result_simplified import Errors, Result
+from core.utils.timestamp_helpers import today_in
+from core.utils.zone_context import current_zone
 from tests.fixtures.csrf import attach_csrf
+
+
+def _today() -> date:
+    """Today as the routes read it — in the current zone (outside a request, the default)."""
+    return today_in(current_zone())
 
 
 def _make_request(
@@ -216,14 +223,12 @@ class TestTodayDatedPage:
     async def test_bad_date_degrades_to_today(
         self, handlers: dict[str, Any], mock_services: Any
     ) -> None:
-        from datetime import date
-
         request = _make_request()
         response = await handlers["/today/{date_str}"](request=request, date_str="not-a-date")
         assert response["__base_page__"] is True
         # Unparseable → current day rather than 404.
         mock_services.today_orchestrator.build_context.assert_awaited_once_with(
-            "user_mike", date.today()
+            "user_mike", _today()
         )
 
     async def test_unauthenticated_raises_401(self, handlers: dict[str, Any]) -> None:
@@ -296,7 +301,7 @@ class TestTaskQuickAdd:
 
     async def test_unauthenticated_raises_401(self, handlers: dict[str, Any]) -> None:
         request = _make_request(
-            user_uid=None, form={"title": "x", "view_date": date.today().isoformat()}
+            user_uid=None, form={"title": "x", "view_date": _today().isoformat()}
         )
         with pytest.raises(HTTPException) as exc:
             await handlers["/today/tasks/quick-add"](request=request)
@@ -305,7 +310,7 @@ class TestTaskQuickAdd:
     async def test_creates_task_scheduled_on_view_date_without_due(
         self, handlers: dict[str, Any], mock_services: Any
     ) -> None:
-        view = date.today() + timedelta(days=5)
+        view = _today() + timedelta(days=5)
         request = _make_request(form={"title": "  Draft memo  ", "view_date": view.isoformat()})
         response = await handlers["/today/tasks/quick-add"](request=request)
         assert response.status_code == 204
@@ -320,14 +325,14 @@ class TestTaskQuickAdd:
         assert call.args[1] == "user_mike"
 
     async def test_today_is_allowed(self, handlers: dict[str, Any], mock_services: Any) -> None:
-        request = _make_request(form={"title": "x", "view_date": date.today().isoformat()})
+        request = _make_request(form={"title": "x", "view_date": _today().isoformat()})
         response = await handlers["/today/tasks/quick-add"](request=request)
         assert response.status_code == 204
 
     async def test_blank_title_returns_400(
         self, handlers: dict[str, Any], mock_services: Any
     ) -> None:
-        request = _make_request(form={"title": "   ", "view_date": date.today().isoformat()})
+        request = _make_request(form={"title": "   ", "view_date": _today().isoformat()})
         response = await handlers["/today/tasks/quick-add"](request=request)
         assert response.status_code == 400
         mock_services.tasks.core.create_task.assert_not_called()
@@ -337,7 +342,7 @@ class TestTaskQuickAdd:
     ) -> None:
         """The affordance is hidden on past days; the POST is the backstop against
         a forged/stale past-date request."""
-        past = date.today() - timedelta(days=1)
+        past = _today() - timedelta(days=1)
         request = _make_request(form={"title": "late", "view_date": past.isoformat()})
         response = await handlers["/today/tasks/quick-add"](request=request)
         assert response.status_code == 400
@@ -358,7 +363,7 @@ class TestTaskQuickAdd:
         mock_services.tasks.core.create_task = AsyncMock(
             return_value=Result.fail(Errors.database(operation="create_task", message="boom"))
         )
-        view = date.today() + timedelta(days=1)
+        view = _today() + timedelta(days=1)
         request = _make_request(form={"title": "x", "view_date": view.isoformat()})
         response = await handlers["/today/tasks/quick-add"](request=request)
         assert response.status_code == 500
@@ -379,7 +384,7 @@ def _defer_form(
     if view_date is not None:
         form["view_date"] = view_date if isinstance(view_date, str) else view_date.isoformat()
     else:
-        form["view_date"] = date.today().isoformat()
+        form["view_date"] = _today().isoformat()
     return form
 
 
@@ -394,7 +399,7 @@ class TestTaskDefer:
         """The day is server-rendered: a successful defer replies 204 with
         HX-Redirect to the day it was asked from, so the moved task leaves the
         list on the reload."""
-        view = date.today()
+        view = _today()
         mock_services.tasks.get_task = AsyncMock(return_value=Result.ok(_make_task(scheduled=view)))
         request = _make_request(form=_defer_form(span="1d", source="day", view_date=view))
         response = await handlers["/today/tasks/{uid}/defer"](request=request, uid="task_001")
@@ -405,7 +410,7 @@ class TestTaskDefer:
         self, handlers: dict[str, Any], mock_services: Any
     ) -> None:
         """A 7-days-overdue 'Defer tomorrow' lands TOMORROW, never six-days-ago."""
-        today = date.today()
+        today = _today()
         mock_services.tasks.get_task = AsyncMock(
             return_value=Result.ok(_make_task(due=today - timedelta(days=7)))
         )
@@ -419,7 +424,7 @@ class TestTaskDefer:
     async def test_triage_defer_1w_anchors_to_view_date(
         self, handlers: dict[str, Any], mock_services: Any
     ) -> None:
-        today = date.today()
+        today = _today()
         mock_services.tasks.get_task = AsyncMock(
             return_value=Result.ok(_make_task(due=today - timedelta(days=2)))
         )
@@ -474,7 +479,7 @@ class TestTaskDefer:
         """Overdue AND scheduled today: triage speaks deadline language — the
         work date must NOT move (view-date matching alone would move it and
         bounce the task back into triage on refresh)."""
-        today = date.today()
+        today = _today()
         mock_services.tasks.get_task = AsyncMock(
             return_value=Result.ok(_make_task(due=today - timedelta(days=3), scheduled=today))
         )
@@ -527,7 +532,7 @@ class TestTaskDefer:
     ) -> None:
         """A stale tab (yesterday's lens) must not anchor a deadline to an
         arbitrary day — triage requires view_date == the current day."""
-        today = date.today()
+        today = _today()
         mock_services.tasks.get_task = AsyncMock(
             return_value=Result.ok(_make_task(due=today - timedelta(days=7)))
         )
@@ -543,7 +548,7 @@ class TestTaskDefer:
     ) -> None:
         """A forged 'triage' defer on a task with a future deadline is refused —
         the fresh task must satisfy triage's full membership predicate."""
-        today = date.today()
+        today = _today()
         mock_services.tasks.get_task = AsyncMock(
             return_value=Result.ok(_make_task(due=today + timedelta(days=3)))
         )
@@ -558,7 +563,7 @@ class TestTaskDefer:
     ) -> None:
         """A completed task's dates still pass the date checks — the shared
         status predicate must refuse the defer on EITHER surface."""
-        today = date.today()
+        today = _today()
         mock_services.tasks.get_task = AsyncMock(
             return_value=Result.ok(
                 _make_task(
@@ -636,7 +641,7 @@ class TestTaskDefer:
     async def test_due_defer_onto_or_past_recurrence_end_is_refused(
         self, handlers: dict[str, Any], mock_services: Any, days_to_end: int
     ) -> None:
-        today = date.today()
+        today = _today()
         mock_services.tasks.get_task = AsyncMock(
             return_value=Result.ok(
                 _make_task(
@@ -657,7 +662,7 @@ class TestTaskDefer:
     async def test_update_failure_returns_500(
         self, handlers: dict[str, Any], mock_services: Any
     ) -> None:
-        today = date.today()
+        today = _today()
         mock_services.tasks.get_task = AsyncMock(
             return_value=Result.ok(_make_task(due=today - timedelta(days=1)))
         )
@@ -696,8 +701,6 @@ class TestCsrfProtection:
         self, handlers: dict[str, Any]
     ) -> None:
         # quick-add takes no uid path param — verify its own CSRF guard.
-        request = _make_request(
-            form={"title": "x", "view_date": date.today().isoformat()}, csrf=False
-        )
+        request = _make_request(form={"title": "x", "view_date": _today().isoformat()}, csrf=False)
         response = await handlers["/today/tasks/quick-add"](request=request)
         assert response.status_code == 403

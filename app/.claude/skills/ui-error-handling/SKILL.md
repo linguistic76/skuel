@@ -277,7 +277,7 @@ def test_compute_task_stats():
     """Test stats calculation without mocks."""
     tasks = [
         Mock(status=ActivityStatus.COMPLETED),
-        Mock(status=ActivityStatus.PENDING, due_date=date.today() - timedelta(days=1)),
+        Mock(status=ActivityStatus.PENDING, due_date=today_in(current_zone()) - timedelta(days=1)),
     ]
 
     stats = compute_task_stats(tasks)

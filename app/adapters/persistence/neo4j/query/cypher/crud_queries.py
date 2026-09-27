@@ -105,7 +105,7 @@ def build_search_query(
         # Comparison operators
         query, params = build_search_query(
             Task,
-            {'due_date__gte': date.today(), 'estimated_hours__lt': 5.0}
+            {'due_date__gte': today_in(current_zone()), 'estimated_hours__lt': 5.0}
         )
     """
     if not is_dataclass(entity_class):

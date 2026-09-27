@@ -421,7 +421,7 @@ When building a new SKUEL page or feature, verify:
 - [ ] Early validation function with clear messages
 - [ ] POST (not GET) for all mutations
 - [ ] Form resets after successful submit (`hx_on="htmx:afterRequest: this.reset()"`)
-- [ ] Date constraints set (e.g., `min=str(date.today())`)
+- [ ] Date constraints set (e.g., `min=today_in(current_zone()).isoformat()` — today in the user's zone)
 
 **Responsiveness:**
 - [ ] Content works at 320px (mobile)

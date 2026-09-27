@@ -35,7 +35,7 @@ port, never against this class (SKUEL023 / ADR-044). The port is an ISP slice:
 """
 
 import asyncio
-from datetime import date, datetime, timedelta
+from datetime import datetime, timedelta
 from typing import TYPE_CHECKING, Any
 
 from adapters.persistence.neo4j.query.cypher import CURRICULUM_COMPOSITION_EDGES
@@ -47,6 +47,8 @@ from core.utils.decorators import with_error_handling
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
 from core.utils.sort_functions import get_updated_timestamp
+from core.utils.timestamp_helpers import today_in
+from core.utils.zone_context import current_zone
 
 if TYPE_CHECKING:
     from core.ports import QueryExecutor
@@ -1263,12 +1265,14 @@ def build_mega_query_params(
     statements (a parameter a statement does not read is fine in Cypher, a
     missing one is a ``ParameterMissing`` error), and one builder so the
     executor and the plan-cache guard run the statements the same way.
+    ``$today`` is today in the current zone: the context user's, since every
+    context build runs in that user's zone (``zone_scope``).
     """
     effective_end = window_end or datetime.now()
     effective_start = window_start or (effective_end - timedelta(days=30))
     return {
         "user_uid": user_uid,
-        "today": date.today().isoformat(),
+        "today": today_in(current_zone()).isoformat(),
         "min_confidence": min_confidence,
         "window_start": effective_start.isoformat(),
         "window_end": effective_end.isoformat(),
@@ -1559,7 +1563,8 @@ class UserContextQueryExecutor:
         """
         Execute the consolidated query for standard context (UIDs only).
 
-        This is the simpler query path, without rich entity data.
+        This is the simpler query path, without rich entity data. Its ``$today``
+        is today in the current zone — the context user's (``zone_scope``).
 
         Args:
             user_uid: User identifier
@@ -1567,7 +1572,7 @@ class UserContextQueryExecutor:
         Returns:
             Result containing structured domain data
         """
-        today = date.today().isoformat()
+        today = today_in(current_zone()).isoformat()
         params = {"user_uid": user_uid, "today": today, **STATUS_PARAMS}
 
         result = await self.executor.execute_query(CONSOLIDATED_QUERY, params)

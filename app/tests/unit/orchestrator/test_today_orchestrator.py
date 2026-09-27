@@ -19,6 +19,8 @@ from core.models.enums import EntityStatus
 from core.models.goal.goal import Goal
 from core.models.task.task import Task
 from core.utils.result_simplified import Errors, Result
+from core.utils.timestamp_helpers import today_in
+from core.utils.zone_context import current_zone
 from ui.today.orchestrator import (
     TodayOrchestrator,
     _date_label,
@@ -27,7 +29,7 @@ from ui.today.orchestrator import (
 )
 
 USER = "user_today"
-TODAY = date.today()
+TODAY = today_in(current_zone())
 
 
 # ---------------------------------------------------------------------------

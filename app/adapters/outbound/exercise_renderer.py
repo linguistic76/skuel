@@ -20,8 +20,10 @@ See: adapters/outbound/invoice_renderer.py for the PDF pattern (finance only).
 
 from __future__ import annotations
 
-from datetime import date
 from typing import TYPE_CHECKING, Any
+
+from core.utils.timestamp_helpers import today_in
+from core.utils.zone_context import current_zone
 
 if TYPE_CHECKING:
     from core.models.exercises.exercise import Exercise
@@ -69,7 +71,7 @@ def render_exercise_md(exercise: Exercise, user_uid: str | None = None) -> str:
     Returns:
         Markdown document string with YAML frontmatter
     """
-    today = date.today().isoformat()
+    today = today_in(current_zone()).isoformat()
     title = exercise.title or exercise.uid
 
     # Metadata line

@@ -14,6 +14,8 @@ from typing import TYPE_CHECKING
 from fasthtml.common import H3, Div, Form, Input, Label, Option, P
 
 from core.utils.report_periods import report_period_token
+from core.utils.timestamp_helpers import today_in
+from core.utils.zone_context import current_zone
 from ui.components import Button, ButtonT, Card, CardBody
 from ui.forms import Select
 from ui.journals.period_links import period_link, period_step
@@ -53,7 +55,7 @@ def period_options(today: date) -> list[tuple[str, str]]:
 
 def render_activity_report_request_card(today: date | None = None) -> FT:
     """Card with time period + depth selectors and Submit Request button."""
-    options = period_options(today or date.today())
+    options = period_options(today or today_in(current_zone()))
     return Card(
         CardBody(
             H3("Submit Activity Report Request", cls="font-semibold mb-4"),

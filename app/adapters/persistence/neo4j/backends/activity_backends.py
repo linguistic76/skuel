@@ -33,6 +33,8 @@ from core.ports.query_types import (
     TaskStats,
 )
 from core.utils.result_simplified import Errors, Result
+from core.utils.timestamp_helpers import today_in
+from core.utils.zone_context import current_zone
 
 if TYPE_CHECKING:
     from datetime import date
@@ -187,7 +189,10 @@ class HabitsBackend(_HierarchyMixin, UniversalNeo4jBackend[Habit]):
         """Get active habits for a user, pre-sorted for prioritization.
 
         Fetches habits not in terminal statuses, sorted by streak-at-risk
-        first, then by streak length and recency.
+        first, then by streak length and recency. A streak is at risk when the
+        habit was last completed before ``$today`` — today in the current zone
+        (the request's, or the context user's under ``zone_scope``), never the
+        database server's UTC ``date()``.
 
         Args:
             user_uid: Owner of the habits.
@@ -202,7 +207,7 @@ class HabitsBackend(_HierarchyMixin, UniversalNeo4jBackend[Habit]):
         WHERE NOT h.status IN $terminal_statuses
         RETURN h
         ORDER BY
-            CASE WHEN h.current_streak > 0 AND date(datetime(h.last_completed)) < date() THEN 0 ELSE 1 END,
+            CASE WHEN h.current_streak > 0 AND date(datetime(h.last_completed)) < date($today) THEN 0 ELSE 1 END,
             h.current_streak DESC,
             h.created_at DESC
         LIMIT $fetch_limit
@@ -213,6 +218,7 @@ class HabitsBackend(_HierarchyMixin, UniversalNeo4jBackend[Habit]):
                 "user_uid": user_uid,
                 "terminal_statuses": terminal_statuses,
                 "fetch_limit": limit,
+                "today": today_in(current_zone()).isoformat(),
             },
         )
         if result.is_error:
@@ -803,7 +809,11 @@ class TasksBackend(_HierarchyMixin, UniversalNeo4jBackend[Task]):
     # ========================================================================
 
     async def get_stats_for_user(self, user_uid: UserUID) -> Result[TaskStats]:
-        """Count task stats via Cypher COUNT — no entity deserialization."""
+        """Count task stats via Cypher COUNT — no entity deserialization.
+
+        A task is overdue when its ``due_date`` is before ``$today`` — today in
+        the current zone, the same day the Today page and ``Task.is_overdue`` read.
+        """
         result = await _count_user_stats(
             self,
             user_uid,
@@ -811,10 +821,12 @@ class TasksBackend(_HierarchyMixin, UniversalNeo4jBackend[Task]):
             {
                 "completed": "n.status = 'completed'",
                 "overdue": (
-                    "n.due_date IS NOT NULL AND date(left(toString(n.due_date), 10)) < date() "
-                    "AND n.status <> 'completed'"
+                    "n.due_date IS NOT NULL"
+                    " AND date(left(toString(n.due_date), 10)) < date($today)"
+                    " AND n.status <> 'completed'"
                 ),
             },
+            extra_params={"today": today_in(current_zone()).isoformat()},
         )
         if result.is_error:
             return Result.fail(result)
@@ -1079,11 +1091,10 @@ class EventsBackend(_HierarchyMixin, UniversalNeo4jBackend[Event]):
     async def get_stats_for_user(self, user_uid: UserUID) -> Result[EventStats]:
         """Count event stats: total, scheduled, today.
 
-        "Today" reads ``event_date``, the event's calendar day, against ``$today``.
-        ``start_time`` is a LOCAL TIME — a time of day with no date in it.
+        "Today" reads ``event_date``, the event's calendar day, against ``$today``
+        — today in the current zone. ``start_time`` is a LOCAL TIME — a time of
+        day with no date in it.
         """
-        from datetime import date
-
         result = await _count_user_stats(
             self,
             user_uid,
@@ -1095,7 +1106,7 @@ class EventsBackend(_HierarchyMixin, UniversalNeo4jBackend[Event]):
                     " AND date(left(toString(n.event_date), 10)) = date($today)"
                 ),
             },
-            extra_params={"today": date.today().isoformat()},
+            extra_params={"today": today_in(current_zone()).isoformat()},
         )
         if result.is_error:
             return Result.fail(result)
