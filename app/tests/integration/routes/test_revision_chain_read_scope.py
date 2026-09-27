@@ -353,6 +353,7 @@ class TestRevisionOrdinalPerStudent:
                     EntityStatus.SUBMITTED.value,
                     EntityStatus.ACTIVE.value,
                 ],
+                "reviewing_teacher_uid": OUT_TEACHER,
                 "now": datetime.now().isoformat(),
                 "re_uid": "re_rcs_new_atomic",
                 "original_exercise_uid": EXERCISE_UID,

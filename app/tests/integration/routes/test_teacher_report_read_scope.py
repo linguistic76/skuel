@@ -383,3 +383,111 @@ class TestReviewShowsTheStudentsWork:
 
         newer = to_xml(await handler(_make_request(IN_TEACHER), uid=NEWER_UID))
         assert f"/api/teaching/review/{NEWER_UID}/revision" in newer
+
+
+# ============================================================================
+# The writes hold the supersession rule themselves (decided by the write)
+# ============================================================================
+
+
+def _report_backend(neo4j_driver) -> EntryReportBackend:
+    return EntryReportBackend(
+        driver=neo4j_driver,
+        label=NeoLabel.ENTRY_REPORT,
+        entity_class=EntryReport,
+        base_label=NeoLabel.ENTITY,
+    )
+
+
+def _report_params(submission_uid: str, report_uid: str, **extra: object) -> dict[str, object]:
+    return {
+        "report_uid": submission_uid,
+        "report_entity_uid": report_uid,
+        "author_uid": IN_TEACHER,
+        "feedback": "write-guard feedback",
+        "report_file_path": None,
+        "title_prefix": "Feedback on",
+        "entity_type": "entry_report",
+        "submission_status": "completed",
+        "completed_status": "completed",
+        "processor_type": "human",
+        "assessment_outcome": "approved",
+        "allowed_from_statuses": ["submitted", "active"],
+        "now": "2026-09-27T10:00:00",
+        **extra,
+    }
+
+
+class TestTheWritesRefuseHistory:
+    """Bypassing the service's read, each write statement still refuses a copy
+    superseded for the reviewing teacher — the rule is decided by the write."""
+
+    async def test_a_teacher_report_on_history_writes_nothing(
+        self, seeded_newer_copy, neo4j_driver
+    ) -> None:
+        backend = _report_backend(neo4j_driver)
+        refused = await backend.create_report_node(
+            _report_params(SUB_UID, "er_trs_guard_old", reviewing_teacher_uid=IN_TEACHER)
+        )
+        assert refused.is_ok and refused.value == []
+
+        landed = await backend.create_report_node(
+            _report_params(NEWER_UID, "er_trs_guard_new", reviewing_teacher_uid=IN_TEACHER)
+        )
+        assert landed.is_ok and len(landed.value) == 1
+
+    async def test_an_ai_report_is_not_gated(self, seeded_newer_copy, neo4j_driver) -> None:
+        """No reviewing teacher, no supersession gate — the AI path is unchanged."""
+        backend = _report_backend(neo4j_driver)
+        result = await backend.create_report_node(
+            _report_params(
+                SUB_UID,
+                "er_trs_guard_ai",
+                author_uid=None,
+                processor_type="llm",
+                submission_status=None,
+                allowed_from_statuses=None,
+            )
+        )
+        assert result.is_ok and len(result.value) == 1
+
+    async def test_a_revision_on_history_writes_nothing(
+        self, seeded_newer_copy, neo4j_driver
+    ) -> None:
+        from core.models.enums import EntityType
+        from core.models.exercises.revised_exercise import RevisedExercise
+
+        backend = _report_backend(neo4j_driver)
+        re_entity = RevisedExercise(
+            uid="re_trs_guard",
+            entity_type=EntityType.REVISED_EXERCISE,
+            title="",
+            user_uid=IN_TEACHER,
+            original_exercise_uid="ex_trs_snapshot",
+            report_uid="er_trs_guard_rev",
+            instructions="revise",
+        )
+        result = await backend.create_report_and_revised_exercise(
+            _report_params(
+                SUB_UID,
+                "er_trs_guard_rev",
+                submission_status="revision_requested",
+                assessment_outcome="needs_revision",
+                reviewing_teacher_uid=IN_TEACHER,
+                re_uid="re_trs_guard",
+                original_exercise_uid="ex_trs_snapshot",
+            ),
+            re_entity,
+        )
+        assert result.is_ok and result.value == []
+
+    async def test_approve_on_history_writes_nothing(self, seeded_newer_copy, neo4j_driver) -> None:
+        backend = UserEntryBackend(driver=neo4j_driver)
+        refused = await backend.approve_and_get_linked_kus(
+            SUB_UID, "2026-09-27T10:00:00", "completed", ["submitted"], IN_TEACHER
+        )
+        assert refused.is_ok and refused.value == []
+        landed = await backend.approve_and_get_linked_kus(
+            NEWER_UID, "2026-09-27T10:00:00", "completed", ["submitted"], IN_TEACHER
+        )
+        assert landed.is_ok and len(landed.value) == 1

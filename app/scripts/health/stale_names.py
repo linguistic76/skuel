@@ -61,6 +61,8 @@ SCAN_DIRS = [
 # code + docs are updated, move the entry to the archive comment at the bottom.
 #
 RENAMED: dict[str, str] = {
+    # The supersede predicate moved to the learning-loop fragments module (public).
+    "_SUPERSEDED_COPY": "SUPERSEDED_COPY",
     # EntityType enum values (Feb–Mar 2026)
     "EntityType.CURRICULUM": "EntityType.PATH_STEP",
     "EntityType.ARTICLE": "EntityType.PATH_STEP",

@@ -17,6 +17,10 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any
 
+from adapters.persistence.neo4j.query.cypher.learning_loop_fragments import (
+    SUPERSEDED_COPY,
+    superseded_copy_bindings,
+)
 from core.models.enums.entity_enums import REVIEWABLE_ENTRY_STATUSES, EntityStatus
 from core.models.enums.pipeline import Pipeline
 from core.models.relationship_names import RelationshipName
@@ -31,51 +35,6 @@ if TYPE_CHECKING:
 
 # A feedback request awaiting review — the queue's default and its badge twin.
 _PENDING_STATUSES = [status.value for status in REVIEWABLE_ENTRY_STATUSES]
-
-_OWNS = RelationshipName.OWNS.value
-_SUBMITTED_TO_GROUP = RelationshipName.SUBMITTED_TO_GROUP.value
-_FULFILLS_EXERCISE = RelationshipName.FULFILLS_EXERCISE.value
-
-# THE supersede rule for pending feedback requests — one predicate, read by the
-# review queue, its dashboard badge twin and the students summary, so the three
-# can never disagree on what awaits review.
-#
-# A copy is superseded by a newer sibling the SAME teacher can see (a
-# ``teacher_review`` entry of the same student, submitted to one of this
-# teacher's ACTIVE owned groups), in either of two lineages:
-#
-#   * the exercise lineage — the same turn-in snapshot ``turn_in_exercise_uid``
-#     (the key that outlives the exercise, Submit & Share arc R12), newer by the
-#     ``FULFILLS_EXERCISE`` edge revision where the edge still exists, else by
-#     ``created_at``;
-#   * the note lineage — frozen copies filed from the same vault note
-#     (``submitted_from_uid``, R9), newer by ``created_at``.
-#
-# Whatever the newer copy's status (a reviewed rev 2 retires a pending rev 1).
-# Siblings the teacher cannot see never supersede: a PRIVATE ``llm_summary``
-# entry, a copy sent only to another teacher's group, one locked in a group this
-# teacher deactivated. An entry in neither lineage always passes through.
-#
-# The caller binds, in a WITH before the predicate: ``teacher``, ``student``
-# (the entry's owner), ``copy_uid``, ``copy_lineage`` (the entry's
-# ``turn_in_exercise_uid``), ``copy_note`` (its ``submitted_from_uid``),
-# ``copy_revision`` (its edge revision, 0 without one) and ``copy_created_at``.
-_SUPERSEDED_COPY = f"""EXISTS {{
-    MATCH (student)-[:{_OWNS}]->(newer:Entity:UserEntry)
-    WHERE newer.uid <> copy_uid
-      AND newer.pipeline = $pipeline
-      AND (newer)-[:{_SUBMITTED_TO_GROUP}]->(:Group {{is_active: true}})<-[:{_OWNS}]-(teacher)
-      AND ((copy_lineage IS NOT NULL
-            AND newer.turn_in_exercise_uid = copy_lineage
-            AND (coalesce(head([(newer)-[nr:{_FULFILLS_EXERCISE}]->(:Entity:Exercise) | nr.revision]), 0)
-                   > copy_revision
-                 OR (coalesce(head([(newer)-[nr:{_FULFILLS_EXERCISE}]->(:Entity:Exercise) | nr.revision]), 0)
-                       = copy_revision
-                     AND newer.created_at > copy_created_at)))
-           OR (copy_note IS NOT NULL
-               AND newer.submitted_from_uid = copy_note
-               AND newer.created_at > copy_created_at))
-}}"""
 
 
 class _UserEntryAssessmentMixin:
@@ -148,7 +107,7 @@ class _UserEntryAssessmentMixin:
         Superseded copies never queue: a pending entry with a newer sibling
         this teacher can see — in its exercise lineage (the turn-in snapshot)
         or its note lineage (frozen copies of one vault note) — is history,
-        whatever the newer copy's status. The rule is ``_SUPERSEDED_COPY``,
+        whatever the newer copy's status. The rule is ``SUPERSEDED_COPY``,
         shared with the dashboard badge and the students summary.
         ``exercise_uid`` / ``exercise_title`` read the live exercise, falling
         back to the snapshot once it is deleted.
@@ -174,7 +133,7 @@ class _UserEntryAssessmentMixin:
              entry.submitted_from_uid AS copy_note,
              coalesce(r.revision, 0) AS copy_revision,
              entry.created_at AS copy_created_at
-        WHERE NOT {_SUPERSEDED_COPY}
+        WHERE NOT {SUPERSEDED_COPY}
         OPTIONAL MATCH (report:Entity {{entity_type: 'entry_report'}})-[:{RelationshipName.REPORT_FOR.value}]->(entry)
         WITH entry, r, ex, student, count(DISTINCT report) AS feedback_count
         RETURN entry.uid AS entry_uid,
@@ -240,11 +199,21 @@ class _UserEntryAssessmentMixin:
         now: str,
         status: str,
         allowed_from_statuses: list[str],
+        teacher_uid: str,
     ) -> Result[list[Neo4jProperties]]:
-        """Approve entry: set status and return linked KU UIDs for mastery."""
+        """Approve entry: set status and return linked KU UIDs for mastery.
+
+        The status guard and the supersession guard (``SUPERSEDED_COPY`` for the
+        approving teacher) are decided by this write: a copy with a newer version
+        the teacher can see is never approved, whatever an earlier read saw.
+        """
         query = f"""
+        MATCH (teacher:User {{uid: $teacher_uid}})
         MATCH (ku:Entity {{uid: $report_uid}})
         WHERE ku.status IN $allowed_from_statuses
+        OPTIONAL MATCH (student:User)-[:{RelationshipName.OWNS.value}]->(ku)
+        WITH teacher, student, ku, {superseded_copy_bindings("ku")}
+        WHERE NOT {SUPERSEDED_COPY}
         SET ku.status = $status,
             ku.updated_at = datetime($now)
         WITH ku
@@ -264,6 +233,8 @@ class _UserEntryAssessmentMixin:
                 "now": now,
                 "status": status,
                 "allowed_from_statuses": allowed_from_statuses,
+                "teacher_uid": teacher_uid,
+                "pipeline": Pipeline.TEACHER_REVIEW.value,
             },
         )
 
@@ -305,7 +276,7 @@ class _UserEntryAssessmentMixin:
 
         ``submission_count`` is every submission, ``reviewed_count`` the
         completed ones, and ``pending_count`` the rest that are not superseded
-        — the queue's one supersede rule (``_SUPERSEDED_COPY``), so a copy
+        — the queue's one supersede rule (``SUPERSEDED_COPY``), so a copy
         replaced by a newer one from the same exercise or the same vault note
         is history, not work awaiting review.
         """
@@ -324,7 +295,7 @@ class _UserEntryAssessmentMixin:
              ku.created_at AS copy_created_at
         WITH student, ku,
              ku.status = $completed AS reviewed,
-             {_SUPERSEDED_COPY} AS superseded
+             {SUPERSEDED_COPY} AS superseded
         WITH student,
              count(DISTINCT ku) AS submission_count,
              count(DISTINCT CASE WHEN reviewed THEN ku.uid END) AS reviewed_count,
@@ -409,7 +380,7 @@ class _UserEntryAssessmentMixin:
         the teacher owns. One row, or none — the gate is an existence test, so
         an entry submitted to several of the teacher's groups is still one
         detail. ``superseded`` applies the queue's collapse rule
-        (``_SUPERSEDED_COPY``): a copy with a newer sibling this teacher can see
+        (``SUPERSEDED_COPY``): a copy with a newer sibling this teacher can see
         is history, which the review page offers no action on. Empty result
         when the entry asks none of the
         teacher's groups for feedback — service-layer callers (``get_submission_detail``)
@@ -450,7 +421,7 @@ class _UserEntryAssessmentMixin:
                coalesce(ex.title, s.turn_in_exercise_title) AS exercise_title,
                s.turn_in_revision AS revision,
                ex.instructions AS exercise_instructions,
-               {_SUPERSEDED_COPY} AS superseded
+               {SUPERSEDED_COPY} AS superseded
         """
         return await self.execute_query(
             query,
@@ -470,7 +441,7 @@ class _UserEntryAssessmentMixin:
         from the teacher (already correct pre-fix).
 
         ``pending_count`` is the review queue's badge twin and reads the
-        queue's one supersede rule (``_SUPERSEDED_COPY``): a pending copy
+        queue's one supersede rule (``SUPERSEDED_COPY``): a pending copy
         superseded by a newer one from the same exercise or the same vault
         note is not pending work, so the badge and the queue length agree.
         """
@@ -496,7 +467,7 @@ class _UserEntryAssessmentMixin:
                   (sub)-[:{RelationshipName.SUBMITTED_TO_GROUP.value}]->(:Group {{is_active: true}})
                        <-[:{RelationshipName.OWNS.value}]-(teacher)
                }}
-               AND NOT {_SUPERSEDED_COPY}
+               AND NOT {SUPERSEDED_COPY}
               THEN sub.uid END) AS pending_count,
           count(DISTINCT student) AS total_students,
           count(DISTINCT ex) AS total_exercises,

@@ -12,6 +12,10 @@ from __future__ import annotations
 from typing import Any, cast
 
 from adapters.persistence.neo4j.neo4j_mapper import from_neo4j_node, to_neo4j_node
+from adapters.persistence.neo4j.query.cypher.learning_loop_fragments import (
+    SUPERSEDED_COPY,
+    superseded_copy_bindings,
+)
 from adapters.persistence.neo4j.universal_backend import UniversalNeo4jBackend
 from core.models.enums.entity_enums import EntityType
 from core.models.enums.metadata_enums import SearchVisibility
@@ -881,14 +885,27 @@ class EntryReportBackend(UniversalNeo4jBackend[EntryReport]):
         its owner; no share link is written for them (Submit & Share arc R3 —
         feedback lives in the GradeBook, never on the Shared page).
 
-        Returns empty results when the guard is present and rejects the
-        transition (caller already verified existence).
+            reviewing_teacher_uid: the teacher writing the report, or absent/None
+                for an AI report. When set, the statement refuses a copy that is
+                superseded for that teacher (``SUPERSEDED_COPY``) — decided by the
+                write, so a newer copy filed after any earlier read still wins.
+
+        Returns empty results when a guard is present and rejects the write
+        (caller already verified existence).
         """
+        params = {
+            "reviewing_teacher_uid": None,
+            **params,
+            "pipeline": Pipeline.TEACHER_REVIEW.value,
+        }
         query = f"""
         MATCH (submission:Entity {{uid: $report_uid}})
         WHERE $allowed_from_statuses IS NULL
            OR submission.status IN $allowed_from_statuses
         OPTIONAL MATCH (student:User)-[:{RelationshipName.OWNS.value}]->(submission)
+        OPTIONAL MATCH (teacher:User {{uid: $reviewing_teacher_uid}})
+        WITH submission, student, teacher, {superseded_copy_bindings("submission")}
+        WHERE teacher IS NULL OR NOT {SUPERSEDED_COPY}
 
         // Subject for the composed title: the fulfilled exercise's live title
         // when the edge exists, else the turn-in snapshot's (the exercise may
@@ -969,22 +986,28 @@ class EntryReportBackend(UniversalNeo4jBackend[EntryReport]):
                 into ``{title_prefix} '{subject}'`` exactly as in
                 ``create_report_node``), entity_type, submission_status,
                 completed_status, processor_type, assessment_outcome,
-                allowed_from_statuses, now
+                allowed_from_statuses, reviewing_teacher_uid (the statement refuses
+                a copy superseded for that teacher — ``SUPERSEDED_COPY``, decided
+                by the write), now
             Phase 2 (RevisedExercise): re_props (from to_neo4j_node), re_uid,
                 original_exercise_uid
         """
         params = {
             **params,
+            "pipeline": Pipeline.TEACHER_REVIEW.value,
             "re_props": to_neo4j_node(re_entity),
             "re_entity_type": EntityType.REVISED_EXERCISE.value,
             "exercise_entity_type": EntityType.EXERCISE.value,
         }
 
         query = f"""
-        // Phase 1: Match submission with status guard, create EntryReport
+        // Phase 1: Match submission with status + supersession guards, create EntryReport
+        MATCH (teacher:User {{uid: $reviewing_teacher_uid}})
         MATCH (submission:Entity {{uid: $report_uid}})
         WHERE submission.status IN $allowed_from_statuses
         OPTIONAL MATCH (student:User)-[:{RelationshipName.OWNS.value}]->(submission)
+        WITH submission, student, teacher, {superseded_copy_bindings("submission")}
+        WHERE NOT {SUPERSEDED_COPY}
 
         // Title subject: fulfilled exercise's title, else the turn-in
         // snapshot's, else the submission's own title (same composition rule

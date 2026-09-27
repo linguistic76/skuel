@@ -210,6 +210,7 @@ class TeacherReviewService:
                 "processor_type": ReportSource.HUMAN.value,
                 "assessment_outcome": AssessmentOutcome.APPROVED.value,
                 "allowed_from_statuses": allowed_from,
+                "reviewing_teacher_uid": teacher_uid,
                 "now": now,
             }
         )
@@ -299,6 +300,7 @@ class TeacherReviewService:
                 "processor_type": ReportSource.HUMAN.value,
                 "assessment_outcome": AssessmentOutcome.NEEDS_REVISION.value,
                 "allowed_from_statuses": allowed_from,
+                "reviewing_teacher_uid": teacher_uid,
                 "now": now,
             }
         )
@@ -424,6 +426,7 @@ class TeacherReviewService:
                 "processor_type": ReportSource.HUMAN.value,
                 "assessment_outcome": AssessmentOutcome.NEEDS_REVISION.value,
                 "allowed_from_statuses": allowed_from,
+                "reviewing_teacher_uid": teacher_uid,
                 "now": now,
                 # Phase 2 params (RevisedExercise) — re_props injected adapter-side
                 "re_uid": re_uid,
@@ -528,7 +531,7 @@ class TeacherReviewService:
         now = datetime.now().isoformat()
         allowed_from = [EntityStatus.REVISION_REQUESTED.value]
         result = await self.user_entry_backend.approve_and_get_linked_kus(
-            report_uid, now, EntityStatus.COMPLETED.value, allowed_from
+            report_uid, now, EntityStatus.COMPLETED.value, allowed_from, teacher_uid
         )
         if result.is_error:
             return Result.fail(result)
@@ -930,10 +933,12 @@ class TeacherReviewService:
         """A copy with a newer version this teacher can see is history — no review action lands on it.
 
         The review writers (feedback, a revision request, Approve) call this after
-        the access gate, so the rule the review page renders — a superseded copy
-        offers no action — holds for every caller: a stale tab, a crafted POST,
-        the offline import. Supersession is the queue's own collapse rule, read
-        through the teacher detail (``superseded``).
+        the access gate, so every caller — a stale tab, a crafted POST, the
+        offline import — is told why a history copy takes no action.
+        Supersession is the queue's own collapse rule, read through the teacher
+        detail (``superseded``). The write statements hold the same rule
+        themselves (``SUPERSEDED_COPY`` for ``reviewing_teacher_uid``), so a
+        newer copy filed between this read and the write still refuses it.
 
         Backend: UserEntryBackend.get_entry_detail_for_teacher
         """
