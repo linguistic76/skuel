@@ -14,6 +14,7 @@ don't follow the same user-owned activity pattern.
 See: /docs/architecture/ENTITY_TYPE_ARCHITECTURE.md
 """
 
+from datetime import date
 from typing import Any
 
 from core.models.enums.activity_enums import ActivitySortKey
@@ -127,10 +128,19 @@ class PsApplicationDiscoveryService:
     async def find_events_applying_knowledge(
         self, ku_uid: str, user_uid: UserUID, upcoming_only: bool = True
     ) -> Result[list[str]]:
-        """Find events that apply or reinforce this path step."""
+        """Find events that apply or reinforce this path step.
+
+        "Upcoming" is an event dated today or later: ``event_date`` is the event's
+        calendar day, read against ``$today``. ``start_time`` is a time of day with
+        no date in it, so it cannot say whether an event is still to come.
+        """
         filters: dict[str, Any] | None = None
         if upcoming_only:
-            filters = {"n.start_time >= datetime()": {}}
+            filters = {
+                "date(left(toString(n.event_date), 10)) >= date($today)": {
+                    "today": date.today().isoformat()
+                }
+            }
         return await self.find_activities_connected_to_knowledge(
             ku_uid=ku_uid,
             user_uid=user_uid,

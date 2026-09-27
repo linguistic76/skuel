@@ -4,7 +4,9 @@ Closes the string-stored-temporal bug class (companions: #199 date fields, #202
 created_at). These domain timestamp fields are written via DTO `.isoformat()` →
 stored as ISO **strings**, but were compared directly to `datetime()`/`date()`:
 
-* Insight.expires_at — `get_active_insights` (TTL'd insights vanished).
+* Insight.expires_at — `get_active_insights` (TTL'd insights vanished). Its writer
+  stores a native (``tests/integration/test_insight_native_stamps.py``); the
+  coercion is a no-op on that and keeps a string-stored value readable.
 * Habit.last_completed — `get_active_habits_prioritized` (streak-at-risk ordering lost).
 
 `string OP datetime/date` evaluates to null in Neo4j → the row is dropped / the CASE

@@ -47,6 +47,17 @@ if TYPE_CHECKING:
 _INSIGHT_JSON_FIELDS = ("related_entities", "recommended_actions", "supporting_data")
 
 
+def _insight_from_node(node: Any) -> PersistedInsight:  # boundary: neo4j Node or property dict
+    """A stored Insight node as a ``PersistedInsight`` — the one read every query shares.
+
+    Decodes the JSON-string fields, then hands the properties to ``from_dict``, which
+    parses the native stamps.
+    """
+    insight_data = dict(node) if not isinstance(node, dict) else node
+    deserialize_json_fields(insight_data, *_INSIGHT_JSON_FIELDS)
+    return PersistedInsight.from_dict(insight_data)
+
+
 class InsightStore:
     """
     Service for persisting and retrieving insights from Neo4j.
@@ -112,9 +123,7 @@ class InsightStore:
                 "recommended_actions": json.dumps(insight.recommended_actions),
                 "supporting_data": json.dumps(insight.supporting_data),
                 "created_at": insight.created_at.isoformat(),
-                "expires_at": (
-                    f"datetime('{insight.expires_at.isoformat()}')" if insight.expires_at else None
-                ),
+                "expires_at": insight.expires_at.isoformat() if insight.expires_at else None,
                 "dismissed": insight.dismissed,
                 "actioned": insight.actioned,
             }
@@ -186,11 +195,7 @@ class InsightStore:
             if not result.value:
                 return Result.fail(Errors.not_found(resource="Insight", identifier=uid))
 
-            node = result.value[0]["i"]
-            insight_data = dict(node) if not isinstance(node, dict) else node
-            deserialize_json_fields(insight_data, *_INSIGHT_JSON_FIELDS)
-
-            return Result.ok(PersistedInsight.from_dict(insight_data))
+            return Result.ok(_insight_from_node(result.value[0]["i"]))
 
         except NEO4J_EXCEPTIONS as e:
             self.logger.error(f"Database error getting insight {uid}: {e}", exc_info=True)
@@ -238,12 +243,7 @@ class InsightStore:
                     )
                 )
 
-            insights = []
-            for record in result.value:
-                node = record["i"]
-                insight_data = dict(node) if not isinstance(node, dict) else node
-                deserialize_json_fields(insight_data, *_INSIGHT_JSON_FIELDS)
-                insights.append(PersistedInsight.from_dict(insight_data))
+            insights = [_insight_from_node(record["i"]) for record in result.value]
 
             self.logger.debug(f"Retrieved {len(insights)} active insights for user {user_uid}")
             return Result.ok(insights)
@@ -296,14 +296,7 @@ class InsightStore:
                     )
                 )
 
-            insights = []
-            for record in result.value:
-                node = record["i"]
-                insight_data = dict(node) if not isinstance(node, dict) else node
-                deserialize_json_fields(insight_data, *_INSIGHT_JSON_FIELDS)
-                insights.append(PersistedInsight.from_dict(insight_data))
-
-            return Result.ok(insights)
+            return Result.ok([_insight_from_node(record["i"]) for record in result.value])
 
         except NEO4J_EXCEPTIONS as e:
             self.logger.error(
@@ -481,13 +474,7 @@ class InsightStore:
                     )
                 )
 
-            insights = []
-            for record in result.value:
-                node_data = record["i"]
-                if not isinstance(node_data, dict):
-                    node_data = dict(node_data)
-                insight = PersistedInsight.from_dict(node_data)
-                insights.append(insight)
+            insights = [_insight_from_node(record["i"]) for record in result.value]
 
             self.logger.debug(
                 f"Retrieved {len(insights)} historical insights",

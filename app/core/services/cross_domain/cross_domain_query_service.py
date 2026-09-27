@@ -152,6 +152,8 @@ class CrossDomainQueryService:
         if not principle_uids:
             return Result.ok({})
 
+        # The host clock: the clock HabitCompletion.completed_at is stamped in, so the
+        # cutoff and the stored stamps read through datetime() the same way.
         cutoff = datetime.now() - timedelta(days=_EMBODIMENT_WINDOW_DAYS)
         result = await self.backend.get_embodiment_rates_7d(
             principle_uids=[str(uid) for uid in principle_uids],

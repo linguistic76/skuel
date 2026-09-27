@@ -7,6 +7,7 @@ Eliminates duplication of timestamp operations across services.
 
 DRY Principle:
 - Timezone-aware "now" helpers
+- Instants as aware UTC (as_utc) for comparison and arithmetic
 - Duration/age calculations (days_until, days_since, is_overdue, is_today)
 - Calendar arithmetic (week_bounds, month_grid_bounds, prev/next month and week)
 - Neo4j-tolerant scalar date parsing (parse_date_value)
@@ -59,6 +60,23 @@ def today() -> date:
         Today's date
     """
     return date.today()
+
+
+def as_utc(value: datetime) -> datetime:
+    """An instant as an aware UTC datetime — the one form two instants are compared in.
+
+    An aware value is converted to UTC. A naive value is read in the process's
+    local zone, the zone of the host clock that stamps naive values: the laptop's
+    zone on the laptop, UTC in CI and in the cloud. So a naive stamp and an aware
+    one subtract and compare without a ``TypeError``, and a naive value is never
+    read in a hard-coded zone.
+
+    Example:
+        age = now_utc() - as_utc(goal.created_at)
+
+    See: /docs/roadmap/utc-instants-arc.md (the arc that routes every instant here)
+    """
+    return value.astimezone(UTC)
 
 
 # =============================================================================

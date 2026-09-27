@@ -260,6 +260,12 @@ async def ensure_test_users(neo4j_driver):
         # cross-tenant isolation in the query itself.
         "user_agg_count",
         "user_agg_other",
+        # Instant and calendar-day reads over rows seeded through their real writers:
+        # an insight's native stamps served by its route, the embodiment window over
+        # recorded habit completions, and an event's calendar-day reads.
+        "user_insight_native",
+        "user_embodiment_window",
+        "user_event_calendar_days",
         # The ingestion fallback owner. A file that names no owner is stamped with
         # DEFAULT_USER_UID (SKUEL_DEFAULT_USER_UID, else SYSTEM_USER_UID), so the
         # bulk door's unknown-owner refusal (ADR-086) makes it REQUIRED — and it is

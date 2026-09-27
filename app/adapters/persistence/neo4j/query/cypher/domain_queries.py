@@ -76,12 +76,14 @@ def build_simple_prerequisite_chain(
         "coalesce(r.strength, 1.0) >= $min_strength",
     ]
 
-    # Temporal validity filter
+    # Temporal validity filter. valid_from / valid_until are stored as ISO strings
+    # (RelationshipMetadata.to_neo4j_properties), and $as_of_date crosses as one:
+    # datetime() reads both sides, so the comparison is instant against instant.
     if not include_deprecated:
         filter_conditions.extend(
             [
-                "(r.valid_from IS NULL OR r.valid_from <= $as_of_date)",
-                "(r.valid_until IS NULL OR r.valid_until >= $as_of_date)",
+                "(r.valid_from IS NULL OR datetime(r.valid_from) <= datetime($as_of_date))",
+                "(r.valid_until IS NULL OR datetime(r.valid_until) >= datetime($as_of_date))",
             ]
         )
 
@@ -106,7 +108,7 @@ def build_simple_prerequisite_chain(
         "uid": node_uid,
         "min_confidence": min_confidence,
         "min_strength": min_strength,
-        "as_of_date": check_date,
+        "as_of_date": check_date.isoformat(),
     }
 
 

@@ -1,14 +1,20 @@
-"""Unit tests for calendar arithmetic in core.utils.timestamp_helpers.
+"""Unit tests for core.utils.timestamp_helpers.
 
 Covers month_grid_bounds — the single source of the month view's full
-visible range (Monday-start grid, lead-in/tail cells included).
+visible range (Monday-start grid, lead-in/tail cells included) — and as_utc,
+the one form two instants are compared in. The as_utc tests force the
+process zone: CI runs UTC, where a naive value reads the same as UTC by
+accident.
 """
 
-from datetime import date
+import os
+import time
+from datetime import UTC, date, datetime, timedelta, timezone
 
 import pytest
 
-from core.utils.timestamp_helpers import month_grid_bounds, week_bounds
+from core.utils.timestamp_helpers import as_utc, month_grid_bounds, now_utc, week_bounds
+from tests.helpers.forced_zone import forced_zone
 
 
 class TestMonthGridBounds:
@@ -46,3 +52,45 @@ class TestMonthGridBounds:
         assert ((grid_end - grid_start).days + 1) % 7 == 0
         # The grid is exactly the union of the weeks containing the month.
         assert week_bounds(date(2026, month, 1))[0] == grid_start
+
+
+class TestAsUtc:
+    """An instant as aware UTC: aware values converted, naive ones read in the process zone."""
+
+    def test_a_naive_value_is_read_in_the_process_zone(self) -> None:
+        # 2026-09-27 is PDT (UTC-7) in Vancouver and UTC+7 all year in Bangkok.
+        wall = datetime(2026, 9, 27, 10, 0)
+        with forced_zone("America/Vancouver"):
+            assert as_utc(wall) == datetime(2026, 9, 27, 17, 0, tzinfo=UTC)
+        with forced_zone("Asia/Bangkok"):
+            assert as_utc(wall) == datetime(2026, 9, 27, 3, 0, tzinfo=UTC)
+        with forced_zone("UTC"):
+            assert as_utc(wall) == datetime(2026, 9, 27, 10, 0, tzinfo=UTC)
+
+    def test_an_aware_value_keeps_its_instant_whatever_the_process_zone(self) -> None:
+        bangkok_evening = datetime(2026, 9, 27, 20, 0, tzinfo=timezone(timedelta(hours=7)))
+        with forced_zone("America/Vancouver"):
+            converted = as_utc(bangkok_evening)
+        assert converted == datetime(2026, 9, 27, 13, 0, tzinfo=UTC)
+        assert converted.utcoffset() == timedelta(0)
+
+    def test_the_result_is_aware_utc(self) -> None:
+        with forced_zone("America/Vancouver"):
+            result = as_utc(datetime(2026, 9, 27, 10, 0))
+        assert result.tzinfo is not None
+        assert result.utcoffset() == timedelta(0)
+
+    def test_naive_and_aware_stamps_of_one_moment_subtract_to_zero(self) -> None:
+        """The arithmetic the goal events and insight recency do: no TypeError, no skew."""
+        with forced_zone("America/Vancouver"):
+            local_wall = datetime.now()
+            aware = now_utc()
+            assert abs((as_utc(aware) - as_utc(local_wall)).total_seconds()) < 5
+
+    def test_the_forced_zone_is_restored(self) -> None:
+        tz_before, names_before = os.environ.get("TZ"), time.tzname
+        with forced_zone("Asia/Bangkok"):
+            assert os.environ["TZ"] == "Asia/Bangkok"
+            assert time.tzname == ("+07", "+07")
+        assert os.environ.get("TZ") == tz_before
+        assert time.tzname == names_before
