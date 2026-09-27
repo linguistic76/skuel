@@ -49,5 +49,8 @@ is dormant wherever the server clock is UTC.
 
 Stamp aware UTC at the writers (`datetime.now(UTC)`), migrate stored offset-less stamps by the
 host's historical offset, and pin one window read (the cooldown) with an integration test that
-seeds a stamp from the writer's own clock rather than a UTC-aware literal — the existing
-`test_created_at_window_coercion.py` seeds UTC-aware strings, which is why it passes on any host.
+seeds a stamp from the writer's own clock under a forced non-UTC process timezone
+(`monkeypatch.setenv("TZ", "America/Vancouver")` + `time.tzset()`, restored after). CI runners and
+the Neo4j testcontainer run in UTC, where a naive `datetime.now()` equals UTC, so without the forced
+zone the pin passes with or without the fix — and the existing `test_created_at_window_coercion.py`
+seeds UTC-aware strings, which is why it passes on any host.

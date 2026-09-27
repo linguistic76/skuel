@@ -1,6 +1,6 @@
 ---
 title: "Tasks+ / One-Chrome Follow-ons — Explore's Phone Form, the Doorless Census, the Tabs Widget, Three Small Rulings"
-updated: 2026-09-19
+updated: 2026-09-27
 status: "deferred"
 registered: 2026-09-19
 trigger: "Mike schedules each — every item needs a product ruling or a 1440 snapshot first; none is a hub dependency"
@@ -70,3 +70,12 @@ in the review; a rename of the `SidebarItem` label + page title, own S PR.
 `AuthPage` renders no manifest, service-worker registration or offline banner, so the app is not installable before
 login and a standalone launch on an expired session lands on chrome-less login. Needs a real device after the
 DigitalOcean unpark to measure; the fix is `AuthPage` carrying `pwa_headers()`.
+
+## 8. The teaching sidebar over the content at 1280
+
+Seen at the Submit & Share arc close (2026-09-27), not investigated: in headless Chrome at 1280×1100
+the teaching sidebar (`ui/teaching/nav.py` → `SidebarPage`) draws over the left of the page content
+on `/teaching/review/{uid}` and on `/teaching/queue`, which the arc did not touch — the content is
+not offset by the sidebar's width. Check in a real browser at 1280 and 1440 first: it may be a
+headless artifact (the sidebar's collapsed state is client-side), in which case the chrome gate
+needs the same emulation note, not a CSS fix.

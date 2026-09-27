@@ -1336,7 +1336,8 @@ it first removes both.
   (`ui/learning_loop/turn_in_label.py`): the queue rows and the student hub rows, the review
   page header, `/submissions/history` (which printed the filename first), `/gradebook/{uid}`, the
   PathStep page's list, the recipient card; the `/exchange` thread already carried "rev N". The
-  `.md` download name and the vault copy's filename derive from the uid, unaffected. Existing
+  `.md` download name slugs the title (`entry_download_filename`, the uid only as its fallback,
+  since PR 5), so it follows the title this ruling keeps. Existing
   turn-ins get `turn_in_revision` by backfill (`backfill_turn_in_revision_2026_09.py`, census /
   `--confirm`: the edge revision, else the stray node property, else the attempt's ordinal by
   `created_at` within its exchange; the stray `revision_number` is removed in the same write).
@@ -1836,5 +1837,7 @@ pre-walk census 3636 nodes / 3126 edges; each write's delta below is exact):
   (3654 nodes / 3144 edges).
 
 Residual unchanged: a share's relative time reads hours off (the naive-local stamp, now registered).
-Seen, not this arc's: at 1280 in headless Chrome the teaching sidebar overlaps the page content
-(`/teaching/queue` too).
+Carried to live case files at the close: the wall's 100-entry cap with no continuation (Codex P2 on
+#1423, § PR 6b) → [`sharing-http-door.md`](../sharing-http-door.md); seen, not this arc's — at 1280
+in headless Chrome the teaching sidebar overlaps the page content (`/teaching/queue` too) →
+[`tasks-plus-follow-ons.md`](../tasks-plus-follow-ons.md) § 8.

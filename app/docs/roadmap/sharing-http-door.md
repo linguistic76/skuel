@@ -1,10 +1,10 @@
 ---
 title: "Sharing HTTP Door — Operations on Existing Shares"
-updated: 2026-09-26
+updated: 2026-09-27
 status: "staged — the revoke half shipped 2026-09-25 (Submit & Share arc PR 6b: Share + Stop sharing on a UserEntry, Your wall as the access list); set_visibility alone stays PLANNED, waiting on the PUBLIC reader"
 registered: 2026-09-21
 ruled: 2026-09-21
-trigger: "set_visibility waits on the PUBLIC reader (a portfolio listing); the re-sync half closed with R9's drafts (Submit & Share arc PR 8, 2026-09-26)"
+trigger: "set_visibility waits on the PUBLIC reader (a portfolio listing); the wall pager waits on any owner's wall approaching its 100-entry cap; the re-sync half closed with R9's drafts (Submit & Share arc PR 8, 2026-09-26)"
 check: "grep -rn 'set_visibility' adapters/inbound ui core/services --include='*.py' — a production caller outside core/services/sharing/ retires its PLANNED entry in scripts/detect_bloat.py"
 ---
 
@@ -66,7 +66,12 @@ share values only (`group:<uid>` / `user:<username>`); a feedback request stays 
 
 1. **The access list with revoke controls** is *Your wall* on `/profile/shared`:
    `get_shared_by_me` renders every owned entry with its people and groups; each chip's × posts
-   `POST /api/user-entries/{uid}/unshare` → `unshare` / `unshare_from_group`.
+   `POST /api/user-entries/{uid}/unshare` → `unshare` / `unshare_from_group`. **Open:** the wall
+   reads at most 100 entries (`_WALL_LIMIT`, `adapters/inbound/user_profile_ui.py`) with no
+   continuation, and Stop sharing lives only there, so a grant past the cap has no revoke door
+   (Codex P2 on #1423, accepted as a follow-on). Trigger: any owner's wall approaches 100 shared
+   entries — check with a count of the owner's UserEntries carrying `SHARES_WITH` or
+   `SHARED_WITH_GROUP`; the fix is a pager on the wall read, never a second access list.
 2. **Share reconciliation on vault re-sync** was never built — the gap closed by never
    sharing drafts, not by reconciliation (PR 8, R9): a vault note is never shared, its
    `audience:` applies only to the frozen copy `status: submitted` files, and a re-sync files

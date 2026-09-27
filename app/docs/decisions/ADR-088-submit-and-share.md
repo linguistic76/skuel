@@ -28,8 +28,9 @@ four refinements, 13 PRs).
   [ADR-085](ADR-085-ownership-read-enforcement-contract.md) §2, and the 2026-09-21 ruling in
   [`sharing-http-door.md`](../roadmap/sharing-http-door.md).
 - Related to: [ADR-086](ADR-086-universal-owns-and-attends-attendance.md) (its design-only
-  `OWNER_OR_ATTENDEE` member has the shape §5 builds — an owner-scoped domain that declares one
-  extra audience arm through a new SearchVisibility member; neither exists in code yet).
+  `OWNER_OR_ATTENDEE` member has the shape §5 built — an owner-scoped domain that declares one
+  extra audience arm through a new SearchVisibility member, here `OWNER_OR_AUDIENCE`;
+  `OWNER_OR_ATTENDEE` is still unbuilt).
 
 ## Related Skills
 
@@ -309,8 +310,8 @@ say what was shared and with whom.
 ## Implementation Details
 
 ### Code Location
-Planned, per PR — the arc doc's per-PR sections hold the file-level scope and are re-verified by
-each PR's own census. In outline: the relationship enum and the sharing backend/service (PR 1),
+Built per PR — the per-PR sections of the [arc doc](../roadmap/done/submission-sharing-arc.md)
+record the file-level scope each PR's own census verified. In outline: the relationship enum and the sharing backend/service (PR 1),
 the visibility enum and its writers (PR 2a), the report and notification services (PR 2b, PR 3),
 the exchange reads (PR 4a/4b), the visibility clause and DomainConfig (PR 5), the audience
 resolver (PR 6a), the share routes and the Shared page (PR 6b), the derived badges and the
