@@ -248,13 +248,23 @@ outside the values: an immutable manifest, one transaction, and a durable applie
      date-only path's midnight) → UTC, written back offset-less (R5).
    - `+07`: the same, dated before 2026-03-27.
    - `L-nat`: a native from a writer that was naive when it wrote (`datetime($now)` with
-     `now = datetime.now().isoformat()`) → UTC, native. A property with both a naive and an aware
-     writer needs a row-level discriminator: for `MEMBER_OF.joined_at`, the enrollment handler
-     (aware) writes only to the default group, so any other group's row is `GroupService.add_member`'s
-     (naive).
+     `now = datetime.now().isoformat()`) → UTC, native.
+   - **A property with more than one writer** is classified row by row, and only by provenance that
+     does not depend on the value's clock: its shape or precision where the writers differ in them
+     (a string writer beside a native one; a millisecond server writer beside a microsecond Python
+     one), a target only one writer reaches, or a paired stamp written in the same moment. For
+     `MEMBER_OF.joined_at` both writers write microsecond natives and both reach a default group
+     (the enrollment handler, aware; `GroupService.add_member`, naive — a teacher adding a member to
+     an owned default group): a non-default-group row is `add_member`'s, and a default-group row is
+     the handler's only when a stamp the enrollment wrote in the same moment pairs with it (its
+     `IN_PROGRESS` stamp, or the default group's `created_at` when the handler created the group).
+     A row no provenance settles stops the run for Mike's ruling.
    - `JSON`: a stamp nested in a JSON property that code reads as an instant
      (`Goal.progress_history[].date`, which the activity report tests against its window; 0 entries
-     today) → the same rules, rewriting the digits inside the JSON value.
+     today) → the same rules, rewriting the digits inside the JSON value. The manifest holds **one
+     row per containing property** — its whole old and new JSON value, every nested stamp
+     transformed — with the per-path changes kept beside it for audit; per-path rows on one property
+     would each find the value already changed and roll the run back.
    - **leave:** millisecond natives and `…Z` strings from Cypher; natives and strings from aware
      writers; the `UTC-naive` OWNS rows; authored days and offsets; diagnostic JSON-nested stamps
      no code compares; zone-id `UTC` natives; `date` strings and LOCAL TIMEs (calendar values).
@@ -268,7 +278,7 @@ outside the values: an immutable manifest, one transaction, and a durable applie
    UTC-clock process wrote it. (A still-open period's future `period_end` is expected, not a stop.)
    The script computes that wall clock explicitly (`datetime.now(ZoneInfo("America/Vancouver"))`):
    it runs pinned itself.
-3. **The census writes an immutable manifest** — one row per value to shift: a durable key (a node's
+3. **The census writes an immutable manifest** — one row per property value to shift: a durable key (a node's
    `uid`, or for a node without one the property its writer MERGEs on — `ProductivityAnalytics` has
    only `user_uid`; a relationship's start `uid`, type and end `uid` — never an element id, which
    Neo4j guarantees only within one transaction), property or JSON path, the value's shape, old value, new
