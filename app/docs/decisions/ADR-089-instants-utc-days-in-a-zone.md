@@ -28,7 +28,7 @@ arc builds it; its [PR contract table](../roadmap/utc-instants-arc.md#pr-plan-co
 
 For implementation guidance, see:
 - [@neo4j-cypher-patterns](../../.claude/skills/neo4j-cypher-patterns/SKILL.md) — Pattern 10
-  (temporal property coercion); Key Rules #17/#18 are rewritten when the arc closes.
+  (temporal property coercion); Key Rules #17/#18 are rewritten in the arc's PR 9.
 
 ---
 

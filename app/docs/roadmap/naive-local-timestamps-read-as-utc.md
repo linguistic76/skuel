@@ -16,7 +16,7 @@ check: "on the host: date +%z (non-zero = affected); live: MATCH (ar:ActivityRep
 [ADR-089](../decisions/ADR-089-instants-utc-days-in-a-zone.md): instants are stored and compared in
 UTC, calendar values belong to the user's zone (with an app default), and the stored cohorts are
 migrated row by row. The arc's verified ground truth supersedes the census below, which is the
-record as registered; this file moves to `done/` with the arc (its PR 9).
+record as registered; this file moves to `done/` with the arc (its close row).
 
 ## The defect
 
