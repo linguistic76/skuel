@@ -222,6 +222,7 @@ For each skill, this section shows all related documentation (architecture docs,
 - [ADR-080](decisions/ADR-080-auradb-three-horizon-strategy.md)
 - [ADR-086](decisions/ADR-086-universal-owns-and-attends-attendance.md)
 - [ADR-087](decisions/ADR-087-status-guarded-conditional-writes.md)
+- [ADR-089](decisions/ADR-089-instants-utc-days-in-a-zone.md)
 - [ADR-013](decisions/ADR-013-ku-uid-flat-identity.md)
 - [ADR-054](decisions/ADR-054-user-entry-unified-submissions.md)
 - [ADR-064](decisions/ADR-064-neo4j-per-query-timeout.md)
@@ -607,6 +608,7 @@ For each documentation category, this section shows which skills are relevant.
 - [ADR-086](decisions/ADR-086-universal-owns-and-attends-attendance.md) → @activity-domains, @neo4j-cypher-patterns, @security
 - [ADR-087](decisions/ADR-087-status-guarded-conditional-writes.md) → @activity-domains, @neo4j-cypher-patterns, @pytest
 - [ADR-088](decisions/ADR-088-submit-and-share.md) → @journals, @learning-loop, @security, @skuel-search-architecture
+- [ADR-089](decisions/ADR-089-instants-utc-days-in-a-zone.md) → @neo4j-cypher-patterns
 
 ---
 
@@ -616,7 +618,7 @@ For each documentation category, this section shows which skills are relevant.
 - **Architecture docs:** 10 docs linked to skills
 - **Intelligence docs:** 2 docs linked to skills
 - **Pattern docs:** 41 docs linked to skills
-- **ADRs:** 44 ADRs linked to skills
+- **ADRs:** 45 ADRs linked to skills
 
 ---
 
