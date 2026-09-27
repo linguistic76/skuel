@@ -203,7 +203,9 @@ Feedback and a revision request accept either status (`REVIEWABLE_ENTRY_STATUSES
 the teacher sees the same review page regardless of which cycle the submission is in. The
 review page and the per-student panel render one body (`render_review_body`) whose action
 rule reads the same constant, so neither offers a form the service refuses; a superseded
-copy (a newer version the teacher can see was handed in) takes no action at all.
+copy (a newer version the teacher can see was handed in) takes no action at all — the
+write statements refuse it themselves (`SUPERSEDED_COPY` for the reviewing teacher), so a
+newer copy filed between the page load and the click still wins.
 
 The three HTMX-targeted routes (`/api/teaching/review/{uid}/report`,
 `/api/teaching/review/{uid}/revision`, `/api/teaching/review/{uid}/approve`) return
