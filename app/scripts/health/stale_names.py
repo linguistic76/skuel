@@ -331,6 +331,11 @@ DELETED: dict[str, str] = {
         "deleted — where a journal goes is stated in the Pipeline class docstring "
         "(core/models/enums/pipeline.py, after the Values block)"
     ),
+    # The teacher's exercise list is the mapped owner read (ExerciseService.list_user_exercises).
+    "get_user_exercises": "deleted — the teacher's exercise list is ExerciseService.list_user_exercises (the mapped owner read, get_user_entities)",
+    # Keyed with the call paren: underscore adjacency would otherwise match the live
+    # get_student_exercises_with_status.
+    "get_student_exercises(": "deleted — a student's exercise lists are get_student_exercises_with_status / get_enrolled_ps_exercises_with_status",
     "PageLayout": "deleted — use BasePage",
     "SimplePageLayout": "deleted — use BasePage",
     "DrawerLayout": "deleted — use SidebarPage from ui.patterns.sidebar",
@@ -730,8 +735,8 @@ ALLOWED_OCCURRENCES: dict[str, dict[tuple[int, str], Allow]] = {
     "docs/patterns/three_tier_type_system.md": {
         # These two move whenever the prose above them changes length. Re-derive
         # the anchors from the scanner's report, never by adding a diff delta.
-        (945, "KuType"): Allow(_three_tier),
-        (946, "KuStatus"): Allow(_three_tier),
+        (953, "KuType"): Allow(_three_tier),
+        (954, "KuStatus"): Allow(_three_tier),
     },
     # The arc's record, granted in bulk because naming the retired identifier IS the
     # finding. Every anchor re-derived from the scanner's own report (scan_file over the

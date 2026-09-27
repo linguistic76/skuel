@@ -162,12 +162,8 @@ class UserEntryOrchestrator:
         return await self._entries.delete_entry(uid, user_uid)
 
     # ------------------------------------------------------------------
-    # Exercises (dropdowns, assignment reads)
+    # Exercises (the Submit page's target, instruction files)
     # ------------------------------------------------------------------
-
-    async def get_student_exercises(self, user_uid: UserUID) -> Result[list[Exercise]]:
-        """The exercises assigned to a student."""
-        return await self._exercises.get_student_exercises(user_uid)
 
     async def get_submit_target(self, uid: str, user_uid: UserUID) -> Result[SubmitTarget]:
         """What the Submit page names for ``?exercise_uid=``: the exercise, or the revision, the caller may answer.
@@ -197,10 +193,6 @@ class UserEntryOrchestrator:
             if root.is_ok:
                 title = root.value.title
         return Result.ok(SubmitTarget(uid=uid, title=title, is_revision=True))
-
-    async def list_user_exercises(self, user_uid: UserUID) -> Result[list[Exercise]]:
-        """List saved instruction-template exercises owned by the user."""
-        return await self._exercises.list_user_exercises(user_uid)
 
     async def create_exercise(
         self, user_uid: UserUID, name: str, instructions: str

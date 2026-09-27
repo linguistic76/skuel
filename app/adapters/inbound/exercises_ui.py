@@ -71,7 +71,9 @@ def create_exercises_ui_routes(
     """
     Create exercises UI routes.
 
-    Dashboard is open to all authenticated users (exercises are shared curriculum).
+    The dashboard is open to any authenticated user and lists only the
+    exercises the caller owns; shared and assigned exercises open on the
+    learner surface (``/exercises/get``).
     Create/edit/delete routes are TEACHER+ gated *and* owner-scoped — the role
     decides who may author, the owner check decides which exercise.
     """
@@ -101,12 +103,13 @@ def create_exercises_ui_routes(
 
     @app.get("/exercises/content")
     @ui_boundary_handler("Error loading exercises", fragment_id="exercises-content")
-    async def exercises_content_fragment(request) -> Any:
-        """HTMX fragment: exercises list."""
+    async def exercises_content_fragment(request: Request) -> Any:
+        """HTMX fragment: the caller's own exercises — a failed read says so."""
         user_uid = require_authenticated_user(request)
         result = await exercises_service.list_user_exercises(user_uid)
-        exercises = [] if result.is_error else result.value
-        return Div(render_exercises_list(exercises), id="exercises-content")
+        if result.is_error:
+            return Div(render_error_banner("Error loading exercises"), id="exercises-content")
+        return Div(render_exercises_list(result.value), id="exercises-content")
 
     @app.get("/exercises/new")
     @require_teacher(get_user_service)

@@ -33,9 +33,9 @@ never be the role gate wearing a disguise. ``TestRoleGateStillApplies`` covers
 the other direction.
 
 Run against a real Neo4j container: the ownership claim resolves against
-persisted node properties and the ``:OWNS`` edge, and the ``:OWNS`` half is a
-warn-only write that can be missing. A mocked backend would assert only that
-the route calls a method.
+persisted node properties and the ``:OWNS`` edge, and the ``:OWNS`` half can be
+missing (the node is persisted before the edge write). A mocked backend would
+assert only that the route calls a method.
 """
 
 from __future__ import annotations
@@ -341,10 +341,10 @@ class TestAuthoringAudience:
 class TestOwnerWithoutOwnsEdge:
     """An owner whose ``:OWNS`` edge is missing must still reach their exercise.
 
-    ``ExerciseService.create()`` persists the node and only *warns* when
-    ``create_owns_relationship()`` fails, so this state follows a create that
-    reported success. Scoping on the edge alone would 404 an author on their
-    own work — a regression caused by a fix.
+    ``ExerciseService.create()`` persists the node before the edge write, so a
+    failed ``create_owns_relationship()`` (returned as the create's failure) or
+    an edge lost later leaves the node without it. Scoping on the edge alone
+    would 404 an author on their own work.
     """
 
     async def test_author_still_reads_with_the_owns_edge_deleted(
@@ -474,6 +474,37 @@ class TestDashboardOffersNoDeadButtons:
         assert checked == 3, (
             f"expected AUTHOR's three owned exercises on the dashboard, checked {checked}"
         )
+
+
+class TestDashboardListsEmbeddedExercises:
+    async def test_an_embedded_exercise_stays_on_its_authors_dashboard(
+        self, handlers, seeded, neo4j_driver
+    ) -> None:
+        """Bookkeeping keys the ``Exercise`` dataclass does not declare
+        (``embedding_version``, ``embedding_text_hash``, stamped by the
+        embedding worker) never keep an exercise off its author's dashboard:
+        every embedded exercise lists with its Delete button.
+        """
+        owned = [seeded[key] for key in (PERSONAL_AUTHOR, ASSIGNED, ASSESSMENT)]
+        async with neo4j_driver.session() as session:
+            result = await session.run(
+                """
+                MATCH (e:Exercise) WHERE e.uid IN $uids
+                SET e.embedding_version = 3, e.embedding_text_hash = $text_hash
+                RETURN count(e) AS stamped
+                """,
+                uids=owned,
+                text_hash="0f2b" * 16,
+            )
+            record = await result.single()
+        # Positive control: the keys the splat rejected are on all three nodes.
+        assert record is not None and record["stamped"] == 3
+
+        dashboard = await _read_dashboard(handlers, AUTHOR)
+
+        for key in (PERSONAL_AUTHOR, ASSIGNED, ASSESSMENT):
+            assert TITLES[key] in dashboard, f"embedded {key} dropped off the dashboard"
+            assert f"/api/exercises/delete?uid={seeded[key]}" in dashboard
 
 
 class TestLearnerSurfaceStillServes:

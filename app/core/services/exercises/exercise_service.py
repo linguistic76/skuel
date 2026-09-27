@@ -20,9 +20,9 @@ Formerly AssignmentService — renamed to Exercise for domain clarity.
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any, ClassVar, cast
+from typing import TYPE_CHECKING, Any, ClassVar
 
-from core.constants import ExerciseTimeEstimate
+from core.constants import ExerciseTimeEstimate, QueryLimit
 from core.models.enums import Domain, SearchVisibility
 from core.models.enums.entity_enums import EntityType
 from core.models.enums.neo_labels import NeoLabel
@@ -41,7 +41,6 @@ from core.services.base_service import BaseService
 from core.services.domain_config import DomainConfig
 from core.services.filtered_context import build_filtered_context
 from core.utils.decorators import with_error_handling
-from core.utils.exception_types import DATA_CONVERSION_EXCEPTIONS
 from core.utils.list_helpers import SortConfig, apply_entity_sort
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
@@ -341,7 +340,6 @@ class ExerciseService(BaseService[ExerciseBackendOperations, Exercise]):
         if result.is_error:
             # Result.fail, not `return result`: the backend hands back
             # Result[Exercise | None] and this method promises Result[Exercise].
-            # `self.backend` is Any, so MyPy cannot catch the mismatch (SKUEL028).
             return Result.fail(result)
         if result.value is None:
             return Result.fail(Errors.not_found(resource="Exercise", identifier=uid))
@@ -383,27 +381,31 @@ class ExerciseService(BaseService[ExerciseBackendOperations, Exercise]):
         return Result.ok(exercises)
 
     @with_error_handling("list_user_exercises", error_type="database")
-    async def list_user_exercises(
-        self, user_uid: UserUID, active_only: bool = True
-    ) -> Result[list[Exercise]]:
-        """List personal exercises owned by a user via OWNS relationship."""
-        result = await self.backend.get_user_exercises(user_uid)
+    async def list_user_exercises(self, user_uid: UserUID) -> Result[list[Exercise]]:
+        """Every exercise the user owns, newest first — the teacher's own list.
 
+        Reads through the owner read every CRUD list uses, whose adapter maps
+        each node to an ``Exercise`` keeping only declared fields, so an
+        embedded exercise (its node carries the embedding bookkeeping keys) is
+        listed like any other and a failed read is a failure, never an empty
+        list. The list is complete: past one bulk page it is read whole, since
+        the dashboard and ``get_filtered_context`` both treat it as the full set.
+
+        Backend: UniversalNeo4jBackend.get_user_entities.
+        """
+        result = await self.backend.get_user_entities(
+            user_uid, sort_by="created_at", sort_order="desc", limit=QueryLimit.BULK
+        )
         if result.is_error:
             return Result.fail(result)
-
-        exercises = []
-        for record in result.value or []:
-            # boundary: neo4j-projection — `RETURN e` is a node map whose values
-            # (enums, tuples, datetimes) exceed Neo4jValue's scalar union
-            props = cast("dict[str, Any]", record["e"])
-            try:
-                exercise = Exercise(**props)
-                exercises.append(exercise)
-            except DATA_CONVERSION_EXCEPTIONS as exc:
-                self.logger.warning(f"Failed to deserialize exercise: {exc}")
-
-        self.logger.info(f"Found {len(exercises)} exercises for user {user_uid}")
+        exercises, total = result.value
+        if total > len(exercises):
+            result = await self.backend.get_user_entities(
+                user_uid, sort_by="created_at", sort_order="desc", limit=total
+            )
+            if result.is_error:
+                return Result.fail(result)
+            exercises, _total = result.value
         return Result.ok(exercises)
 
     # ========================================================================
@@ -481,48 +483,6 @@ class ExerciseService(BaseService[ExerciseBackendOperations, Exercise]):
 
         exercises = result.value or []
         self.logger.info(f"Found {len(exercises)} exercises for group {group_uid}")
-        return Result.ok(exercises)
-
-    @with_error_handling("get_student_exercises", error_type="database")
-    async def get_student_exercises(self, user_uid: UserUID) -> Result[list[Exercise]]:
-        """
-        Get all exercises available to a student, from both sources:
-
-        - Assigned (MEMBER_OF -> Group <- SHARED_WITH_GROUP -> Exercise)
-        - Enrolled-PS curriculum (IN_PROGRESS -> PathStep -[:HAS_EXERCISE]-> Exercise)
-
-        The union is what "my exercises" means for every consumer (submit-form
-        dropdown, profile) — a solo learner with no group still sees the
-        exercises of the PathSteps they enrolled in (systems review, 2026-07-03).
-
-        Backend: ExerciseBackend.get_student_exercises +
-        ExerciseBackend.get_enrolled_ps_exercises_with_status.
-        """
-        assigned_result = await self.backend.get_student_exercises(user_uid)
-        if assigned_result.is_error:
-            return Result.fail(assigned_result)
-
-        enrolled_result = await self.backend.get_enrolled_ps_exercises_with_status(user_uid)
-        if enrolled_result.is_error:
-            return Result.fail(enrolled_result)
-
-        exercises: list[Exercise] = []
-        seen_uids: set[str] = set()
-        for record in (assigned_result.value or []) + (enrolled_result.value or []):
-            # boundary: neo4j-projection — `RETURN exercise` is a node map whose
-            # values (enums, tuples, datetimes) exceed Neo4jValue's scalar union
-            props = dict(cast("dict[str, Any]", record["exercise"]))
-            if props.get("uid") in seen_uids:
-                continue
-            try:
-                exercise = Exercise(**props)
-            except DATA_CONVERSION_EXCEPTIONS as e:
-                self.logger.warning(f"Failed to deserialize exercise: {e}")
-                continue
-            seen_uids.add(exercise.uid)
-            exercises.append(exercise)
-
-        self.logger.info(f"Found {len(exercises)} exercises for student {user_uid}")
         return Result.ok(exercises)
 
     @with_error_handling("get_student_exercises_with_status", error_type="database")
@@ -872,7 +832,7 @@ class ExerciseService(BaseService[ExerciseBackendOperations, Exercise]):
         """Get filtered and sorted exercises with pre-filter stats."""
 
         async def fetch_all() -> Result[list[Any]]:
-            return await self.list_user_exercises(user_uid, active_only=False)
+            return await self.list_user_exercises(user_uid)
 
         def apply_filters(all_exercises: list[Any]) -> list[Any]:
             try:

@@ -1805,9 +1805,9 @@ class ExerciseBackendOperations(BackendOperations["Exercise"], Protocol):
 
     The BACKEND-layer half of the Exercise pair. ``ExerciseOperations`` below is
     the route-facing half and is NOT interchangeable with it: the two share a
-    root word but sit at different layers, and the route protocol misses 14 of
-    the 19 methods the service actually issues (see CLAUDE.md's "Trap" note in
-    ## Protocol-Based Architecture).
+    root word but sit at different layers, and the route protocol declares only
+    a few of the backend methods the service issues (see CLAUDE.md's "Trap" note
+    in ## Protocol-Based Architecture).
 
     Deliberately absent: ``get_exercises_with_submission_counts``. It exists on
     ExerciseBackend but is consumed by ``TeacherReviewService.exercise_backend``
@@ -1850,14 +1850,6 @@ class ExerciseBackendOperations(BackendOperations["Exercise"], Protocol):
         self, exercise_uid: str
     ) -> Result[list[RequiredKnowledgeResult]]:
         """The Kus an exercise declares as prerequisites."""
-        ...
-
-    async def get_user_exercises(self, user_uid: UserUID) -> Result[list[Neo4jProperties]]:
-        """Every exercise a user owns."""
-        ...
-
-    async def get_student_exercises(self, user_uid: UserUID) -> Result[list[Neo4jProperties]]:
-        """The exercises assigned to a student (owned, shared, or group-shared)."""
         ...
 
     async def get_student_exercises_with_status(
@@ -1942,12 +1934,8 @@ class ExerciseOperations(Protocol):
         """
         ...
 
-    async def list_user_exercises(
-        self,
-        user_uid: UserUID,
-        active_only: bool = True,
-    ) -> Result[list[Exercise]]:
-        """List user's exercises. Returns Result[list[Exercise]]."""
+    async def list_user_exercises(self, user_uid: UserUID) -> Result[list[Exercise]]:
+        """Every exercise the user owns, newest first."""
         ...
 
     async def update(self, uid: str, updates: RawChanges) -> Result[Exercise]:
