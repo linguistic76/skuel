@@ -26,7 +26,7 @@ from core.events.learning_loop_events import (
     UserEntryApproved,
     UserEntryRevisionRequested,
 )
-from core.models.enums.entity_enums import EntityStatus, EntityType
+from core.models.enums.entity_enums import REVIEWABLE_ENTRY_STATUSES, EntityStatus, EntityType
 from core.models.enums.learning_enums import AssessmentOutcome, MasteryImpact
 from core.models.enums.pipeline import ReportSource
 from core.models.type_hints import UserUID
@@ -119,7 +119,7 @@ class TeacherReviewService:
         Args:
             teacher_uid: Teacher UID
             status_filter: Optional single-status filter (e.g., "submitted").
-                Defaults to ["submitted", "active"] when ``None``.
+                Defaults to ``REVIEWABLE_ENTRY_STATUSES`` when ``None``.
             student_uid: Optional student scope — restricts the queue to
                 entries that student owns.
 
@@ -187,11 +187,14 @@ class TeacherReviewService:
         access_check = await self._verify_teacher_has_group_access(report_uid, teacher_uid)
         if access_check.is_error:
             return Result.fail(access_check)
+        current = await self._refuse_superseded_copy(report_uid, teacher_uid)
+        if current.is_error:
+            return Result.fail(current)
 
         report_entity_uid = UIDGenerator.generate_uid("er")
         now = datetime.now().isoformat()
 
-        allowed_from = [EntityStatus.SUBMITTED.value, EntityStatus.ACTIVE.value]
+        allowed_from = [status.value for status in REVIEWABLE_ENTRY_STATUSES]
         result = await self.report_backend.create_report_node(
             {
                 "report_uid": report_uid,
@@ -273,11 +276,14 @@ class TeacherReviewService:
         access_check = await self._verify_teacher_has_group_access(report_uid, teacher_uid)
         if access_check.is_error:
             return Result.fail(access_check)
+        current = await self._refuse_superseded_copy(report_uid, teacher_uid)
+        if current.is_error:
+            return Result.fail(current)
 
         report_entity_uid = UIDGenerator.generate_uid("er")
         now = datetime.now().isoformat()
 
-        allowed_from = [EntityStatus.SUBMITTED.value, EntityStatus.ACTIVE.value]
+        allowed_from = [status.value for status in REVIEWABLE_ENTRY_STATUSES]
         result = await self.report_backend.create_report_node(
             {
                 "report_uid": report_uid,
@@ -364,6 +370,9 @@ class TeacherReviewService:
         access_check = await self._verify_teacher_has_group_access(submission_uid, teacher_uid)
         if access_check.is_error:
             return Result.fail(access_check)
+        current = await self._refuse_superseded_copy(submission_uid, teacher_uid)
+        if current.is_error:
+            return Result.fail(current)
 
         from core.models.enums.learning_enums import FeedbackCategory
         from core.models.exercises.revised_exercise import FeedbackPoint, RevisedExercise
@@ -398,7 +407,7 @@ class TeacherReviewService:
             revision_rationale=revision_rationale,
             parent_entity_uid=report_entity_uid,
         )
-        allowed_from = [EntityStatus.SUBMITTED.value, EntityStatus.ACTIVE.value]
+        allowed_from = [status.value for status in REVIEWABLE_ENTRY_STATUSES]
         result = await self.report_backend.create_report_and_revised_exercise(
             {
                 # Phase 1 params (EntryReport)
@@ -512,6 +521,9 @@ class TeacherReviewService:
         access_check = await self._verify_teacher_has_group_access(report_uid, teacher_uid)
         if access_check.is_error:
             return Result.fail(access_check)
+        current = await self._refuse_superseded_copy(report_uid, teacher_uid)
+        if current.is_error:
+            return Result.fail(current)
 
         now = datetime.now().isoformat()
         allowed_from = [EntityStatus.REVISION_REQUESTED.value]
@@ -780,6 +792,7 @@ class TeacherReviewService:
             "revision": record.get("revision"),
             "exercise_instructions": record["exercise_instructions"],
             "file_path": record.get("file_path"),
+            "superseded": bool(record.get("superseded")),
         }
         return Result.ok(detail)
 
@@ -912,6 +925,35 @@ class TeacherReviewService:
         shared active group).
         """
         return await self.user_entry_backend.get_report_file_path(report_uid, teacher_uid)
+
+    async def _refuse_superseded_copy(self, submission_uid: str, teacher_uid: str) -> Result[bool]:
+        """A copy with a newer version this teacher can see is history — no review action lands on it.
+
+        The review writers (feedback, a revision request, Approve) call this after
+        the access gate, so the rule the review page renders — a superseded copy
+        offers no action — holds for every caller: a stale tab, a crafted POST,
+        the offline import. Supersession is the queue's own collapse rule, read
+        through the teacher detail (``superseded``).
+
+        Backend: UserEntryBackend.get_entry_detail_for_teacher
+        """
+        result = await self.user_entry_backend.get_entry_detail_for_teacher(
+            submission_uid, teacher_uid
+        )
+        if result.is_error:
+            return Result.fail(result)
+        rows = result.value or []
+        if rows and rows[0].get("superseded"):
+            return Result.fail(
+                Errors.business(
+                    rule="superseded_copy",
+                    message=(
+                        "A newer version of this work has been handed in — this copy is "
+                        "history and takes no review action."
+                    ),
+                )
+            )
+        return Result.ok(True)
 
     async def _verify_teacher_has_group_access(
         self,

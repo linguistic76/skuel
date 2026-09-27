@@ -1606,6 +1606,7 @@ class SubmissionDetailResult(TypedDict, total=False):
     revision: int | None  # the turn-in snapshot's version
     exercise_instructions: str
     file_path: str | None
+    superseded: bool  # a newer copy in its lineage is visible to this teacher — history
 
 
 class TeacherDashboardStats(TypedDict, total=False):

@@ -50,29 +50,23 @@ from ui.teaching.cards import (
 )
 from ui.teaching.detail import (
     render_class_member_row,
-    render_report_item,
+    render_review_body,
     render_student_detail_sections,
-    render_submission_content,
     student_detail_sidebar_items,
-)
-from ui.teaching.forms import (
-    render_feedback_submission_form,
-    render_revision_request_form,
-    render_waiting_actions,
 )
 from ui.teaching.nav import render_teaching_sidebar_page
 from ui.teaching.student_hub import StudentHub
 from ui.teaching.types import (
-    NEEDS_REVIEW_STATUSES,
     ClassMember,
     ClassSummary,
-    SubmissionDetail,
     SubmissionRow,
     queue_item_from_dict,
+    submission_detail_from_dict,
     submission_row_from_dict,
 )
 
 if TYPE_CHECKING:
+    from core.models.report.entry_report import EntryReport
     from core.orchestrator.teacher_orchestrator import TeacherOrchestrator
     from core.ports.report_protocols import EntryReportOperations
 
@@ -320,77 +314,35 @@ def create_teaching_ui_routes(
                 id="review-detail-content",
             )
 
-        d = detail_result.value
-        detail = SubmissionDetail(
-            title=d.get("title", "Untitled"),
-            entity_type=d.get("entity_type"),
-            status=d.get("status") or "",
-            student_name=d.get("student_name") or d.get("student_uid") or "Unknown",
-            student_uid=d.get("student_uid", ""),
-            exercise_title=d.get("exercise_title"),
-            exercise_instructions=d.get("exercise_instructions"),
-            processed_content=d.get("processed_content"),
-            content=d.get("content"),
-            original_filename=d.get("original_filename"),
-        )
-        submission_section: Any = render_submission_content(detail)
+        detail = submission_detail_from_dict(detail_result.value)
 
-        # Fetch feedback history via the typed read path — access already
-        # established above.
-        feedback_history_section: Any = ""
+        # Feedback history via the typed read path — access already established
+        # above.
+        history: list[EntryReport] = []
         if entry_report_service is not None:
             history_result = await entry_report_service.list_for_submission(uid)
             if not history_result.is_error and history_result.value:
-                feedback_items = [render_report_item(fb) for fb in history_result.value]
-                feedback_history_section = Div(
-                    H3("Feedback History", cls="text-lg font-semibold mb-3"),
-                    Div(*feedback_items),
-                    cls="mb-6",
-                )
+                history = list(history_result.value)
 
         # Exchange thread link (C5): the review page anchors one submission;
         # the thread shows the whole (student, exercise) exchange around it.
         exchange_link: FT | str = ""
-        d_exercise_uid = d.get("exercise_uid")
-        d_student_uid = d.get("student_uid")
-        if d_exercise_uid and d_student_uid:
+        if detail.exercise_uid and detail.student_uid:
             exchange_link = ButtonLink(
                 "View exchange thread",
-                href=f"/exchange?exercise={d_exercise_uid}&student={d_student_uid}",
+                href=f"/exchange?exercise={detail.exercise_uid}&student={detail.student_uid}",
                 cls=(ButtonT.ghost, "mt-4 mr-2"),
                 size="sm",
             )
 
-        # Action availability follows the write ops' status gates: feedback and
-        # revision requests accept only submitted/active entries, approve only
-        # revision_requested — never render a form the service must refuse.
-        status_lower = (detail.status or "").lower()
-        if status_lower in NEEDS_REVIEW_STATUSES:
-            action_section: Any = Div(
-                render_feedback_submission_form(uid),
-                render_revision_request_form(uid),
-            )
-        elif status_lower == EntityStatus.REVISION_REQUESTED.value:
-            action_section = render_waiting_actions(uid)
-        else:
-            action_section = P(
-                "This submission is not awaiting review.",
-                cls="text-sm text-muted-foreground italic",
-            )
-
+        waiting = detail.status == EntityStatus.REVISION_REQUESTED.value
         return Div(
-            submission_section,
-            feedback_history_section,
-            action_section,
+            render_review_body(uid, detail, history),
             Div(
                 exchange_link,
                 ButtonLink(
                     "Back to Queue",
-                    href=(
-                        "/teaching/queue?view=waiting"
-                        if status_lower == EntityStatus.REVISION_REQUESTED.value
-                        else "/teaching/queue"
-                    ),
+                    href="/teaching/queue?view=waiting" if waiting else "/teaching/queue",
                     cls=(ButtonT.ghost, "mt-4"),
                     size="sm",
                 ),

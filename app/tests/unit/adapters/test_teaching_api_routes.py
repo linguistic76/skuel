@@ -66,6 +66,11 @@ def _make_harness(
         return_value=Result.ok({"revised_exercise_uid": "revised_exercise_1"})
     )
     review_service.approve_report = AsyncMock(return_value=Result.ok(True))
+    # The gated detail read the revision and panel doors make first; by default
+    # a submission with no exercise (the report-only path).
+    review_service.get_submission_detail = AsyncMock(
+        return_value=Result.ok({"uid": _SUBMISSION_UID, "status": "submitted"})
+    )
     review_service.get_exercises_with_submission_counts = AsyncMock(return_value=Result.ok([]))
     review_service.get_students_summary = AsyncMock(return_value=Result.ok([]))
 
@@ -276,8 +281,13 @@ class TestSubmitFeedback:
         )
 
 
+def _multipart(fields: dict[str, str]) -> dict[str, tuple[None, str]]:
+    """A FastHTML ``Form`` posts multipart by default — drive the door that way."""
+    return {name: (None, value) for name, value in fields.items()}
+
+
 class TestRequestRevision:
-    def test_report_only_fallback_without_exercise_uid(
+    def test_report_only_when_the_detail_has_no_exercise(
         self, monkeypatch: pytest.MonkeyPatch
     ) -> None:
         harness = _make_harness(monkeypatch)
@@ -285,17 +295,171 @@ class TestRequestRevision:
         response = harness.client.post(
             f"/api/teaching/review/{_SUBMISSION_UID}/revision",
             headers=_csrf(harness.client),
-            data={"instructions": "Cite your sources."},
+            files=_multipart({"instructions": "Cite your sources."}),
         )
 
         assert response.status_code == 200
         assert "Revision requested" in response.text
+        harness.review.get_submission_detail.assert_awaited_once_with(
+            submission_uid=_SUBMISSION_UID, teacher_uid=_TEACHER_UID
+        )
         harness.review.request_revision.assert_awaited_once_with(
             report_uid=_SUBMISSION_UID,
             teacher_uid=_TEACHER_UID,
             notes="Cite your sources.",
         )
         harness.review.request_revision_with_exercise.assert_not_awaited()
+
+    def test_the_exercise_comes_from_the_detail_never_the_form(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """A forged ``exercise_uid`` in the post is ignored: the RevisedExercise
+        revises the exercise the submission turned in, read under the gate."""
+        harness = _make_harness(monkeypatch)
+        harness.review.get_submission_detail = AsyncMock(
+            return_value=Result.ok(
+                {"uid": _SUBMISSION_UID, "status": "submitted", "exercise_uid": "ex.root"}
+            )
+        )
+
+        response = harness.client.post(
+            f"/api/teaching/review/{_SUBMISSION_UID}/revision",
+            headers=_csrf(harness.client),
+            files=_multipart(
+                {
+                    "instructions": "Tighten the argument.",
+                    "exercise_uid": "ex.other",
+                    "fp_count": "1",
+                    "fp_category_0": "accuracy",
+                    "fp_detail_0": "The date is wrong.",
+                    "revision_rationale": "One fix away.",
+                }
+            ),
+        )
+
+        assert response.status_code == 200
+        assert "/revised-exercises/detail?uid=revised_exercise_1" in response.text
+        harness.review.request_revision_with_exercise.assert_awaited_once_with(
+            submission_uid=_SUBMISSION_UID,
+            teacher_uid=_TEACHER_UID,
+            notes="Tighten the argument.",
+            original_exercise_uid="ex.root",
+            feedback_points=[{"category": "accuracy", "detail": "The date is wrong."}],
+            revision_rationale="One fix away.",
+        )
+        harness.review.request_revision.assert_not_awaited()
+
+    def test_a_denied_detail_touches_neither_writer(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        harness = _make_harness(monkeypatch)
+        harness.review.get_submission_detail = AsyncMock(
+            return_value=Result.fail(Errors.not_found("Submission entry_1 not found"))
+        )
+
+        response = harness.client.post(
+            f"/api/teaching/review/{_SUBMISSION_UID}/revision",
+            headers=_csrf(harness.client),
+            files=_multipart({"instructions": "Anything."}),
+        )
+
+        assert response.status_code == 200
+        assert "Submission not found." in response.text
+        harness.review.request_revision.assert_not_awaited()
+        harness.review.request_revision_with_exercise.assert_not_awaited()
+
+    def test_a_backend_fault_is_not_reported_as_not_found(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        harness = _make_harness(monkeypatch)
+        harness.review.get_submission_detail = AsyncMock(
+            return_value=Result.fail(
+                Errors.database(
+                    operation="get_entry_detail_for_teacher", message="Neo4j unavailable"
+                )
+            )
+        )
+
+        response = harness.client.post(
+            f"/api/teaching/review/{_SUBMISSION_UID}/revision",
+            headers=_csrf(harness.client),
+            files=_multipart({"instructions": "Anything."}),
+        )
+
+        assert response.status_code == 200
+        assert "not found" not in response.text.lower()
+        harness.review.request_revision.assert_not_awaited()
+        harness.review.request_revision_with_exercise.assert_not_awaited()
+
+    def test_missing_instructions_is_refused_before_any_read(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """A body without ``instructions`` (``notes`` is no alias) is refused at
+        parse, before the gated detail read — the rendered form's names are
+        pinned in ``tests/unit/ui/test_teacher_review_actions.py``."""
+        harness = _make_harness(monkeypatch)
+
+        response = harness.client.post(
+            f"/api/teaching/review/{_SUBMISSION_UID}/revision",
+            headers=_csrf(harness.client),
+            files=_multipart({"notes": "Posted under the wrong name."}),
+        )
+
+        assert response.status_code == 200
+        assert "instructions" in response.text and "Field required" in response.text
+        harness.review.get_submission_detail.assert_not_awaited()
+        harness.review.request_revision.assert_not_awaited()
+
+
+class TestReviewPanel:
+    """``/api/teaching/review/{uid}/panel`` renders the review page's own body."""
+
+    def _panel(self, monkeypatch: pytest.MonkeyPatch, detail: dict[str, object]) -> str:
+        harness = _make_harness(monkeypatch)
+        harness.review.get_submission_detail = AsyncMock(return_value=Result.ok(detail))
+        response = harness.client.get(f"/api/teaching/review/{_SUBMISSION_UID}/panel")
+        assert response.status_code == 200
+        return response.text
+
+    def test_a_reviewable_turn_in_shows_the_work_and_the_forms(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        body = self._panel(
+            monkeypatch,
+            {
+                "uid": _SUBMISSION_UID,
+                "title": "Essay",
+                "status": "submitted",
+                "content": "The student's own paragraph.",
+                "exercise_uid": "ex.root",
+                "exercise_title": "The Gentle Return",
+                "revision": 2,
+            },
+        )
+        assert "The student's own paragraph." in body
+        assert "The Gentle Return · v2" in body
+        assert 'name="instructions"' in body
+        assert 'name="fp_count"' in body
+        assert f"/api/teaching/review/{_SUBMISSION_UID}/approve" not in body
+
+    def test_a_revision_requested_row_offers_approve(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        body = self._panel(
+            monkeypatch,
+            {"uid": _SUBMISSION_UID, "status": "revision_requested", "content": "x"},
+        )
+        assert f"/api/teaching/review/{_SUBMISSION_UID}/approve" in body
+        assert 'name="instructions"' not in body
+
+    def test_a_superseded_copy_offers_nothing(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        body = self._panel(
+            monkeypatch,
+            {
+                "uid": _SUBMISSION_UID,
+                "status": "revision_requested",
+                "content": "x",
+                "superseded": True,
+            },
+        )
+        assert "this copy is history" in body
+        assert "hx-post" not in body
 
 
 def _make_harness_without_entry_service(

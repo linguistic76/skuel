@@ -1,4 +1,3 @@
-# mypy: disable-error-code="attr-defined"
 """
 Example: Type-Safe Form Data Extraction
 
@@ -81,15 +80,15 @@ async def json_body_example(request):
     if result.is_error:
         return result  # 400 with validation details (ErrorCategory.VALIDATION)
     req = result.value
-    return {"notes": req.notes}
+    return {"instructions": req.instructions}
 
 
 # ✅ parse_form_body — HTML form data → Pydantic model → Result[T]
 async def form_body_example(request):
     """Replaces manual (body.get("field") or "").strip() + enum try/except chains."""
-    from core.models.teaching.teaching_request import CreateTeachingExerciseRequest
+    from core.models.exercises.exercise_request import ExerciseCreateRequest
 
-    result = await parse_form_body(request, CreateTeachingExerciseRequest)
+    result = await parse_form_body(request, ExerciseCreateRequest)
     if result.is_error:
         return result  # 400 with validation details (ErrorCategory.VALIDATION)
     req = result.value

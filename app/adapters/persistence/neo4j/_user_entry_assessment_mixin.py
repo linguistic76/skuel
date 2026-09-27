@@ -17,7 +17,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any
 
-from core.models.enums.entity_enums import EntityStatus
+from core.models.enums.entity_enums import REVIEWABLE_ENTRY_STATUSES, EntityStatus
 from core.models.enums.pipeline import Pipeline
 from core.models.relationship_names import RelationshipName
 from core.models.type_hints import Neo4jProperties
@@ -30,7 +30,7 @@ if TYPE_CHECKING:
 
 
 # A feedback request awaiting review — the queue's default and its badge twin.
-_PENDING_STATUSES = [EntityStatus.SUBMITTED.value, EntityStatus.ACTIVE.value]
+_PENDING_STATUSES = [status.value for status in REVIEWABLE_ENTRY_STATUSES]
 
 _OWNS = RelationshipName.OWNS.value
 _SUBMITTED_TO_GROUP = RelationshipName.SUBMITTED_TO_GROUP.value
@@ -184,7 +184,7 @@ class _UserEntryAssessmentMixin:
                entry.original_filename AS original_filename,
                entry.created_at AS submitted_at,
                student.uid AS student_uid,
-               student.name AS student_name,
+               coalesce(student.display_name, student.title, student.uid) AS student_name,
                coalesce(ex.uid, entry.turn_in_exercise_uid) AS exercise_uid,
                coalesce(ex.title, entry.turn_in_exercise_title) AS exercise_title,
                ex.due_date AS due_date,
@@ -287,7 +287,7 @@ class _UserEntryAssessmentMixin:
         RETURN s.uid AS uid, s.title AS title,
                s.original_filename AS original_filename, s.status AS status,
                s.created_at AS created_at, student.uid AS student_uid,
-               student.name AS student_name, feedback_count,
+               coalesce(student.display_name, student.title, student.uid) AS student_name, feedback_count,
                s.turn_in_revision AS revision
         ORDER BY s.created_at DESC
         """
@@ -330,7 +330,7 @@ class _UserEntryAssessmentMixin:
              count(DISTINCT CASE WHEN reviewed THEN ku.uid END) AS reviewed_count,
              count(DISTINCT CASE WHEN NOT reviewed AND NOT superseded THEN ku.uid END) AS pending_count
         RETURN student.uid AS student_uid,
-               student.name AS student_name,
+               coalesce(student.display_name, student.title, student.uid) AS student_name,
                submission_count,
                reviewed_count,
                pending_count
@@ -408,22 +408,33 @@ class _UserEntryAssessmentMixin:
         Model B gate: the entry must be ``SUBMITTED_TO_GROUP`` an active group
         the teacher owns. One row, or none — the gate is an existence test, so
         an entry submitted to several of the teacher's groups is still one
-        detail. Empty result when the entry asks none of the
+        detail. ``superseded`` applies the queue's collapse rule
+        (``_SUPERSEDED_COPY``): a copy with a newer sibling this teacher can see
+        is history, which the review page offers no action on. Empty result
+        when the entry asks none of the
         teacher's groups for feedback — service-layer callers (``get_submission_detail``)
         map empty to ``Errors.not_found`` (404) so a teacher outside the
         student's group cannot distinguish "entry does not exist" from
         "entry exists but belongs to another teacher's student".
         """
         query = f"""
+        MATCH (teacher:User {{uid: $teacher_uid}})
         MATCH (s:Entity:UserEntry {{uid: $entry_uid}})
         WHERE s.pipeline = $pipeline
           AND EXISTS {{
               MATCH (s)-[:{RelationshipName.SUBMITTED_TO_GROUP.value}]->(g:Group)
-                    <-[:{RelationshipName.OWNS.value}]-(:User {{uid: $teacher_uid}})
+                    <-[:{RelationshipName.OWNS.value}]-(teacher)
               WHERE g.is_active = true
           }}
         OPTIONAL MATCH (student:User)-[:{RelationshipName.OWNS.value}]->(s)
         OPTIONAL MATCH (ex:Entity:Exercise {{uid: s.turn_in_exercise_uid}})
+        OPTIONAL MATCH (s)-[r:{RelationshipName.FULFILLS_EXERCISE.value}]->(:Entity:Exercise)
+        WITH teacher, s, student, ex,
+             s.uid AS copy_uid,
+             s.turn_in_exercise_uid AS copy_lineage,
+             s.submitted_from_uid AS copy_note,
+             coalesce(r.revision, 0) AS copy_revision,
+             s.created_at AS copy_created_at
         RETURN s.uid AS uid,
                s.title AS title,
                s.content AS content,
@@ -434,11 +445,12 @@ class _UserEntryAssessmentMixin:
                s.status AS status,
                s.created_at AS created_at,
                student.uid AS student_uid,
-               student.name AS student_name,
+               coalesce(student.display_name, student.title, student.uid) AS student_name,
                coalesce(ex.uid, s.turn_in_exercise_uid) AS exercise_uid,
                coalesce(ex.title, s.turn_in_exercise_title) AS exercise_title,
                s.turn_in_revision AS revision,
-               ex.instructions AS exercise_instructions
+               ex.instructions AS exercise_instructions,
+               {_SUPERSEDED_COPY} AS superseded
         """
         return await self.execute_query(
             query,

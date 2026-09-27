@@ -336,6 +336,9 @@ DELETED: dict[str, str] = {
     # Keyed with the call paren: underscore adjacency would otherwise match the live
     # get_student_exercises_with_status.
     "get_student_exercises(": "deleted — a student's exercise lists are get_student_exercises_with_status / get_enrolled_ps_exercises_with_status",
+    # The teacher review body reads one status constant and renders one action rule.
+    "NEEDS_REVIEW_STATUSES": "deleted — the review actions read REVIEWABLE_ENTRY_STATUSES (core/models/enums/entity_enums.py), the writers' own guard set",
+    "render_student_detail_tabs": "deleted — the per-student page renders render_student_detail_sections",
     "PageLayout": "deleted — use BasePage",
     "SimplePageLayout": "deleted — use BasePage",
     "DrawerLayout": "deleted — use SidebarPage from ui.patterns.sidebar",
@@ -445,6 +448,7 @@ _adr043 = (
     "decision-time bootstrap gating snapshot -- all three named services have since been renamed"
 )
 _adr054 = "ADR-054 before/after record of the ProcessorType/EXERCISE_SUBMISSION/JE_* -> UserEntry collapse"
+_ux_arc2 = "feedback-loop UX arc 2 record (done/) naming the action-form status set PR A of the arc-close pre-flight replaced"
 _review_sync = "SYNC_UNIFICATION_REVIEW finding A3 (2026-07-01) names the bundle route it reviewed -- a dated review record of commit 638d2fa, superseded by ADR-070 Decision 9's 2026-09-22 amendment"
 _adr014 = "ADR-014 changelog row recording the bundle mechanism and /api/ingest/* doors deleted for one ingestion system -- the record names what it retired"
 _adr070 = "ADR-070 Decision 9 amendments (2026-09-21, 2026-09-22) + changelog rows recording the raw ingest doors, the dry-run mode, the bundle mechanism, the HTTP path allowlist and the nous generator pair deleted with them -- the decision names what it retired"
@@ -777,6 +781,9 @@ ALLOWED_OCCURRENCES: dict[str, dict[tuple[int, str], Allow]] = {
     "docs/roadmap/symbol-claims-in-docs.md": {
         (79, "DomainConfig.cross_domain_relationship_types"): Allow(_symbol_queue),
         (79, "UnifiedUserContext"): Allow(_symbol_queue),
+    },
+    "docs/roadmap/done/feedback-loop-ux-arc2.md": {
+        (130, "NEEDS_REVIEW_STATUSES"): Allow(_ux_arc2),
     },
     "docs/roadmap/done/dead-doc-links-sweep-queue.md": {
         # 219 → 241: § "Named, still queued" above it gained the `/journals/browse`

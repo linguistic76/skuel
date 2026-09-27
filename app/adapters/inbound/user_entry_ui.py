@@ -66,6 +66,7 @@ from ui.gradebook.summary import (
 )
 from ui.layout import Size
 from ui.layouts.base_page import BasePage
+from ui.learning_loop.entry_body import EntryBody
 from ui.learning_loop.report import render_activity_report_list, render_yours_list
 from ui.learning_loop.turn_in_label import turn_in_label
 from ui.patterns.empty_state import EmptyState
@@ -863,16 +864,7 @@ def create_user_entry_ui_routes(
                     "Processed Content" if entry.processed_content else "Submitted Content",
                     cls="mt-6 mb-4",
                 ),
-                Div(
-                    P(body_text, cls="whitespace-pre-wrap text-sm")
-                    if body_text
-                    else P(
-                        "No content yet.",
-                        cls="text-sm text-muted-foreground",
-                    ),
-                    cls="p-4 bg-muted rounded-lg",
-                    style="max-height: 600px; overflow-y: auto;",
-                ),
+                EntryBody(body_text, empty="No content yet."),
                 Div(
                     ButtonLink(
                         "← Back to Submission History",

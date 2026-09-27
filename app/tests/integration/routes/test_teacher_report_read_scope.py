@@ -66,6 +66,10 @@ OTHER_GROUP_UID = "group_trs_out"
 SUB_UID = "ue_trs_submission"
 REPORT_UID = "er_trs_report"
 SECRET_FEEDBACK = "TRS_SECRET_FEEDBACK_BODY_9f1c"
+STUDENT_WORK = "TRS_STUDENT_WORK_BODY_4b2e"
+SNAPSHOT_TITLE = "Snapshot Exercise"
+NEWER_UID = "ue_trs_newer_copy"
+STUDENT_NAME = "Tess Student"
 
 CONTENT_PATH = "/teaching/review/{uid}/content"
 PANEL_PATH = "/api/teaching/review/{uid}/panel"
@@ -196,7 +200,7 @@ async def seeded(clean_neo4j, neo4j_driver, report_file) -> str:
     async with neo4j_driver.session() as session:
         await session.run(
             """
-            MERGE (student:User {uid: $student})
+            MERGE (student:User {uid: $student}) SET student.display_name = $student_name
             MERGE (inT:User {uid: $in_teacher})
             MERGE (outT:User {uid: $out_teacher})
             MERGE (g:Group {uid: $group}) SET g.is_active = true
@@ -206,8 +210,10 @@ async def seeded(clean_neo4j, neo4j_driver, report_file) -> str:
             MERGE (student)-[:MEMBER_OF]->(g)
             CREATE (sub:Entity:UserEntry {
                 uid: $sub, entity_type: 'user_entry', title: 'Student submission',
-                content: 'submission body', processed_content: '', status: 'submitted',
-                pipeline: 'teacher_review', created_at: datetime(), updated_at: datetime()
+                content: $work, processed_content: '', status: 'submitted',
+                pipeline: 'teacher_review', turn_in_exercise_uid: 'ex_trs_snapshot',
+                turn_in_exercise_title: $snapshot_title, turn_in_revision: 3,
+                created_at: datetime(), updated_at: datetime()
             })
             MERGE (student)-[:OWNS]->(sub)
             MERGE (sub)-[:SUBMITTED_TO_GROUP]->(g)
@@ -228,6 +234,9 @@ async def seeded(clean_neo4j, neo4j_driver, report_file) -> str:
             sub=SUB_UID,
             report=REPORT_UID,
             secret=SECRET_FEEDBACK,
+            work=STUDENT_WORK,
+            snapshot_title=SNAPSHOT_TITLE,
+            student_name=STUDENT_NAME,
             file_path=report_file,
         )
     return report_file
@@ -306,3 +315,71 @@ class TestReviewPanelScope:
         handler = api_handlers[PANEL_PATH]
         markup = to_xml(await handler(_make_request(OUT_TEACHER), uid=SUB_UID))
         assert SECRET_FEEDBACK not in markup
+
+
+# ============================================================================
+# The review body — the student's work, its version, and history copies
+# ============================================================================
+
+
+@pytest.fixture
+async def seeded_newer_copy(seeded, neo4j_driver) -> None:
+    """A newer copy in the submission's lineage, visible to the same teacher."""
+    async with neo4j_driver.session() as session:
+        await session.run(
+            """
+            MATCH (student:User {uid: $student}), (g:Group {uid: $group})
+            CREATE (newer:Entity:UserEntry {
+                uid: $newer, entity_type: 'user_entry', title: 'Newer copy',
+                content: 'the newer words', status: 'submitted',
+                pipeline: 'teacher_review', turn_in_exercise_uid: 'ex_trs_snapshot',
+                turn_in_exercise_title: $snapshot_title, turn_in_revision: 4,
+                created_at: datetime() + duration('PT5S'), updated_at: datetime()
+            })
+            MERGE (student)-[:OWNS]->(newer)
+            MERGE (newer)-[:SUBMITTED_TO_GROUP]->(g)
+            """,
+            student=STUDENT,
+            group=GROUP_UID,
+            newer=NEWER_UID,
+            snapshot_title=SNAPSHOT_TITLE,
+        )
+
+
+@pytest.mark.parametrize(("path", "surface"), [(CONTENT_PATH, "ui"), (PANEL_PATH, "api")])
+class TestReviewShowsTheStudentsWork:
+    """Both teacher surfaces show the work itself and its version — to the
+    teacher it was submitted to, and to no one else."""
+
+    def _handler(self, ui_handlers, api_handlers, path: str, surface: str) -> Any:
+        return (ui_handlers if surface == "ui" else api_handlers)[path]
+
+    async def test_the_teacher_reads_the_work_and_its_version(
+        self, ui_handlers, api_handlers, seeded, path, surface
+    ) -> None:
+        handler = self._handler(ui_handlers, api_handlers, path, surface)
+        markup = to_xml(await handler(_make_request(IN_TEACHER), uid=SUB_UID))
+        assert STUDENT_WORK in markup
+        assert f"by {STUDENT_NAME} · Exercise: {SNAPSHOT_TITLE} · v3" in markup
+        assert 'name="instructions"' in markup
+
+    async def test_another_classroom_reads_none_of_it(
+        self, ui_handlers, api_handlers, seeded, path, surface
+    ) -> None:
+        handler = self._handler(ui_handlers, api_handlers, path, surface)
+        markup = to_xml(await handler(_make_request(OUT_TEACHER), uid=SUB_UID))
+        assert STUDENT_WORK not in markup
+        assert SNAPSHOT_TITLE not in markup
+
+    async def test_a_superseded_copy_is_history(
+        self, ui_handlers, api_handlers, seeded_newer_copy, path, surface
+    ) -> None:
+        handler = self._handler(ui_handlers, api_handlers, path, surface)
+        older = to_xml(await handler(_make_request(IN_TEACHER), uid=SUB_UID))
+        assert STUDENT_WORK in older, "the history copy still shows its work"
+        assert "this copy is history" in older
+        assert f"/api/teaching/review/{SUB_UID}/revision" not in older
+        assert f"/api/teaching/review/{SUB_UID}/report" not in older
+
+        newer = to_xml(await handler(_make_request(IN_TEACHER), uid=NEWER_UID))
+        assert f"/api/teaching/review/{NEWER_UID}/revision" in newer

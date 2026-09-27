@@ -348,7 +348,9 @@ await backend.get_exercise_context(...)                                 # OWNS/C
 (ADR-088 §4).
 
 **Loop role:** Submission is the *evidence* — the student's demonstration of engagement
-with the Ku. The `processed_content` field is what AI and teachers actually evaluate.
+with the Ku. Teachers read the student's `content` (the review card and the offline export
+show it, with a filename fallback for an upload); AI report generation reads
+`processed_content` when a pipeline has filled it, else `content`.
 Without Submission, the loop has no student voice.
 
 ---
@@ -454,7 +456,8 @@ self-describing — the report records what decision was made, not just feedback
 | Source | Service | ReportSource | AssessmentOutcome | Trigger |
 |--------|---------|---------------|-------------------|---------|
 | Teacher submits `.md` file | `TeacherReviewService.submit_report()` | `HUMAN` | `APPROVED` | Teacher uploads feedback file at `/teaching/review/{uid}` |
-| Teacher requests revision | `TeacherReviewService.request_revision()` | `HUMAN` | `NEEDS_REVISION` | Teacher fills structured revision form (instructions + categorized feedback points via Alpine.js dynamic list + rationale) |
+| Teacher requests revision (a turn-in) | `TeacherReviewService.request_revision_with_exercise()` | `HUMAN` | `NEEDS_REVISION` | Teacher fills the revision form (instructions + categorized feedback points via the `revisionForm` Alpine list + rationale); the route reads the exercise from the gated detail and files EntryReport + RevisedExercise atomically |
+| Teacher requests revision (no exercise) | `TeacherReviewService.request_revision()` | `HUMAN` | `NEEDS_REVISION` | Instructions only — a revision-requested report, no RevisedExercise |
 | AI | `EntryReportService.generate_report()` | `LLM` | `AI_EVALUATED` | Exercise has `instructions` (via `UnifiedLLMCaller`) |
 
 **Two teacher feedback pathways — same service methods, different entry points:**
@@ -763,7 +766,7 @@ RelationshipName.REVISES_EXERCISE        # RevisedExercise → Exercise
 | **Journal processing** | *(no standalone service — ADR-054)* | — | — | Journals are a `UserEntry` pipeline (`Pipeline.TRANSCRIBE_AND_STRUCTURE`) handled by `UserEntryProcessingService` |
 | **Learning Loop Intelligence (write)** | `LearningLoopEventHandlerService` | — | `UserEntryBackend` (port `UserEntryOperations`) | `handle_submission_created` (iteration tracking), `handle_report_submitted` (feedback turnaround EMA), `handle_submission_approved` (mastery velocity) |
 | **Learning Loop Intelligence (read)** | `LearningLoopQueryService` | — | `UserEntryBackend` (port `UserEntryOperations`) | `get_submissions_for_path_step(user_uid, ps_uid, limit=QueryLimit.COMPREHENSIVE)` — Interaction traversal + report-status enrichment, bounded by `limit` (default 100), entity_type filter parameterized via `EntityType.USER_ENTRY.value`. New learning-loop reads land here, not on a separate search service |
-| **Teacher review** | `TeacherReviewService` | `TeacherReviewOperations` | `UserEntryBackend` + `EntryReportBackend` + `ExerciseBackend` + `GroupBackend` | **Review actions:** `get_review_queue`, `get_submission_detail`, `submit_report` (file upload → `processed_content` + `report_file_path`), `request_revision` (text notes), `approve_report`, `get_report_file_path` · **Exercise view:** `get_exercises_with_submission_counts`, `get_submissions_for_exercise` · **Student view:** `get_students_summary` (students owning a `teacher_review` UserEntry `SUBMITTED_TO_GROUP` an active group the teacher owns — no PathStep enrollment required), `get_student_submissions` · **Dashboard:** `get_dashboard_stats`, `get_teacher_groups_with_stats`, `get_group_detail` · **Report listing:** `EntryReportService.list_for_submission()` is the typed report read — there is no `get_report_history` |
+| **Teacher review** | `TeacherReviewService` | `TeacherReviewOperations` | `UserEntryBackend` + `EntryReportBackend` + `ExerciseBackend` + `GroupBackend` | **Review actions:** `get_review_queue`, `get_submission_detail`, `submit_report` (file upload → `processed_content` + `report_file_path`), `request_revision_with_exercise` / `request_revision` (instructions + feedback points; the route reads the exercise from the gated detail), `approve_report`, `get_report_file_path` · **Exercise view:** `get_exercises_with_submission_counts`, `get_submissions_for_exercise` · **Student view:** `get_students_summary` (students owning a `teacher_review` UserEntry `SUBMITTED_TO_GROUP` an active group the teacher owns — no PathStep enrollment required), `get_student_submissions` · **Dashboard:** `get_dashboard_stats`, `get_teacher_groups_with_stats`, `get_group_detail` · **Report listing:** `EntryReportService.list_for_submission()` is the typed report read — there is no `get_report_history` |
 | **Activity Report (auto/LLM)** | `ProgressReportGenerator` | `ProgressReportOperations` | `UserContextBuilder` | `generate` |
 | **Activity Report (human)** | `ActivityReportService` | `ActivityReportOperations` | `ActivityReportBackend` + `UserContextBuilder` | `create_snapshot`, `submit_report`, `persist`, `get_history`, `annotate` |
 

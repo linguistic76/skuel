@@ -133,6 +133,10 @@ All five sub-pages use the Submissions sidebar (Sync → Exercise → Journal �
 
 Teaching child pages (Students, Groups, Review Queue, Forms) use `SidebarPage` with Teaching sidebar; nav defined in `ui/teaching/nav.py`.
 
+### `/teaching/review/{uid}` — Review a Submission
+
+The page a `submission_for_review` bell opens: a shell that loads `/teaching/review/{uid}/content`, gated by the entry's feedback request (`SUBMITTED_TO_GROUP` an active group the teacher owns — anything else is "Submission not found."). It renders the review body the per-student panel (`/api/teaching/review/{uid}/panel`) also renders: the student's work in their words with "`<exercise>` · v`<N>`", the feedback history, and the actions the status allows — feedback (`.md` upload) and a revision request from submitted/active, Approve from revision_requested, nothing on a superseded copy. Routes in `adapters/inbound/teaching_ui.py` / `teaching_api.py`.
+
 ### `/teaching/queue` — Review Queue
 
 Two link-tab views over the SAME student-scoped queue query (`get_review_queue_by_groups` — one collapse rule, per-entry `SUBMITTED_TO_GROUP` gate, one card per entry however many of the teacher's classes it was submitted to): **Needs review** (default; statuses submitted/active) and **Waiting for resubmit** (`?view=waiting`; status `revision_requested` — feedback-loop UX arc 2, C3). A resubmit supersedes the revision-requested copy in its lineage, automatically moving the exercise from Waiting back to Needs review. The per-student page's Needs Review / Revision Requested buckets read the same two scoped queues, so the surfaces never disagree. Routes in `adapters/inbound/teaching_ui.py`.

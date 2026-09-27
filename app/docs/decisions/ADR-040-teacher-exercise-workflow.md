@@ -1,5 +1,5 @@
 ---
-updated: 2026-09-25
+updated: 2026-09-27
 related_skills: [learning-loop]
 ---
 
@@ -15,7 +15,7 @@ related_skills: [learning-loop]
 
 **Status:** Accepted
 **Date:** 2026-02-06
-**Updated:** 2026-02-16 (ReportProject → Assignment rename), 2026-04-02 (admin fallback + auto-enrollment), 2026-04-02 (teacher feedback as .md file upload), 2026-04-02 (fix status guards for submit_report + request_revision), 2026-04-02 (review queue + dashboard stats switch to OWNS-based approach), 2026-04-03 (Assignment → Exercise rename throughout)
+**Updated:** 2026-02-16 (ReportProject → Assignment rename), 2026-04-02 (admin fallback + auto-enrollment), 2026-04-02 (teacher feedback as .md file upload), 2026-04-02 (fix status guards for submit_report + request_revision), 2026-04-02 (review queue + dashboard stats switch to OWNS-based approach), 2026-04-03 (Assignment → Exercise rename throughout), 2026-09-27 (one review body and revision form on both teacher surfaces; the exercise read server-side; superseded copies take no action)
 **Author:** Claude Code
 
 ## Related Skills
@@ -163,9 +163,12 @@ standalone work without enrolling in a curriculum path. The current query also d
 `OPTIONAL MATCH` two-pass structure: the mandatory `OWNS` match already filters to
 submitting students, so `DISTINCT student` + count aggregate in a single pass.
 
-`get_submission_detail_for_teacher()` does a direct lookup by submission UID — no
-`SHARES_WITH` gate. Access control is enforced at the route level
-(`@require_role(UserRole.TEACHER)`); the Cypher does a direct lookup by uid.
+The review detail read (`TeacherReviewService.get_submission_detail` →
+`get_entry_detail_for_teacher()`) returns an entry by uid only when it is
+`SUBMITTED_TO_GROUP` an active group the teacher owns (ADR-088); anything else is
+`not_found` (404), so a teacher cannot tell a missing entry from another teacher's student's.
+`@require_role(UserRole.TEACHER)` is the role half and this read the access half; the
+revision route takes the exercise from it.
 
 ### Review Queue + Dashboard Stats — OWNS-Based (2026-04-02)
 
@@ -190,19 +193,22 @@ as pending. `verify_teacher_authority()` evaluates the teacher's active group go
 | Action | Method | Sets Submission To | Requires Submission In |
 |--------|--------|--------------------|------------------------|
 | Submit feedback | `submit_report()` | `COMPLETED` | `SUBMITTED`, `ACTIVE` |
-| Request revision | `request_revision()` | `REVISION_REQUESTED` | `SUBMITTED`, `ACTIVE` |
+| Request revision | `request_revision_with_exercise()` (a turn-in) / `request_revision()` (no exercise) | `REVISION_REQUESTED` | `SUBMITTED`, `ACTIVE` |
 | Approve | `approve_report()` | `COMPLETED` | `REVISION_REQUESTED` |
 
 - `SUBMITTED` — newly submitted by student (initial submission)
 - `ACTIVE` — resubmitted after a revision cycle
 
-Both `submit_report` and `request_revision` accept either status because the teacher
-sees the same review page regardless of which cycle the submission is in.
+Feedback and a revision request accept either status (`REVIEWABLE_ENTRY_STATUSES`) because
+the teacher sees the same review page regardless of which cycle the submission is in. The
+review page and the per-student panel render one body (`render_review_body`) whose action
+rule reads the same constant, so neither offers a form the service refuses; a superseded
+copy (a newer version the teacher can see was handed in) takes no action at all.
 
 The three HTMX-targeted routes (`/api/teaching/review/{uid}/report`,
 `/api/teaching/review/{uid}/revision`, `/api/teaching/review/{uid}/approve`) return
 FastHTML FT components (not JSON) so HTMX can inject inline success/error banners
-into the `#review-result` div.
+into the submission's `#review-result-{uid}` div.
 
 ### Teacher Feedback as Markdown File Upload (2026-04-02)
 
@@ -212,13 +218,16 @@ to write rich, structured feedback in Obsidian or any text editor before submitt
 
 **How it works:**
 - Teacher uploads a `.md` file via the "Submit Feedback" form (multipart/form-data)
-- File content → `ExerciseReport.content` (inherited from Entity)
-- File saved to `data/reports/{teacher_uid}/{submission_uid}/feedback.md`
-- File path → `ExerciseReport.report_file_path`
+- File content → the EntryReport's `processed_content`
+- File saved to `data/reports/{teacher_uid}/{submission_uid}/feedback-<token>.md`
+- File path → the EntryReport's `report_file_path`
 - Students download feedback via `GET /api/reports/{report_uid}/download` (attachment)
 
-**Request Revision** remains text-only — a separate textarea form sends
-`RequestRevisionRequest.notes` to `/api/teaching/review/{uid}/revision`.
+**Request Revision** is a form, not a file: `RequestRevisionRequest.instructions` (required),
+and for a turn-in the categorized feedback points and an optional rationale, to
+`/api/teaching/review/{uid}/revision`. The route reads the exercise from the gated detail of
+the submission — never from the form — and files an EntryReport plus a RevisedExercise
+against it; work with no exercise gets a revision-requested report only.
 `SubmitReportRequest` was removed; feedback ingestion is now file-only for HUMAN reports.
 
 ### CLI-Based Offline Review Workflow (2026-04-02)
