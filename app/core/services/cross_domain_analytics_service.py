@@ -14,7 +14,7 @@ All analytics are built by subscribing to existing events - no service changes n
 
 from collections import defaultdict
 from dataclasses import dataclass
-from datetime import date, datetime, timedelta
+from datetime import datetime, timedelta
 from typing import TYPE_CHECKING, Any
 
 from core.constants import CompletionVelocityWindow, HabitConsistencyWindow
@@ -33,6 +33,8 @@ from core.utils.decorators import with_error_handling
 from core.utils.exception_types import NEO4J_EXCEPTIONS
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
+from core.utils.timestamp_helpers import today_in
+from core.utils.zone_context import current_zone
 
 if TYPE_CHECKING:
     from core.ports.cross_domain_protocols import CrossDomainBackendOperations
@@ -520,7 +522,7 @@ class CrossDomainAnalyticsService:
             - tasks_completed_in_window: The velocity numerator
             - completion_velocity: Tasks per week over that window
         """
-        today = date.today()
+        today = today_in(current_zone())
 
         result = await self.backend.get_productivity_analytics(
             user_uid=user_uid,
@@ -602,7 +604,7 @@ class CrossDomainAnalyticsService:
             - completions_in_window: The consistency numerator
             - consistency_score: Completions per week over that window
         """
-        today = date.today()
+        today = today_in(current_zone())
 
         result = await self.backend.get_habit_analytics(
             user_uid=user_uid,

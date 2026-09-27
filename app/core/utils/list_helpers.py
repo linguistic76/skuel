@@ -10,6 +10,9 @@ from collections.abc import Callable
 from datetime import date, datetime, time
 from typing import Any
 
+from core.utils.timestamp_helpers import today_in
+from core.utils.zone_context import current_zone
+
 # -- Type aliases (PEP 695) --------------------------------------------------
 
 type SortSpec = tuple[Callable[[Any], Any], bool]  # (key_func, reverse)
@@ -65,7 +68,7 @@ def get_event_sort_datetime(event: Any) -> datetime:
 
     Handles both proper ``date``/``time`` objects and string representations.
     """
-    event_date = getattr(event, "event_date", None) or date.today()
+    event_date = getattr(event, "event_date", None) or today_in(current_zone())
     if not isinstance(event_date, date) and getattr(event_date, "year", None) is not None:
         event_date = date(event_date.year, event_date.month, event_date.day)
     start_time_val = getattr(event, "start_time", None)

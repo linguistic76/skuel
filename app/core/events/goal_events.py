@@ -9,7 +9,7 @@ The classes below are the catalog. For consumers read the wiring modules
 """
 
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import date
 from typing import ClassVar
 
 from core.events.base import BaseEvent
@@ -35,7 +35,7 @@ class GoalCreated(BaseEvent):
     user_uid: UserUID
     title: str
     domain: str | None
-    target_date: datetime | None
+    target_date: date | None  # a calendar day, as Goal.target_date is
 
     # Goal type context
     is_milestone: bool = False

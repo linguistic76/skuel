@@ -17,7 +17,7 @@ This service follows the SearchService pattern documented in:
 /docs/patterns/search_service_pattern.md
 """
 
-from datetime import date, timedelta
+from datetime import timedelta
 from typing import Any
 
 from core.models.enums import EntityStatus
@@ -34,6 +34,8 @@ from core.services.user import UserContext
 from core.utils.decorators import with_error_handling
 from core.utils.result_simplified import Result
 from core.utils.sort_functions import get_result_score
+from core.utils.timestamp_helpers import today_in
+from core.utils.zone_context import current_zone
 
 
 class PrinciplesSearchService(BaseService[PrinciplesOperations, Principle]):
@@ -191,7 +193,9 @@ class PrinciplesSearchService(BaseService[PrinciplesOperations, Principle]):
         """
         # Default review threshold is 90 days
         review_threshold_days = 90
-        review_cutoff = date.today() - timedelta(days=review_threshold_days - days_ahead)
+        review_cutoff = today_in(current_zone()) - timedelta(
+            days=review_threshold_days - days_ahead
+        )
 
         result = await self.backend.get_principles_due_for_review(
             cutoff_date=review_cutoff.isoformat(),
@@ -355,7 +359,7 @@ class PrinciplesSearchService(BaseService[PrinciplesOperations, Principle]):
         Returns:
             Result containing principles needing review
         """
-        review_cutoff = date.today() - timedelta(days=days_threshold)
+        review_cutoff = today_in(current_zone()) - timedelta(days=days_threshold)
 
         result = await self.backend.get_principles_needing_review(
             cutoff_date=review_cutoff.isoformat(),

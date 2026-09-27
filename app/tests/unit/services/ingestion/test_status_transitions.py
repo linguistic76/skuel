@@ -39,6 +39,8 @@ from __future__ import annotations
 from datetime import date, datetime
 from typing import Any
 
+import pytest
+
 from core.events import CalendarEventCompleted, GoalAchieved, TaskCompleted, TaskReopened
 from core.models.enums.entity_enums import EntityType
 from core.services.completion_stamp import COMPLETION_FIELDS
@@ -48,6 +50,10 @@ from core.services.ingestion.status_transitions import (
     build_reopen_events,
     classify_ingest_status_transitions,
 )
+
+# Calendar days here are read on the host clock (period bounds, widened dates):
+# the expectations are the laptop's, where the host clock and the default zone agree.
+pytestmark = pytest.mark.usefixtures("laptop_zone")
 
 OWNER = "user_status_transitions"
 

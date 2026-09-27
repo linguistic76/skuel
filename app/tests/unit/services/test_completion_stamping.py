@@ -60,6 +60,8 @@ from core.services.completion_stamp import (
     status_transition_guard,
 )
 from core.utils.result_simplified import Result
+from core.utils.timestamp_helpers import today_in
+from core.utils.zone_context import current_zone
 from tests.helpers.status_guarded_backend import (
     StatusGuardedWriteRecorder,
     guarded_backend,
@@ -123,7 +125,9 @@ class TestIsReopenTransition:
         agree — otherwise a garbage status would publish a reopen that the write itself
         refuses."""
         assert not is_reopen_transition(EntityStatus.COMPLETED, {"status": "not_a_status"})
-        assert status_transition_guard(EntityType.TASK, {"status": "not_a_status"}).is_error
+        assert status_transition_guard(
+            EntityType.TASK, {"status": "not_a_status"}, zone=current_zone()
+        ).is_error
 
     def test_the_gate_agrees_with_the_stamp_clear(self):
         """Whenever this says reopen, the write clears the stamp, and vice versa.
@@ -135,7 +139,7 @@ class TestIsReopenTransition:
         for old_status in (EntityStatus.COMPLETED, EntityStatus.ACTIVE):
             for new_status in sorted(s.value for s in EntityType.TASK.valid_statuses()):
                 changes = {"status": new_status}
-                guard = status_transition_guard(EntityType.TASK, changes)
+                guard = status_transition_guard(EntityType.TASK, changes, zone=current_zone())
                 assert guard.is_ok
                 merged = resolve_merged_patch(old_status.value, {}, guard.value)
                 clears = merged.get("completion_date", "absent") is None
@@ -188,9 +192,9 @@ class TestTasksChokepoint:
         # completed. That condition is what stops a re-post re-dating.
         assert recorder.last_guard.patch_if_prior_not_in == (
             frozenset({"completed"}),
-            {"completion_date": date.today()},
+            {"completion_date": today_in(current_zone())},
         )
-        assert recorder.merged_patch()["completion_date"] == date.today()
+        assert recorder.merged_patch()["completion_date"] == today_in(current_zone())
 
     async def test_reposting_completed_does_not_restamp(self):
         service, _backend, recorder = self._service(EntityStatus.COMPLETED)
@@ -304,9 +308,9 @@ class TestGoalsChokepoint:
         assert result.is_ok
         assert recorder.last_guard.patch_if_prior_not_in == (
             frozenset({"completed"}),
-            {"achieved_date": date.today()},
+            {"achieved_date": today_in(current_zone())},
         )
-        assert recorder.merged_patch()["achieved_date"] == date.today()
+        assert recorder.merged_patch()["achieved_date"] == today_in(current_zone())
 
     async def test_reposting_completed_does_not_restamp(self):
         # Achievement immutability dropped (ruled 2026-08-22): completed goals
@@ -457,7 +461,7 @@ class TestGoalsChokepoint:
         service, _backend, recorder = self._service(EntityStatus.ACTIVE)
         result = await service.complete_goal("goal_1")
         assert result.is_ok
-        assert recorder.merged_patch()["achieved_date"] == date.today()
+        assert recorder.merged_patch()["achieved_date"] == today_in(current_zone())
 
     async def test_complete_goal_on_an_already_completed_goal_does_not_redate(self):
         # set_status("completed") on an already-completed goal dispatches here;
@@ -674,14 +678,14 @@ class TestEventsChokepoint:
             user_uid=USER,
             title="e",
             status=current_status,
-            event_date=event_date or date.today(),
+            event_date=event_date or today_in(current_zone()),
         )
         updated = Event(
             uid="event_1",
             user_uid=USER,
             title="e",
             status=EntityStatus.COMPLETED,
-            event_date=event_date or date.today(),
+            event_date=event_date or today_in(current_zone()),
         )
         backend, recorder = guarded_backend(current, updated)
         return EventsCoreService(backend=backend), backend, recorder
@@ -723,7 +727,7 @@ class TestEventsChokepoint:
         EVERY update, which is why this chokepoint's advisory read is unconditional.
         Drop the explicit ``_validate_update`` call and the rule dies silently."""
         service, backend, _recorder = self._service(
-            EntityStatus.ACTIVE, event_date=date.today() - timedelta(days=3)
+            EntityStatus.ACTIVE, event_date=today_in(current_zone()) - timedelta(days=3)
         )
         result = await service.update_event("event_1", EventUpdateIntent(title="rewritten"))
         assert result.is_error
@@ -737,7 +741,7 @@ class TestEventsChokepoint:
         has no member for, so this door cannot reach them (the same intent-vs-validator
         drift already registered for Principles; out of this PR's scope)."""
         service, _backend, recorder = self._service(
-            EntityStatus.ACTIVE, event_date=date.today() - timedelta(days=3)
+            EntityStatus.ACTIVE, event_date=today_in(current_zone()) - timedelta(days=3)
         )
         result = await service.update_event("event_1", EventUpdateIntent(tags=["afterthought"]))
         assert result.is_ok
@@ -769,17 +773,21 @@ class TestEventsChokepoint:
             user_uid=USER,
             title="e",
             status=EntityStatus.ACTIVE,
-            event_date=date.today(),
+            event_date=today_in(current_zone()),
         )
         write_prior_shape = Event(
-            uid="event_1", user_uid=USER, title="e", status=write_prior, event_date=date.today()
+            uid="event_1",
+            user_uid=USER,
+            title="e",
+            status=write_prior,
+            event_date=today_in(current_zone()),
         )
         updated = Event(
             uid="event_1",
             user_uid=USER,
             title="e",
             status=EntityStatus.COMPLETED,
-            event_date=date.today(),
+            event_date=today_in(current_zone()),
         )
         backend, _recorder = guarded_backend(write_prior_shape, updated)
         backend.get = AsyncMock(return_value=Result.ok(read_shape))
@@ -960,7 +968,7 @@ class TestCompleteTasksBulk:
         assert result.is_ok
         assert result.value == 2
         assert store.merged["task_active"]["status"] == EntityStatus.COMPLETED.value
-        assert store.merged["task_active"]["completion_date"] == date.today()
+        assert store.merged["task_active"]["completion_date"] == today_in(current_zone())
         assert "completion_date" not in store.merged["task_done"], (
             "bulk-completing an already-completed task re-dated its completion"
         )
@@ -1137,7 +1145,7 @@ class TestDslDoneDateParse:
         assert result.is_ok
         request = result.value
         assert isinstance(request, TaskCreateRequest)
-        assert request.completion_date == date.today()
+        assert request.completion_date == today_in(current_zone())
 
     def test_unchecked_line_yields_no_completion_date(self):
         from core.services.dsl.activity_domain_converters import activity_to_task_request
@@ -1155,7 +1163,7 @@ class TestDslDoneDateParse:
 class TestTaskCreateRequestCompletionDefault:
     def test_completed_create_defaults_to_today(self):
         request = TaskCreateRequest(title="t", status=EntityStatus.COMPLETED)
-        assert request.completion_date == date.today()
+        assert request.completion_date == today_in(current_zone())
 
     def test_completion_date_on_a_non_completed_create_is_refused(self):
         # A DRAFT task carrying a completion stamp would break the field's
@@ -1174,7 +1182,7 @@ class TestTaskCreateRequestCompletionDefault:
             TaskCreateRequest(
                 title="t",
                 status=EntityStatus.COMPLETED,
-                completion_date=date.today() + timedelta(days=1),
+                completion_date=today_in(current_zone()) + timedelta(days=1),
             )
 
     def test_supplied_date_is_kept(self):
@@ -1213,7 +1221,7 @@ class TestTaskUpdateRequestCompletionDate:
         with pytest.raises(ValidationError, match="cannot be in the future"):
             TaskUpdateRequest(
                 status=EntityStatus.COMPLETED,
-                completion_date=date.today() + timedelta(days=1),
+                completion_date=today_in(current_zone()) + timedelta(days=1),
             )
 
     def test_a_bare_future_stamp_is_refused_with_no_status_in_the_patch(self):
@@ -1221,14 +1229,14 @@ class TestTaskUpdateRequestCompletionDate:
         from pydantic import ValidationError
 
         with pytest.raises(ValidationError, match="cannot be in the future"):
-            TaskUpdateRequest(completion_date=date.today() + timedelta(days=365))
+            TaskUpdateRequest(completion_date=today_in(current_zone()) + timedelta(days=365))
 
     def test_the_two_doors_refuse_the_same_date(self):
         """One rule, two doors — they share ``_refuse_future_completion_date`` so the
         create door cannot tighten or loosen without the update door following."""
         from pydantic import ValidationError
 
-        future = date.today() + timedelta(days=1)
+        future = today_in(current_zone()) + timedelta(days=1)
         with pytest.raises(ValidationError, match="cannot be in the future"):
             TaskCreateRequest(title="t", status=EntityStatus.COMPLETED, completion_date=future)
         with pytest.raises(ValidationError, match="cannot be in the future"):
@@ -1242,8 +1250,10 @@ class TestTaskUpdateRequestCompletionDate:
         assert request.to_intent().completion_date == date(2026, 8, 15)
 
     def test_today_is_not_the_future(self):
-        request = TaskUpdateRequest(status=EntityStatus.COMPLETED, completion_date=date.today())
-        assert request.to_intent().completion_date == date.today()
+        request = TaskUpdateRequest(
+            status=EntityStatus.COMPLETED, completion_date=today_in(current_zone())
+        )
+        assert request.to_intent().completion_date == today_in(current_zone())
 
     def test_an_explicit_clear_passes(self):
         """``None`` is the reopen-clear, not a completion claim."""
@@ -1279,7 +1289,8 @@ class TestTaskUpdateRequestCompletionDate:
         how a user would fix it.
         """
         intent = TaskUpdateRequest(
-            status=EntityStatus.ACTIVE, completion_date=date.today() + timedelta(days=400)
+            status=EntityStatus.ACTIVE,
+            completion_date=today_in(current_zone()) + timedelta(days=400),
         ).to_intent()
         assert intent.completion_date is None
 

@@ -41,6 +41,7 @@ from core.utils.decorators import with_error_handling
 from core.utils.result_simplified import Errors, Result
 from core.utils.type_converters import get_enum_value
 from core.utils.uid_generator import UIDGenerator
+from core.utils.zone_context import current_zone
 
 
 class HabitsCoreService(
@@ -618,7 +619,7 @@ class HabitsCoreService(
         # Status-target validation + completion stamping (transition-gated) — the
         # lifecycle ``completed_at``, distinct from occurrence completions
         # (HabitCompletion nodes, owned by the completions sub-service).
-        guard_result = status_transition_guard(EntityType.HABIT, changes)
+        guard_result = status_transition_guard(EntityType.HABIT, changes, zone=current_zone())
         if guard_result.is_error:
             return Result.fail(guard_result)
 

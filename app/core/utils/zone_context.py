@@ -16,7 +16,12 @@ system work that acts for no user.
 - **Outside a request:** no middleware has run, and ``current_zone()`` is the
   app default. Work done for a named user (a vault sync for the vault's owner,
   a report generated for a user) resolves that user's zone explicitly
-  (``UserService.get_user_zone``).
+  (``UserService.get_user_zone``) and runs under ``zone_scope(zone)``, so every
+  calendar read inside it — however deep — asks that user's zone. The same
+  scope serves a request that works on another user's calendar (an admin's
+  snapshot of a subject's week).
+- **Today** is ``today_in(current_zone())``; ``today_in_current_zone()`` is the
+  same read with no argument, for a default factory that cannot take one.
 - **A zone name** is valid when zoneinfo lists it (``zone_names()``). The
   Settings door, the request model and the DTO parse refuse any other name
   (``validated_zone_name``); a stored choice is resolved leniently
@@ -35,12 +40,16 @@ from __future__ import annotations
 
 import os
 import zoneinfo
+from collections.abc import Iterator
+from contextlib import contextmanager
 from contextvars import ContextVar
+from datetime import date
 from functools import cache
 from typing import Final
 from zoneinfo import ZoneInfo
 
 from core.utils.logging import get_logger
+from core.utils.timestamp_helpers import today_in
 
 logger = get_logger("skuel.zone")
 
@@ -136,6 +145,36 @@ def current_zone() -> ZoneInfo:
     return current_zone_var.get() or default_zone()
 
 
+def today_in_current_zone() -> date:
+    """Today in the current zone — ``today_in(current_zone())`` with no argument.
+
+    For a default factory that is called without one: a request model's date
+    field (``Field(default_factory=today_in_current_zone)``), a callable default.
+    """
+    return today_in(current_zone())
+
+
+@contextmanager
+def zone_scope(zone: ZoneInfo) -> Iterator[ZoneInfo]:
+    """Run a block of work in ``zone``: every ``current_zone()`` inside it reads ``zone``.
+
+    For work done for a named user whose zone is not the in-flight request's —
+    a vault sync for the vault's owner, a user's context built for an admin's
+    review — once that user's zone is resolved (``UserService.get_user_zone``).
+    Tasks started inside the block inherit it; the previous zone is restored on
+    exit, whatever the block raised.
+
+    Example:
+        with zone_scope(owner_zone):
+            await self._ingest(...)  # ✅ dates and completion stamps: the owner's day
+    """
+    token = current_zone_var.set(zone)
+    try:
+        yield zone
+    finally:
+        current_zone_var.reset(token)
+
+
 __all__ = [
     "DEFAULT_TIMEZONE",
     "TIMEZONE_ENV_VAR",
@@ -143,7 +182,9 @@ __all__ = [
     "current_zone",
     "current_zone_var",
     "default_zone",
+    "today_in_current_zone",
     "validated_zone_name",
     "zone_for",
     "zone_names",
+    "zone_scope",
 ]

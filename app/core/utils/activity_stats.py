@@ -18,12 +18,13 @@ each metric.
 """
 
 from dataclasses import dataclass
-from datetime import date
 from typing import TYPE_CHECKING, Any
 
 from core.models.enums.entity_enums import EntityStatus
 from core.models.enums.principle_enums import PrincipleStrength
+from core.utils.timestamp_helpers import today_in
 from core.utils.type_converters import get_enum_attr_str
+from core.utils.zone_context import current_zone
 
 if TYPE_CHECKING:
     from core.models.choice.choice import Choice
@@ -56,7 +57,7 @@ def compute_task_stats(tasks: list[Task]) -> TaskStats:
         active = total - completed (everything not in COMPLETED state)
         overdue = past due_date and not completed
     """
-    today = date.today()
+    today = today_in(current_zone())
     total = len(tasks)
     completed = sum(1 for t in tasks if t.status == EntityStatus.COMPLETED)
     overdue = sum(
@@ -211,7 +212,7 @@ def compute_event_stats(events: list[Event]) -> EventStats:
         scheduled = status == "scheduled"
         today = event_date == today
     """
-    today = date.today()
+    today = today_in(current_zone())
     total = len(events)
     active = sum(
         1

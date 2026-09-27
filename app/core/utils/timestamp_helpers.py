@@ -7,19 +7,25 @@ Eliminates duplication of timestamp operations across services.
 
 DRY Principle:
 - Timezone-aware "now" helpers
-- Instants as aware UTC (as_utc) for comparison and arithmetic
-- Zone helpers, each taking the zone: now_in, today_in, day_of (an instant's
-  day), local_day_bounds (a day's UTC bounds). Whose zone it is — the user's
-  choice or the app default — is core/utils/zone_context.py
-- Duration/age calculations (days_until, days_since, is_overdue, is_today)
+- Instants as aware UTC (as_utc) for comparison and arithmetic, and as a
+  naive reading of the host clock (as_host_clock) for comparison with the
+  naive stamps it writes
+- Zone helpers, each taking the zone: now_in, wall_clock_in, today_in, day_of
+  (an instant's day), local_day_bounds (a day's UTC bounds). Whose zone it is —
+  the user's choice or the app default — is core/utils/zone_context.py, which
+  also gives today in the current zone (today_in_current_zone)
 - Calendar arithmetic (week_bounds, month_grid_bounds, prev/next month and week)
 - Neo4j-tolerant scalar date parsing (parse_date_value)
 
 Usage:
-    from core.utils.timestamp_helpers import now_utc, days_until, week_bounds
+    from core.utils.timestamp_helpers import now_utc, today_in, week_bounds
+    from core.utils.zone_context import current_zone
 
     # Get current time
     created_at = now_utc()
+
+    # "Today" is today in the current zone, never the host's day
+    overdue = task.due_date < today_in(current_zone())
 
 Note: dict-level batch parsing for DTO deserialization lives in
 ``core/models/dto_helpers.py`` (the canonical from_dict parse layer);
@@ -55,16 +61,6 @@ def now_local() -> datetime:
     return datetime.now()
 
 
-def today() -> date:
-    """
-    Get today's date.
-
-    Returns:
-        Today's date
-    """
-    return date.today()
-
-
 def as_utc(value: datetime) -> datetime:
     """An instant as an aware UTC datetime — the one form two instants are compared in.
 
@@ -82,6 +78,22 @@ def as_utc(value: datetime) -> datetime:
     return value.astimezone(UTC)
 
 
+def as_host_clock(value: datetime) -> datetime:
+    """An instant as a naive reading of the host clock — the form a naive stamp takes.
+
+    The inverse of :func:`as_utc` for a naive value: the host clock stamps naive
+    values (a default factory, ``datetime.now()``) and :func:`as_utc` reads them
+    back in the process's local zone, so ``as_utc(as_host_clock(x)) == as_utc(x)``.
+    A calendar day widened to a moment — a period's bounds, a date-only
+    completion — is compared with those naive values in this form.
+
+    Example:
+        start, _ = local_day_bounds(day, zone)
+        completed_at = as_host_clock(start)  # the day's first instant, stored naive
+    """
+    return as_utc(value).astimezone().replace(tzinfo=None)
+
+
 # =============================================================================
 # ZONE HELPERS — each takes the zone; core/utils/zone_context.py says whose
 # =============================================================================
@@ -94,6 +106,20 @@ def now_in(zone: tzinfo) -> datetime:
         now_in(ZoneInfo("Asia/Bangkok")).hour  # the hour on a Bangkok clock
     """
     return datetime.now(zone)
+
+
+def wall_clock_in(zone: tzinfo) -> datetime:
+    """The wall clock in ``zone`` as a naive datetime.
+
+    For comparison with a calendar wall time, which carries no zone of its own:
+    an event's start (its ``event_date`` and ``start_time``), a free slot on a
+    day's grid, a client's ``datetime-local`` value.
+
+    Example:
+        start = event.start_datetime()
+        upcoming = start is not None and start > wall_clock_in(current_zone())
+    """
+    return datetime.now(zone).replace(tzinfo=None)
 
 
 def today_in(zone: tzinfo) -> date:
@@ -183,87 +209,6 @@ def parse_date_value(value: Any) -> date | None:
     if getattr(type(value), "__module__", "") == "neo4j.time":
         return date(value.year, value.month, value.day)
     return None
-
-
-# =============================================================================
-# DURATION/AGE HELPERS
-# =============================================================================
-
-
-def days_until(target_date: date | None) -> int | None:
-    """
-    Calculate days until a target date.
-
-    Args:
-        target_date: Target date (or None)
-
-    Returns:
-        Days until date (negative if past), or None if no date
-
-    Example:
-        days = days_until(task.due_date)
-        if days is not None and days < 0:
-            print("Overdue!")
-    """
-    if target_date is None:
-        return None
-    return (target_date - date.today()).days
-
-
-def days_since(past_date: date | None) -> int | None:
-    """
-    Calculate days since a past date.
-
-    Args:
-        past_date: Past date (or None)
-
-    Returns:
-        Days since date (negative if future), or None if no date
-
-    Example:
-        age = days_since(task.created_at.date())
-    """
-    if past_date is None:
-        return None
-    return (date.today() - past_date).days
-
-
-def is_overdue(due_date: date | None) -> bool:
-    """
-    Check if a due date is in the past.
-
-    Args:
-        due_date: Due date to check (or None)
-
-    Returns:
-        True if due_date is before today, False otherwise
-
-    Example:
-        if is_overdue(task.due_date):
-            print("Task is overdue!")
-    """
-    if due_date is None:
-        return False
-    return due_date < date.today()
-
-
-def is_today(check_date: date | None) -> bool:
-    """
-    Check if a date is today.
-
-    Args:
-        check_date: Date to check (or None)
-
-    Returns:
-        True if date is today
-
-    Example:
-        if is_today(event.event_date):
-            print("Event is today!")
-    """
-    if check_date is None:
-        return False
-    return check_date == date.today()
 
 
 # =============================================================================

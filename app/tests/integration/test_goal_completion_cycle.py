@@ -29,7 +29,6 @@ primitive itself.
 from __future__ import annotations
 
 import asyncio
-from datetime import date
 from typing import Any
 
 import pytest
@@ -48,6 +47,8 @@ from core.models.goal.goal_update_intent import GoalUpdateIntent
 from core.models.goal.milestone import Milestone
 from core.services.goals.goals_core_service import GoalsCoreService
 from core.services.goals.goals_progress_service import GoalsProgressService
+from core.utils.timestamp_helpers import today_in
+from core.utils.zone_context import current_zone
 
 USER = "user_goal_cycle"
 
@@ -104,7 +105,7 @@ def _assert_invariants(
 async def _backdate(neo4j_driver: AsyncDriver, uid: str, stamp: str) -> None:
     """Move the STORED achievement date into the past.
 
-    Goal stamps ``date.today()``, so two completions on the same day leave the same value
+    Goal stamps today in the user's zone, so two completions on the same day leave the same value
     whether or not the second re-dated it — a same-day assertion cannot tell a protected
     stamp from an overwritten one. Backdating between the two writes is what makes the
     repeat tests (and their RED checks) bite.
@@ -154,7 +155,7 @@ class TestGoalCompletionCycle:
         props = await _props(neo4j_driver, uid)
         assert props["status"] == EntityStatus.COMPLETED.value
         # The writer decides the storage type: an ISO string, as every other writer stores.
-        assert props["achieved_date"] == date.today().isoformat()
+        assert props["achieved_date"] == today_in(current_zone()).isoformat()
         assert props["progress_percentage"] == 100.0
         _assert_invariants(props)
 
@@ -167,7 +168,7 @@ class TestGoalCompletionCycle:
 
         assert (await service.complete_goal(uid)).is_ok
         props = await _props(neo4j_driver, uid)
-        assert props["achieved_date"] == date.today().isoformat()
+        assert props["achieved_date"] == today_in(current_zone()).isoformat()
         _assert_invariants(props)
 
         assert len(bus.of(GoalAchieved)) == 2, (
@@ -175,7 +176,7 @@ class TestGoalCompletionCycle:
         )
 
     async def test_a_repeat_complete_does_not_re_date(self, rig, neo4j_driver):
-        """Goal stamps ``date.today()``, so two completes on the same day leave the same
+        """Goal stamps today in the user's zone, so two completes on the same day leave the same
         value whether or not the door re-dated it — a same-day assertion cannot tell a
         protected stamp from an overwritten one. Backdating the stored stamp between the
         two writes is what makes this test bite (and what makes its RED check bite)."""
@@ -280,7 +281,7 @@ class TestMilestoneCompletionCycle:
         props = await _props(neo4j_driver, uid)
         assert props["status"] == EntityStatus.COMPLETED.value
         # The writer decides the storage type: an ISO string, like every other writer.
-        assert props["achieved_date"] == date.today().isoformat()
+        assert props["achieved_date"] == today_in(current_zone()).isoformat()
         assert props["progress_percentage"] == 100.0
         _assert_invariants(props)
 

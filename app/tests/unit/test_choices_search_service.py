@@ -9,7 +9,7 @@ get_active via TimeQueryMixin on the decision_deadline field) and
 choice-specific methods (pending/needing_decision).
 """
 
-from datetime import date, datetime, timedelta
+from datetime import datetime, timedelta
 from typing import Any
 from unittest.mock import AsyncMock, Mock
 
@@ -21,6 +21,8 @@ from core.models.enums import Domain, EntityStatus, Priority
 from core.services.choices.choices_search_service import ChoicesSearchService
 from core.services.user import UserContext
 from core.utils.result_simplified import Errors, Result
+from core.utils.timestamp_helpers import today_in
+from core.utils.zone_context import current_zone
 
 # ============================================================================
 # FIXTURES
@@ -199,7 +201,7 @@ async def test_get_needing_decision_forwards_deadline(search_service, mock_backe
 
     kwargs = mock_backend.get_choices_needing_decision.call_args.kwargs
     assert kwargs["user_uid"] == "user_demo"
-    expected_end = (date.today() + timedelta(days=3)).isoformat()
+    expected_end = (today_in(current_zone()) + timedelta(days=3)).isoformat()
     assert kwargs["end_date"] == expected_end
 
 

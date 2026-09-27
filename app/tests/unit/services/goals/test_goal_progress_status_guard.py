@@ -52,6 +52,8 @@ from core.models.goal.goal import Goal
 from core.models.goal.milestone import Milestone
 from core.services.goals.goals_progress_service import GoalsProgressService
 from core.utils.result_simplified import Result
+from core.utils.timestamp_helpers import today_in
+from core.utils.zone_context import current_zone
 from tests.helpers.status_guarded_backend import (
     StatusGuardedWriteRecorder,
     guarded_backend,
@@ -144,7 +146,7 @@ def _assert_suppressed(recorder: StatusGuardedWriteRecorder[Goal], bus: _Bus) ->
 def _assert_achieved(recorder: StatusGuardedWriteRecorder[Goal], bus: _Bus) -> None:
     """The stale-completed verdict: a real achievement the pre-read would have missed."""
     merged = _merged(recorder)
-    assert merged["achieved_date"] == date.today()
+    assert merged["achieved_date"] == today_in(current_zone())
     assert merged["status"] == EntityStatus.COMPLETED.value
     assert len(bus.of(GoalAchieved)) == 1
 

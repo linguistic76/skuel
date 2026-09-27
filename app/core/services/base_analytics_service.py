@@ -30,7 +30,6 @@ Usage:
 """
 
 from collections.abc import Awaitable, Callable
-from datetime import date
 from enum import Enum
 from typing import Any, ClassVar, Generic, TypeVar
 
@@ -40,6 +39,8 @@ from core.models.shared.dual_track import DualTrackResult
 from core.models.type_hints import EntityUID, UserUID
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Result
+from core.utils.timestamp_helpers import today_in
+from core.utils.zone_context import current_zone
 
 # Generic type vars
 B = TypeVar("B")  # Backend operations protocol
@@ -604,7 +605,7 @@ class BaseAnalyticsService(Generic[B, T]):
         domains. Safe-by-design: logs and returns on any failure so a persistence
         hiccup never fails the assessment itself.
         """
-        snapshot = result.to_checkin_snapshot(date.today())
+        snapshot = result.to_checkin_snapshot(today_in(current_zone()))
         store_result = await self.backend.atomic_append_dual_track_checkin(  # type: ignore[attr-defined]
             uid, snapshot, DualTrackCheckin.HISTORY_LIMIT
         )

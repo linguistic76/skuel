@@ -12,7 +12,7 @@ Tests:
 5. Subscribers receive and process events correctly
 """
 
-from datetime import datetime
+from datetime import date, datetime
 from typing import Any
 
 import pytest
@@ -121,7 +121,7 @@ class TestEventFlowIntegration:
             user_uid="user_456",
             title="Complete Python course",
             domain="tech",
-            target_date=datetime(2025, 12, 31, 23, 59),
+            target_date=date(2025, 12, 31),
             occurred_at=datetime.now(),
         )
         await event_bus.publish_async(event)

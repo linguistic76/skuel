@@ -17,6 +17,8 @@ from typing import TYPE_CHECKING, Any
 
 from core.models.type_hints import UserUID
 from core.utils.result_simplified import Result
+from core.utils.timestamp_helpers import today_in
+from core.utils.zone_context import current_zone
 
 if TYPE_CHECKING:
     from collections.abc import Awaitable, Callable
@@ -445,9 +447,8 @@ class ExploreOrchestrator:
         TODO: UserContextIntelligence.get_ready_to_read_today (own arc)
               fills also_ready/related from the ZPD assessment.
         """
-        from datetime import date
 
-        today = date.today()
+        today = today_in(current_zone())
         date_label = today.strftime("%A · %B ") + str(today.day)
 
         # list() returns (items, total_count) — use the real DB total, not the

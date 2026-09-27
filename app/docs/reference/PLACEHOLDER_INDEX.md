@@ -1,5 +1,5 @@
 ---
-updated: 2026-09-25
+updated: 2026-09-27
 ---
 
 # Placeholder Parameter Index
@@ -101,7 +101,7 @@ The in-architecture move is `find_by_date_range`, which coerces the stored value
 (`base_protocols.py:589`).
 
 ```python
-cutoff = date.today() - timedelta(days=period_days)   # a date: the coercion is day-granular
+cutoff = today_in(current_zone()) - timedelta(days=period_days)   # a date: the coercion is day-granular
 result = await self.backend.find_by_date_range(
     start_date=cutoff, end_date=None,                 # "last N days" has a lower bound only
     date_field="updated_at",                          # or "created_at"

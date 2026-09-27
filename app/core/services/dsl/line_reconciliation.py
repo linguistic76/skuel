@@ -50,6 +50,8 @@ from core.models.task.task_request import TaskUpdateRequest
 from core.models.task.task_update_intent import TaskUpdateIntent
 from core.services.dsl.activity_dsl_parser import ParsedActivityLine
 from core.services.dsl.dsl_mappings import map_dsl_priority_to_enum
+from core.utils.timestamp_helpers import today_in
+from core.utils.zone_context import current_zone
 
 __all__ = ["LineReconciliation", "reconcile_task_line"]
 
@@ -127,7 +129,7 @@ def _reconcile_checkbox(
         # none (the outbound pass then appends SKUEL's ``✅ today``).
         return CheckboxVerdict.COMPLETED, {
             "status": EntityStatus.COMPLETED,
-            "completion_date": theirs.done or date.today(),
+            "completion_date": theirs.done or today_in(current_zone()),
         }
 
     # Row 3: both completed. Did SKUEL change the completion since the base was

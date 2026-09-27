@@ -1,6 +1,6 @@
 ---
 title: Domain-Specific Hooks Pattern
-updated: 2026-09-21
+updated: 2026-09-27
 category: patterns
 related_skills: []
 related_docs: []
@@ -498,12 +498,15 @@ from core.models.enums import Priority
 from core.models.task.task import Task
 from datetime import date
 
+from core.utils.timestamp_helpers import today_in
+from core.utils.zone_context import current_zone
+
 class TasksCoreService(BaseService[TasksOperations, Task]):
 
     def _validate_create(self, task: Task) -> Result[None]:
         """Validate task creation."""
         # Business rule: Due date cannot be in the past
-        if task.due_date and task.due_date < date.today():
+        if task.due_date and task.due_date < today_in(current_zone()):
             return Result.fail(
                 Errors.validation(
                     message="Due date cannot be in the past",
@@ -581,7 +584,7 @@ Hook methods are simple, focused functions that are easy to unit test:
 ```python
 def test_validate_create_rejects_inverted_timeline():
     service = GoalsCoreService(backend)
-    goal = Goal(start_date=date.today(), target_date=date.today() - timedelta(days=1), ...)
+    goal = Goal(start_date=today_in(current_zone()), target_date=today_in(current_zone()) - timedelta(days=1), ...)
 
     result = service._validate_create(goal)
 
@@ -592,7 +595,7 @@ def test_validate_create_rejects_inverted_timeline():
 def test_validate_create_allows_a_same_day_goal():
     """The bound, not just the rejection — this is what disagreed with the API edge."""
     service = GoalsCoreService(backend)
-    goal = Goal(start_date=date.today(), target_date=date.today(), ...)
+    goal = Goal(start_date=today_in(current_zone()), target_date=today_in(current_zone()), ...)
 
     assert service._validate_create(goal).is_ok
 ```

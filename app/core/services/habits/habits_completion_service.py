@@ -28,6 +28,8 @@ from core.utils.completion_exporter import export_completions_csv, export_comple
 from core.utils.logging import get_logger
 from core.utils.neo4j_props import neo4j_str
 from core.utils.result_simplified import Errors, Result
+from core.utils.timestamp_helpers import today_in
+from core.utils.zone_context import current_zone
 
 
 class HabitsCompletionService:
@@ -562,7 +564,7 @@ class HabitsCompletionService:
 
         Returns list of dicts with habit details + completion info.
         """
-        today = date.today()
+        today = today_in(current_zone())
         completions_result = await self._all_completions(
             {"user_uid": user_uid}, start_date=today, end_date=today
         )
@@ -611,7 +613,7 @@ class HabitsCompletionService:
 
     async def get_completion_stats(self, habit_uid: str, days: int = 30) -> Result[dict[str, Any]]:
         """Get completion statistics for a habit over a period."""
-        end_date = date.today()
+        end_date = today_in(current_zone())
         start_date = end_date - timedelta(days=days)
 
         completions_result = await self.get_completions_for_habit(

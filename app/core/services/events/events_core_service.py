@@ -51,8 +51,9 @@ from core.services.mixins.hierarchy_read_mixin import HierarchyReadMixin
 from core.services.mixins.link_edge_guard import LinkEdge, keep_permitted_link_edges
 from core.utils.decorators import with_error_handling
 from core.utils.result_simplified import Errors, Result
-from core.utils.timestamp_helpers import now_utc
+from core.utils.timestamp_helpers import now_utc, today_in
 from core.utils.uid_generator import UIDGenerator
+from core.utils.zone_context import current_zone
 
 if TYPE_CHECKING:
     from core.ports.domain_protocols import EventsOperations
@@ -177,7 +178,7 @@ class EventsCoreService(
         changes = updates.to_changes()
         # Business Rule 1: Past event immutability (with notes exception)
         # Past events are historical records, but allow adding notes retrospectively
-        if current.event_date and current.event_date < date.today():
+        if current.event_date and current.event_date < today_in(current_zone()):
             allowed_fields = {"notes", "tags", "quality_score"}  # Can update these
             disallowed_updates = set(changes.keys()) - allowed_fields
 
@@ -494,7 +495,7 @@ class EventsCoreService(
             event_uid=event.uid,
             user_uid=event.user_uid,
             title=event.title,
-            event_date=event.event_date or date.today(),
+            event_date=event.event_date or today_in(current_zone()),
             # Canonical member, not the former lowercase "meeting" literal:
             # EventAdapter compares against EventType's UPPERCASE members.
             # (get_enum_value was a no-op here — event_type is a str field.)
@@ -532,9 +533,9 @@ class EventsCoreService(
             CalendarEventCompleted(
                 event_uid=event.uid,
                 user_uid=event.user_uid,
-                completion_date=event.event_date or date.today(),
+                completion_date=event.event_date or today_in(current_zone()),
                 quality_score=None,
-                occurred_at=completion_moment(event.completed_at),
+                occurred_at=completion_moment(event.completed_at, current_zone()),
             ),
             self.logger,
         )
@@ -649,7 +650,7 @@ class EventsCoreService(
 
         # Status-target validation + completion stamping, expressed as conditions the
         # WRITE evaluates against the prior it reads under the node's lock (ADR-087).
-        guard_result = status_transition_guard(EntityType.EVENT, changes)
+        guard_result = status_transition_guard(EntityType.EVENT, changes, zone=current_zone())
         if guard_result.is_error:
             return Result.fail(guard_result)
 
@@ -685,7 +686,7 @@ class EventsCoreService(
             domain_event = CalendarEventCompleted(
                 event_uid=event.uid,
                 user_uid=event.user_uid,
-                completion_date=event.event_date or date.today(),
+                completion_date=event.event_date or today_in(current_zone()),
                 # quality_score never flows through the generic update path — it is owned
                 # by the progress / habit-completion services, which fire their own
                 # CalendarEventCompleted with the score (honest None, not a dead key read).

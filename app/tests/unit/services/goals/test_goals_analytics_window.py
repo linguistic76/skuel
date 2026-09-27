@@ -37,7 +37,7 @@ from __future__ import annotations
 import ast
 import re
 from dataclasses import fields
-from datetime import date, timedelta
+from datetime import timedelta
 from pathlib import Path
 from typing import Any
 from unittest.mock import MagicMock
@@ -51,6 +51,8 @@ import ui
 from core.models.goal.goal import Goal
 from core.services.goals.goals_intelligence_service import GoalsIntelligenceService
 from core.utils.result_simplified import Result
+from core.utils.timestamp_helpers import today_in
+from core.utils.zone_context import current_zone
 
 GOAL_FIELDS = {f.name for f in fields(Goal)}
 
@@ -128,7 +130,7 @@ class TestPerformanceAnalyticsWindow:
     async def test_window_is_open_ended_and_user_scoped(self) -> None:
         """A rolling "last N days" report has a lower bound only.
 
-        ``end_date=date.today()`` would not *break* it — the coercion is day-granular, so
+        ``end_date=today_in(current_zone())`` would not *break* it — the coercion is day-granular, so
         ``<= date(today)`` still admits today's rows — but it would silently drop any row
         whose ``updated_at`` is ahead of the clock (skew, a bad import), which is a
         different decision than "since the cutoff" and not one this method makes.
@@ -137,7 +139,7 @@ class TestPerformanceAnalyticsWindow:
         await make_service(backend).get_performance_analytics(USER, period_days=30)
 
         _name, kwargs = backend.calls[0]
-        assert kwargs["start_date"] == date.today() - timedelta(days=30)
+        assert kwargs["start_date"] == today_in(current_zone()) - timedelta(days=30)
         assert kwargs["end_date"] is None
         assert (kwargs.get("additional_filters") or {})["user_uid"] == USER
 

@@ -35,6 +35,8 @@ from core.models.goal.goal import Goal
 from core.models.goal.goal_update_intent import GoalUpdateIntent
 from core.services.goals.goals_core_service import GoalsCoreService
 from core.services.goals.goals_search_service import GoalsSearchService
+from core.utils.timestamp_helpers import today_in
+from core.utils.zone_context import current_zone
 
 # ============================================================================
 # FIXTURES
@@ -221,7 +223,6 @@ class TestGoalsCoreOperations:
         alias that split writers from readers before the completion-stamping arc
         (``migrate_activity_completion_aliases.py`` retires the old rows).
         """
-        from datetime import date
 
         goal = self._goal("goal_complete_stamp", user_uid)
         created = await goals_core.create(goal)
@@ -240,13 +241,13 @@ class TestGoalsCoreOperations:
                 )
             ).single()
         assert record["status"] == EntityStatus.COMPLETED.value
-        assert record["achieved_date"] == date.today().isoformat()
+        assert record["achieved_date"] == today_in(current_zone()).isoformat()
         assert isinstance(record["achieved_date"], str)
         assert record["completion_date"] is None
 
         fetch = await goals_core.get("goal_complete_stamp")
         assert fetch.is_ok
-        assert fetch.value.achieved_date == date.today()
+        assert fetch.value.achieved_date == today_in(current_zone())
 
     # =========================================================================
     # GOAL ENUM FIELDS (2 tests)

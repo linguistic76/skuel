@@ -1,17 +1,25 @@
 """``build_rich(window=)`` speaks the report-period vocabulary — one resolver
 with the report generator — and refuses a token it does not know instead of
-substituting a default lookback."""
+substituting a default lookback. A calendar window's days are the context
+user's, in the user's own zone, whoever asked for the context."""
 
 from __future__ import annotations
 
+import dataclasses
 from datetime import datetime
 from unittest.mock import AsyncMock, MagicMock
+from zoneinfo import ZoneInfo
 
 import pytest
 
-from core.models.user.user import User
+from core.models.user.user import User, UserPreferences
 from core.services.user.user_context_builder import UserContextBuilder
 from core.utils.result_simplified import Errors, Result
+from core.utils.zone_context import current_zone, zone_scope
+
+# Calendar days here are read on the host clock (period bounds, widened dates):
+# the expectations are the laptop's, where the host clock and the default zone agree.
+pytestmark = pytest.mark.usefixtures("laptop_zone")
 
 
 def _executor() -> MagicMock:
@@ -73,3 +81,39 @@ async def test_trailing_window_reaches_back_its_days_from_now() -> None:
     assert result.is_ok, result.error
     _, kwargs = executor.execute_mega_query.call_args
     assert (kwargs["window_end"] - kwargs["window_start"]).days == 7
+
+
+@pytest.mark.asyncio
+async def test_a_bangkok_users_window_is_bangkok_days_whoever_asks() -> None:
+    """An admin in another zone builds a Bangkok user's context: September starts at
+    midnight in Bangkok — 10:00 on August 31st on the Vancouver host clock."""
+    executor = _executor()
+    builder = UserContextBuilder(executor)
+    bangkok_user = dataclasses.replace(
+        _user(), preferences=UserPreferences(timezone="Asia/Bangkok")
+    )
+
+    with zone_scope(ZoneInfo("Europe/Paris")):  # the reviewing admin's request
+        result = await builder.build_rich_user_context(
+            "user_window", bangkok_user, window="2026-09"
+        )
+        assert current_zone() == ZoneInfo("Europe/Paris")
+
+    assert result.is_ok, result.error
+    _, kwargs = executor.execute_mega_query.call_args
+    assert kwargs["window_start"] == datetime(2026, 8, 31, 10, 0)
+
+
+@pytest.mark.asyncio
+async def test_an_unparsed_preferences_blob_follows_the_default_zone() -> None:
+    """The mapper's fail-soft hands the raw blob string through; the build neither
+    fails nor guesses — the user follows the app default."""
+    executor = _executor()
+    builder = UserContextBuilder(executor)
+    garbled = dataclasses.replace(_user(), preferences="{not json")  # type: ignore[arg-type]
+
+    result = await builder.build_rich_user_context("user_window", garbled, window="2026-09")
+
+    assert result.is_ok, result.error
+    _, kwargs = executor.execute_mega_query.call_args
+    assert kwargs["window_start"] == datetime(2026, 9, 1)

@@ -38,6 +38,8 @@ from core.models.enums.entity_enums import EntityStatus, EntityType
 from core.models.enums.habit_enums import HabitCategory, HabitDifficulty, HabitPolarity
 from core.models.enums.scheduling_enums import RecurrencePattern, TimeOfDay
 from core.models.user_owned_entity import UserOwnedEntity
+from core.utils.timestamp_helpers import day_of, today_in
+from core.utils.zone_context import current_zone
 
 
 @dataclass(frozen=True, kw_only=True)
@@ -182,7 +184,10 @@ class Habit(UserOwnedEntity):
         if not self.is_active:
             return False
         if self.last_completed:
-            days_since = (datetime.now() - self.last_completed).days
+            # Calendar days in the user's zone — a completion late yesterday is one
+            # day ago this morning, whatever the hours between.
+            zone = current_zone()
+            days_since = (today_in(zone) - day_of(self.last_completed, zone)).days
             if self.target_days_per_week:
                 interval = max(1, 7 // self.target_days_per_week)
                 return days_since >= interval

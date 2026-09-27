@@ -14,7 +14,6 @@ don't follow the same user-owned activity pattern.
 See: /docs/architecture/ENTITY_TYPE_ARCHITECTURE.md
 """
 
-from datetime import date
 from typing import Any
 
 from core.models.enums.activity_enums import ActivitySortKey
@@ -24,6 +23,8 @@ from core.models.type_hints import UserUID
 from core.utils.decorators import with_error_handling
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
+from core.utils.timestamp_helpers import today_in
+from core.utils.zone_context import current_zone
 
 
 class PsApplicationDiscoveryService:
@@ -138,7 +139,7 @@ class PsApplicationDiscoveryService:
         if upcoming_only:
             filters = {
                 "date(left(toString(n.event_date), 10)) >= date($today)": {
-                    "today": date.today().isoformat()
+                    "today": today_in(current_zone()).isoformat()
                 }
             }
         return await self.find_activities_connected_to_knowledge(

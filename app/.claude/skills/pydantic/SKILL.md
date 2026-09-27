@@ -64,7 +64,7 @@ class Task:
 
     def is_overdue(self) -> bool:
         """Business logic lives in domain models"""
-        return self.due_date and self.due_date < date.today()
+        return self.due_date and self.due_date < today_in(current_zone())
 ```
 
 ## Base Class Hierarchy
@@ -194,7 +194,7 @@ class TaskStatusUpdateRequest(BaseModel):
     def validate_completion_date(cls, v: date | None, info: ValidationInfo) -> date | None:
         """Auto-set completion date when status is COMPLETED"""
         if info.data.get("status") == ActivityStatus.COMPLETED and not v:
-            return date.today()
+            return today_in(current_zone())
         return v
 ```
 
@@ -289,7 +289,7 @@ def validate_future_date(*field_names: str) -> Callable:
         if isinstance(v, datetime):
             if v <= datetime.now():
                 raise ValueError("Date/time cannot be in the past")
-        elif isinstance(v, date) and v < date.today():
+        elif isinstance(v, date) and v < today_in(current_zone()):
             raise ValueError("Date cannot be in the past")
         return v
     return _validate

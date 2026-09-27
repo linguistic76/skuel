@@ -23,6 +23,7 @@ from core.models.enums.principle_enums import (
 from core.models.principle.principle_update_intent import PrincipleUpdateIntent
 from core.models.request_base import CreateRequestBase, UpdateRequestBase
 from core.models.sentinels import UNSET, Unset
+from core.utils.zone_context import today_in_current_zone
 
 # =============================================================================
 # NESTED REQUEST MODELS (used by create requests)
@@ -183,7 +184,7 @@ class AlignmentAssessmentRequest(BaseModel):
     alignment_level: AlignmentLevel = Field(...)
     evidence: str = Field(..., min_length=1, max_length=1000)
     reflection: str | None = Field(default=None, max_length=1000)
-    assessed_date: date | None = Field(default_factory=date.today)
+    assessed_date: date | None = Field(default_factory=today_in_current_zone)
 
 
 class PrincipleLinkRequest(BaseModel):

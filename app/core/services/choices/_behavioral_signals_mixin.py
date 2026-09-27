@@ -31,6 +31,8 @@ from core.models.enums.activity_enums import DecisionQualityLevel
 from core.models.shared.dual_track import DualTrackResult
 from core.models.type_hints import UserUID
 from core.utils.result_simplified import Result
+from core.utils.timestamp_helpers import today_in
+from core.utils.zone_context import current_zone
 
 if TYPE_CHECKING:
     from collections.abc import Awaitable, Callable
@@ -131,7 +133,7 @@ class _BehavioralSignalsMixin:
         Returns:
             Tuple of (DecisionQualityLevel, score 0.0-1.0, evidence list)
         """
-        from datetime import date, timedelta
+        from datetime import timedelta
 
         from core.models.choice.choice import Choice
 
@@ -139,7 +141,7 @@ class _BehavioralSignalsMixin:
 
         # Get choices for period — fetch the full set (find_by defaults to limit=100,
         # so the in-memory window filter below would otherwise sample an arbitrary page).
-        start_date = date.today() - timedelta(days=period_days)
+        start_date = today_in(current_zone()) - timedelta(days=period_days)
         choices_result = await self.backend.find_by(user_uid=user_uid, limit=QueryLimit.MAXIMUM)
 
         if choices_result.is_error or not choices_result.value:

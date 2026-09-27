@@ -12,7 +12,7 @@ Responsibilities:
 - Progress cascade effects
 """
 
-from datetime import date, datetime
+from datetime import date
 from operator import attrgetter
 from typing import Any
 
@@ -33,6 +33,8 @@ from core.services.user.rich_context import (
 from core.utils.dto_converters import to_domain_model
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Result
+from core.utils.timestamp_helpers import as_host_clock, local_day_bounds, today_in
+from core.utils.zone_context import current_zone
 
 # Type alias for rich habit data from UserContext
 RichHabitData = dict[str, Any]
@@ -170,7 +172,7 @@ class HabitsProgressService:
         4. Reinforces knowledge if applicable
         5. Publishes events (context invalidated via event handlers)
         """
-        completion_date = completion_date or date.today()
+        completion_date = completion_date or today_in(current_zone())
 
         # ====================================================================
         # CONTEXT-FIRST: Try to get habit from context before querying
@@ -225,10 +227,12 @@ class HabitsProgressService:
         # purpose — this completion path publishes its own provenance-bearing HabitCompleted /
         # HabitStreakBroken / HabitStreakMilestone events (with streak context) that the
         # generic update_habit cannot express. A plain dict literal is the honest type here.
+        # The completion day's first instant in the user's zone, on the host clock.
+        day_start, _ = local_day_bounds(completion_date, current_zone())
         updates: dict[str, Any] = {
             "current_streak": new_streak,
             "best_streak": max(new_streak, habit.best_streak),
-            "last_completed": datetime.combine(completion_date, datetime.min.time()),
+            "last_completed": as_host_clock(day_start),
             "total_completions": habit.total_completions + 1,
         }
 
@@ -245,7 +249,7 @@ class HabitsProgressService:
         # would persist an as-of-then number, stale for a backfill and
         # not-yet-true for a future occurrence.
         consistency = self._calculate_consistency_from_completions(
-            habit, existing_completions, date.today()
+            habit, existing_completions, today_in(current_zone())
         )
         updates["success_rate"] = consistency
 
@@ -300,7 +304,7 @@ class HabitsProgressService:
             user_uid=user_context.user_uid,
             current_streak=new_streak,
             is_new_streak_record=(new_streak == habit.best_streak),
-            completed_late=(completion_date < date.today()),
+            completed_late=(completion_date < today_in(current_zone())),
         )
         await publish_event(self.event_bus, completed_event, self.logger)
 
@@ -409,7 +413,7 @@ class HabitsProgressService:
 
         # Calculate various consistency metrics
         consistency_30d = self._calculate_consistency_from_completions(
-            habit, completions, date.today()
+            habit, completions, today_in(current_zone())
         )
 
         # The list is most-recent-first, so the ten most recent are the HEAD —

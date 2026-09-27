@@ -28,6 +28,7 @@ from fasthtml.common import (
 )
 
 from core.utils.report_periods import UnknownReportPeriodError, as_naive_utc, resolve_report_period
+from core.utils.zone_context import current_zone
 from ui.components import Button, ButtonT, Card, CardBody
 from ui.feedback import Badge, BadgeT, Progress, ProgressT
 from ui.layout import Size
@@ -603,7 +604,7 @@ def _render_period_line(report: Any) -> Any:
     if not token:
         return None
     try:
-        period = resolve_report_period(str(token), datetime.now())
+        period = resolve_report_period(str(token), datetime.now(), current_zone())
     except UnknownReportPeriodError:
         return None
     if not period.is_calendar:

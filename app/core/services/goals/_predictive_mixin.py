@@ -25,7 +25,9 @@ from core.services.intelligence import (
 from core.utils.decorators import with_error_handling
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
+from core.utils.timestamp_helpers import today_in
 from core.utils.type_converters import finite_float
+from core.utils.zone_context import current_zone
 
 if TYPE_CHECKING:
     from core.models.habit.habit import Habit
@@ -380,7 +382,7 @@ class _PredictiveMixin:
             return 0.5  # No deadline or start date, neutral factor
 
         total_days = (goal.target_date - goal.start_date).days
-        elapsed_days = (date.today() - goal.start_date).days
+        elapsed_days = (today_in(current_zone()) - goal.start_date).days
 
         if total_days <= 0:
             return 0.0
@@ -451,7 +453,7 @@ class _PredictiveMixin:
     ) -> float:
         """Calculate momentum based on recent trends."""
         # Calculate recent progress rate (simplified)
-        days_elapsed = (date.today() - goal.start_date).days if goal.start_date else 1
+        days_elapsed = (today_in(current_zone()) - goal.start_date).days if goal.start_date else 1
         recent_progress_rate = _progress_percent(goal) / max(days_elapsed, 1)
 
         # Calculate habit streak momentum
@@ -499,7 +501,7 @@ class _PredictiveMixin:
     ) -> date | None:
         """Predict when the goal will be completed."""
         if _progress_percent(goal) >= 100:
-            return date.today()
+            return today_in(current_zone())
 
         if success_probability < 0.3:
             return None  # Unlikely to complete
@@ -507,7 +509,7 @@ class _PredictiveMixin:
         if not goal.start_date:
             return goal.target_date  # No start date, use target as best guess
 
-        days_elapsed = (date.today() - goal.start_date).days
+        days_elapsed = (today_in(current_zone()) - goal.start_date).days
         if days_elapsed <= 0:
             return goal.target_date
 
@@ -526,7 +528,7 @@ class _PredictiveMixin:
         # Add buffer based on success probability
         buffer = int(days_needed * (1 - success_probability) * 0.5)
 
-        predicted_date = date.today() + timedelta(days=days_needed + buffer)
+        predicted_date = today_in(current_zone()) + timedelta(days=days_needed + buffer)
 
         # Don't predict beyond target date if high probability
         if goal.target_date and success_probability > 0.7:
@@ -679,7 +681,7 @@ class _PredictiveMixin:
         # Calculate actual vs expected progress
         recent_progress = _progress_percent(goal)
         expected_progress = (
-            (date.today() - goal.start_date).days
+            (today_in(current_zone()) - goal.start_date).days
             / max((goal.target_date - goal.start_date).days, 1)
             * 100
             if goal.target_date and goal.start_date

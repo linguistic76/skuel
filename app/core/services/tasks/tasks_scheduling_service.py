@@ -16,8 +16,11 @@ Handles task scheduling and context-aware creation.
 
 from __future__ import annotations
 
-from datetime import date, timedelta
+from datetime import timedelta
 from typing import TYPE_CHECKING
+
+from core.utils.timestamp_helpers import today_in
+from core.utils.zone_context import current_zone
 
 if TYPE_CHECKING:
     from core.ports.domain_protocols import TasksOperations
@@ -172,7 +175,7 @@ class TasksSchedulingService(BaseService["TasksOperations", Task]):
             source_path_step_uid=step_uid,
             # DEFERRED: Knowledge relationship creation (see docstring)
             knowledge_mastery_check=True,
-            scheduled_date=date.today() + timedelta(days=1),
+            scheduled_date=today_in(current_zone()) + timedelta(days=1),
             status=EntityStatus.DRAFT,
             priority=Priority.MEDIUM,
         )

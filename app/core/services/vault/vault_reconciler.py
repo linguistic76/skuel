@@ -32,9 +32,10 @@ import re
 import secrets
 import string
 from dataclasses import dataclass
-from datetime import date, datetime
+from datetime import datetime
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
+from zoneinfo import ZoneInfo
 
 from core.models.enums.entity_enums import EntityStatus
 from core.models.enums.pipeline import Pipeline
@@ -59,6 +60,8 @@ from core.utils.exception_types import FILE_IO_EXCEPTIONS
 from core.utils.logging import get_logger
 from core.utils.path_display import display_path, strip_root_prefix
 from core.utils.result_simplified import Errors, Result
+from core.utils.timestamp_helpers import today_in
+from core.utils.zone_context import current_zone, default_zone, zone_scope
 
 if TYPE_CHECKING:
     from core.models.user_entry.user_entry import UserEntry
@@ -305,6 +308,29 @@ class VaultReconciler:
         if descriptor_result.is_error:
             return Result.fail(descriptor_result)
         descriptor = descriptor_result.value
+        zone_result = await self._vault_zone(descriptor)
+        if zone_result.is_error:
+            return Result.fail(zone_result)
+        # Every calendar value the sync writes — a ✅ date, a completion stamp, an
+        # undated event's day — is a day in the vault's zone, however deep in
+        # the ingest it is read, and whichever door started the sync.
+        with zone_scope(zone_result.value):
+            return await self._sync_in_zone(descriptor, force=force)
+
+    async def _vault_zone(self, descriptor: VaultDescriptor) -> Result[ZoneInfo]:
+        """The zone a vault's calendar values belong to.
+
+        A personal vault's owner's zone; the app default (``SKUEL_TIMEZONE``) for
+        the content vault, whose curriculum is no one user's calendar.
+        """
+        if descriptor.kind is VaultKind.CONTENT:
+            return Result.ok(default_zone())
+        return await self._user_service.get_user_zone(descriptor.owner_uid)
+
+    async def _sync_in_zone(
+        self, descriptor: VaultDescriptor, *, force: bool
+    ) -> Result[VaultSyncStats]:
+        """:meth:`sync` for a resolved vault, run in the vault's zone."""
         owner = descriptor.owner_uid
 
         async with self._root_lock(descriptor):
@@ -930,11 +956,11 @@ class VaultReconciler:
                     # the stamp — not the mutable updated_at, which would rewrite
                     # the vault line every time a long-done task is edited. Only
                     # a completion that predates the stamp (and the one-shot
-                    # backfill) has none; today is the honest floor for those.
+                    # backfill) has none; today in the vault's zone is the honest floor.
                     done_date = (
                         task.completion_date.isoformat()
                         if task.completion_date
-                        else date.today().isoformat()
+                        else today_in(current_zone()).isoformat()
                     )
                     updates.append(
                         TaskLineUpdate(

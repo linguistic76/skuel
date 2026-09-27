@@ -18,6 +18,8 @@ from core.models.shared.dual_track import DualTrackResult
 from core.models.type_hints import UserUID
 from core.services.events._habit_links import enrich_events_with_habit_links
 from core.utils.result_simplified import Result
+from core.utils.timestamp_helpers import today_in
+from core.utils.zone_context import current_zone
 
 if TYPE_CHECKING:
     from collections.abc import Awaitable, Callable
@@ -112,11 +114,11 @@ class _BehavioralSignalsMixin:
         Returns:
             Tuple of (EngagementLevel, score 0.0-1.0, evidence list)
         """
-        from datetime import date, timedelta
+        from datetime import timedelta
 
         evidence: list[str] = []
 
-        start_date = date.today() - timedelta(days=period_days)
+        start_date = today_in(current_zone()) - timedelta(days=period_days)
         # Fetch the full set — find_by defaults to limit=100, so the in-memory window
         # filter below would otherwise sample an arbitrary page for prolific users.
         events_result = await self.backend.find_by(user_uid=user_uid, limit=QueryLimit.MAXIMUM)
@@ -165,7 +167,7 @@ class _BehavioralSignalsMixin:
         if goal_support_count > 0:
             evidence.append(f"{goal_support_count} events support goals")
 
-        recent_date = date.today() - timedelta(days=7)
+        recent_date = today_in(current_zone()) - timedelta(days=7)
         recent_events = [e for e in period_events if e.event_date and e.event_date >= recent_date]
         recency_score = min(1.0, len(recent_events) / 3.0)
         if recent_events:

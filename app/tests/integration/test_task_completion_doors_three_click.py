@@ -14,7 +14,6 @@ posts the prior status — leaves the node in the state the events describe.
 
 from __future__ import annotations
 
-from datetime import date
 from typing import Any
 
 import pytest
@@ -28,6 +27,8 @@ from core.models.enums import EntityStatus
 from core.models.task.task import Task
 from core.models.task.task_update_intent import TaskUpdateIntent
 from core.services.tasks.tasks_core_service import TasksCoreService
+from core.utils.timestamp_helpers import today_in
+from core.utils.zone_context import current_zone
 
 USER = "user_three_click"
 
@@ -87,7 +88,7 @@ class TestThreeClickSequence:
         props = await self._props(neo4j_driver, uid)
         assert props["status"] == EntityStatus.COMPLETED.value
         # The writer decides the storage type: an ISO string, as every other writer stores.
-        assert props["completion_date"] == date.today().isoformat()
+        assert props["completion_date"] == today_in(current_zone()).isoformat()
 
         # Click 2 — Undo, which posts the prior status through the same door.
         assert (await core.update_task(uid, _REOPEN)).is_ok
@@ -99,7 +100,7 @@ class TestThreeClickSequence:
         assert (await core.update_task(uid, _COMPLETE)).is_ok
         props = await self._props(neo4j_driver, uid)
         assert props["status"] == EntityStatus.COMPLETED.value
-        assert props["completion_date"] == date.today().isoformat()
+        assert props["completion_date"] == today_in(current_zone()).isoformat()
 
         assert len(bus.of(TaskCompleted)) == 2, (
             "a reopen in the middle makes the second complete a real one"

@@ -15,7 +15,6 @@ Part of the PrinciplesService decomposition.
 """
 
 from dataclasses import dataclass
-from datetime import date
 from operator import itemgetter
 from typing import Any
 
@@ -40,6 +39,8 @@ from core.services.intelligence import principle_gap_insights, principle_gap_rec
 from core.utils.decorators import with_error_handling
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
+from core.utils.timestamp_helpers import today_in
+from core.utils.zone_context import current_zone
 
 logger = get_logger(__name__)
 
@@ -371,7 +372,7 @@ class PrinciplesAlignmentService:
 
         # 2. Create user's assessment
         user_assessment = UserAlignmentAssessment(
-            assessed_date=date.today(),
+            assessed_date=today_in(current_zone()),
             alignment_level=user_alignment_level,
             evidence=user_evidence,
             reflection=user_reflection,
@@ -442,7 +443,7 @@ class PrinciplesAlignmentService:
         if principle is None:
             return Result.fail(Errors.not_found(resource="Principle", identifier=principle_uid))
 
-        today = date.today()
+        today = today_in(current_zone())
         occurrence = UserAlignmentAssessment(
             assessed_date=today,
             alignment_level=assessment.alignment_level,

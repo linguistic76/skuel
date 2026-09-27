@@ -12,7 +12,6 @@ Each function converts a ParsedActivityLine to a domain-specific dict.
 """
 
 import re
-from datetime import date, datetime
 from typing import Any
 
 from core.models.enums.entity_enums import Domain, EntityType, NonKuDomain
@@ -21,6 +20,8 @@ from core.services.dsl.dsl_mappings import ConversionResult
 from core.utils.decorators import with_error_handling
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
+from core.utils.timestamp_helpers import today_in, wall_clock_in
+from core.utils.zone_context import current_zone
 
 logger = get_logger("skuel.dsl.converter")
 
@@ -69,7 +70,7 @@ def activity_to_finance_dict(activity: ParsedActivityLine) -> Result[ConversionR
         description = description[:197] + "..."
 
     # Expense date from @when (or today)
-    expense_date = activity.when.date() if activity.when else date.today()
+    expense_date = activity.when.date() if activity.when else today_in(current_zone())
 
     # Infer category from energy states or description
     category = "personal"  # default
@@ -392,7 +393,7 @@ def activity_to_calendar_dict(activity: ParsedActivityLine) -> Result[Conversion
         title = title[:197] + "..."
 
     # Start time from @when
-    start_time = activity.when or datetime.now()
+    start_time = activity.when or wall_clock_in(current_zone())
 
     # Duration
     duration_minutes = activity.duration_minutes or 60

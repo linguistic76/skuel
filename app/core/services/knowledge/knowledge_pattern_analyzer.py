@@ -41,6 +41,8 @@ from core.ports.knowledge_pattern_protocol import KnowledgeLinkedRelationships
 from core.utils.exception_types import DATA_CONVERSION_EXCEPTIONS
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
+from core.utils.timestamp_helpers import today_in
+from core.utils.zone_context import current_zone
 
 if TYPE_CHECKING:
     from core.models.entity import Entity
@@ -183,7 +185,7 @@ class KnowledgePatternAnalyzer:
             Result[list[LearningPattern]] sorted by (confidence, frequency) desc.
         """
         try:
-            cutoff = date.today() - timedelta(days=timeframe_days)
+            cutoff = today_in(current_zone()) - timedelta(days=timeframe_days)
             recent = [e for e in entities if e.created_at.date() >= cutoff]
 
             if not recent:

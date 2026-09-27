@@ -59,7 +59,9 @@ from core.utils.list_helpers import SortConfig, apply_entity_sort
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
 from core.utils.sort_functions import get_created_at_attr, get_title_or_name_lower
+from core.utils.timestamp_helpers import today_in
 from core.utils.type_converters import normalize_enum_str
+from core.utils.zone_context import current_zone
 
 if TYPE_CHECKING:
     from core.models.context_types import ContextualPrinciple, PracticeOpportunity
@@ -389,7 +391,7 @@ class PrinciplesService(
         # …and the reflection itself joins the principle's alignment history as a
         # dated entry, so a period report counts the review even after a later
         # one has moved the stamp on.
-        today = date.today()
+        today = today_in(current_zone())
         occurrence = AlignmentHistoryEntry(
             assessed_date=today, alignment_level=level, evidence=evidence, kind="reflection"
         )

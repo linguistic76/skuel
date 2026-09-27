@@ -31,6 +31,8 @@ from core.constants import HabitConsistencyWindow
 from core.ports.query_types import HabitAnalyticsRow
 from core.services.cross_domain_analytics_service import CrossDomainAnalyticsService
 from core.utils.result_simplified import Result
+from core.utils.timestamp_helpers import today_in
+from core.utils.zone_context import current_zone
 
 USER = "user_consistency"
 
@@ -190,7 +192,7 @@ async def test_the_query_is_bound_to_the_trailing_window_not_to_stored_history()
 
     await _service(backend).get_habit_consistency(USER)
 
-    expected = date.today() - timedelta(days=HabitConsistencyWindow.DAYS - 1)
+    expected = today_in(current_zone()) - timedelta(days=HabitConsistencyWindow.DAYS - 1)
     assert backend.window_start == expected.isoformat()
 
 
@@ -210,7 +212,7 @@ async def test_the_window_is_bounded_at_today_so_a_future_stamp_cannot_inflate_i
 
     await _service(backend).get_habit_consistency(USER)
 
-    assert backend.window_end == date.today().isoformat()
+    assert backend.window_end == today_in(current_zone()).isoformat()
 
 
 def test_the_window_is_exactly_days_calendar_days_inclusive_of_today():

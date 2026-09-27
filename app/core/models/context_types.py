@@ -62,6 +62,8 @@ from datetime import date, datetime
 from typing import TYPE_CHECKING, Any
 
 from core.models.type_hints import EntityUID
+from core.utils.timestamp_helpers import today_in
+from core.utils.zone_context import current_zone
 
 if TYPE_CHECKING:
     from core.services.infrastructure.prerequisite_checker import LearningRequirements
@@ -141,7 +143,7 @@ def _compute_urgency(
     urgency = 0.0
 
     if deadline:
-        days_until = (deadline - date.today()).days
+        days_until = (deadline - today_in(current_zone())).days
         if days_until < 0:
             urgency = 1.0
         elif days_until == 0:
@@ -650,7 +652,7 @@ class ContextualGoal(ContextualEntity):
         deadline = context.goal_deadlines.get(uid)
         days_to_deadline = None
         if deadline:
-            days_to_deadline = (deadline - date.today()).days
+            days_to_deadline = (deadline - today_in(current_zone())).days
 
         is_at_risk = uid in context.at_risk_goals
         urgency = (

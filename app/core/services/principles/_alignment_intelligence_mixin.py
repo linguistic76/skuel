@@ -10,7 +10,7 @@ See: /docs/architecture/ENTITY_TYPE_ARCHITECTURE.md
 
 from __future__ import annotations
 
-from datetime import date, timedelta
+from datetime import timedelta
 from typing import TYPE_CHECKING, Any
 
 from core.models.enums.principle_enums import AlignmentLevel
@@ -30,6 +30,8 @@ from core.services.intelligence import (
 )
 from core.utils.decorators import requires_graph_intelligence
 from core.utils.result_simplified import Errors, Result
+from core.utils.timestamp_helpers import today_in
+from core.utils.zone_context import current_zone
 
 if TYPE_CHECKING:
     from core.models.principle.principle import Principle
@@ -306,7 +308,7 @@ class _AlignmentIntelligenceMixin:
             return Result.fail(Errors.not_found(resource="Principle", identifier=principle_uid))
 
         # Step 2: Calculate date range
-        end_date = date.today()
+        end_date = today_in(current_zone())
         start_date = end_date - timedelta(days=days)
 
         # Step 3: Get adherence statistics from graph

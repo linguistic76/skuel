@@ -35,6 +35,8 @@ from core.models.validation_rules import (
     validate_required_string,
     validate_timeframe_date_alignment,
 )
+from core.utils.timestamp_helpers import today_in
+from core.utils.zone_context import current_zone, today_in_current_zone
 
 
 class GoalCreateRequest(BaseModel):
@@ -63,7 +65,7 @@ class GoalCreateRequest(BaseModel):
     unit_of_measurement: str | None = Field(default=None, max_length=50)
 
     # Timeline
-    start_date: date | None = Field(default_factory=date.today)
+    start_date: date | None = Field(default_factory=today_in_current_zone)
     target_date: date | None = Field(default=None, description="Target completion date")
 
     # Learning Integration
@@ -103,7 +105,7 @@ class GoalCreateRequest(BaseModel):
         past target dates; see validate_future_date, G10/Arc E).
         """
         allow_past = bool(info.context and info.context.get("allow_past_dates"))
-        if not allow_past and self.target_date and self.target_date < date.today():
+        if not allow_past and self.target_date and self.target_date < today_in(current_zone()):
             raise ValueError("Target date must be in the future")
 
         # Use shared validator helper for date ordering
@@ -306,7 +308,7 @@ class MilestoneCompleteRequest(BaseModel):
     """
 
     milestone_uid: str = Field(..., description="Milestone UID to complete")
-    achieved_date: date | None = Field(default_factory=date.today)
+    achieved_date: date | None = Field(default_factory=today_in_current_zone)
     notes: str | None = Field(default=None, max_length=500)
 
     model_config = ConfigDict(

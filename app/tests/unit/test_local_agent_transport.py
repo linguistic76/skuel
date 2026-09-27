@@ -32,6 +32,7 @@ from pathlib import Path
 from types import SimpleNamespace
 from typing import Any
 from unittest.mock import AsyncMock
+from zoneinfo import ZoneInfo
 
 import pytest
 
@@ -198,7 +199,10 @@ def rig(mirror_root: Path) -> TransportRig:
     )
     tasks = SimpleNamespace(get_task=AsyncMock(return_value=Result.ok(None)))
     consented_user = SimpleNamespace(preferences=SimpleNamespace(vault_write_consent=True))
-    user_service = SimpleNamespace(get_user=AsyncMock(return_value=Result.ok(consented_user)))
+    user_service = SimpleNamespace(
+        get_user=AsyncMock(return_value=Result.ok(consented_user)),
+        get_user_zone=AsyncMock(return_value=Result.ok(ZoneInfo("America/Vancouver"))),
+    )
 
     reconciler = VaultReconciler(
         registry=VaultRegistry(content=None, personal=descriptor),

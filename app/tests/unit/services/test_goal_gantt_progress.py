@@ -33,6 +33,8 @@ import pytest
 from core.models.enums.goal_enums import MeasurementType
 from core.models.goal.goal import Goal
 from core.services.visualization_service import VisualizationService
+from core.utils.timestamp_helpers import today_in
+from core.utils.zone_context import current_zone
 
 
 @pytest.fixture
@@ -251,5 +253,5 @@ class TestGoalBarDates:
     ) -> None:
         bar = _goal_bar(service, _goal(start_date=None, target_date=None))
 
-        assert bar["start"] == date.today().isoformat()
-        assert bar["end"] == (date.today() + timedelta(days=90)).isoformat()
+        assert bar["start"] == today_in(current_zone()).isoformat()
+        assert bar["end"] == (today_in(current_zone()) + timedelta(days=90)).isoformat()

@@ -25,6 +25,7 @@ import pytest
 
 from core.models.enums.scheduling_enums import TimeOfDay
 from core.models.habit.completion import HabitCompletion
+from tests.helpers.forced_zone import forced_zone
 
 # Fixed reference moment for the pure (wall-clock-independent) methods.
 FIXED_COMPLETED_AT = datetime(2026, 7, 10, 9, 30, 0)
@@ -263,30 +264,33 @@ FROZEN_NOW = datetime(2026, 7, 15, 10, 30, 0)  # a Wednesday, mid-week and mid-d
 class TestTimeDependentMethods:
     """Methods that compare against the wall clock — clock frozen at FROZEN_NOW.
 
-    The model calls datetime.now()/date.today() internally (no injection
-    point), so the module-level names in core.models.habit.completion are
-    monkeypatched with frozen subclasses and every completion is built
-    relative to FROZEN_NOW. Without this, a test computing "3 days ago" from
-    one now() call and the model calling now() again could straddle midnight
-    and flake (codex review finding on PR #704).
+    The model reads today through the zone helpers (``today_in``, ``day_of`` in
+    core.utils.timestamp_helpers) with no injection point, so that module's
+    ``datetime`` is monkeypatched with a frozen subclass and every completion is
+    built relative to FROZEN_NOW. Without this, a test computing "3 days ago"
+    from one now() call and the model calling now() again could straddle
+    midnight and flake (codex review finding on PR #704).
+
+    FROZEN_NOW and the completions are naive host-clock readings, so the host
+    zone is forced to the default zone (America/Vancouver): the laptop's case,
+    where a naive stamp's day and the user's day agree.
     """
 
     @pytest.fixture(autouse=True)
     def frozen_clock(self, monkeypatch):
-        import core.models.habit.completion as completion_module
+        from core.utils import timestamp_helpers
 
         class _FrozenDatetime(datetime):
             @classmethod
-            def now(cls, tz=None):  # noqa: ARG003 -- mirrors datetime.now signature
-                return FROZEN_NOW
+            def now(cls, tz=None):
+                if tz is None:
+                    return FROZEN_NOW
+                return FROZEN_NOW.astimezone(tz)
 
-        class _FrozenDate(date):
-            @classmethod
-            def today(cls):
-                return FROZEN_NOW.date()
-
-        monkeypatch.setattr(completion_module, "datetime", _FrozenDatetime)
-        monkeypatch.setattr(completion_module, "date", _FrozenDate)
+        monkeypatch.delenv("SKUEL_TIMEZONE", raising=False)
+        monkeypatch.setattr(timestamp_helpers, "datetime", _FrozenDatetime)
+        with forced_zone("America/Vancouver"):
+            yield
 
     def test_was_completed_today(self):
         assert make_completion(completed_at=FROZEN_NOW).was_completed_today() is True

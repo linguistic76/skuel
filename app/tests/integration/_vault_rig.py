@@ -203,6 +203,7 @@ async def rig(neo4j_driver, clean_neo4j, tasks_service, tmp_path: Path) -> Rig:
     )
     user_service = Mock()
     user_service.get_user = AsyncMock(return_value=Result.ok(consenting_owner))
+    user_service.get_user_zone = AsyncMock(return_value=Result.ok(consenting_owner.zone()))
 
     processor = UserEntryProcessingService(
         entry_service=user_entry_service,

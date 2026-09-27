@@ -35,6 +35,8 @@ from core.services.intelligence._core_intelligence_mixin import _CoreIntelligenc
 from core.services.knowledge.knowledge_pattern_analyzer import KnowledgePatternAnalyzer
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Result
+from core.utils.timestamp_helpers import today_in
+from core.utils.zone_context import current_zone
 
 if TYPE_CHECKING:
     from core.ports.domain_protocols import HabitsOperations
@@ -173,7 +175,7 @@ class GoalsIntelligenceService(
 
         Backend: UniversalNeo4jBackend.find_by_date_range
         """
-        cutoff = date.today() - timedelta(days=period_days)
+        cutoff = today_in(current_zone()) - timedelta(days=period_days)
         goals_result = await self.backend.find_by_date_range(
             start_date=cutoff,
             end_date=None,
@@ -209,7 +211,9 @@ class GoalsIntelligenceService(
         # Calculate success rate
         goals_with_deadline = [g for g in goals if g.target_date]
         past_deadline_goals = [
-            g for g in goals_with_deadline if g.target_date and g.target_date < date.today()
+            g
+            for g in goals_with_deadline
+            if g.target_date and g.target_date < today_in(current_zone())
         ]
         if past_deadline_goals:
             completed_on_time = [g for g in past_deadline_goals if g.is_achieved()]

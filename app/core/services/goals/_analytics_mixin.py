@@ -10,7 +10,6 @@ See: /docs/architecture/ENTITY_TYPE_ARCHITECTURE.md
 
 from __future__ import annotations
 
-from datetime import date
 from typing import TYPE_CHECKING, Any
 
 from core.models.goal.goal import Goal
@@ -24,6 +23,8 @@ from core.services.intelligence import (
 )
 from core.utils.decorators import requires_graph_intelligence
 from core.utils.result_simplified import Errors, Result
+from core.utils.timestamp_helpers import today_in
+from core.utils.zone_context import current_zone
 
 if TYPE_CHECKING:
     from core.services.user.unified_user_context import UserContext
@@ -89,7 +90,7 @@ class _AnalyticsMixin:
         # Calculate timeline
         days_remaining = None
         if goal.target_date:
-            days_remaining = (goal.target_date - date.today()).days
+            days_remaining = (goal.target_date - today_in(current_zone())).days
 
         # Calculate contributions (from metrics)
         total_tasks = metrics["task_support_count"]

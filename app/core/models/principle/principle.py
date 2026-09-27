@@ -25,6 +25,9 @@ from dataclasses import dataclass, field
 from datetime import date
 from typing import TYPE_CHECKING, Any, Self
 
+from core.utils.timestamp_helpers import today_in
+from core.utils.zone_context import current_zone
+
 if TYPE_CHECKING:
     from core.models.entity_dto import EntityDTO
     from core.models.principle.principle_dto import PrincipleDTO
@@ -216,7 +219,7 @@ class Principle(UserOwnedEntity):
         if self.last_review_date is None:
             return self._past_grace_period()
 
-        days_since = (date.today() - self.last_review_date).days
+        days_since = (today_in(current_zone()) - self.last_review_date).days
         return days_since >= self._review_cadence_days()
 
     def _review_cadence_days(self) -> int:
@@ -237,7 +240,7 @@ class Principle(UserOwnedEntity):
         reference = self.adopted_date or (self.created_at.date() if self.created_at else None)
         if reference is None:
             return True
-        return (date.today() - reference).days > 7
+        return (today_in(current_zone()) - reference).days > 7
 
     def days_until_review_needed(self) -> int | None:
         """Days until next review, 0 if overdue, None if not applicable."""
@@ -250,7 +253,9 @@ class Principle(UserOwnedEntity):
         if self.last_review_date is None:
             return None
 
-        remaining = self._review_cadence_days() - (date.today() - self.last_review_date).days
+        remaining = (
+            self._review_cadence_days() - (today_in(current_zone()) - self.last_review_date).days
+        )
         return max(0, remaining)
 
     @property

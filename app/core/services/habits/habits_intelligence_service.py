@@ -34,6 +34,8 @@ from core.services.intelligence._core_intelligence_mixin import _CoreIntelligenc
 from core.services.knowledge.knowledge_pattern_analyzer import KnowledgePatternAnalyzer
 from core.utils.dto_converters import to_domain_model
 from core.utils.result_simplified import Result
+from core.utils.timestamp_helpers import today_in
+from core.utils.zone_context import current_zone
 
 if TYPE_CHECKING:
     from core.services.cross_domain import CrossDomainQueryService
@@ -270,7 +272,7 @@ class HabitsIntelligenceService(
         habit = to_domain_model(habit_result.value, HabitDTO, Habit)
 
         event_suggestions = []
-        start_date = date.today()
+        start_date = today_in(current_zone())
 
         for day_offset in range(days_to_schedule):
             event_date = start_date + timedelta(days=day_offset)

@@ -45,7 +45,9 @@ from core.utils.list_helpers import SortConfig, apply_entity_sort
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
 from core.utils.sort_functions import get_created_at_attr, get_title_lower
+from core.utils.timestamp_helpers import today_in
 from core.utils.uid_generator import UIDGenerator
+from core.utils.zone_context import current_zone
 
 logger = get_logger(__name__)
 
@@ -700,7 +702,7 @@ class ExerciseService(BaseService[ExerciseBackendOperations, Exercise]):
         if not context.unsubmitted_exercises:
             return Result.ok([])
 
-        today = _date.today()
+        today = today_in(current_zone())
         enriched: list[ContextualExercise] = []
 
         for ex_dict in context.unsubmitted_exercises:

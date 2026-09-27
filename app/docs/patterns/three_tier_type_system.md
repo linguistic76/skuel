@@ -172,7 +172,7 @@ class Task(UserOwnedEntity):
 
     def is_overdue(self) -> bool:
         """Business logic lives here"""
-        return self.due_date and self.due_date < date.today()
+        return self.due_date and self.due_date < today_in(current_zone())
 ```
 
 ### entity_type is required at the base, honest at the leaves (G6)
@@ -740,7 +740,7 @@ from core.models.goal import GoalUpdateIntent
 async def complete_goal(self, uid: str) -> Result[Goal]:
     intent = GoalUpdateIntent(
         status=EntityStatus.COMPLETED.value,
-        completion_date=date.today(),
+        completion_date=today_in(current_zone()),
     )
     return await self.update_goal(uid, intent)  # base materializes intent.to_changes()
 ```

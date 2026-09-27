@@ -68,13 +68,14 @@ whose verdict comes back from the write.
 from __future__ import annotations
 
 from collections.abc import Callable, Mapping
-from datetime import date, datetime
+from datetime import date, datetime, tzinfo
 from types import MappingProxyType
 from typing import Any
 
 from core.models.enums.entity_enums import EntityStatus, EntityType
 from core.models.update_contracts import StatusWriteGuard
 from core.utils.result_simplified import ErrorContext, Errors, Result
+from core.utils.timestamp_helpers import as_host_clock, local_day_bounds, today_in
 
 __all__ = [
     "COMPLETION_FIELDS",
@@ -86,17 +87,24 @@ __all__ = [
     "validate_status_target",
 ]
 
-# Per-domain canonical completion field + stamp value factory. Task and Goal
-# stamp calendar dates (matching their established writers); the datetime
-# domains stamp the moment. Principle has no entry: COMPLETED is not a valid
-# Principle status, so the legality check above refuses it before stamping
-# could ever apply.
-_STAMP_SPECS: dict[EntityType, tuple[str, Callable[[], date | datetime]]] = {
-    EntityType.TASK: ("completion_date", date.today),
-    EntityType.GOAL: ("achieved_date", date.today),
-    EntityType.HABIT: ("completed_at", datetime.now),
-    EntityType.EVENT: ("completed_at", datetime.now),
-    EntityType.CHOICE: ("completed_at", datetime.now),
+
+def _completion_moment_now(_zone: tzinfo) -> datetime:
+    """The moment a datetime domain is completed — an instant, whatever the user's zone."""
+    return datetime.now()
+
+
+# Per-domain canonical completion field + stamp value factory, called with the
+# user's zone. Task and Goal stamp calendar dates (matching their established
+# writers) — today in that zone; the datetime domains stamp the moment, which
+# no zone changes. Principle has no entry: COMPLETED is not a valid Principle
+# status, so the legality check above refuses it before stamping could ever
+# apply.
+_STAMP_SPECS: dict[EntityType, tuple[str, Callable[[tzinfo], date | datetime]]] = {
+    EntityType.TASK: ("completion_date", today_in),
+    EntityType.GOAL: ("achieved_date", today_in),
+    EntityType.HABIT: ("completed_at", _completion_moment_now),
+    EntityType.EVENT: ("completed_at", _completion_moment_now),
+    EntityType.CHOICE: ("completed_at", _completion_moment_now),
 }
 
 #: Which node property each Activity domain stamps on completion — the same
@@ -110,7 +118,7 @@ COMPLETION_FIELDS: Mapping[EntityType, str] = MappingProxyType(
 )
 
 
-def completion_moment(stamp: date | datetime | None) -> datetime:
+def completion_moment(stamp: date | datetime | None, zone: tzinfo) -> datetime:
     """Widen a domain completion stamp into the ``datetime`` an event's ``occurred_at`` wants.
 
     The born-completed create doors publish their completion event with the moment
@@ -118,7 +126,9 @@ def completion_moment(stamp: date | datetime | None) -> datetime:
     ``- [x] … ✅ 2026-03-04`` line reports March 4th. Task and Goal stamp a ``date``
     (``completion_date`` / ``achieved_date``) while ``BaseEvent.occurred_at`` is a
     ``datetime``, so the widening has to be explicit — ``datetime`` is checked first
-    because it is a subclass of ``date``.
+    because it is a subclass of ``date``. A date widens to the first instant of that
+    day in ``zone`` — the user's, whose day it is — read on the host clock, the
+    naive form ``occurred_at`` takes.
 
     An absent stamp falls back to now, which is exactly what ``BaseEvent`` would have
     defaulted to.
@@ -126,7 +136,8 @@ def completion_moment(stamp: date | datetime | None) -> datetime:
     if isinstance(stamp, datetime):
         return stamp
     if isinstance(stamp, date):
-        return datetime.combine(stamp, datetime.min.time())
+        day_start, _ = local_day_bounds(stamp, zone)
+        return as_host_clock(day_start)
     return datetime.now()
 
 
@@ -201,7 +212,7 @@ def _stamp_target(
     # boundary: a materialized update patch (see the module note) — only ``status``'s
     # VALUE is read, and ``_coerce_status`` narrows it; every other use is a key test.
     changes: Mapping[str, Any],
-) -> Result[tuple[EntityStatus, str, Callable[[], date | datetime]] | None]:
+) -> Result[tuple[EntityStatus, str, Callable[[tzinfo], date | datetime]] | None]:
     """Validate the status target and resolve the stamp spec this update would use.
 
     The shared front half of :func:`status_transition_guard` and
@@ -419,6 +430,8 @@ def status_transition_guard(
     # boundary: a materialized update patch (see the module note) — only ``status``'s
     # VALUE is read, and ``_coerce_status`` narrows it; every other use is a key test.
     changes: Mapping[str, Any],
+    *,
+    zone: tzinfo,
 ) -> Result[StatusWriteGuard]:
     """Package this update's completion-stamp rules as a write-time guard (ADR-087).
 
@@ -453,6 +466,8 @@ def status_transition_guard(
     Args:
         entity_type: The Activity domain being updated.
         changes: The materialized update patch (``intent.to_changes()``). Never mutated.
+        zone: The zone of the user whose entity this is — a Task or Goal completed
+            today is stamped with today in that zone, never the host's day.
 
     Returns:
         ``Result.ok`` with the guard, or ``Result.fail`` (validation) on an illegal
@@ -478,6 +493,6 @@ def status_transition_guard(
     completed = frozenset({EntityStatus.COMPLETED.value})
     if new_status is EntityStatus.COMPLETED:
         return Result.ok(
-            StatusWriteGuard(patch_if_prior_not_in=(completed, {field_name: stamp_factory()}))
+            StatusWriteGuard(patch_if_prior_not_in=(completed, {field_name: stamp_factory(zone)}))
         )
     return Result.ok(StatusWriteGuard(patch_if_prior_in=(completed, {field_name: None})))

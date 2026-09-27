@@ -137,7 +137,7 @@ class TaskStatusUpdateRequest(RequestBase):
     @classmethod
     def auto_set_completion(cls, v, info: ValidationInfo):
         if info.data.get("status") == ActivityStatus.COMPLETED and not v:
-            return date.today()
+            return today_in(current_zone())
         return v
 
     @field_validator("cancelled_reason")

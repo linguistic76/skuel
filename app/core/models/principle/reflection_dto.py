@@ -13,7 +13,9 @@ from typing import Any
 
 from core.models.enums.principle_enums import AlignmentLevel, TriggerType
 from core.models.type_hints import UserUID
+from core.utils.timestamp_helpers import today_in
 from core.utils.uid_generator import UIDGenerator
+from core.utils.zone_context import current_zone
 
 
 @dataclass
@@ -89,7 +91,7 @@ class PrincipleReflectionDTO:
             uid=UIDGenerator.generate_random_uid("reflection"),
             principle_uid=principle_uid,
             user_uid=user_uid,
-            reflection_date=reflection_date or date.today(),
+            reflection_date=reflection_date or today_in(current_zone()),
             alignment_level=alignment_level,
             evidence=evidence,
             reflection_notes=reflection_notes,

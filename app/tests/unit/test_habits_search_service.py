@@ -11,7 +11,7 @@ TimeQueryMixin with frequency-window logic: "due" is computed from
 ``due_date`` column.
 """
 
-from datetime import date, datetime, timedelta
+from datetime import datetime, timedelta
 from typing import Any
 from unittest.mock import AsyncMock, Mock
 
@@ -22,6 +22,8 @@ from core.models.habit.habit import Habit
 from core.models.habit.habit_dto import HabitDTO
 from core.services.habits.habits_search_service import HabitsSearchService
 from core.utils.result_simplified import Result
+from core.utils.timestamp_helpers import today_in
+from core.utils.zone_context import current_zone
 
 # ============================================================================
 # FIXTURES
@@ -124,7 +126,7 @@ async def test_get_upcoming_recently_completed_is_not_due(search_service, mock_b
     today_completed = _habit(
         "habit:today",
         recurrence=RecurrencePattern.DAILY.value,
-        last_completed=datetime.combine(date.today(), datetime.min.time()),
+        last_completed=datetime.combine(today_in(current_zone()), datetime.min.time()),
     )
     mock_backend.find_by.return_value = Result.ok([today_completed.to_dto().to_dict()])
 
@@ -240,7 +242,7 @@ async def test_get_needing_attention_low_streak(search_service, mock_backend):
 @pytest.mark.asyncio
 async def test_get_user_due_today(search_service, mock_backend):
     """Daily habit last completed yesterday is due today."""
-    yesterday = datetime.combine(date.today() - timedelta(days=1), datetime.min.time())
+    yesterday = datetime.combine(today_in(current_zone()) - timedelta(days=1), datetime.min.time())
     habit = _habit(
         "habit:daily",
         recurrence=RecurrencePattern.DAILY.value,
@@ -257,7 +259,7 @@ async def test_get_user_due_today(search_service, mock_backend):
 @pytest.mark.asyncio
 async def test_get_user_due_today_skips_completed_today(search_service, mock_backend):
     """Already completed today → not due."""
-    today = datetime.combine(date.today(), datetime.min.time())
+    today = datetime.combine(today_in(current_zone()), datetime.min.time())
     habit = _habit(
         "habit:done-today",
         recurrence=RecurrencePattern.DAILY.value,

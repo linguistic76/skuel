@@ -15,6 +15,8 @@ from typing import TYPE_CHECKING, Any
 from core.services.events._habit_links import enrich_events_with_habit_links
 from core.services.intelligence import RecommendationEngine
 from core.utils.result_simplified import Errors, Result
+from core.utils.timestamp_helpers import today_in
+from core.utils.zone_context import current_zone
 
 if TYPE_CHECKING:
     from core.models.type_hints import FilterParams, UserUID
@@ -49,15 +51,15 @@ class _AnalyticsMixin:
         Returns:
             Result containing batch analysis
         """
-        from datetime import date, timedelta
+        from datetime import timedelta
 
         from core.services.cross_domain.cross_domain_types import EventImpactRow
 
-        end_date = date.today() + timedelta(days=days_ahead)
+        end_date = today_in(current_zone()) + timedelta(days=days_ahead)
 
         filters: FilterParams = {
             "user_uid": user_uid,
-            "event_date__gte": date.today().isoformat(),
+            "event_date__gte": today_in(current_zone()).isoformat(),
             "event_date__lte": end_date.isoformat(),
             "status": "scheduled",
         }
@@ -85,7 +87,7 @@ class _AnalyticsMixin:
 
         batch_result = await self.cross_domain_query.get_event_impact_batch(
             user_uid=user_uid,
-            start_date=date.today(),
+            start_date=today_in(current_zone()),
             end_date=end_date,
         )
         if batch_result.is_error:

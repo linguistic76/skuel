@@ -46,6 +46,7 @@ from core.utils.result_simplified import ErrorContext, Errors, Result
 from core.utils.sort_functions import make_attribute_sort_key
 from core.utils.type_converters import get_enum_value
 from core.utils.uid_generator import UIDGenerator
+from core.utils.zone_context import current_zone
 
 if TYPE_CHECKING:
     from core.models.choice.choice_request import (
@@ -652,7 +653,7 @@ class ChoicesCoreService(
         # Status-target validation + completion stamping + decision immutability, all
         # expressed as conditions the WRITE evaluates against the prior it reads under the
         # node's lock (ADR-087).
-        guard_result = status_transition_guard(EntityType.CHOICE, changes)
+        guard_result = status_transition_guard(EntityType.CHOICE, changes, zone=current_zone())
         if guard_result.is_error:
             return Result.fail(guard_result)
         guard = _with_decision_immutability(guard_result.value, changes)
@@ -841,7 +842,7 @@ class ChoicesCoreService(
         # an illegal status target, which is free here (ACTIVE always is) and stays true
         # if this literal ever changes. The prior it clears against is read under the
         # node's lock (ADR-087), so a concurrent complete cannot slip past it.
-        guard_result = status_transition_guard(EntityType.CHOICE, updates)
+        guard_result = status_transition_guard(EntityType.CHOICE, updates, zone=current_zone())
         if guard_result.is_error:
             return Result.fail(guard_result)
 

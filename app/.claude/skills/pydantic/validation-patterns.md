@@ -43,7 +43,7 @@ class DateRangeRequest(BaseModel):
     @classmethod
     def validate_not_past(cls, v: date | None) -> date | None:
         """Validate all date fields are not in the past"""
-        if v is not None and v < date.today():
+        if v is not None and v < today_in(current_zone()):
             raise ValueError("Date cannot be in the past")
         return v
 ```
@@ -66,7 +66,7 @@ class TaskRequest(BaseModel):
         """Auto-set completion date when status is COMPLETED"""
         status = info.data.get("status")
         if status == ActivityStatus.COMPLETED and v is None:
-            return date.today()
+            return today_in(current_zone())
         return v
 
     @field_validator("cancelled_reason")
@@ -171,7 +171,7 @@ def validate_future_date(*field_names: str) -> Callable:
         if isinstance(v, datetime):
             if v <= datetime.now():
                 raise ValueError("Date/time cannot be in the past")
-        elif isinstance(v, date) and v < date.today():
+        elif isinstance(v, date) and v < today_in(current_zone()):
             raise ValueError("Date cannot be in the past")
         return v
     return _validate
@@ -181,7 +181,7 @@ def validate_date_not_future(*field_names: str) -> Callable:
     """Validate date is not in the future (for historical dates)"""
     @field_validator(*field_names)
     def _validate(cls, v: date | None) -> date | None:
-        if v is not None and v > date.today():
+        if v is not None and v > today_in(current_zone()):
             raise ValueError("Date cannot be in the future")
         return v
     return _validate
@@ -444,7 +444,7 @@ def test_task_title_required():
 
 def test_task_date_not_past():
     """Due date cannot be in the past"""
-    yesterday = date.today() - timedelta(days=1)
+    yesterday = today_in(current_zone()) - timedelta(days=1)
 
     with pytest.raises(ValidationError) as exc:
         TaskCreateRequest(title="Test", due_date=yesterday)

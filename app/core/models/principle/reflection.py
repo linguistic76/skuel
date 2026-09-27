@@ -18,6 +18,8 @@ from typing import TYPE_CHECKING, Any
 
 from core.models.enums.principle_enums import AlignmentLevel, TriggerType
 from core.models.type_hints import UserUID
+from core.utils.timestamp_helpers import today_in
+from core.utils.zone_context import current_zone
 
 if TYPE_CHECKING:
     from .reflection_dto import PrincipleReflectionDTO
@@ -229,7 +231,7 @@ class PrincipleReflection:
 
     def days_since_reflection(self) -> int:
         """Calculate days since this reflection was recorded."""
-        return (date.today() - self.reflection_date).days
+        return (today_in(current_zone()) - self.reflection_date).days
 
     def was_recent(self, days: int = 7) -> bool:
         """Check if reflection was within the last N days."""

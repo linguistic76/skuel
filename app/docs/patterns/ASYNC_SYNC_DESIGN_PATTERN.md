@@ -1,6 +1,6 @@
 ---
 title: Async/Sync Design Pattern
-updated: 2026-09-17
+updated: 2026-09-27
 category: patterns
 related_skills:
 - python
@@ -161,7 +161,7 @@ class Task:
         """NO I/O - Pure date comparison"""
         if self.due_date is None:
             return False
-        return date.today() > self.due_date
+        return today_in(current_zone()) > self.due_date
 
     def calculate_priority_score(self) -> float:
         """NO I/O - Pure business logic calculation"""

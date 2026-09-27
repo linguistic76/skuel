@@ -1,6 +1,6 @@
 ---
 title: Query Architecture
-updated: 2026-09-21
+updated: 2026-09-27
 category: patterns
 related_skills:
 - skuel-search-architecture
@@ -410,9 +410,9 @@ All query builders support consistent filter operators:
 | Operator | Usage | Example |
 |----------|-------|---------|
 | `eq` | Equality (default) | `priority='high'` |
-| `gt` | Greater than | `due_date__gt=date.today()` |
+| `gt` | Greater than | `due_date__gt=today_in(current_zone())` |
 | `lt` | Less than | `estimated_hours__lt=5.0` |
-| `gte` | Greater than or equal | `due_date__gte=date.today()` |
+| `gte` | Greater than or equal | `due_date__gte=today_in(current_zone())` |
 | `lte` | Less than or equal | `priority_score__lte=8` |
 | `contains` | String contains | `title__contains='urgent'` |
 | `in` | List membership | `priority__in=['high', 'urgent']` |

@@ -20,10 +20,11 @@ from __future__ import annotations
 
 import dataclasses
 from collections.abc import Mapping
-from datetime import date
 from typing import TYPE_CHECKING, Any, Final
 
 from core.models.type_hints import Neo4jProperties, UserUID
+from core.utils.timestamp_helpers import today_in
+from core.utils.zone_context import current_zone
 
 if TYPE_CHECKING:
     from core.ports.domain_protocols import TasksOperations
@@ -714,7 +715,7 @@ class TasksCoreService(
         date reports the day it happened rather than the ingest moment.
 
         ``was_overdue`` is measured against that same completion moment, not against
-        today: the update chokepoint compares to ``date.today()`` because there the two
+        today: the update chokepoint compares to today (in the user's zone) because there the two
         are the same day, while here a backfilled task completed on time in March would
         otherwise be announced overdue purely because March is now in the past — and the
         overdue branch APPENDS a ``PersistedInsight`` (``TaskEventHandlerService``).
@@ -722,7 +723,7 @@ class TasksCoreService(
         if task.status is not EntityStatus.COMPLETED:
             return
 
-        completed_at = completion_moment(task.completion_date)
+        completed_at = completion_moment(task.completion_date, current_zone())
         await publish_event(
             self.event_bus,
             TaskCompleted(
@@ -984,7 +985,7 @@ class TasksCoreService(
         # The refusal on an illegal status target is the same one the Python-side helper
         # made; what changed is that the stamp decision is no longer taken from a status
         # a concurrent writer may already have moved.
-        guard = status_transition_guard(EntityType.TASK, changes)
+        guard = status_transition_guard(EntityType.TASK, changes, zone=current_zone())
         if guard.is_error:
             return Result.fail(guard)
 
@@ -1034,7 +1035,7 @@ class TasksCoreService(
                 completion_time_seconds=(
                     task.actual_minutes * 60 if task.actual_minutes is not None else None
                 ),
-                was_overdue=task.due_date < date.today() if task.due_date else False,
+                was_overdue=task.due_date < today_in(current_zone()) if task.due_date else False,
             )
             await publish_event(self.event_bus, completed_event, self.logger)
 
@@ -1107,10 +1108,10 @@ class TasksCoreService(
         # Every row gets the same patch and therefore the same guard, so both are
         # built once: the stamp conditions are a property of the TARGET status, which
         # is constant across the batch, and one build means one date for the batch
-        # rather than a per-row ``date.today()`` that could straddle midnight. An
+        # rather than a per-row "today" that could straddle midnight. An
         # illegal target would fail identically for every row, so it fails the call.
         updates: Neo4jProperties = {"status": EntityStatus.COMPLETED.value}
-        guard = status_transition_guard(EntityType.TASK, updates)
+        guard = status_transition_guard(EntityType.TASK, updates, zone=current_zone())
         if guard.is_error:
             return Result.fail(guard)
 
@@ -1144,7 +1145,9 @@ class TasksCoreService(
                     completion_time_seconds=(
                         task.actual_minutes * 60 if task.actual_minutes is not None else None
                     ),
-                    was_overdue=(task.due_date < date.today() if task.due_date else False),
+                    was_overdue=(
+                        task.due_date < today_in(current_zone()) if task.due_date else False
+                    ),
                 )
             )
 

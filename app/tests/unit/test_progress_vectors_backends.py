@@ -7,13 +7,15 @@ Integration tests to verify UniversalNeo4jBackend works with:
 - EmbeddingVector model (semantic search)
 """
 
-from datetime import date, datetime, timedelta
+from datetime import datetime, timedelta
 
 import pytest
 
 from core.models.enums import Domain
 from core.models.progress import UserProgress, generate_progress_uid
 from core.models.vectors import EmbeddingVector, generate_embedding_uid, hash_source_text
+from core.utils.timestamp_helpers import today_in
+from core.utils.zone_context import current_zone
 
 # ============================================================================
 # PROGRESS MODEL TESTS
@@ -127,14 +129,14 @@ def test_user_progress_review_scheduling():
         tracked_at=datetime.now(),
         mastery_score=0.9,
         last_reviewed=datetime.now(),
-        next_review_due=date.today(),  # Due today
+        next_review_due=today_in(current_zone()),  # Due today
         review_interval_days=7,
     )
 
     assert progress.needs_review
 
     # Future review - use dynamic future date to avoid test rot
-    future_date = date.today() + timedelta(days=30)
+    future_date = today_in(current_zone()) + timedelta(days=30)
     future_progress = UserProgress(
         uid=generate_progress_uid("user_123", "ku_data_structures"),
         user_uid="user_123",

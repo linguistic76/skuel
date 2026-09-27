@@ -29,6 +29,7 @@ the same prior) is a different claim, pinned against a real Neo4j in
 from __future__ import annotations
 
 from datetime import date, datetime
+from zoneinfo import ZoneInfo
 
 import pytest
 
@@ -44,6 +45,10 @@ from core.services.completion_stamp import (
     validate_status_target,
 )
 from core.utils.result_simplified import ErrorCategory
+from core.utils.timestamp_helpers import today_in
+
+# The zone of the user whose entity the guard stamps.
+ZONE = ZoneInfo("America/Vancouver")
 
 _COMPLETED = frozenset({EntityStatus.COMPLETED.value})
 _STAMPING_TYPES = sorted(COMPLETION_FIELDS, key=lambda t: t.value)
@@ -71,15 +76,15 @@ def _select(guard: StatusWriteGuard, prior: str | None) -> dict:
 
 class TestGuardBuilder:
     def test_a_completion_target_offers_the_stamp_conditionally(self) -> None:
-        guard = status_transition_guard(EntityType.TASK, {"status": "completed"})
+        guard = status_transition_guard(EntityType.TASK, {"status": "completed"}, zone=ZONE)
         assert guard.is_ok
         assert guard.value.patch_if_prior_in is None
         statuses, patch = guard.value.patch_if_prior_not_in
         assert statuses == _COMPLETED
-        assert patch == {"completion_date": date.today()}
+        assert patch == {"completion_date": today_in(ZONE)}
 
     def test_a_valid_non_completion_target_offers_the_clear_conditionally(self) -> None:
-        guard = status_transition_guard(EntityType.TASK, {"status": "active"})
+        guard = status_transition_guard(EntityType.TASK, {"status": "active"}, zone=ZONE)
         assert guard.is_ok
         assert guard.value.patch_if_prior_not_in is None
         statuses, patch = guard.value.patch_if_prior_in
@@ -87,14 +92,14 @@ class TestGuardBuilder:
         assert patch == {"completion_date": None}
 
     def test_no_status_key_means_no_patches(self) -> None:
-        guard = status_transition_guard(EntityType.TASK, {"title": "renamed"})
+        guard = status_transition_guard(EntityType.TASK, {"title": "renamed"}, zone=ZONE)
         assert guard.is_ok
         assert guard.value.has_patches() is False
 
     def test_a_caller_supplied_stamp_disables_the_patches(self) -> None:
         """The authority rule: an explicit complete flow sets its own date."""
         guard = status_transition_guard(
-            EntityType.TASK, {"status": "completed", "completion_date": date(2026, 1, 1)}
+            EntityType.TASK, {"status": "completed", "completion_date": date(2026, 1, 1)}, zone=ZONE
         )
         assert guard.is_ok
         assert guard.value.has_patches() is False
@@ -111,7 +116,7 @@ class TestGuardBuilder:
         See: ``docs/decisions/ADR-087-status-guarded-conditional-writes.md``
         """
         guard = status_transition_guard(
-            EntityType.TASK, {"status": "active", "completion_date": date(2026, 1, 1)}
+            EntityType.TASK, {"status": "active", "completion_date": date(2026, 1, 1)}, zone=ZONE
         )
         assert guard.is_error
         assert "requires status=completed" in guard.expect_error().message
@@ -126,7 +131,9 @@ class TestGuardBuilder:
         The claim is judged by the write instead, as the prior it requires
         (``TestTheBareStampGate`` below).
         """
-        guard = status_transition_guard(EntityType.TASK, {"completion_date": date(2026, 1, 1)})
+        guard = status_transition_guard(
+            EntityType.TASK, {"completion_date": date(2026, 1, 1)}, zone=ZONE
+        )
         assert guard.is_ok
 
     def test_a_choice_may_correct_its_own_timestamp(self) -> None:
@@ -136,13 +143,15 @@ class TestGuardBuilder:
         status endpoint sends ``status`` alone. A rule demanding both in one patch
         makes the documented field unusable rather than merely strict.
         """
-        guard = status_transition_guard(EntityType.CHOICE, {"completed_at": datetime(2026, 1, 1)})
+        guard = status_transition_guard(
+            EntityType.CHOICE, {"completed_at": datetime(2026, 1, 1)}, zone=ZONE
+        )
         assert guard.is_ok
 
     def test_a_choice_reopen_carrying_a_stamp_is_still_refused(self) -> None:
         """Narrowing to patches that NAME a status keeps the actual bug closed."""
         guard = status_transition_guard(
-            EntityType.CHOICE, {"status": "active", "completed_at": datetime(2026, 1, 1)}
+            EntityType.CHOICE, {"status": "active", "completed_at": datetime(2026, 1, 1)}, zone=ZONE
         )
         assert guard.is_error
         assert "completed_at requires status=completed" in guard.expect_error().message
@@ -152,7 +161,7 @@ class TestGuardBuilder:
         so a caller that writes ``None`` still keeps authority and the guard adds no
         patch of its own — the write carries the clear."""
         guard = status_transition_guard(
-            EntityType.TASK, {"status": "active", "completion_date": None}
+            EntityType.TASK, {"status": "active", "completion_date": None}, zone=ZONE
         )
         assert guard.is_ok
         assert guard.value.has_patches() is False
@@ -162,7 +171,7 @@ class TestGuardBuilder:
         asks for, and is not a transition — so it re-dates without firing a completion
         event. The deliberate re-date the authority rule exists to serve."""
         guard = status_transition_guard(
-            EntityType.TASK, {"status": "completed", "completion_date": date(2026, 1, 1)}
+            EntityType.TASK, {"status": "completed", "completion_date": date(2026, 1, 1)}, zone=ZONE
         )
         assert guard.is_ok
         assert guard.value.has_patches() is False
@@ -176,14 +185,14 @@ class TestGuardBuilder:
             s.value for s in entity_type.valid_statuses() if s is not EntityStatus.COMPLETED
         )
         guard = status_transition_guard(
-            entity_type, {"status": reopen_target, field: datetime(2026, 1, 1)}
+            entity_type, {"status": reopen_target, field: datetime(2026, 1, 1)}, zone=ZONE
         )
         assert guard.is_error
         assert f"{field} requires status=completed" in guard.expect_error().message
 
     def test_a_domain_with_no_completion_field_gets_no_patches(self) -> None:
         """Principle records no completion moment — and cannot be completed at all."""
-        guard = status_transition_guard(EntityType.PRINCIPLE, {"status": "active"})
+        guard = status_transition_guard(EntityType.PRINCIPLE, {"status": "active"}, zone=ZONE)
         assert guard.is_ok
         assert guard.value.has_patches() is False
 
@@ -192,13 +201,13 @@ class TestGuardBuilder:
         immutability), never the stamp rules'. The stamp rules refuse through the
         PRECONDITION gate instead, and only for a bare stamp — see the class below."""
         for changes in ({"status": "completed"}, {"status": "active"}, {"title": "x"}):
-            guard = status_transition_guard(EntityType.TASK, changes)
+            guard = status_transition_guard(EntityType.TASK, changes, zone=ZONE)
             assert guard.value.refuse_if_prior_in == frozenset()
             assert guard.value.refuse_unless_prior_in == frozenset()
 
     @pytest.mark.parametrize("entity_type", _STAMPING_TYPES)
     def test_each_stamping_domain_names_its_own_field(self, entity_type: EntityType) -> None:
-        guard = status_transition_guard(entity_type, {"status": "completed"})
+        guard = status_transition_guard(entity_type, {"status": "completed"}, zone=ZONE)
         assert guard.is_ok
         _statuses, patch = guard.value.patch_if_prior_not_in
         assert list(patch) == [COMPLETION_FIELDS[entity_type]]
@@ -206,20 +215,20 @@ class TestGuardBuilder:
         assert isinstance(next(iter(patch.values())), date | datetime)
 
     def test_an_unrecognized_status_is_refused(self) -> None:
-        guard = status_transition_guard(EntityType.TASK, {"status": "not-a-status"})
+        guard = status_transition_guard(EntityType.TASK, {"status": "not-a-status"}, zone=ZONE)
         assert guard.is_error
         assert "Invalid status value" in guard.expect_error().message
 
     def test_an_explicit_null_status_is_refused(self) -> None:
         """A present ``status`` key means a target was intended; ``None`` is not one.
         Distinct from the no-key case above, which passes with no patches."""
-        guard = status_transition_guard(EntityType.TASK, {"status": None})
+        guard = status_transition_guard(EntityType.TASK, {"status": None}, zone=ZONE)
         assert guard.is_error
         assert "Invalid status value" in guard.expect_error().message
 
     def test_a_status_illegal_for_the_type_is_refused(self) -> None:
         """``completed`` is not a valid Principle status — enforcement, not documentation."""
-        guard = status_transition_guard(EntityType.PRINCIPLE, {"status": "completed"})
+        guard = status_transition_guard(EntityType.PRINCIPLE, {"status": "completed"}, zone=ZONE)
         assert guard.is_error
         assert "not valid for principle" in guard.expect_error().message
 
@@ -248,7 +257,7 @@ def test_the_guard_stamps_exactly_when_the_verdict_helpers_say_so(
     for prior in [*legal, None]:
         for target in legal:
             changes = {"status": target}
-            guard = status_transition_guard(entity_type, changes)
+            guard = status_transition_guard(entity_type, changes, zone=ZONE)
             assert guard.is_ok
 
             selected = _select(guard.value, prior)
@@ -272,7 +281,7 @@ def test_the_two_legality_entry_points_refuse_the_same_targets(
     ]
     for target in illegal:
         changes = {"status": target}
-        assert status_transition_guard(entity_type, changes).is_error
+        assert status_transition_guard(entity_type, changes, zone=ZONE).is_error
         assert validate_status_target(entity_type, changes).is_error
 
     for target in sorted(s.value for s in entity_type.valid_statuses()):
@@ -311,7 +320,7 @@ class TestValidateStatusTarget:
         """
         changes = {"status": "active", "completion_date": date(2026, 1, 1)}
         assert validate_status_target(EntityType.TASK, changes).is_ok
-        assert status_transition_guard(EntityType.TASK, changes).is_error
+        assert status_transition_guard(EntityType.TASK, changes, zone=ZONE).is_error
 
     def test_it_carries_no_stamp_for_a_stamping_domain_either(self) -> None:
         """It answers legality and nothing else — the caller that wants a stamp asks
@@ -369,7 +378,7 @@ class TestTheBareStampGate:
     @pytest.mark.parametrize("entity_type", _STAMPING_TYPES)
     def test_a_bare_stamp_demands_a_completed_prior(self, entity_type: EntityType) -> None:
         field = COMPLETION_FIELDS[entity_type]
-        guard = status_transition_guard(entity_type, {field: datetime(2026, 3, 4)})
+        guard = status_transition_guard(entity_type, {field: datetime(2026, 3, 4)}, zone=ZONE)
 
         assert guard.is_ok
         assert guard.value.refuse_unless_prior_in == _COMPLETED
@@ -381,7 +390,9 @@ class TestTheBareStampGate:
     @pytest.mark.parametrize("entity_type", _STAMPING_TYPES)
     def test_clearing_the_stamp_demands_nothing(self, entity_type: EntityType) -> None:
         """``None`` is the reopen's own clear, not a claim that anything completed."""
-        guard = status_transition_guard(entity_type, {COMPLETION_FIELDS[entity_type]: None})
+        guard = status_transition_guard(
+            entity_type, {COMPLETION_FIELDS[entity_type]: None}, zone=ZONE
+        )
 
         assert guard.is_ok
         assert guard.value.refuse_unless_prior_in == frozenset()
@@ -390,7 +401,7 @@ class TestTheBareStampGate:
         """The deliberate re-date the authority rule serves: the patch says what status
         it means, so nothing is left for the write to decide."""
         guard = status_transition_guard(
-            EntityType.TASK, {"status": "completed", "completion_date": date(2026, 3, 4)}
+            EntityType.TASK, {"status": "completed", "completion_date": date(2026, 3, 4)}, zone=ZONE
         )
 
         assert guard.is_ok
@@ -398,18 +409,22 @@ class TestTheBareStampGate:
 
     def test_a_patch_carrying_no_stamp_demands_nothing(self) -> None:
         for changes in ({"title": "x"}, {"due_date": date(2026, 3, 4)}, {}):
-            guard = status_transition_guard(EntityType.TASK, changes)
+            guard = status_transition_guard(EntityType.TASK, changes, zone=ZONE)
             assert guard.value.refuse_unless_prior_in == frozenset(), changes
 
     def test_a_foreign_field_is_not_this_domains_stamp(self) -> None:
         """The gate reads the domain's OWN field (``COMPLETION_FIELDS``) — a Task's key
         on a Habit patch is an ordinary property, not a completion claim."""
-        guard = status_transition_guard(EntityType.HABIT, {"completion_date": datetime.now()})
+        guard = status_transition_guard(
+            EntityType.HABIT, {"completion_date": datetime.now()}, zone=ZONE
+        )
 
         assert guard.value.refuse_unless_prior_in == frozenset()
 
     def test_principle_has_no_stamp_to_gate(self) -> None:
-        guard = status_transition_guard(EntityType.PRINCIPLE, {"completed_at": datetime.now()})
+        guard = status_transition_guard(
+            EntityType.PRINCIPLE, {"completed_at": datetime.now()}, zone=ZONE
+        )
 
         assert guard.is_ok
         assert guard.value.refuse_unless_prior_in == frozenset()

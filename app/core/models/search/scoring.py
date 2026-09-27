@@ -46,6 +46,8 @@ from typing import TYPE_CHECKING, Any, Protocol
 
 from core.models.enums import EventType
 from core.models.type_hints import EntityUID
+from core.utils.timestamp_helpers import today_in
+from core.utils.zone_context import current_zone
 
 if TYPE_CHECKING:
     from core.models.choice.choice import Choice
@@ -236,7 +238,7 @@ def score_deadline_proximity(
         ComponentScore for deadline proximity
     """
     if today is None:
-        today = date.today()
+        today = today_in(current_zone())
 
     if target_date is None:
         return ComponentScore(
@@ -433,7 +435,7 @@ def score_streak_protection(
         ComponentScore for streak protection
     """
     if today is None:
-        today = date.today()
+        today = today_in(current_zone())
 
     if current_streak is None or current_streak == 0:
         return ComponentScore(
@@ -727,7 +729,7 @@ def score_habit(habit: Habit, context: UserContext) -> PriorityScore:
         PriorityScore with breakdown
     """
     components: list[ComponentScore] = []
-    today = date.today()
+    today = today_in(current_zone())
 
     # Convert datetime to date for streak calculation
     # habit.last_completed is typed as datetime | None
@@ -854,7 +856,7 @@ def score_event(event: Event, context: UserContext) -> PriorityScore:
         PriorityScore with breakdown
     """
     components: list[ComponentScore] = []
-    today = date.today()
+    today = today_in(current_zone())
 
     # Time proximity (weight: 0.40)
     if event.event_date:

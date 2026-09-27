@@ -17,6 +17,7 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import cast
 from unittest.mock import AsyncMock, Mock
+from zoneinfo import ZoneInfo
 
 import pytest
 
@@ -74,6 +75,7 @@ def _user_service(*, consent: bool = True) -> Mock:
     user.preferences.vault_write_consent = consent
     service = Mock()
     service.get_user = AsyncMock(return_value=Result.ok(user))
+    service.get_user_zone = AsyncMock(return_value=Result.ok(ZoneInfo("America/Vancouver")))
     return service
 
 

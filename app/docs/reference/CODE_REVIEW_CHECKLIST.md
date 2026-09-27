@@ -1,6 +1,6 @@
 ---
 title: Code Review Checklist - Phase 7.3
-updated: 2026-08-11
+updated: 2026-09-27
 status: current
 category: reference
 tags: [checklist, code, reference, review]
@@ -269,7 +269,7 @@ class Task:
 
     def is_overdue(self) -> bool:
         """Business logic here"""
-        return self.due_date and self.due_date < date.today()
+        return self.due_date and self.due_date < today_in(current_zone())
 ```
 
 ---

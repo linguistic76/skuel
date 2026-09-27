@@ -41,6 +41,8 @@ from core.models.goal.goal import Goal
 from core.models.goal.milestone import Milestone
 from core.services.goals.goals_progress_service import GoalsProgressService
 from core.utils.result_simplified import Result
+from core.utils.timestamp_helpers import today_in
+from core.utils.zone_context import current_zone
 from tests.helpers.status_guarded_backend import (
     StatusGuardedWriteRecorder,
     guarded_backend,
@@ -167,7 +169,7 @@ class TestCompleteMilestone:
 
         assert result.is_ok
         updates = _patch(recorder)
-        assert updates["achieved_date"] == date.today()
+        assert updates["achieved_date"] == today_in(current_zone())
         assert updates["status"] is not None
         assert len(_achieved(bus)) == 1
 
@@ -187,7 +189,7 @@ class TestCompleteMilestone:
         result = await service.complete_milestone(_GOAL, 1, Mock(user_uid=_USER))
 
         assert result.is_ok
-        assert _patch(recorder)["achieved_date"] == date.today()
+        assert _patch(recorder)["achieved_date"] == today_in(current_zone())
         assert len(_achieved(bus)) == 1
 
     async def test_an_already_achieved_goal_is_not_re_stamped(self):
@@ -262,7 +264,7 @@ class TestMilestoneOwnStamp:
         assert result.is_ok
         milestone = self._milestones(recorder)[1]
         assert milestone.is_completed is True
-        assert milestone.achieved_date == date.today()
+        assert milestone.achieved_date == today_in(current_zone())
 
     async def test_a_completed_milestone_with_no_date_is_not_backfilled(self):
         """A repeat is not a transition, so there is no moment here to record.
@@ -313,7 +315,7 @@ class TestUpdateGoalFromHabitProgress:
         assert result.is_ok
         updates = _patch(recorder)
         assert updates["progress_percentage"] == 100.0
-        assert updates["achieved_date"] == date.today()
+        assert updates["achieved_date"] == today_in(current_zone())
         assert len(_achieved(bus)) == 1
 
     async def test_a_longer_streak_on_an_achieved_goal_is_not_re_stamped(self):

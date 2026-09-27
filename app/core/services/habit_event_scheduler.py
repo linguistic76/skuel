@@ -25,6 +25,8 @@ from core.models.type_hints import EntityUID, UserUID
 from core.utils.dto_converters import to_domain_model
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Result
+from core.utils.timestamp_helpers import today_in
+from core.utils.zone_context import current_zone
 
 if TYPE_CHECKING:
     from core.ports import HabitsOperations
@@ -138,7 +140,7 @@ class HabitEventScheduler:
         from datetime import datetime
 
         # Use provided date or today
-        base_date = event_date if event_date else date.today()
+        base_date = event_date if event_date else today_in(current_zone())
 
         # Combine date + time, add duration, extract time
         start_dt = datetime.combine(base_date, start_time)
@@ -302,7 +304,7 @@ class HabitEventScheduler:
             # Create urgent maintenance event
             start_time = self._get_optimal_time(user_context)
             duration = habit.duration_minutes or self.config.default_duration_minutes
-            end_time = self._calculate_end_time(start_time, duration, date.today())
+            end_time = self._calculate_end_time(start_time, duration, today_in(current_zone()))
 
             from core.models.enums.entity_enums import EntityType
             from core.utils.uid_generator import UIDGenerator
@@ -312,7 +314,7 @@ class HabitEventScheduler:
                 entity_type=EntityType.EVENT,
                 user_uid=user_context.user_uid,
                 title=f"MAINTAIN STREAK: {habit.title}",
-                event_date=date.today(),
+                event_date=today_in(current_zone()),
                 start_time=start_time,
                 end_time=end_time,
             )
@@ -396,7 +398,7 @@ class HabitEventScheduler:
 
             # Create event for this habit
             duration = habit.duration_minutes or self.config.default_duration_minutes
-            event_date_val = date.today() + timedelta(days=1)  # Start tomorrow
+            event_date_val = today_in(current_zone()) + timedelta(days=1)  # Start tomorrow
             end_time = self._calculate_end_time(current_time, duration, event_date_val)
 
             from core.models.enums.entity_enums import EntityType
@@ -455,7 +457,7 @@ class HabitEventScheduler:
     ) -> list[EventDTO]:
         """Generate events based on habit frequency."""
         events = []
-        start_date = date.today()
+        start_date = today_in(current_zone())
 
         for day_offset in range(days_ahead):
             event_date = start_date + timedelta(days=day_offset)
@@ -684,7 +686,7 @@ class HabitEventScheduler:
         Real usage should copy and customize with actual user_uid and dates.
         """
         placeholder_user = UserUID("template_user")
-        today = date.today()
+        today = today_in(current_zone())
 
         from core.models.enums.entity_enums import EntityType
         from core.utils.uid_generator import UIDGenerator

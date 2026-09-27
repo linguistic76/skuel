@@ -1,5 +1,5 @@
 ---
-updated: 2026-09-12
+updated: 2026-09-27
 ---
 
 # BaseService Quick Start Guide
@@ -676,7 +676,7 @@ uv run mypy core/services/mixins/*.py
 ```python
 # 1. Create a goal
 goal_result = await goals_service.create_goal(
-    GoalCreateRequest(title="Learn SKUEL Architecture", target_date=date.today() + timedelta(days=30)),
+    GoalCreateRequest(title="Learn SKUEL Architecture", target_date=today_in(current_zone()) + timedelta(days=30)),
     user_uid="user.you",
 )
 goal = goal_result.value

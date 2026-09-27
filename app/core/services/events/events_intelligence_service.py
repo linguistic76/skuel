@@ -25,6 +25,8 @@ from core.services.events._core_intelligence_mixin import _CoreIntelligenceMixin
 from core.services.events.event_relationships import EventRelationships
 from core.services.knowledge.knowledge_pattern_analyzer import KnowledgePatternAnalyzer
 from core.utils.result_simplified import Result
+from core.utils.timestamp_helpers import today_in
+from core.utils.zone_context import current_zone
 
 if TYPE_CHECKING:
     from core.ports.domain_protocols import EventsOperations
@@ -104,9 +106,9 @@ class EventsIntelligenceService(
         Returns:
             Result containing analytics data dict
         """
-        from datetime import date, timedelta
+        from datetime import timedelta
 
-        end_date = date.today()
+        end_date = today_in(current_zone())
         start_date = end_date - timedelta(days=period_days)
 
         events_result = await self.backend.find_by(user_uid=user_uid)

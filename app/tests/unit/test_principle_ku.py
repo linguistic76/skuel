@@ -6,13 +6,15 @@ Validates principle-specific review logic: alignment drift detection,
 strength-based cadence, grace period for new principles, and dormancy.
 """
 
-from datetime import date, datetime, timedelta
+from datetime import datetime, timedelta
 
 import pytest
 
 from core.models.enums.entity_enums import EntityStatus, EntityType
 from core.models.enums.principle_enums import AlignmentLevel, PrincipleStrength
 from core.models.principle.principle import Principle
+from core.utils.timestamp_helpers import today_in
+from core.utils.zone_context import current_zone
 
 
 def _make_principle(**overrides) -> Principle:
@@ -25,8 +27,8 @@ def _make_principle(**overrides) -> Principle:
         "is_active": True,
         "current_alignment": AlignmentLevel.ALIGNED,
         "strength": PrincipleStrength.MODERATE,
-        "adopted_date": date.today() - timedelta(days=60),
-        "last_review_date": date.today() - timedelta(days=5),
+        "adopted_date": today_in(current_zone()) - timedelta(days=60),
+        "last_review_date": today_in(current_zone()) - timedelta(days=5),
     }
     defaults.update(overrides)
     return Principle(**defaults)
@@ -60,14 +62,14 @@ class TestAlignmentDrift:
     def test_drifting_triggers_review(self):
         p = _make_principle(
             current_alignment=AlignmentLevel.DRIFTING,
-            last_review_date=date.today(),
+            last_review_date=today_in(current_zone()),
         )
         assert p.needs_review() is True
 
     def test_misaligned_triggers_review(self):
         p = _make_principle(
             current_alignment=AlignmentLevel.MISALIGNED,
-            last_review_date=date.today(),
+            last_review_date=today_in(current_zone()),
         )
         assert p.needs_review() is True
 
@@ -75,7 +77,7 @@ class TestAlignmentDrift:
         """Even if reviewed today, alignment drift forces review."""
         p = _make_principle(
             current_alignment=AlignmentLevel.DRIFTING,
-            last_review_date=date.today(),
+            last_review_date=today_in(current_zone()),
             strength=PrincipleStrength.CORE,
         )
         assert p.needs_review() is True
@@ -90,21 +92,21 @@ class TestUnassessedAlignment:
     def test_unknown_alignment_past_grace_triggers_review(self):
         p = _make_principle(
             current_alignment=AlignmentLevel.UNKNOWN,
-            adopted_date=date.today() - timedelta(days=30),
+            adopted_date=today_in(current_zone()) - timedelta(days=30),
         )
         assert p.needs_review() is True
 
     def test_none_alignment_past_grace_triggers_review(self):
         p = _make_principle(
             current_alignment=None,
-            adopted_date=date.today() - timedelta(days=30),
+            adopted_date=today_in(current_zone()) - timedelta(days=30),
         )
         assert p.needs_review() is True
 
     def test_unknown_alignment_within_grace_no_review(self):
         p = _make_principle(
             current_alignment=AlignmentLevel.UNKNOWN,
-            adopted_date=date.today() - timedelta(days=3),
+            adopted_date=today_in(current_zone()) - timedelta(days=3),
         )
         assert p.needs_review() is False
 
@@ -118,14 +120,14 @@ class TestGracePeriod:
     def test_never_reviewed_within_grace_no_review(self):
         p = _make_principle(
             last_review_date=None,
-            adopted_date=date.today() - timedelta(days=3),
+            adopted_date=today_in(current_zone()) - timedelta(days=3),
         )
         assert p.needs_review() is False
 
     def test_never_reviewed_past_grace_triggers_review(self):
         p = _make_principle(
             last_review_date=None,
-            adopted_date=date.today() - timedelta(days=14),
+            adopted_date=today_in(current_zone()) - timedelta(days=14),
         )
         assert p.needs_review() is True
 
@@ -156,7 +158,7 @@ class TestTimeCadence:
     def test_recently_reviewed_no_review(self):
         p = _make_principle(
             strength=PrincipleStrength.MODERATE,
-            last_review_date=date.today() - timedelta(days=10),
+            last_review_date=today_in(current_zone()) - timedelta(days=10),
         )
         assert p.needs_review() is False
 
@@ -164,7 +166,7 @@ class TestTimeCadence:
         """MODERATE cadence = 30 days."""
         p = _make_principle(
             strength=PrincipleStrength.MODERATE,
-            last_review_date=date.today() - timedelta(days=31),
+            last_review_date=today_in(current_zone()) - timedelta(days=31),
         )
         assert p.needs_review() is True
 
@@ -172,14 +174,14 @@ class TestTimeCadence:
         """At exactly the cadence boundary, review is needed."""
         p = _make_principle(
             strength=PrincipleStrength.MODERATE,
-            last_review_date=date.today() - timedelta(days=30),
+            last_review_date=today_in(current_zone()) - timedelta(days=30),
         )
         assert p.needs_review() is True
 
     def test_one_day_before_cadence_no_review(self):
         p = _make_principle(
             strength=PrincipleStrength.MODERATE,
-            last_review_date=date.today() - timedelta(days=29),
+            last_review_date=today_in(current_zone()) - timedelta(days=29),
         )
         assert p.needs_review() is False
 
@@ -205,27 +207,27 @@ class TestStrengthCadence:
         # Overdue by 1 day
         p = _make_principle(
             strength=strength,
-            last_review_date=date.today() - timedelta(days=cadence_days + 1),
+            last_review_date=today_in(current_zone()) - timedelta(days=cadence_days + 1),
         )
         assert p.needs_review() is True
 
         # 1 day before cadence
         p2 = _make_principle(
             strength=strength,
-            last_review_date=date.today() - timedelta(days=cadence_days - 1),
+            last_review_date=today_in(current_zone()) - timedelta(days=cadence_days - 1),
         )
         assert p2.needs_review() is False
 
     def test_none_strength_defaults_to_30(self):
         p = _make_principle(
             strength=None,
-            last_review_date=date.today() - timedelta(days=31),
+            last_review_date=today_in(current_zone()) - timedelta(days=31),
         )
         assert p.needs_review() is True
 
         p2 = _make_principle(
             strength=None,
-            last_review_date=date.today() - timedelta(days=29),
+            last_review_date=today_in(current_zone()) - timedelta(days=29),
         )
         assert p2.needs_review() is False
 
@@ -241,7 +243,7 @@ class TestHappyPath:
         p = _make_principle(
             current_alignment=AlignmentLevel.ALIGNED,
             strength=PrincipleStrength.CORE,
-            last_review_date=date.today() - timedelta(days=10),
+            last_review_date=today_in(current_zone()) - timedelta(days=10),
         )
         assert p.needs_review() is False
 
@@ -249,7 +251,7 @@ class TestHappyPath:
         p = _make_principle(
             current_alignment=AlignmentLevel.FLOURISHING,
             strength=PrincipleStrength.STRONG,
-            last_review_date=date.today() - timedelta(days=5),
+            last_review_date=today_in(current_zone()) - timedelta(days=5),
         )
         assert p.needs_review() is False
 
@@ -271,7 +273,7 @@ class TestDaysUntilReview:
     def test_overdue_returns_zero(self):
         p = _make_principle(
             strength=PrincipleStrength.MODERATE,
-            last_review_date=date.today() - timedelta(days=35),
+            last_review_date=today_in(current_zone()) - timedelta(days=35),
         )
         assert p.days_until_review_needed() == 0
 
@@ -282,14 +284,14 @@ class TestDaysUntilReview:
     def test_days_remaining(self):
         p = _make_principle(
             strength=PrincipleStrength.MODERATE,
-            last_review_date=date.today() - timedelta(days=20),
+            last_review_date=today_in(current_zone()) - timedelta(days=20),
         )
         assert p.days_until_review_needed() == 10
 
     def test_just_reviewed_returns_full_cadence(self):
         p = _make_principle(
             strength=PrincipleStrength.EXPLORING,
-            last_review_date=date.today(),
+            last_review_date=today_in(current_zone()),
         )
         assert p.days_until_review_needed() == 14
 
@@ -297,13 +299,13 @@ class TestDaysUntilReview:
         """No last_review_date and within grace → not applicable yet."""
         p = _make_principle(
             last_review_date=None,
-            adopted_date=date.today() - timedelta(days=3),
+            adopted_date=today_in(current_zone()) - timedelta(days=3),
         )
         assert p.days_until_review_needed() is None
 
     def test_never_reviewed_past_grace_returns_zero(self):
         p = _make_principle(
             last_review_date=None,
-            adopted_date=date.today() - timedelta(days=30),
+            adopted_date=today_in(current_zone()) - timedelta(days=30),
         )
         assert p.days_until_review_needed() == 0

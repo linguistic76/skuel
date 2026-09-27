@@ -23,6 +23,8 @@ from core.services.goals.goal_relationships import GoalRelationships
 from core.utils.dto_converters import to_domain_model
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Result
+from core.utils.timestamp_helpers import today_in
+from core.utils.zone_context import current_zone
 
 if TYPE_CHECKING:
     from core.ports import GoalsOperations
@@ -279,7 +281,7 @@ class GoalTaskGenerator:
                 continue
 
             # Calculate due date for milestone
-            due_date = date.today() + timedelta(days=int(days_per_milestone * (i + 1)))
+            due_date = today_in(current_zone()) + timedelta(days=int(days_per_milestone * (i + 1)))
 
             task = TaskDTO.create_task(
                 user_uid=goal.user_uid,
@@ -391,7 +393,7 @@ class GoalTaskGenerator:
             if current_streak < 7:  # Less than 1 week streak
                 # Generate daily tasks for next week
                 for day_offset in range(1, 8):
-                    task_date = date.today() + timedelta(days=day_offset)
+                    task_date = today_in(current_zone()) + timedelta(days=day_offset)
 
                     task = TaskDTO.create_task(
                         user_uid=goal.user_uid,
@@ -425,7 +427,9 @@ class GoalTaskGenerator:
         check_in_count = min(days_remaining // self.config.check_in_frequency_days, 12)
 
         for i in range(1, check_in_count + 1):
-            check_in_date = date.today() + timedelta(days=i * self.config.check_in_frequency_days)
+            check_in_date = today_in(current_zone()) + timedelta(
+                days=i * self.config.check_in_frequency_days
+            )
 
             task = TaskDTO.create_task(
                 user_uid=goal.user_uid,
@@ -456,7 +460,7 @@ class GoalTaskGenerator:
                         user_uid=goal.user_uid,
                         title=f"URGENT: {milestone.title}",
                         priority=Priority.HIGH,
-                        due_date=date.today() + timedelta(days=3),
+                        due_date=today_in(current_zone()) + timedelta(days=3),
                         duration_minutes=self.config.default_task_duration_minutes * 2,
                     )
 
@@ -471,7 +475,7 @@ class GoalTaskGenerator:
 
     def _calculate_priority(self, goal: Goal, task_due_date: date) -> Priority:
         """Calculate task priority based on goal urgency and due date."""
-        days_until_due = (task_due_date - date.today()).days
+        days_until_due = (task_due_date - today_in(current_zone())).days
         goal_days_remaining = goal.days_remaining() or 365
 
         if days_until_due <= 7 or goal_days_remaining <= 30:

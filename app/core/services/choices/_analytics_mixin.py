@@ -20,7 +20,9 @@ from core.constants import QueryLimit
 from core.models.type_hints import UserUID
 from core.utils.result_simplified import Result
 from core.utils.sort_functions import get_domain_choice_count, get_principle_frequency_rank
+from core.utils.timestamp_helpers import today_in
 from core.utils.type_converters import get_enum_value
+from core.utils.zone_context import current_zone
 
 if TYPE_CHECKING:
     import structlog
@@ -382,7 +384,7 @@ class _AnalyticsMixin:
             ```
         """
         # Calculate date range
-        end_date = date.today()
+        end_date = today_in(current_zone())
         start_date = end_date - timedelta(days=days)
 
         # Get user's choices in period
@@ -521,7 +523,7 @@ class _AnalyticsMixin:
             - Decision complexity vs quality
         """
         # Calculate date range
-        end_date = date.today()
+        end_date = today_in(current_zone())
         start_date = end_date - timedelta(days=days)
 
         # Get user's choices in period
@@ -587,7 +589,7 @@ class _AnalyticsMixin:
             - Domain-specific strengths and weaknesses
         """
         # Calculate date range
-        end_date = date.today()
+        end_date = today_in(current_zone())
         start_date = end_date - timedelta(days=days)
 
         # Get user's choices in period

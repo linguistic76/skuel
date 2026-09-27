@@ -7,6 +7,7 @@ Tests create_snapshot() with pre-built UserContext.
 
 from datetime import datetime
 from unittest.mock import AsyncMock, MagicMock
+from zoneinfo import ZoneInfo
 
 import pytest
 
@@ -14,6 +15,10 @@ from core.models.enums.pipeline import ReportSource
 from core.services.report.activity_report_service import ActivityReportService
 from core.services.user.unified_user_context import UserContext
 from core.utils.result_simplified import Result
+
+# Calendar days here are read on the host clock (period bounds, widened dates):
+# the expectations are the laptop's, where the host clock and the default zone agree.
+pytestmark = pytest.mark.usefixtures("laptop_zone")
 
 
 @pytest.fixture
@@ -361,6 +366,7 @@ class TestReportTitle:
             content="Test content",
             processor_type=ReportSource.AUTOMATIC,
             time_period="2026-09",
+            zone=ZoneInfo("America/Vancouver"),
             **overrides,
         )
 
@@ -379,6 +385,23 @@ class TestReportTitle:
             data_cutoff=datetime(2026, 9, 30, 23, 59, 59),
         )
         assert report.title == "Activity Report — Sep 01 to Sep 30, 2026"
+
+    def test_the_titles_days_are_the_users_on_a_host_in_another_zone(self):
+        """On a UTC host (the pinned app) an open Vancouver September at 02:00Z on
+        October 1st is still September 30th for its user — the title says so."""
+        from core.utils.report_periods import resolve_report_period
+        from tests.helpers.forced_zone import forced_zone
+
+        vancouver = ZoneInfo("America/Vancouver")
+        with forced_zone("UTC"):
+            now = datetime(2026, 10, 1, 2, 0)
+            period = resolve_report_period("2026-09", now, vancouver)
+            report = self._create(
+                period_start=period.start,
+                period_end=period.end,
+                data_cutoff=period.data_cutoff(now),
+            )
+        assert report.title == "Activity Report — Sep 01 to Sep 30, 2026 (partial)"
 
     def test_a_report_without_a_cutoff_is_titled_through_the_period_end(self):
         report = self._create(
@@ -405,6 +428,7 @@ class TestPersist:
             period_start=datetime.now(),
             period_end=datetime.now(),
             time_period="7d",
+            zone=ZoneInfo("America/Vancouver"),
         )
 
         await service.persist(report)

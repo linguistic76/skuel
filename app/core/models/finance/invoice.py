@@ -15,6 +15,8 @@ Invoices support both:
 from __future__ import annotations
 
 from core.models.type_hints import UserUID
+from core.utils.timestamp_helpers import today_in
+from core.utils.zone_context import current_zone
 
 __version__ = "1.0"
 
@@ -270,7 +272,7 @@ class InvoicePure:
         """Check if invoice is past due date."""
         if not self.due_date:
             return False
-        return date.today() > self.due_date and self.status not in (
+        return today_in(current_zone()) > self.due_date and self.status not in (
             InvoiceStatus.PAID,
             InvoiceStatus.CANCELLED,
         )
@@ -287,7 +289,7 @@ class InvoicePure:
         """Days remaining until due date."""
         if not self.due_date:
             return None
-        delta = self.due_date - date.today()
+        delta = self.due_date - today_in(current_zone())
         return delta.days
 
     def with_status(self, new_status: InvoiceStatus) -> InvoicePure:
@@ -442,7 +444,7 @@ def invoice_dto_to_response(dto: InvoiceDTO) -> dict[str, Any]:
         "notes": dto.notes,
         "is_overdue": (
             dto.due_date is not None
-            and date.today() > dto.due_date
+            and today_in(current_zone()) > dto.due_date
             and dto.status not in ("paid", "cancelled")
         ),
         "created_at": dto.created_at.isoformat() if dto.created_at else None,

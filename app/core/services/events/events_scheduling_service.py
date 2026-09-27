@@ -22,7 +22,9 @@ from core.services.base_service import BaseService
 from core.services.domain_config import create_activity_domain_config
 from core.utils.decorators import with_error_handling
 from core.utils.result_simplified import Result
+from core.utils.timestamp_helpers import today_in
 from core.utils.uid_generator import UIDGenerator
+from core.utils.zone_context import current_zone
 
 if TYPE_CHECKING:
     from core.ports.domain_protocols import EventsOperations
@@ -89,7 +91,7 @@ class EventsSchedulingService(BaseService["EventsOperations", Event]):
         Returns:
             Result containing list of recommended dates
         """
-        today = date.today()
+        today = today_in(current_zone())
         end_date = today + timedelta(days=days_to_schedule)
 
         # Get existing events in period
@@ -178,7 +180,7 @@ class EventsSchedulingService(BaseService["EventsOperations", Event]):
 
         # Set default time if not provided
         start_time = preferred_time or time(9, 0)
-        end_time_dt = datetime.combine(date.today(), start_time) + timedelta(
+        end_time_dt = datetime.combine(today_in(current_zone()), start_time) + timedelta(
             minutes=duration_minutes
         )
         end_time = end_time_dt.time()

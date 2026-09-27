@@ -56,6 +56,8 @@ from core.ports.analytics_protocols import AnalyticsMetricsOperations
 from core.services.analytics.analytics_aggregation_service import AnalyticsAggregationService
 from core.services.analytics.analytics_metrics_service import AnalyticsMetricsService
 from core.utils.result_simplified import Result
+from core.utils.timestamp_helpers import wall_clock_in
+from core.utils.zone_context import current_zone
 
 USER = "user_weekly_summary"
 
@@ -646,8 +648,12 @@ class TestUpcomingEventsAgreeWithTheModel:
         assert metrics["completed_count"] == 0
 
     async def test_earlier_today_is_not_upcoming(self) -> None:
-        """The precision ``is_upcoming()`` would have cost: it compares whole dates."""
-        earlier = datetime.now() - timedelta(hours=3)
+        """The precision ``is_upcoming()`` would have cost: it compares whole dates.
+
+        An event's date and start time are a wall time on the user's calendar, so
+        "three hours ago" is read off the wall clock in the user's zone.
+        """
+        earlier = wall_clock_in(current_zone()) - timedelta(hours=3)
         metrics = await self._event_metrics(
             [
                 Event(

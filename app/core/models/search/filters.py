@@ -40,6 +40,8 @@ from core.models.enums import Domain, EntityStatus
 from core.models.relationship_names import RelationshipName
 from core.models.type_hints import UserUID
 from core.ports.base_protocols import Direction
+from core.utils.timestamp_helpers import today_in
+from core.utils.zone_context import current_zone
 
 # =============================================================================
 # DATE RANGE FILTERS - Temporal query support
@@ -76,10 +78,10 @@ class DateRangeFilters:
         effective_end = self.end_date
 
         if self.days_back is not None and effective_start is None:
-            effective_start = date.today() - timedelta(days=self.days_back)
+            effective_start = today_in(current_zone()) - timedelta(days=self.days_back)
 
         if self.days_ahead is not None and effective_end is None:
-            effective_end = date.today() + timedelta(days=self.days_ahead)
+            effective_end = today_in(current_zone()) + timedelta(days=self.days_ahead)
 
         return effective_start, effective_end
 

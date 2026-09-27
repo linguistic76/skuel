@@ -22,6 +22,9 @@ from datetime import date
 from types import MappingProxyType
 from typing import TYPE_CHECKING, Any
 
+from core.utils.timestamp_helpers import today_in
+from core.utils.zone_context import current_zone
+
 if TYPE_CHECKING:
     from core.models.entity_dto import EntityDTO
     from core.models.task.task_dto import TaskDTO
@@ -202,13 +205,13 @@ class Task(UserOwnedEntity):
             return False
         if not self.due_date:
             return False
-        return self.due_date < date.today()
+        return self.due_date < today_in(current_zone())
 
     def get_days_remaining(self) -> int | None:
         """Days until due_date, or None if no deadline."""
         if not self.due_date:
             return None
-        delta = self.due_date - date.today()
+        delta = self.due_date - today_in(current_zone())
         return delta.days
 
     def days_remaining(self) -> int:
@@ -219,7 +222,7 @@ class Task(UserOwnedEntity):
     def is_past(self) -> bool:
         """Check if task deadline is in the past."""
         if self.due_date:
-            return self.due_date < date.today()
+            return self.due_date < today_in(current_zone())
         return False
 
     def get_summary(self, max_length: int = 200) -> str:

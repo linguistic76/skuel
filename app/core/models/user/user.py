@@ -22,10 +22,12 @@ __version__ = "2.1"
 from dataclasses import dataclass, field
 from datetime import datetime
 from typing import Any
+from zoneinfo import ZoneInfo
 
 from core.models.enums import EnergyLevel, JournalTier, LearningLevel, TimeOfDay, UserRole
 from core.models.query_types import QueryIntent
 from core.models.type_hints import EntityUID, UserUID
+from core.utils.zone_context import zone_for
 
 
 def _default_energy_pattern() -> dict[TimeOfDay, EnergyLevel]:
@@ -177,6 +179,16 @@ class User:
     # Written by UserService.append_knowledge_checkin; read by the Ku detail page and
     # UserContextIntelligence.get_cross_domain_perception_analysis.
     knowledge_checkins: dict[str, list[dict[str, Any]]] = field(default_factory=dict)
+
+    def zone(self) -> ZoneInfo:
+        """The zone this user's calendar values belong to: their choice, else the app default.
+
+        A preferences blob the mapper could not parse arrives as its raw string
+        (the mapper's fail-soft) and reads as no choice, so resolving a zone never
+        fails a build or a sync.
+        """
+        prefs = self.preferences
+        return zone_for(prefs.timezone if isinstance(prefs, UserPreferences) else None)
 
     def is_entity_active(self, entity_uid: EntityUID) -> bool:
         """Check if an entity is in the active set"""

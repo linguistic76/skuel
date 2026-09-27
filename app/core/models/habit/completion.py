@@ -11,6 +11,8 @@ from datetime import date, datetime, timedelta
 
 from core.models.enums.scheduling_enums import TimeOfDay
 from core.models.type_hints import UserUID
+from core.utils.timestamp_helpers import day_of, today_in
+from core.utils.zone_context import current_zone
 
 from .completion_dto import HabitCompletionDTO
 
@@ -160,15 +162,16 @@ class HabitCompletion:
 
     def was_completed_today(self) -> bool:
         """Check if this completion happened today."""
-        return self.completed_at.date() == date.today()
+        return self.completed_at.date() == today_in(current_zone())
 
     def was_completed_on(self, target_date: date) -> bool:
         """Check if this completion happened on a specific date."""
         return self.completed_at.date() == target_date
 
     def days_since_completion(self) -> int:
-        """Calculate days since this completion."""
-        return (datetime.now().date() - self.completed_at.date()).days
+        """Calendar days since this completion, counted in the user's zone."""
+        zone = current_zone()
+        return (today_in(zone) - day_of(self.completed_at, zone)).days
 
     def completion_time_of_day(self) -> TimeOfDay:
         """Which slot of the day this completion landed in.
@@ -225,7 +228,7 @@ class HabitCompletion:
 
         # For weekly habits, check if it's within the current week
         if habit_frequency.lower() == "weekly":
-            today = date.today()
+            today = today_in(current_zone())
             week_start = today - timedelta(days=today.weekday())
             completion_date = self.completed_at.date()
             return week_start <= completion_date <= today

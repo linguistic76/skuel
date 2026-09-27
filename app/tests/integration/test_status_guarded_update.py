@@ -20,6 +20,7 @@ from __future__ import annotations
 
 import asyncio
 from datetime import date
+from zoneinfo import ZoneInfo
 
 import pytest
 import pytest_asyncio
@@ -30,6 +31,10 @@ from core.models.enums.entity_enums import EntityType
 from core.models.task.task import Task
 from core.models.update_contracts import StatusWriteGuard
 from core.services.completion_stamp import is_completion_transition, status_transition_guard
+from core.utils.timestamp_helpers import today_in
+
+# The zone of the user whose entity the guard stamps.
+ZONE = ZoneInfo("America/Vancouver")
 
 USER = "user_status_guard"
 _COMPLETED = frozenset({EntityStatus.COMPLETED.value})
@@ -71,7 +76,7 @@ class TestStatusGuardedUpdate:
 
     async def test_a_completion_stamps_and_returns_the_prior(self, backend, seed, neo4j_driver):
         uid = await seed(EntityStatus.ACTIVE)
-        guard = status_transition_guard(EntityType.TASK, {"status": "completed"})
+        guard = status_transition_guard(EntityType.TASK, {"status": "completed"}, zone=ZONE)
 
         result = await backend.update_with_status_guard(uid, {"status": "completed"}, guard.value)
 
@@ -81,19 +86,19 @@ class TestStatusGuardedUpdate:
         assert outcome.prior_status == EntityStatus.ACTIVE.value
         # The writer decides the storage type: an ISO string, as every other writer stores.
         props = await self._props(neo4j_driver, uid)
-        assert props["completion_date"] == date.today().isoformat()
+        assert props["completion_date"] == today_in(ZONE).isoformat()
         assert props["status"] == EntityStatus.COMPLETED.value
 
     async def test_reposting_completed_does_not_re_date(self, backend, seed, neo4j_driver):
         """The condition is what protects the original stamp — not a pre-read."""
         uid = await seed(EntityStatus.ACTIVE)
-        guard = status_transition_guard(EntityType.TASK, {"status": "completed"})
+        guard = status_transition_guard(EntityType.TASK, {"status": "completed"}, zone=ZONE)
         first = await backend.update_with_status_guard(uid, {"status": "completed"}, guard.value)
         assert first.is_ok
         stamped = (await self._props(neo4j_driver, uid))["completion_date"]
 
         # A second guard built later carries a fresh stamp value; the prior declines it.
-        again = status_transition_guard(EntityType.TASK, {"status": "completed"})
+        again = status_transition_guard(EntityType.TASK, {"status": "completed"}, zone=ZONE)
         _statuses, patch = again.value.patch_if_prior_not_in
         patch["completion_date"] = date(2099, 1, 1)
 
@@ -106,13 +111,13 @@ class TestStatusGuardedUpdate:
     async def test_a_reopen_removes_the_stamp_property(self, backend, seed, neo4j_driver):
         """A ``None`` in the patch must REMOVE the property, not store a null."""
         uid = await seed(EntityStatus.ACTIVE)
-        complete = status_transition_guard(EntityType.TASK, {"status": "completed"})
+        complete = status_transition_guard(EntityType.TASK, {"status": "completed"}, zone=ZONE)
         assert (
             await backend.update_with_status_guard(uid, {"status": "completed"}, complete.value)
         ).is_ok
         assert "completion_date" in await self._props(neo4j_driver, uid)
 
-        reopen = status_transition_guard(EntityType.TASK, {"status": "active"})
+        reopen = status_transition_guard(EntityType.TASK, {"status": "active"}, zone=ZONE)
         result = await backend.update_with_status_guard(uid, {"status": "active"}, reopen.value)
 
         assert result.is_ok
@@ -123,7 +128,7 @@ class TestStatusGuardedUpdate:
         """Non-null exactly when completed — swept over complete → reopen → complete."""
         uid = await seed(EntityStatus.ACTIVE)
         for target in ("completed", "active", "completed"):
-            guard = status_transition_guard(EntityType.TASK, {"status": target})
+            guard = status_transition_guard(EntityType.TASK, {"status": target}, zone=ZONE)
             assert (
                 await backend.update_with_status_guard(uid, {"status": target}, guard.value)
             ).is_ok
@@ -290,7 +295,7 @@ class TestStatusGuardedUpdate:
 
     async def test_the_lock_sentinel_never_lingers(self, backend, seed, neo4j_driver):
         uid = await seed(EntityStatus.ACTIVE)
-        guard = status_transition_guard(EntityType.TASK, {"status": "completed"})
+        guard = status_transition_guard(EntityType.TASK, {"status": "completed"}, zone=ZONE)
         assert (
             await backend.update_with_status_guard(uid, {"status": "completed"}, guard.value)
         ).is_ok
@@ -307,7 +312,7 @@ class TestStatusGuardedUpdate:
             changes = {"status": "completed"}
 
             async def _complete(task_uid: str = uid, patch: dict = changes):
-                guard = status_transition_guard(EntityType.TASK, patch)
+                guard = status_transition_guard(EntityType.TASK, patch, zone=ZONE)
                 return await backend.update_with_status_guard(task_uid, dict(patch), guard.value)
 
             results = await asyncio.gather(*[_complete() for _ in range(4)])
@@ -328,7 +333,7 @@ class TestStatusGuardedUpdate:
             uid = await seed(EntityStatus.ACTIVE)
 
             async def _write(target: str, task_uid: str = uid):
-                guard = status_transition_guard(EntityType.TASK, {"status": target})
+                guard = status_transition_guard(EntityType.TASK, {"status": target}, zone=ZONE)
                 return await backend.update_with_status_guard(
                     task_uid, {"status": target}, guard.value
                 )

@@ -14,6 +14,7 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import cast
 from unittest.mock import AsyncMock, Mock
+from zoneinfo import ZoneInfo
 
 import pytest
 
@@ -81,6 +82,7 @@ def _reconciler(tmp_path: Path, probe: _CoverageProbe | None) -> VaultReconciler
     user.preferences.vault_write_consent = True
     user_service = Mock()
     user_service.get_user = AsyncMock(return_value=Result.ok(user))
+    user_service.get_user_zone = AsyncMock(return_value=Result.ok(ZoneInfo("America/Vancouver")))
 
     user_entry = Mock()
     user_entry.list_for_user = AsyncMock(return_value=Result.ok([]))

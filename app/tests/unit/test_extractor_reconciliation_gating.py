@@ -27,6 +27,8 @@ from core.services.dsl.activity_extractor import (
     normalized_line_hash,
 )
 from core.utils.result_simplified import Errors, Result
+from core.utils.timestamp_helpers import today_in
+from core.utils.zone_context import current_zone
 
 OWNER = "user_mike"
 VAULT_ID = "sk_ab12cd"
@@ -176,7 +178,7 @@ class TestOkAdvances:
         svc.update_task.assert_awaited_once()
         intent = svc.update_task.await_args.args[1]
         assert intent.status == EntityStatus.COMPLETED.value
-        assert intent.completion_date == date.today()
+        assert intent.completion_date == today_in(current_zone())
         assert extraction.lines_rehashed == 0
         assert extraction.advanced_links == [
             ("task_vacuum", normalized_line_hash(theirs), VAULT_ID, theirs)

@@ -44,12 +44,14 @@ import pytest
 import pytest_asyncio
 
 from core.constants import HabitConsistencyWindow
+from core.utils.timestamp_helpers import today_in
+from core.utils.zone_context import current_zone
 
 WINDOW = "user_consistency_window"
 STALE = "user_consistency_stale"
 BULK = "user_consistency_bulk"
 
-TODAY = date.today()
+TODAY = today_in(current_zone())
 FIRST_DAY_IN = HabitConsistencyWindow.start_date(TODAY)
 LAST_DAY_IN = HabitConsistencyWindow.end_date(TODAY)
 LAST_DAY_OUT = TODAY - timedelta(days=HabitConsistencyWindow.DAYS)
@@ -289,6 +291,10 @@ class TestHabitConsistencyWindow:
         assert result.is_ok
         assert result.value[0]["completions_in_window"] == 1
 
+    # The writer stamps the host clock and the window counts a stamp by its stored
+    # digits' day (the day of an instant reads through the zone from PR 3); the
+    # window's own days are the zone's. The laptop's case keeps the two one clock.
+    @pytest.mark.usefixtures("laptop_zone")
     async def test_a_completion_written_by_the_real_writer_is_counted(self, neo4j_driver, backend):
         """The fixture's shape is the writer's shape — proven, not assumed.
 

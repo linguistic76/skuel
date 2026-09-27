@@ -20,6 +20,8 @@ from core.services.intelligence import (
     analyze_completion_trend,
 )
 from core.utils.result_simplified import Result
+from core.utils.timestamp_helpers import today_in
+from core.utils.zone_context import current_zone
 
 if TYPE_CHECKING:
     from collections.abc import Sequence
@@ -88,8 +90,9 @@ class _AnalyticsMixin:
         """
         self.logger.info(f"Analyzing behavioral insights for user {user_uid}")
 
-        # Get completed tasks in period
-        cutoff_date = datetime.now() - timedelta(days=period_days)
+        # Get completed tasks in period. completion_date is a calendar day, so the
+        # window's first day is a day in the user's zone, not a moment.
+        cutoff_date = today_in(current_zone()) - timedelta(days=period_days)
         tasks_result = await self.backend.find_by(user_uid=user_uid, status=CompletionStatus.DONE)
 
         if tasks_result.is_error:

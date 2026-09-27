@@ -25,7 +25,7 @@ See: tests/integration/test_choices_analytics_window.py for the real-graph half.
 from __future__ import annotations
 
 from dataclasses import fields
-from datetime import date, timedelta
+from datetime import timedelta
 from typing import Any
 from unittest.mock import MagicMock
 
@@ -34,6 +34,8 @@ import pytest
 from core.models.choice.choice import Choice
 from core.services.choices.choices_intelligence_service import ChoicesIntelligenceService
 from core.utils.result_simplified import Result
+from core.utils.timestamp_helpers import today_in
+from core.utils.zone_context import current_zone
 
 CHOICE_FIELDS = {f.name for f in fields(Choice)}
 
@@ -112,8 +114,8 @@ async def test_window_is_bounded_by_the_requested_period(method_name: str) -> No
 
     assert len(backend.calls) == 1, f"{method_name} made {len(backend.calls)} fetches"
     _name, kwargs = backend.calls[0]
-    assert kwargs["start_date"] == date.today() - timedelta(days=30)
-    assert kwargs["end_date"] == date.today()
+    assert kwargs["start_date"] == today_in(current_zone()) - timedelta(days=30)
+    assert kwargs["end_date"] == today_in(current_zone())
     assert (kwargs.get("additional_filters") or {})["user_uid"] == "user_window"
 
 

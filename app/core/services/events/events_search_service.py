@@ -25,6 +25,8 @@ from datetime import date, timedelta
 from typing import TYPE_CHECKING
 
 from core.models.type_hints import UserUID
+from core.utils.timestamp_helpers import today_in
+from core.utils.zone_context import current_zone
 
 if TYPE_CHECKING:
     from core.ports.domain_protocols import EventsOperations
@@ -123,7 +125,7 @@ class EventsSearchService(BaseService["EventsOperations", Event]):
         Returns:
             Result containing events sorted by priority/relevance
         """
-        today = date.today()
+        today = today_in(current_zone())
         end_date = today + timedelta(days=14)  # Next 2 weeks
 
         # Get user's upcoming events
@@ -376,7 +378,7 @@ class EventsSearchService(BaseService["EventsOperations", Event]):
         """
         # Default to current month if no dates specified
         if not start_date:
-            today = date.today()
+            today = today_in(current_zone())
             start_date = today.replace(day=1)
         if not end_date:
             # Last day of month

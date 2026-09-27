@@ -15,6 +15,8 @@ from typing import Any
 
 from core.models.enums import Domain, EntityStatus
 from core.models.type_hints import EntityUID, UserUID
+from core.utils.timestamp_helpers import today_in
+from core.utils.zone_context import current_zone
 
 
 @dataclass(frozen=True, kw_only=True)
@@ -118,7 +120,7 @@ class UserProgress:
         """Check if entity needs review."""
         if not self.next_review_due:
             return False
-        return self.next_review_due <= date.today()
+        return self.next_review_due <= today_in(current_zone())
 
     @property
     def completion_percentage(self) -> float:
