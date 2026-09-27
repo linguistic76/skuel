@@ -269,12 +269,16 @@ outside the values: an immutable manifest, one transaction, and a durable applie
    The script computes that wall clock explicitly (`datetime.now(ZoneInfo("America/Vancouver"))`):
    it runs pinned itself.
 3. **The census writes an immutable manifest** — one row per value to shift: a durable key (a node's
-   `uid`; a relationship's start `uid`, type and end `uid` — never an element id, which Neo4j
-   guarantees only within one transaction), property or JSON path, the value's shape, old value, new
+   `uid`, or for a node without one the property its writer MERGEs on — `ProductivityAnalytics` has
+   only `user_uid`; a relationship's start `uid`, type and end `uid` — never an element id, which
+   Neo4j guarantees only within one transaction), property or JSON path, the value's shape, old value, new
    value, rule — and prints
    per-rule counts with samples (old → new) for Mike's OK. With the app stopped, the manifest is the
    whole of the work. A key that does not resolve to exactly one element (a node without a `uid`, two
-   relationships between the same pair) stops the census and is listed.
+   relationships between the same pair) stops the census and is listed. The manifest is written
+   outside the tracked tree and kept for `--verify` and `--revert`; the census prints its hash, and
+   `--confirm` is given that hash and refuses a manifest that does not match — the manifest Mike
+   approved is the one applied.
 4. **`--confirm` applies that manifest and nothing else, in one transaction.** One `UNWIND $rows`
    statement binds typed values — a driver DateTime for a native, a string for a string (R5) — sets
    each property where it still equals `$old`, and returns the rows that did not match; any unmatched
