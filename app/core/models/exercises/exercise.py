@@ -57,6 +57,8 @@ from core.models.curriculum import Curriculum
 from core.models.enums.entity_enums import EntityType
 from core.models.enums.learning_enums import MasteryImpact
 from core.models.enums.user_entry_enums import EnrichmentMode, ExerciseScope, SubmissionModality
+from core.utils.timestamp_helpers import today_in
+from core.utils.zone_context import current_zone
 
 if TYPE_CHECKING:
     from core.models.entity_dto import EntityDTO
@@ -229,7 +231,7 @@ class Exercise(Curriculum):
         """Check if exercise is past due date."""
         if not self.due_date:
             return False
-        return date.today() > self.due_date
+        return today_in(current_zone()) > self.due_date
 
     def get_summary(self, max_length: int = 200) -> str:
         """Get one-line summary of exercise."""

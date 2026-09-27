@@ -16,7 +16,7 @@ Events are calendar-based (not goal-based like tasks), so progress tracking
 focuses on attendance and quality rather than goal contribution.
 """
 
-from datetime import date, timedelta
+from datetime import timedelta
 from typing import TYPE_CHECKING, Any
 
 from core.models.enums import EntityStatus
@@ -28,6 +28,8 @@ from core.services.domain_config import create_activity_domain_config
 from core.services.events._habit_links import enrich_events_with_habit_links
 from core.utils.decorators import with_error_handling
 from core.utils.result_simplified import Result
+from core.utils.timestamp_helpers import today_in
+from core.utils.zone_context import current_zone
 
 if TYPE_CHECKING:
     from core.ports.domain_protocols import EventsOperations
@@ -98,8 +100,8 @@ class EventsProgressService(BaseService["EventsOperations", Event]):
         Returns:
             Result containing attendance metrics dict
         """
-        start_date = date.today() - timedelta(days=period_days)
-        today = date.today()
+        start_date = today_in(current_zone()) - timedelta(days=period_days)
+        today = today_in(current_zone())
 
         # Get all events in period
         result = await self.backend.find_by(
@@ -160,7 +162,7 @@ class EventsProgressService(BaseService["EventsOperations", Event]):
         Returns:
             Result containing quality trend metrics
         """
-        start_date = date.today() - timedelta(days=period_days)
+        start_date = today_in(current_zone()) - timedelta(days=period_days)
 
         result = await self.backend.find_by(
             user_uid=user_uid,
@@ -239,7 +241,7 @@ class EventsProgressService(BaseService["EventsOperations", Event]):
         Returns:
             Result containing goal contribution metrics
         """
-        start_date = date.today() - timedelta(days=period_days)
+        start_date = today_in(current_zone()) - timedelta(days=period_days)
 
         # Graph-native: counts events with a (Event)-[:CELEBRATES_GOAL]->(Goal) edge.
         stats = await self.backend.get_goal_celebration_stats(user_uid, start_date.isoformat())
@@ -277,7 +279,7 @@ class EventsProgressService(BaseService["EventsOperations", Event]):
         Returns:
             Result containing weekly breakdown
         """
-        today = date.today()
+        today = today_in(current_zone())
         start_date = today - timedelta(weeks=weeks_back)
 
         result = await self.backend.find_by(
@@ -335,7 +337,7 @@ class EventsProgressService(BaseService["EventsOperations", Event]):
         Returns:
             Result containing habit event statistics
         """
-        start_date = date.today() - timedelta(days=period_days)
+        start_date = today_in(current_zone()) - timedelta(days=period_days)
 
         result = await self.backend.find_by(
             user_uid=user_uid,

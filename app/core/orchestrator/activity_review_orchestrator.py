@@ -14,6 +14,7 @@ from typing import TYPE_CHECKING, Any
 
 from core.models.type_hints import UserUID
 from core.utils.result_simplified import Errors, Result
+from core.utils.zone_context import zone_scope
 
 if TYPE_CHECKING:
     from core.models.report.activity_report import ActivityReport
@@ -80,12 +81,20 @@ class ActivityReviewOrchestrator:
         time_period: str = "7d",
         domains: list[str] | None = None,
     ) -> Result[dict[str, Any]]:
-        """Build activity snapshot from pre-built UserContext."""
-        return await self._activity_report.create_snapshot(
-            context=context,
-            time_period=time_period,
-            domains=domains,
-        )
+        """Build activity snapshot from pre-built UserContext.
+
+        The period is the subject's: its days are days in the subject's zone,
+        not the reviewing admin's.
+        """
+        zone = await self._user_service.get_user_zone(context.user_uid)
+        if zone.is_error:
+            return Result.fail(zone)
+        with zone_scope(zone.value):
+            return await self._activity_report.create_snapshot(
+                context=context,
+                time_period=time_period,
+                domains=domains,
+            )
 
     async def submit_report(
         self,
@@ -111,10 +120,12 @@ class ActivityReviewOrchestrator:
                     field="subject_uid",
                 )
             )
-        return await self._activity_report.submit_report(
-            admin_uid=admin_uid,
-            subject_uid=subject_uid,
-            feedback_text=feedback_text,
-            time_period=time_period,
-            domains=domains,
-        )
+        # The reviewed period is the subject's, in the subject's zone.
+        with zone_scope(subject.value.zone()):
+            return await self._activity_report.submit_report(
+                admin_uid=admin_uid,
+                subject_uid=subject_uid,
+                feedback_text=feedback_text,
+                time_period=time_period,
+                domains=domains,
+            )

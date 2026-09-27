@@ -31,6 +31,8 @@ from core.ports.domain_protocols import PrinciplesOperations
 from core.services.base_planning_service import BasePlanningService
 from core.utils.decorators import with_error_handling
 from core.utils.result_simplified import Result
+from core.utils.timestamp_helpers import today_in
+from core.utils.zone_context import current_zone
 
 if TYPE_CHECKING:
     from core.models.context_types import ContextualPrinciple, PracticeOpportunity
@@ -199,7 +201,7 @@ class PrinciplesPlanningService(BasePlanningService[PrinciplesOperations, Princi
             return Result.ok([])
 
         needing_attention: list[ContextualPrinciple] = []
-        today = date.today()
+        today = today_in(current_zone())
         attention_threshold_days = 14
 
         # Process each core principle

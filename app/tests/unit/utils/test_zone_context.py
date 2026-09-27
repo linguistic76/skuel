@@ -8,20 +8,25 @@ a user's choice is an IANA name zoneinfo lists, validated strictly at the doors
 
 from __future__ import annotations
 
+import asyncio
+from datetime import UTC, date, datetime
 from zoneinfo import ZoneInfo
 
 import pytest
 from structlog.testing import capture_logs
 
+from core.utils import timestamp_helpers
 from core.utils.zone_context import (
     DEFAULT_TIMEZONE,
     configured_zone_name,
     current_zone,
     current_zone_var,
     default_zone,
+    today_in_current_zone,
     validated_zone_name,
     zone_for,
     zone_names,
+    zone_scope,
 )
 
 
@@ -115,3 +120,56 @@ class TestCurrentZone:
         finally:
             current_zone_var.reset(token)
         assert current_zone() == ZoneInfo("America/Vancouver")
+
+
+# 02:00Z on 2026-09-28: the 27th in Vancouver, the 28th in Bangkok.
+_FROZEN = datetime(2026, 9, 28, 2, 0, tzinfo=UTC)
+
+
+class _FrozenClock(datetime):
+    @classmethod
+    def now(cls, tz=None):  # type: ignore[override]
+        return _FROZEN.astimezone(tz) if tz is not None else _FROZEN.replace(tzinfo=None)
+
+
+class TestTodayInCurrentZone:
+    def test_it_is_today_in_the_current_zone(
+        self, env: pytest.MonkeyPatch, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        monkeypatch.setattr(timestamp_helpers, "datetime", _FrozenClock)
+        assert today_in_current_zone() == date(2026, 9, 27)  # the default, Vancouver
+        with zone_scope(ZoneInfo("Asia/Bangkok")):
+            assert today_in_current_zone() == date(2026, 9, 28)
+
+
+class TestZoneScope:
+    def test_inside_the_scope_the_current_zone_is_the_scopes(self, env: pytest.MonkeyPatch) -> None:
+        with zone_scope(ZoneInfo("Asia/Bangkok")) as zone:
+            assert zone == ZoneInfo("Asia/Bangkok")
+            assert current_zone() == ZoneInfo("Asia/Bangkok")
+        assert current_zone() == ZoneInfo("America/Vancouver")
+
+    def test_it_overrides_a_requests_zone_and_restores_it(self, env: pytest.MonkeyPatch) -> None:
+        token = current_zone_var.set(ZoneInfo("Europe/Paris"))
+        try:
+            with zone_scope(ZoneInfo("Asia/Bangkok")):
+                assert current_zone() == ZoneInfo("Asia/Bangkok")
+            assert current_zone() == ZoneInfo("Europe/Paris")
+        finally:
+            current_zone_var.reset(token)
+
+    def test_it_restores_the_zone_when_the_block_raises(self, env: pytest.MonkeyPatch) -> None:
+        with pytest.raises(RuntimeError), zone_scope(ZoneInfo("Asia/Bangkok")):
+            raise RuntimeError("the work failed")
+        assert current_zone() == ZoneInfo("America/Vancouver")
+
+    def test_a_task_started_inside_the_scope_inherits_it(self, env: pytest.MonkeyPatch) -> None:
+        async def zone_seen_by_a_task() -> ZoneInfo:
+            async def read() -> ZoneInfo:
+                return current_zone()
+
+            with zone_scope(ZoneInfo("Asia/Bangkok")):
+                task = asyncio.create_task(read())
+            return await task
+
+        assert asyncio.run(zone_seen_by_a_task()) == ZoneInfo("Asia/Bangkok")

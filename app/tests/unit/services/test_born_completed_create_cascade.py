@@ -49,6 +49,10 @@ from core.services.goals.goals_core_service import GoalsCoreService
 from core.services.tasks.tasks_core_service import TasksCoreService
 from core.utils.result_simplified import Errors, Result
 
+# Calendar days here are read on the host clock (period bounds, widened dates):
+# the expectations are the laptop's, where the host clock and the default zone agree.
+pytestmark = pytest.mark.usefixtures("laptop_zone")
+
 USER = "user_born_completed"
 
 

@@ -1,6 +1,6 @@
 ---
 title: "SKUEL Routing Architecture: Routes, Services, and Persistence"
-updated: 2026-09-23
+updated: 2026-09-27
 status: current
 category: architecture
 tags: [architecture, routing, security]
@@ -261,7 +261,7 @@ class TasksService:
                 field="title"
             ))
 
-        if dto.due_date and dto.due_date < date.today():
+        if dto.due_date and dto.due_date < today_in(current_zone()):
             return Result.fail(Errors.validation(
                 "Due date must be in the future",
                 field="due_date"

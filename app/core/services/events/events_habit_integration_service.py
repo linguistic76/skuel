@@ -35,7 +35,8 @@ from core.services.user.rich_context import rich_entity_to_model
 from core.utils.dto_converters import to_domain_model
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Result
-from core.utils.timestamp_helpers import parse_date_value
+from core.utils.timestamp_helpers import parse_date_value, today_in
+from core.utils.zone_context import current_zone
 
 if TYPE_CHECKING:
     from core.ports.domain_protocols import EventsOperations
@@ -241,7 +242,7 @@ class EventsHabitIntegrationService:
         Returns:
             Result containing list of events
         """
-        start_date = date.today()
+        start_date = today_in(current_zone())
         end_date = start_date + timedelta(days=days_ahead)
 
         # CONTEXT-FIRST: Try rich context before Neo4j
@@ -288,7 +289,7 @@ class EventsHabitIntegrationService:
         Returns:
             Result containing dict mapping habit_uid to list of events
         """
-        start_date = date.today()
+        start_date = today_in(current_zone())
         end_date = start_date + timedelta(days=days_ahead)
 
         # CONTEXT-FIRST: Try rich context before Neo4j
@@ -347,7 +348,7 @@ class EventsHabitIntegrationService:
         Returns:
             Result containing list of events for at-risk habits
         """
-        start_date = date.today()
+        start_date = today_in(current_zone())
         end_date = start_date + timedelta(days=risk_threshold_days)
 
         # CONTEXT-FIRST: Try rich context before Neo4j
@@ -420,7 +421,7 @@ class EventsHabitIntegrationService:
         # and returns exactly the reopen clear for it, so this raw write keeps the stamp
         # invariant with the shared rule rather than a local one — and against the status
         # the node holds under its lock, not one read beforehand.
-        guard_result = status_transition_guard(EntityType.EVENT, updates)
+        guard_result = status_transition_guard(EntityType.EVENT, updates, zone=current_zone())
         if guard_result.is_error:
             return Result.fail(guard_result)
 
@@ -476,7 +477,7 @@ class EventsHabitIntegrationService:
             Result containing list of created events
         """
         events = []
-        current_date = date.today()
+        current_date = today_in(current_zone())
         end_date = current_date + timedelta(days=days_to_create)
 
         # Calculate interval based on pattern
@@ -517,7 +518,7 @@ class EventsHabitIntegrationService:
                 event_uid=event.uid,
                 user_uid=user_context.user_uid,
                 title=event.title,
-                event_date=event.event_date or date.today(),
+                event_date=event.event_date or today_in(current_zone()),
                 # event_data above sets no event_type, so Event.event_type is
                 # None here — publish a canonical EventType member rather than
                 # None (the field is declared str) or a raw literal. PERSONAL
@@ -546,7 +547,7 @@ class EventsHabitIntegrationService:
         Returns:
             Result containing dict mapping habit_uid to next event (or None)
         """
-        today = date.today()
+        today = today_in(current_zone())
 
         # CONTEXT-FIRST: Try rich context before Neo4j
         criteria = EventFilterCriteria(

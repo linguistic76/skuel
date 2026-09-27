@@ -1,6 +1,6 @@
 ---
 title: Domain Patterns Catalog
-updated: 2026-09-21
+updated: 2026-09-27
 category: patterns
 related_skills:
 - python
@@ -193,6 +193,9 @@ class TaskCreateRequest(CreateRequestBase):
 from dataclasses import dataclass, field
 from datetime import date, datetime
 
+from core.utils.timestamp_helpers import today_in
+from core.utils.zone_context import current_zone
+
 from core.models.enums.entity_enums import EntityStatus, Priority
 
 @dataclass
@@ -265,7 +268,7 @@ class TaskDTO:
     def complete(self, actual_minutes: int | None = None) -> None:
         """Mark task as completed (mutation allowed)."""
         self.status = EntityStatus.COMPLETED
-        self.completion_date = date.today()
+        self.completion_date = today_in(current_zone())
         if actual_minutes:
             self.actual_minutes = actual_minutes
         self.updated_at = datetime.now()
@@ -320,6 +323,9 @@ class TaskDTO:
 from dataclasses import dataclass
 from datetime import date, datetime
 
+from core.utils.timestamp_helpers import today_in
+from core.utils.zone_context import current_zone
+
 from core.models.enums.entity_enums import EntityStatus, Priority
 
 @dataclass(frozen=True)
@@ -364,13 +370,13 @@ class Task:
         """Check if task is overdue."""
         if not self.due_date or self.status in [EntityStatus.COMPLETED, EntityStatus.CANCELLED]:
             return False
-        return date.today() > self.due_date
+        return today_in(current_zone()) > self.due_date
 
     def days_until_due(self) -> int | None:
         """Calculate days until due date."""
         if not self.due_date:
             return None
-        delta = self.due_date - date.today()
+        delta = self.due_date - today_in(current_zone())
         return delta.days
 
     def is_due_soon(self, days: int = 3) -> bool:

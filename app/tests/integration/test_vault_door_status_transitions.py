@@ -116,6 +116,9 @@ async def _prop(neo4j_driver, uid: str, prop: str) -> Any:
 
 
 @pytest.mark.asyncio
+# The authored ✅ day widens to its first instant on the host clock: the
+# laptop's case, where that is its midnight.
+@pytest.mark.usefixtures("laptop_zone")
 async def test_file_arriving_completed_publishes_once(
     clean_neo4j, neo4j_driver, door, bus: _CapturingBus, tmp_path: Path
 ) -> None:
@@ -321,6 +324,9 @@ async def test_force_reingest_of_completed_files_publishes_zero(
 
 
 @pytest.mark.asyncio
+# The authored ✅ day widens to its first instant on the host clock: the
+# laptop's case, where that is its midnight.
+@pytest.mark.usefixtures("laptop_zone")
 async def test_directory_door_publishes_a_goal_achievement(
     clean_neo4j, neo4j_driver, door, bus: _CapturingBus, tmp_path: Path
 ) -> None:

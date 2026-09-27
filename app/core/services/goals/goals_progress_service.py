@@ -48,6 +48,8 @@ from core.services.user.rich_context import (
 from core.utils.dto_converters import to_domain_model
 from core.utils.exception_types import DATA_CONVERSION_EXCEPTIONS, NEO4J_EXCEPTIONS
 from core.utils.result_simplified import Errors, Result
+from core.utils.timestamp_helpers import today_in
+from core.utils.zone_context import current_zone
 
 # Type alias for rich goal data from UserContext
 RichGoalData = dict[str, Any]
@@ -96,11 +98,12 @@ def _achievement_write(target_achieved: bool) -> tuple[StatusWriteGuard, Neo4jPr
     """
     if not target_achieved:
         return StatusWriteGuard(), {}
-    # ``date.today()`` matches _STAMP_SPECS[GOAL]'s factory in ``completion_stamp`` —
-    # Goal stamps a calendar date, as ``GoalsCoreService.update_goal`` does.
+    # Today in the user's zone matches _STAMP_SPECS[GOAL]'s factory in
+    # ``completion_stamp`` — Goal stamps a calendar date, as
+    # ``GoalsCoreService.update_goal`` does.
     patch: Neo4jProperties = {
         "status": EntityStatus.COMPLETED.value,
-        _ACHIEVED_FIELD: date.today(),
+        _ACHIEVED_FIELD: today_in(current_zone()),
     }
     return StatusWriteGuard(patch_if_prior_not_in=(_COMPLETED_ONLY, patch)), patch
 
@@ -556,7 +559,9 @@ class GoalsProgressService(BaseService[GoalsOperations, Goal]):
             target_milestone,
             is_completed=True,
             achieved_date=(
-                target_milestone.achieved_date if target_milestone.is_completed else date.today()
+                target_milestone.achieved_date
+                if target_milestone.is_completed
+                else today_in(current_zone())
             ),
         )
 
@@ -626,10 +631,10 @@ class GoalsProgressService(BaseService[GoalsOperations, Goal]):
             achieved_event = GoalAchieved(
                 goal_uid=goal_uid,
                 user_uid=user_context.user_uid,
-                actual_duration_days=(date.today() - goal.created_at.date()).days
+                actual_duration_days=(today_in(current_zone()) - goal.created_at.date()).days
                 if goal.created_at
                 else None,
-                completed_ahead_of_schedule=date.today() < goal.target_date
+                completed_ahead_of_schedule=today_in(current_zone()) < goal.target_date
                 if goal.target_date
                 else False,
             )
@@ -742,10 +747,10 @@ class GoalsProgressService(BaseService[GoalsOperations, Goal]):
                 achieved_event = GoalAchieved(
                     goal_uid=goal_uid,
                     user_uid=goal.user_uid,
-                    actual_duration_days=(date.today() - goal.created_at.date()).days
+                    actual_duration_days=(today_in(current_zone()) - goal.created_at.date()).days
                     if goal.created_at
                     else None,
-                    completed_ahead_of_schedule=date.today() < goal.target_date
+                    completed_ahead_of_schedule=today_in(current_zone()) < goal.target_date
                     if goal.target_date
                     else False,
                 )
@@ -833,7 +838,7 @@ class GoalsProgressService(BaseService[GoalsOperations, Goal]):
                 remaining_progress / current_progress_rate if current_progress_rate > 0 else 999
             )
             days_to_complete = int(weeks_to_complete * 7)
-            estimated_completion_date = date.today() + timedelta(days=days_to_complete)
+            estimated_completion_date = today_in(current_zone()) + timedelta(days=days_to_complete)
             days_ahead_or_behind = (goal.target_date - estimated_completion_date).days
 
             # Completion probability based on current pace
@@ -875,7 +880,7 @@ class GoalsProgressService(BaseService[GoalsOperations, Goal]):
         days_remaining = None
         required_velocity: float = 0
         if goal.target_date:
-            days_remaining = (goal.target_date - date.today()).days
+            days_remaining = (goal.target_date - today_in(current_zone())).days
             if days_remaining > 0:
                 remaining_tasks = total_tasks - completed_tasks
                 required_velocity = (remaining_tasks / days_remaining) * 7  # tasks per week

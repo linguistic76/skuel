@@ -477,7 +477,7 @@ class TaskCreateRequest(BaseModel):
     @field_validator('due_date')
     @classmethod
     def due_date_not_past(cls, v: date | None) -> date | None:
-        if v and v < date.today():
+        if v and v < today_in(current_zone()):
             raise ValueError('Due date cannot be in the past')
         return v
 ```

@@ -51,6 +51,8 @@ from core.utils.decorators import with_error_handling
 from core.utils.dto_converters import to_domain_model
 from core.utils.result_simplified import Errors, Result
 from core.utils.sort_functions import make_dict_value_getter
+from core.utils.timestamp_helpers import today_in
+from core.utils.zone_context import current_zone
 
 if TYPE_CHECKING:
     from core.ports.infrastructure_protocols import EventBusOperations
@@ -453,7 +455,7 @@ class GoalsSchedulingService(BaseService[GoalsOperations, Goal]):
         if not goal_data.target_date:
             default_days = DEFAULT_DAYS_BY_TIMEFRAME.get(goal_data.timeframe, 90)
             goal_data = goal_data.model_copy(
-                update={"target_date": date.today() + timedelta(days=default_days)}
+                update={"target_date": today_in(current_zone()) + timedelta(days=default_days)}
             )
 
         return await self.core.create_goal(goal_data, user_context.user_uid)
@@ -497,13 +499,13 @@ class GoalsSchedulingService(BaseService[GoalsOperations, Goal]):
             # Fall back to defaults if can't get history
             return Result.ok(
                 TimelineSuggestion(
-                    suggested_target_date=date.today() + timedelta(days=default_days),
+                    suggested_target_date=today_in(current_zone()) + timedelta(days=default_days),
                     confidence=0.5,
                     rationale="Based on default timeframe duration (no history available)",
                     factors=("default_timeframe",),
                     alternative_dates=(
-                        date.today() + timedelta(days=int(default_days * 0.8)),
-                        date.today() + timedelta(days=int(default_days * 1.2)),
+                        today_in(current_zone()) + timedelta(days=int(default_days * 0.8)),
+                        today_in(current_zone()) + timedelta(days=int(default_days * 1.2)),
                     ),
                 )
             )
@@ -557,7 +559,7 @@ class GoalsSchedulingService(BaseService[GoalsOperations, Goal]):
 
         # Calculate suggested date
         suggested_days = int(default_days * adjustment)
-        suggested_date = date.today() + timedelta(days=suggested_days)
+        suggested_date = today_in(current_zone()) + timedelta(days=suggested_days)
 
         # Calculate confidence based on data availability
         confidence = 0.5
@@ -570,8 +572,8 @@ class GoalsSchedulingService(BaseService[GoalsOperations, Goal]):
 
         # Generate alternative dates
         alternative_dates = (
-            date.today() + timedelta(days=int(suggested_days * 0.8)),  # Aggressive
-            date.today() + timedelta(days=int(suggested_days * 1.2)),  # Conservative
+            today_in(current_zone()) + timedelta(days=int(suggested_days * 0.8)),  # Aggressive
+            today_in(current_zone()) + timedelta(days=int(suggested_days * 1.2)),  # Conservative
         )
 
         rationale = (
@@ -619,7 +621,9 @@ class GoalsSchedulingService(BaseService[GoalsOperations, Goal]):
 
         # Calculate velocity
         current_progress = goal.progress_percentage
-        days_elapsed = (date.today() - goal.created_at.date()).days if goal.created_at else 0
+        days_elapsed = (
+            (today_in(current_zone()) - goal.created_at.date()).days if goal.created_at else 0
+        )
 
         current_velocity = current_progress / days_elapsed if days_elapsed > 0 else 0.0
 
@@ -661,7 +665,9 @@ class GoalsSchedulingService(BaseService[GoalsOperations, Goal]):
         estimated_completion_date = None
         if current_velocity > 0:
             days_to_complete = remaining_progress / current_velocity
-            estimated_completion_date = date.today() + timedelta(days=int(days_to_complete))
+            estimated_completion_date = today_in(current_zone()) + timedelta(
+                days=int(days_to_complete)
+            )
 
         # Calculate days ahead/behind
         days_diff = 0

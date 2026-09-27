@@ -16,7 +16,7 @@ conversion — these tests exercise the real implementation.
 """
 
 from dataclasses import dataclass, field
-from datetime import date, timedelta
+from datetime import timedelta
 from typing import Any
 from unittest.mock import AsyncMock
 
@@ -25,6 +25,8 @@ import pytest
 from core.constants import ExerciseTimeEstimate
 from core.services.exercises.exercise_service import ExerciseService
 from core.utils.result_simplified import Errors, Result
+from core.utils.timestamp_helpers import today_in
+from core.utils.zone_context import current_zone
 
 
 @dataclass
@@ -88,7 +90,7 @@ class TestGetActionableExercises:
     async def test_past_due_date_marks_overdue(self) -> None:
         service, backend = _make_service()
         backend.get_required_knowledge.return_value = Result.ok([])
-        past = (date.today() - timedelta(days=3)).isoformat()
+        past = (today_in(current_zone()) - timedelta(days=3)).isoformat()
         ctx = _make_context(unsubmitted=[{"uid": "ex_late", "title": "Late", "due_date": past}])
 
         result = await service.get_actionable_exercises_for_user(ctx)

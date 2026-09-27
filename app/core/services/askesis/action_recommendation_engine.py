@@ -27,7 +27,6 @@ Architecture:
 
 from __future__ import annotations
 
-from datetime import date
 from operator import itemgetter
 from typing import TYPE_CHECKING, Any
 
@@ -47,6 +46,8 @@ from core.services.askesis.types import (
 from core.utils.decorators import with_error_handling
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Result
+from core.utils.timestamp_helpers import today_in
+from core.utils.zone_context import current_zone
 
 if TYPE_CHECKING:
     from core.services.user import UserContext
@@ -370,7 +371,7 @@ class ActionRecommendationEngine:
             deadline = user_context.goal_deadlines.get(goal_uid)
 
             if deadline:
-                days_remaining = (deadline - date.today()).days
+                days_remaining = (deadline - today_in(current_zone())).days
                 required_daily_progress = (100 - progress) / max(days_remaining, 1)
 
                 if required_daily_progress > 5:  # More than 5% per day needed

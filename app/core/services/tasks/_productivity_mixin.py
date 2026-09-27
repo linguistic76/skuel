@@ -12,7 +12,7 @@ See: /docs/architecture/ENTITY_TYPE_ARCHITECTURE.md
 from __future__ import annotations
 
 import asyncio
-from datetime import date, timedelta
+from datetime import timedelta
 from operator import itemgetter
 from typing import TYPE_CHECKING, Any
 
@@ -22,6 +22,8 @@ from core.models.task.task import Task
 from core.services.tasks.task_relationships import TaskRelationships
 from core.services.tasks_types import KnowledgePatternAnalysis
 from core.utils.result_simplified import Result
+from core.utils.timestamp_helpers import today_in
+from core.utils.zone_context import current_zone
 
 if TYPE_CHECKING:
     from core.models.type_hints import UserUID
@@ -152,7 +154,7 @@ class _ProductivityMixin:
         if tasks_result.is_error:
             return Result.fail(tasks_result)
 
-        cutoff_date = date.today() - timedelta(days=timeframe_days)
+        cutoff_date = today_in(current_zone()) - timedelta(days=timeframe_days)
         completed_tasks = [
             task
             for task in tasks_result.value

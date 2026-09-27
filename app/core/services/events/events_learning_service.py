@@ -11,7 +11,7 @@ Responsibilities:
 - Track learning progress through events
 """
 
-from datetime import date, timedelta
+from datetime import timedelta
 from typing import TYPE_CHECKING, Any
 
 from core.models.enums import EntityStatus
@@ -21,6 +21,8 @@ from core.models.type_hints import FilterParams, UserUID
 from core.services.base_service import BaseService
 from core.services.domain_config import create_activity_domain_config
 from core.utils.result_simplified import Result
+from core.utils.timestamp_helpers import today_in
+from core.utils.zone_context import current_zone
 
 if TYPE_CHECKING:
     from core.ports.domain_protocols import EventsOperations
@@ -90,11 +92,11 @@ class EventsLearningService(BaseService["EventsOperations", Event]):
         Returns:
             Result containing list of learning events
         """
-        end_date = date.today() + timedelta(days=days_ahead)
+        end_date = today_in(current_zone()) + timedelta(days=days_ahead)
 
         filters: FilterParams = {
             "user_uid": user_uid,
-            "event_date__gte": date.today().isoformat(),
+            "event_date__gte": today_in(current_zone()).isoformat(),
             "event_date__lte": end_date.isoformat(),
         }
 
@@ -153,7 +155,7 @@ class EventsLearningService(BaseService["EventsOperations", Event]):
             intervals = [14, 30, 60]  # Infrequent reviews
 
         suggestions = []
-        current_date = date.today()
+        current_date = today_in(current_zone())
 
         for interval in intervals:
             review_date = current_date + timedelta(days=interval)

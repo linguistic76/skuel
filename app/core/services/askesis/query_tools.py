@@ -17,7 +17,8 @@ Safety contract, held in code the model cannot route around:
 - **Server-side ``user_uid`` injection** — the executor always passes the
   authenticated user's uid; a model-supplied ``user_uid`` is discarded.
 - **Server-resolved time** — relative periods are an enum
-  (``AggregationPeriod``) resolved against the server's date; the model never
+  (``AggregationPeriod``) resolved against today in the asking user's zone
+  (``today_in_current_zone``); the model never
   emits a date, so it can never volunteer a stale or hallucinated "today".
 - **Three deterministic outcomes** — ``AggregationAnswered`` (states the exact
   bounds it filtered on), ``AggregationDeclined`` (coverage gap, learner-visible
@@ -44,6 +45,7 @@ from core.ports.llm_protocols import ToolSelection, ToolSpec
 from core.prompts import PROMPT_REGISTRY
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
+from core.utils.zone_context import today_in_current_zone
 
 if TYPE_CHECKING:
     from core.ports.query_types import GoalsAchievedCount
@@ -288,12 +290,13 @@ def _month_end(month_start: date) -> date:
 
 def build_aggregation_catalog(
     goals_service: GoalsAchievedCounter,
-    today: Callable[[], date] = date.today,
+    today: Callable[[], date] = today_in_current_zone,
 ) -> dict[str, QueryTool]:
     """Build the aggregation tool catalog — one entry per vetted question shape.
 
     ``today`` is the injectable clock the period resolver reads; production
-    uses the server's date (never one the model volunteered).
+    uses today in the current zone — the asking user's — never a date the model
+    volunteered.
 
     First slice: exactly one tool. Growth is deliberate and reviewed — adding
     an entry means adding the domain's own backend method (per-domain

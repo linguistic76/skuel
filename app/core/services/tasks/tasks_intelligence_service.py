@@ -64,6 +64,8 @@ from core.services.tasks._productivity_mixin import _ProductivityMixin
 from core.services.tasks.task_knowledge_analyzer import TaskKnowledgeAnalyzer
 from core.utils.neo4j_props import coerce_int
 from core.utils.result_simplified import Errors, Result
+from core.utils.timestamp_helpers import today_in
+from core.utils.zone_context import current_zone
 
 if TYPE_CHECKING:
     from core.ports.domain_protocols import TasksOperations
@@ -344,7 +346,7 @@ class TasksIntelligenceService(
                     t
                     for t in period_tasks
                     if t.due_date
-                    and t.due_date < datetime.now().date()
+                    and t.due_date < today_in(current_zone())
                     and t.status != EntityStatus.COMPLETED
                 ]
             ),

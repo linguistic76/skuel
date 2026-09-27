@@ -28,6 +28,8 @@ from core.models.task.task_update_intent import TaskUpdateIntent
 from core.models.update_contracts import StatusGuardedOutcome, StatusWriteGuard
 from core.services.tasks.tasks_core_service import TasksCoreService
 from core.utils.result_simplified import Errors, Result
+from core.utils.timestamp_helpers import today_in
+from core.utils.zone_context import current_zone
 from tests.helpers.status_guarded_backend import (
     StatusGuardedWriteRecorder,
     guarded_backend,
@@ -90,7 +92,7 @@ class TestUpdateTaskPublishesTaskCompleted:
     async def test_the_event_carries_analytics_context_without_extra_queries(self) -> None:
         """``was_overdue`` and ``completion_time_seconds`` come from the models
         already in hand — the post-write task, not a second read."""
-        yesterday = date.today() - timedelta(days=1)
+        yesterday = today_in(current_zone()) - timedelta(days=1)
         current = Task(
             uid="task_1",
             user_uid=USER,

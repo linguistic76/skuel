@@ -22,6 +22,8 @@ from core.models.type_hints import UserUID
 from core.ports.query_types import ChartJsConfig, GanttConfig
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
+from core.utils.timestamp_helpers import today_in
+from core.utils.zone_context import current_zone
 
 logger = get_logger(__name__)
 
@@ -56,7 +58,7 @@ class VisualizationAggregationService:
         period: str,
     ) -> Result[ChartJsConfig]:
         """Aggregate task completion counts per period, then format for Chart.js."""
-        today = date.today()
+        today = today_in(current_zone())
 
         if period == "week":
             start_date = today - timedelta(days=6)
@@ -175,7 +177,7 @@ class VisualizationAggregationService:
     ) -> Result[ChartJsConfig]:
         """Aggregate task counts by status over a date window, then format for Chart.js."""
         distribution: dict[str, int] = {}
-        today = date.today()
+        today = today_in(current_zone())
 
         result = await self.tasks_service.get_user_items_in_range(
             user_uid=user_uid,
@@ -208,7 +210,7 @@ class VisualizationAggregationService:
         project: str | None = None,
     ) -> Result[GanttConfig]:
         """Fetch tasks + prerequisites (optionally filtered by project), then format for Gantt."""
-        today = date.today()
+        today = today_in(current_zone())
 
         result = await self.tasks_service.get_user_items_in_range(
             user_uid=user_uid,

@@ -45,6 +45,7 @@ from core.utils.report_periods import (
     resolve_report_period,
 )
 from core.utils.result_simplified import Errors, Result
+from core.utils.zone_context import current_zone
 
 logger = get_logger("skuel.services.report.activity_report")
 
@@ -140,7 +141,7 @@ class ActivityReportService:
         subject_uid = context.user_uid
         now = datetime.now()
         try:
-            period = resolve_report_period(time_period, now)
+            period = resolve_report_period(time_period, now, current_zone())
         except UnknownReportPeriodError as e:
             return Result.fail(Errors.validation(message=str(e), field="time_period"))
         if not period.has_started(now):
@@ -390,7 +391,7 @@ class ActivityReportService:
         """
         now = datetime.now()
         try:
-            period = resolve_report_period(time_period, now)
+            period = resolve_report_period(time_period, now, current_zone())
         except UnknownReportPeriodError as e:
             return Result.fail(Errors.validation(message=str(e), field="time_period"))
         if not period.has_started(now):
@@ -507,7 +508,7 @@ class ActivityReportService:
         """
         now = datetime.now()
         try:
-            period = resolve_report_period(time_period, now)
+            period = resolve_report_period(time_period, now, current_zone())
         except UnknownReportPeriodError as e:
             return Result.fail(Errors.validation(message=str(e), field="time_period"))
         latest = await self.latest_for_period(user_uid, subject_uid, time_period)

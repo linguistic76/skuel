@@ -14,13 +14,19 @@ after it must still reach the mapper) and the period's own ``end``. The DATA
 cutoff the mapper counts up to is ``min(now, end)``: a September report
 generated on the 11th counts nothing scheduled for the 20th, and is *partial*
 until the period closes.
+
+A calendar period's days are the report user's days: its bounds are the first
+instant of its first day and the last instant of its last day in that user's
+zone (``local_day_bounds``), so a week in Bangkok starts seven hours before the
+same week in UTC. They are read on the host clock (``as_host_clock``), the
+naive form the graph's naive stamps and ``datetime.now()`` take.
 """
 
 from __future__ import annotations
 
 from calendar import monthrange
 from dataclasses import dataclass
-from datetime import UTC, date, datetime, time, timedelta
+from datetime import UTC, date, datetime, timedelta, tzinfo
 
 from core.constants import ReportTimePeriod
 from core.models.enums.user_entry_enums import ReportPeriodKind
@@ -31,7 +37,12 @@ from core.utils.period_keys import (
     weekly_period_key,
     weekly_period_start,
 )
-from core.utils.timestamp_helpers import parse_iso_utc, week_bounds
+from core.utils.timestamp_helpers import (
+    as_host_clock,
+    local_day_bounds,
+    parse_iso_utc,
+    week_bounds,
+)
 
 
 class UnknownReportPeriodError(ValueError):
@@ -42,10 +53,12 @@ class UnknownReportPeriodError(ValueError):
 class ReportPeriod:
     """One report's window, resolved from its token.
 
-    ``start`` and ``end`` are the period's first and last instants (naive local
-    time, as the graph's stamps are read). For a trailing window ``end`` is the
-    ``now`` it was resolved at. ``label`` names the period the way a sentence
-    would ("the last 7 days", "September 2026", "week 37 of 2026").
+    ``start`` and ``end`` are the period's first and last instants, naive on the
+    host clock as the graph's naive stamps are read — for a calendar period, the
+    first and last instants of its days in the report user's zone. For a
+    trailing window ``end`` is the ``now`` it was resolved at. ``label`` names
+    the period the way a sentence would ("the last 7 days", "September 2026",
+    "week 37 of 2026").
     """
 
     token: str
@@ -81,11 +94,15 @@ class ReportPeriod:
         month before a month, the ISO week before a week; ``None`` for a
         trailing window, which has no neighbour. A period-over-period
         comparison is against exactly this period, never any report that
-        happens to end earlier."""
+        happens to end earlier. Read from the token, whose first day is the
+        period's own in any zone — ``start`` is that day's first instant on the
+        host clock, which is not on that day for a zone east of the host's."""
         if self.kind is ReportPeriodKind.MONTH:
-            return monthly_period_key(self.start.date() - timedelta(days=1))
+            first = monthly_period_start(self.token)
+            return monthly_period_key(first - timedelta(days=1)) if first else None
         if self.kind is ReportPeriodKind.WEEK:
-            return weekly_period_key(self.start.date() - timedelta(days=7))
+            monday = weekly_period_start(self.token)
+            return weekly_period_key(monday - timedelta(days=7)) if monday else None
         return None
 
     def label_through(self, cutoff: datetime) -> str:
@@ -116,8 +133,23 @@ def as_naive_utc(value: object) -> datetime | None:
     return moment
 
 
-def resolve_report_period(token: str, now: datetime) -> ReportPeriod:
+def _calendar_bounds(first: date, last: date, zone: tzinfo) -> tuple[datetime, datetime]:
+    """A calendar period's first and last instants on the host clock.
+
+    The first instant of ``first`` and the last instant of ``last``, both days in
+    ``zone`` (the report user's) — ``local_day_bounds`` widens each day.
+    """
+    start, _ = local_day_bounds(first, zone)
+    _, after = local_day_bounds(last, zone)
+    return as_host_clock(start), as_host_clock(after - timedelta(microseconds=1))
+
+
+def resolve_report_period(token: str, now: datetime, zone: tzinfo) -> ReportPeriod:
     """The period a ``time_period`` token names, anchored at ``now`` for trailing windows.
+
+    A calendar period's days are days in ``zone`` — the zone of the user whose
+    report it is. A trailing window is ``now`` less its day count, whatever the
+    zone.
 
     Raises:
         UnknownReportPeriodError: the token is neither a trailing window nor a
@@ -136,21 +168,23 @@ def resolve_report_period(token: str, now: datetime) -> ReportPeriod:
     if monday is not None:
         _, sunday = week_bounds(monday)
         iso_year, iso_week, _ = monday.isocalendar()
+        start, end = _calendar_bounds(monday, sunday, zone)
         return ReportPeriod(
             token=token,
             kind=ReportPeriodKind.WEEK,
-            start=datetime.combine(monday, time.min),
-            end=datetime.combine(sunday, time.max),
+            start=start,
+            end=end,
             label=f"week {iso_week} of {iso_year}",
         )
     first = monthly_period_start(token)
     if first is not None:
         last = first.replace(day=monthrange(first.year, first.month)[1])
+        start, end = _calendar_bounds(first, last, zone)
         return ReportPeriod(
             token=token,
             kind=ReportPeriodKind.MONTH,
-            start=datetime.combine(first, time.min),
-            end=datetime.combine(last, time.max),
+            start=start,
+            end=end,
             label=first.strftime("%B %Y"),
         )
     raise UnknownReportPeriodError(f"Unknown report period {token!r}")

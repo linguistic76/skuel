@@ -13,7 +13,7 @@ pipeline wiring (ADR-069): one conversion, one shape, validated by Pydantic
 at the boundary.
 """
 
-from datetime import date, datetime, timedelta
+from datetime import date, timedelta
 from typing import Any
 
 from core.models.choice.choice_request import ChoiceCreateRequest
@@ -39,6 +39,8 @@ from core.services.dsl.dsl_mappings import (
 from core.utils.decorators import with_error_handling
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
+from core.utils.timestamp_helpers import today_in, wall_clock_in
+from core.utils.zone_context import current_zone
 
 logger = get_logger("skuel.dsl.converter")
 
@@ -233,7 +235,7 @@ def activity_to_goal_request(activity: ParsedActivityLine) -> Result[ConversionR
         "guiding_principle_uids": activity.get_linked_principles(),
         "tags": activity.energy_states if activity.energy_states else [],
     }
-    if target_date is not None and target_date < date.today():
+    if target_date is not None and target_date < today_in(current_zone()):
         data["start_date"] = target_date
     request = GoalCreateRequest.model_validate(data, context=INGESTED_NOTE_CONTEXT)
 
@@ -263,7 +265,9 @@ def activity_to_event_request(activity: ParsedActivityLine) -> Result[Conversion
         return _not_a(activity, EntityType.EVENT)
 
     # Events require a datetime
-    event_datetime = activity.when or datetime.now()
+    # No @when: the event starts now on the user's wall clock (event_date and
+    # start_time are calendar values, local to the user's zone).
+    event_datetime = activity.when or wall_clock_in(current_zone())
 
     # Calculate end time based on duration
     duration = activity.duration_minutes or 60

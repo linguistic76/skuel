@@ -19,6 +19,8 @@ from core.models.enums.entity_enums import EntityStatus
 from core.models.type_hints import UserUID
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Result
+from core.utils.timestamp_helpers import today_in
+from core.utils.zone_context import current_zone
 
 if TYPE_CHECKING:
     from core.models.calendar_optimization import CalendarOptimization, SchedulingStrategy
@@ -228,7 +230,7 @@ class CalendarOptimizationOrchestrator:
 
         Partial failures degrade gracefully — the available domain's count is used.
         """
-        start_date = date.today()
+        start_date = today_in(current_zone())
         end_date = start_date + timedelta(days=days_ahead)
 
         events_result = await self._events.get_events_in_range(
@@ -374,7 +376,7 @@ class CalendarOptimizationOrchestrator:
         days_to_search: int = 7,
     ) -> Result[dict[str, Any] | None]:
         """Find the next available time slot across multiple days."""
-        current_date = date.today()
+        current_date = today_in(current_zone())
         for _ in range(days_to_search):
             slots_result = await self.suggest_time_slots(
                 user_uid=user_uid,

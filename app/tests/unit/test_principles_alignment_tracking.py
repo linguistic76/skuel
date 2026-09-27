@@ -26,6 +26,8 @@ from core.models.principle.principle import Principle
 from core.models.principle.principle_types import AlignmentAssessment, PrincipleExpression
 from core.services.principles.principles_alignment_service import PrinciplesAlignmentService
 from core.utils.result_simplified import Result
+from core.utils.timestamp_helpers import today_in
+from core.utils.zone_context import current_zone
 
 
 @pytest.fixture
@@ -272,7 +274,6 @@ class TestSelfAssessmentReviewStamp:
     async def test_store_user_assessment_stamps_last_review_date(
         self, alignment_service, mock_backend, sample_principle_with_alignment
     ) -> None:
-        from datetime import date
 
         from core.models.enums.principle_enums import AlignmentLevel
         from core.models.principle.principle_types import AlignmentAssessment
@@ -283,7 +284,7 @@ class TestSelfAssessmentReviewStamp:
         await alignment_service._store_user_assessment(
             sample_principle_with_alignment.uid,
             AlignmentAssessment(
-                assessed_date=date.today(),
+                assessed_date=today_in(current_zone()),
                 alignment_level=AlignmentLevel.ALIGNED,
                 evidence="Kept my word under pressure",
                 reflection="Felt right",
@@ -292,11 +293,11 @@ class TestSelfAssessmentReviewStamp:
 
         mock_backend.update.assert_awaited_once()
         written = mock_backend.update.await_args.args[1]
-        assert str(written["last_review_date"])[:10] == date.today().isoformat()
+        assert str(written["last_review_date"])[:10] == today_in(current_zone()).isoformat()
         # The stored record shape: ISO date, level value, kind — JSON-encodable
         # as the node stores the list (a native date would fail the write).
         assert written["alignment_history"][-1] == {
-            "assessed_date": date.today().isoformat(),
+            "assessed_date": today_in(current_zone()).isoformat(),
             "alignment_level": "aligned",
             "evidence": "Kept my word under pressure",
             "reflection": "Felt right",

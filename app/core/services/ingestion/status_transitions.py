@@ -52,6 +52,7 @@ from core.events import BaseEvent, CalendarEventCompleted, GoalAchieved, TaskCom
 from core.models.enums.entity_enums import EntityStatus, EntityType
 from core.models.type_hints import UserUID
 from core.services.completion_stamp import COMPLETION_FIELDS, completion_moment
+from core.utils.zone_context import current_zone
 
 __all__ = [
     "EVENT_SOURCE_FIELDS",
@@ -265,7 +266,7 @@ def _completion_event(
     entity-completion event (Habit, Choice).
     """
     user_uid = UserUID(str(entity.get("user_uid") or ""))
-    occurred_at = completion_moment(_stamp_of(entity_type, entity))
+    occurred_at = completion_moment(_stamp_of(entity_type, entity), current_zone())
 
     if entity_type is EntityType.TASK:
         due_date = _as_date(entity.get("due_date"))
@@ -367,9 +368,10 @@ def _as_date(value: Any) -> date | None:  # boundary: a Neo4j property value
 def _as_datetime(value: Any) -> datetime | None:  # boundary: a Neo4j property value
     """Read a NAIVE datetime from ``datetime``/``date``/neo4j-temporal/ISO-string forms.
 
-    A bare date widens to midnight — the same widening ``completion_moment``
-    applies, kept here so a ``created_at:`` authored as a plain day still yields
-    a duration rather than nothing.
+    A bare date widens to the first instant of that day in the current zone (the
+    vault owner's, under the sync's zone scope) — it goes through
+    ``completion_moment``, so a ``created_at:`` authored as a plain day still
+    yields a duration rather than nothing, measured by the same rule.
 
     An offset-bearing value is converted to UTC and stripped, because the
     values it has to meet are naive: ``BaseEvent.occurred_at`` is naive
@@ -382,7 +384,7 @@ def _as_datetime(value: Any) -> datetime | None:  # boundary: a Neo4j property v
     if isinstance(value, datetime):
         parsed = value
     elif isinstance(value, date):
-        parsed = datetime.combine(value, datetime.min.time())
+        parsed = completion_moment(value, current_zone())
     elif isinstance(value, str):
         try:
             parsed = datetime.fromisoformat(value)
@@ -390,7 +392,7 @@ def _as_datetime(value: Any) -> datetime | None:  # boundary: a Neo4j property v
             widened = _as_date(value)
             if widened is None:
                 return None
-            parsed = datetime.combine(widened, datetime.min.time())
+            parsed = completion_moment(widened, current_zone())
     else:
         return None
     if parsed.tzinfo is not None:

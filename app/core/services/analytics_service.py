@@ -28,6 +28,8 @@ from core.services.analytics import (
     KnowledgeHealthService,
 )
 from core.utils.result_simplified import Errors
+from core.utils.timestamp_helpers import today_in
+from core.utils.zone_context import current_zone
 
 if TYPE_CHECKING:
     from core.ports.embedding_coverage_protocols import EmbeddingCoverageOperations
@@ -192,7 +194,7 @@ class AnalyticsService:
             )
 
             # Generate goal achievement report for the past month
-            period_end = date.today()
+            period_end = today_in(current_zone())
             period_start = period_end - timedelta(days=30)
 
             # Generate and save report file
@@ -247,7 +249,7 @@ class AnalyticsService:
             )
 
             # Generate learning progress report for the past month
-            period_end = date.today()
+            period_end = today_in(current_zone())
             period_start = period_end - timedelta(days=30)
 
             # Generate and save report file
@@ -310,7 +312,7 @@ class AnalyticsService:
             )
 
             # Generate habit consistency report for the past month
-            period_end = date.today()
+            period_end = today_in(current_zone())
             period_start = period_end - timedelta(days=30)
 
             # Generate and save report file
@@ -431,7 +433,7 @@ class AnalyticsService:
     ) -> Result[AnalyticsSummary]:
         """Generate report for a week (defaults to current week)"""
         if not week_start:
-            today = date.today()
+            today = today_in(current_zone())
             week_start = today - timedelta(days=today.weekday())
         week_end = week_start + timedelta(days=6)
         return await self.generate_report(user_uid, analytics_domain, week_start, week_end)
@@ -451,7 +453,7 @@ class AnalyticsService:
         choices, and principles to provide a holistic view.
         """
         if not week_start:
-            today = date.today()
+            today = today_in(current_zone())
             week_start = today - timedelta(days=today.weekday())
         week_end = week_start + timedelta(days=6)
 

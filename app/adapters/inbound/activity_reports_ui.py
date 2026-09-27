@@ -52,6 +52,7 @@ from core.utils.report_periods import (
     resolve_report_period,
 )
 from core.utils.result_simplified import ErrorCategory, Errors, Result
+from core.utils.zone_context import current_zone
 from ui.activities.nav import render_activity_sidebar_error, render_activity_sidebar_page
 from ui.gradebook.summary import GRADEBOOK_TITLE
 from ui.learning_loop.report import (
@@ -167,7 +168,7 @@ def create_activity_reports_ui_routes(
         """The period's "not generated" state — the refusal and the offer to try
         again — or 400 for a token no vocabulary names."""
         try:
-            period = resolve_report_period(token, datetime.now())
+            period = resolve_report_period(token, datetime.now(), current_zone())
         except UnknownReportPeriodError:
             return Response("Unknown report period", status_code=400)
         return render_activity_sidebar_page(
@@ -206,7 +207,7 @@ def create_activity_reports_ui_routes(
         form = await request.form()
         token = str(form.get("time_period", "")).strip()
         try:
-            resolve_report_period(token, datetime.now())
+            resolve_report_period(token, datetime.now(), current_zone())
         except UnknownReportPeriodError:
             return Response("Unknown report period", status_code=400)
         result = await progress_generator.generate(user_uid=user_uid, time_period=token)

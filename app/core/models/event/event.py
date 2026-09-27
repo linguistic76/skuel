@@ -27,6 +27,9 @@ from dataclasses import dataclass, field
 from datetime import date, datetime, time, timedelta
 from typing import TYPE_CHECKING
 
+from core.utils.timestamp_helpers import today_in
+from core.utils.zone_context import current_zone
+
 if TYPE_CHECKING:
     from core.models.entity_dto import EntityDTO
     from core.models.event.event_dto import EventDTO
@@ -195,13 +198,13 @@ class Event(UserOwnedEntity):
     def is_past(self) -> bool:
         """Check if event date is in the past."""
         if self.event_date:
-            return self.event_date < date.today()
+            return self.event_date < today_in(current_zone())
         return False
 
     def is_today(self) -> bool:
         """Check if event date is today."""
         if self.event_date:
-            return self.event_date == date.today()
+            return self.event_date == today_in(current_zone())
         return False
 
     def is_upcoming(self) -> bool:

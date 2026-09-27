@@ -15,6 +15,10 @@ from core.services.report.activity_report_service import ActivityReportService
 from core.services.user.unified_user_context import UserContext
 from core.utils.result_simplified import Result
 
+# Calendar days here are read on the host clock (period bounds, widened dates):
+# the expectations are the laptop's, where the host clock and the default zone agree.
+pytestmark = pytest.mark.usefixtures("laptop_zone")
+
 
 @pytest.fixture
 def mock_backend():

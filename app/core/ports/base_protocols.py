@@ -579,7 +579,7 @@ class EntitySearchOperations[T: "DomainModelProtocol"](Protocol):
 
         Filter values reach the driver as query parameters, so they are
         Neo4j scalars — ``Neo4jValue``, not ``FilterValue``: real call sites
-        pass ``date``/``datetime`` (``due_date__gte=date.today()``).
+        pass ``date``/``datetime`` (``due_date__gte=today_in(current_zone())``).
         """
         ...
 

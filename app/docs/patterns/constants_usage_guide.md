@@ -1,6 +1,6 @@
 ---
 title: Constants Usage Guide
-updated: 2026-09-17
+updated: 2026-09-27
 category: patterns
 related_skills: []
 related_docs: []
@@ -366,8 +366,10 @@ used by `ActivityReportService` and `ProgressReportGenerator`:
 from core.constants import ReportTimePeriod
 
 from core.utils.report_periods import resolve_report_period
+from core.utils.zone_context import current_zone
 
-period = resolve_report_period(time_period, datetime.now())  # UnknownReportPeriodError on a bad token
+# A calendar period's days are the report user's, in their zone.
+period = resolve_report_period(time_period, datetime.now(), current_zone())  # UnknownReportPeriodError on a bad token
 start_date, end_date = period.start, period.data_cutoff(datetime.now())
 ```
 

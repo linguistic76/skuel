@@ -10,7 +10,6 @@ See: /docs/architecture/ENTITY_TYPE_ARCHITECTURE.md
 
 from __future__ import annotations
 
-from datetime import date
 from typing import TYPE_CHECKING, Any
 
 from core.models.enums import EntityStatus
@@ -18,6 +17,8 @@ from core.models.enums.activity_enums import ProgressLevel
 from core.models.shared.dual_track import DualTrackResult
 from core.models.type_hints import UserUID
 from core.utils.result_simplified import Result
+from core.utils.timestamp_helpers import today_in
+from core.utils.zone_context import current_zone
 
 if TYPE_CHECKING:
     from core.models.goal.goal import Goal
@@ -89,7 +90,7 @@ class _DualTrackMixin:
         expected_progress = 50.0  # Default if no dates
         if goal.target_date and goal.start_date:
             total_days = (goal.target_date - goal.start_date).days
-            elapsed_days = (date.today() - goal.start_date).days
+            elapsed_days = (today_in(current_zone()) - goal.start_date).days
             if total_days > 0:
                 expected_progress = (elapsed_days / total_days) * 100
                 evidence.append(f"Expected progress: {expected_progress:.0f}%")

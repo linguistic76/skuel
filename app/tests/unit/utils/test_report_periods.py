@@ -10,6 +10,7 @@ an unknown token raises rather than becoming some default window.
 from __future__ import annotations
 
 from datetime import date, datetime
+from zoneinfo import ZoneInfo
 
 import pytest
 
@@ -25,8 +26,16 @@ from core.utils.report_periods import (
     report_period_token,
     resolve_report_period,
 )
+from tests.helpers.forced_zone import forced_zone
 
 NOW = datetime(2026, 9, 12, 10, 30, 0)
+
+# The laptop's case: the host clock and the report user's zone agree, so a
+# calendar period's bounds read as its own midnights. The zone cases are below.
+ZONE = ZoneInfo("America/Vancouver")
+
+
+pytestmark = pytest.mark.usefixtures("laptop_zone")
 
 
 # ---------------------------------------------------------------------------
@@ -36,7 +45,7 @@ NOW = datetime(2026, 9, 12, 10, 30, 0)
 
 @pytest.mark.parametrize(("token", "days"), [("7d", 7), ("14d", 14), ("30d", 30), ("90d", 90)])
 def test_trailing_tokens_end_now_and_reach_back_their_days(token: str, days: int) -> None:
-    period = resolve_report_period(token, NOW)
+    period = resolve_report_period(token, NOW, ZONE)
     assert period.kind is ReportPeriodKind.TRAILING
     assert not period.is_calendar
     assert period.end == NOW
@@ -54,7 +63,7 @@ def test_trailing_tokens_end_now_and_reach_back_their_days(token: str, days: int
 
 
 def test_month_token_spans_the_calendar_month() -> None:
-    period = resolve_report_period("2026-09", NOW)
+    period = resolve_report_period("2026-09", NOW, ZONE)
     assert period.kind is ReportPeriodKind.MONTH
     assert period.is_calendar
     assert period.start == datetime(2026, 9, 1, 0, 0, 0)
@@ -64,7 +73,7 @@ def test_month_token_spans_the_calendar_month() -> None:
 
 
 def test_week_token_spans_monday_to_sunday_of_the_iso_week() -> None:
-    period = resolve_report_period("2026-W37", NOW)
+    period = resolve_report_period("2026-W37", NOW, ZONE)
     assert period.kind is ReportPeriodKind.WEEK
     assert period.start == datetime(2026, 9, 7, 0, 0, 0)  # Monday
     assert period.end.date() == date(2026, 9, 13)  # Sunday
@@ -72,7 +81,7 @@ def test_week_token_spans_monday_to_sunday_of_the_iso_week() -> None:
 
 
 def test_data_cutoff_is_now_while_the_period_is_open_and_its_end_once_closed() -> None:
-    september = resolve_report_period("2026-09", NOW)
+    september = resolve_report_period("2026-09", NOW, ZONE)
     assert september.data_cutoff(NOW) == NOW  # the 12th: partial
     assert september.is_partial_at(september.data_cutoff(NOW))
     assert not september.is_closed(NOW)
@@ -86,32 +95,32 @@ def test_data_cutoff_is_now_while_the_period_is_open_and_its_end_once_closed() -
 def test_a_report_counted_before_the_end_stays_partial_even_after_the_period_closes() -> None:
     """The staleness rule's premise: partiality is a fact about the CUTOFF the
     report was counted at, not about when it is looked at."""
-    september = resolve_report_period("2026-09", NOW)
+    september = resolve_report_period("2026-09", NOW, ZONE)
     counted_on_the_11th = datetime(2026, 9, 11, 9, 0, 0)
     assert september.is_partial_at(counted_on_the_11th)
 
 
 def test_preceding_token_is_the_adjacent_period_of_the_same_kind() -> None:
-    assert resolve_report_period("2026-09", NOW).preceding_token() == "2026-08"
-    assert resolve_report_period("2026-01", NOW).preceding_token() == "2025-12"
-    assert resolve_report_period("2026-W37", NOW).preceding_token() == "2026-W36"
-    assert resolve_report_period("2027-W01", NOW).preceding_token() == "2026-W53"
-    assert resolve_report_period("7d", NOW).preceding_token() is None
+    assert resolve_report_period("2026-09", NOW, ZONE).preceding_token() == "2026-08"
+    assert resolve_report_period("2026-01", NOW, ZONE).preceding_token() == "2025-12"
+    assert resolve_report_period("2026-W37", NOW, ZONE).preceding_token() == "2026-W36"
+    assert resolve_report_period("2027-W01", NOW, ZONE).preceding_token() == "2026-W53"
+    assert resolve_report_period("7d", NOW, ZONE).preceding_token() is None
 
 
 def test_label_through_names_a_partial_period_as_such() -> None:
-    september = resolve_report_period("2026-09", NOW)
+    september = resolve_report_period("2026-09", NOW, ZONE)
     assert september.label_through(NOW) == "September 2026 so far (counted through Sep 12, 2026)"
     assert september.label_through(september.end) == "September 2026"
-    assert resolve_report_period("7d", NOW).label_through(NOW) == "the last 7 days"
+    assert resolve_report_period("7d", NOW, ZONE).label_through(NOW) == "the last 7 days"
 
 
 def test_a_period_has_started_once_its_first_instant_has_passed() -> None:
-    assert resolve_report_period("2026-09", NOW).has_started(NOW)
-    assert resolve_report_period("2026-W37", NOW).has_started(NOW)
-    assert not resolve_report_period("2026-10", NOW).has_started(NOW)
-    assert not resolve_report_period("2026-W38", NOW).has_started(NOW)
-    assert resolve_report_period("7d", NOW).has_started(NOW)
+    assert resolve_report_period("2026-09", NOW, ZONE).has_started(NOW)
+    assert resolve_report_period("2026-W37", NOW, ZONE).has_started(NOW)
+    assert not resolve_report_period("2026-10", NOW, ZONE).has_started(NOW)
+    assert not resolve_report_period("2026-W38", NOW, ZONE).has_started(NOW)
+    assert resolve_report_period("7d", NOW, ZONE).has_started(NOW)
 
 
 # ---------------------------------------------------------------------------
@@ -141,7 +150,7 @@ def test_a_period_has_started_once_its_first_instant_has_passed() -> None:
 )
 def test_unknown_tokens_raise_instead_of_defaulting(token: str) -> None:
     with pytest.raises(UnknownReportPeriodError):
-        resolve_report_period(token, NOW)
+        resolve_report_period(token, NOW, ZONE)
 
 
 # ---------------------------------------------------------------------------
@@ -165,5 +174,42 @@ def test_key_builders_and_parsers_round_trip() -> None:
     for day in (date(2026, 1, 1), date(2026, 9, 12), date(2026, 12, 31)):
         assert weekly_period_start(weekly_period_key(day)) is not None
         assert monthly_period_start(monthly_period_key(day)) == day.replace(day=1)
-        assert resolve_report_period(weekly_period_key(day), NOW).start.date() <= day
-        assert resolve_report_period(monthly_period_key(day), NOW).start.date() <= day
+        assert resolve_report_period(weekly_period_key(day), NOW, ZONE).start.date() <= day
+        assert resolve_report_period(monthly_period_key(day), NOW, ZONE).start.date() <= day
+
+
+# ---------------------------------------------------------------------------
+# Whose days — a calendar period's days are the report user's
+# ---------------------------------------------------------------------------
+
+
+def test_a_week_starts_at_the_users_midnight_read_on_the_host_clock() -> None:
+    # Monday 2026-09-07 00:00 in Bangkok (UTC+7) is Sunday 17:00Z — Sunday 10:00
+    # on the Vancouver host clock (PDT, UTC-7), the digits a naive stamp carries.
+    bangkok = resolve_report_period("2026-W37", NOW, ZoneInfo("Asia/Bangkok"))
+    assert bangkok.start == datetime(2026, 9, 6, 10, 0, 0)
+    # Sunday 2026-09-13 ends at 24:00 Bangkok — Sunday 10:00 in Vancouver.
+    assert bangkok.end == datetime(2026, 9, 13, 9, 59, 59, 999999)
+
+
+def test_under_a_utc_host_a_vancouver_week_starts_at_its_midnight_in_utc() -> None:
+    # The cloud and CI run UTC (as the pinned app will): Monday 00:00 in
+    # Vancouver is 07:00Z, so the bound reads 07:00 on the host clock.
+    with forced_zone("UTC"):
+        period = resolve_report_period("2026-W37", NOW, ZONE)
+    assert period.start == datetime(2026, 9, 7, 7, 0, 0)
+    assert period.end == datetime(2026, 9, 14, 6, 59, 59, 999999)
+
+
+def test_the_preceding_period_comes_from_the_token_not_the_host_clock_day() -> None:
+    # A Bangkok week's first instant falls on the host's Sunday; the week before
+    # is still W36, and the month before September is still August.
+    bangkok = ZoneInfo("Asia/Bangkok")
+    assert resolve_report_period("2026-W37", NOW, bangkok).preceding_token() == "2026-W36"
+    assert resolve_report_period("2026-09", NOW, bangkok).preceding_token() == "2026-08"
+
+
+def test_a_trailing_window_is_the_same_in_every_zone() -> None:
+    for zone in (ZONE, ZoneInfo("Asia/Bangkok"), ZoneInfo("UTC")):
+        period = resolve_report_period("7d", NOW, zone)
+        assert (period.start, period.end) == (datetime(2026, 9, 5, 10, 30, 0), NOW)

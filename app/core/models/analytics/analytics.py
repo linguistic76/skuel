@@ -19,6 +19,8 @@ from typing import Any
 
 from core.models.enums import AnalyticsDomain
 from core.models.type_hints import UserUID
+from core.utils.timestamp_helpers import today_in
+from core.utils.zone_context import current_zone
 
 # ============================================================================
 # TIER 2 - DTO (Transfer Layer)
@@ -109,7 +111,7 @@ class AnalyticsSummary:
 
     def is_current_period(self) -> bool:
         """Check if analytics covers current time period"""
-        today = date.today()
+        today = today_in(current_zone())
         return self.period_start <= today <= self.period_end
 
     def format_period(self) -> str:

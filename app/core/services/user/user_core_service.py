@@ -20,7 +20,7 @@ This service is part of the refactored UserService architecture:
 """
 
 import dataclasses
-from datetime import UTC, date, datetime
+from datetime import UTC, datetime
 from typing import Any
 from zoneinfo import ZoneInfo
 
@@ -37,7 +37,8 @@ from core.utils.decorators import with_error_handling
 from core.utils.exception_types import NEO4J_EXCEPTIONS
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
-from core.utils.zone_context import zone_for
+from core.utils.timestamp_helpers import today_in
+from core.utils.zone_context import current_zone
 
 logger = get_logger(__name__)
 
@@ -211,7 +212,7 @@ class UserCoreService:
         user = user_result.value
         if user is None:
             return Result.fail(Errors.not_found(resource="User", identifier=user_uid))
-        return Result.ok(zone_for(user.preferences.timezone))
+        return Result.ok(user.zone())
 
     @with_error_handling("get_user_by_username", error_type="database")
     async def get_user_by_username(self, username: str) -> Result[User | None]:
@@ -342,7 +343,7 @@ class UserCoreService:
                 and the perception gap — not just the user's self-rating).
             dimension: Which user-level dimension this check-in belongs to.
         """
-        snapshot = result.to_checkin_snapshot(date.today())
+        snapshot = result.to_checkin_snapshot(today_in(current_zone()))
         store_result = await self.repo.atomic_append_dual_track_checkin(
             user_uid, snapshot, DualTrackCheckin.HISTORY_LIMIT, dimension.value
         )
@@ -388,7 +389,7 @@ class UserCoreService:
                 the perception gap — not just the user's self-rating).
             user_uid: User whose check-in is being recorded.
         """
-        snapshot = result.to_checkin_snapshot(date.today())
+        snapshot = result.to_checkin_snapshot(today_in(current_zone()))
         store_result = await self.repo.atomic_append_knowledge_checkin(
             user_uid, snapshot, DualTrackCheckin.HISTORY_LIMIT, ku_uid
         )

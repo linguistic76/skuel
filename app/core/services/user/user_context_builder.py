@@ -42,6 +42,7 @@ from core.utils.decorators import with_error_handling
 from core.utils.logging import get_logger
 from core.utils.report_periods import UnknownReportPeriodError, resolve_report_period
 from core.utils.result_simplified import Errors, Result
+from core.utils.zone_context import current_zone, zone_scope
 
 if TYPE_CHECKING:
     from core.ports.user_context_protocols import UserContextQueryOperations
@@ -270,6 +271,12 @@ class UserContextBuilder:
             2. Fetch ALL domain data in single consolidated query (optimized)
             3. Calculate derived fields (workload score, etc.)
         """
+        # The context's calendar values are the user's, whoever asked for them.
+        with zone_scope(user.zone()):
+            return await self._user_context_in_zone(user_uid, user)
+
+    async def _user_context_in_zone(self, user_uid: UserUID, user: User) -> Result[UserContext]:
+        """The standard build, run in the context user's zone (``build_user_context``)."""
         # User.title stores the username (inherited from BaseEntity, see user.py line 101-102)
         # This mapping is intentional: User uses title for username, UserContext exposes it as username
         # Initialize context with user identity
@@ -364,6 +371,21 @@ class UserContextBuilder:
             - 6 rich-context statements + 5 reads beside them, all in flight at
               once; each is plan-cached after its first execution on a server.
         """
+        # The context's calendar values — its window's days, today, overdue — are
+        # the user's, whoever asked for them (an admin's review of a subject).
+        with zone_scope(user.zone()):
+            return await self._rich_user_context_in_zone(
+                user_uid, user, min_confidence, window=window
+            )
+
+    async def _rich_user_context_in_zone(
+        self,
+        user_uid: UserUID,
+        user: User,
+        min_confidence: float,
+        window: str,
+    ) -> Result[RichUserContext]:
+        """The rich build, run in the context user's zone (``build_rich_user_context``)."""
         # Validate min_confidence bounds
         if not (0.0 <= min_confidence <= 1.0):
             return Result.fail(
@@ -398,7 +420,7 @@ class UserContextBuilder:
         # One vocabulary with the report generator: a token it does not know is
         # a validation failure here too, never a silently substituted default.
         try:
-            period = resolve_report_period(window, datetime.now())
+            period = resolve_report_period(window, datetime.now(), current_zone())
         except UnknownReportPeriodError as e:
             return Result.fail(Errors.validation(message=str(e), field="window"))
         window_start = period.start

@@ -9,6 +9,7 @@ and depth control with mocked dependencies.
 import json
 from datetime import date, datetime
 from unittest.mock import AsyncMock, MagicMock, patch
+from zoneinfo import ZoneInfo
 
 import pytest
 
@@ -21,6 +22,14 @@ from core.services.report.progress_report_generator import ProgressReportGenerat
 from core.utils.period_keys import monthly_period_key
 from core.utils.report_periods import resolve_report_period
 from core.utils.result_simplified import Errors, Result
+
+# Calendar periods are the report user's days, read on the host clock. These
+# tests pin the laptop's case — host clock and the default zone agree — so a
+# period's bounds read as its own midnights on any host.
+ZONE = ZoneInfo("America/Vancouver")
+
+
+pytestmark = pytest.mark.usefixtures("laptop_zone")
 
 
 @pytest.fixture
@@ -308,7 +317,7 @@ class TestBuildReportContent:
         content = generator._build_report_content(
             completions,
             [],
-            resolve_report_period("7d", datetime.now()),
+            resolve_report_period("7d", datetime.now(), ZONE),
             datetime.now(),
             ProgressDepth.SUMMARY,
         )
@@ -346,7 +355,7 @@ class TestBuildReportContent:
         content = generator._build_report_content(
             completions,
             [],
-            resolve_report_period("7d", datetime.now()),
+            resolve_report_period("7d", datetime.now(), ZONE),
             datetime.now(),
             ProgressDepth.STANDARD,
         )
@@ -374,7 +383,7 @@ class TestBuildReportContent:
         content = generator._build_report_content(
             completions,
             [],
-            resolve_report_period("7d", datetime.now()),
+            resolve_report_period("7d", datetime.now(), ZONE),
             datetime.now(),
             ProgressDepth.STANDARD,
         )
@@ -406,7 +415,7 @@ class TestBuildReportContent:
         content = generator._build_report_content(
             completions,
             [insight],
-            resolve_report_period("7d", datetime.now()),
+            resolve_report_period("7d", datetime.now(), ZONE),
             datetime.now(),
             ProgressDepth.STANDARD,
         )
@@ -1211,7 +1220,7 @@ class TestCalendarPeriods:
         generator.activity_report_service.get_history = AsyncMock(return_value=Result.ok([]))
 
         comparison = await generator._collect_comparison(
-            "user_alice", resolve_report_period("2026-09", datetime(2026, 10, 12))
+            "user_alice", resolve_report_period("2026-09", datetime(2026, 10, 12), ZONE)
         )
 
         assert comparison is not None
@@ -1229,7 +1238,7 @@ class TestCalendarPeriods:
         generator.activity_report_service.find_by_period = AsyncMock(return_value=Result.ok(None))
 
         comparison = await generator._collect_comparison(
-            "user_alice", resolve_report_period("2027-W01", datetime(2027, 1, 20))
+            "user_alice", resolve_report_period("2027-W01", datetime(2027, 1, 20), ZONE)
         )
 
         assert comparison is None  # no report for the week before: no comparison
@@ -1244,7 +1253,7 @@ class TestCalendarPeriods:
         generator.activity_report_service.get_history = AsyncMock(return_value=Result.ok([prior]))
 
         comparison = await generator._collect_comparison(
-            "user_alice", resolve_report_period("7d", datetime(2026, 9, 12))
+            "user_alice", resolve_report_period("7d", datetime(2026, 9, 12), ZONE)
         )
 
         assert comparison is not None and comparison["previous_report_uid"] == "ar_last_week"
@@ -1255,7 +1264,7 @@ class TestCalendarPeriods:
         )
 
     def test_report_content_names_a_partial_period(self, generator):
-        period = resolve_report_period("2026-09", datetime(2026, 9, 12))
+        period = resolve_report_period("2026-09", datetime(2026, 9, 12), ZONE)
         content = generator._build_report_content(
             generator._empty_completions(),
             [],
@@ -1267,7 +1276,7 @@ class TestCalendarPeriods:
         assert "counted through Sep 12, 2026" in content
 
     def test_report_content_for_a_closed_period_has_no_partial_line(self, generator):
-        period = resolve_report_period("2026-08", datetime(2026, 9, 12))
+        period = resolve_report_period("2026-08", datetime(2026, 9, 12), ZONE)
         content = generator._build_report_content(
             generator._empty_completions(), [], period, period.end, ProgressDepth.SUMMARY
         )
@@ -1335,7 +1344,7 @@ class TestStreaksAtTheCutoff:
         content = generator._build_report_content(
             completions,
             [],
-            resolve_report_period("2026-09", datetime(2026, 10, 15)),
+            resolve_report_period("2026-09", datetime(2026, 10, 15), ZONE),
             datetime(2026, 9, 30, 23, 59, 59),
             ProgressDepth.STANDARD,
         )
@@ -1427,7 +1436,11 @@ class TestStreaksAtTheCutoff:
         }
         october = datetime(2026, 10, 15)
         content = generator._build_report_content(
-            closed, [], resolve_report_period("2026-09", october), october, ProgressDepth.DETAILED
+            closed,
+            [],
+            resolve_report_period("2026-09", october, ZONE),
+            october,
+            ProgressDepth.DETAILED,
         )
         assert "Milestone events" not in content and "[meeting]" not in content
         assert "  - Attended\n" in content
@@ -1468,7 +1481,7 @@ class TestStreaksAtTheCutoff:
 class TestPeriodEndDenominator:
     """``tasks_total`` = completed in period + open AT the period's end."""
 
-    PERIOD = resolve_report_period("2026-09", datetime(2026, 10, 15))
+    PERIOD = resolve_report_period("2026-09", datetime(2026, 10, 15), ZONE)
 
     def _map(self, generator, tasks):
         return generator._completions_from_context(

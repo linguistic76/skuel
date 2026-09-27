@@ -66,6 +66,7 @@ from core.utils.result_simplified import Errors, Result
 from core.utils.timestamp_helpers import as_utc, now_utc
 from core.utils.type_converters import get_enum_value
 from core.utils.uid_generator import UIDGenerator
+from core.utils.zone_context import current_zone
 
 # Weight the entity door stamps on HAS_SUBGOAL. progress_weight is an EDGE property that
 # no Goal field carries, so a caller handing create() a ready entity cannot supply one;
@@ -312,7 +313,7 @@ class GoalsCoreService(
 
         A same-day goal is legal. ``GoalCreateRequest`` validates the same pair with
         ``validate_date_after("target_date", "start_date", allow_equal=True)`` and defaults
-        ``start_date`` to ``date.today()``, so "finish this today" is a shape the API
+        ``start_date`` to today (in the user's zone), so "finish this today" is a shape the API
         deliberately accepts; this hook rejected it until the rule was reachable, which
         would have made the two layers disagree the moment it started running.
 
@@ -686,9 +687,7 @@ class GoalsCoreService(
             user_uid=goal.user_uid,
             title=goal.title,
             domain=get_enum_value(goal.domain) if goal.domain else None,
-            target_date=datetime.combine(goal.target_date, datetime.min.time())
-            if goal.target_date
-            else None,
+            target_date=goal.target_date,
         )
         await publish_event(self.event_bus, event, self.logger)
 
@@ -727,7 +726,7 @@ class GoalsCoreService(
                 goal_uid=goal.uid,
                 user_uid=goal.user_uid,
                 actual_duration_days=actual_duration_days,
-                occurred_at=completion_moment(goal.achieved_date),
+                occurred_at=completion_moment(goal.achieved_date, current_zone()),
             ),
             self.logger,
         )
@@ -868,7 +867,7 @@ class GoalsCoreService(
         # under the node's lock (ADR-087). The refusal on an illegal status target is the
         # same one the Python-side helper made; what changed is that the stamp and the
         # reset are no longer decided from a status a concurrent writer may have moved.
-        guard_result = status_transition_guard(EntityType.GOAL, changes)
+        guard_result = status_transition_guard(EntityType.GOAL, changes, zone=current_zone())
         if guard_result.is_error:
             return Result.fail(guard_result)
         guard = _with_reopen_progress_reset(guard_result.value, changes, old_goal)

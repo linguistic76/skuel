@@ -621,7 +621,7 @@ can both observe:
 ```python
 async def complete_task(self, uid: str) -> Result[Task]:
     changes = {"status": EntityStatus.COMPLETED.value}
-    guard = status_transition_guard(EntityType.TASK, changes)
+    guard = status_transition_guard(EntityType.TASK, changes, zone=current_zone())
     if guard.is_error:
         return Result.fail(guard)
 

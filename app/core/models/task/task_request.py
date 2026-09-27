@@ -29,6 +29,8 @@ from core.models.validation_rules import (
     validate_future_date,
     validate_recurrence_end_after_start,
 )
+from core.utils.timestamp_helpers import today_in
+from core.utils.zone_context import current_zone
 
 
 def _refuse_future_completion_date(completion_date: date | None) -> None:
@@ -43,7 +45,7 @@ def _refuse_future_completion_date(completion_date: date | None) -> None:
     Clearing (``None``) and back-dating are both untouched: a historical ``✅``
     line from a note is exactly what this field exists to carry.
     """
-    if completion_date is not None and completion_date > date.today():
+    if completion_date is not None and completion_date > today_in(current_zone()):
         raise ValueError("completion_date cannot be in the future")
 
 
@@ -154,7 +156,7 @@ class TaskCreateRequest(CreateRequestBase):
         """
         if self.status == EntityStatus.COMPLETED:
             if self.completion_date is None:
-                self.completion_date = date.today()
+                self.completion_date = today_in(current_zone())
             else:
                 _refuse_future_completion_date(self.completion_date)
         elif self.completion_date is not None:
@@ -383,7 +385,7 @@ class TaskStatusUpdateRequest(RequestBase):
     def validate_completion_date(cls, v, info: ValidationInfo) -> Any:
         """Ensure completion date is provided when status is COMPLETED."""
         if info.data.get("status") == EntityStatus.COMPLETED and not v:
-            v = date.today()  # Default to today if not provided
+            v = today_in(current_zone())  # Default to today if not provided
         return v
 
 

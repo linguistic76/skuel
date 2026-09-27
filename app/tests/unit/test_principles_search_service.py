@@ -26,6 +26,8 @@ from core.models.principle.principle_dto import PrincipleDTO
 from core.services.principles.principles_search_service import PrinciplesSearchService
 from core.services.user import UserContext
 from core.utils.result_simplified import Errors, Result
+from core.utils.timestamp_helpers import today_in
+from core.utils.zone_context import current_zone
 
 # ============================================================================
 # FIXTURES
@@ -148,7 +150,7 @@ async def test_get_overdue_delegates_to_needing_review_90_days(search_service, m
     """get_overdue is thin delegation to get_needing_review(days_threshold=90)."""
     stale = _principle(
         "p:stale",
-        last_review_date=date.today() - timedelta(days=120),
+        last_review_date=today_in(current_zone()) - timedelta(days=120),
     )
     mock_backend.get_principles_needing_review.return_value = Result.ok([stale.to_dto().to_dict()])
 
@@ -158,7 +160,7 @@ async def test_get_overdue_delegates_to_needing_review_90_days(search_service, m
     assert len(result.value) == 1
     kwargs = mock_backend.get_principles_needing_review.call_args.kwargs
     # 90-day cutoff is today - 90 days
-    expected_cutoff = (date.today() - timedelta(days=90)).isoformat()
+    expected_cutoff = (today_in(current_zone()) - timedelta(days=90)).isoformat()
     assert kwargs["cutoff_date"] == expected_cutoff
     assert kwargs["user_uid"] == "user_demo"
     assert kwargs["limit"] == 10
@@ -183,7 +185,7 @@ async def test_get_upcoming_uses_review_threshold_helper(search_service, mock_ba
     """get_upcoming computes a cutoff relative to the 90-day review window."""
     due_soon = _principle(
         "p:due",
-        last_review_date=date.today() - timedelta(days=75),
+        last_review_date=today_in(current_zone()) - timedelta(days=75),
     )
     mock_backend.get_principles_due_for_review.return_value = Result.ok(
         [due_soon.to_dto().to_dict()]
@@ -195,7 +197,7 @@ async def test_get_upcoming_uses_review_threshold_helper(search_service, mock_ba
     assert len(result.value) == 1
     kwargs = mock_backend.get_principles_due_for_review.call_args.kwargs
     # cutoff = today - (90 - days_ahead) = today - 60
-    expected_cutoff = (date.today() - timedelta(days=60)).isoformat()
+    expected_cutoff = (today_in(current_zone()) - timedelta(days=60)).isoformat()
     assert kwargs["cutoff_date"] == expected_cutoff
     assert kwargs["user_uid"] == "user_demo"
     assert kwargs["limit"] == 20
@@ -250,7 +252,7 @@ async def test_get_needing_review_custom_threshold(search_service, mock_backend)
     await search_service.get_needing_review(user_uid="user_demo", days_threshold=30, limit=5)
 
     kwargs = mock_backend.get_principles_needing_review.call_args.kwargs
-    expected_cutoff = (date.today() - timedelta(days=30)).isoformat()
+    expected_cutoff = (today_in(current_zone()) - timedelta(days=30)).isoformat()
     assert kwargs["cutoff_date"] == expected_cutoff
     assert kwargs["limit"] == 5
     assert kwargs["prioritize_never_reviewed"] is True

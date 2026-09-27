@@ -49,7 +49,7 @@ class TaskCreateRequest(CreateRequestBase):
 @classmethod
 def validate_completion_date(cls, v, info: ValidationInfo) -> Any:
     if info.data.get("status") == EntityStatus.COMPLETED and not v:
-        v = date.today()
+        v = today_in(current_zone())
     return v
 ```
 

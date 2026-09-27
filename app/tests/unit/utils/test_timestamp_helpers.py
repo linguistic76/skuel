@@ -2,8 +2,9 @@
 
 Covers month_grid_bounds — the single source of the month view's full
 visible range (Monday-start grid, lead-in/tail cells included) — as_utc,
-the one form two instants are compared in, and the zone helpers (now_in,
-today_in, day_of, local_day_bounds), each of which takes its zone. The as_utc
+the one form two instants are compared in, as_host_clock (its inverse for a
+naive value), and the zone helpers (now_in, wall_clock_in, today_in, day_of,
+local_day_bounds), each of which takes its zone. The as_utc
 and zone tests force the process zone: CI runs UTC, where a naive value reads
 the same as UTC by accident, and a helper that read the host's zone instead of
 the one it is given would pass there.
@@ -18,6 +19,7 @@ import pytest
 
 from core.utils import timestamp_helpers
 from core.utils.timestamp_helpers import (
+    as_host_clock,
     as_utc,
     day_of,
     local_day_bounds,
@@ -25,6 +27,7 @@ from core.utils.timestamp_helpers import (
     now_in,
     now_utc,
     today_in,
+    wall_clock_in,
     week_bounds,
 )
 from tests.helpers.forced_zone import forced_zone
@@ -151,6 +154,42 @@ class TestNowAndTodayIn:
 
     def test_unfrozen_now_in_is_the_current_instant(self) -> None:
         assert abs((now_in(BANGKOK) - now_utc()).total_seconds()) < 5
+
+    @pytest.mark.parametrize("host", ["UTC", "America/Vancouver"])
+    def test_the_wall_clock_is_the_zones_hands_with_no_zone(self, frozen_clock, host: str) -> None:
+        with forced_zone(host):
+            vancouver, bangkok = wall_clock_in(VANCOUVER), wall_clock_in(BANGKOK)
+        assert vancouver == datetime(2026, 9, 27, 19, 0)
+        assert bangkok == datetime(2026, 9, 28, 9, 0)
+        assert vancouver.tzinfo is None and bangkok.tzinfo is None
+
+
+class TestAsHostClock:
+    """An instant as the naive reading the host clock stamps — the inverse of as_utc."""
+
+    def test_an_instant_reads_in_the_host_zone(self) -> None:
+        with forced_zone("America/Vancouver"):
+            assert as_host_clock(_FROZEN) == datetime(2026, 9, 27, 19, 0)
+        with forced_zone("UTC"):
+            assert as_host_clock(_FROZEN) == datetime(2026, 9, 28, 2, 0)
+
+    @pytest.mark.parametrize("host", ["UTC", "America/Vancouver", "Asia/Bangkok"])
+    def test_it_round_trips_through_as_utc(self, host: str) -> None:
+        with forced_zone(host):
+            naive = as_host_clock(_FROZEN)
+            assert naive.tzinfo is None
+            assert as_utc(naive) == _FROZEN
+
+    def test_a_day_widened_on_the_laptop_is_its_midnight(self) -> None:
+        # The laptop's case: host and zone agree, so a day's first instant reads
+        # as its own midnight — the digits a naive stamp of that day carried.
+        start, end = local_day_bounds(date(2026, 9, 27), VANCOUVER)
+        with forced_zone("America/Vancouver"):
+            assert as_host_clock(start) == datetime(2026, 9, 27, 0, 0)
+            assert as_host_clock(end) == datetime(2026, 9, 28, 0, 0)
+        # Under a UTC host (the pinned app) the same day starts at 07:00.
+        with forced_zone("UTC"):
+            assert as_host_clock(start) == datetime(2026, 9, 27, 7, 0)
 
 
 class TestDayOf:

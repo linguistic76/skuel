@@ -27,7 +27,7 @@ These helpers are pure functions of a ``Goal`` — no graph, no mocks.
 
 from __future__ import annotations
 
-from datetime import date, timedelta
+from datetime import timedelta
 
 import pytest
 
@@ -36,6 +36,8 @@ from core.models.goal.goal import Goal
 from core.models.habit.habit import Habit
 from core.services.goals._predictive_mixin import _PredictiveMixin, _progress_percent
 from core.services.intelligence.trend_analyzer import Trend
+from core.utils.timestamp_helpers import today_in
+from core.utils.zone_context import current_zone
 
 _USER = "user_test_goal_predictive_units"
 
@@ -55,7 +57,7 @@ def _goal(
     ``target_value`` unset, so these tests turn on the scale of the reading and
     nothing else.
     """
-    today = date.today()
+    today = today_in(current_zone())
     return Goal(
         uid="goal_predictive_units",
         title="Unit-scale probe",
@@ -82,7 +84,7 @@ def _measured_goal(
     percent-in-a-unit-field defect, and still so for legacy rows the audit script
     surfaces — which keeps the choice of reader observable on real data.
     """
-    today = date.today()
+    today = today_in(current_zone())
     return Goal(
         uid="goal_predictive_units_measured",
         title="Live-writer state",
@@ -253,7 +255,7 @@ class TestPredictCompletionDate:
         """The ``>= 100`` guard was unreachable against a value capped at 1.0."""
         goal = _goal(progress=100.0, started_days_ago=100, target_in_days=30)
 
-        assert _MIXIN._predict_completion_date(goal, 0.5, 0.5) == date.today()
+        assert _MIXIN._predict_completion_date(goal, 0.5, 0.5) == today_in(current_zone())
 
     def test_prediction_is_not_inflated_a_hundredfold(self):
         """40% in 20 days = 2%/day. Momentum 0.5 keeps the rate at 2.0, so the
@@ -266,7 +268,7 @@ class TestPredictCompletionDate:
 
         predicted = _MIXIN._predict_completion_date(goal, 0.5, 0.5)
 
-        assert predicted == date.today() + timedelta(days=37)
+        assert predicted == today_in(current_zone()) + timedelta(days=37)
 
     def test_task_goal_partway_through_does_not_predict_completion_today(self):
         """The consequence of the reader choice, through the public helpers.
@@ -284,7 +286,7 @@ class TestPredictCompletionDate:
 
         factor = _MIXIN._calculate_progress_factor(goal)
 
-        assert _MIXIN._predict_completion_date(goal, 0.5, 0.5) != date.today()
+        assert _MIXIN._predict_completion_date(goal, 0.5, 0.5) != today_in(current_zone())
         assert _MIXIN._identify_success_factors(goal, [], factor, 0.5) == []
 
     def test_completed_numeric_goal_predicts_today(self):
@@ -298,7 +300,7 @@ class TestPredictCompletionDate:
             progress_percentage=100.0,
         )
 
-        assert _MIXIN._predict_completion_date(goal, 0.5, 0.5) == date.today()
+        assert _MIXIN._predict_completion_date(goal, 0.5, 0.5) == today_in(current_zone())
 
     def test_unlikely_goal_still_predicts_nothing(self):
         """Negative control: the low-probability guard is unaffected."""

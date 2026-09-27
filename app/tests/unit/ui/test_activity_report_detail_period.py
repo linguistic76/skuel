@@ -5,11 +5,16 @@ from __future__ import annotations
 
 from datetime import datetime
 
+import pytest
 from fastcore.xml import to_xml  # type: ignore[import-untyped]
 
 from core.models.enums.pipeline import ReportSource
 from core.models.report.activity_report import ActivityReport
 from ui.learning_loop.report import render_activity_report_detail
+
+# Calendar days here are read on the host clock (period bounds, widened dates):
+# the expectations are the laptop's, where the host clock and the default zone agree.
+pytestmark = pytest.mark.usefixtures("laptop_zone")
 
 
 def _report(**overrides) -> ActivityReport:  # type: ignore[no-untyped-def]  # boundary: test kwargs

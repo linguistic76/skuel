@@ -15,11 +15,11 @@ Schedule-aware recommendations take into account:
 
 from __future__ import annotations
 
-from datetime import datetime
-
 from core.models.context_types import ScheduleAwareRecommendation
 from core.models.enums.entity_enums import EntityType
 from core.services.user.intelligence._base import IntelligenceMixinBase
+from core.utils.timestamp_helpers import now_in
+from core.utils.zone_context import current_zone
 
 
 class ScheduleIntelligenceMixin(IntelligenceMixinBase):
@@ -135,7 +135,7 @@ class ScheduleIntelligenceMixin(IntelligenceMixinBase):
         if self.context.preferred_time:
             return self.context.preferred_time.value
 
-        hour = datetime.now().hour
+        hour = now_in(current_zone()).hour
 
         if 5 <= hour < 12:
             return "morning"

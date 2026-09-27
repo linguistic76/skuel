@@ -29,6 +29,8 @@ from core.services.ingestion.config import SyncAllowlist
 from core.services.vault.vault_descriptor import VaultDescriptor, VaultKind, VaultRegistry
 from core.services.vault.vault_reconciler import VaultReconciler, VaultSyncStats
 from core.utils.result_simplified import Result
+from core.utils.timestamp_helpers import today_in
+from core.utils.zone_context import current_zone
 
 pytestmark = pytest.mark.asyncio
 
@@ -119,7 +121,7 @@ async def test_editing_a_long_completed_task_does_not_rewrite_the_vault_date(
     tmp_path: Path,
 ) -> None:
     """The regression in one assertion: updated_at moves, the ✅ date does not."""
-    completed = date.today() - timedelta(days=90)
+    completed = today_in(current_zone()) - timedelta(days=90)
     task = Task(
         uid=TASK_UID,
         user_uid=OWNER,
@@ -131,7 +133,7 @@ async def test_editing_a_long_completed_task_does_not_rewrite_the_vault_date(
 
     written = await _written_done_date(task, tmp_path)
     assert written == completed.isoformat()
-    assert written != date.today().isoformat()
+    assert written != today_in(current_zone()).isoformat()
 
 
 async def test_unstamped_completion_falls_back_to_today(tmp_path: Path) -> None:
@@ -145,7 +147,7 @@ async def test_unstamped_completion_falls_back_to_today(tmp_path: Path) -> None:
         updated_at=datetime(2026, 1, 1),
     )
 
-    assert await _written_done_date(task, tmp_path) == date.today().isoformat()
+    assert await _written_done_date(task, tmp_path) == today_in(current_zone()).isoformat()
 
 
 async def test_the_written_back_line_keeps_its_identity(tmp_path: Path) -> None:

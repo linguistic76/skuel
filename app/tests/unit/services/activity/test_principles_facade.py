@@ -13,6 +13,8 @@ from core.models.enums.principle_enums import PrincipleCategory
 from core.models.principle.principle_request import PrincipleCreateRequest
 from core.services.principles_service import PrinciplesService
 from core.utils.result_simplified import Errors, Result
+from core.utils.timestamp_helpers import today_in
+from core.utils.zone_context import current_zone
 
 # ---------------------------------------------------------------------------
 # Fixtures
@@ -205,14 +207,14 @@ class TestRecordPrincipleReflection:
         assert call is not None
         uid, intent = call.args
         assert uid == "principle_1"
-        assert intent.last_review_date == date.today()
+        assert intent.last_review_date == today_in(current_zone())
         changes = intent.to_changes()
-        assert changes["last_review_date"] == date.today()
+        assert changes["last_review_date"] == today_in(current_zone())
         # The stored history, then the reflection as a dated occurrence.
         assert changes["alignment_history"] == [
             earlier.to_record(),
             {
-                "assessed_date": date.today().isoformat(),
+                "assessed_date": today_in(current_zone()).isoformat(),
                 "alignment_level": "aligned",
                 "evidence": "Held the line in a hard meeting",
                 "reflection": None,

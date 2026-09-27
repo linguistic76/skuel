@@ -21,7 +21,7 @@ out-of-window one through ``record_completions_bulk`` — the two production doo
 from __future__ import annotations
 
 import json
-from datetime import UTC, date, datetime, time, timedelta, timezone
+from datetime import UTC, datetime, time, timedelta, timezone
 
 import pytest
 import pytest_asyncio
@@ -33,12 +33,14 @@ from core.models.enums.neo_labels import NeoLabel
 from core.models.habit.completion import HabitCompletion
 from core.models.habit.habit import Habit
 from core.services.habits.habits_completion_service import HabitsCompletionService
+from core.utils.timestamp_helpers import today_in
+from core.utils.zone_context import current_zone
 
 USER = "user_completion_range"
 HABIT = "habit.completion_range"
 NATIVE_UID = "hc.range_native"
 
-TODAY = date.today()
+TODAY = today_in(current_zone())
 # The native row is the LATER of the two in-window rows, so a type-banded order
 # (every string before every temporal, or the reverse) is distinguishable from a
 # chronological one in at least one direction the test pins.

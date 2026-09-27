@@ -34,7 +34,8 @@ from core.services.user import UserContext
 from core.utils.decorators import with_error_handling
 from core.utils.result_simplified import Result
 from core.utils.sort_functions import get_result_score
-from core.utils.timestamp_helpers import get_frequency_window_days
+from core.utils.timestamp_helpers import get_frequency_window_days, today_in
+from core.utils.zone_context import current_zone
 
 
 class HabitsSearchService(BaseService[HabitsOperations, Habit]):
@@ -194,7 +195,7 @@ class HabitsSearchService(BaseService[HabitsOperations, Habit]):
         Returns:
             Result containing habits upcoming
         """
-        today = date.today()
+        today = today_in(current_zone())
         end_date = today + timedelta(days=days_ahead)
 
         # Get active habits - use user_uid filter if provided
@@ -251,7 +252,7 @@ class HabitsSearchService(BaseService[HabitsOperations, Habit]):
         Returns:
             Result containing overdue habits
         """
-        today = date.today()
+        today = today_in(current_zone())
 
         # Get active habits - use user_uid filter if provided
         filters = {"user_uid": user_uid} if user_uid else {}
@@ -393,7 +394,7 @@ class HabitsSearchService(BaseService[HabitsOperations, Habit]):
         Returns:
             Result containing at-risk habits
         """
-        today = date.today()
+        today = today_in(current_zone())
 
         # Get user's habits
         result = await self.backend.find_by(user_uid=user_context.user_uid)
@@ -477,7 +478,7 @@ class HabitsSearchService(BaseService[HabitsOperations, Habit]):
             return Result.fail(result)
 
         habits = self._to_domain_models(result.value, HabitDTO, Habit)
-        today = date.today()
+        today = today_in(current_zone())
 
         # Filter to active habits not completed today
         due_today = []

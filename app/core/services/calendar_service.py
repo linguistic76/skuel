@@ -29,6 +29,8 @@ from datetime import date, datetime, timedelta
 from typing import TYPE_CHECKING
 
 from core.models.type_hints import EntityUID, UserUID
+from core.utils.timestamp_helpers import today_in, wall_clock_in
+from core.utils.zone_context import current_zone
 
 if TYPE_CHECKING:
     from core.services.habits_service import HabitsService
@@ -747,7 +749,7 @@ class CalendarService:
             start_time = datetime.combine(task.due_date, datetime.min.time())
             end_time = datetime.combine(task.due_date, datetime.max.time())
         else:
-            start_time = datetime.now()
+            start_time = wall_clock_in(current_zone())
             end_time = start_time + timedelta(hours=1)
 
         # Every task is ONE kind — Task. A due-date-only task carries the due
@@ -786,7 +788,7 @@ class CalendarService:
         start_time = (
             datetime.combine(event_date_val, start_time_val)
             if event_date_val and start_time_val
-            else datetime.now()
+            else wall_clock_in(current_zone())
         )
         end_time = (
             datetime.combine(event_date_val, end_time_val)
@@ -827,7 +829,7 @@ class CalendarService:
             start_time = datetime.combine(target_date, datetime.min.time())
             end_time = datetime.combine(target_date, datetime.max.time())
         else:
-            start_time = datetime.now()
+            start_time = wall_clock_in(current_zone())
             end_time = start_time + timedelta(hours=1)
 
         item_type = CalendarItemType.MILESTONE
@@ -861,7 +863,7 @@ class CalendarService:
         ``habit_block_on`` — occurrence expansion for the grid, and
         ``_stamp_habit_occurrence`` for the ``?date=`` modal.
         """
-        start_time, end_time = _habit_block_on(habit, date.today())
+        start_time, end_time = _habit_block_on(habit, today_in(current_zone()))
 
         return CalendarItem(
             uid=f"habit-{habit.uid}",

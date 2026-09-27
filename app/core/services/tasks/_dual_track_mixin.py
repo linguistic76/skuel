@@ -13,7 +13,7 @@ pass ``require_entity=False`` to the BaseAnalyticsService template.
 
 from __future__ import annotations
 
-from datetime import date, timedelta
+from datetime import timedelta
 from typing import TYPE_CHECKING, Any
 
 from core.constants import QueryLimit
@@ -21,6 +21,8 @@ from core.models.enums import ProductivityLevel
 from core.models.shared.dual_track import DualTrackResult
 from core.models.type_hints import UserUID
 from core.utils.result_simplified import Result
+from core.utils.timestamp_helpers import today_in
+from core.utils.zone_context import current_zone
 
 if TYPE_CHECKING:
     from collections.abc import Awaitable, Callable
@@ -113,7 +115,7 @@ class _DualTrackMixin:
         Returns (level, score, evidence-lines).
         """
         evidence: list[str] = []
-        start_date = date.today() - timedelta(days=period_days)
+        start_date = today_in(current_zone()) - timedelta(days=period_days)
 
         # Fetch the full task set (find_by defaults to limit=100 with no ordering, so
         # the in-memory window filter below would otherwise sample an arbitrary page and

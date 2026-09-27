@@ -57,6 +57,7 @@ from core.utils.report_periods import (
     resolve_report_period,
 )
 from core.utils.result_simplified import Errors, Result
+from core.utils.zone_context import current_zone
 
 logger = get_logger("skuel.services.report.progress_generator")
 
@@ -174,7 +175,7 @@ class ProgressReportGenerator:
         """
         now = datetime.now()
         try:
-            period = resolve_report_period(time_period, now)
+            period = resolve_report_period(time_period, now, current_zone())
         except UnknownReportPeriodError as e:
             return Result.fail(Errors.validation(message=str(e), field="time_period"))
         if not period.has_started(now):

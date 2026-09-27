@@ -728,6 +728,13 @@ select = [
 
     # Ruff-specific
     "RUF",   # Ruff-specific rules
+
+    # Time (UTC Instants Arc, docs/roadmap/utc-instants-arc.md)
+    "DTZ011",  # date.today() is the host's day — "today" is today in a zone
+               # (today_in / today_in_current_zone). Scoped to the trees the arc
+               # has moved: see the "!core/**" entry under per-file-ignores.
+               # Uncalled `date.today` references are the AST check in
+               # tests/unit/test_uncalled_clock_references.py.
 ]
 
 ignore = [
@@ -791,6 +798,10 @@ fixable = ["ALL"]
 # - Type safety and code quality
 
 [tool.ruff.lint.per-file-ignores]
+# DTZ011 guards the trees whose calendar sites ask the zone: core/ (UTC arc PR 2b,
+# first sub-row). The second sub-row adds adapters/ and ui/; the rest of the tree
+# (tests, scripts) is outside the arc's DTZ scope.
+"!core/**" = ["DTZ011"]
 # ============================================================================
 # ANN401 DEBT LEDGER — `Any` in a signature is ENFORCED, except where bought out
 # ============================================================================

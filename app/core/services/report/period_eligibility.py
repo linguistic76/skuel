@@ -22,7 +22,8 @@ from typing import Any
 
 from core.models.enums import EntityStatus
 from core.utils.report_periods import as_naive_utc
-from core.utils.timestamp_helpers import parse_date_value
+from core.utils.timestamp_helpers import as_host_clock, local_day_bounds, parse_date_value
+from core.utils.zone_context import current_zone
 
 
 def is_terminal_status(raw: object) -> bool:
@@ -34,13 +35,19 @@ def is_terminal_status(raw: object) -> bool:
 
 
 def moment_of(stamp: object) -> datetime | None:
-    """A stored stamp as a naive-UTC instant — a bare date is its first instant."""
+    """A stored stamp as a naive-UTC instant — a bare date is its first instant.
+
+    A bare date is a day on the report user's calendar, so its first instant is
+    that day's start in the current zone (the report user's), read on the host
+    clock as the period's own bounds are (``resolve_report_period``).
+    """
     moment = as_naive_utc(stamp)
     if moment is None:
         day = parse_date_value(stamp)
         if day is None:
             return None
-        moment = datetime.combine(day, datetime.min.time())
+        day_start, _ = local_day_bounds(day, current_zone())
+        moment = as_host_clock(day_start)
     return moment
 
 

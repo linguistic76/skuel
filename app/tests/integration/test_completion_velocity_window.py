@@ -43,19 +43,21 @@ What has to hold here:
 
 from __future__ import annotations
 
-from datetime import date, timedelta
+from datetime import timedelta
 
 import pytest
 import pytest_asyncio
 
 from core.constants import CompletionVelocityWindow
 from core.models.enums.entity_enums import EntityStatus
+from core.utils.timestamp_helpers import today_in
+from core.utils.zone_context import current_zone
 
 WINDOW = "user_velocity_window"
 STALE = "user_velocity_stale"
 VAULT = "user_velocity_vault"
 
-TODAY = date.today()
+TODAY = today_in(current_zone())
 FIRST_DAY_IN = CompletionVelocityWindow.start_date(TODAY)
 LAST_DAY_IN = CompletionVelocityWindow.end_date(TODAY)
 LAST_DAY_OUT = TODAY - timedelta(days=CompletionVelocityWindow.DAYS)

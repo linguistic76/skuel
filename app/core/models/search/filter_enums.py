@@ -19,10 +19,10 @@ class FilterOperator(StrEnum):
 
     Examples:
         # In filter dataclass
-        target_date__lte = date.today()  # lte operator
+        target_date__lte = today_in(current_zone())  # lte operator
 
         # Translates to backend query
-        find_by(target_date__lte=date.today())
+        find_by(target_date__lte=today_in(current_zone()))
     """
 
     EQ = "eq"  # equals (default)

@@ -16,6 +16,8 @@ from typing import TYPE_CHECKING, Any
 from core.models.habit.completion import HabitCompletion
 from core.models.habit.habit_update_intent import HabitUpdateIntent
 from core.utils.result_simplified import Errors, Result
+from core.utils.timestamp_helpers import as_host_clock, local_day_bounds, today_in
+from core.utils.zone_context import current_zone
 
 if TYPE_CHECKING:
     from core.models.habit.habit_request import (
@@ -61,7 +63,10 @@ class _CompletionMixin:
             if isinstance(request.completion_date, str):
                 completed_at = datetime.fromisoformat(request.completion_date)
             elif isinstance(request.completion_date, date):
-                completed_at = datetime.combine(request.completion_date, datetime.min.time())
+                # A date-only completion is stamped at its day's first instant in
+                # the user's zone, read on the host clock like every naive stamp.
+                day_start, _ = local_day_bounds(request.completion_date, current_zone())
+                completed_at = as_host_clock(day_start)
             else:
                 completed_at = datetime.now()
         else:
@@ -96,7 +101,7 @@ class _CompletionMixin:
             Result[bool] indicating success
         """
         # Parse date
-        target_date = date.today()
+        target_date = today_in(current_zone())
         if request.completion_date:
             if isinstance(request.completion_date, str):
                 target_date = date.fromisoformat(request.completion_date)
@@ -184,7 +189,7 @@ class _CompletionMixin:
             Result with list of completion records
         """
         # Calculate date range
-        end_date = date.today()
+        end_date = today_in(current_zone())
         start_date = end_date - timedelta(days=days)
 
         # Get completions from completions service
@@ -227,7 +232,7 @@ class _CompletionMixin:
             - summary: completion statistics for the period
         """
         # Default to current month
-        today = date.today()
+        today = today_in(current_zone())
         target_year = year or today.year
         target_month = month or today.month
 

@@ -47,6 +47,8 @@ from core.models.enums.activity_enums import Priority
 from core.models.enums.entity_enums import EntityStatus
 from core.models.task.task_request import TaskUpdateRequest
 from core.services.vault.vault_descriptor import VaultKind
+from core.utils.timestamp_helpers import today_in
+from core.utils.zone_context import current_zone
 from tests.integration._vault_rig import (
     FRONTMATTER,
     NOTE,
@@ -827,10 +829,10 @@ class TestReconciliation:
         assert not synced.warnings, synced.warnings
         task = await _task_of(rig, task_uid)
         assert task.status == EntityStatus.COMPLETED
-        assert task.completion_date == date.today()
+        assert task.completion_date == today_in(current_zone())
         assert synced.tasks_marked_done == 1, synced
         dated = _line_with(rig.note, vault_id)
-        assert dated == f"{ticked} ✅ {date.today().isoformat()}", dated
+        assert dated == f"{ticked} ✅ {today_in(current_zone()).isoformat()}", dated
         [(_, _, _, base)] = await rig.edges()
         assert base == dated, "SKUEL's own ✅ write advanced the base"
 
@@ -838,7 +840,9 @@ class TestReconciliation:
         again = await rig.sync()
         assert not again.warnings and again.tasks_marked_done == 0, again
         task = await _task_of(rig, task_uid)
-        assert task.status == EntityStatus.COMPLETED and task.completion_date == date.today()
+        assert task.status == EntityStatus.COMPLETED and task.completion_date == today_in(
+            current_zone()
+        )
 
         # SKUEL now owns the completion: a reopen in SKUEL un-checks the line.
         await reopen_in_skuel(rig, task_uid)
@@ -971,7 +975,7 @@ class TestReconciliation:
         # The dates sit in the future relative to the run: the second sync LOWERS the
         # priority, which the Tasks domain refuses on an overdue task — a literal date
         # here would turn this test red the morning after it.
-        due = date.today() + timedelta(days=30)
+        due = today_in(current_zone()) + timedelta(days=30)
         scheduled = due - timedelta(days=2)
         moved = due + timedelta(days=2)
         edited = f"- [ ] Vacuum the hallway ⏫ 📅 {due} ⏳ {scheduled} #home 🆔 {vault_id}"

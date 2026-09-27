@@ -20,10 +20,12 @@ This service follows the SearchService pattern documented in:
 
 from __future__ import annotations
 
-from datetime import date, timedelta
+from datetime import timedelta
 from typing import TYPE_CHECKING
 
 from core.models.type_hints import UserUID
+from core.utils.timestamp_helpers import today_in
+from core.utils.zone_context import current_zone
 
 if TYPE_CHECKING:
     from core.ports.domain_protocols import ChoicesOperations
@@ -192,7 +194,7 @@ class ChoicesSearchService(BaseService["ChoicesOperations", Choice]):
         Returns:
             Result containing choices needing decision
         """
-        today = date.today()
+        today = today_in(current_zone())
         end_date = today + timedelta(days=deadline_days)
 
         result = await self.backend.get_choices_needing_decision(

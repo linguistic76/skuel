@@ -74,6 +74,8 @@ from core.models.enums import (
 )
 from core.models.enums.user_enums import UserRole
 from core.models.type_hints import UserUID
+from core.utils.timestamp_helpers import today_in
+from core.utils.zone_context import current_zone
 
 if TYPE_CHECKING:
     from core.models.zpd.zpd_assessment import ZPDAssessment
@@ -647,7 +649,7 @@ class UserContext:
     def get_goals_nearing_deadline(self, days: int = 30) -> list[str]:
         """Get goals with deadlines within specified days"""
         near_deadline = []
-        cutoff_date = date.today() + timedelta(days=days)
+        cutoff_date = today_in(current_zone()) + timedelta(days=days)
         for goal_uid, deadline in self.goal_deadlines.items():
             if deadline <= cutoff_date and goal_uid not in self.completed_goal_uids:
                 near_deadline.append(goal_uid)

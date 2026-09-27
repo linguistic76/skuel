@@ -19,8 +19,11 @@ See: /docs/architecture/ENTITY_TYPE_ARCHITECTURE.md
 """
 
 from dataclasses import dataclass, field
-from datetime import date, datetime
+from datetime import datetime
 from typing import TYPE_CHECKING
+
+from core.utils.timestamp_helpers import today_in
+from core.utils.zone_context import current_zone
 
 if TYPE_CHECKING:
     from core.models.choice.choice_dto import ChoiceDTO
@@ -122,7 +125,7 @@ class Choice(UserOwnedEntity):
         """Check if decision deadline has passed."""
         if not self.decision_deadline:
             return False
-        return self.decision_deadline.date() < date.today()
+        return self.decision_deadline.date() < today_in(current_zone())
 
     def has_high_stakes(self) -> bool:
         """Check if choice has high stakes."""

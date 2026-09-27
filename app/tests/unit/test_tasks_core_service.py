@@ -27,6 +27,8 @@ from core.models.task.task_request import TaskCreateRequest
 from core.models.task.task_update_intent import TaskUpdateIntent
 from core.services.tasks.tasks_core_service import TasksCoreService
 from core.utils.result_simplified import Errors, Result
+from core.utils.timestamp_helpers import today_in
+from core.utils.zone_context import current_zone
 from tests.helpers.status_guarded_backend import echoing_guarded_write
 
 # ============================================================================
@@ -108,7 +110,7 @@ def sample_task_dto() -> TaskDTO:
         title="Test Task",
         priority=Priority.HIGH.value,
         status=EntityStatus.DRAFT.value,
-        due_date=date.today() + timedelta(days=7),
+        due_date=today_in(current_zone()) + timedelta(days=7),
         duration_minutes=60,
         project="Test Project",
         tags=["test", "sample"],
@@ -122,7 +124,7 @@ def sample_task_request() -> TaskCreateRequest:
     return TaskCreateRequest(
         title="New Test Task",
         priority=Priority.MEDIUM,
-        due_date=date.today() + timedelta(days=3),
+        due_date=today_in(current_zone()) + timedelta(days=3),
         duration_minutes=90,
         project="Sample Project",
         tags=["new", "test"],
@@ -217,7 +219,7 @@ async def test_create_applies_the_creation_rule_on_both_doors(core_service, mock
         uid="task_scheduled",
         user_uid="user_demo",
         title="Quick-add chip",
-        scheduled_date=date.today() + timedelta(days=1),
+        scheduled_date=today_in(current_zone()) + timedelta(days=1),
     )
     result = await core_service.create(scheduled)
     assert result.is_ok
@@ -484,8 +486,8 @@ async def test_update_task_not_found(core_service, mock_backend):
 # tests therefore all drive ``update_task`` — the live path — and assert the
 # write did or did not happen, not that the hook returned something.
 
-_YESTERDAY = date.today() - timedelta(days=1)
-_TOMORROW = date.today() + timedelta(days=1)
+_YESTERDAY = today_in(current_zone()) - timedelta(days=1)
+_TOMORROW = today_in(current_zone()) + timedelta(days=1)
 
 
 def _stored_task(

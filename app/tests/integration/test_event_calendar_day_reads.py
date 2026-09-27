@@ -27,12 +27,26 @@ from core.models.pathways.path_step import PathStep
 from core.models.relationship_names import RelationshipName
 from core.services.events.events_core_service import EventsCoreService
 from core.services.ps.ps_application_discovery_service import PsApplicationDiscoveryService
+from core.utils.timestamp_helpers import today_in
+from core.utils.zone_context import current_zone
 
-pytestmark = [pytest.mark.asyncio(loop_scope="session"), pytest.mark.integration]
+# The events "today" stat still reads the host's day (its ``$today`` is computed in
+# EventsBackend — UTC arc PR 2b2 moves it to the zone, and lifts this fixture); the
+# upcoming read asks the zone. The laptop's case, where the two agree, keeps them
+# on one day.
+pytestmark = [
+    pytest.mark.asyncio(loop_scope="session"),
+    pytest.mark.integration,
+    pytest.mark.usefixtures("laptop_zone"),
+]
 
 USER = "user_event_calendar_days"
 PATH_STEP = "ps.utc-arc.event-days"
-TODAY = date.today()
+
+
+def _today() -> date:
+    """Today as the app reads it — at test time, under the test's zone."""
+    return today_in(current_zone())
 
 
 def _event(uid: str, event_date: date, start: time = time(9, 30)) -> Event:
@@ -71,8 +85,8 @@ class TestTodayStat:
     async def test_an_event_dated_today_counts_as_today(self, events_backend, neo4j_driver) -> None:
         await _create(
             events_backend,
-            _event("event.utc.today", TODAY),
-            _event("event.utc.tomorrow", TODAY + timedelta(days=1)),
+            _event("event.utc.today", _today()),
+            _event("event.utc.tomorrow", _today() + timedelta(days=1)),
         )
         types = await _raw_types(neo4j_driver, "event.utc.today")
         # The premise: a calendar day stored as a string, a time of day as a LOCAL TIME.
@@ -96,9 +110,9 @@ class TestUpcomingEventsApplyingKnowledge:
         step = await ps_backend.create(PathStep(uid=PATH_STEP, title="Event days"))
         assert step.is_ok, step
         dated = {
-            "event.utc.yesterday": TODAY - timedelta(days=1),
-            "event.utc.today": TODAY,
-            "event.utc.next_week": TODAY + timedelta(days=7),
+            "event.utc.yesterday": _today() - timedelta(days=1),
+            "event.utc.today": _today(),
+            "event.utc.next_week": _today() + timedelta(days=7),
         }
         await _create(events_backend, *(_event(uid, day) for uid, day in dated.items()))
         linked = await events_backend.create_relationships_batch(
@@ -121,7 +135,7 @@ class TestRecentReschedules:
         self, events_backend, neo4j_driver
     ) -> None:
         service = EventsCoreService(backend=events_backend, event_bus=InMemoryEventBus())
-        booked = TODAY + timedelta(days=3)
+        booked = _today() + timedelta(days=3)
         await _create(
             events_backend,
             _event("event.utc.moved", booked),

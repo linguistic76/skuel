@@ -31,7 +31,7 @@ Part of the 4-service Analytics architecture:
 
 import contextlib
 from collections import Counter
-from datetime import date
+from datetime import date, timedelta
 from typing import TYPE_CHECKING, Any
 
 from core.constants import QueryLimit
@@ -45,6 +45,8 @@ from core.utils.exception_types import DATA_CONVERSION_EXCEPTIONS, NEO4J_EXCEPTI
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
 from core.utils.sort_functions import get_current_substance, get_theme_count
+from core.utils.timestamp_helpers import as_host_clock, local_day_bounds, today_in, wall_clock_in
+from core.utils.zone_context import current_zone
 
 if TYPE_CHECKING:
     from core.ports.cross_domain_protocols import CrossDomainBackendOperations
@@ -401,7 +403,6 @@ class AnalyticsMetricsService:
         events = events_result.value
 
         # Calculate metrics
-        from datetime import datetime
 
         total = len(events)
         completed = sum(1 for e in events if e.status == EntityStatus.COMPLETED)
@@ -421,7 +422,9 @@ class AnalyticsMetricsService:
         # not-past, so calling it here would count this morning's event and every
         # unscheduled one as upcoming. CANCELLED is deliberately not excluded — the
         # model doesn't, and inventing a second rule here is how the two drift apart.
-        now = datetime.now()
+        # An event's start is a wall time on the user's calendar, so "upcoming" is
+        # measured against the wall clock in the user's zone.
+        now = wall_clock_in(current_zone())
         upcoming = 0
         total_hours = 0.0
         for event in events:
@@ -1136,15 +1139,18 @@ class AnalyticsMetricsService:
             alias-drift guard that goes with it) lives in the backend's
             processor — re-projecting here would be a second copy to drift.
         """
-        from datetime import datetime
-
         # Use cross_domain_backend for journal queries
         if not self.cross_domain_backend:
             return []
 
-        # Convert dates to datetime for Neo4j comparison
-        start_datetime = datetime.combine(start_date, datetime.min.time())
-        end_datetime = datetime.combine(end_date, datetime.max.time())
+        # The range's days are days in the user's zone: from the first instant of
+        # the first to the last instant of the last, read on the host clock — the
+        # digits the entries' naive stamps carry.
+        zone = current_zone()
+        range_start, _ = local_day_bounds(start_date, zone)
+        _, range_end = local_day_bounds(end_date, zone)
+        start_datetime = as_host_clock(range_start)
+        end_datetime = as_host_clock(range_end - timedelta(microseconds=1))
 
         try:
             result = await self.cross_domain_backend.get_journal_entries_in_range(
@@ -1176,4 +1182,4 @@ class AnalyticsMetricsService:
         due_date = getattr(task, "due_date", None)
         if not due_date:
             return False
-        return due_date < date.today() and task.status != EntityStatus.COMPLETED
+        return due_date < today_in(current_zone()) and task.status != EntityStatus.COMPLETED

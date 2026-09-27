@@ -20,6 +20,8 @@ from datetime import date, timedelta
 from typing import TYPE_CHECKING, Any, TypedDict
 
 from core.models.type_hints import EntityUID, UserUID
+from core.utils.timestamp_helpers import today_in
+from core.utils.zone_context import current_zone
 
 if TYPE_CHECKING:
     from core.infrastructure.relationships.semantic_relationships import SemanticRelationshipType
@@ -194,7 +196,7 @@ def _apply_task_secondary_filters(
 
     Status filtering is handled at Cypher level via get_for_user_filtered.
     """
-    today = date.today()
+    today = today_in(current_zone())
 
     if project:
         tasks = [t for t in tasks if t.project == project]

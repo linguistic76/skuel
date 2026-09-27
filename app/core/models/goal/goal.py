@@ -25,6 +25,9 @@ from datetime import date, datetime
 from types import MappingProxyType
 from typing import TYPE_CHECKING, Any
 
+from core.utils.timestamp_helpers import today_in
+from core.utils.zone_context import current_zone
+
 if TYPE_CHECKING:
     from core.models.entity_dto import EntityDTO
     from core.models.goal.goal_dto import GoalDTO
@@ -174,7 +177,7 @@ class Goal(UserOwnedEntity):
         """Days until target_date."""
         if not self.target_date:
             return None
-        delta = self.target_date - date.today()
+        delta = self.target_date - today_in(current_zone())
         return delta.days
 
     def days_remaining(self) -> int:
@@ -189,7 +192,7 @@ class Goal(UserOwnedEntity):
         total = (self.target_date - self.start_date).days
         if total <= 0:
             return 100.0
-        elapsed = (date.today() - self.start_date).days
+        elapsed = (today_in(current_zone()) - self.start_date).days
         return min(100.0, max(0.0, (elapsed / total) * 100.0))
 
     def is_on_track(self) -> bool:
@@ -216,7 +219,7 @@ class Goal(UserOwnedEntity):
     def is_past(self) -> bool:
         """Check if target date is in the past."""
         if self.target_date:
-            return self.target_date < date.today()
+            return self.target_date < today_in(current_zone())
         return False
 
     def calculate_system_strength(

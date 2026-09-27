@@ -21,7 +21,7 @@ import asyncio
 import statistics
 from collections.abc import Sequence
 from dataclasses import dataclass
-from datetime import date, timedelta
+from datetime import timedelta
 from typing import TYPE_CHECKING, Any, cast
 
 from core.constants import (
@@ -45,6 +45,8 @@ from core.services.tasks.task_relationships import TaskRelationships
 from core.utils.exception_types import DATA_CONVERSION_EXCEPTIONS
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
+from core.utils.timestamp_helpers import today_in
+from core.utils.zone_context import current_zone
 
 if TYPE_CHECKING:
     from core.models.entity import Entity
@@ -121,7 +123,7 @@ class TaskKnowledgeAnalyzer:
             if generic_result.is_error:
                 return generic_result
 
-            cutoff = date.today() - timedelta(days=timeframe_days)
+            cutoff = today_in(current_zone()) - timedelta(days=timeframe_days)
             recent_tasks = [t for t in tasks if t.created_at.date() >= cutoff]
             mastery_patterns = await self._detect_mastery_validation_patterns(recent_tasks)
 
@@ -567,7 +569,7 @@ class TaskKnowledgeAnalyzer:
 
         urgency_boost = 0.0
         if task.due_date:
-            days_until_due = (task.due_date - date.today()).days
+            days_until_due = (task.due_date - today_in(current_zone())).days
             if days_until_due <= 3:
                 urgency_boost = KnowledgeEnhancementScore.VERY_URGENT_BOOST
             elif days_until_due <= 7:

@@ -31,7 +31,7 @@ to provide personalized, filtered, and ranked habit queries.
 
 from __future__ import annotations
 
-from datetime import date, datetime
+from datetime import date
 from typing import TYPE_CHECKING
 
 from core.models.enums.habit_enums import HabitCategory
@@ -45,6 +45,8 @@ from core.utils.decorators import with_error_handling
 from core.utils.dto_converters import to_domain_model
 from core.utils.result_simplified import Errors, Result
 from core.utils.sort_functions import get_priority_score
+from core.utils.timestamp_helpers import day_of, today_in
+from core.utils.zone_context import current_zone
 
 if TYPE_CHECKING:
     from core.models.context_types import ContextualDependencies, ContextualHabit
@@ -219,7 +221,7 @@ class HabitsPlanningService(BasePlanningService[HabitsOperations, Habit]):
         """
         from core.models.context_types import ContextualHabit
 
-        today = date.today()
+        today = today_in(current_zone())
         actionable = []
 
         for habit_uid in context.active_habit_uids:
@@ -554,7 +556,7 @@ class HabitsPlanningService(BasePlanningService[HabitsOperations, Habit]):
                 )
 
         # Check frequency readiness
-        today = date.today()
+        today = today_in(current_zone())
         should_do = habit.should_do_today()
         if not should_do:
             blocking_reasons.append(f"Not scheduled for today ({today.strftime('%A')})")
@@ -680,7 +682,8 @@ class HabitsPlanningService(BasePlanningService[HabitsOperations, Habit]):
 
     @staticmethod
     def _days_since_last_completion(habit: Habit) -> int:
-        """Calculate days since last completion."""
+        """Calendar days since the last completion, counted in the user's zone."""
         if not habit.last_completed:
             return 999  # Never completed
-        return (datetime.now() - habit.last_completed).days
+        zone = current_zone()
+        return (today_in(zone) - day_of(habit.last_completed, zone)).days

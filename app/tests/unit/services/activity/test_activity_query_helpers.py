@@ -46,6 +46,8 @@ from core.services.tasks_service import (
     _apply_task_secondary_filters,
     _apply_task_sort,
 )
+from core.utils.timestamp_helpers import today_in
+from core.utils.zone_context import current_zone
 
 # ============================================================================
 # HABITS
@@ -127,7 +129,7 @@ class TestApplyTaskSecondaryFilters:
         assert len(result) == 2
 
     def test_due_today_filter(self):
-        today = date.today()
+        today = today_in(current_zone())
         tomorrow = today + timedelta(days=1)
         tasks = [make_task(due_date=today), make_task(due_date=tomorrow)]
         result = _apply_task_secondary_filters(tasks, due_filter="today")
@@ -135,11 +137,11 @@ class TestApplyTaskSecondaryFilters:
         assert result[0].due_date == today
 
     def test_overdue_filter(self):
-        yesterday = date.today() - timedelta(days=1)
+        yesterday = today_in(current_zone()) - timedelta(days=1)
         tasks = [
             make_task(EntityStatus.ACTIVE, due_date=yesterday),
             make_task(EntityStatus.COMPLETED, due_date=yesterday),
-            make_task(EntityStatus.ACTIVE, due_date=date.today()),
+            make_task(EntityStatus.ACTIVE, due_date=today_in(current_zone())),
         ]
         result = _apply_task_secondary_filters(tasks, due_filter="overdue")
         assert len(result) == 1
@@ -159,7 +161,7 @@ class TestApplyTaskSecondaryFilters:
         assert len(result) == 2
 
     def test_combined_project_and_due_filter(self):
-        today = date.today()
+        today = today_in(current_zone())
         tasks = [
             make_task(EntityStatus.ACTIVE, due_date=today, project="Alpha"),
             make_task(EntityStatus.ACTIVE, due_date=today, project="Beta"),

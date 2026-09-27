@@ -34,7 +34,9 @@ from core.ports.query_types import ChartJsConfig, GanttConfig
 from core.utils.logging import get_logger
 from core.utils.palette import SemanticColor
 from core.utils.result_simplified import Errors, Result
+from core.utils.timestamp_helpers import today_in
 from core.utils.type_converters import finite_float
+from core.utils.zone_context import current_zone
 
 logger = get_logger(__name__)
 
@@ -304,13 +306,13 @@ class VisualizationService:
         if not tasks:
             return Result.fail(Errors.validation("Tasks cannot be empty"))
 
-        from datetime import date, timedelta
+        from datetime import timedelta
 
         dependencies = dependencies or {}
         gantt_tasks: list[GanttTask] = []
 
         for task in tasks:
-            start_date = task.scheduled_date or task.due_date or date.today()
+            start_date = task.scheduled_date or task.due_date or today_in(current_zone())
             if task.due_date and task.due_date > start_date:
                 end_date = task.due_date
             else:
@@ -367,7 +369,7 @@ class VisualizationService:
 
         gantt_tasks: list[GanttTask] = []
 
-        goal_start = goal.start_date or date.today()
+        goal_start = goal.start_date or today_in(current_zone())
         goal_end = goal.target_date or goal_start + timedelta(days=90)
         # progress_percentage is the number every goal writer maintains: all five
         # current_value writers in goals_progress_service set it in the same update dict,

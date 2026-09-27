@@ -11,7 +11,6 @@ See: /docs/architecture/ENTITY_TYPE_ARCHITECTURE.md
 
 from __future__ import annotations
 
-from datetime import date
 from typing import TYPE_CHECKING, Any
 
 from core.events import publish_event
@@ -21,6 +20,8 @@ from core.models.event.event import Event
 from core.models.event.event_dto import EventDTO
 from core.models.relationship_names import RelationshipName
 from core.utils.result_simplified import Errors, Result
+from core.utils.timestamp_helpers import today_in
+from core.utils.zone_context import current_zone
 
 if TYPE_CHECKING:
     from core.models.event.event_request import (
@@ -285,7 +286,7 @@ class _OrchestrationMixin:
             # Event.event_date and .event_type are both optional on the model but
             # required by the event; fall back the same way the sibling publish
             # sites in events_core_service / events_habit_integration_service do.
-            event_date=event.event_date or date.today(),
+            event_date=event.event_date or today_in(current_zone()),
             calendar_event_type=event.event_type or EventType.MEETING,
         )
         await publish_event(self.event_bus, event_obj, self.logger)

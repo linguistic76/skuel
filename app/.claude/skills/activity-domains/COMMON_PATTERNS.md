@@ -45,7 +45,7 @@ async def complete_task(self, uid: str) -> Result[Task]:
         event = TaskCompleted(
             task_uid=uid,
             user_uid=result.value.user_uid,
-            completion_date=date.today(),
+            completion_date=today_in(current_zone()),
         )
         await self.event_bus.publish_async(event)
     return result
@@ -102,7 +102,8 @@ How it flows:
   `RawChanges` service contract (i.e. straight to `backend.update`) is a defect.
 - **A write that carries `status` goes through `backend.update_with_status_guard(uid,
   changes, guard)`, never `super().update` or `backend.update`** (ADR-087). Build the guard
-  with `status_transition_guard(EntityType.X, changes)`; the write evaluates it against the
+  with `status_transition_guard(EntityType.X, changes, zone=current_zone())` (a Task or Goal
+  completed today is stamped with today in the user's zone); the write evaluates it against the
   status the node holds under its lock and hands the prior back, so transition verdicts come
   from `outcome.prior_status`, not from a status read beforehand. The five stamping domains
   (Task, Goal, Habit, Event, Choice) are all on it; **Principles is the one exception** — its
