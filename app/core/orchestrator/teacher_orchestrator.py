@@ -52,7 +52,7 @@ class TeacherOrchestrator:
         status_filter: str | None = None,
         student_uid: str | None = None,
     ) -> Result[list[Any]]:
-        """Get teacher's pending review queue (group-shared entries only)."""
+        """Get teacher's pending review queue — entries submitted to their groups, once each."""
         return await self._review.get_review_queue(
             teacher_uid=teacher_uid,
             status_filter=status_filter,
@@ -74,13 +74,13 @@ class TeacherOrchestrator:
     # ------------------------------------------------------------------
 
     async def get_students_summary(self, teacher_uid: UserUID) -> Result[list[Any]]:
-        """Get students who shared work with teacher, with counts."""
+        """Get students who submitted work to the teacher's groups, with counts."""
         return await self._review.get_students_summary(teacher_uid=teacher_uid)
 
     async def get_student_submissions(
         self, teacher_uid: UserUID, student_uid: str
     ) -> Result[list[Any]]:
-        """Get all submissions from student shared with teacher."""
+        """Get the student's submissions to the teacher's groups."""
         auth_check = await self._review.verify_teacher_authority(teacher_uid, student_uid)
         if auth_check.is_error:
             return Result.fail(auth_check)

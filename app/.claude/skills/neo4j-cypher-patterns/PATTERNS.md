@@ -458,10 +458,10 @@ guard against `None` before calling downstream methods that require a teacher UI
 
 **Real-world usage:** `UserEntryBackend.get_exercise_context()`,
 `ExerciseBackend.get_exercises_with_submission_counts()` (`MATCH (user)-[:OWNS]->(exercise)`),
-`TeacherReviewService.get_review_queue()` (OWNS-based: `(student)-[:OWNS]->(submission)
-WHERE student.uid <> teacher_uid` — catches all student submissions including
-YAML-ingested ones). No SHARES_WITH relationship is created between teacher and
-submission (per ADR-040). Access is role-gated at route level, not relationship-gated.
+`TeacherReviewService.get_review_queue()` (the feedback request under the teacher's OWNS:
+`(teacher)-[:OWNS]->(g:Group {is_active: true})<-[:SUBMITTED_TO_GROUP]-(entry)`, one row per
+entry). No SHARES_WITH relationship is created between teacher and submission (per
+ADR-040). Access is relationship-gated in the query and role-gated at the route.
 
 ---
 

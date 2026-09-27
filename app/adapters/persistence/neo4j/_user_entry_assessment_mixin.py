@@ -123,6 +123,11 @@ class _UserEntryAssessmentMixin:
     ) -> Result[list[Neo4jProperties]]:
         """Teacher's pending review queue via ``SUBMITTED_TO_GROUP``.
 
+        One row per entry: an entry submitted to several of this teacher's
+        groups (a ``teachers`` request files to every class the student is in
+        without an exercise, or with one to each of its assigned classes the
+        student is in) is one feedback request to this teacher, listed once.
+
         Returns entries submitted to the teacher's ACTIVE groups whose pipeline
         is ``teacher_review`` — the same visibility the detail read
         (``get_entry_detail_for_teacher``) and the review writes
@@ -158,10 +163,12 @@ class _UserEntryAssessmentMixin:
           AND ($student_uid IS NULL OR EXISTS {{
               MATCH (:User {{uid: $student_uid}})-[:{RelationshipName.OWNS.value}]->(entry)
           }})
+        // One row per entry, however many of this teacher's groups it asks.
+        WITH DISTINCT teacher, entry
         OPTIONAL MATCH (entry)-[r:{RelationshipName.FULFILLS_EXERCISE.value}]->(:Entity:Exercise)
         OPTIONAL MATCH (ex:Entity:Exercise {{uid: entry.turn_in_exercise_uid}})
         OPTIONAL MATCH (student:User)-[:{RelationshipName.OWNS.value}]->(entry)
-        WITH teacher, entry, r, ex, student, g,
+        WITH teacher, entry, r, ex, student,
              entry.uid AS copy_uid,
              entry.turn_in_exercise_uid AS copy_lineage,
              entry.submitted_from_uid AS copy_note,
@@ -169,7 +176,7 @@ class _UserEntryAssessmentMixin:
              entry.created_at AS copy_created_at
         WHERE NOT {_SUPERSEDED_COPY}
         OPTIONAL MATCH (report:Entity {{entity_type: 'entry_report'}})-[:{RelationshipName.REPORT_FOR.value}]->(entry)
-        WITH entry, r, ex, student, g, count(DISTINCT report) AS feedback_count
+        WITH entry, r, ex, student, count(DISTINCT report) AS feedback_count
         RETURN entry.uid AS entry_uid,
                entry.title AS title,
                entry.status AS status,
@@ -182,7 +189,6 @@ class _UserEntryAssessmentMixin:
                coalesce(ex.title, entry.turn_in_exercise_title) AS exercise_title,
                ex.due_date AS due_date,
                coalesce(r.revision, entry.turn_in_revision) AS revision,
-               g.uid AS group_uid,
                feedback_count
         ORDER BY entry.created_at DESC
         """
@@ -400,18 +406,22 @@ class _UserEntryAssessmentMixin:
         """Full entry detail for teacher review, gated by SUBMITTED_TO_GROUP.
 
         Model B gate: the entry must be ``SUBMITTED_TO_GROUP`` an active group
-        the teacher owns. Empty result when the entry asks none of the
+        the teacher owns. One row, or none — the gate is an existence test, so
+        an entry submitted to several of the teacher's groups is still one
+        detail. Empty result when the entry asks none of the
         teacher's groups for feedback — service-layer callers (``get_submission_detail``)
         map empty to ``Errors.not_found`` (404) so a teacher outside the
         student's group cannot distinguish "entry does not exist" from
         "entry exists but belongs to another teacher's student".
         """
         query = f"""
-        MATCH (teacher:User {{uid: $teacher_uid}})-[:{RelationshipName.OWNS.value}]->(g:Group)
-        WHERE g.is_active = true
         MATCH (s:Entity:UserEntry {{uid: $entry_uid}})
-              -[:{RelationshipName.SUBMITTED_TO_GROUP.value}]->(g)
         WHERE s.pipeline = $pipeline
+          AND EXISTS {{
+              MATCH (s)-[:{RelationshipName.SUBMITTED_TO_GROUP.value}]->(g:Group)
+                    <-[:{RelationshipName.OWNS.value}]-(:User {{uid: $teacher_uid}})
+              WHERE g.is_active = true
+          }}
         OPTIONAL MATCH (student:User)-[:{RelationshipName.OWNS.value}]->(s)
         OPTIONAL MATCH (ex:Entity:Exercise {{uid: s.turn_in_exercise_uid}})
         RETURN s.uid AS uid,

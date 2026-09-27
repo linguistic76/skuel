@@ -431,7 +431,7 @@ def create_teaching_ui_routes(
         elif not result.value:
             students_content = EmptyState(
                 "No students yet",
-                description="Students who share work with you will appear here.",
+                description="Students who submit work to your classes will appear here.",
             )
         else:
             students_content = Div(

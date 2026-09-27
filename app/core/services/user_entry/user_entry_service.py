@@ -664,18 +664,6 @@ class UserEntryService(BaseService[UserEntryOperations, UserEntry]):
         """
         return await self.backend.get_organized_children(uid)
 
-    @with_error_handling("get_review_queue")
-    async def get_review_queue(
-        self,
-        teacher_uid: str,
-        status_filter: list[str] | None = None,
-    ) -> Result[list[dict[str, Any]]]:
-        """Teacher review queue — entries shared to the teacher's groups."""
-        return await self.backend.get_review_queue_by_groups(
-            teacher_uid=teacher_uid,
-            status_filter=status_filter,
-        )
-
     # =========================================================================
     # UPDATE
     # =========================================================================

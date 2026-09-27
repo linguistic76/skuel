@@ -511,7 +511,7 @@ class ReportRelationshipOperations(Protocol):
 class TeacherReviewOperations(Protocol):
     """Teacher review workflow — Phase 4 (Feedback) of the learning loop.
 
-    Manages the full teacher-student interaction after a submission is shared:
+    Manages the full teacher-student interaction after a student submits work for feedback:
     review queue → read submission → write feedback / request revision / approve.
     Also exposes exercise management and class/student views for the teacher dashboard.
 
@@ -527,7 +527,7 @@ class TeacherReviewOperations(Protocol):
         status_filter: str | None = None,
         student_uid: str | None = None,
     ) -> Result[list[ReviewQueueItem]]:
-        """Get teacher's pending review queue (group-shared entries only).
+        """Get teacher's pending review queue — entries submitted to their groups, once each.
 
         ``student_uid`` scopes the queue to one student — the single
         needs-review rule shared by the queue page and the per-student page.
@@ -604,17 +604,17 @@ class TeacherReviewOperations(Protocol):
     async def get_submissions_for_exercise(
         self, exercise_uid: str, teacher_uid: str
     ) -> Result[list[SubmissionForExercise]]:
-        """Get submissions against an exercise that are shared with the teacher's groups."""
+        """Get submissions against an exercise that were submitted to the teacher's groups."""
         ...
 
     async def get_students_summary(self, teacher_uid: str) -> Result[list[StudentSummaryItem]]:
-        """Get students who shared work with teacher, with counts."""
+        """Get students who submitted work to the teacher's groups, with counts."""
         ...
 
     async def get_student_submissions(
         self, teacher_uid: str, student_uid: str
     ) -> Result[list[StudentSubmissionItem]]:
-        """Get all submissions from student shared with teacher."""
+        """Get the student's submissions to the teacher's groups."""
         ...
 
     async def get_dashboard_stats(self, teacher_uid: str) -> Result[TeacherDashboardStats]:

@@ -391,13 +391,3 @@ class UserEntryOrchestrator:
     async def list_revised_exercises(self, user_uid: UserUID) -> Result[list[RevisedExercise]]:
         """List all revisions created by the student."""
         return await self._revised_exercise.list_for_student(user_uid)
-
-    # ------------------------------------------------------------------
-    # Teacher queue
-    # ------------------------------------------------------------------
-
-    async def get_review_queue(
-        self, teacher_uid: UserUID, status_filter: list[str] | None = None
-    ) -> Result[list[dict[str, Any]]]:
-        """Teacher review queue — entries shared to the teacher's groups."""
-        return await self._entries.get_review_queue(teacher_uid, status_filter=status_filter)

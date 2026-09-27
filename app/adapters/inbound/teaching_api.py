@@ -103,7 +103,7 @@ def create_teaching_api_routes(
     async def review_queue(
         request: Request, current_user: Any = None
     ) -> Result[list[ReviewQueueItem]]:
-        """Get teacher's pending review queue (group-shared entries only)."""
+        """Get the teacher's review queue (pending unless ``status`` is given) — once per entry."""
         status_filter = request.query_params.get("status", None)
         return await teacher_review_service.get_review_queue(
             teacher_uid=current_user.uid,
@@ -284,7 +284,8 @@ def create_teaching_api_routes(
         """Get full submission detail for teacher review.
 
         Returns submission content, student info, and linked exercise.
-        Access-controlled: only succeeds if teacher has SHARES_WITH {role: 'teacher'} access.
+        Access-controlled: only succeeds when the entry is SUBMITTED_TO_GROUP an
+        active group the teacher owns (a feedback request to them).
         """
         return await teacher_review_service.get_submission_detail(
             submission_uid=uid,
@@ -304,8 +305,9 @@ def create_teaching_api_routes(
         """
         from ui.teaching.detail import render_review_panel_inline
 
-        # get_submission_detail gates on shared-group access; a denied/missing
-        # submission returns not-found. The feedback history below is this
+        # get_submission_detail gates on the entry's feedback request
+        # (SUBMITTED_TO_GROUP an active group the teacher owns); a denied or
+        # missing submission returns not-found. The feedback history below is this
         # student's private work, so it must not be read until that gate passes
         # — otherwise a teacher outside the classroom reads the reports while the
         # submission itself reads "unavailable". Empty panel either way, so a
@@ -355,7 +357,7 @@ def create_teaching_api_routes(
     async def get_students(
         request: Request, current_user: Any = None
     ) -> Result[list[StudentSummaryItem]]:
-        """Get students who shared work with the teacher."""
+        """Get students who submitted work to the teacher's groups."""
         return await teacher_review_service.get_students_summary(
             teacher_uid=current_user.uid,
         )
@@ -401,8 +403,9 @@ def create_teaching_api_routes(
     async def delete_submission(request: Request, uid: str, current_user: Any = None) -> Any:
         """Delete a student UserEntry (teacher action).
 
-        Authorized when the teacher shares an active group with the entry's
-        owner (see ``UserEntryService.delete_entry_as_teacher``). Hard-deletes
+        Authorized when the entry is ``SUBMITTED_TO_GROUP`` an active group the
+        teacher owns (see ``UserEntryService.delete_entry_as_teacher``); a denied
+        or missing entry fails as not-found. Hard-deletes
         the Neo4j node via cascade. Returns an empty response so HTMX removes
         the row.
         """

@@ -21,6 +21,7 @@ from core.models.user_entry.user_entry_request import UserEntryCreateRequest
 async def test_review_queue_isolates_by_group_ownership(
     clean_neo4j,
     user_entry_service,
+    user_entry_backend,
     seed_classroom,
     seed_user,
     seed_group,
@@ -76,8 +77,10 @@ async def test_review_queue_isolates_by_group_ownership(
     assert r3.is_ok, r3.expect_error()
 
     # --- Queue assertions ---
-    queue_a = (await user_entry_service.get_review_queue(ctx_a["teacher_uid"])).value or []
-    queue_b = (await user_entry_service.get_review_queue(teacher_b)).value or []
+    queue_a = (
+        await user_entry_backend.get_review_queue_by_groups(ctx_a["teacher_uid"])
+    ).value or []
+    queue_b = (await user_entry_backend.get_review_queue_by_groups(teacher_b)).value or []
 
     uids_a = {row["entry_uid"] for row in queue_a}
     uids_b = {row["entry_uid"] for row in queue_b}
@@ -93,3 +96,54 @@ async def test_review_queue_isolates_by_group_ownership(
     assert r2_uid in uids_b
     assert r1_uid not in uids_b
     assert r3_uid not in uids_b
+
+
+@pytest.mark.asyncio
+async def test_a_request_to_two_classes_of_one_teacher_lists_once(
+    clean_neo4j,
+    user_entry_service,
+    user_entry_backend,
+    neo4j_driver,
+    seed_user,
+    seed_group,
+    seed_membership,
+    seed_exercise,
+) -> None:
+    """An exercise assigned to two of a teacher's classes, answered by a
+    student in both: ``teachers`` files one ``SUBMITTED_TO_GROUP`` per class,
+    and the teacher's queue and detail read still see one feedback request."""
+    teacher = await seed_user("user_teacher_two_classes", name="Teacher")
+    student = await seed_user("user_student_two_classes", name="Student")
+    class_1 = await seed_group("group.two-classes-1", teacher)
+    class_2 = await seed_group("group.two-classes-2", teacher)
+    await seed_membership(student, class_1)
+    await seed_membership(student, class_2)
+    exercise = await seed_exercise("exercise.two-classes", group_uid=class_1)
+    await seed_exercise("exercise.two-classes", group_uid=class_2)
+
+    created = await user_entry_service.create_entry(
+        request=UserEntryCreateRequest(
+            title="Two classes",
+            pipeline=Pipeline.TEACHER_REVIEW,
+            fulfills_exercise_uid=exercise,
+        ),
+        user_uid=student,
+    )
+    assert created.is_ok, created.expect_error()
+    entry_uid = created.value[0].uid
+
+    async with neo4j_driver.session() as session:
+        result = await session.run(
+            "MATCH (:UserEntry {uid: $uid})-[r:SUBMITTED_TO_GROUP]->(g:Group) "
+            "RETURN collect(g.uid) AS groups",
+            uid=entry_uid,
+        )
+        record = await result.single()
+    # Precondition: the request really asks both classes.
+    assert record is not None and sorted(record["groups"]) == sorted([class_1, class_2])
+
+    queue = (await user_entry_backend.get_review_queue_by_groups(teacher)).value or []
+    assert [row["entry_uid"] for row in queue] == [entry_uid]
+
+    detail = (await user_entry_backend.get_entry_detail_for_teacher(entry_uid, teacher)).value
+    assert detail is not None and len(detail) == 1
