@@ -3,11 +3,11 @@
 ``GoalAchieved.actual_duration_days`` and ``GoalAbandoned.days_active`` are
 ``now - goal.created_at``. A goal's ``created_at`` is aware whenever its stored
 value carries an offset — an authored ``…Z`` stamp (``goal.self-reflection-beginner``)
-or any native — and ``naive datetime.now() - aware`` raises ``TypeError`` after the
-write, so the completion or the delete landed and its event never did. Both sides
-now go through ``as_utc``: the three publishers are pinned here with an aware
-``created_at``, and with a naive one under a zone west of UTC, where the naive stamp
-must still be read as local time.
+or any native — and a naive ``datetime.now()`` minus an aware value raises
+``TypeError``, which after the write would lose the event. Both sides go through
+``as_utc``: the three publishers are pinned here with an aware ``created_at``, and
+with a naive one under a zone west of UTC, where the naive stamp must still be read
+as local time.
 """
 
 from __future__ import annotations

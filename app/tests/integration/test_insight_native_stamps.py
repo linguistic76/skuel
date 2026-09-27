@@ -1,18 +1,16 @@
 """An insight's native stamps survive the read, end to end (testcontainer Neo4j).
 
 The insight writer stores ``created_at`` through ``datetime($created_at)`` — a native —
-so every read hands ``PersistedInsight.from_dict`` a neo4j ``DateTime``. Kept as is,
-``priority_score`` subtracted it from a naive ``datetime.now()`` and raised, and
-``GET /api/insights/active`` answered 500 on every active insight. Nothing is stubbed
-between the writer and the route here: the real ``InsightStore`` writes, the real
-route reads it back.
+so every read hands ``PersistedInsight.from_dict`` a neo4j ``DateTime``, which it
+turns into a Python ``datetime`` before ``priority_score`` measures an age against
+now. Nothing is stubbed between the writer and the route here: the real
+``InsightStore`` writes, and the real ``GET /api/insights/active`` handler reads it
+back and must answer 200.
 
-The same writer stored ``expires_at`` as the literal text ``"datetime('…')"``, which
-``datetime(i.expires_at)`` in every active-insight read cannot parse — one expiring
-insight would have taken each of those queries down. It is a native now, and the
-TTL is honoured. And the history read decodes the JSON fields its three siblings
-decode, so the page renders an insight's recommended actions instead of iterating a
-string.
+``expires_at`` is a native too, stored through ``datetime($expires_at)``, so the
+``datetime(i.expires_at)`` in every active-insight read parses it and the TTL is
+honoured. The history read decodes the JSON fields as its three siblings do, so the
+page renders an insight's recommended actions.
 
 Each test first reads the raw property back and asserts its type, so it pins its
 own premise.

@@ -654,11 +654,11 @@ class EventsCoreService(
             return Result.fail(guard_result)
 
         # A moved date is a reschedule: stamped in the same write, and announced below.
+        # A cleared date is not one — the event is unscheduled, not moved.
+        new_event_date = changes.get("event_date")
         rescheduled_from: date | None = (
             old_event_date
-            if "event_date" in changes
-            and old_event_date
-            and changes["event_date"] != old_event_date
+            if new_event_date is not None and old_event_date and new_event_date != old_event_date
             else None
         )
         if rescheduled_from is not None:

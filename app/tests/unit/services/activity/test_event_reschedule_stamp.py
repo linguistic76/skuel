@@ -2,10 +2,10 @@
 
 ``EventsBackend.count_recent_reschedules`` counts events whose ``rescheduled_at`` is
 inside the last 30 days, and the rescheduling-pattern handler classifies that count
-(rare / occasional / chronic, and a chronic insight). Nothing wrote the property, so
-the count was always 0. The writer is the chokepoint that already decides "this is a
-reschedule" to publish ``CalendarEventRescheduled``: a patch that moves
-``event_date`` carries the stamp in the same write, and one decision drives both.
+(rare / occasional / chronic, and a chronic insight). The writer is the chokepoint
+that decides "this is a reschedule" to publish ``CalendarEventRescheduled``: a patch
+that moves ``event_date`` to another date carries the stamp in the same write, and
+one decision drives both. A cleared date is no reschedule.
 
 The count against a real graph is ``tests/integration/test_event_calendar_day_reads.py``.
 """
@@ -72,6 +72,18 @@ class TestRescheduleStamp:
         result = await service.update_event(EVENT, EventUpdateIntent(title="Study group (room 4)"))
 
         assert result.is_ok, result
+        assert "rescheduled_at" not in recorder.last_updates
+        assert bus.of(CalendarEventRescheduled) == []
+        assert len(bus.of(CalendarEventUpdated)) == 1
+
+    async def test_clearing_the_date_is_not_a_reschedule(self) -> None:
+        """An explicit null unschedules the event; it has no new date to be moved to."""
+        service, recorder, bus = _service(Event(uid=EVENT, user_uid=USER, title="Study group"))
+
+        result = await service.update_event(EVENT, EventUpdateIntent(event_date=None))
+
+        assert result.is_ok, result
+        assert recorder.last_updates["event_date"] is None
         assert "rescheduled_at" not in recorder.last_updates
         assert bus.of(CalendarEventRescheduled) == []
         assert len(bus.of(CalendarEventUpdated)) == 1

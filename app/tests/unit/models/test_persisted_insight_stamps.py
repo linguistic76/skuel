@@ -2,10 +2,10 @@
 
 The insight writer stores ``created_at`` as a native (``datetime($created_at)``) and
 the dismiss / action writers stamp ``datetime()``, so a graph read hands
-``from_dict`` neo4j ``DateTime`` values. Kept as they were, ``priority_score``
-subtracted one from a naive ``datetime.now()`` and raised ``TypeError`` — which is
-what took ``GET /api/insights/active`` down on every active insight. These tests
-build the node dict the way the driver does (neo4j ``DateTime`` values) and pin the
+``from_dict`` neo4j ``DateTime`` values. A neo4j ``DateTime`` does not subtract from
+a Python ``datetime`` (``TypeError``), so ``from_dict`` converts every stamp, and
+``priority_score`` / ``is_expired`` compare through ``as_utc``. These tests build the
+node dict the way the driver does (neo4j ``DateTime`` values) and pin the
 arithmetic on both naive and aware stamps.
 
 The real-graph proof is ``tests/integration/test_insight_native_stamps.py``.

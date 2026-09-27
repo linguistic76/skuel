@@ -260,9 +260,9 @@ async def ensure_test_users(neo4j_driver):
         # cross-tenant isolation in the query itself.
         "user_agg_count",
         "user_agg_other",
-        # UTC arc PR 1 (the host-zone-independent defects): an insight's native
-        # stamps served by the route, the embodiment window over real completions,
-        # and an event's calendar-day reads — each seeded through its real writer.
+        # Instant and calendar-day reads over rows seeded through their real writers:
+        # an insight's native stamps served by its route, the embodiment window over
+        # recorded habit completions, and an event's calendar-day reads.
         "user_insight_native",
         "user_embodiment_window",
         "user_event_calendar_days",

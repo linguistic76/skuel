@@ -1,20 +1,13 @@
 """An event's day is its ``event_date``: the today stat, "upcoming", and reschedules.
 
-``start_time`` is a LOCAL TIME — a time of day with no date in it. Two reads took
-the day from it and could never match:
+``start_time`` is a LOCAL TIME — a time of day with no date in it — so it cannot say
+which day an event is on. ``EventsBackend.get_stats_for_user``'s "today" and
+``PsApplicationDiscoveryService.find_events_applying_knowledge``'s "upcoming" both
+read ``event_date``, the event's calendar day, against a ``$today`` parameter.
 
-- ``EventsBackend.get_stats_for_user``'s "today" compared the first ten characters
-  of ``toString(start_time)`` ("09:30:00") with today's date — always 0;
-- ``PsApplicationDiscoveryService.find_events_applying_knowledge`` kept events whose
-  ``start_time >= datetime()`` — a LOCAL TIME against a DATETIME is null, so the
-  "upcoming events applying knowledge" list was always empty.
-
-Both read ``event_date``, the event's calendar day, against a ``$today`` parameter.
-
-And ``count_recent_reschedules`` read ``rescheduled_at``, which nothing wrote, so the
-rescheduling-pattern handler always saw 0. ``update_event`` stamps it now when an
-update moves the date. Every row here is written by the real writers; each test
-first reads the raw properties back and asserts their types.
+``count_recent_reschedules`` counts the ``rescheduled_at`` stamps ``update_event``
+writes when an update moves the date. Every row here is written by the real
+writers; each test first reads the raw properties back and asserts their types.
 """
 
 from __future__ import annotations

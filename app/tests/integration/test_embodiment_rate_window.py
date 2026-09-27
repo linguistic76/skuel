@@ -1,11 +1,10 @@
 """A habit completion inside the week counts toward its principle's embodiment rate.
 
-``CrossDomainQueryService.get_embodiment_rates_7d`` bound its cutoff as a raw naive
-``datetime``. The driver sends that as a LOCAL DATETIME, and
+``CrossDomainQueryService.get_embodiment_rates_7d``'s cutoff crosses the driver as an
+ISO string read through ``datetime()``, the same way the stored ``completed_at`` is
+read. Bound raw, a naive ``datetime`` arrives as a LOCAL DATETIME, and
 ``datetime(hc.completed_at) >= <LOCAL DATETIME>`` is null in Neo4j — a zoned value
-never compares with a local one — so every completion fell outside the window and
-every principle read 0. The cutoff now crosses as an ISO string read through
-``datetime()``, the same way the stored ``completed_at`` is read.
+never compares with a local one — so no completion would count.
 
 Completions are recorded through the real writer (``record_completion``), whose
 stamp is the host clock's naive ``datetime.now()`` stored as an offset-less string;

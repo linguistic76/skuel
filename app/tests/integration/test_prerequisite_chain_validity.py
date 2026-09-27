@@ -2,13 +2,13 @@
 
 ``build_simple_prerequisite_chain`` keeps an edge only while it is valid: ``valid_from``
 has passed and ``valid_until`` has not. Both properties are ISO strings — written by
-``RelationshipMetadata.to_neo4j_properties`` — and the check bound its "as of"
-moment as a raw naive ``datetime``, which the driver sends as a LOCAL DATETIME. A
-string never compares with a temporal in Neo4j, so an edge carrying any validity
-window was dropped, current or not. Both sides now go through ``datetime()``.
+``RelationshipMetadata.to_neo4j_properties`` — and the "as of" moment crosses as one,
+so ``datetime()`` reads both sides. A string never compares with a temporal in Neo4j:
+against a raw temporal bound, an edge carrying any validity window would drop,
+current or not.
 
-Latent in the stored graph (no edge carries a window today), which is why the edges
-here carry the properties the real writer produces.
+No stored edge carries a window, which is why the edges here carry the properties
+the real writer produces.
 """
 
 from __future__ import annotations
