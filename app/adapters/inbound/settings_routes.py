@@ -2,12 +2,14 @@
 
 Routes:
 - GET /settings — user settings/preferences page
-- POST /settings/save — save user preferences
+- GET /settings/content — the preferences editor fragment
+- POST /settings/save — save user preferences (the editor's one form)
 """
 
 from typing import TYPE_CHECKING, Any
 
 from fasthtml.common import Div
+from starlette.responses import Response
 
 from adapters.inbound.auth import require_authenticated_user
 from adapters.inbound.csrf import csrf_protected
@@ -15,6 +17,7 @@ from adapters.inbound.fasthtml_types import Request
 from adapters.inbound.form_helpers import safe_form_bool, safe_form_int, safe_form_string
 from core.utils.logging import get_logger
 from core.utils.type_converters import get_enum_value
+from core.utils.zone_context import default_zone, validated_zone_name
 from ui.patterns.error_banner import render_error_banner
 from ui.settings import render_settings_page
 
@@ -78,17 +81,30 @@ def create_settings_routes(
         from ui.settings.preferences import UserPreferencesComponents
 
         return Div(
-            UserPreferencesComponents.render_preferences_editor(prefs_dict),
+            UserPreferencesComponents.render_preferences_editor(
+                prefs_dict, default_timezone=default_zone().key
+            ),
             id="settings-content",
         )
 
     @rt("/settings/save")
     @csrf_protected
     async def save_settings(request: Request) -> Any:
-        """Save user preferences from form submission."""
+        """Save user preferences from form submission.
+
+        The time zone is refused (400, nothing saved) unless it is a name
+        zoneinfo lists or empty — the SKUEL default, stored as no choice. The
+        list only offers valid names, so a refusal answers a forged or stale
+        post.
+        """
         user_uid = require_authenticated_user(request)
 
         form_data = await request.form()
+
+        try:
+            timezone = validated_zone_name(safe_form_string(form_data.get("timezone")))
+        except ValueError as e:
+            return Response(str(e), status_code=400)
 
         # Build modalities list from checkboxes
         modalities = []
@@ -113,7 +129,7 @@ def create_settings_routes(
             "daily_summary_time": safe_form_string(form_data.get("daily_summary_time"), "09:00"),
             "theme": safe_form_string(form_data.get("theme"), "light"),
             "language": safe_form_string(form_data.get("language"), "en"),
-            "timezone": safe_form_string(form_data.get("timezone"), "UTC"),
+            "timezone": timezone,
             "weekly_task_goal": safe_form_int(form_data.get("weekly_task_goal"), 10),
             "daily_habit_goal": safe_form_int(form_data.get("daily_habit_goal"), 3),
             "monthly_learning_hours": safe_form_int(form_data.get("monthly_learning_hours"), 20),

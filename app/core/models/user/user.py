@@ -68,7 +68,9 @@ class UserPreferences:
     # Display preferences
     theme: str = "light"  # light, dark, auto
     language: str = "en"
-    timezone: str = "UTC"
+    # The user's zone: an IANA name chosen in Settings, validated at the doors
+    # (core/utils/zone_context.py). None — no choice — follows SKUEL_TIMEZONE.
+    timezone: str | None = None
 
     # Goal preferences
     weekly_task_goal: int = 10

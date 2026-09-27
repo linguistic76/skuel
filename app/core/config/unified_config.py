@@ -27,6 +27,7 @@ from typing import Any
 from core.constants import SYSTEM_USER_UID
 from core.models.enums import EntityType
 from core.utils.logging import get_logger
+from core.utils.zone_context import DEFAULT_TIMEZONE, configured_zone_name
 
 logger = get_logger("skuel.config")
 
@@ -551,6 +552,12 @@ class ApplicationConfig:
     log_level: str = "INFO"
     log_format: str = "json"  # json, text
 
+    # The app default zone (SKUEL_TIMEZONE, an IANA name): the zone of every user
+    # who has not chosen one in Settings, and of system work that acts for no
+    # user (ADR-089 §3). Validated at boot (validation.py); read at runtime
+    # through core/utils/zone_context.py, which reads the same variable.
+    timezone: str = DEFAULT_TIMEZONE
+
     # Monitoring
     metrics_enabled: bool = True
     tracing_enabled: bool = False
@@ -867,6 +874,8 @@ class UnifiedConfig:
         log_level = os.getenv("LOG_LEVEL")
         if log_level:
             self.application.log_level = log_level
+
+        self.application.timezone = configured_zone_name()
 
     def validate(self) -> list[str]:
         """

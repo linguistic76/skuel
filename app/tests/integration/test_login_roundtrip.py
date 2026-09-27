@@ -187,14 +187,16 @@ async def test_role_change_atomically_revokes_live_sessions(neo4j_driver, auth_e
     assert signin.is_ok, f"sign_in failed: {signin.error}"
     token = signin.value["session_token"]
 
-    valid = await auth.validate_session_uid(token)
-    assert valid.is_ok and valid.value == user_uid, "live session must validate before role change"
+    valid = await auth.validate_session_identity(token)
+    assert valid.is_ok and valid.value["user_uid"] == user_uid, (
+        "live session must validate before role change"
+    )
 
     atomic = await auth.session_backend.update_role_and_revoke_sessions(user_uid, UserRole.MEMBER)
     assert atomic.is_ok, f"atomic role-change+revoke failed: {atomic.error}"
     assert atomic.value == 1, "exactly the one live session should be revoked"
 
-    after = await auth.validate_session_uid(token)
+    after = await auth.validate_session_identity(token)
     assert after.is_ok, f"post-role-change validation errored: {after.error}"
     assert after.value is None, "a pre-change session must not validate after the role change"
 
@@ -225,14 +227,16 @@ async def test_deactivation_atomically_revokes_live_sessions(neo4j_driver, auth_
     assert signin.is_ok, f"sign_in failed: {signin.error}"
     token = signin.value["session_token"]
 
-    valid = await auth.validate_session_uid(token)
-    assert valid.is_ok and valid.value == user_uid, "live session must validate before deactivation"
+    valid = await auth.validate_session_identity(token)
+    assert valid.is_ok and valid.value["user_uid"] == user_uid, (
+        "live session must validate before deactivation"
+    )
 
     atomic = await auth.session_backend.deactivate_user_and_revoke_sessions(user_uid)
     assert atomic.is_ok, f"atomic deactivate+revoke failed: {atomic.error}"
     assert atomic.value == 1, "exactly the one live session should be revoked"
 
-    after = await auth.validate_session_uid(token)
+    after = await auth.validate_session_identity(token)
     assert after.is_ok, f"post-deactivation validation errored: {after.error}"
     assert after.value is None, "a deactivated user's session must not validate"
 
@@ -250,7 +254,7 @@ async def test_deactivated_user_cannot_mint_session(neo4j_driver, auth_env):
     sign_in checks ``user.is_active`` early, then spends ~100ms hashing the
     password — a deactivation landing in that window must not mint a live
     session (its cached ``user_is_active`` would be stale-True and
-    validate_session_uid trusts it). The direct backend call below bypasses
+    validate_session_identity trusts it). The direct backend call below bypasses
     sign_in's early check, exactly like a sign-in that loaded the user before
     the deactivation committed.
     """
@@ -296,7 +300,7 @@ async def test_soft_deleted_user_sessions_stop_validating(neo4j_driver, auth_env
     deleted = await UserBackend(neo4j_driver).delete_user(user_uid)
     assert deleted.is_ok and deleted.value is True, f"soft delete failed: {deleted.error}"
 
-    after = await auth.validate_session_uid(token)
+    after = await auth.validate_session_identity(token)
     assert after.is_ok, f"post-delete validation errored: {after.error}"
     assert after.value is None, "a soft-deleted user's session must not validate"
 
@@ -321,7 +325,7 @@ async def test_hard_deleted_user_sessions_are_erased(neo4j_driver, auth_env):
     erased = await UserBackend(neo4j_driver).hard_delete_user(user_uid)
     assert erased.is_ok and erased.value >= 1, f"hard delete failed: {erased.error}"
 
-    after = await auth.validate_session_uid(token)
+    after = await auth.validate_session_identity(token)
     assert after.is_ok, f"post-erasure validation errored: {after.error}"
     assert after.value is None, "an erased user's session must not validate"
 
@@ -401,7 +405,7 @@ async def test_sign_out_kills_token_and_logs_logout(neo4j_driver, auth_env):
     out = await auth.sign_out(token)
     assert out.is_ok and out.value is True, f"sign_out failed: {out.error}"
 
-    after = await auth.validate_session_uid(token)
+    after = await auth.validate_session_identity(token)
     assert after.is_ok, f"post-sign-out validation errored: {after.error}"
     assert after.value is None, "a signed-out token must not validate"
     assert await _count_auth_events(neo4j_driver, user_uid, AuthEventType.LOGOUT.value) == 1
@@ -418,8 +422,8 @@ async def test_sign_out_only_kills_its_own_session(neo4j_driver, auth_env):
     out = await auth.sign_out(token_a)
     assert out.is_ok, f"sign_out failed: {out.error}"
 
-    still = await auth.validate_session_uid(token_b)
-    assert still.is_ok and still.value == user_uid, "the other session must survive"
+    still = await auth.validate_session_identity(token_b)
+    assert still.is_ok and still.value["user_uid"] == user_uid, "the other session must survive"
 
 
 async def test_validate_session_returns_full_user(neo4j_driver, auth_env):
@@ -447,7 +451,7 @@ async def test_change_password_rotates_credentials_and_revokes_sessions(neo4j_dr
     changed = await auth.change_password(user_uid, _PASSWORD, _NEW_PASSWORD)
     assert changed.is_ok and changed.value is True, f"change_password failed: {changed.error}"
 
-    after = await auth.validate_session_uid(token)
+    after = await auth.validate_session_identity(token)
     assert after.is_ok, f"post-change validation errored: {after.error}"
     assert after.value is None, "a pre-change session must not validate after a password change"
 
@@ -468,8 +472,10 @@ async def test_change_password_wrong_current_password_changes_nothing(neo4j_driv
     changed = await auth.change_password(user_uid, "not-the-Current-1234", _NEW_PASSWORD)
     assert changed.is_error, "a wrong current password must be refused"
 
-    still = await auth.validate_session_uid(token)
-    assert still.is_ok and still.value == user_uid, "a refused change must not revoke sessions"
+    still = await auth.validate_session_identity(token)
+    assert still.is_ok and still.value["user_uid"] == user_uid, (
+        "a refused change must not revoke sessions"
+    )
     new = await auth.sign_in(email=email, password=_NEW_PASSWORD)
     assert new.is_error, "a refused change must not have set the new password"
 
@@ -495,7 +501,7 @@ async def test_admin_reset_token_resets_password_once(neo4j_driver, auth_env):
     reset = await auth.reset_password_with_token(reset_token, _NEW_PASSWORD)
     assert reset.is_ok and reset.value is True, f"reset_password_with_token failed: {reset.error}"
 
-    after = await auth.validate_session_uid(token)
+    after = await auth.validate_session_identity(token)
     assert after.is_ok and after.value is None, "a reset must revoke the user's live sessions"
     assert (await auth.sign_in(email=email, password=_PASSWORD)).is_error
     assert (await auth.sign_in(email=email, password=_NEW_PASSWORD)).is_ok
@@ -602,8 +608,10 @@ async def test_expired_reset_token_is_refused_by_the_write(neo4j_driver, auth_en
 
     assert reset.is_error, "an expired token must be refused"
     assert (await auth.sign_in(email=email, password=_PASSWORD)).is_ok
-    still = await auth.validate_session_uid(token)
-    assert still.is_ok and still.value == user_uid, "a refused reset must not revoke sessions"
+    still = await auth.validate_session_identity(token)
+    assert still.is_ok and still.value["user_uid"] == user_uid, (
+        "a refused reset must not revoke sessions"
+    )
 
 
 async def test_change_password_refused_when_hash_changed_underneath(neo4j_driver, auth_env):

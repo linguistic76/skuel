@@ -29,7 +29,7 @@ from core.models.type_hints import UserUID
 from core.models.user import User, create_user
 from core.ports.email_protocols import EmailOperations
 from core.ports.infrastructure_protocols import UserCrudOperations
-from core.ports.query_types import SignInResult, SignUpResult
+from core.ports.query_types import SessionIdentity, SignInResult, SignUpResult
 from core.ports.service_protocols import SessionBackendOperations
 from core.utils.exception_types import AUTH_EXCEPTIONS, NEO4J_EXCEPTIONS
 from core.utils.logging import get_logger
@@ -376,13 +376,14 @@ class GraphAuthService:
             self.logger.error(f"Sign out error: {e}")
             return Result.fail(Errors.system(operation="sign_out", message=str(e)))
 
-    async def validate_session_uid(self, session_token: str) -> Result[UserUID | None]:
+    async def validate_session_identity(self, session_token: str) -> Result[SessionIdentity | None]:
         """
-        Validate session token and return user UID (optimized - no user fetch).
+        Validate a session token; its user and their stored zone choice (no user fetch).
 
         THE per-request auth check (AuthContextMiddleware): ONE indexed
         Neo4j round trip that validates (not revoked, not expired, user
-        active) and batch-touches last_active in the same statement.
+        active), reads the user's zone choice from their preferences, and
+        batch-touches last_active in the same statement.
 
         Backend: SessionBackend.validate_session_token
 
@@ -390,9 +391,10 @@ class GraphAuthService:
             session_token: Session token from cookie
 
         Returns:
-            Result containing user_uid if valid, None if invalid/expired
+            Result containing the session's user uid and zone choice if valid,
+            None if invalid/expired
         """
-        result: Result[UserUID | None] = await self.session_backend.validate_session_token(
+        result: Result[SessionIdentity | None] = await self.session_backend.validate_session_token(
             session_token
         )
         return result
@@ -401,9 +403,9 @@ class GraphAuthService:
         """
         Validate session token and return associated user.
 
-        NOTE: For most use cases, prefer validate_session_uid() which is faster.
-        This method fetches the full User entity - use only when you need
-        user data beyond uid (e.g., role, email, profile).
+        NOTE: For most use cases, prefer validate_session_identity() which is
+        faster. This method fetches the full User entity - use only when you
+        need user data beyond uid (e.g., role, email, profile).
 
         Args:
             session_token: Session token from cookie
@@ -413,16 +415,16 @@ class GraphAuthService:
         """
         try:
             # First do the fast validation
-            uid_result = await self.validate_session_uid(session_token)
-            if uid_result.is_error:
-                return Result.fail(uid_result)
+            identity_result = await self.validate_session_identity(session_token)
+            if identity_result.is_error:
+                return Result.fail(identity_result)
 
-            user_uid = uid_result.value
-            if not user_uid:
+            identity = identity_result.value
+            if identity is None:
                 return Result.ok(None)
 
             # Fetch full user (only when explicitly needed)
-            user_result = await self.user_backend.get_user_by_uid(user_uid)
+            user_result = await self.user_backend.get_user_by_uid(identity["user_uid"])
             if user_result.is_error:
                 return Result.fail(user_result)
 

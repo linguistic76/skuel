@@ -60,6 +60,7 @@ if TYPE_CHECKING:
         LifePathRecommendation,
         LifePathStatus,
         RelationshipGraphData,
+        SessionIdentity,
         SignInResult,
         SignUpResult,
     )
@@ -418,8 +419,8 @@ class GraphAuthOperations(Protocol):
         """Send password reset email. Always returns ok(True) to prevent enumeration."""
         ...
 
-    async def validate_session_uid(self, session_token: str) -> Result[UserUID | None]:
-        """Validate session token and return user UID (fast path, no user fetch)."""
+    async def validate_session_identity(self, session_token: str) -> Result[SessionIdentity | None]:
+        """Validate a session token; its user and their stored zone choice (no user fetch)."""
         ...
 
 
@@ -477,8 +478,8 @@ class SessionBackendOperations(Protocol):
 
     async def validate_session_token(
         self, session_token: str, batch_interval_seconds: int = 300
-    ) -> Result[UserUID | None]:
-        """Validate a token and return its user UID, touching ``last_active``.
+    ) -> Result[SessionIdentity | None]:
+        """Validate a token and return its user and their stored zone choice, touching ``last_active``.
 
         ``batch_interval_seconds`` throttles the touch write so a burst of
         requests on one session does not become a write per request.

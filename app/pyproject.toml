@@ -69,6 +69,11 @@ dependencies = [
     # openai_adapter.py:33. Declared 2026-07-27 — do not drop as "unused".
     "numpy>=2.4.6",
     "tenacity>=9.1.4",
+    # The IANA zone database zoneinfo falls back to. Direct, NOT a transitive ride:
+    # otherwise only the dev group requires it, boot refuses a SKUEL_TIMEZONE
+    # zoneinfo does not list (core/config/validation.py), and a slim production
+    # image need not carry the system's zone files.
+    "tzdata>=2026.3",
 ]
 
 [project.scripts]

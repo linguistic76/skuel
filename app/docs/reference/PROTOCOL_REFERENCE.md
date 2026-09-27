@@ -1,6 +1,6 @@
 ---
 title: Protocol Reference Guide
-updated: 2026-09-25
+updated: 2026-09-27
 status: current
 category: reference
 tags: [protocol, reference]
@@ -527,7 +527,7 @@ Verify the layer before typing `self.backend` against anything named `Group*Oper
 | `SystemServiceOperations` | `system_service` | 11 (5 async health + 6 sync management) | `system_api.py` |
 | `CrossDomainAnalyticsOperations` | `cross_domain_analytics` | 6 async (learning_velocity, spending_patterns, mood, productivity, habit_consistency, get_combined_dashboard) | `analytics_api.py` |
 | `LifePathOperations` | `lifepath` | 3 async + `.alignment` sub-service | `lifepath_api.py` |
-| `GraphAuthOperations` | `graph_auth` | 7 async (sign_up, sign_in, sign_out, reset_password_email, reset_password_with_token, admin_reset_token, validate_session_uid) | `auth_ui.py`, `admin_api.py` |
+| `GraphAuthOperations` | `graph_auth` | 7 async (sign_up, sign_in, sign_out, reset_password_email, reset_password_with_token, admin_reset_token, validate_session_identity) | `auth_ui.py`, `admin_api.py` |
 | `GoalTaskGeneratorOperations` | `goal_task_generator` | 3 (generate_tasks_for_goal, generate_tasks_for_all_goals, generate_next_critical_tasks) | `orchestration_routes.py` |
 | `HabitEventSchedulerOperations` | `habit_event_scheduler` | 1 (schedule_events_for_habit) | `orchestration_routes.py` |
 | `AskesisCoreOperations` | `askesis_core` | 5 (get_or_create, create, get, update, record_conversation) | `askesis_api.py` |

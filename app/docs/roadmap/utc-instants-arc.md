@@ -446,6 +446,40 @@ against the testcontainer. **(laptop)** the script clears the six stored values 
 count); Settings lists zones, and in a browser emulating Asia/Bangkok "Use this device's time zone"
 selects Asia/Bangkok and saves; the page at 375 px.
 
+**Left by PR 2a for the rows after it:**
+
+- **Whose zone** is `core/utils/zone_context.py`: `current_zone()` is the request's zone, set by
+  `AuthContextMiddleware` for every HTTP request (the signed-in user's choice, else the default;
+  anonymous, exempt-path and WebSocket work gets the default) and the app default outside a
+  request; `default_zone()` builds `SKUEL_TIMEZONE` (read at call time through
+  `configured_zone_name()`, which `ApplicationConfig.timezone` also reads at boot); `zone_for(choice)`
+  resolves a stored choice (a name zoneinfo does not list follows the default, with a warning);
+  `validated_zone_name` is the strict check the doors use; `zone_names()` is the valid set —
+  zoneinfo's names minus the host alias `localtime`. **Outside a request**,
+  `UserService.get_user_zone(uid)` → `Result[ZoneInfo]` is the named user's zone (the vault
+  owner's, a report's user's).
+- **The zone helpers** in `timestamp_helpers` take the zone: `today_in(zone)`, `now_in(zone)`,
+  `day_of(instant, zone)` (reads a naive value through `as_utc`, so PR 3's `STORED_INSTANT_CLOCK`
+  reaches it) and `local_day_bounds(day, zone)` → `(start, end)`, aware UTC, half-open. The
+  host-clock day helpers (`today()`, `days_until`, `days_since`, `is_overdue`, `is_today`) are
+  untouched, for PR 2b to replace.
+- **Test craft:** a unit test simulates a request with `current_zone_var.set(ZoneInfo(...))`
+  (reset in `finally`) and pins the default with `monkeypatch.delenv("SKUEL_TIMEZONE")`; a user's
+  zone is set through `UserService.update_preferences(uid, {"timezone": …})`, the Settings door's
+  writer; `tests/unit/utils/test_timestamp_helpers.py` freezes the clock by patching a
+  `datetime` subclass into the module (`_FrozenClock`), and
+  `tests/integration/test_request_zone_resolution.py` drives the real middleware over the
+  testcontainer through `httpx.ASGITransport`, on the test's own event loop.
+- **Settings** is one HTMX form: the five section forms had no submit of their own and "Save All
+  Changes" named a form that did not exist, so the button posted nothing. The list's empty entry
+  ("SKUEL default (…)", built from `default_zone()`) saves as no choice. A sixth hard-coded
+  `"UTC"` sat in the page itself (`prefs.get("timezone", "UTC")`); the list replaced it.
+- **The clear** is `scripts/migrations/clear_unchosen_utc_timezone_2026_09.py` (census by
+  default; `--confirm` writes). The zone lives inside the User node's `preferences` JSON string,
+  so the script compares and rewrites that whole string, in one transaction. Mike runs it
+  **before** choosing a zone in Settings: a changed value among the six stops the census, which
+  then waits for his ruling. PR 2b waits for it.
+
 ### PR 2b — Calendar sites ask the zone
 
 Scope:
@@ -864,7 +898,7 @@ row's laptop steps and their state (pending / done with a date; — for none).
 | 0b | The cloud runbook: § Running the arc in the cloud, the laptop split, the fixed branches, the process rules, the close row (docs only) | Merged; the runner and kickoff prompts stand alone | — | merged #1432, 2026-09-27 |
 | 0c | Runbook fixes from the first cloud session: `gh` installed by the setup script, the GitHub actions authorized in the runner prompt, a branch behind `main` (docs only) | Merged | — | merged #1433, 2026-09-27 |
 | 1 | Pre-flight: insights crash, raw temporal parameters (embodiment), event days, the unwritten `rescheduled_at`, goal-event arithmetic; `as_utc()` | Insights served over a native `created_at`; a non-zero embodiment rate (red before); today's event counts | live insights load (`/api/insights/active`) — pending | merged #1434, 2026-09-27 |
-| 2a | `SKUEL_TIMEZONE`; the user's zone in Settings (list + "Use this device's time zone"); the hard-coded `"UTC"` defaults; the six stored values nulled; the request's zone read from the graph; zone helpers | A bad name refused; a new user follows the default; boot refuses a bad default | the preference clear (OK with count) — a gate before 2b; a Bangkok-emulating browser saves Asia/Bangkok in one click; 375 px | — |
+| 2a | `SKUEL_TIMEZONE`; the user's zone in Settings (list + "Use this device's time zone"); the hard-coded `"UTC"` defaults; the six stored values nulled; the request's zone read from the graph; zone helpers | A bad name refused; a new user follows the default; boot refuses a bad default | the preference clear (`scripts/migrations/clear_unchosen_utc_timezone_2026_09.py`: census, then `--confirm` with Mike's OK on the count) — a gate before 2b — pending; a Bangkok-emulating browser saves Asia/Bangkok in one click — pending; 375 px — pending | merged #1435, 2026-09-27 |
 | 2b | Every calendar site asks the zone (uncalled `date.today` included); Cypher `$today`; calendar-day counts; the type rule; every `datetime.now()` classified; day-to-instant widenings; `DTZ011` on | Forced-zone test (UTC process, Vancouver and Bangkok users) | after 17:00 local the overdue count agrees with the Today page | — |
 | 3 | `STORED_INSTANT_CLOCK`; displays, day-of-instant reads, period bounds and `as_utc` through it (neutral); client doors read in the zone | Golden-file renders unchanged | the pages read right on `main` | — |
 | 4 | The UTC pin, asserted by every driver factory; the applied-record guard (refusals and empty-graph stamp tested); the constant flipped; the migration script — prepared in the cloud as `[awaiting sitting]`, merged in the sitting | Tests, CI and Codex green on the unmerged PR | pending checks first; the sitting: snapshot → census and manifest from the branch → OK → merge → `--confirm` → `--verify` → start; a fresh census refused; the cooldown refuses a second generation within the hour; a new share reads "just now"; exchange order and badges unchanged; the embedding check; the ledger PR | — |

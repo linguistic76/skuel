@@ -141,6 +141,47 @@
         window.location.reload();
     };
 
+    /**
+     * "Use this device's time zone" (Settings): select the browser's own IANA
+     * zone in the zone <select> and say in the note element what happened. The
+     * form's save keeps the choice; the server validates what is posted. A zone
+     * the list does not carry is named in the note and left unselected.
+     *
+     * @param {string} selectId - id of the zone <select>
+     * @param {string} noteId - id of the element that reports the outcome
+     * @returns {string|null} the zone now selected, or null when none was
+     */
+    window.SKUEL.useDeviceZone = function(selectId, noteId) {
+        var select = document.getElementById(selectId);
+        var note = document.getElementById(noteId);
+        if (!select) {
+            return null;
+        }
+        var zone = '';
+        try {
+            zone = Intl.DateTimeFormat().resolvedOptions().timeZone || '';
+        } catch (e) {
+            zone = '';
+        }
+        var listed = zone !== '' && Array.prototype.some.call(select.options, function(option) {
+            return option.value === zone;
+        });
+        var message;
+        if (listed) {
+            select.value = zone;
+            select.dispatchEvent(new Event('change', { bubbles: true }));
+            message = 'Selected ' + zone + '. Save to keep it.';
+        } else if (zone) {
+            message = 'This device reports ' + zone + ', which is not in the list.';
+        } else {
+            message = 'This browser does not report its time zone.';
+        }
+        if (note) {
+            note.textContent = message;
+        }
+        return listed ? zone : null;
+    };
+
     // -------------------------------------------------------------------------
     // CSRF double-submit: attach X-CSRF-Token on every mutating HTMX call.
     // Registered on `document` at script-parse time (NOT inside DOMContentLoaded)

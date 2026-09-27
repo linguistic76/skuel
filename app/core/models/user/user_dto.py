@@ -22,6 +22,7 @@ from core.models.enums import (
     TimeOfDay,
 )
 from core.models.type_hints import EntityUID, UserUID
+from core.utils.zone_context import validated_zone_name
 
 
 @dataclass
@@ -46,7 +47,7 @@ class UserPreferencesDTO:
     # Display preferences
     theme: str = "light"
     language: str = "en"
-    timezone: str = "UTC"
+    timezone: str | None = None  # IANA name; None follows SKUEL_TIMEZONE
 
     # Goal preferences
     weekly_task_goal: int = 10
@@ -223,7 +224,12 @@ class UserDTO:
 
     @classmethod
     def from_dict(cls, data: dict[str, Any]) -> UserDTO:
-        """Create DTO from dictionary"""
+        """Create DTO from dictionary.
+
+        Raises:
+            ValueError: the preferences' ``timezone`` names no zone zoneinfo
+                lists (a blank or missing one is no choice).
+        """
         from core.models.dto_helpers import parse_datetime_fields
 
         # Parse datetimes
@@ -247,7 +253,7 @@ class UserDTO:
                 daily_summary_time=pref_data.get("daily_summary_time", "09:00"),
                 theme=pref_data.get("theme", "light"),
                 language=pref_data.get("language", "en"),
-                timezone=pref_data.get("timezone", "UTC"),
+                timezone=validated_zone_name(pref_data.get("timezone")),
                 weekly_task_goal=pref_data.get("weekly_task_goal", 10),
                 daily_habit_goal=pref_data.get("daily_habit_goal", 3),
                 monthly_learning_hours=pref_data.get("monthly_learning_hours", 20),

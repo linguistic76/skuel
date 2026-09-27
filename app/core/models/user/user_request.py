@@ -18,7 +18,7 @@ __version__ = "1.0"
 from datetime import datetime
 from typing import Any
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 
 from core.infrastructure.utils.factory_functions import create_default_user_energy_pattern
 
@@ -28,6 +28,7 @@ from core.models.enums import (
     LearningLevel,
     TimeOfDay,
 )
+from core.utils.zone_context import validated_zone_name
 
 # ============================================================================
 # USER PREFERENCES SCHEMAS
@@ -73,7 +74,10 @@ class UserPreferencesSchema(BaseModel):
     # Display preferences
     theme: str = Field(default="light", description="UI theme (light, dark, auto)")
     language: str = Field(default="en", description="Language code")
-    timezone: str = Field(default="UTC", description="User timezone")
+    timezone: str | None = Field(
+        default=None,
+        description="The user's zone: an IANA name; None (or blank) follows SKUEL_TIMEZONE",
+    )
 
     # Goal preferences
     weekly_task_goal: int = Field(default=10, ge=0, le=100, description="Target tasks per week")
@@ -81,6 +85,12 @@ class UserPreferencesSchema(BaseModel):
     monthly_learning_hours: int = Field(
         default=20, ge=0, le=500, description="Target learning hours per month"
     )
+
+    @field_validator("timezone")
+    @classmethod
+    def validate_timezone(cls, value: str | None) -> str | None:
+        """A zone zoneinfo lists, or None for no choice (a blank value included)."""
+        return validated_zone_name(value)
 
 
 # ============================================================================

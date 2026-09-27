@@ -22,6 +22,7 @@ This service is part of the refactored UserService architecture:
 import dataclasses
 from datetime import UTC, date, datetime
 from typing import Any
+from zoneinfo import ZoneInfo
 
 from core.constants import SYSTEM_USER_UID, DualTrackCheckin
 from core.events import publish_event
@@ -36,6 +37,7 @@ from core.utils.decorators import with_error_handling
 from core.utils.exception_types import NEO4J_EXCEPTIONS
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
+from core.utils.zone_context import zone_for
 
 logger = get_logger(__name__)
 
@@ -182,6 +184,34 @@ class UserCoreService:
             - Database query fails → DATABASE
         """
         return await self.repo.get_user_by_uid(user_uid)
+
+    @with_error_handling("get_user_zone", error_type="database", uid_param="user_uid")
+    async def get_user_zone(self, user_uid: UserUID) -> Result[ZoneInfo]:
+        """
+        The zone a named user's calendar values belong to, for work outside a request.
+
+        The user's Settings choice, else the app default (``SKUEL_TIMEZONE``).
+        Work done for a user outside a request — a vault sync for the vault's
+        owner, a report generated for a user — resolves the zone here; inside a
+        request the middleware has already resolved it (``current_zone()``).
+
+        Args:
+            user_uid: The user the work is done for
+
+        Returns:
+            Result[ZoneInfo]: The user's zone
+
+        Error cases:
+            - User not found → NOT_FOUND
+            - Database query fails → DATABASE
+        """
+        user_result = await self.get_user(user_uid)
+        if user_result.is_error:
+            return Result.fail(user_result)
+        user = user_result.value
+        if user is None:
+            return Result.fail(Errors.not_found(resource="User", identifier=user_uid))
+        return Result.ok(zone_for(user.preferences.timezone))
 
     @with_error_handling("get_user_by_username", error_type="database")
     async def get_user_by_username(self, username: str) -> Result[User | None]:

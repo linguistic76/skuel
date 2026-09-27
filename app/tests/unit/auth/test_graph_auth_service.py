@@ -11,7 +11,7 @@ email-reset flow's always-ok contract.
 
 from __future__ import annotations
 
-from unittest.mock import AsyncMock
+from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 from neo4j.exceptions import ServiceUnavailable
@@ -234,6 +234,33 @@ async def test_validate_session_skips_user_fetch_for_invalid_token():
 
     assert result.is_ok and result.value is None
     user_backend.get_user_by_uid.assert_not_awaited()
+
+
+async def test_validate_session_identity_carries_the_users_zone_choice():
+    """One round trip answers who the session is AND the zone they chose."""
+    service, user_backend, session_backend = _service()
+    identity = {"user_uid": "user_bkk", "timezone": "Asia/Bangkok"}
+    session_backend.validate_session_token.return_value = Result.ok(identity)
+
+    result = await service.validate_session_identity("live-token")
+
+    assert result.is_ok and result.value == identity
+    session_backend.validate_session_token.assert_awaited_once_with("live-token")
+    user_backend.get_user_by_uid.assert_not_awaited()
+
+
+async def test_validate_session_fetches_the_identitys_user():
+    service, user_backend, session_backend = _service()
+    session_backend.validate_session_token.return_value = Result.ok(
+        {"user_uid": "user_bkk", "timezone": None}
+    )
+    user = MagicMock()
+    user_backend.get_user_by_uid.return_value = Result.ok(user)
+
+    result = await service.validate_session("live-token")
+
+    assert result.is_ok and result.value is user
+    user_backend.get_user_by_uid.assert_awaited_once_with("user_bkk")
 
 
 # ============================================================================
