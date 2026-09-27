@@ -26,6 +26,7 @@ from core.models.user_entry.user_entry_request import UserEntryCreateRequest
 async def test_teacher_review_submission_lands_in_review_queue(
     clean_neo4j,
     user_entry_service,
+    user_entry_backend,
     neo4j_driver,
     seed_classroom,
 ) -> None:
@@ -94,7 +95,7 @@ async def test_teacher_review_submission_lands_in_review_queue(
         assert sg is not None and sg["cnt"] == 1, "feedback request to the group was not filed"
 
     # Teacher review queue picks the entry up
-    queue_result = await user_entry_service.get_review_queue(
+    queue_result = await user_entry_backend.get_review_queue_by_groups(
         teacher_uid=ctx["teacher_uid"],
     )
     assert queue_result.is_ok, queue_result.expect_error()
@@ -105,4 +106,3 @@ async def test_teacher_review_submission_lands_in_review_queue(
     match = next(row for row in queue if row["entry_uid"] == entry.uid)
     assert match["revision"] == 1
     assert match["exercise_uid"] == ctx["exercise_uid"]
-    assert match["group_uid"] == ctx["group_uid"]

@@ -1,6 +1,6 @@
 ---
 title: Content Sharing Patterns
-updated: '2026-09-26'
+updated: '2026-09-27'
 category: patterns
 related_skills:
 - pytest
@@ -61,7 +61,11 @@ entry ──SHARED_WITH_GROUP {shared_at, share_version}──▶ Group ◀─ME
   entry in a queue.
 - A teacher-side reader (the review queue and its detail, the dashboard counts, the teaching
   group pages, the exchange in teacher mode, the forms gate) reads `SUBMITTED_TO_GROUP` under
-  `(teacher)-[:OWNS]->(g:Group {is_active: true})`. A member reader (`/groups`) reads
+  `(teacher)-[:OWNS]->(g:Group {is_active: true})`. A teacher-side list or teacher-wide count
+  reads an entry once, however many of that teacher's groups it asks (a `teachers` request files
+  to every class the student is in without an exercise, or with one to each of its assigned
+  classes the student is in); a per-group page (a class card, a group's detail)
+  counts it in each group it asks. A member reader (`/groups`) reads
   `SHARED_WITH_GROUP` under `MEMBER_OF`. A direct `SHARES_WITH` from a teacher is a share, never
   a review grant.
 - Migration: `scripts/migrations/split_submissions_from_shares_2026_09.py` (census by default,

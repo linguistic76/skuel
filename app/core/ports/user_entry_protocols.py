@@ -272,7 +272,8 @@ class UserEntryAssessmentOperations(Protocol):
         """Entries awaiting this teacher's review, newest submission first.
 
         Scoped to groups the teacher OWNS: an entry qualifies only by having
-        been shared to one of those groups with pipeline ``teacher_review``.
+        been submitted (a feedback request) to one of those groups with pipeline
+        ``teacher_review``, and is listed once however many of them it asks.
         Empty when the teacher owns no groups, so the queue never reveals that
         an unrelated student's submission exists.
 
@@ -286,9 +287,9 @@ class UserEntryAssessmentOperations(Protocol):
         ``entry_uid``, ``title``, ``status``, ``entity_type``,
         ``original_filename``, ``submitted_at``, ``student_uid``,
         ``student_name``, ``exercise_uid``, ``exercise_title``, ``due_date``,
-        ``revision``, ``group_uid``, ``feedback_count``. The aliases ARE the
-        contract: nothing statically links them to a consumer's key, and
-        ``TeacherReviewService`` remaps 12 of them into ``ReviewQueueItem``.
+        ``revision``, ``feedback_count``. The aliases ARE the contract: nothing
+        statically links them to a consumer's key, and ``TeacherReviewService``
+        remaps every key into ``ReviewQueueItem``.
 
         ``feedback_count`` counts EntryReports already written for the entry,
         so a re-reviewed entry is distinguishable from an untouched one.
@@ -326,7 +327,7 @@ class UserEntryAssessmentOperations(Protocol):
     async def get_entries_for_exercise_review(
         self, exercise_uid: str, teacher_uid: str
     ) -> Result[list[Neo4jProperties]]:
-        """Entries against an exercise shared with the requesting teacher's groups."""
+        """Entries against an exercise submitted to the requesting teacher's groups."""
         ...
 
     async def get_students_summary(self, teacher_uid: str) -> Result[list[Neo4jProperties]]:
@@ -336,11 +337,11 @@ class UserEntryAssessmentOperations(Protocol):
     async def get_student_entries_for_teacher(
         self, teacher_uid: str, student_uid: str
     ) -> Result[list[Neo4jProperties]]:
-        """All entries owned by a student, gated by shared active group.
+        """A student's entries submitted to this teacher, gated per entry.
 
-        Empty when teacher and student do not share an active group — callers
-        treat as a genuinely empty per-student history (no leak of unrelated
-        students' submissions).
+        Each entry must be ``SUBMITTED_TO_GROUP`` an active group the teacher
+        owns. Empty when none is — callers treat it as a genuinely empty
+        per-student history (no leak of unrelated students' submissions).
         """
         ...
 
@@ -355,8 +356,9 @@ class UserEntryAssessmentOperations(Protocol):
     ) -> Result[list[Neo4jProperties]]:
         """Full entry detail for teacher review, gated by SUBMITTED_TO_GROUP.
 
-        Empty when the entry is not submitted to any active group the teacher
-        owns — service-layer callers map empty to ``Errors.not_found`` (404).
+        One row, or none: empty when the entry is not submitted to any active
+        group the teacher owns — service-layer callers map empty to
+        ``Errors.not_found`` (404).
         """
         ...
 

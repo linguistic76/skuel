@@ -1569,7 +1569,9 @@ class SignInResult(TypedDict, total=False):
 
 
 class ReviewQueueItem(TypedDict, total=False):
-    """Single item in teacher's review queue."""
+    """One entry in this teacher's review queue (the needs-review view or the
+    waiting-for-resubmit view) — listed once, however many of the teacher's
+    groups it was submitted to."""
 
     submission_uid: str
     title: str

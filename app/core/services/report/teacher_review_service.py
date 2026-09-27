@@ -106,7 +106,8 @@ class TeacherReviewService:
         Get teacher's pending review queue.
 
         Returns entries submitted to the teacher's groups via SUBMITTED_TO_GROUP
-        (the feedback request, ADR-088 §2) whose pipeline is ``teacher_review``.
+        (the feedback request, ADR-088 §2) whose pipeline is ``teacher_review``,
+        one item per entry however many of the teacher's groups it asks.
         Empty when the teacher owns no groups or no entries have been submitted
         — does not leak the existence of unrelated students' submissions. A
         share with the group never queues.
@@ -132,10 +133,10 @@ class TeacherReviewService:
         if result.is_error:
             return Result.fail(result)
 
-        # Remap backend keys (entry_uid, exercise_title) to ReviewQueueItem
-        # public shape (submission_uid, exercise_name) so UI consumers
-        # (ui/teaching/types.queue_item_from_dict, scripts/export_submissions)
-        # see a stable surface across the get_review_queue → by_groups rewire.
+        # Remap backend keys (entry_uid, exercise_title) to the ReviewQueueItem
+        # public shape (submission_uid, exercise_name) — the one surface UI
+        # consumers (ui/teaching/types.queue_item_from_dict,
+        # scripts/export_submissions) read.
         # boundary: neo4j-rows — heterogeneous dict columns vary per query
         # (execute_query's own return type); viewed as dict[str, Any] so the typed
         # literal below builds without per-value casts.
@@ -618,7 +619,7 @@ class TeacherReviewService:
 
         Args:
             exercise_uid: Exercise UID to fetch submissions for
-            teacher_uid: Requesting teacher — only submissions shared with a
+            teacher_uid: Requesting teacher — only submissions submitted to a
                 group this teacher owns are returned (cross-teacher isolation)
 
         Returns:
@@ -653,7 +654,7 @@ class TeacherReviewService:
         teacher_uid: str,
     ) -> Result[list[StudentSummaryItem]]:
         """
-        Get students who have shared work with this teacher, with counts.
+        Get students who have submitted work to this teacher's groups, with counts.
 
         Args:
             teacher_uid: Teacher UID
@@ -685,13 +686,13 @@ class TeacherReviewService:
         student_uid: str,
     ) -> Result[list[StudentSubmissionItem]]:
         """
-        Get all submissions owned by a student, gated by shared active group.
+        Get a student's submissions to this teacher, gated per entry.
 
-        Returns the student's submissions only when the teacher and student
-        share an active group (``(teacher)-[:OWNS]->(g:Group {is_active:true})
-        <-[:MEMBER_OF]-(student)``). Empty when no shared active group exists,
-        which the route surface treats as a genuinely empty per-student
-        history — does not leak the existence of unrelated students' work.
+        Each entry must itself be ``SUBMITTED_TO_GROUP`` an active group the
+        teacher owns — the gate the detail read uses — so a student's other
+        work never appears. Empty when none qualifies, which the route surface
+        treats as a genuinely empty per-student history — does not leak the
+        existence of unrelated students' work.
 
         Args:
             teacher_uid: Teacher UID (load-bearing; gates the read)
@@ -758,7 +759,7 @@ class TeacherReviewService:
         if not records:
             return Result.fail(
                 Errors.not_found(
-                    f"Submission {submission_uid} not found or not shared with teacher"
+                    f"Submission {submission_uid} not found or not submitted to this teacher"
                 )
             )
 

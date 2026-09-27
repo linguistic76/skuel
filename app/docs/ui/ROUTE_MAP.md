@@ -1,5 +1,5 @@
 ---
-updated: 2026-09-26
+updated: 2026-09-27
 ---
 
 # Route Map
@@ -135,7 +135,7 @@ Teaching child pages (Students, Groups, Review Queue, Forms) use `SidebarPage` w
 
 ### `/teaching/queue` — Review Queue
 
-Two link-tab views over the SAME student-scoped queue query (`get_review_queue_by_groups` — one collapse rule, per-entry `SUBMITTED_TO_GROUP` gate): **Needs review** (default; statuses submitted/active) and **Waiting for resubmit** (`?view=waiting`; status `revision_requested` — feedback-loop UX arc 2, C3). A resubmit supersedes the revision-requested copy in its lineage, automatically moving the exercise from Waiting back to Needs review. The per-student page's Needs Review / Revision Requested buckets read the same two scoped queues, so the surfaces never disagree. Routes in `adapters/inbound/teaching_ui.py`.
+Two link-tab views over the SAME student-scoped queue query (`get_review_queue_by_groups` — one collapse rule, per-entry `SUBMITTED_TO_GROUP` gate, one card per entry however many of the teacher's classes it was submitted to): **Needs review** (default; statuses submitted/active) and **Waiting for resubmit** (`?view=waiting`; status `revision_requested` — feedback-loop UX arc 2, C3). A resubmit supersedes the revision-requested copy in its lineage, automatically moving the exercise from Waiting back to Needs review. The per-student page's Needs Review / Revision Requested buckets read the same two scoped queues, so the surfaces never disagree. Routes in `adapters/inbound/teaching_ui.py`.
 
 ### `/teaching/forms`
 

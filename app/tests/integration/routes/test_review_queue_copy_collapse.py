@@ -295,7 +295,10 @@ async def _queue_uids(
     )
     assert result.is_ok, f"queue read failed: {result}"
     items: list[ReviewQueueItem] = list(result.value)
-    return {item["submission_uid"] for item in items}
+    listed = [item["submission_uid"] for item in items]
+    # One row per entry — a repeat is the same feedback request listed twice.
+    assert len(listed) == len(set(listed)), f"queue repeats an entry: {listed}"
+    return set(listed)
 
 
 async def _waiting_uids(
@@ -650,3 +653,113 @@ class TestNoteLineageCollapse:
         assert s2["submission_count"] == 6
         assert s2["reviewed_count"] == 1
         assert s2["pending_count"] == 3  # ex1, ex3 rev2, note A
+
+
+# ----------------------------------------------------------------------------
+# One row per entry across a teacher's classes
+# ----------------------------------------------------------------------------
+
+SECOND_GROUP_UID = "group_qcc_second"  # TEACHER's second class; STUDENT_1 is in both
+S1_NONE_SUBMITTED = "ue_qcc_s1_none_submitted"  # a feedback-request edge on a non-review entry
+
+
+@pytest.fixture
+async def seeded_second_class(seeded, neo4j_driver) -> None:
+    """STUDENT_1 is in two of TEACHER's classes, and three entries asked both.
+
+    A ``teachers`` request with no exercise fans out to every class the
+    student is in (``AudienceResolver._expand_teachers``), so an entry can be
+    ``SUBMITTED_TO_GROUP`` several groups one teacher owns: one feedback
+    request to that teacher, never one per class. ``S1_NONE_SUBMITTED`` is a
+    ``pipeline: none`` entry carrying the edge anyway: the detail read gates on
+    the pipeline as well as the edge, so it opens nothing.
+    """
+    async with neo4j_driver.session() as session:
+        await session.run(
+            """
+            MATCH (t:User {uid: $teacher}), (s1:User {uid: $student_1})
+            MERGE (g:Group {uid: $second}) SET g.is_active = true
+            MERGE (t)-[:OWNS]->(g)
+            MERGE (s1)-[:MEMBER_OF]->(g)
+            WITH g, s1
+            MATCH (e:UserEntry) WHERE e.uid IN $both
+            MERGE (e)-[:SUBMITTED_TO_GROUP]->(g)
+            WITH DISTINCT g, s1
+            CREATE (n:Entity:UserEntry {
+                uid: $none_uid, entity_type: 'user_entry', title: 'Not a review',
+                pipeline: 'none', status: 'submitted', user_uid: $student_1,
+                created_at: '2026-09-01T10:00:00'
+            })
+            MERGE (s1)-[:OWNS]->(n)
+            MERGE (n)-[:SUBMITTED_TO_GROUP]->(g)
+            """,
+            teacher=TEACHER,
+            student_1=STUDENT_1,
+            second=SECOND_GROUP_UID,
+            both=[S1_LONE, S1_REV2, S1_EX3_WAIT],
+            none_uid=S1_NONE_SUBMITTED,
+        )
+        result = await session.run(
+            """
+            MATCH (e:UserEntry)-[:SUBMITTED_TO_GROUP]->(g:Group)<-[:OWNS]-(:User {uid: $teacher})
+            WHERE e.uid IN $both
+            RETURN e.uid AS uid, count(g) AS groups
+            """,
+            teacher=TEACHER,
+            both=[S1_LONE, S1_REV2, S1_EX3_WAIT],
+        )
+        rows = {row["uid"]: row["groups"] async for row in result}
+    # Positive control: each of the three really asks two of TEACHER's classes.
+    assert rows == {S1_LONE: 2, S1_REV2: 2, S1_EX3_WAIT: 2}
+
+
+class TestOneRowPerEntry:
+    """An entry asking several of one teacher's classes is listed once."""
+
+    async def test_the_queue_lists_each_entry_once(
+        self, review_service, seeded_second_class
+    ) -> None:
+        result = await review_service.get_review_queue(TEACHER)
+        assert result.is_ok, f"queue read failed: {result}"
+        listed = [item["submission_uid"] for item in result.value]
+        assert sorted(listed) == sorted([S1_REV2, S1_LONE, S2_EX1, S1_EX2_REV1, S2_EX3_REV2])
+
+    async def test_the_student_scoped_queue_lists_each_entry_once(
+        self, review_service, seeded_second_class
+    ) -> None:
+        result = await review_service.get_review_queue(TEACHER, student_uid=STUDENT_1)
+        assert result.is_ok, f"queue read failed: {result}"
+        listed = [item["submission_uid"] for item in result.value]
+        assert sorted(listed) == sorted([S1_REV2, S1_LONE, S1_EX2_REV1])
+
+    async def test_the_waiting_view_lists_each_entry_once(
+        self, review_service, seeded_second_class
+    ) -> None:
+        result = await review_service.get_review_queue(TEACHER, status_filter="revision_requested")
+        assert result.is_ok, f"queue read failed: {result}"
+        assert [item["submission_uid"] for item in result.value] == [S1_EX3_WAIT]
+
+    async def test_the_detail_read_is_one_row(self, review_service, seeded_second_class) -> None:
+        rows = await review_service.user_entry_backend.get_entry_detail_for_teacher(
+            S1_LONE, TEACHER
+        )
+        assert rows.is_ok, f"detail read failed: {rows}"
+        assert len(rows.value) == 1
+        detail = await review_service.get_submission_detail(S1_LONE, TEACHER)
+        assert detail.is_ok, f"submission detail failed: {detail}"
+
+    async def test_the_detail_read_keeps_its_pipeline_gate(
+        self, review_service, seeded_second_class
+    ) -> None:
+        """A feedback-request edge on a non-review entry opens nothing."""
+        rows = await review_service.user_entry_backend.get_entry_detail_for_teacher(
+            S1_NONE_SUBMITTED, TEACHER
+        )
+        assert rows.is_ok, f"detail read failed: {rows}"
+        assert rows.value == []
+
+    async def test_the_badge_still_agrees(self, review_service, seeded_second_class) -> None:
+        """Guard — the dashboard badge counts each entry once: 5, the queue's length."""
+        stats = await review_service.get_dashboard_stats(TEACHER)
+        assert stats.is_ok, f"dashboard read failed: {stats}"
+        assert stats.value["pending_count"] == 5

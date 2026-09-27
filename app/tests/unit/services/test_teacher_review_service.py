@@ -144,11 +144,12 @@ class TestVerifyTeacherHasGroupAccess:
 
 
 class TestGroupMembershipRejection:
-    """A teacher with no shared active group with the student must be rejected
-    (404) on all four state-changing review endpoints.
+    """A teacher the submission was not submitted to must be rejected (404) on
+    all four state-changing review endpoints.
 
-    Empty backend result models the Cypher not matching the
-    ``(teacher)-[:OWNS]->(g:Group)<-[:MEMBER_OF]-(student)`` join.
+    Empty backend result models ``verify_teacher_has_group_access`` not
+    matching: the entry is ``SUBMITTED_TO_GROUP`` no active group the teacher
+    owns.
     """
 
     @pytest.mark.asyncio
@@ -657,7 +658,6 @@ class TestGetReviewQueue:
                 "due_date": None,
                 "original_filename": None,
                 "revision": 1,
-                "group_uid": GROUP_UID,
                 "feedback_count": 2,
             }
         ]
@@ -788,7 +788,7 @@ class TestGetSubmissionDetail:
         result = await service.get_submission_detail(SUBMISSION_UID, TEACHER_UID)
 
         assert result.is_error
-        assert "not found or not shared with teacher" in str(result.error)
+        assert "not found or not submitted to this teacher" in str(result.error)
 
     @pytest.mark.asyncio
     async def test_db_error_propagated(self):
@@ -828,7 +828,7 @@ class TestGetSubmissionDetail:
         result = await service.get_submission_detail(SUBMISSION_UID, "user_other_teacher")
 
         assert result.is_error
-        assert "not found or not shared with teacher" in str(result.error)
+        assert "not found or not submitted to this teacher" in str(result.error)
 
 
 # ========================================================================
@@ -1102,13 +1102,13 @@ class TestGetStudentSubmissions:
 
     @pytest.mark.asyncio
     async def test_cross_teacher_access_returns_empty_list(self):
-        """SECURITY: Teacher with no shared active group → empty student history.
+        """SECURITY: none of the student's entries asks this teacher → empty history.
 
-        Backend ``get_student_entries_for_teacher`` returns [] when the
-        Model-A anchor ``(teacher)-[:OWNS]->(g:Group {is_active:true})
-        <-[:MEMBER_OF]-(student)`` doesn't match. Service surface returns
-        an empty list — indistinguishable from a genuinely empty per-student
-        history. No content leak across classrooms.
+        Backend ``get_student_entries_for_teacher`` gates each entry on its own
+        ``SUBMITTED_TO_GROUP`` to an active group the teacher owns and returns
+        [] when none qualifies. The service returns an empty list —
+        indistinguishable from a genuinely empty per-student history. No
+        content leak across classrooms.
         """
         backend = _make_user_entry_backend()
         backend.get_student_entries_for_teacher.return_value = Result.ok([])

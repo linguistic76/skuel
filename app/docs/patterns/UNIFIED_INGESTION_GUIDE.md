@@ -1,6 +1,6 @@
 ---
 title: Unified Ingestion Implementation Guide
-updated: 2026-09-26
+updated: 2026-09-27
 category: patterns
 related_skills: []
 related_docs:
@@ -371,7 +371,10 @@ submit:
   note (`submitted_from_uid`). Siblings the teacher cannot see (a private
   AI entry; a copy directed only to another teacher's group; one in a
   deactivated group; a share-only copy) never retire pending work, and
-  every copy stays in the per-student history.
+  every copy stays in the per-student history. A copy lists once, though
+  its default `teachers` audience files one `SUBMITTED_TO_GROUP` per class
+  it reaches (every class the student is in without an exercise; with one,
+  each of its assigned classes the student is in).
 - **Visibility:** the declared intent surfaces as an **"In Progress"**
   status pill on the exercise lists (`/library/exercises`, profile
   Exercises tab, PathStep detail) with a "View Entry →" link to the living
