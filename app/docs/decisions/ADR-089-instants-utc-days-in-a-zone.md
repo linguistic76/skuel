@@ -100,8 +100,10 @@ depend on the host that wrote it.
   since). A row the rules cannot classify stops the run. The migration moves digits, never shapes,
   so its state lives outside the values: it applies an immutable manifest, built once while the app
   is stopped, in one transaction with a durable applied record. From the cutover on, the code
-  refuses to open a graph that holds data but no such record (a graph opened empty is stamped with
-  it at once); this data-version guard stays after the pin is removed. Calendar values, authored
+  refuses to open a graph that holds data unless that record is present and in its applied state
+  (a reverted migration is refused; a graph opened empty is stamped with it at once); this
+  data-version guard stays after the pin is removed. The manifest names rows by application keys
+  (`uid`, and a relationship's endpoints and type), never by element id. Calendar values, authored
   days and diagnostic stamps nested in JSON metadata are not touched; a JSON-nested stamp that code
   compares as an instant is migrated.
 - The cutover pins the process clock to UTC at every entry point, asserted by every graph driver

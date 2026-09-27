@@ -268,25 +268,28 @@ outside the values: an immutable manifest, one transaction, and a durable applie
    UTC-clock process wrote it. (A still-open period's future `period_end` is expected, not a stop.)
    The script computes that wall clock explicitly (`datetime.now(ZoneInfo("America/Vancouver"))`):
    it runs pinned itself.
-3. **The census writes an immutable manifest** — one row per value to shift: element id (node or
-   relationship), property or JSON path, the value's shape, old value, new value, rule — and prints
+3. **The census writes an immutable manifest** — one row per value to shift: a durable key (a node's
+   `uid`; a relationship's start `uid`, type and end `uid` — never an element id, which Neo4j
+   guarantees only within one transaction), property or JSON path, the value's shape, old value, new
+   value, rule — and prints
    per-rule counts with samples (old → new) for Mike's OK. With the app stopped, the manifest is the
-   whole of the work.
+   whole of the work. A key that does not resolve to exactly one element (a node without a `uid`, two
+   relationships between the same pair) stops the census and is listed.
 4. **`--confirm` applies that manifest and nothing else, in one transaction.** One `UNWIND $rows`
    statement binds typed values — a driver DateTime for a native, a string for a string (R5) — sets
    each property where it still equals `$old`, and returns the rows that did not match; any unmatched
    row rolls the transaction back and is listed as a conflict, never re-derived. The same transaction
-   writes a **durable applied record** (the migration's name, the manifest's hash, per-rule counts;
-   its label a new `NeoLabel` member chosen in PR 4). About 1,230 values fit one transaction (raise
+   writes a **durable applied record** (the migration's name, the manifest's hash, per-rule counts,
+   and its state, `applied`; its label a new `NeoLabel` member chosen in PR 4). About 1,230 values fit one transaction (raise
    its ceiling with `neo4j_query_timeout` if needed). A run in the wrong state is **refused**
-   (non-zero exit, nothing written): a census or `--confirm` once the applied record exists;
-   `--revert` without it.
+   (non-zero exit, nothing written): a census or `--confirm` while the record's state is `applied`;
+   `--revert` unless it is.
 5. **`--verify`, in the deploy sitting right after `--confirm`:** every manifest row at its new value
-   and the applied record present — plus the **classification check**: the 31 nodes whose naive
+   and the applied record in state `applied` — plus the **classification check**: the 31 nodes whose naive
    `created_at` and server `embedding_updated_at` were written together read 7.00 h apart before and
    about 0 h after. (Rows the app rewrites later are expected; `--verify` is not an arc-close check.)
-6. **`--revert`** applies the same manifest new → old by compare-and-set in one transaction and
-   records the reversal on the applied record. It serves the deploy sitting: once the app has written
+6. **`--revert`** applies the same manifest new → old by compare-and-set and sets the record's state
+   to `reverted`, in one transaction. It serves the deploy sitting: once the app has written
    on the PR 4 code, the fix goes forward — or the Aura snapshot is restored together with the
    pre-PR-4 code.
 7. **Deploy, in one sitting — PR 4 is merged in it, not before:** stop the running app and any
@@ -294,8 +297,9 @@ outside the values: an immutable manifest, one transaction, and a durable applie
    (manifest) → Mike's OK with the counts → `--confirm` → `--verify` → start the app. **No process
    runs the PR 4 code against AuraDB before `--confirm`:** its stamps are UTC digits in the
    offset-less shape, which a census cannot tell from the laptop's. PR 4 enforces it — the pinned
-   code refuses to open a graph driver onto a graph that holds data but no applied record (the
-   migration script is the one exception), and a graph it opens empty (a fresh install, a test
+   code refuses to open a graph driver onto a graph that holds data unless the record exists, names
+   this migration and is in state `applied` (a reverted graph is refused too; the migration script is
+   the one exception), and a graph it opens empty (a fresh install, a test
    database) is stamped with the record at once, since it never held the old clock — and the ledger
    records PR 4 as merged **and deployed**.
 
@@ -471,7 +475,8 @@ record present, and the classification check holding; a fresh census is refused;
 activity report twice within the hour — the second is refused by the cooldown; a share made now
 reads "just now" and its notification shows the wall-clock time; the GradeBook exchange order and
 the review badges are unchanged for the live exchanges (snapshot before and after); a pinned process
-refuses to open a driver onto a seeded graph without the applied record, and a graph opened empty
+refuses to open a driver onto a seeded graph whose record is missing or `reverted`, and a graph
+opened empty
 is stamped with the record and opens again after a restart.
 
 ### PR 5 — Readers compare aware values (`core/`)
@@ -522,8 +527,9 @@ elapsed time matters); any `datetime.combine` and `datetime.min`/`max` left with
 
 Scope: remove the pin, its driver-factory assertion and `STORED_INSTANT_CLOCK` (the helpers keep
 the UTC reading; `as_utc` keeps reading a naive value as UTC). **The applied-record check stays** —
-a data-version guard, not the process pin R8 retires: a restored pre-PR-4 snapshot, or any populated
-graph never migrated, is refused rather than read as UTC and mixed with true-UTC writes. Enable ruff `DTZ` for `core/`, `adapters/`, `ui/` in `pyproject.toml`, with the
+a data-version guard, not the process pin R8 retires: a restored pre-PR-4 snapshot, a reverted
+migration, or any populated graph never migrated, is refused rather than read as UTC and mixed with
+true-UTC writes. Enable ruff `DTZ` for `core/`, `adapters/`, `ui/` in `pyproject.toml`, with the
 uncalled-reference check in the lint; a forced-zone guard (America/Vancouver and Asia/Bangkok) over
 the cooldown, a share's relative time, today and overdue, and a day-of-instant read. Rewrite Pattern
 10 and Key Rules #17/#18 (the naive-local invariant is gone) and the CLAUDE.md lines that state it;
@@ -596,7 +602,7 @@ A live walk-through as linguistic76, plus a second account set to Asia/Bangkok:
    Today, overdue and habit streaks follow the Bangkok day, and the entry's time reads in Bangkok
    time; switch back and they follow Vancouver.
 4. After 17:00 local, a task due today is not overdue in any count.
-5. The migration's applied record is present, and the classification check still holds (the paired
+5. The migration's record is in state `applied`, and the classification check still holds (the paired
    `created_at` / `embedding_updated_at` nodes read about 0 h apart).
 6. `uv run ruff check --select DTZ core adapters ui` and the uncalled-reference check read 0, and the
    forced-zone suite passes under `TZ=America/Vancouver` and `TZ=Asia/Bangkok`.
