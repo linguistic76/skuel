@@ -99,9 +99,11 @@ depend on the host that wrote it.
   precision and date against the laptop's zone history (UTC+7 until 2026-03-27, America/Vancouver
   since). A row the rules cannot classify stops the run. The migration moves digits, never shapes,
   so its state lives outside the values: it applies an immutable manifest, built once while the app
-  is stopped, in one transaction with a durable applied record, and pinned code refuses to open a
-  graph that holds data but no such record.
-  Calendar values, authored days and stamps nested in JSON metadata are not touched.
+  is stopped, in one transaction with a durable applied record. From the cutover on, the code
+  refuses to open a graph that holds data but no such record (a graph opened empty is stamped with
+  it at once); this data-version guard stays after the pin is removed. Calendar values, authored
+  days and diagnostic stamps nested in JSON metadata are not touched; a JSON-nested stamp that code
+  compares as an instant is migrated.
 - The cutover pins the process clock to UTC at every entry point, asserted by every graph driver
   factory (a temporary bridge), so every naive writer writes UTC
   at once; the code is then swept to aware datetimes behaviour-neutrally, and the pin is removed.

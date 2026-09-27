@@ -260,8 +260,10 @@ outside the values: an immutable manifest, one transaction, and a durable applie
      no code compares; zone-id `UTC` natives; `date` strings and LOCAL TIMEs (calendar values).
 2. **An unclassified row stops the run** (exit 2, before and regardless of `--confirm`) and is
    listed: a property or writer missing from the table; a laptop-clock stamp dated 2026-03-27; a
-   mixed-writer property without a discriminator; a JSON-nested stamp not classified as read or
-   diagnostic; and a shift candidate on a property stamped "now" (`created_at`, `updated_at`, the
+   mixed-writer property without a discriminator; a millisecond native on a property where
+   precision is the only discriminator between a naive Python writer and Cypher `datetime()` (a
+   Python stamp lands on a whole millisecond one time in a thousand) — unless a paired stamp written
+   in the same moment settles it; a JSON-nested stamp not classified as read or diagnostic; and a shift candidate on a property stamped "now" (`created_at`, `updated_at`, the
    other `*_at` stamps) whose digits are later than the laptop's wall clock at the census — a
    UTC-clock process wrote it. (A still-open period's future `period_end` is expected, not a stop.)
    The script computes that wall clock explicitly (`datetime.now(ZoneInfo("America/Vancouver"))`):
@@ -293,8 +295,9 @@ outside the values: an immutable manifest, one transaction, and a durable applie
    runs the PR 4 code against AuraDB before `--confirm`:** its stamps are UTC digits in the
    offset-less shape, which a census cannot tell from the laptop's. PR 4 enforces it — the pinned
    code refuses to open a graph driver onto a graph that holds data but no applied record (the
-   migration script is the one exception; an empty test graph is allowed) — and the ledger records
-   PR 4 as merged **and deployed**.
+   migration script is the one exception), and a graph it opens empty (a fresh install, a test
+   database) is stamped with the record at once, since it never held the old clock — and the ledger
+   records PR 4 as merged **and deployed**.
 
 ---
 
@@ -349,8 +352,8 @@ Scope:
   the default in five places — `User` (`user.py`), `UserPreferencesDTO` and its `from_dict`
   (`user_dto.py`), the request model (`user_request.py`) and the settings save
   (`settings_routes.py`): each becomes None, and an empty choice saves as None. The Settings field
-  becomes a list with a "SKUEL default (America/Vancouver)" entry, plus a **"Use this device's time
-  zone"** button that selects the browser's `Intl.DateTimeFormat().resolvedOptions().timeZone`; the
+  becomes a list with a "SKUEL default (<the configured `SKUEL_TIMEZONE`>)" entry — its label built
+  from the validated setting, never hard-coded — plus a **"Use this device's time zone"** button that selects the browser's `Intl.DateTimeFormat().resolvedOptions().timeZone`; the
   server validates what is posted.
 - The six stored `"UTC"` values are set to null (one write, Mike's OK with the count), keyed by the
   six users' uids from the census — never by value, since after this PR `"UTC"` can be a real choice.
@@ -467,7 +470,8 @@ record present, and the classification check holding; a fresh census is refused;
 activity report twice within the hour — the second is refused by the cooldown; a share made now
 reads "just now" and its notification shows the wall-clock time; the GradeBook exchange order and
 the review badges are unchanged for the live exchanges (snapshot before and after); a pinned process
-refuses to open a driver onto a seeded graph without the applied record.
+refuses to open a driver onto a seeded graph without the applied record, and a graph opened empty
+is stamped with the record and opens again after a restart.
 
 ### PR 5 — Readers compare aware values (`core/`)
 
@@ -515,9 +519,10 @@ elapsed time matters); any `datetime.combine` and `datetime.min`/`max` left with
 
 ### PR 9 — Close: the pin comes out, the guards go in
 
-Scope: remove the pin, its driver-factory assertion, the applied-record guard and
-`STORED_INSTANT_CLOCK` (the helpers keep the UTC reading; `as_utc` keeps reading a naive value as
-UTC); enable ruff `DTZ` for `core/`, `adapters/`, `ui/` in `pyproject.toml`, with the
+Scope: remove the pin, its driver-factory assertion and `STORED_INSTANT_CLOCK` (the helpers keep
+the UTC reading; `as_utc` keeps reading a naive value as UTC). **The applied-record check stays** —
+a data-version guard, not the process pin R8 retires: a restored pre-PR-4 snapshot, or any populated
+graph never migrated, is refused rather than read as UTC and mixed with true-UTC writes. Enable ruff `DTZ` for `core/`, `adapters/`, `ui/` in `pyproject.toml`, with the
 uncalled-reference check in the lint; a forced-zone guard (America/Vancouver and Asia/Bangkok) over
 the cooldown, a share's relative time, today and overdue, and a day-of-instant read. Rewrite Pattern
 10 and Key Rules #17/#18 (the naive-local invariant is gone) and the CLAUDE.md lines that state it;
@@ -577,7 +582,7 @@ values before writers produce them). PR 8 requires PR 7; PR 9 requires PR 8.
 | 6 | Readers compare aware values in `adapters/`, `ui/`, `scripts/` | As PR 5 | — |
 | 7 | Writers aware: default factories, the parse boundary, the mapper's `+00:00` | A mixed column reads back all aware | — |
 | 8 | Writers aware: services, backends, `_STAMP_SPECS` clocks, `occurred_at`, `now_local`, Cypher parameters, timers | `ruff --select DTZ` and the uncalled-reference check read 0 | — |
-| 9 | Pin, guards and constant removed; `DTZ` in the lint; forced-zone guards; Pattern 10 / Key Rules #17–18 / CLAUDE.md; ADR-089 implemented; this document and the case file to `done/` | § Verification | — |
+| 9 | Pin, its assertion and the constant removed (the applied-record check stays); `DTZ` in the lint; forced-zone guards; Pattern 10 / Key Rules #17–18 / CLAUDE.md; ADR-089 implemented; this document and the case file to `done/` | § Verification | — |
 
 ## Verification (arc close)
 
