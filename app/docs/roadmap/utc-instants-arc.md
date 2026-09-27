@@ -625,7 +625,8 @@ passes, a docs-only PR marks ADR-089 implemented and moves this document and the
   `gh pr merge <PR#> --squash --delete-branch` (never `--admin` or `--auto`), confirmed with
   `gh pr view <PR#> --json state,mergeCommit`. The ledger-row commit comes right after the PR is
   opened, before the first summon: a clean verdict labels the PR at once, and any later push drops
-  the label. A `@codex <question>`
+  the label. `main` merges only a branch that is up to date with it: when a row's branch falls
+  behind, merge `origin/main` into it, push, and summon Codex again (the push dropped the label). A `@codex <question>`
   comment is a review trigger, never answered. **The verdict is Codex's** (Mike's rule, 2026-09-16):
   `@kody start-review` only when Codex answers with its usage-limit reply (the script's exit 2), and
   if Kody cannot complete either, return BLOCKED. `PR_WORKFLOW.md`'s older "summon Kody for anything
@@ -649,7 +650,8 @@ conversation — so the runner keeps it.
 A cloud session is a fresh clone on an Anthropic-hosted VM. It has the repository (this document,
 `CLAUDE.md`, `.claude/`), Docker (so the integration suite's Neo4j testcontainer runs) and `gh`. It
 does not have Mike's local memory, the gitignored `app/plans/`, his `.env` or keyring, his vaults,
-or a browser. And by rule it has **no route to AuraDB**:
+or a browser. `gh` is not preinstalled there (the first cloud session, 2026-09-27): the setup script
+installs it, and `/web-setup` supplies the login it uses. And by rule it has **no route to AuraDB**:
 
 - **The cloud never connects to AuraDB** — no AuraDB host in the environment's network access, no
   AuraDB credentials in its variables, no app or script run against the daily graph. The VM's clock
@@ -755,6 +757,7 @@ before it merges (strict status checks), so the sitting is prepared while the ap
    warms caches:
 
    ```bash
+   command -v gh >/dev/null || (apt-get update && apt-get install -y gh) || true
    command -v uv >/dev/null || pip install uv
    if [ -d app ]; then (cd app && uv sync); fi
    if [ -d app ] && ! node --version 2>/dev/null | grep -q '^v24'; then
@@ -780,7 +783,14 @@ and `./dev test-js` run (PRs 2a and 3 change pages, and CI checks the committed 
 > follow § Running the arc in the cloud exactly: loop over the ledger on `origin/main` and the rows'
 > open PRs, one row at a time, each in a fresh subagent given the PR kickoff prompt; verify each PR
 > from the repository; stop on any stop condition and tell me why in plain words; prepare PR 4 and
-> stop without merging it. Never edit code yourself, and never connect to AuraDB.
+> stop without merging it. Never edit code yourself, and never connect to AuraDB. For this arc you
+> and your subagents are authorized to: create and push the `claude/utc-arc-pr-*` branches and open
+> PRs from them; post `@codex review` summons and consideration notes (through
+> `scripts/request_codex_review.sh`); apply the `codex-considered` label (through
+> `scripts/apply_codex_considered.sh`); update a row's branch from `main` when it falls behind; and
+> squash-merge each row's PR with `gh pr merge --squash --delete-branch` once CI Gate and the Codex
+> Review Gate are green — never `--admin` or `--auto`, and never PR 4. Use `gh`, not the GitHub
+> connector.
 
 ### The PR kickoff prompt (the runner gives it to each subagent)
 
@@ -819,6 +829,7 @@ row's laptop steps and their state (pending / done with a date; — for none).
 |----|-------|------------------------|--------|--------|
 | 0 | This document + ADR-089 + the case file, MOC and INDEX rows (docs only; summon Codex explicitly) | Merged; `./dev docs-links` and the skills validator clean | — | merged #1431, 2026-09-27 |
 | 0b | The cloud runbook: § Running the arc in the cloud, the laptop split, the fixed branches, the process rules, the close row (docs only) | Merged; the runner and kickoff prompts stand alone | — | merged #1432, 2026-09-27 |
+| 0c | Runbook fixes from the first cloud session: `gh` installed by the setup script, the GitHub actions authorized in the runner prompt, a branch behind `main` (docs only) | Merged | — | merged #1433, 2026-09-27 |
 | 1 | Pre-flight: insights crash, raw temporal parameters (embodiment), event days, the unwritten `rescheduled_at`, goal-event arithmetic; `as_utc()` | Insights served over a native `created_at`; a non-zero embodiment rate (red before); today's event counts | live insights load | — |
 | 2a | `SKUEL_TIMEZONE`; the user's zone in Settings (list + "Use this device's time zone"); the hard-coded `"UTC"` defaults; the six stored values nulled; the request's zone read from the graph; zone helpers | A bad name refused; a new user follows the default; boot refuses a bad default | the preference clear (OK with count) — a gate before 2b; a Bangkok-emulating browser saves Asia/Bangkok in one click; 375 px | — |
 | 2b | Every calendar site asks the zone (uncalled `date.today` included); Cypher `$today`; calendar-day counts; the type rule; every `datetime.now()` classified; day-to-instant widenings; `DTZ011` on | Forced-zone test (UTC process, Vancouver and Bangkok users) | after 17:00 local the overdue count agrees with the Today page | — |
