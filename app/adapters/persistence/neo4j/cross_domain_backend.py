@@ -366,7 +366,7 @@ MATCH (u:User {{uid: $user_uid}})-[:{RelationshipName.OWNS.value}]->(h:Habit)
 WITH pid, collect(DISTINCT h.uid) AS habit_uids
 OPTIONAL MATCH (hc:HabitCompletion)
 WHERE hc.habit_uid IN habit_uids
-  AND datetime(hc.completed_at) >= $cutoff
+  AND datetime(hc.completed_at) >= datetime($cutoff)
 RETURN pid AS principle_uid,
        size(habit_uids) AS habit_count,
        count(hc) AS completion_count
@@ -792,10 +792,20 @@ class CrossDomainBackend:
     async def get_embodiment_rates_7d(
         self, principle_uids: list[str], user_uid: str, cutoff: datetime
     ) -> Result[list[dict[str, Any]]]:
-        """Per-principle habit-completion counts over the window ending now."""
+        """Per-principle habit-completion counts over the window ending now.
+
+        The cutoff crosses the driver as an ISO string and is read through
+        ``datetime()``, as the stored ``completed_at`` is. Bound raw, a naive
+        ``datetime`` would arrive as a LOCAL DATETIME, which never compares with a
+        zoned DATETIME — every completion would fall outside the window.
+        """
         return await self.executor.execute_query(
             _EMBODIMENT_RATES_7D_QUERY,
-            {"principle_uids": principle_uids, "user_uid": user_uid, "cutoff": cutoff},
+            {
+                "principle_uids": principle_uids,
+                "user_uid": user_uid,
+                "cutoff": cutoff.isoformat(),
+            },
         )
 
     async def get_tasks_applying_knowledge(

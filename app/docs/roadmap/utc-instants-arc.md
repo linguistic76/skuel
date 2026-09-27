@@ -115,6 +115,17 @@ drift: re-verify by symbol.
 | Local midnight from a date-only path | 2 | `HabitCompletion.completed_at` and `Habit.last_completed`, `2026-09-04T00:00:00` (R6 as amended) | shift: America/Vancouver → UTC |
 | Authored | 12 | Authored days `2026-03-29T00:00:00Z` (11), the authored `+07:00` `EXACERBATED_BY.observed_at` (1) | leave (R6) |
 
+Writers added or changed after the census (§ Standing conventions, "A new stamp"), for PR 4's
+rule table:
+
+- `Insight.expires_at` (PR 1): `InsightStore.create_insight` stores it through
+  `datetime($expires_at)` from `PersistedInsight.expires_at.isoformat()`, beside `created_at` —
+  a native; a naive value (`with_default_expiry`, today's only producer, which nothing calls) is
+  `L-nat` like `Insight.created_at`, an aware one true UTC. 0 values stored.
+- `Event.rescheduled_at` (PR 1, a new property): `EventsCoreService.update_event` stamps
+  `now_utc()` when an update moves `event_date`, stored through the mapper as a `+00:00`
+  string — true UTC, leave.
+
 - **Precision identifies native writers where shape cannot.** Cypher `datetime()` has millisecond
   precision; a Python parameter carries microseconds. A microsecond native is local-as-UTC only if
   its writer was naive *when it wrote*: every aware writer adopted `datetime.now(UTC)` before its
@@ -374,6 +385,28 @@ Scope — each of these is wrong on every host today:
 window and reads a non-zero embodiment rate (red before); an event dated today counts in the "today"
 stat; a unit test completes a goal whose `created_at` is aware. **(laptop)** `/api/insights/active`
 returns the live insights.
+
+**Left by PR 1 for the rows after it:**
+
+- `tests/helpers/forced_zone.py` — `with forced_zone("America/Vancouver"):` sets `TZ`, calls
+  `time.tzset()`, and restores both; the forced-zone tests of later rows use it.
+- A comparison parameter crosses the driver as an ISO string read through `datetime()` / `date()`.
+  The sweep found three raw ones: the embodiment cutoff and the prerequisite chain's `as_of_date`
+  (both fixed), and the vault sweep's `retired_before` — the graph's own clock read back aware,
+  compared with a server `datetime()` stamp: correct on any host and under the pin, left as is.
+- For the censuses of PR 2b and PR 8: the `$today` of the events "today" stat and of "upcoming
+  events applying knowledge" is `date.today()` (a calendar site); the embodiment cutoff and
+  `build_simple_prerequisite_chain`'s default `as_of_date` are naive `datetime.now()` on the stored
+  clock (hand-built parameters).
+- `rescheduled_at` got its writer (its one consumer, the rescheduling-pattern handler, is live):
+  `update_event` stamps `now_utc()` in the write that moves `event_date` (§ Stored instants).
+- Cloud environment: the container runs as root, so
+  `test_ignored_file_classification.py::…::test_unreadable_file_tags_file_io_not_parsing` fails
+  there (root reads a mode-000 file); with root's permission bypass dropped —
+  `setpriv --bounding-set=-dac_override,-dac_read_search --inh-caps=-dac_override,-dac_read_search ./dev test-unit`
+  — the whole unit suite passes, as in CI. The full integration suite under `-n 2 --dist loadfile`
+  shows order-dependent failures in four files on `main` that pass serially; CI runs the tier
+  serially (`uv run pytest tests/integration/ -x`), so verify it serially.
 
 ### PR 2a — Whose zone: `SKUEL_TIMEZONE`, the user's choice, the request's zone
 

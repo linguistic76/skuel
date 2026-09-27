@@ -51,6 +51,7 @@ from core.services.mixins.hierarchy_read_mixin import HierarchyReadMixin
 from core.services.mixins.link_edge_guard import LinkEdge, keep_permitted_link_edges
 from core.utils.decorators import with_error_handling
 from core.utils.result_simplified import Errors, Result
+from core.utils.timestamp_helpers import now_utc
 from core.utils.uid_generator import UIDGenerator
 
 if TYPE_CHECKING:
@@ -592,7 +593,9 @@ class EventsCoreService(
 
         Materializes the intent to a partial patch and writes it exactly once, at the
         single ``backend.update_with_status_guard`` seam, then publishes the appropriate
-        calendar event. The domain rules (``_validate_update`` — past-event immutability,
+        calendar event. A patch that moves ``event_date`` also stamps ``rescheduled_at``
+        (``now_utc()``) in the same write — the record ``count_recent_reschedules``
+        reads. The domain rules (``_validate_update`` — past-event immutability,
         duration bounds) run here, explicitly: the facade routes the generic CRUD to this
         method, so the inherited hook never fires for Events.
 
@@ -650,6 +653,17 @@ class EventsCoreService(
         if guard_result.is_error:
             return Result.fail(guard_result)
 
+        # A moved date is a reschedule: stamped in the same write, and announced below.
+        rescheduled_from: date | None = (
+            old_event_date
+            if "event_date" in changes
+            and old_event_date
+            and changes["event_date"] != old_event_date
+            else None
+        )
+        if rescheduled_from is not None:
+            changes["rescheduled_at"] = now_utc()
+
         update_result = await self.backend.update_with_status_guard(
             uid, changes, guard_result.value
         )
@@ -678,11 +692,11 @@ class EventsCoreService(
                 quality_score=None,
             )
         # Priority 2: Event date changed (rescheduled).
-        elif "event_date" in changes and old_event_date and changes["event_date"] != old_event_date:
+        elif rescheduled_from is not None:
             domain_event = CalendarEventRescheduled(
                 event_uid=event.uid,
                 user_uid=event.user_uid,
-                old_date=old_event_date,
+                old_date=rescheduled_from,
                 new_date=changes["event_date"],
             )
         # Default: Generic update (cache invalidation contract).

@@ -1077,7 +1077,11 @@ class EventsBackend(_HierarchyMixin, UniversalNeo4jBackend[Event]):
         return Result.ok([record["e"] for record in result.value])
 
     async def get_stats_for_user(self, user_uid: UserUID) -> Result[EventStats]:
-        """Count event stats: total, scheduled, today."""
+        """Count event stats: total, scheduled, today.
+
+        "Today" reads ``event_date``, the event's calendar day, against ``$today``.
+        ``start_time`` is a LOCAL TIME — a time of day with no date in it.
+        """
         from datetime import date
 
         result = await _count_user_stats(
@@ -1087,7 +1091,8 @@ class EventsBackend(_HierarchyMixin, UniversalNeo4jBackend[Event]):
             {
                 "scheduled": "n.status = 'scheduled'",
                 "today": (
-                    "n.start_time IS NOT NULL AND substring(toString(n.start_time), 0, 10) = $today"
+                    "n.event_date IS NOT NULL"
+                    " AND date(left(toString(n.event_date), 10)) = date($today)"
                 ),
             },
             extra_params={"today": date.today().isoformat()},
@@ -1097,11 +1102,17 @@ class EventsBackend(_HierarchyMixin, UniversalNeo4jBackend[Event]):
         return Result.ok(cast("EventStats", result.value))
 
     async def count_recent_reschedules(self, user_uid: UserUID) -> Result[int]:
-        """Count events rescheduled in last 30 days."""
+        """Count events rescheduled in the last 30 days.
+
+        ``rescheduled_at`` is written by ``EventsCoreService.update_event`` when an
+        update moves ``event_date``: an aware UTC instant stored as an ISO string, so
+        ``datetime()`` reads it as the true moment and the window is measured against
+        the database's clock.
+        """
         query = """
         MATCH (e:Entity {user_uid: $user_uid, entity_type: 'event'})
         WHERE e.rescheduled_at IS NOT NULL
-          AND date(left(toString(e.rescheduled_at), 10)) >= date() - duration('P30D')
+          AND datetime(e.rescheduled_at) >= datetime() - duration('P30D')
         RETURN count(e) as reschedule_count
         """
         result = await self.execute_query(query, {"user_uid": user_uid})

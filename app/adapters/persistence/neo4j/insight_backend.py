@@ -34,7 +34,12 @@ class InsightBackend:
     # ========================================================================
 
     async def create_insight(self, params: dict[str, Any]) -> Result[list[dict[str, Any]]]:
-        """Create an Insight node with User and Entity relationships."""
+        """Create an Insight node with User and Entity relationships.
+
+        ``created_at`` and ``expires_at`` arrive as ISO strings and are stored as
+        natives through ``datetime()``; a null ``expires_at`` stays null, so the
+        property is absent and the insight never expires.
+        """
         return await self._executor.execute_query(
             """
             // Create the Insight node — JSON fields serialized via json.dumps()
@@ -53,7 +58,7 @@ class InsightBackend:
                 recommended_actions: $recommended_actions,
                 supporting_data: $supporting_data,
                 created_at: datetime($created_at),
-                expires_at: $expires_at,
+                expires_at: datetime($expires_at),
                 dismissed: $dismissed,
                 actioned: $actioned
             })

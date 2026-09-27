@@ -63,6 +63,7 @@ from core.services.mixins.link_edge_guard import (
 from core.utils.decorators import with_error_handling
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
+from core.utils.timestamp_helpers import as_utc, now_utc
 from core.utils.type_converters import get_enum_value
 from core.utils.uid_generator import UIDGenerator
 
@@ -717,7 +718,9 @@ class GoalsCoreService(
         if goal.status is not EntityStatus.COMPLETED:
             return
 
-        actual_duration_days = (datetime.now() - goal.created_at).days if goal.created_at else None
+        actual_duration_days = (
+            (now_utc() - as_utc(goal.created_at)).days if goal.created_at else None
+        )
         await publish_event(
             self.event_bus,
             GoalAchieved(
@@ -895,7 +898,7 @@ class GoalsCoreService(
         # write saw, so a goal another writer completed first is not announced twice.
         if is_completion_transition(outcome.prior_status, changes):
             actual_duration_days = (
-                (datetime.now() - goal.created_at).days if goal.created_at else None
+                (now_utc() - as_utc(goal.created_at)).days if goal.created_at else None
             )
             await publish_event(
                 self.event_bus,
@@ -945,7 +948,7 @@ class GoalsCoreService(
             # Calculate days active
             days_active = 0
             if goal.created_at:
-                days_active = (datetime.now() - goal.created_at).days
+                days_active = (now_utc() - as_utc(goal.created_at)).days
 
             event = GoalAbandoned(
                 goal_uid=uid,

@@ -33,8 +33,24 @@ from enum import StrEnum
 from typing import Any, TypeVar
 
 from core.models.type_hints import EntityUID, UserUID
+from core.utils.neo4j_temporal import convert_neo4j_datetime
+from core.utils.timestamp_helpers import as_utc, now_utc
 
 _StrEnumT = TypeVar("_StrEnumT", bound=StrEnum)
+
+
+def _parse_stamp(value: Any) -> datetime | None:  # boundary: a stored stamp's shape varies
+    """A stored insight stamp as a Python ``datetime``, whatever shape it was stored in.
+
+    The insight writer stores ``created_at`` as a native (``datetime($created_at)``),
+    and ``dismissed_at`` / ``actioned_at`` come from Cypher ``datetime()``, so a read
+    hands back neo4j ``DateTime`` values; a serialized insight carries ISO strings.
+    Both become a ``datetime`` here — aware for a native or an offset string, naive
+    for an offset-less string — and ``as_utc`` reconciles the two wherever they meet.
+    """
+    if isinstance(value, str):
+        return datetime.fromisoformat(value)
+    return convert_neo4j_datetime(value)
 
 
 def _require_str_enum(data: dict[str, Any], key: str, enum_cls: type[_StrEnumT]) -> _StrEnumT:
@@ -225,7 +241,7 @@ class PersistedInsight:
         """Check if insight has expired."""
         if self.expires_at is None:
             return False
-        return datetime.now() > self.expires_at
+        return now_utc() > as_utc(self.expires_at)
 
     def is_active(self) -> bool:
         """Check if insight should be shown to user."""
@@ -239,7 +255,7 @@ class PersistedInsight:
         Factors: impact level, confidence, recency
         """
         impact_score = self.impact.get_priority_score()
-        recency_hours = (datetime.now() - self.created_at).total_seconds() / 3600
+        recency_hours = (now_utc() - as_utc(self.created_at)).total_seconds() / 3600
         recency_factor = max(0.5, 1.0 - (recency_hours / 168))  # Decay over 1 week
         return impact_score * self.confidence * recency_factor
 
@@ -272,26 +288,15 @@ class PersistedInsight:
 
     @classmethod
     def from_dict(cls, data: dict[str, Any]) -> PersistedInsight:
-        """Create from dictionary."""
-        # Parse datetime fields
-        created_at = data.get("created_at")
-        if isinstance(created_at, str):
-            created_at = datetime.fromisoformat(created_at)
-        elif created_at is None:
-            created_at = datetime.now()
+        """Create from dictionary — a stored node's properties or a ``to_dict()`` payload.
 
-        expires_at = data.get("expires_at")
-        if isinstance(expires_at, str):
-            expires_at = datetime.fromisoformat(expires_at)
-
-        # Parse action tracking timestamps
-        dismissed_at = data.get("dismissed_at")
-        if isinstance(dismissed_at, str):
-            dismissed_at = datetime.fromisoformat(dismissed_at)
-
-        actioned_at = data.get("actioned_at")
-        if isinstance(actioned_at, str):
-            actioned_at = datetime.fromisoformat(actioned_at)
+        Every stamp field goes through ``_parse_stamp``, so a native read from the
+        graph arrives as a Python ``datetime`` like a serialized string does.
+        """
+        created_at = _parse_stamp(data.get("created_at")) or datetime.now()
+        expires_at = _parse_stamp(data.get("expires_at"))
+        dismissed_at = _parse_stamp(data.get("dismissed_at"))
+        actioned_at = _parse_stamp(data.get("actioned_at"))
 
         # Parse enum fields (required — raise on missing/invalid rather than
         # letting Any | None reach the frozen-model constructor)

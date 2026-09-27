@@ -473,8 +473,8 @@ ADR-040). Access is relationship-gated in the query and role-gated at the route.
 
 | Write path | Stored type | A direct `field OP date()/datetime()` is… |
 |---|---|---|
-| DTO `.isoformat()` (domain entities: `due_date`, `event_date`, `created_at`, `expires_at`, `next_due_at`, `last_completed`, …) | **STRING** | **broken** (string vs temporal → null) |
-| Cypher `SET n.x = datetime()` / `datetime($param)` (sessions, tokens, `updated_at`, `achieved_at`, `mastered_at`) | **native ZONED DATETIME** | fine |
+| DTO `.isoformat()` (domain entities: `due_date`, `event_date`, `created_at`, `next_due_at`, `last_completed`, …) | **STRING** | **broken** (string vs temporal → null) |
+| Cypher `SET n.x = datetime()` / `datetime($param)` (sessions, tokens, insight `created_at` / `expires_at`, `updated_at`, `achieved_at`, `mastered_at`) | **native ZONED DATETIME** | fine |
 
 Before "fixing" a comparison, **grep the write path**: `.isoformat()` → string (coerce); `= datetime(` / `datetime($` → native (leave). Some columns are **mixed** (e.g. `created_at`: mostly strings + a few native datetimes from legacy writes) — coercion handles both.
 
