@@ -1,11 +1,11 @@
 """The teacher's own exercise list reads the mapped owner door.
 
 `ExerciseService.list_user_exercises` backs `/exercises/content`, the page that
-carries each exercise's Delete button. It reads through the service's `list`
-owner branch (`backend.get_user_entities`), whose adapter maps every node with
+carries each exercise's Delete button. It reads the owner read
+(`backend.get_user_entities`), whose adapter maps every node with
 `from_neo4j_node` (the mapper half, embedded nodes included, is pinned in
 `tests/unit/adapters/test_domain_query_node_mapping.py`) — so a failed read
-stays a failure and a list longer than the bulk page is logged.
+stays a failure, and a list longer than one bulk page is read whole.
 """
 
 from __future__ import annotations
@@ -50,8 +50,8 @@ async def test_reads_the_owner_door_newest_first_and_returns_the_page() -> None:
     assert result.value == page  # the page, never the (page, total) tuple
     read.assert_awaited_once()
     assert read.await_args is not None
+    assert read.await_args.args == (OWNER,)
     kwargs = read.await_args.kwargs
-    assert kwargs["user_uid"] == OWNER
     assert kwargs["sort_by"] == "created_at"
     assert kwargs["sort_order"] == "desc"
     assert kwargs["limit"] == QueryLimit.BULK
@@ -69,16 +69,34 @@ async def test_a_failed_read_is_a_failure_not_an_empty_list() -> None:
     assert result.expect_error().message == "boom"
 
 
-async def test_a_list_longer_than_the_page_is_logged() -> None:
-    read = AsyncMock(return_value=Result.ok(([_exercise("ex_1")], 1001)))
+async def test_a_list_longer_than_one_page_is_read_whole() -> None:
+    first_page = [_exercise(f"ex_{i}") for i in range(3)]
+    everything = [_exercise(f"ex_{i}") for i in range(5)]
+    read = AsyncMock(side_effect=[Result.ok((first_page, 5)), Result.ok((everything, 5))])
     service = _service(read)
-    service.logger = MagicMock()
 
     result = await service.list_user_exercises(OWNER)
 
     assert result.is_ok
-    service.logger.warning.assert_called_once()
-    assert "1 of 1001" in service.logger.warning.call_args.args[0]
+    assert result.value == everything
+    assert read.await_count == 2
+    assert read.await_args is not None
+    assert read.await_args.kwargs["limit"] == 5  # the second read asks for the whole list
+
+
+async def test_a_failed_second_read_is_a_failure() -> None:
+    read = AsyncMock(
+        side_effect=[
+            Result.ok(([_exercise("ex_1")], 2)),
+            Result.fail(Errors.database(operation="list", message="boom")),
+        ]
+    )
+    service = _service(read)
+
+    result = await service.list_user_exercises(OWNER)
+
+    assert result.is_error
+    assert result.expect_error().message == "boom"
 
 
 async def test_filtered_context_counts_every_listed_exercise() -> None:

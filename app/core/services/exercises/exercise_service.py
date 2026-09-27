@@ -384,27 +384,28 @@ class ExerciseService(BaseService[ExerciseBackendOperations, Exercise]):
     async def list_user_exercises(self, user_uid: UserUID) -> Result[list[Exercise]]:
         """Every exercise the user owns, newest first — the teacher's own list.
 
-        Reads through the owner door every CRUD list uses, whose adapter maps
+        Reads through the owner read every CRUD list uses, whose adapter maps
         each node to an ``Exercise`` keeping only declared fields, so an
         embedded exercise (its node carries the embedding bookkeeping keys) is
         listed like any other and a failed read is a failure, never an empty
-        list. A list longer than the bulk page is logged, not silently cut.
+        list. The list is complete: past one bulk page it is read whole, since
+        the dashboard and ``get_filtered_context`` both treat it as the full set.
 
-        Backend: UniversalNeo4jBackend.get_user_entities (via ``list``).
+        Backend: UniversalNeo4jBackend.get_user_entities.
         """
-        result = await self.list(
-            user_uid=user_uid,
-            sort_by="created_at",
-            sort_order="desc",
-            limit=QueryLimit.BULK,
+        result = await self.backend.get_user_entities(
+            user_uid, sort_by="created_at", sort_order="desc", limit=QueryLimit.BULK
         )
         if result.is_error:
             return Result.fail(result)
         exercises, total = result.value
         if total > len(exercises):
-            self.logger.warning(
-                f"Exercise list for {user_uid} truncated: {len(exercises)} of {total} shown"
+            result = await self.backend.get_user_entities(
+                user_uid, sort_by="created_at", sort_order="desc", limit=total
             )
+            if result.is_error:
+                return Result.fail(result)
+            exercises, _total = result.value
         return Result.ok(exercises)
 
     # ========================================================================
