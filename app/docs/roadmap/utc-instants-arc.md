@@ -449,7 +449,8 @@ Scope:
   refuses to open unless the process is pinned. A test enumerates every `GraphDatabase.driver` /
   `AsyncGraphDatabase.driver` construction site (`services_bootstrap`, `neo4j_connection`,
   `unified_config`, scripts) and proves each goes through the check. The same hook holds the
-  applied-record guard (§ Migration contract step 7).
+  applied-record guard (§ Migration contract step 7); a test fixture that clears the graph keeps or
+  re-stamps the record.
 - `STORED_INSTANT_CLOCK` flips to UTC.
 - **The cooldown pin:** an integration test writes an activity report through the real writer in a
   process started under `TZ=America/Vancouver` and asserts `check_cooldown` counts it (red on the
