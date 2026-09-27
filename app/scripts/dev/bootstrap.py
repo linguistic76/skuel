@@ -42,6 +42,7 @@ from core.events.embedding_publisher import EMBEDDING_EVENT_TYPES
 from core.ports.infrastructure_protocols import DrainableEventBusOperations, EventBusOperations
 from core.ports.service_protocols import GraphAuthOperations
 from core.utils.logging import get_logger
+from core.utils.zone_context import default_zone
 from services_bootstrap import Services, compose_services, initialize_system_service
 from ui.theme import chartjs_headers, skuel_headers
 
@@ -146,9 +147,10 @@ def _load_config() -> UnifiedConfig:
     validate_environment()
     logger.info("✅ Environment validated - all requirements met")
 
-    # Load application settings
+    # Load application settings (validation refuses an unknown SKUEL_TIMEZONE)
     config = get_settings()
     logger.info(f"✅ Configuration loaded: {config.environment}")
+    logger.info(f"✅ Default time zone (SKUEL_TIMEZONE): {default_zone().key}")
     return config
 
 

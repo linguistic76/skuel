@@ -5,33 +5,42 @@ User Preferences UI Components
 Reusable components for editing user preferences and settings.
 Builds forms manually with LabelInput/LabelSelect components.
 
-Version: 1.0.0
-Date: 2025-10-14
+The editor is ONE form: every section's fields post together to
+``/settings/save`` (HTMX), and the answer replaces the editor inside
+``#settings-content``.
 """
 
 from typing import Any
 
 from fasthtml.common import Div, Form, Option, P, Span
 
+from core.utils.zone_context import zone_names
 from ui.components import Button, ButtonT, Card, CardBody, CardHeader, CardTitle
 from ui.feedback import Alert, AlertT
 from ui.forms import Checkbox, Label, LabelInput, LabelSelect
 from ui.patterns.page_header import PageHeader
+
+# The zone <select> and the element that reports what "Use this device's time
+# zone" did — SKUEL.useDeviceZone (static/js/skuel.js) is handed both ids.
+TIMEZONE_SELECT_ID = "timezone"
+TIMEZONE_NOTE_ID = "timezone-device-note"
 
 
 class UserPreferencesComponents:
     """Reusable component library for user preferences interface"""
 
     @staticmethod
-    def render_preferences_editor(user_preferences: dict | None = None) -> Any:
+    def render_preferences_editor(
+        user_preferences: dict | None = None, *, default_timezone: str
+    ) -> Any:
         """
         Render the complete preferences editing form.
 
-        Uses FormGenerator to create the form dynamically from the
-        UserPreferencesSchema Pydantic model.
-
         Args:
             user_preferences: Current preference values (dict)
+            default_timezone: The app default zone's name (``SKUEL_TIMEZONE``,
+                validated at boot) — the label of the zone list's "SKUEL
+                default" entry
 
         Returns:
             Complete preferences editing interface
@@ -40,61 +49,66 @@ class UserPreferencesComponents:
 
         return Div(
             PageHeader("User Settings & Preferences", subtitle="Customize your SKUEL experience"),
-            # Learning Preferences Section
-            Card(
-                CardHeader(CardTitle("🎓 Learning Preferences")),
-                CardBody(UserPreferencesComponents._render_learning_prefs_form(user_preferences)),
-                cls="mb-6",
-            ),
-            # Scheduling Preferences Section
-            Card(
-                CardHeader(CardTitle("📅 Scheduling & Time")),
-                CardBody(UserPreferencesComponents._render_scheduling_prefs_form(user_preferences)),
-                cls="mb-6",
-            ),
-            # Notification Preferences Section
-            Card(
-                CardHeader(CardTitle("🔔 Notifications")),
-                CardBody(
-                    UserPreferencesComponents._render_notification_prefs_form(user_preferences)
+            Form(
+                # Learning Preferences Section
+                Card(
+                    CardHeader(CardTitle("🎓 Learning Preferences")),
+                    CardBody(UserPreferencesComponents._render_learning_prefs(user_preferences)),
+                    cls="mb-6",
                 ),
-                cls="mb-6",
-            ),
-            # Display Preferences Section
-            Card(
-                CardHeader(CardTitle("🎨 Display & Appearance")),
-                CardBody(UserPreferencesComponents._render_display_prefs_form(user_preferences)),
-                cls="mb-6",
-            ),
-            # Goal Preferences Section
-            Card(
-                CardHeader(CardTitle("🎯 Goals & Targets")),
-                CardBody(UserPreferencesComponents._render_goal_prefs_form(user_preferences)),
-                cls="mb-6",
-            ),
-            # Save button
-            Div(
-                Button(
-                    "Cancel",
-                    type="button",
-                    cls=(ButtonT.secondary, "mr-4"),
-                    onclick="window.location.href='/settings'",
+                # Scheduling Preferences Section
+                Card(
+                    CardHeader(CardTitle("📅 Scheduling & Time")),
+                    CardBody(UserPreferencesComponents._render_scheduling_prefs(user_preferences)),
+                    cls="mb-6",
                 ),
-                Button(
-                    "Save All Changes",
-                    type="submit",
-                    cls=ButtonT.primary,
-                    form="preferences-form",
+                # Notification Preferences Section
+                Card(
+                    CardHeader(CardTitle("🔔 Notifications")),
+                    CardBody(
+                        UserPreferencesComponents._render_notification_prefs(user_preferences)
+                    ),
+                    cls="mb-6",
                 ),
-                cls="flex justify-end mt-6",
+                # Display Preferences Section
+                Card(
+                    CardHeader(CardTitle("🎨 Display & Appearance")),
+                    CardBody(
+                        UserPreferencesComponents._render_display_prefs(
+                            user_preferences, default_timezone
+                        )
+                    ),
+                    cls="mb-6",
+                ),
+                # Goal Preferences Section
+                Card(
+                    CardHeader(CardTitle("🎯 Goals & Targets")),
+                    CardBody(UserPreferencesComponents._render_goal_prefs(user_preferences)),
+                    cls="mb-6",
+                ),
+                # Save button
+                Div(
+                    Button(
+                        "Cancel",
+                        type="button",
+                        cls=(ButtonT.secondary, "mr-4"),
+                        onclick="window.location.href='/settings'",
+                    ),
+                    Button("Save All Changes", type="submit", cls=ButtonT.primary),
+                    cls="flex justify-end mt-6",
+                ),
+                id="preferences-form",
+                hx_post="/settings/save",
+                hx_target="#settings-content",
+                hx_swap="innerHTML",
             ),
             cls="container mx-auto p-6 max-w-4xl",
         )
 
     @staticmethod
-    def _render_learning_prefs_form(prefs: dict) -> Any:
+    def _render_learning_prefs(prefs: dict) -> Any:
         """Render learning preferences section"""
-        return Form(
+        return Div(
             LabelSelect(
                 Option(
                     "Beginner",
@@ -161,15 +175,12 @@ class UserPreferencesComponents:
                 ),
                 cls="space-y-2 mb-4",
             ),
-            id="learning-prefs-form",
-            method="POST",
-            action="/settings/save",
         )
 
     @staticmethod
-    def _render_scheduling_prefs_form(prefs: dict) -> Any:
+    def _render_scheduling_prefs(prefs: dict) -> Any:
         """Render scheduling preferences section"""
-        return Form(
+        return Div(
             LabelSelect(
                 Option(
                     "Anytime",
@@ -218,15 +229,12 @@ class UserPreferencesComponents:
                 ),
                 cls="mb-4",
             ),
-            id="scheduling-prefs-form",
-            method="POST",
-            action="/settings/save",
         )
 
     @staticmethod
-    def _render_notification_prefs_form(prefs: dict) -> Any:
+    def _render_notification_prefs(prefs: dict) -> Any:
         """Render notification preferences section"""
-        return Form(
+        return Div(
             Div(
                 Div(
                     Checkbox(
@@ -257,9 +265,6 @@ class UserPreferencesComponents:
                 ),
                 cls="space-y-4",
             ),
-            id="notification-prefs-form",
-            method="POST",
-            action="/settings/save",
         )
 
     # DaisyUI themes (class-based dark mode via Tailwind)
@@ -269,7 +274,7 @@ class UserPreferencesComponents:
     ]
 
     @staticmethod
-    def _render_display_prefs_form(prefs: dict) -> Any:
+    def _render_display_prefs(prefs: dict, default_timezone: str) -> Any:
         """Render display preferences section"""
         current_theme = prefs.get("theme", "light")
         theme_options = [
@@ -281,7 +286,7 @@ class UserPreferencesComponents:
             for theme in UserPreferencesComponents.THEMES
         ]
 
-        return Form(
+        return Div(
             LabelSelect(
                 *theme_options,
                 label="Theme",
@@ -301,24 +306,55 @@ class UserPreferencesComponents:
                 name="language",
                 cls="space-y-2 mb-4",
             ),
-            LabelInput(
-                "Timezone",
-                lbl_cls="font-semibold",
-                type="text",
-                name="timezone",
-                value=prefs.get("timezone", "UTC"),
-                help_text="e.g., America/New_York, Europe/London, Asia/Tokyo",
-                cls="space-y-2 mb-4",
+            UserPreferencesComponents._render_timezone_field(
+                prefs.get("timezone"), default_timezone
             ),
-            id="display-prefs-form",
-            method="POST",
-            action="/settings/save",
         )
 
     @staticmethod
-    def _render_goal_prefs_form(prefs: dict) -> Any:
+    def _render_timezone_field(choice: str | None, default_timezone: str) -> Any:
+        """The zone list and the "Use this device's time zone" button.
+
+        The list is the SKUEL default entry (the empty value — no choice,
+        which follows ``SKUEL_TIMEZONE``) and then every name zoneinfo lists,
+        the user's choice selected. The button selects the browser's own zone
+        (``SKUEL.useDeviceZone``); saving the form keeps it, and the server
+        validates what is posted.
+        """
+        options = [
+            Option(f"SKUEL default ({default_timezone})", value="", selected=choice is None),
+            *(Option(name, value=name, selected=name == choice) for name in sorted(zone_names())),
+        ]
+        return Div(
+            LabelSelect(
+                *options,
+                label="Time zone",
+                lbl_cls="font-semibold",
+                name="timezone",
+                id=TIMEZONE_SELECT_ID,
+                help_text="The zone your days and times are read in.",
+            ),
+            Div(
+                Button(
+                    "Use this device's time zone",
+                    type="button",
+                    size="sm",
+                    onclick=f"SKUEL.useDeviceZone('{TIMEZONE_SELECT_ID}', '{TIMEZONE_NOTE_ID}')",
+                ),
+                P(
+                    id=TIMEZONE_NOTE_ID,
+                    aria_live="polite",
+                    cls="text-sm text-muted-foreground",
+                ),
+                cls="flex flex-wrap items-center gap-x-3 gap-y-1",
+            ),
+            cls="space-y-2 mb-4",
+        )
+
+    @staticmethod
+    def _render_goal_prefs(prefs: dict) -> Any:
         """Render goal preferences section"""
-        return Form(
+        return Div(
             LabelInput(
                 "Weekly Task Goal",
                 lbl_cls="font-semibold",
@@ -352,9 +388,6 @@ class UserPreferencesComponents:
                 help_text="Target learning hours per month",
                 cls="space-y-2 mb-4",
             ),
-            id="goal-prefs-form",
-            method="POST",
-            action="/settings/save",
         )
 
     @staticmethod

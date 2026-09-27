@@ -1563,6 +1563,17 @@ class SignInResult(TypedDict, total=False):
     user: Any  # User model (TYPE_CHECKING boundary)
 
 
+class SessionIdentity(TypedDict):
+    """Return shape for graph_auth.validate_session_identity() — a live session's user.
+
+    ``timezone`` is the user's stored zone choice (``UserPreferences.timezone``,
+    as stored, not yet resolved); None when they have not chosen one.
+    """
+
+    user_uid: UserUID
+    timezone: str | None
+
+
 # ============================================================================
 # TEACHER REVIEW RESULT TYPES
 # ============================================================================
@@ -4184,6 +4195,7 @@ __all__ = [
     # Auth Result Types
     "SignUpResult",
     "SignInResult",
+    "SessionIdentity",
     # Teacher Review Result Types
     "ReviewQueueItem",
     # Sharing Result Types

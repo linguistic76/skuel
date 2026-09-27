@@ -16,6 +16,7 @@ See Also:
 - /docs/decisions/graph-native-auth.md - ADR for this system
 """
 
+import json
 from typing import Any
 from uuid import uuid4
 
@@ -28,11 +29,33 @@ from core.models.auth.password_reset_token import PasswordResetClaim, PasswordRe
 from core.models.auth.session import Session, hash_session_token
 from core.models.enums import UserRole
 from core.models.type_hints import UserUID
+from core.ports.query_types import SessionIdentity
 from core.utils.error_boundary import safe_backend_operation
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
 
 logger = get_logger(__name__)
+
+
+def _stored_zone_choice(preferences: object) -> str | None:
+    """The zone choice in a User node's ``preferences`` property, as stored.
+
+    The mapper stores ``User.preferences`` as a JSON object string; its
+    ``timezone`` key holds the user's choice or null. A missing property, a
+    missing key and an unreadable value are all no choice — the request then
+    follows the app default rather than failing.
+    """
+    if not isinstance(preferences, str) or not preferences:
+        return None
+    try:
+        parsed = json.loads(preferences)
+    except json.JSONDecodeError:
+        logger.warning("User preferences are not JSON; the session follows the default zone")
+        return None
+    if not isinstance(parsed, dict):
+        return None
+    choice = parsed.get("timezone")
+    return choice if isinstance(choice, str) and choice else None
 
 
 # Rate limiting configuration
@@ -197,7 +220,7 @@ class SessionBackend(Neo4jSessionRunner):
     @safe_backend_operation("validate_session_token")
     async def validate_session_token(
         self, session_token: str, batch_interval_seconds: int = 300
-    ) -> Result[UserUID | None]:
+    ) -> Result[SessionIdentity | None]:
         """Validate a session token and touch last_active in ONE round trip.
 
         THE per-request auth query (AuthContextMiddleware runs it for every
@@ -214,13 +237,19 @@ class SessionBackend(Neo4jSessionRunner):
         when it is older than the batch interval, so most validations stay
         read-only.
 
+        The same statement returns the User's stored ``preferences`` (a JSON
+        string), from which the user's zone choice is read: the middleware
+        resolves the request's zone from it (ADR-089 §3) at no extra round
+        trip, and a change in Settings reaches the next request on any device.
+
         Args:
             session_token: Raw session token from the cookie (hashed here)
             batch_interval_seconds: Minimum seconds between last-active
                 touches (default: 300 = 5 minutes)
 
         Returns:
-            Result[UserUID | None]: user_uid if the session is live, None otherwise
+            Result[SessionIdentity | None]: the user and their stored zone
+            choice if the session is live, None otherwise
         """
         token_hash = hash_session_token(session_token)
         query = """
@@ -233,14 +262,21 @@ class SessionBackend(Neo4jSessionRunner):
             THEN [1] ELSE [] END |
             SET s.last_active_at = datetime()
         )
-        RETURN s.user_uid as user_uid
+        RETURN s.user_uid AS user_uid, u.preferences AS preferences
         """
 
         record = await self._run_single(
             query, {"token_hash": token_hash, "interval": batch_interval_seconds}
         )
 
-        return Result.ok(UserUID(record["user_uid"]) if record else None)
+        if not record:
+            return Result.ok(None)
+        return Result.ok(
+            SessionIdentity(
+                user_uid=UserUID(record["user_uid"]),
+                timezone=_stored_zone_choice(record["preferences"]),
+            )
+        )
 
     @safe_backend_operation("invalidate_session")
     async def invalidate_session(self, session_token: str) -> Result[bool]:

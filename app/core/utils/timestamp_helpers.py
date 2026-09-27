@@ -8,6 +8,9 @@ Eliminates duplication of timestamp operations across services.
 DRY Principle:
 - Timezone-aware "now" helpers
 - Instants as aware UTC (as_utc) for comparison and arithmetic
+- Zone helpers, each taking the zone: now_in, today_in, day_of (an instant's
+  day), local_day_bounds (a day's UTC bounds). Whose zone it is — the user's
+  choice or the app default — is core/utils/zone_context.py
 - Duration/age calculations (days_until, days_since, is_overdue, is_today)
 - Calendar arithmetic (week_bounds, month_grid_bounds, prev/next month and week)
 - Neo4j-tolerant scalar date parsing (parse_date_value)
@@ -24,7 +27,7 @@ this module only owns scalar/date arithmetic helpers.
 """
 
 from calendar import monthrange
-from datetime import UTC, date, datetime, timedelta
+from datetime import UTC, date, datetime, time, timedelta, tzinfo
 from typing import Any
 
 # =============================================================================
@@ -77,6 +80,57 @@ def as_utc(value: datetime) -> datetime:
     See: /docs/roadmap/utc-instants-arc.md (the arc that routes every instant here)
     """
     return value.astimezone(UTC)
+
+
+# =============================================================================
+# ZONE HELPERS — each takes the zone; core/utils/zone_context.py says whose
+# =============================================================================
+
+
+def now_in(zone: tzinfo) -> datetime:
+    """The current moment as a wall clock in ``zone`` — an aware datetime.
+
+    Example:
+        now_in(ZoneInfo("Asia/Bangkok")).hour  # the hour on a Bangkok clock
+    """
+    return datetime.now(zone)
+
+
+def today_in(zone: tzinfo) -> date:
+    """Today's date in ``zone``.
+
+    Example:
+        today_in(current_zone())  # "today" for the in-flight request
+    """
+    return datetime.now(zone).date()
+
+
+def day_of(instant: datetime, zone: tzinfo) -> date:
+    """The calendar day an instant falls on in ``zone``.
+
+    The instant is read through :func:`as_utc` first, so an aware value and a
+    naive one give the day by the same rule.
+
+    Example:
+        day_of(entry.created_at, current_zone())
+    """
+    return as_utc(instant).astimezone(zone).date()
+
+
+def local_day_bounds(day: date, zone: tzinfo) -> tuple[datetime, datetime]:
+    """The instants a calendar day in ``zone`` spans, as aware UTC: ``[start, end)``.
+
+    ``start`` is the day's local midnight and ``end`` the next day's, so a day
+    that gains or loses a daylight-saving hour spans 25 or 23 hours. A local
+    midnight that occurs twice reads as its first occurrence.
+
+    Example:
+        start, end = local_day_bounds(today_in(zone), zone)
+        # instants on that local day: start <= as_utc(stamp) < end
+    """
+    start = datetime.combine(day, time.min, tzinfo=zone)
+    end = datetime.combine(day + timedelta(days=1), time.min, tzinfo=zone)
+    return start.astimezone(UTC), end.astimezone(UTC)
 
 
 # =============================================================================

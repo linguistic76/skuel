@@ -2,24 +2,31 @@
 Auth Context Middleware — per-request session enforcement + ContextVar mirror
 ==============================================================================
 
-Two jobs, in order, once per request:
+Three jobs, in order, once per request:
 
 1. **Enforce the graph session.** Authenticated requests carry a
    ``session_token`` in the signed cookie; this middleware validates it
-   against the graph (``validate_session_uid``: session not revoked, not
-   expired, LIVE User still active — plus the 5-min-batched last-active
-   touch, all one statement). A revoked or expired session clears the cookie
-   session, so the request — and every request after it — proceeds as
-   unauthenticated and the user is forced back through login. This is what
-   makes server-side revocation (password change/reset, role change,
-   deactivation, account deletion) actually bite; without it a stolen or
-   stale cookie would stay live for its full 30-day max_age.
+   against the graph (``validate_session_identity``: session not revoked, not
+   expired, LIVE User still active — plus the user's zone choice and the
+   5-min-batched last-active touch, all one statement). A revoked or expired
+   session clears the cookie session, so the request — and every request
+   after it — proceeds as unauthenticated and the user is forced back through
+   login. This is what makes server-side revocation (password change/reset,
+   role change, deactivation, account deletion) actually bite; without it a
+   stolen or stale cookie would stay live for its full 30-day max_age.
 
 2. **Mirror auth flags into the ContextVar.** The post-enforcement session
    flags (``user_uid``, ``is_admin``, ``is_teacher``) are copied into
    ``core/utils/auth_context.py`` so page chrome (BasePage / navbar) can read
    auth state without importing this layer. Same shape as ``CSRFMiddleware``
    + ``csrf_token_context`` (set before ``call_next``, reset in ``finally``).
+
+3. **Set the request's zone.** The signed-in user's zone choice, read from
+   the graph by the validation in step 1 — never from the cookie session, so
+   a change in Settings reaches every device on its next request — resolves
+   to the request's zone in ``core/utils/zone_context.py`` (ADR-089 §3). A
+   request with no live session, and an exempt path, get the app default
+   (``SKUEL_TIMEZONE``).
 
 Enforcement semantics:
 
@@ -35,8 +42,8 @@ Enforcement semantics:
   multiply the per-request read for zero enforcement value.
 
 Cost: one indexed statement on ``Session.token_hash`` per authenticated
-request (validity + live-User check + batched last-active touch, one round
-trip). WebSocket scopes pass through ``BaseHTTPMiddleware`` untouched — the one
+request (validity + live-User check + zone choice + batched last-active
+touch, one round trip). WebSocket scopes pass through ``BaseHTTPMiddleware`` untouched — the one
 WebSocket channel (``/ws/agent``) performs its own challenge handshake at
 connect (adapters/inbound/device_routes.py) instead.
 
@@ -62,6 +69,7 @@ from starlette.responses import PlainTextResponse
 from adapters.inbound.auth.session import get_current_user, get_is_admin, get_is_teacher
 from core.utils.auth_context import AuthState, auth_state_var
 from core.utils.logging import get_logger
+from core.utils.zone_context import current_zone_var, zone_for
 
 if TYPE_CHECKING:
     from starlette.middleware.base import RequestResponseEndpoint
@@ -69,6 +77,7 @@ if TYPE_CHECKING:
     from starlette.types import ASGIApp
 
     from adapters.inbound.fasthtml_types import Request
+    from core.ports.query_types import SessionIdentity
     from core.ports.service_protocols import GraphAuthOperations
 
 logger = get_logger("skuel.auth.context_middleware")
@@ -94,7 +103,7 @@ _ENFORCE_EXEMPT_PATHS: frozenset[str] = frozenset(
 
 
 class AuthContextMiddleware(BaseHTTPMiddleware):
-    """Enforce the graph session, then mirror auth state into the ContextVar."""
+    """Enforce the graph session, then mirror auth state and set the request's zone."""
 
     def __init__(self, app: ASGIApp, graph_auth: GraphAuthOperations) -> None:
         if graph_auth is None:
@@ -106,7 +115,7 @@ class AuthContextMiddleware(BaseHTTPMiddleware):
         self._graph_auth = graph_auth
 
     async def dispatch(self, request: Request, call_next: RequestResponseEndpoint) -> Response:
-        denial = await self._enforce_graph_session(request)
+        denial, identity = await self._enforce_graph_session(request)
         if denial is not None:
             return denial
 
@@ -115,27 +124,34 @@ class AuthContextMiddleware(BaseHTTPMiddleware):
             is_admin=get_is_admin(request),
             is_teacher=get_is_teacher(request),
         )
+        zone = zone_for(identity["timezone"] if identity is not None else None)
         ctx_token = auth_state_var.set(state)
+        zone_token = current_zone_var.set(zone)
         try:
             return await call_next(request)
         finally:
+            current_zone_var.reset(zone_token)
             auth_state_var.reset(ctx_token)
 
-    async def _enforce_graph_session(self, request: Request) -> Response | None:
-        """Validate the cookie's graph session; None means "proceed".
+    async def _enforce_graph_session(
+        self, request: Request
+    ) -> tuple[Response | None, SessionIdentity | None]:
+        """Validate the cookie's graph session: ``(denial, identity)``.
 
-        Clears the session (→ request proceeds unauthenticated, routes send
-        the user to login) when the graph says the session is revoked or
-        expired; returns a 503 without touching the cookie when validation
-        itself fails.
+        A denial means "answer with this". Otherwise the request proceeds,
+        carrying the live session's identity — its user and their zone choice
+        — or None when there is no live session. Clears the session (→ the
+        request proceeds unauthenticated, routes send the user to login) when
+        the graph says it is revoked or expired; denies with a 503 without
+        touching the cookie when validation itself fails.
         """
         path = request.url.path
         if path in _ENFORCE_EXEMPT_PATHS or path.startswith(_ENFORCE_EXEMPT_PREFIXES):
-            return None
+            return None, None
 
         session = getattr(request, "session", None)
         if not session or not session.get("user_uid"):
-            return None
+            return None, None
 
         session_token = session.get("session_token")
         if not session_token:
@@ -145,16 +161,19 @@ class AuthContextMiddleware(BaseHTTPMiddleware):
                 session.get("user_uid"),
             )
             session.clear()
-            return None
+            return None, None
 
-        result = await self._graph_auth.validate_session_uid(session_token)
+        result = await self._graph_auth.validate_session_identity(session_token)
         if result.is_error:
             logger.error(
                 "Graph session validation failed for user_uid=%s: %s",
                 session.get("user_uid"),
                 result.expect_error().message,
             )
-            return PlainTextResponse("Session validation temporarily unavailable", status_code=503)
+            denial = PlainTextResponse(
+                "Session validation temporarily unavailable", status_code=503
+            )
+            return denial, None
 
         if result.value is None:
             logger.info(
@@ -163,7 +182,7 @@ class AuthContextMiddleware(BaseHTTPMiddleware):
             )
             session.clear()
 
-        return None
+        return None, result.value
 
 
 __all__ = ["AuthContextMiddleware"]

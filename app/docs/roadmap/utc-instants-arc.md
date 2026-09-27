@@ -446,6 +446,40 @@ against the testcontainer. **(laptop)** the script clears the six stored values 
 count); Settings lists zones, and in a browser emulating Asia/Bangkok "Use this device's time zone"
 selects Asia/Bangkok and saves; the page at 375 px.
 
+**Left by PR 2a for the rows after it:**
+
+- **Whose zone** is `core/utils/zone_context.py`: `current_zone()` is the request's zone, set by
+  `AuthContextMiddleware` for every HTTP request (the signed-in user's choice, else the default;
+  anonymous, exempt-path and WebSocket work gets the default) and the app default outside a
+  request; `default_zone()` builds `SKUEL_TIMEZONE` (read at call time through
+  `configured_zone_name()`, which `ApplicationConfig.timezone` also reads at boot); `zone_for(choice)`
+  resolves a stored choice (a name zoneinfo does not list follows the default, with a warning);
+  `validated_zone_name` is the strict check the doors use; `zone_names()` is the valid set —
+  zoneinfo's names minus the host alias `localtime`. **Outside a request**,
+  `UserService.get_user_zone(uid)` → `Result[ZoneInfo]` is the named user's zone (the vault
+  owner's, a report's user's).
+- **The zone helpers** in `timestamp_helpers` take the zone: `today_in(zone)`, `now_in(zone)`,
+  `day_of(instant, zone)` (reads a naive value through `as_utc`, so PR 3's `STORED_INSTANT_CLOCK`
+  reaches it) and `local_day_bounds(day, zone)` → `(start, end)`, aware UTC, half-open. The
+  host-clock day helpers (`today()`, `days_until`, `days_since`, `is_overdue`, `is_today`) are
+  untouched, for PR 2b to replace.
+- **Test craft:** a unit test simulates a request with `current_zone_var.set(ZoneInfo(...))`
+  (reset in `finally`) and pins the default with `monkeypatch.delenv("SKUEL_TIMEZONE")`; a user's
+  zone is set through `UserService.update_preferences(uid, {"timezone": …})`, the Settings door's
+  writer; `tests/unit/utils/test_timestamp_helpers.py` freezes the clock by patching a
+  `datetime` subclass into the module (`_FrozenClock`), and
+  `tests/integration/test_request_zone_resolution.py` drives the real middleware over the
+  testcontainer through `httpx.ASGITransport`, on the test's own event loop.
+- **Settings** is one HTMX form: the five section forms had no submit of their own and "Save All
+  Changes" named a form that did not exist, so the button posted nothing. The list's empty entry
+  ("SKUEL default (…)", built from `default_zone()`) saves as no choice. A sixth hard-coded
+  `"UTC"` sat in the page itself (`prefs.get("timezone", "UTC")`); the list replaced it.
+- **The clear** is `scripts/migrations/clear_unchosen_utc_timezone_2026_09.py` (census by
+  default; `--confirm` writes). The zone lives inside the User node's `preferences` JSON string,
+  so the script compares and rewrites that whole string, in one transaction. Mike runs it
+  **before** choosing a zone in Settings: a changed value among the six stops the census, which
+  then waits for his ruling. PR 2b waits for it.
+
 ### PR 2b — Calendar sites ask the zone
 
 Scope:

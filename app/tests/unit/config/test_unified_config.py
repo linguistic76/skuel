@@ -489,3 +489,56 @@ class TestConvenienceFactories:
         with patch("core.config.unified_config._get_neo4j_password", return_value=""):
             config = create_production_config()
             assert config.environment == Environment.PRODUCTION
+
+
+class TestDefaultTimeZoneBootGuard:
+    """SKUEL_TIMEZONE is the app default zone, validated at boot (ADR-089 §3).
+
+    ``get_settings()`` is the boot's first read (main.py, then the bootstrap's
+    ``_load_config``) and raises on any validation error, so an unknown zone
+    name refuses to start the app rather than failing a request later.
+    """
+
+    @pytest.fixture
+    def boot(self, monkeypatch: pytest.MonkeyPatch):
+        from core.config.settings import get_settings, reload_config
+
+        monkeypatch.setenv("SKUEL_ENVIRONMENT", "local")
+        monkeypatch.setenv("NEO4J_URI", "neo4j://localhost:7687")
+        monkeypatch.setenv("NEO4J_USERNAME", "neo4j")
+
+        def read(zone: str | None) -> UnifiedConfig:
+            if zone is None:
+                monkeypatch.delenv("SKUEL_TIMEZONE", raising=False)
+            else:
+                monkeypatch.setenv("SKUEL_TIMEZONE", zone)
+            reload_config()
+            try:
+                with patch("core.config.unified_config._get_neo4j_password", return_value="pw"):
+                    return get_settings()
+            finally:
+                reload_config()
+
+        return read
+
+    def test_unset_defaults_to_america_vancouver(self, boot) -> None:
+        assert boot(None).application.timezone == "America/Vancouver"
+        assert boot("").application.timezone == "America/Vancouver"
+
+    def test_a_valid_name_is_the_default(self, boot) -> None:
+        assert boot("Asia/Bangkok").application.timezone == "Asia/Bangkok"
+
+    @pytest.mark.parametrize("bad", ["Mars/Olympus", "localtime", "UTC+7"])
+    def test_an_unknown_name_refuses_to_boot(self, boot, bad: str) -> None:
+        with pytest.raises(ValueError, match="SKUEL_TIMEZONE must be an IANA time zone name"):
+            boot(bad)
+
+    def test_validate_config_names_the_bad_value(self) -> None:
+        with patch("core.config.unified_config._get_neo4j_password", return_value=""):
+            config = UnifiedConfig()
+        config.application.timezone = "Mars/Olympus"
+        errors = [e for e in validate_config(config) if "SKUEL_TIMEZONE" in e]
+        assert errors == [
+            "SKUEL_TIMEZONE must be an IANA time zone name (for example "
+            "America/Vancouver); got 'Mars/Olympus'"
+        ]

@@ -24,6 +24,7 @@ from core.config.unified_config import (
     UnifiedConfig,
 )
 from core.utils.logging import get_logger
+from core.utils.zone_context import TIMEZONE_ENV_VAR, zone_names
 
 logger = get_logger("skuel.config.validation")
 
@@ -273,6 +274,14 @@ def validate_config(config: UnifiedConfig) -> list[str]:
     valid_log_formats = ["json", "text"]
     if config.application.log_format not in valid_log_formats:
         errors.append(f"Invalid log format: {config.application.log_format}")
+
+    # The app default zone (ADR-089 §3): an IANA name zoneinfo can load. An
+    # unknown name fails boot via get_settings(), never a request later.
+    if config.application.timezone not in zone_names():
+        errors.append(
+            f"{TIMEZONE_ENV_VAR} must be an IANA time zone name (for example "
+            f"America/Vancouver); got {config.application.timezone!r}"
+        )
 
     # Validate knowledge configuration
     errors.extend(validate_knowledge_config(config.knowledge))

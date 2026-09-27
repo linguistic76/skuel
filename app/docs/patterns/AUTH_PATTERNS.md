@@ -1,6 +1,6 @@
 ---
 title: Authentication Patterns in SKUEL
-updated: '2026-09-23'
+updated: '2026-09-27'
 category: patterns
 related_skills: [security]
 related_docs: []
@@ -300,6 +300,12 @@ request — same shape as the CSRF token context. The session stays the single
 source of truth; outside a request (unit renders, WebSocket paths), the
 context degrades to unauthenticated defaults.
 
+The same pass sets the request's zone in `core/utils/zone_context.py`
+(`current_zone()`, ADR-089): the signed-in user's `UserPreferences.timezone`,
+read from the graph by the session-validation statement — never from the
+cookie, so a change in Settings reaches every device on its next request —
+else the app default `SKUEL_TIMEZONE`.
+
 ## Navbar Authentication Pattern
 
 The navbar is one bar for every role; which doors it shows (sign-out, the inbox, the
@@ -382,7 +388,9 @@ One navbar for every role (`ui/layouts/navbar.py`); what changes by auth state i
    ↓
 4. On each request:
    - AuthContextMiddleware validates session_token against the :Session node
-     (revoked/expired → cookie session cleared → forced re-login)
+     (revoked/expired → cookie session cleared → forced re-login); the same
+     statement returns the user's zone choice, which becomes the request's
+     zone (`current_zone()`)
    - Route helpers (get_current_user() etc.) then read the cookie — the graph
      round-trip already happened once, upstream
    ↓

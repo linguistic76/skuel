@@ -23,6 +23,7 @@ Architecture:
 """
 
 from typing import TYPE_CHECKING, Any
+from zoneinfo import ZoneInfo
 
 from core.models.enums import DualTrackDimension
 from core.models.shared.dual_track import DualTrackResult
@@ -186,6 +187,10 @@ class UserService(_AdminLifecycleMixin, _ContextPlanningMixin):
     async def get_user(self, user_uid: UserUID) -> Result[User | None]:
         """Get user by UID."""
         return await self.core.get_user(user_uid)
+
+    async def get_user_zone(self, user_uid: UserUID) -> Result[ZoneInfo]:
+        """The zone a named user's calendar values belong to, for work outside a request."""
+        return await self.core.get_user_zone(user_uid)
 
     async def get_user_by_username(self, username: str) -> Result[User | None]:
         """Get user by username."""

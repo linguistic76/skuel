@@ -14,21 +14,28 @@ from unittest.mock import MagicMock
 import pytest
 
 from adapters.inbound.auth.context_middleware import AuthContextMiddleware
+from core.models.type_hints import UserUID
+from core.ports.query_types import SessionIdentity
 from core.utils.auth_context import AuthState, auth_state_var, current_auth_state
 from core.utils.result_simplified import Errors, Result
+from core.utils.zone_context import current_zone, current_zone_var
 
 if TYPE_CHECKING:
     from starlette.testclient import TestClient
 
 
+def _identity(user_uid: str = "user_x", timezone: str | None = None) -> SessionIdentity:
+    return SessionIdentity(user_uid=UserUID(user_uid), timezone=timezone)
+
+
 class _StubGraphAuth:
-    """validate_session_uid stub — swap ``result`` to steer a test."""
+    """validate_session_identity stub — swap ``result`` to steer a test."""
 
     def __init__(self, result: Result | None = None) -> None:
-        self.result: Result = result if result is not None else Result.ok("user_x")
+        self.result: Result = result if result is not None else Result.ok(_identity())
         self.calls: list[str] = []
 
-    async def validate_session_uid(self, session_token: str) -> Result:
+    async def validate_session_identity(self, session_token: str) -> Result:
         self.calls.append(session_token)
         return self.result
 
@@ -272,6 +279,88 @@ class TestGraphSessionEnforcement:
 
 
 # ============================================================================
+# AuthContextMiddleware — the request's zone (ADR-089 §3)
+# ============================================================================
+
+
+@pytest.fixture
+def default_zone_env(monkeypatch: pytest.MonkeyPatch) -> pytest.MonkeyPatch:
+    """SKUEL_TIMEZONE unset, so the app default is America/Vancouver."""
+    monkeypatch.delenv("SKUEL_TIMEZONE", raising=False)
+    return monkeypatch
+
+
+class TestRequestZone:
+    """The middleware resolves the request's zone from the validated session.
+
+    The zone choice comes back from the one validation round trip, never from
+    the cookie session; a request with no live session gets the app default.
+    """
+
+    async def _zone_during(self, stub: _StubGraphAuth, session: dict | None, path: str = "/app"):
+        seen: list[str] = []
+
+        async def call_next(_req):
+            seen.append(current_zone().key)
+            return "response"
+
+        await _middleware(stub).dispatch(_make_request(session, path=path), call_next)
+        return seen[0]
+
+    @pytest.mark.asyncio
+    async def test_a_users_choice_is_the_requests_zone(self, default_zone_env):
+        stub = _StubGraphAuth(Result.ok(_identity(timezone="Asia/Bangkok")))
+        assert await self._zone_during(stub, _valid_session()) == "Asia/Bangkok"
+
+    @pytest.mark.asyncio
+    async def test_no_choice_follows_the_app_default(self, default_zone_env):
+        stub = _StubGraphAuth(Result.ok(_identity(timezone=None)))
+        assert await self._zone_during(stub, _valid_session()) == "America/Vancouver"
+
+    @pytest.mark.asyncio
+    async def test_the_app_default_is_skuel_timezone(self, default_zone_env):
+        default_zone_env.setenv("SKUEL_TIMEZONE", "Europe/Lisbon")
+        stub = _StubGraphAuth(Result.ok(_identity(timezone=None)))
+        assert await self._zone_during(stub, _valid_session()) == "Europe/Lisbon"
+        assert await self._zone_during(stub, {}) == "Europe/Lisbon"
+
+    @pytest.mark.asyncio
+    async def test_anonymous_and_revoked_requests_get_the_default(self, default_zone_env):
+        assert await self._zone_during(_StubGraphAuth(), {}) == "America/Vancouver"
+        revoked = _StubGraphAuth(Result.ok(None))
+        assert await self._zone_during(revoked, _valid_session()) == "America/Vancouver"
+
+    @pytest.mark.asyncio
+    async def test_exempt_paths_get_the_default_without_validation(self, default_zone_env):
+        stub = _StubGraphAuth(Result.ok(_identity(timezone="Asia/Bangkok")))
+        assert await self._zone_during(stub, _valid_session(), path="/health") == (
+            "America/Vancouver"
+        )
+        assert stub.calls == []
+
+    @pytest.mark.asyncio
+    async def test_a_stored_name_zoneinfo_does_not_list_follows_the_default(self, default_zone_env):
+        stub = _StubGraphAuth(Result.ok(_identity(timezone="Mars/Olympus")))
+        assert await self._zone_during(stub, _valid_session()) == "America/Vancouver"
+
+    @pytest.mark.asyncio
+    async def test_zone_reset_after_dispatch_and_when_the_handler_raises(self, default_zone_env):
+        stub = _StubGraphAuth(Result.ok(_identity(timezone="Asia/Bangkok")))
+
+        async def ok(_req):
+            return "response"
+
+        async def boom(_req):
+            raise ValueError("handler blew up")
+
+        await _middleware(stub).dispatch(_make_request(_valid_session()), ok)
+        assert current_zone_var.get() is None
+        with pytest.raises(ValueError, match="handler blew up"):
+            await _middleware(stub).dispatch(_make_request(_valid_session()), boom)
+        assert current_zone_var.get() is None
+
+
+# ============================================================================
 # Middleware wiring order — end to end through a real fast_app
 # ============================================================================
 
@@ -308,7 +397,23 @@ class TestMiddlewareWiringOrder:
             state = current_auth_state()
             return PlainTextResponse(f"{state.user_uid}|{state.is_admin}|{state.is_teacher}")
 
+        @rt("/zone")
+        def zone(request):
+            return PlainTextResponse(current_zone().key)
+
         return TestClient(app)
+
+    def test_the_choice_reaches_the_zone_through_real_stack(self, default_zone_env):
+        # The choice is read from the graph on each request — a change reaches
+        # the next request with no new login and no cookie rewrite.
+        stub = _StubGraphAuth(Result.ok(_identity(timezone="Asia/Bangkok")))
+        client = self._client(stub)
+        assert client.get("/zone").text == "America/Vancouver"
+        assert client.get("/fake-login").status_code == 200
+        assert client.get("/zone").text == "Asia/Bangkok"
+
+        stub.result = Result.ok(_identity(timezone=None))  # cleared in Settings
+        assert client.get("/zone").text == "America/Vancouver"
 
     def test_no_session_renders_unauthenticated(self):
         client = self._client(_StubGraphAuth())
@@ -334,5 +439,5 @@ class TestMiddlewareWiringOrder:
         stub.result = Result.ok(None)  # server-side revocation
         assert client.get("/whoami").text == "None|False|False"
 
-        stub.result = Result.ok("user_x")  # backend valid again — but the
+        stub.result = Result.ok(_identity())  # backend valid again — but the
         assert client.get("/whoami").text == "None|False|False"  # cookie is gone

@@ -62,6 +62,9 @@ services:
       APP_HOST: 0.0.0.0
       APP_PORT: ${APP_PORT:-8000}
       APP_DEBUG: ${APP_DEBUG:-false}
+      # The app's default time zone — blank when unset, which the app reads as
+      # its own default (America/Vancouver)
+      SKUEL_TIMEZONE: ${SKUEL_TIMEZONE:-}
 
       # AI Services — no HF_API_TOKEN passthrough: the BGE/HuggingFace
       # provider is staged, not selectable via create_embedding_client()
