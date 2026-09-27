@@ -1,6 +1,6 @@
 ---
 title: "Submit & Share Arc — Rulings & Contract"
-updated: 2026-09-26
+updated: 2026-09-27
 status: "active"
 registered: 2026-09-24
 ruled: 2026-09-24
@@ -1588,7 +1588,7 @@ it first removes both.
     its retry. The move pass's rewritten row takes the same mark — one `_pending_row` spelling,
     typed (no `Any`). A pending row that cannot be written is a `tracking`-stage sync error,
     never only a log line.
-  - **One supersede rule, `_SUPERSEDED_COPY`** (the assessment mixin): a fragment over names the
+  - **One supersede rule, `SUPERSEDED_COPY`** (`adapters/persistence/neo4j/query/cypher/learning_loop_fragments.py`): a fragment over names the
     caller binds in a WITH, read by the queue, its dashboard badge and `get_students_summary` —
     two lineages (the exercise snapshot, and `submitted_from_uid` per student), teacher-visible
     siblings only. The students summary's `pending_count` is "not completed and not superseded";

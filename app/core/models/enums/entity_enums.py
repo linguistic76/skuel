@@ -626,6 +626,12 @@ _ACTIVE_STATUSES = frozenset(
     }
 )
 
+# The statuses a teacher-review entry takes feedback or a revision request from —
+# read by the writers' status guards, the review queue's pending set and the
+# review page's actions, so a form is never offered the writer would refuse.
+# Ordered: the writers hand it to Cypher as a list.
+REVIEWABLE_ENTRY_STATUSES: tuple[EntityStatus, ...] = (EntityStatus.SUBMITTED, EntityStatus.ACTIVE)
+
 _ENTITY_STATUS_COLORS: dict[EntityStatus, str] = {
     EntityStatus.DRAFT: "#9CA3AF",  # Light gray
     EntityStatus.SUBMITTED: "#8B5CF6",  # Violet

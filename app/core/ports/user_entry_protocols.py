@@ -320,8 +320,13 @@ class UserEntryAssessmentOperations(Protocol):
         now: str,
         status: str,
         allowed_from_statuses: list[str],
+        teacher_uid: str,
     ) -> Result[list[Neo4jProperties]]:
-        """Approve entry, return linked KU UIDs + mastery_impact."""
+        """Approve entry, return linked KU UIDs + mastery_impact.
+
+        Refused (no row) unless the status guard passes and the copy is not
+        superseded for the approving teacher — decided by the write.
+        """
         ...
 
     async def get_entries_for_exercise_review(

@@ -68,3 +68,68 @@ def build_review_standing_subquery(entity_alias: str = "entity") -> str:
 
 
 __all__ = ["build_review_standing_subquery"]
+
+
+_OWNS = RelationshipName.OWNS.value
+_SUBMITTED_TO_GROUP = RelationshipName.SUBMITTED_TO_GROUP.value
+_FULFILLS_EXERCISE = RelationshipName.FULFILLS_EXERCISE.value
+
+# THE supersede rule for pending feedback requests — one predicate, read by the
+# review queue, its dashboard badge twin, the students summary and the teacher
+# detail, and held by the review writers themselves (their write statements refuse a
+# superseded copy), so no surface disagrees on what awaits review.
+#
+# A copy is superseded by a newer sibling the SAME teacher can see (a
+# ``teacher_review`` entry of the same student, submitted to one of this
+# teacher's ACTIVE owned groups), in either of two lineages:
+#
+#   * the exercise lineage — the same turn-in snapshot ``turn_in_exercise_uid``
+#     (the key that outlives the exercise, Submit & Share arc R12), newer by the
+#     ``FULFILLS_EXERCISE`` edge revision where the edge still exists, else by
+#     ``created_at``;
+#   * the note lineage — frozen copies filed from the same vault note
+#     (``submitted_from_uid``, R9), newer by ``created_at``.
+#
+# Whatever the newer copy's status (a reviewed rev 2 retires a pending rev 1).
+# Siblings the teacher cannot see never supersede: a PRIVATE ``llm_summary``
+# entry, a copy sent only to another teacher's group, one locked in a group this
+# teacher deactivated. An entry in neither lineage always passes through.
+#
+# The caller binds, in a WITH before the predicate: ``teacher``, ``student``
+# (the entry's owner), ``copy_uid``, ``copy_lineage`` (the entry's
+# ``turn_in_exercise_uid``), ``copy_note`` (its ``submitted_from_uid``),
+# ``copy_revision`` (its edge revision, 0 without one) and ``copy_created_at``.
+SUPERSEDED_COPY = f"""EXISTS {{
+    MATCH (student)-[:{_OWNS}]->(newer:Entity:UserEntry)
+    WHERE newer.uid <> copy_uid
+      AND newer.pipeline = $pipeline
+      AND (newer)-[:{_SUBMITTED_TO_GROUP}]->(:Group {{is_active: true}})<-[:{_OWNS}]-(teacher)
+      AND ((copy_lineage IS NOT NULL
+            AND newer.turn_in_exercise_uid = copy_lineage
+            AND (coalesce(head([(newer)-[nr:{_FULFILLS_EXERCISE}]->(:Entity:Exercise) | nr.revision]), 0)
+                   > copy_revision
+                 OR (coalesce(head([(newer)-[nr:{_FULFILLS_EXERCISE}]->(:Entity:Exercise) | nr.revision]), 0)
+                       = copy_revision
+                     AND newer.created_at > copy_created_at)))
+           OR (copy_note IS NOT NULL
+               AND newer.submitted_from_uid = copy_note
+               AND newer.created_at > copy_created_at))
+}}"""
+
+
+def superseded_copy_bindings(entry_alias: str) -> str:
+    """The ``copy_*`` projections ``SUPERSEDED_COPY`` reads, for one bound entry.
+
+    Composed into a WITH beside ``teacher`` and ``student`` (the entry's owner);
+    the edge revision is read by pattern comprehension, so the projection never
+    multiplies rows.
+    """
+    validate_identifier(entry_alias)
+    return (
+        f"{entry_alias}.uid AS copy_uid, "
+        f"{entry_alias}.turn_in_exercise_uid AS copy_lineage, "
+        f"{entry_alias}.submitted_from_uid AS copy_note, "
+        f"coalesce(head([({entry_alias})-[copy_edge:{_FULFILLS_EXERCISE}]->(:Entity:Exercise) "
+        f"| copy_edge.revision]), 0) AS copy_revision, "
+        f"{entry_alias}.created_at AS copy_created_at"
+    )

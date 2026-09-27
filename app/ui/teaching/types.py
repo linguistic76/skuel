@@ -1,24 +1,14 @@
 """Teaching UI view model types.
 
-Frozen dataclasses for teaching queue and detail components,
-plus the action-availability status set and dict-to-dataclass converters.
+Frozen dataclasses for teaching queue and detail components, and the
+dict-to-dataclass converters that build them.
 """
 
+from collections.abc import Mapping
 from dataclasses import dataclass
 from typing import Any
 
 from core.models.type_hints import UserUID
-
-# ============================================================================
-# Status → action availability
-# ============================================================================
-
-# Statuses on which the inline review panel offers teacher actions (submit
-# feedback / request revision / approve). This is NOT the Needs Review rule:
-# what awaits review is the student-scoped review queue
-# (TeacherReviewService.get_review_queue — one collapse rule, two surfaces);
-# this set only gates the per-submission action forms.
-NEEDS_REVIEW_STATUSES: frozenset[str] = frozenset({"submitted", "active", "queued", "processing"})
 
 
 @dataclass(frozen=True)
@@ -63,20 +53,25 @@ class ClassSummary:
 
 @dataclass(frozen=True)
 class SubmissionDetail:
-    """Submission content for teacher review."""
+    """A submission as the teacher reviews it — the student's work and its place.
+
+    ``exercise_uid`` is the turn-in's root exercise (the snapshot once the
+    exercise is deleted); ``superseded`` marks a copy with a newer sibling
+    this teacher can see, which takes no action.
+    """
 
     title: str = "Untitled"
     entity_type: str | None = None
     status: str = ""
     student_name: str = "Unknown"
     student_uid: str = ""
+    exercise_uid: str | None = None
     exercise_title: str | None = None
     revision: int | None = None
     exercise_instructions: str | None = None
-    processed_content: str | None = None
     content: str | None = None
     original_filename: str | None = None
-    file_path: str | None = None
+    superseded: bool = False
 
 
 @dataclass(frozen=True)
@@ -139,4 +134,26 @@ def submission_row_from_dict(d: dict[str, Any]) -> SubmissionRow:
         exercise_title=d.get("exercise_title"),
         revision=d.get("revision"),
         original_filename=d.get("original_filename"),
+    )
+
+
+def submission_detail_from_dict(d: Mapping[str, Any]) -> SubmissionDetail:
+    """Convert a teacher detail read (``SubmissionDetailResult``) to a SubmissionDetail.
+
+    The one construction site: the review page and the per-student panel both
+    render through it, so they cannot drift on which fields they carry.
+    """
+    return SubmissionDetail(
+        title=d.get("title") or "Untitled",
+        entity_type=d.get("entity_type"),
+        status=(d.get("status") or "").lower(),
+        student_name=d.get("student_name") or d.get("student_uid") or "Unknown",
+        student_uid=d.get("student_uid") or "",
+        exercise_uid=d.get("exercise_uid"),
+        exercise_title=d.get("exercise_title"),
+        revision=d.get("revision"),
+        exercise_instructions=d.get("exercise_instructions"),
+        content=d.get("content"),
+        original_filename=d.get("original_filename"),
+        superseded=bool(d.get("superseded")),
     )

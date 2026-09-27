@@ -275,7 +275,7 @@ async def parse_form_body[T: BaseModel](
 
     Example::
 
-        result = await parse_form_body(request, CreateTeachingExerciseRequest)
+        result = await parse_form_body(request, ExerciseCreateRequest)
         if result.is_error:
             return result
         req = result.value

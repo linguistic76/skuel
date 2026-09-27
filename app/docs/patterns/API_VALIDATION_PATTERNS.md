@@ -1,6 +1,6 @@
 ---
 title: API Validation Patterns
-updated: 2026-09-21
+updated: 2026-09-27
 category: patterns
 related_skills:
 - pydantic
@@ -159,17 +159,23 @@ exist (see [ANY_USAGE_POLICY.md](ANY_USAGE_POLICY.md)).
 
 **Usage in Routes:**
 ```python
-from adapters.inbound.form_helpers import parse_json_body
+from adapters.inbound.form_helpers import parse_form_body
 
-@rt("/api/tasks/{uid}", methods=["PUT"])
-@boundary_handler()
-async def update_task(request: Request, uid: str) -> Result[Task]:
-    """Update a task — the shape the CRUD factory's update route follows."""
-    result = await parse_json_body(request, TaskUpdateRequest)
-    if result.is_error:
-        return Result.fail(result)
-    # Pydantic stops here: the service takes the typed intent, never the model.
-    return await tasks_service.update_task(uid, result.value.to_intent())
+@rt("/api/teaching/review/{uid}/revision", methods=["POST"])
+@csrf_protected
+@require_role(UserRole.TEACHER, get_user_service)
+async def request_revision(request: Request, uid: str, current_user: Any = None) -> Any:
+    parsed = await parse_form_body(request, RequestRevisionRequest)
+    if parsed.is_error:
+        return Div(P(parsed.expect_error().message, cls="text-sm text-destructive"))
+    req = parsed.value
+
+    # The exercise comes from the gated detail read, never from the form.
+    detail = await teacher_review_service.get_submission_detail(
+        submission_uid=uid, teacher_uid=current_user.uid
+    )
+    ...  # a turn-in → request_revision_with_exercise(..., notes=req.instructions, ...);
+         # no exercise → request_revision(report_uid=uid, teacher_uid=..., notes=req.instructions)
 ```
 
 **Ownership-verified POSTs** verify the owner uid wherever it travels. When it is a model field (`TrackHabitRequest.habit_uid`): `parse_json_body`, then `verify_entity_ownership(habits_service, req.habit_uid, user_uid, "habit")` (`adapters/inbound/habits_api.py`, `POST /api/habits/track`). When it is in the query string (`POST /api/principles/link?uid=`): verify first, then parse — that model's `uid` is the link *target*, verified on its own. The parser merges nothing into the body.
@@ -243,19 +249,10 @@ async def search_results(request: Request, query: str = "", status: str | None =
 **Example Request Model:**
 ```python
 # core/models/teaching/teaching_request.py
-class CreateTeachingExerciseRequest(BaseModel):
-    name: str = Field(..., min_length=1)
-    instructions: str = Field(..., min_length=1)
-    scope: ExerciseScope = ExerciseScope.PERSONAL
-    group_uid: str | None = None
-    due_date: date | None = None
-    processor_type: ReportSource = ReportSource.LLM
-
-    @model_validator(mode="after")
-    def assigned_scope_requires_group(self) -> "CreateTeachingExerciseRequest":
-        if self.scope == ExerciseScope.ASSIGNED and not self.group_uid:
-            raise ValueError("group_uid is required for assigned exercises")
-        return self
+class RequestRevisionRequest(BaseModel):
+    instructions: str = Field(..., min_length=1, description="Revision instructions")
+    revision_rationale: str | None = Field(default=None, description="Why this revision")
+    fp_count: int = Field(default=0, ge=0, le=20, description="Number of feedback points")
 ```
 
 **Usage in Routes:**
@@ -267,10 +264,10 @@ from adapters.inbound.form_helpers import parse_form_body
 async def request_revision(request: Request, uid: str) -> Result[Any]:
     parsed = await parse_form_body(request, RequestRevisionRequest)
     if parsed.is_error:
-        return parsed  # type: ignore[return-value]
+        return Result.fail(parsed)
     req = parsed.value
 
-    return await service.request_revision(report_uid=uid, notes=req.notes)
+    return await service.request_revision(report_uid=uid, notes=req.instructions)
 ```
 
 **Benefits:**
@@ -283,7 +280,7 @@ async def request_revision(request: Request, uid: str) -> Result[Any]:
 - `parse_form_body()` — structured form data with multiple fields, validation rules, enum parsing
 - `safe_form_string()` — individual field extraction in UI routes where Pydantic is overkill
 
-**Real-world usage:** `teaching_api.py` — `CreateTeachingExerciseRequest` and `UpdateTeachingExerciseRequest`.
+**Real-world usage:** `teaching_api.py` — `RequestRevisionRequest` on the revision route.
 
 ---
 
@@ -882,9 +879,9 @@ async def habit_track(request: Request) -> Result[dict[str, Any]]:
 from adapters.inbound.form_helpers import parse_form_body
 
 async def create_exercise(request: Request) -> Result[Any]:
-    parsed = await parse_form_body(request, CreateTeachingExerciseRequest)
+    parsed = await parse_form_body(request, ExerciseCreateRequest)
     if parsed.is_error:
-        return parsed  # type: ignore[return-value]
+        return Result.fail(parsed)
     req = parsed.value
     return await service.create_exercise(name=req.name, ...)
 ```
@@ -980,9 +977,11 @@ the 400 example above from this very model.
 ## Reference Implementations
 
 **Teaching API** (`adapters/inbound/teaching_api.py`):
-- Uses `parse_json_body()` for JSON POST routes (submit feedback, request revision)
-- Uses `parse_form_body()` for form POST routes (create/update exercise)
-- `CreateTeachingExerciseRequest` — demonstrates enum coercion, cross-field validation, date parsing in a single Pydantic model
+- The revision route uses `parse_form_body()` with `RequestRevisionRequest` — the review form posts
+  multipart, and the exercise comes from the gated detail read, never the form
+- The feedback route reads its `.md` upload from the multipart form directly
+- Exercises are created through the CRUD factory (`ExerciseCreateRequest` — enum coercion, date
+  parsing and field validators in one Pydantic model)
 
 **Activity Domain APIs** (habits, principles — the hand-written ownership-verified POSTs):
 - owner uid in the model (`habits/track`): `parse_json_body()` first, then `verify_entity_ownership()` on that field; owner uid in the query (`principles/link?uid=`): verify first, then parse

@@ -27,6 +27,7 @@ from adapters.inbound.boundary import boundary_handler
 from adapters.inbound.csrf import csrf_protected
 from adapters.inbound.fasthtml_types import Request
 from adapters.inbound.form_helpers import parse_form_body
+from adapters.inbound.route_factories import is_not_found
 from core.models.teaching.teaching_request import RequestRevisionRequest
 
 # NOTE: FastHTML evaluates every @rt() handler annotation at registration
@@ -154,9 +155,11 @@ def create_teaching_api_routes(
     async def request_revision(request: Request, uid: str, current_user: Any = None) -> Any:
         """Request revision for a student submission with structured feedback.
 
-        When exercise_uid is present, creates EntryReport + RevisedExercise
-        atomically in a single transaction. Falls back to report-only when
-        exercise_uid is absent.
+        The exercise comes from the gated detail read, never from the form: a
+        turn-in (its root exercise, or the snapshot once the root is deleted)
+        files EntryReport + RevisedExercise atomically in one transaction;
+        work with no exercise gets a report-only revision request. A submission
+        outside the teacher's feedback requests is one not-found.
         """
         from fasthtml.common import Div, P
 
@@ -168,8 +171,21 @@ def create_teaching_api_routes(
 
         form_data = result.value
 
+        detail_result = await teacher_review_service.get_submission_detail(
+            submission_uid=uid, teacher_uid=current_user.uid
+        )
+        if detail_result.is_error:
+            # A denied or missing submission is one not-found; a backend fault
+            # is not an access decision, so it says what failed.
+            detail_error = detail_result.expect_error()
+            message = (
+                "Submission not found." if is_not_found(detail_error) else detail_error.message
+            )
+            return Div(P(message, cls="text-sm text-destructive"))
+        exercise_uid = detail_result.value.get("exercise_uid")
+
         # Atomic path: EntryReport + RevisedExercise in one transaction
-        if form_data.exercise_uid:
+        if exercise_uid:
             # Parse feedback points from form arrays
             raw_form = await request.form()
             feedback_points: list[dict[str, str]] = []
@@ -183,7 +199,7 @@ def create_teaching_api_routes(
                 submission_uid=uid,
                 teacher_uid=current_user.uid,
                 notes=form_data.instructions,
-                original_exercise_uid=form_data.exercise_uid,
+                original_exercise_uid=exercise_uid,
                 feedback_points=feedback_points,
                 revision_rationale=form_data.revision_rationale,
             )
@@ -296,14 +312,14 @@ def create_teaching_api_routes(
     @require_role(UserRole.TEACHER, get_user_service)
     @boundary_handler()
     async def get_review_panel(request: Request, uid: str, current_user: Any = None) -> Any:
-        """Return inline review panel HTML fragment for the student detail tabbed view.
+        """Return the inline review panel for a row on the per-student page.
 
-        Loaded by HTMX on first expand of a submission row. Returns:
-        - Submission content
-        - Feedback history (if any)
-        - Action forms (if submission is actionable)
+        Loaded by HTMX on first expand of a submission row: the same review body
+        as the review page — the student's work, its feedback history, and the
+        actions its status and supersession allow.
         """
         from ui.teaching.detail import render_review_panel_inline
+        from ui.teaching.types import submission_detail_from_dict
 
         # get_submission_detail gates on the entry's feedback request
         # (SUBMITTED_TO_GROUP an active group the teacher owns); a denied or
@@ -317,7 +333,7 @@ def create_teaching_api_routes(
         )
         detail_value = detail_result.value if not detail_result.is_error else None
         if not detail_value:
-            return render_review_panel_inline(uid, {}, [])
+            return render_review_panel_inline(uid, None, [])
 
         if entry_report_service is None:
             history: list[Any] = []
@@ -327,7 +343,7 @@ def create_teaching_api_routes(
                 history_result.value if not history_result.is_error and history_result.value else []
             )
 
-        return render_review_panel_inline(uid, dict(detail_value), history)
+        return render_review_panel_inline(uid, submission_detail_from_dict(detail_value), history)
 
     @rt("/api/teaching/exercises", methods=["GET"])
     @require_role(UserRole.TEACHER, get_user_service)

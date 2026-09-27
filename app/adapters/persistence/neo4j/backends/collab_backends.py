@@ -236,7 +236,7 @@ class GroupBackend(UniversalNeo4jBackend["Group"]):
                       -[:{RelationshipName.SUBMITTED_TO_GROUP.value}]->(g)
           WHERE sub.pipeline = $pipeline AND g.is_active = true
         RETURN member.uid AS user_uid,
-               member.name AS user_name,
+               coalesce(member.display_name, member.title, member.uid) AS user_name,
                r.role AS role,
                r.joined_at AS joined_at,
                count(DISTINCT sub) AS submission_count,

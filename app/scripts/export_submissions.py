@@ -121,7 +121,9 @@ def _render_submission_md(detail: dict, queue_item: dict) -> str:
     title = detail.get("title") or queue_item.get("title") or "Untitled"
     student = detail.get("student_name") or detail.get("student_uid") or "Unknown"
     exercise = detail.get("exercise_title") or ""
-    content = detail.get("processed_content") or detail.get("content") or "(No content)"
+    content = (
+        detail.get("content") or "(No content)"
+    )  # the student's work, as the review card shows it
     instructions = detail.get("exercise_instructions") or ""
 
     lines = [

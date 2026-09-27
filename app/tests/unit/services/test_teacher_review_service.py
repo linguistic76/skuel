@@ -186,6 +186,59 @@ class TestGroupMembershipRejection:
         assert "does not have review access" in str(result.error)
 
 
+class TestSupersededCopyTakesNoAction:
+    """A copy with a newer version the teacher can see is history: every review
+    writer refuses it after the access gate, and nothing is written."""
+
+    @staticmethod
+    def _service() -> tuple[TeacherReviewService, MagicMock, MagicMock]:
+        backend = _make_user_entry_backend()
+        backend.verify_teacher_has_group_access.return_value = Result.ok([{"has_access": True}])
+        backend.get_entry_detail_for_teacher.return_value = Result.ok(
+            [{"uid": SUBMISSION_UID, "superseded": True}]
+        )
+        report_backend = _make_report_backend()
+        return (
+            _make_service(user_entry_backend=backend, report_backend=report_backend),
+            backend,
+            report_backend,
+        )
+
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize("writer", ["submit_report", "request_revision", "approve_report"])
+    async def test_the_writer_refuses_a_history_copy(self, writer: str) -> None:
+        service, backend, report_backend = self._service()
+        args = {
+            "submit_report": (SUBMISSION_UID, TEACHER_UID, "feedback"),
+            "request_revision": (SUBMISSION_UID, TEACHER_UID, "notes"),
+            "approve_report": (SUBMISSION_UID, TEACHER_UID),
+        }[writer]
+
+        result = await getattr(service, writer)(*args)
+
+        assert result.is_error
+        assert result.expect_error().code == "BUSINESS_SUPERSEDED_COPY"
+        report_backend.create_report_node.assert_not_called()
+        backend.approve_and_get_linked_kus.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_a_revision_with_exercise_refuses_a_history_copy(self) -> None:
+        service, _backend, report_backend = self._service()
+
+        result = await service.request_revision_with_exercise(
+            submission_uid=SUBMISSION_UID,
+            teacher_uid=TEACHER_UID,
+            notes="notes",
+            original_exercise_uid="ex.root",
+            feedback_points=[],
+            revision_rationale=None,
+        )
+
+        assert result.is_error
+        assert result.expect_error().code == "BUSINESS_SUPERSEDED_COPY"
+        report_backend.create_report_and_revised_exercise.assert_not_called()
+
+
 # ========================================================================
 # TestSubmitReport
 # ========================================================================
