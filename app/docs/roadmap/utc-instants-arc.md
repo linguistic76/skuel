@@ -1,7 +1,7 @@
 ---
 title: "UTC Instants Arc — Rulings & Contract"
 updated: 2026-09-27
-status: "active — ruled 2026-09-27; PR 0 (this record) open"
+status: "active — ruled 2026-09-27; PR 0 merged, PR 1 next"
 registered: 2026-09-27
 ruled: 2026-09-27
 ---
@@ -456,7 +456,7 @@ requires PR 8.
 
 | PR | Scope | Acceptance (live case) | Status |
 |----|-------|------------------------|--------|
-| 0 | This document + ADR-089 + the case file, MOC and INDEX rows (docs only; summon Codex explicitly) | Merged; `./dev docs-links` and the skills validator clean | open |
+| 0 | This document + ADR-089 + the case file, MOC and INDEX rows (docs only; summon Codex explicitly) | Merged; `./dev docs-links` and the skills validator clean | merged #1431, 2026-09-27 |
 | 1 | Pre-flight: insights crash, raw temporal parameters (embodiment), event days, the unwritten `rescheduled_at`, goal-event arithmetic; `as_utc()` | `/api/insights/active` 200; a non-zero embodiment rate (red before); today's event counts | — |
 | 2a | `SKUEL_TIMEZONE`; the user's zone in Settings (list + "Use this device's time zone"); the six `"UTC"` cleared; the request's zone; zone helpers | A Bangkok-emulating browser saves Asia/Bangkok in one click; a bad name refused; boot refuses a bad default | — |
 | 2b | Every calendar site asks the zone; Cypher `$today`; calendar-day counts; `DTZ011` on | After 17:00 local the overdue count agrees with the Today page; forced-zone test (UTC process, Vancouver and Bangkok users) | — |
