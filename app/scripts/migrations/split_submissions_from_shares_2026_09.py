@@ -10,7 +10,7 @@ teachers who own the group, under ``(teacher)-[:OWNS]->(group)``; a share,
 reads the request kind, so a row still carrying the share kind is in no
 queue until it is re-typed. Why the two kinds exist, and the leak the split
 closes, is ADR-088's record and the Submit & Share arc's
-(``docs/roadmap/submission-sharing-arc.md``, PR 1) — not repeated here.
+(``docs/roadmap/done/submission-sharing-arc.md``, PR 1) — not repeated here.
 
 What is re-typed, and why only that:
 

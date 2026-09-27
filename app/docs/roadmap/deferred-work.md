@@ -1,5 +1,5 @@
 ---
-updated: 2026-09-26
+updated: 2026-09-27
 ---
 
 # Deferred Work
@@ -93,7 +93,7 @@ renders them as a table in Obsidian, and a session derives the same table with
 
 ## Sharing HTTP Door — Operations on Existing Shares
 
-[Sharing HTTP Door — Operations on Existing Shares](sharing-http-door.md) — the revoke half shipped 2026-09-25 (Submit & Share arc PR 6b: `POST /api/user-entries/{uid}/share` / `/unshare`, the Share panel, *Your wall* as the access list; the two access-list methods deleted); `UnifiedSharingService.set_visibility` is the one member still without a caller, waiting on the PUBLIC reader (a portfolio listing).
+[Sharing HTTP Door — Operations on Existing Shares](sharing-http-door.md) — the revoke half shipped 2026-09-25 (Submit & Share arc PR 6b: `POST /api/user-entries/{uid}/share` / `/unshare`, the Share panel, *Your wall* as the access list; the two access-list methods deleted); `UnifiedSharingService.set_visibility` is the one member still without a caller, waiting on the PUBLIC reader (a portfolio listing); the wall's 100-entry cap waits on a wall approaching it.
 
 ## Form-Submission Recipient Read — a Form Shared With You Still 404s
 
@@ -181,7 +181,7 @@ renders them as a table in Obsidian, and a session derives the same table with
 
 ## Tasks+ / One-Chrome Follow-ons
 
-[Tasks+ / One-Chrome Follow-ons — Explore's Phone Form, the Doorless Census, the Tabs Widget, Three Small Rulings](tasks-plus-follow-ons.md) — What the one-chrome arc left outside itself by ruling: Explore's phone form + the MOC-roots question (D5), the ten doorless surfaces (D8), the `ui/enum_helpers.py` census, the `ui/patterns/tabs.py` <!-- planned --> extraction for both same-page switchers, sidebar group dividers, the "Transcribe" rename (D7) and PWA first-run — each its own PR, each waiting on a ruling or a first snapshot.
+[Tasks+ / One-Chrome Follow-ons — Explore's Phone Form, the Doorless Census, the Tabs Widget, Three Small Rulings](tasks-plus-follow-ons.md) — What the one-chrome arc left outside itself by ruling: Explore's phone form + the MOC-roots question (D5), the ten doorless surfaces (D8), the `ui/enum_helpers.py` census, the `ui/patterns/tabs.py` <!-- planned --> extraction for both same-page switchers, sidebar group dividers, the "Transcribe" rename (D7), PWA first-run and the teaching sidebar seen over the content at 1280 — each its own PR, each waiting on a ruling or a first snapshot.
 
 ## Ingest Transition Obligation Durability
 
@@ -194,6 +194,10 @@ renders them as a table in Obsidian, and a session derives the same table with
 ## Development Machine Capacity
 
 [Development Machine Capacity — what is memory-gated today, and what changes on a bigger machine](development-machine-capacity.md) — Every bound the 15 GB development laptop put in the tree (8 unit workers, the serial composed session, the testcontainer JVM caps, no `./dev quality` beside a test session, bounded foreground waits) with its file:line and its measurement, and per row what a ≥ 32 GB / ≥ 16 GB-VRAM machine changes — after re-measuring, never by copying a number — and what stays a code-side ceiling regardless.
+
+## Naive-Local Timestamps Read as UTC
+
+[Naive-Local Timestamps Read as UTC](naive-local-timestamps-read-as-utc.md) — Writers stamp naive local time that Neo4j reads as UTC, so on a host west of UTC the generation cooldown never fires and share times read hours off; waits on the next time-window change or a non-UTC production host.
 
 ## Review Schedule
 

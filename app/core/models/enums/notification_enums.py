@@ -12,7 +12,7 @@ from the notification's ``source_type`` + ``source_uid`` through
 ``entity_detail_href`` — with one override, ``SUBMISSION_FOR_REVIEW``, whose
 door is the teacher's review page rather than the entry's own detail page.
 
-See: /docs/roadmap/submission-sharing-arc.md (R10 — who is rung for what)
+See: /docs/roadmap/done/submission-sharing-arc.md (R10 — who is rung for what)
 """
 
 from __future__ import annotations
