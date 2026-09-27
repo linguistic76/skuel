@@ -1,33 +1,33 @@
 ---
 title: "Submit & Share Arc — Rulings & Contract"
 updated: 2026-09-27
-status: "active"
+status: "done"
 registered: 2026-09-24
 ruled: 2026-09-24
 ---
 
 # Submit & Share Arc — Rulings & Contract
 
-**Status:** ACTIVE — ruled 2026-09-24 (founder rulings R1–R14; four refinements signed off with the
-plan). Thirteen PRs, **one per fresh context**. From PR 0 on, this document is the single source of
-truth for the arc: nothing depends on the planning conversation. The **Status** column of the
-[PR contract table](#pr-plan-contract) is the progress ledger — a session resumes at the first row
-that is not `merged`. **Every PR row is merged (PR 8, 2026-09-26); the arc-close walk-through
-([§ Verification](#verification-arc-close)) is the one step left, in its own session.**
-**Decision record:** [ADR-088 — Submit and Share](../decisions/ADR-088-submit-and-share.md) (the
+**Status:** CLOSED 2026-09-27 — ruled 2026-09-24 (founder rulings R1–R14; four refinements signed
+off with the plan). Thirteen PRs, **one per fresh context**, every one merged; the arc-close
+walk-through ([§ Verification](#verification-arc-close)) passed live on 2026-09-27, after three
+fixes its pre-flight found on its own path (the pre-flight rows of the
+[PR contract table](#pr-plan-contract)). This document was the single source of truth for the arc,
+and the **Status** column of that table its progress ledger.
+**Decision record:** [ADR-088 — Submit and Share](../../decisions/ADR-088-submit-and-share.md) (the
 two verbs, the two group-link kinds, links as the only audience record, `visibility` = public or
 not, `read_visibility`, the derived wall, R8 co-membership, `teacher:<group_uid>`).
-**Related:** [ADR-038](../decisions/ADR-038-content-sharing-model.md),
-[ADR-040](../decisions/ADR-040-teacher-exercise-workflow.md),
-[ADR-042](../decisions/ADR-042-privacy-as-first-class-citizen.md) §7,
-[ADR-053](../decisions/ADR-053-groups-first-class-and-unified-sharing.md) §1,
-[ADR-054](../decisions/ADR-054-user-entry-unified-submissions.md) §3/§5/§6,
-[ADR-085](../decisions/ADR-085-ownership-read-enforcement-contract.md) §2 (the records ADR-088
-amends), [`sharing-http-door.md`](sharing-http-door.md) (the 2026-09-21 ruling ADR-088 amends),
-[`done/vault-resync-never-retracts-a-share.md`](done/vault-resync-never-retracts-a-share.md) (closed by PR 8),
-[`feedback-loop-staged-directions.md`](feedback-loop-staged-directions.md) §1 (peer feedback — the
-next arc, R14), [`form-submission-recipient-read.md`](form-submission-recipient-read.md) (deferred
-by this arc), [`done/calendar-priority-lens-arc.md`](done/calendar-priority-lens-arc.md) (this
+**Related:** [ADR-038](../../decisions/ADR-038-content-sharing-model.md),
+[ADR-040](../../decisions/ADR-040-teacher-exercise-workflow.md),
+[ADR-042](../../decisions/ADR-042-privacy-as-first-class-citizen.md) §7,
+[ADR-053](../../decisions/ADR-053-groups-first-class-and-unified-sharing.md) §1,
+[ADR-054](../../decisions/ADR-054-user-entry-unified-submissions.md) §3/§5/§6,
+[ADR-085](../../decisions/ADR-085-ownership-read-enforcement-contract.md) §2 (the records ADR-088
+amends), [`sharing-http-door.md`](../sharing-http-door.md) (the 2026-09-21 ruling ADR-088 amends),
+[`done/vault-resync-never-retracts-a-share.md`](vault-resync-never-retracts-a-share.md) (closed by PR 8),
+[`feedback-loop-staged-directions.md`](../feedback-loop-staged-directions.md) §1 (peer feedback — the
+next arc, R14), [`form-submission-recipient-read.md`](../form-submission-recipient-read.md) (deferred
+by this arc), [`done/calendar-priority-lens-arc.md`](calendar-priority-lens-arc.md) (this
 document's skeleton).
 
 ---
@@ -70,7 +70,7 @@ and the exchanges orphaned when an exercise is deleted.
 | R11 | **Activity reports stay in the GradeBook.** An admin-written report is owned by its student. |
 | R12 | **Exchanges survive exercise deletion.** The title is snapshotted at submission, and orphans show as "exercise removed" lines, apart from Other feedback. Deletion stays allowed. |
 | R13 | **Other feedback subtitle:** "Feedback on work that isn't tied to an exercise." |
-| R14 | **Peer responses are the next arc.** That arc also revisits the Aug-2026 ruling "Peer is a GradeBook Source" ([`feedback-loop-staged-directions.md`](feedback-loop-staged-directions.md) §1: peer feedback joins the existing Source filters). |
+| R14 | **Peer responses are the next arc.** That arc also revisits the Aug-2026 ruling "Peer is a GradeBook Source" ([`feedback-loop-staged-directions.md`](../feedback-loop-staged-directions.md) §1: peer feedback joins the existing Source filters). |
 
 ## Refinements (signed off with the plan; recorded in ADR-088)
 
@@ -275,9 +275,9 @@ carry — folded in as contract; the ones that change the plan say "settled at P
 
 ### PR 0 — Arc record (docs only)
 
-- This document, on the calendar-priority-lens-arc skeleton, and [ADR-088](../decisions/ADR-088-submit-and-share.md).
+- This document, on the calendar-priority-lens-arc skeleton, and [ADR-088](../../decisions/ADR-088-submit-and-share.md).
 - `docs/INDEX.md` rows; the deferred item
-  [`form-submission-recipient-read.md`](form-submission-recipient-read.md) (a form shared with you
+  [`form-submission-recipient-read.md`](../form-submission-recipient-read.md) (a form shared with you
   still 404s) with its `deferred-work.md` MOC entry. Every existing `deferred-work.md` heading is
   unchanged.
 - ADR-088 is linked back from the learning-loop, security and search-architecture skills
@@ -351,7 +351,7 @@ carry — folded in as contract; the ones that change the plan say "settled at P
     `recipient_uids`) **leaves the gate**: a person share is a share, never a review grant (R3, R5,
     ADR-088 §3 — the two readers are never crossed). Verified at PR 0: that arm is pinned by
     `test_form_submission_access_gate.py:211,294`, which flip to not-found. Cost: until the form
-    recipient read ([`form-submission-recipient-read.md`](form-submission-recipient-read.md)) is
+    recipient read ([`form-submission-recipient-read.md`](../form-submission-recipient-read.md)) is
     built, a teacher named by person has no door to the form — note it in that case file. The
     `verify_teacher_access` docstring and refusal wording (`form_submission_service.py:321-346`,
     `teaching_forms_ui.py:385`) then match the gate; reword them to name `SUBMITTED_TO_GROUP`.
@@ -1520,7 +1520,7 @@ it first removes both.
   - share edges on living notes, retracted with `--confirm` (live 2026-09-24: 0 — re-census: syncs
     between PR 1 and this PR may have written explicit `group:` shares);
   - retire the retract_defaulted_vault_note_shares script.
-- **Closes** [`vault-resync-never-retracts-a-share.md`](done/vault-resync-never-retracts-a-share.md) → `done/`.
+- **Closes** [`vault-resync-never-retracts-a-share.md`](vault-resync-never-retracts-a-share.md) → `done/`.
   Repoint every inbound link: `INDEX.md`, the `deferred-work.md` MOC entry's link (heading kept) and
   its banner (`deferred-work.md:12`, reworded), `sharing-http-door.md` (the script cite in its
   `unshare_from_group` row, and items 54-57 reworded — the gap closes by never sharing drafts, not by
@@ -1639,7 +1639,7 @@ it first removes both.
 - Visiting someone else's wall.
 - A public portfolio reader.
 - Form submissions on the wall, and a form recipient read — deferred:
-  [`form-submission-recipient-read.md`](form-submission-recipient-read.md).
+  [`form-submission-recipient-read.md`](../form-submission-recipient-read.md).
 - Widening UserEntry search.
 - Re-litigating R1–R14 or the four refinements.
 
@@ -1685,7 +1685,7 @@ through merge. Nothing may depend on an earlier conversation, so each session re
 needs from this document (and ADR-088).
 
 **Kickoff prompt to paste into each fresh context:**
-> Continue the Submit & Share arc. Read `docs/roadmap/submission-sharing-arc.md`: the rulings, the
+> Continue the Submit & Share arc. Read `docs/roadmap/done/submission-sharing-arc.md`: the rulings, the
 > refinements, the Amendments by record table, the Standing conventions and the Rules for each PR
 > session, the PR table, and the section for the first PR whose status isn't merged. Implement only
 > that PR, from an updated main, on a new branch.
@@ -1731,6 +1731,9 @@ requires PR 1, PR 3, PR 5 and PR 6a. PR 6c requires PR 4a, PR 5 and PR 6b. PR 7 
 | 6c | Derived "reviewed" badges; the GradeBook nudge | A revised shared entry carries "Revised after feedback". The GradeBook nudge appears on it | merged #1424, 2026-09-25 |
 | 7 | The two-question Submit form; teacher without an exercise; teacher bell; the zero-reach rule moves into `create_entry`; the "Submit" rename; the title ruling (the title is the student's, the version is the edge's) | The web Teacher option works without an exercise. The teacher's bell links to `/teaching/review/{uid}` | merged #1425, 2026-09-26 |
 | 8 | Vault notes are drafts; one frozen copy per `status: submitted`; provenance + dedup; closes the re-sync case file | A vault note with `status: submitted` files one copy; an idle re-sync files nothing | merged #1426, 2026-09-26 |
+| pre-flight B | The teacher's exercise list keeps embedded exercises (`Exercise(**props)` over a node map dropped every one; step 6's page) | An embedded exercise lists with its Delete button | merged #1427, 2026-09-27 |
+| pre-flight C | The review queue lists an entry once, however many of the teacher's classes it asks (step 7's copy files to two) | A two-class feedback request is one queue row and one detail row | merged #1428, 2026-09-27 |
+| pre-flight A | The review page the bell opens shows the student's work and its version; one revision form that lands (it posted `notes`); superseded copies take no action, decided by the write; the exercise read server-side; teacher surfaces name the student | Step 1's revision request from that page files a report and a RevisedExercise | merged #1429, 2026-09-27 |
 
 ## Verification (arc close)
 
@@ -1747,11 +1750,91 @@ person shares need a real shared group:
 3. **What the second account sees.** The item is on *Shared with you* with "Revised after feedback".
    The bell rang once, for the person share (a group share rings no one). `/gradebook/{uid}` shows
    the recipient card: no status, no feedback, and the `.md` download works.
-4. **Your wall.** It lists both audiences. Stop sharing the person → the item leaves their page, and
-   they get 404.
+4. **Your wall.** It lists both audiences. Stop sharing the person → "directly" leaves their card,
+   and they still reach it through the Default Group (a group share admits every member, ADR-088
+   §3/§7); stop sharing the group too → the item leaves their page, and they get 404.
 5. **Activity report.** An admin writes one → the student's bell → the detail opens. The student's
    own report generation is not in cooldown.
 6. **Exercise deletion.** Delete the exercise → the GradeBook shows an "Exercise removed" line, and
    `/exchange` opens with the snapshot title.
 7. **Vault.** A note with `status: submitted` + `audience: [teachers, user:<the second account's username>]`
    files one copy. An idle re-sync files nothing and rings nothing.
+
+### Live — 2026-09-27 (every step passed)
+
+**Pre-flight (code read, 2026-09-26).** A read-only mapping of every step against the code found
+three defects on the walk-through's own path, and Mike ruled: fix first, then walk. Each landed as
+its own PR (the pre-flight rows above): the review page the bell opens could not request a revision
+(its form posted `notes`; `RequestRevisionRequest` requires `instructions` — refused since April)
+and showed the teacher only the file location, never the student's work (ruled not deliberate), so
+PR 7's "`<exercise>` · v`<N>`" label never printed there (#1429); the teacher's exercise list dropped
+every embedded exercise, Delete button included (#1427); and the review queue listed a two-class
+feedback request twice (#1428). Readings ruled with them: step 4 runs in two phases (the text above
+now says so); step 5's cooldown is checked by a timezone-corrected read-only mirror, because the live
+`check_cooldown` can never fire on a host west of UTC — registered as
+[Naive-Local Timestamps Read as UTC](../naive-local-timestamps-read-as-utc.md); step 7's note is
+`pipeline: none` with no `private` line, because `private: true` refuses `user:` (PR 6a's journal
+rule) and would have refused the whole copy. uxsmoke's password was reset by Mike himself (the admin
+reset token) and stored in the credential store.
+
+**The run** (main `dc38b9cf7` on :8001 against AuraDB; Mike's OK for the setup and walk writes, then
+for the vault step after its preview, then for the cleanup; one write per script, none re-run;
+pre-walk census 3636 nodes / 3126 edges; each write's delta below is exact):
+
+- **Setup.** mfan0110 created "Arc Verification Class" (`group_847f9828598a`) through
+  `POST /api/groups/create` (+1 node, +1 edge) and added linguistic76 and uxsmoke as students (+2
+  `MEMBER_OF`); the test exercise `ex_5ba12f5c9a08`, ASSIGNED to the Default Group (roster: the two
+  test accounts), through `POST /api/exercises/create` (+1, +2). The student's Submit page answered it.
+- **1.** linguistic76's upload with the form's fields (`pipeline=teacher_review`, `audience=teachers`)
+  filed `ue_1edf69ba` to the Default Group only (+3, +6: the entry, its Interaction, one
+  `submission_for_review` bell). mfan0110's bell linked to `/teaching/review/ue_1edf69ba`; its
+  `/content` fragment showed the student's words, "Arc walk-through test exercise · v1" and the
+  revision form. uxsmoke: neither group's `/groups` preview listed it; `/gradebook/ue_1edf69ba` a real
+  404. mfan0110 requested a revision from that page's own form (+4, +8: `er_77a7ae2d`,
+  `re_8abb36f5`, two student bells); linguistic76's GradeBook read "from Teacher · 1 submission ·
+  1 report · Revision requested", and `/profile/shared` listed none of the entry, report or revision.
+- **2.** The revision through its Submit Revision page filed `ue_6b064c74`, titled by the writer
+  "Arc walk-through test exercise v2" (+4, +9, the iteration Insight and a second teacher bell among
+  them). The GradeBook nudge linked `/gradebook/ue_6b064c74?share=1&preselect=reviewers`; its panel
+  preselected the Default Group and offered `user:uxsmoke` (R8 through the new group). The JSON share
+  `[group:group_default_user_admin, user:uxsmoke]` returned `newly_shared_users: [user_uxsmoke]`
+  (+1, +3).
+- **3.** uxsmoke's *Shared with you* listed the card with "Revised after feedback", via "directly"
+  and "Default Group"; exactly one bell (the person share); `/gradebook/ue_6b064c74` was the
+  recipient card — From linguistic76, no status, no feedback, no exchange link — and the `.md`
+  download (`entry-arc-walk-through-test-exercise-v2.md`) carried the work and no feedback. Positive
+  control: the Default Group preview listed v2 and still not v1.
+- **4.** The wall listed both chips. Stop sharing `user:uxsmoke` (−1 edge): "directly" left and
+  uxsmoke still reached the card through the Default Group; stop sharing the group (−1): gone from
+  uxsmoke's page, real 404s on the card and the download, the wall row gone, the nudge back.
+- **5.** mfan0110's activity report `ar_7f2e9d11` (+2, +2): linguistic76's bell linked
+  `/activity-reports/detail?uid=ar_7f2e9d11` and the detail opened with a From line; the admin got
+  404 (no read-back). The timezone-corrected mirror found the admin's report inside the 60-minute
+  window with `processor_type: human` — not counted — so linguistic76's own generation is not in
+  cooldown.
+- **6.** Deleting `ex_5ba12f5c9a08` (`POST /api/exercises/delete`, −1 node, −5 edges): the GradeBook
+  line read "Arc walk-through test exercise · 2 submissions · 1 report · Exercise removed", and
+  `/exchange?exercise=ex_5ba12f5c9a08` opened (200) with the snapshot title and the badge.
+- **7.** The preview listed nothing else to ingest (0 new, 0 changed, 0 deletions); with the note
+  written, "1 new". The note (`knowledge/Arc walk-through test note.md`: `type: user_entry`,
+  `pipeline: none`, `status: submitted`, `audience: [teachers, user:uxsmoke]`) synced to the living
+  draft `ue_1c59dd30` (no link) and one frozen copy `ue_4ce99bac` — `teacher_review`, submitted to
+  both of linguistic76's classes, shared with uxsmoke — with one `submission_for_review` bell
+  (user_admin) and one `shared_with_you` bell (uxsmoke) (+5, +7). `/teaching/queue` listed the copy
+  once. The outbound pass changed no vault file. An idle re-sync ingested nothing (graph unchanged); a
+  frontmatter comment re-ingested the note with an identical snapshot — "unchanged since its copy
+  ue_4ce99bac — no new copy filed" — graph unchanged.
+- **Smoke and screens.** `scripts/authed_smoke.py` over `/gradebook`, `/profile/shared`, `/groups`,
+  `/notifications`, `/submissions/submit` and `/exchange` as linguistic76: zero JS or render errors;
+  the same check as mfan0110 (`/teaching/queue`, the copy's review page, `/notifications`) and as
+  uxsmoke (`/profile/shared`, `/notifications`, the recipient card, `/groups`): clean. Headless
+  Chrome at 375 and 1280 on 13 pages across the three accounts: no horizontal overflow.
+- **Cleanup** (Mike's OK): the test note was removed from the vault, then the 20 placeholder nodes and
+  their 33 edges were deleted by uid (the four entries, the report, the revision, eight bells, two
+  Interactions, the Insight, the activity report, the group and the note's tracker row). The census
+  reads the pre-walk baseline plus the walk's nine scripted logins' `Session` + `AuthEvent` pairs
+  (3654 nodes / 3144 edges).
+
+Residual unchanged: a share's relative time reads hours off (the naive-local stamp, now registered).
+Seen, not this arc's: at 1280 in headless Chrome the teaching sidebar overlaps the page content
+(`/teaching/queue` too).

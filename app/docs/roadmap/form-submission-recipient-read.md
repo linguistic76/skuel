@@ -1,6 +1,6 @@
 ---
 title: "Form-Submission Recipient Read — a Form Shared With You Still 404s"
-updated: 2026-09-24
+updated: 2026-09-27
 status: "deferred — a non-goal of the Submit & Share arc, registered by its PR 0"
 registered: 2026-09-24
 ruled: 2026-09-24
@@ -45,11 +45,11 @@ has once PR 1 lands (an ADMIN keeps the teaching pages through the role bypass).
 
 ## Why it is deferred
 
-The [Submit & Share arc](submission-sharing-arc.md) builds the recipient read for **UserEntry**
+The [Submit & Share arc](done/submission-sharing-arc.md) builds the recipient read for **UserEntry**
 only: its PR 5 adds the `OWNER_OR_AUDIENCE` read visibility and the R6 recipient card, and its PR 6b
 keeps forms on the Shared page as they are today. "Form submissions on the wall, and a form
 recipient read" is one of that arc's non-goals
-([`submission-sharing-arc.md` § Non-goals](submission-sharing-arc.md#non-goals-this-arc)); ADR-088
+([`submission-sharing-arc.md` § Non-goals](done/submission-sharing-arc.md#non-goals-this-arc)); ADR-088
 records it as technical debt.
 
 ## The shape of the fix, once PR 5 exists

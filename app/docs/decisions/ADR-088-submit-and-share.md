@@ -1,7 +1,7 @@
 ---
 title: "ADR-088: Submit and Share"
-updated: 2026-09-26
-status: accepted
+updated: 2026-09-27
+status: implemented
 category: decisions
 tags: [adr, decisions, sharing, submissions, user-entry, groups, visibility, access-control, gradebook]
 related: [ADR-038, ADR-040, ADR-042, ADR-053, ADR-054, ADR-085, ADR-086]
@@ -10,13 +10,14 @@ related_skills: [journals, learning-loop, security, skuel-search-architecture]
 
 # ADR-088: Submit and Share
 
-**Status:** Accepted — founder-ratified 2026-09-24. **Implemented:** every decision below was
-built by the Submit & Share arc, PRs 1–8 (the last merged 2026-09-26); the arc's PR contract table
-is the ledger. The arc-close walk-through (arc doc § Verification) is the one step left.
+**Status:** Accepted — founder-ratified 2026-09-24. **Implemented and verified:** every decision
+below was built by the Submit & Share arc, PRs 1–8 (the last merged 2026-09-26), and the arc-close
+walk-through verified it live on 2026-09-27 (arc doc § Verification, after the three pre-flight
+fixes #1427–#1429).
 **Date:** 2026-09-24
 **Deciders:** MCF
 **Decision Type:** ☑ Graph Schema  ☑ Pattern/Practice
-**Arc:** [Submit & Share — rulings & contract](../roadmap/submission-sharing-arc.md) (rulings R1–R14,
+**Arc:** [Submit & Share — rulings & contract](../roadmap/done/submission-sharing-arc.md) (rulings R1–R14,
 four refinements, 13 PRs).
 **Related ADRs:**
 - Amends (each note lands with the PR whose code changes the record — see
@@ -316,20 +317,24 @@ resolver (PR 6a), the share routes and the Shared page (PR 6b), the derived badg
 GradeBook nudge (PR 6c), the submit form (PR 7) and the vault door (PR 8).
 
 ### Testing Strategy
-- [ ] Integration: `/groups` hides turn-ins and still shows shares; the review queue still lists
-  them (PR 1).
+- [x] Integration: `/groups` hides turn-ins and still shows shares; the review queue still lists
+  them (PR 1 — `tests/integration/test_submit_share_split.py`, `TestTheTwoReadersNeverCross`).
 - [x] Integration: an access matrix — ex-member, deactivated group, revoked share and
   SUBMITTED-only teacher all get not-found; a recipient response carries no report content (PR 5 —
   `tests/integration/routes/test_gradebook_audience_read.py`).
 - [x] Unit: the visibility clause parametrized over every SearchVisibility member (PR 5 —
   `tests/unit/test_search_visibility_scoping.py`).
-- [ ] Unit: the audience parser matrix, co-membership and the uniform error (PR 6a).
+- [x] Unit: the audience parser matrix, co-membership and the uniform error (PR 6a —
+  `tests/unit/models/test_audience_spec.py`; co-membership on the real Cypher in
+  `tests/integration/test_audience_co_membership.py`; the uniform error in
+  `tests/unit/services/user_entry/test_audience_resolver.py`).
 - [x] Integration: a vault note is a draft from its first sync; `status: submitted` files one
   frozen copy with or without an exercise, an idle re-sync files nothing, and a Stop sharing on a
   copy survives the next sync (PR 8 — `tests/integration/user_entry/test_vault_exercise_channel.py`);
   the review queue, its badge and the students summary supersede older copies of one note (PR 8 —
   `tests/integration/routes/test_review_queue_copy_collapse.py`).
-- [ ] Manual: the arc-close walk-through as a student and a second account (arc doc § Verification).
+- [x] Manual: the arc-close walk-through as a student and a second account (arc doc § Verification —
+  passed live 2026-09-27; the dated record is there).
 
 ---
 
@@ -387,5 +392,6 @@ gets its note with the PR that falsifies it:
 | Date | Author | Change | Version |
 |------|--------|--------|---------|
 | 2026-09-24 | MCF | Accepted with the Submit & Share arc plan (rulings R1–R14, refinements 1–4) | 1.0 |
+| 2026-09-27 | MCF | Verified: the arc-close walk-through passed live (every step, as a student, a teacher and a second account), after three pre-flight fixes on its path (#1427–#1429); status implemented | 1.3 |
 | 2026-09-26 | MCF | PR 8 landed R9 at the vault door (§1): every vault note is a living draft from its first sync and never carries a link; `status: submitted` files a frozen copy to the note's audience (`teachers` by default) — first-class `submitted_from_uid`, a fingerprint of the authored snapshot for dedup, and one supersede rule for the note lineage in the review queue | 1.2 |
 | 2026-09-25 | MCF | PR 6a landed the one vocabulary (§7, §8, § The one audience vocabulary): `AudienceSpec` + `AudienceResolver`, R8 co-membership at every person-share writer, the `private: true` refusal (the ADR-054 §5 amendment) | 1.1 |

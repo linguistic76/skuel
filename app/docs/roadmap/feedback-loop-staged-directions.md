@@ -1,5 +1,5 @@
 ---
-updated: 2026-09-25
+updated: 2026-09-27
 ---
 
 # Feedback-Loop Staged Directions — Peer Feedback, Reply Artifact, Read-State
@@ -69,7 +69,7 @@ A `user:<username>` audience → `AudienceResolver.resolve_and_share` → `Unifi
 writes only the edge. The Shared-With-Me card still appears (the inbox query has no
 entity-visibility predicate) but its UserEntry link targets `/gradebook/{uid}`, whose
 fetch is **ownership-only** — the recipient gets a 404 behind a visible card. The
-Submit & Share arc closes this in its PR 5 ([`submission-sharing-arc.md`](submission-sharing-arc.md)):
+Submit & Share arc closes this in its PR 5 ([`submission-sharing-arc.md`](done/submission-sharing-arc.md)):
 UserEntry declares `OWNER_OR_AUDIENCE` for by-uid reads, so a link alone opens the entry
 (ADR-088 §3 — there is no separate access check to honour; the EntryReport access check
 that once required `SHARED` visibility beside a link is retired). Peer feedback builds on

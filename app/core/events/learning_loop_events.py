@@ -142,7 +142,7 @@ class ActivityReportWritten(BaseEvent):
     EntryReport on a turn-in, and its subscribers (learning-loop tracking, the
     Interaction result handler) read turn-in identity this report has none of.
 
-    See: /docs/roadmap/submission-sharing-arc.md (R10, R11); /docs/decisions/ADR-088-submit-and-share.md §1
+    See: /docs/roadmap/done/submission-sharing-arc.md (R10, R11); /docs/decisions/ADR-088-submit-and-share.md §1
     """
 
     report_uid: str  # the ActivityReport

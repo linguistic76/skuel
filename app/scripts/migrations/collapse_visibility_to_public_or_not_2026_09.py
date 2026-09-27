@@ -9,7 +9,7 @@ whether it is published. The ``shared`` and ``team`` values are gone from the
 enum, so a node still carrying one cannot be read back — the DTO parse
 raises on an unknown member — until it is rewritten. Why the two values are
 gone is ADR-088's record and the Submit & Share arc's
-(``docs/roadmap/submission-sharing-arc.md``, PR 2a) — not repeated here.
+(``docs/roadmap/done/submission-sharing-arc.md``, PR 2a) — not repeated here.
 
 What is rewritten, and why only that:
 

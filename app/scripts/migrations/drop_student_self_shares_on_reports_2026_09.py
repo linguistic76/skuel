@@ -10,7 +10,7 @@ entries and form submissions only — feedback lives in the GradeBook (Submit
 & Share arc R3). The invariant this script restores: no user holds a
 ``SHARES_WITH`` on an EntryReport they own. Why the edge used to be written,
 and why it is gone, is ADR-088's record and the arc's
-(``docs/roadmap/submission-sharing-arc.md``, PR 6b) — not repeated here.
+(``docs/roadmap/done/submission-sharing-arc.md``, PR 6b) — not repeated here.
 
 What is deleted, and why only that:
 

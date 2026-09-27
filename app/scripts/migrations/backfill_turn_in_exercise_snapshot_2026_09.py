@@ -7,7 +7,7 @@ Every turn-in carries a snapshot of the root exercise it was filed against:
 its uid and its title as they read at submission. The GradeBook, the
 exchange thread, the review queue's copy collapse and the report titles all
 key on it, so an exchange outlives the deletion of its exercise (Submit &
-Share arc R12 — ``docs/roadmap/submission-sharing-arc.md``, PR 4a). The
+Share arc R12 — ``docs/roadmap/done/submission-sharing-arc.md``, PR 4a). The
 writer stamps it on every turn-in it creates; this script stamps every
 snapshot-less turn-in — an entry that is a turn-in by edge or by trace and
 carries no ``turn_in_exercise_uid``.

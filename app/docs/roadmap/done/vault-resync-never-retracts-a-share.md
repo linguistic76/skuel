@@ -1,6 +1,6 @@
 ---
 title: "Vault Re-Sync Never Retracts a Share"
-updated: 2026-09-26
+updated: 2026-09-27
 status: "done — closed by the Submit & Share arc PR 8 (R9): a vault note is a draft and is never shared, so there is no share for a re-sync to retract"
 registered: 2026-09-02
 ruled: 2026-09-02
@@ -13,7 +13,7 @@ check: "scripts/migrations/vault_notes_are_drafts_2026_09.py (census) reads 0 sh
 *Case file for the [deferred-work.md](../deferred-work.md) entry of the same name.*
 
 **Status: ✅ CLOSED — 2026-09-26, by the Submit & Share arc's PR 8
-([`submission-sharing-arc.md`](../submission-sharing-arc.md) § PR 8, founder ruling R9).** The gap
+([`submission-sharing-arc.md`](submission-sharing-arc.md) § PR 8, founder ruling R9).** The gap
 closed by never sharing drafts, not by reconciliation: a vault note is one living node, never
 submitted and never shared, and its `audience:` applies only to the frozen copy `status: submitted`
 files — a fresh node, filed once per authored snapshot. A re-sync writes no link, so it has nothing

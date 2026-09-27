@@ -1,5 +1,5 @@
 ---
-updated: 2026-09-26
+updated: 2026-09-27
 ---
 
 # Deferred Work
@@ -194,6 +194,10 @@ renders them as a table in Obsidian, and a session derives the same table with
 ## Development Machine Capacity
 
 [Development Machine Capacity — what is memory-gated today, and what changes on a bigger machine](development-machine-capacity.md) — Every bound the 15 GB development laptop put in the tree (8 unit workers, the serial composed session, the testcontainer JVM caps, no `./dev quality` beside a test session, bounded foreground waits) with its file:line and its measurement, and per row what a ≥ 32 GB / ≥ 16 GB-VRAM machine changes — after re-measuring, never by copying a number — and what stays a code-side ceiling regardless.
+
+## Naive-Local Timestamps Read as UTC
+
+[Naive-Local Timestamps Read as UTC](naive-local-timestamps-read-as-utc.md) — Writers stamp naive local time that Neo4j reads as UTC, so on a host west of UTC the generation cooldown never fires and share times read hours off; waits on the next time-window change or a non-UTC production host.
 
 ## Review Schedule
 
