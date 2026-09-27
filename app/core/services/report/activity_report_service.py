@@ -429,6 +429,7 @@ class ActivityReportService:
                 domains=domains,
                 metadata=metadata,
                 data_cutoff=cutoff,
+                zone=period.zone,
             )
 
             create_result = await self.persist(feedback)

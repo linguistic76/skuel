@@ -20,7 +20,7 @@ See: /docs/architecture/REPORT_ARCHITECTURE.md
 """
 
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import datetime, tzinfo
 from typing import TYPE_CHECKING, Any
 
 from core.models.type_hints import UserUID
@@ -32,6 +32,7 @@ if TYPE_CHECKING:
 from core.models.enums.entity_enums import EntityType
 from core.models.enums.pipeline import ReportSource
 from core.models.user_owned_entity import UserOwnedEntity
+from core.utils.timestamp_helpers import day_of
 
 
 @dataclass(frozen=True)
@@ -141,6 +142,8 @@ class ActivityReport(UserOwnedEntity):
         metadata: dict[str, Any] | None = None,
         data_cutoff: datetime | None = None,
         created_by: str | None = None,
+        *,
+        zone: tzinfo,
     ) -> ActivityReport:
         """
         Factory method — generates uid, formats title, constructs ActivityReport.
@@ -160,9 +163,11 @@ class ActivityReport(UserOwnedEntity):
         counted_to = period_end
         if data_cutoff is not None and data_cutoff < period_end:
             counted_to = data_cutoff
+        # The days a title names are the report user's (``zone``); the bounds and
+        # the cutoff are instants on the host clock.
         title = (
-            f"Activity Report — {period_start.strftime('%b %d')} "
-            f"to {counted_to.strftime('%b %d, %Y')}"
+            f"Activity Report — {day_of(period_start, zone).strftime('%b %d')} "
+            f"to {day_of(counted_to, zone).strftime('%b %d, %Y')}"
         )
         if counted_to < period_end:
             title += " (partial)"

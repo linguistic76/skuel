@@ -19,7 +19,7 @@ See: /docs/architecture/REPORT_ARCHITECTURE.md
 """
 
 import json
-from datetime import datetime
+from datetime import date, datetime
 from typing import TYPE_CHECKING, Any, cast
 
 from core.models.enums import EntityStatus
@@ -238,11 +238,12 @@ class ProgressReportGenerator:
                     insights = insights_result.value or []
 
             # 3. Collect intelligence data (baked into report at generation time)
+            # The cross-domain read takes the period's days — the user's, in its zone.
             intelligence = await self._collect_intelligence(
                 user_uid,
                 completions,
-                start_date,
-                end_date,
+                period.calendar_day(start_date),
+                period.calendar_day(end_date),
                 ctx_result,
                 figures_are_current=figures_are_current,
             )
@@ -338,6 +339,7 @@ class ProgressReportGenerator:
                 ),
                 metadata=metadata,
                 data_cutoff=end_date,
+                zone=period.zone,
             )
 
             create_result = await self.activity_report_service.persist(report)
@@ -362,8 +364,8 @@ class ProgressReportGenerator:
         self,
         user_uid: UserUID,
         completions: dict[str, Any],
-        start_date: datetime,
-        end_date: datetime,
+        first_day: date,
+        last_day: date,
         ctx_result: Result[RichUserContext],
         *,
         figures_are_current: bool = True,
@@ -402,7 +404,7 @@ class ProgressReportGenerator:
         if self.analytics_service:
             try:
                 patterns = await self.analytics_service.detect_cross_domain_patterns(
-                    user_uid, start_date.date(), end_date.date()
+                    user_uid, first_day, last_day
                 )
                 intelligence["cross_domain_patterns"] = patterns
             except Exception as e:  # safety-net: intelligence is optional
@@ -1199,13 +1201,15 @@ class ProgressReportGenerator:
         the report says so in its first line.
         """
         sections: list[str] = []
-        period_label = f"{period.start.strftime('%b %d')} - {cutoff.strftime('%b %d, %Y')}"
+        # The days a report names are its user's (the period's zone).
+        first_day, through = period.calendar_day(period.start), period.calendar_day(cutoff)
+        period_label = f"{first_day.strftime('%b %d')} - {through.strftime('%b %d, %Y')}"
 
         sections.append(f"# Progress Report: {period_label}\n")
         if period.is_partial_at(cutoff):
             sections.append(
                 f"_Partial: {period.label} is still open — counted through "
-                f"{cutoff.strftime('%b %d, %Y')}._\n"
+                f"{through.strftime('%b %d, %Y')}._\n"
             )
 
         # Task Completion Summary

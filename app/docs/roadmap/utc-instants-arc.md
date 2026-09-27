@@ -562,7 +562,9 @@ files: too large for one context, so two sub-rows, each on its own branch
   `as_host_clock(local_day_bounds(day, zone)[0])` — the day's first instant in the zone, read on
   the host clock (the digits a naive stamp carries; `as_host_clock` is `as_utc`'s inverse), so it
   is neutral on the laptop and right under the pin. A period's last instant is the next day's
-  start less a microsecond. `ReportPeriod.preceding_token()` reads the token, not `start.date()`.
+  start less a microsecond. `ReportPeriod.preceding_token()` reads the token, not `start.date()`;
+  a `ReportPeriod` carries its user's `zone`, and `calendar_day(moment)` names the day a report
+  states ("counted through", the report's heading, `ActivityReport.create(..., zone=)`'s title).
 - **Left as they were, for PR 3:** the day-of-an-instant reads beside the moved "today"
   (`HabitCompletion.was_completed_today`'s `completed_at.date()`, the streak arithmetic's
   `last_completed.date()`, `Choice.is_deadline_past`'s `decision_deadline.date()`) read the stored

@@ -39,6 +39,7 @@ from core.utils.period_keys import (
 )
 from core.utils.timestamp_helpers import (
     as_host_clock,
+    day_of,
     local_day_bounds,
     parse_iso_utc,
     week_bounds,
@@ -58,7 +59,8 @@ class ReportPeriod:
     first and last instants of its days in the report user's zone. For a
     trailing window ``end`` is the ``now`` it was resolved at. ``label`` names
     the period the way a sentence would ("the last 7 days", "September 2026",
-    "week 37 of 2026").
+    "week 37 of 2026"). ``zone`` is the report user's, whose calendar names
+    the period's days (``calendar_day``).
     """
 
     token: str
@@ -66,6 +68,7 @@ class ReportPeriod:
     start: datetime
     end: datetime
     label: str
+    zone: tzinfo
 
     @property
     def is_calendar(self) -> bool:
@@ -105,14 +108,24 @@ class ReportPeriod:
             return weekly_period_key(monday - timedelta(days=7)) if monday else None
         return None
 
+    def calendar_day(self, moment: datetime) -> date:
+        """The day ``moment`` falls on for the report's user — in the period's zone.
+
+        ``start``, ``end`` and a cutoff are instants on the host clock; the day a
+        sentence names for one is the user's, which on a host in another zone is
+        not the day of its digits (01:00 on the host clock can still be yesterday).
+        """
+        return day_of(moment, self.zone)
+
     def label_through(self, cutoff: datetime) -> str:
         """The period as a sentence names it, saying so when the counts stop
         before its end: "September 2026 so far (counted through Sep 12, 2026)".
         Every reader of the label — the LLM prompt included — is told a partial
-        period is partial."""
+        period is partial; the day counted through is the user's."""
         if not self.is_partial_at(cutoff):
             return self.label
-        return f"{self.label} so far (counted through {cutoff.strftime('%b %d, %Y')})"
+        through = self.calendar_day(cutoff)
+        return f"{self.label} so far (counted through {through.strftime('%b %d, %Y')})"
 
 
 def as_naive_utc(value: object) -> datetime | None:
@@ -163,6 +176,7 @@ def resolve_report_period(token: str, now: datetime, zone: tzinfo) -> ReportPeri
             start=now - timedelta(days=days),
             end=now,
             label=f"the last {days} days",
+            zone=zone,
         )
     monday = weekly_period_start(token)
     if monday is not None:
@@ -175,6 +189,7 @@ def resolve_report_period(token: str, now: datetime, zone: tzinfo) -> ReportPeri
             start=start,
             end=end,
             label=f"week {iso_week} of {iso_year}",
+            zone=zone,
         )
     first = monthly_period_start(token)
     if first is not None:
@@ -186,6 +201,7 @@ def resolve_report_period(token: str, now: datetime, zone: tzinfo) -> ReportPeri
             start=start,
             end=end,
             label=first.strftime("%B %Y"),
+            zone=zone,
         )
     raise UnknownReportPeriodError(f"Unknown report period {token!r}")
 

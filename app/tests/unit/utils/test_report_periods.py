@@ -213,3 +213,17 @@ def test_a_trailing_window_is_the_same_in_every_zone() -> None:
     for zone in (ZONE, ZoneInfo("Asia/Bangkok"), ZoneInfo("UTC")):
         period = resolve_report_period("7d", NOW, zone)
         assert (period.start, period.end) == (datetime(2026, 9, 5, 10, 30, 0), NOW)
+
+
+def test_the_day_counted_through_is_the_users_on_a_host_in_another_zone() -> None:
+    # 02:00Z on October 1st: a UTC host has turned the month, Vancouver has not —
+    # its September is still open, counted through the 30th.
+    with forced_zone("UTC"):
+        now = datetime(2026, 10, 1, 2, 0)
+        september = resolve_report_period("2026-09", NOW, ZONE)
+        assert not september.is_closed(now)
+        assert september.calendar_day(now) == date(2026, 9, 30)
+        assert (
+            september.label_through(september.data_cutoff(now))
+            == "September 2026 so far (counted through Sep 30, 2026)"
+        )
