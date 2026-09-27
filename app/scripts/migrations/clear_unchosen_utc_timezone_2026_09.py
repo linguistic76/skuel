@@ -15,8 +15,10 @@ string, and rewrites it with ``"timezone": null`` and every other key as it was.
 
 **Census** (the default, read-only): lists every user whose stored zone is
 ``"UTC"``, and every other user's stored zone for the record. It STOPS (exit 2)
-unless the ``"UTC"`` users are exactly the six, when a user's preferences cannot
-be read, or when one of the six uids names more than one User node.
+when a user's preferences cannot be read, when one of the six uids names more
+than one User node, or — while the six are not yet cleared — unless the
+``"UTC"`` users are exactly the six. With the six at null and no stop, it
+reports DONE and writes nothing.
 
 **--confirm**: the census, then ONE write in one transaction — each of the six
 set to null where its ``preferences`` still equals what the census read. A row
@@ -85,10 +87,12 @@ SET u.preferences = row.new
 RETURN u.uid AS uid
 """
 
-# The stored-zone states a User node can be in.
+# The stored-zone states that are no choice — each follows SKUEL_TIMEZONE.
 _NO_KEY = "no timezone key"
 _NO_PREFERENCES = "no preferences"
 _NULL = "null"
+_BLANK = "blank"
+_NO_CHOICE = frozenset({_NO_KEY, _NO_PREFERENCES, _NULL, _BLANK})
 
 
 def _preferences(raw: object) -> dict[str, Any] | None:
@@ -136,7 +140,12 @@ class Census:
 
     @property
     def stops(self) -> list[str]:
-        """Why the clear must not run; empty when it may."""
+        """Why the census fails; empty when it passes.
+
+        An unreadable row or a duplicated uid fails every census, the one that
+        finds the six already at null included. A "UTC" set other than the six
+        fails a census the clear has not yet run for.
+        """
         reasons: list[str] = []
         if self.unreadable:
             reasons.append(f"unreadable preferences: {', '.join(sorted(self.unreadable))}")
@@ -182,6 +191,8 @@ async def run_census(driver: AsyncDriver, expected: frozenset[str]) -> Census:
             utc.append(row)
         elif parsed["timezone"] is None:
             others[uid] = _NULL
+        elif parsed["timezone"] == "":
+            others[uid] = _BLANK
         else:
             others[uid] = str(parsed["timezone"])
     duplicates = sorted(uid for uid in expected if counts[uid] > 1)
@@ -191,9 +202,7 @@ async def run_census(driver: AsyncDriver, expected: frozenset[str]) -> Census:
     for row in utc:
         marker = "" if row["uid"] in expected else "   <- NOT one of the six"
         print(f"  {row['uid']}{marker}")
-    chosen = {
-        uid: zone for uid, zone in others.items() if zone not in (_NULL, _NO_KEY, _NO_PREFERENCES)
-    }
+    chosen = {uid: zone for uid, zone in others.items() if zone not in _NO_CHOICE}
     print(f"\nUsers with another stored zone (a choice; never touched): {len(chosen)}")
     for uid, zone in sorted(chosen.items()):
         print(f"  {uid}  {zone}")
@@ -205,12 +214,12 @@ async def run_census(driver: AsyncDriver, expected: frozenset[str]) -> Census:
         print(f"\nUsers whose preferences are not a JSON object: {len(unreadable)}")
         for uid in sorted(unreadable):
             print(f"  {uid}")
-    if census.done:
-        print(f'\nDONE: none holds "{UNCHOSEN}" and the six are at null.')
-    elif census.stops:
+    if census.stops:
         print("\nSTOP:")
         for reason in census.stops:
             print(f"  {reason}")
+    elif census.done:
+        print(f'\nDONE: none holds "{UNCHOSEN}" and the six are at null.')
     else:
         print(f'\nOK: the "{UNCHOSEN}" users are exactly the six this script clears.')
     return census
@@ -259,12 +268,12 @@ async def main() -> int:
     try:
         print("=== CENSUS ===" if not args.confirm else "=== BEFORE ===")
         census = await run_census(driver, NEVER_CHOSEN)
-        if census.done:
-            print("\nNothing to clear.")
-            return 0
         if census.stops:
             print("\nREFUSED: nothing written. The census above says why; Mike rules.")
             return 2
+        if census.done:
+            print("\nNothing to clear.")
+            return 0
         print(f'\nWould clear: {len(census.utc)} user(s), each "timezone": "{UNCHOSEN}" -> null')
         if not args.confirm:
             print(
@@ -283,8 +292,8 @@ async def main() -> int:
 
         print("\n=== AFTER ===")
         after = await run_census(driver, NEVER_CHOSEN)
-        if not after.done:
-            print("\nFAILED: the six are not all at null after the write.")
+        if after.stops or not after.done:
+            print("\nFAILED: the census after the write does not show the six at null alone.")
             return 1
         print("\nOK: the six follow SKUEL_TIMEZONE.")
         return 0

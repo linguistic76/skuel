@@ -82,6 +82,12 @@ async def _stored(neo4j_driver, uid: str) -> dict[str, Any]:
     return json.loads(record["preferences"])
 
 
+async def _unreadable_user(neo4j_driver) -> None:
+    # No writer produces this: the census must stop on it, not skip it.
+    async with neo4j_driver.session() as session:
+        await session.run("CREATE (:User {uid: $uid, preferences: 'not json'})", uid=STRAY)
+
+
 @pytest.fixture
 async def graph(neo4j_driver):
     """The six on "UTC", one user who chose Bangkok, one who never chose."""
@@ -135,11 +141,17 @@ async def test_one_of_the_six_not_on_utc_stops_the_census(graph, neo4j_driver, u
 
 
 async def test_unreadable_preferences_stop_the_census(graph, neo4j_driver) -> None:
-    # No writer produces this: the census must stop on it, not skip it.
-    async with neo4j_driver.session() as session:
-        await session.run("CREATE (:User {uid: $uid, preferences: 'not json'})", uid=STRAY)
+    await _unreadable_user(neo4j_driver)
     census = await migration.run_census(neo4j_driver, SIX)
     assert census.stops == [f"unreadable preferences: {STRAY}"]
+
+
+async def test_a_blank_stored_zone_is_no_choice(graph, neo4j_driver) -> None:
+    await _seed(neo4j_driver, STRAY, "")
+    assert (await _stored(neo4j_driver, STRAY))["timezone"] == ""
+    census = await migration.run_census(neo4j_driver, SIX)
+    assert census.others[STRAY] == "blank"
+    assert census.stops == []
 
 
 async def test_a_row_changed_since_the_census_rolls_the_whole_write_back(
@@ -154,6 +166,18 @@ async def test_a_row_changed_since_the_census_rolls_the_whole_write_back(
 
     for uid in SIX:
         assert (await _stored(neo4j_driver, uid))["timezone"] == "UTC", "nothing was written"
+
+
+async def test_a_census_that_finds_the_six_cleared_still_stops_on_an_unreadable_row(
+    graph, neo4j_driver
+) -> None:
+    census = await migration.run_census(neo4j_driver, SIX)
+    assert await migration.clear(neo4j_driver, census.utc) == []
+    await _unreadable_user(neo4j_driver)
+
+    after = await migration.run_census(neo4j_driver, SIX)
+    assert after.done, "the six are at null"
+    assert after.stops == [f"unreadable preferences: {STRAY}"], "and the census still fails"
 
 
 class _Borrowed:
@@ -177,9 +201,9 @@ class _Connection:
         return _Borrowed(self._driver)
 
 
-async def test_the_command_line_census_then_confirm_then_nothing_to_clear(
-    graph, neo4j_driver, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
-) -> None:
+@pytest.fixture
+def cli(neo4j_driver, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]):
+    """Run the script's ``main()`` against the test graph and the test six: ``(exit, output)``."""
     import adapters.persistence.neo4j.neo4j_connection as connection
 
     def connection_to_the_test_graph() -> _Connection:
@@ -188,36 +212,52 @@ async def test_the_command_line_census_then_confirm_then_nothing_to_clear(
     monkeypatch.setattr(connection, "Neo4jConnection", connection_to_the_test_graph)
     monkeypatch.setattr(migration, "NEVER_CHOSEN", SIX)
 
-    monkeypatch.setattr(sys, "argv", [SCRIPT.name])
-    assert await migration.main() == 0
-    out = capsys.readouterr().out
-    assert "Would clear: 6 user(s)" in out and "CENSUS ONLY" in out
-    assert {(await _stored(neo4j_driver, uid))["timezone"] for uid in SIX} == {"UTC"}
+    async def run(*args: str) -> tuple[int, str]:
+        monkeypatch.setattr(sys, "argv", [SCRIPT.name, *args])
+        code = await migration.main()
+        return code, capsys.readouterr().out
 
-    monkeypatch.setattr(sys, "argv", [SCRIPT.name, "--confirm"])
-    assert await migration.main() == 0
-    out = capsys.readouterr().out
+    return run
+
+
+async def _zones(neo4j_driver) -> set[Any]:
+    return {(await _stored(neo4j_driver, uid))["timezone"] for uid in SIX}
+
+
+async def test_the_command_line_census_then_confirm_then_nothing_to_clear(
+    graph, neo4j_driver, cli
+) -> None:
+    code, out = await cli()
+    assert code == 0
+    assert "Would clear: 6 user(s)" in out and "CENSUS ONLY" in out
+    assert await _zones(neo4j_driver) == {"UTC"}
+
+    code, out = await cli("--confirm")
+    assert code == 0
     assert "Cleared 6 user(s) in one transaction." in out
     assert "OK: the six follow SKUEL_TIMEZONE." in out
-    assert {(await _stored(neo4j_driver, uid))["timezone"] for uid in SIX} == {None}
+    assert await _zones(neo4j_driver) == {None}
 
-    assert await migration.main() == 0
-    assert "Nothing to clear." in capsys.readouterr().out
+    code, out = await cli()
+    assert code == 0
+    assert "Nothing to clear." in out
 
 
-async def test_the_command_line_refuses_a_stopped_census(
-    graph, neo4j_driver, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
-) -> None:
-    import adapters.persistence.neo4j.neo4j_connection as connection
-
-    def connection_to_the_test_graph() -> _Connection:
-        return _Connection(neo4j_driver)
-
+async def test_the_command_line_refuses_a_stopped_census(graph, neo4j_driver, cli) -> None:
     await _seed(neo4j_driver, STRAY, "UTC")
-    monkeypatch.setattr(connection, "Neo4jConnection", connection_to_the_test_graph)
-    monkeypatch.setattr(migration, "NEVER_CHOSEN", SIX)
-    monkeypatch.setattr(sys, "argv", [SCRIPT.name, "--confirm"])
+    code, out = await cli("--confirm")
+    assert code == 2
+    assert "REFUSED: nothing written." in out
+    assert await _zones(neo4j_driver) == {"UTC"}
 
-    assert await migration.main() == 2
-    assert "REFUSED: nothing written." in capsys.readouterr().out
-    assert {(await _stored(neo4j_driver, uid))["timezone"] for uid in SIX} == {"UTC"}
+
+async def test_the_command_line_never_reports_done_over_an_unreadable_row(
+    graph, neo4j_driver, cli
+) -> None:
+    assert (await cli("--confirm"))[0] == 0
+    await _unreadable_user(neo4j_driver)
+
+    code, out = await cli()
+    assert code == 2
+    assert "REFUSED: nothing written." in out
+    assert "Nothing to clear." not in out
