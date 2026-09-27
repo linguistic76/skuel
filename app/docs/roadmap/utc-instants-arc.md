@@ -236,8 +236,9 @@ therefore held outside the values: an immutable manifest and a durable applied r
    - `L-nat`: a native whose (property, writer) was naive when it wrote → its digits read in
      America/Vancouver → UTC, native.
    - **leave:** millisecond natives and `…Z` strings from Cypher; natives and strings from aware
-     writers; the `UTC-naive` OWNS rows; authored days and offsets; naive-midnight calendar days;
-     stamps inside JSON properties; zone-id `UTC` natives.
+     writers; the `UTC-naive` OWNS rows; authored days and offsets; every field the PR 2b registry
+     declares calendar (the naive-midnight habit days among them); stamps inside JSON properties;
+     zone-id `UTC` natives.
 2. **An unclassified row stops the run** (exit 2, before and regardless of `--confirm`) and is
    listed: a property missing from the table, an offset-less stamp dated 2026-03-27, a microsecond
    native whose writer is mixed, and any shift candidate (`L-str` or `L-nat`) whose digits are later
@@ -247,12 +248,14 @@ therefore held outside the values: an immutable manifest and a durable applied r
 3. **The census writes an immutable manifest** — one row per value to shift: node or relationship
    id, property, old value, new value, rule — and prints per-rule counts with samples (old → new) for
    Mike's OK. The census runs with the app stopped, so the manifest is the whole of the work.
-4. **`--confirm` applies that manifest and nothing else**, compare-and-set per row
-   (`SET x.p = $new WHERE x.p = $old`): a row whose value is no longer `$old` is reported as a
-   conflict, never re-derived. In the same run it writes a **durable applied record** in the graph
-   (the migration's name, the manifest's hash, per-rule counts; its label is a new `NeoLabel` member,
-   chosen in PR 4). A census or `--confirm` that finds the applied record refuses to run, so no second
-   manifest can shift a value twice. One write per script; never re-run the script that wrote.
+4. **`--confirm` applies that manifest and nothing else, in one transaction:** a compare-and-set per
+   row (`SET x.p = $new WHERE x.p = $old`) and a **durable applied record** in the graph (the
+   migration's name, the manifest's hash, per-rule counts; its label is a new `NeoLabel` member, chosen
+   in PR 4) commit together or not at all. A row whose value is no longer `$old` is a conflict: the
+   transaction rolls back and the conflicts are listed, never re-derived. The corpus is small (about
+   1,230 values), so one transaction holds it. A census or `--confirm` that finds the applied record
+   refuses to run, so no second manifest can shift a value twice. One write per script; never re-run
+   the script that wrote (a rolled-back run wrote nothing).
 5. **`--verify`** reads every manifest row back: 0 still at the old value, 0 conflicts, and the applied
    record present.
 6. **Deploy order, in one sitting:** stop the running app and any vault-sync or backfill script →
@@ -333,6 +336,11 @@ calendar value moves to the zone helpers — the current zone in a request, the 
 outside one (the vault reconciler's and line reconciliation's `✅` dates, `completion_date`
 stamps, daily-note uids, report-period tokens). Every Cypher "today" `date()` becomes a `$today`
 parameter. A 24-hour `.days` used as a calendar-day count becomes a difference of days in the zone.
+**The field registry:** every stored field typed `datetime` is declared an instant or a calendar
+value in one place — `Habit.last_completed` and `HabitCompletion.completed_at` hold days (every
+reader takes the day, and R6 leaves their midnights alone), so their writers record the day in the
+user's zone and the model says so (a `date`, or a declared calendar field — the PR's census decides).
+PR 3's helpers, PR 4's migration and PR 7's parse boundary act on instant fields only.
 `DTZ011` is enabled over `core/`, `adapters/`, `ui/` with `timestamp_helpers` exempt. **Every
 `datetime.now()` is classified here** — an instant (left for PRs 5–8) or a local wall time compared
 with calendar values (event start and end times, "next free slot", `Event.start_datetime`), which
@@ -341,7 +349,7 @@ the laptop for users on the default; fixes the evening `date()` defects. If the 
 large for one PR, split by tree (models and services / adapters and ui).
 
 **Acceptance:** `DTZ011` reads 0 outside `timestamp_helpers`; the PR lists each remaining `DTZ005`
-site as an instant. A forced-zone integration test: the
+site as an instant; a test fails when a stored `datetime` field is missing from the registry. A forced-zone integration test: the
 process at TZ=UTC and the clock at 02:00Z (19:00 the previous day in Vancouver) — for a user on the
 default, `today()` is the Vancouver day, a task due that day is not overdue in
 `TasksBackend.get_stats_for_user`, and a habit done that day is not streak-at-risk; for a user on
@@ -354,7 +362,8 @@ Scope: `STORED_INSTANT_CLOCK` in `timestamp_helpers` names what a stored stamp's
 laptop's wall clock until PR 4. Every display of an instant (absolute and relative:
 `format_relative_time`, `format_date` callers, `strftime` / `[:10]` of stamps in `ui/` and `core/`),
 every day-of-an-instant read (Python `.date()`, `[:10]`, `split("T")`; Cypher `left(toString(x), 10)`,
-`date(datetime(x))`, and `find_by_date_range` on an instant field — the field's kind decides), and
+`date(datetime(x))`, and `find_by_date_range` on an instant field — the PR 2b registry says which
+fields are instants), and
 every local-period bound compared with stamps (report periods, the MEGA-QUERY window, journal
 ranges, life-path momentum, habit completion counts) goes through a helper or fragment builder that
 reads the constant. A form's `datetime-local` value is produced and parsed by the same helper.
@@ -398,7 +407,8 @@ after).
 
 ### PR 5 — Readers compare aware values (`core/`)
 
-Scope: every Python comparison, subtraction, sort, `min`/`max` over instants in `core/` — model
+Scope: every Python comparison, subtraction, sort, `min`/`max` over instants in `core/` (calendar
+fields, per the PR 2b registry, are compared as days and are PR 2b's) — model
 methods such as `Entity.is_recent`, services, event handlers, report periods, curriculum substance —
 compares `as_utc()` values against `now_utc()`, tolerant of naive (UTC under the pin) and aware
 values alike. The disagreeing normalizers (`parse_iso_utc`, `as_naive_utc`, `_naive_local`,
@@ -417,11 +427,13 @@ Scope and acceptance as PR 5, for the Python side of `adapters/`, `ui/` and `scr
 
 Scope: entity, DTO and model default factories use `now_utc`; the parse boundary
 (`from_neo4j_node`, `dto_helpers`, `convert_neo4j_datetime`, `to_native_datetime`) returns aware
-UTC always; the mapper writes an aware stamp as a `+00:00` string (R5: still a string).
+UTC for every instant field in the PR 2b registry and leaves calendar fields local; the mapper
+writes an aware stamp as a `+00:00` string (R5: still a string).
 
 **Acceptance:** the uncalled-`datetime.now` check reads 0 in `core/models`; a model written and read
 back carries aware UTC stamps; an integration test reads a mixed column (offset-less UTC string,
-`+00:00` string, native) back all aware and sorts it.
+`+00:00` string, native) back all aware and sorts it; a habit's completion day reads the same day
+before and after.
 
 ### PR 8 — Writers stamp aware UTC: services, backends, events, scripts
 
@@ -477,9 +489,9 @@ the PR's last commit."*
 
 ## PR plan (contract)
 
-Rows are in execution order. PR 1 depends on nothing. PR 2b requires PR 2a. PR 3 requires PR 2a
-(its helpers take a zone). PR 4 requires PR 2b and PR 3 — the pin turns every host-local day it
-finds into the UTC day — and lands before 2026-11-01 (R4). PRs 5 and 6 require PR 4. PR 7 requires
+Rows are in execution order. PR 1 depends on nothing. PR 2b requires PR 2a. PR 3 requires PR 2b
+(its helpers take a zone and read the field registry). PR 4 requires PR 2b and PR 3 — the pin turns
+every host-local day it finds into the UTC day — and lands before 2026-11-01 (R4). PRs 5 and 6 require PR 4. PR 7 requires
 PRs 5 and 6 (readers accept aware values before writers produce them). PR 8 requires PR 7; PR 9
 requires PR 8.
 
@@ -488,7 +500,7 @@ requires PR 8.
 | 0 | This document + ADR-089 + the case file, MOC and INDEX rows (docs only; summon Codex explicitly) | Merged; `./dev docs-links` and the skills validator clean | merged #1431, 2026-09-27 |
 | 1 | Pre-flight: insights crash, raw temporal parameters (embodiment), event days, the unwritten `rescheduled_at`, goal-event arithmetic; `as_utc()` | `/api/insights/active` 200; a non-zero embodiment rate (red before); today's event counts | — |
 | 2a | `SKUEL_TIMEZONE`; the user's zone in Settings (list + "Use this device's time zone"); the six `"UTC"` cleared; the request's zone; zone helpers | A Bangkok-emulating browser saves Asia/Bangkok in one click; a bad name refused; boot refuses a bad default | — |
-| 2b | Every calendar site asks the zone; Cypher `$today`; calendar-day counts; `DTZ011` on | After 17:00 local the overdue count agrees with the Today page; forced-zone test (UTC process, Vancouver and Bangkok users) | — |
+| 2b | Every calendar site asks the zone; Cypher `$today`; calendar-day counts; the instant/calendar field registry; `DTZ011` on | After 17:00 local the overdue count agrees with the Today page; forced-zone test (UTC process, Vancouver and Bangkok users) | — |
 | 3 | `STORED_INSTANT_CLOCK`; displays, day-of-instant reads and period bounds through helpers (neutral) | Rendered pages unchanged for linguistic76 (relative times aside) | — |
 | 4 | The UTC pin; the constant flipped; the migration (stop the app → census and manifest → OK → `--confirm` → `--verify` → start) | The cooldown refuses a second generation within the hour; a new share reads "just now"; exchange order and badges unchanged | — |
 | 5 | Readers compare aware values in `core/`; the normalizers collapse onto `as_utc` | Mixed naive/aware sorts and windows; forced-Vancouver unit tests | — |

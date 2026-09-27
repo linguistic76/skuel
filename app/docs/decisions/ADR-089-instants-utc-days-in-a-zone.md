@@ -75,7 +75,9 @@ depend on the host that wrote it.
 ### 2. A calendar value belongs to a zone
 
 - Due dates, event dates and times, habit days, daily-note dates and report-period tokens are local
-  calendar values; they are never converted to UTC.
+  calendar values; they are never converted to UTC. A stored field typed `datetime` that holds a
+  day (a habit's completion day) is declared a calendar field in one registry, and every instant
+  rule — the migration, display, the parse boundary — skips it.
 - "Today" is today in the current zone. A stored instant's day is its date in the current zone. A
   local period over instants is queried by the UTC bounds of that period in the zone. Cypher never
   computes "today" with `date()`; the day is passed in.
