@@ -1,16 +1,16 @@
-"""The never-chosen "UTC" clear, census and write, against a real Neo4j (UTC arc PR 2a).
+"""The unchosen-"UTC" clear, census and write, against a real Neo4j.
 
 ``scripts/migrations/clear_unchosen_utc_timezone_2026_09.py`` sets six users'
-stored zone from ``"UTC"`` — the field's old default — to null, keyed by uid.
-Its census stops unless the ``"UTC"`` users are exactly the six; its write is
-one transaction of compare-and-sets on the whole ``preferences`` string, so a
-row that changed since the census rolls every row back.
+stored zone from ``"UTC"`` to null, keyed by uid. Its census stops unless the
+``"UTC"`` users are exactly the six; its write is one transaction of
+compare-and-sets on the whole ``preferences`` string, so a row that changed
+since the census rolls every row back.
 
-Users are seeded through the real writer (``UserBackend.create_user``), with the
-``"UTC"`` their preferences carried before the default became None, and each
-test reads the stored JSON back to pin its premise. The shared test graph keeps
-User nodes across tests, so the six here are test uids handed to the census as
-its expected set — ``main()`` hands it the module's six the same way.
+Users are seeded through the real writer (``UserBackend.create_user``) holding
+``"UTC"``, and each test reads the stored JSON back to pin its premise. The
+shared test graph keeps User nodes across tests, so the six here are test uids
+handed to the census as its expected set — ``main()`` hands it the module's
+six the same way.
 """
 
 from __future__ import annotations

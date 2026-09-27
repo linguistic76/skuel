@@ -1,13 +1,13 @@
 #!/usr/bin/env python3
 """
-Clear the six time zones nobody chose
-=====================================
+Clear the six unchosen "UTC" time zones
+=======================================
 
-UTC Instants arc PR 2a (R2 — docs/roadmap/utc-instants-arc.md): a user's zone is
-``UserPreferences.timezone``, an IANA name chosen in Settings, or null, which
-follows ``SKUEL_TIMEZONE``. Six users hold ``"UTC"`` because it was the field's
-default, not because anyone chose it. This script sets those six to null. It is
-keyed by uid, never by value: ``"UTC"`` is a zone a user may choose.
+A user's zone is ``UserPreferences.timezone``: an IANA name chosen in Settings,
+or null, which follows ``SKUEL_TIMEZONE`` (ADR-089 §3). The six users in
+``NEVER_CHOSEN`` hold ``"UTC"``, a value none of them chose; this script sets
+those six to null. It is keyed by uid, never by value: ``"UTC"`` is a zone a
+user may choose.
 
 The zone lives inside the User node's ``preferences`` property — the JSON object
 string the mapper writes for ``User.preferences`` — so the script reads that
@@ -15,17 +15,17 @@ string, and rewrites it with ``"timezone": null`` and every other key as it was.
 
 **Census** (the default, read-only): lists every user whose stored zone is
 ``"UTC"``, and every other user's stored zone for the record. It STOPS (exit 2)
-unless the ``"UTC"`` users are exactly the six below, when a user's preferences
-cannot be read, or when one of the six uids names more than one User node.
+unless the ``"UTC"`` users are exactly the six, when a user's preferences cannot
+be read, or when one of the six uids names more than one User node.
 
 **--confirm**: the census, then ONE write in one transaction — each of the six
 set to null where its ``preferences`` still equals what the census read. A row
 that changed since the census rolls the whole write back (exit 1, nothing
 written). Then the census again, which must show the six at null.
 
-Laptop only, run once, with Mike's OK on the count first (the arc's § Standing
-conventions: every AuraDB write). PR 2b does not start until it has run: PR 2b
-makes every calendar site follow the stored zone.
+Runs on the laptop, once, after Mike's OK on the census count — every AuraDB
+write needs one. The UTC Instants arc record (docs/roadmap/utc-instants-arc.md,
+row 2a) holds why the six hold "UTC" and what waits on this clear.
 
 Usage (from app/, with the laptop's .env loaded):
     uv run python scripts/migrations/clear_unchosen_utc_timezone_2026_09.py            # census
@@ -51,8 +51,7 @@ if TYPE_CHECKING:
 # scalars, so the value type is a boundary.
 type Row = dict[str, Any]  # boundary: raw neo4j-driver record
 
-#: The users whose "UTC" is the field's old default, never a choice (read-only
-#: census of the daily graph, 2026-09-27).
+#: The six users whose stored "UTC" is not their choice (the arc record's row 2a).
 NEVER_CHOSEN: frozenset[str] = frozenset(
     {
         "user_system",
@@ -64,7 +63,8 @@ NEVER_CHOSEN: frozenset[str] = frozenset(
     }
 )
 
-OLD_DEFAULT = "UTC"
+#: The stored zone the clear sets to null.
+UNCHOSEN = "UTC"
 
 _USER = NeoLabel.USER.value
 
@@ -178,7 +178,7 @@ async def run_census(driver: AsyncDriver, expected: frozenset[str]) -> Census:
             continue
         if "timezone" not in parsed:
             others[uid] = _NO_KEY
-        elif parsed["timezone"] == OLD_DEFAULT:
+        elif parsed["timezone"] == UNCHOSEN:
             utc.append(row)
         elif parsed["timezone"] is None:
             others[uid] = _NULL
@@ -187,7 +187,7 @@ async def run_census(driver: AsyncDriver, expected: frozenset[str]) -> Census:
     duplicates = sorted(uid for uid in expected if counts[uid] > 1)
     census = Census(utc, others, unreadable, duplicates, expected)
 
-    print(f'\nUsers whose stored zone is "{OLD_DEFAULT}" (the old default): {len(utc)}')
+    print(f'\nUsers whose stored zone is "{UNCHOSEN}": {len(utc)}')
     for row in utc:
         marker = "" if row["uid"] in expected else "   <- NOT one of the six"
         print(f"  {row['uid']}{marker}")
@@ -206,21 +206,21 @@ async def run_census(driver: AsyncDriver, expected: frozenset[str]) -> Census:
         for uid in sorted(unreadable):
             print(f"  {uid}")
     if census.done:
-        print(f'\nDONE: none holds "{OLD_DEFAULT}" and the six are at null.')
+        print(f'\nDONE: none holds "{UNCHOSEN}" and the six are at null.')
     elif census.stops:
         print("\nSTOP:")
         for reason in census.stops:
             print(f"  {reason}")
     else:
-        print(f'\nOK: the "{OLD_DEFAULT}" users are exactly the six this script clears.')
+        print(f'\nOK: the "{UNCHOSEN}" users are exactly the six this script clears.')
     return census
 
 
 async def clear(driver: AsyncDriver, rows: list[Row]) -> list[str]:
     """ONE transaction: set each row's zone to null where its preferences still match.
 
-    Returns the uids that no longer matched the census; when there is any, the
-    transaction is rolled back and nothing is written.
+    Returns the uids whose preferences changed since the census; when there is
+    any, the transaction is rolled back and nothing is written.
     """
     payload = [
         {"uid": str(row["uid"]), "old": row["preferences"], "new": _cleared(row["preferences"])}
@@ -244,7 +244,7 @@ async def clear(driver: AsyncDriver, rows: list[Row]) -> list[str]:
 
 async def main() -> int:
     parser = argparse.ArgumentParser(
-        description='Set the six never-chosen "UTC" time zones to null (UTC arc PR 2a)'
+        description='Set the six unchosen "UTC" time zones to null (ADR-089 §3)'
     )
     parser.add_argument(
         "--confirm",
@@ -265,7 +265,7 @@ async def main() -> int:
         if census.stops:
             print("\nREFUSED: nothing written. The census above says why; Mike rules.")
             return 2
-        print(f'\nWould clear: {len(census.utc)} user(s), each "timezone": "{OLD_DEFAULT}" -> null')
+        print(f'\nWould clear: {len(census.utc)} user(s), each "timezone": "{UNCHOSEN}" -> null')
         if not args.confirm:
             print(
                 "\nCENSUS ONLY: nothing written. With Mike's OK on the count, re-run with --confirm."
