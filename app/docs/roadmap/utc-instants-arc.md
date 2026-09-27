@@ -218,7 +218,14 @@ properties (R3). `UserEntry.updated_at` mixes two shapes on one clock (`L-str`, 
 
 ## Migration contract (PR 4)
 
-`scripts/migrations/utc_instants_2026_10.py` <!-- planned --> — a census by default; `--confirm` writes.
+`scripts/migrations/utc_instants_2026_10.py` <!-- planned --> — a census by default; `--confirm` writes;
+`--verify` checks.
+
+**Shape alone cannot tell a migrated stamp from an unmigrated one.** R5 keeps each value's shape, so
+an `L-str` whose digits have moved to UTC is still an offset-less microsecond string, and every stamp
+the pinned code writes after the cutover looks the same. A classifier re-run after the migration
+would shift those values again, and a census by shape can never read 0. The migration's state is
+therefore held outside the values: an immutable manifest and a durable applied record.
 
 1. **Classify every stored stamp** — every node and relationship property holding a temporal or an
    ISO-datetime string — by a named rule, from (label or edge type, property, shape, sub-second
@@ -233,14 +240,26 @@ properties (R3). `UserEntry.updated_at` mixes two shapes on one clock (`L-str`, 
      stamps inside JSON properties; zone-id `UTC` natives.
 2. **An unclassified row stops the run** (exit 2, before and regardless of `--confirm`) and is
    listed: a property missing from the table, an offset-less stamp dated 2026-03-27, a microsecond
-   native whose writer is mixed.
-3. The census prints per-rule counts with samples (old → new) for Mike's OK.
-4. **Writes are compare-and-set by value** (`SET x.p = $new WHERE x.p = $old`, per node or
-   relationship id), so a second run finds nothing to change. One write per script; never re-run the
-   script that wrote.
-5. **Deploy order:** stop the running app and any vault-sync or backfill script → census → Mike's OK
-   with the counts → `--confirm` → start the app on the PR 4 code → census again: 0 rows in a shift
-   rule and 0 unclassified (the second census catches rows the old code wrote in between).
+   native whose writer is mixed, and any shift candidate (`L-str` or `L-nat`) whose digits are later
+   than the laptop's wall clock at the census — a UTC-clock process (the PR 4 code, or a container)
+   wrote it, and shifting it would be wrong. The script computes that wall clock explicitly
+   (`datetime.now(ZoneInfo("America/Vancouver"))`): it runs pinned itself.
+3. **The census writes an immutable manifest** — one row per value to shift: node or relationship
+   id, property, old value, new value, rule — and prints per-rule counts with samples (old → new) for
+   Mike's OK. The census runs with the app stopped, so the manifest is the whole of the work.
+4. **`--confirm` applies that manifest and nothing else**, compare-and-set per row
+   (`SET x.p = $new WHERE x.p = $old`): a row whose value is no longer `$old` is reported as a
+   conflict, never re-derived. In the same run it writes a **durable applied record** in the graph
+   (the migration's name, the manifest's hash, per-rule counts; its label is a new `NeoLabel` member,
+   chosen in PR 4). A census or `--confirm` that finds the applied record refuses to run, so no second
+   manifest can shift a value twice. One write per script; never re-run the script that wrote.
+5. **`--verify`** reads every manifest row back: 0 still at the old value, 0 conflicts, and the applied
+   record present.
+6. **Deploy order, in one sitting:** stop the running app and any vault-sync or backfill script →
+   pull the PR 4 code → census (manifest) → Mike's OK with the counts → `--confirm` → `--verify` →
+   start the app. **No process runs the PR 4 code against AuraDB before `--confirm`:** its stamps are
+   UTC digits in the offset-less shape, which the census cannot tell from the laptop's (step 2 catches
+   only those written in the last seven hours).
 
 ---
 
@@ -276,7 +295,7 @@ Scope — each of these is wrong on every host today:
 - **Goal events.** `actual_duration_days` and `days_active` are computed without raising on an aware
   `created_at`. This PR introduces `as_utc()` in `timestamp_helpers` — an instant as aware UTC: an
   aware value converted, a naive one read in the process's zone (the laptop's until the cutover,
-  UTC under the pin) — which PRs 5–6 adopt everywhere.
+  UTC under the pin; PR 9 fixes it to UTC when the pin comes out) — which PRs 5–6 adopt everywhere.
 
 **Acceptance:** `GET /api/insights/active` returns 200 with the live insights; an integration test
 seeds a habit completion inside the window and reads a non-zero embodiment rate (red before the
@@ -294,7 +313,8 @@ Scope:
   a list with a "SKUEL default (America/Vancouver)" entry, plus a **"Use this device's time zone"**
   button that selects the browser's `Intl.DateTimeFormat().resolvedOptions().timeZone`; the server
   validates what is posted.
-- The six stored `"UTC"` values are cleared (one write, Mike's OK with the count).
+- The six stored `"UTC"` values are cleared (one write, Mike's OK with the count), keyed by the six
+  users' uids from the census — never by value, since after this PR `"UTC"` can be a real choice.
 - Zone resolution: middleware sets a request-scoped current zone from the signed-in user's choice,
   else the default (`auth_state_var`'s pattern); a function resolves a named user's zone for work
   outside a request.
@@ -313,11 +333,15 @@ calendar value moves to the zone helpers — the current zone in a request, the 
 outside one (the vault reconciler's and line reconciliation's `✅` dates, `completion_date`
 stamps, daily-note uids, report-period tokens). Every Cypher "today" `date()` becomes a `$today`
 parameter. A 24-hour `.days` used as a calendar-day count becomes a difference of days in the zone.
-`DTZ011` is enabled over `core/`, `adapters/`, `ui/` with `timestamp_helpers` exempt. Neutral on
+`DTZ011` is enabled over `core/`, `adapters/`, `ui/` with `timestamp_helpers` exempt. **Every
+`datetime.now()` is classified here** — an instant (left for PRs 5–8) or a local wall time compared
+with calendar values (event start and end times, "next free slot", `Event.start_datetime`), which
+moves to `now_in(zone)`: under the pin a missed wall-time site reads seven hours off. Neutral on
 the laptop for users on the default; fixes the evening `date()` defects. If the census shows it too
 large for one PR, split by tree (models and services / adapters and ui).
 
-**Acceptance:** `DTZ011` reads 0 outside `timestamp_helpers`. A forced-zone integration test: the
+**Acceptance:** `DTZ011` reads 0 outside `timestamp_helpers`; the PR lists each remaining `DTZ005`
+site as an instant. A forced-zone integration test: the
 process at TZ=UTC and the clock at 02:00Z (19:00 the previous day in Vancouver) — for a user on the
 default, `today()` is the Vancouver day, a task due that day is not overdue in
 `TasksBackend.get_stats_for_user`, and a habit done that day is not streak-at-risk; for a user on
@@ -338,8 +362,9 @@ Output is identical to today for users on the default zone. (A user who picks an
 before PR 4 gets calendar days in that zone but instants still read as the laptop's wall clock.)
 
 **Acceptance:** unit tests pin each helper under both values of the constant; rendered pages
-(GradeBook, Shared, notifications, an activity report) are byte-identical before and after for
-linguistic76; the PR records the grep that finds no display or day-slice site bypassing the helpers.
+(GradeBook, Shared, notifications, an activity report) are the same before and after for
+linguistic76, apart from relative times advancing between the two renders; the PR records the grep
+that finds no display or day-slice site bypassing the helpers.
 
 ### PR 4 — Cutover: pin, flip, migrate
 
@@ -354,16 +379,18 @@ Scope:
 - **The cooldown pin:** an integration test writes an activity report through the real writer in a
   process started under `TZ=America/Vancouver` and asserts `check_cooldown` counts it (red on the
   PR 3 code).
-- The migration script (§ Migration contract) with unit tests for every rule, the stop cases and
-  compare-and-set idempotency, and an integration test against the testcontainer seeded with one
-  row per rule.
+- The migration script (§ Migration contract) with unit tests for every rule, the stop cases, a
+  conflict (a value changed after the census), a second `--confirm` of the same manifest (a no-op)
+  and a census after the applied record exists (refused); and an integration test against the
+  testcontainer seeded with one row per rule.
 - After the migration: re-run the embedding staleness backstop. The vectors the hash-stamping
   backfill marked current within 7 h of an edit cannot be told apart; a one-time re-embed of the
   affected labels is the only certain remedy (OpenAI calls — Mike's OK, or leave it).
 
-**Deploy:** § Migration contract step 5, before 2026-11-01 and before the laptop's zone changes (R4).
+**Deploy:** § Migration contract step 6, before 2026-11-01 and before the laptop's zone changes (R4).
 
-**Acceptance (live, AuraDB):** the second census reads 0 in every shift rule and 0 unclassified;
+**Acceptance (live, AuraDB):** `--verify` finds every manifest row at its new value, 0 conflicts, and
+the applied record present; a fresh census is refused;
 generating an activity report twice within the hour — the second is refused by the cooldown; a
 share made now reads "just now" and its notification shows the wall-clock time; the GradeBook
 exchange order and the review badges are unchanged for the live exchanges (snapshot before and
@@ -408,7 +435,9 @@ exempt where it reads the zone); the forced-zone integration suite passes.
 
 ### PR 9 — Close: the pin comes out, the guards go in
 
-Scope: remove the pin and `STORED_INSTANT_CLOCK` (the helpers keep the UTC reading); enable ruff
+Scope: remove the pin and `STORED_INSTANT_CLOCK` (the helpers keep the UTC reading), and `as_utc`
+reads a naive value as UTC rather than in the process's zone — in the same change, or the unpinned
+laptop would read one as Vancouver time; enable ruff
 `DTZ` for `core/`, `adapters/`, `ui/` in `pyproject.toml`, with the uncalled-`datetime.now` check in
 the lint; a forced-zone guard (America/Vancouver and Asia/Bangkok) over the cooldown, a share's
 relative time, today and overdue, and a day-of-instant read. Rewrite Pattern 10 and Key Rules
@@ -460,8 +489,8 @@ requires PR 8.
 | 1 | Pre-flight: insights crash, raw temporal parameters (embodiment), event days, the unwritten `rescheduled_at`, goal-event arithmetic; `as_utc()` | `/api/insights/active` 200; a non-zero embodiment rate (red before); today's event counts | — |
 | 2a | `SKUEL_TIMEZONE`; the user's zone in Settings (list + "Use this device's time zone"); the six `"UTC"` cleared; the request's zone; zone helpers | A Bangkok-emulating browser saves Asia/Bangkok in one click; a bad name refused; boot refuses a bad default | — |
 | 2b | Every calendar site asks the zone; Cypher `$today`; calendar-day counts; `DTZ011` on | After 17:00 local the overdue count agrees with the Today page; forced-zone test (UTC process, Vancouver and Bangkok users) | — |
-| 3 | `STORED_INSTANT_CLOCK`; displays, day-of-instant reads and period bounds through helpers (neutral) | Rendered pages byte-identical for linguistic76 | — |
-| 4 | The UTC pin; the constant flipped; the migration (stop the app → census → OK → `--confirm` → start → census 0) | The cooldown refuses a second generation within the hour; a new share reads "just now"; exchange order and badges unchanged | — |
+| 3 | `STORED_INSTANT_CLOCK`; displays, day-of-instant reads and period bounds through helpers (neutral) | Rendered pages unchanged for linguistic76 (relative times aside) | — |
+| 4 | The UTC pin; the constant flipped; the migration (stop the app → census and manifest → OK → `--confirm` → `--verify` → start) | The cooldown refuses a second generation within the hour; a new share reads "just now"; exchange order and badges unchanged | — |
 | 5 | Readers compare aware values in `core/`; the normalizers collapse onto `as_utc` | Mixed naive/aware sorts and windows; forced-Vancouver unit tests | — |
 | 6 | Readers compare aware values in `adapters/`, `ui/`, `scripts/` | As PR 5 | — |
 | 7 | Writers aware: default factories, the parse boundary, the mapper's `+00:00` | A mixed column reads back all aware | — |
@@ -479,6 +508,7 @@ A live walk-through as linguistic76, plus a second account set to Asia/Bangkok:
    Today, overdue and habit streaks follow the Bangkok day, and the entry's time reads in Bangkok
    time; switch back and they follow Vancouver.
 4. After 17:00 local, a task due today is not overdue in any count.
-5. The migration census reads 0 in every shift rule and 0 unclassified.
+5. The migration's `--verify` reads every manifest row at its new value, and the applied record is
+   present.
 6. `uv run ruff check --select DTZ core adapters ui` reads 0, and the forced-zone suite passes under
    `TZ=America/Vancouver` and `TZ=Asia/Bangkok`.

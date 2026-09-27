@@ -95,7 +95,9 @@ depend on the host that wrote it.
 
 - Stored instants are migrated to UTC row by row, classified by writer, shape, sub-second
   precision and date against the laptop's zone history (UTC+7 until 2026-03-27, America/Vancouver
-  since). A row the rules cannot classify stops the run. The migration moves digits, never shapes.
+  since). A row the rules cannot classify stops the run. The migration moves digits, never shapes,
+  so its state lives outside the values: it applies an immutable manifest built once while the app
+  is stopped, and records itself durably in the graph so it can never run twice.
   Calendar values, authored days and stamps nested in JSON metadata are not touched.
 - The cutover pins the process clock to UTC (a temporary bridge) so every naive writer writes UTC
   at once; the code is then swept to aware datetimes behaviour-neutrally, and the pin is removed.
