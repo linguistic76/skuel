@@ -606,7 +606,8 @@ A live walk-through as linguistic76, plus a second account set to Asia/Bangkok:
    Today, overdue and habit streaks follow the Bangkok day, and the entry's time reads in Bangkok
    time; switch back and they follow Vancouver.
 4. After 17:00 local, a task due today is not overdue in any count.
-5. The migration's record is in state `applied`, and the classification check still holds (the paired
-   `created_at` / `embedding_updated_at` nodes read about 0 h apart).
+5. The migration's record is in state `applied` and carries the manifest hash approved in the
+   deploy sitting. (The paired-stamp classification check belongs to that sitting's `--verify`:
+   `embedding_updated_at` changes on any later re-embed.)
 6. `uv run ruff check --select DTZ core adapters ui` and the uncalled-reference check read 0, and the
    forced-zone suite passes under `TZ=America/Vancouver` and `TZ=Asia/Bangkok`.
