@@ -1,16 +1,22 @@
 ---
 title: "Naive-Local Timestamps Read as UTC"
 updated: 2026-09-27
-status: "deferred — registered at the Submit & Share arc close (Mike's ruling, 2026-09-26)"
+status: "planned — the UTC Instants arc (ruled 2026-09-27); moves to done/ at the arc's close"
 registered: 2026-09-27
-ruled: 2026-09-26
-trigger: "the next change to a time-window read (a cooldown, a retention or 'recent' window), OR a production host that does not run in UTC, OR a user-facing relative time that matters"
+ruled: 2026-09-27
+trigger: "fired 2026-09-27 — taken on as the UTC Instants arc (utc-instants-arc.md); its PR ledger is the schedule"
 check: "on the host: date +%z (non-zero = affected); live: MATCH (ar:ActivityReport) RETURN toString(ar.created_at), toString(datetime()) — a stamp minutes old reading hours old is the defect"
 ---
 
 # Naive-Local Timestamps Read as UTC
 
 *Case file for the [deferred-work.md](deferred-work.md) entry of the same name; move to `done/` when nothing in it remains open.*
+
+**Ruled 2026-09-27 — the fix is the [UTC Instants arc](utc-instants-arc.md)**, decided in
+[ADR-089](../decisions/ADR-089-instants-utc-days-in-a-zone.md): instants are stored and compared in
+UTC, calendar values belong to the user's zone (with an app default), and the stored cohorts are
+migrated row by row. The arc's verified ground truth supersedes the census below, which is the
+record as registered; this file moves to `done/` with the arc (its PR 9).
 
 ## The defect
 
@@ -36,8 +42,9 @@ Writers stamp naive local wall-clock time, and Neo4j reads an offset-less stamp 
   because the live check is vacuous here.
 - **Relative times on shares read hours off** (a share made minutes ago shows "7h ago") — the
   residual recorded at Submit & Share PR 6b and PR 6c.
-- **Notification and membership stamps** (`created_at`, `joined_at`) hold the local wall clock under
-  a UTC zone, so any future window read over them inherits the same skew.
+- **Notification stamps** (`created_at`) hold the local wall clock under a UTC zone, so any future
+  window read over them inherits the same skew. (`MEMBER_OF.joined_at` has a local-clock writer too,
+  `GroupService.add_member`, but both stored rows came from true-UTC writers — the arc's census.)
 
 ## Why it waits
 
@@ -45,7 +52,7 @@ It is cross-cutting — every writer that stamps `datetime.now()`, and every sto
 migration) — and no arc has owned time handling. A host running in UTC shows no skew, so the defect
 is dormant wherever the server clock is UTC.
 
-## Shape of the fix (not ruled)
+## Shape of the fix (as registered — superseded by the arc)
 
 Stamp aware UTC at the writers (`datetime.now(UTC)`), migrate stored offset-less stamps by the
 host's historical offset, and pin one window read (the cooldown) with an integration test that

@@ -293,6 +293,7 @@ skills:
       - ADR-080  # AuraDB three-horizon strategy
       - ADR-086  # Universal :OWNS edge + ATTENDS attendance
       - ADR-087  # Status-guarded conditional writes (lock before read)
+      - ADR-089  # Instants are UTC; days belong to a zone (Pattern 10's stored clock)
       - ADR-013  # KU UID Flat Identity Design
       - ADR-054  # UserEntry — unified user-authored content
       - ADR-064  # Neo4j Per-Query Server-Side Timeout via Driver Wrapper
