@@ -626,7 +626,10 @@ passes, a docs-only PR marks ADR-089 implemented and moves this document and the
   `gh pr view <PR#> --json state,mergeCommit`. The ledger-row commit comes right after the PR is
   opened, before the first summon: a clean verdict labels the PR at once, and any later push drops
   the label. A `@codex <question>`
-  comment is a review trigger, never answered. Codex first; Kody only when Codex is out of credits.
+  comment is a review trigger, never answered. **The verdict is Codex's** (Mike's rule, 2026-09-16):
+  `@kody start-review` only when Codex answers with its usage-limit reply (the script's exit 2), and
+  if Kody cannot complete either, return BLOCKED. `PR_WORKFLOW.md`'s older "summon Kody for anything
+  non-trivial" is not this arc's practice; reconciling that text is Mike's call, not a PR's.
   PR 4 is the exception to autonomous merge: it merges in the deploy sitting.
 - **Test craft for this arc:** seed stamps through the real writers, never hand-written Cypher that
   resembles them; a mixed-shape test reads the raw property back and asserts its type, so it pins
