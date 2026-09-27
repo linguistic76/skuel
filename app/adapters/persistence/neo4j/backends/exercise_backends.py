@@ -114,21 +114,13 @@ class ExerciseBackend(UniversalNeo4jBackend[Exercise]):
     """
     Domain backend for Exercise entities.
 
-    Extends UniversalNeo4jBackend[Exercise] with exercise-specific Cypher
-    that was previously inline in ExerciseService.
-
-    Methods:
-    - create_owns_relationship      — MERGE OWNS (user -> exercise)
-    - get_user_exercises             — OWNS query for user's exercises
-    - get_student_exercises          — MEMBER_OF + SHARED_WITH_GROUP traversal
-    - get_student_exercises_with_status — Above + FULFILLS_EXERCISE submission check
-                                          + living-intent in-progress check
-    - get_exercises_for_curriculum   — Reverse REQUIRES_KNOWLEDGE lookup
-    - link_to_curriculum             — MERGE REQUIRES_KNOWLEDGE relationship
-    - unlink_from_curriculum         — DELETE REQUIRES_KNOWLEDGE relationship
-    - get_required_knowledge         — Query all KUs required by an exercise
-    - get_exercise_for_submission    — FULFILLS_EXERCISE reverse lookup
-    - link_to_path_step              — MERGE HAS_EXERCISE (path_step -> exercise)
+    Extends UniversalNeo4jBackend[Exercise] with the exercise-specific Cypher:
+    ownership and curriculum links, the student's exercise lists with their
+    submission status, and the reverse lookups from a submission, a Ku or a
+    PathStep — issued by ExerciseService — plus the teacher's per-exercise
+    submission counts (``get_exercises_with_submission_counts``, read by
+    TeacherReviewService). Owner lists go through the inherited
+    ``get_user_entities``, which maps each node to an ``Exercise``.
     """
 
     async def link_to_path_step(self, exercise_uid: str, path_step_uid: str) -> Result[bool]:
@@ -271,44 +263,6 @@ class ExerciseBackend(UniversalNeo4jBackend[Exercise]):
             RETURN true as success
             """,
             {"user_uid": user_uid, "exercise_uid": exercise_uid},
-        )
-
-    async def get_user_exercises(self, user_uid: UserUID) -> Result[list[Neo4jProperties]]:
-        """Get all exercises owned by a user via OWNS relationship.
-
-        Args:
-            user_uid: User UID
-
-        Returns:
-            Result containing exercise node records
-        """
-        return await self.execute_query(
-            f"""
-            MATCH (u:User {{uid: $user_uid}})-[:{RelationshipName.OWNS.value}]->(e:Exercise)
-            RETURN e
-            ORDER BY e.created_at DESC
-            """,
-            {"user_uid": user_uid},
-        )
-
-    async def get_student_exercises(self, user_uid: UserUID) -> Result[list[Neo4jProperties]]:
-        """Get assigned exercises for a student via MEMBER_OF -> Group <- SHARED_WITH_GROUP.
-
-        Args:
-            user_uid: Student UID
-
-        Returns:
-            Result containing exercise node records
-        """
-        return await self.execute_query(
-            f"""
-            MATCH (user:User {{uid: $user_uid}})-[:{RelationshipName.MEMBER_OF}]->(group:Group)
-            MATCH (exercise:Entity {{entity_type: 'exercise'}})-[:{RelationshipName.SHARED_WITH_GROUP}]->(group)
-            WHERE exercise.scope = 'assigned'
-            RETURN exercise
-            ORDER BY exercise.due_date ASC, exercise.created_at DESC
-            """,
-            {"user_uid": user_uid},
         )
 
     async def get_student_exercises_with_status(
@@ -726,16 +680,12 @@ class RevisedExerciseBackend(UniversalNeo4jBackend["RevisedExercise"]):
     ) -> Result[list[RevisedExercise]]:
         """Map ``RETURN re`` rows to entities the way every other read does.
 
-        These two domain queries used to hand their raw records to the service,
-        which rebuilt the model by splatting the node into the constructor. That
-        splat rejects any property the dataclass does not declare — and an
-        embedded node carries three (``embedding_version``,
-        ``embedding_text_hash``, ``embedding_source_text``, all written by
-        ``store_entity_embedding``), so a revision dropped out of its own listing
-        once it was embedded. Routing through ``from_neo4j_node`` — the same
-        mapper ``get()`` uses — ignores undeclared properties and rebuilds enums
-        and datetimes, so a domain query and a by-UID read now agree by
-        construction.
+        ``from_neo4j_node`` — the mapper ``get()`` uses — keeps declared fields
+        only and rebuilds enums and datetimes, so a domain query and a by-UID
+        read agree by construction. A constructor splat would reject the keys
+        ``EmbeddingsBackend.store_embedding_metadata`` writes on every embedded
+        node (``embedding_version``, ``embedding_text_hash``), dropping an
+        embedded revision from its own listing.
         """
         if result.is_error:
             return Result.fail(result)

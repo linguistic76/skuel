@@ -1,5 +1,5 @@
 ---
-updated: 2026-09-24
+updated: 2026-09-27
 ---
 
 # ADR-053: Groups First-Class + Unified Sharing
@@ -53,7 +53,7 @@ ownership + shareable validation.
   before it reaches a "completed" state.
 - `ExerciseService` creates an ASSIGNED exercise by calling
   `sharing_service.share_with_group(...)` instead of a bare Cypher MERGE.
-- All student-facing discovery queries (`get_student_exercises`,
+- All student-facing discovery queries (`get_student_exercises_with_status`,
   `user_context_queries.py` MEGA-QUERY, `report_relationship_service`) read
   from `SHARED_WITH_GROUP`.
 

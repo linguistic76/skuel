@@ -68,7 +68,7 @@ class TestExerciseOwnsDoor:
         The node is already persisted when the edge write runs, so the old
         warn-and-return-ok left an owner holding a create that reported success
         while the edge was missing — invisible to every :OWNS-traversing read
-        (MEGA-QUERY anchors, ``get_user_exercises``, the GDPR cascade).
+        (MEGA-QUERY anchors, the teacher's exercise list, the GDPR cascade).
         """
         exercise = _exercise()
         backend = AsyncMock()

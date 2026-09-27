@@ -11,7 +11,9 @@ do) cannot see that, so these pins go through the client.
 
 Pinned per route: the injected ``current_user`` is the caller (the owner
 check receives its uid), the status is what the role gate and the body say,
-and MEMBER is still refused.
+and MEMBER is still refused. The ``/exercises/content`` fragment is
+authentication-gated only: a failed read renders the banner, never the empty
+state.
 """
 
 from __future__ import annotations
@@ -125,3 +127,61 @@ class TestRoleGateStillApplies:
         response = harness.client.get(f"/exercises/{_EXERCISE_UID}/edit")
 
         assert response.status_code == 401
+
+
+class TestExerciseListFragment:
+    """``/exercises/content`` — the teacher's own list, where Delete lives.
+
+    A failed read renders the error banner inside the fragment, never the empty
+    state: an empty state over a failed read tells a teacher their exercises are
+    gone. ``ui_boundary_handler`` renders the same banner text for any exception
+    in the handler, so each case also pins that the service was awaited with the
+    caller and that the boundary's logger never fired — the banner comes from the
+    handler's failed-read branch, not from a blow-up.
+    """
+
+    _EMPTY_STATE = "No exercises yet"
+
+    def _get(
+        self, monkeypatch: pytest.MonkeyPatch, listed: Result[list[Exercise]]
+    ) -> tuple[_Harness, str, int]:
+        monkeypatch.setattr("adapters.inbound.exercises_ui.require_authenticated_user", _fake_auth)
+        harness = _make_harness(monkeypatch)
+        harness.exercises.list_user_exercises = AsyncMock(return_value=listed)
+        boundary_logger = MagicMock()
+        monkeypatch.setattr("adapters.inbound.boundary.logger", boundary_logger)
+        response = harness.client.get("/exercises/content")
+        harness.exercises.list_user_exercises.assert_awaited_once_with(_USER_UID)
+        # The banner must come from the handler's failed-read branch, never
+        # from the boundary's catch-all over a blow-up.
+        boundary_logger.error.assert_not_called()
+        return harness, response.text, response.status_code
+
+    def test_a_failed_read_shows_the_banner_not_the_empty_state(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        from core.utils.result_simplified import Errors
+
+        _, body, status = self._get(
+            monkeypatch, Result.fail(Errors.database(operation="list", message="boom"))
+        )
+
+        assert status == 200
+        assert 'id="exercises-content"' in body
+        assert "Error loading exercises" in body
+        assert self._EMPTY_STATE not in body
+
+    def test_no_exercises_is_the_empty_state(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        _, body, status = self._get(monkeypatch, Result.ok([]))
+
+        assert status == 200
+        assert self._EMPTY_STATE in body
+
+    def test_an_exercise_renders_its_card_with_delete(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        _, body, status = self._get(monkeypatch, Result.ok([_exercise()]))
+
+        assert status == 200
+        assert _TITLE in body
+        assert f'hx-post="/api/exercises/delete?uid={_EXERCISE_UID}"' in body

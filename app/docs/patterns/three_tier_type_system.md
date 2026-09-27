@@ -1,6 +1,6 @@
 ---
 title: Three-Tier Type System
-updated: 2026-09-21
+updated: 2026-09-27
 category: patterns
 related_skills:
 - python
@@ -87,13 +87,21 @@ User Client (receives JSON)
 
 **Infrastructure Field Filtering (ADR-037):**
 
-Neo4j nodes contain infrastructure fields (`embedding`, `embedding_version`, etc.) that are automatically filtered when converting to DTOs. Embeddings are search infrastructure, not domain data.
+Neo4j nodes carry bookkeeping properties the domain model does not declare. The
+converters keep declared fields only — `from_neo4j_node` in adapters, `DTO.from_dict` /
+`to_domain_model` in core — so a node map becomes a model through one of them, never
+`Model(**props)`: a splat raises on the first undeclared key, and a read that swallows
+that error silently drops the row.
 
-**Filtered fields:**
-- `embedding` - 1024-dimensional vector for semantic search (provider via `create_embedding_client()` — ADR-068/083)
+**Undeclared keys the converters drop:**
 - `embedding_version` - Embedding model version (e.g., "v3")
-- `embedding_model` - Model name
-- `embedding_updated_at` - Generation timestamp
+- `embedding_text_hash` - sha256 of the embedded text (ADR-074 §8 idempotency)
+- `grounded_text_hash` (UserEntry) and `retired_vault_id` (Task) - pipeline stamps
+
+`embedding`, `embedding_model` and `embedding_updated_at` are declared on `Entity` but on no
+DTO: `from_neo4j_node` passes them through to the model, while the DTO path drops them (the
+model gets `None`). Tier 3 declaring them diverges from ADR-037's "infrastructure fields
+don't belong in any tier" — recorded here without a ruling.
 
 **See:** `/docs/decisions/ADR-037-embedding-infrastructure-separation.md`
 

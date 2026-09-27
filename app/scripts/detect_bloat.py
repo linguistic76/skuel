@@ -632,12 +632,12 @@ _MIXIN_ARRAY_SEARCH = PlannedEntry(
 # of the exercise lifecycle. delete_exercise was DELETED (superseded by the
 # generic CRUDRouteFactory delete route → ownership-verified service.delete_for_user),
 # but these two have no live winner — the live exercise-listing family
-# (get_student_exercises*) is a STUDENT view, and no route archives an exercise.
+# (get_student_exercises_with_status) is a STUDENT view, and no route archives an exercise.
 _EXERCISES_GROUP_LISTING = PlannedEntry(
     Readiness.DELAYED,
     "teacher group-roster listing staged — 'all ASSIGNED exercises for a group' "
-    "(find_by group_uid, scope='assigned'); the live get_student_exercises / "
-    "get_student_exercises_with_status family is the STUDENT view (a learner's "
+    "(find_by group_uid, scope='assigned'); the live "
+    "get_student_exercises_with_status read is the STUDENT view (a learner's "
     "exercises across their groups, via MEMBER_OF + SHARED_WITH_GROUP), a "
     "different job with no superseded loser. Wire a teacher group-detail "
     "exercises panel consuming it (Mike ruled PLANNED 2026-06-13)",
