@@ -74,10 +74,10 @@ depend on the host that wrote it.
 
 ### 2. A calendar value belongs to a zone
 
-- Due dates, event dates and times, habit days, daily-note dates and report-period tokens are local
-  calendar values; they are never converted to UTC. A stored field typed `datetime` that holds a
-  day (a habit's completion day) is declared a calendar field in one registry, and every instant
-  rule — the migration, display, the parse boundary — skips it.
+- Due dates, event dates and times, daily-note dates and report-period tokens are local calendar
+  values; they are never converted to UTC. A stored field's type says which it is: a `datetime` is
+  an instant; a calendar value is a `date` or a LOCAL TIME. A field that holds a day is retyped, not
+  exempted.
 - "Today" is today in the current zone. A stored instant's day is its date in the current zone. A
   local period over instants is queried by the UTC bounds of that period in the zone. Cypher never
   computes "today" with `date()`; the day is passed in.
@@ -98,10 +98,12 @@ depend on the host that wrote it.
 - Stored instants are migrated to UTC row by row, classified by writer, shape, sub-second
   precision and date against the laptop's zone history (UTC+7 until 2026-03-27, America/Vancouver
   since). A row the rules cannot classify stops the run. The migration moves digits, never shapes,
-  so its state lives outside the values: it applies an immutable manifest built once while the app
-  is stopped, and records itself durably in the graph so it can never run twice.
+  so its state lives outside the values: it applies an immutable manifest, built once while the app
+  is stopped, in one transaction with a durable applied record, and pinned code refuses to open a
+  graph that holds data but no such record.
   Calendar values, authored days and stamps nested in JSON metadata are not touched.
-- The cutover pins the process clock to UTC (a temporary bridge) so every naive writer writes UTC
+- The cutover pins the process clock to UTC at every entry point, asserted by every graph driver
+  factory (a temporary bridge), so every naive writer writes UTC
   at once; the code is then swept to aware datetimes behaviour-neutrally, and the pin is removed.
   The standing guards are ruff `DTZ` and integration tests run under forced non-UTC zones.
 
@@ -142,7 +144,7 @@ naive stamps ambiguous the day it writes.
 
 - **Positive:** moving between zones changes what "today" is and how times read, and nothing
   stored changes. Windows against the server clock (the cooldown, retention, drift checks) are
-  correct on any host. The four disagreeing "what does naive mean" helpers collapse into one rule.
+  correct on any host. The disagreeing "what does naive mean" helpers collapse into one rule.
 - **Negative:** a one-time migration of about 1,230 stored values, with a stop-the-app window; a
   temporary process pin while the sweep runs; every calendar read needs a zone.
 - **Neutral:** instant storage keeps two shapes (strings and natives), handled as today by
