@@ -1,18 +1,14 @@
 """Node maps become models through the mapper, never a constructor splat.
 
-`RevisedExerciseBackend.list_for_student` / `get_by_report_uid`,
-`GroupBackend.get_user_groups` and `ExerciseService.list_user_exercises` each
-once rebuilt the model by splatting the node into the constructor. That splat
-rejects any property the dataclass does not declare — and
-`EmbeddingsBackend.store_embedding_metadata` writes two of them
-(`embedding_version`, `embedding_text_hash`), so an embedded entity raised
-TypeError, was swallowed as a "malformed row" warning, and vanished from its own
-listing (the teacher's exercise list showed no embedded exercise at all).
+`EmbeddingsBackend.store_embedding_metadata` writes two properties no domain
+dataclass declares (`embedding_version`, `embedding_text_hash`) on every
+embedded node. `from_neo4j_node` — the mapper `get()` and the list reads
+(`RevisedExerciseBackend.list_for_student` / `get_by_report_uid`,
+`GroupBackend.get_user_groups`, `ExerciseService.list_user_exercises`) go
+through — keeps declared fields only, so an embedded entity maps like any other.
 
-These pin the mapper's half of the fix: `from_neo4j_node`, the mapper `get()`
-uses, ignores undeclared properties. The negative control is the splat itself —
-it must still fail on the same input, or these tests would pass for the wrong
-reason. The list reads' own pins are
+The negative control is the splat itself: it still rejects the same input, or
+these tests would pass for the wrong reason. The list reads' own pins are
 `tests/unit/test_exercise_service_list_user_exercises.py` and the dashboard case
 in `tests/integration/routes/test_exercise_authoring_scope_ownership.py`.
 """

@@ -480,11 +480,10 @@ class TestDashboardListsEmbeddedExercises:
     async def test_an_embedded_exercise_stays_on_its_authors_dashboard(
         self, handlers, seeded, neo4j_driver
     ) -> None:
-        """The embedding worker stamps bookkeeping keys the ``Exercise``
-        dataclass does not declare (``embedding_version``,
-        ``embedding_text_hash``). The dashboard must still list every embedded
-        exercise — a constructor splat over the node map raised on those keys and
-        dropped each one, taking its Delete button with it.
+        """Bookkeeping keys the ``Exercise`` dataclass does not declare
+        (``embedding_version``, ``embedding_text_hash``, stamped by the
+        embedding worker) never keep an exercise off its author's dashboard:
+        every embedded exercise lists with its Delete button.
         """
         owned = [seeded[key] for key in (PERSONAL_AUTHOR, ASSIGNED, ASSESSMENT)]
         async with neo4j_driver.session() as session:

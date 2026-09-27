@@ -331,7 +331,7 @@ DELETED: dict[str, str] = {
         "deleted — where a journal goes is stated in the Pipeline class docstring "
         "(core/models/enums/pipeline.py, after the Values block)"
     ),
-    # The teacher's exercise list reads the mapped owner door; the node-map reads went.
+    # The teacher's exercise list is the mapped owner read (ExerciseService.list_user_exercises).
     "get_user_exercises": "deleted — the teacher's exercise list is ExerciseService.list_user_exercises (the mapped owner read, get_user_entities)",
     # Keyed with the call paren: underscore adjacency would otherwise match the live
     # get_student_exercises_with_status.
