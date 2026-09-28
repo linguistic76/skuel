@@ -1,11 +1,15 @@
 """Tests for RelativeOffset value type and its Pydantic DTO companion."""
 
 from datetime import UTC, date, datetime, timedelta
+from zoneinfo import ZoneInfo
 
 import pytest
 from pydantic import ValidationError
 
 from core.models.templates import RelativeOffset, RelativeOffsetDTO
+
+VANCOUVER = ZoneInfo("America/Vancouver")
+BANGKOK = ZoneInfo("Asia/Bangkok")
 
 
 class TestRelativeOffsetConstruction:
@@ -66,32 +70,42 @@ class TestRelativeOffsetResolution:
         assert o.resolve_to_datetime(anchor) == datetime(2026, 5, 16, 11, 0)
 
     def test_resolve_to_datetime_preserves_tz(self):
-        # Spawn orchestrator passes the engagement instant in user-local tz; the
-        # value type must not strip or rewrite tzinfo.
+        # The value type must not strip or rewrite tzinfo.
         anchor = datetime(2026, 5, 9, 9, 0, tzinfo=UTC)
         o = RelativeOffset(days=1)
         result = o.resolve_to_datetime(anchor)
         assert result.tzinfo is UTC
         assert result == datetime(2026, 5, 10, 9, 0, tzinfo=UTC)
 
-    def test_resolve_to_date_from_date(self):
-        anchor = date(2026, 5, 9)
-        assert RelativeOffset(days=7).resolve_to_date(anchor) == date(2026, 5, 16)
+    def test_resolve_to_date_is_the_day_in_the_zone(self):
+        # 16:00Z is 09:00 in Vancouver: seven days on, it is still morning there.
+        anchor = datetime(2026, 5, 9, 16, 0, tzinfo=UTC)
+        assert RelativeOffset(days=7).resolve_to_date(anchor, VANCOUVER) == date(2026, 5, 16)
 
-    def test_resolve_to_date_from_datetime_truncates(self):
-        # Time portion participates in arithmetic but is dropped at the end.
-        anchor = datetime(2026, 5, 9, 23, 30)
-        assert RelativeOffset(hours=1).resolve_to_date(anchor) == date(2026, 5, 10)
+    def test_an_evening_anchor_is_the_zones_day_not_its_digits_day(self):
+        # 02:00Z on May 10 is 19:00 on May 9 in Vancouver: the engaging user's
+        # day is the 9th, though the anchor's UTC digits read the 10th.
+        anchor = datetime(2026, 5, 10, 2, 0)  # naive, on the stored clock (UTC)
+        assert RelativeOffset().resolve_to_date(anchor, VANCOUVER) == date(2026, 5, 9)
+        assert RelativeOffset(days=2).resolve_to_date(anchor, VANCOUVER) == date(2026, 5, 11)
+        assert RelativeOffset().resolve_to_date(anchor, BANGKOK) == date(2026, 5, 10)
+
+    def test_resolve_to_date_carries_hours_across_midnight_in_the_zone(self):
+        # 23:30 on May 9 in Vancouver, plus an hour, is May 10 there.
+        anchor = datetime(2026, 5, 9, 23, 30, tzinfo=VANCOUVER)
+        assert RelativeOffset(hours=1).resolve_to_date(anchor, VANCOUVER) == date(2026, 5, 10)
 
     def test_resolve_to_date_overflow_into_days(self):
-        # 36h on top of a date(treated as midnight) lands 1.5 days later.
-        anchor = date(2026, 5, 9)
-        assert RelativeOffset(days=2, hours=36).resolve_to_date(anchor) == date(2026, 5, 12)
+        # 36h on top of the day's first instant lands 1.5 days later.
+        anchor = datetime(2026, 5, 9, 0, 0, tzinfo=VANCOUVER)
+        assert RelativeOffset(days=2, hours=36).resolve_to_date(anchor, VANCOUVER) == date(
+            2026, 5, 12
+        )
 
     def test_zero_offset_resolves_to_anchor(self):
-        anchor = datetime(2026, 5, 9, 9, 0)
+        anchor = datetime(2026, 5, 9, 16, 0)
         assert RelativeOffset().resolve_to_datetime(anchor) == anchor
-        assert RelativeOffset().resolve_to_date(anchor) == date(2026, 5, 9)
+        assert RelativeOffset().resolve_to_date(anchor, VANCOUVER) == date(2026, 5, 9)
 
 
 class TestRelativeOffsetDTO:

@@ -16,6 +16,7 @@ from typing import Any
 
 from core.models.enums import Domain
 from core.models.type_hints import UserUID
+from core.utils.timestamp_helpers import as_utc, now_utc
 
 
 class MasteryLevel(StrEnum):
@@ -95,7 +96,7 @@ class Mastery:
 
     def is_current_mastery(self) -> bool:
         """Check if mastery assessment is current (not stale)."""
-        days_since_review = (datetime.now() - self.last_reviewed).days
+        days_since_review = (now_utc() - as_utc(self.last_reviewed)).days
 
         if self.mastery_level in [MasteryLevel.EXPERT, MasteryLevel.MASTERED]:
             return days_since_review <= 90  # Expert knowledge stays fresh longer
@@ -110,11 +111,11 @@ class Mastery:
             return True
 
         if self.mastery_level in [MasteryLevel.INTRODUCED, MasteryLevel.FAMILIAR]:
-            return (datetime.now() - self.last_reviewed).days >= 7
+            return (now_utc() - as_utc(self.last_reviewed)).days >= 7
         elif self.mastery_level == MasteryLevel.PROFICIENT:
-            return (datetime.now() - self.last_reviewed).days >= 30
+            return (now_utc() - as_utc(self.last_reviewed)).days >= 30
         else:
-            return (datetime.now() - self.last_reviewed).days >= 90
+            return (now_utc() - as_utc(self.last_reviewed)).days >= 90
 
     def get_mastery_strength(self) -> float:
         """Calculate overall mastery strength combining level and confidence."""

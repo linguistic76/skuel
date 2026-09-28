@@ -47,6 +47,7 @@ from enum import StrEnum
 from typing import Any
 
 from core.models.type_hints import UserUID
+from core.utils.timestamp_helpers import as_utc, now_utc
 
 
 class AuthEventType(StrEnum):
@@ -138,7 +139,7 @@ class AuthEvent:
         """Check if event occurred within the last N minutes."""
         from datetime import timedelta
 
-        return (datetime.now(UTC) - self.timestamp) < timedelta(minutes=minutes)
+        return (now_utc() - as_utc(self.timestamp)) < timedelta(minutes=minutes)
 
     def to_log_dict(self) -> dict[str, Any]:
         """Convert to dictionary suitable for logging."""

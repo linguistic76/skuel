@@ -37,6 +37,7 @@ from core.models.enums import Domain
 from core.models.enums.entity_enums import EntityStatus, EntityType
 from core.models.enums.metadata_enums import Visibility
 from core.models.type_hints import EntityUID
+from core.utils.timestamp_helpers import as_utc, now_utc
 
 
 @dataclass(frozen=True, kw_only=True)
@@ -198,12 +199,12 @@ class Entity:
     def is_recent(self, days: int = 7) -> bool:
         if not self.created_at:
             return False
-        return (datetime.now() - self.created_at).days <= days
+        return (now_utc() - as_utc(self.created_at)).days <= days
 
     def is_updated(self) -> bool:
         if not self.created_at or not self.updated_at:
             return False
-        return self.updated_at > self.created_at
+        return as_utc(self.updated_at) > as_utc(self.created_at)
 
     # =========================================================================
     # SUBSTANCE / REVIEW STUBS

@@ -78,13 +78,15 @@ from core.models.user_owned_entity import UserOwnedEntity
 from core.ports import CrudOperations
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Result
+from core.utils.timestamp_helpers import as_stored_clock
 from core.utils.uid_generator import UIDGenerator
+from core.utils.zone_context import current_zone
 
 from ._template_bundle import TemplateBundle
 
 if TYPE_CHECKING:
     from collections.abc import Callable, Sequence
-    from datetime import date, datetime
+    from datetime import date, datetime, tzinfo
 
 logger = get_logger(__name__)
 
@@ -105,8 +107,12 @@ def _resolve_offsets(
     template: Any,
     rewrites: Sequence[tuple[str, str, OffsetKind]],
     anchor: datetime,
+    zone: tzinfo,
 ) -> dict[str, date | datetime | None]:
-    """Apply every (template_offset_field → instance_date_field) rewrite."""
+    """Apply every (template_offset_field → instance_date_field) rewrite.
+
+    A date field is the day the offset lands on in ``zone``, the engaging user's.
+    """
     out: dict[str, date | datetime | None] = {}
     for offset_field, instance_field, kind in rewrites:
         offset: RelativeOffset | None = getattr(template, offset_field, None)
@@ -116,7 +122,7 @@ def _resolve_offsets(
         if kind == "datetime":
             out[instance_field] = offset.resolve_to_datetime(anchor)
         else:
-            out[instance_field] = offset.resolve_to_date(anchor)
+            out[instance_field] = offset.resolve_to_date(anchor, zone)
     return out
 
 
@@ -155,21 +161,6 @@ def _compute_cross_edges(
         if target_uid:
             edges.append((edge_type, target_uid))
     return edges
-
-
-def _model_clock(moment: datetime) -> datetime:
-    """The engagement instant in the models' clock convention — naive, system-local.
-
-    ``Entity.created_at`` defaults to ``datetime.now()`` and every consumer
-    measures against that clock (naive cutoffs, ``datetime.now() - created_at``);
-    an offset-aware instant would raise ``TypeError`` on the first comparison.
-    The gateway records the engagement as aware UTC on its edge — that
-    convention stays there; the instances it spawns are stamped, and their
-    offsets resolved, in the models' own. A naive anchor passes through.
-    """
-    if moment.tzinfo is None:
-        return moment
-    return moment.astimezone().replace(tzinfo=None)
 
 
 def _copy_through(template: Any, allowed_fields: set[str]) -> dict[str, Any]:
@@ -360,13 +351,16 @@ def _build(
     the same moment every offset resolves against — not when its template was
     authored; a copied authoring stamp would make a creation-day default (the
     Task creation rule) date the instance in the template's past. The anchor is
-    taken in the models' clock (``_model_clock``) for stamps and offsets alike.
+    taken on the stored clock (``as_stored_clock``), the naive form the instance's
+    stamps take, and a date offset resolves to a day in the current zone — the
+    engaging user's, whose day the creation rule reads too.
     ``visibility`` is managed too: a template is curriculum and PUBLIC by its
     class default, while the instance is the student's own and takes the
     user-owned default, PRIVATE — a copied ``public`` would publish a student's
     task (ADR-088 §4).
     """
-    anchor = _model_clock(anchor)
+    anchor = as_stored_clock(anchor)
+    zone = current_zone()
     managed = {
         "uid",
         "user_uid",
@@ -388,7 +382,7 @@ def _build(
         "created_at": anchor,
         "updated_at": anchor,
         **_copy_through(template, _field_names(spec.instance_cls) - managed),
-        **_resolve_offsets(template, spec.offset_rewrites, anchor),
+        **_resolve_offsets(template, spec.offset_rewrites, anchor, zone),
         **_resolve_refs(template, spec.field_rewrites, template_to_instance),
     }
     instance = spec.instance_cls(**kwargs)

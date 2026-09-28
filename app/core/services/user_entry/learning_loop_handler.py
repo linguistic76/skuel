@@ -12,7 +12,6 @@ insights to ``InsightStore``. Ported from
 
 from __future__ import annotations
 
-from datetime import datetime
 from typing import TYPE_CHECKING
 
 from core.constants import LearningLoop
@@ -24,6 +23,8 @@ from core.ports.user_entry_protocols import UserEntryOperations
 from core.utils.exception_types import DATA_CONVERSION_EXCEPTIONS, NEO4J_EXCEPTIONS
 from core.utils.logging import get_logger
 from core.utils.neo4j_props import coerce_float, coerce_int
+from core.utils.timestamp_helpers import as_utc, instant_of
+from core.utils.zone_context import current_zone
 
 if TYPE_CHECKING:
     from core.services.insight.insight_store import InsightStore
@@ -163,14 +164,13 @@ class LearningLoopEventHandlerService:
                 return
 
             entry = sub_result.value
-            entry_created_at = getattr(entry, "created_at", None)
-            if not entry_created_at:
+            entry_created_at = instant_of(getattr(entry, "created_at", None), current_zone())
+            if entry_created_at is None:
                 return
 
-            if isinstance(entry_created_at, str):
-                entry_created_at = datetime.fromisoformat(entry_created_at)
-
-            turnaround_hours = (event.occurred_at - entry_created_at).total_seconds() / 3600.0
+            turnaround_hours = (
+                as_utc(event.occurred_at) - entry_created_at
+            ).total_seconds() / 3600.0
 
             self.logger.info(
                 f"Feedback turnaround: {turnaround_hours:.1f}h",
@@ -282,18 +282,11 @@ class LearningLoopEventHandlerService:
             if first_result.is_error or not first_result.value:
                 return
 
-            first_created = first_result.value.get("created_at")
-            if not first_created:
+            first_created = instant_of(first_result.value.get("created_at"), current_zone())
+            if first_created is None:
                 return
 
-            if isinstance(first_created, str):
-                first_created_dt = datetime.fromisoformat(first_created)
-            elif isinstance(first_created, datetime):
-                first_created_dt = first_created
-            else:
-                return
-
-            hours = (event.occurred_at - first_created_dt).total_seconds() / 3600.0
+            hours = (as_utc(event.occurred_at) - first_created).total_seconds() / 3600.0
             velocity = _classify_mastery_velocity(iterations, hours)
 
             self.logger.info(

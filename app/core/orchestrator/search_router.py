@@ -60,6 +60,7 @@ Usage:
 
 from collections.abc import Callable, Sequence
 from dataclasses import dataclass, field
+from datetime import datetime
 from itertools import zip_longest
 from typing import TYPE_CHECKING, Any, ClassVar
 
@@ -79,6 +80,8 @@ from core.ports.search_protocols import (
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
 from core.utils.sort_functions import get_combined_score, get_dict_score
+from core.utils.timestamp_helpers import EARLIEST_INSTANT, instant_of
+from core.utils.zone_context import current_zone
 
 if TYPE_CHECKING:
     from core.models.search.query_parser import ParsedSearchQuery
@@ -163,23 +166,25 @@ CURRICULUM_FACET_DOMAINS: tuple[EntityType, ...] = (EntityType.KU, EntityType.PA
 _TAG_SCOPE_PROPERTY = "user_uid"
 
 
-def _sweep_sort_key(sort_field: str) -> Callable[[dict[str, Any]], str]:
+def _sweep_sort_key(sort_field: str) -> Callable[[dict[str, Any]], str | datetime]:
     """Sort-key factory for cross-domain merges on a shared entity field.
 
     Per-domain result sets arrive Cypher-sorted; the merged list re-sorts on
-    the same field in Python. Neo4j temporal values stringify to ISO-8601
-    (lexicographic order == chronological order), titles compare
-    case-insensitively, and missing values collapse to "" (last on DESC).
+    the same field in Python. Titles compare case-insensitively (a missing one
+    as ""); a stamp — a string or a Neo4j native, naive or aware — compares as
+    the instant it names (``instant_of``), a missing one earliest. Either way a
+    missing value sorts last on DESC.
     """
+    zone = current_zone()
 
-    def sort_key(record: dict[str, Any]) -> str:
+    def title_key(record: dict[str, Any]) -> str:
         value = record.get(sort_field)
-        if value is None:
-            return ""
-        text = str(value)
-        return text.lower() if sort_field == "title" else text
+        return str(value).lower() if value is not None else ""
 
-    return sort_key
+    def instant_sort_key(record: dict[str, Any]) -> datetime:
+        return instant_of(record.get(sort_field), zone) or EARLIEST_INSTANT
+
+    return title_key if sort_field == "title" else instant_sort_key
 
 
 # =============================================================================

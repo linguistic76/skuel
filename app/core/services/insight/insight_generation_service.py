@@ -34,6 +34,7 @@ from core.services.insight._quality_curation_mixin import _QualityCurationMixin
 from core.utils.decorators import with_error_handling
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Result
+from core.utils.timestamp_helpers import now_utc
 
 if TYPE_CHECKING:
     from core.models.curriculum_dto import CurriculumDTO
@@ -113,8 +114,8 @@ class InsightGenerationService(
             Result containing list of generated CurriculumDTO objects
         """
         # Get completed tasks for analysis
-        since_date = datetime.now() - timedelta(days=days_back)
-        completed_tasks = await self._get_completed_tasks_since(user_uid, since_date)
+        since = now_utc() - timedelta(days=days_back)
+        completed_tasks = await self._get_completed_tasks_since(user_uid, since)
 
         if len(completed_tasks) < min_tasks:
             return Result.ok([])  # Not enough data for meaningful analysis

@@ -169,7 +169,8 @@ def validate_future_date(*field_names: str) -> Callable:
         if info.context and info.context.get("allow_past_dates"):
             return v
         if isinstance(v, datetime):
-            if v <= datetime.now():
+            # an instant: a ClientDateTime value is on the stored clock by now
+            if as_utc(v) <= now_utc():
                 raise ValueError("Date/time cannot be in the past")
         elif isinstance(v, date) and v < today_in(current_zone()):
             raise ValueError("Date cannot be in the past")

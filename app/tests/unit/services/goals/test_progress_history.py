@@ -10,7 +10,7 @@ entry rides the transition patch and a repeat appends nothing.
 
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import UTC, datetime, timedelta, timezone
 from unittest.mock import AsyncMock, Mock, patch
 
 import pytest
@@ -25,6 +25,7 @@ from core.services.goals.goals_core_service import GoalsCoreService
 from core.services.goals.goals_progress_service import GoalsProgressService
 from core.services.goals.progress_history import progress_entry, with_progress_entry
 from core.utils.result_simplified import Result
+from tests.helpers.laptop_clock import laptop_wall
 from tests.helpers.status_guarded_backend import guarded_backend
 
 _USER = "user_history"
@@ -239,8 +240,10 @@ async def test_a_status_change_that_reopens_nothing_appends_nothing() -> None:
 
 
 @pytest.mark.asyncio
+@pytest.mark.usefixtures("laptop_zone")
 async def test_manual_update_dates_its_entry_and_stamp_at_the_supplied_date() -> None:
-    """A September correction entered in October is a September event."""
+    """A September correction entered in October is a September event — dated at
+    the first instant of the user's September 5th, stored on the stored clock."""
     goal = _goal()
     backend = Mock()
     backend.get_goal = AsyncMock(return_value=Result.ok(goal.to_dto()))
@@ -253,10 +256,38 @@ async def test_manual_update_dates_its_entry_and_stamp_at_the_supplied_date() ->
 
     assert result.is_ok
     updates = backend.update_goal.await_args.args[1]
-    assert updates["last_progress_update"] == datetime(2026, 9, 5)
-    assert _entries(updates)[-1] == {"date": "2026-09-05T00:00:00", "progress_percentage": 45.0}
-    assert updates["metadata"]["progress_notes"][-1]["date"] == "2026-09-05T00:00:00"
-    assert result.value["update_date"] == "2026-09-05T00:00:00"
+    first_instant = laptop_wall(2026, 9, 5)  # 07:00 UTC digits
+    assert updates["last_progress_update"] == first_instant
+    assert _entries(updates)[-1] == {
+        "date": first_instant.isoformat(),
+        "progress_percentage": 45.0,
+    }
+    assert updates["metadata"]["progress_notes"][-1]["date"] == first_instant.isoformat()
+    assert result.value["update_date"] == first_instant.isoformat()
+
+
+@pytest.mark.asyncio
+@pytest.mark.usefixtures("laptop_zone")
+@pytest.mark.parametrize(
+    ("supplied", "stored"),
+    [
+        # An offset-less time is the user's wall clock (Vancouver, PDT).
+        ("2026-09-05T18:30:00", datetime(2026, 9, 6, 1, 30)),
+        # An aware one names its instant, stored on the stored clock.
+        ("2026-09-05T18:30:00+07:00", datetime(2026, 9, 5, 11, 30)),
+    ],
+)
+async def test_a_supplied_moment_is_the_instant_it_names(supplied: str, stored: datetime) -> None:
+    goal = _goal()
+    backend = Mock()
+    backend.get_goal = AsyncMock(return_value=Result.ok(goal.to_dto()))
+    backend.update_goal = AsyncMock(return_value=Result.ok(goal))
+    service = _progress_service(backend)
+
+    result = await service.update_goal_progress(_GOAL, 45.0, update_date=supplied)
+
+    assert result.is_ok
+    assert backend.update_goal.await_args.args[1]["last_progress_update"] == stored
 
 
 @pytest.mark.asyncio
@@ -295,3 +326,29 @@ async def test_a_null_or_unknown_status_is_a_validation_failure_not_a_crash(
     assert result.is_error
     assert result.expect_error().category.value == "validation"
     assert recorder.calls == []  # refused before the write
+
+
+@pytest.mark.asyncio
+async def test_the_progress_window_reads_each_note_as_an_instant() -> None:
+    """Notes dated naive (a naive writer), aware or unreadably share one window."""
+    now = datetime.now(UTC)
+    notes = [
+        {"date": (now - timedelta(days=3)).replace(tzinfo=None).isoformat(), "notes": "naive"},
+        {
+            "date": (now - timedelta(days=5)).astimezone(timezone(timedelta(hours=7))).isoformat(),
+            "notes": "bangkok",
+        },
+        {"date": (now - timedelta(days=9)).isoformat(), "notes": "stale"},
+        {"date": "not-a-date", "notes": "unreadable"},
+    ]
+    goal = _goal()
+    dto = goal.to_dto()
+    dto.metadata = {"progress_notes": notes}
+    backend = Mock()
+    backend.get_goal = AsyncMock(return_value=Result.ok(dto))
+    service = _progress_service(backend)
+
+    result = await service.get_goal_progress(_GOAL, period="week")
+
+    assert result.is_ok
+    assert [n["notes"] for n in result.value["progress_history"]] == ["naive", "bangkok"]

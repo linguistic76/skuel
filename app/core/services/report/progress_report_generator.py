@@ -53,10 +53,10 @@ from core.utils.neo4j_props import coerce_int
 from core.utils.report_periods import (
     ReportPeriod,
     UnknownReportPeriodError,
-    as_naive_utc,
     resolve_report_period,
 )
 from core.utils.result_simplified import Errors, Result
+from core.utils.timestamp_helpers import instant_of, now_utc
 from core.utils.zone_context import current_zone
 
 logger = get_logger("skuel.services.report.progress_generator")
@@ -178,7 +178,7 @@ class ProgressReportGenerator:
             period = resolve_report_period(time_period, now, current_zone())
         except UnknownReportPeriodError as e:
             return Result.fail(Errors.validation(message=str(e), field="time_period"))
-        if not period.has_started(now):
+        if not period.has_started(now_utc()):
             # A future period holds nothing yet; a report of it would count
             # today's open work against an inverted window. Nothing generates.
             return Result.fail(
@@ -195,7 +195,7 @@ class ProgressReportGenerator:
 
         # Rate-limit on-demand generation per (user, period) — a closed period
         # whose newest report is partial is exempt (its final snapshot).
-        cooldown_result = await self._check_cooldown(user_uid, period, now)
+        cooldown_result = await self._check_cooldown(user_uid, period)
         if cooldown_result.is_error:
             return Result.fail(cooldown_result)
 
@@ -207,7 +207,7 @@ class ProgressReportGenerator:
         # the life-path alignment, the ZPD summary, knowledge suggestions — are
         # the cutoff's only while the cutoff is now. A closed period regenerated
         # later carries none of them.
-        figures_are_current = not period.is_closed(now)
+        figures_are_current = not period.is_closed(now_utc())
 
         try:
             # 1. Build UserContext once (single MEGA-QUERY round-trip)
@@ -1429,9 +1429,7 @@ class ProgressReportGenerator:
             "closed before the period and merely edited after it is counted as open.",
         ]
 
-    async def _check_cooldown(
-        self, user_uid: UserUID, period: ReportPeriod, now: datetime
-    ) -> Result[None]:
+    async def _check_cooldown(self, user_uid: UserUID, period: ReportPeriod) -> Result[None]:
         """Refuse a report for this period generated within MIN_REPORT_COOLDOWN_MINUTES.
 
         Keyed per (user, period): a September report does not block a weekly
@@ -1443,12 +1441,12 @@ class ProgressReportGenerator:
         if not self.report_backend:
             return Result.ok(None)  # fail-safe: allow generation if no backend
 
-        if period.is_closed(now):
+        if period.is_closed(now_utc()):
             newest = await self.activity_report_service.latest_for_period(
                 user_uid, user_uid, period.token
             )
             if newest.is_ok and newest.value is not None:
-                cutoff = as_naive_utc(newest.value.data_cutoff)
+                cutoff = instant_of(newest.value.data_cutoff, period.zone)
                 if cutoff is None or period.is_partial_at(cutoff):
                     return Result.ok(None)  # finalising a partial report
 

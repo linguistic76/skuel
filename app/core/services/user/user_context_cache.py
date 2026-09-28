@@ -101,9 +101,6 @@ class UserContextCache:
     # Cache storage: user_uid -> RichUserContext (only rich contexts are cached)
     _cache: dict[UserUID, RichUserContext] = field(default_factory=dict)
 
-    # Last update timestamps for monitoring
-    _last_update: dict[UserUID, datetime] = field(default_factory=dict)
-
     # TTL in seconds (5 minutes = 300s)
     # Rationale: Balances freshness vs MEGA-QUERY cost for ~240 field context
     # See module docstring for full caching policy documentation
@@ -135,7 +132,6 @@ class UserContextCache:
         """
         context.last_refresh = datetime.now()
         self._cache[user_uid] = context
-        self._last_update[user_uid] = datetime.now()
 
     def invalidate(self, user_uid: UserUID) -> None:
         """
@@ -149,7 +145,6 @@ class UserContextCache:
         """
         if user_uid in self._cache:
             del self._cache[user_uid]
-            del self._last_update[user_uid]
 
     def cleanup_expired(self) -> int:
         """

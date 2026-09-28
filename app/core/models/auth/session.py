@@ -35,6 +35,7 @@ from dataclasses import dataclass, field
 from datetime import UTC, datetime, timedelta
 
 from core.models.type_hints import UserUID
+from core.utils.timestamp_helpers import as_utc, now_utc
 
 # Session configuration
 SESSION_TOKEN_BYTES = 32  # 256-bit tokens
@@ -93,7 +94,7 @@ class Session:
 
     def is_expired(self) -> bool:
         """Check if session has expired."""
-        return datetime.now(UTC) > self.expires_at
+        return now_utc() > as_utc(self.expires_at)
 
     def is_active(self) -> bool:
         """Check if session is valid and not expired."""
@@ -101,7 +102,7 @@ class Session:
 
     def time_until_expiry(self) -> timedelta:
         """Get time remaining until expiry."""
-        return self.expires_at - datetime.now(UTC)
+        return as_utc(self.expires_at) - now_utc()
 
     def should_refresh(self, threshold_days: int = 7) -> bool:
         """

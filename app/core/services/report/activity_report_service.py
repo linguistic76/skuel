@@ -41,10 +41,10 @@ from core.utils.exception_types import DATA_CONVERSION_EXCEPTIONS, NEO4J_EXCEPTI
 from core.utils.logging import get_logger
 from core.utils.report_periods import (
     UnknownReportPeriodError,
-    as_naive_utc,
     resolve_report_period,
 )
 from core.utils.result_simplified import Errors, Result
+from core.utils.timestamp_helpers import instant_of, now_utc
 from core.utils.zone_context import current_zone
 
 logger = get_logger("skuel.services.report.activity_report")
@@ -144,7 +144,7 @@ class ActivityReportService:
             period = resolve_report_period(time_period, now, current_zone())
         except UnknownReportPeriodError as e:
             return Result.fail(Errors.validation(message=str(e), field="time_period"))
-        if not period.has_started(now):
+        if not period.has_started(now_utc()):
             return Result.fail(
                 Errors.validation(
                     message=f"{period.label} has not started yet", field="time_period"
@@ -200,7 +200,7 @@ class ActivityReportService:
             for item in activity.get("principles", [])
             if eligible.existed_by_end(_entity(item))
         ]
-        figures_are_current = not period.is_closed(now)
+        figures_are_current = not period.is_closed(now_utc())
 
         def live(value: Any) -> Any:  # boundary: a node property, passed through or dropped
             """A node's live state is the cutoff's only while the cutoff is now."""
@@ -394,7 +394,7 @@ class ActivityReportService:
             period = resolve_report_period(time_period, now, current_zone())
         except UnknownReportPeriodError as e:
             return Result.fail(Errors.validation(message=str(e), field="time_period"))
-        if not period.has_started(now):
+        if not period.has_started(now_utc()):
             return Result.fail(
                 Errors.validation(
                     message=f"{period.label} has not started yet", field="time_period"
@@ -507,16 +507,16 @@ class ActivityReportService:
         is stale — treated as absent so the next open generates the final
         report that supersedes it. An unknown token is a validation failure.
         """
-        now = datetime.now()
+        now, zone = now_utc(), current_zone()
         try:
-            period = resolve_report_period(time_period, now, current_zone())
+            period = resolve_report_period(time_period, now, zone)
         except UnknownReportPeriodError as e:
             return Result.fail(Errors.validation(message=str(e), field="time_period"))
         latest = await self.latest_for_period(user_uid, subject_uid, time_period)
         if latest.is_error or latest.value is None:
             return latest
         report = latest.value
-        cutoff = as_naive_utc(report.data_cutoff)
+        cutoff = instant_of(report.data_cutoff, zone)
         if period.is_closed(now) and (cutoff is None or period.is_partial_at(cutoff)):
             return Result.ok(None)
         return Result.ok(report)

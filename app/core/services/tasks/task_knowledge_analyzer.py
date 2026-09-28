@@ -45,7 +45,7 @@ from core.services.tasks.task_relationships import TaskRelationships
 from core.utils.exception_types import DATA_CONVERSION_EXCEPTIONS
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
-from core.utils.timestamp_helpers import day_of, today_in
+from core.utils.timestamp_helpers import day_of, span_days, today_in
 from core.utils.zone_context import current_zone
 
 if TYPE_CHECKING:
@@ -437,7 +437,7 @@ class TaskKnowledgeAnalyzer:
                     knowledge_uids=[ku_uid],
                     entity_uids=[t.uid for t in ku_tasks],
                     confidence=ConfidenceLevel.HIGH,
-                    timeframe_days=(ku_tasks[-1].created_at - ku_tasks[0].created_at).days,
+                    timeframe_days=span_days(t.created_at for t in ku_tasks),
                     frequency=len(ku_tasks),
                     growth_indicator=success_rate * 2 - 1,
                     metadata={"success_rate": success_rate, "validations": len(ku_tasks)},
@@ -473,7 +473,7 @@ class TaskKnowledgeAnalyzer:
             trend = 0.0
 
         if len(completed_tasks) >= 2:
-            timespan = (completed_tasks[-1].created_at - completed_tasks[0].created_at).days
+            timespan = span_days(t.created_at for t in completed_tasks)
             velocity = current_mastery / max(1, timespan) if timespan > 0 else 0.0
         else:
             velocity = 0.0

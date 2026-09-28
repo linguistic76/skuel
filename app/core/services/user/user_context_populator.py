@@ -26,6 +26,8 @@ from core.models.enums import (
 from core.models.user import UserPreferences
 from core.utils.logging import get_logger
 from core.utils.sort_functions import get_updated_timestamp
+from core.utils.timestamp_helpers import EARLIEST_INSTANT, as_utc, instant_of
+from core.utils.zone_context import current_zone
 
 if TYPE_CHECKING:
     from core.ports.query_types import EntryKnowledgeAppliedRow, RichEntityItem
@@ -125,8 +127,10 @@ class UserContextPopulator:
             if item and item.get("uid") is not None and item.get("last_viewed_at") is not None
         ]
 
-        def by_timestamp(item: tuple) -> Any:
-            return item[1]
+        zone = current_zone()
+
+        def by_timestamp(item: tuple[str, object]) -> datetime:
+            return instant_of(item[1], zone) or EARLIEST_INSTANT
 
         viewed_with_timestamps.sort(key=by_timestamp, reverse=True)
         context.recently_viewed_ku_uids = [uid for uid, _ in viewed_with_timestamps[:10]]
@@ -229,27 +233,27 @@ class UserContextPopulator:
 
         ku_entities: list[RichEntityItem] = []
         engaged_uids: set[str] = set()
+        zone = current_zone()
+        window_opens = as_utc(window_start)
 
         # Mastered in window
         for uid, mastered_at in context.mastery_timestamps.items():
             if not mastered_at or uid in engaged_uids:
                 continue
-            try:
-                ts = _parse_neo4j_datetime(mastered_at)
-                if ts >= window_start:
-                    ku_entities.append(
-                        {
-                            "entity": ku_props_by_uid.get(uid, {"uid": uid}),
-                            "graph_context": {
-                                "interaction_type": "mastered",
-                                "mastered_at": mastered_at,
-                                "score": context.knowledge_mastery.get(uid, 1.0),
-                            },
-                        }
-                    )
-                    engaged_uids.add(uid)
-            except (ValueError, TypeError, AttributeError):  # fmt: skip
-                pass
+            mastered = instant_of(mastered_at, zone)
+            if mastered is None or mastered < window_opens:
+                continue
+            ku_entities.append(
+                {
+                    "entity": ku_props_by_uid.get(uid, {"uid": uid}),
+                    "graph_context": {
+                        "interaction_type": "mastered",
+                        "mastered_at": mastered_at,
+                        "score": context.knowledge_mastery.get(uid, 1.0),
+                    },
+                }
+            )
+            engaged_uids.add(uid)
 
         # Viewed in window (exclude already mastered)
         for view_item in uids_data.get("ku_view_data", []):
@@ -257,23 +261,21 @@ class UserContextPopulator:
             last_viewed_at = view_item.get("last_viewed_at")
             if not uid or not last_viewed_at or uid in engaged_uids:
                 continue
-            try:
-                ts = _parse_neo4j_datetime(last_viewed_at)
-                if ts >= window_start:
-                    ku_entities.append(
-                        {
-                            "entity": ku_props_by_uid.get(uid, {"uid": uid}),
-                            "graph_context": {
-                                "interaction_type": "viewed",
-                                "last_viewed_at": last_viewed_at,
-                                "view_count": view_item.get("view_count", 1),
-                                "score": context.knowledge_mastery.get(uid, 0.0),
-                            },
-                        }
-                    )
-                    engaged_uids.add(uid)
-            except (ValueError, TypeError, AttributeError):  # fmt: skip
-                pass
+            viewed = instant_of(last_viewed_at, zone)
+            if viewed is None or viewed < window_opens:
+                continue
+            ku_entities.append(
+                {
+                    "entity": ku_props_by_uid.get(uid, {"uid": uid}),
+                    "graph_context": {
+                        "interaction_type": "viewed",
+                        "last_viewed_at": last_viewed_at,
+                        "view_count": view_item.get("view_count", 1),
+                        "score": context.knowledge_mastery.get(uid, 0.0),
+                    },
+                }
+            )
+            engaged_uids.add(uid)
 
         context.entities_rich = {**context.entities_rich, "ku": ku_entities}
 
@@ -756,12 +758,3 @@ class UserContextPopulator:
 
         # Store recent principle-aligned choices (last 10)
         context.recent_principle_aligned_choices = principle_aligned_choices[:10]
-
-
-def _parse_neo4j_datetime(value: Any) -> datetime:
-    """Parse Neo4j datetime value to naive UTC datetime for window comparison."""
-    if isinstance(value, datetime):
-        return value.replace(tzinfo=None)
-    # Neo4j DateTime object — convert via string representation
-    iso = str(value).replace("Z", "+00:00")
-    return datetime.fromisoformat(iso).replace(tzinfo=None)

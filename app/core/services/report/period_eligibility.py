@@ -10,7 +10,9 @@ completed inside it or open at its end, an event dated inside it. Those
 verdicts live here so the generator and the snapshot cannot drift apart.
 
 Stamps arrive as Neo4j DateTime objects, native datetimes, ISO strings or
-bare dates (the temporal split); every comparison runs on naive UTC.
+bare dates (the temporal split); every comparison runs on aware UTC instants
+(``instant_of``), a bare date read as its first instant in the report user's
+zone.
 """
 
 from __future__ import annotations
@@ -21,8 +23,7 @@ from datetime import datetime
 from typing import Any
 
 from core.models.enums import EntityStatus
-from core.utils.report_periods import as_naive_utc
-from core.utils.timestamp_helpers import as_stored_clock, day_of, local_day_bounds, parse_date_value
+from core.utils.timestamp_helpers import as_utc, day_of, instant_of, parse_date_value
 from core.utils.zone_context import current_zone
 
 
@@ -35,20 +36,14 @@ def is_terminal_status(raw: object) -> bool:
 
 
 def moment_of(stamp: object) -> datetime | None:
-    """A stored stamp as a naive-UTC instant — a bare date is its first instant.
+    """A stored stamp as an aware UTC instant — a bare date is its first instant.
 
-    A bare date is a day on the report user's calendar, so its first instant is
-    that day's start in the current zone (the report user's), read on the host
-    clock as the period's own bounds are (``resolve_report_period``).
+    A bare date — a ``date``, or a date-only string such as a task's
+    ``completion_date`` — is a day on the report user's calendar, so its first
+    instant is that day's start in the current zone (the report user's), the
+    zone the period's own bounds are drawn in (``resolve_report_period``).
     """
-    moment = as_naive_utc(stamp)
-    if moment is None:
-        day = parse_date_value(stamp)
-        if day is None:
-            return None
-        day_start, _ = local_day_bounds(day, current_zone())
-        moment = as_stored_clock(day_start)
-    return moment
+    return instant_of(stamp, current_zone())
 
 
 @dataclass(frozen=True)
@@ -57,7 +52,7 @@ class PeriodEligibility:
 
     ``window_start`` / ``window_end`` bound the counts (the data cutoff is the
     end); ``period_end`` is the period's own end, which is later than the
-    cutoff exactly when the report is partial. All naive UTC, ``None`` = open.
+    cutoff exactly when the report is partial. All aware UTC, ``None`` = open.
     """
 
     window_start: datetime | None
@@ -69,11 +64,11 @@ class PeriodEligibility:
         cls, window_start: datetime, window_end: datetime, period_end: datetime | None = None
     ) -> PeriodEligibility:
         """Bounds from the report's window; ``period_end`` defaults to the window's end."""
-        ceiling = as_naive_utc(window_end)
+        ceiling = as_utc(window_end)
         return cls(
-            window_start=as_naive_utc(window_start),
+            window_start=as_utc(window_start),
             window_end=ceiling,
-            period_end=as_naive_utc(period_end) if period_end is not None else ceiling,
+            period_end=as_utc(period_end) if period_end is not None else ceiling,
         )
 
     def in_period(self, stamp: object) -> bool:

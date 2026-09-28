@@ -37,7 +37,7 @@ from typing import Any
 
 from pydantic import ValidationInfo, field_validator
 
-from core.utils.timestamp_helpers import now_in, today_in, wall_clock_in
+from core.utils.timestamp_helpers import as_utc, now_utc, today_in
 from core.utils.zone_context import current_zone
 
 # =============================================================================
@@ -45,22 +45,14 @@ from core.utils.zone_context import current_zone
 # =============================================================================
 
 
-def _now_like(value: datetime) -> datetime:
-    """Now, in the form ``value`` can be compared with.
-
-    A naive value is a wall time on the user's calendar (a ``datetime-local``
-    field), compared with the wall clock in the current zone; an aware value is
-    an instant, compared with the current instant.
-    """
-    zone = current_zone()
-    return wall_clock_in(zone) if value.tzinfo is None else now_in(zone)
-
-
 def validate_future_date(*field_names: str) -> Callable:
     """
     Create a validator that ensures date fields are not in the past.
 
-    Works with both `date` and `datetime` types.
+    Works with both `date` and `datetime` types. A `date` is compared with today
+    in the current zone; a `datetime` is an instant — a ``ClientDateTime``
+    field's value is already on the stored clock when this runs — compared as
+    aware UTC with now.
 
     **Ingestion-context relaxation (G10, Arc E):** validation context
     ``{"allow_past_dates": True}`` skips the check. Interactive creation
@@ -95,7 +87,7 @@ def validate_future_date(*field_names: str) -> Callable:
             return v
 
         if isinstance(v, datetime):
-            if v <= _now_like(v):
+            if as_utc(v) <= now_utc():
                 raise ValueError("Date/time cannot be in the past")
         elif isinstance(v, date) and v < today_in(current_zone()):
             raise ValueError("Date cannot be in the past")
@@ -109,7 +101,9 @@ def validate_past_date(*field_names: str) -> Callable:
     """
     Create a validator that ensures date fields are not in the future.
 
-    Useful for completion dates, decision dates, etc.
+    Useful for completion dates, decision dates, etc. Compares as
+    ``validate_future_date`` does: a `date` with today in the current zone, a
+    `datetime` as the instant it names.
 
     Args:
         *field_names: Names of fields to validate
@@ -130,7 +124,7 @@ def validate_past_date(*field_names: str) -> Callable:
             return v
 
         if isinstance(v, datetime):
-            if v > _now_like(v):
+            if as_utc(v) > now_utc():
                 raise ValueError("Date/time cannot be in the future")
         elif isinstance(v, date) and v > today_in(current_zone()):
             raise ValueError("Date cannot be in the future")

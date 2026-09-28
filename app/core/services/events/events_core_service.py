@@ -51,6 +51,7 @@ from core.services.mixins.hierarchy_read_mixin import HierarchyReadMixin
 from core.services.mixins.link_edge_guard import LinkEdge, keep_permitted_link_edges
 from core.utils.decorators import with_error_handling
 from core.utils.result_simplified import Errors, Result
+from core.utils.sort_functions import get_created_at_attr
 from core.utils.timestamp_helpers import now_utc, today_in
 from core.utils.uid_generator import UIDGenerator
 from core.utils.zone_context import current_zone
@@ -293,7 +294,7 @@ class EventsCoreService(
             elif order_by == "title":
                 events.sort(key=attrgetter("title"), reverse=reverse)
             elif order_by == "created_at":
-                events.sort(key=attrgetter("created_at"), reverse=reverse)
+                events.sort(key=get_created_at_attr, reverse=reverse)
 
         return Result.ok(events)
 

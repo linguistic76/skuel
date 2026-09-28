@@ -15,6 +15,7 @@ from datetime import datetime
 
 from core.models.enums import LearningLevel, SELCategory
 from core.models.type_hints import UserUID
+from core.utils.timestamp_helpers import as_utc, now_utc
 
 
 def learning_level_for(mastered_count: int) -> LearningLevel:
@@ -89,7 +90,7 @@ class CurriculumProgress:
             return False
 
         # Check if last activity was more than 7 days ago
-        days_since_activity = (datetime.now() - self.last_activity).days
+        days_since_activity = (now_utc() - as_utc(self.last_activity)).days
         return days_since_activity > 7
 
 

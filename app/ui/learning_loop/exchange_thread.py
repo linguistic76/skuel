@@ -15,14 +15,15 @@ with ISO-8601 ``created_at`` strings.
 from __future__ import annotations
 
 import operator
-from datetime import UTC, datetime
+from datetime import datetime
 from typing import TYPE_CHECKING
 
 from fasthtml.common import H3, A, Div, P, Span
 
 from core.models.enums.entity_enums import EntityType
 from core.models.enums.pipeline import ReportSource
-from core.utils.timestamp_helpers import parse_iso_utc
+from core.utils.timestamp_helpers import EARLIEST_INSTANT, instant_of
+from core.utils.zone_context import current_zone
 
 if TYPE_CHECKING:
     from fasthtml.common import FT
@@ -42,20 +43,18 @@ from ui.patterns.empty_state import EmptyState
 from ui.patterns.format_date import format_date
 from ui.patterns.page_header import PageHeader
 
-_EPOCH = datetime.min.replace(tzinfo=UTC)
-
 
 def _sort_key(created_at: str | None) -> datetime:
-    """Chronological sort key for a thread item — naive stamps are UTC
-    (``parse_iso_utc``); unparseable/missing stamps sort first rather than
+    """Chronological sort key for a thread item — each stamp read as an instant
+    (``instant_of``); unparseable/missing stamps sort first rather than
     dropping the item.
     """
-    return parse_iso_utc(created_at) or _EPOCH
+    return instant_of(created_at, current_zone()) or EARLIEST_INSTANT
 
 
 def _when(created_at: str | None) -> str:
     """Human timestamp for an item header ('' when absent/unparseable)."""
-    if _sort_key(created_at) == _EPOCH:
+    if _sort_key(created_at) == EARLIEST_INSTANT:
         return ""
     return format_date(created_at, "%b %d, %H:%M")
 

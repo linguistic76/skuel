@@ -23,6 +23,7 @@ from core.models.askesis.askesis_dto import AskesisDTO
 from core.models.enums import GuidanceMode
 from core.models.enums.askesis_enums import QueryComplexity
 from core.models.type_hints import UserUID
+from core.utils.timestamp_helpers import as_utc, now_utc
 
 
 def _utcnow() -> Any:
@@ -128,7 +129,7 @@ class Askesis:
             return True
 
         hours_since_update = (
-            datetime.now(UTC) - self.last_intelligence_update
+            now_utc() - as_utc(self.last_intelligence_update)
         ).total_seconds() / 3600
         return hours_since_update >= hours_threshold
 

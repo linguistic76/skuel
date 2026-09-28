@@ -15,7 +15,7 @@ from typing import Any
 
 from core.models.enums import Domain, EntityStatus
 from core.models.type_hints import EntityUID, UserUID
-from core.utils.timestamp_helpers import today_in
+from core.utils.timestamp_helpers import as_utc, today_in
 from core.utils.zone_context import current_zone
 
 
@@ -81,7 +81,11 @@ class UserProgress:
             raise ValueError(f"confidence_level must be 0.0-1.0, got {self.confidence_level}")
 
         # Validate timestamps
-        if self.completed_at and self.started_at and self.completed_at < self.started_at:
+        if (
+            self.completed_at
+            and self.started_at
+            and as_utc(self.completed_at) < as_utc(self.started_at)
+        ):
             raise ValueError("completed_at cannot be before started_at")
 
     # DomainModelProtocol compliance: created_at/updated_at alias tracked_at,

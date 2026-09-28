@@ -1,7 +1,7 @@
 ---
 title: "UTC Instants Arc — Rulings & Contract"
 updated: 2026-09-28
-status: "active — ruled 2026-09-27; PRs 1–2b ran in the cloud; from PR 3, one local session per row; PR 4 deployed 2026-09-28"
+status: "active — ruled 2026-09-27; PRs 1–2b ran in the cloud; from PR 3, one local session per row; PR 4 deployed 2026-09-28; PR 5 merged 2026-09-28"
 registered: 2026-09-27
 ruled: 2026-09-27
 ---
@@ -945,6 +945,97 @@ Behaviour-neutral under the pin; it removes the remaining latent `TypeError`s.
 hits are writers, PRs 7–8); unit tests put naive and aware values — and a missing value — in one
 list, sort and window; forced `TZ=America/Vancouver` unit tests on the touched domains pass.
 
+**Left by PR 5 for the rows after it:**
+
+- **The readers' helpers** are in `timestamp_helpers`. `instant_of(value, zone)` reads a stored
+  stamp of any shape — an offset-less or offset string, a Neo4j native, a `datetime` — as aware
+  UTC; a bare day is its first instant in `zone`; an absent or unreadable one is `None`.
+  `instant_key(value, missing=EARLIEST_INSTANT)` is the sort key (`LATEST_INSTANT` puts an absent
+  one last), and `span_days(instants)` the whole days from the earliest to the latest, in any
+  order. A reader compares `as_utc` / `instant_of` values with `now_utc()`.
+- **The normalizers collapsed onto `as_utc`.** `parse_iso_utc` and `report_periods.as_naive_utc`
+  are deleted; their callers read through `instant_of`, the two in `ui/` (the exchange thread's
+  sort, the report page's cutoff) included. `curriculum._naive_local` and the populator's
+  `_parse_neo4j_datetime` (which stripped an offset without converting it) are deleted.
+  `_spawn_orchestrator._model_clock` is `as_stored_clock`. `status_transitions._as_datetime` is
+  `instant_of` then `as_stored_clock`: `occurred_at` stays naive until PR 8. The goal-progress door's
+  `_parse_progress_date` reads a client value through `from_wall_clock`, in the current zone. It is
+  a client door that 3b's census missed because the field is a `str`, and it has no route.
+- **Report periods.** `ReportPeriod`'s comparisons read both sides through `as_utc`;
+  `data_cutoff(now)` returns the earlier of the two as it came. The report services compare with
+  `now_utc()`. Their naive `now` stays only where it becomes a stored bound (the trailing window's
+  anchor, `data_cutoff`, `review_date`): a writer, for PR 8. `PeriodEligibility` runs on aware UTC.
+- **Sorts over instants compare instants, never strings**: the shared keys (`get_created_at_attr`,
+  `get_decision_deadline`, `get_updated_timestamp`, `make_attribute_sort_key`), `entity_filters`'
+  created, updated and deadline keys, the search router's cross-domain sweep. The dead
+  `get_completed_at` and `get_due_date` are deleted.
+- **`validate_future_date` / `validate_past_date`** compare a `datetime` as the instant it names.
+  A `ClientDateTime` value is on the stored clock by the time a field validator runs, so
+  `_now_like`'s "a naive value is a wall clock" read it seven hours off; it is deleted. No
+  `datetime` field uses them yet.
+- **Defects this PR fixed.** Each test was red on `origin/main`:
+  - `score_choice` subtracted a `date` from `decision_deadline`, raising on every choice with a
+    deadline. The search router swallowed the error, so those choices were never scored. It now
+    scores the deadline's day in the zone.
+  - A task's `completion_date` is a bare day string, and `PeriodEligibility` read it as UTC
+    midnight. Since PR 4, a Vancouver week starts at 07:00Z. So a task completed on a period's
+    first day fell outside that period, and one completed on the next period's first day fell
+    inside it.
+  - `RelativeOffset.resolve_to_date` took the day of the anchor's digits. Since PR 4, a Vancouver
+    evening engagement dated its spawned instances a day late. It is now
+    `resolve_to_date(anchor, zone)`, in the engaging user's zone.
+  - The knowledge-pattern analyzer failed on any user with both vault-ingested (`…Z`) and
+    UI-created (naive) entities, through its sort, spans and `min`/`max`. The same mixed shapes
+    broke:
+    - the default choices deadline sort (a naive `datetime.max` sentinel);
+    - the context's MOC sort (a string beside a native);
+    - `Entity.is_recent`, live in `entity_to_response`;
+    - the learning-loop turnaround and mastery velocity (a swallowed `TypeError`).
+- **Left in `core/` (193 `DTZ005`, from 212).** None is a comparison.
+  - Writers, for PRs 7–8.
+  - In-process timers, for PR 8:
+    - the search router's and ingestion's durations;
+    - the embedding worker's uptime;
+    - the system health latency;
+    - `UserContext.is_cached_valid`;
+    - `performance_optimization_service`'s caches;
+    - the schema-change history.
+  - Parse-boundary fallbacks to a naive now, for PR 7: `ps_adaptive_service`'s masteries,
+    `notification_service._coerce_created_at`, `PersistedInsight.from_dict`, `completion_dto`,
+    `edge_metadata`.
+  - Hand-built Cypher parameters, for PR 8:
+    - the embodiment cutoff;
+    - `cross_domain_analytics_service`'s `start_date`;
+    - life-path momentum;
+    - the rich context window (`user_context_builder`'s `resolve_report_period(window,
+      datetime.now(), …)`).
+  - `get_behavioral_insights` (PLANNED) is left, as ruled.
+  - `validation_helpers.validate_date_range`'s `datetime` branch reads the digits' day and has no
+    production caller.
+- **For PR 6.** `get_updated_timestamp` returns an instant; its caller in
+  `adapters/persistence/neo4j/user_context_queries.py` needs no change. `ui/learning_loop/report.py` and
+  `activity_reports_ui` still pass a naive `datetime.now()` to `resolve_report_period` and the
+  period's comparisons. These are tolerant now but read the process clock: swap them to
+  `now_utc()` where the period is only compared, as `find_by_period` does.
+- **Test craft.**
+  - `tests/unit/test_instant_readers.py` puts naive, aware and absent values in one list. Its
+    `vancouver_process` fixture forces the process clock with `forced_zone`, which proves a reader
+    does not read the process clock. `vancouver_user` sets `current_zone_var`.
+  - A whole-suite probe: a pytest plugin (`-p`, on `PYTHONPATH`) with a session-scoped autouse
+    fixture. It sets `TZ=America/Vancouver` and calls `time.tzset()` after the conftest pin, then
+    restores both.
+    - On `main` it failed 6 tests. 3 are the pin's own tests, which fail by design. The other 3
+      depend on the process zone: `_model_clock`, and two tests that build their stamps with a
+      naive `datetime.now()`.
+    - Here it fails 5: the 3 pin tests, and the 2 that build their stamps with a naive
+      `datetime.now()` — a writer's clock, PR 8's (`test_timestamp_helpers`'
+      `test_naive_and_aware_stamps_of_one_moment_subtract_to_zero`,
+      `test_persisted_insight_stamps`' `test_a_naive_and_an_aware_stamp_of_one_moment_score_alike`).
+      The new tests pass under it.
+  - The integration suite under `-n 2 --dist loadfile` fails `test_picker_search_owner_scoped`
+    and `test_task_completion_doors_three_click` by ordering. Both pass serially, here as on
+    `main`.
+
 ### PR 6 — Readers compare aware values (`adapters/`, `ui/`, `scripts/`)
 
 Scope and acceptance as PR 5, for the Python side of `adapters/`, `ui/` and `scripts/`.
@@ -1303,7 +1394,7 @@ row's laptop steps and their state (pending / done with a date; — for none).
 | 3a | `STORED_INSTANT_CLOCK`; `as_utc` and `as_stored_clock` read it; every display of an instant through `shown_in` / `age_of` / `parse_stamp` (neutral) | Golden-file renders unchanged (captured on the parent); each helper pinned under both values of the constant | — | merged #1439, 2026-09-27 |
 | 3b | Day-of-instant reads (and hours) through `day_of` / `hour_of`; Cypher windows on instants by the days' bounds on the stored clock (neutral); client doors (`ClientDateTime`, the ingest door) read in the zone | A forced-zone test of the ingest door; the golden files unchanged | the pages read right on `main` (GradeBook, Shared, notifications, an activity report, as linguistic76) — done 2026-09-28 (`:8000` restarted on `main` `3ecd663f4`: the GradeBook, an exchange thread, the notifications and an activity report read as before; the Shared page read a share made at 06:44 as "7h ago", the known pre-cutover skew PR 4 fixes) | merged #1440, 2026-09-27 |
 | 4 | The UTC pin, asserted by every driver factory; the applied-record guard (refusals and empty-graph stamp tested); the constant flipped; the migration script — prepared by its row session (local) as `[awaiting sitting]`, merged in the sitting | Tests, CI and Codex green on the unmerged PR | pending checks first — none pending (3b's passed 2026-09-28); the sitting — done 2026-09-28 (Mike present): the Aura on-demand snapshot taken; the census from the branch at 18:06Z (6,863 values: 1,236 to shift, 5,627 to leave, 31 pairs, no stops; hash `e095aab7…`) and Mike's OK; merged `38e420e0f`; `--confirm` applied 1,236 values in one transaction; `--verify` OK (0 rows off their new value, the pairs 7.00 h apart before and together after, 31/31); a fresh census refused; the GradeBook's exchanges, their thread order and every entry's badges unchanged (3 exchanges, 7 items, 79 entries, captured read-only before and after); `:8000` restarted on `main`; a second 14-day report within the hour refused by the cooldown (after #1442 — generated reports had failed at save, a pre-existing bug the check surfaced); a new share read "just now" and its notification the wall-clock time; the embedding check — the 30 stale entities (21 Task, 8 Choice, 1 Habit) re-embedded, hashes cleared first so none was skipped, 0 stale after | merged #1441 and deployed, 2026-09-28 |
-| 5 | Readers compare aware values in `core/`, sentinels included; the normalizers collapse onto `as_utc` | Mixed naive/aware sorts and windows; forced-Vancouver unit tests | — | — |
+| 5 | Readers compare aware values in `core/`, sentinels included; the normalizers collapse onto `as_utc` | Mixed naive/aware sorts and windows; forced-Vancouver unit tests | — | merged #1448, 2026-09-28 |
 | 6 | Readers compare aware values in `adapters/`, `ui/`, `scripts/` | As PR 5 | — | — |
 | 7 | Writers aware: default factories, the parse boundary, the mapper's `+00:00` | A mixed column reads back all aware | — | — |
 | 8 | Writers aware: services, backends, `_STAMP_SPECS` clocks, `occurred_at`, `now_local`, Cypher parameters, timers | `ruff --select DTZ` and the uncalled-reference check read 0 | — | — |

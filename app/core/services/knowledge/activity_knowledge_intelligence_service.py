@@ -37,6 +37,7 @@ from typing import TYPE_CHECKING, Any
 
 from core.constants import GraphDepth
 from core.models.type_hints import EntityUID, UserUID
+from core.utils.timestamp_helpers import as_utc, now_utc
 
 if TYPE_CHECKING:
     from core.ports.query_types import KnowledgePrerequisitesResult
@@ -186,7 +187,7 @@ class ActivityKnowledgeIntelligenceService(BaseAnalyticsService[BackendOperation
         """
         self.logger.info(f"Generating knowledge units from entities for user {user_uid}")
 
-        cutoff_date = datetime.now() - timedelta(days=period_days)
+        cutoff = now_utc() - timedelta(days=period_days)
         entities_result = await self.backend.find_by(
             user_uid=user_uid, status=EntityStatus.COMPLETED
         )
@@ -196,7 +197,9 @@ class ActivityKnowledgeIntelligenceService(BaseAnalyticsService[BackendOperation
 
         entities = entities_result.value
         recent_entities = [
-            entity for entity in entities if entity.updated_at and entity.updated_at >= cutoff_date
+            entity
+            for entity in entities
+            if entity.updated_at and as_utc(entity.updated_at) >= cutoff
         ]
 
         # Extract patterns
