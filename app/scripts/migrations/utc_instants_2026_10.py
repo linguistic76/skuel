@@ -1524,7 +1524,12 @@ RETURN k AS uid, toString(n.created_at) AS created_at, toString(n.embedding_upda
 
 
 async def verify(driver: AsyncDriver, directory: Path) -> Verification:
-    """Every manifest row at its new value, the record applied, and the pairs together."""
+    """Every manifest row at its new value, the record applied, and the pairs together.
+
+    A pair was 7.00 h apart in the census's reading; after the move, its node's
+    ``created_at`` and ``embedding_updated_at`` — both read from the graph now —
+    are about 0 h apart.
+    """
     async with driver.session() as session:
         tx = await session.begin_transaction()
         try:
@@ -1551,14 +1556,21 @@ async def verify(driver: AsyncDriver, directory: Path) -> Verification:
                     for r in await _fetch(tx, query, keys=[p["key"]["key"] for p in group])
                 }
                 for pair in group:
-                    embed = _instant(pair["embedding_updated_at"])
+                    # Before: the two values as the census read them.
+                    census_embed = _instant(pair["embedding_updated_at"])
                     if (
-                        abs(embed - _instant(pair["created_at_old"]) - PAIR_OFFSET)
+                        abs(census_embed - _instant(pair["created_at_old"]) - PAIR_OFFSET)
                         <= PAIR_TOLERANCE
                     ):
                         apart += 1
-                    now_created = live.get(pair["key"]["key"], {}).get("created_at")
-                    if now_created and abs(embed - _instant(now_created)) <= PAIR_TOLERANCE:
+                    # After: both values as the graph holds them now.
+                    now = live.get(pair["key"]["key"], {})
+                    now_created, now_embed = now.get("created_at"), now.get("embedding")
+                    if (
+                        now_created
+                        and now_embed
+                        and abs(_instant(now_embed) - _instant(now_created)) <= PAIR_TOLERANCE
+                    ):
                         together += 1
             return Verification(
                 str(digest), len(manifest["rows"]), not_at_new, len(pairs), apart, together

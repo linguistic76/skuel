@@ -485,6 +485,17 @@ async def test_census_confirm_verify_then_revert_move_only_the_laptop_clock_digi
         verification.pairs_apart_before,
         verification.pairs_together_after,
     ) == (1, 1, 1)
+    # The check reads both of the pair's values from the graph: a changed embedding
+    # stamp fails it, though the manifest still holds the census's value.
+    await graph.execute_query(
+        "MATCH (n:Task {uid: $uid}) SET n.embedding_updated_at = n.embedding_updated_at + duration('PT3H')",
+        uid=corpus.pair_task_uid,
+    )
+    assert not (await migration.verify(graph, tmp_path)).ok
+    await graph.execute_query(
+        "MATCH (n:Task {uid: $uid}) SET n.embedding_updated_at = n.embedding_updated_at - duration('PT3H')",
+        uid=corpus.pair_task_uid,
+    )
 
     # Applied: a second confirm and a census are refused, and nothing moves.
     with pytest.raises(migration.RefusedError, match="'applied'"):
