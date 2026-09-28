@@ -1679,8 +1679,8 @@ class TestPeriodEndDenominator:
 
 class TestCrossDomainPatternsInTheReport:
     """``AnalyticsService.detect_cross_domain_patterns`` returns a ``Result``; the report
-    stores the value it carries. Stored whole, the Result made the report's metadata
-    unserializable, and the save failed after the report was written."""
+    stores the value it carries, which the mapper serializes into the node's JSON
+    metadata. A failed read leaves the patterns out."""
 
     @pytest.mark.asyncio
     async def test_the_patterns_are_stored_as_their_value(self, generator):
