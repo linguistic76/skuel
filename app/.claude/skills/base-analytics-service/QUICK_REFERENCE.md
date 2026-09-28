@@ -105,7 +105,7 @@ class BaseAnalyticsService(Generic[B, T]):
     def __init__(
         self,
         backend: B,
-        graph_intel: Any | None = None,
+        graph_intel: GraphIntelligenceService | None = None,
         relationship_service: Any | None = None,
         event_bus: Any | None = None,
         insight_store: Any | None = None,

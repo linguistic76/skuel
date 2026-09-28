@@ -1,6 +1,6 @@
 ---
 title: Graph Access Patterns Guide
-updated: 2026-09-21
+updated: 2026-09-28
 category: patterns
 related_skills:
 - pytest
@@ -271,9 +271,9 @@ async def get_full_dependency_tree(self, task_uid: str) -> Result[dict]:
 
     context = context_result.value
     return Result.ok({
-        'dependency_tree': context.nodes,
-        'total_depth': context.max_depth,
-        'cross_domain_deps': context.cross_domain_relationships
+        'dependency_tree': context.all_nodes,
+        'total_depth': context.max_depth_reached,
+        'domains_involved': context.domains_involved
     })
 ```
 
@@ -354,7 +354,7 @@ async def get_task_context_for_askesis(
     context.update({
         'graph_context': {
             'total_relationships': graph_context.total_relationships,
-            'cross_domain_links': graph_context.cross_domain_relationships,
+            'domains_involved': graph_context.domains_involved,
         }
     })
 

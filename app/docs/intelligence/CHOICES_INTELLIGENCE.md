@@ -1,5 +1,5 @@
 ---
-updated: 2026-09-17
+updated: 2026-09-28
 ---
 
 # ChoicesIntelligenceService - Decision Support & Impact Analysis
@@ -70,7 +70,7 @@ result = await choices_service.intelligence.get_with_context(
 if result.is_ok:
     choice, graph_context = result.value
     print(f"Choice: {choice.title}")
-    print(f"Graph nodes: {len(graph_context.nodes)}")
+    print(f"Graph nodes: {len(graph_context.all_nodes)}")
 
     # Extract cross-domain insights
     goals = graph_context.get_nodes_by_domain(Domain.GOALS)
