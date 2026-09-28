@@ -1,10 +1,12 @@
-"""Real-Neo4j guard: a knowledge read of my task names knowledge, never your task.
+"""Real-Neo4j guard: a knowledge read of my task names published knowledge — never
+your task, never an unpublished Ku.
 
 ``get_entity_context`` walks every edge type, both directions, with no owner
 scoping. Two users whose tasks apply the same Ku are therefore two hops apart,
 so the reader's filter is the only thing between one user and the other's task
 title in ``GET /api/tasks/insights``' ``knowledge_prerequisites``. Both knowledge
-readers keep only ``GraphContext.get_knowledge_nodes()``.
+readers keep only ``GraphContext.get_published_knowledge_nodes()``, which also
+withholds curriculum explicitly marked ``publication_state: draft``.
 
 The in-memory guard is
 ``tests/unit/services/test_knowledge_nodes_from_graph_context.py``.
@@ -17,6 +19,7 @@ import pytest
 from adapters.persistence.neo4j.cross_domain_backend import CrossDomainBackend
 from adapters.persistence.neo4j.neo4j_query_executor import Neo4jQueryExecutor
 from core.constants import GraphDepth
+from core.models.enums import PublicationState
 from core.models.task.task import Task
 from core.models.type_hints import Neo4jValue
 from core.services.infrastructure.graph_intelligence_service import GraphIntelligenceService
@@ -31,6 +34,7 @@ P = "koi_"  # uid prefix for this module's fixture graph
 MY_TASK = P + "task_mine"
 THEIR_TASK = P + "task_theirs"
 KU = P + "ku"
+DRAFT_KU = P + "ku_draft"
 
 
 @pytest.fixture
@@ -52,22 +56,34 @@ async def _seed(neo4j_driver) -> None:
             "CREATE (:Entity:Ku {uid:$u, entity_type:'ku', title:$u, created_at:datetime()})",
             u=KU,
         )
+        await s.run(
+            "CREATE (:Entity:Ku {uid:$u, entity_type:'ku', title:$u, "
+            "publication_state:$draft, created_at:datetime()})",
+            u=DRAFT_KU,
+            draft=PublicationState.DRAFT.value,
+        )
         for task in (MY_TASK, THEIR_TASK):
             await s.run(
                 "MATCH (t {uid:$t}), (k {uid:$k}) CREATE (t)-[:APPLIES_KNOWLEDGE]->(k)",
                 t=task,
                 k=KU,
             )
+        await s.run(
+            "MATCH (t {uid:$t}), (k {uid:$k}) CREATE (t)-[:APPLIES_KNOWLEDGE]->(k)",
+            t=MY_TASK,
+            k=DRAFT_KU,
+        )
 
 
 @pytest.mark.asyncio
 async def test_prerequisites_of_my_task_omit_their_task(neo4j_driver, graph_intel, clean_neo4j):
     await _seed(neo4j_driver)
 
-    # The traversal itself reaches their task — the filter is what keeps it out.
+    # The traversal itself reaches their task and the draft — the filter keeps them out.
     context = await graph_intel.get_entity_context(MY_TASK, GraphDepth.DEFAULT)
     assert context.is_ok, context
-    assert THEIR_TASK in [n.uid for n in context.value.all_nodes]
+    reached = [n.uid for n in context.value.all_nodes]
+    assert THEIR_TASK in reached and DRAFT_KU in reached
 
     result = await get_knowledge_prerequisites(
         graph=graph_intel, entity_uid=MY_TASK, depth=GraphDepth.DEFAULT

@@ -1,13 +1,14 @@
-"""The two knowledge readers of an entity's graph context read only knowledge.
+"""The two knowledge readers of an entity's graph context read only published knowledge.
 
 ``get_learning_opportunities`` and ``get_knowledge_prerequisites`` both walk an
 entity's neighbourhood (``GraphIntelligenceService.get_entity_context``) and keep
-the nodes that are curriculum knowledge. That neighbourhood is every edge type,
-both directions, with no owner scoping — so a neighbour two hops out through a
-shared Ku can be another user's Task. The filter is ``GraphContext.
-get_knowledge_nodes()``: kind from the stored ``entity_type``
-(``EntityType.is_knowledge()`` — Ku, PathStep), never the ``:Entity`` label every
-node carries.
+the nodes that are curriculum knowledge a learner may be shown. That neighbourhood
+is every edge type, both directions, with no owner scoping — so a neighbour two
+hops out through a shared Ku can be another user's Task, and a Ku it reaches can
+be unpublished. The filter is ``GraphContext.get_published_knowledge_nodes()``:
+kind from the stored ``entity_type`` (``EntityType.is_knowledge()`` — Ku,
+PathStep), never the ``:Entity`` label every node carries; and only an explicit
+``publication_state: draft`` withholds, as in ``build_publication_clause``.
 
 The real-traversal half (two users' tasks sharing a Ku) is
 ``tests/integration/test_knowledge_reads_owner_isolation.py``.
@@ -19,7 +20,7 @@ from datetime import datetime
 
 import pytest
 
-from core.models.enums import Domain, EntityType
+from core.models.enums import Domain, EntityType, PublicationState
 from core.models.graph_context import ContextRelevance, GraphContext, GraphNode
 from core.models.task.task import Task
 from core.models.type_hints import Neo4jProperties, Neo4jValue
@@ -32,12 +33,24 @@ from core.utils.result_simplified import Result
 ORIGIN = "task_mine"
 
 
-def _node(uid: str, entity_type: EntityType, labels: list[str]) -> GraphNode:
+def _node(
+    uid: str,
+    entity_type: EntityType,
+    labels: list[str],
+    publication_state: PublicationState | None = None,
+) -> GraphNode:
+    properties: Neo4jProperties = {
+        "uid": uid,
+        "title": f"title of {uid}",
+        "entity_type": entity_type.value,
+    }
+    if publication_state is not None:
+        properties["publication_state"] = publication_state.value
     return GraphNode(
         uid=uid,
         labels=labels,
         domain=Domain.KNOWLEDGE,
-        properties={"uid": uid, "title": f"title of {uid}", "entity_type": entity_type.value},
+        properties=properties,
         distance_from_origin=1,
         relevance=ContextRelevance.MEDIUM,
     )
@@ -45,8 +58,15 @@ def _node(uid: str, entity_type: EntityType, labels: list[str]) -> GraphNode:
 
 def _context() -> GraphContext:
     nodes = [
+        # No publication_state at all — the pre-property corpus, read as published.
         _node("ku.sel.focus", EntityType.KU, ["Entity", "Ku"]),
-        _node("ps.sel.attention", EntityType.PATH_STEP, ["Entity", "PathStep"]),
+        _node(
+            "ps.sel.attention",
+            EntityType.PATH_STEP,
+            ["Entity", "PathStep"],
+            PublicationState.PUBLISHED,
+        ),
+        _node("ku.sel.unfinished", EntityType.KU, ["Entity", "Ku"], PublicationState.DRAFT),
         # Two hops out through the shared Ku — another user's task.
         _node("task_theirs", EntityType.TASK, ["Entity", "Task"]),
         _node("goal_mine", EntityType.GOAL, ["Entity", "Goal"]),
@@ -85,15 +105,15 @@ class _FakeBackend:
         return Result.ok([Task(uid=ORIGIN, title="Practise focus", user_uid="user_mine")])
 
 
-def test_knowledge_nodes_are_the_knowledge_entity_types() -> None:
-    assert [n.uid for n in _context().get_knowledge_nodes()] == [
+def test_published_knowledge_nodes_are_knowledge_types_and_not_drafts() -> None:
+    assert [n.uid for n in _context().get_published_knowledge_nodes()] == [
         "ku.sel.focus",
         "ps.sel.attention",
     ]
 
 
 @pytest.mark.asyncio
-async def test_learning_opportunities_name_only_knowledge() -> None:
+async def test_learning_opportunities_name_only_published_knowledge() -> None:
     service = ActivityKnowledgeIntelligenceService(
         backend=_FakeBackend(),
         graph_intel=_FakeGraphIntel(),
@@ -115,7 +135,7 @@ async def test_learning_opportunities_name_only_knowledge() -> None:
 
 
 @pytest.mark.asyncio
-async def test_prerequisites_name_only_knowledge() -> None:
+async def test_prerequisites_name_only_published_knowledge() -> None:
     result = await get_knowledge_prerequisites(
         graph=_FakeGraphIntel(),
         entity_uid=ORIGIN,

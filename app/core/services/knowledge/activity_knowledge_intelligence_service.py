@@ -294,7 +294,7 @@ class ActivityKnowledgeIntelligenceService(BaseAnalyticsService[BackendOperation
                 )
 
                 if context_result.is_ok:
-                    knowledge_nodes = context_result.value.get_knowledge_nodes()
+                    knowledge_nodes = context_result.value.get_published_knowledge_nodes()
 
                     if knowledge_nodes:
                         priority_value = getattr(entity, "priority", None)
