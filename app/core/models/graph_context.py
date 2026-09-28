@@ -14,7 +14,7 @@ from datetime import datetime
 from enum import StrEnum
 from typing import TYPE_CHECKING, Any
 
-from core.models.enums import Domain, EntityType
+from core.models.enums import Domain, EntityType, PublicationState
 
 if TYPE_CHECKING:
     from adapters.persistence.neo4j.query.cypher_template import QueryOptimizationStrategy
@@ -191,17 +191,23 @@ class GraphContext:
         """Get all nodes from a specific domain."""
         return [node for node in self.all_nodes if node.domain == domain]
 
-    def get_knowledge_nodes(self) -> list[GraphNode]:
-        """Get the nodes that are curriculum knowledge (Ku, PathStep).
+    def get_published_knowledge_nodes(self) -> list[GraphNode]:
+        """Get the curriculum knowledge (Ku, PathStep) a learner may be shown.
 
         Kind comes from the stored ``entity_type`` — never the ``:Entity`` label,
         which every entity carries. The traversal is not owner-scoped, so this
         filter is also what keeps other users' entities out of a knowledge read.
+
+        Unpublished curriculum is withheld with the NULL-tolerant reading
+        ``build_publication_clause`` applies in Cypher: only an explicit
+        ``publication_state: draft`` withholds a node, because the corpus
+        authored before the property existed carries none.
         """
         return [
             node
             for node in self.all_nodes
             if node.properties.get("entity_type") in _KNOWLEDGE_ENTITY_TYPES
+            and node.properties.get("publication_state") != PublicationState.DRAFT
         ]
 
     def get_relationships_by_type(self, rel_type: str) -> list[GraphRelationship]:

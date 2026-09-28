@@ -1,5 +1,5 @@
 ---
-updated: 2026-09-17
+updated: 2026-09-28
 ---
 
 # TasksIntelligenceService - Behavioral & Performance Intelligence
@@ -192,7 +192,8 @@ if result.is_ok:
 ### Method 3: cross-domain block in `get_domain_insights()`
 
 **Purpose:** `get_domain_insights` (GET `/api/tasks/insights`) composes TWO sources — Task's
-distinctive **readiness** lens (graph-intel `get_knowledge_prerequisites` →
+distinctive **readiness** lens (graph-intel `get_knowledge_prerequisites` — the published
+Ku/PathStep in the task's neighbourhood, `GraphContext.get_published_knowledge_nodes()` →
 `knowledge_prerequisites` / `has_prerequisites`, plus task-field `insights`) AND an additive
 path-aware **cross-domain** block over the CANONICAL typed reader.
 
