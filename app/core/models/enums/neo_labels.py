@@ -132,7 +132,6 @@ class NeoLabel(StrEnum):
     REFERENCE_CHUNK = "ReferenceChunk"  # Canon reference-book chunks (own vector index, invisible to SearchRouter)
     REPORT_PROJECT = "ReportProject"  # Legacy — pre-Exercise report project nodes
     TRANSCRIPTION = "Transcription"
-    CHANGE_LOG = "ChangeLog"  # Jupyter sync change audit rows
 
     # =========================================================================
     # Ingestion Audit Trail

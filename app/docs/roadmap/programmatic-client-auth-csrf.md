@@ -1,5 +1,5 @@
 ---
-updated: 2026-08-21
+updated: 2026-09-28
 ---
 
 # Programmatic-Client Auth — Token Path for CSRF-Exempt Endpoints
@@ -83,11 +83,10 @@ mints one via `CSRFMiddleware`) and echoes it — so a session cookie alone work
 no manual token handling. The bearer-token migration below still applies as the
 end-state; it would let token-authenticated calls skip CSRF entirely.
 
-**Related:** the `advanced_routes` admin endpoints (`/jupyter/save`,
-`/jupyter/sync-to-obsidian`, `/performance/optimize`) are now `@csrf_protected`
-(closing the admin-browser-CSRF vector). They have no programmatic caller today;
-when a Jupyter-notebook / ops client is wired up, it should authenticate via a
-bearer token (this scheme) rather than carrying a CSRF token.
+**Related:** the `advanced_routes` admin endpoint `/performance/optimize` is
+`@csrf_protected` (closing the admin-browser-CSRF vector). It has no programmatic
+caller today; when an ops client is wired up, it should authenticate via a bearer
+token (this scheme) rather than carrying a CSRF token.
 
 ## What to do
 
@@ -100,7 +99,7 @@ bearer token (this scheme) rather than carrying a CSRF token.
    authenticated requests** and require it for cookie-authenticated ones.
 4. *(Updated 2026-08-21 — the original three exemptions are already resolved: GraphQL
    folded, batch-transcribe now `@csrf_protected`.)* When a new programmatic client is
-   wired (Jupyter/ops/CLI), give it a bearer token from day one and keep its endpoint
+   wired (ops/CLI), give it a bearer token from day one and keep its endpoint
    `@csrf_protected` — the token path from step 3 means it never needs a `CSRF_EXEMPT`
    entry.
 5. **Leave the device-pairing exemption alone** (`device_routes.py:enroll_device_api` —

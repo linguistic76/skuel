@@ -1688,9 +1688,7 @@ async def compose_services(
         logger.info("✅ Lateral Relationships Orchestrator created")
 
         # Create advanced services
-        advanced = _create_advanced_services(
-            driver, query_executor=query_executor, cross_domain_backend=cross_domain_backend
-        )
+        advanced = _create_advanced_services(driver, cross_domain_backend=cross_domain_backend)
         await advanced["performance_optimization"].initialize()
         logger.info("✅ Advanced services created")
 
@@ -1865,7 +1863,6 @@ async def compose_services(
             calendar_optimization_orchestrator=calendar_optimization_orchestrator,
             today_orchestrator=today_orchestrator,
             # Advanced
-            jupyter_sync=advanced["jupyter_sync"],
             performance_optimization=advanced["performance_optimization"],
             # Journal domain — DNWF three-stage workflow (FULL tier only)
             journal=journal_service,

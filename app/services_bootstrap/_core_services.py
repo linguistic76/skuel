@@ -1,6 +1,5 @@
 """Core service helpers — Finance, Transcription, Orchestration, Advanced."""
 
-import os
 from typing import Any
 
 from core.utils.logging import get_logger
@@ -99,33 +98,17 @@ def _create_orchestration_services(
     }
 
 
-def _create_jupyter_sync_backend(query_executor: Any) -> Any:
-    """Create JupyterSyncBackend from a QueryExecutor."""
-    from adapters.persistence.neo4j.jupyter_sync_backend import JupyterSyncBackend
-
-    return JupyterSyncBackend(executor=query_executor)
-
-
 def _create_advanced_services(
     _driver: Any,
-    query_executor: Any = None,
     cross_domain_backend: Any = None,
 ) -> dict[str, Any]:
     """Create advanced services."""
-    from pathlib import Path
-
     from core.services.calendar_optimization_service import CalendarOptimizationService
     from core.services.cross_domain_analytics_service import CrossDomainAnalyticsService
-    from core.services.jupyter_neo4j_sync import JupyterNeo4jSync
     from core.services.performance_optimization_service import PerformanceOptimizationService
-
-    vault_path = Path(os.getenv("OBSIDIAN_VAULT_PATH", "/home/mike/0bsidian/skuel"))
 
     return {
         "calendar_optimization": CalendarOptimizationService(),
-        "jupyter_sync": JupyterNeo4jSync(
-            backend=_create_jupyter_sync_backend(query_executor), vault_path=vault_path
-        ),
         "performance_optimization": PerformanceOptimizationService(),
         "cross_domain_analytics": CrossDomainAnalyticsService(backend=cross_domain_backend),
     }

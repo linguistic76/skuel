@@ -99,9 +99,6 @@ dev = [
     "flake8>=7.3.0",
     "mypy>=2.3.0",
     "pyright>=1.1.411",
-    # Development Tools
-    "jupyter>=1.1.1",
-    "ipython>=9.15.0",
     # Documentation
     "mkdocs>=1.6.1",
     "mkdocs-material>=9.7.7",

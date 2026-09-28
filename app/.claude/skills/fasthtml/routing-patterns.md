@@ -89,11 +89,11 @@ There is no `PUT` route in SKUEL; updates are `POST /api/{domain}/update` or the
 FastHTML can derive the method from a handler named `get`/`post`/`put`/`delete`. SKUEL
 does not use it — every handler has a descriptive name. The convention is `methods=` on
 every mutation and a bare `@rt(path)` (GET, HEAD and POST) only for reads; it is a
-convention, not yet an invariant — 287 registrations are bare against 216 with `methods=`,
-and 18 of the bare ones are CSRF-protected mutations (`/settings/save`, `/jupyter/save`,
+convention, not yet an invariant — 282 registrations are bare against 218 with `methods=`,
+and 17 of the bare ones are CSRF-protected mutations (`/settings/save`, `/performance/optimize`,
 `/api/admin/users/hard-delete`, `/askesis/api/submit`, …) that ride the default GET+POST
 (`grep -rn -A1 -E '@rt\("[^"]+"\)$' adapters/inbound/*.py | grep -c csrf_protected`,
-2026-09-20). What IS enforced is the shadowing rule below.
+2026-09-28). What IS enforced is the shadowing rule below.
 
 ## Path Parameters
 

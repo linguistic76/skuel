@@ -5,17 +5,12 @@ Advanced Routes - Optional Services
 Wires advanced API routes using DomainRouteConfig (Multi-Factory variant).
 
 Primary service: calendar_optimization_orchestrator (Calendar cognitive-load balancing)
-Extension factories:
-- create_jupyter_sync_routes: Jupyter-Neo4j-Obsidian workflow (4 endpoints)
+Extension factory:
 - create_performance_routes: Scale & speed optimization (4 endpoints)
 
 Routes:
 - GET /cal/optimize - Optimize calendar with cognitive load balancing
 - GET /cal/cognitive-load - Analyze cognitive load for a date
-- GET /jupyter/fetch - Fetch curriculum content for Jupyter editing
-- POST /jupyter/save - Save Jupyter edits back to Neo4j
-- POST /jupyter/sync-to-obsidian - Sync changes to Obsidian
-- GET /jupyter/detect-conflicts - Detect Neo4j/Obsidian conflicts
 - GET /performance/metrics - Current performance metrics
 - GET /performance/cache-stats - Cache performance statistics
 - POST /performance/optimize - Trigger optimization analysis
@@ -130,69 +125,6 @@ def create_calendar_optimization_routes(
 
 
 # ---------------------------------------------------------------------------
-# Jupyter Sync - Jupyter-Neo4j-Obsidian Workflow (extension)
-# ---------------------------------------------------------------------------
-
-
-def create_jupyter_sync_routes(
-    _app: FastHTMLApp, rt: RouteDecorator, jupyter_sync: Any, user_service: Any
-) -> None:
-    """Register Jupyter-Neo4j-Obsidian sync endpoints (ADMIN-gated curriculum authoring)."""
-
-    get_user_service = make_service_getter(user_service)
-
-    @rt("/jupyter/fetch")
-    @require_admin(get_user_service)
-    @boundary_handler()
-    async def fetch(request: Request, uid: str, current_user: Any = None) -> JSONResponse:
-        """
-        Fetch content from Neo4j for Jupyter editing.
-
-        Query params:
-            uid: Knowledge unit UID
-        """
-        return await jupyter_sync.get_content_for_jupyter(uid)
-
-    @rt("/jupyter/save")
-    @csrf_protected
-    @require_admin(get_user_service)
-    @boundary_handler()
-    async def save(request: Request, uid: str, current_user: Any = None) -> JSONResponse:
-        """Save Jupyter-edited content back to Neo4j. Expects JSON body with edited content."""
-        content = await request.json()
-        return await jupyter_sync.save_jupyter_changes(uid, content)
-
-    @rt("/jupyter/sync-to-obsidian")
-    @csrf_protected
-    @require_admin(get_user_service)
-    @boundary_handler()
-    async def sync_to_obsidian(
-        request: Request, uid: str, current_user: Any = None
-    ) -> JSONResponse:
-        """
-        Sync Neo4j changes back to Obsidian markdown files.
-
-        Args:
-            uid: Knowledge unit UID
-        """
-        return await jupyter_sync.sync_to_obsidian(uid)
-
-    @rt("/jupyter/detect-conflicts")
-    @require_admin(get_user_service)
-    @boundary_handler()
-    async def detect_conflicts(
-        request: Request, uid: str, current_user: Any = None
-    ) -> JSONResponse:
-        """
-        Detect conflicts between Neo4j and Obsidian content.
-
-        Args:
-            uid: Knowledge unit UID
-        """
-        return await jupyter_sync.detect_conflicts(uid)
-
-
-# ---------------------------------------------------------------------------
 # Performance Optimization - Scale & Speed (extension)
 # ---------------------------------------------------------------------------
 
@@ -275,15 +207,12 @@ def create_advanced_routes(
     Wire advanced API routes using DomainRouteConfig (Multi-Factory variant).
 
     Primary: calendar_optimization_orchestrator routes via DomainRouteConfig.
-    Extensions: jupyter_sync and performance_optimization factories appended
-    conditionally after primary registration.
+    Extension: the performance_optimization factory, appended conditionally
+    after primary registration.
 
     See: /docs/patterns/DOMAIN_ROUTE_CONFIG_PATTERN.md
     """
     register_domain_routes(app, rt, services, ADVANCED_CONFIG)
-
-    if services and services.jupyter_sync:
-        create_jupyter_sync_routes(app, rt, services.jupyter_sync, services.user)
 
     if services and services.performance_optimization:
         create_performance_routes(app, rt, services.performance_optimization, services.user)

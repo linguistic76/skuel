@@ -72,9 +72,6 @@ services:
       OPENAI_API_KEY: ${OPENAI_API_KEY:-}
       DEEPGRAM_API_KEY: ${DEEPGRAM_API_KEY:-}
 
-      # Paths
-      OBSIDIAN_VAULT_PATH: ${OBSIDIAN_VAULT_PATH:-./vault}
-
       # Logging
       LOG_LEVEL: ${LOG_LEVEL:-INFO}
     ports:
