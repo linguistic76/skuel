@@ -1,7 +1,7 @@
 ---
 title: "UTC Instants Arc — Rulings & Contract"
-updated: 2026-09-27
-status: "active — ruled 2026-09-27; PR 0 merged; PR 0b (the cloud runbook) next, then the cloud runner from PR 1"
+updated: 2026-09-28
+status: "active — ruled 2026-09-27; PRs 1–2b ran in the cloud; from PR 3, one local session per row"
 registered: 2026-09-27
 ruled: 2026-09-27
 ---
@@ -9,8 +9,8 @@ ruled: 2026-09-27
 # UTC Instants Arc — Rulings & Contract
 
 **Status:** ACTIVE — ruled 2026-09-27 (founder rulings R1–R8). Every PR runs in a **fresh
-context**, dispatched from the cloud by an arc runner ([§ Running the arc in the cloud](#running-the-arc-in-the-cloud));
-the laptop keeps what touches AuraDB. This document is the single source of truth for the arc, and the **Status** column of
+context**: PRs 1–2b from the cloud ([§ Running the arc in the cloud](#running-the-arc-in-the-cloud)),
+and from PR 3 one local session per row ([§ Running the arc locally](#running-the-arc-locally-from-pr-3)). This document is the single source of truth for the arc, and the **Status** column of
 the [PR contract table](#pr-plan-contract) is its progress ledger.
 **Decision record:** [ADR-089 — Instants Are UTC; Days Belong to a Zone](../decisions/ADR-089-instants-utc-days-in-a-zone.md).
 **Closes:** [Naive-Local Timestamps Read as UTC](naive-local-timestamps-read-as-utc.md) (the case
@@ -828,6 +828,48 @@ passes, a docs-only PR marks ADR-089 implemented and moves this document and the
   its own premise; prove a fix red by restoring the one changed file from `origin/main` and
   re-running.
 
+## Running the arc locally (from PR 3)
+
+**Ruled 2026-09-28 (Mike):** cloud runs cost more than local ones, so from PR 3 the arc runs from
+Mike's terminal — **one row per fresh local Claude Code session**, which Mike opens and starts with
+the kickoff below. PRs 1–2b ran in the cloud; § Running the arc in the cloud stays as their record
+and as the runbook for any future cloud run. Everything else in this document binds a local session
+as it bound the cloud: the per-PR sections, § Standing conventions, the fixed branch names
+(`claude/utc-arc-pr-<row>`, so a row's open PR stays findable), the ledger.
+
+**What a local session may do itself.** It runs on the laptop, with Mike's `.env`, the graph and a
+browser, so it can do a PR's **(laptop)** items where they are safe, and asks Mike for the rest:
+
+- Read-only AuraDB queries need no OK.
+- A live check runs the PR's branch on a second port (`:8001`) against AuraDB and never restarts
+  Mike's `:8000`. Before PR 4 the laptop's clock is the stored clock, so a branch run writes the
+  same laptop-clock stamps the migration expects (the cloud's UTC-VM hazard does not arise). **No
+  process that writes runs the PR 4 code against AuraDB before `--confirm`** (§ Migration contract
+  step 7).
+- Every AuraDB write still needs Mike's explicit OK in that session, with counts first; one write
+  per script; never re-run a script that wrote.
+- A check that needs Mike's eyes (a browser at 375 px, "after 17:00 local" on his own `:8000`) is
+  asked of him, and its result goes into the row's Laptop cell.
+
+**Stops become questions.** What the runner's stop conditions guarded is now asked of Mike in the
+session, in prose: a ruling, a design decision this document does not settle, anything destructive,
+Codex silence after the summon and two `--resume` waits, red CI the session cannot fix. PR 4 stops
+before merging, titled `[awaiting sitting]`; the sitting is its own local session (§ PR 4 hand-off
+and the sitting).
+
+**The kickoff** (Mike pastes it into a fresh session, filling in the row and any results):
+
+> Execute row `<row>` of `app/docs/roadmap/utc-instants-arc.md` as a local session (§ Running the
+> arc locally). Read the whole document first; its § Standing conventions bind you. Laptop results
+> to record in the ledger: `<… | none>`. Work on the branch `claude/utc-arc-pr-<row>` from an
+> updated `origin/main`, or continue its open PR. Census before the first edit, and re-verify every
+> symbol the PR section names (line numbers are hints). Do the section's (laptop) items yourself
+> where § Running the arc locally allows, and ask me for the rest. Open the PR, make the ledger-row
+> commit, run the Codex loop to a considered clean verdict, and merge when CI and the Codex gate are
+> green — except PR 4, which stops before merging for the sitting. Ask me in prose when a question
+> only I can answer comes up. End by telling me what the next row should know, and edit this
+> document in your PR if it changes how the next row should proceed.
+
 ## Running the arc in the cloud
 
 **Ruled 2026-09-27 (Mike):** the arc runs from a Claude Code cloud session (claude.ai/code), and
@@ -914,6 +956,12 @@ and the open PRs and continues.
 - A PR would change a founder ruling (R1–R8), or this document beyond its own row, the Status and
   Laptop cells of earlier rows it was told to record, a split of its own row into sub-rows, and the
   notes it leaves the next PR.
+
+**Lessons for a future cloud run** (the first run's end, 2026-09-28): in the cloud image Node 22
+comes first on `PATH`, so `n 24` alone does not switch versions; the Docker daemon has to be started
+by hand; and GitHub's GraphQL API is blocked, so `gh pr …` commands fail and only `gh api` REST
+calls work — `request_codex_review.sh`, `apply_codex_considered.sh` and the merge would need REST
+equivalents first. The cloud proxy also refused branch deletion.
 
 ### PR 4 hand-off and the sitting
 
@@ -1022,6 +1070,7 @@ row's laptop steps and their state (pending / done with a date; — for none).
 | 0 | This document + ADR-089 + the case file, MOC and INDEX rows (docs only; summon Codex explicitly) | Merged; `./dev docs-links` and the skills validator clean | — | merged #1431, 2026-09-27 |
 | 0b | The cloud runbook: § Running the arc in the cloud, the laptop split, the fixed branches, the process rules, the close row (docs only) | Merged; the runner and kickoff prompts stand alone | — | merged #1432, 2026-09-27 |
 | 0c | Runbook fixes from the first cloud session: `gh` installed by the setup script, the GitHub actions authorized in the runner prompt, a branch behind `main` (docs only) | Merged | — | merged #1433, 2026-09-27 |
+| 0d | Back to local sessions from PR 3: § Running the arc locally and its kickoff; the cloud run's lessons (docs only) | Merged | — | merged #1438, 2026-09-28 |
 | 1 | Pre-flight: insights crash, raw temporal parameters (embodiment), event days, the unwritten `rescheduled_at`, goal-event arithmetic; `as_utc()` | Insights served over a native `created_at`; a non-zero embodiment rate (red before); today's event counts | live insights load (`/api/insights/active`) — done 2026-09-27 (20 live insights, as linguistic76) | merged #1434, 2026-09-27 |
 | 2a | `SKUEL_TIMEZONE`; the user's zone in Settings (list + "Use this device's time zone"); the hard-coded `"UTC"` defaults; the six stored values nulled; the request's zone read from the graph; zone helpers | A bad name refused; a new user follows the default; boot refuses a bad default | the preference clear (`scripts/migrations/clear_unchosen_utc_timezone_2026_09.py`: census, then `--confirm` with Mike's OK on the count) — a gate before 2b — done 2026-09-27 (Mike reported: "six users cleared, confirmed"); Settings lists the zones — done 2026-09-27; a Bangkok-emulating browser saves Asia/Bangkok in one click — done 2026-09-27 (Mike: the app saved the change to Asia/Bangkok; set back to the SKUEL default after, for linguistic76 and mfan0110); 375 px — done 2026-09-27 | merged #1435, 2026-09-27 |
 | 2b1 | `core/`: every calendar site asks the zone (uncalled `date.today` included); calendar-day counts; the type rule; `core/`'s `datetime.now()` classified; day-to-instant widenings; the named user's zone (vault sync, report periods); `DTZ011` on over `core/` | Forced-zone unit tests (UTC process; a Vancouver default user at 02:00Z, a Bangkok user at 18:00Z); `DTZ011` and the uncalled-`date.today` check 0 over `core/` | — | merged #1436, 2026-09-27 |
