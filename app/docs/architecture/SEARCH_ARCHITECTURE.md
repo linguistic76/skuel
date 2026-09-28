@@ -1,6 +1,6 @@
 ---
 title: Search Architecture - Unified Search System
-updated: 2026-09-25
+updated: 2026-09-28
 status: current
 category: architecture
 tags:
@@ -1244,7 +1244,7 @@ Used by `_is_habit_due_in_window()`, `_is_habit_overdue()`, and `get_user_due_to
 |------|---------|
 | `core/models/search/scoring.py` | Unified `score_<domain>` functions + shared `ComponentScore` helpers (`score_deadline_proximity`, `score_priority_level`, `score_goal_alignment`, `score_streak_protection`, `score_progress_momentum`) and the `PriorityScore` dataclass |
 | `core/orchestrator/search_router.py` | `SearchRouter._score_results()` consumes the same scorers for cross-domain ranking |
-| `core/utils/timestamp_helpers.py` | `get_frequency_window_days()`, `FREQUENCY_WINDOWS_DAYS`, `week_bounds()`, `month_bounds()`, `prev_month()`, `next_month()`, `week_label()` |
+| `core/utils/timestamp_helpers.py` | `get_frequency_window_days()`, `FREQUENCY_WINDOWS_DAYS`, `week_bounds()`, `month_grid_bounds()`, `prev_month()`, `next_month()`, `prev_week()`, `next_week()` |
 | `core/services/domain_config.py` | `date_field`, `temporal_exclude_statuses`, `temporal_secondary_sort`, `completed_statuses` config fields |
 | `core/services/mixins/time_query_mixin.py` | `get_upcoming()`, `get_overdue()`, `get_active()` base implementations |
 | `adapters/persistence/neo4j/universal_backend.py` | `upcoming_raw()`, `overdue_raw()`, `active_raw()` on the shared `_TemporalMixin` |
