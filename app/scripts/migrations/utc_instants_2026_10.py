@@ -1115,6 +1115,10 @@ def _safe(name: str) -> str:
     return name
 
 
+def _elements_by_key() -> defaultdict[str, set[str]]:
+    return defaultdict(set)
+
+
 async def _check_keys(tx: AsyncTransaction, census: Census) -> None:
     """Every moving value's durable key names exactly the element the census read."""
     movers = [s for s in census.stamps if s.verdict is Verdict.SHIFT]
@@ -1122,7 +1126,7 @@ async def _check_keys(tx: AsyncTransaction, census: Census) -> None:
         if stamp.key is None:
             stamp.verdict = Verdict.STOP
             stamp.reason = "the element has no durable key (no uid, no merge key)"
-    by_group: dict[tuple[str, ...], dict[str, set[str]]] = defaultdict(lambda: defaultdict(set))
+    by_group: dict[tuple[str, ...], dict[str, set[str]]] = defaultdict(_elements_by_key)
     for stamp in movers:
         if stamp.key is None:
             continue
