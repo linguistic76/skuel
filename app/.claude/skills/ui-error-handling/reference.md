@@ -59,7 +59,7 @@ async def tasks_dashboard(request):
 
 **Example:**
 ```python
-from core.models.enums.activity_enums import ActivityStatus, Priority
+from core.models.enums import EntityStatus, Priority
 from core.utils.timestamp_helpers import today_in
 from core.utils.zone_context import current_zone
 
@@ -72,18 +72,18 @@ def compute_task_stats(tasks: list[Any]) -> dict[str, int]:
     Calculate task statistics.
 
     Pure function: testable without database or async.
-    Returns: {"total": N, "completed": N, "overdue": N}
+    Returns: {"total": N, "completed": N, "overdue": N, "draft": N}
     """
     today = today_in(current_zone())  # the user's day, never the host's
     return {
         "total": len(tasks),
-        "completed": sum(1 for t in tasks if t.status == ActivityStatus.COMPLETED),
+        "completed": sum(1 for t in tasks if t.status == EntityStatus.COMPLETED),
         "overdue": sum(
             1
             for t in tasks
-            if t.due_date and t.due_date < today and t.status != ActivityStatus.COMPLETED
+            if t.due_date and t.due_date < today and t.status != EntityStatus.COMPLETED
         ),
-        "pending": sum(1 for t in tasks if t.status == ActivityStatus.PENDING),
+        "draft": sum(1 for t in tasks if t.status == EntityStatus.DRAFT),
     }
 
 
@@ -103,9 +103,9 @@ def apply_task_filters(
 
     # Filter: status
     if status_filter == "active":
-        tasks = [t for t in tasks if t.status != ActivityStatus.COMPLETED]
+        tasks = [t for t in tasks if t.status != EntityStatus.COMPLETED]
     elif status_filter == "completed":
-        tasks = [t for t in tasks if t.status == ActivityStatus.COMPLETED]
+        tasks = [t for t in tasks if t.status == EntityStatus.COMPLETED]
     elif status_filter == "overdue":
         today = today_in(current_zone())
         tasks = [
@@ -113,7 +113,7 @@ def apply_task_filters(
             for t in tasks
             if t.due_date
             and t.due_date < today
-            and t.status != ActivityStatus.COMPLETED
+            and t.status != EntityStatus.COMPLETED
         ]
     # "all" - no filtering
 

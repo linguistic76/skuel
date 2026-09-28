@@ -401,6 +401,15 @@ _TASKS_INSIGHTS = PlannedEntry(
     "task analytics/AI insight surface staged; wire an insights UI or Askesis consumer",
     since=date(2026, 6, 11),
 )
+_TASKS_BEHAVIORAL_INSIGHTS = PlannedEntry(
+    Readiness.DELAYED,
+    "task behavioral-insight surface staged; wire an insights UI or Askesis consumer "
+    "— but a design call comes first: its completion-hour analysis reads "
+    "task.completed_at, which Task does not have (it stores only its completion day, "
+    "completion_date), so the analysis has no data until someone decides to record "
+    "a completion time",
+    since=date(2026, 6, 11),
+)
 _TASKS_KU_ORCHESTRATION = PlannedEntry(
     Readiness.DELAYED,
     "manual knowledge-generation trigger staged — the automatic TaskCompleted "
@@ -824,7 +833,9 @@ PLANNED_METHODS: dict[str, PlannedEntry] = {
     # --- Tasks: bulk completion ---
     "core/services/tasks/tasks_core_service.py::complete_tasks_bulk": _TASKS_BULK,
     # --- Tasks: analytics/AI insight surface ---
-    "core/services/tasks/_analytics_mixin.py::get_behavioral_insights": _TASKS_INSIGHTS,
+    "core/services/tasks/_analytics_mixin.py::get_behavioral_insights": (
+        _TASKS_BEHAVIORAL_INSIGHTS
+    ),
     # generate_task_breakdown wired: GET /api/tasks/ai/breakdown (Theme F)
     # suggest_priority wired: GET /api/tasks/ai/priority-suggestion (Theme F)
     "core/services/tasks/_orchestration_mixin.py::analyze_task_knowledge_impact": (_TASKS_INSIGHTS),

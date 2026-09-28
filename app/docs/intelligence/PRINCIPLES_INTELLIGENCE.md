@@ -1,5 +1,5 @@
 ---
-updated: 2026-09-17
+updated: 2026-09-28
 ---
 
 # PrinciplesIntelligenceService - Cross-Domain Principle Alignment & Conflict Detection
@@ -70,9 +70,9 @@ result = await principles_service.intelligence.get_with_context(
 
 if result.is_ok:
     principle, graph_context = result.value
-    print(f"Principle: {principle.name}")
-    print(f"Graph nodes: {len(graph_context.nodes)}")
-    print(f"Graph relationships: {len(graph_context.relationships)}")
+    print(f"Principle: {principle.title}")
+    print(f"Graph nodes: {len(graph_context.all_nodes)}")
+    print(f"Graph relationships: {len(graph_context.all_relationships)}")
 ```
 
 **Dependencies:**

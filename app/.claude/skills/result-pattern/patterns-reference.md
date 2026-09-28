@@ -115,7 +115,7 @@ class TasksSearchService(BaseService[BackendOperations[Task], Task]):
         )
 
     async def get_by_status(
-        self, status: ActivityStatus, user_uid: UserUID
+        self, status: EntityStatus, user_uid: UserUID
     ) -> Result[list[Task]]:
         """Get tasks by status."""
         result = await self.backend.find_by(
@@ -421,7 +421,7 @@ Result.fail(Errors.system(
 # Internal invariant violation
 Result.fail(Errors.system(
     message="Internal error: task state inconsistent",
-    expected_state="PENDING",
+    expected_state=EntityStatus.ACTIVE,
     actual_state=task.status
 ))
 ```

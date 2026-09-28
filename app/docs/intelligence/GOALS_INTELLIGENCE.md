@@ -1,5 +1,5 @@
 ---
-updated: 2026-09-17
+updated: 2026-09-28
 ---
 
 # GoalsIntelligenceService - Progress Forecasting & Predictive Analytics
@@ -72,8 +72,8 @@ result = await goals_service.intelligence.get_with_context(
 if result.is_ok:
     goal, graph_context = result.value
     print(f"Goal: {goal.title}")
-    print(f"Graph nodes: {len(graph_context.nodes)}")
-    print(f"Graph relationships: {len(graph_context.relationships)}")
+    print(f"Graph nodes: {len(graph_context.all_nodes)}")
+    print(f"Graph relationships: {len(graph_context.all_relationships)}")
 ```
 
 **Dependencies:**

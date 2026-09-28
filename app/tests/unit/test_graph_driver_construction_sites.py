@@ -3,7 +3,7 @@
 ``adapters/persistence/neo4j/graph_driver.py`` holds the only construction of a
 driver (``open_async_driver``), and the factory refuses a process whose clock is
 not pinned (``tests/unit/utils/test_process_clock.py``). These tests hold the two
-halves of that shut over the whole tracked tree, notebooks included:
+halves of that shut over the whole tracked tree:
 
 - no other file names the neo4j driver constructors (``AsyncGraphDatabase``,
   ``GraphDatabase`` and the driver classes behind them), so every driver goes
@@ -11,7 +11,7 @@ halves of that shut over the whole tracked tree, notebooks included:
 - outside the tests, only ``Neo4jConnection`` calls the factory, so every
   production opener also runs the graph's data-version check;
 - every entry point that opens the graph pins the process clock before its first
-  first-party import — the scripts, ``main.py``, the test root, the notebooks.
+  first-party import — the scripts, ``main.py``, the test root.
 
 See: /docs/roadmap/utc-instants-arc.md § PR 4
 """
@@ -19,7 +19,6 @@ See: /docs/roadmap/utc-instants-arc.md § PR 4
 from __future__ import annotations
 
 import ast
-import json
 import subprocess
 from pathlib import Path
 
@@ -63,22 +62,8 @@ def _tracked(*patterns: str) -> list[str]:
 
 
 def _python_sources() -> dict[str, str]:
-    """Every tracked Python source, and every notebook's code cells joined, by path."""
-    sources = {path: (APP / path).read_text() for path in _tracked("*.py")}
-    for path in _tracked("*.ipynb"):
-        notebook = json.loads((APP / path).read_text())
-        cells = []
-        for cell in notebook.get("cells", []):
-            if cell.get("cell_type") != "code":
-                continue
-            source = cell["source"]
-            text = "".join(source) if isinstance(source, list) else source
-            # A notebook cell may await at top level; wrap it so ast parses it.
-            cells.append(
-                "async def _cell():\n" + "".join(f"    {line}\n" for line in text.splitlines())
-            )
-        sources[path] = "\n".join(cells) or "pass\n"
-    return sources
+    """Every tracked Python source, by path."""
+    return {path: (APP / path).read_text() for path in _tracked("*.py")}
 
 
 def _constructor_uses(tree: ast.AST) -> list[int]:
@@ -189,16 +174,6 @@ def test_every_entry_point_that_opens_the_graph_pins_the_clock_first() -> None:
     entry_points = 0
     for path, source in sources.items():
         tree = ast.parse(source)
-        if path.endswith(".ipynb"):
-            if not _opens_the_graph(tree):
-                continue
-            entry_points += 1
-            # Each notebook's first cell that opens the graph pins before it does.
-            cells = [node for node in tree.body if isinstance(node, ast.AsyncFunctionDef)]
-            first = next(cell for cell in cells if _opens_the_graph(cell))
-            if not _pins_before_first_party(first.body):
-                unpinned.append(path)
-            continue
         if path in ("main.py", "tests/conftest.py") or (
             _is_entry_point(tree) and _opens_the_graph(tree)
         ):

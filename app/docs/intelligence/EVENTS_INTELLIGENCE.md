@@ -1,5 +1,5 @@
 ---
-updated: 2026-09-21
+updated: 2026-09-28
 ---
 
 # EventsIntelligenceService - Cross-Domain Impact Analysis & Schedule Optimization
@@ -84,8 +84,8 @@ result = await events_service.intelligence.get_with_context(
 if result.is_ok:
     event, graph_context = result.value
     print(f"Event: {event.title}")
-    print(f"Relationships: {len(graph_context.relationships)}")
-    print(f"Connected nodes: {len(graph_context.nodes)}")
+    print(f"Relationships: {len(graph_context.all_relationships)}")
+    print(f"Connected nodes: {len(graph_context.all_nodes)}")
 ```
 
 **Dependencies:**

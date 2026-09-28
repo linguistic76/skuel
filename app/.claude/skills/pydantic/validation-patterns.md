@@ -56,7 +56,7 @@ Access other fields during validation:
 from pydantic import field_validator, ValidationInfo
 
 class TaskRequest(BaseModel):
-    status: ActivityStatus
+    status: EntityStatus
     completion_date: date | None = None
     cancelled_reason: str | None = None
 
@@ -65,7 +65,7 @@ class TaskRequest(BaseModel):
     def auto_set_completion(cls, v: date | None, info: ValidationInfo) -> date | None:
         """Auto-set completion date when status is COMPLETED"""
         status = info.data.get("status")
-        if status == ActivityStatus.COMPLETED and v is None:
+        if status == EntityStatus.COMPLETED and v is None:
             return today_in(current_zone())
         return v
 
@@ -74,7 +74,7 @@ class TaskRequest(BaseModel):
     def require_reason_if_cancelled(cls, v: str | None, info: ValidationInfo) -> str | None:
         """Require reason when status is CANCELLED"""
         status = info.data.get("status")
-        if status == ActivityStatus.CANCELLED and not v:
+        if status == EntityStatus.CANCELLED and not v:
             raise ValueError("Cancellation reason required")
         return v
 ```

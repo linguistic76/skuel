@@ -87,8 +87,7 @@ async def get_knowledge_prerequisites(
             "importance": "high",  # Could be calculated from relationship strength
             "domain": node.properties.get("domain", "unknown"),
         }
-        for node in context.all_nodes
-        if node.labels and "Entity" in node.labels
+        for node in context.get_knowledge_nodes()
     ]
 
     return Result.ok(

@@ -28,7 +28,7 @@ Usage:
 """
 
 from collections.abc import Sequence
-from typing import Any, ClassVar, Generic, TypeVar
+from typing import TYPE_CHECKING, Any, ClassVar, Generic, TypeVar
 
 from core.events import publish_event
 from core.models.enums.entity_enums import EntityType
@@ -40,6 +40,9 @@ from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
 from core.utils.sort_functions import get_second_item
 from core.utils.vector_math import cosine_similarity
+
+if TYPE_CHECKING:
+    from core.services.infrastructure.graph_intelligence_service import GraphIntelligenceService
 
 # Generic type vars
 B = TypeVar("B")  # Backend operations protocol
@@ -89,7 +92,7 @@ class BaseAIService(Generic[B, T]):
         backend: B,
         llm_service: Any | None = None,
         embeddings_service: Any | None = None,
-        graph_intel: Any | None = None,
+        graph_intel: GraphIntelligenceService | None = None,
         relationship_service: Any | None = None,
         event_bus: Any | None = None,
     ) -> None:

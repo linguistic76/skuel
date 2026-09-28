@@ -120,7 +120,7 @@ class TasksIntelligenceService(BaseAnalyticsService["TasksOperations", Task]):
 def __init__(
     self,
     backend: B,                                    # REQUIRED - domain operations
-    graph_intel: Any | None = None, # GraphIntelligenceService
+    graph_intel: GraphIntelligenceService | None = None,
     relationship_service: Any | None = None,       # UnifiedRelationshipService
     event_bus: Any | None = None,                  # EventBus
     insight_store: Any | None = None,              # InsightStore

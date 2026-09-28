@@ -47,7 +47,6 @@ NEVER_SCAN_DIR_PARTS = {
     ".mypy_cache",
     ".pytest_cache",
     ".claude",
-    "notebooks",
     "examples",
     # The project venv lives in-tree at app/.venv (uv's default, and where CI's
     # cache step restores it) — without this, site-packages floods the dead

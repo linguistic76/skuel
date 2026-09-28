@@ -158,9 +158,9 @@ def test_priority_colors(priority, expected_color):
 
 
 @pytest.mark.parametrize("status,should_be_terminal", [
-    pytest.param(ActivityStatus.PENDING, False, id="pending"),
-    pytest.param(ActivityStatus.COMPLETED, True, id="completed"),
-    pytest.param(ActivityStatus.CANCELLED, True, id="cancelled"),
+    pytest.param(EntityStatus.ACTIVE, False, id="active"),
+    pytest.param(EntityStatus.COMPLETED, True, id="completed"),
+    pytest.param(EntityStatus.CANCELLED, True, id="cancelled"),
 ])
 def test_status_is_terminal(status, should_be_terminal):
     assert status.is_terminal() == should_be_terminal
