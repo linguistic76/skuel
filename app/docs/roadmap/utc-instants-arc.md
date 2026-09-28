@@ -294,7 +294,9 @@ outside the values: an immutable manifest, one transaction, and a durable applie
    mixed-writer property without a discriminator; a millisecond native on a property where
    precision is the only discriminator between a naive Python writer and Cypher `datetime()` (a
    Python stamp lands on a whole millisecond one time in a thousand) — unless a paired stamp written
-   in the same moment settles it; a JSON-nested stamp not classified as read or diagnostic; and a shift candidate on a property stamped "now" (`created_at`, `updated_at`, the
+   in the same moment settles it; a JSON-nested stamp not classified as read or diagnostic; a
+   timestamp-shaped string in a form the classifier does not read (a comma for the decimal point, an
+   offset without its colon), a list holding stamps, or a relationship's JSON holding stamps; and a shift candidate on a property stamped "now" (`created_at`, `updated_at`, the
    other `*_at` stamps) whose digits are later than the laptop's wall clock at the census — a
    UTC-clock process wrote it. (A still-open period's future `period_end` is expected, not a stop.)
    The script computes that wall clock explicitly (`datetime.now(ZoneInfo("America/Vancouver"))`):
@@ -898,7 +900,8 @@ embedding check has run; the ledger PR records PR 4 as merged and deployed.
   pins itself, writes a generated report and asks `check_cooldown`. On the PR 3 code (a worktree
   of `main` `3ecd663f4`, the probe without its pin) the stamp landed seven hours behind and the
   count was 0.
-- **The census, read-only against AuraDB from this branch (2026-09-28 14:52Z):** 6,863 values;
+- **The census, read-only against AuraDB from this branch (2026-09-28 14:52Z; the same at 16:50Z
+  after the review rounds):** 6,863 values;
   1,236 to shift, 5,625 to leave; 31 pairs for the classification check. Two stops, each a
   millisecond native where a millisecond native is not its writers' shape:
   `EntryReport.updated_at` on `er_e7ca22a9` (`2026-08-01T17:10:51.959Z` — the census attributes

@@ -237,6 +237,11 @@ class ValueClass(StrEnum):
     NATIVE_OTHER = "native, other precision or offset"
     #: A LOCAL DATETIME or ZONED TIME native — no writer here produces one.
     NATIVE_UNZONED = "native without a zone"
+    #: A timestamp-shaped string in a form the classifier does not read (a comma for
+    #: the decimal point, an offset without its colon, a zone id) — still a stamp.
+    STR_UNRECOGNIZED = "string, timestamp-shaped, in a form the classifier does not read"
+    #: A list property holding stamps — no rule reads a stamp inside a list.
+    LIST_OF_STAMPS = "a list holding stamps"
 
 
 class Verdict(StrEnum):
@@ -280,6 +285,36 @@ def classify_string(text: str) -> Value | None:
     else:
         cls = ValueClass.STR_NAIVE_OTHER
     return Value(text, cls, parsed)
+
+
+_STAMP_PREFIX_T = re.compile(r"^\d{4}-\d{2}-\d{2}T\d{2}")
+_STAMP_PREFIX_SPACE = re.compile(r"^\d{4}-\d{2}-\d{2} \d{2}")
+
+
+def _reads_as_instant(text: str) -> bool:
+    try:
+        datetime.fromisoformat(text)
+    except ValueError:
+        return False
+    return True
+
+
+def classify_stamp_string(text: str) -> Value | None:
+    """A timestamp-shaped string's class — an unreadable form included — or None for any other.
+
+    A string the readers would take for an instant but the classifier does not read
+    is a stamp all the same: it is ``STR_UNRECOGNIZED``, which no rule settles, so
+    the census stops on it rather than passing it over. A ``T``-separated date and
+    hour is a machine's; a space-separated one counts only when
+    ``datetime.fromisoformat`` reads the whole string — a title that begins with a
+    date and a time does not.
+    """
+    value = classify_string(text)
+    if value is not None:
+        return value
+    if _STAMP_PREFIX_T.match(text) or (_STAMP_PREFIX_SPACE.match(text) and _reads_as_instant(text)):
+        return Value(text, ValueClass.STR_UNRECOGNIZED, None)
+    return None
 
 
 def classify_native(value_type: str, text: str, zone: str | None, nanosecond: int) -> Value:
@@ -609,14 +644,30 @@ RULINGS: tuple[Ruling, ...] = ()
 # THE CENSUS — read every stamp, classify it, build the manifest
 # =============================================================================
 
+# Every value that is, or may hold, a stamp: a temporal; a string that begins with
+# a date and an hour, or is JSON; a list that holds either. Each type's test sits
+# under its own CASE branch — Cypher does not promise to short-circuit AND, and a
+# string function applied to a list raises.
 _TEMPORAL_OR_STAMP_STRING = """
-    v IS :: ZONED DATETIME OR v IS :: LOCAL DATETIME OR v IS :: ZONED TIME
-    OR (v IS :: STRING AND (v =~ '\\\\d{4}-\\\\d{2}-\\\\d{2}T.*' OR left(v, 1) IN ['{', '[']))
+    CASE
+      WHEN v IS :: STRING THEN
+        v =~ '(?s)\\\\d{4}-\\\\d{2}-\\\\d{2}[T ]\\\\d{2}.*' OR left(v, 1) IN ['{', '[']
+      WHEN v IS :: LIST<ANY> THEN
+        any(x IN v WHERE CASE
+          WHEN x IS :: STRING THEN x =~ '(?s)\\\\d{4}-\\\\d{2}-\\\\d{2}[T ]\\\\d{2}.*'
+          ELSE x IS :: ZONED DATETIME OR x IS :: LOCAL DATETIME
+        END)
+      ELSE v IS :: ZONED DATETIME OR v IS :: LOCAL DATETIME OR v IS :: ZONED TIME
+    END
 """
 
 _VALUE_COLUMNS = """
        valueType(v) AS value_type,
-       CASE WHEN v IS :: STRING THEN v ELSE toString(v) END AS text,
+       CASE
+         WHEN v IS :: STRING THEN v
+         WHEN v IS :: LIST<ANY> THEN 'a list of ' + toString(size(v)) + ' values'
+         ELSE toString(v)
+       END AS text,
        CASE WHEN v IS :: ZONED DATETIME THEN v.timezone END AS zone,
        CASE WHEN v IS :: ZONED DATETIME OR v IS :: LOCAL DATETIME THEN v.nanosecond END AS nanosecond
 """
@@ -769,7 +820,7 @@ def _json_stamps(obj: Any, path: str = "$") -> list[tuple[str, str]]:  # boundar
     elif isinstance(obj, list):
         for v in obj:
             found.extend(_json_stamps(v, f"{path}[]"))
-    elif isinstance(obj, str) and classify_string(obj) is not None:
+    elif isinstance(obj, str) and classify_stamp_string(obj) is not None:
         found.append((path, obj))
     return found
 
@@ -919,12 +970,15 @@ async def run_census(
         prop = str(row["prop"])
         owner, why = _owner_of(labels, prop)
         text = str(row["text"])
-        if row["value_type"].startswith("STRING"):
-            value = classify_string(text)
-            if value is None:
+        if row["value_type"].startswith("LIST"):
+            value = Value(text, ValueClass.LIST_OF_STAMPS, None)
+        elif row["value_type"].startswith("STRING"):
+            found = classify_stamp_string(text)
+            if found is None:
                 if text[:1] in "[{":
                     _json_census(census, row, labels, owner, why)
                 continue
+            value = found
         else:
             value = classify_native(
                 row["value_type"], text, row["zone"], int(row["nanosecond"] or 0)
@@ -946,10 +1000,14 @@ async def run_census(
     for row in await _fetch(tx, _REL_STAMPS):
         rel_type, prop, text = str(row["rel_type"]), str(row["prop"]), str(row["text"])
         owner = _rel(rel_type)
-        if row["value_type"].startswith("STRING"):
-            value = classify_string(text)
-            if value is None:
+        if row["value_type"].startswith("LIST"):
+            value = Value(text, ValueClass.LIST_OF_STAMPS, None)
+        elif row["value_type"].startswith("STRING"):
+            found = classify_stamp_string(text)
+            if found is None:
+                _rel_json_census(census, row, owner, prop, text)
                 continue
+            value = found
         else:
             value = classify_native(
                 row["value_type"], text, row["zone"], int(row["nanosecond"] or 0)
@@ -999,6 +1057,22 @@ async def run_census(
     return census
 
 
+def _rel_json_census(census: Census, row: Row, owner: str, prop: str, text: str) -> None:
+    """A relationship's JSON property holding stamps stops the census: no rule classifies one."""
+    if text[:1] not in "[{":
+        return
+    try:
+        parsed = json.loads(text)
+    except ValueError:
+        return
+    for path, stamp_text in _json_stamps(parsed):
+        value = classify_stamp_string(stamp_text)
+        assert value is not None
+        stamp = Stamp("rel", str(row["element"]), owner, prop, value, None, json_path=path)
+        stamp.reason = "a JSON property on a relationship holding stamps: no rule classifies it"
+        census.stamps.append(stamp)
+
+
 def _json_census(
     census: Census, row: Row, labels: tuple[str, ...], owner: str | None, why: str
 ) -> None:
@@ -1016,7 +1090,7 @@ def _json_census(
     key = _node_key(labels, owner, row["uid"], row["user_uid"]) if owner else None
     moved: list[JsonChange] = []
     for path, stamp_text in nested:
-        value = classify_string(stamp_text)
+        value = classify_stamp_string(stamp_text)
         assert value is not None
         stamp = Stamp(
             "node",
@@ -1310,7 +1384,12 @@ def _typed(shape: str, text: str) -> Any:  # boundary: a string or a driver-boun
 def _cas(prop: str, shape: str, side: str) -> str:
     """The expression that holds when the element's property still equals ``row.<side>``."""
     if shape == "native":
-        return f"n.{prop} = row.{side} AND toString(n.{prop}) = row.{side}_text"
+        # toString only under the type test: Cypher does not promise to short-circuit AND.
+        return (
+            f"CASE WHEN n.{prop} IS :: ZONED DATETIME "
+            f"THEN n.{prop} = row.{side} AND toString(n.{prop}) = row.{side}_text "
+            f"ELSE false END"
+        )
     return f"n.{prop} = row.{side}"
 
 

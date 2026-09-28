@@ -141,6 +141,22 @@ async def test_a_graph_recorded_twice_is_refused(raw: Any, guard_container: Any)
         await _open(guard_container)
 
 
+async def test_a_stateless_record_beside_an_applied_one_is_refused(
+    raw: Any, guard_container: Any
+) -> None:
+    """A record with no state still counts: two records, not one applied."""
+    await raw.execute_query("DROP CONSTRAINT MigrationRecord_name_unique IF EXISTS")
+    await raw.execute_query(
+        "CREATE (:Entity:Task {uid: 'task.stateless'}) "
+        "CREATE (:MigrationRecord {name: $name, state: $state}) "
+        "CREATE (:MigrationRecord {name: $name})",
+        name=UTC_INSTANTS_MIGRATION,
+        state=MigrationState.APPLIED,
+    )
+    with pytest.raises(GraphNotMigratedError, match="2 MigrationRecord"):
+        await _open(guard_container)
+
+
 async def test_an_applied_record_opens_a_graph_that_holds_data(
     raw: Any, guard_container: Any
 ) -> None:

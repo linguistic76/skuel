@@ -242,7 +242,13 @@ def test_each_rule_shifts_and_leaves_exactly_its_writers_shapes(
     assert {cls for cls, v in matrix.items() if v is S} == shift
     assert {cls for cls, v in matrix.items() if v is L} == leave
     # Everything else stops — the unclassifiable precisions always do.
-    for cls in (VC.STR_NAIVE_OTHER, VC.NATIVE_OTHER, VC.NATIVE_UNZONED):
+    for cls in (
+        VC.STR_NAIVE_OTHER,
+        VC.NATIVE_OTHER,
+        VC.NATIVE_UNZONED,
+        VC.STR_UNRECOGNIZED,
+        VC.LIST_OF_STAMPS,
+    ):
         assert matrix[cls] is X
 
 
@@ -525,3 +531,60 @@ def test_a_json_stamp_moves_only_at_the_path_it_was_classified_at() -> None:
     assert json_row["changes"] == [
         {"path": "$.progress_notes[].date", "old": stamp, "new": "2026-09-20T16:00:00.123456"}
     ]
+
+
+@pytest.mark.parametrize(
+    ("text", "cls"),
+    [
+        # Forms the readers take for an instant that the classifier does not read.
+        ("2026-09-20T09:00:00,123456", VC.STR_UNRECOGNIZED),
+        ("2026-09-20 09:00:00", VC.STR_UNRECOGNIZED),
+        ("2026-09-20T09:00:00+0700", VC.STR_UNRECOGNIZED),
+        ("2026-07-02T21:47:48.665Z[UTC]", VC.STR_UNRECOGNIZED),
+        ("2026-09-20T09:00 standup", VC.STR_UNRECOGNIZED),
+        # The forms the classifier reads keep their classes.
+        ("2026-09-20T09:00:00.123456", VC.STR_NAIVE_US),
+    ],
+)
+def test_a_timestamp_shaped_string_is_a_stamp_even_in_a_form_not_read(
+    text: str, cls: object
+) -> None:
+    value = migration.classify_stamp_string(text)
+    assert value is not None and value.cls is cls
+
+
+@pytest.mark.parametrize(
+    "text", ["2026-09-28 09:00 call Bob", "2026-09-28", "Standup 2026-09-28T09"]
+)
+def test_text_that_merely_begins_with_a_date_is_not_a_stamp(text: str) -> None:
+    assert migration.classify_stamp_string(text) is None
+
+
+def test_an_unreadable_stamp_nested_at_a_read_path_stops() -> None:
+    text = json.dumps([{"date": "2026-09-20T09:00:00,123456", "progress_percentage": 10}])
+    census = migration.Census(
+        census_at=datetime(2026, 9, 28, 15, 0, tzinfo=migration.UTC),
+        laptop_now=LAPTOP_NOW,
+        graph_uri="bolt://x",
+    )
+    row = {
+        "element": "e1",
+        "prop": "progress_history",
+        "text": text,
+        "uid": "goal.x",
+        "user_uid": None,
+    }
+    migration._json_census(census, row, ("Entity", "Goal"), "(:Goal)", "")
+    assert [s.value.cls for s in census.stops] == [VC.STR_UNRECOGNIZED]
+    assert census.json_rows == []
+
+
+def test_a_relationships_json_holding_stamps_stops() -> None:
+    census = migration.Census(
+        census_at=datetime(2026, 9, 28, 15, 0, tzinfo=migration.UTC),
+        laptop_now=LAPTOP_NOW,
+        graph_uri="bolt://x",
+    )
+    text = json.dumps({"seen_at": "2026-09-20T09:00:00.123456"})
+    migration._rel_json_census(census, {"element": "r1"}, "[:RELATED_TO]", "evidence", text)
+    assert [(s.owner, s.json_path) for s in census.stops] == [("[:RELATED_TO]", "$.seen_at")]

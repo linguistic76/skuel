@@ -47,10 +47,13 @@ STAMPED_EMPTY = "empty graph"
 
 _RECORD = NeoLabel.MIGRATION_RECORD.value
 
+# One entry per record, a missing state kept as null: collect(r.state) would drop
+# it, and a record with no state beside one that is applied would read as one.
 _READ_RECORD = f"""
 OPTIONAL MATCH (r:{_RECORD} {{name: $name}})
-WITH collect(r.state) AS states
-RETURN states, EXISTS {{ MATCH (n) WHERE NOT n:{_RECORD} }} AS holds_data
+WITH collect(r) AS records
+RETURN [r IN records | r.state] AS states,
+       EXISTS {{ MATCH (n) WHERE NOT n:{_RECORD} }} AS holds_data
 """
 
 # The record's name is unique, so a MERGE on it writes one node however many
@@ -115,7 +118,7 @@ async def ensure_record_name_is_unique(driver: AsyncDriver) -> None:
 
 @dataclass(frozen=True)
 class _RecordRead:
-    states: list[str]
+    states: list[str | None]  # one per record; None where a record has no state
     holds_data: bool
     stamped: bool
 
@@ -123,7 +126,9 @@ class _RecordRead:
 async def _read(tx: AsyncManagedTransaction) -> _RecordRead:
     result = await tx.run(_READ_RECORD, name=UTC_INSTANTS_MIGRATION)
     record = await result.single()
-    states = [str(state) for state in (record["states"] if record else [])]
+    states = [
+        None if state is None else str(state) for state in (record["states"] if record else [])
+    ]
     holds_data = bool(record["holds_data"]) if record else False
     return _RecordRead(states, holds_data, stamped=False)
 

@@ -614,6 +614,8 @@ async def test_compare_and_set_on_a_native_is_typed(
         ("unknown_property", "no rule for this label and property"),
         ("unpaired_default_group", "no paired stamp settles"),
         ("duplicate_relationship_key", "resolves to 2 element(s)"),
+        ("unreadable_stamp_form", "is not a shape this property's writers produce"),
+        ("list_of_stamps", "is not a shape this property's writers produce"),
     ],
 )
 async def test_the_census_stops_on_what_no_rule_settles(
@@ -659,6 +661,17 @@ async def test_the_census_stops_on_what_no_rule_settles(
             "CREATE (t)-[:SHARES_WITH {shared_at: datetime('2026-09-20T09:00:01.123456Z')}]->(e)",
             student=STUDENT,
             teacher=TEACHER,
+        )
+    elif case == "unreadable_stamp_form":
+        # A form datetime.fromisoformat reads (a comma for the decimal point) and the
+        # classifier does not: a stamp all the same, so it stops.
+        await graph.execute_query(
+            "CREATE (:Entity:Task {uid: 'task.comma', created_at: '2026-09-20T09:00:00,123456'})"
+        )
+    elif case == "list_of_stamps":
+        await graph.execute_query(
+            "CREATE (:Entity:Task {uid: 'task.listed', "
+            "created_at: [datetime('2026-09-20T09:00:00.123456Z')]})"
         )
     census = await _census(graph, scratch_neo4j_container.get_connection_url())
     reasons = [s.reason for s in census.stops] + census.key_stops
