@@ -76,15 +76,14 @@ from dataclasses import dataclass, field
 from datetime import UTC, date, datetime, timedelta, timezone, tzinfo
 from enum import StrEnum
 from pathlib import Path
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, Literal, NotRequired, TypedDict, cast
 from zoneinfo import ZoneInfo
 
 from adapters.persistence.neo4j.graph_driver import (
-    STATE_APPLIED,
-    STATE_REVERTED,
     UTC_INSTANTS_MIGRATION,
     ensure_record_name_is_unique,
 )
+from core.models.enums.migration_enums import MigrationState
 from core.models.enums.neo_labels import NeoLabel
 from core.models.group.group import DEFAULT_GROUP_UID_PREFIX
 from core.models.relationship_names import RelationshipName
@@ -92,9 +91,101 @@ from core.models.relationship_names import RelationshipName
 if TYPE_CHECKING:
     from neo4j import AsyncDriver, AsyncTransaction
 
-# One driver record, keyed by RETURN alias; values are heterogeneous Neo4j
-# scalars, so the value type is a boundary.
-type Row = dict[str, Any]  # boundary: raw neo4j-driver record
+# One driver record, keyed by RETURN alias, or one statement's parameters;
+# values are heterogeneous Neo4j scalars, so the value type is a boundary.
+type Row = dict[str, Any]  # boundary: raw neo4j-driver record / query parameters
+
+type Target = Literal["node", "rel"]
+type Shape = Literal["string", "native", "json"]
+
+
+class NodeKey(TypedDict):
+    """A node's durable key: matched as ``(:match_label {key_prop: key})``, with ``owner_label``."""
+
+    match_label: str
+    owner_label: str
+    key_prop: str
+    key: str
+
+
+class RelKey(TypedDict):
+    """A relationship's durable key: its type and its endpoints' uids (never an element id)."""
+
+    type: str
+    start_label: str
+    start_uid: str
+    end_label: str
+    end_uid: str
+
+
+type ElementKey = NodeKey | RelKey
+
+
+class JsonChange(TypedDict):
+    """One nested stamp a JSON row moves, for the manifest's audit."""
+
+    path: str
+    old: str
+    new: str
+
+
+class JsonRow(TypedDict):
+    """The census's whole-property row for a JSON property whose nested stamps move."""
+
+    element: str
+    owner: str
+    prop: str
+    key: NodeKey
+    old: str
+    new: str
+    changes: list[JsonChange]
+
+
+class Pair(TypedDict):
+    """A laptop ``created_at`` and a server ``embedding_updated_at`` written in one moment."""
+
+    key: NodeKey
+    created_at_old: str
+    created_at_new: str
+    embedding_updated_at: str
+
+
+class ManifestRow(TypedDict):
+    """One value the migration moves: where, from what, to what, and by which rule."""
+
+    id: int
+    target: Target
+    owner: str
+    key: ElementKey
+    property: str
+    shape: Shape
+    old: str
+    new: str
+    rule: str
+    changes: NotRequired[list[JsonChange]]
+
+
+class Manifest(TypedDict):
+    """The immutable, content-addressed record of what ``--confirm`` applies."""
+
+    migration: str
+    format: int
+    graph_uri: str
+    census_at: str
+    laptop_wall_clock_at_census: str
+    counts: dict[str, int]
+    left: dict[str, int]
+    pairs: list[Pair]
+    rows: list[ManifestRow]
+
+
+class RecordState(TypedDict):
+    """A ``:MigrationRecord`` as the state checks read it."""
+
+    state: str | None
+    manifest_hash: str | None
+    stamped: str | None
+
 
 MANIFEST_FORMAT = 1
 
@@ -560,12 +651,12 @@ RETURN collect(r {{.state, .manifest_hash, .stamped}}) AS records
 class Stamp:
     """One stored value on one element, with what the census decided about it."""
 
-    kind: str  # "node" or "rel"
+    kind: Target
     element: str  # elementId — valid inside the census transaction only
     owner: str  # "(:Task)" or "[:OWNS]"
     prop: str
     value: Value
-    key: dict[str, str] | None  # the durable key, None when the element has none
+    key: ElementKey | None  # the durable key, None when the element has none
     labels: tuple[str, ...] = ()
     rule: str = ""
     verdict: Verdict = Verdict.STOP
@@ -584,8 +675,8 @@ class Census:
     graph_uri: str
     stamps: list[Stamp] = field(default_factory=list)
     #: Whole-JSON manifest rows: one per containing property.
-    json_rows: list[dict[str, Any]] = field(default_factory=list)
-    pairs: list[dict[str, Any]] = field(default_factory=list)
+    json_rows: list[JsonRow] = field(default_factory=list)
+    pairs: list[Pair] = field(default_factory=list)
     key_stops: list[str] = field(default_factory=list)
 
     @property
@@ -650,7 +741,7 @@ def _owner_of(labels: Iterable[str], prop: str) -> tuple[str | None, str]:
 
 def _node_key(
     labels: Iterable[str], owner: str, uid: str | None, user_uid: str | None
-) -> dict[str, str] | None:
+) -> NodeKey | None:
     label = owner[2:-1]
     if uid:
         match_label = NeoLabel.ENTITY.value if NeoLabel.ENTITY.value in labels else label
@@ -669,7 +760,7 @@ def _endpoint_label(labels: Iterable[str]) -> str:
     return labels[0] if labels else ""
 
 
-def _json_stamps(obj: Any, path: str = "$") -> list[tuple[str, str]]:
+def _json_stamps(obj: Any, path: str = "$") -> list[tuple[str, str]]:  # boundary: decoded JSON
     """Every ISO-datetime string nested in a parsed JSON value, with its normalized path."""
     found: list[tuple[str, str]] = []
     if isinstance(obj, dict):
@@ -779,23 +870,34 @@ def _member_of_pairing(
     stamp.reason = "a default-group row no paired stamp settles (add_member or the handler)"
 
 
-async def _fetch(tx: AsyncTransaction, query: str, **params: Any) -> list[Row]:
+async def _fetch(
+    tx: AsyncTransaction,
+    query: str,
+    **params: Any,  # boundary: query parameters — heterogeneous Neo4j values
+) -> list[Row]:
     result = await tx.run(query, **params)
     return [dict(record) async for record in result]
 
 
-async def read_record_states(tx: AsyncTransaction) -> list[dict[str, Any]]:
+async def read_record_states(tx: AsyncTransaction) -> list[RecordState]:
     rows = await _fetch(tx, _RECORD_STATES, name=UTC_INSTANTS_MIGRATION)
-    return list(rows[0]["records"]) if rows else []
+    return cast("list[RecordState]", list(rows[0]["records"])) if rows else []
 
 
-def _state_refusal(records: list[dict[str, Any]], *, allowed: set[str | None]) -> str | None:
-    """Why the record's state refuses this run, or None."""
+def _state_refusal(
+    records: list[RecordState], *, allowed: set[MigrationState | None]
+) -> str | None:
+    """Why the record's state refuses this run, or None. ``None`` in ``allowed`` is no record."""
     if len(records) > 1:
         return f"the graph holds {len(records)} {_RECORD} nodes named {UTC_INSTANTS_MIGRATION!r}"
-    state = records[0].get("state") if records else None
+    state: MigrationState | None = None
+    if records:
+        stored = records[0].get("state")
+        state = MigrationState.from_stored(stored)
+        if state is None:
+            return f"the {_RECORD} {UTC_INSTANTS_MIGRATION!r} is in an unknown state {stored!r}"
     if state not in allowed:
-        return f"the {_RECORD} {UTC_INSTANTS_MIGRATION!r} is in state {state!r}"
+        return f"the {_RECORD} {UTC_INSTANTS_MIGRATION!r} is in state {state.value if state else None!r}"
     return None
 
 
@@ -858,22 +960,22 @@ async def run_census(
             and value.cls.name.startswith("NATIVE")
         ):
             in_progress[str(row["start_uid"])].append(text)
-        key = None
+        rel_key: RelKey | None = None
         if row["start_uid"] and row["end_uid"]:
-            key = {
-                "type": rel_type,
-                "start_label": _endpoint_label(row["start_labels"]),
-                "start_uid": str(row["start_uid"]),
-                "end_label": _endpoint_label(row["end_labels"]),
-                "end_uid": str(row["end_uid"]),
-            }
+            rel_key = RelKey(
+                type=rel_type,
+                start_label=_endpoint_label(row["start_labels"]),
+                start_uid=str(row["start_uid"]),
+                end_label=_endpoint_label(row["end_labels"]),
+                end_uid=str(row["end_uid"]),
+            )
         stamp = Stamp(
             "rel",
             str(row["element"]),
             owner,
             prop,
             value,
-            key,
+            rel_key,
             start_uid=row["start_uid"],
             end_uid=row["end_uid"],
         )
@@ -912,7 +1014,7 @@ def _json_census(
     prop = str(row["prop"])
     json_rule = JSON_RULES.get((owner, prop)) if owner else None
     key = _node_key(labels, owner, row["uid"], row["user_uid"]) if owner else None
-    moved: list[dict[str, str]] = []
+    moved: list[JsonChange] = []
     for path, stamp_text in nested:
         value = classify_string(stamp_text)
         assert value is not None
@@ -955,6 +1057,8 @@ def _json_census(
             "so its digits cannot be moved alone"
         )
         return
+    if owner is None or key is None:
+        return  # its moving stamps stop on the missing key (_check_keys)
     new_text = json.dumps(_replace_stamps(parsed, {(m["path"], m["old"]): m["new"] for m in moved}))
     census.json_rows.append(
         {
@@ -969,7 +1073,9 @@ def _json_census(
     )
 
 
-def _replace_stamps(obj: Any, moves: Mapping[tuple[str, str], str], path: str = "$") -> Any:
+def _replace_stamps(  # boundary: decoded JSON in, re-encodable JSON out
+    obj: Any, moves: Mapping[tuple[str, str], str], path: str = "$"
+) -> Any:
     """``obj`` with each stamp that moves replaced where it moves — by its path and text.
 
     The same text at another path (a diagnostic copy of a date the report reads,
@@ -1022,13 +1128,13 @@ async def _check_keys(tx: AsyncTransaction, census: Census) -> None:
             continue
         group: tuple[str, ...]
         if stamp.kind == "node":
-            group = ("node", stamp.key["match_label"], stamp.key["key_prop"])
-            by_group[group][stamp.key["key"]].add(stamp.element)
+            node_key = cast("NodeKey", stamp.key)
+            group = ("node", node_key["match_label"], node_key["key_prop"])
+            by_group[group][node_key["key"]].add(stamp.element)
         else:
-            group = ("rel", stamp.key["start_label"], stamp.key["type"], stamp.key["end_label"])
-            by_group[group][f"{stamp.key['start_uid']}\u0000{stamp.key['end_uid']}"].add(
-                stamp.element
-            )
+            rel_key = cast("RelKey", stamp.key)
+            group = ("rel", rel_key["start_label"], rel_key["type"], rel_key["end_label"])
+            by_group[group][f"{rel_key['start_uid']}\u0000{rel_key['end_uid']}"].add(stamp.element)
     for group, wanted in by_group.items():
         if group[0] == "node":
             query = _NODE_KEY_COUNT.format(label=_safe(group[1]), key_prop=_safe(group[2]))
@@ -1066,14 +1172,15 @@ def _find_pairs(census: Census) -> None:
             continue
         embed = embeds[stamp.element]
         assert stamp.value.digits is not None and embed.value.digits is not None
+        assert stamp.new_text is not None
         if abs(embed.value.digits - stamp.value.digits - PAIR_OFFSET) <= PAIR_TOLERANCE:
             census.pairs.append(
-                {
-                    "key": stamp.key,
-                    "created_at_old": stamp.value.text,
-                    "created_at_new": stamp.new_text,
-                    "embedding_updated_at": embed.value.text,
-                }
+                Pair(
+                    key=cast("NodeKey", stamp.key),
+                    created_at_old=stamp.value.text,
+                    created_at_new=stamp.new_text,
+                    embedding_updated_at=embed.value.text,
+                )
             )
 
 
@@ -1087,16 +1194,17 @@ def default_manifest_dir() -> Path:
     return Path(state) / "skuel" / UTC_INSTANTS_MIGRATION
 
 
-def _row_order(row: Mapping[str, Any]) -> tuple[str, str, str, str]:
+def _row_order(row: ManifestRow) -> tuple[str, str, str, str]:
     return (row["owner"], row["property"], json.dumps(row["key"], sort_keys=True), row["old"])
 
 
-def build_manifest(census: Census) -> dict[str, Any]:
-    rows: list[dict[str, Any]] = []
+def build_manifest(census: Census) -> Manifest:
+    rows: list[ManifestRow] = []
     for stamp in census.shifts:
         assert stamp.key is not None and stamp.new_text is not None
         rows.append(
             {
+                "id": 0,  # numbered once the rows are ordered
                 "target": stamp.kind,
                 "owner": stamp.owner,
                 "key": stamp.key,
@@ -1109,6 +1217,7 @@ def build_manifest(census: Census) -> dict[str, Any]:
         )
     rows.extend(
         {
+            "id": 0,
             "target": "node",
             "owner": json_row["owner"],
             "key": json_row["key"],
@@ -1139,7 +1248,7 @@ def build_manifest(census: Census) -> dict[str, Any]:
     }
 
 
-def manifest_bytes(manifest: Mapping[str, Any]) -> bytes:
+def manifest_bytes(manifest: Manifest) -> bytes:
     return (json.dumps(manifest, indent=1, sort_keys=True, ensure_ascii=False) + "\n").encode()
 
 
@@ -1147,7 +1256,7 @@ def manifest_hash(data: bytes) -> str:
     return hashlib.sha256(data).hexdigest()
 
 
-def write_manifest(manifest: Mapping[str, Any], directory: Path) -> tuple[Path, str]:
+def write_manifest(manifest: Manifest, directory: Path) -> tuple[Path, str]:
     data = manifest_bytes(manifest)
     digest = manifest_hash(data)
     directory.mkdir(parents=True, exist_ok=True)
@@ -1161,7 +1270,7 @@ class ManifestError(RuntimeError):
     """The manifest named cannot be applied: missing, altered, or not this migration's."""
 
 
-def load_manifest(directory: Path, digest: str) -> dict[str, Any]:
+def load_manifest(directory: Path, digest: str) -> Manifest:
     if not re.fullmatch(r"[0-9a-f]{64}", digest):
         raise ManifestError(f"not a manifest hash (64 hex digits): {digest!r}")
     path = directory / f"manifest-{digest}.json"
@@ -1170,7 +1279,8 @@ def load_manifest(directory: Path, digest: str) -> dict[str, Any]:
     data = path.read_bytes()
     if manifest_hash(data) != digest:
         raise ManifestError(f"{path} does not hash to {digest}: the file was altered")
-    manifest = json.loads(data)
+    # boundary: the file this script wrote, checked by its hash above
+    manifest = cast("Manifest", json.loads(data))
     if (
         manifest.get("migration") != UTC_INSTANTS_MIGRATION
         or manifest.get("format") != MANIFEST_FORMAT
@@ -1228,12 +1338,12 @@ def _group_statement(group: tuple[str, ...], *, write: bool, expect: str) -> str
     )
 
 
-def _groups(rows: Iterable[Mapping[str, Any]]) -> dict[tuple[str, ...], list[dict[str, Any]]]:
-    grouped: dict[tuple[str, ...], list[dict[str, Any]]] = defaultdict(list)
+def _groups(rows: Iterable[ManifestRow]) -> dict[tuple[str, ...], list[Row]]:
+    grouped: dict[tuple[str, ...], list[Row]] = defaultdict(list)
     for row in rows:
         key = row["key"]
         shape = "native" if row["shape"] == "native" else "string"
-        params: dict[str, Any] = {
+        params: Row = {
             "id": row["id"],
             "old": _typed(shape, row["old"]),
             "new": _typed(shape, row["new"]),
@@ -1241,31 +1351,33 @@ def _groups(rows: Iterable[Mapping[str, Any]]) -> dict[tuple[str, ...], list[dic
             "new_text": row["new"],
         }
         if row["target"] == "node":
+            node_key = cast("NodeKey", key)
             group = (
                 "node",
-                key["match_label"],
-                key["owner_label"],
-                key["key_prop"],
+                node_key["match_label"],
+                node_key["owner_label"],
+                node_key["key_prop"],
                 row["property"],
                 shape,
             )
-            params["key"] = key["key"]
+            params["key"] = node_key["key"]
         else:
+            rel_key = cast("RelKey", key)
             group = (
                 "rel",
-                key["start_label"],
-                key["type"],
-                key["end_label"],
+                rel_key["start_label"],
+                rel_key["type"],
+                rel_key["end_label"],
                 row["property"],
                 shape,
             )
-            params["start_uid"], params["end_uid"] = key["start_uid"], key["end_uid"]
+            params["start_uid"], params["end_uid"] = rel_key["start_uid"], rel_key["end_uid"]
         grouped[group].append(params)
     return grouped
 
 
 async def compare_and_set(
-    tx: AsyncTransaction, rows: list[Mapping[str, Any]], *, forward: bool
+    tx: AsyncTransaction, rows: list[ManifestRow], *, forward: bool
 ) -> list[int]:
     """Set every row old → new (``forward``) or new → old where it still holds the other; return the ids that did not."""
     expect = "old" if forward else "new"
@@ -1277,7 +1389,7 @@ async def compare_and_set(
     return sorted(unmatched)
 
 
-async def rows_not_at(tx: AsyncTransaction, rows: list[Mapping[str, Any]], side: str) -> list[int]:
+async def rows_not_at(tx: AsyncTransaction, rows: list[ManifestRow], side: str) -> list[int]:
     """The ids of manifest rows whose element does not hold the ``side`` value (read-only)."""
     missing: list[int] = []
     for group, params in _groups(rows).items():
@@ -1315,9 +1427,7 @@ class ConflictError(RuntimeError):
         self.ids = ids
 
 
-async def confirm(
-    driver: AsyncDriver, manifest: Mapping[str, Any], digest: str, graph_uri: str
-) -> None:
+async def confirm(driver: AsyncDriver, manifest: Manifest, digest: str, graph_uri: str) -> None:
     """Apply the manifest in one transaction and record it ``applied``."""
     if manifest["graph_uri"] != graph_uri:
         raise RefusedError(f"the manifest was taken on {manifest['graph_uri']}, not {graph_uri}")
@@ -1325,7 +1435,9 @@ async def confirm(
     async with driver.session() as session:
         tx = await session.begin_transaction()
         try:
-            refusal = _state_refusal(await read_record_states(tx), allowed={None, STATE_REVERTED})
+            refusal = _state_refusal(
+                await read_record_states(tx), allowed={None, MigrationState.REVERTED}
+            )
             if refusal:
                 raise RefusedError(refusal)
             unmatched = await compare_and_set(tx, list(manifest["rows"]), forward=True)
@@ -1335,7 +1447,7 @@ async def confirm(
                 tx,
                 _RECORD_APPLIED,
                 name=UTC_INSTANTS_MIGRATION,
-                applied=STATE_APPLIED,
+                applied=MigrationState.APPLIED.value,
                 hash=digest,
                 rows=len(manifest["rows"]),
                 counts=json.dumps(manifest["counts"], sort_keys=True),
@@ -1347,13 +1459,13 @@ async def confirm(
                 await tx.rollback()
 
 
-async def revert(driver: AsyncDriver, directory: Path) -> dict[str, Any]:
+async def revert(driver: AsyncDriver, directory: Path) -> Manifest:
     """Undo the applied manifest in one transaction and record it ``reverted``."""
     async with driver.session() as session:
         tx = await session.begin_transaction()
         try:
             records = await read_record_states(tx)
-            refusal = _state_refusal(records, allowed={STATE_APPLIED})
+            refusal = _state_refusal(records, allowed={MigrationState.APPLIED})
             if refusal:
                 raise RefusedError(refusal)
             digest = records[0].get("manifest_hash")
@@ -1369,8 +1481,8 @@ async def revert(driver: AsyncDriver, directory: Path) -> dict[str, Any]:
                 tx,
                 _RECORD_REVERTED,
                 name=UTC_INSTANTS_MIGRATION,
-                applied=STATE_APPLIED,
-                reverted=STATE_REVERTED,
+                applied=MigrationState.APPLIED.value,
+                reverted=MigrationState.REVERTED.value,
                 hash=digest,
             )
             if not done or done[0]["n"] != 1:
@@ -1413,7 +1525,7 @@ async def verify(driver: AsyncDriver, directory: Path) -> Verification:
         tx = await session.begin_transaction()
         try:
             records = await read_record_states(tx)
-            refusal = _state_refusal(records, allowed={STATE_APPLIED})
+            refusal = _state_refusal(records, allowed={MigrationState.APPLIED})
             if refusal:
                 raise RefusedError(refusal)
             digest = records[0].get("manifest_hash")
@@ -1425,7 +1537,7 @@ async def verify(driver: AsyncDriver, directory: Path) -> Verification:
             not_at_new = await rows_not_at(tx, list(manifest["rows"]), "new")
             pairs = list(manifest["pairs"])
             apart = together = 0
-            by_label: dict[str, list[dict[str, Any]]] = defaultdict(list)
+            by_label: dict[str, list[Pair]] = defaultdict(list)
             for pair in pairs:
                 by_label[pair["key"]["match_label"]].append(pair)
             for label, group in by_label.items():
@@ -1553,7 +1665,7 @@ async def main(argv: list[str] | None = None) -> int:
             tx = await session.begin_transaction()
             try:
                 refusal = _state_refusal(
-                    await read_record_states(tx), allowed={None, STATE_REVERTED}
+                    await read_record_states(tx), allowed={None, MigrationState.REVERTED}
                 )
                 if refusal:
                     print(f"REFUSED: {refusal}. Nothing written.")

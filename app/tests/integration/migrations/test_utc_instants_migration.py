@@ -40,8 +40,6 @@ from adapters.persistence.neo4j.backends.sharing_backend import SharingBackend
 from adapters.persistence.neo4j.backends.user_entry_backend import UserEntryBackend
 from adapters.persistence.neo4j.embeddings_backend import EmbeddingsBackend
 from adapters.persistence.neo4j.graph_driver import (
-    STATE_APPLIED,
-    STATE_REVERTED,
     UTC_INSTANTS_MIGRATION,
     GraphNotMigratedError,
     open_async_driver,
@@ -52,6 +50,7 @@ from core.events import PathStepEnrolled
 from core.events.handlers.path_step_enrollment_handler import handle_path_step_enrolled
 from core.models.entity import Entity
 from core.models.enums.entity_enums import EntityStatus, EntityType
+from core.models.enums.migration_enums import MigrationState
 from core.models.enums.neo_labels import NeoLabel
 from core.models.enums.notification_enums import NotificationType
 from core.models.goal.goal import Goal
@@ -477,7 +476,7 @@ async def test_census_confirm_verify_then_revert_move_only_the_laptop_clock_digi
         "MATCH (r:MigrationRecord {name: $name}) RETURN r.state AS state, r.manifest_hash AS hash",
         name=UTC_INSTANTS_MIGRATION,
     )
-    assert records == [{"state": STATE_APPLIED, "hash": digest}]
+    assert records == [{"state": MigrationState.APPLIED, "hash": digest}]
 
     verification = await migration.verify(graph, tmp_path)
     assert verification.ok, verification
@@ -494,7 +493,7 @@ async def test_census_confirm_verify_then_revert_move_only_the_laptop_clock_digi
         tx = await session.begin_transaction()
         try:
             refusal = migration._state_refusal(
-                await migration.read_record_states(tx), allowed={None, STATE_REVERTED}
+                await migration.read_record_states(tx), allowed={None, MigrationState.REVERTED}
             )
         finally:
             await tx.rollback()
@@ -537,7 +536,7 @@ async def test_census_confirm_verify_then_revert_move_only_the_laptop_clock_digi
         "MATCH (r:MigrationRecord {name: $name}) RETURN r.state AS state",
         name=UTC_INSTANTS_MIGRATION,
     )
-    assert records == [{"state": STATE_REVERTED}]
+    assert records == [{"state": MigrationState.REVERTED}]
     refused = Neo4jConnection(uri=uri, username="neo4j", password="unused")
     with pytest.raises(GraphNotMigratedError, match="'reverted'"):
         await refused.connect()

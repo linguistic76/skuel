@@ -20,6 +20,7 @@ from zoneinfo import ZoneInfo
 
 import pytest
 
+from core.models.enums.migration_enums import MigrationState
 from core.models.enums.neo_labels import NeoLabel
 from core.models.relationship_names import RelationshipName
 
@@ -417,11 +418,23 @@ def test_json_stamps_are_found_by_normalized_path() -> None:
 
 
 def test_the_records_state_refuses_the_wrong_run() -> None:
-    applied = [{"state": "applied", "manifest_hash": "h"}]
-    assert migration._state_refusal([], allowed={None, "reverted"}) is None
-    assert "applied" in migration._state_refusal(applied, allowed={None, "reverted"})
-    assert migration._state_refusal(applied, allowed={"applied"}) is None
-    assert "2 MigrationRecord" in migration._state_refusal(applied * 2, allowed={"applied"})
+    applied: Any = [{"state": "applied", "manifest_hash": "h", "stamped": None}]
+    before = {None, MigrationState.REVERTED}
+    assert migration._state_refusal([], allowed=before) is None
+    assert "'applied'" in migration._state_refusal(applied, allowed=before)
+    assert migration._state_refusal(applied, allowed={MigrationState.APPLIED}) is None
+    assert "2 MigrationRecord" in migration._state_refusal(
+        applied * 2, allowed={MigrationState.APPLIED}
+    )
+
+
+def test_a_record_in_a_state_the_vocabulary_does_not_name_is_refused() -> None:
+    """An unknown state is not "no record": a census it would otherwise allow refuses it."""
+    odd: Any = [{"state": "half-applied", "manifest_hash": None, "stamped": None}]
+    refusal = migration._state_refusal(odd, allowed={None, MigrationState.REVERTED})
+    assert refusal is not None and "unknown state 'half-applied'" in refusal
+    assert MigrationState.from_stored("half-applied") is None
+    assert MigrationState.from_stored("applied") is MigrationState.APPLIED
 
 
 # ---------------------------------------------------------------------------

@@ -32,6 +32,7 @@ from typing import TYPE_CHECKING, Any
 
 from neo4j import AsyncGraphDatabase
 
+from core.models.enums.migration_enums import MigrationState
 from core.models.enums.neo_labels import NeoLabel
 from core.utils.process_clock import process_clock_is_pinned
 
@@ -40,10 +41,6 @@ if TYPE_CHECKING:
 
 #: The name the UTC instants migration's record carries.
 UTC_INSTANTS_MIGRATION = "utc_instants_2026_10"
-
-#: The record's states: the manifest was applied, or applied and then undone.
-STATE_APPLIED = "applied"
-STATE_REVERTED = "reverted"
 
 #: Why an empty graph carries the record: it was stamped when first opened.
 STAMPED_EMPTY = "empty graph"
@@ -136,7 +133,10 @@ async def _read_or_stamp(tx: AsyncManagedTransaction) -> _RecordRead:
     if read.states or read.holds_data:
         return read
     stamp = await tx.run(
-        _STAMP_EMPTY, name=UTC_INSTANTS_MIGRATION, applied=STATE_APPLIED, stamped=STAMPED_EMPTY
+        _STAMP_EMPTY,
+        name=UTC_INSTANTS_MIGRATION,
+        applied=MigrationState.APPLIED.value,
+        stamped=STAMPED_EMPTY,
     )
     stamped = await stamp.single()
     return _RecordRead([str(stamped["state"])] if stamped else [], False, stamped=True)
@@ -159,7 +159,8 @@ async def require_utc_instants(driver: AsyncDriver) -> None:
         await ensure_record_name_is_unique(driver)
         async with driver.session() as session:
             read = await session.execute_write(_read_or_stamp)
-    if read.states == [STATE_APPLIED]:
+    states = [MigrationState.from_stored(state) for state in read.states]
+    if states == [MigrationState.APPLIED]:
         return
     remedy = (
         "The graph holds instants on the laptop's old clock, which this code reads as UTC. "
@@ -178,5 +179,5 @@ async def require_utc_instants(driver: AsyncDriver) -> None:
         )
     raise GraphNotMigratedError(
         f"Refusing a graph whose {_RECORD} {UTC_INSTANTS_MIGRATION!r} is in state "
-        f"{read.states[0]!r}, not {STATE_APPLIED!r}. {remedy}"
+        f"{read.states[0]!r}, not {MigrationState.APPLIED.value!r}. {remedy}"
     )

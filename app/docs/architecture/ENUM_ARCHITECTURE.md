@@ -1,5 +1,5 @@
 ---
-updated: 2026-09-25
+updated: 2026-09-28
 ---
 
 # Enum Architecture
@@ -29,6 +29,7 @@ Every enum lives in exactly one file. The `__init__.py` re-exports all public en
 | `user_entry_enums.py` | User entry (submissions/journal) processing and report periods | SubmissionModality, ExerciseScope, EnrichmentMode, ProgressDepth, ReportPeriodKind |
 | `curriculum_enums.py` | Learning path and step types | LpType, StepDifficulty |
 | `lifepath_enums.py` | Vision theme classification | ThemeCategory |
+| `migration_enums.py` | The state a whole-corpus data migration records on the graph (`:MigrationRecord`, ADR-089) | MigrationState |
 | `scheduling_enums.py` | Time, recurrence, energy | RecurrencePattern, TimeOfDay, EnergyLevel |
 | `learning_enums.py` | Education, knowledge, mastery, assessment, feedback | MasteryImpact, AssessmentOutcome, FeedbackCategory, LearningLevel, EducationalLevel, MasteryStatus, ContentType, SELCategory |
 | `metadata_enums.py` | Relationships, search, system config | RelationshipType (59 values), Intent, Visibility, SystemConstants |
@@ -36,7 +37,7 @@ Every enum lives in exactly one file. The `__init__.py` re-exports all public en
 | `transcription_enums.py` | Transcription processing | TranscriptionStatus |
 | `interaction_enums.py` | Learning-loop interaction records | InteractionType, InteractionResult |
 | `relationship_enums.py` | Knowledge-relationship qualifiers | ProficiencyLevel, KnowledgeRelevance |
-| `neo_labels.py` | Neo4j node labels | NeoLabel (62 labels) |
+| `neo_labels.py` | Neo4j node labels | NeoLabel (61 labels) |
 
 **Import convention:**
 ```python

@@ -875,7 +875,10 @@ embedding check has run; the ledger PR records PR 4 as merged and deployed.
   itself), and `require_utc_instants` — a graph holding data is refused unless its
   `(:MigrationRecord {name: 'utc_instants_2026_10'})` is `applied`, and an empty one is stamped —
   after the record's name is made unique (`MigrationRecord_name_unique`), so separate processes
-  opening one empty graph at once write one record; `--confirm` ensures the constraint too.
+  opening one empty graph at once write one record; `--confirm` ensures the constraint too. The
+  record's states are `MigrationState` (`core/models/enums/migration_enums.py`); a state it does
+  not name is refused, never read as "no record". The script's manifest is typed end to end
+  (`Manifest`, `ManifestRow`, `NodeKey` / `RelKey`, `Pair`).
   `get_connection()` is async too. The migration script opens with `utc_instants_guard=False`.
   `clean_neo4j`, `test_yaml_roundtrip`'s clear and `scripts/clear_neo4j.py` keep the record.
   PR 9 keeps the guard and removes the pin (R8).

@@ -25,13 +25,12 @@ import pytest_asyncio
 
 from adapters.persistence.neo4j.graph_driver import (
     STAMPED_EMPTY,
-    STATE_APPLIED,
-    STATE_REVERTED,
     UTC_INSTANTS_MIGRATION,
     GraphNotMigratedError,
     open_async_driver,
 )
 from adapters.persistence.neo4j.neo4j_connection import Neo4jConnection
+from core.models.enums.migration_enums import MigrationState
 
 pytestmark = [
     pytest.mark.asyncio(loop_scope="session"),
@@ -79,7 +78,7 @@ async def test_an_empty_graph_is_stamped_and_opens_again_after_a_restart(
     first = await _open(guard_container)
     await first.close()
     assert await _records(raw) == [
-        {"name": UTC_INSTANTS_MIGRATION, "state": STATE_APPLIED, "stamped": STAMPED_EMPTY}
+        {"name": UTC_INSTANTS_MIGRATION, "state": MigrationState.APPLIED, "stamped": STAMPED_EMPTY}
     ]
 
     # The app writes, stops, and starts again: the graph holds data now, and
@@ -123,7 +122,7 @@ async def test_a_reverted_graph_is_refused(raw: Any, guard_container: Any) -> No
         "CREATE (:Entity:Task {uid: 'task.reverted'}) "
         "CREATE (:MigrationRecord {name: $name, state: $state})",
         name=UTC_INSTANTS_MIGRATION,
-        state=STATE_REVERTED,
+        state=MigrationState.REVERTED,
     )
     with pytest.raises(GraphNotMigratedError, match="'reverted'"):
         await _open(guard_container)
@@ -136,7 +135,7 @@ async def test_a_graph_recorded_twice_is_refused(raw: Any, guard_container: Any)
         "CREATE (:MigrationRecord {name: $name, state: $state}) "
         "CREATE (:MigrationRecord {name: $name, state: $state})",
         name=UTC_INSTANTS_MIGRATION,
-        state=STATE_APPLIED,
+        state=MigrationState.APPLIED,
     )
     with pytest.raises(GraphNotMigratedError, match="2 MigrationRecord"):
         await _open(guard_container)
@@ -149,7 +148,7 @@ async def test_an_applied_record_opens_a_graph_that_holds_data(
         "CREATE (:Entity:Task {uid: 'task.migrated'}) "
         "CREATE (:MigrationRecord {name: $name, state: $state})",
         name=UTC_INSTANTS_MIGRATION,
-        state=STATE_APPLIED,
+        state=MigrationState.APPLIED,
     )
     connection = await _open(guard_container)
     await connection.close()
@@ -171,4 +170,4 @@ async def test_clean_neo4j_keeps_the_record(clean_neo4j: None, neo4j_driver: Any
         "MATCH (r:MigrationRecord {name: $name}) RETURN r.state AS state",
         name=UTC_INSTANTS_MIGRATION,
     )
-    assert [record["state"] for record in result.records] == [STATE_APPLIED]
+    assert [record["state"] for record in result.records] == [MigrationState.APPLIED]
