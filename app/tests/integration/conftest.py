@@ -102,6 +102,25 @@ async def neo4j_driver(neo4j_uri):
     await driver.close()
 
 
+@pytest.fixture
+def connection_settings() -> Generator[None]:
+    """Settings a ``Neo4jConnection`` can be built against, for a test that opens one.
+
+    ``Neo4jConnection`` reads ``get_settings()`` for its driver config, and the
+    settings validate a Neo4j password even when the connection is handed its own.
+    A developer's credential store has one; CI's environment has none, so the
+    container's is put in the environment (the ``skuel_app`` fixture's way), and
+    the cached settings are rebuilt on the way in and out.
+    """
+    from core.config.settings import reload_config
+
+    with pytest.MonkeyPatch.context() as env:
+        env.setenv("NEO4J_PASSWORD", "testpassword")
+        reload_config()
+        yield
+    reload_config()
+
+
 @pytest.fixture(scope="module")
 def scratch_neo4j_container():
     """A graph of its own for one module, for tests that empty or read the WHOLE graph.

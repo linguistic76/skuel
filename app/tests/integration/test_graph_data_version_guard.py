@@ -33,7 +33,11 @@ from adapters.persistence.neo4j.graph_driver import (
 )
 from adapters.persistence.neo4j.neo4j_connection import Neo4jConnection
 
-pytestmark = [pytest.mark.asyncio(loop_scope="session"), pytest.mark.integration]
+pytestmark = [
+    pytest.mark.asyncio(loop_scope="session"),
+    pytest.mark.integration,
+    pytest.mark.usefixtures("connection_settings"),
+]
 
 
 @pytest.fixture(scope="module")

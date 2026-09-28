@@ -39,7 +39,14 @@ async def test_a_report_written_by_a_vancouver_started_process_is_in_cooldown(
 ) -> None:
     await neo4j_driver.execute_query("MERGE (:User {uid: $uid})", uid=USER)
     try:
-        env = {**os.environ, "TZ": "America/Vancouver", "PYTHONPATH": str(APP)}
+        # The probe's own process: started on the laptop's clock, with the container's
+        # password in its environment (CI's carries none for the settings to validate).
+        env = {
+            **os.environ,
+            "TZ": "America/Vancouver",
+            "PYTHONPATH": str(APP),
+            "NEO4J_PASSWORD": "testpassword",
+        }
         run = await asyncio.to_thread(
             subprocess.run,
             [sys.executable, str(PROBE), neo4j_uri, USER],

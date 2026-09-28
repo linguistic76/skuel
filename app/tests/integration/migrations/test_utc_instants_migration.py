@@ -77,7 +77,11 @@ migration = importlib.util.module_from_spec(_spec)
 sys.modules[_spec.name] = migration
 _spec.loader.exec_module(migration)
 
-pytestmark = [pytest.mark.asyncio(loop_scope="session"), pytest.mark.integration]
+pytestmark = [
+    pytest.mark.asyncio(loop_scope="session"),
+    pytest.mark.integration,
+    pytest.mark.usefixtures("connection_settings"),
+]
 
 TEACHER = "user_utcmig_teacher"
 STUDENT = "user_utcmig_student"
@@ -124,9 +128,7 @@ class _NoAdmin:
 
     async def get_admin_uid(
         self,
-    ) -> Result[
-        list[dict[str, str]]
-    ]:
+    ) -> Result[list[dict[str, str]]]:
         return Result.ok([{"admin_uid": ADMIN}])
 
 
