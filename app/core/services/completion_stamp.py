@@ -75,7 +75,7 @@ from typing import Any
 from core.models.enums.entity_enums import EntityStatus, EntityType
 from core.models.update_contracts import StatusWriteGuard
 from core.utils.result_simplified import ErrorContext, Errors, Result
-from core.utils.timestamp_helpers import as_host_clock, local_day_bounds, today_in
+from core.utils.timestamp_helpers import as_stored_clock, local_day_bounds, today_in
 
 __all__ = [
     "COMPLETION_FIELDS",
@@ -127,7 +127,7 @@ def completion_moment(stamp: date | datetime | None, zone: tzinfo) -> datetime:
     (``completion_date`` / ``achieved_date``) while ``BaseEvent.occurred_at`` is a
     ``datetime``, so the widening has to be explicit — ``datetime`` is checked first
     because it is a subclass of ``date``. A date widens to the first instant of that
-    day in ``zone`` — the user's, whose day it is — read on the host clock, the
+    day in ``zone`` — the user's, whose day it is — read on the stored clock, the
     naive form ``occurred_at`` takes.
 
     An absent stamp falls back to now, which is exactly what ``BaseEvent`` would have
@@ -137,7 +137,7 @@ def completion_moment(stamp: date | datetime | None, zone: tzinfo) -> datetime:
         return stamp
     if isinstance(stamp, date):
         day_start, _ = local_day_bounds(stamp, zone)
-        return as_host_clock(day_start)
+        return as_stored_clock(day_start)
     return datetime.now()
 
 

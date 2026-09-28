@@ -7,9 +7,12 @@ Eliminates duplication of timestamp operations across services.
 
 DRY Principle:
 - Timezone-aware "now" helpers
-- Instants as aware UTC (as_utc) for comparison and arithmetic, and as a
-  naive reading of the host clock (as_host_clock) for comparison with the
-  naive stamps it writes
+- The stored clock (STORED_INSTANT_CLOCK): how an offset-less stored stamp is
+  read. Instants as aware UTC (as_utc) for comparison and arithmetic, and as a
+  naive reading of the stored clock (as_stored_clock) for comparison with the
+  naive stamps the writers store
+- Display of a stored instant (shown_in, age_of), whatever shape it arrives
+  in (parse_stamp)
 - Zone helpers, each taking the zone: now_in, wall_clock_in, today_in, day_of
   (an instant's day), local_day_bounds (a day's UTC bounds). Whose zone it is —
   the user's choice or the app default — is core/utils/zone_context.py, which
@@ -61,37 +64,88 @@ def now_local() -> datetime:
     return datetime.now()
 
 
+# =============================================================================
+# THE STORED CLOCK — what an offset-less stored stamp's digits mean
+# =============================================================================
+
+#: The zone an offset-less stored stamp is read in. ``None`` is the host's local
+#: zone — the clock every naive writer stamps with, and so the zone the stored
+#: corpus's offset-less digits are in; it becomes ``UTC`` when the corpus is
+#: migrated to UTC and the process clock is pinned to it (ADR-089; the cutover
+#: row of /docs/roadmap/utc-instants-arc.md). Every reading of a stored stamp
+#: goes through the helpers below, so that one assignment moves them all.
+STORED_INSTANT_CLOCK: tzinfo | None = None
+
+
 def as_utc(value: datetime) -> datetime:
     """An instant as an aware UTC datetime — the one form two instants are compared in.
 
-    An aware value is converted to UTC. A naive value is read in the process's
-    local zone, the zone of the host clock that stamps naive values: the laptop's
-    zone on the laptop, UTC in CI and in the cloud. So a naive stamp and an aware
-    one subtract and compare without a ``TypeError``, and a naive value is never
-    read in a hard-coded zone.
+    An aware value is converted to UTC. A naive value is read in
+    ``STORED_INSTANT_CLOCK`` — while that is the host's zone (``None``), the
+    process's local zone: the laptop's zone on the laptop, UTC in CI and in the
+    cloud. So a naive stamp and an aware one subtract and compare without a
+    ``TypeError``, and a naive value is never read in a hard-coded zone.
 
     Example:
         age = now_utc() - as_utc(goal.created_at)
 
     See: /docs/roadmap/utc-instants-arc.md (the arc that routes every instant here)
     """
+    if value.tzinfo is None and STORED_INSTANT_CLOCK is not None:
+        return value.replace(tzinfo=STORED_INSTANT_CLOCK).astimezone(UTC)
     return value.astimezone(UTC)
 
 
-def as_host_clock(value: datetime) -> datetime:
-    """An instant as a naive reading of the host clock — the form a naive stamp takes.
+def as_stored_clock(value: datetime) -> datetime:
+    """An instant as a naive reading of the stored clock — the form a naive stamp takes.
 
-    The inverse of :func:`as_utc` for a naive value: the host clock stamps naive
-    values (a default factory, ``datetime.now()``) and :func:`as_utc` reads them
-    back in the process's local zone, so ``as_utc(as_host_clock(x)) == as_utc(x)``.
-    A calendar day widened to a moment — a period's bounds, a date-only
-    completion — is compared with those naive values in this form.
+    The inverse of :func:`as_utc` for a naive value: the writers store naive
+    values on the stored clock (a default factory, ``datetime.now()``) and
+    :func:`as_utc` reads them back in ``STORED_INSTANT_CLOCK``, so
+    ``as_utc(as_stored_clock(x)) == as_utc(x)``. A calendar day widened to a
+    moment — a period's bounds, a date-only completion — is compared with those
+    naive values in this form.
 
     Example:
         start, _ = local_day_bounds(day, zone)
-        completed_at = as_host_clock(start)  # the day's first instant, stored naive
+        completed_at = as_stored_clock(start)  # the day's first instant, stored naive
     """
-    return as_utc(value).astimezone().replace(tzinfo=None)
+    return as_utc(value).astimezone(STORED_INSTANT_CLOCK).replace(tzinfo=None)
+
+
+def shown_in(instant: datetime, zone: tzinfo) -> datetime:
+    """How a stored instant is shown in ``zone`` — a naive wall clock, for display.
+
+    A naive stamp is read in the stored clock (:func:`as_utc`) and shown on
+    ``zone``'s clock. An aware stamp is shown on ``zone``'s clock too — except
+    while the stored clock is the host's (``None``), when it is shown as stored,
+    its own digits: until the corpus is migrated, some stored natives carry the
+    host's wall clock labelled UTC, and nothing short of the migration tells
+    them from true UTC ones. On the laptop, for a user on the default zone, both
+    readings give the digits as stored.
+
+    Example:
+        shown_in(entry.created_at, current_zone()).strftime("%b %d, %H:%M")
+    """
+    if instant.tzinfo is not None and STORED_INSTANT_CLOCK is None:
+        return instant.replace(tzinfo=None)
+    return as_utc(instant).astimezone(zone).replace(tzinfo=None)
+
+
+def age_of(instant: datetime) -> timedelta | None:
+    """How long ago a stored instant was — ``None`` when it is not to be told.
+
+    While the stored clock is the host's (``None``), a naive stamp's age is not
+    told, and a relative label ("3h ago") shows the stamp by its date instead.
+    Once the stored clock is UTC, every stamp has an age.
+
+    Example:
+        age = age_of(shared_at)
+        label = "just now" if age is not None and age < timedelta(minutes=1) else ...
+    """
+    if instant.tzinfo is None and STORED_INSTANT_CLOCK is None:
+        return None
+    return now_utc() - as_utc(instant)
 
 
 # =============================================================================
@@ -185,6 +239,35 @@ def parse_iso_utc(value: str | None) -> datetime | None:
     if parsed.tzinfo is None:
         parsed = parsed.replace(tzinfo=UTC)
     return parsed
+
+
+def parse_stamp(value: object) -> datetime | date | None:
+    """A stored timestamp in whatever shape it arrives — or None when absent or unreadable.
+
+    Accepts a native ``datetime`` or ``date``, a Neo4j temporal (``to_native()``),
+    or an ISO string. A date-only string is a calendar day and parses to a
+    ``date``, never to its midnight: a day is never read as an instant.
+
+    Example:
+        stamp = parse_stamp(row["created_at"])
+        if isinstance(stamp, datetime):
+            label = shown_in(stamp, current_zone()).strftime("%b %d")
+    """
+    if value is None or value == "":
+        return None
+    to_native = getattr(value, "to_native", None)
+    try:
+        if callable(to_native):
+            native = to_native()
+            return native if isinstance(native, date) else None
+        if isinstance(value, date):
+            return value
+        text = str(value)
+        if len(text) == len("YYYY-MM-DD"):
+            return date.fromisoformat(text)
+        return datetime.fromisoformat(text)
+    except (ValueError, TypeError):  # fmt: skip
+        return None
 
 
 def parse_date_value(value: Any) -> date | None:

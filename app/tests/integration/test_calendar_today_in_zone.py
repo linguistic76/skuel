@@ -52,7 +52,7 @@ from core.services.lifepath.lifepath_core_service import LifePathCoreService
 from core.services.tasks.tasks_core_service import TasksCoreService
 from core.services.user_service import UserService
 from core.utils import timestamp_helpers
-from core.utils.timestamp_helpers import as_host_clock, today_in
+from core.utils.timestamp_helpers import as_stored_clock, today_in
 from core.utils.zone_context import current_zone, zone_scope
 from tests.helpers.forced_zone import forced_zone
 
@@ -232,7 +232,7 @@ class TestADefaultUserInTheVancouverEvening:
             )
             assert created.is_ok, created
 
-        # Completions at 09:00 in Vancouver (16:00Z), stamped as the host clock
+        # Completions at 09:00 in Vancouver (16:00Z), stamped on the stored clock
         # stamps them: the done habit yesterday and today (a two-day streak), the
         # lapsed one yesterday only (a one-day streak, not yet done today).
         today = utc_day - timedelta(days=1)
@@ -240,7 +240,7 @@ class TestADefaultUserInTheVancouverEvening:
         for habit_uid, days in ((done, (yesterday, today)), (lapsed, (yesterday,))):
             for day in days:
                 recorded = await completions.record_completion(
-                    habit_uid, uid, completed_at=as_host_clock(_at(day, 16))
+                    habit_uid, uid, completed_at=as_stored_clock(_at(day, 16))
                 )
                 assert recorded.is_ok, recorded
         rows = await _raw(

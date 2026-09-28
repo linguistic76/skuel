@@ -1,0 +1,36 @@
+<div>
+  <div id="gradebook-exchange">
+    <div class="flex flex-wrap items-center gap-3 mb-4">
+      <div class="flex gap-2 flex-wrap">
+<button hx-get="/gradebook/lines?status=all&amp;source=all" hx-swap="outerHTML" hx-target="#gradebook-exchange" class="px-3 py-1 min-h-[36px] text-sm rounded-full border transition-colors bg-primary text-primary-foreground border-primary">All</button><button hx-get="/gradebook/lines?status=waiting&amp;source=all" hx-swap="outerHTML" hx-target="#gradebook-exchange" class="px-3 py-1 min-h-[36px] text-sm rounded-full border transition-colors bg-background text-foreground border-border hover:border-primary/50">Waiting</button><button hx-get="/gradebook/lines?status=feedback_received&amp;source=all" hx-swap="outerHTML" hx-target="#gradebook-exchange" class="px-3 py-1 min-h-[36px] text-sm rounded-full border transition-colors bg-background text-foreground border-border hover:border-primary/50">Feedback received</button><button hx-get="/gradebook/lines?status=revision_requested&amp;source=all" hx-swap="outerHTML" hx-target="#gradebook-exchange" class="px-3 py-1 min-h-[36px] text-sm rounded-full border transition-colors bg-background text-foreground border-border hover:border-primary/50">Revision requested</button>      </div>
+<form enctype="multipart/form-data" hx-get="/gradebook/lines" hx-swap="outerHTML" hx-trigger="change" hx-target="#gradebook-exchange" class="flex items-center gap-2 ml-auto"><span class="text-sm text-muted-foreground">Source</span>        <input type="hidden" name="status" value="all">
+<select name="source" class="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 min-h-[44px]"><option value="all" selected>All</option><option value="human">Teacher</option><option value="llm">AI</option></select></form>    </div>
+    <div>
+      <div>
+<a href="/exchange?exercise=exercise.golden_essay" class="block no-underline text-foreground mb-2">          <div class="flex items-center gap-3 p-3 border border-border rounded-lg bg-background hover:border-primary/50 transition-colors">
+            <div class="flex-1 min-w-0">
+              <p class="font-semibold mb-0 text-sm">A personal essay</p>
+              <p class="text-xs text-muted-foreground mb-0">21 Sep 2026 · from Teacher · 1 submission · 1 report</p>
+            </div>
+<span class="inline-flex items-center rounded-full border font-medium  text-xs px-2 py-0.5 bg-emerald-100 text-emerald-800">Feedback received</span>          </div>
+</a>      </div>
+    </div>
+  </div>
+  <div class="mt-8">
+    <h2 class="text-lg font-semibold mb-1">Activity reports</h2>
+    <p class="text-sm text-muted-foreground mb-3">Holistic reports across your activity patterns.</p>
+    <div id="activity-feedback-list">
+<a href="/activity-reports/detail?uid={activity_report}" class="block no-underline text-foreground">        <div class="rounded-lg border bg-card text-card-foreground shadow-xs bg-background border border-border mb-2 hover:border-primary/50 transition-colors">
+          <div class="p-6 pt-0 p-3">
+            <div class="flex items-start justify-between gap-2">
+              <div>
+                <p class="font-semibold mb-0 text-sm">Activity Report — Sep 01 to Sep 27, 2026 (partial)</p>
+                <p class="text-xs text-muted-foreground mb-1">27 Sep 2026 · 2026-09</p>
+              </div>
+<span class="inline-flex items-center rounded-full border font-medium bg-primary/10 text-primary border-primary/20 text-xs px-2 py-0.5">Teacher</span>            </div>
+            <p class="text-xs text-muted-foreground mt-1">A steady month: four entries, one revision.</p>
+          </div>
+        </div>
+</a>    </div>
+  </div>
+</div>

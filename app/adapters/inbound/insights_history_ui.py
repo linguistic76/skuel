@@ -19,6 +19,7 @@ from ui.layout import Size
 from ui.layouts.base_page import BasePage
 from ui.layouts.page_types import PageType
 from ui.patterns.empty_state import EmptyState
+from ui.patterns.format_date import format_date
 from ui.patterns.page_header import PageHeader
 from ui.patterns.personal_header import personal_header_placeholder
 from ui.patterns.stats_grid import StatItem, StatsGrid
@@ -127,7 +128,7 @@ def create_insights_history_routes(
                             variant=BadgeT.ghost if insight.dismissed else BadgeT.success,
                         ),
                         Span(
-                            f" on {action_date.strftime('%b %d, %Y at %I:%M %p')}"
+                            f" on {format_date(action_date, '%b %d, %Y at %I:%M %p')}"
                             if action_date
                             else "",
                             cls="text-xs text-muted-foreground ml-2",

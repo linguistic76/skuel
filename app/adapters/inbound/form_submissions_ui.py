@@ -25,6 +25,7 @@ from ui.layouts.base_page import BasePage
 from ui.layouts.page_types import PageType
 from ui.patterns.empty_state import EmptyState
 from ui.patterns.error_banner import render_error_banner, render_slot_error
+from ui.patterns.format_date import format_date
 from ui.patterns.loading import content_loading_placeholder
 from ui.patterns.page_header import PageHeader
 from ui.primitives import ButtonLink
@@ -87,7 +88,7 @@ def create_form_submissions_ui_routes(
                                 cls="flex items-center",
                             ),
                             Span(
-                                str(created)[:10] if created else "",
+                                format_date(created, "%Y-%m-%d"),
                                 cls="text-xs text-muted-foreground",
                             ),
                             cls="flex justify-between items-center py-3 px-4 hover:bg-muted rounded-lg",
@@ -163,7 +164,7 @@ def create_form_submissions_ui_routes(
         return Div(
             PageHeader(
                 submission.title or "Form Submission",
-                subtitle=f"Submitted: {str(submission.created_at)[:19]}",
+                subtitle=f"Submitted: {format_date(submission.created_at, '%Y-%m-%d %H:%M:%S')}",
             ),
             Div(*data_rows) if data_rows else EmptyState(title="No form data"),
             delete_btn,

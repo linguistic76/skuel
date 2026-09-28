@@ -33,6 +33,7 @@ from ui.activities._shared import (
 from ui.components import Icon
 from ui.dual_track_card import DualTrackSection
 from ui.feedback import Badge, BadgeT, PriorityBadge, Progress, ProgressT, StatusBadge
+from ui.patterns.format_date import format_date
 from ui.patterns.page_header import PageHeader
 from ui.patterns.relationships.relationship_section import EntityRelationshipsSection
 from ui.patterns.stats_grid import StatItem, StatsGrid
@@ -263,7 +264,7 @@ def GoalDetailView(
             value_str += f" {goal.unit_of_measurement}"
         meta_items.append(MetadataField("Progress", Span(value_str)))
     if goal.created_at:
-        meta_items.append(MetadataField("Created", Span(str(goal.created_at)[:10])))
+        meta_items.append(MetadataField("Created", Span(format_date(goal.created_at, "%Y-%m-%d"))))
 
     meta_grid = Div()
     if meta_items:

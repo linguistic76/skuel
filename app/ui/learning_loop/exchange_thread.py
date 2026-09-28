@@ -39,6 +39,7 @@ from ui.feedback import Badge, BadgeT
 from ui.gradebook.summary import EXERCISE_REMOVED_LABEL
 from ui.layout import Size
 from ui.patterns.empty_state import EmptyState
+from ui.patterns.format_date import format_date
 from ui.patterns.page_header import PageHeader
 
 _EPOCH = datetime.min.replace(tzinfo=UTC)
@@ -54,10 +55,9 @@ def _sort_key(created_at: str | None) -> datetime:
 
 def _when(created_at: str | None) -> str:
     """Human timestamp for an item header ('' when absent/unparseable)."""
-    key = _sort_key(created_at)
-    if key == _EPOCH:
+    if _sort_key(created_at) == _EPOCH:
         return ""
-    return key.strftime("%b %d, %H:%M")
+    return format_date(created_at, "%b %d, %H:%M")
 
 
 def _item_card(

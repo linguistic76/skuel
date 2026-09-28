@@ -53,6 +53,8 @@ from typing import Any, get_args, get_origin
 from fasthtml.common import H3, A, Div, Li, P, Span, Ul
 
 from core.utils.logging import get_logger
+from core.utils.timestamp_helpers import shown_in
+from core.utils.zone_context import current_zone
 from ui.components import Card, CardBody
 from ui.feedback import Badge, BadgeT
 from ui.forms import Label
@@ -184,7 +186,7 @@ class FieldRendererMapper:
     @staticmethod
     def _render_datetime(value: datetime) -> Span:
         """Render datetime with time"""
-        formatted = value.strftime("%B %d, %Y at %I:%M %p")
+        formatted = shown_in(value, current_zone()).strftime("%B %d, %Y at %I:%M %p")
         return Span(formatted, cls="text-foreground/80")
 
     @staticmethod

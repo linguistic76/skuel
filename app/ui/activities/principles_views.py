@@ -37,6 +37,7 @@ from ui.dual_track_card import DualTrackSection
 from ui.feedback import Badge, BadgeT, StatusBadge
 from ui.layout import Container, DivHStacked
 from ui.palette import StrengthColor
+from ui.patterns.format_date import format_date
 from ui.patterns.page_header import PageHeader
 from ui.patterns.relationships.relationship_section import EntityRelationshipsSection
 from ui.patterns.stats_grid import StatItem, StatsGrid
@@ -377,7 +378,9 @@ def PrincipleDetailView(
             MetadataField("Source", Span(str(principle.principle_source.value).title()))
         )
     if principle.created_at:
-        meta_items.append(MetadataField("Created", Span(str(principle.created_at)[:10])))
+        meta_items.append(
+            MetadataField("Created", Span(format_date(principle.created_at, "%Y-%m-%d")))
+        )
     meta_grid = Div()
     if meta_items:
         meta_grid = Div(

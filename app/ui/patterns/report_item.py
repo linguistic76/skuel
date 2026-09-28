@@ -12,6 +12,7 @@ from fasthtml.common import A, Div, P, Span
 from core.models.enums.entity_enums import EntityType
 from core.models.enums.pipeline import ReportSource
 from core.models.report.entry_report import EntryReport
+from ui.patterns.format_date import format_date
 
 
 def render_report_item(report: EntryReport) -> Div:
@@ -20,7 +21,7 @@ def render_report_item(report: EntryReport) -> Div:
     content = report.processed_content or ""
     title = report.title or ""
 
-    time_display = report.created_at.strftime("%b %d, %H:%M") if report.created_at else ""
+    time_display = format_date(report.created_at, "%b %d, %H:%M")
 
     is_revision = "revision" in title.lower() if title else False
     is_ai = report.processor_type == ReportSource.LLM

@@ -1,6 +1,6 @@
 ---
 title: Async/Sync Design Pattern
-updated: 2026-09-27
+updated: 2026-09-28
 category: patterns
 related_skills:
 - python
@@ -179,22 +179,16 @@ Most utilities are pure functions:
 ```python
 # core/utils/timestamp_helpers.py
 
-def format_datetime(dt: datetime) -> str:
-    """NO I/O - Pure string formatting"""
-    return dt.strftime("%Y-%m-%d %H:%M:%S")
+def week_bounds(d: date) -> tuple[date, date]:
+    """NO I/O - pure calendar arithmetic (Monday-Sunday)"""
+    monday = d - timedelta(days=d.weekday())
+    return monday, monday + timedelta(days=6)
 
-def parse_date(date_str: str) -> date | None:
-    """NO I/O - Pure parsing"""
-    try:
-        return datetime.strptime(date_str, "%Y-%m-%d").date()
-    except ValueError:
-        return None
+def day_of(instant: datetime, zone: tzinfo) -> date:
+    """NO I/O - the calendar day an instant falls on in a zone"""
+    return as_utc(instant).astimezone(zone).date()
 
-# core/utils/uid_generator.py
-
-def generate_uid(prefix: str) -> str:
-    """NO I/O - Pure string generation"""
-    return f"{prefix}:{uuid4().hex[:12]}"
+# core/utils/uid_generator.py — UIDGenerator.generate_uid("task") -> "task_a1b2c3d4"
 ```
 
 ## Decision Criteria

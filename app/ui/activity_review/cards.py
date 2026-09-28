@@ -7,6 +7,7 @@ from fasthtml.common import H4, Div, P, Span
 from ui.components import ButtonT, Card
 from ui.feedback import Badge, BadgeT
 from ui.layout import Size
+from ui.patterns.format_date import format_date
 from ui.primitives import ButtonLink
 
 
@@ -18,15 +19,7 @@ def render_queue_item(item: dict[str, Any]) -> Any:
     message = item.get("message") or ""
     created_at = item.get("created_at", "")
 
-    date_str = ""
-    if created_at:
-        try:
-            from datetime import datetime
-
-            dt = datetime.fromisoformat(str(created_at))
-            date_str = dt.strftime("%d %b %Y")
-        except (ValueError, TypeError):  # fmt: skip
-            date_str = str(created_at)[:10]
+    date_str = format_date(created_at)
 
     domain_badges = [Badge(d, variant=BadgeT.ghost, size=Size.xs) for d in (domains or [])]
 

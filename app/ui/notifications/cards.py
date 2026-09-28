@@ -20,6 +20,7 @@ from ui.feedback import Badge, BadgeT
 from ui.layout import Size
 from ui.patterns.empty_state import EmptyState
 from ui.patterns.entity_links import entity_detail_href
+from ui.patterns.format_date import format_date
 from ui.primitives import ButtonLink
 
 if TYPE_CHECKING:
@@ -66,7 +67,7 @@ def render_notification_card(notif: Notification) -> Div:
     read_cls = "opacity-60" if is_read else ""
     bg_cls = "bg-background" if is_read else "bg-background border-l-4 border-primary"
 
-    time_display = notif.created_at.strftime("%b %d, %H:%M")
+    time_display = format_date(notif.created_at, "%b %d, %H:%M")
 
     link_href = notification_href(notif)
     view_link = (

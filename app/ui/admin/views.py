@@ -32,6 +32,7 @@ from ui.forms import Select
 from ui.layout import Size
 from ui.patterns.empty_state import EmptyState
 from ui.patterns.error_banner import render_error_banner
+from ui.patterns.format_date import format_date
 from ui.patterns.stats_grid import StatItem, StatsGrid
 from ui.primitives import ButtonLink
 
@@ -289,8 +290,8 @@ class AdminUIComponents:
             username = user.get("username", "Unknown")
             display_name = user.get("display_name") or username
             last_login = user.get("last_login_at", "Never")
-            if last_login and last_login != "Never" and "T" in str(last_login):
-                last_login = str(last_login).split("T")[0]
+            if last_login and last_login != "Never":
+                last_login = format_date(last_login, "%Y-%m-%d")
 
             body_data.append(
                 {
@@ -452,7 +453,7 @@ class AdminUIComponents:
             report_type = report.entity_type.value if report.entity_type else "unknown"
             status = report.status.value if report.status else "unknown"
             title = report.title or getattr(report, "original_filename", None) or report.uid
-            created = report.created_at.strftime("%Y-%m-%d") if report.created_at else "Unknown"
+            created = format_date(report.created_at, "%Y-%m-%d", empty="Unknown")
 
             body_data.append(
                 {
@@ -634,7 +635,7 @@ class AdminAnalyticsComponents:
                     "Zero Results": gap.get("zero_count", 0),
                     "Avg Results": f"{float(gap.get('avg_results', 0.0)):.1f}",
                     # last_seen is toString(datetime) — the date part is enough here
-                    "Last Seen": str(gap.get("last_seen", ""))[:10],
+                    "Last Seen": format_date(gap.get("last_seen"), "%Y-%m-%d"),
                     "Entry Points": ", ".join(gap.get("entry_points", [])),
                 }
             )
@@ -809,9 +810,7 @@ def _ku_state_section(title: str, badge_variant: BadgeT, kus: list[dict], date_f
     items = []
     for ku in kus:
         ku_title = ku.get("title") or ku.get("uid") or "Untitled"
-        date_val = ku.get(date_field, "")
-        if date_val and "T" in str(date_val):
-            date_val = str(date_val).split("T")[0]
+        date_val = format_date(ku.get(date_field), "%Y-%m-%d")
 
         extra_info = []
         view_count = ku.get("view_count")
@@ -1061,7 +1060,7 @@ class AdminLearningComponents:
             status = sub.get("status") or "unknown"
             title = sub.get("title") or sub.get("submission_uid") or "Untitled"
             exercise_title = sub.get("exercise_title") or "—"
-            submitted_at = (sub.get("submitted_at") or "")[:10] or "Unknown"
+            submitted_at = format_date(sub.get("submitted_at"), "%Y-%m-%d", empty="Unknown")
             report_count = sub.get("report_count", 0)
 
             body_data.append(

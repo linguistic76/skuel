@@ -20,6 +20,7 @@ from ui.admin.views import (
 from ui.components import Button, ButtonT, Card, CardBody, CardHeader, CardTitle
 from ui.journals.components import render_batch_transcription_panel
 from ui.patterns.error_banner import render_error_banner
+from ui.patterns.format_date import format_date
 from ui.patterns.page_header import PageHeader
 from ui.patterns.section_header import SectionHeader
 from ui.patterns.stats_grid import StatItem, StatsGrid
@@ -195,8 +196,13 @@ def user_detail_page(
                     _detail_row("UID", user_data.uid),
                     _detail_row("Username", f"@{user_data.username}"),
                     _detail_row("Email", user_data.email),
-                    _detail_row("Created", user_data.created_at or "Unknown"),
-                    _detail_row("Last Login", user_data.last_login_at),
+                    _detail_row(
+                        "Created",
+                        format_date(user_data.created_at, "%Y-%m-%d %H:%M", empty="Unknown"),
+                    ),
+                    _detail_row(
+                        "Last Login", format_date(user_data.last_login_at, "%Y-%m-%d %H:%M")
+                    ),
                     _detail_row("Verified", "Yes" if user_data.is_verified else "No"),
                     cls="space-y-3",
                 ),

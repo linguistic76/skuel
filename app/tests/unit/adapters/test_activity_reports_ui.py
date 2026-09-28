@@ -320,6 +320,9 @@ class TestDownload:
 
 
 class TestRenderer:
+    # The frontmatter dates each instant on the reader's clock; ``_report``'s
+    # naive stamps are the laptop's wall clock, so the laptop's zone reads them.
+    @pytest.mark.usefixtures("laptop_zone")
     def test_frontmatter_title_and_content(self) -> None:
         md = render_activity_report_md(_report())
 
