@@ -1,7 +1,7 @@
 ---
 title: "UTC Instants Arc — Rulings & Contract"
 updated: 2026-09-28
-status: "active — ruled 2026-09-27; PRs 1–2b ran in the cloud; from PR 3, one local session per row"
+status: "active — ruled 2026-09-27; PRs 1–2b ran in the cloud; from PR 3, one local session per row; PR 4 deployed 2026-09-28"
 registered: 2026-09-27
 ruled: 2026-09-27
 ---
@@ -916,6 +916,17 @@ embedding check has run; the ledger PR records PR 4 as merged and deployed.
   merge and `--confirm` (the guard) — expected. The census takes a few seconds.
 - **Found, not fixed:** the two notebooks query `:KnowledgeUnit`, a label the graph no longer has,
   and the editor notebook imports from a stale path; only their driver lines were changed.
+- **The sitting (2026-09-28)** ran as § Migration contract step 7 lays out; the ledger row holds
+  its results. It surfaced a defect outside the arc: a generated activity report failed at save,
+  because `ProgressReportGenerator` stored `detect_cross_domain_patterns`' `Result` in the report's
+  metadata rather than its value — fixed in #1442 before the cooldown check. The same generation
+  logs `Failed to collect knowledge intelligence: 'GraphContext' object has no attribute 'nodes'`
+  (the optional-intelligence safety net catches it; not fixed). The embedding check was the certain
+  fix: the hash on the 30 stale entities was cleared, so `--stale` re-embedded every one.
+- **For PR 5:** the corpus is UTC and every process is pinned; a naive `datetime.now()` is UTC.
+  The manifest the sitting applied is `~/.local/state/skuel/utc_instants_2026_10/manifest-e095aab7….json`,
+  kept as the record. `--revert` no longer applies: the app has written since, so any fix goes
+  forward (§ Migration contract, step 6).
 
 ### PR 5 — Readers compare aware values (`core/`)
 
@@ -1288,8 +1299,8 @@ row's laptop steps and their state (pending / done with a date; — for none).
 | 2b1 | `core/`: every calendar site asks the zone (uncalled `date.today` included); calendar-day counts; the type rule; `core/`'s `datetime.now()` classified; day-to-instant widenings; the named user's zone (vault sync, report periods); `DTZ011` on over `core/` | Forced-zone unit tests (UTC process; a Vancouver default user at 02:00Z, a Bangkok user at 18:00Z); `DTZ011` and the uncalled-`date.today` check 0 over `core/` | — | merged #1436, 2026-09-27 |
 | 2b2 | `adapters/` and `ui/`: every calendar site asks the zone; Cypher `$today`; their `datetime.now()` classified; `DTZ011` and the uncalled check widened to `adapters/`, `ui/` | Forced-zone integration test (UTC process, Vancouver and Bangkok users) | after 17:00 local the Tasks page's Overdue count agrees with the Today page's Overdue section — done 2026-09-27 | merged #1437, 2026-09-27 |
 | 3a | `STORED_INSTANT_CLOCK`; `as_utc` and `as_stored_clock` read it; every display of an instant through `shown_in` / `age_of` / `parse_stamp` (neutral) | Golden-file renders unchanged (captured on the parent); each helper pinned under both values of the constant | — | merged #1439, 2026-09-27 |
-| 3b | Day-of-instant reads (and hours) through `day_of` / `hour_of`; Cypher windows on instants by the days' bounds on the stored clock (neutral); client doors (`ClientDateTime`, the ingest door) read in the zone | A forced-zone test of the ingest door; the golden files unchanged | the pages read right on `main` (GradeBook, Shared, notifications, an activity report, as linguistic76) — pending, Mike's (the Chrome extension was not connected) | merged #1440, 2026-09-27 |
-| 4 | The UTC pin, asserted by every driver factory; the applied-record guard (refusals and empty-graph stamp tested); the constant flipped; the migration script — prepared by its row session (local) as `[awaiting sitting]`, merged in the sitting | Tests, CI and Codex green on the unmerged PR | pending checks first — none pending (3b's passed 2026-09-28); the read-only census from the branch — done 2026-09-28 (6,863 values: 1,236 to shift, 5,627 to leave, 31 pairs, no stops — two rows left by Mike's ruling, § Left by PR 4); the sitting: snapshot → census and manifest from the branch → OK → merge → `--confirm` → `--verify` → start; a fresh census refused; the cooldown refuses a second generation within the hour; a new share reads "just now"; exchange order and badges unchanged; the embedding check; the ledger PR | prepared #1441, 2026-09-28 — `[awaiting sitting]`, not merged |
+| 3b | Day-of-instant reads (and hours) through `day_of` / `hour_of`; Cypher windows on instants by the days' bounds on the stored clock (neutral); client doors (`ClientDateTime`, the ingest door) read in the zone | A forced-zone test of the ingest door; the golden files unchanged | the pages read right on `main` (GradeBook, Shared, notifications, an activity report, as linguistic76) — done 2026-09-28 (`:8000` restarted on `main` `3ecd663f4`: the GradeBook, an exchange thread, the notifications and an activity report read as before; the Shared page read a share made at 06:44 as "7h ago", the known pre-cutover skew PR 4 fixes) | merged #1440, 2026-09-27 |
+| 4 | The UTC pin, asserted by every driver factory; the applied-record guard (refusals and empty-graph stamp tested); the constant flipped; the migration script — prepared by its row session (local) as `[awaiting sitting]`, merged in the sitting | Tests, CI and Codex green on the unmerged PR | pending checks first — none pending (3b's passed 2026-09-28); the sitting — done 2026-09-28 (Mike present): the Aura on-demand snapshot taken; the census from the branch at 18:06Z (6,863 values: 1,236 to shift, 5,627 to leave, 31 pairs, no stops; hash `e095aab7…`) and Mike's OK; merged `38e420e0f`; `--confirm` applied 1,236 values in one transaction; `--verify` OK (0 rows off their new value, the pairs 7.00 h apart before and together after, 31/31); a fresh census refused; the GradeBook's exchanges, their thread order and every entry's badges unchanged (3 exchanges, 7 items, 79 entries, captured read-only before and after); `:8000` restarted on `main`; a second 14-day report within the hour refused by the cooldown (after #1442 — generated reports had failed at save, a pre-existing bug the check surfaced); a new share read "just now" and its notification the wall-clock time; the embedding check — the 30 stale entities (21 Task, 8 Choice, 1 Habit) re-embedded, hashes cleared first so none was skipped, 0 stale after | merged #1441 and deployed, 2026-09-28 |
 | 5 | Readers compare aware values in `core/`, sentinels included; the normalizers collapse onto `as_utc` | Mixed naive/aware sorts and windows; forced-Vancouver unit tests | — | — |
 | 6 | Readers compare aware values in `adapters/`, `ui/`, `scripts/` | As PR 5 | — | — |
 | 7 | Writers aware: default factories, the parse boundary, the mapper's `+00:00` | A mixed column reads back all aware | — | — |
