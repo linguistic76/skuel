@@ -31,7 +31,7 @@ from core.models.enums.activity_enums import DecisionQualityLevel
 from core.models.shared.dual_track import DualTrackResult
 from core.models.type_hints import UserUID
 from core.utils.result_simplified import Result
-from core.utils.timestamp_helpers import today_in
+from core.utils.timestamp_helpers import day_of, today_in
 from core.utils.zone_context import current_zone
 
 if TYPE_CHECKING:
@@ -156,10 +156,11 @@ class _BehavioralSignalsMixin:
                 QueryLimit.MAXIMUM,
             )
         # Filter to Choice instances and period (using created_at)
+        zone = current_zone()
         period_choices = [
             c
             for c in all_items
-            if isinstance(c, Choice) and c.created_at and c.created_at.date() >= start_date
+            if isinstance(c, Choice) and c.created_at and day_of(c.created_at, zone) >= start_date
         ]
 
         if not period_choices:

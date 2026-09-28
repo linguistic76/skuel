@@ -21,7 +21,7 @@ from core.models.type_hints import UserUID
 from core.utils.logging import get_logger
 from core.utils.neo4j_temporal import convert_neo4j_datetime
 from core.utils.result_simplified import Result
-from core.utils.timestamp_helpers import today_in
+from core.utils.timestamp_helpers import day_of, today_in
 from core.utils.zone_context import current_zone
 from ui.page_contexts import TodayPageContext
 from ui.today.membership import (
@@ -84,9 +84,9 @@ def _heading_label(view_date: date, today: date) -> str:
 
 
 def moment_is_on_day(value: object, day: date) -> bool:
-    """Whether a stored datetime (native or Neo4j temporal) falls on ``day``."""
+    """Whether a stored datetime (native or Neo4j temporal) falls on ``day`` in the current zone."""
     moment = convert_neo4j_datetime(value)
-    return moment is not None and moment.date() == day
+    return moment is not None and day_of(moment, current_zone()) == day
 
 
 def choice_is_on_day(choice: Choice, day: date) -> bool:

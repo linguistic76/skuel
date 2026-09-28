@@ -45,6 +45,8 @@ from core.services.embeddings.retrievability import (
 )
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Result
+from core.utils.timestamp_helpers import stored_day_bounds
+from core.utils.zone_context import current_zone
 
 if TYPE_CHECKING:
     from datetime import date
@@ -595,7 +597,8 @@ class PsBackend(
         The window is keyed on the LEARNER's engagement timestamp, not the
         node's ``updated_at``: an author editing shared curriculum is not
         something the learner did, and this feeds a personal weekly summary
-        alongside six per-user activity metrics.
+        alongside six per-user activity metrics. The window's days are the
+        current zone's: an engagement counts on the day it happened there.
 
         Collapsing the edges with ``max()`` is load-bearing — a step held by
         both IN_PROGRESS and MASTERED is ONE step, and without the aggregation
@@ -621,13 +624,14 @@ class PsBackend(
         """
         knowledge_clause, params = build_knowledge_read_clause("ps", apply_publication_gate=False)
         limit_clause = "LIMIT $limit" if limit is not None else ""
+        start_bound, end_bound = stored_day_bounds(start_date, end_date, current_zone())
         query = f"""
         MATCH (u:User {{uid: $user_uid}})-[r:{_ENGAGEMENT_EDGES}]->(ps:Entity:{NeoLabel.PATH_STEP})
         WHERE {knowledge_clause}
         WITH ps, max({_ENGAGED_AT}) AS engaged_at
         WHERE engaged_at IS NOT NULL
-          AND date(left(toString(engaged_at), 10)) >= date($start_date)
-          AND date(left(toString(engaged_at), 10)) <= date($end_date)
+          AND engaged_at >= datetime($start_bound)
+          AND engaged_at < datetime($end_bound)
         RETURN ps
         ORDER BY engaged_at DESC
         {limit_clause}
@@ -635,8 +639,8 @@ class PsBackend(
         params.update(
             {
                 "user_uid": user_uid,
-                "start_date": start_date.isoformat(),
-                "end_date": end_date.isoformat(),
+                "start_bound": start_bound.isoformat(),
+                "end_bound": end_bound.isoformat(),
             }
         )
         if limit is not None:

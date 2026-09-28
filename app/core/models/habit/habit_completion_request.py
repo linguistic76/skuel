@@ -10,6 +10,8 @@ from datetime import datetime
 
 from pydantic import BaseModel, ConfigDict, Field
 
+from core.models.request_base import ClientDateTime
+
 
 class HabitCompletionCreateRequest(BaseModel):
     """
@@ -21,7 +23,7 @@ class HabitCompletionCreateRequest(BaseModel):
     habit_uid: str = Field(..., min_length=1, description="UID of the habit being completed")
 
     # Optional with defaults
-    completed_at: datetime | None = Field(
+    completed_at: ClientDateTime | None = Field(
         default_factory=datetime.now, description="When the habit was completed"
     )
     notes: str | None = Field(default=None, max_length=500, description="Completion notes")
@@ -70,8 +72,8 @@ class HabitCompletionFilterRequest(BaseModel):
     """
 
     habit_uid: str | None = Field(default=None, description="Filter by specific habit")
-    start_date: datetime | None = Field(default=None, description="Filter from this date")
-    end_date: datetime | None = Field(default=None, description="Filter to this date")
+    start_date: ClientDateTime | None = Field(default=None, description="Filter from this date")
+    end_date: ClientDateTime | None = Field(default=None, description="Filter to this date")
     min_quality: int | None = Field(default=None, ge=1, le=5, description="Minimum quality rating")
     max_quality: int | None = Field(default=None, ge=1, le=5, description="Maximum quality rating")
     limit: int = Field(default=50, ge=1, le=1000, description="Maximum number of results")

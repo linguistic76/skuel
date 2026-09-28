@@ -32,6 +32,10 @@ from core.models.habit.habit import Habit
 from core.services.calendar_service import CalendarService
 from core.utils.result_simplified import Errors, Result
 
+# The habits here start and complete at hand-built naive moments — the laptop's
+# wall clock, whose day is the zone's there (tests/conftest.py § laptop_zone).
+pytestmark = pytest.mark.usefixtures("laptop_zone")
+
 
 def _service() -> CalendarService:
     return CalendarService(

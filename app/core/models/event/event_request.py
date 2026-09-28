@@ -7,12 +7,13 @@ Pydantic models for event API boundaries - validation and serialization.
 Uses shared validation rules from core.models.validation_rules for DRY compliance.
 """
 
-from datetime import date, datetime, time
+from datetime import date, time
 
 from pydantic import BaseModel, ConfigDict, Field
 
 from core.models.enums import EntityStatus, EventType, Priority, RecurrencePattern
 from core.models.event.event_update_intent import EventUpdateIntent
+from core.models.request_base import ClientDateTime
 from core.models.sentinels import UNSET, Unset
 from core.models.type_hints import UserUID
 from core.models.validation_rules import (
@@ -112,7 +113,7 @@ class EventUpdateRequest(BaseModel):
     priority: Priority | None = None
     status: EntityStatus | None = None
     reminder_minutes: int | None = Field(default=None, ge=0, le=10080)
-    completed_at: datetime | None = Field(
+    completed_at: ClientDateTime | None = Field(
         default=None,
         description="When the event was completed (explicit stamp; None clears it on reopen)",
     )

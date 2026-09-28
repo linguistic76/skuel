@@ -300,7 +300,8 @@ class PatternAnalyzer:
             Dict with "peak_hour", "count", "confidence" or None if no data
 
         Example:
-            def get_completion_hour(t) -> int | None: return t.completed_at.hour if t.completed_at else None
+            def get_completion_hour(t) -> int | None:
+                return hour_of(t.completed_at, current_zone()) if t.completed_at else None
             peak = PatternAnalyzer.find_peak_time(completed_tasks, get_completion_hour)
             # Returns {"peak_hour": 14, "count": 15, "confidence": 0.7}
         """

@@ -173,6 +173,7 @@ class TestCalculateMissSeverity:
 
 
 class TestHandleHabitCompleted:
+    @pytest.mark.usefixtures("laptop_zone")
     @pytest.mark.asyncio
     async def test_timing_learning_happy_path(
         self, service: HabitEventHandlerService, mock_backend: Mock

@@ -31,6 +31,8 @@ from core.models.insight.persisted_insight import InsightImpact, InsightType, Pe
 from core.models.type_hints import EntityUID, UserUID
 from core.utils.exception_types import DATA_CONVERSION_EXCEPTIONS, NEO4J_EXCEPTIONS
 from core.utils.logging import get_logger
+from core.utils.timestamp_helpers import hour_of
+from core.utils.zone_context import current_zone
 
 if TYPE_CHECKING:
     from core.ports.domain_protocols import EventsOperations
@@ -130,7 +132,7 @@ class EventEventHandlerService:
         """
         try:
             # 1. Attendance time-of-day pattern
-            hour = event.occurred_at.hour
+            hour = hour_of(event.occurred_at, current_zone())
             if hour < 6:
                 time_slot = "early_morning"
             elif hour < 12:

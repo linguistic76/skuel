@@ -23,7 +23,7 @@ from collections.abc import Mapping
 from typing import TYPE_CHECKING, Any, Final
 
 from core.models.type_hints import Neo4jProperties, UserUID
-from core.utils.timestamp_helpers import today_in
+from core.utils.timestamp_helpers import day_of, today_in
 from core.utils.zone_context import current_zone
 
 if TYPE_CHECKING:
@@ -723,7 +723,8 @@ class TasksCoreService(
         if task.status is not EntityStatus.COMPLETED:
             return
 
-        completed_at = completion_moment(task.completion_date, current_zone())
+        zone = current_zone()
+        completed_at = completion_moment(task.completion_date, zone)
         await publish_event(
             self.event_bus,
             TaskCompleted(
@@ -732,7 +733,7 @@ class TasksCoreService(
                 completion_time_seconds=(
                     task.actual_minutes * 60 if task.actual_minutes is not None else None
                 ),
-                was_overdue=task.due_date < completed_at.date() if task.due_date else False,
+                was_overdue=task.due_date < day_of(completed_at, zone) if task.due_date else False,
                 occurred_at=completed_at,
             ),
             self.logger,

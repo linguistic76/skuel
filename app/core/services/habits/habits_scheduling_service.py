@@ -46,7 +46,9 @@ from core.utils.decorators import with_error_handling
 from core.utils.dto_converters import to_domain_model
 from core.utils.result_simplified import Errors, Result
 from core.utils.sort_functions import make_dict_value_getter
+from core.utils.timestamp_helpers import day_of, hour_of
 from core.utils.uid_generator import UIDGenerator
+from core.utils.zone_context import current_zone
 
 if TYPE_CHECKING:
     from core.ports.infrastructure_protocols import EventBusOperations
@@ -503,10 +505,11 @@ class HabitsSchedulingService(BaseService[HabitsOperations, Habit]):
                 day_counts: dict[int, int] = {}
                 hour_counts: dict[int, int] = {}
 
+                zone = current_zone()
                 for comp in completions:
                     if comp.completed_at:
-                        day = comp.completed_at.weekday()
-                        hour = comp.completed_at.hour
+                        day = day_of(comp.completed_at, zone).weekday()
+                        hour = hour_of(comp.completed_at, zone)
                         day_counts[day] = day_counts.get(day, 0) + 1
                         hour_counts[hour] = hour_counts.get(hour, 0) + 1
 

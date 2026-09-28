@@ -45,7 +45,13 @@ from core.utils.exception_types import DATA_CONVERSION_EXCEPTIONS, NEO4J_EXCEPTI
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
 from core.utils.sort_functions import get_current_substance, get_theme_count
-from core.utils.timestamp_helpers import as_stored_clock, local_day_bounds, today_in, wall_clock_in
+from core.utils.timestamp_helpers import (
+    as_stored_clock,
+    day_of,
+    local_day_bounds,
+    today_in,
+    wall_clock_in,
+)
 from core.utils.zone_context import current_zone
 
 if TYPE_CHECKING:
@@ -179,11 +185,13 @@ class AnalyticsMetricsService:
         # Average completion time (for completed tasks with dates). The field is
         # ``completion_date`` — ``task.completed_at`` is a name no model has ever
         # carried, so this raised AttributeError for every user holding a completed
-        # task. It is a ``date`` against a ``datetime`` ``created_at``, hence .date().
+        # task. It is a ``date`` against a ``datetime`` ``created_at``: the day
+        # the task was created on, in the current zone.
+        zone = current_zone()
         completion_times = []
         for task in tasks:
             if task.status == EntityStatus.COMPLETED and task.created_at and task.completion_date:
-                delta = (task.completion_date - task.created_at.date()).days
+                delta = (task.completion_date - day_of(task.created_at, zone)).days
                 completion_times.append(delta)
 
         avg_completion_time = (

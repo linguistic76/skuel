@@ -198,6 +198,17 @@ class TaskStatusUpdateRequest(BaseModel):
         return v
 ```
 
+### Client Datetime Fields
+
+A `datetime` a client supplies is typed `ClientDateTime` (`core/models/request_base.py`), never a bare `datetime`: an offset-less value (a `datetime-local` field, a JSON string without an offset) is the user's wall clock, read in the current zone and held in the stored form of its instant; an aware value keeps its instant. `tests/unit/models/test_client_datetime_fields.py` fails on a request-model `datetime` field that is neither `ClientDateTime` nor a named response field.
+
+```python
+from core.models.request_base import ClientDateTime, UpdateRequestBase
+
+class ChoiceUpdateRequest(UpdateRequestBase):
+    decision_deadline: ClientDateTime | None = Field(default=None, description="Decision deadline")
+```
+
 ## Model Validation (Cross-Field)
 
 Use `@model_validator(mode="after")` for validation that spans multiple fields:
@@ -287,7 +298,8 @@ def validate_future_date(*field_names: str) -> Callable:
         if info.context and info.context.get("allow_past_dates"):
             return v
         if isinstance(v, datetime):
-            if v <= datetime.now():
+            # a naive value is a wall time in the current zone; an aware one an instant
+            if v <= _now_like(v):
                 raise ValueError("Date/time cannot be in the past")
         elif isinstance(v, date) and v < today_in(current_zone()):
             raise ValueError("Date cannot be in the past")

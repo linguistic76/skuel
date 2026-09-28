@@ -20,8 +20,9 @@ lived on the day it was done, not the day it was ingested (the same branch the
 model method takes; an open task's leftover stamp is not consulted). A task
 completed on or after its creation day keeps the creation day: it was due then
 and finished later. The expression is IMPORTED from the vault door's write
-backend (``TASK_CREATION_DUE_DATE_CYPHER``), never retyped, so the live rule
-and this backfill cannot drift.
+backend (``task_creation_due_date_cypher``), never retyped, so the live rule
+and this backfill cannot drift. A creation day is the app default zone's
+(``SKUEL_TIMEZONE``): the script acts for no one user.
 
 **Storage shape matches the writers.** ``due_date`` round-trips through
 ``to_neo4j_node``/``from_neo4j_node`` as an ISO ``YYYY-MM-DD`` **string**; the
@@ -44,14 +45,16 @@ import argparse
 import asyncio
 import sys
 
-from adapters.persistence.neo4j.ingestion_write_backend import TASK_CREATION_DUE_DATE_CYPHER
+from adapters.persistence.neo4j.ingestion_write_backend import task_creation_due_date_cypher
 from core.models.enums.entity_enums import EntityStatus
 from core.models.enums.neo_labels import NeoLabel
+from core.utils.zone_context import default_zone
 
 TASK_LABEL = NeoLabel.TASK.value
-#: The one driver parameter the rule expression reads — passed by every query
-#: that embeds it.
-RULE_PARAMS = {"completed_status": EntityStatus.COMPLETED.value}
+#: The driver parameters the rule expression reads — passed by every query that
+#: embeds it. The zone is the app default's: a history backfill acts for no one
+#: user.
+RULE_PARAMS = {"completed_status": EntityStatus.COMPLETED.value, "zone": str(default_zone())}
 
 #: The two fields the day lens and the calendar place a task by. A node is
 #: "undated" when BOTH are NULL — the exact predicate ``Task.with_creation_due_date``
@@ -61,7 +64,7 @@ SCHEDULED_FIELD = "scheduled_date"
 
 #: The rule as a Cypher expression over an undated node ``n`` — the vault door's
 #: own, imported so the two cannot drift.
-RULE_PROJECTION = TASK_CREATION_DUE_DATE_CYPHER
+RULE_PROJECTION = task_creation_due_date_cypher()
 
 UNDATED = f"n.{DUE_FIELD} IS NULL AND n.{SCHEDULED_FIELD} IS NULL"
 

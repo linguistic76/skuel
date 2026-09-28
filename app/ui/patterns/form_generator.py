@@ -16,7 +16,7 @@ See: /docs/patterns/FORM_GENERATOR_GUIDE.md
 import types
 from datetime import date, datetime
 from enum import Enum
-from typing import Any, Union, get_args, get_origin
+from typing import Annotated, Any, Union, get_args, get_origin
 
 from fasthtml.common import H3, Div, Form, Option, P
 from fasthtml.common import Input as FTInput
@@ -34,6 +34,8 @@ from core.ports import (
 )
 from core.utils.csrf_token_context import CSRF_FORM_FIELD, current_csrf_token
 from core.utils.logging import get_logger
+from core.utils.timestamp_helpers import to_wall_clock
+from core.utils.zone_context import current_zone
 from ui.components import Button, ButtonT, Icon
 from ui.forms import Checkbox, Input, Label, Select, Textarea
 
@@ -60,13 +62,19 @@ def _is_union_type(origin: type | None) -> bool:
 
 
 def _unwrap_optional(annotation: type) -> type:
-    """Extract T from Optional[T] or T | None. Returns annotation unchanged if not optional."""
+    """Extract T from Optional[T] or T | None, and T from Annotated[T, ...].
+
+    Returns annotation unchanged if it is neither. ``Annotated`` carries a
+    validator, not a different type: a ``ClientDateTime`` is a ``datetime``.
+    """
     origin = get_origin(annotation)
     if origin is not None and _is_union_type(origin):
         args = get_args(annotation)
         if args:
             non_none = [a for a in args if a is not type(None)]
-            return non_none[0] if non_none else str
+            annotation = non_none[0] if non_none else str
+    if get_origin(annotation) is Annotated:
+        return get_args(annotation)[0]
     return annotation
 
 
@@ -86,10 +94,11 @@ class FieldWidgetMapper:
                 if isinstance(meta, dict) and "ui_widget" in meta:
                     return str(meta["ui_widget"])
 
-        # Handle Optional[T] / T | None — recompute origin so checks below
-        # see the unwrapped inner type (e.g. Optional[list[str]] -> list).
+        # Handle Optional[T] / T | None and Annotated[T, ...] — recompute origin
+        # so checks below see the unwrapped inner type (e.g. Optional[list[str]]
+        # -> list, ClientDateTime -> datetime).
         origin = get_origin(annotation)
-        if origin is not None and _is_union_type(origin):
+        if origin is not None and (_is_union_type(origin) or origin is Annotated):
             annotation = _unwrap_optional(annotation)
             origin = get_origin(annotation)
 
@@ -554,9 +563,16 @@ class FormGenerator:
         Uses ui/forms.py wrappers (Input, Select, Textarea, Checkbox) for
         consistent variant classes, ARIA support, and full-width defaults.
         """
-        # Normalize: extract .value from Enum, format dates for HTML inputs
+        # Normalize: extract .value from Enum, format dates for HTML inputs. A
+        # datetime-local holds a stored instant on the user's clock — the clock
+        # the submitted value is read on (ClientDateTime) — so an unchanged
+        # re-save keeps its instant.
         normalized_value = value.value if isinstance(value, Enum) else value
-        if (
+        if widget_type == "datetime-local" and isinstance(normalized_value, datetime):
+            normalized_value = to_wall_clock(normalized_value, current_zone()).isoformat(
+                timespec="minutes"
+            )
+        elif (
             normalized_value is not None
             and widget_type in ("date", "datetime-local")
             and isinstance(normalized_value, (date, datetime))

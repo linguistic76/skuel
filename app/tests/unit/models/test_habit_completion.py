@@ -228,6 +228,7 @@ class TestDateMethods:
     def test_was_completed_on_other_date(self):
         assert make_completion().was_completed_on(date(2026, 7, 11)) is False
 
+    @pytest.mark.usefixtures("laptop_zone")
     def test_time_of_day_boundaries(self):
         # The TimeOfDay slots, at every boundary: [0,5) late_night, [5,7) early_morning,
         # [7,12) morning, [12,17) afternoon, [17,21) evening, [21,24) night.

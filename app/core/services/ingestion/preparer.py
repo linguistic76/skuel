@@ -28,6 +28,8 @@ from core.models.templates.offset_helpers import (
 )
 from core.models.type_hints import TypeConverter, UserUID
 from core.utils.logging import get_logger
+from core.utils.timestamp_helpers import local_day_bounds
+from core.utils.zone_context import current_zone
 
 from .config import DEFAULT_USER_UID, ENTITY_CONFIGS
 from .moc_links import extract_moc_link_suffixes
@@ -228,14 +230,17 @@ def _canonical_created_at(value: object) -> str | None:
 
     Accepts what the read boundary accepts (``Neo4jGenericMapper._convert_value``
     → ``datetime.fromisoformat``): a YAML-parsed ``datetime``/``date``, or a
-    string ``fromisoformat`` parses. A naive value is read as UTC rather than
-    guessed at. Anything else yields ``None`` so ``validate_entity_data`` owns
-    the one actionable rejection message.
+    string ``fromisoformat`` parses. An offset-less value is the author's wall
+    clock, read in the current zone — the vault owner's under the sync's zone
+    scope, ``SKUEL_TIMEZONE`` for the content vault — and a bare day is that
+    day's first instant there. Anything else yields ``None`` so
+    ``validate_entity_data`` owns the one actionable rejection message.
     """
+    zone = current_zone()
     if isinstance(value, datetime):
         parsed = value
     elif isinstance(value, date):
-        parsed = datetime(value.year, value.month, value.day)
+        parsed, _ = local_day_bounds(value, zone)
     elif isinstance(value, str):
         try:
             parsed = datetime.fromisoformat(value)
@@ -244,7 +249,7 @@ def _canonical_created_at(value: object) -> str | None:
     else:
         return None
     if parsed.tzinfo is None:
-        parsed = parsed.replace(tzinfo=UTC)
+        parsed = parsed.replace(tzinfo=zone)
     return parsed.astimezone(UTC).isoformat().replace("+00:00", "Z")
 
 

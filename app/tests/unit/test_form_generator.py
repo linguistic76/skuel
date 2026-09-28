@@ -658,3 +658,47 @@ class TestListWidgetMapping:
         )
         html = get_form_html(form)
         assert "<textarea" in html and 'name="aliases"' in html
+
+
+# ============================================================================
+# Tests: a client datetime field (ClientDateTime) round-trips its instant
+# ============================================================================
+
+
+class TestClientDateTimePrefill:
+    """A datetime-local is filled with the stored instant on the user's clock — the
+    clock ClientDateTime reads the posted value on — so an unchanged re-save keeps
+    the instant."""
+
+    def test_the_field_is_a_datetime_local_widget(self):
+        from core.models.choice.choice_request import ChoiceUpdateRequest
+
+        field = ChoiceUpdateRequest.model_fields["decision_deadline"]
+        widget = FieldWidgetMapper.get_widget_type("decision_deadline", field, field.annotation)
+        assert widget == "datetime-local"
+
+    def test_an_aware_instant_is_shown_on_the_users_clock_and_reads_back_the_same(self):
+        from datetime import UTC, datetime
+        from zoneinfo import ZoneInfo
+
+        from core.models.choice.choice_request import ChoiceUpdateRequest
+        from core.utils.timestamp_helpers import as_utc
+        from core.utils.zone_context import current_zone_var
+
+        stored = datetime(2026, 9, 27, 17, 0, tzinfo=UTC)
+        token = current_zone_var.set(ZoneInfo("Asia/Bangkok"))
+        try:
+            form = FormGenerator.from_model(
+                ChoiceUpdateRequest,
+                action="/test",
+                include_fields=["decision_deadline"],
+                values={"decision_deadline": stored},
+            )
+            html = get_form_html(form)
+            # 17:00Z is midnight on the 28th in Bangkok.
+            assert 'value="2026-09-28T00:00"' in html
+            posted = ChoiceUpdateRequest(decision_deadline="2026-09-28T00:00")
+        finally:
+            current_zone_var.reset(token)
+        assert posted.decision_deadline is not None
+        assert as_utc(posted.decision_deadline) == stored

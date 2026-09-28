@@ -18,7 +18,7 @@ from typing import TYPE_CHECKING, Any
 
 from core.models.enums.principle_enums import AlignmentLevel, TriggerType
 from core.models.type_hints import UserUID
-from core.utils.timestamp_helpers import today_in
+from core.utils.timestamp_helpers import hour_of, today_in
 from core.utils.zone_context import current_zone
 
 if TYPE_CHECKING:
@@ -239,7 +239,7 @@ class PrincipleReflection:
 
     def reflection_time_of_day(self) -> str:
         """Get time of day when reflection was created."""
-        hour = self.created_at.hour
+        hour = hour_of(self.created_at, current_zone())
 
         if 5 <= hour < 12:
             return "morning"

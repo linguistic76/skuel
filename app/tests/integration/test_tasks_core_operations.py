@@ -30,6 +30,8 @@ from core.models.enums import EntityStatus, Priority
 from core.models.enums.entity_enums import EntityType
 from core.models.task.task import Task as Task
 from core.services.tasks.tasks_core_service import TasksCoreService
+from core.utils.timestamp_helpers import day_of
+from core.utils.zone_context import current_zone
 
 
 @pytest.mark.asyncio
@@ -369,7 +371,7 @@ class TestTasksCoreOperations:
         # Assert
         assert result.is_ok, f"an undated HIGH-priority task was refused: {result.error}"
         assert result.value.priority == Priority.HIGH
-        assert result.value.due_date == task.created_at.date()
+        assert result.value.due_date == day_of(task.created_at, current_zone())
 
     async def test_task_with_time_tracking(self, tasks_service, test_user_uid):
         """Test creating a task with duration estimates and tracking."""
@@ -447,7 +449,7 @@ class TestTasksCoreOperations:
         # The creation rule: no date supplied → due on the creation day. The day
         # lens and the calendar place a task by due/scheduled date, so a minimal
         # task still has a day to render on.
-        assert created.due_date == task.created_at.date()
+        assert created.due_date == day_of(task.created_at, current_zone())
         assert created.scheduled_date is None
         # Check defaults are set
         assert created.status == EntityStatus.DRAFT

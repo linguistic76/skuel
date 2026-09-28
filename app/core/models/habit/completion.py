@@ -11,7 +11,7 @@ from datetime import date, datetime, timedelta
 
 from core.models.enums.scheduling_enums import TimeOfDay
 from core.models.type_hints import UserUID
-from core.utils.timestamp_helpers import day_of, today_in
+from core.utils.timestamp_helpers import day_of, hour_of, today_in
 from core.utils.zone_context import current_zone
 
 from .completion_dto import HabitCompletionDTO
@@ -162,11 +162,12 @@ class HabitCompletion:
 
     def was_completed_today(self) -> bool:
         """Check if this completion happened today."""
-        return self.completed_at.date() == today_in(current_zone())
+        zone = current_zone()
+        return day_of(self.completed_at, zone) == today_in(zone)
 
     def was_completed_on(self, target_date: date) -> bool:
         """Check if this completion happened on a specific date."""
-        return self.completed_at.date() == target_date
+        return day_of(self.completed_at, current_zone()) == target_date
 
     def days_since_completion(self) -> int:
         """Calendar days since this completion, counted in the user's zone."""
@@ -174,15 +175,13 @@ class HabitCompletion:
         return (today_in(zone) - day_of(self.completed_at, zone)).days
 
     def completion_time_of_day(self) -> TimeOfDay:
-        """Which slot of the day this completion landed in.
+        """Which slot of the day this completion landed in, on the current zone's clock.
 
         Speaks the one time-of-day vocabulary the habit's own ``preferred_time``
         uses (habit-rhythm arc M1), so "when I said I would do it" and "when I
-        actually did it" are directly comparable. This used to return a private
-        four-word vocabulary whose boundaries disagreed with ``TimeOfDay`` before
-        07:00 and after midnight.
+        actually did it" are directly comparable.
         """
-        return TimeOfDay.from_hour(self.completed_at.hour)
+        return TimeOfDay.from_hour(hour_of(self.completed_at, current_zone()))
 
     def is_streak_eligible(self, previous_completion: HabitCompletion | None = None) -> bool:
         """
@@ -209,7 +208,8 @@ class HabitCompletion:
 
         # No duplicate days
         return not (
-            previous_completion and self.was_completed_on(previous_completion.completed_at.date())
+            previous_completion
+            and self.was_completed_on(day_of(previous_completion.completed_at, current_zone()))
         )
 
     def contributes_to_consistency(self, habit_frequency: str = "daily") -> bool:
@@ -228,9 +228,10 @@ class HabitCompletion:
 
         # For weekly habits, check if it's within the current week
         if habit_frequency.lower() == "weekly":
-            today = today_in(current_zone())
+            zone = current_zone()
+            today = today_in(zone)
             week_start = today - timedelta(days=today.weekday())
-            completion_date = self.completed_at.date()
+            completion_date = day_of(self.completed_at, zone)
             return week_start <= completion_date <= today
 
         # For other frequencies, default to true
@@ -278,7 +279,8 @@ class HabitCompletion:
         """Human-readable string representation."""
         quality_str = f" (quality: {self.quality})" if self.quality else ""
         duration_str = f" ({self.duration_actual}min)" if self.duration_actual else ""
-        return f"Completion {self.uid} on {self.completed_at.date()}{quality_str}{duration_str}"
+        day = day_of(self.completed_at, current_zone())
+        return f"Completion {self.uid} on {day}{quality_str}{duration_str}"
 
     def __repr__(self) -> str:
         """Technical string representation."""

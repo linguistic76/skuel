@@ -45,7 +45,7 @@ from core.services.tasks.task_relationships import TaskRelationships
 from core.utils.exception_types import DATA_CONVERSION_EXCEPTIONS
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
-from core.utils.timestamp_helpers import today_in
+from core.utils.timestamp_helpers import day_of, today_in
 from core.utils.zone_context import current_zone
 
 if TYPE_CHECKING:
@@ -123,8 +123,9 @@ class TaskKnowledgeAnalyzer:
             if generic_result.is_error:
                 return generic_result
 
-            cutoff = today_in(current_zone()) - timedelta(days=timeframe_days)
-            recent_tasks = [t for t in tasks if t.created_at.date() >= cutoff]
+            zone = current_zone()
+            cutoff = today_in(zone) - timedelta(days=timeframe_days)
+            recent_tasks = [t for t in tasks if day_of(t.created_at, zone) >= cutoff]
             mastery_patterns = await self._detect_mastery_validation_patterns(recent_tasks)
 
             all_patterns = generic_result.value + mastery_patterns
@@ -477,7 +478,9 @@ class TaskKnowledgeAnalyzer:
         else:
             velocity = 0.0
 
-        last_date = completed_tasks[-1].created_at.date() if completed_tasks else None
+        last_date = (
+            day_of(completed_tasks[-1].created_at, current_zone()) if completed_tasks else None
+        )
         confidence = min(1.0, len(completed_tasks) / 10.0)
         next_difficulty = (
             min(1.0, current_mastery + KnowledgeEnhancementScore.DIFFICULTY_STEP)

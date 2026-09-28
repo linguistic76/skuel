@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from collections.abc import Callable, Mapping
-from datetime import datetime
+from datetime import date, datetime
 from typing import TYPE_CHECKING, Any, cast
 
 from adapters.persistence.neo4j._hierarchy_mixin import HierarchyConfig, _HierarchyMixin
@@ -33,12 +33,10 @@ from core.ports.query_types import (
     TaskStats,
 )
 from core.utils.result_simplified import Errors, Result
-from core.utils.timestamp_helpers import today_in
+from core.utils.timestamp_helpers import stored_day_bounds, today_in
 from core.utils.zone_context import current_zone
 
 if TYPE_CHECKING:
-    from datetime import date
-
     from core.models.exercises.revised_exercise import RevisedExercise  # noqa: F401
     from core.models.forms.form_template import FormTemplate  # noqa: F401
     from core.models.group.group import Group  # noqa: F401
@@ -190,9 +188,10 @@ class HabitsBackend(_HierarchyMixin, UniversalNeo4jBackend[Habit]):
 
         Fetches habits not in terminal statuses, sorted by streak-at-risk
         first, then by streak length and recency. A streak is at risk when the
-        habit was last completed before ``$today`` — today in the current zone
-        (the request's, or the context user's under ``zone_scope``), never the
-        database server's UTC ``date()``.
+        habit was last completed before ``$today_start`` — the first instant of
+        today in the current zone (the request's, or the context user's under
+        ``zone_scope``), read on the stored clock — never the database server's
+        UTC ``date()``.
 
         Args:
             user_uid: Owner of the habits.
@@ -207,18 +206,21 @@ class HabitsBackend(_HierarchyMixin, UniversalNeo4jBackend[Habit]):
         WHERE NOT h.status IN $terminal_statuses
         RETURN h
         ORDER BY
-            CASE WHEN h.current_streak > 0 AND date(datetime(h.last_completed)) < date($today) THEN 0 ELSE 1 END,
+            CASE WHEN h.current_streak > 0 AND datetime(h.last_completed) < datetime($today_start) THEN 0 ELSE 1 END,
             h.current_streak DESC,
             h.created_at DESC
         LIMIT $fetch_limit
         """
+        zone = current_zone()
+        today = today_in(zone)
+        today_start, _ = stored_day_bounds(today, today, zone)
         result = await self.execute_query(
             query,
             {
                 "user_uid": user_uid,
                 "terminal_statuses": terminal_statuses,
                 "fetch_limit": limit,
-                "today": today_in(current_zone()).isoformat(),
+                "today_start": today_start.isoformat(),
             },
         )
         if result.is_error:
@@ -1387,7 +1389,8 @@ class ChoicesBackend(_HierarchyMixin, UniversalNeo4jBackend[Choice]):
 
         Args:
             user_uid: Owner of the choices.
-            end_date: ISO date string — choices with deadline <= this date.
+            end_date: ISO date string — choices whose deadline falls on this day
+                or before it, in the current zone.
 
         Returns:
             Result containing list of choice node properties.
@@ -1395,12 +1398,16 @@ class ChoicesBackend(_HierarchyMixin, UniversalNeo4jBackend[Choice]):
         query = """
         MATCH (c:Entity {entity_type: 'choice'})
         WHERE c.user_uid = $user_uid
-          AND date(left(toString(c.decision_deadline), 10)) <= date($end_date)
+          AND datetime(c.decision_deadline) < datetime($end_bound)
           AND NOT c.status IN ['completed', 'decided', 'cancelled', 'archived']
         RETURN c
         ORDER BY c.decision_deadline ASC
         """
-        result = await self.execute_query(query, {"user_uid": user_uid, "end_date": end_date})
+        last_day = date.fromisoformat(end_date[:10])
+        _, end_bound = stored_day_bounds(last_day, last_day, current_zone())
+        result = await self.execute_query(
+            query, {"user_uid": user_uid, "end_bound": end_bound.isoformat()}
+        )
         if result.is_error:
             return Result.fail(result)
         return Result.ok([record["c"] for record in result.value])

@@ -34,7 +34,7 @@ from core.services.user import UserContext
 from core.utils.decorators import with_error_handling
 from core.utils.result_simplified import Result
 from core.utils.sort_functions import get_result_score
-from core.utils.timestamp_helpers import get_frequency_window_days, today_in
+from core.utils.timestamp_helpers import day_of, get_frequency_window_days, today_in
 from core.utils.zone_context import current_zone
 
 
@@ -229,7 +229,7 @@ class HabitsSearchService(BaseService[HabitsOperations, Habit]):
         if not habit.last_completed:
             return True  # Never completed - due
 
-        last_date = habit.last_completed.date()
+        last_date = day_of(habit.last_completed, current_zone())
         window_days = get_frequency_window_days(habit.recurrence_pattern)
         days_since = (start_date - last_date).days
         return days_since >= window_days
@@ -284,11 +284,11 @@ class HabitsSearchService(BaseService[HabitsOperations, Habit]):
         if not habit.last_completed:
             # Never completed - check if created > 1 day ago
             if habit.created_at:
-                created_date = habit.created_at.date()
+                created_date = day_of(habit.created_at, current_zone())
                 return (today - created_date).days > 1
             return True
 
-        last_date = habit.last_completed.date()
+        last_date = day_of(habit.last_completed, current_zone())
         days_since = (today - last_date).days
         window_days = get_frequency_window_days(habit.recurrence_pattern)
         return days_since > window_days
@@ -416,8 +416,7 @@ class HabitsSearchService(BaseService[HabitsOperations, Habit]):
 
             # Check days since last completion
             if habit.last_completed:
-                # last_completed is typed as datetime | None, so .date() is safe here
-                last_date = habit.last_completed.date()
+                last_date = day_of(habit.last_completed, current_zone())
                 days_since = (today - last_date).days
 
                 if days_since >= risk_threshold_days:
@@ -489,8 +488,7 @@ class HabitsSearchService(BaseService[HabitsOperations, Habit]):
 
             # Check if already completed today
             if habit.last_completed:
-                # last_completed is typed as datetime | None, so .date() is safe here
-                last_date = habit.last_completed.date()
+                last_date = day_of(habit.last_completed, current_zone())
                 if last_date == today:
                     continue
             else:

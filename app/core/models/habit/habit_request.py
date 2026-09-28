@@ -17,6 +17,7 @@ from core.models.enums import Priority, RecurrencePattern, TimeOfDay
 from core.models.enums.entity_enums import EntityStatus
 from core.models.enums.habit_enums import HabitCategory, HabitDifficulty, HabitPolarity
 from core.models.habit.habit_update_intent import HabitUpdateIntent
+from core.models.request_base import ClientDateTime
 from core.models.sentinels import UNSET, Unset
 from core.models.validation_rules import (
     validate_habit_duration_by_difficulty,
@@ -248,7 +249,7 @@ class HabitCompletionRequest(BaseModel):
     Request to record a habit completion.
     """
 
-    completed_at: datetime | None = Field(default_factory=datetime.now)
+    completed_at: ClientDateTime | None = Field(default_factory=datetime.now)
     notes: str | None = Field(default=None, max_length=500, description="Completion notes")
     quality: int | None = Field(default=None, ge=1, le=5, description="Quality rating 1-5")
     duration_actual: int | None = Field(
@@ -271,7 +272,7 @@ class HabitSkipRequest(BaseModel):
     Request to record skipping a habit.
     """
 
-    skipped_at: datetime | None = Field(default_factory=datetime.now)
+    skipped_at: ClientDateTime | None = Field(default_factory=datetime.now)
     reason: str | None = Field(default=None, max_length=500, description="Reason for skipping")
     planned_skip: bool = Field(default=False, description="Was this planned/intentional?")
 

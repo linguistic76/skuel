@@ -46,7 +46,7 @@ from typing import TYPE_CHECKING, Any, Protocol
 
 from core.models.enums import EventType
 from core.models.type_hints import EntityUID
-from core.utils.timestamp_helpers import today_in
+from core.utils.timestamp_helpers import day_of, today_in
 from core.utils.zone_context import current_zone
 
 if TYPE_CHECKING:
@@ -729,13 +729,14 @@ def score_habit(habit: Habit, context: UserContext) -> PriorityScore:
         PriorityScore with breakdown
     """
     components: list[ComponentScore] = []
-    today = today_in(current_zone())
+    zone = current_zone()
+    today = today_in(zone)
 
     # Convert datetime to date for streak calculation
     # habit.last_completed is typed as datetime | None
     last_completed: date | None = None
     if habit.last_completed:
-        last_completed = habit.last_completed.date()
+        last_completed = day_of(habit.last_completed, zone)
 
     # Streak protection (weight: 0.40)
     streak = score_streak_protection(

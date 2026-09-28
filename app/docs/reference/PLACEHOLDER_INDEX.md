@@ -1,5 +1,5 @@
 ---
-updated: 2026-09-27
+updated: 2026-09-28
 ---
 
 # Placeholder Parameter Index
@@ -73,8 +73,9 @@ non-underscore `period_days` and filters on it at `goals_intelligence_service.py
 silently dropped every re-ingested goal — and was fixed to route through `find_by_date_range`.
 Copy that call shape. Three things it had to get right beyond naming the helper:
 
-- **Pass a `date`, not a `datetime`.** The helper's coercion is day-granular
-  (`date(left(toString(n.field), 10))`), so a `datetime` bound is the wrong shape for it.
+- **Pass a `date`, not a `datetime`.** The helper takes days: an instant field
+  matches on the day it falls on in the current zone, so a `datetime` bound is the wrong shape
+  for it.
 - **Set `limit` explicitly.** `find_by_date_range` defaults to `limit=100`, and every metric in
   these responses is a count or a mean over the returned set — the default page size is the
   same silent-under-return class as the bug being fixed.
@@ -96,9 +97,9 @@ implemented with a bare comparison on either timestamp.
 `core/`, where **SKUEL021 forbids raw Cypher** (`lint_skuel.py:17`, ADR-044) — and all three
 currently author none. That remedy would not lint.
 
-The in-architecture move is `find_by_date_range`, which coerces the stored value
-(`date(left(toString(n.field), 10))`) before comparing — declared on `EntitySearchOperations`
-(`base_protocols.py:589`).
+The in-architecture move is `find_by_date_range`, which coerces the stored value before
+comparing (an instant by the day it falls on in the current zone) — declared on `EntitySearchOperations`
+(`core/ports/base_protocols.py`).
 
 ```python
 cutoff = today_in(current_zone()) - timedelta(days=period_days)   # a date: the coercion is day-granular

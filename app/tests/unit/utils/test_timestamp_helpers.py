@@ -4,7 +4,8 @@ Covers month_grid_bounds — the single source of the month view's full
 visible range (Monday-start grid, lead-in/tail cells included) — as_utc,
 the one form two instants are compared in, as_stored_clock (its inverse for a
 naive value), and the zone helpers (now_in, wall_clock_in, today_in, day_of,
-local_day_bounds), each of which takes its zone. The as_utc
+hour_of, local_day_bounds, stored_day_bounds, from_wall_clock, to_wall_clock), each of which
+takes its zone, and the type rule (is_instant_field). The as_utc
 and zone tests force the process zone: CI runs UTC, where a naive value reads
 the same as UTC by accident, and a helper that read the host's zone instead of
 the one it is given would pass there.
@@ -23,11 +24,16 @@ from core.utils.timestamp_helpers import (
     as_stored_clock,
     as_utc,
     day_of,
+    from_wall_clock,
+    hour_of,
+    is_instant_field,
     local_day_bounds,
     month_grid_bounds,
     now_in,
     now_utc,
     shown_in,
+    stored_day_bounds,
+    to_wall_clock,
     today_in,
     wall_clock_in,
     week_bounds,
@@ -360,3 +366,129 @@ class TestAgeOf:
     ) -> None:
         with forced_zone(host):
             assert age_of(datetime(2026, 9, 28, 1, 0)) == timedelta(hours=1)
+
+
+class TestHourOf:
+    """The hour an instant falls in on a zone's clock."""
+
+    def test_an_aware_instant_has_one_hour_per_zone(self) -> None:
+        assert hour_of(_FROZEN, VANCOUVER) == 19
+        assert hour_of(_FROZEN, BANGKOK) == 9
+
+    def test_a_naive_instant_is_read_through_as_utc(self) -> None:
+        with forced_zone("America/Vancouver"):
+            assert hour_of(datetime(2026, 9, 27, 19, 0), VANCOUVER) == 19
+            assert hour_of(datetime(2026, 9, 27, 19, 0), BANGKOK) == 9
+
+    @pytest.mark.parametrize("host", ["UTC", "America/Vancouver"])
+    def test_after_the_cutover_a_naive_stamp_is_utc(self, stored_clock_utc, host: str) -> None:
+        with forced_zone(host):
+            assert hour_of(datetime(2026, 9, 28, 2, 0), VANCOUVER) == 19
+
+
+class TestStoredDayBounds:
+    """A span of local days as the half-open instants a stored stamp is compared with."""
+
+    def test_on_the_laptop_a_day_is_its_midnights(self) -> None:
+        with forced_zone("America/Vancouver"):
+            start, end = stored_day_bounds(date(2026, 9, 27), date(2026, 9, 27), VANCOUVER)
+        assert (start, end) == (datetime(2026, 9, 27), datetime(2026, 9, 28))
+
+    def test_a_bangkok_day_on_the_laptops_clock(self) -> None:
+        with forced_zone("America/Vancouver"):
+            start, end = stored_day_bounds(date(2026, 9, 27), date(2026, 9, 28), BANGKOK)
+        # Bangkok's midnights are 10:00 the previous day on a Vancouver clock.
+        assert (start, end) == (datetime(2026, 9, 26, 10, 0), datetime(2026, 9, 28, 10, 0))
+
+    @pytest.mark.parametrize("host", ["UTC", "America/Vancouver", "Asia/Bangkok"])
+    def test_after_the_cutover_the_bounds_are_utc_digits(self, stored_clock_utc, host: str) -> None:
+        with forced_zone(host):
+            start, end = stored_day_bounds(date(2026, 9, 27), date(2026, 9, 27), VANCOUVER)
+        assert (start, end) == (datetime(2026, 9, 27, 7, 0), datetime(2026, 9, 28, 7, 0))
+
+    @pytest.mark.parametrize("host", ["UTC", "America/Vancouver"])
+    def test_a_stamp_is_inside_exactly_on_its_zones_day(self, host: str) -> None:
+        """20:00 on the 27th in Vancouver is 03:00Z on the 28th: inside the 27th's
+        bounds whatever the host, and outside the 28th's."""
+        moment = datetime(2026, 9, 28, 3, 0, tzinfo=UTC)
+        with forced_zone(host):
+            stamp = as_stored_clock(moment)
+            first = stored_day_bounds(date(2026, 9, 27), date(2026, 9, 27), VANCOUVER)
+            second = stored_day_bounds(date(2026, 9, 28), date(2026, 9, 28), VANCOUVER)
+        assert first[0] <= stamp < first[1]
+        assert not second[0] <= stamp < second[1]
+
+
+class TestFromWallClock:
+    """A client's offset-less datetime is a wall clock in the user's zone."""
+
+    def test_on_the_laptop_a_default_users_wall_clock_is_unchanged(self) -> None:
+        with forced_zone("America/Vancouver"):
+            assert from_wall_clock(datetime(2026, 9, 27, 17, 0), VANCOUVER) == datetime(
+                2026, 9, 27, 17, 0
+            )
+
+    def test_a_bangkok_wall_clock_on_the_laptops_clock(self) -> None:
+        with forced_zone("America/Vancouver"):
+            assert from_wall_clock(datetime(2026, 9, 27, 17, 0), BANGKOK) == datetime(
+                2026, 9, 27, 3, 0
+            )
+
+    def test_an_aware_value_keeps_its_instant(self) -> None:
+        aware = datetime(2026, 9, 27, 17, 0, tzinfo=BANGKOK)
+        assert from_wall_clock(aware, VANCOUVER) is aware
+
+    @pytest.mark.parametrize("host", ["UTC", "America/Vancouver"])
+    def test_after_the_cutover_the_stored_form_is_utc(self, stored_clock_utc, host: str) -> None:
+        with forced_zone(host):
+            assert from_wall_clock(datetime(2026, 9, 27, 17, 0), BANGKOK) == datetime(
+                2026, 9, 27, 10, 0
+            )
+
+    @pytest.mark.parametrize("host", ["UTC", "America/Vancouver"])
+    def test_it_is_shown_in_the_inverse(self, host: str) -> None:
+        wall = datetime(2026, 9, 27, 17, 0)
+        with forced_zone(host):
+            assert shown_in(from_wall_clock(wall, BANGKOK), BANGKOK) == wall
+
+
+class TestIsInstantField:
+    """The type rule: a ``datetime`` field holds an instant, a ``date`` field a day."""
+
+    def test_the_rule_reads_the_models_field_types(self) -> None:
+        from core.models.choice.choice import Choice
+        from core.models.habit.habit import Habit
+        from core.models.task.task import Task
+
+        assert is_instant_field(Choice, "decision_deadline")  # datetime | None
+        assert is_instant_field(Habit, "created_at")  # datetime
+        assert not is_instant_field(Task, "due_date")  # date | None
+        assert not is_instant_field(Task, "title")
+        assert not is_instant_field(Task, "no_such_field")
+        assert not is_instant_field(dict, "created_at")  # not a dataclass
+
+
+class TestToWallClock:
+    """A stored instant as the wall clock that names it — the inverse of from_wall_clock."""
+
+    def test_an_aware_instant_is_the_instant_it_names_not_its_digits(self) -> None:
+        # Unlike shown_in before the cutover, which holds an aware value's digits.
+        assert to_wall_clock(_FROZEN, BANGKOK) == datetime(2026, 9, 28, 9, 0)
+        assert shown_in(_FROZEN, BANGKOK) == datetime(2026, 9, 28, 2, 0)
+
+    @pytest.mark.parametrize("host", ["UTC", "America/Vancouver"])
+    @pytest.mark.parametrize("zone", [VANCOUVER, BANGKOK])
+    def test_an_unchanged_round_trip_keeps_the_instant(self, host: str, zone: ZoneInfo) -> None:
+        with forced_zone(host):
+            for stamp in (datetime(2026, 9, 27, 17, 0), _FROZEN):
+                back = from_wall_clock(to_wall_clock(stamp, zone), zone)
+                assert as_utc(back) == as_utc(stamp)
+
+    @pytest.mark.parametrize("zone", [VANCOUVER, BANGKOK])
+    def test_after_the_cutover_the_round_trip_keeps_the_instant(
+        self, stored_clock_utc, zone: ZoneInfo
+    ) -> None:
+        with forced_zone("America/Vancouver"):
+            for stamp in (datetime(2026, 9, 27, 17, 0), _FROZEN):
+                back = from_wall_clock(to_wall_clock(stamp, zone), zone)
+                assert as_utc(back) == as_utc(stamp)

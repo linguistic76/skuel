@@ -39,6 +39,8 @@ from core.services.insight import persist_principle_alignment_insight
 from core.utils.exception_types import DATA_CONVERSION_EXCEPTIONS, NEO4J_EXCEPTIONS
 from core.utils.logging import get_logger
 from core.utils.neo4j_props import coerce_float, coerce_int
+from core.utils.timestamp_helpers import hour_of
+from core.utils.zone_context import current_zone
 
 if TYPE_CHECKING:
     from core.ports.domain_protocols import TasksOperations
@@ -88,7 +90,7 @@ def _detect_batch_pattern(count: int, occurred_at: datetime) -> str:
     """
     if count > 5:
         return "inbox_zero_sprint"
-    elif occurred_at.hour >= 17:
+    elif hour_of(occurred_at, current_zone()) >= 17:
         return "end_of_day_cleanup"
     else:
         return "routine_batch"

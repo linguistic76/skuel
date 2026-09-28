@@ -28,7 +28,7 @@ from core.utils.completion_exporter import export_completions_csv, export_comple
 from core.utils.logging import get_logger
 from core.utils.neo4j_props import neo4j_str
 from core.utils.result_simplified import Errors, Result
-from core.utils.timestamp_helpers import today_in
+from core.utils.timestamp_helpers import day_of, parse_stamp, today_in
 from core.utils.zone_context import current_zone
 
 
@@ -334,9 +334,12 @@ class HabitsCompletionService:
         streak only (historical badge archaeology is deliberately out of scope;
         the badge handler dedupes re-earned tiers anyway).
         """
-        if habit.last_completed is not None and completed_at.date() < habit.last_completed.date():
-            tail = habit.last_completed.date()
-            backfill_day = completed_at.date()
+        zone = current_zone()
+        if habit.last_completed is not None and day_of(completed_at, zone) < day_of(
+            habit.last_completed, zone
+        ):
+            tail = day_of(habit.last_completed, zone)
+            backfill_day = day_of(completed_at, zone)
             # Widen the history window until the backfilled run's START is
             # inside it — a run touching the window floor may extend further
             # back, and best_candidate must measure the WHOLE bridged run
@@ -393,17 +396,15 @@ class HabitsCompletionService:
 
     @staticmethod
     def _completion_days(completions: list[HabitCompletion]) -> set[date]:
-        """Distinct calendar days carrying a completion (native/string tolerant)."""
+        """Distinct calendar days carrying a completion, in the current zone (native/string tolerant)."""
+        zone = current_zone()
         days: set[date] = set()
         for c in completions:
-            completed_at = c.completed_at
-            if isinstance(completed_at, str):
-                try:
-                    completed_at = datetime.fromisoformat(completed_at)
-                except ValueError:
-                    continue
-            if completed_at is not None:
-                days.add(completed_at.date())
+            stamp = parse_stamp(c.completed_at)
+            if isinstance(stamp, datetime):
+                days.add(day_of(stamp, zone))
+            elif isinstance(stamp, date):
+                days.add(stamp)
         return days
 
     @staticmethod
@@ -425,7 +426,8 @@ class HabitsCompletionService:
         if not habit.last_completed:
             return 1  # First completion
 
-        days_since = (completion_date.date() - habit.last_completed.date()).days
+        zone = current_zone()
+        days_since = (day_of(completion_date, zone) - day_of(habit.last_completed, zone)).days
 
         if days_since == 0:
             # Same day completion
@@ -636,7 +638,9 @@ class HabitsCompletionService:
             else None,
             "high_quality_count": sum(1 for c in completions if c.is_high_quality()),
             "excellent_quality_count": sum(1 for c in completions if c.is_excellent_quality()),
-            "completion_dates": [c.completed_at.date().isoformat() for c in completions],
+            "completion_dates": [
+                day_of(c.completed_at, current_zone()).isoformat() for c in completions
+            ],
             "notes_count": sum(1 for c in completions if c.has_meaningful_notes()),
         }
 

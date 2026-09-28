@@ -7,14 +7,12 @@ Pydantic models for the Choice Activity Domain API boundaries.
 See: /docs/architecture/ENTITY_TYPE_ARCHITECTURE.md
 """
 
-from datetime import datetime
-
 from pydantic import BaseModel, Field
 
 from core.models.choice.choice_update_intent import ChoiceUpdateIntent
 from core.models.enums import Domain, Priority
 from core.models.enums.choice_enums import ChoiceType
-from core.models.request_base import CreateRequestBase, UpdateRequestBase
+from core.models.request_base import ClientDateTime, CreateRequestBase, UpdateRequestBase
 from core.models.sentinels import UNSET, Unset
 
 # =============================================================================
@@ -55,7 +53,7 @@ class ChoiceCreateRequest(CreateRequestBase):
         max_length=1000,
         description="Circumstance forcing the decision (not the rationale for the option chosen)",
     )
-    decision_deadline: datetime | None = Field(default=None, description="Decision deadline")
+    decision_deadline: ClientDateTime | None = Field(default=None, description="Decision deadline")
     decision_criteria: list[str] = Field(default_factory=list, description="Criteria for deciding")
     constraints: list[str] = Field(default_factory=list, description="Constraints")
     stakeholders: list[str] = Field(default_factory=list, description="Stakeholders")
@@ -91,11 +89,11 @@ class ChoiceUpdateRequest(UpdateRequestBase):
         max_length=1000,
         description="Circumstance forcing the decision (not the rationale for the option chosen)",
     )
-    decision_deadline: datetime | None = Field(default=None, description="Decision deadline")
+    decision_deadline: ClientDateTime | None = Field(default=None, description="Decision deadline")
     decision_criteria: list[str] | None = Field(default=None, description="Criteria for deciding")
     constraints: list[str] | None = Field(default=None, description="Constraints")
     stakeholders: list[str] | None = Field(default=None, description="Stakeholders")
-    completed_at: datetime | None = Field(
+    completed_at: ClientDateTime | None = Field(
         default=None,
         description="When the choice was completed (explicit stamp; None clears it on reopen)",
     )
@@ -163,4 +161,4 @@ class ChoiceDecisionRequest(BaseModel):
         default=None, max_length=1000, description="Rationale for decision"
     )
     confidence: float = Field(default=0.8, ge=0.0, le=1.0, description="Confidence level")
-    decided_at: datetime | None = Field(default=None, description="Decision timestamp")
+    decided_at: ClientDateTime | None = Field(default=None, description="Decision timestamp")

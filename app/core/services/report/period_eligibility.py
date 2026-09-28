@@ -22,7 +22,7 @@ from typing import Any
 
 from core.models.enums import EntityStatus
 from core.utils.report_periods import as_naive_utc
-from core.utils.timestamp_helpers import as_stored_clock, local_day_bounds, parse_date_value
+from core.utils.timestamp_helpers import as_stored_clock, day_of, local_day_bounds, parse_date_value
 from core.utils.zone_context import current_zone
 
 
@@ -124,9 +124,10 @@ class PeriodEligibility:
         event_day = parse_date_value(entity.get("event_date"))
         if event_day is None:
             return True
-        if self.window_start is not None and event_day < self.window_start.date():
+        zone = current_zone()
+        if self.window_start is not None and event_day < day_of(self.window_start, zone):
             return False
-        return not (self.window_end is not None and event_day > self.window_end.date())
+        return not (self.window_end is not None and event_day > day_of(self.window_end, zone))
 
 
 __all__ = ["PeriodEligibility", "is_terminal_status", "moment_of"]

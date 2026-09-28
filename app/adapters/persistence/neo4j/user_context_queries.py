@@ -47,7 +47,7 @@ from core.utils.decorators import with_error_handling
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
 from core.utils.sort_functions import get_updated_timestamp
-from core.utils.timestamp_helpers import today_in
+from core.utils.timestamp_helpers import day_of, today_in
 from core.utils.zone_context import current_zone
 
 if TYPE_CHECKING:
@@ -333,7 +333,7 @@ WITH user, active_habit_uids, habit_metadata,
 // EVENTS - Fetch UIDs AND rich data with graph neighborhoods
 // ====================================================================
 OPTIONAL MATCH (user)-[:OWNS]->(event:Event)
-WHERE date(left(toString(event.event_date), 10)) >= date(datetime($window_start))
+WHERE date(left(toString(event.event_date), 10)) >= date($window_start_day)
 WITH user, active_habit_uids, habit_metadata, habits_rich,
      collect(CASE WHEN date(left(toString(event.event_date), 10)) >= date($today) THEN event.uid END) as upcoming_event_uids,
      collect(CASE WHEN date(left(toString(event.event_date), 10)) = date($today) THEN event.uid END) as today_event_uids,
@@ -1261,20 +1261,25 @@ def build_mega_query_params(
     """The complete parameter map every ``RICH_CONTEXT_STATEMENTS`` entry runs with.
 
     Always carries ``$window_start`` / ``$window_end`` (default: the trailing
-    30 days), ``$today`` and the status vocabulary; one map for all six
+    30 days), ``$window_start_day`` (the day the window starts on, which an
+    event's calendar ``event_date`` is compared with), ``$today`` and the
+    status vocabulary; one map for all six
     statements (a parameter a statement does not read is fine in Cypher, a
     missing one is a ``ParameterMissing`` error), and one builder so the
     executor and the plan-cache guard run the statements the same way.
-    ``$today`` is today in the current zone: the context user's, since every
-    context build runs in that user's zone (``zone_scope``).
+    ``$today`` and ``$window_start_day`` are days in the current zone: the
+    context user's, since every context build runs in that user's zone
+    (``zone_scope``).
     """
+    zone = current_zone()
     effective_end = window_end or datetime.now()
     effective_start = window_start or (effective_end - timedelta(days=30))
     return {
         "user_uid": user_uid,
-        "today": today_in(current_zone()).isoformat(),
+        "today": today_in(zone).isoformat(),
         "min_confidence": min_confidence,
         "window_start": effective_start.isoformat(),
+        "window_start_day": day_of(effective_start, zone).isoformat(),
         "window_end": effective_end.isoformat(),
         **STATUS_PARAMS,
     }

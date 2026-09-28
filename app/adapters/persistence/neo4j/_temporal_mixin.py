@@ -23,6 +23,7 @@ from core.models.protocols import DomainModelProtocol
 from core.models.type_hints import UserUID
 from core.utils.error_boundary import safe_backend_operation
 from core.utils.result_simplified import Result
+from core.utils.timestamp_helpers import is_instant_field
 
 if TYPE_CHECKING:
     import builtins
@@ -40,11 +41,14 @@ class _TemporalMixin[T: DomainModelProtocol]:
     Requires on concrete class:
         driver: AsyncDriver
         label: NeoLabel
+        entity_class: the domain model, whose field types say which date fields
+            hold an instant (``is_instant_field``)
     """
 
     if TYPE_CHECKING:
         driver: AsyncDriver
         label: NeoLabel
+        entity_class: type[T]
 
     @safe_backend_operation("user_activity_range_raw")
     async def user_activity_range_raw(
@@ -78,6 +82,11 @@ class _TemporalMixin[T: DomainModelProtocol]:
             start_date=start_date,
             end_date=end_date,
             exclude_statuses=exclude_statuses or [],
+            instant_fields=frozenset(
+                field
+                for field in ([date_field] if isinstance(date_field, str) else date_field)
+                if is_instant_field(self.entity_class, field)
+            ),
         )
 
         async with self.driver.session() as session:
@@ -123,6 +132,7 @@ class _TemporalMixin[T: DomainModelProtocol]:
             user_uid=user_uid,
             limit=limit,
             secondary_sort_field=secondary_sort_field,
+            instant_field=is_instant_field(self.entity_class, date_field),
         )
 
         async with self.driver.session() as session:
@@ -201,6 +211,7 @@ class _TemporalMixin[T: DomainModelProtocol]:
             user_uid=user_uid,
             limit=limit,
             secondary_sort_field=secondary_sort_field,
+            instant_field=is_instant_field(self.entity_class, date_field),
         )
 
         async with self.driver.session() as session:

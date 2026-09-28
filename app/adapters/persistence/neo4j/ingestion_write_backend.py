@@ -23,6 +23,8 @@ from typing import TYPE_CHECKING, Any
 
 from core.models.enums.entity_enums import EntityStatus
 from core.models.enums.neo_labels import NeoLabel
+from core.utils import timestamp_helpers
+from core.utils.zone_context import current_zone
 
 if TYPE_CHECKING:
     from collections.abc import Sequence
@@ -33,25 +35,64 @@ if TYPE_CHECKING:
     from core.models.relationship_names import RelationshipName
 
 
-# The task creation rule over a node bound as ``n`` (``Task.with_creation_due_date``
-# in Cypher): the ``created_at`` calendar day, or — on a COMPLETED node only — the
-# ``completion_date`` day when that came first. The status guard is what keeps an
-# open node with a leftover stamp (the shape the stamp-clear undoes, and it runs
-# AFTER this rule in the vault door's pass) off the stale day; a node with no
-# status property compares to null and takes the creation day. ``substring(
-# toString(…), 0, 10)`` is the ``YYYY-MM-DD`` prefix whatever the property's
-# storage type — ISO string or native temporal — and the result is the ISO date
-# string every app writer stores for ``due_date``; ISO date strings compare
-# correctly as strings. Every query that embeds it passes ``$completed_status``
-# (``EntityStatus.COMPLETED.value``). Shared by the vault door's
-# ``apply_task_creation_due_dates`` and ``scripts/backfill_task_creation_due_dates.py``
-# so the live rule and the history backfill cannot drift.
-_CREATED_DAY = "substring(toString(n.created_at), 0, 10)"
+# ``completion_date`` is a calendar day: ``substring(toString(…), 0, 10)`` is its
+# ``YYYY-MM-DD`` whatever the property's storage type — ISO string or native
+# temporal.
 _DONE_DAY = "substring(toString(n.completion_date), 0, 10)"
-TASK_CREATION_DUE_DATE_CYPHER = (
-    f"CASE WHEN n.status = $completed_status AND n.completion_date IS NOT NULL "
-    f"AND {_DONE_DAY} < {_CREATED_DAY} THEN {_DONE_DAY} ELSE {_CREATED_DAY} END"
+
+
+# The day a ``created_at`` instant falls on in ``$zone``, and the ``YYYY-MM-DD``
+# digits of an offset-less stamp. A stamp carries an offset when it is a native
+# zoned temporal or a string ending in ``Z`` / ``±hh:mm``.
+_CREATED_DAY_IN_ZONE = (
+    "toString(date(datetime({datetime: datetime(n.created_at), timezone: $zone})))"
 )
+_CREATED_DIGITS_DAY = "substring(toString(n.created_at), 0, 10)"
+_CREATED_HAS_OFFSET = (
+    "(valueType(n.created_at) STARTS WITH 'ZONED' "
+    "OR toString(n.created_at) =~ '.*(Z|[+-][0-9]{2}:[0-9]{2})$')"
+)
+
+
+def _created_day_cypher() -> str:
+    """The calendar day the ``created_at`` instant falls on in ``$zone``, as an ISO date string.
+
+    Read like ``timestamp_helpers.day_of``: a stamp with an offset names its
+    instant, and its day is the zone's. An offset-less stamp is read on the
+    stored clock (``STORED_INSTANT_CLOCK``): while that is the host's, its
+    digits are the host's wall clock and its day is its own ``YYYY-MM-DD``;
+    once it is UTC, it is read like any other instant.
+    """
+    if timestamp_helpers.STORED_INSTANT_CLOCK is None:
+        return (
+            f"CASE WHEN {_CREATED_HAS_OFFSET} THEN {_CREATED_DAY_IN_ZONE} "
+            f"ELSE {_CREATED_DIGITS_DAY} END"
+        )
+    return _CREATED_DAY_IN_ZONE
+
+
+def task_creation_due_date_cypher() -> str:
+    """The task creation rule over a node bound as ``n`` (``Task.with_creation_due_date`` in Cypher).
+
+    The ``created_at`` calendar day, or — on a COMPLETED node only — the
+    ``completion_date`` day when that came first. The status guard is what keeps
+    an open node with a leftover stamp (the shape the stamp-clear undoes, and it
+    runs AFTER this rule in the vault door's pass) off the stale day; a node with
+    no status property compares to null and takes the creation day. The result
+    is the ISO date string every app writer stores for ``due_date``; ISO date
+    strings compare correctly as strings. Every query that embeds it passes
+    ``$completed_status`` (``EntityStatus.COMPLETED.value``) and ``$zone`` (the
+    IANA name of the zone whose day the creation is on). Shared by the vault
+    door's ``apply_task_creation_due_dates`` and
+    ``scripts/backfill_task_creation_due_dates.py`` so the live rule and the
+    history backfill cannot drift.
+    """
+    created_day = _created_day_cypher()
+    return (
+        f"CASE WHEN n.status = $completed_status AND n.completion_date IS NOT NULL "
+        f"AND {_DONE_DAY} < {created_day} THEN {_DONE_DAY} ELSE {created_day} END"
+    )
+
 
 # Carries MERGE's create/match signal from the ON CREATE / ON MATCH branches to
 # the RETURN, then is removed in the same transaction — it is never committed,
@@ -322,7 +363,9 @@ class IngestionWriteBackend:
         was done; an open task's leftover stamp is not consulted). The bulk upsert
         never builds a ``Task``, so the rule the service create primitive applies
         on the entity is applied here on the node, by the same expression the
-        history backfill writes (``TASK_CREATION_DUE_DATE_CYPHER``).
+        history backfill writes (``task_creation_due_date_cypher``). The creation
+        day is the current zone's — the vault owner's, under the sync's zone
+        scope.
 
         **The guard is the selector.** The caller names every Task uid the batch
         persisted — creates and re-syncs alike — and the ``IS NULL`` guards pick
@@ -333,24 +376,26 @@ class IngestionWriteBackend:
         between is a no-op too. A node with no ``created_at`` has no day to
         derive and is left alone.
 
-        The interpolated ``TASK_CREATION_DUE_DATE_CYPHER`` is Cypher *structure*
-        — an expression over ``n``'s own properties, a module constant no
-        request data reaches — which is what makes it safe where a value must
+        The interpolated ``task_creation_due_date_cypher()`` is Cypher
+        *structure* — an expression over ``n``'s own properties, code-owned, no
+        request data reaches it — which is what makes it safe where a value must
         be a driver parameter (the ``uids`` are).
         """
         if not uids:
             return 0
+        rule = task_creation_due_date_cypher()
         records, _, _ = await self._driver.execute_query(  # pyright: ignore[reportArgumentType, reportCallIssue]
             f"""
             UNWIND $uids AS uid
             MATCH (n:{NeoLabel.TASK.value} {{uid: uid}})
             WHERE n.due_date IS NULL AND n.scheduled_date IS NULL
               AND n.created_at IS NOT NULL
-            SET n.due_date = {TASK_CREATION_DUE_DATE_CYPHER} // noqa: CYP003 - a code-owned expression over the node's own properties (module constant), not a value; see docstring
+            SET n.due_date = {rule} // noqa: CYP003 - a code-owned expression over the node's own properties (task_creation_due_date_cypher), not a value; see docstring
             RETURN count(n) AS dated
             """,
             uids=list(uids),
             completed_status=EntityStatus.COMPLETED.value,
+            zone=str(current_zone()),
         )
         return int(records[0]["dated"]) if records else 0
 

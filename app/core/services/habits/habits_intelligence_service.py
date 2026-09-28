@@ -34,7 +34,7 @@ from core.services.intelligence._core_intelligence_mixin import _CoreIntelligenc
 from core.services.knowledge.knowledge_pattern_analyzer import KnowledgePatternAnalyzer
 from core.utils.dto_converters import to_domain_model
 from core.utils.result_simplified import Result
-from core.utils.timestamp_helpers import today_in
+from core.utils.timestamp_helpers import day_of, today_in
 from core.utils.zone_context import current_zone
 
 if TYPE_CHECKING:
@@ -313,7 +313,7 @@ class HabitsIntelligenceService(
         elif habit.recurrence_pattern == HabitFrequency.WEEKLY:
             # GRAPH-NATIVE: Simplified — occurs once per week
             if habit.started_at:
-                days_since_start = (check_date - habit.started_at.date()).days
+                days_since_start = (check_date - day_of(habit.started_at, current_zone())).days
                 return days_since_start % 7 == 0
             return check_date.weekday() == 0  # Default to Monday
         elif habit.recurrence_pattern == HabitFrequency.CUSTOM:

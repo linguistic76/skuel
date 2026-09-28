@@ -245,7 +245,7 @@ class HabitsPlanningService(BasePlanningService[HabitsOperations, Habit]):
                 continue
 
             # Check if already completed today
-            if habit.last_completed and habit.last_completed.date() == today:
+            if habit.last_completed and day_of(habit.last_completed, current_zone()) == today:
                 continue
 
             goal_uids = [g.get("uid") for g in graph_ctx.get("linked_goals", []) if g.get("uid")]

@@ -1,6 +1,6 @@
 ---
 title: "Habit-Completion Persistence Bundle — Orphans, UID Collisions, Non-Atomic Day Uniqueness"
-updated: 2026-09-24
+updated: 2026-09-28
 status: "ruled — build waits on the trigger"
 registered: 2026-08-28
 trigger: "lived habit-completion use, or the next touch of the completion write path"
@@ -131,7 +131,8 @@ two consideration notes. Re-verified against the code and the live graph 2026-08
    `export_completion_history`), which need whole `HabitCompletion` records, deliberately keep
    same-day duplicates, and go through `find_by_date_range`
    ([done](done/find-by-datetime-string-binding.md)). It reuses that read's **normalized range
-   predicate** (`date(left(toString(x), 10))` on both sides).
+   predicate** (the days' bounds in the current zone, `stored_day_bounds`), and a day it returns
+   is the one the completion falls on in that zone.
 6. **Untrack cannot delete, says it did, and would not recompute if it could.** `untrack_habit`
    (`_completion_mixin.py:88`, `POST /api/habits/untrack`) deletes each of the day's completions
    with `completions_backend.delete(uid)` — default `cascade=False`, the plain `DELETE` the mixin
