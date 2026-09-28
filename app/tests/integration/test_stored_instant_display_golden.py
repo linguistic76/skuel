@@ -1,12 +1,10 @@
-"""Every surface that shows a stored instant renders from one seeded graph (testcontainer Neo4j).
+"""Every surface that shows a stored instant renders as its golden file (testcontainer Neo4j).
 
-The UTC Instants arc routes each display of a stored instant through one set of
-helpers (``shown_in``, ``age_of``, ``parse_stamp`` in
-``core/utils/timestamp_helpers.py``), which read ``STORED_INSTANT_CLOCK``. Until
-the cutover that constant is the host's zone and the helpers reproduce what the
-pages showed before them, byte for byte: this test pins it. The golden files
-were captured on the commit before the helpers existed, and a change that alters
-what a user sees fails here.
+Each display of a stored instant goes through the helpers in
+``core/utils/timestamp_helpers.py`` (``shown_in``, ``age_of``, ``parse_stamp``),
+which read ``STORED_INSTANT_CLOCK``. The golden files hold what the pages show
+while that constant is the host's zone; a change that alters what a user sees
+fails here.
 
 One classroom — a teacher who owns a group, a student in it — is seeded through
 the real writers, each under a frozen clock (``time_machine``, given a timestamp
@@ -19,9 +17,9 @@ their routes make. The writers' random uids are replaced by names before the
 comparison.
 
 Regenerate the golden files with ``SKUEL_UPDATE_GOLDEN=1`` — only for a change
-that means to alter what is shown. The cutover is one: its diff of these files
-is the record of what it changes (the shares read "14h ago" here, seven hours
-more than their age, because their stored digits are the host's wall clock).
+that means to alter what is shown, whose diff of these files is then the record
+of what it changes. The shares read "14h ago" here, seven hours more than their
+age, because their stored digits are the host's wall clock.
 """
 
 from __future__ import annotations

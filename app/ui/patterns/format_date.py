@@ -12,13 +12,12 @@ date-only string — is never converted. For relative labels ("3h ago") use
 from __future__ import annotations
 
 from datetime import date, datetime
-from typing import Any
 
 from core.utils.timestamp_helpers import parse_stamp, shown_in
 from core.utils.zone_context import current_zone
 
 
-def format_date(value: Any, fmt: str = "%d %b %Y", *, empty: str = "") -> str:
+def format_date(value: object, fmt: str = "%d %b %Y", *, empty: str = "") -> str:
     """Render a timestamp-ish value with ``fmt``; ``empty`` when falsy."""
     if not value:
         return empty

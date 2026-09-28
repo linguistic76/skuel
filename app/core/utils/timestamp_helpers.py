@@ -241,7 +241,7 @@ def parse_iso_utc(value: str | None) -> datetime | None:
     return parsed
 
 
-def parse_stamp(value: Any) -> datetime | date | None:
+def parse_stamp(value: object) -> datetime | date | None:
     """A stored timestamp in whatever shape it arrives — or None when absent or unreadable.
 
     Accepts a native ``datetime`` or ``date``, a Neo4j temporal (``to_native()``),

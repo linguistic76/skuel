@@ -11,13 +11,12 @@ age and the date come from the stored-instant helpers (``age_of``,
 from __future__ import annotations
 
 from datetime import datetime
-from typing import Any
 
 from core.utils.timestamp_helpers import age_of, parse_stamp, shown_in
 from core.utils.zone_context import current_zone
 
 
-def format_relative_time(value: Any) -> str:
+def format_relative_time(value: object) -> str:
     """Render a timestamp (ISO string or Neo4j DateTime) as a relative-ish label."""
     dt = parse_stamp(value)
     if not isinstance(dt, datetime):
