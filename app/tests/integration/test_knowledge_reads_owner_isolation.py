@@ -2,17 +2,15 @@
 
 ``get_entity_context`` walks every edge type, both directions, with no owner
 scoping. Two users whose tasks apply the same Ku are therefore two hops apart,
-and a reader that keeps "every ``:Entity`` neighbour" hands one user the other's
-task title — ``GET /api/tasks/insights`` returns it as ``knowledge_prerequisites``.
-Both knowledge readers keep only ``GraphContext.get_knowledge_nodes()``.
+so the reader's filter is the only thing between one user and the other's task
+title in ``GET /api/tasks/insights``' ``knowledge_prerequisites``. Both knowledge
+readers keep only ``GraphContext.get_knowledge_nodes()``.
 
-The in-memory half (and the red-on-the-old-line proof) is
+The in-memory guard is
 ``tests/unit/services/test_knowledge_nodes_from_graph_context.py``.
 """
 
 from __future__ import annotations
-
-from typing import Any
 
 import pytest
 
@@ -20,6 +18,7 @@ from adapters.persistence.neo4j.cross_domain_backend import CrossDomainBackend
 from adapters.persistence.neo4j.neo4j_query_executor import Neo4jQueryExecutor
 from core.constants import GraphDepth
 from core.models.task.task import Task
+from core.models.type_hints import Neo4jValue
 from core.services.infrastructure.graph_intelligence_service import GraphIntelligenceService
 from core.services.knowledge.activity_knowledge_intelligence_service import (
     ActivityKnowledgeIntelligenceService,
@@ -79,7 +78,7 @@ async def test_prerequisites_of_my_task_omit_their_task(neo4j_driver, graph_inte
 
 
 class _MyTasksBackend:
-    async def find_by(self, **_filters: Any) -> Result[list[Task]]:
+    async def find_by(self, limit: int = 100, **filters: Neo4jValue) -> Result[list[Task]]:
         return Result.ok([Task(uid=MY_TASK, title=MY_TASK, user_uid="user_mine")])
 
 

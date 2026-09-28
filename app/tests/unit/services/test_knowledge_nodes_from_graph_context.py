@@ -16,13 +16,13 @@ The real-traversal half (two users' tasks sharing a Ku) is
 from __future__ import annotations
 
 from datetime import datetime
-from typing import Any
 
 import pytest
 
 from core.models.enums import Domain, EntityType
 from core.models.graph_context import ContextRelevance, GraphContext, GraphNode
 from core.models.task.task import Task
+from core.models.type_hints import Neo4jProperties, Neo4jValue
 from core.services.knowledge.activity_knowledge_intelligence_service import (
     ActivityKnowledgeIntelligenceService,
 )
@@ -69,7 +69,7 @@ def _context() -> GraphContext:
 
 
 class _FakeCrossDomainBackend:
-    async def get_ku_titles_and_tags(self) -> Result[list[dict[str, Any]]]:
+    async def get_ku_titles_and_tags(self) -> Result[list[Neo4jProperties]]:
         return Result.ok([])
 
 
@@ -81,7 +81,7 @@ class _FakeGraphIntel:
 
 
 class _FakeBackend:
-    async def find_by(self, **_filters: Any) -> Result[list[Task]]:
+    async def find_by(self, limit: int = 100, **filters: Neo4jValue) -> Result[list[Task]]:
         return Result.ok([Task(uid=ORIGIN, title="Practise focus", user_uid="user_mine")])
 
 
