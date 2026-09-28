@@ -637,7 +637,36 @@ class Ruling:
 
 #: Rows ruled one by one (§ Migration contract, step 2: "stops the run for
 #: Mike's ruling"). A changed value no longer matches and stops again.
-RULINGS: tuple[Ruling, ...] = ()
+RULINGS: tuple[Ruling, ...] = (
+    Ruling(
+        owner="(:EntryReport)",
+        prop="updated_at",
+        key=("key=er_e7ca22a9", "key_prop=uid", "match_label=Entity", "owner_label=EntryReport"),
+        text="2026-08-01T17:10:51.959Z",
+        verdict=Verdict.LEAVE,
+        reason=(
+            "true UTC — retitle_entry_reports.py's datetime(), run before #904 merged "
+            "(2026-08-01 18:27Z); the row carries its 'Feedback on' title (ruled 2026-09-28)"
+        ),
+    ),
+    Ruling(
+        owner="[:MEMBER_OF]",
+        prop="joined_at",
+        key=(
+            "end_label=Group",
+            "end_uid=group_default_user_admin",
+            "start_label=User",
+            "start_uid=user_uxsmoke",
+            "type=MEMBER_OF",
+        ),
+        text="2026-09-25T23:06:45.126Z",
+        verdict=Verdict.LEAVE,
+        reason=(
+            "true UTC — the Submit & Share PR 6a live-case script's server stamp, 16:06 PDT, "
+            "before that PR merged at 16:32 (ruled 2026-09-28)"
+        ),
+    ),
+)
 
 
 # =============================================================================

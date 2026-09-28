@@ -588,3 +588,32 @@ def test_a_relationships_json_holding_stamps_stops() -> None:
     text = json.dumps({"seen_at": "2026-09-20T09:00:00.123456"})
     migration._rel_json_census(census, {"element": "r1"}, "[:RELATED_TO]", "evidence", text)
     assert [(s.owner, s.json_path) for s in census.stops] == [("[:RELATED_TO]", "$.seen_at")]
+
+
+def test_mikes_two_rulings_settle_their_rows_as_true_utc() -> None:
+    """Each ruling matches its row by the key the census builds, and leaves it."""
+    report = migration.Stamp(
+        "node",
+        "e1",
+        "(:EntryReport)",
+        "updated_at",
+        migration.classify_native("ZONED DATETIME", "2026-08-01T17:10:51.959Z", "Z", 959_000_000),
+        migration._node_key(("Entity", "EntryReport"), "(:EntryReport)", "er_e7ca22a9", None),
+    )
+    membership = migration.Stamp(
+        "rel",
+        "r1",
+        "[:MEMBER_OF]",
+        "joined_at",
+        migration.classify_native("ZONED DATETIME", "2026-09-25T23:06:45.126Z", "Z", 126_000_000),
+        migration.RelKey(
+            type="MEMBER_OF",
+            start_label="User",
+            start_uid="user_uxsmoke",
+            end_label="Group",
+            end_uid="group_default_user_admin",
+        ),
+    )
+    for stamp in (report, membership):
+        assert migration._apply_ruling(stamp)
+        assert stamp.verdict is L and stamp.rule.startswith("Mike's ruling")
