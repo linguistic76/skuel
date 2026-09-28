@@ -16,6 +16,7 @@ See: /docs/roadmap/utc-instants-arc.md § Migration contract (PR 4), step 7
 
 from __future__ import annotations
 
+import asyncio
 from collections.abc import AsyncIterator
 from typing import Any
 
@@ -85,6 +86,25 @@ async def test_an_empty_graph_is_stamped_and_opens_again_after_a_restart(
     assert len(await _records(raw)) == 1
 
 
+async def test_two_openers_of_one_empty_graph_write_one_record(
+    raw: Any, guard_container: Any
+) -> None:
+    """Separate processes open a fresh graph at once: the record's name is unique, so one
+    record is written and both open."""
+    await raw.execute_query("DROP CONSTRAINT MigrationRecord_name_unique IF EXISTS")
+    first, second = await asyncio.gather(_open(guard_container), _open(guard_container))
+    await first.close()
+    await second.close()
+    assert len(await _records(raw)) == 1
+    constraints = await raw.execute_query(
+        "SHOW CONSTRAINTS YIELD labelsOrTypes, properties, type "
+        "WHERE 'MigrationRecord' IN labelsOrTypes RETURN properties, type"
+    )
+    assert [(r["properties"], r["type"]) for r in constraints.records] == [
+        (["name"], "NODE_PROPERTY_UNIQUENESS")
+    ]
+
+
 async def test_a_graph_holding_data_with_no_record_is_refused(
     raw: Any, guard_container: Any
 ) -> None:
@@ -106,6 +126,8 @@ async def test_a_reverted_graph_is_refused(raw: Any, guard_container: Any) -> No
 
 
 async def test_a_graph_recorded_twice_is_refused(raw: Any, guard_container: Any) -> None:
+    # Two records can only predate the uniqueness constraint; drop it to build that graph.
+    await raw.execute_query("DROP CONSTRAINT MigrationRecord_name_unique IF EXISTS")
     await raw.execute_query(
         "CREATE (:MigrationRecord {name: $name, state: $state}) "
         "CREATE (:MigrationRecord {name: $name, state: $state})",

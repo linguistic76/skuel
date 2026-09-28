@@ -56,7 +56,13 @@ WITH collect(r.state) AS states
 RETURN states, EXISTS {{ MATCH (n) WHERE NOT n:{_RECORD} }} AS holds_data
 """
 
-# MERGE keyed by name: two processes opening one empty graph write one record.
+# The record's name is unique, so a MERGE on it writes one node however many
+# processes race it — an empty graph opened by two at once included.
+_RECORD_NAME_UNIQUE = f"""
+CREATE CONSTRAINT {_RECORD}_name_unique IF NOT EXISTS
+FOR (r:{_RECORD}) REQUIRE r.name IS UNIQUE
+"""
+
 _STAMP_EMPTY = f"""
 MERGE (r:{_RECORD} {{name: $name}})
 ON CREATE SET r.state = $applied, r.stamped = $stamped, r.applied_at = datetime()
@@ -94,6 +100,22 @@ def open_async_driver(
     return AsyncGraphDatabase.driver(uri, auth=auth, **config)
 
 
+async def _create_record_name_constraint(tx: AsyncManagedTransaction) -> None:
+    result = await tx.run(_RECORD_NAME_UNIQUE)
+    await result.consume()
+
+
+async def ensure_record_name_is_unique(driver: AsyncDriver) -> None:
+    """Create the uniqueness constraint on the record's name, when it is missing.
+
+    Run before any write that MERGEs the record — a schema change cannot share a
+    transaction with data writes. A managed transaction, so the deadlock two
+    concurrent creators can hit is retried rather than raised.
+    """
+    async with driver.session() as session:
+        await session.execute_write(_create_record_name_constraint)
+
+
 @dataclass(frozen=True)
 class _RecordRead:
     states: list[str]
@@ -101,32 +123,42 @@ class _RecordRead:
     stamped: bool
 
 
-async def _read_or_stamp(tx: AsyncManagedTransaction) -> _RecordRead:
+async def _read(tx: AsyncManagedTransaction) -> _RecordRead:
     result = await tx.run(_READ_RECORD, name=UTC_INSTANTS_MIGRATION)
     record = await result.single()
     states = [str(state) for state in (record["states"] if record else [])]
     holds_data = bool(record["holds_data"]) if record else False
-    if states or holds_data:
-        return _RecordRead(states, holds_data, stamped=False)
+    return _RecordRead(states, holds_data, stamped=False)
+
+
+async def _read_or_stamp(tx: AsyncManagedTransaction) -> _RecordRead:
+    read = await _read(tx)
+    if read.states or read.holds_data:
+        return read
     stamp = await tx.run(
         _STAMP_EMPTY, name=UTC_INSTANTS_MIGRATION, applied=STATE_APPLIED, stamped=STAMPED_EMPTY
     )
     stamped = await stamp.single()
-    return _RecordRead([str(stamped["state"])] if stamped else [], holds_data, stamped=True)
+    return _RecordRead([str(stamped["state"])] if stamped else [], False, stamped=True)
 
 
 async def require_utc_instants(driver: AsyncDriver) -> None:
     """Refuse a graph that holds data unless the UTC instants migration is applied to it.
 
     An empty graph is stamped with the record (state ``applied``) in the same
-    transaction that found it empty, and opens.
+    transaction that found it empty, and opens; the record's name is made unique
+    first, so two processes opening one empty graph at once write one record.
 
     Raises:
         GraphNotMigratedError: the graph holds data and the record is missing,
             reverted, in another state, or recorded more than once.
     """
     async with driver.session() as session:
-        read = await session.execute_write(_read_or_stamp)
+        read = await session.execute_read(_read)
+    if not read.states and not read.holds_data:
+        await ensure_record_name_is_unique(driver)
+        async with driver.session() as session:
+            read = await session.execute_write(_read_or_stamp)
     if read.states == [STATE_APPLIED]:
         return
     remedy = (

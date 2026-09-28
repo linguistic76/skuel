@@ -873,7 +873,9 @@ embedding check has run; the ledger PR records PR 4 as merged and deployed.
 - **The guard.** `Neo4jConnection.connect()` is async and opens a graph in three steps: the driver
   (the pin), the waking probe (`connect_with_retry`, which `Neo4jAdapter.connect` used to run
   itself), and `require_utc_instants` — a graph holding data is refused unless its
-  `(:MigrationRecord {name: 'utc_instants_2026_10'})` is `applied`, and an empty one is stamped.
+  `(:MigrationRecord {name: 'utc_instants_2026_10'})` is `applied`, and an empty one is stamped —
+  after the record's name is made unique (`MigrationRecord_name_unique`), so separate processes
+  opening one empty graph at once write one record; `--confirm` ensures the constraint too.
   `get_connection()` is async too. The migration script opens with `utc_instants_guard=False`.
   `clean_neo4j`, `test_yaml_roundtrip`'s clear and `scripts/clear_neo4j.py` keep the record.
   PR 9 keeps the guard and removes the pin (R8).

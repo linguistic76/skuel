@@ -83,6 +83,7 @@ from adapters.persistence.neo4j.graph_driver import (
     STATE_APPLIED,
     STATE_REVERTED,
     UTC_INSTANTS_MIGRATION,
+    ensure_record_name_is_unique,
 )
 from core.models.enums.neo_labels import NeoLabel
 from core.models.group.group import DEFAULT_GROUP_UID_PREFIX
@@ -954,7 +955,7 @@ def _json_census(
             "so its digits cannot be moved alone"
         )
         return
-    new_text = json.dumps(_replace_stamps(parsed, {m["old"]: m["new"] for m in moved}))
+    new_text = json.dumps(_replace_stamps(parsed, {(m["path"], m["old"]): m["new"] for m in moved}))
     census.json_rows.append(
         {
             "element": str(row["element"]),
@@ -968,13 +969,18 @@ def _json_census(
     )
 
 
-def _replace_stamps(obj: Any, mapping: Mapping[str, str]) -> Any:
+def _replace_stamps(obj: Any, moves: Mapping[tuple[str, str], str], path: str = "$") -> Any:
+    """``obj`` with each stamp that moves replaced where it moves — by its path and text.
+
+    The same text at another path (a diagnostic copy of a date the report reads,
+    say) is left as it is: the census classified it there.
+    """
     if isinstance(obj, dict):
-        return {k: _replace_stamps(v, mapping) for k, v in obj.items()}
+        return {k: _replace_stamps(v, moves, f"{path}.{k}") for k, v in obj.items()}
     if isinstance(obj, list):
-        return [_replace_stamps(v, mapping) for v in obj]
-    if isinstance(obj, str) and obj in mapping:
-        return mapping[obj]
+        return [_replace_stamps(v, moves, f"{path}[]") for v in obj]
+    if isinstance(obj, str) and (path, obj) in moves:
+        return moves[(path, obj)]
     return obj
 
 
@@ -1315,6 +1321,7 @@ async def confirm(
     """Apply the manifest in one transaction and record it ``applied``."""
     if manifest["graph_uri"] != graph_uri:
         raise RefusedError(f"the manifest was taken on {manifest['graph_uri']}, not {graph_uri}")
+    await ensure_record_name_is_unique(driver)
     async with driver.session() as session:
         tx = await session.begin_transaction()
         try:

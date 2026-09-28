@@ -491,3 +491,24 @@ def test_the_manifests_rows_are_ordered_and_numbered() -> None:
     assert [row["key"]["key"] for row in rows] == ["a", "b"]
     assert [row["id"] for row in rows] == [0, 1]
     assert rows[0]["new"] == "2026-09-20T16:00:00.000001" and rows[0]["shape"] == "string"
+
+
+def test_a_json_stamp_moves_only_at_the_path_it_was_classified_at() -> None:
+    """The same text at a read path and a diagnostic path: only the read one moves."""
+    stamp = "2026-09-20T09:00:00.123456"
+    text = json.dumps({"progress_notes": [{"date": stamp, "notes": "n"}], "archived_at": stamp})
+    census = migration.Census(
+        census_at=datetime(2026, 9, 28, 15, 0, tzinfo=migration.UTC),
+        laptop_now=LAPTOP_NOW,
+        graph_uri="bolt://x",
+    )
+    row = {"element": "e1", "prop": "metadata", "text": text, "uid": "goal.x", "user_uid": None}
+    migration._json_census(census, row, ("Entity", "Goal"), "(:Goal)", "")
+    assert not census.stops
+    [json_row] = census.json_rows
+    moved = json.loads(json_row["new"])
+    assert moved["progress_notes"][0]["date"] == "2026-09-20T16:00:00.123456"
+    assert moved["archived_at"] == stamp
+    assert json_row["changes"] == [
+        {"path": "$.progress_notes[].date", "old": stamp, "new": "2026-09-20T16:00:00.123456"}
+    ]
