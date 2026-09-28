@@ -34,7 +34,7 @@ from core.ports import (
 )
 from core.utils.csrf_token_context import CSRF_FORM_FIELD, current_csrf_token
 from core.utils.logging import get_logger
-from core.utils.timestamp_helpers import shown_in
+from core.utils.timestamp_helpers import to_wall_clock
 from core.utils.zone_context import current_zone
 from ui.components import Button, ButtonT, Icon
 from ui.forms import Checkbox, Input, Label, Select, Textarea
@@ -564,12 +564,12 @@ class FormGenerator:
         consistent variant classes, ARIA support, and full-width defaults.
         """
         # Normalize: extract .value from Enum, format dates for HTML inputs. A
-        # datetime-local shows a stored instant on the user's clock — the clock
+        # datetime-local holds a stored instant on the user's clock — the clock
         # the submitted value is read on (ClientDateTime) — so an unchanged
         # re-save keeps its instant.
         normalized_value = value.value if isinstance(value, Enum) else value
         if widget_type == "datetime-local" and isinstance(normalized_value, datetime):
-            normalized_value = shown_in(normalized_value, current_zone()).isoformat(
+            normalized_value = to_wall_clock(normalized_value, current_zone()).isoformat(
                 timespec="minutes"
             )
         elif (

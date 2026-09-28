@@ -175,13 +175,11 @@ class HabitCompletion:
         return (today_in(zone) - day_of(self.completed_at, zone)).days
 
     def completion_time_of_day(self) -> TimeOfDay:
-        """Which slot of the day this completion landed in.
+        """Which slot of the day this completion landed in, on the current zone's clock.
 
         Speaks the one time-of-day vocabulary the habit's own ``preferred_time``
         uses (habit-rhythm arc M1), so "when I said I would do it" and "when I
-        actually did it" are directly comparable. This used to return a private
-        four-word vocabulary whose boundaries disagreed with ``TimeOfDay`` before
-        07:00 and after midnight.
+        actually did it" are directly comparable.
         """
         return TimeOfDay.from_hour(hour_of(self.completed_at, current_zone()))
 

@@ -291,7 +291,7 @@ class TestPathStepUsesKuWiring:
         assert "created_at" not in result
 
     def test_authored_created_at_is_canonicalized_to_utc(self):
-        """Codex #1005: offset-bearing values must not sort by their digits.
+        """Offset-bearing values must not sort by their digits.
 
         ``created_at`` persists as a string, so ``ORDER BY created_at`` is
         lexicographic — ``+02:00`` would otherwise outrank an earlier ``Z``. An

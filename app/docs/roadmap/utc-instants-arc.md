@@ -774,8 +774,10 @@ and the golden-file rig: too large for one context, so two sub-rows, each on its
   - `tests/unit/models/test_client_datetime_fields.py` finds every Pydantic `datetime` field in
     `core/models`, and fails on one that is neither `ClientDateTime` nor a named response field.
   - The form generator unwraps `Annotated` (a `ClientDateTime` is still a `datetime-local`
-    widget), and prefills a `datetime-local` with `shown_in(value, current_zone())`, so an
-    unchanged re-save keeps its instant.
+    widget), and prefills a `datetime-local` with `to_wall_clock(value, current_zone())`, the
+    inverse of `from_wall_clock`, so an unchanged re-save keeps its instant. A prefill is not a
+    display: unlike `shown_in`, `to_wall_clock` reads an aware value as the instant it names,
+    never as its own digits.
   - `validate_future_date` and `validate_past_date` compare a naive `datetime` with the zone's
     wall clock. No `datetime` field uses them today; one that does must compare the stored form
     (PR 5).

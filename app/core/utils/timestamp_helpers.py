@@ -16,8 +16,8 @@ DRY Principle:
 - Zone helpers, each taking the zone: now_in, wall_clock_in, today_in, day_of
   and hour_of (an instant's day and hour), local_day_bounds (a day's UTC
   bounds), stored_day_bounds (days' bounds on the stored clock, for comparison
-  with stored stamps), from_wall_clock (a client's offset-less datetime, read on
-  a zone's clock). Whose zone it is — the user's choice or the app default — is
+  with stored stamps), from_wall_clock and to_wall_clock (a client's offset-less
+  datetime read on a zone's clock, and a stored instant as that clock shows it). Whose zone it is — the user's choice or the app default — is
   core/utils/zone_context.py, which also gives today in the current zone
   (today_in_current_zone)
 - The type rule (is_instant_field): a model's ``datetime`` field holds an
@@ -257,8 +257,7 @@ def from_wall_clock(value: datetime, zone: tzinfo) -> datetime:
     An offset-less value is a wall clock in ``zone`` (a ``datetime-local``
     field, a time written in a note), read there and returned on the stored
     clock (:func:`as_stored_clock`). An aware value already names its instant
-    and is returned as it came. The inverse of :func:`shown_in` for a naive
-    value: ``shown_in(from_wall_clock(w, zone), zone) == w``.
+    and is returned as it came. The inverse of :func:`to_wall_clock`.
 
     Example:
         deadline = from_wall_clock(datetime(2026, 9, 27, 17, 0), current_zone())
@@ -266,6 +265,22 @@ def from_wall_clock(value: datetime, zone: tzinfo) -> datetime:
     if value.tzinfo is not None:
         return value
     return as_stored_clock(value.replace(tzinfo=zone))
+
+
+def to_wall_clock(instant: datetime, zone: tzinfo) -> datetime:
+    """A stored instant as the wall clock in ``zone`` that names it — naive.
+
+    What a ``datetime-local`` field is filled with, so that the value it posts
+    back reads (:func:`from_wall_clock`) as the same instant: an unchanged edit
+    keeps its instant, naive or aware. Unlike :func:`shown_in`, an aware value
+    is always the instant it names — never its own digits.
+
+    Example:
+        value = to_wall_clock(choice.decision_deadline, current_zone()).isoformat(
+            timespec="minutes"
+        )
+    """
+    return as_utc(instant).astimezone(zone).replace(tzinfo=None)
 
 
 def is_instant_field(model: type, field_name: str) -> bool:
