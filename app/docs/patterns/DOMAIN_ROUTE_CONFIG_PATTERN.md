@@ -1,6 +1,6 @@
 ---
 title: Domain Route Configuration Pattern
-updated: 2026-09-18
+updated: 2026-09-28
 category: patterns
 related_skills:
 - fasthtml
@@ -869,37 +869,29 @@ A route file groups endpoints by service rather than by domain. Each group is in
 
 ---
 
-### Example 13: Multi-Factory with Related Services on Primary (Advanced)
+### Example 13: Multi-Factory — Orchestrator Primary + Extension Factory (Advanced)
 
 **File:** `/adapters/inbound/advanced_routes.py`
 
 ```python
 ADVANCED_CONFIG = DomainRouteConfig(
     domain_name="advanced",
-    primary_service_attr="calendar_optimization",  # services.calendar_optimization
+    primary_service_attr="calendar_optimization_orchestrator",
     api_factory=create_calendar_optimization_routes,
-    api_related_services={
-        "tasks": "tasks",    # services.tasks  — inline data pull
-        "events": "events",  # services.events — inline data pull
-    },
 )
 
 
 def create_advanced_routes(app, rt, services, _sync_service=None):
     register_domain_routes(app, rt, services, ADVANCED_CONFIG)
 
-    if services and services.jupyter_sync:
-        create_jupyter_sync_routes(app, rt, services.jupyter_sync)
-
     if services and services.performance_optimization:
-        create_performance_routes(app, rt, services.performance_optimization)
+        create_performance_routes(app, rt, services.performance_optimization, services.user)
 ```
 
 **Key features:**
-- **Primary factory pulls related services** (`tasks`, `events`) via `api_related_services` — the calendar optimization endpoints need live task/event data for the target date
-- Extension factories are self-contained (each closes over a single service)
-- Combines both DomainRouteConfig capabilities: config-driven related-service injection on the primary, manual extension for the rest
-- Demonstrates that Multi-Factory and `api_related_services` are composable, not alternatives
+- **The primary is an orchestrator** (`CalendarOptimizationOrchestrator`) that owns the task/event reads the calendar endpoints need, so the config declares no `api_related_services`
+- The extension factory is self-contained (it closes over its service plus the user service its admin gate reads)
+- Config-driven registration for the primary, manual registration for the extension
 
 **Migration:** 2026-02-03 (Phase 6)
 

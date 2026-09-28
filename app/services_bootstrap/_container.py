@@ -42,7 +42,6 @@ if TYPE_CHECKING:
     from core.services.insight.insight_store import InsightStore
     from core.services.interaction.interaction_service import InteractionService
     from core.services.journal import JournalBatchService, JournalService
-    from core.services.jupyter_neo4j_sync import JupyterNeo4jSync
     from core.services.knowledge import ActivityKnowledgeIntelligenceService
     from core.services.ku_service import KuService
     from core.services.lp_service import LpService
@@ -320,7 +319,6 @@ class Services:
     today_orchestrator: TodayOrchestrator | None = None
 
     # Advanced services
-    jupyter_sync: JupyterNeo4jSync | None = None
     performance_optimization: PerformanceOptimizationService | None = None
 
     # Infrastructure - Neo4j driver and query executor

@@ -37,7 +37,7 @@ Every enum lives in exactly one file. The `__init__.py` re-exports all public en
 | `transcription_enums.py` | Transcription processing | TranscriptionStatus |
 | `interaction_enums.py` | Learning-loop interaction records | InteractionType, InteractionResult |
 | `relationship_enums.py` | Knowledge-relationship qualifiers | ProficiencyLevel, KnowledgeRelevance |
-| `neo_labels.py` | Neo4j node labels | NeoLabel (61 labels) |
+| `neo_labels.py` | Neo4j node labels | NeoLabel (60 labels) |
 
 **Import convention:**
 ```python
