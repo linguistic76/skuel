@@ -959,7 +959,9 @@ and the open PRs and continues.
   notes it leaves the next PR.
 
 **Lessons for a future cloud run** (the first run's end, 2026-09-28): in the cloud image Node 22
-comes first on `PATH`, so `n 24` alone does not switch versions; the Docker daemon has to be started
+comes first on `PATH`, so `n 24` alone does not switch versions — the setup script puts
+`/usr/local/bin` (where `n` installs) first for `npm ci`, and a session does the same before
+`./dev css-prod` or `./dev test-js`; the Docker daemon has to be started
 by hand; and GitHub's GraphQL API is blocked, so the GraphQL-backed `gh pr …` commands (`create`,
 `view`, `checks`, `merge`) fail and only `gh api` REST calls work. `request_codex_review.sh` and
 `apply_codex_considered.sh` already use `gh api` REST throughout; the `gh pr …` steps would need
@@ -1004,6 +1006,7 @@ before it merges (strict status checks), so the sitting is prepared while the ap
    if [ -d app ] && ! node --version 2>/dev/null | grep -q '^v24'; then
      npm install -g n && n 24 || true
    fi
+   export PATH="/usr/local/bin:$PATH"   # n installs Node 24 here; the image puts Node 22 first
    if [ -d app ]; then (cd app && npm ci) || true; fi
    docker pull neo4j:2026.07.1 || true
    ```
