@@ -186,14 +186,14 @@ Access other field values during validation:
 from pydantic import field_validator, ValidationInfo
 
 class TaskStatusUpdateRequest(BaseModel):
-    status: ActivityStatus
+    status: EntityStatus
     completion_date: date | None = None
 
     @field_validator("completion_date")
     @classmethod
     def validate_completion_date(cls, v: date | None, info: ValidationInfo) -> date | None:
         """Auto-set completion date when status is COMPLETED"""
-        if info.data.get("status") == ActivityStatus.COMPLETED and not v:
+        if info.data.get("status") == EntityStatus.COMPLETED and not v:
             return today_in(current_zone())
         return v
 ```
@@ -420,7 +420,7 @@ Response models create themselves from DTOs with computed fields:
 class TaskResponse(ResponseBase):
     uid: str
     title: str
-    status: ActivityStatus
+    status: EntityStatus
     priority: Priority
     created_at: datetime
 

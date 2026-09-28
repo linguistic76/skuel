@@ -42,7 +42,6 @@ if TYPE_CHECKING:
     from core.ports.query_types import KnowledgePrerequisitesResult
 from core.models.entity import Entity
 from core.models.enums import EntityStatus, Priority
-from core.models.enums.neo_labels import NeoLabel
 from core.ports.base_protocols import BackendOperations
 from core.services.base_analytics_service import BaseAnalyticsService
 from core.services.intelligence import PatternAnalyzer
@@ -295,12 +294,7 @@ class ActivityKnowledgeIntelligenceService(BaseAnalyticsService[BackendOperation
                 )
 
                 if context_result.is_ok:
-                    context = context_result.value
-                    knowledge_nodes = [
-                        node
-                        for node in context.nodes
-                        if node.labels and NeoLabel.ENTITY.value in node.labels
-                    ]
+                    knowledge_nodes = context_result.value.get_knowledge_nodes()
 
                     if knowledge_nodes:
                         priority_value = getattr(entity, "priority", None)

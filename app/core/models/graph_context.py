@@ -14,11 +14,16 @@ from datetime import datetime
 from enum import StrEnum
 from typing import TYPE_CHECKING, Any
 
-from core.models.enums import Domain
+from core.models.enums import Domain, EntityType
 
 if TYPE_CHECKING:
     from adapters.persistence.neo4j.query.cypher_template import QueryOptimizationStrategy
     from core.infrastructure.database.schema import SchemaContext
+
+
+# The stored ``entity_type`` values that are curriculum knowledge — one vocabulary,
+# sourced from ``EntityType.is_knowledge()`` (Ku + PathStep).
+_KNOWLEDGE_ENTITY_TYPES: frozenset[str] = frozenset(t.value for t in EntityType if t.is_knowledge())
 
 
 class RelationshipStrength(StrEnum):
@@ -185,6 +190,19 @@ class GraphContext:
     def get_nodes_by_domain(self, domain: Domain) -> list[GraphNode]:
         """Get all nodes from a specific domain."""
         return [node for node in self.all_nodes if node.domain == domain]
+
+    def get_knowledge_nodes(self) -> list[GraphNode]:
+        """Get the nodes that are curriculum knowledge (Ku, PathStep).
+
+        Kind comes from the stored ``entity_type`` — never the ``:Entity`` label,
+        which every entity carries. The traversal is not owner-scoped, so this
+        filter is also what keeps other users' entities out of a knowledge read.
+        """
+        return [
+            node
+            for node in self.all_nodes
+            if node.properties.get("entity_type") in _KNOWLEDGE_ENTITY_TYPES
+        ]
 
     def get_relationships_by_type(self, rel_type: str) -> list[GraphRelationship]:
         """Get all relationships of a specific type."""

@@ -26,6 +26,7 @@ from __future__ import annotations
 
 import json
 from typing import Any
+from unittest.mock import Mock
 
 import pytest
 
@@ -35,6 +36,7 @@ from core.models.principle.principle import Principle
 from core.models.relationship_registry import PRINCIPLES_CONFIG
 from core.ports.domain_protocols import PrinciplesOperations
 from core.services.base_analytics_service import BaseAnalyticsService
+from core.services.infrastructure.graph_intelligence_service import GraphIntelligenceService
 from core.services.principles._alignment_intelligence_mixin import _AlignmentIntelligenceMixin
 from core.services.relationships.unified_relationship_service import UnifiedRelationshipService
 
@@ -66,7 +68,7 @@ class _PrincipleIntelHarness(_AlignmentIntelligenceMixin, BaseAnalyticsService):
     def __init__(self, backend: PrinciplesOperations, relationships: Any) -> None:
         self.backend = backend
         self.relationships = relationships
-        self.graph_intel = object()
+        self.graph_intel = Mock(spec=GraphIntelligenceService)
 
 
 def _harness(rel_backend) -> _PrincipleIntelHarness:

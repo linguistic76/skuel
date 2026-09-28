@@ -31,7 +31,7 @@ Usage:
 
 from collections.abc import Awaitable, Callable
 from enum import Enum
-from typing import Any, ClassVar, Generic, TypeVar
+from typing import TYPE_CHECKING, Any, ClassVar, Generic, TypeVar
 
 from core.constants import DualTrackCheckin
 from core.events import publish_event
@@ -41,6 +41,9 @@ from core.utils.logging import get_logger
 from core.utils.result_simplified import Result
 from core.utils.timestamp_helpers import today_in
 from core.utils.zone_context import current_zone
+
+if TYPE_CHECKING:
+    from core.services.infrastructure.graph_intelligence_service import GraphIntelligenceService
 
 # Generic type vars
 B = TypeVar("B")  # Backend operations protocol
@@ -114,7 +117,7 @@ class BaseAnalyticsService(Generic[B, T]):
     def __init__(
         self,
         backend: B,
-        graph_intel: Any | None = None,
+        graph_intel: GraphIntelligenceService | None = None,
         relationship_service: Any | None = None,
         event_bus: Any | None = None,
         insight_store: Any | None = None,

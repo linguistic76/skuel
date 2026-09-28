@@ -57,7 +57,7 @@ class Task:
     uid: str
     title: str
     priority: Priority
-    status: ActivityStatus
+    status: EntityStatus
     created_at: datetime = field(default_factory=datetime.now)
 
     def is_overdue(self, now: datetime) -> bool:
@@ -270,7 +270,7 @@ class Task:
     uid: str
     title: str
     priority: Priority
-    status: ActivityStatus = ActivityStatus.PENDING
+    status: EntityStatus = EntityStatus.DRAFT
     created_at: datetime = field(default_factory=datetime.now)
 ```
 
@@ -294,7 +294,7 @@ class Task:
 from dataclasses import replace
 
 # Create modified copy
-updated_task = replace(task, status=ActivityStatus.COMPLETED)
+updated_task = replace(task, status=EntityStatus.COMPLETED)
 ```
 
 ## Common Patterns

@@ -21,6 +21,7 @@ guard must run against real Cypher.
 from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any
+from unittest.mock import Mock
 
 import pytest
 
@@ -36,6 +37,7 @@ from core.services.base_analytics_service import BaseAnalyticsService
 from core.services.choices._core_intelligence_mixin import (
     _CoreIntelligenceMixin as ChoiceCoreIntelMixin,
 )
+from core.services.infrastructure.graph_intelligence_service import GraphIntelligenceService
 from core.services.relationships.unified_relationship_service import UnifiedRelationshipService
 from core.utils.result_simplified import Result
 
@@ -333,7 +335,7 @@ class _ChoiceIntelHarness(ChoiceCoreIntelMixin, BaseAnalyticsService):
     def __init__(self, backend: _FakeChoiceBackend, relationships: Any) -> None:
         self.backend = backend
         self.relationships = relationships
-        self.graph_intel = object()
+        self.graph_intel = Mock(spec=GraphIntelligenceService)
 
 
 async def _seed_choice_graph(neo4j_driver) -> None:

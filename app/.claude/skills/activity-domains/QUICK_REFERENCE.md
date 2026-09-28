@@ -72,19 +72,23 @@ chrome. There is no hub page; `/today` is the landing.
 
 ### Principles
 - Reflection is event-driven: `POST /api/principles/reflection` → `record_principle_reflection()` publishes `PrincipleReflectionRecorded` (no graph node)
-- Uses `is_active: bool` instead of `status` enum
+- Has an `is_active: bool` field alongside its `status`
 - `PrincipleCategory` enum for categorization
 
 ## Status Enums
 
-| Domain | Status Enum | Values |
-|--------|-------------|--------|
-| Tasks | `ActivityStatus` | DRAFT, ACTIVE, PAUSED, COMPLETED, ARCHIVED |
-| Goals | `GoalStatus` | NOT_STARTED, IN_PROGRESS, COMPLETED, ABANDONED, ON_HOLD |
-| Habits | `is_active: bool` | True/False |
-| Events | `ActivityStatus` | SCHEDULED, COMPLETED, CANCELLED |
-| Choices | `ChoiceStatus` | PENDING, DECIDED, IMPLEMENTED, EVALUATED |
-| Principles | `is_active: bool` | True/False |
+All six domains use `EntityStatus` (`core/models/enums/entity_enums.py`). The legal set is
+`EntityType.<T>.valid_statuses()` and a new entity's status is `EntityType.<T>.default_status()` —
+the enum is the authority; this table is a snapshot of it.
+
+| Domain | Default | Legal `EntityStatus` values |
+|--------|---------|-----------------------------|
+| Tasks | DRAFT | DRAFT, SCHEDULED, ACTIVE, PAUSED, BLOCKED, COMPLETED, FAILED, CANCELLED, POSTPONED |
+| Goals | DRAFT | DRAFT, ACTIVE, PAUSED, COMPLETED, FAILED, CANCELLED, ARCHIVED |
+| Habits | ACTIVE | ACTIVE, PAUSED, COMPLETED, CANCELLED, ARCHIVED (`is_active` is the property `status == ACTIVE`) |
+| Events | SCHEDULED | SCHEDULED, ACTIVE, COMPLETED, CANCELLED |
+| Choices | DRAFT | DRAFT, ACTIVE, COMPLETED, ARCHIVED |
+| Principles | ACTIVE | ACTIVE, PAUSED, ARCHIVED (plus a separate `is_active: bool` field) |
 
 ## Common Imports
 
@@ -95,7 +99,7 @@ from core.models.task.task_dto import TaskDTO
 from core.models.task.task_request import TaskCreateRequest
 
 # Shared enums
-from core.models.enums import Priority, Domain, ActivityStatus
+from core.models.enums import Priority, Domain, EntityStatus
 
 # Results
 from core.utils.result_simplified import Result

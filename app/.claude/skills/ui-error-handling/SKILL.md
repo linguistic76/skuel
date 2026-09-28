@@ -276,8 +276,8 @@ When implementing error handling for a new domain:
 def test_compute_task_stats():
     """Test stats calculation without mocks."""
     tasks = [
-        Mock(status=ActivityStatus.COMPLETED),
-        Mock(status=ActivityStatus.PENDING, due_date=today_in(current_zone()) - timedelta(days=1)),
+        Mock(status=EntityStatus.COMPLETED),
+        Mock(status=EntityStatus.ACTIVE, due_date=today_in(current_zone()) - timedelta(days=1)),
     ]
 
     stats = compute_task_stats(tasks)
@@ -290,14 +290,14 @@ def test_compute_task_stats():
 def test_apply_task_filters_active():
     """Test active filter without mocks."""
     tasks = [
-        Mock(status=ActivityStatus.COMPLETED),
-        Mock(status=ActivityStatus.PENDING),
+        Mock(status=EntityStatus.COMPLETED),
+        Mock(status=EntityStatus.ACTIVE),
     ]
 
     filtered = apply_task_filters(tasks, status_filter="active")
 
     assert len(filtered) == 1
-    assert filtered[0].status == ActivityStatus.PENDING
+    assert filtered[0].status == EntityStatus.ACTIVE
 
 
 def test_validate_task_form_data_missing_title():

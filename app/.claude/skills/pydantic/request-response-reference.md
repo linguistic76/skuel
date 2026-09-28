@@ -25,8 +25,8 @@ class TaskCreateRequest(CreateRequestBase):
     tags: list[str] = Field(default_factory=list)
 
     # Enum fields with descriptions
-    status: ActivityStatus = Field(
-        default=ActivityStatus.PENDING,
+    status: EntityStatus = Field(
+        default=EntityStatus.DRAFT,
         description="Initial task status"
     )
 ```
@@ -88,7 +88,7 @@ class TaskFilterRequest(FilterRequestBase):
     """GET /api/tasks - Filter tasks"""
 
     # Enum filters
-    status: ActivityStatus | None = None
+    status: EntityStatus | None = None
     priority: Priority | None = None
     domain: Domain | None = None
 
@@ -129,21 +129,21 @@ For status transitions:
 class TaskStatusUpdateRequest(RequestBase):
     """POST /api/tasks/{uid}/status - Change task status"""
 
-    status: ActivityStatus = Field(description="New status")
+    status: EntityStatus = Field(description="New status")
     completion_date: date | None = Field(None, description="When completed")
     cancelled_reason: str | None = Field(None, max_length=500)
 
     @field_validator("completion_date")
     @classmethod
     def auto_set_completion(cls, v, info: ValidationInfo):
-        if info.data.get("status") == ActivityStatus.COMPLETED and not v:
+        if info.data.get("status") == EntityStatus.COMPLETED and not v:
             return today_in(current_zone())
         return v
 
     @field_validator("cancelled_reason")
     @classmethod
     def require_reason(cls, v, info: ValidationInfo):
-        if info.data.get("status") == ActivityStatus.CANCELLED and not v:
+        if info.data.get("status") == EntityStatus.CANCELLED and not v:
             raise ValueError("Reason required for cancellation")
         return v
 ```
@@ -166,7 +166,7 @@ class TaskResponse(ResponseBase):
     description: str | None
     due_date: date | None
     priority: Priority
-    status: ActivityStatus
+    status: EntityStatus
 
     # Timestamps
     created_at: datetime

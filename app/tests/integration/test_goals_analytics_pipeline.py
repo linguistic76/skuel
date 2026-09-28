@@ -26,6 +26,7 @@ import json
 from datetime import date
 from types import SimpleNamespace
 from typing import Any
+from unittest.mock import Mock
 
 import pytest
 
@@ -35,6 +36,7 @@ from core.models.goal.goal import Goal
 from core.models.relationship_registry import GOALS_CONFIG
 from core.services.base_analytics_service import BaseAnalyticsService
 from core.services.goals._analytics_mixin import _AnalyticsMixin
+from core.services.infrastructure.graph_intelligence_service import GraphIntelligenceService
 from core.services.relationships.unified_relationship_service import UnifiedRelationshipService
 from core.utils.result_simplified import Result
 
@@ -116,7 +118,7 @@ class _GoalIntelHarness(_AnalyticsMixin, BaseAnalyticsService):
         self.backend = backend
         self.relationships = relationships
         self.progress = _FakeProgress()
-        self.graph_intel = object()
+        self.graph_intel = Mock(spec=GraphIntelligenceService)
 
 
 def _harness(rel_backend, goal_uid: str) -> _GoalIntelHarness:

@@ -25,6 +25,7 @@ from __future__ import annotations
 
 import json
 from typing import Any
+from unittest.mock import Mock
 
 import pytest
 
@@ -34,6 +35,7 @@ from core.models.habit.habit import Habit
 from core.models.relationship_registry import HABITS_CONFIG
 from core.services.base_analytics_service import BaseAnalyticsService
 from core.services.habits._behavioral_signals_mixin import _BehavioralSignalsMixin
+from core.services.infrastructure.graph_intelligence_service import GraphIntelligenceService
 from core.services.relationships.unified_relationship_service import UnifiedRelationshipService
 from core.utils.result_simplified import Result
 
@@ -74,7 +76,7 @@ class _HabitIntelHarness(_BehavioralSignalsMixin, BaseAnalyticsService):
     def __init__(self, backend: _FakeHabitBackend, relationships: Any) -> None:
         self.backend = backend
         self.relationships = relationships
-        self.graph_intel = object()
+        self.graph_intel = Mock(spec=GraphIntelligenceService)
 
 
 def _harness(rel_backend, habit_uid: str) -> _HabitIntelHarness:
