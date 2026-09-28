@@ -29,7 +29,7 @@ Pins the process clock to UTC first (`pin_process_clock_to_utc()`, as every entr
 
 ### Integration conftest.py (`/tests/integration/conftest.py`)
 
-Every driver is built by `open_async_driver` (`adapters/persistence/neo4j/graph_driver.py`) — the one construction site, held by `tests/unit/test_graph_driver_construction_sites.py`. The shared `neo4j_driver` also runs the data-version check (`require_utc_instants`), which stamps the empty container with the UTC migration's record; a fixture that clears the graph keeps that `:MigrationRecord` node. A test that needs an empty graph, or reads the whole graph, takes `scratch_neo4j_container` (module-scoped, its own container).
+Every driver is built by `open_async_driver` (`adapters/persistence/neo4j/graph_driver.py`) — the one construction site, held by `tests/unit/test_graph_driver_construction_sites.py`. The shared `neo4j_driver` also runs the data-version check (`require_utc_instants`), which stamps the empty container with the UTC migration's record; a fixture that clears the graph keeps that `:MigrationRecord` node. A test that needs an empty graph, or reads the whole graph, takes `scratch_neo4j_container` (module-scoped, its own container); a test that opens a `Neo4jConnection` onto a testcontainer takes `connection_settings`, since the connection's settings validate a password CI's environment does not carry.
 
 Every Neo4j container in the tier — these two and the APOC-lockdown suite's — is built
 by `bounded_neo4j_container()` (`tests/integration/_container_lifecycle.py`): the pinned
