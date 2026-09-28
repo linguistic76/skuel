@@ -406,7 +406,8 @@ class ProgressReportGenerator:
                 patterns = await self.analytics_service.detect_cross_domain_patterns(
                     user_uid, first_day, last_day
                 )
-                intelligence["cross_domain_patterns"] = patterns
+                if patterns.is_ok:
+                    intelligence["cross_domain_patterns"] = patterns.value
             except Exception as e:  # safety-net: intelligence is optional
                 logger.warning(f"Failed to collect cross-domain patterns: {e}")
 

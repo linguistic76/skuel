@@ -13,6 +13,7 @@ from zoneinfo import ZoneInfo
 
 import pytest
 
+from adapters.persistence.neo4j.neo4j_mapper import to_neo4j_node
 from core.constants import ReportTimePeriod
 from core.models.enums.entity_enums import EntityStatus, EntityType
 from core.models.enums.pipeline import ReportSource
@@ -1076,7 +1077,9 @@ class TestCalendarPeriods:
         context.life_path_alignment_score = 0.7
         context.zpd_assessment = MagicMock(readiness_scores={}, proximal_zone=[])
         generator.analytics_service = MagicMock()
-        generator.analytics_service.detect_cross_domain_patterns = AsyncMock(return_value={})
+        generator.analytics_service.detect_cross_domain_patterns = AsyncMock(
+            return_value=Result.ok({})
+        )
         generator.analytics_service.calculate_life_path_alignment = AsyncMock(
             return_value=Result.ok({"alignment_score": 0.8})
         )
@@ -1667,3 +1670,50 @@ class TestPeriodEndDenominator:
             ],
         )
         assert completions["tasks_total"] == 1
+
+
+# ============================================================================
+# CROSS-DOMAIN PATTERNS — the facade's Result, unwrapped before it is stored
+# ============================================================================
+
+
+class TestCrossDomainPatternsInTheReport:
+    """``AnalyticsService.detect_cross_domain_patterns`` returns a ``Result``; the report
+    stores the value it carries, which the mapper serializes into the node's JSON
+    metadata. A failed read leaves the patterns out."""
+
+    @pytest.mark.asyncio
+    async def test_the_patterns_are_stored_as_their_value(self, generator):
+        patterns = {"domain_balance": {"score": 0.5}}
+        generator.analytics_service = MagicMock()
+        generator.analytics_service.detect_cross_domain_patterns = AsyncMock(
+            return_value=Result.ok(patterns)
+        )
+        generator.analytics_service.calculate_life_path_alignment = AsyncMock(
+            return_value=Result.ok({"alignment_score": 0.8})
+        )
+
+        result = await generator.generate(user_uid="user_alice", time_period="14d")
+
+        assert result.is_ok, result.error
+        report = _persisted(generator)
+        assert report.metadata["intelligence"]["cross_domain_patterns"] == patterns
+        # The node the save writes — the mapper serializes metadata to a JSON string.
+        node = to_neo4j_node(report)
+        stored = json.loads(node["metadata"])
+        assert stored["intelligence"]["cross_domain_patterns"] == patterns
+
+    @pytest.mark.asyncio
+    async def test_a_failed_patterns_read_is_left_out(self, generator):
+        generator.analytics_service = MagicMock()
+        generator.analytics_service.detect_cross_domain_patterns = AsyncMock(
+            return_value=Result.fail(Errors.system("patterns unavailable"))
+        )
+        generator.analytics_service.calculate_life_path_alignment = AsyncMock(
+            return_value=Result.ok({"alignment_score": 0.8})
+        )
+
+        result = await generator.generate(user_uid="user_alice", time_period="14d")
+
+        assert result.is_ok, result.error
+        assert "cross_domain_patterns" not in _persisted(generator).metadata["intelligence"]
