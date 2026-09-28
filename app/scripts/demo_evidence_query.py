@@ -12,6 +12,10 @@ sys.path.insert(0, str(project_root))
 
 from dotenv import load_dotenv
 
+from core.utils.process_clock import pin_process_clock_to_utc
+
+pin_process_clock_to_utc()  # the UTC arc's bridge: before any clock read (ADR-089)
+
 from adapters.persistence.neo4j.neo4j_connection import Neo4jConnection
 
 load_dotenv()
@@ -20,7 +24,7 @@ load_dotenv()
 async def demo_evidence_query():
     """Query a relationship and display its evidence."""
     conn = Neo4jConnection()
-    driver = conn.connect()
+    driver = await conn.connect()
 
     try:
         async with driver.session() as session:

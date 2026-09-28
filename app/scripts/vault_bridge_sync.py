@@ -65,6 +65,10 @@ import sys
 from dataclasses import asdict
 from typing import TYPE_CHECKING
 
+from core.utils.process_clock import pin_process_clock_to_utc
+
+pin_process_clock_to_utc()  # the UTC arc's bridge: before any clock read (ADR-089)
+
 if TYPE_CHECKING:
     from adapters.persistence.neo4j_adapter import Neo4jAdapter
     from core.services.vault.vault_descriptor import VaultKind

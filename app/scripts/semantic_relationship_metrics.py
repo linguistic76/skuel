@@ -17,6 +17,10 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any
 
+from core.utils.process_clock import pin_process_clock_to_utc
+
+pin_process_clock_to_utc()  # the UTC arc's bridge: before any clock read (ADR-089)
+
 from adapters.persistence.neo4j.neo4j_connection import Neo4jConnection
 
 # Tier definitions (from activation plan)
@@ -55,7 +59,7 @@ async def get_semantic_relationship_metrics() -> dict:
         dict: Metrics including activation counts, usage stats, etc.
     """
     conn = Neo4jConnection()
-    driver = conn.connect()
+    driver = await conn.connect()
 
     try:
         async with driver.session() as session:

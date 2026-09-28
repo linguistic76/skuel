@@ -125,6 +125,14 @@ rule table:
 - `Event.rescheduled_at` (PR 1, a new property): `EventsCoreService.update_event` stamps
   `now_utc()` when an update moves `event_date`, stored through the mapper as a `+00:00`
   string — true UTC, leave.
+- `SHARED_WITH_GROUP.shared_at` (0 values at the census; the first written 2026-09-28 by a group
+  share): `SharingBackend.create_group_share` stores `datetime($shared_at)` from the service's
+  naive `datetime.now().isoformat()` — `L-nat`, microseconds, shift.
+- JSON-nested stamps the census listed with no rows hold rows (PR 4's census, 2026-09-28):
+  `UserEntry.metadata.activity_extraction.extraction_started_at` / `…_completed_at` (23 each),
+  `Task.knowledge_inference_metadata.inference_timestamp` (75), and the period's copy in
+  `ActivityReport.metadata` (`period_end`, `data_cutoff`, `review_date`, 1 each). No code reads
+  any of them: diagnostic, left (R6).
 
 - **Precision identifies native writers where shape cannot.** Cypher `datetime()` has millisecond
   precision; a Python parameter carries microseconds. A microsecond native is local-as-UTC only if
@@ -240,8 +248,9 @@ properties (R3). `UserEntry.updated_at` mixes two shapes on one clock (`L-str`, 
 
 ## Migration contract (PR 4)
 
-`scripts/migrations/utc_instants_2026_10.py` <!-- planned --> — a census by default; `--confirm`
-writes; `--verify` checks; `--revert` undoes, in the deploy sitting only.
+`scripts/migrations/utc_instants_2026_10.py` — a census by default; `--confirm HASH` writes;
+`--verify` checks; `--revert` undoes, in the deploy sitting only. Its rule table is `RULES` (and
+`JSON_RULES` for nested stamps); Mike's rulings on single rows are `RULINGS`.
 
 **Shape alone cannot tell a migrated stamp from an unmigrated one.** R5 keeps each value's shape, so
 an `L-str` whose digits have moved to UTC is still an offset-less string, and every stamp the pinned
@@ -300,13 +309,17 @@ outside the values: an immutable manifest, one transaction, and a durable applie
    relationships between the same pair) stops the census and is listed. The manifest is written
    outside the tracked tree and kept for `--verify` and `--revert`; the census prints its hash, and
    `--confirm` is given that hash and refuses a manifest that does not match — the manifest Mike
-   approved is the one applied.
-4. **`--confirm` applies that manifest and nothing else, in one transaction.** One `UNWIND $rows`
-   statement binds typed values — a driver DateTime for a native, a string for a string (R5) — sets
-   each property where it still equals `$old`, and returns the rows that did not match; any unmatched
-   row rolls the transaction back and is listed as a conflict, never re-derived. The same transaction
-   writes a **durable applied record** (the migration's name, the manifest's hash, per-rule counts,
-   and its state, `applied`; its label a new `NeoLabel` member chosen in PR 4). About 1,230 values fit one transaction (raise
+   approved is the one applied. The default directory is `~/.local/state/skuel/utc_instants_2026_10/`
+   (`--manifest-dir` moves it); the manifest also records the graph's URI, and `--confirm` refuses
+   a manifest taken on another graph.
+4. **`--confirm` applies that manifest and nothing else, in one transaction.** An `UNWIND $rows`
+   statement per group of rows (one label or relationship type, one property, one shape) binds typed
+   values — a driver DateTime for a native, a string for a string (R5) — sets each property where it
+   still equals `$old` (a native also by its `toString`), and returns the rows that did not match;
+   any unmatched row rolls the transaction back and is listed as a conflict, never re-derived. The
+   same transaction writes a **durable applied record** (`:MigrationRecord`, `NeoLabel.MIGRATION_RECORD`:
+   the migration's name, the manifest's hash, per-rule counts, and its state, `applied`). The census
+   never reads that node: it is the migration's state, not part of the corpus. About 1,230 values fit one transaction (raise
    its ceiling with `neo4j_query_timeout` if needed). A run in the wrong state is **refused**
    (non-zero exit, nothing written): a census or `--confirm` while the record's state is `applied`;
    `--revert` unless it is.
@@ -845,6 +858,54 @@ generating an activity report twice within the hour — the second is refused by
 made now reads "just now" and its notification shows the wall-clock time; the GradeBook exchange
 order and the review badges are unchanged for the live exchanges (snapshot before and after); the
 embedding check has run; the ledger PR records PR 4 as merged and deployed.
+
+**Left by PR 4 for the sitting and the rows after it:**
+
+- **The pin** is `pin_process_clock_to_utc()` (`core/utils/process_clock.py`), the first
+  statement of `main.py`, `tests/conftest.py`, every script that opens the graph, and the two
+  notebooks; `./dev` exports `TZ=UTC`. Every driver is built by `open_async_driver`
+  (`adapters/persistence/neo4j/graph_driver.py`), which refuses an unpinned process.
+  `tests/unit/test_graph_driver_construction_sites.py` holds both: no other file names a driver
+  constructor, and every graph-opening entry point pins before its first first-party import.
+  Four dead connection-smoke scripts that opened AuraDB with raw drivers, referenced by nothing,
+  were deleted: three in `scripts/` (test_neo4j_connection, test_sync_vs_async, test_async_neo4j)
+  and test_simple_chunk_verify in `tests/unit/`.
+- **The guard.** `Neo4jConnection.connect()` is async and opens a graph in three steps: the driver
+  (the pin), the waking probe (`connect_with_retry`, which `Neo4jAdapter.connect` used to run
+  itself), and `require_utc_instants` — a graph holding data is refused unless its
+  `(:MigrationRecord {name: 'utc_instants_2026_10'})` is `applied`, and an empty one is stamped.
+  `get_connection()` is async too. The migration script opens with `utc_instants_guard=False`.
+  `clean_neo4j`, `test_yaml_roundtrip`'s clear and `scripts/clear_neo4j.py` keep the record.
+  PR 9 keeps the guard and removes the pin (R8).
+- **The flip.** `STORED_INSTANT_CLOCK` is `UTC`. The helpers keep their `None` branches, which
+  PR 9 deletes with the constant; `tests/unit/utils/test_timestamp_helpers.py` pins them with
+  `stored_clock_host`.
+- **Test craft.** `laptop_zone` no longer forces the host zone: it is a pinned process with the
+  default zone America/Vancouver. A stamp written at a laptop wall time is
+  `laptop_wall(y, m, d, …)` (`tests/helpers/laptop_clock.py`), its UTC digits. A test of the
+  pre-cutover code — the migration's corpus — patches `STORED_INSTANT_CLOCK` to `None` and forces
+  the old zone (`tests/integration/migrations/test_utc_instants_migration.py`). A test that
+  empties or reads the whole graph takes `scratch_neo4j_container`. The golden files were
+  regenerated under the pin: the Shared page's two relative times read "7h ago" (their age), not
+  "14h ago"; every other surface renders as before.
+- **The cooldown pin** is `tests/integration/test_cooldown_under_the_pin.py`: a probe process
+  (`tests/integration/probes/cooldown_under_the_pin.py`) started under `TZ=America/Vancouver`
+  pins itself, writes a generated report and asks `check_cooldown`. On the PR 3 code (a worktree
+  of `main` `3ecd663f4`, the probe without its pin) the stamp landed seven hours behind and the
+  count was 0.
+- **The census, read-only against AuraDB from this branch (2026-09-28 14:52Z):** 6,863 values;
+  1,236 to shift, 5,625 to leave; 31 pairs for the classification check. Two stops, each a
+  millisecond native where a millisecond native is not its writers' shape:
+  `EntryReport.updated_at` on `er_e7ca22a9` (`2026-08-01T17:10:51.959Z` — the census attributes
+  it to `retitle_entry_reports.py`'s `datetime()`), and `MEMBER_OF.joined_at` from `user_uxsmoke`
+  to `group_default_user_admin` (`2026-09-25T23:06:45.126Z` — the PR 6a live-case script's, per
+  the census; no paired stamp settles it). Each is settled only by a ruling in `RULINGS`.
+- **For the sitting:** run the census from the PR 4 branch (the manifest lands in
+  `~/.local/state/skuel/utc_instants_2026_10/`), then merge and pull, then
+  `--confirm <hash>` with the census's hash, then `--verify`. The app refuses to start between the
+  merge and `--confirm` (the guard) — expected. The census takes a few seconds.
+- **Found, not fixed:** the two notebooks query `:KnowledgeUnit`, a label the graph no longer has,
+  and the editor notebook imports from a stale path; only their driver lines were changed.
 
 ### PR 5 — Readers compare aware values (`core/`)
 

@@ -19,13 +19,13 @@ Notes on actual-vs-documented behavior (asserted as-is, production untouched):
   was_shortened_session, and completion_score.
 """
 
-from datetime import date, datetime, timedelta
+from datetime import UTC, date, datetime, timedelta
 
 import pytest
 
 from core.models.enums.scheduling_enums import TimeOfDay
 from core.models.habit.completion import HabitCompletion
-from tests.helpers.forced_zone import forced_zone
+from tests.helpers.laptop_clock import laptop_wall
 
 # Fixed reference moment for the pure (wall-clock-independent) methods.
 FIXED_COMPLETED_AT = datetime(2026, 7, 10, 9, 30, 0)
@@ -247,7 +247,7 @@ class TestDateMethods:
             23: TimeOfDay.NIGHT,
         }
         for hour, expected in expected_by_hour.items():
-            completion = make_completion(completed_at=datetime(2026, 7, 10, hour, 0, 0))
+            completion = make_completion(completed_at=laptop_wall(2026, 7, 10, hour, 0, 0))
             got = completion.completion_time_of_day()
             # `==` alone passes for a bare str: TimeOfDay is a StrEnum.
             assert got is expected, f"hour {hour}: got {got!r}"
@@ -272,9 +272,9 @@ class TestTimeDependentMethods:
     from one now() call and the model calling now() again could straddle
     midnight and flake (codex review finding on PR #704).
 
-    FROZEN_NOW and the completions are naive host-clock readings, so the host
-    zone is forced to the default zone (America/Vancouver): the laptop's case,
-    where a naive stamp's day and the user's day agree.
+    FROZEN_NOW and the completions are naive stamps on the stored clock — UTC
+    digits, as a pinned process writes them — for a user on the default zone
+    (America/Vancouver). 10:30Z is 03:30 there: the same Wednesday.
     """
 
     @pytest.fixture(autouse=True)
@@ -286,12 +286,11 @@ class TestTimeDependentMethods:
             def now(cls, tz=None):
                 if tz is None:
                     return FROZEN_NOW
-                return FROZEN_NOW.astimezone(tz)
+                return FROZEN_NOW.replace(tzinfo=UTC).astimezone(tz)
 
         monkeypatch.delenv("SKUEL_TIMEZONE", raising=False)
         monkeypatch.setattr(timestamp_helpers, "datetime", _FrozenDatetime)
-        with forced_zone("America/Vancouver"):
-            yield
+        yield
 
     def test_was_completed_today(self):
         assert make_completion(completed_at=FROZEN_NOW).was_completed_today() is True

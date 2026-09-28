@@ -24,8 +24,11 @@ See: /docs/migrations/USER_UID_CANONICALIZATION_2026-05.md
 
 import asyncio
 
-from neo4j import AsyncGraphDatabase
+from core.utils.process_clock import pin_process_clock_to_utc
 
+pin_process_clock_to_utc()  # the UTC arc's bridge: before any clock read (ADR-089)
+
+from adapters.persistence.neo4j.neo4j_connection import Neo4jConnection
 from core.models.type_hints import TypeConverter, UserUID
 from core.utils.logging import get_logger
 
@@ -64,9 +67,9 @@ async def main(dry_run: bool = True) -> None:
     logger.info("=" * 80)
 
     db = get_settings().database
-    driver = AsyncGraphDatabase.driver(
-        db.neo4j_uri, auth=(db.neo4j_username, db.neo4j_password)
-    )
+    driver = await Neo4jConnection(
+        uri=db.neo4j_uri, username=db.neo4j_username, password=db.neo4j_password
+    ).connect()
     try:
         owners = await find_noncanonical_owners(driver)
         if not owners:

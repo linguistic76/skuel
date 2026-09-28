@@ -164,7 +164,7 @@ class ActivityReport(UserOwnedEntity):
         if data_cutoff is not None and data_cutoff < period_end:
             counted_to = data_cutoff
         # The days a title names are the report user's (``zone``); the bounds and
-        # the cutoff are instants on the host clock.
+        # the cutoff are instants on the stored clock.
         title = (
             f"Activity Report — {day_of(period_start, zone).strftime('%b %d')} "
             f"to {day_of(counted_to, zone).strftime('%b %d, %Y')}"

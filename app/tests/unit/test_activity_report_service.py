@@ -15,9 +15,10 @@ from core.models.enums.pipeline import ReportSource
 from core.services.report.activity_report_service import ActivityReportService
 from core.services.user.unified_user_context import UserContext
 from core.utils.result_simplified import Result
+from tests.helpers.laptop_clock import laptop_wall
 
-# Calendar days here are read on the host clock (period bounds, widened dates):
-# the expectations are the laptop's, where the host clock and the default zone agree.
+# A report's period bounds are its midnights in the user's zone (Vancouver, the
+# laptop's), held on the stored (UTC) clock — built here with laptop_wall.
 pytestmark = pytest.mark.usefixtures("laptop_zone")
 
 
@@ -372,17 +373,17 @@ class TestReportTitle:
 
     def test_a_partial_report_is_titled_through_its_cutoff(self):
         report = self._create(
-            period_start=datetime(2026, 9, 1),
-            period_end=datetime(2026, 9, 30, 23, 59, 59),
-            data_cutoff=datetime(2026, 9, 12, 10, 30),
+            period_start=laptop_wall(2026, 9, 1),
+            period_end=laptop_wall(2026, 9, 30, 23, 59, 59),
+            data_cutoff=laptop_wall(2026, 9, 12, 10, 30),
         )
         assert report.title == "Activity Report — Sep 01 to Sep 12, 2026 (partial)"
 
     def test_a_final_report_is_titled_through_the_period_end(self):
         report = self._create(
-            period_start=datetime(2026, 9, 1),
-            period_end=datetime(2026, 9, 30, 23, 59, 59),
-            data_cutoff=datetime(2026, 9, 30, 23, 59, 59),
+            period_start=laptop_wall(2026, 9, 1),
+            period_end=laptop_wall(2026, 9, 30, 23, 59, 59),
+            data_cutoff=laptop_wall(2026, 9, 30, 23, 59, 59),
         )
         assert report.title == "Activity Report — Sep 01 to Sep 30, 2026"
 
@@ -405,7 +406,7 @@ class TestReportTitle:
 
     def test_a_report_without_a_cutoff_is_titled_through_the_period_end(self):
         report = self._create(
-            period_start=datetime(2026, 9, 1), period_end=datetime(2026, 9, 7, 23, 59, 59)
+            period_start=laptop_wall(2026, 9, 1), period_end=laptop_wall(2026, 9, 7, 23, 59, 59)
         )
         assert report.title == "Activity Report — Sep 01 to Sep 07, 2026"
 
@@ -453,8 +454,8 @@ def _period_report(token: str, cutoff: datetime | None):
         subject_uid="user_alice",
         processor_type=ReportSource.AUTOMATIC,
         time_period=token,
-        period_start=datetime(2026, 1, 1),
-        period_end=datetime(2026, 1, 31, 23, 59, 59, 999999),
+        period_start=laptop_wall(2026, 1, 1),
+        period_end=laptop_wall(2026, 1, 31, 23, 59, 59, 999999),
         data_cutoff=cutoff,
     )
 
@@ -473,7 +474,7 @@ class TestFindByPeriod:
 
     @pytest.mark.asyncio
     async def test_a_closed_periods_final_report_is_reused(self, service, mock_backend):
-        final = _period_report("2026-01", datetime(2026, 1, 31, 23, 59, 59, 999999))
+        final = _period_report("2026-01", laptop_wall(2026, 1, 31, 23, 59, 59, 999999))
         mock_backend.find_by_period = AsyncMock(return_value=Result.ok([final.to_dto().to_dict()]))
 
         result = await service.find_by_period("user_alice", "user_alice", "2026-01")
@@ -483,7 +484,7 @@ class TestFindByPeriod:
 
     @pytest.mark.asyncio
     async def test_a_closed_periods_partial_report_is_stale_and_absent(self, service, mock_backend):
-        partial = _period_report("2026-01", datetime(2026, 1, 20, 9, 0))
+        partial = _period_report("2026-01", laptop_wall(2026, 1, 20, 9, 0))
         mock_backend.find_by_period = AsyncMock(
             return_value=Result.ok([partial.to_dto().to_dict()])
         )
@@ -508,7 +509,7 @@ class TestFindByPeriod:
     @pytest.mark.asyncio
     async def test_an_open_periods_partial_report_is_reused(self, service, mock_backend):
         token = f"{datetime.now().year + 1}-01"  # next January: still open
-        partial = _period_report(token, datetime(2026, 1, 20, 9, 0))
+        partial = _period_report(token, laptop_wall(2026, 1, 20, 9, 0))
         mock_backend.find_by_period = AsyncMock(
             return_value=Result.ok([partial.to_dto().to_dict()])
         )
@@ -580,7 +581,7 @@ class TestRowConversion:
 
     @pytest.mark.asyncio
     async def test_get_for_user_decodes_the_stored_node(self, service, mock_backend):
-        stored = _period_report("2026-01", datetime(2026, 1, 31, 23, 59, 59, 999999))
+        stored = _period_report("2026-01", laptop_wall(2026, 1, 31, 23, 59, 59, 999999))
         node = stored.to_dto().to_dict()
         # The node holds ISO strings for every temporal field, data_cutoff included.
         assert isinstance(node["data_cutoff"], str)
@@ -591,7 +592,7 @@ class TestRowConversion:
         assert result.is_ok
         assert result.value.uid == "ar_2026-01"
         assert result.value.time_period == "2026-01"
-        assert result.value.data_cutoff == datetime(2026, 1, 31, 23, 59, 59, 999999)
+        assert result.value.data_cutoff == laptop_wall(2026, 1, 31, 23, 59, 59, 999999)
 
     @pytest.mark.asyncio
     async def test_get_history_decodes_every_row(self, service, mock_backend):

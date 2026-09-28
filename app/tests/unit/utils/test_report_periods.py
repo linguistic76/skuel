@@ -26,12 +26,15 @@ from core.utils.report_periods import (
     report_period_token,
     resolve_report_period,
 )
+from core.utils.timestamp_helpers import day_of
 from tests.helpers.forced_zone import forced_zone
+from tests.helpers.laptop_clock import laptop_wall
 
 NOW = datetime(2026, 9, 12, 10, 30, 0)
 
-# The laptop's case: the host clock and the report user's zone agree, so a
-# calendar period's bounds read as its own midnights. The zone cases are below.
+# The laptop's case: a report user on the default zone. A calendar period's bounds
+# are its midnights in that zone, held on the stored (UTC) clock — the digits a
+# naive stamp carries. The other zones are below.
 ZONE = ZoneInfo("America/Vancouver")
 
 
@@ -66,17 +69,17 @@ def test_month_token_spans_the_calendar_month() -> None:
     period = resolve_report_period("2026-09", NOW, ZONE)
     assert period.kind is ReportPeriodKind.MONTH
     assert period.is_calendar
-    assert period.start == datetime(2026, 9, 1, 0, 0, 0)
-    assert period.end.date() == date(2026, 9, 30)
-    assert period.end > datetime(2026, 9, 30, 23, 59, 59)
+    assert period.start == laptop_wall(2026, 9, 1)
+    assert day_of(period.end, ZONE) == date(2026, 9, 30)
+    assert period.end > laptop_wall(2026, 9, 30, 23, 59, 59)
     assert period.label == "September 2026"
 
 
 def test_week_token_spans_monday_to_sunday_of_the_iso_week() -> None:
     period = resolve_report_period("2026-W37", NOW, ZONE)
     assert period.kind is ReportPeriodKind.WEEK
-    assert period.start == datetime(2026, 9, 7, 0, 0, 0)  # Monday
-    assert period.end.date() == date(2026, 9, 13)  # Sunday
+    assert period.start == laptop_wall(2026, 9, 7)  # Monday
+    assert day_of(period.end, ZONE) == date(2026, 9, 13)  # Sunday
     assert period.label == "week 37 of 2026"
 
 
@@ -183,22 +186,23 @@ def test_key_builders_and_parsers_round_trip() -> None:
 # ---------------------------------------------------------------------------
 
 
-def test_a_week_starts_at_the_users_midnight_read_on_the_host_clock() -> None:
-    # Monday 2026-09-07 00:00 in Bangkok (UTC+7) is Sunday 17:00Z — Sunday 10:00
-    # on the Vancouver host clock (PDT, UTC-7), the digits a naive stamp carries.
+def test_a_week_starts_at_the_users_midnight_read_on_the_stored_clock() -> None:
+    # Monday 2026-09-07 00:00 in Bangkok (UTC+7) is Sunday 17:00Z — the digits a
+    # naive stamp carries on the stored (UTC) clock.
     bangkok = resolve_report_period("2026-W37", NOW, ZoneInfo("Asia/Bangkok"))
-    assert bangkok.start == datetime(2026, 9, 6, 10, 0, 0)
-    # Sunday 2026-09-13 ends at 24:00 Bangkok — Sunday 10:00 in Vancouver.
-    assert bangkok.end == datetime(2026, 9, 13, 9, 59, 59, 999999)
+    assert bangkok.start == datetime(2026, 9, 6, 17, 0, 0)
+    # Sunday 2026-09-13 ends at 24:00 Bangkok — Sunday 17:00Z.
+    assert bangkok.end == datetime(2026, 9, 13, 16, 59, 59, 999999)
 
 
-def test_under_a_utc_host_a_vancouver_week_starts_at_its_midnight_in_utc() -> None:
-    # The cloud and CI run UTC (as the pinned app will): Monday 00:00 in
-    # Vancouver is 07:00Z, so the bound reads 07:00 on the host clock.
-    with forced_zone("UTC"):
-        period = resolve_report_period("2026-W37", NOW, ZONE)
-    assert period.start == datetime(2026, 9, 7, 7, 0, 0)
-    assert period.end == datetime(2026, 9, 14, 6, 59, 59, 999999)
+def test_whatever_the_host_zone_a_vancouver_week_starts_at_its_midnight_in_utc() -> None:
+    # Monday 00:00 in Vancouver is 07:00Z; a process moved off the pin reads the
+    # same bound, since the stored clock is UTC, not the host's.
+    for host in ("UTC", "Asia/Bangkok"):
+        with forced_zone(host):
+            period = resolve_report_period("2026-W37", NOW, ZONE)
+        assert period.start == datetime(2026, 9, 7, 7, 0, 0)
+        assert period.end == datetime(2026, 9, 14, 6, 59, 59, 999999)
 
 
 def test_the_preceding_period_comes_from_the_token_not_the_host_clock_day() -> None:

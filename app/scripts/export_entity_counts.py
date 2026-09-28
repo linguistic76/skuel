@@ -33,6 +33,10 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import TypedDict, cast
 
+from core.utils.process_clock import pin_process_clock_to_utc
+
+pin_process_clock_to_utc()  # the UTC arc's bridge: before any clock read (ADR-089)
+
 # App logging attaches a console handler to sys.stdout on first import
 # (core/utils/logging.py — the right default for containers), which would
 # interleave log lines into `> before.json`. Keep the JSON channel pure:

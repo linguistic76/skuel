@@ -48,9 +48,10 @@ from core.services.events.events_core_service import EventsCoreService
 from core.services.goals.goals_core_service import GoalsCoreService
 from core.services.tasks.tasks_core_service import TasksCoreService
 from core.utils.result_simplified import Errors, Result
+from tests.helpers.laptop_clock import laptop_wall
 
-# Calendar days here are read on the host clock (period bounds, widened dates):
-# the expectations are the laptop's, where the host clock and the default zone agree.
+# An authored day widens to its first instant in the owner's zone (the laptop's,
+# on the default), held on the stored (UTC) clock — laptop_wall builds it.
 pytestmark = pytest.mark.usefixtures("laptop_zone")
 
 USER = "user_born_completed"
@@ -143,7 +144,7 @@ class TestTaskCreatedCompleted:
 
         await service.create_task(activity_to_task_request(parsed).value, USER)
 
-        assert bus.of(TaskCompleted)[0].occurred_at == datetime(2026, 3, 4, 0, 0)
+        assert bus.of(TaskCompleted)[0].occurred_at == laptop_wall(2026, 3, 4)
 
     async def test_the_created_event_is_announced_first(self) -> None:
         """``TaskCreated`` is what invalidates the user context — it must not be
@@ -240,7 +241,7 @@ class TestGoalCreatedCompleted:
         achieved = bus.of(GoalAchieved)
         assert len(achieved) == 1
         assert achieved[0].goal_uid == "goal_born"
-        assert achieved[0].occurred_at == datetime(2026, 3, 4, 0, 0)
+        assert achieved[0].occurred_at == laptop_wall(2026, 3, 4)
 
     async def test_the_created_event_is_announced_first(self) -> None:
         service, bus = _goals()

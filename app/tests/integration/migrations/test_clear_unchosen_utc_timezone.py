@@ -197,7 +197,7 @@ class _Connection:
     def __init__(self, driver: Any) -> None:
         self._driver = driver
 
-    def connect(self) -> _Borrowed:
+    async def connect(self) -> _Borrowed:
         return _Borrowed(self._driver)
 
 

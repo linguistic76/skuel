@@ -6,8 +6,16 @@ The app-wide Neo4j connection. ``get_connection()`` is the singleton accessor us
 at the composition root (``services_bootstrap``) to build the shared ``AsyncDriver``,
 and ``Neo4jConnection`` is also instantiated directly by migration / index scripts.
 
+``connect()`` opens the graph in three steps: the driver is built by
+``open_async_driver`` (``graph_driver.py`` — refused unless the process clock is
+pinned to UTC), the server is probed until it answers (``connect_with_retry`` — a
+paused AuraDB Free instance wakes), and the graph's data version is checked
+(``require_utc_instants`` — a graph holding data the UTC instants migration has
+not been applied to is refused; an empty one is stamped). Only the migration
+script opens without the last step (``utc_instants_guard=False``).
+
 Driver-level timeouts and pool sizing come from ``DatabaseConfig`` and are applied
-here at ``AsyncGraphDatabase.driver(...)``. These bound connection establishment,
+where the driver is built. These bound connection establishment,
 pool acquisition, and managed-transaction retry — they do NOT cap a single query's
 execution time. The per-query server-side timeout (``neo4j.Query(timeout=)``) is
 applied a layer up: ``services_bootstrap/compose.py`` wraps the shared driver with
@@ -27,9 +35,11 @@ import asyncio
 import os
 from typing import Any
 
-from neo4j import AsyncDriver, AsyncGraphDatabase, Record
+from neo4j import AsyncDriver, Record
 
+from adapters.persistence.neo4j.graph_driver import open_async_driver, require_utc_instants
 from core.config.settings import get_settings
+from core.constants import Neo4jConnectRetry
 
 # Protocols
 from core.utils.exception_types import NEO4J_EXCEPTIONS
@@ -38,6 +48,8 @@ from core.utils.logging import get_logger
 logger = get_logger(__name__)
 
 _connection_instance = None
+# One opener at a time: two concurrent first calls would otherwise build two drivers.
+_connection_lock = asyncio.Lock()
 
 
 class Neo4jConnection:
@@ -48,7 +60,12 @@ class Neo4jConnection:
     """
 
     def __init__(
-        self, uri: str | None = None, username: str | None = None, password: str | None = None
+        self,
+        uri: str | None = None,
+        username: str | None = None,
+        password: str | None = None,
+        *,
+        utc_instants_guard: bool = True,
     ) -> None:
         """
         Initialize Neo4j connection.
@@ -57,18 +74,21 @@ class Neo4jConnection:
             uri: Neo4j URI (defaults to env/settings)
             username: Neo4j username (defaults to env/settings)
             password: Neo4j password (defaults to encrypted credential store)
+            utc_instants_guard: check the graph's data version on connect —
+                False only for the UTC instants migration script, which
+                writes the record the check reads
         """
         from core.config.credential_store import get_credential
 
         settings = get_settings()
         db_config = getattr(settings, "database", settings)
 
-        self.uri = (
+        self.uri: str = str(
             uri
             or getattr(db_config, "neo4j_uri", None)
             or os.getenv("NEO4J_URI", "bolt://localhost:7687")
         )
-        self.username = (
+        self.username: str = str(
             username
             or getattr(db_config, "neo4j_username", None)
             or get_credential("NEO4J_USERNAME", fallback_to_env=True)
@@ -77,7 +97,7 @@ class Neo4jConnection:
         )
 
         # Use encrypted credential store for password (with env fallback for migration)
-        self.password = (
+        self.password: str | None = (
             password
             or getattr(db_config, "neo4j_password", None)
             or get_credential("NEO4J_PASSWORD", fallback_to_env=True)
@@ -97,36 +117,63 @@ class Neo4jConnection:
         }
 
         self.driver: AsyncDriver | None = None
+        self._utc_instants_guard = utc_instants_guard
+        self._opened = False
 
-    def connect(self) -> AsyncDriver:
-        """Establish connection to Neo4j and return the live driver."""
-        if not self.driver:
-            self.driver = AsyncGraphDatabase.driver(
+    def _build_driver(self) -> AsyncDriver:
+        """The driver, built on first use — refused unless the process clock is pinned."""
+        if self.driver is None:
+            self.driver = open_async_driver(
                 self.uri, auth=(self.username, self.password), **self._driver_config
-            )
-            logger.info(
-                "Connected to Neo4j at %s (connection_timeout=%ss, acquisition_timeout=%ss, "
-                "max_transaction_retry_time=%ss, pool=%s)",
-                self.uri,
-                self._driver_config["connection_timeout"],
-                self._driver_config["connection_acquisition_timeout"],
-                self._driver_config["max_transaction_retry_time"],
-                self._driver_config["max_connection_pool_size"],
             )
         return self.driver
 
+    async def connect(self) -> AsyncDriver:
+        """Open the graph and return the live driver.
+
+        Builds the driver, probes the server until it answers (bounded retry — a
+        paused AuraDB Free instance takes a few seconds to wake), then checks the
+        graph's data version unless this connection is the migration script's.
+        A failure closes the driver, so the next call starts over.
+        """
+        if self._opened and self.driver is not None:
+            return self.driver
+        driver = self._build_driver()
+        try:
+            await connect_with_retry(
+                self,
+                max_attempts=Neo4jConnectRetry.MAX_ATTEMPTS,
+                base_delay_seconds=Neo4jConnectRetry.BASE_DELAY_SECONDS,
+                max_delay_seconds=Neo4jConnectRetry.MAX_DELAY_SECONDS,
+            )
+            if self._utc_instants_guard:
+                await require_utc_instants(driver)
+            self._opened = True
+        finally:
+            if not self._opened:
+                await self.close()
+        logger.info(
+            "Connected to Neo4j at %s (connection_timeout=%ss, acquisition_timeout=%ss, "
+            "max_transaction_retry_time=%ss, pool=%s)",
+            self.uri,
+            self._driver_config["connection_timeout"],
+            self._driver_config["connection_acquisition_timeout"],
+            self._driver_config["max_transaction_retry_time"],
+            self._driver_config["max_connection_pool_size"],
+        )
+        return driver
+
     async def close(self):
         """Close the connection."""
+        self._opened = False
         if self.driver:
             await self.driver.close()
             self.driver = None
             logger.info("Closed Neo4j connection")
 
-    async def __aenter__(
-        self,
-    ) -> Neo4jConnection:  # skuel-lint: disable=SKUEL029 -- async context-manager protocol: `async with` awaits __aenter__
+    async def __aenter__(self) -> Neo4jConnection:
         """Async context manager entry."""
-        self.connect()
+        await self.connect()
         return self
 
     async def __aexit__(self, *args: Any) -> None:
@@ -140,12 +187,11 @@ class Neo4jConnection:
         ``verify_connectivity``: it confirms the database is actually resumed and
         answering, which matters for an AuraDB Free instance waking from pause).
         Propagates ``NEO4J_EXCEPTIONS`` (incl. ``ServiceUnavailable``) so callers
-        — notably ``connect_with_retry`` — can back off and retry.
+        — notably ``connect_with_retry``, which ``connect`` runs — can back off
+        and retry.
         """
-        self.connect()
-        if self.driver is None:
-            raise RuntimeError("Neo4j driver not initialized")
-        async with self.driver.session() as session:
+        driver = self._build_driver()
+        async with driver.session() as session:
             result = await session.run("RETURN 1 as test")
             data = await result.single()
         if data is None or data["test"] != 1:
@@ -165,11 +211,8 @@ class Neo4jConnection:
             List of Neo4j Record objects, or None if error
         """
         try:
-            self.connect()
-            if self.driver is None:
-                return None
-
-            async with self.driver.session() as session:
+            driver = await self.connect()
+            async with driver.session() as session:
                 result = await session.run(query, params or {})
                 # Collect all records as Record objects
                 return [record async for record in result]
@@ -180,18 +223,20 @@ class Neo4jConnection:
             return None
 
 
-def get_connection() -> Neo4jConnection:
+async def get_connection() -> Neo4jConnection:
     """
-    Get or create a singleton Neo4j connection.
+    Get or create the singleton Neo4j connection, opened.
 
     Returns:
         Neo4jConnection instance
     """
     global _connection_instance
 
-    if _connection_instance is None:
-        _connection_instance = Neo4jConnection()
-        _connection_instance.connect()
+    async with _connection_lock:
+        if _connection_instance is None:
+            connection = Neo4jConnection()
+            await connection.connect()
+            _connection_instance = connection
 
     return _connection_instance
 
@@ -212,8 +257,9 @@ async def connect_with_retry(
     instance is tolerated, logging each attempt; after ``max_attempts`` it raises
     one actionable ``RuntimeError``.
 
-    Startup-only. Deep live-request reconnect / circuit-breaker across query
-    sites is deliberately deferred (ADR-080 "When to Revisit").
+    Run by ``Neo4jConnection.connect`` — every opener inherits it. Startup-only:
+    deep live-request reconnect / circuit-breaker across query sites is
+    deliberately deferred (ADR-080 "When to Revisit").
 
     Delay before attempt *n* (1-indexed) is
     ``min(base_delay_seconds * 2**(n-1), max_delay_seconds)``.

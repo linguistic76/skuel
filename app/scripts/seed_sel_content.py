@@ -15,6 +15,10 @@ import asyncio
 import os
 from pathlib import Path
 
+from core.utils.process_clock import pin_process_clock_to_utc
+
+pin_process_clock_to_utc()  # the UTC arc's bridge: before any clock read (ADR-089)
+
 from adapters.persistence.neo4j.universal_backend import UniversalNeo4jBackend
 from adapters.persistence.neo4j_adapter import Neo4jAdapter
 from core.models.curriculum import Curriculum

@@ -79,6 +79,10 @@ from typing import Any
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
+from core.utils.process_clock import pin_process_clock_to_utc
+
+pin_process_clock_to_utc()  # the UTC arc's bridge: before any clock read (ADR-089)
+
 from core.models.enums.entity_enums import EntityType
 from core.models.enums.neo_labels import NeoLabel
 from core.models.enums.user_enums import UserRole
@@ -1209,7 +1213,7 @@ async def main() -> int:
     content_owner = os.getenv("SKUEL_CONTENT_VAULT_OWNER", "user_admin")
 
     conn = Neo4jConnection()
-    driver = conn.connect()
+    driver = await conn.connect()
     try:
         entity_rows = await fetch_entity_type_rows(driver)
         extracted_rows = await fetch_extracted_rows(driver)

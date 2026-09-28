@@ -18,7 +18,6 @@ from __future__ import annotations
 
 import dataclasses
 import sys
-from datetime import UTC
 from pathlib import Path
 
 import pytest
@@ -57,31 +56,29 @@ def test_the_projection_is_the_vault_doors_own():
     """One expression, imported — the backfill and the live vault-door rule
     cannot drift. Its shape: on a COMPLETED node, ``completion_date <
     created_at`` → the completion day; otherwise the creation day — the branch
-    order of ``Task.with_creation_due_date``, status guard included. Until the
-    cutover the creation day is the zone's for a stamp with an offset and its
-    own digits' for an offset-less one (the host's wall clock)."""
+    order of ``Task.with_creation_due_date``, status guard included. The stored
+    clock is UTC, so an offset-less ``created_at`` holds UTC digits and every
+    stamp's creation day is the day its instant falls on in ``$zone``."""
     assert task_creation_due_date_cypher() == migration.RULE_PROJECTION
-    created_day = (
-        "CASE WHEN (valueType(n.created_at) STARTS WITH 'ZONED' "
-        "OR toString(n.created_at) =~ '.*(Z|[+-][0-9]{2}:[0-9]{2})$') "
-        "THEN toString(date(datetime({datetime: datetime(n.created_at), timezone: $zone}))) "
-        "ELSE substring(toString(n.created_at), 0, 10) END"
-    )
+    created_day = "toString(date(datetime({datetime: datetime(n.created_at), timezone: $zone})))"
     done_day = "substring(toString(n.completion_date), 0, 10)"
     assert (
         "CASE WHEN n.status = $completed_status AND n.completion_date IS NOT NULL AND "
         f"{done_day} < {created_day} THEN {done_day} ELSE {created_day} END"
     ) == migration.RULE_PROJECTION
+    assert "substring(toString(n.created_at)" not in migration.RULE_PROJECTION
 
 
-def test_after_the_cutover_the_creation_day_is_the_zones(monkeypatch: pytest.MonkeyPatch):
-    """Once the stored clock is UTC, an offset-less ``created_at`` holds UTC digits,
-    and the creation day is the day the instant falls on in ``$zone`` — not its
-    digits' day, which is the UTC day."""
-    monkeypatch.setattr(timestamp_helpers, "STORED_INSTANT_CLOCK", UTC)
+def test_on_the_host_clock_an_offset_less_stamp_keeps_its_digits_day(
+    monkeypatch: pytest.MonkeyPatch,
+):
+    """On the host-zone stored clock an offset-less ``created_at`` holds the host's
+    wall clock, so its creation day is its own digits' day; a stamp with an offset
+    still names its instant, whose day is the zone's."""
+    monkeypatch.setattr(timestamp_helpers, "STORED_INSTANT_CLOCK", None)
     rule = task_creation_due_date_cypher()
-    assert "substring(toString(n.created_at)" not in rule
-    assert "valueType(n.created_at)" not in rule
+    assert "substring(toString(n.created_at), 0, 10)" in rule
+    assert "valueType(n.created_at) STARTS WITH 'ZONED'" in rule
     assert "date(datetime({datetime: datetime(n.created_at), timezone: $zone}))" in rule
 
 

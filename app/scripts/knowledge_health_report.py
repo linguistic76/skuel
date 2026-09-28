@@ -30,6 +30,10 @@ import os
 import sys
 from typing import Any
 
+from core.utils.process_clock import pin_process_clock_to_utc
+
+pin_process_clock_to_utc()  # the UTC arc's bridge: before any clock read (ADR-089)
+
 
 def _print_human(report: dict[str, Any]) -> None:
     """Render the report as a readable console summary."""

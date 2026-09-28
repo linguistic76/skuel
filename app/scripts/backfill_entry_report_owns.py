@@ -56,6 +56,10 @@ import argparse
 import asyncio
 import sys
 
+from core.utils.process_clock import pin_process_clock_to_utc
+
+pin_process_clock_to_utc()  # the UTC arc's bridge: before any clock read (ADR-089)
+
 _COUNT_EDGES_BY_ENDPOINTS = """
 MATCH (r)-[a:ASSESSMENT_OF]->(t)
 RETURN labels(r) AS report_labels, labels(t) AS target_labels, count(*) AS n

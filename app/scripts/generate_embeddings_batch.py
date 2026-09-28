@@ -59,6 +59,10 @@ import argparse
 import asyncio
 from typing import Any
 
+from core.utils.process_clock import pin_process_clock_to_utc
+
+pin_process_clock_to_utc()  # the UTC arc's bridge: before any clock read (ADR-089)
+
 # Label maps + per-label scope filters live in the retrievability module —
 # the coverage gauge and this backfill share ONE source, so the gauge's
 # missing counts and the remedy's candidate queries can never drift apart.
@@ -516,7 +520,7 @@ async def main():
     from adapters.persistence.neo4j.neo4j_connection import Neo4jConnection
 
     conn = Neo4jConnection()
-    driver = conn.connect()
+    driver = await conn.connect()
 
     # Create embeddings service (inference client behind a port — W1).
     # The factory is the provider chokepoint (ADR-068); a missing API key

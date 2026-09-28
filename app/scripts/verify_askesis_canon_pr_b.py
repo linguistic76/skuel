@@ -16,6 +16,10 @@ import sys
 from pathlib import Path
 from unittest.mock import MagicMock
 
+from core.utils.process_clock import pin_process_clock_to_utc
+
+pin_process_clock_to_utc()  # the UTC arc's bridge: before any clock read (ADR-089)
+
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 SHELVED = "resource.hypermedia-systems"
@@ -34,7 +38,7 @@ async def main() -> int:
     from core.services.embeddings_service import EmbeddingsService
 
     conn = Neo4jConnection()
-    driver = conn.connect()
+    driver = await conn.connect()
 
     async def chunk_count() -> int:
         result = await driver.execute_query(

@@ -23,6 +23,7 @@ from core.models.habit.habit import Habit
 from core.services.habits.habit_event_handler_service import HabitEventHandlerService
 from core.services.habits.habits_intelligence_service import HabitsIntelligenceService
 from core.utils.result_simplified import Result
+from tests.helpers.laptop_clock import laptop_wall
 
 
 def _make_habit(uid="habit_test_abc", title="Test Habit", **kwargs):
@@ -102,7 +103,7 @@ class TestLearnFromCompletion:
         event = HabitCompleted(
             habit_uid="habit_test_abc",
             user_uid="user_123",
-            occurred_at=datetime(2026, 3, 9, 14, 30),  # 2:30 PM
+            occurred_at=laptop_wall(2026, 3, 9, 14, 30),  # 2:30 PM
         )
 
         await service.handle_habit_completed(event)
@@ -127,7 +128,7 @@ class TestLearnFromCompletion:
         event1 = HabitCompleted(
             habit_uid="habit_test_abc",
             user_uid="user_123",
-            occurred_at=datetime(2026, 3, 9, 8, 0),
+            occurred_at=laptop_wall(2026, 3, 9, 8, 0),
         )
         await service.handle_habit_completed(event1)
 
@@ -138,7 +139,7 @@ class TestLearnFromCompletion:
         event2 = HabitCompleted(
             habit_uid="habit_test_abc",
             user_uid="user_123",
-            occurred_at=datetime(2026, 3, 10, 8, 0),
+            occurred_at=laptop_wall(2026, 3, 10, 8, 0),
         )
         await service.handle_habit_completed(event2)
 

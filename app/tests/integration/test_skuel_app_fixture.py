@@ -19,8 +19,8 @@ CORE and executes it.
 """
 
 import pytest
-from neo4j import AsyncGraphDatabase
 
+from adapters.persistence.neo4j.graph_driver import open_async_driver
 from core.config.credential_store import get_credential
 from core.config.intelligence_tier import IntelligenceTier
 from tests.integration._neo4j_pin import NEO4J_SERVER_VERSION, running_kernel_version
@@ -57,7 +57,7 @@ async def test_app_driver_reaches_the_app_fixtures_own_container(
     started, not the shared ``neo4j_container`` and not a sandbox.
     """
     app_driver = skuel_app.state.services.neo4j_driver
-    direct = AsyncGraphDatabase.driver(skuel_app_container.get_connection_url())
+    direct = open_async_driver(skuel_app_container.get_connection_url(), auth=None)
     try:
         async with direct.session() as session:
             await session.run("MERGE (:FixtureProbe {uid: $uid})", uid=_MARKER_UID)

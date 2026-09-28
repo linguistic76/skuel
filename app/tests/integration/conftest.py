@@ -18,8 +18,8 @@ from unittest.mock import AsyncMock
 
 import pytest
 import pytest_asyncio
-from neo4j import AsyncGraphDatabase
 
+from adapters.persistence.neo4j.graph_driver import open_async_driver, require_utc_instants
 from adapters.persistence.neo4j.universal_backend import UniversalNeo4jBackend
 from core.constants import SYSTEM_USER_UID
 from core.services.ingestion.config import DEFAULT_USER_UID
@@ -80,19 +80,41 @@ def neo4j_uri(neo4j_container):
 
 @pytest_asyncio.fixture(scope="session", loop_scope="session")
 async def neo4j_driver(neo4j_uri):
-    """Create Neo4j driver connected to test container."""
-    driver = AsyncGraphDatabase.driver(neo4j_uri, auth=("neo4j", "testpassword"))
+    """Create Neo4j driver connected to test container.
+
+    Built through the one driver factory, and opened like the app opens a graph:
+    the container starts empty, so the data-version check stamps it with the UTC
+    instants migration's record (``graph_driver.py``). Every fixture that clears
+    the graph keeps that record (``clean_neo4j``).
+    """
+    driver = open_async_driver(neo4j_uri, auth=("neo4j", "testpassword"))
 
     # Verify connection
     async with driver.session() as session:
         result = await session.run("RETURN 1 as test")
         record = await result.single()
         assert record["test"] == 1
+    await require_utc_instants(driver)
 
     yield driver
 
     # Cleanup
     await driver.close()
+
+
+@pytest.fixture(scope="module")
+def scratch_neo4j_container():
+    """A graph of its own for one module, for tests that empty or read the WHOLE graph.
+
+    The data-version guard needs an empty graph, and the UTC instants migration's
+    census reads every stamp on the graph — the shared container, full of the
+    session's users and every test's leftovers, is neither. Module-scoped, so the
+    container is stopped when its module is done rather than held all session.
+    """
+    container = bounded_neo4j_container()
+    container.start()
+    yield container
+    container.stop()
 
 
 @pytest.fixture(scope="session")
@@ -314,15 +336,18 @@ async def clean_neo4j(neo4j_driver, create_moc_test_user, ensure_test_users):
     Clean Neo4j database before each test (after creating test users).
 
     Deletes all nodes EXCEPT User nodes, which are preserved across tests
-    for user relationship creation.
+    for user relationship creation, and the graph's migration record, which
+    a driver opened onto the graph afterwards reads (``graph_driver.py``).
 
     Also ensures vector indexes are created for semantic search tests.
     """
 
     async def cleanup():
         async with neo4j_driver.session() as session:
-            # Delete all nodes except User nodes
-            await session.run("MATCH (n) WHERE NOT n:User DETACH DELETE n")
+            # Delete all nodes except User nodes and the migration record
+            await session.run(
+                "MATCH (n) WHERE NOT n:User AND NOT n:MigrationRecord DETACH DELETE n"
+            )
 
     async def create_vector_indexes():
         """Create vector indexes required for semantic search tests."""

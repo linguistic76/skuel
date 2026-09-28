@@ -8,6 +8,10 @@ Shows all node labels, relationship types, and sample data.
 import asyncio
 from pathlib import Path
 
+from core.utils.process_clock import pin_process_clock_to_utc
+
+pin_process_clock_to_utc()  # the UTC arc's bridge: before any clock read (ADR-089)
+
 from adapters.persistence.neo4j.neo4j_connection import Neo4jConnection
 
 
@@ -23,7 +27,7 @@ async def check_database():
 
     # Get connection
     conn = Neo4jConnection()
-    driver = conn.connect()
+    driver = await conn.connect()
 
     print("=" * 80)
     print("Database State Check")

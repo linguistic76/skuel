@@ -79,9 +79,10 @@ from pathlib import Path
 import pytest
 import pytest_asyncio
 import yaml
-from neo4j import AsyncDriver, AsyncGraphDatabase
+from neo4j import AsyncDriver
 from neo4j.exceptions import ClientError
 
+from adapters.persistence.neo4j.graph_driver import open_async_driver
 from tests.integration._container_lifecycle import bounded_neo4j_container
 
 # ============================================================================
@@ -197,7 +198,7 @@ def locked_neo4j_container():
 @pytest_asyncio.fixture(scope="session", loop_scope="session")
 async def locked_neo4j_driver(locked_neo4j_container) -> AsyncGenerator[AsyncDriver]:
     """Driver onto the production-shaped container."""
-    driver = AsyncGraphDatabase.driver(
+    driver = open_async_driver(
         locked_neo4j_container.get_connection_url(), auth=("neo4j", "testpassword")
     )
 

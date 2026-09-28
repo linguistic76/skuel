@@ -26,6 +26,10 @@ import asyncio
 import time
 from typing import Any
 
+from core.utils.process_clock import pin_process_clock_to_utc
+
+pin_process_clock_to_utc()  # the UTC arc's bridge: before any clock read (ADR-089)
+
 from adapters.persistence.neo4j.neo4j_connection import Neo4jConnection
 from adapters.persistence.neo4j.query import build_optimized_ready_to_learn
 from core.utils.logging import get_logger
@@ -328,7 +332,7 @@ class QueryBenchmark:
 async def main() -> None:
     """Run benchmarks and display results."""
     conn = Neo4jConnection()
-    driver = conn.connect()
+    driver = await conn.connect()
 
     try:
         # Create benchmark

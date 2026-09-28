@@ -10,6 +10,10 @@ from pathlib import Path
 
 from dotenv import load_dotenv
 
+from core.utils.process_clock import pin_process_clock_to_utc
+
+pin_process_clock_to_utc()  # the UTC arc's bridge: before any clock read (ADR-089)
+
 from adapters.persistence.neo4j.neo4j_connection import Neo4jConnection
 from core.utils.frontmatter import parse_frontmatter
 
@@ -109,7 +113,7 @@ async def main():
     print(f"Ingesting nous files from: {NOUS_PATH}")
 
     conn = Neo4jConnection()
-    driver = conn.connect()
+    driver = await conn.connect()
     print(f"Connecting to Neo4j at {conn.uri}")
 
     try:

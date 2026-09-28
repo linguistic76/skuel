@@ -42,8 +42,11 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-from neo4j import AsyncGraphDatabase
+from core.utils.process_clock import pin_process_clock_to_utc
 
+pin_process_clock_to_utc()  # the UTC arc's bridge: before any clock read (ADR-089)
+
+from adapters.persistence.neo4j.neo4j_connection import Neo4jConnection
 from adapters.persistence.neo4j.neo4j_schema_manager import Neo4jSchemaManager
 from core.config import create_config
 from core.constants import EmbeddingGeometry
@@ -94,10 +97,11 @@ async def create_vector_indexes(
     logger.info("")
 
     # Connect to Neo4j
-    driver = AsyncGraphDatabase.driver(
-        config.database.neo4j_uri,
-        auth=(config.database.neo4j_username, config.database.neo4j_password),
-    )
+    driver = await Neo4jConnection(
+        uri=config.database.neo4j_uri,
+        username=config.database.neo4j_username,
+        password=config.database.neo4j_password,
+    ).connect()
 
     try:
         # Create schema manager
@@ -174,10 +178,11 @@ async def verify_vector_indexes() -> None:
     logger.info("Verifying vector indexes...")
 
     # Connect to Neo4j
-    driver = AsyncGraphDatabase.driver(
-        config.database.neo4j_uri,
-        auth=(config.database.neo4j_username, config.database.neo4j_password),
-    )
+    driver = await Neo4jConnection(
+        uri=config.database.neo4j_uri,
+        username=config.database.neo4j_username,
+        password=config.database.neo4j_password,
+    ).connect()
 
     try:
         async with driver.session() as session:

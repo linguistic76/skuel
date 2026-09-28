@@ -11,19 +11,25 @@ This demonstrates the evolution from:
 - To clean composition root with explicit dependencies
 """
 
-import argparse
-import asyncio
-import os
-import sys
-import traceback
+# The process clock is pinned to UTC before anything reads it: every naive stamp
+# the app writes is then UTC (the UTC arc's bridge, ADR-089).
+from core.utils.process_clock import pin_process_clock_to_utc
 
-import uvicorn
-from dotenv import load_dotenv
+pin_process_clock_to_utc()
 
-from adapters.inbound.middleware import SecurityHeadersMiddleware
-from core.config.settings import get_settings
-from core.utils.logging import get_logger, setup_logging
-from scripts.dev.bootstrap import bootstrap_skuel
+import argparse  # noqa: E402
+import asyncio  # noqa: E402
+import os  # noqa: E402
+import sys  # noqa: E402
+import traceback  # noqa: E402
+
+import uvicorn  # noqa: E402
+from dotenv import load_dotenv  # noqa: E402
+
+from adapters.inbound.middleware import SecurityHeadersMiddleware  # noqa: E402
+from core.config.settings import get_settings  # noqa: E402
+from core.utils.logging import get_logger, setup_logging  # noqa: E402
+from scripts.dev.bootstrap import bootstrap_skuel  # noqa: E402
 
 __version__ = "1.0"
 

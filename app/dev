@@ -7,6 +7,11 @@
 
 set -e  # Exit on error
 
+# Every target runs with the process clock pinned to UTC — the UTC arc's bridge
+# (core/utils/process_clock.py; ADR-089). The Python entry points pin themselves
+# too, so a script run without ./dev is pinned the same way.
+export TZ=UTC
+
 # Colors for output
 RED='\033[0;31m'
 GREEN='\033[0;32m'

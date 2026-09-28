@@ -59,6 +59,10 @@ from typing import TYPE_CHECKING
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
+from core.utils.process_clock import pin_process_clock_to_utc
+
+pin_process_clock_to_utc()  # the UTC arc's bridge: before any clock read (ADR-089)
+
 from core.models.enums import EntityType
 from core.models.enums.neo_labels import NeoLabel
 from core.models.relationship_names import RelationshipName
@@ -437,7 +441,7 @@ async def main() -> int:
     from adapters.persistence.neo4j.neo4j_connection import Neo4jConnection
 
     conn = Neo4jConnection()
-    driver = conn.connect()
+    driver = await conn.connect()
     try:
         labels, relationships, entity_types = await fetch_live_vocabulary(driver)
         schema_holders = await fetch_schema_holders(driver)

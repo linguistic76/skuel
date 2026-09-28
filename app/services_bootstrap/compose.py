@@ -649,7 +649,7 @@ async def compose_services(
 
         # Content adapter — used by ingestion (store_content_with_chunks), batch
         # re-chunking, and the embedding worker (store_chunk_embeddings).
-        connection = get_connection()
+        connection = await get_connection()
         content_adapter = Neo4jContentAdapter(connection)
 
         # Reference-chunk adapter — the canon ingest door's parallel to

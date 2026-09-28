@@ -44,6 +44,10 @@ from collections import Counter
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any
 
+from core.utils.process_clock import pin_process_clock_to_utc
+
+pin_process_clock_to_utc()  # the UTC arc's bridge: before any clock read (ADR-089)
+
 from core.models.enums.neo_labels import NeoLabel
 
 if TYPE_CHECKING:
@@ -264,7 +268,7 @@ async def main() -> int:
 
     from adapters.persistence.neo4j.neo4j_connection import Neo4jConnection
 
-    driver = Neo4jConnection().connect()
+    driver = await Neo4jConnection().connect()
     try:
         print("=== CENSUS ===" if not args.confirm else "=== BEFORE ===")
         census = await run_census(driver, NEVER_CHOSEN)

@@ -25,6 +25,10 @@ from pathlib import Path
 
 import yaml
 
+from core.utils.process_clock import pin_process_clock_to_utc
+
+pin_process_clock_to_utc()  # the UTC arc's bridge: before any clock read (ADR-089)
+
 
 async def main(teacher_uid: str, output_dir: Path) -> None:
     from adapters.infrastructure.event_bus import InMemoryEventBus

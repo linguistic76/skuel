@@ -14,11 +14,15 @@ import asyncio
 import sys
 from datetime import UTC, datetime
 
-from adapters.persistence.neo4j.neo4j_connection import Neo4jConnection
-from adapters.persistence.neo4j.neo4j_mapper import to_neo4j_node
-from core.auth.password import hash_password
-from core.models.enums import UserRole
-from core.models.user import create_user
+from core.utils.process_clock import pin_process_clock_to_utc
+
+pin_process_clock_to_utc()  # the UTC arc's bridge: before any clock read (ADR-089)
+
+from adapters.persistence.neo4j.neo4j_connection import Neo4jConnection  # noqa: E402
+from adapters.persistence.neo4j.neo4j_mapper import to_neo4j_node  # noqa: E402
+from core.auth.password import hash_password  # noqa: E402
+from core.models.enums import UserRole  # noqa: E402
+from core.models.user import create_user  # noqa: E402
 
 PASSWORD = "TestPassword123!"
 TEACHER_A = "idor_smoke_teacher_a"
@@ -58,7 +62,7 @@ async def seed() -> None:
     now = datetime.now(UTC).isoformat().replace("+00:00", "")
 
     async with Neo4jConnection() as conn:
-        driver = conn.connect()
+        driver = await conn.connect()
 
         # MERGE so re-running is idempotent. Stamp properties via SET.
         for props in (teacher_a_props, teacher_b_props, student_1_props, student_2_props):
@@ -144,7 +148,7 @@ async def seed() -> None:
 async def cleanup() -> None:
     user_uids = [f"user_{u}" for u in (TEACHER_A, TEACHER_B, STUDENT_1, STUDENT_2)]
     async with Neo4jConnection() as conn:
-        driver = conn.connect()
+        driver = await conn.connect()
         await driver.execute_query(
             "UNWIND $uids AS uid MATCH (u:User {uid: uid}) DETACH DELETE u",
             uids=user_uids,

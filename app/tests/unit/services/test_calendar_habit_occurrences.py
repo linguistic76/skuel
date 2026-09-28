@@ -31,9 +31,11 @@ from core.models.habit.completion import HabitCompletion
 from core.models.habit.habit import Habit
 from core.services.calendar_service import CalendarService
 from core.utils.result_simplified import Errors, Result
+from tests.helpers.laptop_clock import laptop_wall
 
-# The habits here start and complete at hand-built naive moments — the laptop's
-# wall clock, whose day is the zone's there (tests/conftest.py § laptop_zone).
+# The habits here start and complete at moments on the laptop's wall clock, stored
+# as their UTC digits (tests/helpers/laptop_clock.py), for a user on the default
+# zone (tests/conftest.py § laptop_zone).
 pytestmark = pytest.mark.usefixtures("laptop_zone")
 
 
@@ -76,7 +78,7 @@ def _dates(service: CalendarService, habit: Habit, start: date, end: date) -> li
 def test_daily_clamped_to_inception_within_view() -> None:
     """A daily habit created mid-window starts on its creation day, not the view start."""
     svc = _service()
-    habit = _habit(RecurrencePattern.DAILY, created=datetime(2026, 7, 4, 5, 30))
+    habit = _habit(RecurrencePattern.DAILY, created=laptop_wall(2026, 7, 4, 5, 30))
     assert _dates(svc, habit, date(2026, 7, 1), date(2026, 7, 6)) == [
         date(2026, 7, 4),
         date(2026, 7, 5),
@@ -87,7 +89,7 @@ def test_daily_clamped_to_inception_within_view() -> None:
 def test_daily_fills_view_when_inception_precedes_it() -> None:
     """A daily habit created before the window fills every day of it (the week-view fix)."""
     svc = _service()
-    habit = _habit(RecurrencePattern.DAILY, created=datetime(2026, 7, 1))
+    habit = _habit(RecurrencePattern.DAILY, created=laptop_wall(2026, 7, 1))
     got = _dates(svc, habit, date(2026, 7, 20), date(2026, 7, 26))
     assert got == [date(2026, 7, d) for d in range(20, 27)]
 
@@ -95,7 +97,7 @@ def test_daily_fills_view_when_inception_precedes_it() -> None:
 def test_habit_created_after_range_yields_nothing() -> None:
     """A habit whose inception is after the whole window produces no occurrences."""
     svc = _service()
-    habit = _habit(RecurrencePattern.DAILY, created=datetime(2026, 8, 1))
+    habit = _habit(RecurrencePattern.DAILY, created=laptop_wall(2026, 8, 1))
     assert _dates(svc, habit, date(2026, 7, 1), date(2026, 7, 31)) == []
 
 
@@ -104,8 +106,8 @@ def test_started_at_takes_precedence_over_created_at() -> None:
     svc = _service()
     habit = _habit(
         RecurrencePattern.DAILY,
-        created=datetime(2026, 7, 1),
-        started=datetime(2026, 7, 23),
+        created=laptop_wall(2026, 7, 1),
+        started=laptop_wall(2026, 7, 23),
     )
     assert _dates(svc, habit, date(2026, 7, 20), date(2026, 7, 26)) == [
         date(2026, 7, 23),
@@ -120,7 +122,7 @@ def test_recurrence_end_date_clamps_upper_bound() -> None:
     svc = _service()
     habit = _habit(
         RecurrencePattern.DAILY,
-        created=datetime(2026, 7, 1),
+        created=laptop_wall(2026, 7, 1),
         recurrence_end=date(2026, 7, 23),
     )
     assert _dates(svc, habit, date(2026, 7, 20), date(2026, 7, 26)) == [
@@ -136,7 +138,7 @@ def test_recurrence_ended_before_view_yields_nothing() -> None:
     svc = _service()
     habit = _habit(
         RecurrencePattern.DAILY,
-        created=datetime(2026, 6, 1),
+        created=laptop_wall(2026, 6, 1),
         recurrence_end=date(2026, 7, 10),
     )
     assert _dates(svc, habit, date(2026, 7, 20), date(2026, 7, 26)) == []
@@ -151,7 +153,7 @@ def test_weekly_anchors_to_inception_weekday_not_view_start() -> None:
     """A weekly habit begun on a Wednesday lands on Wednesday, not the view's Monday."""
     svc = _service()
     # 2026-07-01 is a Wednesday.
-    habit = _habit(RecurrencePattern.WEEKLY, created=datetime(2026, 7, 1))
+    habit = _habit(RecurrencePattern.WEEKLY, created=laptop_wall(2026, 7, 1))
     # View is Mon 2026-07-20 … Sun 2026-07-26; the only Wednesday is 2026-07-22.
     assert _dates(svc, habit, date(2026, 7, 20), date(2026, 7, 26)) == [date(2026, 7, 22)]
 
@@ -159,14 +161,14 @@ def test_weekly_anchors_to_inception_weekday_not_view_start() -> None:
 def test_biweekly_parity_is_fixed_to_inception() -> None:
     """Biweekly Wednesdays from Jul 1 are Jul 1/15/29 — Jul 22 is off-cycle."""
     svc = _service()
-    habit = _habit(RecurrencePattern.BIWEEKLY, created=datetime(2026, 7, 1))  # Wed
+    habit = _habit(RecurrencePattern.BIWEEKLY, created=laptop_wall(2026, 7, 1))  # Wed
     # Window spans Jul 22 (Wed, off-cycle) and Jul 15 (Wed, on-cycle).
     assert _dates(svc, habit, date(2026, 7, 13), date(2026, 7, 26)) == [date(2026, 7, 15)]
 
 
 def test_monthly_uses_inception_day_of_month() -> None:
     svc = _service()
-    habit = _habit(RecurrencePattern.MONTHLY, created=datetime(2026, 1, 15))
+    habit = _habit(RecurrencePattern.MONTHLY, created=laptop_wall(2026, 1, 15))
     assert _dates(svc, habit, date(2026, 7, 1), date(2026, 9, 30)) == [
         date(2026, 7, 15),
         date(2026, 8, 15),
@@ -177,7 +179,7 @@ def test_monthly_uses_inception_day_of_month() -> None:
 def test_monthly_day_clamped_to_short_months() -> None:
     """Day 31 collapses to the last day of shorter months."""
     svc = _service()
-    habit = _habit(RecurrencePattern.MONTHLY, created=datetime(2026, 1, 31))
+    habit = _habit(RecurrencePattern.MONTHLY, created=laptop_wall(2026, 1, 31))
     assert _dates(svc, habit, date(2026, 2, 1), date(2026, 4, 30)) == [
         date(2026, 2, 28),
         date(2026, 3, 31),
@@ -188,7 +190,7 @@ def test_monthly_day_clamped_to_short_months() -> None:
 def test_quarterly_phase_follows_inception_quarter() -> None:
     """Quarterly from January → Apr/Jul/Oct, not the view's own 3-month phase."""
     svc = _service()
-    habit = _habit(RecurrencePattern.QUARTERLY, created=datetime(2026, 1, 10))
+    habit = _habit(RecurrencePattern.QUARTERLY, created=laptop_wall(2026, 1, 10))
     assert _dates(svc, habit, date(2026, 2, 1), date(2026, 12, 31)) == [
         date(2026, 4, 10),
         date(2026, 7, 10),
@@ -198,7 +200,7 @@ def test_quarterly_phase_follows_inception_quarter() -> None:
 
 def test_yearly_anchors_to_inception_month_and_day() -> None:
     svc = _service()
-    habit = _habit(RecurrencePattern.YEARLY, created=datetime(2025, 3, 20))
+    habit = _habit(RecurrencePattern.YEARLY, created=laptop_wall(2025, 3, 20))
     assert _dates(svc, habit, date(2026, 1, 1), date(2026, 12, 31)) == [date(2026, 3, 20)]
 
 
@@ -211,7 +213,7 @@ def test_yearly_anchors_to_inception_month_and_day() -> None:
 )
 def test_weekday_weekend_filters(pattern: RecurrencePattern, expected: list[date]) -> None:
     svc = _service()
-    habit = _habit(pattern, created=datetime(2026, 7, 1))
+    habit = _habit(pattern, created=laptop_wall(2026, 7, 1))
     # Restrict the window so the expected set is small and unambiguous.
     lo = date(2026, 7, 20) if pattern is RecurrencePattern.WEEKDAYS else date(2026, 7, 25)
     hi = date(2026, 7, 21) if pattern is RecurrencePattern.WEEKDAYS else date(2026, 7, 26)
@@ -226,7 +228,7 @@ def test_weekday_weekend_filters(pattern: RecurrencePattern, expected: list[date
 def test_completed_dates_map_to_done_status() -> None:
     """Occurrences on days with a recorded completion are DONE, the rest PENDING."""
     svc = _service()
-    habit = _habit(RecurrencePattern.DAILY, created=datetime(2026, 7, 1))
+    habit = _habit(RecurrencePattern.DAILY, created=laptop_wall(2026, 7, 1))
     occurrences = svc._generate_habit_occurrences(
         habit, date(2026, 7, 20), date(2026, 7, 22), completed_dates={date(2026, 7, 21)}
     )
@@ -239,7 +241,7 @@ def test_completed_dates_map_to_done_status() -> None:
 
 def test_no_completed_dates_leaves_all_pending() -> None:
     svc = _service()
-    habit = _habit(RecurrencePattern.DAILY, created=datetime(2026, 7, 1))
+    habit = _habit(RecurrencePattern.DAILY, created=laptop_wall(2026, 7, 1))
     occurrences = svc._generate_habit_occurrences(habit, date(2026, 7, 20), date(2026, 7, 22))
     assert all(occ.status == CompletionStatus.PENDING for occ in occurrences)
 
@@ -248,7 +250,7 @@ def test_no_completed_dates_leaves_all_pending() -> None:
 async def test_fetch_completed_dates_maps_completion_days() -> None:
     svc = _service()
     completions = [
-        SimpleNamespace(completed_at=datetime(2026, 7, 21, 8, 30)),
+        SimpleNamespace(completed_at=laptop_wall(2026, 7, 21, 8, 30)),
         SimpleNamespace(completed_at="2026-07-23T19:00:00"),  # string-writer temporal split
     ]
     svc.habits_service.completions.get_completions_for_habit = AsyncMock(
@@ -282,10 +284,10 @@ async def test_get_calendar_view_marks_completed_days() -> None:
     svc.tasks_service.get_user_items_in_range = AsyncMock(return_value=Result.ok([]))
     svc.events_service.get_user_items_in_range = AsyncMock(return_value=Result.ok([]))
     svc.goals_service.get_user_items_in_range = AsyncMock(return_value=Result.ok([]))
-    habit = _habit(RecurrencePattern.DAILY, created=datetime(2026, 7, 1))
+    habit = _habit(RecurrencePattern.DAILY, created=laptop_wall(2026, 7, 1))
     svc.habits_service.get_active = AsyncMock(return_value=Result.ok([habit]))
     svc.habits_service.completions.get_completions_for_habit = AsyncMock(
-        return_value=Result.ok([SimpleNamespace(completed_at=datetime(2026, 7, 21, 8, 0))])
+        return_value=Result.ok([SimpleNamespace(completed_at=laptop_wall(2026, 7, 21, 8, 0))])
     )
 
     result = await svc.get_calendar_view(
@@ -305,7 +307,7 @@ async def test_get_calendar_view_marks_completed_days() -> None:
 
 
 def _owned_habit() -> Habit:
-    return _habit(RecurrencePattern.DAILY, created=datetime(2026, 7, 1))
+    return _habit(RecurrencePattern.DAILY, created=laptop_wall(2026, 7, 1))
 
 
 def _completion(completed_at: datetime) -> HabitCompletion:
@@ -325,7 +327,7 @@ async def test_record_habit_occurrence_is_day_idempotent() -> None:
     writes nothing — a stale modal or double click must not double-count."""
     svc = _service()
     svc.habits_service.get = AsyncMock(return_value=Result.ok(_owned_habit()))
-    existing = _completion(datetime(2026, 8, 1, 0, 0))
+    existing = _completion(laptop_wall(2026, 8, 1))
     svc.habits_service.completions.get_completions_for_habit = AsyncMock(
         return_value=Result.ok([existing])
     )
@@ -343,7 +345,7 @@ async def test_record_habit_occurrence_writes_when_day_clear() -> None:
     svc = _service()
     svc.habits_service.get = AsyncMock(return_value=Result.ok(_owned_habit()))
     svc.habits_service.completions.get_completions_for_habit = AsyncMock(return_value=Result.ok([]))
-    written = _completion(datetime(2026, 8, 1, 0, 0))
+    written = _completion(laptop_wall(2026, 8, 1))
     svc.habits_service.track_habit = AsyncMock(return_value=Result.ok(written))
 
     result = await svc.record_habit_occurrence("user_test", "habit.test", "2026-08-01")
@@ -376,7 +378,7 @@ async def test_record_habit_occurrence_rejects_off_schedule_day() -> None:
     invisible completion would still inflate the stats."""
     svc = _service()
     # Weekly habit anchored to Wednesday 2026-07-01.
-    habit = _habit(RecurrencePattern.WEEKLY, created=datetime(2026, 7, 1))
+    habit = _habit(RecurrencePattern.WEEKLY, created=laptop_wall(2026, 7, 1))
     svc.habits_service.get = AsyncMock(return_value=Result.ok(habit))
     svc.habits_service.completions.get_completions_for_habit = AsyncMock()
     svc.habits_service.track_habit = AsyncMock()
@@ -392,7 +394,7 @@ async def test_record_habit_occurrence_rejects_off_schedule_day() -> None:
 @pytest.mark.asyncio
 async def test_record_habit_occurrence_rejects_pre_inception_day() -> None:
     svc = _service()
-    habit = _habit(RecurrencePattern.DAILY, created=datetime(2026, 7, 10))
+    habit = _habit(RecurrencePattern.DAILY, created=laptop_wall(2026, 7, 10))
     svc.habits_service.get = AsyncMock(return_value=Result.ok(habit))
     svc.habits_service.track_habit = AsyncMock()
 
@@ -407,7 +409,7 @@ async def test_get_item_off_schedule_date_yields_unstamped_item() -> None:
     """An off-schedule ?date= yields the display-only modal — no day stamp,
     hence no Mark Complete."""
     svc = _service()
-    habit = _habit(RecurrencePattern.DAILY, created=datetime(2026, 7, 10))
+    habit = _habit(RecurrencePattern.DAILY, created=laptop_wall(2026, 7, 10))
     svc.habits_service.get = AsyncMock(return_value=Result.ok(habit))
     svc.habits_service.completions.get_completions_for_habit = AsyncMock()
 
@@ -443,7 +445,7 @@ async def test_get_item_day_stamp_read_failure_propagates() -> None:
 async def test_fetch_habits_default_returns_only_alive() -> None:
     """The default path fetches alive habits (active/paused) via get_active."""
     svc = _service()
-    alive = [_habit(RecurrencePattern.DAILY, created=datetime(2026, 7, 1))]
+    alive = [_habit(RecurrencePattern.DAILY, created=laptop_wall(2026, 7, 1))]
     svc.habits_service.get_active = AsyncMock(return_value=Result.ok(alive))
     svc.habits_service.get_user_habits = AsyncMock(return_value=Result.ok([]))
 
@@ -456,7 +458,7 @@ async def test_fetch_habits_default_returns_only_alive() -> None:
 async def test_fetch_habits_include_completed_returns_all_statuses() -> None:
     """include_completed=True widens to every status via get_user_habits."""
     svc = _service()
-    every = [_habit(RecurrencePattern.DAILY, created=datetime(2026, 7, 1))]
+    every = [_habit(RecurrencePattern.DAILY, created=laptop_wall(2026, 7, 1))]
     svc.habits_service.get_active = AsyncMock(return_value=Result.ok([]))
     svc.habits_service.get_user_habits = AsyncMock(return_value=Result.ok(every))
 
@@ -508,15 +510,15 @@ async def test_habit_items_for_day_stamps_each_habit_recurring_on_the_day() -> N
         habits_service=AsyncMock(),
         goals_service=AsyncMock(),
     )
-    daily = _habit(RecurrencePattern.DAILY, created=datetime(2026, 7, 1))
+    daily = _habit(RecurrencePattern.DAILY, created=laptop_wall(2026, 7, 1))
     daily = Habit(**{**daily.__dict__, "uid": "habit.daily"})
     ended = _habit(
-        RecurrencePattern.DAILY, created=datetime(2026, 7, 1), recurrence_end=date(2026, 7, 10)
+        RecurrencePattern.DAILY, created=laptop_wall(2026, 7, 1), recurrence_end=date(2026, 7, 10)
     )
     ended = Habit(**{**ended.__dict__, "uid": "habit.ended"})
     svc.habits_service.get_active = AsyncMock(return_value=Result.ok([daily, ended]))
     svc.habits_service.completions.get_completions_for_habit = AsyncMock(
-        return_value=Result.ok([SimpleNamespace(completed_at=datetime(2026, 7, 21, 8, 0))])
+        return_value=Result.ok([SimpleNamespace(completed_at=laptop_wall(2026, 7, 21, 8, 0))])
     )
 
     result = await svc.habit_items_for_day("user_test", date(2026, 7, 21))
@@ -538,7 +540,7 @@ async def test_habit_items_for_day_propagates_a_failed_completions_read() -> Non
         habits_service=AsyncMock(),
         goals_service=AsyncMock(),
     )
-    habit = _habit(RecurrencePattern.DAILY, created=datetime(2026, 7, 1))
+    habit = _habit(RecurrencePattern.DAILY, created=laptop_wall(2026, 7, 1))
     svc.habits_service.get_active = AsyncMock(return_value=Result.ok([habit]))
     svc.habits_service.completions.get_completions_for_habit = AsyncMock(
         return_value=Result.fail(Errors.database("get_completions_for_habit", "boom"))
@@ -572,7 +574,7 @@ def test_occurrences_stop_at_the_last_representable_day(pattern: RecurrencePatte
     does: every pattern emits its occurrences up to that day and never steps
     past it — the day view clamps its navigation there and reads habits for it."""
     svc = _service()
-    habit = _habit(pattern, created=datetime(2026, 7, 1))
+    habit = _habit(pattern, created=laptop_wall(2026, 7, 1))
     window_start = date.max - timedelta(days=40)
 
     occurrences = svc._generate_habit_occurrences(habit, window_start, date.max)
@@ -583,7 +585,7 @@ def test_occurrences_stop_at_the_last_representable_day(pattern: RecurrencePatte
 @pytest.mark.asyncio
 async def test_habit_items_for_the_last_day_read_ok() -> None:
     svc = _service()
-    daily = _habit(RecurrencePattern.DAILY, created=datetime(2026, 7, 1))
+    daily = _habit(RecurrencePattern.DAILY, created=laptop_wall(2026, 7, 1))
     svc.habits_service.get_active = AsyncMock(return_value=Result.ok([daily]))
     svc.habits_service.completions.get_completions_for_habit = AsyncMock(return_value=Result.ok([]))
 

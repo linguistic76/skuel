@@ -61,6 +61,10 @@ import argparse
 import asyncio
 import sys
 
+from core.utils.process_clock import pin_process_clock_to_utc
+
+pin_process_clock_to_utc()  # the UTC arc's bridge: before any clock read (ADR-089)
+
 # The exact defect value. Matching the literal — rather than "any string that
 # fails to parse as a date" — is what keeps a legitimately-stamped edge safe.
 LITERAL = "timestamp()"

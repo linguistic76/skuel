@@ -36,6 +36,10 @@ import argparse
 import asyncio
 import sys
 
+from core.utils.process_clock import pin_process_clock_to_utc
+
+pin_process_clock_to_utc()  # the UTC arc's bridge: before any clock read (ADR-089)
+
 
 async def run_retention(*, days_override: int | None, batch_size: int, dry_run: bool) -> int:
     """Connect, prune (or count) each telemetry type, print a report, return exit code."""
