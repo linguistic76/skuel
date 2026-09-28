@@ -698,10 +698,11 @@ Scope:
   re-embed of the affected labels is the only certain remedy (OpenAI calls — Mike's OK, or leave it).
 
 **Deploy:** § Migration contract step 7 — merged in the sitting, before 2026-11-01 and before the
-laptop's zone changes (R4). The cloud runner prepares the PR and stops without merging it
-(§ PR 4 hand-off and the sitting); PR 5 does not start until Mike says the sitting is done.
+laptop's zone changes (R4). PR 4's row session — a local session, from PR 3 on — prepares the PR
+and stops without merging it (§ PR 4 hand-off and the sitting); PR 5 does not start until Mike says
+the sitting is done.
 
-**Acceptance (cloud):** the tests above pass — the guard's refusals and the empty-graph stamp among
+**Acceptance (the row session):** the tests above pass — the guard's refusals and the empty-graph stamp among
 them — and CI and the Codex gate are green on the unmerged PR, titled `[awaiting sitting]`.
 **(laptop — the sitting, on AuraDB):** `--verify` finds every manifest row at its new value, the
 applied record in state `applied`, and the classification check holding; a fresh census is refused;
@@ -959,19 +960,21 @@ and the open PRs and continues.
 
 **Lessons for a future cloud run** (the first run's end, 2026-09-28): in the cloud image Node 22
 comes first on `PATH`, so `n 24` alone does not switch versions; the Docker daemon has to be started
-by hand; and GitHub's GraphQL API is blocked, so `gh pr …` commands fail and only `gh api` REST
-calls work — `request_codex_review.sh`, `apply_codex_considered.sh` and the merge would need REST
-equivalents first. The cloud proxy also refused branch deletion.
+by hand; and GitHub's GraphQL API is blocked, so the GraphQL-backed `gh pr …` commands (`create`,
+`view`, `checks`, `merge`) fail and only `gh api` REST calls work. `request_codex_review.sh` and
+`apply_codex_considered.sh` already use `gh api` REST throughout; the `gh pr …` steps would need
+REST equivalents. The cloud proxy also refused branch deletion.
 
 ### PR 4 hand-off and the sitting
 
-The runner takes PR 4 through code, tests, a clean Codex verdict and green CI, titles it
-`[awaiting sitting]`, **does not merge it**, and stops. Main requires a branch to be up to date
+PR 4's row session — a local session since PR 3 (the runner, in a cloud run) — takes PR 4 through
+code, tests, a clean Codex verdict and green CI, titles it `[awaiting sitting]`, **does not merge
+it**, and stops. Main requires a branch to be up to date
 before it merges (strict status checks), so the sitting is prepared while the app still runs:
 
-1. **Before the sitting (app running):** Mike runs every pending laptop check; any failure goes back
-   to the runner as a fix PR. When they pass, the runner brings PR 4 up to date with `main` and takes
-   it through CI and Codex again if the head moved. From then until the sitting ends, **nothing else
+1. **Before the sitting (app running):** Mike runs every pending laptop check; any failure becomes
+   a fix PR (a local session). When they pass, a local session brings PR 4 up to date with `main` and
+   takes it through CI and Codex again if the head moved. From then until the sitting ends, **nothing else
    merges** (Renovate included).
 2. **The sitting** runs on the laptop in a local Claude Code session, with Mike present for the
    snapshot, the OK on counts and the restart. Its kickoff: *"Run the PR 4 deploy sitting in
@@ -980,8 +983,7 @@ before it merges (strict status checks), so the sitting is prepared while the ap
    again.
 3. **The ledger PR:** with the app running again, the local session opens a docs-only PR recording
    PR 4 as merged and deployed and the laptop results, and takes it through the Codex loop
-   (summoned explicitly — a docs-only gate passes without a verdict). Mike then tells the runner to
-   continue.
+   (summoned explicitly — a docs-only gate passes without a verdict). PR 5's session starts after it.
 
 ### One-time setup (Mike)
 
