@@ -128,6 +128,9 @@ dev = [
     # Vendors the official ShellCheck binary as a wheel — `uv run shellcheck` works
     # with no system package, same toolchain locally and in CI. Backs quality check 9.
     "shellcheck-py>=0.11.0.1",
+    # Freezes the Python clock for a whole process (C-level, every module) — the
+    # golden-file display test seeds through the real writers under it.
+    "time-machine>=3.5.1",
 ]
 
 [build-system]
