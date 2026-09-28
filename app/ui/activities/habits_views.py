@@ -33,6 +33,7 @@ from ui.components import Button, ButtonT, Card, Icon
 from ui.dual_track_card import DualTrackSection
 from ui.feedback import Badge, BadgeT, PriorityBadge, StatusBadge
 from ui.layout import Container, DivHStacked
+from ui.patterns.format_date import format_date
 from ui.patterns.loading import content_loading_placeholder
 from ui.patterns.page_header import PageHeader
 from ui.patterns.relationships.relationship_section import EntityRelationshipsSection
@@ -403,11 +404,13 @@ def HabitDetailView(
     # Metadata grid
     meta_items: list[Any] = []
     if habit.started_at:
-        meta_items.append(MetadataField("Started", Span(str(habit.started_at)[:10])))
+        meta_items.append(MetadataField("Started", Span(format_date(habit.started_at, "%Y-%m-%d"))))
     if habit.completed_at:
-        meta_items.append(MetadataField("Completed", Span(str(habit.completed_at)[:10])))
+        meta_items.append(
+            MetadataField("Completed", Span(format_date(habit.completed_at, "%Y-%m-%d")))
+        )
     if habit.created_at:
-        meta_items.append(MetadataField("Created", Span(str(habit.created_at)[:10])))
+        meta_items.append(MetadataField("Created", Span(format_date(habit.created_at, "%Y-%m-%d"))))
     meta_grid = Div()
     if meta_items:
         meta_grid = Div(

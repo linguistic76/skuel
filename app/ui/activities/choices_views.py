@@ -32,6 +32,7 @@ from ui.activities._shared import (
 from ui.components import Button, ButtonT, Card, Icon
 from ui.feedback import Badge, BadgeT, PriorityBadge, StatusBadge
 from ui.layout import Container, DivHStacked
+from ui.patterns.format_date import format_date
 from ui.patterns.page_header import PageHeader
 from ui.patterns.relationships.relationship_section import EntityRelationshipsSection
 from ui.patterns.stats_grid import StatItem, StatsGrid
@@ -140,7 +141,7 @@ def ChoiceCard(
     deadline_el = Span()
     if choice.decision_deadline:
         overdue = choice.is_deadline_past()
-        dl_str = str(choice.decision_deadline)[:10]
+        dl_str = format_date(choice.decision_deadline, "%Y-%m-%d")
         if overdue and not is_decided:
             dl_str += " (overdue)"
         dl_cls = (
@@ -285,12 +286,18 @@ def ChoiceDetailView(
         overdue = choice.is_deadline_past() and not is_decided
         dl_cls = "text-destructive font-bold" if overdue else ""
         timing_items.append(
-            MetadataField("Deadline", Span(str(choice.decision_deadline)[:10], cls=dl_cls))
+            MetadataField(
+                "Deadline", Span(format_date(choice.decision_deadline, "%Y-%m-%d"), cls=dl_cls)
+            )
         )
     if choice.decided_at:
-        timing_items.append(MetadataField("Decided", Span(str(choice.decided_at)[:10])))
+        timing_items.append(
+            MetadataField("Decided", Span(format_date(choice.decided_at, "%Y-%m-%d")))
+        )
     if choice.created_at:
-        timing_items.append(MetadataField("Created", Span(str(choice.created_at)[:10])))
+        timing_items.append(
+            MetadataField("Created", Span(format_date(choice.created_at, "%Y-%m-%d")))
+        )
     timing_grid = Div()
     if timing_items:
         timing_grid = Div(

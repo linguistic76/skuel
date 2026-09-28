@@ -22,7 +22,7 @@ from typing import Any
 
 from core.models.enums import EntityStatus
 from core.utils.report_periods import as_naive_utc
-from core.utils.timestamp_helpers import as_host_clock, local_day_bounds, parse_date_value
+from core.utils.timestamp_helpers import as_stored_clock, local_day_bounds, parse_date_value
 from core.utils.zone_context import current_zone
 
 
@@ -47,7 +47,7 @@ def moment_of(stamp: object) -> datetime | None:
         if day is None:
             return None
         day_start, _ = local_day_bounds(day, current_zone())
-        moment = as_host_clock(day_start)
+        moment = as_stored_clock(day_start)
     return moment
 
 

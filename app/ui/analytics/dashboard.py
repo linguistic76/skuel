@@ -8,6 +8,7 @@ from ui.analytics.domain_metrics import render_metrics_cards
 from ui.components import Button, ButtonT, Card, CardBody, CardHeader, CardTitle
 from ui.forms import Input, Select
 from ui.layouts.navbar import create_navbar_for_request
+from ui.patterns.format_date import format_date
 from ui.patterns.page_header import PageHeader
 
 
@@ -102,7 +103,7 @@ def render_analytics_result(report: Any) -> Any:
             CardHeader(CardTitle(report.title)),
             CardBody(
                 P(
-                    f"{report.format_period()} • Generated {report.generated_at.strftime('%Y-%m-%d %H:%M')}",
+                    f"{report.format_period()} • Generated {format_date(report.generated_at, '%Y-%m-%d %H:%M')}",
                     cls="text-muted-foreground text-sm",
                 ),
             ),

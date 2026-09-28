@@ -18,7 +18,7 @@ until the period closes.
 A calendar period's days are the report user's days: its bounds are the first
 instant of its first day and the last instant of its last day in that user's
 zone (``local_day_bounds``), so a week in Bangkok starts seven hours before the
-same week in UTC. They are read on the host clock (``as_host_clock``), the
+same week in UTC. They are read on the stored clock (``as_stored_clock``), the
 naive form the graph's naive stamps and ``datetime.now()`` take.
 """
 
@@ -38,7 +38,7 @@ from core.utils.period_keys import (
     weekly_period_start,
 )
 from core.utils.timestamp_helpers import (
-    as_host_clock,
+    as_stored_clock,
     day_of,
     local_day_bounds,
     parse_iso_utc,
@@ -55,7 +55,7 @@ class ReportPeriod:
     """One report's window, resolved from its token.
 
     ``start`` and ``end`` are the period's first and last instants, naive on the
-    host clock as the graph's naive stamps are read — for a calendar period, the
+    stored clock as the graph's naive stamps are read — for a calendar period, the
     first and last instants of its days in the report user's zone. For a
     trailing window ``end`` is the ``now`` it was resolved at. ``label`` names
     the period the way a sentence would ("the last 7 days", "September 2026",
@@ -99,7 +99,8 @@ class ReportPeriod:
         comparison is against exactly this period, never any report that
         happens to end earlier. Read from the token, whose first day is the
         period's own in any zone — ``start`` is that day's first instant on the
-        host clock, which is not on that day for a zone east of the host's."""
+        stored clock, which is not on that day for a zone east of the stored
+        clock's."""
         if self.kind is ReportPeriodKind.MONTH:
             first = monthly_period_start(self.token)
             return monthly_period_key(first - timedelta(days=1)) if first else None
@@ -111,9 +112,9 @@ class ReportPeriod:
     def calendar_day(self, moment: datetime) -> date:
         """The day ``moment`` falls on for the report's user — in the period's zone.
 
-        ``start``, ``end`` and a cutoff are instants on the host clock; the day a
+        ``start``, ``end`` and a cutoff are instants on the stored clock; the day a
         sentence names for one is the user's, which on a host in another zone is
-        not the day of its digits (01:00 on the host clock can still be yesterday).
+        not the day of its digits (01:00 on the stored clock can still be yesterday).
         """
         return day_of(moment, self.zone)
 
@@ -147,14 +148,14 @@ def as_naive_utc(value: object) -> datetime | None:
 
 
 def _calendar_bounds(first: date, last: date, zone: tzinfo) -> tuple[datetime, datetime]:
-    """A calendar period's first and last instants on the host clock.
+    """A calendar period's first and last instants on the stored clock.
 
     The first instant of ``first`` and the last instant of ``last``, both days in
     ``zone`` (the report user's) — ``local_day_bounds`` widens each day.
     """
     start, _ = local_day_bounds(first, zone)
     _, after = local_day_bounds(last, zone)
-    return as_host_clock(start), as_host_clock(after - timedelta(microseconds=1))
+    return as_stored_clock(start), as_stored_clock(after - timedelta(microseconds=1))
 
 
 def resolve_report_period(token: str, now: datetime, zone: tzinfo) -> ReportPeriod:

@@ -21,7 +21,7 @@ from core.models.insight import PatternType, TaskPattern
 from core.utils.decorators import with_error_handling
 from core.utils.exception_types import DATA_CONVERSION_EXCEPTIONS
 from core.utils.result_simplified import Result
-from core.utils.timestamp_helpers import as_host_clock, local_day_bounds
+from core.utils.timestamp_helpers import as_stored_clock, local_day_bounds
 from core.utils.zone_context import current_zone
 
 if TYPE_CHECKING:
@@ -57,7 +57,7 @@ class _PatternAnalysisMixin:
                 return []
 
             # A completion date is a day in the user's zone; it counts from that
-            # day's first instant, read on the host clock as ``since_date`` is.
+            # day's first instant, read on the stored clock as ``since_date`` is.
             zone = current_zone()
             return [
                 task
@@ -65,7 +65,8 @@ class _PatternAnalysisMixin:
                 if (
                     task.status == EntityStatus.COMPLETED
                     and task.completion_date
-                    and as_host_clock(local_day_bounds(task.completion_date, zone)[0]) >= since_date
+                    and as_stored_clock(local_day_bounds(task.completion_date, zone)[0])
+                    >= since_date
                 )
             ]
 

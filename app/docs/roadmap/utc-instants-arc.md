@@ -559,9 +559,10 @@ files: too large for one context, so two sub-rows, each on its own branch
 - **Stamps and widenings take the zone:** `status_transition_guard(entity_type, changes, *,
   zone)` (the chokepoints pass `current_zone()`), `completion_moment(stamp, zone)`,
   `resolve_report_period(token, now, zone)`. A day widened to a moment is
-  `as_host_clock(local_day_bounds(day, zone)[0])` — the day's first instant in the zone, read on
-  the host clock (the digits a naive stamp carries; `as_host_clock` is `as_utc`'s inverse), so it
-  is neutral on the laptop and right under the pin. A period's last instant is the next day's
+  `as_stored_clock(local_day_bounds(day, zone)[0])` — the day's first instant in the zone, read on
+  the stored clock (the digits a naive stamp carries; `as_stored_clock` is `as_utc`'s inverse —
+  2b1 named it `as_host_clock`, 3a renamed it), so it is neutral on the laptop and right under
+  the pin. A period's last instant is the next day's
   start less a microsecond. `ReportPeriod.preceding_token()` reads the token, not `start.date()`;
   a `ReportPeriod` carries its user's `zone`, and `calendar_day(moment)` names the day a report
   states ("counted through", the report's heading, `ActivityReport.create(..., zone=)`'s title).
@@ -671,6 +672,64 @@ renders the GradeBook, Shared, notifications and an activity report from one see
 graph with the clock frozen, and matches golden files captured on the PR's parent commit; the PR
 records the grep that finds no display or day-slice site bypassing the helpers; a forced-zone test
 of the ingest door. **(laptop)** the same pages read right on `main` for linguistic76.
+
+**Split by kind (3a's census, 2026-09-27).** Some 150 sites of five kinds — about 35 displays,
+45 Python day-of reads, a dozen Cypher day-slices on instants, the period bounds, the client doors —
+and the golden-file rig: too large for one context, so two sub-rows, each on its own branch
+(`claude/utc-arc-pr-3a`, `claude/utc-arc-pr-3b`):
+
+- **3a — the constant and every display.** `STORED_INSTANT_CLOCK`; `as_utc` and the widening
+  helper read it; the display helpers; every display of an instant in `ui/`, `core/` and
+  `adapters/`; the golden-file test; the helper unit tests under both values of the constant; the
+  display grep.
+- **3b — days, bounds and doors.** The day of an instant (Python `.date()` / `[:10]` /
+  `split("T")`, Cypher `left(toString(x), 10)` / `date(datetime(x))`, `find_by_date_range` on a
+  `datetime` field); the local-period bounds compared with stamps; the client doors and the
+  forced-zone test of the ingest door; the day-slice grep; the laptop check.
+
+**Left by PR 3a for the rows after it:**
+
+- **The stored clock** is `STORED_INSTANT_CLOCK` in `timestamp_helpers`: `None` — the host's
+  zone — until PR 4 assigns `UTC`. `as_utc` reads a naive value in it, and `as_stored_clock` (2b1's
+  `as_host_clock`, every caller renamed) is its inverse, the form a day widened to a moment takes.
+  PR 4's flip is that one assignment; the unit tests pin every helper under both values
+  (`stored_clock_utc`, `tests/unit/utils/test_timestamp_helpers.py`).
+- **Display** goes through three helpers. `shown_in(instant, zone)` is the naive wall clock shown
+  — behind `format_date`, `CardGenerator`'s datetimes, the report download's dates and the
+  insight markdown's "Generated on". `age_of(instant)` is the relative label's age: `None` for a
+  naive stamp before the cutover, which `format_relative_time` then shows by its date, as it did.
+  `parse_stamp(value)` reads every stored shape, and a date-only string is a `date`, never its
+  midnight. Before the cutover `shown_in` shows an **aware** stamp as stored — its own digits, as
+  the pages did, since the `L-nat` natives carry the host's wall clock labelled UTC — and reads a
+  **naive** one in the host's zone, shown in the zone: the stored digits on the laptop for a user
+  on the default, the zone's clock on a UTC host or for a Bangkok user. A display of the current
+  moment ("Generated", a form response's default title) is `now_in(current_zone())`.
+- **The day of an instant is not a display.** `day_of` (2a) reads an aware value as the instant
+  it names in every era, while `shown_in` holds a stored native's digits until PR 4 — so before
+  PR 4 an `L-nat` native's `day_of` is its digits' day moved seven hours back. For a naive stamp
+  the two agree, and on the laptop for a default user `day_of` is the stored digits' day. 3b
+  routes each day-of read through `day_of` and names any that reads a native (the report page's
+  "counted through" already reads `period.calendar_day`, on a naive `data_cutoff`).
+- **The golden files** (`tests/integration/test_stored_instant_display_golden.py`, captured
+  into `tests/integration/golden/stored_instant_display/` on 3a's parent, main `6db273cab`, in a
+  worktree of `origin/main`) render the GradeBook, the recipient's card, the exchange thread,
+  the Shared page, the notifications and an activity report; they read, for instance, a share as
+  "14h ago" seven hours past its age. 3b runs the test unchanged. PR 4 regenerates them
+  (`SKUEL_UPDATE_GOLDEN=1`) — the diff is the record of what the cutover shows differently —
+  once it has decided how the test seeds under the pin: it forces the laptop's zone
+  (`laptop_zone`), while the migrated corpus's digits are UTC.
+- **Test craft:** `time-machine` (dev group) freezes the whole process's clock, the writers'
+  default factories included. Give `time_machine.travel` a timestamp
+  (`datetime(..., tzinfo=UTC).timestamp()`): an aware destination also sets `TZ` to its zone,
+  which undoes `laptop_zone`. A display test that hand-builds a naive stamp holds the laptop's
+  expectations and opts into `laptop_zone` — a UTC host reads the stamp as UTC and shows it in
+  Vancouver. The unit suite passes under `TZ=UTC`, on the laptop, and with
+  `SKUEL_TIMEZONE=Asia/Bangkok`.
+- **Left as they are:** the device page's session times say "UTC" and show UTC, right in every
+  era; the calendar grid's times are calendar wall times; the `datetime.now().strftime` machine
+  ids (insight and pattern ids, learning-path uids) are instants for PR 8; the exchange thread's
+  sort (`parse_iso_utc`) is a comparison, for PR 5. One display's text changed: the admin user
+  page shows Created and Last Login as `%Y-%m-%d %H:%M`, not the raw ISO string.
 
 ### PR 4 — Cutover: pin, flip, migrate
 
@@ -1063,7 +1122,8 @@ and `./dev test-js` run (PRs 2a and 3 change pages, and CI checks the committed 
 Rows are in execution order. PR 0b merges before the runner starts. PR 1 depends on nothing. PR 2b
 requires PR 2a merged and its preference clear done on the laptop; it runs as two sub-rows, 2b1
 then 2b2 (§ PR 2b). PR 3 requires PR 2b — both sub-rows —
-(its helpers take a zone and follow the type rule). PR 4 requires PR 2b and PR 3 — the pin turns
+(its helpers take a zone and follow the type rule); it runs as two sub-rows, 3a then 3b (§ PR 3).
+PR 4 requires PR 2b and PR 3, both sub-rows of each — the pin turns
 every host-local day it finds into the UTC day — and is merged and deployed in one laptop sitting
 before 2026-11-01 (R4), after every pending laptop check has passed and with nothing else merging
 meanwhile. PRs 5 and 6 require PR 4 deployed. PR 7 requires PRs 5 and 6 (readers accept aware values before writers produce them).
@@ -1080,7 +1140,8 @@ row's laptop steps and their state (pending / done with a date; — for none).
 | 2a | `SKUEL_TIMEZONE`; the user's zone in Settings (list + "Use this device's time zone"); the hard-coded `"UTC"` defaults; the six stored values nulled; the request's zone read from the graph; zone helpers | A bad name refused; a new user follows the default; boot refuses a bad default | the preference clear (`scripts/migrations/clear_unchosen_utc_timezone_2026_09.py`: census, then `--confirm` with Mike's OK on the count) — a gate before 2b — done 2026-09-27 (Mike reported: "six users cleared, confirmed"); Settings lists the zones — done 2026-09-27; a Bangkok-emulating browser saves Asia/Bangkok in one click — done 2026-09-27 (Mike: the app saved the change to Asia/Bangkok; set back to the SKUEL default after, for linguistic76 and mfan0110); 375 px — done 2026-09-27 | merged #1435, 2026-09-27 |
 | 2b1 | `core/`: every calendar site asks the zone (uncalled `date.today` included); calendar-day counts; the type rule; `core/`'s `datetime.now()` classified; day-to-instant widenings; the named user's zone (vault sync, report periods); `DTZ011` on over `core/` | Forced-zone unit tests (UTC process; a Vancouver default user at 02:00Z, a Bangkok user at 18:00Z); `DTZ011` and the uncalled-`date.today` check 0 over `core/` | — | merged #1436, 2026-09-27 |
 | 2b2 | `adapters/` and `ui/`: every calendar site asks the zone; Cypher `$today`; their `datetime.now()` classified; `DTZ011` and the uncalled check widened to `adapters/`, `ui/` | Forced-zone integration test (UTC process, Vancouver and Bangkok users) | after 17:00 local the overdue count agrees with the Today page — pending | merged #1437, 2026-09-27 |
-| 3 | `STORED_INSTANT_CLOCK`; displays, day-of-instant reads, period bounds and `as_utc` through it (neutral); client doors read in the zone | Golden-file renders unchanged | the pages read right on `main` | — |
+| 3a | `STORED_INSTANT_CLOCK`; `as_utc` and `as_stored_clock` read it; every display of an instant through `shown_in` / `age_of` / `parse_stamp` (neutral) | Golden-file renders unchanged (captured on the parent); each helper pinned under both values of the constant | — | — |
+| 3b | Day-of-instant reads and local-period bounds through the constant (neutral); client doors read in the zone | A forced-zone test of the ingest door; the golden files unchanged | the pages read right on `main` | — |
 | 4 | The UTC pin, asserted by every driver factory; the applied-record guard (refusals and empty-graph stamp tested); the constant flipped; the migration script — prepared by its row session (local) as `[awaiting sitting]`, merged in the sitting | Tests, CI and Codex green on the unmerged PR | pending checks first; the sitting: snapshot → census and manifest from the branch → OK → merge → `--confirm` → `--verify` → start; a fresh census refused; the cooldown refuses a second generation within the hour; a new share reads "just now"; exchange order and badges unchanged; the embedding check; the ledger PR | — |
 | 5 | Readers compare aware values in `core/`, sentinels included; the normalizers collapse onto `as_utc` | Mixed naive/aware sorts and windows; forced-Vancouver unit tests | — | — |
 | 6 | Readers compare aware values in `adapters/`, `ui/`, `scripts/` | As PR 5 | — | — |

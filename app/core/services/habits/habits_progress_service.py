@@ -33,7 +33,7 @@ from core.services.user.rich_context import (
 from core.utils.dto_converters import to_domain_model
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Result
-from core.utils.timestamp_helpers import as_host_clock, local_day_bounds, today_in
+from core.utils.timestamp_helpers import as_stored_clock, local_day_bounds, today_in
 from core.utils.zone_context import current_zone
 
 # Type alias for rich habit data from UserContext
@@ -227,12 +227,12 @@ class HabitsProgressService:
         # purpose — this completion path publishes its own provenance-bearing HabitCompleted /
         # HabitStreakBroken / HabitStreakMilestone events (with streak context) that the
         # generic update_habit cannot express. A plain dict literal is the honest type here.
-        # The completion day's first instant in the user's zone, on the host clock.
+        # The completion day's first instant in the user's zone, on the stored clock.
         day_start, _ = local_day_bounds(completion_date, current_zone())
         updates: dict[str, Any] = {
             "current_streak": new_streak,
             "best_streak": max(new_streak, habit.best_streak),
-            "last_completed": as_host_clock(day_start),
+            "last_completed": as_stored_clock(day_start),
             "total_completions": habit.total_completions + 1,
         }
 

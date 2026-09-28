@@ -16,7 +16,7 @@ from typing import TYPE_CHECKING, Any
 from core.models.habit.completion import HabitCompletion
 from core.models.habit.habit_update_intent import HabitUpdateIntent
 from core.utils.result_simplified import Errors, Result
-from core.utils.timestamp_helpers import as_host_clock, local_day_bounds, today_in
+from core.utils.timestamp_helpers import as_stored_clock, local_day_bounds, today_in
 from core.utils.zone_context import current_zone
 
 if TYPE_CHECKING:
@@ -64,9 +64,9 @@ class _CompletionMixin:
                 completed_at = datetime.fromisoformat(request.completion_date)
             elif isinstance(request.completion_date, date):
                 # A date-only completion is stamped at its day's first instant in
-                # the user's zone, read on the host clock like every naive stamp.
+                # the user's zone, read on the stored clock like every naive stamp.
                 day_start, _ = local_day_bounds(request.completion_date, current_zone())
-                completed_at = as_host_clock(day_start)
+                completed_at = as_stored_clock(day_start)
             else:
                 completed_at = datetime.now()
         else:

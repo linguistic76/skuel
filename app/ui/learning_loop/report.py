@@ -614,7 +614,7 @@ def _render_period_line(report: Any) -> Any:
     partial = bool(metadata.get("is_partial")) if isinstance(metadata, dict) else False
     if cutoff is not None and period.is_partial_at(cutoff):
         partial = True
-    through = f" · counted through {cutoff.strftime('%b %d, %Y')}" if cutoff else ""
+    through = f" · counted through {period.calendar_day(cutoff):%b %d, %Y}" if cutoff else ""
     state = f"Partial{through} — {period.label} was still open" if partial else "Final"
     return Div(
         P(f"{period.label} · {state}", cls="text-sm text-muted-foreground"),

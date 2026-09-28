@@ -16,8 +16,11 @@ the document.
 from __future__ import annotations
 
 import re
-from datetime import date
+from datetime import datetime
 from typing import TYPE_CHECKING
+
+from core.utils.timestamp_helpers import parse_stamp, shown_in
+from core.utils.zone_context import current_zone
 
 if TYPE_CHECKING:
     from core.models.report.activity_report import ActivityReport
@@ -26,14 +29,16 @@ if TYPE_CHECKING:
 def _stamp(value: object | None) -> str:
     """A date-ish value as ``YYYY-MM-DD`` (datetimes, Neo4j temporals, ISO strings).
 
-    Neo4j temporals and ISO strings both stringify ISO-first, so the first ten
-    characters are the date for every shape the entity carries.
+    An instant is dated on the reader's clock (``shown_in``, in the request's
+    zone); a calendar day is its own date. An unreadable value keeps its first
+    ten characters.
     """
-    if value is None:
-        return ""
-    if isinstance(value, date):
-        return value.isoformat()[:10]
-    return str(value)[:10]
+    stamp = parse_stamp(value)
+    if isinstance(stamp, datetime):
+        return shown_in(stamp, current_zone()).date().isoformat()
+    if stamp is not None:
+        return stamp.isoformat()
+    return "" if value is None else str(value)[:10]
 
 
 def activity_report_filename(report: ActivityReport) -> str:

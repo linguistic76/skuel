@@ -28,7 +28,7 @@ from core.services.analytics import (
     KnowledgeHealthService,
 )
 from core.utils.result_simplified import Errors
-from core.utils.timestamp_helpers import today_in
+from core.utils.timestamp_helpers import now_in, today_in
 from core.utils.zone_context import current_zone
 
 if TYPE_CHECKING:
@@ -569,7 +569,7 @@ class AnalyticsService:
         lines.append(f"# {title}")
         lines.append("")
         lines.append(f"**Period**: {start_date} to {end_date}")
-        lines.append(f"**Generated**: {datetime.now().strftime('%Y-%m-%d %H:%M')}")
+        lines.append(f"**Generated**: {now_in(current_zone()):%Y-%m-%d %H:%M}")
         lines.append("")
         lines.append("---")
         lines.append("")

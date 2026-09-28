@@ -6,7 +6,6 @@ Submit, list, delete, and share user form responses.
 FormSubmissions are user-owned content linked to FormTemplates.
 """
 
-from datetime import datetime
 from typing import Any
 
 from core.events import publish_event
@@ -26,7 +25,9 @@ from core.services.domain_config import DomainConfig
 from core.services.forms.form_content import build_form_processed_content
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
+from core.utils.timestamp_helpers import now_in
 from core.utils.uid_generator import UIDGenerator
+from core.utils.zone_context import current_zone
 
 logger = get_logger(__name__)
 
@@ -121,7 +122,7 @@ class FormSubmissionService(BaseService[FormSubmissionBackendOperations, FormSub
         if audience_check.is_error:
             return Result.fail(audience_check)
 
-        display_title = title or f"Form Response ({datetime.now().strftime('%Y-%m-%d %H:%M')})"
+        display_title = title or f"Form Response ({now_in(current_zone()):%Y-%m-%d %H:%M})"
         uid = UIDGenerator.generate_uid("fs", display_title)
 
         schema_hash = template.schema_hash()

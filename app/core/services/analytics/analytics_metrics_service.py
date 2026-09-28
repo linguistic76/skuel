@@ -45,7 +45,7 @@ from core.utils.exception_types import DATA_CONVERSION_EXCEPTIONS, NEO4J_EXCEPTI
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
 from core.utils.sort_functions import get_current_substance, get_theme_count
-from core.utils.timestamp_helpers import as_host_clock, local_day_bounds, today_in, wall_clock_in
+from core.utils.timestamp_helpers import as_stored_clock, local_day_bounds, today_in, wall_clock_in
 from core.utils.zone_context import current_zone
 
 if TYPE_CHECKING:
@@ -1144,13 +1144,13 @@ class AnalyticsMetricsService:
             return []
 
         # The range's days are days in the user's zone: from the first instant of
-        # the first to the last instant of the last, read on the host clock — the
+        # the first to the last instant of the last, read on the stored clock — the
         # digits the entries' naive stamps carry.
         zone = current_zone()
         range_start, _ = local_day_bounds(start_date, zone)
         _, range_end = local_day_bounds(end_date, zone)
-        start_datetime = as_host_clock(range_start)
-        end_datetime = as_host_clock(range_end - timedelta(microseconds=1))
+        start_datetime = as_stored_clock(range_start)
+        end_datetime = as_stored_clock(range_end - timedelta(microseconds=1))
 
         try:
             result = await self.cross_domain_backend.get_journal_entries_in_range(

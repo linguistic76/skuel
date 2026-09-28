@@ -20,7 +20,9 @@ from core.ports import HasMetadata, HasSummary
 from core.utils.decorators import with_error_handling
 from core.utils.exception_types import DATA_CONVERSION_EXCEPTIONS
 from core.utils.result_simplified import Result
+from core.utils.timestamp_helpers import shown_in
 from core.utils.uid_generator import UIDGenerator
+from core.utils.zone_context import current_zone
 
 if TYPE_CHECKING:
     from core.models.type_hints import UserUID
@@ -327,7 +329,7 @@ class _QualityCurationMixin:
             content_parts.append(f"**Tags:** {', '.join(insight.tags)}\n")
 
         content_parts.append(
-            f"*Generated on {insight.generated_at.strftime('%Y-%m-%d %H:%M')} from task completion analysis.*"
+            f"*Generated on {shown_in(insight.generated_at, current_zone()):%Y-%m-%d %H:%M} from task completion analysis.*"
         )
 
         return "\n".join(content_parts)

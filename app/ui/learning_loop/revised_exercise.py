@@ -9,7 +9,6 @@ List surfaces live on the GradeBook exchange lines and /exchange threads
 Pattern: ui/submissions/report.py
 """
 
-from datetime import datetime
 from typing import Any
 
 from fasthtml.common import (
@@ -24,24 +23,9 @@ from ui.components import ButtonT
 from ui.feedback import Badge, BadgeT
 from ui.layout import Size
 from ui.patterns.error_banner import render_error_banner
+from ui.patterns.format_date import format_date
 from ui.primitives import ButtonLink
 from ui.user_entry.forms import submit_page_href
-
-# ============================================================================
-# HELPERS
-# ============================================================================
-
-
-def _format_date(dt_value: Any) -> str:
-    """Format a datetime-like value to a display string."""
-    if not dt_value:
-        return ""
-    try:
-        dt = datetime.fromisoformat(str(dt_value))
-        return dt.strftime("%d %b %Y")
-    except ValueError:
-        return str(dt_value)[:10]
-
 
 # ============================================================================
 # DETAIL VIEW
@@ -66,7 +50,7 @@ def render_revised_exercise_detail(entity: Any) -> Any:
     report_uid = getattr(entity, "report_uid", None) or ""
     created_at = getattr(entity, "created_at", None)
     feedback_points = getattr(entity, "feedback_points", ()) or ()
-    date_str = _format_date(created_at)
+    date_str = format_date(created_at)
 
     # Header badges
     badges: list[Any] = [

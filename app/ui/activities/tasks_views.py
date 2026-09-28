@@ -36,6 +36,7 @@ from ui.feedback import PriorityBadge, StatusBadge
 from ui.forms import Input
 from ui.layout import Container, DivHStacked
 from ui.patterns.entity_picker import EntityPicker
+from ui.patterns.format_date import format_date
 from ui.patterns.page_header import PageHeader
 from ui.patterns.relationships.relationship_section import EntityRelationshipsSection
 from ui.patterns.stats_grid import StatItem, StatsGrid
@@ -446,7 +447,7 @@ def TaskDetailView(
     if task.project:
         meta_items.append(MetadataField("Project", Span(str(task.project))))
     if task.created_at:
-        meta_items.append(MetadataField("Created", Span(str(task.created_at)[:10])))
+        meta_items.append(MetadataField("Created", Span(format_date(task.created_at, "%Y-%m-%d"))))
 
     meta_grid = Div()
     if meta_items:
