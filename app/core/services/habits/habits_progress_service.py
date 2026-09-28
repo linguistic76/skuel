@@ -33,7 +33,7 @@ from core.services.user.rich_context import (
 from core.utils.dto_converters import to_domain_model
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Result
-from core.utils.timestamp_helpers import as_stored_clock, local_day_bounds, today_in
+from core.utils.timestamp_helpers import as_stored_clock, day_of, local_day_bounds, today_in
 from core.utils.zone_context import current_zone
 
 # Type alias for rich habit data from UserContext
@@ -209,7 +209,7 @@ class HabitsProgressService:
         streak_broken = False
         days_since = 0
         if habit.last_completed:
-            days_since = (completion_date - habit.last_completed.date()).days
+            days_since = (completion_date - day_of(habit.last_completed, current_zone())).days
             if days_since == 1:
                 new_streak += 1
             elif days_since > 1:
@@ -506,8 +506,9 @@ class HabitsProgressService:
 
         window_start = HabitConsistencyWindow.start_date(as_of_date)
         window_end = HabitConsistencyWindow.end_date(as_of_date)
+        zone = current_zone()
         recent_completions = [
-            c for c in completions if window_start <= c.completed_at.date() <= window_end
+            c for c in completions if window_start <= day_of(c.completed_at, zone) <= window_end
         ]
 
         # Expected completions across the window, per the habit's own frequency.

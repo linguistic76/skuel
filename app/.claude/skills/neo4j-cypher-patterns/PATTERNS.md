@@ -491,11 +491,13 @@ WHERE datetime(s.next_due_at) <= datetime()
 WHERE date(left(toString(n.due_date), 10)) >= date($start_date)
 ```
 
-🔑 **`date()` CANNOT parse a datetime string** (Neo4j 2025.12: `Cannot parse '2026-06-05T02:24:..+00:00' as a Date`) — and a throw inside a range `WHERE` or a mega-query `CASE` takes the **whole** query down, so the user silently loses every row, not just the malformed one (#766). The `left(toString(x), 10)` prefix above is the defensive default for any date field. For a **datetime**-typed field compared against a *date*, `date(datetime(...))` (parse-then-extract) is equivalent:
+🔑 **`date()` CANNOT parse a datetime string** (Neo4j 2025.12: `Cannot parse '2026-06-05T02:24:..+00:00' as a Date`) — and a throw inside a range `WHERE` or a mega-query `CASE` takes the **whole** query down, so the user silently loses every row, not just the malformed one (#766). The `left(toString(x), 10)` prefix above is the defensive default for any date field. A **datetime**-typed field (an instant) is never sliced to its digits' day: it is compared with the day's bounds in the user's zone, read on the stored clock (`stored_day_bounds(first_day, last_day, zone)` → half-open `[start, end)`), so it lands on the user's day in every era (ADR-089 §3; the UTC arc's PR 3b):
 ```cypher
-// last_completed is a datetime string; we want "before today". $today is the
-// user's day (today_in(current_zone())) — Cypher never computes today with date()
-CASE WHEN date(datetime(h.last_completed)) < date($today) THEN 0 ELSE 1 END
+// last_completed is an instant; we want "before today". $today_start is the first
+// instant of the user's today on the stored clock, built in Python:
+//   today = today_in(current_zone()); today_start, _ = stored_day_bounds(today, today, zone)
+// Cypher never computes today with date(), and never takes an instant's day from its digits
+CASE WHEN datetime(h.last_completed) < datetime($today_start) THEN 0 ELSE 1 END
 ```
 
 **Coercion safety cheat-sheet:**
@@ -532,7 +534,7 @@ temporal are dropped — silently, from a call that reads like it filters in Pyt
 | Situation | Do this |
 |---|---|
 | The column is string-only **by writer enumeration** | Keep the kwargs filter; name the writer in a comment, because the *next* writer is what breaks it |
-| The column is or may be mixed, and the window is day-granular | **`find_by_date_range`** (every backend has it): it compares `date(left(toString(x), 10))` on both sides, orders by `datetime(toString(x)) DESC, uid` (the parsed instant: chronological across shapes and UTC offsets, where string order is only wall-clock; and total), and takes `offset`. For a whole window, walk its pages — `HabitsCompletionService._all_completions` is the walk |
+| The column is or may be mixed, and the window is day-granular | **`find_by_date_range`** (every backend has it): it takes days — an instant field (a `datetime` on the model, `is_instant_field`) is compared with the days' bounds in the current zone (`stored_day_bounds`), a calendar field by `date(left(toString(x), 10))` on both sides — orders by `datetime(toString(x)) DESC, uid` (the parsed instant: chronological across shapes and UTC offsets, where string order is only wall-clock; and total), and takes `offset`. For a whole window, walk its pages — `HabitsCompletionService._all_completions` is the walk |
 | The column is or may be mixed, and the window is finer than a day | Fetch **without** a temporal predicate and filter in Python — the mapper has already normalised both forms to `datetime`, so the comparison is type-tolerant by construction |
 
 Dropping the predicate means dropping the row cap with it: page (`sort_by="uid"` — a plain

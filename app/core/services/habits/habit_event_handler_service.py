@@ -38,6 +38,8 @@ from core.utils.exception_types import DATA_CONVERSION_EXCEPTIONS, NEO4J_EXCEPTI
 from core.utils.logging import get_logger
 from core.utils.neo4j_props import coerce_int, parse_neo4j_json
 from core.utils.result_simplified import Result
+from core.utils.timestamp_helpers import hour_of
+from core.utils.zone_context import current_zone
 
 if TYPE_CHECKING:
     from core.ports.domain_protocols import HabitsOperations
@@ -281,7 +283,7 @@ class HabitEventHandlerService:
             habit = habit_result.value
 
             # 2. Update completion hour histogram
-            hour = event.occurred_at.hour
+            hour = hour_of(event.occurred_at, current_zone())
             hours_hist: dict[str, int] = parse_neo4j_json(
                 getattr(habit, "completion_hours_json", None), default={}
             )

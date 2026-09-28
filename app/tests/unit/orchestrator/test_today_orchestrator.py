@@ -49,6 +49,7 @@ def test_heading_label_uses_relative_words_near_today() -> None:
     assert _heading_label(date(2026, 7, 19) + timedelta(days=1), today) == "Jul 20"
 
 
+@pytest.mark.usefixtures("laptop_zone")
 def test_choice_is_on_day_by_deadline_or_decision() -> None:
     day = date(2026, 9, 12)
     due = Choice(uid="c1", user_uid=USER, title="x", decision_deadline=datetime(2026, 9, 12, 9))
@@ -208,6 +209,7 @@ async def test_tasks_are_ordered_by_due_date_then_title() -> None:
     assert [t.uid for t in ctx["tasks"]] == ["d", "a", "b"]
 
 
+@pytest.mark.usefixtures("laptop_zone")
 @pytest.mark.asyncio
 async def test_other_domains_are_read_for_the_viewed_day() -> None:
     day = TODAY + timedelta(days=1)

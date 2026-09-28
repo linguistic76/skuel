@@ -14,9 +14,14 @@ DRY Principle:
 - Display of a stored instant (shown_in, age_of), whatever shape it arrives
   in (parse_stamp)
 - Zone helpers, each taking the zone: now_in, wall_clock_in, today_in, day_of
-  (an instant's day), local_day_bounds (a day's UTC bounds). Whose zone it is —
-  the user's choice or the app default — is core/utils/zone_context.py, which
-  also gives today in the current zone (today_in_current_zone)
+  and hour_of (an instant's day and hour), local_day_bounds (a day's UTC
+  bounds), stored_day_bounds (days' bounds on the stored clock, for comparison
+  with stored stamps), from_wall_clock (a client's offset-less datetime, read on
+  a zone's clock). Whose zone it is — the user's choice or the app default — is
+  core/utils/zone_context.py, which also gives today in the current zone
+  (today_in_current_zone)
+- The type rule (is_instant_field): a model's ``datetime`` field holds an
+  instant, a ``date`` field a calendar day
 - Calendar arithmetic (week_bounds, month_grid_bounds, prev/next month and week)
 - Neo4j-tolerant scalar date parsing (parse_date_value)
 
@@ -35,9 +40,11 @@ Note: dict-level batch parsing for DTO deserialization lives in
 this module only owns scalar/date arithmetic helpers.
 """
 
+import dataclasses
+import types
 from calendar import monthrange
 from datetime import UTC, date, datetime, time, timedelta, tzinfo
-from typing import Any
+from typing import Any, Union, get_args, get_origin
 
 # =============================================================================
 # CURRENT TIME HELPERS
@@ -197,6 +204,17 @@ def day_of(instant: datetime, zone: tzinfo) -> date:
     return as_utc(instant).astimezone(zone).date()
 
 
+def hour_of(instant: datetime, zone: tzinfo) -> int:
+    """The hour of the day (0 to 23) an instant falls in on ``zone``'s clock.
+
+    Read like :func:`day_of`: the instant goes through :func:`as_utc` first.
+
+    Example:
+        TimeOfDay.from_hour(hour_of(completion.completed_at, current_zone()))
+    """
+    return as_utc(instant).astimezone(zone).hour
+
+
 def local_day_bounds(day: date, zone: tzinfo) -> tuple[datetime, datetime]:
     """The instants a calendar day in ``zone`` spans, as aware UTC: ``[start, end)``.
 
@@ -211,6 +229,63 @@ def local_day_bounds(day: date, zone: tzinfo) -> tuple[datetime, datetime]:
     start = datetime.combine(day, time.min, tzinfo=zone)
     end = datetime.combine(day + timedelta(days=1), time.min, tzinfo=zone)
     return start.astimezone(UTC), end.astimezone(UTC)
+
+
+def stored_day_bounds(first_day: date, last_day: date, zone: tzinfo) -> tuple[datetime, datetime]:
+    """The local days ``first_day`` … ``last_day`` in ``zone``, on the stored clock: ``[start, end)``.
+
+    ``start`` is the first day's first instant and ``end`` the first instant
+    after the last day, each read on the stored clock (:func:`as_stored_clock`)
+    — the naive form a stored naive stamp takes. A query compares a stored
+    instant with these bounds rather than slicing the stamp's own digits to a
+    day, so the days are the zone's in every era: the host's digits before the
+    cutover, UTC after it.
+
+    Example:
+        start, end = stored_day_bounds(week_start, week_end, current_zone())
+        # Cypher: datetime(n.created_at) >= datetime($start)
+        #     AND datetime(n.created_at) < datetime($end)
+    """
+    start, _ = local_day_bounds(first_day, zone)
+    _, end = local_day_bounds(last_day, zone)
+    return as_stored_clock(start), as_stored_clock(end)
+
+
+def from_wall_clock(value: datetime, zone: tzinfo) -> datetime:
+    """A client's datetime as the stored form of the instant it names.
+
+    An offset-less value is a wall clock in ``zone`` (a ``datetime-local``
+    field, a time written in a note), read there and returned on the stored
+    clock (:func:`as_stored_clock`). An aware value already names its instant
+    and is returned as it came. The inverse of :func:`shown_in` for a naive
+    value: ``shown_in(from_wall_clock(w, zone), zone) == w``.
+
+    Example:
+        deadline = from_wall_clock(datetime(2026, 9, 27, 17, 0), current_zone())
+    """
+    if value.tzinfo is not None:
+        return value
+    return as_stored_clock(value.replace(tzinfo=zone))
+
+
+def is_instant_field(model: type, field_name: str) -> bool:
+    """Whether a dataclass model's field holds an instant — the type rule (ADR-089 §3).
+
+    A ``datetime`` field (``datetime | None`` included) holds an instant; a
+    ``date`` field, or any other, holds a calendar value or none. A name the
+    model does not declare is not an instant field.
+
+    Example:
+        is_instant_field(Choice, "decision_deadline")  # True
+        is_instant_field(Task, "due_date")  # False
+    """
+    if not dataclasses.is_dataclass(model):
+        return False
+    for field in dataclasses.fields(model):
+        if field.name == field_name:
+            union = get_origin(field.type) in (types.UnionType, Union)
+            return datetime in (get_args(field.type) if union else (field.type,))
+    return False
 
 
 # =============================================================================

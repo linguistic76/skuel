@@ -15,6 +15,7 @@ See: /docs/patterns/MODEL_TO_ADAPTER_DYNAMIC_ARCHITECTURE.md
 
 from __future__ import annotations
 
+from datetime import date, datetime
 from typing import TYPE_CHECKING, Any
 
 from adapters.persistence.neo4j.query import build_domain_context_with_paths
@@ -34,10 +35,10 @@ from core.ports.query_types import (
     UserKnowledgeChannelRow,
 )
 from core.utils.result_simplified import Result
+from core.utils.timestamp_helpers import stored_day_bounds
+from core.utils.zone_context import current_zone
 
 if TYPE_CHECKING:
-    from datetime import date, datetime
-
     from adapters.persistence.neo4j.neo4j_query_executor import Neo4jQueryExecutor
     from core.models.query_types import QueryIntent
 
@@ -679,8 +680,7 @@ class CrossDomainBackend:
         honest, an invented date is not.
 
         ``date(left(toString(...), 10))`` normalises the stamp before comparing,
-        the same shape ``_EVENT_IMPACT_BATCH_QUERY`` and ``get_habit_analytics``
-        use. The stamp is an ISO date **string** on every row of the live graph
+        the same shape ``_EVENT_IMPACT_BATCH_QUERY`` uses. The stamp is an ISO date **string** on every row of the live graph
         (the mapper ``isoformat()``s the ``date`` the stamp helper produces) —
         but the writer, not this reader, decides the storage type. A bare
         ``toString()`` comparison survives that for the *lower* bound, where
@@ -741,37 +741,46 @@ class CrossDomainBackend:
         ``window_start`` and ``window_end`` are ISO ``YYYY-MM-DD`` dates and the
         window is inclusive of both (``HabitConsistencyWindow.start_date`` /
         ``.end_date``). Membership is the completion record's own
-        ``completed_at``, truncated to its calendar day so the comparison means
-        what the window means. The upper bound is load-bearing:
+        ``completed_at``, on the day it falls on in the current zone: it is
+        compared with the window's bounds — the first instant of its first day
+        and the first instant after its last, read on the stored clock
+        (``stored_day_bounds``) — so the comparison means what the window
+        means. The upper bound is load-bearing:
         ``TrackHabitRequest`` accepts any ISO date with no upper bound and the
         calendar's day-scoped complete door bounds ``on_date`` to genuine
         occurrence days without bounding it at today, so a future-stamped record
         is reachable — and a lower-bound-only predicate would count it in every
         window from now until its date arrived.
 
-        ``date(left(toString(...), 10))`` normalises before comparing, the same
-        shape ``_EVENT_IMPACT_BATCH_QUERY`` uses and for the same reason: the
-        writer decides the storage type, not this reader. ``completed_at`` is an
-        ISO datetime **string** on every live row (the mapper ``isoformat()``s
-        the ``datetime`` the DTO carries), but a temporally-typed value has to
-        keep comparing correctly rather than silently matching nothing — which
-        would read as "this user was less consistent", never as an error. Going
-        through ``date()`` on both sides also keeps the two operands the same
-        temporal type, which a raw datetime bound would not guarantee.
+        ``datetime()`` reads the stamp before comparing, because the writer
+        decides the storage type, not this reader. ``completed_at`` is an ISO
+        datetime **string** on every live row (the mapper ``isoformat()``s the
+        ``datetime`` the DTO carries), but a temporally-typed value has to keep
+        comparing correctly rather than silently matching nothing — which would
+        read as "this user was less consistent", never as an error. The bounds
+        cross the driver as ISO strings read through ``datetime()`` too, which
+        keeps the two operands the same temporal type.
 
         Ownership is the universal ``(:User)-[:OWNS]->`` edge (ADR-086), so one
         user's completions cannot reach another's score.
         """
+        start_bound, end_bound = stored_day_bounds(
+            date.fromisoformat(window_start), date.fromisoformat(window_end), current_zone()
+        )
         return await self.executor.execute(
             query=f"""
             OPTIONAL MATCH (analytics:HabitAnalytics {{user_uid: $user_uid}})
             OPTIONAL MATCH (u:User {{uid: $user_uid}})
             OPTIONAL MATCH (u)-[:{RelationshipName.OWNS.value}]->(hc:HabitCompletion)
-            WHERE date(left(toString(hc.completed_at), 10)) >= date($window_start)
-              AND date(left(toString(hc.completed_at), 10)) <= date($window_end)
+            WHERE datetime(hc.completed_at) >= datetime($start_bound)
+              AND datetime(hc.completed_at) < datetime($end_bound)
             RETURN analytics, count(hc) AS completions_in_window
             """,
-            params={"user_uid": user_uid, "window_start": window_start, "window_end": window_end},
+            params={
+                "user_uid": user_uid,
+                "start_bound": start_bound.isoformat(),
+                "end_bound": end_bound.isoformat(),
+            },
             processor=_to_habit_analytics_rows,
             operation="get_habit_analytics",
         )

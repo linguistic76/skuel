@@ -29,7 +29,7 @@ from datetime import date, datetime, timedelta
 from typing import TYPE_CHECKING
 
 from core.models.type_hints import EntityUID, UserUID
-from core.utils.timestamp_helpers import today_in, wall_clock_in
+from core.utils.timestamp_helpers import day_of, parse_stamp, today_in, wall_clock_in
 from core.utils.zone_context import current_zone
 
 if TYPE_CHECKING:
@@ -72,7 +72,6 @@ from core.utils.exception_types import NEO4J_EXCEPTIONS
 from core.utils.logging import get_logger
 from core.utils.neo4j_temporal import (
     convert_neo4j_date,
-    convert_neo4j_datetime,
     convert_neo4j_time,
 )
 from core.utils.result_simplified import Errors, Result
@@ -138,6 +137,17 @@ def _advance(day: date, delta: timedelta) -> date | None:
         return day + delta
     except OverflowError:
         return None
+
+
+def _day_of_stamp(value: object) -> date | None:
+    """The calendar day a stored instant falls on in the current zone, whatever its shape.
+
+    A date-only value is already a day; an unreadable or absent one has none.
+    """
+    stamp = parse_stamp(value)
+    if isinstance(stamp, datetime):
+        return day_of(stamp, current_zone())
+    return stamp
 
 
 class CalendarService:
@@ -698,19 +708,12 @@ class CalendarService:
 
     @staticmethod
     def _completion_day(completion: HabitCompletion) -> date | None:
-        """The calendar day a completion landed on.
+        """The calendar day a completion landed on, in the current zone.
 
         Tolerates the native/string temporal split (storage type is decided by
-        the writer): native Neo4j DateTime / datetime via the converter, ISO
-        strings via fromisoformat.
+        the writer): a native Neo4j DateTime, a datetime or an ISO string.
         """
-        completed_at = convert_neo4j_datetime(completion.completed_at)
-        if completed_at is None and isinstance(completion.completed_at, str):
-            try:
-                completed_at = datetime.fromisoformat(completion.completed_at)
-            except ValueError:
-                return None
-        return completed_at.date() if completed_at is not None else None
+        return _day_of_stamp(completion.completed_at)
 
     async def _fetch_completed_dates(
         self, habit_uid: str, start_date: date, end_date: date
@@ -1074,18 +1077,10 @@ class CalendarService:
         Occurrences are projected forward from here so an active, ongoing habit is
         never rendered on days before it existed. Tolerates the created_at native/
         string temporal split (some writers persist an ISO string, others a native
-        Neo4j DateTime); returns None only if neither anchor is parseable.
+        Neo4j DateTime); returns None only if neither anchor is parseable. The
+        day is the anchor's in the current zone.
         """
-        anchor = habit.started_at or habit.created_at
-        converted = convert_neo4j_datetime(anchor)
-        if converted is not None:
-            return converted.date()
-        if isinstance(anchor, str):
-            try:
-                return datetime.fromisoformat(anchor).date()
-            except ValueError:
-                return None
-        return None
+        return _day_of_stamp(habit.started_at or habit.created_at)
 
     def _habit_recurrence_end(self, habit: Habit) -> date | None:
         """The last day a finite habit recurs (``recurrence_end_date``), or None.

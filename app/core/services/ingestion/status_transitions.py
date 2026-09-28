@@ -44,7 +44,7 @@ from __future__ import annotations
 
 from collections.abc import Mapping
 from dataclasses import dataclass
-from datetime import UTC, date, datetime
+from datetime import date, datetime
 from types import MappingProxyType
 from typing import Any
 
@@ -52,6 +52,7 @@ from core.events import BaseEvent, CalendarEventCompleted, GoalAchieved, TaskCom
 from core.models.enums.entity_enums import EntityStatus, EntityType
 from core.models.type_hints import UserUID
 from core.services.completion_stamp import COMPLETION_FIELDS, completion_moment
+from core.utils.timestamp_helpers import as_stored_clock, day_of
 from core.utils.zone_context import current_zone
 
 __all__ = [
@@ -278,7 +279,7 @@ def _completion_event(
             # Measured against the completion moment, not today: a task
             # completed on time last March must not be announced overdue purely
             # because March has passed (the overdue branch APPENDS an insight).
-            was_overdue=due_date < occurred_at.date() if due_date else False,
+            was_overdue=due_date < day_of(occurred_at, current_zone()) if due_date else False,
             occurred_at=occurred_at,
         )
     if entity_type is EntityType.GOAL:
@@ -301,7 +302,8 @@ def _completion_event(
         return CalendarEventCompleted(
             event_uid=uid,
             user_uid=user_uid,
-            completion_date=_as_date(entity.get("event_date")) or occurred_at.date(),
+            completion_date=_as_date(entity.get("event_date"))
+            or day_of(occurred_at, current_zone()),
             # Honestly None on this door, as at the update chokepoint: the score
             # is owned by the progress / habit-completion services.
             quality_score=None,
@@ -373,12 +375,12 @@ def _as_datetime(value: Any) -> datetime | None:  # boundary: a Neo4j property v
     ``completion_moment``, so a ``created_at:`` authored as a plain day still
     yields a duration rather than nothing, measured by the same rule.
 
-    An offset-bearing value is converted to UTC and stripped, because the
-    values it has to meet are naive: ``BaseEvent.occurred_at`` is naive
-    throughout, and so is everything ``completion_moment`` produces. The
-    preparer canonicalizes ``created_at`` to a ``Z``-suffixed UTC string, so
-    the mixed-awareness subtraction is not hypothetical — it is the ordinary
-    case for an authored goal.
+    An offset-bearing value is read onto the stored clock and stripped
+    (``as_stored_clock``), because the values it has to meet are naive on that
+    clock: ``BaseEvent.occurred_at`` is naive throughout, and so is everything
+    ``completion_moment`` produces. The preparer canonicalizes ``created_at`` to
+    a ``Z``-suffixed UTC string, so the mixed-awareness subtraction is not
+    hypothetical — it is the ordinary case for an authored goal.
     """
     value = _to_native(value)
     if isinstance(value, datetime):
@@ -396,7 +398,7 @@ def _as_datetime(value: Any) -> datetime | None:  # boundary: a Neo4j property v
     else:
         return None
     if parsed.tzinfo is not None:
-        parsed = parsed.astimezone(UTC).replace(tzinfo=None)
+        parsed = as_stored_clock(parsed)
     return parsed
 
 

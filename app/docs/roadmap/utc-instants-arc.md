@@ -731,6 +731,80 @@ and the golden-file rig: too large for one context, so two sub-rows, each on its
   sort (`parse_iso_utc`) is a comparison, for PR 5. One display's text changed: the admin user
   page shows Created and Last Login as `%Y-%m-%d %H:%M`, not the raw ISO string.
 
+**Left by PR 3b for the rows after it:**
+
+- **The day of an instant** is `day_of(instant, zone)` in Python, and its hour `hour_of(instant,
+  zone)`. The hour reads (a completion's time of day, the batch pattern's "end of day", the
+  attendance and habit-timing histograms, a reflection's time of day) read the local clock only
+  because stamps held it, like the days, so they moved with them. Every `.date()`, `.weekday()`
+  and `.hour` of a stored instant in `core/`, `adapters/` and `ui/` goes through the two helpers.
+  The `.date()` calls left are calendar wall times (a calendar drag's `new_start`, the DSL's
+  `when`, a calendar item's `start_time`) and the coercions of a date field (`dto_helpers`, the
+  mapper, `status_transitions._as_date`).
+- **The natives a Python day-of read meets** (3a asked for them to be named): the reads see naive
+  `L-str` stamps, plus the authored `…T00:00:00Z` `created_at` on user_admin's Goal, Habit and
+  Principle (R6). `day_of` reads those as 17:00 the previous day in Vancouver; a re-ingest of their
+  files heals them (the ingest door below). No Python day-of read meets an `L-nat` native.
+- **In Cypher an instant is compared with a day's bounds, never sliced to its digits.**
+  `stored_day_bounds(first_day, last_day, zone)` gives `[start, end)`, naive on the stored clock,
+  compared as `datetime(x) >= datetime($start) AND datetime(x) < datetime($end)`; both sides read
+  offset-less digits in the server's zone, so they agree. The sites: `find_by_date_range`, and
+  `build_user_activity_query` / `build_due_soon_query` / `build_overdue_query`, on an instant
+  field. The type rule decides which fields: `is_instant_field(entity_class, field)` (a `datetime`
+  field on the model), which the backends pass. Also the streak-at-risk sort, choices needing a
+  decision, the engaged-PathStep window and habit analytics' window. Before PR 4 the bounds are
+  the host's digits, so every cohort compares as it did (an `L-nat` native by its digits, a
+  true-UTC one by its UTC day); from PR 4 they are the zone's day. The MEGA-QUERY's events window
+  reads `$window_start_day`, `day_of` of the window's start.
+- **The one per-row day in Cypher** is the task creation rule's `created_at` day
+  (`task_creation_due_date_cypher()`, shared by the vault door and the history backfill). A stamp
+  with an offset (a native, or a `Z` / `±hh:mm` string, which covers every vault-door stamp) is
+  read in `$zone` now. An offset-less one keeps its digits' day until `STORED_INSTANT_CLOCK` is UTC.
+  Every caller passes `$zone`; the backfill script passes `SKUEL_TIMEZONE`. The ingest door's fix
+  made this necessary: an authored evening `created_at` is now its true UTC instant, and its
+  digits' day would be the next day.
+- **The client doors.** Every request model's `datetime` field is `ClientDateTime`
+  (`core/models/request_base.py`). An offset-less value is read on the current zone's clock
+  (`from_wall_clock`) and held on the stored clock; an aware one is kept as it came.
+  - The census: `ChoiceCreateRequest` / `ChoiceUpdateRequest.decision_deadline`,
+    `ChoiceUpdateRequest.completed_at` and `EventUpdateRequest.completed_at` are live.
+    `ChoiceDecisionRequest.decided_at`, `HabitCompletionCreateRequest.completed_at`,
+    `HabitCompletionFilterRequest.start_date` / `end_date`, `HabitCompletionRequest.completed_at`,
+    `HabitSkipRequest.skipped_at` and `UserFilterSchema`'s four have no route reading them.
+  - `tests/unit/models/test_client_datetime_fields.py` finds every Pydantic `datetime` field in
+    `core/models`, and fails on one that is neither `ClientDateTime` nor a named response field.
+  - The form generator unwraps `Annotated` (a `ClientDateTime` is still a `datetime-local`
+    widget), and prefills a `datetime-local` with `shown_in(value, current_zone())`, so an
+    unchanged re-save keeps its instant.
+  - `validate_future_date` and `validate_past_date` compare a naive `datetime` with the zone's
+    wall clock. No `datetime` field uses them today; one that does must compare the stored form
+    (PR 5).
+- **The ingest door** (`preparer._canonical_created_at`) reads an authored offset-less
+  `created_at` in the current zone: the owner's under the sync's `zone_scope`, `SKUEL_TIMEZONE`
+  for the content vault. A bare day becomes its first instant there. It still writes a `Z` string
+  (R5). A re-ingest rewrites an authored-day `created_at` from `…T00:00:00Z` to the day's local
+  midnight, so the R6 rows heal as their files sync.
+  `status_transitions._as_datetime` now reads an offset-bearing value onto the stored clock, the
+  clock `occurred_at` is on, where it had stripped it to UTC. The old UTC-naive reading was a
+  seven-hour mix, hidden while the door read every naive value as UTC. PR 5 still collapses it
+  onto `as_utc`.
+- **Test craft:** `tests/integration/test_instant_days_in_zone.py` runs on a UTC process (the
+  host's clock is not the zone's); each of its tests went red with `origin/main`'s file restored.
+  Under `TZ=UTC`, 23 unit tests failed. 20 hand-build a naive stamp meaning the laptop's wall
+  clock, and opt into `laptop_zone`. Three were rewritten: a test that compares with an instant's
+  day uses `day_of`, never `.date()`, and "today's first instant" is
+  `as_stored_clock(local_day_bounds(day, zone)[0])`, never a `datetime.combine`.
+- **For PR 4:** flipping `STORED_INSTANT_CLOCK` to UTC also flips `_created_day_cypher` (the vault
+  door's creation day), `stored_day_bounds` (every Cypher day window) and `from_wall_clock` (the
+  client doors then store UTC). The golden files ran unchanged here.
+- **Left as they were:**
+  - Sorts over instants, for PRs 5–6: `entity_filters`' decision-deadline key, the Today page's
+    `_choice_order`, and the builders' `ORDER BY n.{date_field}`.
+  - The rolling windows (`now - N days`: life-path momentum, learning velocity, the embodiment
+    cutoff). They are instant arithmetic on the stored clock, right in every era.
+  - `ChoicesService` and `ChoicesLearningService` configure `date_field="decision_date"`, which
+    names no `Choice` field; the facade delegates its range reads to core's `decision_deadline`.
+
 ### PR 4 — Cutover: pin, flip, migrate
 
 Scope:

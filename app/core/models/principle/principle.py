@@ -25,7 +25,7 @@ from dataclasses import dataclass, field
 from datetime import date
 from typing import TYPE_CHECKING, Any, Self
 
-from core.utils.timestamp_helpers import today_in
+from core.utils.timestamp_helpers import day_of, today_in
 from core.utils.zone_context import current_zone
 
 if TYPE_CHECKING:
@@ -237,7 +237,9 @@ class Principle(UserOwnedEntity):
 
     def _past_grace_period(self) -> bool:
         """True if principle is older than 7 days (past new-principle grace period)."""
-        reference = self.adopted_date or (self.created_at.date() if self.created_at else None)
+        reference = self.adopted_date or (
+            day_of(self.created_at, current_zone()) if self.created_at else None
+        )
         if reference is None:
             return True
         return (today_in(current_zone()) - reference).days > 7

@@ -20,7 +20,7 @@ from core.services.intelligence import (
     analyze_completion_trend,
 )
 from core.utils.result_simplified import Result
-from core.utils.timestamp_helpers import today_in
+from core.utils.timestamp_helpers import hour_of, today_in
 from core.utils.zone_context import current_zone
 
 if TYPE_CHECKING:
@@ -54,8 +54,8 @@ def _has_detailed_descriptions(tasks: Sequence[Any]) -> bool:
 
 
 def _extract_completion_hour(task: Any) -> int | None:
-    """Extract completion hour from task, or None if not completed."""
-    return task.completed_at.hour if task.completed_at else None
+    """Extract completion hour from task (in the current zone), or None if not completed."""
+    return hour_of(task.completed_at, current_zone()) if task.completed_at else None
 
 
 class _AnalyticsMixin:

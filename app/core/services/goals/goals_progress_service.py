@@ -48,7 +48,7 @@ from core.services.user.rich_context import (
 from core.utils.dto_converters import to_domain_model
 from core.utils.exception_types import DATA_CONVERSION_EXCEPTIONS, NEO4J_EXCEPTIONS
 from core.utils.result_simplified import Errors, Result
-from core.utils.timestamp_helpers import today_in
+from core.utils.timestamp_helpers import day_of, today_in
 from core.utils.zone_context import current_zone
 
 # Type alias for rich goal data from UserContext
@@ -631,7 +631,9 @@ class GoalsProgressService(BaseService[GoalsOperations, Goal]):
             achieved_event = GoalAchieved(
                 goal_uid=goal_uid,
                 user_uid=user_context.user_uid,
-                actual_duration_days=(today_in(current_zone()) - goal.created_at.date()).days
+                actual_duration_days=(
+                    today_in(current_zone()) - day_of(goal.created_at, current_zone())
+                ).days
                 if goal.created_at
                 else None,
                 completed_ahead_of_schedule=today_in(current_zone()) < goal.target_date
@@ -747,7 +749,9 @@ class GoalsProgressService(BaseService[GoalsOperations, Goal]):
                 achieved_event = GoalAchieved(
                     goal_uid=goal_uid,
                     user_uid=goal.user_uid,
-                    actual_duration_days=(today_in(current_zone()) - goal.created_at.date()).days
+                    actual_duration_days=(
+                        today_in(current_zone()) - day_of(goal.created_at, current_zone())
+                    ).days
                     if goal.created_at
                     else None,
                     completed_ahead_of_schedule=today_in(current_zone()) < goal.target_date

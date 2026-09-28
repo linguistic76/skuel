@@ -11,8 +11,9 @@ hand-built backend call.
 
 Pinned:
 
-- an undated file lands with ``due_date`` = its own ``created_at`` day (the
-  node's stamp, not the test's clock — the two can differ across midnight UTC);
+- an undated file lands with ``due_date`` = its own ``created_at`` day in the
+  current zone (the node's stamp, not the test's clock — the two can differ
+  across midnight; ``_created_day``);
 - a file with only ``scheduled_date`` keeps ``due_date`` NULL — a work date is
   a date;
 - an authored ``due_date`` is never overwritten;
@@ -30,10 +31,14 @@ Requires: Docker running with Neo4j testcontainer.
 
 from __future__ import annotations
 
+from datetime import datetime
 from pathlib import Path
 from typing import Any
 
 import pytest
+
+from core.utils.timestamp_helpers import day_of
+from core.utils.zone_context import current_zone
 
 OWNER_UID = "user_test_integration"  # seeded by the ensure_test_users fixture
 
@@ -62,6 +67,12 @@ def _write(directory: Path, slug: str, frontmatter: str = "") -> Path:
     return path
 
 
+def _created_day(node: dict[str, Any]) -> str:
+    """The day the node's ``created_at`` instant falls on in the current zone —
+    the door's own ``Z`` stamp read as the instant it names."""
+    return day_of(datetime.fromisoformat(node["created_at"]), current_zone()).isoformat()
+
+
 async def _props(neo4j_driver, uid: str) -> dict[str, Any]:
     async with neo4j_driver.session() as session:
         result = await session.run(
@@ -84,7 +95,7 @@ async def test_an_undated_file_lands_due_on_its_creation_day(
     assert (await door.ingest_file(path)).is_ok
 
     node = await _props(neo4j_driver, "task.rule-undated")
-    assert node["due_date"] == node["created_at"][:10]
+    assert node["due_date"] == _created_day(node)
     assert node["due_type"].startswith("STRING"), "writers store ISO date strings"
     assert node["scheduled_date"] is None
 
@@ -139,7 +150,7 @@ async def test_a_file_authored_open_beside_a_stamp_is_due_on_its_creation_day(
     assert (await door.ingest_file(path)).is_ok
 
     node = await _props(neo4j_driver, "task.rule-open-stamp")
-    assert node["due_date"] == node["created_at"][:10]
+    assert node["due_date"] == _created_day(node)
     assert node["due_date"] != "2026-03-04"
     async with neo4j_driver.session() as session:
         record = await (
@@ -167,7 +178,7 @@ async def test_a_resync_that_drops_the_last_date_restores_the_creation_day(
     assert (await door.ingest_file(path)).is_ok
 
     node = await _props(neo4j_driver, "task.rule-resync")
-    assert node["due_date"] == first["created_at"][:10], "the task lost its last date"
+    assert node["due_date"] == _created_day(first), "the task lost its last date"
 
 
 @pytest.mark.asyncio
@@ -195,6 +206,6 @@ async def test_the_directory_door_dates_its_creates_too(
     assert (await door.ingest_directory(tmp_path)).is_ok
 
     undated = await _props(neo4j_driver, "task.rule-dir-undated")
-    assert undated["due_date"] == undated["created_at"][:10]
+    assert undated["due_date"] == _created_day(undated)
     scheduled = await _props(neo4j_driver, "task.rule-dir-scheduled")
     assert scheduled["due_date"] is None

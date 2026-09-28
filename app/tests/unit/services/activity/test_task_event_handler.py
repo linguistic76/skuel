@@ -121,6 +121,7 @@ class TestDetectBatchPattern:
         at = datetime(2026, 3, 20, 14, 0)
         assert _detect_batch_pattern(6, at) == "inbox_zero_sprint"
 
+    @pytest.mark.usefixtures("laptop_zone")
     def test_end_of_day_cleanup(self):
         at = datetime(2026, 3, 20, 18, 30)
         assert _detect_batch_pattern(3, at) == "end_of_day_cleanup"
@@ -403,6 +404,7 @@ class TestHandleTasksBulkCompleted:
             log_calls = [c for c in mock_log.call_args_list if "inbox_zero_sprint" in str(c)]
             assert len(log_calls) == 1
 
+    @pytest.mark.usefixtures("laptop_zone")
     @pytest.mark.asyncio
     async def test_end_of_day_pattern(self, service: TaskEventHandlerService):
         """End-of-day cleanup pattern detected for evening batches."""

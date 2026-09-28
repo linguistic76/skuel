@@ -150,6 +150,7 @@ class TestAssessSchedulingDensity:
 
 
 class TestHandleEventCompleted:
+    @pytest.mark.usefixtures("laptop_zone")
     @pytest.mark.asyncio
     async def test_attendance_tracking_logged(self, service: EventEventHandlerService):
         """Attendance time-of-day pattern is logged."""

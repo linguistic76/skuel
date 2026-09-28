@@ -28,6 +28,7 @@ from core.models.enums import (
     LearningLevel,
     TimeOfDay,
 )
+from core.models.request_base import ClientDateTime
 from core.utils.zone_context import validated_zone_name
 
 # ============================================================================
@@ -290,10 +291,10 @@ class UserFilterSchema(BaseModel):
     is_active: bool | None = None
     is_verified: bool | None = None
     is_premium: bool | None = None
-    created_after: datetime | None = None
-    created_before: datetime | None = None
-    last_active_after: datetime | None = None
-    last_active_before: datetime | None = None
+    created_after: ClientDateTime | None = None
+    created_before: ClientDateTime | None = None
+    last_active_after: ClientDateTime | None = None
+    last_active_before: ClientDateTime | None = None
     has_goals: bool | None = None
     min_completion_rate: float | None = Field(default=None, ge=0, le=100)
     max_completion_rate: float | None = Field(default=None, ge=0, le=100)

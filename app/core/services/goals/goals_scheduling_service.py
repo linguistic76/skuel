@@ -51,7 +51,7 @@ from core.utils.decorators import with_error_handling
 from core.utils.dto_converters import to_domain_model
 from core.utils.result_simplified import Errors, Result
 from core.utils.sort_functions import make_dict_value_getter
-from core.utils.timestamp_helpers import today_in
+from core.utils.timestamp_helpers import day_of, today_in
 from core.utils.zone_context import current_zone
 
 if TYPE_CHECKING:
@@ -524,9 +524,10 @@ class GoalsSchedulingService(BaseService[GoalsOperations, Goal]):
             durations = []
             for g in type_goals:
                 if g.achieved_date and g.created_at:
-                    actual_days = (g.achieved_date - g.created_at.date()).days
-                    if g.target_date and g.created_at:
-                        planned_days = (g.target_date - g.created_at.date()).days
+                    created_day = day_of(g.created_at, current_zone())
+                    actual_days = (g.achieved_date - created_day).days
+                    if g.target_date:
+                        planned_days = (g.target_date - created_day).days
                         if planned_days > 0:
                             durations.append(actual_days / planned_days)
 
@@ -622,7 +623,9 @@ class GoalsSchedulingService(BaseService[GoalsOperations, Goal]):
         # Calculate velocity
         current_progress = goal.progress_percentage
         days_elapsed = (
-            (today_in(current_zone()) - goal.created_at.date()).days if goal.created_at else 0
+            (today_in(current_zone()) - day_of(goal.created_at, current_zone())).days
+            if goal.created_at
+            else 0
         )
 
         current_velocity = current_progress / days_elapsed if days_elapsed > 0 else 0.0

@@ -27,7 +27,7 @@ from core.models.task.task_request import TaskCreateRequest
 from core.models.task.task_update_intent import TaskUpdateIntent
 from core.services.tasks.tasks_core_service import TasksCoreService
 from core.utils.result_simplified import Errors, Result
-from core.utils.timestamp_helpers import today_in
+from core.utils.timestamp_helpers import day_of, today_in
 from core.utils.zone_context import current_zone
 from tests.helpers.status_guarded_backend import echoing_guarded_write
 
@@ -204,7 +204,7 @@ async def test_create_applies_the_creation_rule_on_both_doors(core_service, mock
     assert result.is_ok
     persisted = mock_backend.create.call_args.args[0]
     assert isinstance(persisted, Task)
-    assert persisted.due_date == persisted.created_at.date()
+    assert persisted.due_date == day_of(persisted.created_at, current_zone())
     assert persisted.scheduled_date is None
 
     # Entity door — the same rule, from the same place.
@@ -212,7 +212,7 @@ async def test_create_applies_the_creation_rule_on_both_doors(core_service, mock
     result = await core_service.create(undated)
     assert result.is_ok
     persisted = mock_backend.create.call_args.args[0]
-    assert persisted.due_date == undated.created_at.date()
+    assert persisted.due_date == day_of(undated.created_at, current_zone())
 
     # Control: a work date is a date — no deadline is invented beside it.
     scheduled = Task(

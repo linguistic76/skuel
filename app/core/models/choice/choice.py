@@ -22,7 +22,7 @@ from dataclasses import dataclass, field
 from datetime import datetime
 from typing import TYPE_CHECKING
 
-from core.utils.timestamp_helpers import today_in
+from core.utils.timestamp_helpers import day_of, today_in
 from core.utils.zone_context import current_zone
 
 if TYPE_CHECKING:
@@ -125,7 +125,8 @@ class Choice(UserOwnedEntity):
         """Check if decision deadline has passed."""
         if not self.decision_deadline:
             return False
-        return self.decision_deadline.date() < today_in(current_zone())
+        zone = current_zone()
+        return day_of(self.decision_deadline, zone) < today_in(zone)
 
     def has_high_stakes(self) -> bool:
         """Check if choice has high stakes."""

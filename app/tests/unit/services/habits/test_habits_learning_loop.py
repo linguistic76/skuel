@@ -90,6 +90,7 @@ def _make_intelligence_service(backend=None, relationships=None):
 class TestLearnFromCompletion:
     """Test handle_habit_completed event handler."""
 
+    @pytest.mark.usefixtures("laptop_zone")
     @pytest.mark.asyncio
     async def test_tracks_completion_hour(self):
         """Records completion hour in histogram."""
@@ -113,6 +114,7 @@ class TestLearnFromCompletion:
         assert hours_hist["14"] == 1
         assert props["learned_preferred_hour"] == 14
 
+    @pytest.mark.usefixtures("laptop_zone")
     @pytest.mark.asyncio
     async def test_builds_histogram_over_time(self):
         """Histogram accumulates across completions."""

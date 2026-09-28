@@ -22,7 +22,7 @@ from core.models.habit.habit import Habit
 from core.models.habit.habit_dto import HabitDTO
 from core.services.habits.habits_search_service import HabitsSearchService
 from core.utils.result_simplified import Result
-from core.utils.timestamp_helpers import today_in
+from core.utils.timestamp_helpers import as_stored_clock, local_day_bounds, today_in
 from core.utils.zone_context import current_zone
 
 # ============================================================================
@@ -44,6 +44,13 @@ def mock_backend() -> Any:
 @pytest.fixture
 def search_service(mock_backend) -> HabitsSearchService:
     return HabitsSearchService(backend=mock_backend)
+
+
+def _start_of_today() -> datetime:
+    """The first instant of today in the current zone, on the stored clock — the
+    naive moment a completion made just after midnight carries."""
+    zone = current_zone()
+    return as_stored_clock(local_day_bounds(today_in(zone), zone)[0])
 
 
 def _habit(
@@ -126,7 +133,7 @@ async def test_get_upcoming_recently_completed_is_not_due(search_service, mock_b
     today_completed = _habit(
         "habit:today",
         recurrence=RecurrencePattern.DAILY.value,
-        last_completed=datetime.combine(today_in(current_zone()), datetime.min.time()),
+        last_completed=_start_of_today(),
     )
     mock_backend.find_by.return_value = Result.ok([today_completed.to_dto().to_dict()])
 
@@ -259,7 +266,7 @@ async def test_get_user_due_today(search_service, mock_backend):
 @pytest.mark.asyncio
 async def test_get_user_due_today_skips_completed_today(search_service, mock_backend):
     """Already completed today → not due."""
-    today = datetime.combine(today_in(current_zone()), datetime.min.time())
+    today = _start_of_today()
     habit = _habit(
         "habit:done-today",
         recurrence=RecurrencePattern.DAILY.value,

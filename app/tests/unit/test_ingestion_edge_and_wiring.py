@@ -12,6 +12,7 @@ Covers:
 """
 
 from pathlib import Path
+from zoneinfo import ZoneInfo
 
 import pytest
 
@@ -21,6 +22,7 @@ from core.services.ingestion.config import generate_ingestion_relationship_confi
 from core.services.ingestion.detector import is_edge_type
 from core.services.ingestion.preparer import prepare_edge_data, prepare_entity_data
 from core.services.ingestion.validator import validate_edge_data
+from core.utils.zone_context import zone_scope
 
 # ============================================================================
 # EDGE DETECTION
@@ -292,22 +294,27 @@ class TestPathStepUsesKuWiring:
         """Codex #1005: offset-bearing values must not sort by their digits.
 
         ``created_at`` persists as a string, so ``ORDER BY created_at`` is
-        lexicographic — ``+02:00`` would otherwise outrank an earlier ``Z``.
+        lexicographic — ``+02:00`` would otherwise outrank an earlier ``Z``. An
+        offset-less value is the author's wall clock, read in the current zone
+        (the vault owner's), and a bare day is that day's first instant there.
         """
         cases = {
-            "2026-03-29T01:00:00+02:00": "2026-03-28T23:00:00Z",  # earlier instant
-            "2026-03-29T00:30:00Z": "2026-03-29T00:30:00Z",
-            "2026-03-29T00:00:00": "2026-03-29T00:00:00Z",  # naive read as UTC
-            "2026-03-29": "2026-03-29T00:00:00Z",
+            ("America/Vancouver", "2026-03-29T01:00:00+02:00"): "2026-03-28T23:00:00Z",
+            ("America/Vancouver", "2026-03-29T00:30:00Z"): "2026-03-29T00:30:00Z",
+            ("America/Vancouver", "2026-03-29T00:00:00"): "2026-03-29T07:00:00Z",
+            ("America/Vancouver", "2026-03-29"): "2026-03-29T07:00:00Z",
+            ("Asia/Bangkok", "2026-03-29T00:00:00"): "2026-03-28T17:00:00Z",
+            ("Asia/Bangkok", "2026-03-29"): "2026-03-28T17:00:00Z",
         }
-        for authored, expected in cases.items():
-            out = prepare_entity_data(
-                EntityType.PATH_STEP,
-                {"type": "lesson", "title": "T", "uid": "ps.x.y", "created_at": authored},
-                "body",
-                Path("t.md"),
-            )
-            assert out["created_at"] == expected, f"{authored!r} → {out['created_at']!r}"
+        for (zone, authored), expected in cases.items():
+            with zone_scope(ZoneInfo(zone)):
+                out = prepare_entity_data(
+                    EntityType.PATH_STEP,
+                    {"type": "lesson", "title": "T", "uid": "ps.x.y", "created_at": authored},
+                    "body",
+                    Path("t.md"),
+                )
+            assert out["created_at"] == expected, f"{zone} {authored!r} → {out['created_at']!r}"
 
         # ...and the canonical forms now collate by instant, which was the defect.
         assert "2026-03-28T23:00:00Z" < "2026-03-29T00:30:00Z"

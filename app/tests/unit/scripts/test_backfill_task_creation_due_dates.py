@@ -18,16 +18,21 @@ from __future__ import annotations
 
 import dataclasses
 import sys
+from datetime import UTC
 from pathlib import Path
+
+import pytest
 
 # scripts/ has no __init__.py — add it to sys.path for import
 sys.path.insert(0, str(Path(__file__).resolve().parents[3] / "scripts"))
 
 import backfill_task_creation_due_dates as migration  # type: ignore[import-not-found]
 
-from adapters.persistence.neo4j.ingestion_write_backend import TASK_CREATION_DUE_DATE_CYPHER
+from adapters.persistence.neo4j.ingestion_write_backend import task_creation_due_date_cypher
 from core.models.enums.entity_enums import EntityStatus
 from core.models.task.task import Task
+from core.utils import timestamp_helpers
+from core.utils.zone_context import default_zone
 
 TASK_FIELDS = {f.name for f in dataclasses.fields(Task)}
 
@@ -52,20 +57,42 @@ def test_the_projection_is_the_vault_doors_own():
     """One expression, imported — the backfill and the live vault-door rule
     cannot drift. Its shape: on a COMPLETED node, ``completion_date <
     created_at`` → the completion day; otherwise the creation day — the branch
-    order of ``Task.with_creation_due_date``, status guard included."""
-    assert migration.RULE_PROJECTION is TASK_CREATION_DUE_DATE_CYPHER
-    assert migration.RULE_PROJECTION == (
-        "CASE WHEN n.status = $completed_status AND n.completion_date IS NOT NULL AND "
-        "substring(toString(n.completion_date), 0, 10) < substring(toString(n.created_at), 0, 10) "
-        "THEN substring(toString(n.completion_date), 0, 10) "
+    order of ``Task.with_creation_due_date``, status guard included. Until the
+    cutover the creation day is the zone's for a stamp with an offset and its
+    own digits' for an offset-less one (the host's wall clock)."""
+    assert task_creation_due_date_cypher() == migration.RULE_PROJECTION
+    created_day = (
+        "CASE WHEN (valueType(n.created_at) STARTS WITH 'ZONED' "
+        "OR toString(n.created_at) =~ '.*(Z|[+-][0-9]{2}:[0-9]{2})$') "
+        "THEN toString(date(datetime({datetime: datetime(n.created_at), timezone: $zone}))) "
         "ELSE substring(toString(n.created_at), 0, 10) END"
     )
+    done_day = "substring(toString(n.completion_date), 0, 10)"
+    assert (
+        "CASE WHEN n.status = $completed_status AND n.completion_date IS NOT NULL AND "
+        f"{done_day} < {created_day} THEN {done_day} ELSE {created_day} END"
+    ) == migration.RULE_PROJECTION
+
+
+def test_after_the_cutover_the_creation_day_is_the_zones(monkeypatch: pytest.MonkeyPatch):
+    """Once the stored clock is UTC, an offset-less ``created_at`` holds UTC digits,
+    and the creation day is the day the instant falls on in ``$zone`` — not its
+    digits' day, which is the UTC day."""
+    monkeypatch.setattr(timestamp_helpers, "STORED_INSTANT_CLOCK", UTC)
+    rule = task_creation_due_date_cypher()
+    assert "substring(toString(n.created_at)" not in rule
+    assert "valueType(n.created_at)" not in rule
+    assert "date(datetime({datetime: datetime(n.created_at), timezone: $zone}))" in rule
 
 
 def test_the_rule_parameter_is_the_completed_status():
-    """The expression reads ``$completed_status``; the script supplies exactly
-    the enum value the app writes, on every query that embeds the rule."""
-    assert {"completed_status": EntityStatus.COMPLETED.value} == migration.RULE_PARAMS
+    """The expression reads ``$completed_status`` and ``$zone``; the script
+    supplies exactly the enum value the app writes and the app default zone, on
+    every query that embeds the rule."""
+    assert {
+        "completed_status": EntityStatus.COMPLETED.value,
+        "zone": str(default_zone()),
+    } == migration.RULE_PARAMS
     assert "$completed_status" in migration.BACKFILL_QUERY
     assert "$completed_status" in migration.PREVIEW_QUERY
 

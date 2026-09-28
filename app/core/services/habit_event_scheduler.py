@@ -25,7 +25,7 @@ from core.models.type_hints import EntityUID, UserUID
 from core.utils.dto_converters import to_domain_model
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Result
-from core.utils.timestamp_helpers import today_in
+from core.utils.timestamp_helpers import day_of, today_in
 from core.utils.zone_context import current_zone
 
 if TYPE_CHECKING:
@@ -521,6 +521,9 @@ class HabitEventScheduler:
 
     def _should_schedule_on_date(self, habit: Habit, check_date: date) -> bool:
         """Determine if habit should be scheduled on a specific date."""
+        # The day the habit started on, in the current zone — its weekday and
+        # day of the month set the cadence.
+        start_day = day_of(habit.started_at, current_zone()) if habit.started_at else None
         if habit.recurrence_pattern == RecurrencePattern.DAILY:
             return True
 
@@ -534,26 +537,23 @@ class HabitEventScheduler:
 
         elif habit.recurrence_pattern == RecurrencePattern.WEEKLY:
             # Once a week - schedule on same weekday as habit was started
-            if habit.started_at:
-                return check_date.weekday() == habit.started_at.weekday()
+            if start_day is not None:
+                return check_date.weekday() == start_day.weekday()
             # Default to current weekday if no start date
             return True
 
         elif habit.recurrence_pattern == RecurrencePattern.BIWEEKLY:
             # Every two weeks
-            if habit.started_at:
-                days_since_start = (check_date - habit.started_at.date()).days
+            if start_day is not None:
+                days_since_start = (check_date - start_day).days
                 # Schedule if it's been a multiple of 14 days and same weekday
-                return (
-                    days_since_start % 14 == 0
-                    and check_date.weekday() == habit.started_at.weekday()
-                )
+                return days_since_start % 14 == 0 and check_date.weekday() == start_day.weekday()
             return False
 
         elif habit.recurrence_pattern == RecurrencePattern.MONTHLY:
             # Once a month - same day of month as start date
-            if habit.started_at:
-                return check_date.day == habit.started_at.day
+            if start_day is not None:
+                return check_date.day == start_day.day
             return False
 
         # For CUSTOM, QUARTERLY, YEARLY, NONE - don't auto-schedule

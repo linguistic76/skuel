@@ -16,7 +16,7 @@ from typing import TYPE_CHECKING, Any
 from core.models.habit.completion import HabitCompletion
 from core.models.habit.habit_update_intent import HabitUpdateIntent
 from core.utils.result_simplified import Errors, Result
-from core.utils.timestamp_helpers import as_stored_clock, local_day_bounds, today_in
+from core.utils.timestamp_helpers import as_stored_clock, day_of, local_day_bounds, today_in
 from core.utils.zone_context import current_zone
 
 if TYPE_CHECKING:
@@ -256,9 +256,10 @@ class _CompletionMixin:
 
         # Build calendar data: map dates to completion info
         dates: dict[str, dict[str, Any]] = {}
+        zone = current_zone()
         for c in completions:
             if c.completed_at:
-                date_str = c.completed_at.date().isoformat()
+                date_str = day_of(c.completed_at, zone).isoformat()
                 dates[date_str] = {
                     "completed": True,
                     "quality": c.quality,

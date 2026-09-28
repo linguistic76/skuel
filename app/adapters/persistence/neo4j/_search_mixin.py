@@ -45,7 +45,9 @@ from core.models.type_hints import EntityUID, FilterParams
 from core.utils.error_boundary import safe_backend_operation
 from core.utils.exception_types import NEO4J_EXCEPTIONS
 from core.utils.result_simplified import Errors, Result
+from core.utils.timestamp_helpers import is_instant_field, stored_day_bounds
 from core.utils.validation_helpers import validate_field_name
+from core.utils.zone_context import current_zone
 
 if TYPE_CHECKING:
     import builtins
@@ -57,6 +59,15 @@ if TYPE_CHECKING:
     from core.infrastructure.monitoring.prometheus_metrics import PrometheusMetrics
     from core.models.enums.neo_labels import NeoLabel
     from core.ports.base_protocols import GraphContextNode
+
+
+def _range_day(value: date | str) -> date:
+    """A range end as the calendar day it names — a ``date``, or an ISO date string."""
+    if isinstance(value, datetime):
+        return value.date()
+    if isinstance(value, date):
+        return value
+    return date.fromisoformat(value[:10])
 
 
 class _SearchMixin[T: DomainModelProtocol]:
@@ -141,12 +152,16 @@ class _SearchMixin[T: DomainModelProtocol]:
     ) -> Result[builtins.list[T]]:
         """Find any entity within a date range, newest first.
 
-        The stored value is compared by its calendar day and ordered by the instant
-        it parses to (``datetime(toString(...))``), so ISO strings (with or without
-        an offset) and native temporals land in one chronological sequence rather
-        than type bands or wall-clock string order. A value with no zone is read in
-        the server's default zone. ``uid`` breaks ties, which makes the order total
-        and ``offset`` pages walkable.
+        The range is a span of calendar days, and the stored value is compared by
+        the day it falls on. An instant field (a ``datetime`` on the model —
+        ADR-089 §3) is compared with the days' bounds in the current zone, read on
+        the stored clock (``stored_day_bounds``), so its day is the user's; a
+        calendar field is compared by its own ``YYYY-MM-DD``. Rows are ordered by
+        the instant the value parses to (``datetime(toString(...))``), so ISO
+        strings (with or without an offset) and native temporals land in one
+        chronological sequence rather than type bands or wall-clock string order.
+        A value with no zone is read in the server's default zone. ``uid`` breaks
+        ties, which makes the order total and ``offset`` pages walkable.
         """
         # Validate date_field to prevent Cypher injection
         if not validate_field_name(date_field):
@@ -161,21 +176,30 @@ class _SearchMixin[T: DomainModelProtocol]:
         # Inject default_filters for Ku-type discrimination
         self._inject_default_filters(where_clauses, params)
 
-        # Build date range conditions. left(toString(...), 10) takes the YYYY-MM-DD
-        # prefix so a datetime-string value doesn't make date() throw (#766).
-        if start_date:
-            where_clauses.append(f"date(left(toString(n.{date_field}), 10)) >= date($start_date)")
-            if isinstance(start_date, date | datetime):
-                params["start_date"] = start_date.isoformat()
-            else:
-                params["start_date"] = start_date
-
-        if end_date:
-            where_clauses.append(f"date(left(toString(n.{date_field}), 10)) <= date($end_date)")
-            if isinstance(end_date, date | datetime):
-                params["end_date"] = end_date.isoformat()
-            else:
-                params["end_date"] = end_date
+        # Build date range conditions. An instant is compared with the days' bounds
+        # on the stored clock (datetime() on both sides reads an offset-less value
+        # in the server's default zone, so the two agree). A calendar value is
+        # compared by its YYYY-MM-DD prefix — left(toString(...), 10) — so a
+        # datetime-string value doesn't make date() throw (#766).
+        if is_instant_field(self.entity_class, date_field):
+            zone = current_zone()
+            if start_date:
+                first = _range_day(start_date)
+                where_clauses.append(f"datetime(n.{date_field}) >= datetime($start_bound)")
+                params["start_bound"] = stored_day_bounds(first, first, zone)[0].isoformat()
+            if end_date:
+                last = _range_day(end_date)
+                where_clauses.append(f"datetime(n.{date_field}) < datetime($end_bound)")
+                params["end_bound"] = stored_day_bounds(last, last, zone)[1].isoformat()
+        else:
+            if start_date:
+                where_clauses.append(
+                    f"date(left(toString(n.{date_field}), 10)) >= date($start_date)"
+                )
+                params["start_date"] = _range_day(start_date).isoformat()
+            if end_date:
+                where_clauses.append(f"date(left(toString(n.{date_field}), 10)) <= date($end_date)")
+                params["end_date"] = _range_day(end_date).isoformat()
 
         # Add additional filters
         if additional_filters:

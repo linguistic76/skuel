@@ -21,11 +21,35 @@ Benefits:
 - Ensures consistent Pydantic V2 serialization behavior
 - Centralizes configuration changes
 
+A ``datetime`` a client supplies is typed ``ClientDateTime``: an offset-less
+value (a ``datetime-local`` field, a JSON string without an offset) is a wall
+clock in the current zone, and the field holds the stored form of the instant
+it names (``from_wall_clock``). Every request model's ``datetime`` field is one
+(``tests/unit/models/test_client_datetime_fields.py``).
+
 Version: 1.0.0
 Date: November 28, 2025
 """
 
-from pydantic import BaseModel, ConfigDict
+from datetime import datetime
+from typing import Annotated
+
+from pydantic import AfterValidator, BaseModel, ConfigDict
+
+from core.utils.timestamp_helpers import from_wall_clock
+from core.utils.zone_context import current_zone
+
+
+def _read_client_datetime(value: datetime) -> datetime:
+    """A client's datetime as the stored form of its instant — an offset-less one
+    read on the current zone's clock (the request's; the vault owner's in a sync)."""
+    return from_wall_clock(value, current_zone())
+
+
+#: A ``datetime`` a client supplies. An offset-less value names a moment on the
+#: user's clock, not the server's, so it is read in the current zone and held in
+#: the stored form; an aware value names its own instant and is kept as it came.
+ClientDateTime = Annotated[datetime, AfterValidator(_read_client_datetime)]
 
 
 class RequestBase(BaseModel):

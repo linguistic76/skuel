@@ -17,7 +17,7 @@ from typing import TYPE_CHECKING
 from adapters.persistence.neo4j._backend_helpers import direction_clause
 from core.models.enums.neo_labels import NeoLabel
 from core.models.type_hints import Neo4jValue, UserUID
-from core.utils.timestamp_helpers import today_in
+from core.utils.timestamp_helpers import stored_day_bounds, today_in
 from core.utils.zone_context import current_zone
 
 from ._helpers import validate_identifier, validate_label
@@ -972,6 +972,7 @@ def build_user_activity_query(
     end_date: date | None = None,
     exclude_statuses: list[str] | None = None,
     limit: int = 100,
+    instant_fields: frozenset[str] = frozenset(),
 ) -> tuple[str, dict[str, Neo4jValue]]:
     """
     Build query for user's activity items with common filters.
@@ -992,6 +993,9 @@ def build_user_activity_query(
         end_date: End of date range
         exclude_statuses: Status values to exclude (e.g., ["completed", "cancelled"])
         limit: Maximum results (default 100)
+        instant_fields: The ``date_field`` names that hold an instant (a ``datetime``
+            on the model). An instant matches when it falls on a day of the range
+            in the current zone; any other field by its own date.
 
     Returns:
         Tuple of (cypher_query, parameters)
@@ -1035,8 +1039,13 @@ def build_user_activity_query(
         # Multiple fields OR together: a null field evaluates to null (falsy in OR),
         # so an item matches when ANY populated field lands in the range. The group
         # is parenthesized so the OR never leaks into the surrounding AND chain.
+        # An instant field is compared with the range's bounds on the stored clock
+        # instead, so it lands on the current zone's day, not its digits' day.
         field_ranges = [
-            f"(date(left(toString(n.{field}), 10)) >= date($start_date)"
+            f"(datetime(n.{field}) >= datetime($start_bound)"
+            f" AND datetime(n.{field}) < datetime($end_bound))"
+            if field in instant_fields
+            else f"(date(left(toString(n.{field}), 10)) >= date($start_date)"
             f" AND date(left(toString(n.{field}), 10)) <= date($end_date))"
             for field in date_fields
         ]
@@ -1063,6 +1072,10 @@ def build_user_activity_query(
     if has_date_filter and start_date and end_date:
         params["start_date"] = start_date.isoformat()
         params["end_date"] = end_date.isoformat()
+        if instant_fields.intersection(date_fields):
+            start_bound, end_bound = stored_day_bounds(start_date, end_date, current_zone())
+            params["start_bound"] = start_bound.isoformat()
+            params["end_bound"] = end_bound.isoformat()
 
     if exclude_statuses:
         params["exclude_statuses"] = exclude_statuses  # type: ignore[assignment]  # list[str] is subtype at runtime; Neo4jValue uses list[str | int | float]
@@ -1083,6 +1096,7 @@ def build_due_soon_query(
     user_uid: UserUID | None = None,
     limit: int = 100,
     secondary_sort_field: str | None = None,
+    instant_field: bool = False,
 ) -> tuple[str, dict[str, Neo4jValue]]:
     """
     Build query for entities due within N days of today — today in the current zone.
@@ -1097,6 +1111,8 @@ def build_due_soon_query(
         user_uid: Optional user UID for ownership filter
         limit: Maximum results
         secondary_sort_field: Optional secondary sort field (e.g., "start_time")
+        instant_field: ``date_field`` holds an instant (a ``datetime`` on the model):
+            it matches on the day it falls on in the current zone
 
     Returns:
         Tuple of (cypher_query, parameters)
@@ -1117,14 +1133,23 @@ def build_due_soon_query(
     if secondary_sort_field:
         validate_identifier(secondary_sort_field, "sort field")
 
-    today = today_in(current_zone())
+    zone = current_zone()
+    today = today_in(zone)
     end_date = today + timedelta(days=days_ahead)
 
-    # date(left(toString(...), 10)) coerces ISO date/datetime strings — see build_user_activity_query
-    where_clauses = [
-        f"date(left(toString(n.{date_field}), 10)) >= date($today)",
-        f"date(left(toString(n.{date_field}), 10)) <= date($end_date)",
-    ]
+    # An instant field is compared with the days' bounds on the stored clock; a
+    # calendar field by date(left(toString(...), 10)), which coerces ISO
+    # date/datetime strings — see build_user_activity_query
+    if instant_field:
+        where_clauses = [
+            f"datetime(n.{date_field}) >= datetime($start_bound)",
+            f"datetime(n.{date_field}) < datetime($end_bound)",
+        ]
+    else:
+        where_clauses = [
+            f"date(left(toString(n.{date_field}), 10)) >= date($today)",
+            f"date(left(toString(n.{date_field}), 10)) <= date($end_date)",
+        ]
 
     if exclude_statuses:
         where_clauses.append("NOT n.status IN $exclude_statuses")
@@ -1152,6 +1177,10 @@ def build_due_soon_query(
         "end_date": end_date.isoformat(),
         "limit": limit,
     }
+    if instant_field:
+        start_bound, end_bound = stored_day_bounds(today, end_date, zone)
+        params["start_bound"] = start_bound.isoformat()
+        params["end_bound"] = end_bound.isoformat()
 
     if exclude_statuses:
         params["exclude_statuses"] = exclude_statuses  # type: ignore[assignment]  # list[str] is subtype at runtime; Neo4jValue uses list[str | int | float]
@@ -1168,6 +1197,7 @@ def build_overdue_query(
     user_uid: UserUID | None = None,
     limit: int = 100,
     secondary_sort_field: str | None = None,
+    instant_field: bool = False,
 ) -> tuple[str, dict[str, Neo4jValue]]:
     """
     Build query for entities past their due date — due before today in the current zone.
@@ -1181,6 +1211,8 @@ def build_overdue_query(
         user_uid: Optional user UID for ownership filter
         limit: Maximum results
         secondary_sort_field: Optional secondary sort field (e.g., "start_time")
+        instant_field: ``date_field`` holds an instant (a ``datetime`` on the model):
+            it is overdue from the first instant of today in the current zone
 
     Returns:
         Tuple of (cypher_query, parameters)
@@ -1199,12 +1231,16 @@ def build_overdue_query(
     if secondary_sort_field:
         validate_identifier(secondary_sort_field, "sort field")
 
-    today = today_in(current_zone())
+    zone = current_zone()
+    today = today_in(zone)
 
-    # date(left(toString(...), 10)) coerces ISO date/datetime strings — see build_user_activity_query
-    where_clauses = [
-        f"date(left(toString(n.{date_field}), 10)) < date($today)",
-    ]
+    # An instant field is compared with today's first instant on the stored clock;
+    # a calendar field by date(left(toString(...), 10)), which coerces ISO
+    # date/datetime strings — see build_user_activity_query
+    if instant_field:
+        where_clauses = [f"datetime(n.{date_field}) < datetime($start_bound)"]
+    else:
+        where_clauses = [f"date(left(toString(n.{date_field}), 10)) < date($today)"]
 
     if exclude_statuses:
         where_clauses.append("NOT n.status IN $exclude_statuses")
@@ -1231,6 +1267,8 @@ def build_overdue_query(
         "today": today.isoformat(),
         "limit": limit,
     }
+    if instant_field:
+        params["start_bound"] = stored_day_bounds(today, today, zone)[0].isoformat()
 
     if exclude_statuses:
         params["exclude_statuses"] = exclude_statuses  # type: ignore[assignment]  # list[str] is subtype at runtime; Neo4jValue uses list[str | int | float]

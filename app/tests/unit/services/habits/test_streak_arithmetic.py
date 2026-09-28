@@ -95,6 +95,7 @@ class TestConsecutiveDayCompletion:
         new_streak = streak_service._calculate_new_streak(habit, datetime(2026, 7, 10, 8, 0, 0))
         assert new_streak == 6
 
+    @pytest.mark.usefixtures("laptop_zone")
     def test_calendar_day_arithmetic_not_24_hour_window(self, streak_service, sample_habit):
         # 23:59 -> 00:01 next day is only 2 minutes apart but crosses a date
         # boundary, so it counts as a consecutive day and increments.

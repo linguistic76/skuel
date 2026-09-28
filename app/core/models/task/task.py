@@ -22,7 +22,7 @@ from datetime import date
 from types import MappingProxyType
 from typing import TYPE_CHECKING, Any
 
-from core.utils.timestamp_helpers import today_in
+from core.utils.timestamp_helpers import day_of, today_in
 from core.utils.zone_context import current_zone
 
 if TYPE_CHECKING:
@@ -190,7 +190,7 @@ class Task(UserOwnedEntity):
         """
         if self.due_date is not None or self.scheduled_date is not None:
             return self
-        created_day = self.created_at.date()
+        created_day = day_of(self.created_at, current_zone())
         if (
             self.is_completed
             and self.completion_date is not None
