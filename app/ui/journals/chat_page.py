@@ -22,6 +22,8 @@ from core.utils.period_keys import (
     weekly_period_start,
     yearly_period_start,
 )
+from core.utils.timestamp_helpers import today_in
+from core.utils.zone_context import current_zone
 from ui.components import Icon
 from ui.journals.period_links import (
     PERIOD_ICONS,
@@ -174,7 +176,7 @@ def _note_anchor(kind: str, period_key: str) -> tuple[datetime.date, set[datetim
     """
     from datetime import date, timedelta
 
-    today = date.today()
+    today = today_in(current_zone())
     if kind == "daily":
         try:
             day = date.fromisoformat(period_key)
@@ -304,7 +306,7 @@ def _mini_month_calendar(
     import calendar as _cal
     from datetime import date
 
-    today = date.today()
+    today = today_in(current_zone())
     year, month = ref_date.year, ref_date.month
     month_name = ref_date.strftime("%B %Y")
     dow_headers = ["M", "T", "W", "T", "F", "S", "S"]

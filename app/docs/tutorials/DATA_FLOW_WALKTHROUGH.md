@@ -1,5 +1,5 @@
 ---
-updated: 2026-09-21
+updated: 2026-09-27
 ---
 
 # Data Flow Walkthrough: Following a Task Creation Request
@@ -741,7 +741,7 @@ task_dto = await backend.get(uid)
 
 # Update status (requires mutability)
 task_dto.status = EntityStatus.COMPLETED
-task_dto.completion_date = date.today()
+task_dto.completion_date = today_in(current_zone())  # today in the user's zone
 task_dto.updated_at = datetime.now()
 
 # Persist changes — pass native Python types, backend auto-serializes

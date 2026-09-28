@@ -1,7 +1,7 @@
 ---
 title: Events Domain
 created: 2025-12-04
-updated: 2026-09-23
+updated: 2026-09-27
 status: current
 category: domains
 tags: [events, scheduling-domain, integration-domain, domain]
@@ -276,15 +276,18 @@ Read-focused UI at `/events` is planned. API routes remain active.
 ### Create an Event
 
 ```python
+from datetime import time
+
 from core.models.enums import EventType
 from core.models.event.event_request import EventCreateRequest
-from datetime import date, time
+from core.utils.timestamp_helpers import today_in
+from core.utils.zone_context import current_zone
 
 result = await events_service.create_event(
     EventCreateRequest(
         title="Python Study Group",
         description="Weekly Python learning session",
-        event_date=date.today() + timedelta(days=3),
+        event_date=today_in(current_zone()) + timedelta(days=3),
         start_time=time(14, 0),
         end_time=time(16, 0),
         event_type=EventType.LEARNING,

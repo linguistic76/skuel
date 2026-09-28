@@ -50,6 +50,8 @@ from core.services.journal.journal_batch_service import (
     unknown_mode_message,
 )
 from core.utils.logging import get_logger
+from core.utils.timestamp_helpers import today_in
+from core.utils.zone_context import current_zone
 from ui.journals.components import render_upload_status as render_journal_upload_status
 
 if TYPE_CHECKING:
@@ -816,14 +818,14 @@ def create_journals_routes(
     async def journal_daily_note_today(request: Request) -> Response:
         """Today's daily note — the dateless door the Tasks+ sidebar's Journal
         item opens, resolved at click time (``/today`` ↔ ``/today/{date}``)."""
-        return await _open_daily_note(request, date.today())
+        return await _open_daily_note(request, today_in(current_zone()))
 
     @rt("/journals/daily/{date_str}", methods=["GET"])
     async def journal_daily_note(request: Request, date_str: str) -> Response:
         try:
             target_date = date.fromisoformat(date_str)
         except ValueError:
-            target_date = date.today()
+            target_date = today_in(current_zone())
         return await _open_daily_note(request, target_date)
 
     @rt("/journals/weekly/{year}/{week}", methods=["GET"])
@@ -860,7 +862,7 @@ def create_journals_routes(
         # minting a note under a key no parser accepts (the daily route's
         # bad-date precedent).
         if not 1 <= quarter <= 4:
-            quarter = (date.today().month - 1) // 3 + 1
+            quarter = (today_in(current_zone()).month - 1) // 3 + 1
         ensured = await user_entry_service.ensure_periodic_note(
             user_uid, "quarterly", f"{year}-Q{quarter}", f"Quarterly Note: Q{quarter} {year}"
         )
@@ -877,7 +879,7 @@ def create_journals_routes(
         # rejects anything else), so a year outside that width degrades to this
         # one rather than producing a panel-less note.
         if not 1000 <= year <= 9999:
-            year = date.today().year
+            year = today_in(current_zone()).year
         ensured = await user_entry_service.ensure_periodic_note(
             user_uid, "yearly", f"{year}", f"Yearly Note: {year}"
         )

@@ -25,6 +25,8 @@ from core.models.event.calendar_models import (
     CalendarView,
 )
 from core.utils.result_simplified import Errors, Result
+from core.utils.timestamp_helpers import today_in
+from core.utils.zone_context import current_zone
 from tests.fixtures.csrf import attach_csrf
 
 
@@ -420,7 +422,7 @@ class TestHabitComplete:
         closes on the day the user acted on, not on a server-side 'today'."""
         registry, service = routes_and_service
         service.record_habit_occurrence = AsyncMock(return_value=Result.ok(SimpleNamespace()))
-        yesterday = (date.today() - timedelta(days=1)).isoformat()
+        yesterday = (today_in(current_zone()) - timedelta(days=1)).isoformat()
         handler = registry.get("/cal/habit/{habit_uid}/complete", "POST")
         response = await handler(
             _make_request(form_data={"on_date": yesterday}), habit_uid="habit_1"
@@ -443,7 +445,8 @@ class TestHabitComplete:
         )
         handler = registry.get("/cal/habit/{habit_uid}/complete", "POST")
         response = await handler(
-            _make_request(form_data={"on_date": date.today().isoformat()}), habit_uid="habit_x"
+            _make_request(form_data={"on_date": today_in(current_zone()).isoformat()}),
+            habit_uid="habit_x",
         )
 
         assert response.status_code == 404
@@ -454,7 +457,7 @@ class TestHabitComplete:
         button on future chips; this is the backstop)."""
         registry, service = routes_and_service
         service.record_habit_occurrence = AsyncMock(return_value=Result.ok(SimpleNamespace()))
-        tomorrow = (date.today() + timedelta(days=1)).isoformat()
+        tomorrow = (today_in(current_zone()) + timedelta(days=1)).isoformat()
         handler = registry.get("/cal/habit/{habit_uid}/complete", "POST")
         response = await handler(
             _make_request(form_data={"on_date": tomorrow}), habit_uid="habit_1"
@@ -479,7 +482,7 @@ class TestHabitComplete:
         service.record_habit_occurrence = AsyncMock(
             return_value=Result.fail(Errors.database("habits.complete", "boom"))
         )
-        today_iso = date.today().isoformat()
+        today_iso = today_in(current_zone()).isoformat()
         handler = registry.get("/cal/habit/{habit_uid}/complete", "POST")
         response = await handler(
             _make_request(form_data={"on_date": today_iso}), habit_uid="habit_1"

@@ -22,7 +22,6 @@ Routes:
 - GET /performance/scale-test - Run scale testing simulation
 """
 
-from datetime import date
 from typing import Any
 
 from fasthtml.common import JSONResponse
@@ -42,6 +41,8 @@ from core.orchestrator.calendar_optimization_orchestrator import (
 )
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
+from core.utils.timestamp_helpers import today_in
+from core.utils.zone_context import current_zone
 
 logger = get_logger("skuel.routes.advanced")
 
@@ -81,7 +82,7 @@ def create_calendar_optimization_routes(
                 return Result.fail(date_result)
             opt_date = date_result.value
         else:
-            opt_date = date.today()
+            opt_date = today_in(current_zone())
 
         try:
             strat = SchedulingStrategy(strategy)
@@ -113,7 +114,7 @@ def create_calendar_optimization_routes(
                 return Result.fail(date_result)
             opt_date = date_result.value
         else:
-            opt_date = date.today()
+            opt_date = today_in(current_zone())
 
         task_list, analyses = await calendar_optimization_orchestrator.get_cognitive_load_analyses(
             user_uid=user_uid, target_date=opt_date

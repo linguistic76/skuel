@@ -91,7 +91,7 @@ class ModelQueryBuilder[T]:
 
         Supports operators via double underscore:
         - eq (default): .filter(priority='high')
-        - gt, lt, gte, lte: .filter(due_date__gte=date.today())
+        - gt, lt, gte, lte: .filter(due_date__gte=today_in(current_zone()))
         - contains: .filter(title__contains='urgent')
         - in: .filter(priority__in=['high', 'urgent'])
 

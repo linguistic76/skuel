@@ -59,8 +59,9 @@ async def tasks_dashboard(request):
 
 **Example:**
 ```python
-from datetime import date
 from core.models.enums.activity_enums import ActivityStatus, Priority
+from core.utils.timestamp_helpers import today_in
+from core.utils.zone_context import current_zone
 
 # ========================================================================
 # PURE COMPUTATION HELPERS (Testable without mocks)
@@ -73,7 +74,7 @@ def compute_task_stats(tasks: list[Any]) -> dict[str, int]:
     Pure function: testable without database or async.
     Returns: {"total": N, "completed": N, "overdue": N}
     """
-    today = date.today()
+    today = today_in(current_zone())  # the user's day, never the host's
     return {
         "total": len(tasks),
         "completed": sum(1 for t in tasks if t.status == ActivityStatus.COMPLETED),
@@ -106,7 +107,7 @@ def apply_task_filters(
     elif status_filter == "completed":
         tasks = [t for t in tasks if t.status == ActivityStatus.COMPLETED]
     elif status_filter == "overdue":
-        today = date.today()
+        today = today_in(current_zone())
         tasks = [
             t
             for t in tasks

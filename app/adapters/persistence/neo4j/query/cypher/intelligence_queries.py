@@ -892,7 +892,7 @@ def search[T](entity_class: type[T], **filters: Any) -> tuple[str, dict[str, Neo
 
     Example:
         query, params = search(Task, priority='high', status='in_progress')
-        query, params = search(Task, due_date__gte=date.today())
+        query, params = search(Task, due_date__gte=today_in(current_zone()))
     """
     from .crud_queries import build_search_query
 

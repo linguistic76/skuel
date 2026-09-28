@@ -14,13 +14,15 @@ validates by, so render and guard cannot drift (act-from arc C7).
 from __future__ import annotations
 
 import asyncio
-from datetime import date, datetime, timedelta
+from datetime import date, timedelta
 from typing import TYPE_CHECKING
 
 from core.models.type_hints import UserUID
 from core.utils.logging import get_logger
 from core.utils.neo4j_temporal import convert_neo4j_datetime
 from core.utils.result_simplified import Result
+from core.utils.timestamp_helpers import today_in
+from core.utils.zone_context import current_zone
 from ui.page_contexts import TodayPageContext
 from ui.today.membership import (
     DUE_FIELD,
@@ -173,10 +175,11 @@ class TodayOrchestrator:
         """Assemble the day view's context for this user and day (``None`` → today).
 
         Membership keys off ``view_date``; the relative heading and the
-        overdue gate key off the real ``today`` — overdue is a present-tense
-        surface and renders only on the live day.
+        overdue gate key off the real ``today`` — today in the current zone,
+        the signed-in user's — since overdue is a present-tense surface and
+        renders only on the live day.
         """
-        today = datetime.now().date()
+        today = today_in(current_zone())
         view_date = view_date or today
         is_today = view_date == today
 

@@ -27,6 +27,8 @@ from adapters.persistence.neo4j.neo4j_query_executor import Neo4jQueryExecutor
 from core.models.enums.neo_labels import NeoLabel
 from core.models.habit.habit import Habit
 from core.models.type_hints import Neo4jProperties
+from core.utils.timestamp_helpers import today_in
+from core.utils.zone_context import current_zone
 
 
 @pytest.mark.asyncio
@@ -61,23 +63,28 @@ class TestTimestampFieldCoercionResidual:
     async def test_active_habits_prioritized_streak_at_risk_first(self, neo4j_driver, clean_neo4j):
         """A streak-at-risk habit (string last_completed in the past) sorts first.
 
-        Pre-fix `h.last_completed < date()` is null → the CASE never flags at-risk, so
-        ordering falls back to current_streak DESC and the lower-streak at-risk habit
-        sorts LAST. Post-fix it sorts first.
+        An uncoerced `h.last_completed < date($today)` is null → the CASE never flags
+        at-risk, so ordering falls back to current_streak DESC and the lower-streak
+        at-risk habit sorts LAST. Coerced, it sorts first.
+
+        The stamps are the writer's offset-less strings, at noon on days counted from
+        today in the current zone — the day `$today` carries — so the two habits sit
+        either side of it whichever hour the test runs.
         """
-        yesterday = (datetime.now(UTC) - timedelta(days=1)).isoformat()
-        today = datetime.now(UTC).isoformat()
+        today = today_in(current_zone())
+        lapsed = f"{(today - timedelta(days=2)).isoformat()}T12:00:00"
+        done_today = f"{today.isoformat()}T12:00:00"
         async with neo4j_driver.session() as session:
             await session.run(
                 """
                 MERGE (u:User {uid: 'user_habits'})
                 CREATE (u)-[:OWNS]->(:Habit {uid: 'h_at_risk', status: 'active',
-                    current_streak: 1, last_completed: $yesterday, created_at: $today})
+                    current_streak: 1, last_completed: $lapsed, created_at: $done_today})
                 CREATE (u)-[:OWNS]->(:Habit {uid: 'h_safe', status: 'active',
-                    current_streak: 10, last_completed: $today, created_at: $today})
+                    current_streak: 10, last_completed: $done_today, created_at: $done_today})
                 """,
-                yesterday=yesterday,
-                today=today,
+                lapsed=lapsed,
+                done_today=done_today,
             )
         backend = HabitsBackend(neo4j_driver, NeoLabel.HABIT, Habit, base_label=NeoLabel.ENTITY)
 

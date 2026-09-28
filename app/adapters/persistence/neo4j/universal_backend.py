@@ -226,7 +226,7 @@ class UniversalNeo4jBackend[T: DomainModelProtocol](  # type: ignore[misc]  # Mi
 
         # Dynamic querying (any field!)
         result = await tasks_backend.find_by(priority="high", status="active")
-        result = await tasks_backend.find_by(due_date__gte=date.today())
+        result = await tasks_backend.find_by(due_date__gte=today_in(current_zone()))
 
         # Graph relationships
         await tasks_backend.create_relationship(

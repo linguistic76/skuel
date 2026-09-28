@@ -22,6 +22,8 @@ from core.models.event.calendar_models import (
     CalendarView,
 )
 from core.models.type_hints import EntityUID
+from core.utils.timestamp_helpers import today_in
+from core.utils.zone_context import current_zone
 from ui.calendar.components import (
     _event_chip,
     _items_by_date,
@@ -132,7 +134,7 @@ def test_non_habit_chip_still_opens_modal_without_date_param() -> None:
 
 
 def test_modal_names_the_occurrence_day_and_offers_mark_complete() -> None:
-    day = date.today() - timedelta(days=1)
+    day = today_in(current_zone()) - timedelta(days=1)
     html = to_xml(create_item_details_modal(_stamped(day)))
     assert f"{day:%A}" in html  # the day is named, not reconstructed
     assert "Mark Complete" in html
@@ -144,7 +146,7 @@ def test_modal_names_the_occurrence_day_and_offers_mark_complete() -> None:
 
 
 def test_modal_shows_completed_state_for_done_day() -> None:
-    day = date.today() - timedelta(days=1)
+    day = today_in(current_zone()) - timedelta(days=1)
     html = to_xml(create_item_details_modal(_stamped(day, CompletionStatus.DONE)))
     assert "Completed ✓" in html
     assert "Completed on this day ✓" in html
@@ -153,7 +155,7 @@ def test_modal_shows_completed_state_for_done_day() -> None:
 
 
 def test_modal_offers_no_completion_on_future_day() -> None:
-    day = date.today() + timedelta(days=1)
+    day = today_in(current_zone()) + timedelta(days=1)
     html = to_xml(create_item_details_modal(_stamped(day)))
     assert "Mark Complete" not in html
     assert "hx-post" not in html
@@ -231,7 +233,9 @@ def _event_item(day: date) -> CalendarItem:
 
 
 def test_event_modal_offers_date_and_time_reschedule() -> None:
-    html = to_xml(create_item_details_modal(_event_item(date.today() + timedelta(days=7))))
+    html = to_xml(
+        create_item_details_modal(_event_item(today_in(current_zone()) + timedelta(days=7)))
+    )
     assert 'hx-post="/cal/item/event-event_1/reschedule"' in html
     assert 'name="new_date"' in html
     assert 'name="new_time"' in html
@@ -240,7 +244,7 @@ def test_event_modal_offers_date_and_time_reschedule() -> None:
 
 def test_todays_event_modal_still_offers_reschedule() -> None:
     """event_date == today is mutable — only strictly-past events are frozen."""
-    html = to_xml(create_item_details_modal(_event_item(date.today())))
+    html = to_xml(create_item_details_modal(_event_item(today_in(current_zone()))))
     assert 'hx-post="/cal/item/event-event_1/reschedule"' in html
 
 
@@ -248,7 +252,9 @@ def test_past_event_modal_offers_no_reschedule() -> None:
     """Past events are immutable historical records — the events service
     refuses date/time changes, so the modal must not offer a form that is
     guaranteed to fail."""
-    html = to_xml(create_item_details_modal(_event_item(date.today() - timedelta(days=1))))
+    html = to_xml(
+        create_item_details_modal(_event_item(today_in(current_zone()) - timedelta(days=1)))
+    )
     assert "/reschedule" not in html
     assert 'name="new_date"' not in html
 
@@ -257,7 +263,7 @@ def test_habit_modal_never_offers_reschedule() -> None:
     """Habits recur — they don't reschedule (C4 rejected design)."""
     for habit_modal in (
         create_item_details_modal(_habit_item()),
-        create_item_details_modal(_stamped(date.today() - timedelta(days=1))),
+        create_item_details_modal(_stamped(today_in(current_zone()) - timedelta(days=1))),
     ):
         assert "/reschedule" not in to_xml(habit_modal)
 

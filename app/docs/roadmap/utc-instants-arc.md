@@ -594,6 +594,53 @@ files: too large for one context, so two sub-rows, each on its own branch
 - **Not a zone defect, left to whoever wires it:** the staged `get_behavioral_insights`
   (`tasks/_analytics_mixin.py`, PLANNED) reads `task.completed_at`, which `Task` does not have.
 
+**Left by PR 2b2 for the rows after it:**
+
+- **No Cypher computes "today" with `date()`.** The task stats' overdue
+  (`TasksBackend.get_stats_for_user`), the streak-at-risk sort
+  (`HabitsBackend.get_active_habits_prioritized`) and the snapshot day
+  (`LifePathBackend.record_alignment_snapshot`) read `date($today)`. Every `$today` in `adapters/`
+  — those three, the events "today" stat, `domain_queries`' due-soon and overdue builders, the
+  MEGA-QUERY's and the standard context query's — is `today_in(current_zone())`, computed where
+  the parameters are built: the request's zone, the context user's in a context build (it runs
+  under `zone_scope`), `SKUEL_TIMEZONE` outside both.
+- **The guards cover all three trees:** `DTZ011` (`"!{core,adapters,ui}/**"` under per-file-ignores;
+  `tests/` and `scripts/` stay outside) and the uncalled-`date.today` AST check
+  (`tests/unit/test_uncalled_clock_references.py`) read 0 over `core/`, `adapters/` and `ui/`.
+- **The census (main `c22a807aa`):** the 31 `DTZ011` and the Today orchestrator's
+  `datetime.now().date()` moved; no uncalled `date.today` was there. The 24 `DTZ005` left in
+  `adapters/` and `ui/` are instants, for PRs 5–8: the report-period anchors (`activity_reports_ui`
+  ×4, `ui/learning_loop/report.py`), `generated_at` / health `timestamp` stamps (`analytics_api` ×3,
+  `transcription_api`), the `OWNS` / `updated_at` / `last_accessed` / `last_active_at` /
+  `target_completion` / `submitted_at` / attendance writers (`_crud_mixin` ×3,
+  `_user_entity_mixin`, `_user_entry_crud_mixin`, `bulk_upsert_backend`, `user_backend` ×2,
+  `forms_backends`, `activity_backends`' `ATTENDS` upsert), the prerequisite chain's default
+  `as_of_date`, the MEGA-QUERY window's default end, and the schema cache timer
+  (`schema_service` ×3). Of the four `.days`, the Today heading's `(view_date - today).days` is a
+  difference of two days, the insight snooze's is a request field, and the two Cypher
+  `duration.between(...).days` measure elapsed time between instants; the one `datetime.combine`
+  (the calendar's reschedule door) is a day and a LOCAL TIME the service splits back apart — none
+  changed.
+- **Left for PR 3, beside the moved "today":** `get_active_habits_prioritized`'s
+  `date(datetime(h.last_completed))` and the Today orchestrator's `moment_is_on_day` (a Choice's
+  `decision_deadline` / `decided_at`) read the stored digits' day. `test_habit_consistency_window`'s
+  real-writer test keeps `laptop_zone` for PR 3; `test_event_calendar_day_reads` no longer needs it.
+  The probe findings 2b1 left for 2b2 are gone: the quick-add route and
+  `test_date_range_string_coercion`'s overdue stat read the zone's day on both sides. Two remain,
+  on `main` as here: a Bangkok host fails
+  `test_insight_native_stamps::…::test_an_expiry_is_stored_as_a_native_and_honoured` (a naive
+  expiry stored as a native reads its local digits as UTC — the stored clock, PR 4), and a Bangkok
+  zone on a Vancouver host fails
+  `test_report_counters_from_writers::test_principle_reflection_door_counts_as_reviewed` (PR 3).
+- **Test craft:** `tests/integration/test_calendar_today_in_zone.py` freezes the zone helpers'
+  clock at an hour of the testcontainer's own UTC date (`RETURN date()`), so a query still reading
+  the database's `date()` is red whatever hour the suite runs; a named user's read runs under
+  `zone_scope(await users.get_user_zone(uid))`. A test of an `adapters/` or `ui/` "today" compares
+  with `today_in(current_zone())`. The unit suite passes under `faketime` at 03:00Z (the host's day
+  ahead) and at 20:00Z with `SKUEL_TIMEZONE=Asia/Bangkok` (the zone's ahead), and the integration
+  suite on the real clock both ways (`TZ=Asia/Bangkok`; `TZ=America/Vancouver
+  SKUEL_TIMEZONE=Asia/Bangkok`).
+
 ### PR 3 — The edges read the stored clock through one constant (neutral)
 
 Scope: `STORED_INSTANT_CLOCK` in `timestamp_helpers` names how an offset-less stored stamp is read —
@@ -978,7 +1025,7 @@ row's laptop steps and their state (pending / done with a date; — for none).
 | 1 | Pre-flight: insights crash, raw temporal parameters (embodiment), event days, the unwritten `rescheduled_at`, goal-event arithmetic; `as_utc()` | Insights served over a native `created_at`; a non-zero embodiment rate (red before); today's event counts | live insights load (`/api/insights/active`) — done 2026-09-27 (20 live insights, as linguistic76) | merged #1434, 2026-09-27 |
 | 2a | `SKUEL_TIMEZONE`; the user's zone in Settings (list + "Use this device's time zone"); the hard-coded `"UTC"` defaults; the six stored values nulled; the request's zone read from the graph; zone helpers | A bad name refused; a new user follows the default; boot refuses a bad default | the preference clear (`scripts/migrations/clear_unchosen_utc_timezone_2026_09.py`: census, then `--confirm` with Mike's OK on the count) — a gate before 2b — done 2026-09-27 (Mike reported: "six users cleared, confirmed"); Settings lists the zones — done 2026-09-27; a Bangkok-emulating browser saves Asia/Bangkok in one click — done 2026-09-27 (Mike: the app saved the change to Asia/Bangkok; set back to the SKUEL default after, for linguistic76 and mfan0110); 375 px — done 2026-09-27 | merged #1435, 2026-09-27 |
 | 2b1 | `core/`: every calendar site asks the zone (uncalled `date.today` included); calendar-day counts; the type rule; `core/`'s `datetime.now()` classified; day-to-instant widenings; the named user's zone (vault sync, report periods); `DTZ011` on over `core/` | Forced-zone unit tests (UTC process; a Vancouver default user at 02:00Z, a Bangkok user at 18:00Z); `DTZ011` and the uncalled-`date.today` check 0 over `core/` | — | merged #1436, 2026-09-27 |
-| 2b2 | `adapters/` and `ui/`: every calendar site asks the zone; Cypher `$today`; their `datetime.now()` classified; `DTZ011` and the uncalled check widened to `adapters/`, `ui/` | Forced-zone integration test (UTC process, Vancouver and Bangkok users) | after 17:00 local the overdue count agrees with the Today page | — |
+| 2b2 | `adapters/` and `ui/`: every calendar site asks the zone; Cypher `$today`; their `datetime.now()` classified; `DTZ011` and the uncalled check widened to `adapters/`, `ui/` | Forced-zone integration test (UTC process, Vancouver and Bangkok users) | after 17:00 local the overdue count agrees with the Today page — pending | merged #1437, 2026-09-27 |
 | 3 | `STORED_INSTANT_CLOCK`; displays, day-of-instant reads, period bounds and `as_utc` through it (neutral); client doors read in the zone | Golden-file renders unchanged | the pages read right on `main` | — |
 | 4 | The UTC pin, asserted by every driver factory; the applied-record guard (refusals and empty-graph stamp tested); the constant flipped; the migration script — prepared in the cloud as `[awaiting sitting]`, merged in the sitting | Tests, CI and Codex green on the unmerged PR | pending checks first; the sitting: snapshot → census and manifest from the branch → OK → merge → `--confirm` → `--verify` → start; a fresh census refused; the cooldown refuses a second generation within the hour; a new share reads "just now"; exchange order and badges unchanged; the embedding check; the ledger PR | — |
 | 5 | Readers compare aware values in `core/`, sentinels included; the normalizers collapse onto `as_utc` | Mixed naive/aware sorts and windows; forced-Vancouver unit tests | — | — |

@@ -28,6 +28,13 @@ import pytest
 
 from core.models.event.event_request import EventCreateRequest
 from core.models.task.task_request import TaskCreateRequest
+from core.utils.timestamp_helpers import today_in
+from core.utils.zone_context import current_zone
+
+
+def _today() -> date:
+    """Today as the app reads it — in the current zone (outside a request, the default)."""
+    return today_in(current_zone())
 
 
 @pytest.mark.asyncio
@@ -47,7 +54,7 @@ class TestDateRangeStringCoercion:
     ):
         """tasks.get_user_items_in_range returns a task whose string due_date is in range."""
         user = await self._user(neo4j_driver, "user_date_range_tasks")
-        due = date.today() + timedelta(days=3)
+        due = _today() + timedelta(days=3)
 
         task = (
             await services.tasks.create_task(
@@ -57,8 +64,8 @@ class TestDateRangeStringCoercion:
 
         result = await services.tasks.get_user_items_in_range(
             user_uid=user,
-            start_date=date.today() - timedelta(days=7),
-            end_date=date.today() + timedelta(days=60),
+            start_date=_today() - timedelta(days=7),
+            end_date=_today() + timedelta(days=60),
             include_completed=True,
         )
         assert result.is_ok, f"get_user_items_in_range failed: {result}"
@@ -69,7 +76,7 @@ class TestDateRangeStringCoercion:
     ):
         """A task dated outside the window is correctly excluded (coercion didn't over-match)."""
         user = await self._user(neo4j_driver, "user_date_range_excl")
-        far = date.today() + timedelta(days=120)  # beyond the +60 window
+        far = _today() + timedelta(days=120)  # beyond the +60 window
 
         task = (
             await services.tasks.create_task(
@@ -79,8 +86,8 @@ class TestDateRangeStringCoercion:
 
         result = await services.tasks.get_user_items_in_range(
             user_uid=user,
-            start_date=date.today() - timedelta(days=7),
-            end_date=date.today() + timedelta(days=60),
+            start_date=_today() - timedelta(days=7),
+            end_date=_today() + timedelta(days=60),
             include_completed=True,
         )
         assert result.is_ok
@@ -91,7 +98,7 @@ class TestDateRangeStringCoercion:
     ):
         """get_stats_for_user counts a task whose string due_date is in the past as overdue."""
         user = await self._user(neo4j_driver, "user_overdue")
-        yesterday = (date.today() - timedelta(days=1)).isoformat()
+        yesterday = (_today() - timedelta(days=1)).isoformat()
         # create_task forbids past due_dates, so seed the overdue node directly.
         async with neo4j_driver.session() as session:
             await session.run(
@@ -112,7 +119,7 @@ class TestDateRangeStringCoercion:
     ):
         """events.get_events_in_range returns an event whose string event_date is in range."""
         user = await self._user(neo4j_driver, "user_date_range_events")
-        when = date.today() + timedelta(days=2)
+        when = _today() + timedelta(days=2)
 
         event = (
             await services.events.create_event(
@@ -127,8 +134,8 @@ class TestDateRangeStringCoercion:
         ).value
 
         result = await services.events.get_events_in_range(
-            start_date=date.today() - timedelta(days=7),
-            end_date=date.today() + timedelta(days=30),
+            start_date=_today() - timedelta(days=7),
+            end_date=_today() + timedelta(days=30),
             user_uid=user,
         )
         assert result.is_ok, f"get_events_in_range failed: {result}"
@@ -147,7 +154,7 @@ class TestDateRangeStringCoercion:
         whole range fetch fails → the calendar silently loses every task in range.
         """
         user = await self._user(neo4j_driver, "user_dt_range_tasks")
-        in_range = (date.today() + timedelta(days=3)).isoformat()
+        in_range = (_today() + timedelta(days=3)).isoformat()
         # Seed directly: create_task normalizes to a date-only string, so a datetime
         # value can only arrive via a mis-writing path — which is exactly the bug.
         async with neo4j_driver.session() as session:
@@ -163,8 +170,8 @@ class TestDateRangeStringCoercion:
 
         result = await services.tasks.get_user_items_in_range(
             user_uid=user,
-            start_date=date.today() - timedelta(days=7),
-            end_date=date.today() + timedelta(days=60),
+            start_date=_today() - timedelta(days=7),
+            end_date=_today() + timedelta(days=60),
             include_completed=True,
         )
         assert result.is_ok, f"get_user_items_in_range raised/failed: {result}"
@@ -175,7 +182,7 @@ class TestDateRangeStringCoercion:
     ):
         """An event whose event_date is a full datetime STRING is returned, not thrown on."""
         user = await self._user(neo4j_driver, "user_dt_range_events")
-        in_range = (date.today() + timedelta(days=2)).isoformat()
+        in_range = (_today() + timedelta(days=2)).isoformat()
         async with neo4j_driver.session() as session:
             await session.run(
                 """
@@ -189,8 +196,8 @@ class TestDateRangeStringCoercion:
             )
 
         result = await services.events.get_events_in_range(
-            start_date=date.today() - timedelta(days=7),
-            end_date=date.today() + timedelta(days=30),
+            start_date=_today() - timedelta(days=7),
+            end_date=_today() + timedelta(days=30),
             user_uid=user,
         )
         assert result.is_ok, f"get_events_in_range raised/failed: {result}"

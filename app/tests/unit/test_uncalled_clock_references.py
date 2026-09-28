@@ -8,9 +8,8 @@ This check does: it walks every module's AST, resolves the names ``date`` and
 function of a call. "Today" is today in a zone
 (``core.utils.zone_context.today_in_current_zone``, or ``today_in(zone)``).
 
-The guarded trees grow with the arc: ``core/`` from PR 2b's first sub-row,
-``adapters/`` and ``ui/`` from its second; PR 8 adds ``datetime.now`` and PR 9
-moves the check into the lint.
+It guards ``core/``, ``adapters/`` and ``ui/`` — the trees ruff's ``DTZ011``
+guards; PR 8 adds ``datetime.now`` and PR 9 moves the check into the lint.
 
 See: /docs/roadmap/utc-instants-arc.md § PR 2b
 """
@@ -24,7 +23,7 @@ import pytest
 
 APP_ROOT = Path(__file__).resolve().parents[2]
 
-GUARDED_TREES = ("core",)
+GUARDED_TREES = ("core", "adapters", "ui")
 
 
 def _clock_names(tree: ast.Module) -> tuple[set[str], set[str]]:

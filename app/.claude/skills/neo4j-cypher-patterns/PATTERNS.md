@@ -493,8 +493,9 @@ WHERE date(left(toString(n.due_date), 10)) >= date($start_date)
 
 🔑 **`date()` CANNOT parse a datetime string** (Neo4j 2025.12: `Cannot parse '2026-06-05T02:24:..+00:00' as a Date`) — and a throw inside a range `WHERE` or a mega-query `CASE` takes the **whole** query down, so the user silently loses every row, not just the malformed one (#766). The `left(toString(x), 10)` prefix above is the defensive default for any date field. For a **datetime**-typed field compared against a *date*, `date(datetime(...))` (parse-then-extract) is equivalent:
 ```cypher
-// last_completed is a datetime string; we want "before today"
-CASE WHEN date(datetime(h.last_completed)) < date() THEN 0 ELSE 1 END
+// last_completed is a datetime string; we want "before today". $today is the
+// user's day (today_in(current_zone())) — Cypher never computes today with date()
+CASE WHEN date(datetime(h.last_completed)) < date($today) THEN 0 ELSE 1 END
 ```
 
 **Coercion safety cheat-sheet:**

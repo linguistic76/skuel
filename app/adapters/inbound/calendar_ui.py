@@ -57,8 +57,10 @@ from core.utils.timestamp_helpers import (
     next_week,
     prev_month,
     prev_week,
+    today_in,
     week_bounds,
 )
+from core.utils.zone_context import current_zone
 from ui.activities.nav import render_activity_sidebar_page
 from ui.calendar.components import (
     create_calendar_header,
@@ -188,21 +190,23 @@ def create_calendar_ui_routes(_app, rt, calendar_service):
     ) -> Any:
         """Entry point — redirect to current month calendar view."""
         require_authenticated_user(request)
-        today = date.today()
+        today = today_in(current_zone())
         return RedirectResponse(f"/cal/month/{today.year}/{today.month}", status_code=302)
 
     @rt("/cal/month")
     def calendar_month_current(request: Request) -> Any:
         """Sidebar "Monthly" link — redirect to the current month."""
         require_authenticated_user(request)
-        today = date.today()
+        today = today_in(current_zone())
         return RedirectResponse(f"/cal/month/{today.year}/{today.month}", status_code=302)
 
     @rt("/cal/week")
     def calendar_week_current(request: Request) -> Any:
         """Sidebar "Weekly" link — redirect to the current week."""
         require_authenticated_user(request)
-        return RedirectResponse(f"/cal/week/{date.today().isoformat()}", status_code=302)
+        return RedirectResponse(
+            f"/cal/week/{today_in(current_zone()).isoformat()}", status_code=302
+        )
 
     @rt("/cal/month/{year}/{month}")
     def calendar_month(request: Request, year: int, month: int) -> Any:
@@ -261,7 +265,7 @@ def create_calendar_ui_routes(_app, rt, calendar_service):
         try:
             target_date = date.fromisoformat(date_str)
         except ValueError:
-            target_date = date.today()
+            target_date = today_in(current_zone())
         week_start, week_end = week_bounds(target_date)
         return _calendar_shell(
             request,
@@ -270,7 +274,7 @@ def create_calendar_ui_routes(_app, rt, calendar_service):
             title=_week_title(week_start, week_end),
             prev_href=f"/cal/week/{_get_prev_week(week_start)}",
             next_href=f"/cal/week/{_get_next_week(week_start)}",
-            today_href=f"/cal/week/{date.today().isoformat()}",
+            today_href=f"/cal/week/{today_in(current_zone()).isoformat()}",
             content_route=f"/cal/week/{date_str}/content",
             content_id="calendar-week-content",
             report_kind="weekly",
@@ -284,7 +288,7 @@ def create_calendar_ui_routes(_app, rt, calendar_service):
         try:
             target_date = date.fromisoformat(date_str)
         except ValueError:
-            target_date = date.today()
+            target_date = today_in(current_zone())
         week_start, week_end = week_bounds(target_date)
         result = await calendar_service.get_calendar_view(
             user_uid=user_uid,
@@ -440,7 +444,7 @@ def create_calendar_ui_routes(_app, rt, calendar_service):
             on_date = date.fromisoformat(raw_on_date)
         except ValueError:
             return Response("Invalid or missing on_date", status_code=400)
-        if on_date > date.today():
+        if on_date > today_in(current_zone()):
             return Response("Cannot complete a future day", status_code=400)
         result = await calendar_service.record_habit_occurrence(
             user_uid, habit_uid, on_date.isoformat()

@@ -43,6 +43,8 @@ from core.models.event.calendar_models import (
     CalendarView,
     habit_block_on,
 )
+from core.utils.timestamp_helpers import today_in
+from core.utils.zone_context import current_zone
 from ui.components import Button, ButtonT, Card, CardBody, CardHeader, CardTitle, Icon, Input
 from ui.feedback import Badge, BadgeT
 from ui.layout import Size
@@ -636,7 +638,7 @@ def create_day_cell(
     chips client-side, so a chip that isn't in the DOM could never reappear when
     the types occluding it are toggled off. Busy days stretch their grid row.
     """
-    is_today = cell_date == date.today()
+    is_today = cell_date == today_in(current_zone())
     daily_href = f"/journals/daily/{cell_date.isoformat()}"
     day_lens_href = f"/today/{cell_date.isoformat()}"
 
@@ -705,7 +707,7 @@ def create_week_grid(calendar_data: CalendarData) -> Div:
     cards = []
     for offset in range(7):
         day = calendar_data.start_date + timedelta(days=offset)
-        is_today = day == date.today()
+        is_today = day == today_in(current_zone())
         day_items = sorted(items_by_date.get(day, []), key=_item_order)
 
         head_tone = (
@@ -997,7 +999,9 @@ def create_item_details_modal(item: CalendarItem) -> Div:
             with_time=False,
             date_value=item.start_time.date().isoformat(),
         )
-    elif item.item_type == CalendarItemType.EVENT and item.start_time.date() >= date.today():
+    elif item.item_type == CalendarItemType.EVENT and item.start_time.date() >= today_in(
+        current_zone()
+    ):
         resched_form = reschedule_form(
             item.uid,
             with_time=True,
@@ -1144,7 +1148,7 @@ def create_item_details_modal(item: CalendarItem) -> Div:
             action_buttons.insert(
                 0, Button("Completed ✓", disabled=True, cls=(ButtonT.secondary, "mr-2"))
             )
-        elif occurrence_day <= date.today():
+        elif occurrence_day <= today_in(current_zone()):
             action_buttons.insert(
                 0,
                 Button(

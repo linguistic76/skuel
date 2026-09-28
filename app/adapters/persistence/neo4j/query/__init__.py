@@ -41,7 +41,7 @@ Usage Examples:
 
     query, params = build_search_query(
         Task,
-        {'priority': 'high', 'due_date__gte': date.today()}
+        {'priority': 'high', 'due_date__gte': today_in(current_zone())}
     )
 
     # Semantic relationship traversal

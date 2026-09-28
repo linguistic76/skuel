@@ -704,15 +704,19 @@ Form(
 ### Date/Time Inputs
 
 ```python
+# "Today" and the wall clock are the user's zone's (core.utils.zone_context), never the host's
+from core.utils.timestamp_helpers import today_in, wall_clock_in
+from core.utils.zone_context import current_zone
+
 # Date with min constraint
-Input(type="date", name="due_date", min=str(date.today()))
+Input(type="date", name="due_date", min=today_in(current_zone()).isoformat())
 
 # Time with 15-minute increments
 Input(type="time", name="start_time", value="09:00", step="900")
 
 # Datetime-local
 Input(type="datetime-local", name="event_start",
-      value=datetime.now().strftime("%Y-%m-%dT%H:%M"))
+      value=wall_clock_in(current_zone()).strftime("%Y-%m-%dT%H:%M"))
 
 # Two-column date row
 Div(

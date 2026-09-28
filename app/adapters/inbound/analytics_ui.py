@@ -20,6 +20,8 @@ from adapters.inbound.boundary import ui_boundary_handler
 from adapters.inbound.fasthtml_types import FastHTMLApp, Request, RouteDecorator
 from core.models.enums import AnalyticsDomain
 from core.utils.logging import get_logger
+from core.utils.timestamp_helpers import today_in
+from core.utils.zone_context import current_zone
 from ui.analytics import (
     render_analytics_dashboard,
     render_analytics_result,
@@ -91,7 +93,7 @@ def create_analytics_ui_routes(
         params = parse_period_params(request)
 
         analytics_domain = AnalyticsDomain(analytics_domain_str)
-        today = date.today()
+        today = today_in(current_zone())
 
         if params.period == "week_current":
             week_start = today - timedelta(days=today.weekday())
