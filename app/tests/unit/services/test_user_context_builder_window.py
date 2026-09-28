@@ -15,10 +15,12 @@ import pytest
 from core.models.user.user import User, UserPreferences
 from core.services.user.user_context_builder import UserContextBuilder
 from core.utils.result_simplified import Errors, Result
+from core.utils.timestamp_helpers import day_of
 from core.utils.zone_context import current_zone, zone_scope
+from tests.helpers.laptop_clock import laptop_wall
 
-# Calendar days here are read on the host clock (period bounds, widened dates):
-# the expectations are the laptop's, where the host clock and the default zone agree.
+# A calendar window's bounds are its midnights in the user's zone, held on the
+# stored (UTC) clock; the default user here is the laptop's, in Vancouver.
 pytestmark = pytest.mark.usefixtures("laptop_zone")
 
 
@@ -66,9 +68,9 @@ async def test_calendar_window_starts_the_touched_selection_at_the_periods_start
 
     assert result.is_ok, result.error
     _, kwargs = executor.execute_mega_query.call_args
-    assert kwargs["window_start"] == datetime(2026, 9, 1)
+    assert kwargs["window_start"] == laptop_wall(2026, 9, 1)
     # The period's own end rides along; the query applies no upper bound.
-    assert kwargs["window_end"].date().isoformat() == "2026-09-30"
+    assert day_of(kwargs["window_end"], ZoneInfo("America/Vancouver")).isoformat() == "2026-09-30"
 
 
 @pytest.mark.asyncio
@@ -101,7 +103,8 @@ async def test_a_bangkok_users_window_is_bangkok_days_whoever_asks() -> None:
 
     assert result.is_ok, result.error
     _, kwargs = executor.execute_mega_query.call_args
-    assert kwargs["window_start"] == datetime(2026, 8, 31, 10, 0)
+    # 2026-09-01 00:00 in Bangkok is 2026-08-31 17:00Z.
+    assert kwargs["window_start"] == datetime(2026, 8, 31, 17, 0)
 
 
 @pytest.mark.asyncio
@@ -116,4 +119,4 @@ async def test_an_unparsed_preferences_blob_follows_the_default_zone() -> None:
 
     assert result.is_ok, result.error
     _, kwargs = executor.execute_mega_query.call_args
-    assert kwargs["window_start"] == datetime(2026, 9, 1)
+    assert kwargs["window_start"] == laptop_wall(2026, 9, 1)

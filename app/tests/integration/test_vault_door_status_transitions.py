@@ -34,13 +34,13 @@ Requires: Docker running with Neo4j testcontainer.
 
 from __future__ import annotations
 
-from datetime import datetime
 from pathlib import Path
 from typing import Any
 
 import pytest
 
 from core.events import CalendarEventCompleted, GoalAchieved, TaskCompleted, TaskReopened
+from tests.helpers.laptop_clock import laptop_wall
 
 OWNER_UID = "user_test_integration"  # seeded by the ensure_test_users fixture
 
@@ -116,8 +116,8 @@ async def _prop(neo4j_driver, uid: str, prop: str) -> Any:
 
 
 @pytest.mark.asyncio
-# The authored ✅ day widens to its first instant on the host clock: the
-# laptop's case, where that is its midnight.
+# The authored ✅ day widens to its first instant in the owner's zone (the
+# laptop's case, on the default), held on the stored (UTC) clock.
 @pytest.mark.usefixtures("laptop_zone")
 async def test_file_arriving_completed_publishes_once(
     clean_neo4j, neo4j_driver, door, bus: _CapturingBus, tmp_path: Path
@@ -131,7 +131,7 @@ async def test_file_arriving_completed_publishes_once(
     assert event.task_uid == "task.vault-status-born"
     assert event.user_uid == OWNER_UID
     # The authored ✅ date, not the ingest moment
-    assert event.occurred_at == datetime(2026, 3, 4, 0, 0)
+    assert event.occurred_at == laptop_wall(2026, 3, 4, 0, 0)
 
 
 @pytest.mark.asyncio
@@ -324,8 +324,8 @@ async def test_force_reingest_of_completed_files_publishes_zero(
 
 
 @pytest.mark.asyncio
-# The authored ✅ day widens to its first instant on the host clock: the
-# laptop's case, where that is its midnight.
+# The authored ✅ day widens to its first instant in the owner's zone (the
+# laptop's case, on the default), held on the stored (UTC) clock.
 @pytest.mark.usefixtures("laptop_zone")
 async def test_directory_door_publishes_a_goal_achievement(
     clean_neo4j, neo4j_driver, door, bus: _CapturingBus, tmp_path: Path
@@ -344,7 +344,7 @@ async def test_directory_door_publishes_a_goal_achievement(
 
     (event,) = bus.completions(GoalAchieved)
     assert event.goal_uid == "goal.vault-status-goal"
-    assert event.occurred_at == datetime(2026, 3, 4, 0, 0)
+    assert event.occurred_at == laptop_wall(2026, 3, 4, 0, 0)
     assert event.actual_duration_days == 62
 
 

@@ -28,6 +28,7 @@ from core.services.habits.habit_event_handler_service import (
     _calculate_recovery_difficulty,
 )
 from core.utils.result_simplified import Result
+from tests.helpers.laptop_clock import laptop_wall
 
 # ---------------------------------------------------------------------------
 # Fixtures
@@ -185,7 +186,7 @@ class TestHandleHabitCompleted:
         event = HabitCompleted(
             habit_uid="habit_test_abc",
             user_uid="user_mike",
-            occurred_at=datetime(2026, 3, 20, 14, 30),
+            occurred_at=laptop_wall(2026, 3, 20, 14, 30),
             completed_on_time=True,
         )
 

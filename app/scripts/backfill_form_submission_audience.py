@@ -66,6 +66,10 @@ import argparse
 import asyncio
 import sys
 
+from core.utils.process_clock import pin_process_clock_to_utc
+
+pin_process_clock_to_utc()  # the UTC arc's bridge: before any clock read (ADR-089)
+
 # Submissions fetched per query. Paging is by UID cursor, so this bounds memory
 # without bounding how much the run completes.
 DEFAULT_BATCH_SIZE = 500

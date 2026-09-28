@@ -25,6 +25,10 @@ from typing import Any
 # Add parent directory to path for imports
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
+from core.utils.process_clock import pin_process_clock_to_utc
+
+pin_process_clock_to_utc()  # the UTC arc's bridge: before any clock read (ADR-089)
+
 from adapters.persistence.neo4j.neo4j_connection import Neo4jConnection
 from core.utils.logging import get_logger
 
@@ -100,7 +104,7 @@ async def main() -> None:
 
     # Get Neo4j credentials using credential store (same as config)
     conn = Neo4jConnection()
-    driver = conn.connect()
+    driver = await conn.connect()
 
     try:
         await driver.verify_connectivity()

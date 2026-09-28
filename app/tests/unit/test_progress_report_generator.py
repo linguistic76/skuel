@@ -22,10 +22,12 @@ from core.services.report.progress_report_generator import ProgressReportGenerat
 from core.utils.period_keys import monthly_period_key
 from core.utils.report_periods import resolve_report_period
 from core.utils.result_simplified import Errors, Result
+from core.utils.timestamp_helpers import day_of
+from tests.helpers.laptop_clock import laptop_wall
 
-# Calendar periods are the report user's days, read on the host clock. These
-# tests pin the laptop's case — host clock and the default zone agree — so a
-# period's bounds read as its own midnights on any host.
+# Calendar periods are the report user's days — here the laptop's case, a user on
+# the default zone — and a period's bounds are its midnights there, held on the
+# stored (UTC) clock (laptop_wall).
 ZONE = ZoneInfo("America/Vancouver")
 
 
@@ -999,8 +1001,8 @@ class TestCalendarPeriods:
         _, kwargs = generator.context_builder.build_rich.call_args
         assert kwargs["window"] == "2026-01"
         assert report.time_period == "2026-01"
-        assert report.period_start == datetime(2026, 1, 1)
-        assert report.period_end.date() == date(2026, 1, 31)
+        assert report.period_start == laptop_wall(2026, 1, 1)
+        assert day_of(report.period_end, ZONE) == date(2026, 1, 31)
         # January 2026 is closed: counted through its end, final, with its limits named.
         assert report.data_cutoff == report.period_end
         assert report.metadata["period_kind"] == "month"
@@ -1169,7 +1171,7 @@ class TestCalendarPeriods:
     ):
         """A partial generated in the period's last hour must not block the final one."""
         partial = MagicMock()
-        partial.data_cutoff = datetime(2026, 1, 31, 22, 0, 0)  # before the month's end
+        partial.data_cutoff = laptop_wall(2026, 1, 31, 22)  # before the month's end
         generator.activity_report_service.latest_for_period = AsyncMock(
             return_value=Result.ok(partial)
         )
@@ -1185,7 +1187,7 @@ class TestCalendarPeriods:
     @pytest.mark.asyncio
     async def test_a_closed_periods_final_report_keeps_the_cooldown(self, generator):
         final = MagicMock()
-        final.data_cutoff = datetime(2026, 1, 31, 23, 59, 59, 999999)
+        final.data_cutoff = laptop_wall(2026, 1, 31, 23, 59, 59, 999999)
         generator.activity_report_service.latest_for_period = AsyncMock(
             return_value=Result.ok(final)
         )

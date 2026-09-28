@@ -52,6 +52,10 @@ import asyncio
 import sys
 from dataclasses import dataclass
 
+from core.utils.process_clock import pin_process_clock_to_utc
+
+pin_process_clock_to_utc()  # the UTC arc's bridge: before any clock read (ADR-089)
+
 from core.models.enums.entity_enums import EntityStatus, EntityType
 from core.models.enums.neo_labels import NeoLabel
 from core.services.completion_stamp import COMPLETION_FIELDS

@@ -25,6 +25,10 @@ sys.path.insert(0, str(project_root))
 
 from dotenv import load_dotenv
 
+from core.utils.process_clock import pin_process_clock_to_utc
+
+pin_process_clock_to_utc()  # the UTC arc's bridge: before any clock read (ADR-089)
+
 from adapters.persistence.neo4j.neo4j_connection import Neo4jConnection
 from core.models.semantic.edge_metadata import (
     create_cited_metadata,
@@ -489,7 +493,7 @@ async def main():
             sys.exit(1)
 
     conn = Neo4jConnection()
-    driver = conn.connect()
+    driver = await conn.connect()
 
     try:
         await seed_mock_data(driver, dry_run=dry_run)

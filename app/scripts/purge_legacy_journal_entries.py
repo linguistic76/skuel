@@ -35,6 +35,10 @@ import asyncio
 import sys
 from typing import Any
 
+from core.utils.process_clock import pin_process_clock_to_utc
+
+pin_process_clock_to_utc()  # the UTC arc's bridge: before any clock read (ADR-089)
+
 LEGACY_PIPELINES = (
     "journal",
     "llm_summary",
@@ -88,7 +92,7 @@ async def main() -> int:
     from adapters.persistence.neo4j.neo4j_connection import Neo4jConnection
 
     conn = Neo4jConnection()
-    driver = conn.connect()
+    driver = await conn.connect()
     try:
         params = {"pipelines": list(LEGACY_PIPELINES), "cutoff": args.cutoff}
         targets = await _fetch(driver, _SELECT_QUERY, params)

@@ -26,6 +26,7 @@ from core.services.tasks.task_event_handler_service import (
     _detect_batch_pattern,
 )
 from core.utils.result_simplified import Errors, Result
+from tests.helpers.laptop_clock import laptop_wall
 
 # ---------------------------------------------------------------------------
 # Fixtures
@@ -123,7 +124,7 @@ class TestDetectBatchPattern:
 
     @pytest.mark.usefixtures("laptop_zone")
     def test_end_of_day_cleanup(self):
-        at = datetime(2026, 3, 20, 18, 30)
+        at = laptop_wall(2026, 3, 20, 18, 30)
         assert _detect_batch_pattern(3, at) == "end_of_day_cleanup"
 
     def test_routine_batch(self):
@@ -411,7 +412,7 @@ class TestHandleTasksBulkCompleted:
         event = TasksBulkCompleted(
             task_uids=["t1", "t2"],
             user_uid="user_mike",
-            occurred_at=datetime(2026, 3, 20, 18, 30),
+            occurred_at=laptop_wall(2026, 3, 20, 18, 30),
         )
 
         with patch.object(service.logger, "info") as mock_log:

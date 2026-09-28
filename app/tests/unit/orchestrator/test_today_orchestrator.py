@@ -9,7 +9,7 @@ the other dated domains, and per-section degradation.
 
 from __future__ import annotations
 
-from datetime import date, datetime, timedelta
+from datetime import date, timedelta
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
@@ -21,6 +21,7 @@ from core.models.task.task import Task
 from core.utils.result_simplified import Errors, Result
 from core.utils.timestamp_helpers import today_in
 from core.utils.zone_context import current_zone
+from tests.helpers.laptop_clock import laptop_wall
 from ui.today.orchestrator import (
     TodayOrchestrator,
     _date_label,
@@ -52,9 +53,11 @@ def test_heading_label_uses_relative_words_near_today() -> None:
 @pytest.mark.usefixtures("laptop_zone")
 def test_choice_is_on_day_by_deadline_or_decision() -> None:
     day = date(2026, 9, 12)
-    due = Choice(uid="c1", user_uid=USER, title="x", decision_deadline=datetime(2026, 9, 12, 9))
-    decided = Choice(uid="c2", user_uid=USER, title="x", decided_at=datetime(2026, 9, 12, 21, 5))
-    elsewhere = Choice(uid="c3", user_uid=USER, title="x", decision_deadline=datetime(2026, 9, 13))
+    due = Choice(uid="c1", user_uid=USER, title="x", decision_deadline=laptop_wall(2026, 9, 12, 9))
+    decided = Choice(uid="c2", user_uid=USER, title="x", decided_at=laptop_wall(2026, 9, 12, 21, 5))
+    elsewhere = Choice(
+        uid="c3", user_uid=USER, title="x", decision_deadline=laptop_wall(2026, 9, 13)
+    )
     undated = Choice(uid="c4", user_uid=USER, title="x")
     assert choice_is_on_day(due, day)
     assert choice_is_on_day(decided, day)
@@ -222,9 +225,9 @@ async def test_other_domains_are_read_for_the_viewed_day() -> None:
         uid="c-on",
         user_uid=USER,
         title="Pick",
-        decision_deadline=datetime.combine(day, datetime.min.time()),
+        decision_deadline=laptop_wall(day.year, day.month, day.day),
     )
-    off_day = Choice(uid="c-off", user_uid=USER, title="Skip", decided_at=datetime(2020, 1, 1))
+    off_day = Choice(uid="c-off", user_uid=USER, title="Skip", decided_at=laptop_wall(2020, 1, 1))
     services["choices"].get_user_items_in_range = AsyncMock(
         return_value=Result.ok([off_day, on_day])
     )

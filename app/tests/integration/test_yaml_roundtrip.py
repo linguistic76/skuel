@@ -42,7 +42,7 @@ class TestYAMLRoundTrip:
             result = await session.run("RETURN 1 as test")
             record = await result.single()
             assert record["test"] == 1
-            await session.run("MATCH (n) DETACH DELETE n")
+            await session.run("MATCH (n) WHERE NOT n:MigrationRecord DETACH DELETE n")
 
         # Create services with shared driver
         ingestion_service = make_unified_ingestion_service(driver=neo4j_driver)

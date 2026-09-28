@@ -30,7 +30,7 @@ meta:
     findings: scripts/lint_skuel.py::SkuelLinter.SKUEL030_BASELINE
   coverage:
     relationships: {total: 171, with_contract: 95}
-    labels: {total: 60, with_contract: 16}
+    labels: {total: 61, with_contract: 16}
   legacy_label_config_aliases: [Lesson, Ls, Lp]
 
 relationships:
@@ -1218,6 +1218,8 @@ labels:
   IngestionError:
     contract: null
   IngestionMetadata:
+    contract: null
+  MigrationRecord:
     contract: null
   Insight:
     contract: null

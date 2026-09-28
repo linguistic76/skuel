@@ -422,7 +422,7 @@ def startup_calls(monkeypatch, tmp_path) -> dict[str, int]:
     # keep the unit test hermetic (content/reference-chunk adapters only store it).
     fake_connection = _FakeConnection(_NoDatabaseDriver())
 
-    def _fake_get_connection() -> _FakeConnection:
+    async def _fake_get_connection() -> _FakeConnection:
         return fake_connection
 
     monkeypatch.setattr(

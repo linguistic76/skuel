@@ -389,8 +389,8 @@ few seconds to resume. `connect_with_retry()` (`neo4j_connection.py`, ADR-080 Ho
 startup connectivity probe in bounded exponential backoff, catching `NEO4J_EXCEPTIONS`:
 
 ```python
-# Single chokepoint: Neo4jAdapter.connect() awaits this, so every startup path
-# (app bootstrap + the one-shot ./dev scripts) inherits waking-instance tolerance.
+# Single chokepoint: Neo4jConnection.connect() awaits this, so every opener
+# (app bootstrap, Neo4jAdapter, the one-shot scripts) inherits waking-instance tolerance.
 await connect_with_retry(
     connection,
     max_attempts=Neo4jConnectRetry.MAX_ATTEMPTS,          # core/constants.py — 6
@@ -398,6 +398,12 @@ await connect_with_retry(
     max_delay_seconds=Neo4jConnectRetry.MAX_DELAY_SECONDS,     # 30.0s cap (~31s total)
 )
 ```
+
+The same `connect()` holds the two other checks on the seam: the driver is built only by
+`open_async_driver` (`graph_driver.py`), which refuses a process whose clock is not pinned to UTC,
+and after the probe answers, `require_utc_instants` refuses a graph that holds data unless the UTC
+instants migration's `:MigrationRecord` is `applied` (an empty graph is stamped). The migration
+script is the one opener that skips the second (`Neo4jConnection(utc_instants_guard=False)`).
 
 `probe_connectivity()` runs `RETURN 1` — a stronger check than the driver's routing-only
 `verify_connectivity()`, because it confirms the database is actually **resumed and answering**,

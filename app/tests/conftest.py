@@ -15,12 +15,21 @@ process — the credential-backend selector, the intelligence tier, vault paths 
 so an integration test sees the same non-database configuration the developer
 runs the app with. It does not override a variable that is already set.
 
+The process clock is pinned to UTC before anything else runs, as every entry
+point pins it (``core/utils/process_clock.py``): the graph driver factory refuses
+an unpinned process. A test of the unpinned behaviour forces a zone for its own
+block (``forced_zone``, ``laptop_zone``), which restores the pin when it exits.
+
 ``laptop_zone`` is the one clock fixture shared by every tier (opt-in, never
 autouse): see its docstring.
 """
 
+from core.utils.process_clock import pin_process_clock_to_utc
+
+pin_process_clock_to_utc()
+
 # Load .env before any other imports (required for integration tests)
-from dotenv import load_dotenv
+from dotenv import load_dotenv  # noqa: E402
 
 load_dotenv()
 
@@ -41,7 +50,6 @@ from tests.fixtures.embedding_fixtures import (  # noqa: E402
     mock_vector_search_unavailable,
     services_with_embeddings,
 )
-from tests.helpers.forced_zone import forced_zone  # noqa: E402
 
 # ============================================================================
 # CLOCK FIXTURE — the laptop's case
@@ -50,19 +58,16 @@ from tests.helpers.forced_zone import forced_zone  # noqa: E402
 
 @pytest.fixture
 def laptop_zone(monkeypatch: pytest.MonkeyPatch) -> Iterator[None]:
-    """The laptop's case: the host clock and the app default zone agree.
+    """The laptop's case: a user on the app default zone, America/Vancouver.
 
-    Both are America/Vancouver: the process zone is forced (``forced_zone``) and
-    ``SKUEL_TIMEZONE`` is removed, so the default is ``DEFAULT_TIMEZONE``. CI and
-    the cloud run UTC, where a calendar day read on the host clock — a report
-    period's bounds, a date-only completion widened to its first instant — sits
-    seven or eight hours from midnight, and "earlier today" on the host clock is
-    later today in Vancouver. A test whose expectations are the laptop's opts in:
-    ``pytestmark = pytest.mark.usefixtures("laptop_zone")``.
+    ``SKUEL_TIMEZONE`` is removed, so the default is ``DEFAULT_TIMEZONE``; the
+    process stays pinned to UTC, as the app's is. A stamp written at a moment on
+    the laptop's wall clock is stored as that moment's UTC digits
+    (``tests/helpers/laptop_clock.py``). A test whose expectations are a
+    Vancouver user's opts in: ``pytestmark = pytest.mark.usefixtures("laptop_zone")``.
     """
     monkeypatch.delenv("SKUEL_TIMEZONE", raising=False)
-    with forced_zone("America/Vancouver"):
-        yield
+    yield
 
 
 # Explicitly expose fixtures for pytest discovery

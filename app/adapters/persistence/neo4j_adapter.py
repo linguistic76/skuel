@@ -79,32 +79,20 @@ class Neo4jAdapter:
         if not NEO4J_AVAILABLE:
             raise RuntimeError("Neo4j driver not installed. Run: uv sync")
 
+        # Neo4jConnection.connect() is the one way a graph is opened: the driver
+        # built only in a UTC-pinned process, a paused AuraDB Free instance waited
+        # out (ADR-080 Horizon 0), the graph's data version checked (ADR-089).
         if self._uri or self._user or self._password:
             # Explicit credentials provided — create a dedicated connection
             self.connection = Neo4jConnection(
                 uri=self._uri, username=self._user, password=self._password
             )
-            self.connection.connect()
+            await self.connection.connect()
         else:
             # No explicit credentials — use the app-level singleton
-            self.connection = get_connection()
+            self.connection = await get_connection()
 
         self.driver = self.connection.driver
-
-        # Bounded exponential-backoff connectivity probe (ADR-080 Horizon 0):
-        # tolerate a paused/waking AuraDB Free instance instead of crashing
-        # bootstrap on a bare ServiceUnavailable. Single startup chokepoint —
-        # every caller of adapter.connect() (app bootstrap + one-shot scripts)
-        # inherits the resilience.
-        from adapters.persistence.neo4j.neo4j_connection import connect_with_retry
-        from core.constants import Neo4jConnectRetry
-
-        await connect_with_retry(
-            self.connection,
-            max_attempts=Neo4jConnectRetry.MAX_ATTEMPTS,
-            base_delay_seconds=Neo4jConnectRetry.BASE_DELAY_SECONDS,
-            max_delay_seconds=Neo4jConnectRetry.MAX_DELAY_SECONDS,
-        )
         logger.info(f"Connected to Neo4j at {self.connection.uri}")
 
     def get_driver(self) -> Any:

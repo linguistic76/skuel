@@ -19,7 +19,6 @@ from typing import Any
 import neo4j.time
 
 from core.models.insight.persisted_insight import InsightImpact, InsightType, PersistedInsight
-from tests.helpers.forced_zone import forced_zone
 
 
 def _native(moment: datetime) -> neo4j.time.DateTime:
@@ -87,16 +86,16 @@ class TestNativeStampsBecomeDatetimes:
 
 class TestRecencyAcrossStampShapes:
     def test_a_naive_and_an_aware_stamp_of_one_moment_score_alike(self) -> None:
-        """Under a zone west of UTC a naive local stamp is not read as UTC."""
-        with forced_zone("America/Vancouver"):
-            local_hour_ago = datetime.now() - timedelta(hours=1)
-            aware_hour_ago = datetime.now(UTC) - timedelta(hours=1)
-            naive_score = PersistedInsight.from_dict(
-                _node(created_at=local_hour_ago.isoformat())
-            ).priority_score()
-            aware_score = PersistedInsight.from_dict(
-                _node(created_at=_native(aware_hour_ago))
-            ).priority_score()
+        """A pinned process stamps a naive ``datetime.now()`` in UTC digits, which the
+        stored clock reads as UTC: the two shapes of one moment are one age."""
+        naive_hour_ago = datetime.now() - timedelta(hours=1)
+        aware_hour_ago = datetime.now(UTC) - timedelta(hours=1)
+        naive_score = PersistedInsight.from_dict(
+            _node(created_at=naive_hour_ago.isoformat())
+        ).priority_score()
+        aware_score = PersistedInsight.from_dict(
+            _node(created_at=_native(aware_hour_ago))
+        ).priority_score()
         assert abs(naive_score - aware_score) < 0.001
 
 
@@ -121,18 +120,19 @@ class TestExpiryAcrossStampShapes:
         assert insight.is_expired() is True
         assert insight.is_active() is False
 
-    def test_a_naive_expiry_is_read_in_the_process_zone(self) -> None:
-        with forced_zone("Asia/Bangkok"):
-            insight = PersistedInsight.with_default_expiry(
-                days=1,
-                uid="insight.x",
-                user_uid="user_insight_stamps",
-                insight_type=InsightType.STREAK_PATTERN,
-                domain="habits",
-                title="t",
-                description="d",
-                confidence=0.5,
-                impact=InsightImpact.LOW,
-                entity_uid="habit.x",
-            )
-            assert insight.is_expired() is False
+    def test_a_naive_expiry_is_read_on_the_stored_clock(self) -> None:
+        """``with_default_expiry`` stamps a naive ``datetime.now()`` — UTC digits in a
+        pinned process, which the stored clock reads as UTC: a day ahead, not expired."""
+        insight = PersistedInsight.with_default_expiry(
+            days=1,
+            uid="insight.x",
+            user_uid="user_insight_stamps",
+            insight_type=InsightType.STREAK_PATTERN,
+            domain="habits",
+            title="t",
+            description="d",
+            confidence=0.5,
+            impact=InsightImpact.LOW,
+            entity_uid="habit.x",
+        )
+        assert insight.is_expired() is False

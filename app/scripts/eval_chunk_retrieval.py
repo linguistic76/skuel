@@ -68,6 +68,10 @@ from eval_query_set import (  # type: ignore[import-not-found]
     parse_ratified_field,
 )
 
+from core.utils.process_clock import pin_process_clock_to_utc
+
+pin_process_clock_to_utc()  # the UTC arc's bridge: before any clock read (ADR-089)
+
 DEFAULT_QUERY_SET = Path(__file__).parent / "eval_chunk_retrieval_queries.yaml"
 
 # Production /search default (SearchRequest.limit). The base results are capped

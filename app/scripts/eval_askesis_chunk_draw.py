@@ -71,6 +71,10 @@ from eval_chunk_retrieval import (  # type: ignore[import-not-found]
     load_query_set,
 )
 
+from core.utils.process_clock import pin_process_clock_to_utc
+
+pin_process_clock_to_utc()  # the UTC arc's bridge: before any clock read (ADR-089)
+
 if TYPE_CHECKING:
     from core.ports.query_types import SemanticSearchChunkResult
     from core.services.askesis.intent_classifier import IntentClassification, IntentClassifier

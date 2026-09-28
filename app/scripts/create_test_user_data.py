@@ -24,8 +24,12 @@ import sys
 from pathlib import Path
 
 from dotenv import load_dotenv
-from neo4j import AsyncGraphDatabase
 
+from core.utils.process_clock import pin_process_clock_to_utc
+
+pin_process_clock_to_utc()  # the UTC arc's bridge: before any clock read (ADR-089)
+
+from adapters.persistence.neo4j.neo4j_connection import Neo4jConnection
 from core.config.credential_store import get_credential
 from core.utils.logging import get_logger
 
@@ -275,7 +279,9 @@ async def main():
             sys.exit(1)
 
     # Connect to Neo4j
-    driver = AsyncGraphDatabase.driver(args.neo4j_uri, auth=(args.neo4j_user, neo4j_password))
+    driver = await Neo4jConnection(
+        uri=args.neo4j_uri, username=args.neo4j_user, password=neo4j_password
+    ).connect()
 
     try:
         if args.cleanup:

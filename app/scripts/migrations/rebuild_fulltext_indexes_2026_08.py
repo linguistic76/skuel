@@ -38,6 +38,10 @@ from neo4j import AsyncSession
 # Add parent directory to path for imports
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
+from core.utils.process_clock import pin_process_clock_to_utc
+
+pin_process_clock_to_utc()  # the UTC arc's bridge: before any clock read (ADR-089)
+
 from adapters.persistence.neo4j.neo4j_schema_manager import FULLTEXT_INDEX_DEFINITIONS
 from core.models.enums.neo_labels import NeoLabel
 from core.utils.logging import get_logger

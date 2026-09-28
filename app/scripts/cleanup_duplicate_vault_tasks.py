@@ -100,6 +100,10 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from neo4j import EagerResult
 
+from core.utils.process_clock import pin_process_clock_to_utc
+
+pin_process_clock_to_utc()  # the UTC arc's bridge: before any clock read (ADR-089)
+
 from core.models.enums.entity_enums import EntityStatus
 from core.models.enums.pipeline import Pipeline
 from core.models.relationship_names import RelationshipName

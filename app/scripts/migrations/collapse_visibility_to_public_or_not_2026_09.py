@@ -44,6 +44,10 @@ import asyncio
 import sys
 from typing import TYPE_CHECKING, Any
 
+from core.utils.process_clock import pin_process_clock_to_utc
+
+pin_process_clock_to_utc()  # the UTC arc's bridge: before any clock read (ADR-089)
+
 from core.models.enums.metadata_enums import Visibility
 from core.models.enums.neo_labels import NeoLabel
 from core.models.relationship_names import RelationshipName
@@ -167,7 +171,7 @@ async def main() -> int:
 
     from adapters.persistence.neo4j.neo4j_connection import Neo4jConnection
 
-    driver = Neo4jConnection().connect()
+    driver = await Neo4jConnection().connect()
     try:
         print("=== BEFORE ===")
         retired_rows, spawned_rows = await _census(driver)

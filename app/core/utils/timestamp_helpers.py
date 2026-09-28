@@ -75,23 +75,23 @@ def now_local() -> datetime:
 # THE STORED CLOCK — what an offset-less stored stamp's digits mean
 # =============================================================================
 
-#: The zone an offset-less stored stamp is read in. ``None`` is the host's local
-#: zone — the clock every naive writer stamps with, and so the zone the stored
-#: corpus's offset-less digits are in; it becomes ``UTC`` when the corpus is
-#: migrated to UTC and the process clock is pinned to it (ADR-089; the cutover
-#: row of /docs/roadmap/utc-instants-arc.md). Every reading of a stored stamp
-#: goes through the helpers below, so that one assignment moves them all.
-STORED_INSTANT_CLOCK: tzinfo | None = None
+#: The zone an offset-less stored stamp is read in: ``UTC``. The stored corpus is
+#: migrated to UTC and every process is pinned to it (``core/utils/process_clock.py``),
+#: so every naive writer stamps UTC digits (ADR-089; the cutover row of
+#: /docs/roadmap/utc-instants-arc.md). ``None`` reads a naive stamp in the host's
+#: local zone instead — the helpers keep that reading, pinned by their unit tests,
+#: until the constant is removed with the pin. Every reading of a stored stamp goes
+#: through the helpers below, so this one assignment moves them all.
+STORED_INSTANT_CLOCK: tzinfo | None = UTC
 
 
 def as_utc(value: datetime) -> datetime:
     """An instant as an aware UTC datetime — the one form two instants are compared in.
 
     An aware value is converted to UTC. A naive value is read in
-    ``STORED_INSTANT_CLOCK`` — while that is the host's zone (``None``), the
-    process's local zone: the laptop's zone on the laptop, UTC in CI and in the
-    cloud. So a naive stamp and an aware one subtract and compare without a
-    ``TypeError``, and a naive value is never read in a hard-coded zone.
+    ``STORED_INSTANT_CLOCK`` — UTC, whatever zone the process runs in (on
+    ``None``, the process's local zone). So a naive stamp and an aware one
+    subtract and compare without a ``TypeError``.
 
     Example:
         age = now_utc() - as_utc(goal.created_at)
@@ -124,12 +124,10 @@ def shown_in(instant: datetime, zone: tzinfo) -> datetime:
     """How a stored instant is shown in ``zone`` — a naive wall clock, for display.
 
     A naive stamp is read in the stored clock (:func:`as_utc`) and shown on
-    ``zone``'s clock. An aware stamp is shown on ``zone``'s clock too — except
-    while the stored clock is the host's (``None``), when it is shown as stored,
-    its own digits: until the corpus is migrated, some stored natives carry the
-    host's wall clock labelled UTC, and nothing short of the migration tells
-    them from true UTC ones. On the laptop, for a user on the default zone, both
-    readings give the digits as stored.
+    ``zone``'s clock, and so is an aware one. On the host-zone stored clock
+    (``None``) an aware stamp is shown as stored, its own digits: a corpus not
+    migrated to UTC holds natives that carry the host's wall clock labelled UTC,
+    which nothing short of the migration tells from true UTC ones.
 
     Example:
         shown_in(entry.created_at, current_zone()).strftime("%b %d, %H:%M")
@@ -142,9 +140,9 @@ def shown_in(instant: datetime, zone: tzinfo) -> datetime:
 def age_of(instant: datetime) -> timedelta | None:
     """How long ago a stored instant was — ``None`` when it is not to be told.
 
-    While the stored clock is the host's (``None``), a naive stamp's age is not
-    told, and a relative label ("3h ago") shows the stamp by its date instead.
-    Once the stored clock is UTC, every stamp has an age.
+    On the UTC stored clock every stamp has an age. On the host-zone stored
+    clock (``None``) a naive stamp's age is not told, and a relative label
+    ("3h ago") shows the stamp by its date instead.
 
     Example:
         age = age_of(shared_at)
@@ -238,8 +236,8 @@ def stored_day_bounds(first_day: date, last_day: date, zone: tzinfo) -> tuple[da
     after the last day, each read on the stored clock (:func:`as_stored_clock`)
     — the naive form a stored naive stamp takes. A query compares a stored
     instant with these bounds rather than slicing the stamp's own digits to a
-    day, so the days are the zone's in every era: the host's digits before the
-    cutover, UTC after it.
+    day, so the days are the zone's whatever the stored clock: UTC digits on
+    ``UTC``, the host's on ``None``.
 
     Example:
         start, end = stored_day_bounds(week_start, week_end, current_zone())

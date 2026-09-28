@@ -26,6 +26,7 @@ from core.services.events.event_event_handler_service import (
     _classify_rescheduling_pattern,
 )
 from core.utils.result_simplified import Errors, Result
+from tests.helpers.laptop_clock import laptop_wall
 
 # ---------------------------------------------------------------------------
 # Fixtures
@@ -159,7 +160,7 @@ class TestHandleEventCompleted:
             user_uid="user_mike",
             completion_date=date(2026, 3, 20),
             quality_score=8,
-            occurred_at=datetime(2026, 3, 20, 14, 30),
+            occurred_at=laptop_wall(2026, 3, 20, 14, 30),
         )
 
         with patch.object(service.logger, "info") as mock_log:

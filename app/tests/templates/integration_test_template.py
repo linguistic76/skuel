@@ -63,10 +63,10 @@ def example_backend(neo4j_container: Neo4jContainer) -> UniversalNeo4jBackend[Ex
     Returns:
         Typed backend for Example domain
     """
-    from neo4j import AsyncGraphDatabase
+    from adapters.persistence.neo4j.graph_driver import open_async_driver
 
     uri = neo4j_container.get_connection_url()
-    driver = AsyncGraphDatabase.driver(uri)
+    driver = open_async_driver(uri, auth=None)
 
     # validate_label=False for test-only labels not in NeoLabel enum
     return UniversalNeo4jBackend[Example](driver, "Example", Example, validate_label=False)
@@ -381,10 +381,10 @@ class TestExampleRelationships:
         2. Query relationship patterns
         3. Verify relationship properties
         """
-        from neo4j import AsyncGraphDatabase
+        from adapters.persistence.neo4j.graph_driver import open_async_driver
 
         uri = neo4j_container.get_connection_url()
-        driver = AsyncGraphDatabase.driver(uri)
+        driver = open_async_driver(uri, auth=None)
 
         # Arrange & Act: Create entities with relationship
         async with driver.session() as session:
@@ -481,10 +481,10 @@ class TestExampleIntegration:
         - Query integrated data
         - Verify complete workflow
         """
-        from neo4j import AsyncGraphDatabase
+        from adapters.persistence.neo4j.graph_driver import open_async_driver
 
         uri = neo4j_container.get_connection_url()
-        driver = AsyncGraphDatabase.driver(uri)
+        driver = open_async_driver(uri, auth=None)
 
         # Setup: Create user and example entities
         async with driver.session() as session:

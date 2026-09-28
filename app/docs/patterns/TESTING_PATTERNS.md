@@ -1,6 +1,6 @@
 ---
 title: Testing Patterns
-updated: 2026-09-22
+updated: 2026-09-28
 category: patterns
 related_skills:
 - pytest
@@ -239,7 +239,7 @@ async def create_test_users(user_backend, test_user_uid):
 @pytest.fixture
 async def tasks_backend(neo4j_container):
     """Backend with connection to test Neo4j."""
-    driver = AsyncGraphDatabase.driver(neo4j_container.get_connection_url())
+    driver = open_async_driver(neo4j_container.get_connection_url(), auth=None)
     backend = UniversalNeo4jBackend[Task](driver, "Task", Task)
     yield backend
     await driver.close()
@@ -261,7 +261,7 @@ neo4j_container
 @pytest.fixture
 async def clean_neo4j(neo4j_container):
     """Start each test with empty database."""
-    driver = AsyncGraphDatabase.driver(neo4j_container.get_connection_url())
+    driver = open_async_driver(neo4j_container.get_connection_url(), auth=None)
     async with driver.session() as session:
         await session.run("MATCH (n) DETACH DELETE n")
     yield driver

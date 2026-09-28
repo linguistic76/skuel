@@ -50,6 +50,10 @@ from typing import Any
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
+from core.utils.process_clock import pin_process_clock_to_utc
+
+pin_process_clock_to_utc()  # the UTC arc's bridge: before any clock read (ADR-089)
+
 from core.models.enums.pipeline import Pipeline
 
 
@@ -269,7 +273,7 @@ async def main() -> int:
     from adapters.persistence.neo4j.neo4j_connection import Neo4jConnection
 
     conn = Neo4jConnection()
-    driver = conn.connect()
+    driver = await conn.connect()
     try:
         tracked_uids, live_ue_paths = await _fetch_tracked(driver)
         user_entry_rows = await _fetch_user_entry_rows(driver)

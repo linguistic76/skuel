@@ -241,7 +241,7 @@ class TestAnInstantsDayInTheGraph:
         service = ChoicesCoreService(backend=backend, event_bus=InMemoryEventBus())
 
         # The user types 05:00 on the 28th into a datetime-local field: on their
-        # clock. It is 22:00Z on the 27th — the stored clock is the host's (UTC).
+        # clock. It is 22:00Z on the 27th — the stored clock is UTC.
         with zone_scope(zone):
             created = await service.create_choice(
                 ChoiceCreateRequest(

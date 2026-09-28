@@ -31,6 +31,7 @@ from core.models.enums.entity_enums import EntityType
 from core.models.habit.habit import Habit
 from core.services.habits.habits_completion_service import HabitsCompletionService
 from core.utils.result_simplified import Errors, Result
+from tests.helpers.laptop_clock import laptop_wall
 
 FIXED_NOW = datetime(2026, 7, 10, 8, 0, 0)
 
@@ -99,8 +100,8 @@ class TestConsecutiveDayCompletion:
     def test_calendar_day_arithmetic_not_24_hour_window(self, streak_service, sample_habit):
         # 23:59 -> 00:01 next day is only 2 minutes apart but crosses a date
         # boundary, so it counts as a consecutive day and increments.
-        habit = replace(sample_habit, last_completed=datetime(2026, 7, 9, 23, 59, 0))
-        new_streak = streak_service._calculate_new_streak(habit, datetime(2026, 7, 10, 0, 1, 0))
+        habit = replace(sample_habit, last_completed=laptop_wall(2026, 7, 9, 23, 59, 0))
+        new_streak = streak_service._calculate_new_streak(habit, laptop_wall(2026, 7, 10, 0, 1, 0))
         assert new_streak == 6
 
 

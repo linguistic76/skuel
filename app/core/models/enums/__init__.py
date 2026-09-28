@@ -18,6 +18,7 @@ Module Organization:
 - pipeline: Pipeline, JeUse, ProcessingMode, ReportSource, ExchangeStatus
 - curriculum_enums: LpType, PublicationState, StepDifficulty
 - lifepath_enums: ThemeCategory
+- migration_enums: MigrationState
 - scheduling_enums: RecurrencePattern, TimeOfDay, EnergyLevel
 - learning_enums: MasteryImpact, LearningLevel, EducationalLevel, MasteryStatus, KnowledgeStatus, etc.
 - metadata_enums: RelationshipType, Intent, Visibility, SystemConstants, etc.
@@ -116,6 +117,9 @@ from .metadata_enums import (
     TrendDirection,
     Visibility,
 )
+
+# Data migration state (the graph's :MigrationRecord)
+from .migration_enums import MigrationState
 
 # Neo4j labels - single source of truth for node labels
 from .neo_labels import NeoLabel
@@ -262,6 +266,7 @@ __all__ = [
     "StepDifficulty",
     "SystemConstants",
     "ThemeCategory",
+    "MigrationState",
     "TimeOfDay",
     "TranscriptionStatus",
     "TrendDirection",

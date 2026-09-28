@@ -142,6 +142,14 @@ class NeoLabel(StrEnum):
     INGESTION_METADATA = "IngestionMetadata"  # Per-file ingestion watermark (file_path keyed)
 
     # =========================================================================
+    # Data Version — the graph's record of a whole-corpus data migration
+    # =========================================================================
+    # One node per migration, keyed by ``name``. The graph driver refuses a graph
+    # that holds data unless the UTC instants migration's record is ``applied``
+    # (adapters/persistence/neo4j/graph_driver.py, ADR-089).
+    MIGRATION_RECORD = "MigrationRecord"
+
+    # =========================================================================
     # Intelligence Snapshots (non-Entity aggregate nodes)
     # =========================================================================
     # "Analytics aggregate, they don't create" holds for DOMAIN data — these are

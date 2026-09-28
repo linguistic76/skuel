@@ -46,6 +46,10 @@ sys.path.insert(0, str(project_root))
 
 from dotenv import load_dotenv
 
+from core.utils.process_clock import pin_process_clock_to_utc
+
+pin_process_clock_to_utc()  # the UTC arc's bridge: before any clock read (ADR-089)
+
 from adapters.persistence.neo4j.neo4j_connection import Neo4jConnection
 from core.utils.logging import get_logger
 
@@ -88,7 +92,7 @@ async def main() -> int:
     args = parser.parse_args()
 
     conn = Neo4jConnection()
-    driver = conn.connect()
+    driver = await conn.connect()
     try:
         async with driver.session() as session:
             result = await session.run(HABIT_AUDIT_QUERY)

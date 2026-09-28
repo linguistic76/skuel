@@ -20,6 +20,10 @@ Run with:
 import asyncio
 from datetime import date, datetime, timedelta
 
+from core.utils.process_clock import pin_process_clock_to_utc
+
+pin_process_clock_to_utc()  # the UTC arc's bridge: before any clock read (ADR-089)
+
 from adapters.persistence.neo4j.neo4j_connection import Neo4jConnection
 from adapters.persistence.neo4j.universal_backend import UniversalNeo4jBackend
 from core.models.entity import Entity
@@ -392,7 +396,7 @@ async def main():
     logger.info(f"\nConnecting to Neo4j at {conn.uri}...")
 
     try:
-        driver = conn.connect()
+        driver = await conn.connect()
 
         # Seed all domains
         await seed_knowledge_units(driver)

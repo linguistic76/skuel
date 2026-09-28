@@ -5,6 +5,10 @@ Clear Neo4j Database
 Safely removes all nodes and relationships from Neo4j.
 Use before re-ingesting the content vault (``./dev vault-sync --vault content``).
 
+The one node kept is the graph's migration record (``:MigrationRecord``): the
+graph stays migrated to UTC instants, which is what lets the app open it again
+once it holds data (adapters/persistence/neo4j/graph_driver.py).
+
 CAUTION: This will delete ALL data in the database!
 """
 
@@ -20,13 +24,21 @@ sys.path.insert(0, str(project_root))
 
 from dotenv import load_dotenv
 
+from core.utils.process_clock import pin_process_clock_to_utc
+
+pin_process_clock_to_utc()  # the UTC arc's bridge: before any clock read (ADR-089)
+
 from adapters.persistence.neo4j.neo4j_connection import Neo4jConnection
+from core.models.enums.neo_labels import NeoLabel
 from core.utils.logging import get_logger
 
 # Load environment variables
 load_dotenv(project_root / ".env")
 
 logger = get_logger(__name__)
+
+#: The label no clear deletes — the graph's record of its data version.
+_KEPT = NeoLabel.MIGRATION_RECORD.value
 
 
 async def clear_database(
@@ -76,15 +88,15 @@ async def clear_database(
             return None
 
     conn = Neo4jConnection(uri=uri, username=username, password=password)
-    driver = conn.connect()
+    driver = await conn.connect()
 
     try:
         async with driver.session() as session:
             # Step 1: Get counts before deletion
             logger.info("📊 Counting existing data...")
 
-            count_result = await session.run("""
-                MATCH (n)
+            count_result = await session.run(f"""
+                MATCH (n) WHERE NOT n:{_KEPT}
                 RETURN count(n) as node_count
             """)
             count_record = await count_result.single()
@@ -113,8 +125,8 @@ async def clear_database(
             # Using DETACH DELETE removes relationships automatically
             logger.info("🗑️  Deleting all nodes and relationships...")
 
-            delete_result = await session.run("""
-                MATCH (n)
+            delete_result = await session.run(f"""
+                MATCH (n) WHERE NOT n:{_KEPT}
                 DETACH DELETE n
                 RETURN count(n) as deleted_count
             """)
@@ -140,8 +152,8 @@ async def clear_database(
             logger.info(f"   Found {len(indexes)} indexes (keeping for performance)")
 
             # Verify deletion
-            verify_result = await session.run("""
-                MATCH (n)
+            verify_result = await session.run(f"""
+                MATCH (n) WHERE NOT n:{_KEPT}
                 RETURN count(n) as remaining
             """)
             verify_record = await verify_result.single()
@@ -199,13 +211,13 @@ async def clear_with_constraints(
         return None
 
     conn = Neo4jConnection(uri=uri, username=username, password=password)
-    driver = conn.connect()
+    driver = await conn.connect()
 
     try:
         async with driver.session() as session:
             # Delete all nodes and relationships
             logger.info("🗑️  Deleting all nodes and relationships...")
-            await session.run("MATCH (n) DETACH DELETE n")
+            await session.run(f"MATCH (n) WHERE NOT n:{_KEPT} DETACH DELETE n")
 
             # Drop all constraints
             logger.info("🗑️  Dropping all constraints...")

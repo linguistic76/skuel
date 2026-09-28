@@ -22,10 +22,13 @@ import time
 from collections.abc import Callable
 from dataclasses import dataclass
 
-from neo4j import AsyncGraphDatabase
+from core.utils.process_clock import pin_process_clock_to_utc
 
-from core.config.unified_config import VectorSearchConfig
-from core.services.neo4j_vector_search_service import Neo4jVectorSearchService
+pin_process_clock_to_utc()  # the UTC arc's bridge: before any clock read (ADR-089)
+
+from adapters.persistence.neo4j.graph_driver import open_async_driver  # noqa: E402
+from core.config.unified_config import VectorSearchConfig  # noqa: E402
+from core.services.neo4j_vector_search_service import Neo4jVectorSearchService  # noqa: E402
 
 
 @dataclass
@@ -190,7 +193,7 @@ async def run_benchmarks():
     """Run all benchmark tests."""
 
     # Connect to Neo4j (assumes local instance running)
-    driver = AsyncGraphDatabase.driver(
+    driver = open_async_driver(
         "neo4j://localhost:7687",
         auth=("neo4j", "password"),  # Update with your credentials
     )

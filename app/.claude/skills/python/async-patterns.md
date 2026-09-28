@@ -316,7 +316,7 @@ async def populated_db(async_client):
 
 ```python
 # Neo4j driver handles pooling automatically
-driver = AsyncGraphDatabase.driver(uri, auth=auth)
+driver = open_async_driver(uri, auth=auth)
 
 # Reuse the driver across requests
 async def get_task(uid: str) -> Result[Task]:

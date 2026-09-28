@@ -7,7 +7,6 @@ cookie+header pair (``tests/fixtures/csrf``).
 
 from __future__ import annotations
 
-from datetime import datetime
 from types import SimpleNamespace
 from unittest.mock import AsyncMock
 
@@ -23,6 +22,7 @@ from core.models.enums.pipeline import ReportSource
 from core.models.report.activity_report import ActivityReport
 from core.utils.result_simplified import Errors, Result
 from tests.fixtures.csrf import attach_csrf
+from tests.helpers.laptop_clock import laptop_wall
 
 
 class _RouteRegistry:
@@ -68,12 +68,12 @@ def _report(**overrides) -> ActivityReport:
         "subject_uid": "user_reports",
         "processor_type": ReportSource.AUTOMATIC,
         "time_period": "7d",
-        "period_start": datetime(2026, 9, 1),
-        "period_end": datetime(2026, 9, 8),
+        "period_start": laptop_wall(2026, 9, 1),
+        "period_end": laptop_wall(2026, 9, 8),
         "depth": "standard",
         "domains_covered": ("tasks", "habits"),
         "processed_content": "# Progress Report\n\n- **Completed:** 3 / 5",
-        "created_at": datetime(2026, 9, 8, 7, 30),
+        "created_at": laptop_wall(2026, 9, 8, 7, 30),
     }
     fields.update(overrides)
     return ActivityReport(**fields)
@@ -321,7 +321,7 @@ class TestDownload:
 
 class TestRenderer:
     # The frontmatter dates each instant on the reader's clock; ``_report``'s
-    # naive stamps are the laptop's wall clock, so the laptop's zone reads them.
+    # stamps are moments on the laptop's wall clock, so the laptop's zone reads them.
     @pytest.mark.usefixtures("laptop_zone")
     def test_frontmatter_title_and_content(self) -> None:
         md = render_activity_report_md(_report())

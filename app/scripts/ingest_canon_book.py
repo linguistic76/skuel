@@ -33,6 +33,10 @@ import re
 import sys
 from pathlib import Path
 
+from core.utils.process_clock import pin_process_clock_to_utc
+
+pin_process_clock_to_utc()  # the UTC arc's bridge: before any clock read (ADR-089)
+
 
 def _resource_uid_from_frontmatter(markdown_text: str) -> str | None:
     """Read ``resource_uid:`` from a leading YAML frontmatter block, if present."""
@@ -93,7 +97,7 @@ async def run_ingest(book_md: Path, resource_uid: str | None, no_embed: bool) ->
         # requested. Gate the bus on the SAME condition as subscribe()/drain() below.
         embed = worker is not None and not no_embed
 
-        reference_chunk_adapter = Neo4jReferenceChunkAdapter(get_connection())
+        reference_chunk_adapter = Neo4jReferenceChunkAdapter(await get_connection())
         ingest = ReferenceIngestionService(
             reference_chunk_adapter,
             event_bus=(event_bus if embed else None),

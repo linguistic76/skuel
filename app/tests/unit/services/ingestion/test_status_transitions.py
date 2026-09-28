@@ -50,9 +50,10 @@ from core.services.ingestion.status_transitions import (
     build_reopen_events,
     classify_ingest_status_transitions,
 )
+from tests.helpers.laptop_clock import laptop_wall
 
-# Calendar days here are read on the host clock (period bounds, widened dates):
-# the expectations are the laptop's, where the host clock and the default zone agree.
+# An authored day widens to its first instant in the owner's zone (the laptop's,
+# on the default), held on the stored (UTC) clock — laptop_wall builds it.
 pytestmark = pytest.mark.usefixtures("laptop_zone")
 
 OWNER = "user_status_transitions"
@@ -339,14 +340,14 @@ def test_event_source_fields_cover_every_property_the_events_read() -> None:
 def test_task_occurred_at_is_the_authored_completion_date() -> None:
     event = _one_event(EntityType.TASK, "task.historic", completion_date=date(2026, 3, 4))
 
-    assert event.occurred_at == datetime(2026, 3, 4, 0, 0)
+    assert event.occurred_at == laptop_wall(2026, 3, 4)
 
 
 def test_task_occurred_at_accepts_an_iso_string_stamp() -> None:
     """Dates reach the graph as native values or strings depending on the writer."""
     event = _one_event(EntityType.TASK, "task.iso", completion_date="2026-03-04")
 
-    assert event.occurred_at == datetime(2026, 3, 4, 0, 0)
+    assert event.occurred_at == laptop_wall(2026, 3, 4)
 
 
 def test_task_overdue_is_measured_against_the_completion_moment() -> None:
@@ -387,7 +388,7 @@ def test_goal_duration_spans_created_at_to_the_achievement() -> None:
     assert isinstance(event, GoalAchieved)
     assert event.goal_uid == "goal.spanning"
     assert event.actual_duration_days == 60
-    assert event.occurred_at == datetime(2026, 3, 2, 0, 0)
+    assert event.occurred_at == laptop_wall(2026, 3, 2)
 
 
 def test_goal_created_at_may_carry_a_utc_offset() -> None:

@@ -41,8 +41,13 @@ import argparse
 import asyncio
 from typing import Any, TypedDict, cast
 
-from neo4j import AsyncDriver, AsyncGraphDatabase
+from neo4j import AsyncDriver
 
+from core.utils.process_clock import pin_process_clock_to_utc
+
+pin_process_clock_to_utc()  # the UTC arc's bridge: before any clock read (ADR-089)
+
+from adapters.persistence.neo4j.neo4j_connection import Neo4jConnection
 from core.models.enums.goal_enums import MeasurementType
 from core.utils.logging import get_logger
 from core.utils.type_converters import finite_float
@@ -153,7 +158,9 @@ async def main(clear_uids: list[str]) -> int:
     logger.info("=" * 78)
 
     db = get_settings().database
-    driver = AsyncGraphDatabase.driver(db.neo4j_uri, auth=(db.neo4j_username, db.neo4j_password))
+    driver = await Neo4jConnection(
+        uri=db.neo4j_uri, username=db.neo4j_username, password=db.neo4j_password
+    ).connect()
     try:
         rows = await audit_rows(driver)
 

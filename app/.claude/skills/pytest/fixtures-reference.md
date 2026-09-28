@@ -25,9 +25,11 @@ runs serially.
 
 ### Root conftest.py (`/tests/conftest.py`)
 
-Runs `load_dotenv()` and re-exports the embedding mocks (`tests/fixtures/embedding_fixtures.py`). No app or database fixture lives here: anything that needs a graph belongs in the integration conftest, next to the container it must use. pytest-asyncio ≥ 1.0 provides the loops itself (`asyncio_default_fixture_loop_scope = "session"` in `pyproject.toml`) — there is no `event_loop` fixture to define or request.
+Pins the process clock to UTC first (`pin_process_clock_to_utc()`, as every entry point does — the graph driver factory refuses an unpinned process), then runs `load_dotenv()` and re-exports the embedding mocks (`tests/fixtures/embedding_fixtures.py`). No app or database fixture lives here: anything that needs a graph belongs in the integration conftest, next to the container it must use. pytest-asyncio ≥ 1.0 provides the loops itself (`asyncio_default_fixture_loop_scope = "session"` in `pyproject.toml`) — there is no `event_loop` fixture to define or request.
 
 ### Integration conftest.py (`/tests/integration/conftest.py`)
+
+Every driver is built by `open_async_driver` (`adapters/persistence/neo4j/graph_driver.py`) — the one construction site, held by `tests/unit/test_graph_driver_construction_sites.py`. The shared `neo4j_driver` also runs the data-version check (`require_utc_instants`), which stamps the empty container with the UTC migration's record; a fixture that clears the graph keeps that `:MigrationRecord` node. A test that needs an empty graph, or reads the whole graph, takes `scratch_neo4j_container` (module-scoped, its own container); a test that opens a `Neo4jConnection` onto a testcontainer takes `connection_settings`, since the connection's settings validate a password CI's environment does not carry.
 
 Every Neo4j container in the tier — these two and the APOC-lockdown suite's — is built
 by `bounded_neo4j_container()` (`tests/integration/_container_lifecycle.py`): the pinned
@@ -56,7 +58,7 @@ def neo4j_uri(neo4j_container):
 @pytest_asyncio.fixture(scope="session")
 async def neo4j_driver(neo4j_uri):
     """Create Neo4j driver connected to test container."""
-    driver = AsyncGraphDatabase.driver(neo4j_uri, auth=("neo4j", "testpassword"))
+    driver = open_async_driver(neo4j_uri, auth=("neo4j", "testpassword"))
     yield driver
     await driver.close()
 
@@ -96,11 +98,11 @@ async def skuel_app(skuel_app_container):
 async def clean_neo4j(neo4j_container, ensure_test_users):
     """Clean database before each test (preserves User nodes)."""
     uri = neo4j_container.get_connection_url()
-    driver = AsyncGraphDatabase.driver(uri)
+    driver = open_async_driver(uri, auth=None)
 
     async def cleanup():
         async with driver.session() as session:
-            await session.run("MATCH (n) WHERE NOT n:User DETACH DELETE n")
+            await session.run("MATCH (n) WHERE NOT n:User AND NOT n:MigrationRecord DETACH DELETE n")
 
     await cleanup()  # Before test
     yield
@@ -115,7 +117,7 @@ async def clean_neo4j(neo4j_container, ensure_test_users):
 async def tasks_backend(neo4j_container):
     """Create UniversalNeo4jBackend for tasks."""
     uri = neo4j_container.get_connection_url()
-    driver = AsyncGraphDatabase.driver(uri)
+    driver = open_async_driver(uri, auth=None)
 
     backend = UniversalNeo4jBackend[Task](driver, "Task", Task)
     yield backend
@@ -126,7 +128,7 @@ async def tasks_backend(neo4j_container):
 async def goals_backend(neo4j_container):
     """Create UniversalNeo4jBackend for goals."""
     uri = neo4j_container.get_connection_url()
-    driver = AsyncGraphDatabase.driver(uri)
+    driver = open_async_driver(uri, auth=None)
 
     backend = UniversalNeo4jBackend[Goal](driver, "Goal", Goal)
     yield backend
@@ -142,7 +144,7 @@ async def goals_backend(neo4j_container):
 async def services(neo4j_container):
     """Unified services fixture with all domain services."""
     uri = neo4j_container.get_connection_url()
-    driver = AsyncGraphDatabase.driver(uri)
+    driver = open_async_driver(uri, auth=None)
 
     @dataclass
     class TestServices:
@@ -257,7 +259,7 @@ def test_user_uid() -> UserUID:
 @pytest_asyncio.fixture
 async def create_relationship(neo4j_container):
     """Fixture to create relationships in Neo4j."""
-    driver = AsyncGraphDatabase.driver(neo4j_container.get_connection_url())
+    driver = open_async_driver(neo4j_container.get_connection_url(), auth=None)
 
     async def _create_relationship(
         from_uid: str,
@@ -285,7 +287,7 @@ async def create_relationship(neo4j_container):
 @pytest_asyncio.fixture
 async def count_relationships(neo4j_container):
     """Fixture to count relationships for assertions."""
-    driver = AsyncGraphDatabase.driver(neo4j_container.get_connection_url())
+    driver = open_async_driver(neo4j_container.get_connection_url(), auth=None)
 
     async def _count_relationships(uid: str, rel_type: str) -> int:
         async with driver.session() as session:
@@ -337,7 +339,7 @@ async def test_task_flow(tasks_backend):  # Missing clean_neo4j!
 ```python
 @pytest_asyncio.fixture
 async def backend(neo4j_container):
-    driver = AsyncGraphDatabase.driver(...)
+    driver = open_async_driver(...)
     backend = UniversalNeo4jBackend[Task](driver, "Task", Task)
 
     yield backend  # Test runs here

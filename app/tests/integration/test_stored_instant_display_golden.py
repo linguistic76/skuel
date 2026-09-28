@@ -3,23 +3,23 @@
 Each display of a stored instant goes through the helpers in
 ``core/utils/timestamp_helpers.py`` (``shown_in``, ``age_of``, ``parse_stamp``),
 which read ``STORED_INSTANT_CLOCK``. The golden files hold what the pages show
-while that constant is the host's zone; a change that alters what a user sees
-fails here.
+on the UTC stored clock, to a user on the default zone (America/Vancouver, the
+laptop's); a change that alters what a user sees fails here.
 
 One classroom — a teacher who owns a group, a student in it — is seeded through
 the real writers, each under a frozen clock (``time_machine``, given a timestamp
-so the process zone stays America/Vancouver, the laptop's): a turn-in, a group
-share, the teacher's feedback, a personal share, a notification and an activity
-report written for the student. Then the clock moves to the render moment and
-the GradeBook, the recipient's card, the exchange thread, the Shared page, the
+so the process zone stays pinned to UTC, as the app's is — its writers stamp
+UTC digits, the digits the migrated corpus holds): a turn-in, a group share, the
+teacher's feedback, a personal share, a notification and an activity report
+written for the student. Then the clock moves to the render moment and the
+GradeBook, the recipient's card, the exchange thread, the Shared page, the
 notifications and the activity report are rendered from the same service reads
 their routes make. The writers' random uids are replaced by names before the
 comparison.
 
 Regenerate the golden files with ``SKUEL_UPDATE_GOLDEN=1`` — only for a change
 that means to alter what is shown, whose diff of these files is then the record
-of what it changes. The shares read "14h ago" here, seven hours more than their
-age, because their stored digits are the host's wall clock.
+of what it changes. The shares read "7h ago", their age at the render moment.
 """
 
 from __future__ import annotations
@@ -86,7 +86,7 @@ def _at(stamp: str) -> float:
     return datetime.fromisoformat(stamp).replace(tzinfo=UTC).timestamp()
 
 
-# The laptop's clock is America/Vancouver (PDT, UTC-7) throughout.
+# The user's zone is America/Vancouver (PDT, UTC-7) throughout; the stamps are UTC.
 TURN_IN = _at("2026-09-21T01:30:00")  # 18:30 on the 20th in Vancouver — the 21st in UTC
 GROUP_SHARE = _at("2026-09-21T01:45:00")  # 18:45 on the 20th
 FEEDBACK = _at("2026-09-21T16:15:00")  # 09:15 on the 21st

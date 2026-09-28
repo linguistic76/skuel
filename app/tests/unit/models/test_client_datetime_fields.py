@@ -25,6 +25,7 @@ from core.models.choice.choice_request import ChoiceCreateRequest
 from core.models.request_base import ClientDateTime
 from core.utils.timestamp_helpers import as_stored_clock
 from core.utils.zone_context import current_zone_var
+from tests.helpers.laptop_clock import laptop_wall
 
 #: Fields a server fills and a client reads — never parsed from client input.
 RESPONSE_FIELDS = {
@@ -98,8 +99,8 @@ def test_every_named_response_field_still_exists():
 
 @pytest.mark.usefixtures("laptop_zone")
 def test_a_bangkok_users_deadline_is_read_on_the_bangkok_clock():
-    """17:00 in Bangkok is 03:00 on the laptop's clock — the stored clock until the
-    cutover — and the same 17:00 typed by a user on the default zone is kept."""
+    """17:00 typed by a Bangkok user is 10:00Z, held on the stored (UTC) clock; the
+    same 17:00 typed by a user on the default zone is 17:00 in Vancouver."""
     token = current_zone_var.set(ZoneInfo("Asia/Bangkok"))
     try:
         request = ChoiceCreateRequest(
@@ -107,7 +108,7 @@ def test_a_bangkok_users_deadline_is_read_on_the_bangkok_clock():
         )
     finally:
         current_zone_var.reset(token)
-    assert request.decision_deadline == datetime(2026, 9, 27, 3, 0)
+    assert request.decision_deadline == datetime(2026, 9, 27, 10, 0)
     assert request.decision_deadline == as_stored_clock(
         datetime(2026, 9, 27, 17, 0, tzinfo=ZoneInfo("Asia/Bangkok"))
     )
@@ -115,7 +116,7 @@ def test_a_bangkok_users_deadline_is_read_on_the_bangkok_clock():
     default = ChoiceCreateRequest(
         title="t", description="d", decision_deadline=datetime(2026, 9, 27, 17, 0)
     )
-    assert default.decision_deadline == datetime(2026, 9, 27, 17, 0)
+    assert default.decision_deadline == laptop_wall(2026, 9, 27, 17, 0)
 
 
 def test_an_offset_bearing_value_keeps_its_instant():

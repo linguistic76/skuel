@@ -59,9 +59,9 @@ def _created_day_cypher() -> str:
 
     Read like ``timestamp_helpers.day_of``: a stamp with an offset names its
     instant, and its day is the zone's. An offset-less stamp is read on the
-    stored clock (``STORED_INSTANT_CLOCK``): while that is the host's, its
-    digits are the host's wall clock and its day is its own ``YYYY-MM-DD``;
-    once it is UTC, it is read like any other instant.
+    stored clock (``STORED_INSTANT_CLOCK``): on UTC, the constant's value, it is
+    read like any other instant; on the host's zone (``None``) its digits are
+    the host's wall clock and its day is its own ``YYYY-MM-DD``.
     """
     if timestamp_helpers.STORED_INSTANT_CLOCK is None:
         return (

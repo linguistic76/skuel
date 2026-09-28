@@ -1,6 +1,6 @@
 ---
 title: "ADR-080: AuraDB Three-Horizon Strategy & GDS Deferral"
-updated: 2026-09-23
+updated: 2026-09-28
 status: accepted
 category: decisions
 tags: [adr, decisions, neo4j, auradb, graph-data-science, infrastructure]
@@ -217,7 +217,7 @@ AuraDS, and implement the willingly-absent capabilities one at a time — each s
 
 ### Deferred within Horizon 0: deep live-request connection resilience
 
-Horizon 0 (shipped) handles the **startup/waking** case only: `Neo4jAdapter.connect` retries the
+Horizon 0 (shipped) handles the **startup/waking** case only: `Neo4jConnection.connect` retries the
 initial connectivity probe with bounded exponential backoff (`connect_with_retry`; bounds in
 `core/constants.py` `Neo4jConnectRetry`), so a paused/waking AuraDB Free instance no longer crashes
 bootstrap. Telemetry retention (`./dev telemetry-retention`, one-shot) keeps the graph under the Free

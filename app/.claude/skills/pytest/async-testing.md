@@ -69,7 +69,7 @@ import pytest_asyncio
 # CORRECT - async fixture
 @pytest_asyncio.fixture
 async def tasks_backend(neo4j_container):
-    driver = AsyncGraphDatabase.driver(neo4j_container.get_connection_url())
+    driver = open_async_driver(neo4j_container.get_connection_url(), auth=None)
     backend = UniversalNeo4jBackend[Task](driver, "Task", Task)
     yield backend
     await driver.close()
@@ -87,11 +87,11 @@ async def tasks_backend(neo4j_container):  # Missing pytest_asyncio!
 @pytest_asyncio.fixture
 async def clean_neo4j(neo4j_container):
     """Clean database before/after each test."""
-    driver = AsyncGraphDatabase.driver(...)
+    driver = open_async_driver(...)
 
     async def cleanup():
         async with driver.session() as session:
-            await session.run("MATCH (n) WHERE NOT n:User DETACH DELETE n")
+            await session.run("MATCH (n) WHERE NOT n:User AND NOT n:MigrationRecord DETACH DELETE n")
 
     await cleanup()  # Before test
     yield
@@ -117,7 +117,7 @@ def neo4j_container(): ...
 
 @pytest_asyncio.fixture(scope="session", loop_scope="session")
 async def neo4j_driver(neo4j_uri):
-    driver = AsyncGraphDatabase.driver(neo4j_uri)
+    driver = open_async_driver(neo4j_uri, auth=None)
     yield driver
     await driver.close()
 ```
