@@ -865,7 +865,7 @@ embedding check has run; the ledger PR records PR 4 as merged and deployed.
 
 - **The pin** is `pin_process_clock_to_utc()` (`core/utils/process_clock.py`), the first
   statement of `main.py`, `tests/conftest.py`, every script that opens the graph, and the two
-  notebooks; `./dev` exports `TZ=UTC`. Every driver is built by `open_async_driver`
+  notebooks (since deleted, #1444); `./dev` exports `TZ=UTC`. Every driver is built by `open_async_driver`
   (`adapters/persistence/neo4j/graph_driver.py`), which refuses an unpinned process.
   `tests/unit/test_graph_driver_construction_sites.py` holds both: no other file names a driver
   constructor, and every graph-opening entry point pins before its first first-party import.
@@ -916,12 +916,14 @@ embedding check has run; the ledger PR records PR 4 as merged and deployed.
   merge and `--confirm` (the guard) — expected. The census takes a few seconds.
 - **Found, not fixed:** the two notebooks query `:KnowledgeUnit`, a label the graph no longer has,
   and the editor notebook imports from a stale path; only their driver lines were changed.
+  Both deleted in #1444.
 - **The sitting (2026-09-28)** ran as § Migration contract step 7 lays out; the ledger row holds
   its results. It surfaced a defect outside the arc: a generated activity report failed at save,
   because `ProgressReportGenerator` stored `detect_cross_domain_patterns`' `Result` in the report's
   metadata rather than its value — fixed in #1442 before the cooldown check. The same generation
   logs `Failed to collect knowledge intelligence: 'GraphContext' object has no attribute 'nodes'`
-  (the optional-intelligence safety net catches it; not fixed). The embedding check was the certain
+  (the optional-intelligence safety net catches it; fixed after the sitting in #1444, which found
+  the same readers also listed other users' tasks as knowledge). The embedding check was the certain
   fix: the hash on the 30 stale entities was cleared, so `--stale` re-embedded every one.
 - **For PR 5:** the corpus is UTC and every process is pinned; a naive `datetime.now()` is UTC.
   The manifest the sitting applied is `~/.local/state/skuel/utc_instants_2026_10/manifest-e095aab7….json`,
