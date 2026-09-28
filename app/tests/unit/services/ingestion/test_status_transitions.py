@@ -36,10 +36,11 @@ Pinned here:
 
 from __future__ import annotations
 
-from datetime import date, datetime
+from datetime import UTC, date, datetime
 from typing import Any
 
 import pytest
+from neo4j.time import DateTime as Neo4jDateTime
 
 from core.events import CalendarEventCompleted, GoalAchieved, TaskCompleted, TaskReopened
 from core.models.enums.entity_enums import EntityType
@@ -402,6 +403,30 @@ def test_goal_created_at_may_carry_a_utc_offset() -> None:
     )
 
     assert event.actual_duration_days == 60
+
+
+@pytest.mark.parametrize(
+    "created_at",
+    [
+        "2026-01-01",  # a bare day: its first instant in the zone (08:00Z, PST)
+        Neo4jDateTime(2026, 1, 1, 8, 0, 0, tzinfo=UTC),
+        "2026-01-01T15:00:00+07:00",
+    ],
+)
+def test_goal_created_at_is_read_as_an_instant_in_every_shape(created_at: object) -> None:
+    event = _one_event(
+        EntityType.GOAL, "goal.shapes", created_at=created_at, achieved_date="2026-03-02"
+    )
+
+    assert event.actual_duration_days == 60
+
+
+def test_an_offset_completion_moment_is_its_instant_on_the_stored_clock() -> None:
+    event = _one_event(EntityType.EVENT, "event.offset", completed_at="2026-03-04T18:30:00+07:00")
+
+    assert isinstance(event, CalendarEventCompleted)
+    assert event.occurred_at == datetime(2026, 3, 4, 11, 30)
+    assert event.completion_date == date(2026, 3, 4)
 
 
 def test_goal_backdated_over_an_ingest_stamped_created_at_floors_at_zero() -> None:

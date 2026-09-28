@@ -18,7 +18,7 @@ Graph relationships queried:
 See: /docs/architecture/REPORT_ARCHITECTURE.md
 """
 
-from datetime import UTC, datetime
+from datetime import datetime
 from typing import TYPE_CHECKING, Any, cast
 
 from core.models.enums.pipeline import ExchangeStatus
@@ -41,18 +41,17 @@ from core.services.report.review_standing import review_standing_from_row
 from core.utils.logging import get_logger
 from core.utils.neo4j_props import coerce_int
 from core.utils.result_simplified import Errors, Result
-from core.utils.timestamp_helpers import parse_iso_utc
+from core.utils.timestamp_helpers import EARLIEST_INSTANT, instant_of
+from core.utils.zone_context import current_zone
 
 if TYPE_CHECKING:
     from core.models.enums.pipeline import Pipeline
     from core.ports.user_entry_protocols import UserEntryReportQueryOperations
 
-_EPOCH = datetime.min.replace(tzinfo=UTC)
-
 
 def _latest_activity_key(summary: StudentExchangeSummary) -> datetime:
     """Newest-first sort key for an exchange line; missing stamps sort oldest."""
-    return parse_iso_utc(summary["latest_activity_at"]) or _EPOCH
+    return instant_of(summary["latest_activity_at"], current_zone()) or EARLIEST_INSTANT
 
 
 class ReportRelationshipService:
@@ -296,7 +295,8 @@ class ReportRelationshipService:
         ``exercise_removed``, titled from the snapshot): the latest entry,
         the latest report on it, lineage counts, the derived
         ``ExchangeStatus``, and ``latest_activity_at`` (the newer of the two
-        stamps, naive = UTC). Lines come back newest activity first.
+        stamps, compared as instants — ``instant_of``). Lines come back newest
+        activity first.
         ``other_feedback`` carries received reports outside any exchange
         (a report on an entry that is not a turn-in, or on no entry) — the
         page's conditional third group.
@@ -319,6 +319,7 @@ class ReportRelationshipService:
         records = result.value or []
         record = cast("dict[str, Any]", records[0]) if records else {}
 
+        zone = current_zone()
         exercises: list[StudentExchangeSummary] = []
         for row in record.get("exercise_summaries") or []:
             if not row.get("exercise_uid") or not row.get("latest_entry_uid"):
@@ -329,12 +330,12 @@ class ReportRelationshipService:
             stamps = [
                 (parsed, stamp)
                 for parsed, stamp in (
-                    (parse_iso_utc(entry_stamp), entry_stamp),
-                    (parse_iso_utc(report_stamp), report_stamp),
+                    (instant_of(entry_stamp, zone), entry_stamp),
+                    (instant_of(report_stamp, zone), report_stamp),
                 )
                 if parsed is not None
             ]
-            latest_activity = max(stamps, default=(_EPOCH, None))[1]
+            latest_activity = max(stamps, default=(EARLIEST_INSTANT, None))[1]
             status = ExchangeStatus.derive(
                 row.get("latest_entry_status"), has_report=bool(report.get("uid"))
             )

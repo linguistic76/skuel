@@ -63,22 +63,7 @@ from core.models.enums import (
     SELCategory,
     SystemConstants,
 )
-
-
-def _naive_local(value: datetime) -> datetime:
-    """Drop an aware datetime to naive local time so it can be compared to ``datetime.now()``.
-
-    Every substance timestamp round-trips through Neo4j as a ZONED datetime —
-    ``increment_substance`` writes ``SET ps.{field} = datetime($timestamp)``, and
-    the driver hands it back tz-aware. The decay maths compares those against
-    ``datetime.now()``, which is naive, and Python refuses to subtract the two.
-
-    So the arithmetic raised ``TypeError`` on any entity whose substance had ever
-    been incremented — the paying case, not an edge case. It surfaced as the
-    Layer-0 knowledge metric failing outright rather than reporting a wrong
-    number, which is why no value ever looked suspicious.
-    """
-    return value.astimezone().replace(tzinfo=None) if value.tzinfo is not None else value
+from core.utils.timestamp_helpers import as_utc, now_utc
 
 
 @dataclass(frozen=True, kw_only=True)
@@ -310,7 +295,7 @@ class Curriculum(Entity):
             and self._cached_substance_score is not None
             and self._substance_cache_timestamp
         ):
-            cache_age = datetime.now() - _naive_local(self._substance_cache_timestamp)
+            cache_age = now_utc() - as_utc(self._substance_cache_timestamp)
             if cache_age.total_seconds() < 3600:
                 return self._cached_substance_score
 
@@ -321,7 +306,7 @@ class Curriculum(Entity):
 
     def _calculate_substance_with_decay(self) -> float:
         """Internal calculation with time-based decay."""
-        now = datetime.now()
+        now = now_utc()
         half_life_days = 30.0
         score = 0.0
 
@@ -353,7 +338,7 @@ class Curriculum(Entity):
         """Exponential decay: e^(-days / half_life), floor at 0.2."""
         if not last_use_date:
             return 0.2
-        days_since_use = (now - _naive_local(last_use_date)).days
+        days_since_use = (now - as_utc(last_use_date)).days
         return max(0.2, exp(-days_since_use / half_life_days))
 
     def is_theoretical_only(self) -> bool:
@@ -406,10 +391,10 @@ class Curriculum(Entity):
         if current_score < 0.5:
             return 0
 
-        # Normalised before max(), not just before the subtraction: a mix of
-        # zoned and naive timestamps makes the comparison itself raise.
+        # Read as instants before max(), not just before the subtraction: a mix
+        # of zoned and naive timestamps makes the comparison itself raise.
         activity_dates = [
-            _naive_local(d)
+            as_utc(d)
             for d in [
                 self.last_applied_date,
                 self.last_practiced_date,
@@ -425,7 +410,7 @@ class Curriculum(Entity):
         most_recent_date = max(activity_dates)
         half_life_days = 30
         threshold_days = -half_life_days * log(0.5)  # ~21 days
-        days_since_use = (datetime.now() - most_recent_date).days
+        days_since_use = (now_utc() - most_recent_date).days
         return max(0, int(threshold_days - days_since_use))
 
     def get_substantiation_summary(self) -> dict[str, Any]:

@@ -32,7 +32,7 @@ if TYPE_CHECKING:
 from core.models.enums.entity_enums import EntityType
 from core.models.enums.pipeline import ReportSource
 from core.models.user_owned_entity import UserOwnedEntity
-from core.utils.timestamp_helpers import day_of
+from core.utils.timestamp_helpers import as_utc, day_of
 
 
 @dataclass(frozen=True)
@@ -161,7 +161,7 @@ class ActivityReport(UserOwnedEntity):
         # period's end, and says so everywhere only the title is shown (recent
         # cards, hub previews).
         counted_to = period_end
-        if data_cutoff is not None and data_cutoff < period_end:
+        if data_cutoff is not None and as_utc(data_cutoff) < as_utc(period_end):
             counted_to = data_cutoff
         # The days a title names are the report user's (``zone``); the bounds and
         # the cutoff are instants on the stored clock.
@@ -169,7 +169,7 @@ class ActivityReport(UserOwnedEntity):
             f"Activity Report — {day_of(period_start, zone).strftime('%b %d')} "
             f"to {day_of(counted_to, zone).strftime('%b %d, %Y')}"
         )
-        if counted_to < period_end:
+        if as_utc(counted_to) < as_utc(period_end):
             title += " (partial)"
         return cls(
             uid=uid,

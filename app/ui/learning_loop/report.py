@@ -27,7 +27,8 @@ from fasthtml.common import (
     Ul,
 )
 
-from core.utils.report_periods import UnknownReportPeriodError, as_naive_utc, resolve_report_period
+from core.utils.report_periods import UnknownReportPeriodError, resolve_report_period
+from core.utils.timestamp_helpers import instant_of
 from core.utils.zone_context import current_zone
 from ui.components import Button, ButtonT, Card, CardBody
 from ui.feedback import Badge, BadgeT, Progress, ProgressT
@@ -610,7 +611,7 @@ def _render_period_line(report: Any) -> Any:
     if not period.is_calendar:
         return None
     metadata = getattr(report, "metadata", None) or {}
-    cutoff = as_naive_utc(getattr(report, "data_cutoff", None))
+    cutoff = instant_of(getattr(report, "data_cutoff", None), period.zone)
     partial = bool(metadata.get("is_partial")) if isinstance(metadata, dict) else False
     if cutoff is not None and period.is_partial_at(cutoff):
         partial = True

@@ -26,11 +26,10 @@ from __future__ import annotations
 
 from calendar import monthrange
 from dataclasses import dataclass
-from datetime import UTC, date, datetime, timedelta, tzinfo
+from datetime import date, datetime, timedelta, tzinfo
 
 from core.constants import ReportTimePeriod
 from core.models.enums.user_entry_enums import ReportPeriodKind
-from core.utils.neo4j_temporal import convert_neo4j_datetime
 from core.utils.period_keys import (
     monthly_period_key,
     monthly_period_start,
@@ -39,9 +38,9 @@ from core.utils.period_keys import (
 )
 from core.utils.timestamp_helpers import (
     as_stored_clock,
+    as_utc,
     day_of,
     local_day_bounds,
-    parse_iso_utc,
     week_bounds,
 )
 
@@ -60,7 +59,8 @@ class ReportPeriod:
     trailing window ``end`` is the ``now`` it was resolved at. ``label`` names
     the period the way a sentence would ("the last 7 days", "September 2026",
     "week 37 of 2026"). ``zone`` is the report user's, whose calendar names
-    the period's days (``calendar_day``).
+    the period's days (``calendar_day``). Its comparisons read both sides as
+    instants (``as_utc``), so a naive ``now`` and an aware one compare alike.
     """
 
     token: str
@@ -75,22 +75,25 @@ class ReportPeriod:
         return self.kind.is_calendar
 
     def data_cutoff(self, now: datetime) -> datetime:
-        """The instant the report's counts run up to — never past the period's end."""
-        return min(now, self.end)
+        """The instant the report's counts run up to — never past the period's end.
+
+        Whichever of ``now`` and ``end`` is earlier, returned as it came.
+        """
+        return self.end if as_utc(self.end) < as_utc(now) else now
 
     def is_closed(self, now: datetime) -> bool:
         """A calendar period whose end has passed; a trailing window never closes."""
-        return self.is_calendar and self.end <= now
+        return self.is_calendar and as_utc(self.end) <= as_utc(now)
 
     def has_started(self, now: datetime) -> bool:
         """Whether the period has begun — a report of a period still in the
         future would count today's open work against a window that holds
         nothing yet, so nothing generates one."""
-        return self.start <= now
+        return as_utc(self.start) <= as_utc(now)
 
     def is_partial_at(self, cutoff: datetime) -> bool:
         """A report counted up to ``cutoff`` is partial when the period runs past it."""
-        return self.is_calendar and cutoff < self.end
+        return self.is_calendar and as_utc(cutoff) < as_utc(self.end)
 
     def preceding_token(self) -> str | None:
         """The token of the calendar period immediately before this one — the
@@ -127,24 +130,6 @@ class ReportPeriod:
             return self.label
         through = self.calendar_day(cutoff)
         return f"{self.label} so far (counted through {through.strftime('%b %d, %Y')})"
-
-
-def as_naive_utc(value: object) -> datetime | None:
-    """A stored timestamp as a naive-UTC datetime, or None when absent or unreadable.
-
-    Node properties arrive as Neo4j DateTime objects, native datetimes, or ISO
-    strings (the temporal split); aware values are normalised to UTC and
-    stripped, naive ones are UTC by convention (``parse_iso_utc``). One shape
-    on both sides of a comparison keeps a window test TypeError-free.
-    """
-    moment = convert_neo4j_datetime(value)
-    if moment is None and isinstance(value, str):
-        moment = parse_iso_utc(value)
-    if moment is None:
-        return None
-    if moment.tzinfo is not None:
-        moment = moment.astimezone(UTC).replace(tzinfo=None)
-    return moment
 
 
 def _calendar_bounds(first: date, last: date, zone: tzinfo) -> tuple[datetime, datetime]:
@@ -224,7 +209,6 @@ def report_period_token(kind: str, ref_date: date) -> str:
 __all__ = [
     "ReportPeriod",
     "UnknownReportPeriodError",
-    "as_naive_utc",
     "report_period_token",
     "resolve_report_period",
 ]

@@ -21,7 +21,7 @@ from core.models.insight import PatternType, TaskPattern
 from core.utils.decorators import with_error_handling
 from core.utils.exception_types import DATA_CONVERSION_EXCEPTIONS
 from core.utils.result_simplified import Result
-from core.utils.timestamp_helpers import as_stored_clock, local_day_bounds
+from core.utils.timestamp_helpers import as_utc, local_day_bounds
 from core.utils.zone_context import current_zone
 
 if TYPE_CHECKING:
@@ -43,10 +43,8 @@ class _PatternAnalysisMixin:
     min_pattern_frequency: int
     min_confidence_score: float
 
-    async def _get_completed_tasks_since(
-        self, user_uid: UserUID, since_date: datetime
-    ) -> list[Task]:
-        """Get completed tasks for a user since a specific date."""
+    async def _get_completed_tasks_since(self, user_uid: UserUID, since: datetime) -> list[Task]:
+        """Get completed tasks for a user since an instant."""
         if not self.tasks_service:
             msg = "tasks_service is required for task analysis but was not injected"
             raise RuntimeError(msg)
@@ -57,7 +55,7 @@ class _PatternAnalysisMixin:
                 return []
 
             # A completion date is a day in the user's zone; it counts from that
-            # day's first instant, read on the stored clock as ``since_date`` is.
+            # day's first instant, compared with ``since`` as an instant.
             zone = current_zone()
             return [
                 task
@@ -65,8 +63,7 @@ class _PatternAnalysisMixin:
                 if (
                     task.status == EntityStatus.COMPLETED
                     and task.completion_date
-                    and as_stored_clock(local_day_bounds(task.completion_date, zone)[0])
-                    >= since_date
+                    and local_day_bounds(task.completion_date, zone)[0] >= as_utc(since)
                 )
             ]
 

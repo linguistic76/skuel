@@ -47,6 +47,7 @@ from core.utils.sort_functions import (
     get_created_at_attr,
     get_decision_deadline,
 )
+from core.utils.timestamp_helpers import as_utc, now_utc
 from core.utils.type_converters import get_enum_attr_str
 
 if TYPE_CHECKING:
@@ -295,19 +296,17 @@ class ChoicesService(
         limit: int = 5,
     ) -> Result[list[ContextualChoice]]:
         """Pending choices with deadline-based priority. For the daily plan P7 slot."""
-        from datetime import datetime
-
         from core.models.context_types import ContextualChoice
 
         result = await self.get_pending_choices(context.user_uid, limit)
         if result.is_error:
             return Result.fail(result)
-        now = datetime.now()
+        now = now_utc()
         contextual: list[ContextualChoice] = []
         for choice in result.value or []:
             deadline = choice.decision_deadline
             if deadline is not None:
-                days_until = (deadline.replace(tzinfo=None) - now).days
+                days_until = (as_utc(deadline) - now).days
                 if days_until <= 2:
                     priority_level = "urgent"
                 elif days_until <= 7:

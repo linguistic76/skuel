@@ -23,6 +23,7 @@ from __future__ import annotations
 
 from dataclasses import replace
 from datetime import UTC, date, datetime, timedelta
+from zoneinfo import ZoneInfo
 
 import pytest
 
@@ -49,6 +50,8 @@ from core.services.ps_engagement._spawn_orchestrator import (
     _compute_cross_edges,
     _validate_spawn_registry,
 )
+from core.utils.zone_context import current_zone_var
+from tests.helpers.forced_zone import forced_zone
 
 ANCHOR = datetime(2026, 5, 9, 12, 0, 0)
 STUDENT = "user_alice"
@@ -128,25 +131,40 @@ class TestTaskBuilder:
         assert task.due_date == ANCHOR.date()
         assert task.scheduled_date is None
 
-    def test_an_aware_anchor_is_stamped_in_the_models_clock(self) -> None:
-        """The gateway mints the engagement as aware UTC; ``Entity.created_at``
-        and every consumer run on naive ``datetime.now()``. The instance is
-        stamped naive, in system-local time — the same instant — and its
-        offsets resolve against that same normalized anchor, so an offset day
-        and the creation day cannot disagree across a UTC midnight."""
+    def test_an_aware_anchor_is_stamped_on_the_stored_clock(self) -> None:
+        """The gateway mints the engagement as aware UTC; the instance's stamps are
+        the naive form the stored clock takes (``as_stored_clock``) — the same
+        instant — and a date offset resolves against that same instant, so an
+        offset day and the creation day cannot disagree across a midnight."""
         aware = datetime(2026, 5, 9, 12, 0, 0, tzinfo=UTC)
-        expected = aware.astimezone().replace(tzinfo=None)
         tt = TaskTemplate(uid="ttpl_aware", title="t", due_offset=RelativeOffset(days=7))
-        task = _build(TASK_SPEC, tt, STUDENT, PS, aware, {"ttpl_aware": "task_uid"})
-        assert task.created_at.tzinfo is None
-        assert task.created_at == expected
-        assert task.due_date == (expected + timedelta(days=7)).date()
-        # A naive comparison — the consumers' shape — must not raise.
-        assert task.created_at <= datetime.now()
+        with forced_zone("America/Vancouver"):  # the process zone plays no part
+            task = _build(TASK_SPEC, tt, STUDENT, PS, aware, {"ttpl_aware": "task_uid"})
+        assert task.created_at == datetime(2026, 5, 9, 12, 0, 0)
+        assert task.due_date == date(2026, 5, 16)
 
         undated = TaskTemplate(uid="ttpl_aware_undated", title="u")
         task = _build(TASK_SPEC, undated, STUDENT, PS, aware, {"ttpl_aware_undated": "t2"})
-        assert task.due_date == expected.date()
+        assert task.due_date == date(2026, 5, 9)
+
+    def test_an_evening_engagement_resolves_offsets_on_the_users_day(self) -> None:
+        """02:00Z on May 10 is 19:00 on May 9 in Vancouver: a task due two days
+        after the engagement is due May 11 for the engaging user, whose day the
+        creation rule reads too — never the day of the anchor's UTC digits."""
+        evening = datetime(2026, 5, 10, 2, 0, 0, tzinfo=UTC)
+        dated = TaskTemplate(uid="ttpl_eve", title="t", due_offset=RelativeOffset(days=2))
+        undated = TaskTemplate(uid="ttpl_eve_undated", title="u")
+        uids = {"ttpl_eve": "t1", "ttpl_eve_undated": "t2"}
+        token = current_zone_var.set(ZoneInfo("America/Vancouver"))
+        try:
+            assert _build(TASK_SPEC, dated, STUDENT, PS, evening, uids).due_date == date(
+                2026, 5, 11
+            )
+            assert _build(TASK_SPEC, undated, STUDENT, PS, evening, uids).due_date == date(
+                2026, 5, 9
+            )
+        finally:
+            current_zone_var.reset(token)
 
     def test_an_instance_is_created_at_the_engagement_not_the_authoring(self) -> None:
         """``created_at``/``updated_at`` are the instance's own lifecycle stamps:

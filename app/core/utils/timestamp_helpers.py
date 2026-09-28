@@ -8,9 +8,11 @@ Eliminates duplication of timestamp operations across services.
 DRY Principle:
 - Timezone-aware "now" helpers
 - The stored clock (STORED_INSTANT_CLOCK): how an offset-less stored stamp is
-  read. Instants as aware UTC (as_utc) for comparison and arithmetic, and as a
-  naive reading of the stored clock (as_stored_clock) for comparison with the
-  naive stamps the writers store
+  read. Instants as aware UTC (as_utc) for comparison and arithmetic — a stored
+  stamp of any shape read as one (instant_of), a sort key that tolerates an
+  absent one (instant_key), the whole days a set of them spans (span_days) —
+  and as a naive reading of the stored clock (as_stored_clock), the form the
+  naive writers store
 - Display of a stored instant (shown_in, age_of), whatever shape it arrives
   in (parse_stamp)
 - Zone helpers, each taking the zone: now_in, wall_clock_in, today_in, day_of
@@ -43,6 +45,7 @@ this module only owns scalar/date arithmetic helpers.
 import dataclasses
 import types
 from calendar import monthrange
+from collections.abc import Iterable
 from datetime import UTC, date, datetime, time, timedelta, tzinfo
 from typing import Any, Union, get_args, get_origin
 
@@ -118,6 +121,39 @@ def as_stored_clock(value: datetime) -> datetime:
         completed_at = as_stored_clock(start)  # the day's first instant, stored naive
     """
     return as_utc(value).astimezone(STORED_INSTANT_CLOCK).replace(tzinfo=None)
+
+
+#: The earliest and the latest aware instants — the sort key an absent instant
+#: takes among aware ones (:func:`instant_key`), first or last.
+EARLIEST_INSTANT = datetime.min.replace(tzinfo=UTC)
+LATEST_INSTANT = datetime.max.replace(tzinfo=UTC)
+
+
+def instant_key(value: datetime | None, missing: datetime = EARLIEST_INSTANT) -> datetime:
+    """An instant as a sort key — aware UTC whatever its shape, ``missing`` when absent.
+
+    A column written by more than one writer holds naive stamps, aware ones and
+    gaps at once, and a sort or a ``max`` over them raw raises ``TypeError``.
+    Each value reads through :func:`as_utc`; an absent one sorts first, or last
+    given ``LATEST_INSTANT``.
+
+    Example:
+        newest = max(instant_key(entry.created_at) for entry in entries)
+    """
+    return as_utc(value) if value is not None else missing
+
+
+def span_days(instants: Iterable[datetime]) -> int:
+    """Whole days from the earliest of ``instants`` to the latest — naive or aware alike.
+
+    Order does not matter; each value reads through :func:`as_utc`. At least one
+    instant is required.
+
+    Example:
+        timeframe = span_days(task.created_at for task in tasks)
+    """
+    moments = [as_utc(instant) for instant in instants]
+    return (max(moments) - min(moments)).days
 
 
 def shown_in(instant: datetime, zone: tzinfo) -> datetime:
@@ -306,29 +342,6 @@ def is_instant_field(model: type, field_name: str) -> bool:
 # =============================================================================
 
 
-def parse_iso_utc(value: str | None) -> datetime | None:
-    """Parse an ISO-8601 timestamp string, treating naive values as UTC.
-
-    Learning-loop stamps have mixed provenance: entry ``created_at`` values
-    are naive ISO strings (the mapper emits ``isoformat()``) while report/
-    revision stamps are timezone-aware (server-side ``datetime()``,
-    ``toString()``-ed at the Cypher boundary). Comparing them raw would
-    TypeError — naive values are UTC by convention (feedback-loop UX arc).
-
-    Returns:
-        Timezone-aware datetime, or None for missing/unparseable input.
-    """
-    if not value:
-        return None
-    try:
-        parsed = datetime.fromisoformat(value)
-    except ValueError:
-        return None
-    if parsed.tzinfo is None:
-        parsed = parsed.replace(tzinfo=UTC)
-    return parsed
-
-
 def parse_stamp(value: object) -> datetime | date | None:
     """A stored timestamp in whatever shape it arrives — or None when absent or unreadable.
 
@@ -356,6 +369,27 @@ def parse_stamp(value: object) -> datetime | date | None:
         return datetime.fromisoformat(text)
     except (ValueError, TypeError):  # fmt: skip
         return None
+
+
+def instant_of(value: object, zone: tzinfo) -> datetime | None:
+    """A stored stamp in whatever shape it arrives, as an aware UTC instant — or None.
+
+    Reads every shape :func:`parse_stamp` reads. A moment goes through
+    :func:`as_utc`; a bare day (a ``date``, a date-only string) is its first
+    instant in ``zone`` — the zone of the user whose day it is. Absent or
+    unreadable: None.
+
+    Example:
+        cutoff = instant_of(report.data_cutoff, current_zone())
+        closed = cutoff is not None and cutoff <= now_utc()
+    """
+    stamp = parse_stamp(value)
+    if isinstance(stamp, datetime):
+        return as_utc(stamp)
+    if isinstance(stamp, date):
+        start, _ = local_day_bounds(stamp, zone)
+        return start
+    return None
 
 
 def parse_date_value(value: Any) -> date | None:

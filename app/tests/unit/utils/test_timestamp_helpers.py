@@ -2,8 +2,9 @@
 
 Covers month_grid_bounds — the single source of the month view's full
 visible range (Monday-start grid, lead-in/tail cells included) — as_utc,
-the one form two instants are compared in, as_stored_clock (its inverse for a
-naive value), and the zone helpers (now_in, wall_clock_in, today_in, day_of,
+the one form two instants are compared in, the readers built on it (instant_of,
+instant_key, span_days), as_stored_clock (its inverse for a naive value), and
+the zone helpers (now_in, wall_clock_in, today_in, day_of,
 hour_of, local_day_bounds, stored_day_bounds, from_wall_clock, to_wall_clock), each of which
 takes its zone, and the type rule (is_instant_field). The as_utc
 and zone tests force the process zone: CI runs UTC, where a naive value reads
@@ -14,24 +15,32 @@ the one it is given would pass there.
 import os
 import time
 from datetime import UTC, date, datetime, timedelta, timezone
+from functools import partial
 from zoneinfo import ZoneInfo
 
 import pytest
+from neo4j.time import Date as Neo4jDate
+from neo4j.time import DateTime as Neo4jDateTime
 
 from core.utils import timestamp_helpers
 from core.utils.timestamp_helpers import (
+    EARLIEST_INSTANT,
+    LATEST_INSTANT,
     age_of,
     as_stored_clock,
     as_utc,
     day_of,
     from_wall_clock,
     hour_of,
+    instant_key,
+    instant_of,
     is_instant_field,
     local_day_bounds,
     month_grid_bounds,
     now_in,
     now_utc,
     shown_in,
+    span_days,
     stored_day_bounds,
     to_wall_clock,
     today_in,
@@ -503,3 +512,67 @@ class TestToWallClock:
             for stamp in (datetime(2026, 9, 27, 17, 0), _FROZEN):
                 back = from_wall_clock(to_wall_clock(stamp, zone), zone)
                 assert as_utc(back) == as_utc(stamp)
+
+
+class TestInstantOf:
+    """A stored stamp in any shape, read as the instant it names — aware UTC."""
+
+    @pytest.mark.parametrize(
+        "stamp",
+        [
+            "2026-09-28T02:00:00",  # offset-less, UTC digits (a naive writer's string)
+            "2026-09-28T02:00:00Z",
+            "2026-09-28T09:00:00+07:00",
+            datetime(2026, 9, 28, 2, 0),
+            datetime(2026, 9, 28, 9, 0, tzinfo=BANGKOK),
+            Neo4jDateTime(2026, 9, 28, 2, 0, 0, tzinfo=UTC),
+        ],
+    )
+    def test_every_shape_of_one_moment_is_that_moment(self, stamp: object) -> None:
+        with forced_zone("America/Vancouver"):  # the process zone plays no part
+            moment = instant_of(stamp, VANCOUVER)
+        assert moment == _FROZEN
+        assert moment is not None and moment.utcoffset() == timedelta(0)
+
+    @pytest.mark.parametrize("day", [date(2026, 9, 27), "2026-09-27", Neo4jDate(2026, 9, 27)])
+    def test_a_bare_day_is_its_first_instant_in_the_zone(self, day: object) -> None:
+        assert instant_of(day, VANCOUVER) == datetime(2026, 9, 27, 7, 0, tzinfo=UTC)
+        assert instant_of(day, BANGKOK) == datetime(2026, 9, 26, 17, 0, tzinfo=UTC)
+
+    @pytest.mark.parametrize("stamp", [None, "", "not-a-date", "2026-13-45", 42])
+    def test_an_absent_or_unreadable_stamp_is_none(self, stamp: object) -> None:
+        assert instant_of(stamp, VANCOUVER) is None
+
+
+class TestInstantKey:
+    """A sort key that puts naive, aware and absent instants in one order."""
+
+    _EARLY_NAIVE = datetime(2026, 9, 27, 23, 0)  # UTC digits
+    _LATE_AWARE = datetime(2026, 9, 28, 9, 0, tzinfo=BANGKOK)  # 02:00Z
+
+    def test_the_mix_cannot_be_sorted_raw(self) -> None:
+        with pytest.raises(TypeError):
+            sorted([self._LATE_AWARE, self._EARLY_NAIVE])
+
+    def test_naive_aware_and_absent_sort_together(self) -> None:
+        stamps = [self._LATE_AWARE, None, self._EARLY_NAIVE]
+        assert sorted(stamps, key=instant_key) == [None, self._EARLY_NAIVE, self._LATE_AWARE]
+
+    def test_an_absent_instant_sorts_last_against_the_latest(self) -> None:
+        stamps = [None, self._LATE_AWARE, self._EARLY_NAIVE]
+        keyed = sorted(stamps, key=partial(instant_key, missing=LATEST_INSTANT))
+        assert keyed == [self._EARLY_NAIVE, self._LATE_AWARE, None]
+
+    def test_the_sentinels_are_aware(self) -> None:
+        assert EARLIEST_INSTANT.utcoffset() == LATEST_INSTANT.utcoffset() == timedelta(0)
+        assert instant_key(None) == EARLIEST_INSTANT
+
+
+class TestSpanDays:
+    def test_whole_days_between_the_earliest_and_the_latest_in_any_order(self) -> None:
+        stamps = [
+            datetime(2026, 9, 20, 2, 0, tzinfo=UTC),
+            datetime(2026, 9, 10, 1, 0),  # naive, UTC digits: the earliest
+            datetime(2026, 9, 15, 12, 0, tzinfo=BANGKOK),
+        ]
+        assert span_days(stamps) == 10

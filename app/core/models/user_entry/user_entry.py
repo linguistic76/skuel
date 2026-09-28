@@ -54,6 +54,8 @@ from dataclasses import dataclass, field
 from datetime import datetime, timedelta
 from typing import TYPE_CHECKING
 
+from core.utils.timestamp_helpers import as_utc
+
 if TYPE_CHECKING:
     from core.models.entity_dto import EntityDTO
     from core.models.user_entry.user_entry_dto import UserEntryDTO
@@ -232,7 +234,7 @@ class UserEntry(UserOwnedEntity):
         """Get processing duration in seconds, or None if not applicable."""
         if not self.processing_started_at or not self.processing_completed_at:
             return None
-        delta = self.processing_completed_at - self.processing_started_at
+        delta = as_utc(self.processing_completed_at) - as_utc(self.processing_started_at)
         if isinstance(delta, timedelta):
             return delta.total_seconds()
         try:

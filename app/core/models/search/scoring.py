@@ -980,8 +980,11 @@ def score_choice(choice: Choice, context: UserContext) -> PriorityScore:
     """
     components: list[ComponentScore] = []
 
-    # Deadline proximity (weight: 0.35) - use decision_deadline field
-    deadline = score_deadline_proximity(choice.decision_deadline)
+    # Deadline proximity (weight: 0.35) — the decision_deadline instant's day in the zone
+    deadline_day = (
+        day_of(choice.decision_deadline, current_zone()) if choice.decision_deadline else None
+    )
+    deadline = score_deadline_proximity(deadline_day)
     components.append(
         ComponentScore(
             component=ScoringComponent.DEADLINE_PROXIMITY,

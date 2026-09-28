@@ -52,7 +52,7 @@ from core.events import BaseEvent, CalendarEventCompleted, GoalAchieved, TaskCom
 from core.models.enums.entity_enums import EntityStatus, EntityType
 from core.models.type_hints import UserUID
 from core.services.completion_stamp import COMPLETION_FIELDS, completion_moment
-from core.utils.timestamp_helpers import as_stored_clock, day_of
+from core.utils.timestamp_helpers import as_stored_clock, as_utc, day_of, instant_of
 from core.utils.zone_context import current_zone
 
 __all__ = [
@@ -283,7 +283,7 @@ def _completion_event(
             occurred_at=occurred_at,
         )
     if entity_type is EntityType.GOAL:
-        created_at = _as_datetime(entity.get("created_at"))
+        created_at = instant_of(entity.get("created_at"), current_zone())
         return GoalAchieved(
             goal_uid=uid,
             user_uid=user_uid,
@@ -295,7 +295,9 @@ def _completion_event(
             # report a negative span — and the calibration handler reads a
             # negative ratio as "ahead of schedule". Zero is what the create door
             # reports for the same shape: no observed time in SKUEL.
-            actual_duration_days=max((occurred_at - created_at).days, 0) if created_at else None,
+            actual_duration_days=(
+                max((as_utc(occurred_at) - created_at).days, 0) if created_at else None
+            ),
             occurred_at=occurred_at,
         )
     if entity_type is EntityType.EVENT:
@@ -368,38 +370,17 @@ def _as_date(value: Any) -> date | None:  # boundary: a Neo4j property value
 
 
 def _as_datetime(value: Any) -> datetime | None:  # boundary: a Neo4j property value
-    """Read a NAIVE datetime from ``datetime``/``date``/neo4j-temporal/ISO-string forms.
+    """Read a completion moment as the naive stored-clock datetime ``occurred_at`` takes.
 
-    A bare date widens to the first instant of that day in the current zone (the
-    vault owner's, under the sync's zone scope) — it goes through
-    ``completion_moment``, so a ``created_at:`` authored as a plain day still
-    yields a duration rather than nothing, measured by the same rule.
-
-    An offset-bearing value is read onto the stored clock and stripped
-    (``as_stored_clock``), because the values it has to meet are naive on that
-    clock: ``BaseEvent.occurred_at`` is naive throughout, and so is everything
-    ``completion_moment`` produces. The preparer canonicalizes ``created_at`` to
-    a ``Z``-suffixed UTC string, so the mixed-awareness subtraction is not
-    hypothetical — it is the ordinary case for an authored goal.
+    Every stored shape reads as the instant it names (``instant_of``); a bare
+    date widens to the first instant of that day in the current zone (the vault
+    owner's, under the sync's zone scope), as ``completion_moment`` widens one.
+    The instant comes back on the stored clock (``as_stored_clock``), the naive
+    form ``BaseEvent.occurred_at`` and everything ``completion_moment`` produces
+    take.
     """
-    value = _to_native(value)
-    if isinstance(value, datetime):
-        parsed = value
-    elif isinstance(value, date):
-        parsed = completion_moment(value, current_zone())
-    elif isinstance(value, str):
-        try:
-            parsed = datetime.fromisoformat(value)
-        except ValueError:
-            widened = _as_date(value)
-            if widened is None:
-                return None
-            parsed = completion_moment(widened, current_zone())
-    else:
-        return None
-    if parsed.tzinfo is not None:
-        parsed = as_stored_clock(parsed)
-    return parsed
+    moment = instant_of(value, current_zone())
+    return as_stored_clock(moment) if moment is not None else None
 
 
 def _as_int(value: Any) -> int | None:  # boundary: a Neo4j property value

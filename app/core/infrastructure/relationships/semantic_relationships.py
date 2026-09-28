@@ -21,6 +21,7 @@ from typing import Any
 from core.constants import ConfidenceLevel
 from core.models.enums import RelationshipType
 from core.models.relationship_names import RelationshipName
+from core.utils.timestamp_helpers import as_utc
 
 
 class RelationshipNamespace(StrEnum):
@@ -379,9 +380,10 @@ class RelationshipMetadata:
 
     def is_valid_at(self, timestamp: datetime) -> bool:
         """Check if relationship is valid at given time."""
-        if self.valid_from and timestamp < self.valid_from:
+        moment = as_utc(timestamp)
+        if self.valid_from and moment < as_utc(self.valid_from):
             return False
-        return not (self.valid_until and timestamp > self.valid_until)
+        return not (self.valid_until and moment > as_utc(self.valid_until))
 
     def to_neo4j_properties(self) -> dict[str, Any]:
         """Convert metadata to Neo4j relationship properties."""

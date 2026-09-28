@@ -10,9 +10,11 @@ Usage:
 
 from __future__ import annotations
 
+from datetime import datetime
 from typing import TYPE_CHECKING, Any
 
 from core.models.enums.entity_enums import EntityStatus
+from core.utils.timestamp_helpers import LATEST_INSTANT, instant_key
 
 if TYPE_CHECKING:
     from core.models.choice.choice import Choice
@@ -76,8 +78,8 @@ def _task_sort_by_title(task: Task) -> str:
     return (task.title or "").lower()
 
 
-def _task_sort_by_updated(task: Task) -> str:
-    return str(task.updated_at or "")
+def _task_sort_by_updated(task: Task) -> datetime:
+    return instant_key(task.updated_at)
 
 
 def filter_tasks(
@@ -206,8 +208,8 @@ def filter_habits(
     def by_name(h: Any) -> str:
         return (h.title or "").lower()
 
-    def by_created(h: Any) -> str:
-        return str(h.created_at or "")
+    def by_created(h: Any) -> datetime:
+        return instant_key(h.created_at)
 
     if sort_by == "streak":
         filtered.sort(key=by_streak)
@@ -245,8 +247,8 @@ def filter_events(
     def by_title(e: Any) -> str:
         return (e.title or "").lower()
 
-    def by_created(e: Any) -> str:
-        return str(e.created_at or "")
+    def by_created(e: Any) -> datetime:
+        return instant_key(e.created_at)
 
     if sort_by == "date":
         filtered.sort(key=by_date)
@@ -276,8 +278,8 @@ def filter_choices(
     elif status_filter == "decided":
         filtered = [c for c in filtered if c.decided_at or c.status == EntityStatus.COMPLETED]
 
-    def by_deadline(c: Any) -> str:
-        return str(c.decision_deadline or "9999-12-31")[:10]
+    def by_deadline(c: Any) -> datetime:
+        return instant_key(c.decision_deadline, LATEST_INSTANT)
 
     def by_priority(c: Any) -> int:
         return PRIORITY_ORDER.get(str(c.priority) if c.priority else "", 3)
@@ -285,8 +287,8 @@ def filter_choices(
     def by_title(c: Any) -> str:
         return (c.title or "").lower()
 
-    def by_created(c: Any) -> str:
-        return str(c.created_at or "")
+    def by_created(c: Any) -> datetime:
+        return instant_key(c.created_at)
 
     if sort_by == "deadline":
         filtered.sort(key=by_deadline)
@@ -334,8 +336,8 @@ def filter_principles(
     def by_name(p: Any) -> str:
         return (p.title or "").lower()
 
-    def by_created(p: Any) -> str:
-        return str(p.created_at or "")
+    def by_created(p: Any) -> datetime:
+        return instant_key(p.created_at)
 
     if sort_by == "strength":
         filtered.sort(key=by_strength)

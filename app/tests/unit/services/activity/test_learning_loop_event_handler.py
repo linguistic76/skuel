@@ -8,11 +8,12 @@ Tests cover:
 - handle_submission_approved: skip guard, quick mastery, persistent learner, no exercise, error isolation
 """
 
-from datetime import datetime, timedelta
+from datetime import UTC, datetime, timedelta, timezone
 from unittest.mock import AsyncMock, Mock
 
 import pytest
 from neo4j.exceptions import ServiceUnavailable
+from neo4j.time import DateTime as Neo4jDateTime
 
 from core.events.learning_loop_events import ReportSubmitted, UserEntryApproved
 from core.events.user_entry_events import UserEntryCreated
@@ -256,6 +257,26 @@ class TestHandleReportSubmitted:
         assert call_props["feedback_sample_count"] == 2
 
     @pytest.mark.anyio
+    async def test_turnaround_reads_an_aware_entry_stamp(
+        self, service_with_insights: LearningLoopEventHandlerService, mock_backend: Mock
+    ):
+        """An entry stamped with an offset and a naive ``occurred_at`` measure as instants."""
+        mock_sub = Mock()
+        mock_sub.created_at = (datetime.now(UTC) - timedelta(hours=24)).isoformat()
+        mock_backend.get.return_value = Result.ok(mock_sub)
+        mock_backend.get_teacher_feedback_state.return_value = Result.ok(
+            {"feedback_ema_hours": 24.0, "feedback_sample_count": 1}
+        )
+
+        # A naive occurred_at holds UTC digits — what the pinned event clock writes.
+        event = _make_report_submitted(occurred_at=datetime.now(UTC).replace(tzinfo=None))
+        await service_with_insights.handle_report_submitted(event)
+
+        mock_backend.update_teacher_feedback_state.assert_called_once()
+        call_props = mock_backend.update_teacher_feedback_state.call_args[0][1]
+        assert call_props["feedback_ema_hours"] == pytest.approx(24.0, abs=0.1)
+
+    @pytest.mark.anyio
     async def test_submission_not_found(
         self, service_with_insights: LearningLoopEventHandlerService, mock_backend: Mock
     ):
@@ -387,6 +408,36 @@ class TestHandleSubmissionApproved:
         assert insight.insight_type.value == "mastery_achieved"
         assert insight.supporting_data["velocity"] == "quick_mastery"
         assert insight.supporting_data["mastered_ku_count"] == 3
+
+    @pytest.mark.anyio
+    @pytest.mark.parametrize(
+        "first_created",
+        [
+            Neo4jDateTime.from_native(datetime.now(UTC) - timedelta(hours=12)),
+            (datetime.now(UTC) - timedelta(hours=12)).astimezone(timezone(timedelta(hours=7))),
+        ],
+    )
+    async def test_mastery_velocity_reads_an_aware_first_entry(
+        self,
+        service_with_insights: LearningLoopEventHandlerService,
+        mock_backend: Mock,
+        mock_insight_store: AsyncMock,
+        first_created: object,
+    ):
+        """A native or offset first-entry stamp against a naive ``occurred_at``."""
+        mock_backend.get_exercise_for_entry.return_value = Result.ok("exercise_abc")
+        mock_backend.count_entries_for_exercise.return_value = Result.ok(1)
+        mock_backend.get_first_entry_for_exercise.return_value = Result.ok(
+            {"uid": "es_test_abc", "created_at": first_created}
+        )
+
+        event = _make_submission_approved(
+            occurred_at=datetime.now(UTC).replace(tzinfo=None), mastered_ku_count=3
+        )
+        await service_with_insights.handle_submission_approved(event)
+
+        insight = mock_insight_store.create_insight.call_args[0][0]
+        assert insight.supporting_data["velocity"] == "quick_mastery"
 
     @pytest.mark.anyio
     async def test_persistent_learner_insight(

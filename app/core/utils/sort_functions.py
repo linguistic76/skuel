@@ -7,12 +7,21 @@ Following clean code principle: no lambdas, only named functions.
 """
 
 from collections.abc import Callable, Mapping
+from datetime import datetime
 from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
     from _typeshed import SupportsRichComparison
 
 from core.ports.base_protocols import HasPriority, HasToNumeric
+from core.utils.timestamp_helpers import (
+    EARLIEST_INSTANT,
+    LATEST_INSTANT,
+    as_utc,
+    instant_key,
+    instant_of,
+)
+from core.utils.zone_context import current_zone
 
 
 def get_result_score(scored_result: tuple[Any, float]) -> float:
@@ -39,16 +48,6 @@ def get_domain_choice_count(item: tuple[str, dict[str, Any]]) -> int:
         The choice count from the pattern dictionary
     """
     return item[1]["choice_count"]
-
-
-def get_completed_at(completion: Any) -> Any:
-    """
-    Get completed_at timestamp from HabitCompletion object.
-
-    Used for sorting habit completions by completion date.
-    Example: completions.sort(key=get_completed_at, reverse=True)
-    """
-    return completion.completed_at
 
 
 def get_relevance_score(recommendation: Any) -> float:
@@ -140,25 +139,6 @@ def get_priority_value(item: Any) -> int:
     return 0
 
 
-def get_due_date(task: Any) -> Any:
-    """
-    Get due_date from task object.
-
-    Used for sorting tasks by due date.
-    Example: tasks.sort(key=get_due_date)
-
-    Note: For simple attribute access, prefer operator.attrgetter('due_date')
-    This function handles None values gracefully.
-    """
-    from datetime import date, datetime
-
-    due = getattr(task, "due_date", None)
-    # Put None values at the end
-    if due is None:
-        return datetime.max.date() if isinstance(datetime.max.date(), date) else datetime.max
-    return due
-
-
 def get_sequence(item: dict[str, Any]) -> int:
     """
     Get sequence number from dictionary, defaulting to 0 if None.
@@ -248,8 +228,9 @@ def make_attribute_sort_key(attribute_name: str):
     """
     Create a sort key function for dynamic attribute access.
 
-    Returns a function that safely gets an attribute value from an object,
-    with None values or missing attributes converted to empty string for sorting.
+    Returns a function that safely gets an attribute value from an object: a
+    None value or a missing attribute sorts first, and an instant is compared as
+    aware UTC (``as_utc``), so naive and aware stamps sort together.
 
     Used for sorting by dynamic attribute names (e.g., from query parameters).
     Example:
@@ -264,8 +245,11 @@ def make_attribute_sort_key(attribute_name: str):
     """
 
     def sort_key(item: Any) -> Any:
-        """Get attribute value for sorting, defaulting to empty string."""
-        return getattr(item, attribute_name, None) or ""
+        """Get attribute value for sorting — absent values first, an instant as aware UTC."""
+        value = getattr(item, attribute_name, None)
+        if value is None:
+            return (False, "")
+        return (True, as_utc(value) if isinstance(value, datetime) else value)
 
     return sort_key
 
@@ -323,11 +307,12 @@ def get_priority_score(item: Any) -> float:
     return item.priority_score
 
 
-def get_updated_timestamp(item: dict[str, Any]) -> str:
+def get_updated_timestamp(item: dict[str, Any]) -> datetime:
     """
-    Get updated timestamp from dictionary for sorting MOC views.
+    Get the updated stamp from a dictionary, as an instant sort key for MOC views.
 
-    Returns the 'updated' timestamp or empty string for sorting recently viewed MOCs.
+    The stamp arrives as a string or a Neo4j native, naive or aware; each is
+    read as the instant it names (``instant_of``).
 
     Used for sorting MOC view history by recency.
     Example: sorted(moc_data, key=get_updated_timestamp, reverse=True)
@@ -336,9 +321,9 @@ def get_updated_timestamp(item: dict[str, Any]) -> str:
         item: Dictionary with optional 'updated' key
 
     Returns:
-        The updated timestamp string, or empty string if not present
+        The updated instant, aware UTC; an absent or unreadable one sorts first
     """
-    return item.get("updated") or ""
+    return instant_of(item.get("updated"), current_zone()) or EARLIEST_INSTANT
 
 
 def make_dict_score_getter(scores_dict: dict[str, float], default: float = 0.0):
@@ -388,9 +373,9 @@ def get_task_due_date_sort_key(task: Any) -> tuple[bool, Any]:
     return (due is None, due or date_type.max)
 
 
-def get_created_at_attr(item: Any) -> Any:
+def get_created_at_attr(item: Any) -> datetime:
     """
-    Get created_at attribute from object.
+    Get created_at from object, as an instant sort key.
 
     Used for sorting objects by creation timestamp.
     Example: items.sort(key=get_created_at_attr, reverse=True)
@@ -399,9 +384,10 @@ def get_created_at_attr(item: Any) -> Any:
         item: Object with created_at attribute
 
     Returns:
-        The created_at timestamp
+        The created_at instant, aware UTC whether stored naive or aware
+        (``instant_key``); an absent one sorts first
     """
-    return item.created_at
+    return instant_key(item.created_at)
 
 
 def get_project_and_title(task: Any) -> tuple[str, str]:
@@ -437,13 +423,13 @@ def get_dict_score(item: dict[str, Any]) -> float:
 
 
 # =============================================================================
-# UI SORTING FUNCTIONS (Added January 2026)
+# UI SORTING FUNCTIONS
 # =============================================================================
 
 
-def get_decision_deadline(choice: Any) -> Any:
+def get_decision_deadline(choice: Any) -> datetime:
     """
-    Get decision_deadline from choice, with fallback to datetime.max.
+    Get decision_deadline from choice, as an instant sort key.
 
     Used for sorting choices by deadline (soonest first).
     Example: choices.sort(key=get_decision_deadline)
@@ -452,11 +438,10 @@ def get_decision_deadline(choice: Any) -> Any:
         choice: Choice object with decision_deadline attribute
 
     Returns:
-        The decision_deadline or datetime.max if None
+        The decision_deadline, aware UTC whether stored naive or aware
+        (``instant_key``); an absent one sorts last (``LATEST_INSTANT``)
     """
-    from datetime import datetime
-
-    return getattr(choice, "decision_deadline", None) or datetime.max
+    return instant_key(getattr(choice, "decision_deadline", None), LATEST_INSTANT)
 
 
 def get_title_lower(item: Any) -> str:

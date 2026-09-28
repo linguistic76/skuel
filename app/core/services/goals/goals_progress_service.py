@@ -48,7 +48,15 @@ from core.services.user.rich_context import (
 from core.utils.dto_converters import to_domain_model
 from core.utils.exception_types import DATA_CONVERSION_EXCEPTIONS, NEO4J_EXCEPTIONS
 from core.utils.result_simplified import Errors, Result
-from core.utils.timestamp_helpers import day_of, today_in
+from core.utils.timestamp_helpers import (
+    as_stored_clock,
+    as_utc,
+    day_of,
+    from_wall_clock,
+    instant_of,
+    now_utc,
+    today_in,
+)
 from core.utils.zone_context import current_zone
 
 # Type alias for rich goal data from UserContext
@@ -288,17 +296,20 @@ if TYPE_CHECKING:
     from core.services.relationships import UnifiedRelationshipService
 
 
+#: The trailing window each ``get_goal_progress`` period names, in days.
+_PROGRESS_PERIOD_DAYS: dict[str, int] = {"week": 7, "month": 30, "quarter": 90, "year": 365}
+
+
 def _parse_progress_date(raw: str) -> datetime | None:
-    """An ISO date or datetime as the naive local instant the graph's stamps use;
-    ``None`` when it does not parse. A bare date is that day's first instant; an
-    aware datetime is brought to local time and stripped."""
+    """A client's ISO date or datetime as the instant it names — ``None`` when it
+    does not parse. An offset-less value is a wall clock in the current zone and a
+    bare date that day's first instant there (``from_wall_clock``); the instant
+    comes back on the stored clock, the naive form the goal's stamps take."""
     try:
         parsed = datetime.fromisoformat(raw)
     except ValueError:
         return None
-    if parsed.tzinfo is not None:
-        parsed = parsed.astimezone().replace(tzinfo=None)
-    return parsed
+    return as_stored_clock(from_wall_clock(parsed, current_zone()))
 
 
 class GoalsProgressService(BaseService[GoalsOperations, Goal]):
@@ -1003,7 +1014,7 @@ class GoalsProgressService(BaseService[GoalsOperations, Goal]):
                         message=f"Invalid update_date {update_date!r}", field="update_date"
                     )
                 )
-            if parsed > at:
+            if as_utc(parsed) > now_utc():
                 return Result.fail(
                     Errors.validation(
                         message="update_date cannot be in the future", field="update_date"
@@ -1089,23 +1100,15 @@ class GoalsProgressService(BaseService[GoalsOperations, Goal]):
         metadata: dict[str, Any] = goal_dto.metadata or {}
         progress_notes = metadata.get("progress_notes", [])
 
-        # Calculate period filter
-        cutoff_date = None
-        if period == "week":
-            cutoff_date = datetime.now() - timedelta(days=7)
-        elif period == "month":
-            cutoff_date = datetime.now() - timedelta(days=30)
-        elif period == "quarter":
-            cutoff_date = datetime.now() - timedelta(days=90)
-        elif period == "year":
-            cutoff_date = datetime.now() - timedelta(days=365)
-
-        # Filter notes by period
-        if cutoff_date and progress_notes:
+        # Filter notes by period — a trailing window of whole days, compared as instants
+        window_days = _PROGRESS_PERIOD_DAYS.get(period)
+        if window_days is not None and progress_notes:
+            cutoff = now_utc() - timedelta(days=window_days)
+            zone = current_zone()
             progress_notes = [
                 note
                 for note in progress_notes
-                if datetime.fromisoformat(note["date"]) >= cutoff_date
+                if (noted := instant_of(note["date"], zone)) is not None and noted >= cutoff
             ]
 
         return Result.ok(

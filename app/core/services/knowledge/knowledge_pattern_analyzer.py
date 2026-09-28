@@ -41,7 +41,7 @@ from core.ports.knowledge_pattern_protocol import KnowledgeLinkedRelationships
 from core.utils.exception_types import DATA_CONVERSION_EXCEPTIONS
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
-from core.utils.timestamp_helpers import day_of, today_in
+from core.utils.timestamp_helpers import as_utc, day_of, span_days, today_in
 from core.utils.zone_context import current_zone
 
 if TYPE_CHECKING:
@@ -282,7 +282,7 @@ class KnowledgePatternAnalyzer:
                         knowledge_uids=[ku_uid],
                         entity_uids=[e.uid for e, _ in pairs],
                         confidence=ConfidenceLevel.STANDARD,
-                        timeframe_days=(pairs[-1][0].created_at - pairs[0][0].created_at).days,
+                        timeframe_days=span_days(e.created_at for e, _ in pairs),
                         frequency=len(pairs),
                         growth_indicator=self._calculate_growth_indicator(intensities),
                         metadata={"intensity_progression": intensities},
@@ -337,7 +337,7 @@ class KnowledgePatternAnalyzer:
                     knowledge_uids=list(combined_ku),
                     entity_uids=[e.uid for e, _ in pairs],
                     confidence=ConfidenceLevel.MEDIUM,
-                    timeframe_days=(pairs[-1][0].created_at - pairs[0][0].created_at).days,
+                    timeframe_days=span_days(e.created_at for e, _ in pairs),
                     frequency=len(pairs),
                     growth_indicator=CrossDomainImpactScore.NEUTRAL_GROWTH,
                     metadata={"sel_categories": list(domains)},
@@ -356,7 +356,7 @@ class KnowledgePatternAnalyzer:
         for entity, rels in entity_rels:
             all_uids = rels.primary_knowledge_uids + rels.secondary_knowledge_uids
             for ku_uid in all_uids:
-                ku_timelines.setdefault(ku_uid, []).append((entity.created_at, entity))
+                ku_timelines.setdefault(ku_uid, []).append((as_utc(entity.created_at), entity))
 
         for ku_uid, timeline in ku_timelines.items():
             if len(timeline) < 4:
@@ -372,7 +372,7 @@ class KnowledgePatternAnalyzer:
                     knowledge_uids=[ku_uid],
                     entity_uids=[e.uid for e in spiral_entities],
                     confidence=ConfidenceLevel.LOW,
-                    timeframe_days=(timeline[-1][0] - timeline[0][0]).days,
+                    timeframe_days=span_days(stamp for stamp, _ in timeline),
                     frequency=len(gaps) + 1,
                     growth_indicator=CrossDomainImpactScore.REINFORCEMENT_GROWTH,
                     metadata={"learning_cycles": len(gaps) + 1, "gaps_days": gaps},
@@ -404,15 +404,13 @@ class KnowledgePatternAnalyzer:
                 for e, r in entity_rels
                 if ku_uid in (r.primary_knowledge_uids + r.secondary_knowledge_uids)
             ]
-            first_date = min(e.created_at for e, _ in specialized)
-            last_date = max(e.created_at for e, _ in specialized)
             patterns.append(
                 LearningPattern(
                     pattern_type=LearningPatternType.SKILL_SPECIALIZATION,
                     knowledge_uids=[ku_uid],
                     entity_uids=[e.uid for e, _ in specialized],
                     confidence=min(0.9, ratio * 2),
-                    timeframe_days=(last_date - first_date).days,
+                    timeframe_days=span_days(e.created_at for e, _ in specialized),
                     frequency=count,
                     growth_indicator=CrossDomainImpactScore.SPECIALIZATION_GROWTH,
                     metadata={"specialization_ratio": ratio, "focus_intensity": count},
@@ -445,15 +443,13 @@ class KnowledgePatternAnalyzer:
         for (prereqs, applied), bridge_entities in bridge_combos.items():
             if len(bridge_entities) < 2:
                 continue
-            first_date = min(e.created_at for e in bridge_entities)
-            last_date = max(e.created_at for e in bridge_entities)
             patterns.append(
                 LearningPattern(
                     pattern_type=LearningPatternType.KNOWLEDGE_BRIDGING,
                     knowledge_uids=list(prereqs | applied),
                     entity_uids=[e.uid for e in bridge_entities],
                     confidence=ConfidenceLevel.STANDARD,
-                    timeframe_days=(last_date - first_date).days,
+                    timeframe_days=span_days(e.created_at for e in bridge_entities),
                     frequency=len(bridge_entities),
                     growth_indicator=CrossDomainImpactScore.BRIDGING_GROWTH,
                     metadata={
@@ -517,4 +513,4 @@ def _by_confidence_and_frequency(pattern: LearningPattern) -> tuple[float, int]:
 
 
 def _pair_entity_created_at(pair: tuple[Entity, Any]) -> datetime:
-    return pair[0].created_at
+    return as_utc(pair[0].created_at)
