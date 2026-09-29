@@ -125,7 +125,6 @@ Div(
                 cls="flex gap-2 justify-end mt-4",
             ),
             role="dialog",
-            aria_modal="true",
             aria_labelledby="del-title",
             aria_describedby="del-body",
         ),
@@ -133,17 +132,19 @@ Div(
         close="open = false; $refs.trigger.focus()",
     ),
     x_data="{ open: false }",
-    **{"@keydown.escape.window": "open = false; $refs.trigger.focus()"},
+    **{"@keydown.escape.window": "if (open) { open = false; $refs.trigger.focus() }"},
 )
 ```
 
 **What it gives:**
-- **role="dialog" + aria-modal + aria-labelledby/describedby:** announced as a named dialog
-- **Escape** closes it (`@keydown.escape.window`)
+- **role="dialog" + aria-labelledby/describedby:** announced as a named dialog
+- **Escape** closes it, and only while it is open (the window listener is guarded by `open`)
 - **Focus** moves to Cancel on open and back to the trigger on close
 
-**What it does not give:** a focus trap. Tab can still reach the page behind the backdrop.
-SKUEL vendors no Alpine focus plugin, so a trap means writing the Tab/Shift+Tab handler.
+**What it does not give:** a focus trap. Tab can still reach the page behind the backdrop,
+which is why the pattern leaves out `aria-modal="true"`: that attribute promises an inert
+background. SKUEL vendors no Alpine focus plugin, so a real modal means writing the
+Tab/Shift+Tab containment (or marking the background `inert`) and then adding `aria-modal`.
 
 ### Pattern 4: Skip Links for Keyboard Users
 

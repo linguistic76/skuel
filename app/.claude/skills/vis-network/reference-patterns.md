@@ -124,7 +124,9 @@ and it's logged.
 
 ## Depth Control
 
-The graph grows fast with depth, so the UI offers 1–3 and defaults to 2.
+The graph grows fast with depth, so the UI offers 1–3 and defaults to 2. The markup below is
+the shape `RelationshipGraphView` needs. Its select currently sits outside the component
+(SKILL.md, Example 2), and the fix goes in that component, not in a copy of it.
 
 ```python
 Div(

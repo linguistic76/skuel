@@ -115,7 +115,7 @@ Does this element perform an action (same page)?
 
 **SKUEL Semantic Color Tokens** (defined in `static/css/input.css` — Tailwind v4 CSS-first config):
 - `text-foreground` / `text-muted-foreground` on `bg-background` — the theme-aware body pair, redefined for `.dark`
-- `text-error` / `text-success` / `text-warning` / `text-info` — fixed hex (red-600, green-600, amber-600, blue-600), chosen for AA text contrast **on white**. They don't change in dark mode, so check them against a dark surface before relying on them there
+- `text-error` / `text-success` / `text-warning` / `text-info` — fixed hex (red-600, green-600, amber-600, blue-600) that doesn't change in dark mode. On white, measured: `text-error` 4.83:1 and `text-info` 5.17:1 pass AA for body text; `text-success` 3.30:1 and `text-warning` 3.19:1 pass only the 3:1 large-text / UI-component threshold. Use those two for icons, borders, and bold 14pt+ labels, not body text
 - A status color on its own fill (`text-error` on `bg-error`) has no contrast at all; pair a status text color with a tint (`bg-error/10`) or with white
 
 **Testing:** Use browser DevTools (Lighthouse Accessibility audit) or WebAIM Contrast Checker.
@@ -264,18 +264,22 @@ Div(
         Div(
             H2("Delete this task?", id="del-title"),
             Button("Cancel", x_ref="cancel", **{"@click": "open = false; $refs.trigger.focus()"}),
-            role="dialog", aria_modal="true", aria_labelledby="del-title",
+            role="dialog", aria_labelledby="del-title",
         ),
         show="open",
         close="open = false; $refs.trigger.focus()",
     ),
     x_data="{ open: false }",
-    **{"@keydown.escape.window": "open = false; $refs.trigger.focus()"},
+    # guarded: a window listener fires on every Escape, open or not
+    **{"@keydown.escape.window": "if (open) { open = false; $refs.trigger.focus() }"},
 )
 ```
 
-Measured with the vendored Alpine 3.14.8: opening focuses Cancel, Escape closes the dialog
-and returns focus to the trigger. Tab can still leave the dialog; a real trap needs code.
+Measured with the vendored Alpine 3.14.8: opening focuses Cancel; Escape closes the dialog
+and returns focus to the trigger; with the dialog closed, Escape leaves focus where it was.
+Tab can still leave the dialog, so the pattern **omits `aria-modal="true"`**. That attribute
+tells assistive technology the rest of the page is inert, and here it isn't. Add
+`aria-modal` together with a real focus trap or an `inert` background, never before.
 
 ### Mistake 6: Hand-Rolling a Live Region SKUEL Already Has
 

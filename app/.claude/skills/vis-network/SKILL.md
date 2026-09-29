@@ -108,20 +108,36 @@ RelationshipGraphView(entity_uid=task.uid, entity_type="tasks", depth=2)
 
 It renders a card with a depth select (1–3), the canvas
 (`Div(id=f"network-{uid}", cls="w-full h-96 …")`), and a color legend.
+`RelationshipGraphView` is **the** graph for a detail page; use it (directly or through
+`EntityRelationshipsSection`) rather than building a second one.
 
-⚠ **Two live defects, measured with the vendored Alpine in jsdom:** the component
-fetches the graph **twice** on load, because it sets `x-init="init()"` on a component
-Alpine already inits; and its depth select sits **outside** the `x-data` element, so Alpine
-never binds its `x-on:change` and changing the depth does nothing. Both are logged. The
-manual pattern below avoids both.
+⚠ **Two live defects in it, measured with the vendored Alpine in jsdom:** it fetches the
+graph **twice** on load, because it sets `x-init="init()"` on a component Alpine already
+inits; and its depth select sits **outside** the `x-data` element, so Alpine never binds the
+select's `x-on:change` and changing the depth does nothing. Both are logged. The fix belongs
+**in** `RelationshipGraphView` (`ui/patterns/relationships/relationship_graph.py`), so every
+`EntityRelationshipsSection` consumer gets it: put the `x-data` on an element that contains
+the select as well as the canvas, and drop the `x-init`. A page that hand-builds its own
+graph markup to dodge the defects leaves them in place everywhere else.
 
-### Example 3: Manual Integration
+### The Component Contract
+
+What `relationshipGraph` requires of its markup. This is the checklist for fixing
+`RelationshipGraphView`, or for a genuinely new graph surface; it is not a second way to
+draw the detail-page graph:
+
+1. The canvas has `id="network-{entity_uid}"`. `renderNetwork` does
+   `document.getElementById`, not `$refs`.
+2. The canvas has a real height (`h-96`); Vis.js draws into the box it is given.
+3. There's no `x-init`. Alpine calls the component's `init()`, which calls
+   `loadGraph(this.depth)`.
+4. Every control that calls `changeDepth` / `loadGraph` sits inside the `x-data` element.
+5. The `x-data` element listens for `relationships-changed.window` to reload.
+
+Markup that satisfies it (measured: one fetch on load; a depth change refetches with
+`?depth=3`):
 
 ```python
-from fasthtml.common import Div, Option
-
-from ui.forms import Select
-
 Div(
     Select(
         Option("Depth 1", value="1"),
@@ -129,24 +145,15 @@ Div(
         Option("Depth 3", value="3"),
         name="graph_depth",
         full_width=False,
-        **{"x-on:change": "changeDepth($event.target.value)"},   # inside the x-data element
+        **{"x-on:change": "changeDepth($event.target.value)"},
     ),
-    # relationshipGraph finds its canvas by THIS id, not by x-ref
     Div(id=f"network-{uid}", cls="w-full h-96 border border-border rounded-sm"),
     **{
-        "x-data": f"relationshipGraph('{uid}', 'tasks', 2)",   # init() loads the graph itself
+        "x-data": f"relationshipGraph('{uid}', 'tasks', 2)",
         "x-on:relationships-changed.window": "loadGraph(depth)",
     },
 )
 ```
-
-**Key requirements** (from the component, not convention):
-1. The canvas has `id="network-{entity_uid}"`; `renderNetwork` does `document.getElementById`
-2. The canvas has a real height (`h-96`); Vis.js draws into the box it is given
-3. No `x-init`: Alpine calls the component's `init()`, which calls `loadGraph(this.depth)`
-4. Controls that call `changeDepth` / `loadGraph` live inside the `x-data` element
-
-Measured: one fetch on load, and a depth change refetches with `?depth=3`.
 
 ---
 
