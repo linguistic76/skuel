@@ -197,7 +197,7 @@ from ui.patterns.csrf import csrf_hidden_input
 
 @rt("/tasks/create", methods=["POST"])
 @csrf_protected
-async def task_create_submit(request: Request) -> Any: ...
+async def task_create_submit(request: Request) -> FT | RedirectResponse: ...
 
 # Hand-built forms need the hidden field (FormGenerator adds it automatically)
 Form(csrf_hidden_input(), ..., method="POST", action="/login/submit")

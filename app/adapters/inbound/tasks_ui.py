@@ -18,7 +18,7 @@ from __future__ import annotations
 from functools import partial
 from typing import TYPE_CHECKING, Any
 
-from fasthtml.common import Div
+from fasthtml.common import FT, Div
 from starlette.responses import RedirectResponse, Response
 
 from adapters.inbound.activity_ui_factory import ActivityUIConfig, create_activity_ui_routes
@@ -103,7 +103,7 @@ def create_tasks_ui_routes(
 
     @rt("/tasks/create", methods=["POST"])
     @csrf_protected
-    async def task_create_submit(request: Request) -> Any:
+    async def task_create_submit(request: Request) -> FT | RedirectResponse:
         """Validate the form, create the task, redirect to its detail page."""
         user_uid = require_authenticated_user(request)
 

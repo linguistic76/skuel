@@ -457,7 +457,7 @@ def transaction() -> Generator[Connection, None, None]:
     try:
         yield conn
         conn.commit()
-    except BaseException:  # roll back on any exit, then re-raise
+    except BaseException:  # intentional-broad: roll back on any exit (cancellation included), then re-raise
         conn.rollback()
         raise
 
@@ -467,7 +467,7 @@ async def async_transaction() -> AsyncGenerator[Connection, None]:
     try:
         yield conn
         await conn.commit()
-    except BaseException:  # roll back on any exit, then re-raise
+    except BaseException:  # intentional-broad: roll back on any exit (cancellation included), then re-raise
         await conn.rollback()
         raise
 ```
