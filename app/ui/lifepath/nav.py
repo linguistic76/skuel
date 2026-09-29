@@ -7,6 +7,8 @@ from typing import TYPE_CHECKING, Any
 from ui.patterns.sidebar import SidebarItem, SidebarPage
 
 if TYPE_CHECKING:
+    from fasthtml.common import FT
+
     from adapters.inbound.fasthtml_types import Request
 
 LIFEPATH_SIDEBAR_ITEMS: list[SidebarItem] = [
@@ -21,7 +23,7 @@ def lifepath_sidebar_page(
     content: Any,
     request: Request,
     extra_scripts: list[str] | None = None,
-) -> Any:
+) -> FT:
     """Create sidebar page for LifePath routes.
 
     Args:

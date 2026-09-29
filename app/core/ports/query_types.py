@@ -2848,7 +2848,7 @@ class ChartJsConfig(TypedDict, total=False):
 
     type: str
     data: ChartJsData
-    options: dict[str, Any]
+    options: dict[str, Any]  # boundary: consumed by the Chart.js library
 
 
 class GanttConfig(TypedDict, total=False):

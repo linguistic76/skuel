@@ -1,485 +1,288 @@
 # Chart.js Chart Types Reference
 
-Complete reference for Chart.js chart types as used in SKUEL's activity domain visualizations.
+The chart types SKUEL emits, and the exact configs that emit them. Each config below
+is copied from a live builder: a `VisualizationService` formatter, an `InsightStore`
+method, or the lifepath radar route. Options not shown are Chart.js v4 defaults
+(vendored build: v4.5.1).
 
 ## Overview
 
-Chart.js supports these chart types, each suited to different activity domain metrics:
+| Type | Emitted by | Drawn on |
+|------|------------|----------|
+| `line` | `format_completion_chart(chart_type="line")` | nothing yet (`/api/visualizations/completion`) |
+| `bar` | `format_completion_chart(chart_type="bar")`, `format_distribution_chart(chart_type="bar")`, `InsightStore.get_domain_distribution_chart` | `/insights` (domain distribution) |
+| horizontal `bar` | `format_streak_chart` | nothing yet (`/api/visualizations/streaks`) |
+| `doughnut` | `format_distribution_chart` (default), `InsightStore.get_impact_distribution_chart`, `.get_type_distribution_chart` | `/insights` |
+| half `doughnut` (gauge) | `InsightStore.get_action_rate_chart` | `/insights` |
+| `pie` | `format_distribution_chart(chart_type="pie")` (the status distribution) | nothing yet |
+| `radar` | `/api/lifepath/alignment/chart` route | `/lifepath/alignment` |
 
-| Type | Best For | SKUEL Usage |
-|------|----------|-------------|
-| **Line** | Trends over time | Completion rates, progress |
-| **Bar** | Category comparison | Priority distribution, counts |
-| **Horizontal Bar** | Ranked lists | Habit streaks |
-| **Doughnut/Pie** | Part of whole | Status distribution |
-| **Radar** | Multi-dimensional | Principle alignment |
-| **Scatter** | Correlation | (Less common in SKUEL) |
+Every config is JSON, so **no option may be a function**. Chart.js accepts
+`ticks.callback` and tooltip callbacks only from JavaScript, and `chartVis` passes the
+fetched JSON straight to `new Chart`. Express everything as static values.
+
+## Dataset Defaults (`ChartDataset`)
+
+`VisualizationService` builds datasets from this dataclass, then serializes them with
+`_chart_config_to_dict`, which writes all seven keys on every dataset:
+
+```python
+@dataclass
+class ChartDataset:
+    label: str
+    data: list[float | int]
+    backgroundColor: str | list[str] = "#3B82F6"  # noqa: N815 (Chart.js API)
+    borderColor: str | list[str] = "#2563EB"  # noqa: N815 (Chart.js API)
+    borderWidth: int = 2  # noqa: N815 (Chart.js API)
+    fill: bool = False
+    tension: float = 0.1  # Line smoothing
+```
+
+Those seven keys are exactly `ChartJsDataset`'s declared set. A hand-built literal may
+omit any of them (`total=False`) but may not add one without declaring it first.
 
 ---
 
-## Line Charts
+## Line: Completion Rate
 
-Best for showing trends over time.
-
-### Use Cases
-
-- Task completion rate over days/weeks/months
-- Goal progress over time
-- Habit consistency trends
-
-### Configuration
+`format_completion_chart(completed, total, labels)` turns parallel count lists into a
+percent per period (`round(c / t * 100, 1)`, 0 when `t` is 0):
 
 ```python
-# VisualizationService.format_completion_chart()
-config = {
+{
     "type": "line",
     "data": {
-        "labels": ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"],
+        "labels": ["Mon", "Tue", "Wed"],
         "datasets": [{
             "label": "Completion Rate (%)",
-            "data": [60, 75, 80, 72, 85, 90, 88],
-            "borderColor": "#10B981",  # success green
+            "data": [60.0, 75.0, 0],
             "backgroundColor": "transparent",
-            "tension": 0.1,  # Slight curve
+            "borderColor": SemanticColor.SUCCESS,
+            "borderWidth": 2,
             "fill": True,
-        }]
+            "tension": 0.1,
+        }],
     },
     "options": {
         "responsive": True,
         "maintainAspectRatio": False,
-        "scales": {
-            "y": {
-                "beginAtZero": True,
-                "max": 100,
-                "title": {"display": True, "text": "Completion %"}
-            }
-        },
-        "plugins": {
-            "legend": {"display": True, "position": "top"},
-            "title": {"display": True, "text": "Task Completion Rate"}
-        }
-    }
-}
-```
-
-### FastHTML Usage
-
-```python
-from ui.goals.visualization import create_chart_view
-
-def completion_trend():
-    return create_chart_view(
-        data_url="/api/visualizations/completion?period=week",
-        chart_type="line",
-        title="Weekly Completion Rate",
-    )
-```
-
-### Multi-Series Line (Trend Comparison)
-
-```python
-config = {
-    "type": "line",
-    "data": {
-        "labels": ["Week 1", "Week 2", "Week 3", "Week 4"],
-        "datasets": [
-            {
-                "label": "Tasks",
-                "data": [10, 15, 12, 18],
-                "borderColor": "#3B82F6",
-            },
-            {
-                "label": "Goals",
-                "data": [5, 8, 10, 12],
-                "borderColor": "#10B981",
-            },
-            {
-                "label": "Habits",
-                "data": [7, 7, 8, 9],
-                "borderColor": "#F59E0B",
-            }
-        ]
+        "scales": {"y": {"beginAtZero": True, "max": 100,
+                         "title": {"display": True, "text": "Completion %"}}},
+        "plugins": {"legend": {"display": True, "position": "top"},
+                    "title": {"display": True, "text": "Task Completion Rate"}},
     },
-    "options": {
-        "interaction": {"intersect": False, "mode": "index"},
-    }
 }
 ```
 
----
+With `chart_type="bar"` the same formatter fills the bars with `SemanticColor.SUCCESS`
+and sets `fill: False`. `VisualizationAggregationService.get_completion_chart_data`
+supplies the counts: 7 daily points for `week`, 10 three-day buckets for `month`,
+13 seven-day buckets for `quarter`.
 
-## Bar Charts
+`maintainAspectRatio: False` makes Chart.js take the chart's height from its parent.
+The Chart.js responsive docs require that parent to be relatively positioned, sized,
+and dedicated to the canvas. The insights card doesn't meet that, and its configs
+leave the option at its default (`True`). Give the parent an explicit height before
+you draw a formatter config in a card.
 
-Best for comparing categories or discrete values.
+## Bar
 
-### Vertical Bar (Default)
+### Distribution (`format_distribution_chart(chart_type="bar")`)
+
+One dataset colored per bar from the `SemanticColor.ALL` cycle, with borders in the
+same colors (`borderWidth: 2`) and the legend at the top.
+
+### Insights by domain (`InsightStore.get_domain_distribution_chart`)
 
 ```python
-config = {
+{
     "type": "bar",
     "data": {
-        "labels": ["Critical", "High", "Medium", "Low"],
-        "datasets": [{
-            "label": "Task Count",
-            "data": [5, 12, 25, 8],
-            "backgroundColor": ["#EF4444", "#F59E0B", "#3B82F6", "#10B981"],
-            "borderColor": ["#EF4444", "#F59E0B", "#3B82F6", "#10B981"],
-            "borderWidth": 2,
-        }]
+        "labels": ["Tasks", "Habits"],              # domain.title(), sorted by count desc
+        "datasets": [{"label": "Active Insights", "data": [5, 2],
+                      "backgroundColor": "rgba(59, 130, 246, 0.8)"}],
     },
     "options": {
         "responsive": True,
-        "plugins": {
-            "legend": {"display": False},
-            "title": {"display": True, "text": "Tasks by Priority"}
-        }
-    }
+        "plugins": {"legend": {"display": False},
+                    "title": {"display": True, "text": "Insights by Domain"}},
+        "scales": {"y": {"beginAtZero": True, "ticks": {"stepSize": 1}}},
+    },
 }
 ```
 
-### Horizontal Bar (Ranked Lists)
+`ticks.stepSize: 1` keeps an integer count axis from showing 0.5 steps. It is the
+JSON-safe alternative to a tick `callback`.
 
-Used for habit streaks where comparison is the focus:
+## Horizontal Bar: Habit Streaks
+
+`format_streak_chart([{"name", "current", "best"}, ...])`:
 
 ```python
-# VisualizationService.format_streak_chart()
-config = {
+{
     "type": "bar",
     "data": {
-        "labels": ["Meditation", "Exercise", "Reading", "Journaling"],
+        "labels": ["Meditation", "Reading"],
         "datasets": [
-            {
-                "label": "Current Streak",
-                "data": [14, 7, 45, 3],
-                "backgroundColor": "#10B981",
-            },
-            {
-                "label": "Best Streak",
-                "data": [21, 30, 45, 15],
-                "backgroundColor": "#6366F1",
-            }
-        ]
+            {"label": "Current Streak", "data": [14, 45],
+             "backgroundColor": SemanticColor.SUCCESS, "borderColor": SemanticColor.SUCCESS, ...},
+            {"label": "Best Streak", "data": [21, 45],
+             "backgroundColor": SemanticColor.INFO, "borderColor": SemanticColor.INFO, ...},
+        ],
     },
     "options": {
-        "indexAxis": "y",  # Makes it horizontal
-        "plugins": {
-            "legend": {"display": True, "position": "top"},
-            "title": {"display": True, "text": "Habit Streaks"}
-        }
-    }
+        "responsive": True,
+        "maintainAspectRatio": False,
+        "indexAxis": "y",  # horizontal bars
+        "plugins": {"legend": {"display": True, "position": "top"},
+                    "title": {"display": True, "text": "Habit Streaks"}},
+    },
 }
 ```
 
-### Stacked Bar
+`VisualizationAggregationService.get_streak_chart_data` feeds it every active habit's
+`current_streak` / `best_streak`, falling back to 0.
+
+## Doughnut and Pie
+
+### Distribution (`format_distribution_chart`, default `doughnut`)
 
 ```python
-config = {
-    "type": "bar",
+{
+    "type": "doughnut",             # or "pie"
     "data": {
-        "labels": ["Mon", "Tue", "Wed", "Thu", "Fri"],
-        "datasets": [
-            {"label": "Completed", "data": [5, 8, 6, 7, 9], "backgroundColor": "#10B981"},
-            {"label": "In Progress", "data": [2, 1, 3, 2, 1], "backgroundColor": "#3B82F6"},
-            {"label": "Blocked", "data": [1, 0, 1, 0, 0], "backgroundColor": "#EF4444"},
-        ]
-    },
-    "options": {
-        "scales": {
-            "x": {"stacked": True},
-            "y": {"stacked": True}
-        }
-    }
-}
-```
-
----
-
-## Doughnut & Pie Charts
-
-Best for showing parts of a whole.
-
-### Doughnut (Recommended)
-
-Doughnut charts are preferred over pie - easier to compare segments.
-
-```python
-# VisualizationService.format_distribution_chart()
-config = {
-    "type": "doughnut",
-    "data": {
-        "labels": ["Completed", "In Progress", "Draft", "Blocked"],
+        "labels": ["active", "completed"],          # the dict's keys, in insertion order
         "datasets": [{
-            "data": [45, 20, 10, 5],
-            "backgroundColor": ["#10B981", "#3B82F6", "#6B7280", "#EF4444"],
+            "label": "Task Status Distribution",
+            "data": [4.0, 9.0],                     # values cast to float
+            "backgroundColor": [SemanticColor.PRIMARY, SemanticColor.SUCCESS],  # ALL, cycled
             "borderColor": "#ffffff",
-            "borderWidth": 2,
-        }]
+            "borderWidth": 1,
+            ...
+        }],
     },
     "options": {
         "responsive": True,
-        "plugins": {
-            "legend": {"display": True, "position": "right"},
-            "title": {"display": True, "text": "Task Status Distribution"}
-        }
-    }
+        "maintainAspectRatio": False,
+        "plugins": {"legend": {"display": True, "position": "right"},
+                    "title": {"display": True, "text": "Task Status Distribution"}},
+    },
 }
 ```
 
-### Pie
+The aggregation service labels slices with raw enum values (`priority.value`,
+`status.value`), not display names.
+
+### Insight doughnuts (`InsightStore`)
+
+`get_impact_distribution_chart` has four fixed labels (Critical, High, Medium, Low,
+which is the insight-impact scale, not `Priority`) and its legend at the bottom.
+`get_type_distribution_chart` has one slice per insight type, sorted by count, with
+its legend on the right. Both hard-code `rgba(..., 0.8)` fills.
+
+### Half doughnut: gauge (`InsightStore.get_action_rate_chart`)
 
 ```python
-config = {
-    "type": "pie",
-    "data": {
-        "labels": ["Critical", "High", "Medium", "Low", "None"],
-        "datasets": [{
-            "data": [2, 5, 12, 8, 3],
-            "backgroundColor": [
-                "#EF4444", "#F59E0B", "#3B82F6", "#10B981", "#6B7280"
-            ],
-        }]
-    }
-}
-```
-
-### Half-Doughnut (Gauge-like)
-
-```python
-config = {
+{
     "type": "doughnut",
     "data": {
-        "labels": ["Progress", "Remaining"],
-        "datasets": [{
-            "data": [75, 25],  # 75% complete
-            "backgroundColor": ["#10B981", "#E5E7EB"],
-            "circumference": 180,  # Half circle
-            "rotation": 270,       # Start from bottom
-        }]
+        "labels": ["Actioned", "Not Actioned"],
+        "datasets": [{"label": "Action Rate", "data": [62.5, 37.5],
+                      "backgroundColor": ["rgba(34, 197, 94, 0.8)", "rgba(156, 163, 175, 0.3)"]}],
     },
     "options": {
-        "cutout": "70%",  # Thinner ring
-        "plugins": {
-            "legend": {"display": False},
-        }
-    }
+        "responsive": True,
+        "circumference": 180,
+        "rotation": -90,
+        "plugins": {"legend": {"position": "bottom"},
+                    "title": {"display": True, "text": "Action Rate: 62.5%"}},
+    },
 }
 ```
+
+`circumference` and `rotation` are doughnut options, so they may sit under `options`
+(as here, for every dataset) or on a single dataset.
+
+## Radar: Life-Path Alignment
+
+Built inline in `/api/lifepath/alignment/chart`. The route returns a `JSONResponse`
+typed `-> Any`, which is why it can carry keys `ChartJsDataset` doesn't declare:
+
+```python
+{
+    "type": "radar",
+    "data": {
+        "labels": ["Knowledge", "Activity", "Goals", "Principles", "Momentum"],
+        "datasets": [{
+            "label": "Your Alignment",
+            "data": [0.8, 0.6, 0.7, 0.5, 0.4],       # dimension scores, 0.0–1.0
+            "backgroundColor": "rgba(59, 130, 246, 0.2)",
+            "borderColor": "rgba(59, 130, 246, 1)",
+            "borderWidth": 2,
+            "pointBackgroundColor": "rgba(59, 130, 246, 1)",
+            "pointBorderColor": "#fff",
+        }],
+    },
+    "options": {
+        "scales": {"r": {"min": 0, "max": 1, "ticks": {"stepSize": 0.2}}},
+        "plugins": {"legend": {"display": False}},
+    },
+}
+```
+
+Without a designation, or when the alignment read fails, the route returns the same
+frame with zeros, so the radar still draws. A typed version would declare
+`pointBackgroundColor` / `pointBorderColor` on `ChartJsDataset` and return
+`Result[ChartJsConfig]`.
 
 ---
 
-## Radar Charts
+## JSON-Safe Options Reference
 
-Best for multi-dimensional comparison (e.g., principle alignment across categories).
-
-### Basic Radar
-
-```python
-config = {
-    "type": "radar",
-    "data": {
-        "labels": ["Spiritual", "Ethical", "Personal", "Professional", "Health", "Creative"],
-        "datasets": [{
-            "label": "Principle Alignment",
-            "data": [85, 92, 78, 88, 70, 65],
-            "backgroundColor": "rgba(59, 130, 246, 0.2)",  # Transparent blue
-            "borderColor": "#3B82F6",
-            "pointBackgroundColor": "#3B82F6",
-        }]
-    },
-    "options": {
-        "scales": {
-            "r": {
-                "beginAtZero": True,
-                "max": 100,
-            }
-        }
-    }
-}
-```
-
-### Multi-Dataset Radar (Comparison)
-
-```python
-config = {
-    "type": "radar",
-    "data": {
-        "labels": ["Learning", "Doing", "Reflecting", "Growing", "Connecting"],
-        "datasets": [
-            {
-                "label": "This Month",
-                "data": [80, 75, 60, 70, 85],
-                "backgroundColor": "rgba(59, 130, 246, 0.2)",
-                "borderColor": "#3B82F6",
-            },
-            {
-                "label": "Last Month",
-                "data": [70, 80, 55, 65, 75],
-                "backgroundColor": "rgba(16, 185, 129, 0.2)",
-                "borderColor": "#10B981",
-            }
-        ]
-    }
-}
-```
-
----
-
-## Chart Options Reference
-
-### Common Options
+All of these are plain values, so they survive the JSON trip:
 
 ```python
 options = {
-    # Sizing
     "responsive": True,
-    "maintainAspectRatio": False,
-
-    # Plugins
+    "maintainAspectRatio": False,         # height from the parent — size the parent
+    "indexAxis": "y",                     # horizontal bar
     "plugins": {
-        "legend": {
-            "display": True,
-            "position": "top",  # top, bottom, left, right
-        },
-        "title": {
-            "display": True,
-            "text": "Chart Title",
-        },
-        "tooltip": {
-            "enabled": True,
-            "mode": "index",  # Show all datasets at x position
-        }
+        "legend": {"display": True, "position": "top"},    # top | bottom | left | right
+        "title": {"display": True, "text": "Chart Title"},
+        "tooltip": {"enabled": True, "mode": "index"},
     },
-
-    # Scales (for line/bar)
     "scales": {
-        "x": {
-            "title": {"display": True, "text": "X Axis"},
-        },
-        "y": {
-            "beginAtZero": True,
-            "max": 100,
-            "title": {"display": True, "text": "Y Axis"},
-        }
+        "x": {"stacked": True, "title": {"display": True, "text": "X"}},
+        "y": {"stacked": True, "beginAtZero": True, "max": 100,
+              "ticks": {"stepSize": 1}},
+        # radar: "r": {"min": 0, "max": 1, "ticks": {"stepSize": 0.2}}
     },
-
-    # Interaction
-    "interaction": {
-        "intersect": False,
-        "mode": "index",
-    },
-
-    # Animation
-    "animation": {
-        "duration": 750,
-    }
+    "interaction": {"intersect": False, "mode": "index"},
+    "animation": {"duration": 750},
+    "cutout": "70%",                      # doughnut ring thickness
+    "circumference": 180,                 # doughnut: half circle
+    "rotation": -90,
 }
 ```
 
-### Scale Options
+`options` is `dict[str, Any]` on `ChartJsConfig`, so mypy doesn't check any of these
+names. A misspelled option is ignored silently by Chart.js; check new ones against
+https://www.chartjs.org/docs/latest/.
 
-```python
-# Percentage scale
-"y": {
-    "beginAtZero": True,
-    "max": 100,
-    "ticks": {
-        "callback": lambda value: f"{value}%"
-    }
-}
+## Choosing a Type
 
-# Stacked
-"x": {"stacked": True},
-"y": {"stacked": True}
-
-# Horizontal bar
-"indexAxis": "y"
-```
-
-### Dataset Options
-
-```python
-dataset = {
-    # Common
-    "label": "Series Name",
-    "data": [1, 2, 3, 4, 5],
-
-    # Colors
-    "backgroundColor": "#3B82F6",  # Fill color
-    "borderColor": "#2563EB",      # Line/border color
-    "borderWidth": 2,
-
-    # Line specific
-    "tension": 0.3,     # Curve smoothing (0 = straight)
-    "fill": True,       # Fill area under line
-
-    # Point styling
-    "pointRadius": 4,
-    "pointHoverRadius": 6,
-    "pointBackgroundColor": "#3B82F6",
-
-    # Bar specific
-    "barThickness": 20,
-    "maxBarThickness": 40,
-}
-```
-
----
-
-## Activity Domain Mappings
-
-### Tasks
-
-| Metric | Chart Type | Config |
-|--------|------------|--------|
-| Completion rate | Line | `format_completion_chart()` |
-| Priority distribution | Doughnut | `format_distribution_chart()` |
-| Status breakdown | Pie | `format_distribution_chart()` |
-| Daily counts | Bar | Custom |
-
-### Goals
-
-| Metric | Chart Type | Config |
-|--------|------------|--------|
-| Progress over time | Line | Custom |
-| Milestone completion | Bar | Custom |
-| Goal status | Doughnut | `format_distribution_chart()` |
-
-### Habits
-
-| Metric | Chart Type | Config |
-|--------|------------|--------|
-| Streaks (current/best) | Horizontal Bar | `format_streak_chart()` |
-| Consistency by day | Heatmap (custom) | Custom |
-| Category breakdown | Doughnut | `format_distribution_chart()` |
-
-### Events
-
-| Metric | Chart Type | Config |
-|--------|------------|--------|
-| Hours by week | Bar | Custom |
-| Type distribution | Pie | `format_distribution_chart()` |
-| Attendance | Line | Custom |
-
-### Choices
-
-| Metric | Chart Type | Config |
-|--------|------------|--------|
-| Pending vs decided | Doughnut | `format_distribution_chart()` |
-| By domain | Bar | Custom |
-| Decision quality | Line | Custom |
-
-### Principles
-
-| Metric | Chart Type | Config |
-|--------|------------|--------|
-| Alignment by category | Radar | Custom |
-| Strength distribution | Doughnut | `format_distribution_chart()` |
-| Alignment trends | Line | Custom |
-
----
+| Data | Type | SKUEL precedent |
+|------|------|-----------------|
+| A rate per period | `line` (or `bar`) | `format_completion_chart` |
+| Counts per category | `doughnut` / `pie`, or `bar` when the categories are many or ranked | `format_distribution_chart`, insights by domain |
+| Two measures per item | horizontal `bar`, two datasets | `format_streak_chart` |
+| One share of a whole | half `doughnut` | insight action rate |
+| Several scores on one scale | `radar` | life-path alignment |
 
 ## Related Files
 
-- [SKILL.md](SKILL.md) - Main Chart.js guide
-- [fasthtml-patterns.md](fasthtml-patterns.md) - Python integration
-- [activity-domain-charts.md](activity-domain-charts.md) - Domain-specific examples
+- [SKILL.md](SKILL.md): the live surface, wire contract and add-a-chart recipe
+- [fasthtml-patterns.md](fasthtml-patterns.md): card, page and route patterns
+- [QUICK_REFERENCE.md](QUICK_REFERENCE.md): snippets and pitfalls
+- `/core/services/visualization_service.py`: the formatters
+- `/core/services/insight/insight_store.py`: the insight configs
