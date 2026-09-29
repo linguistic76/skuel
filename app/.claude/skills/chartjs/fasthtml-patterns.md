@@ -13,10 +13,10 @@ comes from. There is no shared chart component module: each page owns its card.
 From `ui/insights/components.py`:
 
 ```python
-from fasthtml.common import Canvas, Div, Span
+from fasthtml.common import FT, Canvas, Div, Span
 
 
-def _chart_card(data_url: str, chart_type: str) -> Div:
+def _chart_card(data_url: str, chart_type: str) -> FT:
     """Chart card — canvas + loading/error states for the chartVis component."""
     return Div(
         Canvas(**{"x-ref": "canvas", "width": "400", "height": "300", "class": "max-w-full"}),
@@ -57,7 +57,7 @@ From `ui/insights/components.py`. The page decides whether there is enough data 
 chart, so the cards never render just to show an error:
 
 ```python
-def render_charts_section(insight_count: int) -> Div | None:
+def render_charts_section(insight_count: int) -> FT | None:
     """Render the visual analytics charts section. Returns None if insufficient data."""
     if insight_count < 3:
         return None
@@ -159,12 +159,12 @@ async def impact_distribution_chart(request: Request) -> Result[ChartJsConfig]:
 A control inside the card's `x-data` scope can drive it:
 
 ```python
-from fasthtml.common import Canvas, Div, Option
+from fasthtml.common import FT, Canvas, Div, Option
 
 from ui.components import Select  # the Tailwind-styled native <select>
 
 
-def completion_chart_card() -> Div:
+def completion_chart_card() -> FT:
     base = "/api/visualizations/completion?period="
     return Div(
         Select(

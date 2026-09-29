@@ -207,7 +207,7 @@ would let any user chart another user's data (an IDOR).
 ### 3. Render the card
 
 ```python
-def _chart_card(data_url: str, chart_type: str) -> Div:
+def _chart_card(data_url: str, chart_type: str) -> FT:
     """Chart card — canvas + loading/error states for the chartVis component."""
     return Div(
         Canvas(**{"x-ref": "canvas", "width": "400", "height": "300", "class": "max-w-full"}),

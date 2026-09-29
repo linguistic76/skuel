@@ -9,7 +9,7 @@
 ### Chart card — the shape every live chart uses
 
 ```python
-def _chart_card(data_url: str, chart_type: str) -> Div:
+def _chart_card(data_url: str, chart_type: str) -> FT:
     return Div(
         Canvas(**{"x-ref": "canvas", "width": "400", "height": "300", "class": "max-w-full"}),
         Div("Loading chart...", cls="text-center text-muted-foreground py-8", **{"x-show": "loading"}),

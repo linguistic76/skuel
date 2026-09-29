@@ -44,7 +44,7 @@ logger = get_logger("skuel.routes.lifepath.ui")
 # ============================================================================
 
 
-def _service_unavailable_page() -> Div:
+def _service_unavailable_page() -> FT:
     """Return page when LifePath service is not available."""
     return Div(
         render_error_banner(
