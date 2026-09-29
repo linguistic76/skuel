@@ -11,9 +11,9 @@ allowed-tools: Read, Grep, Glob
 > "BasePage for consistency, compose small components, validate early, one sidebar pattern."
 
 **Four principles:**
-1. Every page uses `BasePage` — it provides HTML, navbar, auth, ARIA, modals, and all vendor libraries
+1. Every page uses `BasePage` — it provides the document, the chrome, auth detection, the modal slot, the ARIA live region and the shared vendor libraries (HTMX, Alpine, Vis.js); a page-specific library (Chart.js) comes in through `extra_scripts`
 2. Components are composed from three layers: Primitives → Patterns → Layouts
-3. Forms validate at three tiers: HTML5 hints → early Python validation → Pydantic
+3. Forms validate in two places: HTML5 hints in the browser, then the Pydantic request model at the route (`parse_form_body`). There is no hand-written validator in between
 4. Navigation uses the `SidebarPage` component — no custom CSS, Alpine manages state
 
 ---
@@ -30,7 +30,7 @@ allowed-tools: Read, Grep, Glob
 - `Icon` (Lucide, server-rendered inline SVG — no lucide runtime), full form set, table set, `Divider`, `Accordion`, layout helpers
 - Card family (`Card`, `CardBody`, `CardHeader`, `CardTitle`, `CardFooter`)
 
-`build_head()` / `skuel_headers()` load `output.css` (pre-compiled Tailwind CLI) + Lucide + HTMX + Alpine. UIkit/FrankenUI/MonsterUI/DaisyUI are gone — no `monsterui`/`daisyui` dependency, no vendor files, no browser JIT.
+`build_head()` / `skuel_headers()` load `output.css` (pre-compiled Tailwind CLI) + HTMX + Alpine + `skuel.js`; icons are server-rendered inline SVG, so no icon runtime loads. UIkit/FrankenUI/MonsterUI/DaisyUI are gone — no `monsterui`/`daisyui` dependency, no vendor files, no browser JIT.
 
 > ⚠️ **Two enum conventions — don't conflate them.** `ui.components.Button`/`ButtonT` take
 > style via **`cls=`** and `ButtonT` is **slim** (`default`/`primary`/`secondary`/`ghost`/
@@ -48,14 +48,14 @@ allowed-tools: Read, Grep, Glob
 The component stack is: FastHTML + Tailwind CLI + `ui/components/` + Alpine.js + HTMX (ADR-071 complete — MonsterUI/FrankenUI/DaisyUI removed). Express aesthetic intent *through existing components and tokens*, never by fighting the stack with raw HTML, CDN fonts, or bespoke CSS.
 
 **Pre-coding pass — commit to four dimensions before writing FT:**
-1. **Purpose** — what problem, who uses it (mirror the route's `*PageContext`).
+1. **Purpose** — what problem, who uses it, and what data the route hands the view.
 2. **Constraints** — stack is fixed: `BasePage`/`AuthPage` → `build_head()`, server-rendered, accessible (see `accessibility-guide`).
 3. **Differentiation** — the one thing a user remembers; earned by deliberate hierarchy/density, not novelty CSS.
 4. **Tone** — pick a committed direction (refined-minimal ↔ dense-utilitarian) and hold it across the page.
 
 **Express intent through the stack:**
 - **Typography = hierarchy via components.** `PageHeader`/`SectionHeader` carry the type scale — never raw `H1()`/`H2()` with ad-hoc classes. Wholesale font swaps are out of scope; a distinctive display font, if ever wanted, must be vendored through `build_head()` — never a CDN `<link>`, never `NotStr`.
-- **Color = semantic tokens.** Dominant-color-plus-sharp-accent via component variants (`ButtonT.primary`, `BadgeT.accent`) and semantic tokens (`text-base-content/70`) / `/core/utils/palette.py` constants — never raw `text-gray-600` or bespoke hex. See `ui-css`.
+- **Color = semantic tokens.** Dominant-color-plus-sharp-accent via component variants (`ButtonT.primary`, `BadgeT.accent`) and semantic tokens (`text-muted-foreground`) / `/core/utils/palette.py` constants — never raw `text-gray-600` or bespoke hex. See `ui-css`.
 - **Motion = Alpine/HTMX seams.** Reserve motion for high-impact moments — the shell-first reveal (`content_loading_placeholder` + HTMX swap) and Alpine `x-transition` — not scattered JS micro-animations. See `ui-browser`.
 - **Composition = design tokens.** Deliberate negative space OR controlled density via `Container.*`, `Spacing.*`, `Card.*` (`/ui/tokens.py`) — never magic widths.
 
@@ -67,7 +67,7 @@ The component stack is: FastHTML + Tailwind CLI + `ui/components/` + Alpine.js +
 
 ### BasePage — The Foundation
 
-`BasePage` is the single entry point for all pages. It automatically includes HTMX, Alpine.js, the compiled Tailwind CSS (`output.css` via `skuel_headers()`), Lucide, Vis.js, SKUEL's JS/CSS, modal container, and ARIA live regions.
+`BasePage` is the single entry point for all pages. It automatically includes HTMX, Alpine.js, the compiled Tailwind CSS (`output.css` via `skuel_headers()`), Vis.js, SKUEL's JS/CSS, the modal slot (`Div(id="modal")`), the `#live-region` ARIA live region and the `toastManager` container.
 
 ```python
 from ui.layouts.base_page import BasePage
@@ -76,7 +76,7 @@ return BasePage(
     content,                    # Your page content (FastHTML components)
     title="Tasks",              # Browser tab title
     request=request,            # Auto-detects auth state, user name, admin role
-    active_page="tasks",        # Highlights navbar item
+    active_page="tasks",        # Section key that lights the chrome's door
 )
 ```
 
@@ -100,23 +100,12 @@ Auth pages use the same SKUEL component wrappers (`LabelInput`, `Button`, `Card`
 
 ### Page Types
 
+`PageType` has exactly two members:
+
 | Type | Use Case | Sidebar | Container |
 |------|----------|---------|-----------|
-| **STANDARD** (default) | 90% of pages — forms, lists, detail pages | None | `max-w-6xl` centered |
-| **HUB** | Admin dashboard with fixed sidebar | Fixed left (256px) | Flexible |
-| **CUSTOM** | Collapsible sidebar with persistence | Custom via `SidebarPage()` | Flexible |
-
-**Notable STANDARD pages:**
-
-| Route | Page | Type | Notes |
-|-------|------|------|-------|
-| `/tasks` | Tasks list + detail | `STANDARD` | HTMX status toggle, filtering, connection badges |
-| `/goals` | Goals list + detail | `STANDARD` | Progress bars, milestones, gravity-well connections |
-| `/habits` | Habits list + detail | `STANDARD` | Streaks, atomic habits (cue/routine/reward), identity |
-| `/events` | Events list + detail | `STANDARD` | Scheduling, location, recurrence, milestones |
-| `/choices` | Choices list + detail | `STANDARD` | Options list, decision framework, outcome/satisfaction |
-| `/principles` | Principles list + detail | `STANDARD` | Strength badge, alignment, gravity-well connections |
-| `/submissions` | Submissions MOC root | `STANDARD` | Sidebar-free card hub linking to Sync, Exercise, Journal, History, Knowledge |
+| **STANDARD** (default) | Pages without a sidebar: the MOC roots (`/submissions` links Sync, Submit, Journal, History, Knowledge), `/insights` | None | `max-w-6xl` centered |
+| **CUSTOM** | The page manages its own layout: every `SidebarPage` section (the six Activity domains, Today, the calendar views and the GradeBook are all Tasks+ sidebar pages), the Explore reading column, the Ku/PS reading pages | Via `SidebarPage()`, or none | Flexible |
 
 ```python
 from ui.layouts.page_types import PageType
@@ -153,7 +142,7 @@ Spacing.SECTION     # "space-y-8"           — between sections
 Spacing.CONTENT     # "space-y-4"           — between items
 
 # Cards
-Card.BASE           # "bg-base-100 border border-base-200 rounded-lg"
+Card.BASE           # "bg-background border border-border rounded-lg"
 Card.INTERACTIVE    # BASE + "hover:shadow-md transition-shadow"
 Card.PADDING        # "p-6"
 ```
@@ -165,18 +154,17 @@ Card.PADDING        # "p-6"
 ```python
 from ui.patterns import PageHeader, SectionHeader
 
-# Page header with subtitle and action button
+# Page header with subtitle and an action CTA
 PageHeader(
     "Tasks",
     subtitle="Manage your daily work",
-    actions=Button("Create Task", cls=ButtonT.primary,
-                   **{"hx-get": "/tasks/create-modal", "hx-target": "#modal"}),
+    actions=ButtonLink("New Task", href="/tasks/create", cls=ButtonT.primary, size="sm"),
 )
 
-# Section header with action link
+# Section header with a "view all" link
 SectionHeader(
     "Recent Tasks",
-    action=A("View All", href="/tasks/all", cls="text-primary hover:underline"),
+    action=ButtonLink("View all →", href="/tasks", cls=ButtonT.ghost, size="xs"),
 )
 ```
 
@@ -190,19 +178,23 @@ from ui.patterns.loading import content_loading_placeholder
 
 `content_loading_placeholder` renders an `animate-pulse` skeleton shimmer while the fragment loads — four bars at varying widths give a content-shape cue. `loading_text` is `sr-only` (screen readers only).
 
+The six Activity domains get these routes generated by `create_activity_ui_routes()`
+(`adapters/inbound/activity_ui_factory.py`); the samples below are that factory's shape,
+written out for one domain.
+
 ```python
 # ✅ CORRECT: shell returns immediately, content fills in via HTMX
 @rt("/tasks")
-def tasks_page(request: Request) -> Any:
+def tasks_page(request: Request) -> FT:
     require_authenticated_user(request)
     content = Div(
         PageHeader("Tasks", subtitle="Manage your daily work"),
         content_loading_placeholder("/tasks/content", "tasks-content"),
     )
-    return BasePage(content, title="Tasks", request=request, active_page="tasks")
+    return render_activity_sidebar_page(content, active="tasks", request=request)
 
 @rt("/tasks/content")
-async def tasks_content_fragment(request: Request) -> Any:
+async def tasks_content_fragment(request: Request) -> FT:
     user_uid = require_authenticated_user(request)
     result = await tasks_service.get_user_tasks(user_uid)
     if result.is_error:
@@ -210,14 +202,23 @@ async def tasks_content_fragment(request: Request) -> Any:
             render_error_banner(result.expect_error().display_message),
             id="tasks-content",
         )
-    return Div(TasksList(result.value), id="tasks-content")
+    return Div(TaskList(result.value), id="tasks-content")  # ui/activities/tasks_views.py
 ```
 
-**Detail pages** (UID from query param) — validate the UID in the shell (cheap), pass it to the fragment:
+**Detail pages** (UID from query param). The shell only echoes the uid into the fragment
+URL. The fragment makes the one owner-scoped read and refuses through `refuse`: a
+foreign or missing uid gets the same rendered 404 (the ownership read contract).
 
 ```python
+from functools import partial
+
+from fasthtml.common import FT, FtResponse
+
+from adapters.inbound.route_factories import refuse, refuse_not_found
+from ui.patterns.error_banner import render_slot_error
+
 @rt("/tasks/detail")
-def task_detail_page(request: Request) -> Any:
+def task_detail_page(request: Request) -> FT:
     require_authenticated_user(request)
     uid = request.query_params.get("uid", "")
     if not uid:
@@ -230,13 +231,16 @@ def task_detail_page(request: Request) -> Any:
     return render_activity_sidebar_page(content, active="tasks", request=request)
 
 @rt("/tasks/detail/content")
-async def task_detail_content_fragment(request: Request) -> Any:
+async def task_detail_content_fragment(request: Request) -> FT | FtResponse:
     user_uid = require_authenticated_user(request)
     uid = request.query_params.get("uid", "")
-    task_result = await tasks_service.get_task(uid)
-    if task_result.is_error or task_result.value.user_uid != user_uid:
-        return Div(render_error_banner("Task not found"), id="task-detail-content")
-    task = task_result.value
+    slot = partial(render_slot_error, "task-detail-content")
+    if not uid:
+        return refuse_not_found(slot("Missing task UID"))
+    owned = await tasks_service.verify_ownership(uid, user_uid)
+    if owned.is_error:
+        return refuse(owned.expect_error(), slot, "Task")
+    task = owned.value
     # connection_fetch_backend implements the ConnectionFetchOperations port (below the boundary, ADR-044)
     connections_map = await connection_fetch_backend.fetch_entity_connections(config, [task.uid])
     return TaskDetailView(task, connections_map.get(task.uid, []))
@@ -246,19 +250,20 @@ async def task_detail_content_fragment(request: Request) -> Any:
 
 ```python
 @rt("/explore/ku/{uid}")
-def explore_ku_detail(request: Request, uid: str) -> Any:
+def explore_ku_detail(request: Request, uid: str) -> FT:
     content = Div(
-        Script(src="/static/js/ku-reading.js"),  # Alpine factory before HTMX fragment
+        Script(src="/static/js/ku-reading.js"),  # registers the Alpine factory before the fragment arrives
         content_loading_placeholder(f"/explore/ku/{uid}/content", "ku-detail-content"),
     )
     return BasePage(content, title="Read", page_type=PageType.CUSTOM, request=request, active_page="explore")
 
 @rt("/explore/ku/{uid}/content")
-async def explore_ku_content_fragment(request: Request, uid: str) -> Any:
-    ku_result = await orchestrator.get_ku(uid)
-    if ku_result.is_error:
-        return Div(render_error_banner(f"Not found: {uid}"), id="ku-detail-content")
-    return build_ku_content(ku_result.value, ...)
+async def explore_ku_content_fragment(request: Request, uid: str) -> FT:
+    ku_result = await orchestrator.get_ku_with_content(uid)
+    if not ku_result or ku_result.is_error or not ku_result.value:
+        return render_ku_not_found(uid)
+    ku, ku_body = ku_result.value
+    ...  # learning state, pins, mastery check-ins → the reading column
 ```
 
 **Fragment naming conventions:**
@@ -342,24 +347,22 @@ StatusBadge("submitted")
 # ✅ Badge for non-EntityStatus categories
 Badge("Ku", variant=BadgeT.accent, size=Size.sm)
 
-# ❌ Skipping early validation
-result = TaskCreateRequest(**form_data)  # Raises; generic message, no field context
-# ✅ Early validation with clear messages
-validation = validate_task_form_data(form_dict)
-if validation.is_error: return render_error_banner(...)
+# ❌ Constructing the request model by hand from a form dict
+result = TaskCreateRequest(**form_data)  # Raises a ValidationError the route never converts
+# ✅ parse_form_body validates against the model and returns a Result
+parsed = await parse_form_body(request, TaskCreateRequest)
+if parsed.is_error: return render_error_banner(parsed.expect_error().display_message)
 
 # ❌ Separate Label + Input without wrapper (accessibility issue)
 Label("Email"), Input(name="email")
 # ✅ Use LabelInput (handles label, ARIA help_text/error_text)
 LabelInput("Email", name="email", type="email")
 
-# ❌ GET for mutations
+# ❌ GET for a mutation
 Form(hx_get="/tasks/create")
-# ✅ POST for all mutations
+# ✅ The verb the route registers — POST for /tasks/create
 Form(hx_post="/tasks/create")
 
-# ❌ Old ui.buttons import (deleted in PR E)
-from ui.buttons import Button, ButtonT, ButtonLink, IconButton
 # ❌ monsterui.franken import — removed (ADR-071), no longer works
 from monsterui.franken import Button, ButtonT
 # ✅ Button/ButtonT — use ui.components
@@ -379,7 +382,7 @@ ButtonLink("View →", href="/tasks", cls=ButtonT.ghost, size="xs")
 # ❌ Tailwind palette over semantic tokens
 P("text", cls="text-gray-600")
 # ✅ Semantic tokens
-P("text", cls="text-base-content/70")
+P("text", cls="text-muted-foreground")
 
 # ❌ Raw H1/H2 for hierarchy — ad-hoc type scale, no committed direction
 H1("Tasks", cls="text-3xl font-bold")
@@ -418,8 +421,8 @@ When building a new SKUEL page or feature, verify:
 **Forms:**
 - [ ] All inputs use `LabelInput`, `LabelTextArea`, `LabelSelect`, or `LabelCheckbox`
 - [ ] Required fields have `required=True` and asterisk in label
-- [ ] Early validation function with clear messages
-- [ ] POST (not GET) for all mutations
+- [ ] The route validates with the request model (`parse_form_body`) and renders its message as a banner
+- [ ] Never GET for a mutation — the form sends the verb its route registers (`methods=`)
 - [ ] Form resets after successful submit (`hx_on="htmx:afterRequest: this.reset()"`)
 - [ ] Date constraints set (e.g., `min=today_in(current_zone()).isoformat()` — today in the user's zone)
 
@@ -452,14 +455,14 @@ When building a new SKUEL page or feature, verify:
 | `/ui/layouts/nav_config.py` | `ICON_NAV_ITEMS` (section doors, `page_keys` set), `MAIN_NAV_ITEMS` (role doors) |
 | `/ui/patterns/sidebar.py` | `SidebarItem`, `SidebarNav`, `SidebarPage` |
 | `/ui/patterns/__init__.py` | `PageHeader`, `SectionHeader`, `EmptyState`, `CardGenerator`, `StatCard`, `IconStat`, `StatsGrid`, `FormGenerator`, `SettingToggle` |
-| `/ui/page_contexts.py` | Per-domain TypedDicts (`TasksPageContext`, `GoalsPageContext`, etc.) for route→UI contracts |
+| `/ui/page_contexts.py` | Route→UI TypedDicts. `TodayPageContext` has consumers (`today_routes.py`, `ui/today/page.py`); the six Activity `*PageContext` types have none — the Activity lists are rendered by `activity_ui_factory.py` |
 | `/ui/patterns/form_generator.py` | `FormGenerator` — dynamic form generation from Pydantic models |
 | `/ui/tokens.py` | `Container`, `Spacing`, `Card` design tokens |
-| `/core/utils/palette.py` | `SemanticColor`, `RelationshipColor`, `EventTypeColor`, `FrequencyColor`, `CalendarFallback` — centralized hex color constants (`ui/palette.py` re-exports) |
+| `/core/utils/palette.py` | `SemanticColor`, `RelationshipColor`, `FrequencyColor`, `StrengthColor`, `CalendarFallback` — centralized hex color constants (`ui/palette.py` re-exports) |
 | `/ui/primitives.py` | Shared design primitives: `icon_tile()`, `section_label()`, `primary_btn()`, `card_row()`, `ButtonLink`, `SelectableOptionRow()`, `dropdown_menu()`, `dropdown_separator()`, `UploadDropzone()`, `SelectedFileCard()`. Source of truth for the unified design language tokens (container, selection, typography). `SelectableOptionRow` is the canonical option-row with icon+title+subtitle+checkmark — active/hover state strings live here only. `dropdown_menu`/`dropdown_separator` are the canonical Alpine dropdown shell. `UploadDropzone`/`SelectedFileCard` are the canonical drag-drop empty/filled file-upload states. |
 | `ui/feedback.py`, `ui/layout.py`, `ui/data.py`, `ui/theme.py` | Pure Tailwind wrappers (ADR-071 complete). The former `buttons.py`, `cards.py` and `text.py` wrappers were deleted (PR E); the former `navigation.py` was deleted 2026-08 (zero consumers — navbar lives in `ui/layouts/navbar.py`). `ButtonLink` from `ui/primitives.py`. |
-| `ui/components/` | **SKUEL-owned Tailwind component layer (ADR-071 complete).** Import from here: `Button`/`ButtonT`, `Alert`/`AlertT`/`Loading`/`Progress`, `Icon` (Lucide), full form set (`Input`, `Label`, `LabelInput`, `LabelTextArea`, `LabelSelect`, `LabelCheckbox`, `Select`, `TextArea`, `Switch`, `Radio`, `Range` — bare `Checkbox` is exported from `ui.forms` only), `Table`/`TableFromLists`/`TableFromDicts`/`TableT`, `Divider`, `DivFullySpaced`/`DivCentered`/`Center`, `Accordion`/`AccordionItem`, `Card`/`CardBody`/`CardHeader`/`CardTitle`/`CardFooter`. |
-| `/static/js/skuel.js` | The 22 **shared** Alpine.data() components — not all of them; 3 more live in page-local bundles (`explore-reading.js`, `ku-reading.js`, `ps-detail.js`), 25 total. Inventory: `docs/architecture/ALPINE_JS_ARCHITECTURE.md` |
+| `ui/components/` | **SKUEL-owned Tailwind component layer (ADR-071 complete).** Import from here: `Button`/`ButtonT`, `Alert`/`AlertT`/`Loading`/`Progress`, `Icon` (Lucide), full form set (`Input`, `Label`, `LabelInput`, `LabelTextArea`, `LabelSelect`, `LabelCheckbox`, `Select`, `TextArea`, `Checkbox`, `Switch`, `Radio`, `Range`), `Table`/`TableFromLists`/`TableFromDicts`/`TableT`, `Divider`, `DivFullySpaced`/`DivCentered`/`Center`, `Accordion`/`AccordionItem`, `Card`/`CardBody`/`CardHeader`/`CardTitle`/`CardFooter`. |
+| `/static/js/skuel.js` | The **shared** Alpine.data() components; page-local bundles (`explore-reading.js`, `ku-reading.js`, `ps-detail.js`, …) register their own. Inventory: `docs/architecture/ALPINE_JS_ARCHITECTURE.md` (derived and pinned by `tests/unit/docs/test_alpine_docs_registry.py`) |
 | `/ui/settings/page.py` | The `/settings` shell — the avatar's destination at every width: `signout_row()` (`sm:hidden`) + `role_nav_rows()` (`lg:hidden`) first, then the preferences editor (`/ui/settings/preferences.py`, HTMX-loaded from `/settings/content`) |
 | `/ui/profile/shared_view.py` | The Shared page (`/profile/shared`) — *Shared with you* + *Your wall* with Stop sharing — the one `/profile/*` page; `GET /profile` is a 404. Its Share side is `/ui/gradebook/share_panel.py` (the owner's Share button + HTMX-loaded panel on `/gradebook/{uid}`); the derived review badges on its cards, the wall rows and the recipient card come from `/ui/gradebook/review_badges.py` |
 | `/ui/activities/nav.py` | Activity sidebar config (`ACTIVITY_SIDEBAR_ITEMS`) + `render_activity_sidebar_page()` helper |

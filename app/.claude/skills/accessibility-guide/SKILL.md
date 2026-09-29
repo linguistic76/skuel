@@ -114,9 +114,9 @@ Does this element perform an action (same page)?
 | Graphics (meaningful) | 3:1 | Chart elements, diagrams |
 
 **SKUEL Semantic Color Tokens** (defined in `static/css/input.css` — Tailwind v4 CSS-first config):
-- `text-base-content` on `bg-base-100` - Always passes (designed for contrast)
-- `text-primary` on `bg-base-100` - Checked in theme
-- `text-error` on `bg-error` - High contrast for alerts
+- `text-foreground` / `text-muted-foreground` on `bg-background` — the theme-aware body pair, redefined for `.dark`
+- `text-error` / `text-success` / `text-warning` / `text-info` — fixed hex (red-600, green-600, amber-600, blue-600) that doesn't change in dark mode. On white, measured: `text-error` 4.83:1 and `text-info` 5.17:1 pass AA for body text; `text-success` 3.30:1 and `text-warning` 3.19:1 pass only the 3:1 large-text / UI-component threshold. Use those two for icons, borders, and bold 14pt+ labels, not body text
+- A status color on its own fill (`text-error` on `bg-error`) has no contrast at all; pair a status text color with a tint (`bg-error/10`) or with white
 
 **Testing:** Use browser DevTools (Lighthouse Accessibility audit) or WebAIM Contrast Checker.
 
@@ -132,25 +132,24 @@ Does this element perform an action (same page)?
 
 /* ✅ GOOD: Custom focus ring that's always visible */
 *:focus-visible {
-    outline: 2px solid oklch(var(--color-primary));
+    outline: 2px solid hsl(var(--ring));
     outline-offset: 2px;
 }
-
-/* Tailwind equivalent */
-.focus-visible:ring-2 .ring-primary .ring-offset-2
 ```
 
-**SKUEL components:** All interactive `ui.components` (Button, Input, Select, etc.) ship with built-in focus styles.
+In FT, the Tailwind utilities are `focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2`, the ones `Button` and `Input` render.
+
+**SKUEL components:** `Button`, `Input` and the other `ui.components` form controls ship with those focus-visible ring classes.
 
 ### 6. Touch Target Size (WCAG 2.5.5)
 
-**All interactive elements must have a minimum touch target of 44x44 CSS pixels:**
+**SKUEL's convention is a 44x44 CSS-pixel minimum touch target** (WCAG 2.1 SC 2.5.5, a Level AAA criterion, which SKUEL adopts):
 
 | Element | Tailwind Class | Size |
 |---------|---------------|------|
-| Navbar buttons (search, notifications, avatar, menu, logout) | `size-11` | 44px |
-| Sidebar nav items | `min-h-[44px]` | 44px minimum height |
-| Form inputs | Default Tailwind | 44px+ (built-in) |
+| Navbar icon buttons (Askesis, Shared, notifications, avatar, sign out) | `size-11` | 44px |
+| Sidebar nav items (desktop rows and the section nav) | `min-h-[44px]` | 44px minimum height |
+| Form inputs (`Input`, `Select`) | `h-10` | **40px tall** (full width), below the 44px convention; add `min-h-11` where a form is used on touch |
 
 **SKUEL Convention:** Outer interactive element gets `size-11` (44px); inner decorative element (e.g., avatar circle) stays `size-8` (32px). The touch target is the outer element.
 
@@ -162,6 +161,31 @@ A(
     cls="inline-flex items-center justify-center size-11 rounded-full hover:bg-accent",  # Touch: 44px
 )
 ```
+
+### 7. HTMX Announcements Are Built In
+
+`BasePage` renders one live region, `#live-region` (`role="status"`, `aria-live="polite"`,
+`aria-atomic="true"`), and `static/js/skuel.js` announces HTMX traffic into it through
+`window.SKUEL.announce(message, priority)`. A route or component rarely needs its own live
+region:
+
+- **Mutations announce themselves.** For a non-GET request, the path is matched against
+  `ANNOUNCE_ROUTES` (`/create`, `/update`·`/edit`·`/save`, `/delete`·`/remove`, `/complete`,
+  `/upload`, `/track`, `/enroll`, `/status`): "Creating..." while in flight, then "Created
+  successfully" after the swap. An unmatched mutation says "Loading..." and nothing after.
+  GET fragment loads are silent.
+- **Override the words** with `data-announce` (success) and `data-announce-loading` on the
+  triggering element, or put `data-announce` inside the swapped content.
+- **Errors are assertive:** 404 "Item not found", 403 "Permission denied", 400 "Invalid
+  request", 5xx "Server error. Please try again later.", a network failure "Network error.
+  Please check your connection."
+- **`aria-busy`** is set on the request's target while it is in flight.
+- **Refusals don't read as success.** A rendered ownership refusal (`X-SKUEL-Refusal:
+  rendered`) swaps in, but the success announcement is skipped because
+  `event.detail.successful` is false. The banner itself is `role="alert"`
+  (`render_error_banner`).
+
+**See:** `/docs/patterns/HTMX_ACCESSIBILITY_PATTERNS.md`
 
 ## Implementation Patterns & Real-World Examples
 
@@ -176,15 +200,17 @@ For the full, copy-paste implementation patterns — accessible button vs link, 
 Div(
     "Delete",
     onclick="deleteTask()",
-    cls="btn btn-error",
+    cls="text-destructive cursor-pointer",
 )
 
-# ✅ GOOD: Semantic button element
+# ✅ GOOD: Semantic button element (ui.components.Button renders <button>)
 Button(
     "Delete",
-    variant=ButtonT.error,
-    onclick="deleteTask()",
+    cls=ButtonT.destructive,
     type="button",
+    hx_post=f"/api/tasks/delete?uid={task.uid}",
+    hx_target=f"#task-{safe_id(task.uid)}",   # the door answers JSON, so remove the card
+    hx_swap="delete",
 )
 ```
 
@@ -202,17 +228,17 @@ LabelInput("Email Address", type="email", name="email")
 ### Mistake 3: Decorative Icons Without aria-hidden
 
 ```python
-# ❌ BAD: Screen reader announces "trash can emoji" (confusing)
+# ❌ BAD: Screen reader announces "wastebasket" (confusing)
 Button(
     "🗑️ Delete",
-    variant=ButtonT.error,
+    cls=ButtonT.destructive,
 )
 
-# ✅ GOOD: Icon hidden from screen readers
+# ✅ GOOD: Icon() is decorative by default (it sets aria-hidden="true" itself)
 Button(
-    Span("🗑️", aria_hidden="true"),
+    Icon("trash-2", size=16),
     " Delete",
-    variant=ButtonT.error,
+    cls=ButtonT.destructive,
 )
 ```
 
@@ -222,49 +248,52 @@ Button(
 # ❌ BAD: Light gray on white (fails WCAG)
 P("Secondary text", cls="text-gray-300")
 
-# ✅ GOOD: SKUEL semantic color tokens (guaranteed contrast)
-P("Secondary text", cls="text-base-content/70")
+# ✅ GOOD: SKUEL's theme-aware secondary-text token
+P("Secondary text", cls="text-muted-foreground")
 ```
 
-### Mistake 5: No Focus Trap in Modal
+### Mistake 5: Assuming AlpineModal Makes a Dialog
 
-```javascript
-// ❌ BAD: Can tab outside modal to background
-function openModal(modalId) {
-    document.getElementById(modalId).classList.add('modal-open');
-}
-
-// ✅ GOOD: Focus trapped within modal
-function openModal(modalId) {
-    const modal = document.getElementById(modalId);
-    modal.classList.add('modal-open');
-    trapFocus(modal);  // Prevent tabbing outside
-}
-```
-
-### Mistake 6: Missing Live Region for Dynamic Content
+`AlpineModal` (`ui/patterns/modal.py`) renders the backdrop, click-outside-to-close,
+`x-cloak` and a transition, and nothing else. It sets no `role="dialog"` or `aria-modal`,
+doesn't close on Escape, and doesn't move, trap or restore focus. SKUEL doesn't vendor
+Alpine's focus plugin, so `x-trap` isn't available either. The caller adds the rest:
 
 ```python
-# ❌ BAD: Task added, but screen reader not notified
-def add_task_to_list(task):
-    return Div(
-        TaskCard(task),
-        id="task-list",
-    )
-
-# ✅ GOOD: Announce task added
-def add_task_to_list(task):
-    return Div(
-        TaskCard(task),
-        # Live region announcement
+Div(
+    Button("Delete", x_ref="trigger", **{"@click": "open = true; $nextTick(() => $refs.cancel.focus())"}),
+    AlpineModal(
         Div(
-            f"Task '{task.title}' added to list.",
-            role="status",
-            aria_live="polite",
-            cls="sr-only",  # Screen reader only
+            H2("Delete this task?", id="del-title"),
+            Button("Cancel", x_ref="cancel", **{"@click": "open = false; $refs.trigger.focus()"}),
+            role="dialog", aria_labelledby="del-title",
         ),
-        id="task-list",
-    )
+        show="open",
+        close="open = false; $refs.trigger.focus()",
+    ),
+    x_data="{ open: false }",
+    # guarded: a window listener fires on every Escape, open or not
+    **{"@keydown.escape.window": "if (open) { open = false; $refs.trigger.focus() }"},
+)
+```
+
+Measured with the vendored Alpine 3.14.8: opening focuses Cancel; Escape closes the dialog
+and returns focus to the trigger; with the dialog closed, Escape leaves focus where it was.
+Tab can still leave the dialog, so the pattern **omits `aria-modal="true"`**. That attribute
+tells assistive technology the rest of the page is inert, and here it isn't. Add
+`aria-modal` together with a real focus trap or an `inert` background, never before.
+
+### Mistake 6: Hand-Rolling a Live Region SKUEL Already Has
+
+```python
+# ❌ BAD: a second live region per fragment — it competes with #live-region, and a
+#    region inserted together with its text is often not announced at all
+Div(TaskCard(task), Div(f"Task '{task.title}' added.", role="status", aria_live="polite", cls="sr-only"))
+
+# ✅ GOOD: let the built-in announcer say it (section 7): a POST to a /create path
+#    announces "Created successfully" by itself. To choose the words, put them on the element
+#    that ISSUES the request: for a form submit that is the Form, not its submit button
+Form(..., hx_post=create_url, **{"data-announce": "Task added", "data-announce-loading": "Adding task"})
 ```
 
 ## Testing & Verification Checklist
@@ -319,6 +348,7 @@ Use axe DevTools extension:
 
 ### SKUEL Documentation
 
+- `/docs/patterns/HTMX_ACCESSIBILITY_PATTERNS.md` - The HTMX announcer (`#live-region`, `data-announce`)
 - `/docs/patterns/UI_COMPONENT_PATTERNS.md` - Semantic component patterns
 - `/ui/layouts/base_page.py` - Accessible page structure
 - `/ui/patterns/sidebar.py` - Accessible sidebar navigation (unified component)

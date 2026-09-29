@@ -44,8 +44,8 @@ LabelInput("Title", name="title", placeholder="Enter text")
 # Email input (required)
 LabelInput("Email *", name="email", type="email", required=True)
 
-# Select
-LabelSelect("Choice", Option("Pick one", disabled=True, selected=True), Option("Option 1", value="1"), name="choice")
+# Select — options are positional, label is keyword-only
+LabelSelect(Option("Pick one", disabled=True, selected=True), Option("Option 1", value="1"), label="Choice", name="choice")
 
 # Textarea
 LabelTextArea("Description", name="description", rows=4)
@@ -77,7 +77,7 @@ LabelInput("Email *", name="email", type="email", required=True)
 from ui.tokens import Card
 
 # Basic card
-Div(content, cls=Card.BASE)  # "bg-base-100 border border-base-200 rounded-lg"
+Div(content, cls=Card.BASE)  # "bg-background border border-border rounded-lg"
 
 # Interactive card
 Div(content, cls=Card.INTERACTIVE)  # BASE + "hover:shadow-md transition-shadow"
@@ -114,43 +114,31 @@ Alert("Error message", variant=AlertT.error)
 ### Modals
 
 ```python
-# Alpine.js modals — use plain Div with Tailwind + x-show (no ui.modals)
+# AlpineModal — backdrop, click-outside-to-close, x-cloak and transitions in one place
 from ui.components import Button, ButtonT
+from ui.patterns.modal import AlpineModal
 
-Div(
+AlpineModal(
+    H3("Modal Title", cls="font-bold text-lg"),
+    P("Modal content here", cls="py-4"),
     Div(
-        H3("Modal Title", cls="font-bold text-lg"),
-        P("Modal content here", cls="py-4"),
-        Div(
-            Button("Cancel", cls=ButtonT.ghost, **{"@click": "showModal = false"}),
-            Button("Confirm", cls=ButtonT.primary),
-            cls="flex justify-end gap-2",
-        ),
-        cls="bg-background rounded-lg shadow-lg max-w-lg w-full p-6 relative",
-        **{"@click.stop": ""},
+        Button("Cancel", cls=ButtonT.ghost, **{"@click": "showModal = false"}),
+        Button("Confirm", cls=ButtonT.primary),
+        cls="flex justify-end gap-2",
     ),
-    cls="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4",
-    **{"@click": "showModal = false"},
-    x_show="showModal",
-    x_cloak=True,
+    show="showModal",
+    close="showModal = false",
+    max_width="max-w-lg",
 )
 ```
+
+The `showModal` flag lives in an enclosing `x-data`. Don't hand-roll the backdrop `Div`.
 
 ### Navbar
 
-```python
-# Navbar uses Tailwind utilities directly (no wrapper needed)
-Nav(
-    Div(A("Brand", href="/", cls="text-xl font-bold"), cls="navbar-start"),
-    Div(
-        A("Tasks", href="/tasks", cls="text-sm hover:text-primary"),
-        A("Goals", href="/goals", cls="text-sm hover:text-primary"),
-        cls="navbar-center hidden sm:flex gap-4",
-    ),
-    Div(A("Account", href="/settings"), cls="navbar-end"),
-    cls="bg-white border-b border-gray-200 sticky top-0 z-50 px-4 py-2",
-)
-```
+There is one navbar, and pages don't build their own. The global chrome is
+`ui/layouts/navbar.py` (spec: `ui/layouts/nav_config.py`), rendered by `BasePage`. A
+section's pages are its `SidebarPage` rows. See the `skuel-ui` skill for the chrome's rules.
 
 ### Loading
 
@@ -166,16 +154,22 @@ Loading()  # md default
 ### Tables & Dividers
 
 ```python
+from fasthtml.common import FT, Td
+
 from ui.data import Table, TableFromDicts, TableFromLists, TableT, Divider, DividerSplit, DividerT
 
 # Preferred: TableFromDicts for data-driven tables
+def _cell(key: str, value: object) -> FT:
+    return Td(value, cls="font-bold" if key == "Name" else "")
+
+
 TableFromDicts(
     header_data=["Name", "Score"],
     body_data=[{"Name": "Alice", "Score": 90}, {"Name": "Bob", "Score": 85}],
-    body_cell_render=lambda k, v: Td(v, cls="font-bold" if k == "Name" else ""),
+    body_cell_render=_cell,
     cls=(TableT.striped, TableT.sm),
 )
-TableFromLists(header=["Name", "Score"], body=[["Alice", 90], ["Bob", 85]])
+TableFromLists(["Name", "Score"], [["Alice", 90], ["Bob", 85]])  # header_row, data_rows
 
 # Divider
 Divider()  # renders border-t border-border my-4
@@ -288,30 +282,42 @@ the ADR-084 exception ledger (a handful of pinned clamp()/hero sites).
 
 ### Semantic Color Tokens (use these instead of Tailwind palette)
 
+Theme-aware tokens: each is `hsl(var(--x))` in `input.css` `@theme inline`, and switches under `.dark`:
+
 | Token | Use |
 |-------|-----|
-| `bg-base-100` | Default background |
-| `bg-base-200` | Slightly darker surface |
-| `bg-base-300` | Borders, dividers |
-| `text-base-content` | Primary text |
-| `text-base-content/70` | Secondary text |
-| `text-base-content/50` | Muted text |
-| `border-base-200` | Subtle borders |
-| `bg-primary` / `text-primary` | Brand color |
-| `bg-success` / `text-success` | Success state |
-| `bg-error` / `text-error` | Error state |
-| `bg-warning` / `text-warning` | Warning state |
+| `bg-background` | Page / card surface |
+| `text-foreground` | Primary text |
+| `text-muted-foreground` | Secondary and muted text (the house workhorse) |
+| `bg-muted` | Subtle fills, inactive surfaces |
+| `border-border` | Borders, dividers |
+| `bg-primary` / `text-primary` / `text-primary-foreground` | Brand color and text on it |
+| `bg-destructive` / `text-destructive` | Danger / delete |
+| `bg-accent` / `bg-secondary` | Hover and secondary surfaces |
 
-**Key rule:** Always use semantic tokens (`bg-base-100`, `text-primary`) not Tailwind palette (`bg-white`, `bg-blue-600`). Semantic tokens respect the active theme automatically.
+Fixed compat tokens: concrete hex, kept so pre-ADR-071 class strings compile. They do **not** change in dark mode:
+
+| Token | Value |
+|-------|-------|
+| `text-error` / `bg-error` | `#dc2626` |
+| `text-success` / `bg-success` | `#16a34a` |
+| `text-warning` / `bg-warning` | `#d97706` |
+| `text-info` / `bg-info` | `#2563eb` |
+| `bg-base-200` / `bg-base-300` | `#f3f4f6` / `#e5e7eb` |
+| `text-base-content` | `#1f2937` |
+
+There is no `base-100` token, so `bg-base-100` compiles to nothing.
+
+**Key rule:** prefer the theme-aware tokens (`bg-background`, `text-muted-foreground`) over the Tailwind palette (`bg-white`, `bg-blue-600`). Reach for a status color (`text-error`, `bg-success/10`) only for status, and know that it stays the same in dark mode.
 
 ### States & Interactions
 
 ```html
-<button class="btn hover:shadow-lg active:scale-95 transition">Button</button>
-<div class="group hover:bg-base-200">
+<button class="hover:shadow-lg active:scale-95 transition">Button</button>
+<div class="group hover:bg-muted">
   <span class="group-hover:text-primary">Changes on parent hover</span>
 </div>
-<input class="input focus:input-primary transition">
+<input class="focus-visible:ring-2 focus-visible:ring-ring transition">
 <button class="disabled:opacity-50 disabled:cursor-not-allowed" disabled>
 ```
 
@@ -319,7 +325,7 @@ the ADR-084 exception ledger (a handful of pinned clamp()/hero sites).
 
 ```html
 <div class="transition duration-200 ease-in-out hover:scale-105">
-<div class="transition-colors duration-300 hover:bg-base-200">
+<div class="transition-colors duration-300 hover:bg-muted">
 <div class="animate-pulse">Loading...</div>
 <div class="animate-spin">Spinner</div>
 ```

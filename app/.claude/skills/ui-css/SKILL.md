@@ -48,7 +48,7 @@ Button("Submit", cls=(ButtonT.primary, "w-full shadow-lg"))
 # With Alpine.js directives via **kwargs
 Div(
     "Content",
-    cls="p-4 bg-base-100 rounded-lg",
+    cls="p-4 bg-background rounded-lg",
     **{"x-show": "open", "x-transition": ""}
 )
 ```
@@ -79,7 +79,7 @@ Spacing.SECTION     # "space-y-8"    — between sections
 Spacing.CONTENT     # "space-y-4"    — between items
 
 # Cards
-Card.BASE           # "bg-base-100 border border-base-200 rounded-lg"
+Card.BASE           # "bg-background border border-border rounded-lg"
 Card.INTERACTIVE    # BASE + "hover:shadow-md transition-shadow"
 Card.PADDING        # "p-6"
 ```
@@ -100,13 +100,13 @@ Theme selection is available on `/settings` (Display & Appearance section). The 
 | Repeated semantic components | Component layer (`ui/components/`) |
 | Repeated 5+ times | `@apply` in component class |
 | Complex animations/pseudo | Custom CSS |
-| Design tokens | CSS variables in `/ui/tokens.py` |
+| Design tokens | Python class-string tokens in `/ui/tokens.py`; CSS variables in `static/css/input.css` |
 
 ```css
 /* ✅ @apply only for repeated patterns (5+ uses) */
 @layer components {
   .entity-card {
-    @apply bg-base-100 border border-base-200 rounded-lg p-4;
+    @apply bg-background border border-border rounded-lg p-4;
     @apply hover:shadow-md transition-shadow;
   }
 }
@@ -118,7 +118,7 @@ Theme selection is available on `/settings` (Display & Appearance section). The 
 
 1. **Semantic HTML first** — use `<article>`, `<section>`, `<nav>`, not divs for everything
 2. **Mobile-first** — apply base classes for mobile, add `md:` / `lg:` prefixes for larger screens
-3. **semantic tokens over Tailwind palette** — `text-base-content` not `text-gray-900`
+3. **Semantic tokens over the Tailwind palette** — `text-foreground` / `text-muted-foreground` not `text-gray-900` / `text-gray-600`
 4. **Design tokens over magic numbers** — `Container.STANDARD` not `max-w-6xl mx-auto` repeated
 5. **`cls` parameter for extensibility** — components accept extra classes via `cls` parameter
 
@@ -129,16 +129,15 @@ SKUEL's CSS is compiled by the **Tailwind CLI** (`./dev css-build`) into `static
 | Source | Classes | Defined In |
 |--------|---------|------------|
 | **Tailwind utilities** | flex, p-4, grid, etc. | scanned + compiled to `output.css` |
-| **Semantic variables** | `--primary`, `--background`, `--card`, etc. | SKUEL-owned in `static/css/input.css` |
-| **Color tokens** | `text-error`, `bg-success`, `bg-base-200`, `text-base-content` | concrete tokens in `input.css` `@theme inline` (Tailwind v4 CSS-first) |
+| **Semantic variables** | `--primary`, `--background`, `--card`, etc. | SKUEL-owned in `static/css/input.css` (`:root` and `.dark`) |
+| **Theme-aware color tokens** | `bg-background`, `text-foreground`, `text-muted-foreground`, `bg-muted`, `border-border`, `bg-primary`, `text-destructive` | `input.css` `@theme inline`, each `hsl(var(--x))`, so they switch under `.dark` |
+| **Fixed compat tokens** | `text-error`, `bg-success`, `text-warning`, `text-info`, `bg-base-200`, `bg-base-300`, `text-base-content` | concrete hex in `@theme inline`, kept so pre-ADR-071 class strings compile. They do **not** change in dark mode. There is no `base-100`: `bg-base-100` compiles to nothing |
 
 **All pages load CSS through `build_head()` / `skuel_headers()`** (in `ui/theme.py`) — never hand-assemble `<link>` tags. Two layout functions:
 - `BasePage()` — authenticated pages (navbar + chrome)
 - `AuthPage()` — unauthenticated pages (login, register — no navbar)
 
 **Dark mode is class-based** — `@custom-variant dark (&:where(.dark, .dark *))` in `input.css` with a `.dark` class toggled on the root element (not DaisyUI `data-theme`).
-
-**Global border radius:** `radii="sm"` (2px/4px) — set in `ui/theme.py` and `ui/layouts/base_page.py`. Keeps corners crisp and visible across all components (buttons, inputs, cards, modals).
 
 `output.css` is the production CSS asset, loaded by `skuel_headers()` / `build_head()`. Run `./dev css-prod` after changing component class strings so newly-used utilities are present in the committed compiled output — CI's `css_freshness` job recompiles and **fails on drift** whenever `input.css` or any scanned class-bearing tree changes (ADR-084). `./dev css-build` (unminified) is for local inspection only; the committed artifact is the `css-prod` build.
 
@@ -169,15 +168,15 @@ Div(..., style="display: inline-flex; gap: 4px; padding: 4px; background-color: 
 
 | Property | Value (light theme) | Use |
 |----------|--------------------|----|
-| `hsl(var(--primary))` | Dark charcoal (240°, 5.9%, 10%) | Active tab/button background |
-| `hsl(var(--primary-foreground))` | Off-white (0°, 0%, 98%) | Text on primary background |
+| `hsl(var(--primary))` | Blue (221.2° 83.2% 53.3%) | Active tab/button background |
+| `hsl(var(--primary-foreground))` | Near-white (210° 40% 98%) | Text on primary background |
 | `hsl(var(--muted))` | Light gray | Container background, subtle fills |
 | `hsl(var(--muted-foreground))` | Medium gray | Secondary/inactive text |
 | `hsl(var(--background))` | White | Page background |
 | `hsl(var(--border))` | Light gray border | Dividers, outlines |
 | `hsl(var(--destructive))` | Red | Delete/danger states |
 
-**`cls` gotcha:** Never pass `cls=None` to a raw FT component — it renders as the literal string `"None"` in the HTML class attribute. Use `cls=""` or omit `cls`. Components from `ui.components` handle this correctly via `_cls()`.
+**`cls` gotcha:** FastHTML drops an attribute whose value is `None`, so `Div(cls=None)` renders a bare `<div>` (measured). The trap is interpolation: `cls=f"p-4 {extra}"` with `extra=None` renders `class="p-4 None"`. Build the string only from present parts, or pass a tuple to a `ui.components` wrapper, which joins its parts and skips empty ones.
 
 ## Anti-Patterns
 
@@ -186,7 +185,7 @@ Div(..., style="display: inline-flex; gap: 4px; padding: 4px; background-color: 
 Div("Error", cls="bg-red-100 text-red-800 p-3 rounded")  # Use Alert(variant=AlertT.error) from ui.components
 
 # ❌ Tailwind palette instead of semantic tokens
-P("Text", cls="text-gray-600")  # Use text-base-content/70
+P("Text", cls="text-gray-600")  # Use text-muted-foreground
 
 # ❌ Hardcoded container widths
 Div(cls="max-w-6xl mx-auto")  # Use Container.STANDARD
@@ -199,10 +198,10 @@ Span("Meta", cls="text-[11px]")  # Use the named scale: text-10/11/13/15 (SKUEL
 # compact steps, ADR-084) or stock text-xs/sm/base/lg/xl — audit_font_sizes.py
 # --strict (CI + ./dev quality) fails on arbitrary sizes outside the exception ledger
 
-# ❌ Passing cls=None to a raw FT component
-Div(*c, cls=None)  # Renders class="None"
-# ✅ Omit cls or pass empty string (ui.components handle this via _cls())
-CardBody(*c)        # Safe — never renders "None"
+# ❌ Interpolating an optional class into an f-string
+Div(*c, cls=f"p-4 {extra}")  # extra=None renders class="p-4 None"
+# ✅ Pass only present parts
+Div(*c, cls=" ".join(p for p in ("p-4", extra) if p))
 
 # ❌ Raw HTML strings for pages (NotStr with <link> tags)
 NotStr("<!DOCTYPE html>...")  # Use AuthPage() or BasePage()

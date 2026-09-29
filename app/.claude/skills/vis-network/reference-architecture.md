@@ -1,515 +1,247 @@
 # vis-network Reference: SKUEL Integration Architecture & Data Format
 
-> On-demand reference for the [`vis-network`](SKILL.md) skill. SKILL.md holds the overview, quick start, decision trees, and summary; this file holds the Three-Layer Integration Architecture (Neo4j → FastHTML API → Alpine.js + Vis.js) and the Vis.js Data Format.
+> On-demand reference for the [`vis-network`](SKILL.md) skill. SKILL.md holds the surfaces, the quick start and the decision trees; this file follows one graph from the Cypher to the canvas, then documents the JSON it carries.
 
 ---
 
-## Three-Layer Integration Architecture
-
-SKUEL's Vis.js integration follows a clean three-layer architecture where each layer has a single responsibility:
+## The Layers
 
 ```
-┌─────────────────────────────────────────────────────────────┐
-│ Layer 3: Alpine.js + Vis.js (Presentation)                  │
-│ File: /static/js/skuel.js                                    │
-│ Responsibility: Render interactive graph, handle UI events  │
-└─────────────────────────────────────────────────────────────┘
-                            ▲
-                            │ JSON (Vis.js format)
-                            │
-┌─────────────────────────────────────────────────────────────┐
-│ Layer 2: FastHTML API (Transformation)                      │
-│ Files: lateral_routes.py, lateral_route_factory.py          │
-│ Responsibility: Query service, format data for Vis.js       │
-└─────────────────────────────────────────────────────────────┘
-                            ▲
-                            │ Python domain models
-                            │
-┌─────────────────────────────────────────────────────────────┐
-│ Layer 1: Neo4j + Service (Data)                             │
-│ File: lateral_relationship_service.py                       │
-│ Responsibility: Query graph, return domain models           │
-└─────────────────────────────────────────────────────────────┘
+Neo4j ── LateralRelationshipBackend.get_relationship_graph   (Cypher, adapters/persistence)
+   │ rows
+   ▼
+LateralRelationshipService.get_relationship_graph           (ownership, nodes + edges, colors)
+   │ Result[RelationshipGraphData]
+   ▼
+GET /api/{domain}/{uid}/lateral/graph                        (LateralRouteFactory; adds node url)
+   │ JSON
+   ▼
+relationshipGraph (Alpine) + SKUEL.graph helpers             (static/js/skuel.js → new vis.Network)
 ```
 
 ---
 
-### Layer 1: Neo4j + Service (Data Layer)
+### Layer 1: Cypher (`LateralRelationshipBackend`)
 
-**Purpose:** Query Neo4j graph database, return typed domain models.
+`adapters/persistence/neo4j/backends/collab_backends.py`, pure Cypher: SKUEL001 keeps
+APOC out of every domain query.
 
-**Key File:** `/core/services/lateral_relationships/lateral_relationship_service.py`
+```cypher
+MATCH path = (center {uid: $uid})-[r:{type_filter}*1..{depth}]-(related)
+WITH center, r, related, length(path) as depth_level
+RETURN DISTINCT
+    center.uid as center_uid, center.title as center_title,
+    labels(center)[0] as center_type, center.entity_type as center_entity_type,
+    center.status as center_status,
+    related.uid as related_uid, related.title as related_title,
+    labels(related)[0] as related_type, related.entity_type as related_entity_type,
+    related.status as related_status,
+    [rel in r | {type: type(rel), from: startNode(rel).uid, to: endNode(rel).uid}] as relationships,
+    depth_level
+```
 
-**Core Method:**
+- The match is **undirected** (`-[…]-`), so the graph shows both sides of every edge.
+- `type_filter` and `depth` are interpolated into the pattern. A variable-length bound
+  cannot be a parameter. `type_filter` is built from `RelationshipName` values only, but
+  `depth` is whatever `int` the route received; nothing clamps it.
+
+### Layer 2: Service (`LateralRelationshipService.get_relationship_graph`)
 
 ```python
 async def get_relationship_graph(
     self,
     entity_uid: EntityUID,
-    depth: int = 1,
-    relationship_types: list[str] | None = None,
-) -> Result[dict[str, Any]]:
-    """
-    Get relationship graph data in Vis.js format.
-
-    Args:
-        entity_uid: Starting entity UID
-        depth: Traversal depth (1-3, enforced max)
-        relationship_types: Filter by relationship types (None = all)
-
-    Returns:
-        Result containing:
-        {
-            "nodes": [{"id": uid, "label": title, "type": type, ...}],
-            "edges": [{"from": uid1, "to": uid2, "label": type, ...}],
-        }
-    """
+    depth: int = 2,
+    relationship_types: list[RelationshipName] | None = None,   # None = every lateral type
+    user_uid: UserUID | None = None,
+    domain_service: OwnershipVerifier | None = None,             # None = shared content
+) -> Result[RelationshipGraphData]:
 ```
 
-**Cypher Query Pattern:**
+- **Ownership** runs through `_verify_entity_access` only when **both** `user_uid` and
+  `domain_service` are passed, and it checks the **center** entity only. The traversal
+  itself is not owner-filtered. On the six Activity domains a foreign or missing center is a
+  404, never a 403.
+- On `ku` / `ps` / `lp` there is no verifier (`domain_service=None`), so **nothing checks
+  that the center exists**. A missing uid answers 200 with a synthetic center-only graph
+  (`label` = the uid, `type` / `status` `"unknown"`), indistinguishable from a real entity
+  with no edges.
+- With no related rows it returns the center node alone, so the canvas shows one dot.
+- Edges are colored per type with `RelationshipColor.for_type` (`core/utils/palette.py`).
 
-The service uses Neo4j's `apoc.path.subgraphAll` for efficient graph traversal:
+### Layer 3: Routes (`LateralRouteFactory`)
 
-```cypher
-MATCH (start {uid: $entity_uid})
-CALL apoc.path.subgraphAll(start, {
-    relationshipFilter: "BLOCKS|BLOCKED_BY|PREREQUISITE_FOR|...",
-    minLevel: 0,
-    maxLevel: $depth
-})
-YIELD nodes, relationships
-
-// Extract node data
-WITH [n in nodes | {
-    id: n.uid,
-    label: COALESCE(n.title, n.name, n.uid),
-    type: labels(n)[0],
-    status: n.status
-}] AS nodeData,
-
-// Extract edge data
-[r in relationships | {
-    from: startNode(r).uid,
-    to: endNode(r).uid,
-    type: type(r),
-    label: type(r)
-}] AS edgeData
-
-RETURN {nodes: nodeData, edges: edgeData}
-```
-
-**Key Design:**
-- Uses APOC for performance (10x faster than recursive Cypher)
-- Enforces max depth of 3 (prevents exponential explosion)
-- Returns domain models, not raw Neo4j data
-- Handles bidirectional relationships (BLOCKS <-> BLOCKED_BY)
-
----
-
-### Layer 2: FastHTML API (Transformation Layer)
-
-**Purpose:** Expose HTTP endpoints, transform service data to Vis.js format.
-
-**Key Files:**
-- `/adapters/inbound/lateral_routes.py` - Route registration
-- `/adapters/inbound/route_factories/lateral_route_factory.py` - Route factory
-
-**API Endpoint Pattern:**
-
-```
-GET /api/{domain}/{uid}/lateral/graph?depth=2
-```
-
-**Example Endpoints:**
-```
-GET /api/tasks/task_fix-bug_abc123/lateral/graph?depth=1
-GET /api/ku/ku_python-basics_xyz789/lateral/graph?depth=3
-GET /api/goals/goal_launch-product_def456/lateral/graph?depth=2
-```
-
-**Route Factory Usage:**
+`adapters/inbound/lateral_routes.py` builds one factory per `_LATERAL_DOMAINS` entry
+(`tasks`, `goals`, `habits`, `events`, `choices`, `principles`, `ku`, `ps`, `lp`):
 
 ```python
-# adapters/inbound/lateral_routes.py — one loop wires all 9 domains
-from adapters.inbound.route_factories.lateral_route_factory import LateralRouteFactory
-
-def create_lateral_api_routes(app, rt, orchestrator) -> None:
-    """Register lateral relationship routes for all 9 domains."""
-    for domain, entity_name, service_attr in _LATERAL_DOMAINS:
-        domain_service = orchestrator.get_domain_service(service_attr) if service_attr else None
-        LateralRouteFactory(
-            domain=domain,                  # "tasks", "goals", …, "ku"
-            lateral_service=orchestrator.lateral_service,
-            entity_name=entity_name,        # "Task", "Goal", …
-            domain_service=domain_service,  # ownership verifier; None for ku/ps/lp
-        ).register_routes(app, rt)          # @rt registers — nothing is returned
+for domain, entity_name, service_attr in _LATERAL_DOMAINS:
+    domain_service = orchestrator.get_domain_service(service_attr) if service_attr else None
+    LateralRouteFactory(
+        domain=domain,
+        lateral_service=orchestrator.lateral_service,
+        entity_name=entity_name,
+        domain_service=domain_service,  # OwnershipVerifier; None for ku/ps/lp
+    ).register_routes(app, rt)          # @rt registers — nothing is returned
 ```
 
-**What the factory creates:**
+Each factory registers 15 routes, every one threading `domain_service`:
 
-| Route | Method | Purpose |
+| Route | Method | Answers |
 |-------|--------|---------|
-| `/api/tasks/{uid}/lateral/chain` | GET | Blocking chain data (vertical flow) |
-| `/api/tasks/{uid}/lateral/alternatives/compare` | GET | Alternatives comparison table |
-| `/api/tasks/{uid}/lateral/graph` | GET | Vis.js format graph data |
+| `.../lateral/{blocks,prerequisites,alternatives,complementary}` | POST | create; `HX-Trigger: relationships-changed` |
+| `.../lateral/{relationship_type}/{target_uid}` | DELETE | delete; `HX-Trigger: relationships-changed` |
+| `.../lateral/{blocking,blocked,prerequisites,alternatives,complementary,siblings}` | GET | JSON lists |
+| `.../lateral/chain` | GET | **HTML** fragment (`render_chain_fragment`) |
+| `.../lateral/alternatives/compare` | GET | **HTML** fragment (`render_alternatives_fragment`) |
+| `.../lateral/manage` | GET | **HTML** fragment (the deletable edge list) |
+| `.../lateral/graph` | GET | **JSON** in Vis.js shape |
 
-**Response Format (Vis.js):**
+The graph route:
 
-```json
-{
-  "nodes": [
-    {
-      "id": "task_write-tests_abc123",
-      "label": "Write Unit Tests",
-      "type": "Task",
-      "group": "tasks",
-      "color": "#3b82f6",
-      "status": "IN_PROGRESS"
-    },
-    {
-      "id": "task_setup-ci_xyz789",
-      "label": "Setup CI Pipeline",
-      "type": "Task",
-      "group": "tasks",
-      "color": "#10b981",
-      "status": "COMPLETED"
-    }
-  ],
-  "edges": [
-    {
-      "from": "task_write-tests_abc123",
-      "to": "task_setup-ci_xyz789",
-      "label": "BLOCKS",
-      "arrows": "to",
-      "color": {"color": "#ef4444"},
-      "width": 2
-    }
-  ]
-}
+```python
+@rt(f"/api/{self.domain}/{{uid}}/lateral/graph", methods=["GET"])
+@boundary_handler()
+async def get_graph(
+    request: Request, uid: str, depth: int = 2, types: str | None = None
+) -> Result[RelationshipGraphData]:
+    user_uid = require_authenticated_user(request)
+    relationship_types = None
+    if types:   # comma-separated RelationshipName values, e.g. REQUIRES_KNOWLEDGE,ENABLES_KNOWLEDGE
+        try:
+            relationship_types = [RelationshipName(t.strip()) for t in types.split(",")]
+        except ValueError as e:
+            return Result.fail(Errors.validation(f"Invalid relationship type: {e!s}"))
+    result = await self.lateral_service.get_relationship_graph(
+        EntityUID(uid), depth, relationship_types,
+        user_uid=user_uid, domain_service=self.domain_service,
+    )
+    if result.is_error:
+        return result
+    for node in result.value["nodes"]:
+        node["url"] = entity_detail_href(node.get("entity_type"), node["id"])   # None → not a link
+    return Result.ok(result.value)
 ```
 
-**Key Design:**
-- Returns JSON, not HTML (Alpine handles rendering)
-- Includes node styling metadata (color, status)
-- Includes edge styling metadata (arrows, color, width)
-- Validates depth parameter (1-3)
-- Handles ownership verification (user can only see their entities)
+`lateral_routes.py` adds domain-specific routes beside the factory's: `stacks` (Habits),
+`conflicts` (Events/Choices/Principles), `enables` / `enabled-by` (Ku). Those writers emit no
+`HX-Trigger`.
 
----
-
-### Layer 3: Alpine.js + Vis.js (Presentation Layer)
-
-**Purpose:** Render interactive graph, handle user interactions (click, drag, zoom).
-
-**Key File:** `/static/js/skuel.js` (lines 2313-2431)
-
-**Complete Alpine Component:**
+### Layer 4: Presentation (`relationshipGraph` in `skuel.js`)
 
 ```javascript
-/**
- * relationshipGraph - Alpine.js component for Vis.js network graph
- *
- * Usage:
- *   <div x-data="relationshipGraph('task_123', 'tasks', 1)" x-init="loadGraph()">
- *     <div x-ref="container" style="width: 100%; height: 500px;"></div>
- *   </div>
- */
-Alpine.data('relationshipGraph', (entityUid, entityType, initialDepth = 1) => ({
-  // State
-  network: null,           // Vis.js Network instance
-  depth: initialDepth,     // Current depth (1-3)
-  loading: false,
-  error: null,
+Alpine.data('relationshipGraph', function(entity_uid, entity_type, initial_depth) {
+    return {
+        entity_uid: entity_uid, entity_type: entity_type,
+        depth: initial_depth || 2,
+        network: null, loading: false, error: null,
 
-  /**
-   * Load graph data from API and render
-   */
-  async loadGraph() {
-    this.loading = true;
-    this.error = null;
+        init: function() { this.loadGraph(this.depth); },   // Alpine calls this — no x-init
 
-    try {
-      // Fetch graph data from Layer 2 (API)
-      const response = await fetch(
-        `/api/${entityType}/${entityUid}/lateral/graph?depth=${this.depth}`
-      );
+        loadGraph: async function(depth) {
+            // SKUEL.getJson rejects on non-2xx; the error becomes a user message
+            var data = await window.SKUEL.getJson(
+                '/api/' + this.entity_type + '/' + this.entity_uid + '/lateral/graph?depth=' + depth
+            );
+            this.renderNetwork(data);
+        },
 
-      if (!response.ok) {
-        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-      }
+        renderNetwork: function(data) {
+            var container = document.getElementById('network-' + this.entity_uid);   // by id
+            if (this.network) this.network.destroy();                                 // re-render
+            if (!window.SKUEL.graph.ready()) { this.error = 'Graph library not loaded'; return; }
+            data.edges = window.SKUEL.graph.styleEdgesByConfidence(data.edges);
+            var options = window.SKUEL.graph.buildOptions(window.SKUEL.graph.PROFILES.relationship);
+            this.network = new vis.Network(container, data, options);
+            window.SKUEL.graph.attachClickNav(this.network, data.nodes, this.entity_uid,
+                function(node) { return node.url || null; });
+        },
 
-      const data = await response.json();
-
-      // Render graph with Vis.js
-      this.renderGraph(data.nodes, data.edges);
-
-    } catch (err) {
-      console.error('Failed to load relationship graph:', err);
-      this.error = err.message;
-    } finally {
-      this.loading = false;
-    }
-  },
-
-  /**
-   * Render graph using Vis.js Network
-   */
-  renderGraph(nodes, edges) {
-    const container = this.$refs.container;
-    if (!container) {
-      console.error('Graph container not found (missing x-ref="container")');
-      return;
-    }
-
-    // Destroy existing network instance (prevent memory leaks)
-    if (this.network) {
-      this.network.destroy();
-    }
-
-    // Create Vis.js datasets
-    const data = {
-      nodes: new vis.DataSet(nodes),
-      edges: new vis.DataSet(edges),
+        changeDepth: function(newDepth) { this.depth = parseInt(newDepth); this.loadGraph(this.depth); }
     };
-
-    // Configure network options (SKUEL's tuned settings)
-    const options = {
-      // Physics: forceAtlas2Based for balanced layout
-      physics: {
-        enabled: true,
-        solver: 'forceAtlas2Based',
-        forceAtlas2Based: {
-          gravitationalConstant: -50,
-          centralGravity: 0.01,
-          springLength: 100,
-          springConstant: 0.08,
-          damping: 0.4,
-        },
-        stabilization: {
-          enabled: true,
-          iterations: 200,
-          fit: true,
-        },
-      },
-
-      // Node styling
-      nodes: {
-        shape: 'box',
-        margin: 10,
-        widthConstraint: {
-          maximum: 200,
-        },
-        font: {
-          size: 14,
-          color: '#374151',
-        },
-      },
-
-      // Edge styling
-      edges: {
-        smooth: {
-          type: 'cubicBezier',
-          forceDirection: 'horizontal',
-        },
-        arrows: {
-          to: {
-            enabled: true,
-            scaleFactor: 0.5,
-          },
-        },
-      },
-
-      // Interaction
-      interaction: {
-        hover: true,
-        tooltipDelay: 200,
-        navigationButtons: true,
-        keyboard: true,
-      },
-    };
-
-    // Initialize Vis.js Network
-    this.network = new vis.Network(container, data, options);
-
-    // Event: Click node to navigate to its real detail page.
-    // Do NOT build the URL from the node's Neo4j label / entity_type — labels
-    // ("Ku"/"Task") are not routes, and detail routes vary in shape
-    // (/tasks/detail?uid=, /explore/ku/{uid}, /lp/{uid}). The graph route resolves
-    // each node's `url` server-side via ui/patterns/entity_links.entity_detail_href
-    // (None for types with no detail page); the click handler just uses it.
-    this.network.on('click', (params) => {
-      if (params.nodes.length > 0) {
-        const node = data.nodes.find((n) => n.id === params.nodes[0]);
-        if (node && node.url) {
-          window.location.href = node.url;
-        }
-      }
-    });
-
-    // Event: Disable physics after stabilization (performance)
-    this.network.on('stabilizationIterationsDone', () => {
-      this.network.setOptions({ physics: false });
-    });
-  },
-
-  /**
-   * Cleanup on component destroy
-   */
-  destroy() {
-    if (this.network) {
-      this.network.destroy();
-      this.network = null;
-    }
-  },
-}));
+});
 ```
 
-**Key Alpine Features:**
+(Abridged: the live `loadGraph` wraps the fetch in `try/catch/finally` for `loading` and `error`.)
 
-1. **Reactive State:** `depth` changes trigger `loadGraph()` via `@change="loadGraph()"`
-2. **Loading States:** `loading` boolean shows spinner while fetching
-3. **Error Handling:** `error` string displays user-friendly messages
-4. **Cleanup:** `destroy()` prevents memory leaks when component unmounts
-5. **DOM References:** `$refs.container` finds graph container via `x-ref`
-
-**HTMX Integration:**
-
-Graphs are lazy-loaded via HTMX's `hx-trigger="intersect once"`:
-
-```python
-from fasthtml.common import Div
-from ui.patterns.skeleton import SkeletonLines
-
-Div(
-    **{
-        "hx-get": f"/api/{entity_type}/{entity_uid}/lateral/graph?depth=1",
-        "hx-trigger": "intersect once",  # Load when scrolled into view
-        "hx-swap": "innerHTML",
-    },
-    SkeletonLines(count=4),  # Shimmer placeholder while graph loads
-)
-```
-
-**Why lazy loading?**
-- Graphs are expensive to render (physics simulation)
-- Most users don't scroll to relationship section
-- Improves initial page load time (500ms → 200ms)
+- The component defines **no `destroy()`**, so when HTMX removes its element, nothing tears
+  the network down. `renderNetwork` destroys the previous instance only when it re-renders.
+- `relationshipGraph` hands `vis.Network` plain arrays, so a change means a full re-render.
+  (`exploreGraph` keeps its nodes in a `vis.DataSet`, `_visNodes`, and re-colors them in
+  place when a filter tab changes.)
 
 ---
 
 ## Vis.js Data Format
 
-Vis.js Network expects data in a specific JSON format with `nodes` and `edges` arrays.
+`RelationshipGraphData` (`core/ports/query_types.py`) is
+`{"nodes": list[dict[str, Any]], "edges": list[dict[str, Any]]}`: the vendor payload stays
+untyped inside. What SKUEL puts in it:
 
-### Node Structure
-
-**Minimal Node:**
+### Node
 
 ```json
 {
   "id": "task_write-tests_abc123",
-  "label": "Write Unit Tests"
+  "label": "Write Unit Tests",
+  "type": "Task",
+  "entity_type": "task",
+  "status": "active",
+  "group": "center",
+  "level": 0,
+  "url": "/tasks/detail?uid=task_write-tests_abc123"
 }
 ```
 
-**Full Node (SKUEL Pattern):**
+| Field | Source | Notes |
+|-------|--------|-------|
+| `id` | `uid` | required by Vis.js |
+| `label` | `title`, else the uid | the text drawn under the dot |
+| `type` | `labels(n)[0]` | a Neo4j label, **not** a route; never build a URL from it |
+| `entity_type` | the node's `entity_type` property | what `entity_detail_href` reads |
+| `status` | `status`, else `"unknown"` | |
+| `group` | `"center"` or `"related"` | Vis.js groups; the click handler skips `"center"` |
+| `level` | hop count (`0` for the center) | |
+| `url` | added by the route | `None` for a type with no detail page |
 
-```json
-{
-  "id": "task_write-tests_abc123",           // Unique identifier (required)
-  "label": "Write Unit Tests",                // Display text (required)
-  "type": "Task",                             // Entity type (for filtering)
-  "group": "tasks",                           // Domain name (for color schemes)
-  "color": "#3b82f6",                         // Node background color
-  "status": "IN_PROGRESS",                    // Domain-specific status
-  "shape": "box",                             // Shape: box, circle, ellipse, etc.
-  "font": {"color": "#ffffff"},               // Text color
-  "borderWidth": 2,                           // Border thickness
-  "borderWidthSelected": 4                    // Border when selected
-}
-```
+No `title` is set, so Vis.js shows no hover tooltip.
 
-**Node Fields Reference:**
-
-| Field | Type | Required | Purpose | Example |
-|-------|------|----------|---------|---------|
-| `id` | string | ✅ | Unique identifier | `"task_abc123"` |
-| `label` | string | ✅ | Display text | `"Write Tests"` |
-| `title` | string | ❌ | Hover tooltip HTML | `"<b>Status:</b> In Progress"` |
-| `group` | string | ❌ | Grouping for colors | `"tasks"` |
-| `color` | string/object | ❌ | Background color | `"#3b82f6"` |
-| `shape` | string | ❌ | Node shape | `"box"`, `"circle"` |
-| `size` | number | ❌ | Node size | `25` |
-| `font` | object | ❌ | Font styling | `{"size": 14, "color": "#333"}` |
-
----
-
-### Edge Structure
-
-**Minimal Edge:**
+### Edge
 
 ```json
 {
   "from": "task_write-tests_abc123",
-  "to": "task_setup-ci_xyz789"
+  "to": "task_setup-ci_xyz789",
+  "label": "blocks",
+  "arrows": "to",
+  "color": {"color": "#EF4444"},
+  "relationship_type": "BLOCKS"
 }
 ```
 
-**Full Edge (SKUEL Pattern):**
+`label` is the type lower-cased with spaces. Duplicates (same from, to and type) are
+dropped. The browser then restyles every edge with `styleEdgesByConfidence`
+(reference-patterns.md). It reads `edge.confidence` and `edge.priority`, which the service
+doesn't set today, so every edge falls to the defaults (solid, width 2).
 
-```json
-{
-  "from": "task_write-tests_abc123",          // Source node ID (required)
-  "to": "task_setup-ci_xyz789",               // Target node ID (required)
-  "label": "BLOCKS",                          // Relationship type display
-  "arrows": "to",                             // Arrow direction: "to", "from", "to,from"
-  "color": {"color": "#ef4444"},              // Edge color (red for BLOCKS)
-  "width": 2,                                 // Edge thickness
-  "dashes": false,                            // Solid or dashed line
-  "smooth": {"type": "cubicBezier"}           // Edge curvature
-}
-```
+### Relationship Colors
 
-**Edge Fields Reference:**
+`RelationshipColor` (`core/utils/palette.py`) is the one map; anything not listed gets
+`DEFAULT`:
 
-| Field | Type | Required | Purpose | Example |
-|-------|------|----------|---------|---------|
-| `from` | string | ✅ | Source node ID | `"task_abc123"` |
-| `to` | string | ✅ | Target node ID | `"task_xyz789"` |
-| `label` | string | ❌ | Relationship type | `"BLOCKS"` |
-| `arrows` | string | ❌ | Arrow direction | `"to"`, `"from"`, `"to,from"` |
-| `color` | string/object | ❌ | Edge color | `"#ef4444"` |
-| `width` | number | ❌ | Edge thickness | `2` |
-| `dashes` | boolean/array | ❌ | Dashed line | `true`, `[5, 5]` |
-| `smooth` | boolean/object | ❌ | Curvature | `{"type": "cubicBezier"}` |
-
----
-
-### SKUEL's Relationship Color Scheme
-
-SKUEL uses consistent colors across all domains for relationship types:
-
-| Relationship Type | Color | Hex | Use Case |
-|-------------------|-------|-----|----------|
-| `BLOCKS` | Red | `#ef4444` | Task A blocks Task B (asymmetric) |
-| `BLOCKED_BY` | Light Red | `#fca5a5` | Reverse of BLOCKS |
-| `PREREQUISITE_FOR` | Orange | `#f59e0b` | KU A required before KU B |
-| `DEPENDS_ON` | Light Orange | `#fbbf24` | Reverse of PREREQUISITE_FOR |
-| `ALTERNATIVE_TO` | Blue | `#3b82f6` | Mutually exclusive options |
-| `COMPLEMENTARY_TO` | Green | `#10b981` | Synergistic pairing |
-| `SIBLING` | Purple | `#8b5cf6` | Same parent in hierarchy |
-| `RELATED_TO` | Gray | `#6b7280` | General association |
-
-**Implementation:**
+| Type | Hex |
+|------|-----|
+| `BLOCKS` | `#EF4444` (red) |
+| `PREREQUISITE_FOR` | `#F59E0B` (orange) |
+| `ALTERNATIVE_TO` | `#3B82F6` (blue) |
+| `COMPLEMENTARY_TO` | `#10B981` (green) |
+| `SIBLING` | `#8B5CF6` (purple) |
+| `RELATED_TO` | `#6B7280` (gray) |
+| anything else (`BLOCKED_BY`, `REQUIRES_PREREQUISITE`, …) | `#6B7280` (`DEFAULT`) |
 
 ```python
-# Centralized in core/utils/palette.py (also importable via ui/palette re-export)
 from core.utils.palette import RelationshipColor
 
-# Get color for a relationship type
-color = RelationshipColor.for_type("BLOCKS")      # "#EF4444" (Red)
-color = RelationshipColor.for_type("SIBLING")      # "#8B5CF6" (Purple)
-
-# Used in lateral_relationship_service.py:
-edge["color"] = {"color": RelationshipColor.for_type(rel_type)}
+RelationshipColor.for_type("BLOCKS")    # "#EF4444"
+RelationshipColor.for_type("BLOCKED_BY")  # "#6B7280" — inverses fall to DEFAULT
 ```

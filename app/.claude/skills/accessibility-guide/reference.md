@@ -11,43 +11,36 @@
 **Implementation:**
 
 ```python
-from fasthtml.common import A, Button
+from ui.activities._shared import safe_id
+from ui.components import Button, ButtonT
+from ui.primitives import ButtonLink
 
-# ✅ Button for actions (same page)
+# ✅ Button for actions (same page) — renders <button>
 Button(
     "Delete Task",
-    variant=ButtonT.error,
-    onclick="confirmDelete('task-123')",
-    type="button",  # Prevent form submission
-    aria_label="Delete task: Buy groceries",  # Include context
+    cls=ButtonT.destructive,
+    type="button",                               # not a form submit
+    hx_post=f"/api/tasks/delete?uid={task.uid}",
+    hx_confirm="Delete this task?",
+    hx_target=f"#task-{safe_id(task.uid)}",      # the TaskCard's id
+    hx_swap="delete",                            # the door answers JSON; remove the card instead
+    aria_label=f"Delete task: {task.title}",     # include context
 )
 
-# ✅ Link for navigation (new page/route)
-from ui.primitives import ButtonLink
-from ui.components import ButtonT
+# ✅ Link for navigation (new page/route) — renders <a href>, styled as a button
+ButtonLink("View Task Details", href=f"/tasks/detail?uid={task.uid}", cls=ButtonT.ghost, size="sm")
 
-ButtonLink(
-    "View Task Details",
-    href="/tasks/task-123",
-    variant=ButtonT.ghost,  # Styled as button, but semantically a link
-)
+# ❌ BAD: Div as button (no keyboard support, no role)
+Div("Delete Task", onclick="confirmDelete()", cls="text-destructive cursor-pointer")
 
-# ❌ BAD: Div as button (no keyboard support)
-Div(
-    "Delete Task",
-    onclick="confirmDelete('task-123')",
-    cls="btn btn-error",  # Looks like button, but not accessible
-)
-
-# ✅ GOOD: Div with ARIA and keyboard support
+# ⚠️ Only when a native <button> is impossible: role + tabindex + both key handlers
 Div(
     "Delete Task",
     role="button",
     tabindex="0",
-    onclick="confirmDelete('task-123')",
-    onkeydown="if(event.key === 'Enter' || event.key === ' ') confirmDelete('task-123')",
-    aria_label="Delete task: Buy groceries",
-    cls="btn btn-error",
+    onclick="confirmDelete()",
+    onkeydown="if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); confirmDelete(); }",
+    aria_label="Delete task",
 )
 ```
 
@@ -60,12 +53,14 @@ Div(
 
 **Purpose:** Associate labels with inputs, provide help text
 
-SKUEL uses `LabelInput`, `LabelTextArea`, and `LabelSelect` wrappers that have **built-in ARIA support**. These wrappers automatically handle `aria-describedby`, `aria-invalid`, label association, and help/error text rendering -- no manual wiring needed.
+SKUEL uses `LabelInput`, `LabelTextArea`, and `LabelSelect` wrappers that have **built-in ARIA support**. These wrappers wire `for=`/`id=`, `aria-describedby`, `aria-invalid`, and help/error text themselves; no manual wiring needed.
 
 **Implementation:**
 
 ```python
-from ui.forms import LabelInput, LabelTextArea, LabelSelect
+from fasthtml.common import Option
+
+from ui.forms import Input, LabelInput, LabelSelect, LabelTextArea
 
 # ✅ Basic label association (built into LabelInput)
 LabelInput("Email Address", type="email", name="email")
@@ -78,7 +73,7 @@ LabelInput(
     help_text="Must be at least 8 characters with one uppercase letter.",
 )
 
-# ✅ With error message (auto aria-invalid="true" + aria-describedby + error div)
+# ✅ With error message (auto aria-invalid="true" + aria-describedby + role="alert" error div)
 LabelInput(
     "Username",
     type="text",
@@ -87,21 +82,12 @@ LabelInput(
 )
 
 # ✅ Required field indicator
-LabelInput(
-    "Full Name",
-    type="text",
-    name="name",
-    required=True,
-)
+LabelInput("Full Name", type="text", name="name", required=True)
 
 # ✅ Textarea with help text
-LabelTextArea(
-    "Description",
-    name="description",
-    help_text="Describe what needs to be done in detail.",
-)
+LabelTextArea("Description", name="description", help_text="Describe what needs to be done in detail.")
 
-# ✅ Select with label
+# ✅ Select with label (options positional, label keyword-only)
 LabelSelect(
     Option("Low", value="low"),
     Option("Medium", value="medium", selected=True),
@@ -110,203 +96,69 @@ LabelSelect(
     name="priority",
 )
 
-# Standalone inputs (no label needed, e.g., inside custom layouts)
-from ui.forms import Input, Select, Textarea
-Input(type="text", name="search", placeholder="Search...", aria_label="Search")
+# Standalone input (no visible label, e.g. a search box) — give it an accessible name
+Input(type="search", name="q", placeholder="Search...", aria_label="Search")
 ```
 
-**Built-in ARIA Features of LabelInput/LabelTextArea/LabelSelect:**
-- **Label association:** Automatic `<label>` wrapping -- no manual `for_=` or `id=` needed
-- **help_text=:** Renders a help div and adds `aria-describedby` pointing to it
-- **error_text=:** Renders an error div, adds `aria-describedby` pointing to it, and sets `aria-invalid="true"`
-- **required=True:** Adds HTML `required` attribute
-- **role="alert":** Error text divs are announced immediately by screen readers
+**Built-in ARIA of LabelInput/LabelTextArea/LabelSelect** (rendered output, not intent):
+- **Label association:** `<label for="{id}">` beside the control, whose `id` defaults to `name`
+- **help_text=:** a `{id}-help` div, listed in the control's `aria-describedby`
+- **error_text=:** a `role="alert"` `{id}-error` div, listed in `aria-describedby`, plus `aria-invalid="true"` and the destructive border
+- **required=True:** the HTML `required` attribute
 
 ### Pattern 3: Modal Dialog Accessibility
 
-**Purpose:** Trap focus, announce to screen readers, handle keyboard events
+**Purpose:** Announce the dialog, handle Escape, move focus in and back out
 
-**Implementation:**
+`AlpineModal` gives the overlay: backdrop, click-outside-to-close, `x-cloak`, transition.
+The dialog semantics, Escape and focus handling are the caller's. See SKILL.md
+Mistake 5 for the measured pattern:
 
 ```python
-from ui.components import Button, ButtonT
-# Alpine.js modals — use plain Div with Tailwind + x-show (no ui.modals)
-
-def create_accessible_modal(modal_id: str, title: str, content: Any) -> Any:
-    """Create fully accessible modal dialog."""
-    return Div(
-        # Modal backdrop
+Div(
+    Button("Delete", x_ref="trigger", **{"@click": "open = true; $nextTick(() => $refs.cancel.focus())"}),
+    AlpineModal(
         Div(
-            cls="modal-backdrop",
-            onclick=f"closeModal('{modal_id}')",
-            aria_hidden="true",  # Decorative
-        ),
-
-        # Modal dialog
-        Div(
-            # Modal content
+            H2("Delete this task?", id="del-title"),
+            P("This cannot be undone.", id="del-body"),
             Div(
-                # Close button (top-right)
-                Button(
-                    "✕",
-                    variant=ButtonT.ghost,
-                    size=Size.sm,
-                    onclick=f"closeModal('{modal_id}')",
-                    aria_label="Close modal",
-                    cls="absolute top-2 right-2",
-                ),
-
-                # Modal header
-                H2(
-                    title,
-                    id=f"{modal_id}-title",
-                    cls="text-xl font-bold mb-4",
-                ),
-
-                # Modal body
-                Div(content, id=f"{modal_id}-body"),
-
-                # Modal actions
-                Div(
-                    Button("Cancel", variant=ButtonT.ghost, onclick=f"closeModal('{modal_id}')"),
-                    Button("Confirm", variant=ButtonT.primary, onclick=f"confirmAction('{modal_id}')"),
-                    cls="flex gap-2 justify-end mt-4",
-                ),
-
-                role="dialog",
-                aria_modal="true",
-                aria_labelledby=f"{modal_id}-title",
-                aria_describedby=f"{modal_id}-body",
-                tabindex="-1",  # Programmatically focusable
-                cls="modal-box",
+                Button("Cancel", x_ref="cancel", cls=ButtonT.ghost,
+                       **{"@click": "open = false; $refs.trigger.focus()"}),
+                # the delete door answers JSON: remove the card, don't swap the answer in
+                Button("Delete", cls=ButtonT.destructive, hx_post=delete_url,
+                       hx_target=card_selector, hx_swap="delete", **{"@click": "open = false"}),
+                cls="flex gap-2 justify-end mt-4",
             ),
-
-            id=modal_id,
-            cls="modal",
-            **{"data-modal": "true"},  # For JS focus trap
+            role="dialog",
+            aria_labelledby="del-title",
+            aria_describedby="del-body",
         ),
-    )
-
-
-# JavaScript for focus trap and keyboard handling
-"""
-function openModal(modalId) {
-    const modal = document.getElementById(modalId);
-    modal.classList.add('modal-open');
-
-    // Store last focused element
-    modal.dataset.lastFocus = document.activeElement.id;
-
-    // Focus first interactive element in modal
-    const firstFocusable = modal.querySelector('button, input, select, textarea, a[href]');
-    if (firstFocusable) firstFocusable.focus();
-
-    // Trap focus within modal
-    modal.addEventListener('keydown', trapFocus);
-
-    // Close on Escape
-    modal.addEventListener('keydown', (e) => {
-        if (e.key === 'Escape') closeModal(modalId);
-    });
-}
-
-function closeModal(modalId) {
-    const modal = document.getElementById(modalId);
-    modal.classList.remove('modal-open');
-
-    // Restore focus to triggering element
-    const lastFocusId = modal.dataset.lastFocus;
-    if (lastFocusId) {
-        const lastFocus = document.getElementById(lastFocusId);
-        if (lastFocus) lastFocus.focus();
-    }
-
-    // Remove focus trap
-    modal.removeEventListener('keydown', trapFocus);
-}
-
-function trapFocus(e) {
-    if (e.key !== 'Tab') return;
-
-    const modal = e.currentTarget;
-    const focusableElements = modal.querySelectorAll(
-        'button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), a[href]'
-    );
-
-    const firstFocusable = focusableElements[0];
-    const lastFocusable = focusableElements[focusableElements.length - 1];
-
-    if (e.shiftKey && document.activeElement === firstFocusable) {
-        lastFocusable.focus();
-        e.preventDefault();
-    } else if (!e.shiftKey && document.activeElement === lastFocusable) {
-        firstFocusable.focus();
-        e.preventDefault();
-    }
-}
-"""
+        show="open",
+        close="open = false; $refs.trigger.focus()",
+    ),
+    x_data="{ open: false }",
+    **{"@keydown.escape.window": "if (open) { open = false; $refs.trigger.focus() }"},
+)
 ```
 
-**Key Features:**
-- **role="dialog":** Announces as modal dialog
-- **aria-modal="true":** Indicates background inert
-- **aria-labelledby:** Links to modal title
-- **Focus trap:** Tab cycles within modal only
-- **Escape key:** Closes modal
-- **Focus restoration:** Returns to trigger element
+**What it gives:**
+- **role="dialog" + aria-labelledby/describedby:** announced as a named dialog
+- **Escape** closes it, and only while it is open (the window listener is guarded by `open`)
+- **Focus** moves to Cancel on open and back to the trigger on close
+
+**What it does not give:** a focus trap. Tab can still reach the page behind the backdrop,
+which is why the pattern leaves out `aria-modal="true"`: that attribute promises an inert
+background. SKUEL vendors no Alpine focus plugin, so a real modal means writing the
+Tab/Shift+Tab containment (or marking the background `inert`) and then adding `aria-modal`.
 
 ### Pattern 4: Skip Links for Keyboard Users
 
 **Purpose:** Allow keyboard users to skip repetitive navigation
 
-**Implementation:**
-
-```python
-def render_skip_links() -> Any:
-    """Skip navigation links (hidden until focused)."""
-    return Div(
-        A(
-            "Skip to main content",
-            href="#main-content",
-            cls="skip-link",
-        ),
-        A(
-            "Skip to navigation",
-            href="#main-navigation",
-            cls="skip-link",
-        ),
-    )
-
-
-# CSS for skip links
-"""
-.skip-link {
-    position: absolute;
-    top: -40px;
-    left: 0;
-    background: oklch(var(--color-primary));
-    color: white;
-    padding: 8px 16px;
-    text-decoration: none;
-    z-index: 9999;
-}
-
-.skip-link:focus {
-    top: 0;
-}
-"""
-
-# Usage in BasePage
-def BasePage(content, **kwargs):
-    return Html(
-        Head(...),
-        Body(
-            render_skip_links(),  # First element in body
-            Navbar(..., id="main-navigation"),
-            Main(content, id="main-content"),
-        ),
-    )
-```
+`BasePage` already renders one, first in `<body>`: `A("Skip to main content",
+href="#main-content", cls="skip-link")`. The `<main>` it targets carries
+`id="main-content"`, and `.skip-link` (`static/css/main.css`) keeps it off-screen until it
+takes focus. A page built on `BasePage` needs nothing more; don't add a second skip link.
 
 **Key Features:**
 - **Hidden by default:** Positioned off-screen
@@ -317,55 +169,21 @@ def BasePage(content, **kwargs):
 
 **Purpose:** Announce dynamic content changes to screen readers
 
-**Implementation:**
+SKUEL has one live region, `#live-region`, rendered by `BasePage`. For HTMX traffic,
+`skuel.js` announces into it for you (SKILL.md section 7). For anything else, call the same
+function:
 
-```python
-# Success notification (polite announcement)
-def render_success_toast(message: str) -> Any:
-    """Success toast with screen reader announcement."""
-    return Div(
-        Div(
-            Span("✓", cls="text-success text-xl", aria_hidden="true"),
-            Span(message, cls="ml-2"),
-            cls="p-4 rounded-lg bg-green-50 text-green-800 border border-green-200",
-        ),
-        role="status",
-        aria_live="polite",
-        aria_atomic="true",
-        cls="toast toast-top toast-end",
-    )
-
-
-# Error notification (assertive announcement)
-def render_error_banner(message: str) -> Any:
-    """Error banner with immediate screen reader announcement."""
-    return Div(
-        Div(
-            P("⚠️ Error", cls="font-bold text-error"),
-            P(message, cls="text-sm"),
-            cls="p-4 rounded-lg bg-red-50 text-red-800 border border-red-200",
-        ),
-        role="alert",
-        aria_live="assertive",
-        aria_atomic="true",
-        cls="mb-4",
-    )
-
-
-# Loading state announcement
-def render_loading_state() -> Any:
-    """Loading indicator with screen reader announcement."""
-    return Div(
-        Div(
-            Loading(size=Size.md),
-            Span("Loading tasks...", cls="ml-2"),
-            cls="flex items-center gap-2",
-        ),
-        role="status",
-        aria_live="polite",
-        aria_busy="true",
-    )
+```javascript
+window.SKUEL.announce('Filters cleared');               // polite
+window.SKUEL.announce('Could not save', 'assertive');   // interrupts
 ```
+
+It sets the region's `aria-live` to the priority, writes the text, and clears it three
+seconds later.
+
+For errors shown in the page, use the real banner. `render_error_banner(message)`
+(`ui/patterns/error_banner.py`) renders `role="alert"`, so it is announced when it is
+inserted; don't hand-roll another.
 
 **ARIA Live Regions:**
 
@@ -377,148 +195,66 @@ def render_loading_state() -> Any:
 
 **Additional Attributes:**
 - **aria-atomic="true":** Announce entire region (not just changes)
-- **role="status":** Polite live region (same as aria-live="polite")
-- **role="alert":** Assertive live region (same as aria-live="assertive")
+- **role="status":** Polite live region (implicit aria-live="polite")
+- **role="alert":** Assertive live region (implicit aria-live="assertive")
+- A live region must already be in the DOM when its text changes; one inserted together with its text is often not announced. That is why SKUEL keeps a single persistent region.
 
-### Pattern 6: Accessible Dropdown Menu
+### Pattern 6: Accessible Dropdown (Disclosure)
 
-**Purpose:** Keyboard navigable dropdown with ARIA
-
-**Implementation:**
+**Purpose:** Keyboard-operable disclosure with the right ARIA state
 
 ```python
-def render_accessible_dropdown(
-    trigger_text: str,
-    items: list[dict],
-    dropdown_id: str = "dropdown-1",
-) -> Any:
-    """Accessible dropdown menu with keyboard navigation."""
-    return Div(
-        # Trigger button
-        Button(
-            trigger_text,
-            Span("▼", cls="ml-2", aria_hidden="true"),
-            id=f"{dropdown_id}-trigger",
-            variant=ButtonT.ghost,
-            aria_haspopup="true",
-            aria_expanded="false",
-            aria_controls=dropdown_id,
-            onclick=f"toggleDropdown('{dropdown_id}')",
-        ),
-
-        # Dropdown menu
-        Ul(
-            *[
-                Li(
-                    A(
-                        item["label"],
-                        href=item["href"],
-                        role="menuitem",
-                        tabindex="-1",  # Managed by JS
-                    )
-                )
-                for item in items
-            ],
-            id=dropdown_id,
-            role="menu",
-            aria_labelledby=f"{dropdown_id}-trigger",
-            cls="menu dropdown-content bg-base-100 rounded-box shadow hidden",
-            style="display: none;",
-        ),
-
-        x_data="{ open: false }",
-        **{"@click.outside": "open = false"},
-        cls="dropdown relative",
-    )
-
-
-# JavaScript for keyboard navigation
-"""
-function toggleDropdown(dropdownId) {
-    const dropdown = document.getElementById(dropdownId);
-    const trigger = document.getElementById(dropdownId + '-trigger');
-    const isOpen = trigger.getAttribute('aria-expanded') === 'true';
-
-    if (isOpen) {
-        dropdown.style.display = 'none';
-        trigger.setAttribute('aria-expanded', 'false');
-    } else {
-        dropdown.style.display = 'block';
-        trigger.setAttribute('aria-expanded', 'true');
-
-        // Focus first menu item
-        const firstItem = dropdown.querySelector('[role="menuitem"]');
-        if (firstItem) firstItem.focus();
-    }
-}
-
-// Arrow key navigation within menu
-dropdown.addEventListener('keydown', (e) => {
-    const items = Array.from(dropdown.querySelectorAll('[role="menuitem"]'));
-    const currentIndex = items.indexOf(document.activeElement);
-
-    if (e.key === 'ArrowDown') {
-        e.preventDefault();
-        const nextIndex = (currentIndex + 1) % items.length;
-        items[nextIndex].focus();
-    } else if (e.key === 'ArrowUp') {
-        e.preventDefault();
-        const prevIndex = (currentIndex - 1 + items.length) % items.length;
-        items[prevIndex].focus();
-    } else if (e.key === 'Escape') {
-        toggleDropdown(dropdownId);
-        trigger.focus();
-    }
-});
-"""
+Div(
+    Button(
+        "Options",
+        Icon("chevron-down", size=16),
+        x_ref="trig",
+        aria_controls="options-menu",
+        cls=ButtonT.ghost,
+        **{":aria-expanded": "open", "@click": "open = !open"},
+    ),
+    Ul(
+        Li(A("Settings", href="/settings")),
+        id="options-menu",
+        cls="absolute right-0 mt-2 w-48 bg-background border border-border rounded-lg shadow-lg z-50",
+        **{"x-show": "open", "x-transition": ""},
+    ),
+    x_data="{ open: false }",
+    cls="relative",
+    **{"@click.outside": "open = false", "@keydown.escape": "open = false; $refs.trig.focus()"},
+)
 ```
 
+Measured with the vendored Alpine 3.14.8: `aria-expanded` reads `"false"` → `"true"` →
+`"false"` (Alpine keeps a false `aria-expanded` rather than dropping it), and Escape from
+inside the menu returns focus to the trigger. `dropdown_menu()` in `ui/primitives.py` is the
+styled shell; it carries no ARIA, so the attributes above are still the caller's.
+
 **Key Features:**
-- **aria-haspopup="true":** Indicates trigger opens menu
-- **aria-expanded:** Tracks open/closed state
-- **aria-controls:** Links trigger to menu
-- **role="menu":** Announces as menu to screen readers
-- **Arrow keys:** Navigate menu items
-- **Escape:** Closes menu, returns focus to trigger
+- **aria-controls:** the trigger names what it opens. No `aria-haspopup`: that announces a
+  menu, and this is a disclosure of plain links
+- **:aria-expanded:** tracks open/closed state
+- **Escape:** closes the menu and returns focus to the trigger
+- Links inside stay plain links. A `role="menu"` widget (which *does* take `aria-haspopup`)
+  additionally needs menu roles and arrow-key roving focus
 
 ### Pattern 7: Progress Indicators
 
 **Purpose:** Announce progress to screen readers
 
-**Implementation:**
-
 ```python
-# Determinate progress (known duration)
-def render_progress_bar(value: int, max_value: int = 100, label: str = "") -> Any:
-    """Progress bar with ARIA attributes."""
-    return Div(
-        P(label, id="progress-label", cls="text-sm mb-2") if label else None,
-        Div(
-            Div(
-                cls="h-2 bg-primary rounded-full transition-all",
-                style=f"width: {value}%",
-            ),
-            role="progressbar",
-            aria_valuenow=str(value),
-            aria_valuemin="0",
-            aria_valuemax=str(max_value),
-            aria_labelledby="progress-label" if label else None,
-            cls="w-full bg-base-300 rounded-full h-2",
-        ),
-        Span(f"{value}%", cls="text-xs text-base-content/70 mt-1"),
-    )
+from ui.feedback import Loading, Progress
+from ui.layout import Size
 
+# Determinate progress — Progress renders role="progressbar" with aria-valuenow/min/max
+Div(
+    P("Upload progress", id="upload-label", cls="text-sm mb-2"),
+    Progress(value=40, aria_labelledby="upload-label"),
+)
 
-# Indeterminate progress (unknown duration)
-def render_loading_spinner(label: str = "Loading...") -> Any:
-    """Loading spinner with screen reader announcement."""
-    return Div(
-        Loading(size=Size.md, aria_hidden="true"),  # Decorative
-        Span(label, cls="sr-only"),  # Screen reader only
-        role="status",
-        aria_live="polite",
-        cls="flex items-center gap-2",
-    )
+# Indeterminate progress — Loading() renders role="status" with aria-label="Loading";
+# a caller's aria_label replaces the default
+Loading(size=Size.md, aria_label="Loading tasks")
 ```
 
 **ARIA Progressbar Attributes:**
@@ -531,99 +267,56 @@ def render_loading_spinner(label: str = "Loading...") -> Any:
 
 **Purpose:** Accessible tabbed interface with keyboard navigation
 
-**Implementation:**
+The live reference is `GroupsHub` in `ui/groups/hub.py`, a WAI-ARIA tabs widget in Alpine
+with roving tabindex:
 
 ```python
-def render_tab_panel(
-    tabs: list[dict],
-    active_tab: str,
-    panel_id: str = "tab-panel-1",
-) -> Any:
-    """Accessible tab panel with ARIA."""
-    return Div(
-        # Tab list
-        Div(
-            *[
-                Button(
-                    tab["label"],
-                    id=f"{panel_id}-tab-{tab['id']}",
-                    role="tab",
-                    aria_selected="true" if tab["id"] == active_tab else "false",
-                    aria_controls=f"{panel_id}-panel-{tab['id']}",
-                    tabindex="0" if tab["id"] == active_tab else "-1",
-                    cls=f"tab {'tab-active' if tab['id'] == active_tab else ''}",
-                    onclick=f"switchTab('{panel_id}', '{tab['id']}')",
-                )
-                for tab in tabs
-            ],
-            role="tablist",
-            aria_label="Task views",
-            cls="tabs tabs-boxed",
-        ),
-
-        # Tab panels
-        *[
-            Div(
-                tab["content"],
-                id=f"{panel_id}-panel-{tab['id']}",
-                role="tabpanel",
-                aria_labelledby=f"{panel_id}-tab-{tab['id']}",
-                tabindex="0",
-                cls="mt-4",
-                style="display: block;" if tab["id"] == active_tab else "display: none;",
-            )
-            for tab in tabs
-        ],
+def _tab_button(group: Group) -> FT:
+    cond = f"activeTab === '{group.uid}'"
+    return Button(
+        group.name,
+        role="tab",
+        id=f"groups-tab-{group.uid}",
+        type="button",
+        aria_controls=f"groups-panel-{group.uid}",
+        **{
+            ":aria-selected": cond,
+            ":tabindex": f"{cond} ? 0 : -1",      # only the active tab is in the tab order
+            "@click": f"activeTab = '{group.uid}'",
+        },
     )
 
+def _tab_panel(group: Group) -> FT:
+    return Div(
+        ...,
+        role="tabpanel",
+        id=f"groups-panel-{group.uid}",
+        aria_labelledby=f"groups-tab-{group.uid}",
+        tabindex="0",
+        **{"x-show": f"activeTab === '{group.uid}'"},
+    )
 
-# JavaScript for tab switching
-"""
-function switchTab(panelId, tabId) {
-    // Update aria-selected on tabs
-    const tabs = document.querySelectorAll(`[id^="${panelId}-tab-"]`);
-    tabs.forEach(tab => {
-        const isActive = tab.id === `${panelId}-tab-${tabId}`;
-        tab.setAttribute('aria-selected', isActive);
-        tab.setAttribute('tabindex', isActive ? '0' : '-1');
-        tab.classList.toggle('tab-active', isActive);
-    });
-
-    // Show/hide panels
-    const panels = document.querySelectorAll(`[id^="${panelId}-panel-"]`);
-    panels.forEach(panel => {
-        const isActive = panel.id === `${panelId}-panel-${tabId}`;
-        panel.style.display = isActive ? 'block' : 'none';
-    });
-}
-
-// Arrow key navigation
-tablist.addEventListener('keydown', (e) => {
-    const tabs = Array.from(tablist.querySelectorAll('[role="tab"]'));
-    const currentIndex = tabs.indexOf(document.activeElement);
-
-    if (e.key === 'ArrowRight') {
-        e.preventDefault();
-        const nextIndex = (currentIndex + 1) % tabs.length;
-        tabs[nextIndex].click();
-        tabs[nextIndex].focus();
-    } else if (e.key === 'ArrowLeft') {
-        e.preventDefault();
-        const prevIndex = (currentIndex - 1 + tabs.length) % tabs.length;
-        tabs[prevIndex].click();
-        tabs[prevIndex].focus();
-    }
-});
-"""
+# The tablist moves activation AND focus with the arrow keys, Home and End
+Div(
+    *[_tab_button(g) for g in groups],
+    role="tablist",
+    **{
+        "aria-label": "Your groups",
+        "@keydown.arrow-right.prevent": "activeTab = tabs[(tabs.indexOf(activeTab) + 1) % tabs.length]; "
+        "$nextTick(() => document.getElementById('groups-tab-' + activeTab).focus())",
+        # arrow-left, home and end follow the same shape
+    },
+)
 ```
 
 **Key Features:**
-- **role="tablist":** Container for tabs
-- **role="tab":** Individual tab button
-- **role="tabpanel":** Content panel
-- **aria-selected:** Indicates active tab
-- **aria-controls:** Links tab to panel
-- **Arrow keys:** Navigate between tabs
+- **role="tablist" / "tab" / "tabpanel":** the three roles, each tab `aria-controls` its panel
+- **:aria-selected:** bound to the active tab
+- **Roving tabindex:** the active tab is `0`, the rest `-1`, so Tab enters the list once
+- **Arrow / Home / End keys:** move between tabs
+
+Use tabs only for same-page panels. Links between pages belong in the sidebar's section
+nav (`<nav>` + `aria-current`), never `role="tab"`.
 
 ## Real-World Examples
 
@@ -667,9 +360,9 @@ A parse-time inline `<script>` after the nav sets the row's `scrollLeft` so the 
 
 ### Example 2: Task Form with Validation
 
-**File:** `/adapters/inbound/tasks_ui.py`
-
-**Accessible form:**
+**Where:** `TaskCreateForm` (`ui/activities/tasks_form.py`) calls `render_activity_form`
+(`ui/patterns/activity_form_helper.py`), a thin wrapper over `FormGenerator`, which renders
+the same labelled-control shape. By hand it looks like:
 
 ```python
 from ui.forms import LabelInput
