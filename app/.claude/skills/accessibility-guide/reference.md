@@ -124,7 +124,9 @@ Div(
             Div(
                 Button("Cancel", x_ref="cancel", cls=ButtonT.ghost,
                        **{"@click": "open = false; $refs.trigger.focus()"}),
-                Button("Delete", cls=ButtonT.destructive, hx_post=delete_url),
+                # the delete door answers JSON: remove the card, don't swap the answer in
+                Button("Delete", cls=ButtonT.destructive, hx_post=delete_url,
+                       hx_target=card_selector, hx_swap="delete", **{"@click": "open = false"}),
                 cls="flex gap-2 justify-end mt-4",
             ),
             role="dialog",

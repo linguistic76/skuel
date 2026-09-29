@@ -309,7 +309,9 @@ Div(
 ```html
 <!-- SKUEL announces mutations and errors for you: skuel.js drives the #live-region that
      BasePage renders (see HTMX_ACCESSIBILITY_PATTERNS.md). Override the words per element: -->
+<!-- /status answers the updated TaskCard, so the card swaps itself -->
 <button hx-post="/api/tasks/ta_1/status" hx-vals='{"status": "completed"}'
+        hx-target="#task-ta_1" hx-swap="outerHTML"
         data-announce="Task completed" data-announce-loading="Completing task">Done</button>
 
 <!-- Focus first input after swap -->
