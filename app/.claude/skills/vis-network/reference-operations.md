@@ -161,7 +161,7 @@ load shows only in the console. Read the console first.
 
 | Symptom | Cause | Fix |
 |---------|-------|-----|
-| 404 on `.../lateral/graph` for your own entity | domain not in `_LATERAL_DOMAINS`, or the uid is wrong | add the entry; check the uid |
+| 404 on `.../lateral/graph` for your own entity | domain not in `_LATERAL_DOMAINS` (no route), or, on an Activity domain, the uid is wrong | add the entry; check the uid |
 | 404 on someone else's entity (Activity domains) | the ownership check working (not-found, never forbidden) | expected |
 | 400 `Invalid relationship type` | a `?types=` value that isn't a `RelationshipName` value | pass enum values, comma-separated |
 | Graph shows only the center dot | no lateral edges within `depth` — or, on `ku`/`ps`/`lp`, a uid that doesn't exist (no existence check there; the center's label is then the uid itself) | check the uid; otherwise expected |
