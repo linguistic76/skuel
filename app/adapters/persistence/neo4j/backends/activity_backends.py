@@ -208,7 +208,7 @@ class HabitsBackend(_HierarchyMixin, UniversalNeo4jBackend[Habit]):
         ORDER BY
             CASE WHEN h.current_streak > 0 AND datetime(h.last_completed) < datetime($today_start) THEN 0 ELSE 1 END,
             h.current_streak DESC,
-            h.created_at DESC
+            datetime(h.created_at) DESC
         LIMIT $fetch_limit
         """
         zone = current_zone()
@@ -250,7 +250,7 @@ class HabitsBackend(_HierarchyMixin, UniversalNeo4jBackend[Habit]):
                r.earned_at as earned_at,
                r.streak_length as streak_length,
                r.habit_uid as habit_uid
-        ORDER BY r.earned_at DESC
+        ORDER BY datetime(r.earned_at) DESC
         """
         result = await self.execute_query(query, {"user_uid": user_uid})
         if result.is_error:
@@ -855,7 +855,7 @@ class TasksBackend(_HierarchyMixin, UniversalNeo4jBackend[Task]):
         MATCH (t:Entity)-[:{RelationshipName.ASSIGNED_TO.value}]->(u:User {{uid: $user_uid}})
         WHERE t.uid IS NOT NULL {status_filter}
         RETURN t
-        ORDER BY t.created_at DESC
+        ORDER BY datetime(t.created_at) DESC
         LIMIT $limit
         """
         result = await self.execute_query(query, {"user_uid": user_uid, "limit": limit})
@@ -1374,7 +1374,7 @@ class ChoicesBackend(_HierarchyMixin, UniversalNeo4jBackend[Choice]):
         WHERE c.user_uid = $user_uid
           AND c.status IN ['draft', 'active', 'scheduled']
         RETURN c
-        ORDER BY c.decision_deadline ASC, c.created_at DESC
+        ORDER BY datetime(c.decision_deadline) ASC, datetime(c.created_at) DESC
         LIMIT $limit
         """
         result = await self.execute_query(query, {"user_uid": user_uid, "limit": limit})
@@ -1401,7 +1401,7 @@ class ChoicesBackend(_HierarchyMixin, UniversalNeo4jBackend[Choice]):
           AND datetime(c.decision_deadline) < datetime($end_bound)
           AND NOT c.status IN ['completed', 'decided', 'cancelled', 'archived']
         RETURN c
-        ORDER BY c.decision_deadline ASC
+        ORDER BY datetime(c.decision_deadline) ASC
         """
         last_day = date.fromisoformat(end_date[:10])
         _, end_bound = stored_day_bounds(last_day, last_day, current_zone())
@@ -1483,7 +1483,7 @@ class PrinciplesBackend(_HierarchyMixin, UniversalNeo4jBackend[Principle]):
             query += "  AND n.is_active = true\n"
         query += """
         RETURN n
-        ORDER BY n.created_at DESC
+        ORDER BY datetime(n.created_at) DESC
         LIMIT $limit
         """
         params: dict[str, object] = {

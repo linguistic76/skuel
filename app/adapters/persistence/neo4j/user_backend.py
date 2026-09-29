@@ -1033,7 +1033,7 @@ class UserBackend(Neo4jSessionRunner):
            OR r.last_practiced >= cutoff
         WITH DISTINCT u
         RETURN u
-        ORDER BY u.last_active_at DESC
+        ORDER BY datetime(u.last_active_at) DESC
         LIMIT $limit
         """
 

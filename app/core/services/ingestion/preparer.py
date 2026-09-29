@@ -222,11 +222,11 @@ def _canonical_created_at(value: object) -> str | None:
     (whatever YAML produced) but every branch narrows it with ``isinstance``,
     so nothing here needs to opt out of type checking.
 
-    ``created_at`` persists as a STRING, so ``ORDER BY created_at`` compares
-    lexicographically — an offset-bearing value would otherwise sort by its
-    written digits rather than its instant. Emits the ``Z`` suffix that the
-    ON CREATE stamp (``toString(datetime())``, itself UTC) uses, so authored
-    and stamped values collate against each other.
+    ``created_at`` persists as a STRING in one spelling: the ``Z`` suffix that
+    the ON CREATE stamp (``toString(datetime())``, itself UTC) uses, so an
+    authored stamp and a stamped one read alike. Readers order and compare it
+    through ``datetime()``, which reads any offset; a string compared as text
+    would sort an offset-bearing value by its written digits.
 
     Accepts what the read boundary accepts (``Neo4jGenericMapper._convert_value``
     → ``datetime.fromisoformat``): a YAML-parsed ``datetime``/``date``, or a
@@ -437,12 +437,11 @@ def prepare_entity_data(
     #    property assigned null, so ``ON MATCH SET n += props`` would REMOVE the
     #    stored creation date. That is the very loss this change exists to stop,
     #    so a blank key means "omitted", not "write null".
-    # 2. An OFFSET-BEARING value — these persist as strings, and ``ORDER BY
-    #    created_at`` (5+ live queries) then sorts lexicographically, ranking
-    #    ``2026-03-29T01:00:00+02:00`` after ``2026-03-29T00:30:00Z`` though it
-    #    is the earlier instant. Canonicalize to one UTC representation, using
-    #    the ``Z`` suffix that the ON CREATE stamp (``toString(datetime())``,
-    #    UTC) also emits, so authored and stamped values order together.
+    # 2. An OFFSET-BEARING value — as text, ``2026-03-29T01:00:00+02:00`` sorts
+    #    after ``2026-03-29T00:30:00Z`` though it is the earlier instant.
+    #    Canonicalize to one UTC representation, using the ``Z`` suffix that
+    #    the ON CREATE stamp (``toString(datetime())``, UTC) also emits, so
+    #    every ingested created_at has one spelling.
     #
     # An unparseable value is left verbatim on purpose — ``validate_entity_data``
     # owns the rejection so the author gets one actionable per-file message.

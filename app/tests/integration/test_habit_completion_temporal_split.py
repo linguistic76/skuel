@@ -1,23 +1,18 @@
-"""Why the adherence fetch carries no date predicate, proven against a real graph.
+"""A bounded ``find_by`` over a mixed-shape instant column, proven against a real graph.
 
-``HabitCompletion.completed_at`` is written as an ISO **string** by the only
-writer there is (``UniversalNeo4jBackend.create`` ``isoformat()``s what the DTO
-carries, reached from exactly two call sites in ``HabitsCompletionService``). The
-writer decides the storage type, not the reader — and a reader that assumes the
-current writer's choice fails silently when it changes, which is the one failure
-mode a metric can least afford: it reads as "this user was less consistent",
-never as an error.
+``HabitCompletion.completed_at`` is an instant (a ``datetime`` on the model).
+The writer decides its storage type, not the reader: the CRUD door stores an
+ISO **string**, a Cypher writer a **native** — and a reader that assumes one
+writer's choice fails silently when another writes, which reads as "this user
+was less consistent", never as an error.
 
-This file pins the mechanism that decision rests on. ``find_by`` binds a
-``datetime`` bound as an ISO string (``convert_value_for_neo4j``), so a range
-predicate compares a **string** against whatever ``completed_at`` holds. Neo4j
-orders values across types before it compares them, so a natively-typed
-``completed_at`` satisfies neither end of that range and the row disappears from
-a query that looks entirely correct.
-
-If Neo4j ever changes those comparison semantics, the first assertion here fails
-and the whole justification can be revisited — which is the point of pinning a
-mechanism rather than describing one.
+``find_by`` binds a ``datetime`` bound as an ISO string (``convert_value_for_neo4j``).
+Compared raw, a native ``completed_at`` against that string satisfies neither
+end of the range. The range builder therefore compares an instant field as
+instants on both sides — ``datetime(n.completed_at) >= datetime($bound)`` (the
+type rule, ``comparable_property``) — and both shapes are inside it. This file
+pins that, beside the two other shapes of the read: the unbounded paged fetch
+and the mapper's normalisation.
 """
 
 from __future__ import annotations
@@ -82,24 +77,31 @@ class TestHabitCompletionTemporalSplit:
         await _seed_completion(neo4j_driver, "hc.split_temporal", temporal_stamp=True)
         return completions_backend
 
-    async def test_a_date_bounded_find_by_silently_drops_a_temporally_typed_row(self, seeded):
-        """The hazard, reproduced — this is why the adherence fetch has no range.
+    async def test_a_date_bounded_find_by_returns_both_storage_shapes(self, seeded, neo4j_driver):
+        """Both rows carry the same instant and both are inside the bounds.
 
-        Both rows carry the same instant and both are inside the bounds. Only the
-        string-stamped one comes back: the bound reaches Cypher as a string, and
-        a temporal value compared against a string is not "outside the range", it
-        is not comparable at all. No error, no warning, one row fewer.
+        Compared raw, the native row would drop out — a temporal compared with
+        the string bound is not "outside the range", it is not comparable at all.
+        The range reads both sides through ``datetime()``, so both come back.
         """
+        async with neo4j_driver.session() as session:
+            shapes = await session.run(
+                "MATCH (hc:HabitCompletion {habit_uid: $habit}) "
+                "RETURN hc.uid AS uid, valueType(hc.completed_at) AS type",
+                habit=HABIT,
+            )
+            types = {row["uid"]: row["type"] for row in await shapes.data()}
+        assert types == {
+            "hc.split_string": "STRING NOT NULL",
+            "hc.split_temporal": "ZONED DATETIME NOT NULL",
+        }
+
         result = await seeded.find_by(
             habit_uid=HABIT, completed_at__gte=LOW, completed_at__lte=HIGH, limit=100
         )
 
         assert result.is_ok
-        uids = {c.uid for c in result.value}
-        assert uids == {"hc.split_string"}, (
-            "if this now returns both rows, Neo4j's cross-type comparison changed "
-            "and the no-date-predicate decision can be revisited"
-        )
+        assert {c.uid for c in result.value} == {"hc.split_string", "hc.split_temporal"}
 
     async def test_the_unbounded_paged_fetch_returns_both(self, seeded):
         """The shape the adherence path uses: no temporal predicate, a total order.

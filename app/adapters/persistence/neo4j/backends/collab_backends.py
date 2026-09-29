@@ -88,7 +88,7 @@ class GroupBackend(UniversalNeo4jBackend["Group"]):
             MATCH (user:User {{uid: $user_uid}})-[r:{reach}]->(group:Group)
             WHERE group.is_active = true {role_clause}
             RETURN DISTINCT group
-            ORDER BY group.created_at DESC
+            ORDER BY datetime(group.created_at) DESC
             """,
             params,
         )
@@ -164,7 +164,7 @@ class GroupBackend(UniversalNeo4jBackend["Group"]):
                    user.name as user_name,
                    r.role as role,
                    r.joined_at as joined_at
-            ORDER BY r.joined_at
+            ORDER BY datetime(r.joined_at)
             """,
             {"group_uid": group_uid},
         )
@@ -215,7 +215,7 @@ class GroupBackend(UniversalNeo4jBackend["Group"]):
                count(DISTINCT member) AS member_count,
                count(DISTINCT ex) AS exercise_count,
                count(DISTINCT sub) AS pending_count
-        ORDER BY created_at DESC
+        ORDER BY datetime(created_at) DESC
         """
         return await self.execute_query(
             query, {"teacher_uid": teacher_uid, "pipeline": Pipeline.TEACHER_REVIEW.value}
@@ -242,7 +242,7 @@ class GroupBackend(UniversalNeo4jBackend["Group"]):
                count(DISTINCT sub) AS submission_count,
                count(DISTINCT CASE WHEN sub.status = 'completed' THEN sub.uid END) AS reviewed_count,
                count(DISTINCT CASE WHEN sub.status IN ['submitted', 'active', 'revision_requested'] THEN sub.uid END) AS pending_count
-        ORDER BY r.joined_at
+        ORDER BY datetime(joined_at)
         """
         return await self.execute_query(
             query,
@@ -840,7 +840,7 @@ class NotificationBackend:
                n.source_type as source_type,
                n.read as read,
                n.created_at as created_at
-        ORDER BY n.read ASC, n.created_at DESC
+        ORDER BY n.read ASC, datetime(n.created_at) DESC
         LIMIT $limit
         """
         result = await self.executor.execute_query(query, {"user_uid": user_uid, "limit": limit})
@@ -931,7 +931,7 @@ class ReviewQueueBackend:
                    r.domains AS domains, r.message AS message,
                    toString(r.created_at) AS created_at,
                    u.title AS username
-            ORDER BY r.created_at ASC
+            ORDER BY datetime(r.created_at) ASC
             LIMIT $limit
             """,
             {"limit": limit},

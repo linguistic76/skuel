@@ -24,6 +24,7 @@ from datetime import datetime
 from typing import TYPE_CHECKING, Any
 
 from adapters.persistence.neo4j.neo4j_mapper import from_neo4j_node
+from adapters.persistence.neo4j.query.cypher import comparable_property
 from core.models.protocols import DomainModelProtocol
 from core.models.relationship_names import RelationshipName
 from core.models.type_hints import EntityUID, UserUID
@@ -191,11 +192,12 @@ class _UserEntityMixin[T: DomainModelProtocol]:
         # Sort direction
         order_direction = "DESC" if sort_order.lower() == "desc" else "ASC"
 
+        order_key = comparable_property("e", sort_by, self.entity_class)
         query = f"""
         MATCH (u:User {{uid: $user_uid}})-[:{relationship_type}]->(e:{self.label})
         {where_clause}
         RETURN e
-        ORDER BY e.{sort_by} {order_direction}
+        ORDER BY {order_key} {order_direction}
         SKIP $offset
         LIMIT $limit
         """

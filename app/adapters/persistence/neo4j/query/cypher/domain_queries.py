@@ -1062,7 +1062,7 @@ def build_user_activity_query(
     MATCH (n:{node_label})
     WHERE {where_clause}
     RETURN n
-    ORDER BY n.created_at DESC
+    ORDER BY datetime(n.created_at) DESC
     LIMIT $limit
     """
 
@@ -1112,7 +1112,8 @@ def build_due_soon_query(
         limit: Maximum results
         secondary_sort_field: Optional secondary sort field (e.g., "start_time")
         instant_field: ``date_field`` holds an instant (a ``datetime`` on the model):
-            it matches on the day it falls on in the current zone
+            it matches on the day it falls on in the current zone, and orders by
+            its instant
 
     Returns:
         Tuple of (cypher_query, parameters)
@@ -1160,7 +1161,7 @@ def build_due_soon_query(
     where_clause = " AND ".join(where_clauses)
 
     # Sort by date ASC (nearest first), with optional secondary sort
-    order_clause = f"n.{date_field} ASC"
+    order_clause = f"datetime(n.{date_field}) ASC" if instant_field else f"n.{date_field} ASC"
     if secondary_sort_field:
         order_clause += f", n.{secondary_sort_field} ASC"
 
@@ -1212,7 +1213,8 @@ def build_overdue_query(
         limit: Maximum results
         secondary_sort_field: Optional secondary sort field (e.g., "start_time")
         instant_field: ``date_field`` holds an instant (a ``datetime`` on the model):
-            it is overdue from the first instant of today in the current zone
+            it is overdue from the first instant of today in the current zone, and
+            orders by its instant
 
     Returns:
         Tuple of (cypher_query, parameters)
@@ -1251,7 +1253,7 @@ def build_overdue_query(
     where_clause = " AND ".join(where_clauses)
 
     # Sort by date ASC (oldest/most overdue first), with optional secondary sort
-    order_clause = f"n.{date_field} ASC"
+    order_clause = f"datetime(n.{date_field}) ASC" if instant_field else f"n.{date_field} ASC"
     if secondary_sort_field:
         order_clause += f", n.{secondary_sort_field} ASC"
 
@@ -1313,7 +1315,7 @@ def build_active_query(
     MATCH (u:User {{uid: $user_uid}})-[:OWNS]->(n:{node_label})
     {where_clause}
     RETURN n
-    ORDER BY n.created_at DESC
+    ORDER BY datetime(n.created_at) DESC
     LIMIT $limit
     """
 

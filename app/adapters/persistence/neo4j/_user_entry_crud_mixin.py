@@ -224,7 +224,7 @@ class _UserEntryCrudMixin:
           AND s.processed_content IS NOT NULL
           AND toLower(s.processed_content) CONTAINS toLower($query)
         RETURN s
-        ORDER BY s.created_at DESC
+        ORDER BY datetime(s.created_at) DESC
         LIMIT $limit
         """
         result = await self.execute_query(
@@ -262,7 +262,7 @@ class _UserEntryCrudMixin:
                s.entity_type AS entity_type,
                s.created_at AS created_at,
                feedback_count
-        ORDER BY s.created_at DESC
+        ORDER BY datetime(s.created_at) DESC
         LIMIT $limit
         """
         result = await self.execute_query(
@@ -316,7 +316,7 @@ class _UserEntryCrudMixin:
         MATCH (u:User {uid: $user_uid})-[:OWNS]->(s:Entity)-[:FULFILLS_EXERCISE]->(exercise)
         WHERE s.entity_type = $entry_type
         RETURN s.uid AS uid, s.created_at AS created_at
-        ORDER BY s.created_at ASC
+        ORDER BY datetime(s.created_at) ASC
         LIMIT 1
         """
         result = await self.execute_query(
@@ -348,7 +348,7 @@ class _UserEntryCrudMixin:
         MATCH (:User {{uid: $user_uid}})-[:{RelationshipName.OWNS.value}]->(copy:Entity)
         WHERE copy.entity_type = $entry_type AND copy.submitted_from_uid = $note_uid
         RETURN copy.uid AS uid, copy.submission_fingerprint AS submission_fingerprint
-        ORDER BY copy.created_at DESC
+        ORDER BY datetime(copy.created_at) DESC
         LIMIT 1
         """
         result = await self.execute_query(
@@ -608,7 +608,7 @@ class _UserEntryCrudMixin:
         RETURN e.uid AS entity_uid,
                e.title AS title,
                labels(e) AS labels
-        ORDER BY e.created_at ASC
+        ORDER BY datetime(e.created_at) ASC
         """
         result = await self.execute_query(
             query, {"user_uid": user_uid, "labels": labels, "terminal": terminal}

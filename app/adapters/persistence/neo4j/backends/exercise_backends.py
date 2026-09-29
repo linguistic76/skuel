@@ -88,7 +88,7 @@ def _exercise_status_tail(
             OPTIONAL MATCH (user)-[:{RelationshipName.OWNS}]->(sub:Entity)-[:{RelationshipName.FULFILLS_EXERCISE}]->(exercise)
             OPTIONAL MATCH (report:Entity)-[:{RelationshipName.REPORT_FOR}]->(sub)
             WITH user, exercise, {group_var}sub, report
-            ORDER BY sub.created_at DESC
+            ORDER BY datetime(sub.created_at) DESC
             WITH user, exercise, {group_var}
                  collect(sub)[0] AS latest_sub,
                  collect(report)[0] AS latest_report
@@ -96,7 +96,7 @@ def _exercise_status_tail(
             WHERE living.fulfills_exercise_uid = exercise.uid
               AND NOT (living)-[:{RelationshipName.FULFILLS_EXERCISE}]->(:Entity)
             WITH exercise, {group_var}latest_sub, latest_report, living
-            ORDER BY living.updated_at DESC
+            ORDER BY datetime(living.updated_at) DESC
             WITH exercise, {group_var}latest_sub, latest_report,
                  collect(living)[0] AS latest_living
             RETURN exercise,
@@ -301,7 +301,7 @@ class ExerciseBackend(UniversalNeo4jBackend[Exercise]):
         tail = _exercise_status_tail(
             carry_group=True,
             group_name="group.title",
-            order_by="exercise.due_date ASC, exercise.created_at DESC",
+            order_by="exercise.due_date ASC, datetime(exercise.created_at) DESC",
             limit_clause="LIMIT $limit" if limit is not None else "",
         )
         return await self.execute_query(
@@ -335,7 +335,7 @@ class ExerciseBackend(UniversalNeo4jBackend[Exercise]):
         tail = _exercise_status_tail(
             carry_group=False,
             group_name="''",
-            order_by="exercise.created_at DESC",
+            order_by="datetime(exercise.created_at) DESC",
             limit_clause="LIMIT $limit" if limit is not None else "",
         )
         return await self.execute_query(
@@ -398,7 +398,7 @@ class ExerciseBackend(UniversalNeo4jBackend[Exercise]):
                    exercise.due_date as due_date,
                    exercise.status as status,
                    exercise.form_schema as form_schema
-            ORDER BY exercise.created_at DESC
+            ORDER BY datetime(exercise.created_at) DESC
             """,
             {"curriculum_uid": curriculum_uid},
         )
@@ -495,7 +495,7 @@ class ExerciseBackend(UniversalNeo4jBackend[Exercise]):
                exercise.scope AS scope, exercise.created_at AS created_at,
                total_count, reviewed_count,
                total_count - reviewed_count AS pending_count
-        ORDER BY exercise.created_at DESC
+        ORDER BY datetime(created_at) DESC
         """
         return await self.execute_query(
             query, {"teacher_uid": teacher_uid, "pipeline": Pipeline.TEACHER_REVIEW.value}
@@ -638,14 +638,14 @@ class RevisedExerciseBackend(UniversalNeo4jBackend["RevisedExercise"]):
             query = f"""
             MATCH (u:User {{uid: $teacher_uid}})-[:{RelationshipName.OWNS.value}]->(re:RevisedExercise {{student_uid: $student_uid}})
             RETURN re
-            ORDER BY re.created_at DESC
+            ORDER BY datetime(re.created_at) DESC
             """
             params: dict[str, str] = {"student_uid": student_uid, "teacher_uid": teacher_uid}
         else:
             query = """
             MATCH (re:RevisedExercise {student_uid: $student_uid})
             RETURN re
-            ORDER BY re.created_at DESC
+            ORDER BY datetime(re.created_at) DESC
             """
             params = {"student_uid": student_uid}
 
@@ -837,7 +837,7 @@ class RevisedExerciseBackend(UniversalNeo4jBackend["RevisedExercise"]):
                    re.created_at AS created_at,
                    ex.uid AS exercise_uid,
                    ex.title AS exercise_title
-            ORDER BY re.created_at DESC
+            ORDER BY datetime(re.created_at) DESC
             LIMIT $limit
             """,
             {"teacher_uid": teacher_uid, "limit": limit},
@@ -1182,7 +1182,7 @@ class EntryReportBackend(UniversalNeo4jBackend[EntryReport]):
         cypher = f"""
             MATCH (n:EntryReport)-[:{RelationshipName.REPORT_FOR.value}]->(:Entity {{uid: $submission_uid}})
             RETURN n{{.*, subject_uid: $submission_uid}} AS n
-            ORDER BY n.created_at ASC
+            ORDER BY datetime(n.created_at) ASC
         """
         try:
             records = await self._run_records(cypher, {"submission_uid": submission_uid})
@@ -1209,7 +1209,7 @@ class EntryReportBackend(UniversalNeo4jBackend[EntryReport]):
             MATCH (sub)-[:{RelationshipName.FULFILLS_EXERCISE.value}]->(ex:Entity {{uid: $exercise_uid, entity_type: 'exercise'}})
             MATCH (n:EntryReport)-[:{RelationshipName.REPORT_FOR.value}]->(sub)
             RETURN n{{.*, subject_uid: sub.uid}} AS n
-            ORDER BY n.created_at DESC
+            ORDER BY datetime(n.created_at) DESC
         """
         try:
             records = await self._run_records(
@@ -1241,7 +1241,7 @@ class EntryReportBackend(UniversalNeo4jBackend[EntryReport]):
             MATCH (n:EntryReport {{author_uid: $teacher_uid}})
             OPTIONAL MATCH (n)-[:{RelationshipName.REPORT_FOR.value}]->(sub:Entity)
             RETURN n{{.*, subject_uid: sub.uid}} AS n
-            ORDER BY n.created_at DESC
+            ORDER BY datetime(n.created_at) DESC
             LIMIT $limit
         """
         try:

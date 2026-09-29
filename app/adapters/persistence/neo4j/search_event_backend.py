@@ -71,13 +71,15 @@ class SearchEventBackend:
             MATCH (e:SearchEvent)
             WHERE e.result_count <= $max_result_count
               AND e.created_at >= datetime() - duration({days: $days})
-            RETURN e.query_normalized AS query,
-                   count(e) AS searches,
-                   sum(CASE WHEN e.zero_results THEN 1 ELSE 0 END) AS zero_count,
-                   avg(e.result_count) AS avg_results,
-                   toString(max(e.created_at)) AS last_seen,
-                   collect(DISTINCT e.entry_point) AS entry_points
-            ORDER BY searches DESC, last_seen DESC
+            WITH e.query_normalized AS query,
+                 count(e) AS searches,
+                 sum(CASE WHEN e.zero_results THEN 1 ELSE 0 END) AS zero_count,
+                 avg(e.result_count) AS avg_results,
+                 max(datetime(e.created_at)) AS last_searched,
+                 collect(DISTINCT e.entry_point) AS entry_points
+            RETURN query, searches, zero_count, avg_results,
+                   toString(last_searched) AS last_seen, entry_points
+            ORDER BY searches DESC, last_searched DESC
             LIMIT $limit
             """,
             {"max_result_count": max_result_count, "days": days, "limit": limit},

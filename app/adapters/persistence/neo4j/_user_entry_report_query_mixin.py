@@ -70,7 +70,7 @@ class _UserEntryReportQueryMixin:
           AND ($pipelines IS NULL OR submission.pipeline IN $pipelines)
           AND NOT ()-[:{RelationshipName.REPORT_FOR.value}]->(submission)
         RETURN submission.uid AS uid
-        ORDER BY submission.created_at DESC
+        ORDER BY datetime(submission.created_at) DESC
         LIMIT 20
         """
         return await self.execute_query(
@@ -208,7 +208,7 @@ class _UserEntryReportQueryMixin:
         OPTIONAL MATCH (e)-[f:{RelationshipName.FULFILLS_EXERCISE.value}]->(:Entity:Exercise)
         OPTIONAL MATCH (e)-[:{RelationshipName.FULFILLS_REVISED_EXERCISE.value}]->(rex:Entity:RevisedExercise)
         WITH ex, e, f, rex
-        ORDER BY toString(e.created_at) DESC, e.uid
+        ORDER BY datetime(e.created_at) DESC, e.uid
         WITH ex,
              collect(DISTINCT e {{.uid, .title, .status, created_at: toString(e.created_at),
                                   revision: coalesce(f.revision, e.turn_in_revision),
@@ -290,10 +290,10 @@ class _UserEntryReportQueryMixin:
             WHERE e.turn_in_exercise_uid IS NOT NULL
             OPTIONAL MATCH (r:Entity {{entity_type: $report_type}})-[:{RelationshipName.REPORT_FOR.value}]->(e)
                 WHERE r.assessment_outcome IS NOT NULL
-            WITH e, r ORDER BY r.created_at DESC
+            WITH e, r ORDER BY datetime(r.created_at) DESC
             WITH e, collect(r {{.uid, .processor_type, created_at: toString(r.created_at)}}) AS entry_reports
             WITH e, entry_reports, size(entry_reports) AS n_reports
-            ORDER BY toString(e.created_at) DESC, e.uid
+            ORDER BY datetime(e.created_at) DESC, e.uid
             WITH e.turn_in_exercise_uid AS exercise_uid,
                  count(e) AS entry_count,
                  sum(n_reports) AS report_count,
@@ -327,7 +327,7 @@ class _UserEntryReportQueryMixin:
             OPTIONAL MATCH (r)-[:{RelationshipName.REPORT_FOR.value}]->(e:Entity:UserEntry)
             WITH r, e
             WHERE e IS NULL OR e.turn_in_exercise_uid IS NULL
-            WITH r ORDER BY r.created_at DESC
+            WITH r ORDER BY datetime(r.created_at) DESC
             RETURN collect(r {{.uid, .title, .processor_type, created_at: toString(r.created_at)}}) AS other_feedback
         }}
         RETURN exercise_summaries, other_feedback
@@ -410,7 +410,7 @@ class _UserEntryReportQueryMixin:
         WHERE admin.role = 'admin'
           AND NOT coalesce(admin.email, '') ENDS WITH '@skuel.local'
         RETURN admin.uid AS admin_uid
-        ORDER BY admin.created_at ASC
+        ORDER BY datetime(admin.created_at) ASC
         LIMIT 1
         """
         return await self.execute_query(query, {})

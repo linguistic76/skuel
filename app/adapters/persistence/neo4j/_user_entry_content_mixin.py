@@ -136,7 +136,7 @@ class _UserEntryContentMixin:
           AND e.metadata IS NOT NULL
           AND e.metadata CONTAINS '"vault_file_path"'
         RETURN e.title AS title, left(coalesce(e.content, ''), 300) AS snippet
-        ORDER BY coalesce(e.updated_at, e.created_at) DESC
+        ORDER BY datetime(coalesce(e.updated_at, e.created_at)) DESC
         LIMIT $limit
         """
         return await self.execute_query(cypher, {"user_uid": user_uid, "limit": limit})
@@ -162,7 +162,7 @@ class _UserEntryContentMixin:
            OR EXISTS((e)-[:{RelationshipName.FULFILLS_EXERCISE.value}]->())
            OR e.pipeline = 'teacher_review'
         RETURN e
-        ORDER BY e.created_at DESC
+        ORDER BY datetime(e.created_at) DESC
         LIMIT $limit
         """
         result = await self.execute_query(
@@ -201,7 +201,7 @@ class _UserEntryContentMixin:
         }}) WHERE g.ku_uid IS NOT NULL] AS grounded_kus
         RETURN e.uid AS uid, e.title AS title, e.created_at AS created_at,
                grounded_kus
-        ORDER BY e.created_at DESC
+        ORDER BY datetime(e.created_at) DESC
         LIMIT $limit
         """
         result = await self.execute_query(
@@ -236,7 +236,7 @@ class _UserEntryContentMixin:
                coalesce(ex.title, sub.turn_in_exercise_title) AS exercise_title,
                report.uid AS report_uid,
                report.assessment_outcome AS report_outcome
-        ORDER BY sub.created_at DESC
+        ORDER BY datetime(sub.created_at) DESC
         LIMIT $limit
         """
         result = await self.execute_query(

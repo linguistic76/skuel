@@ -149,7 +149,7 @@ class _UserEntryAssessmentMixin:
                ex.due_date AS due_date,
                coalesce(r.revision, entry.turn_in_revision) AS revision,
                feedback_count
-        ORDER BY entry.created_at DESC
+        ORDER BY datetime(entry.created_at) DESC
         """
         return await self.execute_query(
             query,
@@ -260,7 +260,7 @@ class _UserEntryAssessmentMixin:
                s.created_at AS created_at, student.uid AS student_uid,
                coalesce(student.display_name, student.title, student.uid) AS student_name, feedback_count,
                s.turn_in_revision AS revision
-        ORDER BY s.created_at DESC
+        ORDER BY datetime(s.created_at) DESC
         """
         return await self.execute_query(
             query,
@@ -349,7 +349,7 @@ class _UserEntryAssessmentMixin:
                coalesce(ex.uid, ku.turn_in_exercise_uid) AS exercise_uid,
                coalesce(ex.title, ku.turn_in_exercise_title) AS exercise_title,
                ku.turn_in_revision AS revision
-        ORDER BY ku.created_at DESC
+        ORDER BY datetime(ku.created_at) DESC
         """
         return await self.execute_query(
             query,

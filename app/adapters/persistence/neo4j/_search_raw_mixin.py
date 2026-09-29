@@ -400,6 +400,7 @@ class _SearchRawMixin[T: DomainModelProtocol]:
         from adapters.persistence.neo4j.query.cypher import (
             build_relationship_filter_fragments,
             build_search_visibility_clause,
+            comparable_property,
         )
         from adapters.persistence.neo4j.query.cypher._helpers import validate_identifier
 
@@ -510,7 +511,8 @@ class _SearchRawMixin[T: DomainModelProtocol]:
         sort_field = order_by or search_order_by
         validate_identifier(sort_field, context="sort field")
         direction = "DESC" if order_desc else "ASC"
-        cypher_parts.append(f"ORDER BY entity.{sort_field} {direction}")
+        order_key = comparable_property("entity", sort_field, self.entity_class)
+        cypher_parts.append(f"ORDER BY {order_key} {direction}")
         if offset > 0:
             cypher_parts.append(f"SKIP {int(offset)}")
         cypher_parts.append(f"LIMIT {int(limit)}")

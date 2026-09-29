@@ -83,7 +83,7 @@ class QueryBenchmark:
         WHERE ku.sel_category = $category
           AND ku.learning_level = $level
         RETURN ku
-        ORDER BY ku.created_at DESC
+        ORDER BY datetime(ku.created_at) DESC
         LIMIT 20
         """
 
@@ -117,7 +117,7 @@ class QueryBenchmark:
             MATCH (user:User {uid: $user_uid})-[:MASTERED]->(ku)
         }
         RETURN ku
-        ORDER BY ku.created_at DESC
+        ORDER BY datetime(ku.created_at) DESC
         LIMIT 20
         """
 
@@ -200,7 +200,7 @@ class QueryBenchmark:
         WITH ku, count(DISTINCT unlocked) as unlocks_count
 
         RETURN ku, unlocks_count
-        ORDER BY unlocks_count DESC, ku.created_at DESC
+        ORDER BY unlocks_count DESC, datetime(ku.created_at) DESC
         LIMIT 20
         """
 

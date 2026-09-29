@@ -1,7 +1,7 @@
 ---
 title: "UTC Instants Arc — Rulings & Contract"
 updated: 2026-09-29
-status: "active — ruled 2026-09-27; PRs 1–2b ran in the cloud; from PR 3, one local session per row; PR 4 deployed 2026-09-28; PR 5 merged 2026-09-28; PR 6 split, 6a merged 2026-09-28"
+status: "active — ruled 2026-09-27; PRs 1–2b ran in the cloud; from PR 3, one local session per row; PR 4 deployed 2026-09-28; PR 5 merged 2026-09-28; PR 6 split, 6a and 6b merged 2026-09-28"
 registered: 2026-09-27
 ruled: 2026-09-27
 ---
@@ -1194,6 +1194,101 @@ other row owns these sites. So the row splits into two sub-rows, each on its own
     such as the Today orchestrator's `TODAY`. Tell those apart by running the same jump to
     a day that crosses no boundary.
 
+**Left by PR 6b for the rows after it:**
+
+- **The rule, in one place.** `comparable_property(alias, field, model)`
+  (`adapters/persistence/neo4j/query/cypher/_helpers.py`) is how a query orders and compares a
+  property: an instant field (`is_instant_field`) is read through `datetime()`, any other field
+  as stored.
+  - Every dynamic sort key goes through it: the four `crud_queries` search builders, the CRUD
+    list, the unified builder's filter branch, `get_user_entities`, `faceted_search_raw`,
+    and `find_connected_activities`. `Entity` answers the type rule there: its sort keys are
+    Entity's stamps, calendar values or a number.
+  - The due-soon and overdue builders order by `datetime(n.{date_field})` when `instant_field`.
+  - **`build_search_query`'s range operators compare an instant field as instants on both
+    sides.** So `find_by(completed_at__gte=…)` now returns both storage shapes.
+    `test_habit_completion_temporal_split` pinned the old trap and now pins this. Pattern 10b
+    and Key Rule 18b are rewritten.
+- **Every static ordering and `min` / `max` of an instant reads it through `datetime()`,**
+  native-only columns included (a no-op there).
+  - A `toString` order of instants is now an instant order: the Shared lists, the search
+    gaps' tie-break, the exchange thread and the exchange summaries.
+  - `get_recent_activities` orders by one instant, with a completion day as its first instant
+    in `$zone`.
+- **Comparisons are coerced where any writer stores a string:** the supersede rule
+  (`SUPERSEDED_COPY`, UserEntry `created_at`), the `find_by` ranges, and the dead
+  semantic-similarity validity window. A comparison of a column that every writer stores as
+  a native stays raw, which is what 6a's census ruled. These are:
+  - sessions, reset tokens and the rate-limit windows;
+  - the retention prunes (the SearchEvent window is the one indexed temporal);
+  - device pairing, and the embedding backstop's left side;
+  - the vault sweep's `vault_line_retired_at`;
+  - the analytics running maxima;
+  - `READY_TO_REVIEW` and the default-audience `joined_at`;
+  - the review standing's `prior_report.created_at`, and `_ENGAGED_AT`'s type-filtered max.
+- **Defects fixed.** Each test in `tests/integration/test_instant_ordering_mixed_shapes.py`
+  went red with only its file restored from `origin/main`.
+  - Mixed columns, where a string-stamped row came first under `DESC` whatever its age:
+    - the teacher's groups (`Group.created_at`: the service's create is a string, the
+      default group a native);
+    - the picker's recent list (`Task.updated_at`: an edit is a string, a vault re-sync a
+      native);
+    - the Ku text, tag and faceted searches (`Ku.updated_at`);
+    - a student's revisions (`RevisedExercise.created_at`: the service's create is a string,
+      the combined report-and-revision write a native).
+  - Pending choices sorted their deadline strings by digits. A client deadline keeps its
+    offset, so a `-07:00` 10:00 deadline listed before a 12:00Z one.
+  - The Shared lists and the search gaps ordered the `toString` of natives, which ranks a
+    whole second after its own fractions. `max()` of a string and a native is the string
+    (probed).
+- **The instrument.** `tests/unit/test_cypher_instant_ordering.py` reads every string literal
+  in `adapters/persistence/`: it walks the AST, rebuilds f-strings and skips docstrings. It
+  fails on:
+  - a raw read of an instant property in an `ORDER BY` or a `min(` / `max(`;
+  - a dynamic `alias.{…}` read outside its reviewed allowlist.
+
+  It found 90 such reads on `origin/main`. Instant names are `*_at` plus `MODEL_INSTANTS`,
+  each pinned by `is_instant_field`, plus two edge stamps. It does not see aliases,
+  comparisons, or order keys composed outside an `ORDER BY` literal (`domain_queries`'
+  `order_clause`, `_exercise_status_tail`'s `order_by` literals). Those were censused by
+  hand.
+- **Left as they are:**
+  - `list_steps_raw`'s `order_field` is an expression composed in core (`s.{order_by}`),
+    under the field-name ruling (`field-name-guarding-in-cypher.md`). Only `s.sequence`
+    reaches it. A caller that passed an instant field would order raw.
+  - `intelligence_queries`' relationship-property filter and `batch_cypher_builder`'s
+    `_FILTER_OP_MAP` have no caller, and a relationship property has no model for the type
+    rule.
+  - The two `UserEntry.updated_at` readers (`_exercise_status_tail`'s living entry and
+    `get_vault_notes_for_context`) are coerced, but have no mixed-shape test. The column's
+    natives come from the report and approval writers, and the census did not show one
+    reaching a living entry or a knowledge note.
+  - Three dead query modules are coerced, not deleted: `SemanticSimilarityQueries`,
+    `intelligence_queries`' Ku searches and `_progressive_learning_queries`. None is in the
+    PLANNED tier, so deleting them is a PR of their own.
+  - A correction to 6a's census: `EntryReport.created_at` is native-only by writer (both
+    writers are `datetime($now)`).
+- **Oldest or newest deciding a write, in Cypher (6a's round-2 sibling rule).** No Cypher
+  ordering decides a deletion. In Cypher an unreadable stamp cannot win: `datetime()` raises,
+  and the statement fails with nothing written. An absent stamp sorts last under `ASC` and
+  first under `DESC`. The orderings that decide a write:
+  - the extraction twins' merge target (`get_user_active_extraction_twins`, oldest first,
+    so an absent stamp never wins). It agrees with the F4 fixer's instant order.
+  - the default group's owner (`get_admin_uid`, oldest first).
+  - the vault door's file-or-skip (`get_latest_copy_of_note`, newest first). An absent
+    stamp would win here, but every writer of a copy stamps `created_at`.
+- **Found, not fixed (outside the arc):** `TranscriptionService.list` passes `user_uid=`
+  and `status=` to `backend.list`, which takes `filters=`. `GET /api/transcriptions` always
+  passes `user_uid`, so the route raises `TypeError`.
+- **Test craft.**
+  - A mixed-shape test places the Python writer's stamp a day either side of a native that a
+    Cypher `datetime()` writer stamps with the database's clock (`time_machine.travel` of a
+    timestamp). A writer that takes `$now` is given the instant directly.
+  - Every test reads the stored `valueType` back.
+  - For a same-shape column whose raw order is still wrong, seed the order that fails: two
+    shares half a second apart on a whole second, or offsets whose digits disagree with
+    their instants.
+
 ### PR 7 — Writers stamp aware UTC: models and the parse boundary
 
 Scope: the entity, DTO and model default factories (47 `default_factory=datetime.now`) use
@@ -1550,7 +1645,7 @@ row's laptop steps and their state (pending / done with a date; — for none).
 | 4 | The UTC pin, asserted by every driver factory; the applied-record guard (refusals and empty-graph stamp tested); the constant flipped; the migration script — prepared by its row session (local) as `[awaiting sitting]`, merged in the sitting | Tests, CI and Codex green on the unmerged PR | pending checks first — none pending (3b's passed 2026-09-28); the sitting — done 2026-09-28 (Mike present): the Aura on-demand snapshot taken; the census from the branch at 18:06Z (6,863 values: 1,236 to shift, 5,627 to leave, 31 pairs, no stops; hash `e095aab7…`) and Mike's OK; merged `38e420e0f`; `--confirm` applied 1,236 values in one transaction; `--verify` OK (0 rows off their new value, the pairs 7.00 h apart before and together after, 31/31); a fresh census refused; the GradeBook's exchanges, their thread order and every entry's badges unchanged (3 exchanges, 7 items, 79 entries, captured read-only before and after); `:8000` restarted on `main`; a second 14-day report within the hour refused by the cooldown (after #1442 — generated reports had failed at save, a pre-existing bug the check surfaced); a new share read "just now" and its notification the wall-clock time; the embedding check — the 30 stale entities (21 Task, 8 Choice, 1 Habit) re-embedded, hashes cleared first so none was skipped, 0 stale after | merged #1441 and deployed, 2026-09-28 |
 | 5 | Readers compare aware values in `core/`, sentinels included; the normalizers collapse onto `as_utc` | Mixed naive/aware sorts and windows; forced-Vancouver unit tests | — | merged #1448, 2026-09-28 |
 | 6a | Readers compare aware values in `adapters/`, `ui/`, `scripts/` — the Python side; `day_named` | As PR 5; each fix red on `origin/main` | — | merged #1449, 2026-09-28 |
-| 6b | Every Cypher ordering, comparison, `min` / `max` of an instant in `adapters/persistence/` coerces with `datetime()`; the dynamic builders by the type rule | A mixed-shape integration test per live site; the grep finding no raw ordering of an instant | — | — |
+| 6b | Every Cypher ordering, comparison, `min` / `max` of an instant in `adapters/persistence/` coerces with `datetime()`; the dynamic builders by the type rule | A mixed-shape integration test per live site; the grep finding no raw ordering of an instant | — | merged #1450, 2026-09-28 |
 | 7 | Writers aware: default factories, the parse boundary, the mapper's `+00:00` | A mixed column reads back all aware | — | — |
 | 8 | Writers aware: services, backends, `_STAMP_SPECS` clocks, `occurred_at`, `now_local`, Cypher parameters, timers | `ruff --select DTZ` and the uncalled-reference check read 0 | — | — |
 | 9 | Pin, its assertion and the constant removed (the applied-record check stays); `DTZ` in the lint; forced-zone guards; Pattern 10 / Key Rules #17–18 / CLAUDE.md | `DTZ` 0; forced-zone guards pass | — | — |

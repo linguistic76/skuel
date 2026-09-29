@@ -99,7 +99,7 @@ class _HierarchyMixin:
         MATCH (parent:{cfg.node_label} {{uid: $parent_uid{cfg.node_filter}}})
         MATCH (parent)-[:{cfg.forward_rel}*1..{depth}]->(child:{cfg.node_label})
         RETURN child
-        ORDER BY child.created_at
+        ORDER BY datetime(child.created_at)
         """
         result = await self.execute_query(query, {"parent_uid": parent_uid})
         if result.is_error:

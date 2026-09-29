@@ -580,6 +580,8 @@ class EntitySearchOperations[T: "DomainModelProtocol"](Protocol):
         Filter values reach the driver as query parameters, so they are
         Neo4j scalars — ``Neo4jValue``, not ``FilterValue``: real call sites
         pass ``date``/``datetime`` (``due_date__gte=today_in(current_zone())``).
+        A range on an instant field (a ``datetime`` on the model) compares
+        instants on both sides; on any other field it compares as stored.
         """
         ...
 
@@ -598,14 +600,12 @@ class EntitySearchOperations[T: "DomainModelProtocol"](Protocol):
     ) -> ResultType[builtins.list[T]]:
         """Find entities whose ``date_field`` falls on a day in [start_date, end_date], newest first.
 
-        Distinct from ``find_by(field__gte=...)``, and not interchangeable with it:
-        the stored value is coerced before comparing, so this matches a field held
-        as an ISO string, an ISO datetime string, or a native temporal alike. A
-        bare ``>=`` against a string bound evaluates to null on temporally-stored
-        rows and silently drops them. Prefer this for any window over a
-        mixed-representation field. The days are the current zone's: an instant
-        field (a ``datetime`` on the model) is on the day it falls on in that
-        zone, a calendar field on its own date.
+        It takes days, where ``find_by(field__gte=...)`` takes a moment, and the
+        days are the current zone's: an instant field (a ``datetime`` on the
+        model) is on the day it falls on in that zone, a calendar field on its
+        own date. The stored value is coerced before comparing, so this matches a
+        field held as an ISO string, an ISO datetime string, or a native temporal
+        alike. Prefer this for any window of days.
 
         Rows are ordered by the instant the field parses to, then ``uid``: one
         chronological sequence across storage shapes and UTC offsets (a value with

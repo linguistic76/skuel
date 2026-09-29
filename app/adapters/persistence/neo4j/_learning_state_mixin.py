@@ -289,7 +289,7 @@ class _LearningStateMixin:
         query = """
         MATCH (user:User {uid: $user_uid})-[r:BOOKMARKED]->(ku:Entity)
         RETURN ku.uid as ku_uid
-        ORDER BY r.bookmarked_at DESC
+        ORDER BY datetime(r.bookmarked_at) DESC
         """
         return await self.execute_query(query, {"user_uid": user_uid})
 

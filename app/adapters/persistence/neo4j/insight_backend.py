@@ -119,7 +119,7 @@ class InsightBackend:
                 ELSE 1
             END DESC,
             i.confidence DESC,
-            i.created_at DESC
+            datetime(i.created_at) DESC
         LIMIT $limit
         """
 
@@ -144,7 +144,7 @@ class InsightBackend:
           AND (i.expires_at IS NULL OR datetime(i.expires_at) > datetime())
           {dismissed_filter}
         RETURN i
-        ORDER BY i.created_at DESC
+        ORDER BY datetime(i.created_at) DESC
         """
 
         return await self._executor.execute_query(
@@ -222,7 +222,7 @@ class InsightBackend:
         MATCH (i:Insight {{user_uid: $user_uid}})
         WHERE true {where_clause}
         RETURN i
-        ORDER BY coalesce(i.dismissed_at, i.actioned_at) DESC
+        ORDER BY datetime(coalesce(i.dismissed_at, i.actioned_at)) DESC
         LIMIT $limit
         """
 

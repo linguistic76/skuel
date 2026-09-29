@@ -162,7 +162,7 @@ class _LpProgressMixin:
         MATCH (lp:Entity {{entity_type: 'learning_path'}})-[:ALIGNED_WITH_GOAL]->(g:Goal {{uid: $goal_uid}})
         WHERE {published}
         RETURN lp
-        ORDER BY lp.updated_at DESC
+        ORDER BY datetime(lp.updated_at) DESC
         LIMIT $limit
         """
         return self._records_to_paths(
@@ -202,7 +202,7 @@ class _LpProgressMixin:
         MATCH (ku:Entity {{uid: $ku_uid}})<-[:USES_KU|CONTAINS_KNOWLEDGE|TRAINS_KU]-(ps:Entity {{entity_type: 'path_step'}})<-[:HAS_STEP]-(lp:Entity {{entity_type: 'learning_path'}})
         WHERE {published_ps} AND {published_lp}
         RETURN DISTINCT lp
-        ORDER BY lp.created_at DESC
+        ORDER BY datetime(lp.created_at) DESC
         LIMIT $limit
         """
         return self._records_to_paths(
@@ -251,7 +251,7 @@ class _LpProgressMixin:
                 WHEN 'remedial' THEN 3
                 ELSE 4
             END,
-            lp.updated_at DESC
+            datetime(lp.updated_at) DESC
         LIMIT $limit
         """
         return self._records_to_paths(

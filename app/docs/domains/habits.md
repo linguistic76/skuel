@@ -1,7 +1,7 @@
 ---
 title: Habits Domain
 created: 2025-12-04
-updated: 2026-09-24
+updated: 2026-09-29
 status: current
 category: domains
 tags:
@@ -403,7 +403,8 @@ invariant every other user-owned entity holds. User-scoped reads therefore filte
 on `user_uid` directly (`additional_filters={"user_uid": ...}` on
 `completions_backend.find_by_date_range`, walked page by page), with no walk over
 the user's habits. `find_by_date_range` also tolerates both `completed_at` storage
-shapes (ISO string and native temporal); a `find_by(completed_at__gte=...)` does not
+shapes (ISO string and native temporal), as does a `find_by(completed_at__gte=...)`
+range: `completed_at` is an instant field, so the range compares instants
 (neo4j-cypher-patterns Pattern 10b).
 
 ⚠️ **History, so the old shape is not reintroduced.** Until 2026-08-20 the field

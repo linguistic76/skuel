@@ -1,5 +1,5 @@
 ---
-updated: 2026-09-20
+updated: 2026-09-29
 ---
 
 # Intelligence Backlog: Implementation Guide
@@ -160,8 +160,9 @@ verification against the tree:
   `created_at` as the alternative key without the caveat that goes with it: PR #859 **measured**
   that `created_at` has two storage shapes — ISO string for most entities, zoned `datetime` for a
   minority — and that a naive `find_by(created_at__gte=...)` silently drops the datetime-stored
-  rows. Only `find_by_date_range` coerces both before comparing. Whoever implements Group A on
-  `created_at` needs that helper, not a `__gte` kwarg.
+  rows. Only `find_by_date_range` coerced both before comparing (a `find_by` range on an instant
+  field compares instants too since the UTC arc's PR 6b). Whoever implements Group A on
+  `created_at` needs that helper, which takes the period's days, not a `__gte` kwarg.
 - **Its steps 4–5 prescribed metrics with no input.** The velocity figure
   (`count_completed / period_days`) and the 90-day trend baseline were specified for two methods
   that count no completion events: choices computes a `decided/total` ratio

@@ -74,7 +74,7 @@ class TemplateAttachmentBackend:
             f"{edge_name}"
             "]->(t) "
             "RETURN properties(t) AS props "
-            "ORDER BY t.created_at"
+            "ORDER BY datetime(t.created_at)"
         )
         return await self._executor.execute(
             query=query,

@@ -333,14 +333,14 @@ class SemanticSimilarityQueries:
           AND r.semantic_distance <= $max_distance
 
           // Temporal relevance filter (only currently valid)
-          AND (r.valid_from IS NULL OR r.valid_from <= datetime())
-          AND (r.valid_until IS NULL OR r.valid_until >= datetime())
+          AND (r.valid_from IS NULL OR datetime(r.valid_from) <= datetime())
+          AND (r.valid_until IS NULL OR datetime(r.valid_until) >= datetime())
 
         // Calculate days since introduction (recency score)
         WITH related, r,
              CASE
                  WHEN r.valid_from IS NOT NULL
-                 THEN duration.between(r.valid_from, datetime()).days
+                 THEN duration.between(datetime(r.valid_from), datetime()).days
                  ELSE null
              END as days_since_introduced
 

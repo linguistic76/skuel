@@ -116,7 +116,7 @@ def build_hybrid_knowledge_search(
 
     # Return with pagination
     cypher_parts.extend(
-        ["", "RETURN ku", "ORDER BY ku.created_at DESC", "SKIP $offset", "LIMIT $limit"]
+        ["", "RETURN ku", "ORDER BY datetime(ku.created_at) DESC", "SKIP $offset", "LIMIT $limit"]
     )
 
     cypher = "\n".join(cypher_parts)
@@ -198,7 +198,7 @@ def build_optimized_ready_to_learn(
     WITH ku, count(DISTINCT unlocked) as unlocks_count
 
     RETURN ku, unlocks_count
-    ORDER BY unlocks_count DESC, ku.created_at DESC
+    ORDER BY unlocks_count DESC, datetime(ku.created_at) DESC
     LIMIT $limit
     """
 
