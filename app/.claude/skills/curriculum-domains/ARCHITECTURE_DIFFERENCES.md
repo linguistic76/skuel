@@ -156,7 +156,7 @@ Even though content is shared, Curriculum Domains track per-user data:
 | Data Type | Storage | Example |
 |-----------|---------|---------|
 | **Learning state** | User→PathStep edges | `(User)-[:VIEWED]->(PathStep)`, `:IN_PROGRESS`, `:MARKED_AS_READ`, `:BOOKMARKED` |
-| **Mastery** | User→PathStep / User→Ku edge | `(User)-[:MASTERED {mastery_score}]->(PathStep)` |
+| **Mastery** | User→Ku edge (report approval, `mark_as_understood`); User→PathStep edge (`track_curriculum_completion`, no caller today) | `(User)-[:MASTERED {mastery_score}]->(Ku)` |
 | **Path enrollment** | User→LearningPath edge | `(User)-[:ENROLLED_IN {enrolled_at, status}]->(LearningPath)` |
 | **Life-path designation** | User→LearningPath edge | `(User)-[:ULTIMATE_PATH {designated_at, alignment_score}]->(LearningPath)` |
 

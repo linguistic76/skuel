@@ -103,7 +103,7 @@ def create_tasks_api_routes(
     rt: RouteDecorator,
     tasks_service: TasksService,
     goals_service: GoalsService,
-    **_kwargs: Any,  # the config's other related services (habits_service, user_service)
+    **_kwargs: Any,  # boundary: route-registry — the config's other related services (habits_service, user_service)
 ) -> None:
     async def update_status(uid: str, new_status: str) -> Result[Task]:
         return await tasks_service.update_task(uid, TaskUpdateIntent(status=new_status))

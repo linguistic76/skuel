@@ -177,9 +177,11 @@ NONE → VIEWED → IN_PROGRESS → MASTERED
 |-------|---------|-------------|
 | VIEWED | Automatic on page load (`ExploreOrchestrator`) | `(User)-[:VIEWED]->(PathStep)` |
 | IN_PROGRESS | User clicks "Start" / progress `state=learning` (capped) | `(User)-[:IN_PROGRESS]->(PathStep)` |
-| MASTERED | Mastery propagated from an approved report (`ReportMasteryService`) or the adaptive curriculum's `track_curriculum_completion` | `(User)-[:MASTERED]->(PathStep)` |
+| MASTERED | `PsService.track_curriculum_completion` → `track_mastery_completion` — the only writer, and nothing calls it today | `(User)-[:MASTERED {mastery_level, source: 'curriculum'}]->(PathStep)` |
 
 Beside the progression: `MARKED_AS_READ` (progress `state=read`) and `BOOKMARKED` (`POST /explore/ps/{uid}/bookmark`).
+
+Report approval masters **Kus**, not steps: `ReportMasteryService.propagate_mastery` marks the entry's linked `:Ku` uids `MASTERED {mastery_score}` (through `ps_service.mastery.mark_mastered`), and `PsProgressService` then publishes `PathStepProgressUpdated` for the steps that use those Kus — a progress figure, not a `MASTERED` edge on the step.
 
 **Key routes:**
 - `GET /path-steps` — Browse all PathSteps; rows link to the reading page, with an "Enrolled" badge on the session user's IN_PROGRESS steps

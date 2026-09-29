@@ -226,7 +226,7 @@ ps_service.search.search(query)                      # BaseService search
 ps_service.intelligence.is_ready(ps_uid, completed_step_uids)
 ps_service.adaptive.get_sel_journey(user_uid)
 ps_service.organization.get_organized_children(parent_uid)  # Non-linear nav (MOC)
-ps_service.mastery.mark_mastered(user_uid, ps_uid, mastery_score, method="report_approval")
+ps_service.mastery.mark_mastered(user_uid, ku_uid, mastery_score, method="report_approval")  # report approval → the linked Kus
 # ps_service.progress is event-driven (handle_knowledge_mastered) — nothing to call
 
 # KU — 4 sub-services
