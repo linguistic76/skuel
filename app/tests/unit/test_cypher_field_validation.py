@@ -257,6 +257,10 @@ class TestListAlwaysCarriesASortKey:
                 self.backend.list = AsyncMock(return_value=Result.ok(([], 0)))
                 self.backend.get_user_entities = AsyncMock(return_value=Result.ok(([], 0)))
 
+            @property
+            def config_lookup_label(self) -> str:
+                return "Task"
+
         svc = _Svc()
         asyncio.run(svc.list(limit=10, offset=10))
         assert svc.backend.list.call_args.kwargs["sort_by"] == "created_at"

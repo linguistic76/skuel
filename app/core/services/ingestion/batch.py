@@ -676,7 +676,7 @@ async def ingest_directory(
     start_time = datetime.now()
 
     if not directory.exists():
-        return Result.fail(Errors.not_found(f"Directory not found: {directory}"))
+        return Result.fail(Errors.not_found("Directory", directory))
 
     # Validate ingestion_backend is provided for incremental modes
     if ingestion_mode != "full" and ingestion_backend is None:

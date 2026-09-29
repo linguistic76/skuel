@@ -298,7 +298,7 @@ class IntelligenceMixin[Ops: BackendOperations]:
             return Result.fail(entity_result)
 
         if not entity_result.value:
-            return Result.fail(Errors.not_found(f"{self.config.entity_label} {uid} not found"))
+            return Result.fail(Errors.not_found(self.config.entity_label, uid))
 
         entity = self._context_to_domain_model(entity_result.value)
 

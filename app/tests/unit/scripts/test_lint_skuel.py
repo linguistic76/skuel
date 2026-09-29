@@ -133,6 +133,14 @@ def lint_content(
         if linter._should_run_rule("SKUEL036"):
             linter._check_role_gated_reauth(fp, rel, content, lines, tree)
 
+    # Error-shape rule (SKUEL037) — the SAME tuple the production gate reads.
+    if (
+        not is_test
+        and rel.as_posix().startswith(SkuelLinter.NOT_FOUND_SHAPE_TREES)
+        and linter._should_run_rule("SKUEL037")
+    ):
+        linter._check_not_found_resource_shape(fp, rel, content, lines, tree)
+
     # Boundary rules (ADR-044): SKUEL001 (APOC) + SKUEL021 (raw Cypher) run on all of
     # core/, any /services/ path, AND the inbound/presentation layers — mirror
     # _lint_file's is_above_boundary.
@@ -7972,6 +7980,85 @@ class TestSKUEL036:
             "    require_authenticated_user(request)  # skuel-lint: disable=SKUEL036 -- why\n"
         )
         assert lint_content(make_linter(["SKUEL036"]), content, file_path=self.ROUTE) == []
+
+
+# ============================================================================
+# SKUEL037 — Errors.not_found Takes a Resource Name, Not a Sentence
+# ============================================================================
+
+
+class TestSKUEL037:
+    """A sentence passed as `resource` reaches the client doubled and puts a UID
+    into the code. Fixtures: each resource shape the rule refuses, the sentence
+    moved into `identifier`, the shapes that are names, and the scope edges.
+    """
+
+    SERVICE = "core/services/tasks/tasks_core_service.py"
+
+    def _rules(self, content: str, file_path: str | None = None) -> list[tuple[str, int]]:
+        violations = lint_content(
+            make_linter(["SKUEL037"]), content, file_path=file_path or self.SERVICE
+        )
+        return [(v.rule_id, v.line_number) for v in violations]
+
+    def test_f_string_resource_is_flagged(self) -> None:
+        content = 'Errors.not_found(f"Path step {uid} not found")\n'
+        assert self._rules(content) == [("SKUEL037", 1)]
+
+    def test_f_string_resource_without_found_is_still_flagged(self) -> None:
+        """Interpolation puts a value into the code whatever the words say."""
+        content = 'Errors.not_found(resource=f"{kind}_search_service", identifier=kind)\n'
+        assert self._rules(content) == [("SKUEL037", 1)]
+
+    def test_sentence_literal_resource_is_flagged(self) -> None:
+        content = 'Errors.not_found("No active tasks found for priority distribution")\n'
+        assert self._rules(content) == [("SKUEL037", 1)]
+
+    def test_call_resource_is_flagged(self) -> None:
+        content = "Errors.not_found(str(e))\n"
+        assert self._rules(content) == [("SKUEL037", 1)]
+
+    def test_built_string_resource_is_flagged(self) -> None:
+        content = 'Errors.not_found("Item " + uid)\n'
+        assert self._rules(content) == [("SKUEL037", 1)]
+
+    def test_sentence_in_identifier_is_flagged(self) -> None:
+        content = 'Errors.not_found("resource", f"{self.label} {uid} not found")\n'
+        violations = lint_content(make_linter(["SKUEL037"]), content, file_path=self.SERVICE)
+        assert [v.rule_id for v in violations] == ["SKUEL037"]
+        assert "identifier" in violations[0].message
+
+    def test_names_pass(self) -> None:
+        content = (
+            'Errors.not_found("Task", uid)\n'
+            'Errors.not_found("Group membership", f"{user_uid} in {group_uid}")\n'
+            "Errors.not_found(self.config_lookup_label, uid)\n"
+            "Errors.not_found(resource=self.label.value, identifier=uid)\n"
+            'Errors.not_found("Submission", uid, reason=f"teacher {t} has no review access")\n'
+        )
+        assert self._rules(content) == []
+
+    def test_aliased_errors_is_still_the_factory(self) -> None:
+        content = (
+            "from core.utils.result_simplified import Errors as E\n"
+            'E.not_found(f"Entity {uid} not found")\n'
+        )
+        assert self._rules(content) == [("SKUEL037", 2)]
+
+    def test_another_not_found_method_is_untouched(self) -> None:
+        content = 'responses.not_found(f"Entity {uid} not found")\n'
+        assert self._rules(content) == []
+
+    def test_scope_covers_backends_and_ui_but_not_tests(self) -> None:
+        content = 'Errors.not_found(f"Entity {uid} not found")\n'
+        assert self._rules(content, "adapters/persistence/neo4j/x.py") == [("SKUEL037", 1)]
+        assert self._rules(content, "ui/components/x.py") == [("SKUEL037", 1)]
+        assert self._rules(content, "tests/unit/test_x.py") == []
+        assert self._rules(content, "scripts/x.py") == []
+
+    def test_line_suppression_is_honoured(self) -> None:
+        content = "Errors.not_found(str(e))  # skuel-lint: disable=SKUEL037 -- why\n"
+        assert self._rules(content) == []
 
 
 class TestSuppressibleRulesDrift:

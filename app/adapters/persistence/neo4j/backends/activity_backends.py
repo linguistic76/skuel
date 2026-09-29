@@ -1278,12 +1278,7 @@ class EventsBackend(_HierarchyMixin, UniversalNeo4jBackend[Event]):
         if result.is_error:
             return Result.fail(result)
         if not result.value:
-            return Result.fail(
-                Errors.not_found(
-                    "attendance",
-                    f"User {attendee_uid} or event {event_uid} not found",
-                )
-            )
+            return Result.fail(Errors.not_found("User or Event", f"{attendee_uid} / {event_uid}"))
         return Result.ok(str(result.value[0]["status"]))
 
     async def remove_attendee(

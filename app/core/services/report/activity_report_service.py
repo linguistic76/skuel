@@ -620,7 +620,7 @@ class ActivityReportService:
         records: list[dict[str, Any]] = result.value or []
         if not records:
             return Result.fail(
-                Errors.not_found(f"ActivityReport {uid} not found or not owned by {user_uid}")
+                Errors.not_found("ActivityReport", uid, reason="missing or not owned by caller")
             )
         record = records[0] if isinstance(records[0], dict) else dict(records[0])
         annotation: AnnotationResult = {
@@ -651,7 +651,7 @@ class ActivityReportService:
         records: list[dict[str, Any]] = result.value or []
         if not records:
             return Result.fail(
-                Errors.not_found(f"ActivityReport {uid} not found or not owned by {user_uid}")
+                Errors.not_found("ActivityReport", uid, reason="missing or not owned by caller")
             )
         record = records[0] if isinstance(records[0], dict) else dict(records[0])
         annotation_updated_at = record.get("annotation_updated_at")

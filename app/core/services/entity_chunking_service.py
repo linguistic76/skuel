@@ -171,9 +171,7 @@ class EntityChunkingService:
         """
         metadata = self._metadata_cache.get(knowledge_uid)
         if not metadata:
-            return Result.fail(
-                Errors.not_found(f"Metadata not found for knowledge: {knowledge_uid}")
-            )
+            return Result.fail(Errors.not_found("Content metadata", knowledge_uid))
 
         return Result.ok(metadata)
 

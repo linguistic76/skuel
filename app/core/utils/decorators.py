@@ -71,8 +71,8 @@ def _categorize_exception(
                 )
             )
         elif error_type == "not_found":
-            entity_type = context.get("entity_type", "Entity") if context else "Entity"
-            return Result.fail(Errors.not_found(f"{entity_type}: {e!s}"))
+            uid = context.get("uid") if context else None
+            return Result.fail(Errors.not_found("Entity", uid, reason=str(e)))
         elif error_type == "integration":
             return Result.fail(
                 Errors.integration(service=operation, message=str(e), **context if context else {})
@@ -101,7 +101,8 @@ def _categorize_exception(
     # String matching fallback for legacy error messages
     error_msg_lower = str(e).lower()
     if "not found" in error_msg_lower:
-        return Result.fail(Errors.not_found(str(e)))
+        uid = context.get("uid") if context else None
+        return Result.fail(Errors.not_found("Entity", uid, reason=str(e)))
     elif "database" in error_msg_lower or "neo4j" in error_msg_lower:
         return Result.fail(
             Errors.database(operation=operation, message=str(e), **context if context else {})

@@ -241,7 +241,7 @@ class BaseAnalyticsService(Generic[B, T]):
             return entity_result
         entity = entity_result.value
         if not entity:
-            return Result.fail(Errors.not_found(f"Entity not found: {uid}"))
+            return Result.fail(Errors.not_found("Entity", uid))
         return Result.ok(entity)
 
     async def _analyze_entity_with_typed_context(
@@ -385,7 +385,7 @@ class BaseAnalyticsService(Generic[B, T]):
 
         entity = entity_result.value
         if not entity and require_entity:
-            return Result.fail(Errors.not_found(f"Entity not found: {uid}"))
+            return Result.fail(Errors.not_found("Entity", uid))
         # User-level assessments (Tasks/Events/Choices) pass uid=user_uid and have no
         # entity row to fetch (a User node is :User, not :Entity) — proceed with
         # entity=None. The insight/recommendation generators are None-safe and fall

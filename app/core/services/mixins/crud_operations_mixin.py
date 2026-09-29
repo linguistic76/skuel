@@ -44,6 +44,7 @@ services inherit ``U = RawChanges`` (a ``dict`` subclass) and pass plain patches
 
 from __future__ import annotations
 
+from abc import abstractmethod
 from typing import TYPE_CHECKING, Any, Generic, TypeVar, cast
 
 from core.models.protocols import DomainModelProtocol
@@ -80,12 +81,19 @@ class CrudOperationsMixin(Generic[B, T, U]):
 
     Required attributes from composing class:
         backend: B - Backend implementation
+        config_lookup_label: str - domain name ("Task", "PathStep") the not-found refusals carry
         _validate_create: Validation hook for create operations
         _validate_update: Validation hook for update operations
     """
 
     # Type hints for attributes that must be provided by composing class
     backend: B
+
+    @property
+    @abstractmethod
+    def config_lookup_label(self) -> str:
+        """LABEL_CONFIGS registry key (e.g., ``"Task"``, ``"PathStep"``) - provided by composing class."""
+        ...
 
     def _validate_create(self, entity: T) -> Result[None]:
         """Validation hook - override in subclass."""
@@ -149,7 +157,7 @@ class CrudOperationsMixin(Generic[B, T, U]):
 
         # Convert None → NotFound error (backend returns Result.ok(None) when not found)
         if result.is_ok and result.value is None:
-            return Result.fail(Errors.not_found(f"Entity {uid} not found"))
+            return Result.fail(Errors.not_found(self.config_lookup_label, uid))
 
         # At this point, result is either an error or has a non-None value
         return cast("Result[T]", result)
@@ -261,8 +269,11 @@ class CrudOperationsMixin(Generic[B, T, U]):
         entity_user_uid = user_field if user_field not in (_NO_OWNER_FIELD, None) else owner_field
 
         if entity_user_uid in (_NO_OWNER_FIELD, None) or entity_user_uid != user_uid:
-            # Foreign or ownerless — "not found" either way, to prevent info leakage
-            return Result.fail(Errors.not_found(f"Entity {uid} not found"))
+            # Foreign or ownerless — the same refusal get() gives a missing uid,
+            # so the client cannot tell "exists but not yours" from "missing".
+            return Result.fail(
+                Errors.not_found(self.config_lookup_label, uid, reason="not owned by caller")
+            )
 
         return Result.ok(entity)
 
@@ -425,4 +436,4 @@ class CrudOperationsMixin(Generic[B, T, U]):
 if TYPE_CHECKING:
     from core.ports.base_service_interface import CrudOperations
 
-    _protocol_check: type[CrudOperations[Any]] = CrudOperationsMixin
+    _protocol_check: type[CrudOperations[Any]] = CrudOperationsMixin  # type: ignore[type-abstract]

@@ -307,7 +307,7 @@ async def test_handle_activity_report_written_logs_a_failed_write(
     from core.utils.result_simplified import Errors
 
     mock_notification_service.create_notification = AsyncMock(
-        return_value=Result.fail(Errors.not_found("User user_student not found"))
+        return_value=Result.fail(Errors.not_found("User", "user_student"))
     )
     event = ActivityReportWritten(
         report_uid="ar_abc123",

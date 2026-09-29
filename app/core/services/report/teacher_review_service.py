@@ -774,7 +774,9 @@ class TeacherReviewService:
         if not records:
             return Result.fail(
                 Errors.not_found(
-                    f"Submission {submission_uid} not found or not submitted to this teacher"
+                    "Submission",
+                    submission_uid,
+                    reason="missing or not submitted to this teacher's groups",
                 )
             )
 
@@ -985,7 +987,9 @@ class TeacherReviewService:
         if not result.value:
             return Result.fail(
                 Errors.not_found(
-                    f"Teacher {teacher_uid} does not have review access to submission {report_uid}"
+                    "Submission",
+                    report_uid,
+                    reason=f"teacher {teacher_uid} has no review access",
                 )
             )
 

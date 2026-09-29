@@ -191,7 +191,7 @@ class _UserEntryCrudMixin:
             # A different user already owns this uid — reject without writing
             # and without leaking that it exists (404-not-403).
             return Result.fail(
-                Errors.not_found(resource=str(self.label), identifier=str(node_data["uid"]))
+                Errors.not_found(resource=self.label.value, identifier=str(node_data["uid"]))
             )
         if record["frozen"]:
             # The owner's own submission: never edited in place (R9) — nothing

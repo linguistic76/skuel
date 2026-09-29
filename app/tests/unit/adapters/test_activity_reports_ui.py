@@ -242,7 +242,7 @@ class TestAnnotate:
     async def test_foreign_report_is_not_found(self, registry_orchestrator_generator) -> None:
         registry, orchestrator, _ = registry_orchestrator_generator
         orchestrator.annotate_activity_report = AsyncMock(
-            return_value=Result.fail(Errors.not_found("ActivityReport r9 not found"))
+            return_value=Result.fail(Errors.not_found("ActivityReport", "r9"))
         )
         handler = registry.get("/api/activity-reports/annotate", "POST")
 

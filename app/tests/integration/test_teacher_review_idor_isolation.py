@@ -25,11 +25,17 @@ Each method asserted against:
 
 from __future__ import annotations
 
+import json
 from datetime import datetime
+from unittest.mock import MagicMock
 
 import pytest
+from neo4j import AsyncDriver
 
+from adapters.inbound.boundary import result_to_response
 from adapters.persistence.neo4j.backends.user_entry_backend import UserEntryBackend
+from core.services.report.teacher_review_service import TeacherReviewService
+from core.utils.result_simplified import Result
 
 
 @pytest.fixture
@@ -269,3 +275,78 @@ class TestReviewQueueIsolation:
         uids = {row["entry_uid"] for row in queue_b.value}
         assert two_classroom_fixture["submission_2"] in uids
         assert two_classroom_fixture["submission_1"] not in uids
+
+
+def _client_view[T](result: Result[T]) -> tuple[int, dict[str, object], str]:
+    """Everything a client reads from a refusal: status, JSON body, toast header.
+
+    ``timestamp`` is wall-clock and the only field allowed to differ.
+    """
+    response = result_to_response(result)
+    body = json.loads(bytes(response.body).decode())
+    body.pop("timestamp")
+    return response.status_code, body, response.headers["X-Toast-Message"]
+
+
+@pytest.mark.asyncio
+@pytest.mark.integration
+class TestRefusalParity:
+    """A submission sent to another teacher must answer exactly as a missing one.
+
+    #882's method: the UID is held fixed and the world changes — ask as the
+    foreign teacher, delete the submission, ask again. Two different UIDs would
+    differ merely because the UID is echoed back. Real Neo4j, because the parity
+    lives in the gate query: it returns nothing for both states, and a mocked
+    backend would hand the service the same empty answer either way.
+    """
+
+    @pytest.fixture
+    def service(self, backend: UserEntryBackend) -> TeacherReviewService:
+        # Every refusal here is decided by the user-entry gate, before any other
+        # collaborator is reached.
+        return TeacherReviewService(
+            user_entry_backend=backend,
+            report_backend=MagicMock(),
+            exercise_backend=MagicMock(),
+            group_backend=MagicMock(),
+            ku_interaction_service=MagicMock(),
+            report_mastery_service=MagicMock(),
+            event_bus=MagicMock(),
+        )
+
+    async def _delete_submission(self, neo4j_driver: AsyncDriver, uid: str) -> None:
+        await neo4j_driver.execute_query("MATCH (e:Entity {uid: $uid}) DETACH DELETE e", uid=uid)
+
+    async def test_detail_read_foreign_equals_missing(
+        self, service, two_classroom_fixture, neo4j_driver
+    ) -> None:
+        submission = two_classroom_fixture["submission_1"]
+        teacher_b = two_classroom_fixture["teacher_b"]
+
+        foreign = await service.get_submission_detail(submission, teacher_b)
+        await self._delete_submission(neo4j_driver, submission)
+        missing = await service.get_submission_detail(submission, teacher_b)
+
+        assert _client_view(foreign) == _client_view(missing)
+        status, body, toast = _client_view(foreign)
+        assert status == 404
+        assert body["code"] == "NOT_FOUND_SUBMISSION"
+        assert teacher_b not in json.dumps(body) + toast
+
+    async def test_review_write_gate_foreign_equals_missing(
+        self, service, two_classroom_fixture, neo4j_driver
+    ) -> None:
+        submission = two_classroom_fixture["submission_1"]
+        teacher_b = two_classroom_fixture["teacher_b"]
+
+        foreign = await service.approve_report(submission, teacher_b)
+        await self._delete_submission(neo4j_driver, submission)
+        missing = await service.approve_report(submission, teacher_b)
+
+        assert _client_view(foreign) == _client_view(missing)
+        status, body, toast = _client_view(foreign)
+        assert status == 404
+        assert body["code"] == "NOT_FOUND_SUBMISSION"
+        # The diagnosis names the teacher — for logs, never for the client.
+        assert teacher_b in foreign.expect_error().details["reason"]
+        assert teacher_b not in json.dumps(body) + toast

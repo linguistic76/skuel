@@ -574,7 +574,7 @@ class _CrudMixin[T: DomainModelProtocol]:
 
         if not record:
             self._track_db_metrics("update", time.time() - start_time, is_error=True)
-            return Result.fail(Errors.not_found("resource", f"{self.label} {uid} not found"))
+            return Result.fail(Errors.not_found(self.entity_class.__name__, uid))
 
         updated = from_neo4j_node(dict(record["n"]), self.entity_class)
 
@@ -653,7 +653,7 @@ class _CrudMixin[T: DomainModelProtocol]:
             self._track_db_metrics(
                 "update_with_status_guard", time.time() - start_time, is_error=True
             )
-            return Result.fail(Errors.not_found("resource", f"{self.label} {uid} not found"))
+            return Result.fail(Errors.not_found(self.entity_class.__name__, uid))
 
         self._track_db_metrics("update_with_status_guard", time.time() - start_time, is_error=False)
         return Result.ok(self._status_guard_outcome(record))
@@ -727,9 +727,7 @@ class _CrudMixin[T: DomainModelProtocol]:
                     self._track_db_metrics(
                         "recompute_with_status_guard", time.time() - start_time, is_error=True
                     )
-                    return Result.fail(
-                        Errors.not_found("resource", f"{self.label} {uid} not found")
-                    )
+                    return Result.fail(Errors.not_found(self.entity_class.__name__, uid))
                 entity = from_neo4j_node(dict(locked["node"]), self.entity_class)
 
                 read = await (await tx.run(read_query, {**read_params, "uid": uid})).single()
@@ -748,9 +746,7 @@ class _CrudMixin[T: DomainModelProtocol]:
                     # returned no row proves nothing was written, and must not commit a
                     # sentinel either.
                     await tx.rollback()
-                    return Result.fail(
-                        Errors.not_found("resource", f"{self.label} {uid} not found")
-                    )
+                    return Result.fail(Errors.not_found(self.entity_class.__name__, uid))
                 await tx.commit()
             except NEO4J_EXCEPTIONS:
                 await tx.rollback()
@@ -904,7 +900,7 @@ class _CrudMixin[T: DomainModelProtocol]:
             history_limit=history_limit,
         )
         if not appended:
-            return Result.fail(Errors.not_found("resource", f"{self.label} {uid} not found"))
+            return Result.fail(Errors.not_found(self.entity_class.__name__, uid))
         return Result.ok(True)
 
     @safe_backend_operation("delete")

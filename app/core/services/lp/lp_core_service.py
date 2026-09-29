@@ -431,14 +431,14 @@ class LpCoreService(BaseService["LpOperations", LearningPath]):
         # Validate path exists
         path_result = await self.backend.get(path_uid)
         if path_result.is_error:
-            return Result.fail(Errors.not_found(f"Learning path not found: {path_uid}"))
+            return Result.fail(Errors.not_found("LearningPath", path_uid))
 
         # Validate step exists
         step_check = await self.backend.entity_exists(step_uid)
         if step_check.is_error:
             return Result.fail(step_check)
         if not step_check.value:
-            return Result.fail(Errors.not_found(f"Path step not found: {step_uid}"))
+            return Result.fail(Errors.not_found("PathStep", step_uid))
 
         return await self.backend.add_step_to_path(path_uid, step_uid, sequence, order)
 

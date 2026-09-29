@@ -607,4 +607,4 @@ async def test_unshare_nonshared_report(sharing_service, test_report):
     )
 
     assert unshare_result.is_error
-    assert "No sharing relationship found" in str(unshare_result.error)
+    assert unshare_result.expect_error().code == "NOT_FOUND_SHARE"

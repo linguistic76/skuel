@@ -20,6 +20,7 @@ Uses mock backends to test service logic without database dependency.
 
 from __future__ import annotations
 
+import json
 from dataclasses import dataclass
 from types import SimpleNamespace
 from typing import TYPE_CHECKING, Any, ClassVar
@@ -33,6 +34,7 @@ if TYPE_CHECKING:
 
 import pytest
 
+from adapters.inbound.boundary import result_to_response
 from core.models.enums import SearchVisibility
 from core.models.relationship_names import RelationshipName
 from core.models.update_contracts import RawChanges
@@ -422,6 +424,42 @@ class TestOwnershipVerification:
         assert result.is_error
         # Error code contains NOT_FOUND
         assert "NOT_FOUND" in result.error.code
+
+    @pytest.mark.asyncio
+    async def test_foreign_and_missing_are_indistinguishable(self, service, mock_backend):
+        """get() refuses a missing uid and verify_ownership() a foreign one from two
+        different lines; a client must not be able to tell which fired.
+
+        Every route's ownership gate funnels through this pair. The UID is held
+        fixed and only the world changes — two UIDs would differ merely because
+        the UID is echoed. The toast header counts: the boundary sends the
+        developer ``message`` there.
+        """
+        foreign_entity = Mock()
+        foreign_entity.user_uid = "other_user"
+        foreign_entity.uid = "test_001"
+        mock_backend.get.return_value = Result.ok(foreign_entity)
+        foreign = await service.verify_ownership("test_001", "user_001")
+
+        mock_backend.get.return_value = Result.ok(None)
+        missing = await service.verify_ownership("test_001", "user_001")
+
+        def client_view[R](result: Result[R]) -> tuple[int, dict[str, object], str]:
+            response = result_to_response(result)
+            body = json.loads(bytes(response.body).decode())
+            body.pop("timestamp")
+            return response.status_code, body, response.headers["X-Toast-Message"]
+
+        assert client_view(foreign) == client_view(missing)
+        status, body, toast = client_view(foreign)
+        assert status == 404
+        # The domain's name, not a sentence carrying the uid.
+        assert body["code"] == "NOT_FOUND_MOCKMODEL"
+        assert body["message"] == "The requested MockModel could not be found"
+        assert toast == "MockModel not found: test_001"
+        # Only logs and tests see which branch fired.
+        assert foreign.expect_error().details["reason"] == "not owned by caller"
+        assert "reason" not in missing.expect_error().details
 
     @pytest.mark.asyncio
     async def test_verify_ownership_owner_uid_fallback(self, service, mock_backend):

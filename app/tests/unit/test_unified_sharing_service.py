@@ -425,7 +425,8 @@ async def test_unshare_no_relationship(mock_backend, sharing_service):
     )
 
     assert result.is_error
-    assert "No sharing relationship found" in str(result.error)
+    assert result.error.code == "NOT_FOUND_SHARE"
+    assert result.error.details["identifier"] == "report_123 with teacher"
 
 
 # ============================================================================

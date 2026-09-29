@@ -230,11 +230,7 @@ class UnifiedSharingService:
         records = result.value or []
         deleted_count = records[0]["deleted_count"] if records else 0
         if deleted_count == 0:
-            return Result.fail(
-                Errors.not_found(
-                    f"No sharing relationship found between {recipient_username} and {entity_uid}"
-                )
-            )
+            return Result.fail(Errors.not_found("Share", f"{entity_uid} with {recipient_username}"))
         logger.info(f"Entity {entity_uid} unshared from {recipient_username}")
         return Result.ok(True)
 
@@ -273,7 +269,7 @@ class UnifiedSharingService:
             return Result.fail(result)
         if not result.value:
             return Result.fail(
-                Errors.not_found(f"Entity {entity_uid} not found or not owned by {owner_uid}")
+                Errors.not_found("Entity", entity_uid, reason="missing or not owned by caller")
             )
         logger.info(f"Entity {entity_uid} visibility set to {visibility.value}")
         return Result.ok(True)
@@ -553,11 +549,7 @@ class UnifiedSharingService:
         records = result.value or []
         deleted_count = records[0]["deleted_count"] if records else 0
         if deleted_count == 0:
-            return Result.fail(
-                Errors.not_found(
-                    f"No group sharing relationship found between {entity_uid} and {group_uid}"
-                )
-            )
+            return Result.fail(Errors.not_found("Group share", f"{entity_uid} with {group_uid}"))
         logger.info(f"Entity {entity_uid} unshared from group {group_uid}")
         return Result.ok(True)
 

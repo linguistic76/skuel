@@ -719,14 +719,19 @@ class LateralRelationshipBackend:
     async def check_entities_exist(
         self, source_uid: str, target_uid: str
     ) -> Result[list[Neo4jProperties]]:
-        """Verify both entities exist in the graph."""
+        """Count each endpoint on its own, so the caller can name which one is missing.
+
+        OPTIONAL on both: two plain MATCHes yield no row when either endpoint is
+        absent, zeroing BOTH counts — a missing target would read as a missing
+        source.
+        """
         # :Entity throughout this validation block — a :Content shadow shares
         # its entity's uid, so unlabeled uid MATCHes double-count/misvalidate
         # (G13); lateral-relationship endpoints are always entities.
         return await self.executor.execute_query(
             """
-            MATCH (source:Entity {uid: $source_uid})
-            MATCH (target:Entity {uid: $target_uid})
+            OPTIONAL MATCH (source:Entity {uid: $source_uid})
+            OPTIONAL MATCH (target:Entity {uid: $target_uid})
             RETURN count(source) as source_count, count(target) as target_count
             """,
             {"source_uid": source_uid, "target_uid": target_uid},

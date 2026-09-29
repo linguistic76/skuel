@@ -83,7 +83,7 @@ class NotificationService:
             return Result.fail(result)
 
         if not result.value:
-            return Result.fail(Errors.not_found(f"User {user_uid} not found"))
+            return Result.fail(Errors.not_found("User", user_uid))
 
         logger.debug(f"Created notification {uid} for user {user_uid}: {notification_type.value}")
         return Result.ok(uid)
@@ -211,7 +211,7 @@ class NotificationService:
             return Result.fail(result)
 
         if not result.value:
-            return Result.fail(Errors.not_found(f"Notification {notification_uid} not found"))
+            return Result.fail(Errors.not_found("Notification", notification_uid))
 
         return Result.ok(True)
 

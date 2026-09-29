@@ -95,7 +95,7 @@ class _FakeTaskGraph:
     ) -> Result[StatusGuardedOutcome[Task]]:
         node = self.nodes.get(uid)
         if node is None:
-            return Result.fail(Errors.not_found("resource", f"Entity {uid} not found"))
+            return Result.fail(Errors.not_found("Task", uid))
         prior = prior_status_of(node)
         applied = prior not in guard.refuse_if_prior_in
         if applied:

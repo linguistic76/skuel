@@ -350,6 +350,43 @@ class TestErrorFactories:
         assert error.code == "NOT_FOUND_USER"
         assert "identifier" not in error.details or error.details["identifier"] is None
 
+    def test_not_found_reason_reaches_details_only(self):
+        """The diagnosis is for logs and tests — nothing a client reads carries it.
+
+        ``message`` counts as client-readable: the boundary sends it as the
+        ``X-Toast-Message`` header.
+        """
+        error = Errors.not_found("Submission", "ue_1", reason="teacher t_1 has no review access")
+
+        assert error.details["reason"] == "teacher t_1 has no review access"
+        client_visible = [error.message, error.user_message or "", error.code]
+        client_visible.extend(str(v) for v in error.to_client_dict().values())
+        assert not any("review access" in text for text in client_visible)
+        assert error.message == "Submission not found: ue_1"
+        assert error.user_message == "The requested Submission could not be found"
+
+    def test_not_found_reason_does_not_change_the_client_answer(self):
+        """Two refusal branches that differ only in reason answer identically."""
+        missing = Errors.not_found("ActivityReport", "ar_1")
+        foreign = Errors.not_found("ActivityReport", "ar_1", reason="not owned by caller")
+
+        def client_view(error):
+            body = error.to_client_dict()
+            body.pop("timestamp")
+            return body, error.message
+
+        assert client_view(missing) == client_view(foreign)
+
+    def test_not_found_multi_word_resource_code_is_normalised(self):
+        """A multi-word name is a legitimate resource; its code carries no spaces."""
+        assert Errors.not_found("Group membership", "u_1 in g_1").code == (
+            "NOT_FOUND_GROUP_MEMBERSHIP"
+        )
+        assert Errors.not_found("User or KU", "u_1 / ku_1").code == "NOT_FOUND_USER_OR_KU"
+        assert Errors.not_found("PathStep or FormTemplate").code == (
+            "NOT_FOUND_PATHSTEP_OR_FORMTEMPLATE"
+        )
+
     def test_database_error_with_query(self):
         """Test database error with query included."""
         long_query = "MATCH (n:Node) WHERE n.property = $value RETURN n" * 10

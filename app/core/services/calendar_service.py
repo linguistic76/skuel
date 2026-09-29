@@ -436,7 +436,7 @@ class CalendarService:
         # One wire-format parse (parse_calendar_item_uid), typed dispatch after.
         parsed = parse_calendar_item_uid(item_uid)
         if parsed is None:
-            return Result.fail(Errors.not_found(f"Item not found: {item_uid}"))
+            return Result.fail(Errors.not_found("Calendar item", item_uid))
         kind, source_uid = parsed
 
         if kind is EntityType.TASK:
@@ -448,8 +448,11 @@ class CalendarService:
             if task_get.value:
                 task = task_get.value
                 if task.user_uid != user_uid:
-                    # Not the requester's task — 'not found', no UID oracle.
-                    return Result.fail(Errors.not_found(f"Item not found: {item_uid}"))
+                    # Not the requester's task — the refusal tasks_service.get
+                    # gives a missing uid, so there is no UID oracle.
+                    return Result.fail(
+                        Errors.not_found("Task", source_uid, reason="not owned by caller")
+                    )
                 # Move the date that PLACES the task on the calendar (ADR-066
                 # typed update contract: a TaskUpdateIntent, not a rebuilt DTO
                 # or field dict). A due-only task renders as a deadline chip —
@@ -508,8 +511,11 @@ class CalendarService:
             if event_get.value:
                 event: Event = event_get.value  # Type hint for MyPy protocol inference
                 if event.user_uid != user_uid:
-                    # Not the requester's event — 'not found', no UID oracle.
-                    return Result.fail(Errors.not_found(f"Item not found: {item_uid}"))
+                    # Not the requester's event — the refusal events_service.get
+                    # gives a missing uid, so there is no UID oracle.
+                    return Result.fail(
+                        Errors.not_found("Event", source_uid, reason="not owned by caller")
+                    )
                 start_dt = event.start_datetime()
                 end_dt = event.end_datetime()
                 if start_dt is None or end_dt is None:
@@ -566,7 +572,7 @@ class CalendarService:
                     return Result.ok(self._event_to_calendar_item(event_update.value))
                 return Result.fail(event_update)
 
-        return Result.fail(Errors.not_found(f"Item not found: {item_uid}"))
+        return Result.fail(Errors.not_found("Calendar item", item_uid))
 
     # ========================================================================
     # DATA FETCHING
@@ -1171,7 +1177,7 @@ class CalendarService:
             # Propagate genuine backend failures — don't mask them as not-found.
             return Result.fail(habit_get)
         if not habit_get.value or habit_get.value.user_uid != user_uid:
-            return Result.fail(Errors.not_found(f"Habit not found: {habit_uid}"))
+            return Result.fail(Errors.not_found("Habit", habit_uid))
         try:
             day = date.fromisoformat(on_date[:10])
         except ValueError:
