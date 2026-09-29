@@ -49,6 +49,12 @@ the framework's intended usage.
 
 **Key**: ADRs show *why* we changed (external forces), not just *what* changed.
 
+**History lives in the record, never in the code.** A comment or docstring states what
+the code does now, in the present tense — no PR numbers, dates or "used to". The commit
+message holds what changed; the ADR or `done/` doc holds why; code may point at the
+record, never retell it. See `/docs/patterns/DOCSTRING_STANDARDS.md` § Anti-Pattern 4;
+`./dev history-in-code` is the advisory census of what is left to sweep.
+
 ---
 
 ## Two Drivers of Doc Evolution
@@ -73,7 +79,7 @@ Doc evolution has two equally important triggers:
 - New cross-cutting concerns emerge
 - Internal refactors change file layouts referenced in skills
 
-**Claude Code PostToolUse hook** (`.claude/hooks/post-commit-docs.sh`) detects changed files and prompts doc/skill review. Cross-reference validation (`validate_cross_references.py`) is a manual tool — run it after major changes.
+**Claude Code PostToolUse hook** (`.claude/hooks/post-commit-docs.sh`) detects changed files and prompts doc/skill review. Cross-reference validation (`validate_cross_references.py`, `./dev health-xref`) runs in `./dev health` and the weekly janitor; it also lists **stale skills** — those whose `primary_docs` have a commit after the skill's `last_reviewed` (see reference.md § Skill Staleness).
 
 ---
 
@@ -127,7 +133,7 @@ uv run python scripts/generate_cross_reference_index.py
 2. **One path forward** - No backward compatibility, no legacy wrappers
 3. **Preserve context** - ADRs show *why* we changed (external forces)
 4. **Documentation focus** - 70% docs evolve, 30% skills evolve
-5. **Validate early** - Post-commit detects new docs; post-merge detects library changes; run `validate_cross_references.py` manually after major changes
+5. **Validate early** - Post-commit detects new docs; post-merge detects library changes; `./dev health-xref` finds broken links and stale skills
 6. **Fundamentals vs adaptive** - Respect library patterns, adapt SKUEL patterns
 
 ---
@@ -144,9 +150,9 @@ uv run python scripts/generate_cross_reference_index.py
 - `.claude/skills/skills_metadata.yaml` - Central registry
 
 ### Health Check Tooling
-- `/docs/tools/HEALTH_CHECKS.md` - Complete reference for the three health scripts
+- `/docs/tools/HEALTH_CHECKS.md` - The health-check roster and what each check finds
 - `scripts/health/stale_names.py` - Maintainable RENAMED/DELETED tables (update on every rename)
 
 ---
 
-**Last Updated:** 2026-03-03
+**Last Updated:** 2026-09-29

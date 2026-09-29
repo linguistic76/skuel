@@ -1,5 +1,5 @@
 ---
-updated: 2026-09-17
+updated: 2026-09-29
 ---
 
 # Git Hooks for SKUEL
@@ -127,7 +127,7 @@ git config --get core.hooksPath          # should print: app/scripts/git-hooks
 ls -la app/scripts/git-hooks/post-merge  # should show -rwxr-xr-x
 ```
 
-**Stale skills showing unexpectedly** — check git dates vs `last_reviewed`:
+**Stale skills showing unexpectedly** — the check compares the UTC day of the doc's last commit with `last_reviewed`:
 ```bash
-git log -1 --format="%Y-%m-%d" -- docs/patterns/YOUR_DOC.md
+git log -1 --format=%cI -- docs/patterns/YOUR_DOC.md   # an evening commit west of UTC is the next UTC day
 ```

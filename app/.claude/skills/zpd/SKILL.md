@@ -103,7 +103,7 @@ class ZPDService:
 
 Single-roundtrip `_ZONE_QUERY` — 6 steps in one Cypher query:
 
-1. **Current zone** — KUs via APPLIES_KNOWLEDGE (tasks, journals) + REINFORCES_KNOWLEDGE (habits). Returns per-source lists for compound evidence.
+1. **Current zone** — KUs via APPLIES_KNOWLEDGE (tasks, user entries) + REINFORCES_KNOWLEDGE (habits). Returns per-source lists for compound evidence.
 2. **Proximal zone** — adjacent via PREREQUISITE_FOR, **ENABLES/ENABLES_KNOWLEDGE** (both enabler vocabularies: standalone Edge YAML authors ENABLES; frontmatter connections.enables ingests as ENABLES_KNOWLEDGE), COMPLEMENTARY_TO, LP ORGANIZES. Excludes already-engaged KUs. A **PS-enabler bridge** also expands from the RAW engaged entities (activity edges target :PathStep too, ADR-046) and rolls enabled PathSteps down to their composed Kus — the zone stays Ku-grain.
 3. **Prerequisite graph** — total vs met prerequisites per proximal KU (readiness scoring). PREREQUISITE_FOR only.
 4. **Engaged Learning Paths** — LPs the user is partially traversing.
@@ -212,7 +212,7 @@ learning move because it unlocks the most new territory.
 prerequisites are met and that align with the life path.
 
 **Reinforce** actions target current-zone KUs with thin evidence. A KU with only 1
-signal type (e.g., just a task) needs a second signal type (e.g., a journal reflection)
+signal type (e.g., just a task) needs a second signal type (e.g., a reflective entry)
 to reach compound-confirmed status.
 
 ---
@@ -259,7 +259,7 @@ if neither:           behavioral = ZPDWeights.BEHAVIORAL_NEUTRAL_DEFAULT  # 0.5,
 
 | Event | Trigger | Signal |
 |-------|---------|--------|
-| `SubmissionApproved` | Student work validated | Mastery signal |
+| `UserEntryApproved` | Student work validated | Mastery signal |
 | `ReportSubmitted` | Teacher feedback delivered | Feedback loop closed |
 | `KnowledgeMastered` | KU mastery confirmed | Zone shift |
 | `PathStepCompleted` | Curriculum progress | LP advancement |
@@ -311,7 +311,7 @@ if zpd_service is not None:
 
 When modifying ZPD, verify:
 
-1. **Backend query returns all 9 tuple elements** — current_zone, proximal_zone, engaged_paths, prereq_data, blocking_gaps, task_engaged, journal_engaged, habit_engaged, submission_data
+1. **Backend query returns all 9 tuple elements** — current_zone, proximal_zone, engaged_paths, prereq_data, blocking_gaps, task_engaged, habit_engaged, entry_engaged, submission_data
 2. **No APOC in queries** — SKUEL001 compliance; use pure Cypher for set operations
 3. **Guard condition preserved** — `get_ku_count() < 3` returns empty assessment
 4. **Behavioral readiness defaults to 0.5** when intelligence services unavailable

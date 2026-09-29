@@ -6,50 +6,53 @@
 
 ## Implementation Patterns
 
-### Pattern 1: Typed Query Parameters
+### Pattern 1: Declared Query Parameters
 
-**Use when:** Extracting query parameters from request (filtering, sorting, pagination)
+**Use when:** An Activity list takes filters (status, priority, category, sort)
 
-**Two filter patterns:**
-- **`ActivityFilters`** (shared, from `form_helpers`) — 2-field `status + sort_by` for Goals, Habits, Events, Choices
-- **Custom `Filters`** (per-domain) — Tasks (5 fields), Principles (3 fields)
+The list names its filters on its `ActivityUIConfig` as `(name, default)` pairs. The factory
+reads each from the query string, passes them positionally to the pure `filter_fn`, re-forwards
+the non-default ones from the page shell to its content fragment, and pushes them back into the
+URL (`HX-Push-Url`) so a filtered view survives a refresh:
 
-**Example:**
 ```python
-from adapters.inbound.form_helpers import ActivityFilters, parse_activity_filters
-
-# Goals, Habits, Events, Choices — use shared ActivityFilters
-def parse_filters(request) -> ActivityFilters:
-    return parse_activity_filters(request, default_status="active", default_sort_by="target_date")
-
-# Tasks — custom 5-field Filters (stays local)
-@dataclass
-class Filters:
-    project: str
-    assignee: str
-    due_filter: str
-    status_filter: str
-    sort_by: str
+# adapters/inbound/goals_ui.py
+config = ActivityUIConfig(
+    domain_name="goals",
+    filter_params=(("status", "active"), ("category", "all"), ("sort_by", "target_date")),
+    get_all=goals_service.get_user_goals,
+    filter_fn=filter_goals,   # filter_goals(goals, status, category, sort_by)
+    ...
+)
 ```
 
-**Calendar params** parse via `parse_date_query_param()` from `route_factories`.
-
-**Usage in route:**
-```python
-@rt("/tasks")
-async def tasks_dashboard(request):
-    filters = parse_filters(request)  # Type-safe access
-
-    # Use filters.status, filters.project, filters.sort_by
-```
+Outside the Activity lists, query parameters parse through
+`adapters/inbound/route_factories/route_helpers.py` (`parse_bool_query_param`,
+`parse_date_query_param`, `parse_csv_query_param`, `parse_pagination_params`).
 
 ---
 
-### Pattern 2: I/O Helper with Result[T]
+### Pattern 2: The Generated Activity Routes
 
-**Use when:** Fetching data from services (all data access)
+**Use when:** Building an Activity domain's list or detail pages
 
-**Factory-centralized** (`adapters/inbound/activity_ui_factory.py`): `create_activity_ui_routes()` owns the fetch path for all 6 Activity domains — Result propagation, `or []` defaulting, structured logging, and the error branch live in the factory's `_fetch_filtered()`, so routes carry no fetch boilerplate. (The former `ui_helpers.fetch_user_entities()` helper was deleted 2026-08 with zero consumers.)
+**Factory-centralized** (`adapters/inbound/activity_ui_factory.py`): `create_activity_ui_routes()` owns the fetch path for all 6 Activity domains — Result propagation, filtering, connection fetch and the error branch live in the factory's `_fetch_filtered()`, so a domain's `*_ui.py` carries no fetch boilerplate. It generates:
+
+| Route | What it returns | On error |
+|-------|-----------------|----------|
+| `GET /{domain}` | Page shell inside the Tasks+ sidebar, with a loading placeholder | — (no fetch) |
+| `GET /{domain}/content` | Filter bar + list + stats bar, under `id="{domain}-content"` | `render_error_banner(error.display_message)` under the same id |
+| `GET /{domain}/list-fragment` | The filtered list only, plus `HX-Push-Url` | the banner under `id="{singular}-list"` |
+| `GET /{domain}/detail` + its content fragment | The detail shell, then the owned entity | not-found / not-owned through the ownership read |
+
+```python
+# The content fragment's error branch — the shape every Activity list shares
+error, all_items, filtered, connections_map, param_values = await _fetch_filtered(request)
+if error is not None:
+    return Div(render_error_banner(error.display_message), id=f"{domain}-content")
+```
+
+The create/edit POSTs stay in the domain's `*_ui.py` — see Example 2.
 
 ---
 
@@ -57,99 +60,30 @@ async def tasks_dashboard(request):
 
 **Use when:** Processing data (stats, filtering, sorting)
 
-**Example:**
+The Activity lists' computation is already pure and shared:
+
+- `core/utils/entity_filters.py` — `filter_tasks`, `filter_goals`, `filter_habits`,
+  `filter_events`, `filter_choices`, `filter_principles`: filter + sort, the `filter_fn` each
+  `ActivityUIConfig` names.
+- `core/utils/activity_stats.py` — `compute_task_stats`, `compute_goal_stats`, …: the typed
+  stats each domain's stats bar renders (`ui/activities/`).
+
 ```python
-from core.models.enums import EntityStatus, Priority
-from core.utils.timestamp_helpers import today_in
-from core.utils.zone_context import current_zone
-
-# ========================================================================
-# PURE COMPUTATION HELPERS (Testable without mocks)
-# ========================================================================
-
-def compute_task_stats(tasks: list[Any]) -> dict[str, int]:
-    """
-    Calculate task statistics.
-
-    Pure function: testable without database or async.
-    Returns: {"total": N, "completed": N, "overdue": N, "draft": N}
-    """
-    today = today_in(current_zone())  # the user's day, never the host's
-    return {
-        "total": len(tasks),
-        "completed": sum(1 for t in tasks if t.status == EntityStatus.COMPLETED),
-        "overdue": sum(
-            1
-            for t in tasks
-            if t.due_date and t.due_date < today and t.status != EntityStatus.COMPLETED
-        ),
-        "draft": sum(1 for t in tasks if t.status == EntityStatus.DRAFT),
-    }
-
-
-def apply_task_filters(
-    tasks: list[Any],
-    project: str | None = None,
+def filter_tasks(
+    tasks: list[Task],
     status_filter: str = "active",
-) -> list[Any]:
-    """
-    Apply filter criteria to task list.
-
-    Pure function: testable without database or async.
-    """
-    # Filter: project
-    if project:
-        tasks = [t for t in tasks if t.project == project]
-
-    # Filter: status
-    if status_filter == "active":
-        tasks = [t for t in tasks if t.status != EntityStatus.COMPLETED]
-    elif status_filter == "completed":
-        tasks = [t for t in tasks if t.status == EntityStatus.COMPLETED]
-    elif status_filter == "overdue":
-        today = today_in(current_zone())
-        tasks = [
-            t
-            for t in tasks
-            if t.due_date
-            and t.due_date < today
-            and t.status != EntityStatus.COMPLETED
-        ]
-    # "all" - no filtering
-
-    return tasks
-
-
-def apply_task_sort(tasks: list[Any], sort_by: str = "due_date") -> list[Any]:
-    """
-    Sort tasks by specified field.
-
-    Pure function: testable without database or async.
-    """
-    if sort_by == "due_date":
-        # Sort by due_date, None last
-        return sorted(tasks, key=lambda t: (t.due_date is None, t.due_date))
-
-    elif sort_by == "priority":
-        priority_order = {
-            Priority.HIGH: 0,
-            Priority.MEDIUM: 1,
-            Priority.LOW: 2,
-        }
-        return sorted(tasks, key=lambda t: priority_order.get(t.priority, 999))
-
-    elif sort_by == "created_at":
-        return sorted(tasks, key=lambda t: t.created_at, reverse=True)
-
-    else:  # Default: due_date
-        return sorted(tasks, key=lambda t: (t.due_date is None, t.due_date))
+    priority_filter: str = "all",
+    sort_by: str = "priority",
+) -> list[Task]:
+    """Apply filters and sorting to a task list."""
 ```
+
+A "today" inside such a helper is the user's day (`today_in(current_zone())`), never the host's.
 
 **Key Features:**
 - No `async` (pure computation)
 - No `await` (no I/O)
 - No service calls (testable with plain data)
-- Clear docstrings (explains what, not how)
 - Single responsibility (one function, one job)
 
 ---
@@ -186,11 +120,11 @@ async def get_filtered_context(
     )
 ```
 
-**In the route:**
+**In a caller** (the daily-planning intelligence reads it — `core/services/user/intelligence/daily_planning.py`; the Activity list pages use the factory's `get_all` + `filter_fn` instead):
 ```python
-result = await tasks_service.get_filtered_context(user_uid, status_filter, sort_by)
+result = await tasks_service.get_filtered_context(user_uid, status_filter=status_filter, sort_by=sort_by)
 if result.is_error:
-    return render_error_banner(result)
+    return Result.fail(result)
 ctx = result.value
 tasks: list[Task] = ctx["entities"]   # annotate to narrow: entities is list[Any]
 stats = ctx["stats"]                  # dict[str, int | float]
@@ -206,180 +140,54 @@ See: `core/services/filtered_context.py`, `core/ports/query_types.py:ListContext
 
 ---
 
-### Pattern 5: Main Dashboard Route
+### Pattern 5: A Hand-Written Page Route
 
-**Use when:** Building the main page for a domain (handles all views)
+**Use when:** A page outside the generated Activity routes fetches its own data
 
-**Example:**
+Check the `Result` before touching `.value`, and render the failure inside the page's chrome so
+navigation still works:
+
 ```python
-from ui.layouts.base_page import BasePage
-from ui.tokens import Container, Spacing
-
-@rt("/tasks")
-async def tasks_dashboard(request) -> Any:
-    """Main tasks dashboard with list/calendar/analytics views."""
+@rt("/exercises")
+async def exercises_dashboard(request: Request) -> Any:
     user_uid = require_authenticated_user(request)
-
-    # Parse query parameters (typed)
-    view = request.query_params.get("view", "list")
-    filters = parse_task_filters(request)
-
-    # Fetch filtered data
-    filtered_result = await get_filtered_tasks(
-        user_uid=user_uid,
-        project=filters.project,
-        status_filter=filters.status,
-        sort_by=filters.sort_by,
-    )
-
-    # CHECK FOR ERRORS - show banner instead of empty list
-    if filtered_result.is_error:
-        error_content = Div(
-            # Still show tabs/navigation
-            TasksViewComponents.render_view_tabs(active_view=view),
-            # Error banner with clear message
-            render_error_banner(f"Failed to load tasks: {filtered_result.error}"),
-            cls=f"{Spacing.PAGE} {Container.WIDE}",
+    result = await exercise_service.list_for_user(user_uid)   # illustrative call
+    if result.is_error:
+        content = Div(
+            PageHeader("Exercises"),
+            render_error_banner(result.expect_error().display_message),
         )
-        return BasePage(
-            error_content,
-            title="Tasks",
-            request=request,
-            active_page="tasks",
-        )
+        return BasePage(content, title="Exercises", request=request)
 
-    # Extract values only AFTER error check
-    tasks, stats = filtered_result.value
-
-    # Render appropriate view
-    if view == "analytics":
-        content = TasksViewComponents.render_analytics_view(tasks, stats)
-    else:
-        content = TasksViewComponents.render_list_view(ctx=page_ctx)
-
-    return BasePage(
-        content,
-        title="Tasks",
-        request=request,
-        active_page="tasks",
-    )
+    exercises = result.value   # only after the error check
+    ...
 ```
-
-**Key Features:**
-- Typed parameters (parse_task_filters)
-- Error check BEFORE .value access
-- Error banner with navigation (tabs still visible)
-- Multi-view support (list/analytics)
-- BasePage for consistency
 
 ---
 
 ### Pattern 6: HTMX Fragment Route
 
-**Use when:** Building HTMX-swappable fragments (tab content, filtered lists)
+**Use when:** Returning a fragment that HTMX swaps into a target
 
-**Example:**
+Return the error under the target's `id`, so it lands where the content would have — never a
+full page inside a fragment:
+
 ```python
-@rt("/tasks/view/list")
-async def tasks_view_list(request) -> Any:
-    """HTMX fragment for list view (swapped via hx-get)."""
-    user_uid = require_authenticated_user(request)
-
-    # Parse filters
-    filters = parse_task_filters(request)
-
-    # Fetch filtered data
-    filtered_result = await get_filtered_tasks(
-        user_uid=user_uid,
-        project=filters.project,
-        status_filter=filters.status,
-        sort_by=filters.sort_by,
-    )
-
-    # Handle errors (return banner directly for HTMX swap)
-    if filtered_result.is_error:
-        return render_error_banner(f"Failed to load tasks: {filtered_result.error}")
-
-    # Success: render list view
-    tasks, stats = filtered_result.value
-    return TasksViewComponents.render_list_view(ctx=page_ctx)
-```
-
-**Key Differences from Main Route:**
-- **Returns fragment** (not full BasePage)
-- **Error banner only** (no tabs/nav - HTMX swaps into container)
-- **No view switching** (single view per route)
-
-**HTMX Usage:**
-```html
-<div id="tasks-content" hx-get="/tasks/view/list?filter_status=active" hx-trigger="load">
-  <!-- Content swapped here -->
-</div>
+if result.is_error:
+    return Div(render_inline_error("Could not load data"), id="content-section")
 ```
 
 ---
 
-### Pattern 7: Early Form Validation
+### Pattern 7: Form Binding
 
-**Use when:** Validating form data before Pydantic layer
+**Use when:** A POST takes a form
 
-**Example:**
-```python
-def validate_task_form_data(form_data: dict[str, Any]) -> Result[None]:
-    """
-    Validate task form data early.
-
-    Pure function: returns clear error messages for UI.
-    """
-    # Required fields
-    title = safe_form_string(form_data.get("title"))
-    if not title:
-        return Errors.validation("Task title is required")
-
-    if len(title) > 200:
-        return Errors.validation("Task title must be 200 characters or less")
-
-    # Date validation
-    scheduled_date_str = form_data.get("scheduled_date", "")
-    due_date_str = form_data.get("due_date", "")
-
-    if scheduled_date_str and due_date_str:
-        try:
-            scheduled = date.fromisoformat(scheduled_date_str)
-            due = date.fromisoformat(due_date_str)
-
-            if due < scheduled:
-                return Errors.validation("Due date cannot be before scheduled date")
-
-        except ValueError:
-            return Errors.validation("Invalid date format (use YYYY-MM-DD)")
-
-    # Priority validation
-    priority = form_data.get("priority")
-    if priority and priority not in ["low", "medium", "high"]:
-        return Errors.validation(f"Invalid priority: {priority}")
-
-    return Result.ok(None)
-
-
-async def create_task_from_form(form_data: dict[str, Any], user_uid: UserUID) -> Result[Task]:
-    """Create task from form data with early validation."""
-
-    # VALIDATE EARLY (before hitting services)
-    validation_result = validate_task_form_data(form_data)
-    if validation_result.is_error:
-        logger.warning(f"Form validation failed: {validation_result.error}")
-        return validation_result  # Return to UI with clear message
-
-    # Continue with form processing...
-    # ... build CreateTaskRequest, call service ...
-```
-
-**Benefits:**
-- **User-friendly errors** ("Task title is required" vs Pydantic "Field required: title")
-- **Early failure** (before hitting services, faster feedback)
-- **Testable** (pure function, no mocks)
-- **Clear rules** (all validation logic in one place)
+Bind the whole form to the domain's Pydantic request model with `parse_form_body` and render the
+failure's `display_message` above the re-rendered form — see Example 2. Field and cross-field
+rules live on the model (`Field` constraints, validators), so every door that binds the model —
+the form, the JSON API, the vault — enforces the same rule. There is no separate
+`validate_*_form_data()` layer.
 
 ---
 
@@ -401,7 +209,7 @@ async def create_task_from_form(form_data: dict[str, Any], user_uid: UserUID) ->
 # Full-page error (main route)
 if result.is_error:
     return BasePage(
-        render_error_banner(f"Failed to load data: {result.error}"),
+        render_error_banner(result.expect_error().display_message),
         title="Error",
         request=request,
     )
@@ -440,14 +248,11 @@ render_error_banner("Some data may be incomplete", severity="warning")
 async def _get_user_stats(services) -> tuple[dict, bool]:
     """Returns (stats_dict, had_error)."""
     stats = {"total": 0, "admins": 0, ...}
-    try:
-        result = await services.user.list_users(...)
-        if result.is_error:
-            return stats, True
-        # ... populate stats ...
-        return stats, False
-    except Exception:
+    result = await services.user.list_users(...)
+    if result.is_error:
         return stats, True
+    # ... populate stats ...
+    return stats, False
 ```
 
 **Consumer pattern:**
@@ -520,47 +325,35 @@ if intel_data.get("alignment") is not None:
 
 ## Real-World Examples
 
-### Example 1: Tasks Dashboard (FilteredContextProvider Pattern)
-**Files:** `/core/services/tasks_service.py`, `/adapters/inbound/tasks_ui.py`
+### Example 1: Tasks List (Generated Routes)
+**Files:** `/adapters/inbound/tasks_ui.py`, `/adapters/inbound/activity_ui_factory.py`
 
 ```python
-# Service facade — implements FilteredContextProvider protocol
-# Pure computation helpers are module-level functions passed as callables
-async def get_filtered_context(
-    self, user_uid: UserUID, status_filter: str = "active", sort_by: str = "due_date",
-) -> Result[ListContext]:
-    """Get filtered and sorted tasks with pre-filter stats."""
-
-    async def fetch_all() -> Result[list[Task]]:
-        return await self.core.get_for_user_filtered(user_uid, "all")
-
-    def apply_filters(all_tasks: list[Any]) -> list[Any]:
-        return apply_entity_filter(all_tasks, status_filter, _TASK_FILTER_CONFIG)
-
-    return await build_filtered_context(
-        fetch_all=fetch_all,
-        compute_stats=_compute_task_stats,
-        apply_filters=apply_filters,
-        apply_sort=_apply_task_sort,  # delegates to apply_entity_sort() with _TASK_SORT_CONFIG
-        sort_by=sort_by,
-    )
-
-# Route consumes the TypedDict directly
-
-@rt("/tasks")
-async def tasks_dashboard(request):
-    filtered_result = await tasks_service.get_filtered_context(user_uid, status_filter, sort_by)
-
-    if filtered_result.is_error:
-        return BasePage(render_error_banner(f"Failed: {filtered_result.error}"), ...)
-
-    ctx = filtered_result.value
-    tasks: list[Task] = ctx["entities"]   # annotate to narrow: entities is list[Any]
-    stats = ctx["stats"]                  # dict[str, int | float]
-    # ... render views
+# adapters/inbound/tasks_ui.py — the domain supplies data, filters and components
+config = ActivityUIConfig(
+    domain_name="tasks",
+    domain_singular="task",
+    page_title="Tasks",
+    filter_params=(("status", "active"), ("priority", "all"), ("sort_by", "priority")),
+    get_all=tasks_service.get_user_tasks,
+    get_owned=tasks_service.verify_ownership,
+    backend=connection_fetch_backend,
+    filter_fn=filter_tasks,
+    connection_config=TASK_CONNECTION_CONFIG,
+    filter_config=FILTER_CONFIGS["tasks"],
+    list_component=TaskList,
+    stats_component=TaskStatsBar,
+    detail_component=TaskDetailView,
+    create_href="/tasks/create",
+)
+create_activity_ui_routes(app, rt, config)
 ```
 
-**Pattern:** Complete error handling with typed params, pure helpers, Result[T] propagation
+The factory's content fragment checks the fetch's `Result`, renders a banner under
+`id="tasks-content"` on failure, and otherwise returns the filter bar, the filtered list and the
+stats bar (computed over the unfiltered set).
+
+**Pattern:** Declared params, pure helpers, one generated error branch
 
 ---
 
@@ -617,18 +410,15 @@ async def get_all_tasks(user_uid):
 
 **Correct approach:**
 ```python
-# ✅ DO THIS
-async def get_all_tasks(user_uid: UserUID) -> Result[list[Task]]:
-    try:
-        result = await tasks_service.get_user_tasks(user_uid)
-        if result.is_error:
-            logger.warning(f"Failed to fetch tasks: {result.error}")
-            return result  # Propagate error
-        return Result.ok(result.value or [])
-    except Exception as e:
-        logger.error("Error fetching tasks", extra={...})
-        return Errors.system(f"Failed to fetch tasks: {e}")
+# ✅ DO THIS — the service already returns a Result; the route shows its failure
+result = await tasks_service.get_user_tasks(user_uid)
+if result.is_error:
+    return Div(render_error_banner(result.expect_error().display_message), id="tasks-content")
+tasks = result.value
 ```
+
+No wrapper helper and no broad `try`: the service turned its failures into the `Result`, and
+SKUEL017 rejects an unannotated `except Exception`.
 
 ---
 
@@ -637,13 +427,9 @@ async def get_all_tasks(user_uid: UserUID) -> Result[list[Task]]:
 **Why it's wrong:**
 ```python
 # ❌ DON'T DO THIS
-@rt("/tasks")
-async def tasks_dashboard(request):
-    result = await get_filtered_tasks(user_uid)
-
-    tasks, stats = result.value  # CRASHES if result.is_error!
-
-    return BasePage(render_list(tasks), ...)
+result = await tasks_service.get_user_tasks(user_uid)
+tasks = result.value  # None on failure — the page renders "no tasks" or crashes later
+return render_list(tasks)
 ```
 
 **Problems:**
@@ -654,20 +440,14 @@ async def tasks_dashboard(request):
 **Correct approach:**
 ```python
 # ✅ DO THIS
-@rt("/tasks")
-async def tasks_dashboard(request):
-    result = await get_filtered_tasks(user_uid)
+result = await tasks_service.get_user_tasks(user_uid)
 
-    # CHECK FIRST
-    if result.is_error:
-        return BasePage(
-            render_error_banner(f"Failed: {result.error}"),
-            ...
-        )
+# CHECK FIRST
+if result.is_error:
+    return Div(render_error_banner(result.expect_error().display_message), id="tasks-content")
 
-    # Extract .value only after error check
-    tasks, stats = result.value
-    return BasePage(render_list(tasks), ...)
+# Extract .value only after error check
+return render_list(result.value)
 ```
 
 ---
@@ -707,66 +487,46 @@ async def get_filtered_tasks(...) -> Result[tuple[list, dict]]:
 - Hard to modify one aspect without affecting others
 - Single Responsibility Principle violated
 
-**Correct approach — use `FilteredContextProvider` pattern:**
+**Correct approach — split the I/O from the computation:**
 ```python
-# ✅ DO THIS - Service facade owns orchestration via build_filtered_context()
-
-# Pure computation callables (no async, no mocks needed)
-def compute_task_stats(tasks: list[Any]) -> dict[str, int | float]:
-    return {"total": len(tasks), "completed": ...}
-
-def apply_task_filters(tasks: list[Any], ...) -> list[Any]:
-    return filtered_tasks
-
-def apply_task_sort(tasks: list[Any], sort_by: str) -> list[Any]:
-    return sorted_tasks
-
-# Service facade method — delegates to build_filtered_context()
-async def get_filtered_context(self, user_uid, status_filter, sort_by) -> Result[ListContext]:
-    return await build_filtered_context(
-        fetch_all=lambda: self.core.get_for_user_filtered(user_uid, "all"),
-        compute_stats=compute_task_stats,
-        apply_filters=lambda all: _apply_status_filter(all, status_filter),
-        apply_sort=apply_task_sort,
-        sort_by=sort_by,
-    )
+# ✅ DO THIS — the service fetches; pure functions filter, sort and count
+result = await tasks_service.get_user_tasks(user_uid)        # I/O, Result[list[Task]]
+filtered = filter_tasks(all_tasks, status_filter, priority_filter, sort_by)   # pure
+stats = compute_task_stats(all_tasks)                                         # pure
 ```
 
-See: `core/services/filtered_context.py`, `core/ports/query_types.py:ListContext`
+For the Activity lists this split is already the factory's (`get_all` + `filter_fn` + the stats
+bar); a service that needs all three in one call uses `build_filtered_context()`
+(`core/services/filtered_context.py`, Pattern 4).
 
 ---
 
-### Mistake 4: Late Validation (Pydantic Only)
+### Mistake 4: Validating Beside the Request Model
 
 **Why it's wrong:**
 ```python
-# ❌ DON'T DO THIS
-async def create_task_from_form(form_data: dict, user_uid: UserUID):
-    # No early validation - Pydantic errors are technical
-
-    request = CreateTaskRequest(**form_data)  # May fail with: "Field required: title"
-    return await tasks_service.create_task(request, user_uid)
+# ❌ DON'T DO THIS — a bespoke validator the other doors never run
+def validate_task_form_data(form_data: dict) -> Result[None]:
+    if not form_data.get("title"):
+        return Errors.validation("Task title is required")
+    ...
 ```
 
 **Problems:**
-- Technical error messages ("Field required: title" vs "Task title is required")
-- No business rule validation (e.g., "Due date cannot be before scheduled date")
-- Errors happen deep in stack (harder to debug)
-- Poor UX (generic validation errors)
+- The JSON API and the vault bind the same request model and never see this rule
+- Two statements of one rule drift apart
+- The form route grows a validation layer the model already has
 
 **Correct approach:**
 ```python
-# ✅ DO THIS - Validate early with clear messages
-async def create_task_from_form(form_data: dict, user_uid: UserUID) -> Result[Task]:
-    # Validate FIRST
-    validation_result = validate_task_form_data(form_data)
-    if validation_result.is_error:
-        return validation_result  # User-friendly error
-
-    # Build request (Pydantic still validates, but we've already checked)
-    request = CreateTaskRequest(**form_data)
-    return await tasks_service.create_task(request, user_uid)
+# ✅ DO THIS — the rule lives on the model; the route renders the failure
+parsed = await parse_form_body(request, TaskCreateRequest)
+if parsed.is_error:
+    return render_form_with_banner(parsed.expect_error().display_message)
 ```
+
+A rule the user must be able to read goes on the model as a `Field` constraint or a validator,
+with a message written for the user.
 
 ---
 
@@ -782,7 +542,7 @@ if other_result.is_error:
     return P(f"Failed: {other_result.error}")  # Different structure
 
 if third_result.is_error:
-    return render_error_banner(third_result.error)  # Only this one is correct
+    return render_error_banner(third_result.expect_error().display_message)  # Only this one is correct
 ```
 
 **Problems:**
@@ -792,12 +552,12 @@ if third_result.is_error:
 
 **Correct approach:**
 ```python
-# ✅ DO THIS - Always use render_error_banner
+# ✅ DO THIS - Always use render_error_banner, with the error's safe message
 if result.is_error:
-    return render_error_banner(f"Failed to load data: {result.error}")
+    return render_error_banner(result.expect_error().display_message)
 
 if other_result.is_error:
-    return render_error_banner(f"Failed to process: {other_result.error}")
+    return render_error_banner("Failed to process your request")
 ```
 
 **Consistency:** All errors use same component (alert, emoji, styling)
@@ -809,14 +569,9 @@ if other_result.is_error:
 **Why it's wrong:**
 ```python
 # ❌ DON'T DO THIS
-async def get_all_tasks(user_uid: UserUID) -> Result[list[Task]]:
-    try:
-        result = await tasks_service.get_user_tasks(user_uid)
-        if result.is_error:
-            return result  # No logging - can't debug
-        return Result.ok(result.value or [])
-    except Exception as e:
-        return Errors.system(f"Failed: {e}")  # No logging - can't debug
+result = await tasks_service.get_user_tasks(user_uid)
+if result.is_error:
+    return render_error_banner("Failed to load tasks")  # nothing in the logs says why
 ```
 
 **Problems:**
@@ -826,27 +581,13 @@ async def get_all_tasks(user_uid: UserUID) -> Result[list[Task]]:
 
 **Correct approach:**
 ```python
-# ✅ DO THIS - Always log with context
-async def get_all_tasks(user_uid: UserUID) -> Result[list[Task]]:
-    try:
-        result = await tasks_service.get_user_tasks(user_uid)
-        if result.is_error:
-            logger.warning(
-                f"Service failed to fetch tasks: {result.error}",
-                extra={"user_uid": user_uid},
-            )
-            return result
-
-        return Result.ok(result.value or [])
-
-    except Exception as e:
-        logger.error(
-            "Unexpected error fetching tasks",
-            extra={
-                "user_uid": user_uid,
-                "error_type": type(e).__name__,
-                "error_message": str(e),
-            },
-        )
-        return Errors.system(f"Failed to fetch tasks: {e}")
+# ✅ DO THIS — log the error with its context, then render the safe message
+result = await tasks_service.get_user_tasks(user_uid)
+if result.is_error:
+    error = result.expect_error()
+    logger.warning(
+        "Failed to load tasks",
+        extra={"user_uid": user_uid, "error_code": error.code, "error": error.message},
+    )
+    return render_error_banner(error.display_message)
 ```

@@ -532,17 +532,28 @@ related_skills: [fasthtml]
 
 ### Coverage Metrics
 
-```bash
-uv run python scripts/validate_cross_references.py
+`uv run python scripts/validate_cross_references.py` (or `./dev health-xref`) opens with a
+statistics block — skills, docs scanned, bidirectional links, broken links, missing reverse
+links, stale skills. A sample is in `docs/tools/HEALTH_CHECKS.md` § 4; read the live
+numbers from a run, not from a copy.
 
-# Output:
-📊 Statistics:
-   Total skills: 27
-   Total docs scanned: 352
-   Bidirectional links: 95/120 (79.2%)
-   Broken links: 0
-   Missing reverse links: 25
-```
+### Skill Staleness
+
+Each skill in `skills_metadata.yaml` carries `last_reviewed`. The validator flags a skill
+when any of its `primary_docs` has a commit on a later day — the UTC day of the commit's
+`%cI` timestamp, the same calendar the docs' `updated:` stamp uses — and names the docs.
+Only `primary_docs` count; `patterns` and `related_adrs` do not.
+
+To clear a flag, review; don't bump:
+
+1. Diff each flagged doc from the last commit on or before `last_reviewed` (UTC) to `HEAD`:
+   `git diff $(git rev-list -1 --before="<last_reviewed>T23:59:59Z" HEAD) HEAD -- <doc>`
+2. For each change, find what the skill says about it (`SKILL.md` and its supporting files)
+   and correct what the change made wrong.
+3. Only then set `last_reviewed` to the UTC day of the review.
+
+A frontmatter-only diff (a stamp, a `related_skills` edit) still gets read — it is how you
+know there is nothing to change.
 
 ---
 

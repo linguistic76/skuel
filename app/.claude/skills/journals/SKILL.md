@@ -1,8 +1,8 @@
 ---
 name: journals
 description: >
-  Implementation guide for SKUEL's Journals domain — STANDARD single-response and FOUNDER
-  three-stage DNWF workflows. Use when building or extending journal stages, working with
+  Implementation guide for SKUEL's Journals domain — the typed discussion door (both tiers)
+  and the file/audio door with FOUNDER's three-stage DNWF. Use when building or extending journal stages, working with
   JournalService or instruction_loader, adding a JournalMode, or integrating journals with
   UserContext or Askesis. Keywords: journals, DNWF, Scribe, Thought Partner, What Is Related,
   JournalMode, JournalService, run_stage1, run_stage2, run_stage3.
@@ -13,9 +13,12 @@ allowed-tools: Read, Grep, Glob
 
 > "Not a curriculum companion. A personal thinking partner that meets you where you are — no enrollment required."
 
-The Journals domain provides AI-assisted reflection for any authenticated user. Two tiers,
-one `JournalService`: STANDARD delivers a single motivating response; FOUNDER runs the
-three-stage Daily Notes Workflow (DNWF) with user review between stages.
+The Journals domain provides AI-assisted reflection for any authenticated user. Two doors,
+one `JournalService`: typed text opens an open, user-led **discussion** for both tiers
+(`POST /journals/start` → `run_discussion`); files and audio (`POST /journals/upload`,
+`POST /journals/folder-process`) run the **DNWF** processing path, where FOUNDER's three
+stages (Scribe → Thought Partner → What Is Related) live. A discussion is ephemeral until the
+user presses *Save this chat*; the file/audio door persists nothing (ADR-073, ADR-078).
 
 ---
 
