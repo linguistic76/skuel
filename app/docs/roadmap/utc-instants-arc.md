@@ -1177,6 +1177,19 @@ other row owns these sites. So the row splits into two sub-rows, each on its own
   - A staged deletion must be in the index before the unit suite runs:
     `test_secret_scan_floor` and `test_graph_driver_construction_sites` read `git ls-files`
     and fail on a file deleted from the tree alone.
+  - **CI's unit tier went red at 00:16Z** on `test_activity_report_service`'s "today",
+    which read the host's day. Since PR 5 a bare completion day is the user's day. So from
+    00:00Z to 07:00Z the host's day is tomorrow in Vancouver, and it fell outside the
+    period. The test and its month-boundary siblings (the "current month" in
+    `test_activity_report_service` and `test_progress_report_generator`) now read
+    `today_in(...)`.
+  - The probes that found them run the whole unit suite on a moved clock: a `-p` plugin
+    whose session fixture holds `time_machine.travel(<timestamp>, tick=True)`, set to
+    03:00Z today and to 03:00Z on the 1st of a month. `faketime` is not installed on the
+    laptop.
+  - A jump of days also fails tests whose module-level constants read the clock at import,
+    such as the Today orchestrator's `TODAY`. Tell those apart by running the same jump to
+    a day that crosses no boundary.
 
 ### PR 7 — Writers stamp aware UTC: models and the parse boundary
 

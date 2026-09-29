@@ -15,6 +15,8 @@ from core.models.enums.pipeline import ReportSource
 from core.services.report.activity_report_service import ActivityReportService
 from core.services.user.unified_user_context import UserContext
 from core.utils.result_simplified import Result
+from core.utils.timestamp_helpers import today_in
+from core.utils.zone_context import current_zone
 from tests.helpers.laptop_clock import laptop_wall
 
 # A report's period bounds are its midnights in the user's zone (Vancouver, the
@@ -172,7 +174,7 @@ class TestSnapshotRecordMapping:
         """entities_rich tasks → tasks domain: the period's play (completed in it
         by ``completion_date``, or open at its end), never an old completion the
         context carried along."""
-        today = datetime.now().date().isoformat()
+        today = today_in(current_zone()).isoformat()
         context = _make_context(
             activity_rich={
                 "tasks": [
@@ -556,7 +558,7 @@ class TestFuturePeriods:
         from core.utils.period_keys import monthly_period_key
 
         mock_backend.create.return_value = Result.ok(MagicMock())
-        token = monthly_period_key(datetime.now().date())
+        token = monthly_period_key(today_in(current_zone()))
 
         result = await service.submit_report("user_admin", "user_alice", "text", time_period=token)
 
