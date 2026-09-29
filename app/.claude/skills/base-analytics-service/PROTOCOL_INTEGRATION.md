@@ -206,8 +206,9 @@ See the [domain-route-config](../domain-route-config/SKILL.md) skill.
    `BaseAnalyticsService[BackendProtocol, Model]`. Give it `get_performance_analytics` and
    `get_domain_insights`.
 2. Build it where the facade is built and store it on the facade's `intelligence` slot.
-3. Pass the domain's relationship service as `relationship_service` — `get_with_context` fails
-   without it.
+3. Pass both `graph_intel` and the domain's relationship service (`relationship_service`).
+   `get_with_context` returns a failed `Result` without either, so the generated context route
+   cannot answer.
 4. Set `intelligence=IntelligenceRouteConfig(...)` on the domain's route config. Choose the
    scope by who owns the entity: `USER_OWNED` needs `verify_ownership` on the facade.
 5. Add the per-domain guide under `docs/intelligence/`.

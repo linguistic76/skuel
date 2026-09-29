@@ -296,8 +296,10 @@ methods and has no generated routes. See [PROTOCOL_INTEGRATION.md](PROTOCOL_INTE
 `get_with_context()` lives on the shared `_CoreIntelligenceMixin[T]`
 (`core/services/intelligence/_core_intelligence_mixin.py`). It routes through
 `self.relationships.get_with_context(uid, depth)`, whose edge vocabulary is the domain's
-`DomainRelationshipConfig.cross_domain_relationship_types` — the registry. There is nothing to
-wire per service, and no loader object.
+`DomainRelationshipConfig.cross_domain_relationship_types` — the registry. There is no loader
+object and no wiring step beyond the constructor, which must be given both dependencies the
+method needs: `graph_intel` (the decorator fails the call without it) and `relationship_service`
+(the inline check fails the call without it).
 
 | Services | How they inherit |
 |----------|------------------|
@@ -308,8 +310,9 @@ wire per service, and no loader object.
 There are no domain-named variants (`get_goal_with_context`): `get_with_context` is the one
 path.
 
-The traversal follows edges out from the origin entity and is not owner-scoped. The method
-checks nothing about the caller. On a `USER_OWNED` route the factory verifies ownership of the
+The traversal is undirected — it follows relationships both into and out of the origin entity
+— and is not owner-scoped, so an inbound edge can bring a node into the `GraphContext`. The
+method checks nothing about the caller. On a `USER_OWNED` route the factory verifies ownership of the
 origin before calling it; a `SHARED` route verifies nothing, and neither does a caller that
 reaches the method directly.
 
