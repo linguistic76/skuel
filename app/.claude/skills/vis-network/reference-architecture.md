@@ -60,8 +60,13 @@ async def get_relationship_graph(
 
 - **Ownership** runs through `_verify_entity_access` only when **both** `user_uid` and
   `domain_service` are passed, and it checks the **center** entity only. The traversal
-  itself is not owner-filtered. A foreign or missing center is a 404, never a 403.
-- With no related rows it still returns the center node alone, so the canvas shows one dot.
+  itself is not owner-filtered. On the six Activity domains a foreign or missing center is a
+  404, never a 403.
+- On `ku` / `ps` / `lp` there is no verifier (`domain_service=None`), so **nothing checks
+  that the center exists**. A missing uid answers 200 with a synthetic center-only graph
+  (`label` = the uid, `type` / `status` `"unknown"`), indistinguishable from a real entity
+  with no edges.
+- With no related rows it returns the center node alone, so the canvas shows one dot.
 - Edges are colored per type with `RelationshipColor.for_type` (`core/utils/palette.py`).
 
 ### Layer 3: Routes (`LateralRouteFactory`)

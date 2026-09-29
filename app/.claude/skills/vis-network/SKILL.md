@@ -59,7 +59,7 @@ loads it on every `BasePage`, so a page needs no script tag of its own.
 | Layer | Where | What it does |
 |-------|-------|--------------|
 | **Data** | `LateralRelationshipBackend.get_relationship_graph` (`adapters/persistence/neo4j/backends/collab_backends.py`) | One variable-length match, `(center {uid})-[r:TYPES*1..{depth}]-(related)`; pure Cypher, no APOC |
-| **Service** | `LateralRelationshipService.get_relationship_graph` (`core/services/lateral_relationships/`) | Verifies ownership of the **center** entity, builds `RelationshipGraphData` nodes + edges, colors edges with `RelationshipColor` |
+| **Service** | `LateralRelationshipService.get_relationship_graph` (`core/services/lateral_relationships/`) | Verifies ownership of the **center** entity on the six Activity domains (curriculum passes no verifier), builds `RelationshipGraphData` nodes + edges, colors edges with `RelationshipColor` |
 | **Route** | `LateralRouteFactory` (`adapters/inbound/route_factories/lateral_route_factory.py`) | `GET .../lateral/graph?depth=&types=`, adds each node's detail-page `url` |
 | **Presentation** | `relationshipGraph` + the `SKUEL.graph` helpers (`static/js/skuel.js`) | `SKUEL.getJson` → style edges → `new vis.Network` → click navigates to `node.url` |
 
