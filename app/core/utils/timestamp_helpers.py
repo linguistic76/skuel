@@ -14,7 +14,7 @@ DRY Principle:
   and as a naive reading of the stored clock (as_stored_clock), the form the
   naive writers store
 - Display of a stored instant (shown_in, age_of), whatever shape it arrives
-  in (parse_stamp)
+  in (parse_stamp); the calendar day a stored value names (day_named)
 - Zone helpers, each taking the zone: now_in, wall_clock_in, today_in, day_of
   and hour_of (an instant's day and hour), local_day_bounds (a day's UTC
   bounds), stored_day_bounds (days' bounds on the stored clock, for comparison
@@ -390,6 +390,23 @@ def instant_of(value: object, zone: tzinfo) -> datetime | None:
         start, _ = local_day_bounds(stamp, zone)
         return start
     return None
+
+
+def day_named(value: object, zone: tzinfo) -> date | None:
+    """The calendar day a stored value names — or None when absent or unreadable.
+
+    Reads every shape :func:`parse_stamp` reads. A day (a ``date``, a date-only
+    string) is itself. A moment is the day it falls on in ``zone``
+    (:func:`day_of`), never its digits' day.
+
+    Example:
+        reviewed = day_named(frontmatter.get("last_reviewed"), zone)
+        overdue = reviewed is not None and (today_in(zone) - reviewed).days > 100
+    """
+    stamp = parse_stamp(value)
+    if isinstance(stamp, datetime):
+        return day_of(stamp, zone)
+    return stamp
 
 
 def parse_date_value(value: Any) -> date | None:

@@ -6,7 +6,6 @@ Renderers for teacher assessments, activity reports, and progress report cards.
 Includes intelligence sections: trends, recommendations, life path, knowledge.
 """
 
-from datetime import datetime
 from enum import Enum
 from typing import Any
 
@@ -28,7 +27,7 @@ from fasthtml.common import (
 )
 
 from core.utils.report_periods import UnknownReportPeriodError, resolve_report_period
-from core.utils.timestamp_helpers import instant_of
+from core.utils.timestamp_helpers import instant_of, now_utc
 from core.utils.zone_context import current_zone
 from ui.components import Button, ButtonT, Card, CardBody
 from ui.feedback import Badge, BadgeT, Progress, ProgressT
@@ -605,7 +604,7 @@ def _render_period_line(report: Any) -> Any:
     if not token:
         return None
     try:
-        period = resolve_report_period(str(token), datetime.now(), current_zone())
+        period = resolve_report_period(str(token), now_utc(), current_zone())
     except UnknownReportPeriodError:
         return None
     if not period.is_calendar:

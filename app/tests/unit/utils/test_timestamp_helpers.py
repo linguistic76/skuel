@@ -29,6 +29,7 @@ from core.utils.timestamp_helpers import (
     age_of,
     as_stored_clock,
     as_utc,
+    day_named,
     day_of,
     from_wall_clock,
     hour_of,
@@ -247,6 +248,32 @@ class TestDayOf:
             assert day_of(naive, BANGKOK) == date(2026, 9, 27)
         with forced_zone("UTC"):
             assert day_of(naive, BANGKOK) == date(2026, 9, 28)
+
+
+class TestDayNamed:
+    """The calendar day a stored value names, in whatever shape it arrives."""
+
+    def test_a_day_is_itself_whatever_the_zone(self) -> None:
+        for value in (date(2026, 9, 27), "2026-09-27", Neo4jDate(2026, 9, 27)):
+            assert day_named(value, VANCOUVER) == date(2026, 9, 27)
+            assert day_named(value, BANGKOK) == date(2026, 9, 27)
+
+    def test_a_moment_names_its_day_in_the_zone_in_every_shape(self) -> None:
+        # 20:00Z on the 27th: the 27th in Vancouver, the 28th in Bangkok
+        moment = datetime(2026, 9, 27, 20, 0, tzinfo=UTC)
+        for value in (
+            moment,
+            datetime(2026, 9, 27, 20, 0),
+            "2026-09-27T20:00:00Z",
+            "2026-09-27T13:00:00-07:00",
+            Neo4jDateTime.from_native(moment),
+        ):
+            assert day_named(value, VANCOUVER) == date(2026, 9, 27)
+            assert day_named(value, BANGKOK) == date(2026, 9, 28)
+
+    def test_absent_or_unreadable_is_none(self) -> None:
+        for value in (None, "", "late September", 5):
+            assert day_named(value, VANCOUVER) is None
 
 
 class TestLocalDayBounds:

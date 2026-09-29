@@ -47,7 +47,7 @@ from core.utils.decorators import with_error_handling
 from core.utils.logging import get_logger
 from core.utils.result_simplified import Errors, Result
 from core.utils.sort_functions import get_updated_timestamp
-from core.utils.timestamp_helpers import day_of, today_in
+from core.utils.timestamp_helpers import EARLIEST_INSTANT, day_of, instant_of, today_in
 from core.utils.zone_context import current_zone
 
 if TYPE_CHECKING:
@@ -61,9 +61,9 @@ logger = get_logger(__name__)
 # =============================================================================
 
 
-def _sort_by_last_viewed_at(item: dict[str, Any]) -> Any:
-    """Sort key function for last_viewed_at timestamp."""
-    return item["last_viewed_at"]
+def _sort_by_last_viewed_at(item: dict[str, Any]) -> datetime:
+    """A view's ``last_viewed_at`` as its instant — any stored shape; absent or unreadable first."""
+    return instant_of(item["last_viewed_at"], current_zone()) or EARLIEST_INSTANT
 
 
 # =============================================================================

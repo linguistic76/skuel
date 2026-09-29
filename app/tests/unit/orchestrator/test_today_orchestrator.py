@@ -9,10 +9,13 @@ the other dated domains, and per-section degradation.
 
 from __future__ import annotations
 
-from datetime import date, timedelta
+from collections.abc import Iterator
+from datetime import UTC, date, datetime, timedelta, timezone
 from unittest.mock import AsyncMock, MagicMock
+from zoneinfo import ZoneInfo
 
 import pytest
+from neo4j.time import DateTime as Neo4jDateTime
 
 from core.models.choice.choice import Choice
 from core.models.enums import EntityStatus
@@ -20,13 +23,15 @@ from core.models.goal.goal import Goal
 from core.models.task.task import Task
 from core.utils.result_simplified import Errors, Result
 from core.utils.timestamp_helpers import today_in
-from core.utils.zone_context import current_zone
+from core.utils.zone_context import current_zone, current_zone_var
 from tests.helpers.laptop_clock import laptop_wall
 from ui.today.orchestrator import (
     TodayOrchestrator,
+    _choice_order,
     _date_label,
     _heading_label,
     choice_is_on_day,
+    moment_is_on_day,
 )
 
 USER = "user_today"
@@ -63,6 +68,54 @@ def test_choice_is_on_day_by_deadline_or_decision() -> None:
     assert choice_is_on_day(decided, day)
     assert not choice_is_on_day(elsewhere, day)
     assert not choice_is_on_day(undated, day)
+
+
+@pytest.fixture
+def vancouver_user() -> Iterator[None]:
+    """The current zone is a Vancouver user's."""
+    token = current_zone_var.set(ZoneInfo("America/Vancouver"))
+    try:
+        yield
+    finally:
+        current_zone_var.reset(token)
+
+
+@pytest.mark.usefixtures("vancouver_user")
+def test_choices_order_by_the_deadlines_instant_whatever_its_offset() -> None:
+    """A deadline's digits do not sort as its instant: 17:00-07:00 is 00:00Z the
+    next day, after 20:00Z. Undated choices come last."""
+    naive = Choice(
+        uid="c_naive", user_uid=USER, title="c", decision_deadline=datetime(2026, 9, 15, 19, 0)
+    )
+    utc = Choice(
+        uid="c_utc",
+        user_uid=USER,
+        title="b",
+        decision_deadline=datetime(2026, 9, 15, 20, 0, tzinfo=UTC),
+    )
+    offset = Choice(
+        uid="c_offset",
+        user_uid=USER,
+        title="a",
+        decision_deadline=datetime(2026, 9, 15, 17, 0, tzinfo=timezone(timedelta(hours=-7))),
+    )
+    undated = Choice(uid="c_undated", user_uid=USER, title="d")
+
+    ordered = sorted([offset, undated, utc, naive], key=_choice_order)
+
+    assert [c.uid for c in ordered] == ["c_naive", "c_utc", "c_offset", "c_undated"]
+
+
+@pytest.mark.usefixtures("vancouver_user")
+def test_a_moment_is_on_its_zone_day_in_every_stored_shape() -> None:
+    """03:00Z on the 15th is the evening of the 14th in Vancouver — as a string,
+    a native or a datetime alike."""
+    day = date(2026, 9, 14)
+    moment = datetime(2026, 9, 15, 3, 0, tzinfo=UTC)
+    for value in (moment, "2026-09-15T03:00:00+00:00", Neo4jDateTime.from_native(moment)):
+        assert moment_is_on_day(value, day)
+        assert not moment_is_on_day(value, day + timedelta(days=1))
+    assert not moment_is_on_day(None, day)
 
 
 # ---------------------------------------------------------------------------

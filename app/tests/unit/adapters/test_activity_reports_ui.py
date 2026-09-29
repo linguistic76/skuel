@@ -7,10 +7,13 @@ cookie+header pair (``tests/fixtures/csrf``).
 
 from __future__ import annotations
 
+from datetime import UTC, datetime
 from types import SimpleNamespace
 from unittest.mock import AsyncMock
+from zoneinfo import ZoneInfo
 
 import pytest
+import time_machine
 from fastcore.xml import to_xml  # type: ignore[import-untyped]
 
 from adapters.inbound.activity_reports_ui import create_activity_reports_ui_routes
@@ -21,7 +24,9 @@ from adapters.outbound.activity_report_renderer import (
 from core.models.enums.pipeline import ReportSource
 from core.models.report.activity_report import ActivityReport
 from core.utils.result_simplified import Errors, Result
+from core.utils.zone_context import current_zone_var
 from tests.fixtures.csrf import attach_csrf
+from tests.helpers.forced_zone import forced_zone
 from tests.helpers.laptop_clock import laptop_wall
 
 
@@ -501,6 +506,29 @@ class TestForPeriodGenerate:
         assert 'action="/activity-reports/for"' in html and 'method="post"' in html
         assert 'name="time_period" value="2026-01"' in html
         assert 'name="csrf_token"' in html
+
+    @pytest.mark.asyncio
+    async def test_the_prompt_reads_the_utc_clock_not_the_process_clock(
+        self, registry_orchestrator_generator, prompt_pages
+    ):
+        """Week 37 of 2026 ends at 07:00Z on Monday 14 September for a Vancouver
+        user. At 10:00Z it has closed, while a Vancouver process's naive clock
+        still reads 03:00 that Monday — a naive ``now()`` would call it open."""
+        registry, _, generator = registry_orchestrator_generator
+        generator.generate = AsyncMock(
+            return_value=Result.fail(Errors.business("report_cooldown", "Wait an hour."))
+        )
+        handler = registry.get("/activity-reports/for", "POST")
+        after_the_week = datetime(2026, 9, 14, 10, 0, tzinfo=UTC).timestamp()
+        token = current_zone_var.set(ZoneInfo("America/Vancouver"))
+        try:
+            with forced_zone("America/Vancouver"), time_machine.travel(after_the_week, tick=False):
+                page = await handler(_make_request(form_data={"time_period": "2026-W37"}))
+        finally:
+            current_zone_var.reset(token)
+
+        html = _content_html(page)
+        assert "week 37 of 2026 has closed" in html
 
     @pytest.mark.asyncio
     async def test_unknown_token_is_400_before_any_generation(

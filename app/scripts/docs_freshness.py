@@ -23,12 +23,14 @@ import json
 import re
 import sys
 from dataclasses import asdict, dataclass, field
-from datetime import datetime
+from datetime import UTC, datetime
 from enum import StrEnum
 from pathlib import Path
 from typing import Literal
 
 from core.utils.frontmatter import parse_frontmatter as _parse_frontmatter
+from core.utils.timestamp_helpers import day_named, day_of, today_in
+from core.utils.zone_context import default_zone
 
 
 class TrackingType(StrEnum):
@@ -239,6 +241,16 @@ def parse_code_references(doc_content: str) -> list[CodeReference]:
     return list(refs.values())
 
 
+def _mtime(path: Path) -> datetime:
+    """A file's modification time, as the aware UTC instant it is."""
+    return datetime.fromtimestamp(path.stat().st_mtime, UTC)
+
+
+def _mtime_day(mtime: datetime) -> str:
+    """The day a modification time falls on in the app default zone, ``YYYY-MM-DD``."""
+    return day_of(mtime, default_zone()).isoformat()
+
+
 def get_directory_mtime(
     dir_path: Path, filter_pattern: str | None, config: StalenessConfig
 ) -> datetime | None:
@@ -265,7 +277,7 @@ def get_directory_mtime(
                     if filter_pattern not in file_path.name:
                         continue
 
-            mtime = datetime.fromtimestamp(file_path.stat().st_mtime)
+            mtime = _mtime(file_path)
             if newest_mtime is None or mtime > newest_mtime:
                 newest_mtime = mtime
 
@@ -295,7 +307,7 @@ def get_code_mtime(
         mtime = get_directory_mtime(full_path, ref.filter_pattern, config)
         return mtime, mtime is not None
     else:
-        return datetime.fromtimestamp(full_path.stat().st_mtime), True
+        return _mtime(full_path), True
 
 
 def parse_frontmatter(doc_path: Path) -> dict:
@@ -316,7 +328,7 @@ def check_conceptual_freshness(
     doc_path: Path, frontmatter: dict, config: StalenessConfig
 ) -> DocFreshness:
     """Check freshness for conceptual docs based on review schedule."""
-    doc_mtime = datetime.fromtimestamp(doc_path.stat().st_mtime)
+    doc_mtime = _mtime(doc_path)
     last_reviewed = frontmatter.get("last_reviewed")
     review_frequency = frontmatter.get("review_frequency", "quarterly")
 
@@ -324,32 +336,28 @@ def check_conceptual_freshness(
         # Never reviewed - mark as overdue
         return DocFreshness(
             doc_path=str(doc_path),
-            doc_mtime=doc_mtime.strftime("%Y-%m-%d"),
+            doc_mtime=_mtime_day(doc_mtime),
             tracking_type=TrackingType.CONCEPTUAL,
             review_overdue=True,
             days_since_review=999,
             review_frequency=review_frequency,
         )
 
-    # Parse review date (handle both string and datetime.date from YAML)
-    try:
-        if isinstance(last_reviewed, str):
-            last_review_date = datetime.fromisoformat(last_reviewed)
-        else:
-            # Already a date object from YAML parsing
-            last_review_date = datetime.combine(last_reviewed, datetime.min.time())
-    except ValueError, TypeError, AttributeError:
+    # The review's day (a YAML date, or an ISO string), in the app default zone
+    zone = default_zone()
+    reviewed_day = day_named(last_reviewed, zone)
+    if reviewed_day is None:
         # Invalid date format
         return DocFreshness(
             doc_path=str(doc_path),
-            doc_mtime=doc_mtime.strftime("%Y-%m-%d"),
+            doc_mtime=_mtime_day(doc_mtime),
             tracking_type=TrackingType.CONCEPTUAL,
             review_overdue=True,
             days_since_review=999,
             review_frequency=review_frequency,
         )
 
-    days_since = (datetime.now() - last_review_date).days
+    days_since = (today_in(zone) - reviewed_day).days
 
     # Convert back to string for storage if it was a date object
     if not isinstance(last_reviewed, str):
@@ -367,7 +375,7 @@ def check_conceptual_freshness(
 
     return DocFreshness(
         doc_path=str(doc_path),
-        doc_mtime=doc_mtime.strftime("%Y-%m-%d"),
+        doc_mtime=_mtime_day(doc_mtime),
         tracking_type=TrackingType.CONCEPTUAL,
         last_reviewed=last_reviewed,
         review_frequency=review_frequency,
@@ -384,7 +392,7 @@ def check_code_based_freshness(
 
     Returns a DocFreshness object with any stale or missing references.
     """
-    doc_mtime = datetime.fromtimestamp(doc_path.stat().st_mtime)
+    doc_mtime = _mtime(doc_path)
     content = doc_path.read_text(encoding="utf-8")
     code_refs = parse_code_references(content)
 
@@ -407,7 +415,7 @@ def check_code_based_freshness(
                 stale_refs.append(
                     StaleReference(
                         code_path=ref.path,
-                        code_mtime=code_mtime.strftime("%Y-%m-%d"),
+                        code_mtime=_mtime_day(code_mtime),
                         days_newer=days_newer,
                         severity=severity,
                     )
@@ -417,7 +425,7 @@ def check_code_based_freshness(
 
     return DocFreshness(
         doc_path=rel_path,
-        doc_mtime=doc_mtime.strftime("%Y-%m-%d"),
+        doc_mtime=_mtime_day(doc_mtime),
         tracking_type=TrackingType.CODE_BASED,
         stale_refs=stale_refs,
         missing_refs=missing_refs,

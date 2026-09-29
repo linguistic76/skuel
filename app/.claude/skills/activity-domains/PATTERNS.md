@@ -185,7 +185,7 @@ Common params: `user_uid`, `status_filter`, `sort_by`. Concrete facades add doma
 - Categories: Principles, Goals, Habits get categories from `ctx["metadata"]["categories"]` (computed by service from enums); standalone create forms use `_get_{domain}_categories()` helper importing enum directly
 - All string extraction uses `safe_form_string()` from `adapters.inbound.form_helpers` (not raw `.get().strip()`)
 - All enum parsing uses `parse_enum_safe()` from `form_helpers` — prevents 500s from crafted form values
-- Date/time parsing uses `parse_date_safe()`, `parse_time_safe()`, `parse_datetime_safe()` from `form_helpers`
+- Date and time-of-day parsing uses `parse_date_safe()` and `parse_time_safe()` from `form_helpers`; a client datetime is an instant, typed `ClientDateTime` on the request model
 
 **Route handlers stay thin:** authenticate → parse → call service → handle error → render. All form parsing and enum conversion lives in the pure helpers above, not inline in route handlers.
 

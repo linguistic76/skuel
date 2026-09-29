@@ -93,6 +93,7 @@ import asyncio
 import sys
 from collections import defaultdict
 from dataclasses import dataclass, field
+from datetime import datetime
 from pathlib import Path
 from typing import Protocol
 
@@ -111,6 +112,8 @@ from core.services.dsl.activity_extractor import normalized_activity_title, norm
 from core.services.dsl.obsidian_tasks_adapter import obsidian_task_line_to_parsed
 from core.services.ingestion.config import SyncAllowlist, collect_files
 from core.utils.frontmatter import parse_frontmatter
+from core.utils.timestamp_helpers import instant_key, instant_of
+from core.utils.zone_context import default_zone
 
 
 class _ReadDriver(Protocol):
@@ -143,7 +146,7 @@ class TaskRow:
     uid: str
     title: str
     status: str
-    created_at: str  # ISO string — sorts lexically
+    created_at: str  # ISO string, any stored shape — ordered by _created_order
     vault_ids: tuple[str, ...]  # 🆔s on its EXTRACTED_FROM edges
     edge_count: int  # EXTRACTED_FROM edges, ids or not
     other_rel_count: int = 0  # relationships other than OWNS / EXTRACTED_FROM
@@ -250,6 +253,16 @@ class Classification:
 # ---------------------------------------------------------------------------
 
 
+def _created_order(task: TaskRow) -> datetime:
+    """Oldest first, by the instant ``created_at`` names in whatever shape it is stored.
+
+    A Task's ``created_at`` is an offset-less string, a ``…Z`` string or a native
+    (read back through ``toString``); their digits do not sort as their instants
+    do inside one second. An absent or unreadable stamp sorts first.
+    """
+    return instant_key(instant_of(task.created_at, default_zone()))
+
+
 def classify(
     tasks: list[TaskRow],
     lines: list[VaultTaskLine],
@@ -289,7 +302,7 @@ def classify(
     for key, group in sorted(tasks_by_title.items()):
         if len(group) < 2:
             continue
-        group = sorted(group, key=lambda t: t.created_at)
+        group = sorted(group, key=_created_order)
         title_lines = lines_by_title.get(key, [])
         if not title_lines:
             out.review.append(
@@ -356,7 +369,7 @@ def classify(
             )
             out.phantom_ids.append(PhantomId(line=line, likely_owners=owners))
     out.dangling_ids = sorted(owned_vault_ids - line_ids)
-    out.in_grace = sorted((t for t in tasks if t.in_grace), key=lambda t: t.created_at)
+    out.in_grace = sorted((t for t in tasks if t.in_grace), key=_created_order)
 
     # Edge-less survivors. Completed, on no line at all, not in the grace ⇒ a
     # STRAY (listed, never proposed). Everything else an edge-less task can be
@@ -366,7 +379,7 @@ def classify(
     # phantom 🆔 on the line is repaired here beforehand (``--repair-id``), a
     # 🆔-less line shows up afterwards as a PROPOSED re-mint; an open task on
     # no line is app-created or awaiting its line, and not this script's.
-    for task in sorted(tasks, key=lambda t: t.created_at):
+    for task in sorted(tasks, key=_created_order):
         if not task.is_edgeless or task.uid in proposed or task.in_grace:
             continue
         if task.is_completed and normalized_activity_title(task.title) not in lines_by_title:

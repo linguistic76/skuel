@@ -5,7 +5,6 @@ Tests cover:
 - parse_enum_safe() — enum string parsing with fallback
 - parse_date_safe() — ISO date parsing with None fallback
 - parse_time_safe() — ISO time parsing with None fallback
-- parse_datetime_safe() — ISO datetime parsing with None fallback
 - ActivityFilters — shared 2-field filter dataclass
 - parse_activity_filters() — request query param extraction
 - TaskFilters — task-specific 5-field filter subclass
@@ -15,7 +14,7 @@ Tests cover:
 - parse_body() — the Content-Type dispatch between the JSON and form readers
 """
 
-from datetime import date, datetime, time
+from datetime import date, time
 from enum import Enum
 from unittest.mock import AsyncMock, Mock
 
@@ -31,7 +30,6 @@ from adapters.inbound.form_helpers import (
     parse_activity_filters,
     parse_body,
     parse_date_safe,
-    parse_datetime_safe,
     parse_enum_safe,
     parse_form_body,
     parse_principle_filters,
@@ -105,29 +103,6 @@ class TestParseTimeSafe:
 
     def test_empty_string(self):
         assert parse_time_safe("") is None
-
-
-# ============================================================================
-# parse_datetime_safe
-# ============================================================================
-
-
-class TestParseDatetimeSafe:
-    def test_valid_datetime(self):
-        assert parse_datetime_safe("2026-03-15T14:30:00") == datetime(2026, 3, 15, 14, 30, 0)
-
-    def test_valid_date_only(self):
-        """datetime.fromisoformat accepts date-only strings."""
-        assert parse_datetime_safe("2026-03-15") == datetime(2026, 3, 15, 0, 0, 0)
-
-    def test_invalid_datetime(self):
-        assert parse_datetime_safe("not-a-datetime") is None
-
-    def test_none(self):
-        assert parse_datetime_safe(None) is None
-
-    def test_empty_string(self):
-        assert parse_datetime_safe("") is None
 
 
 # ============================================================================

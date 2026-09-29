@@ -73,7 +73,9 @@ import asyncio
 import os
 import sys
 from collections import defaultdict
+from collections.abc import Mapping
 from dataclasses import dataclass, field
+from datetime import datetime
 from pathlib import Path
 from typing import Any
 
@@ -87,6 +89,8 @@ from core.models.enums.entity_enums import EntityType
 from core.models.enums.neo_labels import NeoLabel
 from core.models.enums.user_enums import UserRole
 from core.services.dsl.activity_extractor import normalized_activity_title
+from core.utils.timestamp_helpers import LATEST_INSTANT, instant_key, instant_of
+from core.utils.zone_context import default_zone
 
 # Loser edges must be EXACTLY this provenance pair for a duplicate group to be
 # auto-fixable; any other edge (completions, alignments, ...) carries state a
@@ -197,6 +201,16 @@ def _group_key_rows(
     return groups
 
 
+def _created_order(row: Mapping[str, object]) -> datetime:
+    """Oldest first, by the instant a row's ``created_at`` names; absent or unreadable last.
+
+    ``created_at`` is read back through ``toString`` from offset-less strings,
+    ``…Z`` strings and natives, whose digits do not sort as their instants do
+    inside one second.
+    """
+    return instant_key(instant_of(row.get("created_at"), default_zone()), LATEST_INSTANT)
+
+
 def group_same_entry_duplicates(rows: list[dict[str, Any]]) -> list[DupGroup]:
     """F2 categorizer: same-entry R3-key groups with >1 node, oldest wins.
 
@@ -207,7 +221,7 @@ def group_same_entry_duplicates(rows: list[dict[str, Any]]) -> list[DupGroup]:
     for (entry_uid, label, norm_title), members in sorted(_group_key_rows(rows).items()):
         if len(members) < 2:
             continue
-        members = sorted(members, key=lambda r: r.get("created_at") or "9999")
+        members = sorted(members, key=_created_order)
         winner, losers = members[0], members[1:]
         group = DupGroup(
             entry_uid=entry_uid,
@@ -220,8 +234,8 @@ def group_same_entry_duplicates(rows: list[dict[str, Any]]) -> list[DupGroup]:
                 for m in members
             ],
         )
-        if not winner.get("created_at"):
-            group.blockers.append("winner has no created_at — ordering unverifiable")
+        if instant_of(winner.get("created_at"), default_zone()) is None:
+            group.blockers.append("winner has no readable created_at — ordering unverifiable")
         owners = {m.get("owner") for m in members}
         if len(owners) > 1:
             group.blockers.append(f"owner mismatch within group: {sorted(str(o) for o in owners)}")
@@ -376,7 +390,7 @@ def plan_cross_entry_dedup(
         entries = {m["entry_uid"] for m in members}
         if len(members) < 2 or len(entries) < 2:
             continue
-        members = sorted(members, key=lambda r: r.get("created_at") or "9999")
+        members = sorted(members, key=_created_order)
         group = DupGroup(
             entry_uid="",
             label=label,
@@ -391,8 +405,8 @@ def plan_cross_entry_dedup(
         )
         if any(m.get("owner") in test_owner_uids for m in members):
             group.blockers.append("touches a test user — Arc F owns test-user cleanup")
-        if not members[0].get("created_at"):
-            group.blockers.append("winner has no created_at — ordering unverifiable")
+        if instant_of(members[0].get("created_at"), default_zone()) is None:
+            group.blockers.append("winner has no readable created_at — ordering unverifiable")
         for m in members[1:]:
             unexpected = set(m.get("edge_sigs") or []) - EXPECTED_LOSER_EDGES
             if unexpected:

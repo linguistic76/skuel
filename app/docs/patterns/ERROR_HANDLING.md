@@ -1,6 +1,6 @@
 ---
 title: Error Handling Architecture
-updated: 2026-09-21
+updated: 2026-09-29
 category: patterns
 related_skills:
 - result-pattern
@@ -831,7 +831,7 @@ priority_enum = parse_enum_safe(PriorityEnum, priority_str, PriorityEnum.MEDIUM)
 
 **Consistent across all 6 activity domains:** `tasks_ui.py`, `goals_ui.py`, `habits_ui.py`, `events_ui.py`, `choices_ui.py`, `principles_ui.py` all use `parse_enum_safe()` for enum conversions. The only exception is conditional-set patterns in update payloads (e.g., `tasks_ui.py`), which use `contextlib.suppress(ValueError)` because they only set the key on success.
 
-**Additional shared primitives** in `form_helpers.py`: `parse_date_safe()`, `parse_time_safe()`, `parse_datetime_safe()` replace `contextlib.suppress(ValueError)` wrappers around `date.fromisoformat()` etc. `ActivityFilters` hierarchy (`TaskFilters`, `PrincipleFilters` subclasses) + `parse_task_filters()`, `parse_principle_filters()`, `parse_activity_filters()` provide unified filter parsing for all 6 activity domains.
+**Additional shared primitives** in `form_helpers.py`: `parse_date_safe()` and `parse_time_safe()` replace `contextlib.suppress(ValueError)` wrappers around `date.fromisoformat()` and `time.fromisoformat()`. A client's datetime is an instant and has no form helper: a request model types it `ClientDateTime` (`core/models/request_base.py`), which reads an offset-less value on the current zone's clock. `ActivityFilters` hierarchy (`TaskFilters`, `PrincipleFilters` subclasses) + `parse_task_filters()`, `parse_principle_filters()`, `parse_activity_filters()` provide unified filter parsing for all 6 activity domains.
 
 **See Also:** `/docs/patterns/API_VALIDATION_PATTERNS.md` for Pydantic request model validation (JSON bodies)
 
