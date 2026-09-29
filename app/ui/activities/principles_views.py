@@ -23,6 +23,7 @@ from fasthtml.common import (
 )
 
 from core.models.enums.principle_enums import AlignmentLevel
+from core.utils.palette import StrengthColor
 from ui.activities._shared import (
     ActivityList,
     ConnectionsSection,
@@ -36,7 +37,6 @@ from ui.components import Button, ButtonT, Card, Icon
 from ui.dual_track_card import DualTrackSection
 from ui.feedback import Badge, BadgeT, StatusBadge
 from ui.layout import Container, DivHStacked
-from ui.palette import StrengthColor
 from ui.patterns.format_date import format_date
 from ui.patterns.page_header import PageHeader
 from ui.patterns.relationships.relationship_section import EntityRelationshipsSection

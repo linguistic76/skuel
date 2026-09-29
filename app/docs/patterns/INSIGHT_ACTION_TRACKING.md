@@ -1,8 +1,9 @@
 ---
 title: Insight Action Tracking Pattern
-updated: '2026-08-05'
+updated: '2026-09-29'
 category: patterns
-related_skills: []
+related_skills:
+- chartjs
 related_docs: []
 ---
 # Insight Action Tracking Pattern
@@ -597,7 +598,9 @@ filtered = InsightStore.filter_insights(
 
 ### Chart Data (Chart.js Configs)
 
-Four methods return complete Chart.js configuration dicts:
+Four `InsightStore` methods return a complete Chart.js config (`Result[ChartJsConfig]`), served
+by `GET /api/insights/charts/{impact-distribution,domain-distribution,type-distribution,action-rate}`
+(`insights_api.py`) and drawn by `chartVis` cards on `/insights` (`render_charts_section`):
 
 | Method | Chart Type | Aggregation |
 |--------|-----------|-------------|

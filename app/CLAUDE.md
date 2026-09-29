@@ -537,7 +537,7 @@ DomainRouteConfig eliminates route wiring boilerplate. All 6 Activity Domains us
 
 All three load CSS through `build_head()` (pre-compiled Tailwind + vendored JS). Never hand-assemble `<link>` tags or use `NotStr` for full HTML documents. Routes in `/adapters/inbound/*_routes.py`, UI in `/ui/`, static in `/static/`.
 
-**Page Contexts:** Per-domain TypedDicts in `/ui/page_contexts.py` define route→UI contracts with typed entities (`list[Task]`, etc.). `render_list_view(ctx)` is the only signature. NOT in `core/ports/` — page contexts are UI concerns.
+**Page Contexts:** route→UI TypedDicts live in `/ui/page_contexts.py` (e.g. `TodayPageContext`), typed with domain models (`list[Task]`, etc.). NOT in `core/ports/` — page contexts are UI concerns.
 
 **See:**
 - `/docs/ui/ROUTE_MAP.md` — per-page descriptions grouped by navigation section (Admin / Regular / Teaching / Study / Settings)

@@ -1,6 +1,6 @@
 ---
 title: Admin Dashboard Architecture
-updated: 2026-09-21
+updated: 2026-09-29
 status: current
 category: architecture
 tags:
@@ -13,7 +13,6 @@ related:
 - ROUTING_ARCHITECTURE.md
 - UNIFIED_USER_ARCHITECTURE.md
 related_skills:
-- chartjs
 - ui-orchestrator
 ---
 # Admin Dashboard Architecture

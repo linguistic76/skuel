@@ -1,5 +1,5 @@
 ---
-updated: 2026-09-26
+updated: 2026-09-29
 ---
 
 # SKUEL UI Component Catalog
@@ -1333,24 +1333,25 @@ Div(
 
 **Location:** `/ui/page_contexts.py`
 
-Per-domain TypedDicts that define the route→UI contract. Routes build a typed context, views consume it.
+TypedDicts that define the route→UI contract. An orchestrator or route builds the typed
+context, the view consumes it:
 
 ```python
-from ui.page_contexts import TasksPageContext
-
-# In route: build typed context
-page_ctx: TasksPageContext = {
-    "entities": tasks,
-    "filters": filters.to_dict(),
-    "projects": projects,
-    "assignees": assignees,
-}
-view_content = TasksViewComponents.render_list_view(ctx=page_ctx)
+# adapters/inbound/today_routes.py (abridged)
+ctx_result = await orchestrator.build_context(user_uid, view_date)  # Result[TodayPageContext]
+if ctx_result.is_error:
+    ...
+return render_activity_sidebar_page(
+    content=TodayPage(ctx_result.value), active="today", request=request
+)
 ```
 
-Each Activity Domain has a standalone TypedDict with typed entities (`list[Task]`, `list[Goal]`, etc.) and `total=True` for required fields. Optional fields use `NotRequired`.
+`TodayPageContext` carries typed entities (`list[Task]`, `list[Event]`, `list[Goal]`, …), and
+every key is required (`total=True`, the TypedDict default).
 
-**Available contexts:** `TasksPageContext`, `GoalsPageContext`, `HabitsPageContext`, `EventsPageContext`, `ChoicesPageContext`, `PrinciplesPageContext`, `CurriculumHubContext`, `CurriculumListContext`, `SubmissionsPageContext`, `KuIndexContext`.
+**Consumed contexts:** `TodayPageContext` (the day view), `RelatedConceptChip` and
+`NextStepRelatedGroup` (the Explore related-concepts fragments, built in
+`learning_loop_routes.py`).
 
 ---
 

@@ -84,7 +84,10 @@ For each skill, this section shows all related documentation (architecture docs,
 **Description:** Chart.js data visualization in SKUEL
 
 **Architecture:**
-- [ADMIN_DASHBOARD_ARCHITECTURE.md](architecture/ADMIN_DASHBOARD_ARCHITECTURE.md)
+- [ALPINE_JS_ARCHITECTURE.md](architecture/ALPINE_JS_ARCHITECTURE.md)
+
+**Patterns (Primary):**
+- [INSIGHT_ACTION_TRACKING.md](patterns/INSIGHT_ACTION_TRACKING.md)
 
 ### @curriculum-domains
 
@@ -503,8 +506,7 @@ For each documentation category, this section shows which skills are relevant.
 
 ### Architecture Docs
 
-- [ADMIN_DASHBOARD_ARCHITECTURE.md](architecture/ADMIN_DASHBOARD_ARCHITECTURE.md) → @chartjs
-- [ALPINE_JS_ARCHITECTURE.md](architecture/ALPINE_JS_ARCHITECTURE.md) → @ui-browser
+- [ALPINE_JS_ARCHITECTURE.md](architecture/ALPINE_JS_ARCHITECTURE.md) → @chartjs, @ui-browser
 - [CURRICULUM_GROUPING_PATTERNS.md](architecture/CURRICULUM_GROUPING_PATTERNS.md) → @curriculum-domains
 - [ENTITY_TYPE_ARCHITECTURE.md](architecture/ENTITY_TYPE_ARCHITECTURE.md) → @activity-domains
 - [JOURNALS_DOMAIN_ARCHITECTURE.md](architecture/JOURNALS_DOMAIN_ARCHITECTURE.md) → @journals
@@ -537,6 +539,7 @@ For each documentation category, this section shows which skills are relevant.
 - [HIERARCHY_COMPONENTS_GUIDE.md](patterns/HIERARCHY_COMPONENTS_GUIDE.md) → @skuel-ui
 - [HTMX_ACCESSIBILITY_PATTERNS.md](patterns/HTMX_ACCESSIBILITY_PATTERNS.md) → @accessibility-guide, @ui-browser
 - [HUB_PAGE_PATTERN.md](patterns/HUB_PAGE_PATTERN.md) → @ui-orchestrator
+- [INSIGHT_ACTION_TRACKING.md](patterns/INSIGHT_ACTION_TRACKING.md) → @chartjs
 - [KNOWLEDGE_APPLICATION_TRACKING.md](patterns/KNOWLEDGE_APPLICATION_TRACKING.md) → @activity-domains, @learning-loop, @neo4j-cypher-patterns
 - [LATERAL_RELATIONSHIPS_VISUALIZATION.md](patterns/LATERAL_RELATIONSHIPS_VISUALIZATION.md) → @neo4j-cypher-patterns, @vis-network
 - [MYPY_TYPE_SAFETY_PATTERNS.md](patterns/MYPY_TYPE_SAFETY_PATTERNS.md) → @python
@@ -616,9 +619,9 @@ For each documentation category, this section shows which skills are relevant.
 ## Statistics
 
 - **Total skills:** 30
-- **Architecture docs:** 10 docs linked to skills
+- **Architecture docs:** 9 docs linked to skills
 - **Intelligence docs:** 2 docs linked to skills
-- **Pattern docs:** 41 docs linked to skills
+- **Pattern docs:** 42 docs linked to skills
 - **ADRs:** 45 ADRs linked to skills
 
 ---

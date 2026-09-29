@@ -303,17 +303,16 @@ async def parse_form_body[T: BaseModel](
 
 @dataclass
 class ActivityFilters:
-    """Base filters shared by all 6 Activity Domains.
+    """Base status/sort filters for the Activity Domains.
 
-    Goals, Habits, Events, Choices use this directly (2-field).
-    Tasks and Principles extend with domain-specific fields.
+    Tasks and Principles extend it with domain-specific fields.
     """
 
     status: str
     sort_by: str
 
     def to_dict(self) -> dict[str, str]:
-        """Convert to dict for view components."""
+        """Convert to a flat dict of the filter values."""
         return {"status": self.status, "sort_by": self.sort_by}
 
 
@@ -326,7 +325,7 @@ class TaskFilters(ActivityFilters):
     due_filter: str = ""
 
     def to_dict(self) -> dict[str, str]:
-        """Convert to dict keyed for TasksViewComponents.render_list_view."""
+        """Convert to a flat dict of the filter values (``due_filter`` under ``due``)."""
         return {
             **super().to_dict(),
             "project": self.project,
@@ -343,7 +342,7 @@ class PrincipleFilters(ActivityFilters):
     strength: str = "all"
 
     def to_dict(self) -> dict[str, str]:
-        """Convert to dict keyed for PrinciplesViewComponents.render_list_view."""
+        """Convert to a flat dict of the filter values."""
         return {
             **super().to_dict(),
             "category": self.category,
