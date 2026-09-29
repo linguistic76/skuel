@@ -23,28 +23,18 @@ allowed-tools: Read, Grep, Glob
 > hierarchy-membership property (same pattern as Goal.fulfills_goal_uid), not a scoring
 > field. `EntityType.EXERCISE.is_applied_knowledge()` is `True`.
 
-> **ADR-054 update (2026-04-17).** `ExerciseSubmission`, `JeInput`, and `JeOutput` were
-> collapsed into a single `UserEntry(UserOwnedEntity)` entity type discriminated by the
-> `Pipeline` enum (`NONE`, `TEACHER_REVIEW`, `TRANSCRIBE`, `LLM_SUMMARY`,
-> `TRANSCRIBE_AND_STRUCTURE`, and since ADR-069 `EXTRACT_ACTIVITIES`).
-> Revision count moved onto the edge:
-> `(UserEntry)-[:FULFILLS_EXERCISE {revision}]->(Exercise)`. Reports use a new
-> `ReportSource` enum (`HUMAN`, `LLM`, `HYBRID`, `AUTOMATIC`) in place of `ProcessorType`. The
-> journal track is now a *pipeline*, not a domain: audio uploads create a source
-> `UserEntry` with `pipeline=TRANSCRIBE_AND_STRUCTURE`, which is then transformed into a
-> structured second `UserEntry` via `(structured)-[:TRANSFORMS]->(source)`. Activity
-> extraction from journals (DSL auto-creating Tasks/Goals) was **dropped** —
-> and later returned on one path forward as `Pipeline.EXTRACT_ACTIVITIES`
-> (ADR-069, 2026-06): an explicit processing branch over UserEntry content
-> with `EXTRACTED_FROM` provenance, NOT a resurrection of the retired
-> submission-metadata flow.
-> Services live in `core/services/user_entry/`; the legacy `core/services/submissions/`
-> and `core/services/journal/` packages were deleted (SKUEL deletes, it does not
-> shelve). Historical references to
-> `ExerciseSubmission`, `JeInput`, `JeOutput`, `ProcessorType`,
-> `SubmissionsBackend`, `submission_protocols.py`, and `process_exercise_submission()`
-> in this file now point to their `UserEntry` / `UserEntryBackend` /
-> `user_entry_protocols.py` / `UserEntryProcessingService` counterparts.
+> **One user-authored type (ADR-054).** Student work is a single `UserEntry(UserOwnedEntity)`
+> entity type discriminated by the `Pipeline` enum (`NONE`, `TRANSCRIBE`,
+> `TRANSCRIBE_AND_STRUCTURE`, `LLM_SUMMARY`, `EXTRACT_ACTIVITIES`, `TEACHER_REVIEW`,
+> `REFERENCE`, `KNOWLEDGE`). The revision count lives on the edge:
+> `(UserEntry)-[:FULFILLS_EXERCISE {revision}]->(Exercise)`. Reports record who produced them
+> in `processor_type: ReportSource` (`HUMAN`, `LLM`, `HYBRID`, `AUTOMATIC`). The journal track
+> is a *pipeline*, not a domain: an audio upload creates a source `UserEntry` with
+> `pipeline=TRANSCRIBE_AND_STRUCTURE`, which is transformed into a structured second `UserEntry`
+> via `(structured)-[:TRANSFORMS]->(source)`. `Pipeline.EXTRACT_ACTIVITIES` (ADR-069) is an
+> explicit processing branch over UserEntry content with `EXTRACTED_FROM` provenance. Services
+> live in `core/services/user_entry/`; there is no `submissions/` or `journal/` package. Where
+> this skill says "submission", it means a turn-in `UserEntry`.
 
 The Learning Loop is the **gravitational center of SKUEL**. Every feature either feeds
 this loop, supports its infrastructure, or should be questioned. Understanding the loop
@@ -142,7 +132,7 @@ to `InsightStore`. File: `core/services/user_entry/learning_loop_handler.py`.
 ## Field Naming Convention: `entity_type` vs `EntityType`
 
 The Python enum is named `EntityType`. The Python model field and Neo4j node
-property are both named **`entity_type`** (renamed from `ku_type` in March 2026).
+property are both named **`entity_type`**.
 
 ```python
 # Python model field:
@@ -159,43 +149,44 @@ MATCH (n:Entity {entity_type: 'ku'})
 
 ## Loop Substrate: Ku — The Knowledge Transmitted
 
-**What it is:** Atomic curriculum content. A single "brick" of knowledge, admin-created
-and shared across all users. Ku is the *why* — the knowledge the loop exists to
-transmit. It is not a phase of the iterative cycle; it is the substance the cycle
-is built around.
+**What it is:** Atomic knowledge — a lightweight ontology/reference node, shared across all
+users. Ku is the *why* — the knowledge the loop exists to transmit. It is not a phase of the
+iterative cycle; it is the substance the cycle is built around. PathStep composes Kus into the
+content a learner reads (`(PathStep)-[:USES_KU]->(Ku)`).
 
 **EntityType:** `EntityType.KU`
-**Model:** `core/models/ku/ku.py` — `Ku(Curriculum)` frozen dataclass
+**Model:** `core/models/ku/ku.py` — `Ku(Entity)` frozen dataclass (not `Curriculum`)
 **DTO:** `core/models/ku/ku_dto.py`
-**UID format:** `ku_{slug}_{random}`
+**UID format:** `ku.{ns}.{slug}` authored (content vault); `ku_{slug}_{random}` generated (`KuService.create_ku`)
 **Neo4j label:** `:Entity:Ku`
 
-**Key fields:**
+**Ku-specific fields** (read the full set off `dataclasses.fields(Ku)`):
 ```python
-title: str                        # The knowledge unit's name
-content: str                      # Substance — what to learn
-domain: str                       # Which knowledge domain
-complexity: KuComplexity          # BASIC / INTERMEDIATE / ADVANCED / EXPERT
-learning_level: LearningLevel     # K-12 / UNDERGRAD / GRAD / PROFESSIONAL
-status: EntityStatus              # DRAFT → ACTIVE → ARCHIVED
+aliases: tuple[str, ...]             # Alternative names
+nous: tuple[str, ...]                # NOUS topic membership — the category vocabulary
+nous_subtopic: tuple[str, ...]       # Sub-topic within a NOUS topic
+sel_category: SELCategory | None     # CASEL competency
+publication_state: PublicationState  # a draft is withheld from learner-facing reads
 ```
 
-**Access:** `ContentScope.SHARED` — admins create, all users read. No ownership check.
+**Access:** `ContentScope.SHARED` — all users read. No CRUD API: Kus come from content-vault
+ingestion or `KuService.create_ku` (EXTRACT_ACTIVITIES).
 
 **Services:**
 ```python
-services.ku                       # KuService facade (8 sub-services)
-services.ku.core                  # CRUD — create, update, delete
+services.ku                       # KuService facade (4 sub-services)
+services.ku.core                  # KuCoreService — create_ku
 services.ku.search                # search(), get_by_status(), get_by_category()
-services.ku.organization          # ORGANIZES relationships (MOC pattern)
-services.ku.intelligence          # get_ku_with_context(), readiness scoring
+services.ku.relationships         # UnifiedRelationshipService (KU_CONFIG)
+services.ku.intelligence          # get_with_context(), get_usage_summary(), calculate_user_substance()
 ```
 
 **Graph pattern:**
 ```cypher
-(admin:User)-[:OWNS]->(ku:Entity:Ku {uid, title, content, complexity})
-(ku)-[:ORGANIZES {order: 1}]->(child_ku:Entity:Ku)  // MOC: any Ku can organize others
+(ps:Entity:PathStep)-[:USES_KU]->(ku:Entity:Ku)      // PathStep composes Kus
+(ku)-[:ORGANIZES {order: 1}]->(child:Entity)         // MOC: any Entity can organize others
 (exercise)-[:REQUIRES_KNOWLEDGE]->(ku)               // Exercise links to required Ku
+(user:User)-[:MASTERED {mastery_score}]->(ku)        // mastery, propagated from approved reports
 ```
 
 **Substrate role:** Ku is the *why* — the knowledge the loop exists to transmit. Every
@@ -219,15 +210,16 @@ The full mechanics of each loop phase live in **[reference.md](reference.md)**:
 **Who triggers Phase 3:** a teacher (review queue), or the submission OWNER
 self-serving an AI review — `POST /api/exercises/report` (owner-or-teacher
 guard + per-user ADR-043 FULL-tier gate; surfaced as the "Request AI feedback"
-button on `/gradebook/{uid}`). Ruled 2026-07-03 (systems review R1); shipped
-PR #497 + care arc.
+button on `/gradebook/{uid}`).
 
 **Teacher transition:** students auto-join the default teacher group
 (`group_default_{admin_uid}`, oldest HUMAN admin — `@skuel.local` service
-accounts excluded) on PathStep enrollment, and `teacher_review` submissions
-against CURRICULUM-scope exercises auto-share to the submitter's default group
-(fallback in `core/services/user_entry/audience_resolver.py`), landing in
-`/teaching/queue`.
+accounts excluded) on PathStep enrollment. A `teacher_review` turn-in whose audience is `teachers`
+resolves to the exercise's assigned groups the submitter belongs to; a
+CURRICULUM-scope exercise is never assigned, so it falls back to the submitter's
+default group (`AudienceResolver._expand_teachers` in
+`core/services/user_entry/audience_resolver.py`). The write is a feedback request
+(`SUBMITTED_TO_GROUP`, ADR-088 §2), not a share, and it lands in `/teaching/queue`.
 
 ---
 
@@ -298,10 +290,10 @@ that never closes the loop.
 
 ## Test Coverage
 
-| Service | Test File | Tests | Coverage |
-|---------|-----------|-------|----------|
-| `TeacherReviewService` | `tests/unit/services/test_teacher_review_service.py` | 60 | 76% (157/207 lines) |
-| `UserEntryService` | `tests/unit/services/test_user_entry_service.py` | 41 | 69% (146/211 lines) |
+| Service | Test File |
+|---------|-----------|
+| `TeacherReviewService` | `tests/unit/services/test_teacher_review_service.py` |
+| `UserEntryService` | `tests/unit/services/test_user_entry_service.py` |
 
 **TeacherReviewService tests cover:** access control (`_verify_teacher_has_group_access` — the entry must be `SUBMITTED_TO_GROUP` an active group the teacher owns, ADR-088 §2), review queue filtering, report submission + event publishing, revision requests, approval with mastery updates, dashboard stats, group management, exercise/student views.
 
@@ -313,44 +305,44 @@ that never closes the loop.
 
 | File | Phase | Purpose |
 |------|-------|---------|
-| `core/models/ku/ku.py` | 1 | Ku frozen dataclass |
-| `core/models/exercises/exercise.py` | 2 | Exercise frozen dataclass |
-| `core/models/exercises/revised_exercise.py` | 5 | RevisedExercise frozen dataclass |
-| `core/services/revised_exercises/revised_exercise_service.py` | 5 | RevisedExercise CRUD + chain queries |
-| `adapters/inbound/revised_exercises_api.py` | 5 | RevisedExercise API routes (teacher + student-facing) |
-| `adapters/inbound/revised_exercises_ui.py` | 5 | RevisedExercise detail + hub preview (GradeBook shell) |
-| `adapters/inbound/entry_reports_ui.py` | 4 | EntryReport UI routes (list + detail page) |
-| `ui/learning_loop/revised_exercise.py` | 5 | RevisedExercise renderers (detail, card, list views) |
-| `ui/learning_loop/report.py` | 4 | EntryReport renderers (detail page with outcome/processor badges) |
+| `core/models/ku/ku.py` | substrate | Ku frozen dataclass |
+| `core/models/exercises/exercise.py` | 1 | Exercise frozen dataclass |
+| `core/models/exercises/revised_exercise.py` | 4 | RevisedExercise frozen dataclass |
+| `core/services/revised_exercises/revised_exercise_service.py` | 4 | RevisedExercise CRUD + chain queries |
+| `adapters/inbound/revised_exercises_api.py` | 4 | RevisedExercise API routes (teacher + student-facing) |
+| `adapters/inbound/revised_exercises_ui.py` | 4 | RevisedExercise detail + hub preview (GradeBook shell) |
+| `adapters/inbound/entry_reports_ui.py` | 3 | EntryReport UI routes (list + detail page) |
+| `ui/learning_loop/revised_exercise.py` | 4 | RevisedExercise renderers (detail, card, list views) |
+| `ui/learning_loop/report.py` | 3 | EntryReport renderers (detail page with outcome/processor badges) |
 | `ui/patterns/modal.py` | support | AlpineModal — standardized Alpine.js modal wrapper |
-| `core/ports/curriculum_protocols.py` | 5 | `RevisedExerciseOperations` protocol |
-| `core/models/user_entry/user_entry.py` | 3 | UserEntry frozen dataclass (`UserOwnedEntity`) |
-| `core/models/report/entry_report.py` | 4 | EntryReport model |
-| `core/models/report/activity_report.py` | 4 | ActivityReport model |
-| `core/services/user_entry/user_entry_service.py` | 3+4 | UserEntry facade (BaseService) — shared `create_entry` write path, exercise linking |
-| `core/services/user_entry/user_entry_processing_service.py` | 3 | Pipeline processing — transcription, LLM summary/structure (the former journal track, now a `Pipeline`) |
-| `core/services/report/entry_report_service.py` | 4 | AI report generation (via UnifiedLLMCaller) |
-| `core/services/llm_caller.py` | 3+4 | Unified LLM routing (OpenAI/Anthropic by model prefix) |
-| `core/services/output/instruction_resolver.py` | 3 | Instruction resolution (custom > exercise > mode > default) |
-| `core/services/transcription/batch_transcription_service.py` | 3 | Batch audio → txt (Tier 1, config via `config/deepgram.toml`) |
-| `config/deepgram.toml` | 3 | Deepgram options — model, utterances, intelligence, vocabulary |
-| `core/config/deepgram_config.py` | 3 | Config loader for `config/deepgram.toml` |
-| `core/services/report/progress_report_generator.py` | 4 | ActivityReport generation |
-| `core/services/report/activity_report_service.py` | 4 | Admin human report; all write paths converge here |
-| `core/services/report/teacher_review_service.py` | 4 | Teacher review workflow (review queue, revision, approval) |
-| `core/ports/user_entry_protocols.py` | 3 | UserEntry protocols — backend port (`UserEntryOperations`) + CRUD/lifecycle/assessment/report-query/content sub-protocols |
-| `core/ports/report_protocols.py` | 7 | All report protocols incl. `TeacherReviewOperations`, `ReviewQueueOperations`, `ReportRelationshipOperations` — typed returns (`ReviewRequestResult`, `PendingReviewItem`, `GroupMemberProgress`) |
+| `core/ports/curriculum_protocols.py` | 4 | `RevisedExerciseOperations` protocol |
+| `core/models/user_entry/user_entry.py` | 2 | UserEntry frozen dataclass (`UserOwnedEntity`) |
+| `core/models/report/entry_report.py` | 3 | EntryReport model |
+| `core/models/report/activity_report.py` | parallel | ActivityReport model |
+| `core/services/user_entry/user_entry_service.py` | 2 | UserEntry facade (BaseService) — shared `create_entry` write path, exercise linking |
+| `core/services/user_entry/user_entry_processing_service.py` | 2 | Pipeline processing — transcription, LLM summary/structure, activity extraction (the journal track is a `Pipeline`) |
+| `core/services/report/entry_report_service.py` | 3 | AI report generation (via UnifiedLLMCaller) |
+| `core/services/llm_caller.py` | 3 | Unified LLM routing (OpenAI/Anthropic by model prefix) |
+| `core/services/output/instruction_resolver.py` | 2 | Instruction resolution (custom > exercise > mode > default) |
+| `core/services/transcription/batch_transcription_service.py` | 2 | Batch audio → txt (Tier 1, config via `config/deepgram.toml`) |
+| `config/deepgram.toml` | 2 | Deepgram options — model, utterances, intelligence, vocabulary |
+| `core/config/deepgram_config.py` | 2 | Config loader for `config/deepgram.toml` |
+| `core/services/report/progress_report_generator.py` | parallel | ActivityReport generation |
+| `core/services/report/activity_report_service.py` | parallel | Admin human report; all write paths converge here |
+| `core/services/report/teacher_review_service.py` | 3+4 | Teacher review workflow (review queue, revision, approval) |
+| `core/ports/user_entry_protocols.py` | 2 | UserEntry protocols — backend port (`UserEntryOperations`) + CRUD/lifecycle/assessment/report-query/content sub-protocols |
+| `core/ports/report_protocols.py` | 3 | All report protocols incl. `TeacherReviewOperations`, `ReviewQueueOperations`, `ReportRelationshipOperations` — typed returns (`ReviewRequestResult`, `PendingReviewItem`, `GroupMemberProgress`) |
 | `core/ports/group_protocols.py` | support | `GroupOperations` only (group CRUD + membership) |
-| `core/services/sharing/unified_sharing_service.py` | 3 | Entity-agnostic sharing |
-| `adapters/persistence/neo4j/backends/` | all | Domain-specific Cypher (9 cluster files) |
-| `adapters/inbound/user_entry_ui.py` | 2+3+4 | The Submit page (`/submissions/submit`), gradebook detail (`/gradebook/{uid}`), feedback display |
-| `adapters/inbound/user_entry_api.py` | 2+3 | UserEntry API (`POST /api/user-entries/upload` file-upload door) |
-| `adapters/inbound/teaching_ui.py` | 4 | Students (default page), review queue (`/teaching/queue`), student detail with KU tab, groups |
+| `core/services/sharing/unified_sharing_service.py` | support | Entity-agnostic sharing |
+| `adapters/persistence/neo4j/backends/` | all | Domain-specific Cypher (clustered files: activity, curriculum, exercise, user_entry, sharing, forms, collab, misc, …) |
+| `adapters/inbound/user_entry_ui.py` | 2+3 | The Submit page (`/submissions/submit`), gradebook detail (`/gradebook/{uid}`), feedback display |
+| `adapters/inbound/user_entry_api.py` | 2 | UserEntry API (`POST /api/user-entries/upload` file-upload door) |
+| `adapters/inbound/teaching_ui.py` | 3+4 | Students (default page), review queue (`/teaching/queue`), student detail with KU tab, groups |
 | `adapters/inbound/teaching_forms_ui.py` | — | Forms visibility: template list, per-template submissions, submission detail (teacher role) |
-| `adapters/inbound/teaching_api.py` | 4 | Teacher API (review queue, revision, approve, students, groups) |
-| `adapters/inbound/exchange_ui.py` | 2+4 | `/exchange` thread view — one (student, exercise) exchange chronologically (renderer: `ui/learning_loop/exchange_thread.py`) |
-| `ui/patterns/report_item.py` | 4 | Shared report-item rendering (`render_report_item`; teaching review UI) |
-| `core/prompts/templates/activity_feedback.md` | 4 | LLM prompt template (via PROMPT_REGISTRY) |
+| `adapters/inbound/teaching_api.py` | 3+4 | Teacher API (review queue, revision, approve, students, groups) |
+| `adapters/inbound/exchange_ui.py` | 2–4 | `/exchange` thread view — one (student, exercise) exchange chronologically (renderer: `ui/learning_loop/exchange_thread.py`) |
+| `ui/patterns/report_item.py` | 3 | Shared report-item rendering (`render_report_item`; teaching review UI) |
+| `core/prompts/templates/activity_feedback.md` | parallel | LLM prompt template (via PROMPT_REGISTRY) |
 
 ---
 
@@ -362,11 +354,11 @@ The end-to-end sequential walkthroughs — the Curriculum Track (artifact-based)
 
 ## Anti-Patterns
 
-### Don't create a feedback model that inherits Submission when it has no file fields
+### Don't create a feedback model that inherits UserEntry when it has no file fields
 
 ```python
 # WRONG — ActivityReport does not have file uploads
-class ActivityReport(Submission):  # No! Submission has file_path, file_size, etc.
+class ActivityReport(UserEntry):  # No! UserEntry has file_path, file_size, etc.
 
 # CORRECT — ActivityReport inherits UserOwnedEntity directly
 class ActivityReport(UserOwnedEntity):  # No file fields — it's about patterns, not artifacts
@@ -382,10 +374,12 @@ class ReportBackend(UniversalNeo4jBackend):
 
 # CORRECT — cross-domain aggregation uses UserContext.build_rich() (the MEGA-QUERY)
 class ProgressReportGenerator:
-    def __init__(self, context_builder: UserContextBuilder, executor: QueryExecutor, ...):
+    def __init__(self, executor: QueryExecutor, activity_report_service: ActivityReportService,
+                 context_builder: UserContextBuilder, ...):
         # context_builder.build_rich(user_uid, window=...) — the MEGA-QUERY with the
         # activity window on its six activity sections; entities_rich covers all Activity Domains
-        # executor — raw Cypher for annotation lookup only
+        # annotation, cooldown and habit-completion reads go through report_backend
+        # (ActivityReportGeneratorBackendOperations) — no Cypher in the service
 ```
 
 ### Don't confuse Exercise scope
@@ -415,7 +409,6 @@ class AdminSummary(UserOwnedEntity):  # New entity for admin-written reports?
 ## Deep Dive Resources
 
 - [LEARNING_LOOP_ARCHITECTURE.md](/docs/architecture/LEARNING_LOOP_ARCHITECTURE.md) — entry-point overview: two tracks, four phases, how the MEGA-QUERY feeds the loop
-- [REPORT_ARCHITECTURE.md](/docs/architecture/REPORT_ARCHITECTURE.md) — canonical report reference
 - [REPORT_ARCHITECTURE.md](/docs/architecture/REPORT_ARCHITECTURE.md) — canonical report reference — all services, APIs, graph patterns, ReportSource taxonomy, Exercise pipeline
 - [ADR-038: Content Sharing Model](/docs/decisions/ADR-038-content-sharing-model.md)
 - [ADR-040: Teacher Exercise Workflow](/docs/decisions/ADR-040-teacher-exercise-workflow.md)

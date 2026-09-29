@@ -471,7 +471,7 @@ skills:
 
   - name: activity-domains
     description: Activity domain patterns (Tasks, Goals, Habits, Events, Choices, Principles)
-    last_reviewed: "2026-03-01"
+    last_reviewed: "2026-09-29"
     foundation: [python, result-pattern, neo4j-cypher-patterns]
     dependencies: [python, result-pattern, neo4j-cypher-patterns, base-analytics-service]
     library_package: null  # SKUEL pattern, not external library
@@ -495,7 +495,7 @@ skills:
 
   - name: curriculum-domains
     description: Curriculum domain patterns (KU, PS, LP)
-    last_reviewed: "2026-03-01"
+    last_reviewed: "2026-09-29"
     foundation: [python, result-pattern, neo4j-cypher-patterns]
     dependencies: [python, result-pattern, neo4j-cypher-patterns]
     library_package: null  # SKUEL pattern, not external library
@@ -507,10 +507,11 @@ skills:
       - /docs/domains/lp.md
       - /docs/domains/moc.md
     related_adrs:
+      - ADR-013  # Ku UID flat identity (both spellings sanctioned; never sniff the prefix)
       - ADR-023  # Curriculum BaseService migration
     patterns:
       - /docs/patterns/OWNERSHIP_VERIFICATION.md
-    keywords: [curriculum, knowledge, learning, ku, ls, lp, moc]
+    keywords: [curriculum, knowledge, learning, ku, ps, lp, exercise, moc]
 
   - name: skuel-search-architecture
     description: SKUEL's unified search architecture and SearchRouter
@@ -555,7 +556,7 @@ skills:
 
   - name: learning-loop
     description: SKUEL's Learning Loop — the development lens for PathStep, Exercise, UserEntry, Report, RevisedExercise, Interaction; every feature must strengthen a loop phase
-    last_reviewed: "2026-05-21"
+    last_reviewed: "2026-09-29"
     foundation: [curriculum-domains, activity-domains]
     dependencies: [curriculum-domains, activity-domains]
     library_package: null  # SKUEL pattern, not external library

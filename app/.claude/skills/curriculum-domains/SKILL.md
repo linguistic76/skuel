@@ -18,18 +18,20 @@
 
 | Domain | UID Format | Topology | Role | Service |
 |--------|-----------|----------|------|---------|
-| **Ku** | `ku_{slug}_{random}` | Atom | Atomic knowledge unit (concept, state, principle, practice) | `KuService` |
-| **PS (PathStep)** | `ps:{random}` | Unit | THE curriculum content entity — composed knowledge built on Kus | `PsService` |
-| **LP (LearningPath)** | `lp:{random}` | Path | Organisational structure — sequences PathSteps | `LpService` |
-| **Exercise** | varies | Instruction | Applied knowledge — instruction template anchored below PathStep | `ExerciseService` |
+| **Ku** | `ku.{ns}.{slug}` authored; `ku_{slug}_{random}` generated (`KuService.create_ku`) | Atom | Atomic knowledge unit (concept, state, principle, practice) | `KuService` |
+| **PS (PathStep)** | `ps.{namespace}.{slug}` authored | Unit | THE curriculum content entity — composed knowledge built on Kus | `PsService` |
+| **LP (LearningPath)** | `lp.{namespace}.{slug}` authored | Path | Organisational structure — sequences PathSteps | `LpService` |
+| **Exercise** | `ex.{ns}.{slug}` authored; `ex_{slug}_{random}` API (`POST /api/exercises/create`) | Instruction | Applied knowledge — instruction template anchored below PathStep | `ExerciseService` |
+
+Authored UIDs are stored verbatim in dot form; the colon spelling is retired and a colon-spelled entity uid fails ingestion's prefix check. Both Ku spellings are sanctioned — never infer an entity's kind from its UID string (ADR-013, SKUEL034); read the label, `entity_type` or an edge.
 
 Exercise is **subordinate** to PathStep, not a peer structural pattern. `EntityType.EXERCISE.is_applied_knowledge()` → `True`; `EntityType.EXERCISE.is_curriculum_structure()` → `False`.
 
-**Composition:** `(PathStep)-[:USES_KU]->(Ku)` — PathSteps compose atomic Kus into coherent learning content.
+**Composition:** `(PathStep)-[:USES_KU]->(Ku)` — PathSteps compose atomic Kus into coherent learning content (authored as `uses_kus:` frontmatter).
 `(PathStep)-[:HAS_EXERCISE]->(Exercise)` — PathSteps anchor applied-knowledge instruction templates.
-`(PathStep)-[:TRAINS_KU]->(Ku)` — PathSteps declare Kus as learning objectives.
+`(PathStep)-[:TRAINS_KU]->(Ku)` — PathSteps declare Kus as learning objectives (`trains_ku_uids:`).
 
-**Note on "lesson":** there is no `Lesson` entity — PathStep IS the curriculum content entity. The string `"lesson"` is accepted by the ingestion detector (`TYPE_MAPPING` in `detector.py`) but is NOT in `_ENTITY_TYPE_ALIASES` — `EntityType.from_string("lesson")` returns `None`. Use `"ps"` or `"pathstep"` for DSL parsing; `"lesson"` is ingestion-only.
+**Note on "lesson":** there is no `Lesson` entity — PathStep IS the curriculum content entity. The string `"lesson"` is accepted by the ingestion detector (`TYPE_MAPPING` in `detector.py`) but is NOT in `_ENTITY_TYPE_ALIASES` — `EntityType.from_string("lesson")` returns `None`. Use `"ps"` or `"path_step"` (`"path-step"` also parses; `"pathstep"` does not) for DSL parsing; `"lesson"` is ingestion-only.
 
 ## World Layer vs User Layer
 
@@ -37,8 +39,8 @@ Curriculum entities are **World Layer** nodes — they exist independently of an
 
 | Layer | Nodes |
 |-------|-------|
-| **World (shared, stable)** | Ku, PathStep, LearningPath, Exercise, Resource |
-| **User (contextual, dynamic)** | UserEntry, EntryReport, and all Activity Domains |
+| **World (shared, stable)** | Ku, PathStep, LearningPath, CURRICULUM-scope Exercise, Resource |
+| **User (contextual, dynamic)** | UserEntry, EntryReport, PERSONAL / ASSIGNED / ASSESSMENT Exercises (owned by their creator), and all Activity Domains |
 
 The interaction edge between layers is where SKUEL's power emerges:
 ```cypher
@@ -52,22 +54,23 @@ See: `docs/architecture/ONTOLOGY_ARCHITECTURE.md`
 **Curriculum content is SHARED, not user-owned:**
 
 ```python
-# Activity Domains - user ownership
-_user_ownership_relationship = "OWNS"  # Multi-tenant security
+# Activity Domains — create_activity_domain_config sets
+DomainConfig(user_ownership_relationship=RelationshipName.OWNS, ...)
 
-# Curriculum Domains - shared content
-_user_ownership_relationship = None  # Global access
+# Curriculum Domains — create_curriculum_domain_config defaults it to None (shared content)
+DomainConfig(user_ownership_relationship=None, ...)
 ```
 
 This means:
-- No ownership verification on CRUD operations
-- Content created by TEACHER+ roles, consumed by all
-- User progress tracked via separate relationships (IN_PROGRESS, MASTERED, etc.)
+- Ku, PathStep and LearningPath are readable by every user; there is no per-user ownership check on them
+- They have no CRUD API. They enter through content-vault ingestion (the admin "Sync content vault" door), and `KuService.create_ku` mints generated Kus for the EXTRACT_ACTIVITIES pipeline. The PathStep write routes (`/api/path-steps/organize`, `/content`, `/tags`, …) are `@require_admin`
+- Exercise is the exception: its CRUD routes use `ContentScope.USER_OWNED` with `require_role=UserRole.TEACHER`, and CURRICULUM-scope exercises come from the vault only
+- User progress is tracked via separate user → content edges (VIEWED, IN_PROGRESS, MASTERED, …)
 
 ## Architecture Overview
 
 ```
-*Operations protocol        <- Contract (KuOperations, PsOperations, LpOperations)
+*Operations protocol        <- Backend contract (KuOperations, PsOperations, LpOperations)
         |
 UniversalNeo4jBackend[T]     <- ONE instance per domain (no wrappers)
   + domain mixins            <- PsBackend (5 mixins), LpBackend (3 mixins), KuBackend (flat)
@@ -79,17 +82,28 @@ UniversalNeo4jBackend[T]     <- ONE instance per domain (no wrappers)
     Sub-services             <- core, search, intelligence, mastery, etc.
 ```
 
-**Backend mixin decomposition:** PsBackend (71+ methods, 5 mixins), LpBackend (28 methods, 3 mixins: `_LpStepMixin`, `_LpProgressMixin`, `_LpIntelligenceMixin`), KuBackend (23 methods, flat — appropriate for atomic domain).
+⚠ `KuOperations` / `PsOperations` / `LpOperations` are **backend** protocols despite the
+route-facing suffix (`PsOperations` and `LpOperations` extend `CurriculumOperations[T]`,
+`KuOperations` extends `BackendOperations["Ku"]` directly). Each is satisfied by its
+`*Backend` adapter, not by the facade.
 
-**Search service type narrowing (April 2026):** `PsSearchService` and `LpSearchService` are typed with domain-specific protocols (`PsOperations`, `LpOperations`) instead of generic `BackendOperations[T]`, giving them access to domain-specific backend methods.
+**Backend mixin decomposition:** `PsBackend` = `_OrganizesMixin`, `_LearningStateMixin`,
+`_SemanticMixin`, `_KnowledgeContextMixin`, `_AdaptiveMixin`; `LpBackend` = `_LpStepMixin`,
+`_LpProgressMixin`, `_LpIntelligenceMixin`; `KuBackend` is flat (atomic domain).
+
+**Search service typing:** `PsSearchService` and `LpSearchService` are
+`BaseService["PsOperations", PathStep]` / `BaseService["LpOperations", LearningPath]`, which gives
+them the domain-specific backend methods.
 
 ## Service Sub-packages
 
 | Domain | Sub-services | Location |
 |--------|-------------|----------|
 | **Ku** | `core`, `search`, `relationships`, `intelligence` | `core/services/ku/` |
-| **PS** | `core`, `search`, `intelligence`, `mastery`, `organization`, `graph`, `context`, `semantic`, `practice`, `ai` | `core/services/ps/` |
-| **LP** | `core`, `search`, `progress`, `ai` | `core/services/lp/` |
+| **PS** | `core`, `search`, `graph`, `semantic`, `practice`, `mastery`, `relationships`, `intelligence`, `adaptive`, `application_discovery`, `context_service`, `organization`, `progress`, `ai` | `core/services/ps/` |
+| **LP** | `core`, `search`, `relationships`, `intelligence`, `progress`, `ai` | `core/services/lp/` |
+
+`ai` is `None` when `INTELLIGENCE_TIER=core`; Ku has no `ai` slot. Read the slots off each facade's `__init__`.
 
 ## Model Locations
 
@@ -105,7 +119,7 @@ UniversalNeo4jBackend[T]     <- ONE instance per domain (no wrappers)
 
 ### PathStep learning state
 ```python
-# Record user view (implicit enrollment) — user first, then the step
+# Record user view — user first, then the step (the Explore page does this on load)
 await ps_service.mastery.record_view(user_uid, ps_uid)
 
 # Mark in progress
@@ -130,8 +144,8 @@ result = await lp_service.intelligence.validate_path_prerequisites(lp_uid)
 # Behind the unauthenticated PathStep API: a PathStep subject (ps_core.get()) and
 # shared-curriculum results only — a personal `moc: true` map is never read here.
 # A PathStep → Ku or UserEntry-map edge is authored in the vault (`moc: true`).
-await ps_service.organize(parent_ps_uid, child_ps_uid, order=1)
-await ps_service.get_organized_children(parent_uid)
+await ps_service.organize(parent_ps_uid, child_ps_uid, order=1)  # both must be PathSteps
+await ps_service.get_organized_children(parent_ps_uid)
 await ps_service.find_organizers(entity_uid)  # Multiple parents possible
 ```
 
@@ -153,7 +167,7 @@ TypedDicts `StepApplicationsResult` and `StepLearningSequenceResult` are in `cor
 
 ## PathStep Reading & Learning State
 
-PathSteps use **implicit enrollment** — no explicit signup step. Learning state progresses:
+PathSteps have no enrollment node or edge of their own: starting a step (`IN_PROGRESS`, which publishes `PathStepEnrolled`) is the enrollment. Learning state progresses:
 
 ```
 NONE → VIEWED → IN_PROGRESS → MASTERED
@@ -161,9 +175,11 @@ NONE → VIEWED → IN_PROGRESS → MASTERED
 
 | State | Trigger | Relationship |
 |-------|---------|-------------|
-| VIEWED | Automatic on page load | `(User)-[:VIEWED]->(PathStep)` |
-| IN_PROGRESS | User clicks "Start" | `(User)-[:IN_PROGRESS]->(PathStep)` |
-| MASTERED | After exercise completion/teacher approval | `(User)-[:MASTERED]->(PathStep)` |
+| VIEWED | Automatic on page load (`ExploreOrchestrator`) | `(User)-[:VIEWED]->(PathStep)` |
+| IN_PROGRESS | User clicks "Start" / progress `state=learning` (capped) | `(User)-[:IN_PROGRESS]->(PathStep)` |
+| MASTERED | Mastery propagated from an approved report (`ReportMasteryService`) or the adaptive curriculum's `track_curriculum_completion` | `(User)-[:MASTERED]->(PathStep)` |
+
+Beside the progression: `MARKED_AS_READ` (progress `state=read`) and `BOOKMARKED` (`POST /explore/ps/{uid}/bookmark`).
 
 **Key routes:**
 - `GET /path-steps` — Browse all PathSteps; rows link to the reading page, with an "Enrolled" badge on the session user's IN_PROGRESS steps

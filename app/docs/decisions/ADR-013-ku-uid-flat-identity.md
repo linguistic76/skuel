@@ -1,11 +1,11 @@
 ---
 title: "ADR-013: KU UID Flat Identity Design"
-updated: 2026-09-22
+updated: 2026-09-29
 status: implemented
 category: decisions
 tags: [adr, decisions, ku, uid, identity, curriculum]
 related: [ENTITY_TYPE_ARCHITECTURE.md, CURRICULUM_GROUPING_PATTERNS.md]
-related_skills: [neo4j-cypher-patterns]
+related_skills: [neo4j-cypher-patterns, curriculum-domains]
 ---
 
 # ADR-013: KU UID Flat Identity Design
