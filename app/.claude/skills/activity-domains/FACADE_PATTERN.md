@@ -195,12 +195,15 @@ When a facade needs another domain's service (circular at construction time), po
 `services_bootstrap/compose.py`. Habits is the one case:
 
 ```python
-# HabitsService.__init__ — declared, not yet wired
-self.goals_service: Any = None
+# HabitsService.__init__ — declared, not yet wired (import GoalsService under TYPE_CHECKING)
+self.goals_service: GoalsService | None = None
 
 # services_bootstrap/compose.py — post-wire after all services exist
 activity_services["habits"].goals_service = activity_services["goals"]
 ```
+
+`HabitsService` declares the slot `Any` today; type a new post-wired slot against the facade,
+as above.
 
 Orchestration methods (`create_with_goal_links`, `complete_with_goal_impacts`) use
 `self.goals_service` — routes never pass cross-domain services as parameters.

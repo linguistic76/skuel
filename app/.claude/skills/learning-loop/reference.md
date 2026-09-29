@@ -316,8 +316,8 @@ Deepgram transcription, text/file → LLM summary/structuring, then
 > `FULFILLS_EXERCISE {revision}` to the **root Exercise** regardless of which node was
 > submitted against (it resolves a `RevisedExercise` to its original via `REVISES_EXERCISE`);
 > for revision-cycle entries it additionally writes `FULFILLS_REVISED_EXERCISE {revision}` to
-> the revision node. The edge is the authoritative `revision` (a node mirror is stamped later by
-> `UserEntryExerciseLinker`, but only for `ASSIGNED` / `RevisedExercise` submissions — see above).
+> the revision node. The edge is the authoritative `revision`; the same statement stamps the
+> `turn_in_revision` snapshot on the node (see above). `UserEntryExerciseLinker` writes nothing.
 
 **Status:** `create_entry()` sets `SUBMITTED` for `pipeline=TEACHER_REVIEW` (so the entry enters
 the teacher review queue) and `ACTIVE` otherwise. `UserEntryProcessingService` advances processed

@@ -56,7 +56,8 @@ await publish_event(self.event_bus, event, self.logger)
 **Completion events are transition-gated.** `TasksCoreService.update_task` publishes
 `TaskCompleted` only when `is_completion_transition(outcome.prior_status, changes)` holds — the
 prior status comes back from `backend.update_with_status_guard(...)`, so a re-post of
-`completed` writes nothing and announces nothing. `GoalAchieved` (Goals) and
+`completed` publishes no `TaskCompleted` and leaves the completion stamp alone. The write
+itself still lands (`status`, `updated_at`), and `TaskUpdated` still fires. `GoalAchieved` (Goals) and
 `CalendarEventCompleted` (Events) are gated the same way, and `TaskReopened` mirrors
 `TaskCompleted` on the way out. `HabitCompleted` is not a status transition — it records one
 completion of a recurring habit. `TaskCompleted` carries `task_uid`,
@@ -460,13 +461,14 @@ task = result.value  # Access success value
 **At route boundaries**, `@boundary_handler()` converts the returned `Result` to HTTP (the CRUD
 factory's routes are built the same way; a hand-written domain route looks like this):
 ```python
-@rt("/api/tasks/knowledge-priorities", methods=["GET"])
+@rt("/api/goals/stalled", methods=["GET"])
 @boundary_handler()
-async def task_knowledge_priorities(request: Request) -> Result[dict[str, Any]]:
+async def goals_stalled(request: Request) -> Result[list[ContextualGoal]]:
     user_uid = require_authenticated_user(request)
-    ...
-    result = await tasks_service.calculate_knowledge_aware_priorities(user_uid, task_uids)
-    if result.is_error:
-        return Result.fail(result)
-    ...
+    max_progress = parse_float_query_param(request.query_params, "max_progress", 0.1)
+    limit = parse_int_query_param(request.query_params, "limit", 10)
+    ctx_result = await fetch_context(user_uid)
+    if ctx_result.is_error:
+        return Result.fail(ctx_result)
+    return await goals_service.get_stalled_goals_for_user(ctx_result.value, max_progress, limit)
 ```
