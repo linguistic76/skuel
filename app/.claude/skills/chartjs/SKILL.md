@@ -24,7 +24,9 @@ Every Chart.js chart SKUEL draws today:
 - The insights section renders only when the page's insight list holds at least 3
   insights (`render_charts_section`).
 - The `/api/visualizations/*` Chart.js endpoints have **no UI consumer**; the
-  module docstring says so. They are working, tested endpoints that no page uses yet.
+  module docstring says so. Their tests cover the routes' auth and user scoping
+  (against a mocked service) and the formatters' output keys. Nothing exercises the
+  Chart.js aggregation end to end.
 - The admin dashboard draws **no** Chart.js. Its role distribution is a column of
   `Progress` bars (`AdminAnalyticsComponents.render_user_distribution`, `ui/admin/views.py`).
 - Frappe Gantt (`/api/visualizations/gantt/*`) is a STAGED surface with no UI —
@@ -137,8 +139,10 @@ no domain dependencies):
 | `format_distribution_chart(data, title, chart_type="doughnut")` | pie, doughnut or bar | `{label: count}` |
 | `format_streak_chart(streaks)` | horizontal bar, current vs best | `[{"name", "current", "best"}]` |
 
-Each returns `Result[ChartJsConfig]` and fails with `Errors.validation` on empty or
-length-mismatched input.
+Each returns `Result[ChartJsConfig]`. `format_distribution_chart` and
+`format_streak_chart` fail with `Errors.validation` on empty input.
+`format_completion_chart` fails only when its three lists differ in length. Three empty
+lists pass and produce a chart with no points.
 
 Otherwise build the literal, as `InsightStore` does:
 
@@ -195,8 +199,10 @@ async def domain_distribution_chart(request: Request) -> Result[ChartJsConfig]:
 
 `boundary_handler` serializes the config itself as the JSON body, and an error as the
 client-safe error payload with its HTTP status. The user comes from the session,
-**never a `user_uid` query parameter**. Every chart route reads the authenticated
-user, so a `?user_uid=` in a chart URL is ignored at best and an IDOR at worst.
+**never a `user_uid` query parameter**. Every live chart route reads the
+authenticated user and ignores a `?user_uid=`; `test_visualization_api_routes.py`
+pins that for `/api/visualizations/completion`. A route that read the parameter
+would let any user chart another user's data (an IDOR).
 
 ### 3. Render the card
 
@@ -230,10 +236,18 @@ Then add `extra_scripts=["/static/vendor/chart.js/chart.umd.js"]` to the shell p
 
 ### 4. Decide what "no data" looks like
 
-An empty result reaches the card as its error state unless the page decides first.
-Insights hides the whole section below 3 insights. The aggregation service returns
-`Errors.not_found` for "no active tasks/habits", which the card shows as an error
-message. Pick one of the two deliberately.
+No data looks different per builder, so decide which one your chart gets:
+
+| Builder | With no data |
+|---------|--------------|
+| `format_distribution_chart`, `format_streak_chart` | `Errors.validation` → 400 → the card's error slot |
+| `format_completion_chart` | a chart with no points (the lengths match) |
+| `VisualizationAggregationService` priority, status, streak | `Errors.not_found` for "no active tasks/habits" → 404 → the error slot |
+| `VisualizationAggregationService` completion | a line at 0%. It always passes 7, 10 or 13 periods |
+| `InsightStore.get_*_chart`, the lifepath radar | no emptiness check: domain and type draw an empty chart, impact and the radar draw zeros, and action rate draws a full "Not Actioned" ring |
+
+Insights settles it at the page: `render_charts_section` hides every card below 3
+insights. A new chart should do the same, or deliberately accept the error slot.
 
 ## Colors
 

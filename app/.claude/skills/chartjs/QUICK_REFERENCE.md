@@ -54,7 +54,7 @@ service.format_distribution_chart({"high": 4, "low": 9}, title="Priority")      
 service.format_streak_chart([{"name": "Run", "current": 3, "best": 12}])               # horizontal bar
 ```
 
-**When to use**: Standard chart shapes. These are pure sync formatters in `core/services/visualization_service.py`; callers supply pre-fetched data. Fetching and aggregation for `/api/visualizations/*` live in `VisualizationAggregationService` (`core/services/analytics/visualization_aggregation_service.py`). Every formatter returns `Result[ChartJsConfig]` and fails with `Errors.validation` on empty or length-mismatched input.
+**When to use**: Standard chart shapes. These are pure sync formatters in `core/services/visualization_service.py`; callers supply pre-fetched data. Fetching and aggregation for `/api/visualizations/*` live in `VisualizationAggregationService` (`core/services/analytics/visualization_aggregation_service.py`). Every formatter returns `Result[ChartJsConfig]`. The distribution and streak formatters fail with `Errors.validation` on empty input. The completion formatter fails only on length-mismatched lists, so empty lists give an empty chart.
 
 ### Hand-built config (the `InsightStore` shape)
 
@@ -110,7 +110,7 @@ return Result.ok(
 | A tick/tooltip `callback` does nothing | The config is JSON; functions can't cross the wire. Use static options |
 | `create_chart_view()` / `ui.goals.visualization` in old notes | Deleted. Use the `_chart_card` shape above |
 | snake_case dataset keys | Chart.js expects camelCase (`backgroundColor`). `ChartJsDataset` declares the camelCase names, and the `ChartDataset` dataclass mirrors them with `# noqa: N815` |
-| An empty chart shows an error | The formatters fail on empty input, and the aggregation service returns `not_found` for "no active tasks/habits". Hide the chart at the page (insights needs 3 insights) or accept the error state |
+| No data shows an error, a blank chart, or zeros | It depends on the builder: the distribution/streak formatters return 400, the aggregation service returns 404 for "no active tasks/habits", the completion formatter and the insight configs draw empty or zero charts. Hide the chart at the page (insights needs 3 insights) or pick the state deliberately. See SKILL.md step 4 |
 | Hardcoded hex/rgba colors | `SemanticColor` for charts (`RelationshipColor` is the Vis.js edge palette), both in `core/utils/palette.py` |
 
 ---
