@@ -8,29 +8,32 @@ allowed-tools: Read, Grep, Glob
 
 > "Configuration over code for route registration"
 
-DomainRouteConfig eliminates boilerplate in `*_routes.py` files by replacing ~80 lines of manual service extraction, validation, and wiring with a ~15-line declarative config. The majority of `*_routes.py` files use it. All 6 Activity Domains use `create_activity_domain_route_config()`. Five proven pattern variants cover every route registration scenario in SKUEL. All DomainRouteConfig routes are registered without `if services.X:` guards in `_wire_all_routes()` — `register_domain_routes()` handles missing services via soft-fail.
+DomainRouteConfig eliminates boilerplate in `*_routes.py` files by replacing ~80 lines of manual service extraction, validation, and wiring with a ~15-line declarative config. The majority of `*_routes.py` files use it. All 6 Activity Domains use `create_activity_domain_route_config()`. Six pattern variants (0–5 below) cover the scenarios the pattern serves. All DomainRouteConfig routes are registered without `if services.X:` guards in `_wire_all_routes()` — `register_domain_routes()` handles missing services via soft-fail.
 
 **Three wiring patterns exist** — see `docs/patterns/DOMAIN_ROUTE_CONFIG_PATTERN.md` "Route Wiring Patterns" for when to use each:
 - **A — DomainRouteConfig** (default): entity domains, soft-fail on missing service
 - **B — Orchestrator-driven**: cross-domain coordination (`explore_routes.py`, `lateral_routes.py`, `library_routes.py`)
-- **C — Manual `@rt()`**: structural/infrastructure routes (`home_routes.py`, `settings_routes.py`, `submissions_hub_routes.py`)
+- **C — Manual `@rt()`**: structural/infrastructure routes (`home_routes.py`, `today_routes.py`, `settings_routes.py`)
 
 ---
 
 ## Quick Reference
 
-### The 6 Configuration Fields
+### The Configuration Fields
 
 | Field | Type | Required | Purpose |
 |-------|------|----------|---------|
 | `domain_name` | `str` | Yes | Human-readable name for logging (e.g., `"tasks"`) |
 | `primary_service_attr` | `str` | Yes | Attribute name on the services container (e.g., `"tasks"` → `services.tasks`) |
-| `api_factory` | `Callable \| None` | No | Function that registers API routes. Defaults to `None` for UI-only domains |
-| `ui_factory` | `Callable \| None` | No | Function that registers UI routes. Defaults to `None` for API-only domains |
+| `api_factory` | `Callable[..., None] \| None` | No | Function that registers API routes. Defaults to `None` for UI-only domains |
+| `ui_factory` | `Callable[..., None] \| None` | No | Function that registers UI routes. Defaults to `None` for API-only domains |
 | `api_related_services` | `dict[str, str]` | No | Service dependencies for the API factory (see Service Mapping Contract) |
 | `ui_related_services` | `dict[str, str]` | No | Service dependencies for the UI factory — `{kwarg_name: container_attr}`, injected as named kwargs (same mechanism as `api_related_services`) |
+| `crud` | `CRUDRouteConfig \| None` | No | Registers `CRUDRouteFactory` before `api_factory` (Pattern 5) |
+| `query` | `QueryRouteConfig \| None` | No | Registers `CommonQueryRouteFactory` before `api_factory` |
+| `intelligence` | `IntelligenceRouteConfig \| None` | No | Registers `IntelligenceRouteFactory` before `api_factory` |
 
-\* Both default to `None`. At least one of `api_factory` or `ui_factory` must be provided.
+`api_factory` and `ui_factory` both default to `None`; provide at least one.
 
 ### Import Surface
 
@@ -79,7 +82,7 @@ api_factory(
 **Service attribute naming convention:**
 - Activity domains use short names: `services.tasks`, `services.goals`, `services.habits`
 - Shared services use bare names: `services.user`, `services.system`
-- Special cases: `services.event_bus`, `services.driver`
+- Infrastructure: `services.event_bus`, `services.prometheus_metrics`, `services.connection_fetch_backend`
 
 **What these service attributes are:** `services.tasks`, `services.goals`, etc. are `TasksService`/`GoalsService` facade instances. Their `.relationships` attribute is a `UnifiedRelationshipService` (URS) — a shell + 6 focused mixins (`PlanningMixin`, `DomainPlanningMixin`, `LifePathMixin`, `IntelligenceMixin`, `OrderedRelationshipsMixin`, `BatchOperationsMixin`). DomainRouteConfig wires the facade; the URS methods are used by intelligence services internally. Public API unchanged across the decomposition.
 
@@ -134,7 +137,7 @@ __all__ = ["create_{domain}_routes"]
 
 ---
 
-## The 5 Pattern Variants
+## The Pattern Variants
 
 ### 0. Activity Domain — THE Standard for the 6 Activity Domains
 
@@ -143,7 +146,7 @@ __all__ = ["create_{domain}_routes"]
 **Exemplar:** `adapters/inbound/tasks_routes.py`
 
 ```python
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from adapters.inbound.fasthtml_types import FastHTMLApp, RouteDecorator
 from adapters.inbound.route_factories import (
@@ -154,6 +157,9 @@ from adapters.inbound.tasks_api import create_tasks_api_routes
 from adapters.inbound.tasks_ui import create_tasks_ui_routes
 from core.models.task.task_request import TaskCreateRequest, TaskUpdateRequest
 
+if TYPE_CHECKING:
+    from services_bootstrap import Services
+
 TASKS_CONFIG = create_activity_domain_route_config(
     domain_name="tasks",
     primary_service_attr="tasks",
@@ -162,9 +168,16 @@ TASKS_CONFIG = create_activity_domain_route_config(
     create_schema=TaskCreateRequest,
     update_schema=TaskUpdateRequest,
     uid_prefix="task",
+    request_create_method="create_task",  # REQUIRED — POST /create hands the request to it
     supports_goal_filter=True,
     supports_habit_filter=True,
     api_related_services={
+        "goals_service": "goals",
+        "habits_service": "habits",
+    },
+    ui_related_services={
+        "connection_fetch_backend": "connection_fetch_backend",
+        "user_service": "user",
         "goals_service": "goals",
         "habits_service": "habits",
     },
@@ -173,7 +186,7 @@ TASKS_CONFIG = create_activity_domain_route_config(
 
 
 def create_tasks_routes(
-    app: FastHTMLApp, rt: RouteDecorator, services: Any, _sync_service: Any = None
+    app: FastHTMLApp, rt: RouteDecorator, services: Services | None, _sync_service: Any = None
 ) -> None:
     """Wire tasks API and UI routes using configuration-driven registration."""
     register_domain_routes(app, rt, services, TASKS_CONFIG)
@@ -181,6 +194,13 @@ def create_tasks_routes(
 
 __all__ = ["create_tasks_routes"]
 ```
+
+**`request_create_method` is required.** It names the facade's request-door create
+primitive (`create_task`, `create_goal`, …). `POST /api/{domain}/create` hands the
+*validated request* to it instead of converting the request to an entity and calling
+`service.create(entity)` — an Activity request carries edge-only link fields (a goal to
+fulfil, knowledge to apply) that no entity can carry, and the entity path would drop them
+silently. `tests/unit/test_route_create_via_primitive.py` guards it.
 
 **What `create_activity_domain_route_config` registers automatically (before `api_factory`):**
 - `CRUDRouteFactory` — create, get, list, update, delete
@@ -295,7 +315,7 @@ The manual block follows the same service-null-guard pattern that `register_doma
 
 ### 5. Config-Driven CRUDRouteConfig — Role-Gated Non-Activity Domains
 
-**When to use:** Non-activity domains that need CRUDRouteFactory with role-based access control. The `crud` field on `DomainRouteConfig` auto-registers create/get/list/update/delete routes before `api_factory` runs. The `intelligence` field auto-registers context/analytics/insights routes. The API factory then only needs domain-specific routes.
+**When to use:** Non-activity domains that need CRUDRouteFactory with role-based access control. Ku, PathStep and LearningPath register no CRUD factory — they are created by vault ingestion; PathStep and LearningPath carry `intelligence=` only. The `crud` field on `DomainRouteConfig` auto-registers create/get/list/update/delete routes before `api_factory` runs. The `intelligence` field auto-registers context/analytics/insights routes. The API factory then only needs domain-specific routes.
 
 **CRUDRouteConfig fields:**
 
@@ -308,6 +328,9 @@ The manual block follows the same service-null-guard pattern that `register_doma
 | `require_role` | `UserRole \| None` | `None` | Role gate for mutations (and reads if `role_gates_reads=True`) |
 | `role_gates_reads` | `bool` | `True` | When False, get/list skip role check |
 | `user_service_attr` | `str \| None` | `None` | Services container attr for role checks |
+| `prometheus_metrics_attr` | `str \| None` | `None` | Services container attr for HTTP instrumentation |
+| `entity_converter` | `Callable \| None` | `None` | Explicit request→entity converter (else `CONVERTER_REGISTRY`) |
+| `request_create_method` | `str \| None` | `None` | Name of the service's request-door create primitive; when set, create skips the entity conversion (every Activity Domain sets it) |
 
 **IntelligenceRouteConfig fields:**
 
@@ -315,13 +338,21 @@ The manual block follows the same service-null-guard pattern that `register_doma
 |-------|------|---------|---------|
 | `scope` | `ContentScope` | `USER_OWNED` | Ownership model for intelligence routes. Use `SHARED` for Curriculum domains. |
 
-**Three proven CRUDRouteConfig configurations:**
+**The CRUDRouteConfig configurations in use:**
 
 ```python
-# Admin-only shared content (Ku, LearningPath, PathStep, FormTemplate)
+# Admin-only shared content (FormTemplate)
 crud=CRUDRouteConfig(
     scope=ContentScope.SHARED,
     require_role=UserRole.ADMIN,
+    user_service_attr="user",  # Services.user
+)
+
+# Teacher-authored shared content (the six PathStep activity templates,
+# via make_pathstep_template_route_config())
+crud=CRUDRouteConfig(
+    scope=ContentScope.SHARED,
+    require_role=UserRole.TEACHER,
     user_service_attr="user",  # Services.user
 )
 
@@ -341,22 +372,25 @@ crud=CRUDRouteConfig(
 )
 ```
 
-**Exemplars:** `groups_routes.py`, `ku_routes.py`, `exercises_routes.py`, `pathways_routes.py`, `path_steps_routes.py`, `form_templates_routes.py`, `revised_exercises_routes.py`
+**Exemplars:** `groups_routes.py`, `exercises_routes.py`, `form_templates_routes.py`, `revised_exercises_routes.py`, `_pathstep_template_routes_helpers.py`
 
-**Combining CRUD + Intelligence:** Curriculum domains typically pair both:
+**Intelligence without CRUD:** PathStep and LearningPath register only the three
+intelligence routes, shared:
 
 ```python
-crud=CRUDRouteConfig(
-    scope=ContentScope.SHARED,
-    require_role=UserRole.ADMIN,
-    user_service_attr="user",  # Services.user
-),
-intelligence=IntelligenceRouteConfig(scope=ContentScope.SHARED),
+# adapters/inbound/path_steps_routes.py
+PS_CONFIG = DomainRouteConfig(
+    domain_name="path-steps",
+    primary_service_attr="ps",
+    api_factory=create_path_steps_api_routes,
+    api_related_services={"user_service": "user"},  # Services.user
+    intelligence=IntelligenceRouteConfig(scope=ContentScope.SHARED),
+)
 ```
 
 **Service requirements:** The service must implement `create()`, `get()`, `update()`, `delete()`, `list()` (inherited from `BaseService`). For `scope=USER_OWNED`, also needs `get_for_user()`, `update_for_user()`, `delete_for_user()` (inherited from `CrudOperationsMixin`). Override these when the domain model uses a different ownership field (e.g., Group uses `owner_uid` instead of `user_uid`).
 
-**ConversionServiceV2:** Add a `{entity}_create_to_pure()` classmethod and register it in `ConversionServiceV2.CONVERTER_REGISTRY` (keyed by schema type, e.g., `GroupCreateRequest: ConversionServiceV2.group_create_to_pure`). Alternatively, pass an explicit `entity_converter` callable via `CRUDRouteConfig.entity_converter`. Updates use the dict-based pattern in CRUDRouteFactory (`model_dump(exclude_unset=True)`) — no converter needed.
+**ConversionServiceV2:** Without `request_create_method`, the create route converts the request to an entity: add a `{entity}_create_to_pure()` classmethod and register it in `ConversionServiceV2.CONVERTER_REGISTRY` (keyed by schema type, e.g., `GroupCreateRequest: ConversionServiceV2.group_create_to_pure`), or pass an explicit `entity_converter`. Updates need no converter: a `SupportsToIntent` schema supplies `to_intent()` (ADR-066); any other falls back to a `RawChanges` patch from `model_dump(exclude_unset=True)`.
 
 ---
 
@@ -368,13 +402,13 @@ All API and UI factories wired via DomainRouteConfig MUST match these signatures
 
 ```python
 def create_{domain}_api_routes(
-    app: Any,                        # FastHTML app instance
-    rt: Any,                         # Route decorator
-    {domain}_service: ServiceType,   # Primary service (positional)
-    # Related services as keyword args with defaults:
-    user_service: Any = None,
-    goals_service: Any = None,
-) -> None:                           # @rt() registers on definition — nothing to return
+    app: FastHTMLApp,                            # FastHTML app instance
+    rt: RouteDecorator,                          # Route decorator
+    {domain}_service: ServiceType,               # Primary service (positional)
+    # Related services as keyword args, injected by name via api_related_services:
+    goals_service: GoalsService | None = None,
+    habits_service: HabitsService | None = None,
+) -> None:                                       # @rt() registers on definition — nothing to return
     ...
 ```
 
@@ -395,7 +429,7 @@ def create_{domain}_ui_routes(
 1. Positional order: `app`, `rt`, `primary_service` — always in this order
 2. Optional related services default to `None` (they may not be bootstrapped yet); always-present infrastructure (e.g. `connection_fetch_backend`) can be a required param with no default
 3. **Return nothing:** sub-factories (`DomainRouteConfig.api_factory`/`ui_factory` are `Callable[..., None]`), `register_domain_routes()`, and the top-level `create_{domain}_routes` all return `None` — `@rt()` registers the handler when applied, so there is no route list to hand up.
-4. Related services are explicit **named** kwargs injected via `ui_related_services` — `register_domain_routes()` passes `primary_service` + those kwargs, never a whole `services` container. (A whole-`services` container is the separate Orchestrator/Manual hub convention — see Anti-Pattern #1.)
+4. Related services are explicit **named** kwargs injected via `api_related_services` / `ui_related_services` — `register_domain_routes()` passes `primary_service` + those kwargs, never a whole `services` container. A `services: Any = None` or `user_service: Any = None` parameter still found on some factories is vestigial (commented "kept for DomainRouteConfig signature compat"); don't copy it. (A whole-`services` container is the separate Orchestrator/Manual hub convention — see Anti-Pattern #1.)
 
 ---
 
@@ -469,13 +503,13 @@ Don't refactor `register_domain_routes()` without preserving both null guards (a
 
 | File | Role |
 |------|------|
-| `adapters/inbound/route_factories/domain_route_factory.py` | The dataclass + `register_domain_routes()` — source of truth (119 lines) |
+| `adapters/inbound/route_factories/domain_route_factory.py` | The dataclasses + `register_domain_routes()` + `create_activity_domain_route_config()` — source of truth |
 | `adapters/inbound/route_factories/__init__.py` | Export surface: `DomainRouteConfig`, `register_domain_routes` |
-| `adapters/inbound/tasks_routes.py` | Exemplar: Standard pattern with related services |
+| `adapters/inbound/tasks_routes.py` | Exemplar: Activity Domain (Pattern 0) |
 | `adapters/inbound/ku_routes.py` | Exemplar: Standard pattern with `ui_related_services` (UserRelationshipService for pins) |
 | `adapters/inbound/calendar_routes.py` | Exemplar: UI-only pattern |
 | `adapters/inbound/insights_routes.py` | Exemplar: Multi-factory pattern |
-| `docs/patterns/DOMAIN_ROUTE_CONFIG_PATTERN.md` | Canonical pattern documentation (1,043 lines) |
+| `docs/patterns/DOMAIN_ROUTE_CONFIG_PATTERN.md` | Canonical pattern documentation |
 | `docs/migrations/DOMAIN_ROUTE_CONFIG_MIGRATION_2026-02-03.md` | Migration history and stats |
 
 ---
@@ -489,9 +523,9 @@ Don't refactor `register_domain_routes()` without preserving both null guards (a
 ## Deep Dive Resources
 
 **Patterns:**
-- [DOMAIN_ROUTE_CONFIG_PATTERN.md](/docs/patterns/DOMAIN_ROUTE_CONFIG_PATTERN.md) — Canonical pattern doc: all 10 examples, migration guide, troubleshooting (1,043 lines)
+- [DOMAIN_ROUTE_CONFIG_PATTERN.md](/docs/patterns/DOMAIN_ROUTE_CONFIG_PATTERN.md) — Canonical pattern doc: the wiring patterns, worked examples, current users, troubleshooting
 - [ROUTE_FACTORIES.md](/docs/patterns/ROUTE_FACTORIES.md) — Endpoint-level factories (CRUDRouteFactory, create_activity_field_api_routes) that are called *inside* the factories wired by DomainRouteConfig
-- [FASTHTML_ROUTE_REGISTRATION.md](/docs/patterns/FASTHTML_ROUTE_REGISTRATION.md) — Why routes register via decorator side effects (the reason factories return `[]`)
+- [FASTHTML_ROUTE_REGISTRATION.md](/docs/patterns/FASTHTML_ROUTE_REGISTRATION.md) — Why routes register via decorator side effects (the reason every factory returns `None`)
 
 **Migration:**
-- [DOMAIN_ROUTE_CONFIG_MIGRATION_2026-02-03.md](/docs/migrations/DOMAIN_ROUTE_CONFIG_MIGRATION_2026-02-03.md) — Phase 3 migration: 9 files, all 4 patterns proven, infrastructure bug fix
+- [DOMAIN_ROUTE_CONFIG_MIGRATION_2026-02-03.md](/docs/migrations/DOMAIN_ROUTE_CONFIG_MIGRATION_2026-02-03.md) — Phase 3 migration record (a 2026-02-03 snapshot, not a live backlog)

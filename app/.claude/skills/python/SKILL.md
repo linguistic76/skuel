@@ -10,7 +10,7 @@ allowed-tools: Read, Grep, Glob
 
 > "Type safety as translation - types encode domain language into compiler-verifiable structure"
 
-SKUEL uses modern Python (3.11+) with strict typing, protocol-based architecture, and Result-based error handling. The goal: code that reads like documentation and fails fast when contracts are violated.
+SKUEL runs on Python 3.14 (pinned in `.python-version`) with strict typing, protocol-based architecture, and Result-based error handling. The goal: code that reads like documentation and fails fast when contracts are violated.
 
 ## Quick Reference
 
@@ -27,68 +27,62 @@ SKUEL uses modern Python (3.11+) with strict typing, protocol-based architecture
 SKUEL separates types by responsibility:
 
 ```python
-# Tier 1: External (Pydantic) - Validation & serialization
-from pydantic import BaseModel
+# Tier 1: External (Pydantic) - validation at the edge
+# core/models/task/task_request.py
+class TaskCreateRequest(CreateRequestBase):
+    title: str = Field(min_length=1, max_length=200)
+    description: str | None = Field(default=None)
+    due_date: date | None = Field(default=None)
+    priority: Priority = Field(default=Priority.MEDIUM)
 
-class TaskCreateRequest(BaseModel):
-    title: str
-    description: str | None = None
-    priority: str = "medium"
 
-
-# Tier 2: Transfer (DTO) - Mutable data movement
-from dataclasses import dataclass
-
+# Tier 2: Transfer (DTO) - mutable data movement
+# core/models/task/task_dto.py
 @dataclass
-class TaskDTO:
-    uid: str
-    title: str
-    description: str | None
-    priority: str
-    status: str
+class TaskDTO(UserOwnedDTO):
+    due_date: date | None = None
 
 
-# Tier 3: Core (Frozen Dataclass) - Immutable business logic
-from dataclasses import dataclass, field
-from datetime import datetime
+# Tier 3: Core (frozen dataclass) - immutable business logic
+# core/models/task/task.py
+@dataclass(frozen=True, kw_only=True)
+class Task(UserOwnedEntity):
+    due_date: date | None = None
 
-@dataclass(frozen=True)
-class Task:
-    uid: str
-    title: str
-    priority: Priority
-    status: EntityStatus
-    created_at: datetime = field(default_factory=datetime.now)
-
-    def is_overdue(self, now: datetime) -> bool:
-        """Business logic in domain model"""
-        return self.due_date is not None and self.due_date < now
+    def is_overdue(self) -> bool:
+        """Business logic in the domain model. "Today" is today in a zone."""
+        if self.is_completed or not self.due_date:
+            return False
+        return self.due_date < today_in(current_zone())
 ```
 
 ### Key Rules
 
-1. **Pydantic at edges** - HTTP requests/responses
+1. **Pydantic at edges** - HTTP requests; a rejected body is a **400** (`ErrorCategory.VALIDATION`), not 422
 2. **DTOs for transfer** - Between layers
 3. **Frozen for business logic** - Domain models are immutable
+4. **A node map becomes a model through a converter** - `from_neo4j_node` (`adapters/persistence/neo4j/neo4j_mapper.py`) or `DTO.from_dict` / `to_domain_model` (`core/utils/dto_converters.py`), never `Model(**props)`: nodes carry undeclared bookkeeping keys (`embedding_version`, `embedding_text_hash`, …) and a splat raises on the first one
+
+**See:** `/docs/patterns/three_tier_type_system.md`
 
 ## Result[T] Error Handling
 
-SKUEL uses `Result[T]` internally, converting to HTTP at boundaries.
+SKUEL uses `Result[T]` internally, converting to HTTP at boundaries. Full pattern: `@result-pattern`.
 
 ### Basic Usage
 
 ```python
-from core.result import Result
+from core.utils.result_simplified import Errors, Result
 
 # Success
 result = Result.ok(task)
 
-# Failure
+# Failure — every Errors factory returns an ErrorContext; Result.fail wraps it
 result = Result.fail(Errors.not_found("Task", uid))
 
-# Checking results
+# Propagating a failure across type boundaries
 if result.is_error:
-    return result  # Propagate error
+    return Result.fail(result)
 
 task = result.value  # Access success value
 ```
@@ -96,48 +90,43 @@ task = result.value  # Access success value
 ### Error Factory (Errors)
 
 ```python
-from core.errors import Errors
-
-# Use factory methods for typed errors
-return Errors.not_found("Task", uid)
-return Errors.validation("Title is required")
-return Errors.database("Connection failed")
-return Errors.business("Cannot delete task with dependents")
+Errors.not_found("Task", uid)                             # resource, identifier
+Errors.validation("Title is required", field="title")     # message, field
+Errors.database("create_task", "Query failed")            # operation, message
+Errors.business("no_dependents", "Cannot delete task with dependents")  # rule, message
 ```
 
 ### Service Pattern
 
 ```python
-from core.result import Result
-from core.errors import Errors
-
-class TasksService:
-    async def get(self, uid: str) -> Result[Task]:
-        entity = await self.backend.get(uid)
-        if entity is None:
-            return Errors.not_found("Task", uid)
-        return Result.ok(entity)
-
-    async def create(self, data: TaskCreateRequest) -> Result[Task]:
-        # Validation
-        if not data.title:
-            return Errors.validation("Title is required")
-
-        # Business logic
-        task = await self.backend.create(data.model_dump())
-        return Result.ok(task)
+async def get(self, uid: str) -> Result[Task]:
+    result = await self.backend.get(uid)       # Result[Task | None]
+    if result.is_error:
+        return Result.fail(result)             # propagate across type boundaries
+    if result.value is None:
+        return Result.fail(Errors.not_found("Task", uid))
+    return Result.ok(result.value)
 ```
 
 ### Boundary Handler
 
 ```python
-from core.http import boundary_handler
+# adapters/inbound/pathways_api.py
+from adapters.inbound.boundary import boundary_handler
+from adapters.inbound.fasthtml_types import Request
 
-@rt("/api/tasks/{uid}")
-@boundary_handler()  # Converts Result[T] to HTTP responses
-async def get_task(request, uid: str):
-    return await service.get(uid)  # Returns Result[Task]
+@rt("/api/pathways/steps")
+@boundary_handler()  # Converts Result[T] to an HTTP response
+async def get_path_steps_route(request: Request, path_uid: str) -> Result[list[PathStep]]:
+    """Get all steps for a learning path."""
+    return await learning_service.get_path_steps(path_uid)
 ```
+
+An `ok` becomes a JSON 200 (or the decorator's `success_status`); a failure becomes the
+status its `ErrorCategory` maps to (`status_for_error`: VALIDATION 400, NOT_FOUND 404,
+BUSINESS 422, …) with internal details stripped.
+
+In a route, `require_found(result, "Task", uid)` (`adapters/inbound/result_helpers.py`) collapses the propagate + `None`→404 + narrowing steps into one call. It is adapters-side only — `core/` cannot import `adapters/` (SKUEL022), so services spell the steps out as above.
 
 ## Protocol-Based Architecture
 
@@ -145,46 +134,44 @@ Services depend on protocols, not implementations.
 
 ### Defining Protocols
 
+Protocols live in `core/ports/`. A domain backend protocol composes the ISP slices:
+
 ```python
-from typing import Protocol
-from core.result import Result
-
-class TasksOperations(Protocol):
-    """Protocol for task operations"""
-
-    async def get(self, uid: str) -> Result[Task | None]: ...
-    async def create(self, data: dict) -> Result[Task]: ...
-    async def update(self, uid: str, data: dict) -> Result[Task]: ...
-    async def delete(self, uid: str) -> Result[bool]: ...
+# core/ports/domain_protocols.py
+class TasksOperations(
+    BackendOperations["Task"], GraphRelationshipOperations, HierarchyOperations, Protocol
+):
+    """Core task management operations."""
 ```
 
 ### Using Protocols
 
-```python
-class TasksService:
-    def __init__(self, backend: TasksOperations) -> None:
-        self.backend = backend  # Depends on protocol
+`self.backend` in `core/` must name a `core/ports` protocol — SKUEL023 rejects a concrete adapter class, `Any`, and no annotation. Parameterise the base: a class that inherits `backend` from a bare `BaseService` (or `BaseService[Any, ...]`) is flagged too, and annotating the `__init__` parameter does **not** fix it, because the attribute's type comes from the base.
 
-    async def get(self, uid: str) -> Result[Task]:
-        # require_found handles error check + None→404 + type narrowing
-        return require_found(await self.backend.get(uid), "Task", uid)
+```python
+# core/services/ku/ku_core_service.py
+class KuCoreService(BaseService[BackendOperations[Ku], Ku]):
+    ...
 ```
+
+Facades (Tasks, Goals, Habits, Events, Choices, Principles, KU, PS, LP) are concrete to their *callers* — a route takes `TasksService`, not a protocol — but inside them `self.backend` is still a protocol.
 
 ### ISP-Compliant Protocols
 
-Use focused sub-protocols when you don't need all operations:
+Depend on the narrowest slice you use:
 
 ```python
 from core.ports import (
-    CrudOperations,        # create, get, update, delete, list
-    EntitySearchOperations, # search, find_by, count
-    RelationshipOperations, # add/delete relationships
+    CrudOperations,              # create, get, get_many, update, delete, list, ...
+    EntitySearchOperations,      # search, find_by, count, ...
+    RelationshipCrudOperations,  # add_relationship, ... (edge CRUD)
 )
 
-class ReadOnlyService:
-    def __init__(self, backend: CrudOperations[Task]) -> None:
-        self.backend = backend  # Only needs CRUD subset
+# core/services/relationship_builder.py — needs only edge CRUD
+def relate(backend: RelationshipCrudOperations, source_uid: str) -> _EdgeAwaitingType: ...
 ```
+
+**See:** `/docs/patterns/protocol_architecture.md`, `/docs/patterns/BACKEND_OPERATIONS_ISP.md`
 
 ## Async/Sync Design
 
@@ -196,10 +183,10 @@ async def get_task(self, uid: str) -> Result[Task]:
     return await self.backend.get(uid)
 
 # GOOD: sync for pure computation
-def calculate_priority_score(task: Task) -> float:
-    return task.urgency * task.importance
+def to_numeric(self) -> int:
+    return _PRIORITY_NUMERIC_VALUES[self]
 
-# BAD: async without await
+# BAD: async without await (SKUEL029)
 async def format_title(title: str) -> str:  # Should be sync!
     return title.strip().title()
 ```
@@ -216,45 +203,43 @@ async def format_title(title: str) -> str:  # Should be sync!
 
 ## Dynamic Enum Pattern
 
-Enums contain presentation logic (colors, icons):
+Enums contain presentation logic (colors, sort order):
 
 ```python
-from enum import Enum
-
-class Priority(str, Enum):
+# core/models/enums/activity_enums.py
+class Priority(StrEnum):
     LOW = "low"
     MEDIUM = "medium"
     HIGH = "high"
-    URGENT = "urgent"
+
+    def to_numeric(self) -> int:
+        """LOW=1, MEDIUM=2, HIGH=3."""
+        return _PRIORITY_NUMERIC_VALUES[self]
 
     def get_color(self) -> str:
-        """Presentation logic in enum"""
+        """Presentation logic in the enum."""
         colors = {
-            Priority.LOW: "gray",
-            Priority.MEDIUM: "blue",
-            Priority.HIGH: "orange",
-            Priority.URGENT: "red",
+            Priority.LOW: "#10B981",
+            Priority.MEDIUM: "#3B82F6",
+            Priority.HIGH: "#F59E0B",
         }
-        return colors[self]
-
-    def get_sort_order(self) -> int:
-        """Sort weight for ordering"""
-        return list(Priority).index(self)
+        return colors.get(self, "#6B7280")
 ```
 
 ### Enum Usage
 
 ```python
-# Use enum members, not strings
-task.priority = Priority.HIGH  # GOOD
-task.priority = "high"         # BAD
+# Compare against members, not strings (SKUEL014)
+if task.status == EntityStatus.COMPLETED:  # GOOD
+    ...
+if task.status == "completed":             # BAD
+    ...
 
 # Use .value only at boundaries (serialization)
-json_data = {"priority": task.priority.value}
+json_data = {"status": task.status.value}
 
-# Type-safe comparisons
-if task.priority == Priority.URGENT:
-    send_notification(task)
+# Models are frozen — "changing" a field builds a copy
+updated = replace(task, status=EntityStatus.ACTIVE)
 ```
 
 ## Frozen Dataclass Patterns
@@ -263,30 +248,33 @@ if task.priority == Priority.URGENT:
 
 ```python
 from dataclasses import dataclass, field
-from datetime import datetime
 
-@dataclass(frozen=True)
-class Task:
-    uid: str
+@dataclass(frozen=True, kw_only=True)
+class Entity:
+    uid: EntityUID
     title: str
-    priority: Priority
-    status: EntityStatus = EntityStatus.DRAFT
-    created_at: datetime = field(default_factory=datetime.now)
+    entity_type: EntityType = EntityType.KU
+    tags: tuple[str, ...] = ()                               # immutable default
+    metadata: dict[str, Any] = field(default_factory=dict)   # a fresh dict per instance
 ```
 
-### Dynamic Defaults with __post_init__
+### Defaults That Depend on Another Field
+
+When a default depends on another field, declare it `None` and fill it in `__post_init__` — `object.__setattr__` is the one way to set a field on a frozen instance during initialization:
 
 ```python
-@dataclass(frozen=True)
-class Task:
-    uid: str
-    title: str
-    normalized_title: str = field(init=False)
+# core/models/entity.py
+    status: EntityStatus = None  # type: ignore[assignment]  # Set in __post_init__ (depends on entity_type)
 
     def __post_init__(self) -> None:
-        # Use object.__setattr__ for frozen dataclass
-        object.__setattr__(self, "normalized_title", self.title.lower().strip())
+        if self.status is None:
+            object.__setattr__(self, "status", self.entity_type.default_status())
+        # Deep immutability: wrap the mutable dict in a read-only proxy
+        if isinstance(self.metadata, dict):
+            object.__setattr__(self, "metadata", MappingProxyType(self.metadata))
 ```
+
+Subclasses call `super().__post_init__()` to chain initialization through the hierarchy.
 
 ### Immutable Updates
 
@@ -301,40 +289,41 @@ updated_task = replace(task, status=EntityStatus.COMPLETED)
 
 ### Service Composition
 
+Composition happens once, in `services_bootstrap/` (`compose_services()` in `compose.py`). Backends are built in `_backends.py`, with the domain label plus the universal `:Entity` label:
+
 ```python
-# Services bootstrap in compose_services()
-async def compose_services(driver: Driver) -> Result[Services]:
-    # Create backends
-    tasks_backend = UniversalNeo4jBackend[Task](driver, "Task", Task)
-    goals_backend = UniversalNeo4jBackend[Goal](driver, "Goal", Goal)
-
-    # Create services with protocol dependencies
-    tasks_service = TasksService(tasks_backend)
-    goals_service = GoalsService(goals_backend)
-
-    return Result.ok(Services(
-        tasks=tasks_service,
-        goals=goals_service,
-    ))
+# services_bootstrap/_backends.py
+tasks_backend = TasksBackend(
+    driver,
+    NeoLabel.TASK,
+    Task,
+    prometheus_metrics=prometheus_metrics,
+    base_label=NeoLabel.ENTITY,
+)
 ```
+
+Facades are then constructed with their backend (typed against its protocol) plus their explicit dependencies — see `services_bootstrap/_activity_services.py`.
 
 ### Ownership Verification
 
 ```python
-async def update_for_user(
-    self,
-    uid: str,
-    updates: TaskUpdateIntent,  # the typed update value U (ADR-066), not a dict
-    user_uid: UserUID,
-) -> Result[Task]:
-    # Verify ownership first
-    ownership = await self.verify_ownership(uid, user_uid)
-    if ownership.is_error:
-        return ownership  # Returns NotFound, not Forbidden
+# core/services/mixins/crud_operations_mixin.py
+async def update_for_user(self, uid: str, updates: U, user_uid: UserUID) -> Result[T]:
+    # Verify ownership first — not owned is NotFound, not Forbidden
+    ownership_result = await self.verify_ownership(uid, user_uid)
+    if ownership_result.is_error:
+        return ownership_result
 
-    # Materialize the intent at the single persistence seam.
+    # Domain-specific validation hook
+    validation = self._validate_update(ownership_result.value, updates)
+    if validation.is_error:
+        return Result.fail(validation)
+
+    # Materialize the typed update value (ADR-066) at the single persistence seam
     return await self.backend.update(uid, updates.to_changes())
 ```
+
+A write that changes a status goes through `backend.update_with_status_guard` instead (ADR-087).
 
 ### Logging
 
@@ -343,14 +332,9 @@ from core.utils.logging import get_logger
 
 logger = get_logger("skuel.services.tasks")
 
-async def create(self, data: dict) -> Result[Task]:
-    logger.info("Creating task", title=data.get("title"))
-
-    result = await self.backend.create(data)
-    if result.is_error:
-        logger.error("Task creation failed", error=str(result.error))
-
-    return result
+result = await self.backend.create(task)
+if result.is_error:
+    logger.error("Task creation failed: %s", result.expect_error().message)
 ```
 
 ## Anti-Patterns to Avoid
@@ -386,37 +370,36 @@ if isinstance(obj, Task):
 
 ```python
 # BAD (SKUEL012 violation)
-sorted_tasks = sorted(tasks, key=lambda t: t.priority)
+sorted_tasks = sorted(tasks, key=lambda t: t.due_date)
 
 # GOOD
-def get_priority(task: Task) -> int:
-    return task.priority.get_sort_order()
+def get_due_date(task: Task) -> date:
+    return task.due_date or date.max
 
-sorted_tasks = sorted(tasks, key=get_priority)
+sorted_tasks = sorted(tasks, key=get_due_date)
 ```
 
 ### 4. Don't Use String Relationship Names
 
 ```python
-# BAD (SKUEL013 violation) — method call
-await backend.add_relationship(task_uid, "APPLIES_KNOWLEDGE", ku_uid)
+# BAD (SKUEL013 violation)
+await backend.add_relationship(task_uid, ku_uid, "APPLIES_KNOWLEDGE")
 
-# GOOD — method call
+# GOOD — the fluent front door (core/services/relationship_builder.py):
+# source and target cannot be swapped, and the edge type is the enum
 from core.models.relationship_names import RelationshipName
 
-await backend.add_relationship(
-    task_uid,
-    RelationshipName.APPLIES_KNOWLEDGE,
-    ku_uid
+await (
+    relate(self.backend, task.uid)
+    .via(RelationshipName.APPLIES_KNOWLEDGE)
+    .to(ku.uid)
+    .create()
 )
+```
 
-# BAD (SKUEL013 violation) — Cypher query
-query = """
-MATCH (parent:Entity {uid: $uid})-[:HAS_SUBTASK]->(child)
-RETURN child
-"""
+Cypher lives only in `adapters/persistence/neo4j/` (SKUEL021). There, interpolate the enum and escape the braces:
 
-# GOOD — f-string with enum, escaped Neo4j braces
+```python
 query = f"""
 MATCH (parent:Entity {{uid: $uid}})-[:{RelationshipName.HAS_SUBTASK.value}]->(child)
 RETURN child
@@ -440,7 +423,7 @@ if result.is_error:
 ### Use Modern Syntax
 
 ```python
-# Python 3.10+ syntax (preferred)
+# Built-in generics and | unions
 def process(items: list[str]) -> dict[str, int]: ...
 def maybe_get(uid: str) -> Task | None: ...
 
@@ -448,17 +431,19 @@ def maybe_get(uid: str) -> Task | None: ...
 from typing import List, Dict, Optional  # Don't use these
 ```
 
-### Generic Type Variables
+Never quote an annotation — UP037 is live, and PEP 649 defers evaluation, so `Task | None` works even for a `TYPE_CHECKING`-only name.
+
+### Generic Types
+
+SKUEL's core generics use PEP 695 syntax:
 
 ```python
-from typing import TypeVar, Generic
-
-T = TypeVar("T")
-
-class Repository(Generic[T]):
-    async def get(self, uid: str) -> Result[T | None]: ...
-    async def create(self, data: dict) -> Result[T]: ...
+class Result[T]: ...                                          # core/utils/result_simplified.py
+class CrudOperations[T: "DomainModelProtocol"](Protocol): ...  # core/ports/base_protocols.py
+def require_found[T](result: Result[T | None], resource: str, identifier: str) -> Result[T]: ...
 ```
+
+Older modules still use `TypeVar` + `Generic[T]`; both forms pass the lint (UP046/UP047 are ignored).
 
 ### Callable Types
 
@@ -477,42 +462,26 @@ AsyncProcessor = Callable[[Task], Awaitable[Result[Task]]]
 ### Testing with Result[T]
 
 ```python
-import pytest
-from core.result import Result
+from core.utils.result_simplified import ErrorCategory
 
 async def test_get_task_success(tasks_service, sample_task):
     result = await tasks_service.get(sample_task.uid)
 
     assert not result.is_error
     assert result.value.uid == sample_task.uid
-    assert result.value.title == sample_task.title
 
 async def test_get_task_not_found(tasks_service):
-    result = await tasks_service.get("nonexistent")
+    result = await tasks_service.get("task_missing")
 
     assert result.is_error
-    assert "not found" in str(result.error).lower()
+    assert result.expect_error().category == ErrorCategory.NOT_FOUND
 ```
 
-### Protocol Mocking
-
-```python
-from unittest.mock import AsyncMock
-
-async def test_service_with_mock_backend():
-    # Create mock that satisfies protocol
-    mock_backend = AsyncMock()
-    mock_backend.get.return_value = Result.ok(sample_task)
-
-    service = TasksService(mock_backend)
-    result = await service.get("test-uid")
-
-    assert result.value == sample_task
-    mock_backend.get.assert_called_once_with("test-uid")
-```
+`asyncio_mode = "auto"` is set in `pyproject.toml`, so async tests need no `@pytest.mark.asyncio`. Fixtures, mock backends and TestContainers: `@pytest`.
 
 ## Additional Resources
 
+- [QUICK_REFERENCE.md](QUICK_REFERENCE.md) - Canonical shapes and pitfalls
 - [type-hints-reference.md](type-hints-reference.md) - Complete typing patterns
 - [async-patterns.md](async-patterns.md) - Async/await best practices
 - [testing-guide.md](testing-guide.md) - Testing patterns

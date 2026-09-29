@@ -22,18 +22,18 @@ Use `async def` when you need `await` inside the function. Everything else shoul
 
 ```python
 class TasksService:
-    async def get(self, uid: str) -> Result[Task]:
+    async def get_user_tasks(self, user_uid: UserUID) -> Result[list[Task]]:
         """I/O operation - must be async"""
-        return await self.backend.get(uid)
+        return await self.core.get_user_tasks(user_uid)
 
-    async def create(self, data: dict) -> Result[Task]:
+    async def create(self, task: Task) -> Result[Task]:
         """I/O operation - must be async"""
-        validated = self.validate(data)  # Sync validation
-        return await self.backend.create(validated)
+        return await self.backend.create(normalized(task))  # sync helper, awaited backend
 
-    def validate(self, data: dict) -> dict:
-        """Pure computation - should be sync"""
-        return {k: v.strip() if isinstance(v, str) else v for k, v in data.items()}
+
+def normalized(task: Task) -> Task:
+    """Pure computation - should be sync"""
+    return replace(task, title=task.title.strip())
 ```
 
 ### Awaiting Multiple Operations
@@ -41,161 +41,142 @@ class TasksService:
 ```python
 import asyncio
 
-async def get_user_context(user_uid: UserUID) -> Result[UserContext]:
+async def get_activities(
+    self, user_uid: UserUID
+) -> Result[tuple[list[Task], list[Goal], list[Habit]]]:
     # Run independent operations concurrently
     tasks_result, goals_result, habits_result = await asyncio.gather(
-        self.tasks_service.list_for_user(user_uid),
-        self.goals_service.list_for_user(user_uid),
-        self.habits_service.list_for_user(user_uid),
+        self.tasks_service.get_user_tasks(user_uid),
+        self.goals_service.get_user_goals(user_uid),
+        self.habits_service.get_user_habits(user_uid),
     )
 
-    # Check all results
+    # Check all results — a failure crosses a type boundary, so wrap it
     if tasks_result.is_error:
-        return tasks_result
+        return Result.fail(tasks_result)
     if goals_result.is_error:
-        return goals_result
+        return Result.fail(goals_result)
     if habits_result.is_error:
-        return habits_result
+        return Result.fail(habits_result)
 
-    return Result.ok(UserContext(
-        tasks=tasks_result.value,
-        goals=goals_result.value,
-        habits=habits_result.value,
-    ))
+    return Result.ok((tasks_result.value, goals_result.value, habits_result.value))
 ```
 
 ### Sequential vs Concurrent
 
 ```python
 # Sequential - when order matters or operations depend on each other
-async def create_task_with_goal(data: dict) -> Result[Task]:
+async def create_task_for_goal(self, task: Task, goal_uid: str) -> Result[bool]:
     # Goal must exist before creating task
-    goal_result = await self.goals_service.get(data["goal_uid"])
+    goal_result = await self.goals_service.get(goal_uid)
     if goal_result.is_error:
-        return goal_result
+        return Result.fail(goal_result)
 
     # Now create task
-    task_result = await self.tasks_service.create(data)
+    task_result = await self.tasks_service.create(task)
     if task_result.is_error:
-        return task_result
+        return Result.fail(task_result)
 
-    # Link task to goal
-    return await self.tasks_service.link_task_to_goal(
-        task_result.value.uid,
-        data["goal_uid"]
-    )
+    # Link task to goal (CONTRIBUTES_TO_GOAL)
+    return await self.tasks_service.link_task_to_goal(task_result.value.uid, goal_uid)
 
 
-# Concurrent - when operations are independent
-async def get_dashboard_data(user_uid: UserUID) -> Result[Dashboard]:
-    # These don't depend on each other
-    stats, notifications, recommendations = await asyncio.gather(
-        self.stats_service.get_user_stats(user_uid),
-        self.notifications_service.get_unread(user_uid),
-        self.recommendations_service.get_daily(user_uid),
-    )
-    return Result.ok(Dashboard(stats, notifications, recommendations))
+# Concurrent - when operations are independent: the three reads in
+# "Awaiting Multiple Operations" above don't depend on each other, so they
+# share one asyncio.gather. UserContextBuilder's MEGA-QUERY is the same idea
+# at scale — six statements plus their neighbours under one gather.
 ```
 
 ## Error Handling with Gather
 
 ### Pattern 1: Fail on First Error
 
-```python
-async def get_all_required(user_uid: UserUID) -> Result[tuple]:
-    """Fails if any operation fails"""
-    try:
-        results = await asyncio.gather(
-            self.service_a.get(user_uid),
-            self.service_b.get(user_uid),
-            self.service_c.get(user_uid),
-        )
-    except Exception as e:
-        return Errors.system(str(e))
+Service methods return `Result` rather than raise, so a plain `gather` needs no `try` —
+check each result instead:
 
-    # Check all results
+```python
+async def get_all_required(self, uids: list[str]) -> Result[list[Task]]:
+    """Fails if any operation fails"""
+    results = await asyncio.gather(*(self.tasks_service.get(uid) for uid in uids))
+
     for result in results:
         if result.is_error:
-            return result
+            return Result.fail(result)
 
-    return Result.ok(tuple(r.value for r in results))
+    return Result.ok([r.value for r in results])
 ```
 
 ### Pattern 2: Collect Partial Results
 
 ```python
-async def get_best_effort(user_uid: UserUID) -> Result[PartialData]:
-    """Returns partial data if some operations fail"""
-    results = await asyncio.gather(
-        self.required_service.get(user_uid),
-        self.optional_service.get(user_uid),
+async def get_tasks_and_habits(
+    self, user_uid: UserUID
+) -> Result[tuple[list[Task], list[Habit] | None]]:
+    """Tasks are required; habits are best-effort"""
+    required_result, optional_result = await asyncio.gather(
+        self.tasks_service.get_user_tasks(user_uid),
+        self.habits_service.get_user_habits(user_uid),
         return_exceptions=True,
     )
 
-    required_result = results[0]
-    optional_result = results[1]
-
     # Required must succeed
-    if isinstance(required_result, Exception) or required_result.is_error:
-        return Errors.database("Required data unavailable")
+    if isinstance(required_result, BaseException) or required_result.is_error:
+        return Result.fail(Errors.database("get_user_tasks", "Required data unavailable"))
 
     # Optional can fail gracefully
-    optional_data = None
-    if not isinstance(optional_result, Exception) and not optional_result.is_error:
-        optional_data = optional_result.value
+    habits = None
+    if not isinstance(optional_result, BaseException) and not optional_result.is_error:
+        habits = optional_result.value
 
-    return Result.ok(PartialData(
-        required=required_result.value,
-        optional=optional_data,
-    ))
+    return Result.ok((required_result.value, habits))
 ```
 
 ## Async Context Managers
 
+A context manager that only sets state needs no `await`, so it stays sync and still wraps
+async work:
+
 ```python
-from contextlib import asynccontextmanager
-from collections.abc import AsyncGenerator
-
-@asynccontextmanager
-async def transaction() -> AsyncGenerator[Session, None]:
-    """Async context manager for database transactions"""
-    session = await get_session()
+# core/utils/zone_context.py
+@contextmanager
+def zone_scope(zone: ZoneInfo) -> Iterator[ZoneInfo]:
+    """Every current_zone() inside the block reads zone; restored on any exit"""
+    token = current_zone_var.set(zone)
     try:
-        yield session
-        await session.commit()
-    except Exception:
-        await session.rollback()
-        raise
+        yield zone
     finally:
-        await session.close()
+        current_zone_var.reset(token)
 
-# Usage
-async def create_with_transaction(data: dict) -> Result[Task]:
-    async with transaction() as session:
-        task = await session.create(data)
-        await session.flush()
-        return Result.ok(task)
+# Usage — sync manager around async work
+with zone_scope(owner_zone):
+    await self._ingest(files)
 ```
+
+When entering or leaving needs I/O, use `@asynccontextmanager` with an
+`AsyncIterator[T]` return type and `async with`. Neo4j sessions and transactions are opened
+only inside `adapters/persistence/neo4j/` — a service never holds the driver (SKUEL021).
 
 ## Async Iterators
 
 ```python
 from collections.abc import AsyncIterator
 
-async def stream_tasks(user_uid: UserUID) -> AsyncIterator[Task]:
-    """Stream tasks without loading all into memory"""
-    async with self.driver.session() as session:
-        result = await session.run(
-            "MATCH (u:User {uid: $uid})-[:OWNS]->(t:Task) RETURN t",
-            uid=user_uid
-        )
-        async for record in result:
-            yield Task.from_dict(record["t"])
+async def iter_tasks(self, page_size: int = 100) -> AsyncIterator[Task]:
+    """Walk every task page by page without loading all into memory"""
+    offset = 0
+    while True:
+        result = await self.backend.list(limit=page_size, offset=offset)  # Result[(page, total)]
+        if result.is_error:
+            return
+        page, total = result.value
+        for task in page:
+            yield task
+        offset += page_size
+        if offset >= total:
+            return
 
 # Usage
-async def process_all_tasks(user_uid: UserUID) -> None:
-    async for task in stream_tasks(user_uid):
-        await process(task)
+titles = [task.title async for task in service.iter_tasks()]
 ```
 
 ## Common Anti-Patterns
@@ -225,53 +206,45 @@ async def slow_operation() -> None:
 async def slow_operation() -> None:
     await asyncio.sleep(5)
 
-# For CPU-bound work, use thread pool
-from concurrent.futures import ThreadPoolExecutor
-
-async def cpu_bound_work() -> Result:
-    loop = asyncio.get_event_loop()
-    result = await loop.run_in_executor(
-        ThreadPoolExecutor(),
-        heavy_computation,
-    )
-    return Result.ok(result)
+# For blocking work (file I/O, CPU-heavy parsing), hand it to a worker thread
+async def load_history(path: Path) -> Result[str]:
+    text = await asyncio.to_thread(path.read_text)  # as in schema_change_detector.py
+    return Result.ok(text)
 ```
 
 ### 3. Sequential When Concurrent is Possible
 
 ```python
 # BAD - sequential for independent operations
-async def get_stats(user_uid: UserUID) -> Stats:
-    tasks = await self.get_tasks(user_uid)  # Wait...
-    goals = await self.get_goals(user_uid)  # Then wait...
-    habits = await self.get_habits(user_uid)  # Then wait...
-    return Stats(tasks, goals, habits)
+tasks = await self.tasks_service.get_user_tasks(user_uid)    # Wait...
+goals = await self.goals_service.get_user_goals(user_uid)    # Then wait...
+habits = await self.habits_service.get_user_habits(user_uid)  # Then wait...
 
 # GOOD - concurrent for independent operations
-async def get_stats(user_uid: UserUID) -> Stats:
-    tasks, goals, habits = await asyncio.gather(
-        self.get_tasks(user_uid),
-        self.get_goals(user_uid),
-        self.get_habits(user_uid),
-    )
-    return Stats(tasks, goals, habits)
+tasks, goals, habits = await asyncio.gather(
+    self.tasks_service.get_user_tasks(user_uid),
+    self.goals_service.get_user_goals(user_uid),
+    self.habits_service.get_user_habits(user_uid),
+)
 ```
 
 ### 4. Not Awaiting Coroutines
 
 ```python
 # BAD - coroutine never awaited
-async def create_task(data: dict) -> Result[Task]:
-    self.backend.create(data)  # Missing await! Returns coroutine
-    return Result.ok(...)
+async def create_task(self, task: Task) -> Result[Task]:
+    self.backend.create(task)  # Missing await! Returns coroutine
+    return Result.ok(task)
 
 # GOOD
-async def create_task(data: dict) -> Result[Task]:
-    result = await self.backend.create(data)
-    return result
+async def create_task(self, task: Task) -> Result[Task]:
+    return await self.backend.create(task)
 ```
 
 ## Testing Async Code
+
+`asyncio_mode = "auto"` is set in `pyproject.toml`, so the `@pytest.mark.asyncio` marker is
+optional — plain `async def test_*` functions run.
 
 ```python
 import pytest
@@ -312,41 +285,38 @@ async def populated_db(async_client):
 
 ## Performance Tips
 
-### 1. Use Connection Pools
+### 1. Share One Driver
 
-```python
-# Neo4j driver handles pooling automatically
-driver = open_async_driver(uri, auth=auth)
-
-# Reuse the driver across requests
-async def get_task(uid: str) -> Result[Task]:
-    async with driver.session() as session:
-        result = await session.run(query, uid=uid)
-        return Result.ok(Task.from_record(result.single()))
-```
+The Neo4j driver pools connections itself. It is built once — `open_async_driver()` in
+`adapters/persistence/neo4j/graph_driver.py` is the one construction site, and it refuses a
+process whose clock is not pinned to UTC — and every backend shares it. Never open a
+driver per request.
 
 ### 2. Batch Operations
 
 ```python
 # BAD - N queries
-async def get_tasks(uids: list[str]) -> list[Task]:
+async def get_tasks(self, uids: list[str]) -> list[Result[Task]]:
     return [await self.get(uid) for uid in uids]
 
-# GOOD - 1 query
-async def get_tasks(uids: list[str]) -> Result[list[Task]]:
+# GOOD - 1 query (a missing uid comes back as None in its slot)
+async def get_tasks(self, uids: list[str]) -> Result[list[Task | None]]:
     return await self.backend.get_many(uids)
 ```
 
 ### 3. Timeout Protection
 
 ```python
-async def with_timeout(coro, seconds: float = 5.0):
-    """Add timeout to any coroutine"""
+async def with_timeout[T](coro: Awaitable[Result[T]], seconds: float = 5.0) -> Result[T]:
+    """Add a client-side timeout to a Result-returning coroutine"""
     try:
         return await asyncio.wait_for(coro, timeout=seconds)
-    except asyncio.TimeoutError:
-        return Errors.system(f"Operation timed out after {seconds}s")
+    except TimeoutError:
+        return Result.fail(Errors.system(f"Operation timed out after {seconds}s"))
 ```
+
+Neo4j queries already carry a server-side ceiling (`NEO4J_TRANSACTION_TIMEOUT`, default
+120s) — see `/docs/patterns/NEO4J_QUERY_TIMEOUT.md`.
 
 ## Semaphore for Rate Limiting
 
@@ -354,13 +324,13 @@ async def with_timeout(coro, seconds: float = 5.0):
 # Limit concurrent operations
 semaphore = asyncio.Semaphore(10)
 
-async def rate_limited_fetch(uid: str) -> Result[Task]:
+async def rate_limited_fetch(self, uid: str) -> Result[Task]:
     async with semaphore:
-        return await self.fetch(uid)
+        return await self.tasks_service.get(uid)
 
 # Process many items with rate limit
-async def process_all(uids: list[str]) -> list[Result[Task]]:
+async def process_all(self, uids: list[str]) -> list[Result[Task]]:
     return await asyncio.gather(
-        *(rate_limited_fetch(uid) for uid in uids)
+        *(self.rate_limited_fetch(uid) for uid in uids)
     )
 ```

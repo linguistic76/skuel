@@ -8,6 +8,7 @@ Problem-solution pairs for each variant, with trade-off analysis and a decision 
 
 | Pattern | `api_factory` | `ui_factory` | Manual block? | Use When |
 |---------|---------------|--------------|---------------|----------|
+| **Activity Domain** | ✓ | ✓ | No | The six Activity Domains — `create_activity_domain_route_config()` adds CRUD, Query and Intelligence |
 | **Standard** | ✓ | ✓ | No | Default — API + UI routes |
 | **API-Only** | ✓ | `None` | No | No UI pages (data/processing endpoints) |
 | **UI-Only** | `None` | ✓ | No | No CRUD API (content display only) |
@@ -40,23 +41,37 @@ Does the domain have API routes?
 
 ### Problem
 
-A new Activity domain (e.g., Habits) needs both JSON API endpoints and server-rendered pages. Writing manual service extraction, null checks, and wiring for every domain produces near-identical files.
+A domain (e.g., Habits) needs both JSON API endpoints and server-rendered pages. Writing manual service extraction, null checks, and wiring for every domain produces near-identical files.
 
 ### Solution
 
+An Activity Domain takes the convenience constructor, which also declares its CRUD, Query
+and Intelligence factories; any other domain builds a `DomainRouteConfig` with the same
+first six fields.
+
 ```python
-HABITS_CONFIG = DomainRouteConfig(
+# adapters/inbound/habits_routes.py
+HABITS_CONFIG = create_activity_domain_route_config(
     domain_name="habits",
     primary_service_attr="habits",
     api_factory=create_habits_api_routes,
     ui_factory=create_habits_ui_routes,
-    api_related_services={
-        "user_service": "user_service",
-        "goals_service": "goals",
+    create_schema=HabitCreateRequest,
+    update_schema=HabitUpdateRequest,
+    uid_prefix="habit",
+    request_create_method="create_habit",
+    api_related_services={"principles_service": "principles"},
+    ui_related_services={
+        "connection_fetch_backend": "connection_fetch_backend",
+        "choices_ownership": "choices",  # owner-scopes the Habit ↔ Choice fragment
     },
+    prometheus_metrics_attr="prometheus_metrics",
 )
 
-def create_habits_routes(app, rt, services, _sync_service=None):
+
+def create_habits_routes(
+    app: FastHTMLApp, rt: RouteDecorator, services: Services | None, _sync_service: Any = None
+) -> None:
     register_domain_routes(app, rt, services, HABITS_CONFIG)
 ```
 
@@ -101,7 +116,7 @@ TRANSCRIPTION_CONFIG = DomainRouteConfig(
 
 ### When to use vs. Standard
 
-If there's even a single UI page (index, dashboard, settings), use Standard. API-Only is strictly for domains whose user-facing surface is entirely through other domains' UIs (e.g., transcription results appear in the UserEntry journal UI at `/submissions/journal`).
+If there's even a single UI page (index, dashboard, settings), use Standard. API-Only is strictly for domains whose user-facing surface is entirely through other domains' UIs (e.g., transcription results appear in the journal workspace at `/submissions/journal`).
 
 ---
 
@@ -109,26 +124,28 @@ If there's even a single UI page (index, dashboard, settings), use Standard. API
 
 ### Problem
 
-Study is a submission hub that composes multiple services into server-rendered pages. It has no CRUD API of its own. Setting `api_factory` to a no-op function would be misleading.
+Ku's pages and its few JSON endpoints are all registered in one UI factory (`ku_ui.py`
+via `@rt()`). A separate API factory would be an empty function. Setting `api_factory` to a
+no-op would be misleading.
 
 ### Solution
 
 Simply omit `api_factory` — it defaults to `None`. Use `ui_factory` and `ui_related_services` for the UI routes and their dependencies.
 
 ```python
-STUDY_CONFIG = DomainRouteConfig(
-    domain_name="study",
-    primary_service_attr="user_entry",
-    ui_factory=create_study_ui_routes,
+# adapters/inbound/ku_routes.py
+KU_CONFIG = DomainRouteConfig(
+    domain_name="ku",
+    primary_service_attr="ku",  # services.ku -> KuService
+    ui_factory=create_ku_ui_routes,
     ui_related_services={
-        "processing_service": "user_entry_processor",
-        "user_service": "user_service",
+        "user_relationship_service": "user_relationships",
         "exercises_service": "exercises",
-        "activity_report_service": "activity_report",
-        "teacher_review_service": "teacher_review",
     },
 )
 ```
+
+`calendar_routes.py` is the minimal form: `CALENDAR_CONFIG` names only `ui_factory`.
 
 ### Trade-offs
 
@@ -193,9 +210,12 @@ DomainRouteConfig operates at the **file level** — it wires which factories ru
 
 ```
 tasks_routes.py          ← DomainRouteConfig (file-level wiring)
+  ├── crud= / query= / intelligence=     ← CRUDRouteFactory, CommonQueryRouteFactory,
+  │                                        IntelligenceRouteFactory — registered first
   └── tasks_api.py       ← create_tasks_api_routes()
-        ├── CRUDRouteFactory                  ← endpoint-level: create, get, list, update, delete
-        └── create_activity_field_api_routes  ← endpoint-level: inline status/priority updates
+        ├── create_activity_field_api_routes      ← inline status/priority updates
+        ├── create_activity_hierarchy_api_routes  ← hierarchy block
+        └── create_activity_link_api_routes       ← cross-domain link POSTs
 ```
 
 DomainRouteConfig and the endpoint-level factories (CRUDRouteFactory, create_activity_field_api_routes) are not alternatives — they operate at different layers and are used together.

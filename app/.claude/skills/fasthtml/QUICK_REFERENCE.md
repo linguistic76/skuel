@@ -25,13 +25,13 @@ async def dismiss_insight(request: Request, uid: str) -> Result[FT]:
 ### Route registration — decorator registers IMMEDIATELY
 
 ```python
-def create_domain_routes(app: Any, rt: Any, service: SomeService) -> None:
+def create_domain_routes(app: FastHTMLApp, rt: RouteDecorator, service: TasksService) -> None:
     @rt("/domain/dashboard")
     def domain_dashboard(request: Request): ...
     # NO routes = [] / routes.append(...) — @rt() already registered it
 ```
 
-**When to use**: All route wiring. `routes = []` + `append` double-registers and is the documented anti-pattern (`docs/patterns/FASTHTML_ROUTE_REGISTRATION.md`).
+**When to use**: All route wiring. A route factory returns `None` at every layer. Collecting the handlers in `routes = []` and returning the list leaves the sub-routes unregistered (404, no startup warning) — the documented anti-pattern (`docs/patterns/FASTHTML_ROUTE_REGISTRATION.md`); bootstrap logs one count from `app.routes`.
 
 ### UI page route with layout wrapper
 
@@ -45,7 +45,7 @@ page = BasePage(
 )
 ```
 
-**When to use**: Every authenticated page. `BasePage` is async — always `await` it. Unauthenticated flows (login/register/landing) use `AuthPage(content, title=...)` — no navbar/chrome.
+**When to use**: Every authenticated page. `BasePage` is a plain function returning the page FT — return it; there is nothing to `await`. Unauthenticated flows (login/register/landing) use `AuthPage(content, title=...)` — no navbar/chrome.
 
 ### FT component factory (typed boundary)
 
@@ -92,7 +92,7 @@ found = require_found(result, "Entity", uid)                      # adapters/inb
 
 ### Query-param validation — `route_factories/route_helpers.py`
 
-`parse_bool_query_param`, `parse_date_query_param`, `parse_pagination_params` — GET params fail with 400; JSON bodies use Pydantic request models and also fail with 400 (`ErrorCategory.VALIDATION`), whether bound via `parse_json_body` or auto-bound as `body: SomeRequest`. An auto-bound body is validated during FastHTML's parameter extraction, before the handler runs, so `install_request_validation_guard` (bootstrap) is what turns the escaping `ValidationError` into that 400 instead of a 500. ⚠ A `Literal`-annotated auto-bound field still 500s — FastHTML calls the annotation to coerce and `Literal(...)` raises `TypeError`.
+`parse_bool_query_param`, `parse_date_query_param`, `parse_pagination_params` — GET params fail with 400; JSON bodies use Pydantic request models and also fail with 400 (`ErrorCategory.VALIDATION`), whether bound via `parse_json_body` or auto-bound as `body: SomeRequest`. An auto-bound body is validated during FastHTML's parameter extraction, before the handler runs, so `install_request_validation_guard` (bootstrap) is what turns the escaping `ValidationError` into that 400 instead of a 500 — for an `application/json` request only. ⚠ A `Literal`- or enum-annotated auto-bound field still 500s — FastHTML passes each string value through the annotation before the model sees it: `Literal(...)` raises `TypeError`, `Priority("bad")` a plain `ValueError`, neither a `ValidationError`.
 
 ---
 
@@ -107,7 +107,7 @@ found = require_found(result, "Entity", uid)                      # adapters/inb
 | `Result[Any]` return on a handler | `Result[FT]` (fragments), `Result[Goal]` (models), or `Response` (redirects) |
 | Hand-assembled `<link>` tags / `NotStr` full documents | `BasePage`/`AuthPage` — CSS/JS load through `build_head()` |
 | A CRUD read with the uid in the path | Query params (`/api/tasks/get?uid=`) — the path-uid shape is for per-entity action doors (`POST /api/tasks/{uid}/status`), not for `get`/`update`/`delete` |
-| Forgetting `await` on `BasePage(...)` | It's `async def` — returns a coroutine, not FT |
+| `await BasePage(...)` | It's a plain `def` returning FT — awaiting it raises `TypeError` |
 | Untyped `*c: Any, **kwargs: Any` without annotation | Add `# boundary: fasthtml-elements` (ASGI plumbing: `# boundary: fasthtml-app`) |
 | Quoted annotation `"Type"` / `Optional["Type"]` | Unquoted `Type \| None` — PEP 649 defers evaluation, UP037 is live. A `@rt()` handler's types must be REAL imports: FastHTML evaluates the signature at registration, so a `TYPE_CHECKING`-only name there is a bootstrap `NameError` |
 

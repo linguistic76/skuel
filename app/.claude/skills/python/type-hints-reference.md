@@ -1,6 +1,6 @@
 # Python Type Hints Reference
 
-## Modern Python 3.10+ Syntax
+## Modern Syntax (Python 3.14)
 
 ### Built-in Generic Types
 
@@ -91,6 +91,22 @@ def decorator(func: Callable[P, R]) -> Callable[P, R]:
 
 ## Generic Types
 
+SKUEL's core generics use PEP 695 syntax — `class Result[T]:`,
+`class CrudOperations[T: "DomainModelProtocol"](Protocol):`, `def require_found[T](...)`.
+Older modules still use `TypeVar` + `Generic[T]`; both pass the lint (UP046/UP047 are ignored).
+
+```python
+# PEP 695 (Python 3.12+) — no TypeVar declaration
+class Repository[T]:
+    async def get(self, uid: str) -> Result[T | None]: ...
+
+def first[T](items: Sequence[T]) -> T | None:
+    return items[0] if items else None
+
+# Bounded
+class Store[T: DomainModelProtocol]: ...
+```
+
 ### TypeVar
 
 ```python
@@ -147,6 +163,10 @@ class Writer(Generic[T_contra]):
 
 ## Protocol Types
 
+SKUEL's attribute protocols (`HasUID`, `HasScore`, `HasCreatedAt`, …) live in the
+"Attribute Protocols" section of `core/ports/base_protocols.py` — they replace `hasattr()`
+(SKUEL011).
+
 ```python
 from typing import Protocol, runtime_checkable
 
@@ -173,22 +193,17 @@ if isinstance(obj, Serializable):
 
 ## Type Aliases
 
-```python
-from typing import TypeAlias
+SKUEL writes aliases with the `type` statement (PEP 695):
 
+```python
 # Simple alias
-UID: TypeAlias = str
-Metadata: TypeAlias = dict[str, Any]
+type Metadata = dict[str, Any]
 
 # Complex alias
-EntityMap: TypeAlias = dict[str, list[Task | Goal | Habit]]
+type EntityMap = dict[str, list[Task | Goal | Habit]]
 
-# Parameterized alias (3.12+)
+# Parameterized alias
 type ResultList[T] = Result[list[T]]
-
-# Or with TypeVar (3.9+)
-T = TypeVar("T")
-ResultList = Result[list[T]]
 ```
 
 **SKUEL-specific type aliases** (from `core/models/type_hints.py`):
@@ -353,11 +368,12 @@ async def get_context(self, entity_uid: EntityUID) -> Result[dict]: ...
 # Auth creates UserUID at the boundary:
 user_uid: UserUID = require_authenticated_user(request)
 
-# Dataclass defaults use type: ignore (frozen pattern):
-user_uid: UserUID = ""  # type: ignore[assignment]
+# A required field has no default — kw_only=True lets it follow defaulted base fields
+# (core/models/user_owned_entity.py):
+user_uid: UserUID
 
 # Type checker catches identity mixing:
-task_uid = TaskUID("task:123")
+task_uid = TaskUID("task_a1b2c3d4")
 get_user_tasks(task_uid)  # Type error! TaskUID != UserUID
 ```
 
@@ -370,10 +386,10 @@ def is_task(entity: Task | Goal | Habit) -> TypeGuard[Task]:
     """Narrow type to Task"""
     return isinstance(entity, Task)
 
-def process(entity: Task | Goal | Habit) -> None:
+def due_date_of(entity: Task | Goal | Habit) -> date | None:
     if is_task(entity):
-        # entity is now typed as Task
-        print(entity.due_date)  # Task-specific attribute
+        return entity.due_date  # narrowed to Task — a Task-specific attribute
+    return None
 ```
 
 ## Common Patterns
@@ -405,19 +421,29 @@ async def stream_tasks() -> AsyncIterator[Task]:
 
 ### Class Type Hints
 
+Never quote an annotation — UP037 is live. PEP 649 defers annotation evaluation, so a
+class can name itself (or a `TYPE_CHECKING`-only import) unquoted:
+
 ```python
 from dataclasses import dataclass
+from typing import Self
 
-@dataclass(frozen=True)
-class Task:
+from core.utils.uid_generator import UIDGenerator
+
+@dataclass(frozen=True, kw_only=True)
+class Node:
     uid: str
     title: str
-    subtasks: list["Task"] = field(default_factory=list)  # Forward ref
+    children: tuple[Node, ...] = ()  # the class names itself, unquoted
 
     @classmethod
-    def create(cls, title: str) -> "Task":  # Forward ref for return
-        return cls(uid=generate_uid(), title=title)
+    def create(cls, title: str) -> Self:
+        return cls(uid=UIDGenerator.generate_uid("node"), title=title)  # "node_a1b2c3d4"
 ```
+
+A `NameError` from an `__annotate__` frame means something *read* the annotation at runtime:
+a `@rt()` handler needs a real import, not a `TYPE_CHECKING` one. See
+`/docs/TROUBLESHOOTING.md § Forward References — Never Quote an Annotation`.
 
 ### Context Managers
 
@@ -431,7 +457,7 @@ def transaction() -> Generator[Connection, None, None]:
     try:
         yield conn
         conn.commit()
-    except:
+    except BaseException:  # roll back on any exit, then re-raise
         conn.rollback()
         raise
 
@@ -441,7 +467,7 @@ async def async_transaction() -> AsyncGenerator[Connection, None]:
     try:
         yield conn
         await conn.commit()
-    except:
+    except BaseException:  # roll back on any exit, then re-raise
         await conn.rollback()
         raise
 ```

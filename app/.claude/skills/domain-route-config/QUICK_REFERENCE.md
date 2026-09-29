@@ -9,6 +9,9 @@ Fast lookup for copy-paste templates and common pitfalls.
 The highest-level convenience. Pre-populates CRUD, Query, and Intelligence route factories automatically. Use for Tasks, Goals, Habits, Events, Choices, Principles.
 
 ```python
+from typing import TYPE_CHECKING, Any
+
+from adapters.inbound.fasthtml_types import FastHTMLApp, RouteDecorator
 from adapters.inbound.route_factories import (
     create_activity_domain_route_config,
     register_domain_routes,
@@ -16,6 +19,9 @@ from adapters.inbound.route_factories import (
 from adapters.inbound.{domain}_api import create_{domain}_api_routes
 from adapters.inbound.{domain}_ui import create_{domain}_ui_routes
 from core.models.{domain}.{domain}_request import {Domain}CreateRequest, {Domain}UpdateRequest
+
+if TYPE_CHECKING:
+    from services_bootstrap import Services
 
 {DOMAIN}_CONFIG = create_activity_domain_route_config(
     domain_name="{domain}",
@@ -25,6 +31,7 @@ from core.models.{domain}.{domain}_request import {Domain}CreateRequest, {Domain
     create_schema={Domain}CreateRequest,
     update_schema={Domain}UpdateRequest,
     uid_prefix="{domain}",
+    request_create_method="create_{singular}",  # REQUIRED — e.g. "create_task"
     supports_goal_filter=False,
     supports_habit_filter=False,
     api_related_services={
@@ -34,14 +41,16 @@ from core.models.{domain}.{domain}_request import {Domain}CreateRequest, {Domain
 )
 
 
-def create_{domain}_routes(app, rt, services, _sync_service=None):
+def create_{domain}_routes(
+    app: FastHTMLApp, rt: RouteDecorator, services: Services | None, _sync_service: Any = None
+) -> None:
     register_domain_routes(app, rt, services, {DOMAIN}_CONFIG)
 
 
 __all__ = ["create_{domain}_routes"]
 ```
 
-**Exemplar:** `adapters/inbound/tasks_routes.py` (copy for any Activity Domain)
+**Exemplar:** `adapters/inbound/tasks_routes.py` (copy for any Activity Domain). `request_create_method` names the facade's request-door create primitive: `POST /api/{domain}/create` hands it the validated request, so the request's edge-only link fields become edges instead of being dropped.
 
 ---
 
@@ -111,7 +120,7 @@ __all__ = ["create_{domain}_routes"]
 
 ## Template 3: UI-Only
 
-For domains with no CRUD API (e.g., Study). Simply omit `api_factory` — it defaults to `None`.
+For domains with no API factory of their own (e.g., Ku, Calendar). Simply omit `api_factory` — it defaults to `None`.
 
 ```python
 from adapters.inbound.{domain}_ui import create_{domain}_ui_routes
@@ -159,7 +168,9 @@ logger = get_logger("skuel.routes.{domain}")
 )
 
 
-def create_{domain}_routes(app: Any, rt: Any, services: Any, _sync_service=None) -> None:
+def create_{domain}_routes(
+    app: FastHTMLApp, rt: RouteDecorator, services: Services | None, _sync_service: Any = None
+) -> None:
     """Wire {domain} routes: standard via config, extras manually."""
     # Standard routes via DomainRouteConfig
     register_domain_routes(app, rt, services, {DOMAIN}_CONFIG)
@@ -193,7 +204,7 @@ from core.models.{domain}.{domain}_request import {Domain}CreateRequest, {Domain
 
 {DOMAIN}_CONFIG = DomainRouteConfig(
     domain_name="{domain}",
-    primary_service_attr="{domain}_service",
+    primary_service_attr="{domain}",
     api_factory=create_{domain}_api_routes,
     ui_factory=create_{domain}_ui_routes,
     api_related_services={"user_service": "user"},
@@ -216,15 +227,14 @@ def create_{domain}_routes(app, rt, services, _sync_service=None):
 __all__ = ["create_{domain}_routes"]
 ```
 
-**Exemplars:** `groups_routes.py` (role_gates_reads=False), `form_templates_routes.py` (SHARED+ADMIN), `revised_exercises_routes.py` (USER_OWNED+TEACHER), `ku_routes.py` (SHARED+ADMIN+Intelligence), `exercises_routes.py` (USER_OWNED+TEACHER), `pathways_routes.py` (SHARED+ADMIN+Intelligence), `path_steps_routes.py` (SHARED+ADMIN+Intelligence)
+**Exemplars:** `groups_routes.py` (role_gates_reads=False), `form_templates_routes.py` (SHARED+ADMIN), `revised_exercises_routes.py` (USER_OWNED+TEACHER), `exercises_routes.py` (USER_OWNED+TEACHER), `_pathstep_template_routes_helpers.py` (SHARED+TEACHER, the six PathStep activity templates)
 
-**Adding Intelligence routes:** For Curriculum domains, add `IntelligenceRouteConfig` with `scope=ContentScope.SHARED`:
+**Adding Intelligence routes:** `intelligence=IntelligenceRouteConfig(scope=...)` registers the three intelligence routes. PathStep and LearningPath carry it alone, `SHARED`, with no `crud=` — curriculum is created by ingestion:
 
 ```python
 from adapters.inbound.route_factories import IntelligenceRouteConfig
 
-# In DomainRouteConfig:
-    crud=CRUDRouteConfig(...),
+# In DomainRouteConfig (path_steps_routes.py, pathways_routes.py):
     intelligence=IntelligenceRouteConfig(scope=ContentScope.SHARED),
 ```
 
@@ -249,8 +259,8 @@ api_related_services={
 | `"goals_service"` | `"goals"` | Cross-domain goal linking |
 | `"habits_service"` | `"habits"` | Cross-domain habit linking |
 | `"tasks_service"` | `"tasks"` | Cross-domain task linking |
-| `"events_service"` | `"events"` | Cross-domain event linking |
-| `"driver"` | `"driver"` | Direct Neo4j driver access |
+| `"principles_service"` | `"principles"` | Cross-domain principle linking |
+| `"connection_fetch_backend"` | `"connection_fetch_backend"` | Activity UI factories — the detail page's connections block |
 
 ---
 

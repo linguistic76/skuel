@@ -40,31 +40,28 @@ SKUEL separates types by responsibility:
 
 ```python
 # Tier 1: Pydantic (External) - Validation at the edge
-from pydantic import BaseModel, Field
-
-class TaskCreateRequest(BaseModel):
+class TaskCreateRequest(CreateRequestBase):
     title: str = Field(min_length=1, max_length=200)
+    due_date: date | None = Field(default=None)
     priority: Priority = Field(default=Priority.MEDIUM)
 
 
 # Tier 2: DTO (Transfer) - Mutable data movement
 @dataclass
-class TaskDTO:
-    uid: str
-    title: str
-    priority: str
+class TaskDTO(UserOwnedDTO):
+    due_date: date | None = None
 
 
 # Tier 3: Domain Model (Core) - Immutable business logic
-@dataclass(frozen=True)
-class Task:
-    uid: str
-    title: str
-    priority: Priority
+@dataclass(frozen=True, kw_only=True)
+class Task(UserOwnedEntity):
+    due_date: date | None = None
 
     def is_overdue(self) -> bool:
         """Business logic lives in domain models"""
-        return self.due_date and self.due_date < today_in(current_zone())
+        if self.is_completed or not self.due_date:
+            return False
+        return self.due_date < today_in(current_zone())
 ```
 
 ## Base Class Hierarchy
@@ -77,16 +74,16 @@ from pydantic import BaseModel, ConfigDict
 
 class RequestBase(BaseModel):
     """Base for all request models"""
-    model_config = ConfigDict()
+    model_config = ConfigDict()  # Pydantic V2 defaults — enums stay enum members
 
 
 class CreateRequestBase(RequestBase):
-    """Base for POST create requests"""
+    """Base for create requests"""
     pass
 
 
 class UpdateRequestBase(RequestBase):
-    """Base for PATCH update requests - all fields optional.
+    """Base for update requests - all fields optional.
 
     Activity Domain *UpdateRequest models also expose `to_intent()`, which builds the
     frozen `*UpdateIntent` the service contract consumes (ADR-066) — never pass the raw
@@ -114,11 +111,46 @@ class TaskCreateRequest(CreateRequestBase):
     due_date: date | None = None
 
 
-class TaskResponse(ResponseBase):
-    uid: str
-    title: str
-    is_overdue: bool  # Computed field
+class TaskUpdateRequest(UpdateRequestBase):
+    title: str | None = Field(default=None, min_length=1, max_length=200)
+    actual_minutes: int | None = Field(default=None, ge=0)
 ```
+
+## Binding a Request Model in a Route
+
+The model reaches a handler one of four ways. A rejected body is a **400**
+(`ErrorCategory.VALIDATION`) — 422 is `BUSINESS`, a well-formed request that breaks a
+domain rule — through each `parse_*` helper always, and through auto-binding only within
+the limits the table and the warning below state.
+
+| Binding | Where | A rejected body becomes |
+|---------|-------|-------------------------|
+| `parse_body(request, Model)` | a door both API clients (JSON) and HTMX forms reach — the CRUD factory's `/create` and `/update?uid=`, the admin account actions | `Result.fail(Errors.validation(...))` → 400 |
+| `parse_json_body(request, Model)` | a JSON-only API route | same |
+| `parse_form_body(request, Model)` | a form-only UI route (empty strings → `None`, `list[T]` split) | same; a UI route usually re-renders the form with a banner (200) |
+| `body: Model` in the signature | FastHTML builds it during parameter extraction, *before* the handler and `@boundary_handler` run | 400 via the app-level `install_request_validation_guard` — **for an `application/json` request only**; the guard re-raises for any other content type, so a form-encoded body that fails validation answers 500 |
+
+The helpers live in `adapters/inbound/form_helpers.py`. `parse_body` picks its reader by
+Content-Type — htmx url-encodes every body (multipart for a `Form`), whatever an
+`hx-headers` Content-Type claims.
+
+⚠ **An auto-bound (`body: Model`) field is coerced by FastHTML before Pydantic sees it.**
+FastHTML passes every *string* value through the field's annotation — or, for `int`, `date`
+and `bool`, its own `str2int` / `str2date` / `str2bool`. A `Literal` annotation raises
+`TypeError` on any value; an enum, `int` or `date` raises a plain `ValueError` on a string
+it cannot convert (`Priority("bad")`, `int("abc")`). Neither is a `ValidationError`, so no
+guard converts it and the request 500s. Never annotate an auto-bound field as a `Literal`
+or an enum — use a `str` narrowed by a `@field_validator`
+(`ContextualHabitCompletionRequest.quality`) — and prefer a `parse_*` helper, where Pydantic
+does all the validation and every rejection is a 400.
+
+The helpers merge nothing into the body. When a route verifies ownership, it checks the
+owner uid wherever it travels: a model field (`TrackHabitRequest.habit_uid`) is verified
+after parsing; a query-string uid (`POST /api/principles/link?uid=`) before.
+
+Secret-bearing auth fields (passwords, reset tokens) are `pydantic.SecretStr`, so neither
+the model's `repr` nor `model_dump()` can disclose them — see
+`/docs/patterns/AUTH_PATTERNS.md` § Secret-bearing fields are unprintable.
 
 ## Field Validation
 
@@ -153,50 +185,44 @@ class TaskCreateRequest(BaseModel):
 Use `@field_validator` when Field() constraints aren't enough:
 
 ```python
-from pydantic import field_validator
-from typing import Any
+# core/models/habit/habit_request.py
+CONTEXTUAL_QUALITY_VALUES: Final = ("poor", "fair", "good", "excellent")
 
-class TaskCreateRequest(BaseModel):
-    audio_file_path: str = Field(min_length=1)
-    custom_vocabulary: list[str] = Field(default_factory=list)
+class ContextualHabitCompletionRequest(BaseModel):
+    quality: str = Field(default="good")
 
-    @field_validator("audio_file_path")
+    @field_validator("quality")
     @classmethod
-    def validate_audio_path(cls, v: str) -> str:
-        """Validate file has allowed extension"""
-        allowed = {".mp3", ".wav", ".m4a", ".webm", ".ogg", ".flac"}
-        if not any(v.lower().endswith(ext) for ext in allowed):
-            raise ValueError(f"Audio file must have: {', '.join(allowed)}")
-        return v
-
-    @field_validator("custom_vocabulary")
-    @classmethod
-    def validate_vocabulary(cls, v: list[str]) -> list[str]:
-        """Validate and normalize vocabulary list"""
-        if len(v) > 100:
-            raise ValueError("Custom vocabulary cannot exceed 100 words")
-        return [word.strip().lower() for word in v if word.strip()]
+    def validate_quality(cls, value: str) -> str:
+        """A narrowed str, not a Literal — this model is auto-bound (`body: ...`)."""
+        if value not in CONTEXTUAL_QUALITY_VALUES:
+            raise ValueError(f"quality must be one of: {', '.join(CONTEXTUAL_QUALITY_VALUES)}")
+        return value
 ```
 
-### Conditional Validation with ValidationInfo
+### Conditional Validation — a Field Validator Skips Omitted Fields
 
-Access other field values during validation:
+A `field_validator` runs only on a value the client sent; Pydantic validates a default
+only under `Field(validate_default=True)`. So "default this field when that one has a
+value" written as a field validator never fires for the client who omits it — which is
+the whole case. Write it as a model validator, which always runs:
 
 ```python
-from pydantic import field_validator, ValidationInfo
-
-class TaskStatusUpdateRequest(BaseModel):
-    status: EntityStatus
-    completion_date: date | None = None
-
-    @field_validator("completion_date")
-    @classmethod
-    def validate_completion_date(cls, v: date | None, info: ValidationInfo) -> date | None:
-        """Auto-set completion date when status is COMPLETED"""
-        if info.data.get("status") == EntityStatus.COMPLETED and not v:
-            return today_in(current_zone())
-        return v
+# core/models/task/task_request.py — TaskCreateRequest
+@model_validator(mode="after")
+def default_completion_date_when_completed(self) -> TaskCreateRequest:
+    """A task born COMPLETED carries a completion date — today unless supplied."""
+    if self.status == EntityStatus.COMPLETED:
+        if self.completion_date is None:
+            self.completion_date = today_in(current_zone())
+    elif self.completion_date is not None:
+        raise ValueError("completion_date requires status=completed")
+    return self
 ```
+
+`info.data` (`ValidationInfo`) still has its place: a check on a value that *was* sent,
+against a field declared earlier — `validate_recurrence_end_after_start` in
+[validation-patterns.md](validation-patterns.md).
 
 ### Client Datetime Fields
 
@@ -214,33 +240,38 @@ class ChoiceUpdateRequest(UpdateRequestBase):
 Use `@model_validator(mode="after")` for validation that spans multiple fields:
 
 ```python
+# core/models/goal/goal_request.py — GoalCreateRequest (abridged)
 from pydantic import model_validator
 
 class GoalCreateRequest(BaseModel):
-    start_date: date | None = Field(default_factory=date.today)
-    target_date: date | None = None
+    # "Today" is today in a zone. A default factory takes the zero-argument form —
+    # an uncalled `date.today` is refused in core/, adapters/ and ui/
+    # (tests/unit/test_uncalled_clock_references.py).
+    start_date: date | None = Field(default_factory=today_in_current_zone)
+    target_date: date | None = Field(default=None, description="Target completion date")
     measurement_type: MeasurementType = Field(MeasurementType.PERCENTAGE)
     target_value: float | None = None
 
     @model_validator(mode="after")
-    def validate_date_ordering(self):
-        """Ensure target_date is after start_date"""
-        if self.target_date and self.start_date:
-            if self.target_date <= self.start_date:
-                raise ValueError("Target date must be after start date")
-        return self
+    def validate_target_date(self, info: ValidationInfo) -> GoalCreateRequest:
+        """Target date is in the future and on or after the start date."""
+        allow_past = bool(info.context and info.context.get("allow_past_dates"))
+        if not allow_past and self.target_date and self.target_date < today_in(current_zone()):
+            raise ValueError("Target date must be in the future")
+        return validate_date_after("target_date", "start_date", allow_equal=True)(self)
 
     @model_validator(mode="after")
-    def validate_target_value(self):
-        """Validate target_value based on measurement_type"""
+    def validate_target_value(self) -> GoalCreateRequest:
+        """Validate target value based on measurement type."""
         if self.measurement_type == MeasurementType.PERCENTAGE:
-            if self.target_value and not (0 <= self.target_value <= 100):
-                raise ValueError("Percentage must be 0-100")
-        elif self.measurement_type == MeasurementType.NUMERIC:
-            if self.target_value is None:
-                raise ValueError("Numeric measurement requires target_value")
+            if self.target_value and (self.target_value < 0 or self.target_value > 100):
+                raise ValueError("Percentage target must be between 0 and 100")
+        elif self.measurement_type == MeasurementType.NUMERIC and not self.target_value:
+            raise ValueError("Numeric measurement requires a target value")
         return self
 ```
+
+`today_in_current_zone` lives in `core/utils/zone_context.py`.
 
 ### Complex Cross-Field Example
 
@@ -290,7 +321,7 @@ def validate_future_date(*field_names: str) -> Callable:
     paths pass no context, so the guard stands there (Arc E, G10).
     """
     @field_validator(*field_names)
-    def _validate(
+    def _validate_future_date(
         cls, v: date | datetime | None, info: ValidationInfo
     ) -> date | datetime | None:
         if v is None:
@@ -304,41 +335,45 @@ def validate_future_date(*field_names: str) -> Callable:
         elif isinstance(v, date) and v < today_in(current_zone()):
             raise ValueError("Date cannot be in the past")
         return v
-    return _validate
+    return _validate_future_date
 
 
-def validate_required_string(*field_names: str) -> Callable:
-    """Factory: Validate string is not empty after strip"""
+def validate_required_string(*field_names: str, min_length: int = 1) -> Callable:
+    """Factory: Validate string is not empty after strip; returns the stripped value"""
     @field_validator(*field_names)
-    def _validate(cls, v: str) -> str:
-        if not v or not v.strip():
-            raise ValueError("Cannot be empty")
-        return v.strip()
-    return _validate
+    def _validate_required_string(cls, v: str | None) -> str | None:
+        if v is None:
+            return v
+        stripped = v.strip()
+        if len(stripped) < min_length:
+            raise ValueError("Field cannot be empty")
+        return stripped
+    return _validate_required_string
 
 
 def validate_percentage(*field_names: str) -> Callable:
     """Factory: Validate value is 0-100"""
     @field_validator(*field_names)
-    def _validate(cls, v: float | None) -> float | None:
-        if v is not None and not (0 <= v <= 100):
-            raise ValueError("Must be between 0 and 100")
+    def _validate_percentage(cls, v: float | None) -> float | None:
+        if v is not None and (v < 0 or v > 100):
+            raise ValueError("Percentage must be between 0 and 100")
         return v
-    return _validate
+    return _validate_percentage
 ```
+
+The full list is in [validation-patterns.md](validation-patterns.md).
 
 **Usage in request models:**
 
 ```python
-class GoalCreateRequest(BaseModel):
-    title: str
-    due_date: date | None = None
-    progress: float | None = None
+# core/models/task/task_request.py — TaskCreateRequest
+_validate_dates = validate_future_date("due_date", "scheduled_date")
+_validate_recurrence_end = validate_recurrence_end_after_start(
+    "recurrence_end_date", "due_date"
+)
 
-    # Apply shared validators
-    _validate_title = validate_required_string("title")
-    _validate_dates = validate_future_date("due_date", "target_date")
-    _validate_progress = validate_percentage("progress")
+# core/models/goal/goal_request.py — GoalCreateRequest
+_validate_title = validate_required_string("title")
 ```
 
 ## Serialization Configuration
@@ -348,117 +383,50 @@ class GoalCreateRequest(BaseModel):
 ```python
 from pydantic import ConfigDict
 
-class TaskCreateRequest(BaseModel):
-    priority: Priority = Priority.MEDIUM
-    domain: Domain = Domain.KNOWLEDGE
+# The bases hold the shared config (core/models/request_base.py):
+# RequestBase → ConfigDict() — Pydantic V2 defaults, so enums stay enum members
+# ResponseBase → ConfigDict(from_attributes=True)
 
-    model_config = ConfigDict(
-        # Keep enums as objects (not .value strings)
-        use_enum_values=False,
+# A model that rejects unknown fields — core/models/transcription/transcription.py
+class TranscriptionCreateRequest(BaseModel):
+    audio_file_path: str = Field(..., description="Path to audio file")
+    language: str = Field(default="en", description="Language code for transcription")
 
-        # JSON schema example for docs
-        json_schema_extra={
-            "example": {
-                "title": "Complete ML Course",
-                "priority": "high",
-                "domain": "tech",
-            }
-        }
-    )
-
-
-class TaskResponse(BaseModel):
-    uid: str
-    title: str
-    created_at: datetime
-
-    model_config = ConfigDict(
-        # Allow creation from ORM/dataclass objects
-        from_attributes=True,
-
-        # Serialize enums to their values
-        use_enum_values=True,
-    )
+    model_config = {"extra": "forbid"}
 ```
 
 ### When to Use Each Option
 
 | Option | Use Case |
 |--------|----------|
-| `use_enum_values=False` | Keep type safety in request processing |
-| `use_enum_values=True` | JSON serialization in responses |
+| `extra="forbid"` | Reject unknown fields instead of dropping them |
 | `from_attributes=True` | Create from DTO/domain model attributes |
-| `json_schema_extra` | OpenAPI/Swagger documentation |
+| `use_enum_values=True` | Store `.value` strings instead of enum members (default False) |
+| `json_schema_extra` | OpenAPI/Swagger examples |
 
 ## Literal Types for Strict Validation
 
-Use `Literal` for fixed string values (enum-like without defining an enum):
+Enums are the default for a fixed vocabulary — they carry behavior and are reused across
+models. A `Literal` suits a one-off constraint on a model built by a `parse_*` helper or
+`from_form_params()` — never an auto-bound body (see
+[Binding a Request Model in a Route](#binding-a-request-model-in-a-route)):
 
 ```python
-from typing import Literal
-
-ProcessingStatusLiteral = Literal[
-    "pending", "transcribing", "transcribed",
-    "analyzing", "completed", "failed"
-]
-AudioFormatLiteral = Literal["mp3", "wav", "m4a", "webm", "ogg", "flac"]
-LanguageCodeLiteral = Literal["en", "es", "fr", "de", "zh", "ja"]
-
-class TranscriptionCreateRequest(BaseModel):
-    service: Literal["deepgram", "whisper"] = "deepgram"
-    language: LanguageCodeLiteral = "en"
-    audio_format: AudioFormatLiteral
+# core/models/search_request.py — SearchRequest, built by from_form_params()
+connected_direction: Literal["outgoing", "incoming", "both"] = Field(default="outgoing")
 ```
 
 ## Response Models
 
-### The from_dto() Pattern
+An API route returns the frozen domain model — `Result[Task]` — and `@boundary_handler`
+serializes it (`jsonable_content` in `adapters/inbound/boundary.py`, via Pydantic's
+`to_jsonable_python`). There is no per-entity Pydantic response layer: `TaskResponse` and
+`TaskListResponse` exist in `task_request.py`, but no route builds them.
 
-Response models create themselves from DTOs with computed fields:
-
-```python
-class TaskResponse(ResponseBase):
-    uid: str
-    title: str
-    status: EntityStatus
-    priority: Priority
-    created_at: datetime
-
-    # Computed fields (from domain model business logic)
-    is_overdue: bool
-    is_recurring: bool
-    learning_alignment_score: float
-
-    @classmethod
-    def from_dto(
-        cls,
-        dto: "TaskDTO",
-        rels: "TaskRelationships | None" = None
-    ) -> "TaskResponse":
-        """Create response from DTO with graph relationships"""
-        from .task import Task
-
-        # Use domain model for business logic
-        task = Task.from_dto(dto)
-
-        return cls(
-            uid=dto.uid,
-            title=dto.title,
-            status=dto.status,
-            priority=dto.priority,
-            created_at=dto.created_at,
-            # Computed from domain model
-            is_overdue=task.is_overdue(),
-            is_recurring=task.is_recurring(),
-            learning_alignment_score=task.learning_alignment_score(),
-            # From graph relationships
-            subtask_uids=list(rels.subtask_uids) if rels else [],
-        )
-```
-
-### Search Response with Helper Methods
+A Pydantic response model is for a payload that is not an entity — the search envelope:
 
 ```python
+# core/models/search_request.py (abridged) — built by SearchRouter
 class SearchResponse(BaseModel):
     results: list[dict[str, Any]] = Field(default_factory=list)
     # Rows in THIS page — search is top-N (one page-only query, no match-set
@@ -475,15 +443,17 @@ class SearchResponse(BaseModel):
 
 ## Anti-Patterns
 
-### 1. Don't Validate in Domain Models
+### 1. Don't Validate Input in Domain Models
+
+Input validation belongs at the edge. (A domain model's `__post_init__` does enforce its
+own invariants — a leaf model rejects a mismatched `entity_type` (G6) — but it never
+re-checks what the request model already checked.)
 
 ```python
-# BAD - Validation in domain model
-@dataclass(frozen=True)
-class Task:
-    title: str
-
-    def __post_init__(self):
+# BAD - input validation in the domain model
+@dataclass(frozen=True, kw_only=True)
+class Task(UserOwnedEntity):
+    def __post_init__(self) -> None:
         if len(self.title) < 1:
             raise ValueError("Title required")  # Wrong layer!
 
@@ -527,15 +497,16 @@ class TaskRequest(BaseModel):
 ```python
 # AVOID - mode="before" runs before type coercion
 @model_validator(mode="before")
-def validate_early(cls, data):
-    # data is raw dict, types not yet converted
-    ...
+@classmethod
+def validate_early(cls, data: dict[str, object]) -> dict[str, object]:
+    # data is the raw input, types not yet converted
+    return data
 
 # PREFER - mode="after" has typed, validated fields
 @model_validator(mode="after")
-def validate_complete(self):
+def validate_complete(self) -> Self:
     # self has properly typed fields
-    ...
+    return self
 ```
 
 ### 5. Don't Mix Validation Styles

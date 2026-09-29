@@ -33,7 +33,9 @@ def index():
 serve()
 ```
 
-Run with: `python main.py` (access via localhost:5001)
+Run with: `python main.py` (access via localhost:5001). This is upstream's minimal app —
+SKUEL boots through `main.py` and `scripts/dev/bootstrap.py`, which build the app, compose
+the services and call every route factory (see [SKUEL Route Wiring](#skuel-route-wiring)).
 
 ## FastTags (FT Components)
 
@@ -127,7 +129,7 @@ def create_user(): ...
 ### Parameters
 
 ```python
-# Query parameters (SKUEL preferred pattern for APIs)
+# Query parameters
 @rt("/api/users/get")
 def get_user(user_id: int):  # ?user_id=123
     return f"User {user_id}"
@@ -138,7 +140,7 @@ def search(q: str, limit: int = 10):
     return f"Search: {q}, limit: {limit}"
 # GET /search?q=hello&limit=5
 
-# Path parameters (for UI/SEO-friendly routes only)
+# Path parameters
 @app.get("/users/{user_id}")
 def user_profile(user_id: int): return f"User {user_id}"
 
@@ -148,7 +150,41 @@ name = str_enum('names', 'Alice', 'Bob', 'Charlie')
 def greet(nm: name): return f"Hello, {nm}!"
 ```
 
-**SKUEL Convention:** API routes use query params (`?uid=...`), UI routes may use path params for SEO-friendly URLs. See [routing-patterns.md](routing-patterns.md) for details.
+**SKUEL Convention:** both shapes are live, on API and UI routes alike. A CRUD-factory read, update or delete takes the uid as a query parameter (`/api/tasks/get?uid=`); a per-entity door — an action, a field write, a related-set read — takes it as a path segment (`POST /api/tasks/{uid}/status`, `GET /api/path-steps/{uid}/organizers`). Do not add a CRUD read in the path-uid shape. See [routing-patterns.md](routing-patterns.md) for details.
+
+## SKUEL Route Wiring
+
+A SKUEL route module exposes a factory — `create_{domain}_api_routes(app, rt, ...)` /
+`create_{domain}_ui_routes(...)` — that defines and decorates its handlers and **returns
+`None`**. `@rt()` registers a handler the moment it decorates it; collecting handlers in a
+`routes = []` list and returning it loses the sub-routes (404) and warns nobody. The rule
+holds at every layer — `register_domain_routes()`, the factory classes' `register_routes()`,
+a single-route helper — and bootstrap logs one route count from `app.routes`.
+
+```python
+# adapters/inbound/tasks_api.py
+def create_tasks_api_routes(
+    app: FastHTMLApp,
+    rt: RouteDecorator,
+    tasks_service: TasksService,
+    goals_service: GoalsService,
+    **_kwargs: Any,
+) -> None:
+    """Register Tasks API routes."""
+
+    @rt("/api/tasks/knowledge-priorities", methods=["GET"])
+    @boundary_handler()
+    async def task_knowledge_priorities(request: Request) -> Result[dict[str, Any]]:
+        ...
+```
+
+Standard routes come from factories rather than hand-written handlers: `CRUDRouteFactory`
+(create/get/update/delete/list), `CommonQueryRouteFactory`, `IntelligenceRouteFactory`,
+`AnalyticsRouteFactory`, and the Activity-Domain function factories
+`create_activity_field_api_routes` (`POST /api/{domain}/{uid}/{field}`),
+`create_activity_hierarchy_api_routes` and `create_activity_link_api_routes`. Most domains
+wire them through `DomainRouteConfig`. **See:** `@domain-route-config`,
+`/docs/patterns/ROUTE_FACTORIES.md`, `/docs/patterns/FASTHTML_ROUTE_REGISTRATION.md`.
 
 ### Route References
 
@@ -221,9 +257,14 @@ serve()
 
 ### Special Parameters
 
+In SKUEL a handler annotates its request — `request: Request` from
+`adapters.inbound.fasthtml_types` (SKUEL020, SKUEL035). FastHTML recognizes an
+*unannotated* `req`/`request` by name, but `request: Any` is not special: extraction looks
+for a field named `request`, finds none, and answers 400 before any gate runs.
+
 ```python
 @rt
-def handler(req):              # Starlette Request object
+def handler(req):              # Starlette Request object (upstream style)
     ip = req.client.host
     headers = req.headers
     return f"IP: {ip}"
@@ -299,6 +340,15 @@ def create_user(user: User):
     # Form fields auto-unpack to dataclass
     return P(f"Created: {user.name}")
 ```
+
+FastHTML passes each incoming string value through the field's annotation (for `int`,
+`date` and `bool`, its own `str2int` / `str2date` / `str2bool`) before the object is built.
+In SKUEL, a Pydantic model bound this way (`body: SomeRequest`) is validated during
+parameter extraction; `install_request_validation_guard` turns its `ValidationError` into a
+400 for an `application/json` request only. A `Literal` field raises `TypeError` from the
+coercion, an enum / `int` / `date` field a plain `ValueError` on an unconvertible string,
+and a form-encoded body that fails validation re-raises — all 500. SKUEL binds most bodies
+with `parse_body` / `parse_json_body` / `parse_form_body` instead (`@pydantic`).
 
 ### fill_form Helper
 
@@ -398,6 +448,7 @@ async def ws(msg: str):
     msgs.append(msg)
     await send(Ul(*[Li(m) for m in msgs], id='msg-list'))
 
+from fasthtml.core import setup_ws  # not re-exported by fasthtml.common
 send = setup_ws(app, ws)  # Returns send function, wires up WebSocket
 ```
 
@@ -483,6 +534,10 @@ def with_session(session):
 ```
 
 ## Authentication (Beforeware)
+
+Upstream's pattern is below. SKUEL's auth is graph-native (sessions in Neo4j): a handler
+calls `require_authenticated_user(request)` or carries a role gate
+(`@require_admin(get_user_service)`, …) — see `@security`.
 
 ```python
 def auth_before(req, sess):
@@ -677,15 +732,17 @@ def get_books_for_user(user_id: int):
 - **[ui-browser](../ui-browser/SKILL.md)** - HTMX + Alpine.js patterns FastHTML uses for dynamic updates and client-side state
 - **[ui-css](../ui-css/SKILL.md)** - SKUEL's `ui.components` (pure Tailwind) for FastHTML
 - **[pydantic](../pydantic/SKILL.md)** - Request/response validation in FastHTML routes
+- **[domain-route-config](../domain-route-config/SKILL.md)** - Configuration-driven route registration
 
 ## Foundation
 
-- **[ui-browser](../ui-browser/SKILL.md)** - Understanding hypermedia architecture
-- **[ui-css](../ui-css/SKILL.md)** - Pre-styled component library
+- **[python](../python/SKILL.md)** - Type hints, async/sync, Result[T]
 
 ## See Also
 
 - `/docs/patterns/FASTHTML_ROUTE_REGISTRATION.md` - Route registration patterns
+- `/docs/patterns/ROUTE_FACTORIES.md` - Route factories
+- `/docs/patterns/FASTHTML_TYPE_HINTS_GUIDE.md` - Parameter extraction by type hint
 - `/docs/decisions/ADR-020-fasthtml-route-registration-pattern.md` - Route registration ADR
 - FastHTML Docs: https://fastht.ml
 - GitHub: https://github.com/answerdotai/fasthtml

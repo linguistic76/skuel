@@ -122,6 +122,5 @@ Fields: `category`, `message` (developer), `code` (searchable, e.g. `NOT_FOUND_T
 ---
 
 **See Also**: [SKILL.md](SKILL.md) for detailed explanations
-**See Also**: [PATTERNS.md](PATTERNS.md) for design patterns
 **See Also**: [patterns-reference.md](patterns-reference.md) for comprehensive code examples
 **See Also**: `/docs/patterns/ERROR_HANDLING.md` for the full error handling architecture

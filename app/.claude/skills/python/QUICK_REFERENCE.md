@@ -143,5 +143,4 @@ logger.info("Created task '%s' with %d knowledge links", task.title, count)
 ---
 
 **See Also**: [SKILL.md](SKILL.md) for detailed explanations
-**See Also**: [PATTERNS.md](PATTERNS.md) for design patterns
 **See Also**: [async-patterns.md](async-patterns.md) and [type-hints-reference.md](type-hints-reference.md)

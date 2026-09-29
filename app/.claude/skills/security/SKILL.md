@@ -10,16 +10,16 @@ SKUEL has a strong security foundation built into the architecture:
 
 | Area | Implementation | Status |
 |------|---------------|--------|
-| **Query injection** | Parameterized `$variables` + allowlist validation for interpolated labels/relationship types/fields | Enforced (SKUEL001, SKUEL013) |
-| **Authentication** | Graph-native auth in Neo4j, `require_authenticated_user()` on all user routes | Active |
-| **Authorization** | Role-based (REGISTERED/MEMBER/TEACHER/ADMIN), `@require_admin` decorator | Active |
-| **Ownership verification** | Returns 404 (not 403) for entities the user doesn't own — no information leakage | Active |
+| **Query injection** | Parameterized `$variables` + allowlist validation for interpolated labels/relationship types/fields | Enforced (CYP003, SKUEL021, SKUEL013) |
+| **Authentication** | Graph-native auth in Neo4j; `AuthContextMiddleware` validates the session against its `:Session` node on every request; `require_authenticated_user()` on user-owned routes, `get_current_user()` (optional) on SHARED read pages | Active |
+| **Authorization** | Role-based (REGISTERED/MEMBER/TEACHER/ADMIN), `@require_admin` / `@require_teacher` / `@require_role` decorators | Active |
+| **Ownership verification** | Returns 404 (not 403) for entities the user doesn't own — no information leakage; reads pass one of two chokepoints (ADR-085) | Active |
 | **Error stripping** | `@boundary_handler` strips internal details from HTTP responses | Active |
 | **Session security** | SHA-256 hashing, `SameSite=strict`, `HttpOnly`, `Secure` in production | Active |
 | **CSRF protection** | `SameSite=Strict` (primary) + double-submit `csrf_token` cookie verified by `@csrf_protected` | Active |
 | **Path traversal** | No HTTP route takes a path to ingest — the reconciler walks the vault roots fixed at composition (`VaultRegistry`); `is_relative_to()` containment checks in the vault descriptor/reconciler back the sync wall below | Active |
 | **Vault sync privacy wall** | One predicate (`is_ingestible_path`) at every ingestion chokepoint (`collect_files`, `ingest_file`, `reconcile_deletions` — the reconciler and any direct call inherit): rejects **symlinks** (target may be external); applies a **`je_*` staging floor** scoped to the personal vault; enforces a **fail-closed allowlist** (`SyncAllowlist`, code-defined `_DEFAULT_SYNC_SUBDIRS` — `periodic_notes/`/`personal_notes/`/`activity_notes/`/`knowledge/`; **not** env-configurable — `SKUEL_VAULT_SYNC_ALLOWED_DIRS` was removed as it let a stale exported var shadow `.env`; dirs must be strictly under the root). Retroactive: narrowing the wall purges now-walled rows via reconciliation (full→smart auto-upgrade when governed). Content vault (outside the root) unaffected | Active (default-on) |
-| **Login rate limiting** | **Two-axis:** per-account (5 fails/15min, by email) + per-IP (20 fails/15min, by `AuthEvent.ip_address`); IP check ordered **before** email lookup to block enumeration | Active |
+| **Login rate limiting** | **HTTP layer:** `rate_limited_ip` (`adapters/inbound/rate_limit.py`) on the auth POSTs — login 10/60s, register / forgot-password / reset-password 5/300s, 429 + `Retry-After`. **Graph layer, two-axis:** per-account (5 fails/15min, by email) + per-IP (20 fails/15min, by `AuthEvent.ip_address`); IP check ordered **before** email lookup to block enumeration | Active |
 | **Password length pre-validation** | `validate_password` rejects > `MAX_PASSWORD_BYTES = 72` (UTF-8 byte count, not chars) before bcrypt — clean field error, not generic broad-except | Active |
 | **Docker production** | Non-root user, minimal image | Active |
 
@@ -27,16 +27,18 @@ SKUEL has a strong security foundation built into the architecture:
 
 ## Existing Security Patterns
 
-### Parameterized Cypher (SKUEL001 — Critical)
+### Parameterized Cypher (CYP003)
 
-All Neo4j queries MUST use parameter binding. Never format strings into Cypher.
+All Neo4j queries MUST use parameter binding for values. Never format a value into Cypher —
+`scripts/cypher_linter.py` CYP003 (ERROR) flags a value-position interpolation. Cypher itself
+lives only below the boundary, in `adapters/persistence/neo4j/` (SKUEL021).
 
 ```python
 # CORRECT
 await tx.run("MATCH (n:Entity {uid: $uid}) RETURN n", uid=entity_uid)
 
-# VIOLATION — raw string formatting
-await tx.run(f"MATCH (n:Entity {{uid: '{entity_uid}'}}) RETURN n")  # SKUEL001
+# VIOLATION — a value formatted into the query
+await tx.run(f"MATCH (n:Entity {{uid: '{entity_uid}'}}) RETURN n")  # CYP003
 ```
 
 ### Cypher Interpolation Validation (Defense-in-Depth)
@@ -89,8 +91,28 @@ if ownership_error:
 from adapters.inbound.route_factories import require_owned_entity
 entity, error = await require_owned_entity(service, uid, user_uid, "Entity")
 if error:
-    return error  # Returns Response(404)
+    return error  # bare Response: 404 not-yours/missing, 503 for a backend fault
 ```
+
+A UI refusal the learner *sees* goes through `refuse(error, render, entity_name)` (same
+module): NOT_FOUND renders "<Entity> not found" at **404**, anything else "Could not
+load …" at the error's own status, with the `X-SKUEL-Refusal: rendered` header that lets
+HTMX swap a 4xx/5xx body (`static/js/skuel.js`). A fragment is not exempt — an ownership
+failure answered 200 looks like a successful read to clients, caches and monitoring.
+
+**The two-chokepoint read contract (ADR-085).** A read on behalf of a user passes exactly
+one of: the visibility clause (`build_search_visibility_clause()` — every SearchRouter
+strategy, and by-UID reads through `BaseService.get_visible_to_user(uid, user_uid)` under
+the domain's `read_visibility`), or route-mediated `verify_ownership`. Bare `get()` is
+internal mechanics only. **Never add a third mechanism** — a `get()` followed by an inline
+`entity.user_uid != user_uid` compare is the ad-hoc check ADR-085 §4 forbids even when its
+logic is right. The two sanctioned inline compares (owner-or-teacher in `exercises_api.py`,
+student-or-owner in `revised_exercises_api.py`) express rules no service verifier can.
+
+**Teacher reads (ADR-088).** A teacher reads a student's entry only through the entry's own
+feedback request — `SUBMITTED_TO_GROUP` an active group the teacher `OWNS`. A `SHARES_WITH`
+from the teacher is a share, never a review grant, and sharing a classroom with the author
+is not enough (a student may be in several groups). Ask about the entity, never its author.
 
 ### boundary_handler Error Stripping
 
@@ -149,9 +171,11 @@ Pinned by `tests/unit/models/test_secret_fields_unprintable.py`, which asserts t
 ### Session Configuration
 
 - `SESSION_SECRET_KEY` read via `get_credential()` from the active backend — required in production, auto-generated in development.
-- Session IDs hashed with SHA-256 before storage
+- Session tokens are 256-bit `secrets.token_urlsafe`; only the SHA-256 hash is stored
 - Cookies: `HttpOnly=True`, `SameSite=strict`, `Secure=True` in production
 - Session data stored in Neo4j (graph-native, no separate session store)
+- **Validated once per request** — `AuthContextMiddleware` checks the token against its `:Session` node before any route runs: a revoked or expired session is cleared (forced re-login); a validation *error* (graph unreachable) answers 503 without clearing. Route helpers then read the cookie.
+- **Revocation is atomic** — each revoking write commits its credential/privilege change AND the session sweep in one transaction on `SessionBackend` (`change_password_and_revoke_sessions`, `reset_password_and_revoke_sessions`, `update_role_and_revoke_sessions`, `deactivate_user_and_revoke_sessions`), so the target's very next request is refused.
 
 ### CSRF Protection (Double-Submit Token + SameSite)
 
@@ -165,13 +189,15 @@ Primary defense is `SameSite=Strict` on the session cookie — the browser refus
 
 State-changing routes wear `@csrf_protected`. The decorator reads header first then form field, constant-time compares against the cookie, returns 403 on mismatch. Verification is unconditional in every environment — there is no enforcement toggle. Route tests satisfy it by minting a real cookie+header pair via `tests/fixtures/csrf.py` (`attach_csrf`).
 
+⚠ **Declare `methods=["POST"]` on every mutation.** `@csrf_protected` passes GET/HEAD/OPTIONS through unchecked, and `@rt(path)` without `methods=` answers GET, HEAD *and* POST — so a mutation registered without it is reachable by a GET that the double-submit check never sees (`SameSite=Strict` is then the only line).
+
 ```python
 from adapters.inbound.csrf import csrf_protected
 from ui.patterns.csrf import csrf_hidden_input
 
 @rt("/tasks/create", methods=["POST"])
 @csrf_protected
-async def create_task(request): ...
+async def task_create_submit(request: Request) -> Any: ...
 
 # Hand-built forms need the hidden field (FormGenerator adds it automatically)
 Form(csrf_hidden_input(), ..., method="POST", action="/login/submit")
@@ -201,13 +227,14 @@ fields were removed — they had no readers):
 
 When adding a new route, verify:
 
-1. **Authentication** — `user_uid = require_authenticated_user(request)` for standard routes, OR role decorator (`@require_admin`/`@require_teacher`) for protected routes — never both (the decorator already authenticates; use `current_user.uid` instead)
-2. **Authorization** — `@require_admin(get_service)` if admin-only; `@require_teacher(get_service)` if teacher-only
-3. **Ownership** — For USER_OWNED entities, verify `entity.user_uid == user_uid` (return 404 if not)
+1. **Authentication** — derive it from `ContentScope`: `user_uid = require_authenticated_user(request)` for user-owned routes; `get_current_user(request)` (returns `None` when anonymous) on SHARED read pages that only enrich for a signed-in user; OR a role decorator (`@require_admin`/`@require_teacher`) for protected routes — never a role decorator plus `require_authenticated_user` (SKUEL036; the decorator already authenticated — use `current_user.uid`)
+2. **Authorization** — `@require_admin(get_user_service)` if admin-only; `@require_teacher(get_user_service)` if teacher-only. The handler's first parameter is `request` and the injected user is spelled exactly `current_user: Any = None` — the decorator refuses any other spelling at decoration, and hides the parameter from FastHTML so a caller cannot bind it
+3. **Ownership** — For USER_OWNED entities, `verify_entity_ownership` (API) / `require_owned_entity` or `verify_ownership` + `refuse` (UI) — 404 if not the caller's. Never an inline `entity.user_uid == user_uid` compare (ADR-085 §4)
 4. **Error boundary** — `@boundary_handler()` wrapping the route handler
-5. **No PII in logs** — Never log user passwords, tokens, or session IDs. Secret-bearing model fields are `SecretStr` / `field(repr=False)` so a whole-object log line cannot disclose one (see Secret-Bearing Fields Are Unprintable) — but a `ValidationError` still carries the raw input.
-6. **Input validation** — Pydantic models for POST bodies, helper functions for query params
-7. **Decorator order** — `@rt > @require_admin > @boundary_handler > async def`
+5. **CSRF** — `methods=["POST"]` plus `@csrf_protected` on every state change
+6. **No PII in logs** — Never log user passwords, tokens, or session IDs. Secret-bearing model fields are `SecretStr` / `field(repr=False)` so a whole-object log line cannot disclose one (see Secret-Bearing Fields Are Unprintable) — but a `ValidationError` still carries the raw input.
+7. **Input validation** — Pydantic models for POST bodies (`parse_body` / `parse_json_body` / `parse_form_body`), helper functions for query params
+8. **Decorator order** — `@rt > @csrf_protected > @require_admin > @boundary_handler > async def` (`admin_api.py`)
 
 ---
 
@@ -216,7 +243,10 @@ When adding a new route, verify:
 | Check | Rule | Details |
 |-------|------|---------|
 | No raw string role/scope/status comparisons | — | Use `UserRole` enum (not `== "admin"`), `ExerciseScope` enum (not `== "assigned"`), `EntityStatus` enum (not `== "completed"`) |
-| No raw Cypher formatting | SKUEL001 | All queries parameterized |
+| No raw Cypher formatting | CYP003 | All values parameterized |
+| No Cypher above the boundary | SKUEL021 | Cypher lives in `adapters/persistence/neo4j/` only |
+| No auth call inside a role-gated handler | SKUEL036 | `@require_*` already authenticated — `UserUID(current_user.uid)` |
+| No uid sniffing | SKUEL034 | Entity kind comes from label / `entity_type` / edge, never a substring of the uid |
 | Use RelationshipName enum | SKUEL013 | No hardcoded relationship strings; infrastructure validates before interpolation |
 | No `hasattr()` | SKUEL011 | Use Protocol/isinstance/getattr |
 | No lambdas | SKUEL012 | Use named functions (prevents injection via closable scope) |
@@ -229,15 +259,13 @@ When adding a new route, verify:
 
 ## Deferred Security Items
 
-The following are tracked in `/docs/roadmap/security-hardening-deferred.md`:
+`/docs/roadmap/security-hardening-deferred.md` is the ledger. What is still open there:
 
-1. ~~Dependency version pinning (Langchain)~~ — ✅ closed 2026-07-27; the packages were never imported and were removed
-2. Rate limiting and CAPTCHA on sign-up
-3. Pre-commit hooks for secret scanning
-4. Session rotation on privilege change
-5. CI CVE scanning
-6. CAPTCHA (only if automated abuse occurs)
-7. HTTP security headers middleware (CSP, HSTS, X-Frame-Options, etc.)
+- **CAPTCHA on sign-up** (item 6, only if automated abuse occurs) — sign-up rate limiting shipped as `rate_limited_ip`
+- **CI-side history secret scan** (items 3 and 5) — the commit-time scan shipped (`scripts/git-hooks/pre-commit` + `credential-keys.txt`)
+- **SBOM** (item 5) — the dependency CVE audit shipped as the `dep_audit` job (osv-scanner over both lockfiles)
+
+Done: dependency pinning (closed by deleting the packages), session revocation on privilege change, the security-headers middleware, and the CSRF enforcement toggle's removal.
 
 Network security monitoring is tracked in `/docs/roadmap/network-security-monitoring.md`.
 

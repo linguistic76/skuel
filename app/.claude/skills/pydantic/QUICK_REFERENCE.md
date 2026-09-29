@@ -9,7 +9,7 @@
 Pydantic is **Tier 1 — the edges only**: request/response models validating external input.
 Tier 2 is DTOs (mutable data movement), Tier 3 is frozen dataclasses (core domain logic).
 Request models live in `core/models/{domain}/{domain}_request.py` (e.g. `core/models/task/task_request.py`);
-never validate in domain models — a frozen dataclass with `__post_init__` validation is the wrong layer.
+never validate *input* in domain models — a frozen dataclass's `__post_init__` guards its own invariants (G6 `entity_type`), not request fields.
 
 ---
 
@@ -34,38 +34,43 @@ class TaskCreateRequest(CreateRequestBase):
     _validate_recurrence_end = validate_recurrence_end_after_start("recurrence_end_date", "due_date")
 
     @model_validator(mode="after")
-    def validate_due_after_scheduled(self) -> "TaskCreateRequest":
+    def validate_due_after_scheduled(self) -> TaskCreateRequest:
         if self.due_date and self.scheduled_date and self.due_date < self.scheduled_date:
             raise ValueError("Due date cannot be before scheduled date")
         return self
 ```
 
-**When to use**: Every POST body. Inherit `CreateRequestBase` / `UpdateRequestBase` / `FilterRequestBase` / `ResponseBase` from `core/models/request_base.py` — never redeclare `model_config`.
+**When to use**: Every create body. Inherit `CreateRequestBase` / `UpdateRequestBase` / `FilterRequestBase` / `ResponseBase` from `core/models/request_base.py` — never redeclare `model_config`.
 
 ### Field validator (V2 syntax — decorator + `@classmethod`)
 
 ```python
-@field_validator("completion_date")
+# core/models/habit/habit_request.py — ContextualHabitCompletionRequest
+@field_validator("quality")
 @classmethod
-def validate_completion_date(cls, v, info: ValidationInfo) -> Any:
-    if info.data.get("status") == EntityStatus.COMPLETED and not v:
-        v = today_in(current_zone())
-    return v
+def validate_quality(cls, value: str) -> str:
+    if value not in CONTEXTUAL_QUALITY_VALUES:
+        raise ValueError(f"quality must be one of: {', '.join(CONTEXTUAL_QUALITY_VALUES)}")
+    return value
 ```
 
-**When to use**: Single-field logic `Field()` constraints can't express; `info.data` reads already-validated earlier fields, `info.context` carries validation context (e.g. `{"allow_past_dates": True}` skips `validate_future_date` for historical vault ingestion).
+**When to use**: Single-field logic `Field()` constraints can't express; `info.data` reads already-validated earlier fields, `info.context` carries validation context (e.g. `{"allow_past_dates": True}` skips `validate_future_date` for historical vault ingestion). ⚠ A field validator does **not** run on a field the client omitted (Pydantic validates defaults only under `Field(validate_default=True)`) — a conditional default or requirement is a model validator.
 
 ### Model validator (cross-field)
 
 ```python
+# core/models/task/task_request.py — TaskCreateRequest
 @model_validator(mode="after")
-def validate_date_ordering(self) -> "GoalCreateRequest":
-    if self.target_date and self.start_date and self.target_date <= self.start_date:
-        raise ValueError("Target date must be after start date")
+def default_completion_date_when_completed(self) -> TaskCreateRequest:
+    if self.status == EntityStatus.COMPLETED:
+        if self.completion_date is None:
+            self.completion_date = today_in(current_zone())
+    elif self.completion_date is not None:
+        raise ValueError("completion_date requires status=completed")
     return self
 ```
 
-**When to use**: Validation spanning multiple fields. Prefer `mode="after"` (typed `self`) over `mode="before"` (raw dict).
+**When to use**: Validation spanning multiple fields, and any default that depends on another field (it always runs). Prefer `mode="after"` (typed `self`) over `mode="before"` (raw dict).
 
 ### Typed update intent — ADR-066 (`TaskUpdateRequest.to_intent()`)
 
@@ -96,7 +101,7 @@ def to_intent(self) -> TaskUpdateIntent:
 | Update sentinels | `core/models/sentinels.py` | `UNSET` / `Unset` for partial-patch intents |
 | Intent contracts | `core/models/update_contracts.py` | `SupportsToIntent`, `SupportsToChanges`, `RawChanges` |
 | Body parsing → Result | `adapters/inbound/form_helpers.py` | `parse_body(request, Model)` — JSON or form by Content-Type, the door both API clients and HTMX forms reach (CRUD create/update, admin account actions); `parse_json_body` / `parse_form_body` for one caller kind — all catch `ValidationError`, return `Result.fail(Errors.validation(..., field="body"))` |
-| Query-param parsing | `adapters/inbound/route_factories/route_helpers.py` | Silent-default: `parse_bool_query_param`, `parse_date_query_param`, `parse_csv_query_param`, `parse_pagination_params`; strict Result-based: `parse_date_param_strict`, `parse_int_param_strict` |
+| Query-param parsing | `adapters/inbound/route_factories/route_helpers.py` | Silent-default: `parse_bool_query_param`, `parse_int_query_param`, `parse_float_query_param`, `parse_date_query_param`, `parse_csv_query_param`, `parse_pagination_params`; strict Result-based: `parse_date_param_strict`, `parse_int_param_strict` |
 
 ### Validation error → HTTP status
 
@@ -104,9 +109,9 @@ def to_intent(self) -> TaskUpdateIntent:
 
 - **Query params (GET)** → 400 (strict `route_helpers` parsers return `Errors.validation` Results).
 - **JSON bodies via `parse_json_body`** → `Errors.validation` Result → 400 through `boundary_handler`.
-- **JSON bodies auto-bound by FastHTML** (`body: SomeRequest` handler param) → also **400**, via `install_request_validation_guard`. Both binding styles agree. The guard is required, not decorative: FastHTML constructs the model during parameter extraction, *before* the handler and its `@boundary_handler` wrapper run, so the `ValidationError` escapes every route-level guard and was surfacing as a **500** until an app-level handler caught it (sibling of `install_malformed_json_guard` for malformed JSON and `install_malformed_multipart_guard` for a multipart body the parser cannot read; all three wired in bootstrap's `_create_web_app`).
+- **JSON bodies auto-bound by FastHTML** (`body: SomeRequest` handler param) → also **400**, via `install_request_validation_guard` — which converts `application/json` requests only; a form-encoded auto-bound body that fails validation re-raises and 500s. Both binding styles agree. The guard is required, not decorative: FastHTML constructs the model during parameter extraction, *before* the handler and its `@boundary_handler` wrapper run, so the `ValidationError` escapes every route-level guard and was surfacing as a **500** until an app-level handler caught it (sibling of `install_malformed_json_guard` for malformed JSON and `install_malformed_multipart_guard` for a multipart body the parser cannot read; all three wired in bootstrap's `_create_web_app`).
 
-⚠ **Never annotate an auto-bound body field as a `Literal`.** FastHTML coerces each incoming value by *calling* the annotation, and `Literal(...)` raises `TypeError: Cannot instantiate typing.Literal` — not a `ValidationError`, so no guard converts it and the request 500s. Use an enum, a validated `str`, or bind via `parse_json_body`.
+⚠ **Never annotate an auto-bound body field as a `Literal` — or an enum.** FastHTML passes each incoming *string* value through the annotation (or its `str2int` / `str2date` / `str2bool` for those types) before the model sees it. `Literal(...)` raises `TypeError: Cannot instantiate typing.Literal`; `Priority("bad")` and `int("abc")` raise a plain `ValueError`; none is a `ValidationError`, so no guard converts it and the request 500s. Use a `str` narrowed by a `@field_validator` (`ContextualHabitCompletionRequest.quality`), or bind via `parse_json_body` / `parse_body`, where Pydantic does all the validation and every rejection is a 400.
 
 ---
 
@@ -114,8 +119,8 @@ def to_intent(self) -> TaskUpdateIntent:
 
 | Problem | Solution |
 |---------|----------|
-| `request.dict()` (V1) | `request.model_dump()`; PATCH uses `model_dump(exclude_unset=True)` |
-| Validation in a frozen dataclass `__post_init__` | Move to the Pydantic request model — validation belongs at the edge |
+| `request.dict()` (V1) | `request.model_dump()`; a partial update uses `model_dump(exclude_unset=True)` |
+| Input validation in a frozen dataclass `__post_init__` | Move to the Pydantic request model — validation belongs at the edge |
 | Re-checking what `Field(min_length=1)` already enforces | Let `Field()` handle declarative constraints; validators are for logic only |
 | Inline validator duplicating a shared one | Use the `validation_rules.py` factory (`_validate_title = validate_required_string("title")`) |
 | Passing `request.model_dump()` to `service.update` | Build the typed intent: `request.to_intent()` (ADR-066); dict patches are `RawChanges` only for non-activity domains |
@@ -123,7 +128,8 @@ def to_intent(self) -> TaskUpdateIntent:
 | Enum objects leaking to persistence | `to_intent()` lowers enums to `.value`; `RawChanges` path runs `get_enum_value` |
 | `@model_validator(mode="before")` by default | Prefer `mode="after")` — fields are typed and validated |
 | Declaring `model_config` per model | Inherit from `request_base.py`; only `ResponseBase` needs `from_attributes=True` |
-| try/except `ValidationError` boilerplate in routes | `parse_json_body(request, Model)` returns `Result[Model]` |
+| try/except `ValidationError` boilerplate in routes | `parse_body` / `parse_json_body` / `parse_form_body` return `Result[Model]` |
+| A "required/default when X" rule as a `field_validator` | It never runs for an omitted field — use `@model_validator(mode="after")` |
 
 ---
 
