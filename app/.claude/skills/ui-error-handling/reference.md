@@ -432,7 +432,7 @@ SKUEL017 rejects an unannotated `except Exception`.
 # ❌ DON'T DO THIS
 result = await tasks_service.get_user_tasks(user_uid)
 tasks = result.value  # None on failure — the page renders "no tasks" or crashes later
-return render_list(tasks)
+return TaskList(tasks)
 ```
 
 **Problems:**
@@ -450,7 +450,7 @@ if result.is_error:
     return Div(render_error_banner(result.expect_error().display_message), id="tasks-content")
 
 # Extract .value only after error check
-return render_list(result.value)
+return TaskList(result.value)
 ```
 
 ---
@@ -528,7 +528,13 @@ def validate_task_form_data(form_data: dict) -> Result[None]:
 # ✅ DO THIS — the rule lives on the model; the route renders the failure
 parsed = await parse_form_body(request, TaskCreateRequest)
 if parsed.is_error:
-    return render_form_with_banner(parsed.expect_error().display_message)
+    content = Div(
+        PageHeader("New Task"),
+        render_error_banner(parsed.expect_error().display_message),
+        TaskCreateForm(),
+        cls="space-y-6",
+    )
+    return render_activity_sidebar_page(content, active="tasks", request=request)
 ```
 
 A rule the user must be able to read goes on the model as a `Field` constraint or a validator,

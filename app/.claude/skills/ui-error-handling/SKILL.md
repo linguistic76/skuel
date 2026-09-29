@@ -50,7 +50,7 @@ At the UI boundary, we:
 # ❌ Silent failure - returns empty list on error
 async def get_tasks(user_uid):
     try:
-        return await tasks_service.list_for_user(user_uid)
+        return (await tasks_service.get_user_tasks(user_uid)).value
     except Exception:
         return []  # User sees nothing, no debugging info
 ```
