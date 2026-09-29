@@ -1079,7 +1079,7 @@ other row owns these sites. So the row splits into two sub-rows, each on its own
 - **Deleted, no caller:**
   - `form_helpers.parse_datetime_safe`: a date-only string became a midnight instant. The
     docs and skills now say a client datetime is `ClientDateTime`.
-  - `scripts/docs_discovery.py`: it raised on every unquoted YAML date.
+  - The `docs_discovery` script in `scripts/`: it raised on every unquoted YAML date.
 - **Defects fixed.** Each test was red with `origin/main`'s file restored:
   - The period prompt read the process clock. Under the pin that is UTC, so this was
     latent; off it, a week that closed at 07:00Z read "still open" until 07:00 on the
