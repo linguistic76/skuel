@@ -2,35 +2,29 @@
 Unit guards for the Goals period-analytics window filter.
 =========================================================
 
-``GoalsIntelligenceService.get_performance_analytics`` fetched its window with::
+``GoalsIntelligenceService.get_performance_analytics`` counts the goals updated within
+``period_days``. The window is days in the user's zone, so it is read through
+``find_by_date_range(date_field="updated_at")``, which takes the days and compares the
+stored instant with their bounds. ``updated_at`` is stored in two shapes — an ISO string
+from the CRUD write path and a native temporal from the vault re-ingest path
+(``ON MATCH``) — and the helper reads both.
 
-    await self.backend.find_by(user_uid=..., updated_at__gte=cutoff.isoformat())
-
-Unlike the Choices defect in #859, that key was *not* dropped: ``updated_at`` is a real
-``Goal`` field, so ``build_search_query`` accepted it and emitted ``n.updated_at >= $bound``
-with a **string** bound (a range on an instant field compares instants on both sides —
-neo4j-cypher-patterns Pattern 10b). ``updated_at`` is stored in two shapes — an ISO string from the
-CRUD write path and a native temporal from the vault re-ingest path (``ON MATCH``) — and
-Neo4j evaluates ``<temporal> >= <string>`` as null, so the re-ingested rows were silently
-dropped. The endpoint returned a plausible number that was simply too low.
-
-That is why "seed goals, assert non-empty" is not a valid guard here: the bug
-**under**-returns, so a non-empty assertion passes against it. The negative control has to
-be a row that must be *included* but was not — which is the integration half's job, since
-only a real Neo4j can hold the temporal shape. See
+A read that drops rows under-returns, so "seed goals, assert non-empty" passes against it:
+the negative control has to be a row that must be *included* — the integration half's job,
+since only a real Neo4j holds the temporal shape. See
 tests/integration/test_goals_analytics_window.py.
 
-What this cheap half pins is the *call*: that the service reaches for the coercing helper
-at all, on the right field, with a live ``period_days``.
+What this cheap half pins is the *call*: that the service reaches for the helper at all,
+on the right field, with a live ``period_days``.
 
-``TestNoBareComparisonOnMixedTimestamps`` is the durable part. Rather than naming the one
-method that was wrong, it derives every site tree-wide that filters ``created_at`` or
-``updated_at`` through a bare comparison operator, in any call or dict literal. That is the
-forward guard for the three still-unimplemented siblings in
-docs/reference/PLACEHOLDER_INDEX.md § Group A (habits / choices / principles period
-analytics): whichever one is implemented next fails this test if it copies the goals call
-instead of the documented helper. It carries its own positive control, because a scanner
-that reports zero everywhere is indistinguishable from a scanner that cannot see.
+``TestNoBareComparisonOnMixedTimestamps`` is the durable part. It derives every site
+tree-wide that filters ``created_at`` or ``updated_at`` through a comparison operator, in any
+call or dict literal, rather than naming one method. That is the forward guard for the
+three still-unimplemented siblings in docs/reference/PLACEHOLDER_INDEX.md § Group A
+(habits / choices / principles period analytics): whichever one is implemented next fails
+this test if it windows with a ``__gte`` kwarg instead of the documented helper, which takes
+the period's days. It carries its own positive control, because a scanner that reports zero
+everywhere is indistinguishable from a scanner that cannot see.
 """
 
 from __future__ import annotations
