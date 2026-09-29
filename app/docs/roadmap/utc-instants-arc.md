@@ -1,7 +1,7 @@
 ---
 title: "UTC Instants Arc — Rulings & Contract"
-updated: 2026-09-28
-status: "active — ruled 2026-09-27; PRs 1–2b ran in the cloud; from PR 3, one local session per row; PR 4 deployed 2026-09-28; PR 5 merged 2026-09-28"
+updated: 2026-09-29
+status: "active — ruled 2026-09-27; PRs 1–2b ran in the cloud; from PR 3, one local session per row; PR 4 deployed 2026-09-28; PR 5 merged 2026-09-28; PR 6 split, 6a merged 2026-09-28"
 registered: 2026-09-27
 ruled: 2026-09-27
 ---
@@ -1040,6 +1040,144 @@ list, sort and window; forced `TZ=America/Vancouver` unit tests on the touched d
 
 Scope and acceptance as PR 5, for the Python side of `adapters/`, `ui/` and `scripts/`.
 
+**Split by language (6a's census, 2026-09-28).** The Python side is small, about a dozen
+sites. The census also found about 50 Cypher `ORDER BY` and comparison sites in
+`adapters/persistence/` that order or compare an instant property raw. Several sit on
+columns that mix strings and natives, where Neo4j orders by type before value, so a
+string row sorts first under `DESC` whatever its age (Pattern 10). § Architecture #2 and R5
+require every Cypher ordering or comparison of a stamp to coerce with `datetime()`, and no
+other row owns these sites. So the row splits into two sub-rows, each on its own branch
+(`claude/utc-arc-pr-6a`, `claude/utc-arc-pr-6b`):
+
+- **6a — the Python side.** Every Python comparison, sort and day-of read over instants in
+  `adapters/`, `ui/` and `scripts/`.
+- **6b — the Cypher side.** Every Cypher `ORDER BY`, comparison, `min` / `max` over an
+  instant property in `adapters/persistence/` coerces with `datetime(...)`: the list below,
+  re-verified. The dynamic builders (`ORDER BY n.{field}`) coerce when the field is an
+  instant (`is_instant_field(entity_class, field)`, 3b's type rule). A calendar field keeps
+  its raw order. Acceptance: an integration test per live site seeds both shapes through
+  the real writers and reads the order back (the craft of `TestNewestFirstCoercion` in
+  `test_created_at_window_coercion.py`); the grep that finds no raw ordering of an instant.
+
+**Left by PR 6a for the rows after it:**
+
+- **Helpers.** `day_named(value, zone)` is the calendar day a stored value names: a day
+  is itself, a moment is its day in `zone` (`day_of`), and an absent or unreadable value is
+  `None`. `_search_mixin._range_day` and the docs tools read through it.
+- **What moved.**
+  - The period prompt (`activity_reports_ui`) reads one `now_utc()`;
+    `ui/learning_loop/report.py` the same.
+  - The Today page's choices order by the deadline's instant (`instant_of`, absent last),
+    and `moment_is_on_day` reads every stored shape.
+  - The context's recently viewed KUs sort by instant.
+  - `_range_day` takes a moment's day in the zone.
+  - The two graph scripts' "oldest wins" (`cleanup_duplicate_vault_tasks`,
+    `audit_graph_hygiene`) read `created_at` as an instant, and an unreadable winner blocks
+    the group.
+  - `docs_freshness` and `docs_review_scheduler` hold mtimes aware and count days since a
+    review as calendar days in `SKUEL_TIMEZONE`.
+- **Deleted, no caller:**
+  - `form_helpers.parse_datetime_safe`: a date-only string became a midnight instant. The
+    docs and skills now say a client datetime is `ClientDateTime`.
+  - `scripts/docs_discovery.py`: it raised on every unquoted YAML date.
+- **Defects fixed.** Each test was red with `origin/main`'s file restored:
+  - The period prompt read the process clock. Under the pin that is UTC, so this was
+    latent; off it, a week that closed at 07:00Z read "still open" until 07:00 on the
+    naive clock.
+  - The Today page sorted a `-07:00` deadline by its digits. No stored `Choice` has a
+    deadline yet, so this was latent.
+  - A naive and an aware `last_viewed_at` raised in the context's sort. Every stored row is
+    native, so this was latent.
+  - `_range_day` took a moment's digits' day. It has no datetime caller, so this was latent.
+  - A whole-second `…Z` stamp sorted after a fractional one from the same second in both
+    scripts.
+  - An offset-bearing `last_reviewed` raised in `docs_freshness` and read as never reviewed
+    in the scheduler.
+- **Left, as assigned:**
+  - `DTZ005` in `ui/` reads 0.
+  - The 19 in `adapters/` are writers (PR 8), `schema_service`'s cache timer (PR 8), and the
+    two hand-built Cypher bounds PR 5 gave PR 8 (`build_simple_prerequisite_chain`'s
+    `as_of_date`, `build_rich_context_params`' window end).
+  - The parse boundaries (`neo4j_mapper`, `_backend_helpers.to_native_datetime`) are PR 7's.
+  - In `scripts/`, the hits left are writers (seed data, `generated_at`, `exported_at`,
+    `add_frontmatter`'s `updated:` day from a local mtime), display and probe values.
+- **For 6b — the census (read-only, `main` `1ecf37b1c`; line numbers are hints).**
+  - **Shapes on AuraDB (2026-09-28):**
+    - `updated_at` mixes strings and natives on Task (75 / 2), Goal (2 / 1), Habit (3 / 3),
+      Ku (1 / 121) and UserEntry (77 / 2).
+    - `created_at` is all strings on Task (77), Ku (122) and UserEntry (79).
+    - EntryReport, RevisedExercise and Group `created_at`, and PathStep and LearningPath
+      `updated_at`, hold only natives today, but their writers write both shapes.
+  - **Live, on a mixed column:**
+    - `_user_entity_mixin.get_user_entities`' `ORDER BY e.{sort_by}`, where
+      `list_recent_for_user` passes `updated_at`: the entity picker's recent list.
+    - `_search_raw_mixin.faceted_search_raw`'s `ORDER BY entity.{sort_field}`
+      (`UPDATED_DESC`; Ku/PS/LP relevance falls back to `search_order_by`, `updated_at`).
+    - `crud_queries`' `build_text_search_query`, `build_graph_aware_search_query`,
+      `build_array_contains_query` and `build_array_any_match_query`
+      (`ORDER BY n.{order_by}` from `search_order_by`).
+    - `_user_entry_content_mixin.get_vault_notes_for_context`'s
+      `ORDER BY coalesce(e.updated_at, e.created_at)`.
+    - `exercise_backends._exercise_status_tail`'s `ORDER BY living.updated_at` (the latest
+      living entry).
+  - **Live by writers, one shape today:**
+    - EntryReport `created_at`: `learning_loop_fragments`' `ORDER BY
+      latest_report.created_at`, and its raw comparison `prior_report.created_at <
+      datetime(self_created_at)`, where a string left side is null. Also
+      `_user_entry_report_query_mixin.get_student_exchange_summaries_raw`, and
+      `exercise_backends`' `list_for_submission`, `get_reports_for_student_exercise` and
+      `get_reports_by_teacher`.
+    - RevisedExercise `created_at`: `exercise_backends`' `list_for_student` and
+      `get_for_teacher`.
+    - Group `created_at`: `collab_backends`' `get_user_groups` and
+      `get_teacher_groups_with_stats`.
+    - PathStep / LP `updated_at` and `created_at`: `_lp_progress_mixin`,
+      `curriculum_backends`' PS reads, and `_knowledge_context_mixin`'s LP read.
+    - `sharing_backend.query_shared_with_me`'s `max(at)`: `exercise_backends` writes a
+      string `SHARES_WITH.shared_at`, the sharing writer a native.
+  - **One shape, raw** (right to the second; coerced for R5):
+    - UserEntry `created_at` across the `_user_entry_*` mixins, `exercise_backends`,
+      `cross_domain_backend` and `user_context_queries`' `max(sub.created_at)`.
+    - Activity, Ku, Exercise, FormTemplate, User `created_at` across `activity_backends`,
+      `intelligence_queries`, `domain_queries`' `build_user_activity_query` /
+      `build_active_query`, `exercise_backends`, `forms_backends`,
+      `template_attachment_backend`, `_hierarchy_mixin`, `_knowledge_context_mixin`.
+    - The CRUD list's `ORDER BY n.{field}` (`unified_query_builder`, `crud_queries`' sort
+      builder; the list default is `created_at`).
+    - Choice `decision_deadline` (`get_pending_choices`, `get_choices_needing_decision`).
+    - `build_due_soon_query` / `build_overdue_query`'s `ORDER BY n.{date_field}`, which
+      already take `instant_field`; their instant callers have no route.
+    - ActivityReport `period_end`.
+    - `user_backend.get_active_learners`' `last_active_at` (no caller).
+  - **A day beside an instant:** `cross_domain_backend.get_recent_activities` orders
+    `toString(completion_date)` and `toString(achieved_date)` (days) with
+    `toString(mastered_at)` (an instant). Compare instants: a day as its first instant in
+    `$zone`.
+  - **Dead:** `_semantic_similarity_queries.build_related_topics_timeline_query` compares a
+    string `valid_from` with `datetime()` raw. Nothing calls `SemanticSimilarityQueries`.
+  - **Checked and fine:** native-only columns compared raw (Insight, Session, AuthEvent,
+    SearchEvent, VIEWED, IN_PROGRESS, MEMBER_OF, MASTERED, Notification…), and
+    `embedding_updated_at < datetime(n.updated_at)` (the embedding backstop).
+- **Found, not fixed (outside the arc):**
+  - `scripts/validate_cross_references.py`'s `get_doc_last_modified` asks git for
+    `--format=%Y-%m-%d`, which is no git format: it prints `%Y->-`, so the stale-skill check
+    never fires. It needs its own PR, because a working check may start warning.
+  - The rest of `form_helpers`' parse family (`parse_date_safe`, `parse_time_safe`,
+    `parse_enum_safe`, `parse_activity_filters`) has no production caller, and
+    `ERROR_HANDLING.md` still says the six activity `*_ui.py` files use them.
+- **Test craft.**
+  - A test of a period boundary freezes the clock with `time_machine.travel(<float>,
+    tick=False)` inside `forced_zone("America/Vancouver")`. That puts the naive clock seven
+    hours behind UTC, which is what a naive `now()` reads off the pin.
+  - A script's rule is tested by importing it from `scripts/` on `sys.path`, as
+    `test_cleanup_duplicate_vault_tasks.py` does.
+  - The unit suite passes pinned. Under the forced-Vancouver probe (§ PR 5 test craft) it
+    fails the same 5 tests as `main`, and the touched files pass under
+    `SKUEL_TIMEZONE=Asia/Bangkok`.
+  - A staged deletion must be in the index before the unit suite runs:
+    `test_secret_scan_floor` and `test_graph_driver_construction_sites` read `git ls-files`
+    and fail on a file deleted from the tree alone.
+
 ### PR 7 — Writers stamp aware UTC: models and the parse boundary
 
 Scope: the entity, DTO and model default factories (47 `default_factory=datetime.now`) use
@@ -1377,7 +1515,7 @@ then 2b2 (§ PR 2b). PR 3 requires PR 2b — both sub-rows —
 PR 4 requires PR 2b and PR 3, both sub-rows of each — the pin turns
 every host-local day it finds into the UTC day — and is merged and deployed in one laptop sitting
 before 2026-11-01 (R4), after every pending laptop check has passed and with nothing else merging
-meanwhile. PRs 5 and 6 require PR 4 deployed. PR 7 requires PRs 5 and 6 (readers accept aware values before writers produce them).
+meanwhile. PRs 5 and 6 require PR 4 deployed; PR 6 runs as two sub-rows, 6a then 6b (§ PR 6). PR 7 requires PRs 5 and 6, both sub-rows (readers accept aware values before writers produce them).
 PR 8 requires PR 7; PR 9 requires PR 8; the close requires PR 9. The **Laptop** column lists each
 row's laptop steps and their state (pending / done with a date; — for none).
 
@@ -1395,7 +1533,8 @@ row's laptop steps and their state (pending / done with a date; — for none).
 | 3b | Day-of-instant reads (and hours) through `day_of` / `hour_of`; Cypher windows on instants by the days' bounds on the stored clock (neutral); client doors (`ClientDateTime`, the ingest door) read in the zone | A forced-zone test of the ingest door; the golden files unchanged | the pages read right on `main` (GradeBook, Shared, notifications, an activity report, as linguistic76) — done 2026-09-28 (`:8000` restarted on `main` `3ecd663f4`: the GradeBook, an exchange thread, the notifications and an activity report read as before; the Shared page read a share made at 06:44 as "7h ago", the known pre-cutover skew PR 4 fixes) | merged #1440, 2026-09-27 |
 | 4 | The UTC pin, asserted by every driver factory; the applied-record guard (refusals and empty-graph stamp tested); the constant flipped; the migration script — prepared by its row session (local) as `[awaiting sitting]`, merged in the sitting | Tests, CI and Codex green on the unmerged PR | pending checks first — none pending (3b's passed 2026-09-28); the sitting — done 2026-09-28 (Mike present): the Aura on-demand snapshot taken; the census from the branch at 18:06Z (6,863 values: 1,236 to shift, 5,627 to leave, 31 pairs, no stops; hash `e095aab7…`) and Mike's OK; merged `38e420e0f`; `--confirm` applied 1,236 values in one transaction; `--verify` OK (0 rows off their new value, the pairs 7.00 h apart before and together after, 31/31); a fresh census refused; the GradeBook's exchanges, their thread order and every entry's badges unchanged (3 exchanges, 7 items, 79 entries, captured read-only before and after); `:8000` restarted on `main`; a second 14-day report within the hour refused by the cooldown (after #1442 — generated reports had failed at save, a pre-existing bug the check surfaced); a new share read "just now" and its notification the wall-clock time; the embedding check — the 30 stale entities (21 Task, 8 Choice, 1 Habit) re-embedded, hashes cleared first so none was skipped, 0 stale after | merged #1441 and deployed, 2026-09-28 |
 | 5 | Readers compare aware values in `core/`, sentinels included; the normalizers collapse onto `as_utc` | Mixed naive/aware sorts and windows; forced-Vancouver unit tests | — | merged #1448, 2026-09-28 |
-| 6 | Readers compare aware values in `adapters/`, `ui/`, `scripts/` | As PR 5 | — | — |
+| 6a | Readers compare aware values in `adapters/`, `ui/`, `scripts/` — the Python side; `day_named` | As PR 5; each fix red on `origin/main` | — | merged #1449, 2026-09-28 |
+| 6b | Every Cypher ordering, comparison, `min` / `max` of an instant in `adapters/persistence/` coerces with `datetime()`; the dynamic builders by the type rule | A mixed-shape integration test per live site; the grep finding no raw ordering of an instant | — | — |
 | 7 | Writers aware: default factories, the parse boundary, the mapper's `+00:00` | A mixed column reads back all aware | — | — |
 | 8 | Writers aware: services, backends, `_STAMP_SPECS` clocks, `occurred_at`, `now_local`, Cypher parameters, timers | `ruff --select DTZ` and the uncalled-reference check read 0 | — | — |
 | 9 | Pin, its assertion and the constant removed (the applied-record check stays); `DTZ` in the lint; forced-zone guards; Pattern 10 / Key Rules #17–18 / CLAUDE.md | `DTZ` 0; forced-zone guards pass | — | — |
